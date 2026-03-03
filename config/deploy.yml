@@ -1,31 +1,25 @@
-# Kamal deployment configuration
+# Kamal deployment configuration for opshugger
 # Reference: https://kamal-deploy.org/docs/configuration
-#
-# SETUP INSTRUCTIONS:
-# 1. Replace YOUR_SERVER_IP with your VPS IP address
-# 2. Replace YOUR_APP_NAME with your app name (lowercase, no spaces)
-# 3. Replace yourdomain.com with your domain
-# 4. Copy .kamal/secrets.example to .kamal/secrets and fill in values
+# Target VPS: 107.170.48.56
 
-service: YOUR_APP_NAME
+service: opshugger
 
 # Docker image name
-image: YOUR_APP_NAME
+image: opshugger
 
 # Production server(s)
 servers:
   web:
-    - YOUR_SERVER_IP  # e.g., 192.168.1.100
+    - 107.170.48.56
 
 # SSH configuration
 ssh:
   user: root
 
 # Persistent volumes for data and media
-# Creates directories on host at /root/YOUR_APP_NAME_data/
 volumes:
-  - /root/YOUR_APP_NAME_data/media:/app/media
-  - /root/YOUR_APP_NAME_data/db:/app/data
+  - /root/opshugger_data/media:/app/media
+  - /root/opshugger_data/db:/app/data
 
 # Environment variables
 env:
@@ -41,15 +35,14 @@ env:
 proxy:
   ssl: true
   hosts:
-    - yourdomain.com
-    - www.yourdomain.com
+    - opshugger.com
+    - www.opshugger.com
   healthcheck:
     path: /health/
     interval: 10
     timeout: 60
 
 # Local Docker registry (Kamal manages SSH port forwarding)
-# No external registry account required - uses your local Docker Desktop
 registry:
   server: localhost:5555
 
