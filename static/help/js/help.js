@@ -86,8 +86,12 @@
             resultsContainer.innerHTML = results.map(page => {
                 // Highlight matching text in title
                 const highlightedTitle = highlightMatch(page.title, query);
+                // Handle section paths
+                const url = page.section
+                    ? `/help/${page.section}/${page.slug}/`
+                    : `/help/${page.slug}/`;
                 return `
-                    <a href="/help/${page.slug}/" class="search-result-item">
+                    <a href="${url}" class="search-result-item">
                         <strong>${highlightedTitle}</strong>
                     </a>
                 `;

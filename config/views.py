@@ -11,11 +11,6 @@ def health_check(request):
     return HttpResponse("OK", content_type="text/plain")
 
 
-def home_view(request):
-    """Home/dashboard view."""
-    return render(request, "home.html")
-
-
 def starter_view(request):
     """
     Starter page demonstrating available components.

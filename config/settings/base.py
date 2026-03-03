@@ -20,6 +20,7 @@ INSTALLED_APPS = [
     "apps.profile",
     "apps.help",
     "apps.tasks",
+    "apps.website",  # Project-specific pages (customize freely)
     # Django built-in apps
     "django.contrib.admin",
     "django.contrib.auth",

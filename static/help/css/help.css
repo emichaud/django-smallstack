@@ -85,6 +85,23 @@
     text-align: center;
 }
 
+/* Help Sections */
+.help-section {
+    margin-bottom: 40px;
+}
+
+.help-section-title {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: var(--body-fg);
+    margin: 0 0 8px 0;
+}
+
+.help-section-description {
+    color: var(--text-muted);
+    margin: 0 0 16px 0;
+}
+
 /* Help Cards Grid */
 .help-cards-grid {
     display: grid;
@@ -218,6 +235,19 @@
 }
 
 /* Help Navigation - Simple links */
+.help-nav-section {
+    margin-bottom: 20px;
+}
+
+.help-nav-section-title {
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-muted);
+    margin: 0 0 8px 0;
+}
+
 .help-nav-list {
     list-style: none;
     padding: 0;

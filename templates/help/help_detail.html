@@ -8,8 +8,15 @@
 {% endblock %}
 
 {% block breadcrumbs %}
-{% breadcrumb "Home" "home" %}
+{% breadcrumb "Home" "website:home" %}
 {% breadcrumb "Help" "help:index" %}
+{% if current_section %}
+{% for section in sections %}
+{% if section.slug == current_section %}
+{% breadcrumb section.title %}
+{% endif %}
+{% endfor %}
+{% endif %}
 {% breadcrumb page.title %}
 {% render_breadcrumbs %}
 {% endblock %}
@@ -38,7 +45,7 @@
             <!-- Prev/Next Navigation -->
             <nav class="help-nav-footer">
                 {% if prev_page %}
-                <a href="{% url 'help:detail' prev_page.slug %}" class="help-nav-link help-nav-prev">
+                <a href="{% if current_section %}{% url 'help:section_detail' current_section prev_page.slug %}{% else %}{% url 'help:detail' prev_page.slug %}{% endif %}" class="help-nav-link help-nav-prev">
                     <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
                         <path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/>
                     </svg>
@@ -52,7 +59,7 @@
                 {% endif %}
 
                 {% if next_page %}
-                <a href="{% url 'help:detail' next_page.slug %}" class="help-nav-link help-nav-next">
+                <a href="{% if current_section %}{% url 'help:section_detail' current_section next_page.slug %}{% else %}{% url 'help:detail' next_page.slug %}{% endif %}" class="help-nav-link help-nav-next">
                     <div>
                         <span class="help-nav-label">Next</span>
                         <span class="help-nav-title">{{ next_page.title }}</span>

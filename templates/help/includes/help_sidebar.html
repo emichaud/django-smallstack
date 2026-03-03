@@ -10,16 +10,25 @@
     </div>
 
     <nav class="help-nav">
-        <ul class="help-nav-list">
-            {% for p in all_pages %}
-            <li class="help-nav-item">
-                <a href="{% url 'help:detail' p.slug %}"
-                   class="help-nav-link {% if p.slug == page.slug %}active{% endif %}">
-                    {{ p.title }}
-                </a>
-            </li>
-            {% endfor %}
-        </ul>
+        {% for section in sections %}
+        {% if section.pages %}
+        <div class="help-nav-section">
+            {% if section.slug %}
+            <h3 class="help-nav-section-title">{{ section.title }}</h3>
+            {% endif %}
+            <ul class="help-nav-list">
+                {% for p in section.pages %}
+                <li class="help-nav-item">
+                    <a href="{% if section.slug %}{% url 'help:section_detail' section.slug p.slug %}{% else %}{% url 'help:detail' p.slug %}{% endif %}"
+                       class="help-nav-link {% if p.slug == page.slug and section.slug == current_section %}active{% endif %}">
+                        {{ p.title }}
+                    </a>
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+        {% endif %}
+        {% endfor %}
     </nav>
 
     <div class="help-sidebar-footer">

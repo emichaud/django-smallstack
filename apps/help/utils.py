@@ -1,5 +1,7 @@
 """
 Markdown processing utilities for the help system.
+
+Supports hierarchical documentation with sections (folders).
 """
 
 import html
@@ -18,18 +20,41 @@ def get_config() -> dict:
     if config_path.exists():
         with open(config_path, "r", encoding="utf-8") as f:
             return yaml.safe_load(f) or {}
+    return {"sections": [], "variables": {}}
+
+
+def get_section_config(section: str) -> dict:
+    """Load configuration for a specific section."""
+    if not section:
+        return get_config()
+
+    config_path = CONTENT_DIR / section / "_config.yaml"
+    if config_path.exists():
+        with open(config_path, "r", encoding="utf-8") as f:
+            return yaml.safe_load(f) or {}
     return {"pages": [], "variables": {}}
 
 
-def substitute_variables(content: str, extra_vars: dict = None) -> str:
+def get_variables(section: str = "") -> dict:
+    """Get merged variables from root and section configs."""
+    root_config = get_config()
+    variables = root_config.get("variables", {}).copy()
+
+    if section:
+        section_config = get_section_config(section)
+        variables.update(section_config.get("variables", {}))
+
+    return variables
+
+
+def substitute_variables(content: str, section: str = "", extra_vars: dict = None) -> str:
     """
     Replace {{ variable }} placeholders with values from config.
 
     Uses a simple regex-based substitution that's safer than running
     content through Django's template engine.
     """
-    config = get_config()
-    variables = config.get("variables", {})
+    variables = get_variables(section)
     if extra_vars:
         variables.update(extra_vars)
 
@@ -73,13 +98,21 @@ def render_markdown(content: str) -> dict:
     }
 
 
-def get_help_page(slug: str) -> dict | None:
+def get_help_page(slug: str, section: str = "") -> dict | None:
     """
     Load and render a help page by slug.
 
+    Args:
+        slug: The page slug (filename without .md)
+        section: Optional section folder name
+
     Returns None if the page doesn't exist.
     """
-    file_path = CONTENT_DIR / f"{slug}.md"
+    if section:
+        file_path = CONTENT_DIR / section / f"{slug}.md"
+    else:
+        file_path = CONTENT_DIR / f"{slug}.md"
+
     if not file_path.exists():
         return None
 
@@ -96,13 +129,23 @@ def get_help_page(slug: str) -> dict | None:
             content = parts[2].strip()
 
     # Substitute variables
-    content = substitute_variables(content)
+    content = substitute_variables(content, section)
 
     # Render markdown
     rendered = render_markdown(content)
 
-    # Get page config from _config.yaml
-    config = get_config()
+    # Get page config from section or root config
+    if section:
+        config = get_section_config(section)
+    else:
+        # For root pages, check the root section in sections list
+        root_config = get_config()
+        root_section = next(
+            (s for s in root_config.get("sections", []) if s.get("slug") == ""),
+            {},
+        )
+        config = {"pages": root_section.get("pages", [])}
+
     page_config = next(
         (p for p in config.get("pages", []) if p.get("slug") == slug),
         {},
@@ -110,6 +153,7 @@ def get_help_page(slug: str) -> dict | None:
 
     return {
         "slug": slug,
+        "section": section,
         "title": frontmatter.get("title") or page_config.get("title") or slug.replace("-", " ").title(),
         "description": frontmatter.get("description") or page_config.get("description", ""),
         "content": rendered["html"],
@@ -121,18 +165,30 @@ def get_help_page(slug: str) -> dict | None:
     }
 
 
-def get_all_pages() -> list:
-    """Get all help pages in configured order."""
-    config = get_config()
-    pages = []
+def get_section_pages(section: str) -> list:
+    """Get all pages for a specific section."""
+    if section:
+        config = get_section_config(section)
+        folder = CONTENT_DIR / section
+    else:
+        # Root section from main config
+        root_config = get_config()
+        root_section = next(
+            (s for s in root_config.get("sections", []) if s.get("slug") == ""),
+            {},
+        )
+        config = {"pages": root_section.get("pages", [])}
+        folder = CONTENT_DIR
 
+    pages = []
     for page_config in config.get("pages", []):
         slug = page_config.get("slug")
-        file_path = CONTENT_DIR / f"{slug}.md"
+        file_path = folder / f"{slug}.md"
         if file_path.exists():
             pages.append(
                 {
                     "slug": slug,
+                    "section": section,
                     "title": page_config.get("title", slug.replace("-", " ").title()),
                     "description": page_config.get("description", ""),
                     "icon": page_config.get("icon", ""),
@@ -143,21 +199,50 @@ def get_all_pages() -> list:
     return pages
 
 
+def get_all_sections() -> list:
+    """Get all sections with their metadata."""
+    config = get_config()
+    sections = []
+
+    for section_config in config.get("sections", []):
+        slug = section_config.get("slug", "")
+        sections.append(
+            {
+                "slug": slug,
+                "title": section_config.get("title", slug.replace("-", " ").title() if slug else "Documentation"),
+                "description": section_config.get("description", ""),
+                "pages": get_section_pages(slug),
+            }
+        )
+
+    return sections
+
+
+def get_all_pages() -> list:
+    """Get all help pages across all sections in configured order."""
+    pages = []
+    for section in get_all_sections():
+        pages.extend(section["pages"])
+    return pages
+
+
 def build_search_index() -> list:
     """Build a simple search index for client-side search."""
     index = []
-    for page in get_all_pages():
-        page_data = get_help_page(page["slug"])
-        if page_data:
-            # Strip HTML tags for plain text search
-            text = re.sub(r"<[^>]+>", "", page_data["content"])
-            text = html.unescape(text)
-            # Limit text for performance
-            index.append(
-                {
-                    "slug": page["slug"],
-                    "title": page["title"],
-                    "text": text[:2000],
-                }
-            )
+    for section in get_all_sections():
+        for page in section["pages"]:
+            page_data = get_help_page(page["slug"], page.get("section", ""))
+            if page_data:
+                # Strip HTML tags for plain text search
+                text = re.sub(r"<[^>]+>", "", page_data["content"])
+                text = html.unescape(text)
+                # Limit text for performance
+                index.append(
+                    {
+                        "slug": page["slug"],
+                        "section": page.get("section", ""),
+                        "title": page["title"],
+                        "text": text[:2000],
+                    }
+                )
     return index

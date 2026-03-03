@@ -1,15 +1,20 @@
 """
 URL configuration for the help app.
+
+Supports hierarchical documentation with sections (folders).
 """
 
 from django.urls import path
 
-from .views import HelpDetailView, HelpIndexView, search_index_view
+from .views import HelpDetailView, HelpIndexView, HelpSectionDetailView, search_index_view
 
 app_name = "help"
 
 urlpatterns = [
     path("", HelpIndexView.as_view(), name="index"),
     path("search-index.json", search_index_view, name="search_index"),
+    # Section pages (e.g., /help/smallstack/getting-started/)
+    path("<slug:section>/<slug:slug>/", HelpSectionDetailView.as_view(), name="section_detail"),
+    # Root pages (e.g., /help/index/)
     path("<slug:slug>/", HelpDetailView.as_view(), name="detail"),
 ]

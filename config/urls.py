@@ -10,9 +10,11 @@ from django.views.generic import RedirectView
 
 from apps.accounts.views import SignupView
 
-from .views import health_check, home_view, starter_view
+from .views import health_check, starter_view
 
 urlpatterns = [
+    # Project pages - customize these in apps/website/
+    path("", include("apps.website.urls")),
     # Admin
     path("admin/", admin.site.urls),
     # Authentication
@@ -30,8 +32,6 @@ urlpatterns = [
     ),
     # Starter/Example page - demonstrates available components
     path("starter/", starter_view, name="starter"),
-    # Home
-    path("", home_view, name="home"),
 ]
 
 # Debug toolbar (development only)
