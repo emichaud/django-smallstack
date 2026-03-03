@@ -42,7 +42,7 @@ services:
     ports:
       - "8010:8010"
     environment:
-      - DATABASE_URL=postgres://postgres:postgres@db:5432/admin_starter
+      - DATABASE_URL=postgres://postgres:postgres@db:5432/smallstack
     depends_on:
       db:
         condition: service_healthy
@@ -50,7 +50,7 @@ services:
   db:
     image: postgres:16-alpine
     environment:
-      POSTGRES_DB: admin_starter
+      POSTGRES_DB: smallstack
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
     volumes:
@@ -74,7 +74,7 @@ Run PostgreSQL without modifying docker-compose:
 ```bash
 # Start PostgreSQL container
 docker run --name postgres-dev \
-  -e POSTGRES_DB=admin_starter \
+  -e POSTGRES_DB=smallstack \
   -e POSTGRES_USER=postgres \
   -e POSTGRES_PASSWORD=postgres \
   -p 5432:5432 \
@@ -85,7 +85,7 @@ docker run --name postgres-dev \
 docker ps | grep postgres
 
 # Connect with psql
-docker exec -it postgres-dev psql -U postgres -d admin_starter
+docker exec -it postgres-dev psql -U postgres -d smallstack
 ```
 
 ### Option 3: Native Installation
@@ -94,13 +94,13 @@ docker exec -it postgres-dev psql -U postgres -d admin_starter
 ```bash
 brew install postgresql@16
 brew services start postgresql@16
-createdb admin_starter
+createdb smallstack
 ```
 
 **Ubuntu/Debian:**
 ```bash
 sudo apt install postgresql postgresql-contrib
-sudo -u postgres createdb admin_starter
+sudo -u postgres createdb smallstack
 ```
 
 ## Django Configuration
@@ -166,7 +166,7 @@ In `config/settings/production.py`:
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.postgresql",
-        "NAME": os.environ.get("POSTGRES_DB", "admin_starter"),
+        "NAME": os.environ.get("POSTGRES_DB", "smallstack"),
         "USER": os.environ.get("POSTGRES_USER", "postgres"),
         "PASSWORD": os.environ.get("POSTGRES_PASSWORD"),
         "HOST": os.environ.get("POSTGRES_HOST", "localhost"),
@@ -181,10 +181,10 @@ Add to your `.env` file:
 
 ```bash
 # For DATABASE_URL approach
-DATABASE_URL=postgres://postgres:your-password@localhost:5432/admin_starter
+DATABASE_URL=postgres://postgres:your-password@localhost:5432/smallstack
 
 # Or individual variables
-POSTGRES_DB=admin_starter
+POSTGRES_DB=smallstack
 POSTGRES_USER=postgres
 POSTGRES_PASSWORD=your-secure-password
 POSTGRES_HOST=localhost
@@ -242,7 +242,7 @@ accessories:
       secret:
         - POSTGRES_PASSWORD
       clear:
-        POSTGRES_DB: admin_starter
+        POSTGRES_DB: smallstack
         POSTGRES_USER: postgres
     directories:
       - data:/var/lib/postgresql/data
@@ -254,7 +254,7 @@ Update your secrets in `.kamal/secrets`:
 
 ```bash
 POSTGRES_PASSWORD=your-secure-production-password
-DATABASE_URL=postgres://postgres:your-secure-production-password@localhost:5432/admin_starter
+DATABASE_URL=postgres://postgres:your-secure-production-password@localhost:5432/smallstack
 ```
 
 ### Managed PostgreSQL Services
@@ -299,7 +299,7 @@ For high-traffic applications, consider **PgBouncer**:
 pgbouncer:
   image: edoburu/pgbouncer
   environment:
-    DATABASE_URL: postgres://postgres:password@db:5432/admin_starter
+    DATABASE_URL: postgres://postgres:password@db:5432/smallstack
     POOL_MODE: transaction
     MAX_CLIENT_CONN: 100
   ports:
@@ -312,10 +312,10 @@ pgbouncer:
 
 ```bash
 # Backup
-pg_dump -h localhost -U postgres admin_starter > backup.sql
+pg_dump -h localhost -U postgres smallstack > backup.sql
 
 # Restore
-psql -h localhost -U postgres admin_starter < backup.sql
+psql -h localhost -U postgres smallstack < backup.sql
 ```
 
 ### Monitoring
@@ -324,7 +324,7 @@ Check database size and performance:
 
 ```sql
 -- Database size
-SELECT pg_size_pretty(pg_database_size('admin_starter'));
+SELECT pg_size_pretty(pg_database_size('smallstack'));
 
 -- Table sizes
 SELECT relname, pg_size_pretty(pg_total_relation_size(relid))
@@ -332,18 +332,18 @@ FROM pg_catalog.pg_statio_user_tables
 ORDER BY pg_total_relation_size(relid) DESC;
 
 -- Active connections
-SELECT count(*) FROM pg_stat_activity WHERE datname = 'admin_starter';
+SELECT count(*) FROM pg_stat_activity WHERE datname = 'smallstack';
 ```
 
 ## Quick Reference
 
 | Task | Command |
 |------|---------|
-| Connect to database | `psql -h localhost -U postgres -d admin_starter` |
+| Connect to database | `psql -h localhost -U postgres -d smallstack` |
 | List tables | `\dt` (in psql) |
 | Describe table | `\d table_name` (in psql) |
-| Backup | `pg_dump -U postgres admin_starter > backup.sql` |
-| Restore | `psql -U postgres admin_starter < backup.sql` |
+| Backup | `pg_dump -U postgres smallstack > backup.sql` |
+| Restore | `psql -U postgres smallstack < backup.sql` |
 | Django shell | `uv run python manage.py dbshell` |
 
 ### Docker Commands
@@ -353,7 +353,7 @@ SELECT count(*) FROM pg_stat_activity WHERE datname = 'admin_starter';
 docker-compose up -d db
 
 # Access psql
-docker-compose exec db psql -U postgres -d admin_starter
+docker-compose exec db psql -U postgres -d smallstack
 
 # View logs
 docker-compose logs db
@@ -363,7 +363,7 @@ docker-compose logs db
 
 ```bash
 # Access PostgreSQL container
-kamal accessory exec db "psql -U postgres -d admin_starter"
+kamal accessory exec db "psql -U postgres -d smallstack"
 
 # View database logs
 kamal accessory logs db

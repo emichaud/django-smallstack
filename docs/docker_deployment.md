@@ -1,6 +1,6 @@
 # Docker Deployment Guide
 
-This guide walks you through deploying the Django Admin Starter project using Docker. Don't worry if you're new to Docker—we'll take it step by step.
+This guide walks you through deploying Django SmallStack using Docker. Don't worry if you're new to Docker—we'll take it step by step.
 
 ## Prerequisites
 
@@ -297,7 +297,7 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     environment:
-      - POSTGRES_DB=admin_starter
+      - POSTGRES_DB=smallstack
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=your-db-password
 
@@ -306,7 +306,7 @@ services:
     depends_on:
       - db
     environment:
-      - DATABASE_URL=postgres://postgres:your-db-password@db:5432/admin_starter
+      - DATABASE_URL=postgres://postgres:your-db-password@db:5432/smallstack
     # ... rest of config
 
 volumes:

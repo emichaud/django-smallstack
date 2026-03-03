@@ -1,15 +1,15 @@
 # Skill: Django Apps Structure
 
-This skill describes how to create and organize Django apps following Admin Starter conventions.
+This skill describes how to create and organize Django apps following SmallStack conventions.
 
 ## Overview
 
-Admin Starter uses a modular app structure with all custom apps in the `apps/` directory. Each app follows Django conventions with consistent naming and organization.
+SmallStack uses a modular app structure with all custom apps in the `apps/` directory. Each app follows Django conventions with consistent naming and organization.
 
 ## Project Structure
 
 ```
-admin_starter/
+django-smallstack/
 ├── apps/                      # All custom Django apps
 │   ├── accounts/              # User model & authentication
 │   ├── admin_theme/           # Theme helpers (pure presentation)

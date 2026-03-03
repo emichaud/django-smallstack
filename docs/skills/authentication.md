@@ -1,10 +1,10 @@
 # Skill: Authentication System
 
-This skill describes the authentication system in Admin Starter, including the custom user model, auth views, and extending authentication.
+This skill describes the authentication system in SmallStack, including the custom user model, auth views, and extending authentication.
 
 ## Overview
 
-Admin Starter uses Django's built-in authentication with a **custom User model** for maximum flexibility. The custom model extends `AbstractBaseUser` and `PermissionsMixin` and lives in the `accounts` app.
+SmallStack uses Django's built-in authentication with a **custom User model** for maximum flexibility. The custom model extends `AbstractBaseUser` and `PermissionsMixin` and lives in the `accounts` app.
 
 ## File Locations
 

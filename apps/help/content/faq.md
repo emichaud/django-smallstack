@@ -80,7 +80,7 @@ Dark mode preference is stored in browser `localStorage`. Make sure:
 To manually set the theme:
 
 ```javascript
-localStorage.setItem('admin-starter-theme', 'dark');
+localStorage.setItem('smallstack-theme', 'dark');
 location.reload();
 ```
 

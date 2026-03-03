@@ -1,6 +1,6 @@
 # Skill: Theming System
 
-This skill describes how to customize the Admin Starter theme, including colors, dark mode, and UI components.
+This skill describes how to customize the SmallStack theme, including colors, dark mode, and UI components.
 
 ## Overview
 
@@ -130,7 +130,7 @@ To rebrand the entire app:
 
 ### How It Works
 
-1. Theme preference stored in `localStorage` as `admin-starter-theme`
+1. Theme preference stored in `localStorage` as `smallstack-theme`
 2. On page load, `theme.js` reads preference and sets `data-theme` attribute on `<html>`
 3. CSS variables change based on `[data-theme="dark"]` selector
 4. Toggle button in topbar switches between modes
@@ -143,13 +143,13 @@ const theme = document.documentElement.getAttribute('data-theme');
 
 // Set theme programmatically
 document.documentElement.setAttribute('data-theme', 'dark');
-localStorage.setItem('admin-starter-theme', 'dark');
+localStorage.setItem('smallstack-theme', 'dark');
 
 // Toggle theme
-const current = localStorage.getItem('admin-starter-theme') || 'light';
+const current = localStorage.getItem('smallstack-theme') || 'light';
 const next = current === 'dark' ? 'light' : 'dark';
 document.documentElement.setAttribute('data-theme', next);
-localStorage.setItem('admin-starter-theme', next);
+localStorage.setItem('smallstack-theme', next);
 ```
 
 ## UI Components

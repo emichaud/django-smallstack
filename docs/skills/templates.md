@@ -1,10 +1,10 @@
 # Skill: Template System
 
-This skill describes the template structure, inheritance, blocks, and includes in Admin Starter.
+This skill describes the template structure, inheritance, blocks, and includes in SmallStack.
 
 ## Overview
 
-Admin Starter uses Django's template system with a single base template that all pages extend. Templates are organized by app in the `templates/` directory.
+SmallStack uses Django's template system with a single base template that all pages extend. Templates are organized by app in the `templates/` directory.
 
 ## File Structure
 
@@ -44,7 +44,7 @@ templates/
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}{% endblock %} | Admin Starter</title>
+    <title>{% block title %}{% endblock %} | SmallStack</title>
 
     <!-- CSS -->
     <link rel="stylesheet" href="{% static 'admin/css/base.css' %}">
@@ -87,7 +87,7 @@ templates/
 
 | Block | Purpose | Location |
 |-------|---------|----------|
-| `title` | Page title (before " \| Admin Starter") | `<title>` |
+| `title` | Page title (before " \| SmallStack") | `<title>` |
 | `extra_css` | Additional stylesheets | `<head>` |
 | `breadcrumbs` | Breadcrumb navigation | Before content |
 | `content` | Main page content | Main area |

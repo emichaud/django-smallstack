@@ -1,6 +1,6 @@
 # Theming Guide
 
-This guide explains how the Admin Starter theme is structured and how to customize it.
+This guide explains how the SmallStack theme is structured and how to customize it.
 
 ## Theme Architecture
 
@@ -90,7 +90,7 @@ Dark mode colors are defined in the `[data-theme="dark"]` selector:
 
 ### How It Works
 
-1. Theme preference is stored in `localStorage` under `admin-starter-theme`
+1. Theme preference is stored in `localStorage` under `smallstack-theme`
 2. On page load, the theme is applied via `data-theme` attribute on `<html>`
 3. CSS custom properties change based on the `data-theme` value
 4. Users can toggle via the sun/moon icon in the top bar

@@ -1,6 +1,6 @@
 # Renaming Your Project
 
-This guide explains how to rename the Admin Starter project to your own project name.
+This guide explains how to rename Django SmallStack to your own project name.
 
 ## Quick Start
 
@@ -64,7 +64,7 @@ If you want to rename or restructure the `apps` folder:
 rm -rf .git
 git init
 git add .
-git commit -m "Initial commit: Project renamed from Admin Starter"
+git commit -m "Initial commit: Project renamed from SmallStack"
 ```
 
 ### 5. Regenerate Migrations (If Needed)

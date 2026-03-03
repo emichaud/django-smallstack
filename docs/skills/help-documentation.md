@@ -1,6 +1,6 @@
 # Skill: Help Documentation System
 
-This skill describes how to create, edit, and manage help documentation in the Admin Starter project.
+This skill describes how to create, edit, and manage help documentation in the SmallStack project.
 
 ## Overview
 
@@ -118,7 +118,7 @@ Variables can be used in Markdown files with `{{ variable_name }}` syntax.
 ```yaml
 variables:
   version: "1.0.0"
-  project_name: "Admin Starter"
+  project_name: "Django SmallStack"
   python_version: "3.12"
   django_version: "5.0"
 ```
@@ -134,7 +134,7 @@ Welcome to {{ project_name }} version {{ version }}!
 ```yaml
 variables:
   version: "1.0.0"
-  project_name: "Admin Starter"
+  project_name: "Django SmallStack"
   my_custom_var: "Custom Value"    # Add here
 ```
 
@@ -223,7 +223,7 @@ title: "Help & Documentation"
 
 variables:
   version: "1.0.0"
-  project_name: "Admin Starter"
+  project_name: "Django SmallStack"
   python_version: "3.12"
   django_version: "5.0"
 
@@ -235,7 +235,7 @@ pages:
 
   - slug: about
     title: "About & Inspiration"
-    description: "The philosophy behind Admin Starter"
+    description: "The philosophy behind SmallStack"
     icon: "info"
 
   - slug: theming

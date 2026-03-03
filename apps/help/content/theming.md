@@ -88,7 +88,7 @@ All colors are defined as CSS custom properties in `static/css/theme.css`. To cu
 
 ### How It Works
 
-1. Theme preference is stored in `localStorage` as `admin-starter-theme`
+1. Theme preference is stored in `localStorage` as `smallstack-theme`
 2. On page load, theme is applied via `data-theme` attribute on `<html>`
 3. CSS variables change based on `data-theme` value
 4. Users toggle via the sun/moon icon in the top bar

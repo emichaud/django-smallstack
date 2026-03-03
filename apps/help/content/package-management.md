@@ -61,7 +61,7 @@ brew install uv
 
 ```bash
 # Clone the project
-cd admin_starter
+cd django-smallstack
 
 # Install all dependencies (creates .venv automatically)
 uv sync
@@ -212,10 +212,10 @@ For data science projects or when you need non-Python dependencies:
 
 ```bash
 # Create environment
-conda create -n admin_starter python=3.12
+conda create -n smallstack python=3.12
 
 # Activate
-conda activate admin_starter
+conda activate smallstack
 
 # Install pip dependencies
 pip install -e .
