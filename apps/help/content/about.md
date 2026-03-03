@@ -95,6 +95,20 @@ SmallStack uses remarkably few dependencies:
 
 No heavy JavaScript frameworks. No complex build systems. Just Django doing what Django does best.
 
+## AI-Ready Development
+
+SmallStack ships with **AI skill files** — structured documentation designed to help AI coding assistants quickly understand and extend the codebase. Whether you're using Claude, GitHub Copilot, or other AI tools, these skill files provide:
+
+- **Project conventions** — Naming patterns, file organization, and coding standards
+- **Step-by-step guides** — How to add apps, create templates, extend the theme
+- **Code examples** — Working patterns for common tasks
+
+When you ask an AI assistant to add a feature or fix a bug, pointing it to the relevant skill file in `docs/skills/` gives it the context needed to generate code that fits your project's style.
+
+This isn't about replacing developers — it's about **accelerating development** with AI as a collaborative tool. SmallStack was itself developed with AI assistance, and we've baked that workflow into the project.
+
+> **Learn more:** [Extending with AI](/help/extending-with-ai/) covers skill files, prompting strategies, and best practices for AI-assisted development.
+
 ## Getting Involved
 
 SmallStack is open source. If you share this philosophy of leveraging Django's strengths, we'd love your contributions:
