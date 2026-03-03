@@ -40,6 +40,19 @@ if settings.DEBUG:
         path("__debug__/", include("debug_toolbar.urls")),
     ]
 
-# Serve media files
-# Note: For high-traffic production, use nginx or cloud storage (S3) instead
-urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+# Serve media files in development
+if settings.DEBUG:
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+else:
+    # Serve media files in production via Django
+    # Note: For high-traffic sites, use nginx or cloud storage (S3) instead
+    from django.urls import re_path
+    from django.views.static import serve
+
+    urlpatterns += [
+        re_path(
+            r"^media/(?P<path>.*)$",
+            serve,
+            {"document_root": settings.MEDIA_ROOT},
+        ),
+    ]
