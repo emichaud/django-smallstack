@@ -1,0 +1,40 @@
+[project]
+name = "django-smallstack"
+version = "0.1.0"
+description = "A minimal Django stack for building and deploying admin-style apps"
+requires-python = ">=3.12"
+dependencies = [
+    "django>=6.0",
+    "python-decouple>=3.8",
+    "pillow>=10.0",
+    "gunicorn>=21.0",
+    "whitenoise>=6.6",
+    "django-extensions>=3.2",
+    "django-debug-toolbar>=4.2",
+    "markdown>=3.5",
+    "pyyaml>=6.0",
+    "django-tasks-db>=0.2",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+    "pytest-django>=4.5",
+    "pytest-cov>=4.0",
+    "ruff>=0.1",
+]
+
+[tool.ruff]
+line-length = 120
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "W"]
+
+[tool.ruff.lint.per-file-ignores]
+"*/migrations/*.py" = ["E501"]  # Migrations are auto-generated
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "config.settings.test"
+python_files = ["test_*.py", "*_test.py", "tests.py"]
+testpaths = ["apps"]

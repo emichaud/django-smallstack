@@ -1,0 +1,14 @@
+Hi {{ user.get_full_name|default:user.username }},
+
+Welcome to {{ site_name }}! Your account has been created successfully.
+
+You can now log in and start using all the features available to you.
+
+Your username: {{ user.username }}
+
+Log in here: {{ protocol }}://{{ domain }}{% url 'login' %}
+
+If you have any questions, just reply to this email and we'll be happy to help.
+
+Best regards,
+The {{ site_name }} Team

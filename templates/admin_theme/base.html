@@ -1,0 +1,64 @@
+{% load static theme_tags %}
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}{% endblock %} | SmallStack</title>
+
+    <!-- Django Admin CSS as foundation -->
+    <link rel="stylesheet" href="{% static 'admin/css/base.css' %}">
+    <link rel="stylesheet" href="{% static 'admin/css/forms.css' %}">
+
+    <!-- Custom theme CSS -->
+    <link rel="stylesheet" href="{% static 'css/theme.css' %}">
+
+    {% block extra_css %}{% endblock %}
+</head>
+<body class="{% block body_class %}{% endblock %}">
+    <div class="wrapper">
+        <!-- Top Navigation Bar -->
+        {% include "admin_theme/includes/topbar.html" %}
+
+        <div class="main-container">
+            <!-- Sidebar Navigation -->
+            {% include "admin_theme/includes/sidebar.html" %}
+
+            <!-- Main Content Area -->
+            <main class="main-content" id="main-content">
+                <!-- Breadcrumbs -->
+                {% block breadcrumbs %}
+                    {% include "admin_theme/includes/breadcrumbs.html" %}
+                {% endblock %}
+
+                <!-- Messages -->
+                {% include "admin_theme/includes/messages.html" %}
+
+                <!-- Page Content -->
+                <div class="content-wrapper">
+                    {% block content %}{% endblock %}
+                </div>
+            </main>
+        </div>
+
+        <!-- Footer -->
+        <footer class="site-footer">
+            <div class="footer-content">
+                <span>&copy; {% now "Y" %} SmallStack</span>
+            </div>
+        </footer>
+    </div>
+
+    <!-- Theme configuration -->
+    <script>
+        window.SMALLSTACK = {
+            userTheme: {% if user.is_authenticated and user.profile %}'{{ user.profile.theme_preference }}'{% else %}null{% endif %},
+            isAuthenticated: {% if user.is_authenticated %}true{% else %}false{% endif %}
+        };
+    </script>
+    <!-- Theme toggle script -->
+    <script src="{% static 'js/theme.js' %}"></script>
+
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

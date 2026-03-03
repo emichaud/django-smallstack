@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Welcome</title>
+</head>
+<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f5f5f5;">
+    <table role="presentation" style="width: 100%; border-collapse: collapse;">
+        <tr>
+            <td style="padding: 40px 20px;">
+                <table role="presentation" style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 8px; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);">
+                    <!-- Header -->
+                    <tr>
+                        <td style="background-color: #417690; padding: 30px 40px; border-radius: 8px 8px 0 0;">
+                            <h1 style="margin: 0; color: #ffffff; font-size: 24px; font-weight: 600;">Welcome!</h1>
+                        </td>
+                    </tr>
+
+                    <!-- Body -->
+                    <tr>
+                        <td style="padding: 40px;">
+                            <p style="margin: 0 0 20px; color: #333333; font-size: 16px; line-height: 1.6;">
+                                Hi {{ user.get_full_name|default:user.username }},
+                            </p>
+
+                            <p style="margin: 0 0 20px; color: #333333; font-size: 16px; line-height: 1.6;">
+                                Welcome to <strong>{{ site_name }}</strong>! Your account has been created successfully.
+                            </p>
+
+                            <p style="margin: 0 0 30px; color: #333333; font-size: 16px; line-height: 1.6;">
+                                You can now log in and start using all the features available to you.
+                            </p>
+
+                            <!-- Account Info Box -->
+                            <table role="presentation" style="width: 100%; margin: 0 0 30px; background-color: #f8f9fa; border-radius: 6px;">
+                                <tr>
+                                    <td style="padding: 20px;">
+                                        <p style="margin: 0 0 8px; color: #666666; font-size: 14px;">Your username:</p>
+                                        <p style="margin: 0; color: #333333; font-size: 16px; font-weight: 600;">{{ user.username }}</p>
+                                    </td>
+                                </tr>
+                            </table>
+
+                            <!-- Button -->
+                            <table role="presentation" style="margin: 0 0 30px;">
+                                <tr>
+                                    <td style="background-color: #417690; border-radius: 6px;">
+                                        <a href="{{ protocol }}://{{ domain }}{% url 'login' %}"
+                                           style="display: inline-block; padding: 14px 32px; color: #ffffff; text-decoration: none; font-size: 16px; font-weight: 600;">
+                                            Log In Now
+                                        </a>
+                                    </td>
+                                </tr>
+                            </table>
+
+                            <!-- Divider -->
+                            <hr style="border: none; border-top: 1px solid #eeeeee; margin: 30px 0;">
+
+                            <p style="margin: 0; color: #999999; font-size: 13px; line-height: 1.6;">
+                                If you have any questions, just reply to this email and we'll be happy to help.
+                            </p>
+                        </td>
+                    </tr>
+
+                    <!-- Footer -->
+                    <tr>
+                        <td style="background-color: #f8f9fa; padding: 24px 40px; border-radius: 0 0 8px 8px; border-top: 1px solid #eeeeee;">
+                            <p style="margin: 0; color: #666666; font-size: 14px; text-align: center;">
+                                Best regards,<br>
+                                <strong>The {{ site_name }} Team</strong>
+                            </p>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>

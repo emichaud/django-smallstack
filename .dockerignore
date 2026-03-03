@@ -1,0 +1,62 @@
+**/.DS_Store
+**/__pycache__
+**/.venv
+**/.env
+**/.envrc
+**/.git
+**/.gitignore
+**/compose.y*ml
+**/Dockerfile*
+**/node_modules
+.venv/
+venv/
+.kamal/secrets
+.claude/
+
+# Python
+__pycache__
+*.py[cod]
+*$py.class
+*.so
+.Python
+.env
+.envrc
+ENV/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+
+# Build
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Local development
+*.sqlite3
+db.sqlite3
+media/
+staticfiles/
+
+# Docker
+Dockerfile
+docker-compose*.yml
+.dockerignore
+
+# Documentation
+*.md
+docs/
+
+# Misc
+.DS_Store
+Thumbs.db
+*.log

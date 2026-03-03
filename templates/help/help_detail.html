@@ -1,0 +1,83 @@
+{% extends "admin_theme/base.html" %}
+{% load static theme_tags %}
+
+{% block title %}{{ page.title }} - Help{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'help/css/help.css' %}">
+{% endblock %}
+
+{% block breadcrumbs %}
+{% breadcrumb "Home" "home" %}
+{% breadcrumb "Help" "help:index" %}
+{% breadcrumb page.title %}
+{% render_breadcrumbs %}
+{% endblock %}
+
+{% block content %}
+<div class="help-layout">
+    <!-- Help Sidebar Navigation -->
+    <aside class="help-sidebar">
+        {% include "help/includes/help_sidebar.html" %}
+    </aside>
+
+    <!-- Main Help Content -->
+    <div class="help-main">
+        <article class="help-article">
+            <header class="help-article-header">
+                <h1>{{ page.title }}</h1>
+                {% if page.description %}
+                <p class="help-description">{{ page.description }}</p>
+                {% endif %}
+            </header>
+
+            <div class="help-content markdown-body {% if page.is_faq %}faq-content{% endif %}">
+                {{ page.content|safe }}
+            </div>
+
+            <!-- Prev/Next Navigation -->
+            <nav class="help-nav-footer">
+                {% if prev_page %}
+                <a href="{% url 'help:detail' prev_page.slug %}" class="help-nav-link help-nav-prev">
+                    <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+                        <path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/>
+                    </svg>
+                    <div>
+                        <span class="help-nav-label">Previous</span>
+                        <span class="help-nav-title">{{ prev_page.title }}</span>
+                    </div>
+                </a>
+                {% else %}
+                <div></div>
+                {% endif %}
+
+                {% if next_page %}
+                <a href="{% url 'help:detail' next_page.slug %}" class="help-nav-link help-nav-next">
+                    <div>
+                        <span class="help-nav-label">Next</span>
+                        <span class="help-nav-title">{{ next_page.title }}</span>
+                    </div>
+                    <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+                        <path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/>
+                    </svg>
+                </a>
+                {% endif %}
+            </nav>
+        </article>
+    </div>
+
+    <!-- On This Page TOC (right sidebar) -->
+    {% if page.toc and not page.is_faq %}
+    <aside class="help-toc-sidebar">
+        <nav class="help-toc">
+            <h4>On This Page</h4>
+            {{ page.toc|safe }}
+        </nav>
+    </aside>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'help/js/help.js' %}"></script>
+{% endblock %}

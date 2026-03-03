@@ -1,0 +1,70 @@
+{% extends "admin_theme/base.html" %}
+{% load static theme_tags %}
+
+{% block title %}{{ profile.get_display_name }}{% endblock %}
+
+{% block breadcrumbs %}
+{% breadcrumb "Home" "home" %}
+{% breadcrumb profile.get_display_name %}
+{% render_breadcrumbs %}
+{% endblock %}
+
+{% block content %}
+<div class="profile-page">
+    <div class="card">
+        <div class="profile-header">
+            <div class="profile-background" {% if profile.background_photo %}style="background-image: url('{{ profile.background_photo.url }}');"{% endif %}></div>
+            <div class="profile-info">
+                <div class="profile-photo" {% if profile.profile_photo %}style="background-image: url('{{ profile.profile_photo.url }}');"{% endif %}>
+                    {% if not profile.profile_photo %}
+                    {{ profile.user.username|slice:":1"|upper }}
+                    {% endif %}
+                </div>
+                <div class="profile-details">
+                    <h1 class="profile-name">{{ profile.get_display_name }}</h1>
+                    <p class="profile-username">@{{ profile.user.username }}</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="profile-content">
+            {% if profile.bio %}
+            <p class="profile-bio">{{ profile.bio }}</p>
+            {% endif %}
+
+            <div class="profile-meta">
+                {% if profile.location %}
+                <div class="profile-meta-item">
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+                        <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
+                    </svg>
+                    <span>{{ profile.location }}</span>
+                </div>
+                {% endif %}
+
+                {% if profile.website %}
+                <div class="profile-meta-item">
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+                        <path d="M3.9 12c0-1.71 1.39-3.1 3.1-3.1h4V7H7c-2.76 0-5 2.24-5 5s2.24 5 5 5h4v-1.9H7c-1.71 0-3.1-1.39-3.1-3.1zM8 13h8v-2H8v2zm9-6h-4v1.9h4c1.71 0 3.1 1.39 3.1 3.1s-1.39 3.1-3.1 3.1h-4V17h4c2.76 0 5-2.24 5-5s-2.24-5-5-5z"/>
+                    </svg>
+                    <a href="{{ profile.website }}" target="_blank" rel="noopener">{{ profile.website }}</a>
+                </div>
+                {% endif %}
+
+                <div class="profile-meta-item">
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+                        <path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11zM9 10H7v2h2v-2zm4 0h-2v2h2v-2zm4 0h-2v2h2v-2zm-8 4H7v2h2v-2zm4 0h-2v2h2v-2zm4 0h-2v2h2v-2z"/>
+                    </svg>
+                    <span>Joined {{ profile.user.date_joined|date:"F Y" }}</span>
+                </div>
+            </div>
+
+            {% if user == profile.user %}
+            <div class="button-group" style="margin-top: 24px;">
+                <a href="{% url 'profile_edit' %}" class="button button-primary">Edit Profile</a>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,104 @@
+# Help System Configuration
+# This file defines the navigation order and template variables
+
+title: "Help & Documentation"
+
+# Variables available in markdown files using {{ variable }} syntax
+variables:
+  version: "0.1.0"
+  project_name: "Django SmallStack"
+  python_version: "3.12"
+  django_version: "6.0"
+
+# Pages configuration (order matters for navigation)
+pages:
+  - slug: readme
+    title: "README"
+    description: "Project overview and quick start guide"
+    icon: "book"
+
+  - slug: getting-started
+    title: "Getting Started"
+    description: "Quick start guide and project overview"
+    icon: "rocket"
+
+  - slug: about
+    title: "About & Inspiration"
+    description: "The philosophy behind Django SmallStack"
+    icon: "info"
+
+  - slug: help-system
+    title: "Using the Help System"
+    description: "How to add and edit documentation"
+    icon: "help"
+
+  - slug: theming
+    title: "Theming & Customization"
+    description: "Customize colors, dark mode, and components"
+    icon: "palette"
+
+  - slug: settings-configuration
+    title: "Settings & Configuration"
+    description: "Environment variables and split settings"
+    icon: "settings"
+
+  - slug: database-sqlite
+    title: "SQLite Database"
+    description: "Why SQLite is the perfect default for many projects"
+    icon: "database"
+
+  - slug: database-postgresql
+    title: "PostgreSQL Database"
+    description: "Scaling beyond SQLite with PostgreSQL"
+    icon: "database"
+
+  - slug: email-auth
+    title: "Email Authentication"
+    description: "Configure email login and password reset"
+    icon: "email"
+
+  - slug: background-tasks
+    title: "Background Tasks"
+    description: "Running tasks outside the request-response cycle"
+    icon: "tasks"
+
+  - slug: package-management
+    title: "Package Management"
+    description: "Using UV, pip, and other package managers"
+    icon: "package"
+
+  - slug: dependencies
+    title: "Dependencies"
+    description: "Why we chose each package in SmallStack"
+    icon: "cube"
+
+  - slug: deployment
+    title: "Deployment Overview"
+    description: "Understanding your deployment options"
+    icon: "cloud"
+
+  - slug: docker-deployment
+    title: "Docker Deployment"
+    description: "Local development and generic container hosting"
+    icon: "docker"
+
+  - slug: kamal-deployment
+    title: "Kamal Deployment"
+    description: "Zero-downtime VPS deployment for small teams"
+    icon: "rocket"
+
+  - slug: project-structure
+    title: "Project Structure"
+    description: "Understanding the codebase organization"
+    icon: "folder"
+
+  - slug: extending-with-ai
+    title: "Extending with AI"
+    description: "Using AI assistants to accelerate development"
+    icon: "ai"
+
+  - slug: faq
+    title: "FAQ"
+    description: "Frequently asked questions"
+    icon: "chat"
+    is_faq: true
