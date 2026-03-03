@@ -226,7 +226,9 @@ Environment secrets (gitignored):
 
 ```bash
 SECRET_KEY=your-secret-key-here
-ALLOWED_HOSTS=myapp.com,www.myapp.com,123.45.67.89
+# Important: Include * at the end for kamal-proxy health checks
+ALLOWED_HOSTS=myapp.com,www.myapp.com,123.45.67.89,localhost,127.0.0.1,*
+CSRF_TRUSTED_ORIGINS=https://myapp.com,https://www.myapp.com
 ```
 
 ## Data Persistence
