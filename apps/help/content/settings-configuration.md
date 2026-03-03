@@ -149,7 +149,7 @@ EMAIL_HOST_PASSWORD=your-app-password
 
 # Development superuser
 DEV_SUPERUSER_USERNAME=admin
-DEV_SUPERUSER_PASSWORD=admin123
+DEV_SUPERUSER_PASSWORD=change-me-for-dev
 DEV_SUPERUSER_EMAIL=admin@example.com
 ```
 
