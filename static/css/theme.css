@@ -240,44 +240,97 @@ a:hover {
     height: 100%;
 }
 
-/* Mobile menu open button (hamburger in topbar) */
-.sidebar-open-toggle {
-    background: none;
-    border: none;
-    color: var(--header-fg);
-    cursor: pointer;
-    padding: 8px;
-    border-radius: var(--radius-sm);
-    display: none; /* Hidden on desktop */
+/* Sidebar header (mobile only) */
+.sidebar-header {
+    display: none;
     align-items: center;
-    justify-content: center;
-    transition: background-color var(--transition-fast);
+    justify-content: space-between;
+    padding: 16px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
 
-.sidebar-open-toggle:hover {
-    background-color: rgba(255, 255, 255, 0.1);
+.sidebar-logo {
+    opacity: 0.9;
 }
 
-/* Sidebar close button (X inside sidebar) */
-.sidebar-toggle {
-    position: absolute;
-    top: 12px;
-    right: 12px;
+.sidebar-close {
     background: none;
     border: none;
     color: var(--sidebar-fg);
     cursor: pointer;
     padding: 8px;
     border-radius: var(--radius-sm);
-    display: none; /* Hidden on desktop */
+    display: flex;
     align-items: center;
     justify-content: center;
     transition: background-color var(--transition-fast);
-    z-index: 10;
 }
 
-.sidebar-toggle:hover {
+.sidebar-close:hover {
     background-color: rgba(255, 255, 255, 0.1);
+}
+
+/* Sidebar footer with collapse toggle */
+.sidebar-footer {
+    margin-top: auto;
+    padding: 12px;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.sidebar-collapse-toggle {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    padding: 10px 12px;
+    background: none;
+    border: none;
+    color: var(--sidebar-fg);
+    cursor: pointer;
+    border-radius: var(--radius-sm);
+    font-size: 0.875rem;
+    transition: background-color var(--transition-fast);
+}
+
+.sidebar-collapse-toggle:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+}
+
+.sidebar-collapse-toggle .collapse-icon {
+    transition: transform var(--transition-fast);
+}
+
+.sidebar.collapsed .sidebar-collapse-toggle .collapse-icon {
+    transform: rotate(180deg);
+}
+
+.sidebar.collapsed .collapse-text {
+    display: none;
+}
+
+/* Mobile floating menu button */
+.mobile-menu-toggle {
+    display: none;
+    position: fixed;
+    bottom: 24px;
+    left: 24px;
+    width: 56px;
+    height: 56px;
+    background: var(--accent);
+    border: none;
+    border-radius: 50%;
+    color: var(--primary);
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    z-index: 1000;
+    align-items: center;
+    justify-content: center;
+    transition: transform var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.mobile-menu-toggle:hover {
+    transform: scale(1.05);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
 }
 
 .site-logo {
@@ -286,6 +339,7 @@ a:hover {
     color: var(--header-fg);
     font-weight: 600;
     font-size: 1.25rem;
+    margin-left: 8px;
 }
 
 .site-logo:hover {
@@ -294,7 +348,7 @@ a:hover {
 }
 
 .site-logo .logo-img {
-    height: 34px;
+    height: 40px;
     width: auto;
 }
 
@@ -498,14 +552,28 @@ a:hover {
     overflow-y: auto;
     transition: transform var(--transition-normal), width var(--transition-normal);
     z-index: 999;
+    display: flex;
+    flex-direction: column;
 }
 
 .sidebar.collapsed {
-    transform: translateX(-100%);
+    width: 60px;
+}
+
+.sidebar.collapsed .nav-link span,
+.sidebar.collapsed .nav-section-title {
+    display: none;
+}
+
+.sidebar.collapsed .nav-link {
+    justify-content: center;
+    padding: 12px;
 }
 
 .sidebar-nav {
     padding: 16px 0;
+    flex: 1;
+    overflow-y: auto;
 }
 
 .nav-list {
@@ -1347,23 +1415,28 @@ a:hover {
 
 @media (max-width: 768px) {
     .sidebar {
+        top: 0;
         transform: translateX(-100%);
+        width: 280px;
     }
 
     .sidebar.show {
         transform: translateX(0);
     }
 
+    .sidebar-header {
+        display: flex;
+    }
+
+    .sidebar-footer {
+        display: none;
+    }
+
     .sidebar-overlay.show {
         display: block;
     }
 
-    /* Show mobile toggle buttons */
-    .sidebar-open-toggle {
-        display: flex;
-    }
-
-    .sidebar-toggle {
+    .mobile-menu-toggle {
         display: flex;
     }
 

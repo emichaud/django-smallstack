@@ -96,10 +96,13 @@
     // ============================================
 
     function initSidebar() {
-        const sidebarOpenToggle = document.getElementById('sidebar-open-toggle');
-        const sidebarCloseToggle = document.getElementById('sidebar-toggle');
+        const mobileMenuToggle = document.getElementById('mobile-menu-toggle');
+        const sidebarClose = document.getElementById('sidebar-close');
+        const collapseToggle = document.getElementById('sidebar-collapse-toggle');
         const sidebar = document.getElementById('sidebar');
         const overlay = document.getElementById('sidebar-overlay');
+        const mainContent = document.getElementById('main-content');
+        const footer = document.querySelector('.site-footer');
 
         if (!sidebar) return;
 
@@ -113,14 +116,31 @@
             if (overlay) overlay.classList.remove('show');
         }
 
-        // Open button (hamburger in topbar)
-        if (sidebarOpenToggle) {
-            sidebarOpenToggle.addEventListener('click', openSidebar);
+        function toggleCollapse() {
+            sidebar.classList.toggle('collapsed');
+            // Adjust main content margin
+            if (sidebar.classList.contains('collapsed')) {
+                if (mainContent) mainContent.style.marginLeft = '60px';
+                if (footer) footer.style.marginLeft = '60px';
+            } else {
+                if (mainContent) mainContent.style.marginLeft = '';
+                if (footer) footer.style.marginLeft = '';
+            }
         }
 
-        // Close button (X inside sidebar)
-        if (sidebarCloseToggle) {
-            sidebarCloseToggle.addEventListener('click', closeSidebar);
+        // Mobile floating button
+        if (mobileMenuToggle) {
+            mobileMenuToggle.addEventListener('click', openSidebar);
+        }
+
+        // Close button (X inside sidebar header)
+        if (sidebarClose) {
+            sidebarClose.addEventListener('click', closeSidebar);
+        }
+
+        // Desktop collapse toggle
+        if (collapseToggle) {
+            collapseToggle.addEventListener('click', toggleCollapse);
         }
 
         // Close sidebar when clicking overlay (mobile)
