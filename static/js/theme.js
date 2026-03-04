@@ -96,43 +96,36 @@
     // ============================================
 
     function initSidebar() {
-        const sidebarToggle = document.getElementById('sidebar-toggle');
+        const sidebarOpenToggle = document.getElementById('sidebar-open-toggle');
+        const sidebarCloseToggle = document.getElementById('sidebar-toggle');
         const sidebar = document.getElementById('sidebar');
         const overlay = document.getElementById('sidebar-overlay');
 
-        if (!sidebarToggle || !sidebar) return;
+        if (!sidebar) return;
 
-        function toggleSidebar() {
-            const isMobile = window.innerWidth <= 768;
-
-            if (isMobile) {
-                sidebar.classList.toggle('show');
-                if (overlay) {
-                    overlay.classList.toggle('show');
-                }
-            } else {
-                sidebar.classList.toggle('collapsed');
-                // Adjust main content margin
-                const mainContent = document.getElementById('main-content');
-                const footer = document.querySelector('.site-footer');
-                if (sidebar.classList.contains('collapsed')) {
-                    if (mainContent) mainContent.style.marginLeft = '0';
-                    if (footer) footer.style.marginLeft = '0';
-                } else {
-                    if (mainContent) mainContent.style.marginLeft = '';
-                    if (footer) footer.style.marginLeft = '';
-                }
-            }
+        function openSidebar() {
+            sidebar.classList.add('show');
+            if (overlay) overlay.classList.add('show');
         }
 
-        sidebarToggle.addEventListener('click', toggleSidebar);
+        function closeSidebar() {
+            sidebar.classList.remove('show');
+            if (overlay) overlay.classList.remove('show');
+        }
+
+        // Open button (hamburger in topbar)
+        if (sidebarOpenToggle) {
+            sidebarOpenToggle.addEventListener('click', openSidebar);
+        }
+
+        // Close button (X inside sidebar)
+        if (sidebarCloseToggle) {
+            sidebarCloseToggle.addEventListener('click', closeSidebar);
+        }
 
         // Close sidebar when clicking overlay (mobile)
         if (overlay) {
-            overlay.addEventListener('click', () => {
-                sidebar.classList.remove('show');
-                overlay.classList.remove('show');
-            });
+            overlay.addEventListener('click', closeSidebar);
         }
 
         // Handle window resize
