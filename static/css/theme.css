@@ -275,15 +275,6 @@ a:hover {
     width: auto;
 }
 
-/* Show dark logo by default (topbar has dark background) */
-.site-logo .logo-light {
-    display: none;
-}
-
-.site-logo .logo-dark {
-    display: block;
-}
-
 /* Theme Toggle */
 .theme-toggle {
     background: none;
