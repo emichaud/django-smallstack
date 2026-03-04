@@ -10,12 +10,16 @@ The theme is built on Django admin's CSS foundation with CSS custom properties (
 
 ```
 static/
-├── css/
-│   └── theme.css           # Main theme - variables, layout, components
-├── js/
-│   └── theme.js            # Dark mode toggle, sidebar, dropdowns
-└── help/
-    └── css/help.css        # Help system specific styles
+├── smallstack/                 # UPSTREAM: Core SmallStack assets
+│   ├── css/
+│   │   └── theme.css           # Main theme - variables, layout, components
+│   ├── js/
+│   │   └── theme.js            # Dark mode toggle, sidebar, dropdowns
+│   └── help/
+│       └── css/help.css        # Help system specific styles
+├── css/                        # DOWNSTREAM: Project CSS overrides
+├── js/                         # DOWNSTREAM: Project JS
+└── brand/                      # DOWNSTREAM: Project brand assets
 
 templates/smallstack/
 ├── base.html               # Master layout template
@@ -28,7 +32,7 @@ templates/smallstack/
 
 ## CSS Custom Properties
 
-All colors and key values are defined as CSS variables in `static/css/theme.css`.
+All colors and key values are defined as CSS variables in `static/smallstack/css/theme.css`.
 
 ### Light Mode (`:root`)
 
@@ -111,7 +115,7 @@ All colors and key values are defined as CSS variables in `static/css/theme.css`
 
 To rebrand the entire app:
 
-1. Edit `static/css/theme.css`
+1. Edit `static/smallstack/css/theme.css` (or add overrides in `static/css/project.css`)
 2. Change `--primary` and `--primary-hover` in both `:root` and `[data-theme="dark"]`
 
 ```css
@@ -244,7 +248,7 @@ Load with `{% load theme_tags %}`:
 
 ### For Global Styles
 
-Add to `static/css/theme.css` at the end.
+Add to `static/smallstack/css/theme.css` at the end, or better yet, create a project-specific CSS file in `static/css/` and load it via `{% block extra_css %}`.
 
 ### For App-Specific Styles
 

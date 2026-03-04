@@ -11,11 +11,12 @@ The {{ project_name }} theme is built on Django admin's CSS foundation with cust
 
 | File | Purpose |
 |------|---------|
-| `static/css/theme.css` | Main theme CSS with all custom properties |
-| `static/js/theme.js` | Dark mode toggle and UI interactions |
+| `static/smallstack/css/theme.css` | Main theme CSS with all custom properties |
+| `static/smallstack/js/theme.js` | Dark mode toggle and UI interactions |
 | `templates/smallstack/base.html` | Master layout template |
 | `templates/smallstack/includes/` | Reusable template partials |
-| `static/brand/` | Brand assets (logos, icons, social images) |
+| `static/smallstack/brand/` | Default SmallStack brand assets |
+| `static/brand/` | Your project's brand assets (downstream overrides) |
 
 ## Branding Quick Reference
 
@@ -31,7 +32,7 @@ For complete branding documentation including logo specifications and asset crea
 
 ## Changing Colors
 
-All colors are defined as CSS custom properties in `static/css/theme.css`. To customize:
+All colors are defined as CSS custom properties in `static/smallstack/css/theme.css`. To customize:
 
 ### Edit Light Mode Colors
 
@@ -226,7 +227,7 @@ In `templates/smallstack/base.html`:
 ```html
 <!-- Remove or comment out -->
 <link rel="stylesheet" href="{% static 'admin/css/base.css' %}">
-<link rel="stylesheet" href="{% static 'css/theme.css' %}">
+<link rel="stylesheet" href="{% static 'smallstack/css/theme.css' %}">
 ```
 
 ### Step 2: Add Your Framework
@@ -241,7 +242,7 @@ Update HTML classes in templates to match your framework's conventions.
 
 ### Step 4: Update Dark Mode
 
-If your framework has its own dark mode system, update `static/js/theme.js` accordingly.
+If your framework has its own dark mode system, update `static/smallstack/js/theme.js` accordingly.
 
 ## Best Practices
 

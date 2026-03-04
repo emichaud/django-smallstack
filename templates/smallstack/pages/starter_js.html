@@ -1,0 +1,52 @@
+<script>
+document.querySelector('.button-prominent')?.addEventListener('click', function() {
+    alert('Primary action clicked! Replace this with your own logic.');
+});
+
+// File upload dropzone interactions
+document.querySelectorAll('.file-upload-dropzone').forEach(function(zone) {
+    var input = zone.querySelector('.file-upload-input');
+    var text = zone.querySelector('.dropzone-text');
+    var filename = zone.querySelector('.dropzone-filename');
+
+    input.addEventListener('change', function() {
+        if (this.files.length > 0) {
+            text.style.display = 'none';
+            filename.textContent = this.files[0].name;
+            filename.style.display = '';
+        } else {
+            text.style.display = '';
+            filename.style.display = 'none';
+        }
+    });
+
+    zone.addEventListener('dragover', function(e) {
+        e.preventDefault();
+        zone.classList.add('dragover');
+    });
+    zone.addEventListener('dragleave', function() {
+        zone.classList.remove('dragover');
+    });
+    zone.addEventListener('drop', function(e) {
+        e.preventDefault();
+        zone.classList.remove('dragover');
+        if (e.dataTransfer.files.length > 0) {
+            input.files = e.dataTransfer.files;
+            input.dispatchEvent(new Event('change'));
+        }
+    });
+});
+
+// Date picker buttons trigger native date picker
+document.querySelectorAll('.date-picker-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+        var input = document.getElementById(this.dataset.target);
+        if (input.showPicker) {
+            input.showPicker();
+        } else {
+            input.focus();
+            input.click();
+        }
+    });
+});
+</script>

@@ -9,7 +9,7 @@ The help system is a file-based documentation viewer that renders Markdown files
 - **Markdown files** for content (`apps/help/content/*.md`)
 - **YAML config** for navigation and variables (`apps/help/content/_config.yaml`)
 - **Django templates** for rendering (`templates/help/`)
-- **CSS/JS** for styling (`static/help/`)
+- **CSS/JS** for styling (`static/smallstack/help/`)
 
 ## File Locations
 
@@ -31,7 +31,7 @@ templates/help/
 └── includes/
     └── help_sidebar.html     # Navigation sidebar
 
-static/help/
+static/smallstack/help/
 ├── css/help.css              # Help-specific styles
 └── js/help.js                # Search, collapsibles, TOC
 ```
@@ -199,7 +199,7 @@ Check the [FAQ](/help/faq/) for common questions.
 
 ## Styling Notes
 
-Help pages use CSS from `static/help/css/help.css`:
+Help pages use CSS from `static/smallstack/help/css/help.css`:
 
 - Body text: 18px
 - H2: 28px, H3: 24px, H4: 20px

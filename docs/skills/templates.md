@@ -12,12 +12,21 @@ SmallStack uses Django's template system with a single base template that all pa
 templates/
 ├── smallstack/
 │   ├── base.html              # Master layout (all pages extend this)
-│   ├── home.html              # Homepage
-│   └── includes/
-│       ├── topbar.html        # Top navigation bar
-│       ├── sidebar.html       # Left sidebar navigation
-│       ├── messages.html      # Flash messages display
-│       └── breadcrumbs.html   # Breadcrumb navigation
+│   ├── includes/
+│   │   ├── topbar.html        # Top navigation bar
+│   │   ├── sidebar.html       # Left sidebar navigation
+│   │   ├── messages.html      # Flash messages display
+│   │   └── breadcrumbs.html   # Breadcrumb navigation
+│   └── pages/                 # SmallStack marketing content (upstream)
+│       ├── home_content.html
+│       ├── about_content.html
+│       ├── starter_content.html
+│       ├── starter_css.html
+│       └── starter_js.html
+├── website/
+│   ├── home.html              # Thin wrapper → includes pages/home_content.html
+│   └── about.html             # Thin wrapper → includes pages/about_content.html
+├── starter.html               # Thin wrapper → includes pages/starter_*.html
 ├── profile/
 │   ├── profile.html
 │   ├── profile_edit.html
@@ -48,7 +57,7 @@ templates/
 
     <!-- CSS -->
     <link rel="stylesheet" href="{% static 'admin/css/base.css' %}">
-    <link rel="stylesheet" href="{% static 'css/theme.css' %}">
+    <link rel="stylesheet" href="{% static 'smallstack/css/theme.css' %}">
     {% block extra_css %}{% endblock %}
 </head>
 <body>
@@ -77,7 +86,7 @@ templates/
     </div>
 
     <!-- JavaScript -->
-    <script src="{% static 'js/theme.js' %}"></script>
+    <script src="{% static 'smallstack/js/theme.js' %}"></script>
     {% block extra_js %}{% endblock %}
 </body>
 </html>
@@ -92,6 +101,39 @@ templates/
 | `breadcrumbs` | Breadcrumb navigation | Before content |
 | `content` | Main page content | Main area |
 | `extra_js` | Additional scripts | Before `</body>` |
+
+## Thin Wrapper + Include Pattern
+
+SmallStack's marketing pages (`home`, `about`, `starter`) use a pattern to prevent merge conflicts in downstream projects:
+
+- **Wrapper templates** (`templates/website/home.html`, etc.) are ~10-line files that `{% extend %}` the base and `{% include %}` a content fragment
+- **Content fragments** (`templates/smallstack/pages/`) contain the actual SmallStack marketing markup
+
+Downstream projects replace the wrapper's `{% include %}` with their own content. SmallStack marketing updates land in `smallstack/pages/` — a directory downstream never touches — so no conflicts.
+
+**Default wrapper:**
+```html
+{% extends "smallstack/base.html" %}
+{% load theme_tags static %}
+{% block title %}Home{% endblock %}
+{% block breadcrumbs %}{% endblock %}
+{% block content %}
+{% include "smallstack/pages/home_content.html" %}
+{% endblock %}
+```
+
+**Customized wrapper (downstream):**
+```html
+{% extends "smallstack/base.html" %}
+{% load theme_tags %}
+{% block title %}Home{% endblock %}
+{% block breadcrumbs %}{% endblock %}
+{% block content %}
+<h1>My Custom Homepage</h1>
+{% endblock %}
+```
+
+**Important:** Each `{% include %}` fragment has its own `{% load static theme_tags %}` at the top, since `{% include %}` doesn't inherit parent template loads.
 
 ## Extending Base Template
 
@@ -401,12 +443,18 @@ def my_view(request):
 
 ## Static Files
 
+Core SmallStack assets are namespaced under `static/smallstack/`. Project-specific assets go in `static/brand/`, `static/css/`, `static/js/`.
+
 ```html
 {% load static %}
 
-<link rel="stylesheet" href="{% static 'css/theme.css' %}">
-<script src="{% static 'js/theme.js' %}"></script>
-<img src="{% static 'images/logo.png' %}">
+<!-- Core SmallStack assets (upstream) -->
+<link rel="stylesheet" href="{% static 'smallstack/css/theme.css' %}">
+<script src="{% static 'smallstack/js/theme.js' %}"></script>
+
+<!-- Project assets (downstream) -->
+<link rel="stylesheet" href="{% static 'css/project.css' %}">
+<img src="{% static 'brand/my-logo.svg' %}">
 ```
 
 ## URL Generation

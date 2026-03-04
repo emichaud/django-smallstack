@@ -1,0 +1,51 @@
+{% load static %}
+<link rel="stylesheet" href="{% static 'admin/css/widgets.css' %}">
+<style>
+    .demo-box {
+        background: var(--body-bg);
+        border: 2px dashed var(--card-border);
+        border-radius: var(--radius-md);
+        padding: 24px;
+        text-align: center;
+        color: var(--body-quiet-color);
+    }
+    .file-upload-wrapper {
+        width: 100%;
+    }
+    .file-upload-dropzone {
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        padding: 24px 16px;
+        border: 2px dashed var(--card-border);
+        border-radius: var(--radius-md);
+        background: var(--body-bg);
+        cursor: pointer;
+        transition: border-color var(--transition-fast), background var(--transition-fast);
+    }
+    .file-upload-dropzone:hover,
+    .file-upload-dropzone.dragover {
+        border-color: var(--primary);
+        background: color-mix(in srgb, var(--primary) 5%, var(--body-bg));
+    }
+    .file-upload-dropzone .dropzone-text {
+        font-size: 0.85rem;
+        color: var(--body-quiet-color);
+    }
+    .file-upload-dropzone .dropzone-filename {
+        font-size: 0.85rem;
+        font-weight: 500;
+        color: var(--body-fg);
+    }
+    .file-upload-input {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        opacity: 0;
+        cursor: pointer;
+    }
+</style>

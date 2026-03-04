@@ -23,7 +23,7 @@ uv run python manage.py createsuperuser
 
 ## How do I change the primary color?
 
-Edit `static/css/theme.css` and update the `--primary` variable:
+Edit `static/smallstack/css/theme.css` and update the `--primary` variable (or add overrides in `static/css/project.css`):
 
 ```css
 :root {

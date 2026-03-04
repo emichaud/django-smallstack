@@ -37,30 +37,60 @@ config/
 
 The `apps/website/` app is your project's home. Customize it freely without worrying about upstream conflicts.
 
+### How It Works
+
+SmallStack uses a **thin wrapper + include pattern** to prevent merge conflicts:
+
+```
+templates/
+├── website/
+│   ├── home.html          # Thin wrapper (YOU OWN THIS)
+│   └── about.html         # Thin wrapper (YOU OWN THIS)
+├── starter.html           # Thin wrapper (YOU OWN THIS)
+└── smallstack/
+    └── pages/             # SmallStack marketing content (UPSTREAM)
+        ├── home_content.html
+        ├── about_content.html
+        ├── starter_content.html
+        ├── starter_css.html
+        └── starter_js.html
+```
+
+The wrapper templates use `{% include %}` to pull in SmallStack's default marketing content. When you're ready to customize, **replace the wrapper's content block with your own markup** — the SmallStack marketing fragments stay untouched, so upstream updates never conflict with your pages.
+
 ### Edit the Homepage
 
-1. Open `templates/website/home.html`
-2. Replace the SmallStack landing page content with your own
-3. The template already extends `base.html` so theming works automatically
+Open `templates/website/home.html`. By default it looks like this:
+
+```html
+{% extends "smallstack/base.html" %}
+{% load theme_tags static %}
+
+{% block title %}Home{% endblock %}
+{% block breadcrumbs %}{% endblock %}
+
+{% block content %}
+{% include "smallstack/pages/home_content.html" %}
+{% endblock %}
+```
+
+Replace the `{% include %}` with your own content:
 
 ```html
 {% extends "smallstack/base.html" %}
 {% load theme_tags %}
 
 {% block title %}Home{% endblock %}
-
 {% block breadcrumbs %}{% endblock %}
 
 {% block content %}
-<!-- Hero Section -->
 <div class="hero-section">
     <div class="hero-content">
         <h1 class="hero-title">My Project</h1>
-        <p class="hero-subtitle">Your project tagline here.</p>
+        <p class="hero-subtitle">Your tagline here.</p>
     </div>
 </div>
 
-<!-- Your custom content -->
 <div class="card">
     <div class="card-body">
         <p>Your content here.</p>
@@ -68,6 +98,8 @@ The `apps/website/` app is your project's home. Customize it freely without worr
 </div>
 {% endblock %}
 ```
+
+Do the same for `templates/website/about.html` and `templates/starter.html` when you're ready.
 
 **Tip:** Use `{% block breadcrumbs %}{% endblock %}` to hide breadcrumbs on landing pages.
 
@@ -224,12 +256,12 @@ BRAND_FAVICON = "brand/favicon.ico" # Browser tab icon
 |---------|---------|-------------|
 | `BRAND_NAME` | `SmallStack` | Site name shown in header, footer, page titles |
 | `BRAND_TAGLINE` | `A minimal Django starter stack` | Social preview description |
-| `BRAND_LOGO` | `brand/django-smallstack-logo.svg` | Full logo with icon (for marketing pages) |
-| `BRAND_LOGO_DARK` | `brand/django-smallstack-logo-dark.svg` | Full logo for dark backgrounds |
-| `BRAND_LOGO_TEXT` | `brand/django-smallstack-text.svg` | **Text-only logo for topbar** |
-| `BRAND_ICON` | `brand/django-smallstack-icon.svg` | Icon-only mark (for small spaces) |
-| `BRAND_FAVICON` | `brand/django-smallstack-icon.ico` | Browser favicon |
-| `BRAND_SOCIAL_IMAGE` | `brand/django-smallstack-social.png` | OpenGraph/Twitter preview |
+| `BRAND_LOGO` | `smallstack/brand/django-smallstack-logo.svg` | Full logo with icon (for marketing pages) |
+| `BRAND_LOGO_DARK` | `smallstack/brand/django-smallstack-logo-dark.svg` | Full logo for dark backgrounds |
+| `BRAND_LOGO_TEXT` | `smallstack/brand/django-smallstack-text.svg` | **Text-only logo for topbar** |
+| `BRAND_ICON` | `smallstack/brand/django-smallstack-icon.svg` | Icon-only mark (for small spaces) |
+| `BRAND_FAVICON` | `smallstack/brand/django-smallstack-icon.ico` | Browser favicon |
+| `BRAND_SOCIAL_IMAGE` | `smallstack/brand/django-smallstack-social.png` | OpenGraph/Twitter preview |
 
 ### Logo Specifications
 
@@ -251,7 +283,7 @@ The topbar displays `BRAND_LOGO_TEXT` at **32px height**. Design your logos acco
 
 **Changing Logo Display Size:**
 
-The logo size is controlled by CSS, not the SVG dimensions. To change the topbar logo height, edit `static/css/theme.css`:
+The logo size is controlled by CSS, not the SVG dimensions. To change the topbar logo height, add a CSS override file (e.g., `static/css/project.css`) or edit `static/smallstack/css/theme.css`:
 
 ```css
 .site-logo .logo-img {
@@ -282,12 +314,9 @@ The topbar text logo should be a horizontal SVG with your brand name. Example st
 
 ### Adding Your Brand Assets
 
-1. Create your brand assets folder:
-```bash
-mkdir -p static/brand
-```
+SmallStack's default brand assets live in `static/smallstack/brand/` and should not be edited directly. Instead, drop your custom assets into the downstream `static/brand/` directory:
 
-2. Add your files:
+1. Add your files to the downstream brand folder:
 ```
 static/brand/
 ├── my-logo-text.svg      # Text logo for topbar (32px height)
@@ -298,7 +327,7 @@ static/brand/
 └── my-social.png         # Social preview (1200x630px)
 ```
 
-3. Update your settings:
+2. Update your settings:
 ```python
 BRAND_NAME = "My Project"
 BRAND_LOGO_TEXT = "brand/my-logo-text.svg"  # Topbar logo
@@ -308,6 +337,8 @@ BRAND_ICON = "brand/my-icon.svg"
 BRAND_FAVICON = "brand/my-icon.ico"
 BRAND_SOCIAL_IMAGE = "brand/my-social.png"
 ```
+
+SmallStack's original logos remain untouched in `static/smallstack/brand/`.
 
 ### Using Branding in Templates
 
@@ -376,14 +407,19 @@ When merging upstream, you may see conflicts in:
 | `templates/registration/*.html` | Keep your branding |
 | `config/deploy.yml` | Keep your deployment config |
 
+**Note:** `templates/website/home.html`, `about.html`, and `templates/starter.html` are thin wrappers. Once you've replaced the `{% include %}` with your own content, upstream changes to SmallStack's marketing pages land in `templates/smallstack/pages/` — a directory you don't touch — so no conflicts.
+
 ### Conflict-Free Zones
 
 These areas are designed for customization and won't conflict:
 
-- `apps/website/` - Your project pages
-- `templates/website/` - Your page templates
+- `apps/website/` - Your project pages and views
+- `templates/website/` - Your page templates (thin wrappers you replace)
+- `templates/starter.html` - Starter page wrapper (replace with your own)
 - `apps/help/content/` - Your documentation (entire folder is yours)
 - `.kamal/secrets` - Your secrets (gitignored)
+
+SmallStack's marketing content lives in `templates/smallstack/pages/` and updates automatically from upstream without touching your customized wrappers.
 
 ## Kamal Deployment Configuration
 
@@ -425,7 +461,8 @@ CSRF_TRUSTED_ORIGINS=https://myproject.com,https://www.myproject.com
 
 | What to Customize | Where |
 |------------------|-------|
-| Homepage & pages | `templates/website/home.html`, `apps/website/` |
+| Homepage & pages | `templates/website/home.html`, `about.html` — replace the `{% include %}` with your own content |
+| Starter page | `templates/starter.html` — same pattern |
 | Your documentation | `apps/help/content/` (entire folder is yours) |
 | Deployment config | `config/deploy.yml`, `.kamal/secrets` |
 | User profile fields | `apps/profile/models.py` |
@@ -439,7 +476,7 @@ CSRF_TRUSTED_ORIGINS=https://myproject.com,https://www.myproject.com
 | Header logo | `templates/smallstack/includes/topbar.html` |
 | Auth page titles | `templates/registration/*.html` |
 | Sidebar navigation | `templates/smallstack/includes/sidebar.html` |
-| Theme colors | `static/css/theme.css` |
+| Theme colors | `static/smallstack/css/theme.css` (or add overrides in `static/css/project.css`) |
 
 ## Next Steps
 

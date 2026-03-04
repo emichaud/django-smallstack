@@ -121,11 +121,17 @@ django-smallstack/
 │       ├── production.py      # Production settings
 │       └── test.py            # Test settings
 ├── templates/                 # HTML templates
-│   ├── smallstack/           # Base templates & includes
+│   ├── smallstack/           # Base templates, includes & marketing pages
+│   │   └── pages/            # SmallStack marketing content
+│   ├── website/              # Page wrappers (customize for your project)
 │   ├── profile/               # Profile templates
 │   ├── help/                  # Help system templates
 │   └── registration/          # Auth templates
-├── static/                    # Static files (CSS, JS)
+├── static/                    # Static files
+│   ├── smallstack/            # Core theme, brand assets, help assets
+│   ├── brand/                 # Project brand overrides
+│   ├── css/                   # Project CSS overrides
+│   └── js/                    # Project JS
 ├── docs/                      # Additional documentation
 │   └── skills/                # AI assistant skill files
 ├── docker-compose.yml         # Docker composition
@@ -141,7 +147,8 @@ SmallStack comes pre-populated with working examples and sensible defaults. Use 
 - **UV package management** - Fast, modern Python packaging
 - **Admin theme helpers** - Template tags for breadcrumbs, navigation
 - **AI skill files included** - Documentation for AI assistants
-- **Starter template page** - Copy-paste template for new pages at `/starter/`
+- **Starter template page** - Component showcase at `/starter/`
+- **Conflict-free customization** - Thin wrapper templates let you replace pages without upstream merge conflicts
 
 ## Development
 

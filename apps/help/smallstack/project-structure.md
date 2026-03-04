@@ -26,12 +26,25 @@ django-smallstack/
 │   └── views.py              # Utility views
 ├── templates/                 # HTML templates
 │   ├── smallstack/           # Theme templates
+│   │   ├── base.html         # Master layout
+│   │   ├── includes/         # Topbar, sidebar, messages
+│   │   └── pages/            # SmallStack marketing content (upstream)
+│   ├── website/              # Page wrappers (customize these)
+│   │   ├── home.html         # Thin wrapper → pages/home_content.html
+│   │   └── about.html        # Thin wrapper → pages/about_content.html
+│   ├── starter.html          # Thin wrapper → pages/starter_*.html
 │   ├── profile/               # Profile templates
 │   ├── help/                  # Help templates
 │   └── registration/         # Auth templates
 ├── static/                    # Static assets
-│   ├── css/theme.css         # Main stylesheet
-│   └── js/theme.js           # Theme JavaScript
+│   ├── smallstack/            # UPSTREAM: SmallStack core (don't edit downstream)
+│   │   ├── brand/             # Default SmallStack brand assets
+│   │   ├── css/theme.css      # Core theme stylesheet
+│   │   ├── js/theme.js        # Core UI logic
+│   │   └── help/              # Help app assets (css + js)
+│   ├── brand/.gitkeep         # DOWNSTREAM: Project brand assets go here
+│   ├── css/.gitkeep           # DOWNSTREAM: Project CSS overrides go here
+│   └── js/.gitkeep            # DOWNSTREAM: Project JS goes here
 ├── docs/                      # Additional docs
 ├── .env                       # Environment variables
 ├── Dockerfile                 # Docker build
@@ -139,11 +152,15 @@ base.html (smallstack)
 └── includes/breadcrumbs.html
 
 Child templates extend base.html:
-├── home.html
+├── website/home.html        → {% include "smallstack/pages/home_content.html" %}
+├── website/about.html       → {% include "smallstack/pages/about_content.html" %}
+├── starter.html             → {% include "smallstack/pages/starter_*.html" %}
 ├── profile/profile.html
 ├── help/help_detail.html
 └── registration/login.html
 ```
+
+Marketing pages use thin wrappers that `{% include %}` content from `smallstack/pages/`. Downstream projects replace the wrappers with their own content — SmallStack's marketing fragments update independently via upstream.
 
 ### Template Blocks
 
@@ -200,21 +217,36 @@ Example:
 
 ### Organization
 
+SmallStack uses **namespaced static files** to separate upstream core assets from downstream project assets:
+
 ```
 static/
-├── css/
-│   └── theme.css        # Main theme styles
-├── js/
-│   └── theme.js         # Theme toggle, sidebar, dropdowns
-├── help/                # Help app static files
-│   ├── css/help.css
-│   └── js/help.js
-└── robots.txt           # Search engine directives
+├── smallstack/                  # UPSTREAM: SmallStack core (don't edit downstream)
+│   ├── brand/                   # Default SmallStack brand assets (logos, icons)
+│   ├── css/theme.css            # Core theme styles
+│   ├── js/theme.js              # Theme toggle, sidebar, dropdowns
+│   └── help/                    # Help app static files
+│       ├── css/help.css
+│       └── js/help.js
+├── brand/.gitkeep               # DOWNSTREAM: Project brand assets go here
+├── css/.gitkeep                 # DOWNSTREAM: Project CSS overrides go here
+├── js/.gitkeep                  # DOWNSTREAM: Project JS goes here
+└── robots.txt                   # Project-specific, stays at root
 ```
+
+**Upstream vs. Downstream:**
+- `static/smallstack/` contains SmallStack's core assets. These update from upstream and should not be edited in downstream projects.
+- `static/brand/`, `static/css/`, `static/js/` are empty by default (`.gitkeep` files). Drop your project assets here.
+
+**Downstream branding workflow:**
+1. Drop custom logos into `static/brand/` (e.g., `static/brand/my-logo.svg`)
+2. Set in `.env`: `BRAND_LOGO_TEXT=brand/my-logo.svg`
+3. SmallStack's originals stay untouched in `static/smallstack/brand/`
+4. For theme CSS overrides: add `static/css/project.css`, load via `{% block extra_css %}`
 
 ### CSS Architecture
 
-The theme uses CSS custom properties for all colors and spacing:
+The theme uses CSS custom properties for all colors and spacing, defined in `static/smallstack/css/theme.css`:
 
 ```css
 :root {

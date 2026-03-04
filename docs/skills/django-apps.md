@@ -25,12 +25,16 @@ django-smallstack/
 │   └── wsgi.py
 ├── templates/                 # All templates
 │   ├── smallstack/
+│   │   ├── includes/         # Topbar, sidebar, messages
+│   │   └── pages/            # SmallStack marketing content
+│   ├── website/              # Page wrappers (thin include wrappers)
 │   ├── profile/
 │   └── help/
 └── static/                    # Static files
-    ├── css/
-    ├── js/
-    └── help/
+    ├── smallstack/            # Core theme, brand, help assets (upstream)
+    ├── brand/                 # Project brand assets (downstream)
+    ├── css/                   # Project CSS overrides (downstream)
+    └── js/                    # Project JS (downstream)
 ```
 
 ## Naming Convention

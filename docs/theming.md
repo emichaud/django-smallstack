@@ -10,14 +10,14 @@ The theme is built on Django admin's existing CSS as a foundation, with custom C
 
 | File | Purpose |
 |------|---------|
-| `static/css/theme.css` | Main theme CSS with all custom properties |
-| `static/js/theme.js` | Dark mode toggle and UI interactions |
+| `static/smallstack/css/theme.css` | Main theme CSS with all custom properties |
+| `static/smallstack/js/theme.js` | Dark mode toggle and UI interactions |
 | `templates/smallstack/base.html` | Master layout template |
 | `templates/smallstack/includes/` | Reusable template partials |
 
 ## CSS Custom Properties (Variables)
 
-All colors and key measurements are defined as CSS custom properties in `static/css/theme.css`. This makes theme customization straightforward.
+All colors and key measurements are defined as CSS custom properties in `static/smallstack/css/theme.css`. This makes theme customization straightforward.
 
 ### Variable Naming Convention
 
@@ -29,7 +29,7 @@ Variables mirror Django admin naming where possible:
 
 ### Changing Colors
 
-To change the color scheme, edit the `:root` section in `static/css/theme.css`:
+To change the color scheme, edit the `:root` section in `static/smallstack/css/theme.css`:
 
 ```css
 :root {
@@ -97,7 +97,7 @@ Dark mode colors are defined in the `[data-theme="dark"]` selector:
 
 ### JavaScript API
 
-The theme toggle is handled in `static/js/theme.js`:
+The theme toggle is handled in `static/smallstack/js/theme.js`:
 
 ```javascript
 // Programmatically set theme
@@ -173,7 +173,7 @@ In `templates/smallstack/base.html`, remove or comment out:
 
 ```html
 <link rel="stylesheet" href="{% static 'admin/css/base.css' %}">
-<link rel="stylesheet" href="{% static 'css/theme.css' %}">
+<link rel="stylesheet" href="{% static 'smallstack/css/theme.css' %}">
 ```
 
 ### Step 2: Add Your Framework
@@ -196,7 +196,7 @@ Update the HTML classes in template files to match your new framework's conventi
 
 ### Step 4: Update Dark Mode
 
-If your framework has its own dark mode system, update `static/js/theme.js` accordingly.
+If your framework has its own dark mode system, update `static/smallstack/js/theme.js` accordingly.
 
 ## Component Reference
 

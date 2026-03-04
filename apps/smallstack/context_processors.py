@@ -42,12 +42,12 @@ def branding(request):
         "smallstack_docs_enabled": getattr(settings, "SMALLSTACK_DOCS_ENABLED", True),
         "brand": {
             "name": getattr(settings, "BRAND_NAME", "SmallStack"),
-            "logo": getattr(settings, "BRAND_LOGO", "brand/django-smallstack-logo.svg"),
-            "logo_dark": getattr(settings, "BRAND_LOGO_DARK", "brand/django-smallstack-logo-dark.svg"),
-            "logo_text": getattr(settings, "BRAND_LOGO_TEXT", "brand/django-smallstack-text.svg"),
-            "icon": getattr(settings, "BRAND_ICON", "brand/django-smallstack-icon.svg"),
-            "favicon": getattr(settings, "BRAND_FAVICON", "brand/django-smallstack-icon.ico"),
-            "social_image": getattr(settings, "BRAND_SOCIAL_IMAGE", "brand/django-smallstack-social.png"),
+            "logo": getattr(settings, "BRAND_LOGO", "smallstack/brand/django-smallstack-logo.svg"),
+            "logo_dark": getattr(settings, "BRAND_LOGO_DARK", "smallstack/brand/django-smallstack-logo-dark.svg"),
+            "logo_text": getattr(settings, "BRAND_LOGO_TEXT", "smallstack/brand/django-smallstack-text.svg"),
+            "icon": getattr(settings, "BRAND_ICON", "smallstack/brand/django-smallstack-icon.svg"),
+            "favicon": getattr(settings, "BRAND_FAVICON", "smallstack/brand/django-smallstack-icon.ico"),
+            "social_image": getattr(settings, "BRAND_SOCIAL_IMAGE", "smallstack/brand/django-smallstack-social.png"),
             "tagline": getattr(settings, "BRAND_TAGLINE", "A minimal Django starter stack"),
         },
         "site": {

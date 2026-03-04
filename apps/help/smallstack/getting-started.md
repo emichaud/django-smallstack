@@ -83,9 +83,15 @@ django-smallstack/
 │   ├── accounts/          # CORE: User authentication
 │   └── smallstack/       # CORE: Theme system
 ├── templates/
-│   └── website/           # CUSTOMIZE: Your page templates
+│   ├── website/           # CUSTOMIZE: Your page templates (thin wrappers)
+│   └── smallstack/
+│       └── pages/         # UPSTREAM: SmallStack marketing content
 ├── config/                # CUSTOMIZE: Settings & deployment
-├── static/                # CSS, JS, images
+├── static/
+│   ├── smallstack/        # UPSTREAM: Core theme, brand, help assets
+│   ├── brand/             # CUSTOMIZE: Your brand assets
+│   ├── css/               # CUSTOMIZE: Your CSS overrides
+│   └── js/                # CUSTOMIZE: Your JS
 └── docs/                  # Additional documentation
 ```
 
@@ -95,7 +101,7 @@ SmallStack is designed to be forked and customized. Here's what to do first:
 
 ### 1. Customize Your Homepage
 
-Edit `templates/website/home.html` with your own content:
+SmallStack's page templates use a **thin wrapper + include pattern**. The default `templates/website/home.html` includes SmallStack's marketing content via `{% include %}`. To customize, replace the include with your own markup:
 
 ```html
 {% extends "smallstack/base.html" %}
@@ -113,6 +119,8 @@ Edit `templates/website/home.html` with your own content:
 </div>
 {% endblock %}
 ```
+
+Do the same for `templates/website/about.html` and `templates/starter.html`. Once replaced, upstream SmallStack updates to marketing content (in `templates/smallstack/pages/`) won't cause merge conflicts with your pages.
 
 ### 2. Update Your Branding
 
@@ -163,11 +171,24 @@ For project-specific pages like landing pages, pricing, features:
 
 ### Using the Starter Template
 
-For admin-style pages, copy the starter template:
+The starter page at [/starter/](/starter/) demonstrates all available UI components. To create a new page based on it:
 
-1. **Copy the template:**
-   ```bash
-   cp templates/starter.html templates/my_page.html
+1. **Create a new template** (don't copy `starter.html` — it's a thin wrapper). Instead, create a fresh template:
+   ```html
+   {% extends "smallstack/base.html" %}
+   {% load static theme_tags %}
+
+   {% block title %}My Page{% endblock %}
+
+   {% block breadcrumbs %}
+   {% breadcrumb "Home" "website:home" %}
+   {% breadcrumb "My Page" %}
+   {% render_breadcrumbs %}
+   {% endblock %}
+
+   {% block content %}
+   <!-- Copy components from /starter/ that you need -->
+   {% endblock %}
    ```
 
 2. **Create a view** (see above)
