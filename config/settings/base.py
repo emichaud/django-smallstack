@@ -128,6 +128,10 @@ SITE_NAME = config("SITE_NAME", default="Admin Starter")
 SITE_DOMAIN = config("SITE_DOMAIN", default="localhost:8000")
 USE_HTTPS = config("USE_HTTPS", default=False, cast=bool)
 
+# SmallStack Help Documentation
+# Set to False to hide SmallStack reference docs from /help/
+SMALLSTACK_DOCS_ENABLED = config("SMALLSTACK_DOCS_ENABLED", default=True, cast=bool)
+
 # Email settings
 DEFAULT_FROM_EMAIL = config("DEFAULT_FROM_EMAIL", default="noreply@example.com")
 EMAIL_BACKEND = config(

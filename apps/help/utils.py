@@ -2,24 +2,58 @@
 Markdown processing utilities for the help system.
 
 Supports hierarchical documentation with sections (folders).
+Loads from two sources:
+  - content/ - User's project documentation (conflict-free)
+  - docs/ - SmallStack bundled documentation (controlled by setting)
 """
 
 import html
+import logging
 import re
 from pathlib import Path
 
 import markdown
 import yaml
+from django.conf import settings
+
+logger = logging.getLogger(__name__)
 
 CONTENT_DIR = Path(__file__).parent / "content"
+DOCS_DIR = Path(__file__).parent / "docs"
+SMALLSTACK_SECTION_SLUG = "smallstack"
 
 
-def get_config() -> dict:
-    """Load and return the help configuration."""
-    config_path = CONTENT_DIR / "_config.yaml"
+def is_smallstack_docs_enabled() -> bool:
+    """Check if SmallStack docs should be shown."""
+    return getattr(settings, "SMALLSTACK_DOCS_ENABLED", True)
+
+
+def get_smallstack_config() -> dict:
+    """Load SmallStack docs configuration from bundled docs."""
+    if not is_smallstack_docs_enabled():
+        return {}
+
+    config_path = DOCS_DIR / "_config.yaml"
     if config_path.exists():
         with open(config_path, "r", encoding="utf-8") as f:
             return yaml.safe_load(f) or {}
+    return {}
+
+
+def get_config() -> dict:
+    """Load and return the help configuration (user docs only)."""
+    config_path = CONTENT_DIR / "_config.yaml"
+    if config_path.exists():
+        with open(config_path, "r", encoding="utf-8") as f:
+            config = yaml.safe_load(f) or {}
+            # Filter out any smallstack section reference (cleanup for old configs)
+            if "sections" in config:
+                config["sections"] = [
+                    s
+                    for s in config["sections"]
+                    if s.get("slug") != SMALLSTACK_SECTION_SLUG
+                ]
+            return config
     return {"sections": [], "variables": {}}
 
 
@@ -28,6 +62,13 @@ def get_section_config(section: str) -> dict:
     if not section:
         return get_config()
 
+    # SmallStack section comes from bundled docs
+    if section == SMALLSTACK_SECTION_SLUG:
+        if is_smallstack_docs_enabled():
+            return get_smallstack_config()
+        return {"pages": [], "variables": {}}
+
+    # User sections from content/
     config_path = CONTENT_DIR / section / "_config.yaml"
     if config_path.exists():
         with open(config_path, "r", encoding="utf-8") as f:
@@ -108,7 +149,12 @@ def get_help_page(slug: str, section: str = "") -> dict | None:
 
     Returns None if the page doesn't exist.
     """
-    if section:
+    # Determine the correct directory
+    if section == SMALLSTACK_SECTION_SLUG:
+        if not is_smallstack_docs_enabled():
+            return None
+        file_path = DOCS_DIR / f"{slug}.md"
+    elif section:
         file_path = CONTENT_DIR / section / f"{slug}.md"
     else:
         file_path = CONTENT_DIR / f"{slug}.md"
@@ -167,7 +213,13 @@ def get_help_page(slug: str, section: str = "") -> dict | None:
 
 def get_section_pages(section: str) -> list:
     """Get all pages for a specific section."""
-    if section:
+    # SmallStack section
+    if section == SMALLSTACK_SECTION_SLUG:
+        if not is_smallstack_docs_enabled():
+            return []
+        config = get_smallstack_config()
+        folder = DOCS_DIR
+    elif section:
         config = get_section_config(section)
         folder = CONTENT_DIR / section
     else:
@@ -200,12 +252,22 @@ def get_section_pages(section: str) -> list:
 
 
 def get_all_sections() -> list:
-    """Get all sections with their metadata."""
+    """Get all sections with their metadata from both user and SmallStack docs."""
     config = get_config()
     sections = []
 
+    # User sections from content/
     for section_config in config.get("sections", []):
         slug = section_config.get("slug", "")
+
+        # Warn if user has a smallstack folder while SmallStack docs enabled
+        if slug == SMALLSTACK_SECTION_SLUG and is_smallstack_docs_enabled():
+            logger.warning(
+                f"User section '{SMALLSTACK_SECTION_SLUG}' is hidden because "
+                "SMALLSTACK_DOCS_ENABLED=True. Disable SmallStack docs or rename your section."
+            )
+            continue
+
         sections.append(
             {
                 "slug": slug,
@@ -214,6 +276,19 @@ def get_all_sections() -> list:
                 "pages": get_section_pages(slug),
             }
         )
+
+    # Append SmallStack section if enabled
+    if is_smallstack_docs_enabled():
+        ss_config = get_smallstack_config()
+        if ss_config:
+            sections.append(
+                {
+                    "slug": SMALLSTACK_SECTION_SLUG,
+                    "title": ss_config.get("title", "SmallStack Reference"),
+                    "description": ss_config.get("description", ""),
+                    "pages": get_section_pages(SMALLSTACK_SECTION_SLUG),
+                }
+            )
 
     return sections
 

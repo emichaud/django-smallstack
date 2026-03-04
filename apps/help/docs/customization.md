@@ -15,10 +15,10 @@ SmallStack separates "customize freely" areas from "core" areas:
 apps/
 ├── website/         # CUSTOMIZE: Your project pages (home, about, etc.)
 ├── help/
-│   └── content/
-│       ├── index.md          # CUSTOMIZE: Your welcome page
-│       ├── _config.yaml      # CUSTOMIZE: Your doc structure
-│       └── smallstack/       # UPSTREAM: SmallStack reference docs
+│   ├── content/     # CUSTOMIZE: Your documentation (conflict-free)
+│   │   ├── index.md
+│   │   └── _config.yaml
+│   └── docs/        # UPSTREAM: SmallStack reference docs (bundled)
 ├── profile/         # EXTEND: Add fields, customize templates
 ├── tasks/           # EXTEND: Add your background tasks
 ├── accounts/        # CORE: User model (extend carefully)
@@ -103,19 +103,30 @@ SITE_DOMAIN=myapp.com
 
 ## Customizing Documentation
 
-The help system supports hierarchical sections. You can:
-- Replace SmallStack docs with your own
-- Add your own docs alongside SmallStack
-- Create multiple documentation sections
+The help system loads docs from two separate locations:
 
-### Option 1: Replace SmallStack Docs Entirely
+- **`apps/help/content/`** - Your project's docs (conflict-free zone)
+- **`apps/help/docs/`** - SmallStack reference docs (bundled, controlled by setting)
 
-If you don't want SmallStack reference docs:
+This separation means your docs never conflict with upstream updates.
 
-1. Delete the `apps/help/content/smallstack/` folder
-2. Edit `apps/help/content/_config.yaml`:
+### Hiding SmallStack Docs
+
+SmallStack reference docs are shown by default. To hide them:
+
+```python
+# config/settings/base.py (or in .env)
+SMALLSTACK_DOCS_ENABLED = False
+```
+
+When disabled, SmallStack docs disappear from navigation and URLs return 404.
+
+### Adding Your Own Documentation
+
+Your docs live in `apps/help/content/`. Edit `_config.yaml` to define your structure:
 
 ```yaml
+# apps/help/content/_config.yaml
 title: "Documentation"
 
 variables:
@@ -123,33 +134,7 @@ variables:
   project_name: "My Project"
 
 sections:
-  - slug: ""
-    title: "Documentation"
-    pages:
-      - slug: index
-        title: "Welcome"
-        icon: "home"
-      - slug: getting-started
-        title: "Getting Started"
-        icon: "rocket"
-      # Add your pages here
-```
-
-3. Create your docs in `apps/help/content/`:
-   - `index.md` - Welcome page
-   - `getting-started.md` - Your getting started guide
-   - etc.
-
-### Option 2: Add Your Docs Alongside SmallStack
-
-Keep SmallStack docs as a reference while adding your own:
-
-```yaml
-# apps/help/content/_config.yaml
-title: "Documentation"
-
-sections:
-  # Your project docs (root level)
+  # Root section (your main docs)
   - slug: ""
     title: "Project Documentation"
     pages:
@@ -159,66 +144,27 @@ sections:
       - slug: user-guide
         title: "User Guide"
         icon: "book"
-      - slug: api-reference
-        title: "API Reference"
-        icon: "code"
 
-  # SmallStack reference (in subfolder)
-  - slug: smallstack
-    title: "SmallStack Reference"
-    folder: smallstack/
-    config: smallstack/_config.yaml
-```
-
-Your docs live at `/help/index/`, `/help/user-guide/`, etc.
-SmallStack docs live at `/help/smallstack/getting-started/`, etc.
-
-### Option 3: Multiple Documentation Sections
-
-Create multiple sections for different audiences:
-
-```yaml
-sections:
-  # User documentation
-  - slug: ""
-    title: "User Guide"
-    pages:
-      - slug: index
-        title: "Getting Started"
-        icon: "rocket"
-      - slug: features
-        title: "Features"
-        icon: "star"
-
-  # Developer documentation
+  # Additional sections
   - slug: dev
     title: "Developer Docs"
     pages:
       - slug: api
         title: "API Reference"
         icon: "code"
-      - slug: contributing
-        title: "Contributing"
-        icon: "git"
-
-  # SmallStack reference
-  - slug: smallstack
-    title: "Framework Reference"
-    folder: smallstack/
-    config: smallstack/_config.yaml
 ```
 
-Create the folder structure:
+Create the files:
 ```
 apps/help/content/
 ├── _config.yaml
-├── index.md           # User: Getting Started
-├── features.md        # User: Features
-├── dev/
-│   ├── api.md         # Dev: API Reference
-│   └── contributing.md # Dev: Contributing
-└── smallstack/        # SmallStack reference
+├── index.md           # /help/index/
+├── user-guide.md      # /help/user-guide/
+└── dev/
+    └── api.md         # /help/dev/api/
 ```
+
+SmallStack docs automatically appear at `/help/smallstack/*` when enabled.
 
 ### Writing Documentation Pages
 
@@ -298,12 +244,16 @@ When you fork SmallStack, you'll want to replace "SmallStack" with your own proj
 find templates/registration -name "*.html" -exec sed -i '' 's/SmallStack/YourAppName/g' {} \;
 ```
 
-### Remove SmallStack Documentation
+### Hide SmallStack Documentation
 
-If you don't want SmallStack reference docs:
+SmallStack reference docs are bundled separately and controlled by a setting:
 
-1. Edit `apps/help/content/_config.yaml` and remove the SmallStack section
-2. Delete `apps/help/content/smallstack/`
+```python
+# config/settings/base.py
+SMALLSTACK_DOCS_ENABLED = False  # Hide SmallStack docs
+```
+
+No files to delete - just toggle the setting.
 
 > **Note:** Branding files (`base.html`, `topbar.html`, registration templates) will create merge conflicts when pulling upstream updates. This is expected - resolve by keeping your customizations.
 
@@ -347,7 +297,7 @@ These areas are designed for customization and won't conflict:
 
 - `apps/website/` - Your project pages
 - `templates/website/` - Your page templates
-- `apps/help/content/` (root level) - Your documentation
+- `apps/help/content/` - Your documentation (entire folder is yours)
 - `.kamal/secrets` - Your secrets (gitignored)
 
 ## Kamal Deployment Configuration
@@ -391,7 +341,7 @@ CSRF_TRUSTED_ORIGINS=https://myproject.com,https://www.myproject.com
 | What to Customize | Where |
 |------------------|-------|
 | Homepage & pages | `templates/website/home.html`, `apps/website/` |
-| Your documentation | `apps/help/content/` (root level, not `smallstack/`) |
+| Your documentation | `apps/help/content/` (entire folder is yours) |
 | Deployment config | `config/deploy.yml`, `.kamal/secrets` |
 | User profile fields | `apps/profile/models.py` |
 | Background tasks | `apps/tasks/` |

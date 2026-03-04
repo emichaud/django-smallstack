@@ -9,41 +9,62 @@ The help system is a file-based documentation viewer built into {{ project_name 
 
 ## How It Works
 
-Documentation is stored as Markdown files in `apps/help/content/`. The system supports:
+Documentation is loaded from two sources:
 
-- **Sections** - Organize docs into folders (e.g., `/help/smallstack/getting-started/`)
-- **Root pages** - Top-level docs (e.g., `/help/index/`)
+- **`apps/help/content/`** - Your project's documentation (conflict-free zone)
+- **`apps/help/docs/`** - SmallStack reference docs (bundled, controlled by setting)
+
+The system supports:
+
+- **Sections** - Organize docs into folders
 - **Variables** - Template substitution (e.g., `{{ version }}`)
 - **Search** - Client-side full-text search
 - **FAQ mode** - Collapsible question/answer sections
 
 ## Documentation Structure
 
-SmallStack uses sections to separate your project docs from the framework reference:
-
 ```
-apps/help/content/
-├── _config.yaml           # Main config with sections
-├── index.md               # Your project welcome page
-├── user-guide.md          # Your project docs
-└── smallstack/            # SmallStack reference docs
-    ├── _config.yaml       # Section config
-    ├── getting-started.md
-    └── ...
+apps/help/
+├── content/                 # YOUR docs (edit freely)
+│   ├── _config.yaml         # Your sections and pages
+│   ├── index.md             # Your welcome page
+│   └── guides/              # Your custom sections
+│       └── user-guide.md
+├── docs/                    # SmallStack docs (bundled)
+│   ├── _config.yaml         # SmallStack config
+│   ├── getting-started.md
+│   └── ...
+└── utils.py                 # Processing logic
 ```
 
 **URLs:**
-- `/help/` - Documentation index
+- `/help/` - Documentation index (all sections)
 - `/help/index/` - Your welcome page
+- `/help/guides/user-guide/` - Your section pages
 - `/help/smallstack/getting-started/` - SmallStack docs
+
+## Controlling SmallStack Docs
+
+SmallStack reference docs are shown by default. To hide them:
+
+```python
+# config/settings/base.py (or .env)
+SMALLSTACK_DOCS_ENABLED = False
+```
+
+When disabled:
+- SmallStack section disappears from navigation
+- `/help/smallstack/*` URLs return 404
+- Search excludes SmallStack content
 
 ## Configuration
 
-### Root _config.yaml
+### Your _config.yaml
 
-The main config defines sections and variables:
+Define your project's documentation:
 
 ```yaml
+# apps/help/content/_config.yaml
 title: "Documentation"
 
 variables:
@@ -51,7 +72,7 @@ variables:
   project_name: "My Project"
 
 sections:
-  # Root section (your project docs)
+  # Root section (your main docs)
   - slug: ""
     title: "Project Documentation"
     pages:
@@ -62,34 +83,37 @@ sections:
         title: "User Guide"
         icon: "book"
 
-  # SmallStack reference (subfolder)
-  - slug: smallstack
-    title: "SmallStack Reference"
-    folder: smallstack/
-    config: smallstack/_config.yaml
+  # Additional sections
+  - slug: dev
+    title: "Developer Docs"
+    pages:
+      - slug: api
+        title: "API Reference"
+        icon: "code"
 ```
 
-### Section _config.yaml
+### Section with Subfolder
 
-Each section folder can have its own config:
+For sections with many pages, create a subfolder with its own config:
 
 ```yaml
-title: "SmallStack Reference"
-
-variables:
-  project_name: "Django SmallStack"
+# apps/help/content/guides/_config.yaml
+title: "User Guides"
 
 pages:
   - slug: getting-started
     title: "Getting Started"
     icon: "rocket"
+  - slug: advanced
+    title: "Advanced Usage"
+    icon: "star"
 ```
 
 Section variables override root variables.
 
 ## Adding Pages
 
-### To Your Project Docs (Root Level)
+### To Root Level
 
 1. Create `apps/help/content/my-page.md`:
 
@@ -116,17 +140,16 @@ sections:
         icon: "home"
       - slug: my-page           # New page
         title: "My Page"
-        description: "Brief description"
         icon: "document"
 ```
 
 URL: `/help/my-page/`
 
-### To a Section (Subfolder)
+### To a Section
 
-1. Create `apps/help/content/dev/api.md`
+1. Create folder and file: `apps/help/content/dev/api.md`
 
-2. Add section to root config:
+2. Add section to config:
 
 ```yaml
 sections:
@@ -139,72 +162,6 @@ sections:
 ```
 
 URL: `/help/dev/api/`
-
-## Creating Your Own Sections
-
-### Example: User Guide + Developer Docs
-
-```yaml
-# apps/help/content/_config.yaml
-sections:
-  # User documentation
-  - slug: ""
-    title: "User Guide"
-    pages:
-      - slug: index
-        title: "Getting Started"
-        icon: "rocket"
-      - slug: features
-        title: "Features"
-        icon: "star"
-
-  # Developer documentation
-  - slug: dev
-    title: "Developer Docs"
-    pages:
-      - slug: api
-        title: "API Reference"
-        icon: "code"
-      - slug: webhooks
-        title: "Webhooks"
-        icon: "link"
-
-  # Keep SmallStack reference (optional)
-  - slug: smallstack
-    title: "Framework Reference"
-    folder: smallstack/
-    config: smallstack/_config.yaml
-```
-
-Create the files:
-```
-apps/help/content/
-├── _config.yaml
-├── index.md           # User: Getting Started
-├── features.md        # User: Features
-├── dev/
-│   ├── api.md         # Dev: API Reference
-│   └── webhooks.md    # Dev: Webhooks
-└── smallstack/        # SmallStack docs
-```
-
-## Removing SmallStack Docs
-
-If you don't want SmallStack reference docs:
-
-1. Delete the `smallstack/` folder
-2. Remove the smallstack section from `_config.yaml`:
-
-```yaml
-sections:
-  - slug: ""
-    title: "Documentation"
-    pages:
-      - slug: index
-        title: "Welcome"
-        icon: "home"
-  # smallstack section removed
-```
 
 ## Template Variables
 
@@ -302,24 +259,10 @@ For collapsible Q&A sections:
 | ℹ️ | `info` | About |
 | 🤖 | `ai` | AI features |
 
-## File Organization
-
-```
-apps/help/
-├── content/
-│   ├── _config.yaml      # Root config with sections
-│   ├── index.md          # Your welcome page
-│   └── smallstack/       # SmallStack section
-│       ├── _config.yaml  # Section config
-│       └── *.md          # Section pages
-├── utils.py              # Markdown processing
-├── views.py              # Page views
-└── urls.py               # URL routing
-```
-
 ## Tips
 
 - Keep slugs lowercase with hyphens (`my-page-name`)
 - Use frontmatter for page-specific titles
 - Section variables override root variables
-- The search index includes all sections
+- The search index includes all enabled sections
+- Your `content/` folder is conflict-free on upstream pulls

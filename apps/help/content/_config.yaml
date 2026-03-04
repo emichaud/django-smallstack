@@ -1,19 +1,19 @@
 # Help System Configuration
-# This file defines the navigation structure with section support
+# This file defines YOUR project's documentation structure
+# SmallStack docs are bundled separately and auto-injected when enabled
 
 title: "Help & Documentation"
 
 # Variables available in markdown files using {{ variable }} syntax
 variables:
-  version: "0.2.0"
+  version: "1.0.0"
   project_name: "Your Project"
   python_version: "3.12"
   django_version: "6.0"
 
-# Sections configuration
-# Each section can have its own folder with pages
+# Your project's documentation sections
 sections:
-  # Root section (project-specific docs - customize these)
+  # Root section (project-specific docs)
   - slug: ""
     title: "Project Documentation"
     description: "Your project's documentation"
@@ -23,9 +23,13 @@ sections:
         description: "Project documentation home"
         icon: "home"
 
-  # SmallStack reference docs (from upstream)
-  - slug: smallstack
-    title: "SmallStack Reference"
-    description: "Django SmallStack documentation"
-    folder: smallstack/
-    config: smallstack/_config.yaml
+  # Add your own sections here:
+  # - slug: guides
+  #   title: "User Guides"
+  #   description: "How to use this application"
+  #   # Create folder: apps/help/content/guides/
+  #   # Add pages: apps/help/content/guides/your-page.md
+
+# Note: SmallStack reference docs are bundled in apps/help/docs/
+# and appear automatically when SMALLSTACK_DOCS_ENABLED=True (default)
+# To hide them, set SMALLSTACK_DOCS_ENABLED=False in settings

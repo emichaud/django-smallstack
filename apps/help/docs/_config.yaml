@@ -1,9 +1,12 @@
-# SmallStack Section Configuration
-# These are the reference docs from upstream - they update automatically
+# SmallStack Framework Documentation
+# Bundled with the package - updates with upstream pulls
+# Toggle visibility with SMALLSTACK_DOCS_ENABLED setting
 
 title: "SmallStack Reference"
+description: "Django SmallStack documentation"
+slug: smallstack
 
-# Section-specific variables (override root variables)
+# Section-specific variables
 variables:
   version: "0.2.0"
   project_name: "Django SmallStack"
