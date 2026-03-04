@@ -249,6 +249,17 @@ The topbar displays `BRAND_LOGO_TEXT` at **32px height**. Design your logos acco
 - For dark topbar backgrounds, use white text with colored accent
 - Test at 32px height to ensure readability
 
+**Changing Logo Display Size:**
+
+The logo size is controlled by CSS, not the SVG dimensions. To change the topbar logo height, edit `static/css/theme.css`:
+
+```css
+.site-logo .logo-img {
+    height: 64px;  /* Change from default 32px */
+    width: auto;
+}
+```
+
 ### Creating Your Text Logo
 
 The topbar text logo should be a horizontal SVG with your brand name. Example structure:
