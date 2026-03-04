@@ -96,23 +96,36 @@ SmallStack is designed to be forked and customized. Here's what to do first:
 Edit `templates/website/home.html` with your own content:
 
 ```html
-{% extends "base.html" %}
+{% extends "admin_theme/base.html" %}
+{% load theme_tags %}
+
+{% block title %}Home{% endblock %}
+{% block breadcrumbs %}{% endblock %}
 
 {% block content %}
-<div class="container mx-auto px-4 py-12">
-    <h1>Welcome to My App</h1>
-    <p>Your content here.</p>
+<div class="hero-section">
+    <div class="hero-content">
+        <h1 class="hero-title">My App</h1>
+        <p class="hero-subtitle">Your tagline here.</p>
+    </div>
 </div>
 {% endblock %}
 ```
 
 ### 2. Update Your Branding
 
-Edit `.env`:
+Replace "SmallStack" in these files:
 
+| File | What to Change |
+|------|----------------|
+| `templates/admin_theme/base.html` | Title suffix, footer copyright |
+| `templates/admin_theme/includes/topbar.html` | Logo text |
+| `templates/registration/*.html` | Page titles |
+
+**Quick replace:**
 ```bash
-SITE_NAME=My Awesome App
-SITE_DOMAIN=myapp.com
+# Replace in all registration templates
+find templates/registration -name "*.html" -exec sed -i '' 's/SmallStack/MyApp/g' {} \;
 ```
 
 ### 3. Set Up Your Documentation

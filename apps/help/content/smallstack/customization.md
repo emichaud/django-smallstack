@@ -44,15 +44,32 @@ The `apps/website/` app is your project's home. Customize it freely without worr
 3. The template already extends `base.html` so theming works automatically
 
 ```html
-{% extends "base.html" %}
+{% extends "admin_theme/base.html" %}
+{% load theme_tags %}
+
+{% block title %}Home{% endblock %}
+
+{% block breadcrumbs %}{% endblock %}
 
 {% block content %}
-<div class="container mx-auto px-4 py-12">
-    <h1>Welcome to My Project</h1>
-    <p>Your custom content here.</p>
+<!-- Hero Section -->
+<div class="hero-section">
+    <div class="hero-content">
+        <h1 class="hero-title">My Project</h1>
+        <p class="hero-subtitle">Your project tagline here.</p>
+    </div>
+</div>
+
+<!-- Your custom content -->
+<div class="card">
+    <div class="card-body">
+        <p>Your content here.</p>
+    </div>
 </div>
 {% endblock %}
 ```
+
+**Tip:** Use `{% block breadcrumbs %}{% endblock %}` to hide breadcrumbs on landing pages.
 
 ### Add More Pages
 
@@ -239,49 +256,99 @@ Your project documentation lives here.
 - [SmallStack Docs](/help/smallstack/readme/) - Framework reference
 ```
 
-## Hiding SmallStack Branding
+## Customizing Branding
 
-### Remove SmallStack Section from Docs
+When you fork SmallStack, you'll want to replace "SmallStack" with your own project name. Here are the files to update:
 
-Edit `apps/help/content/_config.yaml` and remove the SmallStack section:
+### Core Branding Files
 
-```yaml
-sections:
-  - slug: ""
-    title: "Documentation"
-    pages:
-      - slug: index
-        title: "Welcome"
-        icon: "home"
-  # Remove the smallstack section entirely
+| File | What to Change |
+|------|----------------|
+| `templates/admin_theme/base.html` | Page title suffix, footer copyright |
+| `templates/admin_theme/includes/topbar.html` | Logo text in header |
+| `templates/registration/*.html` | Login, signup, password reset page titles |
+
+### Step-by-Step Branding
+
+1. **Update the base template** (`templates/admin_theme/base.html`):
+
+```html
+<!-- Change the title suffix -->
+<title>{% block title %}{% endblock %} | YourAppName</title>
+
+<!-- Change the footer copyright -->
+<span>&copy; {% now "Y" %} YourAppName</span>
 ```
 
-Then delete `apps/help/content/smallstack/`.
+2. **Update the topbar logo** (`templates/admin_theme/includes/topbar.html`):
 
-### Update Footer Links
+```html
+<span class="logo-text">YourAppName</span>
+```
 
-Edit `templates/admin_theme/includes/footer.html` to remove or change the "Built with SmallStack" link.
+3. **Update registration pages** - Replace "SmallStack" in titles:
+   - `templates/registration/login.html`
+   - `templates/registration/signup.html`
+   - `templates/registration/logged_out.html`
+   - `templates/registration/password_reset_*.html`
 
-### Update Login/Signup Pages
+**Tip:** Use find-and-replace across the `templates/registration/` folder:
+```bash
+# On macOS/Linux
+find templates/registration -name "*.html" -exec sed -i '' 's/SmallStack/YourAppName/g' {} \;
+```
 
-The auth templates are in `templates/registration/`. Customize them with your branding.
+### Remove SmallStack Documentation
+
+If you don't want SmallStack reference docs:
+
+1. Edit `apps/help/content/_config.yaml` and remove the SmallStack section
+2. Delete `apps/help/content/smallstack/`
+
+> **Note:** Branding files (`base.html`, `topbar.html`, registration templates) will create merge conflicts when pulling upstream updates. This is expected - resolve by keeping your customizations.
 
 ## Receiving Upstream Updates
 
-If you keep the `smallstack/` folder, you can receive upstream updates:
+SmallStack is designed for fork-based development. You can receive upstream updates while keeping your customizations.
+
+### Initial Setup (One Time)
 
 ```bash
-# Add SmallStack as upstream remote (one time)
+# Add SmallStack as upstream remote
 git remote add upstream https://github.com/emichaud/django-smallstack.git
 
-# Fetch and merge updates
-git fetch upstream
-git merge upstream/main
-
-# Resolve any conflicts in your customized files
+# Your remotes should look like:
+# origin    -> your fork (e.g., github.com/you/yourproject.git)
+# upstream  -> django-smallstack (github.com/emichaud/django-smallstack.git)
 ```
 
-Files in `apps/website/` and `apps/help/content/` (except `smallstack/`) are yours to customize and won't conflict with upstream changes.
+### Pulling Updates
+
+```bash
+git fetch upstream
+git merge upstream/main
+```
+
+### Expected Conflicts
+
+When merging upstream, you may see conflicts in:
+
+| File | Resolution |
+|------|------------|
+| `uv.lock` | Take upstream version: `git checkout --theirs uv.lock` |
+| `templates/admin_theme/base.html` | Keep your branding changes |
+| `templates/admin_theme/includes/topbar.html` | Keep your logo |
+| `templates/registration/*.html` | Keep your branding |
+| `config/deploy.yml` | Keep your deployment config |
+
+### Conflict-Free Zones
+
+These areas are designed for customization and won't conflict:
+
+- `apps/website/` - Your project pages
+- `templates/website/` - Your page templates
+- `apps/help/content/` (root level) - Your documentation
+- `.kamal/secrets` - Your secrets (gitignored)
 
 ## Kamal Deployment Configuration
 
@@ -319,16 +386,25 @@ CSRF_TRUSTED_ORIGINS=https://myproject.com,https://www.myproject.com
 
 ## Quick Reference
 
+### Conflict-Free (Safe to Customize)
+
 | What to Customize | Where |
 |------------------|-------|
-| Homepage & landing pages | `apps/website/`, `templates/website/` |
-| Your documentation | `apps/help/content/` (root level) |
-| Site name & domain | `.env` |
+| Homepage & pages | `templates/website/home.html`, `apps/website/` |
+| Your documentation | `apps/help/content/` (root level, not `smallstack/`) |
 | Deployment config | `config/deploy.yml`, `.kamal/secrets` |
 | User profile fields | `apps/profile/models.py` |
 | Background tasks | `apps/tasks/` |
-| Theme colors | `static/admin_theme/css/theme.css` |
+
+### Will Conflict on Upstream Merge (Expected)
+
+| What to Customize | Where |
+|------------------|-------|
+| Site title & footer | `templates/admin_theme/base.html` |
+| Header logo | `templates/admin_theme/includes/topbar.html` |
+| Auth page titles | `templates/registration/*.html` |
 | Sidebar navigation | `templates/admin_theme/includes/sidebar.html` |
+| Theme colors | `static/css/theme.css` |
 
 ## Next Steps
 
