@@ -1,21 +1,42 @@
 # Welcome to {{ project_name }}
 
-This is your project's documentation home. Customize this page to provide an introduction and overview of your project.
+This is your project's documentation home. Edit this file to introduce your project.
 
 ## Getting Started
 
-Add your project-specific documentation here. You can:
+Add your project-specific documentation here. Common pages to create:
 
-- Create new `.md` files in this folder for project docs
-- Reference the [SmallStack documentation](/help/smallstack/readme/) for framework guidance
-- Use `{{ variable }}` syntax to reference values from `_config.yaml`
+- **User Guide** - How to use your application
+- **API Reference** - Developer documentation
+- **FAQ** - Common questions and answers
+
+## Documentation Structure
+
+Your docs live in `apps/help/content/`. The structure is:
+
+```
+apps/help/content/
+├── _config.yaml      # Your doc configuration
+├── index.md          # This welcome page
+└── smallstack/       # SmallStack reference docs
+```
+
+### Adding New Pages
+
+1. Create a `.md` file in this folder
+2. Add it to `_config.yaml` under your section's pages
+3. It will appear at `/help/your-page-slug/`
+
+See [Using the Help System](/help/smallstack/help-system/) for detailed instructions.
 
 ## Quick Links
 
-- [SmallStack Getting Started](/help/smallstack/getting-started/) - Learn how to use the framework
-- [Project Structure](/help/smallstack/project-structure/) - Understand the codebase
-- [Deployment Guide](/help/smallstack/deployment/) - Deploy your project
+### Your Project
+- Edit `templates/website/home.html` for your homepage
+- Edit `.env` to set `SITE_NAME` and `SITE_DOMAIN`
+- Add pages in `apps/website/` for landing pages, about, etc.
 
-## Built with SmallStack
-
-This project is built on [Django SmallStack](https://github.com/emichaud/django-smallstack), a batteries-included Django starter template designed for shipping fast.
+### SmallStack Reference
+- [Getting Started](/help/smallstack/getting-started/) - Quick setup guide
+- [Customization Guide](/help/smallstack/customization/) - Make it your own
+- [Deployment](/help/smallstack/kamal-deployment/) - Deploy to production

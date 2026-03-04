@@ -5,98 +5,232 @@ description: How to add and edit documentation pages
 
 # Using the Help System
 
-The help system is a simple, file-based documentation viewer built into {{ project_name }}. It renders Markdown files as HTML pages with automatic navigation, search, and table of contents.
+The help system is a file-based documentation viewer built into {{ project_name }}. It renders Markdown files as HTML pages with automatic navigation, search, and table of contents.
 
 ## How It Works
 
-Documentation is stored as Markdown files in `apps/help/content/`. When you visit `/help/`, the system:
+Documentation is stored as Markdown files in `apps/help/content/`. The system supports:
 
-1. Reads the `_config.yaml` file for page ordering and metadata
-2. Loads the requested `.md` file
-3. Substitutes template variables (like `{{ version }}`)
-4. Converts Markdown to HTML
-5. Renders it using the admin theme
+- **Sections** - Organize docs into folders (e.g., `/help/smallstack/getting-started/`)
+- **Root pages** - Top-level docs (e.g., `/help/index/`)
+- **Variables** - Template substitution (e.g., `{{ version }}`)
+- **Search** - Client-side full-text search
+- **FAQ mode** - Collapsible question/answer sections
 
-## Adding a New Page
+## Documentation Structure
 
-### Step 1: Create the Markdown File
+SmallStack uses sections to separate your project docs from the framework reference:
 
-Create a new `.md` file in `apps/help/content/`:
+```
+apps/help/content/
+├── _config.yaml           # Main config with sections
+├── index.md               # Your project welcome page
+├── user-guide.md          # Your project docs
+└── smallstack/            # SmallStack reference docs
+    ├── _config.yaml       # Section config
+    ├── getting-started.md
+    └── ...
+```
+
+**URLs:**
+- `/help/` - Documentation index
+- `/help/index/` - Your welcome page
+- `/help/smallstack/getting-started/` - SmallStack docs
+
+## Configuration
+
+### Root _config.yaml
+
+The main config defines sections and variables:
+
+```yaml
+title: "Documentation"
+
+variables:
+  version: "1.0.0"
+  project_name: "My Project"
+
+sections:
+  # Root section (your project docs)
+  - slug: ""
+    title: "Project Documentation"
+    pages:
+      - slug: index
+        title: "Welcome"
+        icon: "home"
+      - slug: user-guide
+        title: "User Guide"
+        icon: "book"
+
+  # SmallStack reference (subfolder)
+  - slug: smallstack
+    title: "SmallStack Reference"
+    folder: smallstack/
+    config: smallstack/_config.yaml
+```
+
+### Section _config.yaml
+
+Each section folder can have its own config:
+
+```yaml
+title: "SmallStack Reference"
+
+variables:
+  project_name: "Django SmallStack"
+
+pages:
+  - slug: getting-started
+    title: "Getting Started"
+    icon: "rocket"
+```
+
+Section variables override root variables.
+
+## Adding Pages
+
+### To Your Project Docs (Root Level)
+
+1. Create `apps/help/content/my-page.md`:
 
 ```markdown
 ---
-title: My New Page
-description: A brief description for the index
+title: My Page
+description: A brief description
 ---
 
-# My New Page
+# My Page
 
-Your content here...
+Content here. Use {{ project_name }} for variables.
 ```
 
-The filename becomes the URL slug. For example:
-- `my-new-page.md` → `/help/my-new-page/`
-
-### Step 2: Add to Configuration
-
-Edit `apps/help/content/_config.yaml`:
+2. Add to `apps/help/content/_config.yaml`:
 
 ```yaml
-pages:
-  # ... existing pages ...
-
-  - slug: my-new-page
-    title: "My New Page"
-    description: "A brief description"
-    icon: "document"  # Optional icon name
+sections:
+  - slug: ""
+    title: "Documentation"
+    pages:
+      - slug: index
+        title: "Welcome"
+        icon: "home"
+      - slug: my-page           # New page
+        title: "My Page"
+        description: "Brief description"
+        icon: "document"
 ```
 
-### Step 3: Restart the Server
+URL: `/help/my-page/`
 
-Changes are picked up automatically in development. For production, rebuild the Docker image.
+### To a Section (Subfolder)
+
+1. Create `apps/help/content/dev/api.md`
+
+2. Add section to root config:
+
+```yaml
+sections:
+  - slug: dev
+    title: "Developer Docs"
+    pages:
+      - slug: api
+        title: "API Reference"
+        icon: "code"
+```
+
+URL: `/help/dev/api/`
+
+## Creating Your Own Sections
+
+### Example: User Guide + Developer Docs
+
+```yaml
+# apps/help/content/_config.yaml
+sections:
+  # User documentation
+  - slug: ""
+    title: "User Guide"
+    pages:
+      - slug: index
+        title: "Getting Started"
+        icon: "rocket"
+      - slug: features
+        title: "Features"
+        icon: "star"
+
+  # Developer documentation
+  - slug: dev
+    title: "Developer Docs"
+    pages:
+      - slug: api
+        title: "API Reference"
+        icon: "code"
+      - slug: webhooks
+        title: "Webhooks"
+        icon: "link"
+
+  # Keep SmallStack reference (optional)
+  - slug: smallstack
+    title: "Framework Reference"
+    folder: smallstack/
+    config: smallstack/_config.yaml
+```
+
+Create the files:
+```
+apps/help/content/
+├── _config.yaml
+├── index.md           # User: Getting Started
+├── features.md        # User: Features
+├── dev/
+│   ├── api.md         # Dev: API Reference
+│   └── webhooks.md    # Dev: Webhooks
+└── smallstack/        # SmallStack docs
+```
+
+## Removing SmallStack Docs
+
+If you don't want SmallStack reference docs:
+
+1. Delete the `smallstack/` folder
+2. Remove the smallstack section from `_config.yaml`:
+
+```yaml
+sections:
+  - slug: ""
+    title: "Documentation"
+    pages:
+      - slug: index
+        title: "Welcome"
+        icon: "home"
+  # smallstack section removed
+```
 
 ## Template Variables
 
-You can use template variables in your Markdown files:
+Use variables in your Markdown files:
 
-| Variable | Value | Usage |
-|----------|-------|-------|
-| `version` | {{ version }} | `{{ "{{" }} version {{ "}}" }}` |
-| `project_name` | {{ project_name }} | `{{ "{{" }} project_name {{ "}}" }}` |
-| `python_version` | {{ python_version }} | `{{ "{{" }} python_version {{ "}}" }}` |
-| `django_version` | {{ django_version }} | `{{ "{{" }} django_version {{ "}}" }}` |
+| Variable | Usage |
+|----------|-------|
+| `version` | `{{ "{{" }} version {{ "}}" }}` → {{ version }} |
+| `project_name` | `{{ "{{" }} project_name {{ "}}" }}` → {{ project_name }} |
+| `python_version` | `{{ "{{" }} python_version {{ "}}" }}` → {{ python_version }} |
 
-### Adding Custom Variables
+### Custom Variables
 
-Edit `_config.yaml`:
+Add to `_config.yaml`:
 
 ```yaml
 variables:
   version: "1.0.0"
-  my_custom_var: "Custom Value"
+  support_email: "support@myapp.com"
 ```
 
-Then use in Markdown: `{{ "{{" }} my_custom_var {{ "}}" }}`
+Use: `Contact us at {{ "{{" }} support_email {{ "}}" }}`
 
 ## Markdown Features
 
-### Basic Formatting
-
-```markdown
-**Bold text** and *italic text*
-
-- Bullet list item
-- Another item
-
-1. Numbered list
-2. Second item
-
-> Blockquote for notes or tips
-```
-
 ### Code Blocks
-
-Use fenced code blocks with language hints:
 
 ````markdown
 ```python
@@ -116,15 +250,21 @@ def hello():
 ### Links
 
 ```markdown
-[External link](https://example.com)
-[Internal link](/help/theming/)
+[External](https://example.com)
+[Internal](/help/smallstack/theming/)
 ```
 
-## Creating FAQ Pages
+### Blockquotes
 
-For FAQ-style pages with collapsible sections:
+```markdown
+> **Note:** Important information here.
+```
 
-1. Set `is_faq: true` in `_config.yaml`:
+## FAQ Pages
+
+For collapsible Q&A sections:
+
+1. Set `is_faq: true` in config:
    ```yaml
    - slug: faq
      title: "FAQ"
@@ -142,30 +282,36 @@ For FAQ-style pages with collapsible sections:
    Currently, usernames cannot be changed...
    ```
 
-Each H2 becomes a collapsible question with the following content as the answer.
-
 ## Available Icons
 
-Use these icon names in your page configuration:
+| Icon | Name | Use for |
+|------|------|---------|
+| 🏠 | `home` | Welcome, index |
+| 🚀 | `rocket` | Getting started |
+| 📖 | `book` | Guides, manuals |
+| ❓ | `help` | Help, support |
+| 🎨 | `palette` | Theming, design |
+| ⚙️ | `settings` | Configuration |
+| 📧 | `email` | Email, notifications |
+| 📦 | `package` | Installation |
+| 🗄️ | `database` | Database |
+| ☁️ | `cloud` | Deployment |
+| 🐳 | `docker` | Docker |
+| 📁 | `folder` | Structure |
+| 💬 | `chat` | FAQ |
+| ℹ️ | `info` | About |
+| 🤖 | `ai` | AI features |
 
-- `rocket` - Getting started, launch
-- `help` - Help, documentation
-- `palette` - Theming, design
-- `docker` - Docker, containers
-- `folder` - Files, structure
-- `chat` - FAQ, questions
-- `document` - Generic document
-
-## File Structure
+## File Organization
 
 ```
 apps/help/
 ├── content/
-│   ├── _config.yaml      # Navigation & variables
-│   ├── getting-started.md
-│   ├── help-system.md    # This page
-│   ├── theming.md
-│   └── ...
+│   ├── _config.yaml      # Root config with sections
+│   ├── index.md          # Your welcome page
+│   └── smallstack/       # SmallStack section
+│       ├── _config.yaml  # Section config
+│       └── *.md          # Section pages
 ├── utils.py              # Markdown processing
 ├── views.py              # Page views
 └── urls.py               # URL routing
@@ -173,7 +319,7 @@ apps/help/
 
 ## Tips
 
-- Keep page slugs lowercase with hyphens (e.g., `my-page-name`)
-- Use frontmatter for page-specific titles and descriptions
-- Test your Markdown locally before deploying
-- The search index is built from page titles and content
+- Keep slugs lowercase with hyphens (`my-page-name`)
+- Use frontmatter for page-specific titles
+- Section variables override root variables
+- The search index includes all sections

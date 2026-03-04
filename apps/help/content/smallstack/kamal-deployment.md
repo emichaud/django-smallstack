@@ -145,6 +145,53 @@ Consider a typical small team stack:
 
 The trade-off is that you manage the server yourself—but Kamal makes that management remarkably simple with zero-downtime deploys and straightforward container orchestration.
 
+## Quick Setup Checklist
+
+Before your first deploy, update these files with your project info:
+
+### 1. config/deploy.yml
+
+```yaml
+service: myapp              # Your app name (lowercase, no spaces)
+image: myapp                # Usually same as service
+
+servers:
+  web:
+    - 123.45.67.89          # Your VPS IP address
+
+volumes:
+  - /root/myapp_data/media:/app/media   # Update 'myapp' to your app name
+  - /root/myapp_data/db:/app/data
+
+proxy:
+  hosts:
+    - myapp.com             # Your domain
+    - www.myapp.com         # Your www subdomain
+```
+
+### 2. .kamal/secrets
+
+Copy from the example and fill in your values:
+
+```bash
+cp .kamal/secrets.example .kamal/secrets
+```
+
+Then edit `.kamal/secrets`:
+
+```bash
+# Generate a new secret key at https://djecrety.ir/
+SECRET_KEY=your-unique-secret-key-here
+
+# Include your domain, www, VPS IP, and * for health checks
+ALLOWED_HOSTS=myapp.com,www.myapp.com,123.45.67.89,localhost,127.0.0.1,*
+
+# HTTPS origins (required for CSRF protection)
+CSRF_TRUSTED_ORIGINS=https://myapp.com,https://www.myapp.com
+```
+
+> **Important:** The `.kamal/secrets` file is gitignored. Never commit real secrets to version control.
+
 ## Prerequisites
 
 Before deploying with Kamal, you need:

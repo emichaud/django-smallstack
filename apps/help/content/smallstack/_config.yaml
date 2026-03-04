@@ -25,6 +25,11 @@ pages:
     description: "The philosophy behind Django SmallStack"
     icon: "info"
 
+  - slug: customization
+    title: "Customization Guide"
+    description: "Make SmallStack your own - pages, docs, branding"
+    icon: "palette"
+
   - slug: help-system
     title: "Using the Help System"
     description: "How to add and edit documentation"
