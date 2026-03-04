@@ -1,9 +1,11 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48">
-  <!-- Three stacked layers with offset - optimized for small display -->
-  <!-- Bottom layer (lightest) -->
-  <rect x="6" y="32" width="30" height="8" rx="4" fill="#4FD1A5"/>
+  <!-- 3D Stacked cube icon -->
+  <!-- Bottom layer -->
+  <path d="M6 36 L24 45 L42 36 L42 30 L24 39 L6 30 Z" fill="#4FD1A5"/>
   <!-- Middle layer -->
-  <rect x="10" y="22" width="30" height="8" rx="4" fill="#2BA977"/>
-  <!-- Top layer (darkest) -->
-  <rect x="14" y="12" width="30" height="8" rx="4" fill="#0C4B33"/>
+  <path d="M6 26 L24 35 L42 26 L42 20 L24 29 L6 20 Z" fill="#2BA977"/>
+  <!-- Top layer -->
+  <path d="M6 16 L24 25 L42 16 L42 10 L24 19 L6 10 Z" fill="#1A6B4A"/>
+  <!-- Top surface -->
+  <path d="M24 5 L6 14 L24 23 L42 14 Z" fill="#0C4B33"/>
 </svg>
