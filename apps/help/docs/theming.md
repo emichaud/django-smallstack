@@ -15,6 +15,19 @@ The {{ project_name }} theme is built on Django admin's CSS foundation with cust
 | `static/js/theme.js` | Dark mode toggle and UI interactions |
 | `templates/admin_theme/base.html` | Master layout template |
 | `templates/admin_theme/includes/` | Reusable template partials |
+| `static/brand/` | Brand assets (logos, icons, social images) |
+
+## Branding Quick Reference
+
+The topbar displays your text logo at **32px height**. Replace with your own:
+
+```python
+# config/settings/base.py
+BRAND_NAME = "My Project"
+BRAND_LOGO_TEXT = "brand/my-logo-text.svg"  # Topbar (32px height)
+```
+
+For complete branding documentation including logo specifications and asset creation, see the [Customization Guide](/help/smallstack/customization/#customizing-branding).
 
 ## Changing Colors
 

@@ -1,14 +1,5 @@
 {% load static theme_tags %}
 <aside class="sidebar" id="sidebar">
-    <!-- Mobile header with close button -->
-    <div class="sidebar-header" id="sidebar-header">
-        <img src="{% static brand.icon %}" alt="{{ brand.name }}" class="sidebar-logo" width="32" height="32">
-        <button class="sidebar-close" id="sidebar-close" type="button" aria-label="Close menu">
-            <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
-                <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
-            </svg>
-        </button>
-    </div>
     <nav class="sidebar-nav">
         <ul class="nav-list">
             <li class="nav-item">
@@ -55,23 +46,7 @@
         </ul>
     </nav>
 
-    <!-- Collapse toggle at bottom -->
-    <div class="sidebar-footer">
-        <button class="sidebar-collapse-toggle" id="sidebar-collapse-toggle" type="button" aria-label="Toggle sidebar">
-            <svg class="collapse-icon" viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
-                <path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/>
-            </svg>
-            <span class="collapse-text">Collapse</span>
-        </button>
-    </div>
 </aside>
 
-<!-- Mobile menu button (floating) -->
-<button class="mobile-menu-toggle" id="mobile-menu-toggle" type="button" aria-label="Open menu">
-    <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
-        <path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/>
-    </svg>
-</button>
-
-<!-- Sidebar overlay for mobile -->
+<!-- Sidebar overlay -->
 <div class="sidebar-overlay" id="sidebar-overlay"></div>

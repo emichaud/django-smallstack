@@ -25,7 +25,10 @@ class HelpIndexView(TemplateView):
 
 
 class HelpSectionIndexView(TemplateView):
-    """Display the index page for a specific section with cards."""
+    """Display the index page for a specific section with cards.
+
+    Falls back to HelpDetailView if the slug is a root page, not a section.
+    """
 
     template_name = "help/help_section_index.html"
 
@@ -38,7 +41,29 @@ class HelpSectionIndexView(TemplateView):
         section = next((s for s in all_sections if s["slug"] == section_slug), None)
 
         if section is None:
-            raise Http404("Section not found")
+            # Not a section - try as a root page instead
+            page = get_help_page(section_slug, section="")
+            if page is None:
+                raise Http404("Page not found")
+
+            # Render as a detail page
+            self.template_name = "help/help_detail.html"
+            context["page"] = page
+            context["sections"] = all_sections
+            context["current_section"] = ""
+            context["section_pages"] = get_section_pages("")
+            context["page_title"] = page["title"]
+
+            # Find prev/next pages for navigation
+            pages = context["section_pages"]
+            current_idx = next(
+                (i for i, p in enumerate(pages) if p["slug"] == section_slug),
+                None,
+            )
+            if current_idx is not None:
+                context["prev_page"] = pages[current_idx - 1] if current_idx > 0 else None
+                context["next_page"] = pages[current_idx + 1] if current_idx < len(pages) - 1 else None
+            return context
 
         context["section"] = section
         context["sections"] = all_sections

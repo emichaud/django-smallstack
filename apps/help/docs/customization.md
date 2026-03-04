@@ -214,7 +214,7 @@ The easiest way to rebrand is via settings. Add these to `config/settings/base.p
 # config/settings/base.py (or in .env)
 BRAND_NAME = "My Project"           # Site name in header, footer, titles
 BRAND_TAGLINE = "Your tagline"      # Social preview description
-BRAND_LOGO = "brand/my-logo.svg"    # Logo for header (relative to static/)
+BRAND_LOGO_TEXT = "brand/my-logo.svg"  # Text logo for topbar (relative to static/)
 BRAND_FAVICON = "brand/favicon.ico" # Browser tab icon
 ```
 
@@ -224,11 +224,50 @@ BRAND_FAVICON = "brand/favicon.ico" # Browser tab icon
 |---------|---------|-------------|
 | `BRAND_NAME` | `SmallStack` | Site name shown in header, footer, page titles |
 | `BRAND_TAGLINE` | `A minimal Django starter stack` | Social preview description |
-| `BRAND_LOGO` | `brand/django-smallstack-logo.svg` | Main logo SVG |
-| `BRAND_LOGO_DARK` | `brand/django-smallstack-logo-dark.svg` | Dark mode logo |
-| `BRAND_ICON` | `brand/django-smallstack-icon.svg` | Small icon for header |
+| `BRAND_LOGO` | `brand/django-smallstack-logo.svg` | Full logo with icon (for marketing pages) |
+| `BRAND_LOGO_DARK` | `brand/django-smallstack-logo-dark.svg` | Full logo for dark backgrounds |
+| `BRAND_LOGO_TEXT` | `brand/django-smallstack-text.svg` | **Text-only logo for topbar** |
+| `BRAND_ICON` | `brand/django-smallstack-icon.svg` | Icon-only mark (for small spaces) |
 | `BRAND_FAVICON` | `brand/django-smallstack-icon.ico` | Browser favicon |
 | `BRAND_SOCIAL_IMAGE` | `brand/django-smallstack-social.png` | OpenGraph/Twitter preview |
+
+### Logo Specifications
+
+The topbar displays `BRAND_LOGO_TEXT` at **32px height**. Design your logos accordingly:
+
+| Logo Type | Used In | Recommended Size | Format |
+|-----------|---------|------------------|--------|
+| `logo_text` | Topbar | Height: 32px, Width: auto | SVG |
+| `logo` / `logo_dark` | Marketing pages | Height: 40-60px | SVG |
+| `icon` | Small spaces, mobile | 32x32px or 48x48px | SVG |
+| `favicon` | Browser tab | 32x32px, 16x16px | ICO |
+| `social_image` | Social previews | 1200x630px | PNG |
+
+**SVG Logo Tips:**
+- Use `viewBox` for scalability (e.g., `viewBox="0 0 200 28"`)
+- Keep text as actual `<text>` elements or convert to paths
+- For dark topbar backgrounds, use white text with colored accent
+- Test at 32px height to ensure readability
+
+### Creating Your Text Logo
+
+The topbar text logo should be a horizontal SVG with your brand name. Example structure:
+
+```svg
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 28">
+  <text x="0" y="22" font-family="Segoe UI, system-ui, sans-serif" font-size="22" font-weight="600">
+    <tspan fill="#ffffff">Your </tspan>
+    <tspan fill="#4FD1A5">Brand</tspan>
+  </text>
+</svg>
+```
+
+**Key points:**
+- `viewBox` width depends on your text length (adjust 200 as needed)
+- `viewBox` height of 28 works well for 32px display height
+- Use web-safe fonts or convert text to paths for consistency
+- White (`#ffffff`) text works on the dark topbar background
+- Add a colored accent for your brand color
 
 ### Adding Your Brand Assets
 
@@ -240,16 +279,18 @@ mkdir -p static/brand
 2. Add your files:
 ```
 static/brand/
-├── my-logo.svg           # Main logo
-├── my-logo-dark.svg      # Dark mode variant
-├── my-icon.svg           # Icon for header
-├── my-icon.ico           # Favicon
+├── my-logo-text.svg      # Text logo for topbar (32px height)
+├── my-logo.svg           # Full logo with icon
+├── my-logo-dark.svg      # Full logo for dark backgrounds
+├── my-icon.svg           # Icon only (32-48px)
+├── my-icon.ico           # Favicon (32x32, 16x16)
 └── my-social.png         # Social preview (1200x630px)
 ```
 
 3. Update your settings:
 ```python
 BRAND_NAME = "My Project"
+BRAND_LOGO_TEXT = "brand/my-logo-text.svg"  # Topbar logo
 BRAND_LOGO = "brand/my-logo.svg"
 BRAND_LOGO_DARK = "brand/my-logo-dark.svg"
 BRAND_ICON = "brand/my-icon.svg"

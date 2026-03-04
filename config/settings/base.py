@@ -138,6 +138,7 @@ SMALLSTACK_DOCS_ENABLED = config("SMALLSTACK_DOCS_ENABLED", default=True, cast=b
 BRAND_NAME = config("BRAND_NAME", default="SmallStack")
 BRAND_LOGO = config("BRAND_LOGO", default="brand/django-smallstack-logo.svg")
 BRAND_LOGO_DARK = config("BRAND_LOGO_DARK", default="brand/django-smallstack-logo-dark.svg")
+BRAND_LOGO_TEXT = config("BRAND_LOGO_TEXT", default="brand/django-smallstack-text.svg")
 BRAND_ICON = config("BRAND_ICON", default="brand/django-smallstack-icon.svg")
 BRAND_FAVICON = config("BRAND_FAVICON", default="brand/django-smallstack-icon.ico")
 BRAND_SOCIAL_IMAGE = config("BRAND_SOCIAL_IMAGE", default="brand/django-smallstack-social.png")

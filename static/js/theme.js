@@ -96,51 +96,54 @@
     // ============================================
 
     function initSidebar() {
-        const mobileMenuToggle = document.getElementById('mobile-menu-toggle');
-        const sidebarClose = document.getElementById('sidebar-close');
-        const collapseToggle = document.getElementById('sidebar-collapse-toggle');
+        const sidebarToggle = document.getElementById('sidebar-toggle');
         const sidebar = document.getElementById('sidebar');
         const overlay = document.getElementById('sidebar-overlay');
-        const mainContent = document.getElementById('main-content');
-        const footer = document.querySelector('.site-footer');
 
         if (!sidebar) return;
 
+        const SIDEBAR_STATE_KEY = 'smallstack-sidebar-closed';
+
+        function isMobile() {
+            return window.innerWidth <= 768;
+        }
+
         function openSidebar() {
-            sidebar.classList.add('show');
-            if (overlay) overlay.classList.add('show');
-        }
-
-        function closeSidebar() {
-            sidebar.classList.remove('show');
-            if (overlay) overlay.classList.remove('show');
-        }
-
-        function toggleCollapse() {
-            sidebar.classList.toggle('collapsed');
-            // Adjust main content margin
-            if (sidebar.classList.contains('collapsed')) {
-                if (mainContent) mainContent.style.marginLeft = '60px';
-                if (footer) footer.style.marginLeft = '60px';
-            } else {
-                if (mainContent) mainContent.style.marginLeft = '';
-                if (footer) footer.style.marginLeft = '';
+            sidebar.classList.remove('closed');
+            document.body.classList.remove('sidebar-closed');
+            if (isMobile() && overlay) overlay.classList.add('show');
+            if (!isMobile()) {
+                localStorage.setItem(SIDEBAR_STATE_KEY, 'false');
             }
         }
 
-        // Mobile floating button
-        if (mobileMenuToggle) {
-            mobileMenuToggle.addEventListener('click', openSidebar);
+        function closeSidebar() {
+            sidebar.classList.add('closed');
+            document.body.classList.add('sidebar-closed');
+            if (overlay) overlay.classList.remove('show');
+            if (!isMobile()) {
+                localStorage.setItem(SIDEBAR_STATE_KEY, 'true');
+            }
         }
 
-        // Close button (X inside sidebar header)
-        if (sidebarClose) {
-            sidebarClose.addEventListener('click', closeSidebar);
+        function toggleSidebar() {
+            if (sidebar.classList.contains('closed')) {
+                openSidebar();
+            } else {
+                closeSidebar();
+            }
         }
 
-        // Desktop collapse toggle
-        if (collapseToggle) {
-            collapseToggle.addEventListener('click', toggleCollapse);
+        // On mobile, start closed. On desktop, restore from localStorage
+        if (isMobile()) {
+            closeSidebar();
+        } else if (localStorage.getItem(SIDEBAR_STATE_KEY) === 'true') {
+            closeSidebar();
+        }
+
+        // Hamburger toggle in topbar
+        if (sidebarToggle) {
+            sidebarToggle.addEventListener('click', toggleSidebar);
         }
 
         // Close sidebar when clicking overlay (mobile)
@@ -148,13 +151,10 @@
             overlay.addEventListener('click', closeSidebar);
         }
 
-        // Handle window resize
+        // Handle resize - close on mobile, restore on desktop
         window.addEventListener('resize', () => {
-            if (window.innerWidth > 768) {
-                sidebar.classList.remove('show');
-                if (overlay) {
-                    overlay.classList.remove('show');
-                }
+            if (isMobile()) {
+                closeSidebar();
             }
         });
     }

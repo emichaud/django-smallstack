@@ -19,14 +19,23 @@ def branding(request):
         BRAND_NAME: The display name for your site (default: "SmallStack")
         BRAND_LOGO: Path to the main logo SVG (relative to STATIC_URL)
         BRAND_LOGO_DARK: Path to the dark mode logo SVG
+        BRAND_LOGO_TEXT: Path to text-only logo for topbar (32px height)
         BRAND_ICON: Path to the icon-only mark SVG
         BRAND_FAVICON: Path to the favicon ICO file
         BRAND_SOCIAL_IMAGE: Path to the OpenGraph/social preview image
         BRAND_TAGLINE: A short description of your site
 
+    Logo Sizes:
+        logo_text: Displayed at 32px height in topbar
+        logo/logo_dark: For marketing pages (40-60px)
+        icon: For small spaces (32-48px square)
+        favicon: Browser tab (32x32, 16x16 ICO)
+        social_image: OpenGraph preview (1200x630px PNG)
+
     Template usage:
         <link rel="icon" href="{% static brand.favicon %}">
-        <img src="{% static brand.logo %}">
+        <img src="{% static brand.logo_text %}">  <!-- Topbar -->
+        <img src="{% static brand.logo %}">       <!-- Marketing pages -->
         <meta property="og:image" content="{% static brand.social_image %}">
     """
     return {
@@ -34,6 +43,7 @@ def branding(request):
             "name": getattr(settings, "BRAND_NAME", "SmallStack"),
             "logo": getattr(settings, "BRAND_LOGO", "brand/django-smallstack-logo.svg"),
             "logo_dark": getattr(settings, "BRAND_LOGO_DARK", "brand/django-smallstack-logo-dark.svg"),
+            "logo_text": getattr(settings, "BRAND_LOGO_TEXT", "brand/django-smallstack-text.svg"),
             "icon": getattr(settings, "BRAND_ICON", "brand/django-smallstack-icon.svg"),
             "favicon": getattr(settings, "BRAND_FAVICON", "brand/django-smallstack-icon.ico"),
             "social_image": getattr(settings, "BRAND_SOCIAL_IMAGE", "brand/django-smallstack-social.png"),
