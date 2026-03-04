@@ -67,6 +67,7 @@ TEMPLATES = [
                 "django.template.context_processors.request",
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
+                "apps.admin_theme.context_processors.branding",
             ],
         },
     },
@@ -131,6 +132,16 @@ USE_HTTPS = config("USE_HTTPS", default=False, cast=bool)
 # SmallStack Help Documentation
 # Set to False to hide SmallStack reference docs from /help/
 SMALLSTACK_DOCS_ENABLED = config("SMALLSTACK_DOCS_ENABLED", default=True, cast=bool)
+
+# Branding Configuration
+# These paths are relative to STATIC_URL. Override to customize branding.
+BRAND_NAME = config("BRAND_NAME", default="SmallStack")
+BRAND_LOGO = config("BRAND_LOGO", default="brand/django-smallstack-logo.svg")
+BRAND_LOGO_DARK = config("BRAND_LOGO_DARK", default="brand/django-smallstack-logo-dark.svg")
+BRAND_ICON = config("BRAND_ICON", default="brand/django-smallstack-icon.svg")
+BRAND_FAVICON = config("BRAND_FAVICON", default="brand/django-smallstack-icon.ico")
+BRAND_SOCIAL_IMAGE = config("BRAND_SOCIAL_IMAGE", default="brand/django-smallstack-social.png")
+BRAND_TAGLINE = config("BRAND_TAGLINE", default="A minimal Django starter stack")
 
 # Email settings
 DEFAULT_FROM_EMAIL = config("DEFAULT_FROM_EMAIL", default="noreply@example.com")

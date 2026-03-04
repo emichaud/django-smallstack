@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="220" viewBox="0 0 900 220">
+<rect width="100%" height="100%" fill="#092E20"/>
+<g transform="translate(40,60)">
+<rect x="10" y="70" rx="14" ry="14" width="110" height="32" fill="#2BA977"/>
+<rect x="20" y="40" rx="14" ry="14" width="110" height="32" fill="#2BA977"/>
+<rect x="30" y="10" rx="14" ry="14" width="110" height="32" fill="#2BA977"/>
+</g>
+<text x="200" y="120" font-family="Arial, Helvetica, sans-serif" font-size="72" fill="#FFFFFF">
+Django <tspan font-weight="400">Small</tspan><tspan font-weight="700">Stack</tspan>
+</text>
+</svg>

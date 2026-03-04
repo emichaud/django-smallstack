@@ -204,44 +204,73 @@ Your project documentation lives here.
 
 ## Customizing Branding
 
-When you fork SmallStack, you'll want to replace "SmallStack" with your own project name. Here are the files to update:
+SmallStack uses a settings-based branding system that makes customization easy. No template editing required!
 
-### Core Branding Files
+### Quick Branding (Settings-Based)
 
-| File | What to Change |
-|------|----------------|
-| `templates/admin_theme/base.html` | Page title suffix, footer copyright |
-| `templates/admin_theme/includes/topbar.html` | Logo text in header |
-| `templates/registration/*.html` | Login, signup, password reset page titles |
+The easiest way to rebrand is via settings. Add these to `config/settings/base.py` or your `.env` file:
 
-### Step-by-Step Branding
-
-1. **Update the base template** (`templates/admin_theme/base.html`):
-
-```html
-<!-- Change the title suffix -->
-<title>{% block title %}{% endblock %} | YourAppName</title>
-
-<!-- Change the footer copyright -->
-<span>&copy; {% now "Y" %} YourAppName</span>
+```python
+# config/settings/base.py (or in .env)
+BRAND_NAME = "My Project"           # Site name in header, footer, titles
+BRAND_TAGLINE = "Your tagline"      # Social preview description
+BRAND_LOGO = "brand/my-logo.svg"    # Logo for header (relative to static/)
+BRAND_FAVICON = "brand/favicon.ico" # Browser tab icon
 ```
 
-2. **Update the topbar logo** (`templates/admin_theme/includes/topbar.html`):
+### All Branding Settings
 
-```html
-<span class="logo-text">YourAppName</span>
-```
+| Setting | Default | Description |
+|---------|---------|-------------|
+| `BRAND_NAME` | `SmallStack` | Site name shown in header, footer, page titles |
+| `BRAND_TAGLINE` | `A minimal Django starter stack` | Social preview description |
+| `BRAND_LOGO` | `brand/django-smallstack-logo.svg` | Main logo SVG |
+| `BRAND_LOGO_DARK` | `brand/django-smallstack-logo-dark.svg` | Dark mode logo |
+| `BRAND_ICON` | `brand/django-smallstack-icon.svg` | Small icon for header |
+| `BRAND_FAVICON` | `brand/django-smallstack-icon.ico` | Browser favicon |
+| `BRAND_SOCIAL_IMAGE` | `brand/django-smallstack-social.png` | OpenGraph/Twitter preview |
 
-3. **Update registration pages** - Replace "SmallStack" in titles:
-   - `templates/registration/login.html`
-   - `templates/registration/signup.html`
-   - `templates/registration/logged_out.html`
-   - `templates/registration/password_reset_*.html`
+### Adding Your Brand Assets
 
-**Tip:** Use find-and-replace across the `templates/registration/` folder:
+1. Create your brand assets folder:
 ```bash
-# On macOS/Linux
-find templates/registration -name "*.html" -exec sed -i '' 's/SmallStack/YourAppName/g' {} \;
+mkdir -p static/brand
+```
+
+2. Add your files:
+```
+static/brand/
+├── my-logo.svg           # Main logo
+├── my-logo-dark.svg      # Dark mode variant
+├── my-icon.svg           # Icon for header
+├── my-icon.ico           # Favicon
+└── my-social.png         # Social preview (1200x630px)
+```
+
+3. Update your settings:
+```python
+BRAND_NAME = "My Project"
+BRAND_LOGO = "brand/my-logo.svg"
+BRAND_LOGO_DARK = "brand/my-logo-dark.svg"
+BRAND_ICON = "brand/my-icon.svg"
+BRAND_FAVICON = "brand/my-icon.ico"
+BRAND_SOCIAL_IMAGE = "brand/my-social.png"
+```
+
+### Using Branding in Templates
+
+Branding is available in all templates via the `brand` context variable:
+
+```html
+<!-- Access branding anywhere -->
+<img src="{% static brand.logo %}" alt="{{ brand.name }}">
+<h1>{{ brand.name }}</h1>
+<p>{{ brand.tagline }}</p>
+
+<!-- The base template handles these automatically -->
+<title>Page Title | {{ brand.name }}</title>
+<link rel="icon" href="{% static brand.favicon %}">
+<meta property="og:image" content="{% static brand.social_image %}">
 ```
 
 ### Hide SmallStack Documentation
@@ -249,13 +278,17 @@ find templates/registration -name "*.html" -exec sed -i '' 's/SmallStack/YourApp
 SmallStack reference docs are bundled separately and controlled by a setting:
 
 ```python
-# config/settings/base.py
+# config/settings/base.py (or in .env)
 SMALLSTACK_DOCS_ENABLED = False  # Hide SmallStack docs
 ```
 
 No files to delete - just toggle the setting.
 
-> **Note:** Branding files (`base.html`, `topbar.html`, registration templates) will create merge conflicts when pulling upstream updates. This is expected - resolve by keeping your customizations.
+### Registration Page Branding
+
+Auth pages (`login.html`, `signup.html`, etc.) use the `brand.name` variable automatically. No manual find-and-replace needed!
+
+> **Note:** With settings-based branding, most template files won't create merge conflicts on upstream pulls.
 
 ## Receiving Upstream Updates
 

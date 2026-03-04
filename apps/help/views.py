@@ -24,6 +24,29 @@ class HelpIndexView(TemplateView):
         return context
 
 
+class HelpSectionIndexView(TemplateView):
+    """Display the index page for a specific section with cards."""
+
+    template_name = "help/help_section_index.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        section_slug = self.kwargs.get("section")
+
+        # Get all sections and find the requested one
+        all_sections = get_all_sections()
+        section = next((s for s in all_sections if s["slug"] == section_slug), None)
+
+        if section is None:
+            raise Http404("Section not found")
+
+        context["section"] = section
+        context["sections"] = all_sections
+        context["current_section"] = section_slug
+        context["page_title"] = section.get("title", "Documentation")
+        return context
+
+
 class HelpDetailView(TemplateView):
     """Display a root-level help page."""
 

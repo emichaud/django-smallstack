@@ -4,7 +4,17 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}{% endblock %} | SmallStack</title>
+    <title>{% block title %}{% endblock %} | {{ brand.name }}</title>
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/x-icon" href="{% static brand.favicon %}">
+
+    <!-- OpenGraph / Social Preview -->
+    <meta property="og:title" content="{% block og_title %}{{ brand.name }}{% endblock %}">
+    <meta property="og:description" content="{% block og_description %}{{ brand.tagline }}{% endblock %}">
+    <meta property="og:image" content="{% if site.use_https %}https{% else %}http{% endif %}://{{ site.domain }}{% static brand.social_image %}">
+    <meta property="og:type" content="website">
+    <meta name="twitter:card" content="summary_large_image">
 
     <!-- Django Admin CSS as foundation -->
     <link rel="stylesheet" href="{% static 'admin/css/base.css' %}">
@@ -44,7 +54,7 @@
         <!-- Footer -->
         <footer class="site-footer">
             <div class="footer-content">
-                <span>&copy; {% now "Y" %} SmallStack</span>
+                <span>&copy; {% now "Y" %} {{ brand.name }}</span>
             </div>
         </footer>
     </div>
