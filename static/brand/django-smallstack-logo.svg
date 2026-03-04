@@ -1,19 +1,18 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="420" height="100" viewBox="0 0 420 100">
-  <!-- Icon: Stacked layers -->
-  <g transform="translate(10, 10)">
-    <!-- Bottom layer (lightest) -->
-    <path d="M10 65 L40 80 L70 65 L70 55 L40 70 L10 55 Z" fill="#4FD1A5"/>
+<svg xmlns="http://www.w3.org/2000/svg" width="200" height="40" viewBox="0 0 200 40">
+  <!-- 3D Stacked cube icon -->
+  <g transform="translate(0, 2)">
+    <!-- Bottom layer -->
+    <path d="M4 28 L18 35 L32 28 L32 24 L18 31 L4 24 Z" fill="#4FD1A5"/>
     <!-- Middle layer -->
-    <path d="M10 50 L40 65 L70 50 L70 40 L40 55 L10 40 Z" fill="#2BA977"/>
-    <!-- Top layer (darkest) -->
-    <path d="M10 35 L40 50 L70 35 L70 25 L40 40 L10 25 Z" fill="#0C4B33"/>
+    <path d="M4 20 L18 27 L32 20 L32 16 L18 23 L4 16 Z" fill="#2BA977"/>
+    <!-- Top layer -->
+    <path d="M4 12 L18 19 L32 12 L32 8 L18 15 L4 8 Z" fill="#1A6B4A"/>
     <!-- Top surface -->
-    <path d="M40 10 L10 25 L40 40 L70 25 Z" fill="#1A6B4A"/>
+    <path d="M18 4 L4 11 L18 18 L32 11 Z" fill="#0C4B33"/>
   </g>
 
   <!-- Text: Django SmallStack -->
-  <text x="95" y="62" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="36">
-    <tspan fill="#0C4B33" font-weight="600">Django</tspan>
-    <tspan fill="#0C4B33" font-weight="300"> Small</tspan><tspan fill="#2BA977" font-weight="600">Stack</tspan>
+  <text x="42" y="27" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="18" font-weight="500">
+    <tspan fill="#1a1a1a">Django </tspan><tspan fill="#1a1a1a" font-weight="300">Small</tspan><tspan fill="#2BA977" font-weight="600">Stack</tspan>
   </text>
 </svg>

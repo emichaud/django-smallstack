@@ -270,6 +270,20 @@ a:hover {
     text-decoration: none;
 }
 
+.site-logo .logo-img {
+    height: 28px;
+    width: auto;
+}
+
+/* Show dark logo by default (topbar has dark background) */
+.site-logo .logo-light {
+    display: none;
+}
+
+.site-logo .logo-dark {
+    display: block;
+}
+
 /* Theme Toggle */
 .theme-toggle {
     background: none;

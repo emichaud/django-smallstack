@@ -8,10 +8,10 @@
             </svg>
         </button>
 
-        <!-- Site logo/name -->
+        <!-- Site logo -->
         <a href="{% url 'website:home' %}" class="site-logo">
-            <img src="{% static brand.icon %}" alt="{{ brand.name }}" class="logo-icon" width="28" height="28">
-            <span class="logo-text">{{ brand.name }}</span>
+            <img src="{% static brand.logo_dark %}" alt="{{ brand.name }}" class="logo-img logo-dark" height="28">
+            <img src="{% static brand.logo %}" alt="{{ brand.name }}" class="logo-img logo-light" height="28">
         </a>
     </div>
 
