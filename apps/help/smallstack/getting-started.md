@@ -30,40 +30,41 @@ Welcome to **{{ project_name }}** v{{ version }}! This is a Django {{ django_ver
 
 ### Local Development
 
+SmallStack includes a `Makefile` with shortcuts for all common commands. See [Make Commands](/help/smallstack/make-commands/) for the full reference.
+
 1. **Clone and enter the project:**
    ```bash
    cd django-smallstack
    ```
 
-2. **Install dependencies:**
+2. **Run setup** (installs all dependencies including dev tools, runs migrations, creates superuser):
    ```bash
-   uv sync
+   make setup
    ```
 
-3. **Set up environment variables:**
+3. **Set up environment variables** (optional — defaults work out of the box):
    ```bash
    cp .env.example .env
    # Edit .env with your settings
    ```
 
-4. **Run migrations:**
+4. **Start the development server:**
    ```bash
-   uv run python manage.py migrate
+   make run
    ```
 
-5. **Create a superuser:**
-   ```bash
-   uv run python manage.py create_dev_superuser
-   ```
+5. **Open your browser:**
+   - Homepage: [http://localhost:8005](http://localhost:8005)
+   - Admin: [http://localhost:8005/admin](http://localhost:8005/admin)
 
-6. **Start the development server:**
-   ```bash
-   uv run python manage.py runserver
-   ```
+That's it — two commands to go from clone to running app.
 
-7. **Open your browser:**
-   - Homepage: [http://localhost:8000](http://localhost:8000)
-   - Admin: [http://localhost:8000/admin](http://localhost:8000/admin)
+### Verify Everything Works
+
+```bash
+make test         # Run the test suite (33 tests)
+make lint         # Check code style
+```
 
 ## Project Structure Overview
 

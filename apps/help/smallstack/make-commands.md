@@ -20,7 +20,7 @@ Or just `make` by itself (help is the default target).
 
 | Command | What it does |
 |---------|-------------|
-| `make setup` | **One-time setup** — installs dependencies, runs migrations, creates dev superuser |
+| `make setup` | **One-time setup** — installs all dependencies (including dev tools like pytest and ruff), runs migrations, creates dev superuser |
 | `make run` | Starts the dev server on port 8005 |
 
 After cloning SmallStack, these two commands are all you need:

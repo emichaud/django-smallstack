@@ -75,7 +75,7 @@ clean:
 
 # Initial setup helper
 setup:
-	uv sync
+	uv sync --all-extras
 	uv run python manage.py migrate
 	uv run python manage.py create_dev_superuser
 	@echo ""
