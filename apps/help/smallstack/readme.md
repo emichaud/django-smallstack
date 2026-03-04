@@ -106,7 +106,7 @@ Production-ready SQLite configuration with the database stored outside the conta
 django-smallstack/
 ├── apps/                      # Django applications
 │   ├── accounts/              # Custom user model & auth
-│   ├── admin_theme/           # Theme helpers (pure presentation)
+│   ├── smallstack/           # Theme helpers (pure presentation)
 │   ├── profile/               # User profile management
 │   ├── help/                  # Documentation system
 │   └── tasks/                 # Background tasks
@@ -117,7 +117,7 @@ django-smallstack/
 │       ├── production.py      # Production settings
 │       └── test.py            # Test settings
 ├── templates/                 # HTML templates
-│   ├── admin_theme/           # Base templates & includes
+│   ├── smallstack/           # Base templates & includes
 │   ├── profile/               # Profile templates
 │   ├── help/                  # Help system templates
 │   └── registration/          # Auth templates

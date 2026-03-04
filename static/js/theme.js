@@ -87,8 +87,14 @@
             }
         });
 
-        // Theme toggle buttons on profile edit page are handled by inline JS
-        // that directly calls setTheme and updates localStorage
+        // Theme toggle buttons (profile edit page and dropdown menu)
+        document.querySelectorAll('.theme-toggle-btn').forEach(function(btn) {
+            btn.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                setTheme(this.dataset.theme);
+            });
+        });
     }
 
     // ============================================

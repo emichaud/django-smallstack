@@ -1,4 +1,4 @@
-# Dockerfile for Django Admin Starter (Kamal deployment)
+# Dockerfile for Django SmallStack (Kamal deployment)
 # Uses Python 3.12 slim base with UV for dependency management
 
 FROM python:3.12-slim

@@ -1,13 +1,13 @@
-# Makefile for Django Admin Starter
+# Makefile for Django SmallStack
 # Run 'make help' to see available commands
 
-.PHONY: help run migrate migrations superuser shell test collectstatic docker-up docker-down lint clean
+.PHONY: help run migrate migrations superuser shell test collectstatic docker-up docker-down lint clean deploy logs
 
 # Default port for development server
 PORT ?= 8005
 
 help:
-	@echo "Django Admin Starter - Available commands:"
+	@echo "Django SmallStack - Available commands:"
 	@echo ""
 	@echo "  make run          - Start development server on port $(PORT)"
 	@echo "  make migrate      - Run database migrations"
@@ -20,6 +20,10 @@ help:
 	@echo "  make docker-down  - Stop Docker containers"
 	@echo "  make lint         - Run ruff linter"
 	@echo "  make clean        - Clean up generated files"
+	@echo ""
+	@echo "Kamal Deployment (requires Kamal to be configured):"
+	@echo "  make deploy       - Deploy to production via Kamal"
+	@echo "  make logs         - View production app logs"
 	@echo ""
 
 run:
@@ -54,6 +58,14 @@ lint:
 
 lint-fix:
 	uv run ruff check --fix .
+
+# Kamal deployment (optional - requires Kamal to be installed and configured)
+# See /help/smallstack/kamal-deployment/ for setup guide
+deploy:
+	kamal deploy
+
+logs:
+	kamal app logs
 
 clean:
 	find . -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true

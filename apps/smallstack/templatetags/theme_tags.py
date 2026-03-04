@@ -124,7 +124,7 @@ def nav_active(context, *url_names):
     return ""
 
 
-@register.inclusion_tag("admin_theme/includes/breadcrumbs.html", takes_context=True)
+@register.inclusion_tag("smallstack/includes/breadcrumbs.html", takes_context=True)
 def render_breadcrumbs(context):
     """Render the breadcrumbs trail."""
     return {

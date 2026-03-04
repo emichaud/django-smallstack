@@ -17,7 +17,7 @@ static/
 └── help/
     └── css/help.css        # Help system specific styles
 
-templates/admin_theme/
+templates/smallstack/
 ├── base.html               # Master layout template
 └── includes/
     ├── topbar.html         # Top navigation bar
@@ -197,7 +197,7 @@ localStorage.setItem('smallstack-theme', next);
 
 ## Adding Sidebar Navigation Items
 
-Edit `templates/admin_theme/includes/sidebar.html`:
+Edit `templates/smallstack/includes/sidebar.html`:
 
 ```html
 <li class="nav-item">

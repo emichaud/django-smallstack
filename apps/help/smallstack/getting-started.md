@@ -14,6 +14,7 @@ Welcome to **{{ project_name }}** v{{ version }}! This is a Django {{ django_ver
 - **Admin Theme** - Clean, modern UI with dark/light mode
 - **Help System** - Built-in documentation with markdown support
 - **Background Tasks** - Django 6's task framework pre-configured
+- **Logging & Audit Trail** - Sensible logging defaults and built-in activity tracking using Django's LogEntry
 - **Website App** - Scaffold for your project's pages (home, about, etc.)
 - **Starter Template** - [Copy-paste template](/starter/) for creating new pages
 - **Responsive Design** - Works on desktop and mobile
@@ -79,7 +80,7 @@ django-smallstack/
 │   ├── profile/           # EXTEND: User profiles
 │   ├── tasks/             # EXTEND: Background tasks
 │   ├── accounts/          # CORE: User authentication
-│   └── admin_theme/       # CORE: Theme system
+│   └── smallstack/       # CORE: Theme system
 ├── templates/
 │   └── website/           # CUSTOMIZE: Your page templates
 ├── config/                # CUSTOMIZE: Settings & deployment
@@ -96,7 +97,7 @@ SmallStack is designed to be forked and customized. Here's what to do first:
 Edit `templates/website/home.html` with your own content:
 
 ```html
-{% extends "admin_theme/base.html" %}
+{% extends "smallstack/base.html" %}
 {% load theme_tags %}
 
 {% block title %}Home{% endblock %}
@@ -118,8 +119,8 @@ Replace "SmallStack" in these files:
 
 | File | What to Change |
 |------|----------------|
-| `templates/admin_theme/base.html` | Title suffix, footer copyright |
-| `templates/admin_theme/includes/topbar.html` | Logo text |
+| `templates/smallstack/base.html` | Title suffix, footer copyright |
+| `templates/smallstack/includes/topbar.html` | Logo text |
 | `templates/registration/*.html` | Page titles |
 
 **Quick replace:**
@@ -170,7 +171,7 @@ For admin-style pages, copy the starter template:
 
 2. **Create a view** (see above)
 
-3. **Add to sidebar** in `templates/admin_theme/includes/sidebar.html`
+3. **Add to sidebar** in `templates/smallstack/includes/sidebar.html`
 
 Visit [/starter/](/starter/) to see all available components in action.
 

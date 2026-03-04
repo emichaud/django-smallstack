@@ -4,7 +4,7 @@ Markdown processing utilities for the help system.
 Supports hierarchical documentation with sections (folders).
 Loads from two sources:
   - content/ - User's project documentation (conflict-free)
-  - docs/ - SmallStack bundled documentation (controlled by setting)
+  - smallstack/ - SmallStack bundled documentation (controlled by setting)
 """
 
 import html
@@ -19,7 +19,7 @@ from django.conf import settings
 logger = logging.getLogger(__name__)
 
 CONTENT_DIR = Path(__file__).parent / "content"
-DOCS_DIR = Path(__file__).parent / "docs"
+DOCS_DIR = Path(__file__).parent / "smallstack"
 SMALLSTACK_SECTION_SLUG = "smallstack"
 
 

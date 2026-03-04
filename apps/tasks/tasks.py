@@ -1,5 +1,5 @@
 """
-Background tasks for the admin starter project.
+Background tasks for the smallstack project.
 
 This module demonstrates Django 6's built-in Tasks framework.
 Tasks defined here can be executed in the background by the db_worker.
@@ -103,7 +103,7 @@ def send_welcome_email(user_id):
         logger.warning(f"User {user_id} has no email address")
         return 0
 
-    site_name = getattr(settings, "SITE_NAME", "Admin Starter")
+    site_name = getattr(settings, "SITE_NAME", "SmallStack")
     domain = getattr(settings, "SITE_DOMAIN", "localhost:8000")
     protocol = "https" if getattr(settings, "USE_HTTPS", False) else "http"
 

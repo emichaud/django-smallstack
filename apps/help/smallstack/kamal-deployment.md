@@ -306,7 +306,7 @@ The container is ephemeral, but your data is not. When you deploy a new version,
 kamal setup
 
 # Deploy latest changes
-kamal deploy
+make deploy        # or: kamal deploy
 
 # Rollback to previous version
 kamal rollback
@@ -316,7 +316,7 @@ kamal rollback
 
 ```bash
 # View application logs
-kamal app logs
+make logs          # or: kamal app logs
 
 # View last 100 lines
 kamal app logs -n 100
@@ -527,19 +527,22 @@ Check ALLOWED_HOSTS includes the container hostname pattern or use `*` for inter
 
 ## Quick Reference
 
-| Task | Command |
-|------|---------|
-| First-time setup | `kamal setup` |
-| Deploy | `kamal deploy` |
-| Rollback | `kamal rollback` |
-| View logs | `kamal app logs` |
-| Shell access | `kamal app exec -i bash` |
-| Run Django command | `kamal app exec "python manage.py ..."` |
-| Release stuck lock | `kamal lock release` |
-| Check status | `kamal app details` |
+| Task | Make shortcut | Kamal command |
+|------|--------------|---------------|
+| Deploy | `make deploy` | `kamal deploy` |
+| View logs | `make logs` | `kamal app logs` |
+| First-time setup | — | `kamal setup` |
+| Rollback | — | `kamal rollback` |
+| Shell access | — | `kamal app exec -i bash` |
+| Run Django command | — | `kamal app exec "python manage.py ..."` |
+| Release stuck lock | — | `kamal lock release` |
+| Check status | — | `kamal app details` |
+
+> **Tip:** `make deploy` and `make logs` are convenience shortcuts included in the Makefile. See [Make Commands](/help/smallstack/make-commands/) for the full list of available shortcuts.
 
 ## Further Reading
 
 - [Kamal Documentation](https://kamal-deploy.org/docs/installation/)
 - [Kamal GitHub Repository](https://github.com/basecamp/kamal)
+- [Make Commands](/help/smallstack/make-commands/) — All available Makefile shortcuts
 - [Docker Deployment Guide](/help/docker-deployment/) — Alternative deployment approach

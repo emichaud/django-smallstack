@@ -1,5 +1,5 @@
 """
-WSGI config for admin_starter project.
+WSGI config for smallstack project.
 """
 
 import os

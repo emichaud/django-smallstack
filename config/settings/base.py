@@ -1,5 +1,5 @@
 """
-Base Django settings for admin_starter project.
+Base Django settings for smallstack project.
 """
 
 from pathlib import Path
@@ -16,7 +16,7 @@ SECRET_KEY = config("SECRET_KEY", default="django-insecure-change-this-in-produc
 INSTALLED_APPS = [
     # Custom apps - must be before django.contrib.admin for template overrides
     "apps.accounts",
-    "apps.admin_theme",
+    "apps.smallstack",
     "apps.profile",
     "apps.help",
     "apps.tasks",
@@ -67,7 +67,7 @@ TEMPLATES = [
                 "django.template.context_processors.request",
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
-                "apps.admin_theme.context_processors.branding",
+                "apps.smallstack.context_processors.branding",
             ],
         },
     },
@@ -125,7 +125,7 @@ MEDIA_URL = "/media/"
 MEDIA_ROOT = config("MEDIA_ROOT", default=str(BASE_DIR / "media"))
 
 # Site configuration
-SITE_NAME = config("SITE_NAME", default="Admin Starter")
+SITE_NAME = config("SITE_NAME", default="SmallStack")
 SITE_DOMAIN = config("SITE_DOMAIN", default="localhost:8000")
 USE_HTTPS = config("USE_HTTPS", default=False, cast=bool)
 

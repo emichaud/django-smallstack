@@ -131,7 +131,7 @@ By default, Django uses username for authentication. To allow email login:
 
 ### Step 1: Create a Custom Authentication Backend
 
-Create `apps/admin_theme/backends.py`:
+Create `apps/smallstack/backends.py`:
 
 ```python
 from django.contrib.auth import get_user_model
@@ -187,7 +187,7 @@ Edit `templates/registration/login.html` and change the label:
 <label for="id_username">Username or Email</label>
 ```
 
-Or create a custom form in `apps/admin_theme/forms.py`:
+Or create a custom form in `apps/smallstack/forms.py`:
 
 ```python
 from django.contrib.auth.forms import AuthenticationForm

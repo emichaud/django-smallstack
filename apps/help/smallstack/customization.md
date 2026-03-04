@@ -18,11 +18,11 @@ apps/
 │   ├── content/     # CUSTOMIZE: Your documentation (conflict-free)
 │   │   ├── index.md
 │   │   └── _config.yaml
-│   └── docs/        # UPSTREAM: SmallStack reference docs (bundled)
+│   └── smallstack/  # UPSTREAM: SmallStack reference docs (bundled)
 ├── profile/         # EXTEND: Add fields, customize templates
 ├── tasks/           # EXTEND: Add your background tasks
 ├── accounts/        # CORE: User model (extend carefully)
-└── admin_theme/     # CORE: Theme system (extend via CSS)
+└── smallstack/     # CORE: Theme system (extend via CSS)
 
 templates/
 ├── website/         # CUSTOMIZE: Your page templates
@@ -44,7 +44,7 @@ The `apps/website/` app is your project's home. Customize it freely without worr
 3. The template already extends `base.html` so theming works automatically
 
 ```html
-{% extends "admin_theme/base.html" %}
+{% extends "smallstack/base.html" %}
 {% load theme_tags %}
 
 {% block title %}Home{% endblock %}
@@ -106,7 +106,7 @@ SITE_DOMAIN=myapp.com
 The help system loads docs from two separate locations:
 
 - **`apps/help/content/`** - Your project's docs (conflict-free zone)
-- **`apps/help/docs/`** - SmallStack reference docs (bundled, controlled by setting)
+- **`apps/help/smallstack/`** - SmallStack reference docs (bundled, controlled by setting)
 
 This separation means your docs never conflict with upstream updates.
 
@@ -371,8 +371,8 @@ When merging upstream, you may see conflicts in:
 | File | Resolution |
 |------|------------|
 | `uv.lock` | Take upstream version: `git checkout --theirs uv.lock` |
-| `templates/admin_theme/base.html` | Keep your branding changes |
-| `templates/admin_theme/includes/topbar.html` | Keep your logo |
+| `templates/smallstack/base.html` | Keep your branding changes |
+| `templates/smallstack/includes/topbar.html` | Keep your logo |
 | `templates/registration/*.html` | Keep your branding |
 | `config/deploy.yml` | Keep your deployment config |
 
@@ -435,10 +435,10 @@ CSRF_TRUSTED_ORIGINS=https://myproject.com,https://www.myproject.com
 
 | What to Customize | Where |
 |------------------|-------|
-| Site title & footer | `templates/admin_theme/base.html` |
-| Header logo | `templates/admin_theme/includes/topbar.html` |
+| Site title & footer | `templates/smallstack/base.html` |
+| Header logo | `templates/smallstack/includes/topbar.html` |
 | Auth page titles | `templates/registration/*.html` |
-| Sidebar navigation | `templates/admin_theme/includes/sidebar.html` |
+| Sidebar navigation | `templates/smallstack/includes/sidebar.html` |
 | Theme colors | `static/css/theme.css` |
 
 ## Next Steps

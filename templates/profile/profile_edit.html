@@ -1,4 +1,4 @@
-{% extends "admin_theme/base.html" %}
+{% extends "smallstack/base.html" %}
 {% load static theme_tags %}
 
 {% block title %}Edit Profile{% endblock %}
@@ -283,26 +283,8 @@ document.getElementById('date-picker-btn').addEventListener('click', function() 
     }
 });
 
-// Theme toggle buttons
-document.querySelectorAll('.theme-toggle-btn').forEach(function(btn) {
-    btn.addEventListener('click', function() {
-        const theme = this.dataset.theme;
-        const hiddenInput = document.getElementById('id_theme_preference');
-
-        // Update hidden input value
-        hiddenInput.value = theme;
-
-        // Update button states
-        document.querySelectorAll('.theme-toggle-btn').forEach(function(b) {
-            b.classList.remove('active');
-        });
-        this.classList.add('active');
-
-        // Apply theme immediately using the global theme function
-        document.documentElement.setAttribute('data-theme', theme);
-        localStorage.setItem('admin-starter-theme', theme);
-    });
-});
+// Theme toggle buttons are handled globally by theme.js
+// which calls setTheme() and updates the id_theme_preference hidden input automatically.
 </script>
 {% endblock %}
 {% endblock %}

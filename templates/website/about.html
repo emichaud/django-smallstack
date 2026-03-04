@@ -1,33 +1,67 @@
-{% comment %}
-================================================================================
-WEBSITE APP - ABOUT PAGE
-================================================================================
-This template is part of the website app scaffold. Customize it freely for your
-project. This file won't conflict with upstream SmallStack updates.
-
-Replace this content with your project's about page.
-================================================================================
-{% endcomment %}
-
-{% extends "base.html" %}
+{% extends "smallstack/base.html" %}
+{% load theme_tags %}
 
 {% block title %}About{% endblock %}
 
+{% block breadcrumbs %}
+{% breadcrumb "About" %}
+{% render_breadcrumbs %}
+{% endblock %}
+
+<!-- Replace the content below with your own project description, team info, and contact details. -->
 {% block content %}
-<div class="container mx-auto px-4 py-12 max-w-3xl">
-    <h1 class="text-3xl font-bold mb-6">About</h1>
-
-    <div class="prose dark:prose-invert max-w-none">
-        <p class="text-lg text-gray-600 dark:text-gray-400 mb-6">
-            This is a placeholder about page. Replace this content with information
-            about your project.
+<div class="card">
+    <div class="card-header">
+        <h2>About {{ brand.name }}</h2>
+    </div>
+    <div class="card-body">
+        <p>
+            {{ brand.name }} is a web application built to help you get things done.
+            Customize this page to describe your project, its goals, and who it's for.
         </p>
+    </div>
+</div>
 
-        <h2 class="text-xl font-semibold mt-8 mb-4">Built with SmallStack</h2>
-        <p class="text-gray-600 dark:text-gray-400">
-            This project is built on <a href="https://github.com/emichaud/django-smallstack"
-            class="text-indigo-600 dark:text-indigo-400 hover:underline">Django SmallStack</a>,
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-top: 24px;">
+    <div class="card">
+        <div class="card-header">
+            <h2>Tech Stack</h2>
+        </div>
+        <div class="card-body">
+            <ul>
+                <li><strong>Framework:</strong> Django 6</li>
+                <li><strong>Frontend:</strong> SmallStack theme (CSS variables, light/dark mode)</li>
+                <li><strong>Database:</strong> SQLite (development) / PostgreSQL (production)</li>
+                <li><strong>Deployment:</strong> Docker + Kamal</li>
+            </ul>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <h2>Contact</h2>
+        </div>
+        <div class="card-body">
+            <p>Have questions or feedback? Reach out to the team.</p>
+            <ul>
+                <li><strong>Email:</strong> hello@example.com</li>
+                <li><strong>GitHub:</strong> <a href="https://github.com/emichaud/django-smallstack">django-smallstack</a></li>
+            </ul>
+        </div>
+    </div>
+</div>
+
+<div class="card" style="margin-top: 24px;">
+    <div class="card-header">
+        <h2>Built with SmallStack</h2>
+    </div>
+    <div class="card-body">
+        <p>
+            This project is built on
+            <a href="https://github.com/emichaud/django-smallstack">Django SmallStack</a>,
             a batteries-included Django starter template for shipping fast.
+            SmallStack provides authentication, theming, help docs, background tasks,
+            and deployment tooling out of the box.
         </p>
     </div>
 </div>

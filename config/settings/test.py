@@ -1,5 +1,5 @@
 """
-Test settings for admin_starter project.
+Test settings for smallstack project.
 
 Inherits from development but disables debug toolbar to avoid URL namespace issues.
 """

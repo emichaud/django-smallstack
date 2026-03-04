@@ -15,7 +15,7 @@ apps/accounts/
 ├── views.py               # SignupView
 └── forms.py               # SignupForm
 
-apps/admin_theme/
+apps/smallstack/
 └── management/commands/
     └── create_dev_superuser.py
 

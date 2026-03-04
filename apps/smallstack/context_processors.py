@@ -39,6 +39,7 @@ def branding(request):
         <meta property="og:image" content="{% static brand.social_image %}">
     """
     return {
+        "smallstack_docs_enabled": getattr(settings, "SMALLSTACK_DOCS_ENABLED", True),
         "brand": {
             "name": getattr(settings, "BRAND_NAME", "SmallStack"),
             "logo": getattr(settings, "BRAND_LOGO", "brand/django-smallstack-logo.svg"),

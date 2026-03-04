@@ -12,8 +12,8 @@ The theme is built on Django admin's existing CSS as a foundation, with custom C
 |------|---------|
 | `static/css/theme.css` | Main theme CSS with all custom properties |
 | `static/js/theme.js` | Dark mode toggle and UI interactions |
-| `templates/admin_theme/base.html` | Master layout template |
-| `templates/admin_theme/includes/` | Reusable template partials |
+| `templates/smallstack/base.html` | Master layout template |
+| `templates/smallstack/includes/` | Reusable template partials |
 
 ## CSS Custom Properties (Variables)
 
@@ -115,7 +115,7 @@ The theme respects the user's system preference (`prefers-color-scheme`) when no
 
 ### Sidebar Navigation
 
-Edit `templates/admin_theme/includes/sidebar.html`:
+Edit `templates/smallstack/includes/sidebar.html`:
 
 ```html
 <li class="nav-item">
@@ -144,7 +144,7 @@ Use the `{% nav_active 'url_name' %}` template tag to automatically add the `act
 
 ### Breadcrumbs
 
-Available in `admin_theme/templatetags/theme_tags.py`:
+Available in `smallstack/templatetags/theme_tags.py`:
 
 ```html
 {% load theme_tags %}
@@ -169,7 +169,7 @@ If you want to use a different CSS framework (Bootstrap, Tailwind, etc.):
 
 ### Step 1: Remove Current CSS
 
-In `templates/admin_theme/base.html`, remove or comment out:
+In `templates/smallstack/base.html`, remove or comment out:
 
 ```html
 <link rel="stylesheet" href="{% static 'admin/css/base.css' %}">

@@ -13,8 +13,8 @@ The {{ project_name }} theme is built on Django admin's CSS foundation with cust
 |------|---------|
 | `static/css/theme.css` | Main theme CSS with all custom properties |
 | `static/js/theme.js` | Dark mode toggle and UI interactions |
-| `templates/admin_theme/base.html` | Master layout template |
-| `templates/admin_theme/includes/` | Reusable template partials |
+| `templates/smallstack/base.html` | Master layout template |
+| `templates/smallstack/includes/` | Reusable template partials |
 | `static/brand/` | Brand assets (logos, icons, social images) |
 
 ## Branding Quick Reference
@@ -124,7 +124,7 @@ The theme respects the user's system preference (`prefers-color-scheme`) when no
 
 ### Sidebar Links
 
-Edit `templates/admin_theme/includes/sidebar.html`:
+Edit `templates/smallstack/includes/sidebar.html`:
 
 ```html
 <li class="nav-item">
@@ -221,7 +221,7 @@ To use Bootstrap, Tailwind, or another framework:
 
 ### Step 1: Remove Current CSS
 
-In `templates/admin_theme/base.html`:
+In `templates/smallstack/base.html`:
 
 ```html
 <!-- Remove or comment out -->

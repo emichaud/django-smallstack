@@ -30,6 +30,6 @@ sections:
   #   # Create folder: apps/help/content/guides/
   #   # Add pages: apps/help/content/guides/your-page.md
 
-# Note: SmallStack reference docs are bundled in apps/help/docs/
+# Note: SmallStack reference docs are bundled in apps/help/smallstack/
 # and appear automatically when SMALLSTACK_DOCS_ENABLED=True (default)
 # To hide them, set SMALLSTACK_DOCS_ENABLED=False in settings

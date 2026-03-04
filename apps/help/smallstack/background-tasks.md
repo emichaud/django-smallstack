@@ -149,7 +149,7 @@ if result.status == "SUCCESSFUL":
 
 ## Built-in Example Tasks
 
-{{ project_name }} includes example tasks in `apps/admin_theme/tasks.py`:
+{{ project_name }} includes example tasks in `apps/smallstack/tasks.py`:
 
 ### send_email_task
 

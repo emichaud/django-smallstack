@@ -1,5 +1,5 @@
 """
-ASGI config for admin_starter project.
+ASGI config for smallstack project.
 """
 
 import os

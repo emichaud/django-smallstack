@@ -38,11 +38,13 @@ We've included a set of **skill files** in `docs/skills/` that provide structure
 
 | Skill | File | Use When... |
 |-------|------|-------------|
-| Help Documentation | `help-documentation.md` | Adding or editing help pages |
-| Theming System | `theming-system.md` | Modifying CSS, colors, components |
 | Django Apps | `django-apps.md` | Creating new Django applications |
-| Authentication | `authentication.md` | Working with users and auth |
 | Templates | `templates.md` | Creating or modifying templates |
+| Theming System | `theming-system.md` | Modifying CSS, colors, components |
+| Authentication | `authentication.md` | Working with users and auth |
+| Help Documentation | `help-documentation.md` | Adding or editing help pages |
+| Logging & Audit | `logging-audit.md` | Adding logging or audit trails to new features |
+| Kamal Deployment | `kamal-deployment.md` | Configuring or deploying with Kamal to a VPS |
 
 ### How to Use Skill Files
 
@@ -73,7 +75,7 @@ Instead of:
 > "Add a contact form"
 
 Try:
-> "Create a contact form in `admin_theme` with fields for name, email, and message. Use the existing form styling patterns from `templates.md` skill file. Add a view that sends an email using Django's email backend."
+> "Create a contact form in `smallstack` with fields for name, email, and message. Use the existing form styling patterns from `templates.md` skill file. Add a view that sends an email using Django's email backend."
 
 ### Provide Context
 
@@ -132,7 +134,7 @@ Here's how you might use an AI assistant to add a new feature:
 
 ### 5. Integration
 
-> "Add a notification icon to the topbar that shows unread count. Reference `templates/admin_theme/includes/topbar.html` for the existing pattern."
+> "Add a notification icon to the topbar that shows unread count. Reference `templates/smallstack/includes/topbar.html` for the existing pattern."
 
 ### 6. Documentation
 

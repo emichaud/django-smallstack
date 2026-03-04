@@ -1,28 +1,11 @@
-{% extends "admin_theme/base.html" %}
+{% extends "smallstack/base.html" %}
 {% load static theme_tags %}
 
-{# ============================================================================
-   STARTER TEMPLATE - Copy this file to create new pages
-   ============================================================================
-
-   This template demonstrates all the components available in SmallStack.
-   Copy this file, rename it, and customize for your needs.
-
-   Steps to create a new page:
-   1. Copy this file to templates/your_page.html
-   2. Create a view in config/views.py or your app's views.py
-   3. Add a URL pattern in config/urls.py or your app's urls.py
-   4. Optionally add to sidebar in templates/admin_theme/includes/sidebar.html
-
-   ============================================================================ #}
-
-{# Page title - appears in browser tab #}
 {% block title %}Starter Page{% endblock %}
 
-{# Optional: Add extra CSS for this page only #}
 {% block extra_css %}
+<link rel="stylesheet" href="{% static 'admin/css/widgets.css' %}">
 <style>
-    /* Page-specific styles go here */
     .demo-box {
         background: var(--body-bg);
         border: 2px dashed var(--card-border);
@@ -31,10 +14,48 @@
         text-align: center;
         color: var(--body-quiet-color);
     }
+    .file-upload-wrapper {
+        width: 100%;
+    }
+    .file-upload-dropzone {
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        padding: 24px 16px;
+        border: 2px dashed var(--card-border);
+        border-radius: var(--radius-md);
+        background: var(--body-bg);
+        cursor: pointer;
+        transition: border-color var(--transition-fast), background var(--transition-fast);
+    }
+    .file-upload-dropzone:hover,
+    .file-upload-dropzone.dragover {
+        border-color: var(--primary);
+        background: color-mix(in srgb, var(--primary) 5%, var(--body-bg));
+    }
+    .file-upload-dropzone .dropzone-text {
+        font-size: 0.85rem;
+        color: var(--body-quiet-color);
+    }
+    .file-upload-dropzone .dropzone-filename {
+        font-size: 0.85rem;
+        font-weight: 500;
+        color: var(--body-fg);
+    }
+    .file-upload-input {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        opacity: 0;
+        cursor: pointer;
+    }
 </style>
 {% endblock %}
 
-{# Breadcrumbs - use {% breadcrumb "Label" "url_name" %} for links #}
 {% block breadcrumbs %}
 {% breadcrumb "Home" "website:home" %}
 {% breadcrumb "Starter Page" %}
@@ -42,10 +63,6 @@
 {% endblock %}
 
 {% block content %}
-{# ============================================================================
-   PAGE HEADER WITH ACTIONS
-   Use this pattern for pages that need action buttons in the header
-   ============================================================================ #}
 <div class="page-header-with-actions">
     <div class="page-header-content">
         <h1>Starter Page</h1>
@@ -67,10 +84,6 @@
     </div>
 </div>
 
-{# ============================================================================
-   CARD COMPONENT
-   Basic content container with optional header
-   ============================================================================ #}
 <div class="card">
     <div class="card-header">
         <h2>Card Component</h2>
@@ -81,10 +94,6 @@
     </div>
 </div>
 
-{# ============================================================================
-   TWO-COLUMN GRID
-   Use CSS Grid for layouts - this pattern is common for forms
-   ============================================================================ #}
 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-top: 24px;">
     <div class="card">
         <div class="card-header">
@@ -111,10 +120,6 @@
     </div>
 </div>
 
-{# ============================================================================
-   FORM EXAMPLE
-   Standard form layout with validation styling
-   ============================================================================ #}
 <div class="card" style="margin-top: 24px;">
     <div class="card-header">
         <h2>Form Components</h2>
@@ -123,7 +128,6 @@
         <form method="post">
             {% csrf_token %}
 
-            {# Single field row #}
             <div class="form-row">
                 <div class="form-group">
                     <label for="example_text">Text Input</label>
@@ -133,7 +137,6 @@
                 </div>
             </div>
 
-            {# Two-column row #}
             <div class="form-row form-row-2col">
                 <div class="form-group">
                     <label for="example_email">Email</label>
@@ -151,7 +154,6 @@
                 </div>
             </div>
 
-            {# Textarea #}
             <div class="form-row">
                 <div class="form-group">
                     <label for="example_textarea">Textarea</label>
@@ -160,7 +162,72 @@
                 </div>
             </div>
 
-            {# Form actions #}
+            <div class="form-row form-row-2col">
+                <div class="form-group">
+                    <label for="example_date">Date</label>
+                    <div class="date-input-wrapper">
+                        <input type="date" id="example_date" name="example_date" class="vTextField vDateField">
+                        <button type="button" class="date-picker-btn" data-target="example_date" aria-label="Open calendar">
+                            <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+                                <path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11zM9 10H7v2h2v-2zm4 0h-2v2h2v-2zm4 0h-2v2h2v-2zm-8 4H7v2h2v-2zm4 0h-2v2h2v-2zm4 0h-2v2h2v-2z"/>
+                            </svg>
+                        </button>
+                    </div>
+                    <span class="helptext">Click the calendar icon to pick a date</span>
+                </div>
+                <div class="form-group">
+                    <label for="example_datetime">Date &amp; Time</label>
+                    <div class="date-input-wrapper">
+                        <input type="datetime-local" id="example_datetime" name="example_datetime" class="vTextField vDateField">
+                        <button type="button" class="date-picker-btn" data-target="example_datetime" aria-label="Open calendar">
+                            <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+                                <path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11zM9 10H7v2h2v-2zm4 0h-2v2h2v-2zm4 0h-2v2h2v-2zm-8 4H7v2h2v-2zm4 0h-2v2h2v-2zm4 0h-2v2h2v-2z"/>
+                            </svg>
+                        </button>
+                    </div>
+                    <span class="helptext">Combined date and time picker</span>
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="example_file">File Upload</label>
+                    <input type="file" id="example_file" name="example_file" class="vTextField">
+                    <span class="helptext">Select a file to upload (any type)</span>
+                </div>
+            </div>
+
+            <div class="form-row form-row-2col">
+                <div class="form-group">
+                    <label for="example_image">Image Upload</label>
+                    <div class="file-upload-wrapper">
+                        <div class="file-upload-dropzone" id="image-dropzone">
+                            <svg viewBox="0 0 24 24" width="32" height="32" fill="currentColor" style="color: var(--body-quiet-color);">
+                                <path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/>
+                            </svg>
+                            <span class="dropzone-text">Drag &amp; drop an image or click to browse</span>
+                            <span class="dropzone-filename" id="image-filename" style="display: none;"></span>
+                            <input type="file" id="example_image" name="example_image" accept="image/*" class="file-upload-input">
+                        </div>
+                    </div>
+                    <span class="helptext">Accepts JPG, PNG, GIF, WebP</span>
+                </div>
+                <div class="form-group">
+                    <label for="example_document">Document Upload</label>
+                    <div class="file-upload-wrapper">
+                        <div class="file-upload-dropzone" id="document-dropzone">
+                            <svg viewBox="0 0 24 24" width="32" height="32" fill="currentColor" style="color: var(--body-quiet-color);">
+                                <path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/>
+                            </svg>
+                            <span class="dropzone-text">Drag &amp; drop a document or click to browse</span>
+                            <span class="dropzone-filename" id="document-filename" style="display: none;"></span>
+                            <input type="file" id="example_document" name="example_document" accept=".pdf,.doc,.docx,.txt" class="file-upload-input">
+                        </div>
+                    </div>
+                    <span class="helptext">Accepts PDF, DOC, DOCX, TXT</span>
+                </div>
+            </div>
+
             <div class="form-row" style="margin-top: 16px;">
                 <button type="button" class="button button-secondary">Cancel</button>
                 <button type="submit" class="button button-primary">Submit Form</button>
@@ -169,10 +236,6 @@
     </div>
 </div>
 
-{# ============================================================================
-   BUTTONS
-   Various button styles available
-   ============================================================================ #}
 <div class="card" style="margin-top: 24px;">
     <div class="card-header">
         <h2>Button Styles</h2>
@@ -210,10 +273,6 @@
     </div>
 </div>
 
-{# ============================================================================
-   QUICK LINKS PATTERN
-   Icon-based navigation links
-   ============================================================================ #}
 <div class="card" style="margin-top: 24px;">
     <div class="card-header">
         <h2>Quick Links Pattern</h2>
@@ -244,10 +303,6 @@
     </div>
 </div>
 
-{# ============================================================================
-   MESSAGES EXAMPLE
-   Show how messages/alerts would appear
-   ============================================================================ #}
 <div class="card" style="margin-top: 24px;">
     <div class="card-header">
         <h2>Message Styles</h2>
@@ -269,10 +324,6 @@
     </div>
 </div>
 
-{# ============================================================================
-   CODE REFERENCE
-   Quick reference for view and URL setup
-   ============================================================================ #}
 <div class="card" style="margin-top: 24px;">
     <div class="card-header">
         <h2>View &amp; URL Setup</h2>
@@ -291,7 +342,7 @@ urlpatterns = [
     # ... other urls
 ]</code></pre>
 
-        <p><strong>3. Add to sidebar</strong> (optional) in <code>templates/admin_theme/includes/sidebar.html</code>:</p>
+        <p><strong>3. Add to sidebar</strong> (optional) in <code>templates/smallstack/includes/sidebar.html</code>:</p>
         <pre style="background: var(--darkened-bg); padding: 16px; border-radius: var(--radius-sm); overflow-x: auto; margin: 12px 0;"><code>&lt;li class="nav-item"&gt;
     &lt;a href="{% templatetag openblock %} url 'my_page' {% templatetag closeblock %}" class="nav-link {% templatetag openblock %} nav_active 'my_page' {% templatetag closeblock %}"&gt;
         &lt;svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"&gt;
@@ -305,15 +356,57 @@ urlpatterns = [
 
 {% endblock %}
 
-{# Optional: Add extra JavaScript for this page only #}
 {% block extra_js %}
 <script>
-// Page-specific JavaScript goes here
-console.log('Starter page loaded!');
-
-// Example: Add click handler to demo button
 document.querySelector('.button-prominent')?.addEventListener('click', function() {
     alert('Primary action clicked! Replace this with your own logic.');
+});
+
+// File upload dropzone interactions
+document.querySelectorAll('.file-upload-dropzone').forEach(function(zone) {
+    var input = zone.querySelector('.file-upload-input');
+    var text = zone.querySelector('.dropzone-text');
+    var filename = zone.querySelector('.dropzone-filename');
+
+    input.addEventListener('change', function() {
+        if (this.files.length > 0) {
+            text.style.display = 'none';
+            filename.textContent = this.files[0].name;
+            filename.style.display = '';
+        } else {
+            text.style.display = '';
+            filename.style.display = 'none';
+        }
+    });
+
+    zone.addEventListener('dragover', function(e) {
+        e.preventDefault();
+        zone.classList.add('dragover');
+    });
+    zone.addEventListener('dragleave', function() {
+        zone.classList.remove('dragover');
+    });
+    zone.addEventListener('drop', function(e) {
+        e.preventDefault();
+        zone.classList.remove('dragover');
+        if (e.dataTransfer.files.length > 0) {
+            input.files = e.dataTransfer.files;
+            input.dispatchEvent(new Event('change'));
+        }
+    });
+});
+
+// Date picker buttons trigger native date picker
+document.querySelectorAll('.date-picker-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+        var input = document.getElementById(this.dataset.target);
+        if (input.showPicker) {
+            input.showPicker();
+        } else {
+            input.focus();
+            input.click();
+        }
+    });
 });
 </script>
 {% endblock %}

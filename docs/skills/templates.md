@@ -10,7 +10,7 @@ SmallStack uses Django's template system with a single base template that all pa
 
 ```
 templates/
-├── admin_theme/
+├── smallstack/
 │   ├── base.html              # Master layout (all pages extend this)
 │   ├── home.html              # Homepage
 │   └── includes/
@@ -36,7 +36,7 @@ templates/
 
 ## Base Template Structure
 
-`templates/admin_theme/base.html`:
+`templates/smallstack/base.html`:
 
 ```html
 <!DOCTYPE html>
@@ -54,11 +54,11 @@ templates/
 <body>
     <div class="wrapper">
         <!-- Top Navigation -->
-        {% include "admin_theme/includes/topbar.html" %}
+        {% include "smallstack/includes/topbar.html" %}
 
         <div class="main-container">
             <!-- Sidebar -->
-            {% include "admin_theme/includes/sidebar.html" %}
+            {% include "smallstack/includes/sidebar.html" %}
 
             <!-- Main Content -->
             <main class="main-content">
@@ -66,7 +66,7 @@ templates/
                 {% block breadcrumbs %}{% endblock %}
 
                 <!-- Messages -->
-                {% include "admin_theme/includes/messages.html" %}
+                {% include "smallstack/includes/messages.html" %}
 
                 <!-- Page Content -->
                 <div class="content-wrapper">
@@ -98,7 +98,7 @@ templates/
 Every page template should extend `base.html`:
 
 ```html
-{% extends "admin_theme/base.html" %}
+{% extends "smallstack/base.html" %}
 {% load static theme_tags %}
 
 {% block title %}My Page Title{% endblock %}
@@ -243,7 +243,7 @@ def my_view(request):
 ### Form Template
 
 ```html
-{% extends "admin_theme/base.html" %}
+{% extends "smallstack/base.html" %}
 {% load theme_tags %}
 
 {% block title %}Create Item{% endblock %}
@@ -294,7 +294,7 @@ def my_view(request):
 ### List Template
 
 ```html
-{% extends "admin_theme/base.html" %}
+{% extends "smallstack/base.html" %}
 {% load theme_tags %}
 
 {% block title %}Items{% endblock %}
@@ -345,7 +345,7 @@ def my_view(request):
 ### Detail Template
 
 ```html
-{% extends "admin_theme/base.html" %}
+{% extends "smallstack/base.html" %}
 {% load theme_tags %}
 
 {% block title %}{{ item.title }}{% endblock %}

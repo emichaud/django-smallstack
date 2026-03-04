@@ -36,7 +36,7 @@ Don't forget to update the dark mode version too in `[data-theme="dark"]`.
 
 ## How do I add a new page to the sidebar?
 
-Edit `templates/admin_theme/includes/sidebar.html`:
+Edit `templates/smallstack/includes/sidebar.html`:
 
 ```html
 <li class="nav-item">

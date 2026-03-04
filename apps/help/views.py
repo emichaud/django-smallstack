@@ -7,7 +7,14 @@ Supports hierarchical documentation with sections (folders).
 from django.http import Http404, JsonResponse
 from django.views.generic import TemplateView
 
-from .utils import build_search_index, get_all_sections, get_config, get_help_page, get_section_pages
+from .utils import (
+    SMALLSTACK_SECTION_SLUG,
+    build_search_index,
+    get_all_sections,
+    get_config,
+    get_help_page,
+    get_section_pages,
+)
 
 
 class HelpIndexView(TemplateView):
@@ -18,7 +25,10 @@ class HelpIndexView(TemplateView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         config = get_config()
-        context["sections"] = get_all_sections()
+        # Exclude SmallStack section — it has its own sidebar link and index page
+        context["sections"] = [
+            s for s in get_all_sections() if s["slug"] != SMALLSTACK_SECTION_SLUG
+        ]
         context["page_title"] = config.get("title", "Help & Documentation")
         context["config"] = config
         return context

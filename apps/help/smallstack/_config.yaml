@@ -8,7 +8,7 @@ slug: smallstack
 
 # Section-specific variables
 variables:
-  version: "0.2.0"
+  version: "0.3.0"
   project_name: "Django SmallStack"
 
 # Pages in this section (order matters for navigation)
@@ -22,6 +22,11 @@ pages:
     title: "Getting Started"
     description: "Quick start guide and project overview"
     icon: "rocket"
+
+  - slug: make-commands
+    title: "Make Commands"
+    description: "Shortcut commands for development, testing, and deployment"
+    icon: "terminal"
 
   - slug: about
     title: "About & Inspiration"
@@ -67,6 +72,11 @@ pages:
     title: "Background Tasks"
     description: "Running tasks outside the request-response cycle"
     icon: "tasks"
+
+  - slug: logging-audit
+    title: "Logging & Audit Trail"
+    description: "Built-in logging and activity tracking that just works"
+    icon: "info"
 
   - slug: package-management
     title: "Package Management"

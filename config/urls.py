@@ -1,5 +1,5 @@
 """
-URL configuration for admin_starter project.
+URL configuration for smallstack project.
 """
 
 from django.conf import settings

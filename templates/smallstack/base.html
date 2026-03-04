@@ -28,21 +28,21 @@
 <body class="{% block body_class %}{% endblock %}">
     <div class="wrapper">
         <!-- Top Navigation Bar -->
-        {% include "admin_theme/includes/topbar.html" %}
+        {% include "smallstack/includes/topbar.html" %}
 
         <div class="main-container">
             <!-- Sidebar Navigation -->
-            {% include "admin_theme/includes/sidebar.html" %}
+            {% include "smallstack/includes/sidebar.html" %}
 
             <!-- Main Content Area -->
             <main class="main-content" id="main-content">
                 <!-- Breadcrumbs -->
                 {% block breadcrumbs %}
-                    {% include "admin_theme/includes/breadcrumbs.html" %}
+                    {% include "smallstack/includes/breadcrumbs.html" %}
                 {% endblock %}
 
                 <!-- Messages -->
-                {% include "admin_theme/includes/messages.html" %}
+                {% include "smallstack/includes/messages.html" %}
 
                 <!-- Page Content -->
                 <div class="content-wrapper">

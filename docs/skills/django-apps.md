@@ -12,7 +12,7 @@ SmallStack uses a modular app structure with all custom apps in the `apps/` dire
 django-smallstack/
 ├── apps/                      # All custom Django apps
 │   ├── accounts/              # User model & authentication
-│   ├── admin_theme/           # Theme helpers (pure presentation)
+│   ├── smallstack/           # Theme helpers (pure presentation)
 │   ├── profile/               # User profiles
 │   ├── help/                  # Documentation system
 │   └── tasks/                 # Background tasks
@@ -24,7 +24,7 @@ django-smallstack/
 │   ├── urls.py
 │   └── wsgi.py
 ├── templates/                 # All templates
-│   ├── admin_theme/
+│   ├── smallstack/
 │   ├── profile/
 │   └── help/
 └── static/                    # Static files
@@ -194,7 +194,7 @@ Edit `config/settings/base.py`:
 ```python
 INSTALLED_APPS = [
     "apps.accounts",
-    "apps.admin_theme",
+    "apps.smallstack",
     "apps.profile",
     "apps.help",
     "apps.tasks",
@@ -228,7 +228,7 @@ templates/myfeature/
 **Example template:**
 
 ```html
-{% extends "admin_theme/base.html" %}
+{% extends "smallstack/base.html" %}
 {% load theme_tags %}
 
 {% block title %}My Feature{% endblock %}
@@ -275,7 +275,7 @@ User authentication and custom User model:
 | `forms.py` | SignupForm |
 | `admin.py` | UserAdmin configuration |
 
-### admin_theme
+### smallstack
 
 Pure presentation - theme helpers only (no models):
 

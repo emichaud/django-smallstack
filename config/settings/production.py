@@ -1,5 +1,5 @@
 """
-Production settings for admin_starter project.
+Production settings for smallstack project.
 """
 
 from decouple import Csv, config
@@ -74,13 +74,21 @@ SESSION_COOKIE_SECURE = config("SESSION_COOKIE_SECURE", default=True, cast=bool)
 CSRF_COOKIE_SECURE = config("CSRF_COOKIE_SECURE", default=True, cast=bool)
 
 # Logging configuration
+#
+# File logging: Set LOG_FILE to a path to also write logs to a file.
+# Uses RotatingFileHandler: 5 MB max per file, keeps 5 backups.
+# Example: LOG_FILE=/app/data/logs/app.log
+# The directory must exist — Django won't create it for you.
+LOG_FILE = config("LOG_FILE", default="")
+
 LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,
     "formatters": {
         "json": {
             "format": (
-                '{"time": "%(asctime)s", "level": "%(levelname)s", "module": "%(module)s", "message": "%(message)s"}'
+                '{"time": "%(asctime)s", "level": "%(levelname)s", "name": "%(name)s",'
+                ' "module": "%(module)s", "message": "%(message)s"}'
             ),
         },
     },
@@ -100,13 +108,37 @@ LOGGING = {
             "level": "WARNING",
             "propagate": False,
         },
+        "django.request": {
+            "handlers": ["console"],
+            "level": "ERROR",
+            "propagate": False,
+        },
         "django.security": {
             "handlers": ["console"],
             "level": "WARNING",
             "propagate": False,
         },
+        "apps": {
+            "handlers": ["console"],
+            "level": "INFO",
+            "propagate": False,
+        },
     },
 }
+
+# Add file handler when LOG_FILE is set
+if LOG_FILE:
+    LOGGING["handlers"]["file"] = {
+        "class": "logging.handlers.RotatingFileHandler",
+        "filename": LOG_FILE,
+        "maxBytes": 5 * 1024 * 1024,  # 5 MB
+        "backupCount": 5,
+        "formatter": "json",
+    }
+    # Add file handler to all loggers
+    LOGGING["root"]["handlers"].append("file")
+    for logger_config in LOGGING["loggers"].values():
+        logger_config["handlers"].append("file")
 
 # Email configuration (configure via environment variables)
 EMAIL_BACKEND = config("EMAIL_BACKEND", default="django.core.mail.backends.smtp.EmailBackend")

@@ -1,5 +1,5 @@
 /**
- * Theme CSS - Admin Starter
+ * Theme CSS - SmallStack
  *
  * This file defines CSS custom properties (variables) for light/dark mode.
  * To customize colors, modify the variables in the :root and [data-theme="dark"] sections.
@@ -385,11 +385,29 @@ body.sidebar-closed .main-content {
     background-position: center;
 }
 
+/* Dropdown user info header */
+.dropdown-user-info {
+    padding: 10px 16px;
+}
+
+.dropdown-user-email {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+}
+
 .dropdown-item {
-    display: block;
+    display: flex;
+    align-items: center;
+    gap: 10px;
     padding: 10px 16px;
     color: var(--body-fg);
     transition: background-color var(--transition-fast);
+    font-size: 0.95rem;
+}
+
+.dropdown-item svg {
+    color: var(--text-muted);
+    flex-shrink: 0;
 }
 
 .dropdown-item:hover {
@@ -397,10 +415,64 @@ body.sidebar-closed .main-content {
     text-decoration: none;
 }
 
+.dropdown-item:hover svg {
+    color: var(--body-fg);
+}
+
 .dropdown-divider {
     border: none;
     border-top: 1px solid var(--card-border);
     margin: 4px 0;
+}
+
+/* Theme toggle inside dropdown */
+.dropdown-theme-section {
+    padding: 8px 16px;
+}
+
+.dropdown-theme-toggle {
+    display: flex;
+    flex-direction: row;
+    gap: 4px;
+    background-color: var(--body-bg);
+    border-radius: var(--radius-sm);
+    padding: 3px;
+}
+
+.dropdown-theme-toggle .dropdown-theme-btn {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 5px;
+    padding: 6px 10px;
+    border: none;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: var(--text-muted);
+    font-size: 0.8rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    font-family: inherit;
+    flex: 1;
+    justify-content: center;
+}
+
+.dropdown-theme-toggle .dropdown-theme-btn:hover {
+    color: var(--body-fg);
+    border-color: transparent;
+    background-color: var(--sidebar-hover-bg);
+}
+
+.dropdown-theme-toggle .dropdown-theme-btn.active {
+    background-color: var(--primary);
+    color: var(--button-fg);
+    border-color: transparent;
+    box-shadow: var(--shadow-sm);
+}
+
+.dropdown-theme-toggle .dropdown-theme-btn.active svg {
+    fill: var(--button-fg);
 }
 
 /* Logout form/button */
@@ -419,6 +491,10 @@ body.sidebar-closed .main-content {
 }
 
 .dropdown-logout-btn:hover {
+    color: var(--error-fg);
+}
+
+.dropdown-logout-btn:hover svg {
     color: var(--error-fg);
 }
 
@@ -1453,6 +1529,11 @@ body.sidebar-closed .site-footer {
     color: #ffffff;
 }
 
+.hero-logo {
+    height: 120px;
+    width: auto;
+}
+
 .hero-subtitle {
     font-size: 1.05rem;
     line-height: 1.6;
@@ -1734,6 +1815,10 @@ body.sidebar-closed .site-footer {
         font-size: 1.75rem;
     }
 
+    .hero-logo {
+        height: 100px;
+    }
+
     .hero-subtitle {
         font-size: 1rem;
     }
@@ -1769,6 +1854,10 @@ body.sidebar-closed .site-footer {
 
     .hero-title {
         font-size: 1.5rem;
+    }
+
+    .hero-logo {
+        height: 80px;
     }
 
     .hero-actions {

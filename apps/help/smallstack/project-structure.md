@@ -13,7 +13,7 @@ description: Understanding the codebase organization
 django-smallstack/
 ├── apps/                      # Django applications
 │   ├── accounts/              # User model & authentication
-│   ├── admin_theme/           # Theme helpers (pure presentation)
+│   ├── smallstack/           # Theme helpers (pure presentation)
 │   ├── profile/               # User profiles
 │   ├── help/                  # Documentation system
 │   └── tasks/                 # Background tasks
@@ -25,7 +25,7 @@ django-smallstack/
 │   ├── urls.py               # Root URL routing
 │   └── views.py              # Utility views
 ├── templates/                 # HTML templates
-│   ├── admin_theme/           # Theme templates
+│   ├── smallstack/           # Theme templates
 │   ├── profile/               # Profile templates
 │   ├── help/                  # Help templates
 │   └── registration/         # Auth templates
@@ -52,7 +52,7 @@ User authentication and custom User model.
 | `forms.py` | SignupForm for user creation |
 | `admin.py` | Custom UserAdmin configuration |
 
-### admin_theme
+### smallstack
 
 Pure presentation - theme helpers only (no models).
 
@@ -79,7 +79,8 @@ This documentation system (you're reading it!).
 
 | File | Purpose |
 |------|---------|
-| `content/` | Markdown documentation files |
+| `content/` | Your project's documentation (conflict-free) |
+| `smallstack/` | SmallStack reference docs (bundled) |
 | `utils.py` | Markdown processing, variable substitution |
 | `views.py` | HelpIndexView, HelpDetailView |
 | `urls.py` | Help URL routing |
@@ -131,7 +132,7 @@ MEDIA_URL = "/media/"
 ### Inheritance Structure
 
 ```
-base.html (admin_theme)
+base.html (smallstack)
 ├── includes/topbar.html
 ├── includes/sidebar.html
 ├── includes/messages.html
@@ -157,7 +158,7 @@ Child templates extend base.html:
 Example:
 
 ```html
-{% extends "admin_theme/base.html" %}
+{% extends "smallstack/base.html" %}
 
 {% block title %}My Page{% endblock %}
 
@@ -248,7 +249,7 @@ The theme uses CSS custom properties for all colors and spacing:
    # config/settings/base.py
    INSTALLED_APPS = [
        "apps.accounts",
-       "apps.admin_theme",
+       "apps.smallstack",
        "apps.profile",
        "apps.help",
        "apps.tasks",

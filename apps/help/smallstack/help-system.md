@@ -12,7 +12,7 @@ The help system is a file-based documentation viewer built into {{ project_name 
 Documentation is loaded from two sources:
 
 - **`apps/help/content/`** - Your project's documentation (conflict-free zone)
-- **`apps/help/docs/`** - SmallStack reference docs (bundled, controlled by setting)
+- **`apps/help/smallstack/`** - SmallStack reference docs (bundled, controlled by setting)
 
 The system supports:
 
@@ -30,7 +30,7 @@ apps/help/
 │   ├── index.md             # Your welcome page
 │   └── guides/              # Your custom sections
 │       └── user-guide.md
-├── docs/                    # SmallStack docs (bundled)
+├── smallstack/              # SmallStack docs (bundled)
 │   ├── _config.yaml         # SmallStack config
 │   ├── getting-started.md
 │   └── ...
@@ -186,6 +186,21 @@ variables:
 Use: `Contact us at {{ "{{" }} support_email {{ "}}" }}`
 
 ## Markdown Features
+
+### Frontmatter
+
+Frontmatter is optional metadata at the very top of a markdown file, wrapped in triple dashes (`---`). It's not displayed as page content — it's used by the help system to set the page title and description.
+
+```markdown
+---
+title: My Page Title
+description: A short summary of this page
+---
+
+# The actual content starts here...
+```
+
+If you include a `title` in frontmatter, it overrides whatever title is set in `_config.yaml` for that page. If you skip frontmatter entirely, the help system uses the config values instead — so it's completely optional.
 
 ### Code Blocks
 
