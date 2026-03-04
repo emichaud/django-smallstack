@@ -197,9 +197,12 @@ CSRF_TRUSTED_ORIGINS=https://myapp.com,https://www.myapp.com
 Before deploying with Kamal, you need:
 
 1. **A VPS** (Digital Ocean, Linode, Hetzner, etc.) with:
+   - **Minimum 1GB RAM and 1 CPU** recommended for reliable deployments
    - Ubuntu 22.04+ or Debian 12+
    - SSH access as root (or sudo user)
    - Ports 80 and 443 open
+
+> **Performance note:** Deployments involve building Docker images and transferring them to your VPS via SSH. Slow VPS hardware or poor network connectivity can cause deployments to time out or fail intermittently. A VPS with at least 1GB RAM and 1 CPU provides enough headroom for reliable builds, health checks, and day-to-day application performance. Budget VPS plans with 512MB RAM may work but can be unreliable under load.
 
 2. **A domain name** pointed to your VPS IP address
 
