@@ -19,3 +19,32 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+
+
+TRADEMARK NOTICE
+
+"Django SmallStack", "SmallStack", the SmallStack logo, and all related brand
+assets located in the static/brand/ directory are trademarks of Everett Michaud
+and are NOT covered by the MIT License above.
+
+You MAY:
+- Use this software as a foundation for your own projects
+- Modify, distribute, and sell software built with this codebase
+- Reference "Django SmallStack" when crediting the original project
+  (e.g., "Built with Django SmallStack")
+
+You MAY NOT:
+- Use the names "Django SmallStack" or "SmallStack" (or confusingly similar
+  names) as the name of your own project, product, or service
+- Use the SmallStack logos or brand assets to represent your own project
+- Imply official endorsement, affiliation, or sponsorship by Django SmallStack
+  or Everett Michaud without prior written permission
+- Redistribute modified versions of this software under the "Django SmallStack"
+  or "SmallStack" name
+
+When forking or building on this project, you must replace the SmallStack name
+and branding with your own. The brand assets in static/brand/ are provided as
+examples of the branding system and should be replaced with your own assets.
+
+For trademark inquiries or permission requests, contact the project maintainer
+via GitHub: https://github.com/emichaud/django-smallstack
