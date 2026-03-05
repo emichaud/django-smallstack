@@ -44,6 +44,12 @@ Self-hosted VPS with Docker is an **emerging trend** that reduces costs by conso
 │         │                         │  (web container)│       │
 │         │                         └─────────────────┘       │
 │         │                                                   │
+│         │                         ┌─────────────────┐       │
+│         │                         │  Background     │       │
+│         │                         │  Worker         │       │
+│         │                         │  (db_worker)    │       │
+│         │                         └─────────────────┘       │
+│         │                                                   │
 │         ├──── api.myapp.com ────▶ ┌─────────────────┐       │
 │         │                         │  Django API     │       │
 │         │                         │  (api container)│       │
@@ -158,6 +164,10 @@ image: myapp                # Usually same as service
 servers:
   web:
     - 123.45.67.89          # Your VPS IP address
+  worker:
+    hosts:
+      - 123.45.67.89        # Same VPS as web
+    cmd: python manage.py db_worker --queue-name "*"
 
 volumes:
   - /root/myapp_data/media:/app/media   # Update 'myapp' to your app name
@@ -235,6 +245,10 @@ image: my-app
 servers:
   web:
     - 123.45.67.89  # Your VPS IP
+  worker:
+    hosts:
+      - 123.45.67.89  # Same VPS as web
+    cmd: python manage.py db_worker --queue-name "*"
 
 ssh:
   user: root
@@ -378,6 +392,49 @@ When you run `kamal deploy`:
 6. **Cleanup** — Old container is stopped and removed
 
 The old container **keeps serving traffic** until the new one passes health checks. If the new container fails to become healthy, the deployment aborts and the old container continues running.
+
+## Background Worker
+
+{{ project_name }} includes a **background worker** role in the Kamal deployment configuration. This runs the `db_worker` management command to process background tasks (emails, data processing, etc.) in production.
+
+### How It Works
+
+The `worker` role in `deploy.yml` uses the **same Docker image** as the web role but with a different startup command:
+
+```yaml
+servers:
+  web:
+    - 123.45.67.89
+  worker:
+    hosts:
+      - 123.45.67.89
+    cmd: python manage.py db_worker --queue-name "*"
+```
+
+- **Same image** — No separate Dockerfile or build step
+- **Same entrypoint** — Migrations and collectstatic run (idempotent, safe from both containers)
+- **No proxy needed** — The worker has no HTTP traffic, so Kamal skips proxy configuration for it
+- **Shared volumes** — Worker reads/writes the same database as the web container
+
+### Worker Commands
+
+```bash
+# View worker logs
+kamal app logs --role worker
+
+# View last 100 lines of worker logs
+kamal app logs --role worker -n 100
+
+# Check worker container status
+kamal app details
+
+# Run a command in the worker container
+kamal app exec --role worker "python manage.py shell"
+```
+
+The worker deploys automatically alongside the web container when you run `kamal deploy`. No extra steps required.
+
+> **See also:** [Background Tasks](/help/smallstack/background-tasks/) for details on defining and enqueueing tasks.
 
 ## Registry: Local by Default
 
@@ -534,6 +591,7 @@ Check ALLOWED_HOSTS includes the container hostname pattern or use `*` for inter
 |------|--------------|---------------|
 | Deploy | `make deploy` | `kamal deploy` |
 | View logs | `make logs` | `kamal app logs` |
+| View worker logs | — | `kamal app logs --role worker` |
 | First-time setup | — | `kamal setup` |
 | Rollback | — | `kamal rollback` |
 | Shell access | — | `kamal app exec -i bash` |

@@ -44,6 +44,10 @@ image: myapp                # Docker image name (usually same as service)
 servers:
   web:
     - 123.45.67.89          # VPS IP address
+  worker:
+    hosts:
+      - 123.45.67.89        # Same VPS as web
+    cmd: python manage.py db_worker --queue-name "*"
 
 volumes:
   - /root/myapp_data/media:/app/media   # Persistent media uploads
@@ -99,6 +103,9 @@ kamal rollback
 # View logs
 kamal app logs
 kamal app logs -n 200
+
+# View worker logs
+kamal app logs --role worker
 
 # Check status
 kamal app details
@@ -177,6 +184,15 @@ The entrypoint script creates the user on container start.
 ```bash
 kamal app exec "python manage.py createsuperuser"
 ```
+
+## Background Worker
+
+The `worker` role runs `db_worker` to process background tasks in production. It uses the same Docker image as web with a different `cmd`. No proxy is configured for the worker since it has no HTTP traffic.
+
+- Deploys automatically with `kamal deploy`
+- Shares the same volumes and environment as web
+- Logs: `kamal app logs --role worker`
+- Exec: `kamal app exec --role worker "python manage.py shell"`
 
 ## Troubleshooting
 

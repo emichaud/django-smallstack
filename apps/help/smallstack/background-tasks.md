@@ -345,6 +345,32 @@ The worker shares the same database volume as the web service, ensuring both can
 
 For production with PostgreSQL, both services connect to the same database server.
 
+## Kamal Deployment
+
+When deploying with Kamal, the background worker is **built-in**. The `deploy.yml` configuration includes a `worker` role that runs `db_worker` automatically:
+
+```yaml
+servers:
+  web:
+    - 123.45.67.89
+  worker:
+    hosts:
+      - 123.45.67.89
+    cmd: python manage.py db_worker --queue-name "*"
+```
+
+The worker uses the same Docker image as the web container — no extra build or Dockerfile changes needed. It deploys automatically when you run `kamal deploy`.
+
+```bash
+# View worker logs
+kamal app logs --role worker
+
+# Check all container status
+kamal app details
+```
+
+> **See also:** [Kamal Deployment](/help/smallstack/kamal-deployment/) for full deployment documentation.
+
 ## Troubleshooting
 
 ### Tasks not running

@@ -135,8 +135,8 @@
     --button-hover-bg: #5fcfa1;
 
     --text-muted: #b0b0b0;
-    --link-color: #81d4fa;
-    --link-hover: #b3e5fc;
+    --link-color: #ffffff;
+    --link-hover: #e0e0e0;
 
     --breadcrumb-fg: #b0b0b0;
     --breadcrumb-link: #81d4fa;
@@ -186,7 +186,9 @@ body {
     min-height: 100vh;
 }
 
-a {
+a,
+a:link,
+a:visited {
     color: var(--link-color);
     text-decoration: none;
     transition: color var(--transition-fast);
@@ -408,12 +410,15 @@ body.sidebar-closed .main-content {
     color: var(--text-muted);
 }
 
-.dropdown-item {
+.dropdown-item,
+.dropdown-item:link,
+.dropdown-item:visited {
     display: flex;
     align-items: center;
     gap: 10px;
     padding: 10px 16px;
     color: var(--body-fg);
+    text-decoration: none !important;
     transition: background-color var(--transition-fast);
     font-size: 0.95rem;
 }
@@ -615,13 +620,16 @@ body.sidebar-closed .main-content {
     margin: 2px 8px;
 }
 
-.nav-link {
+.nav-link,
+.nav-link:link,
+.nav-link:visited {
     display: flex;
     align-items: center;
     gap: 12px;
     padding: 12px 14px;
     font-size: 1rem; /* 14px base = 14px, increased for readability */
     color: var(--sidebar-fg);
+    text-decoration: none !important;
     border-radius: var(--radius-sm);
     transition: background-color var(--transition-fast), color var(--transition-fast);
 }
@@ -632,9 +640,10 @@ body.sidebar-closed .main-content {
     opacity: 0.75;
 }
 
-.nav-link:hover {
+.nav-link:hover,
+.nav-link:active {
     background-color: var(--sidebar-hover-bg);
-    text-decoration: none;
+    text-decoration: none !important;
     color: var(--primary);
 }
 
@@ -986,6 +995,27 @@ body.sidebar-closed .main-content {
 
 .theme-toggle-btn svg {
     flex-shrink: 0;
+}
+
+/* Appearance row: palettes on left, theme toggle stacked on right */
+.appearance-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+}
+
+.appearance-row .palette-selector {
+    flex: 1;
+}
+
+.theme-toggle-vertical {
+    flex-direction: column;
+    gap: 8px;
+    flex-shrink: 0;
+}
+
+.theme-toggle-vertical .theme-toggle-btn {
+    flex: none;
 }
 
 /* ============================================
