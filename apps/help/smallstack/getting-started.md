@@ -100,6 +100,19 @@ django-smallstack/
 
 SmallStack is designed to be forked and customized. Here's what to do first:
 
+### 0. Configure Authentication
+
+By default, login and signup are enabled — anyone can create an account. For public-facing projects where you're not ready for signups, disable it in your `.env`:
+
+```bash
+# .env
+SMALLSTACK_SIGNUP_ENABLED=False
+```
+
+This hides the Sign Up button, removes the signup link from the login page, and returns 404 on `/accounts/signup/`. Login and admin still work normally.
+
+See [Authentication](/help/smallstack/authentication/) for all options including hiding the login UI entirely.
+
 ### 1. Customize Your Homepage
 
 SmallStack's page templates use a **thin wrapper + include pattern**. The default `templates/website/home.html` includes SmallStack's marketing content via `{% include %}`. To customize, replace the include with your own markup:
@@ -234,6 +247,7 @@ See [Kamal Deployment](/help/smallstack/kamal-deployment/) for full instructions
 
 ## Next Steps
 
+- [Authentication](/help/smallstack/authentication/) - Control login, signup, and feature flags
 - [Customization Guide](/help/smallstack/customization/) - Make SmallStack your own
 - [View the Starter Page](/starter/) - See all components in action
 - [Customize the theme](/help/smallstack/theming/) - Colors, dark mode, components

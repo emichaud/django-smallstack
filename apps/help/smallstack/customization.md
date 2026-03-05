@@ -371,6 +371,18 @@ No files to delete - just toggle the setting.
 
 Auth pages (`login.html`, `signup.html`, etc.) use the `brand.name` variable automatically. No manual find-and-replace needed!
 
+### Controlling Auth Visibility
+
+If your project doesn't need public signup or visible login buttons, use the auth feature flags:
+
+```bash
+# .env
+SMALLSTACK_SIGNUP_ENABLED=False   # Hide Sign Up, 404 the signup URL
+SMALLSTACK_LOGIN_ENABLED=False    # Hide Login button too (admin still works)
+```
+
+See [Authentication](/help/smallstack/authentication/) for all options.
+
 > **Note:** With settings-based branding, most template files won't create merge conflicts on upstream pulls.
 
 ## Receiving Upstream Updates

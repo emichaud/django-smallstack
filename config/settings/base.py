@@ -134,6 +134,12 @@ USE_HTTPS = config("USE_HTTPS", default=False, cast=bool)
 # Set to False to hide SmallStack reference docs from /help/
 SMALLSTACK_DOCS_ENABLED = config("SMALLSTACK_DOCS_ENABLED", default=True, cast=bool)
 
+# Auth Feature Flags
+# Set to False to hide Login/Sign Up buttons from the topbar
+SMALLSTACK_LOGIN_ENABLED = config("SMALLSTACK_LOGIN_ENABLED", default=True, cast=bool)
+# Set to False to hide Sign Up and 404 the signup URL
+SMALLSTACK_SIGNUP_ENABLED = config("SMALLSTACK_SIGNUP_ENABLED", default=True, cast=bool)
+
 # Branding Configuration
 # These paths are relative to STATIC_URL. Override to customize branding.
 BRAND_NAME = config("BRAND_NAME", default="SmallStack")

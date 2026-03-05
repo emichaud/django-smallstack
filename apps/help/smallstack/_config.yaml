@@ -63,9 +63,14 @@ pages:
     description: "Scaling beyond SQLite with PostgreSQL"
     icon: "database"
 
+  - slug: authentication
+    title: "Authentication"
+    description: "Built-in Django auth, signup control, and feature flags"
+    icon: "lock"
+
   - slug: email-auth
-    title: "Email Authentication"
-    description: "Configure email login and password reset"
+    title: "Email & Password Reset"
+    description: "Configure SMTP email, password reset, and email login"
     icon: "email"
 
   - slug: background-tasks

@@ -1,11 +1,11 @@
 ---
-title: Email Authentication
-description: Configure email-based login and password reset
+title: Email & Password Reset
+description: Configure SMTP email, password reset, and email login
 ---
 
-# Email Authentication
+# Email & Password Reset
 
-This guide explains how to configure email functionality for password resets and optionally allow users to log in with their email address instead of username.
+This guide covers email configuration for password resets and optionally allowing users to log in with their email address. For an overview of SmallStack's authentication system and feature flags, see [Authentication](/help/smallstack/authentication/).
 
 ## Email Configuration
 

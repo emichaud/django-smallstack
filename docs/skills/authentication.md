@@ -120,7 +120,34 @@ urlpatterns = [
 LOGIN_URL = "/accounts/login/"
 LOGIN_REDIRECT_URL = "/"
 LOGOUT_REDIRECT_URL = "/"
+
+# Auth feature flags (default True, configurable via .env)
+SMALLSTACK_LOGIN_ENABLED = config("SMALLSTACK_LOGIN_ENABLED", default=True, cast=bool)
+SMALLSTACK_SIGNUP_ENABLED = config("SMALLSTACK_SIGNUP_ENABLED", default=True, cast=bool)
 ```
+
+## Auth Feature Flags
+
+Two flags control auth UI visibility:
+
+- `SMALLSTACK_LOGIN_ENABLED` — hides Login/Sign Up buttons from topbar and "Log In Again" from logged-out page
+- `SMALLSTACK_SIGNUP_ENABLED` — hides Sign Up button/link and returns 404 on `/accounts/signup/`
+
+Flags are exposed to templates via context processor (`smallstack_login_enabled`, `smallstack_signup_enabled`).
+
+The signup view checks the flag in `dispatch()`:
+
+```python
+# apps/accounts/views.py
+def dispatch(self, request, *args, **kwargs):
+    if not getattr(django_settings, "SMALLSTACK_SIGNUP_ENABLED", True):
+        raise Http404
+    if request.user.is_authenticated:
+        return redirect("home")
+    return super().dispatch(request, *args, **kwargs)
+```
+
+Login disabled is UI-only — `/accounts/login/` still works (admin depends on it).
 
 ## Views
 

@@ -40,6 +40,8 @@ def branding(request):
     """
     return {
         "smallstack_docs_enabled": getattr(settings, "SMALLSTACK_DOCS_ENABLED", True),
+        "smallstack_login_enabled": getattr(settings, "SMALLSTACK_LOGIN_ENABLED", True),
+        "smallstack_signup_enabled": getattr(settings, "SMALLSTACK_SIGNUP_ENABLED", True),
         "brand": {
             "name": getattr(settings, "BRAND_NAME", "SmallStack"),
             "logo": getattr(settings, "BRAND_LOGO", "smallstack/brand/django-smallstack-logo.svg"),

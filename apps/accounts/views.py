@@ -2,7 +2,9 @@
 Views for the accounts app.
 """
 
+from django.conf import settings as django_settings
 from django.contrib.auth import login
+from django.http import Http404
 from django.shortcuts import redirect
 from django.urls import reverse_lazy
 from django.views.generic import CreateView
@@ -27,7 +29,9 @@ class SignupView(CreateView):
         return response
 
     def dispatch(self, request, *args, **kwargs):
-        """Redirect authenticated users to home."""
+        """Redirect authenticated users to home. 404 if signup is disabled."""
+        if not getattr(django_settings, "SMALLSTACK_SIGNUP_ENABLED", True):
+            raise Http404
         if request.user.is_authenticated:
             return redirect("home")
         return super().dispatch(request, *args, **kwargs)

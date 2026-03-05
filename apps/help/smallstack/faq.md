@@ -133,6 +133,26 @@ For production, remember to:
 
 See [Project Structure](/help/project-structure/) for details.
 
+## How do I disable public signup?
+
+Add to your `.env` file:
+
+```bash
+SMALLSTACK_SIGNUP_ENABLED=False
+```
+
+This hides the Sign Up button from the topbar and login page, and returns 404 on `/accounts/signup/`. Login and admin are unaffected. See [Authentication](/help/smallstack/authentication/) for more options.
+
+## How do I hide the login button?
+
+Add to your `.env` file:
+
+```bash
+SMALLSTACK_LOGIN_ENABLED=False
+```
+
+This hides both Login and Sign Up from the topbar. Staff can still access `/accounts/login/` and `/admin/` directly.
+
 ## How do I customize the User model?
 
 The custom User model is in `apps/accounts/models.py`. It already extends `AbstractBaseUser` for maximum flexibility.
