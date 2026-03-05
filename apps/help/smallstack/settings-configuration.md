@@ -235,6 +235,7 @@ SmallStack includes these feature flags out of the box:
 | `SMALLSTACK_DOCS_ENABLED` | `True` | Show/hide SmallStack reference docs from `/help/` |
 | `SMALLSTACK_LOGIN_ENABLED` | `True` | Show/hide Login and Sign Up buttons in the topbar |
 | `SMALLSTACK_SIGNUP_ENABLED` | `True` | Show/hide Sign Up UI and 404 the signup URL |
+| `SMALLSTACK_COLOR_PALETTE` | `"django"` | System default color palette (`django`, `light-blue`, `dark-blue`, `orange`, `purple`) |
 
 See [Authentication](/help/smallstack/authentication/) for details on the auth flags.
 

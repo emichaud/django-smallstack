@@ -144,3 +144,4 @@ htmx.ajax('POST', '/profile/theme/', {
 | Feature | Endpoint | Method |
 |---------|----------|--------|
 | Theme preference save | `POST /profile/theme/` | htmx.ajax from theme.js |
+| Palette preference save | `POST /profile/palette/` | htmx.ajax from theme.js |

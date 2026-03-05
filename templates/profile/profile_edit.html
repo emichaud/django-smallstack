@@ -233,6 +233,24 @@
                             {% endif %}
                         </div>
                     </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Color Palette</label>
+                            <input type="hidden" name="color_palette" id="id_color_palette" value="{{ form.color_palette.value|default:'' }}">
+                            <div class="palette-selector">
+                                {% for palette in palettes %}
+                                <button type="button" class="palette-swatch {% if color_palette == palette.id %}active{% endif %}" data-palette="{{ palette.id }}">
+                                    <div class="palette-swatch-colors">
+                                        <span class="palette-swatch-dot" style="background-color: {{ palette.preview.light }};"></span>
+                                        <span class="palette-swatch-dot" style="background-color: {{ palette.preview.dark }};"></span>
+                                    </div>
+                                    <span class="palette-swatch-label">{{ palette.label }}</span>
+                                </button>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>

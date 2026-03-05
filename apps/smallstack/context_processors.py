@@ -1,10 +1,39 @@
 """
 Context processors for the admin theme.
 
-Provides branding and site configuration to all templates.
+Provides branding, site configuration, and palette data to all templates.
 """
 
+from pathlib import Path
+
+import yaml
 from django.conf import settings
+
+
+def _load_palettes():
+    """Load palette definitions from palettes.yaml."""
+    palette_file = Path(__file__).parent / "palettes.yaml"
+    try:
+        with open(palette_file) as f:
+            data = yaml.safe_load(f)
+        return data.get("palettes", [])
+    except (FileNotFoundError, yaml.YAMLError):
+        return []
+
+
+def _get_effective_palette(request):
+    """Resolve effective palette: user override > system default."""
+    system_default = getattr(settings, "SMALLSTACK_COLOR_PALETTE", "django")
+
+    if request.user.is_authenticated:
+        try:
+            user_palette = request.user.profile.color_palette
+            if user_palette:
+                return user_palette
+        except Exception:
+            pass
+
+    return system_default
 
 
 def branding(request):
@@ -38,10 +67,16 @@ def branding(request):
         <img src="{% static brand.logo %}">       <!-- Marketing pages -->
         <meta property="og:image" content="{% static brand.social_image %}">
     """
+    system_palette = getattr(settings, "SMALLSTACK_COLOR_PALETTE", "django")
+    effective_palette = _get_effective_palette(request)
+
     return {
         "smallstack_docs_enabled": getattr(settings, "SMALLSTACK_DOCS_ENABLED", True),
         "smallstack_login_enabled": getattr(settings, "SMALLSTACK_LOGIN_ENABLED", True),
         "smallstack_signup_enabled": getattr(settings, "SMALLSTACK_SIGNUP_ENABLED", True),
+        "palettes": _load_palettes(),
+        "color_palette": effective_palette,
+        "system_color_palette": system_palette,
         "brand": {
             "name": getattr(settings, "BRAND_NAME", "SmallStack"),
             "logo": getattr(settings, "BRAND_LOGO", "smallstack/brand/django-smallstack-logo.svg"),

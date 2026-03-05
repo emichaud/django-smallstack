@@ -1,10 +1,12 @@
 # Skill: Theming System
 
-This skill describes how to customize the SmallStack theme, including colors, dark mode, and UI components.
+This skill describes how to customize the SmallStack theme, including colors, color palettes, dark mode, and UI components.
 
 ## Overview
 
 The theme is built on Django admin's CSS foundation with CSS custom properties (variables) for easy customization. All theming is done through CSS - no build tools required.
+
+SmallStack supports **selectable color palettes** (django, light-blue, dark-blue, orange, purple) with a system-wide default and per-user override.
 
 ## File Locations
 
@@ -12,15 +14,24 @@ The theme is built on Django admin's CSS foundation with CSS custom properties (
 static/
 ├── smallstack/                 # UPSTREAM: Core SmallStack assets
 │   ├── css/
-│   │   └── theme.css           # Main theme - variables, layout, components
+│   │   ├── theme.css           # Main theme - variables, layout, components
+│   │   └── palettes.css        # Color palette overrides (per-palette variables)
 │   ├── js/
-│   │   ├── theme.js            # Dark mode toggle, sidebar, dropdowns
+│   │   ├── theme.js            # Dark mode toggle, palette switching, sidebar, dropdowns
 │   │   └── htmx.min.js         # htmx library (vendored, no CDN)
 │   └── help/
 │       └── css/help.css        # Help system specific styles
 ├── css/                        # DOWNSTREAM: Project CSS overrides
 ├── js/                         # DOWNSTREAM: Project JS
 └── brand/                      # DOWNSTREAM: Project brand assets
+
+apps/smallstack/
+├── palettes.yaml               # Palette registry (metadata for UI)
+├── context_processors.py       # Exposes palette data to templates
+
+apps/profile/
+├── models.py                   # UserProfile.color_palette field
+├── views.py                    # PalettePreferenceView (htmx POST)
 
 templates/smallstack/
 ├── base.html               # Master layout template
@@ -112,9 +123,95 @@ All colors and key values are defined as CSS variables in `static/smallstack/css
 }
 ```
 
+## Color Palettes
+
+SmallStack includes 5 built-in color palettes that override the primary color variables for both light and dark modes.
+
+### Available Palettes
+
+| Palette | Light Primary | Dark Primary | Description |
+|---------|--------------|-------------|-------------|
+| `django` (default) | `#417690` | `#44b78b` | Classic Django admin colors |
+| `light-blue` | `#0288d1` | `#4fc3f7` | Clean sky blue tones |
+| `dark-blue` | `#1565c0` | `#42a5f5` | Deep ocean blue |
+| `orange` | `#e65100` | `#ff9800` | Warm sunset orange |
+| `purple` | `#7e57c2` | `#b39ddb` | Rich violet tones |
+
+### Two Tiers of Control
+
+1. **System default** — `SMALLSTACK_COLOR_PALETTE` setting in `base.py` / `.env` (default: `"django"`)
+2. **User override** — `color_palette` field on `UserProfile` (blank = use system default)
+
+### How Palettes Work
+
+Palettes use a `data-palette` attribute on `<html>`, orthogonal to the existing `data-theme="dark|light"` attribute:
+
+```html
+<html lang="en" data-theme="dark" data-palette="purple">
+```
+
+CSS overrides in `palettes.css` use `html[data-palette="X"]` selectors to beat `:root` specificity:
+
+```css
+html[data-palette="purple"] {
+    --primary: #7e57c2;
+    --primary-hover: #5e35b1;
+    --header-bg: #7e57c2;
+    --sidebar-active-bg: #7e57c2;
+    --button-bg: #7e57c2;
+    --link-color: #7e57c2;
+    /* ... */
+}
+
+html[data-palette="purple"][data-theme="dark"] {
+    --primary: #b39ddb;
+    --primary-hover: #ce93d8;
+    --header-bg: #2a1a4a;
+    /* ... */
+}
+```
+
+### Setting the System Default
+
+```python
+# config/settings/base.py (or in .env)
+SMALLSTACK_COLOR_PALETTE = "purple"  # Options: django, light-blue, dark-blue, orange, purple
+```
+
+### Adding a New Palette
+
+1. Add entry to `apps/smallstack/palettes.yaml` (id, label, preview colors)
+2. Add `html[data-palette="X"]` and `html[data-palette="X"][data-theme="dark"]` blocks to `static/smallstack/css/palettes.css`
+3. Add choice to `UserProfile.COLOR_PALETTE_CHOICES` in `apps/profile/models.py` + create migration
+4. Add id to `PalettePreferenceView.VALID_PALETTES` set in `apps/profile/views.py`
+
+### Palette Context Variables
+
+The `branding` context processor provides these template variables:
+
+| Variable | Description |
+|----------|-------------|
+| `palettes` | List of all palette definitions from `palettes.yaml` |
+| `color_palette` | Effective palette for current request (user override > system default) |
+| `system_color_palette` | System default palette from settings |
+
+### JavaScript API
+
+```javascript
+// Get current palette
+const palette = document.documentElement.getAttribute('data-palette');
+
+// Set palette programmatically (also saves to profile via htmx)
+setPalette('purple');
+
+// Keys in window.SMALLSTACK
+window.SMALLSTACK.userPalette;   // User's saved palette preference
+window.SMALLSTACK.colorPalette;  // Effective palette for this page load
+```
+
 ## Changing the Primary Color
 
-To rebrand the entire app:
+To rebrand the entire app without using the palette system:
 
 1. Edit `static/smallstack/css/theme.css` (or add overrides in `static/css/project.css`)
 2. Change `--primary` and `--primary-hover` in both `:root` and `[data-theme="dark"]`
@@ -135,11 +232,11 @@ To rebrand the entire app:
 
 ### How It Works
 
-1. A blocking inline `<script>` in `<head>` reads `localStorage` and sets `data-theme` on `<html>` **before CSS renders** — no flash
-2. `theme.js` initializes toggle buttons and listens for changes
-3. CSS variables change based on `[data-theme="dark"]` selector
+1. A blocking inline `<script>` in `<head>` reads `localStorage` and sets `data-theme` and `data-palette` on `<html>` **before CSS renders** — no flash
+2. `theme.js` initializes toggle buttons, palette swatches, and listens for changes
+3. CSS variables change based on `[data-theme="dark"]` and `[data-palette="X"]` selectors
 4. Toggle button in topbar switches between modes
-5. For authenticated users, theme changes are saved to their profile via htmx (`POST /profile/theme/`)
+5. For authenticated users, theme and palette changes are saved to their profile via htmx (`POST /profile/theme/` and `POST /profile/palette/`)
 
 ### JavaScript API
 
@@ -150,12 +247,6 @@ const theme = document.documentElement.getAttribute('data-theme');
 // Set theme programmatically
 document.documentElement.setAttribute('data-theme', 'dark');
 localStorage.setItem('smallstack-theme', 'dark');
-
-// Toggle theme
-const current = localStorage.getItem('smallstack-theme') || 'light';
-const next = current === 'dark' ? 'light' : 'dark';
-document.documentElement.setAttribute('data-theme', next);
-localStorage.setItem('smallstack-theme', next);
 ```
 
 ## UI Components
@@ -215,6 +306,8 @@ Edit `templates/smallstack/includes/sidebar.html`:
     </a>
 </li>
 ```
+
+Sidebar nav icons are automatically tinted with the palette's `--primary` color. Active links use `--sidebar-active-bg/fg`. Hover states shift text to `--primary`.
 
 ### Section Titles
 
@@ -278,6 +371,10 @@ Always include dark mode variants:
 }
 ```
 
+### Palette Support
+
+Components that use `var(--primary)`, `var(--link-color)`, etc. automatically adapt to palette changes. If you hardcode colors, they won't change with the palette.
+
 ## Responsive Breakpoints
 
 ```css
@@ -296,6 +393,8 @@ Always include dark mode variants:
 
 1. **Use CSS variables** - Never hardcode colors
 2. **Test both themes** - Always check light and dark modes
-3. **Mobile first** - Test on small screens
-4. **Extend, don't override** - Add new classes rather than changing existing
-5. **Keep Django admin CSS** - It provides useful form styling
+3. **Test multiple palettes** - Verify your components look good with different primary colors
+4. **Mobile first** - Test on small screens
+5. **Extend, don't override** - Add new classes rather than changing existing
+6. **Keep Django admin CSS** - It provides useful form styling
+7. **Use `var(--primary)` for branded elements** - They'll automatically adapt to palette changes

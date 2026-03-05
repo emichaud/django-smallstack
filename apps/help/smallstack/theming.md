@@ -12,7 +12,9 @@ The {{ project_name }} theme is built on Django admin's CSS foundation with cust
 | File | Purpose |
 |------|---------|
 | `static/smallstack/css/theme.css` | Main theme CSS with all custom properties |
-| `static/smallstack/js/theme.js` | Dark mode toggle and UI interactions |
+| `static/smallstack/css/palettes.css` | Color palette overrides (per-palette variables) |
+| `static/smallstack/js/theme.js` | Dark mode toggle, palette switching, UI interactions |
+| `apps/smallstack/palettes.yaml` | Palette registry (metadata for the palette selector UI) |
 | `templates/smallstack/base.html` | Master layout template |
 | `templates/smallstack/includes/` | Reusable template partials |
 | `static/smallstack/brand/` | Default SmallStack brand assets |
@@ -97,6 +99,96 @@ All colors are defined as CSS custom properties in `static/smallstack/css/theme.
 | `--shadow-sm`, `--shadow-md`, `--shadow-lg` | Box shadows |
 | `--transition-fast`, `--transition-normal` | Animation timing |
 | `--radius-sm`, `--radius-md`, `--radius-lg` | Border radius |
+
+## Color Palettes
+
+SmallStack includes 5 selectable color palettes that change the primary accent colors across the entire UI — topbar, sidebar, buttons, links, and more.
+
+### Available Palettes
+
+| Palette | Light Mode | Dark Mode | Description |
+|---------|-----------|-----------|-------------|
+| `django` (default) | Teal | Green | Classic Django admin colors |
+| `light-blue` | Sky blue | Light cyan | Clean sky blue tones |
+| `dark-blue` | Navy | Blue | Deep ocean blue |
+| `orange` | Deep orange | Amber | Warm sunset orange |
+| `purple` | Violet | Lavender | Rich violet tones |
+
+### Setting the System Default
+
+Set the default palette for all users via settings or `.env`:
+
+```python
+# config/settings/base.py (or in .env)
+SMALLSTACK_COLOR_PALETTE = "purple"
+```
+
+Options: `django`, `light-blue`, `dark-blue`, `orange`, `purple`
+
+### Per-User Override
+
+Authenticated users can choose their own palette on the **Profile Edit** page. A swatch selector shows all available palettes with preview colors. The user's choice overrides the system default and persists across sessions.
+
+If a user clears their selection (sets it to blank), they fall back to the system default.
+
+### How It Works
+
+Palettes use a `data-palette` attribute on `<html>`, separate from the `data-theme` attribute:
+
+```html
+<html data-theme="dark" data-palette="purple">
+```
+
+A blocking `<script>` in `<head>` applies the palette from `localStorage` before CSS renders, preventing any flash. For authenticated users, palette changes are saved to their profile via htmx POST.
+
+### Adding a Custom Palette
+
+1. Add entry to `apps/smallstack/palettes.yaml`:
+```yaml
+  - id: my-palette
+    label: My Palette
+    description: My custom colors
+    preview:
+      light: "#1a73e8"
+      dark: "#8ab4f8"
+```
+
+2. Add CSS blocks to `static/smallstack/css/palettes.css`:
+```css
+html[data-palette="my-palette"] {
+    --primary: #1a73e8;
+    --primary-hover: #1557b0;
+    --header-bg: #1a73e8;
+    --sidebar-active-bg: #1a73e8;
+    --sidebar-active-fg: #ffffff;
+    --input-focus-border: #1a73e8;
+    --button-bg: #1a73e8;
+    --button-fg: #ffffff;
+    --button-hover-bg: #1557b0;
+    --link-color: #1a73e8;
+    --link-hover: #1557b0;
+    --breadcrumb-link: #1a73e8;
+}
+
+html[data-palette="my-palette"][data-theme="dark"] {
+    --primary: #8ab4f8;
+    --primary-hover: #aecbfa;
+    --header-bg: #0d3b7a;
+    --hero-gradient-end: #1557b0;
+    --sidebar-active-bg: #8ab4f8;
+    --sidebar-active-fg: #000000;
+    --input-focus-border: #8ab4f8;
+    --button-bg: #8ab4f8;
+    --button-fg: #000000;
+    --button-hover-bg: #aecbfa;
+    --link-color: #aecbfa;
+    --link-hover: #c6dafc;
+    --breadcrumb-link: #aecbfa;
+}
+```
+
+3. Add choice to `UserProfile.COLOR_PALETTE_CHOICES` in `apps/profile/models.py` and create a migration
+4. Add id to `PalettePreferenceView.VALID_PALETTES` in `apps/profile/views.py`
 
 ## Dark/Light Mode
 

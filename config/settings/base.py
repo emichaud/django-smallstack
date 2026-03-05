@@ -134,6 +134,11 @@ USE_HTTPS = config("USE_HTTPS", default=False, cast=bool)
 # Set to False to hide SmallStack reference docs from /help/
 SMALLSTACK_DOCS_ENABLED = config("SMALLSTACK_DOCS_ENABLED", default=True, cast=bool)
 
+# SmallStack Color Palette
+# System-wide default palette. Users can override in their profile.
+# Options: django, light-blue, dark-blue, orange, purple
+SMALLSTACK_COLOR_PALETTE = config("SMALLSTACK_COLOR_PALETTE", default="django")
+
 # Auth Feature Flags
 # Set to False to hide Login/Sign Up buttons from the topbar
 SMALLSTACK_LOGIN_ENABLED = config("SMALLSTACK_LOGIN_ENABLED", default=True, cast=bool)

@@ -55,14 +55,21 @@ templates/
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}{% endblock %} | SmallStack</title>
+    <title>{% block title %}{% endblock %} | {{ brand.name }}</title>
 
-    <!-- Blocking script prevents theme/sidebar flash -->
+    <!-- Blocking script prevents theme/sidebar/palette flash -->
     <script>
     (function() {
-        var theme = localStorage.getItem('smallstack-theme') || 'dark';
+        var THEME_KEY = 'smallstack-theme';
+        var SIDEBAR_KEY = 'smallstack-sidebar-closed';
+        var PALETTE_KEY = 'smallstack-palette';
+        var theme = localStorage.getItem(THEME_KEY) || 'dark';
         document.documentElement.setAttribute('data-theme', theme);
-        if (window.innerWidth > 768 && localStorage.getItem('smallstack-sidebar-closed') === 'true') {
+        var palette = localStorage.getItem(PALETTE_KEY) || '{{ color_palette }}';
+        if (palette && palette !== 'django') {
+            document.documentElement.setAttribute('data-palette', palette);
+        }
+        if (window.innerWidth > 768 && localStorage.getItem(SIDEBAR_KEY) === 'true') {
             document.documentElement.classList.add('sidebar-will-close');
         }
     })();
@@ -71,6 +78,7 @@ templates/
     <!-- CSS -->
     <link rel="stylesheet" href="{% static 'admin/css/base.css' %}">
     <link rel="stylesheet" href="{% static 'smallstack/css/theme.css' %}">
+    <link rel="stylesheet" href="{% static 'smallstack/css/palettes.css' %}">
     {% block extra_css %}{% endblock %}
 </head>
 <body hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
@@ -98,6 +106,15 @@ templates/
         </div>
     </div>
 
+    <!-- Theme configuration -->
+    <script>
+        window.SMALLSTACK = {
+            userTheme: {% if user.is_authenticated and user.profile %}'{{ user.profile.theme_preference }}'{% else %}null{% endif %},
+            userPalette: {% if user.is_authenticated and user.profile %}'{{ user.profile.color_palette }}'{% else %}null{% endif %},
+            colorPalette: '{{ color_palette }}',
+            isAuthenticated: {% if user.is_authenticated %}true{% else %}false{% endif %}
+        };
+    </script>
     <!-- JavaScript -->
     <script src="{% static 'smallstack/js/htmx.min.js' %}" defer></script>
     <script src="{% static 'smallstack/js/theme.js' %}"></script>

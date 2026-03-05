@@ -286,6 +286,8 @@ Pure presentation - theme helpers only (no models):
 | File | Purpose |
 |------|---------|
 | `templatetags/theme_tags.py` | Breadcrumbs, nav_active |
+| `context_processors.py` | Branding, palette data, site config |
+| `palettes.yaml` | Color palette registry (metadata for UI) |
 | `management/commands/` | create_dev_superuser |
 
 ### profile
@@ -294,8 +296,8 @@ User profile management:
 
 | File | Purpose |
 |------|---------|
-| `models.py` | UserProfile (photo, bio, etc.) |
-| `views.py` | ProfileView, ProfileEditView, ProfileDetailView |
+| `models.py` | UserProfile (photo, bio, theme_preference, color_palette, etc.) |
+| `views.py` | ProfileView, ProfileEditView, ProfileDetailView, ThemePreferenceView, PalettePreferenceView |
 | `forms.py` | UserProfileForm |
 | `signals.py` | Auto-create profile on user creation |
 

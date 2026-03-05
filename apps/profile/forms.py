@@ -28,6 +28,7 @@ class UserProfileForm(forms.ModelForm):
             "website",
             "date_of_birth",
             "theme_preference",
+            "color_palette",
         ]
         widgets = {
             "date_of_birth": forms.DateInput(
@@ -39,6 +40,7 @@ class UserProfileForm(forms.ModelForm):
             "location": forms.TextInput(attrs={"class": "vTextField"}),
             "website": forms.URLInput(attrs={"class": "vTextField"}),
             "theme_preference": forms.Select(attrs={"class": "vTextField"}),
+            "color_palette": forms.HiddenInput(),
         }
 
     def __init__(self, *args, **kwargs):

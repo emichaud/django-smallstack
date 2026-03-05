@@ -370,15 +370,22 @@ class UserProfile(models.Model):
         on_delete=models.CASCADE,
         related_name="profile"
     )
+    theme_preference = models.CharField(max_length=10, choices=THEME_CHOICES, default="dark")
+    color_palette = models.CharField(max_length=20, choices=COLOR_PALETTE_CHOICES, default="", blank=True)
+    display_name = models.CharField(max_length=100, blank=True)
     bio = models.TextField(blank=True)
-    photo = models.ImageField(upload_to="profiles/", blank=True)
+    profile_photo = models.ImageField(upload_to="profiles/photos/", blank=True, null=True)
+    background_photo = models.ImageField(upload_to="profiles/backgrounds/", blank=True, null=True)
+    # ... location, website, date_of_birth
 ```
 
 Access in templates:
 ```html
 {{ user.profile.bio }}
-{% if user.profile.photo %}
-    <img src="{{ user.profile.photo.url }}">
+{{ user.profile.theme_preference }}
+{{ user.profile.color_palette }}
+{% if user.profile.profile_photo %}
+    <img src="{{ user.profile.profile_photo.url }}">
 {% endif %}
 ```
 

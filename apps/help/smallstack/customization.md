@@ -371,6 +371,19 @@ No files to delete - just toggle the setting.
 
 Auth pages (`login.html`, `signup.html`, etc.) use the `brand.name` variable automatically. No manual find-and-replace needed!
 
+### Changing the Color Palette
+
+SmallStack includes 5 built-in color palettes that change the primary accent colors site-wide. Set the system default via settings:
+
+```python
+# config/settings/base.py (or in .env)
+SMALLSTACK_COLOR_PALETTE = "purple"  # Options: django, light-blue, dark-blue, orange, purple
+```
+
+Individual users can override the system palette from their **Profile Edit** page using the palette swatch selector. Their choice persists across sessions and overrides the system default.
+
+For full details on adding custom palettes, see [Theming & Customization](/help/smallstack/theming/#color-palettes).
+
 ### Controlling Auth Visibility
 
 If your project doesn't need public signup or visible login buttons, use the auth feature flags:
@@ -488,7 +501,7 @@ CSRF_TRUSTED_ORIGINS=https://myproject.com,https://www.myproject.com
 | Header logo | `templates/smallstack/includes/topbar.html` |
 | Auth page titles | `templates/registration/*.html` |
 | Sidebar navigation | `templates/smallstack/includes/sidebar.html` |
-| Theme colors | `static/smallstack/css/theme.css` (or add overrides in `static/css/project.css`) |
+| Theme colors | `static/smallstack/css/theme.css` (or use palette system / add overrides in `static/css/project.css`) |
 
 ## Next Steps
 

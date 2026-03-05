@@ -1,0 +1,222 @@
+/**
+ * Palette CSS Overrides - SmallStack
+ *
+ * Each non-default palette overrides color variables for light and dark modes.
+ * The "django" palette is the default defined in theme.css — no overrides needed.
+ *
+ * To add a new palette:
+ *   1. Add html[data-palette="your-id"] block for light mode
+ *   2. Add html[data-palette="your-id"][data-theme="dark"] block for dark mode
+ *
+ * Note: The html prefix is required to beat :root specificity from theme.css.
+ */
+
+/* ============================================
+   Light Blue Palette
+   ============================================ */
+
+html[data-palette="light-blue"] {
+    --primary: #0288d1;
+    --primary-hover: #01579b;
+    --secondary: #4fc3f7;
+    --header-bg: #0288d1;
+    --sidebar-active-bg: #0288d1;
+    --sidebar-active-fg: #ffffff;
+    --input-focus-border: #0288d1;
+    --button-bg: #0288d1;
+    --button-fg: #ffffff;
+    --button-hover-bg: #01579b;
+    --link-color: #0277bd;
+    --link-hover: #01579b;
+    --breadcrumb-link: #0277bd;
+}
+
+html[data-palette="light-blue"][data-theme="dark"] {
+    --primary: #4fc3f7;
+    --primary-hover: #81d4fa;
+    --secondary: #0288d1;
+    --header-bg: #0a3a5c;
+    --hero-gradient-end: #0277bd;
+    --sidebar-active-bg: #4fc3f7;
+    --sidebar-active-fg: #000000;
+    --input-focus-border: #4fc3f7;
+    --button-bg: #4fc3f7;
+    --button-fg: #000000;
+    --button-hover-bg: #81d4fa;
+    --link-color: #81d4fa;
+    --link-hover: #b3e5fc;
+    --breadcrumb-link: #81d4fa;
+}
+
+/* ============================================
+   Dark Blue Palette
+   ============================================ */
+
+html[data-palette="dark-blue"] {
+    --primary: #1565c0;
+    --primary-hover: #0d47a1;
+    --secondary: #42a5f5;
+    --header-bg: #1565c0;
+    --sidebar-active-bg: #1565c0;
+    --sidebar-active-fg: #ffffff;
+    --input-focus-border: #1565c0;
+    --button-bg: #1565c0;
+    --button-fg: #ffffff;
+    --button-hover-bg: #0d47a1;
+    --link-color: #1565c0;
+    --link-hover: #0d47a1;
+    --breadcrumb-link: #1565c0;
+}
+
+html[data-palette="dark-blue"][data-theme="dark"] {
+    --primary: #42a5f5;
+    --primary-hover: #64b5f6;
+    --secondary: #1565c0;
+    --header-bg: #0a2a52;
+    --hero-gradient-end: #0d47a1;
+    --sidebar-active-bg: #42a5f5;
+    --sidebar-active-fg: #000000;
+    --input-focus-border: #42a5f5;
+    --button-bg: #42a5f5;
+    --button-fg: #000000;
+    --button-hover-bg: #64b5f6;
+    --link-color: #64b5f6;
+    --link-hover: #90caf9;
+    --breadcrumb-link: #64b5f6;
+}
+
+/* ============================================
+   Orange Palette
+   ============================================ */
+
+html[data-palette="orange"] {
+    --primary: #e65100;
+    --primary-hover: #bf360c;
+    --secondary: #ff9800;
+    --header-bg: #e65100;
+    --sidebar-active-bg: #e65100;
+    --sidebar-active-fg: #ffffff;
+    --input-focus-border: #e65100;
+    --button-bg: #e65100;
+    --button-fg: #ffffff;
+    --button-hover-bg: #bf360c;
+    --link-color: #e65100;
+    --link-hover: #bf360c;
+    --breadcrumb-link: #e65100;
+}
+
+html[data-palette="orange"][data-theme="dark"] {
+    --primary: #ff9800;
+    --primary-hover: #ffb74d;
+    --secondary: #e65100;
+    --header-bg: #4a2800;
+    --hero-gradient-end: #bf360c;
+    --sidebar-active-bg: #ff9800;
+    --sidebar-active-fg: #000000;
+    --input-focus-border: #ff9800;
+    --button-bg: #ff9800;
+    --button-fg: #000000;
+    --button-hover-bg: #ffb74d;
+    --link-color: #ffb74d;
+    --link-hover: #ffe0b2;
+    --breadcrumb-link: #ffb74d;
+}
+
+/* ============================================
+   Purple Palette
+   ============================================ */
+
+html[data-palette="purple"] {
+    --primary: #7e57c2;
+    --primary-hover: #5e35b1;
+    --secondary: #b39ddb;
+    --header-bg: #7e57c2;
+    --sidebar-active-bg: #7e57c2;
+    --sidebar-active-fg: #ffffff;
+    --input-focus-border: #7e57c2;
+    --button-bg: #7e57c2;
+    --button-fg: #ffffff;
+    --button-hover-bg: #5e35b1;
+    --link-color: #7e57c2;
+    --link-hover: #5e35b1;
+    --breadcrumb-link: #7e57c2;
+}
+
+html[data-palette="purple"][data-theme="dark"] {
+    --primary: #b39ddb;
+    --primary-hover: #ce93d8;
+    --secondary: #7e57c2;
+    --header-bg: #2a1a4a;
+    --hero-gradient-end: #5e35b1;
+    --sidebar-active-bg: #b39ddb;
+    --sidebar-active-fg: #000000;
+    --input-focus-border: #b39ddb;
+    --button-bg: #b39ddb;
+    --button-fg: #000000;
+    --button-hover-bg: #ce93d8;
+    --link-color: #ce93d8;
+    --link-hover: #e1bee7;
+    --breadcrumb-link: #ce93d8;
+}
+
+/* ============================================
+   Palette Selector UI (Profile Edit)
+   ============================================ */
+
+.palette-selector {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 4px;
+}
+
+.palette-swatch {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 12px;
+    border: 2px solid var(--input-border);
+    border-radius: var(--radius-sm);
+    background: var(--input-bg);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    min-width: 72px;
+}
+
+.palette-swatch:hover {
+    border-color: var(--primary);
+    background: var(--body-bg);
+}
+
+.palette-swatch.active {
+    border-color: var(--primary);
+    background: var(--primary);
+    color: var(--button-fg);
+}
+
+.palette-swatch-colors {
+    display: flex;
+    gap: 4px;
+}
+
+.palette-swatch-dot {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    border: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+[data-theme="dark"] .palette-swatch-dot {
+    border-color: rgba(255, 255, 255, 0.15);
+}
+
+.palette-swatch-label {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--body-fg);
+}
+
+.palette-swatch.active .palette-swatch-label {
+    color: var(--button-fg);
+}

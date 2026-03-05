@@ -16,6 +16,7 @@
     // ============================================
 
     const THEME_KEY = 'smallstack-theme';
+    const PALETTE_KEY = 'smallstack-palette';
 
     // Get config from window object (set in base template)
     const config = window.SMALLSTACK || {};
@@ -101,6 +102,70 @@
                 e.preventDefault();
                 e.stopPropagation();
                 setTheme(this.dataset.theme);
+            });
+        });
+    }
+
+    // ============================================
+    // Color Palette
+    // ============================================
+
+    function getPreferredPalette() {
+        // Priority 1: User's saved profile preference (if logged in)
+        if (config.isAuthenticated && config.userPalette) {
+            return config.userPalette;
+        }
+
+        // Priority 2: localStorage
+        var stored = localStorage.getItem(PALETTE_KEY);
+        if (stored) {
+            return stored;
+        }
+
+        // Priority 3: System default from context
+        return config.colorPalette || 'django';
+    }
+
+    function setPalette(palette) {
+        if (palette && palette !== 'django') {
+            document.documentElement.setAttribute('data-palette', palette);
+        } else {
+            document.documentElement.removeAttribute('data-palette');
+        }
+        localStorage.setItem(PALETTE_KEY, palette || 'django');
+
+        // Update the hidden input on profile edit page
+        var paletteInput = document.getElementById('id_color_palette');
+        if (paletteInput) {
+            paletteInput.value = palette || '';
+        }
+
+        // Update swatch active states
+        document.querySelectorAll('.palette-swatch').forEach(function(btn) {
+            if (btn.dataset.palette === (palette || 'django')) {
+                btn.classList.add('active');
+            } else {
+                btn.classList.remove('active');
+            }
+        });
+
+        // Save palette preference to profile via htmx (if authenticated and htmx available)
+        if (config.isAuthenticated && typeof htmx !== 'undefined') {
+            htmx.ajax('POST', '/profile/palette/', {
+                values: { palette: palette || '' },
+                swap: 'none'
+            });
+        }
+    }
+
+    function initPalette() {
+        setPalette(getPreferredPalette());
+
+        // Listen for palette swatch clicks
+        document.querySelectorAll('.palette-swatch').forEach(function(btn) {
+            btn.addEventListener('click', function(e) {
+                e.preventDefault();
+                setPalette(this.dataset.palette);
             });
         });
     }
@@ -247,6 +312,7 @@
 
     function init() {
         initTheme();
+        initPalette();
         initSidebar();
         initUserMenu();
         initMessages();

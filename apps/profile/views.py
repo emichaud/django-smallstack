@@ -60,6 +60,20 @@ class ThemePreferenceView(LoginRequiredMixin, View):
         return HttpResponse(status=204)
 
 
+class PalettePreferenceView(LoginRequiredMixin, View):
+    """Save color palette preference via htmx POST."""
+
+    VALID_PALETTES = {"", "django", "light-blue", "dark-blue", "orange", "purple"}
+
+    def post(self, request):
+        palette = request.POST.get("palette", "").strip()
+        if palette in self.VALID_PALETTES:
+            profile = get_object_or_404(UserProfile, user=request.user)
+            profile.color_palette = palette
+            profile.save(update_fields=["color_palette"])
+        return HttpResponse(status=204)
+
+
 class ProfileDetailView(DetailView):
     """View for displaying any user's public profile."""
 

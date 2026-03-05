@@ -1,0 +1,43 @@
+# SmallStack Color Palettes
+# Each entry defines a selectable color palette.
+# To add a new palette:
+#   1. Add an entry here (id, label, description, preview colors)
+#   2. Add CSS blocks to static/smallstack/css/palettes.css
+#   3. Add choice to UserProfile.COLOR_PALETTE_CHOICES + migration
+#   4. Add id to PalettePreferenceView.VALID_PALETTES
+
+palettes:
+  - id: django
+    label: Django
+    description: Classic Django admin colors
+    preview:
+      light: "#417690"
+      dark: "#44b78b"
+
+  - id: light-blue
+    label: Light Blue
+    description: Clean sky blue tones
+    preview:
+      light: "#0288d1"
+      dark: "#4fc3f7"
+
+  - id: dark-blue
+    label: Dark Blue
+    description: Deep ocean blue
+    preview:
+      light: "#1565c0"
+      dark: "#42a5f5"
+
+  - id: orange
+    label: Orange
+    description: Warm sunset orange
+    preview:
+      light: "#e65100"
+      dark: "#ff9800"
+
+  - id: purple
+    label: Purple
+    description: Rich violet tones
+    preview:
+      light: "#7e57c2"
+      dark: "#b39ddb"

@@ -27,6 +27,15 @@ class UserProfile(models.Model):
         ("light", "Light"),
     ]
 
+    COLOR_PALETTE_CHOICES = [
+        ("", "System Default"),
+        ("django", "Django"),
+        ("light-blue", "Light Blue"),
+        ("dark-blue", "Dark Blue"),
+        ("orange", "Orange"),
+        ("purple", "Purple"),
+    ]
+
     user = models.OneToOneField(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
@@ -37,6 +46,13 @@ class UserProfile(models.Model):
         choices=THEME_CHOICES,
         default="dark",
         help_text="Preferred color theme",
+    )
+    color_palette = models.CharField(
+        max_length=20,
+        choices=COLOR_PALETTE_CHOICES,
+        default="",
+        blank=True,
+        help_text="Color palette override (blank = system default)",
     )
     profile_photo = models.ImageField(
         upload_to="profiles/photos/",

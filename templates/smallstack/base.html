@@ -6,13 +6,18 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}{% endblock %} | {{ brand.name }}</title>
 
-    <!-- Blocking theme/sidebar script — prevents flash of wrong theme or sidebar state -->
+    <!-- Blocking theme/sidebar/palette script — prevents flash of wrong theme or sidebar state -->
     <script>
     (function() {
         var THEME_KEY = 'smallstack-theme';
         var SIDEBAR_KEY = 'smallstack-sidebar-closed';
+        var PALETTE_KEY = 'smallstack-palette';
         var theme = localStorage.getItem(THEME_KEY) || 'dark';
         document.documentElement.setAttribute('data-theme', theme);
+        var palette = localStorage.getItem(PALETTE_KEY) || '{{ color_palette }}';
+        if (palette && palette !== 'django') {
+            document.documentElement.setAttribute('data-palette', palette);
+        }
         if (window.innerWidth > 768 && localStorage.getItem(SIDEBAR_KEY) === 'true') {
             document.documentElement.classList.add('sidebar-will-close');
         }
@@ -35,6 +40,7 @@
 
     <!-- Custom theme CSS -->
     <link rel="stylesheet" href="{% static 'smallstack/css/theme.css' %}">
+    <link rel="stylesheet" href="{% static 'smallstack/css/palettes.css' %}">
 
     {% block extra_css %}{% endblock %}
 </head>
@@ -76,6 +82,8 @@
     <script>
         window.SMALLSTACK = {
             userTheme: {% if user.is_authenticated and user.profile %}'{{ user.profile.theme_preference }}'{% else %}null{% endif %},
+            userPalette: {% if user.is_authenticated and user.profile %}'{{ user.profile.color_palette }}'{% else %}null{% endif %},
+            colorPalette: '{{ color_palette }}',
             isAuthenticated: {% if user.is_authenticated %}true{% else %}false{% endif %}
         };
     </script>
