@@ -127,3 +127,44 @@ class TestProfileViews:
         """Profile detail should return 404 for non-existent user."""
         response = client.get(reverse("profile_detail", kwargs={"username": "nonexistent"}))
         assert response.status_code == 404
+
+
+class TestThemePreferenceView:
+    """Tests for the theme preference endpoint."""
+
+    def test_theme_save_requires_login(self, client):
+        """Theme preference endpoint should require authentication."""
+        response = client.post(reverse("theme_preference"), {"theme": "light"})
+        assert response.status_code == 302
+        assert "/accounts/login/" in response.url
+
+    def test_theme_save_dark(self, client, user):
+        """Authenticated user should be able to save dark theme."""
+        client.login(username="testuser", password="testpass123")
+        response = client.post(reverse("theme_preference"), {"theme": "dark"})
+        assert response.status_code == 204
+        user.profile.refresh_from_db()
+        assert user.profile.theme_preference == "dark"
+
+    def test_theme_save_light(self, client, user):
+        """Authenticated user should be able to save light theme."""
+        client.login(username="testuser", password="testpass123")
+        response = client.post(reverse("theme_preference"), {"theme": "light"})
+        assert response.status_code == 204
+        user.profile.refresh_from_db()
+        assert user.profile.theme_preference == "light"
+
+    def test_theme_save_invalid_value(self, client, user):
+        """Invalid theme value should be ignored (no error, no change)."""
+        client.login(username="testuser", password="testpass123")
+        original = user.profile.theme_preference
+        response = client.post(reverse("theme_preference"), {"theme": "invalid"})
+        assert response.status_code == 204
+        user.profile.refresh_from_db()
+        assert user.profile.theme_preference == original
+
+    def test_theme_save_get_not_allowed(self, client, user):
+        """GET requests should return 405."""
+        client.login(username="testuser", password="testpass123")
+        response = client.get(reverse("theme_preference"))
+        assert response.status_code == 405

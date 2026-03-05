@@ -42,6 +42,7 @@ shell:
 	uv run python manage.py shell_plus
 
 test:
+	uv sync --extra dev --quiet
 	uv run pytest
 
 collectstatic:

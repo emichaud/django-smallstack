@@ -1,49 +1,35 @@
-{% load static %}
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login | {{ brand.name }}</title>
-    <script>(function(){var t=localStorage.getItem('smallstack-theme')||'dark';document.documentElement.setAttribute('data-theme',t);})()</script>
-    <link rel="stylesheet" href="{% static 'admin/css/base.css' %}">
-    <link rel="stylesheet" href="{% static 'smallstack/css/theme.css' %}">
-</head>
-<body class="auth-page">
-    <div class="auth-container">
-        <div class="auth-card">
-            <div class="auth-header">
-                <h1>Welcome Back</h1>
-                <p>Sign in to your account</p>
-            </div>
+{% extends "registration/auth_base.html" %}
 
-            {% if form.errors %}
-            <div class="message error">
-                <span class="message-text">Invalid username or password. Please try again.</span>
-            </div>
-            {% endif %}
+{% block title %}Login{% endblock %}
 
-            <form method="post" class="auth-form">
-                {% csrf_token %}
-                <div class="form-group">
-                    <label for="id_username">Username</label>
-                    <input type="text" name="username" id="id_username" class="vTextField" autofocus autocapitalize="none" autocomplete="username" required>
-                </div>
-                <div class="form-group">
-                    <label for="id_password">Password</label>
-                    <input type="password" name="password" id="id_password" class="vTextField" autocomplete="current-password" required>
-                </div>
-                <input type="hidden" name="next" value="{{ next }}">
-                <button type="submit" class="button button-primary">Sign In</button>
-            </form>
+{% block auth_content %}
+<div class="auth-header">
+    <h1>Welcome Back</h1>
+    <p>Sign in to your account</p>
+</div>
 
-            <div class="auth-footer-links">
-                <a href="{% url 'password_reset' %}">Forgot your password?</a>
-                <a href="{% url 'signup' %}">Don't have an account? Sign up</a>
-            </div>
-        </div>
+{% if form.errors %}
+<div class="message error">
+    <span class="message-text">Invalid username or password. Please try again.</span>
+</div>
+{% endif %}
+
+<form method="post" class="auth-form">
+    {% csrf_token %}
+    <div class="form-group">
+        <label for="id_username">Username</label>
+        <input type="text" name="username" id="id_username" class="vTextField" autofocus autocapitalize="none" autocomplete="username" required>
     </div>
+    <div class="form-group">
+        <label for="id_password">Password</label>
+        <input type="password" name="password" id="id_password" class="vTextField" autocomplete="current-password" required>
+    </div>
+    <input type="hidden" name="next" value="{{ next }}">
+    <button type="submit" class="button button-primary">Sign In</button>
+</form>
 
-    <script src="{% static 'smallstack/js/theme.js' %}"></script>
-</body>
-</html>
+<div class="auth-footer-links">
+    <a href="{% url 'password_reset' %}">Forgot your password?</a>
+    <a href="{% url 'signup' %}">Don't have an account? Sign up</a>
+</div>
+{% endblock %}

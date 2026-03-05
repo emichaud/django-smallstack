@@ -1,0 +1,21 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}{% endblock %} | {{ brand.name }}</title>
+    <script>(function(){var t=localStorage.getItem('smallstack-theme')||'dark';document.documentElement.setAttribute('data-theme',t);})()</script>
+    <link rel="stylesheet" href="{% static 'admin/css/base.css' %}">
+    <link rel="stylesheet" href="{% static 'smallstack/css/theme.css' %}">
+</head>
+<body class="auth-page">
+    <div class="auth-container">
+        <div class="auth-card">
+            {% block auth_content %}{% endblock %}
+        </div>
+    </div>
+
+    <script src="{% static 'smallstack/js/theme.js' %}"></script>
+</body>
+</html>
