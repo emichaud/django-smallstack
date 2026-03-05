@@ -24,6 +24,9 @@ Built-in documentation system with markdown support, table of contents, search, 
 ### Background Tasks
 Django 6's new Tasks framework is pre-configured with database backend. Send emails, process data, and run jobs in the background effortlessly.
 
+### Activity Tracking
+Lightweight request logging with automatic database pruning. Staff-only dashboard shows site health, response times, user activity, and theme preferences. Configurable row cap (default 10,000), excluded paths for static assets, and htmx live-refresh on detail pages. Zero external dependencies.
+
 ### htmx
 Progressive enhancement with [htmx](https://htmx.org/) — partial page updates, inline form submissions, and server-driven UI without a build step. Vendored locally (no CDN), CSRF handled automatically. Theme preferences save silently via htmx as the first built-in example.
 
@@ -48,6 +51,7 @@ Production-ready SQLite configuration with the database stored outside the conta
 - **Tests alongside apps** - Tests live with their apps for easy maintenance
 - **URL namespacing** - Organized URL patterns (e.g., `help:index`)
 - **Organized static files** - Structured CSS and JavaScript
+- **Built-in activity tracking** - Request logging dashboard with auto-pruning
 - **htmx for progressive enhancement** - Partial updates with no build tools
 - **Template structure mirrors apps** - Intuitive template organization
 - **SQLite with data separation** - Database stored in `/data/` directory, persists across container rebuilds
@@ -117,6 +121,7 @@ django-smallstack/
 │   ├── smallstack/           # Theme helpers (pure presentation)
 │   ├── profile/               # User profile management
 │   ├── help/                  # Documentation system
+│   ├── activity/              # Request tracking & dashboard
 │   └── tasks/                 # Background tasks
 ├── config/                    # Project configuration
 │   └── settings/              # Split settings
@@ -188,6 +193,7 @@ Once running, visit `/help/` for comprehensive documentation including:
 - Theming customization
 - Docker deployment
 - Background tasks
+- Activity tracking & monitoring
 - Adding new pages
 
 ## License

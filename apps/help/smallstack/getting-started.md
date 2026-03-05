@@ -15,6 +15,7 @@ Welcome to **{{ project_name }}** v{{ version }}! This is a Django {{ django_ver
 - **Help System** - Built-in documentation with markdown support
 - **htmx** - Progressive enhancement with [htmx](https://htmx.org/) — partial page updates with no build tools
 - **Background Tasks** - Django 6's task framework pre-configured
+- **Activity Dashboard** - Lightweight request tracking with auto-pruning, staff-only dashboard with htmx live-refresh, user activity and theme stats
 - **Logging & Audit Trail** - Sensible logging defaults and built-in activity tracking using Django's LogEntry
 - **Website App** - Scaffold for your project's pages (home, about, etc.)
 - **Starter Template** - [Copy-paste template](/starter/) for creating new pages

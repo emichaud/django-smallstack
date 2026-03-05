@@ -1,0 +1,39 @@
+<div id="recent-requests"
+     hx-get="{% url 'activity:requests' %}"
+     hx-trigger="every 30s"
+     hx-swap="outerHTML">
+    {% if recent_requests %}
+    <table style="width: 100%; border-collapse: collapse;">
+        <thead>
+            <tr style="border-bottom: 1px solid var(--hairline-color);">
+                <th style="text-align: left; padding: 10px 16px; color: var(--body-quiet-color); font-size: 0.85rem;">Time</th>
+                <th style="text-align: left; padding: 10px 16px; color: var(--body-quiet-color); font-size: 0.85rem;">Method</th>
+                <th style="text-align: left; padding: 10px 16px; color: var(--body-quiet-color); font-size: 0.85rem;">Path</th>
+                <th style="text-align: right; padding: 10px 16px; color: var(--body-quiet-color); font-size: 0.85rem;">Status</th>
+                <th style="text-align: left; padding: 10px 16px; color: var(--body-quiet-color); font-size: 0.85rem;">User</th>
+                <th style="text-align: right; padding: 10px 16px; color: var(--body-quiet-color); font-size: 0.85rem;">Time (ms)</th>
+                <th style="text-align: left; padding: 10px 16px; color: var(--body-quiet-color); font-size: 0.85rem;">IP</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for log in recent_requests %}
+            <tr style="border-bottom: 1px solid var(--hairline-color);">
+                <td style="padding: 10px 16px; white-space: nowrap; font-size: 0.85rem;">{{ log.timestamp|date:"M d H:i:s" }}</td>
+                <td style="padding: 10px 16px;"><code>{{ log.method }}</code></td>
+                <td style="padding: 10px 16px; font-family: monospace; font-size: 0.9rem;">{{ log.path|truncatechars:60 }}</td>
+                <td style="text-align: right; padding: 10px 16px;">
+                    <span style="{% if log.status_code >= 500 %}color: var(--delete-button-bg, red);{% elif log.status_code >= 400 %}color: var(--message-warning-bg, orange);{% endif %}">
+                        {{ log.status_code }}
+                    </span>
+                </td>
+                <td style="padding: 10px 16px; font-size: 0.85rem;">{{ log.user.username|default:"—" }}</td>
+                <td style="text-align: right; padding: 10px 16px;">{{ log.response_time_ms }}</td>
+                <td style="padding: 10px 16px; font-size: 0.85rem;">{{ log.ip_address|default:"—" }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p style="padding: 16px; color: var(--body-quiet-color);">No requests recorded yet.</p>
+    {% endif %}
+</div>

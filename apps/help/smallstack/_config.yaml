@@ -78,6 +78,11 @@ pages:
     description: "Running tasks outside the request-response cycle"
     icon: "tasks"
 
+  - slug: activity-tracking
+    title: "Activity Tracking"
+    description: "Lightweight request logging with staff dashboard and automatic pruning"
+    icon: "chart"
+
   - slug: logging-audit
     title: "Logging & Audit Trail"
     description: "Built-in logging and activity tracking that just works"

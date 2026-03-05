@@ -1,0 +1,177 @@
+{% extends "smallstack/base.html" %}
+{% load theme_tags %}
+
+{% block title %}User Activity{% endblock %}
+
+{% block breadcrumbs %}
+    {% breadcrumb "Activity" "activity:dashboard" %}
+    {% breadcrumb "Users" "activity:users" %}
+{% endblock %}
+
+{% block content %}
+<div style="margin-bottom: 24px;">
+    <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 4px;">
+        <a href="{% url 'activity:dashboard' %}"
+           style="display: inline-flex; align-items: center; color: var(--body-quiet-color); text-decoration: none; transition: color 0.15s;"
+           onmouseover="this.style.color='var(--primary)'" onmouseout="this.style.color='var(--body-quiet-color)'">
+            <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor">
+                <path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/>
+            </svg>
+        </a>
+        <h1 style="margin: 0;">Users</h1>
+    </div>
+    <p class="page-subtitle" style="margin: 0; padding-left: 34px;">{{ user_count }} registered users — auto-refreshes every 30s</p>
+</div>
+
+<!-- Theme + Palette breakdown -->
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 24px;">
+    <div class="card">
+        <div class="card-header"><h2>Theme Preferences</h2></div>
+        <div class="card-body">
+            {% if top_themes %}
+            <div style="display: flex; gap: 24px; flex-wrap: wrap;">
+                {% for t in top_themes %}
+                <div style="text-align: center;">
+                    <div style="font-size: 1.5rem; font-weight: 700;">{{ t.count }}</div>
+                    <div style="color: var(--body-quiet-color); font-size: 0.85rem;">{{ t.theme_preference }}</div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <p style="color: var(--body-quiet-color);">No data yet.</p>
+            {% endif %}
+        </div>
+    </div>
+    <div class="card">
+        <div class="card-header"><h2>Color Palettes</h2></div>
+        <div class="card-body">
+            {% if top_palettes %}
+            <div style="display: flex; gap: 24px; flex-wrap: wrap;">
+                {% for p in top_palettes %}
+                <div style="text-align: center;">
+                    <div style="font-size: 1.5rem; font-weight: 700;">{{ p.count }}</div>
+                    <div style="color: var(--body-quiet-color); font-size: 0.85rem;">{{ p.color_palette }}</div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <p style="color: var(--body-quiet-color);">No custom palettes set.</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Top Users by Requests -->
+<div class="card" style="margin-bottom: 24px;">
+    <div class="card-header">
+        <h2>Top Users by Requests</h2>
+    </div>
+    <div class="card-body" style="padding: 0;">
+        {% if top_users %}
+        <table style="width: 100%; border-collapse: collapse;">
+            <thead>
+                <tr style="border-bottom: 1px solid var(--hairline-color);">
+                    <th style="text-align: left; padding: 10px 16px; color: var(--body-quiet-color); font-size: 0.85rem;">User</th>
+                    <th style="text-align: right; padding: 10px 16px; color: var(--body-quiet-color); font-size: 0.85rem;">Requests</th>
+                    <th style="text-align: right; padding: 10px 16px; color: var(--body-quiet-color); font-size: 0.85rem;">Avg Time</th>
+                    <th style="text-align: left; padding: 10px 16px; color: var(--body-quiet-color); font-size: 0.85rem;">Last Seen</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for entry in top_users %}
+                <tr style="border-bottom: 1px solid var(--hairline-color);">
+                    <td style="padding: 10px 16px;">{{ entry.user__username }}</td>
+                    <td style="text-align: right; padding: 10px 16px;">{{ entry.hits }}</td>
+                    <td style="text-align: right; padding: 10px 16px;">{{ entry.avg_time|floatformat:0 }}ms</td>
+                    <td style="padding: 10px 16px; font-size: 0.85rem;">{{ entry.last_seen|date:"M d, Y H:i"|default:"—" }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <p style="padding: 16px; color: var(--body-quiet-color);">No authenticated user requests recorded yet.</p>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Recent Signups -->
+{% if recent_signups %}
+<div class="card" style="margin-bottom: 24px;">
+    <div class="card-header">
+        <h2>Recent Signups (Last 30 Days)</h2>
+    </div>
+    <div class="card-body" style="padding: 0;">
+        <table style="width: 100%; border-collapse: collapse;">
+            <thead>
+                <tr style="border-bottom: 1px solid var(--hairline-color);">
+                    <th style="text-align: left; padding: 10px 16px; color: var(--body-quiet-color); font-size: 0.85rem;">Username</th>
+                    <th style="text-align: left; padding: 10px 16px; color: var(--body-quiet-color); font-size: 0.85rem;">Email</th>
+                    <th style="text-align: left; padding: 10px 16px; color: var(--body-quiet-color); font-size: 0.85rem;">Joined</th>
+                    <th style="text-align: left; padding: 10px 16px; color: var(--body-quiet-color); font-size: 0.85rem;">Last Login</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for u in recent_signups %}
+                <tr style="border-bottom: 1px solid var(--hairline-color);">
+                    <td style="padding: 10px 16px;">{{ u.username }}</td>
+                    <td style="padding: 10px 16px; font-size: 0.85rem;">{{ u.email|default:"—" }}</td>
+                    <td style="padding: 10px 16px; font-size: 0.85rem;">{{ u.date_joined|date:"M d, Y H:i" }}</td>
+                    <td style="padding: 10px 16px; font-size: 0.85rem;">{{ u.last_login|date:"M d, Y H:i"|default:"Never" }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
+<!-- Recent User Activity — htmx live-refresh -->
+<div class="card" style="margin-bottom: 24px;">
+    <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
+        <h2>Recent Authenticated Requests</h2>
+        <button class="button button-small button-secondary"
+                hx-get="{% url 'activity:users' %}"
+                hx-target="#recent-user-activity"
+                hx-swap="outerHTML">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+                <path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/>
+            </svg>
+            Refresh
+        </button>
+    </div>
+    <div class="card-body" style="padding: 0; overflow-x: auto;">
+        {% include "activity/partials/recent_user_activity.html" %}
+    </div>
+</div>
+
+<!-- Inactive Users -->
+{% if inactive_users %}
+<div class="card">
+    <div class="card-header">
+        <h2>Users With No Tracked Requests</h2>
+    </div>
+    <div class="card-body" style="padding: 0;">
+        <table style="width: 100%; border-collapse: collapse;">
+            <thead>
+                <tr style="border-bottom: 1px solid var(--hairline-color);">
+                    <th style="text-align: left; padding: 10px 16px; color: var(--body-quiet-color); font-size: 0.85rem;">Username</th>
+                    <th style="text-align: left; padding: 10px 16px; color: var(--body-quiet-color); font-size: 0.85rem;">Email</th>
+                    <th style="text-align: left; padding: 10px 16px; color: var(--body-quiet-color); font-size: 0.85rem;">Joined</th>
+                    <th style="text-align: left; padding: 10px 16px; color: var(--body-quiet-color); font-size: 0.85rem;">Last Login</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for u in inactive_users %}
+                <tr style="border-bottom: 1px solid var(--hairline-color);">
+                    <td style="padding: 10px 16px;">{{ u.username }}</td>
+                    <td style="padding: 10px 16px; font-size: 0.85rem;">{{ u.email|default:"—" }}</td>
+                    <td style="padding: 10px 16px; font-size: 0.85rem;">{{ u.date_joined|date:"M d, Y" }}</td>
+                    <td style="padding: 10px 16px; font-size: 0.85rem;">{{ u.last_login|date:"M d, Y H:i"|default:"Never" }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
