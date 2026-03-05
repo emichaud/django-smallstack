@@ -22,6 +22,8 @@ servers:
       - 123.45.67.89  # Same VPS as web
     cmd: python manage.py db_worker --queue-name "*"
     proxy: false
+    options:
+      health-cmd: "true"
 
 # SSH configuration
 ssh:
