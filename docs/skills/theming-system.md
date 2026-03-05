@@ -14,7 +14,8 @@ static/
 │   ├── css/
 │   │   └── theme.css           # Main theme - variables, layout, components
 │   ├── js/
-│   │   └── theme.js            # Dark mode toggle, sidebar, dropdowns
+│   │   ├── theme.js            # Dark mode toggle, sidebar, dropdowns
+│   │   └── htmx.min.js         # htmx library (vendored, no CDN)
 │   └── help/
 │       └── css/help.css        # Help system specific styles
 ├── css/                        # DOWNSTREAM: Project CSS overrides
@@ -134,10 +135,11 @@ To rebrand the entire app:
 
 ### How It Works
 
-1. Theme preference stored in `localStorage` as `smallstack-theme`
-2. On page load, `theme.js` reads preference and sets `data-theme` attribute on `<html>`
+1. A blocking inline `<script>` in `<head>` reads `localStorage` and sets `data-theme` on `<html>` **before CSS renders** — no flash
+2. `theme.js` initializes toggle buttons and listens for changes
 3. CSS variables change based on `[data-theme="dark"]` selector
 4. Toggle button in topbar switches between modes
+5. For authenticated users, theme changes are saved to their profile via htmx (`POST /profile/theme/`)
 
 ### JavaScript API
 

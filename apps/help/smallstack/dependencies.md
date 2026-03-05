@@ -115,6 +115,27 @@ The toolbar helps you:
 - Profile request/response cycles
 - Inspect headers and settings
 
+## Progressive Enhancement
+
+### django-htmx
+
+Middleware that detects htmx requests and adds `request.htmx` to views. Combined with the vendored htmx.js library, this enables partial page updates, inline form submissions, and server-driven UI — all without a JavaScript build step.
+
+```python
+"django-htmx>=1.19"
+```
+
+htmx.js is vendored at `static/smallstack/js/htmx.min.js` (no CDN dependency). CSRF is handled automatically via `hx-headers` on `<body>`.
+
+**SmallStack uses htmx for:**
+- Saving theme preferences silently when toggling dark/light mode
+- OOB (out-of-band) message updates after form submissions
+- Any future partial page updates you add to your project
+
+**Why htmx over React/Vue/Alpine?** htmx is the dominant Django community choice for progressive enhancement. It requires no build tools, no client-side state management, and follows Django's server-rendered philosophy. You write views that return HTML fragments — Django templates do the rest.
+
+**Learn more:** See `docs/skills/htmx-patterns.md` for SmallStack-specific patterns, or [htmx.org](https://htmx.org/) for the full documentation.
+
 ## Content & Media
 
 ### Pillow
@@ -156,6 +177,7 @@ Parses the help system configuration file (`_config.yaml`) that defines navigati
 | Whitenoise | Static file serving | Nginx/Caddy at scale |
 | django-extensions | Dev utilities | Never (dev only) |
 | django-debug-toolbar | Debugging | Never (dev only) |
+| django-htmx | htmx request detection | Never (lightweight) |
 | Pillow | Image processing | Never (if using images) |
 | Markdown | Help system rendering | Never (if using help) |
 | PyYAML | Config parsing | Never (if using help) |

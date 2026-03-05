@@ -20,6 +20,7 @@ When an AI agent is asked to modify or extend this project, these files help it:
 | [django-apps.md](django-apps.md) | Creating new Django apps following project conventions |
 | [authentication.md](authentication.md) | Custom user model, auth views, protecting views |
 | [templates.md](templates.md) | Template inheritance, blocks, includes, common patterns |
+| [htmx-patterns.md](htmx-patterns.md) | htmx setup, CSRF, partials, dual-response views, OOB messages |
 | [kamal-deployment.md](kamal-deployment.md) | Kamal deployment configuration, VPS setup, SSL, commands |
 | [logging-audit.md](logging-audit.md) | Logging configuration and audit trail |
 
@@ -32,6 +33,7 @@ AI agents should read relevant skill files before making changes to the correspo
 - Before creating a new app → read `django-apps.md`
 - Before working with auth → read `authentication.md`
 - Before creating templates → read `templates.md`
+- Before adding htmx interactions → read `htmx-patterns.md`
 - Before deploying with Kamal → read `kamal-deployment.md`
 
 ## For Humans

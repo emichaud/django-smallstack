@@ -62,6 +62,14 @@
                 btn.classList.remove('active');
             }
         });
+
+        // Save theme preference to profile via htmx (if authenticated and htmx available)
+        if (config.isAuthenticated && typeof htmx !== 'undefined') {
+            htmx.ajax('POST', '/profile/theme/', {
+                values: { theme: theme },
+                swap: 'none'
+            });
+        }
     }
 
     function toggleTheme() {
@@ -139,6 +147,9 @@
                 closeSidebar();
             }
         }
+
+        // Remove the flash-prevention class (CSS takes over from here)
+        document.documentElement.classList.remove('sidebar-will-close');
 
         // On mobile, start closed. On desktop, restore from localStorage
         if (isMobile()) {
@@ -239,6 +250,11 @@
         initSidebar();
         initUserMenu();
         initMessages();
+
+        // Re-initialize message dismissal after htmx swaps new content
+        document.addEventListener('htmx:afterSettle', function() {
+            initMessages();
+        });
     }
 
     // Run init when DOM is ready

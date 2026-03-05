@@ -13,6 +13,7 @@ Welcome to **{{ project_name }}** v{{ version }}! This is a Django {{ django_ver
 - **User Profiles** - Profile management with photo uploads
 - **Admin Theme** - Clean, modern UI with dark/light mode
 - **Help System** - Built-in documentation with markdown support
+- **htmx** - Progressive enhancement with [htmx](https://htmx.org/) — partial page updates with no build tools
 - **Background Tasks** - Django 6's task framework pre-configured
 - **Logging & Audit Trail** - Sensible logging defaults and built-in activity tracking using Django's LogEntry
 - **Website App** - Scaffold for your project's pages (home, about, etc.)

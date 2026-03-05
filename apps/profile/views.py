@@ -5,8 +5,10 @@ Views for the profile app.
 from django.contrib import messages
 from django.contrib.auth import get_user_model
 from django.contrib.auth.mixins import LoginRequiredMixin
+from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
 from django.urls import reverse_lazy
+from django.views import View
 from django.views.generic import DetailView, UpdateView
 
 from .forms import UserProfileForm
@@ -44,6 +46,18 @@ class ProfileEditView(LoginRequiredMixin, UpdateView):
         """Add success message on form save."""
         messages.success(self.request, "Profile updated successfully.")
         return super().form_valid(form)
+
+
+class ThemePreferenceView(LoginRequiredMixin, View):
+    """Save theme preference via htmx POST."""
+
+    def post(self, request):
+        theme = request.POST.get("theme", "").strip()
+        if theme in ("dark", "light"):
+            profile = get_object_or_404(UserProfile, user=request.user)
+            profile.theme_preference = theme
+            profile.save(update_fields=["theme_preference"])
+        return HttpResponse(status=204)
 
 
 class ProfileDetailView(DetailView):

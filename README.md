@@ -24,8 +24,11 @@ Built-in documentation system with markdown support, table of contents, search, 
 ### Background Tasks
 Django 6's new Tasks framework is pre-configured with database backend. Send emails, process data, and run jobs in the background effortlessly.
 
+### htmx
+Progressive enhancement with [htmx](https://htmx.org/) — partial page updates, inline form submissions, and server-driven UI without a build step. Vendored locally (no CDN), CSRF handled automatically. Theme preferences save silently via htmx as the first built-in example.
+
 ### Theming
-Beautiful light and dark modes with CSS custom properties. Customize colors, shadows, and spacing from a single file. User preferences are saved.
+Beautiful light and dark modes with CSS custom properties. Customize colors, shadows, and spacing from a single file. User preferences are saved. Flash-free — an inline head script applies the stored theme before CSS renders.
 
 ### Authentication
 Custom User model ready for email login. Password reset flows, secure sessions, and extensible auth patterns built on Django's proven foundation.
@@ -45,6 +48,7 @@ Production-ready SQLite configuration with the database stored outside the conta
 - **Tests alongside apps** - Tests live with their apps for easy maintenance
 - **URL namespacing** - Organized URL patterns (e.g., `help:index`)
 - **Organized static files** - Structured CSS and JavaScript
+- **htmx for progressive enhancement** - Partial updates with no build tools
 - **Template structure mirrors apps** - Intuitive template organization
 - **SQLite with data separation** - Database stored in `/data/` directory, persists across container rebuilds
 

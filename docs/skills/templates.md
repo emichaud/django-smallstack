@@ -17,6 +17,8 @@ templates/
 │   │   ├── sidebar.html       # Left sidebar navigation
 │   │   ├── messages.html      # Flash messages display
 │   │   └── breadcrumbs.html   # Breadcrumb navigation
+│   ├── partials/              # htmx swap fragments
+│   │   └── messages.html      # OOB messages partial for htmx responses
 │   └── pages/                 # SmallStack marketing content (upstream)
 │       ├── home_content.html
 │       ├── about_content.html
@@ -49,18 +51,29 @@ templates/
 
 ```html
 <!DOCTYPE html>
-<html lang="en" data-theme="light">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}{% endblock %} | SmallStack</title>
+
+    <!-- Blocking script prevents theme/sidebar flash -->
+    <script>
+    (function() {
+        var theme = localStorage.getItem('smallstack-theme') || 'dark';
+        document.documentElement.setAttribute('data-theme', theme);
+        if (window.innerWidth > 768 && localStorage.getItem('smallstack-sidebar-closed') === 'true') {
+            document.documentElement.classList.add('sidebar-will-close');
+        }
+    })();
+    </script>
 
     <!-- CSS -->
     <link rel="stylesheet" href="{% static 'admin/css/base.css' %}">
     <link rel="stylesheet" href="{% static 'smallstack/css/theme.css' %}">
     {% block extra_css %}{% endblock %}
 </head>
-<body>
+<body hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
     <div class="wrapper">
         <!-- Top Navigation -->
         {% include "smallstack/includes/topbar.html" %}
@@ -86,6 +99,7 @@ templates/
     </div>
 
     <!-- JavaScript -->
+    <script src="{% static 'smallstack/js/htmx.min.js' %}" defer></script>
     <script src="{% static 'smallstack/js/theme.js' %}"></script>
     {% block extra_js %}{% endblock %}
 </body>
@@ -465,6 +479,50 @@ Core SmallStack assets are namespaced under `static/smallstack/`. Project-specif
 {% url 'help:detail' slug='getting-started' %}  {# Namespaced with kwarg #}
 ```
 
+## htmx Integration
+
+SmallStack includes [htmx](https://htmx.org/) for progressive enhancement. htmx is loaded in `base.html` with `defer`, and CSRF is handled automatically via `hx-headers` on `<body>`.
+
+### htmx Form Example
+
+Convert any form to use htmx by replacing `method="post"` with `hx-post`:
+
+```html
+<form hx-post="{% url 'myapp:create' %}"
+      hx-target="#item-list"
+      hx-swap="innerHTML">
+    {{ form.as_p }}
+    <button type="submit" class="button button-primary">Save</button>
+</form>
+```
+
+No `{% csrf_token %}` needed — it's handled by `hx-headers` on `<body>`.
+
+### Partial Templates
+
+Place htmx response fragments in `templates/<app>/partials/`:
+
+```
+templates/myapp/
+├── item_list.html           # Full page
+└── partials/
+    └── item_table.html      # htmx fragment (just the table)
+```
+
+### Dual-Response Views
+
+Return full pages or partials based on `request.htmx`:
+
+```python
+def item_list(request):
+    items = Item.objects.filter(user=request.user)
+    if request.htmx:
+        return render(request, "myapp/partials/item_table.html", {"items": items})
+    return render(request, "myapp/item_list.html", {"items": items})
+```
+
+See [htmx-patterns.md](../skills/htmx-patterns.md) for the full reference including OOB messages and JS integration.
+
 ## Best Practices
 
 1. **Always extend base.html** - Maintains consistent layout
@@ -472,6 +530,7 @@ Core SmallStack assets are namespaced under `static/smallstack/`. Project-specif
 3. **Load tags at top** - `{% load static theme_tags %}`
 4. **Use {% url %}** - Never hardcode URLs
 5. **Use {% static %}** - Never hardcode static paths
-6. **Include CSRF token** - Always in forms: `{% csrf_token %}`
+6. **Include CSRF token** - In standard forms: `{% csrf_token %}` (htmx forms get it automatically)
 7. **Escape user content** - Django auto-escapes, use `|safe` only when needed
 8. **Use includes** - For reusable components
+9. **Use htmx for interactions** - Partial updates instead of full page reloads

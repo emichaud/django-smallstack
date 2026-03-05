@@ -1,5 +1,4 @@
-{% if messages %}
-<div id="messages-container" class="messages-container">
+<div id="messages-container" class="messages-container" hx-swap-oob="true">
     {% for message in messages %}
     <div class="message {% if message.tags %}{{ message.tags }}{% endif %}" role="alert">
         <span class="message-text">{{ message }}</span>
@@ -7,4 +6,3 @@
     </div>
     {% endfor %}
 </div>
-{% endif %}

@@ -40,7 +40,8 @@ django-smallstack/
 │   ├── smallstack/            # UPSTREAM: SmallStack core (don't edit downstream)
 │   │   ├── brand/             # Default SmallStack brand assets
 │   │   ├── css/theme.css      # Core theme stylesheet
-│   │   ├── js/theme.js        # Core UI logic
+│   │   ├── js/theme.js        # Core UI logic (theme, sidebar, messages)
+│   │   ├── js/htmx.min.js    # htmx library (vendored, no CDN)
 │   │   └── help/              # Help app assets (css + js)
 │   ├── brand/.gitkeep         # DOWNSTREAM: Project brand assets go here
 │   ├── css/.gitkeep           # DOWNSTREAM: Project CSS overrides go here

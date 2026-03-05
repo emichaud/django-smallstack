@@ -150,6 +150,19 @@
     --shadow-lg: 0 10px 20px rgba(0, 0, 0, 0.5);
 }
 
+/* Sidebar flash prevention — applied by inline head script, removed by theme.js */
+html.sidebar-will-close .sidebar {
+    transform: translateX(-100%);
+}
+
+html.sidebar-will-close .main-content {
+    margin-left: 0;
+}
+
+html.sidebar-will-close .site-footer {
+    margin-left: 0;
+}
+
 /* ============================================
    Base Styles
    ============================================ */

@@ -317,6 +317,33 @@ Background tasks using Django 6 Tasks framework:
 |------|---------|
 | `tasks.py` | Task definitions (send_email_task, etc.) |
 
+## htmx View Pattern
+
+SmallStack includes htmx for progressive enhancement. When adding views that should support both full-page and htmx partial responses, use `request.htmx`:
+
+```python
+# apps/myfeature/views.py
+
+from django.contrib.auth.mixins import LoginRequiredMixin
+from django.views.generic import ListView
+
+from .models import MyModel
+
+
+class MyModelListView(LoginRequiredMixin, ListView):
+    model = MyModel
+    context_object_name = "items"
+
+    def get_template_names(self):
+        if self.request.htmx:
+            return ["myfeature/partials/mymodel_table.html"]
+        return ["myfeature/mymodel_list.html"]
+```
+
+The partial template (`partials/mymodel_table.html`) returns just the content fragment. The full template (`mymodel_list.html`) extends `base.html` and includes the full page layout.
+
+See [htmx-patterns.md](htmx-patterns.md) for CSRF handling, OOB messages, and more examples.
+
 ## Best Practices
 
 1. **Use class-based views** - More reusable and consistent
@@ -327,6 +354,7 @@ Background tasks using Django 6 Tasks framework:
 6. **Create signals.py** - For auto-creation patterns (like profiles)
 7. **Namespace URLs** - Use `app_name` in urls.py
 8. **Match template folder to app name** - Keep organized
+9. **Support htmx** - Use `request.htmx` for dual-response views when adding interactive features
 
 ## Signals Pattern
 

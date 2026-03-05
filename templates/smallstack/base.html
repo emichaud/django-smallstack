@@ -1,10 +1,23 @@
 {% load static theme_tags %}
 <!DOCTYPE html>
-<html lang="en" data-theme="light">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}{% endblock %} | {{ brand.name }}</title>
+
+    <!-- Blocking theme/sidebar script — prevents flash of wrong theme or sidebar state -->
+    <script>
+    (function() {
+        var THEME_KEY = 'smallstack-theme';
+        var SIDEBAR_KEY = 'smallstack-sidebar-closed';
+        var theme = localStorage.getItem(THEME_KEY) || 'dark';
+        document.documentElement.setAttribute('data-theme', theme);
+        if (window.innerWidth > 768 && localStorage.getItem(SIDEBAR_KEY) === 'true') {
+            document.documentElement.classList.add('sidebar-will-close');
+        }
+    })();
+    </script>
 
     <!-- Favicon -->
     <link rel="icon" type="image/x-icon" href="{% static brand.favicon %}">
@@ -25,7 +38,7 @@
 
     {% block extra_css %}{% endblock %}
 </head>
-<body class="{% block body_class %}{% endblock %}">
+<body class="{% block body_class %}{% endblock %}" hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
     <div class="wrapper">
         <!-- Top Navigation Bar -->
         {% include "smallstack/includes/topbar.html" %}
@@ -66,6 +79,8 @@
             isAuthenticated: {% if user.is_authenticated %}true{% else %}false{% endif %}
         };
     </script>
+    <!-- htmx -->
+    <script src="{% static 'smallstack/js/htmx.min.js' %}" defer></script>
     <!-- Theme toggle script -->
     <script src="{% static 'smallstack/js/theme.js' %}"></script>
 
