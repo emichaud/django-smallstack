@@ -23,8 +23,13 @@ def home_view(request):
 
 def about_view(request):
     """
-    About page placeholder.
-
-    Add your project's about content here.
+    About page with embedded feature slide viewer.
     """
-    return render(request, "website/about.html")
+    from apps.help.utils import get_deck_slides, get_slide_deck
+
+    deck = get_slide_deck("features")
+    slides = get_deck_slides("features")
+    return render(request, "website/about.html", {
+        "deck": deck,
+        "slides": slides or [],
+    })

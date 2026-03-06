@@ -18,8 +18,15 @@
         if (palette && palette !== 'django') {
             document.documentElement.setAttribute('data-palette', palette);
         }
-        if (window.innerWidth > 768 && localStorage.getItem(SIDEBAR_KEY) === 'true') {
+        var sidebarEnabled = {{ smallstack_sidebar_enabled|yesno:"true,false" }};
+        var sidebarOpen = {{ smallstack_sidebar_open|yesno:"true,false" }};
+        if (!sidebarEnabled) {
             document.documentElement.classList.add('sidebar-will-close');
+        } else if (window.innerWidth > 768) {
+            var stored = localStorage.getItem(SIDEBAR_KEY);
+            if (stored === 'true' || (stored === null && !sidebarOpen)) {
+                document.documentElement.classList.add('sidebar-will-close');
+            }
         }
     })();
     </script>
@@ -51,7 +58,9 @@
 
         <div class="main-container">
             <!-- Sidebar Navigation -->
+            {% if smallstack_sidebar_enabled %}
             {% include "smallstack/includes/sidebar.html" %}
+            {% endif %}
 
             <!-- Main Content Area -->
             <main class="main-content" id="main-content">
@@ -84,7 +93,9 @@
             userTheme: {% if user.is_authenticated and user.profile %}'{{ user.profile.theme_preference }}'{% else %}null{% endif %},
             userPalette: {% if user.is_authenticated and user.profile %}'{{ user.profile.color_palette }}'{% else %}null{% endif %},
             colorPalette: '{{ color_palette }}',
-            isAuthenticated: {% if user.is_authenticated %}true{% else %}false{% endif %}
+            isAuthenticated: {% if user.is_authenticated %}true{% else %}false{% endif %},
+            sidebarEnabled: {{ smallstack_sidebar_enabled|yesno:"true,false" }},
+            sidebarOpen: {{ smallstack_sidebar_open|yesno:"true,false" }}
         };
     </script>
     <!-- htmx -->

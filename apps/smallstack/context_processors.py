@@ -74,6 +74,8 @@ def branding(request):
         "smallstack_docs_enabled": getattr(settings, "SMALLSTACK_DOCS_ENABLED", True),
         "smallstack_login_enabled": getattr(settings, "SMALLSTACK_LOGIN_ENABLED", True),
         "smallstack_signup_enabled": getattr(settings, "SMALLSTACK_SIGNUP_ENABLED", True),
+        "smallstack_sidebar_enabled": getattr(settings, "SMALLSTACK_SIDEBAR_ENABLED", True),
+        "smallstack_sidebar_open": getattr(settings, "SMALLSTACK_SIDEBAR_OPEN", True),
         "palettes": _load_palettes(),
         "color_palette": effective_palette,
         "system_color_palette": system_palette,

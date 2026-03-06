@@ -274,6 +274,10 @@ For collapsible Q&A sections:
 | ℹ️ | `info` | About |
 | 🤖 | `ai` | AI features |
 
+## Slide Viewer
+
+The help system also includes a slide presentation mode for focused walkthroughs. See [Using the Slide Viewer](/help/smallstack/slide-viewer/) for full documentation on creating and embedding slide decks.
+
 ## Tips
 
 - Keep slugs lowercase with hyphens (`my-page-name`)

@@ -27,6 +27,8 @@
 
     function setStoredTheme(theme) {
         localStorage.setItem(THEME_KEY, theme);
+        // Sync to Django admin's localStorage key so admin picks up the same theme
+        localStorage.setItem('theme', theme);
     }
 
     function getPreferredTheme() {
@@ -179,6 +181,13 @@
         const sidebar = document.getElementById('sidebar');
         const overlay = document.getElementById('sidebar-overlay');
 
+        // If sidebar is disabled, ensure closed state and clean up flash class
+        if (!config.sidebarEnabled) {
+            document.body.classList.add('sidebar-closed');
+            document.documentElement.classList.remove('sidebar-will-close');
+            return;
+        }
+
         if (!sidebar) return;
 
         const SIDEBAR_STATE_KEY = 'smallstack-sidebar-closed';
@@ -216,11 +225,14 @@
         // Remove the flash-prevention class (CSS takes over from here)
         document.documentElement.classList.remove('sidebar-will-close');
 
-        // On mobile, start closed. On desktop, restore from localStorage
+        // On mobile, start closed. On desktop, restore from localStorage or use default
         if (isMobile()) {
             closeSidebar();
-        } else if (localStorage.getItem(SIDEBAR_STATE_KEY) === 'true') {
-            closeSidebar();
+        } else {
+            var stored = localStorage.getItem(SIDEBAR_STATE_KEY);
+            if (stored === 'true' || (stored === null && !config.sidebarOpen)) {
+                closeSidebar();
+            }
         }
 
         // Hamburger toggle in topbar

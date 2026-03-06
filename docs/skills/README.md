@@ -15,25 +15,33 @@ When an AI agent is asked to modify or extend this project, these files help it:
 
 | File | Description |
 |------|-------------|
-| [help-documentation.md](help-documentation.md) | Creating, editing, and managing help documentation |
-| [theming-system.md](theming-system.md) | CSS variables, dark mode, UI components |
 | [django-apps.md](django-apps.md) | Creating new Django apps following project conventions |
-| [authentication.md](authentication.md) | Custom user model, auth views, protecting views |
 | [templates.md](templates.md) | Template inheritance, blocks, includes, common patterns |
+| [theming-system.md](theming-system.md) | CSS variables, palettes, dark mode, UI components |
+| [authentication.md](authentication.md) | Custom user model, auth views, protecting views |
 | [htmx-patterns.md](htmx-patterns.md) | htmx setup, CSRF, partials, dual-response views, OOB messages |
-| [kamal-deployment.md](kamal-deployment.md) | Kamal deployment configuration, VPS setup, SSL, commands |
+| [help-documentation.md](help-documentation.md) | Help system, sections, bundled SmallStack docs |
+| [settings.md](settings.md) | Split settings, environment variables, feature flags |
+| [background-tasks.md](background-tasks.md) | Django Tasks framework with django-tasks-db backend |
+| [activity-tracking.md](activity-tracking.md) | HTTP request logging middleware and configuration |
 | [logging-audit.md](logging-audit.md) | Logging configuration and audit trail |
+| [docker-deployment.md](docker-deployment.md) | Docker Compose setup, services, volumes |
+| [kamal-deployment.md](kamal-deployment.md) | Kamal deployment configuration, VPS setup, SSL, commands |
 
 ## Usage
 
 AI agents should read relevant skill files before making changes to the corresponding parts of the codebase. For example:
 
-- Before adding a help page → read `help-documentation.md`
-- Before modifying CSS/theming → read `theming-system.md`
 - Before creating a new app → read `django-apps.md`
-- Before working with auth → read `authentication.md`
 - Before creating templates → read `templates.md`
+- Before modifying CSS/theming → read `theming-system.md`
+- Before working with auth → read `authentication.md`
 - Before adding htmx interactions → read `htmx-patterns.md`
+- Before adding a help page → read `help-documentation.md`
+- Before changing settings → read `settings.md`
+- Before adding background tasks → read `background-tasks.md`
+- Before working with activity tracking → read `activity-tracking.md`
+- Before deploying with Docker → read `docker-deployment.md`
 - Before deploying with Kamal → read `kamal-deployment.md`
 
 ## For Humans

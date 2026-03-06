@@ -1,0 +1,38 @@
+decks:
+  - slug: activity-tracking
+    title: "Activity Tracking"
+    description: "A tour of SmallStack's built-in activity tracking system"
+    slides:
+      - slug: intro
+        title: "What is Activity Tracking?"
+      - slug: how-it-works
+        title: "How It Works"
+      - slug: dashboard
+        title: "The Staff Dashboard"
+      - slug: configuration
+        title: "Configuration & Pruning"
+      - slug: htmx-patterns
+        title: "htmx Live Refresh"
+
+  - slug: features
+    title: "SmallStack Features"
+    description: "A quick tour of everything included in Django SmallStack"
+    slides:
+      - slug: philosophy
+        title: "Philosophy"
+      - slug: tech-stack
+        title: "Tech Stack"
+      - slug: profile
+        title: "Profile App"
+      - slug: activity-tracking
+        title: "Activity Tracking"
+      - slug: theming
+        title: "Theming"
+      - slug: authentication
+        title: "Authentication"
+      - slug: help-system
+        title: "Help System"
+      - slug: background-tasks
+        title: "Background Tasks"
+      - slug: docker
+        title: "Docker & Deployment"

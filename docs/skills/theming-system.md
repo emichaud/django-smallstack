@@ -6,7 +6,7 @@ This skill describes how to customize the SmallStack theme, including colors, co
 
 The theme is built on Django admin's CSS foundation with CSS custom properties (variables) for easy customization. All theming is done through CSS - no build tools required.
 
-SmallStack supports **selectable color palettes** (django, light-blue, dark-blue, orange, purple) with a system-wide default and per-user override.
+SmallStack supports **selectable color palettes** (django, high-contrast, dark-blue, orange, purple) with a system-wide default and per-user override.
 
 ## File Locations
 
@@ -132,7 +132,7 @@ SmallStack includes 5 built-in color palettes that override the primary color va
 | Palette | Light Primary | Dark Primary | Description |
 |---------|--------------|-------------|-------------|
 | `django` (default) | `#417690` | `#44b78b` | Classic Django admin colors |
-| `light-blue` | `#0288d1` | `#4fc3f7` | Clean sky blue tones |
+| `high-contrast` | `#212121` | `#e0e0e0` | Monochrome for accessibility |
 | `dark-blue` | `#1565c0` | `#42a5f5` | Deep ocean blue |
 | `orange` | `#e65100` | `#ff9800` | Warm sunset orange |
 | `purple` | `#7e57c2` | `#b39ddb` | Rich violet tones |
@@ -175,7 +175,7 @@ html[data-palette="purple"][data-theme="dark"] {
 
 ```python
 # config/settings/base.py (or in .env)
-SMALLSTACK_COLOR_PALETTE = "purple"  # Options: django, light-blue, dark-blue, orange, purple
+SMALLSTACK_COLOR_PALETTE = "purple"  # Options: django, high-contrast, dark-blue, orange, purple
 ```
 
 ### Adding a New Palette

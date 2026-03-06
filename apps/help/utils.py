@@ -20,6 +20,7 @@ logger = logging.getLogger(__name__)
 
 CONTENT_DIR = Path(__file__).parent / "content"
 DOCS_DIR = Path(__file__).parent / "smallstack"
+SLIDES_DIR = Path(__file__).parent / "content" / "slides"
 SMALLSTACK_SECTION_SLUG = "smallstack"
 
 
@@ -299,6 +300,70 @@ def get_all_pages() -> list:
     for section in get_all_sections():
         pages.extend(section["pages"])
     return pages
+
+
+def _resolve_slides_root(content_root: str | None = None) -> Path:
+    """Resolve the slides content root directory.
+
+    If content_root is given, it's treated as relative to BASE_DIR and
+    validated to be within BASE_DIR for security.
+    """
+    if content_root:
+        base_dir = Path(settings.BASE_DIR)
+        resolved = (base_dir / content_root).resolve()
+        if not str(resolved).startswith(str(base_dir.resolve())):
+            raise ValueError("content_root must be within BASE_DIR")
+        return resolved
+    return SLIDES_DIR
+
+
+def get_slides_config(content_root: str | None = None) -> dict:
+    """Load _slides.yaml from the given root or default slides dir."""
+    root = _resolve_slides_root(content_root)
+    config_path = root / "_slides.yaml"
+    if config_path.exists():
+        with open(config_path, "r", encoding="utf-8") as f:
+            return yaml.safe_load(f) or {}
+    return {"decks": []}
+
+
+def get_slide_deck(deck_slug: str, content_root: str | None = None) -> dict | None:
+    """Get a single deck's config by slug."""
+    config = get_slides_config(content_root)
+    return next(
+        (d for d in config.get("decks", []) if d.get("slug") == deck_slug),
+        None,
+    )
+
+
+def get_deck_slides(deck_slug: str, content_root: str | None = None) -> list | None:
+    """Load and render all slides for a deck.
+
+    Returns a list of dicts with slug, title, and rendered html,
+    or None if the deck doesn't exist.
+    """
+    deck = get_slide_deck(deck_slug, content_root)
+    if deck is None:
+        return None
+
+    root = _resolve_slides_root(content_root)
+    slides = []
+    for slide_config in deck.get("slides", []):
+        slug = slide_config.get("slug")
+        file_path = root / deck_slug / f"{slug}.md"
+        if file_path.exists():
+            with open(file_path, "r", encoding="utf-8") as f:
+                raw_content = f.read()
+            content = substitute_variables(raw_content)
+            rendered = render_markdown(content)
+            slides.append(
+                {
+                    "slug": slug,
+                    "title": slide_config.get("title", slug.replace("-", " ").title()),
+                    "html": rendered["html"],
+                }
+            )
+    return slides
 
 
 def build_search_index() -> list:

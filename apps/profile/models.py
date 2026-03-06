@@ -30,8 +30,8 @@ class UserProfile(models.Model):
     COLOR_PALETTE_CHOICES = [
         ("", "System Default"),
         ("django", "Django"),
-        ("light-blue", "Light Blue"),
-        ("dark-blue", "Dark Blue"),
+        ("high-contrast", "High Contrast"),
+        ("dark-blue", "Blue"),
         ("orange", "Orange"),
         ("purple", "Purple"),
     ]

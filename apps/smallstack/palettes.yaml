@@ -14,15 +14,15 @@ palettes:
       light: "#417690"
       dark: "#44b78b"
 
-  - id: light-blue
-    label: Light Blue
-    description: Clean sky blue tones
+  - id: high-contrast
+    label: High Contrast
+    description: Monochrome for accessibility
     preview:
-      light: "#0288d1"
-      dark: "#4fc3f7"
+      light: "#212121"
+      dark: "#e0e0e0"
 
   - id: dark-blue
-    label: Dark Blue
+    label: Blue
     description: Deep ocean blue
     preview:
       light: "#1565c0"

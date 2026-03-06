@@ -1,120 +1,125 @@
 ---
 title: About & Inspiration
-description: The philosophy behind Django SmallStack
+description: The philosophy behind Django SmallStack and what's included
 ---
 
-# About & Inspiration
+# About Django SmallStack
 
-## Why SmallStack Exists
+{{ project_name }} is a minimal Django stack for building and deploying admin-style apps. Everything below is included out of the box — production-ready with sensible defaults.
 
-{{ project_name }} was born from a simple observation: **Django's admin interface is packed with excellent, production-ready components that most developers never use outside the admin itself.**
+> **See it in action:** [Activity Tracking slide deck](/help/slides/activity-tracking/) — a quick walkthrough built with the slide viewer.
 
-Think about it. Django ships with:
+---
 
-- A complete authentication system with login, logout, password reset
-- Polished form rendering and validation
-- A clean, responsive theme with dark mode support
-- Date pickers, autocomplete widgets, and rich form controls
-- Consistent navigation patterns and breadcrumbs
-- Message/notification systems
+## Profile App
 
-Yet when developers start a new Django project, the first thing many tutorials tell them is: *"Install these third-party packages for authentication, forms, and styling."*
+A complete user profile system with auto-creation on signup.
 
-## The Controversy About Django Admin
+- **Photo & cover image** uploads with Pillow
+- **Bio, location, website** and display name fields
+- **Color palette** preference per user — persisted and applied on login
+- Extend with your own fields — it's a standard Django model
 
-There's ongoing debate in the Django community about using the admin in production. The concerns are valid:
+> [Full documentation →](/help/smallstack/getting-started/)
 
-- "The admin is for trusted users only"
-- "Don't expose admin to end users"
-- "Admin isn't meant for customer-facing features"
+---
 
-**We agree.** SmallStack doesn't expose Django's admin interface to regular users. Instead, it takes a different approach:
+## Activity Tracking
 
-> Use the admin's **components, styles, and patterns** without using the admin interface itself.
+Zero-config request logging with a staff-only dashboard.
 
-## What We Borrow From Admin
+- **Middleware-based** — captures every request automatically
+- **Staff dashboard** at `/activity/` with stat cards and filterable log table
+- **Live refresh** via htmx polling (no WebSockets)
+- **Auto-pruning** — configurable retention with background task cleanup
 
-### The Theme System
+> [Full documentation →](/help/smallstack/activity-tracking/)
 
-Django admin's CSS is well-organized with CSS custom properties (variables) for colors, spacing, and effects. SmallStack builds on this foundation, extending it with:
+---
 
-- Consistent light and dark modes
-- Mobile-responsive layouts
-- Additional components for common UI patterns
+## Theming
 
-### Form Handling
+Light and dark modes with selectable color palettes, all built on CSS custom properties.
 
-Django's form system is powerful but often underutilized. SmallStack shows how to:
+- **Dark mode** toggle with `data-theme` attribute — user preference saved
+- **5 built-in palettes** (Django, Nord, Dracula, Solarized, High Contrast)
+- **CSS variables** for colors, spacing, shadows — change the look from one file
+- Inherits Django admin's responsive foundation
 
-- Render forms with proper styling using built-in widgets
-- Handle validation and display errors elegantly
-- Use the same form patterns that power the admin
+> [Full documentation →](/help/smallstack/theming/)
 
-### Authentication
+---
 
-Django's `django.contrib.auth` is battle-tested and secure. Instead of reaching for third-party packages, SmallStack demonstrates:
+## Authentication
 
-- Custom user models that extend Django's system
-- Profile management with the built-in user framework
-- Password reset flows using Django's views
+Built on Django's battle-tested `contrib.auth` — no third-party auth packages.
 
-### Navigation & Layout
+- **Custom User model** ready for email login
+- **Signup control** — enable/disable registration with a setting
+- **Password reset** flows using Django's built-in views and email
+- **Feature flags** — toggle app sections on and off
 
-The sidebar, topbar, and breadcrumb patterns in SmallStack mirror Django admin's proven UX patterns, giving your app a familiar, professional feel.
+> [Full documentation →](/help/smallstack/authentication/)
 
-## What SmallStack Is NOT
+---
 
-- **Not a CMS** - It's a starting point, not a content management system
-- **Not an admin replacement** - The Django admin still exists for staff users
-- **Not a framework** - It's a project template you can customize freely
+## Help System
+
+The documentation viewer you're reading right now — file-based, markdown-powered.
+
+- **YAML-driven** navigation with sections, icons, and ordering
+- **Template variables** for version numbers, project names, etc.
+- **Full-text search** with client-side indexing
+- **FAQ mode** with collapsible sections
+- **Slide viewer** for focused presentations ([see below](#slide-viewer))
+
+> [Full documentation →](/help/smallstack/help-system/)
+
+---
+
+## Background Tasks
+
+Django 6's Tasks framework, pre-configured with a database backend.
+
+- **No Redis or Celery** — uses `django-tasks-db` with SQLite/PostgreSQL
+- **Background worker** via `manage.py db_worker`
+- Handles email sending, data processing, scheduled cleanup
+- **Kamal deployment** runs the worker as a separate service
+
+> [Full documentation →](/help/smallstack/background-tasks/)
+
+---
+
+## Docker & Deployment
+
+Production-ready container setup with zero-downtime deployment.
+
+- **Multi-stage Dockerfile** — small, secure images
+- **Docker Compose** with web, worker, and health checks
+- **Kamal deployment** — push to any VPS with `kamal deploy`
+- **SQLite in production** — works great for small-to-medium apps
+
+> [Full documentation →](/help/smallstack/docker-deployment/)
+
+---
 
 ## The Philosophy
 
-1. **Use what Django gives you** - Before adding a package, check if Django already has it
-2. **Keep it simple** - Avoid over-engineering; add complexity only when needed
-3. **Stay close to Django** - Follow Django conventions so the ecosystem works for you
-4. **Production-ready defaults** - Secure settings, proper static file handling, Docker support
+1. **Use what Django gives you** — before adding a package, check if Django already has it
+2. **Keep it simple** — add complexity only when needed
+3. **Stay close to Django** — follow conventions so the ecosystem works for you
+4. **Production-ready defaults** — secure settings, proper static files, Docker support
 
 ## Who Is This For?
 
 - Developers who want a clean starting point without reinventing the wheel
 - Teams tired of setting up auth, profiles, and theming from scratch
-- Anyone who appreciates Django's built-in capabilities
 - Projects that need a professional look without a heavy frontend framework
 
-## Built With Standard Django
+## Slide Viewer
 
-SmallStack uses remarkably few dependencies:
+SmallStack includes a **slide presentation mode** for the help system. Create focused, one-slide-at-a-time walkthroughs using the same YAML + markdown approach.
 
-| Package | Purpose |
-|---------|---------|
-| Django {{ django_version }}+ | The web framework |
-| python-decouple | Environment variable management |
-| Pillow | Image handling for profiles |
-| markdown | Help system documentation |
+[Try the Activity Tracking slide deck →](/help/slides/activity-tracking/)
 
-No heavy JavaScript frameworks. No complex build systems. Just Django doing what Django does best.
-
-## AI-Ready Development
-
-SmallStack ships with **AI skill files** — structured documentation designed to help AI coding assistants quickly understand and extend the codebase. Whether you're using Claude, GitHub Copilot, or other AI tools, these skill files provide:
-
-- **Project conventions** — Naming patterns, file organization, and coding standards
-- **Step-by-step guides** — How to add apps, create templates, extend the theme
-- **Code examples** — Working patterns for common tasks
-
-When you ask an AI assistant to add a feature or fix a bug, pointing it to the relevant skill file in `docs/skills/` gives it the context needed to generate code that fits your project's style.
-
-This isn't about replacing developers — it's about **accelerating development** with AI as a collaborative tool. SmallStack was itself developed with AI assistance, and we've baked that workflow into the project.
-
-> **Learn more:** [Extending with AI](/help/extending-with-ai/) covers skill files, prompting strategies, and best practices for AI-assisted development.
-
-## Getting Involved
-
-SmallStack is open source. If you share this philosophy of leveraging Django's strengths, we'd love your contributions:
-
-- Report issues and suggest improvements
-- Share how you've extended it for your projects
-- Help improve the documentation
-
-The goal is simple: **Help developers build better Django apps faster, using tools that already exist.**
+> **Learn how to create your own:** [Using the Help System → Slide Viewer](/help/smallstack/help-system/#slide-viewer)

@@ -12,8 +12,10 @@ from .utils import (
     build_search_index,
     get_all_sections,
     get_config,
+    get_deck_slides,
     get_help_page,
     get_section_pages,
+    get_slide_deck,
 )
 
 
@@ -144,6 +146,30 @@ class HelpSectionDetailView(TemplateView):
             context["prev_page"] = pages[current_idx - 1] if current_idx > 0 else None
             context["next_page"] = pages[current_idx + 1] if current_idx < len(pages) - 1 else None
 
+        return context
+
+
+class SlideView(TemplateView):
+    """Display a slide deck in presentation mode."""
+
+    template_name = "help/slides.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        deck_slug = self.kwargs.get("deck_slug")
+        content_root = self.request.GET.get("content_root")
+
+        deck = get_slide_deck(deck_slug, content_root)
+        if deck is None:
+            raise Http404("Slide deck not found")
+
+        slides = get_deck_slides(deck_slug, content_root)
+        if not slides:
+            raise Http404("Slide deck has no slides")
+
+        context["deck"] = deck
+        context["slides"] = slides
+        context["page_title"] = deck.get("title", "Slides")
         return context
 
 

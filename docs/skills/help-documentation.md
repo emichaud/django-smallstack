@@ -8,6 +8,7 @@ The help system is a file-based documentation viewer that renders Markdown files
 
 - **Markdown files** for content (`apps/help/content/*.md`)
 - **YAML config** for navigation and variables (`apps/help/content/_config.yaml`)
+- **Bundled SmallStack docs** (`apps/help/smallstack/*.md`) — auto-injected reference docs
 - **Django templates** for rendering (`templates/help/`)
 - **CSS/JS** for styling (`static/smallstack/help/`)
 
@@ -15,15 +16,20 @@ The help system is a file-based documentation viewer that renders Markdown files
 
 ```
 apps/help/
-├── content/
-│   ├── _config.yaml          # Navigation order, variables, page metadata
-│   ├── getting-started.md    # Documentation pages
-│   ├── about.md
-│   ├── theming.md
-│   └── [other-pages].md
-├── utils.py                  # Markdown processing functions
-├── views.py                  # HelpIndexView, HelpDetailView
-└── urls.py                   # URL routing
+├── content/                      # YOUR project's documentation
+│   ├── _config.yaml              # Sections, navigation, variables
+│   ├── index.md                  # Root section pages
+│   └── [section-folder]/         # Optional sub-sections
+│       ├── _config.yaml
+│       └── page.md
+├── smallstack/                   # Bundled SmallStack reference docs
+│   ├── _config.yaml              # SmallStack section config (26+ pages)
+│   ├── getting-started.md
+│   ├── kamal-deployment.md
+│   └── ...
+├── utils.py                      # Markdown processing, two-tier loading
+├── views.py                      # HelpIndexView, HelpDetailView
+└── urls.py                       # URL routing
 
 templates/help/
 ├── help_index.html           # Documentation index with cards
@@ -68,16 +74,28 @@ Code blocks, tables, etc.
 
 ### Step 2: Add to _config.yaml
 
-Edit `apps/help/content/_config.yaml` and add the page to the `pages` list:
+The help system uses a **section-based hierarchy**. Edit `apps/help/content/_config.yaml` and add the page to the appropriate section's `pages` list:
 
 ```yaml
-pages:
-  # ... existing pages ...
+sections:
+  - slug: ""                           # Root section
+    title: "Project Documentation"
+    pages:
+      # ... existing pages ...
+      - slug: my-new-page             # Must match filename without .md
+        title: "Your Page Title"      # Display title
+        description: "Brief description for index card"
+        icon: "document"              # Icon name (see available icons below)
 
-  - slug: my-new-page          # Must match filename without .md
-    title: "Your Page Title"   # Display title
-    description: "Brief description for index card"
-    icon: "document"           # Icon name (see available icons below)
+  # Optional: create sub-sections with their own folder
+  - slug: guides
+    title: "User Guides"
+    pages:
+      - slug: tutorial
+        title: "Tutorial"
+        description: "Step-by-step tutorial"
+        icon: "rocket"
+    # Files go in: apps/help/content/guides/tutorial.md
 ```
 
 **Page order:** Pages appear in the order listed in `_config.yaml`. This order is used for:
@@ -214,6 +232,28 @@ Help pages use CSS from `static/smallstack/help/css/help.css`:
 - Index built from `search-index.json` endpoint
 - Debounced input (300ms delay)
 
+## Bundled SmallStack Docs
+
+SmallStack ships 26+ reference pages in `apps/help/smallstack/`. These are **automatically appended** as a "SmallStack Reference" section when `SMALLSTACK_DOCS_ENABLED=True` (the default).
+
+### Controlling Bundled Docs
+
+```python
+# config/settings/base.py (or .env)
+SMALLSTACK_DOCS_ENABLED = True   # Show bundled docs (default)
+SMALLSTACK_DOCS_ENABLED = False  # Hide bundled docs
+```
+
+Topics covered include: getting started, make commands, theming, settings, databases (SQLite & PostgreSQL), authentication, email, background tasks, activity tracking, logging, package management, Docker deployment, Kamal deployment, project structure, and more.
+
+### Two-Tier Loading
+
+The help system loads from two sources:
+1. **`content/`** — Your project docs (conflict-free, fully customizable)
+2. **`smallstack/`** — Bundled reference docs (updates with upstream pulls)
+
+User sections are shown first, SmallStack reference section is appended at the end.
+
 ## Complete _config.yaml Example
 
 ```yaml
@@ -223,31 +263,40 @@ title: "Help & Documentation"
 
 variables:
   version: "1.0.0"
-  project_name: "Django SmallStack"
+  project_name: "Your Project"
   python_version: "3.12"
-  django_version: "5.0"
+  django_version: "6.0"
 
-pages:
-  - slug: getting-started
-    title: "Getting Started"
-    description: "Quick start guide and project overview"
-    icon: "rocket"
+sections:
+  # Root section (your project docs)
+  - slug: ""
+    title: "Project Documentation"
+    pages:
+      - slug: index
+        title: "Welcome"
+        description: "Project documentation home"
+        icon: "home"
 
-  - slug: about
-    title: "About & Inspiration"
-    description: "The philosophy behind SmallStack"
-    icon: "info"
+      - slug: getting-started
+        title: "Getting Started"
+        description: "Quick start guide"
+        icon: "rocket"
 
-  - slug: theming
-    title: "Theming & Customization"
-    description: "Customize colors, dark mode, and components"
-    icon: "palette"
+      - slug: faq
+        title: "FAQ"
+        description: "Frequently asked questions"
+        icon: "chat"
+        is_faq: true
 
-  - slug: faq
-    title: "FAQ"
-    description: "Frequently asked questions"
-    icon: "chat"
-    is_faq: true
+  # Optional custom section (files in content/guides/)
+  # - slug: guides
+  #   title: "User Guides"
+  #   pages:
+  #     - slug: tutorial
+  #       title: "Tutorial"
+
+# Note: SmallStack reference docs are bundled in apps/help/smallstack/
+# and appear automatically when SMALLSTACK_DOCS_ENABLED=True
 ```
 
 ## Troubleshooting

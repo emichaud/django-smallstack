@@ -1,0 +1,157 @@
+# Skill: Background Tasks
+
+This skill describes how to create and run background tasks in SmallStack using Django's built-in Tasks framework with the `django-tasks-db` backend.
+
+## Overview
+
+SmallStack uses Django 6's native `django.tasks` framework with the `django-tasks-db` database backend. Tasks are stored in the database and processed by a separate worker process. No Redis or Celery required.
+
+## File Locations
+
+```
+apps/tasks/
+├── tasks.py        # Task definitions
+├── apps.py         # App config
+
+config/settings/base.py   # TASKS configuration
+docker-compose.yml         # Worker service definition
+```
+
+## Configuration
+
+In `config/settings/base.py`:
+
+```python
+TASKS = {
+    "default": {
+        "BACKEND": "django_tasks_db.DatabaseBackend",
+        "QUEUES": ["default", "email"],
+    }
+}
+```
+
+## Defining Tasks
+
+Use the `@task` decorator from `django.tasks`:
+
+```python
+# apps/tasks/tasks.py (or any app's tasks.py)
+
+from django.tasks import task
+
+@task(queue_name="email")
+def send_email_task(recipient, subject, message):
+    """Send an email in the background."""
+    from django.core.mail import send_mail
+    return send_mail(subject=subject, message=message,
+                     from_email=None, recipient_list=[recipient])
+
+@task(priority=5)
+def process_data_task(data, operation="transform"):
+    """Process data in the background."""
+    # All arguments must be JSON-serializable
+    return {"processed": True, "data": data}
+
+@task(takes_context=True)
+def task_with_context(context, message):
+    """Access task metadata via context."""
+    print(f"Task {context.task_result.id}, attempt {context.attempt}")
+    return {"status": "done"}
+```
+
+### Task Decorator Options
+
+| Option | Description |
+|--------|-------------|
+| `queue_name="email"` | Route to a specific queue (default: `"default"`) |
+| `priority=5` | Higher priority tasks run first |
+| `takes_context=True` | First argument receives `TaskContext` with metadata |
+
+## Enqueuing Tasks
+
+```python
+from apps.tasks.tasks import send_email_task
+
+# Enqueue for background processing
+result = send_email_task.enqueue(
+    recipient="user@example.com",
+    subject="Hello",
+    message="This is a test."
+)
+
+# Check status later
+result.refresh()
+print(result.status)  # SUCCESSFUL, RUNNING, or FAILED
+```
+
+## Running the Worker
+
+### Development
+
+```bash
+uv run python manage.py db_worker
+```
+
+Or with a specific queue:
+
+```bash
+uv run python manage.py db_worker --queue-name "email"
+```
+
+### Production (Docker Compose)
+
+The `worker` service in `docker-compose.yml` runs automatically:
+
+```yaml
+worker:
+  build: .
+  command: python manage.py db_worker --queue-name "*"
+  volumes:
+    - db_data:/data
+  depends_on:
+    web:
+      condition: service_healthy
+```
+
+### Production (Kamal)
+
+Kamal deploys the worker as an accessory or secondary container. See `kamal-deployment.md`.
+
+## Built-in Tasks
+
+SmallStack ships with these tasks in `apps/tasks/tasks.py`:
+
+| Task | Queue | Description |
+|------|-------|-------------|
+| `send_email_task` | email | Send a plain-text email |
+| `send_welcome_email` | email | Send welcome email to new user (by user ID) |
+| `process_data_task` | default | Example data processing task |
+| `example_task_with_context` | default | Demonstrates `takes_context=True` |
+
+## Creating New Tasks
+
+1. Add a function with `@task` decorator in any app's `tasks.py`
+2. Import and call `.enqueue()` from views, signals, or management commands
+3. Ensure the worker is running to process the queue
+
+### Important Constraints
+
+- **All arguments must be JSON-serializable** (no model instances — pass IDs instead)
+- **Import models inside the function** to avoid circular imports
+- **Tasks run in a separate process** — they don't share request context
+
+## Admin Interface
+
+Task results are visible in the Django admin under "Django Tasks Database". You can see:
+- Task status (pending, running, successful, failed)
+- Arguments passed
+- Result or error message
+- Timing information
+
+## Best Practices
+
+1. **Pass IDs, not objects** — Fetch models inside the task function
+2. **Use named queues** — Separate email tasks from data processing
+3. **Keep tasks idempotent** — They may be retried on failure
+4. **Log inside tasks** — Use `logging.getLogger(__name__)` for visibility
+5. **Test tasks synchronously** — Call the function directly in tests (skip `.enqueue()`)

@@ -1,0 +1,71 @@
+{% extends "smallstack/base.html" %}
+{% load static theme_tags %}
+
+{% block title %}{{ deck.title }} - Slides{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'smallstack/help/css/help.css' %}">
+<link rel="stylesheet" href="{% static 'smallstack/help/css/slides.css' %}">
+{% endblock %}
+
+{% block breadcrumbs %}
+{% breadcrumb "Home" "website:home" %}
+{% breadcrumb "Help" "help:index" %}
+{% breadcrumb deck.title %}
+{% render_breadcrumbs %}
+{% endblock %}
+
+{% block content %}
+<div class="slides-container" id="slides-container">
+    <!-- Progress bar -->
+    <div class="slides-progress">
+        <div class="slides-progress-bar" id="slides-progress-bar"></div>
+    </div>
+
+    <!-- Header -->
+    <div class="slides-header">
+        <a href="{% url 'help:index' %}" class="slides-back-link">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
+                <path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/>
+            </svg>
+            Back to Help
+        </a>
+        <span class="slides-counter" id="slides-counter"></span>
+    </div>
+
+    <!-- Slides -->
+    <div class="slides-viewport">
+        {% for slide in slides %}
+        <div class="slide{% if forloop.first %} slide--active{% endif %}" data-slide="{{ forloop.counter0 }}">
+            <div class="slide-content markdown-body">
+                {{ slide.html|safe }}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- Navigation -->
+    <div class="slides-nav">
+        <button class="slides-nav-btn slides-nav-prev" id="slides-prev" disabled>
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+                <path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/>
+            </svg>
+            <span class="slides-nav-btn-text" id="slides-prev-title">Previous</span>
+        </button>
+        <button class="slides-nav-btn slides-nav-next" id="slides-next">
+            <span class="slides-nav-btn-text" id="slides-next-title">Next</span>
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+                <path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/>
+            </svg>
+        </button>
+    </div>
+</div>
+
+<script>
+    window.SLIDE_TITLES = [{% for slide in slides %}"{{ slide.title|escapejs }}"{% if not forloop.last %}, {% endif %}{% endfor %}];
+</script>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'smallstack/help/js/slides.js' %}"></script>
+{% endblock %}

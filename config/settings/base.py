@@ -138,7 +138,7 @@ SMALLSTACK_DOCS_ENABLED = config("SMALLSTACK_DOCS_ENABLED", default=True, cast=b
 
 # SmallStack Color Palette
 # System-wide default palette. Users can override in their profile.
-# Options: django, light-blue, dark-blue, orange, purple
+# Options: django, high-contrast, dark-blue, orange, purple
 SMALLSTACK_COLOR_PALETTE = config("SMALLSTACK_COLOR_PALETTE", default="django")
 
 # Auth Feature Flags
@@ -146,6 +146,12 @@ SMALLSTACK_COLOR_PALETTE = config("SMALLSTACK_COLOR_PALETTE", default="django")
 SMALLSTACK_LOGIN_ENABLED = config("SMALLSTACK_LOGIN_ENABLED", default=True, cast=bool)
 # Set to False to hide Sign Up and 404 the signup URL
 SMALLSTACK_SIGNUP_ENABLED = config("SMALLSTACK_SIGNUP_ENABLED", default=True, cast=bool)
+
+# Sidebar Configuration
+# Set to False to completely remove the sidebar and hamburger toggle
+SMALLSTACK_SIDEBAR_ENABLED = config("SMALLSTACK_SIDEBAR_ENABLED", default=True, cast=bool)
+# Set to False to start with sidebar closed by default (users can still toggle open)
+SMALLSTACK_SIDEBAR_OPEN = config("SMALLSTACK_SIDEBAR_OPEN", default=True, cast=bool)
 
 # Branding Configuration
 # These paths are relative to STATIC_URL. Override to customize branding.

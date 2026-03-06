@@ -9,7 +9,10 @@ from .utils import (
     get_all_pages,
     get_all_sections,
     get_config,
+    get_deck_slides,
     get_help_page,
+    get_slide_deck,
+    get_slides_config,
     render_markdown,
     substitute_variables,
 )
@@ -136,6 +139,50 @@ class TestHelpUtils:
         assert len(page["content"]) > 0
 
 
+class TestSlideUtils:
+    """Tests for slide utility functions."""
+
+    def test_get_slides_config_returns_dict(self):
+        """get_slides_config should return a dict with decks."""
+        config = get_slides_config()
+        assert isinstance(config, dict)
+        assert "decks" in config
+
+    def test_get_slide_deck_exists(self):
+        """get_slide_deck should return the activity-tracking deck."""
+        deck = get_slide_deck("activity-tracking")
+        assert deck is not None
+        assert deck["slug"] == "activity-tracking"
+        assert "slides" in deck
+
+    def test_get_slide_deck_not_found(self):
+        """get_slide_deck should return None for non-existent deck."""
+        deck = get_slide_deck("nonexistent-deck")
+        assert deck is None
+
+    def test_get_deck_slides_renders(self):
+        """get_deck_slides should return rendered slides."""
+        slides = get_deck_slides("activity-tracking")
+        assert slides is not None
+        assert len(slides) == 5
+        for slide in slides:
+            assert "slug" in slide
+            assert "title" in slide
+            assert "html" in slide
+            assert len(slide["html"]) > 0
+
+    def test_get_deck_slides_not_found(self):
+        """get_deck_slides should return None for non-existent deck."""
+        slides = get_deck_slides("nonexistent-deck")
+        assert slides is None
+
+    def test_custom_content_root(self):
+        """get_slides_config with explicit default path should work."""
+        config = get_slides_config(content_root="apps/help/content/slides")
+        assert isinstance(config, dict)
+        assert "decks" in config
+
+
 class TestHelpViews:
     """Tests for help views."""
 
@@ -192,3 +239,27 @@ class TestHelpViews:
             assert "slug" in page
             assert "title" in page
             assert "text" in page
+
+    @pytest.mark.django_db
+    def test_slide_view_200(self, client):
+        """Slide view should return 200 for existing deck."""
+        response = client.get(reverse("help:slides", kwargs={"deck_slug": "activity-tracking"}))
+        assert response.status_code == 200
+        assert "deck" in response.context
+        assert "slides" in response.context
+        assert len(response.context["slides"]) == 5
+
+    @pytest.mark.django_db
+    def test_slide_view_404(self, client):
+        """Slide view should return 404 for non-existent deck."""
+        response = client.get(reverse("help:slides", kwargs={"deck_slug": "nonexistent"}))
+        assert response.status_code == 404
+
+    @pytest.mark.django_db
+    def test_slide_view_custom_content_root(self, client):
+        """Slide view should accept content_root parameter."""
+        response = client.get(
+            reverse("help:slides", kwargs={"deck_slug": "activity-tracking"}),
+            {"content_root": "apps/help/content/slides"},
+        )
+        assert response.status_code == 200

@@ -2,11 +2,13 @@
 <header class="topbar">
     <div class="topbar-left">
         <!-- Hamburger menu toggle -->
+        {% if smallstack_sidebar_enabled %}
         <button class="sidebar-toggle" id="sidebar-toggle" type="button" aria-label="Toggle sidebar">
             <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
                 <path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/>
             </svg>
         </button>
+        {% endif %}
         <!-- Site logo (text only) -->
         <a href="{% url 'website:home' %}" class="site-logo">
             <img src="{% static brand.logo_text %}" alt="{{ brand.name }}" class="logo-img">

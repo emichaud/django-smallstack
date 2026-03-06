@@ -15,7 +15,9 @@ django-smallstack/
 │   ├── smallstack/           # Theme helpers (pure presentation)
 │   ├── profile/               # User profiles
 │   ├── help/                  # Documentation system
-│   └── tasks/                 # Background tasks
+│   ├── tasks/                 # Background tasks
+│   ├── activity/              # Request activity tracking
+│   └── website/               # Project-specific pages
 ├── config/                    # Project configuration
 │   ├── settings/
 │   │   ├── base.py
@@ -202,6 +204,8 @@ INSTALLED_APPS = [
     "apps.profile",
     "apps.help",
     "apps.tasks",
+    "apps.activity",
+    "apps.website",
     "apps.myfeature",  # Add here
 
     "django.contrib.admin",
@@ -313,11 +317,31 @@ Documentation system:
 
 ### tasks
 
-Background tasks using Django 6 Tasks framework:
+Background tasks using Django 6 Tasks framework (django-tasks-db):
 
 | File | Purpose |
 |------|---------|
-| `tasks.py` | Task definitions (send_email_task, etc.) |
+| `tasks.py` | Task definitions (send_email_task, send_welcome_email, process_data_task) |
+
+### activity
+
+Lightweight HTTP request logging via middleware:
+
+| File | Purpose |
+|------|---------|
+| `middleware.py` | `ActivityMiddleware` — records requests, auto-prunes old rows |
+| `models.py` | `RequestLog` — path, method, status, user, timing, IP |
+| `admin.py` | Read-only admin with filters and date hierarchy |
+
+Configured via settings: `ACTIVITY_MAX_ROWS`, `ACTIVITY_PRUNE_INTERVAL`, `ACTIVITY_EXCLUDE_PATHS`.
+
+### website
+
+Project-specific pages (customize freely without upstream conflicts):
+
+| File | Purpose |
+|------|---------|
+| `views.py` | `home_view`, `about_view` — placeholder pages to customize |
 
 ## htmx View Pattern
 

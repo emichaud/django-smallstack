@@ -1,13 +1,19 @@
 {% extends "smallstack/base.html" %}
-{% load theme_tags %}
+{% load static theme_tags %}
 
 {% block title %}About{% endblock %}
 
-{% block breadcrumbs %}
-{% breadcrumb "About" %}
-{% render_breadcrumbs %}
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'smallstack/help/css/help.css' %}">
+<link rel="stylesheet" href="{% static 'smallstack/help/css/slides.css' %}">
 {% endblock %}
 
 {% block content %}
 {% include "smallstack/pages/about_content.html" %}
+{% endblock %}
+
+{% block extra_js %}
+{% if slides %}
+<script src="{% static 'smallstack/help/js/slides.js' %}"></script>
+{% endif %}
 {% endblock %}
