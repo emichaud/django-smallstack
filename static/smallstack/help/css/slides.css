@@ -95,8 +95,10 @@
     margin-bottom: 1.5rem;
 }
 
-.slide-content table {
-    font-size: 1.1rem;
+.slide-content table,
+.slide-content table td,
+.slide-content table th {
+    font-size: 1.15rem !important;
 }
 
 .slide-content h2 {
