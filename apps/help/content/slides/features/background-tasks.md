@@ -8,7 +8,7 @@ Django 6's Tasks framework, pre-configured with a database backend.
 - **No Redis or Celery** — uses `django-tasks-db`
 - **Background worker** via `manage.py db_worker`
 - Handles email, data processing, scheduled cleanup
-- **Kamal deployment** runs the worker as a separate service
+- **Docker & Kamal** run the worker automatically; only local dev needs `manage.py db_worker`
 
 </div>
 <div class="col" markdown="1">
