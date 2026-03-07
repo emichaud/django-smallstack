@@ -7,6 +7,47 @@
     {% breadcrumb "Activity" "activity:dashboard" %}
 {% endblock %}
 
+{% block extra_css %}
+<style>
+    .table-plain tr:nth-child(odd),
+    .table-plain tr:nth-child(even),
+    table tbody tr:nth-child(odd),
+    table tbody tr:nth-child(even) {
+        background: transparent;
+    }
+    .table-plain tbody tr:nth-child(odd),
+    table tbody tr:nth-child(odd) {
+        background-color: color-mix(in srgb, var(--primary) 12%, var(--body-bg)) !important;
+    }
+    .table-plain tbody tr:nth-child(even),
+    table tbody tr:nth-child(even) {
+        background-color: color-mix(in srgb, var(--primary) 4%, var(--body-bg)) !important;
+    }
+    table tbody tr,
+    .table-plain tbody tr {
+        border: none !important;
+    }
+    table tbody td,
+    .table-plain tbody td {
+        border: none !important;
+    }
+    /* Themed table column headers */
+    table thead tr {
+        background-color: color-mix(in srgb, var(--primary) 15%, var(--body-bg)) !important;
+        border: none !important;
+    }
+    table thead th {
+        border: none !important;
+        background-color: transparent !important;
+        color: var(--body-quiet-color) !important;
+        font-weight: 600;
+        font-size: 0.8rem !important;
+        text-transform: uppercase;
+        letter-spacing: 0.3px;
+    }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="page-header-with-actions">
     <div class="page-header-content">
@@ -66,16 +107,16 @@
         </div>
         <div class="card-body" style="padding: 0;">
             {% if top_paths %}
-            <table style="width: 100%; border-collapse: collapse;">
+            <table class="table-plain" style="width: 100%; border-collapse: collapse;">
                 <thead>
-                    <tr style="border-bottom: 1px solid var(--hairline-color);">
-                        <th style="text-align: left; padding: 8px 16px; color: var(--body-quiet-color); font-size: 0.8rem;">Top Paths</th>
-                        <th style="text-align: right; padding: 8px 16px; color: var(--body-quiet-color); font-size: 0.8rem;">Hits</th>
+                    <tr>
+                        <th style="text-align: left; padding: 8px 16px;">Top Paths</th>
+                        <th style="text-align: right; padding: 8px 16px;">Hits</th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for row in top_paths %}
-                    <tr style="border-bottom: 1px solid var(--hairline-color);">
+                    <tr>
                         <td style="padding: 8px 16px; font-family: monospace; font-size: 0.85rem;">{{ row.path|truncatechars:40 }}</td>
                         <td style="text-align: right; padding: 8px 16px;">{{ row.hits }}</td>
                     </tr>
@@ -87,11 +128,11 @@
             {% endif %}
 
             {% if status_groups %}
-            <div style="display: flex; gap: 20px; padding: 12px 16px; border-top: 1px solid var(--hairline-color);">
+            <div style="display: flex; gap: 8px; padding: 10px 16px;">
                 {% for group in status_groups %}
-                <div style="text-align: center;">
-                    <span style="font-weight: 700; font-size: 1.1rem;">{{ group.count }}</span>
-                    <span style="color: var(--body-quiet-color); font-size: 0.8rem; margin-left: 4px;">{{ group.label }}</span>
+                <div style="flex: 1; text-align: center; padding: 8px 4px; border-radius: var(--radius-sm); background-color: color-mix(in srgb, var(--primary) 8%, var(--body-bg));">
+                    <div style="font-weight: 700; font-size: 1.1rem; color: {% if group.label == '2xx' %}var(--success-fg){% elif group.label == '4xx' %}var(--warning-fg){% elif group.label == '5xx' %}var(--error-fg){% else %}var(--body-fg){% endif %};">{{ group.count }}</div>
+                    <div style="font-size: 0.75rem; color: {% if group.label == '2xx' %}var(--success-fg){% elif group.label == '4xx' %}var(--warning-fg){% elif group.label == '5xx' %}var(--error-fg){% else %}var(--body-fg){% endif %};">{{ group.label }}</div>
                 </div>
                 {% endfor %}
             </div>
@@ -100,51 +141,48 @@
     </div>
 
     <!-- Users card -->
-    <div class="card">
+    <div class="card" style="display: flex; flex-direction: column;">
         <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
             <h2>Users</h2>
             <a href="{% url 'activity:users' %}" class="button button-small button-secondary">View All</a>
         </div>
-        <div class="card-body">
-            {% if top_themes %}
-            <div style="margin-bottom: 16px;">
-                <div style="font-size: 0.8rem; color: var(--body-quiet-color); font-weight: 600; margin-bottom: 6px;">Theme Preferences</div>
-                <div style="display: flex; gap: 16px; flex-wrap: wrap;">
-                    {% for t in top_themes %}
-                    <div style="display: flex; align-items: baseline; gap: 6px;">
-                        <span style="font-size: 1.1rem; font-weight: 700;">{{ t.count }}</span>
-                        <span style="font-size: 0.85rem; color: var(--body-quiet-color);">{{ t.theme_preference }}</span>
+        <div class="card-body" style="padding: 0; flex: 1; display: flex; flex-direction: column;">
+            {% if top_theme_bar %}
+            <div class="theme-usage-card" style="padding: 12px 16px; border-bottom: none;">
+                <div style="font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--body-quiet-color); font-weight: 600; margin-bottom: 8px;">Top Theme</div>
+                <div class="theme-usage-row">
+                    <div class="theme-usage-meta">
+                        <div class="theme-name">{{ top_theme_bar.name }}</div>
+                        <div class="theme-total">{{ top_theme_bar.total }} user{{ top_theme_bar.total|pluralize }}</div>
                     </div>
-                    {% endfor %}
-                </div>
-            </div>
-            {% endif %}
-
-            {% if top_palettes %}
-            <div style="margin-bottom: 16px;">
-                <div style="font-size: 0.8rem; color: var(--body-quiet-color); font-weight: 600; margin-bottom: 6px;">Color Palettes</div>
-                <div style="display: flex; gap: 16px; flex-wrap: wrap;">
-                    {% for p in top_palettes %}
-                    <div style="display: flex; align-items: baseline; gap: 6px;">
-                        <span style="font-size: 1.1rem; font-weight: 700;">{{ p.count }}</span>
-                        <span style="font-size: 0.85rem; color: var(--body-quiet-color);">{{ p.color_palette }}</span>
+                    <div class="theme-bar" aria-label="{{ top_theme_bar.name }}: {{ top_theme_bar.dark }} dark, {{ top_theme_bar.light }} light">
+                        {% if top_theme_bar.dark %}
+                        <div class="theme-bar-segment is-dark" style="flex: {{ top_theme_bar.dark }};">
+                            <span>{{ top_theme_bar.dark }}</span>
+                        </div>
+                        {% endif %}
+                        {% if top_theme_bar.light %}
+                        <div class="theme-bar-segment is-light" style="flex: {{ top_theme_bar.light }};">
+                            <span>{{ top_theme_bar.light }}</span>
+                        </div>
+                        {% endif %}
                     </div>
-                    {% endfor %}
                 </div>
             </div>
             {% endif %}
 
             {% if top_users %}
-            <div>
-                <div style="font-size: 0.8rem; color: var(--body-quiet-color); font-weight: 600; margin-bottom: 6px;">Most Active</div>
-                <div style="display: flex; gap: 16px; flex-wrap: wrap;">
-                    {% for u in top_users %}
-                    <div style="display: flex; align-items: baseline; gap: 6px;">
-                        <span style="font-size: 1.1rem; font-weight: 700;">{{ u.hits }}</span>
-                        <span style="font-size: 0.85rem; color: var(--body-quiet-color);">{{ u.user__username }}</span>
+            <div style="padding: 10px 16px; flex: 1;">
+                <div style="font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--body-quiet-color); font-weight: 600; margin-bottom: 8px;">Most Active</div>
+                {% for u in top_users %}
+                <div style="display: flex; justify-content: space-between; align-items: center; padding: 5px 0;">
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <div style="width: 28px; height: 28px; border-radius: 50%; background: var(--primary); color: var(--button-fg); display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 0.75rem;">{{ u.user__username|slice:":1"|upper }}</div>
+                        <span style="font-size: 0.85rem;">{{ u.user__username }}</span>
                     </div>
-                    {% endfor %}
+                    <span style="font-size: 0.8rem; color: var(--body-quiet-color);">{{ u.hits }} <span style="font-size: 0.7rem;">hits</span></span>
                 </div>
+                {% endfor %}
             </div>
             {% endif %}
         </div>
@@ -156,23 +194,29 @@
 {% if recent_requests %}
 <div class="card">
     <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
-        <h2>Latest Requests</h2>
+        <div style="display: flex; align-items: center; gap: 16px;">
+            <h2 style="margin: 0;">Latest Requests</h2>
+            <div style="display: flex; gap: 4px;" id="request-filter-tabs">
+                <button type="button" class="button button-small" style="font-size: 0.75rem; padding: 4px 10px;" data-tab="all" onclick="showRequestTab('all')">All</button>
+                <button type="button" class="button button-small button-secondary" style="font-size: 0.75rem; padding: 4px 10px;" data-tab="errors" onclick="showRequestTab('errors')">Errors</button>
+            </div>
+        </div>
         <a href="{% url 'activity:requests' %}" class="button button-small button-secondary">View All</a>
     </div>
     <div class="card-body" style="padding: 0; overflow-x: auto;">
-        <table style="width: 100%; border-collapse: collapse;">
+        <table class="table-plain" id="requests-all" style="width: 100%; border-collapse: collapse;">
             <thead>
-                <tr style="border-bottom: 1px solid var(--hairline-color);">
-                    <th style="text-align: left; padding: 8px 16px; color: var(--body-quiet-color); font-size: 0.8rem;">Time</th>
-                    <th style="text-align: left; padding: 8px 16px; color: var(--body-quiet-color); font-size: 0.8rem;">Path</th>
-                    <th style="text-align: right; padding: 8px 16px; color: var(--body-quiet-color); font-size: 0.8rem;">Status</th>
-                    <th style="text-align: left; padding: 8px 16px; color: var(--body-quiet-color); font-size: 0.8rem;">User</th>
-                    <th style="text-align: right; padding: 8px 16px; color: var(--body-quiet-color); font-size: 0.8rem;">ms</th>
+                <tr>
+                    <th style="text-align: left; padding: 8px 16px;">Time</th>
+                    <th style="text-align: left; padding: 8px 16px;">Path</th>
+                    <th style="text-align: right; padding: 8px 16px;">Status</th>
+                    <th style="text-align: left; padding: 8px 16px;">User</th>
+                    <th style="text-align: right; padding: 8px 16px;">ms</th>
                 </tr>
             </thead>
             <tbody>
                 {% for log in recent_requests %}
-                <tr style="border-bottom: 1px solid var(--hairline-color);">
+                <tr>
                     <td style="padding: 8px 16px; white-space: nowrap; font-size: 0.8rem;">{{ log.timestamp|date:"M d H:i:s" }}</td>
                     <td style="padding: 8px 16px; font-family: monospace; font-size: 0.85rem;">{{ log.path|truncatechars:50 }}</td>
                     <td style="text-align: right; padding: 8px 16px;">
@@ -184,7 +228,50 @@
                 {% endfor %}
             </tbody>
         </table>
+        <table class="table-plain" id="requests-errors" style="width: 100%; border-collapse: collapse; display: none;">
+            <thead>
+                <tr>
+                    <th style="text-align: left; padding: 8px 16px;">Time</th>
+                    <th style="text-align: left; padding: 8px 16px;">Path</th>
+                    <th style="text-align: right; padding: 8px 16px;">Status</th>
+                    <th style="text-align: left; padding: 8px 16px;">User</th>
+                    <th style="text-align: right; padding: 8px 16px;">ms</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for log in recent_errors %}
+                <tr>
+                    <td style="padding: 8px 16px; white-space: nowrap; font-size: 0.8rem;">{{ log.timestamp|date:"M d H:i:s" }}</td>
+                    <td style="padding: 8px 16px; font-family: monospace; font-size: 0.85rem;">{{ log.path|truncatechars:50 }}</td>
+                    <td style="text-align: right; padding: 8px 16px;">
+                        <span style="{% if log.status_code >= 500 %}color: var(--delete-button-bg, red);{% elif log.status_code >= 400 %}color: var(--message-warning-bg, orange);{% elif log.status_code >= 300 %}color: var(--body-quiet-color);{% endif %}">{{ log.status_code }}</span>
+                    </td>
+                    <td style="padding: 8px 16px; font-size: 0.8rem;">{{ log.user.username|default:"—" }}</td>
+                    <td style="text-align: right; padding: 8px 16px; font-size: 0.85rem;">{{ log.response_time_ms }}</td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="5" style="padding: 16px; color: var(--body-quiet-color); text-align: center;">No errors recorded.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
     </div>
 </div>
 {% endif %}
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function showRequestTab(tab) {
+    document.getElementById('requests-all').style.display = tab === 'all' ? '' : 'none';
+    document.getElementById('requests-errors').style.display = tab === 'errors' ? '' : 'none';
+    document.querySelectorAll('#request-filter-tabs button').forEach(function(btn) {
+        if (btn.dataset.tab === tab) {
+            btn.classList.remove('button-secondary');
+        } else {
+            btn.classList.add('button-secondary');
+        }
+    });
+}
+</script>
 {% endblock %}

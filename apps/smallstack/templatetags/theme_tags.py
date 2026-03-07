@@ -131,3 +131,46 @@ def render_breadcrumbs(context):
         "breadcrumbs": context.get("breadcrumbs", []),
         "request": context.get("request"),
     }
+
+
+@register.simple_tag(takes_context=True)
+def querystring(context, **kwargs):
+    """Build a query string merging kwargs into the current request.GET.
+
+    Usage:
+        {% querystring page=3 %}        → "?tab=recent&page=3"
+        {% querystring page=page_num %} → resolves page_num from context
+    """
+    request = context.get("request")
+    if request:
+        params = request.GET.copy()
+    else:
+        from django.http import QueryDict
+
+        params = QueryDict(mutable=True)
+    for key, value in kwargs.items():
+        if value is None or value == "":
+            params.pop(key, None)
+        else:
+            params[key] = str(value)
+    qs = params.urlencode()
+    return f"?{qs}" if qs else ""
+
+
+@register.inclusion_tag(
+    "smallstack/includes/paginator.html", takes_context=True
+)
+def render_paginator(context, page_obj, hx_target="#tab-content", hx_swap="innerHTML"):
+    """Render paginator controls for a Page object.
+
+    Usage:
+        {% render_paginator page_obj %}
+        {% render_paginator page_obj hx_target="#my-div" %}
+    """
+    request = context.get("request")
+    return {
+        "page_obj": page_obj,
+        "request": request,
+        "hx_target": hx_target,
+        "hx_swap": hx_swap,
+    }

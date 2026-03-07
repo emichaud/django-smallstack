@@ -43,9 +43,10 @@ html[data-palette="high-contrast"][data-theme="dark"] {
     --button-bg: #e0e0e0;
     --button-fg: #000000;
     --button-hover-bg: #ffffff;
+    --link-fg: #ffffff;
     --link-color: #ffffff;
     --link-hover: #e0e0e0;
-    --breadcrumb-link: #e0e0e0;
+    --breadcrumb-link: #ffffff;
 }
 
 /* ============================================
@@ -80,9 +81,10 @@ html[data-palette="dark-blue"][data-theme="dark"] {
     --button-bg: #42a5f5;
     --button-fg: #000000;
     --button-hover-bg: #64b5f6;
+    --link-fg: #ffffff;
     --link-color: #ffffff;
     --link-hover: #e0e0e0;
-    --breadcrumb-link: #64b5f6;
+    --breadcrumb-link: #ffffff;
 }
 
 /* ============================================
@@ -117,9 +119,10 @@ html[data-palette="orange"][data-theme="dark"] {
     --button-bg: #ff9800;
     --button-fg: #000000;
     --button-hover-bg: #ffb74d;
+    --link-fg: #ffffff;
     --link-color: #ffffff;
     --link-hover: #e0e0e0;
-    --breadcrumb-link: #ffb74d;
+    --breadcrumb-link: #ffffff;
 }
 
 /* ============================================
@@ -154,9 +157,10 @@ html[data-palette="purple"][data-theme="dark"] {
     --button-bg: #b39ddb;
     --button-fg: #000000;
     --button-hover-bg: #ce93d8;
+    --link-fg: #ffffff;
     --link-color: #ffffff;
     --link-hover: #e0e0e0;
-    --breadcrumb-link: #ce93d8;
+    --breadcrumb-link: #ffffff;
 }
 
 /* ============================================

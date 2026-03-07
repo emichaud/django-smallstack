@@ -1,0 +1,33 @@
+{% load theme_tags %}
+<div class="card">
+    <div class="card-header">
+        <h2>Users With No Tracked Requests</h2>
+    </div>
+    <div class="card-body" style="padding: 0; overflow-x: auto;">
+        {% if inactive_users %}
+        <table class="table-plain" style="width: 100%; border-collapse: collapse;">
+            <thead>
+                <tr >
+                    <th style="text-align: left; padding: 10px 16px;">Username</th>
+                    <th style="text-align: left; padding: 10px 16px;">Email</th>
+                    <th style="text-align: left; padding: 10px 16px;">Joined</th>
+                    <th style="text-align: left; padding: 10px 16px;">Last Login</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for u in inactive_users %}
+                <tr>
+                    <td style="padding: 10px 16px;">{{ u.username }}</td>
+                    <td style="padding: 10px 16px; font-size: 0.85rem;">{{ u.email|default:"—" }}</td>
+                    <td style="padding: 10px 16px; font-size: 0.85rem;">{{ u.date_joined|date:"M d, Y" }}</td>
+                    <td style="padding: 10px 16px; font-size: 0.85rem;">{{ u.last_login|date:"M d, Y H:i"|default:"Never" }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <p style="padding: 16px; color: var(--body-quiet-color);">All users have tracked requests.</p>
+        {% endif %}
+    </div>
+    {% render_paginator page_obj %}
+</div>

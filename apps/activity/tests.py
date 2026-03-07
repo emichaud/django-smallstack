@@ -166,7 +166,7 @@ class TestActivityDashboardView:
         response = client.get(reverse("activity:dashboard"))
         assert "user_count" in response.context
         assert "recent_signup_count" in response.context
-        assert "top_themes" in response.context
+        assert "top_theme_bar" in response.context
         assert "top_users" in response.context
 
 
@@ -191,16 +191,27 @@ class TestRequestListView:
     def test_context_contains_data(self, client, staff_user):
         client.login(username="staffuser", password="testpass123")
         response = client.get(reverse("activity:requests"))
-        assert "top_paths" in response.context
+        # Full page includes status cards and default (recent) tab data
         assert "recent_requests" in response.context
+        assert "page_obj" in response.context
         assert "status_groups" in response.context
         assert "total_requests" in response.context
+        assert "active_tab" in response.context
+        assert response.context["active_tab"] == "recent"
+
+    def test_tab_param_selects_tab(self, client, staff_user):
+        """?tab= param selects the correct tab context."""
+        client.login(username="staffuser", password="testpass123")
+        response = client.get(reverse("activity:requests") + "?tab=top_paths")
+        assert response.context["active_tab"] == "top_paths"
+        assert "top_paths" in response.context
+        assert "page_obj" in response.context
 
     def test_htmx_returns_partial(self, client, staff_user):
         """htmx requests should return only the partial template."""
         client.login(username="staffuser", password="testpass123")
         response = client.get(
-            reverse("activity:requests"),
+            reverse("activity:requests") + "?tab=recent",
             HTTP_HX_REQUEST="true",
         )
         assert response.status_code == 200
@@ -238,22 +249,30 @@ class TestUserActivityView:
     def test_context_contains_user_data(self, client, staff_user):
         client.login(username="staffuser", password="testpass123")
         response = client.get(reverse("activity:users"))
+        # Default tab is top_users
         assert "top_users" in response.context
+        assert "page_obj" in response.context
+        assert "active_tab" in response.context
+        assert response.context["active_tab"] == "top_users"
+
+    def test_tab_param_selects_tab(self, client, staff_user):
+        """?tab= param selects the correct tab context."""
+        client.login(username="staffuser", password="testpass123")
+        response = client.get(reverse("activity:users") + "?tab=activity")
+        assert response.context["active_tab"] == "activity"
         assert "recent_user_activity" in response.context
-        assert "inactive_users" in response.context
-        assert "recent_signups" in response.context
-        assert "top_themes" in response.context
+        assert "page_obj" in response.context
 
     def test_htmx_returns_partial(self, client, staff_user):
         """htmx requests should return only the partial template."""
         client.login(username="staffuser", password="testpass123")
         response = client.get(
-            reverse("activity:users"),
+            reverse("activity:users") + "?tab=top_users",
             HTTP_HX_REQUEST="true",
         )
         assert response.status_code == 200
         content = response.content.decode()
-        assert 'id="recent-user-activity"' in content
+        assert "Top Users" in content
         assert "<html" not in content
 
     def test_normal_returns_full_page(self, client, staff_user):

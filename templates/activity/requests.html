@@ -8,82 +8,98 @@
     {% breadcrumb "Requests" "activity:requests" %}
 {% endblock %}
 
+{% block extra_css %}
+<style>
+    .table-plain tr:nth-child(odd),
+    .table-plain tr:nth-child(even) {
+        background: transparent;
+    }
+    .tab-bar {
+        display: flex;
+        gap: 0;
+        border-bottom: 2px solid var(--hairline-color);
+        margin-bottom: 24px;
+    }
+    .tab-btn {
+        padding: 10px 20px;
+        background: none;
+        border: none;
+        border-bottom: 2px solid transparent;
+        margin-bottom: -2px;
+        cursor: pointer;
+        font-size: 0.9rem;
+        font-weight: 500;
+        color: var(--body-quiet-color);
+        transition: color 0.15s, border-color 0.15s;
+    }
+    .tab-btn:hover {
+        color: var(--body-fg);
+    }
+    .tab-btn.active {
+        color: var(--primary);
+        border-bottom-color: var(--primary);
+    }
+</style>
+{% endblock %}
+
 {% block content %}
-<div style="margin-bottom: 24px;">
-    <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 4px;">
-        <a href="{% url 'activity:dashboard' %}"
-           style="display: inline-flex; align-items: center; color: var(--body-quiet-color); text-decoration: none; transition: color 0.15s;"
-           onmouseover="this.style.color='var(--primary)'" onmouseout="this.style.color='var(--body-quiet-color)'">
-            <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor">
-                <path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/>
-            </svg>
-        </a>
-        <h1 style="margin: 0;">Requests</h1>
-    </div>
-    <p class="page-subtitle" style="margin: 0; padding-left: 34px;">{{ total_requests }} tracked requests — auto-refreshes every 30s</p>
+<div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px;">
+    <a href="{% url 'activity:dashboard' %}"
+       style="display: inline-flex; align-items: center; color: var(--body-quiet-color); text-decoration: none; transition: color 0.15s;"
+       onmouseover="this.style.color='var(--primary)'" onmouseout="this.style.color='var(--body-quiet-color)'">
+        <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor">
+            <path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/>
+        </svg>
+    </a>
+    <h1 style="margin: 0;">Requests</h1>
+    <span class="page-subtitle" style="margin: 0; font-size: 0.9rem;">{{ total_requests }} tracked</span>
+    {% if status_groups %}
+    <span style="margin-left: auto; display: flex; align-items: center; gap: 12px;">
+        {% for group in status_groups %}
+        <span style="display: flex; align-items: baseline; gap: 4px;">
+            <span style="font-size: 1.1rem; font-weight: 700; color: {% if group.label == '2xx' %}var(--success-fg){% elif group.label == '4xx' %}var(--warning-fg){% elif group.label == '5xx' %}var(--error-fg){% else %}var(--body-fg){% endif %};">{{ group.count }}</span>
+            <span style="font-size: 0.75rem; color: {% if group.label == '2xx' %}var(--success-fg){% elif group.label == '4xx' %}var(--warning-fg){% elif group.label == '5xx' %}var(--error-fg){% else %}var(--body-fg){% endif %};">{{ group.label }}</span>
+        </span>
+        {% endfor %}
+    </span>
+    {% endif %}
 </div>
 
-<!-- Status Code Breakdown -->
-{% if status_groups %}
-<div style="display: flex; gap: 20px; flex-wrap: wrap; margin-bottom: 24px;">
-    {% for group in status_groups %}
-    <div class="card" style="flex: 1; min-width: 100px;">
-        <div class="card-body" style="text-align: center; padding: 14px 8px;">
-            <div style="font-size: 1.75rem; font-weight: 700;">{{ group.count }}</div>
-            <div style="color: var(--body-quiet-color); font-size: 0.8rem;">{{ group.label }}</div>
-        </div>
-    </div>
-    {% endfor %}
-</div>
-{% endif %}
-
-<!-- Top Paths -->
-<div class="card" style="margin-bottom: 24px;">
-    <div class="card-header">
-        <h2>Top 25 Paths</h2>
-    </div>
-    <div class="card-body" style="padding: 0;">
-        {% if top_paths %}
-        <table style="width: 100%; border-collapse: collapse;">
-            <thead>
-                <tr style="border-bottom: 1px solid var(--hairline-color);">
-                    <th style="text-align: left; padding: 10px 16px; color: var(--body-quiet-color); font-size: 0.85rem;">Path</th>
-                    <th style="text-align: right; padding: 10px 16px; color: var(--body-quiet-color); font-size: 0.85rem;">Hits</th>
-                    <th style="text-align: right; padding: 10px 16px; color: var(--body-quiet-color); font-size: 0.85rem;">Avg Time</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for row in top_paths %}
-                <tr style="border-bottom: 1px solid var(--hairline-color);">
-                    <td style="padding: 10px 16px; font-family: monospace; font-size: 0.9rem;">{{ row.path }}</td>
-                    <td style="text-align: right; padding: 10px 16px;">{{ row.hits }}</td>
-                    <td style="text-align: right; padding: 10px 16px;">{{ row.avg_time|floatformat:0 }}ms</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-        {% else %}
-        <p style="padding: 16px; color: var(--body-quiet-color);">No requests recorded yet.</p>
-        {% endif %}
-    </div>
+<!-- Tab Bar -->
+<div class="tab-bar">
+    <button class="tab-btn{% if active_tab == 'recent' %} active{% endif %}"
+            hx-get="{% url 'activity:requests' %}?tab=recent"
+            hx-target="#tab-content"
+            hx-swap="innerHTML"
+            onclick="setActiveTab(this)">Recent</button>
+    <button class="tab-btn{% if active_tab == 'top_paths' %} active{% endif %}"
+            hx-get="{% url 'activity:requests' %}?tab=top_paths"
+            hx-target="#tab-content"
+            hx-swap="innerHTML"
+            onclick="setActiveTab(this)">Top Paths</button>
+    <button class="tab-btn{% if active_tab == 'errors' %} active{% endif %}"
+            hx-get="{% url 'activity:requests' %}?tab=errors"
+            hx-target="#tab-content"
+            hx-swap="innerHTML"
+            onclick="setActiveTab(this)">Errors</button>
+    <button class="tab-btn{% if active_tab == 'by_method' %} active{% endif %}"
+            hx-get="{% url 'activity:requests' %}?tab=by_method"
+            hx-target="#tab-content"
+            hx-swap="innerHTML"
+            onclick="setActiveTab(this)">By Method</button>
 </div>
 
-<!-- Recent Requests — htmx live-refresh -->
-<div class="card">
-    <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
-        <h2>Recent 50 Requests</h2>
-        <button class="button button-small button-secondary"
-                hx-get="{% url 'activity:requests' %}"
-                hx-target="#recent-requests"
-                hx-swap="outerHTML">
-            <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
-                <path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/>
-            </svg>
-            Refresh
-        </button>
-    </div>
-    <div class="card-body" style="padding: 0; overflow-x: auto;">
-        {% include "activity/partials/recent_requests.html" %}
-    </div>
+<!-- Tab Content -->
+<div id="tab-content">
+    {% include tab_partial %}
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function setActiveTab(btn) {
+    document.querySelectorAll('.tab-btn').forEach(function(b) { b.classList.remove('active'); });
+    btn.classList.add('active');
+}
+</script>
 {% endblock %}

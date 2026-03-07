@@ -1,0 +1,31 @@
+{% load theme_tags %}
+<div class="card">
+    <div class="card-header">
+        <h2>Top Paths</h2>
+    </div>
+    <div class="card-body" style="padding: 0; overflow-x: auto;">
+        {% if top_paths %}
+        <table class="table-plain" style="width: 100%; border-collapse: collapse;">
+            <thead>
+                <tr style="border-bottom: 1px solid var(--hairline-color);">
+                    <th style="text-align: left; padding: 10px 16px; color: var(--body-quiet-color); font-size: 0.85rem;">Path</th>
+                    <th style="text-align: right; padding: 10px 16px; color: var(--body-quiet-color); font-size: 0.85rem;">Hits</th>
+                    <th style="text-align: right; padding: 10px 16px; color: var(--body-quiet-color); font-size: 0.85rem;">Avg Time</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in top_paths %}
+                <tr>
+                    <td style="padding: 10px 16px; font-family: monospace; font-size: 0.9rem;">{{ row.path }}</td>
+                    <td style="text-align: right; padding: 10px 16px;">{{ row.hits }}</td>
+                    <td style="text-align: right; padding: 10px 16px;">{{ row.avg_time|floatformat:0 }}ms</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <p style="padding: 16px; color: var(--body-quiet-color);">No requests recorded yet.</p>
+        {% endif %}
+    </div>
+    {% render_paginator page_obj %}
+</div>

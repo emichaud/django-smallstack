@@ -9,6 +9,7 @@ from django.utils import timezone
 from django.views.generic import TemplateView
 
 from apps.profile.models import UserProfile
+from apps.smallstack.pagination import paginate_queryset
 
 from .models import RequestLog
 
@@ -49,27 +50,46 @@ class ActivityDashboardView(StaffRequiredMixin, TemplateView):
         top_paths = (
             qs.values("path")
             .annotate(hits=Count("pk"))
-            .order_by("-hits")[:5]
+            .order_by("-hits")[:8]
         )
 
         recent = qs.select_related("user")[:5]
+        recent_errors = qs.filter(status_code__gte=300).select_related("user")[:10]
 
         # User stats
         user_count = User.objects.count()
         thirty_days_ago = timezone.now() - timezone.timedelta(days=30)
         recent_signup_count = User.objects.filter(date_joined__gte=thirty_days_ago).count()
 
-        top_themes = (
-            UserProfile.objects.values("theme_preference")
+        # Top theme bar (most popular palette, dark/light split)
+        palette_choices = [
+            (key, label)
+            for key, label in UserProfile.COLOR_PALETTE_CHOICES
+            if key != ""
+        ]
+        crosstab_qs = (
+            UserProfile.objects.values("theme_preference", "color_palette")
             .annotate(count=Count("pk"))
-            .order_by("-count")
         )
-        top_palettes = (
-            UserProfile.objects.exclude(color_palette="")
-            .values("color_palette")
-            .annotate(count=Count("pk"))
-            .order_by("-count")
-        )
+        counts = {}
+        for row in crosstab_qs:
+            theme = row["theme_preference"]
+            palette = row["color_palette"] or "django"
+            counts[(theme, palette)] = (
+                counts.get((theme, palette), 0) + row["count"]
+            )
+        top_theme_bar = None
+        best_total = 0
+        for pk, label in palette_choices:
+            dark = counts.get(("dark", pk), 0)
+            light = counts.get(("light", pk), 0)
+            total = dark + light
+            if total > best_total:
+                best_total = total
+                top_theme_bar = {
+                    "name": label, "dark": dark,
+                    "light": light, "total": total,
+                }
 
         top_users = (
             RequestLog.objects.filter(user__isnull=False)
@@ -87,125 +107,242 @@ class ActivityDashboardView(StaffRequiredMixin, TemplateView):
             "status_groups": status_groups,
             "top_paths": top_paths,
             "recent_requests": recent,
+            "recent_errors": recent_errors,
             "user_count": user_count,
             "recent_signup_count": recent_signup_count,
-            "top_themes": top_themes,
-            "top_palettes": top_palettes,
+            "top_theme_bar": top_theme_bar,
             "top_users": top_users,
         })
         return context
 
 
 class RequestListView(StaffRequiredMixin, TemplateView):
-    """Staff-only detail view for request logs.
-
-    Returns partial HTML when called via htmx (for polling/refresh),
-    or the full page for normal navigation.
-    """
+    """Staff-only detail view for request logs with htmx-powered tabs."""
 
     template_name = "activity/requests.html"
-    partial_template_name = "activity/partials/recent_requests.html"
 
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
+    TAB_PARTIALS = {
+        "recent": "activity/partials/recent_requests.html",
+        "top_paths": "activity/partials/top_paths.html",
+        "errors": "activity/partials/errors.html",
+        "by_method": "activity/partials/by_method.html",
+    }
+
+    def get_tab(self):
+        tab = self.request.GET.get("tab", "recent")
+        return tab if tab in self.TAB_PARTIALS else "recent"
+
+    def get_status_context(self):
         qs = RequestLog.objects.all()
-
-        top_paths = (
-            qs.values("path")
-            .annotate(hits=Count("pk"), avg_time=Avg("response_time_ms"))
-            .order_by("-hits")[:25]
-        )
-
-        recent = qs.select_related("user")[:50]
-
-        status_groups = []
         total = qs.count()
+        status_groups = []
         if total > 0:
             for label, low, high in [("2xx", 200, 300), ("3xx", 300, 400), ("4xx", 400, 500), ("5xx", 500, 600)]:
                 count = qs.filter(status_code__gte=low, status_code__lt=high).count()
                 if count:
                     status_groups.append({"label": label, "count": count})
+        return {"status_groups": status_groups, "total_requests": total}
 
-        context.update({
-            "top_paths": top_paths,
-            "recent_requests": recent,
-            "status_groups": status_groups,
-            "total_requests": total,
-        })
-        return context
+    page_size = 15
+
+    def get_tab_context(self, tab):
+        qs = RequestLog.objects.all()
+        if tab == "recent":
+            page_obj = paginate_queryset(
+                qs.select_related("user").order_by("-timestamp"),
+                self.request,
+                page_size=self.page_size,
+            )
+            return {"recent_requests": page_obj, "page_obj": page_obj}
+        elif tab == "top_paths":
+            page_obj = paginate_queryset(
+                qs.values("path")
+                .annotate(hits=Count("pk"), avg_time=Avg("response_time_ms"))
+                .order_by("-hits"),
+                self.request,
+                page_size=self.page_size,
+            )
+            return {"top_paths": page_obj, "page_obj": page_obj}
+        elif tab == "errors":
+            error_qs = qs.filter(status_code__gte=300)
+            error_counts = (
+                error_qs.values("status_code")
+                .annotate(count=Count("pk"))
+                .order_by("status_code")
+            )
+            page_obj = paginate_queryset(
+                error_qs.select_related("user").order_by("-timestamp"),
+                self.request,
+                page_size=self.page_size,
+            )
+            return {
+                "error_counts": error_counts,
+                "recent_errors": page_obj,
+                "page_obj": page_obj,
+            }
+        elif tab == "by_method":
+            method_stats = (
+                qs.values("method")
+                .annotate(count=Count("pk"), avg_time=Avg("response_time_ms"))
+                .order_by("-count")
+            )
+            method_filter = self.request.GET.get("method", "")
+            filtered_qs = qs
+            if method_filter:
+                filtered_qs = qs.filter(method=method_filter)
+            page_obj = paginate_queryset(
+                filtered_qs.select_related("user").order_by("-timestamp"),
+                self.request,
+                page_size=self.page_size,
+            )
+            return {
+                "method_stats": method_stats,
+                "active_method": method_filter,
+                "total_requests_count": qs.count(),
+                "recent_requests": page_obj,
+                "page_obj": page_obj,
+            }
+        return {}
 
     def get(self, request, *args, **kwargs):
+        tab = self.get_tab()
         context = self.get_context_data(**kwargs)
+        context.update(self.get_tab_context(tab))
+        context["active_tab"] = tab
+
         if request.htmx:
-            return TemplateResponse(request, self.partial_template_name, context)
+            return TemplateResponse(
+                request, self.TAB_PARTIALS[tab], context
+            )
+
+        context.update(self.get_status_context())
+        context["tab_partial"] = self.TAB_PARTIALS[tab]
         return TemplateResponse(request, self.template_name, context)
 
 
 class UserActivityView(StaffRequiredMixin, TemplateView):
-    """Staff-only detail view for per-user activity.
-
-    Returns partial HTML when called via htmx,
-    or the full page for normal navigation.
-    """
+    """Staff-only detail view for per-user activity with htmx-powered tabs."""
 
     template_name = "activity/users.html"
-    partial_template_name = "activity/partials/recent_user_activity.html"
+    page_size = 15
 
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
+    TAB_PARTIALS = {
+        "top_users": "activity/partials/user_top_users.html",
+        "activity": "activity/partials/user_activity.html",
+        "signups": "activity/partials/user_signups.html",
+        "inactive": "activity/partials/user_inactive.html",
+    }
 
-        top_users = (
-            RequestLog.objects.filter(user__isnull=False)
-            .values("user__username", "user__pk")
-            .annotate(
-                hits=Count("pk"),
-                avg_time=Avg("response_time_ms"),
-                last_seen=Max("timestamp"),
-            )
-            .order_by("-hits")[:25]
-        )
+    def get_tab(self):
+        tab = self.request.GET.get("tab", "top_users")
+        return tab if tab in self.TAB_PARTIALS else "top_users"
 
-        recent_user_activity = (
-            RequestLog.objects.filter(user__isnull=False)
-            .select_related("user")
-            .order_by("-timestamp")[:50]
-        )
-
-        active_user_pks = (
-            RequestLog.objects.filter(user__isnull=False)
-            .values_list("user__pk", flat=True)
-            .distinct()
-        )
-        inactive_users = User.objects.exclude(pk__in=active_user_pks).order_by("-date_joined")[:25]
-
+    def get_summary_context(self):
         thirty_days_ago = timezone.now() - timezone.timedelta(days=30)
-        recent_signups = User.objects.filter(date_joined__gte=thirty_days_ago).order_by("-date_joined")[:25]
 
-        top_themes = (
-            UserProfile.objects.values("theme_preference")
-            .annotate(count=Count("pk"))
-            .order_by("-count")
-        )
-        top_palettes = (
-            UserProfile.objects.exclude(color_palette="")
-            .values("color_palette")
-            .annotate(count=Count("pk"))
-            .order_by("-count")
-        )
+        # Build theme usage bars (horizontal stacked bars per palette)
+        # Merge "System Default" (blank) into "Django"
+        palette_choices = [
+            (key, label)
+            for key, label in UserProfile.COLOR_PALETTE_CHOICES
+            if key != ""
+        ]
 
-        context.update({
-            "top_users": top_users,
-            "recent_user_activity": recent_user_activity,
-            "inactive_users": inactive_users,
-            "recent_signups": recent_signups,
+        # Query counts grouped by theme + palette
+        crosstab_qs = (
+            UserProfile.objects.values("theme_preference", "color_palette")
+            .annotate(count=Count("pk"))
+        )
+        counts = {}
+        for row in crosstab_qs:
+            theme = row["theme_preference"]
+            palette = row["color_palette"] or "django"
+            counts[(theme, palette)] = (
+                counts.get((theme, palette), 0) + row["count"]
+            )
+
+        # Build bars sorted by total descending
+        theme_bars = []
+        for pk, label in palette_choices:
+            dark = counts.get(("dark", pk), 0)
+            light = counts.get(("light", pk), 0)
+            total = dark + light
+            if total:
+                theme_bars.append({
+                    "name": label,
+                    "dark": dark,
+                    "light": light,
+                    "total": total,
+                })
+        theme_bars.sort(key=lambda b: b["total"], reverse=True)
+
+        return {
             "user_count": User.objects.count(),
-            "top_themes": top_themes,
-            "top_palettes": top_palettes,
-        })
-        return context
+            "recent_signup_count": User.objects.filter(
+                date_joined__gte=thirty_days_ago
+            ).count(),
+            "theme_bars": theme_bars,
+        }
+
+    def get_tab_context(self, tab):
+        if tab == "top_users":
+            page_obj = paginate_queryset(
+                RequestLog.objects.filter(user__isnull=False)
+                .values("user__username", "user__pk")
+                .annotate(
+                    hits=Count("pk"),
+                    avg_time=Avg("response_time_ms"),
+                    last_seen=Max("timestamp"),
+                )
+                .order_by("-hits"),
+                self.request,
+                page_size=self.page_size,
+            )
+            return {"top_users": page_obj, "page_obj": page_obj}
+        elif tab == "activity":
+            page_obj = paginate_queryset(
+                RequestLog.objects.filter(user__isnull=False)
+                .select_related("user")
+                .order_by("-timestamp"),
+                self.request,
+                page_size=self.page_size,
+            )
+            return {"recent_user_activity": page_obj, "page_obj": page_obj}
+        elif tab == "signups":
+            thirty_days_ago = timezone.now() - timezone.timedelta(days=30)
+            page_obj = paginate_queryset(
+                User.objects.filter(
+                    date_joined__gte=thirty_days_ago
+                ).order_by("-date_joined"),
+                self.request,
+                page_size=self.page_size,
+            )
+            return {"recent_signups": page_obj, "page_obj": page_obj}
+        elif tab == "inactive":
+            active_user_pks = (
+                RequestLog.objects.filter(user__isnull=False)
+                .values_list("user__pk", flat=True)
+                .distinct()
+            )
+            page_obj = paginate_queryset(
+                User.objects.exclude(pk__in=active_user_pks).order_by("-date_joined"),
+                self.request,
+                page_size=self.page_size,
+            )
+            return {"inactive_users": page_obj, "page_obj": page_obj}
+        return {}
 
     def get(self, request, *args, **kwargs):
+        tab = self.get_tab()
         context = self.get_context_data(**kwargs)
+        context.update(self.get_tab_context(tab))
+        context["active_tab"] = tab
+
         if request.htmx:
-            return TemplateResponse(request, self.partial_template_name, context)
+            return TemplateResponse(
+                request, self.TAB_PARTIALS[tab], context
+            )
+
+        context.update(self.get_summary_context())
+        context["tab_partial"] = self.TAB_PARTIALS[tab]
         return TemplateResponse(request, self.template_name, context)

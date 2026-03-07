@@ -24,6 +24,7 @@
                     <h1 class="profile-name">{{ profile.get_display_name }}</h1>
                     <p class="profile-username">@{{ user.username }}</p>
                 </div>
+                <a href="{% url 'profile_edit' %}" class="button button-primary profile-edit-btn">Edit Profile</a>
             </div>
         </div>
 
@@ -66,10 +67,6 @@
                     </svg>
                     <span>Joined {{ user.date_joined|date:"F Y" }}</span>
                 </div>
-            </div>
-
-            <div class="button-group" style="margin-top: 24px;">
-                <a href="{% url 'profile_edit' %}" class="button button-primary">Edit Profile</a>
             </div>
         </div>
     </div>
