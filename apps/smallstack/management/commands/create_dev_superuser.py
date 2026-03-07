@@ -19,14 +19,12 @@ class Command(BaseCommand):
         username = config("DEV_SUPERUSER_USERNAME", default="admin")
         password = config("DEV_SUPERUSER_PASSWORD", default="admin")
 
-        self.stdout.write(
-            self.style.WARNING(
-                "\n" + "=" * 60 + "\n"
-                "WARNING: This command is for DEVELOPMENT ONLY.\n"
-                "Do NOT use in production environments.\n"
-                "=" * 60 + "\n"
-            )
-        )
+        self.stdout.write("")
+        self.stdout.write(self.style.WARNING("=" * 60))
+        self.stdout.write(self.style.WARNING("WARNING: This command is for DEVELOPMENT ONLY."))
+        self.stdout.write(self.style.WARNING("Do NOT use in production environments."))
+        self.stdout.write(self.style.WARNING("=" * 60))
+        self.stdout.write("")
 
         if User.objects.filter(username=username).exists():
             self.stdout.write(self.style.WARNING(f"User '{username}' already exists. Skipping creation."))

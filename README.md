@@ -72,35 +72,26 @@ Production-ready SQLite configuration with the database stored outside the conta
    cd django-smallstack
    ```
 
-2. **Install dependencies:**
-   ```bash
-   uv sync
-   ```
-
-3. **Set up environment variables:**
+2. **Set up environment variables:**
    ```bash
    cp .env.example .env
    # Edit .env with your settings
    ```
 
-4. **Run migrations:**
+3. **Run setup:**
    ```bash
-   uv run python manage.py migrate
+   make setup
+   ```
+   This installs dependencies, runs migrations, creates a dev superuser, and verifies the configuration.
+
+4. **Start the development server:**
+   ```bash
+   make run
    ```
 
-5. **Create a superuser:**
-   ```bash
-   uv run python manage.py create_dev_superuser
-   ```
-
-6. **Start the development server:**
-   ```bash
-   uv run python manage.py runserver
-   ```
-
-7. **Open your browser:**
-   - Homepage: http://localhost:8000
-   - Admin: http://localhost:8000/admin
+5. **Open your browser:**
+   - Homepage: http://localhost:8005
+   - Admin: http://localhost:8005/admin
 
 ### Docker Deployment
 

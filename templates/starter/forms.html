@@ -1,0 +1,629 @@
+{% extends "smallstack/base.html" %}
+{% load static theme_tags %}
+
+{% block title %}Forms Starter{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'admin/css/widgets.css' %}">
+<style>
+    .file-upload-wrapper {
+        width: 100%;
+    }
+    .file-upload-dropzone {
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        padding: 24px 16px;
+        border: 2px dashed var(--card-border);
+        border-radius: var(--radius-md);
+        background: var(--body-bg);
+        cursor: pointer;
+        transition: border-color var(--transition-fast), background var(--transition-fast);
+    }
+    .file-upload-dropzone:hover,
+    .file-upload-dropzone.dragover {
+        border-color: var(--primary);
+        background: color-mix(in srgb, var(--primary) 5%, var(--body-bg));
+    }
+    .file-upload-dropzone .dropzone-text {
+        font-size: 0.85rem;
+        color: var(--body-quiet-color);
+    }
+    .file-upload-dropzone .dropzone-filename {
+        font-size: 0.85rem;
+        font-weight: 500;
+        color: var(--body-fg);
+    }
+    .file-upload-input {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        opacity: 0;
+        cursor: pointer;
+    }
+    /* Tabs */
+    .starter-tabs {
+        display: flex;
+        gap: 0;
+        border-bottom: 2px solid var(--card-border);
+        margin-bottom: 0;
+    }
+    .starter-tab {
+        padding: 8px 20px;
+        font-size: 0.85rem;
+        font-weight: 600;
+        color: var(--body-quiet-color);
+        background: none;
+        border: none;
+        border-bottom: 2px solid transparent;
+        margin-bottom: -2px;
+        cursor: pointer;
+        transition: color var(--transition-fast), border-color var(--transition-fast);
+    }
+    .starter-tab:hover {
+        color: var(--body-fg);
+    }
+    .starter-tab.active {
+        color: var(--primary);
+        border-bottom-color: var(--primary);
+    }
+    .starter-tab-panel {
+        display: none;
+    }
+    .starter-tab-panel.active {
+        display: block;
+    }
+    .starter-code-block {
+        background: var(--darkened-bg);
+        padding: 16px;
+        border-radius: 0 0 var(--radius-sm) var(--radius-sm);
+        overflow-x: auto;
+        margin: 0;
+        font-size: 13px;
+        line-height: 1.5;
+    }
+    .starter-code-block code {
+        white-space: pre;
+        font-family: ui-monospace, 'Cascadia Code', 'Source Code Pro', Menlo, Consolas, monospace;
+    }
+</style>
+{% endblock %}
+
+{% block breadcrumbs %}
+{% breadcrumb "Home" "website:home" %}
+{% breadcrumb "Starter" "starter" %}
+{% breadcrumb "Forms" %}
+{% render_breadcrumbs %}
+{% endblock %}
+
+{% block content %}
+<div class="page-header-with-actions">
+    <div class="page-header-content">
+        <h1>Forms</h1>
+        <p class="page-subtitle">Date pickers, form alignment, and input patterns.</p>
+    </div>
+</div>
+
+{# ── Single Column ── #}
+<div class="card">
+    <div class="card-header">
+        <h2>Single Column</h2>
+    </div>
+    <div class="starter-tabs" data-tabs>
+        <button class="starter-tab active" data-tab="preview">Preview</button>
+        <button class="starter-tab" data-tab="code">Code</button>
+    </div>
+    <div class="starter-tab-panel active" data-panel="preview">
+        <div class="card-body">
+            <form method="post">
+                {% csrf_token %}
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="full_name">Full Name</label>
+                        <input type="text" id="full_name" name="full_name" class="vTextField"
+                               placeholder="Jane Smith">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="email">Email</label>
+                        <input type="email" id="email" name="email" class="vTextField"
+                               placeholder="jane@example.com">
+                        <span class="helptext">We'll never share your email.</span>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="bio">Bio</label>
+                        <textarea id="bio" name="bio" class="vLargeTextField"
+                                  rows="3" placeholder="Tell us about yourself..."></textarea>
+                    </div>
+                </div>
+                <div class="form-row" style="margin-top: 16px;">
+                    <button type="button" class="button button-secondary">Cancel</button>
+                    <button type="submit" class="button button-primary">Save</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    <div class="starter-tab-panel" data-panel="code">
+        <pre class="starter-code-block"><code>&lt;form method="post"&gt;
+    &#123;% csrf_token %&#125;
+
+    &lt;div class="form-row"&gt;
+        &lt;div class="form-group"&gt;
+            &lt;label for="full_name"&gt;Full Name&lt;/label&gt;
+            &lt;input type="text" id="full_name" name="full_name"
+                   class="vTextField" placeholder="Jane Smith"&gt;
+        &lt;/div&gt;
+    &lt;/div&gt;
+
+    &lt;div class="form-row"&gt;
+        &lt;div class="form-group"&gt;
+            &lt;label for="email"&gt;Email&lt;/label&gt;
+            &lt;input type="email" id="email" name="email"
+                   class="vTextField" placeholder="jane@example.com"&gt;
+            &lt;span class="helptext"&gt;Help text below input&lt;/span&gt;
+        &lt;/div&gt;
+    &lt;/div&gt;
+
+    &lt;div class="form-row"&gt;
+        &lt;div class="form-group"&gt;
+            &lt;label for="bio"&gt;Bio&lt;/label&gt;
+            &lt;textarea id="bio" name="bio" class="vLargeTextField"
+                      rows="3" placeholder="..."&gt;&lt;/textarea&gt;
+        &lt;/div&gt;
+    &lt;/div&gt;
+
+    &lt;div class="form-row" style="margin-top: 16px;"&gt;
+        &lt;button type="button" class="button button-secondary"&gt;Cancel&lt;/button&gt;
+        &lt;button type="submit" class="button button-primary"&gt;Save&lt;/button&gt;
+    &lt;/div&gt;
+&lt;/form&gt;</code></pre>
+    </div>
+</div>
+
+{# ── Two-Column Alignment ── #}
+<div class="card" style="margin-top: 24px;">
+    <div class="card-header">
+        <h2>Two-Column Alignment</h2>
+    </div>
+    <div class="starter-tabs" data-tabs>
+        <button class="starter-tab active" data-tab="preview">Preview</button>
+        <button class="starter-tab" data-tab="code">Code</button>
+    </div>
+    <div class="starter-tab-panel active" data-panel="preview">
+        <div class="card-body">
+            <form method="post">
+                {% csrf_token %}
+                <div class="form-row form-row-2col">
+                    <div class="form-group">
+                        <label for="first_name">First Name</label>
+                        <input type="text" id="first_name" name="first_name" class="vTextField"
+                               placeholder="Jane">
+                    </div>
+                    <div class="form-group">
+                        <label for="last_name">Last Name</label>
+                        <input type="text" id="last_name" name="last_name" class="vTextField"
+                               placeholder="Smith">
+                    </div>
+                </div>
+                <div class="form-row form-row-2col">
+                    <div class="form-group">
+                        <label for="department">Department</label>
+                        <select id="department" name="department" class="vTextField">
+                            <option value="">Choose...</option>
+                            <option value="eng">Engineering</option>
+                            <option value="design">Design</option>
+                            <option value="marketing">Marketing</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="role">Role</label>
+                        <select id="role" name="role" class="vTextField">
+                            <option value="">Choose...</option>
+                            <option value="ic">Individual Contributor</option>
+                            <option value="lead">Team Lead</option>
+                            <option value="manager">Manager</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-row form-row-2col">
+                    <div class="form-group">
+                        <label for="phone">Phone</label>
+                        <input type="tel" id="phone" name="phone" class="vTextField"
+                               placeholder="(555) 123-4567">
+                        <span class="helptext">Optional — used for account recovery</span>
+                    </div>
+                    <div class="form-group">
+                        <label for="location">Location</label>
+                        <input type="text" id="location" name="location" class="vTextField"
+                               placeholder="City, State">
+                    </div>
+                </div>
+                <div class="form-row" style="margin-top: 16px;">
+                    <button type="button" class="button button-secondary">Cancel</button>
+                    <button type="submit" class="button button-primary">Save</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    <div class="starter-tab-panel" data-panel="code">
+        <pre class="starter-code-block"><code>&lt;form method="post"&gt;
+    &#123;% csrf_token %&#125;
+
+    &lt;div class="form-row form-row-2col"&gt;
+        &lt;div class="form-group"&gt;
+            &lt;label for="first_name"&gt;First Name&lt;/label&gt;
+            &lt;input type="text" id="first_name" name="first_name"
+                   class="vTextField" placeholder="Jane"&gt;
+        &lt;/div&gt;
+        &lt;div class="form-group"&gt;
+            &lt;label for="last_name"&gt;Last Name&lt;/label&gt;
+            &lt;input type="text" id="last_name" name="last_name"
+                   class="vTextField" placeholder="Smith"&gt;
+        &lt;/div&gt;
+    &lt;/div&gt;
+
+    &lt;div class="form-row form-row-2col"&gt;
+        &lt;div class="form-group"&gt;
+            &lt;label for="department"&gt;Department&lt;/label&gt;
+            &lt;select id="department" name="department" class="vTextField"&gt;
+                &lt;option value=""&gt;Choose...&lt;/option&gt;
+                &lt;option value="eng"&gt;Engineering&lt;/option&gt;
+            &lt;/select&gt;
+        &lt;/div&gt;
+        &lt;div class="form-group"&gt;
+            &lt;label for="role"&gt;Role&lt;/label&gt;
+            &lt;select id="role" name="role" class="vTextField"&gt;
+                &lt;option value=""&gt;Choose...&lt;/option&gt;
+                &lt;option value="ic"&gt;Individual Contributor&lt;/option&gt;
+            &lt;/select&gt;
+        &lt;/div&gt;
+    &lt;/div&gt;
+
+    &lt;div class="form-row" style="margin-top: 16px;"&gt;
+        &lt;button type="button" class="button button-secondary"&gt;Cancel&lt;/button&gt;
+        &lt;button type="submit" class="button button-primary"&gt;Save&lt;/button&gt;
+    &lt;/div&gt;
+&lt;/form&gt;</code></pre>
+    </div>
+</div>
+
+{# ── Date Pickers ── #}
+<div class="card" style="margin-top: 24px;">
+    <div class="card-header">
+        <h2>Date Pickers</h2>
+    </div>
+    <div class="starter-tabs" data-tabs>
+        <button class="starter-tab active" data-tab="preview">Preview</button>
+        <button class="starter-tab" data-tab="code">Code</button>
+    </div>
+    <div class="starter-tab-panel active" data-panel="preview">
+        <div class="card-body">
+            <form method="post">
+                {% csrf_token %}
+                <div class="form-row form-row-2col">
+                    <div class="form-group">
+                        <label for="start_date">Start Date</label>
+                        <div class="date-input-wrapper">
+                            <input type="date" id="start_date" name="start_date" class="vTextField vDateField">
+                            <button type="button" class="date-picker-btn" data-target="start_date" aria-label="Open calendar">
+                                <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+                                    <path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11zM9 10H7v2h2v-2zm4 0h-2v2h2v-2zm4 0h-2v2h2v-2zm-8 4H7v2h2v-2zm4 0h-2v2h2v-2zm4 0h-2v2h2v-2z"/>
+                                </svg>
+                            </button>
+                        </div>
+                        <span class="helptext">Click the calendar icon to pick a date</span>
+                    </div>
+                    <div class="form-group">
+                        <label for="end_date">End Date</label>
+                        <div class="date-input-wrapper">
+                            <input type="date" id="end_date" name="end_date" class="vTextField vDateField">
+                            <button type="button" class="date-picker-btn" data-target="end_date" aria-label="Open calendar">
+                                <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+                                    <path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11zM9 10H7v2h2v-2zm4 0h-2v2h2v-2zm4 0h-2v2h2v-2zm-8 4H7v2h2v-2zm4 0h-2v2h2v-2zm4 0h-2v2h2v-2z"/>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <div class="form-row form-row-2col">
+                    <div class="form-group">
+                        <label for="meeting_time">Meeting Date &amp; Time</label>
+                        <div class="date-input-wrapper">
+                            <input type="datetime-local" id="meeting_time" name="meeting_time" class="vTextField vDateField">
+                            <button type="button" class="date-picker-btn" data-target="meeting_time" aria-label="Open calendar">
+                                <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+                                    <path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11zM9 10H7v2h2v-2zm4 0h-2v2h2v-2zm4 0h-2v2h2v-2zm-8 4H7v2h2v-2zm4 0h-2v2h2v-2zm4 0h-2v2h2v-2z"/>
+                                </svg>
+                            </button>
+                        </div>
+                        <span class="helptext">Combined date and time picker</span>
+                    </div>
+                    <div class="form-group">
+                        <label for="reminder">Reminder</label>
+                        <select id="reminder" name="reminder" class="vTextField">
+                            <option value="">No reminder</option>
+                            <option value="15">15 minutes before</option>
+                            <option value="30">30 minutes before</option>
+                            <option value="60">1 hour before</option>
+                            <option value="1440">1 day before</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-row" style="margin-top: 16px;">
+                    <button type="button" class="button button-secondary">Cancel</button>
+                    <button type="submit" class="button button-primary">Schedule</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    <div class="starter-tab-panel" data-panel="code">
+        <pre class="starter-code-block"><code>&lt;!-- Include admin widgets CSS in extra_css block --&gt;
+&lt;link rel="stylesheet" href="&#123;% static 'admin/css/widgets.css' %&#125;"&gt;
+
+&lt;div class="form-row form-row-2col"&gt;
+    &lt;div class="form-group"&gt;
+        &lt;label for="start_date"&gt;Start Date&lt;/label&gt;
+        &lt;div class="date-input-wrapper"&gt;
+            &lt;input type="date" id="start_date" name="start_date"
+                   class="vTextField vDateField"&gt;
+            &lt;button type="button" class="date-picker-btn"
+                    data-target="start_date" aria-label="Open calendar"&gt;
+                &lt;svg viewBox="0 0 24 24" width="20" height="20"
+                     fill="currentColor"&gt;
+                    &lt;path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.11 0-1.99
+                    .9-1.99 2L3 19c0 1.1.89 2 2 2h14c1.1 0 2-.9
+                    2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11z..."/&gt;
+                &lt;/svg&gt;
+            &lt;/button&gt;
+        &lt;/div&gt;
+        &lt;span class="helptext"&gt;Click the calendar icon&lt;/span&gt;
+    &lt;/div&gt;
+    &lt;div class="form-group"&gt;
+        &lt;label for="end_date"&gt;End Date&lt;/label&gt;
+        &lt;div class="date-input-wrapper"&gt;
+            &lt;input type="date" id="end_date" name="end_date"
+                   class="vTextField vDateField"&gt;
+            &lt;button type="button" class="date-picker-btn"
+                    data-target="end_date"&gt;...&lt;/button&gt;
+        &lt;/div&gt;
+    &lt;/div&gt;
+&lt;/div&gt;
+
+&lt;!-- datetime-local for combined date+time --&gt;
+&lt;input type="datetime-local" id="meeting_time"
+       class="vTextField vDateField"&gt;
+
+&lt;!-- JS for date picker buttons (add to extra_js block) --&gt;
+&lt;script&gt;
+document.querySelectorAll('.date-picker-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+        var input = document.getElementById(this.dataset.target);
+        if (input.showPicker) {
+            input.showPicker();
+        } else {
+            input.focus();
+            input.click();
+        }
+    });
+});
+&lt;/script&gt;</code></pre>
+    </div>
+</div>
+
+{# ── File & Image Upload ── #}
+<div class="card" style="margin-top: 24px;">
+    <div class="card-header">
+        <h2>File &amp; Image Upload</h2>
+    </div>
+    <div class="starter-tabs" data-tabs>
+        <button class="starter-tab active" data-tab="preview">Preview</button>
+        <button class="starter-tab" data-tab="code">Code</button>
+    </div>
+    <div class="starter-tab-panel active" data-panel="preview">
+        <div class="card-body">
+            <form method="post" enctype="multipart/form-data">
+                {% csrf_token %}
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="simple_file">Basic File Input</label>
+                        <input type="file" id="simple_file" name="simple_file" class="vTextField">
+                        <span class="helptext">Standard file picker</span>
+                    </div>
+                </div>
+                <div class="form-row form-row-2col">
+                    <div class="form-group">
+                        <label for="avatar">Profile Image</label>
+                        <div class="file-upload-wrapper">
+                            <div class="file-upload-dropzone" id="avatar-dropzone">
+                                <svg viewBox="0 0 24 24" width="32" height="32" fill="currentColor" style="color: var(--body-quiet-color);">
+                                    <path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/>
+                                </svg>
+                                <span class="dropzone-text">Drag &amp; drop an image or click to browse</span>
+                                <span class="dropzone-filename" id="avatar-filename" style="display: none;"></span>
+                                <input type="file" id="avatar" name="avatar" accept="image/*" class="file-upload-input">
+                            </div>
+                        </div>
+                        <span class="helptext">JPG, PNG, GIF, WebP</span>
+                    </div>
+                    <div class="form-group">
+                        <label for="document">Document</label>
+                        <div class="file-upload-wrapper">
+                            <div class="file-upload-dropzone" id="document-dropzone">
+                                <svg viewBox="0 0 24 24" width="32" height="32" fill="currentColor" style="color: var(--body-quiet-color);">
+                                    <path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/>
+                                </svg>
+                                <span class="dropzone-text">Drag &amp; drop a document or click to browse</span>
+                                <span class="dropzone-filename" id="document-filename" style="display: none;"></span>
+                                <input type="file" id="document" name="document" accept=".pdf,.doc,.docx,.txt" class="file-upload-input">
+                            </div>
+                        </div>
+                        <span class="helptext">PDF, DOC, DOCX, TXT</span>
+                    </div>
+                </div>
+                <div class="form-row" style="margin-top: 16px;">
+                    <button type="button" class="button button-secondary">Cancel</button>
+                    <button type="submit" class="button button-primary">Upload</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    <div class="starter-tab-panel" data-panel="code">
+        <pre class="starter-code-block"><code>&lt;!-- Basic file input --&gt;
+&lt;input type="file" id="attachment" name="attachment" class="vTextField"&gt;
+
+&lt;!-- Drag &amp; drop upload zone --&gt;
+&lt;div class="file-upload-wrapper"&gt;
+    &lt;div class="file-upload-dropzone" id="avatar-dropzone"&gt;
+        &lt;svg viewBox="0 0 24 24" width="32" height="32"
+             fill="currentColor"
+             style="color: var(--body-quiet-color);"&gt;
+            &lt;path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2
+            2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5
+            3.01L14.5 12l4.5 6H5l3.5-4.5z"/&gt;
+        &lt;/svg&gt;
+        &lt;span class="dropzone-text"&gt;
+            Drag &amp; drop an image or click to browse
+        &lt;/span&gt;
+        &lt;span class="dropzone-filename" id="avatar-filename"
+              style="display: none;"&gt;&lt;/span&gt;
+        &lt;input type="file" id="avatar" name="avatar"
+               accept="image/*" class="file-upload-input"&gt;
+    &lt;/div&gt;
+&lt;/div&gt;
+
+&lt;!-- CSS needed (add to extra_css block) --&gt;
+&lt;style&gt;
+.file-upload-wrapper { width: 100%; }
+.file-upload-dropzone {
+    position: relative;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    gap: 8px; padding: 24px 16px;
+    border: 2px dashed var(--card-border);
+    border-radius: var(--radius-md);
+    background: var(--body-bg); cursor: pointer;
+}
+.file-upload-dropzone:hover,
+.file-upload-dropzone.dragover {
+    border-color: var(--primary);
+    background: color-mix(in srgb, var(--primary) 5%, var(--body-bg));
+}
+.file-upload-input {
+    position: absolute; inset: 0;
+    width: 100%; height: 100%;
+    opacity: 0; cursor: pointer;
+}
+&lt;/style&gt;
+
+&lt;!-- JS for dropzone (add to extra_js block) --&gt;
+&lt;script&gt;
+document.querySelectorAll('.file-upload-dropzone')
+  .forEach(function(zone) {
+    var input = zone.querySelector('.file-upload-input');
+    var text = zone.querySelector('.dropzone-text');
+    var filename = zone.querySelector('.dropzone-filename');
+
+    input.addEventListener('change', function() {
+        if (this.files.length &gt; 0) {
+            text.style.display = 'none';
+            filename.textContent = this.files[0].name;
+            filename.style.display = '';
+        }
+    });
+
+    zone.addEventListener('dragover', function(e) {
+        e.preventDefault();
+        zone.classList.add('dragover');
+    });
+    zone.addEventListener('dragleave', function() {
+        zone.classList.remove('dragover');
+    });
+    zone.addEventListener('drop', function(e) {
+        e.preventDefault();
+        zone.classList.remove('dragover');
+        if (e.dataTransfer.files.length &gt; 0) {
+            input.files = e.dataTransfer.files;
+            input.dispatchEvent(new Event('change'));
+        }
+    });
+});
+&lt;/script&gt;</code></pre>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Tab switching
+document.querySelectorAll('[data-tabs]').forEach(function(tabBar) {
+    var card = tabBar.closest('.card');
+    tabBar.querySelectorAll('.starter-tab').forEach(function(tab) {
+        tab.addEventListener('click', function() {
+            var target = this.dataset.tab;
+            // Toggle tab buttons
+            tabBar.querySelectorAll('.starter-tab').forEach(function(t) {
+                t.classList.toggle('active', t.dataset.tab === target);
+            });
+            // Toggle panels
+            card.querySelectorAll('.starter-tab-panel').forEach(function(p) {
+                p.classList.toggle('active', p.dataset.panel === target);
+            });
+        });
+    });
+});
+
+// File upload dropzone interactions
+document.querySelectorAll('.file-upload-dropzone').forEach(function(zone) {
+    var input = zone.querySelector('.file-upload-input');
+    var text = zone.querySelector('.dropzone-text');
+    var filename = zone.querySelector('.dropzone-filename');
+
+    input.addEventListener('change', function() {
+        if (this.files.length > 0) {
+            text.style.display = 'none';
+            filename.textContent = this.files[0].name;
+            filename.style.display = '';
+        } else {
+            text.style.display = '';
+            filename.style.display = 'none';
+        }
+    });
+
+    zone.addEventListener('dragover', function(e) {
+        e.preventDefault();
+        zone.classList.add('dragover');
+    });
+    zone.addEventListener('dragleave', function() {
+        zone.classList.remove('dragover');
+    });
+    zone.addEventListener('drop', function(e) {
+        e.preventDefault();
+        zone.classList.remove('dragover');
+        if (e.dataTransfer.files.length > 0) {
+            input.files = e.dataTransfer.files;
+            input.dispatchEvent(new Event('change'));
+        }
+    });
+});
+
+// Date picker buttons trigger native date picker
+document.querySelectorAll('.date-picker-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+        var input = document.getElementById(this.dataset.target);
+        if (input.showPicker) {
+            input.showPicker();
+        } else {
+            input.focus();
+            input.click();
+        }
+    });
+});
+</script>
+{% endblock %}

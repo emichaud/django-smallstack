@@ -10,9 +10,23 @@
 
 {% block extra_css %}
 <style>
+    /* Reset default striping */
     .table-plain tr:nth-child(odd),
     .table-plain tr:nth-child(even) {
         background: transparent;
+    }
+    /* Alternating row colors (light first to contrast with header) */
+    .table-plain tbody tr:nth-child(odd) {
+        background-color: color-mix(in srgb, var(--primary) 4%, var(--body-bg)) !important;
+    }
+    .table-plain tbody tr:nth-child(even) {
+        background-color: color-mix(in srgb, var(--primary) 12%, var(--body-bg)) !important;
+    }
+    .table-plain tbody tr {
+        border: none !important;
+    }
+    .table-plain tbody td {
+        border: none !important;
     }
     .tab-bar {
         display: flex;

@@ -1,0 +1,15 @@
+{% extends "smallstack/base.html" %}
+{% load static theme_tags %}
+
+{% block title %}Basic Starter{% endblock %}
+
+{% block breadcrumbs %}
+{% breadcrumb "Home" "website:home" %}
+{% breadcrumb "Starter" "starter" %}
+{% breadcrumb "Basic" %}
+{% render_breadcrumbs %}
+{% endblock %}
+
+{% block content %}
+<h1>Starter</h1>
+{% endblock %}

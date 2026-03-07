@@ -10,9 +10,37 @@
 
 {% block extra_css %}
 <style>
+    /* Reset default striping */
     .table-plain tr:nth-child(odd),
     .table-plain tr:nth-child(even) {
         background: transparent;
+    }
+    /* Alternating row colors (light first to contrast with header) */
+    .table-plain tbody tr:nth-child(odd) {
+        background-color: color-mix(in srgb, var(--primary) 4%, var(--body-bg)) !important;
+    }
+    .table-plain tbody tr:nth-child(even) {
+        background-color: color-mix(in srgb, var(--primary) 12%, var(--body-bg)) !important;
+    }
+    .table-plain tbody tr {
+        border: none !important;
+    }
+    .table-plain tbody td {
+        border: none !important;
+    }
+    /* Themed column headers */
+    .table-plain thead tr {
+        background-color: color-mix(in srgb, var(--primary) 15%, var(--body-bg)) !important;
+        border: none !important;
+    }
+    .table-plain thead th {
+        border: none !important;
+        background-color: transparent !important;
+        color: var(--body-quiet-color) !important;
+        font-weight: 600;
+        font-size: 0.8rem !important;
+        text-transform: uppercase;
+        letter-spacing: 0.3px;
     }
     .tab-bar {
         display: flex;

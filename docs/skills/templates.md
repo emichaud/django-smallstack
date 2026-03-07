@@ -271,6 +271,24 @@ Contains:
 <li class="nav-section-title">My Section</li>
 ```
 
+**Sidebar active-state gotcha for help sections:**
+The "Help & Docs" link uses path-based matching (`'/help/' in request.path`) and must explicitly exclude any help section that has its own sidebar link. When adding a new sidebar link that points to a help path, add a `not in request.path` exclusion to the "Help & Docs" link so both don't highlight at once.
+
+Similarly, the "SmallStack" link matches all `/help/smallstack` paths. The "Components" sidebar link points to `/help/smallstack/components` — so SmallStack excludes that path to avoid double-highlighting.
+
+```html
+<!-- Help & Docs excludes /help/smallstack -->
+<a class="nav-link {% if '/help/' in request.path and '/help/smallstack' not in request.path %}active{% endif %}">
+
+<!-- SmallStack excludes /help/smallstack/components -->
+<a class="nav-link {% if '/help/smallstack' in request.path and '/help/smallstack/components' not in request.path %}active{% endif %}">
+
+<!-- Components matches only its own page -->
+<a class="nav-link {% if '/help/smallstack/components' in request.path %}active{% endif %}">
+```
+
+When adding a new sidebar link to a page within SmallStack docs, follow this pattern: add an exclusion to the parent link and a specific path check on the new link.
+
 ### Messages (`includes/messages.html`)
 
 Displays Django messages framework alerts:
