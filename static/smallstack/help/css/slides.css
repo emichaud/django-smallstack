@@ -95,6 +95,10 @@
     margin-bottom: 1.5rem;
 }
 
+.slide-content table {
+    font-size: 1.1rem;
+}
+
 .slide-content h2 {
     font-size: 1.25rem;
     margin-top: 1.5rem;
