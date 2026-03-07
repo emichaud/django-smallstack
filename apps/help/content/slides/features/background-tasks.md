@@ -14,9 +14,6 @@ Django 6's Tasks framework, pre-configured with a database backend.
 <div class="col" markdown="1">
 
 ```python
-from django.tasks import task
-from django.core.mail import send_mail
-
 @task
 def send_notification_email(user_email, message):
     return send_mail(
