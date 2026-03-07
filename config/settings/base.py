@@ -2,6 +2,7 @@
 Base Django settings for smallstack project.
 """
 
+import secrets
 from pathlib import Path
 
 from decouple import config
@@ -10,7 +11,10 @@ from decouple import config
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = config("SECRET_KEY", default="django-insecure-change-this-in-production")
+# In development, auto-generates a random key so devs never need to configure one.
+# In production, docker-entrypoint.sh generates and persists a key to the data volume,
+# or you can set SECRET_KEY explicitly via environment variable or .kamal/secrets.
+SECRET_KEY = config("SECRET_KEY", default=secrets.token_urlsafe(50))
 
 # Application definition
 INSTALLED_APPS = [
