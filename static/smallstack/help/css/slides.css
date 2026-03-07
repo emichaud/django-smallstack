@@ -150,6 +150,12 @@
     align-items: start;
 }
 
+.two-col .col pre {
+    font-size: 0.75rem;
+    line-height: 1.4;
+    margin: 0;
+}
+
 .two-col .col img {
     max-width: 100%;
     max-height: 280px;

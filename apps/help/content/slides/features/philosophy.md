@@ -1,7 +1,7 @@
+# Philosophy
+
 <div class="two-col" markdown="1">
 <div class="col" markdown="1">
-
-## Philosophy
 
 - **Use what Django gives you** — before adding a package, check if Django already has it
 - **Keep it simple** — add complexity only when needed
@@ -12,7 +12,6 @@
 <div class="col" markdown="1">
 
 ```toml
-# pyproject.toml
 dependencies = [
     "django>=6.0",
     "python-decouple>=3.8",
