@@ -72,7 +72,7 @@ builder:
 Environment secrets — never committed to version control:
 
 ```bash
-SECRET_KEY=your-unique-secret-key-here
+# SECRET_KEY is auto-generated on first deploy — only set if you want a specific key
 ALLOWED_HOSTS=myapp.com,www.myapp.com,123.45.67.89,localhost,127.0.0.1,*
 CSRF_TRUSTED_ORIGINS=https://myapp.com,https://www.myapp.com
 ```

@@ -330,7 +330,6 @@ services:
     command: python manage.py db_worker --queue-name "*"
     environment:
       - DJANGO_SETTINGS_MODULE=config.settings.production
-      - SECRET_KEY=${SECRET_KEY:-change-me-in-production}
       - ALLOWED_HOSTS=localhost,127.0.0.1
       - DATABASE_PATH=/data/db.sqlite3
     volumes:

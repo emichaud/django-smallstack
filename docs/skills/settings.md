@@ -145,7 +145,7 @@ SmallStack uses `python-decouple` to read from `.env` files or environment varia
 
 ```python
 from decouple import config
-SECRET_KEY = config("SECRET_KEY", default="fallback-for-dev")
+SECRET_KEY = config("SECRET_KEY", default=secrets.token_urlsafe(50))  # auto-generated
 USE_HTTPS = config("USE_HTTPS", default=False, cast=bool)
 ACTIVITY_MAX_ROWS = config("ACTIVITY_MAX_ROWS", default=10000, cast=int)
 ```

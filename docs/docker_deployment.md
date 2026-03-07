@@ -38,7 +38,6 @@ Or create a new `.env` file with these settings:
 
 ```bash
 # Required settings
-SECRET_KEY=your-secret-key-change-this-to-something-random
 DJANGO_SETTINGS_MODULE=config.settings.production
 ALLOWED_HOSTS=localhost,127.0.0.1
 
@@ -48,7 +47,7 @@ DJANGO_SUPERUSER_PASSWORD=your-secure-password
 DJANGO_SUPERUSER_EMAIL=admin@example.com
 ```
 
-**Important:** Change `SECRET_KEY` to a random string. You can generate one at [djecrety.ir](https://djecrety.ir/).
+> **SECRET_KEY** is auto-generated and persisted to `/app/data/.secret_key` on first deploy. No manual configuration needed.
 
 ### Step 2: Build the Docker Image
 

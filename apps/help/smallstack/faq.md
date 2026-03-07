@@ -104,7 +104,7 @@ We recommend Docker for simple deployments. See the [Docker Deployment](/help/do
 For production, remember to:
 
 1. Set `DEBUG=False`
-2. Use a strong `SECRET_KEY`
+2. `SECRET_KEY` is auto-generated and persisted on first deploy (or set one explicitly)
 3. Configure `ALLOWED_HOSTS`
 4. Set up a proper database (PostgreSQL recommended)
 5. Configure email for password resets

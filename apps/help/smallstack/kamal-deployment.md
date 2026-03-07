@@ -190,15 +190,14 @@ cp .kamal/secrets.example .kamal/secrets
 Then edit `.kamal/secrets`:
 
 ```bash
-# Generate a new secret key at https://djecrety.ir/
-SECRET_KEY=your-unique-secret-key-here
-
 # Include your domain, www, VPS IP, and * for health checks
 ALLOWED_HOSTS=myapp.com,www.myapp.com,123.45.67.89,localhost,127.0.0.1,*
 
 # HTTPS origins (required for CSRF protection)
 CSRF_TRUSTED_ORIGINS=https://myapp.com,https://www.myapp.com
 ```
+
+> **SECRET_KEY** is auto-generated and persisted to `/app/data/.secret_key` on first deploy. You only need to add it to `.kamal/secrets` if you want a specific key.
 
 > **Important:** The `.kamal/secrets` file is gitignored. Never commit real secrets to version control.
 

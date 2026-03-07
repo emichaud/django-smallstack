@@ -46,7 +46,6 @@ web:
     - "8010:80"
   environment:
     - DJANGO_SETTINGS_MODULE=config.settings.production
-    - SECRET_KEY=${SECRET_KEY:-change-me-in-production}
     - ALLOWED_HOSTS=localhost,127.0.0.1
     - DATABASE_PATH=/data/db.sqlite3
     - MEDIA_ROOT=/app/media
@@ -82,7 +81,7 @@ The Dockerfile uses Python 3.12 slim with UV for dependency management:
 1. Installs system dependencies (curl for health checks)
 2. Installs UV and Python dependencies from `pyproject.toml`/`uv.lock`
 3. Copies application code
-4. Runs `docker-entrypoint.sh` which handles migrations, collectstatic, and optional superuser creation
+4. Runs `docker-entrypoint.sh` which auto-generates SECRET_KEY (if not set), runs migrations, collectstatic, and optional superuser creation
 5. Starts Gunicorn on port 80
 
 ## Environment Variables
@@ -91,7 +90,7 @@ Set in `.env` file (create from `.env.example` if available):
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `SECRET_KEY` | (required) | Django secret key |
+| `SECRET_KEY` | (auto-generated) | Django secret key — auto-generated and persisted to `/app/data/.secret_key` on first deploy |
 | `ALLOWED_HOSTS` | `localhost,127.0.0.1` | Comma-separated allowed hosts |
 | `DATABASE_PATH` | `/data/db.sqlite3` | SQLite database path |
 | `MEDIA_ROOT` | `/app/media` | Media file storage path |

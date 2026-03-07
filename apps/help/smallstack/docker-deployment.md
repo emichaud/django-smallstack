@@ -34,7 +34,6 @@ Edit `.env` with your settings:
 
 ```bash
 # Required
-SECRET_KEY=your-secret-key-change-this
 DJANGO_SETTINGS_MODULE=config.settings.production
 ALLOWED_HOSTS=localhost,127.0.0.1
 
@@ -44,7 +43,7 @@ DJANGO_SUPERUSER_PASSWORD=your-secure-password
 DJANGO_SUPERUSER_EMAIL=admin@example.com
 ```
 
-> Generate a secret key at [djecrety.ir](https://djecrety.ir/)
+> **SECRET_KEY** is auto-generated and persisted to `/app/data/.secret_key` on first deploy. You don't need to set it manually unless you want a specific key.
 
 ### Step 2: Build the Image
 

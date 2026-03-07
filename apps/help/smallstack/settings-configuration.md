@@ -115,9 +115,6 @@ SESSION_COOKIE_SECURE = True
 ```python
 from decouple import config
 
-# Read a string (default type)
-SECRET_KEY = config("SECRET_KEY")
-
 # Read with a default value
 DEBUG = config("DEBUG", default=False, cast=bool)
 
@@ -135,8 +132,7 @@ Create a `.env` file in your project root for local development:
 ```bash
 # .env - DO NOT COMMIT THIS FILE
 
-# Security
-SECRET_KEY=your-secret-key-here
+# Security (SECRET_KEY is auto-generated if not set)
 DEBUG=True
 
 # Database (production)
@@ -318,7 +314,7 @@ Maintain a `.env.example` with dummy values:
 ```bash
 # .env.example - Safe to commit, shows required variables
 
-SECRET_KEY=change-me-to-a-real-secret-key
+# SECRET_KEY is auto-generated — only set if you want a specific key
 DEBUG=False
 ALLOWED_HOSTS=localhost,127.0.0.1
 
@@ -329,17 +325,13 @@ EMAIL_HOST_USER=your-email@example.com
 EMAIL_HOST_PASSWORD=your-password
 ```
 
-### Generate Secure Secret Keys
+### Secret Key Management
 
-Never use a weak or example secret key in production:
+SmallStack auto-generates `SECRET_KEY` so you never need to configure one manually:
 
-```python
-# Generate a new secret key
-from django.core.management.utils import get_random_secret_key
-print(get_random_secret_key())
-```
-
-Or use an online generator like [djecrety.ir](https://djecrety.ir/).
+- **Development:** A random key is generated each time Django starts (sessions reset on restart, which is fine for dev)
+- **Docker/Kamal:** `docker-entrypoint.sh` generates a key on first deploy and persists it to `/app/data/.secret_key` — it survives container rebuilds and redeploys
+- **Explicit override:** Set `SECRET_KEY` in your environment or `.kamal/secrets` to use a specific key
 
 ### Validate Required Settings
 
@@ -441,14 +433,11 @@ AWS_STORAGE_BUCKET_NAME = config("AWS_STORAGE_BUCKET_NAME")
 
 ### "SECRET_KEY not found"
 
-The setting isn't in your environment or `.env` file:
+In development, a random key is auto-generated — you shouldn't see this error. In Docker/production, `docker-entrypoint.sh` generates and persists a key automatically. If you still see this error, you may be running production settings outside of Docker:
 
 ```bash
-# Check if it's set
-echo $SECRET_KEY
-
-# Or add to .env
-echo "SECRET_KEY=your-key-here" >> .env
+# Set one explicitly
+export SECRET_KEY=$(python -c "import secrets; print(secrets.token_urlsafe(50))")
 ```
 
 ### Wrong Settings File Being Used
