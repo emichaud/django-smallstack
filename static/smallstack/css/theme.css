@@ -467,7 +467,7 @@ body.sidebar-closed .main-content {
     flex-direction: row;
     align-items: center;
     gap: 5px;
-    padding: 6px 10px;
+    padding: 6px 14px;
     border: none;
     border-radius: var(--radius-sm);
     background: transparent;
@@ -477,7 +477,6 @@ body.sidebar-closed .main-content {
     cursor: pointer;
     transition: all var(--transition-fast);
     font-family: inherit;
-    flex: 1;
     justify-content: center;
 }
 
@@ -496,6 +495,72 @@ body.sidebar-closed .main-content {
 
 .dropdown-theme-toggle .dropdown-theme-btn.active svg {
     fill: var(--button-fg);
+}
+
+/* Palette switcher inside dropdown (admin only) */
+.dropdown-palette-section {
+    padding: 6px 16px 8px;
+}
+
+.dropdown-palette-label {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--body-quiet-color);
+    font-weight: 600;
+    margin-bottom: 6px;
+}
+
+.dropdown-palette-swatches {
+    display: flex;
+    gap: 5px;
+    flex-wrap: wrap;
+}
+
+.dropdown-palette-swatches .palette-swatch {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    padding: 5px 8px 4px;
+    border-radius: var(--radius-sm);
+    border: 2px solid transparent;
+    background: transparent;
+    cursor: pointer;
+    transition: border-color 0.15s;
+}
+
+.dropdown-palette-swatches .palette-swatch:hover {
+    border-color: var(--primary);
+}
+
+.dropdown-palette-swatches .palette-swatch.active {
+    border-color: var(--primary);
+    background: var(--sidebar-hover-bg);
+}
+
+.dropdown-palette-swatches .palette-swatch-dots {
+    display: flex;
+    gap: 3px;
+}
+
+.dropdown-palette-swatches .palette-swatch-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    display: block;
+}
+
+.dropdown-palette-swatches .palette-swatch-label {
+    font-size: 0.65rem;
+    color: var(--body-quiet-color);
+    font-weight: 500;
+    line-height: 1;
+}
+
+.dropdown-palette-swatches .palette-swatch.active .palette-swatch-label {
+    color: var(--primary);
+    font-weight: 600;
 }
 
 /* Logout form/button */
