@@ -179,5 +179,10 @@ ACTIVITY_MAX_ROWS = config("ACTIVITY_MAX_ROWS", default=10000, cast=int)
 ACTIVITY_PRUNE_INTERVAL = config("ACTIVITY_PRUNE_INTERVAL", default=100, cast=int)
 ACTIVITY_EXCLUDE_PATHS = ["/static/", "/media/", "/favicon.ico", "/health/", "/admin/jsi18n/", "/__debug__/"]
 
+# SQLite Backup
+BACKUP_DIR = config("BACKUP_DIR", default=str(BASE_DIR / "backups"))
+BACKUP_RETENTION = config("BACKUP_RETENTION", default=10, cast=int)
+BACKUP_CRON_ENABLED = config("BACKUP_CRON_ENABLED", default=False, cast=bool)
+
 # Default primary key field type
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"

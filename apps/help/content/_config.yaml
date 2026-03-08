@@ -23,6 +23,10 @@ sections:
         description: "Project documentation home"
         icon: "home"
 
+  - slug: components
+    title: "Components"
+    description: "UI components and page patterns included with SmallStack"
+
   # Add your own sections here:
   # - slug: guides
   #   title: "User Guides"

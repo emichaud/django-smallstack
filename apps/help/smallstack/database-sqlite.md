@@ -7,7 +7,7 @@ description: Why SQLite is the perfect default for many Django projects
 
 {{ project_name }} uses **SQLite** as its default database—and that's a deliberate choice, not a compromise. For solo developers, small teams, and internal applications, SQLite is often the *best* database option, not just the easiest one.
 
-> **See also:** [PostgreSQL Database](/help/database-postgresql/) for when you need to scale beyond SQLite.
+> **See also:** [PostgreSQL Database](/help/smallstack/database-postgresql/) for when you need to scale beyond SQLite.
 
 ## Why SQLite?
 
@@ -167,7 +167,7 @@ You'll know it's time to consider PostgreSQL when:
 
 Until then, SQLite serves admirably. And when you do need to migrate, the path is well-documented.
 
-**[Read the PostgreSQL Migration Guide](/help/database-postgresql/)**
+**[Read the PostgreSQL Migration Guide](/help/smallstack/database-postgresql/)**
 
 ## Quick Reference
 

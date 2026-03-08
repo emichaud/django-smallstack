@@ -99,7 +99,7 @@ uv run pytest apps/profile/
 
 ## How do I deploy to production?
 
-We recommend Docker for simple deployments. See the [Docker Deployment](/help/docker-deployment/) guide.
+We recommend Docker for simple deployments. See the [Docker Deployment](/help/smallstack/docker-deployment/) guide.
 
 For production, remember to:
 
@@ -131,7 +131,7 @@ For production, remember to:
 
 5. Run migrations
 
-See [Project Structure](/help/project-structure/) for details.
+See [Project Structure](/help/smallstack/project-structure/) for details.
 
 ## How do I disable public signup?
 
@@ -176,7 +176,7 @@ In Docker, media files are stored in the `media_data` volume for persistence.
 
 ## How do I add a new help page?
 
-See [Using the Help System](/help/help-system/) for complete instructions. Quick steps:
+See [Using the Help System](/help/smallstack/help-system/) for complete instructions. Quick steps:
 
 1. Create a `.md` file in `apps/help/content/`
 2. Add the page to `_config.yaml`

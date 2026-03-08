@@ -1,0 +1,40 @@
+title: "Components"
+description: "UI components and page patterns included with SmallStack"
+
+pages:
+  - slug: index
+    title: "Getting Started"
+    description: "Blank page template — topbar, sidebar, and breadcrumbs"
+    icon: "rocket"
+  - slug: cards
+    title: "Cards"
+    description: "Content containers with headers and bodies"
+    icon: "folder"
+  - slug: buttons
+    title: "Buttons"
+    description: "Button styles, sizes, and icon buttons"
+    icon: "cube"
+  - slug: forms
+    title: "Forms"
+    description: "Inputs, selects, date pickers, file uploads, and admin layout"
+    icon: "settings"
+  - slug: grid-layout
+    title: "Grid Layout"
+    description: "Multi-column responsive layouts"
+    icon: "folder"
+  - slug: messages
+    title: "Messages"
+    description: "Success, info, warning, and error notifications"
+    icon: "chat"
+  - slug: quick-links
+    title: "Quick Links"
+    description: "Icon-based navigation link grid"
+    icon: "link"
+  - slug: navigation
+    title: "Navigation"
+    description: "Sidebar, breadcrumbs, and page headers"
+    icon: "home"
+  - slug: theme-bars
+    title: "Theme Bars"
+    description: "Stacked horizontal bar data visualization"
+    icon: "chart"

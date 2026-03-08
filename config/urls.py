@@ -26,6 +26,8 @@ urlpatterns = [
     path("help/", include("apps.help.urls")),
     # Activity tracking
     path("activity/", include("apps.activity.urls")),
+    # Backups (staff-only)
+    path("backups/", include("apps.smallstack.urls")),
     # Utility routes
     path("health/", health_check, name="health_check"),
     path(

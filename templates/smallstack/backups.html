@@ -1,0 +1,181 @@
+{% extends "smallstack/base.html" %}
+{% load theme_tags %}
+
+{% block title %}Backups{% endblock %}
+
+{% block breadcrumbs %}
+    {% breadcrumb "Backups" "smallstack:backups" %}
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .table-plain tr:nth-child(odd),
+    .table-plain tr:nth-child(even),
+    table tbody tr:nth-child(odd),
+    table tbody tr:nth-child(even) {
+        background: transparent;
+    }
+    .table-plain tbody tr:nth-child(odd),
+    table tbody tr:nth-child(odd) {
+        background-color: color-mix(in srgb, var(--primary) 4%, var(--body-bg)) !important;
+    }
+    .table-plain tbody tr:nth-child(even),
+    table tbody tr:nth-child(even) {
+        background-color: color-mix(in srgb, var(--primary) 12%, var(--body-bg)) !important;
+    }
+    table tbody tr,
+    .table-plain tbody tr {
+        border: none !important;
+    }
+    table tbody td,
+    .table-plain tbody td {
+        border: none !important;
+    }
+    table thead tr {
+        background-color: color-mix(in srgb, var(--primary) 15%, var(--body-bg)) !important;
+        border: none !important;
+    }
+    table thead th {
+        border: none !important;
+        background-color: transparent !important;
+        color: var(--body-quiet-color) !important;
+        font-weight: 600;
+        font-size: 0.8rem !important;
+        text-transform: uppercase;
+        letter-spacing: 0.3px;
+    }
+    .status-badge {
+        display: inline-block;
+        padding: 2px 8px;
+        border-radius: 4px;
+        font-size: 0.75rem;
+        font-weight: 600;
+        text-transform: uppercase;
+    }
+    .status-success { background: color-mix(in srgb, var(--success-fg) 15%, var(--card-bg)); color: var(--success-fg); }
+    .status-failed { background: color-mix(in srgb, var(--error-fg) 15%, var(--card-bg)); color: var(--error-fg); }
+    .status-pruned { opacity: 0.5; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header-with-actions">
+    <div class="page-header-content">
+        <h1>Database Backups</h1>
+        <p class="page-subtitle">SQLite backup management</p>
+    </div>
+</div>
+
+<!-- Status Banner -->
+{% if backup_cron_enabled %}
+<div class="messagelist">
+    <div class="message success" style="margin-bottom: 16px;">
+        <strong>Scheduled backups are enabled.</strong> Backups run automatically via cron.
+    </div>
+</div>
+{% else %}
+<div class="messagelist">
+    <div class="message info" style="margin-bottom: 16px;">
+        <strong>Scheduled backups are not enabled.</strong>
+        <a href="{% url 'help:section_detail' 'smallstack' 'database-backups' %}">Learn how to set up automatic backups</a>
+    </div>
+</div>
+{% endif %}
+
+<!-- Database Info + Download -->
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 24px;">
+    <div class="card">
+        <div class="card-header"><h3>Database Info</h3></div>
+        <div class="card-body">
+            <table class="table-plain" style="width: 100%;">
+                <tbody>
+                    <tr>
+                        <td style="font-weight: 600; width: 120px;">Engine</td>
+                        <td>{{ engine }}</td>
+                    </tr>
+                    {% if is_sqlite %}
+                    <tr>
+                        <td style="font-weight: 600;">File Path</td>
+                        <td><code>{{ db_path }}</code></td>
+                    </tr>
+                    <tr>
+                        <td style="font-weight: 600;">File Size</td>
+                        <td>{% widthratio db_size 1048576 1 %} MB ({{ db_size|filesizeformat }})</td>
+                    </tr>
+                    {% endif %}
+                    <tr>
+                        <td style="font-weight: 600;">Backup Dir</td>
+                        <td><code>{{ backup_dir }}</code></td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header"><h3>Quick Backup</h3></div>
+        <div class="card-body">
+            {% if is_sqlite %}
+            <p style="margin-bottom: 16px;">Create and download a backup of your database right now.</p>
+            <form method="post" action="{% url 'smallstack:backup_download' %}">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-primary">
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" style="margin-right: 6px; vertical-align: -2px;">
+                        <path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/>
+                    </svg>
+                    Download Backup Now
+                </button>
+            </form>
+            {% else %}
+            <p>Database backup is currently only available for SQLite databases.</p>
+            <p style="color: var(--body-quiet-color);">PostgreSQL backup support is coming in a future release.</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Backup History -->
+<div class="card">
+    <div class="card-header"><h3>Backup History</h3></div>
+    <div class="card-body" style="padding: 0;">
+        {% if backup_records %}
+        <table style="width: 100%;">
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Filename</th>
+                    <th>Size</th>
+                    <th>Status</th>
+                    <th>Duration</th>
+                    <th>Source</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for record in backup_records %}
+                <tr class="{% if record.status == 'failed' %}status-failed-row{% elif record.status == 'pruned' %}status-pruned{% endif %}">
+                    <td>{{ record.created_at|date:"M d, Y H:i" }}</td>
+                    <td>
+                        {% if record.status == "success" and record.filename %}
+                            <a href="{% url 'smallstack:backup_file_download' record.filename %}">{{ record.filename }}</a>
+                        {% elif record.filename %}
+                            {{ record.filename }}
+                        {% else %}
+                            <span style="color: var(--body-quiet-color);">—</span>
+                        {% endif %}
+                    </td>
+                    <td>{% if record.file_size %}{{ record.file_size|filesizeformat }}{% else %}—{% endif %}</td>
+                    <td><span class="status-badge status-{{ record.status }}">{{ record.status }}</span></td>
+                    <td>{{ record.duration_ms }} ms</td>
+                    <td>{{ record.triggered_by }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <p style="padding: 24px; text-align: center; color: var(--body-quiet-color);">
+            No backups yet. Use the download button above or run <code>make backup</code> to create one.
+        </p>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

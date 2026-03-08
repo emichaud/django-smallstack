@@ -49,7 +49,7 @@ uv run python manage.py db_worker
 
 In development (DEBUG=True), the worker auto-reloads when code changes. Keep it running in a separate terminal while developing.
 
-For production, run the worker as a separate process (see [Docker Deployment](/help/docker-deployment/)).
+For production, run the worker as a separate process (see [Docker Deployment](/help/smallstack/docker-deployment/)).
 
 ## Defining Tasks
 

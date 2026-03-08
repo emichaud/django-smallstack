@@ -21,6 +21,7 @@ wheels/
 db.sqlite3
 staticfiles/
 media/
+backups/
 
 # IDE
 .idea/

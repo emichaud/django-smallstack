@@ -1,7 +1,7 @@
 # Makefile for Django SmallStack
 # Run 'make help' to see available commands
 
-.PHONY: help run migrate migrations superuser shell test collectstatic docker-up docker-down lint clean deploy logs
+.PHONY: help run migrate migrations superuser shell test collectstatic docker-up docker-down lint clean deploy logs backup
 
 # Default port for development server
 PORT ?= 8005
@@ -18,6 +18,7 @@ help:
 	@echo "  make collectstatic - Collect static files"
 	@echo "  make docker-up    - Start Docker containers"
 	@echo "  make docker-down  - Stop Docker containers"
+	@echo "  make backup       - Create a database backup"
 	@echo "  make lint         - Run ruff linter"
 	@echo "  make clean        - Clean up generated files"
 	@echo ""
@@ -53,6 +54,9 @@ docker-up:
 
 docker-down:
 	docker-compose down
+
+backup:
+	uv run python manage.py backup_db
 
 lint:
 	uv run ruff check .

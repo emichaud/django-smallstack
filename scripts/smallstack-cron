@@ -1,0 +1,2 @@
+# SmallStack scheduled backups - daily at 2 AM, keep last 14
+0 2 * * * . /app/.env.cron && cd /app && python manage.py backup_db --keep 14 >> /proc/1/fd/1 2>&1

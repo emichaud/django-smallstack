@@ -9,7 +9,7 @@ Kamal is a deployment tool that makes it easy to deploy containerized applicatio
 
 For more information, visit the official documentation at **[kamal-deploy.org](https://kamal-deploy.org)**.
 
-> **See also:** [Deployment Overview](/help/deployment/) for a comparison of deployment options.
+> **See also:** [Deployment Overview](/help/smallstack/deployment/) for a comparison of deployment options.
 
 ## Why Kamal?
 
@@ -311,7 +311,7 @@ volumes:
 
 The container is ephemeral, but your data is not. When you deploy a new version, the old container is replaced, but the database file on the VPS filesystem remains untouched.
 
-> **Need PostgreSQL?** See [PostgreSQL Database](/help/database-postgresql/) for migration instructions and Kamal accessory configuration.
+> **Need PostgreSQL?** See [PostgreSQL Database](/help/smallstack/database-postgresql/) for migration instructions and Kamal accessory configuration.
 
 ## Common Commands
 
@@ -605,4 +605,4 @@ Check ALLOWED_HOSTS includes the container hostname pattern or use `*` for inter
 - [Kamal Documentation](https://kamal-deploy.org/docs/installation/)
 - [Kamal GitHub Repository](https://github.com/basecamp/kamal)
 - [Make Commands](/help/smallstack/make-commands/) — All available Makefile shortcuts
-- [Docker Deployment Guide](/help/docker-deployment/) — Alternative deployment approach
+- [Docker Deployment Guide](/help/smallstack/docker-deployment/) — Alternative deployment approach

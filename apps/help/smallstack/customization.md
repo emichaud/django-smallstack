@@ -213,7 +213,7 @@ description: A brief description for navigation
 Your markdown content here. You can use:
 
 - **Variables**: {{ project_name }} renders from _config.yaml
-- **Links**: [Getting Started](/help/getting-started/)
+- **Links**: [Getting Started](/help/smallstack/getting-started/)
 - **Code blocks**: With syntax highlighting
 - **Tables**: Standard markdown tables
 ```

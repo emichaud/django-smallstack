@@ -30,7 +30,7 @@ The Docker Compose configuration included in this starter works with virtually a
 
 This is the **most versatile approach** and scales from simple hobby projects to enterprise deployments. If you're unsure which path to take, or if your organization already has container infrastructure, Docker Compose is the safe choice.
 
-**[Read the Docker Deployment Guide](/help/docker-deployment/)**
+**[Read the Docker Deployment Guide](/help/smallstack/docker-deployment/)**
 
 ## Kamal
 
@@ -70,7 +70,7 @@ Kamal includes `kamal-proxy`, a lightweight reverse proxy that manages routing t
 
 This makes it practical to run several small applications on one affordable VPS—a significant cost saver compared to dedicated hosting per application.
 
-**[Read the Kamal Deployment Guide](/help/kamal-deployment/)**
+**[Read the Kamal Deployment Guide](/help/smallstack/kamal-deployment/)**
 
 ## Which Should You Choose?
 
@@ -98,11 +98,11 @@ This makes it practical to run several small applications on one affordable VPS�
 
 The database is stored in a `/data/` directory that persists across container rebuilds. Your data survives deployments.
 
-**[Learn more about SQLite in production](/help/database-sqlite/)** | **[Upgrade to PostgreSQL](/help/database-postgresql/)**
+**[Learn more about SQLite in production](/help/smallstack/database-sqlite/)** | **[Upgrade to PostgreSQL](/help/smallstack/database-postgresql/)**
 
 ## Getting Started
 
 Both approaches use the same Dockerfile, so you can start with one and switch later if your needs change.
 
-1. **[Docker Deployment Guide](/help/docker-deployment/)** — For local development and generic container hosting
-2. **[Kamal Deployment Guide](/help/kamal-deployment/)** — For VPS deployment with zero-downtime updates
+1. **[Docker Deployment Guide](/help/smallstack/docker-deployment/)** — For local development and generic container hosting
+2. **[Kamal Deployment Guide](/help/smallstack/kamal-deployment/)** — For VPS deployment with zero-downtime updates

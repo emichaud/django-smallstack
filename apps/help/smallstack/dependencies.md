@@ -17,8 +17,6 @@ We build on Django 6.0 because it includes the new **django-tasks** framework—
 "django>=6.0"
 ```
 
-**When to consider alternatives:** If your application requires complex task routing, scheduled jobs at scale, or distributed task processing across multiple workers, consider [Celery](https://docs.celeryq.dev/) or [Dramatiq](https://dramatiq.io/).
-
 ### django-tasks-db
 
 The database backend for Django's task framework. Tasks are stored in your existing database (SQLite or PostgreSQL), so there's no additional infrastructure to manage.
@@ -32,6 +30,8 @@ This is perfect for:
 - Processing uploads
 - Running periodic cleanup jobs
 - Any task that doesn't need sub-second execution
+
+**When to consider alternatives:** If your application requires complex task routing, scheduled jobs at scale, or distributed task processing across multiple workers, consider [Celery](https://docs.celeryq.dev/) or [Dramatiq](https://dramatiq.io/).
 
 ## Configuration
 

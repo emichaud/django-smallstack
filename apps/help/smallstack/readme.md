@@ -30,7 +30,7 @@ Custom User model ready for email login. Password reset flows, secure sessions, 
 Production-ready Docker configuration with multi-service compose, health checks, and background worker. Deploy anywhere containers run.
 
 ### SQLite by Default
-Production-ready SQLite configuration with the database stored outside the container. Perfect for solo developers, small teams, and internal applications. No database service fees—just simple, reliable data storage that backs up with your VPS. [Upgrade to PostgreSQL](/help/database-postgresql/) when you need it.
+Production-ready SQLite configuration with the database stored outside the container. Perfect for solo developers, small teams, and internal applications. No database service fees—just simple, reliable data storage that backs up with your VPS. [Upgrade to PostgreSQL](/help/smallstack/database-postgresql/) when you need it.
 
 ## Built on Django Best Practices
 
