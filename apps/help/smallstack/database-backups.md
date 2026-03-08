@@ -114,23 +114,51 @@ These settings are already defined in `config/settings/base.py` with sensible de
 | `BACKUP_CRON_ENABLED` | `false` | Enable cron-based scheduled backups in Docker |
 | `BACKUP_DOWNLOAD_ENABLED` | `true` | Allow backup file downloads from the web UI |
 
+## Setup Checklist
+
+If you're enabling backups in a project built from SmallStack, verify these are in place:
+
+- [ ] `apps.smallstack` is in `INSTALLED_APPS` (`config/settings/base.py`)
+- [ ] `/backups/` URL is included in `config/urls.py`
+- [ ] `BACKUP_*` settings are defined in `config/settings/base.py`
+- [ ] Migrations are up to date (`make migrate`)
+- [ ] `make backup` target exists in your `Makefile`
+- [ ] For Docker/Kamal: `BACKUP_CRON_ENABLED` is set in `docker-compose.yml` or `config/deploy.yml`
+- [ ] For email notifications: `ADMINS`, `SERVER_EMAIL`, and SMTP env vars are configured (see below)
+
 ## Failure Notifications
 
-If a backup fails, SmallStack will email the `ADMINS` list using `mail_admins()`. This requires two things to be configured:
+If a backup fails, SmallStack will email the `ADMINS` list using `mail_admins()`. This requires three things to be configured:
 
-**1. Set ADMINS** — add to `config/settings/production.py`:
+**1. Set ADMINS** — uncomment and edit the example in `config/settings/production.py`:
 ```python
 ADMINS = [("Your Name", "you@example.com")]
 ```
 
-**2. Configure SMTP email** — the default email backend prints to console, which won't reach anyone in production. Set these environment variables to use a real mail server:
+**2. Set SERVER_EMAIL** — this is the from-address Django uses for `mail_admins()` emails. Set it via environment variable or in `production.py`:
 ```bash
-EMAIL_BACKEND=django.core.mail.backends.smtp.EmailBackend
+SERVER_EMAIL=server@yourdomain.com
+```
+
+**3. Configure SMTP email** — the default email backend prints to console, which won't reach anyone in production. Set these environment variables to use a real mail server:
+```bash
 EMAIL_HOST=smtp.example.com
 EMAIL_PORT=587
 EMAIL_USE_TLS=true
 EMAIL_HOST_USER=your-email@example.com
 EMAIL_HOST_PASSWORD=your-app-password
+```
+
+> **Note:** Your SMTP provider must authorize the `SERVER_EMAIL` and `DEFAULT_FROM_EMAIL` addresses as sending identities. For example, Fastmail requires you to add each from-address as an alias or sending identity before it will accept outbound mail from that address.
+
+**Verify email delivery** — use Django's built-in test command to confirm your SMTP config works before waiting for a backup failure:
+```bash
+python manage.py sendtestemail you@example.com
+```
+
+In development, `EMAIL_BACKEND` defaults to the console backend, so emails print to your terminal instead of sending. To test real delivery locally, set `EMAIL_BACKEND` in your `.env` file:
+```bash
+EMAIL_BACKEND=django.core.mail.backends.smtp.EmailBackend
 ```
 
 See the [Email & Password Reset](/help/smallstack/email-auth/) docs for full SMTP setup instructions.

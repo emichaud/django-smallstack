@@ -2,6 +2,8 @@
 Development settings for smallstack project.
 """
 
+from decouple import config
+
 from .base import *  # noqa: F401, F403
 
 DEBUG = True
@@ -105,7 +107,9 @@ LOGGING = {
 }
 
 # Email backend for development (prints to console)
-EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
+# To test real email delivery locally, set EMAIL_BACKEND in your .env file:
+#   EMAIL_BACKEND=django.core.mail.backends.smtp.EmailBackend
+EMAIL_BACKEND = config("EMAIL_BACKEND", default="django.core.mail.backends.console.EmailBackend")
 
 # Background Tasks - uses DatabaseBackend from base settings by default
 # The worker auto-reloads in DEBUG mode: python manage.py db_worker

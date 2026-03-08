@@ -343,18 +343,24 @@ Load with `{% load theme_tags %}`:
 
 ## Creating a Parallel Theme
 
-You can add a second CSS framework (Bootstrap, Tailwind, Tabler) alongside SmallStack's default theme by creating a parallel base template:
+You can add a second CSS framework (Bootstrap, Tailwind, Tabler) alongside SmallStack's default theme by creating a parallel base template. Two common patterns:
 
-1. Create `templates/website/base_<framework>.html` — loads the new framework's CSS/JS
-2. New pages extend the new base: `{% extends "website/base_tabler.html" %}`
-3. Existing SmallStack pages continue using `templates/smallstack/base.html` unchanged
+**Pattern A — Single file in your app's template directory** (simple):
+1. Create `templates/website/base_tabler.html` — loads the new framework's CSS/JS
+2. New pages extend it: `{% extends "website/base_tabler.html" %}`
+
+**Pattern B — Theme directory with its own partials** (for larger themes):
+1. Create `templates/tabler/base.html` + `templates/tabler/includes/` for framework-specific partials
+2. New pages extend it: `{% extends "tabler/base.html" %}`
+
+In both cases, existing SmallStack pages continue using `templates/smallstack/base.html` unchanged.
 
 What works across both bases:
 - `data-theme` / `data-palette` attributes and `theme.js` (framework-agnostic)
 - SmallStack template tags (`{% breadcrumb %}`, `{% nav_active %}`)
 - SmallStack partials (`topbar.html`, `sidebar.html`) can be included in either base
 
-Vendor framework CSS/JS locally in `static/css/` and `static/js/` — avoid CDNs.
+Vendor framework CSS/JS locally in `static/css/` and `static/js/` for production. CDN links are fine for prototyping and development, but vendor locally before deploying.
 
 ## Adding New CSS
 

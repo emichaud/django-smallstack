@@ -316,15 +316,28 @@ SmallStack ships with a Django admin-based CSS theme, but you can add a second C
 
 ### Strategy: A Parallel Base Template
 
-Instead of replacing `templates/smallstack/base.html`, create a new base template for your framework:
+Instead of replacing `templates/smallstack/base.html`, create a new base template for your framework. Two common patterns:
 
 ```
+# Pattern A: Single file in your app's template directory
 templates/
 ├── smallstack/
 │   └── base.html              ← SmallStack default (keep as-is)
 ├── website/
 │   └── base_tabler.html       ← Your new framework base
+
+# Pattern B: Theme directory with its own partials (for larger themes)
+templates/
+├── smallstack/
+│   └── base.html              ← SmallStack default (keep as-is)
+├── tabler/
+│   ├── base.html              ← Your new framework base
+│   └── includes/
+│       ├── navbar.html        ← Framework-specific partials
+│       └── footer.html
 ```
+
+Pattern A is simpler and works well for a single base template with a few pages. Pattern B is better when your theme needs its own set of reusable partials.
 
 Your new base template loads its own CSS/JS, but can still use SmallStack's sidebar, topbar, and template tags if you want:
 
@@ -371,7 +384,7 @@ New pages extend your framework base:
 
 ### Tips
 
-- **Vendor CSS/JS locally** — download framework files into `static/css/` and `static/js/` rather than using CDNs. SmallStack does this with htmx.
+- **Vendor CSS/JS locally for production** — download framework files into `static/css/` and `static/js/` rather than relying on CDNs. CDN links are fine for prototyping and development, but vendor locally before deploying. SmallStack does this with htmx.
 - **Share the topbar** — if you include `smallstack/includes/topbar.html`, the dark mode toggle and palette selector work automatically.
 - **Gradual migration** — move pages one at a time from `base.html` to your new base. No need to convert everything at once.
 

@@ -39,6 +39,7 @@ Common conflict areas and resolution strategies:
 
 | File | Strategy |
 |------|----------|
+| `uv.lock` | Take upstream version (`git checkout --theirs uv.lock`), then `uv sync --all-extras` |
 | `pyproject.toml` | Keep downstream deps, take upstream version bump |
 | `config/settings/base.py` | Merge carefully — downstream may have custom settings |
 | `templates/smallstack/` | Take upstream changes (downstream should use `templates/website/`) |

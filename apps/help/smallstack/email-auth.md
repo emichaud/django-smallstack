@@ -222,7 +222,15 @@ urlpatterns = [
 
 ## Testing Email Configuration
 
-To test your email setup:
+The quickest way to verify your SMTP config is Django's built-in test command:
+
+```bash
+python manage.py sendtestemail you@example.com
+```
+
+This sends a test email using your current settings — no shell or code required. If it arrives, your email is working.
+
+For more control, you can also test from the Django shell:
 
 ```python
 # In Django shell: uv run python manage.py shell
