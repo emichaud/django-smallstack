@@ -98,7 +98,7 @@ class BackupPageView(StaffRequiredMixin, TemplateView):
         context.update(db_info)
         context["backup_cron_enabled"] = getattr(settings, "BACKUP_CRON_ENABLED", False)
         records = BackupRecord.objects.all()
-        page_obj = paginate_queryset(records, self.request, page_size=15)
+        page_obj = paginate_queryset(records, self.request, page_size=5)
         context["backup_records"] = page_obj
         context["page_obj"] = page_obj
         context["backup_dir"] = getattr(settings, "BACKUP_DIR", str(settings.BASE_DIR / "backups"))
@@ -135,8 +135,13 @@ class BackupPageView(StaffRequiredMixin, TemplateView):
     def get(self, request, *args, **kwargs):
         context = self.get_context_data(**kwargs)
         if getattr(request, "htmx", False):
+            # If paging the backup history table, return only that partial
+            if request.GET.get("page"):
+                return TemplateResponse(
+                    request, "smallstack/partials/backup_history.html", context
+                )
             return TemplateResponse(
-                request, "smallstack/partials/backup_history.html", context
+                request, "smallstack/partials/backup_page_content.html", context
             )
         return TemplateResponse(request, self.template_name, context)
 

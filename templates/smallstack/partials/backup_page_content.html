@@ -1,0 +1,187 @@
+{% load theme_tags %}
+<!-- ── Tab navigation ─────────────────────────────────────────── -->
+<div style="display: flex; gap: 4px; margin-bottom: 20px; border-bottom: 2px solid var(--hairline-color);">
+    <button type="button" id="tab-activity" onclick="switchBackupTab('activity')"
+            style="padding: 10px 20px; font-size: 0.9rem; font-weight: 600; background: none; border: none; border-bottom: 2px solid var(--primary); margin-bottom: -2px; color: var(--primary); cursor: pointer;">
+        Backup Activity
+    </button>
+    <button type="button" id="tab-config" onclick="switchBackupTab('config')"
+            style="padding: 10px 20px; font-size: 0.9rem; font-weight: 600; background: none; border: none; border-bottom: 2px solid transparent; margin-bottom: -2px; color: var(--body-quiet-color); cursor: pointer; display: inline-flex; align-items: center; gap: 8px;">
+        Configuration
+        <span style="display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: {% if email_is_console or not admins %}var(--delete-button-bg, red){% else %}var(--success-fg){% endif %};"></span>
+    </button>
+</div>
+
+<!-- ── Tab: Backup Activity (default) ─────────────────────────── -->
+<div id="panel-activity">
+    <!-- Top-level stats -->
+    <div style="display: grid; grid-template-columns: repeat(6, 1fr); gap: 12px; margin-bottom: 24px;">
+        <div class="card stat-card-clickable"
+             hx-get="{% url 'smallstack:backup_stat_detail' 'recent' %}"
+             hx-target="#stat-modal-body"
+             onclick="openStatModal('Recent Backups (24h)')">
+            <div class="card-body" style="text-align: center; padding: 14px 8px;">
+                <div style="font-size: 1.75rem; font-weight: 700; color: var(--primary);">{{ recent_count }}</div>
+                <div style="color: var(--body-quiet-color); font-size: 0.8rem;">Recent (24h)</div>
+            </div>
+        </div>
+        <div class="card stat-card-clickable"
+             hx-get="{% url 'smallstack:backup_stat_detail' 'success' %}"
+             hx-target="#stat-modal-body"
+             onclick="openStatModal('Successful Backups')">
+            <div class="card-body" style="text-align: center; padding: 14px 8px;">
+                <div style="font-size: 1.75rem; font-weight: 700; color: var(--success-fg);">{{ success_count }}</div>
+                <div style="color: var(--body-quiet-color); font-size: 0.8rem;">Successful</div>
+            </div>
+        </div>
+        <div class="card stat-card-clickable"
+             hx-get="{% url 'smallstack:backup_stat_detail' 'failed' %}"
+             hx-target="#stat-modal-body"
+             onclick="openStatModal('Failed Backups')">
+            <div class="card-body" style="text-align: center; padding: 14px 8px;">
+                <div style="font-size: 1.75rem; font-weight: 700; color: {% if failed_count %}var(--delete-button-bg, red){% else %}var(--primary){% endif %};">{{ failed_count }}</div>
+                <div style="color: var(--body-quiet-color); font-size: 0.8rem;">Failed</div>
+            </div>
+        </div>
+        <div class="card stat-card-clickable"
+             hx-get="{% url 'smallstack:backup_stat_detail' 'pruned' %}"
+             hx-target="#stat-modal-body"
+             onclick="openStatModal('Pruned Backups')">
+            <div class="card-body" style="text-align: center; padding: 14px 8px;">
+                <div style="font-size: 1.75rem; font-weight: 700; color: var(--primary);">{{ pruned_count }}</div>
+                <div style="color: var(--body-quiet-color); font-size: 0.8rem;">Pruned</div>
+            </div>
+        </div>
+        <div class="card">
+            <div class="card-body" style="text-align: center; padding: 14px 8px;">
+                <div style="font-size: 1.75rem; font-weight: 700; color: var(--primary);">{{ avg_duration }}<span style="font-size: 0.9rem;">ms</span></div>
+                <div style="color: var(--body-quiet-color); font-size: 0.8rem;">Avg Duration</div>
+            </div>
+        </div>
+        <div class="card">
+            <div class="card-body" style="text-align: center; padding: 14px 8px;">
+                <div style="font-size: 1.75rem; font-weight: 700; color: var(--primary);">{{ total_backup_size|filesizeformat }}</div>
+                <div style="color: var(--body-quiet-color); font-size: 0.8rem;">Total Size</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Backup History -->
+    <div class="card">
+        <div class="card-header"><h2>Backup History</h2></div>
+        <div class="card-body" style="padding: 0;" id="backup-history">
+            {% include "smallstack/partials/backup_history.html" %}
+        </div>
+    </div>
+</div>
+
+<!-- ── Tab: Configuration ─────────────────────────────────────── -->
+<div id="panel-config" style="display: none;">
+    <div class="card">
+        <div class="card-header"><h2>Configuration</h2></div>
+        <div class="card-body">
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px;">
+                <table class="table-plain" style="width: 100%;">
+                    <tbody>
+                        <tr>
+                            <td style="font-weight: 600; width: 100px;">Engine</td>
+                            <td>{{ engine }}</td>
+                        </tr>
+                        {% if is_sqlite %}
+                        <tr>
+                            <td style="font-weight: 600;">Path</td>
+                            <td><code style="font-size: 0.8rem;">{{ db_path }}</code> <button type="button" onclick="navigator.clipboard.writeText('{{ db_path }}')" title="Copy path" style="background:none;border:none;cursor:pointer;padding:2px;vertical-align:middle;color:var(--body-quiet-color);"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg></button></td>
+                        </tr>
+                        <tr>
+                            <td style="font-weight: 600;">Size</td>
+                            <td>{{ db_size|filesizeformat }}</td>
+                        </tr>
+                        {% endif %}
+                        <tr>
+                            <td style="font-weight: 600;">Backup Dir</td>
+                            <td><code style="font-size: 0.8rem;">{{ backup_dir }}</code> <button type="button" onclick="navigator.clipboard.writeText('{{ backup_dir }}')" title="Copy path" style="background:none;border:none;cursor:pointer;padding:2px;vertical-align:middle;color:var(--body-quiet-color);"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg></button></td>
+                        </tr>
+                    </tbody>
+                </table>
+                <div style="display: flex; flex-direction: column; gap: 12px; justify-content: center;">
+                    <!-- Email Backend -->
+                    {% if email_is_console %}
+                    <a href="{% url 'help:section_detail' 'smallstack' 'email-auth' %}" style="text-decoration: none;">
+                        <div class="card" style="border: 2px solid color-mix(in srgb, var(--delete-button-bg, red) 40%, transparent); margin: 0; transition: border-color 0.15s, background 0.15s;" onmouseover="this.style.borderColor='var(--delete-button-bg, red)';this.style.background='color-mix(in srgb, var(--delete-button-bg, red) 6%, var(--card-bg))'" onmouseout="this.style.borderColor='color-mix(in srgb, var(--delete-button-bg, red) 40%, transparent)';this.style.background='var(--card-bg)'">
+                            <div class="card-body" style="display: flex; align-items: center; gap: 10px; padding: 12px 16px;">
+                                <svg viewBox="0 0 24 24" width="28" height="28" fill="var(--delete-button-bg, red)">
+                                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/>
+                                </svg>
+                                <div>
+                                    <div style="font-weight: 700; font-size: 0.95rem; color: var(--delete-button-bg, red);">Email Not Configured</div>
+                                    <div style="font-size: 0.75rem; color: var(--body-quiet-color);">Setup SMTP</div>
+                                </div>
+                            </div>
+                        </div>
+                    </a>
+                    {% else %}
+                    <div class="card" style="border: 2px solid color-mix(in srgb, var(--success-fg) 40%, transparent); margin: 0; transition: border-color 0.15s, background 0.15s;" onmouseover="this.style.borderColor='var(--success-fg)';this.style.background='color-mix(in srgb, var(--success-fg) 6%, var(--card-bg))'" onmouseout="this.style.borderColor='color-mix(in srgb, var(--success-fg) 40%, transparent)';this.style.background='var(--card-bg)'">
+                        <div class="card-body" style="display: flex; align-items: center; gap: 10px; padding: 12px 16px;">
+                            <svg viewBox="0 0 24 24" width="28" height="28" fill="var(--success-fg)">
+                                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                            </svg>
+                            <div>
+                                <div style="font-weight: 700; font-size: 0.95rem; color: var(--success-fg);">SMTP Configured</div>
+                                <div style="color: var(--body-quiet-color); font-size: 0.75rem;">Email delivery active</div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <!-- Notify Admins -->
+                    {% if admins %}
+                    <div class="card" style="border: 2px solid color-mix(in srgb, var(--success-fg) 40%, transparent); margin: 0; cursor: pointer; transition: border-color 0.15s, background 0.15s;" onmouseover="this.style.borderColor='var(--success-fg)';this.style.background='color-mix(in srgb, var(--success-fg) 6%, var(--card-bg))'" onmouseout="this.style.borderColor='color-mix(in srgb, var(--success-fg) 40%, transparent)';this.style.background='var(--card-bg)'" onclick="openStatModal('Notify Admins');document.getElementById('stat-modal-body').innerHTML='<table class=\'table-plain\' style=\'width:100%\'><tbody>{% for name, email in admins %}<tr><td style=\'padding:10px 16px;font-weight:600\'>{{ name }}</td><td style=\'padding:10px 16px\'>{{ email }}</td></tr>{% endfor %}</tbody></table>'">
+                        <div class="card-body" style="display: flex; align-items: center; gap: 10px; padding: 12px 16px;">
+                            <svg viewBox="0 0 24 24" width="28" height="28" fill="var(--success-fg)">
+                                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                            </svg>
+                            <div>
+                                <div style="font-weight: 700; font-size: 0.95rem; color: var(--success-fg);">Admins Configured</div>
+                                <div style="color: var(--body-quiet-color); font-size: 0.75rem;">{{ admins|length }} recipient{{ admins|length|pluralize }}</div>
+                            </div>
+                        </div>
+                    </div>
+                    {% else %}
+                    <a href="{% url 'help:section_detail' 'smallstack' 'database-backups' %}" style="text-decoration: none;">
+                        <div class="card" style="border: 2px solid color-mix(in srgb, var(--delete-button-bg, red) 40%, transparent); margin: 0; transition: border-color 0.15s, background 0.15s;" onmouseover="this.style.borderColor='var(--delete-button-bg, red)';this.style.background='color-mix(in srgb, var(--delete-button-bg, red) 6%, var(--card-bg))'" onmouseout="this.style.borderColor='color-mix(in srgb, var(--delete-button-bg, red) 40%, transparent)';this.style.background='var(--card-bg)'">
+                            <div class="card-body" style="display: flex; align-items: center; gap: 10px; padding: 12px 16px;">
+                                <svg viewBox="0 0 24 24" width="28" height="28" fill="var(--delete-button-bg, red)">
+                                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/>
+                                </svg>
+                                <div>
+                                    <div style="font-weight: 700; font-size: 0.95rem; color: var(--delete-button-bg, red);">No Admins</div>
+                                    <div style="font-size: 0.75rem; color: var(--body-quiet-color);">Configure recipients</div>
+                                </div>
+                            </div>
+                        </div>
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function switchBackupTab(tab) {
+    var tabs = ['activity', 'config'];
+    tabs.forEach(function(t) {
+        var panel = document.getElementById('panel-' + t);
+        var btn = document.getElementById('tab-' + t);
+        if (t === tab) {
+            panel.style.display = '';
+            btn.style.borderBottomColor = 'var(--primary)';
+            btn.style.color = 'var(--primary)';
+        } else {
+            panel.style.display = 'none';
+            btn.style.borderBottomColor = 'transparent';
+            btn.style.color = 'var(--body-quiet-color)';
+        }
+    });
+}
+</script>

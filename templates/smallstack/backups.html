@@ -59,193 +59,122 @@
 {% endblock %}
 
 {% block content %}
-<div class="page-header-with-actions" style="background: color-mix(in srgb, var(--primary) 15%, var(--body-bg)); margin: -24px -24px 24px -24px; padding: 24px; border-radius: 8px 8px 0 0;">
+<div class="page-header-with-actions" style="background: color-mix(in srgb, var(--primary) 15%, var(--body-bg)); margin: -24px -24px 24px -24px; padding: 24px; border-radius: 8px 8px 0 0; display: flex; align-items: center; justify-content: space-between;">
     <div class="page-header-content">
         <h1>Database Backups</h1>
         <p class="page-subtitle">SQLite backup management</p>
     </div>
-</div>
-
-<!-- ── Top-level stats ──────────────────────────────────────────── -->
-<div style="display: grid; grid-template-columns: repeat(6, 1fr); gap: 12px; margin-bottom: 24px;">
-    <div class="card stat-card-clickable"
-         hx-get="{% url 'smallstack:backup_stat_detail' 'recent' %}"
-         hx-target="#stat-modal-body"
-         onclick="openStatModal('Recent Backups (24h)')">
-        <div class="card-body" style="text-align: center; padding: 14px 8px;">
-            <div style="font-size: 1.75rem; font-weight: 700; color: var(--primary);">{{ recent_count }}</div>
-            <div style="color: var(--body-quiet-color); font-size: 0.8rem;">Recent (24h)</div>
-        </div>
-    </div>
-    <div class="card stat-card-clickable"
-         hx-get="{% url 'smallstack:backup_stat_detail' 'success' %}"
-         hx-target="#stat-modal-body"
-         onclick="openStatModal('Successful Backups')">
-        <div class="card-body" style="text-align: center; padding: 14px 8px;">
-            <div style="font-size: 1.75rem; font-weight: 700; color: var(--success-fg);">{{ success_count }}</div>
-            <div style="color: var(--body-quiet-color); font-size: 0.8rem;">Successful</div>
-        </div>
-    </div>
-    <div class="card stat-card-clickable"
-         hx-get="{% url 'smallstack:backup_stat_detail' 'failed' %}"
-         hx-target="#stat-modal-body"
-         onclick="openStatModal('Failed Backups')">
-        <div class="card-body" style="text-align: center; padding: 14px 8px;">
-            <div style="font-size: 1.75rem; font-weight: 700; color: {% if failed_count %}var(--delete-button-bg, red){% else %}var(--primary){% endif %};">{{ failed_count }}</div>
-            <div style="color: var(--body-quiet-color); font-size: 0.8rem;">Failed</div>
-        </div>
-    </div>
-    <div class="card stat-card-clickable"
-         hx-get="{% url 'smallstack:backup_stat_detail' 'pruned' %}"
-         hx-target="#stat-modal-body"
-         onclick="openStatModal('Pruned Backups')">
-        <div class="card-body" style="text-align: center; padding: 14px 8px;">
-            <div style="font-size: 1.75rem; font-weight: 700; color: var(--primary);">{{ pruned_count }}</div>
-            <div style="color: var(--body-quiet-color); font-size: 0.8rem;">Pruned</div>
-        </div>
-    </div>
-    <div class="card">
-        <div class="card-body" style="text-align: center; padding: 14px 8px;">
-            <div style="font-size: 1.75rem; font-weight: 700; color: var(--primary);">{{ avg_duration }}<span style="font-size: 0.9rem;">ms</span></div>
-            <div style="color: var(--body-quiet-color); font-size: 0.8rem;">Avg Duration</div>
-        </div>
-    </div>
-    <div class="card">
-        <div class="card-body" style="text-align: center; padding: 14px 8px;">
-            <div style="font-size: 1.75rem; font-weight: 700; color: var(--primary);">{{ total_backup_size|filesizeformat }}</div>
-            <div style="color: var(--body-quiet-color); font-size: 0.8rem;">Total Size</div>
-        </div>
-    </div>
-</div>
-
-<!-- ── Database info + Cron status + Download ──────────────────── -->
-<div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; margin-bottom: 24px;">
-    <!-- Database Info -->
-    <div class="card">
-        <div class="card-header"><h2>Database</h2></div>
-        <div class="card-body">
-            <table class="table-plain" style="width: 100%;">
-                <tbody>
-                    <tr>
-                        <td style="font-weight: 600; width: 100px;">Engine</td>
-                        <td>{{ engine }}</td>
-                    </tr>
-                    {% if is_sqlite %}
-                    <tr>
-                        <td style="font-weight: 600;">Path</td>
-                        <td><code style="font-size: 0.8rem;">{{ db_path }}</code></td>
-                    </tr>
-                    <tr>
-                        <td style="font-weight: 600;">Size</td>
-                        <td>{{ db_size|filesizeformat }}</td>
-                    </tr>
-                    {% endif %}
-                    <tr>
-                        <td style="font-weight: 600;">Backup Dir</td>
-                        <td><code style="font-size: 0.8rem;">{{ backup_dir }}</code></td>
-                    </tr>
-                </tbody>
-            </table>
-        </div>
-    </div>
-
-    <!-- Scheduled Backups Status -->
-    {% if backup_cron_enabled %}
-    <div class="card" style="border: 2px solid color-mix(in srgb, var(--success-fg) 40%, transparent); transition: border-color 0.15s, background 0.15s;" onmouseover="this.style.borderColor='var(--success-fg)';this.style.background='color-mix(in srgb, var(--success-fg) 6%, var(--card-bg))'" onmouseout="this.style.borderColor='color-mix(in srgb, var(--success-fg) 40%, transparent)';this.style.background='var(--card-bg)'">
-        <div class="card-header"><h2>Scheduled Backups</h2></div>
-        <div class="card-body" style="display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center;">
-            <svg viewBox="0 0 24 24" width="36" height="36" fill="var(--success-fg)" style="margin-bottom: 8px;">
-                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
-            </svg>
-            <div style="font-weight: 700; font-size: 1.1rem; color: var(--success-fg); margin-bottom: 4px;">Enabled</div>
-            <div style="color: var(--body-quiet-color); font-size: 0.85rem;">Backups run automatically via cron</div>
-        </div>
-    </div>
-    {% else %}
-    <div class="card" style="border: 2px solid color-mix(in srgb, var(--delete-button-bg, red) 40%, transparent); transition: border-color 0.15s, background 0.15s;" onmouseover="this.style.borderColor='var(--delete-button-bg, red)';this.style.background='color-mix(in srgb, var(--delete-button-bg, red) 6%, var(--card-bg))'" onmouseout="this.style.borderColor='color-mix(in srgb, var(--delete-button-bg, red) 40%, transparent)';this.style.background='var(--card-bg)'">
-        <div class="card-header"><h2>Scheduled Backups</h2></div>
-        <div class="card-body" style="display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center;">
-            <svg viewBox="0 0 24 24" width="36" height="36" fill="var(--delete-button-bg, red)" style="margin-bottom: 8px;">
-                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/>
-            </svg>
-            <div style="font-weight: 700; font-size: 1.1rem; color: var(--delete-button-bg, red); margin-bottom: 4px;">Not Enabled</div>
-            <div style="color: var(--body-quiet-color); font-size: 0.85rem;">
-                <a href="{% url 'help:section_detail' 'smallstack' 'database-backups' %}">Set up automatic backups</a>
+    <div style="display: flex; gap: 12px; align-items: stretch;">
+        <!-- Scheduled Backups Status -->
+        {% if backup_cron_enabled %}
+        <div class="card" style="border: 2px solid color-mix(in srgb, var(--success-fg) 40%, transparent); margin: 0; min-width: 160px; transition: border-color 0.15s, background 0.15s;" onmouseover="this.style.borderColor='var(--success-fg)';this.style.background='color-mix(in srgb, var(--success-fg) 6%, var(--card-bg))'" onmouseout="this.style.borderColor='color-mix(in srgb, var(--success-fg) 40%, transparent)';this.style.background='var(--card-bg)'">
+            <div class="card-body" style="display: flex; align-items: center; gap: 10px; padding: 12px 16px;">
+                <svg viewBox="0 0 24 24" width="28" height="28" fill="var(--success-fg)">
+                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                </svg>
+                <div>
+                    <div style="font-weight: 700; font-size: 0.95rem; color: var(--success-fg);">Scheduled</div>
+                    <div style="color: var(--body-quiet-color); font-size: 0.75rem;">Cron enabled</div>
+                </div>
             </div>
         </div>
-    </div>
-    {% endif %}
+        {% else %}
+        <div class="card" style="border: 2px solid color-mix(in srgb, var(--delete-button-bg, red) 40%, transparent); margin: 0; min-width: 160px; transition: border-color 0.15s, background 0.15s;" onmouseover="this.style.borderColor='var(--delete-button-bg, red)';this.style.background='color-mix(in srgb, var(--delete-button-bg, red) 6%, var(--card-bg))'" onmouseout="this.style.borderColor='color-mix(in srgb, var(--delete-button-bg, red) 40%, transparent)';this.style.background='var(--card-bg)'">
+            <div class="card-body" style="display: flex; align-items: center; gap: 10px; padding: 12px 16px;">
+                <svg viewBox="0 0 24 24" width="28" height="28" fill="var(--delete-button-bg, red)">
+                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/>
+                </svg>
+                <div>
+                    <div style="font-weight: 700; font-size: 0.95rem; color: var(--delete-button-bg, red);">Not Scheduled</div>
+                    <div style="font-size: 0.75rem;"><a href="{% url 'help:section_detail' 'smallstack' 'database-backups' %}" style="color: var(--body-quiet-color);">Set up cron</a></div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
 
-    <!-- Download Backup -->
-    {% if is_sqlite %}
-    <form method="post" action="{% url 'smallstack:backup_download' %}" style="display: contents;">
-        {% csrf_token %}
-        <div class="card" style="border: 2px solid color-mix(in srgb, var(--primary) 30%, transparent); cursor: pointer; transition: border-color 0.15s, background 0.15s;" onmouseover="this.style.borderColor='var(--primary)';this.style.background='color-mix(in srgb, var(--primary) 8%, var(--card-bg))'" onmouseout="this.style.borderColor='color-mix(in srgb, var(--primary) 30%, transparent)';this.style.background=''" onclick="this.closest('form').submit()">
-            <div class="card-header"><h2>Download</h2></div>
-            <div class="card-body" style="display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center;">
-                <svg viewBox="0 0 24 24" width="36" height="36" fill="var(--primary)" style="margin-bottom: 8px;">
+        <!-- Backup Now -->
+        {% if is_sqlite %}
+        <div class="card" id="backup-now-card" style="border: 2px solid color-mix(in srgb, var(--primary) 30%, transparent); margin: 0; min-width: 160px; cursor: pointer; transition: border-color 0.15s, background 0.15s;" onmouseover="this.style.borderColor='var(--primary)';this.style.background='color-mix(in srgb, var(--primary) 8%, var(--card-bg))'" onmouseout="this.style.borderColor='color-mix(in srgb, var(--primary) 30%, transparent)';this.style.background=''" onclick="backupNow()">
+            <div class="card-body" style="display: flex; align-items: center; gap: 10px; padding: 12px 16px;">
+                <svg id="backup-icon" viewBox="0 0 24 24" width="28" height="28" fill="var(--primary)">
                     <path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/>
                 </svg>
-                <div style="font-weight: 700; font-size: 1.1rem; color: var(--primary); margin-bottom: 4px;">Backup Now</div>
-                <div style="color: var(--body-quiet-color); font-size: 0.85rem;">Create and download a copy of your database</div>
+                <div>
+                    <div id="backup-label" style="font-weight: 700; font-size: 0.95rem; color: var(--primary);">Backup Now</div>
+                    <div style="color: var(--body-quiet-color); font-size: 0.75rem;">Download a copy</div>
+                </div>
             </div>
         </div>
-    </form>
-    {% else %}
-    <div class="card">
-        <div class="card-header"><h2>Download</h2></div>
-        <div class="card-body" style="display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center;">
-            <div style="color: var(--body-quiet-color); font-size: 0.85rem;">Only available for SQLite databases.<br>PostgreSQL backup coming soon.</div>
-        </div>
-    </div>
-    {% endif %}
-</div>
-
-<!-- ── Failure Notifications ────────────────────────────────────── -->
-<div class="card" style="margin-bottom: 24px;">
-    <div class="card-header"><h2>Failure Notifications</h2></div>
-    <div class="card-body">
-        <table class="table-plain" style="width: 100%;">
-            <tbody>
-                <tr>
-                    <td style="font-weight: 600; width: 140px;">Email Backend</td>
-                    <td>
-                        {% if email_is_console %}
-                        <span style="color: var(--delete-button-bg, red);">Console (not delivering)</span>
-                        <span style="color: var(--body-quiet-color); font-size: 0.85rem;"> — configure SMTP to receive notifications.
-                            <a href="{% url 'help:section_detail' 'smallstack' 'email-auth' %}">Setup guide</a>
-                        </span>
-                        {% else %}
-                        <span style="color: var(--success-fg);">SMTP configured</span>
-                        {% endif %}
-                    </td>
-                </tr>
-                <tr>
-                    <td style="font-weight: 600;">Notify Admins</td>
-                    <td>
-                        {% if admins %}
-                            {% for name, email in admins %}
-                            <span>{{ name }} &lt;{{ email }}&gt;{% if not forloop.last %}, {% endif %}</span>
-                            {% endfor %}
-                        {% else %}
-                        <span style="color: var(--body-quiet-color);">No admins configured — add <code>ADMINS</code> to your production settings.
-                            <a href="{% url 'help:section_detail' 'smallstack' 'database-backups' %}">Learn more</a>
-                        </span>
-                        {% endif %}
-                    </td>
-                </tr>
-            </tbody>
-        </table>
+        {% endif %}
     </div>
 </div>
 
-<!-- Backup History -->
-<div class="card">
-    <div class="card-header"><h2>Backup History</h2></div>
-    <div class="card-body" style="padding: 0;" id="backup-history">
-        {% include "smallstack/partials/backup_history.html" %}
-    </div>
+{% csrf_token %}
+<div id="backup-page-content">
+    {% include "smallstack/partials/backup_page_content.html" %}
 </div>
 
 {% include "smallstack/includes/stat_modal.html" %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function backupNow() {
+    var card = document.getElementById('backup-now-card');
+    if (card.dataset.busy) return;
+    card.dataset.busy = '1';
+    var label = document.getElementById('backup-label');
+    if (label) label.textContent = 'Creating backup…';
+
+    var csrfToken = document.querySelector('[name=csrfmiddlewaretoken]');
+    if (!csrfToken) {
+        // Grab from cookie
+        var match = document.cookie.match(/csrftoken=([^;]+)/);
+        var token = match ? match[1] : '';
+    } else {
+        var token = csrfToken.value;
+    }
+
+    fetch("{% url 'smallstack:backup_download' %}", {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': token || document.cookie.match(/csrftoken=([^;]+)/)?.[1] || ''
+        },
+        credentials: 'same-origin'
+    })
+    .then(function(response) {
+        if (!response.ok) throw new Error('Backup failed');
+        var disposition = response.headers.get('Content-Disposition') || '';
+        var filenameMatch = disposition.match(/filename="?([^"]+)"?/);
+        var filename = filenameMatch ? filenameMatch[1] : 'backup.sqlite3';
+        return response.blob().then(function(blob) {
+            return {blob: blob, filename: filename};
+        });
+    })
+    .then(function(result) {
+        // Trigger file download
+        var url = URL.createObjectURL(result.blob);
+        var a = document.createElement('a');
+        a.href = url;
+        a.download = result.filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+
+        // Refresh the entire page content via HTMX
+        htmx.ajax('GET', "{% url 'smallstack:backups' %}", {
+            target: '#backup-page-content',
+            swap: 'innerHTML'
+        });
+    })
+    .catch(function(err) {
+        if (label) label.textContent = 'Backup failed';
+        setTimeout(function() {
+            if (label) label.textContent = 'Backup Now';
+            delete card.dataset.busy;
+        }, 2000);
+    });
+}
+</script>
 {% endblock %}
