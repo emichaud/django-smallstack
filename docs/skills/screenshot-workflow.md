@@ -94,17 +94,23 @@ shot-scraper multi screenshots.yml
 
 ### 4. Authenticated Pages
 
-Pages behind login (profile, activity dashboard, admin sections) require authentication. Use `shot-scraper auth` to save a browser session:
+Pages behind login (profile, activity dashboard, backups) require authentication. SmallStack includes a management command that generates a Playwright auth state file — no interactive browser login needed.
 
 ```bash
-# Interactive login — opens a browser, you log in, it saves the session
-shot-scraper auth http://localhost:8005/accounts/login/ auth.json
+# Generate auth file (non-interactive, uses dev superuser)
+uv run python manage.py screenshot_auth > /tmp/shot-auth.json
 
-# Then use the session for screenshots
-shot-scraper http://localhost:8005/activity/ -o activity.png --auth auth.json --width 1280 --height 900
+# Screenshot any authenticated page
+shot-scraper http://localhost:8005/backups/ --auth /tmp/shot-auth.json -o backups.png --width 1280 --height 900
+
+# Hide the debug toolbar for cleaner screenshots
+shot-scraper http://localhost:8005/backups/ --auth /tmp/shot-auth.json -o backups.png --width 1280 --height 900 \
+  --javascript "document.getElementById('djDebug')?.remove()"
 ```
 
-**Do not commit auth.json** — add it to `.gitignore`.
+The `screenshot_auth` command creates a Django session for the dev superuser and outputs it in Playwright's storage state format. The auth file works until the session expires.
+
+**Do not commit auth files** — they are in `.gitignore` by default.
 
 ### 5. Responsive Testing
 

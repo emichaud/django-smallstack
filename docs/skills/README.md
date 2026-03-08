@@ -25,8 +25,12 @@ When an AI agent is asked to modify or extend this project, these files help it:
 | [background-tasks.md](background-tasks.md) | Django Tasks framework with django-tasks-db backend |
 | [activity-tracking.md](activity-tracking.md) | HTTP request logging middleware and configuration |
 | [logging-audit.md](logging-audit.md) | Logging configuration and audit trail |
+| [screenshot-workflow.md](screenshot-workflow.md) | Visual verification with shot-scraper and screenshot_auth |
 | [docker-deployment.md](docker-deployment.md) | Docker Compose setup, services, volumes |
 | [kamal-deployment.md](kamal-deployment.md) | Kamal deployment configuration, VPS setup, SSL, commands |
+| [development-workflow.md](development-workflow.md) | Branching, testing, coverage, documentation, commit style |
+| [release-process.md](release-process.md) | Versioning, release checklist, GitHub releases |
+| [integration-workflow.md](integration-workflow.md) | Pulling upstream into downstream projects, deploying |
 
 ## Usage
 
@@ -41,8 +45,12 @@ AI agents should read relevant skill files before making changes to the correspo
 - Before changing settings → read `settings.md`
 - Before adding background tasks → read `background-tasks.md`
 - Before working with activity tracking → read `activity-tracking.md`
+- Before taking screenshots → read `screenshot-workflow.md`
 - Before deploying with Docker → read `docker-deployment.md`
 - Before deploying with Kamal → read `kamal-deployment.md`
+- Before developing features → read `development-workflow.md`
+- Before releasing a version → read `release-process.md`
+- Before pulling upstream into downstream → read `integration-workflow.md`
 
 ## For Humans
 

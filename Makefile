@@ -1,7 +1,7 @@
 # Makefile for Django SmallStack
 # Run 'make help' to see available commands
 
-.PHONY: help run migrate migrations superuser shell test collectstatic docker-up docker-down lint clean deploy logs backup
+.PHONY: help run migrate migrations superuser shell test coverage collectstatic docker-up docker-down lint clean deploy logs backup screenshot-auth
 
 # Default port for development server
 PORT ?= 8005
@@ -14,12 +14,14 @@ help:
 	@echo "  make migrations   - Create new migrations"
 	@echo "  make superuser    - Create development superuser"
 	@echo "  make shell        - Open Django shell_plus"
-	@echo "  make test         - Run pytest tests"
+	@echo "  make test         - Run pytest with coverage summary"
+	@echo "  make coverage     - Run tests and open HTML coverage report"
 	@echo "  make collectstatic - Collect static files"
 	@echo "  make docker-up    - Start Docker containers"
 	@echo "  make docker-down  - Stop Docker containers"
 	@echo "  make backup       - Create a database backup"
 	@echo "  make lint         - Run ruff linter"
+	@echo "  make screenshot-auth - Generate shot-scraper auth JSON"
 	@echo "  make clean        - Clean up generated files"
 	@echo ""
 	@echo "Kamal Deployment (requires Kamal to be configured):"
@@ -46,17 +48,26 @@ test:
 	uv sync --extra dev --quiet
 	uv run pytest
 
+coverage:
+	uv sync --extra dev --quiet
+	uv run pytest --cov-report=html
+	@echo ""
+	@echo "HTML report: open htmlcov/index.html"
+
 collectstatic:
 	uv run python manage.py collectstatic --noinput
 
 docker-up:
-	docker-compose up -d --build
+	docker compose up -d --build
 
 docker-down:
-	docker-compose down
+	docker compose down
 
 backup:
 	uv run python manage.py backup_db
+
+screenshot-auth:
+	@uv run python manage.py screenshot_auth 2>/dev/null
 
 lint:
 	uv run ruff check .

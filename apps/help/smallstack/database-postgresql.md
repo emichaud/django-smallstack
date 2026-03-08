@@ -350,13 +350,13 @@ SELECT count(*) FROM pg_stat_activity WHERE datname = 'smallstack';
 
 ```bash
 # Start PostgreSQL
-docker-compose up -d db
+docker compose up -d db
 
 # Access psql
-docker-compose exec db psql -U postgres -d smallstack
+docker compose exec db psql -U postgres -d smallstack
 
 # View logs
-docker-compose logs db
+docker compose logs db
 ```
 
 ### Kamal Commands

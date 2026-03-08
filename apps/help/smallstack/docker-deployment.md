@@ -17,7 +17,7 @@ This guide walks you through deploying {{ project_name }} using Docker Compose. 
 2. Verify installation:
    ```bash
    docker --version
-   docker-compose --version
+   docker compose --version
    ```
 
 ## Quick Start
@@ -48,7 +48,7 @@ DJANGO_SUPERUSER_EMAIL=admin@example.com
 ### Step 2: Build the Image
 
 ```bash
-docker-compose build
+docker compose build
 ```
 
 This takes a few minutes the first time.
@@ -56,7 +56,7 @@ This takes a few minutes the first time.
 ### Step 3: Start the Application
 
 ```bash
-docker-compose up -d
+docker compose up -d
 ```
 
 ### Step 4: Open in Browser
@@ -70,33 +70,33 @@ docker-compose up -d
 
 ```bash
 # Start (background)
-docker-compose up -d
+docker compose up -d
 
 # Stop
-docker-compose down
+docker compose down
 
 # Stop and remove all data
-docker-compose down -v
+docker compose down -v
 ```
 
 ### Viewing Logs
 
 ```bash
 # All logs
-docker-compose logs
+docker compose logs
 
 # Follow logs in real-time
-docker-compose logs -f
+docker compose logs -f
 
 # Last 50 lines
-docker-compose logs --tail=50
+docker compose logs --tail=50
 ```
 
 ### Checking Status
 
 ```bash
 # See running containers
-docker-compose ps
+docker compose ps
 
 # Health check
 curl http://localhost:8010/health/
@@ -106,11 +106,11 @@ curl http://localhost:8010/health/
 
 ```bash
 # Open a shell
-docker-compose exec web bash
+docker compose exec web bash
 
 # Run management commands
-docker-compose exec web python manage.py createsuperuser
-docker-compose exec web python manage.py migrate
+docker compose exec web python manage.py createsuperuser
+docker compose exec web python manage.py migrate
 ```
 
 ## Creating an Admin User
@@ -128,14 +128,14 @@ DJANGO_SUPERUSER_EMAIL=admin@example.com
 Then restart:
 
 ```bash
-docker-compose down
-docker-compose up -d
+docker compose down
+docker compose up -d
 ```
 
 ### Option 2: Command Line (Manual)
 
 ```bash
-docker-compose exec web python manage.py createsuperuser
+docker compose exec web python manage.py createsuperuser
 ```
 
 ## Data Persistence
@@ -153,7 +153,7 @@ View volumes:
 docker volume ls
 ```
 
-> **Warning:** `docker-compose down -v` deletes all data!
+> **Warning:** `docker compose down -v` deletes all data!
 
 > **Need PostgreSQL?** See [PostgreSQL Database](/help/smallstack/database-postgresql/) for Docker Compose configuration with PostgreSQL.
 
@@ -169,8 +169,8 @@ Default port is **8010**. To change:
 
 2. Restart:
    ```bash
-   docker-compose down
-   docker-compose up -d
+   docker compose down
+   docker compose up -d
    ```
 
 ## Troubleshooting
@@ -193,7 +193,7 @@ sudo usermod -aG docker $USER
 Check logs for errors:
 
 ```bash
-docker-compose logs web
+docker compose logs web
 ```
 
 Common issues:
@@ -206,33 +206,33 @@ Common issues:
 Collect static files and restart:
 
 ```bash
-docker-compose exec web python manage.py collectstatic --noinput
-docker-compose restart
+docker compose exec web python manage.py collectstatic --noinput
+docker compose restart
 ```
 
 ### Full Reset
 
 ```bash
 # Stop and remove everything
-docker-compose down -v
+docker compose down -v
 
 # Remove the image
-docker-compose down --rmi local
+docker compose down --rmi local
 
 # Rebuild fresh
-docker-compose up -d --build
+docker compose up -d --build
 ```
 
 ## Quick Reference
 
 | Command | Description |
 |---------|-------------|
-| `docker-compose build` | Build the image |
-| `docker-compose up -d` | Start containers |
-| `docker-compose down` | Stop containers |
-| `docker-compose logs -f` | View logs |
-| `docker-compose exec web bash` | Shell access |
-| `docker-compose down -v` | Stop and remove data |
+| `docker compose build` | Build the image |
+| `docker compose up -d` | Start containers |
+| `docker compose down` | Stop containers |
+| `docker compose logs -f` | View logs |
+| `docker compose exec web bash` | Shell access |
+| `docker compose down -v` | Stop and remove data |
 
 **URLs:**
 - App: http://localhost:8010

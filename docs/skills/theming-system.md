@@ -185,6 +185,8 @@ SMALLSTACK_COLOR_PALETTE = "purple"  # Options: django, high-contrast, dark-blue
 3. Add choice to `UserProfile.COLOR_PALETTE_CHOICES` in `apps/profile/models.py` + create migration
 4. Add id to `PalettePreferenceView.VALID_PALETTES` set in `apps/profile/views.py`
 
+> **Downstream note:** Steps 1-4 all modify files inside `apps/smallstack/` and `apps/profile/` — these are core SmallStack files. If you pull upstream updates, you may get merge conflicts on these files. To minimize friction, keep your custom palette additions clearly separated (e.g., append to the end of `palettes.css` and `palettes.yaml`).
+
 ### Palette Context Variables
 
 The `branding` context processor provides these template variables:
@@ -338,6 +340,21 @@ Load with `{% load theme_tags %}`:
 <a class="nav-link {% nav_active 'home' %}">Home</a>
 <a class="nav-link {% nav_active 'help:index' 'help:detail' %}">Help</a>
 ```
+
+## Creating a Parallel Theme
+
+You can add a second CSS framework (Bootstrap, Tailwind, Tabler) alongside SmallStack's default theme by creating a parallel base template:
+
+1. Create `templates/website/base_<framework>.html` — loads the new framework's CSS/JS
+2. New pages extend the new base: `{% extends "website/base_tabler.html" %}`
+3. Existing SmallStack pages continue using `templates/smallstack/base.html` unchanged
+
+What works across both bases:
+- `data-theme` / `data-palette` attributes and `theme.js` (framework-agnostic)
+- SmallStack template tags (`{% breadcrumb %}`, `{% nav_active %}`)
+- SmallStack partials (`topbar.html`, `sidebar.html`) can be included in either base
+
+Vendor framework CSS/JS locally in `static/css/` and `static/js/` — avoid CDNs.
 
 ## Adding New CSS
 

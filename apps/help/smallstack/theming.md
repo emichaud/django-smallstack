@@ -190,6 +190,8 @@ html[data-palette="my-palette"][data-theme="dark"] {
 3. Add choice to `UserProfile.COLOR_PALETTE_CHOICES` in `apps/profile/models.py` and create a migration
 4. Add id to `PalettePreferenceView.VALID_PALETTES` in `apps/profile/views.py`
 
+> **Note for downstream projects:** Steps 1-4 modify core SmallStack files. If you pull upstream updates, you may get merge conflicts. Keep your custom palette additions at the end of `palettes.css` and `palettes.yaml` to minimize friction.
+
 ## Dark/Light Mode
 
 ### How It Works
@@ -308,9 +310,74 @@ Use `{% nav_active 'url_name' %}` to highlight the current page:
 </div>
 ```
 
-## Swapping CSS Frameworks
+## Creating a Parallel Theme
 
-To use Bootstrap, Tailwind, or another framework:
+SmallStack ships with a Django admin-based CSS theme, but you can add a second CSS framework (Bootstrap, Tailwind, Tabler, etc.) **alongside** the default without removing it. This lets you build new pages with the new framework while existing pages continue to work.
+
+### Strategy: A Parallel Base Template
+
+Instead of replacing `templates/smallstack/base.html`, create a new base template for your framework:
+
+```
+templates/
+├── smallstack/
+│   └── base.html              ← SmallStack default (keep as-is)
+├── website/
+│   └── base_tabler.html       ← Your new framework base
+```
+
+Your new base template loads its own CSS/JS, but can still use SmallStack's sidebar, topbar, and template tags if you want:
+
+```html
+{# templates/website/base_tabler.html #}
+{% load static theme_tags %}
+<!DOCTYPE html>
+<html lang="en" data-theme="{{ theme }}" data-palette="{{ color_palette }}">
+<head>
+    <link rel="stylesheet" href="{% static 'css/tabler.min.css' %}">
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+    {% include "smallstack/includes/topbar.html" %}
+    <div class="page-body">
+        {% block content %}{% endblock %}
+    </div>
+    <script src="{% static 'js/tabler.min.js' %}"></script>
+    {% block extra_js %}{% endblock %}
+</body>
+</html>
+```
+
+New pages extend your framework base:
+
+```html
+{# templates/website/dashboard.html #}
+{% extends "website/base_tabler.html" %}
+{% block content %}
+    <div class="container-xl">...</div>
+{% endblock %}
+```
+
+### What to Keep, What to Replace
+
+| Component | Keep from SmallStack? | Notes |
+|-----------|----------------------|-------|
+| Topbar / sidebar | Your choice | Include the SmallStack partials, or build your own |
+| Dark/light mode | Yes | `data-theme` attribute and `theme.js` work with any CSS |
+| Color palettes | Yes | `data-palette` attribute is framework-agnostic |
+| Template tags | Yes | `{% breadcrumb %}`, `{% nav_active %}` are pure logic |
+| `theme.css` | No (for new pages) | Your framework provides its own styles |
+| `admin/css/base.css` | No (for new pages) | Only needed for SmallStack's default look |
+
+### Tips
+
+- **Vendor CSS/JS locally** — download framework files into `static/css/` and `static/js/` rather than using CDNs. SmallStack does this with htmx.
+- **Share the topbar** — if you include `smallstack/includes/topbar.html`, the dark mode toggle and palette selector work automatically.
+- **Gradual migration** — move pages one at a time from `base.html` to your new base. No need to convert everything at once.
+
+## Swapping CSS Frameworks Entirely
+
+If you want to fully replace SmallStack's CSS (not run in parallel):
 
 ### Step 1: Remove Current CSS
 
@@ -325,7 +392,7 @@ In `templates/smallstack/base.html`:
 ### Step 2: Add Your Framework
 
 ```html
-<link href="https://cdn.example.com/framework.css" rel="stylesheet">
+<link href="{% static 'css/framework.min.css' %}" rel="stylesheet">
 ```
 
 ### Step 3: Update Component Classes

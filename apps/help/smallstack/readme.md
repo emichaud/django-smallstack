@@ -94,7 +94,7 @@ Production-ready SQLite configuration with the database stored outside the conta
 
 1. **Build and run:**
    ```bash
-   docker-compose up -d
+   docker compose up -d
    ```
 
 2. **Access the application:**

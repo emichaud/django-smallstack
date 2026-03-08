@@ -17,7 +17,7 @@ To verify Docker is working, open your terminal and run:
 
 ```bash
 docker --version
-docker-compose --version
+docker compose --version
 ```
 
 You should see version numbers for both commands.
@@ -54,7 +54,7 @@ DJANGO_SUPERUSER_EMAIL=admin@example.com
 This downloads everything needed and creates your application image:
 
 ```bash
-docker-compose build
+docker compose build
 ```
 
 This may take a few minutes the first time. You'll see lots of output—that's normal!
@@ -62,7 +62,7 @@ This may take a few minutes the first time. You'll see lots of output—that's n
 ### Step 3: Start the Application
 
 ```bash
-docker-compose up -d
+docker compose up -d
 ```
 
 The `-d` flag runs it in the background so you get your terminal back.
@@ -79,7 +79,7 @@ If you set the superuser environment variables, you can log in at **http://local
 
 ### What's Happening Behind the Scenes?
 
-When you run `docker-compose up`, Docker:
+When you run `docker compose up`, Docker:
 
 1. **Builds** an image with Python, Django, and all dependencies
 2. **Runs migrations** to set up the database
@@ -103,33 +103,33 @@ When you run `docker-compose up`, Docker:
 
 ```bash
 # Start the application (background)
-docker-compose up -d
+docker compose up -d
 
 # Stop the application
-docker-compose down
+docker compose down
 
 # Stop and remove all data (database, uploads)
-docker-compose down -v
+docker compose down -v
 ```
 
 ### Viewing Logs
 
 ```bash
 # See all logs
-docker-compose logs
+docker compose logs
 
 # Follow logs in real-time
-docker-compose logs -f
+docker compose logs -f
 
 # See last 50 lines
-docker-compose logs --tail=50
+docker compose logs --tail=50
 ```
 
 ### Checking Status
 
 ```bash
 # See running containers
-docker-compose ps
+docker compose ps
 
 # Check if the app is healthy
 curl http://localhost:8010/health/
@@ -139,13 +139,13 @@ curl http://localhost:8010/health/
 
 ```bash
 # Open a shell in the container
-docker-compose exec web bash
+docker compose exec web bash
 
 # Run a Django management command
-docker-compose exec web python manage.py createsuperuser
+docker compose exec web python manage.py createsuperuser
 
 # Run migrations manually
-docker-compose exec web python manage.py migrate
+docker compose exec web python manage.py migrate
 ```
 
 ---
@@ -165,14 +165,14 @@ DJANGO_SUPERUSER_EMAIL=admin@example.com
 Then restart the container:
 
 ```bash
-docker-compose down
-docker-compose up -d
+docker compose down
+docker compose up -d
 ```
 
 ### Option 2: Command Line (Manual)
 
 ```bash
-docker-compose exec web python manage.py createsuperuser
+docker compose exec web python manage.py createsuperuser
 ```
 
 Follow the prompts to enter username, email, and password.
@@ -192,7 +192,7 @@ To see your volumes:
 docker volume ls
 ```
 
-**Warning:** Running `docker-compose down -v` deletes these volumes and all your data!
+**Warning:** Running `docker compose down -v` deletes these volumes and all your data!
 
 ---
 
@@ -208,8 +208,8 @@ By default, the app runs on port **8010**. To change it:
 
 2. Restart:
    ```bash
-   docker-compose down
-   docker-compose up -d
+   docker compose down
+   docker compose up -d
    ```
 
 3. Visit `http://localhost:8080` (your new port)
@@ -238,7 +238,7 @@ sudo usermod -aG docker $USER
 Check the logs for errors:
 
 ```bash
-docker-compose logs web
+docker compose logs web
 ```
 
 Common issues:
@@ -251,26 +251,26 @@ Common issues:
 Make sure `DEBUG=False` in production and static files were collected:
 
 ```bash
-docker-compose exec web python manage.py collectstatic --noinput
+docker compose exec web python manage.py collectstatic --noinput
 ```
 
 Then restart:
 
 ```bash
-docker-compose restart
+docker compose restart
 ```
 
 ### Need to reset everything
 
 ```bash
 # Stop containers and remove volumes
-docker-compose down -v
+docker compose down -v
 
 # Remove the built image
-docker-compose down --rmi local
+docker compose down --rmi local
 
 # Start fresh
-docker-compose up -d --build
+docker compose up -d --build
 ```
 
 ---
@@ -326,25 +326,25 @@ volumes:
 
 ```bash
 # Build
-docker-compose build
+docker compose build
 
 # Start
-docker-compose up -d
+docker compose up -d
 
 # Stop
-docker-compose down
+docker compose down
 
 # Logs
-docker-compose logs -f
+docker compose logs -f
 
 # Shell access
-docker-compose exec web bash
+docker compose exec web bash
 
 # Create admin user
-docker-compose exec web python manage.py createsuperuser
+docker compose exec web python manage.py createsuperuser
 
 # Full reset
-docker-compose down -v && docker-compose up -d --build
+docker compose down -v && docker compose up -d --build
 ```
 
 **Application URL:** http://localhost:8010
