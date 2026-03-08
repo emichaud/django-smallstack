@@ -8,7 +8,7 @@ slug: smallstack
 
 # Section-specific variables
 variables:
-  version: "0.7.0"
+  version: "0.7.1"
   project_name: "Django SmallStack"
 
 # Pages in this section (order matters for navigation)
