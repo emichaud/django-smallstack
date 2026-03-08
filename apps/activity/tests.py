@@ -63,6 +63,7 @@ class TestActivityMiddleware:
     def _get_middleware(self, response_status=200):
         def get_response(request):
             from django.http import HttpResponse
+
             return HttpResponse(status=response_status)
 
         return ActivityMiddleware(get_response)
@@ -109,6 +110,7 @@ class TestActivityMiddleware:
 
     def test_records_anonymous_user_as_null(self, db, request_factory):
         from django.contrib.auth.models import AnonymousUser
+
         middleware = self._get_middleware()
         request = request_factory.get("/page/")
         request.user = AnonymousUser()
@@ -285,8 +287,11 @@ class TestUserActivityView:
 
     def test_shows_user_with_requests(self, client, staff_user, user):
         RequestLog.objects.create(
-            path="/test/", method="GET", status_code=200,
-            response_time_ms=50, user=user,
+            path="/test/",
+            method="GET",
+            status_code=200,
+            response_time_ms=50,
+            user=user,
         )
         client.login(username="staffuser", password="testpass123")
         response = client.get(reverse("activity:users"))

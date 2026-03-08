@@ -39,6 +39,9 @@ Custom User model ready for email login. Password reset flows, secure sessions, 
 ### Docker Ready
 Production-ready Docker configuration with multi-service compose, health checks, and background worker. Deploy anywhere containers run.
 
+### Database Backups
+Built-in SQLite backup system with management command, scheduled cron support in Docker, and a staff-only web dashboard. Track backup history, view per-backup detail pages with activity timelines, and configure retention policies. Pruned backups are clearly marked — no false alarms.
+
 ### SQLite by Default
 Production-ready SQLite configuration with the database stored outside the container. Perfect for solo developers, small teams, and internal applications. No database service fees—just simple, reliable data storage that backs up with your VPS. Upgrade to PostgreSQL when you need it.
 

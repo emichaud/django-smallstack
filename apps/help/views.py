@@ -28,9 +28,7 @@ class HelpIndexView(TemplateView):
         context = super().get_context_data(**kwargs)
         config = get_config()
         # Exclude SmallStack section — it has its own sidebar link and index page
-        context["sections"] = [
-            s for s in get_all_sections() if s["slug"] != SMALLSTACK_SECTION_SLUG
-        ]
+        context["sections"] = [s for s in get_all_sections() if s["slug"] != SMALLSTACK_SECTION_SLUG]
         context["page_title"] = config.get("title", "Help & Documentation")
         context["config"] = config
         return context

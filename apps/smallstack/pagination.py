@@ -32,9 +32,7 @@ def paginate_queryset(queryset, request, page_size=20, page_param="page"):
     page_obj.showing_start = page_obj.start_index()
     page_obj.showing_end = page_obj.end_index()
     page_obj.total_count = paginator.count
-    page_obj.page_range_display = paginator.get_elided_page_range(
-        page_obj.number, on_each_side=2, on_ends=1
-    )
+    page_obj.page_range_display = paginator.get_elided_page_range(page_obj.number, on_each_side=2, on_ends=1)
 
     return page_obj
 
@@ -45,6 +43,4 @@ class PaginationMixin:
     page_size = 20
 
     def paginate(self, queryset, page_size=None):
-        return paginate_queryset(
-            queryset, self.request, page_size=page_size or self.page_size
-        )
+        return paginate_queryset(queryset, self.request, page_size=page_size or self.page_size)

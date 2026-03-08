@@ -49,7 +49,7 @@
 {% endblock %}
 
 {% block content %}
-<div class="page-header-with-actions">
+<div class="page-header-with-actions" style="background: color-mix(in srgb, var(--primary) 15%, var(--body-bg)); margin: -24px -24px 24px -24px; padding: 24px; border-radius: 8px 8px 0 0;">
     <div class="page-header-content">
         <h1>Activity</h1>
         <p class="page-subtitle">Site overview — {{ total_requests|stringformat:"," }} tracked requests, {{ max_rows|stringformat:"," }} max</p>

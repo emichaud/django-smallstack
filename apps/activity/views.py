@@ -37,8 +37,7 @@ class ActivityStatDetailView(StaffRequiredMixin, View):
             return render(request, "activity/partials/activity_stat_detail.html", {"records": records})
         elif stat == "4xx":
             records = (
-                qs.filter(status_code__gte=400, status_code__lt=500)
-                .select_related("user").order_by("-timestamp")[:100]
+                qs.filter(status_code__gte=400, status_code__lt=500).select_related("user").order_by("-timestamp")[:100]
             )
             return render(request, "activity/partials/activity_stat_detail.html", {"records": records})
         elif stat == "5xx":
@@ -82,11 +81,7 @@ class ActivityDashboardView(StaffRequiredMixin, TemplateView):
                 if count:
                     status_groups.append({"label": label, "count": count})
 
-        top_paths = (
-            qs.values("path")
-            .annotate(hits=Count("pk"))
-            .order_by("-hits")[:8]
-        )
+        top_paths = qs.values("path").annotate(hits=Count("pk")).order_by("-hits")[:8]
 
         recent = qs.select_related("user")[:5]
         recent_errors = qs.filter(status_code__gte=300).select_related("user")[:10]
@@ -97,22 +92,13 @@ class ActivityDashboardView(StaffRequiredMixin, TemplateView):
         recent_signup_count = User.objects.filter(date_joined__gte=thirty_days_ago).count()
 
         # Top theme bar (most popular palette, dark/light split)
-        palette_choices = [
-            (key, label)
-            for key, label in UserProfile.COLOR_PALETTE_CHOICES
-            if key != ""
-        ]
-        crosstab_qs = (
-            UserProfile.objects.values("theme_preference", "color_palette")
-            .annotate(count=Count("pk"))
-        )
+        palette_choices = [(key, label) for key, label in UserProfile.COLOR_PALETTE_CHOICES if key != ""]
+        crosstab_qs = UserProfile.objects.values("theme_preference", "color_palette").annotate(count=Count("pk"))
         counts = {}
         for row in crosstab_qs:
             theme = row["theme_preference"]
             palette = row["color_palette"] or "django"
-            counts[(theme, palette)] = (
-                counts.get((theme, palette), 0) + row["count"]
-            )
+            counts[(theme, palette)] = counts.get((theme, palette), 0) + row["count"]
         top_theme_bar = None
         best_total = 0
         for pk, label in palette_choices:
@@ -122,8 +108,10 @@ class ActivityDashboardView(StaffRequiredMixin, TemplateView):
             if total > best_total:
                 best_total = total
                 top_theme_bar = {
-                    "name": label, "dark": dark,
-                    "light": light, "total": total,
+                    "name": label,
+                    "dark": dark,
+                    "light": light,
+                    "total": total,
                 }
 
         top_users = (
@@ -133,21 +121,23 @@ class ActivityDashboardView(StaffRequiredMixin, TemplateView):
             .order_by("-hits")[:5]
         )
 
-        context.update({
-            "total_requests": total,
-            "max_rows": max_rows,
-            "avg_response_time": round(stats["avg_response_time"] or 0),
-            "count_4xx": stats["count_4xx"],
-            "count_5xx": stats["count_5xx"],
-            "status_groups": status_groups,
-            "top_paths": top_paths,
-            "recent_requests": recent,
-            "recent_errors": recent_errors,
-            "user_count": user_count,
-            "recent_signup_count": recent_signup_count,
-            "top_theme_bar": top_theme_bar,
-            "top_users": top_users,
-        })
+        context.update(
+            {
+                "total_requests": total,
+                "max_rows": max_rows,
+                "avg_response_time": round(stats["avg_response_time"] or 0),
+                "count_4xx": stats["count_4xx"],
+                "count_5xx": stats["count_5xx"],
+                "status_groups": status_groups,
+                "top_paths": top_paths,
+                "recent_requests": recent,
+                "recent_errors": recent_errors,
+                "user_count": user_count,
+                "recent_signup_count": recent_signup_count,
+                "top_theme_bar": top_theme_bar,
+                "top_users": top_users,
+            }
+        )
         return context
 
 
@@ -191,9 +181,7 @@ class RequestListView(StaffRequiredMixin, TemplateView):
             return {"recent_requests": page_obj, "page_obj": page_obj}
         elif tab == "top_paths":
             page_obj = paginate_queryset(
-                qs.values("path")
-                .annotate(hits=Count("pk"), avg_time=Avg("response_time_ms"))
-                .order_by("-hits"),
+                qs.values("path").annotate(hits=Count("pk"), avg_time=Avg("response_time_ms")).order_by("-hits"),
                 self.request,
                 page_size=self.page_size,
             )
@@ -257,9 +245,7 @@ class RequestListView(StaffRequiredMixin, TemplateView):
         context["active_tab"] = tab
 
         if request.htmx:
-            return TemplateResponse(
-                request, self.TAB_PARTIALS[tab], context
-            )
+            return TemplateResponse(request, self.TAB_PARTIALS[tab], context)
 
         context.update(self.get_status_context())
         context["tab_partial"] = self.TAB_PARTIALS[tab]
@@ -288,24 +274,15 @@ class UserActivityView(StaffRequiredMixin, TemplateView):
 
         # Build theme usage bars (horizontal stacked bars per palette)
         # Merge "System Default" (blank) into "Django"
-        palette_choices = [
-            (key, label)
-            for key, label in UserProfile.COLOR_PALETTE_CHOICES
-            if key != ""
-        ]
+        palette_choices = [(key, label) for key, label in UserProfile.COLOR_PALETTE_CHOICES if key != ""]
 
         # Query counts grouped by theme + palette
-        crosstab_qs = (
-            UserProfile.objects.values("theme_preference", "color_palette")
-            .annotate(count=Count("pk"))
-        )
+        crosstab_qs = UserProfile.objects.values("theme_preference", "color_palette").annotate(count=Count("pk"))
         counts = {}
         for row in crosstab_qs:
             theme = row["theme_preference"]
             palette = row["color_palette"] or "django"
-            counts[(theme, palette)] = (
-                counts.get((theme, palette), 0) + row["count"]
-            )
+            counts[(theme, palette)] = counts.get((theme, palette), 0) + row["count"]
 
         # Build bars sorted by total descending
         theme_bars = []
@@ -314,19 +291,19 @@ class UserActivityView(StaffRequiredMixin, TemplateView):
             light = counts.get(("light", pk), 0)
             total = dark + light
             if total:
-                theme_bars.append({
-                    "name": label,
-                    "dark": dark,
-                    "light": light,
-                    "total": total,
-                })
+                theme_bars.append(
+                    {
+                        "name": label,
+                        "dark": dark,
+                        "light": light,
+                        "total": total,
+                    }
+                )
         theme_bars.sort(key=lambda b: b["total"], reverse=True)
 
         return {
             "user_count": User.objects.count(),
-            "recent_signup_count": User.objects.filter(
-                date_joined__gte=thirty_days_ago
-            ).count(),
+            "recent_signup_count": User.objects.filter(date_joined__gte=thirty_days_ago).count(),
             "theme_bars": theme_bars,
         }
 
@@ -347,9 +324,7 @@ class UserActivityView(StaffRequiredMixin, TemplateView):
             return {"top_users": page_obj, "page_obj": page_obj}
         elif tab == "activity":
             page_obj = paginate_queryset(
-                RequestLog.objects.filter(user__isnull=False)
-                .select_related("user")
-                .order_by("-timestamp"),
+                RequestLog.objects.filter(user__isnull=False).select_related("user").order_by("-timestamp"),
                 self.request,
                 page_size=self.page_size,
             )
@@ -357,18 +332,14 @@ class UserActivityView(StaffRequiredMixin, TemplateView):
         elif tab == "signups":
             thirty_days_ago = timezone.now() - timezone.timedelta(days=30)
             page_obj = paginate_queryset(
-                User.objects.filter(
-                    date_joined__gte=thirty_days_ago
-                ).order_by("-date_joined"),
+                User.objects.filter(date_joined__gte=thirty_days_ago).order_by("-date_joined"),
                 self.request,
                 page_size=self.page_size,
             )
             return {"recent_signups": page_obj, "page_obj": page_obj}
         elif tab == "inactive":
             active_user_pks = (
-                RequestLog.objects.filter(user__isnull=False)
-                .values_list("user__pk", flat=True)
-                .distinct()
+                RequestLog.objects.filter(user__isnull=False).values_list("user__pk", flat=True).distinct()
             )
             page_obj = paginate_queryset(
                 User.objects.exclude(pk__in=active_user_pks).order_by("-date_joined"),
@@ -385,9 +356,7 @@ class UserActivityView(StaffRequiredMixin, TemplateView):
         context["active_tab"] = tab
 
         if request.htmx:
-            return TemplateResponse(
-                request, self.TAB_PARTIALS[tab], context
-            )
+            return TemplateResponse(request, self.TAB_PARTIALS[tab], context)
 
         context.update(self.get_summary_context())
         context["tab_partial"] = self.TAB_PARTIALS[tab]

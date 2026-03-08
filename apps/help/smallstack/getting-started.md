@@ -246,9 +246,33 @@ cp .kamal/secrets.example .kamal/secrets
 
 See [Kamal Deployment](/help/smallstack/kamal-deployment/) for full instructions.
 
+## Set Up Backups (Recommended for SQLite)
+
+If you're running SQLite in production — which works great for many projects — you'll want backups in place before you go live. SmallStack has this built in.
+
+**Try it locally first:**
+
+```bash
+make backup
+```
+
+That creates a timestamped copy of your database in the `backups/` directory and logs it in the backup history. Visit `/backups/` as a staff user to see the dashboard — you can create backups, view history, and download files right from the browser.
+
+**For production**, enable scheduled backups so they happen automatically:
+
+```bash
+# In your .env or docker-compose.yml
+BACKUP_CRON_ENABLED=true
+```
+
+This runs a daily backup at 2 AM and keeps the last 10 copies (configurable via `BACKUP_RETENTION`). Old backups are pruned automatically and clearly marked in the history — no alarming red warnings, just a clean record of what happened and when.
+
+For the full setup including off-server copies, failure notifications, and customizing the schedule, see [Database Backups](/help/smallstack/database-backups/).
+
 ## Next Steps
 
 - [Authentication](/help/smallstack/authentication/) - Control login, signup, and feature flags
+- [Database Backups](/help/smallstack/database-backups/) - Protect your data with automated backups
 - [Customization Guide](/help/smallstack/customization/) - Make SmallStack your own
 - [View the Starter Page](/starter/) - See all components in action
 - [Customize the theme](/help/smallstack/theming/) - Colors, dark mode, components

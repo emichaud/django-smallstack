@@ -29,7 +29,11 @@ def about_view(request):
 
     deck = get_slide_deck("features")
     slides = get_deck_slides("features")
-    return render(request, "website/about.html", {
-        "deck": deck,
-        "slides": slides or [],
-    })
+    return render(
+        request,
+        "website/about.html",
+        {
+            "deck": deck,
+            "slides": slides or [],
+        },
+    )

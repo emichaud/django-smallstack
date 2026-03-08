@@ -6,7 +6,6 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     initial = True
 
     dependencies = [
@@ -15,21 +14,29 @@ class Migration(migrations.Migration):
 
     operations = [
         migrations.CreateModel(
-            name='RequestLog',
+            name="RequestLog",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('path', models.CharField(max_length=2048)),
-                ('method', models.CharField(max_length=10)),
-                ('status_code', models.PositiveSmallIntegerField()),
-                ('timestamp', models.DateTimeField(auto_now_add=True, db_index=True)),
-                ('response_time_ms', models.PositiveIntegerField()),
-                ('ip_address', models.GenericIPAddressField(blank=True, null=True)),
-                ('user_agent', models.TextField(blank=True, default='')),
-                ('user', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, to=settings.AUTH_USER_MODEL)),
+                ("id", models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name="ID")),
+                ("path", models.CharField(max_length=2048)),
+                ("method", models.CharField(max_length=10)),
+                ("status_code", models.PositiveSmallIntegerField()),
+                ("timestamp", models.DateTimeField(auto_now_add=True, db_index=True)),
+                ("response_time_ms", models.PositiveIntegerField()),
+                ("ip_address", models.GenericIPAddressField(blank=True, null=True)),
+                ("user_agent", models.TextField(blank=True, default="")),
+                (
+                    "user",
+                    models.ForeignKey(
+                        blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, to=settings.AUTH_USER_MODEL
+                    ),
+                ),
             ],
             options={
-                'ordering': ['-timestamp'],
-                'indexes': [models.Index(fields=['path'], name='activity_re_path_e24f93_idx'), models.Index(fields=['status_code'], name='activity_re_status__4e3d02_idx')],
+                "ordering": ["-timestamp"],
+                "indexes": [
+                    models.Index(fields=["path"], name="activity_re_path_e24f93_idx"),
+                    models.Index(fields=["status_code"], name="activity_re_status__4e3d02_idx"),
+                ],
             },
         ),
     ]

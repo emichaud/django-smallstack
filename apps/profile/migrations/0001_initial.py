@@ -9,7 +9,6 @@ import apps.profile.models
 
 
 class Migration(migrations.Migration):
-
     initial = True
 
     dependencies = [
@@ -18,25 +17,66 @@ class Migration(migrations.Migration):
 
     operations = [
         migrations.CreateModel(
-            name='UserProfile',
+            name="UserProfile",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('theme_preference', models.CharField(choices=[('dark', 'Dark'), ('light', 'Light')], default='dark', help_text='Preferred color theme', max_length=10)),
-                ('profile_photo', models.ImageField(blank=True, help_text='Profile photo (max 5MB, jpg/png/gif/webp)', null=True, upload_to='profiles/photos/', validators=[django.core.validators.FileExtensionValidator(allowed_extensions=['jpg', 'jpeg', 'png', 'gif', 'webp']), apps.profile.models.validate_image_size])),
-                ('background_photo', models.ImageField(blank=True, help_text='Background photo (max 5MB, jpg/png/gif/webp)', null=True, upload_to='profiles/backgrounds/', validators=[django.core.validators.FileExtensionValidator(allowed_extensions=['jpg', 'jpeg', 'png', 'gif', 'webp']), apps.profile.models.validate_image_size])),
-                ('display_name', models.CharField(blank=True, help_text='Name to display publicly', max_length=100)),
-                ('bio', models.TextField(blank=True, help_text='A short bio about yourself')),
-                ('location', models.CharField(blank=True, help_text="Where you're located", max_length=100)),
-                ('website', models.URLField(blank=True, help_text='Your personal website')),
-                ('date_of_birth', models.DateField(blank=True, help_text='Your date of birth', null=True)),
-                ('created_at', models.DateTimeField(auto_now_add=True)),
-                ('updated_at', models.DateTimeField(auto_now=True)),
-                ('user', models.OneToOneField(on_delete=django.db.models.deletion.CASCADE, related_name='profile', to=settings.AUTH_USER_MODEL)),
+                ("id", models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name="ID")),
+                (
+                    "theme_preference",
+                    models.CharField(
+                        choices=[("dark", "Dark"), ("light", "Light")],
+                        default="dark",
+                        help_text="Preferred color theme",
+                        max_length=10,
+                    ),
+                ),
+                (
+                    "profile_photo",
+                    models.ImageField(
+                        blank=True,
+                        help_text="Profile photo (max 5MB, jpg/png/gif/webp)",
+                        null=True,
+                        upload_to="profiles/photos/",
+                        validators=[
+                            django.core.validators.FileExtensionValidator(
+                                allowed_extensions=["jpg", "jpeg", "png", "gif", "webp"]
+                            ),
+                            apps.profile.models.validate_image_size,
+                        ],
+                    ),
+                ),
+                (
+                    "background_photo",
+                    models.ImageField(
+                        blank=True,
+                        help_text="Background photo (max 5MB, jpg/png/gif/webp)",
+                        null=True,
+                        upload_to="profiles/backgrounds/",
+                        validators=[
+                            django.core.validators.FileExtensionValidator(
+                                allowed_extensions=["jpg", "jpeg", "png", "gif", "webp"]
+                            ),
+                            apps.profile.models.validate_image_size,
+                        ],
+                    ),
+                ),
+                ("display_name", models.CharField(blank=True, help_text="Name to display publicly", max_length=100)),
+                ("bio", models.TextField(blank=True, help_text="A short bio about yourself")),
+                ("location", models.CharField(blank=True, help_text="Where you're located", max_length=100)),
+                ("website", models.URLField(blank=True, help_text="Your personal website")),
+                ("date_of_birth", models.DateField(blank=True, help_text="Your date of birth", null=True)),
+                ("created_at", models.DateTimeField(auto_now_add=True)),
+                ("updated_at", models.DateTimeField(auto_now=True)),
+                (
+                    "user",
+                    models.OneToOneField(
+                        on_delete=django.db.models.deletion.CASCADE, related_name="profile", to=settings.AUTH_USER_MODEL
+                    ),
+                ),
             ],
             options={
-                'verbose_name': 'user profile',
-                'verbose_name_plural': 'user profiles',
-                'ordering': ['-created_at'],
+                "verbose_name": "user profile",
+                "verbose_name_plural": "user profiles",
+                "ordering": ["-created_at"],
             },
         ),
     ]

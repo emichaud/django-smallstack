@@ -157,9 +157,7 @@ def querystring(context, **kwargs):
     return f"?{qs}" if qs else ""
 
 
-@register.inclusion_tag(
-    "smallstack/includes/paginator.html", takes_context=True
-)
+@register.inclusion_tag("smallstack/includes/paginator.html", takes_context=True)
 def render_paginator(context, page_obj, hx_target="#tab-content", hx_swap="innerHTML"):
     """Render paginator controls for a Page object.
 

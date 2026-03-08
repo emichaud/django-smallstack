@@ -97,11 +97,26 @@
         <div class="card" id="backup-now-card" style="border: 2px solid color-mix(in srgb, var(--primary) 30%, transparent); margin: 0; min-width: 160px; cursor: pointer; transition: border-color 0.15s, background 0.15s;" onmouseover="this.style.borderColor='var(--primary)';this.style.background='color-mix(in srgb, var(--primary) 8%, var(--card-bg))'" onmouseout="this.style.borderColor='color-mix(in srgb, var(--primary) 30%, transparent)';this.style.background=''" onclick="backupNow()">
             <div class="card-body" style="display: flex; align-items: center; gap: 10px; padding: 12px 16px;">
                 <svg id="backup-icon" viewBox="0 0 24 24" width="28" height="28" fill="var(--primary)">
-                    <path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/>
+                    <path d="M5 4v2h14V4H5zm0 10h4v6h6v-6h4l-7-7-7 7z"/>
                 </svg>
                 <div>
                     <div id="backup-label" style="font-weight: 700; font-size: 0.95rem; color: var(--primary);">Backup Now</div>
-                    <div style="color: var(--body-quiet-color); font-size: 0.75rem;">Download a copy</div>
+                    <div style="color: var(--body-quiet-color); font-size: 0.75rem;">Save to storage</div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Download -->
+        {% if is_sqlite and backup_download_enabled %}
+        <div class="card" id="download-card" style="border: 2px solid color-mix(in srgb, var(--primary) 30%, transparent); margin: 0; min-width: 160px; cursor: pointer; transition: border-color 0.15s, background 0.15s;" onmouseover="this.style.borderColor='var(--primary)';this.style.background='color-mix(in srgb, var(--primary) 8%, var(--card-bg))'" onmouseout="this.style.borderColor='color-mix(in srgb, var(--primary) 30%, transparent)';this.style.background=''" onclick="downloadBackup()">
+            <div class="card-body" style="display: flex; align-items: center; gap: 10px; padding: 12px 16px;">
+                <svg viewBox="0 0 24 24" width="28" height="28" fill="var(--primary)">
+                    <path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/>
+                </svg>
+                <div>
+                    <div id="download-label" style="font-weight: 700; font-size: 0.95rem; color: var(--primary);">Download</div>
+                    <div style="color: var(--body-quiet-color); font-size: 0.75rem;">Save to browser</div>
                 </div>
             </div>
         </div>
@@ -119,31 +134,56 @@
 
 {% block extra_js %}
 <script>
+function _getCSRFToken() {
+    var el = document.querySelector('[name=csrfmiddlewaretoken]');
+    if (el) return el.value;
+    var match = document.cookie.match(/csrftoken=([^;]+)/);
+    return match ? match[1] : '';
+}
+
 function backupNow() {
     var card = document.getElementById('backup-now-card');
     if (card.dataset.busy) return;
     card.dataset.busy = '1';
     var label = document.getElementById('backup-label');
-    if (label) label.textContent = 'Creating backup…';
+    if (label) label.textContent = 'Creating\u2026';
 
-    var csrfToken = document.querySelector('[name=csrfmiddlewaretoken]');
-    if (!csrfToken) {
-        // Grab from cookie
-        var match = document.cookie.match(/csrftoken=([^;]+)/);
-        var token = match ? match[1] : '';
-    } else {
-        var token = csrfToken.value;
-    }
-
-    fetch("{% url 'smallstack:backup_download' %}", {
+    fetch("{% url 'smallstack:backup_now' %}", {
         method: 'POST',
-        headers: {
-            'X-CSRFToken': token || document.cookie.match(/csrftoken=([^;]+)/)?.[1] || ''
-        },
+        headers: { 'X-CSRFToken': _getCSRFToken() },
         credentials: 'same-origin'
     })
     .then(function(response) {
-        if (!response.ok) throw new Error('Backup failed');
+        if (label) label.textContent = 'Backup Now';
+        delete card.dataset.busy;
+        htmx.ajax('GET', "{% url 'smallstack:backups' %}", {
+            target: '#backup-page-content',
+            swap: 'innerHTML'
+        });
+    })
+    .catch(function(err) {
+        if (label) label.textContent = 'Failed';
+        setTimeout(function() {
+            if (label) label.textContent = 'Backup Now';
+            delete card.dataset.busy;
+        }, 2000);
+    });
+}
+
+function downloadBackup() {
+    var card = document.getElementById('download-card');
+    if (card.dataset.busy) return;
+    card.dataset.busy = '1';
+    var label = document.getElementById('download-label');
+    if (label) label.textContent = 'Creating\u2026';
+
+    fetch("{% url 'smallstack:backup_download' %}", {
+        method: 'POST',
+        headers: { 'X-CSRFToken': _getCSRFToken() },
+        credentials: 'same-origin'
+    })
+    .then(function(response) {
+        if (!response.ok) throw new Error('Download failed');
         var disposition = response.headers.get('Content-Disposition') || '';
         var filenameMatch = disposition.match(/filename="?([^"]+)"?/);
         var filename = filenameMatch ? filenameMatch[1] : 'backup.sqlite3';
@@ -152,7 +192,6 @@ function backupNow() {
         });
     })
     .then(function(result) {
-        // Trigger file download
         var url = URL.createObjectURL(result.blob);
         var a = document.createElement('a');
         a.href = url;
@@ -161,17 +200,17 @@ function backupNow() {
         a.click();
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
-
-        // Refresh the entire page content via HTMX
+        if (label) label.textContent = 'Download';
+        delete card.dataset.busy;
         htmx.ajax('GET', "{% url 'smallstack:backups' %}", {
             target: '#backup-page-content',
             swap: 'innerHTML'
         });
     })
     .catch(function(err) {
-        if (label) label.textContent = 'Backup failed';
+        if (label) label.textContent = 'Failed';
         setTimeout(function() {
-            if (label) label.textContent = 'Backup Now';
+            if (label) label.textContent = 'Download';
             delete card.dataset.busy;
         }, 2000);
     });

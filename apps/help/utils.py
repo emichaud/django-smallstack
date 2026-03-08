@@ -49,11 +49,7 @@ def get_config() -> dict:
             config = yaml.safe_load(f) or {}
             # Filter out any smallstack section reference (cleanup for old configs)
             if "sections" in config:
-                config["sections"] = [
-                    s
-                    for s in config["sections"]
-                    if s.get("slug") != SMALLSTACK_SECTION_SLUG
-                ]
+                config["sections"] = [s for s in config["sections"] if s.get("slug") != SMALLSTACK_SECTION_SLUG]
             return config
     return {"sections": [], "variables": {}}
 

@@ -69,9 +69,7 @@ class ActivityMiddleware:
 
         count = RequestLog.objects.count()
         if count > self.max_rows:
-            cutoff = RequestLog.objects.order_by("-timestamp").values_list(
-                "pk", flat=True
-            )[self.max_rows]
+            cutoff = RequestLog.objects.order_by("-timestamp").values_list("pk", flat=True)[self.max_rows]
             RequestLog.objects.filter(pk__lte=cutoff).delete()
 
     def _get_ip(self, request):

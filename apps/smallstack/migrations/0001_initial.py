@@ -4,27 +4,37 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     initial = True
 
-    dependencies = [
-    ]
+    dependencies = []
 
     operations = [
         migrations.CreateModel(
-            name='BackupRecord',
+            name="BackupRecord",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('created_at', models.DateTimeField(auto_now_add=True)),
-                ('filename', models.CharField(blank=True, max_length=255)),
-                ('file_size', models.PositiveIntegerField(default=0)),
-                ('duration_ms', models.PositiveIntegerField(default=0)),
-                ('status', models.CharField(choices=[('success', 'Success'), ('failed', 'Failed'), ('pruned', 'Pruned')], max_length=10)),
-                ('error_message', models.TextField(blank=True)),
-                ('triggered_by', models.CharField(choices=[('manual', 'Manual'), ('command', 'Command'), ('system', 'System')], default='command', max_length=10)),
+                ("id", models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name="ID")),
+                ("created_at", models.DateTimeField(auto_now_add=True)),
+                ("filename", models.CharField(blank=True, max_length=255)),
+                ("file_size", models.PositiveIntegerField(default=0)),
+                ("duration_ms", models.PositiveIntegerField(default=0)),
+                (
+                    "status",
+                    models.CharField(
+                        choices=[("success", "Success"), ("failed", "Failed"), ("pruned", "Pruned")], max_length=10
+                    ),
+                ),
+                ("error_message", models.TextField(blank=True)),
+                (
+                    "triggered_by",
+                    models.CharField(
+                        choices=[("manual", "Manual"), ("command", "Command"), ("system", "System")],
+                        default="command",
+                        max_length=10,
+                    ),
+                ),
             ],
             options={
-                'ordering': ['-created_at'],
+                "ordering": ["-created_at"],
             },
         ),
     ]

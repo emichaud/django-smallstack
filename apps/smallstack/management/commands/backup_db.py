@@ -11,6 +11,7 @@ from django.core.mail import mail_admins
 from django.core.management.base import BaseCommand
 
 from apps.smallstack.models import BackupRecord
+from apps.smallstack.views import _prune_backups
 
 
 class Command(BaseCommand):
@@ -37,8 +38,7 @@ class Command(BaseCommand):
         if "sqlite3" not in engine:
             self.stderr.write(
                 self.style.ERROR(
-                    "This command only supports SQLite databases. "
-                    "PostgreSQL backup is coming in a future release."
+                    "This command only supports SQLite databases. PostgreSQL backup is coming in a future release."
                 )
             )
             return
@@ -80,11 +80,7 @@ class Command(BaseCommand):
                 triggered_by="command",
             )
 
-            self.stdout.write(
-                self.style.SUCCESS(
-                    f"Backup created: {dest_path} ({file_size:,} bytes, {duration_ms}ms)"
-                )
-            )
+            self.stdout.write(self.style.SUCCESS(f"Backup created: {dest_path} ({file_size:,} bytes, {duration_ms}ms)"))
 
         except Exception as e:
             duration_ms = int((time.monotonic() - start) * 1000)
@@ -110,29 +106,10 @@ class Command(BaseCommand):
                     pass
             return
 
-        # Prune old backups
-        keep = options["keep"]
-        if keep is None:
-            keep = getattr(settings, "BACKUP_RETENTION", None)
-        if keep is not None:
-            self._prune(backup_dir, keep)
+        # Prune old backups (--keep overrides BACKUP_RETENTION)
+        pruned = _prune_backups(triggered_by="command", keep=options["keep"])
 
-    def _prune(self, backup_dir, keep):
-        """Remove oldest backups beyond the keep count."""
-        backups = sorted(backup_dir.glob("db-*.sqlite3"), key=lambda p: p.stat().st_mtime, reverse=True)
-
-        to_remove = backups[keep:]
-        for path in to_remove:
-            file_size = path.stat().st_size
-            path.unlink()
-            BackupRecord.objects.create(
-                filename=path.name,
-                file_size=file_size,
-                duration_ms=0,
-                status="pruned",
-                triggered_by="command",
-            )
-            self.stdout.write(f"Pruned: {path.name}")
-
-        if to_remove:
-            self.stdout.write(self.style.SUCCESS(f"Pruned {len(to_remove)} old backup(s), kept {keep}"))
+        for name in pruned:
+            self.stdout.write(f"Pruned: {name}")
+        if pruned:
+            self.stdout.write(self.style.SUCCESS(f"Pruned {len(pruned)} old backup(s)"))

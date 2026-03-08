@@ -12,7 +12,6 @@ def migrate_high_contrast_to_light_blue(apps, schema_editor):
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         ("profile", "0003_replace_light_blue_with_high_contrast"),
     ]

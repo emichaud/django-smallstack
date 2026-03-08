@@ -1,6 +1,6 @@
 # Database Backups
 
-SmallStack includes built-in SQLite backup tooling — a management command for automation, optional cron scheduling in Docker, and a staff-only web page for manual downloads and status.
+SmallStack includes built-in SQLite backup tooling — a management command for automation, optional cron scheduling in Docker, and a staff-only web dashboard for manual backups, history, and status.
 
 ## Quick Start
 
@@ -11,6 +11,8 @@ make backup
 # Or with options
 python manage.py backup_db --keep 14
 ```
+
+That's all you need. Backups are saved to your `BACKUP_DIR` and tracked in the database automatically.
 
 ## Management Command
 
@@ -38,14 +40,37 @@ Backup files are named `db-YYYYMMDD-HHMMSS.sqlite3` and stored in `BACKUP_DIR`.
 
 ## Web Interface
 
-Staff users can access the backup page at `/backups/`. It shows:
+Staff users can access the backup dashboard at `/backups/`. The Backups link appears in the sidebar under the Admin section.
 
-- **Database info** — engine, file path, file size
-- **Download button** — creates and downloads a backup immediately
-- **Backup history** — table of all backup records with download links
-- **Cron status** — whether scheduled backups are enabled
+### Backup Activity Tab
 
-The Backups link appears in the sidebar under the Admin section for staff users.
+- **Stat cards** — quick counts for recent (24h), successful, failed, and pruned backups, plus average duration and total size on disk
+- **Backup history** — paginated table with clickable IDs that link to each backup's detail page
+
+### Backup Detail Page
+
+Click any backup ID (e.g. `#12`) to see its full detail page at `/backups/12/`. This shows:
+
+- **Details card** — filename, size, duration, trigger source, status, and file availability
+- **Activity timeline** — visual history of the backup lifecycle: when it was created, and if/when it was pruned or went missing
+- **Download button** — if the file is still on disk and downloads are enabled
+
+### Pruning
+
+When backups are pruned (automatically via retention policy or manually via `--keep`), SmallStack marks the original backup record with a `pruned_at` timestamp instead of creating a separate record. This means:
+
+- Pruned backups show a muted "pruned" badge and a gray trash icon in the history table
+- The detail page shows exactly when the file was removed
+- The red warning icon is reserved for files that are *unexpectedly* missing — not routine pruning
+- Stat cards correctly separate "successful" (file available) from "pruned" (file removed by policy)
+
+### Files Tab
+
+Lists all backup files currently on disk with their sizes and modification dates.
+
+### Configuration Tab
+
+Shows your current backup settings, database info, email configuration status, and admin recipients.
 
 ## Scheduled Backups (Docker)
 
@@ -87,6 +112,7 @@ These settings are already defined in `config/settings/base.py` with sensible de
 | `BACKUP_DIR` | `<project>/backups/` | Directory to store backup files |
 | `BACKUP_RETENTION` | `10` | Default number of backups to keep (used when `--keep` is not specified) |
 | `BACKUP_CRON_ENABLED` | `false` | Enable cron-based scheduled backups in Docker |
+| `BACKUP_DOWNLOAD_ENABLED` | `true` | Allow backup file downloads from the web UI |
 
 ## Failure Notifications
 

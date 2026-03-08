@@ -13,8 +13,14 @@ class RequestLogAdmin(admin.ModelAdmin):
     list_filter = ("method", "status_code")
     search_fields = ("path", "ip_address", "user__username")
     readonly_fields = (
-        "path", "method", "status_code", "user", "timestamp",
-        "response_time_ms", "ip_address", "user_agent",
+        "path",
+        "method",
+        "status_code",
+        "user",
+        "timestamp",
+        "response_time_ms",
+        "ip_address",
+        "user_agent",
     )
     date_hierarchy = "timestamp"
 

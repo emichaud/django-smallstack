@@ -5,6 +5,11 @@
             style="padding: 10px 20px; font-size: 0.9rem; font-weight: 600; background: none; border: none; border-bottom: 2px solid var(--primary); margin-bottom: -2px; color: var(--primary); cursor: pointer;">
         Backup Activity
     </button>
+    <button type="button" id="tab-files" onclick="switchBackupTab('files')"
+            style="padding: 10px 20px; font-size: 0.9rem; font-weight: 600; background: none; border: none; border-bottom: 2px solid transparent; margin-bottom: -2px; color: var(--body-quiet-color); cursor: pointer; display: inline-flex; align-items: center; gap: 8px;">
+        Files
+        <span style="display: inline-block; padding: 1px 7px; border-radius: 10px; font-size: 0.7rem; font-weight: 700; background: color-mix(in srgb, var(--primary) 15%, var(--card-bg)); color: var(--primary);">{{ backup_files|length }}</span>
+    </button>
     <button type="button" id="tab-config" onclick="switchBackupTab('config')"
             style="padding: 10px 20px; font-size: 0.9rem; font-weight: 600; background: none; border: none; border-bottom: 2px solid transparent; margin-bottom: -2px; color: var(--body-quiet-color); cursor: pointer; display: inline-flex; align-items: center; gap: 8px;">
         Configuration
@@ -75,6 +80,16 @@
     </div>
 </div>
 
+<!-- ── Tab: Files ─────────────────────────────────────────────── -->
+<div id="panel-files" style="display: none;">
+    <div class="card">
+        <div class="card-header"><h2>Backup Files on Disk</h2></div>
+        <div class="card-body" style="padding: 0;">
+            {% include "smallstack/partials/backup_files.html" %}
+        </div>
+    </div>
+</div>
+
 <!-- ── Tab: Configuration ─────────────────────────────────────── -->
 <div id="panel-config" style="display: none;">
     <div class="card">
@@ -83,8 +98,9 @@
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px;">
                 <table class="table-plain" style="width: 100%;">
                     <tbody>
+                        <tr><td colspan="2" style="font-weight: 700; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.3px; color: var(--body-quiet-color); padding-bottom: 2px;">Database</td></tr>
                         <tr>
-                            <td style="font-weight: 600; width: 100px;">Engine</td>
+                            <td style="font-weight: 600; width: 140px;">Engine</td>
                             <td>{{ engine }}</td>
                         </tr>
                         {% if is_sqlite %}
@@ -97,9 +113,35 @@
                             <td>{{ db_size|filesizeformat }}</td>
                         </tr>
                         {% endif %}
+
+                        <tr><td colspan="2" style="font-weight: 700; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.3px; color: var(--body-quiet-color); padding-top: 12px; padding-bottom: 2px;">Backup Settings</td></tr>
                         <tr>
                             <td style="font-weight: 600;">Backup Dir</td>
                             <td><code style="font-size: 0.8rem;">{{ backup_dir }}</code> <button type="button" onclick="navigator.clipboard.writeText('{{ backup_dir }}')" title="Copy path" style="background:none;border:none;cursor:pointer;padding:2px;vertical-align:middle;color:var(--body-quiet-color);"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg></button></td>
+                        </tr>
+                        <tr>
+                            <td style="font-weight: 600;">Retention</td>
+                            <td>{{ settings_info.backup_retention }} files</td>
+                        </tr>
+                        <tr>
+                            <td style="font-weight: 600;">Scheduled</td>
+                            <td>
+                                {% if settings_info.backup_cron_enabled %}
+                                <span style="color: var(--success-fg);">Enabled</span>
+                                {% else %}
+                                <span style="color: var(--body-quiet-color);">Disabled</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        <tr>
+                            <td style="font-weight: 600;">Downloads</td>
+                            <td>
+                                {% if settings_info.backup_download_enabled %}
+                                <span style="color: var(--success-fg);">Enabled</span>
+                                {% else %}
+                                <span style="color: var(--body-quiet-color);">Disabled</span>
+                                {% endif %}
+                            </td>
                         </tr>
                     </tbody>
                 </table>
@@ -169,7 +211,7 @@
 
 <script>
 function switchBackupTab(tab) {
-    var tabs = ['activity', 'config'];
+    var tabs = ['activity', 'files', 'config'];
     tabs.forEach(function(t) {
         var panel = document.getElementById('panel-' + t);
         var btn = document.getElementById('tab-' + t);
