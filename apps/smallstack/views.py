@@ -8,10 +8,12 @@ from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.http import FileResponse, Http404
 from django.shortcuts import redirect
+from django.template.response import TemplateResponse
 from django.views import View
 from django.views.generic import TemplateView
 
 from .models import BackupRecord
+from .pagination import paginate_queryset
 
 
 class StaffRequiredMixin(LoginRequiredMixin, UserPassesTestMixin):
@@ -95,9 +97,69 @@ class BackupPageView(StaffRequiredMixin, TemplateView):
         db_info = _get_db_info()
         context.update(db_info)
         context["backup_cron_enabled"] = getattr(settings, "BACKUP_CRON_ENABLED", False)
-        context["backup_records"] = BackupRecord.objects.all()[:50]
+        records = BackupRecord.objects.all()
+        page_obj = paginate_queryset(records, self.request, page_size=15)
+        context["backup_records"] = page_obj
+        context["page_obj"] = page_obj
         context["backup_dir"] = getattr(settings, "BACKUP_DIR", str(settings.BASE_DIR / "backups"))
+
+        # Dashboard stats
+        from django.db.models import Avg, Count, Q, Sum
+        from django.utils import timezone
+
+        stats = records.aggregate(
+            total=Count("pk"),
+            success_count=Count("pk", filter=Q(status="success")),
+            failed_count=Count("pk", filter=Q(status="failed")),
+            pruned_count=Count("pk", filter=Q(status="pruned")),
+            avg_duration=Avg("duration_ms", filter=Q(status="success")),
+            total_size=Sum("file_size", filter=Q(status="success")),
+        )
+        twenty_four_hours_ago = timezone.now() - timezone.timedelta(hours=24)
+        context["recent_count"] = records.filter(status="success", created_at__gte=twenty_four_hours_ago).count()
+        context["total_backups"] = stats["total"]
+        context["success_count"] = stats["success_count"]
+        context["failed_count"] = stats["failed_count"]
+        context["pruned_count"] = stats["pruned_count"]
+        context["avg_duration"] = round(stats["avg_duration"] or 0)
+        context["total_backup_size"] = stats["total_size"] or 0
+
+        # Admin notification info
+        admins = getattr(settings, "ADMINS", [])
+        context["admins"] = admins
+        email_backend = getattr(settings, "EMAIL_BACKEND", "")
+        context["email_is_console"] = "console" in email_backend
+
         return context
+
+    def get(self, request, *args, **kwargs):
+        context = self.get_context_data(**kwargs)
+        if getattr(request, "htmx", False):
+            return TemplateResponse(
+                request, "smallstack/partials/backup_history.html", context
+            )
+        return TemplateResponse(request, self.template_name, context)
+
+
+class BackupStatDetailView(StaffRequiredMixin, View):
+    """Return a partial table of backup records filtered by stat type."""
+
+    def get(self, request, stat):
+        from django.utils import timezone
+
+        filters = {
+            "recent": {"status": "success", "created_at__gte": timezone.now() - timezone.timedelta(hours=24)},
+            "success": {"status": "success"},
+            "failed": {"status": "failed"},
+            "pruned": {"status": "pruned"},
+        }
+        qs_filter = filters.get(stat)
+        if qs_filter is None:
+            raise Http404
+        records = BackupRecord.objects.filter(**qs_filter)[:100]
+        from django.shortcuts import render
+
+        return render(request, "smallstack/partials/backup_stat_detail.html", {"records": records})
 
 
 class BackupDownloadView(StaffRequiredMixin, View):

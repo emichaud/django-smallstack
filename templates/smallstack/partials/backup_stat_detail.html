@@ -1,0 +1,42 @@
+{% if records %}
+<table style="width: 100%;">
+    <thead>
+        <tr>
+            <th>Date</th>
+            <th>Filename</th>
+            <th>Size</th>
+            <th>Status</th>
+            <th>Duration</th>
+            <th>Source</th>
+            <th style="width: 1%;"></th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for record in records %}
+        <tr class="{% if record.status == 'failed' %}status-failed-row{% elif record.status == 'pruned' %}status-pruned{% endif %}">
+            <td>{{ record.created_at|date:"M d, Y H:i" }}</td>
+            <td>
+                {% if record.filename %}
+                    <span style="font-family: monospace; font-size: 0.85rem;">{{ record.filename }}</span>
+                {% else %}
+                    <span style="color: var(--body-quiet-color);">&mdash;</span>
+                {% endif %}
+            </td>
+            <td>{% if record.file_size %}{{ record.file_size|filesizeformat }}{% else %}&mdash;{% endif %}</td>
+            <td><span class="status-badge status-{{ record.status }}">{{ record.status }}</span></td>
+            <td>{{ record.duration_ms }} ms</td>
+            <td>{{ record.triggered_by }}</td>
+            <td style="text-align: center;">
+                {% if record.status == "success" and record.file_exists %}
+                <a href="{% url 'smallstack:backup_file_download' record.filename %}" title="Download {{ record.filename }}" style="color: var(--body-quiet-color); transition: color 0.15s;" onmouseover="this.style.color='var(--primary)'" onmouseout="this.style.color='var(--body-quiet-color)'">
+                    <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
+                </a>
+                {% endif %}
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<p style="padding: 24px; text-align: center; color: var(--body-quiet-color);">No matching records.</p>
+{% endif %}

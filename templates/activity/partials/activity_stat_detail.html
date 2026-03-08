@@ -1,0 +1,49 @@
+{% if records %}
+<table style="width: 100%;">
+    <thead>
+        <tr>
+            <th>Time</th>
+            <th>Method</th>
+            <th>Path</th>
+            <th>Status</th>
+            <th>User</th>
+            <th>ms</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for log in records %}
+        <tr>
+            <td style="white-space: nowrap; font-size: 0.8rem;">{{ log.timestamp|date:"M d H:i:s" }}</td>
+            <td><code>{{ log.method }}</code></td>
+            <td style="font-family: monospace; font-size: 0.85rem;">{{ log.path|truncatechars:50 }}</td>
+            <td>
+                <span style="{% if log.status_code >= 500 %}color: var(--delete-button-bg, red);{% elif log.status_code >= 400 %}color: var(--message-warning-bg, orange);{% endif %}">{{ log.status_code }}</span>
+            </td>
+            <td style="font-size: 0.8rem;">{{ log.user.username|default:"—" }}</td>
+            <td style="font-size: 0.85rem;">{{ log.response_time_ms }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% elif users %}
+<table style="width: 100%;">
+    <thead>
+        <tr>
+            <th>Username</th>
+            <th>Date Joined</th>
+            <th>Staff</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for user in users %}
+        <tr>
+            <td>{{ user.username }}</td>
+            <td>{{ user.date_joined|date:"M d, Y H:i" }}</td>
+            <td>{% if user.is_staff %}Yes{% else %}No{% endif %}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<p style="padding: 24px; text-align: center; color: var(--body-quiet-color);">No matching records.</p>
+{% endif %}

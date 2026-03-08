@@ -12,28 +12,36 @@
 <style>
     /* Reset default striping */
     .table-plain tr:nth-child(odd),
-    .table-plain tr:nth-child(even) {
+    .table-plain tr:nth-child(even),
+    table tbody tr:nth-child(odd),
+    table tbody tr:nth-child(even) {
         background: transparent;
     }
     /* Alternating row colors (light first to contrast with header) */
-    .table-plain tbody tr:nth-child(odd) {
+    .table-plain tbody tr:nth-child(odd),
+    table tbody tr:nth-child(odd) {
         background-color: color-mix(in srgb, var(--primary) 4%, var(--body-bg)) !important;
     }
-    .table-plain tbody tr:nth-child(even) {
+    .table-plain tbody tr:nth-child(even),
+    table tbody tr:nth-child(even) {
         background-color: color-mix(in srgb, var(--primary) 12%, var(--body-bg)) !important;
     }
-    .table-plain tbody tr {
+    .table-plain tbody tr,
+    table tbody tr {
         border: none !important;
     }
-    .table-plain tbody td {
+    .table-plain tbody td,
+    table tbody td {
         border: none !important;
     }
     /* Themed column headers */
-    .table-plain thead tr {
+    .table-plain thead tr,
+    table thead tr {
         background-color: color-mix(in srgb, var(--primary) 15%, var(--body-bg)) !important;
         border: none !important;
     }
-    .table-plain thead th {
+    .table-plain thead th,
+    table thead th {
         border: none !important;
         background-color: transparent !important;
         color: var(--body-quiet-color) !important;
@@ -121,6 +129,7 @@
 <div id="tab-content">
     {% include tab_partial %}
 </div>
+
 {% endblock %}
 
 {% block extra_js %}

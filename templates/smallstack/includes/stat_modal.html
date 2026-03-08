@@ -1,0 +1,34 @@
+{% comment %}
+Reusable stat card drill-down modal.
+Include once at the bottom of any page that uses clickable stat cards.
+Usage:
+  1. include "smallstack/includes/stat_modal.html"
+  2. Add to any card: class="stat-card-clickable"
+     hx-get="your-detail-url" hx-target="#stat-modal-body"
+     onclick="openStatModal('Title')"
+{% endcomment %}
+<div id="stat-modal" class="stat-modal" onclick="if(event.target===this)closeStatModal()">
+    <div class="card stat-modal-panel">
+        <div class="card-header" style="display: flex; align-items: center; justify-content: space-between;">
+            <h2 id="stat-modal-title">Details</h2>
+            <button type="button" onclick="closeStatModal()" style="background: none; border: none; font-size: 1.4rem; cursor: pointer; color: var(--body-quiet-color); line-height: 1; padding: 0 4px;">&times;</button>
+        </div>
+        <div class="card-body" style="padding: 0;">
+            <div id="stat-modal-body">
+                <p style="padding: 24px; text-align: center; color: var(--body-quiet-color);">Loading...</p>
+            </div>
+        </div>
+    </div>
+</div>
+<script>
+function openStatModal(title) {
+    document.getElementById('stat-modal-title').textContent = title;
+    document.getElementById('stat-modal').classList.add('open');
+}
+function closeStatModal() {
+    document.getElementById('stat-modal').classList.remove('open');
+}
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') closeStatModal();
+});
+</script>

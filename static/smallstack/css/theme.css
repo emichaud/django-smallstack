@@ -2155,3 +2155,50 @@ body.sidebar-closed .site-footer {
         gap: 10px;
     }
 }
+
+/* ============================================
+   Clickable Stat Cards + Drill-Down Modal
+   ============================================ */
+
+.stat-card-clickable {
+    cursor: pointer;
+    transition: border-color var(--transition-fast), background var(--transition-fast);
+}
+
+.stat-card-clickable:hover {
+    border-color: var(--primary) !important;
+    background: color-mix(in srgb, var(--primary) 8%, var(--card-bg));
+}
+
+.stat-modal {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 1000;
+    align-items: center;
+    justify-content: center;
+}
+
+.stat-modal.open {
+    display: flex;
+}
+
+.stat-modal-panel {
+    width: min(700px, 90vw);
+    max-height: 80vh;
+    display: flex;
+    flex-direction: column;
+}
+
+.stat-modal-panel > .card-body {
+    overflow-y: auto;
+    min-height: 0;
+}
+
+.stat-modal-panel thead th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    background-color: color-mix(in srgb, var(--primary) 15%, var(--body-bg)) !important;
+}

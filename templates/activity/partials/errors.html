@@ -1,26 +1,41 @@
 {% load theme_tags %}
 <!-- Error Summary Cards -->
 {% if error_counts %}
-<div style="display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 20px;">
-    {% for err in error_counts %}
-    <div class="card" style="min-width: 80px;">
-        <div class="card-body" style="text-align: center; padding: 12px 16px;">
-            <div style="font-size: 1.5rem; font-weight: 700; color: {% if err.status_code >= 500 %}var(--error-fg){% elif err.status_code >= 400 %}var(--warning-fg){% else %}var(--body-quiet-color){% endif %};">
-                {{ err.count }}
+<div style="margin-bottom: 20px;">
+    <div style="font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--body-quiet-color); font-weight: 600; margin-bottom: 8px;">Last 24 hours</div>
+    <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+        <a class="card" style="min-width: 100px; cursor: pointer; text-decoration: none; color: inherit;{% if not active_status %} outline: 2px solid var(--primary);{% endif %}"
+           hx-get="{% url 'activity:requests' %}?tab=errors"
+           hx-target="#tab-content"
+           hx-swap="innerHTML">
+            <div class="card-body" style="text-align: center; padding: 12px 16px;">
+                <div style="font-size: 1.5rem; font-weight: 700;">{{ total_errors_count }}</div>
+                <div style="font-size: 0.85rem; font-weight: 600; color: var(--primary);">All</div>
             </div>
-            <div style="font-size: 0.8rem; font-weight: 600; color: {% if err.status_code >= 500 %}var(--error-fg){% elif err.status_code >= 400 %}var(--warning-fg){% else %}var(--body-quiet-color){% endif %};">
-                {{ err.status_code }}
+        </a>
+        {% for err in error_counts %}
+        <a class="card" style="min-width: 100px; cursor: pointer; text-decoration: none; color: inherit;{% if active_status == err.status_code|stringformat:'d' %} outline: 2px solid var(--primary);{% endif %}"
+           hx-get="{% url 'activity:requests' %}?tab=errors&status={{ err.status_code }}"
+           hx-target="#tab-content"
+           hx-swap="innerHTML">
+            <div class="card-body" style="text-align: center; padding: 12px 16px;">
+                <div style="font-size: 1.5rem; font-weight: 700; color: {% if err.status_code >= 500 %}var(--error-fg){% elif err.status_code >= 400 %}var(--warning-fg){% else %}var(--body-fg){% endif %};">
+                    {{ err.count }}
+                </div>
+                <div style="font-size: 0.8rem; font-weight: 600; color: {% if err.status_code >= 500 %}var(--error-fg){% elif err.status_code >= 400 %}var(--warning-fg){% else %}var(--body-fg){% endif %};">
+                    {{ err.status_code }}
+                </div>
             </div>
-        </div>
+        </a>
+        {% endfor %}
     </div>
-    {% endfor %}
 </div>
 {% endif %}
 
-<!-- Recent Errors Table -->
+<!-- Error Log Table -->
 <div class="card">
     <div class="card-header">
-        <h2>Recent Errors</h2>
+        <h2>Error Log{% if active_status %}: {{ active_status }}{% endif %}</h2>
     </div>
     <div class="card-body" style="padding: 0; overflow-x: auto;">
         {% if recent_errors %}
@@ -41,12 +56,12 @@
                 <tr>
                     <td style="padding: 10px 16px; white-space: nowrap; font-size: 0.85rem;">{{ log.timestamp|date:"M d H:i:s" }}</td>
                     <td style="text-align: right; padding: 10px 16px;">
-                        <span style="font-weight: 700; color: {% if log.status_code >= 500 %}var(--error-fg){% elif log.status_code >= 400 %}var(--warning-fg){% else %}var(--body-quiet-color){% endif %};">
+                        <span style="font-weight: 700; color: {% if log.status_code >= 500 %}var(--error-fg){% elif log.status_code >= 400 %}var(--warning-fg){% else %}var(--body-fg){% endif %};">
                             {{ log.status_code }}
                         </span>
                     </td>
                     <td style="padding: 10px 16px;"><code>{{ log.method }}</code></td>
-                    <td style="padding: 10px 16px; font-family: monospace; font-size: 0.9rem;">{{ log.path }}</td>
+                    <td style="padding: 10px 16px; font-family: monospace; font-size: 0.9rem;">{{ log.path|truncatechars:60 }}</td>
                     <td style="padding: 10px 16px; font-size: 0.85rem;">{{ log.user.username|default:"—" }}</td>
                     <td style="text-align: right; padding: 10px 16px;">{{ log.response_time_ms }}</td>
                     <td style="padding: 10px 16px; font-size: 0.85rem;">{{ log.ip_address|default:"—" }}</td>

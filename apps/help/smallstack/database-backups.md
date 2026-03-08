@@ -53,19 +53,16 @@ Backups can run automatically on a schedule inside your Docker container. This i
 
 ### Enable Scheduled Backups
 
-Add `BACKUP_CRON_ENABLED=true` to your environment:
+The setting is already in your configuration files, just disabled by default. Uncomment and enable it:
 
-**docker-compose.yml:**
+**docker-compose.yml** — find the commented line in the `web` service `environment` section and uncomment it:
 ```yaml
-environment:
-  - BACKUP_CRON_ENABLED=true
+- BACKUP_CRON_ENABLED=true  # Enable scheduled database backups
 ```
 
-**Kamal (config/deploy.yml):**
+**Kamal (config/deploy.yml)** — find the commented line in `env.clear` and uncomment it:
 ```yaml
-env:
-  clear:
-    BACKUP_CRON_ENABLED: "true"
+BACKUP_CRON_ENABLED: "true"  # Enable scheduled database backups
 ```
 
 The default schedule is **daily at 2 AM**, keeping the last 14 backups.
@@ -83,7 +80,7 @@ After changing, rebuild and redeploy your container.
 
 ## Configuration
 
-Add these to your `.env` file or environment variables:
+These settings are already defined in `config/settings/base.py` with sensible defaults. Override them via environment variables or your `.env` file:
 
 | Setting | Default | Description |
 |---------|---------|-------------|
@@ -93,12 +90,26 @@ Add these to your `.env` file or environment variables:
 
 ## Failure Notifications
 
-If a backup fails and you have `ADMINS` configured in your Django settings, SmallStack will call `mail_admins()` to notify you. This uses your existing Django email configuration.
+If a backup fails, SmallStack will email the `ADMINS` list using `mail_admins()`. This requires two things to be configured:
 
+**1. Set ADMINS** — add to `config/settings/production.py`:
 ```python
-# config/settings/production.py
 ADMINS = [("Your Name", "you@example.com")]
 ```
+
+**2. Configure SMTP email** — the default email backend prints to console, which won't reach anyone in production. Set these environment variables to use a real mail server:
+```bash
+EMAIL_BACKEND=django.core.mail.backends.smtp.EmailBackend
+EMAIL_HOST=smtp.example.com
+EMAIL_PORT=587
+EMAIL_USE_TLS=true
+EMAIL_HOST_USER=your-email@example.com
+EMAIL_HOST_PASSWORD=your-app-password
+```
+
+See the [Email & Password Reset](/help/smallstack/email-auth/) docs for full SMTP setup instructions.
+
+If `ADMINS` is empty or email is not configured, backup failures are still recorded in the backup history — they just won't trigger a notification.
 
 ## Security Considerations
 
@@ -120,9 +131,14 @@ scp root@your-server:/root/myapp_data/db/backups/db-*.sqlite3 ./local-backups/
 rsync -avz root@your-server:/root/myapp_data/db/backups/ ./local-backups/
 ```
 
-## What's Not Included (Yet)
+## What's Not Included
 
-- PostgreSQL backup (coming in a future release)
-- S3/remote upload
+True to the SmallStack philosophy, we only add what's essential. These are on our radar but won't be added unless there's clear demand:
+
+- PostgreSQL backup
+- S3/remote storage
+- API endpoints for integrations
 - Automated restore
 - Media file backup
+
+Let us know what's important to you — your feedback shapes what we build next.

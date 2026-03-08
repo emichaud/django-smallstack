@@ -1,7 +1,9 @@
 {% load theme_tags %}
 <!-- Method Breakdown Cards -->
 {% if method_stats %}
-<div style="display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 20px;">
+<div style="margin-bottom: 20px;">
+    <div style="font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--body-quiet-color); font-weight: 600; margin-bottom: 8px;">Last 24 hours</div>
+    <div style="display: flex; gap: 12px; flex-wrap: wrap;">
     <a class="card" style="min-width: 100px; cursor: pointer; text-decoration: none; color: inherit;{% if not active_method %} outline: 2px solid var(--primary);{% endif %}"
        hx-get="{% url 'activity:requests' %}?tab=by_method"
        hx-target="#tab-content"
@@ -23,6 +25,7 @@
         </div>
     </a>
     {% endfor %}
+    </div>
 </div>
 {% endif %}
 

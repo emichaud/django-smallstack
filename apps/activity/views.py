@@ -4,8 +4,11 @@ from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.db.models import Avg, Count, Max, Q
+from django.http import Http404
+from django.shortcuts import render
 from django.template.response import TemplateResponse
 from django.utils import timezone
+from django.views import View
 from django.views.generic import TemplateView
 
 from apps.profile.models import UserProfile
@@ -21,6 +24,35 @@ class StaffRequiredMixin(LoginRequiredMixin, UserPassesTestMixin):
 
     def test_func(self):
         return self.request.user.is_staff
+
+
+class ActivityStatDetailView(StaffRequiredMixin, View):
+    """Return a partial table for a dashboard stat card drill-down."""
+
+    def get(self, request, stat):
+        qs = RequestLog.objects.all()
+
+        if stat == "requests":
+            records = qs.select_related("user").order_by("-timestamp")[:100]
+            return render(request, "activity/partials/activity_stat_detail.html", {"records": records})
+        elif stat == "4xx":
+            records = qs.filter(status_code__gte=400, status_code__lt=500).select_related("user").order_by("-timestamp")[:100]
+            return render(request, "activity/partials/activity_stat_detail.html", {"records": records})
+        elif stat == "5xx":
+            records = qs.filter(status_code__gte=500).select_related("user").order_by("-timestamp")[:100]
+            return render(request, "activity/partials/activity_stat_detail.html", {"records": records})
+        elif stat == "users":
+            users = User.objects.order_by("-date_joined")[:100]
+            return render(request, "activity/partials/activity_stat_detail.html", {"users": users})
+        elif stat == "new_signups":
+            thirty_days_ago = timezone.now() - timezone.timedelta(days=30)
+            users = User.objects.filter(date_joined__gte=thirty_days_ago).order_by("-date_joined")[:100]
+            return render(request, "activity/partials/activity_stat_detail.html", {"users": users})
+        elif stat.isdigit():
+            code = int(stat)
+            records = qs.filter(status_code=code).select_related("user").order_by("-timestamp")[:100]
+            return render(request, "activity/partials/activity_stat_detail.html", {"records": records})
+        raise Http404
 
 
 class ActivityDashboardView(StaffRequiredMixin, TemplateView):
@@ -165,24 +197,34 @@ class RequestListView(StaffRequiredMixin, TemplateView):
             return {"top_paths": page_obj, "page_obj": page_obj}
         elif tab == "errors":
             error_qs = qs.filter(status_code__gte=300)
-            error_counts = (
-                error_qs.values("status_code")
+            last_24h = timezone.now() - timezone.timedelta(hours=24)
+            error_counts_24h = (
+                error_qs.filter(timestamp__gte=last_24h)
+                .values("status_code")
                 .annotate(count=Count("pk"))
                 .order_by("status_code")
             )
+            status_filter = self.request.GET.get("status", "")
+            filtered_qs = error_qs
+            if status_filter and status_filter.isdigit():
+                filtered_qs = error_qs.filter(status_code=int(status_filter))
             page_obj = paginate_queryset(
-                error_qs.select_related("user").order_by("-timestamp"),
+                filtered_qs.select_related("user").order_by("-timestamp"),
                 self.request,
                 page_size=self.page_size,
             )
             return {
-                "error_counts": error_counts,
+                "error_counts": error_counts_24h,
+                "total_errors_count": error_qs.count(),
+                "active_status": status_filter,
                 "recent_errors": page_obj,
                 "page_obj": page_obj,
             }
         elif tab == "by_method":
+            last_24h = timezone.now() - timezone.timedelta(hours=24)
             method_stats = (
-                qs.values("method")
+                qs.filter(timestamp__gte=last_24h)
+                .values("method")
                 .annotate(count=Count("pk"), avg_time=Avg("response_time_ms"))
                 .order_by("-count")
             )
@@ -195,10 +237,11 @@ class RequestListView(StaffRequiredMixin, TemplateView):
                 self.request,
                 page_size=self.page_size,
             )
+            total_24h = qs.filter(timestamp__gte=last_24h).count()
             return {
                 "method_stats": method_stats,
                 "active_method": method_filter,
-                "total_requests_count": qs.count(),
+                "total_requests_count": total_24h,
                 "recent_requests": page_obj,
                 "page_obj": page_obj,
             }
