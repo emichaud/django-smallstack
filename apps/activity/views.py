@@ -36,7 +36,10 @@ class ActivityStatDetailView(StaffRequiredMixin, View):
             records = qs.select_related("user").order_by("-timestamp")[:100]
             return render(request, "activity/partials/activity_stat_detail.html", {"records": records})
         elif stat == "4xx":
-            records = qs.filter(status_code__gte=400, status_code__lt=500).select_related("user").order_by("-timestamp")[:100]
+            records = (
+                qs.filter(status_code__gte=400, status_code__lt=500)
+                .select_related("user").order_by("-timestamp")[:100]
+            )
             return render(request, "activity/partials/activity_stat_detail.html", {"records": records})
         elif stat == "5xx":
             records = qs.filter(status_code__gte=500).select_related("user").order_by("-timestamp")[:100]
