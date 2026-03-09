@@ -1,3 +1,4 @@
+{% load theme_tags %}
 {% if records %}
 <table style="width: 100%;">
     <thead>
@@ -19,10 +20,10 @@
                 <a href="{% url 'smallstack:backup_detail' record.pk %}" style="color: var(--primary); text-decoration: none; font-weight: 600; font-size: 0.85rem;" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">#{{ record.pk }}</a>
             </td>
             <td>
-                {{ record.created_at|date:"M d, Y H:i" }}
+                {% localtime_tooltip record.created_at "M d, Y g:i A T" %}
                 {% if record.is_pruned %}
                     <div style="font-size: 0.75rem; color: var(--body-quiet-color);">
-                        Pruned {{ record.pruned_at|date:"M d, Y H:i" }}
+                        Pruned {% localtime_tooltip record.pruned_at "M d, Y g:i A T" %}
                     </div>
                 {% endif %}
             </td>
@@ -45,7 +46,7 @@
             <td>{{ record.triggered_by }}</td>
             <td style="text-align: center;">
                 {% if record.is_pruned %}
-                    <span title="Pruned on {{ record.pruned_at|date:'M d, Y H:i' }}" style="color: var(--body-quiet-color);">
+                    <span title="Pruned on {{ record.pruned_at|user_localtime:request|date:'M d, Y g:i A T' }}" style="color: var(--body-quiet-color);">
                         <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
                     </span>
                 {% elif record.status == "success" %}

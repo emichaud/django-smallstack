@@ -36,7 +36,7 @@ python manage.py backup_db --output /tmp/my-backup.sqlite3
 | `--keep N` | Prune oldest backups beyond N. Defaults to `BACKUP_RETENTION` setting (10) if not specified. |
 | `--output PATH` | Override the destination file path |
 
-Backup files are named `db-YYYYMMDD-HHMMSS.sqlite3` and stored in `BACKUP_DIR`.
+Backup files are named `db-YYYYMMDD-HHMMSS.sqlite3` (timestamp in UTC) and stored in `BACKUP_DIR`. The UTC naming is intentional — filenames stay consistent regardless of display timezone settings, and sort correctly on disk.
 
 ## Web Interface
 
@@ -46,6 +46,8 @@ Staff users can access the backup dashboard at `/backups/`. The Backups link app
 
 - **Stat cards** — quick counts for recent (24h), successful, failed, and pruned backups, plus average duration and total size on disk
 - **Backup history** — paginated table with clickable IDs that link to each backup's detail page
+
+All dates in the backup dashboard display in your timezone (set on the Profile Edit page, or the server default). When your timezone differs from the server's, dates show a dotted underline — hover to see the server time and UTC. See [Working with Timezones](/help/smallstack/timezones/) for details.
 
 ### Backup Detail Page
 
@@ -90,7 +92,16 @@ The setting is already in your configuration files, just disabled by default. Un
 BACKUP_CRON_ENABLED: "true"  # Enable scheduled database backups
 ```
 
-The default schedule is **daily at 2 AM**. The cron script uses `--keep 14` to retain two weeks of daily backups (overriding the default `BACKUP_RETENTION` of 10).
+The default schedule is **daily at 2 AM UTC**. The cron script uses `--keep 14` to retain two weeks of daily backups (overriding the default `BACKUP_RETENTION` of 10).
+
+### Cron and Timezones
+
+The cron schedule is **pinned to UTC** via `CRON_TZ=UTC` in `scripts/smallstack-cron`. This means backups always fire at a predictable absolute time regardless of:
+
+- The Django `TIME_ZONE` setting (which only affects how dates are *displayed*)
+- The container's system timezone (`TZ` environment variable)
+
+This is intentional — changing your display timezone should never accidentally shift when backups run. If you need backups at 2 AM in a specific timezone, convert to UTC and update the cron expression.
 
 ### Customize the Schedule
 
@@ -98,6 +109,7 @@ Edit `scripts/smallstack-cron` to change the cron expression:
 
 ```cron
 # Every 6 hours, keep 28 backups
+CRON_TZ=UTC
 0 */6 * * * . /app/.env.cron && cd /app && python manage.py backup_db --keep 28 >> /proc/1/fd/1 2>&1
 ```
 

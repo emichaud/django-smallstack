@@ -8,7 +8,7 @@ slug: smallstack
 
 # Section-specific variables
 variables:
-  version: "0.7.5"
+  version: "0.7.6"
   project_name: "Django SmallStack"
 
 # Pages in this section (order matters for navigation)
@@ -107,6 +107,11 @@ pages:
     title: "Settings & Configuration"
     description: "Environment variables and split settings"
     icon: "settings"
+
+  - slug: timezones
+    title: "Working with Timezones"
+    description: "How dates are stored, displayed, and converted across timezones"
+    icon: "clock"
 
   - slug: database-sqlite
     title: "SQLite Database"

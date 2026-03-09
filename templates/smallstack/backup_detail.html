@@ -159,7 +159,7 @@
                     </tr>
                     <tr>
                         <td class="label-cell">Created</td>
-                        <td>{{ record.created_at|date:"M d, Y H:i:s" }}</td>
+                        <td>{% localtime_tooltip record.created_at "M d, Y g:i:s A T" %}</td>
                     </tr>
                     <tr>
                         <td class="label-cell">Filename</td>
@@ -196,7 +196,7 @@
                     {% if record.is_pruned %}
                     <tr>
                         <td class="label-cell">Pruned</td>
-                        <td>{{ record.pruned_at|date:"M d, Y H:i:s" }}</td>
+                        <td>{% localtime_tooltip record.pruned_at "M d, Y g:i:s A T" %}</td>
                     </tr>
                     {% endif %}
                     {% if record.error_message %}
@@ -247,7 +247,7 @@
                         <div class="timeline-detail">{{ event.detail }}</div>
                     </div>
                     {% if event.timestamp %}
-                    <div class="timeline-time">{{ event.timestamp|date:"M d, Y H:i:s" }}</div>
+                    <div class="timeline-time">{% localtime_tooltip event.timestamp "M d, Y g:i:s A T" %}</div>
                     {% endif %}
                 </li>
                 {% endfor %}

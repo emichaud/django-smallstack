@@ -55,6 +55,7 @@ MIDDLEWARE = [
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "apps.smallstack.middleware.TimezoneMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "django_htmx.middleware.HtmxMiddleware",
@@ -108,7 +109,7 @@ LOGOUT_REDIRECT_URL = "/"
 
 # Internationalization
 LANGUAGE_CODE = "en-us"
-TIME_ZONE = config("TIME_ZONE", default="UTC")
+TIME_ZONE = config("TIME_ZONE", default="America/New_York")
 USE_I18N = True
 USE_TZ = True
 

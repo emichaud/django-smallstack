@@ -212,6 +212,8 @@
                         <div class="form-group">
                             <label for="id_timezone">Timezone</label>
                             {{ form.timezone }}
+                            <div id="tz-preview" style="margin-top: 6px; font-size: 0.8rem; color: var(--body-quiet-color); font-family: monospace; line-height: 1.6;">
+                            </div>
                             <span class="helptext">Used to display dates and times in your local time</span>
                             {% if form.timezone.errors %}
                             <ul class="errorlist">
@@ -312,6 +314,48 @@ document.getElementById('date-picker-btn').addEventListener('click', function() 
 
 // Theme toggle buttons are handled globally by theme.js
 // which calls setTheme() and updates the id_theme_preference hidden input automatically.
+
+// Live timezone preview
+(function() {
+    const tzSelect = document.getElementById('id_timezone');
+    const preview = document.getElementById('tz-preview');
+    if (!tzSelect || !preview) return;
+
+    function formatTime(date, tz) {
+        try {
+            return date.toLocaleString('en-US', {
+                timeZone: tz,
+                month: 'short', day: 'numeric', year: 'numeric',
+                hour: 'numeric', minute: '2-digit', second: '2-digit',
+                hour12: true, timeZoneName: 'short'
+            });
+        } catch (e) {
+            return null;
+        }
+    }
+
+    function updatePreview() {
+        const tz = tzSelect.value;
+        if (!tz) {
+            preview.textContent = '';
+            return;
+        }
+        const now = new Date();
+        const utcStr = formatTime(now, 'UTC');
+        const localStr = formatTime(now, tz);
+        if (utcStr && localStr) {
+            preview.innerHTML =
+                '<span style="color:var(--body-quiet-color);">UTC:</span> ' + utcStr +
+                '<br><span style="color:var(--primary);">' + tz.replace(/_/g, ' ') + ':</span> ' + localStr;
+        } else {
+            preview.textContent = '';
+        }
+    }
+
+    tzSelect.addEventListener('change', updatePreview);
+    updatePreview();
+    setInterval(updatePreview, 1000);
+})();
 </script>
 {% endblock %}
 {% endblock %}

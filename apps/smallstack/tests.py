@@ -1,11 +1,16 @@
-"""Tests for the SmallStack backup system."""
+"""Tests for the SmallStack backup system, timezone middleware, and template tags."""
+
+import zoneinfo
+from datetime import datetime, timezone as dt_timezone
 
 import pytest
 from django.contrib.auth import get_user_model
-from django.test import override_settings
+from django.template import Context, Template
+from django.test import RequestFactory, override_settings
 from django.urls import reverse
 from django.utils import timezone
 
+from .middleware import TimezoneMiddleware
 from .models import BackupRecord
 
 User = get_user_model()
@@ -278,6 +283,212 @@ class TestBackupDetailContext:
         events = response.context["events"]
 
         assert any(e["label"] == "File missing" for e in events)
+
+
+# ── Timezone Middleware Tests ────────────────────────────────
+
+
+class TestTimezoneMiddleware:
+    """Tests for TimezoneMiddleware timezone activation and caching."""
+
+    def _get_middleware(self):
+        return TimezoneMiddleware(lambda request: None)
+
+    @override_settings(TIME_ZONE="America/New_York")
+    def test_anonymous_user_gets_server_tz(self, db):
+        """Anonymous users should use the server TIME_ZONE."""
+        factory = RequestFactory()
+        request = factory.get("/")
+        request.user = type("AnonymousUser", (), {"is_authenticated": False})()
+
+        self._get_middleware()(request)
+
+        assert str(request._tz_server) == "America/New_York"
+        assert str(request._tz_user) == "America/New_York"
+        assert request._tz_differs is False
+
+    @override_settings(TIME_ZONE="America/New_York")
+    def test_user_without_tz_gets_server_tz(self, user):
+        """Logged-in user with no timezone preference should use server TZ."""
+        user.profile.timezone = ""
+        user.profile.save()
+
+        factory = RequestFactory()
+        request = factory.get("/")
+        request.user = user
+
+        self._get_middleware()(request)
+
+        assert str(request._tz_user) == "America/New_York"
+        assert request._tz_differs is False
+
+    @override_settings(TIME_ZONE="America/New_York")
+    def test_user_with_tz_overrides_server(self, user):
+        """User with timezone preference should override server TZ."""
+        user.profile.timezone = "America/Los_Angeles"
+        user.profile.save()
+
+        factory = RequestFactory()
+        request = factory.get("/")
+        request.user = user
+
+        self._get_middleware()(request)
+
+        assert str(request._tz_user) == "America/Los_Angeles"
+        assert str(request._tz_server) == "America/New_York"
+        assert request._tz_differs is True
+
+    @override_settings(TIME_ZONE="America/New_York")
+    def test_user_matching_server_tz_no_diff(self, user):
+        """User whose TZ matches server TZ should have _tz_differs=False."""
+        user.profile.timezone = "America/New_York"
+        user.profile.save()
+
+        factory = RequestFactory()
+        request = factory.get("/")
+        request.user = user
+
+        self._get_middleware()(request)
+
+        assert request._tz_differs is False
+
+    @override_settings(TIME_ZONE="America/New_York")
+    def test_middleware_activates_timezone(self, user):
+        """Middleware should call timezone.activate with the resolved TZ."""
+        user.profile.timezone = "Europe/London"
+        user.profile.save()
+
+        factory = RequestFactory()
+        request = factory.get("/")
+        request.user = user
+
+        self._get_middleware()(request)
+
+        current_tz = timezone.get_current_timezone()
+        assert str(current_tz) == "Europe/London"
+
+
+# ── Template Tag Tests ──────────────────────────────────────
+
+
+class TestLocaltimeTooltipTag:
+    """Tests for the {% localtime_tooltip %} template tag."""
+
+    def _render(self, template_str, context_dict):
+        template = Template(template_str)
+        return template.render(Context(context_dict))
+
+    def _make_request(self, user_tz, server_tz):
+        """Create a mock request with cached TZ info (as middleware would set)."""
+        request = RequestFactory().get("/")
+        request._tz_server = zoneinfo.ZoneInfo(server_tz)
+        request._tz_user = zoneinfo.ZoneInfo(user_tz)
+        request._tz_differs = user_tz != server_tz
+        request.user = type("AnonymousUser", (), {"is_authenticated": False})()
+        return request
+
+    @override_settings(TIME_ZONE="America/New_York")
+    def test_same_tz_returns_plain_text(self):
+        """When user TZ matches server TZ, output should be plain text."""
+        request = self._make_request("America/New_York", "America/New_York")
+        dt = datetime(2026, 6, 15, 18, 0, 0, tzinfo=dt_timezone.utc)
+        output = self._render(
+            '{% load theme_tags %}{% localtime_tooltip dt "M d, Y g:i A T" %}',
+            {"dt": dt, "request": request},
+        )
+        assert "tz-tip" not in output
+        assert "Jun" in output
+
+    @override_settings(TIME_ZONE="America/New_York")
+    def test_different_tz_returns_tooltip_span(self):
+        """When user TZ differs from server, output should have tz-tip class."""
+        request = self._make_request("America/Los_Angeles", "America/New_York")
+        dt = datetime(2026, 6, 15, 18, 0, 0, tzinfo=dt_timezone.utc)
+        output = self._render(
+            '{% load theme_tags %}{% localtime_tooltip dt "M d, Y g:i A T" %}',
+            {"dt": dt, "request": request},
+        )
+        assert 'class="tz-tip"' in output
+        assert "data-tz-server=" in output
+        assert "data-tz-utc=" in output
+
+    @override_settings(TIME_ZONE="America/New_York")
+    def test_tooltip_shows_correct_times(self):
+        """Tooltip should show server time and UTC time."""
+        request = self._make_request("America/Los_Angeles", "America/New_York")
+        # June 15 18:00 UTC = 14:00 EDT (NY) = 11:00 AM PDT (LA)
+        dt = datetime(2026, 6, 15, 18, 0, 0, tzinfo=dt_timezone.utc)
+        output = self._render(
+            '{% load theme_tags %}{% localtime_tooltip dt "M d, Y g:i A T" %}',
+            {"dt": dt, "request": request},
+        )
+        assert "11:00 AM" in output  # user time (PDT)
+        assert "Server:" in output
+        assert "UTC:" in output
+
+    @override_settings(TIME_ZONE="America/New_York")
+    def test_none_datetime_returns_empty(self):
+        """None datetime should return empty string."""
+        request = self._make_request("America/New_York", "America/New_York")
+        output = self._render(
+            '{% load theme_tags %}{% localtime_tooltip dt %}',
+            {"dt": None, "request": request},
+        )
+        assert output.strip() == ""
+
+
+class TestUserLocaltimeFilter:
+    """Tests for the |user_localtime template filter."""
+
+    def test_authenticated_user_converts_to_user_tz(self, user):
+        """Filter should convert to authenticated user's timezone."""
+        user.profile.timezone = "America/New_York"
+        user.profile.save()
+
+        request = RequestFactory().get("/")
+        request.user = user
+
+        dt = datetime(2026, 6, 15, 18, 0, 0, tzinfo=dt_timezone.utc)
+
+        # Activate user TZ (as middleware would) so |date renders correctly
+        timezone.activate(zoneinfo.ZoneInfo("America/New_York"))
+        try:
+            template = Template(
+                '{% load theme_tags %}{{ dt|user_localtime:request|date:"H" }}'
+            )
+            output = template.render(Context({"dt": dt, "request": request}))
+            assert output.strip() == "14"  # 18 UTC - 4 = 14 EDT
+        finally:
+            timezone.deactivate()
+
+    def test_anonymous_falls_back_to_server_tz(self, db):
+        """Filter should fall back to TIME_ZONE for anonymous users."""
+        request = RequestFactory().get("/")
+        request.user = type("AnonymousUser", (), {"is_authenticated": False})()
+
+        dt = datetime(2026, 1, 15, 18, 0, 0, tzinfo=dt_timezone.utc)
+
+        # Activate server TZ (as middleware would for anonymous)
+        timezone.activate(zoneinfo.ZoneInfo("America/New_York"))
+        try:
+            template = Template(
+                '{% load theme_tags %}{{ dt|user_localtime:request|date:"H" }}'
+            )
+            output = template.render(Context({"dt": dt, "request": request}))
+            assert output.strip() == "13"  # 18 UTC - 5 = 13 EST (January)
+        finally:
+            timezone.deactivate()
+
+    def test_none_returns_none(self, db):
+        """Filter should handle None gracefully."""
+        request = RequestFactory().get("/")
+        request.user = type("AnonymousUser", (), {"is_authenticated": False})()
+
+        template = Template(
+            '{% load theme_tags %}{{ dt|user_localtime:request|default:"empty" }}'
+        )
+        output = template.render(Context({"dt": None, "request": request}))
+        assert "empty" in output
 
 
 class TestBackupStatDetailView:

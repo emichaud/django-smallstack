@@ -131,6 +131,8 @@ Authenticated users can choose their own palette on the **Profile Edit** page. A
 
 If a user clears their selection (sets it to blank), they fall back to the system default.
 
+The Profile Edit page also lets users set their **timezone**, which controls how dates and times are displayed throughout the site. See [Working with Timezones](/help/smallstack/timezones/) for details.
+
 ### How It Works
 
 Palettes use a `data-palette` attribute on `<html>`, separate from the `data-theme` attribute:
@@ -415,6 +417,20 @@ Update HTML classes in templates to match your framework's conventions.
 ### Step 4: Update Dark Mode
 
 If your framework has its own dark mode system, update `static/smallstack/js/theme.js` accordingly.
+
+## User Preferences Summary
+
+The Profile Edit page groups three user-level preferences that affect the entire UI. Each has a system default that applies when the user hasn't made a choice:
+
+| Preference | System Default Setting | Profile Field | Fallback |
+|------------|----------------------|---------------|----------|
+| **Theme** (dark/light) | Browser `prefers-color-scheme` | `theme_preference` | Dark |
+| **Color palette** | `SMALLSTACK_COLOR_PALETTE` | `color_palette` | `django` |
+| **Timezone** | `TIME_ZONE` | `timezone` | `America/New_York` |
+
+All three follow the same pattern: system default → user override → persisted on profile. Theme and palette are applied via `data-theme` and `data-palette` attributes on `<html>`. Timezone is activated per-request by `TimezoneMiddleware`.
+
+When a user's timezone differs from the server timezone, dates display with a dotted underline and a hover tooltip showing the server time and UTC. See [Working with Timezones](/help/smallstack/timezones/) for the full architecture.
 
 ## Best Practices
 

@@ -50,6 +50,17 @@ SmallStack includes a `Makefile` with shortcuts for all common commands. See [Ma
    # Edit .env with your settings
    ```
 
+   The most common setting to change is the server timezone. SmallStack defaults to `America/New_York` — all dates display in this timezone unless a user sets their own in their profile. Override it in `.env`:
+
+   ```bash
+   # .env
+   TIME_ZONE=America/Chicago        # Central Time
+   TIME_ZONE=Europe/London           # GMT/BST
+   TIME_ZONE=UTC                     # UTC
+   ```
+
+   See [Working with Timezones](/help/smallstack/timezones/) for the full timezone architecture.
+
 4. **Start the development server:**
    ```bash
    make run

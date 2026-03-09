@@ -20,7 +20,7 @@
                     <td style="padding: 10px 16px;">{{ entry.user__username }}</td>
                     <td style="text-align: right; padding: 10px 16px;">{{ entry.hits }}</td>
                     <td style="text-align: right; padding: 10px 16px;">{{ entry.avg_time|floatformat:0 }}ms</td>
-                    <td style="padding: 10px 16px; font-size: 0.85rem;">{{ entry.last_seen|date:"M d, Y H:i"|default:"—" }}</td>
+                    <td style="padding: 10px 16px; font-size: 0.85rem;">{% if entry.last_seen %}{% localtime_tooltip entry.last_seen "M d, Y g:i A T" %}{% else %}&mdash;{% endif %}</td>
                 </tr>
                 {% endfor %}
             </tbody>

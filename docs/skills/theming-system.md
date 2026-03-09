@@ -412,6 +412,64 @@ Components that use `var(--primary)`, `var(--link-color)`, etc. automatically ad
 }
 ```
 
+## User Preferences — Theme, Palette, and Timezone
+
+The Profile Edit page groups three user-level preferences that affect the entire UI. Each has a system default that applies when the user hasn't made a choice:
+
+| Preference | System Default Setting | Profile Field | Applied Via |
+|------------|----------------------|---------------|-------------|
+| Theme (dark/light) | Browser `prefers-color-scheme` | `theme_preference` | `data-theme` attribute on `<html>` |
+| Color palette | `SMALLSTACK_COLOR_PALETTE` | `color_palette` | `data-palette` attribute on `<html>` |
+| Timezone | `TIME_ZONE` | `timezone` | `TimezoneMiddleware` per request |
+
+Theme and palette are visual — applied client-side via `data-*` attributes and CSS selectors. Timezone is server-side — activated per-request by middleware, affects how Django's `|date` filter renders datetimes.
+
+### How Preferences Are Saved
+
+- **Theme** — toggle in topbar sends `POST /profile/theme/` via htmx
+- **Palette** — swatch selector on Profile Edit sends `POST /profile/palette/` via htmx
+- **Timezone** — dropdown on Profile Edit, saved with the profile form
+
+### Timezone Tooltip
+
+When a user's timezone differs from the server timezone, all dates rendered with `{% localtime_tooltip %}` show a dotted underline and a CSS hover tooltip with the server time and UTC time.
+
+The tooltip uses the `.tz-tip` class in `theme.css`:
+
+```css
+.tz-tip {
+    position: relative;
+    border-bottom: 1px dotted var(--body-quiet-color);
+    cursor: help;
+}
+.tz-tip::after {
+    content: attr(data-tz-server) "\A" attr(data-tz-utc);
+    white-space: pre;
+    position: absolute;
+    bottom: calc(100% + 6px);
+    left: 0;
+    background: var(--card-bg);
+    color: var(--body-quiet-color);
+    border: 1px solid var(--hairline-color);
+    border-radius: 6px;
+    padding: 8px 12px;
+    font-size: 0.75rem;
+    line-height: 1.6;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.15s;
+    z-index: 100;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+}
+.tz-tip:hover::after {
+    opacity: 1;
+}
+```
+
+The tooltip is pure CSS — no JavaScript. It uses two `data-*` attributes (`data-tz-server`, `data-tz-utc`) combined with `"\A"` for a two-line stacked display. It inherits theme colors via `var(--card-bg)`, `var(--hairline-color)`, etc., so it works in both light and dark modes and all palettes.
+
+See `docs/skills/timezones.md` for the full timezone architecture.
+
 ## Best Practices
 
 1. **Use CSS variables** - Never hardcode colors
@@ -421,3 +479,4 @@ Components that use `var(--primary)`, `var(--link-color)`, etc. automatically ad
 5. **Extend, don't override** - Add new classes rather than changing existing
 6. **Keep Django admin CSS** - It provides useful form styling
 7. **Use `var(--primary)` for branded elements** - They'll automatically adapt to palette changes
+8. **Use `{% localtime_tooltip %}` for dates** - It inherits theme variables and works in all modes

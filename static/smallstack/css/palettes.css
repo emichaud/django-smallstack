@@ -16,37 +16,117 @@
    ============================================ */
 
 html[data-palette="high-contrast"] {
-    --primary: #212121;
+    --primary: #111111;
     --primary-hover: #000000;
-    --secondary: #616161;
-    --header-bg: #212121;
-    --sidebar-active-bg: #212121;
+    --secondary: #444444;
+    --header-bg: #111111;
+    --body-fg: #000000;
+    --text-muted: #333333;
+    --sidebar-fg: #000000;
+    --sidebar-active-bg: #111111;
     --sidebar-active-fg: #ffffff;
-    --input-focus-border: #212121;
-    --button-bg: #212121;
+    --sidebar-border: #999999;
+    --sidebar-hover-bg: #e0e0e0;
+    --input-focus-border: #111111;
+    --input-border: #666666;
+    --button-bg: #111111;
     --button-fg: #ffffff;
     --button-hover-bg: #000000;
-    --link-color: #212121;
-    --link-hover: #000000;
-    --breadcrumb-link: #424242;
+    --card-border: #666666;
+    --link-color: #000000;
+    --link-fg: #000000;
+    --link-hover: #333333;
+    --breadcrumb-fg: #333333;
+    --breadcrumb-link: #000000;
+    --breadcrumb-separator: #666666;
+    --body-quiet-color: #333333;
+    --footer-fg: #333333;
+}
+
+/* High-contrast light: explicit overrides for nav links and icons */
+html[data-palette="high-contrast"] .nav-link:not(.active),
+html[data-palette="high-contrast"] .nav-link:not(.active):link,
+html[data-palette="high-contrast"] .nav-link:not(.active):visited {
+    color: #000000;
+}
+
+html[data-palette="high-contrast"] .nav-link:not(.active) svg {
+    color: #000000;
+    opacity: 1;
+}
+
+html[data-palette="high-contrast"] .nav-link:not(.active):hover {
+    color: #000000;
+}
+
+html[data-palette="high-contrast"] .button.button-secondary,
+html[data-palette="high-contrast"] a.button.button-secondary {
+    border: 2px solid #111111;
+    color: #000000;
+}
+
+html[data-palette="high-contrast"] .button.button-secondary:hover,
+html[data-palette="high-contrast"] a.button.button-secondary:hover {
+    background: #e0e0e0;
+    border-color: #000000;
+    color: #000000;
 }
 
 html[data-palette="high-contrast"][data-theme="dark"] {
-    --primary: #e0e0e0;
-    --primary-hover: #ffffff;
-    --secondary: #9e9e9e;
-    --header-bg: #121212;
-    --hero-gradient-end: #212121;
-    --sidebar-active-bg: #e0e0e0;
+    --primary: #ffffff;
+    --primary-hover: #e0e0e0;
+    --secondary: #cccccc;
+    --header-bg: #000000;
+    --hero-gradient-end: #111111;
+    --body-fg: #ffffff;
+    --text-muted: #cccccc;
+    --sidebar-fg: #ffffff;
+    --sidebar-active-bg: #ffffff;
     --sidebar-active-fg: #000000;
-    --input-focus-border: #e0e0e0;
-    --button-bg: #e0e0e0;
+    --sidebar-border: #666666;
+    --input-focus-border: #ffffff;
+    --input-border: #999999;
+    --button-bg: #ffffff;
     --button-fg: #000000;
-    --button-hover-bg: #ffffff;
+    --button-hover-bg: #e0e0e0;
+    --card-border: #999999;
     --link-fg: #ffffff;
     --link-color: #ffffff;
-    --link-hover: #e0e0e0;
+    --link-hover: #cccccc;
+    --breadcrumb-fg: #cccccc;
     --breadcrumb-link: #ffffff;
+    --breadcrumb-separator: #999999;
+    --body-quiet-color: #cccccc;
+    --footer-fg: #cccccc;
+}
+
+/* High-contrast dark: explicit overrides for nav links and icons */
+html[data-palette="high-contrast"][data-theme="dark"] .nav-link:not(.active),
+html[data-palette="high-contrast"][data-theme="dark"] .nav-link:not(.active):link,
+html[data-palette="high-contrast"][data-theme="dark"] .nav-link:not(.active):visited {
+    color: #ffffff;
+}
+
+html[data-palette="high-contrast"][data-theme="dark"] .nav-link:not(.active) svg {
+    color: #ffffff;
+    opacity: 1;
+}
+
+html[data-palette="high-contrast"][data-theme="dark"] .nav-link:not(.active):hover {
+    color: #ffffff;
+}
+
+html[data-palette="high-contrast"][data-theme="dark"] .button.button-secondary,
+html[data-palette="high-contrast"][data-theme="dark"] a.button.button-secondary {
+    border: 2px solid #ffffff;
+    color: #ffffff;
+}
+
+html[data-palette="high-contrast"][data-theme="dark"] .button.button-secondary:hover,
+html[data-palette="high-contrast"][data-theme="dark"] a.button.button-secondary:hover {
+    background: #333333;
+    border-color: #ffffff;
+    color: #ffffff;
 }
 
 /* ============================================

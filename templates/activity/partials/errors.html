@@ -54,7 +54,7 @@
             <tbody>
                 {% for log in recent_errors %}
                 <tr>
-                    <td style="padding: 10px 16px; white-space: nowrap; font-size: 0.85rem;">{{ log.timestamp|date:"M d H:i:s" }}</td>
+                    <td style="padding: 10px 16px; white-space: nowrap; font-size: 0.85rem;">{% localtime_tooltip log.timestamp "M d g:i:s A T" %}</td>
                     <td style="text-align: right; padding: 10px 16px;">
                         <span style="font-weight: 700; color: {% if log.status_code >= 500 %}var(--error-fg){% elif log.status_code >= 400 %}var(--warning-fg){% else %}var(--body-fg){% endif %};">
                             {{ log.status_code }}

@@ -18,10 +18,10 @@
             {% if crud_actions %}
             {% for action in crud_actions %}
             {% if action.value == "update" %}
-            <a href="edit/" class="btn" style="background: var(--primary); color: white; padding: 0.4rem 1rem; border: none; border-radius: var(--radius-sm, 4px); text-decoration: none; font-size: 0.85rem;">Edit</a>
+            <a href="edit/" class="btn" style="background: var(--primary); color: var(--button-fg); padding: 0.4rem 1rem; border: none; border-radius: var(--radius-sm, 4px); text-decoration: none; font-size: 0.85rem;">Edit</a>
             {% endif %}
             {% if action.value == "delete" %}
-            <a href="delete/" class="btn" style="background: var(--delete-button-bg, #dc3545); color: white; padding: 0.4rem 1rem; border: none; border-radius: var(--radius-sm, 4px); text-decoration: none; font-size: 0.85rem;">Delete</a>
+            <a href="delete/" class="btn" style="background: var(--delete-button-bg, #dc3545); color: #fff; padding: 0.4rem 1rem; border: none; border-radius: var(--radius-sm, 4px); text-decoration: none; font-size: 0.85rem;">Delete</a>
             {% endif %}
             {% endfor %}
             {% endif %}

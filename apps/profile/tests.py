@@ -2,8 +2,12 @@
 Tests for the profile app.
 """
 
+import zoneinfo
+from datetime import datetime, timezone as dt_timezone
+
 import pytest
 from django.contrib.auth import get_user_model
+from django.test import override_settings
 from django.urls import reverse
 
 from .models import UserProfile
@@ -54,6 +58,79 @@ class TestUserProfileModel:
         user.profile.display_name = ""
         user.profile.save()
         assert user.profile.get_display_name() == user.username
+
+
+class TestProfileTimezone:
+    """Tests for timezone methods on UserProfile."""
+
+    def test_get_timezone_returns_user_tz(self, user):
+        """get_timezone should return the user's configured timezone."""
+        user.profile.timezone = "America/Los_Angeles"
+        user.profile.save()
+        tz = user.profile.get_timezone()
+        assert str(tz) == "America/Los_Angeles"
+
+    @override_settings(TIME_ZONE="America/Chicago")
+    def test_get_timezone_falls_back_to_server_tz(self, user):
+        """get_timezone should fall back to TIME_ZONE when user has no preference."""
+        user.profile.timezone = ""
+        user.profile.save()
+        tz = user.profile.get_timezone()
+        assert str(tz) == "America/Chicago"
+
+    def test_to_local_time_converts_utc(self, user):
+        """to_local_time should convert UTC datetime to user's timezone."""
+        user.profile.timezone = "America/New_York"
+        user.profile.save()
+        utc_dt = datetime(2026, 6, 15, 18, 0, 0, tzinfo=dt_timezone.utc)
+        local_dt = user.profile.to_local_time(utc_dt)
+        # June = EDT (UTC-4), so 18:00 UTC = 14:00 EDT
+        assert local_dt.hour == 14
+        assert str(local_dt.tzinfo) == "America/New_York"
+
+    def test_to_local_time_handles_dst(self, user):
+        """to_local_time should handle DST transitions correctly."""
+        user.profile.timezone = "America/New_York"
+        user.profile.save()
+        # January = EST (UTC-5)
+        winter_utc = datetime(2026, 1, 15, 18, 0, 0, tzinfo=dt_timezone.utc)
+        winter_local = user.profile.to_local_time(winter_utc)
+        assert winter_local.hour == 13  # 18:00 UTC - 5 = 13:00 EST
+
+        # June = EDT (UTC-4)
+        summer_utc = datetime(2026, 6, 15, 18, 0, 0, tzinfo=dt_timezone.utc)
+        summer_local = user.profile.to_local_time(summer_utc)
+        assert summer_local.hour == 14  # 18:00 UTC - 4 = 14:00 EDT
+
+    def test_profile_edit_saves_timezone(self, client, user):
+        """Timezone should be saved via the profile edit form."""
+        client.login(username="testuser", password="testpass123")
+        response = client.post(
+            reverse("profile_edit"),
+            {
+                "display_name": "Test User",
+                "timezone": "Europe/London",
+            },
+        )
+        assert response.status_code == 302
+        user.profile.refresh_from_db()
+        assert user.profile.timezone == "Europe/London"
+
+    def test_profile_edit_clears_timezone(self, client, user):
+        """Submitting empty timezone should clear it (use system default)."""
+        user.profile.timezone = "America/Denver"
+        user.profile.save()
+        client.login(username="testuser", password="testpass123")
+        response = client.post(
+            reverse("profile_edit"),
+            {
+                "display_name": "Test User",
+                "timezone": "",
+            },
+        )
+        assert response.status_code == 302
+        user.profile.refresh_from_db()
+        assert user.profile.timezone == ""
 
 
 class TestProfileViews:

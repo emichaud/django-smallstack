@@ -14,7 +14,7 @@
         <tr>
             <td><span style="font-family: monospace; font-size: 0.85rem;">{{ file.filename }}</span></td>
             <td>{{ file.size|filesizeformat }}</td>
-            <td>{{ file.modified|date:"M d, Y H:i" }}</td>
+            <td>{% localtime_tooltip file.modified "M d, Y g:i A T" %}</td>
             <td style="text-align: center;">
                 {% if backup_download_enabled %}
                 <a href="{% url 'smallstack:backup_file_download' file.filename %}" title="Download {{ file.filename }}" style="color: var(--body-quiet-color); transition: color 0.15s;" onmouseover="this.style.color='var(--primary)'" onmouseout="this.style.color='var(--body-quiet-color)'">

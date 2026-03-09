@@ -19,8 +19,8 @@
                 <tr>
                     <td style="padding: 10px 16px;">{{ u.username }}</td>
                     <td style="padding: 10px 16px; font-size: 0.85rem;">{{ u.email|default:"—" }}</td>
-                    <td style="padding: 10px 16px; font-size: 0.85rem;">{{ u.date_joined|date:"M d, Y H:i" }}</td>
-                    <td style="padding: 10px 16px; font-size: 0.85rem;">{{ u.last_login|date:"M d, Y H:i"|default:"Never" }}</td>
+                    <td style="padding: 10px 16px; font-size: 0.85rem;">{% localtime_tooltip u.date_joined "M d, Y g:i A T" %}</td>
+                    <td style="padding: 10px 16px; font-size: 0.85rem;">{% if u.last_login %}{% localtime_tooltip u.last_login "M d, Y g:i A T" %}{% else %}Never{% endif %}</td>
                 </tr>
                 {% endfor %}
             </tbody>

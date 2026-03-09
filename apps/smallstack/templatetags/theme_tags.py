@@ -8,6 +8,7 @@ import zoneinfo
 from django import template
 from django.conf import settings
 from django.urls import reverse
+from django.utils import dateformat
 
 register = template.Library()
 
@@ -198,3 +199,53 @@ def user_localtime(dt, request):
         pass
     # Fall back to system timezone
     return dt.astimezone(zoneinfo.ZoneInfo(settings.TIME_ZONE))
+
+
+@register.simple_tag(takes_context=True)
+def localtime_tooltip(context, dt, fmt="M d, Y g:i A T"):
+    """Render a datetime with a CSS hover tooltip showing server time and UTC.
+
+    Uses timezone info cached on the request by TimezoneMiddleware to avoid
+    per-call database queries. When the user's timezone differs from the
+    server timezone, the output is wrapped in a <span class="tz-tip"> with
+    a popup showing the server time and UTC.
+
+    When timezones match, outputs plain text with no tooltip.
+
+    Usage:
+        {% load theme_tags %}
+        {% localtime_tooltip record.created_at %}
+        {% localtime_tooltip record.created_at "M d, Y g:i:s A T" %}
+    """
+    if dt is None:
+        return ""
+
+    request = context.get("request")
+
+    # Read cached TZ info from middleware (no DB queries)
+    server_tz = getattr(request, "_tz_server", None) or zoneinfo.ZoneInfo(settings.TIME_ZONE)
+    user_tz = getattr(request, "_tz_user", None) or server_tz
+    tz_differs = getattr(request, "_tz_differs", False)
+
+    user_dt = dt.astimezone(user_tz)
+    user_str = dateformat.format(user_dt, fmt)
+
+    if not tz_differs:
+        return user_str
+
+    # Build tooltip lines: server time + UTC
+    utc_tz = zoneinfo.ZoneInfo("UTC")
+    server_dt = dt.astimezone(server_tz)
+    utc_dt = dt.astimezone(utc_tz)
+    # Use a compact format for tooltip lines
+    tip_fmt = "M d, Y g:i A T"
+    server_str = dateformat.format(server_dt, tip_fmt)
+    utc_str = dateformat.format(utc_dt, tip_fmt)
+    from django.utils.html import format_html
+
+    return format_html(
+        '<span class="tz-tip" data-tz-server="{}" data-tz-utc="{}">{}</span>',
+        f"Server: {server_str}",
+        f"UTC: {utc_str}",
+        user_str,
+    )

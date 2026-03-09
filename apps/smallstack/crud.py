@@ -85,15 +85,27 @@ class _CRUDListBase(_CRUDContextMixin, ListView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        # Enhance page_obj with SmallStack pagination display helpers
-        page_obj = context.get("page_obj")
-        if page_obj:
-            page_obj.showing_start = page_obj.start_index()
-            page_obj.showing_end = page_obj.end_index()
-            page_obj.total_count = page_obj.paginator.count
-            page_obj.page_range_display = page_obj.paginator.get_elided_page_range(
-                page_obj.number, on_each_side=2, on_ends=1
-            )
+        cfg = self.crud_config
+
+        # django-tables2 integration: if table_class is set, build and configure it
+        if cfg.table_class:
+            from django_tables2 import RequestConfig
+
+            table = cfg.table_class(self.get_queryset())
+            paginate = {"per_page": cfg.paginate_by} if cfg.paginate_by else False
+            RequestConfig(self.request, paginate=paginate).configure(table)
+            context["table"] = table
+            context["use_tables2"] = True
+        else:
+            # Enhance page_obj with SmallStack pagination display helpers
+            page_obj = context.get("page_obj")
+            if page_obj:
+                page_obj.showing_start = page_obj.start_index()
+                page_obj.showing_end = page_obj.end_index()
+                page_obj.total_count = page_obj.paginator.count
+                page_obj.page_range_display = page_obj.paginator.get_elided_page_range(
+                    page_obj.number, on_each_side=2, on_ends=1
+                )
         return context
 
 
@@ -165,6 +177,7 @@ class CRUDView:
         form_class:       Custom ModelForm (auto-generated if None)
         queryset:         Custom queryset (model.objects.all() if None)
         field_formatters: {field_name: lambda value, obj: str} display formatters
+        table_class:      Optional django-tables2 Table class for sortable list view
     """
 
     model = None
@@ -179,6 +192,7 @@ class CRUDView:
     form_class = None
     queryset = None
     field_formatters = {}
+    table_class = None  # Optional django-tables2 Table class for enhanced list view
 
     @classmethod
     def _get_url_base(cls):
@@ -252,12 +266,15 @@ class CRUDView:
         """Create a view class with mixins applied."""
         name = f"{cls.model.__name__}{base_class.__name__.lstrip('_')}"
         bases = tuple(cls.mixins) + (base_class,)
+        # When using django-tables2, it handles pagination itself —
+        # skip Django's built-in paginate_by to avoid double-paginating.
+        paginate_by = None if (base_class is _CRUDListBase and cls.table_class) else cls.paginate_by
         return type(
             name,
             bases,
             {
                 "model": cls.model,
-                "paginate_by": cls.paginate_by,
+                "paginate_by": paginate_by,
                 "crud_config": cls,
             },
         )

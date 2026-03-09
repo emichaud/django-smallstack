@@ -9,18 +9,51 @@
 {% render_breadcrumbs %}
 {% endblock %}
 
+{% block extra_css %}
+{% include "smallstack/crud/_table_styles.html" %}
+{% if use_tables2 %}
+<style>
+    /* django-tables2 sort indicators */
+    .crud-table thead th a { color: var(--body-quiet-color); text-decoration: none; }
+    .crud-table thead th a:hover { color: var(--primary); }
+    .crud-table thead th.asc a::after { content: " \25B2"; font-size: 0.65rem; }
+    .crud-table thead th.desc a::after { content: " \25BC"; font-size: 0.65rem; }
+    /* django-tables2 pagination */
+    .table-container .pagination {
+        display: flex; justify-content: center; gap: 0.25rem;
+        list-style: none; padding: 1rem 0 0; margin: 0;
+    }
+    .table-container .pagination li a {
+        display: inline-block; padding: 0.3rem 0.75rem;
+        border-radius: var(--radius-sm, 4px); color: var(--body-quiet-color);
+        text-decoration: none; font-size: 0.85rem;
+    }
+    .table-container .pagination li a:hover {
+        color: var(--primary);
+        background: color-mix(in srgb, var(--primary) 10%, var(--body-bg));
+    }
+    .table-container .pagination li.active a {
+        background: var(--primary); color: var(--button-fg);
+    }
+</style>
+{% endif %}
+{% endblock %}
+
 {% block content %}
 <div class="card" id="crud-content">
     <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
         <h2>{{ object_verbose_name_plural }}</h2>
         {% if create_view_url %}
-        <a href="{{ create_view_url }}" class="btn" style="background: var(--primary); color: white; padding: 0.5rem 1rem; border: none; border-radius: var(--radius-sm, 4px); text-decoration: none; font-size: 0.9rem;">
+        <a href="{{ create_view_url }}" class="btn" style="background: var(--primary); color: var(--button-fg); padding: 0.5rem 1rem; border: none; border-radius: var(--radius-sm, 4px); text-decoration: none; font-size: 0.9rem;">
             + Add {{ object_verbose_name }}
         </a>
         {% endif %}
     </div>
     <div class="card-body">
-        {% if object_list %}
+        {% if use_tables2 %}
+            {% load django_tables2 %}
+            {% render_table table %}
+        {% elif object_list %}
             {% crud_table %}
         {% else %}
             <p style="color: var(--body-quiet-color); padding: 2rem 0; text-align: center;">
@@ -31,7 +64,7 @@
             </p>
         {% endif %}
 
-        {% if is_paginated %}
+        {% if not use_tables2 and is_paginated %}
         {% render_paginator page_obj "#crud-content" %}
         {% endif %}
     </div>

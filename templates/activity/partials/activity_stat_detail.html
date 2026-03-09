@@ -1,3 +1,4 @@
+{% load theme_tags %}
 {% if records %}
 <table style="width: 100%;">
     <thead>
@@ -13,7 +14,7 @@
     <tbody>
         {% for log in records %}
         <tr>
-            <td style="white-space: nowrap; font-size: 0.8rem;">{{ log.timestamp|date:"M d H:i:s" }}</td>
+            <td style="white-space: nowrap; font-size: 0.8rem;">{% localtime_tooltip log.timestamp "M d g:i:s A T" %}</td>
             <td><code>{{ log.method }}</code></td>
             <td style="font-family: monospace; font-size: 0.85rem;">{{ log.path|truncatechars:50 }}</td>
             <td>
@@ -38,7 +39,7 @@
         {% for user in users %}
         <tr>
             <td>{{ user.username }}</td>
-            <td>{{ user.date_joined|date:"M d, Y H:i" }}</td>
+            <td>{% localtime_tooltip user.date_joined "M d, Y g:i A T" %}</td>
             <td>{% if user.is_staff %}Yes{% else %}No{% endif %}</td>
         </tr>
         {% endfor %}

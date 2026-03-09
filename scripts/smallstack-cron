@@ -1,2 +1,5 @@
-# SmallStack scheduled backups - daily at 2 AM, keep last 14
+# SmallStack scheduled backups - daily at 2 AM UTC, keep last 14
+# Pinned to UTC so backups run at a predictable time regardless of
+# the container's TZ env var or Django's TIME_ZONE setting.
+CRON_TZ=UTC
 0 2 * * * . /app/.env.cron && cd /app && python manage.py backup_db --keep 14 >> /proc/1/fd/1 2>&1

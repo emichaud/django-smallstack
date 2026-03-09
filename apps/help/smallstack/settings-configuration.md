@@ -232,8 +232,9 @@ SmallStack includes these feature flags out of the box:
 | `SMALLSTACK_LOGIN_ENABLED` | `True` | Show/hide Login and Sign Up buttons in the topbar |
 | `SMALLSTACK_SIGNUP_ENABLED` | `True` | Show/hide Sign Up UI and 404 the signup URL |
 | `SMALLSTACK_COLOR_PALETTE` | `"django"` | System default color palette (`django`, `light-blue`, `dark-blue`, `orange`, `purple`) |
+| `TIME_ZONE` | `America/New_York` | Server timezone for date display (any IANA timezone name) |
 
-See [Authentication](/help/smallstack/authentication/) for details on the auth flags.
+See [Authentication](/help/smallstack/authentication/) for details on the auth flags. See [Working with Timezones](/help/smallstack/timezones/) for the full timezone architecture.
 
 **Example: Adding debug-only settings**
 
