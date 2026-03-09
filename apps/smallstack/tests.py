@@ -1,7 +1,8 @@
 """Tests for the SmallStack backup system, timezone middleware, and template tags."""
 
 import zoneinfo
-from datetime import datetime, timezone as dt_timezone
+from datetime import datetime
+from datetime import timezone as dt_timezone
 
 import pytest
 from django.contrib.auth import get_user_model
@@ -544,11 +545,11 @@ class TestLegalPages:
 
     def test_invalid_legal_page_404s(self, client, db):
         """Non-existent legal page should 404."""
-        from django.urls import reverse
 
         # Try accessing via the view directly with a bad page name
-        from config.views import legal_page_view
         from django.test import RequestFactory
+
+        from config.views import legal_page_view
 
         factory = RequestFactory()
         request = factory.get("/")

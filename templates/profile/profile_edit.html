@@ -347,9 +347,7 @@ document.getElementById('date-picker-btn').addEventListener('click', function() 
         const utcStr = formatTime(now, 'UTC');
         const localStr = formatTime(now, tz);
         if (utcStr && localStr) {
-            preview.innerHTML =
-                '<span style="color:var(--body-quiet-color);">UTC:</span> ' + utcStr +
-                '<br><span style="color:var(--primary);">' + tz.replace(/_/g, ' ') + ':</span> ' + localStr;
+            preview.innerHTML = utcStr + '<br>' + localStr;
         } else {
             preview.textContent = '';
         }
