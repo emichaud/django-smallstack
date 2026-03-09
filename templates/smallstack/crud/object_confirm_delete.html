@@ -1,0 +1,33 @@
+{% extends "smallstack/base.html" %}
+{% load theme_tags %}
+
+{% block title %}Delete {{ object_verbose_name }}{% endblock %}
+
+{% block breadcrumbs %}
+{% breadcrumb "Home" "website:home" %}
+{% breadcrumb object_verbose_name_plural list_view_url_name %}
+{% breadcrumb "Delete" %}
+{% render_breadcrumbs %}
+{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <h2>Delete {{ object_verbose_name }}</h2>
+    </div>
+    <div class="card-body">
+        <p style="margin-bottom: 1.5rem;">
+            Are you sure you want to delete <strong>{{ object }}</strong>?
+        </p>
+        <form method="POST">
+            {% csrf_token %}
+            <div style="display: flex; gap: 0.75rem;">
+                <button type="submit" class="btn" style="background: var(--delete-button-bg, #dc3545); color: white; padding: 0.5rem 1.5rem; border: none; border-radius: var(--radius-sm, 4px); cursor: pointer;">
+                    Delete
+                </button>
+                <a href="{{ list_view_url }}" style="padding: 0.5rem 1.5rem; color: var(--body-quiet-color); text-decoration: none;">Cancel</a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

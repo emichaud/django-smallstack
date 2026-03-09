@@ -1,2 +1,7 @@
 # Auto-generated lock file — accept ours on merge, then regenerate
 uv.lock merge=ours
+
+# Binary image files
+apps/help/smallstack/images/*.png binary
+apps/help/content/slides/**/*.png binary
+static/smallstack/brand/*.png binary

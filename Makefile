@@ -1,7 +1,7 @@
 # Makefile for Django SmallStack
 # Run 'make help' to see available commands
 
-.PHONY: help run migrate migrations superuser shell test coverage collectstatic docker-up docker-down lint clean deploy logs backup screenshot-auth
+.PHONY: help run migrate migrations superuser shell test coverage collectstatic docker-up docker-down lint clean deploy logs backup screenshot-auth optimize-images
 
 # Default port for development server
 PORT ?= 8005
@@ -22,6 +22,7 @@ help:
 	@echo "  make backup       - Create a database backup"
 	@echo "  make lint         - Run ruff linter"
 	@echo "  make screenshot-auth - Generate shot-scraper auth JSON"
+	@echo "  make optimize-images - Optimize PNG images with pngquant"
 	@echo "  make clean        - Clean up generated files"
 	@echo ""
 	@echo "Kamal Deployment (requires Kamal to be configured):"
@@ -82,6 +83,12 @@ deploy:
 
 logs:
 	kamal app logs
+
+optimize-images:
+	@command -v pngquant >/dev/null 2>&1 || { echo "Install pngquant: brew install pngquant"; exit 1; }
+	find apps/help -name "*.png" -exec pngquant --force --quality=65-80 --skip-if-larger {} \;
+	find static/smallstack/brand -name "*.png" -exec pngquant --force --quality=65-80 --skip-if-larger {} \;
+	@echo "Images optimized."
 
 clean:
 	find . -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true

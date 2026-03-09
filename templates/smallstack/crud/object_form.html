@@ -1,0 +1,48 @@
+{% extends "smallstack/base.html" %}
+{% load theme_tags %}
+
+{% block title %}{% if object %}Edit{% else %}Create{% endif %} {{ object_verbose_name }}{% endblock %}
+
+{% block breadcrumbs %}
+{% breadcrumb "Home" "website:home" %}
+{% breadcrumb object_verbose_name_plural list_view_url_name %}
+{% if object %}
+{% breadcrumb "Edit" %}
+{% else %}
+{% breadcrumb "Create" %}
+{% endif %}
+{% render_breadcrumbs %}
+{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <h2>{% if object %}Edit{% else %}Create{% endif %} {{ object_verbose_name }}</h2>
+    </div>
+    <div class="card-body">
+        <form method="POST" {% if form.is_multipart %}enctype="multipart/form-data"{% endif %}>
+            {% csrf_token %}
+            {% for field in form %}
+            <div style="margin-bottom: 1rem;">
+                <label for="{{ field.id_for_label }}" style="display: block; margin-bottom: 0.25rem; font-weight: 600;">
+                    {{ field.label }}
+                </label>
+                {{ field }}
+                {% if field.help_text %}
+                <p style="color: var(--body-quiet-color); font-size: 0.85rem; margin-top: 0.25rem;">{{ field.help_text }}</p>
+                {% endif %}
+                {% if field.errors %}
+                <p style="color: var(--delete-button-bg, #dc3545); font-size: 0.85rem; margin-top: 0.25rem;">{{ field.errors.0 }}</p>
+                {% endif %}
+            </div>
+            {% endfor %}
+            <div style="margin-top: 1.5rem; display: flex; gap: 0.75rem;">
+                <button type="submit" class="btn" style="background: var(--primary); color: white; padding: 0.5rem 1.5rem; border: none; border-radius: var(--radius-sm, 4px); cursor: pointer;">
+                    Save
+                </button>
+                <a href="{{ list_view_url }}" style="padding: 0.5rem 1.5rem; color: var(--body-quiet-color); text-decoration: none;">Cancel</a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

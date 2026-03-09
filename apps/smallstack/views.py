@@ -5,22 +5,15 @@ import time
 
 from django.conf import settings
 from django.contrib import messages
-from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.http import FileResponse, Http404, HttpResponseForbidden
 from django.shortcuts import redirect
 from django.template.response import TemplateResponse
 from django.views import View
 from django.views.generic import TemplateView
 
+from .mixins import StaffRequiredMixin
 from .models import BackupRecord
 from .pagination import paginate_queryset
-
-
-class StaffRequiredMixin(LoginRequiredMixin, UserPassesTestMixin):
-    """Mixin that restricts access to staff users."""
-
-    def test_func(self):
-        return self.request.user.is_staff
 
 
 def _get_db_info():

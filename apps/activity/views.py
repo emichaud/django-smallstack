@@ -2,7 +2,6 @@
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
-from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.db.models import Avg, Count, Max, Q
 from django.http import Http404
 from django.shortcuts import render
@@ -12,18 +11,12 @@ from django.views import View
 from django.views.generic import TemplateView
 
 from apps.profile.models import UserProfile
+from apps.smallstack.mixins import StaffRequiredMixin
 from apps.smallstack.pagination import paginate_queryset
 
 from .models import RequestLog
 
 User = get_user_model()
-
-
-class StaffRequiredMixin(LoginRequiredMixin, UserPassesTestMixin):
-    """Mixin that restricts access to staff users."""
-
-    def test_func(self):
-        return self.request.user.is_staff
 
 
 class ActivityStatDetailView(StaffRequiredMixin, View):

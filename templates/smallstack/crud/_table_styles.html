@@ -1,0 +1,54 @@
+<style>
+.crud-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+/* Reset any inherited table backgrounds */
+.crud-table tr:nth-child(odd),
+.crud-table tr:nth-child(even) {
+    background: transparent;
+}
+.crud-table thead tr {
+    background-color: color-mix(in srgb, var(--primary) 15%, var(--body-bg)) !important;
+    border: none !important;
+}
+.crud-table thead th {
+    text-transform: uppercase;
+    font-size: 0.8rem;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+    padding: 10px 16px;
+    border: none !important;
+    background-color: transparent !important;
+    color: var(--body-quiet-color) !important;
+    text-align: left;
+}
+.crud-table tbody tr {
+    border: none !important;
+}
+.crud-table tbody tr:nth-child(odd) {
+    background-color: color-mix(in srgb, var(--primary) 4%, var(--body-bg)) !important;
+}
+.crud-table tbody tr:nth-child(even) {
+    background-color: color-mix(in srgb, var(--primary) 12%, var(--body-bg)) !important;
+}
+.crud-table tbody td,
+.crud-table tbody th {
+    border: none !important;
+    padding: 10px 16px;
+    font-size: 0.85rem;
+}
+.crud-table tbody tr:hover {
+    background-color: color-mix(in srgb, var(--primary) 20%, var(--body-bg)) !important;
+}
+.crud-table a {
+    color: var(--primary);
+    text-decoration: none;
+}
+.crud-table a:hover {
+    text-decoration: underline;
+}
+.crud-action-delete {
+    color: var(--delete-button-bg, #dc3545) !important;
+}
+</style>

@@ -1,0 +1,11 @@
+{% include "smallstack/crud/_table_styles.html" %}
+<table class="crud-table">
+<tbody>
+{% for row in detail_rows %}
+<tr>
+    <th style="width: 200px; text-align: left; font-weight: 600;">{{ row.label }}</th>
+    <td>{{ row.value }}</td>
+</tr>
+{% endfor %}
+</tbody>
+</table>

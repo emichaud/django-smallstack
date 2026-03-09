@@ -125,15 +125,15 @@ SmallStack has three documentation tiers:
 uv run python manage.py screenshot_auth > /tmp/shot-auth.json
 
 # Public pages
-shot-scraper http://localhost:8005/ -o docs/images/page.png --width 1280 --height 900
+shot-scraper http://localhost:8005/ -o apps/help/smallstack/images/page.png --width 1280 --height 900
 
 # Authenticated pages (hide debug toolbar)
 shot-scraper http://localhost:8005/backups/ --auth /tmp/shot-auth.json \
-  -o docs/images/smallstack/backups.png --width 1280 --height 900 \
+  -o apps/help/smallstack/images/backups.png --width 1280 --height 900 \
   --javascript "document.getElementById('djDebug')?.remove()"
 ```
 
-Store screenshots in `docs/images/` (README images) or `docs/images/smallstack/` (help doc images).
+Store all screenshots in `apps/help/smallstack/images/` — co-located with the markdown docs that reference them.
 
 ## Commit Messages
 

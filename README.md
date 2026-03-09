@@ -9,21 +9,21 @@
 
 A modern, batteries-included Django starter project built on Django's powerful admin foundation. Production-ready with SQLite, Docker, and zero-downtime Kamal deployment. Clone it, customize it, ship it.
 
-![Django SmallStack Homepage](docs/images/smallstack-home.png)
+![Django SmallStack Homepage](apps/help/smallstack/images/smallstack-home.png)
 
 ## Features
 
 ### Profile App
 Complete user profile management with photo uploads, cover images, bio, location, and customizable display names. Extend it with your own fields.
 
-![Profile Editor](docs/images/smallstack-edit-profile.png)
+![Profile Editor](apps/help/smallstack/images/smallstack-edit-profile.png)
 
 ### Help System
 Built-in documentation system with markdown support, table of contents, search, and easy-to-edit content files. Perfect for user guides or internal docs.
 
 <p>
-  <img src="docs/images/smallstack-docs.png" alt="Help System Dark Mode" width="49%">
-  <img src="docs/images/smallstack-docs-light.png" alt="Help System Light Mode" width="49%">
+  <img src="apps/help/smallstack/images/smallstack-docs.png" alt="Help System Dark Mode" width="49%">
+  <img src="apps/help/smallstack/images/smallstack-docs-light.png" alt="Help System Light Mode" width="49%">
 </p>
 
 ### Background Tasks
