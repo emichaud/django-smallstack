@@ -1,8 +1,12 @@
 """
-Template tags for theme functionality including breadcrumbs and navigation helpers.
+Template tags for theme functionality including breadcrumbs, navigation helpers,
+and timezone conversion.
 """
 
+import zoneinfo
+
 from django import template
+from django.conf import settings
 from django.urls import reverse
 
 register = template.Library()
@@ -172,3 +176,25 @@ def render_paginator(context, page_obj, hx_target="#tab-content", hx_swap="inner
         "hx_target": hx_target,
         "hx_swap": hx_swap,
     }
+
+
+@register.filter
+def user_localtime(dt, request):
+    """Convert a datetime to the current user's local timezone.
+
+    Falls back to the system TIME_ZONE setting for anonymous users or
+    users without a timezone preference.
+
+    Usage:
+        {% load theme_tags %}
+        {{ record.created_at|user_localtime:request|date:"M d, Y H:i" }}
+    """
+    if dt is None:
+        return None
+    try:
+        if request and hasattr(request, "user") and request.user.is_authenticated:
+            return request.user.profile.to_local_time(dt)
+    except Exception:
+        pass
+    # Fall back to system timezone
+    return dt.astimezone(zoneinfo.ZoneInfo(settings.TIME_ZONE))

@@ -27,7 +27,7 @@ class UserProfileAdmin(admin.ModelAdmin):
         (
             "Profile Information",
             {
-                "fields": ("display_name", "bio", "location", "website", "date_of_birth"),
+                "fields": ("display_name", "bio", "location", "website", "date_of_birth", "timezone"),
             },
         ),
         (

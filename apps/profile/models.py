@@ -2,9 +2,82 @@
 UserProfile model for extended user information.
 """
 
+import zoneinfo
+
 from django.conf import settings
 from django.core.validators import FileExtensionValidator
 from django.db import models
+
+# Common timezone choices grouped by region for the UI dropdown.
+# Covers major cities; the full IANA database is available via zoneinfo.
+TIMEZONE_CHOICES = [
+    ("", "Use system default"),
+    (
+        "Americas",
+        [
+            ("America/New_York", "Eastern Time (New York)"),
+            ("America/Chicago", "Central Time (Chicago)"),
+            ("America/Denver", "Mountain Time (Denver)"),
+            ("America/Los_Angeles", "Pacific Time (Los Angeles)"),
+            ("America/Anchorage", "Alaska (Anchorage)"),
+            ("Pacific/Honolulu", "Hawaii (Honolulu)"),
+            ("America/Toronto", "Toronto"),
+            ("America/Vancouver", "Vancouver"),
+            ("America/Mexico_City", "Mexico City"),
+            ("America/Sao_Paulo", "S\u00e3o Paulo"),
+            ("America/Argentina/Buenos_Aires", "Buenos Aires"),
+            ("America/Bogota", "Bogot\u00e1"),
+            ("America/Lima", "Lima"),
+        ],
+    ),
+    (
+        "Europe",
+        [
+            ("Europe/London", "London"),
+            ("Europe/Dublin", "Dublin"),
+            ("Europe/Paris", "Paris"),
+            ("Europe/Berlin", "Berlin"),
+            ("Europe/Amsterdam", "Amsterdam"),
+            ("Europe/Madrid", "Madrid"),
+            ("Europe/Rome", "Rome"),
+            ("Europe/Zurich", "Zurich"),
+            ("Europe/Stockholm", "Stockholm"),
+            ("Europe/Warsaw", "Warsaw"),
+            ("Europe/Athens", "Athens"),
+            ("Europe/Moscow", "Moscow"),
+            ("Europe/Istanbul", "Istanbul"),
+        ],
+    ),
+    (
+        "Asia & Pacific",
+        [
+            ("Asia/Dubai", "Dubai"),
+            ("Asia/Kolkata", "India (Kolkata)"),
+            ("Asia/Shanghai", "China (Shanghai)"),
+            ("Asia/Tokyo", "Tokyo"),
+            ("Asia/Seoul", "Seoul"),
+            ("Asia/Singapore", "Singapore"),
+            ("Asia/Hong_Kong", "Hong Kong"),
+            ("Asia/Bangkok", "Bangkok"),
+            ("Asia/Jakarta", "Jakarta"),
+            ("Australia/Sydney", "Sydney"),
+            ("Australia/Melbourne", "Melbourne"),
+            ("Australia/Perth", "Perth"),
+            ("Pacific/Auckland", "Auckland"),
+        ],
+    ),
+    (
+        "Africa & Middle East",
+        [
+            ("Africa/Cairo", "Cairo"),
+            ("Africa/Lagos", "Lagos"),
+            ("Africa/Johannesburg", "Johannesburg"),
+            ("Africa/Nairobi", "Nairobi"),
+            ("Asia/Jerusalem", "Jerusalem"),
+            ("Asia/Riyadh", "Riyadh"),
+        ],
+    ),
+]
 
 
 def validate_image_size(image):
@@ -97,6 +170,13 @@ class UserProfile(models.Model):
         null=True,
         help_text="Your date of birth",
     )
+    timezone = models.CharField(
+        max_length=50,
+        blank=True,
+        default="",
+        choices=TIMEZONE_CHOICES,
+        help_text="Your local timezone for displaying dates and times",
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -111,3 +191,22 @@ class UserProfile(models.Model):
     def get_display_name(self):
         """Return display name or username as fallback."""
         return self.display_name or self.user.username
+
+    def get_timezone(self):
+        """Return the user's timezone as a ZoneInfo object.
+
+        Falls back to the Django TIME_ZONE setting if the user hasn't set one.
+        """
+        tz_name = self.timezone or settings.TIME_ZONE
+        return zoneinfo.ZoneInfo(tz_name)
+
+    def to_local_time(self, dt):
+        """Convert a UTC datetime to the user's local timezone.
+
+        Usage in views:
+            local_dt = request.user.profile.to_local_time(record.created_at)
+
+        Usage in templates (via the |localtime filter — see theme_tags):
+            {{ record.created_at|user_localtime:request }}
+        """
+        return dt.astimezone(self.get_timezone())

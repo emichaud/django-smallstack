@@ -27,6 +27,7 @@ class UserProfileForm(forms.ModelForm):
             "location",
             "website",
             "date_of_birth",
+            "timezone",
             "theme_preference",
             "color_palette",
         ]
@@ -39,6 +40,7 @@ class UserProfileForm(forms.ModelForm):
             "display_name": forms.TextInput(attrs={"class": "vTextField"}),
             "location": forms.TextInput(attrs={"class": "vTextField"}),
             "website": forms.URLInput(attrs={"class": "vTextField"}),
+            "timezone": forms.Select(attrs={"class": "vTextField"}),
             "theme_preference": forms.Select(attrs={"class": "vTextField"}),
             "color_palette": forms.HiddenInput(),
         }
