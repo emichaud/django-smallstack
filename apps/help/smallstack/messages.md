@@ -5,19 +5,19 @@ SmallStack styles Django's built-in messages framework with four notification ty
 ## Message Types
 
 ```html
-<div class="message message-success">
+<div class="message success">
     <span>Operation completed successfully!</span>
 </div>
 
-<div class="message message-info">
+<div class="message info">
     <span>Here's some helpful information.</span>
 </div>
 
-<div class="message message-warning">
+<div class="message warning">
     <span>Please review before continuing.</span>
 </div>
 
-<div class="message message-error">
+<div class="message error">
     <span>Something went wrong!</span>
 </div>
 ```

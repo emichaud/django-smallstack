@@ -38,6 +38,7 @@ That's it. Open `http://localhost:8005` and you're up and running.
 |---------|-------------|
 | `make run` | Start the development server (default port 8005) |
 | `make test` | Run the test suite with pytest |
+| `make coverage` | Run tests and generate an HTML coverage report |
 | `make shell` | Open an interactive Django shell (with shell_plus extras) |
 | `make lint` | Check code style with ruff |
 | `make lint-fix` | Auto-fix lint issues |
@@ -51,13 +52,14 @@ make test         # Verify nothing broke
 make lint-fix     # Clean up code style
 ```
 
-### Database
+### Database & Backups
 
 | Command | What it does |
 |---------|-------------|
 | `make migrate` | Apply pending database migrations |
 | `make migrations` | Generate new migration files after model changes |
 | `make superuser` | Create the development superuser account |
+| `make backup` | Create a database backup (saved to `BACKUP_DIR`) |
 
 When you change a model, the two-step process is:
 
@@ -74,6 +76,7 @@ make migrate      # Apply it to the database
 | `make docker-up` | Build and start Docker containers |
 | `make docker-down` | Stop Docker containers |
 | `make clean` | Remove `__pycache__`, `.pyc` files, and test caches |
+| `make screenshot-auth` | Generate shot-scraper auth JSON for authenticated screenshots |
 
 ### Kamal Deployment (Optional)
 

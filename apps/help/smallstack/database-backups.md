@@ -8,11 +8,11 @@ SmallStack includes built-in SQLite backup tooling — a management command for 
 # Create a backup
 make backup
 
-# Or with options
-python manage.py backup_db --keep 14
+# Or with options (override retention count)
+python manage.py backup_db --keep 5
 ```
 
-That's all you need. Backups are saved to your `BACKUP_DIR` and tracked in the database automatically.
+That's all you need. Backups are saved to your `BACKUP_DIR` and tracked in the database automatically. By default, the 10 most recent backups are kept — configurable via the `BACKUP_RETENTION` setting or the `--keep` flag.
 
 ## Management Command
 
@@ -22,8 +22,8 @@ The `backup_db` command creates a safe, non-blocking backup using Python's `sqli
 # Basic backup (saved to BACKUP_DIR)
 python manage.py backup_db
 
-# Keep only the 14 most recent backups
-python manage.py backup_db --keep 14
+# Override retention for this run (keeps only the 5 most recent)
+python manage.py backup_db --keep 5
 
 # Save to a specific path
 python manage.py backup_db --output /tmp/my-backup.sqlite3
@@ -33,7 +33,7 @@ python manage.py backup_db --output /tmp/my-backup.sqlite3
 
 | Flag | Description |
 |------|-------------|
-| `--keep N` | Prune oldest backups beyond N. Uses `BACKUP_RETENTION` setting if not specified. |
+| `--keep N` | Prune oldest backups beyond N. Defaults to `BACKUP_RETENTION` setting (10) if not specified. |
 | `--output PATH` | Override the destination file path |
 
 Backup files are named `db-YYYYMMDD-HHMMSS.sqlite3` and stored in `BACKUP_DIR`.
@@ -90,7 +90,7 @@ The setting is already in your configuration files, just disabled by default. Un
 BACKUP_CRON_ENABLED: "true"  # Enable scheduled database backups
 ```
 
-The default schedule is **daily at 2 AM**, keeping the last 14 backups.
+The default schedule is **daily at 2 AM**. The cron script uses `--keep 14` to retain two weeks of daily backups (overriding the default `BACKUP_RETENTION` of 10).
 
 ### Customize the Schedule
 

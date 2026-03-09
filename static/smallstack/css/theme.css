@@ -804,25 +804,30 @@ body.sidebar-closed .main-content {
     padding: 12px 16px;
     border-radius: var(--radius-sm);
     margin-bottom: 8px;
+    border-left: 4px solid;
 }
 
 .message.success {
-    background-color: var(--success-bg);
+    background-color: color-mix(in srgb, var(--success-fg) 10%, var(--card-bg));
+    border-left-color: var(--success-fg);
     color: var(--success-fg);
 }
 
 .message.warning {
-    background-color: var(--warning-bg);
+    background-color: color-mix(in srgb, var(--warning-fg) 10%, var(--card-bg));
+    border-left-color: var(--warning-fg);
     color: var(--warning-fg);
 }
 
 .message.error {
-    background-color: var(--error-bg);
+    background-color: color-mix(in srgb, var(--error-fg) 10%, var(--card-bg));
+    border-left-color: var(--error-fg);
     color: var(--error-fg);
 }
 
 .message.info {
-    background-color: var(--info-bg);
+    background-color: color-mix(in srgb, var(--info-fg) 10%, var(--card-bg));
+    border-left-color: var(--info-fg);
     color: var(--info-fg);
 }
 

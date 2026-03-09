@@ -9,6 +9,8 @@ description: Project overview and quick start guide
 
 A modern, batteries-included Django starter project built on Django's powerful admin foundation. Production-ready with SQLite, Docker, and zero-downtime Kamal deployment. Clone it, customize it, ship it.
 
+SmallStack is not a theme you have to implement — it's a production-ready system with clear patterns for you to extend with your own ideas and creativity. You focus on what makes your app unique, and SmallStack handles the platform.
+
 ## Features
 
 ### Profile App

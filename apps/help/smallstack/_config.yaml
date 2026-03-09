@@ -8,7 +8,7 @@ slug: smallstack
 
 # Section-specific variables
 variables:
-  version: "0.7.4"
+  version: "0.7.5"
   project_name: "Django SmallStack"
 
 # Pages in this section (order matters for navigation)
@@ -21,6 +21,11 @@ pages:
   - slug: getting-started
     title: "Getting Started"
     description: "Quick start guide and project overview"
+    icon: "rocket"
+
+  - slug: tldr
+    title: "TL;DR — Clone to Deploy"
+    description: "The shortest path from zero to a running site"
     icon: "rocket"
 
   - slug: make-commands

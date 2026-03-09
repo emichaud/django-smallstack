@@ -20,6 +20,11 @@ SQLite has experienced a renaissance in the web development community. What was 
 - **Used in production** by countless mobile apps, embedded systems, and yes—web applications
 - **Most deployed database in the world** (every smartphone, browser, and countless applications)
 
+> *"SQLite is likely used more than all other database engines combined. SQLite is in every iPhone and every Android phone, every Mac and every Windows 10 machine, every Firefox, Chrome, and Safari browser."*
+> — [sqlite.org](https://www.sqlite.org/mostdeployed.html)
+
+The SQLite developers acknowledge it's likely the most widely deployed database engine in existence, largely due to its ubiquity as an embedded database in mobile devices, set-top boxes, automotive systems, and consumer electronics.
+
 ### Perfect For
 
 | Use Case | Why SQLite Works |
