@@ -519,3 +519,75 @@ class TestBackupStatDetailView:
 
         assert len(records) == 1
         assert records[0].status == "failed"
+
+
+# ── Legal Pages & Cookie Banner Tests ─────────────────────
+
+
+class TestLegalPages:
+    """Tests for privacy policy and terms of service pages."""
+
+    def test_privacy_page_loads(self, client, db):
+        response = client.get("/privacy/")
+        assert response.status_code == 200
+        assert "Privacy Policy" in response.content.decode()
+
+    def test_terms_page_loads(self, client, db):
+        response = client.get("/terms/")
+        assert response.status_code == 200
+        assert "Terms of Service" in response.content.decode()
+
+    def test_privacy_page_is_public(self, client, db):
+        """Privacy page should not require login."""
+        response = client.get("/privacy/")
+        assert response.status_code == 200
+
+    def test_invalid_legal_page_404s(self, client, db):
+        """Non-existent legal page should 404."""
+        from django.urls import reverse
+
+        # Try accessing via the view directly with a bad page name
+        from config.views import legal_page_view
+        from django.test import RequestFactory
+
+        factory = RequestFactory()
+        request = factory.get("/")
+        request.user = type("AnonymousUser", (), {"is_authenticated": False})()
+
+        with pytest.raises(Exception):
+            legal_page_view(request, page="nonexistent-page")
+
+    def test_footer_contains_legal_links(self, client, db):
+        """Footer should contain privacy and terms links."""
+        response = client.get("/")
+        content = response.content.decode()
+        assert 'href="/privacy/"' in content
+        assert 'href="/terms/"' in content
+
+    @override_settings(BRAND_PRIVACY_URL="", BRAND_TERMS_URL="")
+    def test_footer_hides_links_when_disabled(self, client, db):
+        """Footer should not show links when URLs are empty."""
+        response = client.get("/")
+        content = response.content.decode()
+        assert "Privacy</a>" not in content
+        assert "Terms</a>" not in content
+
+    def test_cookie_banner_present(self, client, db):
+        """Cookie banner should be in the page HTML."""
+        response = client.get("/")
+        content = response.content.decode()
+        assert "cookie-banner" in content
+
+    @override_settings(BRAND_COOKIE_BANNER=False)
+    def test_cookie_banner_hidden_when_disabled(self, client, db):
+        """Cookie banner should not render when disabled."""
+        response = client.get("/")
+        content = response.content.decode()
+        assert "cookie-banner" not in content
+
+    def test_signup_terms_notice(self, client, db):
+        """Signup page should show terms notice."""
+        response = client.get("/accounts/signup/")
+        content = response.content.decode()
+        assert "Terms of Service" in content
+        assert "Privacy Policy" in content

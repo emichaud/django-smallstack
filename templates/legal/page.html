@@ -1,0 +1,18 @@
+{% extends "smallstack/base.html" %}
+{% load theme_tags %}
+
+{% block title %}{{ page_title }}{% endblock %}
+
+{% block breadcrumbs %}
+{% if user.is_authenticated %}
+{% breadcrumb "Home" "website:home" %}
+{% breadcrumb page_title %}
+{% render_breadcrumbs %}
+{% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="legal-page">
+    {{ content|safe }}
+</div>
+{% endblock %}

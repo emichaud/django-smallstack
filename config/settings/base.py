@@ -169,6 +169,12 @@ BRAND_FAVICON = config("BRAND_FAVICON", default="smallstack/brand/django-smallst
 BRAND_SOCIAL_IMAGE = config("BRAND_SOCIAL_IMAGE", default="smallstack/brand/django-smallstack-social.png")
 BRAND_TAGLINE = config("BRAND_TAGLINE", default="A minimal Django starter stack")
 
+# Legal / Consent
+BRAND_PRIVACY_URL = config("BRAND_PRIVACY_URL", default="/privacy/")
+BRAND_TERMS_URL = config("BRAND_TERMS_URL", default="/terms/")
+BRAND_COOKIE_BANNER = config("BRAND_COOKIE_BANNER", default=True, cast=bool)
+BRAND_SIGNUP_TERMS_NOTICE = config("BRAND_SIGNUP_TERMS_NOTICE", default=True, cast=bool)
+
 # Email settings
 DEFAULT_FROM_EMAIL = config("DEFAULT_FROM_EMAIL", default="noreply@example.com")
 EMAIL_BACKEND = config("EMAIL_BACKEND", default="django.core.mail.backends.console.EmailBackend")

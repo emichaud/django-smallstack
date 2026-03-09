@@ -53,6 +53,11 @@
         </ul>
         {% endif %}
     </div>
+    {% if brand.signup_terms_notice %}
+    <p class="terms-notice">By signing up, you agree to our
+        {% if brand.terms_url %}<a href="{{ brand.terms_url }}" target="_blank">Terms of Service</a>{% endif %}{% if brand.terms_url and brand.privacy_url %} and {% endif %}{% if brand.privacy_url %}<a href="{{ brand.privacy_url }}" target="_blank">Privacy Policy</a>{% endif %}.
+    </p>
+    {% endif %}
     <button type="submit" class="button button-primary">Sign Up</button>
 </form>
 

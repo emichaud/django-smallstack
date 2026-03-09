@@ -143,7 +143,7 @@
         }
 
         // Update swatch active states
-        document.querySelectorAll('.palette-swatch').forEach(function(btn) {
+        document.querySelectorAll('.palette-swatch, .palette-swatch-inline').forEach(function(btn) {
             if (btn.dataset.palette === (palette || 'django')) {
                 btn.classList.add('active');
             } else {
@@ -164,7 +164,7 @@
         setPalette(getPreferredPalette());
 
         // Listen for palette swatch clicks
-        document.querySelectorAll('.palette-swatch').forEach(function(btn) {
+        document.querySelectorAll('.palette-swatch, .palette-swatch-inline').forEach(function(btn) {
             btn.addEventListener('click', function(e) {
                 e.preventDefault();
                 setPalette(this.dataset.palette);

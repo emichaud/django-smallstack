@@ -1,0 +1,20 @@
+{% if brand.cookie_banner %}
+<div id="cookie-banner" class="cookie-banner" style="display:none;">
+    <div class="cookie-banner-content">
+        <p>This site uses cookies to ensure you get the best experience.{% if brand.privacy_url %} <a href="{{ brand.privacy_url }}">Learn more</a>{% endif %}</p>
+        <button class="button button-primary cookie-banner-accept" onclick="acceptCookies()">Accept</button>
+    </div>
+</div>
+<script>
+(function() {
+    if (!localStorage.getItem('cookie_consent')) {
+        document.getElementById('cookie-banner').style.display = '';
+    }
+})();
+function acceptCookies() {
+    localStorage.setItem('cookie_consent', 'accepted');
+    document.cookie = 'cookie_consent=accepted; path=/; max-age=31536000; SameSite=Lax';
+    document.getElementById('cookie-banner').remove();
+}
+</script>
+{% endif %}

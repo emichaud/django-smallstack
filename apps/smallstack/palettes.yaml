@@ -15,7 +15,7 @@ palettes:
       dark: "#44b78b"
 
   - id: high-contrast
-    label: High Contrast
+    label: Contrast
     description: Monochrome for accessibility
     preview:
       light: "#212121"

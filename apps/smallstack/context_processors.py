@@ -107,6 +107,10 @@ def branding(request):
             "favicon": getattr(settings, "BRAND_FAVICON", "smallstack/brand/django-smallstack-icon.ico"),
             "social_image": getattr(settings, "BRAND_SOCIAL_IMAGE", "smallstack/brand/django-smallstack-social.png"),
             "tagline": getattr(settings, "BRAND_TAGLINE", "A minimal Django starter stack"),
+            "privacy_url": getattr(settings, "BRAND_PRIVACY_URL", "/privacy/"),
+            "terms_url": getattr(settings, "BRAND_TERMS_URL", "/terms/"),
+            "cookie_banner": getattr(settings, "BRAND_COOKIE_BANNER", True),
+            "signup_terms_notice": getattr(settings, "BRAND_SIGNUP_TERMS_NOTICE", True),
         },
         "smallstack_version": _get_version(),
         "site": {

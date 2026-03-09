@@ -10,7 +10,7 @@ from django.views.generic import RedirectView
 
 from apps.accounts.views import SignupView
 
-from .views import health_check, starter_basic_view, starter_forms_view, starter_view
+from .views import health_check, legal_page_view, starter_basic_view, starter_forms_view, starter_view
 
 urlpatterns = [
     # Project pages - customize these in apps/website/
@@ -28,6 +28,9 @@ urlpatterns = [
     path("activity/", include("apps.activity.urls")),
     # Backups (staff-only)
     path("backups/", include("apps.smallstack.urls")),
+    # Legal pages (public)
+    path("privacy/", legal_page_view, {"page": "privacy-policy"}, name="privacy_policy"),
+    path("terms/", legal_page_view, {"page": "terms-of-service"}, name="terms_of_service"),
     # Utility routes
     path("health/", health_check, name="health_check"),
     path(
