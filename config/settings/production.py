@@ -78,6 +78,9 @@ SECURE_SSL_REDIRECT = config("SECURE_SSL_REDIRECT", default=False, cast=bool)
 SESSION_COOKIE_SECURE = config("SESSION_COOKIE_SECURE", default=True, cast=bool)
 CSRF_COOKIE_SECURE = config("CSRF_COOKIE_SECURE", default=True, cast=bool)
 
+# Backups — store on the mounted data volume so they survive deploys
+BACKUP_DIR = config("BACKUP_DIR", default="/app/data/backups")
+
 # Logging configuration
 #
 # File logging: Set LOG_FILE to a path to also write logs to a file.
