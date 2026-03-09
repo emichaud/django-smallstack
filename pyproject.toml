@@ -1,6 +1,6 @@
 [project]
 name = "django-smallstack"
-version = "0.7.3"
+version = "0.7.4"
 description = "A minimal Django stack for building and deploying admin-style apps"
 requires-python = ">=3.12"
 dependencies = [

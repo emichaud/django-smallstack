@@ -83,6 +83,7 @@
         <footer class="site-footer">
             <div class="footer-content">
                 <span>&copy; {% now "Y" %} {{ brand.name }}</span>
+                {% if smallstack_version %}<span class="footer-version">v{{ smallstack_version }}</span>{% endif %}
             </div>
         </footer>
     </div>

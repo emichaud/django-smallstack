@@ -664,16 +664,6 @@ body.sidebar-closed .main-content {
     overflow-y: auto;
 }
 
-.sidebar-footer {
-    padding: 12px 16px;
-    border-top: 1px solid var(--sidebar-border, var(--card-border));
-}
-
-.sidebar-version {
-    font-size: 0.72rem;
-    color: var(--text-muted);
-    opacity: 0.6;
-}
 
 .nav-list {
     list-style: none;
@@ -1115,8 +1105,16 @@ body.sidebar-closed .site-footer {
 }
 
 .footer-content {
-    text-align: center;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 12px;
     font-size: 0.85rem;
+}
+
+.footer-version {
+    font-size: 0.75rem;
+    opacity: 0.5;
 }
 
 /* ============================================
@@ -2277,6 +2275,76 @@ a.button.button-secondary:hover {
 .stat-card-clickable:hover {
     border-color: var(--primary) !important;
     background: color-mix(in srgb, var(--primary) 8%, var(--card-bg));
+}
+
+/* ============================================
+   Backup Configuration
+   ============================================ */
+
+.config-status-card {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 18px;
+    border-radius: var(--border-radius);
+    border: 1px solid var(--card-border);
+    background: var(--card-bg);
+    text-decoration: none;
+    transition: border-color 0.15s, background 0.15s;
+}
+
+.config-status-ok {
+    border-color: color-mix(in srgb, var(--success-fg) 40%, transparent);
+    color: var(--success-fg);
+}
+
+.config-status-ok:hover {
+    border-color: var(--success-fg);
+    background: color-mix(in srgb, var(--success-fg) 6%, var(--card-bg));
+}
+
+.config-status-warning {
+    border-color: color-mix(in srgb, var(--delete-button-bg, red) 40%, transparent);
+    color: var(--delete-button-bg, red);
+}
+
+.config-status-warning:hover {
+    border-color: var(--delete-button-bg, red);
+    background: color-mix(in srgb, var(--delete-button-bg, red) 6%, var(--card-bg));
+}
+
+.config-status-title {
+    font-weight: 700;
+    font-size: 0.95rem;
+}
+
+.config-status-detail {
+    font-size: 0.75rem;
+    color: var(--body-quiet-color);
+}
+
+.config-label {
+    font-weight: 600;
+    width: 100px;
+    white-space: nowrap;
+}
+
+.config-copy-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 2px;
+    vertical-align: middle;
+    color: var(--body-quiet-color);
+}
+
+.config-copy-btn:hover {
+    color: var(--body-fg);
+}
+
+.config-status-card code,
+#panel-config code {
+    word-break: break-all;
 }
 
 .stat-modal {
