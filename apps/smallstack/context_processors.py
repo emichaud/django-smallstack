@@ -9,6 +9,25 @@ from pathlib import Path
 import yaml
 from django.conf import settings
 
+_cached_version = None
+
+
+def _get_version():
+    """Get SmallStack version from pyproject.toml."""
+    global _cached_version
+    if _cached_version is not None:
+        return _cached_version
+    try:
+        pyproject = Path(settings.BASE_DIR) / "pyproject.toml"
+        for line in pyproject.read_text().splitlines():
+            if line.startswith("version"):
+                _cached_version = line.split('"')[1]
+                return _cached_version
+    except (FileNotFoundError, IndexError):
+        pass
+    _cached_version = ""
+    return _cached_version
+
 
 def _load_palettes():
     """Load palette definitions from palettes.yaml."""
@@ -89,6 +108,7 @@ def branding(request):
             "social_image": getattr(settings, "BRAND_SOCIAL_IMAGE", "smallstack/brand/django-smallstack-social.png"),
             "tagline": getattr(settings, "BRAND_TAGLINE", "A minimal Django starter stack"),
         },
+        "smallstack_version": _get_version(),
         "site": {
             "name": getattr(settings, "SITE_NAME", "SmallStack"),
             "domain": getattr(settings, "SITE_DOMAIN", "localhost:8000"),

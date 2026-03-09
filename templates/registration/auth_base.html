@@ -1,16 +1,22 @@
 {% load static %}
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-palette="{{ color_palette }}">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}{% endblock %} | {{ brand.name }}</title>
-    <script>(function(){var t=localStorage.getItem('smallstack-theme')||'dark';document.documentElement.setAttribute('data-theme',t);})()</script>
+    <link rel="icon" type="image/svg+xml" href="{% static brand.favicon %}">
+    <script>(function(){var t=localStorage.getItem('smallstack-theme')||'dark';document.documentElement.setAttribute('data-theme',t);var p=localStorage.getItem('smallstack-palette');if(p)document.documentElement.setAttribute('data-palette',p);})()</script>
     <link rel="stylesheet" href="{% static 'admin/css/base.css' %}">
     <link rel="stylesheet" href="{% static 'smallstack/css/theme.css' %}">
+    <link rel="stylesheet" href="{% static 'smallstack/css/palettes.css' %}">
 </head>
 <body class="auth-page">
     <div class="auth-container">
+        <div class="auth-brand">
+            <img src="{% static brand.logo %}" alt="{{ brand.name }}" class="auth-logo auth-logo-light">
+            <img src="{% static brand.logo_dark %}" alt="{{ brand.name }}" class="auth-logo auth-logo-dark">
+        </div>
         <div class="auth-card">
             {% block auth_content %}{% endblock %}
         </div>
