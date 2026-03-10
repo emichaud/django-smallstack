@@ -8,7 +8,7 @@ slug: smallstack
 
 # Section-specific variables
 variables:
-  version: "0.7.7"
+  version: "0.7.8"
   project_name: "Django SmallStack"
 
 # Pages in this section (order matters for navigation)
@@ -32,6 +32,11 @@ pages:
     title: "Make Commands"
     description: "Shortcut commands for development, testing, and deployment"
     icon: "terminal"
+
+  - slug: building-crud-pages
+    title: "Building CRUD Pages"
+    description: "How to create management pages for your models using CRUDView and django-tables2"
+    icon: "settings"
 
   - slug: about
     title: "About & Inspiration"
@@ -147,6 +152,11 @@ pages:
     title: "Background Tasks"
     description: "Running tasks outside the request-response cycle"
     icon: "tasks"
+
+  - slug: user-manager
+    title: "User Manager"
+    description: "Built-in user management with search, profiles, activity stats, and timezone dashboard"
+    icon: "users"
 
   - slug: activity-tracking
     title: "Activity Tracking"

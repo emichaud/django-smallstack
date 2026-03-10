@@ -15,13 +15,14 @@ When an AI agent is asked to modify or extend this project, these files help it:
 
 | File | Description |
 |------|-------------|
-| [django-apps.md](django-apps.md) | Creating new Django apps following project conventions |
+| [django-apps.md](django-apps.md) | Creating apps, CRUDView + tables2 management pages, title bar pattern |
 | [templates.md](templates.md) | Template inheritance, blocks, includes, common patterns |
 | [theming-system.md](theming-system.md) | CSS variables, palettes, dark mode, UI components |
 | [authentication.md](authentication.md) | Custom user model, auth views, protecting views |
 | [htmx-patterns.md](htmx-patterns.md) | htmx setup, CSRF, partials, dual-response views, OOB messages |
 | [help-documentation.md](help-documentation.md) | Help system, sections, bundled SmallStack docs |
 | [settings.md](settings.md) | Split settings, environment variables, feature flags |
+| [timezones.md](timezones.md) | Timezone middleware, per-user timezone, localtime_tooltip tag |
 | [background-tasks.md](background-tasks.md) | Django Tasks framework with django-tasks-db backend |
 | [activity-tracking.md](activity-tracking.md) | HTTP request logging middleware and configuration |
 | [logging-audit.md](logging-audit.md) | Logging configuration and audit trail |
