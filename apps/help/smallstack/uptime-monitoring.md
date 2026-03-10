@@ -2,14 +2,26 @@
 
 SmallStack includes a lightweight heartbeat/uptime monitoring system with a public status page, SLA tracking, and staff dashboard. No external services needed.
 
+## Why Built-In Monitoring?
+
+For small to medium apps — internal tools, side projects, client portals — dedicated monitoring services like Datadog or UptimeRobot are often overkill. SmallStack gives you "just enough" out of the box:
+
+- **Proof of life** — a heartbeat that proves cron, the database, and the application are all working
+- **Public status page** — give your users confidence that the system is healthy
+- **SLA tracking** — measure and report on uptime commitments
+
+As your site grows, you may want to add an external monitoring tool that can alert you when the site is unreachable from outside your network. SmallStack's JSON API at `/status/json/` is designed for exactly this — point your external monitor at it, and use SmallStack's built-in tracking for the historical record.
+
 ## How It Works
 
-A cron job runs `python manage.py heartbeat` every minute inside the Docker container. Each run:
+A cron job runs `python3 manage.py heartbeat` every minute inside the Docker container. Each run:
 
 1. Checks database connectivity (`connection.ensure_connection()`)
 2. Records a `Heartbeat` row with status (ok/fail) and response time
 3. Auto-creates a monitoring epoch on the first heartbeat (sets the SLA baseline)
 4. Prunes records older than the retention period, writing daily summaries first
+
+Heartbeat timestamps are truncated to the minute boundary (`:00` seconds) so they align cleanly with the epoch. This ensures 100% uptime is achievable when no checks are missed.
 
 ## Pages
 
@@ -17,8 +29,40 @@ A cron job runs `python manage.py heartbeat` every minute inside the Docker cont
 |-----|--------|-------------|
 | `/status/` | Public | Status page with uptime %, timelines, response times |
 | `/status/json/` | Public | Machine-readable JSON for external monitors |
-| `/status/dashboard/` | Staff only | Heartbeat log with sortable table, tabs (All/OK/Failures) |
+| `/status/dashboard/` | Staff only | Heartbeat log with sortable table, timelines, and JSON view |
 | `/status/sla/` | Staff only | SLA configuration, thresholds, and daily summaries |
+
+### Public Status Page
+
+The status page requires no login — share it with users, embed it in a status site, or use it as a health dashboard.
+
+![Public status page](/static/smallstack/docs/images/about-status.png)
+
+The page shows:
+- Current status indicator (Operational / Degraded / Down)
+- Overall, 24-hour, and 7-day uptime percentages
+- Last and average response times
+- 24-hour and 1-hour visual timelines with per-slot tooltips
+- Monitoring start date
+
+### Staff Dashboard
+
+The dashboard provides detailed operational data behind a staff login.
+
+![Staff dashboard](/static/smallstack/docs/images/status-dashboard.png)
+
+Three tabs:
+- **Timelines** — the same 24h and 1h bar charts from the public page
+- **Heartbeat Log** — a sortable, paginated django-tables2 table with All/OK/Fail filters
+- **JSON** — the raw JSON response from `/status/json/`, formatted for easy reading
+
+### SLA Page
+
+Staff can configure SLA targets and reset the monitoring epoch.
+
+![SLA configuration](/static/smallstack/docs/images/status-sla.png)
+
+The SLA page shows uptime against Goal and Commitment thresholds, a configuration form for adjusting targets, and a reference panel explaining how uptime is calculated.
 
 ## Status Logic
 
@@ -28,27 +72,33 @@ A cron job runs `python manage.py heartbeat` every minute inside the Docker cont
 
 ## Uptime Calculation
 
-Uptime is calculated as `ok_count / expected_heartbeats * 100` where expected heartbeats = elapsed seconds / interval. This means missed heartbeats count against uptime — if no heartbeat arrives when one was expected, uptime drops.
+Uptime is calculated as:
+
+```
+uptime % = (ok checks / expected checks) x 100
+```
+
+Where expected checks = `floor(elapsed seconds / interval)`. The floor means the current incomplete minute doesn't count against uptime — if you're 30 seconds into a new minute, you aren't penalized for a check that hasn't happened yet. This ensures 100% is achievable when every expected check succeeds.
 
 All uptime calculations are **epoch-aware**. The epoch is the monitoring start date — uptime is only measured from that point forward. The epoch is auto-created on the first heartbeat, or can be reset from the SLA page.
 
 ## SLA Tracking
 
-The SLA system provides target and minimum thresholds for uptime:
+The SLA system provides two thresholds:
 
-- **Service Target** (default 99.9%) — the goal. Uptime at or above this is green.
-- **Service Minimum** (default 99.5%) — the floor. Uptime between minimum and target is yellow (warning). Below minimum is red (breach).
+- **Goal** (default 99.95%) — the internal target. Dashboard shows yellow (warning) when uptime is between goal and commitment. Allows ~21.6 min downtime/month.
+- **Commitment** (default 99.9%) — the public threshold. Below this is red (breach). Allows ~43.2 min downtime/month.
 
-These colors are applied consistently across the public status page, dashboard, and SLA detail page.
+The dashboard uses 3-tier coloring (green/yellow/red) to show performance against the goal. The public status page and SLA page use 2-tier coloring (green/red) against the commitment — no need to expose internal targets publicly.
 
 ### SLA Configuration
 
 Staff can update SLA settings from `/status/sla/`:
 
-- **Monitoring Start** — reset the epoch (uptime recalculates from this date)
-- **Service Target %** — the uptime goal
-- **Service Minimum %** — the minimum acceptable uptime
-- **Note** — reason for the change
+- **Monitoring Start** — reset the epoch (uptime recalculates from this date). The form shows the active timezone so you know how the input is interpreted.
+- **Goal %** — the internal uptime target
+- **Commitment %** — the public minimum acceptable uptime
+- **Note** — reason for the change (e.g., "After server migration")
 
 ### Daily Summaries
 
@@ -83,7 +133,7 @@ uv run python manage.py heartbeat --reset-epoch --reset-note "Fresh start"
 In production Docker containers, cron runs automatically. The heartbeat job is in `scripts/smallstack-cron`:
 
 ```cron
-* * * * * . /app/.env.cron && cd /app && python manage.py heartbeat >> /proc/1/fd/1 2>&1
+* * * * * . /app/.env.cron && cd /app && python3 manage.py heartbeat >> /proc/1/fd/1 2>&1
 ```
 
 Cron runs in the container's system timezone (set via the `TZ` environment variable, defaults to UTC). The heartbeat fires every minute so timezone doesn't matter for it, but the backup job in the same cron file is timezone-sensitive. See [Database Backups — Cron and Timezones](/help/smallstack/database-backups/#cron-and-timezones) for details on setting your timezone.
@@ -108,7 +158,17 @@ Cron runs in the container's system timezone (set via the `TZ` environment varia
 }
 ```
 
-Use this endpoint with external monitoring services like UptimeRobot or Healthchecks.io for alerting.
+Use this endpoint with external monitoring services like UptimeRobot, Healthchecks.io, or your own scripts for alerting. The built-in system tracks history and shows it on the status page — external tools handle the alerting and outside-in verification.
+
+## Growing Beyond Built-In Monitoring
+
+SmallStack's monitoring is designed for simplicity. As your needs grow, here's a natural progression:
+
+1. **Start here** — SmallStack heartbeat + status page covers most small/internal sites
+2. **Add external pings** — Point an external monitor at `/status/json/` for outside-in checks and alerting
+3. **Full observability** — When you need APM, distributed tracing, or multi-service dashboards, consider dedicated tools like Sentry, Datadog, or Grafana
+
+The built-in system doesn't try to replace professional monitoring — it fills the gap between "no monitoring at all" and "we need a full observability platform."
 
 ## Extending
 

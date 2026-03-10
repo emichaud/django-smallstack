@@ -32,6 +32,7 @@ SmallStack provides a strong foundation for your app to thrive, whether it's an 
 - **User management** gives staff a clean interface for accounts, profiles, and timezones
 - **CRUDView** lets you spin up model management pages in minutes, not hours
 - **Activity tracking** gives you lightweight analytics from day one
+- **Uptime monitoring** proves your site is alive with a public status page
 - **Database backups** protect your precious data with scheduled and on-demand backups
 - **Deployment tooling** gets you from localhost to production with a single command
 
@@ -87,6 +88,25 @@ Built-in SQLite backup system with a staff dashboard.
 - **Configurable retention** — auto-prune old backups to save disk space
 
 > [Full documentation →](/help/smallstack/database-backups/)
+
+---
+
+### Uptime Monitoring
+
+A built-in heartbeat system with a public status page — no external services needed.
+
+![Public status page](/static/smallstack/docs/images/about-status.png)
+
+- **Automatic heartbeat** — cron checks database connectivity every minute
+- **Public status page** at `/status/` with uptime %, visual timelines, response times
+- **Staff dashboard** with heartbeat log, timeline views, and JSON output
+- **SLA tracking** — configurable goal and commitment thresholds with color-coded compliance
+- **JSON API** at `/status/json/` — point external monitors here for alerting
+- **Daily summaries** preserve long-term uptime data after individual records are pruned
+
+For small and internal sites, this is all the monitoring you need. As you grow, use the JSON endpoint with external tools like UptimeRobot or Healthchecks.io for outside-in verification and alerting.
+
+> [Full documentation →](/help/smallstack/uptime-monitoring/)
 
 ---
 

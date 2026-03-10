@@ -136,6 +136,33 @@ htmx.js is vendored at `static/smallstack/js/htmx.min.js` (no CDN dependency). C
 
 **Learn more:** See `docs/skills/htmx-patterns.md` for SmallStack-specific patterns, or [htmx.org](https://htmx.org/) for the full documentation.
 
+## Data Display
+
+### django-tables2
+
+A declarative library for rendering HTML tables from Django querysets. SmallStack uses it as the foundation for its **CRUDView** system — define a table class, and get sortable, paginated, themed tables with minimal code.
+
+```python
+"django-tables2>=2.8.0"
+```
+
+**SmallStack uses django-tables2 for:**
+- **CRUDView list pages** — every model management page gets a sortable, paginated table automatically
+- **Heartbeat dashboard** — the heartbeat log with All/OK/Fail tab filtering
+- **User Manager** — the searchable user list with stat card drilldowns
+- **Activity dashboard** — the request log table
+
+**Why django-tables2?** It eliminates the repetitive work of writing table HTML, pagination logic, and sort handling. Define columns once in a `Table` class, pass it a queryset, and the template renders a complete, accessible table. SmallStack's `CRUDView` builds on this — you define a table class alongside your model, and CRUDView generates the list view, create/update forms, and delete confirmation automatically.
+
+**Reusable columns included with SmallStack:**
+- `DetailLinkColumn` — clickable links to detail/edit views
+- `BooleanColumn` — checkmark/cross icons for boolean fields
+- `ActionsColumn` — edit/delete action buttons
+
+See [Building CRUD Pages](/help/smallstack/building-crud-pages/) for the full guide on using CRUDView with django-tables2.
+
+**When to consider alternatives:** For simple tables that don't need sorting or pagination, plain Django templates work fine. For complex data grids with inline editing or real-time updates, consider a JavaScript solution like AG Grid.
+
 ## Content & Media
 
 ### Pillow
@@ -178,6 +205,7 @@ Parses the help system configuration file (`_config.yaml`) that defines navigati
 | django-extensions | Dev utilities | Never (dev only) |
 | django-debug-toolbar | Debugging | Never (dev only) |
 | django-htmx | htmx request detection | Never (lightweight) |
+| django-tables2 | Sortable/paginated tables | AG Grid for complex grids |
 | Pillow | Image processing | Never (if using images) |
 | Markdown | Help system rendering | Never (if using help) |
 | PyYAML | Config parsing | Never (if using help) |
