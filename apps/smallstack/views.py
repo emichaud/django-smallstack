@@ -300,7 +300,7 @@ class BackupNowView(StaffRequiredMixin, View):
             messages.error(request, "Backup is only available for SQLite databases.")
             return redirect("smallstack:backups")
 
-        record = _do_backup(triggered_by="manual")
+        record = _do_backup(triggered_by="command")
         if record.status == "failed":
             messages.error(request, f"Backup failed: {record.error_message}")
         else:
@@ -320,7 +320,7 @@ class BackupDownloadView(StaffRequiredMixin, View):
             messages.error(request, "Backup download is only available for SQLite databases.")
             return redirect("smallstack:backups")
 
-        record = _do_backup(triggered_by="download")
+        record = _do_backup(triggered_by="manual")
         if record.status == "failed":
             messages.error(request, f"Backup failed: {record.error_message}")
             return redirect("smallstack:backups")

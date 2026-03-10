@@ -1,5 +1,9 @@
-# SmallStack scheduled backups - daily at 2 AM UTC, keep last 14
-# Pinned to UTC so backups run at a predictable time regardless of
-# the container's TZ env var or Django's TIME_ZONE setting.
-CRON_TZ=UTC
-0 2 * * * . /app/.env.cron && cd /app && python manage.py backup_db --keep 14 >> /proc/1/fd/1 2>&1
+# SmallStack scheduled tasks
+# Cron runs in the container's system timezone (set via the TZ env var).
+# Default is UTC. Set TZ in docker-compose.yml or deploy.yml to change.
+
+# Heartbeat — every minute
+* * * * * . /app/.env.cron && cd /app && python manage.py heartbeat >> /proc/1/fd/1 2>&1
+
+# Database backup — daily at 2 AM (if enabled via BACKUP_CRON_ENABLED)
+0 2 * * * . /app/.env.cron && cd /app && [ "${BACKUP_CRON_ENABLED}" = "true" ] && python manage.py backup_db --keep 14 >> /proc/1/fd/1 2>&1

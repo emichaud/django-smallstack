@@ -96,12 +96,30 @@ The default schedule is **daily at 2 AM UTC**. The cron script uses `--keep 14` 
 
 ### Cron and Timezones
 
-The cron schedule is **pinned to UTC** via `CRON_TZ=UTC` in `scripts/smallstack-cron`. This means backups always fire at a predictable absolute time regardless of:
+Cron jobs run in the **container's system timezone**, which is set via the `TZ` environment variable. By default this is UTC, so `0 2 * * *` means 2 AM UTC.
 
-- The Django `TIME_ZONE` setting (which only affects how dates are *displayed*)
-- The container's system timezone (`TZ` environment variable)
+The Django `TIME_ZONE` setting only affects how dates are *displayed* in templates — it has no effect on when cron jobs fire.
 
-This is intentional — changing your display timezone should never accidentally shift when backups run. If you need backups at 2 AM in a specific timezone, convert to UTC and update the cron expression.
+**To run backups at 2 AM in your local timezone**, set `TZ` in your deployment config:
+
+**docker-compose.yml:**
+```yaml
+services:
+  web:
+    environment:
+      - TZ=America/New_York
+```
+
+**Kamal (config/deploy.yml):**
+```yaml
+env:
+  clear:
+    TZ: "America/New_York"
+```
+
+With `TZ=America/New_York`, the `0 2 * * *` cron expression fires at 2 AM Eastern. This is usually what you want — backups run during your off-hours regardless of daylight saving shifts.
+
+> **Note:** `CRON_TZ` is not supported by the cron daemon included in the Docker image (Vixie cron). Use the `TZ` environment variable instead.
 
 ### Customize the Schedule
 
@@ -109,7 +127,6 @@ Edit `scripts/smallstack-cron` to change the cron expression:
 
 ```cron
 # Every 6 hours, keep 28 backups
-CRON_TZ=UTC
 0 */6 * * * . /app/.env.cron && cd /app && python manage.py backup_db --keep 28 >> /proc/1/fd/1 2>&1
 ```
 

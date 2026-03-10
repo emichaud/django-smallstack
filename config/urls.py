@@ -28,6 +28,8 @@ urlpatterns = [
     path("help/", include("apps.help.urls")),
     # Activity tracking
     path("activity/", include("apps.activity.urls")),
+    # Heartbeat / Status
+    path("", include("apps.heartbeat.urls")),
     # Backups (staff-only)
     path("backups/", include("apps.smallstack.urls")),
     # Legal pages (public)

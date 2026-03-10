@@ -72,7 +72,7 @@ def pruned_record(db):
         file_size=95000,
         duration_ms=12,
         status="success",
-        triggered_by="cron",
+        triggered_by="scheduler",
         pruned_at=timezone.now(),
     )
 

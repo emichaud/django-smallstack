@@ -18,9 +18,8 @@ class BackupRecord(models.Model):
 
     TRIGGER_CHOICES = [
         ("manual", "Manual"),
-        ("download", "Download"),
-        ("cron", "Cron"),
         ("command", "Command"),
+        ("scheduler", "Scheduler"),
         ("system", "System"),
     ]
 

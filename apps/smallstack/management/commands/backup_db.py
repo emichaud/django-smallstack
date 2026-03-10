@@ -77,7 +77,7 @@ class Command(BaseCommand):
                 file_size=file_size,
                 duration_ms=duration_ms,
                 status="success",
-                triggered_by="command",
+                triggered_by="scheduler",
             )
 
             self.stdout.write(self.style.SUCCESS(f"Backup created: {dest_path} ({file_size:,} bytes, {duration_ms}ms)"))
@@ -90,7 +90,7 @@ class Command(BaseCommand):
                 duration_ms=duration_ms,
                 status="failed",
                 error_message=str(e),
-                triggered_by="command",
+                triggered_by="scheduler",
             )
             self.stderr.write(self.style.ERROR(f"Backup failed: {e}"))
 
@@ -107,7 +107,7 @@ class Command(BaseCommand):
             return
 
         # Prune old backups (--keep overrides BACKUP_RETENTION)
-        pruned = _prune_backups(triggered_by="command", keep=options["keep"])
+        pruned = _prune_backups(triggered_by="scheduler", keep=options["keep"])
 
         for name in pruned:
             self.stdout.write(f"Pruned: {name}")

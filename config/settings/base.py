@@ -25,6 +25,7 @@ INSTALLED_APPS = [
     "apps.help",
     "apps.tasks",
     "apps.activity",
+    "apps.heartbeat",
     "apps.usermanager",
     "apps.website",  # Project-specific pages (customize freely)
     # Django built-in apps
@@ -196,13 +197,20 @@ EMAIL_BACKEND = config("EMAIL_BACKEND", default="django.core.mail.backends.conso
 # Activity Tracking
 ACTIVITY_MAX_ROWS = config("ACTIVITY_MAX_ROWS", default=10000, cast=int)
 ACTIVITY_PRUNE_INTERVAL = config("ACTIVITY_PRUNE_INTERVAL", default=100, cast=int)
-ACTIVITY_EXCLUDE_PATHS = ["/static/", "/media/", "/favicon.ico", "/health/", "/admin/jsi18n/", "/__debug__/"]
+ACTIVITY_EXCLUDE_PATHS = [
+    "/static/", "/media/", "/favicon.ico", "/health/",
+    "/status/", "/admin/jsi18n/", "/__debug__/",
+]
 
 # SQLite Backup
 BACKUP_DIR = config("BACKUP_DIR", default=str(BASE_DIR / "backups"))
 BACKUP_RETENTION = config("BACKUP_RETENTION", default=10, cast=int)
 BACKUP_CRON_ENABLED = config("BACKUP_CRON_ENABLED", default=False, cast=bool)
 BACKUP_DOWNLOAD_ENABLED = config("BACKUP_DOWNLOAD_ENABLED", default=True, cast=bool)
+
+# Heartbeat / Uptime Monitoring
+HEARTBEAT_RETENTION_DAYS = config("HEARTBEAT_RETENTION_DAYS", default=7, cast=int)
+HEARTBEAT_EXPECTED_INTERVAL = config("HEARTBEAT_EXPECTED_INTERVAL", default=60, cast=int)
 
 # Default primary key field type
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"

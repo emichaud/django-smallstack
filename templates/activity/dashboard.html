@@ -3,9 +3,7 @@
 
 {% block title %}Activity{% endblock %}
 
-{% block breadcrumbs %}
-    {% breadcrumb "Activity" "activity:dashboard" %}
-{% endblock %}
+{% block breadcrumbs %}{% endblock %}
 
 {% block extra_css %}
 <style>
@@ -53,6 +51,11 @@
     <div class="page-header-content">
         <h1>Activity</h1>
         <p class="page-subtitle">Site overview — {{ total_requests|stringformat:"," }} tracked requests, {{ max_rows|stringformat:"," }} max</p>
+        <nav style="margin-top: 0.5rem; font-size: 0.8rem;">
+            <a href="{% url 'website:home' %}" style="color: var(--body-quiet-color); text-decoration: none;">Home</a>
+            <span style="color: var(--body-quiet-color); margin: 0 0.3rem;">/</span>
+            <span style="color: var(--body-fg);">Activity</span>
+        </nav>
     </div>
 </div>
 

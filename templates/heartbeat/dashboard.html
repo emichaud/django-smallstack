@@ -1,0 +1,373 @@
+{% extends "smallstack/base.html" %}
+{% load theme_tags %}
+
+{% block title %}Heartbeat Dashboard{% endblock %}
+
+{% block breadcrumbs %}{% endblock %}
+
+{% block extra_css %}
+{% include "smallstack/crud/_table_styles.html" %}
+<style>
+    /* django-tables2 sort indicators */
+    .crud-table thead th a { color: var(--body-quiet-color); text-decoration: none; }
+    .crud-table thead th a:hover { color: var(--primary); }
+    .crud-table thead th.asc a::after { content: " \25B2"; font-size: 0.65rem; }
+    .crud-table thead th.desc a::after { content: " \25BC"; font-size: 0.65rem; }
+    /* django-tables2 pagination */
+    ul.pagination {
+        display: flex; justify-content: center; gap: 0.25rem;
+        list-style: none !important; padding: 1rem 0 0 !important; margin: 0 !important;
+    }
+    ul.pagination li { list-style: none !important; }
+    ul.pagination li a,
+    ul.pagination li span {
+        display: inline-block; padding: 0.3rem 0.75rem;
+        border-radius: var(--radius-sm, 4px); color: var(--body-quiet-color);
+        text-decoration: none; font-size: 0.85rem;
+    }
+    ul.pagination li a:hover {
+        color: var(--primary);
+        background: color-mix(in srgb, var(--primary) 10%, var(--body-bg));
+    }
+    ul.pagination li.active a,
+    ul.pagination li.active span {
+        background: var(--primary); color: var(--button-fg);
+    }
+    .tab-bar {
+        display: flex;
+        gap: 0;
+        border-bottom: 2px solid var(--hairline-color);
+        margin-bottom: 0;
+    }
+    .tab-btn {
+        padding: 10px 20px;
+        background: none;
+        border: none;
+        border-bottom: 2px solid transparent;
+        margin-bottom: -2px;
+        cursor: pointer;
+        font-size: 0.9rem;
+        font-weight: 500;
+        color: var(--body-quiet-color);
+        transition: color 0.15s, border-color 0.15s;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+    }
+    .tab-btn:hover { color: var(--body-fg); }
+    .tab-btn.active { color: var(--primary); border-bottom-color: var(--primary); }
+    .tab-count {
+        display: inline-block;
+        padding: 1px 7px;
+        border-radius: 10px;
+        font-size: 0.7rem;
+        font-weight: 700;
+        background: color-mix(in srgb, var(--primary) 15%, var(--card-bg));
+        color: var(--primary);
+    }
+
+    /* Top-level view switcher */
+    .view-bar {
+        display: flex;
+        gap: 0;
+        border-bottom: 2px solid var(--hairline-color);
+        margin-bottom: 0;
+    }
+    .view-btn {
+        padding: 12px 24px;
+        background: none;
+        border: none;
+        border-bottom: 3px solid transparent;
+        margin-bottom: -2px;
+        cursor: pointer;
+        font-size: 0.95rem;
+        font-weight: 600;
+        color: var(--body-quiet-color);
+        transition: color 0.15s, border-color 0.15s;
+    }
+    .view-btn:hover { color: var(--body-fg); }
+    .view-btn.active { color: var(--primary); border-bottom-color: var(--primary); }
+    .view-panel { display: none; }
+    .view-panel.active { display: block; }
+
+    /* Timeline styles (from status page) */
+    .timeline-bar {
+        display: flex;
+        gap: 2px;
+        height: 32px;
+        align-items: stretch;
+    }
+    .timeline-bar .beat {
+        flex: 1;
+        border-radius: 2px;
+        min-width: 2px;
+        position: relative;
+        transition: opacity 0.1s;
+    }
+    .timeline-bar .beat.ok { background: var(--success-fg); opacity: 0.7; }
+    .timeline-bar .beat.fail { background: var(--error-fg); opacity: 0.9; }
+    .timeline-bar .beat.missed {
+        background: repeating-linear-gradient(
+            45deg,
+            color-mix(in srgb, var(--error-fg) 25%, var(--body-bg)),
+            color-mix(in srgb, var(--error-fg) 25%, var(--body-bg)) 2px,
+            color-mix(in srgb, var(--error-fg) 10%, var(--body-bg)) 2px,
+            color-mix(in srgb, var(--error-fg) 10%, var(--body-bg)) 4px
+        );
+        opacity: 0.8;
+    }
+    .timeline-bar .beat.partial {
+        background: linear-gradient(to top, var(--error-fg) 40%, var(--success-fg) 40%);
+        opacity: 0.8;
+    }
+    .timeline-bar .beat.pre-epoch {
+        background: color-mix(in srgb, var(--body-quiet-color) 8%, var(--body-bg));
+        opacity: 1;
+    }
+    .timeline-bar .beat:hover { opacity: 1; }
+    .timeline-bar .beat .tooltip {
+        display: none;
+        position: absolute;
+        bottom: 100%;
+        left: 50%;
+        transform: translateX(-50%);
+        background: var(--body-fg);
+        color: var(--body-bg);
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-size: 0.7rem;
+        white-space: nowrap;
+        z-index: 10;
+        margin-bottom: 4px;
+        pointer-events: none;
+    }
+    .timeline-bar .beat:hover .tooltip { display: block; }
+    .timeline-bar-24h .beat { min-width: 4px; }
+    .timeline-legend {
+        display: flex;
+        gap: 16px;
+        font-size: 0.75rem;
+        color: var(--body-quiet-color);
+        margin-top: 8px;
+    }
+    .timeline-legend .swatch {
+        display: inline-block;
+        width: 12px;
+        height: 12px;
+        border-radius: 2px;
+        vertical-align: middle;
+        margin-right: 4px;
+    }
+    .timeline-legend .swatch.ok { background: var(--success-fg); opacity: 0.7; }
+    .timeline-legend .swatch.fail { background: var(--error-fg); }
+    .timeline-legend .swatch.missed {
+        background: repeating-linear-gradient(
+            45deg,
+            color-mix(in srgb, var(--error-fg) 25%, var(--body-bg)),
+            color-mix(in srgb, var(--error-fg) 25%, var(--body-bg)) 2px,
+            color-mix(in srgb, var(--error-fg) 10%, var(--body-bg)) 2px,
+            color-mix(in srgb, var(--error-fg) 10%, var(--body-bg)) 4px
+        );
+    }
+
+    /* JSON display */
+    .json-display {
+        background: color-mix(in srgb, var(--primary) 4%, var(--body-bg));
+        border-radius: 6px;
+        padding: 20px;
+        font-family: monospace;
+        font-size: 0.85rem;
+        line-height: 1.6;
+        white-space: pre;
+        overflow-x: auto;
+        color: var(--body-fg);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header-with-actions" style="background: color-mix(in srgb, var(--primary) 15%, var(--body-bg)); margin: -24px -24px 24px -24px; padding: 24px; border-radius: 8px 8px 0 0;">
+    <div class="page-header-content">
+        <h1>Heartbeat Dashboard</h1>
+        <p class="page-subtitle">{{ total_heartbeats|stringformat:"," }} total records &middot; {{ retention_days }}-day retention &middot; {{ expected_interval }}s interval</p>
+        <nav style="margin-top: 0.5rem; font-size: 0.8rem;">
+            <a href="{% url 'website:home' %}" style="color: var(--body-quiet-color); text-decoration: none;">Home</a>
+            <span style="color: var(--body-quiet-color); margin: 0 0.3rem;">/</span>
+            <span style="color: var(--body-fg);">Heartbeat</span>
+        </nav>
+    </div>
+    <div style="display: flex; gap: 0.5rem; align-items: center;">
+        <a href="{% url 'heartbeat:status' %}" class="btn" style="background: color-mix(in srgb, var(--primary) 20%, var(--body-bg)); color: var(--primary); padding: 0.5rem 1rem; border: none; border-radius: var(--radius-sm, 4px); text-decoration: none; font-size: 0.85rem;">
+            Public Status
+        </a>
+        <a href="{% url 'heartbeat:sla' %}" class="btn" style="background: color-mix(in srgb, var(--primary) 20%, var(--body-bg)); color: var(--primary); padding: 0.5rem 1rem; border: none; border-radius: var(--radius-sm, 4px); text-decoration: none; font-size: 0.85rem;">
+            SLA
+        </a>
+    </div>
+</div>
+
+<!-- Summary stats -->
+<div style="display: grid; grid-template-columns: repeat(6, 1fr); gap: 12px; margin-bottom: 24px;">
+    <div class="card">
+        <div class="card-body" style="text-align: center; padding: 12px 8px;">
+            <div style="font-size: 1.4rem; font-weight: 700; color: {% if status == 'operational' %}var(--success-fg){% elif status == 'degraded' %}var(--warning-fg){% elif status == 'down' %}var(--error-fg){% else %}var(--body-quiet-color){% endif %};">
+                {{ status_label }}
+            </div>
+            <div style="color: var(--body-quiet-color); font-size: 0.75rem;">Current Status</div>
+        </div>
+    </div>
+    <div class="card">
+        <div class="card-body" style="text-align: center; padding: 12px 8px;">
+            <div style="font-size: 1.4rem; font-weight: 700; color: {{ uptime_overall_color }};">{% if uptime_overall != None %}{{ uptime_overall }}%{% else %}&mdash;{% endif %}</div>
+            <div style="color: var(--body-quiet-color); font-size: 0.75rem;">Overall{% if monitoring_days %} ({{ monitoring_days }}d){% endif %}</div>
+        </div>
+    </div>
+    <div class="card">
+        <div class="card-body" style="text-align: center; padding: 12px 8px;">
+            <div style="font-size: 1.4rem; font-weight: 700; color: {{ uptime_24h_color }};">{% if uptime_24h != None %}{{ uptime_24h }}%{% else %}&mdash;{% endif %}</div>
+            <div style="color: var(--body-quiet-color); font-size: 0.75rem;">Uptime (24h)</div>
+        </div>
+    </div>
+    <div class="card">
+        <div class="card-body" style="text-align: center; padding: 12px 8px;">
+            <div style="font-size: 1.4rem; font-weight: 700; color: {{ uptime_7d_color }};">{% if uptime_7d != None %}{{ uptime_7d }}%{% else %}&mdash;{% endif %}</div>
+            <div style="color: var(--body-quiet-color); font-size: 0.75rem;">Uptime (7d)</div>
+        </div>
+    </div>
+    <div class="card">
+        <div class="card-body" style="text-align: center; padding: 12px 8px;">
+            <div style="font-size: 1.4rem; font-weight: 700; color: var(--primary);">{{ response_time_ms }}<span style="font-size: 0.8rem;">ms</span></div>
+            <div style="color: var(--body-quiet-color); font-size: 0.75rem;">Last Response</div>
+        </div>
+    </div>
+    <div class="card">
+        <div class="card-body" style="text-align: center; padding: 12px 8px;">
+            <div style="font-size: 1.4rem; font-weight: 700; color: var(--primary);">{{ avg_response_time }}<span style="font-size: 0.8rem;">ms</span></div>
+            <div style="color: var(--body-quiet-color); font-size: 0.75rem;">Avg Response</div>
+        </div>
+    </div>
+</div>
+
+<!-- Top-level view switcher -->
+<div class="card">
+    <div class="card-header" style="padding-bottom: 0;">
+        <div class="view-bar">
+            <button class="view-btn active" onclick="switchView('timelines', this)">Timelines</button>
+            <button class="view-btn" onclick="switchView('log', this)">Heartbeat Log</button>
+            <button class="view-btn" onclick="switchView('json', this)">JSON</button>
+        </div>
+    </div>
+
+    <!-- Timelines panel -->
+    <div id="view-timelines" class="view-panel active">
+        <div class="card-body">
+            {% if timeline_24h %}
+            <h3 style="margin: 0 0 12px 0; font-size: 1rem;">Last 24 Hours</h3>
+            <div class="timeline-bar timeline-bar-24h">
+                {% for slot in timeline_24h %}
+                <div class="beat {{ slot.status }}">
+                    <span class="tooltip">{{ slot.hour_label }} &mdash; {% if slot.status == "pre-epoch" %}Not monitored{% elif slot.status == "missed" %}No data{% elif slot.status == "partial" %}{{ slot.ok_count }} OK, {{ slot.fail_count }} fail{% elif slot.status == "fail" %}{{ slot.fail_count }} failure{{ slot.fail_count|pluralize }}{% else %}{{ slot.ok_count }} OK{% endif %}</span>
+                </div>
+                {% endfor %}
+            </div>
+            <div style="display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--body-quiet-color); margin-top: 4px;">
+                <span>24h ago</span>
+                <span>12h ago</span>
+                <span>Now</span>
+            </div>
+            <div class="timeline-legend">
+                <span><span class="swatch ok"></span> OK</span>
+                <span><span class="swatch fail"></span> Failure</span>
+                <span><span class="swatch missed"></span> No data</span>
+            </div>
+            {% endif %}
+
+            {% if timeline %}
+            <h3 style="margin: 24px 0 12px 0; font-size: 1rem;">Last Hour</h3>
+            <div class="timeline-bar">
+                {% for beat in timeline %}
+                <div class="beat {{ beat.status }}">
+                    <span class="tooltip">{{ beat.label }} &mdash; {% if beat.status == "pre-epoch" %}Not monitored{% elif beat.status == "missed" %}No heartbeat{% else %}{{ beat.status|upper }} ({{ beat.response_time_ms }}ms){% endif %}</span>
+                </div>
+                {% endfor %}
+            </div>
+            <div style="display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--body-quiet-color); margin-top: 4px;">
+                <span>60 min ago</span>
+                <span>Now</span>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Heartbeat Log panel -->
+    <div id="view-log" class="view-panel">
+        <div class="card-body" style="padding: 0 0 0 0;">
+            <div style="padding: 0 16px;">
+                <div class="tab-bar">
+                    <button class="tab-btn{% if active_tab == 'all' %} active{% endif %}"
+                            hx-get="{% url 'heartbeat:dashboard' %}?tab=all"
+                            hx-target="#tab-content"
+                            hx-swap="innerHTML"
+                            onclick="setActiveTab(this)">
+                        All <span class="tab-count">{{ total_heartbeats }}</span>
+                    </button>
+                    <button class="tab-btn{% if active_tab == 'ok' %} active{% endif %}"
+                            hx-get="{% url 'heartbeat:dashboard' %}?tab=ok"
+                            hx-target="#tab-content"
+                            hx-swap="innerHTML"
+                            onclick="setActiveTab(this)">
+                        OK <span class="tab-count">{{ ok_count }}</span>
+                    </button>
+                    <button class="tab-btn{% if active_tab == 'fail' %} active{% endif %}"
+                            hx-get="{% url 'heartbeat:dashboard' %}?tab=fail"
+                            hx-target="#tab-content"
+                            hx-swap="innerHTML"
+                            onclick="setActiveTab(this)">
+                        Failures <span class="tab-count" {% if fail_count %}style="background: color-mix(in srgb, var(--error-fg) 15%, var(--card-bg)); color: var(--error-fg);"{% endif %}>{{ fail_count }}</span>
+                    </button>
+                </div>
+            </div>
+            <div style="overflow-x: auto;">
+                <div id="tab-content">
+                    {% include tab_partial %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- JSON panel -->
+    <div id="view-json" class="view-panel">
+        <div class="card-body">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                <div style="font-size: 0.8rem; color: var(--body-quiet-color);">
+                    <code>GET {% url 'heartbeat:status_json' %}</code>
+                </div>
+                <button onclick="copyJson()" style="background: color-mix(in srgb, var(--primary) 20%, var(--body-bg)); color: var(--primary); padding: 0.4rem 0.8rem; border: none; border-radius: var(--radius-sm, 4px); cursor: pointer; font-size: 0.8rem;" id="copy-json-btn">Copy</button>
+            </div>
+            <div class="json-display" id="json-content">{{ status_json }}</div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function switchView(viewName, btn) {
+    document.querySelectorAll('.view-panel').forEach(function(p) { p.classList.remove('active'); });
+    document.querySelectorAll('.view-btn').forEach(function(b) { b.classList.remove('active'); });
+    document.getElementById('view-' + viewName).classList.add('active');
+    btn.classList.add('active');
+}
+function setActiveTab(btn) {
+    document.querySelectorAll('.tab-btn').forEach(function(b) { b.classList.remove('active'); });
+    btn.classList.add('active');
+}
+function copyJson() {
+    var text = document.getElementById('json-content').textContent;
+    navigator.clipboard.writeText(text);
+    var btn = document.getElementById('copy-json-btn');
+    btn.textContent = 'Copied!';
+    setTimeout(function() { btn.textContent = 'Copy'; }, 1500);
+}
+</script>
+{% endblock %}

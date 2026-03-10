@@ -1,0 +1,377 @@
+{% extends "smallstack/base.html" %}
+{% load theme_tags %}
+
+{% block title %}SLA{% endblock %}
+
+{% block breadcrumbs %}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .sla-badge {
+        display: inline-block;
+        padding: 2px 8px;
+        border-radius: 4px;
+        font-size: 0.7rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.3px;
+    }
+    .sla-badge-met { background: color-mix(in srgb, var(--success-fg) 15%, var(--card-bg)); color: var(--success-fg); }
+    .sla-badge-below { background: color-mix(in srgb, var(--warning-fg) 15%, var(--card-bg)); color: var(--warning-fg); }
+    .sla-badge-breach { background: color-mix(in srgb, var(--error-fg) 15%, var(--card-bg)); color: var(--error-fg); }
+
+    /* Form styling */
+    .sla-config-form label {
+        font-size: 0.8rem;
+        font-weight: 600;
+        color: var(--body-quiet-color);
+        text-transform: uppercase;
+        letter-spacing: 0.3px;
+        display: block;
+        margin-bottom: 4px;
+    }
+    .sla-config-form .helptext {
+        font-size: 0.75rem;
+        color: var(--body-quiet-color);
+        margin-top: 2px;
+    }
+    .sla-config-form .form-row {
+        display: flex;
+        flex-direction: column;
+        border-bottom: none;
+        padding: 0;
+        overflow: visible;
+    }
+    .sla-config-form input[type="datetime-local"],
+    .sla-config-form input[type="text"],
+    .sla-config-form input[type="number"] {
+        width: 100%;
+        box-sizing: border-box;
+    }
+
+    /* Confirm modal — reuses crud-modal pattern */
+    .crud-modal-overlay {
+        position: fixed; inset: 0;
+        background: rgba(0, 0, 0, 0.5);
+        backdrop-filter: blur(2px);
+        z-index: 1000;
+        display: flex; align-items: center; justify-content: center;
+    }
+    .crud-modal {
+        background: var(--card-bg, var(--body-bg));
+        border: 1px solid color-mix(in srgb, var(--body-fg) 15%, var(--body-bg));
+        border-radius: var(--radius-md, 8px);
+        width: 90%; max-width: 420px;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+    }
+    .crud-modal-header {
+        display: flex; justify-content: space-between; align-items: center;
+        padding: 1rem 1.25rem;
+        border-bottom: 1px solid color-mix(in srgb, var(--body-fg) 10%, var(--body-bg));
+    }
+    .crud-modal-header h3 { margin: 0; font-size: 1rem; }
+    .crud-modal-close {
+        background: none; border: none; font-size: 1.4rem;
+        color: var(--body-quiet-color); cursor: pointer; line-height: 1;
+    }
+    .crud-modal-close:hover { color: var(--body-fg); }
+    .crud-modal-body { padding: 1.25rem; }
+    .crud-modal-body p { margin: 0; font-size: 0.9rem; color: var(--body-quiet-color); }
+    .crud-modal-footer {
+        display: flex; gap: 0.75rem; justify-content: flex-end;
+        padding: 1rem 1.25rem;
+        border-top: 1px solid color-mix(in srgb, var(--body-fg) 10%, var(--body-bg));
+    }
+    .crud-modal-btn-confirm {
+        background: var(--primary); color: var(--button-fg);
+        border: none; padding: 0.5rem 1.25rem; border-radius: var(--radius-sm, 4px);
+        cursor: pointer; font-size: 0.85rem;
+    }
+    .crud-modal-btn-confirm:hover { opacity: 0.9; }
+    .crud-modal-btn-cancel {
+        background: none; border: 1px solid color-mix(in srgb, var(--body-fg) 20%, var(--body-bg));
+        color: var(--body-fg); padding: 0.5rem 1.25rem; border-radius: var(--radius-sm, 4px);
+        cursor: pointer; font-size: 0.85rem;
+    }
+    .crud-modal-btn-cancel:hover {
+        background: color-mix(in srgb, var(--body-fg) 5%, var(--body-bg));
+    }
+
+    /* How It Works */
+    .sla-how-it-works h4 {
+        font-size: 0.85rem;
+        font-weight: 600;
+        margin: 0 0 6px 0;
+        color: var(--body-fg);
+    }
+    .sla-how-it-works p,
+    .sla-how-it-works li {
+        font-size: 0.82rem;
+        line-height: 1.5;
+        color: var(--body-quiet-color);
+        margin: 0 0 8px 0;
+    }
+    .sla-how-it-works ul {
+        margin: 0 0 12px 0;
+        padding-left: 18px;
+    }
+    .sla-how-it-works li { margin-bottom: 4px; }
+
+    /* Daily summary table */
+    table.daily-table { width: 100%; border-collapse: collapse; }
+    table.daily-table thead tr {
+        background-color: color-mix(in srgb, var(--primary) 15%, var(--body-bg)) !important;
+    }
+    table.daily-table thead th {
+        border: none !important;
+        background-color: transparent !important;
+        color: var(--body-quiet-color) !important;
+        font-weight: 600;
+        font-size: 0.8rem !important;
+        text-transform: uppercase;
+        letter-spacing: 0.3px;
+        padding: 8px 16px;
+        text-align: left;
+    }
+    table.daily-table tbody tr { border: none !important; }
+    table.daily-table tbody td { border: none !important; padding: 8px 16px; font-size: 0.85rem; }
+    table.daily-table tbody tr:nth-child(odd) {
+        background-color: color-mix(in srgb, var(--primary) 4%, var(--body-bg)) !important;
+    }
+    table.daily-table tbody tr:nth-child(even) {
+        background-color: color-mix(in srgb, var(--primary) 12%, var(--body-bg)) !important;
+    }
+
+    /* Fix datetime-local calendar icon in dark modes */
+    [data-theme="dark"] input[type="datetime-local"],
+    [data-theme="dark"] input[type="date"],
+    [data-theme="dark"] input[type="time"] {
+        color-scheme: dark;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header-with-actions" style="background: color-mix(in srgb, var(--primary) 15%, var(--body-bg)); margin: -24px -24px 24px -24px; padding: 24px; border-radius: 8px 8px 0 0; display: flex; align-items: center; justify-content: space-between;">
+    <div class="page-header-content">
+        <h1>SLA</h1>
+        <p class="page-subtitle">{% if epoch %}Monitoring since {{ epoch|date:"M d, Y g:i A T" }}{% if monitoring_days %} ({{ monitoring_days }} day{{ monitoring_days|pluralize }}){% endif %}{% else %}No monitoring data{% endif %}</p>
+        <nav style="margin-top: 0.5rem; font-size: 0.8rem;">
+            <a href="{% url 'website:home' %}" style="color: var(--body-quiet-color); text-decoration: none;">Home</a>
+            <span style="color: var(--body-quiet-color); margin: 0 0.3rem;">/</span>
+            <a href="{% url 'heartbeat:dashboard' %}" style="color: var(--body-quiet-color); text-decoration: none;">Heartbeat</a>
+            <span style="color: var(--body-quiet-color); margin: 0 0.3rem;">/</span>
+            <span style="color: var(--body-fg);">SLA</span>
+        </nav>
+    </div>
+    <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 10px;">
+        <a href="{% url 'heartbeat:dashboard' %}" class="btn" style="background: color-mix(in srgb, var(--primary) 20%, var(--body-bg)); color: var(--primary); padding: 0.5rem 1rem; border: none; border-radius: var(--radius-sm, 4px); text-decoration: none; font-size: 0.85rem;">
+            Dashboard
+        </a>
+        <div style="display: flex; gap: 12px; align-items: stretch;">
+            <!-- Goal card -->
+            <div class="card" style="border: 2px solid color-mix(in srgb, var(--primary) 30%, transparent); margin: 0; min-width: 140px; transition: border-color 0.15s, background 0.15s;" onmouseover="this.style.borderColor='var(--primary)';this.style.background='color-mix(in srgb, var(--primary) 8%, var(--card-bg))'" onmouseout="this.style.borderColor='color-mix(in srgb, var(--primary) 30%, transparent)';this.style.background=''">
+                <div class="card-body" style="display: flex; align-items: center; gap: 10px; padding: 12px 16px;">
+                    <svg viewBox="0 0 24 24" width="28" height="28" fill="var(--primary)">
+                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                    </svg>
+                    <div>
+                        <div style="font-weight: 700; font-size: 0.95rem; color: var(--primary);">{{ sla_target }}%</div>
+                        <div style="color: var(--body-quiet-color); font-size: 0.75rem;">Goal</div>
+                    </div>
+                </div>
+            </div>
+            <!-- Commitment card -->
+            <div class="card" style="border: 2px solid color-mix(in srgb, var(--primary) 30%, transparent); margin: 0; min-width: 140px; transition: border-color 0.15s, background 0.15s;" onmouseover="this.style.borderColor='var(--primary)';this.style.background='color-mix(in srgb, var(--primary) 8%, var(--card-bg))'" onmouseout="this.style.borderColor='color-mix(in srgb, var(--primary) 30%, transparent)';this.style.background=''">
+                <div class="card-body" style="display: flex; align-items: center; gap: 10px; padding: 12px 16px;">
+                    <svg viewBox="0 0 24 24" width="28" height="28" fill="var(--primary)">
+                        <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"/>
+                    </svg>
+                    <div>
+                        <div style="font-weight: 700; font-size: 0.95rem; color: var(--primary);">{{ sla_minimum }}%</div>
+                        <div style="color: var(--body-quiet-color); font-size: 0.75rem;">Commitment</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Uptime + SLA Threshold cards -->
+<div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 24px;">
+    <!-- Overall -->
+    <div class="card">
+        <div class="card-body" style="padding: 20px;">
+            <div style="display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 6px;">
+                <div style="font-size: 1.8rem; font-weight: 700; color: {{ uptime_overall_color }};">{% if uptime_overall != None %}{{ uptime_overall }}%{% else %}&mdash;{% endif %}</div>
+                <div style="display: flex; gap: 4px;">
+                    {% if uptime_overall != None %}
+                    {% if uptime_overall >= sla_target %}<span class="sla-badge sla-badge-met">Goal</span>{% else %}<span class="sla-badge sla-badge-below">Below</span>{% endif %}
+                    {% if uptime_overall >= sla_minimum %}<span class="sla-badge sla-badge-met">Commit</span>{% else %}<span class="sla-badge sla-badge-breach">Breach</span>{% endif %}
+                    {% endif %}
+                </div>
+            </div>
+            <div style="color: var(--body-quiet-color); font-size: 0.8rem;">Overall{% if monitoring_days %} ({{ monitoring_days }}d){% endif %}</div>
+        </div>
+    </div>
+    <!-- 24h -->
+    <div class="card">
+        <div class="card-body" style="padding: 20px;">
+            <div style="display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 6px;">
+                <div style="font-size: 1.8rem; font-weight: 700; color: {{ uptime_24h_color }};">{% if uptime_24h != None %}{{ uptime_24h }}%{% else %}&mdash;{% endif %}</div>
+                <div style="display: flex; gap: 4px;">
+                    {% if uptime_24h != None %}
+                    {% if uptime_24h >= sla_target %}<span class="sla-badge sla-badge-met">Goal</span>{% else %}<span class="sla-badge sla-badge-below">Below</span>{% endif %}
+                    {% if uptime_24h >= sla_minimum %}<span class="sla-badge sla-badge-met">Commit</span>{% else %}<span class="sla-badge sla-badge-breach">Breach</span>{% endif %}
+                    {% endif %}
+                </div>
+            </div>
+            <div style="color: var(--body-quiet-color); font-size: 0.8rem;">Last 24 Hours</div>
+        </div>
+    </div>
+    <!-- 7d -->
+    <div class="card">
+        <div class="card-body" style="padding: 20px;">
+            <div style="display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 6px;">
+                <div style="font-size: 1.8rem; font-weight: 700; color: {{ uptime_7d_color }};">{% if uptime_7d != None %}{{ uptime_7d }}%{% else %}&mdash;{% endif %}</div>
+                <div style="display: flex; gap: 4px;">
+                    {% if uptime_7d != None %}
+                    {% if uptime_7d >= sla_target %}<span class="sla-badge sla-badge-met">Goal</span>{% else %}<span class="sla-badge sla-badge-below">Below</span>{% endif %}
+                    {% if uptime_7d >= sla_minimum %}<span class="sla-badge sla-badge-met">Commit</span>{% else %}<span class="sla-badge sla-badge-breach">Breach</span>{% endif %}
+                    {% endif %}
+                </div>
+            </div>
+            <div style="color: var(--body-quiet-color); font-size: 0.8rem;">Last 7 Days</div>
+        </div>
+    </div>
+</div>
+
+<!-- Configuration + How It Works -->
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 24px;">
+    <div class="card">
+        <div class="card-header"><h2>Configuration</h2></div>
+        <div class="card-body sla-config-form">
+            <form method="post" action="{% url 'heartbeat:reset_epoch' %}">
+                {% csrf_token %}
+                <div style="display: grid; grid-template-columns: 3fr 2fr; gap: 16px 20px;">
+                    <div class="form-row">
+                        <label for="id_started_at">Monitoring Start ({{ form_timezone }})</label>
+                        {{ form.started_at }}
+                        <span class="helptext">Times are interpreted as {{ form_timezone }}.</span>
+                    </div>
+                    <div class="form-row">
+                        <label for="id_service_target">Goal %</label>
+                        {{ form.service_target }}
+                        <span class="helptext">{{ form.service_target.help_text }}</span>
+                    </div>
+                    <div class="form-row">
+                        <label for="id_note">Note</label>
+                        {{ form.note }}
+                        <span class="helptext">{{ form.note.help_text }}</span>
+                    </div>
+                    <div class="form-row">
+                        <label for="id_service_minimum">Commitment %</label>
+                        {{ form.service_minimum }}
+                        <span class="helptext">{{ form.service_minimum.help_text }}</span>
+                    </div>
+                </div>
+                <div style="margin-top: 16px;">
+                    <button type="button" class="button" style="width: 100%; padding: 10px 24px;" onclick="document.getElementById('sla-confirm-modal').style.display='flex'">Save SLA Settings</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header"><h2>How It Works</h2></div>
+        <div class="card-body sla-how-it-works">
+            <h4>Monitoring Interval</h4>
+            <p>The heartbeat system checks service availability every <strong>{{ expected_interval }} second{{ expected_interval|pluralize }}</strong>. Each check records an "ok" or "fail" status along with the response time.</p>
+
+            <h4>Uptime Calculation</h4>
+            <p style="font-family: monospace; padding: 6px 10px; background: color-mix(in srgb, var(--primary) 8%, var(--body-bg)); border-radius: 4px; display: inline-block;">
+                uptime % = (ok checks / expected checks) &times; 100
+            </p>
+            <ul>
+                <li><strong>Expected checks</strong> = elapsed seconds since monitoring start / {{ expected_interval }}s interval</li>
+                <li><strong>OK checks</strong> = heartbeats with "ok" status in the window</li>
+                <li><strong>Missed checks</strong> (no heartbeat recorded) count against uptime</li>
+            </ul>
+
+            <h4>SLA Thresholds</h4>
+            <ul>
+                <li><strong style="color: var(--success-fg);">Goal</strong> ({{ sla_target }}%) &mdash; internal target. Allows up to {{ target_down_monthly }} min downtime/month.</li>
+                <li><strong style="color: var(--error-fg);">Commitment</strong> ({{ sla_minimum }}%) &mdash; breach threshold. Allows up to {{ minimum_down_monthly }} min downtime/month.</li>
+            </ul>
+        </div>
+    </div>
+</div>
+
+<!-- Daily Summaries -->
+{% if daily_summaries %}
+<div class="card">
+    <div class="card-header"><h2>Daily Summaries</h2></div>
+    <div class="card-body" style="padding: 0; overflow-x: auto;">
+        <table class="daily-table">
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Uptime</th>
+                    <th style="text-align: right;">OK</th>
+                    <th style="text-align: right;">Fail</th>
+                    <th style="text-align: right;">Expected</th>
+                    <th style="text-align: right;">Avg Response</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for day in daily_summaries %}
+                <tr>
+                    <td>{{ day.date|date:"M d, Y" }}</td>
+                    <td style="font-weight: 600;">{{ day.uptime_pct }}%</td>
+                    <td style="text-align: right;">{{ day.ok_count }}</td>
+                    <td style="text-align: right;">{% if day.fail_count %}<span style="color: var(--error-fg);">{{ day.fail_count }}</span>{% else %}0{% endif %}</td>
+                    <td style="text-align: right;">{{ day.expected_count }}</td>
+                    <td style="text-align: right;">{{ day.avg_response_ms }}ms</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
+<!-- Confirm Modal -->
+<div id="sla-confirm-modal" class="crud-modal-overlay" style="display:none;">
+    <div class="crud-modal">
+        <div class="crud-modal-header">
+            <h3>Update SLA Configuration</h3>
+            <button type="button" class="crud-modal-close" onclick="slaModalClose()">&times;</button>
+        </div>
+        <div class="crud-modal-body">
+            <p>Are you sure you want to update the SLA settings? Uptime percentages will recalculate from the new start date.</p>
+        </div>
+        <div class="crud-modal-footer">
+            <button type="button" class="crud-modal-btn-cancel" onclick="slaModalClose()">Cancel</button>
+            <button type="button" class="crud-modal-btn-confirm" onclick="slaModalConfirm()">Save Settings</button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function slaModalClose() {
+    document.getElementById('sla-confirm-modal').style.display = 'none';
+}
+function slaModalConfirm() {
+    slaModalClose();
+    document.querySelector('.sla-config-form form').submit();
+}
+document.addEventListener('click', function(e) {
+    if (e.target.id === 'sla-confirm-modal') slaModalClose();
+});
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') slaModalClose();
+});
+</script>
+{% endblock %}

@@ -1,0 +1,8 @@
+{% load django_tables2 %}
+{% if table.rows %}
+{% render_table table %}
+{% else %}
+<p style="padding: 24px; text-align: center; color: var(--body-quiet-color);">
+    {% if active_tab == "fail" %}No failures recorded.{% elif active_tab == "ok" %}No successful heartbeats yet.{% else %}No heartbeat records yet. Run <code>python manage.py heartbeat</code> to create one.{% endif %}
+</p>
+{% endif %}

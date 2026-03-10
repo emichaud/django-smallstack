@@ -77,6 +77,14 @@
                 </a>
             </li>
             <li class="nav-item">
+                <a href="{% url 'heartbeat:dashboard' %}" class="nav-link {% if '/status/' in request.path %}active{% endif %}">
+                    <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+                        <path d="M3.5 18.49l6-6.01 4 4L22 6.92l-1.41-1.41-7.09 7.97-4-4L2 16.99z"/>
+                    </svg>
+                    <span>Status</span>
+                </a>
+            </li>
+            <li class="nav-item">
                 <a href="{% url 'smallstack:backups' %}" class="nav-link {% nav_active 'smallstack:backups' %}">
                     <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
                         <path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/>

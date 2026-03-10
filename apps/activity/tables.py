@@ -2,6 +2,7 @@
 
 import django_tables2 as tables
 from django.utils.html import format_html
+from django.utils.timezone import localtime
 
 from .models import RequestLog
 
@@ -25,9 +26,10 @@ class RecentRequestsTable(tables.Table):
 
     def render_timestamp(self, value):
         if value:
+            local = localtime(value)
             return format_html(
                 '<span style="white-space:nowrap;font-size:0.85rem;">{}</span>',
-                value.strftime("%b %d %I:%M:%S %p %Z").lstrip("0"),
+                local.strftime("%b %d %I:%M:%S %p %Z").lstrip("0"),
             )
         return "—"
 

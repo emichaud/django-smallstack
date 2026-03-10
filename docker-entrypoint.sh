@@ -37,15 +37,13 @@ else:
 "
 fi
 
-# Scheduled backups (optional)
-if [ "${BACKUP_CRON_ENABLED:-false}" = "true" ]; then
-    echo "Setting up scheduled backups..."
-    printenv | grep -E '^(DATABASE_|SECRET_KEY|DJANGO_|BACKUP_|EMAIL_|ALLOWED_)' > /app/.env.cron
-    chmod 600 /app/.env.cron
-    crontab /app/scripts/smallstack-cron
-    cron
-    echo "Backup cron enabled."
-fi
+# Always set up cron for scheduled tasks (heartbeat, backups, etc.)
+echo "Setting up scheduled tasks..."
+printenv | grep -E '^(DATABASE_|SECRET_KEY|DJANGO_|BACKUP_|EMAIL_|ALLOWED_|HEARTBEAT_)' | sed 's/^/export /' > /app/.env.cron
+chmod 600 /app/.env.cron
+crontab /app/scripts/smallstack-cron
+cron
+echo "Cron scheduler started."
 
 echo "Starting application..."
 # Execute the main container command

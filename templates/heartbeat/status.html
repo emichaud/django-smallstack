@@ -1,0 +1,252 @@
+{% extends "smallstack/base.html" %}
+{% load theme_tags %}
+
+{% block title %}Status{% endblock %}
+
+{% block breadcrumbs %}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .status-hero {
+        text-align: center;
+        padding: 40px 24px;
+        margin: -24px -24px 24px -24px;
+        border-radius: 8px 8px 0 0;
+    }
+    .status-hero.operational { background: color-mix(in srgb, var(--success-fg) 12%, var(--body-bg)); }
+    .status-hero.degraded { background: color-mix(in srgb, var(--warning-fg) 12%, var(--body-bg)); }
+    .status-hero.down { background: color-mix(in srgb, var(--error-fg) 12%, var(--body-bg)); }
+    .status-hero.unknown { background: color-mix(in srgb, var(--body-quiet-color) 12%, var(--body-bg)); }
+
+    .status-indicator {
+        display: inline-flex;
+        align-items: center;
+        gap: 12px;
+        font-size: 1.75rem;
+        font-weight: 700;
+    }
+    .status-dot {
+        width: 16px;
+        height: 16px;
+        border-radius: 50%;
+        display: inline-block;
+    }
+    .status-dot.operational { background: var(--success-fg); }
+    .status-dot.degraded { background: var(--warning-fg); }
+    .status-dot.down { background: var(--error-fg); }
+    .status-dot.unknown { background: var(--body-quiet-color); }
+
+    .status-subtitle {
+        color: var(--body-quiet-color);
+        font-size: 0.9rem;
+        margin-top: 8px;
+    }
+
+    .uptime-stats {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+        gap: 12px;
+        margin-bottom: 24px;
+    }
+    .uptime-stat {
+        text-align: center;
+        padding: 16px;
+    }
+    .uptime-stat .value {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: var(--primary);
+    }
+    .uptime-stat .label {
+        font-size: 0.8rem;
+        color: var(--body-quiet-color);
+        margin-top: 4px;
+    }
+
+    /* Shared timeline bar styles */
+    .timeline-bar {
+        display: flex;
+        gap: 2px;
+        height: 32px;
+        align-items: stretch;
+    }
+    .timeline-bar .beat {
+        flex: 1;
+        border-radius: 2px;
+        min-width: 2px;
+        position: relative;
+        transition: opacity 0.1s;
+    }
+    .timeline-bar .beat.ok { background: var(--success-fg); opacity: 0.7; }
+    .timeline-bar .beat.fail { background: var(--error-fg); opacity: 0.9; }
+    .timeline-bar .beat.missed {
+        background: repeating-linear-gradient(
+            45deg,
+            color-mix(in srgb, var(--error-fg) 25%, var(--body-bg)),
+            color-mix(in srgb, var(--error-fg) 25%, var(--body-bg)) 2px,
+            color-mix(in srgb, var(--error-fg) 10%, var(--body-bg)) 2px,
+            color-mix(in srgb, var(--error-fg) 10%, var(--body-bg)) 4px
+        );
+        opacity: 0.8;
+    }
+    .timeline-bar .beat.partial {
+        background: linear-gradient(to top, var(--error-fg) 40%, var(--success-fg) 40%);
+        opacity: 0.8;
+    }
+    .timeline-bar .beat:hover { opacity: 1; }
+    .timeline-bar .beat .tooltip {
+        display: none;
+        position: absolute;
+        bottom: 100%;
+        left: 50%;
+        transform: translateX(-50%);
+        background: var(--body-fg);
+        color: var(--body-bg);
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-size: 0.7rem;
+        white-space: nowrap;
+        z-index: 10;
+        margin-bottom: 4px;
+        pointer-events: none;
+    }
+    .timeline-bar .beat:hover .tooltip { display: block; }
+
+    .timeline-legend {
+        display: flex;
+        gap: 16px;
+        font-size: 0.75rem;
+        color: var(--body-quiet-color);
+        margin-top: 8px;
+    }
+    .timeline-legend .swatch {
+        display: inline-block;
+        width: 12px;
+        height: 12px;
+        border-radius: 2px;
+        vertical-align: middle;
+        margin-right: 4px;
+    }
+    .timeline-legend .swatch.ok { background: var(--success-fg); opacity: 0.7; }
+    .timeline-legend .swatch.fail { background: var(--error-fg); }
+    .timeline-legend .swatch.missed {
+        background: repeating-linear-gradient(
+            45deg,
+            color-mix(in srgb, var(--error-fg) 25%, var(--body-bg)),
+            color-mix(in srgb, var(--error-fg) 25%, var(--body-bg)) 2px,
+            color-mix(in srgb, var(--error-fg) 10%, var(--body-bg)) 2px,
+            color-mix(in srgb, var(--error-fg) 10%, var(--body-bg)) 4px
+        );
+    }
+
+    .timeline-bar .beat.pre-epoch {
+        background: color-mix(in srgb, var(--body-quiet-color) 8%, var(--body-bg));
+        opacity: 1;
+    }
+
+    /* 24h timeline — wider bars */
+    .timeline-bar-24h .beat {
+        min-width: 4px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="status-hero {{ status }}"
+     hx-get="{% url 'heartbeat:status' %}"
+     hx-trigger="every 60s"
+     hx-select=".status-hero"
+     hx-swap="outerHTML">
+    <div class="status-indicator">
+        <span class="status-dot {{ status }}"></span>
+        {{ status_label }}
+    </div>
+    <div class="status-subtitle">
+        {% if last_heartbeat %}
+            Last checked {{ age_seconds }} second{{ age_seconds|pluralize }} ago
+        {% else %}
+            No heartbeat data available
+        {% endif %}
+    </div>
+</div>
+
+<!-- Uptime Stats -->
+<div class="uptime-stats">
+    <div class="card uptime-stat">
+        <div class="value" style="color: {{ uptime_overall_color }};">{% if uptime_overall != None %}{{ uptime_overall }}%{% else %}&mdash;{% endif %}</div>
+        <div class="label">Overall{% if monitoring_days %} ({{ monitoring_days }}d){% endif %}</div>
+    </div>
+    <div class="card uptime-stat">
+        <div class="value" style="color: {{ uptime_24h_color }};">{% if uptime_24h != None %}{{ uptime_24h }}%{% else %}&mdash;{% endif %}</div>
+        <div class="label">Uptime (24h)</div>
+    </div>
+    <div class="card uptime-stat">
+        <div class="value" style="color: {{ uptime_7d_color }};">{% if uptime_7d != None %}{{ uptime_7d }}%{% else %}&mdash;{% endif %}</div>
+        <div class="label">Uptime (7 days)</div>
+    </div>
+    <div class="card uptime-stat">
+        <div class="value">{{ response_time_ms }}<span style="font-size: 0.9rem;">ms</span></div>
+        <div class="label">Last Response</div>
+    </div>
+    <div class="card uptime-stat">
+        <div class="value">{{ avg_response_time }}<span style="font-size: 0.9rem;">ms</span></div>
+        <div class="label">Avg Response</div>
+    </div>
+</div>
+
+<!-- 24-Hour Timeline -->
+{% if timeline_24h %}
+<div class="card" style="margin-bottom: 24px;">
+    <div class="card-header">
+        <h2>Last 24 Hours</h2>
+    </div>
+    <div class="card-body">
+        <div class="timeline-bar timeline-bar-24h">
+            {% for slot in timeline_24h %}
+            <div class="beat {{ slot.status }}">
+                <span class="tooltip">{{ slot.hour_label }} &mdash; {% if slot.status == "pre-epoch" %}Not monitored{% elif slot.status == "missed" %}No data{% elif slot.status == "partial" %}{{ slot.ok_count }} OK, {{ slot.fail_count }} fail{% elif slot.status == "fail" %}{{ slot.fail_count }} failure{{ slot.fail_count|pluralize }}{% else %}{{ slot.ok_count }} OK{% endif %}</span>
+            </div>
+            {% endfor %}
+        </div>
+        <div style="display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--body-quiet-color); margin-top: 4px;">
+            <span>24h ago</span>
+            <span>12h ago</span>
+            <span>Now</span>
+        </div>
+        <div class="timeline-legend">
+            <span><span class="swatch ok"></span> OK</span>
+            <span><span class="swatch fail"></span> Failure</span>
+            <span><span class="swatch missed"></span> No data</span>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Last Hour Timeline -->
+{% if timeline %}
+<div class="card">
+    <div class="card-header">
+        <h2>Last Hour</h2>
+    </div>
+    <div class="card-body">
+        <div class="timeline-bar">
+            {% for beat in timeline %}
+            <div class="beat {{ beat.status }}">
+                <span class="tooltip">{{ beat.label }} &mdash; {% if beat.status == "pre-epoch" %}Not monitored{% elif beat.status == "missed" %}No heartbeat{% else %}{{ beat.status|upper }} ({{ beat.response_time_ms }}ms){% endif %}</span>
+            </div>
+            {% endfor %}
+        </div>
+        <div style="display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--body-quiet-color); margin-top: 4px;">
+            <span>60 min ago</span>
+            <span>Now</span>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{% if epoch %}
+<div style="text-align: center; margin-top: 24px; font-size: 0.8rem; color: var(--body-quiet-color);">
+    Monitoring since {{ epoch|date:"M d, Y g:i A T" }}{% if monitoring_days %} ({{ monitoring_days }} day{{ monitoring_days|pluralize }}){% endif %}
+</div>
+{% endif %}
+{% endblock %}
