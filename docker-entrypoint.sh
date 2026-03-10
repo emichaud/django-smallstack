@@ -39,7 +39,8 @@ fi
 
 # Always set up cron for scheduled tasks (heartbeat, backups, etc.)
 echo "Setting up scheduled tasks..."
-printenv | grep -E '^(DATABASE_|SECRET_KEY|DJANGO_|BACKUP_|EMAIL_|ALLOWED_|HEARTBEAT_)' | sed 's/^/export /' > /app/.env.cron
+echo "export PATH=$PATH" > /app/.env.cron
+printenv | grep -E '^(DATABASE_|SECRET_KEY|DJANGO_|BACKUP_|EMAIL_|ALLOWED_|HEARTBEAT_)' | sed 's/^/export /' >> /app/.env.cron
 chmod 600 /app/.env.cron
 crontab /app/scripts/smallstack-cron
 cron
