@@ -53,6 +53,16 @@ if settings.DEBUG:
         path("__debug__/", include("debug_toolbar.urls")),
     ]
 
+    # Preview error pages in development
+    from django.views.defaults import bad_request, page_not_found, permission_denied, server_error
+
+    urlpatterns += [
+        path("_error/400/", bad_request, {"exception": Exception("preview")}),
+        path("_error/403/", permission_denied, {"exception": Exception("preview")}),
+        path("_error/404/", page_not_found, {"exception": Exception("preview")}),
+        path("_error/500/", server_error),
+    ]
+
 # Serve media files in development
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
