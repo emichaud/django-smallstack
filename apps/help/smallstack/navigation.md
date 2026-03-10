@@ -75,8 +75,29 @@ Use `.page-header-with-actions` for page titles with action buttons:
 
 The header flexes: title on the left, actions on the right. Stacks on mobile.
 
+## Topbar Navigation
+
+For marketing sites or layouts where the sidebar is closed, SmallStack supports a configurable horizontal nav menu in the topbar. Enable it via settings:
+
+```python
+SMALLSTACK_TOPBAR_NAV_ENABLED = True
+SMALLSTACK_TOPBAR_NAV_ITEMS = [
+    {"label": "Features", "url": "website:features"},
+    {"label": "Docs", "url": "help:index"},
+    {"label": "More", "children": [
+        {"label": "About", "url": "website:about"},
+        {"label": "GitHub", "url": "https://github.com/...", "external": True},
+    ]},
+]
+```
+
+Links support URL names, absolute paths, external URLs, submenus, and conditional visibility (`auth_required`, `staff_required`). Active state is detected automatically. Hidden on mobile (below 768px).
+
+See [Topbar Navigation](/help/smallstack/topbar-navigation/) for the full configuration reference.
+
 ## Where SmallStack Uses Navigation
 
 - **Sidebar** — all pages (Home, Profile, Help, Admin)
+- **Topbar nav** — optional horizontal menu for marketing/landing layouts
 - **Breadcrumbs** — help pages, profile, starter
 - **Page headers** — starter page, activity dashboard

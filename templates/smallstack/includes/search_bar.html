@@ -1,0 +1,36 @@
+{% comment %}
+Reusable HTMX-powered search bar for list/table pages.
+
+Usage:
+    {% include "smallstack/includes/search_bar.html" with placeholder="Search users..." target="#search-results" %}
+
+Expects in context:
+    search_query  — the current search term
+    placeholder   — input placeholder text (optional, default "Search...")
+    target        — CSS selector for the HTMX swap target (optional, default "#search-results")
+{% endcomment %}
+<form method="get" style="margin-bottom: 1rem; display: flex; gap: 0.5rem; align-items: center;">
+    <div style="position: relative; flex: 1; max-width: 360px;">
+        <svg viewBox="0 0 20 20" fill="currentColor" style="position: absolute; left: 0.7rem; top: 50%; transform: translateY(-50%); width: 16px; height: 16px; color: var(--body-quiet-color); pointer-events: none;">
+            <path fill-rule="evenodd" d="M9 3.5a5.5 5.5 0 100 11 5.5 5.5 0 000-11zM2 9a7 7 0 1112.45 4.38l4.09 4.08a.75.75 0 11-1.06 1.06l-4.08-4.09A7 7 0 012 9z" clip-rule="evenodd"/>
+        </svg>
+        <input type="text" name="q" value="{{ search_query|default:'' }}"
+               placeholder="{{ placeholder|default:'Search...' }}"
+               hx-get=""
+               hx-trigger="keyup changed delay:300ms, search"
+               hx-target="{{ target|default:'#search-results' }}"
+               hx-push-url="true"
+               hx-include="this"
+               hx-indicator=".search-spinner"
+               style="width: 100%; padding: 0.5rem 0.75rem 0.5rem 2.2rem; font-size: 0.85rem;
+                      border: 1px solid color-mix(in srgb, var(--body-fg) 20%, var(--body-bg));
+                      border-radius: var(--radius-sm, 6px);
+                      background: color-mix(in srgb, var(--body-fg) 5%, var(--body-bg));
+                      color: var(--body-fg);">
+    </div>
+    <span class="search-spinner htmx-indicator" style="font-size: 0.8rem; color: var(--body-quiet-color);">Searching...</span>
+    {% if search_query %}
+    <a href="?" style="font-size: 0.8rem; color: var(--body-quiet-color); text-decoration: none;"
+       hx-get="?" hx-target="{{ target|default:'#search-results' }}" hx-push-url="true">Clear</a>
+    {% endif %}
+</form>

@@ -51,6 +51,16 @@ class _CRUDContextMixin:
 
     crud_config = None  # Set by CRUDView._make_view()
 
+    # Reserved context variable names that Django's auth/template system uses.
+    # If the model's default context_object_name would collide, we prefix it.
+    _RESERVED_CONTEXT_NAMES = {"user", "request", "messages", "perms"}
+
+    def get_context_object_name(self, obj):
+        name = super().get_context_object_name(obj)
+        if name in self._RESERVED_CONTEXT_NAMES:
+            return f"crud_{name}"
+        return name
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         cfg = self.crud_config

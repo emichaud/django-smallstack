@@ -1,0 +1,196 @@
+<style>
+/* SmallStack CRUD Form Styles */
+
+.crud-form .crud-field {
+    margin-bottom: 1.5rem;
+}
+
+.crud-form .crud-label {
+    display: block;
+    margin-bottom: 0.4rem;
+    font-weight: 600;
+    font-size: 0.9rem;
+    color: var(--body-fg);
+}
+
+.crud-form .crud-label .required {
+    color: var(--delete-button-bg, #dc3545);
+    margin-left: 0.15rem;
+}
+
+.crud-form .crud-help {
+    color: var(--body-quiet-color);
+    font-size: 0.8rem;
+    margin-top: 0.35rem;
+    line-height: 1.4;
+}
+
+.crud-form .crud-error {
+    color: var(--delete-button-bg, #dc3545);
+    font-size: 0.8rem;
+    margin-top: 0.35rem;
+}
+
+/* Text inputs, selects, textareas */
+.crud-form input[type="text"],
+.crud-form input[type="email"],
+.crud-form input[type="url"],
+.crud-form input[type="number"],
+.crud-form input[type="password"],
+.crud-form input[type="date"],
+.crud-form input[type="datetime-local"],
+.crud-form input[type="tel"],
+.crud-form input[type="search"],
+.crud-form select,
+.crud-form textarea {
+    width: 100%;
+    padding: 0.7rem 0.9rem;
+    font-size: 0.9rem;
+    border: 1px solid color-mix(in srgb, var(--body-fg) 20%, var(--body-bg));
+    border-radius: var(--radius-sm, 6px);
+    background: color-mix(in srgb, var(--body-fg) 5%, var(--body-bg));
+    color: var(--body-fg);
+    transition: border-color 0.15s;
+    box-sizing: border-box;
+}
+
+.crud-form input::placeholder,
+.crud-form textarea::placeholder {
+    color: var(--body-quiet-color);
+    opacity: 0.6;
+}
+
+.crud-form input:focus,
+.crud-form select:focus,
+.crud-form textarea:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 20%, transparent);
+}
+
+.crud-form textarea {
+    min-height: 120px;
+    resize: vertical;
+}
+
+/* Date input — calendar icon visibility in dark mode */
+.crud-form input[type="date"]::-webkit-calendar-picker-indicator {
+    filter: invert(0.7);
+    cursor: pointer;
+}
+
+/* Select dropdowns */
+.crud-form select {
+    appearance: auto;
+    min-height: 2.6rem;
+    color-scheme: dark light;
+}
+[data-theme="dark"] .crud-form select {
+    color-scheme: dark;
+}
+[data-theme="dark"] .crud-form select option {
+    background: var(--card-bg);
+    color: var(--body-fg);
+}
+
+/* Checkboxes */
+.crud-form .crud-checkbox {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 0;
+}
+
+.crud-form .crud-checkbox input[type="checkbox"] {
+    width: 1.1rem;
+    height: 1.1rem;
+    accent-color: var(--primary);
+}
+
+.crud-form .crud-checkbox label {
+    font-weight: 400;
+    cursor: pointer;
+}
+
+/* File inputs */
+.crud-form input[type="file"] {
+    width: 100%;
+    padding: 0.5rem;
+    font-size: 0.85rem;
+    border: 1px dashed color-mix(in srgb, var(--body-fg) 20%, var(--body-bg));
+    border-radius: var(--radius-sm, 6px);
+    background: color-mix(in srgb, var(--body-fg) 3%, var(--body-bg));
+    color: var(--body-fg);
+    cursor: pointer;
+}
+
+.crud-form input[type="file"]:hover {
+    border-color: var(--primary);
+}
+
+/* Image preview */
+.crud-form .crud-image-preview {
+    margin-bottom: 0.5rem;
+}
+
+.crud-form .crud-image-preview img {
+    max-width: 120px;
+    max-height: 120px;
+    border-radius: var(--radius-sm, 6px);
+    border: 1px solid color-mix(in srgb, var(--body-fg) 15%, var(--body-bg));
+}
+
+/* Error state */
+.crud-form .crud-field.has-error input,
+.crud-form .crud-field.has-error select,
+.crud-form .crud-field.has-error textarea {
+    border-color: var(--delete-button-bg, #dc3545);
+}
+
+/* Form row — for side-by-side fields */
+.crud-form .crud-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
+}
+
+@media (max-width: 600px) {
+    .crud-form .crud-row {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* Form actions */
+.crud-form .crud-actions {
+    margin-top: 2rem;
+    display: flex;
+    gap: 0.75rem;
+    align-items: center;
+}
+
+.crud-form .crud-actions .btn-save {
+    background: var(--primary);
+    color: var(--button-fg);
+    padding: 0.6rem 2rem;
+    border: none;
+    border-radius: var(--radius-sm, 6px);
+    cursor: pointer;
+    font-size: 0.9rem;
+    font-weight: 500;
+}
+
+.crud-form .crud-actions .btn-save:hover {
+    background: var(--primary-hover);
+}
+
+.crud-form .crud-actions .btn-cancel {
+    padding: 0.6rem 1.5rem;
+    color: var(--body-quiet-color);
+    text-decoration: none;
+    font-size: 0.9rem;
+}
+
+.crud-form .crud-actions .btn-cancel:hover {
+    color: var(--body-fg);
+}
+</style>

@@ -634,6 +634,145 @@ body.sidebar-closed .main-content {
 }
 
 /* ============================================
+   Topbar Navigation Menu
+   ============================================ */
+
+.topbar-nav {
+    display: flex;
+    align-items: center;
+    height: 100%;
+    margin: 0 4px 0 12px;
+}
+
+.topbar-nav-list {
+    display: flex;
+    align-items: center;
+    margin: 0;
+    padding: 0;
+    gap: 2px;
+}
+
+/* Override Django admin's `ul > li { list-style-type: square }` */
+.topbar-nav-list > li,
+.topbar-submenu > li {
+    list-style: none !important;
+    padding: 0;
+}
+
+.topbar-nav-item {
+    position: relative;
+}
+
+.topbar-nav-link,
+.topbar-nav-link:link,
+.topbar-nav-link:visited {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 6px 14px;
+    color: var(--header-fg);
+    text-decoration: none !important;
+    font-size: 0.875rem;
+    font-weight: 500;
+    letter-spacing: 0.01em;
+    border-radius: var(--radius-sm);
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    transition: background-color var(--transition-fast), opacity var(--transition-fast);
+    white-space: nowrap;
+    opacity: 0.75;
+    position: relative;
+}
+
+.topbar-nav-link:hover {
+    color: var(--header-fg);
+    text-decoration: none !important;
+    opacity: 1;
+}
+
+.topbar-nav-link.active {
+    opacity: 1;
+}
+
+/* Active underline — only on direct links, not submenu parent buttons */
+a.topbar-nav-link.active::after {
+    content: "";
+    position: absolute;
+    bottom: -4px;
+    left: 14px;
+    right: 14px;
+    height: 2px;
+    background: var(--header-fg);
+    border-radius: 1px;
+    opacity: 0.8;
+}
+
+.topbar-nav-chevron {
+    transition: transform var(--transition-fast);
+    opacity: 0.6;
+}
+
+.topbar-nav-item.submenu-open .topbar-nav-chevron {
+    transform: rotate(180deg);
+}
+
+.topbar-submenu {
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 0;
+    background-color: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-lg);
+    min-width: 190px;
+    display: none;
+    z-index: 1001;
+    overflow: hidden;
+    list-style: none;
+    margin: 0;
+    padding: 4px 0;
+}
+
+.topbar-nav-item.submenu-open .topbar-submenu,
+.topbar-nav-item.has-submenu:hover .topbar-submenu {
+    display: block;
+}
+
+.topbar-nav-item.has-submenu:hover .topbar-nav-chevron {
+    transform: rotate(180deg);
+}
+
+.topbar-submenu-link,
+.topbar-submenu-link:link,
+.topbar-submenu-link:visited {
+    display: block;
+    padding: 8px 16px;
+    color: var(--body-fg);
+    text-decoration: none !important;
+    font-size: 0.875rem;
+    transition: background-color var(--transition-fast), color var(--transition-fast);
+}
+
+.topbar-submenu-link:hover {
+    background-color: var(--sidebar-hover-bg);
+    color: var(--primary);
+    text-decoration: none !important;
+}
+
+.topbar-submenu-link.active {
+    background-color: var(--sidebar-active-bg);
+    color: var(--sidebar-active-fg);
+    font-weight: 500;
+}
+
+@media (max-width: 768px) {
+    .topbar-nav {
+        display: none;
+    }
+}
+
+/* ============================================
    Sidebar Navigation
    ============================================ */
 
@@ -2658,20 +2797,58 @@ a.button.button-secondary:hover {
 }
 
 .stat-modal-panel {
-    width: min(700px, 90vw);
-    max-height: 80vh;
+    width: min(80%, 90vw);
+    height: min(520px, 80vh);
     display: flex;
     flex-direction: column;
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: var(--radius-md);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
 }
 
 .stat-modal-panel > .card-body {
     overflow-y: auto;
     min-height: 0;
+    flex: 1;
 }
 
+.stat-modal-panel table {
+    width: 100%;
+    border-collapse: collapse;
+}
+.stat-modal-panel thead tr {
+    background-color: color-mix(in srgb, var(--primary) 15%, var(--body-bg)) !important;
+    border: none !important;
+}
 .stat-modal-panel thead th {
     position: sticky;
     top: 0;
     z-index: 1;
     background-color: color-mix(in srgb, var(--primary) 15%, var(--body-bg)) !important;
+    border: none !important;
+    text-transform: uppercase;
+    font-size: 0.8rem;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+    padding: 10px 16px;
+    color: var(--body-quiet-color) !important;
+    text-align: left;
+}
+.stat-modal-panel tbody tr {
+    border: none !important;
+}
+.stat-modal-panel tbody tr:nth-child(odd) {
+    background-color: color-mix(in srgb, var(--primary) 4%, var(--body-bg)) !important;
+}
+.stat-modal-panel tbody tr:nth-child(even) {
+    background-color: color-mix(in srgb, var(--primary) 12%, var(--body-bg)) !important;
+}
+.stat-modal-panel tbody td {
+    border: none !important;
+    padding: 10px 16px;
+    font-size: 0.85rem;
+}
+.stat-modal-panel tbody tr:hover {
+    background-color: color-mix(in srgb, var(--primary) 20%, var(--body-bg)) !important;
 }

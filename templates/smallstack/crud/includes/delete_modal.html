@@ -1,0 +1,140 @@
+{% load static %}
+<!-- CRUD Delete Confirmation Modal -->
+<div id="crud-delete-modal" class="crud-modal-overlay" style="display:none;">
+    <div class="crud-modal">
+        <div class="crud-modal-header">
+            <h3>Confirm Delete</h3>
+            <button type="button" class="crud-modal-close" onclick="crudDeleteModalClose()">&times;</button>
+        </div>
+        <div class="crud-modal-body">
+            <p>Are you sure you want to delete <strong id="crud-delete-name"></strong>?</p>
+        </div>
+        <div class="crud-modal-footer">
+            <button type="button"
+                id="crud-delete-confirm"
+                class="crud-modal-btn-delete"
+                hx-post=""
+                hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'
+                hx-swap="none">
+                Delete
+            </button>
+            <button type="button" class="crud-modal-btn-cancel" onclick="crudDeleteModalClose()">Cancel</button>
+        </div>
+    </div>
+</div>
+
+<style>
+.crud-modal-overlay {
+    position: fixed; inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(2px);
+    z-index: 1000;
+    display: flex; align-items: center; justify-content: center;
+}
+.crud-modal {
+    background: var(--card-bg, var(--body-bg));
+    border: 1px solid color-mix(in srgb, var(--body-fg) 15%, var(--body-bg));
+    border-radius: var(--radius-md, 8px);
+    width: 90%; max-width: 420px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+}
+.crud-modal-header {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 1rem 1.25rem;
+    border-bottom: 1px solid color-mix(in srgb, var(--body-fg) 10%, var(--body-bg));
+}
+.crud-modal-header h3 {
+    margin: 0; font-size: 1rem;
+}
+.crud-modal-close {
+    background: none; border: none; font-size: 1.4rem;
+    color: var(--body-quiet-color); cursor: pointer; line-height: 1;
+}
+.crud-modal-close:hover { color: var(--body-fg); }
+.crud-modal-body {
+    padding: 1.25rem;
+}
+.crud-modal-body p { margin: 0; }
+.crud-modal-footer {
+    display: flex; gap: 0.75rem; justify-content: flex-end;
+    padding: 1rem 1.25rem;
+    border-top: 1px solid color-mix(in srgb, var(--body-fg) 10%, var(--body-bg));
+}
+.crud-modal-btn-delete {
+    background: var(--delete-button-bg, #dc3545); color: #fff;
+    border: none; padding: 0.5rem 1.25rem; border-radius: var(--radius-sm, 4px);
+    cursor: pointer; font-size: 0.85rem;
+}
+.crud-modal-btn-delete:hover { opacity: 0.9; }
+.crud-modal-btn-cancel {
+    background: none; border: 1px solid color-mix(in srgb, var(--body-fg) 20%, var(--body-bg));
+    color: var(--body-fg); padding: 0.5rem 1.25rem; border-radius: var(--radius-sm, 4px);
+    cursor: pointer; font-size: 0.85rem;
+}
+.crud-modal-btn-cancel:hover {
+    background: color-mix(in srgb, var(--body-fg) 5%, var(--body-bg));
+}
+</style>
+
+<script>
+// Store reference to the row being deleted
+let _crudDeleteRow = null;
+
+function crudDeleteModal(el, name) {
+    const modal = document.getElementById('crud-delete-modal');
+    const nameEl = document.getElementById('crud-delete-name');
+    const confirmBtn = document.getElementById('crud-delete-confirm');
+    const url = el.getAttribute('data-delete-url');
+
+    nameEl.textContent = name;
+    confirmBtn.setAttribute('hx-post', url);
+    htmx.process(confirmBtn);
+
+    // Find the closest table row for removal after delete
+    _crudDeleteRow = el.closest('tr');
+
+    modal.style.display = 'flex';
+}
+
+function crudDeleteModalClose() {
+    document.getElementById('crud-delete-modal').style.display = 'none';
+    _crudDeleteRow = null;
+}
+
+// Close modal on overlay click
+document.addEventListener('click', function(e) {
+    if (e.target.id === 'crud-delete-modal') {
+        crudDeleteModalClose();
+    }
+});
+
+// Close on Escape
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') crudDeleteModalClose();
+});
+
+// After successful htmx delete, remove row or redirect to list
+document.addEventListener('htmx:afterRequest', function(e) {
+    if (e.detail.elt.id === 'crud-delete-confirm' && e.detail.successful) {
+        if (_crudDeleteRow) {
+            // List view: fade out and remove the row
+            _crudDeleteRow.style.transition = 'opacity 0.3s';
+            _crudDeleteRow.style.opacity = '0';
+            setTimeout(function() {
+                _crudDeleteRow.remove();
+                _crudDeleteRow = null;
+            }, 300);
+            crudDeleteModalClose();
+        } else {
+            // Detail view: redirect to list (go up two levels from /pk/)
+            var listUrl = document.querySelector('[data-list-url]');
+            if (listUrl) {
+                window.location.href = listUrl.getAttribute('data-list-url');
+            } else {
+                // Fallback: go up from /url_base/pk/ to /url_base/
+                window.location.href = window.location.pathname.replace(/[^/]+\/$/, '');
+            }
+        }
+    }
+});
+</script>

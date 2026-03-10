@@ -3,9 +3,7 @@
 
 {% block title %}Backups{% endblock %}
 
-{% block breadcrumbs %}
-    {% breadcrumb "Backups" "smallstack:backups" %}
-{% endblock %}
+{% block breadcrumbs %}{% endblock %}
 
 {% block extra_css %}
 <style>
@@ -63,6 +61,11 @@
     <div class="page-header-content">
         <h1>Database Backups</h1>
         <p class="page-subtitle">SQLite backup management</p>
+        <nav style="margin-top: 0.5rem; font-size: 0.8rem;">
+            <a href="{% url 'website:home' %}" style="color: var(--body-quiet-color); text-decoration: none;">Home</a>
+            <span style="color: var(--body-quiet-color); margin: 0 0.3rem;">/</span>
+            <span style="color: var(--body-fg);">Backups</span>
+        </nav>
     </div>
     <div style="display: flex; gap: 12px; align-items: stretch;">
         <!-- Scheduled Backups Status -->

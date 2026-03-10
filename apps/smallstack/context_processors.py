@@ -4,10 +4,14 @@ Context processors for the admin theme.
 Provides branding, site configuration, and palette data to all templates.
 """
 
+import logging
 from pathlib import Path
 
 import yaml
 from django.conf import settings
+from django.urls import NoReverseMatch, reverse
+
+logger = logging.getLogger(__name__)
 
 _cached_version = None
 
@@ -55,6 +59,76 @@ def _get_effective_palette(request):
     return system_default
 
 
+def _is_active(resolved_url, request_path):
+    """Check if a resolved URL matches the current request path."""
+    if request_path == resolved_url:
+        return True
+    if resolved_url != "/" and request_path.startswith(resolved_url):
+        return True
+    return False
+
+
+def _resolve_url(item):
+    """Resolve a nav item's URL. Returns the resolved URL string or None."""
+    url = item.get("url", "")
+    if not url:
+        return None
+
+    # External URLs and absolute paths pass through
+    if url.startswith(("http://", "https://", "/")):
+        return url
+
+    # Try to reverse as a URL name
+    try:
+        url_args = item.get("url_args", [])
+        return reverse(url, args=url_args)
+    except NoReverseMatch:
+        logger.debug("Topbar nav: could not reverse '%s', skipping", url)
+        return None
+
+
+def _resolve_nav_items(items, request):
+    """Resolve nav items: filter by auth/staff, reverse URLs, determine active state."""
+    resolved = []
+    user = getattr(request, "user", None)
+    is_authenticated = getattr(user, "is_authenticated", False)
+    is_staff = getattr(user, "is_staff", False)
+
+    for item in items:
+        # Filter by auth/staff requirements
+        if item.get("auth_required") and not is_authenticated:
+            continue
+        if item.get("staff_required") and not is_staff:
+            continue
+
+        children = item.get("children")
+        if children:
+            # Submenu parent
+            resolved_children = _resolve_nav_items(children, request)
+            if not resolved_children:
+                continue
+            has_active_child = any(c.get("active") for c in resolved_children)
+            resolved.append({
+                "label": item["label"],
+                "children": resolved_children,
+                "has_active_child": has_active_child,
+            })
+        else:
+            # Leaf item
+            resolved_url = _resolve_url(item)
+            if resolved_url is None:
+                continue
+            active = _is_active(resolved_url, request.path)
+            resolved.append({
+                "label": item["label"],
+                "url": resolved_url,
+                "active": active,
+                "external": item.get("external", False),
+            })
+
+    return resolved
+
+
 def branding(request):
     """
     Add branding configuration to template context.
@@ -89,7 +163,15 @@ def branding(request):
     system_palette = getattr(settings, "SMALLSTACK_COLOR_PALETTE", "django")
     effective_palette = _get_effective_palette(request)
 
+    topbar_nav_enabled = getattr(settings, "SMALLSTACK_TOPBAR_NAV_ENABLED", False)
+    topbar_nav_items = []
+    if topbar_nav_enabled:
+        raw_items = getattr(settings, "SMALLSTACK_TOPBAR_NAV_ITEMS", [])
+        topbar_nav_items = _resolve_nav_items(raw_items, request)
+
     return {
+        "smallstack_topbar_nav_enabled": topbar_nav_enabled,
+        "smallstack_topbar_nav_items": topbar_nav_items,
         "smallstack_docs_enabled": getattr(settings, "SMALLSTACK_DOCS_ENABLED", True),
         "smallstack_login_enabled": getattr(settings, "SMALLSTACK_LOGIN_ENABLED", True),
         "smallstack_signup_enabled": getattr(settings, "SMALLSTACK_SIGNUP_ENABLED", True),

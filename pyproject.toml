@@ -15,6 +15,7 @@ dependencies = [
     "pyyaml>=6.0",
     "django-tasks-db>=0.2",
     "django-htmx>=1.19",
+    "django-tables2>=2.8.0",
 ]
 
 [project.optional-dependencies]

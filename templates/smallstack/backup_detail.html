@@ -3,10 +3,7 @@
 
 {% block title %}Backup #{{ record.pk }}{% endblock %}
 
-{% block breadcrumbs %}
-    {% breadcrumb "Backups" "smallstack:backups" %}
-    {% breadcrumb record.filename|default:"Backup"|truncatechars:30 %}
-{% endblock %}
+{% block breadcrumbs %}{% endblock %}
 
 {% block extra_css %}
 <style>
@@ -95,17 +92,26 @@
 {% block content %}
 <div class="page-header-with-actions" style="background: color-mix(in srgb, var(--primary) 15%, var(--body-bg)); margin: -24px -24px 24px -24px; padding: 24px; border-radius: 8px 8px 0 0; display: flex; align-items: center; justify-content: space-between;">
     <div class="page-header-content">
-        <h1 style="display: flex; align-items: center; gap: 12px;">
-            Backup #{{ record.pk }}
-            {% if record.is_pruned %}
-                <span class="status-badge status-pruned">pruned</span>
-            {% else %}
-                <span class="status-badge status-{{ record.status }}">{{ record.status }}</span>
-            {% endif %}
-        </h1>
-        <p class="page-subtitle" style="font-family: monospace; font-size: 0.85rem;">{{ record.filename|default:"No file" }}</p>
+        <h1>Backup #{{ record.pk }}</h1>
+        <nav style="margin-top: 0.5rem; font-size: 0.8rem;">
+            <a href="{% url 'website:home' %}" style="color: var(--body-quiet-color); text-decoration: none;">Home</a>
+            <span style="color: var(--body-quiet-color); margin: 0 0.3rem;">/</span>
+            <a href="{% url 'smallstack:backups' %}" style="color: var(--body-quiet-color); text-decoration: none;">Backups</a>
+            <span style="color: var(--body-quiet-color); margin: 0 0.3rem;">/</span>
+            <span style="color: var(--body-fg);">#{{ record.pk }}</span>
+        </nav>
     </div>
     <div style="display: flex; gap: 12px; align-items: stretch;">
+        <div style="text-align: center; padding: 8px 16px; background: color-mix(in srgb, var(--primary) 10%, var(--body-bg)); border-radius: var(--radius-sm, 6px);">
+            <div style="font-size: 1.1rem; font-weight: 700; color: {% if record.is_pruned %}var(--body-quiet-color){% elif record.status == 'success' %}var(--success-fg){% elif record.status == 'failed' %}var(--error-fg){% else %}var(--body-fg){% endif %};">{% if record.is_pruned %}PRUNED{% else %}{{ record.status|upper }}{% endif %}</div>
+            <div style="font-size: 0.7rem; color: var(--body-quiet-color); text-transform: uppercase; letter-spacing: 0.3px;">Status</div>
+        </div>
+        {% if record.file_size %}
+        <div style="text-align: center; padding: 8px 16px; background: color-mix(in srgb, var(--primary) 10%, var(--body-bg)); border-radius: var(--radius-sm, 6px);">
+            <div style="font-size: 1.1rem; font-weight: 700; color: var(--body-fg);">{{ record.file_size|filesizeformat }}</div>
+            <div style="font-size: 0.7rem; color: var(--body-quiet-color); text-transform: uppercase; letter-spacing: 0.3px;">Size</div>
+        </div>
+        {% endif %}
         {% if record.status == "success" and record.file_exists and backup_download_enabled %}
         <a href="{% url 'smallstack:backup_file_download' record.filename %}" class="card" style="border: 2px solid color-mix(in srgb, var(--primary) 30%, transparent); margin: 0; min-width: 160px; text-decoration: none; transition: border-color 0.15s, background 0.15s;" onmouseover="this.style.borderColor='var(--primary)';this.style.background='color-mix(in srgb, var(--primary) 8%, var(--card-bg))'" onmouseout="this.style.borderColor='color-mix(in srgb, var(--primary) 30%, transparent)';this.style.background=''">
             <div class="card-body" style="display: flex; align-items: center; gap: 10px; padding: 12px 16px;">
@@ -256,10 +262,4 @@
     </div>
 </div>
 
-<div style="margin-top: 8px;">
-    <a href="{% url 'smallstack:backups' %}" style="color: var(--body-quiet-color); text-decoration: none; font-size: 0.9rem; display: inline-flex; align-items: center; gap: 6px; transition: color 0.15s;" onmouseover="this.style.color='var(--primary)'" onmouseout="this.style.color='var(--body-quiet-color)'">
-        <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
-        Back to Backups
-    </a>
-</div>
 {% endblock %}

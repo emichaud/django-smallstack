@@ -15,6 +15,35 @@
         </a>
     </div>
 
+    {% if smallstack_topbar_nav_enabled and smallstack_topbar_nav_items %}
+    <nav class="topbar-nav" aria-label="Main navigation">
+        <ul class="topbar-nav-list">
+            {% for item in smallstack_topbar_nav_items %}
+            <li class="topbar-nav-item{% if item.children %} has-submenu{% endif %}">
+                {% if item.children %}
+                <button class="topbar-nav-link{% if item.has_active_child %} active{% endif %}"
+                        type="button" aria-expanded="false" aria-haspopup="true">
+                    {{ item.label }}
+                    <svg class="topbar-nav-chevron" viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
+                        <path d="M7 10l5 5 5-5z"/>
+                    </svg>
+                </button>
+                <ul class="topbar-submenu">
+                    {% for child in item.children %}
+                    <li><a href="{{ child.url }}" class="topbar-submenu-link{% if child.active %} active{% endif %}"
+                           {% if child.external %}target="_blank" rel="noopener"{% endif %}>{{ child.label }}</a></li>
+                    {% endfor %}
+                </ul>
+                {% else %}
+                <a href="{{ item.url }}" class="topbar-nav-link{% if item.active %} active{% endif %}"
+                   {% if item.external %}target="_blank" rel="noopener"{% endif %}>{{ item.label }}</a>
+                {% endif %}
+            </li>
+            {% endfor %}
+        </ul>
+    </nav>
+    {% endif %}
+
     <div class="topbar-right">
         <!-- Dark/Light mode toggle (visible when logged out) -->
         {% if not user.is_authenticated %}

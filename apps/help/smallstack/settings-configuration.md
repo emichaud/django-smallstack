@@ -231,8 +231,13 @@ SmallStack includes these feature flags out of the box:
 | `SMALLSTACK_DOCS_ENABLED` | `True` | Show/hide SmallStack reference docs from `/help/` |
 | `SMALLSTACK_LOGIN_ENABLED` | `True` | Show/hide Login and Sign Up buttons in the topbar |
 | `SMALLSTACK_SIGNUP_ENABLED` | `True` | Show/hide Sign Up UI and 404 the signup URL |
+| `SMALLSTACK_SIDEBAR_ENABLED` | `True` | Show/hide the sidebar and hamburger toggle |
+| `SMALLSTACK_SIDEBAR_OPEN` | `True` | Whether sidebar starts open or closed |
+| `SMALLSTACK_TOPBAR_NAV_ENABLED` | `False` | Show a horizontal nav menu in the topbar |
 | `SMALLSTACK_COLOR_PALETTE` | `"django"` | System default color palette (`django`, `light-blue`, `dark-blue`, `orange`, `purple`) |
 | `TIME_ZONE` | `America/New_York` | Server timezone for date display (any IANA timezone name) |
+
+`SMALLSTACK_TOPBAR_NAV_ITEMS` is a Python list (not an env var) — configure it directly in your settings file. See [Topbar Navigation](/help/smallstack/topbar-navigation/) for the item format and examples.
 
 See [Authentication](/help/smallstack/authentication/) for details on the auth flags. See [Working with Timezones](/help/smallstack/timezones/) for the full timezone architecture.
 

@@ -15,6 +15,8 @@ from .views import health_check, legal_page_view, starter_basic_view, starter_fo
 urlpatterns = [
     # Project pages - customize these in apps/website/
     path("", include("apps.website.urls")),
+    # User Manager (staff-only)
+    path("", include("apps.usermanager.urls")),
     # Admin
     path("admin/", admin.site.urls),
     # Authentication

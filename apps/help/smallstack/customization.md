@@ -384,6 +384,22 @@ Individual users can override the system palette from their **Profile Edit** pag
 
 For full details on adding custom palettes, see [Theming & Customization](/help/smallstack/theming/#color-palettes).
 
+### Adding Topbar Navigation
+
+For marketing sites or layouts without a sidebar, add horizontal navigation links to the topbar:
+
+```python
+# config/settings/base.py
+SMALLSTACK_TOPBAR_NAV_ENABLED = True  # or set via .env
+SMALLSTACK_TOPBAR_NAV_ITEMS = [
+    {"label": "Features", "url": "website:features"},
+    {"label": "Docs", "url": "help:index"},
+    {"label": "About", "url": "website:about"},
+]
+```
+
+Pairs well with `SMALLSTACK_SIDEBAR_OPEN = False` or `SMALLSTACK_SIDEBAR_ENABLED = False` for a hero-style website layout. See [Topbar Navigation](/help/smallstack/topbar-navigation/) for submenus, conditional visibility, and the full item format.
+
 ### Controlling Auth Visibility
 
 If your project doesn't need public signup or visible login buttons, use the auth feature flags:

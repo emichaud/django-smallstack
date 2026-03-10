@@ -165,6 +165,7 @@ dependencies = [
     { name = "django-debug-toolbar" },
     { name = "django-extensions" },
     { name = "django-htmx" },
+    { name = "django-tables2" },
     { name = "django-tasks-db" },
     { name = "gunicorn" },
     { name = "markdown" },
@@ -188,6 +189,7 @@ requires-dist = [
     { name = "django-debug-toolbar", specifier = ">=4.2" },
     { name = "django-extensions", specifier = ">=3.2" },
     { name = "django-htmx", specifier = ">=1.19" },
+    { name = "django-tables2", specifier = ">=2.8.0" },
     { name = "django-tasks-db", specifier = ">=0.2" },
     { name = "gunicorn", specifier = ">=21.0" },
     { name = "markdown", specifier = ">=3.5" },
@@ -213,6 +215,18 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/55/03/9c2be939490d2282328db4611bc5956899f5ff7eabc3e88bd4b964a87373/django_stubs_ext-5.2.9.tar.gz", hash = "sha256:6db4054d1580657b979b7d391474719f1a978773e66c7070a5e246cd445a25a9", size = 6497 }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/9b/f7/0d5f7d7e76fe972d9f560f687fdc0cab4db9e1624fd90728ca29b4ed7a63/django_stubs_ext-5.2.9-py3-none-any.whl", hash = "sha256:230c51575551b0165be40177f0f6805f1e3ebf799b835c85f5d64c371ca6cf71", size = 9974 },
+]
+
+[[package]]
+name = "django-tables2"
+version = "2.8.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "django" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/28/ab/3533314e818b04a9e1f04ae167845fec509f4e78ebaa6cf507d12eabcce3/django_tables2-2.8.0.tar.gz", hash = "sha256:0dea3401bb99a0164ba09e20d59a7d90856fdc05e5ae2da9a14d0fa14d99257c", size = 129204 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/79/8b/047bb29359953b1c76f8886377845538144033d87da622c6b743f597a50b/django_tables2-2.8.0-py3-none-any.whl", hash = "sha256:860633b0f448216af73fca6005c7e38dc9b46931dc36c08a9281a71ee250b1ee", size = 95968 },
 ]
 
 [[package]]

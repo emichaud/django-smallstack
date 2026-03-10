@@ -25,6 +25,7 @@ INSTALLED_APPS = [
     "apps.help",
     "apps.tasks",
     "apps.activity",
+    "apps.usermanager",
     "apps.website",  # Project-specific pages (customize freely)
     # Django built-in apps
     "django.contrib.admin",
@@ -36,6 +37,7 @@ INSTALLED_APPS = [
     # Third-party apps
     "django_extensions",
     "django_tasks_db",
+    "django_tables2",
 ]
 
 # Background Tasks configuration
@@ -157,6 +159,18 @@ SMALLSTACK_SIGNUP_ENABLED = config("SMALLSTACK_SIGNUP_ENABLED", default=True, ca
 SMALLSTACK_SIDEBAR_ENABLED = config("SMALLSTACK_SIDEBAR_ENABLED", default=True, cast=bool)
 # Set to False to start with sidebar closed by default (users can still toggle open)
 SMALLSTACK_SIDEBAR_OPEN = config("SMALLSTACK_SIDEBAR_OPEN", default=True, cast=bool)
+
+# Topbar Navigation
+# Set to True to show a horizontal nav menu in the topbar (between logo and right controls)
+SMALLSTACK_TOPBAR_NAV_ENABLED = config("SMALLSTACK_TOPBAR_NAV_ENABLED", default=False, cast=bool)
+# List of nav items (Python-only, not .env). Override in your project's settings.
+# Item format:
+#   {"label": "Features", "url": "website:features"}           # URL name (reversed)
+#   {"label": "Docs", "url": "/docs/"}                         # Absolute path
+#   {"label": "GitHub", "url": "https://...", "external": True} # External link
+#   {"label": "More", "children": [{"label": "About", "url": "website:about"}]}
+# Optional keys: auth_required, staff_required, url_args
+SMALLSTACK_TOPBAR_NAV_ITEMS = []
 
 # Branding Configuration
 # These paths are relative to STATIC_URL. Override to customize branding.

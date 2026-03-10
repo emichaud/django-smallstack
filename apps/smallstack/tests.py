@@ -1,4 +1,4 @@
-"""Tests for the SmallStack backup system, timezone middleware, and template tags."""
+"""Tests for the SmallStack backup system, timezone middleware, template tags, and topbar nav."""
 
 import zoneinfo
 from datetime import datetime
@@ -11,6 +11,7 @@ from django.test import RequestFactory, override_settings
 from django.urls import reverse
 from django.utils import timezone
 
+from .context_processors import _resolve_nav_items
 from .middleware import TimezoneMiddleware
 from .models import BackupRecord
 
@@ -202,6 +203,21 @@ class TestBackupViewPermissions:
         client.force_login(staff_user)
         response = client.get(reverse("smallstack:backup_detail", kwargs={"pk": success_record.pk}))
         assert response.status_code == 200
+
+    def test_backup_list_has_breadcrumbs(self, client, staff_user):
+        client.force_login(staff_user)
+        response = client.get(reverse("smallstack:backups"))
+        content = response.content.decode()
+        assert "Home" in content
+        assert "Backups" in content
+
+    def test_backup_detail_has_breadcrumbs(self, client, staff_user, success_record):
+        client.force_login(staff_user)
+        response = client.get(reverse("smallstack:backup_detail", kwargs={"pk": success_record.pk}))
+        content = response.content.decode()
+        assert "Home" in content
+        assert "Backups" in content
+        assert f"#{success_record.pk}" in content
 
     def test_backup_detail_404_for_missing_record(self, client, staff_user):
         client.force_login(staff_user)
@@ -592,3 +608,151 @@ class TestLegalPages:
         content = response.content.decode()
         assert "Terms of Service" in content
         assert "Privacy Policy" in content
+
+
+# ── Topbar Navigation Tests ──────────────────────────────
+
+
+class TestTopbarNav:
+    """Tests for configurable topbar navigation."""
+
+    def _make_request(self, path="/", user=None):
+        factory = RequestFactory()
+        request = factory.get(path)
+        if user:
+            request.user = user
+        else:
+            request.user = type("AnonymousUser", (), {"is_authenticated": False, "is_staff": False})()
+        return request
+
+    def test_disabled_by_default(self, client, db):
+        """Topbar nav should not appear when disabled (default)."""
+        response = client.get("/")
+        content = response.content.decode()
+        assert "topbar-nav" not in content
+
+    @override_settings(SMALLSTACK_TOPBAR_NAV_ENABLED=True, SMALLSTACK_TOPBAR_NAV_ITEMS=[
+        {"label": "Home", "url": "website:home"},
+    ])
+    def test_enabled_with_items(self, client, db):
+        """Topbar nav should render when enabled with items."""
+        response = client.get("/")
+        content = response.content.decode()
+        assert "topbar-nav" in content
+        assert "Home" in content
+
+    def test_resolve_url_name(self, db):
+        """URL names should be resolved via reverse()."""
+        request = self._make_request("/")
+        items = [{"label": "Home", "url": "website:home"}]
+        resolved = _resolve_nav_items(items, request)
+        assert len(resolved) == 1
+        assert resolved[0]["url"] == "/"
+        assert resolved[0]["label"] == "Home"
+
+    def test_resolve_absolute_path(self, db):
+        """Absolute paths should pass through."""
+        request = self._make_request("/")
+        items = [{"label": "Docs", "url": "/docs/"}]
+        resolved = _resolve_nav_items(items, request)
+        assert len(resolved) == 1
+        assert resolved[0]["url"] == "/docs/"
+
+    def test_resolve_external_url(self, db):
+        """External URLs should pass through with external flag."""
+        request = self._make_request("/")
+        items = [{"label": "GitHub", "url": "https://github.com", "external": True}]
+        resolved = _resolve_nav_items(items, request)
+        assert len(resolved) == 1
+        assert resolved[0]["external"] is True
+        assert resolved[0]["url"] == "https://github.com"
+
+    def test_bad_url_name_skipped(self, db):
+        """Items with unresolvable URL names should be silently skipped."""
+        request = self._make_request("/")
+        items = [{"label": "Bad", "url": "nonexistent:page"}]
+        resolved = _resolve_nav_items(items, request)
+        assert len(resolved) == 0
+
+    def test_active_state_exact_match(self, db):
+        """Active state on exact path match."""
+        request = self._make_request("/")
+        items = [{"label": "Home", "url": "website:home"}]
+        resolved = _resolve_nav_items(items, request)
+        assert resolved[0]["active"] is True
+
+    def test_active_state_prefix_match(self, db):
+        """Active state on prefix path match."""
+        request = self._make_request("/help/some-page/")
+        items = [{"label": "Help", "url": "/help/"}]
+        resolved = _resolve_nav_items(items, request)
+        assert resolved[0]["active"] is True
+
+    def test_inactive_state(self, db):
+        """Items should not be active when path doesn't match."""
+        request = self._make_request("/other/")
+        items = [{"label": "Help", "url": "/help/"}]
+        resolved = _resolve_nav_items(items, request)
+        assert resolved[0]["active"] is False
+
+    def test_submenu_rendering(self, db):
+        """Submenu items should be resolved recursively."""
+        request = self._make_request("/")
+        items = [{"label": "More", "children": [
+            {"label": "Home", "url": "website:home"},
+            {"label": "Docs", "url": "/docs/"},
+        ]}]
+        resolved = _resolve_nav_items(items, request)
+        assert len(resolved) == 1
+        assert "children" in resolved[0]
+        assert len(resolved[0]["children"]) == 2
+
+    def test_submenu_has_active_child(self, db):
+        """Parent should have has_active_child when a child is active."""
+        request = self._make_request("/")
+        items = [{"label": "More", "children": [
+            {"label": "Home", "url": "website:home"},
+        ]}]
+        resolved = _resolve_nav_items(items, request)
+        assert resolved[0]["has_active_child"] is True
+
+    def test_auth_required_filters_anonymous(self, db):
+        """auth_required items should be hidden for anonymous users."""
+        request = self._make_request("/")
+        items = [{"label": "Dashboard", "url": "/dashboard/", "auth_required": True}]
+        resolved = _resolve_nav_items(items, request)
+        assert len(resolved) == 0
+
+    def test_auth_required_shows_for_authenticated(self, user):
+        """auth_required items should show for authenticated users."""
+        request = self._make_request("/")
+        request.user = user
+        items = [{"label": "Dashboard", "url": "/dashboard/", "auth_required": True}]
+        resolved = _resolve_nav_items(items, request)
+        assert len(resolved) == 1
+
+    def test_staff_required_filters_non_staff(self, user):
+        """staff_required items should be hidden for non-staff users."""
+        request = self._make_request("/")
+        request.user = user
+        items = [{"label": "Admin", "url": "/admin/", "staff_required": True}]
+        resolved = _resolve_nav_items(items, request)
+        assert len(resolved) == 0
+
+    def test_staff_required_shows_for_staff(self, staff_user):
+        """staff_required items should show for staff users."""
+        request = self._make_request("/")
+        request.user = staff_user
+        items = [{"label": "Admin", "url": "/admin/", "staff_required": True}]
+        resolved = _resolve_nav_items(items, request)
+        assert len(resolved) == 1
+
+    @override_settings(SMALLSTACK_TOPBAR_NAV_ENABLED=True, SMALLSTACK_TOPBAR_NAV_ITEMS=[
+        {"label": "GitHub", "url": "https://github.com", "external": True},
+    ])
+    def test_external_link_attributes(self, client, db):
+        """External links should have target=_blank and rel=noopener."""
+        response = client.get("/")
+        content = response.content.decode()
+        assert 'target="_blank"' in content
+        assert 'rel="noopener"' in content

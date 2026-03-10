@@ -1,0 +1,610 @@
+{% extends "smallstack/base.html" %}
+{% load theme_tags crud_tags %}
+
+{% block title %}{% if object %}Edit {{ object }}{% else %}Create User{% endif %}{% endblock %}
+
+{% block breadcrumbs %}{% endblock %}
+
+{% block extra_css %}
+{% include "smallstack/crud/_form_styles.html" %}
+<style>
+/* ── Tabs ─────────────────────────────────────────────────── */
+.user-tabs {
+    display: flex;
+    gap: 0;
+    border-bottom: 2px solid color-mix(in srgb, var(--body-fg) 10%, var(--body-bg));
+    margin-bottom: 1.5rem;
+}
+.user-tab {
+    padding: 0.7rem 1.25rem;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--body-quiet-color);
+    cursor: pointer;
+    border: none;
+    background: none;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -2px;
+    transition: color 0.15s, border-color 0.15s;
+}
+.user-tab:hover {
+    color: var(--body-fg);
+}
+.user-tab.active {
+    color: var(--primary);
+    border-bottom-color: var(--primary);
+}
+.tab-panel { display: none; }
+.tab-panel.active { display: block; }
+
+/* ── Photo upload ────────────────────────────────────────── */
+.photo-upload-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
+    margin-bottom: 1.5rem;
+    align-items: stretch;
+}
+@media (max-width: 600px) {
+    .photo-upload-row { grid-template-columns: 1fr; }
+}
+.photo-upload-card {
+    border: 1px dashed color-mix(in srgb, var(--body-fg) 15%, var(--body-bg));
+    border-radius: var(--radius-sm, 6px);
+    padding: 1rem;
+    text-align: center;
+    background: color-mix(in srgb, var(--body-fg) 3%, var(--body-bg));
+    transition: border-color 0.15s;
+    display: flex;
+    flex-direction: column;
+}
+.photo-upload-card .photo-preview,
+.photo-upload-card .photo-preview-background {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.photo-upload-card:hover {
+    border-color: var(--primary);
+}
+.photo-upload-card .photo-label {
+    display: block;
+    font-weight: 600;
+    font-size: 0.85rem;
+    margin-bottom: 0.75rem;
+    color: var(--body-fg);
+}
+.photo-preview {
+    margin-bottom: 0.75rem;
+}
+.photo-preview img {
+    border-radius: var(--radius-sm, 6px);
+    border: 1px solid color-mix(in srgb, var(--body-fg) 12%, var(--body-bg));
+    object-fit: cover;
+}
+.photo-preview-profile img {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+}
+.photo-preview-background img {
+    width: 100%;
+    max-height: 100px;
+    border-radius: var(--radius-sm, 6px);
+}
+.photo-upload-card input[type="file"] {
+    display: none;
+}
+.photo-choose-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.45rem 1rem;
+    font-size: 0.8rem;
+    font-weight: 500;
+    color: var(--body-fg);
+    background: color-mix(in srgb, var(--body-fg) 10%, var(--body-bg));
+    border: 1px solid color-mix(in srgb, var(--body-fg) 18%, var(--body-bg));
+    border-radius: var(--radius-sm, 6px);
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s;
+}
+.photo-choose-btn:hover {
+    background: color-mix(in srgb, var(--body-fg) 15%, var(--body-bg));
+    border-color: var(--primary);
+}
+.photo-choose-btn svg {
+    opacity: 0.7;
+}
+.photo-filename {
+    font-size: 0.75rem;
+    color: var(--body-quiet-color);
+    margin-top: 0.35rem;
+}
+.photo-remove {
+    font-size: 0.75rem;
+    color: var(--delete-button-bg, #dc3545);
+    cursor: pointer;
+    background: none;
+    border: none;
+    margin-top: 0.25rem;
+}
+.photo-remove:hover { text-decoration: underline; }
+
+/* ── Activity stats ──────────────────────────────────────── */
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+@media (max-width: 768px) {
+    .stats-grid { grid-template-columns: repeat(2, 1fr); }
+}
+.stat-card {
+    background: color-mix(in srgb, var(--body-fg) 5%, var(--body-bg));
+    border: 1px solid color-mix(in srgb, var(--body-fg) 10%, var(--body-bg));
+    border-radius: var(--radius-sm, 6px);
+    padding: 1rem;
+    text-align: center;
+}
+.stat-value {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--primary);
+    line-height: 1.2;
+}
+.stat-label {
+    font-size: 0.75rem;
+    color: var(--body-quiet-color);
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    margin-top: 0.25rem;
+}
+.activity-section {
+    margin-bottom: 1.5rem;
+}
+.activity-section h4 {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--body-quiet-color);
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    margin: 0 0 0.75rem;
+}
+.activity-mini-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+.activity-mini-table td {
+    padding: 0.4rem 0.75rem;
+    font-size: 0.85rem;
+    border: none;
+}
+.activity-mini-table tr:nth-child(odd) {
+    background: color-mix(in srgb, var(--primary) 4%, var(--body-bg));
+}
+.activity-mini-table tr:nth-child(even) {
+    background: color-mix(in srgb, var(--primary) 10%, var(--body-bg));
+}
+.activity-mini-table .path-cell {
+    font-family: monospace;
+    font-size: 0.8rem;
+}
+.activity-mini-table .count-cell {
+    text-align: right;
+    color: var(--body-quiet-color);
+    font-weight: 600;
+}
+.status-badge {
+    display: inline-block;
+    padding: 0.15rem 0.5rem;
+    border-radius: 3px;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+.status-2xx { background: color-mix(in srgb, #28a745 20%, var(--body-bg)); color: #28a745; }
+.status-3xx { background: color-mix(in srgb, #17a2b8 20%, var(--body-bg)); color: #17a2b8; }
+.status-4xx { background: color-mix(in srgb, #ffc107 20%, var(--body-bg)); color: #ffc107; }
+.status-5xx { background: color-mix(in srgb, #dc3545 20%, var(--body-bg)); color: #dc3545; }
+
+/* ── Sparkline ───────────────────────────────────────────── */
+.sparkline-row {
+    display: flex;
+    align-items: flex-end;
+    gap: 3px;
+    height: 40px;
+}
+.sparkline-bar {
+    flex: 1;
+    min-width: 8px;
+    background: var(--primary);
+    border-radius: 2px 2px 0 0;
+    opacity: 0.7;
+    transition: opacity 0.15s;
+    position: relative;
+}
+.sparkline-bar:hover {
+    opacity: 1;
+}
+.sparkline-labels {
+    display: flex;
+    gap: 3px;
+    margin-top: 0.25rem;
+}
+.sparkline-labels span {
+    flex: 1;
+    text-align: center;
+    font-size: 0.65rem;
+    color: var(--body-quiet-color);
+}
+
+/* ── Two column row ──────────────────────────────────────── */
+.form-row-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
+}
+@media (max-width: 600px) {
+    .form-row-2 { grid-template-columns: 1fr; }
+}
+
+/* ── Empty / no-data state ───────────────────────────────── */
+.no-activity {
+    text-align: center;
+    color: var(--body-quiet-color);
+    padding: 2rem 0;
+    font-size: 0.9rem;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header-with-actions" style="background: color-mix(in srgb, var(--primary) 15%, var(--body-bg)); margin: -24px -24px 24px -24px; padding: 24px; border-radius: 8px 8px 0 0; display: flex; align-items: center; justify-content: space-between;">
+    <div class="page-header-content">
+        <h1>{% if object %}{{ object }}{% else %}Create User{% endif %}</h1>
+        <nav style="margin-top: 0.5rem; font-size: 0.8rem;">
+            <a href="{% url 'website:home' %}" style="color: var(--body-quiet-color); text-decoration: none;">Home</a>
+            <span style="color: var(--body-quiet-color); margin: 0 0.3rem;">/</span>
+            <a href="{% url 'manage/users-list' %}" style="color: var(--body-quiet-color); text-decoration: none;">Users</a>
+            <span style="color: var(--body-quiet-color); margin: 0 0.3rem;">/</span>
+            <span style="color: var(--body-fg);">{% if object %}{{ object }}{% else %}Create{% endif %}</span>
+        </nav>
+    </div>
+    {% if object %}
+    <div style="display: flex; gap: 12px; align-items: stretch;">
+        <div style="text-align: center; padding: 8px 16px; background: color-mix(in srgb, var(--primary) 10%, var(--body-bg)); border-radius: var(--radius-sm, 6px);">
+            <div style="font-size: 1.5rem; font-weight: 700; color: {% if object.is_active %}var(--success-fg, #28a745){% else %}var(--delete-button-bg, #dc3545){% endif %};">
+                {% if object.is_active %}Active{% else %}Inactive{% endif %}
+            </div>
+            <div style="font-size: 0.7rem; color: var(--body-quiet-color); text-transform: uppercase; letter-spacing: 0.3px;">Status</div>
+        </div>
+        <div style="text-align: center; padding: 8px 16px; background: color-mix(in srgb, var(--primary) 10%, var(--body-bg)); border-radius: var(--radius-sm, 6px);">
+            <div style="font-size: 1.5rem; font-weight: 700; color: var(--primary);">{{ object.date_joined|date:"M Y" }}</div>
+            <div style="font-size: 0.7rem; color: var(--body-quiet-color); text-transform: uppercase; letter-spacing: 0.3px;">Member Since</div>
+        </div>
+        {% if object.is_staff %}
+        <div style="text-align: center; padding: 8px 16px; background: color-mix(in srgb, var(--primary) 10%, var(--body-bg)); border-radius: var(--radius-sm, 6px);">
+            <div style="font-size: 1.5rem; font-weight: 700; color: var(--primary);">Staff</div>
+            <div style="font-size: 0.7rem; color: var(--body-quiet-color); text-transform: uppercase; letter-spacing: 0.3px;">Role</div>
+        </div>
+        {% endif %}
+    </div>
+    {% endif %}
+</div>
+
+{% if object %}
+        <!-- Tabbed edit form -->
+        <!-- Tabbed edit form -->
+        <div class="user-tabs">
+            <button type="button" class="user-tab active" data-tab="account">Account</button>
+            <button type="button" class="user-tab" data-tab="profile">Profile</button>
+            <button type="button" class="user-tab" data-tab="activity">Activity</button>
+        </div>
+
+        <form method="POST" enctype="multipart/form-data" class="crud-form" id="user-form">
+            {% csrf_token %}
+
+            <!-- ═══ Account Tab ═══ -->
+            <div class="tab-panel active" data-tab="account">
+                <div class="form-row-2">
+                    <div class="crud-field{% if form.username.errors %} has-error{% endif %}">
+                        <label class="crud-label" for="{{ form.username.id_for_label }}">
+                            Username <span class="required">*</span>
+                        </label>
+                        {{ form.username }}
+                        {% if form.username.errors %}<p class="crud-error">{{ form.username.errors.0 }}</p>{% endif %}
+                    </div>
+                    <div class="crud-field{% if form.email.errors %} has-error{% endif %}">
+                        <label class="crud-label" for="{{ form.email.id_for_label }}">Email</label>
+                        {{ form.email }}
+                        {% if form.email.errors %}<p class="crud-error">{{ form.email.errors.0 }}</p>{% endif %}
+                    </div>
+                </div>
+                <div class="form-row-2">
+                    <div class="crud-field{% if form.first_name.errors %} has-error{% endif %}">
+                        <label class="crud-label" for="{{ form.first_name.id_for_label }}">First name</label>
+                        {{ form.first_name }}
+                        {% if form.first_name.errors %}<p class="crud-error">{{ form.first_name.errors.0 }}</p>{% endif %}
+                    </div>
+                    <div class="crud-field{% if form.last_name.errors %} has-error{% endif %}">
+                        <label class="crud-label" for="{{ form.last_name.id_for_label }}">Last name</label>
+                        {{ form.last_name }}
+                        {% if form.last_name.errors %}<p class="crud-error">{{ form.last_name.errors.0 }}</p>{% endif %}
+                    </div>
+                </div>
+                <div class="form-row-2">
+                    <div class="crud-field">
+                        <div class="crud-checkbox">
+                            {{ form.is_staff }}
+                            <label for="{{ form.is_staff.id_for_label }}">Staff status</label>
+                        </div>
+                        <p class="crud-help">Can access the admin site and management pages.</p>
+                    </div>
+                    <div class="crud-field">
+                        <div class="crud-checkbox">
+                            {{ form.is_active }}
+                            <label for="{{ form.is_active.id_for_label }}">Active</label>
+                        </div>
+                        <p class="crud-help">Uncheck to disable this account without deleting it.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ═══ Profile Tab ═══ -->
+            <div class="tab-panel" data-tab="profile">
+                {% if profile_form %}
+                <div class="photo-upload-row">
+                    <div class="photo-upload-card" id="profile-photo-card">
+                        <span class="photo-label">Profile Photo</span>
+                        <div class="photo-preview photo-preview-profile" style="margin-bottom: 0.75rem;">
+                            {% if profile_form.instance.profile_photo %}
+                            <img src="{{ profile_form.instance.profile_photo.url }}" alt="Profile photo" id="profile-photo-img">
+                            {% else %}
+                            <div id="profile-photo-placeholder" style="width: 80px; height: 80px; border-radius: 50%; background: color-mix(in srgb, var(--primary) 20%, var(--body-bg)); display: inline-flex; align-items: center; justify-content: center; font-size: 1.8rem; font-weight: 700; color: var(--primary);">
+                                {{ object.username|slice:":1"|upper }}
+                            </div>
+                            <img src="" alt="Profile photo" id="profile-photo-img" style="display:none; width: 80px; height: 80px; border-radius: 50%; object-fit: cover;">
+                            {% endif %}
+                        </div>
+                        {{ profile_form.profile_photo }}
+                        <label for="{{ profile_form.profile_photo.id_for_label }}" class="photo-choose-btn">
+                            <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M19 7v2.99s-1.99.01-2 0V7h-3s.01-1.99 0-2h3V2h2v3h3v2h-3zm-3 4V8h-3V5H5c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2v-8h-3zM5 19l3-4 2 3 3-4 4 5H5z"/></svg>
+                            Choose Photo
+                        </label>
+                        <div class="photo-filename" id="profile-photo-name"></div>
+                    </div>
+                    <div class="photo-upload-card" id="bg-photo-card">
+                        <span class="photo-label">Background Photo</span>
+                        <div class="photo-preview photo-preview-background" style="margin-bottom: 0.75rem;">
+                            {% if profile_form.instance.background_photo %}
+                            <img src="{{ profile_form.instance.background_photo.url }}" alt="Background photo" id="bg-photo-img">
+                            {% else %}
+                            <div id="bg-photo-placeholder" style="width: 100%; height: 80px; border-radius: var(--radius-sm, 6px); background: linear-gradient(135deg, color-mix(in srgb, var(--primary) 30%, var(--body-bg)), color-mix(in srgb, var(--primary) 10%, var(--body-bg)));"></div>
+                            <img src="" alt="Background photo" id="bg-photo-img" style="display:none; width: 100%; max-height: 100px; object-fit: cover; border-radius: var(--radius-sm, 6px);">
+                            {% endif %}
+                        </div>
+                        {{ profile_form.background_photo }}
+                        <label for="{{ profile_form.background_photo.id_for_label }}" class="photo-choose-btn">
+                            <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M19 7v2.99s-1.99.01-2 0V7h-3s.01-1.99 0-2h3V2h2v3h3v2h-3zm-3 4V8h-3V5H5c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2v-8h-3zM5 19l3-4 2 3 3-4 4 5H5z"/></svg>
+                            Choose Photo
+                        </label>
+                        <div class="photo-filename" id="bg-photo-name"></div>
+                    </div>
+                </div>
+
+                <div class="crud-field{% if profile_form.display_name.errors %} has-error{% endif %}">
+                    <label class="crud-label" for="{{ profile_form.display_name.id_for_label }}">Display name</label>
+                    {{ profile_form.display_name }}
+                    <p class="crud-help">Name shown publicly. Falls back to username.</p>
+                    {% if profile_form.display_name.errors %}<p class="crud-error">{{ profile_form.display_name.errors.0 }}</p>{% endif %}
+                </div>
+
+                <div class="crud-field{% if profile_form.bio.errors %} has-error{% endif %}">
+                    <label class="crud-label" for="{{ profile_form.bio.id_for_label }}">Bio</label>
+                    {{ profile_form.bio }}
+                    {% if profile_form.bio.errors %}<p class="crud-error">{{ profile_form.bio.errors.0 }}</p>{% endif %}
+                </div>
+
+                <div class="form-row-2">
+                    <div class="crud-field{% if profile_form.location.errors %} has-error{% endif %}">
+                        <label class="crud-label" for="{{ profile_form.location.id_for_label }}">Location</label>
+                        {{ profile_form.location }}
+                        {% if profile_form.location.errors %}<p class="crud-error">{{ profile_form.location.errors.0 }}</p>{% endif %}
+                    </div>
+                    <div class="crud-field{% if profile_form.website.errors %} has-error{% endif %}">
+                        <label class="crud-label" for="{{ profile_form.website.id_for_label }}">Website</label>
+                        {{ profile_form.website }}
+                        {% if profile_form.website.errors %}<p class="crud-error">{{ profile_form.website.errors.0 }}</p>{% endif %}
+                    </div>
+                </div>
+
+                <div class="form-row-2">
+                    <div class="crud-field{% if profile_form.date_of_birth.errors %} has-error{% endif %}">
+                        <label class="crud-label" for="{{ profile_form.date_of_birth.id_for_label }}">Date of birth</label>
+                        {{ profile_form.date_of_birth }}
+                        {% if profile_form.date_of_birth.errors %}<p class="crud-error">{{ profile_form.date_of_birth.errors.0 }}</p>{% endif %}
+                    </div>
+                    <div class="crud-field{% if profile_form.timezone.errors %} has-error{% endif %}">
+                        <label class="crud-label" for="{{ profile_form.timezone.id_for_label }}">Timezone</label>
+                        {{ profile_form.timezone }}
+                        <p class="crud-help">Used for displaying dates and times. Blank = system default.</p>
+                        {% if profile_form.timezone.errors %}<p class="crud-error">{{ profile_form.timezone.errors.0 }}</p>{% endif %}
+                    </div>
+                </div>
+
+                {% else %}
+                <p class="no-activity">No profile found for this user.</p>
+                {% endif %}
+            </div>
+
+            <!-- Save / Cancel (shared across account + profile tabs) -->
+            <div class="crud-actions" id="form-actions">
+                <button type="submit" class="btn-save">Save</button>
+                <a href="{% url 'manage/users-list' %}" class="btn-cancel">Cancel</a>
+            </div>
+        </form>
+
+        <!-- ═══ Activity Tab (read-only, outside form) ═══ -->
+        <div class="tab-panel" data-tab="activity">
+            {% if activity_stats %}
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-value">{{ activity_stats.total_requests|default:"0" }}</div>
+                    <div class="stat-label">Total Requests</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">{{ activity_stats.last_30_count|default:"0" }}</div>
+                    <div class="stat-label">Last 30 Days</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">{{ activity_stats.avg_response_ms|default:"0" }}<span style="font-size: 0.7rem; font-weight: 400;">ms</span></div>
+                    <div class="stat-label">Avg Response</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">{{ activity_stats.last_7_count|default:"0" }}</div>
+                    <div class="stat-label">Last 7 Days</div>
+                </div>
+            </div>
+
+            {% if activity_stats.daily_counts %}
+            <div class="activity-section">
+                <h4>Last 7 Days</h4>
+                <div class="sparkline-row" id="sparkline">
+                    {% for day in activity_stats.daily_counts %}
+                    <div class="sparkline-bar" data-count="{{ day.count }}" title="{{ day.day|date:'D' }}: {{ day.count }} requests"></div>
+                    {% endfor %}
+                </div>
+                <div class="sparkline-labels">
+                    {% for day in activity_stats.daily_counts %}
+                    <span>{{ day.day|date:"D" }}</span>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem;">
+                {% if activity_stats.top_paths %}
+                <div class="activity-section">
+                    <h4>Top Pages</h4>
+                    <table class="activity-mini-table">
+                        {% for item in activity_stats.top_paths %}
+                        <tr>
+                            <td class="path-cell">{{ item.path|truncatechars:40 }}</td>
+                            <td class="count-cell">{{ item.hits }}</td>
+                        </tr>
+                        {% endfor %}
+                    </table>
+                </div>
+                {% endif %}
+
+                {% if activity_stats.status_breakdown %}
+                <div class="activity-section">
+                    <h4>Status Codes</h4>
+                    <table class="activity-mini-table">
+                        {% for item in activity_stats.status_breakdown %}
+                        <tr>
+                            <td>
+                                <span class="status-badge {% if item.status_code >= 200 and item.status_code < 300 %}status-2xx{% elif item.status_code >= 300 and item.status_code < 400 %}status-3xx{% elif item.status_code >= 400 and item.status_code < 500 %}status-4xx{% else %}status-5xx{% endif %}">
+                                    {{ item.status_code }}
+                                </span>
+                            </td>
+                            <td class="count-cell">{{ item.count }}</td>
+                        </tr>
+                        {% endfor %}
+                    </table>
+                </div>
+                {% endif %}
+            </div>
+
+            {% if activity_stats.last_seen %}
+            <p style="text-align: center; font-size: 0.8rem; color: var(--body-quiet-color); margin-top: 1rem;">
+                Last seen {{ activity_stats.last_seen|timesince }} ago
+            </p>
+            {% endif %}
+
+            {% else %}
+            <p class="no-activity">No activity data available.</p>
+            {% endif %}
+        </div>
+
+        {% else %}
+        <!-- Create form — simple, no tabs -->
+        <form method="POST" class="crud-form">
+            {% csrf_token %}
+            {% crud_form %}
+            <div class="crud-actions">
+                <button type="submit" class="btn-save">Create</button>
+                <a href="{% url 'manage/users-list' %}" class="btn-cancel">Cancel</a>
+            </div>
+        </form>
+{% endif %}
+
+{% if object %}
+{% include "smallstack/crud/includes/delete_modal.html" %}
+{% endif %}
+
+<script>
+// Tab switching
+document.querySelectorAll('.user-tab').forEach(function(tab) {
+    tab.addEventListener('click', function() {
+        var target = this.dataset.tab;
+        // Update tab buttons
+        document.querySelectorAll('.user-tab').forEach(function(t) { t.classList.remove('active'); });
+        this.classList.add('active');
+        // Update panels
+        document.querySelectorAll('.tab-panel').forEach(function(p) { p.classList.remove('active'); });
+        document.querySelectorAll('[data-tab="' + target + '"]').forEach(function(p) {
+            if (!p.classList.contains('user-tab')) p.classList.add('active');
+        });
+        // Show/hide form actions (hide on activity tab)
+        var actions = document.getElementById('form-actions');
+        if (actions) {
+            actions.style.display = (target === 'activity') ? 'none' : 'flex';
+        }
+    });
+});
+
+// Sparkline bar heights
+(function() {
+    var bars = document.querySelectorAll('.sparkline-bar');
+    if (!bars.length) return;
+    var max = 0;
+    bars.forEach(function(b) {
+        var c = parseInt(b.dataset.count, 10) || 0;
+        if (c > max) max = c;
+    });
+    bars.forEach(function(b) {
+        var c = parseInt(b.dataset.count, 10) || 0;
+        var pct = max > 0 ? Math.max((c / max) * 100, 4) : 4;
+        b.style.height = pct + '%';
+    });
+})();
+
+// Photo upload preview
+function setupPhotoPreview(inputId, imgId, placeholderId, nameId) {
+    var input = document.getElementById(inputId);
+    if (!input) return;
+    input.addEventListener('change', function(e) {
+        var file = e.target.files[0];
+        if (!file) return;
+        var reader = new FileReader();
+        reader.onload = function(ev) {
+            var img = document.getElementById(imgId);
+            var placeholder = document.getElementById(placeholderId);
+            if (img) {
+                img.src = ev.target.result;
+                img.style.display = 'block';
+            }
+            if (placeholder) placeholder.style.display = 'none';
+        };
+        reader.readAsDataURL(file);
+        var nameEl = document.getElementById(nameId);
+        if (nameEl) nameEl.textContent = file.name;
+    });
+}
+setupPhotoPreview('id_profile-profile_photo', 'profile-photo-img', 'profile-photo-placeholder', 'profile-photo-name');
+setupPhotoPreview('id_profile-background_photo', 'bg-photo-img', 'bg-photo-placeholder', 'bg-photo-name');
+</script>
+{% endblock %}

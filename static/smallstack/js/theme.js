@@ -284,6 +284,58 @@
     }
 
     // ============================================
+    // Topbar Navigation Submenus
+    // ============================================
+
+    function initTopbarNav() {
+        const navItems = document.querySelectorAll('.topbar-nav-item.has-submenu');
+        if (!navItems.length) return;
+
+        navItems.forEach(function(item) {
+            const btn = item.querySelector('.topbar-nav-link');
+            if (!btn) return;
+
+            btn.addEventListener('click', function(e) {
+                e.stopPropagation();
+                const isOpen = item.classList.contains('submenu-open');
+
+                // Close all other open submenus
+                navItems.forEach(function(other) {
+                    if (other !== item) {
+                        other.classList.remove('submenu-open');
+                        var otherBtn = other.querySelector('.topbar-nav-link');
+                        if (otherBtn) otherBtn.setAttribute('aria-expanded', 'false');
+                    }
+                });
+
+                // Toggle this submenu
+                item.classList.toggle('submenu-open', !isOpen);
+                btn.setAttribute('aria-expanded', String(!isOpen));
+            });
+        });
+
+        // Close all submenus on outside click
+        document.addEventListener('click', function() {
+            navItems.forEach(function(item) {
+                item.classList.remove('submenu-open');
+                var btn = item.querySelector('.topbar-nav-link');
+                if (btn) btn.setAttribute('aria-expanded', 'false');
+            });
+        });
+
+        // Close all submenus on Escape
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                navItems.forEach(function(item) {
+                    item.classList.remove('submenu-open');
+                    var btn = item.querySelector('.topbar-nav-link');
+                    if (btn) btn.setAttribute('aria-expanded', 'false');
+                });
+            }
+        });
+    }
+
+    // ============================================
     // Message Dismissal
     // ============================================
 
@@ -327,6 +379,7 @@
         initPalette();
         initSidebar();
         initUserMenu();
+        initTopbarNav();
         initMessages();
 
         // Re-initialize message dismissal after htmx swaps new content

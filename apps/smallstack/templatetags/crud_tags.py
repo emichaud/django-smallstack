@@ -115,6 +115,18 @@ def crud_table(context):
     }
 
 
+@register.inclusion_tag("smallstack/crud/includes/form.html", takes_context=True)
+def crud_form(context):
+    """Render a styled CRUD form from context.
+
+    Usage in templates:
+        {% crud_form %}           — renders all fields with SmallStack styling
+
+    Expects in context: form.
+    """
+    return {"form": context.get("form")}
+
+
 @register.inclusion_tag("smallstack/crud/includes/detail_table.html", takes_context=True)
 def crud_detail(context):
     """Render a CRUD detail table from context variables.

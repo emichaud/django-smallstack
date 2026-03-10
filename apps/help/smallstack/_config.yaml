@@ -98,6 +98,11 @@ pages:
     description: "Sidebar, breadcrumbs, and page headers"
     icon: "home"
 
+  - slug: topbar-navigation
+    title: "Topbar Navigation"
+    description: "Configurable horizontal nav menu in the topbar"
+    icon: "home"
+
   - slug: theme-bars
     title: "Theme Bars"
     description: "Stacked horizontal bar data visualization"
