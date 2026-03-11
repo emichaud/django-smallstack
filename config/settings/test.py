@@ -53,6 +53,9 @@ STORAGES = {
     },
 }
 
+# Disable axes rate limiting during tests (avoids false lockouts)
+AXES_ENABLED = False
+
 # Background Tasks - execute immediately during tests (no worker needed)
 TASKS = {
     "default": {

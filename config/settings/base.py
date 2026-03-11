@@ -39,6 +39,7 @@ INSTALLED_APPS = [
     "django_extensions",
     "django_tasks_db",
     "django_tables2",
+    "axes",
 ]
 
 # Background Tasks configuration
@@ -63,6 +64,7 @@ MIDDLEWARE = [
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "django_htmx.middleware.HtmxMiddleware",
     "apps.activity.middleware.ActivityMiddleware",
+    "axes.middleware.AxesMiddleware",
 ]
 
 ROOT_URLCONF = "config.urls"
@@ -88,6 +90,12 @@ WSGI_APPLICATION = "config.wsgi.application"
 
 # Custom user model
 AUTH_USER_MODEL = "accounts.User"
+
+# Authentication backends (axes must be first for rate limiting)
+AUTHENTICATION_BACKENDS = [
+    "axes.backends.AxesStandaloneBackend",
+    "django.contrib.auth.backends.ModelBackend",
+]
 
 # Password validation
 AUTH_PASSWORD_VALIDATORS = [
@@ -210,6 +218,12 @@ BACKUP_DOWNLOAD_ENABLED = config("BACKUP_DOWNLOAD_ENABLED", default=True, cast=b
 # Heartbeat / Uptime Monitoring
 HEARTBEAT_RETENTION_DAYS = config("HEARTBEAT_RETENTION_DAYS", default=7, cast=int)
 HEARTBEAT_EXPECTED_INTERVAL = config("HEARTBEAT_EXPECTED_INTERVAL", default=60, cast=int)
+
+# Login Rate Limiting (django-axes)
+AXES_FAILURE_LIMIT = config("AXES_FAILURE_LIMIT", default=5, cast=int)
+AXES_COOLOFF_TIME = 0.25  # 15 minutes lockout
+AXES_LOCKOUT_PARAMETERS = [["username", "ip_address"]]  # Lock per username+IP combination
+AXES_RESET_ON_SUCCESS = True  # Reset failure count after successful login
 
 # Default primary key field type
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
