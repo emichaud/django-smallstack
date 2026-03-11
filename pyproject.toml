@@ -17,6 +17,7 @@ dependencies = [
     "django-htmx>=1.19",
     "django-tables2>=2.8.0",
     "django-axes>=7.0",
+    "django-csp>=4.0",
 ]
 
 [project.optional-dependencies]
