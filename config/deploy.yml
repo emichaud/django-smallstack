@@ -29,6 +29,10 @@ servers:
 ssh:
   user: root
 
+# Container runs as non-root (USER app), so it needs time for
+# migrations + collectstatic before gunicorn starts
+deploy_timeout: 90
+
 # Persistent volumes for data and media
 # IMPORTANT: Update paths to match your app name
 volumes:
@@ -49,13 +53,14 @@ env:
 # IMPORTANT: Update hosts with your domain(s)
 proxy:
   ssl: true
+  app_port: 8000
   hosts:
     - myapp.com       # Replace with your domain
     - www.myapp.com   # Replace with your www subdomain
   healthcheck:
     path: /health/
-    interval: 10
-    timeout: 60
+    interval: 3
+    timeout: 5
 
 # Local Docker registry (Kamal manages SSH port forwarding)
 # No external registry account needed - images transfer via SSH
