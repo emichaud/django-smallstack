@@ -67,13 +67,10 @@ All settings are in `config/settings/base.py` and can be overridden via environm
 # Maximum rows to keep in the RequestLog table
 ACTIVITY_MAX_ROWS = 10000  # env: ACTIVITY_MAX_ROWS
 
-# Check for pruning every N requests (probabilistic)
-ACTIVITY_PRUNE_INTERVAL = 100  # env: ACTIVITY_PRUNE_INTERVAL
-
 # Paths to exclude from logging
 ACTIVITY_EXCLUDE_PATHS = [
     "/static/", "/media/", "/favicon.ico",
-    "/health/", "/admin/jsi18n/", "/__debug__/",
+    "/health/", "/status/", "/admin/jsi18n/", "/__debug__/",
 ]
 ```
 
@@ -95,17 +92,9 @@ ACTIVITY_MAX_ROWS = 25000
 
 ### How Pruning Works
 
-Pruning is **probabilistic** to avoid running a COUNT query on every request:
+Pruning runs on a **scheduled cron job** every 15 minutes via the `prune_activity` management command. The middleware only records requests — it never prunes.
 
-1. On each logged request, a random number between 1 and `ACTIVITY_PRUNE_INTERVAL` is generated
-2. If the number is 1 (1-in-100 chance by default), the middleware checks the row count
-3. If count exceeds `ACTIVITY_MAX_ROWS`, it deletes the oldest rows beyond the cap
-4. This means the table may temporarily exceed the cap by up to ~100 rows, which is fine
-
-This approach means:
-- **99% of requests** have zero overhead beyond the INSERT
-- **1% of requests** run a quick COUNT + conditional DELETE
-- The table stays bounded without a background task or cron job
+This keeps the request path fast (just an INSERT) and avoids race conditions that can occur when pruning inline during concurrent requests. The table may temporarily exceed `ACTIVITY_MAX_ROWS` between prune runs, but the overshoot is small and cleaned up on the next cycle.
 
 ### Excluding Additional Paths
 

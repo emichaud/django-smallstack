@@ -196,7 +196,6 @@ EMAIL_BACKEND = config("EMAIL_BACKEND", default="django.core.mail.backends.conso
 
 # Activity Tracking
 ACTIVITY_MAX_ROWS = config("ACTIVITY_MAX_ROWS", default=10000, cast=int)
-ACTIVITY_PRUNE_INTERVAL = config("ACTIVITY_PRUNE_INTERVAL", default=100, cast=int)
 ACTIVITY_EXCLUDE_PATHS = [
     "/static/", "/media/", "/favicon.ico", "/health/",
     "/status/", "/admin/jsi18n/", "/__debug__/",
