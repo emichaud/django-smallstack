@@ -14,11 +14,3 @@ def create_user_profile(sender, instance, created, **kwargs):
     """Create a UserProfile when a new User is created."""
     if created:
         UserProfile.objects.create(user=instance)
-
-
-@receiver(post_save, sender=settings.AUTH_USER_MODEL)
-def save_user_profile(sender, instance, **kwargs):
-    """Save the UserProfile when the User is saved."""
-    # Only save if profile exists (handles edge cases)
-    if hasattr(instance, "profile"):
-        instance.profile.save()
