@@ -343,24 +343,56 @@ Load with `{% load theme_tags %}`:
 
 ## Creating a Parallel Theme
 
-You can add a second CSS framework (Bootstrap, Tailwind, Tabler) alongside SmallStack's default theme by creating a parallel base template. Two common patterns:
+You can add a second CSS framework (Bootstrap, Tailwind, Tabler) alongside SmallStack's default theme. Your custom pages use your theme; SmallStack's built-in apps (Activity, Status, Backups, User Manager, Help) keep using `smallstack/base.html`.
+
+> **Full guide:** See [adding-your-own-theme.md](adding-your-own-theme.md) for a step-by-step tutorial with complete code examples, including how to preserve access to SmallStack admin apps from your custom navbar.
+
+Two common patterns:
 
 **Pattern A — Single file in your app's template directory** (simple):
-1. Create `templates/website/base_tabler.html` — loads the new framework's CSS/JS
-2. New pages extend it: `{% extends "website/base_tabler.html" %}`
+1. Create `templates/website/base_bootstrap.html` — loads the new framework's CSS/JS
+2. New pages extend it: `{% extends "website/base_bootstrap.html" %}`
 
 **Pattern B — Theme directory with its own partials** (for larger themes):
-1. Create `templates/tabler/base.html` + `templates/tabler/includes/` for framework-specific partials
-2. New pages extend it: `{% extends "tabler/base.html" %}`
+1. Create `templates/mytheme/base.html` + `templates/mytheme/includes/` for framework-specific partials
+2. New pages extend it: `{% extends "mytheme/base.html" %}`
 
-In both cases, existing SmallStack pages continue using `templates/smallstack/base.html` unchanged.
+In both cases, existing SmallStack pages continue using `templates/smallstack/base.html` unchanged. All new project pages go in `apps/website/` — the designated project-specific app.
 
-What works across both bases:
-- `data-theme` / `data-palette` attributes and `theme.js` (framework-agnostic)
-- SmallStack template tags (`{% breadcrumb %}`, `{% nav_active %}`)
-- SmallStack partials (`topbar.html`, `sidebar.html`) can be included in either base
+### Required Pieces for a Custom Base Template
 
-Vendor framework CSS/JS locally in `static/css/` and `static/js/` for production. CDN links are fine for prototyping and development, but vendor locally before deploying.
+Your parallel base must include three things for dark mode and palettes to work:
+
+1. **Blocking `<script>` in `<head>`** — reads `localStorage` and sets `data-theme`/`data-palette` on `<html>` before CSS renders (prevents FOUC)
+2. **`window.SMALLSTACK` config object** — placed before `theme.js`, provides user preferences
+3. **`theme.js`** — handles dark mode toggle, palette switching, and profile sync
+
+See [adding-your-own-theme.md](adding-your-own-theme.md) for the exact code to copy into your base template.
+
+### Dark Mode Persistence Contract
+
+Both themes share the same localStorage keys, so dark mode and palette choices persist as users navigate between your pages and SmallStack admin pages:
+
+| localStorage Key | HTML Attribute | Purpose |
+|-----------------|---------------|---------|
+| `smallstack-theme` | `data-theme` on `<html>` | Controls light/dark CSS variables |
+| `smallstack-palette` | `data-palette` on `<html>` | Controls color palette CSS variables |
+| `smallstack-sidebar-closed` | Class `sidebar-will-close` on `<html>` | Sidebar initial state (SmallStack pages only) |
+
+### Porting a Tailwind or React Theme
+
+When adapting a Tailwind template or React dashboard, map framework-specific patterns to SmallStack equivalents:
+
+| Tailwind Class | SmallStack Equivalent | Notes |
+|---------------|----------------------|-------|
+| `bg-gray-900` / `bg-white` | `background: var(--body-bg)` | Adapts to light/dark automatically |
+| `bg-gray-800` / `bg-gray-50` | `background: var(--card-bg)` | Card and panel backgrounds |
+| `text-gray-100` / `text-gray-900` | `color: var(--body-fg)` | Primary text color |
+| `bg-blue-600` | `background: var(--primary)` | Adapts to palette |
+| `border-gray-700` / `border-gray-200` | `border-color: var(--card-border)` | Adapts to light/dark |
+| `text-blue-500` | `color: var(--link-color)` | Link color, adapts to palette |
+
+For Tailwind `dark:` classes, use `[data-theme="dark"]` selectors — or better, just use CSS variables that adapt automatically. For React components, extract JSX into Django template partials and replace `useState`/`useEffect` data fetching with htmx. See [adding-your-own-theme.md](adding-your-own-theme.md) for detailed guidance.
 
 ## Adding New CSS
 

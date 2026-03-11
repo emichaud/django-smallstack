@@ -523,4 +523,5 @@ CSRF_TRUSTED_ORIGINS=https://myproject.com,https://www.myproject.com
 
 - [Getting Started](/help/smallstack/getting-started/) - Quick setup guide
 - [Theming](/help/smallstack/theming/) - Customize colors and dark mode
+- [Adding Your Own Theme](/help/smallstack/adding-your-own-theme/) - Use Bootstrap, Tailwind, or any CSS framework alongside SmallStack
 - [Kamal Deployment](/help/smallstack/kamal-deployment/) - Deploy to production

@@ -63,6 +63,11 @@ pages:
     description: "Customize colors, dark mode, and components"
     icon: "palette"
 
+  - slug: adding-your-own-theme
+    title: "Adding Your Own Theme"
+    description: "Add a custom CSS framework alongside SmallStack's built-in theme"
+    icon: "palette"
+
   - slug: components
     title: "Components"
     description: "Blank page template — topbar, sidebar, and breadcrumbs"

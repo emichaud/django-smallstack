@@ -314,6 +314,8 @@ Use `{% nav_active 'url_name' %}` to highlight the current page:
 
 ## Creating a Parallel Theme
 
+> **Step-by-step guide:** See [Adding Your Own Theme](/help/smallstack/adding-your-own-theme/) for a complete tutorial with code examples, including how to preserve access to SmallStack admin apps from your custom navbar.
+
 SmallStack ships with a Django admin-based CSS theme, but you can add a second CSS framework (Bootstrap, Tailwind, Tabler, etc.) **alongside** the default without removing it. This lets you build new pages with the new framework while existing pages continue to work.
 
 ### Strategy: A Parallel Base Template
