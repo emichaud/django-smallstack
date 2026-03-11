@@ -252,6 +252,8 @@ servers:
 ssh:
   user: root
 
+deploy_timeout: 90          # Allow time for migrations + collectstatic on small VPS
+
 volumes:
   - /root/my_app_data/media:/app/media
   - /root/my_app_data/db:/app/data
@@ -266,13 +268,14 @@ env:
 
 proxy:
   ssl: true
+  app_port: 8000            # Gunicorn port (container runs as non-root, can't use 80)
   hosts:
     - myapp.com
     - www.myapp.com
   healthcheck:
     path: /health/
-    interval: 10
-    timeout: 60
+    interval: 3
+    timeout: 5
 
 # Local registry - no external service needed
 # Kamal handles SSH port forwarding automatically
@@ -517,6 +520,57 @@ With `ssl: true` in your proxy config, Kamal automatically:
 - Domain must point to your VPS IP
 - Ports 80 and 443 must be accessible
 - Valid email configured (for Let's Encrypt notifications)
+
+## Small VPS Deployment Cautions
+
+Kamal works well on small VPS instances, but resource-constrained servers require extra care during deployments.
+
+### VPS Sizing Guidelines
+
+| RAM | Suitability |
+|-----|-------------|
+| **512MB** | Marginal. Deployments may fail under memory pressure. Not recommended for production. |
+| **1GB** | Solid for 1–5 SmallStack sites with background workers. Reliable deployments. |
+| **2GB+** | Comfortable headroom for larger apps or heavier traffic. |
+
+### Deploy One at a Time
+
+If you host multiple apps on a single VPS, **always deploy them sequentially** — never in parallel. Each deployment temporarily runs two containers (old + new) during the health check transition, doubling memory usage. On a 1GB VPS, deploying two apps simultaneously can exhaust memory and crash both.
+
+```bash
+# Correct: deploy one, wait for completion, then deploy the next
+kamal deploy              # App 1 — wait until "Finished all"
+cd ../other-app
+kamal deploy              # App 2 — only after App 1 is done
+```
+
+### SSH Rate Limiting
+
+Kamal opens multiple SSH connections per deploy (port forwarding, container management, health checks, image transfer). If a deployment fails and you retry rapidly, the accumulated connections can trigger the server's SSH rate limiting (fail2ban or sshd MaxStartups), **locking you out entirely**.
+
+**If a deploy fails:**
+1. Wait for it to finish completely — don't interrupt or stack another deploy
+2. Read the error output to understand the root cause
+3. Fix the issue locally
+4. Deploy once
+
+**If SSH gets locked out:**
+- Stop retrying — each attempt extends the ban
+- Access the server via your VPS provider's web console
+- Run `fail2ban-client set sshd unbanip <YOUR_IP>` to unban yourself
+
+### Volume Permissions
+
+SmallStack's Dockerfile runs as a non-root user (`app`, uid 1000). If your data volumes were created by an older container running as root, the new container won't be able to write to the database. Symptoms: `OperationalError: attempt to write a readonly database` during migrations.
+
+**Fix (one-time, via SSH):**
+```bash
+chown -R 1000:1000 /root/myapp_data/db /root/myapp_data/media
+```
+
+### Container Startup Time
+
+On smaller VPS instances, container startup is slower because migrations and `collectstatic` compete for limited CPU. The default `deploy_timeout` in deploy.yml is set to 90 seconds to accommodate this. If you see health check timeouts on first deploy, verify your `deploy_timeout` is sufficient.
 
 ## Troubleshooting
 
