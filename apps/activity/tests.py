@@ -2,6 +2,7 @@
 
 import pytest
 from django.contrib.auth import get_user_model
+from django.core.management import call_command
 from django.test import RequestFactory, override_settings
 from django.urls import reverse
 
@@ -126,14 +127,16 @@ class TestActivityMiddleware:
         log = RequestLog.objects.first()
         assert log.response_time_ms >= 0
 
-    @override_settings(ACTIVITY_MAX_ROWS=5, ACTIVITY_PRUNE_INTERVAL=1)
-    def test_prune_keeps_table_bounded(self, db, request_factory):
+    @override_settings(ACTIVITY_MAX_ROWS=5)
+    def test_prune_command_keeps_table_bounded(self, db, request_factory):
         middleware = self._get_middleware()
         for i in range(10):
             request = request_factory.get(f"/page/{i}/")
             request.user = None
             middleware(request)
-        assert RequestLog.objects.count() <= 5
+        assert RequestLog.objects.count() == 10
+        call_command("prune_activity")
+        assert RequestLog.objects.count() == 5
 
 
 class TestActivityDashboardView:

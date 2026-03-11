@@ -5,5 +5,8 @@
 # Heartbeat — every minute
 * * * * * cd /app && python3 manage.py heartbeat
 
+# Prune activity log — every 15 minutes
+*/15 * * * * cd /app && python3 manage.py prune_activity
+
 # Database backup — daily at 2 AM (if enabled via BACKUP_CRON_ENABLED)
 0 2 * * * cd /app && [ "${BACKUP_CRON_ENABLED}" = "true" ] && python3 manage.py backup_db --keep 14

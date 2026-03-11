@@ -1,7 +1,6 @@
 """Middleware for tracking HTTP request activity."""
 
 import logging
-import random
 import time
 
 from django.conf import settings
@@ -12,8 +11,8 @@ logger = logging.getLogger(__name__)
 class ActivityMiddleware:
     """Records HTTP requests to the RequestLog table.
 
-    Skips excluded paths, captures timing, and probabilistically prunes
-    old rows to keep the table bounded.
+    Skips excluded paths and captures timing. Pruning is handled
+    separately by the `prune_activity` management command on a schedule.
     """
 
     def __init__(self, get_response):
@@ -23,8 +22,6 @@ class ActivityMiddleware:
             "ACTIVITY_EXCLUDE_PATHS",
             ["/static/", "/media/", "/favicon.ico", "/health/", "/admin/jsi18n/", "/__debug__/"],
         )
-        self.max_rows = getattr(settings, "ACTIVITY_MAX_ROWS", 5000)
-        self.prune_interval = getattr(settings, "ACTIVITY_PRUNE_INTERVAL", 100)
 
     def __call__(self, request):
         if self._should_skip(request.path):
@@ -60,17 +57,6 @@ class ActivityMiddleware:
             ip_address=self._get_ip(request),
             user_agent=request.META.get("HTTP_USER_AGENT", "")[:4096],
         )
-
-        if random.randint(1, self.prune_interval) == 1:
-            self._prune()
-
-    def _prune(self):
-        from .models import RequestLog
-
-        count = RequestLog.objects.count()
-        if count > self.max_rows:
-            cutoff = RequestLog.objects.order_by("-timestamp").values_list("pk", flat=True)[self.max_rows]
-            RequestLog.objects.filter(pk__lte=cutoff).delete()
 
     def _get_ip(self, request):
         forwarded = request.META.get("HTTP_X_FORWARDED_FOR")
