@@ -131,18 +131,13 @@ Key format codes: `g` = 12-hour no leading zero, `A` = AM/PM, `T` = timezone abb
 
 The backup cron schedule (`scripts/smallstack-cron`) is **pinned to UTC** and is completely independent of Django's `TIME_ZONE` setting:
 
-```bash
-CRON_TZ=UTC
-0 2 * * * . /app/.env.cron && cd /app && python manage.py backup_db --keep 14
+```cron
+0 2 * * * cd /app && [ "${BACKUP_CRON_ENABLED}" = "true" ] && python3 manage.py backup_db --keep 14
 ```
 
-This means backups always run at **2:00 AM UTC** regardless of:
+Scheduled tasks run via [supercronic](https://github.com/aptible/supercronic), which inherits the container's environment directly. The `TZ` env var controls what timezone cron expressions use — default is UTC.
 
-- The Django `TIME_ZONE` setting
-- The container's system timezone (`TZ` env var)
-- Any user's timezone preference
-
-This is intentional — cron jobs should run at predictable absolute times, not shift with display timezone changes.
+This means backups run at **2:00 AM** in whatever timezone `TZ` is set to (UTC by default), regardless of Django's `TIME_ZONE` setting or any user's timezone preference.
 
 ## Configuration Reference
 
