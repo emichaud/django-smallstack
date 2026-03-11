@@ -130,13 +130,13 @@ uv run python manage.py heartbeat --reset-epoch --reset-note "Fresh start"
 
 ## Cron Setup
 
-In production Docker containers, cron runs automatically. The heartbeat job is in `scripts/smallstack-cron`:
+In production Docker containers, scheduled tasks run automatically via [supercronic](https://github.com/aptible/supercronic). The heartbeat job is in `scripts/smallstack-cron`:
 
 ```cron
-* * * * * . /app/.env.cron && cd /app && python3 manage.py heartbeat >> /proc/1/fd/1 2>&1
+* * * * * cd /app && python3 manage.py heartbeat
 ```
 
-Cron runs in the container's system timezone (set via the `TZ` environment variable, defaults to UTC). The heartbeat fires every minute so timezone doesn't matter for it, but the backup job in the same cron file is timezone-sensitive. See [Database Backups — Cron and Timezones](/help/smallstack/database-backups/#cron-and-timezones) for details on setting your timezone.
+Supercronic inherits the container's environment variables directly — no `.env.cron` sourcing needed. It runs as a non-root user alongside the application. Logs go to stdout for easy access via `docker logs` or `kamal app logs`.
 
 ## JSON API
 

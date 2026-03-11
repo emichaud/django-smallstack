@@ -43,7 +43,7 @@ The main Django application served by Gunicorn on port 80 inside the container, 
 web:
   build: .
   ports:
-    - "8010:80"
+    - "8010:8000"
   environment:
     - DJANGO_SETTINGS_MODULE=config.settings.production
     - ALLOWED_HOSTS=localhost,127.0.0.1
@@ -53,7 +53,7 @@ web:
     - db_data:/data
     - media_data:/app/media
   healthcheck:
-    test: ["CMD", "curl", "-f", "http://localhost/health/"]
+    test: ["CMD", "curl", "-f", "http://localhost:8000/health/"]
     interval: 30s
 ```
 

@@ -119,7 +119,7 @@ env:
 
 With `TZ=America/New_York`, the `0 2 * * *` cron expression fires at 2 AM Eastern. This is usually what you want — backups run during your off-hours regardless of daylight saving shifts.
 
-> **Note:** `CRON_TZ` is not supported by the cron daemon included in the Docker image (Vixie cron). Use the `TZ` environment variable instead.
+> **Note:** Scheduled tasks run via supercronic, which uses the `TZ` environment variable to determine timezone. `CRON_TZ` is not supported — use `TZ` instead.
 
 ### Customize the Schedule
 
@@ -127,7 +127,7 @@ Edit `scripts/smallstack-cron` to change the cron expression:
 
 ```cron
 # Every 6 hours, keep 28 backups
-0 */6 * * * . /app/.env.cron && cd /app && python manage.py backup_db --keep 28 >> /proc/1/fd/1 2>&1
+0 */6 * * * cd /app && python3 manage.py backup_db --keep 28
 ```
 
 After changing, rebuild and redeploy your container.

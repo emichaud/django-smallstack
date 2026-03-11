@@ -22,14 +22,10 @@ python manage.py collectstatic --noinput
 # Create superuser if environment variables are set and user doesn't exist
 python manage.py ensure_superuser
 
-# Always set up cron for scheduled tasks (heartbeat, backups, etc.)
-echo "Setting up scheduled tasks..."
-echo "export PATH='$PATH'" > /app/.env.cron
-printenv | grep -E '^(DATABASE_|SECRET_KEY|DJANGO_|BACKUP_|EMAIL_|ALLOWED_|HEARTBEAT_)' | sed "s/'/'\\\\''/g; s/=\\(.*\\)/='\\1'/" | sed 's/^/export /' >> /app/.env.cron
-chmod 600 /app/.env.cron
-crontab /app/scripts/smallstack-cron
-cron
-echo "Cron scheduler started."
+# Start scheduled tasks (heartbeat, backups, etc.) via supercronic
+# supercronic runs as non-root and inherits the current environment
+echo "Starting scheduled tasks..."
+supercronic -passthrough-logs /app/scripts/smallstack-cron &
 
 echo "Starting application..."
 # Execute the main container command
