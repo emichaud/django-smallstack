@@ -11,6 +11,8 @@ import yaml
 from django.conf import settings
 from django.urls import NoReverseMatch, reverse
 
+from apps.smallstack.navigation import nav
+
 logger = logging.getLogger(__name__)
 
 _cached_version = None
@@ -194,6 +196,7 @@ def branding(request):
             "cookie_banner": getattr(settings, "BRAND_COOKIE_BANNER", True),
             "signup_terms_notice": getattr(settings, "BRAND_SIGNUP_TERMS_NOTICE", True),
         },
+        "nav_items": nav.get_nav_items(request),
         "smallstack_version": _get_version(),
         "site": {
             "name": getattr(settings, "SITE_NAME", "SmallStack"),

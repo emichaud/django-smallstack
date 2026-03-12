@@ -8,30 +8,15 @@ from django.contrib import admin
 from django.urls import include, path
 from django.views.generic import RedirectView
 
-from apps.accounts.views import SignupView
-
 from .views import health_check, legal_page_view, starter_basic_view, starter_forms_view, starter_view
 
 urlpatterns = [
     # Project pages - customize these in apps/website/
     path("", include("apps.website.urls")),
-    # User Manager (staff-only)
-    path("", include("apps.usermanager.urls")),
+    # All built-in SmallStack URLs (auth, profile, help, activity, heartbeat, backups, usermanager)
+    path("", include("apps.smallstack.site_urls")),
     # Admin
     path("admin/", admin.site.urls),
-    # Authentication
-    path("accounts/", include("django.contrib.auth.urls")),
-    path("accounts/signup/", SignupView.as_view(), name="signup"),
-    # Profile
-    path("profile/", include("apps.profile.urls")),
-    # Help/Documentation
-    path("help/", include("apps.help.urls")),
-    # Activity tracking
-    path("activity/", include("apps.activity.urls")),
-    # Heartbeat / Status
-    path("", include("apps.heartbeat.urls")),
-    # Backups (staff-only)
-    path("backups/", include("apps.smallstack.urls")),
     # Legal pages (public)
     path("privacy/", legal_page_view, {"page": "privacy-policy"}, name="privacy_policy"),
     path("terms/", legal_page_view, {"page": "terms-of-service"}, name="terms_of_service"),

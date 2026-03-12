@@ -9,3 +9,26 @@ class SmallStackConfig(AppConfig):
     default_auto_field = "django.db.models.BigAutoField"
     name = "apps.smallstack"
     verbose_name = "SmallStack"
+    help_content_dir = "docs"
+    help_section_slug = "smallstack"
+    help_section_title = "SmallStack Reference"
+
+    def ready(self):
+        from apps.smallstack.navigation import nav
+
+        nav.register(
+            section="main",
+            label="Starter",
+            url_name="starter",
+            icon_svg='<svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zM6 20V4h7v5h5v11H6z"/></svg>',  # noqa: E501
+            auth_required=True,
+            order=20,
+        )
+        nav.register(
+            section="admin",
+            label="Backups",
+            url_name="smallstack:backups",
+            icon_svg='<svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>',  # noqa: E501
+            staff_required=True,
+            order=30,
+        )

@@ -2,9 +2,9 @@
 Markdown processing utilities for the help system.
 
 Supports hierarchical documentation with sections (folders).
-Loads from two sources:
+Loads from multiple sources:
   - content/ - User's project documentation (conflict-free)
-  - smallstack/ - SmallStack bundled documentation (controlled by setting)
+  - Per-app docs - Apps with help_content_dir attribute contribute docs
 """
 
 import html
@@ -14,14 +14,53 @@ from pathlib import Path
 
 import markdown
 import yaml
+from django.apps import apps
 from django.conf import settings
 
 logger = logging.getLogger(__name__)
 
 CONTENT_DIR = Path(__file__).parent / "content"
-DOCS_DIR = Path(__file__).parent / "smallstack"
 SLIDES_DIR = Path(__file__).parent / "content" / "slides"
 SMALLSTACK_SECTION_SLUG = "smallstack"
+
+
+def _get_app_help_sources() -> dict[str, dict]:
+    """Discover help content directories from installed apps.
+
+    Returns a dict mapping section slug to {"dir": Path, "title": str, "app_label": str}.
+    Apps opt in by setting help_content_dir and help_section_slug on their AppConfig.
+    """
+    sources = {}
+    for app_config in apps.get_app_configs():
+        content_dir = getattr(app_config, "help_content_dir", None)
+        section_slug = getattr(app_config, "help_section_slug", None)
+        if content_dir and section_slug:
+            docs_path = Path(app_config.path) / content_dir
+            if docs_path.is_dir():
+                sources[section_slug] = {
+                    "dir": docs_path,
+                    "title": getattr(app_config, "help_section_title", section_slug.replace("-", " ").title()),
+                    "app_label": app_config.label,
+                }
+    return sources
+
+
+def _get_section_dir(section: str) -> Path | None:
+    """Resolve the directory for a section, checking app sources then content/."""
+    if not section:
+        return CONTENT_DIR
+
+    # Check app-contributed docs
+    app_sources = _get_app_help_sources()
+    if section in app_sources:
+        return app_sources[section]["dir"]
+
+    # Fall back to content/ subdirectory
+    content_path = CONTENT_DIR / section
+    if content_path.is_dir():
+        return content_path
+
+    return None
 
 
 def is_smallstack_docs_enabled() -> bool:
@@ -34,7 +73,11 @@ def get_smallstack_config() -> dict:
     if not is_smallstack_docs_enabled():
         return {}
 
-    config_path = DOCS_DIR / "_config.yaml"
+    section_dir = _get_section_dir(SMALLSTACK_SECTION_SLUG)
+    if section_dir is None:
+        return {}
+
+    config_path = section_dir / "_config.yaml"
     if config_path.exists():
         with open(config_path, "r", encoding="utf-8") as f:
             return yaml.safe_load(f) or {}
@@ -59,17 +102,19 @@ def get_section_config(section: str) -> dict:
     if not section:
         return get_config()
 
-    # SmallStack section comes from bundled docs
+    # SmallStack section
     if section == SMALLSTACK_SECTION_SLUG:
         if is_smallstack_docs_enabled():
             return get_smallstack_config()
         return {"pages": [], "variables": {}}
 
-    # User sections from content/
-    config_path = CONTENT_DIR / section / "_config.yaml"
-    if config_path.exists():
-        with open(config_path, "r", encoding="utf-8") as f:
-            return yaml.safe_load(f) or {}
+    # Check app sources and content/ subdirectories
+    section_dir = _get_section_dir(section)
+    if section_dir is not None:
+        config_path = section_dir / "_config.yaml"
+        if config_path.exists():
+            with open(config_path, "r", encoding="utf-8") as f:
+                return yaml.safe_load(f) or {}
     return {"pages": [], "variables": {}}
 
 
@@ -146,15 +191,19 @@ def get_help_page(slug: str, section: str = "") -> dict | None:
 
     Returns None if the page doesn't exist.
     """
-    # Determine the correct directory
-    if section == SMALLSTACK_SECTION_SLUG:
-        if not is_smallstack_docs_enabled():
-            return None
-        file_path = DOCS_DIR / f"{slug}.md"
-    elif section:
-        file_path = CONTENT_DIR / section / f"{slug}.md"
+    # SmallStack section gated on setting
+    if section == SMALLSTACK_SECTION_SLUG and not is_smallstack_docs_enabled():
+        return None
+
+    # Resolve directory
+    section_dir = _get_section_dir(section)
+    if section_dir is None:
+        return None
+
+    if section:
+        file_path = section_dir / f"{slug}.md"
     else:
-        file_path = CONTENT_DIR / f"{slug}.md"
+        file_path = section_dir / f"{slug}.md"
 
     if not file_path.exists():
         return None
@@ -210,16 +259,16 @@ def get_help_page(slug: str, section: str = "") -> dict | None:
 
 def get_section_pages(section: str) -> list:
     """Get all pages for a specific section."""
-    # SmallStack section
-    if section == SMALLSTACK_SECTION_SLUG:
-        if not is_smallstack_docs_enabled():
-            return []
-        config = get_smallstack_config()
-        folder = DOCS_DIR
-    elif section:
-        config = get_section_config(section)
-        folder = CONTENT_DIR / section
-    else:
+    # SmallStack section gated on setting
+    if section == SMALLSTACK_SECTION_SLUG and not is_smallstack_docs_enabled():
+        return []
+
+    # Resolve directory
+    section_dir = _get_section_dir(section)
+    if section_dir is None:
+        return []
+
+    if not section:
         # Root section from main config
         root_config = get_config()
         root_section = next(
@@ -228,6 +277,9 @@ def get_section_pages(section: str) -> list:
         )
         config = {"pages": root_section.get("pages", [])}
         folder = CONTENT_DIR
+    else:
+        config = get_section_config(section)
+        folder = section_dir
 
     pages = []
     for page_config in config.get("pages", []):
@@ -249,7 +301,7 @@ def get_section_pages(section: str) -> list:
 
 
 def get_all_sections() -> list:
-    """Get all sections with their metadata from both user and SmallStack docs."""
+    """Get all sections with their metadata from user docs, app docs, and SmallStack."""
     config = get_config()
     sections = []
 
@@ -257,11 +309,13 @@ def get_all_sections() -> list:
     for section_config in config.get("sections", []):
         slug = section_config.get("slug", "")
 
-        # Warn if user has a smallstack folder while SmallStack docs enabled
-        if slug == SMALLSTACK_SECTION_SLUG and is_smallstack_docs_enabled():
+        # Skip slugs that are provided by app sources
+        app_sources = _get_app_help_sources()
+        if slug in app_sources:
             logger.warning(
-                f"User section '{SMALLSTACK_SECTION_SLUG}' is hidden because "
-                "SMALLSTACK_DOCS_ENABLED=True. Disable SmallStack docs or rename your section."
+                f"User section '{slug}' is hidden because app "
+                f"'{app_sources[slug]['app_label']}' provides it. "
+                "Rename your section to avoid the conflict."
             )
             continue
 
@@ -274,16 +328,21 @@ def get_all_sections() -> list:
             }
         )
 
-    # Append SmallStack section if enabled
-    if is_smallstack_docs_enabled():
-        ss_config = get_smallstack_config()
-        if ss_config:
+    # Append app-contributed sections
+    app_sources = _get_app_help_sources()
+    for slug, source in app_sources.items():
+        # SmallStack section gated on setting
+        if slug == SMALLSTACK_SECTION_SLUG and not is_smallstack_docs_enabled():
+            continue
+
+        section_config = get_section_config(slug)
+        if section_config:
             sections.append(
                 {
-                    "slug": SMALLSTACK_SECTION_SLUG,
-                    "title": ss_config.get("title", "SmallStack Reference"),
-                    "description": ss_config.get("description", ""),
-                    "pages": get_section_pages(SMALLSTACK_SECTION_SLUG),
+                    "slug": slug,
+                    "title": section_config.get("title", source["title"]),
+                    "description": section_config.get("description", ""),
+                    "pages": get_section_pages(slug),
                 }
             )
 
