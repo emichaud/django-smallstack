@@ -137,10 +137,24 @@ SmallStack includes 5 built-in color palettes that override the primary color va
 | `orange` | `#e65100` | `#ff9800` | Warm sunset orange |
 | `purple` | `#7e57c2` | `#b39ddb` | Rich violet tones |
 
-### Two Tiers of Control
+### Palette Precedence
 
-1. **System default** — `SMALLSTACK_COLOR_PALETTE` setting in `base.py` / `.env` (default: `"django"`)
-2. **User override** — `color_palette` field on `UserProfile` (blank = use system default)
+The effective palette is resolved differently on the server and client, but they stay aligned for authenticated users.
+
+**Server-side** — `_get_effective_palette()` in `context_processors.py`:
+
+1. User profile `color_palette` (if set)
+2. `SMALLSTACK_COLOR_PALETTE` setting (from `base.py` / `.env`)
+3. `"django"` (hardcoded fallback)
+
+**Client-side** — `getPreferredPalette()` in `theme.js`:
+
+1. `window.SMALLSTACK.userPalette` (set from server-resolved profile value)
+2. `localStorage('smallstack-palette')` (persists anonymous choices)
+3. `window.SMALLSTACK.colorPalette` (system default from context)
+4. `"django"` (hardcoded fallback)
+
+For authenticated users, JS priority 1 (`userPalette`) is the server-resolved value, so server and client stay in sync. For anonymous users or after a settings change, `localStorage` can hold a stale value from a previous session.
 
 ### How Palettes Work
 
@@ -177,6 +191,8 @@ html[data-palette="purple"][data-theme="dark"] {
 # config/settings/base.py (or in .env)
 SMALLSTACK_COLOR_PALETTE = "purple"  # Options: django, high-contrast, dark-blue, orange, purple
 ```
+
+> **Restart required:** `settings.py` and `.env` changes require a dev server restart to take effect. Template and CSS file changes hot-reload in development, but Python settings do not.
 
 ### Adding a New Palette
 
@@ -512,3 +528,15 @@ See `docs/skills/timezones.md` for the full timezone architecture.
 6. **Keep Django admin CSS** - It provides useful form styling
 7. **Use `var(--primary)` for branded elements** - They'll automatically adapt to palette changes
 8. **Use `{% localtime_tooltip %}` for dates** - It inherits theme variables and works in all modes
+
+## Troubleshooting
+
+### Palette default not applying
+
+If you changed `SMALLSTACK_COLOR_PALETTE` but the UI still shows the old palette:
+
+1. **Restart the dev server** — `settings.py` and `.env` changes require a server restart. Template and CSS changes hot-reload in development, but Python settings do not.
+2. **Check user profile override** — a user's profile `color_palette` takes priority over the system default. Set it to blank (empty string) to fall back to the system default.
+3. **Clear browser localStorage** — open DevTools → Application → Local Storage → delete `smallstack-palette`. This key can hold a stale value from a previous session, especially for anonymous users.
+4. **Verify the palette ID** — valid options: `django`, `high-contrast`, `dark-blue`, `orange`, `purple`. An invalid ID silently falls back to `django`.
+5. **Check `data-palette` in DevTools** — inspect the `<html>` element and confirm the `data-palette` attribute matches what you expect.

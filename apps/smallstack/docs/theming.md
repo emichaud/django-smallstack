@@ -131,6 +131,16 @@ Authenticated users can choose their own palette on the **Profile Edit** page. A
 
 If a user clears their selection (sets it to blank), they fall back to the system default.
 
+### Palette Precedence
+
+The effective palette is resolved in this order (first match wins):
+
+1. **User profile override** — saved on the Profile Edit page (`color_palette` field)
+2. **Browser localStorage** — key `smallstack-palette` (persists anonymous choices, can be stale)
+3. **System default** — `SMALLSTACK_COLOR_PALETTE` setting (default: `django`)
+
+For authenticated users, the profile choice is synced to localStorage automatically, so these stay aligned. After changing the system default, anonymous users (or users without a profile override) may still see the old palette until their browser localStorage is cleared.
+
 The Profile Edit page also lets users set their **timezone**, which controls how dates and times are displayed throughout the site. See [Working with Timezones](/help/smallstack/timezones/) for details.
 
 ### How It Works
@@ -441,3 +451,14 @@ When a user's timezone differs from the server timezone, dates display with a do
 3. **Mobile First** - Test on mobile screens; the theme is responsive
 4. **Extend, Don't Override** - Add new classes rather than overriding existing ones
 5. **Keep Admin CSS** - Django admin CSS provides useful form styling
+
+## Troubleshooting
+
+### Palette default not applying
+
+If you changed `SMALLSTACK_COLOR_PALETTE` but the UI still shows the old palette:
+
+1. **Restart the dev server** — settings and `.env` changes require a server restart. Template and CSS changes hot-reload, but Python settings do not.
+2. **Check user profile** — if you're logged in, your profile palette override takes priority over the system default. Set it to "System Default" on the Profile Edit page to fall back.
+3. **Clear browser localStorage** — open DevTools → Application → Local Storage → delete `smallstack-palette`. This can hold a stale value from a previous session.
+4. **Verify the palette ID** — valid options: `django`, `light-blue`, `dark-blue`, `orange`, `purple`.
