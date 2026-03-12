@@ -5,18 +5,19 @@ description: How to add and edit documentation pages
 
 # Using the Help System
 
-The help system is a file-based documentation viewer built into {{ project_name }}. It renders Markdown files as HTML pages with automatic navigation, search, and table of contents.
+The help system is a file-based documentation viewer built into {{ project_name }}. It renders Markdown files as HTML pages with automatic navigation, search, category grouping, and table of contents.
 
 ## How It Works
 
 Documentation is loaded from two sources:
 
 - **`apps/help/content/`** - Your project's documentation (conflict-free zone)
-- **`apps/help/smallstack/`** - SmallStack reference docs (bundled, controlled by setting)
+- **App-contributed docs** - Apps can register their own doc sections (e.g., SmallStack reference docs)
 
 The system supports:
 
-- **Sections** - Organize docs into folders
+- **Sections** - Organize docs into folders with their own config
+- **Categories** - Group pages within a section under visual headings
 - **Variables** - Template substitution (e.g., `{{ version }}`)
 - **Search** - Client-side full-text search
 - **FAQ mode** - Collapsible question/answer sections
@@ -29,12 +30,14 @@ apps/help/
 │   ├── _config.yaml         # Your sections and pages
 │   ├── index.md             # Your welcome page
 │   └── guides/              # Your custom sections
+│       ├── _config.yaml
 │       └── user-guide.md
-├── smallstack/              # SmallStack docs (bundled)
-│   ├── _config.yaml         # SmallStack config
-│   ├── getting-started.md
-│   └── ...
 └── utils.py                 # Processing logic
+
+apps/smallstack/docs/        # SmallStack docs (app-contributed)
+├── _config.yaml             # SmallStack config with categories
+├── getting-started.md
+└── ...
 ```
 
 **URLs:**
@@ -106,10 +109,75 @@ pages:
     icon: "rocket"
   - slug: advanced
     title: "Advanced Usage"
-    icon: "star"
+    icon: "settings"
 ```
 
 Section variables override root variables.
+
+## Category Grouping
+
+Categories let you organize a section's pages into visual groups. When a section has categories, the index page shows pages under category headings instead of a single flat grid, and the sidebar shows category sub-headings.
+
+### Adding Categories
+
+Add a `categories:` list to a section's `_config.yaml` and a `category:` field to each page:
+
+```yaml
+# apps/help/content/guides/_config.yaml
+title: "User Guides"
+
+# Define category display order
+categories:
+  - "Getting Started"
+  - "Configuration"
+  - "Advanced Topics"
+
+pages:
+  - slug: welcome
+    title: "Welcome"
+    icon: "home"
+    category: "Getting Started"
+
+  - slug: first-steps
+    title: "First Steps"
+    icon: "rocket"
+    category: "Getting Started"
+
+  - slug: settings
+    title: "Settings"
+    icon: "settings"
+    category: "Configuration"
+
+  - slug: power-user
+    title: "Power User Guide"
+    icon: "code"
+    category: "Advanced Topics"
+
+  - slug: changelog
+    title: "Changelog"
+    icon: "info"
+    # No category → appears at the end without a heading
+```
+
+### How Categories Behave
+
+- **Opt-in:** If `categories:` is omitted, the section renders as a flat card grid — identical to the default.
+- **Display order:** Categories appear in the order defined in the `categories:` list, top to bottom.
+- **Page order within a category:** Pages keep their order from the `pages:` list.
+- **Missing category:** If a page's `category:` doesn't match any entry in the list, it's appended alphabetically after the listed categories (with a warning in the server log).
+- **No category:** Pages without a `category:` field go into an ungrouped bucket at the end.
+- **Previous/Next links:** Always follow the flat page order from the `pages:` list, regardless of category grouping.
+
+### Page Config Fields
+
+| Field | Required | Default | Description |
+|-------|----------|---------|-------------|
+| `slug` | yes | — | Filename without `.md`, used in URL |
+| `title` | no | slug (titlecased) | Display title |
+| `description` | no | `""` | Subtitle on index cards |
+| `icon` | no | `""` | Icon name for cards |
+| `category` | no | `""` | Category group name |
+| `is_faq` | no | `false` | Collapsible Q&A mode |
 
 ## Adding Pages
 
@@ -241,6 +309,7 @@ For collapsible Q&A sections:
    - slug: faq
      title: "FAQ"
      is_faq: true
+     category: "Reference"
    ```
 
 2. Use H2 headings for questions:
@@ -258,21 +327,30 @@ For collapsible Q&A sections:
 
 | Icon | Name | Use for |
 |------|------|---------|
-| 🏠 | `home` | Welcome, index |
-| 🚀 | `rocket` | Getting started |
+| 🏠 | `home` | Welcome, index, navigation |
+| 🚀 | `rocket` | Getting started, deployment |
 | 📖 | `book` | Guides, manuals |
 | ❓ | `help` | Help, support |
-| 🎨 | `palette` | Theming, design |
-| ⚙️ | `settings` | Configuration |
+| 🎨 | `palette` | Theming, design, customization |
+| ⚙️ | `settings` | Configuration, forms |
 | 📧 | `email` | Email, notifications |
-| 📦 | `package` | Installation |
+| 📦 | `package` | Installation, packages |
 | 🗄️ | `database` | Database |
 | ☁️ | `cloud` | Deployment |
 | 🐳 | `docker` | Docker |
-| 📁 | `folder` | Structure |
-| 💬 | `chat` | FAQ |
-| ℹ️ | `info` | About |
+| 📁 | `folder` | Structure, cards |
+| 💬 | `chat` | FAQ, messages |
+| ℹ️ | `info` | About, logging |
 | 🤖 | `ai` | AI features |
+| 🔗 | `link` | Quick links |
+| 📊 | `chart` | Charts, monitoring |
+| 🕐 | `clock` | Timezones |
+| 👥 | `users` | User management |
+| 🎬 | `slides` | Presentations |
+| 💻 | `terminal` | CLI, commands |
+| 🔒 | `lock` | Authentication, security |
+| 🧊 | `cube` | Dependencies, 3D |
+| 💻 | `code` | Code, development |
 
 ## Slide Viewer
 
@@ -285,3 +363,5 @@ The help system also includes a slide presentation mode for focused walkthroughs
 - Section variables override root variables
 - The search index includes all enabled sections
 - Your `content/` folder is conflict-free on upstream pulls
+- Categories are optional — omit `categories:` for flat rendering
+- Category names are case-sensitive — they must match exactly between the list and page entries

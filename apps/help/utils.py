@@ -294,10 +294,65 @@ def get_section_pages(section: str) -> list:
                     "description": page_config.get("description", ""),
                     "icon": page_config.get("icon", ""),
                     "is_faq": page_config.get("is_faq", False),
+                    "category": page_config.get("category", ""),
                 }
             )
 
     return pages
+
+
+def get_section_pages_grouped(section: str) -> list[dict]:
+    """Group pages by category using explicit category ordering from config.
+
+    Returns [{"category": "Getting Started", "pages": [...]}, ...]
+
+    Ordering rules:
+    1. Categories appear in the order defined in the config's `categories:` list
+    2. Pages within each category keep their config order
+    3. Categories referenced by pages but NOT in the list -> appended alphabetically, with warning logged
+    4. Pages with no category -> ungrouped bucket at end (category="")
+    5. If no `categories:` list exists -> returns single group with all pages (flat)
+    """
+    pages = get_section_pages(section)
+    config = get_section_config(section)
+    defined_categories = config.get("categories", [])
+
+    # No categories list -> flat rendering
+    if not defined_categories:
+        return [{"category": "", "pages": pages}]
+
+    # Bucket pages by category
+    buckets: dict[str, list] = {}
+    for page in pages:
+        cat = page.get("category", "")
+        buckets.setdefault(cat, []).append(page)
+
+    defined_set = set(defined_categories)
+    result = []
+
+    # 1. Defined categories in list order
+    for cat in defined_categories:
+        if cat in buckets:
+            result.append({"category": cat, "pages": buckets[cat]})
+
+    # 2. Unlisted categories (referenced by pages but not in the list), alphabetically
+    unlisted = sorted(
+        cat for cat in buckets if cat and cat not in defined_set
+    )
+    for cat in unlisted:
+        logger.warning(
+            "Category '%s' is referenced by pages in section '%s' "
+            "but not defined in the categories list.",
+            cat,
+            section,
+        )
+        result.append({"category": cat, "pages": buckets[cat]})
+
+    # 3. Uncategorized pages at the end
+    if "" in buckets:
+        result.append({"category": "", "pages": buckets[""]})
+
+    return result
 
 
 def get_all_sections() -> list:

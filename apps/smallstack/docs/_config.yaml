@@ -11,210 +11,266 @@ variables:
   version: "0.8.1"
   project_name: "Django SmallStack"
 
+# Category display order for section index grouping
+categories:
+  - "Getting Started"
+  - "Development"
+  - "Customization"
+  - "Theming"
+  - "UI Components"
+  - "Configuration"
+  - "Database"
+  - "Auth & Users"
+  - "Built-in Tools"
+  - "Packages"
+  - "Deployment"
+  - "Reference"
+
 # Pages in this section (order matters for navigation)
 pages:
   - slug: readme
     title: "README"
     description: "Project overview and quick start guide"
     icon: "book"
+    category: "Getting Started"
 
   - slug: getting-started
     title: "Getting Started"
     description: "Quick start guide and project overview"
     icon: "rocket"
+    category: "Getting Started"
 
   - slug: tldr
     title: "TL;DR — Clone to Deploy"
     description: "The shortest path from zero to a running site"
     icon: "rocket"
+    category: "Getting Started"
 
   - slug: make-commands
     title: "Make Commands"
     description: "Shortcut commands for development, testing, and deployment"
     icon: "terminal"
+    category: "Development"
 
   - slug: building-crud-pages
     title: "Building CRUD Pages"
     description: "How to create management pages for your models using CRUDView and django-tables2"
     icon: "settings"
+    category: "Development"
 
   - slug: about
     title: "About & Inspiration"
     description: "The philosophy behind Django SmallStack"
     icon: "info"
+    category: "Getting Started"
 
   - slug: customization
     title: "Customization Guide"
     description: "Make SmallStack your own - pages, docs, branding"
     icon: "palette"
+    category: "Customization"
 
   - slug: help-system
     title: "Using the Help System"
     description: "How to add and edit documentation"
     icon: "help"
+    category: "Customization"
 
   - slug: slide-viewer
     title: "Using the Slide Viewer"
     description: "Create focused presentations from markdown files"
     icon: "slides"
+    category: "Customization"
 
   - slug: theming
     title: "Theming & Customization"
     description: "Customize colors, dark mode, and components"
     icon: "palette"
+    category: "Theming"
 
   - slug: adding-your-own-theme
     title: "Adding Your Own Theme"
     description: "Add a custom CSS framework alongside SmallStack's built-in theme"
     icon: "palette"
+    category: "Theming"
 
   - slug: components
     title: "Components"
     description: "Blank page template — topbar, sidebar, and breadcrumbs"
     icon: "rocket"
+    category: "UI Components"
 
   - slug: cards
     title: "Cards"
     description: "Content containers with headers and bodies"
     icon: "folder"
+    category: "UI Components"
 
   - slug: buttons
     title: "Buttons"
     description: "Button styles, sizes, and icon buttons"
     icon: "cube"
+    category: "UI Components"
 
   - slug: forms
     title: "Forms"
     description: "Inputs, selects, date pickers, file uploads, and admin layout"
     icon: "settings"
+    category: "UI Components"
 
   - slug: grid-layout
     title: "Grid Layout"
     description: "Multi-column responsive layouts"
     icon: "folder"
+    category: "UI Components"
 
   - slug: messages
     title: "Messages"
     description: "Success, info, warning, and error notifications"
     icon: "chat"
+    category: "UI Components"
 
   - slug: quick-links
     title: "Quick Links"
     description: "Icon-based navigation link grid"
     icon: "link"
+    category: "UI Components"
 
   - slug: navigation
     title: "Navigation"
     description: "Sidebar, breadcrumbs, and page headers"
     icon: "home"
+    category: "UI Components"
 
   - slug: topbar-navigation
     title: "Topbar Navigation"
     description: "Configurable horizontal nav menu in the topbar"
     icon: "home"
+    category: "UI Components"
 
   - slug: theme-bars
     title: "Theme Bars"
     description: "Stacked horizontal bar data visualization"
     icon: "chart"
+    category: "UI Components"
 
   - slug: settings-configuration
     title: "Settings & Configuration"
     description: "Environment variables and split settings"
     icon: "settings"
+    category: "Configuration"
 
   - slug: timezones
     title: "Working with Timezones"
     description: "How dates are stored, displayed, and converted across timezones"
     icon: "clock"
+    category: "Configuration"
 
   - slug: database-sqlite
     title: "SQLite Database"
     description: "Why SQLite is the perfect default for many projects"
     icon: "database"
+    category: "Database"
 
   - slug: database-backups
     title: "Database Backups"
     description: "Automatic and manual SQLite database backup"
     icon: "database"
+    category: "Database"
 
   - slug: database-postgresql
     title: "PostgreSQL Database"
     description: "Scaling beyond SQLite with PostgreSQL"
     icon: "database"
+    category: "Database"
 
   - slug: authentication
     title: "Authentication"
     description: "Built-in Django auth, signup control, and feature flags"
     icon: "lock"
+    category: "Auth & Users"
 
   - slug: email-auth
     title: "Email & Password Reset"
     description: "Configure SMTP email, password reset, and email login"
     icon: "email"
+    category: "Auth & Users"
 
   - slug: background-tasks
     title: "Background Tasks"
     description: "Running tasks outside the request-response cycle"
     icon: "tasks"
+    category: "Built-in Tools"
 
   - slug: user-manager
     title: "User Manager"
     description: "Built-in user management with search, profiles, activity stats, and timezone dashboard"
     icon: "users"
+    category: "Auth & Users"
 
   - slug: uptime-monitoring
     title: "Uptime Monitoring"
     description: "Heartbeat checks, public status page, and uptime tracking"
     icon: "chart"
+    category: "Built-in Tools"
 
   - slug: activity-tracking
     title: "Activity Tracking"
     description: "Lightweight request logging with staff dashboard and automatic pruning"
     icon: "chart"
+    category: "Built-in Tools"
 
   - slug: logging-audit
     title: "Logging & Audit Trail"
     description: "Built-in logging and activity tracking that just works"
     icon: "info"
+    category: "Built-in Tools"
 
   - slug: package-management
     title: "Package Management"
     description: "Using UV, pip, and other package managers"
     icon: "package"
+    category: "Packages"
 
   - slug: dependencies
     title: "Dependencies"
     description: "Why we chose each package in SmallStack"
     icon: "cube"
+    category: "Packages"
 
   - slug: deployment
     title: "Deployment Overview"
     description: "Understanding your deployment options"
     icon: "cloud"
+    category: "Deployment"
 
   - slug: docker-deployment
     title: "Docker Deployment"
     description: "Local development and generic container hosting"
     icon: "docker"
+    category: "Deployment"
 
   - slug: kamal-deployment
     title: "Kamal Deployment"
     description: "Zero-downtime VPS deployment for small teams"
     icon: "rocket"
+    category: "Deployment"
 
   - slug: project-structure
     title: "Project Structure"
     description: "Understanding the codebase organization"
     icon: "folder"
+    category: "Development"
 
   - slug: extending-with-ai
     title: "Extending with AI"
     description: "Using AI assistants to accelerate development"
     icon: "ai"
+    category: "Development"
 
   - slug: faq
     title: "FAQ"
     description: "Frequently asked questions"
     icon: "chat"
     is_faq: true
+    category: "Reference"

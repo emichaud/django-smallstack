@@ -15,6 +15,7 @@ from .utils import (
     get_deck_slides,
     get_help_page,
     get_section_pages,
+    get_section_pages_grouped,
     get_slide_deck,
 )
 
@@ -78,6 +79,7 @@ class HelpSectionIndexView(TemplateView):
         context["section"] = section
         context["sections"] = all_sections
         context["current_section"] = section_slug
+        context["grouped_pages"] = get_section_pages_grouped(section_slug)
         context["page_title"] = section.get("title", "Documentation")
         return context
 
@@ -132,6 +134,7 @@ class HelpSectionDetailView(TemplateView):
         context["sections"] = get_all_sections()
         context["current_section"] = section
         context["section_pages"] = get_section_pages(section)
+        context["section_pages_grouped"] = get_section_pages_grouped(section)
         context["page_title"] = page["title"]
 
         # Find prev/next pages for navigation within section

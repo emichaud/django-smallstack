@@ -16,6 +16,23 @@
             {% if section.slug %}
             <h3 class="help-nav-section-title">{{ section.title }}</h3>
             {% endif %}
+            {% if section.slug == current_section and section_pages_grouped and section_pages_grouped|length > 1 %}
+            {% for group in section_pages_grouped %}
+            {% if group.category %}
+            <h4 class="help-nav-category-title">{{ group.category }}</h4>
+            {% endif %}
+            <ul class="help-nav-list">
+                {% for p in group.pages %}
+                <li class="help-nav-item">
+                    <a href="{% if section.slug %}{% url 'help:section_detail' section.slug p.slug %}{% else %}{% url 'help:detail' p.slug %}{% endif %}"
+                       class="help-nav-link {% if p.slug == page.slug and section.slug == current_section %}active{% endif %}">
+                        {{ p.title }}
+                    </a>
+                </li>
+                {% endfor %}
+            </ul>
+            {% endfor %}
+            {% else %}
             <ul class="help-nav-list">
                 {% for p in section.pages %}
                 <li class="help-nav-item">
@@ -26,6 +43,7 @@
                 </li>
                 {% endfor %}
             </ul>
+            {% endif %}
         </div>
         {% endif %}
         {% endfor %}
