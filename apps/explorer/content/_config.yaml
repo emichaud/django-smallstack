@@ -7,3 +7,7 @@ pages:
     title: "Enabling Models for Explorer"
     description: "How to register models, configure fields, and control read-only access"
     icon: "settings"
+  - slug: composability
+    title: "Composability Guide"
+    description: "Embed Explorer CRUD tables, model cards, and navigation into any page"
+    icon: "puzzle"

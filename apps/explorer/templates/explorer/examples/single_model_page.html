@@ -1,0 +1,416 @@
+{% extends "smallstack/base.html" %}
+{% load theme_tags crud_tags %}
+
+{% block title %}{{ object_verbose_name_plural }} — Explorer{% endblock %}
+
+{% block breadcrumbs %}{% endblock %}
+
+{% block extra_css %}
+{% include "smallstack/crud/_table_styles.html" %}
+<style>
+    /* Tabs */
+    .example-tabs {
+        display: flex;
+        gap: 0;
+        border-bottom: none;
+        margin-bottom: 1.25rem;
+    }
+    .example-tabs button {
+        padding: 0.6rem 1.25rem;
+        border: none;
+        background: transparent;
+        color: var(--body-quiet-color);
+        font-size: 0.88rem;
+        font-weight: 500;
+        cursor: pointer;
+        border-bottom: 2px solid transparent;
+        transition: color 0.15s, border-color 0.15s;
+    }
+    .example-tabs button:hover {
+        color: var(--body-fg);
+    }
+    .example-tabs button.active {
+        color: var(--primary);
+        border-bottom-color: var(--primary);
+    }
+    .example-tab-panel { display: none; }
+    .example-tab-panel.active { display: block; }
+
+    /* Code blocks */
+    .example-code-section { margin-bottom: 2.25rem; }
+    .example-code-section h3 {
+        font-size: 1rem;
+        font-weight: 600;
+        margin: 0 0 0.4rem;
+        color: var(--body-fg);
+    }
+    .example-code-section p {
+        font-size: 0.88rem;
+        color: var(--body-quiet-color);
+        margin: 0 0 0.7rem;
+        line-height: 1.55;
+    }
+    .example-code-wrap {
+        position: relative;
+        background: #0a0a0a !important;
+        border: 1px solid #444 !important;
+        border-radius: 6px;
+        overflow: hidden;
+    }
+    [data-theme="light"] .example-code-wrap {
+        background: #f5f5f5 !important;
+        border-color: #d0d0d0 !important;
+    }
+    .example-code-wrap pre {
+        margin: 0;
+        padding: 1.5rem;
+        overflow-x: auto;
+        font-size: 16px !important;
+        line-height: 1.9 !important;
+        color: #fff !important;
+        font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+        -webkit-font-smoothing: antialiased;
+    }
+    .example-code-wrap pre code {
+        font-size: 16px !important;
+        color: #fff !important;
+    }
+    [data-theme="light"] .example-code-wrap pre {
+        color: #1a1a1a !important;
+    }
+    [data-theme="light"] .example-code-wrap pre code {
+        color: #1a1a1a !important;
+    }
+    .example-code-label {
+        display: block;
+        padding: 0.5rem 1.5rem;
+        font-size: 13px;
+        font-weight: 500;
+        color: #888;
+        border-bottom: 1px solid #444;
+        font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+    }
+    [data-theme="light"] .example-code-label {
+        color: #666;
+        border-bottom-color: #d0d0d0;
+    }
+    .example-copy-btn {
+        position: absolute;
+        top: 0.6rem;
+        right: 0.6rem;
+        padding: 0.35rem 0.75rem;
+        border: 1px solid #555;
+        border-radius: 6px;
+        background: #222;
+        color: #ccc;
+        font-size: 13px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: color 0.15s, border-color 0.15s, background 0.15s;
+    }
+    .example-copy-btn:hover {
+        color: #fff;
+        border-color: #888;
+        background: #333;
+    }
+    [data-theme="light"] .example-copy-btn {
+        background: #e8e8e8;
+        border-color: #ccc;
+        color: #555;
+    }
+    [data-theme="light"] .example-copy-btn:hover {
+        background: #ddd;
+        border-color: #999;
+        color: #333;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header-with-actions" style="background: color-mix(in srgb, var(--primary) 15%, var(--body-bg)); margin: -24px -24px 24px -24px; padding: 24px; border-radius: 8px 8px 0 0; display: flex; align-items: flex-start; justify-content: space-between;">
+    <div class="page-header-content">
+        <h1>{{ object_verbose_name_plural }}</h1>
+        <p class="page-subtitle">{{ model_info.count }} record{{ model_info.count|pluralize }} &mdash; {{ model_info.app_label }}.{{ model_info.model_name }}</p>
+        <nav style="margin-top: 0.5rem; font-size: 0.8rem;">
+            <a href="{% url 'website:home' %}" style="color: var(--body-quiet-color); text-decoration: none;">Home</a>
+            <span style="color: var(--body-quiet-color); margin: 0 0.3rem;">/</span>
+            <a href="{% url 'explorer-index' %}" style="color: var(--body-quiet-color); text-decoration: none;">Explorer</a>
+            <span style="color: var(--body-quiet-color); margin: 0 0.3rem;">/</span>
+            <span style="color: var(--body-fg);">{{ object_verbose_name_plural }}</span>
+        </nav>
+    </div>
+    {% if create_view_url %}
+    <div class="page-header-actions">
+        <a href="{{ create_view_url }}" class="btn" style="background: var(--primary); color: var(--button-fg); padding: 0.5rem 1rem; border: none; border-radius: var(--radius-sm, 4px); text-decoration: none; font-size: 0.9rem;">
+            + Add {{ object_verbose_name }}
+        </a>
+    </div>
+    {% endif %}
+</div>
+
+<div class="example-tabs" id="example-tabs">
+    <button type="button" data-tab="overview" class="active">Overview</button>
+    <button type="button" data-tab="code">Code Examples</button>
+</div>
+
+<!-- Overview tab -->
+<div class="example-tab-panel active" id="tab-overview">
+    <div class="card">
+        <div class="card-body">
+            {% if object_list %}
+                {% crud_table %}
+            {% else %}
+                <p style="color: var(--body-quiet-color); padding: 2rem 0; text-align: center;">
+                    No {{ object_verbose_name_plural }} found.
+                    {% if create_view_url %}
+                    <a href="{{ create_view_url }}" style="color: var(--primary);">Create one now?</a>
+                    {% endif %}
+                </p>
+            {% endif %}
+        </div>
+    </div>
+    {% include "smallstack/crud/includes/delete_modal.html" %}
+</div>
+
+<!-- Code Examples tab -->
+<div class="example-tab-panel" id="tab-code">
+
+    <p style="font-size: 0.92rem; color: var(--body-fg); line-height: 1.6; margin-bottom: 1.5rem;">
+        This is the most common use case &mdash; a page dedicated to one model with a full
+        CRUD experience: list, detail, create, update, delete. The mixin provides everything
+        the <code>crud_table</code> template tag needs, so you get a working data table with
+        zero queryset or field configuration in your view.
+    </p>
+
+    <div class="example-code-section">
+        <h3>1. URL</h3>
+        <p>
+            Two URL parameters identify the model: <code>app_label</code> and
+            <code>model_name</code>. These match the model's
+            <code>_meta.app_label</code> and <code>_meta.model_name</code> in Django.
+        </p>
+        <div class="example-code-wrap">
+            <span class="example-code-label">apps/myapp/urls.py</span>
+            <button type="button" class="example-copy-btn" data-copy>Copy</button>
+            <pre><code>from django.urls import path
+from .views import ModelPageView
+
+# Pattern:
+#   /models/&lt;app_label&gt;/&lt;model_name&gt;/
+#
+# &lt;app_label&gt; and &lt;model_name&gt; identify the model in the
+# Explorer registry. These are the same values Django uses
+# internally: Model._meta.app_label, Model._meta.model_name.
+#
+# The mixin reads them via self.kwargs and passes them to
+# explorer_registry.get_model_context(app_label, model_name),
+# which returns everything needed to render the CRUD table.
+#
+# Example: /models/heartbeat/heartbeat/ returns:
+#   - object_list:       queryset of all Heartbeat rows
+#   - list_fields:       ["checked_at", "status", "response_time_ms"]
+#   - url_base:          "explorer/heartbeat/heartbeat"
+#   - crud_actions:      [LIST, DETAIL, CREATE, UPDATE, DELETE]
+#   - create_view_url:   "/smallstack/explorer/heartbeat/heartbeat/create/"
+#   - link_field, field_formatters, detail_fields, etc.
+
+urlpatterns = [
+    path(
+        "models/&lt;str:app_label&gt;/&lt;str:model_name&gt;/",
+        ModelPageView.as_view(),
+        name="myapp-model-page",
+    ),
+]</code></pre>
+        </div>
+    </div>
+
+    <div class="example-code-section">
+        <h3>2. View &mdash; with mixin (recommended)</h3>
+        <p>
+            <code>ExplorerModelMixin</code> reads <code>app_label</code> and
+            <code>model_name</code> from the URL, calls the registry, and populates
+            the template context with everything <code>crud_table</code> needs.
+            Your view is just two lines.
+        </p>
+        <div class="example-code-wrap">
+            <span class="example-code-label">apps/myapp/views.py</span>
+            <button type="button" class="example-copy-btn" data-copy>Copy</button>
+            <pre><code>from django.views.generic import TemplateView
+from apps.smallstack.mixins import StaffRequiredMixin
+from apps.explorer.mixins import ExplorerModelMixin
+
+
+# Dynamic — reads app_label and model_name from URL
+class ModelPageView(ExplorerModelMixin, StaffRequiredMixin, TemplateView):
+    template_name = "myapp/model_page.html"
+
+
+# Hardcoded — always shows Heartbeat, no URL params needed
+class HeartbeatPageView(ExplorerModelMixin, StaffRequiredMixin, TemplateView):
+    template_name = "myapp/heartbeats.html"
+    explorer_app_label = "heartbeat"
+    explorer_model_name = "heartbeat"</code></pre>
+        </div>
+    </div>
+
+    <div class="example-code-section">
+        <h3>2b. View &mdash; manual (if you need custom logic)</h3>
+        <p>
+            Use <code>get_model_context()</code> directly when you need to filter the
+            queryset, add extra context, or combine multiple models on one page.
+        </p>
+        <div class="example-code-wrap">
+            <span class="example-code-label">apps/myapp/views.py</span>
+            <button type="button" class="example-copy-btn" data-copy>Copy</button>
+            <pre><code>from django.http import Http404
+from django.views.generic import TemplateView
+from apps.smallstack.mixins import StaffRequiredMixin
+from apps.explorer.registry import explorer_registry
+
+
+class HeartbeatPageView(StaffRequiredMixin, TemplateView):
+    template_name = "myapp/heartbeats.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        ctx = explorer_registry.get_model_context("heartbeat", "heartbeat")
+        if not ctx:
+            raise Http404("Model not found.")
+        context.update(ctx.as_context())
+        # Add your own extra data here
+        context["my_custom_thing"] = "whatever you need"
+        return context</code></pre>
+        </div>
+    </div>
+
+    <div class="example-code-section">
+        <h3>3. Template</h3>
+        <p>
+            Load <code>crud_tags</code> and call <code>crud_table</code> &mdash; it reads
+            <code>object_list</code>, <code>list_fields</code>, <code>url_base</code>, and
+            <code>crud_actions</code> from the context and renders a full data table with
+            links to detail, edit, and delete views. All of those views are already wired
+            up by Explorer's auto-generated CRUDView.
+        </p>
+        <div class="example-code-wrap">
+            <span class="example-code-label">apps/myapp/templates/myapp/model_page.html</span>
+            <button type="button" class="example-copy-btn" data-copy>Copy</button>
+            <pre><code>{% templatetag openblock %} extends "smallstack/base.html" {% templatetag closeblock %}
+{% templatetag openblock %} load crud_tags {% templatetag closeblock %}
+
+{% templatetag openblock %} block content {% templatetag closeblock %}
+&lt;h1&gt;{% templatetag openvariable %} object_verbose_name_plural {% templatetag closevariable %}&lt;/h1&gt;
+
+{% templatetag opencomment %} "Add" button — only shown for writable models {% templatetag closecomment %}
+{% templatetag openblock %} if create_view_url {% templatetag closeblock %}
+&lt;a href="{% templatetag openvariable %} create_view_url {% templatetag closevariable %}"&gt;
+    + Add {% templatetag openvariable %} object_verbose_name {% templatetag closevariable %}
+&lt;/a&gt;
+{% templatetag openblock %} endif {% templatetag closeblock %}
+
+{% templatetag opencomment %} CRUD table — reads context automatically {% templatetag closecomment %}
+{% templatetag openblock %} if object_list {% templatetag closeblock %}
+    {% templatetag openblock %} crud_table {% templatetag closeblock %}
+{% templatetag openblock %} else {% templatetag closeblock %}
+    &lt;p&gt;No records found.&lt;/p&gt;
+{% templatetag openblock %} endif {% templatetag closeblock %}
+{% templatetag openblock %} endblock {% templatetag closeblock %}</code></pre>
+        </div>
+    </div>
+
+    <div class="example-code-section">
+        <h3>4. What you get</h3>
+        <p>
+            With the mixin and <code>crud_table</code>, you get a complete CRUD experience
+            out of the box. No need to define querysets, forms, or URL routing for
+            individual actions &mdash; Explorer has already generated all of that from
+            your admin registration.
+        </p>
+        <div class="example-code-wrap">
+            <span class="example-code-label">What the mixin provides in context</span>
+            <button type="button" class="example-copy-btn" data-copy>Copy</button>
+            <pre><code># Context variables populated by ExplorerModelMixin:
+#
+# object_list              → queryset of all model rows
+# list_fields              → columns for the table (from admin list_display)
+# detail_fields            → fields shown on the detail page
+# link_field               → which column links to the detail view
+# url_base                 → e.g. "explorer/heartbeat/heartbeat"
+# crud_actions             → [LIST, DETAIL, CREATE, UPDATE, DELETE]
+# field_formatters         → custom display formatters (if any)
+# create_view_url          → URL for the "Add" button (None if readonly)
+# object_verbose_name      → "Heartbeat"
+# object_verbose_name_plural → "Heartbeats"
+# model_info               → ModelCardInfo dataclass with count, list_url, etc.
+#
+# The crud_table tag reads these automatically.
+# Detail, create, update, and delete views are already
+# registered by Explorer — links just work.</code></pre>
+        </div>
+    </div>
+
+    <div class="example-code-section">
+        <h3>5. Register models in admin</h3>
+        <p>
+            This is the same admin setup used for group pages. Set
+            <code>explorer_enabled = True</code> and Explorer handles the rest.
+            The list columns come from <code>list_display</code> unless you
+            override with <code>explorer_fields</code>.
+        </p>
+        <div class="example-code-wrap">
+            <span class="example-code-label">apps/heartbeat/admin.py</span>
+            <button type="button" class="example-copy-btn" data-copy>Copy</button>
+            <pre><code>from django.contrib import admin
+from .models import Heartbeat
+
+@admin.register(Heartbeat)
+class HeartbeatAdmin(admin.ModelAdmin):
+    list_display = ("checked_at", "status", "response_time_ms")
+
+    # Explorer integration
+    explorer_enabled = True          # register with Explorer
+    explorer_group = "Monitoring"    # group for the group page
+
+    # Optional overrides:
+    # explorer_fields = [...]        # override list columns
+    # explorer_readonly = True       # force read-only (hides create/edit/delete)</code></pre>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function() {
+    // Tab switching
+    const tabs = document.getElementById('example-tabs');
+    const panels = document.querySelectorAll('.example-tab-panel');
+    tabs.addEventListener('click', function(e) {
+        const btn = e.target.closest('button[data-tab]');
+        if (!btn) return;
+        tabs.querySelectorAll('button').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        panels.forEach(p => p.classList.toggle('active', p.id === 'tab-' + btn.dataset.tab));
+    });
+
+    // Copy buttons
+    document.querySelectorAll('.example-copy-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const code = this.closest('.example-code-wrap').querySelector('code');
+            const text = code.textContent;
+            navigator.clipboard.writeText(text).then(() => {
+                const orig = this.textContent;
+                this.textContent = 'Copied!';
+                this.style.color = 'var(--primary)';
+                this.style.borderColor = 'var(--primary)';
+                setTimeout(() => {
+                    this.textContent = orig;
+                    this.style.color = '';
+                    this.style.borderColor = '';
+                }, 1500);
+            });
+        });
+    });
+})();
+</script>
+{% endblock %}

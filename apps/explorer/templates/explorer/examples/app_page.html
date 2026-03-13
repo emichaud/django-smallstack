@@ -1,0 +1,506 @@
+{% extends "smallstack/base.html" %}
+{% load theme_tags %}
+
+{% block title %}{{ app_verbose_name }} — Explorer{% endblock %}
+
+{% block breadcrumbs %}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .group-page-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 0.75rem;
+    }
+    @media (max-width: 900px) {
+        .group-page-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+    @media (max-width: 600px) {
+        .group-page-grid { grid-template-columns: 1fr; }
+    }
+    a.group-model-card,
+    a.group-model-card:link,
+    a.group-model-card:visited,
+    a.group-model-card:hover,
+    a.group-model-card:active {
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        background: color-mix(in srgb, var(--primary) 6%, var(--body-bg));
+        border: 1px solid transparent;
+        border-radius: var(--radius-sm, 4px);
+        padding: 1rem 1.1rem;
+        text-decoration: none !important;
+        color: var(--body-fg) !important;
+        transition: border-color 0.15s, background 0.15s;
+        min-height: 5rem;
+    }
+    a.group-model-card:hover {
+        border-color: var(--primary);
+        background: color-mix(in srgb, var(--primary) 12%, var(--body-bg));
+    }
+    .group-card-name {
+        font-size: 1rem;
+        font-weight: 600;
+        line-height: 1.3;
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+    }
+    .group-card-lock {
+        width: 14px; height: 14px;
+        color: var(--body-fg);
+        opacity: 0.4;
+    }
+    .group-card-meta {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-top: 0.5rem;
+        font-size: 0.82rem;
+    }
+    .group-card-app {
+        color: var(--body-fg);
+        opacity: 0.55;
+    }
+    .group-card-count {
+        color: var(--primary);
+        font-weight: 600;
+        font-variant-numeric: tabular-nums;
+    }
+    .group-sidebar {
+        list-style: none;
+        padding: 0;
+        padding-left: 0;
+        margin: 0;
+    }
+    .group-sidebar li {
+        list-style-type: none;
+    }
+    .group-sidebar li a {
+        display: block;
+        padding: 0.4rem 0.75rem;
+        border-radius: var(--radius-sm, 4px);
+        color: var(--body-quiet-color);
+        text-decoration: none;
+        font-size: 0.85rem;
+        transition: background 0.15s, color 0.15s;
+    }
+    .group-sidebar li a:hover {
+        color: var(--body-fg);
+        background: color-mix(in srgb, var(--primary) 8%, var(--body-bg));
+    }
+    .group-sidebar li a.active {
+        color: var(--primary);
+        background: color-mix(in srgb, var(--primary) 12%, var(--body-bg));
+        font-weight: 600;
+    }
+
+    /* Tabs */
+    .example-tabs {
+        display: flex;
+        gap: 0;
+        border-bottom: none;
+        margin-bottom: 1.25rem;
+    }
+    .example-tabs button {
+        padding: 0.6rem 1.25rem;
+        border: none;
+        background: transparent;
+        color: var(--body-quiet-color);
+        font-size: 0.88rem;
+        font-weight: 500;
+        cursor: pointer;
+        border-bottom: 2px solid transparent;
+        transition: color 0.15s, border-color 0.15s;
+    }
+    .example-tabs button:hover {
+        color: var(--body-fg);
+    }
+    .example-tabs button.active {
+        color: var(--primary);
+        border-bottom-color: var(--primary);
+    }
+    .example-tab-panel { display: none; }
+    .example-tab-panel.active { display: block; }
+
+    /* Code blocks */
+    .example-code-section { margin-bottom: 2.25rem; }
+    .example-code-section h3 {
+        font-size: 1rem;
+        font-weight: 600;
+        margin: 0 0 0.4rem;
+        color: var(--body-fg);
+    }
+    .example-code-section p {
+        font-size: 0.88rem;
+        color: var(--body-quiet-color);
+        margin: 0 0 0.7rem;
+        line-height: 1.55;
+    }
+    .example-code-wrap {
+        position: relative;
+        background: #0a0a0a !important;
+        border: 1px solid #444 !important;
+        border-radius: 6px;
+        overflow: hidden;
+    }
+    [data-theme="light"] .example-code-wrap {
+        background: #f5f5f5 !important;
+        border-color: #d0d0d0 !important;
+    }
+    .example-code-wrap pre {
+        margin: 0;
+        padding: 1.5rem;
+        overflow-x: auto;
+        font-size: 16px !important;
+        line-height: 1.9 !important;
+        color: #fff !important;
+        font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+        -webkit-font-smoothing: antialiased;
+    }
+    .example-code-wrap pre code {
+        font-size: 16px !important;
+        color: #fff !important;
+    }
+    [data-theme="light"] .example-code-wrap pre {
+        color: #1a1a1a !important;
+    }
+    [data-theme="light"] .example-code-wrap pre code {
+        color: #1a1a1a !important;
+    }
+    .example-code-label {
+        display: block;
+        padding: 0.5rem 1.5rem;
+        font-size: 13px;
+        font-weight: 500;
+        color: #888;
+        border-bottom: 1px solid #444;
+        font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+    }
+    [data-theme="light"] .example-code-label {
+        color: #666;
+        border-bottom-color: #d0d0d0;
+    }
+    .example-copy-btn {
+        position: absolute;
+        top: 0.6rem;
+        right: 0.6rem;
+        padding: 0.35rem 0.75rem;
+        border: 1px solid #555;
+        border-radius: 6px;
+        background: #222;
+        color: #ccc;
+        font-size: 13px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: color 0.15s, border-color 0.15s, background 0.15s;
+    }
+    .example-copy-btn:hover {
+        color: #fff;
+        border-color: #888;
+        background: #333;
+    }
+    [data-theme="light"] .example-copy-btn {
+        background: #e8e8e8;
+        border-color: #ccc;
+        color: #555;
+    }
+    [data-theme="light"] .example-copy-btn:hover {
+        background: #ddd;
+        border-color: #999;
+        color: #333;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header-with-actions" style="background: color-mix(in srgb, var(--primary) 15%, var(--body-bg)); margin: -24px -24px 24px -24px; padding: 24px; border-radius: 8px 8px 0 0;">
+    <div class="page-header-content" style="width: 100%;">
+        <h1>{{ app_verbose_name }}</h1>
+        <p class="page-subtitle">{{ models|length }} model{{ models|length|pluralize }} in this app</p>
+        <nav style="margin-top: 0.5rem; font-size: 0.8rem;">
+            <a href="{% url 'website:home' %}" style="color: var(--body-quiet-color); text-decoration: none;">Home</a>
+            <span style="color: var(--body-quiet-color); margin: 0 0.3rem;">/</span>
+            <a href="{% url 'explorer-index' %}" style="color: var(--body-quiet-color); text-decoration: none;">Explorer</a>
+            <span style="color: var(--body-quiet-color); margin: 0 0.3rem;">/</span>
+            <span style="color: var(--body-fg);">{{ app_verbose_name }}</span>
+        </nav>
+    </div>
+</div>
+
+<div style="display: grid; grid-template-columns: 180px 1fr; gap: 1.5rem;">
+    <!-- App sidebar -->
+    <div>
+        <div style="font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--body-quiet-color); padding: 0 0.75rem 0.4rem;">Apps</div>
+        <ul class="group-sidebar">
+            {% for a in all_apps %}
+            <li><a href="{% url 'explorer-example-app' app_label=a %}" {% if a == app_label %}class="active"{% endif %}>{{ a }}</a></li>
+            {% endfor %}
+        </ul>
+    </div>
+
+    <!-- Main content area with tabs -->
+    <div>
+        <div class="example-tabs" id="example-tabs">
+            <button type="button" data-tab="overview" class="active">Overview</button>
+            <button type="button" data-tab="code">Code Examples</button>
+        </div>
+
+        <!-- Overview tab -->
+        <div class="example-tab-panel active" id="tab-overview">
+            <div class="group-page-grid">
+                {% for m in models %}
+                <a href="{{ m.list_url }}" class="group-model-card">
+                    <span class="group-card-name">
+                        {{ m.verbose_name_plural }}
+                        {% if m.readonly %}
+                        <svg class="group-card-lock" viewBox="0 0 24 24" fill="currentColor" title="Read-only"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1s3.1 1.39 3.1 3.1v2z"/></svg>
+                        {% endif %}
+                    </span>
+                    <span class="group-card-meta">
+                        <span class="group-card-app">{{ m.group }}</span>
+                        <span class="group-card-count">{{ m.count }}</span>
+                    </span>
+                </a>
+                {% endfor %}
+            </div>
+
+            {% if not models %}
+            <p style="color: var(--body-quiet-color); padding: 2rem 0; text-align: center;">
+                No models in this app.
+            </p>
+            {% endif %}
+        </div>
+
+        <!-- Code Examples tab -->
+        <div class="example-tab-panel" id="tab-code">
+
+            <p style="font-size: 0.92rem; color: var(--body-fg); line-height: 1.6; margin-bottom: 1.5rem;">
+                This page groups models by their Django <strong>app_label</strong> instead of a custom
+                <code>explorer_group</code>. The sidebar lists all apps that have Explorer-registered
+                models. Clicking an app shows its models. Here's how to build the same pattern.
+            </p>
+
+            <div class="example-code-section">
+                <h3>1. URL</h3>
+                <p>
+                    One route handles every app. The <code>&lt;str:app_label&gt;</code> capture
+                    becomes <code>self.kwargs["app_label"]</code> in the view, which the mixin
+                    passes to the registry to look up models for that Django app.
+                </p>
+                <div class="example-code-wrap">
+                    <span class="example-code-label">apps/myapp/urls.py</span>
+                    <button type="button" class="example-copy-btn" data-copy>Copy</button>
+                    <pre><code>from django.urls import path
+from .views import AppDashboardView
+
+# Pattern:
+#   /dashboard/app/&lt;app_label&gt;/
+#
+# &lt;str:app_label&gt; captures the Django app label from the URL.
+# The mixin reads it via self.kwargs["app_label"] and passes
+# it to explorer_registry.get_app_context(app_label),
+# which returns all models belonging to that app.
+#
+# The app_label comes from the model's Meta class:
+#   class Meta:
+#       app_label = "heartbeat"  &rarr;  /dashboard/app/heartbeat/
+#
+# Example: visiting /dashboard/app/heartbeat/ returns:
+#   - app_label:        "heartbeat"
+#   - app_verbose_name: "Heartbeat"
+#   - models:           [Heartbeat, HeartbeatEpoch, HeartbeatDaily, ...]
+#   - all_apps:         ["accounts", "heartbeat", ...]
+
+urlpatterns = [
+    path(
+        "dashboard/app/&lt;str:app_label&gt;/",
+        AppDashboardView.as_view(),
+        name="myapp-app-dashboard",
+    ),
+]</code></pre>
+                </div>
+            </div>
+
+            <div class="example-code-section">
+                <h3>2. View &mdash; with mixin (recommended)</h3>
+                <p>
+                    <code>ExplorerAppMixin</code> handles everything: reads the app_label
+                    from the URL, calls the registry, 404s if not found, and populates
+                    <code>app_label</code>, <code>app_verbose_name</code>, <code>models</code>,
+                    and <code>all_apps</code> into the template context. Your view is just two lines.
+                </p>
+                <div class="example-code-wrap">
+                    <span class="example-code-label">apps/myapp/views.py</span>
+                    <button type="button" class="example-copy-btn" data-copy>Copy</button>
+                    <pre><code>from django.views.generic import TemplateView
+from apps.smallstack.mixins import StaffRequiredMixin
+from apps.explorer.mixins import ExplorerAppMixin
+
+
+# Dynamic — reads app_label from URL parameter
+class AppDashboardView(ExplorerAppMixin, StaffRequiredMixin, TemplateView):
+    template_name = "myapp/app_dashboard.html"
+
+
+# Hardcoded — always shows "heartbeat" app, no URL param needed
+class HeartbeatAppView(ExplorerAppMixin, StaffRequiredMixin, TemplateView):
+    template_name = "myapp/heartbeat_app.html"
+    explorer_app = "heartbeat"</code></pre>
+                </div>
+            </div>
+
+            <div class="example-code-section">
+                <h3>2b. View &mdash; manual (if you need custom logic)</h3>
+                <p>
+                    Use <code>get_app_context()</code> directly if you need to add
+                    extra data or transform the results. Call <code>.as_context()</code>
+                    to get a dict ready for <code>context.update()</code>.
+                </p>
+                <div class="example-code-wrap">
+                    <span class="example-code-label">apps/myapp/views.py</span>
+                    <button type="button" class="example-copy-btn" data-copy>Copy</button>
+                    <pre><code>from django.http import Http404
+from django.views.generic import TemplateView
+from apps.smallstack.mixins import StaffRequiredMixin
+from apps.explorer.registry import explorer_registry
+
+
+class AppDashboardView(StaffRequiredMixin, TemplateView):
+    template_name = "myapp/app_dashboard.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        ctx = explorer_registry.get_app_context(self.kwargs["app_label"])
+        if not ctx:
+            raise Http404("App not found.")
+        context.update(ctx.as_context())
+        # Add your own extra data here
+        context["my_custom_thing"] = "whatever you need"
+        return context</code></pre>
+                </div>
+            </div>
+
+            <div class="example-code-section">
+                <h3>3. Template</h3>
+                <p>
+                    The sidebar loops <code>all_apps</code> to build navigation links.
+                    The main area loops <code>models</code> to render cards. Each model is a
+                    <code>ModelCardInfo</code> dataclass with attributes like
+                    <code>.verbose_name_plural</code>, <code>.count</code>, <code>.list_url</code>,
+                    <code>.app_label</code>, and <code>.readonly</code>.
+                </p>
+                <div class="example-code-wrap">
+                    <span class="example-code-label">apps/myapp/templates/myapp/app_dashboard.html</span>
+                    <button type="button" class="example-copy-btn" data-copy>Copy</button>
+                    <pre><code>{% templatetag openblock %} extends "smallstack/base.html" {% templatetag closeblock %}
+
+{% templatetag openblock %} block content {% templatetag closeblock %}
+&lt;h1&gt;{% templatetag openvariable %} app_verbose_name {% templatetag closevariable %}&lt;/h1&gt;
+
+&lt;div style="display: grid; grid-template-columns: 180px 1fr; gap: 1.5rem;"&gt;
+
+    &lt;!-- Sidebar: all apps --&gt;
+    &lt;nav&gt;
+        {% templatetag openblock %} for a in all_apps {% templatetag closeblock %}
+        &lt;a href="{% templatetag openblock %} url 'myapp-app-dashboard' app_label=a {% templatetag closeblock %}"
+           {% templatetag openblock %} if a == app_label {% templatetag closeblock %}class="active"{% templatetag openblock %} endif {% templatetag closeblock %}&gt;
+            {% templatetag openvariable %} a {% templatetag closevariable %}
+        &lt;/a&gt;
+        {% templatetag openblock %} endfor {% templatetag closeblock %}
+    &lt;/nav&gt;
+
+    &lt;!-- Models in this app --&gt;
+    &lt;div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.75rem;"&gt;
+        {% templatetag openblock %} for m in models {% templatetag closeblock %}
+        &lt;a href="{% templatetag openvariable %} m.list_url {% templatetag closevariable %}"&gt;
+            &lt;strong&gt;{% templatetag openvariable %} m.verbose_name_plural {% templatetag closevariable %}&lt;/strong&gt;
+            &lt;span&gt;{% templatetag openvariable %} m.group {% templatetag closevariable %}&lt;/span&gt;
+            &lt;span&gt;{% templatetag openvariable %} m.count {% templatetag closevariable %}&lt;/span&gt;
+        &lt;/a&gt;
+        {% templatetag openblock %} endfor {% templatetag closeblock %}
+    &lt;/div&gt;
+&lt;/div&gt;
+{% templatetag openblock %} endblock {% templatetag closeblock %}</code></pre>
+                </div>
+            </div>
+
+            <div class="example-code-section">
+                <h3>4. Groups vs Apps &mdash; when to use each</h3>
+                <p>
+                    Explorer offers two ways to organize models into sidebar pages.
+                    Choose the one that fits your use case.
+                </p>
+                <div class="example-code-wrap">
+                    <span class="example-code-label">Comparison</span>
+                    <button type="button" class="example-copy-btn" data-copy>Copy</button>
+                    <pre><code># GROUPS (ExplorerGroupMixin)
+# - Custom labels you define via explorer_group on ModelAdmin
+# - Models from different apps can share the same group
+# - URL: &lt;str:group&gt;         e.g. /dashboard/Monitoring/
+# - Mixin: ExplorerGroupMixin
+# - Registry: get_group_context(group_name)
+# - Best for: cross-app dashboards, custom categories
+#
+# Example: Heartbeat + RequestLog both in "Monitoring" group
+#   class HeartbeatAdmin:
+#       explorer_group = "Monitoring"
+#   class RequestLogAdmin:
+#       explorer_group = "Monitoring"
+
+
+# APPS (ExplorerAppMixin)
+# - Follows Django's built-in app_label structure
+# - Models grouped by the app they belong to
+# - URL: &lt;str:app_label&gt;     e.g. /dashboard/app/heartbeat/
+# - Mixin: ExplorerAppMixin
+# - Registry: get_app_context(app_label)
+# - Best for: admin-style navigation, per-app pages
+#
+# No extra config needed — app_label comes from the model:
+#   class Heartbeat(models.Model):
+#       class Meta:
+#           app_label = "heartbeat"  # automatic from app directory</code></pre>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function() {
+    // Tab switching
+    const tabs = document.getElementById('example-tabs');
+    const panels = document.querySelectorAll('.example-tab-panel');
+    tabs.addEventListener('click', function(e) {
+        const btn = e.target.closest('button[data-tab]');
+        if (!btn) return;
+        tabs.querySelectorAll('button').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        panels.forEach(p => p.classList.toggle('active', p.id === 'tab-' + btn.dataset.tab));
+    });
+
+    // Copy buttons
+    document.querySelectorAll('.example-copy-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const code = this.closest('.example-code-wrap').querySelector('code');
+            const text = code.textContent;
+            navigator.clipboard.writeText(text).then(() => {
+                const orig = this.textContent;
+                this.textContent = 'Copied!';
+                this.style.color = 'var(--primary)';
+                this.style.borderColor = 'var(--primary)';
+                setTimeout(() => {
+                    this.textContent = orig;
+                    this.style.color = '';
+                    this.style.borderColor = '';
+                }, 1500);
+            });
+        });
+    });
+})();
+</script>
+{% endblock %}

@@ -1,9 +1,143 @@
 """Explorer registry — dynamically creates CRUDView subclasses for admin-registered models."""
 
+from __future__ import annotations
+
+import dataclasses
+from typing import TYPE_CHECKING
+
 from django.db.models import AutoField, BigAutoField, Field, ForeignKey
+from django.urls import reverse
 
 from apps.smallstack.crud import Action, CRUDView
 from apps.smallstack.mixins import StaffRequiredMixin
+
+if TYPE_CHECKING:
+    from django.db import models
+
+
+# ---------------------------------------------------------------------------
+# Data structures
+# ---------------------------------------------------------------------------
+
+
+@dataclasses.dataclass
+class ModelInfo:
+    """Metadata for a single Explorer-registered model."""
+
+    app_label: str
+    model_name: str
+    verbose_name: str
+    verbose_name_plural: str
+    model_class: type[models.Model]
+    url_base: str
+    readonly: bool
+    group: str
+
+    def with_counts(self) -> ModelCardInfo:
+        """Return a ModelCardInfo with live count and resolved list URL."""
+        return ModelCardInfo(
+            app_label=self.app_label,
+            model_name=self.model_name,
+            verbose_name=self.verbose_name,
+            verbose_name_plural=self.verbose_name_plural,
+            model_class=self.model_class,
+            url_base=self.url_base,
+            readonly=self.readonly,
+            group=self.group,
+            count=self.model_class.objects.count(),
+            list_url=reverse(f"{self.url_base}-list"),
+        )
+
+    # Allow dict-style access so django-tables2 render_* methods work
+    # with record["key"] or record.key interchangeably.
+    def __getitem__(self, key: str):
+        return getattr(self, key)
+
+
+@dataclasses.dataclass
+class ModelCardInfo(ModelInfo):
+    """ModelInfo enriched with live count and resolved list URL."""
+
+    count: int = 0
+    list_url: str = ""
+
+
+@dataclasses.dataclass
+class GroupContext:
+    """Everything a group page needs for its template context."""
+
+    group_name: str
+    models: list[ModelCardInfo]
+    all_groups: list[str]
+
+    def as_context(self) -> dict:
+        """Return a dict ready for context.update()."""
+        return {
+            "group_name": self.group_name,
+            "models": self.models,
+            "all_groups": self.all_groups,
+        }
+
+
+@dataclasses.dataclass
+class AppContext:
+    """Everything an app page needs for its template context."""
+
+    app_label: str
+    app_verbose_name: str
+    models: list[ModelCardInfo]
+    all_apps: list[str]
+
+    def as_context(self) -> dict:
+        """Return a dict ready for context.update()."""
+        return {
+            "app_label": self.app_label,
+            "app_verbose_name": self.app_verbose_name,
+            "models": self.models,
+            "all_apps": self.all_apps,
+        }
+
+
+@dataclasses.dataclass
+class ModelContext:
+    """Everything a single-model page needs for its template context."""
+
+    info: ModelCardInfo
+    crud_class: type[CRUDView]
+    object_verbose_name: str
+    object_verbose_name_plural: str
+    url_base: str
+    list_fields: list[str]
+    detail_fields: list[str]
+    link_field: str | None
+    crud_actions: list[Action]
+    field_formatters: dict
+    create_view_url: str | None
+
+    def as_context(self) -> dict:
+        """Return a dict ready for context.update().
+
+        Includes object_list from the CRUD queryset and all fields
+        the crud_table template tag expects.
+        """
+        return {
+            "object_verbose_name": self.object_verbose_name,
+            "object_verbose_name_plural": self.object_verbose_name_plural,
+            "url_base": self.url_base,
+            "list_fields": self.list_fields,
+            "detail_fields": self.detail_fields,
+            "link_field": self.link_field,
+            "crud_actions": self.crud_actions,
+            "field_formatters": self.field_formatters,
+            "create_view_url": self.create_view_url,
+            "model_info": self.info,
+            "object_list": self.crud_class._get_queryset(),
+        }
+
+
+# ---------------------------------------------------------------------------
+# Internal helpers
+# ---------------------------------------------------------------------------
 
 
 def _auto_detect_fields(model):
@@ -57,11 +191,16 @@ def _resolve_group(model, modeladmin):
     return model._meta.app_label.replace("_", " ").title()
 
 
+# ---------------------------------------------------------------------------
+# Registry
+# ---------------------------------------------------------------------------
+
+
 class ExplorerRegistry:
     def __init__(self):
         self._configs = []  # list of (model, fields, readonly, group)
         self._crud_classes = []  # built CRUDView subclasses
-        self._model_info = []  # metadata for index view
+        self._model_info: list[ModelInfo] = []
 
     def discover(self):
         """Walk admin.site._registry and collect models with explorer_enabled=True."""
@@ -126,17 +265,19 @@ class ExplorerRegistry:
 
             self._crud_classes.append(crud_cls)
             self._model_info.append(
-                {
-                    "app_label": app_label,
-                    "model_name": model_name,
-                    "verbose_name": str(model._meta.verbose_name).capitalize(),
-                    "verbose_name_plural": str(model._meta.verbose_name_plural).capitalize(),
-                    "model_class": model,
-                    "url_base": url_base,
-                    "readonly": readonly,
-                    "group": group,
-                }
+                ModelInfo(
+                    app_label=app_label,
+                    model_name=model_name,
+                    verbose_name=str(model._meta.verbose_name).capitalize(),
+                    verbose_name_plural=str(model._meta.verbose_name_plural).capitalize(),
+                    model_class=model,
+                    url_base=url_base,
+                    readonly=readonly,
+                    group=group,
+                )
             )
+
+    # -- Public API: raw data --
 
     def get_url_patterns(self):
         patterns = []
@@ -144,18 +285,109 @@ class ExplorerRegistry:
             patterns.extend(crud_cls.get_urls())
         return patterns
 
-    def get_models(self):
+    def get_models(self) -> list[ModelInfo]:
         return self._model_info
 
-    def get_grouped_models(self):
+    def get_grouped_models(self) -> dict[str, list[ModelInfo]]:
         """Return models organized by group, preserving discovery order."""
-        groups = {}
+        groups: dict[str, list[ModelInfo]] = {}
         for info in self._model_info:
-            group = info["group"]
-            if group not in groups:
-                groups[group] = []
-            groups[group].append(info)
+            if info.group not in groups:
+                groups[info.group] = []
+            groups[info.group].append(info)
         return groups
+
+    # -- Public API: context helpers --
+
+    def get_group_context(self, group_name: str) -> GroupContext | None:
+        """Return everything a group page template needs, or None if not found.
+
+        Usage in a view:
+            ctx = explorer_registry.get_group_context("Monitoring")
+        """
+        grouped = self.get_grouped_models()
+
+        # Case-insensitive match
+        matched = None
+        for name in grouped:
+            if name.lower() == group_name.lower():
+                matched = name
+                break
+        if not matched:
+            return None
+
+        models = [info.with_counts() for info in grouped[matched]]
+        all_groups = sorted(grouped.keys())
+
+        return GroupContext(
+            group_name=matched,
+            models=models,
+            all_groups=all_groups,
+        )
+
+    def get_apps(self) -> list[str]:
+        """Return sorted list of unique app_labels across all registered models."""
+        return sorted({info.app_label for info in self._model_info})
+
+    def get_app_context(self, app_label: str) -> AppContext | None:
+        """Return everything an app page template needs, or None if not found.
+
+        Usage in a view:
+            ctx = explorer_registry.get_app_context("heartbeat")
+        """
+        models = [info for info in self._model_info if info.app_label == app_label]
+        if not models:
+            return None
+
+        return AppContext(
+            app_label=app_label,
+            app_verbose_name=app_label.replace("_", " ").title(),
+            models=[info.with_counts() for info in models],
+            all_apps=self.get_apps(),
+        )
+
+    def get_model_context(self, app_label: str, model_name: str) -> ModelContext | None:
+        """Return everything a single-model page template needs, or None if not found.
+
+        Usage in a view:
+            ctx = explorer_registry.get_model_context("heartbeat", "heartbeat")
+        """
+        # Find the model info
+        info = None
+        for m in self._model_info:
+            if m.app_label == app_label and m.model_name == model_name:
+                info = m
+                break
+        if not info:
+            return None
+
+        # Find the matching CRUD class
+        crud_cls = None
+        for cls in self._crud_classes:
+            if cls._get_url_base() == info.url_base:
+                crud_cls = cls
+                break
+        if not crud_cls:
+            return None
+
+        url_base = crud_cls._get_url_base()
+        create_url = None
+        if Action.CREATE in crud_cls.actions:
+            create_url = reverse(f"{url_base}-create")
+
+        return ModelContext(
+            info=info.with_counts(),
+            crud_class=crud_cls,
+            object_verbose_name=str(crud_cls.model._meta.verbose_name).capitalize(),
+            object_verbose_name_plural=str(crud_cls.model._meta.verbose_name_plural).capitalize(),
+            url_base=url_base,
+            list_fields=crud_cls._get_list_fields(),
+            detail_fields=crud_cls._get_detail_fields(),
+            link_field=crud_cls._get_link_field(),
+            crud_actions=crud_cls.actions,
+            field_formatters=crud_cls.field_formatters,
+            create_view_url=create_url,
+        )
 
 
 explorer_registry = ExplorerRegistry()

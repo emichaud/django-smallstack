@@ -1,0 +1,608 @@
+{% extends "smallstack/base.html" %}
+{% load theme_tags crud_tags %}
+
+{% block title %}Heartbeats — Composability Example{% endblock %}
+
+{% block breadcrumbs %}{% endblock %}
+
+{% block extra_css %}
+{% include "smallstack/crud/_table_styles.html" %}
+<style>
+    /* Chart */
+    .hb-chart {
+        display: flex;
+        align-items: flex-end;
+        gap: 0.75rem;
+        height: 160px;
+        padding: 1rem 0;
+    }
+    .hb-chart-bar-group {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        height: 100%;
+        cursor: pointer;
+        transition: opacity 0.15s;
+    }
+    .hb-chart-bar-group:hover {
+        opacity: 0.8;
+    }
+    .hb-chart-bars {
+        flex: 1;
+        width: 100%;
+        display: flex;
+        flex-direction: column;
+        justify-content: flex-end;
+        gap: 2px;
+    }
+    .hb-chart-bar-ok {
+        background: var(--success-color, #22c55e);
+        border-radius: 3px 3px 0 0;
+        min-height: 2px;
+        transition: height 0.3s;
+    }
+    .hb-chart-bar-fail {
+        background: var(--error-color, #ef4444);
+        border-radius: 0 0 3px 3px;
+        min-height: 0;
+        transition: height 0.3s;
+    }
+    .hb-chart-label {
+        font-size: 0.75rem;
+        color: var(--body-quiet-color);
+        margin-top: 0.4rem;
+        font-weight: 500;
+    }
+    .hb-chart-legend {
+        display: flex;
+        gap: 1.25rem;
+        font-size: 0.8rem;
+        color: var(--body-quiet-color);
+        margin-bottom: 0.5rem;
+    }
+    .hb-chart-legend span::before {
+        content: "";
+        display: inline-block;
+        width: 10px;
+        height: 10px;
+        border-radius: 2px;
+        margin-right: 0.35rem;
+        vertical-align: middle;
+    }
+    .hb-chart-legend .legend-ok::before { background: var(--success-color, #22c55e); }
+    .hb-chart-legend .legend-fail::before { background: var(--error-color, #ef4444); }
+
+    /* Sortable table headers */
+    .crud-table thead th.sortable {
+        cursor: pointer;
+        user-select: none;
+        position: relative;
+        padding-right: 24px;
+    }
+    .crud-table thead th.sortable:hover {
+        color: var(--primary) !important;
+    }
+    .crud-table thead th.sortable::after {
+        content: "\25B4\25BE";
+        position: absolute;
+        right: 8px;
+        font-size: 0.6rem;
+        opacity: 0.35;
+        letter-spacing: -2px;
+    }
+    .crud-table thead th.sort-asc::after {
+        content: "\25B2";
+        opacity: 0.9;
+        color: var(--primary);
+        letter-spacing: 0;
+    }
+    .crud-table thead th.sort-desc::after {
+        content: "\25BC";
+        opacity: 0.9;
+        color: var(--primary);
+        letter-spacing: 0;
+    }
+
+    /* Tabs */
+    .example-tabs {
+        display: flex;
+        gap: 0;
+        border-bottom: none;
+        margin-bottom: 1.25rem;
+    }
+    .example-tabs button {
+        padding: 0.6rem 1.25rem;
+        border: none;
+        background: transparent;
+        color: var(--body-quiet-color);
+        font-size: 0.88rem;
+        font-weight: 500;
+        cursor: pointer;
+        border-bottom: 2px solid transparent;
+        transition: color 0.15s, border-color 0.15s;
+    }
+    .example-tabs button:hover { color: var(--body-fg); }
+    .example-tabs button.active {
+        color: var(--primary);
+        border-bottom-color: var(--primary);
+    }
+    .example-tab-panel { display: none; }
+    .example-tab-panel.active { display: block; }
+
+    /* Code blocks */
+    .example-code-section { margin-bottom: 2.25rem; }
+    .example-code-section h3 {
+        font-size: 1rem;
+        font-weight: 600;
+        margin: 0 0 0.4rem;
+        color: var(--body-fg);
+    }
+    .example-code-section p {
+        font-size: 0.88rem;
+        color: var(--body-quiet-color);
+        margin: 0 0 0.7rem;
+        line-height: 1.55;
+    }
+    .example-code-wrap {
+        position: relative;
+        background: #0a0a0a !important;
+        border: 1px solid #444 !important;
+        border-radius: 6px;
+        overflow: hidden;
+    }
+    [data-theme="light"] .example-code-wrap {
+        background: #f5f5f5 !important;
+        border-color: #d0d0d0 !important;
+    }
+    .example-code-wrap pre {
+        margin: 0;
+        padding: 1.5rem;
+        overflow-x: auto;
+        font-size: 16px !important;
+        line-height: 1.9 !important;
+        color: #fff !important;
+        font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+        -webkit-font-smoothing: antialiased;
+    }
+    .example-code-wrap pre code {
+        font-size: 16px !important;
+        color: #fff !important;
+    }
+    [data-theme="light"] .example-code-wrap pre {
+        color: #1a1a1a !important;
+    }
+    [data-theme="light"] .example-code-wrap pre code {
+        color: #1a1a1a !important;
+    }
+    .example-code-label {
+        display: block;
+        padding: 0.5rem 1.5rem;
+        font-size: 13px;
+        font-weight: 500;
+        color: #888;
+        border-bottom: 1px solid #444;
+        font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+    }
+    [data-theme="light"] .example-code-label {
+        color: #666;
+        border-bottom-color: #d0d0d0;
+    }
+    .example-copy-btn {
+        position: absolute;
+        top: 0.6rem;
+        right: 0.6rem;
+        padding: 0.35rem 0.75rem;
+        border: 1px solid #555;
+        border-radius: 6px;
+        background: #222;
+        color: #ccc;
+        font-size: 13px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: color 0.15s, border-color 0.15s, background 0.15s;
+    }
+    .example-copy-btn:hover {
+        color: #fff;
+        border-color: #888;
+        background: #333;
+    }
+    [data-theme="light"] .example-copy-btn {
+        background: #e8e8e8;
+        border-color: #ccc;
+        color: #555;
+    }
+    [data-theme="light"] .example-copy-btn:hover {
+        background: #ddd;
+        border-color: #999;
+        color: #333;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header-with-actions" style="background: color-mix(in srgb, var(--primary) 15%, var(--body-bg)); margin: -24px -24px 24px -24px; padding: 24px; border-radius: 8px 8px 0 0; display: flex; align-items: flex-start; justify-content: space-between;">
+    <div class="page-header-content">
+        <h1>Heartbeat Monitor</h1>
+        <p class="page-subtitle">Explorer CRUD + custom chart &mdash; composability example</p>
+        <nav style="margin-top: 0.5rem; font-size: 0.8rem;">
+            <a href="{% url 'website:home' %}" style="color: var(--body-quiet-color); text-decoration: none;">Home</a>
+            <span style="color: var(--body-quiet-color); margin: 0 0.3rem;">/</span>
+            <a href="{% url 'explorer-index' %}" style="color: var(--body-quiet-color); text-decoration: none;">Explorer</a>
+            <span style="color: var(--body-quiet-color); margin: 0 0.3rem;">/</span>
+            <span style="color: var(--body-fg);">Heartbeat Compose</span>
+        </nav>
+    </div>
+    {% if create_view_url %}
+    <div class="page-header-actions">
+        <a href="{{ create_view_url }}" class="btn" style="background: var(--primary); color: var(--button-fg); padding: 0.5rem 1rem; border: none; border-radius: var(--radius-sm, 4px); text-decoration: none; font-size: 0.9rem;">
+            + Add {{ object_verbose_name }}
+        </a>
+    </div>
+    {% endif %}
+</div>
+
+<div class="example-tabs" id="example-tabs">
+    <button type="button" data-tab="overview" class="active">Overview</button>
+    <button type="button" data-tab="code">Code Examples</button>
+</div>
+
+<!-- Overview tab -->
+<div class="example-tab-panel active" id="tab-overview">
+
+    <!-- Chart: 7-day heartbeat history -->
+    {% if chart_days %}
+    <div class="card" style="margin-bottom: 1.25rem;">
+        <div class="card-body">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.75rem;">
+                <h2 style="font-size: 1rem; font-weight: 600; margin: 0;">Last 7 Days</h2>
+                <div class="hb-chart-legend">
+                    <span class="legend-ok">OK</span>
+                    <span class="legend-fail">Failed</span>
+                </div>
+            </div>
+            <div class="hb-chart" id="hb-chart">
+                {% for day in chart_days %}
+                <div class="hb-chart-bar-group"
+                     data-ok="{{ day.ok }}" data-fail="{{ day.fail }}"
+                     data-date="{{ day.date }}" data-label="{{ day.label }}"
+                     onclick="openDayDrilldown(this)">
+                    <div class="hb-chart-bars">
+                        <div class="hb-chart-bar-ok" style="height: 0;"></div>
+                        <div class="hb-chart-bar-fail" style="height: 0;"></div>
+                    </div>
+                    <span class="hb-chart-label">{{ day.label }}</span>
+                </div>
+                {% endfor %}
+            </div>
+            <div style="text-align: center; font-size: 0.75rem; color: var(--body-quiet-color); margin-top: 0.25rem;">
+                Click a day to see details
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- CRUD table (7 rows, sortable, paged) -->
+    <div class="card">
+        <div class="card-body">
+            {% if object_list %}
+                {% crud_table %}
+                {% if page_obj.has_other_pages %}
+                <nav style="display: flex; justify-content: center; align-items: center; gap: 0.25rem; padding: 1rem 0 0.25rem; flex-wrap: wrap;">
+                    {% if page_obj.has_previous %}
+                    <a href="?page={{ page_obj.previous_page_number }}" style="display: inline-block; padding: 0.3rem 0.75rem; border-radius: var(--radius-sm, 4px); color: var(--body-quiet-color); text-decoration: none; font-size: 0.85rem;">&laquo; Prev</a>
+                    {% endif %}
+                    {% for num in page_range %}
+                        {% if num == page_obj.number %}
+                        <span style="display: inline-block; padding: 0.3rem 0.75rem; border-radius: var(--radius-sm, 4px); background: var(--primary); color: var(--button-fg); font-size: 0.85rem;">{{ num }}</span>
+                        {% elif num == '...' %}
+                        <span style="padding: 0.3rem 0.4rem; color: var(--body-quiet-color); font-size: 0.85rem;">&hellip;</span>
+                        {% else %}
+                        <a href="?page={{ num }}" style="display: inline-block; padding: 0.3rem 0.75rem; border-radius: var(--radius-sm, 4px); color: var(--body-quiet-color); text-decoration: none; font-size: 0.85rem;">{{ num }}</a>
+                        {% endif %}
+                    {% endfor %}
+                    {% if page_obj.has_next %}
+                    <a href="?page={{ page_obj.next_page_number }}" style="display: inline-block; padding: 0.3rem 0.75rem; border-radius: var(--radius-sm, 4px); color: var(--body-quiet-color); text-decoration: none; font-size: 0.85rem;">Next &raquo;</a>
+                    {% endif %}
+                </nav>
+                {% endif %}
+            {% else %}
+                <p style="color: var(--body-quiet-color); padding: 2rem 0; text-align: center;">
+                    No heartbeats found.
+                    {% if create_view_url %}
+                    <a href="{{ create_view_url }}" style="color: var(--primary);">Create one now?</a>
+                    {% endif %}
+                </p>
+            {% endif %}
+        </div>
+    </div>
+    {% include "smallstack/crud/includes/delete_modal.html" %}
+</div>
+
+<!-- Code Examples tab -->
+<div class="example-tab-panel" id="tab-code">
+
+    <p style="font-size: 0.92rem; color: var(--body-fg); line-height: 1.6; margin-bottom: 1.5rem;">
+        This page demonstrates the real power of composability &mdash; mixing Explorer's
+        auto-generated CRUD table with your own custom visuals on the same page. The mixin
+        provides the data table; you add whatever else the page needs.
+    </p>
+
+    <div class="example-code-section">
+        <h3>1. The idea</h3>
+        <p>
+            <code>ExplorerModelMixin</code> gives you a full CRUD table for any registered model.
+            But your page isn't <em>just</em> a table &mdash; you want charts, stats, alerts,
+            or any other visual alongside it. The mixin handles the boring CRUD plumbing so you
+            can focus on the interesting parts.
+        </p>
+    </div>
+
+    <div class="example-code-section">
+        <h3>2. View &mdash; mixin + custom data</h3>
+        <p>
+            Hardcode the model with <code>explorer_app_label</code> and
+            <code>explorer_model_name</code>, then override <code>get_context_data</code>
+            to add your chart data alongside the CRUD context the mixin already provides.
+        </p>
+        <div class="example-code-wrap">
+            <span class="example-code-label">apps/myapp/views.py</span>
+            <button type="button" class="example-copy-btn" data-copy>Copy</button>
+            <pre><code>import datetime
+
+from django.utils import timezone
+from django.views.generic import TemplateView
+from apps.smallstack.mixins import StaffRequiredMixin
+from apps.explorer.mixins import ExplorerModelMixin
+
+
+class HeartbeatPageView(ExplorerModelMixin, StaffRequiredMixin, TemplateView):
+    template_name = "myapp/heartbeat_page.html"
+
+    # Hardcoded model — no URL params needed
+    explorer_app_label = "heartbeat"
+    explorer_model_name = "heartbeat"
+
+    def get_context_data(self, **kwargs):
+        # Mixin populates: object_list, list_fields, url_base,
+        # crud_actions, create_view_url, etc.
+        context = super().get_context_data(**kwargs)
+
+        # Add your own data — a 7-day chart
+        from apps.heartbeat.models import HeartbeatDaily
+
+        today = timezone.localdate()
+        days = []
+        for i in range(6, -1, -1):
+            day = today - datetime.timedelta(days=i)
+            try:
+                d = HeartbeatDaily.objects.get(date=day)
+                days.append({"label": day.strftime("%a"),
+                             "ok": d.ok_count, "fail": d.fail_count})
+            except HeartbeatDaily.DoesNotExist:
+                days.append({"label": day.strftime("%a"),
+                             "ok": 0, "fail": 0})
+        context["chart_days"] = days
+
+        # Limit the table to 10 rows
+        context["object_list"] = context["object_list"][:10]
+
+        return context</code></pre>
+        </div>
+    </div>
+
+    <div class="example-code-section">
+        <h3>3. Template</h3>
+        <p>
+            The template has two sections: your custom chart at the top, and the
+            standard <code>crud_table</code> tag below. The tag reads context
+            automatically &mdash; same as any other Explorer page.
+        </p>
+        <div class="example-code-wrap">
+            <span class="example-code-label">apps/myapp/templates/myapp/heartbeat_page.html</span>
+            <button type="button" class="example-copy-btn" data-copy>Copy</button>
+            <pre><code>{% templatetag openblock %} extends "smallstack/base.html" {% templatetag closeblock %}
+{% templatetag openblock %} load crud_tags {% templatetag closeblock %}
+
+{% templatetag openblock %} block content {% templatetag closeblock %}
+&lt;h1&gt;Heartbeat Monitor&lt;/h1&gt;
+
+{% templatetag opencomment %} Your custom chart — whatever you want {% templatetag closecomment %}
+&lt;div class="card"&gt;
+    &lt;h2&gt;Last 7 Days&lt;/h2&gt;
+    {% templatetag openblock %} for day in chart_days {% templatetag closeblock %}
+        &lt;div&gt;{% templatetag openvariable %} day.label {% templatetag closevariable %}: {% templatetag openvariable %} day.ok {% templatetag closevariable %} ok, {% templatetag openvariable %} day.fail {% templatetag closevariable %} failed&lt;/div&gt;
+    {% templatetag openblock %} endfor {% templatetag closeblock %}
+&lt;/div&gt;
+
+{% templatetag opencomment %} Explorer CRUD table — reads context from the mixin {% templatetag closecomment %}
+&lt;div class="card"&gt;
+    {% templatetag openblock %} if object_list {% templatetag closeblock %}
+        {% templatetag openblock %} crud_table {% templatetag closeblock %}
+    {% templatetag openblock %} else {% templatetag closeblock %}
+        &lt;p&gt;No heartbeats found.&lt;/p&gt;
+    {% templatetag openblock %} endif {% templatetag closeblock %}
+&lt;/div&gt;
+{% templatetag openblock %} endblock {% templatetag closeblock %}</code></pre>
+        </div>
+    </div>
+
+    <div class="example-code-section">
+        <h3>4. Why this matters</h3>
+        <p>
+            Django admin locks you into its page layout &mdash; you can't drop a chart
+            above the change list or mix models from different apps on one page.
+            With Explorer's composable mixins, you get the full CRUD experience
+            (list, detail, create, edit, delete) as context variables you can place
+            anywhere in any template. The CRUD views, URLs, and forms are already
+            wired up &mdash; you just add your own content around them.
+        </p>
+    </div>
+
+    <div class="example-code-section">
+        <h3>5. URL</h3>
+        <p>
+            Since the model is hardcoded in the view, the URL doesn't need any parameters.
+            This is a dedicated page, not a generic one.
+        </p>
+        <div class="example-code-wrap">
+            <span class="example-code-label">apps/myapp/urls.py</span>
+            <button type="button" class="example-copy-btn" data-copy>Copy</button>
+            <pre><code>from django.urls import path
+from .views import HeartbeatPageView
+
+urlpatterns = [
+    # No URL params — model is hardcoded in the view
+    path("heartbeats/", HeartbeatPageView.as_view(), name="heartbeat-page"),
+]</code></pre>
+        </div>
+    </div>
+</div>
+
+{% include "smallstack/includes/stat_modal.html" %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function() {
+    // ── Tab switching ──────────────────────────────────────────────
+    const tabs = document.getElementById('example-tabs');
+    const panels = document.querySelectorAll('.example-tab-panel');
+    tabs.addEventListener('click', function(e) {
+        const btn = e.target.closest('button[data-tab]');
+        if (!btn) return;
+        tabs.querySelectorAll('button').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        panels.forEach(p => p.classList.toggle('active', p.id === 'tab-' + btn.dataset.tab));
+    });
+
+    // ── Copy buttons ───────────────────────────────────────────────
+    document.querySelectorAll('.example-copy-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const code = this.closest('.example-code-wrap').querySelector('code');
+            navigator.clipboard.writeText(code.textContent).then(() => {
+                const orig = this.textContent;
+                this.textContent = 'Copied!';
+                this.style.color = 'var(--primary)';
+                this.style.borderColor = 'var(--primary)';
+                setTimeout(() => {
+                    this.textContent = orig;
+                    this.style.color = '';
+                    this.style.borderColor = '';
+                }, 1500);
+            });
+        });
+    });
+
+    // ── Animate chart bars ─────────────────────────────────────────
+    const chart = document.getElementById('hb-chart');
+    if (chart) {
+        const groups = chart.querySelectorAll('.hb-chart-bar-group');
+        let maxTotal = 0;
+        groups.forEach(g => {
+            const total = parseInt(g.dataset.ok || 0) + parseInt(g.dataset.fail || 0);
+            if (total > maxTotal) maxTotal = total;
+        });
+        if (maxTotal === 0) maxTotal = 1;
+        requestAnimationFrame(() => {
+            groups.forEach(g => {
+                const ok = parseInt(g.dataset.ok || 0);
+                const fail = parseInt(g.dataset.fail || 0);
+                const okBar = g.querySelector('.hb-chart-bar-ok');
+                const failBar = g.querySelector('.hb-chart-bar-fail');
+                okBar.style.height = ((ok / maxTotal) * 100) + '%';
+                failBar.style.height = ((fail / maxTotal) * 100) + '%';
+            });
+        });
+    }
+
+    // ── Column sorting on CRUD table ───────────────────────────────
+    const table = document.querySelector('.crud-table');
+    if (table) {
+        const headers = table.querySelectorAll('thead th');
+        const tbody = table.querySelector('tbody');
+
+        headers.forEach((th, colIdx) => {
+            // Skip the Actions column (last column if present)
+            if (th.textContent.trim().toLowerCase() === 'actions') return;
+
+            th.classList.add('sortable');
+            th.addEventListener('click', function() {
+                const isAsc = th.classList.contains('sort-asc');
+                // Reset all headers
+                headers.forEach(h => h.classList.remove('sort-asc', 'sort-desc'));
+
+                const dir = isAsc ? 'desc' : 'asc';
+                th.classList.add('sort-' + dir);
+
+                const rows = Array.from(tbody.querySelectorAll('tr'));
+                rows.sort((a, b) => {
+                    const aCell = a.children[colIdx];
+                    const bCell = b.children[colIdx];
+                    if (!aCell || !bCell) return 0;
+
+                    let aVal = (aCell.textContent || '').trim();
+                    let bVal = (bCell.textContent || '').trim();
+
+                    // Try numeric comparison
+                    const aNum = parseFloat(aVal.replace(/[^0-9.\-]/g, ''));
+                    const bNum = parseFloat(bVal.replace(/[^0-9.\-]/g, ''));
+                    if (!isNaN(aNum) && !isNaN(bNum)) {
+                        return dir === 'asc' ? aNum - bNum : bNum - aNum;
+                    }
+
+                    // Try date comparison
+                    const aDate = Date.parse(aVal);
+                    const bDate = Date.parse(bVal);
+                    if (!isNaN(aDate) && !isNaN(bDate)) {
+                        return dir === 'asc' ? aDate - bDate : bDate - aDate;
+                    }
+
+                    // String comparison
+                    return dir === 'asc'
+                        ? aVal.localeCompare(bVal)
+                        : bVal.localeCompare(aVal);
+                });
+
+                rows.forEach(r => tbody.appendChild(r));
+            });
+        });
+    }
+})();
+
+// ── Chart drilldown modal ──────────────────────────────────────
+function openDayDrilldown(el) {
+    const ok = parseInt(el.dataset.ok || 0);
+    const fail = parseInt(el.dataset.fail || 0);
+    const total = ok + fail;
+    const date = el.dataset.date;
+    const label = el.dataset.label;
+    const uptime = total > 0 ? ((ok / total) * 100).toFixed(1) : '0.0';
+
+    const body = document.getElementById('stat-modal-body');
+    body.innerHTML = '<table>' +
+        '<thead><tr>' +
+            '<th>Status</th><th>Count</th><th>Percentage</th>' +
+        '</tr></thead>' +
+        '<tbody>' +
+            '<tr>' +
+                '<td><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:var(--success-color,#22c55e);margin-right:6px;vertical-align:middle;"></span>OK</td>' +
+                '<td>' + ok + '</td>' +
+                '<td>' + uptime + '%</td>' +
+            '</tr>' +
+            '<tr>' +
+                '<td><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:var(--error-color,#ef4444);margin-right:6px;vertical-align:middle;"></span>Failed</td>' +
+                '<td>' + fail + '</td>' +
+                '<td>' + (total > 0 ? ((fail / total) * 100).toFixed(1) : '0.0') + '%</td>' +
+            '</tr>' +
+            '<tr style="font-weight:600;">' +
+                '<td>Total</td>' +
+                '<td>' + total + '</td>' +
+                '<td>—</td>' +
+            '</tr>' +
+        '</tbody></table>';
+
+    openStatModal(label + ' — ' + date);
+}
+</script>
+{% endblock %}

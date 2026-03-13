@@ -28,28 +28,28 @@ class ExplorerModelTable(tables.Table):
         order_by = "model"
 
     def render_model(self, record):
-        lock = mark_safe(LOCK_SVG) if record["readonly"] else ""
+        lock = mark_safe(LOCK_SVG) if record.readonly else ""
         return format_html(
             '<a href="{}">{}</a>{}',
-            record["list_url"],
-            record["verbose_name_plural"],
+            record.list_url,
+            record.verbose_name_plural,
             lock,
         )
 
     def render_app(self, record):
-        return record["app_label"]
+        return record.app_label
 
     def render_group(self, record):
-        return record["group"]
+        return record.group
 
     def render_records(self, record):
         return format_html(
             '<span style="font-weight:600;font-variant-numeric:tabular-nums;color:var(--primary);">{}</span>',
-            record["count"],
+            record.count,
         )
 
     def render_access(self, record):
-        if record["readonly"]:
+        if record.readonly:
             return mark_safe(
                 '<span style="color:var(--body-quiet-color);font-size:0.85rem;">Read-only</span>',
             )
@@ -58,16 +58,16 @@ class ExplorerModelTable(tables.Table):
         )
 
     def value_model(self, record):
-        return record["verbose_name_plural"]
+        return record.verbose_name_plural
 
     def value_app(self, record):
-        return record["app_label"]
+        return record.app_label
 
     def value_group(self, record):
-        return record["group"]
+        return record.group
 
     def value_records(self, record):
-        return record["count"]
+        return record.count
 
     def value_access(self, record):
-        return "readonly" if record["readonly"] else "full"
+        return "readonly" if record.readonly else "full"

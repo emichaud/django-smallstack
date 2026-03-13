@@ -88,7 +88,7 @@ class TestExplorerReadonly:
     def _check_readonly(self):
         from .registry import explorer_registry
 
-        has_readonly = any(m["readonly"] for m in explorer_registry.get_models())
+        has_readonly = any(m.readonly for m in explorer_registry.get_models())
         if not has_readonly:
             pytest.skip("No readonly models configured")
 
@@ -96,9 +96,9 @@ class TestExplorerReadonly:
         from .registry import explorer_registry
 
         for info in explorer_registry.get_models():
-            if info["readonly"]:
+            if info.readonly:
                 client.force_login(staff_user)
-                response = client.get(reverse(f"{info['url_base']}-list"))
+                response = client.get(reverse(f"{info.url_base}-list"))
                 assert response.status_code == 200
                 break
 
@@ -108,9 +108,9 @@ class TestExplorerReadonly:
         from .registry import explorer_registry
 
         for info in explorer_registry.get_models():
-            if info["readonly"]:
+            if info.readonly:
                 with pytest.raises(NoReverseMatch):
-                    reverse(f"{info['url_base']}-create")
+                    reverse(f"{info.url_base}-create")
                 break
 
 
@@ -121,13 +121,12 @@ class TestAdminDiscovery:
         """Models registered in admin without explorer_enabled don't appear."""
         from .registry import explorer_registry
 
-        model_names = [m["model_name"] for m in explorer_registry.get_models()]
+        model_names = [m.model_name for m in explorer_registry.get_models()]
         # User model is registered in admin but doesn't have explorer_enabled
         assert "user" not in model_names
 
     def test_explorer_fields_overrides_list_display(self):
         """explorer_fields attribute takes precedence over list_display."""
-        from .registry import _resolve_fields_from_admin
 
         class FakeModelAdmin:
             list_display = ("name", "email")
@@ -166,8 +165,8 @@ class TestAdminDiscovery:
         from .registry import explorer_registry
 
         for info in explorer_registry.get_models():
-            if info["model_name"] == "requestlog":
-                assert info["readonly"] is True
+            if info.model_name == "requestlog":
+                assert info.readonly is True
                 break
         else:
             pytest.fail("RequestLog not found in explorer registry")
@@ -176,7 +175,7 @@ class TestAdminDiscovery:
         """All three heartbeat models should be discovered."""
         from .registry import explorer_registry
 
-        model_names = {m["model_name"] for m in explorer_registry.get_models()}
+        model_names = {m.model_name for m in explorer_registry.get_models()}
         assert "heartbeat" in model_names
         assert "heartbeatepoch" in model_names
         assert "heartbeatdaily" in model_names
@@ -190,16 +189,15 @@ class TestExplorerGrouping:
         from .registry import explorer_registry
 
         for info in explorer_registry.get_models():
-            assert "group" in info
-            assert info["group"]  # not empty
+            assert info.group  # not empty
 
     def test_explicit_group_used(self):
         """Models with explorer_group use that value."""
         from .registry import explorer_registry
 
         for info in explorer_registry.get_models():
-            if info["model_name"] == "heartbeat":
-                assert info["group"] == "Monitoring"
+            if info.model_name == "heartbeat":
+                assert info.group == "Monitoring"
                 break
 
     def test_fallback_group_is_app_label(self):
@@ -224,10 +222,82 @@ class TestExplorerGrouping:
         assert "Monitoring" in grouped
         assert len(grouped["Monitoring"]) >= 1
 
-    def test_index_shows_group_headings(self, client, staff_user):
-        """The explorer index page renders group titles."""
+    def test_index_has_group_data_attributes(self, client, staff_user):
+        """The explorer index cards carry data-group attributes for JS grouping."""
         client.force_login(staff_user)
         response = client.get(reverse("explorer-index"))
         content = response.content.decode()
-        assert "explorer-group-title" in content
-        assert "Monitoring" in content
+        assert 'data-group="Monitoring"' in content
+
+
+class TestExplorerContextHelpers:
+    """Tests for the registry context helper methods."""
+
+    def test_get_group_context_found(self, db):
+        from .registry import GroupContext, explorer_registry
+
+        ctx = explorer_registry.get_group_context("Monitoring")
+        assert ctx is not None
+        assert isinstance(ctx, GroupContext)
+        assert ctx.group_name == "Monitoring"
+        assert len(ctx.models) >= 1
+        assert ctx.models[0].count is not None
+        assert ctx.models[0].list_url != ""
+
+    def test_get_group_context_case_insensitive(self, db):
+        from .registry import explorer_registry
+
+        ctx = explorer_registry.get_group_context("monitoring")
+        assert ctx is not None
+        assert ctx.group_name == "Monitoring"
+
+    def test_get_group_context_not_found(self):
+        from .registry import explorer_registry
+
+        ctx = explorer_registry.get_group_context("NonexistentGroup")
+        assert ctx is None
+
+    def test_get_group_context_all_groups(self, db):
+        from .registry import explorer_registry
+
+        ctx = explorer_registry.get_group_context("Monitoring")
+        assert "Monitoring" in ctx.all_groups
+        assert ctx.all_groups == sorted(ctx.all_groups)
+
+    def test_get_model_context_found(self, db):
+        from .registry import ModelContext, explorer_registry
+
+        ctx = explorer_registry.get_model_context("heartbeat", "heartbeat")
+        assert ctx is not None
+        assert isinstance(ctx, ModelContext)
+        assert ctx.info.app_label == "heartbeat"
+        assert ctx.info.model_name == "heartbeat"
+        assert ctx.url_base == "explorer/heartbeat/heartbeat"
+        assert ctx.list_fields is not None
+        assert ctx.crud_class is not None
+
+    def test_get_model_context_not_found(self):
+        from .registry import explorer_registry
+
+        ctx = explorer_registry.get_model_context("nonexistent", "model")
+        assert ctx is None
+
+    def test_model_info_attribute_access(self):
+        """ModelInfo supports both attribute and dict-style access."""
+        from .registry import explorer_registry
+
+        info = explorer_registry.get_models()[0]
+        # Attribute access
+        assert info.app_label is not None
+        # Dict-style access (for django-tables2 compat)
+        assert info["app_label"] == info.app_label
+
+    def test_model_card_info_has_count_and_url(self, db):
+        """with_counts() returns a ModelCardInfo with live data."""
+        from .registry import ModelCardInfo, explorer_registry
+
+        info = explorer_registry.get_models()[0]
+        card = info.with_counts()
+        assert isinstance(card, ModelCardInfo)
+        assert isinstance(card.count, int)
+        assert card.list_url.startswith("/")
