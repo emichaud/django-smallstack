@@ -8,13 +8,21 @@ from django.contrib import admin
 from django.urls import include, path
 from django.views.generic import RedirectView
 
+from apps.heartbeat.views import StatusPageView, status_json
+
 from .views import health_check, legal_page_view, starter_basic_view, starter_forms_view, starter_view
 
 urlpatterns = [
     # Project pages - customize these in apps/website/
     path("", include("apps.website.urls")),
     # All built-in SmallStack URLs (auth, profile, help, activity, heartbeat, backups, usermanager)
-    path("", include("apps.smallstack.site_urls")),
+    path("smallstack/", include("apps.smallstack.site_urls")),
+    # Public convenience aliases — downstream projects can change or remove these.
+    # Status serves directly (public, no login); profile/help redirect to canonical URLs.
+    path("status/", StatusPageView.as_view(), name="public_status"),
+    path("status/json/", status_json, name="public_status_json"),
+    path("profile/", RedirectView.as_view(pattern_name="profile", permanent=False), name="public_profile"),
+    path("help/", RedirectView.as_view(pattern_name="help:index", permanent=False), name="public_help"),
     # Admin
     path("admin/", admin.site.urls),
     # Legal pages (public)

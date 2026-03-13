@@ -97,7 +97,7 @@ class TestBackupRecordModel:
 
     def test_get_absolute_url(self, success_record):
         url = success_record.get_absolute_url()
-        assert url == f"/backups/{success_record.pk}/"
+        assert url == f"/smallstack/backups/{success_record.pk}/"
 
     def test_is_pruned_false(self, success_record):
         assert success_record.is_pruned is False
@@ -178,7 +178,7 @@ class TestBackupViewPermissions:
     def test_backup_page_requires_login(self, client, db):
         response = client.get(reverse("smallstack:backups"))
         assert response.status_code == 302
-        assert "/accounts/login/" in response.url
+        assert "/smallstack/accounts/login/" in response.url
 
     def test_backup_page_requires_staff(self, client, user):
         client.force_login(user)
@@ -604,7 +604,7 @@ class TestLegalPages:
 
     def test_signup_terms_notice(self, client, db):
         """Signup page should show terms notice."""
-        response = client.get("/accounts/signup/")
+        response = client.get("/smallstack/accounts/signup/")
         content = response.content.decode()
         assert "Terms of Service" in content
         assert "Privacy Policy" in content

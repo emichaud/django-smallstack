@@ -10,8 +10,11 @@ A downstream project can wrap with a prefix if desired:
 from django.urls import include, path
 
 from apps.accounts.views import SignupView
+from apps.smallstack.views import SmallStackDashboardView
 
 urlpatterns = [
+    # Dashboard (staff-only landing page)
+    path("", SmallStackDashboardView.as_view(), name="smallstack_dashboard"),
     # Authentication
     path("accounts/", include("django.contrib.auth.urls")),
     path("accounts/signup/", SignupView.as_view(), name="signup"),

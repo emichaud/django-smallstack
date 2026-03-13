@@ -140,7 +140,7 @@ class TestProfileViews:
         """Profile view should require authentication."""
         response = client.get(reverse("profile"))
         assert response.status_code == 302
-        assert "/accounts/login/" in response.url
+        assert "/smallstack/accounts/login/" in response.url
 
     def test_profile_view_authenticated(self, client, user):
         """Authenticated user should see their profile."""
@@ -213,7 +213,7 @@ class TestThemePreferenceView:
         """Theme preference endpoint should require authentication."""
         response = client.post(reverse("theme_preference"), {"theme": "light"})
         assert response.status_code == 302
-        assert "/accounts/login/" in response.url
+        assert "/smallstack/accounts/login/" in response.url
 
     def test_theme_save_dark(self, client, user):
         """Authenticated user should be able to save dark theme."""

@@ -117,8 +117,8 @@ AUTH_PASSWORD_VALIDATORS = [
 ]
 
 # Authentication settings
-LOGIN_URL = "/accounts/login/"
-LOGIN_REDIRECT_URL = "/"
+LOGIN_URL = "/smallstack/accounts/login/"
+LOGIN_REDIRECT_URL = "/smallstack/"
 LOGOUT_REDIRECT_URL = "/"
 
 # Internationalization
@@ -209,7 +209,7 @@ EMAIL_BACKEND = config("EMAIL_BACKEND", default="django.core.mail.backends.conso
 ACTIVITY_MAX_ROWS = config("ACTIVITY_MAX_ROWS", default=10000, cast=int)
 ACTIVITY_EXCLUDE_PATHS = [
     "/static/", "/media/", "/favicon.ico", "/health/",
-    "/status/", "/admin/jsi18n/", "/__debug__/",
+    "/status/", "/smallstack/status/", "/admin/jsi18n/", "/__debug__/",
 ]
 
 # SQLite Backup

@@ -145,7 +145,7 @@ class TestActivityDashboardView:
     def test_requires_login(self, client):
         response = client.get(reverse("activity:dashboard"))
         assert response.status_code == 302
-        assert "/accounts/login/" in response.url
+        assert "/smallstack/accounts/login/" in response.url
 
     def test_requires_staff(self, client, user):
         client.login(username="testuser", password="testpass123")
@@ -181,7 +181,7 @@ class TestRequestListView:
     def test_requires_login(self, client):
         response = client.get(reverse("activity:requests"))
         assert response.status_code == 302
-        assert "/accounts/login/" in response.url
+        assert "/smallstack/accounts/login/" in response.url
 
     def test_requires_staff(self, client, user):
         client.login(username="testuser", password="testpass123")
@@ -256,7 +256,7 @@ class TestUserActivityView:
     def test_requires_login(self, client):
         response = client.get(reverse("activity:users"))
         assert response.status_code == 302
-        assert "/accounts/login/" in response.url
+        assert "/smallstack/accounts/login/" in response.url
 
     def test_requires_staff(self, client, user):
         client.login(username="testuser", password="testpass123")

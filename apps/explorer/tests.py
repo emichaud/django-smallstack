@@ -25,7 +25,7 @@ class TestExplorerIndex:
     def test_anonymous_redirected(self, client):
         response = client.get(reverse("explorer-index"))
         assert response.status_code == 302
-        assert "/accounts/login/" in response.url
+        assert "/smallstack/accounts/login/" in response.url
 
     def test_non_staff_denied(self, client, user):
         client.force_login(user)
