@@ -7,21 +7,26 @@
 <link rel="stylesheet" href="{% static 'smallstack/help/css/help.css' %}">
 {% endblock %}
 
-{% block breadcrumbs %}
-{% breadcrumb "Home" "website:home" %}
-{% breadcrumb "Help" "help:index" %}
-{% breadcrumb section.title %}
-{% render_breadcrumbs %}
-{% endblock %}
+{% block breadcrumbs %}{% endblock %}
 
 {% block content %}
-<div class="help-index">
-    <div class="page-header">
+<div class="page-header-with-actions" style="background: color-mix(in srgb, var(--primary) 15%, var(--body-bg)); margin: -24px -24px 24px -24px; padding: 24px; border-radius: 8px 8px 0 0;">
+    <div class="page-header-content">
         <h1>{{ section.title }}</h1>
         {% if section.description %}
         <p class="page-subtitle">{{ section.description }}</p>
         {% endif %}
+        <nav style="margin-top: 0.5rem; font-size: 0.8rem;">
+            <a href="{% url 'website:home' %}" style="color: var(--body-quiet-color); text-decoration: none;">Home</a>
+            <span style="color: var(--body-quiet-color); margin: 0 0.3rem;">/</span>
+            <a href="{% url 'help:index' %}" style="color: var(--body-quiet-color); text-decoration: none;">Help</a>
+            <span style="color: var(--body-quiet-color); margin: 0 0.3rem;">/</span>
+            <span style="color: var(--body-fg);">{{ section.title }}</span>
+        </nav>
     </div>
+</div>
+
+<div class="help-index">
 
     <!-- Search Box -->
     <div class="help-search-wrapper">

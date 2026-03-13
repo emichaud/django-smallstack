@@ -46,7 +46,7 @@
 {% endblock %}
 
 {% block content %}
-<div class="page-header-with-actions" style="background: color-mix(in srgb, var(--primary) 15%, var(--body-bg)); margin: -24px -24px 24px -24px; padding: 24px; border-radius: 8px 8px 0 0; display: flex; align-items: center; justify-content: space-between;">
+<div class="page-header-with-actions" style="background: color-mix(in srgb, var(--primary) 15%, var(--body-bg)); margin: -24px -24px 24px -24px; padding: 24px; border-radius: 8px 8px 0 0; display: flex; align-items: flex-start; justify-content: space-between;">
     <div class="page-header-content">
         <h1>User Manager</h1>
         <p class="page-subtitle">Manage user accounts and profiles</p>
@@ -117,4 +117,5 @@
 </div>
 
 {% include "smallstack/includes/stat_modal.html" %}
+{% include "smallstack/crud/includes/delete_modal.html" %}
 {% endblock %}

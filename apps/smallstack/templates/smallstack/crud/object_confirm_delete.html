@@ -4,17 +4,38 @@
 {% block title %}Delete {{ object_verbose_name }}{% endblock %}
 
 {% block breadcrumbs %}
+{% if not breadcrumb_parent_label %}
 {% breadcrumb "Home" "website:home" %}
 {% breadcrumb object_verbose_name_plural list_view_url_name %}
 {% breadcrumb "Delete" %}
 {% render_breadcrumbs %}
+{% endif %}
 {% endblock %}
 
 {% block content %}
+{% if breadcrumb_parent_label %}
+<div class="page-header-with-actions" style="background: color-mix(in srgb, var(--primary) 15%, var(--body-bg)); margin: -24px -24px 24px -24px; padding: 24px; border-radius: 8px 8px 0 0;">
+    <div class="page-header-content">
+        <h1>Delete {{ object_verbose_name }}</h1>
+        <nav style="margin-top: 0.5rem; font-size: 0.8rem;">
+            <a href="{% url 'website:home' %}" style="color: var(--body-quiet-color); text-decoration: none;">Home</a>
+            <span style="color: var(--body-quiet-color); margin: 0 0.3rem;">/</span>
+            <a href="{% url breadcrumb_parent_url_name %}" style="color: var(--body-quiet-color); text-decoration: none;">{{ breadcrumb_parent_label }}</a>
+            <span style="color: var(--body-quiet-color); margin: 0 0.3rem;">/</span>
+            <a href="{% url list_view_url_name %}" style="color: var(--body-quiet-color); text-decoration: none;">{{ object_verbose_name_plural }}</a>
+            <span style="color: var(--body-quiet-color); margin: 0 0.3rem;">/</span>
+            <span style="color: var(--body-fg);">Delete</span>
+        </nav>
+    </div>
+</div>
+{% endif %}
+
 <div class="card">
+    {% if not breadcrumb_parent_label %}
     <div class="card-header">
         <h2>Delete {{ object_verbose_name }}</h2>
     </div>
+    {% endif %}
     <div class="card-body">
         <p style="margin-bottom: 1.5rem;">
             Are you sure you want to delete <strong>{{ object }}</strong>?

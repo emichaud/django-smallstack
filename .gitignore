@@ -1,3 +1,6 @@
+
+ai_cowork/
+
 # Secrets - NEVER commit these
 .kamal/secrets
 .env

@@ -10,6 +10,8 @@ class RequestLogAdmin(admin.ModelAdmin):
     """Read-only admin for viewing request logs."""
 
     list_display = ("timestamp", "method", "path", "status_code", "user", "response_time_ms", "ip_address")
+    explorer_enabled = True
+    explorer_group = "Monitoring"
     list_filter = ("method", "status_code")
     search_fields = ("path", "ip_address", "user__username")
     readonly_fields = (

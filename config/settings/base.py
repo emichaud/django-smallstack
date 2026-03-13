@@ -35,6 +35,8 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    # Explorer must come after django.contrib.admin (discovers admin-registered models)
+    "apps.explorer",
     # Third-party apps
     "django_extensions",
     "django_tasks_db",
@@ -239,6 +241,7 @@ CONTENT_SECURITY_POLICY = {
         "form-action": ["'self'"],
     }
 }
+
 
 # Default primary key field type
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"

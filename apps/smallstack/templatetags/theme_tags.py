@@ -202,7 +202,7 @@ def user_localtime(dt, request):
 
 
 @register.simple_tag(takes_context=True)
-def localtime_tooltip(context, dt, fmt="M d, Y g:i A T"):
+def localtime_tooltip(context, dt, fmt="M d, Y g:i A T", force_tooltip=False):
     """Render a datetime with a CSS hover tooltip showing server time and UTC.
 
     Uses timezone info cached on the request by TimezoneMiddleware to avoid
@@ -210,7 +210,9 @@ def localtime_tooltip(context, dt, fmt="M d, Y g:i A T"):
     server timezone, the output is wrapped in a <span class="tz-tip"> with
     a popup showing the server time and UTC.
 
-    When timezones match, outputs plain text with no tooltip.
+    When timezones match, outputs plain text with no tooltip — unless
+    force_tooltip=True, which always renders the tooltip (useful in data
+    tables where UTC context is helpful regardless of TZ match).
 
     Usage:
         {% load theme_tags %}
@@ -230,7 +232,7 @@ def localtime_tooltip(context, dt, fmt="M d, Y g:i A T"):
     user_dt = dt.astimezone(user_tz)
     user_str = dateformat.format(user_dt, fmt)
 
-    if not tz_differs:
+    if not tz_differs and not force_tooltip:
         return user_str
 
     # Build tooltip lines: server time + UTC

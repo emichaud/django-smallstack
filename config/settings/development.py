@@ -106,6 +106,9 @@ LOGGING = {
     },
 }
 
+# Explorer — show all admin-registered models without requiring explorer_enabled
+EXPLORER_DISCOVER_ALL = True
+
 # Email backend for development (prints to console)
 # To test real email delivery locally, set EMAIL_BACKEND in your .env file:
 #   EMAIL_BACKEND=django.core.mail.backends.smtp.EmailBackend

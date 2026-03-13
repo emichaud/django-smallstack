@@ -4,9 +4,11 @@
 {% block title %}{{ object_verbose_name_plural }}{% endblock %}
 
 {% block breadcrumbs %}
+{% if not breadcrumb_parent_label %}
 {% breadcrumb "Home" "website:home" %}
 {% breadcrumb object_verbose_name_plural %}
 {% render_breadcrumbs %}
+{% endif %}
 {% endblock %}
 
 {% block extra_css %}
@@ -40,7 +42,31 @@
 {% endblock %}
 
 {% block content %}
+{% if breadcrumb_parent_label %}
+<div class="page-header-with-actions" style="background: color-mix(in srgb, var(--primary) 15%, var(--body-bg)); margin: -24px -24px 24px -24px; padding: 24px; border-radius: 8px 8px 0 0; display: flex; align-items: flex-start; justify-content: space-between;">
+    <div class="page-header-content">
+        <h1>{{ object_verbose_name_plural }}</h1>
+        <p class="page-subtitle">{{ object_verbose_name }} records</p>
+        <nav style="margin-top: 0.5rem; font-size: 0.8rem;">
+            <a href="{% url 'website:home' %}" style="color: var(--body-quiet-color); text-decoration: none;">Home</a>
+            <span style="color: var(--body-quiet-color); margin: 0 0.3rem;">/</span>
+            <a href="{% url breadcrumb_parent_url_name %}" style="color: var(--body-quiet-color); text-decoration: none;">{{ breadcrumb_parent_label }}</a>
+            <span style="color: var(--body-quiet-color); margin: 0 0.3rem;">/</span>
+            <span style="color: var(--body-fg);">{{ object_verbose_name_plural }}</span>
+        </nav>
+    </div>
+    {% if create_view_url %}
+    <div class="page-header-actions">
+        <a href="{{ create_view_url }}" class="btn" style="background: var(--primary); color: var(--button-fg); padding: 0.5rem 1rem; border: none; border-radius: var(--radius-sm, 4px); text-decoration: none; font-size: 0.9rem;">
+            + Add {{ object_verbose_name }}
+        </a>
+    </div>
+    {% endif %}
+</div>
+{% endif %}
+
 <div class="card" id="crud-content">
+    {% if not breadcrumb_parent_label %}
     <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
         <h2>{{ object_verbose_name_plural }}</h2>
         {% if create_view_url %}
@@ -49,6 +75,7 @@
         </a>
         {% endif %}
     </div>
+    {% endif %}
     <div class="card-body">
         {% if use_tables2 %}
             {% load django_tables2 %}
@@ -69,4 +96,5 @@
         {% endif %}
     </div>
 </div>
+{% include "smallstack/crud/includes/delete_modal.html" %}
 {% endblock %}

@@ -1,0 +1,9 @@
+title: "Explorer"
+description: "Model Explorer documentation"
+slug: explorer
+
+pages:
+  - slug: admin-api
+    title: "Enabling Models for Explorer"
+    description: "How to register models, configure fields, and control read-only access"
+    icon: "settings"

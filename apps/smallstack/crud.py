@@ -78,6 +78,11 @@ class _CRUDContextMixin:
                 "field_formatters": cfg.field_formatters,
             }
         )
+        # Optional parent breadcrumb: (label, url_name) tuple
+        if cfg.breadcrumb_parent:
+            label, url_name = cfg.breadcrumb_parent
+            context["breadcrumb_parent_label"] = label
+            context["breadcrumb_parent_url_name"] = url_name
         if Action.CREATE in cfg.actions:
             context["create_view_url"] = reverse(f"{url_base}-create")
         if Action.LIST in cfg.actions:
@@ -88,6 +93,8 @@ class _CRUDContextMixin:
 
 class _CRUDListBase(_CRUDContextMixin, ListView):
     def get_template_names(self):
+        if getattr(self.request, "htmx", False):
+            return self.crud_config._get_template_names("list_partial")
         return self.crud_config._get_template_names("list")
 
     def get_queryset(self):
@@ -203,6 +210,7 @@ class CRUDView:
     queryset = None
     field_formatters = {}
     table_class = None  # Optional django-tables2 Table class for enhanced list view
+    breadcrumb_parent = None  # Optional (label, url_name) for parent breadcrumb
 
     @classmethod
     def _get_url_base(cls):
@@ -243,7 +251,7 @@ class CRUDView:
 
     @classmethod
     def _make_form_class(cls):
-        """Auto-generate a ModelForm with vTextField styling."""
+        """Auto-generate a ModelForm with proper widgets and styling."""
         _model = cls.model
         _fields = cls.fields
 
@@ -256,7 +264,26 @@ class CRUDView:
                 super().__init__(*args, **kwargs)
                 for field in self.fields.values():
                     widget = field.widget
-                    if isinstance(
+                    # Date/time fields: use native browser widgets
+                    if isinstance(widget, forms.DateTimeInput):
+                        field.widget = forms.DateTimeInput(
+                            attrs={"type": "datetime-local", **widget.attrs},
+                            format="%Y-%m-%dT%H:%M",
+                        )
+                        field.input_formats = ["%Y-%m-%dT%H:%M"]
+                    elif isinstance(widget, forms.DateInput):
+                        field.widget = forms.DateInput(
+                            attrs={"type": "date", **widget.attrs},
+                            format="%Y-%m-%d",
+                        )
+                        field.input_formats = ["%Y-%m-%d"]
+                    elif isinstance(widget, forms.TimeInput):
+                        field.widget = forms.TimeInput(
+                            attrs={"type": "time", **widget.attrs},
+                            format="%H:%M",
+                        )
+                        field.input_formats = ["%H:%M"]
+                    elif isinstance(
                         widget,
                         (
                             forms.TextInput,

@@ -1,0 +1,305 @@
+{% extends "smallstack/base.html" %}
+{% load theme_tags django_tables2 %}
+
+{% block title %}Explorer{% endblock %}
+
+{% block breadcrumbs %}{% endblock %}
+
+{% block extra_css %}
+{% include "smallstack/crud/_table_styles.html" %}
+<style>
+    .explorer-view-toggle {
+        display: flex;
+        gap: 2px;
+        border: 1px solid var(--hairline-color);
+        border-radius: var(--radius-sm, 4px);
+        padding: 2px;
+    }
+    .explorer-view-toggle button {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 30px;
+        height: 26px;
+        border: none;
+        border-radius: 3px;
+        background: transparent;
+        color: var(--body-quiet-color);
+        cursor: pointer;
+        transition: background 0.15s, color 0.15s;
+    }
+    .explorer-view-toggle button:hover {
+        color: var(--body-fg);
+    }
+    .explorer-view-toggle button.active {
+        background: var(--card-bg);
+        color: var(--primary);
+        box-shadow: 0 1px 2px rgba(0,0,0,0.06);
+    }
+    .explorer-view-toggle button svg {
+        width: 16px;
+        height: 16px;
+    }
+
+    /* Group */
+    .explorer-group {
+        margin-bottom: 1.25rem;
+    }
+    .explorer-group-title {
+        font-size: 0.8rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: var(--body-fg);
+        opacity: 0.5;
+        padding: 0.4rem 0;
+        margin-bottom: 0.5rem;
+    }
+
+    /* Grid view */
+    .explorer-grid {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 0.5rem;
+    }
+    @media (max-width: 900px) {
+        .explorer-grid { grid-template-columns: repeat(3, 1fr); }
+    }
+    @media (max-width: 600px) {
+        .explorer-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+    a.explorer-card,
+    a.explorer-card:link,
+    a.explorer-card:visited,
+    a.explorer-card:hover,
+    a.explorer-card:active {
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        background: color-mix(in srgb, var(--primary) 6%, var(--body-bg));
+        border: 1px solid transparent;
+        border-radius: var(--radius-sm, 4px);
+        padding: 0.75rem 0.85rem;
+        text-decoration: none !important;
+        color: var(--body-fg) !important;
+        transition: border-color 0.15s, background 0.15s;
+        min-height: 4.2rem;
+    }
+    a.explorer-card:hover {
+        border-color: var(--primary);
+        background: color-mix(in srgb, var(--primary) 12%, var(--body-bg));
+    }
+    .explorer-card-name {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        font-size: 0.9rem;
+        font-weight: 500;
+        line-height: 1.3;
+    }
+    .explorer-card-lock {
+        flex-shrink: 0;
+        width: 14px;
+        height: 14px;
+        color: var(--body-fg);
+        opacity: 0.4;
+        margin-left: 0.4rem;
+        margin-top: 1px;
+    }
+    .explorer-card-bottom {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-top: auto;
+        padding-top: 0.35rem;
+    }
+    .explorer-card-app {
+        font-size: 0.8rem;
+        color: var(--body-fg);
+        opacity: 0.55;
+    }
+    .explorer-card-count {
+        color: var(--primary);
+        font-size: 0.8rem;
+        font-weight: 600;
+        font-variant-numeric: tabular-nums;
+    }
+
+    /* List view */
+    .explorer-list {
+        display: none;
+        margin-top: 0.25rem;
+    }
+    .explorer-list .crud-table {
+        table-layout: fixed;
+    }
+    .explorer-list .col-model { width: 50%; }
+    .explorer-list .col-app { width: 30%; }
+    .explorer-list .col-records { width: 20%; }
+    .explorer-list-ro {
+        display: inline-block;
+        width: 15px;
+        height: 15px;
+        vertical-align: -3px;
+        margin-left: 0.5rem;
+        color: var(--body-fg);
+        opacity: 0.5;
+    }
+
+    /* Table view */
+    .explorer-table-view {
+        display: none;
+        margin-top: 0.25rem;
+    }
+    .explorer-table-search {
+        margin-bottom: 0.75rem;
+    }
+    .explorer-table-search input {
+        width: 100%;
+        max-width: 320px;
+        padding: 0.5rem 0.75rem;
+        font-size: 0.85rem;
+        border: 1px solid color-mix(in srgb, var(--body-fg) 20%, var(--body-bg));
+        border-radius: var(--radius-sm, 4px);
+        background: color-mix(in srgb, var(--body-fg) 5%, var(--body-bg));
+        color: var(--body-fg);
+        transition: border-color 0.15s;
+    }
+    .explorer-table-search input:focus {
+        outline: none;
+        border-color: var(--primary);
+        box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 20%, transparent);
+    }
+    .explorer-table-search input::placeholder {
+        color: var(--body-quiet-color);
+        opacity: 0.6;
+    }
+
+    /* View state */
+    [data-explorer-view="list"] .explorer-grid { display: none; }
+    [data-explorer-view="list"] .explorer-list { display: block; }
+    [data-explorer-view="table"] .explorer-grid { display: none; }
+    [data-explorer-view="table"] .explorer-list { display: none; }
+    [data-explorer-view="table"] .explorer-group { display: none; }
+    [data-explorer-view="table"] .explorer-table-view { display: block; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header-with-actions" style="background: color-mix(in srgb, var(--primary) 15%, var(--body-bg)); margin: -24px -24px 24px -24px; padding: 24px; border-radius: 8px 8px 0 0; position: relative;">
+    <a href="{% url 'help:section_detail' section='explorer' slug='admin-api' %}" title="How to enable models for Explorer" style="position: absolute; top: 24px; right: 24px; display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; border-radius: 6px; color: var(--body-quiet-color); text-decoration: none; transition: color 0.15s;">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M11 18h2v-2h-2v2zm1-16C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm0-14c-2.21 0-4 1.79-4 4h2c0-1.1.9-2 2-2s2 .9 2 2c0 2-3 1.75-3 5h2c0-2.25 3-2.5 3-5 0-2.21-1.79-4-4-4z"/></svg>
+    </a>
+    <div class="page-header-content" style="width: 100%;">
+        <h1>Explorer</h1>
+        <p class="page-subtitle">{{ models|length }} registered model{{ models|length|pluralize }}</p>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 0.5rem; font-size: 0.8rem;">
+            <nav>
+                <a href="{% url 'website:home' %}" style="color: var(--body-quiet-color); text-decoration: none;">Home</a>
+                <span style="color: var(--body-quiet-color); margin: 0 0.3rem;">/</span>
+                <span style="color: var(--body-fg);">Explorer</span>
+            </nav>
+            <div class="explorer-view-toggle">
+                <button type="button" data-view="grid" class="active" title="Grid view">
+                    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 3h8v8H3V3zm0 10h8v8H3v-8zm10-10h8v8h-8V3zm0 10h8v8h-8v-8z"/></svg>
+                </button>
+                <button type="button" data-view="list" title="List view">
+                    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 5h18v2H3V5zm0 6h18v2H3v-2zm0 6h18v2H3v-2z"/></svg>
+                </button>
+                <button type="button" data-view="table" title="Table view">
+                    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 3h18v2H3V3zm0 4h8v2H3V7zm0 4h8v2H3v-2zm0 4h8v2H3v-2zm0 4h18v2H3v-2zm12-12h6v2h-6V7zm0 4h6v2h-6v-2zm0 4h6v2h-6v-2z"/></svg>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="explorer-body">
+    {% if grouped_models %}
+    {% for group_name, group_models in grouped_models.items %}
+    <div class="explorer-group">
+        <div class="explorer-group-title">{{ group_name }}</div>
+        <div class="explorer-grid">
+            {% for m in group_models %}
+            <a href="{{ m.list_url }}" class="explorer-card">
+                <span class="explorer-card-name">
+                    {{ m.verbose_name_plural }}
+                    {% if m.readonly %}<svg class="explorer-card-lock" viewBox="0 0 24 24" fill="currentColor" title="Read-only"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1s3.1 1.39 3.1 3.1v2z"/></svg>{% endif %}
+                </span>
+                <span class="explorer-card-bottom">
+                    <span class="explorer-card-app">{{ m.app_label }}</span>
+                    <span class="explorer-card-count">{{ m.count }}</span>
+                </span>
+            </a>
+            {% endfor %}
+        </div>
+        <div class="explorer-list">
+            <table class="crud-table">
+                <thead>
+                    <tr>
+                        <th class="col-model">Model</th>
+                        <th class="col-app">App</th>
+                        <th class="col-records">Records</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for m in group_models %}
+                    <tr>
+                        <td><a href="{{ m.list_url }}">{{ m.verbose_name_plural }}</a>{% if m.readonly %}<svg class="explorer-list-ro" viewBox="0 0 24 24" fill="currentColor"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1s3.1 1.39 3.1 3.1v2z"/></svg>{% endif %}</td>
+                        <td>{{ m.app_label }}</td>
+                        <td>{{ m.count }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endfor %}
+    <!-- Table view (ungrouped, sortable) -->
+    <div class="explorer-table-view">
+        <div class="explorer-table-search">
+            <input type="text" id="explorer-table-search" placeholder="Search models or apps..." autocomplete="off">
+        </div>
+        {% render_table table %}
+    </div>
+
+    {% else %}
+    <p style="color: var(--body-quiet-color); padding: 2rem 0; text-align: center;">
+        No models registered. Set <code>explorer_enabled = True</code> on a ModelAdmin to get started.
+    </p>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function() {
+    const body = document.getElementById('explorer-body');
+    const buttons = document.querySelectorAll('.explorer-view-toggle button');
+    const storageKey = 'explorer-view';
+    const saved = localStorage.getItem(storageKey) || 'grid';
+
+    function setView(view) {
+        body.setAttribute('data-explorer-view', view);
+        buttons.forEach(btn => btn.classList.toggle('active', btn.dataset.view === view));
+        localStorage.setItem(storageKey, view);
+    }
+
+    buttons.forEach(btn => btn.addEventListener('click', () => setView(btn.dataset.view)));
+    setView(saved);
+
+    // Table search
+    const searchInput = document.getElementById('explorer-table-search');
+    if (searchInput) {
+        searchInput.addEventListener('input', function() {
+            const q = this.value.toLowerCase();
+            const rows = document.querySelectorAll('.explorer-table-view .crud-table tbody tr');
+            rows.forEach(row => {
+                const text = row.textContent.toLowerCase();
+                row.style.display = text.includes(q) ? '' : 'none';
+            });
+        });
+    }
+})();
+</script>
+{% endblock %}

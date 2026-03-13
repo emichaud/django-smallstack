@@ -27,4 +27,6 @@ urlpatterns = [
     path("backups/", include("apps.smallstack.urls")),
     # User Manager (staff-only)
     path("", include("apps.usermanager.urls")),
+    # Model Explorer (staff-only)
+    path("", include("apps.explorer.urls")),
 ]

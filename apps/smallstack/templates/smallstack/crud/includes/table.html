@@ -24,16 +24,17 @@
     </td>
     {% endfor %}
     {% if show_actions %}
-    <td style="text-align: right; white-space: nowrap;">
+    <td class="crud-actions-cell">
         {% for action in row.actions %}
-        <a href="{{ action.url }}"{% if action.is_delete %} class="crud-action-delete"{% endif %} style="margin-left: 0.75rem; display: inline-flex; align-items: center; gap: 0.3rem;" title="{{ action.label }}">
-            {% if action.is_delete %}
+        {% if action.is_delete %}
+        <a href="{{ action.url }}" class="crud-action-delete" style="display: inline-flex; align-items: center; gap: 0.3rem; margin-left: 0.75rem;" title="Delete" onclick="event.preventDefault();crudDeleteModal(this,'{{ row.obj_name }}')" data-delete-url="{{ action.url }}">
             <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
-            {% else %}
-            <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
-            {% endif %}
-            {{ action.label }}
         </a>
+        {% else %}
+        <a href="{{ action.url }}" style="display: inline-flex; align-items: center; gap: 0.3rem; margin-left: 0.75rem;" title="Edit">
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
+        </a>
+        {% endif %}
         {% endfor %}
     </td>
     {% endif %}

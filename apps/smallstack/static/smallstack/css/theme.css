@@ -1200,12 +1200,12 @@ select.vTextField optgroup {
     bottom: calc(100% + 6px);
     left: 0;
     background: var(--card-bg);
-    color: var(--body-quiet-color);
+    color: var(--body-fg);
     border: 1px solid var(--hairline-color);
     border-radius: 6px;
-    padding: 8px 12px;
-    font-size: 0.75rem;
-    line-height: 1.6;
+    padding: 10px 14px;
+    font-size: 0.82rem;
+    line-height: 1.8;
     pointer-events: none;
     opacity: 0;
     transition: opacity 0.15s;
@@ -1213,6 +1213,14 @@ select.vTextField optgroup {
     box-shadow: 0 2px 8px rgba(0,0,0,0.15);
 }
 .tz-tip:hover::after {
+    opacity: 1;
+}
+/* When tz-tip is inside a link, keep the link cursor and let the link handle hover */
+a .tz-tip {
+    cursor: pointer;
+    border-bottom: none;
+}
+a:hover .tz-tip::after {
     opacity: 1;
 }
 

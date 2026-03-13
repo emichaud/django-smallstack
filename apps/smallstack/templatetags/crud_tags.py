@@ -1,12 +1,15 @@
 """Template tags for SmallStack CRUD views."""
 
+import datetime
+
 from django import template
 from django.urls import reverse
+from django.utils.safestring import mark_safe
 
 register = template.Library()
 
 
-def _get_field_value(obj, field_name, field_formatters):
+def _get_field_value(obj, field_name, field_formatters, context=None):
     """Extract and format a field value from an object."""
     value = getattr(obj, field_name, "")
 
@@ -19,6 +22,11 @@ def _get_field_value(obj, field_name, field_formatters):
         value = "\u2713" if value else "\u2014"
     elif value is None:
         value = "\u2014"
+    # Datetime fields: use localtime_tooltip for TZ-aware display
+    elif isinstance(value, datetime.datetime) and context is not None:
+        from .theme_tags import localtime_tooltip
+
+        value = mark_safe(localtime_tooltip(context, value, force_tooltip=True))
 
     # Apply custom formatter
     if field_name in field_formatters:
@@ -73,7 +81,7 @@ def crud_table(context):
     for obj in object_list:
         cells = []
         for field_name in list_fields:
-            value = _get_field_value(obj, field_name, field_formatters)
+            value = _get_field_value(obj, field_name, field_formatters, context)
             cells.append(
                 {
                     "value": value,
@@ -105,6 +113,7 @@ def crud_table(context):
                 "cells": cells,
                 "detail_url": detail_url,
                 "actions": actions,
+                "obj_name": str(obj),
             }
         )
 
@@ -142,7 +151,7 @@ def crud_detail(context):
         model = obj.__class__
         for field_name in detail_fields:
             label = _get_field_label(model, field_name)
-            value = _get_field_value(obj, field_name, field_formatters)
+            value = _get_field_value(obj, field_name, field_formatters, context)
             rows.append({"label": label, "value": value})
 
     return {"detail_rows": rows}
