@@ -22,10 +22,14 @@ sections:
         title: "Welcome"
         description: "Project documentation home"
         icon: "home"
-
-  - slug: components
-    title: "Components"
-    description: "UI components and page patterns included with SmallStack"
+      - slug: getting-started
+        title: "Getting Started"
+        description: "First-run setup, branding, pages, and deployment basics"
+        icon: "rocket"
+      - slug: quick-setup
+        title: "Quick Setup (TL;DR)"
+        description: "Clone to deploy in 8 steps"
+        icon: "rocket"
 
   # Add your own sections here:
   # - slug: guides

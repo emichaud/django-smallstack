@@ -171,17 +171,19 @@ SMALLSTACK_SIGNUP_ENABLED = config("SMALLSTACK_SIGNUP_ENABLED", default=True, ca
 SMALLSTACK_SIDEBAR_ENABLED = config("SMALLSTACK_SIDEBAR_ENABLED", default=True, cast=bool)
 # Set to False to start with sidebar closed by default (users can still toggle open)
 SMALLSTACK_SIDEBAR_OPEN = config("SMALLSTACK_SIDEBAR_OPEN", default=True, cast=bool)
+# Default sidebar state: "open", "closed", or "disabled"
+# When set, this takes precedence over SMALLSTACK_SIDEBAR_OPEN.
+# Can be overridden per-page via template block or view context.
+SMALLSTACK_SIDEBAR_DEFAULT = config("SMALLSTACK_SIDEBAR_DEFAULT", default="open")
 
 # Topbar Navigation
-# Set to True to show a horizontal nav menu in the topbar (between logo and right controls)
+# Always show the unified topbar nav (from registry), even when sidebar is open.
+# When False (default), topbar nav only appears when sidebar is closed/disabled.
+SMALLSTACK_TOPBAR_NAV_ALWAYS = config("SMALLSTACK_TOPBAR_NAV_ALWAYS", default=True, cast=bool)
+
+# Legacy topbar nav (DEPRECATED — use the nav registry instead)
+# These settings are kept for backward compatibility and will be removed.
 SMALLSTACK_TOPBAR_NAV_ENABLED = config("SMALLSTACK_TOPBAR_NAV_ENABLED", default=False, cast=bool)
-# List of nav items (Python-only, not .env). Override in your project's settings.
-# Item format:
-#   {"label": "Features", "url": "website:features"}           # URL name (reversed)
-#   {"label": "Docs", "url": "/docs/"}                         # Absolute path
-#   {"label": "GitHub", "url": "https://...", "external": True} # External link
-#   {"label": "More", "children": [{"label": "About", "url": "website:about"}]}
-# Optional keys: auth_required, staff_required, url_args
 SMALLSTACK_TOPBAR_NAV_ITEMS = []
 
 # Branding Configuration

@@ -1,14 +1,10 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="200" height="40" viewBox="0 0 200 40">
-  <!-- 3D Stacked cube icon -->
-  <g transform="translate(0, 2)">
-    <!-- Bottom layer -->
-    <path d="M4 28 L18 35 L32 28 L32 24 L18 31 L4 24 Z" fill="#4FD1A5"/>
-    <!-- Middle layer -->
-    <path d="M4 20 L18 27 L32 20 L32 16 L18 23 L4 16 Z" fill="#2BA977"/>
-    <!-- Top layer -->
-    <path d="M4 12 L18 19 L32 12 L32 8 L18 15 L4 8 Z" fill="#1A6B4A"/>
-    <!-- Top surface -->
-    <path d="M18 4 L4 11 L18 18 L32 11 Z" fill="#0C4B33"/>
+  <!-- 4-square grid icon (tabler-inspired) in SmallStack green -->
+  <g transform="translate(2, 4)">
+    <rect x="0" y="0" width="14" height="14" rx="2.5" fill="#0C4B33"/>
+    <rect x="17" y="0" width="14" height="14" rx="2.5" fill="#1A6B4A"/>
+    <rect x="0" y="17" width="14" height="14" rx="2.5" fill="#2BA977"/>
+    <rect x="17" y="17" width="14" height="14" rx="2.5" fill="#4FD1A5"/>
   </g>
 
   <!-- Text: Django SmallStack -->

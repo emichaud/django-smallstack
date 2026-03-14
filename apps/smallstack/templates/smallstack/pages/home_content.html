@@ -89,77 +89,135 @@
     </div>
 </div>
 
+<!-- Customize CTA -->
+<a href="{% url 'help:section_detail' 'smallstack' 'customization' %}" class="customize-banner customize-banner-hero">
+    <div class="customize-banner-icon">
+        <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
+            <path d="M7.5 5.6L10 7 8.6 4.5 10 2 7.5 3.4 5 2l1.4 2.5L5 7zm12 9.8L17 14l1.4 2.5L17 19l2.5-1.4L22 19l-1.4-2.5L22 14zM22 2l-2.5 1.4L17 2l1.4 2.5L17 7l2.5-1.4L22 7l-1.4-2.5zm-7.63 5.29c-.39-.39-1.02-.39-1.41 0L1.29 18.96c-.39.39-.39 1.02 0 1.41l2.34 2.34c.39.39 1.02.39 1.41 0L16.71 11.04c.39-.39.39-1.02 0-1.41l-2.34-2.34zM5.71 20.37L3.63 18.29 13.29 8.63l2.08 2.08-9.66 9.66z"/>
+        </svg>
+    </div>
+    <div class="customize-banner-body">
+        <strong>Make it yours</strong>
+        <span>Every page, nav link, color, and component is yours to change. See the customization guide.</span>
+    </div>
+    <div class="customize-banner-arrow">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg>
+    </div>
+</a>
+
 <!-- Features Grid -->
 <div class="features-grid">
-    <div class="feature-card">
-        <div class="feature-icon feature-icon-primary">
-            <svg viewBox="0 0 24 24" width="28" height="28" fill="currentColor">
-                <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
-            </svg>
+    <a href="{% url 'help:section_detail' 'smallstack' 'customization' %}" class="feature-card">
+        <div class="feature-card-header">
+            <div class="feature-icon feature-icon-primary">
+                <svg viewBox="0 0 24 24" width="28" height="28" fill="currentColor">
+                    <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+                </svg>
+            </div>
+            <h3>Profile App</h3>
         </div>
-        <h3>Profile App</h3>
-        <p>Complete user profile management with photo uploads, cover images, bio, location, and customizable display names. Extend it with your own fields.</p>
-    </div>
+        <p>User profile management with photo uploads, cover images, bio, location, and customizable display names.</p>
+        <div class="feature-card-footer">
+            <span>Read docs</span>
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg>
+        </div>
+    </a>
 
-    <div class="feature-card">
-        <div class="feature-icon feature-icon-secondary">
-            <svg viewBox="0 0 24 24" width="28" height="28" fill="currentColor">
-                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 17h-2v-2h2v2zm2.07-7.75l-.9.92C13.45 12.9 13 13.5 13 15h-2v-.5c0-1.1.45-2.1 1.17-2.83l1.24-1.26c.37-.36.59-.86.59-1.41 0-1.1-.9-2-2-2s-2 .9-2 2H8c0-2.21 1.79-4 4-4s4 1.79 4 4c0 .88-.36 1.68-.93 2.25z"/>
-            </svg>
+    <a href="{% url 'help:section_detail' 'smallstack' 'help-system' %}" class="feature-card">
+        <div class="feature-card-header">
+            <div class="feature-icon feature-icon-secondary">
+                <svg viewBox="0 0 24 24" width="28" height="28" fill="currentColor">
+                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 17h-2v-2h2v2zm2.07-7.75l-.9.92C13.45 12.9 13 13.5 13 15h-2v-.5c0-1.1.45-2.1 1.17-2.83l1.24-1.26c.37-.36.59-.86.59-1.41 0-1.1-.9-2-2-2s-2 .9-2 2H8c0-2.21 1.79-4 4-4s4 1.79 4 4c0 .88-.36 1.68-.93 2.25z"/>
+                </svg>
+            </div>
+            <h3>Help System</h3>
         </div>
-        <h3>Help System</h3>
-        <p>Built-in documentation system with markdown support, table of contents, search, and easy-to-edit content files. Perfect for user guides or internal docs.</p>
-    </div>
+        <p>Built-in documentation with markdown, table of contents, search, and easy-to-edit content files.</p>
+        <div class="feature-card-footer">
+            <span>Read docs</span>
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg>
+        </div>
+    </a>
 
-    <div class="feature-card">
-        <div class="feature-icon feature-icon-accent">
-            <svg viewBox="0 0 24 24" width="28" height="28" fill="currentColor">
-                <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 14l-5-5 1.41-1.41L12 14.17l7.59-7.59L21 8l-9 9z"/>
-            </svg>
+    <a href="{% url 'help:section_detail' 'smallstack' 'background-tasks' %}" class="feature-card">
+        <div class="feature-card-header">
+            <div class="feature-icon feature-icon-accent">
+                <svg viewBox="0 0 24 24" width="28" height="28" fill="currentColor">
+                    <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 14l-5-5 1.41-1.41L12 14.17l7.59-7.59L21 8l-9 9z"/>
+                </svg>
+            </div>
+            <h3>Background Tasks</h3>
         </div>
-        <h3>Background Tasks</h3>
-        <p>Django 6's new Tasks framework is pre-configured with database backend. Send emails, process data, and run jobs in the background effortlessly.</p>
-    </div>
+        <p>Django 6's Tasks framework pre-configured with database backend. Send emails and run jobs effortlessly.</p>
+        <div class="feature-card-footer">
+            <span>Read docs</span>
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg>
+        </div>
+    </a>
 
-    <div class="feature-card">
-        <div class="feature-icon feature-icon-success">
-            <svg viewBox="0 0 24 24" width="28" height="28" fill="currentColor">
-                <path d="M5 9.2h3V19H5zM10.6 5h2.8v14h-2.8zm5.6 8H19v6h-2.8z"/>
-            </svg>
+    <a href="{% url 'help:section_detail' 'smallstack' 'activity-tracking' %}" class="feature-card">
+        <div class="feature-card-header">
+            <div class="feature-icon feature-icon-success">
+                <svg viewBox="0 0 24 24" width="28" height="28" fill="currentColor">
+                    <path d="M5 9.2h3V19H5zM10.6 5h2.8v14h-2.8zm5.6 8H19v6h-2.8z"/>
+                </svg>
+            </div>
+            <h3>Activity Tracking</h3>
         </div>
-        <h3>Activity Tracking</h3>
-        <p>Lightweight request logging with automatic database pruning. Staff dashboard shows site health, response times, user activity, and theme preferences. Live-updating via htmx.</p>
-    </div>
+        <p>Request logging with auto-pruning. Staff dashboard for site health, response times, and user activity.</p>
+        <div class="feature-card-footer">
+            <span>Read docs</span>
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg>
+        </div>
+    </a>
 
-    <div class="feature-card">
-        <div class="feature-icon feature-icon-success">
-            <svg viewBox="0 0 24 24" width="28" height="28" fill="currentColor">
-                <path d="M12 3c-4.97 0-9 4.03-9 9s4.03 9 9 9c.83 0 1.5-.67 1.5-1.5 0-.39-.15-.74-.39-1.01-.23-.26-.38-.61-.38-.99 0-.83.67-1.5 1.5-1.5H16c2.76 0 5-2.24 5-5 0-4.42-4.03-8-9-8zm-5.5 9c-.83 0-1.5-.67-1.5-1.5S5.67 9 6.5 9 8 9.67 8 10.5 7.33 12 6.5 12zm3-4C8.67 8 8 7.33 8 6.5S8.67 5 9.5 5s1.5.67 1.5 1.5S10.33 8 9.5 8zm5 0c-.83 0-1.5-.67-1.5-1.5S13.67 5 14.5 5s1.5.67 1.5 1.5S15.33 8 14.5 8zm3 4c-.83 0-1.5-.67-1.5-1.5S16.67 9 17.5 9s1.5.67 1.5 1.5-.67 1.5-1.5 1.5z"/>
-            </svg>
+    <a href="{% url 'help:section_detail' 'smallstack' 'theming' %}" class="feature-card">
+        <div class="feature-card-header">
+            <div class="feature-icon feature-icon-success">
+                <svg viewBox="0 0 24 24" width="28" height="28" fill="currentColor">
+                    <path d="M12 3c-4.97 0-9 4.03-9 9s4.03 9 9 9c.83 0 1.5-.67 1.5-1.5 0-.39-.15-.74-.39-1.01-.23-.26-.38-.61-.38-.99 0-.83.67-1.5 1.5-1.5H16c2.76 0 5-2.24 5-5 0-4.42-4.03-8-9-8zm-5.5 9c-.83 0-1.5-.67-1.5-1.5S5.67 9 6.5 9 8 9.67 8 10.5 7.33 12 6.5 12zm3-4C8.67 8 8 7.33 8 6.5S8.67 5 9.5 5s1.5.67 1.5 1.5S10.33 8 9.5 8zm5 0c-.83 0-1.5-.67-1.5-1.5S13.67 5 14.5 5s1.5.67 1.5 1.5S15.33 8 14.5 8zm3 4c-.83 0-1.5-.67-1.5-1.5S16.67 9 17.5 9s1.5.67 1.5 1.5-.67 1.5-1.5 1.5z"/>
+                </svg>
+            </div>
+            <h3>Theming</h3>
         </div>
-        <h3>Theming</h3>
-        <p>Beautiful light and dark modes with CSS custom properties. Customize colors, shadows, and spacing from a single file. User preferences are saved.</p>
-    </div>
+        <p>Light and dark modes with CSS custom properties. Multiple palettes, customizable from a single file.</p>
+        <div class="feature-card-footer">
+            <span>Read docs</span>
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg>
+        </div>
+    </a>
 
-    <div class="feature-card">
-        <div class="feature-icon feature-icon-info">
-            <svg viewBox="0 0 24 24" width="28" height="28" fill="currentColor">
-                <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm0 10.99h7c-.53 4.12-3.28 7.79-7 8.94V12H5V6.3l7-3.11v8.8z"/>
-            </svg>
+    <a href="{% url 'help:section_detail' 'smallstack' 'authentication' %}" class="feature-card">
+        <div class="feature-card-header">
+            <div class="feature-icon feature-icon-info">
+                <svg viewBox="0 0 24 24" width="28" height="28" fill="currentColor">
+                    <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm0 10.99h7c-.53 4.12-3.28 7.79-7 8.94V12H5V6.3l7-3.11v8.8z"/>
+                </svg>
+            </div>
+            <h3>Authentication</h3>
         </div>
-        <h3>Authentication</h3>
-        <p>Custom User model ready for email login. Password reset flows, secure sessions, and extensible auth patterns built on Django's proven foundation.</p>
-    </div>
+        <p>Custom User model ready for email login. Password reset, secure sessions, and extensible auth patterns.</p>
+        <div class="feature-card-footer">
+            <span>Read docs</span>
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg>
+        </div>
+    </a>
 
-    <div class="feature-card">
-        <div class="feature-icon feature-icon-warning">
-            <svg viewBox="0 0 24 24" width="28" height="28" fill="currentColor">
-                <path d="M13.98 11.08h2.12a.19.19 0 0 0 .19-.19V9.01a.19.19 0 0 0-.19-.19h-2.12a.19.19 0 0 0-.19.19v1.88c0 .11.08.19.19.19m-2.95-5.43h2.12a.19.19 0 0 0 .19-.19V3.58a.19.19 0 0 0-.19-.19h-2.12a.19.19 0 0 0-.19.19v1.88c0 .1.09.19.19.19m0 2.71h2.12a.19.19 0 0 0 .19-.19V6.29a.19.19 0 0 0-.19-.19h-2.12a.19.19 0 0 0-.19.19v1.88c0 .11.09.19.19.19m-2.93 0h2.12a.19.19 0 0 0 .19-.19V6.29a.19.19 0 0 0-.19-.19H8.1a.19.19 0 0 0-.19.19v1.88c0 .11.08.19.19.19m-2.96 0h2.11a.19.19 0 0 0 .19-.19V6.29a.19.19 0 0 0-.19-.19H5.14a.19.19 0 0 0-.19.19v1.88c0 .11.08.19.19.19m5.89 2.72h2.12a.19.19 0 0 0 .19-.19V9.01a.19.19 0 0 0-.19-.19h-2.12a.19.19 0 0 0-.19.19v1.88c0 .11.09.19.19.19m-2.93 0h2.12a.19.19 0 0 0 .19-.19V9.01a.19.19 0 0 0-.19-.19H8.1a.19.19 0 0 0-.19.19v1.88c0 .11.08.19.19.19m-2.96 0h2.11a.19.19 0 0 0 .19-.19V9.01a.19.19 0 0 0-.19-.19H5.14a.19.19 0 0 0-.19.19v1.88c0 .11.08.19.19.19m-2.92 0h2.12a.19.19 0 0 0 .19-.19V9.01a.19.19 0 0 0-.19-.19H2.22a.19.19 0 0 0-.19.19v1.88c0 .11.08.19.19.19m21.54-1.19c-.06-.05-.43-.35-1.27-.35-.23 0-.46.02-.69.07-.58-1.21-1.73-1.76-1.78-1.78l-.36-.18-.2.34c-.26.44-.39.94-.38 1.44.02.47.14.93.37 1.33-.54.31-1.42.39-1.6.39H.73a.73.73 0 0 0-.73.73c0 2.68.79 4.86 2.22 6.3 1.56 1.58 3.91 2.38 6.97 2.38 5.45 0 9.49-2.51 11.38-7.07.74.01 2.34.01 3.16-1.56.02-.04.08-.14.24-.46l.09-.19z"/>
-            </svg>
+    <a href="{% url 'help:section_detail' 'smallstack' 'docker-deployment' %}" class="feature-card">
+        <div class="feature-card-header">
+            <div class="feature-icon feature-icon-warning">
+                <svg viewBox="0 0 24 24" width="28" height="28" fill="currentColor">
+                    <path d="M13.98 11.08h2.12a.19.19 0 0 0 .19-.19V9.01a.19.19 0 0 0-.19-.19h-2.12a.19.19 0 0 0-.19.19v1.88c0 .11.08.19.19.19m-2.95-5.43h2.12a.19.19 0 0 0 .19-.19V3.58a.19.19 0 0 0-.19-.19h-2.12a.19.19 0 0 0-.19.19v1.88c0 .1.09.19.19.19m0 2.71h2.12a.19.19 0 0 0 .19-.19V6.29a.19.19 0 0 0-.19-.19h-2.12a.19.19 0 0 0-.19.19v1.88c0 .11.09.19.19.19m-2.93 0h2.12a.19.19 0 0 0 .19-.19V6.29a.19.19 0 0 0-.19-.19H8.1a.19.19 0 0 0-.19.19v1.88c0 .11.08.19.19.19m-2.96 0h2.11a.19.19 0 0 0 .19-.19V6.29a.19.19 0 0 0-.19-.19H5.14a.19.19 0 0 0-.19.19v1.88c0 .11.08.19.19.19m5.89 2.72h2.12a.19.19 0 0 0 .19-.19V9.01a.19.19 0 0 0-.19-.19h-2.12a.19.19 0 0 0-.19.19v1.88c0 .11.09.19.19.19m-2.93 0h2.12a.19.19 0 0 0 .19-.19V9.01a.19.19 0 0 0-.19-.19H8.1a.19.19 0 0 0-.19.19v1.88c0 .11.08.19.19.19m-2.96 0h2.11a.19.19 0 0 0 .19-.19V9.01a.19.19 0 0 0-.19-.19H5.14a.19.19 0 0 0-.19.19v1.88c0 .11.08.19.19.19m-2.92 0h2.12a.19.19 0 0 0 .19-.19V9.01a.19.19 0 0 0-.19-.19H2.22a.19.19 0 0 0-.19.19v1.88c0 .11.08.19.19.19m21.54-1.19c-.06-.05-.43-.35-1.27-.35-.23 0-.46.02-.69.07-.58-1.21-1.73-1.76-1.78-1.78l-.36-.18-.2.34c-.26.44-.39.94-.38 1.44.02.47.14.93.37 1.33-.54.31-1.42.39-1.6.39H.73a.73.73 0 0 0-.73.73c0 2.68.79 4.86 2.22 6.3 1.56 1.58 3.91 2.38 6.97 2.38 5.45 0 9.49-2.51 11.38-7.07.74.01 2.34.01 3.16-1.56.02-.04.08-.14.24-.46l.09-.19z"/>
+                </svg>
+            </div>
+            <h3>Docker Ready</h3>
         </div>
-        <h3>Docker Ready</h3>
-        <p>Production-ready Docker configuration with multi-service compose, health checks, and background worker. Deploy anywhere containers run.</p>
-    </div>
+        <p>Production-ready Docker with multi-service compose, health checks, and background worker.</p>
+        <div class="feature-card-footer">
+            <span>Read docs</span>
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg>
+        </div>
+    </a>
 </div>
 
 <!-- Call to Action -->
@@ -213,13 +271,7 @@
                 <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
                     <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
                 </svg>
-                <span>View Profile</span>
-            </a>
-            <a href="{% url 'profile_edit' %}" class="quick-link">
-                <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
-                    <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
-                </svg>
-                <span>Edit Profile</span>
+                <span>My Profile</span>
             </a>
             <a href="{% url 'help:index' %}" class="quick-link">
                 <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
@@ -228,6 +280,42 @@
                 <span>Help & Docs</span>
             </a>
             {% if user.is_staff %}
+            <a href="{% url 'smallstack_dashboard' %}" class="quick-link">
+                <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
+                    <path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"/>
+                </svg>
+                <span>Dashboard</span>
+            </a>
+            <a href="{% url 'explorer-index' %}" class="quick-link">
+                <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
+                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/>
+                </svg>
+                <span>Explorer</span>
+            </a>
+            <a href="{% url 'manage/users-list' %}" class="quick-link">
+                <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
+                    <path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/>
+                </svg>
+                <span>Users</span>
+            </a>
+            <a href="{% url 'activity:dashboard' %}" class="quick-link">
+                <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
+                    <path d="M5 9.2h3V19H5zM10.6 5h2.8v14h-2.8zm5.6 8H19v6h-2.8z"/>
+                </svg>
+                <span>Activity</span>
+            </a>
+            <a href="{% url 'heartbeat:status' %}" class="quick-link">
+                <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
+                    <path d="M3.5 18.49l6-6.01 4 4L22 6.92l-1.41-1.41-7.09 7.97-4-4L2 16.99z"/>
+                </svg>
+                <span>Status</span>
+            </a>
+            <a href="{% url 'smallstack:backups' %}" class="quick-link">
+                <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
+                    <path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM14 13v4h-4v-4H7l5-5 5 5h-3z"/>
+                </svg>
+                <span>Backups</span>
+            </a>
             <a href="{% url 'admin:index' %}" class="quick-link">
                 <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
                     <path d="M19.14 12.94c.04-.31.06-.63.06-.94 0-.31-.02-.63-.06-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.04.31-.06.63-.06.94s.02.63.06.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/>
@@ -238,4 +326,5 @@
         </div>
     </div>
 </div>
+
 {% endif %}

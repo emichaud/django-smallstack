@@ -621,3 +621,11 @@ When adding a new CRUD management page:
 - [ ] Tests for access control and table rendering
 - [ ] Custom list template (optional — only if you want the title bar pattern)
 - [ ] Search partial template (optional — only if you add HTMX search)
+
+## See Also: Explorer
+
+If you want CRUD views without writing any of the above, Explorer can auto-generate everything from your existing `ModelAdmin` registrations. Add `explorer_enabled = True` to your admin class and you get list, detail, create, update, and delete views at `/smallstack/explorer/`. Explorer's composability mixins also let you embed auto-generated CRUD tables into your own custom pages — bridging the gap between zero-config Explorer and fully custom CRUDView.
+
+- [Explorer Overview](/smallstack/help/explorer/) — How Explorer works and when to use it
+- [Enabling Models for Explorer](/smallstack/help/explorer/admin-api/) — ModelAdmin API reference
+- [Composability Guide](/smallstack/help/explorer/composability/) — Embed Explorer tables into custom pages

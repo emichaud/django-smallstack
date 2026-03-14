@@ -1,20 +1,88 @@
 {% load static theme_tags %}
 <header class="topbar">
     <div class="topbar-left">
-        <!-- Hamburger menu toggle -->
+        <!-- Hamburger menu toggle (hidden when sidebar is disabled) -->
+        {% block sidebar_toggle %}
         {% if smallstack_sidebar_enabled %}
         <button class="sidebar-toggle" id="sidebar-toggle" type="button" aria-label="Toggle sidebar">
-            <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
-                <path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/>
+            <svg viewBox="0 0 48 48" width="24" height="24">
+                <rect x="4" y="4" width="18" height="18" rx="3" fill="#0C4B33"/>
+                <rect x="26" y="4" width="18" height="18" rx="3" fill="#1A6B4A"/>
+                <rect x="4" y="26" width="18" height="18" rx="3" fill="#2BA977"/>
+                <rect x="26" y="26" width="18" height="18" rx="3" fill="#4FD1A5"/>
             </svg>
         </button>
         {% endif %}
+        {% endblock %}
         <!-- Site logo (text only) -->
         <a href="{% url 'website:home' %}" class="site-logo">
             <img src="{% static brand.logo_text %}" alt="{{ brand.name }}" class="logo-img">
         </a>
     </div>
 
+    {# === Unified topbar nav: renders from nav registry === #}
+    {# If a "topbar" section is registered, it replaces "main" in the topbar. #}
+    <nav class="topbar-nav-auto" aria-label="Main navigation">
+        <ul class="topbar-nav-list">
+            {% for group in nav_items %}
+            {% if group.section == "topbar" or group.section == "main" and not nav_has_topbar_section %}
+                {% for item in group.items %}
+                <li class="topbar-nav-item{% if item.children %} has-submenu{% endif %}">
+                    {% if item.children %}
+                    <button class="topbar-nav-link{% if item.has_active_child %} active{% endif %}"
+                            type="button" aria-expanded="false" aria-haspopup="true">
+                        {{ item.label }}
+                        <svg class="topbar-nav-chevron" viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
+                            <path d="M7 10l5 5 5-5z"/>
+                        </svg>
+                    </button>
+                    <ul class="topbar-submenu">
+                        {% for child in item.children %}
+                        <li><a href="{{ child.url }}" class="topbar-submenu-link{% if child.active %} active{% endif %}">{{ child.label }}</a></li>
+                        {% endfor %}
+                    </ul>
+                    {% else %}
+                    <a href="{{ item.url }}" class="topbar-nav-link{% if item.active %} active{% endif %}">{{ item.label }}</a>
+                    {% endif %}
+                </li>
+                {% endfor %}
+            {% elif group.section == "resources" %}
+                <li class="topbar-nav-item has-submenu">
+                    <button class="topbar-nav-link" type="button" aria-expanded="false" aria-haspopup="true">
+                        Resources
+                        <svg class="topbar-nav-chevron" viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
+                            <path d="M7 10l5 5 5-5z"/>
+                        </svg>
+                    </button>
+                    <ul class="topbar-submenu">
+                        {% for item in group.items %}
+                        <li><a href="{{ item.url }}" class="topbar-submenu-link{% if item.active %} active{% endif %}">{{ item.label }}</a></li>
+                        {% endfor %}
+                    </ul>
+                </li>
+            {% elif group.section == "admin" %}
+                {% if user.is_staff %}
+                <li class="topbar-nav-item has-submenu">
+                    <button class="topbar-nav-link" type="button" aria-expanded="false" aria-haspopup="true">
+                        Admin
+                        <svg class="topbar-nav-chevron" viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
+                            <path d="M7 10l5 5 5-5z"/>
+                        </svg>
+                    </button>
+                    <ul class="topbar-submenu">
+                        {% for item in group.items %}
+                        <li><a href="{{ item.url }}" class="topbar-submenu-link{% if item.active %} active{% endif %}">{{ item.label }}</a></li>
+                        {% endfor %}
+                        <li><a href="{% url 'admin:index' %}" class="topbar-submenu-link">Admin Panel</a></li>
+                    </ul>
+                </li>
+                {% endif %}
+            {% endif %}
+            {% endfor %}
+        </ul>
+    </nav>
+
+    {# === Legacy topbar nav from settings (deprecated — will be removed) === #}
     {% if smallstack_topbar_nav_enabled and smallstack_topbar_nav_items %}
     <nav class="topbar-nav" aria-label="Main navigation">
         <ul class="topbar-nav-list">
@@ -45,8 +113,7 @@
     {% endif %}
 
     <div class="topbar-right">
-        <!-- Dark/Light mode toggle (visible when logged out) -->
-        {% if not user.is_authenticated %}
+        <!-- Dark/Light mode toggle (always visible) -->
         <button class="theme-toggle" id="theme-toggle" type="button" aria-label="Toggle theme">
             <svg class="sun-icon" viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
                 <path d="M12 7c-2.76 0-5 2.24-5 5s2.24 5 5 5 5-2.24 5-5-2.24-5-5-5zM2 13h2c.55 0 1-.45 1-1s-.45-1-1-1H2c-.55 0-1 .45-1 1s.45 1 1 1zm18 0h2c.55 0 1-.45 1-1s-.45-1-1-1h-2c-.55 0-1 .45-1 1s.45 1 1 1zM11 2v2c0 .55.45 1 1 1s1-.45 1-1V2c0-.55-.45-1-1-1s-1 .45-1 1zm0 18v2c0 .55.45 1 1 1s1-.45 1-1v-2c0-.55-.45-1-1-1s-1 .45-1 1zM5.99 4.58c-.39-.39-1.03-.39-1.41 0-.39.39-.39 1.03 0 1.41l1.06 1.06c.39.39 1.03.39 1.41 0s.39-1.03 0-1.41L5.99 4.58zm12.37 12.37c-.39-.39-1.03-.39-1.41 0-.39.39-.39 1.03 0 1.41l1.06 1.06c.39.39 1.03.39 1.41 0 .39-.39.39-1.03 0-1.41l-1.06-1.06zm1.06-10.96c.39-.39.39-1.03 0-1.41-.39-.39-1.03-.39-1.41 0l-1.06 1.06c-.39.39-.39 1.03 0 1.41s1.03.39 1.41 0l1.06-1.06zM7.05 18.36c.39-.39.39-1.03 0-1.41-.39-.39-1.03-.39-1.41 0l-1.06 1.06c-.39.39-.39 1.03 0 1.41s1.03.39 1.41 0l1.06-1.06z"/>
@@ -55,6 +122,41 @@
                 <path d="M12 3c-4.97 0-9 4.03-9 9s4.03 9 9 9 9-4.03 9-9c0-.46-.04-.92-.1-1.36-.98 1.37-2.58 2.26-4.4 2.26-2.98 0-5.4-2.42-5.4-5.4 0-1.81.89-3.42 2.26-4.4-.44-.06-.9-.1-1.36-.1z"/>
             </svg>
         </button>
+
+        <!-- Apps grid dropdown (staff only) -->
+        {% if user.is_staff %}
+        <div class="apps-menu">
+            <button class="apps-menu-toggle" id="apps-menu-toggle" type="button" aria-label="Apps" title="Apps">
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="3" y="3" width="7" height="7" rx="1"></rect>
+                    <rect x="14" y="3" width="7" height="7" rx="1"></rect>
+                    <rect x="3" y="14" width="7" height="7" rx="1"></rect>
+                    <rect x="14" y="14" width="7" height="7" rx="1"></rect>
+                </svg>
+            </button>
+            <div class="apps-dropdown" id="apps-dropdown">
+                <div class="apps-dropdown-header">
+                    <span>My Apps</span>
+                    {% if user.is_superuser %}
+                    <a href="{% url 'admin:index' %}" class="apps-dropdown-settings" title="Django Admin">
+                        <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+                            <path d="M19.14 12.94c.04-.31.06-.63.06-.94 0-.31-.02-.63-.06-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.04.31-.06.63-.06.94s.02.63.06.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/>
+                        </svg>
+                    </a>
+                    {% endif %}
+                </div>
+                <div class="apps-grid">
+                    {% for group in nav_items %}{% if group.section == "admin" %}{% for item in group.items %}
+                    <a href="{{ item.url }}" class="apps-grid-item{% if item.active %} active{% endif %}">
+                        <span class="apps-grid-icon">
+                            {{ item.icon_svg|safe }}
+                        </span>
+                        <span class="apps-grid-label">{{ item.label }}</span>
+                    </a>
+                    {% endfor %}{% endif %}{% endfor %}
+                </div>
+            </div>
+        </div>
         {% endif %}
 
         <!-- User menu -->
@@ -92,6 +194,12 @@
                         <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
                     </svg>
                     Edit Profile
+                </a>
+                <a href="{% url 'website:about' %}" class="dropdown-item">
+                    <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
+                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/>
+                    </svg>
+                    About
                 </a>
                 {% if user.is_staff %}
                 <a href="{% url 'admin:index' %}" class="dropdown-item">

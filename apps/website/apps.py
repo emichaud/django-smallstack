@@ -18,9 +18,8 @@ class WebsiteConfig(AppConfig):
         )
         nav.register(
             section="main",
-            label="About",
-            url_name="website:about",
-            icon_svg='<svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>',  # noqa: E501
-            auth_required=True,
-            order=40,
+            label="Getting Started",
+            url_name="website:getting_started",
+            icon_svg='<svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M13 9H9v2h4V9zm-2 4H9v2h2v-2zm4-4h-2v2h2V9zM9 3v2h6V3H9zm10 4V5l-2-2H7L5 5v2H3v14h18V7h-2zm0 12H5V7h2v2h10V7h2v12z"/></svg>',  # noqa: E501
+            order=10,
         )

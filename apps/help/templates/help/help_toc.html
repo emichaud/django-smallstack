@@ -1,0 +1,136 @@
+{% extends "smallstack/base.html" %}
+{% load static theme_tags %}
+
+{% block title %}{{ page_title }}{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'smallstack/help/css/help.css' %}">
+<style>
+.toc-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 20px;
+    background: color-mix(in srgb, var(--primary) 15%, var(--body-bg));
+    margin: -24px -24px 24px -24px;
+    padding: 24px;
+    border-radius: 8px 8px 0 0;
+}
+.toc-header h1 { margin: 0 0 0.25rem 0; }
+.toc-header .toc-meta {
+    color: var(--body-quiet-color);
+    font-size: 0.85rem;
+}
+.toc-category {
+    margin-bottom: 1.5rem;
+}
+.toc-category-title {
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--body-quiet-color);
+    border-bottom: 1px solid color-mix(in srgb, var(--primary) 20%, var(--body-bg));
+    padding-bottom: 0.4rem;
+    margin: 0 0 0.25rem 0;
+}
+.toc-list {
+    list-style: none !important;
+    margin: 0;
+    padding: 0;
+}
+.toc-list li {
+    list-style: none !important;
+}
+.toc-list li::before {
+    display: none !important;
+}
+.toc-item {
+    border-bottom: 1px solid color-mix(in srgb, var(--primary) 8%, var(--body-bg));
+}
+.toc-item:last-child {
+    border-bottom: none;
+}
+.toc-link {
+    display: block;
+    padding: 0.45rem 0.5rem;
+    text-decoration: none !important;
+    color: var(--body-fg);
+    transition: background 0.15s;
+    border-radius: 4px;
+}
+.toc-link:hover {
+    text-decoration: none !important;
+    background: color-mix(in srgb, var(--primary) 10%, var(--body-bg));
+}
+.toc-title {
+    font-weight: 600;
+    font-size: 0.85rem;
+    color: var(--primary);
+}
+.toc-desc {
+    display: block;
+    color: var(--body-quiet-color);
+    font-size: 0.78rem;
+    line-height: 1.3;
+    margin-top: 0.1rem;
+}
+.toc-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0 2.5rem;
+}
+@media (min-width: 768px) {
+    .toc-grid {
+        grid-template-columns: 1fr 1fr;
+    }
+}
+</style>
+{% endblock %}
+
+{% block breadcrumbs %}{% endblock %}
+
+{% block content %}
+<div class="toc-header">
+    <div class="page-header-content">
+        <h1>{{ section.title }}</h1>
+        <div class="toc-meta">Table of Contents &middot; {{ total_pages }} page{{ total_pages|pluralize }}</div>
+        <nav style="margin-top: 0.5rem; font-size: 0.8rem;">
+            <a href="{% url 'website:home' %}" style="color: var(--body-quiet-color); text-decoration: none;">Home</a>
+            <span style="color: var(--body-quiet-color); margin: 0 0.3rem;">/</span>
+            <a href="{% url 'help:index' %}" style="color: var(--body-quiet-color); text-decoration: none;">Help</a>
+            <span style="color: var(--body-quiet-color); margin: 0 0.3rem;">/</span>
+            <a href="{% url 'help:section_index' section.slug %}" style="color: var(--body-quiet-color); text-decoration: none;">{{ section.title }}</a>
+            <span style="color: var(--body-quiet-color); margin: 0 0.3rem;">/</span>
+            <span style="color: var(--body-fg);">Table of Contents</span>
+        </nav>
+    </div>
+    <div style="display: flex; gap: 0.5rem; align-items: center;">
+        <a href="{% url 'help:section_index' section.slug %}" class="btn" style="background: color-mix(in srgb, var(--primary) 20%, var(--body-bg)); color: var(--primary); padding: 0.5rem 1rem; border: none; border-radius: var(--radius-sm, 4px); text-decoration: none; font-size: 0.85rem;">
+            Docs
+        </a>
+    </div>
+</div>
+
+<div class="toc-grid">
+    {% for group in grouped_pages %}
+    <div class="toc-category">
+        {% if group.category %}
+        <h2 class="toc-category-title">{{ group.category }}</h2>
+        {% endif %}
+        <ul class="toc-list">
+            {% for page in group.pages %}
+            <li class="toc-item">
+                <a href="{% url 'help:section_detail' section.slug page.slug %}" class="toc-link">
+                    <span class="toc-title">{{ page.title }}</span>
+                    {% if page.description %}
+                    <span class="toc-desc">{{ page.description }}</span>
+                    {% endif %}
+                </a>
+            </li>
+            {% endfor %}
+        </ul>
+    </div>
+    {% endfor %}
+</div>
+{% endblock %}

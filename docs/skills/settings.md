@@ -96,7 +96,14 @@ SMALLSTACK_SIGNUP_ENABLED = config("SMALLSTACK_SIGNUP_ENABLED", default=True, ca
 SMALLSTACK_SIDEBAR_ENABLED = config("SMALLSTACK_SIDEBAR_ENABLED", default=True, cast=bool)
 
 # Start with sidebar closed by default (users can still toggle open)
-SMALLSTACK_SIDEBAR_OPEN = config("SMALLSTACK_SIDEBAR_OPEN", default=True, cast=bool)
+SMALLSTACK_SIDEBAR_OPEN = config("SMALLSTACK_SIDEBAR_OPEN", default=True, cast=bool)  # deprecated
+
+# Default sidebar state: "open", "closed", or "disabled"
+# Supersedes SMALLSTACK_SIDEBAR_OPEN. Can be overridden per-page.
+SMALLSTACK_SIDEBAR_DEFAULT = config("SMALLSTACK_SIDEBAR_DEFAULT", default="open")
+
+# Show the unified topbar nav even when the sidebar is open
+SMALLSTACK_TOPBAR_NAV_ALWAYS = config("SMALLSTACK_TOPBAR_NAV_ALWAYS", default=False, cast=bool)
 ```
 
 ### Activity Tracking

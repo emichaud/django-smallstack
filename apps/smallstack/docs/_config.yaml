@@ -8,7 +8,7 @@ slug: smallstack
 
 # Section-specific variables
 variables:
-  version: "0.8.1"
+  version: "0.8.4"
   project_name: "Django SmallStack"
 
 # Category display order for section index grouping
@@ -148,6 +148,12 @@ pages:
     icon: "home"
     category: "UI Components"
 
+  - slug: tables
+    title: "Tables"
+    description: "HTML tables and django-tables2 styled for dark and light themes"
+    icon: "folder"
+    category: "UI Components"
+
   - slug: theme-bars
     title: "Theme Bars"
     description: "Stacked horizontal bar data visualization"
@@ -196,17 +202,35 @@ pages:
     icon: "email"
     category: "Auth & Users"
 
+  - slug: explorer
+    title: "Model Explorer"
+    description: "Staff-facing data browser with auto-generated CRUD from your admin registrations"
+    icon: "globe"
+    category: "Built-in Tools"
+
+  - slug: explorer-admin-api
+    title: "Explorer ModelAdmin API"
+    description: "Full reference for ModelAdmin attributes that Explorer reads and supports"
+    icon: "settings"
+    category: "Development"
+
+  - slug: explorer-composability
+    title: "Explorer Composability"
+    description: "Embed Explorer CRUD tables and navigation into your own pages"
+    icon: "code"
+    category: "Development"
+
   - slug: background-tasks
     title: "Background Tasks"
     description: "Running tasks outside the request-response cycle"
     icon: "tasks"
-    category: "Built-in Tools"
+    category: "Development"
 
   - slug: user-manager
     title: "User Manager"
     description: "Built-in user management with search, profiles, activity stats, and timezone dashboard"
     icon: "users"
-    category: "Auth & Users"
+    category: "Built-in Tools"
 
   - slug: uptime-monitoring
     title: "Uptime Monitoring"
@@ -220,11 +244,17 @@ pages:
     icon: "chart"
     category: "Built-in Tools"
 
+  - slug: backup-tool
+    title: "Backup Tool"
+    description: "Visual dashboard for scheduling, running, and downloading database backups"
+    icon: "database"
+    category: "Built-in Tools"
+
   - slug: logging-audit
     title: "Logging & Audit Trail"
     description: "Built-in logging and activity tracking that just works"
     icon: "info"
-    category: "Built-in Tools"
+    category: "Development"
 
   - slug: package-management
     title: "Package Management"

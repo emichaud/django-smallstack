@@ -1,0 +1,157 @@
+<style>
+    .gs-header {
+        margin-bottom: 2rem;
+    }
+    .gs-header h1 {
+        margin: 0 0 0.5rem;
+        font-size: 1.75rem;
+        font-weight: 700;
+    }
+    .gs-header p {
+        margin: 0;
+        color: var(--body-quiet-color);
+        font-size: 0.95rem;
+    }
+
+    .gs-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 1.5rem;
+    }
+    @media (max-width: 768px) {
+        .gs-grid { grid-template-columns: 1fr; }
+    }
+
+    .gs-card {
+        background: var(--card-bg);
+        border: 1px solid var(--card-border);
+        border-radius: var(--radius-md, 8px);
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+    }
+    .gs-card-header {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 20px 24px;
+        border-bottom: 1px solid var(--card-border);
+        background: color-mix(in srgb, var(--primary) 4%, var(--body-bg));
+    }
+    .gs-card-icon {
+        width: 40px;
+        height: 40px;
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+        color: #fff;
+    }
+    .gs-card-header h2 {
+        margin: 0;
+        font-size: 1.1rem;
+        font-weight: 600;
+    }
+    .gs-card-header .gs-card-subtitle {
+        margin: 2px 0 0;
+        font-size: 0.85rem;
+        color: var(--body-quiet-color);
+    }
+    .gs-card-body {
+        padding: 20px 24px;
+        flex: 1;
+    }
+    .gs-card-body p {
+        margin: 0 0 1rem;
+        line-height: 1.6;
+        color: var(--body-fg);
+    }
+    .gs-card-body p:last-child {
+        margin-bottom: 0;
+    }
+
+    .gs-code {
+        background: #0a0a0a;
+        border: 1px solid #444;
+        border-radius: 6px;
+        padding: 14px 16px;
+        overflow-x: auto;
+        font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+        font-size: 0.82rem;
+        line-height: 1.5;
+        color: #ccc;
+        margin: 0.75rem 0;
+    }
+    [data-theme="light"] .gs-code {
+        background: #f5f5f5;
+        border-color: #d0d0d0;
+        color: #333;
+    }
+    .gs-code .kw { color: #c792ea; }
+    .gs-code .fn { color: #82aaff; }
+    .gs-code .st { color: #c3e88d; }
+    .gs-code .cm { color: #666; }
+    [data-theme="light"] .gs-code .kw { color: #7c4dff; }
+    [data-theme="light"] .gs-code .fn { color: #1565c0; }
+    [data-theme="light"] .gs-code .st { color: #2e7d32; }
+    [data-theme="light"] .gs-code .cm { color: #999; }
+
+    .gs-links {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 1rem;
+    }
+    .gs-link {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 14px;
+        font-size: 0.82rem;
+        font-weight: 500;
+        color: var(--primary);
+        background: color-mix(in srgb, var(--primary) 10%, transparent);
+        border: 1px solid color-mix(in srgb, var(--primary) 25%, transparent);
+        border-radius: 6px;
+        text-decoration: none;
+        transition: background 0.15s, border-color 0.15s;
+    }
+    .gs-link:hover {
+        background: color-mix(in srgb, var(--primary) 18%, transparent);
+        border-color: color-mix(in srgb, var(--primary) 40%, transparent);
+    }
+    .gs-link svg {
+        width: 14px;
+        height: 14px;
+        fill: currentColor;
+    }
+
+    .gs-setting-list {
+        margin: 0.5rem 0 0;
+        padding: 0;
+        list-style: none;
+    }
+    .gs-setting-list li {
+        padding: 6px 0;
+        border-bottom: 1px solid var(--card-border);
+        font-size: 0.88rem;
+    }
+    .gs-setting-list li:last-child {
+        border-bottom: none;
+    }
+    .gs-setting-list code {
+        background: #1a1a1a;
+        border: 1px solid #333;
+        border-radius: 4px;
+        padding: 2px 6px;
+        font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+        font-size: 0.82rem;
+        color: #e0e0e0;
+    }
+    [data-theme="light"] .gs-setting-list code {
+        background: #f0f0f0;
+        border-color: #d0d0d0;
+        color: #333;
+    }
+</style>

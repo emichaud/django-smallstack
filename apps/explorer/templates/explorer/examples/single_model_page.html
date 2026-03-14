@@ -159,6 +159,25 @@
         <div class="card-body">
             {% if object_list %}
                 {% crud_table %}
+                {% if page_obj.has_other_pages %}
+                <nav style="display: flex; justify-content: center; align-items: center; gap: 0.25rem; padding: 1rem 0 0.25rem; flex-wrap: wrap;">
+                    {% if page_obj.has_previous %}
+                    <a href="?page={{ page_obj.previous_page_number }}" style="display: inline-block; padding: 0.3rem 0.75rem; border-radius: var(--radius-sm, 4px); color: var(--body-quiet-color); text-decoration: none; font-size: 0.85rem;">&laquo; Prev</a>
+                    {% endif %}
+                    {% for num in page_range %}
+                        {% if num == page_obj.number %}
+                        <span style="display: inline-block; padding: 0.3rem 0.75rem; border-radius: var(--radius-sm, 4px); background: var(--primary); color: var(--button-fg); font-size: 0.85rem;">{{ num }}</span>
+                        {% elif num == '...' %}
+                        <span style="padding: 0.3rem 0.4rem; color: var(--body-quiet-color); font-size: 0.85rem;">&hellip;</span>
+                        {% else %}
+                        <a href="?page={{ num }}" style="display: inline-block; padding: 0.3rem 0.75rem; border-radius: var(--radius-sm, 4px); color: var(--body-quiet-color); text-decoration: none; font-size: 0.85rem;">{{ num }}</a>
+                        {% endif %}
+                    {% endfor %}
+                    {% if page_obj.has_next %}
+                    <a href="?page={{ page_obj.next_page_number }}" style="display: inline-block; padding: 0.3rem 0.75rem; border-radius: var(--radius-sm, 4px); color: var(--body-quiet-color); text-decoration: none; font-size: 0.85rem;">Next &raquo;</a>
+                    {% endif %}
+                </nav>
+                {% endif %}
             {% else %}
                 <p style="color: var(--body-quiet-color); padding: 2rem 0; text-align: center;">
                     No {{ object_verbose_name_plural }} found.

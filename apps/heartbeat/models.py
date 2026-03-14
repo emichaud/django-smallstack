@@ -109,6 +109,33 @@ class HeartbeatDaily(models.Model):
     def __str__(self):
         return f"{self.date} — {self.uptime_pct}% ({self.ok_count}/{self.expected_count})"
 
+    @classmethod
+    def get_daily_summary(cls, days=7):
+        """Return a list of daily ok/fail dicts for the last N days.
+
+        Always returns exactly `days` entries (oldest first), filling in
+        zeros for any day without a record.
+        """
+        import datetime
+
+        from django.utils import timezone
+
+        today = timezone.localdate()
+        lookup = {d.date: d for d in cls.objects.filter(
+            date__gte=today - datetime.timedelta(days=days - 1),
+        )}
+        result = []
+        for i in range(days - 1, -1, -1):
+            day = today - datetime.timedelta(days=i)
+            d = lookup.get(day)
+            result.append({
+                "label": day.strftime("%a"),
+                "date": day.isoformat(),
+                "ok": d.ok_count if d else 0,
+                "fail": d.fail_count if d else 0,
+            })
+        return result
+
 
 class Heartbeat(models.Model):
     """Records a single heartbeat check result."""

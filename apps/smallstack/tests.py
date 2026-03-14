@@ -625,11 +625,11 @@ class TestTopbarNav:
             request.user = type("AnonymousUser", (), {"is_authenticated": False, "is_staff": False})()
         return request
 
-    def test_disabled_by_default(self, client, db):
-        """Topbar nav should not appear when disabled (default)."""
+    def test_topbar_nav_renders(self, client, db):
+        """Topbar nav should render with registered nav items."""
         response = client.get("/")
         content = response.content.decode()
-        assert "topbar-nav" not in content
+        assert "topbar-nav" in content
 
     @override_settings(SMALLSTACK_TOPBAR_NAV_ENABLED=True, SMALLSTACK_TOPBAR_NAV_ITEMS=[
         {"label": "Home", "url": "website:home"},

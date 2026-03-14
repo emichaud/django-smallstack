@@ -21,9 +21,9 @@ description: Built-in user management with search, profiles, activity stats, and
 
 The list page follows the standard management page pattern:
 
-**Title bar** — "Users" heading with inline breadcrumbs (Home / Users) on the left, stat cards on the right showing Total users, Staff count, New signups (30 days), and Timezones configured.
+**Title bar** — "User Manager" heading with subtitle and inline breadcrumbs (Home / Users) on the left. On the right, a "Timezones" button links to the timezone dashboard and an "+ Add User" button opens the create form.
 
-**Stat card drilldowns** — click any stat card to open a modal with the detail breakdown. The "Total" card lists all active users with emails. The "Staff" card shows only staff accounts. The "Timezones" card shows configured timezones with user counts.
+**Stat cards** — four clickable cards below the title bar showing Recent (30d), Total Users, Staff, and Timezones. Click any card to open a modal with the detail breakdown. The "Total" card lists all active users with emails. The "Staff" card shows only staff accounts. The "Recent" card shows users who joined in the last 30 days. The "Timezones" card shows configured timezones with user counts.
 
 **Search** — type in the search bar to filter users by username, email, first name, or last name. Results update instantly via HTMX without a page reload.
 
@@ -35,7 +35,7 @@ The list page follows the standard management page pattern:
 
 ![User edit form](/static/smallstack/docs/images/usermanager-edit.png)
 
-The edit page uses a tabbed layout with three sections:
+The edit page uses a title bar showing the username, breadcrumbs (Home / Users / username), and summary cards for Status (green "Active" or red "Inactive"), Member Since (month and year), and Role ("Staff" badge, shown only for staff users). Below the title bar is a tabbed layout with three sections:
 
 ### Account Tab
 
@@ -43,7 +43,14 @@ Standard Django user fields: username, email, first name, last name, staff statu
 
 ### Profile Tab
 
-Extended fields from the UserProfile model: profile photo, timezone, and any additional fields your project adds. The profile is auto-created via signals when a user is created — no manual setup needed.
+Extended fields from the UserProfile model. The profile is auto-created via signals when a user is created — no manual setup needed.
+
+The tab opens with a two-column photo upload area — profile photo (circular crop) and background photo (wide crop) — with drag-and-drop preview. Below that:
+
+- **Display name** — shown publicly, falls back to username
+- **Bio** — free-text description
+- **Location** and **Website** — side by side
+- **Date of birth** and **Timezone** — side by side
 
 The timezone field is a searchable dropdown with all IANA timezones. When set, dates and times throughout the interface display in that user's local timezone with a tooltip showing the server time and UTC.
 
@@ -54,10 +61,11 @@ A snapshot of the user's activity pulled from the request log:
 - **Total requests** — all-time request count
 - **Last 30 days** — recent activity volume
 - **Avg response** — average response time in ms
-- **Last seen** — when they last made a request
-- **Top paths** — their most-visited pages (last 30 days)
-- **Status breakdown** — HTTP status code distribution
-- **Daily sparkline** — visual activity trend for the last 7 days
+- **Last 7 days** — recent weekly activity
+- **Daily sparkline** — visual bar chart of request volume for the last 7 days
+- **Top pages** — their most-visited paths (last 30 days)
+- **Status codes** — HTTP status code distribution with color-coded badges (2xx green, 3xx blue, 4xx yellow, 5xx red)
+- **Last seen** — relative timestamp of their most recent request
 
 This gives you a quick read on whether a user is active and how they're using the site — without switching to the Activity dashboard.
 
@@ -79,26 +87,49 @@ By building timezone handling into the base, downstream projects inherit correct
 
 ### What It Shows
 
-**Live clocks** — analog clocks showing current time in each unique timezone across your team, with city name and UTC offset.
+**Title bar** — "Timezones" heading with breadcrumbs (Home / Users / Timezones) and summary cards showing total users, unique timezones, and regions.
 
-**Sortable table** — each user with a configured timezone, showing:
+**Live clocks** — three digital clocks updating every second: UTC, Server Time (with timezone label), and Your Local Time (detected from the browser). Each shows 24-hour time, 12-hour time with AM/PM, and the full date.
+
+**Filter buttons** — quick-filter the table by status or region: All, Working Hours, Off Hours, Staff Only, and one button per geographic region (Americas, Europe, Asia & Pacific, etc.). Filters work client-side for instant results.
+
+**Sortable table** — each user with their timezone data, showing:
 
 | Column | Description |
 |--------|-------------|
-| User | Avatar, name, staff badge, link to edit page |
-| Timezone | IANA timezone (e.g., America/New_York) |
-| Local Time | Current time in 12-hour format with timezone abbreviation |
-| UTC Offset | Hours ahead/behind UTC |
-| Status | Working (green), Off Hours, or Night — based on local business hours |
-| Region | Geographic region extracted from the timezone |
+| User | Avatar (photo or initial), name, staff badge, link to edit page |
+| Timezone | Friendly display name from IANA timezone |
+| Local Time | Live-updating current time in 12-hour format with timezone abbreviation |
+| UTC Offset | Hours ahead/behind UTC (e.g., UTC+5:30) |
+| Status | Working (green dot), Off Hours (gray dot), or Night (yellow dot) |
+| Region | Geographic region: Americas, Europe, Asia & Pacific, Africa & Middle East |
 
-**Search** — filter by username, timezone, or region.
+**Search** — filter by username, email, timezone, display name, or region. Results update via HTMX without page reload.
 
 ### The "Working" Indicator
 
 The status column uses a simple heuristic: if it's a weekday and between 8 AM and 6 PM in the user's timezone, they're marked as "Working" with a green dot. Night hours (10 PM – 6 AM) show a yellow dot. Everything else shows a gray "Off Hours" indicator.
 
 This isn't meant to be a presence system — it's a quick visual reference for "is it a reasonable time to message this person?"
+
+### Configuring Work Hours
+
+The working indicator reads from three Django settings, all optional:
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| `WORK_HOURS_START` | `8` | Hour (0-23) when work begins |
+| `WORK_HOURS_END` | `18` | Hour (0-23) when work ends |
+| `WORK_DAYS` | `(0, 1, 2, 3, 4)` | Weekday integers (0=Monday through 6=Sunday) |
+
+For example, to set a 9-to-5 schedule that includes Saturday:
+
+```python
+# config/settings/base.py
+WORK_HOURS_START = 9
+WORK_HOURS_END = 17
+WORK_DAYS = (0, 1, 2, 3, 4, 5)  # Mon–Sat
+```
 
 ## Architecture
 
@@ -133,7 +164,7 @@ class UserCRUDView(CRUDView):
 
 This generates four URL patterns, four views, and wires up the table, form, pagination, and access control. The `_make_view` method is overridden to inject search filtering, profile form handling, and self-delete protection.
 
-See the [Extending with AI](/help/smallstack/extending-with-ai/) page for the full CRUDView pattern documentation.
+See the [Building CRUD Pages](/help/smallstack/building-crud-pages/) guide for the full CRUDView pattern documentation.
 
 ## Access Control
 

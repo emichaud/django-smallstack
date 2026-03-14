@@ -152,17 +152,11 @@
     --shadow-lg: 0 10px 20px rgba(0, 0, 0, 0.5);
 }
 
-/* Sidebar flash prevention — applied by inline head script, removed by theme.js */
-html.sidebar-will-close .sidebar {
-    transform: translateX(-100%);
-}
-
-html.sidebar-will-close .main-content {
-    margin-left: 0;
-}
-
-html.sidebar-will-close .site-footer {
-    margin-left: 0;
+/* Sidebar flash prevention — suppress transition on initial page load */
+html.no-sidebar-transition .sidebar,
+html.no-sidebar-transition .main-content,
+html.no-sidebar-transition .site-footer {
+    transition: none !important;
 }
 
 /* ============================================
@@ -328,6 +322,129 @@ body.sidebar-closed .main-content {
 [data-theme="light"] .sun-icon,
 [data-theme="dark"] .moon-icon {
     display: block;
+}
+
+/* Apps Menu */
+.apps-menu {
+    position: relative;
+    margin-right: 4px;
+}
+
+.apps-menu-toggle {
+    background: none;
+    border: 1px solid transparent;
+    color: var(--header-fg);
+    cursor: pointer;
+    padding: 6px;
+    border-radius: var(--radius-sm);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background-color var(--transition-fast), border-color var(--transition-fast);
+}
+
+.apps-menu-toggle:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+    border-color: rgba(255, 255, 255, 0.15);
+}
+
+[data-theme="light"] .apps-menu-toggle:hover {
+    background-color: rgba(0, 0, 0, 0.06);
+    border-color: rgba(0, 0, 0, 0.1);
+}
+
+.apps-dropdown {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    margin-top: 8px;
+    background-color: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-lg);
+    width: 300px;
+    display: none;
+    z-index: 1001;
+    overflow: hidden;
+}
+
+.apps-dropdown.show {
+    display: block;
+}
+
+.apps-dropdown-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-muted);
+    border-bottom: 1px solid var(--card-border);
+}
+
+.apps-dropdown-settings {
+    color: var(--text-muted);
+    transition: color var(--transition-fast);
+}
+
+.apps-dropdown-settings:hover {
+    color: var(--primary);
+}
+
+.apps-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 2px;
+    padding: 12px;
+}
+
+.apps-grid-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    padding: 16px 8px;
+    border-radius: var(--radius-sm);
+    text-decoration: none;
+    color: var(--body-fg);
+    transition: background-color var(--transition-fast);
+}
+
+.apps-grid-item:hover {
+    background-color: color-mix(in srgb, var(--primary) 10%, var(--card-bg));
+    text-decoration: none;
+    color: var(--body-fg);
+}
+
+.apps-grid-item.active {
+    background-color: color-mix(in srgb, var(--primary) 8%, var(--card-bg));
+}
+
+.apps-grid-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 38px;
+    height: 38px;
+    border-radius: var(--radius-sm);
+    background-color: color-mix(in srgb, var(--primary) 8%, var(--card-bg));
+    border: 1px solid color-mix(in srgb, var(--primary) 14%, var(--card-bg));
+    color: var(--primary);
+}
+
+.apps-grid-icon svg {
+    width: 20px;
+    height: 20px;
+}
+
+.apps-grid-label {
+    font-size: 0.78rem;
+    font-weight: 500;
+    text-align: center;
+    line-height: 1.2;
 }
 
 /* User Menu */
@@ -767,8 +884,9 @@ a.topbar-nav-link.active::after {
 }
 
 @media (max-width: 768px) {
-    .topbar-nav {
-        display: none;
+    .topbar-nav,
+    .topbar-nav-auto {
+        display: none !important;
     }
 }
 
@@ -875,6 +993,107 @@ a.topbar-nav-link.active::after {
 
 .nav-link.disabled:hover {
     background-color: transparent;
+}
+
+/* --- Sidebar Submenu --- */
+
+.nav-group {
+    margin: 2px 8px;
+}
+
+.nav-parent {
+    cursor: pointer;
+    width: 100%;
+    background: none;
+    border: none;
+    font: inherit;
+    /* Inherits .nav-link styles via class */
+}
+
+.nav-chevron {
+    margin-left: auto;
+    transition: transform 0.2s ease;
+    width: 16px;
+    height: 16px;
+    opacity: 0.5;
+    flex-shrink: 0;
+}
+
+.nav-group.open .nav-chevron {
+    transform: rotate(180deg);
+}
+
+.nav-submenu {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.25s ease;
+}
+
+.nav-group.open .nav-submenu {
+    max-height: 500px;
+}
+
+.nav-child {
+    padding-left: 46px;
+    font-size: 0.9rem;
+}
+
+/* --- Sidebar State Selectors --- */
+
+body[data-sidebar-state="disabled"] .sidebar,
+body[data-sidebar-state="disabled"] .sidebar-overlay {
+    display: none !important;
+}
+
+body[data-sidebar-state="disabled"] .sidebar-toggle {
+    display: none;
+}
+
+body[data-sidebar-state="disabled"] .main-content {
+    margin-left: 0;
+}
+
+body[data-sidebar-state="disabled"] .site-footer {
+    margin-left: 0;
+}
+
+/* --- Topbar Unified Nav (shown when sidebar closed/disabled) --- */
+
+.topbar-nav-auto {
+    display: none;
+    align-items: center;
+    gap: 4px;
+    flex: 1;
+    margin: 0 16px;
+}
+
+.topbar-nav-auto .topbar-nav-list {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+/* Show topbar nav when sidebar is closed/disabled ("auto" mode) */
+body[data-sidebar-state="closed"] .topbar-nav-auto,
+body[data-sidebar-state="disabled"] .topbar-nav-auto,
+body.sidebar-closed .topbar-nav-auto {
+    display: flex;
+}
+
+/* Show topbar nav always, regardless of sidebar state */
+body[data-topbar-nav="always"] .topbar-nav-auto {
+    display: flex;
+}
+
+/* Hide topbar nav entirely (per-page override) */
+body[data-topbar-nav="hidden"] .topbar-nav-auto {
+    display: none !important;
 }
 
 .sidebar-overlay {
@@ -1255,11 +1474,11 @@ a:hover .tz-tip::after {
 .theme-toggle-btn.active {
     border-color: var(--primary);
     background-color: var(--primary);
-    color: var(--primary-fg);
+    color: var(--button-fg);
 }
 
 .theme-toggle-btn.active svg {
-    fill: var(--primary-fg);
+    fill: var(--button-fg);
 }
 
 .theme-toggle-btn svg {
@@ -1619,10 +1838,20 @@ body.sidebar-closed .site-footer {
     font-size: 1rem;
 }
 
-.profile-edit-btn {
+.profile-edit-btn.button-primary {
     flex-shrink: 0;
     align-self: flex-end;
     margin-bottom: 4px;
+    background-color: var(--card-bg);
+    border-color: var(--card-bg);
+    color: var(--primary);
+    font-weight: 600;
+}
+
+.profile-edit-btn.button-primary:hover {
+    background-color: var(--body-bg);
+    border-color: var(--body-bg);
+    color: var(--primary-hover);
 }
 
 .profile-content {
@@ -2338,28 +2567,55 @@ a.button.button-secondary:hover {
     background-color: var(--card-bg);
     border: 1px solid var(--card-border);
     border-radius: var(--radius-md);
-    padding: 24px 22px;
+    padding: 16px 18px;
     transition: transform var(--transition-fast), box-shadow var(--transition-fast);
+    text-decoration: none;
+    display: block;
+    color: inherit;
 }
 
 .feature-card:hover {
-    transform: translateY(-3px);
+    transform: translateY(-2px);
     box-shadow: var(--shadow-lg);
+    text-decoration: none;
+    color: inherit;
+}
+
+.feature-card-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 8px;
 }
 
 .feature-icon {
-    width: 48px;
-    height: 48px;
-    border-radius: var(--radius-md);
+    width: 36px;
+    height: 36px;
+    border-radius: var(--radius-sm);
     display: flex;
     align-items: center;
     justify-content: center;
-    margin-bottom: 16px;
+    flex-shrink: 0;
 }
 
 .feature-icon svg {
-    width: 24px;
-    height: 24px;
+    width: 20px;
+    height: 20px;
+}
+
+.feature-card-footer {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-top: 8px;
+    font-size: 0.78rem;
+    font-weight: 500;
+    color: var(--primary);
+}
+
+.feature-card-footer svg {
+    width: 14px;
+    height: 14px;
 }
 
 .feature-icon-primary {
@@ -2423,16 +2679,94 @@ a.button.button-secondary:hover {
 }
 
 .feature-card h3 {
-    font-size: 1.1rem;
+    font-size: 0.95rem;
     font-weight: 600;
-    margin-bottom: 8px;
+    margin: 0;
     color: var(--body-fg);
 }
 
 .feature-card p {
-    font-size: 1rem;
+    font-size: 0.85rem;
     color: var(--text-muted);
-    line-height: 1.55;
+    line-height: 1.45;
+    margin: 0;
+}
+
+/* ============================================
+   Customize Banner
+   ============================================ */
+
+.customize-banner {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 20px 24px;
+    margin-bottom: 28px;
+    border-radius: var(--radius-md);
+    background: linear-gradient(135deg,
+        color-mix(in srgb, var(--primary) 14%, var(--body-bg)),
+        color-mix(in srgb, var(--primary) 6%, var(--body-bg)));
+    border: 2px solid color-mix(in srgb, var(--primary) 25%, var(--body-bg));
+    text-decoration: none !important;
+    color: var(--body-fg) !important;
+    transition: border-color 0.2s, background 0.2s, box-shadow 0.2s;
+}
+
+.customize-banner:hover {
+    border-color: var(--primary);
+    background: linear-gradient(135deg,
+        color-mix(in srgb, var(--primary) 20%, var(--body-bg)),
+        color-mix(in srgb, var(--primary) 10%, var(--body-bg)));
+    box-shadow: 0 4px 20px color-mix(in srgb, var(--primary) 15%, transparent);
+}
+
+.customize-banner-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: color-mix(in srgb, var(--primary) 22%, var(--body-bg));
+    color: var(--primary);
+    flex-shrink: 0;
+    animation: customize-sparkle 3s ease-in-out infinite;
+}
+
+@keyframes customize-sparkle {
+    0%, 100% { transform: rotate(0deg) scale(1); }
+    25% { transform: rotate(-8deg) scale(1.1); }
+    75% { transform: rotate(8deg) scale(1.1); }
+}
+
+.customize-banner-body {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.customize-banner-body strong {
+    font-size: 1.05rem;
+    color: var(--primary);
+}
+
+.customize-banner-body span {
+    font-size: 0.88rem;
+    color: var(--text-muted);
+    line-height: 1.4;
+}
+
+.customize-banner-arrow {
+    color: var(--primary);
+    flex-shrink: 0;
+    opacity: 0.5;
+    transition: opacity 0.15s, transform 0.15s;
+}
+
+.customize-banner:hover .customize-banner-arrow {
+    opacity: 1;
+    transform: translateX(4px);
 }
 
 /* ============================================

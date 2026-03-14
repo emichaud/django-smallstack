@@ -3,6 +3,7 @@ from django.urls import path
 from .registry import explorer_registry
 from .views import (
     ExplorerAppPageView,
+    ExplorerClassicIndexView,
     ExplorerGroupPageView,
     ExplorerHeartbeatPageView,
     ExplorerIndexView,
@@ -12,6 +13,11 @@ from .views import (
 urlpatterns = [
     path("explorer/", ExplorerIndexView.as_view(), name="explorer-index"),
     # Composability examples
+    path(
+        "explorer/examples/classic/",
+        ExplorerClassicIndexView.as_view(),
+        name="explorer-example-classic",
+    ),
     path(
         "explorer/examples/group/<str:group>/",
         ExplorerGroupPageView.as_view(),

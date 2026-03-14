@@ -3,8 +3,10 @@
  *
  * Handles:
  * - Dark/Light mode toggle with localStorage persistence
- * - Sidebar collapse behavior
+ * - Sidebar collapse behavior with state control (open/closed/disabled)
+ * - Sidebar submenu expand/collapse
  * - User dropdown menu
+ * - Topbar navigation submenus
  * - Message dismissal
  */
 
@@ -67,8 +69,8 @@
         });
 
         // Save theme preference to profile via htmx (if authenticated and htmx available)
-        if (config.isAuthenticated && typeof htmx !== 'undefined') {
-            htmx.ajax('POST', '/profile/theme/', {
+        if (config.isAuthenticated && typeof htmx !== 'undefined' && config.urls && config.urls.themePreference) {
+            htmx.ajax('POST', config.urls.themePreference, {
                 values: { theme: theme },
                 swap: 'none'
             });
@@ -152,8 +154,8 @@
         });
 
         // Save palette preference to profile via htmx (if authenticated and htmx available)
-        if (config.isAuthenticated && typeof htmx !== 'undefined') {
-            htmx.ajax('POST', '/profile/palette/', {
+        if (config.isAuthenticated && typeof htmx !== 'undefined' && config.urls && config.urls.palettePreference) {
+            htmx.ajax('POST', config.urls.palettePreference, {
                 values: { palette: palette || '' },
                 swap: 'none'
             });
@@ -173,67 +175,83 @@
     }
 
     // ============================================
-    // Sidebar Toggle
+    // Sidebar Toggle (State-based)
     // ============================================
+
+    const SIDEBAR_STATE_KEY = 'smallstack-sidebar-state';
 
     function initSidebar() {
         const sidebarToggle = document.getElementById('sidebar-toggle');
         const sidebar = document.getElementById('sidebar');
         const overlay = document.getElementById('sidebar-overlay');
+        const body = document.body;
+        const isForced = body.hasAttribute('data-sidebar-forced');
+        var currentState = body.dataset.sidebarState || config.sidebarDefault || 'open';
 
-        // If sidebar is disabled, ensure closed state and clean up flash class
-        if (!config.sidebarEnabled) {
-            document.body.classList.add('sidebar-closed');
-            document.documentElement.classList.remove('sidebar-will-close');
+        function enableTransitions() {
+            requestAnimationFrame(function() {
+                requestAnimationFrame(function() {
+                    document.documentElement.classList.remove('no-sidebar-transition');
+                });
+            });
+        }
+
+        // If sidebar is disabled, apply state and return early
+        if (currentState === 'disabled' || !config.sidebarEnabled) {
+            body.dataset.sidebarState = 'disabled';
+            body.classList.add('sidebar-closed');
+            enableTransitions();
             return;
         }
 
-        if (!sidebar) return;
-
-        const SIDEBAR_STATE_KEY = 'smallstack-sidebar-closed';
+        if (!sidebar) { enableTransitions(); return; }
 
         function isMobile() {
             return window.innerWidth <= 768;
         }
 
-        function openSidebar() {
-            sidebar.classList.remove('closed');
-            document.body.classList.remove('sidebar-closed');
-            if (isMobile() && overlay) overlay.classList.add('show');
-            if (!isMobile()) {
-                localStorage.setItem(SIDEBAR_STATE_KEY, 'false');
-            }
-        }
+        function setState(state) {
+            currentState = state;
+            body.dataset.sidebarState = state;
 
-        function closeSidebar() {
-            sidebar.classList.add('closed');
-            document.body.classList.add('sidebar-closed');
-            if (overlay) overlay.classList.remove('show');
-            if (!isMobile()) {
-                localStorage.setItem(SIDEBAR_STATE_KEY, 'true');
+            if (state === 'open') {
+                sidebar.classList.remove('closed');
+                body.classList.remove('sidebar-closed');
+                if (isMobile() && overlay) overlay.classList.add('show');
+            } else {
+                sidebar.classList.add('closed');
+                body.classList.add('sidebar-closed');
+                if (overlay) overlay.classList.remove('show');
+            }
+
+            // Persist to localStorage (only if not forced by server)
+            if (!isForced && !isMobile()) {
+                localStorage.setItem(SIDEBAR_STATE_KEY, state);
             }
         }
 
         function toggleSidebar() {
-            if (sidebar.classList.contains('closed')) {
-                openSidebar();
-            } else {
-                closeSidebar();
+            setState(currentState === 'open' ? 'closed' : 'open');
+        }
+
+        // Restore from localStorage if not forced by server
+        if (!isForced && !isMobile()) {
+            var saved = localStorage.getItem(SIDEBAR_STATE_KEY);
+            if (saved === 'open' || saved === 'closed') {
+                currentState = saved;
             }
         }
 
-        // Remove the flash-prevention class (CSS takes over from here)
-        document.documentElement.classList.remove('sidebar-will-close');
-
-        // On mobile, start closed. On desktop, restore from localStorage or use default
+        // On mobile, always start closed
         if (isMobile()) {
-            closeSidebar();
-        } else {
-            var stored = localStorage.getItem(SIDEBAR_STATE_KEY);
-            if (stored === 'true' || (stored === null && !config.sidebarOpen)) {
-                closeSidebar();
-            }
+            currentState = 'closed';
         }
+
+        // Apply initial state (with transitions suppressed via CSS)
+        setState(currentState);
+
+        // Re-enable transitions after the browser has painted the correct state
+        enableTransitions();
 
         // Hamburger toggle in topbar
         if (sidebarToggle) {
@@ -242,14 +260,29 @@
 
         // Close sidebar when clicking overlay (mobile)
         if (overlay) {
-            overlay.addEventListener('click', closeSidebar);
+            overlay.addEventListener('click', function() {
+                setState('closed');
+            });
         }
 
-        // Handle resize - close on mobile, restore on desktop
-        window.addEventListener('resize', () => {
+        // Handle resize - close on mobile
+        window.addEventListener('resize', function() {
             if (isMobile()) {
-                closeSidebar();
+                setState('closed');
             }
+        });
+
+        // --- Submenu toggle ---
+        document.querySelectorAll('[data-submenu] .nav-parent').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                btn.closest('[data-submenu]').classList.toggle('open');
+            });
+        });
+
+        // Auto-open submenu with active child
+        document.querySelectorAll('.nav-submenu .nav-link.active').forEach(function(el) {
+            var group = el.closest('[data-submenu]');
+            if (group) group.classList.add('open');
         });
     }
 
@@ -265,6 +298,42 @@
 
         menuToggle.addEventListener('click', (e) => {
             e.stopPropagation();
+            // Close apps dropdown if open
+            const appsDropdown = document.getElementById('apps-dropdown');
+            if (appsDropdown) appsDropdown.classList.remove('show');
+            dropdown.classList.toggle('show');
+        });
+
+        // Close dropdown when clicking outside
+        document.addEventListener('click', (e) => {
+            if (!menuToggle.contains(e.target) && !dropdown.contains(e.target)) {
+                dropdown.classList.remove('show');
+            }
+        });
+
+        // Close dropdown on Escape key
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                dropdown.classList.remove('show');
+            }
+        });
+    }
+
+    // ============================================
+    // Apps Menu Dropdown
+    // ============================================
+
+    function initAppsMenu() {
+        const menuToggle = document.getElementById('apps-menu-toggle');
+        const dropdown = document.getElementById('apps-dropdown');
+
+        if (!menuToggle || !dropdown) return;
+
+        menuToggle.addEventListener('click', (e) => {
+            e.stopPropagation();
+            // Close user dropdown if open
+            const userDropdown = document.getElementById('user-dropdown');
+            if (userDropdown) userDropdown.classList.remove('show');
             dropdown.classList.toggle('show');
         });
 
@@ -288,6 +357,7 @@
     // ============================================
 
     function initTopbarNav() {
+        // Handle both .topbar-nav and .topbar-nav-auto submenus
         const navItems = document.querySelectorAll('.topbar-nav-item.has-submenu');
         if (!navItems.length) return;
 
@@ -379,6 +449,7 @@
         initPalette();
         initSidebar();
         initUserMenu();
+        initAppsMenu();
         initTopbarNav();
         initMessages();
 

@@ -1,0 +1,842 @@
+{% extends "smallstack/base.html" %}
+{% load theme_tags %}
+
+{% block title %}Layout Preview{% endblock %}
+{% block breadcrumbs %}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .layout-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+        gap: 1.25rem;
+    }
+
+    .layout-card {
+        position: relative;
+        background: var(--card-bg);
+        border: 2px solid var(--card-border);
+        border-radius: var(--radius-md, 8px);
+        padding: 0;
+        cursor: pointer;
+        transition: border-color 0.2s, box-shadow 0.2s, transform 0.15s;
+        overflow: hidden;
+    }
+    .layout-card:hover {
+        border-color: var(--primary);
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.12);
+        transform: translateY(-2px);
+    }
+    .layout-card.active {
+        border-color: var(--primary);
+        box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 25%, transparent);
+    }
+    .layout-card.active::after {
+        content: "Active";
+        position: absolute;
+        top: 12px;
+        right: 12px;
+        background: var(--primary);
+        color: #fff;
+        font-size: 0.7rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        padding: 3px 8px;
+        border-radius: 4px;
+        z-index: 1;
+    }
+
+    /* Mini layout diagram inside each card */
+    .layout-diagram {
+        background: color-mix(in srgb, var(--primary) 6%, var(--body-bg));
+        padding: 16px;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        min-height: 120px;
+    }
+    .diagram-topbar {
+        height: 10px;
+        background: var(--primary);
+        border-radius: 2px;
+        display: flex;
+        align-items: center;
+        gap: 3px;
+        padding: 0 4px;
+    }
+    .diagram-topbar-nav {
+        display: flex;
+        gap: 2px;
+        margin-left: 8px;
+    }
+    .diagram-topbar-nav span {
+        width: 14px;
+        height: 4px;
+        background: rgba(255,255,255,0.5);
+        border-radius: 1px;
+    }
+    .diagram-body {
+        display: flex;
+        flex: 1;
+        gap: 4px;
+    }
+    .diagram-sidebar {
+        width: 28px;
+        background: color-mix(in srgb, var(--primary) 20%, var(--body-bg));
+        border-radius: 2px;
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        padding: 3px 2px;
+    }
+    .diagram-sidebar span {
+        height: 3px;
+        background: color-mix(in srgb, var(--primary) 40%, var(--body-bg));
+        border-radius: 1px;
+    }
+    .diagram-content {
+        flex: 1;
+        background: var(--content-bg);
+        border-radius: 2px;
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+        padding: 4px;
+    }
+    .diagram-content span {
+        height: 3px;
+        background: color-mix(in srgb, var(--body-fg) 15%, var(--content-bg));
+        border-radius: 1px;
+    }
+    .diagram-content span:first-child {
+        width: 60%;
+        height: 4px;
+        background: color-mix(in srgb, var(--body-fg) 25%, var(--content-bg));
+    }
+
+    .layout-info {
+        padding: 16px;
+    }
+    .layout-title {
+        font-size: 1rem;
+        font-weight: 600;
+        margin-bottom: 4px;
+    }
+    .layout-desc {
+        font-size: 0.85rem;
+        color: var(--body-quiet-color);
+        line-height: 1.4;
+    }
+    .layout-tags {
+        display: flex;
+        gap: 6px;
+        flex-wrap: wrap;
+        margin-top: 10px;
+    }
+    .layout-tag {
+        font-size: 0.7rem;
+        font-weight: 500;
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+        padding: 2px 8px;
+        border-radius: 4px;
+        background: color-mix(in srgb, var(--primary) 10%, var(--body-bg));
+        color: var(--primary);
+    }
+
+
+    /* Page-level tabs */
+    .page-tabs {
+        display: flex;
+        gap: 0;
+        border-bottom: 2px solid var(--card-border);
+        margin-bottom: 1.5rem;
+    }
+    .page-tabs button {
+        padding: 0.7rem 1.5rem;
+        border: none;
+        background: transparent;
+        color: var(--body-quiet-color);
+        font-size: 0.92rem;
+        font-weight: 500;
+        cursor: pointer;
+        border-bottom: 2px solid transparent;
+        margin-bottom: -2px;
+        transition: color 0.15s, border-color 0.15s;
+    }
+    .page-tabs button:hover { color: var(--body-fg); }
+    .page-tabs button.active {
+        color: var(--primary);
+        border-bottom-color: var(--primary);
+    }
+    .page-tab-panel { display: none; }
+    .page-tab-panel.active { display: block; }
+
+    /* Docs reference section */
+    .ref-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+        gap: 1.25rem;
+    }
+    .ref-card {
+        background: #0a0a0a;
+        border: 1px solid #444;
+        border-radius: var(--radius-md, 8px);
+        overflow: hidden;
+    }
+    [data-theme="light"] .ref-card {
+        background: #f5f5f5;
+        border-color: #d0d0d0;
+    }
+    .ref-card-header {
+        padding: 14px 18px;
+        border-bottom: 1px solid #333;
+        background: transparent;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+    [data-theme="light"] .ref-card-header {
+        border-bottom-color: #d0d0d0;
+    }
+    .ref-card-header h3 {
+        margin: 0;
+        font-size: 0.95rem;
+        font-weight: 600;
+        color: #e0e0e0;
+    }
+    [data-theme="light"] .ref-card-header h3 {
+        color: #333;
+    }
+    .ref-card-header .ref-badge {
+        font-size: 0.68rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+        padding: 2px 7px;
+        border-radius: 3px;
+        background: var(--primary);
+        color: #fff;
+        margin-left: auto;
+    }
+    .ref-card-body { padding: 18px; }
+
+    /* Code blocks */
+    .lp-code-wrap {
+        position: relative;
+        background: #0a0a0a !important;
+        border: 1px solid #444 !important;
+        border-radius: 6px;
+        overflow: hidden;
+        margin-bottom: 12px;
+    }
+    .lp-code-wrap:last-child { margin-bottom: 0; }
+    [data-theme="light"] .lp-code-wrap {
+        background: #f5f5f5 !important;
+        border-color: #d0d0d0 !important;
+    }
+    .lp-code-wrap pre {
+        margin: 0;
+        padding: 1rem 1.25rem;
+        overflow-x: auto;
+        font-size: 13px !important;
+        line-height: 1.7 !important;
+        color: #e0e0e0 !important;
+        font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+        -webkit-font-smoothing: antialiased;
+    }
+    [data-theme="light"] .lp-code-wrap pre { color: #333 !important; }
+    .lp-code-label {
+        display: block;
+        padding: 0.4rem 1.25rem;
+        font-size: 12px;
+        font-weight: 500;
+        color: #888;
+        border-bottom: 1px solid #444;
+        font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+    }
+    [data-theme="light"] .lp-code-label { border-bottom-color: #d0d0d0; }
+    .lp-copy-btn {
+        position: absolute;
+        top: 0.5rem;
+        right: 0.5rem;
+        padding: 0.3rem 0.65rem;
+        border: 1px solid #555;
+        border-radius: 4px;
+        background: #222;
+        color: #ccc;
+        font-size: 12px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: color 0.15s, border-color 0.15s;
+    }
+    .lp-copy-btn:hover { color: #fff; border-color: #888; }
+    [data-theme="light"] .lp-copy-btn {
+        background: #e8e8e8;
+        border-color: #ccc;
+        color: #555;
+    }
+
+    .ref-note {
+        font-size: 0.84rem;
+        color: #999;
+        line-height: 1.5;
+        margin-top: 10px;
+        padding: 8px 12px;
+        background: #111;
+        border-left: 3px solid #555;
+        border-radius: 0 4px 4px 0;
+    }
+    [data-theme="light"] .ref-note {
+        color: var(--body-quiet-color);
+        background: color-mix(in srgb, var(--info-fg) 8%, var(--body-bg));
+        border-left-color: var(--info-fg);
+    }
+    .ref-note code {
+        background: #1a1a1a;
+        padding: 1px 5px;
+        border-radius: 3px;
+        font-size: 0.82rem;
+        color: #ccc;
+        border: 1px solid #333;
+    }
+    [data-theme="light"] .ref-note code {
+        background: #e8e8e8;
+        color: #333;
+        border-color: #ccc;
+    }
+
+    .ref-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.84rem;
+        margin-bottom: 10px;
+        background: #0a0a0a !important;
+        border-radius: 6px;
+        overflow: hidden;
+        border: 1px solid #444;
+    }
+    [data-theme="light"] .ref-table {
+        background: #f5f5f5 !important;
+        border-color: #d0d0d0;
+    }
+    .ref-table tr,
+    .ref-table tr:nth-child(odd),
+    .ref-table tr:nth-child(even),
+    .ref-table thead tr,
+    .ref-table tbody tr {
+        background: transparent !important;
+    }
+    .ref-table th {
+        text-align: left;
+        padding: 8px 14px;
+        font-weight: 500;
+        font-size: 0.72rem;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: #666;
+        border-bottom: 1px solid #333;
+        background: transparent !important;
+    }
+    [data-theme="light"] .ref-table th {
+        color: #888;
+        border-bottom-color: #d0d0d0;
+    }
+    .ref-table td {
+        padding: 9px 14px;
+        border-bottom: 1px solid #222;
+        color: #ccc;
+        background: transparent !important;
+        font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+        font-size: 0.82rem;
+    }
+    [data-theme="light"] .ref-table td {
+        border-bottom-color: #e4e4e4;
+        color: #444;
+    }
+    .ref-table tr:last-child td {
+        border-bottom: none;
+    }
+    .ref-table code {
+        background: #1a1a1a;
+        padding: 2px 6px;
+        border-radius: 3px;
+        font-size: 0.82rem;
+        color: #e0e0e0;
+        border: 1px solid #333;
+    }
+    [data-theme="light"] .ref-table code {
+        background: #e8e8e8;
+        color: #333;
+        border-color: #ccc;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header-with-actions" style="background: color-mix(in srgb, var(--primary) 15%, var(--body-bg)); margin: -24px -24px 24px -24px; padding: 24px; border-radius: 8px 8px 0 0;">
+    <div class="page-header-content">
+        <h1>Layout Preview</h1>
+        <p class="page-subtitle" id="header-subtitle">Tap a card to preview different navigation layouts. Changes are temporary.</p>
+    </div>
+    <div class="page-header-actions" id="header-actions" style="display:none;">
+        <span style="font-size: 0.85rem; color: var(--body-quiet-color);">Previewing: <strong id="preview-name"></strong></span>
+        <button class="button button-secondary" onclick="resetLayout()" style="white-space:nowrap;">Reset</button>
+    </div>
+</div>
+
+<div class="page-tabs" id="page-tabs">
+    <button type="button" data-pagetab="preview" class="active">Preview</button>
+    <button type="button" data-pagetab="reference">Code Reference</button>
+</div>
+
+<!-- ===== PREVIEW TAB ===== -->
+<div class="page-tab-panel active" id="pagetab-preview">
+
+    <div class="layout-grid">
+
+        <!-- Card 1: Full Layout -->
+        <div class="layout-card" onclick="applyLayout('full')" id="card-full">
+            <div class="layout-diagram">
+                <div class="diagram-topbar"></div>
+                <div class="diagram-body">
+                    <div class="diagram-sidebar">
+                        <span></span><span style="width:70%"></span><span></span><span style="width:80%"></span>
+                    </div>
+                    <div class="diagram-content">
+                        <span></span><span></span><span style="width:80%"></span><span style="width:50%"></span>
+                    </div>
+                </div>
+            </div>
+            <div class="layout-info">
+                <div class="layout-title">Full Layout</div>
+                <div class="layout-desc">Sidebar open, topbar shows logo and user menu only. Classic admin pattern.</div>
+                <div class="layout-tags">
+                    <span class="layout-tag">Sidebar: Open</span>
+                    <span class="layout-tag">Topbar Nav: Auto</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Card 2: Topbar Only -->
+        <div class="layout-card" onclick="applyLayout('topbar-only')" id="card-topbar-only">
+            <div class="layout-diagram">
+                <div class="diagram-topbar">
+                    <div class="diagram-topbar-nav">
+                        <span></span><span></span><span></span><span></span>
+                    </div>
+                </div>
+                <div class="diagram-body">
+                    <div class="diagram-content" style="width: 100%;">
+                        <span></span><span></span><span style="width:80%"></span><span style="width:50%"></span>
+                    </div>
+                </div>
+            </div>
+            <div class="layout-info">
+                <div class="layout-title">Topbar Only</div>
+                <div class="layout-desc">No sidebar. Navigation lives in the topbar. Great for marketing or public pages.</div>
+                <div class="layout-tags">
+                    <span class="layout-tag">Sidebar: Disabled</span>
+                    <span class="layout-tag">Topbar Nav: Always</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Card 3: Dual Nav -->
+        <div class="layout-card" onclick="applyLayout('dual')" id="card-dual">
+            <div class="layout-diagram">
+                <div class="diagram-topbar">
+                    <div class="diagram-topbar-nav">
+                        <span></span><span></span><span></span>
+                    </div>
+                </div>
+                <div class="diagram-body">
+                    <div class="diagram-sidebar">
+                        <span></span><span style="width:70%"></span><span></span><span style="width:80%"></span>
+                    </div>
+                    <div class="diagram-content">
+                        <span></span><span></span><span style="width:80%"></span><span style="width:50%"></span>
+                    </div>
+                </div>
+            </div>
+            <div class="layout-info">
+                <div class="layout-title">Dual Navigation</div>
+                <div class="layout-desc">Sidebar and topbar both visible. Maximum navigation surface for complex apps.</div>
+                <div class="layout-tags">
+                    <span class="layout-tag">Sidebar: Open</span>
+                    <span class="layout-tag">Topbar Nav: Always</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Card 4: Collapsed Sidebar + Topbar -->
+        <div class="layout-card" onclick="applyLayout('collapsed')" id="card-collapsed">
+            <div class="layout-diagram">
+                <div class="diagram-topbar">
+                    <div class="diagram-topbar-nav">
+                        <span></span><span></span><span></span><span></span>
+                    </div>
+                </div>
+                <div class="diagram-body">
+                    <div class="diagram-content" style="width: 100%;">
+                        <span></span><span></span><span style="width:80%"></span><span style="width:50%"></span>
+                    </div>
+                </div>
+            </div>
+            <div class="layout-info">
+                <div class="layout-title">Sidebar Collapsed</div>
+                <div class="layout-desc">Sidebar closed by default with topbar nav. Users can toggle the sidebar open.</div>
+                <div class="layout-tags">
+                    <span class="layout-tag">Sidebar: Closed</span>
+                    <span class="layout-tag">Topbar Nav: Always</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Card 5: Minimal -->
+        <div class="layout-card" onclick="applyLayout('minimal')" id="card-minimal">
+            <div class="layout-diagram">
+                <div class="diagram-topbar">
+                    <div class="diagram-topbar-nav">
+                        <span></span><span></span><span></span>
+                    </div>
+                </div>
+                <div class="diagram-body">
+                    <div class="diagram-content" style="width: 100%;">
+                        <span></span><span></span><span style="width:80%"></span><span style="width:50%"></span>
+                    </div>
+                </div>
+            </div>
+            <div class="layout-info">
+                <div class="layout-title">Minimal</div>
+                <div class="layout-desc">Sidebar closed, topbar nav appears automatically. Clean and content-focused.</div>
+                <div class="layout-tags">
+                    <span class="layout-tag">Sidebar: Closed</span>
+                    <span class="layout-tag">Topbar Nav: Auto</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Card 6: Sidebar Only -->
+        <div class="layout-card" onclick="applyLayout('sidebar-only')" id="card-sidebar-only">
+            <div class="layout-diagram">
+                <div class="diagram-topbar"></div>
+                <div class="diagram-body">
+                    <div class="diagram-sidebar">
+                        <span></span><span style="width:70%"></span><span></span>
+                        <span style="width:80%"></span><span></span><span style="width:60%"></span>
+                    </div>
+                    <div class="diagram-content">
+                        <span></span><span></span><span style="width:80%"></span><span style="width:50%"></span>
+                    </div>
+                </div>
+            </div>
+            <div class="layout-info">
+                <div class="layout-title">Sidebar Only</div>
+                <div class="layout-desc">All navigation in the sidebar. Topbar shows only logo and user controls. Traditional.</div>
+                <div class="layout-tags">
+                    <span class="layout-tag">Sidebar: Open</span>
+                    <span class="layout-tag">Topbar Nav: Hidden</span>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<!-- ===== CODE REFERENCE TAB ===== -->
+<div class="page-tab-panel" id="pagetab-reference">
+
+    <div class="ref-grid">
+
+        <!-- Full Layout -->
+        <div class="ref-card">
+            <div class="ref-card-header">
+                <h3>Full Layout</h3>
+                <span class="ref-badge">Default</span>
+            </div>
+            <div class="ref-card-body">
+                <div class="lp-code-wrap">
+                    <span class="lp-code-label">config/settings/base.py</span>
+                    <button type="button" class="lp-copy-btn" data-copy>Copy</button>
+                    <pre><code>SMALLSTACK_SIDEBAR_DEFAULT = "open"
+SMALLSTACK_TOPBAR_NAV_ALWAYS = False</code></pre>
+                </div>
+                <div class="lp-code-wrap">
+                    <span class="lp-code-label">templates/mypage.html</span>
+                    <button type="button" class="lp-copy-btn" data-copy>Copy</button>
+                    <pre><code>{% templatetag openblock %} block sidebar_state {% templatetag closeblock %}open{% templatetag openblock %} endblock {% templatetag closeblock %}
+{% templatetag openblock %} block topbar_nav_mode {% templatetag closeblock %}auto{% templatetag openblock %} endblock {% templatetag closeblock %}</code></pre>
+                </div>
+                <div class="ref-note">This is the default layout. No overrides needed unless you want to force it on a specific page.</div>
+            </div>
+        </div>
+
+        <!-- Topbar Only -->
+        <div class="ref-card">
+            <div class="ref-card-header">
+                <h3>Topbar Only</h3>
+            </div>
+            <div class="ref-card-body">
+                <div class="lp-code-wrap">
+                    <span class="lp-code-label">config/settings/base.py</span>
+                    <button type="button" class="lp-copy-btn" data-copy>Copy</button>
+                    <pre><code>SMALLSTACK_SIDEBAR_DEFAULT = "disabled"
+SMALLSTACK_TOPBAR_NAV_ALWAYS = True</code></pre>
+                </div>
+                <div class="lp-code-wrap">
+                    <span class="lp-code-label">templates/mypage.html</span>
+                    <button type="button" class="lp-copy-btn" data-copy>Copy</button>
+                    <pre><code>{% templatetag openblock %} block sidebar_state {% templatetag closeblock %}disabled{% templatetag openblock %} endblock {% templatetag closeblock %}
+{% templatetag openblock %} block topbar_nav_mode {% templatetag closeblock %}always{% templatetag openblock %} endblock {% templatetag closeblock %}</code></pre>
+                </div>
+                <div class="ref-note">Great for marketing or public pages. No sidebar rendered, toggle button hidden.</div>
+            </div>
+        </div>
+
+        <!-- Dual Navigation -->
+        <div class="ref-card">
+            <div class="ref-card-header">
+                <h3>Dual Navigation</h3>
+            </div>
+            <div class="ref-card-body">
+                <div class="lp-code-wrap">
+                    <span class="lp-code-label">config/settings/base.py</span>
+                    <button type="button" class="lp-copy-btn" data-copy>Copy</button>
+                    <pre><code>SMALLSTACK_SIDEBAR_DEFAULT = "open"
+SMALLSTACK_TOPBAR_NAV_ALWAYS = True</code></pre>
+                </div>
+                <div class="lp-code-wrap">
+                    <span class="lp-code-label">templates/mypage.html</span>
+                    <button type="button" class="lp-copy-btn" data-copy>Copy</button>
+                    <pre><code>{% templatetag openblock %} block sidebar_state {% templatetag closeblock %}open{% templatetag openblock %} endblock {% templatetag closeblock %}
+{% templatetag openblock %} block topbar_nav_mode {% templatetag closeblock %}always{% templatetag openblock %} endblock {% templatetag closeblock %}</code></pre>
+                </div>
+                <div class="ref-note">Use the <code>topbar</code> section to show different items than the sidebar. Register with <code>section="topbar"</code>.</div>
+            </div>
+        </div>
+
+        <!-- Sidebar Collapsed -->
+        <div class="ref-card">
+            <div class="ref-card-header">
+                <h3>Sidebar Collapsed</h3>
+            </div>
+            <div class="ref-card-body">
+                <div class="lp-code-wrap">
+                    <span class="lp-code-label">config/settings/base.py</span>
+                    <button type="button" class="lp-copy-btn" data-copy>Copy</button>
+                    <pre><code>SMALLSTACK_SIDEBAR_DEFAULT = "closed"
+SMALLSTACK_TOPBAR_NAV_ALWAYS = True</code></pre>
+                </div>
+                <div class="lp-code-wrap">
+                    <span class="lp-code-label">views.py</span>
+                    <button type="button" class="lp-copy-btn" data-copy>Copy</button>
+                    <pre><code>def get(self, request, *args, **kwargs):
+    request._smallstack_sidebar_state = "closed"
+    return super().get(request, *args, **kwargs)</code></pre>
+                </div>
+                <div class="ref-note">Sidebar starts closed but users can toggle it open. Topbar nav fills in automatically.</div>
+            </div>
+        </div>
+
+        <!-- Minimal -->
+        <div class="ref-card">
+            <div class="ref-card-header">
+                <h3>Minimal</h3>
+            </div>
+            <div class="ref-card-body">
+                <div class="lp-code-wrap">
+                    <span class="lp-code-label">config/settings/base.py</span>
+                    <button type="button" class="lp-copy-btn" data-copy>Copy</button>
+                    <pre><code>SMALLSTACK_SIDEBAR_DEFAULT = "closed"
+SMALLSTACK_TOPBAR_NAV_ALWAYS = False</code></pre>
+                </div>
+                <div class="lp-code-wrap">
+                    <span class="lp-code-label">templates/mypage.html</span>
+                    <button type="button" class="lp-copy-btn" data-copy>Copy</button>
+                    <pre><code>{% templatetag openblock %} block sidebar_state {% templatetag closeblock %}closed{% templatetag openblock %} endblock {% templatetag closeblock %}
+{% templatetag openblock %} block topbar_nav_mode {% templatetag closeblock %}auto{% templatetag openblock %} endblock {% templatetag closeblock %}</code></pre>
+                </div>
+                <div class="ref-note">Clean and content-focused. Topbar nav appears automatically because sidebar is closed.</div>
+            </div>
+        </div>
+
+        <!-- Sidebar Only -->
+        <div class="ref-card">
+            <div class="ref-card-header">
+                <h3>Sidebar Only</h3>
+            </div>
+            <div class="ref-card-body">
+                <div class="lp-code-wrap">
+                    <span class="lp-code-label">config/settings/base.py</span>
+                    <button type="button" class="lp-copy-btn" data-copy>Copy</button>
+                    <pre><code>SMALLSTACK_SIDEBAR_DEFAULT = "open"
+SMALLSTACK_TOPBAR_NAV_ALWAYS = False</code></pre>
+                </div>
+                <div class="lp-code-wrap">
+                    <span class="lp-code-label">templates/mypage.html</span>
+                    <button type="button" class="lp-copy-btn" data-copy>Copy</button>
+                    <pre><code>{% templatetag openblock %} block topbar_nav_mode {% templatetag closeblock %}hidden{% templatetag openblock %} endblock {% templatetag closeblock %}</code></pre>
+                </div>
+                <div class="ref-note">Traditional admin pattern. Use <code>hidden</code> to suppress topbar nav even when sidebar is toggled closed.</div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- State precedence reference -->
+    <div class="ref-card" style="margin-top: 1.25rem;">
+        <div class="ref-card-header">
+            <h3>Sidebar State Precedence</h3>
+        </div>
+        <div class="ref-card-body">
+            <table class="ref-table">
+                <thead>
+                    <tr><th style="width:30px;">#</th><th>Source</th><th>Example</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td>1</td><td>Template block</td><td><code>{% templatetag openblock %} block sidebar_state {% templatetag closeblock %}disabled{% templatetag openblock %} endblock {% templatetag closeblock %}</code></td></tr>
+                    <tr><td>2</td><td>View context</td><td><code>request._smallstack_sidebar_state = "closed"</code></td></tr>
+                    <tr><td>3</td><td>User preference</td><td>localStorage (set by toggle button click)</td></tr>
+                    <tr><td>4</td><td>Global setting</td><td><code>SMALLSTACK_SIDEBAR_DEFAULT = "open"</code></td></tr>
+                </tbody>
+            </table>
+            <div class="ref-note">When set via template block or view context, state is <strong>forced</strong> &mdash; JavaScript won't override it with localStorage.</div>
+        </div>
+    </div>
+
+    <div class="ref-card" style="margin-top: 1.25rem;">
+        <div class="ref-card-header">
+            <h3>Topbar Nav Modes</h3>
+        </div>
+        <div class="ref-card-body">
+            <table class="ref-table">
+                <thead>
+                    <tr><th>Mode</th><th>When Visible</th><th>Use Case</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td><code>auto</code></td><td>When sidebar is closed or disabled</td><td>Default &mdash; topbar fills in when sidebar is gone</td></tr>
+                    <tr><td><code>always</code></td><td>Always, even with sidebar open</td><td>Dual nav surfaces for complex apps</td></tr>
+                    <tr><td><code>hidden</code></td><td>Never</td><td>Sidebar-only layout</td></tr>
+                </tbody>
+            </table>
+            <div class="lp-code-wrap">
+                <span class="lp-code-label">Per-page override</span>
+                <button type="button" class="lp-copy-btn" data-copy>Copy</button>
+                <pre><code>{% templatetag openblock %} block topbar_nav_mode {% templatetag closeblock %}always{% templatetag openblock %} endblock {% templatetag closeblock %}</code></pre>
+            </div>
+        </div>
+    </div>
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function() {
+    var layouts = {
+        'full':         { sidebar: 'open',     topbar: 'auto',   name: 'Full Layout' },
+        'topbar-only':  { sidebar: 'disabled', topbar: 'always', name: 'Topbar Only' },
+        'dual':         { sidebar: 'open',     topbar: 'always', name: 'Dual Navigation' },
+        'collapsed':    { sidebar: 'closed',   topbar: 'always', name: 'Sidebar Collapsed' },
+        'minimal':      { sidebar: 'closed',   topbar: 'auto',   name: 'Minimal' },
+        'sidebar-only': { sidebar: 'open',     topbar: 'hidden', name: 'Sidebar Only' },
+    };
+
+    var initialSidebar = document.body.dataset.sidebarState;
+    var initialTopbar = document.body.dataset.topbarNav;
+
+    function detectActive() {
+        for (var key in layouts) {
+            var l = layouts[key];
+            if (l.sidebar === initialSidebar && l.topbar === initialTopbar) return key;
+        }
+        return null;
+    }
+
+    var activeLayout = detectActive();
+    if (activeLayout) {
+        var el = document.getElementById('card-' + activeLayout);
+        if (el) el.classList.add('active');
+    }
+
+    window.applyLayout = function(key) {
+        var layout = layouts[key];
+        if (!layout) return;
+
+        var body = document.body;
+        var sidebar = document.getElementById('sidebar');
+        var overlay = document.getElementById('sidebar-overlay');
+
+        body.dataset.sidebarState = layout.sidebar;
+        body.setAttribute('data-sidebar-forced', '');
+
+        if (layout.sidebar === 'open' && sidebar) {
+            sidebar.classList.remove('closed');
+            body.classList.remove('sidebar-closed');
+        } else if (layout.sidebar === 'closed' && sidebar) {
+            sidebar.classList.add('closed');
+            body.classList.add('sidebar-closed');
+        } else if (layout.sidebar === 'disabled') {
+            body.classList.add('sidebar-closed');
+            if (sidebar) sidebar.classList.add('closed');
+        }
+
+        if (overlay) overlay.classList.remove('show');
+        body.dataset.topbarNav = layout.topbar;
+
+        var toggle = document.getElementById('sidebar-toggle');
+        if (toggle) {
+            toggle.style.display = layout.sidebar === 'disabled' ? 'none' : '';
+        }
+
+        document.querySelectorAll('.layout-card').forEach(function(card) {
+            card.classList.remove('active');
+        });
+        var card = document.getElementById('card-' + key);
+        if (card) card.classList.add('active');
+
+        var actions = document.getElementById('header-actions');
+        var nameEl = document.getElementById('preview-name');
+        if (actions && nameEl) {
+            nameEl.textContent = layout.name;
+            actions.style.display = '';
+        }
+    };
+
+    window.resetLayout = function() {
+        window.location.reload();
+    };
+
+    // Page-level tab switching
+    document.getElementById('page-tabs').addEventListener('click', function(e) {
+        var btn = e.target.closest('button[data-pagetab]');
+        if (!btn) return;
+        this.querySelectorAll('button').forEach(function(b) { b.classList.remove('active'); });
+        btn.classList.add('active');
+        document.querySelectorAll('.page-tab-panel').forEach(function(p) {
+            p.classList.toggle('active', p.id === 'pagetab-' + btn.dataset.pagetab);
+        });
+    });
+
+    // Copy button handler
+    document.addEventListener('click', function(e) {
+        var btn = e.target.closest('.lp-copy-btn');
+        if (!btn) return;
+        var code = btn.closest('.lp-code-wrap').querySelector('code');
+        navigator.clipboard.writeText(code.textContent).then(function() {
+            var orig = btn.textContent;
+            btn.textContent = 'Copied!';
+            btn.style.color = 'var(--primary)';
+            btn.style.borderColor = 'var(--primary)';
+            setTimeout(function() {
+                btn.textContent = orig;
+                btn.style.color = '';
+                btn.style.borderColor = '';
+            }, 1500);
+        });
+    });
+})();
+</script>
+{% endblock %}

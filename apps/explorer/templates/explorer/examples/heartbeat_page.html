@@ -348,10 +348,7 @@
         <div class="example-code-wrap">
             <span class="example-code-label">apps/myapp/views.py</span>
             <button type="button" class="example-copy-btn" data-copy>Copy</button>
-            <pre><code>import datetime
-
-from django.utils import timezone
-from django.views.generic import TemplateView
+            <pre><code>from django.views.generic import TemplateView
 from apps.smallstack.mixins import StaffRequiredMixin
 from apps.explorer.mixins import ExplorerModelMixin
 
@@ -368,24 +365,11 @@ class HeartbeatPageView(ExplorerModelMixin, StaffRequiredMixin, TemplateView):
         # crud_actions, create_view_url, etc.
         context = super().get_context_data(**kwargs)
 
-        # Add your own data — a 7-day chart
+        # HeartbeatDaily.get_daily_summary() returns N days of
+        # ok/fail data, filling zeros for missing days.
         from apps.heartbeat.models import HeartbeatDaily
 
-        today = timezone.localdate()
-        days = []
-        for i in range(6, -1, -1):
-            day = today - datetime.timedelta(days=i)
-            try:
-                d = HeartbeatDaily.objects.get(date=day)
-                days.append({"label": day.strftime("%a"),
-                             "ok": d.ok_count, "fail": d.fail_count})
-            except HeartbeatDaily.DoesNotExist:
-                days.append({"label": day.strftime("%a"),
-                             "ok": 0, "fail": 0})
-        context["chart_days"] = days
-
-        # Limit the table to 10 rows
-        context["object_list"] = context["object_list"][:10]
+        context["chart_days"] = HeartbeatDaily.get_daily_summary(days=7)
 
         return context</code></pre>
         </div>

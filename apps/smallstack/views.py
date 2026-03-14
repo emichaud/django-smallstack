@@ -19,6 +19,18 @@ from .models import BackupRecord
 from .pagination import paginate_queryset
 
 
+class LayoutPreviewView(StaffRequiredMixin, TemplateView):
+    """Staff-only page to preview different navigation layout combinations."""
+
+    template_name = "smallstack/layout_preview.html"
+
+
+class NavGuideView(StaffRequiredMixin, TemplateView):
+    """Staff-only guide explaining sidebar, topbar, and contextual navigation."""
+
+    template_name = "smallstack/nav_guide.html"
+
+
 class SmallStackDashboardView(StaffRequiredMixin, TemplateView):
     """Staff-only dashboard with at-a-glance widgets from each app."""
 

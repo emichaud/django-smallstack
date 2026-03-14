@@ -10,7 +10,7 @@ from django.views.generic import RedirectView
 
 from apps.heartbeat.views import StatusPageView, status_json
 
-from .views import health_check, legal_page_view, starter_basic_view, starter_forms_view, starter_view
+from .views import health_check, legal_page_view
 
 urlpatterns = [
     # Project pages - customize these in apps/website/
@@ -34,10 +34,6 @@ urlpatterns = [
         "robots.txt",
         RedirectView.as_view(url=f"{settings.STATIC_URL}robots.txt", permanent=True),
     ),
-    # Starter/Example page - demonstrates available components
-    path("starter/", starter_view, name="starter"),
-    path("starter/basic/", starter_basic_view, name="starter_basic"),
-    path("starter/forms/", starter_forms_view, name="starter_forms"),
 ]
 
 # Debug toolbar (development only)

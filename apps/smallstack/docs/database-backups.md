@@ -1,11 +1,38 @@
+---
+title: Database Backups
+description: Protect your data from day one with built-in SQLite backup tooling
+---
+
 # Database Backups
 
-SmallStack includes built-in SQLite backup tooling — a management command for automation, optional cron scheduling in Docker, and a staff-only web dashboard for manual backups, history, and status.
+Your database is the most important thing in your application. {{ project_name }} ships with a complete backup system so you can protect your data from day one — scheduled backups, a staff dashboard for manual control, and one-click downloads to get a copy on your local machine.
+
+> **See also:** [SQLite Database](/help/smallstack/database-sqlite/) for how {{ project_name }} configures and persists SQLite, and [PostgreSQL Database](/help/smallstack/database-postgresql/) for when you need to scale beyond SQLite.
+
+## Why SQLite Backups Are Simple
+
+SQLite is just a file. That single fact makes backups remarkably straightforward compared to traditional database servers. There is no dump process, no export format, no client-server protocol — you copy the file and you have a complete, working database.
+
+{{ project_name }} uses Python's `sqlite3.Connection.backup()` API to create safe, non-blocking copies of your live database. The backup runs while your application continues serving requests. No downtime, no locking, no complexity.
+
+For small sites, departmental tools, hobby projects, or club websites, SQLite is surprisingly fast and capable. And because it is just a file, backing it up is as natural as copying a document.
+
+## How Backups Work
+
+{{ project_name }} provides three ways to create backups:
+
+**Scheduled backups** run automatically via cron inside your Docker container. Disabled by default — enable with one environment variable. The default schedule creates a daily backup at 2 AM UTC and retains two weeks of history.
+
+**Manual backups** are triggered from the staff dashboard or the command line. Click "Backup Now" on the backups page to create an on-server copy instantly.
+
+**Download backups** create a fresh backup and stream it straight to your browser. This is the fastest way to get a copy of your database onto your local machine for safekeeping or analysis.
+
+All three methods use the same safe backup process and are tracked in the backup history with timestamps, file sizes, duration, and status.
 
 ## Quick Start
 
 ```bash
-# Create a backup
+# Create a backup from the command line
 make backup
 
 # Or with options (override retention count)
@@ -13,6 +40,59 @@ python manage.py backup_db --keep 5
 ```
 
 That's all you need. Backups are saved to your `BACKUP_DIR` and tracked in the database automatically. By default, the 10 most recent backups are kept — configurable via the `BACKUP_RETENTION` setting or the `--keep` flag.
+
+## The Backup Dashboard
+
+Staff users can access the backup management page at `/backups/`. The Backups link appears in the sidebar under the Admin section.
+
+### Page Header
+
+The top of the page shows your current backup status at a glance:
+
+- **Scheduled status** — green checkmark if cron backups are enabled, red warning if not (with a link to the setup docs)
+- **Backup Now** — creates a backup and saves it to server storage
+- **Download** — creates a backup and downloads it to your browser
+
+### Backup Activity Tab
+
+The default view shows:
+
+- **Stat cards** — six cards showing recent backups (24h), successful, failed, pruned, average duration, and total size on disk. Click a stat card to see the matching backup records in a detail modal.
+- **Backup history table** — paginated list of all backups with clickable IDs, timestamps, file sizes, status badges, and trigger source. Pruned backups show a muted badge; missing files show a red warning icon.
+
+All dates display in your timezone (set on the Profile Edit page, or the server default). When your timezone differs from the server's, dates show a dotted underline — hover to see the server time and UTC. See [Working with Timezones](/help/smallstack/timezones/) for details.
+
+### Backup Detail Page
+
+Click any backup ID (e.g., `#12`) to see its full detail page at `/backups/12/`. This shows:
+
+- **Details card** — filename, size, duration, trigger source, status, and file availability
+- **Activity timeline** — visual history of the backup lifecycle: when it was created, and if/when it was pruned or went missing
+- **Download button** — if the file is still on disk and downloads are enabled
+
+### Files Tab
+
+Lists all backup files currently on disk with their sizes and modification dates. This shows what is actually in your backup directory, regardless of what the database records say.
+
+### Configuration Tab
+
+Shows your current backup settings at a glance:
+
+- **Database info** — engine, file path, and current database size
+- **Backup settings** — directory, retention count, scheduled status, and download status
+- **Email status** — whether SMTP is configured for failure alerts
+- **Admin recipients** — who receives failure notifications (click to see the list)
+
+Status indicators turn red when email or admin configuration is missing, linking directly to the relevant setup docs.
+
+## Pruning
+
+When backups are pruned (automatically via retention policy or manually via `--keep`), {{ project_name }} marks the original backup record with a `pruned_at` timestamp instead of creating a separate record. This means:
+
+- Pruned backups show a muted "pruned" badge and a gray trash icon in the history table
+- The detail page shows exactly when the file was removed
+- The red warning icon is reserved for files that are *unexpectedly* missing — not routine pruning
+- Stat cards correctly separate "successful" (file available) from "pruned" (file removed by policy)
 
 ## Management Command
 
@@ -37,42 +117,6 @@ python manage.py backup_db --output /tmp/my-backup.sqlite3
 | `--output PATH` | Override the destination file path |
 
 Backup files are named `db-YYYYMMDD-HHMMSS.sqlite3` (timestamp in UTC) and stored in `BACKUP_DIR`. The UTC naming is intentional — filenames stay consistent regardless of display timezone settings, and sort correctly on disk.
-
-## Web Interface
-
-Staff users can access the backup dashboard at `/backups/`. The Backups link appears in the sidebar under the Admin section.
-
-### Backup Activity Tab
-
-- **Stat cards** — quick counts for recent (24h), successful, failed, and pruned backups, plus average duration and total size on disk
-- **Backup history** — paginated table with clickable IDs that link to each backup's detail page
-
-All dates in the backup dashboard display in your timezone (set on the Profile Edit page, or the server default). When your timezone differs from the server's, dates show a dotted underline — hover to see the server time and UTC. See [Working with Timezones](/help/smallstack/timezones/) for details.
-
-### Backup Detail Page
-
-Click any backup ID (e.g. `#12`) to see its full detail page at `/backups/12/`. This shows:
-
-- **Details card** — filename, size, duration, trigger source, status, and file availability
-- **Activity timeline** — visual history of the backup lifecycle: when it was created, and if/when it was pruned or went missing
-- **Download button** — if the file is still on disk and downloads are enabled
-
-### Pruning
-
-When backups are pruned (automatically via retention policy or manually via `--keep`), SmallStack marks the original backup record with a `pruned_at` timestamp instead of creating a separate record. This means:
-
-- Pruned backups show a muted "pruned" badge and a gray trash icon in the history table
-- The detail page shows exactly when the file was removed
-- The red warning icon is reserved for files that are *unexpectedly* missing — not routine pruning
-- Stat cards correctly separate "successful" (file available) from "pruned" (file removed by policy)
-
-### Files Tab
-
-Lists all backup files currently on disk with their sizes and modification dates.
-
-### Configuration Tab
-
-Shows your current backup settings, database info, email configuration status, and admin recipients.
 
 ## Scheduled Backups (Docker)
 
@@ -143,21 +187,51 @@ These settings are already defined in `config/settings/base.py` with sensible de
 | `BACKUP_CRON_ENABLED` | `false` | Enable cron-based scheduled backups in Docker |
 | `BACKUP_DOWNLOAD_ENABLED` | `true` | Allow backup file downloads from the web UI |
 
-## Setup Checklist
+## Backup Strategy: Protecting Against Real Risks
 
-If you're enabling backups in a project built from SmallStack, verify these are in place:
+The built-in backup system keeps copies of your database on your server's disk. This protects you from application errors, accidental data changes, and bad deployments. But there is one scenario it does not cover: **if your VPS itself fails or is destroyed, your backups go with it.**
 
-- [ ] `apps.smallstack` is in `INSTALLED_APPS` (`config/settings/base.py`)
-- [ ] `/backups/` URL is included in `config/urls.py`
-- [ ] `BACKUP_*` settings are defined in `config/settings/base.py`
-- [ ] Migrations are up to date (`make migrate`)
-- [ ] `make backup` target exists in your `Makefile`
-- [ ] For Docker/Kamal: `BACKUP_CRON_ENABLED` is set in `docker-compose.yml` or `config/deploy.yml`
-- [ ] For email notifications: `ADMINS`, `SERVER_EMAIL`, and SMTP env vars are configured (see below)
+This is the biggest risk with on-server backups. Here is how to mitigate it:
+
+### 1. Download Your Database Periodically
+
+The simplest protection is to download a copy of your database to your local machine on a regular basis. Use the "Download" button on the backup dashboard, or pull files from the server:
+
+```bash
+# Copy the latest backup from your server
+scp root@your-server:/root/myapp_data/db/backups/db-*.sqlite3 ./local-backups/
+
+# Or use rsync for incremental copies
+rsync -avz root@your-server:/root/myapp_data/db/backups/ ./local-backups/
+```
+
+Because SQLite is just a file, the downloaded copy is a fully working database. You can open it locally with `sqlite3`, attach it to a local Django instance, or simply keep it as an archive.
+
+### 2. Enable VPS-Level Backups
+
+Most hosting providers offer automated server snapshots:
+
+- **DigitalOcean** — Enable weekly backups for 20% of your droplet cost (~$1/month on a $5 droplet). You can also create on-demand snapshots before risky changes.
+- **Hetzner** — Automated snapshots available on all cloud servers.
+- **AWS Lightsail** — Automatic snapshots with configurable retention.
+
+These snapshots capture your entire server — database, backups, configuration, everything. If your VPS is destroyed, you can restore from a snapshot and be back online in minutes.
+
+### 3. The Result: Multiple Copies
+
+With this approach, you have three layers of protection:
+
+| Layer | What It Covers | What It Doesn't Cover |
+|-------|---------------|----------------------|
+| **On-server backups** | Bad deploys, data errors, accidental changes | VPS failure, disk corruption |
+| **Downloaded copies** | VPS failure, provider outage, account issues | Only as fresh as your last download |
+| **VPS snapshots** | Disk failure, VPS destruction, full server recovery | Provider-level outage (rare) |
+
+Any single layer has gaps. Together, they cover each other's weaknesses. For the early days, this gives you solid data protection without the cost or complexity of a managed database service.
 
 ## Failure Notifications
 
-If a backup fails, SmallStack will email the `ADMINS` list using `mail_admins()`. This requires three things to be configured:
+If a backup fails, {{ project_name }} will email the `ADMINS` list using `mail_admins()`. This requires three things to be configured:
 
 **1. Set ADMINS** — uncomment and edit the example in `config/settings/production.py`:
 ```python
@@ -201,22 +275,33 @@ If `ADMINS` is empty or email is not configured, backup failures are still recor
 - Backup files are excluded from git via `.gitignore`
 - The `/backups/` page requires staff access
 - File downloads require staff authentication
+- The download endpoint includes path traversal protection
 
-## Off-Server Copies
+## Setup Checklist
 
-Backups stored on the same disk as your database don't protect against disk failure. For additional safety, periodically copy backups to another location:
+If you're enabling backups in a project built from {{ project_name }}, verify these are in place:
 
-```bash
-# Copy latest backup from your server
-scp root@your-server:/root/myapp_data/db/backups/db-*.sqlite3 ./local-backups/
+- [ ] `apps.smallstack` is in `INSTALLED_APPS` (`config/settings/base.py`)
+- [ ] `/backups/` URL is included in `config/urls.py`
+- [ ] `BACKUP_*` settings are defined in `config/settings/base.py`
+- [ ] Migrations are up to date (`make migrate`)
+- [ ] `make backup` target exists in your `Makefile`
+- [ ] For Docker/Kamal: `BACKUP_CRON_ENABLED` is set in `docker-compose.yml` or `config/deploy.yml`
+- [ ] For email notifications: `ADMINS`, `SERVER_EMAIL`, and SMTP env vars are configured
 
-# Or use rsync for incremental copies
-rsync -avz root@your-server:/root/myapp_data/db/backups/ ./local-backups/
-```
+## When to Consider PostgreSQL
+
+The built-in backup system is designed for SQLite. If your project grows to the point where you need PostgreSQL — high concurrent writes, millions of requests, heavy write pressure — you will also outgrow this backup tool.
+
+At that point, consider a **managed database service** from DigitalOcean, AWS, Google Cloud, Supabase, or Neon. Managed services handle automated backups, point-in-time recovery, and replication for you. That is the right tool for that stage of growth.
+
+But for where most projects start — a small site, an internal tool, a side project, a club website — SQLite with {{ project_name }}'s backup system has you covered.
+
+**[Read the PostgreSQL Migration Guide](/help/smallstack/database-postgresql/)**
 
 ## What's Not Included
 
-True to the SmallStack philosophy, we only add what's essential. These are on our radar but won't be added unless there's clear demand:
+True to the {{ project_name }} philosophy, we only add what's essential. These are on our radar but won't be added unless there's clear demand:
 
 - PostgreSQL backup
 - S3/remote storage

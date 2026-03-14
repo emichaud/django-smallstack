@@ -80,7 +80,20 @@ volumes:
 
 ### Backup Strategy
 
-With SQLite on a VPS, backups are straightforward:
+Because SQLite is just a file, backups are remarkably simple. {{ project_name }} includes a **built-in backup system** with scheduled backups, a staff dashboard, and one-click downloads — no configuration required beyond enabling the cron schedule.
+
+```bash
+# Create a backup from the command line
+make backup
+
+# Or download your database from the staff dashboard at /backups/
+```
+
+The backup tool uses Python's `sqlite3.Connection.backup()` API to create safe, non-blocking copies while your application continues serving requests. Combined with VPS-level snapshots and periodic downloads to your local machine, you get solid multi-layer data protection.
+
+**[Read the full Database Backups guide](/help/smallstack/database-backups/)** for setup instructions, scheduling, and backup strategy recommendations.
+
+For manual or ad-hoc backups outside the built-in tool:
 
 1. **VPS snapshots** — Most providers offer automated snapshots. Enable them and your database is automatically backed up.
 

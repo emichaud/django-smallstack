@@ -1,112 +1,230 @@
 {% extends "smallstack/base.html" %}
-{% load theme_tags django_tables2 %}
+{% load theme_tags %}
 
 {% block title %}Explorer{% endblock %}
 
 {% block breadcrumbs %}{% endblock %}
 
 {% block extra_css %}
-{% include "smallstack/crud/_table_styles.html" %}
 <style>
-    .explorer-view-toggle {
+    /* Layout */
+    .explorer-layout {
+        display: grid;
+        grid-template-columns: 200px 1fr;
+        gap: 1.5rem;
+        min-height: 400px;
+    }
+    @media (max-width: 768px) {
+        .explorer-layout {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    /* Sidebar */
+    .explorer-sidebar {
+        border-right: 1px solid color-mix(in srgb, var(--body-fg) 10%, var(--body-bg));
+        padding-right: 1.5rem;
+        max-height: calc(100vh - 200px);
+        overflow-y: auto;
+        position: sticky;
+        top: 1rem;
+    }
+    @media (max-width: 768px) {
+        .explorer-sidebar {
+            border-right: none;
+            border-bottom: 1px solid var(--hairline-color);
+            padding-right: 0;
+            padding-bottom: 1rem;
+        }
+    }
+    .explorer-sidebar-mode {
         display: flex;
         gap: 2px;
-        border: 1px solid var(--hairline-color);
+        border: 1px solid color-mix(in srgb, var(--body-fg) 10%, var(--body-bg));
         border-radius: var(--radius-sm, 4px);
         padding: 2px;
+        margin-bottom: 0.75rem;
     }
-    .explorer-view-toggle button {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        width: 30px;
-        height: 26px;
+    .explorer-sidebar-mode button {
+        flex: 1;
+        padding: 4px 0;
         border: none;
         border-radius: 3px;
         background: transparent;
         color: var(--body-quiet-color);
+        font-size: 0.75rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
         cursor: pointer;
         transition: background 0.15s, color 0.15s;
     }
-    .explorer-view-toggle button:hover {
+    .explorer-sidebar-mode button:hover {
         color: var(--body-fg);
     }
-    .explorer-view-toggle button.active {
-        background: var(--card-bg);
+    .explorer-sidebar-mode button.active {
+        background: color-mix(in srgb, var(--primary) 15%, var(--body-bg));
         color: var(--primary);
-        box-shadow: 0 1px 2px rgba(0,0,0,0.06);
     }
-    .explorer-view-toggle button svg {
-        width: 16px;
-        height: 16px;
+    .explorer-sidebar-list {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+    }
+    .explorer-sidebar-list li {
+        list-style-type: none;
+    }
+    .explorer-sidebar-list li a {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0.4rem 0.65rem;
+        border-radius: var(--radius-sm, 4px);
+        color: var(--body-quiet-color);
+        text-decoration: none;
+        font-size: 0.84rem;
+        text-transform: uppercase;
+        letter-spacing: 0.02em;
+        transition: background 0.15s, color 0.15s;
+    }
+    .explorer-sidebar-list li a:hover {
+        color: var(--body-fg);
+        background: color-mix(in srgb, var(--primary) 8%, var(--body-bg));
+    }
+    .explorer-sidebar-list li a.active {
+        color: var(--primary);
+        background: color-mix(in srgb, var(--primary) 12%, var(--body-bg));
+        font-weight: 600;
+    }
+    .explorer-sidebar-count {
+        font-size: 0.72rem;
+        font-weight: 600;
+        color: var(--body-quiet-color);
+        opacity: 0.6;
+        font-variant-numeric: tabular-nums;
+    }
+    .explorer-sidebar-list li a.active .explorer-sidebar-count {
+        color: var(--primary);
+        opacity: 0.8;
+    }
+    .explorer-sidebar-filter {
+        width: 100%;
+        padding: 0.35rem 0.5rem;
+        margin-top: 2.25rem;
+        margin-bottom: 0.5rem;
+        font-size: 0.78rem;
+        border: 1px solid color-mix(in srgb, var(--body-fg) 8%, var(--body-bg));
+        border-radius: var(--radius-sm, 4px);
+        background: color-mix(in srgb, var(--body-fg) 5%, var(--body-bg));
+        color: var(--body-fg);
+        transition: border-color 0.15s;
+    }
+    .explorer-sidebar-filter:focus {
+        outline: none;
+        border-color: var(--primary);
+    }
+    .explorer-sidebar-filter::placeholder {
+        color: var(--body-quiet-color);
+        opacity: 0.8;
+    }
+    .explorer-sidebar a {
+        text-decoration: none !important;
+    }
+    .explorer-sidebar-all {
+        display: block;
+        padding: 0.4rem 0.65rem;
+        margin-bottom: 0.25rem;
+        border-radius: var(--radius-sm, 4px);
+        color: var(--body-quiet-color) !important;
+        text-decoration: none !important;
+        font-size: 0.84rem;
+        font-weight: 500;
+        text-transform: uppercase;
+        letter-spacing: 0.02em;
+        transition: background 0.15s, color 0.15s;
+    }
+    .explorer-sidebar-all:hover {
+        color: var(--body-fg) !important;
+        background: color-mix(in srgb, var(--primary) 8%, var(--body-bg));
+    }
+    .explorer-sidebar-all.active {
+        color: var(--primary) !important;
+        background: color-mix(in srgb, var(--primary) 12%, var(--body-bg));
+        font-weight: 600;
     }
 
-    /* Shared toolbar */
-    .explorer-toolbar {
+    /* Search + summary bar */
+    .explorer-search {
         display: flex;
         align-items: center;
         justify-content: space-between;
         gap: 1rem;
-        margin-bottom: 1rem;
+        margin-bottom: 1.5rem;
     }
-    .explorer-toolbar-search input {
-        width: 240px;
-        padding: 0.55rem 0.75rem;
+    .explorer-search input {
+        width: 100%;
+        max-width: 320px;
+        padding: 0.5rem 0.75rem 0.5rem 2.2rem;
         font-size: 0.85rem;
         border: 1px solid color-mix(in srgb, var(--body-fg) 20%, var(--body-bg));
         border-radius: var(--radius-sm, 4px);
         background: color-mix(in srgb, var(--body-fg) 5%, var(--body-bg));
         color: var(--body-fg);
         transition: border-color 0.15s;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='16' height='16' fill='%23888'%3E%3Cpath d='M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z'/%3E%3C/svg%3E");
+        background-repeat: no-repeat;
+        background-position: 0.65rem center;
     }
-    .explorer-toolbar-search input:focus {
+    .explorer-search input:focus {
         outline: none;
         border-color: var(--primary);
         box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 20%, transparent);
     }
-    .explorer-toolbar-search input::placeholder {
+    .explorer-search input::placeholder {
         color: var(--body-quiet-color);
         opacity: 0.6;
     }
-    .explorer-toolbar-right {
+
+    /* Stat cards */
+    .explorer-stat-cards {
+        display: flex;
+        gap: 0.5rem;
+        align-items: center;
+    }
+    .explorer-stat-card {
         display: flex;
         align-items: center;
-        gap: 0.5rem;
-    }
-    .explorer-toolbar-right label {
-        font-size: 0.8rem;
-        color: var(--body-quiet-color);
-        font-weight: 500;
+        gap: 0.4rem;
+        padding: 0.35rem 0.75rem;
+        background: color-mix(in srgb, var(--primary) 8%, var(--body-bg));
+        border: 1px solid color-mix(in srgb, var(--primary) 15%, var(--body-bg));
+        border-radius: var(--radius-sm, 4px);
         white-space: nowrap;
     }
-    .explorer-groupby-toggle {
-        display: flex;
-        gap: 2px;
-        border: 1px solid var(--hairline-color);
-        border-radius: var(--radius-sm, 4px);
-        padding: 2px;
-    }
-    .explorer-groupby-toggle button {
-        padding: 3px 10px;
-        border: none;
-        border-radius: 3px;
-        background: transparent;
-        color: var(--body-quiet-color);
-        font-size: 0.78rem;
-        font-weight: 500;
-        cursor: pointer;
-        transition: background 0.15s, color 0.15s;
-    }
-    .explorer-groupby-toggle button:hover {
-        color: var(--body-fg);
-    }
-    .explorer-groupby-toggle button.active {
-        background: var(--card-bg);
+    .explorer-stat-value {
+        font-size: 0.95rem;
+        font-weight: 700;
         color: var(--primary);
-        box-shadow: 0 1px 2px rgba(0,0,0,0.06);
+    }
+    .explorer-stat-label {
+        font-size: 0.75rem;
+        color: var(--body-quiet-color);
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
     }
 
-    /* Card styles */
+    /* Card grid */
+    .explorer-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 0.6rem;
+    }
+    @media (max-width: 1100px) {
+        .explorer-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+    @media (max-width: 600px) {
+        .explorer-grid { grid-template-columns: 1fr; }
+    }
     a.explorer-card,
     a.explorer-card:link,
     a.explorer-card:visited,
@@ -117,86 +235,68 @@
         justify-content: space-between;
         background: color-mix(in srgb, var(--primary) 6%, var(--body-bg));
         border: 1px solid transparent;
-        border-radius: var(--radius-sm, 4px);
-        padding: 0.75rem 0.85rem;
+        border-radius: 6px;
+        padding: 0.85rem 1rem;
         text-decoration: none !important;
         color: var(--body-fg) !important;
-        transition: border-color 0.15s, background 0.15s;
-        min-height: 4.2rem;
+        transition: border-color 0.15s, background 0.15s, box-shadow 0.15s;
+        min-height: 4.5rem;
     }
     a.explorer-card:hover {
         border-color: var(--primary);
         background: color-mix(in srgb, var(--primary) 12%, var(--body-bg));
+        box-shadow: 0 2px 8px color-mix(in srgb, var(--primary) 10%, transparent);
     }
     .explorer-card-name {
         display: flex;
-        justify-content: space-between;
-        align-items: flex-start;
-        font-size: 0.9rem;
-        font-weight: 500;
+        align-items: center;
+        gap: 0.4rem;
+        font-size: 0.92rem;
+        font-weight: 600;
         line-height: 1.3;
+        text-transform: uppercase;
+        letter-spacing: 0.02em;
     }
     .explorer-card-lock {
         flex-shrink: 0;
-        width: 14px;
-        height: 14px;
+        width: 14px; height: 14px;
         color: var(--body-fg);
-        opacity: 0.4;
-        margin-left: 0.4rem;
-        margin-top: 1px;
+        opacity: 0.35;
     }
-    .explorer-card-bottom {
+    .explorer-card-meta {
         display: flex;
         align-items: center;
         justify-content: space-between;
-        margin-top: auto;
-        padding-top: 0.35rem;
+        margin-top: 0.5rem;
+        font-size: 0.8rem;
     }
     .explorer-card-app {
-        font-size: 0.8rem;
         color: var(--body-fg);
-        opacity: 0.55;
+        opacity: 0.45;
     }
     .explorer-card-count {
         color: var(--primary);
-        font-size: 0.8rem;
         font-weight: 600;
         font-variant-numeric: tabular-nums;
     }
 
-    /* Grid view */
-    .explorer-grid-wrap { display: none; }
-    .explorer-grid {
-        display: grid;
-        grid-template-columns: repeat(4, 1fr);
-        gap: 0.5rem;
-    }
-    @media (max-width: 900px) {
-        .explorer-grid { grid-template-columns: repeat(3, 1fr); }
-    }
-    @media (max-width: 600px) {
-        .explorer-grid { grid-template-columns: repeat(2, 1fr); }
-    }
-
-    /* List view */
-    .explorer-list-wrap { display: none; }
-
-    /* Section headers injected by JS */
-    .explorer-section-title {
+    /* Empty state */
+    .explorer-empty {
         grid-column: 1 / -1;
-        font-size: 0.8rem;
-        font-weight: 600;
-        text-transform: uppercase;
-        letter-spacing: 0.06em;
-        color: var(--body-fg);
-        opacity: 0.5;
-        padding: 0.6rem 0 0.2rem;
+        text-align: center;
+        padding: 3rem 1rem;
+        color: var(--body-quiet-color);
     }
-    .explorer-section-title:first-child { padding-top: 0; }
 
-    /* View state */
-    [data-explorer-view="grid"] .explorer-grid-wrap { display: block; }
-    [data-explorer-view="list"] .explorer-list-wrap { display: block; }
+    .explorer-summary {
+        font-size: 0.82rem;
+        color: var(--body-quiet-color);
+        white-space: nowrap;
+    }
+    .explorer-summary strong {
+        color: var(--body-fg);
+        font-weight: 600;
+    }
 </style>
 {% endblock %}
 
@@ -208,199 +308,157 @@
     <div class="page-header-content" style="width: 100%;">
         <h1>Explorer</h1>
         <p class="page-subtitle">{{ models|length }} registered model{{ models|length|pluralize }}</p>
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 0.5rem; font-size: 0.8rem;">
-            <nav>
-                <a href="{% url 'website:home' %}" style="color: var(--body-quiet-color); text-decoration: none;">Home</a>
-                <span style="color: var(--body-quiet-color); margin: 0 0.3rem;">/</span>
-                <span style="color: var(--body-fg);">Explorer</span>
-            </nav>
-            <div class="explorer-view-toggle">
-                <button type="button" data-view="grid" title="Grid view">
-                    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 3h8v8H3V3zm0 10h8v8H3v-8zm10-10h8v8h-8V3zm0 10h8v8h-8v-8z"/></svg>
-                </button>
-                <button type="button" data-view="list" title="List view">
-                    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 5h18v2H3V5zm0 6h18v2H3v-2zm0 6h18v2H3v-2z"/></svg>
-                </button>
-            </div>
-        </div>
+        <nav style="margin-top: 0.5rem; font-size: 0.8rem;">
+            <a href="{% url 'website:home' %}" style="color: var(--body-quiet-color); text-decoration: none;">Home</a>
+            <span style="color: var(--body-quiet-color); margin: 0 0.3rem;">/</span>
+            <span style="color: var(--body-fg);">Explorer</span>
+        </nav>
     </div>
 </div>
 
-<div id="explorer-body">
-    {% if models_az %}
+<div class="explorer-layout">
+    <!-- Sidebar -->
+    <div class="explorer-sidebar">
+        <div class="explorer-sidebar-mode" id="sidebar-mode">
+            <button type="button" data-mode="group" {% if sidebar_mode == "group" %}class="active"{% endif %}>Groups</button>
+            <button type="button" data-mode="app" {% if sidebar_mode == "app" %}class="active"{% endif %}>Apps</button>
+        </div>
 
-    <!-- Grid view (cards) -->
-    <div class="explorer-grid-wrap">
-        <div class="explorer-toolbar">
-            <div class="explorer-toolbar-search">
-                <input type="text" data-search="grid" placeholder="Search models..." autocomplete="off">
-            </div>
-            <div class="explorer-toolbar-right">
-                <label>Group by:</label>
-                <div class="explorer-groupby-toggle" data-target="grid">
-                    <button type="button" data-groupby="none" class="active">None</button>
-                    <button type="button" data-groupby="app">App</button>
-                    <button type="button" data-groupby="category">Category</button>
+        <input type="text" class="explorer-sidebar-filter" id="sidebar-filter" placeholder="Filter..." autocomplete="off">
+
+        <!-- Group sidebar -->
+        <div id="sidebar-group" {% if sidebar_mode != "group" %}style="display:none"{% endif %}>
+            <a href="?by=group" class="explorer-sidebar-all {% if sidebar_mode == 'group' and not active_group %}active{% endif %}">All Models</a>
+            <ul class="explorer-sidebar-list">
+                {% for g in all_groups %}
+                <li><a href="?by=group&group={{ g }}" {% if active_group == g %}class="active"{% endif %}>{{ g }}</a></li>
+                {% endfor %}
+            </ul>
+        </div>
+
+        <!-- App sidebar -->
+        <div id="sidebar-app" {% if sidebar_mode != "app" %}style="display:none"{% endif %}>
+            <a href="?by=app" class="explorer-sidebar-all {% if sidebar_mode == 'app' and not active_app %}active{% endif %}">All Models</a>
+            <ul class="explorer-sidebar-list">
+                {% for app_label, app_name in all_apps %}
+                <li><a href="?by=app&app={{ app_label }}" {% if active_app == app_label %}class="active"{% endif %}>{{ app_name }}</a></li>
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
+
+    <!-- Main content -->
+    <div>
+        <div class="explorer-search">
+            <input type="text" id="explorer-search" placeholder="Search models..." autocomplete="off">
+            <div class="explorer-stat-cards">
+                <div class="explorer-stat-card">
+                    <span class="explorer-stat-value" id="explorer-model-count">{{ filtered_models|length }}</span>
+                    <span class="explorer-stat-label">Models</span>
+                </div>
+                <div class="explorer-stat-card">
+                    <span class="explorer-stat-value" id="explorer-record-count">{{ total_records|default:"0" }}</span>
+                    <span class="explorer-stat-label">Records</span>
                 </div>
             </div>
         </div>
+
         <div class="explorer-grid" id="explorer-grid">
-            {% for m in models_az %}
-            <a href="{{ m.list_url }}" class="explorer-card" data-app="{{ m.app_label }}" data-group="{{ m.group }}" data-name="{{ m.verbose_name_plural }}">
+            {% for m in filtered_models %}
+            <a href="{{ m.list_url }}" class="explorer-card"
+               data-name="{{ m.verbose_name_plural }}"
+               data-app="{{ m.app_label }}"
+               data-group="{{ m.group }}"
+               data-count="{{ m.count }}">
                 <span class="explorer-card-name">
                     {{ m.verbose_name_plural }}
-                    {% if m.readonly %}<svg class="explorer-card-lock" viewBox="0 0 24 24" fill="currentColor" title="Read-only"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1s3.1 1.39 3.1 3.1v2z"/></svg>{% endif %}
+                    {% if m.readonly %}
+                    <svg class="explorer-card-lock" viewBox="0 0 24 24" fill="currentColor" title="Read-only"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1s3.1 1.39 3.1 3.1v2z"/></svg>
+                    {% endif %}
                 </span>
-                <span class="explorer-card-bottom">
+                <span class="explorer-card-meta">
                     <span class="explorer-card-app">{{ m.app_label }}</span>
                     <span class="explorer-card-count">{{ m.count }}</span>
                 </span>
             </a>
+            {% empty %}
+            <div class="explorer-empty">
+                <p>No models registered. Set <code>explorer_enabled = True</code> on a ModelAdmin to get started.</p>
+            </div>
             {% endfor %}
         </div>
     </div>
-
-    <!-- List view (sortable table with paging) -->
-    <div class="explorer-list-wrap">
-        <div class="explorer-toolbar">
-            <div class="explorer-toolbar-search">
-                <input type="text" id="explorer-list-search" placeholder="Search models..." autocomplete="off">
-            </div>
-        </div>
-        {% render_table table %}
-    </div>
-
-    {% else %}
-    <p style="color: var(--body-quiet-color); padding: 2rem 0; text-align: center;">
-        No models registered. Set <code>explorer_enabled = True</code> on a ModelAdmin to get started.
-    </p>
-    {% endif %}
 </div>
 {% endblock %}
 
 {% block extra_js %}
 <script>
 (function() {
-    const body = document.getElementById('explorer-body');
+    // ── Sidebar mode toggle ────────────────────────────────────────
+    const modeToggle = document.getElementById('sidebar-mode');
+    const groupPanel = document.getElementById('sidebar-group');
+    const appPanel = document.getElementById('sidebar-app');
 
-    // ── View toggle ──
-    const viewButtons = document.querySelectorAll('.explorer-view-toggle button');
-    const viewKey = 'explorer-view';
-    const savedView = localStorage.getItem(viewKey) || 'grid';
+    modeToggle.addEventListener('click', function(e) {
+        const btn = e.target.closest('button[data-mode]');
+        if (!btn) return;
+        const mode = btn.dataset.mode;
+        modeToggle.querySelectorAll('button').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        groupPanel.style.display = mode === 'group' ? '' : 'none';
+        appPanel.style.display = mode === 'app' ? '' : 'none';
+        localStorage.setItem('explorer-sidebar-mode', mode);
 
-    function setView(view) {
-        body.setAttribute('data-explorer-view', view);
-        viewButtons.forEach(btn => btn.classList.toggle('active', btn.dataset.view === view));
-        localStorage.setItem(viewKey, view);
-    }
-    viewButtons.forEach(btn => btn.addEventListener('click', () => setView(btn.dataset.view)));
-    setView(savedView);
+        // Navigate to "all" for the selected mode
+        window.location.href = '?by=' + mode;
+    });
 
-    // ── Shared group-by + search logic ──
-    function setupPanel(panelId, container, itemSelector, headerTag, colSpan) {
-        const groupKey = 'explorer-groupby-' + panelId;
-        const savedGroup = localStorage.getItem(groupKey) || 'none';
-        const toggle = document.querySelector('.explorer-groupby-toggle[data-target="' + panelId + '"]');
-        const searchInput = document.querySelector('input[data-search="' + panelId + '"]');
-        const originalItems = Array.from(container.querySelectorAll(itemSelector));
-
-        function clearHeaders() {
-            container.querySelectorAll('.explorer-section-title').forEach(el => el.remove());
+    // Restore sidebar mode from localStorage on "all" views
+    const params = new URLSearchParams(window.location.search);
+    if (!params.has('by')) {
+        const saved = localStorage.getItem('explorer-sidebar-mode');
+        if (saved === 'app') {
+            modeToggle.querySelector('[data-mode="app"]').classList.add('active');
+            modeToggle.querySelector('[data-mode="group"]').classList.remove('active');
+            groupPanel.style.display = 'none';
+            appPanel.style.display = '';
         }
-
-        function buildGrouped(attr) {
-            const groups = {};
-            originalItems.forEach(item => {
-                const key = item.getAttribute(attr);
-                if (!groups[key]) groups[key] = [];
-                groups[key].push(item);
-            });
-            const sorted = Object.keys(groups).sort((a, b) => a.localeCompare(b));
-            sorted.forEach(key => {
-                let header;
-                if (headerTag === 'div') {
-                    header = document.createElement('div');
-                    header.className = 'explorer-section-title';
-                    header.textContent = key;
-                } else {
-                    header = document.createElement('tr');
-                    header.className = 'explorer-section-title';
-                    const td = document.createElement('td');
-                    td.colSpan = colSpan;
-                    td.textContent = key;
-                    header.appendChild(td);
-                }
-                container.appendChild(header);
-                groups[key].forEach(item => container.appendChild(item));
-            });
-        }
-
-        function applyGroupBy(mode) {
-            if (toggle) {
-                toggle.querySelectorAll('button').forEach(btn =>
-                    btn.classList.toggle('active', btn.dataset.groupby === mode)
-                );
-            }
-            localStorage.setItem(groupKey, mode);
-            clearHeaders();
-            if (mode === 'none') {
-                originalItems.forEach(item => container.appendChild(item));
-            } else {
-                buildGrouped(mode === 'app' ? 'data-app' : 'data-group');
-            }
-            if (searchInput && searchInput.value) {
-                applySearch(searchInput.value);
-            }
-        }
-
-        function applySearch(query) {
-            const q = query.toLowerCase();
-            originalItems.forEach(item => {
-                const text = (item.getAttribute('data-name') || '') + ' ' +
-                             (item.getAttribute('data-app') || '') + ' ' +
-                             (item.getAttribute('data-group') || '');
-                item.style.display = text.toLowerCase().includes(q) ? '' : 'none';
-            });
-            container.querySelectorAll('.explorer-section-title').forEach(header => {
-                let next = header.nextElementSibling;
-                let hasVisible = false;
-                while (next && !next.classList.contains('explorer-section-title')) {
-                    if (next.style.display !== 'none') hasVisible = true;
-                    next = next.nextElementSibling;
-                }
-                header.style.display = hasVisible ? '' : 'none';
-            });
-        }
-
-        if (toggle) {
-            toggle.querySelectorAll('button').forEach(btn =>
-                btn.addEventListener('click', () => applyGroupBy(btn.dataset.groupby))
-            );
-        }
-        if (searchInput) {
-            searchInput.addEventListener('input', function() {
-                applySearch(this.value);
-            });
-        }
-        applyGroupBy(savedGroup);
     }
 
-    // Grid view (cards)
-    const grid = document.getElementById('explorer-grid');
-    if (grid) {
-        setupPanel('grid', grid, '.explorer-card', 'div', 0);
-    }
-
-    // List view search (django-tables2 handles sorting/paging)
-    const listSearch = document.getElementById('explorer-list-search');
-    if (listSearch) {
-        listSearch.addEventListener('input', function() {
-            const q = this.value.toLowerCase();
-            document.querySelectorAll('.explorer-list-wrap .crud-table tbody tr').forEach(row => {
-                row.style.display = row.textContent.toLowerCase().includes(q) ? '' : 'none';
-            });
+    // ── Sidebar filter ──────────────────────────────────────────────
+    const sidebarFilter = document.getElementById('sidebar-filter');
+    sidebarFilter.addEventListener('input', function() {
+        const q = this.value.toLowerCase();
+        document.querySelectorAll('.explorer-sidebar-list li').forEach(li => {
+            const text = li.textContent.toLowerCase();
+            li.style.display = (!q || text.includes(q)) ? '' : 'none';
         });
-    }
+    });
+
+    // ── Client-side search ─────────────────────────────────────────
+    const searchInput = document.getElementById('explorer-search');
+    const cards = document.querySelectorAll('.explorer-card');
+    const modelCount = document.getElementById('explorer-model-count');
+    const recordCount = document.getElementById('explorer-record-count');
+
+    searchInput.addEventListener('input', function() {
+        const q = this.value.toLowerCase();
+        let visible = 0;
+        let records = 0;
+        cards.forEach(card => {
+            const text = (card.dataset.name || '') + ' ' +
+                         (card.dataset.app || '') + ' ' +
+                         (card.dataset.group || '');
+            const match = !q || text.toLowerCase().includes(q);
+            card.style.display = match ? '' : 'none';
+            if (match) {
+                visible++;
+                records += parseInt(card.dataset.count || '0', 10);
+            }
+        });
+        modelCount.textContent = visible;
+        recordCount.textContent = records.toLocaleString();
+    });
 })();
 </script>
 {% endblock %}

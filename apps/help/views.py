@@ -84,6 +84,33 @@ class HelpSectionIndexView(TemplateView):
         return context
 
 
+class HelpSectionTocView(TemplateView):
+    """Display a dense table of contents for a section, grouped by category."""
+
+    template_name = "help/help_toc.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        section_slug = self.kwargs.get("section")
+
+        all_sections = get_all_sections()
+        section = next((s for s in all_sections if s["slug"] == section_slug), None)
+
+        if section is None:
+            raise Http404("Section not found")
+
+        grouped_pages = get_section_pages_grouped(section_slug)
+        total_pages = sum(len(g["pages"]) for g in grouped_pages)
+
+        context["section"] = section
+        context["sections"] = all_sections
+        context["current_section"] = section_slug
+        context["grouped_pages"] = grouped_pages
+        context["total_pages"] = total_pages
+        context["page_title"] = f"{section.get('title', 'Documentation')} — Table of Contents"
+        return context
+
+
 class HelpDetailView(TemplateView):
     """Display a root-level help page."""
 

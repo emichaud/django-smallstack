@@ -1,0 +1,912 @@
+{% extends "smallstack/base.html" %}
+{% load theme_tags %}
+
+{% block title %}Navigation Guide{% endblock %}
+{% block breadcrumbs %}{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Section cards */
+    .guide-section {
+        background: var(--card-bg);
+        border: 1px solid var(--card-border);
+        border-radius: var(--radius-md, 8px);
+        margin-bottom: 1.5rem;
+        overflow: hidden;
+    }
+    .guide-section-header {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 20px 24px;
+        border-bottom: 1px solid var(--card-border);
+        background: color-mix(in srgb, var(--primary) 4%, var(--body-bg));
+    }
+    .guide-section-icon {
+        width: 40px;
+        height: 40px;
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+        color: #fff;
+    }
+    .guide-section-header h2 {
+        margin: 0;
+        font-size: 1.1rem;
+        font-weight: 600;
+    }
+    .guide-section-header p {
+        margin: 2px 0 0;
+        font-size: 0.85rem;
+        color: var(--body-quiet-color);
+    }
+
+    /* Tabs */
+    .guide-tabs {
+        display: flex;
+        gap: 0;
+        border-bottom: 1px solid var(--card-border);
+        padding: 0 24px;
+    }
+    .guide-tabs button {
+        padding: 0.6rem 1.25rem;
+        border: none;
+        background: transparent;
+        color: var(--body-quiet-color);
+        font-size: 0.85rem;
+        font-weight: 500;
+        cursor: pointer;
+        border-bottom: 2px solid transparent;
+        transition: color 0.15s, border-color 0.15s;
+        margin-bottom: -1px;
+    }
+    .guide-tabs button:hover { color: var(--body-fg); }
+    .guide-tabs button.active {
+        color: var(--primary);
+        border-bottom-color: var(--primary);
+    }
+    .guide-tab-panel { display: none; padding: 24px; }
+    .guide-tab-panel.active { display: block; }
+
+    /* Code blocks */
+    .g-code-wrap {
+        position: relative;
+        background: #0a0a0a !important;
+        border: 1px solid #444 !important;
+        border-radius: 6px;
+        overflow: hidden;
+        margin-bottom: 14px;
+    }
+    .g-code-wrap:last-child { margin-bottom: 0; }
+    [data-theme="light"] .g-code-wrap {
+        background: #f5f5f5 !important;
+        border-color: #d0d0d0 !important;
+    }
+    .g-code-wrap pre {
+        margin: 0;
+        padding: 1rem 1.25rem;
+        overflow-x: auto;
+        font-size: 13px !important;
+        line-height: 1.7 !important;
+        color: #e0e0e0 !important;
+        font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+        -webkit-font-smoothing: antialiased;
+    }
+    [data-theme="light"] .g-code-wrap pre { color: #333 !important; }
+    .g-code-label {
+        display: block;
+        padding: 0.4rem 1.25rem;
+        font-size: 12px;
+        font-weight: 500;
+        color: #888;
+        border-bottom: 1px solid #444;
+        font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+    }
+    [data-theme="light"] .g-code-label { border-bottom-color: #d0d0d0; }
+    .g-copy-btn {
+        position: absolute;
+        top: 0.5rem;
+        right: 0.5rem;
+        padding: 0.3rem 0.65rem;
+        border: 1px solid #555;
+        border-radius: 4px;
+        background: #222;
+        color: #ccc;
+        font-size: 12px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: color 0.15s, border-color 0.15s;
+    }
+    .g-copy-btn:hover { color: #fff; border-color: #888; }
+    [data-theme="light"] .g-copy-btn {
+        background: #e8e8e8;
+        border-color: #ccc;
+        color: #555;
+    }
+
+    /* Info callouts */
+    .guide-note {
+        font-size: 0.84rem;
+        color: var(--body-quiet-color);
+        line-height: 1.6;
+        margin: 12px 0;
+        padding: 10px 14px;
+        background: color-mix(in srgb, var(--info-fg) 8%, var(--body-bg));
+        border-left: 3px solid var(--info-fg);
+        border-radius: 0 4px 4px 0;
+    }
+    .guide-note code {
+        background: color-mix(in srgb, var(--body-fg) 10%, var(--body-bg));
+        padding: 1px 5px;
+        border-radius: 3px;
+        font-size: 0.82rem;
+    }
+
+    /* Feature grid */
+    .feature-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+        gap: 12px;
+        margin-bottom: 16px;
+    }
+    .feature-item {
+        padding: 14px;
+        background: color-mix(in srgb, var(--primary) 5%, var(--body-bg));
+        border: 1px solid color-mix(in srgb, var(--primary) 15%, var(--body-bg));
+        border-radius: 6px;
+    }
+    .feature-item strong {
+        display: block;
+        font-size: 0.88rem;
+        margin-bottom: 3px;
+    }
+    .feature-item span {
+        font-size: 0.8rem;
+        color: var(--body-quiet-color);
+        line-height: 1.4;
+    }
+
+    /* Mini diagram for visual reference */
+    .guide-diagram {
+        display: flex;
+        gap: 6px;
+        background: color-mix(in srgb, var(--primary) 6%, var(--body-bg));
+        border-radius: 6px;
+        padding: 16px;
+        margin-bottom: 16px;
+        max-width: 360px;
+    }
+    .guide-diagram-col {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+    }
+    .guide-diagram-bar {
+        border-radius: 3px;
+        height: 8px;
+    }
+
+    /* Precedence list */
+    .precedence-list {
+        counter-reset: prec;
+        list-style: none;
+        padding: 0;
+        margin: 0 0 14px;
+    }
+    .precedence-list li {
+        counter-increment: prec;
+        padding: 8px 12px 8px 40px;
+        position: relative;
+        font-size: 0.88rem;
+        border-bottom: 1px solid color-mix(in srgb, var(--body-fg) 8%, var(--body-bg));
+    }
+    .precedence-list li:last-child { border-bottom: none; }
+    .precedence-list li::before {
+        content: counter(prec);
+        position: absolute;
+        left: 10px;
+        top: 8px;
+        width: 20px;
+        height: 20px;
+        background: var(--primary);
+        color: #fff;
+        font-size: 0.72rem;
+        font-weight: 700;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    .precedence-list li strong { font-weight: 600; }
+    .precedence-list li .prec-desc {
+        color: var(--body-quiet-color);
+        font-size: 0.82rem;
+    }
+
+    /* Section table */
+    .section-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.84rem;
+        margin-bottom: 14px;
+        background: #0a0a0a;
+        border-radius: 6px;
+        overflow: hidden;
+        border: 1px solid #444;
+    }
+    [data-theme="light"] .section-table {
+        background: #f5f5f5;
+        border-color: #d0d0d0;
+    }
+    .section-table th {
+        text-align: left;
+        padding: 8px 14px;
+        font-weight: 500;
+        font-size: 0.72rem;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: #666;
+        border-bottom: 1px solid #333;
+        background: transparent;
+    }
+    [data-theme="light"] .section-table th {
+        color: #888;
+        border-bottom-color: #d0d0d0;
+    }
+    .section-table td {
+        padding: 9px 14px;
+        border-bottom: 1px solid #222;
+        vertical-align: top;
+        color: #ccc;
+        font-size: 0.84rem;
+    }
+    [data-theme="light"] .section-table td {
+        border-bottom-color: #e4e4e4;
+        color: #444;
+    }
+    .section-table tr:last-child td {
+        border-bottom: none;
+    }
+    .section-table code {
+        background: #1a1a1a;
+        padding: 2px 6px;
+        border-radius: 3px;
+        font-size: 0.82rem;
+        color: #e0e0e0;
+        border: 1px solid #333;
+        font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+    }
+    [data-theme="light"] .section-table code {
+        background: #e8e8e8;
+        color: #333;
+        border-color: #ccc;
+    }
+    .section-table .tag-yes {
+        color: #4ade80;
+        font-weight: 600;
+    }
+    [data-theme="light"] .section-table .tag-yes {
+        color: var(--success-fg);
+    }
+    .section-table .tag-no {
+        color: #666;
+    }
+    [data-theme="light"] .section-table .tag-no {
+        color: var(--body-quiet-color);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header-with-actions" style="background: color-mix(in srgb, var(--primary) 15%, var(--body-bg)); margin: -24px -24px 24px -24px; padding: 24px; border-radius: 8px 8px 0 0;">
+    <div class="page-header-content" style="width: 100%;">
+        <h1>Navigation Guide</h1>
+        <p class="page-subtitle">How to configure the sidebar, topbar, and contextual navigation areas. One registry drives everything.</p>
+    </div>
+</div>
+
+<!-- ===== SIDEBAR ===== -->
+<div class="guide-section" id="section-sidebar">
+    <div class="guide-section-header">
+        <div class="guide-section-icon" style="background: var(--primary);">
+            <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M3 3h18v18H3V3zm2 2v14h4V5H5zm6 0v14h8V5h-8z"/></svg>
+        </div>
+        <div>
+            <h2>Sidebar Navigation</h2>
+            <p>The vertical nav panel on the left. Supports sections, submenus, and per-page control.</p>
+        </div>
+    </div>
+    <div class="guide-tabs" data-tabgroup="sidebar">
+        <button type="button" data-tab="overview" class="active">Overview</button>
+        <button type="button" data-tab="register">Registering Items</button>
+        <button type="button" data-tab="submenus">Submenus</button>
+        <button type="button" data-tab="state">State Control</button>
+    </div>
+    <div class="guide-tab-panel active" data-panel="overview" data-group="sidebar">
+        <div class="feature-grid">
+            <div class="feature-item">
+                <strong>Three States</strong>
+                <span><code>open</code>, <code>closed</code>, or <code>disabled</code>. Users toggle with the hamburger button.</span>
+            </div>
+            <div class="feature-item">
+                <strong>Sections</strong>
+                <span>Items grouped by section: main, app, page, resources, admin.</span>
+            </div>
+            <div class="feature-item">
+                <strong>Submenus</strong>
+                <span>Nested parent/child items with expand/collapse animation.</span>
+            </div>
+            <div class="feature-item">
+                <strong>Active Detection</strong>
+                <span>Longest URL prefix match highlights the current page. Child active auto-opens parent.</span>
+            </div>
+        </div>
+        <div class="guide-note">
+            The sidebar renders items from sections: <code>main</code>, <code>app</code>, <code>page</code>, <code>resources</code>, and <code>admin</code>. It skips the <code>topbar</code> section entirely.
+        </div>
+    </div>
+    <div class="guide-tab-panel" data-panel="register" data-group="sidebar">
+        <p style="font-size:0.88rem; margin:0 0 12px; color:var(--body-quiet-color);">Register items in your app's <code>AppConfig.ready()</code> method. They appear in the sidebar automatically.</p>
+        <div class="g-code-wrap">
+            <span class="g-code-label">apps/myapp/apps.py</span>
+            <button type="button" class="g-copy-btn" data-copy>Copy</button>
+            <pre><code>from django.apps import AppConfig
+
+class MyAppConfig(AppConfig):
+    name = "apps.myapp"
+
+    def ready(self):
+        from apps.smallstack.navigation import nav
+
+        nav.register(
+            section="main",          # appears in sidebar main section
+            label="Dashboard",
+            url_name="myapp:dashboard",
+            icon_svg='&lt;svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"&gt;&lt;path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"/&gt;&lt;/svg&gt;',
+            order=10,
+        )</code></pre>
+        </div>
+        <table class="section-table">
+            <thead>
+                <tr>
+                    <th>Parameter</th>
+                    <th>Required</th>
+                    <th>Description</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr><td><code>section</code></td><td class="tag-yes">Yes</td><td><code>main</code>, <code>topbar</code>, <code>app</code>, <code>page</code>, <code>resources</code>, <code>admin</code></td></tr>
+                <tr><td><code>label</code></td><td class="tag-yes">Yes</td><td>Display text shown in the nav</td></tr>
+                <tr><td><code>url_name</code></td><td class="tag-yes">Yes</td><td>Django URL name passed to <code>reverse()</code></td></tr>
+                <tr><td><code>icon_svg</code></td><td class="tag-no">No</td><td>Inline SVG string for the icon</td></tr>
+                <tr><td><code>order</code></td><td class="tag-no">No</td><td>Sort position (lower = higher). Default: <code>0</code></td></tr>
+                <tr><td><code>parent</code></td><td class="tag-no">No</td><td>Label of parent item to create a submenu</td></tr>
+                <tr><td><code>auth_required</code></td><td class="tag-no">No</td><td>Only show to authenticated users</td></tr>
+                <tr><td><code>staff_required</code></td><td class="tag-no">No</td><td>Only show to staff users</td></tr>
+            </tbody>
+        </table>
+    </div>
+    <div class="guide-tab-panel" data-panel="submenus" data-group="sidebar">
+        <p style="font-size:0.88rem; margin:0 0 12px; color:var(--body-quiet-color);">Create nested navigation by setting <code>parent</code> to the label of a top-level item in the same section.</p>
+        <div class="g-code-wrap">
+            <span class="g-code-label">apps/schedule/apps.py</span>
+            <button type="button" class="g-copy-btn" data-copy>Copy</button>
+            <pre><code>def ready(self):
+    from apps.smallstack.navigation import nav
+
+    # Parent item (renders as expandable group)
+    nav.register(
+        section="main",
+        label="Schedule",
+        url_name="schedule:index",
+        icon_svg='&lt;svg&gt;...&lt;/svg&gt;',
+        order=10,
+    )
+
+    # Children (nested under parent)
+    nav.register(
+        section="main",
+        label="Calendar",
+        url_name="schedule:calendar",
+        parent="Schedule",    # must match parent label exactly
+        icon_svg='&lt;svg&gt;...&lt;/svg&gt;',
+        order=0,
+    )
+    nav.register(
+        section="main",
+        label="Results",
+        url_name="schedule:results",
+        parent="Schedule",
+        icon_svg='&lt;svg&gt;...&lt;/svg&gt;',
+        order=1,
+    )</code></pre>
+        </div>
+        <div class="guide-note">
+            If a child references a <code>parent</code> label that doesn't exist, it's promoted to a top-level item instead of being silently dropped. When a child page is active, its parent auto-opens on page load.
+        </div>
+    </div>
+    <div class="guide-tab-panel" data-panel="state" data-group="sidebar">
+        <p style="font-size:0.88rem; margin:0 0 12px; color:var(--body-quiet-color);">Sidebar state is resolved with this precedence (highest first):</p>
+        <ol class="precedence-list">
+            <li><strong>Template block</strong> <span class="prec-desc">&mdash; <code>{&#37; block sidebar_state &#37;}disabled{&#37; endblock &#37;}</code></span></li>
+            <li><strong>View context</strong> <span class="prec-desc">&mdash; <code>request._smallstack_sidebar_state = "closed"</code></span></li>
+            <li><strong>User preference</strong> <span class="prec-desc">&mdash; localStorage set by clicking the toggle button</span></li>
+            <li><strong>Global setting</strong> <span class="prec-desc">&mdash; <code>SMALLSTACK_SIDEBAR_DEFAULT</code> in settings</span></li>
+        </ol>
+        <div class="g-code-wrap">
+            <span class="g-code-label">config/settings/base.py</span>
+            <button type="button" class="g-copy-btn" data-copy>Copy</button>
+            <pre><code># Global default sidebar state: "open", "closed", or "disabled"
+SMALLSTACK_SIDEBAR_DEFAULT = "open"</code></pre>
+        </div>
+        <div class="g-code-wrap">
+            <span class="g-code-label">templates/mypage.html &mdash; per-page override</span>
+            <button type="button" class="g-copy-btn" data-copy>Copy</button>
+            <pre><code>{% templatetag openblock %} extends "smallstack/base.html" {% templatetag closeblock %}
+
+{# Disable sidebar on this page (forced, ignores localStorage) #}
+{% templatetag openblock %} block sidebar_state {% templatetag closeblock %}disabled{% templatetag openblock %} endblock {% templatetag closeblock %}</code></pre>
+        </div>
+        <div class="g-code-wrap">
+            <span class="g-code-label">views.py &mdash; per-view override</span>
+            <button type="button" class="g-copy-btn" data-copy>Copy</button>
+            <pre><code>class LandingView(TemplateView):
+    template_name = "landing.html"
+
+    def get(self, request, *args, **kwargs):
+        request._smallstack_sidebar_state = "disabled"
+        return super().get(request, *args, **kwargs)</code></pre>
+        </div>
+        <div class="guide-note">
+            When state is set via template block or view context, it is <strong>forced</strong> &mdash; JavaScript won't override it with the user's localStorage preference.
+        </div>
+    </div>
+</div>
+
+<!-- ===== TOPBAR ===== -->
+<div class="guide-section" id="section-topbar">
+    <div class="guide-section-header">
+        <div class="guide-section-icon" style="background: #5a4fcf;">
+            <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M3 3h18v4H3V3zm0 6h18v12H3V9z"/></svg>
+        </div>
+        <div>
+            <h2>Topbar Navigation</h2>
+            <p>Horizontal nav in the top bar. Renders from the same registry as the sidebar.</p>
+        </div>
+    </div>
+    <div class="guide-tabs" data-tabgroup="topbar">
+        <button type="button" data-tab="overview" class="active">Overview</button>
+        <button type="button" data-tab="modes">Visibility Modes</button>
+        <button type="button" data-tab="topbar-section">Topbar Section</button>
+        <button type="button" data-tab="dropdowns">Dropdowns</button>
+    </div>
+    <div class="guide-tab-panel active" data-panel="overview" data-group="topbar">
+        <div class="feature-grid">
+            <div class="feature-item">
+                <strong>Same Data Source</strong>
+                <span>Topbar reads from the nav registry. No separate config needed.</span>
+            </div>
+            <div class="feature-item">
+                <strong>Three Modes</strong>
+                <span><code>auto</code> (shows when sidebar closed), <code>always</code>, or <code>hidden</code>.</span>
+            </div>
+            <div class="feature-item">
+                <strong>Section Override</strong>
+                <span>Register to <code>topbar</code> section for different items than sidebar.</span>
+            </div>
+            <div class="feature-item">
+                <strong>Dropdowns</strong>
+                <span>Items with children, plus resources and admin sections, render as dropdown menus.</span>
+            </div>
+        </div>
+        <div class="guide-note">
+            By default, the topbar renders <code>main</code> section items horizontally. If any items are registered to the <code>topbar</code> section, those are shown <strong>instead</strong> of <code>main</code>.
+        </div>
+    </div>
+    <div class="guide-tab-panel" data-panel="modes" data-group="topbar">
+        <table class="section-table">
+            <thead>
+                <tr><th>Mode</th><th>When Visible</th><th>Use Case</th></tr>
+            </thead>
+            <tbody>
+                <tr><td><code>auto</code></td><td>When sidebar is <code>closed</code> or <code>disabled</code></td><td>Default &mdash; topbar fills in when sidebar is gone</td></tr>
+                <tr><td><code>always</code></td><td>Always, even with sidebar open</td><td>Dual nav surfaces for complex apps</td></tr>
+                <tr><td><code>hidden</code></td><td>Never</td><td>Sidebar-only layout, topbar shows only logo + user</td></tr>
+            </tbody>
+        </table>
+        <div class="g-code-wrap">
+            <span class="g-code-label">config/settings/base.py</span>
+            <button type="button" class="g-copy-btn" data-copy>Copy</button>
+            <pre><code># Show topbar nav even when sidebar is open
+SMALLSTACK_TOPBAR_NAV_ALWAYS = True   # "always" mode
+SMALLSTACK_TOPBAR_NAV_ALWAYS = False  # "auto" mode (default)</code></pre>
+        </div>
+        <div class="g-code-wrap">
+            <span class="g-code-label">templates/mypage.html &mdash; per-page override</span>
+            <button type="button" class="g-copy-btn" data-copy>Copy</button>
+            <pre><code>{% templatetag openblock %} extends "smallstack/base.html" {% templatetag closeblock %}
+
+{# Force topbar nav visible on this page regardless of global setting #}
+{% templatetag openblock %} block topbar_nav_mode {% templatetag closeblock %}always{% templatetag openblock %} endblock {% templatetag closeblock %}
+
+{# Or hide it on this specific page #}
+{% templatetag openblock %} block topbar_nav_mode {% templatetag closeblock %}hidden{% templatetag openblock %} endblock {% templatetag closeblock %}</code></pre>
+        </div>
+    </div>
+    <div class="guide-tab-panel" data-panel="topbar-section" data-group="topbar">
+        <p style="font-size:0.88rem; margin:0 0 12px; color:var(--body-quiet-color);">
+            Register items to <code>section="topbar"</code> to show different navigation in the topbar than the sidebar.
+            The sidebar always uses <code>main</code>; the topbar uses <code>topbar</code> items when they exist, otherwise falls back to <code>main</code>.
+        </p>
+        <div class="g-code-wrap">
+            <span class="g-code-label">apps/website/apps.py</span>
+            <button type="button" class="g-copy-btn" data-copy>Copy</button>
+            <pre><code>def ready(self):
+    from apps.smallstack.navigation import nav
+
+    # These go in the SIDEBAR only
+    nav.register(section="main", label="Dashboard",
+                 url_name="dashboard", order=0)
+    nav.register(section="main", label="Settings",
+                 url_name="settings", order=1)
+
+    # These go in the TOPBAR only (overrides main)
+    nav.register(section="topbar", label="Features",
+                 url_name="website:features", order=0)
+    nav.register(section="topbar", label="Pricing",
+                 url_name="website:pricing", order=1)
+    nav.register(section="topbar", label="About",
+                 url_name="website:about",
+                 parent="More", order=0)  # dropdown child</code></pre>
+        </div>
+        <div class="guide-note">
+            This is useful for sites where the sidebar has admin/app navigation while the topbar shows public-facing marketing links.
+        </div>
+    </div>
+    <div class="guide-tab-panel" data-panel="dropdowns" data-group="topbar">
+        <p style="font-size:0.88rem; margin:0 0 12px; color:var(--body-quiet-color);">In the topbar, items with children render as dropdown menus. The <code>resources</code> and <code>admin</code> sections each render as a single dropdown.</p>
+        <div class="g-code-wrap">
+            <span class="g-code-label">apps/website/apps.py &mdash; topbar dropdown</span>
+            <button type="button" class="g-copy-btn" data-copy>Copy</button>
+            <pre><code>def ready(self):
+    from apps.smallstack.navigation import nav
+
+    # "More" becomes a dropdown trigger in the topbar
+    nav.register(section="topbar", label="About",
+                 url_name="website:about",
+                 parent="More", order=0)
+    nav.register(section="topbar", label="Blog",
+                 url_name="website:blog",
+                 parent="More", order=1)
+    nav.register(section="topbar", label="Contact",
+                 url_name="website:contact",
+                 parent="More", order=2)</code></pre>
+        </div>
+        <div class="g-code-wrap">
+            <span class="g-code-label">Resources &amp; Admin sections</span>
+            <button type="button" class="g-copy-btn" data-copy>Copy</button>
+            <pre><code># Resources section renders as a "Resources" dropdown in topbar
+nav.register(section="resources", label="Help",
+             url_name="help:index", order=0)
+nav.register(section="resources", label="API Docs",
+             url_name="api:docs", order=1)
+
+# Admin section renders as an "Admin" dropdown (staff only)
+nav.register(section="admin", label="Dashboard",
+             url_name="smallstack_dashboard",
+             staff_required=True, order=0)
+nav.register(section="admin", label="Backups",
+             url_name="smallstack:backups",
+             staff_required=True, order=1)</code></pre>
+        </div>
+    </div>
+</div>
+
+<!-- ===== APP & PAGE SECTIONS ===== -->
+<div class="guide-section" id="section-contextual">
+    <div class="guide-section-header">
+        <div class="guide-section-icon" style="background: #d97706;">
+            <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm16-4H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-1 9h-4v4h-2v-4H9V9h4V5h2v4h4v2z"/></svg>
+        </div>
+        <div>
+            <h2>App &amp; Page Sections</h2>
+            <p>Contextual navigation areas for app-level and page-level items in the sidebar.</p>
+        </div>
+    </div>
+    <div class="guide-tabs" data-tabgroup="contextual">
+        <button type="button" data-tab="overview" class="active">Overview</button>
+        <button type="button" data-tab="registry">Via Registry</button>
+        <button type="button" data-tab="blocks">Via Template Blocks</button>
+    </div>
+    <div class="guide-tab-panel active" data-panel="overview" data-group="contextual">
+        <table class="section-table">
+            <thead>
+                <tr><th>Section</th><th>Sidebar</th><th>Topbar</th><th>Purpose</th></tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><code>main</code></td>
+                    <td class="tag-yes">Yes</td>
+                    <td class="tag-yes">Yes (fallback)</td>
+                    <td>Primary site navigation</td>
+                </tr>
+                <tr>
+                    <td><code>topbar</code></td>
+                    <td class="tag-no">No</td>
+                    <td class="tag-yes">Yes (overrides main)</td>
+                    <td>Topbar-only alternate items</td>
+                </tr>
+                <tr>
+                    <td><code>app</code></td>
+                    <td class="tag-yes">Yes</td>
+                    <td class="tag-no">No</td>
+                    <td>App-level contextual items</td>
+                </tr>
+                <tr>
+                    <td><code>page</code></td>
+                    <td class="tag-yes">Yes</td>
+                    <td class="tag-no">No</td>
+                    <td>Page-level contextual items</td>
+                </tr>
+                <tr>
+                    <td><code>resources</code></td>
+                    <td class="tag-yes">Yes</td>
+                    <td class="tag-yes">As dropdown</td>
+                    <td>Help, docs, external links</td>
+                </tr>
+                <tr>
+                    <td><code>admin</code></td>
+                    <td class="tag-yes">Yes</td>
+                    <td class="tag-yes">As dropdown</td>
+                    <td>Staff-only administration</td>
+                </tr>
+            </tbody>
+        </table>
+        <div class="guide-note">
+            The <code>app</code> and <code>page</code> sections appear in the sidebar between main and resources. They can be populated via the registry (always present) or via template blocks (per-page).
+        </div>
+    </div>
+    <div class="guide-tab-panel" data-panel="registry" data-group="contextual">
+        <p style="font-size:0.88rem; margin:0 0 12px; color:var(--body-quiet-color);">
+            Items registered to the <code>app</code> or <code>page</code> section appear in the sidebar with their own section header.
+        </p>
+        <div class="g-code-wrap">
+            <span class="g-code-label">apps/reports/apps.py</span>
+            <button type="button" class="g-copy-btn" data-copy>Copy</button>
+            <pre><code>def ready(self):
+    from apps.smallstack.navigation import nav
+
+    # App-level items (always visible when app is installed)
+    nav.register(
+        section="app",
+        label="Reports",
+        url_name="reports:index",
+        icon_svg='&lt;svg&gt;...&lt;/svg&gt;',
+        auth_required=True,
+        order=0,
+    )
+    nav.register(
+        section="app",
+        label="New Report",
+        url_name="reports:create",
+        icon_svg='&lt;svg&gt;...&lt;/svg&gt;',
+        auth_required=True,
+        order=1,
+    )</code></pre>
+        </div>
+        <div class="guide-note">
+            Use <code>section="app"</code> for items that are always relevant to your app. Use <code>section="page"</code> for items that relate to a specific page or feature area.
+        </div>
+    </div>
+    <div class="guide-tab-panel" data-panel="blocks" data-group="contextual">
+        <p style="font-size:0.88rem; margin:0 0 12px; color:var(--body-quiet-color);">
+            For per-page contextual navigation, use template blocks. These render in the sidebar on that specific page only.
+        </p>
+        <div class="g-code-wrap">
+            <span class="g-code-label">templates/reports/detail.html</span>
+            <button type="button" class="g-copy-btn" data-copy>Copy</button>
+            <pre><code>{% templatetag openblock %} extends "smallstack/base.html" {% templatetag closeblock %}
+
+{# App-level items in the sidebar #}
+{% templatetag openblock %} block nav_app_items {% templatetag closeblock %}
+&lt;li class="nav-section-title"&gt;Reports&lt;/li&gt;
+&lt;li class="nav-item"&gt;
+    &lt;a href="{% templatetag openblock %} url 'reports:index' {% templatetag closeblock %}" class="nav-link"&gt;
+        &lt;svg&gt;...&lt;/svg&gt;
+        &lt;span&gt;All Reports&lt;/span&gt;
+    &lt;/a&gt;
+&lt;/li&gt;
+{% templatetag openblock %} endblock {% templatetag closeblock %}
+
+{# Page-level items in the sidebar #}
+{% templatetag openblock %} block nav_page_items {% templatetag closeblock %}
+&lt;li class="nav-section-title"&gt;This Report&lt;/li&gt;
+&lt;li class="nav-item"&gt;
+    &lt;a href="#overview" class="nav-link"&gt;
+        &lt;span&gt;Overview&lt;/span&gt;
+    &lt;/a&gt;
+&lt;/li&gt;
+&lt;li class="nav-item"&gt;
+    &lt;a href="#data" class="nav-link"&gt;
+        &lt;span&gt;Data&lt;/span&gt;
+    &lt;/a&gt;
+&lt;/li&gt;
+{% templatetag openblock %} endblock {% templatetag closeblock %}
+
+{% templatetag openblock %} block content {% templatetag closeblock %}
+  {# page content #}
+{% templatetag openblock %} endblock {% templatetag closeblock %}</code></pre>
+        </div>
+        <div class="guide-note">
+            Template block items use raw HTML &mdash; you have full control over the markup. Use the <code>nav-item</code>, <code>nav-link</code>, and <code>nav-section-title</code> CSS classes to match the sidebar's built-in styling.
+        </div>
+    </div>
+</div>
+
+<!-- ===== PUTTING IT TOGETHER ===== -->
+<div class="guide-section" id="section-examples">
+    <div class="guide-section-header">
+        <div class="guide-section-icon" style="background: #059669;">
+            <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M9.4 16.6L4.8 12l4.6-4.6L8 6l-6 6 6 6 1.4-1.4zm5.2 0l4.6-4.6-4.6-4.6L16 6l6 6-6 6-1.4-1.4z"/></svg>
+        </div>
+        <div>
+            <h2>Full Examples</h2>
+            <p>Common patterns combining sidebar, topbar, and contextual nav.</p>
+        </div>
+    </div>
+    <div class="guide-tabs" data-tabgroup="examples">
+        <button type="button" data-tab="marketing" class="active">Marketing Site</button>
+        <button type="button" data-tab="admin">Admin App</button>
+        <button type="button" data-tab="hybrid">Hybrid (Public + Staff)</button>
+    </div>
+    <div class="guide-tab-panel active" data-panel="marketing" data-group="examples">
+        <p style="font-size:0.88rem; margin:0 0 12px; color:var(--body-quiet-color);">
+            Public website with no sidebar, topbar-only navigation, and custom topbar items.
+        </p>
+        <div class="g-code-wrap">
+            <span class="g-code-label">config/settings/base.py</span>
+            <button type="button" class="g-copy-btn" data-copy>Copy</button>
+            <pre><code>SMALLSTACK_SIDEBAR_DEFAULT = "disabled"
+SMALLSTACK_TOPBAR_NAV_ALWAYS = True</code></pre>
+        </div>
+        <div class="g-code-wrap">
+            <span class="g-code-label">apps/website/apps.py</span>
+            <button type="button" class="g-copy-btn" data-copy>Copy</button>
+            <pre><code>def ready(self):
+    from apps.smallstack.navigation import nav
+
+    nav.register(section="topbar", label="Features",
+                 url_name="website:features", order=0)
+    nav.register(section="topbar", label="Pricing",
+                 url_name="website:pricing", order=1)
+    nav.register(section="topbar", label="Docs",
+                 url_name="help:index", order=2)
+    nav.register(section="topbar", label="About",
+                 url_name="website:about",
+                 parent="More", order=0)
+    nav.register(section="topbar", label="GitHub",
+                 url_name="website:github",
+                 parent="More", order=1)</code></pre>
+        </div>
+    </div>
+    <div class="guide-tab-panel" data-panel="admin" data-group="examples">
+        <p style="font-size:0.88rem; margin:0 0 12px; color:var(--body-quiet-color);">
+            Staff-only admin area with sidebar open, submenus, and no topbar nav.
+        </p>
+        <div class="g-code-wrap">
+            <span class="g-code-label">config/settings/base.py</span>
+            <button type="button" class="g-copy-btn" data-copy>Copy</button>
+            <pre><code>SMALLSTACK_SIDEBAR_DEFAULT = "open"
+SMALLSTACK_TOPBAR_NAV_ALWAYS = False</code></pre>
+        </div>
+        <div class="g-code-wrap">
+            <span class="g-code-label">apps/admin_app/apps.py</span>
+            <button type="button" class="g-copy-btn" data-copy>Copy</button>
+            <pre><code>def ready(self):
+    from apps.smallstack.navigation import nav
+
+    nav.register(section="main", label="Dashboard",
+                 url_name="admin_app:dashboard",
+                 icon_svg='&lt;svg&gt;...&lt;/svg&gt;',
+                 staff_required=True, order=0)
+
+    # Submenu
+    nav.register(section="main", label="Users",
+                 url_name="admin_app:users",
+                 icon_svg='&lt;svg&gt;...&lt;/svg&gt;',
+                 staff_required=True, order=10)
+    nav.register(section="main", label="Active Users",
+                 url_name="admin_app:users_active",
+                 parent="Users", order=0)
+    nav.register(section="main", label="Invitations",
+                 url_name="admin_app:invitations",
+                 parent="Users", order=1)</code></pre>
+        </div>
+    </div>
+    <div class="guide-tab-panel" data-panel="hybrid" data-group="examples">
+        <p style="font-size:0.88rem; margin:0 0 12px; color:var(--body-quiet-color);">
+            Public pages disable sidebar; staff pages show full sidebar. Both share the same base template.
+        </p>
+        <div class="g-code-wrap">
+            <span class="g-code-label">config/settings/base.py</span>
+            <button type="button" class="g-copy-btn" data-copy>Copy</button>
+            <pre><code># Default to sidebar open (staff pages)
+SMALLSTACK_SIDEBAR_DEFAULT = "open"
+SMALLSTACK_TOPBAR_NAV_ALWAYS = True</code></pre>
+        </div>
+        <div class="g-code-wrap">
+            <span class="g-code-label">templates/website/public_base.html</span>
+            <button type="button" class="g-copy-btn" data-copy>Copy</button>
+            <pre><code>{# Base for all public pages: no sidebar, topbar nav always #}
+{% templatetag openblock %} extends "smallstack/base.html" {% templatetag closeblock %}
+
+{% templatetag openblock %} block sidebar_state {% templatetag closeblock %}disabled{% templatetag openblock %} endblock {% templatetag closeblock %}
+{% templatetag openblock %} block topbar_nav_mode {% templatetag closeblock %}always{% templatetag openblock %} endblock {% templatetag closeblock %}</code></pre>
+        </div>
+        <div class="g-code-wrap">
+            <span class="g-code-label">templates/website/landing.html</span>
+            <button type="button" class="g-copy-btn" data-copy>Copy</button>
+            <pre><code>{# Inherits disabled sidebar from public_base #}
+{% templatetag openblock %} extends "website/public_base.html" {% templatetag closeblock %}
+
+{% templatetag openblock %} block content {% templatetag closeblock %}
+  &lt;h1&gt;Welcome&lt;/h1&gt;
+{% templatetag openblock %} endblock {% templatetag closeblock %}</code></pre>
+        </div>
+        <div class="g-code-wrap">
+            <span class="g-code-label">templates/admin/staff_page.html</span>
+            <button type="button" class="g-copy-btn" data-copy>Copy</button>
+            <pre><code>{# Staff pages use base.html directly (sidebar open is the default) #}
+{% templatetag openblock %} extends "smallstack/base.html" {% templatetag closeblock %}
+
+{% templatetag openblock %} block content {% templatetag closeblock %}
+  &lt;h1&gt;Admin Dashboard&lt;/h1&gt;
+{% templatetag openblock %} endblock {% templatetag closeblock %}</code></pre>
+        </div>
+        <div class="guide-note">
+            The hybrid pattern works by creating an intermediate <code>public_base.html</code> that overrides sidebar state. Staff templates extend <code>smallstack/base.html</code> directly and get the default sidebar-open layout.
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function() {
+    // Generic tab switching for all tab groups
+    document.querySelectorAll('.guide-tabs').forEach(function(tabBar) {
+        var group = tabBar.dataset.tabgroup;
+        tabBar.addEventListener('click', function(e) {
+            var btn = e.target.closest('button[data-tab]');
+            if (!btn) return;
+            tabBar.querySelectorAll('button').forEach(function(b) { b.classList.remove('active'); });
+            btn.classList.add('active');
+            document.querySelectorAll('.guide-tab-panel[data-group="' + group + '"]').forEach(function(p) {
+                p.classList.toggle('active', p.dataset.panel === btn.dataset.tab);
+            });
+        });
+    });
+
+    // Copy button handler
+    document.addEventListener('click', function(e) {
+        var btn = e.target.closest('.g-copy-btn');
+        if (!btn) return;
+        var code = btn.closest('.g-code-wrap').querySelector('code');
+        navigator.clipboard.writeText(code.textContent).then(function() {
+            var orig = btn.textContent;
+            btn.textContent = 'Copied!';
+            btn.style.color = 'var(--primary)';
+            btn.style.borderColor = 'var(--primary)';
+            setTimeout(function() {
+                btn.textContent = orig;
+                btn.style.color = '';
+                btn.style.borderColor = '';
+            }, 1500);
+        });
+    });
+})();
+</script>
+{% endblock %}

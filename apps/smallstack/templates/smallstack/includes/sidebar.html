@@ -3,18 +3,62 @@
     <nav class="sidebar-nav">
         <ul class="nav-list">
             {% for group in nav_items %}
+            {% if group.section == "topbar" %}
+                {# topbar section is not shown in the sidebar #}
+            {% elif group.section == "admin" and not user.is_staff %}
+                {# admin section is staff only #}
+            {% else %}
+
+            {% if group.section == "app" %}
+                {% block nav_app_items %}{% endblock %}
+            {% elif group.section == "page" %}
+                {% block nav_page_items %}{% endblock %}
+            {% endif %}
+
             {% if group.section != "main" %}
             <li class="nav-section-title">{{ group.section|title }}</li>
             {% endif %}
+
             {% for item in group.items %}
-            <li class="nav-item">
-                <a href="{{ item.url }}" class="nav-link {% if item.active %}active{% endif %}">
-                    {{ item.icon_svg|safe }}
-                    <span>{{ item.label }}</span>
-                </a>
-            </li>
+                {% if item.children %}
+                <li class="nav-group {% if item.has_active_child %}open{% endif %}" data-submenu>
+                    <button class="nav-link nav-parent" type="button">
+                        {{ item.icon_svg|safe }}
+                        <span>{{ item.label }}</span>
+                        <svg class="nav-chevron" viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+                            <path d="M7 10l5 5 5-5z"/>
+                        </svg>
+                    </button>
+                    <ul class="nav-submenu">
+                        {% for child in item.children %}
+                        <li class="nav-item">
+                            <a href="{{ child.url }}" class="nav-link nav-child {% if child.active %}active{% endif %}">
+                                {{ child.icon_svg|safe }}
+                                <span>{{ child.label }}</span>
+                            </a>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                </li>
+                {% else %}
+                <li class="nav-item">
+                    <a href="{{ item.url }}" class="nav-link {% if item.active %}active{% endif %}">
+                        {{ item.icon_svg|safe }}
+                        <span>{{ item.label }}</span>
+                    </a>
+                </li>
+                {% endif %}
             {% endfor %}
+
+            {% endif %}{# end topbar skip #}
             {% endfor %}
+
+            {% if not nav_has_app_section %}
+                {% block nav_app_items_fallback %}{% endblock %}
+            {% endif %}
+            {% if not nav_has_page_section %}
+                {% block nav_page_items_fallback %}{% endblock %}
+            {% endif %}
 
             {% if user.is_staff %}
             <li class="nav-item">

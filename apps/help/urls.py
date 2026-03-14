@@ -11,6 +11,7 @@ from .views import (
     HelpIndexView,
     HelpSectionDetailView,
     HelpSectionIndexView,
+    HelpSectionTocView,
     SlideView,
     search_index_view,
 )
@@ -21,6 +22,8 @@ urlpatterns = [
     path("", HelpIndexView.as_view(), name="index"),
     path("search-index.json", search_index_view, name="search_index"),
     path("slides/<slug:deck_slug>/", SlideView.as_view(), name="slides"),
+    # Section table of contents (e.g., /help/smallstack/toc/)
+    path("<slug:section>/toc/", HelpSectionTocView.as_view(), name="section_toc"),
     # Section pages (e.g., /help/smallstack/getting-started/)
     path("<slug:section>/<slug:slug>/", HelpSectionDetailView.as_view(), name="section_detail"),
     # Section index (e.g., /help/smallstack/) - must come after section_detail
