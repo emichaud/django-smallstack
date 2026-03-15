@@ -1,6 +1,6 @@
 {
   "name": "smallstack-skills",
-  "version": "0.8.4",
+  "version": "0.8.5",
   "description": "AI skill index for Django SmallStack. Read the relevant skill before modifying the corresponding part of the codebase.",
   "skills": [
     {
