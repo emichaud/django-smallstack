@@ -55,4 +55,204 @@
 .crud-action-delete {
     color: var(--delete-button-bg, #dc3545) !important;
 }
+
+/* Field preview trigger (truncated text) */
+.field-preview-trigger {
+    cursor: pointer;
+}
+.field-preview-trigger:hover {
+    color: var(--primary);
+}
+.field-preview-more {
+    display: inline-block;
+    margin-left: 3px;
+    padding: 0 5px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 1px;
+    line-height: 1.5;
+    vertical-align: middle;
+    border-radius: 3px;
+    background: color-mix(in srgb, var(--primary) 15%, var(--body-bg));
+    color: var(--primary);
+    transition: background 0.15s;
+}
+.field-preview-trigger:hover .field-preview-more {
+    background: color-mix(in srgb, var(--primary) 30%, var(--body-bg));
+}
+
+/* Field preview modal (matches stat-modal pattern) */
+.field-preview-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 1000;
+    align-items: center;
+    justify-content: center;
+}
+.field-preview-overlay.open {
+    display: flex;
+}
+.field-preview-panel {
+    width: min(680px, 90vw);
+    height: min(520px, 80vh);
+    display: flex;
+    flex-direction: column;
+    background: var(--card-bg, var(--body-bg));
+    border: 1px solid var(--card-border, color-mix(in srgb, var(--body-fg) 10%, var(--body-bg)));
+    border-radius: var(--radius-md, 8px);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+    overflow: hidden;
+}
+.field-preview-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 16px;
+    border-bottom: 1px solid color-mix(in srgb, var(--body-fg) 10%, var(--body-bg));
+    flex-shrink: 0;
+    background: color-mix(in srgb, var(--primary) 8%, var(--body-bg));
+}
+.field-preview-tabs {
+    display: flex;
+    gap: 2px;
+}
+.field-preview-tab {
+    padding: 5px 12px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--body-quiet-color);
+    border: none;
+    background: none;
+    cursor: pointer;
+    border-radius: 4px;
+    transition: color 0.15s, background 0.15s;
+}
+.field-preview-tab:hover {
+    color: var(--body-fg);
+    background: color-mix(in srgb, var(--body-fg) 8%, transparent);
+}
+.field-preview-tab.active {
+    color: var(--primary);
+    background: color-mix(in srgb, var(--primary) 15%, var(--body-bg));
+}
+.field-preview-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.field-preview-copy {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 10px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: var(--body-quiet-color);
+    border: 1px solid color-mix(in srgb, var(--body-fg) 15%, var(--body-bg));
+    border-radius: 4px;
+    background: none;
+    cursor: pointer;
+    transition: color 0.15s, border-color 0.15s, background 0.15s;
+}
+.field-preview-copy:hover {
+    color: var(--primary);
+    border-color: var(--primary);
+    background: color-mix(in srgb, var(--primary) 8%, transparent);
+}
+.field-preview-copy.copied {
+    color: #22863a;
+    border-color: #22863a;
+}
+[data-theme="dark"] .field-preview-copy.copied {
+    color: #85e89d;
+    border-color: #85e89d;
+}
+.field-preview-close {
+    border: none;
+    background: none;
+    color: var(--body-quiet-color);
+    cursor: pointer;
+    padding: 2px 6px;
+    font-size: 1.3rem;
+    line-height: 1;
+    transition: color 0.15s;
+}
+.field-preview-close:hover { color: var(--body-fg); }
+.field-preview-content {
+    padding: 16px 20px;
+    font-size: 0.85rem;
+    line-height: 1.6;
+    overflow-y: auto;
+    flex: 1;
+    min-height: 0;
+}
+.field-preview-content pre {
+    margin: 0;
+    white-space: pre-wrap;
+    word-break: break-word;
+    font-size: 0.82rem;
+    font-family: ui-monospace, "Cascadia Code", "Source Code Pro", Menlo, Consolas, monospace;
+    line-height: 1.6;
+}
+
+/* JSON syntax highlighting */
+.field-preview-content .json-key { color: var(--primary); }
+.field-preview-content .json-str { color: #22863a; }
+.field-preview-content .json-num { color: #005cc5; }
+.field-preview-content .json-bool { color: #d73a49; }
+.field-preview-content .json-null { color: var(--body-quiet-color); }
+[data-theme="dark"] .field-preview-content .json-str { color: #85e89d; }
+[data-theme="dark"] .field-preview-content .json-num { color: #79b8ff; }
+[data-theme="dark"] .field-preview-content .json-bool { color: #f97583; }
+
+/* Markdown preview */
+.field-preview-content .md-preview h1,
+.field-preview-content .md-preview h2,
+.field-preview-content .md-preview h3 {
+    margin: 0.8em 0 0.4em;
+    font-weight: 700;
+    color: var(--body-fg);
+}
+.field-preview-content .md-preview h1 { font-size: 1.25em; }
+.field-preview-content .md-preview h2 { font-size: 1.1em; }
+.field-preview-content .md-preview h3 { font-size: 1em; }
+.field-preview-content .md-preview p {
+    margin: 0.4em 0;
+}
+.field-preview-content .md-preview code {
+    background: color-mix(in srgb, var(--body-fg) 8%, var(--body-bg));
+    padding: 2px 5px;
+    border-radius: 3px;
+    font-size: 0.9em;
+    font-family: ui-monospace, "Cascadia Code", "Source Code Pro", Menlo, Consolas, monospace;
+}
+.field-preview-content .md-preview ul,
+.field-preview-content .md-preview ol {
+    padding-left: 1.5em;
+    margin: 0.4em 0;
+}
+.field-preview-content .md-preview li {
+    margin: 0.15em 0;
+}
+.field-preview-content .md-preview blockquote {
+    margin: 0.5em 0;
+    padding: 0.4em 0.8em;
+    border-left: 3px solid var(--primary);
+    color: var(--body-quiet-color);
+    background: color-mix(in srgb, var(--primary) 5%, var(--body-bg));
+    border-radius: 0 4px 4px 0;
+}
+.field-preview-content .md-preview a {
+    color: var(--primary);
+    text-decoration: none;
+}
+.field-preview-content .md-preview a:hover {
+    text-decoration: underline;
+}
 </style>

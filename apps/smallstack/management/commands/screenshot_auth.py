@@ -48,7 +48,7 @@ class Command(BaseCommand):
         # Create a session programmatically
         session = SessionStore()
         session["_auth_user_id"] = str(user.pk)
-        session["_auth_user_backend"] = settings.AUTHENTICATION_BACKENDS[0]
+        session["_auth_user_backend"] = "django.contrib.auth.backends.ModelBackend"
         session["_auth_user_hash"] = user.get_session_auth_hash()
         session.create()
 

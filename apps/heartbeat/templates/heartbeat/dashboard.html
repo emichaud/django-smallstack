@@ -169,6 +169,25 @@
             color-mix(in srgb, var(--error-fg) 10%, var(--body-bg)) 4px
         );
     }
+    .timeline-bar .beat.maintenance {
+        background: repeating-linear-gradient(
+            45deg,
+            color-mix(in srgb, var(--warning-fg) 30%, var(--body-bg)),
+            color-mix(in srgb, var(--warning-fg) 30%, var(--body-bg)) 2px,
+            color-mix(in srgb, var(--warning-fg) 12%, var(--body-bg)) 2px,
+            color-mix(in srgb, var(--warning-fg) 12%, var(--body-bg)) 4px
+        );
+        opacity: 0.8;
+    }
+    .timeline-legend .swatch.maintenance {
+        background: repeating-linear-gradient(
+            45deg,
+            color-mix(in srgb, var(--warning-fg) 30%, var(--body-bg)),
+            color-mix(in srgb, var(--warning-fg) 30%, var(--body-bg)) 2px,
+            color-mix(in srgb, var(--warning-fg) 12%, var(--body-bg)) 2px,
+            color-mix(in srgb, var(--warning-fg) 12%, var(--body-bg)) 4px
+        );
+    }
 
     /* JSON display */
     .json-display {
@@ -213,7 +232,7 @@
             <div style="font-size: 1.4rem; font-weight: 700; color: {% if status == 'operational' %}var(--success-fg){% elif status == 'degraded' %}var(--warning-fg){% elif status == 'down' %}var(--error-fg){% else %}var(--body-quiet-color){% endif %};">
                 {{ status_label }}
             </div>
-            <div style="color: var(--body-quiet-color); font-size: 0.75rem;">Current Status</div>
+            <div style="color: var(--body-quiet-color); font-size: 0.75rem;">Current Status{% if active_maintenance %} <span style="color: var(--warning-fg);">(Maint)</span>{% endif %}</div>
         </div>
     </div>
     <div class="card">
@@ -266,7 +285,7 @@
             <div class="timeline-bar timeline-bar-24h">
                 {% for slot in timeline_24h %}
                 <div class="beat {{ slot.status }}">
-                    <span class="tooltip">{{ slot.hour_label }} &mdash; {% if slot.status == "pre-epoch" %}Not monitored{% elif slot.status == "missed" %}No data{% elif slot.status == "partial" %}{{ slot.ok_count }} OK, {{ slot.fail_count }} fail{% elif slot.status == "fail" %}{{ slot.fail_count }} failure{{ slot.fail_count|pluralize }}{% else %}{{ slot.ok_count }} OK{% endif %}</span>
+                    <span class="tooltip">{{ slot.hour_label }} &mdash; {% if slot.status == "pre-epoch" %}Not monitored{% elif slot.status == "maintenance" %}Maintenance{% elif slot.status == "missed" %}No data{% elif slot.status == "partial" %}{{ slot.ok_count }} OK, {{ slot.fail_count }} fail{% elif slot.status == "fail" %}{{ slot.fail_count }} failure{{ slot.fail_count|pluralize }}{% else %}{{ slot.ok_count }} OK{% endif %}</span>
                 </div>
                 {% endfor %}
             </div>
@@ -279,6 +298,7 @@
                 <span><span class="swatch ok"></span> OK</span>
                 <span><span class="swatch fail"></span> Failure</span>
                 <span><span class="swatch missed"></span> No data</span>
+                <span><span class="swatch maintenance"></span> Maintenance</span>
             </div>
             {% endif %}
 
@@ -287,7 +307,7 @@
             <div class="timeline-bar">
                 {% for beat in timeline %}
                 <div class="beat {{ beat.status }}">
-                    <span class="tooltip">{{ beat.label }} &mdash; {% if beat.status == "pre-epoch" %}Not monitored{% elif beat.status == "missed" %}No heartbeat{% else %}{{ beat.status|upper }} ({{ beat.response_time_ms }}ms){% endif %}</span>
+                    <span class="tooltip">{{ beat.label }} &mdash; {% if beat.status == "pre-epoch" %}Not monitored{% elif beat.status == "maintenance" %}Maintenance{% elif beat.status == "missed" %}No heartbeat{% else %}{{ beat.status|upper }} ({{ beat.response_time_ms }}ms){% endif %}</span>
                 </div>
                 {% endfor %}
             </div>

@@ -1,0 +1,1 @@
+{% if needs_truncation %}<span class="field-preview-trigger" hx-get="{{ preview_url }}" hx-target="#field-preview-content" hx-swap="innerHTML">{{ text }}<span class="field-preview-more" title="Click to preview full content">&hellip;</span></span>{% else %}{{ text }}{% endif %}

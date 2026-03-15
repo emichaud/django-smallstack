@@ -12,7 +12,7 @@ services:
       - DJANGO_SUPERUSER_USERNAME=${DJANGO_SUPERUSER_USERNAME:-}
       - DJANGO_SUPERUSER_PASSWORD=${DJANGO_SUPERUSER_PASSWORD:-}
       - DJANGO_SUPERUSER_EMAIL=${DJANGO_SUPERUSER_EMAIL:-}
-      # - BACKUP_CRON_ENABLED=true  # Enable scheduled database backups
+      - BACKUP_CRON_ENABLED=true
     volumes:
       - db_data:/data
       - media_data:/app/media

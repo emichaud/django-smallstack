@@ -489,8 +489,10 @@ You don't have to enable all five. A common pattern is `[Action.LIST, Action.CRE
 
 CRUDView looks for templates in this order:
 
-1. **App-specific:** `<app_label>/<model_name>_<suffix>.html` (e.g., `myfeature/widget_list.html`)
+1. **App-specific:** `<app_label>/crud/<model_name>_<suffix>.html` (e.g., `myfeature/crud/widget_list.html`)
 2. **Generic fallback:** `smallstack/crud/object_<suffix>.html`
+
+The `crud/` subdirectory prevents collisions with public-facing templates that use Django's standard naming convention (e.g., `myfeature/widget_detail.html` for a public view won't be picked up by the CRUD system).
 
 Override `_get_template_names(cls, suffix)` to customize. The suffix is one of: `list`, `detail`, `form`, `confirm_delete`.
 

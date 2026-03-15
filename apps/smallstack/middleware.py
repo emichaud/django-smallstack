@@ -29,11 +29,11 @@ class TimezoneMiddleware:
         server_tz = zoneinfo.ZoneInfo(settings.TIME_ZONE)
         user_tz = server_tz
 
-        if hasattr(request, "user") and request.user.is_authenticated:
-            try:
+        try:
+            if hasattr(request, "user") and request.user.is_authenticated:
                 user_tz = request.user.profile.get_timezone()
-            except Exception:
-                pass
+        except Exception:
+            pass
 
         # Cache on request for template tags
         request._tz_user = user_tz

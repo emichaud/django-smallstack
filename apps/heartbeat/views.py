@@ -10,7 +10,7 @@ from django.views.generic import TemplateView
 
 from apps.smallstack.mixins import StaffRequiredMixin
 
-from .models import Heartbeat, HeartbeatEpoch
+from .models import Heartbeat, HeartbeatEpoch, MaintenanceWindow
 
 
 def _get_epoch():
@@ -82,11 +82,22 @@ def _get_status_data():
     }
 
 
+def _get_non_maintenance_ok_count(window_start, window_end):
+    """Count OK beats excluding those within SLA-excluded maintenance windows."""
+    excluded_ranges = MaintenanceWindow.get_excluded_ranges(window_start, window_end)
+    qs = Heartbeat.objects.filter(timestamp__gte=window_start, timestamp__lt=window_end, status="ok")
+    for s, e in excluded_ranges:
+        qs = qs.exclude(timestamp__gte=s, timestamp__lt=e)
+    return qs.count()
+
+
 def _calc_uptime(hours):
     """Calculate uptime percentage over the given window, epoch-aware.
 
     Expected checks are floored to complete intervals — the current
-    incomplete minute doesn't count against uptime.
+    incomplete minute doesn't count against uptime. Maintenance windows
+    with exclude_from_sla=True are subtracted from both numerator and
+    denominator.
     """
     interval = getattr(settings, "HEARTBEAT_EXPECTED_INTERVAL", 60)
     epoch = _get_epoch()
@@ -100,14 +111,16 @@ def _calc_uptime(hours):
     if elapsed_seconds <= 0:
         return None
 
-    expected = int(elapsed_seconds // interval)
+    excluded_seconds = MaintenanceWindow.get_excluded_seconds(window_start, current)
+    effective_seconds = elapsed_seconds - excluded_seconds
+    if effective_seconds <= 0:
+        return None
+
+    expected = int(effective_seconds // interval)
     if expected < 1:
         return None
 
-    ok_count = Heartbeat.objects.filter(
-        timestamp__gte=window_start,
-        status="ok",
-    ).count()
+    ok_count = _get_non_maintenance_ok_count(window_start, current)
 
     return min(round((ok_count / expected) * 100, 2), 100.0)
 
@@ -116,25 +129,30 @@ def _calc_overall_uptime():
     """Calculate uptime since the epoch.
 
     Expected checks are floored to complete intervals — the current
-    incomplete minute doesn't count against uptime.
+    incomplete minute doesn't count against uptime. Maintenance windows
+    with exclude_from_sla=True are subtracted from both numerator and
+    denominator.
     """
     interval = getattr(settings, "HEARTBEAT_EXPECTED_INTERVAL", 60)
     epoch = _get_epoch()
     if not epoch:
         return None
 
-    elapsed_seconds = (now() - epoch).total_seconds()
+    current = now()
+    elapsed_seconds = (current - epoch).total_seconds()
     if elapsed_seconds <= 0:
         return None
 
-    expected = int(elapsed_seconds // interval)
+    excluded_seconds = MaintenanceWindow.get_excluded_seconds(epoch, current)
+    effective_seconds = elapsed_seconds - excluded_seconds
+    if effective_seconds <= 0:
+        return None
+
+    expected = int(effective_seconds // interval)
     if expected < 1:
         return None
 
-    ok_count = Heartbeat.objects.filter(
-        timestamp__gte=epoch,
-        status="ok",
-    ).count()
+    ok_count = _get_non_maintenance_ok_count(epoch, current)
 
     return min(round((ok_count / expected) * 100, 2), 100.0)
 
@@ -157,6 +175,14 @@ def _add_sla_context(context, use_target=False):
     return context
 
 
+def _is_in_any_window(dt, windows):
+    """Check if a datetime falls within any of the given (start, end) tuples."""
+    for ws, we in windows:
+        if ws <= dt < we:
+            return True
+    return False
+
+
 def _build_minute_timeline(minutes=60):
     """Build a slot-based timeline for the last N minutes."""
     current = now()
@@ -167,6 +193,11 @@ def _build_minute_timeline(minutes=60):
         Heartbeat.objects.filter(timestamp__gte=cutoff)
         .order_by("timestamp")
         .values("status", "timestamp", "response_time_ms")
+    )
+
+    maint_windows = list(
+        MaintenanceWindow.objects.filter(start__lt=current, end__gt=cutoff)
+        .values_list("start", "end")
     )
 
     slots = []
@@ -183,9 +214,20 @@ def _build_minute_timeline(minutes=60):
             })
             continue
 
+        in_maintenance = _is_in_any_window(slot_start, maint_windows)
         slot_beats = [b for b in beats if slot_start <= b["timestamp"] < slot_end]
 
-        if slot_beats:
+        if in_maintenance:
+            avg_ms = 0
+            if slot_beats:
+                avg_ms = sum(b["response_time_ms"] for b in slot_beats) // len(slot_beats)
+            slots.append({
+                "status": "maintenance",
+                "timestamp": slot_start,
+                "response_time_ms": avg_ms,
+                "label": slot_start.strftime("%-I:%M %p"),
+            })
+        elif slot_beats:
             has_fail = any(b["status"] == "fail" for b in slot_beats)
             avg_ms = sum(b["response_time_ms"] for b in slot_beats) // len(slot_beats)
             slots.append({
@@ -217,6 +259,11 @@ def _build_24h_timeline():
         .values("status", "timestamp")
     )
 
+    maint_windows = list(
+        MaintenanceWindow.objects.filter(start__lt=current, end__gt=cutoff)
+        .values_list("start", "end")
+    )
+
     slots = []
     for i in range(96):
         slot_start = cutoff + timedelta(minutes=i * 15)
@@ -233,12 +280,18 @@ def _build_24h_timeline():
             })
             continue
 
+        in_maintenance = any(
+            ws < slot_end and we > slot_start for ws, we in maint_windows
+        )
+
         slot_beats = [b for b in beats if slot_start <= b["timestamp"] < slot_end]
         ok_count = sum(1 for b in slot_beats if b["status"] == "ok")
         fail_count = sum(1 for b in slot_beats if b["status"] == "fail")
         total = len(slot_beats)
 
-        if total == 0:
+        if in_maintenance:
+            status = "maintenance"
+        elif total == 0:
             status = "missed"
         elif fail_count > 0 and ok_count > 0:
             status = "partial"
@@ -291,6 +344,15 @@ class StatusPageView(TemplateView):
         # Average response time (last 60)
         avg = Heartbeat.objects.all()[:60].aggregate(avg=Avg("response_time_ms"))
         context["avg_response_time"] = round(avg["avg"] or 0)
+
+        # Maintenance banners
+        current = now()
+        context["active_maintenance"] = MaintenanceWindow.objects.filter(
+            start__lte=current, end__gt=current
+        ).first()
+        context["upcoming_maintenance"] = MaintenanceWindow.objects.filter(
+            start__gt=current, start__lte=current + timedelta(hours=24)
+        ).order_by("start").first()
 
         return context
 
@@ -359,6 +421,9 @@ class SLADetailView(StaffRequiredMixin, TemplateView):
         context["uptime_7d"] = _calc_uptime(168)
         context.update(_get_status_data())
         _add_sla_context(context)
+
+        # Maintenance windows
+        context["maintenance_windows"] = MaintenanceWindow.objects.all()[:50]
 
         # Daily summaries for long-term view
         context["daily_summaries"] = HeartbeatDaily.objects.all()[:30]
@@ -443,6 +508,12 @@ class HeartbeatDashboardView(StaffRequiredMixin, TemplateView):
             delta = now() - epoch
             context["monitoring_days"] = delta.days
 
+        # Active maintenance indicator
+        current = now()
+        context["active_maintenance"] = MaintenanceWindow.objects.filter(
+            start__lte=current, end__gt=current
+        ).first()
+
         context["total_heartbeats"] = Heartbeat.objects.count()
         context["ok_count"] = Heartbeat.objects.filter(status="ok").count()
         context["fail_count"] = Heartbeat.objects.filter(status="fail").count()
@@ -484,3 +555,87 @@ class HeartbeatDashboardView(StaffRequiredMixin, TemplateView):
 
         context["tab_partial"] = self.TAB_PARTIALS[context["active_tab"]]
         return TemplateResponse(request, self.template_name, context)
+
+
+def maintenance_create(request):
+    """Staff-only view to create a maintenance window."""
+    from django.shortcuts import redirect
+
+    from .forms import MaintenanceWindowForm
+
+    if not request.user.is_staff:
+        from django.http import HttpResponseForbidden
+
+        return HttpResponseForbidden()
+
+    if request.method == "POST":
+        form = MaintenanceWindowForm(request.POST)
+        if form.is_valid():
+            window = form.save(commit=False)
+            if is_naive(window.start):
+                window.start = make_aware(window.start, get_current_timezone())
+            if is_naive(window.end):
+                window.end = make_aware(window.end, get_current_timezone())
+            window.save()
+            return redirect("heartbeat:sla")
+    else:
+        form = MaintenanceWindowForm()
+
+    return TemplateResponse(request, "heartbeat/maintenance_form.html", {
+        "form": form,
+        "form_timezone": localtime(now()).strftime("%Z"),
+        "editing": False,
+    })
+
+
+def maintenance_edit(request, pk):
+    """Staff-only view to edit a maintenance window."""
+    from django.shortcuts import get_object_or_404, redirect
+
+    from .forms import MaintenanceWindowForm
+
+    if not request.user.is_staff:
+        from django.http import HttpResponseForbidden
+
+        return HttpResponseForbidden()
+
+    window = get_object_or_404(MaintenanceWindow, pk=pk)
+
+    if request.method == "POST":
+        form = MaintenanceWindowForm(request.POST, instance=window)
+        if form.is_valid():
+            window = form.save(commit=False)
+            if is_naive(window.start):
+                window.start = make_aware(window.start, get_current_timezone())
+            if is_naive(window.end):
+                window.end = make_aware(window.end, get_current_timezone())
+            window.save()
+            return redirect("heartbeat:sla")
+    else:
+        form = MaintenanceWindowForm(instance=window, initial={
+            "start": localtime(window.start),
+            "end": localtime(window.end),
+        })
+
+    return TemplateResponse(request, "heartbeat/maintenance_form.html", {
+        "form": form,
+        "form_timezone": localtime(now()).strftime("%Z"),
+        "editing": True,
+        "window": window,
+    })
+
+
+def maintenance_delete(request, pk):
+    """Staff-only POST endpoint to delete a maintenance window."""
+    from django.shortcuts import get_object_or_404, redirect
+
+    if not request.user.is_staff:
+        from django.http import HttpResponseForbidden
+
+        return HttpResponseForbidden()
+
+    if request.method == "POST":
+        window = get_object_or_404(MaintenanceWindow, pk=pk)
+        window.delete()
+
+    return redirect("heartbeat:sla")

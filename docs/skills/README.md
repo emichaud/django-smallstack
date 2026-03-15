@@ -18,7 +18,9 @@ When an AI agent is asked to modify or extend this project, these files help it:
 | [django-apps.md](django-apps.md) | Creating apps, CRUDView + tables2 management pages, title bar pattern |
 | [templates.md](templates.md) | Template inheritance, blocks, includes, common patterns |
 | [theming-system.md](theming-system.md) | CSS variables, palettes, dark mode, UI components |
+| [building-themed-pages.md](building-themed-pages.md) | Recipe guide: build pages that fit the SmallStack theme in all modes and palettes |
 | [adding-your-own-theme.md](adding-your-own-theme.md) | Adding a custom CSS framework alongside SmallStack's built-in theme |
+| [theme-scenarios.md](theme-scenarios.md) | Three theme integration scenarios: public-only, user login, or build on SmallStack |
 | [authentication.md](authentication.md) | Custom user model, auth views, protecting views |
 | [htmx-patterns.md](htmx-patterns.md) | htmx setup, CSRF, partials, dual-response views, OOB messages |
 | [help-documentation.md](help-documentation.md) | Help system, sections, bundled SmallStack docs |
@@ -41,7 +43,9 @@ AI agents should read relevant skill files before making changes to the correspo
 - Before creating a new app → read `django-apps.md`
 - Before creating templates → read `templates.md`
 - Before modifying CSS/theming → read `theming-system.md`
+- Before building a new page that should fit the SmallStack theme → read `building-themed-pages.md`
 - Before adding a custom theme (Bootstrap, Tailwind, etc.) → read `adding-your-own-theme.md`
+- Before deciding which theme approach to take → read `theme-scenarios.md`
 - Before working with auth → read `authentication.md`
 - Before adding htmx interactions → read `htmx-patterns.md`
 - Before adding a help page → read `help-documentation.md`

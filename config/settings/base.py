@@ -217,7 +217,7 @@ ACTIVITY_EXCLUDE_PATHS = [
 # SQLite Backup
 BACKUP_DIR = config("BACKUP_DIR", default=str(BASE_DIR / "backups"))
 BACKUP_RETENTION = config("BACKUP_RETENTION", default=10, cast=int)
-BACKUP_CRON_ENABLED = config("BACKUP_CRON_ENABLED", default=False, cast=bool)
+BACKUP_CRON_ENABLED = config("BACKUP_CRON_ENABLED", default=True, cast=bool)
 BACKUP_DOWNLOAD_ENABLED = config("BACKUP_DOWNLOAD_ENABLED", default=True, cast=bool)
 
 # Heartbeat / Uptime Monitoring

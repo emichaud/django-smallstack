@@ -1,115 +1,69 @@
 # Django SmallStack
 
-*A minimal Django stack for building and deploying admin-style apps.*
+*A stable foundation for your next small Django app.*
 
 ![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue)
 ![Django 6.0](https://img.shields.io/badge/django-6.0-green)
-![Coverage 69%](https://img.shields.io/badge/coverage-69%25-yellowgreen)
 ![License MIT](https://img.shields.io/badge/license-MIT-brightgreen)
 
-A modern, batteries-included Django starter project built on Django's powerful admin foundation. Production-ready with SQLite, Docker, and zero-downtime Kamal deployment. Clone it, customize it, ship it.
+> **Note:** SmallStack is pre-1.0 and changing rapidly. The API and conventions will stabilize at the 1.0.0 milestone.
+
+SmallStack is a batteries-included Django starter for small teams, self-hosters, and container deployments. Clone it, customize it, ship it.
+
+**SQLite is a first-class citizen.** SmallStack comes configured to run production-ready on SQLite — no database service fees, just simple reliable storage that backs up with your VPS. Need Postgres? The [docs](https://django-small-stack.space/) include setup instructions.
+
+**Build websites, API servers, or background task runners.** SmallStack includes built-in support for scheduled background tasks via Django 6's Tasks framework — no Redis or Celery required.
 
 ![Django SmallStack Homepage](apps/help/smallstack/images/smallstack-home.png)
 
-## Features
+## Theming
 
-### Profile App
-Complete user profile management with photo uploads, cover images, bio, location, and customizable display names. Extend it with your own fields.
+SmallStack extends Django's built-in admin theme — forms, widgets, tables, and all the standard elements — without any external CSS. It adds dark/light mode support with multiple color palettes, all driven by CSS custom properties.
 
-![Profile Editor](apps/help/smallstack/images/smallstack-edit-profile.png)
-
-### Help System
-Built-in documentation system with markdown support, table of contents, search, and easy-to-edit content files. Perfect for user guides or internal docs.
+**Bring your own theme.** SmallStack separates public pages from management pages. Use your own CSS framework for your app while SmallStack preserves its own theme for the included tools: Explorer, Activity, Backups, Status, Users, and Dashboard. Build your app your way, then log in to manage it with the built-in SmallStack tools when you need to.
 
 <p>
   <img src="apps/help/smallstack/images/smallstack-docs.png" alt="Help System Dark Mode" width="49%">
   <img src="apps/help/smallstack/images/smallstack-docs-light.png" alt="Help System Light Mode" width="49%">
 </p>
 
-### Background Tasks
-Django 6's new Tasks framework is pre-configured with database backend. Send emails, process data, and run jobs in the background effortlessly.
+## What's Included
 
-### Activity Tracking
-Lightweight request logging with automatic database pruning. Staff-only dashboard shows site health, response times, user activity, and theme preferences. Configurable row cap (default 10,000), excluded paths for static assets, and htmx live-refresh on detail pages. Zero external dependencies.
-
-### htmx
-Progressive enhancement with [htmx](https://htmx.org/) — partial page updates, inline form submissions, and server-driven UI without a build step. Vendored locally (no CDN), CSRF handled automatically. Theme preferences save silently via htmx as the first built-in example.
-
-### Theming
-Beautiful light and dark modes with CSS custom properties. Customize colors, shadows, and spacing from a single file. User preferences are saved. Flash-free — an inline head script applies the stored theme before CSS renders.
-
-### Authentication
-Custom User model ready for email login. Password reset flows, secure sessions, and extensible auth patterns built on Django's proven foundation.
-
-### Docker Ready
-Production-ready Docker configuration with multi-service compose, health checks, and background worker. Deploy anywhere containers run.
-
-### Database Backups
-Built-in SQLite backup system with management command, scheduled cron support in Docker, and a staff-only web dashboard. Track backup history, view per-backup detail pages with activity timelines, and configure retention policies. Pruned backups are clearly marked — no false alarms.
-
-### SQLite by Default
-Production-ready SQLite configuration with the database stored outside the container. Perfect for solo developers, small teams, and internal applications. No database service fees—just simple, reliable data storage that backs up with your VPS. Upgrade to PostgreSQL when you need it.
-
-## Built on Django Best Practices
-
-- **Split settings** - Separate configurations for development, production, and testing
-- **Apps in dedicated folder** - Clean organization with all apps in `apps/` directory
-- **Custom User model** - Extensible user model from day one
-- **Signals in separate files** - Clean separation of concerns
-- **Tests alongside apps** - Tests live with their apps for easy maintenance
-- **URL namespacing** - Organized URL patterns (e.g., `help:index`)
-- **Organized static files** - Structured CSS and JavaScript
-- **Built-in activity tracking** - Request logging dashboard with auto-pruning
-- **htmx for progressive enhancement** - Partial updates with no build tools
-- **Template structure mirrors apps** - Intuitive template organization
-- **SQLite with data separation** - Database stored in `/data/` directory, persists across container rebuilds
+- **Authentication** — custom User model, login, signup, password reset
+- **User profiles** — photo, bio, timezone, display name
+- **Model Explorer** — auto-generated CRUD views for any registered model
+- **Activity tracking** — request logging with staff dashboard and auto-pruning
+- **Database backups** — on-demand + scheduled, with retention policies
+- **Background tasks** — database-backed task queue, no external services
+- **Help system** — markdown docs with search and table of contents
+- **htmx** — partial page updates with no build step, vendored locally
+- **Docker + Kamal** — production-ready container config with zero-downtime deploys
 
 ## Quick Start
 
 ### Prerequisites
 
 - Python 3.12+
-- [UV](https://github.com/astral-sh/uv) package manager (recommended)
-- Docker Desktop (for containerized deployment)
+- [UV](https://github.com/astral-sh/uv) package manager
 
-### Local Development
+### Setup
 
-1. **Clone and enter the project:**
-   ```bash
-   git clone https://github.com/YOUR_USERNAME/django-smallstack.git
-   cd django-smallstack
-   ```
+```bash
+git clone https://github.com/emichaud/django-smallstack.git myapp
+cd myapp
+make setup    # install deps, migrate, create dev superuser (admin/admin)
+make run      # start dev server
+```
 
-2. **Set up environment variables (optional):**
-   ```bash
-   cp .env.example .env
-   # Edit .env to customize — sensible defaults work out of the box
-   ```
+Open http://localhost:8005 and log in with `admin` / `admin`.
 
-3. **Run setup:**
-   ```bash
-   make setup
-   ```
-   This installs dependencies, runs migrations, creates a dev superuser (`admin`/`admin`), and verifies the configuration.
+### Docker
 
-4. **Start the development server:**
-   ```bash
-   make run
-   ```
+```bash
+docker compose up -d
+```
 
-5. **Open your browser:**
-   - Homepage: http://localhost:8005
-   - Admin: http://localhost:8005/admin
-
-### Docker Deployment
-
-1. **Build and run:**
-   ```bash
-   docker compose up -d
-   ```
-
-2. **Access the application:**
-   - Homepage: http://localhost:8010
+Access at http://localhost:8010.
 
 ## Project Structure
 
@@ -117,96 +71,35 @@ Production-ready SQLite configuration with the database stored outside the conta
 django-smallstack/
 ├── apps/                      # Django applications
 │   ├── accounts/              # Custom user model & auth
-│   ├── smallstack/           # Theme helpers (pure presentation)
+│   ├── smallstack/            # Theme, CRUD library, admin tools
 │   ├── profile/               # User profile management
 │   ├── help/                  # Documentation system
 │   ├── activity/              # Request tracking & dashboard
+│   ├── explorer/              # Auto-generated model CRUD
 │   └── tasks/                 # Background tasks
-├── config/                    # Project configuration
-│   └── settings/              # Split settings
-│       ├── base.py            # Shared settings
-│       ├── development.py     # Dev-specific settings
-│       ├── production.py      # Production settings
-│       └── test.py            # Test settings
+├── config/
+│   └── settings/              # Split settings (base, dev, prod, test)
 ├── templates/                 # HTML templates
-│   ├── smallstack/           # Base templates, includes & marketing pages
-│   │   └── pages/            # SmallStack marketing content
-│   ├── website/              # Page wrappers (customize for your project)
-│   ├── profile/               # Profile templates
-│   ├── help/                  # Help system templates
-│   └── registration/          # Auth templates
-├── static/                    # Static files
-│   ├── smallstack/            # Core theme, brand assets, help assets
-│   ├── brand/                 # Project brand overrides
-│   ├── css/                   # Project CSS overrides
-│   └── js/                    # Project JS
-├── docs/                      # Additional documentation
-│   └── skills/                # AI assistant skill files
-├── docker-compose.yml         # Docker composition
-├── Dockerfile                 # Container definition
-└── pyproject.toml             # Dependencies & tools config
+├── static/                    # CSS, JS, brand assets
+├── Dockerfile
+├── docker-compose.yml
+└── pyproject.toml
 ```
-
-## Documentation
-
-| Location | Audience | Content |
-|----------|----------|---------|
-| `README.md` | Everyone | Quick start, feature overview, project structure |
-| `/help/` (in-app) | End users & developers | Full guides, component reference, deployment docs |
-| `docs/skills/` | AI assistants | Structured skill files for Claude Code and similar tools |
-
-## Built to Extend
-
-SmallStack comes pre-populated with working examples and sensible defaults. Use it as-is for internal tools, or customize everything to build your vision.
-
-- **Split settings for dev/prod** - Environment-specific configuration
-- **UV package management** - Fast, modern Python packaging
-- **Admin theme helpers** - Template tags for breadcrumbs, navigation
-- **AI skill files included** - Documentation for AI assistants
-- **Starter template page** - Component showcase at `/starter/`
-- **Conflict-free customization** - Thin wrapper templates let you replace pages without upstream merge conflicts
 
 ## Development
 
-### Running Tests
-
 ```bash
-uv run pytest              # Tests with coverage summary
-make coverage              # Tests + HTML coverage report
-open htmlcov/index.html    # Browse per-file coverage
+make test         # run pytest with coverage
+make lint         # ruff check
+make lint-fix     # ruff check --fix
 ```
 
-108 tests, 69% code coverage across all apps (excluding migrations and test files).
+Once running, visit `/help/` for full documentation including getting started, theming, deployment, and more.
 
-### Code Quality
+## Learn More
 
-```bash
-# Lint and fix
-uv run ruff check --fix .
-
-# Format
-uv run ruff format .
-```
-
-### Background Worker
-
-For development with background tasks:
-
-```bash
-uv run python manage.py db_worker
-```
-
-## Documentation
-
-Once running, visit `/help/` for comprehensive documentation including:
-
-- Getting Started guide
-- Theming customization
-- Docker deployment
-- Background tasks
-- Activity tracking & monitoring
-- Adding new pages
+**[django-small-stack.space](https://django-small-stack.space/)**
 
 ## License
 
-MIT License - Use it, modify it, ship it.
+MIT — use it, modify it, ship it.

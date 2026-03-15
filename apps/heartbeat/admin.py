@@ -2,7 +2,7 @@
 
 from django.contrib import admin
 
-from .models import Heartbeat, HeartbeatDaily, HeartbeatEpoch
+from .models import Heartbeat, HeartbeatDaily, HeartbeatEpoch, MaintenanceWindow
 
 
 @admin.register(Heartbeat)
@@ -22,5 +22,12 @@ class HeartbeatEpochAdmin(admin.ModelAdmin):
 @admin.register(HeartbeatDaily)
 class HeartbeatDailyAdmin(admin.ModelAdmin):
     list_display = ("date", "ok_count", "fail_count", "uptime_pct", "avg_response_ms")
+    explorer_enabled = True
+    explorer_group = "Monitoring"
+
+
+@admin.register(MaintenanceWindow)
+class MaintenanceWindowAdmin(admin.ModelAdmin):
+    list_display = ("title", "start", "end", "exclude_from_sla", "created_at")
     explorer_enabled = True
     explorer_group = "Monitoring"

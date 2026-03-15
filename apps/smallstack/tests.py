@@ -756,3 +756,432 @@ class TestTopbarNav:
         content = response.content.decode()
         assert 'target="_blank"' in content
         assert 'rel="noopener"' in content
+
+
+# ── CRUDView Template Namespace Tests ────────────────────
+
+
+class TestCRUDViewTemplateNames:
+    """Tests that CRUDView template names use the crud/ subdirectory namespace."""
+
+    def test_template_names_use_crud_namespace(self, db):
+        """Template candidates should use {app}/crud/ to avoid collisions with public templates."""
+        from apps.smallstack.crud import CRUDView
+
+        class TestCRUD(CRUDView):
+            model = User
+            fields = ["username"]
+            url_base = "test/users"
+
+        for suffix in ("list", "detail", "form", "confirm_delete", "list_partial"):
+            names = TestCRUD._get_template_names(suffix)
+            assert names[0] == f"accounts/crud/user_{suffix}.html", (
+                f"First candidate for '{suffix}' should be namespaced under crud/"
+            )
+            assert names[1] == f"smallstack/crud/object_{suffix}.html", (
+                f"Second candidate for '{suffix}' should be the generic fallback"
+            )
+
+    def test_template_names_no_collision_with_public(self, db):
+        """CRUD templates should NOT match {app}/{model}_{suffix}.html (the public pattern)."""
+        from apps.smallstack.crud import CRUDView
+
+        class TestCRUD(CRUDView):
+            model = User
+            fields = ["username"]
+            url_base = "test/users"
+
+        names = TestCRUD._get_template_names("detail")
+        public_pattern = "accounts/user_detail.html"
+        assert public_pattern not in names, (
+            "Public template pattern should not appear in CRUD template candidates"
+        )
+
+
+# ── Transform Registry Tests ─────────────────────────────
+
+
+class TestTransformRegistry:
+    """Tests for the field transform registry."""
+
+    def test_register_and_lookup(self):
+        """Registering a transform should make it retrievable by name."""
+        from apps.smallstack.transforms import FieldTransform, get, register
+
+        class TestTransform(FieldTransform):
+            name = "test_registry_lookup"
+
+        t = TestTransform()
+        register(t)
+        assert get("test_registry_lookup") is t
+
+    def test_lookup_missing_returns_none(self):
+        """Looking up an unregistered name should return None."""
+        from apps.smallstack.transforms import get
+
+        assert get("nonexistent_transform_xyz") is None
+
+    def test_override_registration(self):
+        """Re-registering the same name should override."""
+        from apps.smallstack.transforms import FieldTransform, get, register
+
+        class First(FieldTransform):
+            name = "test_override"
+            marker = "first"
+
+        class Second(FieldTransform):
+            name = "test_override"
+            marker = "second"
+
+        register(First())
+        register(Second())
+        assert get("test_override").marker == "second"
+
+    def test_builtin_preview_registered(self):
+        """PreviewTransform should be registered at import time."""
+        from apps.smallstack.transforms import get
+
+        assert get("preview") is not None
+        assert get("preview").has_expanded is True
+
+    def test_builtin_localtime_registered(self):
+        """LocaltimeTransform should be registered at import time."""
+        from apps.smallstack.transforms import get
+
+        assert get("localtime") is not None
+        assert get("localtime").has_expanded is False
+
+
+class TestPreviewTransform:
+    """Tests for PreviewTransform inline and expanded rendering."""
+
+    def _make_obj(self, **kwargs):
+        return type("Obj", (), {"pk": 1, **kwargs})()
+
+    def test_inline_short_text_passthrough(self):
+        from apps.smallstack.transforms import get
+
+        t = get("preview")
+        result = t.inline("Short text", self._make_obj(), "bio", {})
+        assert result == "Short text"
+
+    def test_inline_long_text_truncates(self):
+        from apps.smallstack.transforms import TRUNCATE_THRESHOLD, get
+
+        t = get("preview")
+        long_text = "x" * (TRUNCATE_THRESHOLD + 10)
+        result = str(t.inline(long_text, self._make_obj(), "bio", {}))
+        assert "field-preview-trigger" in result
+        assert "field-preview-more" in result
+
+    def test_inline_safe_string_passthrough(self):
+        from django.utils.safestring import mark_safe
+
+        from apps.smallstack.transforms import get
+
+        t = get("preview")
+        safe_val = mark_safe("<b>safe</b>")
+        result = t.inline(safe_val, self._make_obj(), "bio", {})
+        assert result == safe_val
+
+    def test_inline_with_url_base_has_hx_get(self):
+        from apps.smallstack.transforms import TRUNCATE_THRESHOLD, get
+
+        t = get("preview")
+        long_text = "x" * (TRUNCATE_THRESHOLD + 10)
+        ctx = {"url_base": "manage/users"}
+        result = str(t.inline(long_text, self._make_obj(), "description", ctx))
+        assert "hx-get" in result
+
+    def test_inline_link_field_skips_truncation(self):
+        """PreviewTransform with is_link_field=True returns value unchanged."""
+        from apps.smallstack.transforms import TRUNCATE_THRESHOLD, get
+
+        t = get("preview")
+        long_text = "x" * (TRUNCATE_THRESHOLD + 10)
+        result = t.inline(long_text, self._make_obj(), "name", {}, is_link_field=True)
+        assert result == long_text
+
+    def test_expanded_plain_text(self):
+        from apps.smallstack.transforms import get
+
+        t = get("preview")
+        result = t.expanded("Hello world", self._make_obj(), "bio", {})
+        assert result["detected_format"] == "text"
+        assert result["raw_text"] == "Hello world"
+
+    def test_expanded_json(self):
+        from apps.smallstack.transforms import get
+
+        t = get("preview")
+        result = t.expanded({"key": "val"}, self._make_obj(), "config", {})
+        assert result["detected_format"] == "json"
+        assert result["json_html"]  # non-empty
+
+    def test_expanded_markdown(self):
+        from apps.smallstack.transforms import get
+
+        t = get("preview")
+        result = t.expanded("# Hello", self._make_obj(), "bio", {})
+        assert result["detected_format"] == "markdown"
+
+
+class TestLocaltimeTransform:
+    """Tests for LocaltimeTransform wrapping localtime_tooltip."""
+
+    def test_non_datetime_passthrough(self):
+        from apps.smallstack.transforms import get
+
+        t = get("localtime")
+        result = t.inline("not a date", object(), "created_at", {})
+        assert result == "not a date"
+
+    def test_datetime_without_context_passthrough(self):
+        from apps.smallstack.transforms import get
+
+        t = get("localtime")
+        dt = datetime(2026, 6, 15, 18, 0, 0, tzinfo=dt_timezone.utc)
+        result = t.inline(dt, object(), "created_at", None)
+        assert result == dt
+
+
+# ── Field Value Rendering Tests ──────────────────────────
+
+
+class TestFieldValueRendering:
+    """Tests for _get_field_value with the transform-based pipeline.
+
+    Default behavior: full text displayed, no truncation.
+    Truncation happens via the "preview" transform (opt-in via field_transforms).
+    """
+
+    def _make_obj(self, **kwargs):
+        """Create a simple namespace object with attributes."""
+        return type("Obj", (), {"pk": 1, **kwargs})()
+
+    def test_short_text_not_truncated(self):
+        """Strings under the threshold should pass through unchanged."""
+        from .templatetags.crud_tags import _get_field_value
+
+        obj = self._make_obj(name="Short text")
+        result = _get_field_value(obj, "name", {})
+        assert result == "Short text"
+        assert "field-preview-trigger" not in str(result)
+
+    def test_long_text_not_truncated_by_default(self):
+        """Long text should NOT be truncated by default (opt-in model)."""
+        from apps.smallstack.transforms import TRUNCATE_THRESHOLD
+
+        from .templatetags.crud_tags import _get_field_value
+
+        long_text = "x" * (TRUNCATE_THRESHOLD + 10)
+        obj = self._make_obj(description=long_text)
+        result = _get_field_value(obj, "description", {})
+        assert result == long_text
+        assert "field-preview-trigger" not in str(result)
+
+    def test_long_text_truncated_with_preview_transform(self):
+        """When field has 'preview' transform, text gets preview trigger."""
+        from apps.smallstack.transforms import TRUNCATE_THRESHOLD
+
+        from .templatetags.crud_tags import _get_field_value
+
+        long_text = "x" * (TRUNCATE_THRESHOLD + 10)
+        obj = self._make_obj(description=long_text)
+        result = _get_field_value(obj, "description", {"description": "preview"})
+        result_str = str(result)
+        assert "field-preview-trigger" in result_str
+        assert "field-preview-more" in result_str
+
+    def test_long_text_with_preview_no_url_base(self):
+        """Preview transform without url_base in context: truncation but no hx-get."""
+        from apps.smallstack.transforms import TRUNCATE_THRESHOLD
+
+        from .templatetags.crud_tags import _get_field_value
+
+        long_text = "x" * (TRUNCATE_THRESHOLD + 10)
+        obj = self._make_obj(description=long_text)
+        result = _get_field_value(obj, "description", {"description": "preview"})
+        result_str = str(result)
+        assert "field-preview-trigger" in result_str
+        assert "hx-get" not in result_str
+
+    def test_callable_transform_compat(self):
+        """Legacy callable formatters should still work via field_transforms."""
+        from django.utils.safestring import mark_safe
+
+        from .templatetags.crud_tags import _get_field_value
+
+        obj = self._make_obj(html="x" * 100)
+
+        def formatter(val, o):
+            return mark_safe(f"<b>{val[:10]}</b>")
+
+        result = _get_field_value(obj, "html", {"html": formatter})
+        assert "<b>" in str(result)
+        assert "field-preview-trigger" not in str(result)
+
+    def test_boolean_rendering(self):
+        """Boolean values should display as check/dash."""
+        from .templatetags.crud_tags import _get_field_value
+
+        obj = self._make_obj(is_active=True)
+        result = _get_field_value(obj, "is_active", {})
+        assert result == "\u2713"
+
+    def test_none_rendering(self):
+        """None values should display as dash."""
+        from .templatetags.crud_tags import _get_field_value
+
+        obj = self._make_obj(notes=None)
+        result = _get_field_value(obj, "notes", {})
+        assert result == "\u2014"
+
+    def test_dict_value_serialized_no_transform(self):
+        """Dict values should be JSON-serialized but NOT truncated without transform."""
+        from .templatetags.crud_tags import _get_field_value
+
+        obj = self._make_obj(config={"key": "value", "nested": {"a": 1, "b": 2, "c": 3}})
+        result = _get_field_value(obj, "config", {})
+        assert "field-preview-trigger" not in str(result)
+        assert '"key"' in str(result)
+
+    def test_dict_value_truncated_with_preview_transform(self):
+        """Dict values should be truncated with preview transform."""
+        from .templatetags.crud_tags import _get_field_value
+
+        obj = self._make_obj(config={"key": "value", "nested": {"a": 1, "b": 2, "c": 3}})
+        result = _get_field_value(obj, "config", {"config": "preview"})
+        assert "field-preview-trigger" in str(result)
+
+    def test_truncated_text_is_html_escaped(self):
+        """Truncated text should be HTML-escaped to prevent XSS."""
+        from .templatetags.crud_tags import _get_field_value
+
+        xss_text = 'x' * 40 + '<script>alert("xss")</script>' + 'x' * 20
+        obj = self._make_obj(note=xss_text)
+        result = str(_get_field_value(obj, "note", {"note": "preview"}))
+        assert "<script>" not in result
+        assert "&lt;script&gt;" in result
+
+    def test_field_transform_tag_with_url_base(self):
+        """{% field_transform %} with explicit url_base generates hx-get."""
+        from apps.smallstack.transforms import TRUNCATE_THRESHOLD
+
+        long_text = "x" * (TRUNCATE_THRESHOLD + 10)
+        obj = self._make_obj(bio=long_text)
+        template_str = (
+            '{% load crud_tags %}'
+            '{% field_transform obj "bio" "preview" url_base="manage/users" %}'
+        )
+        t = Template(template_str)
+        ctx = Context({"obj": obj})
+        result = t.render(ctx)
+        assert "hx-get" in result
+        assert "field-preview" in result
+
+
+# ── Field Preview View Tests ────────────────────────────
+
+
+class TestFieldPreviewView:
+    """Tests for the server-side field preview endpoint.
+
+    Security: only fields with has_expanded=True transforms are accessible.
+    """
+
+    @pytest.fixture
+    def preview_staff(self, db):
+        return User.objects.create_user(
+            username="previewstaff",
+            email="preview@example.com",
+            password="testpass123",
+            is_staff=True,
+            first_name="A" * 60,
+        )
+
+    def test_preview_returns_html(self, client, preview_staff):
+        """Field preview endpoint should return HTML partial."""
+        client.force_login(preview_staff)
+        url = reverse("manage/users-field-preview", kwargs={
+            "pk": preview_staff.pk,
+            "field_name": "first_name",
+        })
+        response = client.get(url)
+        assert response.status_code == 200
+        content = response.content.decode()
+        assert "field-preview-tab-content" in content
+        assert "A" * 60 in content
+
+    def test_preview_unlisted_field_returns_404(self, client, preview_staff):
+        """Requesting a field without has_expanded transform should return 404."""
+        client.force_login(preview_staff)
+        url = reverse("manage/users-field-preview", kwargs={
+            "pk": preview_staff.pk,
+            "field_name": "password",
+        })
+        response = client.get(url)
+        assert response.status_code == 404
+
+    def test_preview_requires_auth(self, client, preview_staff):
+        """Field preview endpoint should require authentication."""
+        url = reverse("manage/users-field-preview", kwargs={
+            "pk": preview_staff.pk,
+            "field_name": "first_name",
+        })
+        response = client.get(url)
+        # StaffRequiredMixin returns 302 or 403
+        assert response.status_code in (302, 403)
+
+    def test_preview_field_without_expanded_returns_404(self, client, preview_staff):
+        """A field with a transform that has no expanded view should 404."""
+        client.force_login(preview_staff)
+        # "last_name" has "localtime" (has_expanded=False) in some configs,
+        # but here it just has no transform at all — should 404
+        url = reverse("manage/users-field-preview", kwargs={
+            "pk": preview_staff.pk,
+            "field_name": "last_name",
+        })
+        response = client.get(url)
+        assert response.status_code == 404
+
+
+class TestFormatDetection:
+    """Tests for the _detect_format helper (now in transforms.py, re-exported from crud.py)."""
+
+    def test_detect_json_object(self):
+        from apps.smallstack.transforms import _detect_format
+        assert _detect_format('{"key": "value"}') == "json"
+
+    def test_detect_json_array(self):
+        from apps.smallstack.transforms import _detect_format
+        assert _detect_format('[1, 2, 3]') == "json"
+
+    def test_detect_invalid_json(self):
+        from apps.smallstack.transforms import _detect_format
+        assert _detect_format('{not json}') != "json"
+
+    def test_detect_markdown_heading(self):
+        from apps.smallstack.transforms import _detect_format
+        assert _detect_format('# Hello World') == "markdown"
+
+    def test_detect_markdown_bold(self):
+        from apps.smallstack.transforms import _detect_format
+        assert _detect_format('This is **bold** text') == "markdown"
+
+    def test_detect_markdown_link(self):
+        from apps.smallstack.transforms import _detect_format
+        assert _detect_format('Click [here](https://example.com)') == "markdown"
+
+    def test_detect_plain_text(self):
+        from apps.smallstack.transforms import _detect_format
+        assert _detect_format('Just plain text') == "text"
+
+    def test_detect_empty_string(self):
+        from apps.smallstack.transforms import _detect_format
+        assert _detect_format('') == "text"
+
+    def test_backward_compat_import_from_crud(self):
+        """_detect_format should still be importable from crud.py."""
+        from apps.smallstack.crud import _detect_format
+        assert _detect_format('{"key": "value"}') == "json"

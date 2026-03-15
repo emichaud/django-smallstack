@@ -87,6 +87,55 @@ class HeartbeatEpoch(models.Model):
         return None
 
 
+class MaintenanceWindow(models.Model):
+    """A scheduled maintenance window for excluding downtime from SLA calculations."""
+
+    title = models.CharField(max_length=200)
+    start = models.DateTimeField()
+    end = models.DateTimeField()
+    note = models.TextField(blank=True, default="")
+    exclude_from_sla = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-start"]
+
+    def __str__(self):
+        return f"{self.title} ({self.start:%Y-%m-%d %H:%M} – {self.end:%H:%M})"
+
+    @classmethod
+    def is_in_maintenance(cls, dt):
+        """Check if a datetime falls within any maintenance window."""
+        return cls.objects.filter(start__lte=dt, end__gt=dt).exists()
+
+    @classmethod
+    def get_excluded_ranges(cls, range_start, range_end):
+        """Return merged (start, end) tuples of SLA-excluded windows overlapping the range."""
+        windows = cls.objects.filter(
+            exclude_from_sla=True,
+            start__lt=range_end,
+            end__gt=range_start,
+        ).order_by("start").values_list("start", "end")
+
+        merged = []
+        for ws, we in windows:
+            s = max(ws, range_start)
+            e = min(we, range_end)
+            if merged and s <= merged[-1][1]:
+                merged[-1] = (merged[-1][0], max(merged[-1][1], e))
+            else:
+                merged.append((s, e))
+        return merged
+
+    @classmethod
+    def get_excluded_seconds(cls, range_start, range_end):
+        """Total seconds excluded from SLA in the given range (merged to avoid double-counting)."""
+        return sum(
+            (e - s).total_seconds()
+            for s, e in cls.get_excluded_ranges(range_start, range_end)
+        )
+
+
 class HeartbeatDaily(models.Model):
     """Daily summary of heartbeat data for long-term SLA tracking.
 
@@ -97,6 +146,7 @@ class HeartbeatDaily(models.Model):
     date = models.DateField(unique=True, db_index=True)
     ok_count = models.PositiveIntegerField(default=0)
     fail_count = models.PositiveIntegerField(default=0)
+    maintenance_count = models.PositiveIntegerField(default=0)
     expected_count = models.PositiveIntegerField(default=0)
     avg_response_ms = models.PositiveIntegerField(default=0)
     uptime_pct = models.DecimalField(max_digits=6, decimal_places=3, default=0)
@@ -147,6 +197,7 @@ class Heartbeat(models.Model):
     )
     response_time_ms = models.PositiveIntegerField(default=0)
     note = models.CharField(max_length=255, blank=True, default="")
+    maintenance = models.BooleanField(default=False)
 
     def save(self, *args, **kwargs):
         if not self.timestamp:

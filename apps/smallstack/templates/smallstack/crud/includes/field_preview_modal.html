@@ -1,0 +1,97 @@
+<!-- Field preview modal shell (HTMX-powered) -->
+<div class="field-preview-overlay" id="fieldPreviewModal" onclick="if(event.target===this)closeFieldPreview()" role="dialog" aria-label="Field preview">
+    <div class="field-preview-panel">
+        <div class="field-preview-header">
+            <div class="field-preview-tabs">
+                <button type="button" class="field-preview-tab active" data-format="text">Text</button>
+                <button type="button" class="field-preview-tab" data-format="markdown">MD</button>
+                <button type="button" class="field-preview-tab" data-format="json">JSON</button>
+            </div>
+            <div class="field-preview-actions">
+                <button type="button" class="field-preview-copy" id="fieldPreviewCopy" title="Copy to clipboard">
+                    <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>
+                    <span>Copy</span>
+                </button>
+                <button type="button" class="field-preview-close" onclick="closeFieldPreview()" aria-label="Close">&times;</button>
+            </div>
+        </div>
+        <div class="field-preview-content" id="field-preview-content">
+            <p style="color: var(--body-quiet-color); text-align: center; padding: 2rem;">Loading&hellip;</p>
+        </div>
+    </div>
+</div>
+
+<script>
+(function(){
+    var modal = document.getElementById('fieldPreviewModal');
+    if (!modal) return;
+    var contentEl = document.getElementById('field-preview-content');
+    var copyBtn = document.getElementById('fieldPreviewCopy');
+    var tabs = modal.querySelectorAll('.field-preview-tab');
+
+    window.closeFieldPreview = function() {
+        modal.classList.remove('open');
+        contentEl.innerHTML = '<p style="color: var(--body-quiet-color); text-align: center; padding: 2rem;">Loading&hellip;</p>';
+    };
+
+    /* Open modal when HTMX trigger is clicked */
+    document.addEventListener('click', function(e) {
+        var trigger = e.target.closest('.field-preview-trigger[hx-get]');
+        if (trigger) {
+            modal.classList.add('open');
+        }
+    });
+
+    /* After HTMX swaps content, activate the detected format tab */
+    document.addEventListener('htmx:afterSwap', function(e) {
+        if (e.detail.target === contentEl) {
+            var activeTab = contentEl.querySelector('.field-preview-tab-content:not([style*="display:none"])');
+            if (activeTab) {
+                var fmt = activeTab.dataset.format;
+                tabs.forEach(function(t) {
+                    t.classList.toggle('active', t.dataset.format === fmt);
+                });
+            }
+            /* Reset copy button */
+            copyBtn.classList.remove('copied');
+            copyBtn.querySelector('span').textContent = 'Copy';
+        }
+    });
+
+    /* Tab switching — show/hide pre-rendered content */
+    tabs.forEach(function(tab) {
+        tab.addEventListener('click', function() {
+            var fmt = this.dataset.format;
+            var panels = contentEl.querySelectorAll('.field-preview-tab-content');
+            panels.forEach(function(p) {
+                p.style.display = p.dataset.format === fmt ? '' : 'none';
+            });
+            tabs.forEach(function(t) {
+                t.classList.toggle('active', t.dataset.format === fmt);
+            });
+            /* Reset copy button */
+            copyBtn.classList.remove('copied');
+            copyBtn.querySelector('span').textContent = 'Copy';
+        });
+    });
+
+    /* Copy button — reads raw text from <template> tag */
+    copyBtn.addEventListener('click', function() {
+        var tpl = contentEl.querySelector('#field-preview-raw');
+        var text = tpl ? tpl.content.textContent : '';
+        navigator.clipboard.writeText(text).then(function() {
+            copyBtn.classList.add('copied');
+            copyBtn.querySelector('span').textContent = 'Copied';
+            setTimeout(function() {
+                copyBtn.classList.remove('copied');
+                copyBtn.querySelector('span').textContent = 'Copy';
+            }, 2000);
+        });
+    });
+
+    /* Escape key */
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape' && modal.classList.contains('open')) closeFieldPreview();
+    });
+})();
+</script>

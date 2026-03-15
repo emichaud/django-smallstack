@@ -30,6 +30,18 @@ sections:
         title: "Quick Setup (TL;DR)"
         description: "Clone to deploy in 8 steps"
         icon: "rocket"
+      - slug: theme-public-no-login
+        title: "Scenario A: Public Site, No User Login"
+        description: "Use your own theme for public pages. Staff-only login for admin tools."
+        icon: "palette"
+      - slug: theme-public-with-login
+        title: "Scenario B: Public Site with User Login"
+        description: "Users log in and use your app with your theme."
+        icon: "palette"
+      - slug: theme-build-on-smallstack
+        title: "Scenario C: Build on SmallStack's Theme"
+        description: "Use SmallStack's built-in theme for everything."
+        icon: "palette"
 
   # Add your own sections here:
   # - slug: guides

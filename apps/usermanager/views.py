@@ -25,6 +25,7 @@ class UserCRUDView(CRUDView):
     table_class = UserTable
     form_class = UserAccountForm
     actions = [Action.LIST, Action.CREATE, Action.UPDATE, Action.DELETE]
+    field_transforms = {"first_name": "preview"}
 
     @classmethod
     def _get_template_names(cls, suffix):

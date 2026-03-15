@@ -1,0 +1,167 @@
+{
+  "name": "smallstack-skills",
+  "version": "0.8.4",
+  "description": "AI skill index for Django SmallStack. Read the relevant skill before modifying the corresponding part of the codebase.",
+  "skills": [
+    {
+      "id": "django-apps",
+      "file": "django-apps.md",
+      "name": "Django Apps & CRUDView",
+      "description": "Creating new Django apps, CRUDView configuration, django-tables2 integration, title bar pattern.",
+      "keywords": ["app", "model", "crud", "view", "tables2", "management", "admin page"],
+      "use_when": "Creating a new app, adding a model, building management pages, or wiring up CRUDView."
+    },
+    {
+      "id": "templates",
+      "file": "templates.md",
+      "name": "Template System",
+      "description": "Template inheritance, available blocks (title, content, extra_css, extra_js, breadcrumbs), includes, and the thin-wrapper pattern for merge-safe customization.",
+      "keywords": ["template", "html", "block", "extend", "include", "base.html", "wrapper"],
+      "use_when": "Creating or modifying HTML templates, understanding block inheritance, or adding includes."
+    },
+    {
+      "id": "building-themed-pages",
+      "file": "building-themed-pages.md",
+      "name": "Building Themed Pages",
+      "description": "Recipe guide for building pages on the SmallStack theme. Covers the color-mix scale (4%-30%), page headers, tables, cards, stat widgets, badges, modals, and the CSS variable cheat sheet. Pages built this way work in all 10 theme/palette combinations with zero dark mode overrides.",
+      "keywords": ["page", "style", "css", "color-mix", "dark mode", "light mode", "table", "card", "badge", "widget", "dashboard", "ui"],
+      "use_when": "Building any new page that extends smallstack/base.html. This is the primary styling reference."
+    },
+    {
+      "id": "theming-system",
+      "file": "theming-system.md",
+      "name": "Theming System Reference",
+      "description": "Complete CSS variable definitions for light/dark modes, color palette system (django, high-contrast, dark-blue, orange, purple), palette precedence, JavaScript API, dark mode persistence contract, and responsive breakpoints.",
+      "keywords": ["theme", "css", "variable", "palette", "dark mode", "light mode", "color", "primary"],
+      "use_when": "Understanding the theming architecture, adding a new palette, or debugging theme/palette issues."
+    },
+    {
+      "id": "adding-your-own-theme",
+      "file": "adding-your-own-theme.md",
+      "name": "Adding a Custom Theme",
+      "description": "Step-by-step tutorial for adding a custom CSS framework (Bootstrap, Tailwind, Tabler) alongside SmallStack's built-in theme. Covers the required template pieces (blocking script, SMALLSTACK config, theme.js), CSS override file, navbar partial, and static asset placement.",
+      "keywords": ["bootstrap", "tailwind", "custom theme", "css framework", "mytheme", "parallel theme"],
+      "use_when": "The user wants to use their own CSS framework for public pages while keeping SmallStack's theme for admin tools."
+    },
+    {
+      "id": "theme-scenarios",
+      "file": "theme-scenarios.md",
+      "name": "Theme Integration Scenarios",
+      "description": "Decision tree and step-by-step for three scenarios: (A) public site with no user login, (B) public site with user login, (C) build on SmallStack's theme. Includes settings, file placement, and common mistakes.",
+      "keywords": ["scenario", "public site", "login", "custom theme", "integration", "LOGIN_REDIRECT_URL"],
+      "use_when": "The user is deciding how to integrate their theme, or an AI needs to understand which approach to take."
+    },
+    {
+      "id": "authentication",
+      "file": "authentication.md",
+      "name": "Authentication",
+      "description": "Custom User model (settings.AUTH_USER_MODEL), auth views, LoginRequiredMixin, signup control (SMALLSTACK_SIGNUP_ENABLED), login/logout URLs, and protecting views.",
+      "keywords": ["auth", "login", "signup", "user", "password", "session", "permission", "staff"],
+      "use_when": "Working with auth views, protecting pages, configuring signup, or extending the User model."
+    },
+    {
+      "id": "htmx-patterns",
+      "file": "htmx-patterns.md",
+      "name": "htmx Patterns",
+      "description": "htmx setup (vendored, no CDN), CSRF handling via hx-headers, partial templates, dual-response views (full page vs htmx partial), OOB swaps, and inline form submissions.",
+      "keywords": ["htmx", "hx-get", "hx-post", "partial", "swap", "csrf", "ajax", "inline"],
+      "use_when": "Adding htmx interactions, building partials, or implementing inline updates."
+    },
+    {
+      "id": "help-documentation",
+      "file": "help-documentation.md",
+      "name": "Help & Documentation System",
+      "description": "File-based help system with markdown rendering, _config.yaml structure, sections, categories, variables, FAQ pages, app-contributed docs, and search index.",
+      "keywords": ["help", "docs", "markdown", "content", "_config.yaml", "section", "category"],
+      "use_when": "Adding or editing help pages, creating new doc sections, or configuring the help system."
+    },
+    {
+      "id": "settings",
+      "file": "settings.md",
+      "name": "Settings & Configuration",
+      "description": "Split settings (base/development/production/test), environment variables via python-decouple, BRAND_* settings, SMALLSTACK_* feature flags, and .env file usage.",
+      "keywords": ["settings", "config", "env", "environment", "BRAND", "SMALLSTACK", "feature flag"],
+      "use_when": "Changing settings, adding environment variables, or understanding the split settings architecture."
+    },
+    {
+      "id": "timezones",
+      "file": "timezones.md",
+      "name": "Timezone Handling",
+      "description": "TimezoneMiddleware, per-user timezone via UserProfile, localtime_tooltip template tag, and the CSS-only timezone tooltip.",
+      "keywords": ["timezone", "localtime", "tooltip", "middleware", "utc", "datetime"],
+      "use_when": "Working with dates/times, adding timezone-aware displays, or understanding the timezone middleware."
+    },
+    {
+      "id": "background-tasks",
+      "file": "background-tasks.md",
+      "name": "Background Tasks",
+      "description": "Django Tasks framework with django-tasks-db backend. Task definition, enqueuing, the db_worker management command, and scheduled/periodic tasks.",
+      "keywords": ["task", "background", "worker", "queue", "async", "scheduled", "cron", "db_worker"],
+      "use_when": "Adding background jobs, scheduled tasks, or understanding the task queue."
+    },
+    {
+      "id": "activity-tracking",
+      "file": "activity-tracking.md",
+      "name": "Activity Tracking",
+      "description": "HTTP request logging middleware, RequestLog model, auto-pruning (configurable row cap), excluded paths, and the staff-only activity dashboard.",
+      "keywords": ["activity", "request", "logging", "middleware", "dashboard", "RequestLog", "pruning"],
+      "use_when": "Configuring request logging, excluding paths, or working with the activity dashboard."
+    },
+    {
+      "id": "logging-audit",
+      "file": "logging-audit.md",
+      "name": "Logging & Audit Trail",
+      "description": "Django logging configuration, log levels, audit trail patterns, and structured logging.",
+      "keywords": ["logging", "audit", "log", "logger", "debug", "info", "warning", "error"],
+      "use_when": "Configuring logging, adding audit trails, or debugging log output."
+    },
+    {
+      "id": "screenshot-workflow",
+      "file": "screenshot-workflow.md",
+      "name": "Screenshot Workflow",
+      "description": "Visual verification using shot-scraper CLI and the screenshot_auth management command for authenticated screenshots. Light/dark mode, element selectors, and CI usage.",
+      "keywords": ["screenshot", "shot-scraper", "visual", "verify", "auth", "playwright"],
+      "use_when": "Taking screenshots to verify UI changes, especially in both light and dark modes."
+    },
+    {
+      "id": "docker-deployment",
+      "file": "docker-deployment.md",
+      "name": "Docker Deployment",
+      "description": "Docker Compose setup, multi-service configuration (web, worker, cron), volumes, health checks, and environment variables for containerized deployment.",
+      "keywords": ["docker", "compose", "container", "volume", "health check", "worker"],
+      "use_when": "Setting up Docker, modifying the Dockerfile, or configuring container services."
+    },
+    {
+      "id": "kamal-deployment",
+      "file": "kamal-deployment.md",
+      "name": "Kamal Deployment",
+      "description": "Zero-downtime VPS deployment with Kamal. deploy.yml configuration, secrets, SSL, volumes, accessories, and common commands.",
+      "keywords": ["kamal", "deploy", "vps", "ssl", "production", "server", "zero-downtime"],
+      "use_when": "Deploying to production, configuring Kamal, or troubleshooting deployment issues."
+    },
+    {
+      "id": "development-workflow",
+      "file": "development-workflow.md",
+      "name": "Development Workflow",
+      "description": "Branching strategy, testing with pytest, coverage targets, commit style, and code quality with ruff.",
+      "keywords": ["git", "branch", "test", "pytest", "coverage", "ruff", "lint", "commit"],
+      "use_when": "Understanding development conventions, running tests, or preparing commits."
+    },
+    {
+      "id": "release-process",
+      "file": "release-process.md",
+      "name": "Release Process",
+      "description": "Semantic versioning, release checklist, version bumping in pyproject.toml and _config.yaml, GitHub releases.",
+      "keywords": ["release", "version", "semver", "changelog", "tag", "github"],
+      "use_when": "Preparing a release, bumping the version, or creating a GitHub release."
+    },
+    {
+      "id": "integration-workflow",
+      "file": "integration-workflow.md",
+      "name": "Upstream Integration",
+      "description": "Pulling upstream SmallStack changes into downstream projects, resolving merge conflicts, and deploying after integration.",
+      "keywords": ["upstream", "downstream", "merge", "pull", "integrate", "conflict"],
+      "use_when": "Merging upstream SmallStack updates into a downstream project like opshugger or smallstack_web."
+    }
+  ]
+}

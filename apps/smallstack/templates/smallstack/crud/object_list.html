@@ -25,6 +25,9 @@
         display: flex; justify-content: center; gap: 0.25rem;
         list-style: none; padding: 1rem 0 0; margin: 0;
     }
+    .table-container .pagination li {
+        list-style: none;
+    }
     .table-container .pagination li a {
         display: inline-block; padding: 0.3rem 0.75rem;
         border-radius: var(--radius-sm, 4px); color: var(--body-quiet-color);
@@ -33,9 +36,11 @@
     .table-container .pagination li a:hover {
         color: var(--primary);
         background: color-mix(in srgb, var(--primary) 10%, var(--body-bg));
+        text-decoration: none;
     }
     .table-container .pagination li.active a {
         background: var(--primary); color: var(--button-fg);
+        text-decoration: none;
     }
 </style>
 {% endif %}

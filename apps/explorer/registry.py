@@ -5,11 +5,13 @@ from __future__ import annotations
 import dataclasses
 from typing import TYPE_CHECKING
 
+import django_tables2 as tables
 from django.db.models import AutoField, BigAutoField, Field, ForeignKey
 from django.urls import reverse
 
 from apps.smallstack.crud import Action, CRUDView
 from apps.smallstack.mixins import StaffRequiredMixin
+from apps.smallstack.tables import ActionsColumn, DetailLinkColumn
 
 if TYPE_CHECKING:
     from django.db import models
@@ -111,8 +113,11 @@ class ModelContext:
     detail_fields: list[str]
     link_field: str | None
     crud_actions: list[Action]
-    field_formatters: dict
+    field_transforms: dict
     create_view_url: str | None
+    # Legacy — kept for backward compat with custom templates
+    field_formatters: dict = dataclasses.field(default_factory=dict)
+    preview_fields: list[str] = dataclasses.field(default_factory=list)
 
     def as_context(self) -> dict:
         """Return a dict ready for context.update().
@@ -128,7 +133,10 @@ class ModelContext:
             "detail_fields": self.detail_fields,
             "link_field": self.link_field,
             "crud_actions": self.crud_actions,
+            "field_transforms": self.field_transforms,
+            # Legacy keys for backward compat with custom templates
             "field_formatters": self.field_formatters,
+            "preview_fields": self.preview_fields,
             "create_view_url": self.create_view_url,
             "model_info": self.info,
             "object_list": self.crud_class._get_queryset(),
@@ -191,6 +199,40 @@ def _resolve_group(model, modeladmin):
     return model._meta.app_label.replace("_", " ").title()
 
 
+def _build_auto_table(model, list_fields, url_base, actions):
+    """Auto-generate a django-tables2 Table class with sortable columns.
+
+    The first field becomes a DetailLinkColumn (if DETAIL action exists),
+    and an ActionsColumn is appended (if UPDATE or DELETE exist).
+    """
+    has_detail = Action.DETAIL in actions
+    has_update = Action.UPDATE in actions
+    has_delete = Action.DELETE in actions
+
+    link_field = list_fields[0] if list_fields else None
+    attrs = {}
+
+    for field_name in list_fields:
+        if field_name == link_field and has_detail:
+            attrs[field_name] = DetailLinkColumn(url_base=url_base)
+        else:
+            attrs[field_name] = tables.Column()
+
+    if has_update or has_delete:
+        attrs["actions"] = ActionsColumn(
+            url_base=url_base, edit=has_update, delete=has_delete
+        )
+
+    meta_attrs = {
+        "model": model,
+        "fields": list(list_fields),
+        "attrs": {"class": "crud-table"},
+    }
+    attrs["Meta"] = type("Meta", (), meta_attrs)
+
+    return type(f"Explorer{model.__name__}Table", (tables.Table,), attrs)
+
+
 # ---------------------------------------------------------------------------
 # Registry
 # ---------------------------------------------------------------------------
@@ -218,7 +260,18 @@ class ExplorerRegistry:
                     fields = _resolve_fields_from_admin(model, modeladmin)
                 readonly = getattr(modeladmin, "explorer_readonly", _resolve_readonly_from_admin(modeladmin))
                 group = _resolve_group(model, modeladmin)
-                self._configs.append((model, fields, readonly, group))
+                preview_fields = getattr(modeladmin, "explorer_preview_fields", [])
+                explorer_transforms = getattr(modeladmin, "explorer_field_transforms", {})
+
+                # Merge: explorer_preview_fields → "preview" transform, then explicit wins
+                merged_transforms = {}
+                for pf in preview_fields:
+                    merged_transforms[pf] = "preview"
+                merged_transforms.update(explorer_transforms)
+
+                paginate_by = getattr(modeladmin, "explorer_paginate_by", 10)
+
+                self._configs.append((model, fields, readonly, group, preview_fields, merged_transforms, paginate_by))
             except Exception:
                 import logging
 
@@ -229,7 +282,7 @@ class ExplorerRegistry:
                 )
 
     def build(self):
-        for model, fields, readonly, group in self._configs:
+        for model, fields, readonly, group, preview_fields, field_transforms, paginate_by in self._configs:
             resolved_fields = fields or _auto_detect_fields(model)
             app_label = model._meta.app_label
             model_name = model._meta.model_name
@@ -248,6 +301,9 @@ class ExplorerRegistry:
             }
             form_fields = [f for f in resolved_fields if f in editable_names]
 
+            # Auto-generate a django-tables2 Table for sortable columns
+            table_class = _build_auto_table(model, resolved_fields, url_base, actions)
+
             crud_cls = type(
                 f"Explorer{model.__name__}CRUDView",
                 (CRUDView,),
@@ -256,9 +312,12 @@ class ExplorerRegistry:
                     "fields": form_fields or resolved_fields,
                     "list_fields": resolved_fields,
                     "url_base": url_base,
-                    "paginate_by": 25,
+                    "paginate_by": paginate_by,
+                    "table_class": table_class,
                     "mixins": [StaffRequiredMixin],
                     "actions": actions,
+                    "preview_fields": preview_fields,
+                    "field_transforms": field_transforms,
                     "breadcrumb_parent": ("Explorer", "explorer-index"),
                 },
             )
@@ -385,7 +444,9 @@ class ExplorerRegistry:
             detail_fields=crud_cls._get_detail_fields(),
             link_field=crud_cls._get_link_field(),
             crud_actions=crud_cls.actions,
+            field_transforms=crud_cls._get_effective_transforms(),
             field_formatters=crud_cls.field_formatters,
+            preview_fields=crud_cls.preview_fields,
             create_view_url=create_url,
         )
 

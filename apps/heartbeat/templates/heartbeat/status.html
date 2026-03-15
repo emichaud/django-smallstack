@@ -144,6 +144,48 @@
         opacity: 1;
     }
 
+    .timeline-bar .beat.maintenance {
+        background: repeating-linear-gradient(
+            45deg,
+            color-mix(in srgb, var(--warning-fg) 30%, var(--body-bg)),
+            color-mix(in srgb, var(--warning-fg) 30%, var(--body-bg)) 2px,
+            color-mix(in srgb, var(--warning-fg) 12%, var(--body-bg)) 2px,
+            color-mix(in srgb, var(--warning-fg) 12%, var(--body-bg)) 4px
+        );
+        opacity: 0.8;
+    }
+    .timeline-legend .swatch.maintenance {
+        background: repeating-linear-gradient(
+            45deg,
+            color-mix(in srgb, var(--warning-fg) 30%, var(--body-bg)),
+            color-mix(in srgb, var(--warning-fg) 30%, var(--body-bg)) 2px,
+            color-mix(in srgb, var(--warning-fg) 12%, var(--body-bg)) 2px,
+            color-mix(in srgb, var(--warning-fg) 12%, var(--body-bg)) 4px
+        );
+    }
+
+    .maintenance-banner {
+        border: 2px solid var(--warning-fg);
+        border-radius: 8px;
+        padding: 16px 20px;
+        margin-bottom: 24px;
+        background: color-mix(in srgb, var(--warning-fg) 8%, var(--body-bg));
+    }
+    .maintenance-banner .banner-title {
+        font-weight: 700;
+        color: var(--warning-fg);
+        font-size: 0.95rem;
+    }
+    .maintenance-banner .banner-note {
+        color: var(--body-quiet-color);
+        font-size: 0.82rem;
+        margin-top: 4px;
+    }
+    .maintenance-banner.upcoming {
+        border-color: color-mix(in srgb, var(--warning-fg) 40%, var(--body-bg));
+        background: color-mix(in srgb, var(--warning-fg) 4%, var(--body-bg));
+    }
+
     /* 24h timeline — wider bars */
     .timeline-bar-24h .beat {
         min-width: 4px;
@@ -169,6 +211,20 @@
         {% endif %}
     </div>
 </div>
+
+{% if active_maintenance %}
+<div class="maintenance-banner">
+    <div class="banner-title">Scheduled Maintenance in Progress &mdash; {{ active_maintenance.title }}</div>
+    {% if active_maintenance.note %}<div class="banner-note">{{ active_maintenance.note }}</div>{% endif %}
+    <div class="banner-note">{{ active_maintenance.start|date:"M d, g:i A" }} &ndash; {{ active_maintenance.end|date:"g:i A T" }}</div>
+</div>
+{% elif upcoming_maintenance %}
+<div class="maintenance-banner upcoming">
+    <div class="banner-title">Upcoming Maintenance &mdash; {{ upcoming_maintenance.title }}</div>
+    {% if upcoming_maintenance.note %}<div class="banner-note">{{ upcoming_maintenance.note }}</div>{% endif %}
+    <div class="banner-note">Scheduled for {{ upcoming_maintenance.start|date:"M d, g:i A" }} &ndash; {{ upcoming_maintenance.end|date:"g:i A T" }}</div>
+</div>
+{% endif %}
 
 <!-- Uptime Stats -->
 <div class="uptime-stats">
@@ -204,7 +260,7 @@
         <div class="timeline-bar timeline-bar-24h">
             {% for slot in timeline_24h %}
             <div class="beat {{ slot.status }}">
-                <span class="tooltip">{{ slot.hour_label }} &mdash; {% if slot.status == "pre-epoch" %}Not monitored{% elif slot.status == "missed" %}No data{% elif slot.status == "partial" %}{{ slot.ok_count }} OK, {{ slot.fail_count }} fail{% elif slot.status == "fail" %}{{ slot.fail_count }} failure{{ slot.fail_count|pluralize }}{% else %}{{ slot.ok_count }} OK{% endif %}</span>
+                <span class="tooltip">{{ slot.hour_label }} &mdash; {% if slot.status == "pre-epoch" %}Not monitored{% elif slot.status == "maintenance" %}Maintenance{% elif slot.status == "missed" %}No data{% elif slot.status == "partial" %}{{ slot.ok_count }} OK, {{ slot.fail_count }} fail{% elif slot.status == "fail" %}{{ slot.fail_count }} failure{{ slot.fail_count|pluralize }}{% else %}{{ slot.ok_count }} OK{% endif %}</span>
             </div>
             {% endfor %}
         </div>
@@ -217,6 +273,7 @@
             <span><span class="swatch ok"></span> OK</span>
             <span><span class="swatch fail"></span> Failure</span>
             <span><span class="swatch missed"></span> No data</span>
+            <span><span class="swatch maintenance"></span> Maintenance</span>
         </div>
     </div>
 </div>
@@ -232,7 +289,7 @@
         <div class="timeline-bar">
             {% for beat in timeline %}
             <div class="beat {{ beat.status }}">
-                <span class="tooltip">{{ beat.label }} &mdash; {% if beat.status == "pre-epoch" %}Not monitored{% elif beat.status == "missed" %}No heartbeat{% else %}{{ beat.status|upper }} ({{ beat.response_time_ms }}ms){% endif %}</span>
+                <span class="tooltip">{{ beat.label }} &mdash; {% if beat.status == "pre-epoch" %}Not monitored{% elif beat.status == "maintenance" %}Maintenance{% elif beat.status == "missed" %}No heartbeat{% else %}{{ beat.status|upper }} ({{ beat.response_time_ms }}ms){% endif %}</span>
             </div>
             {% endfor %}
         </div>

@@ -2,6 +2,8 @@
 
 from django import forms
 
+from .models import MaintenanceWindow
+
 
 class SLAForm(forms.Form):
     """Form for resetting the SLA epoch and configuring targets."""
@@ -46,3 +48,26 @@ class SLAForm(forms.Form):
         }),
         help_text="Optional note for this reset.",
     )
+
+
+class MaintenanceWindowForm(forms.ModelForm):
+    """Form for creating/editing maintenance windows."""
+
+    class Meta:
+        model = MaintenanceWindow
+        fields = ["title", "start", "end", "note", "exclude_from_sla"]
+        widgets = {
+            "title": forms.TextInput(attrs={"class": "vTextField"}),
+            "start": forms.DateTimeInput(attrs={"type": "datetime-local", "class": "vTextField"}),
+            "end": forms.DateTimeInput(attrs={"type": "datetime-local", "class": "vTextField"}),
+            "note": forms.Textarea(attrs={"class": "vTextField", "rows": 3}),
+            "exclude_from_sla": forms.CheckboxInput(),
+        }
+
+    def clean(self):
+        cleaned = super().clean()
+        start = cleaned.get("start")
+        end = cleaned.get("end")
+        if start and end and end <= start:
+            raise forms.ValidationError("End time must be after start time.")
+        return cleaned

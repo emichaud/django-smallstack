@@ -21,8 +21,10 @@ Usage:
 """
 
 import enum
+import warnings
 
 from django import forms
+from django.http import Http404
 from django.urls import path, reverse
 from django.views.generic import (
     CreateView,
@@ -31,6 +33,17 @@ from django.views.generic import (
     ListView,
     UpdateView,
 )
+
+from . import transforms as _transforms
+
+# ---------------------------------------------------------------------------
+# Field preview helpers (delegated to transforms module)
+# ---------------------------------------------------------------------------
+
+# Re-export for backward compatibility — callers importing from crud.py still work.
+_detect_format = _transforms._detect_format
+_render_json_preview = _transforms._render_json_preview
+_render_markdown_preview = _transforms._render_markdown_preview
 
 
 class Action(enum.Enum):
@@ -75,7 +88,10 @@ class _CRUDContextMixin:
                 "detail_fields": cfg._get_detail_fields(),
                 "link_field": cfg._get_link_field(),
                 "crud_actions": cfg.actions,
+                "field_transforms": cfg._get_effective_transforms(),
+                # Legacy keys for backward compat with custom templates
                 "field_formatters": cfg.field_formatters,
+                "preview_fields": cfg.preview_fields,
             }
         )
         # Optional parent breadcrumb: (label, url_name) tuple
@@ -173,6 +189,70 @@ class _CRUDDeleteBase(_CRUDContextMixin, DeleteView):
         return reverse(f"{url_base}-list")
 
 
+class _CRUDFieldPreviewBase(_CRUDContextMixin, DetailView):
+    """Server-rendered field preview partial, loaded via HTMX."""
+
+    def get_queryset(self):
+        return self.crud_config._get_queryset()
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        field_name = self.kwargs["field_name"]
+
+        # Security: only allow fields whose transform has has_expanded=True
+        effective = self.crud_config._get_effective_transforms()
+        spec = effective.get(field_name)
+        transform, options = _resolve_transform_spec(spec) if spec else (None, {})
+
+        if not transform or not getattr(transform, "has_expanded", False):
+            raise Http404
+
+        raw_value = getattr(self.object, field_name, "")
+        expanded_ctx = transform.expanded(raw_value, self.object, field_name, ctx, **options)
+
+        ctx["field_name"] = field_name
+        ctx.update(expanded_ctx)
+        return ctx
+
+    def get_template_names(self):
+        field_name = self.kwargs.get("field_name", "")
+        effective = self.crud_config._get_effective_transforms()
+        spec = effective.get(field_name)
+        transform, _ = _resolve_transform_spec(spec) if spec else (None, {})
+
+        if transform and hasattr(transform, "get_expanded_template"):
+            custom = transform.get_expanded_template()
+            if custom:
+                return [custom]
+
+        return self.crud_config._get_template_names("field_preview")
+
+
+# ---------------------------------------------------------------------------
+# Transform spec resolution
+# ---------------------------------------------------------------------------
+
+
+def _resolve_transform_spec(spec):
+    """Resolve a field_transforms value to (transform_or_callable, options_dict).
+
+    Spec formats:
+        "preview"                → (PreviewTransform instance, {})
+        ("badge", {"colors":…})  → (BadgeTransform instance, {"colors":…})
+        callable                 → (callable, {})
+    """
+    if callable(spec) and not isinstance(spec, str):
+        return spec, {}
+    if isinstance(spec, str):
+        transform = _transforms.get(spec)
+        return transform, {}
+    if isinstance(spec, (tuple, list)) and len(spec) == 2:
+        name, options = spec
+        transform = _transforms.get(name)
+        return transform, options if isinstance(options, dict) else {}
+    return None, {}
+
+
 # ---------------------------------------------------------------------------
 # CRUDView configuration class
 # ---------------------------------------------------------------------------
@@ -195,6 +275,7 @@ class CRUDView:
         queryset:         Custom queryset (model.objects.all() if None)
         field_formatters: {field_name: lambda value, obj: str} display formatters
         table_class:      Optional django-tables2 Table class for sortable list view
+        preview_fields:   Fields that get truncated with click-to-preview in list view
     """
 
     model = None
@@ -208,8 +289,10 @@ class CRUDView:
     actions = [Action.LIST, Action.CREATE, Action.DETAIL, Action.UPDATE, Action.DELETE]
     form_class = None
     queryset = None
-    field_formatters = {}
+    field_formatters = {}  # Deprecated — use field_transforms
     table_class = None  # Optional django-tables2 Table class for enhanced list view
+    preview_fields = []  # Deprecated — use field_transforms
+    field_transforms = {}  # {field_name: "transform_name" | ("name", {opts}) | callable}
     breadcrumb_parent = None  # Optional (label, url_name) for parent breadcrumb
 
     @classmethod
@@ -234,6 +317,40 @@ class CRUDView:
         return list_fields[0] if list_fields else None
 
     @classmethod
+    def _get_effective_transforms(cls):
+        """Merge legacy attrs (preview_fields, field_formatters) into field_transforms.
+
+        Priority: explicit field_transforms > preview_fields > field_formatters.
+        Emits deprecation warnings when legacy attrs are non-empty.
+        """
+        merged = {}
+
+        # Legacy: field_formatters → pass callable through
+        if cls.field_formatters:
+            warnings.warn(
+                f"{cls.__name__}.field_formatters is deprecated, use field_transforms instead.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            for field_name, formatter in cls.field_formatters.items():
+                merged[field_name] = formatter
+
+        # Legacy: preview_fields → map to "preview" transform
+        if cls.preview_fields:
+            warnings.warn(
+                f"{cls.__name__}.preview_fields is deprecated, use field_transforms instead.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            for field_name in cls.preview_fields:
+                merged[field_name] = "preview"
+
+        # Explicit field_transforms wins
+        merged.update(cls.field_transforms)
+
+        return merged
+
+    @classmethod
     def _get_queryset(cls):
         if cls.queryset is not None:
             return cls.queryset.all()
@@ -241,11 +358,16 @@ class CRUDView:
 
     @classmethod
     def _get_template_names(cls, suffix):
-        """Return template list: app-specific override first, then default."""
+        """Return template list: app-specific override first, then default.
+
+        Templates are namespaced under {app_label}/crud/ to avoid collisions
+        with public-facing templates that use Django's standard naming
+        convention ({app_label}/{model_name}_{suffix}.html).
+        """
         app_label = cls.model._meta.app_label
         model_name = cls.model._meta.model_name
         return [
-            f"{app_label}/{model_name}_{suffix}.html",
+            f"{app_label}/crud/{model_name}_{suffix}.html",
             f"smallstack/crud/object_{suffix}.html",
         ]
 
@@ -325,6 +447,14 @@ class CRUDView:
         if Action.LIST in cls.actions:
             view = cls._make_view(_CRUDListBase)
             urls.append(path(f"{url_base}/", view.as_view(), name=f"{url_base}-list"))
+            preview_view = cls._make_view(_CRUDFieldPreviewBase)
+            urls.append(
+                path(
+                    f"{url_base}/<pk>/field-preview/<str:field_name>/",
+                    preview_view.as_view(),
+                    name=f"{url_base}-field-preview",
+                )
+            )
 
         if Action.CREATE in cls.actions:
             view = cls._make_view(_CRUDCreateBase)

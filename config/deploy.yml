@@ -44,7 +44,7 @@ env:
   clear:
     DJANGO_SETTINGS_MODULE: config.settings.production
     DJANGO_DEBUG: "False"
-    # BACKUP_CRON_ENABLED: "true"  # Enable scheduled database backups
+    BACKUP_CRON_ENABLED: "true"
   secret:
     - ALLOWED_HOSTS
     - CSRF_TRUSTED_ORIGINS

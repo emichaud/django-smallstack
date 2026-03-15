@@ -307,6 +307,53 @@
     </div>
 </div>
 
+<!-- Maintenance Windows -->
+<div class="card" style="margin-bottom: 24px;">
+    <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
+        <h2>Maintenance Windows</h2>
+        <a href="{% url 'heartbeat:maintenance_create' %}" class="button" style="padding: 6px 16px; font-size: 0.82rem;">Schedule Maintenance</a>
+    </div>
+    <div class="card-body" style="padding: 0; overflow-x: auto;">
+        {% if maintenance_windows %}
+        <table class="daily-table">
+            <thead>
+                <tr>
+                    <th>Title</th>
+                    <th>Start</th>
+                    <th>End</th>
+                    <th>Exclude from SLA</th>
+                    <th style="text-align: right;">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for w in maintenance_windows %}
+                <tr>
+                    <td>
+                        {{ w.title }}
+                        {% if w.note %}<div style="font-size: 0.75rem; color: var(--body-quiet-color);">{{ w.note|truncatewords:12 }}</div>{% endif %}
+                    </td>
+                    <td>{{ w.start|date:"M d, Y g:i A" }}</td>
+                    <td>{{ w.end|date:"M d, Y g:i A" }}</td>
+                    <td>{% if w.exclude_from_sla %}<span style="color: var(--success-fg);">Yes</span>{% else %}No{% endif %}</td>
+                    <td style="text-align: right;">
+                        <a href="{% url 'heartbeat:maintenance_edit' w.pk %}" style="color: var(--primary); text-decoration: none; font-size: 0.82rem; margin-right: 8px;">Edit</a>
+                        <form method="post" action="{% url 'heartbeat:maintenance_delete' w.pk %}" style="display: inline;">
+                            {% csrf_token %}
+                            <button type="submit" onclick="return confirm('Delete this maintenance window?')" style="background: none; border: none; color: var(--error-fg); cursor: pointer; font-size: 0.82rem;">Delete</button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <div style="padding: 24px; text-align: center; color: var(--body-quiet-color); font-size: 0.85rem;">
+            No maintenance windows scheduled.
+        </div>
+        {% endif %}
+    </div>
+</div>
+
 <!-- Daily Summaries -->
 {% if daily_summaries %}
 <div class="card">
@@ -319,6 +366,7 @@
                     <th>Uptime</th>
                     <th style="text-align: right;">OK</th>
                     <th style="text-align: right;">Fail</th>
+                    <th style="text-align: right;">Maint</th>
                     <th style="text-align: right;">Expected</th>
                     <th style="text-align: right;">Avg Response</th>
                 </tr>
@@ -330,6 +378,7 @@
                     <td style="font-weight: 600;">{{ day.uptime_pct }}%</td>
                     <td style="text-align: right;">{{ day.ok_count }}</td>
                     <td style="text-align: right;">{% if day.fail_count %}<span style="color: var(--error-fg);">{{ day.fail_count }}</span>{% else %}0{% endif %}</td>
+                    <td style="text-align: right;">{% if day.maintenance_count %}<span style="color: var(--warning-fg);">{{ day.maintenance_count }}</span>{% else %}0{% endif %}</td>
                     <td style="text-align: right;">{{ day.expected_count }}</td>
                     <td style="text-align: right;">{{ day.avg_response_ms }}ms</td>
                 </tr>

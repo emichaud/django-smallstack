@@ -1,0 +1,20 @@
+<template id="field-preview-raw">{{ raw_text }}</template>
+
+<div class="field-preview-tab-content" data-format="text"
+     {% if detected_format != "text" %}style="display:none"{% endif %}>
+    <pre>{{ raw_text }}</pre>
+</div>
+
+<div class="field-preview-tab-content" data-format="json"
+     {% if detected_format != "json" %}style="display:none"{% endif %}>
+    {% if json_html %}
+    <pre>{{ json_html }}</pre>
+    {% else %}
+    <p style="color: var(--body-quiet-color); padding: 1rem;">Not valid JSON</p>
+    {% endif %}
+</div>
+
+<div class="field-preview-tab-content md-preview" data-format="markdown"
+     {% if detected_format != "markdown" %}style="display:none"{% endif %}>
+    {{ markdown_html }}
+</div>

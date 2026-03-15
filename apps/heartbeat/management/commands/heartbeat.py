@@ -9,7 +9,7 @@ from django.db import connection
 from django.db.models import Avg, Count, Q
 from django.utils.timezone import now
 
-from apps.heartbeat.models import Heartbeat, HeartbeatDaily, HeartbeatEpoch
+from apps.heartbeat.models import Heartbeat, HeartbeatDaily, HeartbeatEpoch, MaintenanceWindow
 
 
 class Command(BaseCommand):
@@ -38,6 +38,7 @@ class Command(BaseCommand):
             return
 
         minute = now().replace(second=0, microsecond=0)
+        in_maintenance = MaintenanceWindow.is_in_maintenance(minute)
         start = time.monotonic()
         try:
             connection.ensure_connection()
@@ -46,9 +47,11 @@ class Command(BaseCommand):
             # (loop drift), update it instead of creating a duplicate.
             _, created = Heartbeat.objects.update_or_create(
                 timestamp=minute,
-                defaults={"status": "ok", "response_time_ms": elapsed},
+                defaults={"status": "ok", "response_time_ms": elapsed, "maintenance": in_maintenance},
             )
-            self.stdout.write(f"Heartbeat OK ({elapsed}ms){'' if created else ' (updated)'}")
+            suffix = "" if created else " (updated)"
+            maint_tag = " [maintenance]" if in_maintenance else ""
+            self.stdout.write(f"Heartbeat OK ({elapsed}ms){suffix}{maint_tag}")
         except Exception as e:
             elapsed = int((time.monotonic() - start) * 1000)
             Heartbeat.objects.update_or_create(
@@ -57,6 +60,7 @@ class Command(BaseCommand):
                     "status": "fail",
                     "response_time_ms": elapsed,
                     "note": str(e)[:255],
+                    "maintenance": in_maintenance,
                 },
             )
             self.stderr.write(f"Heartbeat FAIL: {e}")
@@ -82,6 +86,7 @@ class Command(BaseCommand):
             .annotate(
                 ok_count=Count("pk", filter=Q(status="ok")),
                 fail_count=Count("pk", filter=Q(status="fail")),
+                maintenance_count=Count("pk", filter=Q(maintenance=True)),
                 total=Count("pk"),
                 avg_ms=Avg("response_time_ms"),
             )
@@ -106,6 +111,7 @@ class Command(BaseCommand):
                 defaults={
                     "ok_count": ok,
                     "fail_count": fail,
+                    "maintenance_count": day["maintenance_count"],
                     "expected_count": expected_per_day,
                     "avg_response_ms": avg_ms,
                     "uptime_pct": uptime,
