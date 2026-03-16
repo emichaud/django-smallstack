@@ -38,6 +38,7 @@
     --card-bg: #ffffff;
     --card-border: #e0e0e0;
     --card-header-bg: #f5f5f5;
+    --hairline-color: #e0e0e0;
 
     /* Form colors */
     --input-bg: #ffffff;
@@ -117,6 +118,7 @@
     --card-bg: #212121;
     --card-border: #3d3d3d;
     --card-header-bg: #2a2a2a;
+    --hairline-color: #3d3d3d;
 
     --input-bg: #303030;
     --input-border: #4a4a4a;

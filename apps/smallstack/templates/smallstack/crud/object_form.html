@@ -16,39 +16,7 @@
 {% endif %}
 {% endblock %}
 
-{% block extra_css %}
-{% include "smallstack/crud/_form_styles.html" %}
-<style>
-.crud-date-wrapper {
-    position: relative;
-    display: flex;
-    align-items: center;
-}
-.crud-date-wrapper input {
-    padding-right: 2.8rem !important;
-}
-.crud-date-btn {
-    position: absolute;
-    right: 8px;
-    background: none;
-    border: none;
-    color: var(--body-quiet-color);
-    cursor: pointer;
-    padding: 4px;
-    display: flex;
-    align-items: center;
-    border-radius: 4px;
-    transition: color 0.15s;
-}
-.crud-date-btn:hover {
-    color: var(--primary);
-}
-/* Hide native calendar/clock icons — we provide our own button */
-.crud-date-wrapper input::-webkit-calendar-picker-indicator {
-    display: none;
-}
-</style>
-{% endblock %}
+{% comment %}All form and date picker styles are in components.css{% endcomment %}
 
 {% block content %}
 {% if breadcrumb_parent_label %}

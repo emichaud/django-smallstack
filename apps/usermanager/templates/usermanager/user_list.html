@@ -5,45 +5,7 @@
 
 {% block breadcrumbs %}{% endblock %}
 
-{% block extra_css %}
-{% include "smallstack/crud/_table_styles.html" %}
-<style>
-    /* django-tables2 sort indicators */
-    .crud-table thead th a { color: var(--body-quiet-color); text-decoration: none; }
-    .crud-table thead th a:hover { color: var(--primary); }
-    .crud-table thead th.asc a::after { content: " \25B2"; font-size: 0.65rem; }
-    .crud-table thead th.desc a::after { content: " \25BC"; font-size: 0.65rem; }
-    /* django-tables2 pagination — override default ul bullets */
-    .table-container ul.pagination,
-    ul.pagination {
-        display: flex; justify-content: center; gap: 0.25rem;
-        list-style: none !important; padding: 1rem 0 0 !important; margin: 0 !important;
-    }
-    .table-container ul.pagination li,
-    ul.pagination li {
-        list-style: none !important;
-    }
-    .table-container ul.pagination li a,
-    .table-container ul.pagination li span,
-    ul.pagination li a,
-    ul.pagination li span {
-        display: inline-block; padding: 0.3rem 0.75rem;
-        border-radius: var(--radius-sm, 4px); color: var(--body-quiet-color);
-        text-decoration: none; font-size: 0.85rem;
-    }
-    .table-container ul.pagination li a:hover,
-    ul.pagination li a:hover {
-        color: var(--primary);
-        background: color-mix(in srgb, var(--primary) 10%, var(--body-bg));
-    }
-    .table-container ul.pagination li.active a,
-    .table-container ul.pagination li.active span,
-    ul.pagination li.active a,
-    ul.pagination li.active span {
-        background: var(--primary); color: var(--button-fg);
-    }
-</style>
-{% endblock %}
+{% comment %}Table, sort, and pagination styles are in components.css{% endcomment %}
 
 {% block content %}
 <div class="page-header-with-actions" style="background: color-mix(in srgb, var(--primary) 15%, var(--body-bg)); margin: -24px -24px 24px -24px; padding: 24px; border-radius: 8px 8px 0 0; display: flex; align-items: flex-start; justify-content: space-between;">

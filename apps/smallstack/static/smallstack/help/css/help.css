@@ -768,6 +768,21 @@
 }
 
 /* ===========================================
+   Focus Mode — hides both sidebars
+   =========================================== */
+
+.help-focus-mode .help-sidebar,
+.help-focus-mode .help-toc-sidebar {
+    display: none;
+}
+
+.help-focus-mode .help-layout {
+    grid-template-columns: 1fr;
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+/* ===========================================
    Responsive Design
    =========================================== */
 

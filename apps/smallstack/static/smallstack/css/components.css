@@ -1,0 +1,981 @@
+/* ==========================================================================
+   SmallStack Component Styles
+   ==========================================================================
+   This file provides consistent styling for all SmallStack UI components.
+   It sits between theme.css (variables) and per-page templates, ensuring
+   that plain HTML tables, forms, pagination, etc. look correct in any theme
+   without requiring per-page CSS overrides.
+
+   Load order: admin/base.css → theme.css → palettes.css → components.css
+   ========================================================================== */
+
+
+/* --------------------------------------------------------------------------
+   Tables
+   --------------------------------------------------------------------------
+   Use class="crud-table" on any <table> for themed styling.
+   Also applies baseline styling to all tables within .main-content to catch
+   plain <table> elements written without a class.
+   -------------------------------------------------------------------------- */
+
+.crud-table,
+.table-plain,
+.main-content table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+/* Reset inherited admin/tables2 backgrounds */
+.crud-table tr:nth-child(odd),
+.crud-table tr:nth-child(even),
+.table-plain tr:nth-child(odd),
+.table-plain tr:nth-child(even),
+.main-content table tr:nth-child(odd),
+.main-content table tr:nth-child(even) {
+    background: transparent;
+}
+
+/* Table headers */
+.crud-table thead tr,
+.table-plain thead tr,
+.main-content table thead tr {
+    background-color: color-mix(in srgb, var(--primary) 15%, var(--body-bg)) !important;
+    border: none !important;
+}
+
+.crud-table thead th,
+.table-plain thead th,
+.main-content table thead th {
+    text-transform: uppercase;
+    font-size: 0.8rem;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+    padding: 10px 16px;
+    border: none !important;
+    background-color: transparent !important;
+    color: var(--body-quiet-color) !important;
+    text-align: left;
+}
+
+/* Table body rows */
+.crud-table tbody tr,
+.table-plain tbody tr,
+.main-content table tbody tr {
+    border: none !important;
+}
+
+.crud-table tbody tr:nth-child(odd),
+.table-plain tbody tr:nth-child(odd),
+.main-content table tbody tr:nth-child(odd) {
+    background-color: color-mix(in srgb, var(--primary) 4%, var(--body-bg)) !important;
+}
+
+.crud-table tbody tr:nth-child(even),
+.table-plain tbody tr:nth-child(even),
+.main-content table tbody tr:nth-child(even) {
+    background-color: color-mix(in srgb, var(--primary) 12%, var(--body-bg)) !important;
+}
+
+.crud-table tbody td,
+.crud-table tbody th,
+.table-plain tbody td,
+.table-plain tbody th,
+.main-content table tbody td,
+.main-content table tbody th {
+    border: none !important;
+    padding: 10px 16px;
+    font-size: 0.85rem;
+}
+
+.crud-table tbody tr:hover,
+.table-plain tbody tr:hover,
+.main-content table tbody tr:hover {
+    background-color: color-mix(in srgb, var(--primary) 20%, var(--body-bg)) !important;
+}
+
+/* Table links */
+.crud-table a,
+.table-plain a,
+.main-content table a {
+    color: var(--primary);
+    text-decoration: none;
+}
+
+.crud-table a:hover,
+.table-plain a:hover,
+.main-content table a:hover {
+    text-decoration: underline;
+}
+
+/* Table action cells */
+.crud-actions-cell {
+    text-align: right;
+    white-space: nowrap;
+}
+
+.crud-action-delete {
+    color: var(--delete-button-bg, #dc3545) !important;
+}
+
+
+/* --------------------------------------------------------------------------
+   django-tables2 Sort Indicators
+   -------------------------------------------------------------------------- */
+
+.crud-table thead th a {
+    color: var(--body-quiet-color);
+    text-decoration: none;
+}
+
+.crud-table thead th a:hover {
+    color: var(--primary);
+}
+
+.crud-table thead th.asc a::after {
+    content: " \25B2";
+    font-size: 0.65rem;
+}
+
+.crud-table thead th.desc a::after {
+    content: " \25BC";
+    font-size: 0.65rem;
+}
+
+
+/* --------------------------------------------------------------------------
+   Pagination
+   --------------------------------------------------------------------------
+   Handles both CRUDView's custom pagination and django-tables2's <ul>.
+   -------------------------------------------------------------------------- */
+
+.table-container .pagination,
+.table-container ul.pagination,
+ul.pagination {
+    display: flex;
+    justify-content: center;
+    gap: 0.25rem;
+    list-style: none !important;
+    padding: 1rem 0 0 !important;
+    margin: 0 !important;
+}
+
+.table-container .pagination li,
+.table-container ul.pagination li,
+ul.pagination li {
+    list-style: none !important;
+}
+
+.table-container .pagination li a,
+.table-container .pagination li span,
+.table-container ul.pagination li a,
+.table-container ul.pagination li span,
+ul.pagination li a,
+ul.pagination li span {
+    display: inline-block;
+    padding: 0.3rem 0.75rem;
+    border-radius: var(--radius-sm, 4px);
+    color: var(--body-quiet-color);
+    text-decoration: none;
+    font-size: 0.85rem;
+}
+
+.table-container .pagination li a:hover,
+.table-container ul.pagination li a:hover,
+ul.pagination li a:hover {
+    color: var(--primary);
+    background: color-mix(in srgb, var(--primary) 10%, var(--body-bg));
+    text-decoration: none;
+}
+
+.table-container .pagination li.active a,
+.table-container .pagination li.active span,
+.table-container ul.pagination li.active a,
+.table-container ul.pagination li.active span,
+ul.pagination li.active a,
+ul.pagination li.active span {
+    background: var(--primary);
+    color: var(--button-fg);
+    text-decoration: none;
+}
+
+
+/* --------------------------------------------------------------------------
+   Forms
+   --------------------------------------------------------------------------
+   Use class="crud-form" on <form> elements for themed styling.
+   -------------------------------------------------------------------------- */
+
+.crud-form .crud-field {
+    margin-bottom: 1.5rem;
+}
+
+.crud-form .crud-label {
+    display: block;
+    margin-bottom: 0.4rem;
+    font-weight: 600;
+    font-size: 0.9rem;
+    color: var(--body-fg);
+}
+
+.crud-form .crud-label .required {
+    color: var(--delete-button-bg, #dc3545);
+    margin-left: 0.15rem;
+}
+
+.crud-form .crud-help {
+    color: var(--body-quiet-color);
+    font-size: 0.8rem;
+    margin-top: 0.35rem;
+    line-height: 1.4;
+}
+
+.crud-form .crud-error {
+    color: var(--delete-button-bg, #dc3545);
+    font-size: 0.8rem;
+    margin-top: 0.35rem;
+}
+
+/* Text inputs, selects, textareas */
+.crud-form input[type="text"],
+.crud-form input[type="email"],
+.crud-form input[type="url"],
+.crud-form input[type="number"],
+.crud-form input[type="password"],
+.crud-form input[type="date"],
+.crud-form input[type="datetime-local"],
+.crud-form input[type="tel"],
+.crud-form input[type="search"],
+.crud-form select,
+.crud-form textarea {
+    width: 100%;
+    padding: 0.7rem 0.9rem;
+    font-size: 0.9rem;
+    border: 1px solid color-mix(in srgb, var(--body-fg) 20%, var(--body-bg));
+    border-radius: var(--radius-sm, 6px);
+    background: color-mix(in srgb, var(--body-fg) 5%, var(--body-bg));
+    color: var(--body-fg);
+    transition: border-color 0.15s;
+    box-sizing: border-box;
+}
+
+.crud-form input::placeholder,
+.crud-form textarea::placeholder {
+    color: var(--body-quiet-color);
+    opacity: 0.6;
+}
+
+.crud-form input:focus,
+.crud-form select:focus,
+.crud-form textarea:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 20%, transparent);
+}
+
+.crud-form textarea {
+    min-height: 120px;
+    resize: vertical;
+}
+
+/* Select dropdowns */
+.crud-form select {
+    appearance: auto;
+    min-height: 2.6rem;
+    color-scheme: dark light;
+}
+
+[data-theme="dark"] .crud-form select {
+    color-scheme: dark;
+}
+
+[data-theme="dark"] .crud-form select option {
+    background: var(--card-bg);
+    color: var(--body-fg);
+}
+
+/* Checkboxes */
+.crud-form .crud-checkbox {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 0;
+}
+
+.crud-form .crud-checkbox input[type="checkbox"] {
+    width: 1.1rem;
+    height: 1.1rem;
+    accent-color: var(--primary);
+}
+
+.crud-form .crud-checkbox label {
+    font-weight: 400;
+    cursor: pointer;
+}
+
+/* File inputs */
+.crud-form input[type="file"] {
+    width: 100%;
+    padding: 0.5rem;
+    font-size: 0.85rem;
+    border: 1px dashed color-mix(in srgb, var(--body-fg) 20%, var(--body-bg));
+    border-radius: var(--radius-sm, 6px);
+    background: color-mix(in srgb, var(--body-fg) 3%, var(--body-bg));
+    color: var(--body-fg);
+    cursor: pointer;
+}
+
+.crud-form input[type="file"]:hover {
+    border-color: var(--primary);
+}
+
+/* Image preview */
+.crud-form .crud-image-preview {
+    margin-bottom: 0.5rem;
+}
+
+.crud-form .crud-image-preview img {
+    max-width: 120px;
+    max-height: 120px;
+    border-radius: var(--radius-sm, 6px);
+    border: 1px solid color-mix(in srgb, var(--body-fg) 15%, var(--body-bg));
+}
+
+/* Error state */
+.crud-form .crud-field.has-error input,
+.crud-form .crud-field.has-error select,
+.crud-form .crud-field.has-error textarea {
+    border-color: var(--delete-button-bg, #dc3545);
+}
+
+/* Form row — side-by-side fields */
+.crud-form .crud-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
+}
+
+@media (max-width: 600px) {
+    .crud-form .crud-row {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* Form actions */
+.crud-form .crud-actions {
+    margin-top: 2rem;
+    display: flex;
+    gap: 0.75rem;
+    align-items: center;
+}
+
+.crud-form .crud-actions .btn-save {
+    background: var(--primary);
+    color: var(--button-fg);
+    padding: 0.6rem 2rem;
+    border: none;
+    border-radius: var(--radius-sm, 6px);
+    cursor: pointer;
+    font-size: 0.9rem;
+    font-weight: 500;
+}
+
+.crud-form .crud-actions .btn-save:hover {
+    background: var(--primary-hover);
+}
+
+.crud-form .crud-actions .btn-cancel {
+    padding: 0.6rem 1.5rem;
+    color: var(--body-quiet-color);
+    text-decoration: none;
+    font-size: 0.9rem;
+}
+
+.crud-form .crud-actions .btn-cancel:hover {
+    color: var(--body-fg);
+}
+
+/* Date/datetime input wrapper */
+.crud-date-wrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.crud-date-wrapper input {
+    padding-right: 2.8rem !important;
+}
+
+.crud-date-btn {
+    position: absolute;
+    right: 8px;
+    background: none;
+    border: none;
+    color: var(--body-quiet-color);
+    cursor: pointer;
+    padding: 4px;
+    display: flex;
+    align-items: center;
+    border-radius: 4px;
+    transition: color 0.15s;
+}
+
+.crud-date-btn:hover {
+    color: var(--primary);
+}
+
+.crud-date-wrapper input::-webkit-calendar-picker-indicator {
+    display: none;
+}
+
+
+/* --------------------------------------------------------------------------
+   Field Preview (truncated text modal)
+   -------------------------------------------------------------------------- */
+
+.field-preview-trigger {
+    cursor: pointer;
+}
+
+.field-preview-trigger:hover {
+    color: var(--primary);
+}
+
+.field-preview-more {
+    display: inline-block;
+    margin-left: 3px;
+    padding: 0 5px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 1px;
+    line-height: 1.5;
+    vertical-align: middle;
+    border-radius: 3px;
+    background: color-mix(in srgb, var(--primary) 15%, var(--body-bg));
+    color: var(--primary);
+    transition: background 0.15s;
+}
+
+.field-preview-trigger:hover .field-preview-more {
+    background: color-mix(in srgb, var(--primary) 30%, var(--body-bg));
+}
+
+.field-preview-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 1000;
+    align-items: center;
+    justify-content: center;
+}
+
+.field-preview-overlay.open {
+    display: flex;
+}
+
+.field-preview-panel {
+    width: min(680px, 90vw);
+    height: min(520px, 80vh);
+    display: flex;
+    flex-direction: column;
+    background: var(--card-bg, var(--body-bg));
+    border: 1px solid var(--card-border, color-mix(in srgb, var(--body-fg) 10%, var(--body-bg)));
+    border-radius: var(--radius-md, 8px);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+    overflow: hidden;
+}
+
+.field-preview-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 16px;
+    border-bottom: 1px solid color-mix(in srgb, var(--body-fg) 10%, var(--body-bg));
+    flex-shrink: 0;
+    background: color-mix(in srgb, var(--primary) 8%, var(--body-bg));
+}
+
+.field-preview-tabs {
+    display: flex;
+    gap: 2px;
+}
+
+.field-preview-tab {
+    padding: 5px 12px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--body-quiet-color);
+    border: none;
+    background: none;
+    cursor: pointer;
+    border-radius: 4px;
+    transition: color 0.15s, background 0.15s;
+}
+
+.field-preview-tab:hover {
+    color: var(--body-fg);
+    background: color-mix(in srgb, var(--body-fg) 8%, transparent);
+}
+
+.field-preview-tab.active {
+    color: var(--primary);
+    background: color-mix(in srgb, var(--primary) 15%, var(--body-bg));
+}
+
+.field-preview-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.field-preview-copy {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 10px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: var(--body-quiet-color);
+    border: 1px solid color-mix(in srgb, var(--body-fg) 15%, var(--body-bg));
+    border-radius: 4px;
+    background: none;
+    cursor: pointer;
+    transition: color 0.15s, border-color 0.15s, background 0.15s;
+}
+
+.field-preview-copy:hover {
+    color: var(--primary);
+    border-color: var(--primary);
+    background: color-mix(in srgb, var(--primary) 8%, transparent);
+}
+
+.field-preview-copy.copied {
+    color: var(--success-fg, #22863a);
+    border-color: var(--success-fg, #22863a);
+}
+
+[data-theme="dark"] .field-preview-copy.copied {
+    color: var(--success-fg, #85e89d);
+    border-color: var(--success-fg, #85e89d);
+}
+
+.field-preview-close {
+    border: none;
+    background: none;
+    color: var(--body-quiet-color);
+    cursor: pointer;
+    padding: 2px 6px;
+    font-size: 1.3rem;
+    line-height: 1;
+    transition: color 0.15s;
+}
+
+.field-preview-close:hover {
+    color: var(--body-fg);
+}
+
+.field-preview-content {
+    padding: 16px 20px;
+    font-size: 0.85rem;
+    line-height: 1.6;
+    overflow-y: auto;
+    flex: 1;
+    min-height: 0;
+}
+
+.field-preview-content pre {
+    margin: 0;
+    white-space: pre-wrap;
+    word-break: break-word;
+    font-size: 0.82rem;
+    font-family: ui-monospace, "Cascadia Code", "Source Code Pro", Menlo, Consolas, monospace;
+    line-height: 1.6;
+}
+
+/* JSON syntax highlighting */
+.field-preview-content .json-key { color: var(--primary); }
+.field-preview-content .json-str { color: #22863a; }
+.field-preview-content .json-num { color: #005cc5; }
+.field-preview-content .json-bool { color: #d73a49; }
+.field-preview-content .json-null { color: var(--body-quiet-color); }
+
+[data-theme="dark"] .field-preview-content .json-str { color: #85e89d; }
+[data-theme="dark"] .field-preview-content .json-num { color: #79b8ff; }
+[data-theme="dark"] .field-preview-content .json-bool { color: #f97583; }
+
+/* Markdown preview */
+.field-preview-content .md-preview h1,
+.field-preview-content .md-preview h2,
+.field-preview-content .md-preview h3 {
+    margin: 0.8em 0 0.4em;
+    font-weight: 700;
+    color: var(--body-fg);
+}
+
+.field-preview-content .md-preview h1 { font-size: 1.25em; }
+.field-preview-content .md-preview h2 { font-size: 1.1em; }
+.field-preview-content .md-preview h3 { font-size: 1em; }
+
+.field-preview-content .md-preview p {
+    margin: 0.4em 0;
+}
+
+.field-preview-content .md-preview code {
+    background: color-mix(in srgb, var(--body-fg) 8%, var(--body-bg));
+    padding: 2px 5px;
+    border-radius: 3px;
+    font-size: 0.9em;
+    font-family: ui-monospace, "Cascadia Code", "Source Code Pro", Menlo, Consolas, monospace;
+}
+
+.field-preview-content .md-preview ul,
+.field-preview-content .md-preview ol {
+    padding-left: 1.5em;
+    margin: 0.4em 0;
+}
+
+.field-preview-content .md-preview li {
+    margin: 0.15em 0;
+}
+
+.field-preview-content .md-preview blockquote {
+    margin: 0.5em 0;
+    padding: 0.4em 0.8em;
+    border-left: 3px solid var(--primary);
+    color: var(--body-quiet-color);
+    background: color-mix(in srgb, var(--primary) 5%, var(--body-bg));
+    border-radius: 0 4px 4px 0;
+}
+
+.field-preview-content .md-preview a {
+    color: var(--primary);
+    text-decoration: none;
+}
+
+.field-preview-content .md-preview a:hover {
+    text-decoration: underline;
+}
+
+
+/* --------------------------------------------------------------------------
+   Modals
+   -------------------------------------------------------------------------- */
+
+.crud-modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(2px);
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.crud-modal {
+    background: var(--card-bg);
+    border: 1px solid var(--card-border, color-mix(in srgb, var(--body-fg) 10%, var(--body-bg)));
+    border-radius: var(--radius-md, 8px);
+    width: 90%;
+    max-width: 420px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+    overflow: hidden;
+}
+
+.crud-modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px;
+    border-bottom: 1px solid color-mix(in srgb, var(--body-fg) 10%, var(--body-bg));
+    background: color-mix(in srgb, var(--primary) 8%, var(--body-bg));
+}
+
+.crud-modal-body {
+    padding: 16px;
+}
+
+.crud-modal-close {
+    border: none;
+    background: none;
+    color: var(--body-quiet-color);
+    cursor: pointer;
+    font-size: 1.3rem;
+    line-height: 1;
+    padding: 2px 6px;
+}
+
+.crud-modal-close:hover {
+    color: var(--body-fg);
+}
+
+
+/* --------------------------------------------------------------------------
+   Tabs
+   -------------------------------------------------------------------------- */
+
+.tab-bar {
+    display: flex;
+    gap: 0;
+    border-bottom: 2px solid var(--hairline-color, color-mix(in srgb, var(--body-fg) 10%, var(--body-bg)));
+    margin-bottom: 1rem;
+}
+
+.tab-btn {
+    padding: 10px 20px;
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -2px;
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: var(--body-quiet-color);
+    cursor: pointer;
+    transition: color 0.15s, border-color 0.15s;
+}
+
+.tab-btn:hover {
+    color: var(--body-fg);
+}
+
+.tab-btn.active {
+    color: var(--primary);
+    border-bottom-color: var(--primary);
+}
+
+.tab-count {
+    display: inline-block;
+    padding: 1px 7px;
+    border-radius: 10px;
+    background: color-mix(in srgb, var(--primary) 15%, var(--card-bg, var(--body-bg)));
+    color: var(--primary);
+    font-size: 0.75rem;
+    font-weight: 600;
+    margin-left: 0.3rem;
+}
+
+.tab-panel {
+    display: none;
+}
+
+.tab-panel.active {
+    display: block;
+}
+
+
+/* --------------------------------------------------------------------------
+   Badges / Pills
+   -------------------------------------------------------------------------- */
+
+.badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+}
+
+.badge-success {
+    background: color-mix(in srgb, var(--success-fg, #22863a) 15%, var(--body-bg));
+    color: var(--success-fg, #22863a);
+}
+
+.badge-warning {
+    background: color-mix(in srgb, var(--warning-fg, #b08800) 15%, var(--body-bg));
+    color: var(--warning-fg, #b08800);
+}
+
+.badge-error {
+    background: color-mix(in srgb, var(--error-fg, #dc3545) 15%, var(--body-bg));
+    color: var(--error-fg, #dc3545);
+}
+
+.badge-info {
+    background: color-mix(in srgb, var(--primary) 15%, var(--body-bg));
+    color: var(--primary);
+}
+
+
+/* --------------------------------------------------------------------------
+   Page Header / Title Bar
+   -------------------------------------------------------------------------- */
+
+.page-header {
+    background: color-mix(in srgb, var(--primary) 15%, var(--body-bg));
+    margin: -24px -24px 24px -24px;
+    padding: 24px;
+    border-radius: 8px 8px 0 0;
+}
+
+.page-header-title {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--body-fg);
+    margin: 0;
+}
+
+.page-header-subtitle {
+    font-size: 0.9rem;
+    color: var(--body-quiet-color);
+    margin-top: 0.25rem;
+}
+
+.page-header-actions {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+}
+
+.page-header-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+
+/* --------------------------------------------------------------------------
+   Stat Cards
+   -------------------------------------------------------------------------- */
+
+.stat-cards {
+    display: flex;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+    margin-bottom: 1.5rem;
+}
+
+.stat-card {
+    flex: 1;
+    min-width: 120px;
+    padding: 1rem;
+    text-align: center;
+    border: 1px solid color-mix(in srgb, var(--primary) 15%, var(--body-bg));
+    border-radius: var(--radius-md, 8px);
+    background: color-mix(in srgb, var(--primary) 4%, var(--body-bg));
+}
+
+.stat-card-value {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--primary);
+}
+
+.stat-card-label {
+    font-size: 0.75rem;
+    color: var(--body-quiet-color);
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    margin-top: 0.25rem;
+}
+
+
+/* --------------------------------------------------------------------------
+   Search Bar
+   -------------------------------------------------------------------------- */
+
+.search-input {
+    width: 100%;
+    max-width: 400px;
+    padding: 0.5rem 0.75rem 0.5rem 2.2rem;
+    font-size: 0.85rem;
+    border: 1px solid color-mix(in srgb, var(--body-fg) 20%, var(--body-bg));
+    border-radius: var(--radius-sm, 4px);
+    background: color-mix(in srgb, var(--body-fg) 5%, var(--body-bg));
+    color: var(--body-fg);
+    transition: border-color 0.15s;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='16' height='16' fill='%23888'%3E%3Cpath d='M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: 0.65rem center;
+}
+
+.search-input:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 20%, transparent);
+}
+
+.search-input::placeholder {
+    color: var(--body-quiet-color);
+    opacity: 0.6;
+}
+
+
+/* --------------------------------------------------------------------------
+   Buttons (extending Django admin's .button class)
+   -------------------------------------------------------------------------- */
+
+.btn-primary {
+    background: var(--primary);
+    color: var(--button-fg);
+    padding: 0.5rem 1rem;
+    border: none;
+    border-radius: var(--radius-sm, 6px);
+    cursor: pointer;
+    font-size: 0.85rem;
+    font-weight: 500;
+    text-decoration: none;
+    display: inline-block;
+    transition: background 0.15s;
+}
+
+.btn-primary:hover {
+    background: var(--primary-hover);
+    color: var(--button-fg);
+    text-decoration: none;
+}
+
+.btn-outline {
+    background: transparent;
+    color: var(--body-quiet-color);
+    padding: 0.5rem 1rem;
+    border: 1px solid color-mix(in srgb, var(--body-fg) 20%, var(--body-bg));
+    border-radius: var(--radius-sm, 6px);
+    cursor: pointer;
+    font-size: 0.85rem;
+    font-weight: 500;
+    text-decoration: none;
+    display: inline-block;
+    transition: border-color 0.15s, color 0.15s;
+}
+
+.btn-outline:hover {
+    border-color: var(--primary);
+    color: var(--primary);
+    text-decoration: none;
+}
+
+.btn-danger {
+    background: var(--delete-button-bg, #dc3545);
+    color: #fff;
+    padding: 0.5rem 1rem;
+    border: none;
+    border-radius: var(--radius-sm, 6px);
+    cursor: pointer;
+    font-size: 0.85rem;
+    font-weight: 500;
+    text-decoration: none;
+    display: inline-block;
+}
+
+.btn-danger:hover {
+    opacity: 0.9;
+}
+
+
+/* --------------------------------------------------------------------------
+   Utility: uppercase label
+   -------------------------------------------------------------------------- */
+
+.label-upper {
+    font-size: 0.8rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    color: var(--body-quiet-color);
+}

@@ -7,41 +7,7 @@
 
 {% block extra_css %}
 <style>
-    .table-plain tr:nth-child(odd),
-    .table-plain tr:nth-child(even),
-    table tbody tr:nth-child(odd),
-    table tbody tr:nth-child(even) {
-        background: transparent;
-    }
-    .table-plain tbody tr:nth-child(odd),
-    table tbody tr:nth-child(odd) {
-        background-color: color-mix(in srgb, var(--primary) 4%, var(--body-bg)) !important;
-    }
-    .table-plain tbody tr:nth-child(even),
-    table tbody tr:nth-child(even) {
-        background-color: color-mix(in srgb, var(--primary) 12%, var(--body-bg)) !important;
-    }
-    table tbody tr,
-    .table-plain tbody tr {
-        border: none !important;
-    }
-    table tbody td,
-    .table-plain tbody td {
-        border: none !important;
-    }
-    table thead tr {
-        background-color: color-mix(in srgb, var(--primary) 15%, var(--body-bg)) !important;
-        border: none !important;
-    }
-    table thead th {
-        border: none !important;
-        background-color: transparent !important;
-        color: var(--body-quiet-color) !important;
-        font-weight: 600;
-        font-size: 0.8rem !important;
-        text-transform: uppercase;
-        letter-spacing: 0.3px;
-    }
+    /* Table styles are in components.css; only page-specific badges here */
     .status-badge {
         display: inline-block;
         padding: 2px 8px;

@@ -11,40 +11,7 @@
 {% endif %}
 {% endblock %}
 
-{% block extra_css %}
-{% include "smallstack/crud/_table_styles.html" %}
-{% if use_tables2 %}
-<style>
-    /* django-tables2 sort indicators */
-    .crud-table thead th a { color: var(--body-quiet-color); text-decoration: none; }
-    .crud-table thead th a:hover { color: var(--primary); }
-    .crud-table thead th.asc a::after { content: " \25B2"; font-size: 0.65rem; }
-    .crud-table thead th.desc a::after { content: " \25BC"; font-size: 0.65rem; }
-    /* django-tables2 pagination */
-    .table-container .pagination {
-        display: flex; justify-content: center; gap: 0.25rem;
-        list-style: none; padding: 1rem 0 0; margin: 0;
-    }
-    .table-container .pagination li {
-        list-style: none;
-    }
-    .table-container .pagination li a {
-        display: inline-block; padding: 0.3rem 0.75rem;
-        border-radius: var(--radius-sm, 4px); color: var(--body-quiet-color);
-        text-decoration: none; font-size: 0.85rem;
-    }
-    .table-container .pagination li a:hover {
-        color: var(--primary);
-        background: color-mix(in srgb, var(--primary) 10%, var(--body-bg));
-        text-decoration: none;
-    }
-    .table-container .pagination li.active a {
-        background: var(--primary); color: var(--button-fg);
-        text-decoration: none;
-    }
-</style>
-{% endif %}
-{% endblock %}
+{% comment %}All table, sort indicator, and pagination styles are in components.css{% endcomment %}
 
 {% block content %}
 {% if breadcrumb_parent_label %}

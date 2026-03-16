@@ -10,7 +10,7 @@
 {% block breadcrumbs %}{% endblock %}
 
 {% block content %}
-<div class="page-header-with-actions" style="background: color-mix(in srgb, var(--primary) 15%, var(--body-bg)); margin: -24px -24px 24px -24px; padding: 24px; border-radius: 8px 8px 0 0; display: flex; align-items: center; justify-content: space-between;">
+<div class="page-header-with-actions" style="background: color-mix(in srgb, var(--primary) 15%, var(--body-bg)); margin: -24px -24px 24px -24px; padding: 24px; border-radius: 8px 8px 0 0; display: flex; align-items: flex-end; justify-content: space-between;">
     <div class="page-header-content">
         <h1 style="margin: 0; font-size: 1.5rem; font-weight: 600;">{{ page.title }}</h1>
         {% if page.description %}
@@ -31,6 +31,14 @@
             <span style="color: var(--body-quiet-color); margin: 0 0.3rem;">/</span>
             <span style="color: var(--body-fg);">{{ page.title }}</span>
         </nav>
+    </div>
+    <div style="display: flex; align-items: center;">
+        <button type="button" id="focus-toggle" onclick="toggleFocusMode()" style="display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px; border: 1px solid color-mix(in srgb, var(--primary) 40%, transparent); border-radius: var(--radius-sm, 4px); background: color-mix(in srgb, var(--primary) 10%, var(--body-bg)); color: var(--primary); font-size: 0.8rem; font-weight: 600; cursor: pointer; transition: background 0.15s, border-color 0.15s;" onmouseover="this.style.background='color-mix(in srgb, var(--primary) 20%, var(--body-bg))';this.style.borderColor='var(--primary)'" onmouseout="if(!document.body.classList.contains('help-focus-mode')){this.style.background='color-mix(in srgb, var(--primary) 10%, var(--body-bg))';this.style.borderColor='color-mix(in srgb, var(--primary) 40%, transparent)'}">
+            <svg id="focus-icon" viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+                <path d="M3 5v4h2V5h4V3H5c-1.1 0-2 .9-2 2zm2 10H3v4c0 1.1.9 2 2 2h4v-2H5v-4zm14 4h-4v2h4c1.1 0 2-.9 2-2v-4h-2v4zm0-16h-4v2h4v4h2V5c0-1.1-.9-2-2-2z"/>
+            </svg>
+            <span id="focus-label">Focus</span>
+        </button>
     </div>
 </div>
 
@@ -93,4 +101,25 @@
 
 {% block extra_js %}
 <script src="{% static 'smallstack/help/js/help.js' %}"></script>
+<script>
+function toggleFocusMode() {
+    var body = document.body;
+    var btn = document.getElementById('focus-toggle');
+    var label = document.getElementById('focus-label');
+    var icon = document.getElementById('focus-icon');
+    body.classList.toggle('help-focus-mode');
+    var focused = body.classList.contains('help-focus-mode');
+    label.textContent = focused ? 'Expand' : 'Focus';
+    icon.innerHTML = focused
+        ? '<path d="M5 16h3v3h2v-5H5v2zm3-8H5v2h5V5H8v3zm6 11h2v-3h3v-2h-5v5zm2-11V5h-2v5h5V8h-3z"/>'
+        : '<path d="M3 5v4h2V5h4V3H5c-1.1 0-2 .9-2 2zm2 10H3v4c0 1.1.9 2 2 2h4v-2H5v-4zm14 4h-4v2h4c1.1 0 2-.9 2-2v-4h-2v4zm0-16h-4v2h4v4h2V5c0-1.1-.9-2-2-2z"/>';
+    if (focused) {
+        btn.style.background = 'color-mix(in srgb, var(--primary) 25%, var(--body-bg))';
+        btn.style.borderColor = 'var(--primary)';
+    } else {
+        btn.style.background = 'color-mix(in srgb, var(--primary) 10%, var(--body-bg))';
+        btn.style.borderColor = 'color-mix(in srgb, var(--primary) 40%, transparent)';
+    }
+}
+</script>
 {% endblock %}
