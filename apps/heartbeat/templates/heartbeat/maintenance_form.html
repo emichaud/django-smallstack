@@ -1,0 +1,132 @@
+{% extends "smallstack/base.html" %}
+{% load theme_tags %}
+
+{% block title %}{% if editing %}Edit{% else %}Schedule{% endif %} Maintenance{% endblock %}
+
+{% block breadcrumbs %}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .maint-form label {
+        font-size: 0.8rem;
+        font-weight: 600;
+        color: var(--body-quiet-color);
+        text-transform: uppercase;
+        letter-spacing: 0.3px;
+        display: block;
+        margin-bottom: 4px;
+    }
+    .maint-form .helptext {
+        font-size: 0.75rem;
+        color: var(--body-quiet-color);
+        margin-top: 2px;
+    }
+    .maint-form .form-row {
+        display: flex;
+        flex-direction: column;
+        padding: 0;
+        overflow: visible;
+        margin-bottom: 16px;
+    }
+    .maint-form input[type="datetime-local"],
+    .maint-form input[type="text"],
+    .maint-form textarea {
+        width: 100%;
+        box-sizing: border-box;
+    }
+    .maint-form .errorlist {
+        color: var(--error-fg);
+        font-size: 0.8rem;
+        margin: 4px 0 0 0;
+        padding: 0;
+        list-style: none;
+    }
+    .maint-form .checkbox-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    .maint-form .checkbox-row label {
+        margin-bottom: 0;
+    }
+
+    /* Fix datetime-local calendar icon in dark modes */
+    [data-theme="dark"] input[type="datetime-local"],
+    [data-theme="dark"] input[type="date"],
+    [data-theme="dark"] input[type="time"] {
+        color-scheme: dark;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header-with-actions" style="background: color-mix(in srgb, var(--primary) 15%, var(--body-bg)); margin: -24px -24px 24px -24px; padding: 24px; border-radius: 8px 8px 0 0;">
+    <div class="page-header-content">
+        <h1>{% if editing %}Edit{% else %}Schedule{% endif %} Maintenance Window</h1>
+        <nav style="margin-top: 0.5rem; font-size: 0.8rem;">
+            <a href="{% url 'website:home' %}" style="color: var(--body-quiet-color); text-decoration: none;">Home</a>
+            <span style="color: var(--body-quiet-color); margin: 0 0.3rem;">/</span>
+            <a href="{% url 'heartbeat:dashboard' %}" style="color: var(--body-quiet-color); text-decoration: none;">Heartbeat</a>
+            <span style="color: var(--body-quiet-color); margin: 0 0.3rem;">/</span>
+            <a href="{% url 'heartbeat:sla' %}" style="color: var(--body-quiet-color); text-decoration: none;">SLA</a>
+            <span style="color: var(--body-quiet-color); margin: 0 0.3rem;">/</span>
+            <span style="color: var(--body-fg);">{% if editing %}Edit{% else %}Schedule{% endif %} Maintenance</span>
+        </nav>
+    </div>
+</div>
+
+<div style="max-width: 600px;">
+    <div class="card">
+        <div class="card-header"><h2>{% if editing %}Edit{% else %}New{% endif %} Maintenance Window</h2></div>
+        <div class="card-body maint-form">
+            {% if form.non_field_errors %}
+            <div style="background: color-mix(in srgb, var(--error-fg) 10%, var(--body-bg)); border: 1px solid var(--error-fg); border-radius: 4px; padding: 10px; margin-bottom: 16px; font-size: 0.85rem; color: var(--error-fg);">
+                {% for error in form.non_field_errors %}{{ error }}{% endfor %}
+            </div>
+            {% endif %}
+
+            <form method="post">
+                {% csrf_token %}
+
+                <div class="form-row">
+                    <label for="id_title">Title</label>
+                    {{ form.title }}
+                    {% if form.title.errors %}<ul class="errorlist">{% for e in form.title.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                    <div class="form-row">
+                        <label for="id_start">Start ({{ form_timezone }})</label>
+                        {{ form.start }}
+                        {% if form.start.errors %}<ul class="errorlist">{% for e in form.start.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+                    </div>
+                    <div class="form-row">
+                        <label for="id_end">End ({{ form_timezone }})</label>
+                        {{ form.end }}
+                        {% if form.end.errors %}<ul class="errorlist">{% for e in form.end.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <label for="id_note">Note</label>
+                    {{ form.note }}
+                    <span class="helptext">Optional description of the maintenance activity.</span>
+                </div>
+
+                <div class="form-row">
+                    <div class="checkbox-row">
+                        {{ form.exclude_from_sla }}
+                        <label for="id_exclude_from_sla" style="text-transform: none; font-size: 0.85rem;">Exclude from SLA calculations</label>
+                    </div>
+                    <span class="helptext">When checked, this maintenance period is subtracted from uptime calculations.</span>
+                </div>
+
+                <div style="display: flex; gap: 12px; margin-top: 8px;">
+                    <button type="submit" class="button" style="padding: 10px 24px;">{% if editing %}Update{% else %}Schedule{% endif %} Maintenance</button>
+                    <a href="{% url 'heartbeat:sla' %}" style="padding: 10px 24px; color: var(--body-quiet-color); text-decoration: none; font-size: 0.85rem; display: flex; align-items: center;">Cancel</a>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
