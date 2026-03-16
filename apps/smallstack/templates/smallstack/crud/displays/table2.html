@@ -1,0 +1,11 @@
+{% load django_tables2 %}
+{% if table %}
+    {% render_table table %}
+{% else %}
+    <p style="color: var(--body-quiet-color); padding: 2rem 0; text-align: center;">
+        No {{ object_verbose_name_plural }} found.
+        {% if create_view_url %}
+        <a href="{{ create_view_url }}" style="color: var(--primary);">Create one now?</a>
+        {% endif %}
+    </p>
+{% endif %}

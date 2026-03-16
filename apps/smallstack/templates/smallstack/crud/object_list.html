@@ -49,7 +49,12 @@
     </div>
     {% endif %}
     <div class="card-body">
-        {% if use_tables2 %}
+        {% if display_template %}
+            {% include "smallstack/crud/includes/display_palette.html" %}
+            <div id="crud-display-area">
+                {% include display_template %}
+            </div>
+        {% elif use_tables2 %}
             {% load django_tables2 %}
             {% render_table table %}
         {% elif object_list %}
@@ -63,7 +68,7 @@
             </p>
         {% endif %}
 
-        {% if not use_tables2 and is_paginated %}
+        {% if not use_tables2 and not display_template and is_paginated %}
         {% render_paginator page_obj "#crud-content" %}
         {% endif %}
     </div>

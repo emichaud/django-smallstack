@@ -180,8 +180,32 @@ class DashboardView(LoginRequiredMixin, TemplateView):
     template_name = "dashboard.html"
 ```
 
+## API Token Authentication
+
+SmallStack includes a simple token system for authenticating API requests from scripts and external tools. Tokens are separate from session authentication — they're long-lived credentials for programmatic access.
+
+### Creating Tokens
+
+```bash
+uv run python manage.py create_api_token
+```
+
+This creates a token and prints it once. Store it securely — it can't be retrieved later.
+
+### Using Tokens
+
+```bash
+curl -H "Authorization: Bearer sk_live_abc123..." \
+  http://localhost:8005/smallstack/api/explorer/monitoring/heartbeat/
+```
+
+Tokens authenticate the user they were created for. All permission checks (staff-only, row-level) apply normally.
+
+For the full API guide including endpoints, search, and export, see [Explorer REST API](/smallstack/help/smallstack/explorer-rest-api/).
+
 ## Next Steps
 
 - [Email Authentication](/help/smallstack/email-auth/) — Configure SMTP, password reset, and email login
+- [Explorer REST API](/help/smallstack/explorer-rest-api/) — JSON API with token authentication
 - [Settings & Configuration](/help/smallstack/settings-configuration/) — How environment variables and feature flags work
 - [Customization Guide](/help/smallstack/customization/) — Make SmallStack your own

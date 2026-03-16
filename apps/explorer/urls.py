@@ -1,6 +1,6 @@
 from django.urls import path
 
-from .registry import explorer_registry
+from .registry import explorer
 from .views import (
     ExplorerAppPageView,
     ExplorerClassicIndexView,
@@ -38,5 +38,5 @@ urlpatterns = [
         ExplorerHeartbeatPageView.as_view(),
         name="explorer-example-heartbeat",
     ),
-    *explorer_registry.get_url_patterns(),
+    *explorer.get_url_patterns(),
 ]

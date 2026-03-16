@@ -12,10 +12,6 @@ class UserProfileAdmin(admin.ModelAdmin):
     """Admin configuration for UserProfile with nice display and fieldsets."""
 
     list_display = ("get_username", "display_name", "bio", "location", "created_at")
-    explorer_enabled = True
-    explorer_group = "Users"
-    explorer_fields = ["user", "display_name", "bio", "location", "created_at"]
-    explorer_field_transforms = {"bio": "preview"}
     list_filter = ("created_at", "updated_at")
     search_fields = ("user__username", "display_name", "location", "bio")
     readonly_fields = ("created_at", "updated_at", "user")

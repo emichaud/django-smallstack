@@ -110,18 +110,52 @@ class _CRUDContextMixin:
 class _CRUDListBase(_CRUDContextMixin, ListView):
     def get_template_names(self):
         if getattr(self.request, "htmx", False):
+            # Display swap via HTMX: return just the display template
+            display = self._get_active_display()
+            if display and self.request.GET.get("display"):
+                return [display.template_name]
             return self.crud_config._get_template_names("list_partial")
         return self.crud_config._get_template_names("list")
 
     def get_queryset(self):
         return self.crud_config._get_queryset()
 
+    def _get_active_display(self):
+        """Determine the active display for this request."""
+        cfg = self.crud_config
+        displays = cfg._get_displays()
+        if not displays:
+            return None
+
+        # Check ?display= query param
+        requested = self.request.GET.get("display", "")
+        if requested:
+            for d in displays:
+                if d.name == requested:
+                    return d
+
+        # Default display
+        if cfg.default_display:
+            d = cfg.default_display
+            return d() if isinstance(d, type) else d
+        return displays[0]
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         cfg = self.crud_config
 
-        # django-tables2 integration: if table_class is set, build and configure it
-        if cfg.table_class:
+        # Try display protocol first (when displays are configured)
+        display = self._get_active_display()
+        if display:
+            display_ctx = display.get_context(self.get_queryset(), cfg, self.request)
+            context.update(display_ctx)
+            context["display_template"] = display.template_name
+            context["active_display"] = display.name
+            all_displays = cfg._get_displays()
+            if len(all_displays) > 1:
+                context["available_displays"] = all_displays
+        elif cfg.table_class:
+            # Legacy table2 path (no displays configured, but table_class set)
             from django_tables2 import RequestConfig
 
             table = cfg.table_class(self.get_queryset())
@@ -130,7 +164,7 @@ class _CRUDListBase(_CRUDContextMixin, ListView):
             context["table"] = table
             context["use_tables2"] = True
         else:
-            # Enhance page_obj with SmallStack pagination display helpers
+            # Legacy basic table path — pagination display helpers
             page_obj = context.get("page_obj")
             if page_obj:
                 page_obj.showing_start = page_obj.start_index()
@@ -144,10 +178,48 @@ class _CRUDListBase(_CRUDContextMixin, ListView):
 
 class _CRUDDetailBase(_CRUDContextMixin, DetailView):
     def get_template_names(self):
+        if getattr(self.request, "htmx", False):
+            display = self._get_active_detail_display()
+            if display and self.request.GET.get("display"):
+                return [display.template_name]
         return self.crud_config._get_template_names("detail")
 
     def get_queryset(self):
         return self.crud_config._get_queryset()
+
+    def _get_active_detail_display(self):
+        """Determine the active detail display for this request."""
+        cfg = self.crud_config
+        displays = cfg._get_detail_displays()
+        if not displays:
+            return None
+
+        requested = self.request.GET.get("display", "")
+        if requested:
+            for d in displays:
+                if d.name == requested:
+                    return d
+
+        if cfg.default_display:
+            d = cfg.default_display
+            return d() if isinstance(d, type) else d
+        return displays[0]
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        cfg = self.crud_config
+
+        display = self._get_active_detail_display()
+        if display:
+            display_ctx = display.get_context(self.object, cfg, self.request)
+            context.update(display_ctx)
+            context["display_template"] = display.template_name
+            context["active_display"] = display.name
+            all_displays = cfg._get_detail_displays()
+            if len(all_displays) > 1:
+                context["available_displays"] = all_displays
+
+        return context
 
 
 class _CRUDCreateBase(_CRUDContextMixin, CreateView):
@@ -261,39 +333,77 @@ def _resolve_transform_spec(spec):
 class CRUDView:
     """Configuration class that generates CRUD views and URL patterns.
 
-    Attributes:
+    Config source:
+        admin_class:      ModelAdmin subclass for config (list_display, search_fields, etc.)
+                          When set, CRUDView reads field/layout config from it.
+                          When not set, falls back to explicit class attributes (backward compat).
+
+    Model/data:
         model:            Django model class (required)
-        fields:           Form fields for create/update (required)
-        list_fields:      Columns shown in list table (defaults to fields)
+        fields:           Form fields for create/update (required unless admin_class provides them)
+        list_fields:      Columns shown in list table (defaults to admin_class.list_display or fields)
         detail_fields:    Fields shown in detail view (defaults to fields)
         link_field:       Which column links to detail (defaults to first list_field)
+
+    View/routing (not from ModelAdmin):
         url_base:         URL prefix, e.g. "manage/users" (defaults to model_name)
-        paginate_by:      Items per page (None = no pagination)
+        paginate_by:      Items per page (defaults to admin_class.list_per_page or None)
         mixins:           Auth mixins applied to all generated views
         actions:          Which CRUD actions to generate (default: all 5)
+        breadcrumb_parent: Optional (label, url_name) for parent breadcrumb
+
+    Display:
+        displays:         Available display classes (empty = legacy auto-detect)
+        default_display:  Initial display (defaults to first in displays)
+        detail_displays:  Display classes for detail view
+
+    Legacy:
         form_class:       Custom ModelForm (auto-generated if None)
         queryset:         Custom queryset (model.objects.all() if None)
-        field_formatters: {field_name: lambda value, obj: str} display formatters
-        table_class:      Optional django-tables2 Table class for sortable list view
-        preview_fields:   Fields that get truncated with click-to-preview in list view
+        field_formatters: Deprecated — use field_transforms
+        table_class:      Optional django-tables2 Table class for enhanced list view
+        preview_fields:   Deprecated — use field_transforms
+        field_transforms: {field_name: "transform_name" | ("name", {opts}) | callable}
     """
 
+    # Config source
+    admin_class = None  # ModelAdmin subclass — the standard Django config DSL
+
+    # Model/data
     model = None
     fields = None
     list_fields = None
     detail_fields = None
     link_field = None
+
+    # View/routing
     url_base = None
     paginate_by = None
     mixins = []
     actions = [Action.LIST, Action.CREATE, Action.DETAIL, Action.UPDATE, Action.DELETE]
+    breadcrumb_parent = None  # Optional (label, url_name) for parent breadcrumb
+
+    # Display
+    displays = []  # List of ListDisplay classes/instances. Empty = legacy auto-detect.
+    default_display = None  # Defaults to first in displays
+    detail_displays = []  # List of DetailDisplay classes/instances
+
+    # API
+    enable_api = False  # Opt-in: generate JSON API endpoints alongside HTML views
+    search_fields = []  # Fields for ?q= search (reads from admin_class.search_fields)
+    filter_fields = []  # Fields for query-param filtering (reads from admin_class.list_filter)
+    filter_class = None  # Optional django-filters FilterSet class
+    export_formats = []  # e.g. ["csv", "json"] — enables ?format= on API list
+
+    # Legacy/direct config
     form_class = None
     queryset = None
     field_formatters = {}  # Deprecated — use field_transforms
     table_class = None  # Optional django-tables2 Table class for enhanced list view
     preview_fields = []  # Deprecated — use field_transforms
     field_transforms = {}  # {field_name: "transform_name" | ("name", {opts}) | callable}
-    breadcrumb_parent = None  # Optional (label, url_name) for parent breadcrumb
+
+    # -- Config resolution: admin_class → legacy attrs → defaults --
 
     @classmethod
     def _get_url_base(cls):
@@ -303,11 +413,36 @@ class CRUDView:
 
     @classmethod
     def _get_list_fields(cls):
-        return cls.list_fields or cls.fields
+        # Explicit list_fields always wins
+        if cls.list_fields:
+            return cls.list_fields
+        # Try admin_class.list_display
+        if cls.admin_class:
+            ld = getattr(cls.admin_class, "list_display", ["__str__"])
+            if list(ld) != ["__str__"]:
+                model_field_names = {f.name for f in cls.model._meta.get_fields()}
+                fields = [f for f in ld if f in model_field_names and f != "pk"]
+                if fields:
+                    return fields
+        return cls.fields
 
     @classmethod
     def _get_detail_fields(cls):
-        return cls.detail_fields or cls.fields
+        if cls.detail_fields:
+            return cls.detail_fields
+        # Try admin_class.fields (flat list) or flatten fieldsets
+        if cls.admin_class:
+            admin_fields = getattr(cls.admin_class, "fields", None)
+            if admin_fields:
+                return list(admin_fields)
+            fieldsets = getattr(cls.admin_class, "fieldsets", None)
+            if fieldsets:
+                flat = []
+                for _name, opts in fieldsets:
+                    flat.extend(opts.get("fields", []))
+                if flat:
+                    return flat
+        return cls.fields
 
     @classmethod
     def _get_link_field(cls):
@@ -315,6 +450,29 @@ class CRUDView:
             return cls.link_field
         list_fields = cls._get_list_fields()
         return list_fields[0] if list_fields else None
+
+    @classmethod
+    def _resolve_paginate_by(cls):
+        """Resolve pagination: explicit paginate_by → admin_class.list_per_page."""
+        if cls.paginate_by is not None:
+            return cls.paginate_by
+        if cls.admin_class:
+            return getattr(cls.admin_class, "list_per_page", None)
+        return None
+
+    @classmethod
+    def _get_displays(cls):
+        """Return list of display instances for the list view."""
+        if not cls.displays:
+            return []
+        return [d() if isinstance(d, type) else d for d in cls.displays]
+
+    @classmethod
+    def _get_detail_displays(cls):
+        """Return list of display instances for the detail view."""
+        if not cls.detail_displays:
+            return []
+        return [d() if isinstance(d, type) else d for d in cls.detail_displays]
 
     @classmethod
     def _get_effective_transforms(cls):
@@ -349,6 +507,58 @@ class CRUDView:
         merged.update(cls.field_transforms)
 
         return merged
+
+    @classmethod
+    def _resolve_search_fields(cls):
+        """Resolve search fields: explicit → admin_class.search_fields."""
+        if cls.search_fields:
+            return list(cls.search_fields)
+        if cls.admin_class:
+            return list(getattr(cls.admin_class, "search_fields", []))
+        return []
+
+    @classmethod
+    def _resolve_filter_fields(cls):
+        """Resolve filter fields: explicit → admin_class.list_filter."""
+        if cls.filter_fields:
+            return list(cls.filter_fields)
+        if cls.admin_class:
+            raw = getattr(cls.admin_class, "list_filter", [])
+            # list_filter can contain strings or (field, FilterClass) tuples
+            return [f if isinstance(f, str) else f[0] for f in raw]
+        return []
+
+    @classmethod
+    def _resolve_filter_class(cls):
+        """Return the filter class, or None."""
+        return cls.filter_class
+
+    @classmethod
+    def _resolve_export_formats(cls):
+        """Return enabled export formats."""
+        return cls.export_formats or []
+
+    # -- Hooks for subclass overrides --
+
+    @classmethod
+    def can_update(cls, obj, request):
+        """Return True if the user can update this object. Override for row-level perms."""
+        return True
+
+    @classmethod
+    def can_delete(cls, obj, request):
+        """Return True if the user can delete this object. Override for row-level perms."""
+        return True
+
+    @classmethod
+    def get_list_queryset(cls, qs, request):
+        """Filter the list queryset per-request. Override for tenant scoping, etc."""
+        return qs
+
+    @classmethod
+    def on_form_valid(cls, request, form, obj, is_create=False):
+        """Hook called after successful create/update. Override for side effects."""
+        pass
 
     @classmethod
     def _get_queryset(cls):
@@ -425,15 +635,17 @@ class CRUDView:
         """Create a view class with mixins applied."""
         name = f"{cls.model.__name__}{base_class.__name__.lstrip('_')}"
         bases = tuple(cls.mixins) + (base_class,)
-        # When using django-tables2, it handles pagination itself —
-        # skip Django's built-in paginate_by to avoid double-paginating.
-        paginate_by = None if (base_class is _CRUDListBase and cls.table_class) else cls.paginate_by
+        resolved_paginate_by = cls._resolve_paginate_by()
+        # When displays are configured or table_class is set, the display/table
+        # handles pagination — skip Django's built-in paginate_by.
+        if base_class is _CRUDListBase and (cls.displays or cls.table_class):
+            resolved_paginate_by = None
         return type(
             name,
             bases,
             {
                 "model": cls.model,
-                "paginate_by": paginate_by,
+                "paginate_by": resolved_paginate_by,
                 "crud_config": cls,
             },
         )
@@ -471,5 +683,11 @@ class CRUDView:
         if Action.DELETE in cls.actions:
             view = cls._make_view(_CRUDDeleteBase)
             urls.append(path(f"{url_base}/<pk>/delete/", view.as_view(), name=f"{url_base}-delete"))
+
+        # API endpoints (opt-in)
+        if cls.enable_api:
+            from .api import build_api_urls
+
+            urls.extend(build_api_urls(cls))
 
         return urls

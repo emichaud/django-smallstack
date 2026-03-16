@@ -11,10 +11,11 @@ class ExplorerConfig(AppConfig):
     def ready(self):
         from apps.smallstack.navigation import nav
 
-        from .registry import explorer_registry
+        from .registry import explorer
 
-        explorer_registry.discover()
-        explorer_registry.build()
+        explorer.autodiscover()       # Load explorer.py files from installed apps
+        explorer.discover_admin()     # Legacy: explorer_enabled on admin.ModelAdmin
+        explorer.build_crud_classes() # Generate CRUDView subclasses + URLs
 
         nav.register(
             section="admin",

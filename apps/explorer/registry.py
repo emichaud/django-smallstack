@@ -1,13 +1,21 @@
-"""Explorer registry — dynamically creates CRUDView subclasses for admin-registered models."""
+"""Explorer registry — manages model registration and CRUDView generation.
+
+Supports three registration paths:
+    1. explorer.register() — explicit registration in explorer.py files
+    2. explorer.autodiscover() — imports explorer.py from installed apps
+    3. explorer.discover_admin() — legacy: scans admin.site for explorer_enabled=True
+"""
 
 from __future__ import annotations
 
 import dataclasses
+import logging
 from typing import TYPE_CHECKING
 
 import django_tables2 as tables
 from django.db.models import AutoField, BigAutoField, Field, ForeignKey
 from django.urls import reverse
+from django.utils.text import slugify
 
 from apps.smallstack.crud import Action, CRUDView
 from apps.smallstack.mixins import StaffRequiredMixin
@@ -15,6 +23,8 @@ from apps.smallstack.tables import ActionsColumn, DetailLinkColumn
 
 if TYPE_CHECKING:
     from django.db import models
+
+logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
@@ -234,107 +244,181 @@ def _build_auto_table(model, list_fields, url_base, actions):
 
 
 # ---------------------------------------------------------------------------
-# Registry
+# Explorer Site (registry)
 # ---------------------------------------------------------------------------
 
 
-class ExplorerRegistry:
+class ExplorerSite:
+    """Registry that manages model registration and generates CRUDView subclasses.
+
+    Supports explicit registration via register(), autodiscovery of explorer.py
+    files, and legacy discovery from admin.site._registry.
+    """
+
     def __init__(self):
-        self._configs = []  # list of (model, fields, readonly, group)
+        self._registry = {}  # {(model, group_key): admin_class}
         self._crud_classes = []  # built CRUDView subclasses
         self._model_info: list[ModelInfo] = []
 
-    def discover(self):
-        """Walk admin.site._registry and collect models with explorer_enabled=True."""
+    # -- Registration --
+
+    def register(self, model, admin_class=None, group=None):
+        """Register a model with Explorer.
+
+        Args:
+            model: Django model class.
+            admin_class: ModelAdmin subclass for config. If None, a bare
+                         ModelAdmin is used.
+            group: Display group name. Defaults to app_label title.
+        """
+        from django.contrib import admin as django_admin
+
+        if admin_class is None:
+            admin_class = django_admin.ModelAdmin
+        group_key = group or model._meta.app_label.replace("_", " ").title()
+        self._registry[(model, group_key)] = admin_class
+
+    def autodiscover(self):
+        """Import explorer.py from every installed app."""
+        from django.utils.module_loading import autodiscover_modules
+
+        autodiscover_modules("explorer")
+
+    def discover_admin(self):
+        """Legacy: scan admin.site._registry for explorer_enabled=True.
+
+        Only registers models not already in _registry (autodiscover takes precedence).
+        """
         from django.conf import settings
         from django.contrib import admin
 
         discover_all = getattr(settings, "EXPLORER_DISCOVER_ALL", False)
+        registered_models = {model for model, _ in self._registry}
 
         for model, modeladmin in admin.site._registry.items():
+            if model in registered_models:
+                continue
             if not discover_all and not getattr(modeladmin, "explorer_enabled", False):
                 continue
             try:
-                fields = getattr(modeladmin, "explorer_fields", None)
-                if not fields:
-                    fields = _resolve_fields_from_admin(model, modeladmin)
-                readonly = getattr(modeladmin, "explorer_readonly", _resolve_readonly_from_admin(modeladmin))
                 group = _resolve_group(model, modeladmin)
-                preview_fields = getattr(modeladmin, "explorer_preview_fields", [])
-                explorer_transforms = getattr(modeladmin, "explorer_field_transforms", {})
-
-                # Merge: explorer_preview_fields → "preview" transform, then explicit wins
-                merged_transforms = {}
-                for pf in preview_fields:
-                    merged_transforms[pf] = "preview"
-                merged_transforms.update(explorer_transforms)
-
-                paginate_by = getattr(modeladmin, "explorer_paginate_by", 10)
-
-                self._configs.append((model, fields, readonly, group, preview_fields, merged_transforms, paginate_by))
+                self._registry[(model, group)] = type(modeladmin)
             except Exception:
-                import logging
-
-                logging.getLogger(__name__).warning(
+                logger.warning(
                     "Explorer: skipping %s.%s (discovery error)",
                     model._meta.app_label,
                     model._meta.model_name,
                 )
 
-    def build(self):
-        for model, fields, readonly, group, preview_fields, field_transforms, paginate_by in self._configs:
-            resolved_fields = fields or _auto_detect_fields(model)
-            app_label = model._meta.app_label
-            model_name = model._meta.model_name
-            url_base = f"explorer/{app_label}/{model_name}"
+    # -- Build phase --
 
-            if readonly:
-                actions = [Action.LIST, Action.DETAIL]
-            else:
-                actions = list(Action)
+    def build_crud_classes(self):
+        """Create CRUDView subclasses for all registered models."""
+        from django.contrib import admin
 
-            # Split: list_fields can include non-editable fields,
-            # but form fields must only contain editable ones.
-            editable_names = {
-                f.name for f in model._meta.get_fields()
-                if getattr(f, "editable", False) and not isinstance(f, (AutoField, BigAutoField))
-            }
-            form_fields = [f for f in resolved_fields if f in editable_names]
-
-            # Auto-generate a django-tables2 Table for sortable columns
-            table_class = _build_auto_table(model, resolved_fields, url_base, actions)
-
-            crud_cls = type(
-                f"Explorer{model.__name__}CRUDView",
-                (CRUDView,),
-                {
-                    "model": model,
-                    "fields": form_fields or resolved_fields,
-                    "list_fields": resolved_fields,
-                    "url_base": url_base,
-                    "paginate_by": paginate_by,
-                    "table_class": table_class,
-                    "mixins": [StaffRequiredMixin],
-                    "actions": actions,
-                    "preview_fields": preview_fields,
-                    "field_transforms": field_transforms,
-                    "breadcrumb_parent": ("Explorer", "explorer-index"),
-                },
-            )
-
-            self._crud_classes.append(crud_cls)
-            self._model_info.append(
-                ModelInfo(
-                    app_label=app_label,
-                    model_name=model_name,
-                    verbose_name=str(model._meta.verbose_name).capitalize(),
-                    verbose_name_plural=str(model._meta.verbose_name_plural).capitalize(),
-                    model_class=model,
-                    url_base=url_base,
-                    readonly=readonly,
-                    group=group,
+        for (model, group_key), admin_class in self._registry.items():
+            try:
+                self._build_one(model, group_key, admin_class, admin.site)
+            except Exception:
+                logger.warning(
+                    "Explorer: skipping %s.%s (build error)",
+                    model._meta.app_label,
+                    model._meta.model_name,
+                    exc_info=True,
                 )
+
+    def _build_one(self, model, group_key, admin_class, admin_site):
+        """Build a single CRUDView subclass and register its ModelInfo."""
+        from apps.smallstack.displays import Table2Display
+
+        group_slug = slugify(group_key)
+        model_name = model._meta.model_name
+        url_base = f"explorer/{group_slug}/{model_name}"
+
+        # Instantiate admin for reading instance-level attrs
+        admin_instance = admin_class(model, admin_site)
+
+        # Resolve fields
+        explorer_fields = getattr(admin_instance, "explorer_fields", None)
+        if explorer_fields:
+            resolved_fields = list(explorer_fields)
+        else:
+            resolved_fields = _resolve_fields_from_admin(model, admin_instance)
+
+        # Readonly detection
+        readonly = getattr(
+            admin_instance,
+            "explorer_readonly",
+            _resolve_readonly_from_admin(admin_instance),
+        )
+
+        if readonly:
+            actions = [Action.LIST, Action.DETAIL]
+        else:
+            actions = list(Action)
+
+        # Split: list_fields can include non-editable fields,
+        # but form fields must only contain editable ones.
+        editable_names = {
+            f.name
+            for f in model._meta.get_fields()
+            if getattr(f, "editable", False) and not isinstance(f, (AutoField, BigAutoField))
+        }
+        form_fields = [f for f in resolved_fields if f in editable_names]
+
+        # Auto-generate a django-tables2 Table for sortable columns
+        table_class = _build_auto_table(model, resolved_fields, url_base, actions)
+
+        # Merge transforms: explorer_preview_fields → "preview", then explicit wins
+        preview_fields = getattr(admin_instance, "explorer_preview_fields", [])
+        explorer_transforms = getattr(admin_instance, "explorer_field_transforms", {})
+        merged_transforms = {}
+        for pf in preview_fields:
+            merged_transforms[pf] = "preview"
+        merged_transforms.update(explorer_transforms)
+
+        paginate_by = getattr(admin_instance, "explorer_paginate_by", 10)
+
+        # Display config: admin class can specify explorer_displays / explorer_detail_displays
+        displays = getattr(admin_class, "explorer_displays", [Table2Display])
+        detail_displays = getattr(admin_class, "explorer_detail_displays", [])
+
+        crud_cls = type(
+            f"Explorer{model.__name__}CRUDView",
+            (CRUDView,),
+            {
+                "model": model,
+                "admin_class": admin_class,
+                "fields": form_fields or resolved_fields,
+                "list_fields": resolved_fields,
+                "url_base": url_base,
+                "paginate_by": paginate_by,
+                "table_class": table_class,
+                "mixins": [StaffRequiredMixin],
+                "actions": actions,
+                "displays": displays,
+                "detail_displays": detail_displays,
+                "preview_fields": preview_fields,
+                "field_transforms": merged_transforms,
+                "breadcrumb_parent": ("Explorer", "explorer-index"),
+                "enable_api": getattr(admin_class, "explorer_enable_api", False),
+                "export_formats": list(getattr(admin_class, "explorer_export_formats", [])),
+            },
+        )
+
+        self._crud_classes.append(crud_cls)
+        self._model_info.append(
+            ModelInfo(
+                app_label=model._meta.app_label,
+                model_name=model_name,
+                verbose_name=str(model._meta.verbose_name).capitalize(),
+                verbose_name_plural=str(model._meta.verbose_name_plural).capitalize(),
+                model_class=model,
+                url_base=url_base,
+                readonly=readonly,
+                group=group_key,
             )
+        )
 
     # -- Public API: raw data --
 
@@ -362,7 +446,7 @@ class ExplorerRegistry:
         """Return everything a group page template needs, or None if not found.
 
         Usage in a view:
-            ctx = explorer_registry.get_group_context("Monitoring")
+            ctx = explorer.get_group_context("Monitoring")
         """
         grouped = self.get_grouped_models()
 
@@ -392,7 +476,7 @@ class ExplorerRegistry:
         """Return everything an app page template needs, or None if not found.
 
         Usage in a view:
-            ctx = explorer_registry.get_app_context("heartbeat")
+            ctx = explorer.get_app_context("heartbeat")
         """
         models = [info for info in self._model_info if info.app_label == app_label]
         if not models:
@@ -409,7 +493,7 @@ class ExplorerRegistry:
         """Return everything a single-model page template needs, or None if not found.
 
         Usage in a view:
-            ctx = explorer_registry.get_model_context("heartbeat", "heartbeat")
+            ctx = explorer.get_model_context("heartbeat", "heartbeat")
         """
         # Find the model info
         info = None
@@ -451,4 +535,8 @@ class ExplorerRegistry:
         )
 
 
-explorer_registry = ExplorerRegistry()
+# Module-level singleton
+explorer = ExplorerSite()
+
+# Backward compat alias — existing code importing explorer_registry still works
+explorer_registry = explorer

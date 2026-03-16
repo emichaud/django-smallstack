@@ -464,14 +464,47 @@ The User Manager demonstrates this — its edit form has three tabs (Account, Pr
 | Option | Type | Default | Purpose |
 |--------|------|---------|---------|
 | `model` | Model class | required | The Django model |
-| `fields` | list | required | Fields for auto-generated forms |
+| `admin_class` | ModelAdmin | `None` | Config source — reads `list_display`, `search_fields`, `list_per_page`, etc. |
+| `fields` | list | required* | Fields for forms (*auto-resolved from `admin_class` if set) |
+| `list_fields` | list | `None` | List view columns (falls back to `admin_class.list_display` or `fields`) |
+| `detail_fields` | list | `None` | Detail view fields (falls back to `admin_class.fields`/`fieldsets` or `fields`) |
 | `url_base` | str | model name | URL prefix (e.g., `"manage/widgets"`) |
-| `paginate_by` | int | None | Rows per page (10 is standard) |
+| `paginate_by` | int | None | Rows per page (falls back to `admin_class.list_per_page`) |
 | `mixins` | list | `[]` | View mixins applied to all views |
 | `table_class` | Table class | None | django-tables2 Table for the list view |
 | `form_class` | Form class | auto | Custom ModelForm (auto-generated if None) |
 | `actions` | list | all 5 | Which CRUD actions to generate |
 | `queryset` | QuerySet | `model.objects.all()` | Base queryset for all views |
+| `displays` | list | `[]` | Display classes for list view (enables palette) |
+| `detail_displays` | list | `[]` | Display classes for detail view |
+| `enable_api` | bool | `False` | Generate REST API endpoints |
+| `search_fields` | list | `[]` | API search fields (falls back to `admin_class.search_fields`) |
+| `export_formats` | list | `[]` | API export formats: `["csv", "json"]` |
+
+### Using admin_class
+
+Instead of defining `fields`, `list_fields`, and `paginate_by` separately, you can point CRUDView at a `ModelAdmin`:
+
+```python
+from django.contrib import admin
+from apps.smallstack.crud import CRUDView
+from apps.smallstack.mixins import StaffRequiredMixin
+
+class WidgetAdmin(admin.ModelAdmin):
+    list_display = ["name", "category", "is_active", "created_at"]
+    fields = ["name", "category", "is_active", "owner"]
+    search_fields = ["name", "category"]
+    list_per_page = 10
+
+class WidgetCRUDView(CRUDView):
+    admin_class = WidgetAdmin
+    model = Widget
+    url_base = "manage/widgets"
+    mixins = [StaffRequiredMixin]
+    enable_api = True
+```
+
+CRUDView reads `list_display` for list columns, `fields` for forms, `search_fields` for API search, and `list_per_page` for pagination. You can still override any of these with explicit CRUDView attributes — they take precedence over admin_class.
 
 ### Actions
 
@@ -624,10 +657,59 @@ When adding a new CRUD management page:
 - [ ] Custom list template (optional — only if you want the title bar pattern)
 - [ ] Search partial template (optional — only if you add HTMX search)
 
+## Display Palette
+
+CRUDView supports the same display palette as Explorer. Configure multiple displays and users can swap between them at runtime:
+
+```python
+from apps.smallstack.displays import Table2Display, TableDisplay, CardDisplay
+
+class WidgetCRUDView(CRUDView):
+    model = Widget
+    fields = ["name", "category", "is_active"]
+    url_base = "manage/widgets"
+    displays = [
+        Table2Display,
+        TableDisplay,
+        CardDisplay(title_field="name", subtitle_field="category"),
+    ]
+```
+
+When `displays` has more than one entry, a palette of icon buttons appears above the table. Clicking an icon swaps the display via HTMX. The user's choice is saved to localStorage and persists across page navigation.
+
+You can also create custom displays — maps, charts, or any visualization. See [Explorer Composability](/smallstack/help/smallstack/explorer-composability/) for the full display protocol.
+
+## REST API
+
+Add `enable_api = True` to generate JSON endpoints alongside the HTML views:
+
+```python
+class WidgetCRUDView(CRUDView):
+    model = Widget
+    fields = ["name", "category", "is_active"]
+    url_base = "manage/widgets"
+    enable_api = True
+    search_fields = ["name", "category"]
+    export_formats = ["csv", "json"]
+```
+
+This adds:
+
+| Method | URL | Action |
+|--------|-----|--------|
+| `GET` | `/api/manage/widgets/` | List (paginated, searchable) |
+| `POST` | `/api/manage/widgets/` | Create |
+| `GET` | `/api/manage/widgets/<pk>/` | Detail |
+| `PUT/PATCH` | `/api/manage/widgets/<pk>/` | Update |
+| `DELETE` | `/api/manage/widgets/<pk>/` | Delete |
+
+See [Explorer REST API](/smallstack/help/smallstack/explorer-rest-api/) for authentication, testing, and the full API guide.
+
 ## See Also: Explorer
 
-If you want CRUD views without writing any of the above, Explorer can auto-generate everything from your existing `ModelAdmin` registrations. Add `explorer_enabled = True` to your admin class and you get list, detail, create, update, and delete views at `/smallstack/explorer/`. Explorer's composability mixins also let you embed auto-generated CRUD tables into your own custom pages — bridging the gap between zero-config Explorer and fully custom CRUDView.
+If you want CRUD views without writing any of the above, Explorer can auto-generate everything from `ModelAdmin` registrations — including the display palette, REST API, and CSV export. Register a model with `explorer.register()` and you get the full stack at `/smallstack/explorer/`.
 
-- [Explorer Overview](/smallstack/help/explorer/) — How Explorer works and when to use it
-- [Enabling Models for Explorer](/smallstack/help/explorer/admin-api/) — ModelAdmin API reference
-- [Composability Guide](/smallstack/help/explorer/composability/) — Embed Explorer tables into custom pages
+- [Model Explorer](/smallstack/help/smallstack/explorer/) — Overview, registration, and display palette
+- [Explorer ModelAdmin API](/smallstack/help/smallstack/explorer-admin-api/) — Full attribute reference
+- [Explorer Composability](/smallstack/help/smallstack/explorer-composability/) — Embed Explorer displays into custom pages
+- [Explorer REST API](/smallstack/help/smallstack/explorer-rest-api/) — Auto-generated JSON API with search and export

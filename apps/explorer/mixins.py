@@ -37,7 +37,7 @@ Usage — single model page (hardcoded):
 
 from django.http import Http404
 
-from .registry import explorer_registry
+from .registry import explorer
 
 
 class ExplorerGroupMixin:
@@ -59,7 +59,7 @@ class ExplorerGroupMixin:
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         group_name = self.get_explorer_group_name()
-        ctx = explorer_registry.get_group_context(group_name)
+        ctx = explorer.get_group_context(group_name)
         if not ctx:
             raise Http404(f"Group '{group_name}' not found in Explorer registry.")
         context.update(ctx.as_context())
@@ -85,7 +85,7 @@ class ExplorerAppMixin:
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         app_label = self.get_explorer_app_label()
-        ctx = explorer_registry.get_app_context(app_label)
+        ctx = explorer.get_app_context(app_label)
         if not ctx:
             raise Http404(f"App '{app_label}' not found in Explorer registry.")
         context.update(ctx.as_context())
@@ -120,7 +120,7 @@ class ExplorerModelMixin:
         context = super().get_context_data(**kwargs)
         app_label = self.get_explorer_app_label()
         model_name = self.get_explorer_model_name()
-        ctx = explorer_registry.get_model_context(app_label, model_name)
+        ctx = explorer.get_model_context(app_label, model_name)
         if not ctx:
             raise Http404(f"Model '{app_label}.{model_name}' not found in Explorer registry.")
         context.update(ctx.as_context())

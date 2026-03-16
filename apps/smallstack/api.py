@@ -173,7 +173,7 @@ def _make_api_detail_view(crud_config):
             return JsonResponse({"error": "Not found"}, status=404)
 
         if request.method == "GET":
-            fields = crud_config.fields
+            fields = crud_config._get_detail_fields() or crud_config.fields
             return JsonResponse(_serialize(obj, fields))
 
         elif request.method in ("PUT", "PATCH"):
@@ -209,19 +209,22 @@ def _api_list(request, crud_config):
     qs = crud_config.get_list_queryset(qs, request)
 
     # Search
-    if crud_config.search_fields:
+    search_fields = crud_config._resolve_search_fields()
+    if search_fields:
         q = request.GET.get("q", "").strip()
         if q:
             query = Q()
-            for field in crud_config.search_fields:
+            for field in search_fields:
                 query |= Q(**{f"{field}__icontains": q})
             qs = qs.filter(query)
 
     # Filter
-    if crud_config.filter_fields or crud_config.filter_class:
+    filter_fields = crud_config._resolve_filter_fields()
+    filter_class = crud_config._resolve_filter_class()
+    if filter_fields or filter_class:
         import django_filters
 
-        fs_class = crud_config.filter_class
+        fs_class = filter_class
         if not fs_class:
             fs_class = type(
                 "AutoFilter",
@@ -230,7 +233,7 @@ def _api_list(request, crud_config):
                     "Meta": type(
                         "Meta",
                         (),
-                        {"model": crud_config.model, "fields": crud_config.filter_fields},
+                        {"model": crud_config.model, "fields": filter_fields},
                     )
                 },
             )
@@ -239,17 +242,18 @@ def _api_list(request, crud_config):
 
     # Export
     export_fmt = request.GET.get("format")
-    if export_fmt and export_fmt in (crud_config.export_formats or ()):
+    export_formats = crud_config._resolve_export_formats()
+    if export_fmt and export_fmt in export_formats:
         return _api_export(qs, crud_config, export_fmt)
 
     # Paginate
-    page_size = crud_config.paginate_by or 25
+    page_size = crud_config._resolve_paginate_by() or 25
     page_num = int(request.GET.get("page", 1))
     total = qs.count()
     start = (page_num - 1) * page_size
     items = list(qs[start : start + page_size])
 
-    fields = crud_config.fields
+    fields = crud_config._get_list_fields()
     results = [_serialize(obj, fields) for obj in items]
 
     # Build next/previous URLs
@@ -278,7 +282,7 @@ def _api_create(request, crud_config):
     if form.is_valid():
         obj = form.save()
         crud_config.on_form_valid(request, form, obj, is_create=True)
-        return JsonResponse(_serialize(obj, crud_config.fields), status=201)
+        return JsonResponse(_serialize(obj, crud_config._get_detail_fields() or crud_config.fields), status=201)
     return JsonResponse({"errors": form.errors}, status=400)
 
 
@@ -294,7 +298,7 @@ def _api_update(request, obj, crud_config):
         # Merge existing object data with incoming partial data
         from django.forms.models import model_to_dict
 
-        existing = model_to_dict(obj, fields=crud_config.fields)
+        existing = model_to_dict(obj, fields=crud_config.fields or crud_config._get_detail_fields())
         merged = QueryDict(mutable=True)
         for key, value in existing.items():
             if value is None:
@@ -315,7 +319,7 @@ def _api_update(request, obj, crud_config):
     if form.is_valid():
         obj = form.save()
         crud_config.on_form_valid(request, form, obj, is_create=False)
-        return JsonResponse(_serialize(obj, crud_config.fields))
+        return JsonResponse(_serialize(obj, crud_config._get_detail_fields() or crud_config.fields))
     return JsonResponse({"errors": form.errors}, status=400)
 
 

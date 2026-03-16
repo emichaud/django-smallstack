@@ -8,7 +8,7 @@ slug: smallstack
 
 # Section-specific variables
 variables:
-  version: "0.8.5"
+  version: "0.8.6"
   project_name: "Django SmallStack"
 
 # Category display order for section index grouping
@@ -214,9 +214,15 @@ pages:
     icon: "settings"
     category: "Development"
 
+  - slug: explorer-rest-api
+    title: "Explorer REST API"
+    description: "Auto-generated JSON API with authentication, search, filtering, and CSV/JSON export"
+    icon: "api"
+    category: "Development"
+
   - slug: explorer-composability
     title: "Explorer Composability"
-    description: "Embed Explorer CRUD tables and navigation into your own pages"
+    description: "Embed Explorer displays, CRUD tables, and navigation into your own pages"
     icon: "code"
     category: "Development"
 

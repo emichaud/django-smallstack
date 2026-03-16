@@ -1,121 +1,307 @@
 ---
 title: Model Explorer
-description: A staff-facing data browser that auto-generates CRUD views from your Django admin registrations
+description: A staff-facing data browser with display palette, REST API, and composable registration
 ---
 
 # Model Explorer
 
-Explorer is SmallStack's built-in model browser. It reads your existing Django `ModelAdmin` registrations and generates a full CRUD interface — list, detail, create, update, delete — without writing views, templates, URLs, or table classes.
-
-You opt models in with a single attribute (`explorer_enabled = True`), and Explorer does the rest. It's the fastest path from "I have a model" to "I can manage it in a browser."
+Explorer is SmallStack's built-in model browser. It reads `ModelAdmin` classes — whether registered with Django admin or not — and generates a full CRUD interface with swappable display modes, optional REST API, and CSV/JSON export.
 
 **Direct link:** [Open Explorer](/smallstack/explorer/)
 
+![Explorer index](/static/smallstack/docs/images/explorer-index.png)
+
 ## How It Works
 
-Explorer runs on an **admin-first** discovery system:
+Explorer supports three registration paths, checked in this order:
 
-1. On app startup, Explorer's registry walks `admin.site._registry`
-2. Any `ModelAdmin` with `explorer_enabled = True` is picked up
-3. Explorer reads `list_display`, permissions, and other supported admin attributes
-4. It dynamically generates a `CRUDView` subclass for each registered model
-5. URL patterns are built and injected at `/smallstack/explorer/`
+1. **`explorer.py` files** — explicit registration via `explorer.register()` (recommended)
+2. **`autodiscover()`** — auto-imports `explorer.py` from every installed app
+3. **`discover_admin()`** — legacy: scans `admin.site._registry` for `explorer_enabled = True`
 
-The result is a staff-only data browser at `/smallstack/explorer/` with:
+On startup, Explorer builds a `CRUDView` subclass for each registered model and injects URL patterns at `/smallstack/explorer/`.
 
-- **Index page** — a grid of all registered models grouped by custom groups or Django app
-- **Sidebar filtering** — switch between group view and app view
+The result:
+
+- **Index page** — grid of all registered models grouped by custom groups
 - **Per-model CRUD** — list with sorting, detail view, create/edit forms, and delete confirmation
-- **Readonly detection** — models with restricted permissions automatically get list + detail only
+- **Display palette** — swap between table, cards, or custom displays at runtime
+- **REST API** — opt-in JSON endpoints for each model
+- **Readonly detection** — models with restricted permissions get list + detail only
 
 ### Accessing Explorer
 
-Explorer is registered in the **Admin** section of the sidebar nav and is restricted to staff users:
+Explorer is in the **Admin** section of the sidebar and restricted to staff users:
 
 - **Sidebar:** Admin → Explorer
-- **Apps menu:** The grid icon in the topbar (staff only)
 - **Direct URL:** `/smallstack/explorer/`
 
-## Enabling Models
+## Registration
 
-Add `explorer_enabled = True` to any `ModelAdmin`. That's the only required step.
+### Recommended: `explorer.py` Files
+
+Create an `explorer.py` in any app to register models with Explorer. This is the cleanest approach — your admin.py stays focused on Django admin, and Explorer config lives separately.
+
+**Scenario A — Shared config (simplest).** Reuse your existing ModelAdmin:
+
+```python
+# apps/heartbeat/explorer.py
+from apps.explorer.registry import explorer
+from .admin import HeartbeatAdmin
+from .models import Heartbeat
+
+explorer.register(Heartbeat, HeartbeatAdmin, group="Monitoring")
+```
+
+One ModelAdmin. Django admin, Explorer, and CRUDView all read from it.
+
+**Scenario B — Different layouts.** Use a separate ModelAdmin for Explorer:
+
+```python
+# apps/profile/explorer.py
+from django.contrib import admin
+from apps.explorer.registry import explorer
+from apps.smallstack.displays import (
+    CardDisplay, DetailCardDisplay, DetailTableDisplay,
+    Table2Display, TableDisplay,
+)
+from .models import UserProfile
+
+class UserProfileExplorerAdmin(admin.ModelAdmin):
+    """Streamlined layout for Explorer — different from full admin config."""
+    list_display = ("user", "display_name", "bio", "location", "created_at")
+    list_per_page = 12
+
+    # Display palette: three list displays
+    explorer_displays = [
+        Table2Display,
+        TableDisplay,
+        CardDisplay(title_field="user", subtitle_field="created_at"),
+    ]
+
+    # Detail displays: table and photo card
+    explorer_detail_displays = [
+        DetailTableDisplay,
+        DetailCardDisplay(image_field="profile_photo"),
+    ]
+
+    explorer_field_transforms = {"bio": "preview"}
+
+explorer.register(UserProfile, UserProfileExplorerAdmin, group="Users")
+```
+
+**Scenario C — Explorer only.** No Django admin registration needed:
+
+```python
+# apps/myapp/explorer.py
+from django.contrib import admin
+from apps.explorer.registry import explorer
+from .models import Widget
+
+class WidgetExplorerAdmin(admin.ModelAdmin):
+    list_display = ["name", "category", "is_active"]
+
+explorer.register(Widget, WidgetExplorerAdmin, group="Tools")
+```
+
+The model never appears in Django admin. Explorer manages it independently.
+
+### Legacy: `explorer_enabled` on Admin
+
+For quick prototyping, you can still add `explorer_enabled = True` to any `ModelAdmin` registered with Django admin. Explorer will discover it automatically:
 
 ```python
 # apps/myapp/admin.py
-from django.contrib import admin
-from .models import Widget
-
 @admin.register(Widget)
 class WidgetAdmin(admin.ModelAdmin):
-    list_display = ["name", "category", "is_active", "created_at"]
+    list_display = ["name", "category", "is_active"]
     explorer_enabled = True
 ```
 
-Explorer reads `list_display` for columns (real model fields only — callables are skipped). If no real fields remain, it auto-detects from the model's field definitions.
+This approach works but is less flexible — you can't have different layouts for admin vs Explorer, and the config is mixed into your admin.py.
 
-### Custom Explorer Attributes
+### Groups and Multi-Registration
+
+Models are organized into groups. The group name appears in the URL and the Explorer index.
+
+```
+/smallstack/explorer/{group_slug}/{model_name}/
+```
+
+The same model can be registered in multiple groups with different layouts:
+
+```python
+# Different views of the same data
+explorer.register(Heartbeat, HeartbeatMonitoringAdmin, group="Monitoring")
+explorer.register(Heartbeat, HeartbeatOpsAdmin, group="Operations")
+```
+
+If no group is specified, Explorer uses the app label (title-cased).
+
+## Display Palette
+
+When a model has multiple displays configured, Explorer shows a palette of icon buttons. Click one to swap the display — the data stays the same, only the rendering changes.
+
+![Display palette with table and card views](/static/smallstack/docs/images/explorer-display-palette.png)
+
+### Built-in List Displays
+
+| Display | Name | Description |
+|---------|------|-------------|
+| `Table2Display` | `table2` | django-tables2 sortable table (default) |
+| `TableDisplay` | `table` | Basic HTML table with field transforms |
+| `CardDisplay` | `cards` | 3-column card grid with title/subtitle |
+
+```python
+from apps.smallstack.displays import Table2Display, TableDisplay, CardDisplay
+
+class MyAdmin(admin.ModelAdmin):
+    explorer_displays = [
+        Table2Display,                    # Sortable columns
+        TableDisplay,                     # Basic table (supports transforms)
+        CardDisplay(title_field="name", subtitle_field="created_at"),
+    ]
+```
+
+![Card display](/static/smallstack/docs/images/explorer-cards-display.png)
+
+### Built-in Detail Displays
+
+| Display | Name | Description |
+|---------|------|-------------|
+| `DetailTableDisplay` | `table` | Vertical key/value table |
+| `DetailCardDisplay` | `card` | 2-column: photo on left, fields on right |
+
+```python
+from apps.smallstack.displays import DetailTableDisplay, DetailCardDisplay
+
+class MyAdmin(admin.ModelAdmin):
+    explorer_detail_displays = [
+        DetailTableDisplay,
+        DetailCardDisplay(image_field="profile_photo"),
+    ]
+```
+
+![Detail card display](/static/smallstack/docs/images/explorer-detail-card.png)
+
+### Creating Custom Displays
+
+Any class that follows the display protocol works:
+
+```python
+from apps.smallstack.displays import ListDisplay
+
+class MapDisplay(ListDisplay):
+    name = "map"
+    icon = '<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">...</svg>'
+    template_name = "myapp/displays/map.html"
+
+    def get_context(self, queryset, crud_config, request):
+        return {
+            "markers": [
+                {"lat": obj.latitude, "lng": obj.longitude, "label": str(obj)}
+                for obj in queryset
+            ]
+        }
+```
+
+Then use it in your explorer registration:
+
+```python
+class MyAdmin(admin.ModelAdmin):
+    explorer_displays = [Table2Display, MapDisplay]
+```
+
+The palette handles the rest — HTMX swaps the display area when the user clicks an icon.
+
+### How Display Switching Works
+
+1. User clicks a palette icon
+2. HTMX sends `GET ?display=map` with `HX-Request` header
+3. CRUDView detects the HTMX request and returns just the display template (no page chrome)
+4. The display area swaps in place
+5. localStorage remembers the choice for next visit
+
+## REST API
+
+Explorer models can opt into a JSON REST API by setting `explorer_enable_api = True` on the ModelAdmin.
+
+```python
+class HeartbeatAdmin(admin.ModelAdmin):
+    list_display = ("timestamp", "status", "response_time_ms", "note")
+    search_fields = ("note", "status")
+    explorer_enable_api = True
+    explorer_export_formats = ["csv", "json"]
+```
+
+This generates API endpoints alongside the HTML views:
+
+```
+GET    /smallstack/api/explorer/{group}/{model}/          List + search + filter + export
+POST   /smallstack/api/explorer/{group}/{model}/          Create
+GET    /smallstack/api/explorer/{group}/{model}/<pk>/     Detail
+PUT    /smallstack/api/explorer/{group}/{model}/<pk>/     Full update
+PATCH  /smallstack/api/explorer/{group}/{model}/<pk>/     Partial update
+DELETE /smallstack/api/explorer/{group}/{model}/<pk>/     Delete
+```
+
+See [Explorer REST API](/smallstack/help/smallstack/explorer-rest-api/) for the full guide.
+
+## Field Transforms
+
+Field transforms change how values render in the basic table display (`TableDisplay`). They do **not** apply to django-tables2 displays.
+
+```python
+class MyAdmin(admin.ModelAdmin):
+    explorer_field_transforms = {
+        "bio": "preview",          # Truncate long text with expand toggle
+        "status": ("badge", {}),   # Render as colored badge
+    }
+```
+
+Built-in transforms: `preview` (truncation with HTMX expand).
+
+## Explorer Attributes Reference
+
+These attributes can be set on any `ModelAdmin` used with Explorer:
 
 | Attribute | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `explorer_enabled` | `bool` | `False` | Opt this model into Explorer. Required. |
-| `explorer_fields` | `list[str]` | `None` | Override which fields Explorer shows. Falls back to `list_display` (real fields only), then auto-detection. |
-| `explorer_readonly` | `bool` | `None` | Force readonly mode (list + detail only). When `None`, Explorer auto-detects from `has_add_permission` and `has_change_permission`. |
+| `explorer_displays` | `list` | `[Table2Display]` | List view display classes |
+| `explorer_detail_displays` | `list` | `[]` | Detail view display classes |
+| `explorer_fields` | `list[str]` | `None` | Override displayed fields (falls back to `list_display`) |
+| `explorer_readonly` | `bool` | `None` | Force readonly mode (auto-detected from permissions if `None`) |
+| `explorer_field_transforms` | `dict` | `{}` | Field rendering transforms for basic table |
+| `explorer_paginate_by` | `int` | `10` | Items per page |
+| `explorer_enable_api` | `bool` | `False` | Generate REST API endpoints |
+| `explorer_export_formats` | `list` | `[]` | Enabled export formats (e.g., `["csv", "json"]`) |
 
-### Examples
+Standard ModelAdmin attributes that Explorer reads:
 
-**With field overrides** — show a different set of fields in Explorer than in Django admin:
-
-```python
-@admin.register(Ticket)
-class TicketAdmin(admin.ModelAdmin):
-    list_display = ["title", "status", "priority", "assignee", "created_at"]
-    explorer_enabled = True
-    explorer_fields = ["title", "status", "priority"]  # simpler view for Explorer
-```
-
-**Auto-detected readonly** — override permissions and Explorer detects it automatically:
-
-```python
-@admin.register(AuditLog)
-class AuditLogAdmin(admin.ModelAdmin):
-    list_display = ["timestamp", "user", "action", "detail"]
-    explorer_enabled = True
-
-    def has_add_permission(self, request):
-        return False
-
-    def has_change_permission(self, request, obj=None):
-        return False
-```
-
-**Explicit readonly** — force readonly mode directly:
-
-```python
-@admin.register(SystemConfig)
-class SystemConfigAdmin(admin.ModelAdmin):
-    list_display = ["key", "value", "updated_at"]
-    explorer_enabled = True
-    explorer_readonly = True
-```
-
-### Field Auto-Detection
-
-When `explorer_fields` is not set and `list_display` contains no real model fields, Explorer falls back to auto-detection:
-
-1. Iterates over `model._meta.get_fields()`
-2. Skips reverse relations and many-to-many fields
-3. Skips `AutoField` and `BigAutoField` (primary keys)
-4. Skips the `password` field
-5. Skips non-editable fields
-6. Returns the remaining field names
+| Attribute | Explorer Usage |
+|-----------|---------------|
+| `list_display` | List view columns (real fields only, callables skipped) |
+| `search_fields` | API search (used by `?q=` parameter) |
+| `list_per_page` | Pagination size (overridden by `explorer_paginate_by`) |
+| `has_add_permission()` | Auto-detects readonly mode |
+| `has_change_permission()` | Auto-detects readonly mode |
 
 ## Explorer vs CRUDView
 
 | | Explorer | CRUDView |
 |---|----------|----------|
-| **Setup** | One attribute on ModelAdmin | View class + table class + URL wiring |
-| **Customization** | Admin API attributes | Full control over views, forms, templates |
-| **Layout** | Auto-generated from registry | You design the page |
-| **Best for** | Quick data browsing, staff tools | Production-facing management pages |
+| **Setup** | `explorer.register()` + ModelAdmin | View class + URL wiring |
+| **Customization** | Admin attributes + display classes | Full view/form/template control |
+| **Layout** | Auto-generated | You design the page |
+| **Displays** | Palette with HTMX swapping | Same display protocol |
+| **REST API** | One attribute (`explorer_enable_api`) | `enable_api = True` on CRUDView |
+| **Best for** | Data browsing, internal tools, rapid prototyping | Production management pages |
 
-Start with Explorer for rapid prototyping and internal tools. When you need custom layouts or user-facing workflows, graduate to [Building CRUD Pages](/smallstack/help/smallstack/building-crud-pages/). Explorer's composability mixins bridge the gap — embed auto-generated tables inside custom pages without rewriting anything.
+Start with Explorer for rapid prototyping. Graduate to CRUDView when you need custom layouts. Use Explorer's [composability mixins](/smallstack/help/smallstack/explorer-composability/) to embed auto-generated tables into your own pages.
+
+## See Also
+
+- [Explorer REST API](/smallstack/help/smallstack/explorer-rest-api/) — Authentication, endpoints, search, export
+- [Explorer Composability](/smallstack/help/smallstack/explorer-composability/) — Embed Explorer into custom pages
+- [Explorer ModelAdmin API](/smallstack/help/smallstack/explorer-admin-api/) — Full attribute reference
+- [Building CRUD Pages](/smallstack/help/smallstack/building-crud-pages/) — When you outgrow Explorer

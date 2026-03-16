@@ -1,0 +1,35 @@
+{% load static %}
+
+<div style="display: flex; gap: 2rem; align-items: flex-start;">
+    {# Left column: photo or placeholder #}
+    <div style="flex: 0 0 200px; text-align: center;">
+        {% if image_url %}
+        <img src="{{ image_url }}" alt="Profile photo"
+             style="width: 200px; height: 200px; object-fit: cover; border-radius: var(--radius-sm, 6px); border: 1px solid var(--border-color);">
+        {% else %}
+        <div style="width: 200px; height: 200px; background: color-mix(in srgb, var(--primary) 10%, var(--body-bg)); border: 1px solid var(--border-color); border-radius: var(--radius-sm, 6px); display: flex; align-items: center; justify-content: center;">
+            <svg viewBox="0 0 24 24" width="64" height="64" fill="var(--body-quiet-color)" opacity="0.5">
+                <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+            </svg>
+        </div>
+        {% endif %}
+    </div>
+
+    {# Right column: field rows #}
+    <div style="flex: 1; min-width: 0;">
+        {% if field_rows %}
+        <table style="width: 100%; border-collapse: collapse;">
+            {% for row in field_rows %}
+            <tr style="border-bottom: 1px solid var(--border-color);">
+                <td style="padding: 0.6rem 1rem 0.6rem 0; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--body-quiet-color); white-space: nowrap; vertical-align: top; width: 1%;">
+                    {{ row.label }}
+                </td>
+                <td style="padding: 0.6rem 0; font-size: 0.95rem; color: var(--body-fg); word-break: break-word;">
+                    {% if row.value %}{{ row.value }}{% else %}<span style="color: var(--body-quiet-color);">—</span>{% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </table>
+        {% endif %}
+    </div>
+</div>

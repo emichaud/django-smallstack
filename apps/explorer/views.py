@@ -6,7 +6,7 @@ from django_tables2 import RequestConfig
 from apps.smallstack.mixins import StaffRequiredMixin
 
 from .mixins import ExplorerAppMixin, ExplorerGroupMixin, ExplorerModelMixin
-from .registry import explorer_registry
+from .registry import explorer
 from .tables import ExplorerModelTable
 
 
@@ -15,15 +15,15 @@ class ExplorerIndexView(StaffRequiredMixin, TemplateView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        flat = [info.with_counts() for info in explorer_registry.get_models()]
+        flat = [info.with_counts() for info in explorer.get_models()]
         context["models"] = flat
         context["models_az"] = sorted(flat, key=lambda m: m.verbose_name_plural.lower())
 
         # Sidebar data: groups and apps
-        grouped = explorer_registry.get_grouped_models()
+        grouped = explorer.get_grouped_models()
         context["all_groups"] = sorted(grouped.keys())
         apps = {}
-        for info in explorer_registry.get_models():
+        for info in explorer.get_models():
             if info.app_label not in apps:
                 apps[info.app_label] = info.app_label.replace("_", " ").title()
         context["all_apps"] = sorted(apps.items())  # list of (app_label, verbose_name)
@@ -53,7 +53,7 @@ class ExplorerClassicIndexView(StaffRequiredMixin, TemplateView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        flat = [info.with_counts() for info in explorer_registry.get_models()]
+        flat = [info.with_counts() for info in explorer.get_models()]
         context["models"] = flat
         context["models_az"] = sorted(flat, key=lambda m: m.verbose_name_plural.lower())
 
