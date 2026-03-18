@@ -1,10 +1,10 @@
 # Skill: Filtering & Export
 
-CRUDView supports built-in search, filtering, and data export. These features are declarative — set a few attributes on your CRUDView and the framework handles the UI and logic.
+CRUDView supports built-in search, filtering, and data export via its REST API layer. These features are declarative — set a few attributes on your CRUDView and the API handles the logic. For HTML views, use the `_make_view` override pattern for search (see crud-views skill).
 
 ## Overview
 
-Three related features that layer onto CRUDView's list view:
+Three related features that layer onto CRUDView's **API endpoints** (requires `enable_api = True`):
 
 | Feature | Attribute | What It Does |
 |---------|-----------|-------------|
@@ -18,10 +18,13 @@ All three are `None` by default (disabled). Enable only what you need.
 
 ```
 apps/smallstack/
-├── crud.py                # _CRUDListBase — search, filter, export logic
+├── crud.py                # CRUDView — search, filter, export attribute definitions
+├── api.py                 # API layer — search, filter, export implementation
 └── templates/smallstack/crud/
-    └── object_list.html   # Generic list template (shows export buttons)
+    └── object_list.html   # Generic list template
 ```
+
+> **Note:** Search, filter, and export are implemented in the API layer (`api.py`), not in the HTML list views. For HTML search, use the `_make_view` override pattern described in the crud-views skill.
 
 ## Search (`search_fields`)
 
@@ -35,12 +38,11 @@ class WidgetCRUDView(CRUDView):
     search_fields = ["name", "category"]  # Searches with __icontains
 ```
 
-### How It Works
+### How It Works (API)
 
-1. `_CRUDListBase.get_queryset()` checks for `?q=` parameter
+1. The API list endpoint checks for the `?q=` parameter
 2. Builds a `Q` object with `__icontains` for each field in `search_fields`
 3. Filters are OR'd together — matching any field returns the row
-4. `search_query` is added to template context for repopulating the search input
 
 ### HTMX Integration
 
@@ -114,9 +116,9 @@ class WidgetCRUDView(CRUDView):
     export_formats = ("csv", "json")
 ```
 
-### How It Works
+### How It Works (API)
 
-1. `_CRUDListBase.get()` checks for `?_export=csv` (or `json`)
+1. The API list endpoint checks for `?format=csv` (or `json`)
 2. Builds a `tablib.Dataset` from the filtered queryset
 3. Uses `list_fields` for columns, `verbose_name` for headers
 4. Returns a file download response with timestamped filename

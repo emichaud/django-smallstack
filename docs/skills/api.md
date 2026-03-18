@@ -11,13 +11,12 @@ The API is opt-in per CRUDView. When enabled, `get_urls()` generates JSON list a
 ```
 apps/smallstack/
 ├── api.py                 # build_api_urls(), auth, serialization, export
-├── crud.py                # CRUDView — api_enabled flag, get_urls() integration
-├── models.py              # APIToken model
+├── crud.py                # CRUDView — enable_api flag, get_urls() integration
 ```
 
 ## How It Works
 
-1. Set `api_enabled = True` on your CRUDView
+1. Set `enable_api = True` on your CRUDView
 2. `CRUDView.get_urls()` calls `build_api_urls(cls)` to add JSON endpoints
 3. Authentication checks Bearer token first, then session
 4. Permissions mirror the CRUDView's mixin chain (e.g., `StaffRequiredMixin` → 403 for non-staff)
@@ -30,7 +29,7 @@ class WidgetCRUDView(CRUDView):
     model = Widget
     fields = ["name", "category", "is_active"]
     url_base = "manage/widgets"
-    api_enabled = True
+    enable_api = True
 ```
 
 This generates:
@@ -60,16 +59,9 @@ The token is validated via `APIToken.authenticate(raw_key)`. On success, `reques
 
 If the user is logged in via Django session, API endpoints work without a token.
 
-### Token Model
+### Token Authentication
 
-```python
-class APIToken(models.Model):
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
-    token = models.CharField(max_length=64, unique=True)
-    name = models.CharField(max_length=100)
-    created_at = models.DateTimeField(auto_now_add=True)
-    last_used = models.DateTimeField(null=True, blank=True)
-```
+The API uses Bearer token authentication. Token management is handled via Django admin or management commands. The authentication layer validates tokens and sets `request._api_token_auth = True` on success.
 
 ## Permission Checking
 
@@ -98,7 +90,7 @@ Response:
 }
 ```
 
-Supports `?q=` search (if `search_fields` set), django-filter parameters (if `filter_fields` set), and `?_export=csv` or `?_export=json` for file downloads (if `export_formats` set).
+Supports `?q=` search (if `search_fields` set), django-filter parameters (if `filter_fields` set), and `?format=csv` or `?format=json` for file downloads (if `export_formats` set).
 
 ### Detail
 
@@ -193,10 +185,10 @@ The API layer calls these CRUDView methods:
 
 ## Best Practices
 
-1. **Use `api_enabled` only on CRUDViews that need external access** — not every model needs an API
+1. **Use `enable_api` only on CRUDViews that need external access** — not every model needs an API
 2. **Token management** — create tokens via Django admin or management commands
 3. **Permissions cascade** — API respects the same `mixins` as HTML views
 4. **No third-party dependency** — built on stock Django views, not DRF
 5. **CSRF exempt** — API views use `@csrf_exempt` (required for external API clients)
-6. **Filters apply to exports** — `?q=search&_export=csv` exports only matching rows
+6. **Filters apply to exports** — `?q=search&format=csv` exports only matching rows
 7. **Designed to be replaced** — if you need DRF, delete `api.py` and write viewsets; filters, tokens, and models transfer directly

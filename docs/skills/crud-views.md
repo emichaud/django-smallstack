@@ -90,14 +90,17 @@ This generates:
 | `url_base` | str | model name | URL prefix (e.g., `"manage/widgets"`) |
 | `paginate_by` | int | None | Rows per page (10 is standard) |
 | `mixins` | list | `[]` | View mixins applied to all views |
-| `table_class` | Table class | None | django-tables2 Table for list view |
+| `displays` | list | `[]` | List of display protocol classes for list view |
+| `detail_displays` | list | `[]` | List of display protocol classes for detail view |
+| `table_class` | Table class | None | django-tables2 Table for list view (legacy, still works) |
 | `form_class` | Form class | auto | Custom ModelForm |
+| `enable_api` | bool | `False` | Generate REST API endpoints alongside HTML views |
 | `actions` | list | all 5 | Which CRUD actions to generate |
 | `queryset` | QuerySet | `model.objects.all()` | Base queryset for all views |
-| `search_fields` | list | None | Fields for `?q=` text search |
-| `filter_fields` | list | None | Fields for django-filter sidebar |
-| `filter_class` | FilterSet | None | Custom FilterSet class |
-| `export_formats` | tuple | None | Export formats, e.g. `("csv", "json")` |
+| `search_fields` | list | `[]` | Fields for `?q=` text search (API only) |
+| `filter_fields` | list | `[]` | Fields for query-param filtering (API only) |
+| `filter_class` | FilterSet | None | Custom FilterSet class (API only) |
+| `export_formats` | list | `[]` | Export formats, e.g. `["csv", "json"]` (API only) |
 | `breadcrumb_parent` | tuple | None | `(label, url_name)` for parent breadcrumb |
 
 ## Column Types
@@ -212,23 +215,21 @@ Classmethod hooks for injecting custom logic without `_make_view`:
 
 | Hook | Purpose |
 |------|---------|
-| `get_list_queryset(queryset, request)` | Filter/annotate the list queryset (after search/filter) |
-| `get_list_context(context, request)` | Add extra context to list view (e.g., stats) |
-| `get_detail_context(context, request)` | Add extra context to detail view |
+| `get_list_queryset(qs, request)` | Filter/annotate the list queryset (used by API layer) |
 | `on_form_valid(request, form, obj, is_create)` | Callback after successful create/update |
 | `can_update(obj, request)` | Per-object update permission check |
 | `can_delete(obj, request)` | Per-object delete permission check |
 
 ## API Endpoints
 
-Set `api_enabled = True` to generate REST API endpoints alongside HTML views:
+Set `enable_api = True` to generate REST API endpoints alongside HTML views:
 
 ```python
 class WidgetCRUDView(CRUDView):
     model = Widget
     fields = ["name", "category", "is_active"]
     url_base = "manage/widgets"
-    api_enabled = True
+    enable_api = True
 ```
 
 This adds JSON endpoints at `api/manage/widgets/` and `api/manage/widgets/<pk>/` with:

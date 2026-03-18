@@ -44,7 +44,7 @@ templates/smallstack/
 
 ## CSS Custom Properties
 
-All colors and key values are defined as CSS variables in `static/smallstack/css/theme.css`.
+Core layout and component variables are defined in `static/smallstack/css/theme.css`. Color variables that adapt to palettes (including `--body-quiet-color`) are defined in `static/smallstack/css/palettes.css`.
 
 ### Light Mode (`:root`)
 

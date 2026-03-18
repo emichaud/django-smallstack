@@ -17,7 +17,9 @@ django-smallstack/
 │   ├── help/                  # Documentation system
 │   ├── tasks/                 # Background tasks
 │   ├── activity/              # Request activity tracking
+│   ├── heartbeat/             # Uptime monitoring
 │   ├── usermanager/           # User CRUD + timezone dashboard (reference impl)
+│   ├── explorer/              # Model Explorer auto-CRUD system
 │   └── website/               # Project-specific pages
 ├── config/                    # Project configuration
 │   ├── settings/

@@ -14,8 +14,7 @@ config/settings/
 ├── development.py         # SQLite default
 └── production.py          # PostgreSQL option
 
-data/
-└── db.sqlite3             # SQLite database file (persistent)
+db.sqlite3                     # SQLite database file (development)
 
 backups/                   # Backup files (auto-managed)
 
@@ -27,16 +26,24 @@ apps/smallstack/docs/
 
 ## SQLite (Default)
 
-### Data Directory Pattern
+### Database Location
 
-The database file lives in `data/db.sqlite3`, separated from application code. This is critical for containerized deployments — the `data/` directory is mounted as a volume.
+In development, the database file lives at `db.sqlite3` in the project root. In production (Docker/Kamal), it uses a configurable path via `DATABASE_PATH` (default: `/app/data/db.sqlite3`) for volume mounting.
 
 ```python
-# config/settings/base.py
+# config/settings/development.py
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.sqlite3",
-        "NAME": BASE_DIR / "data" / "db.sqlite3",
+        "NAME": BASE_DIR / "db.sqlite3",
+    }
+}
+
+# config/settings/production.py
+DATABASES = {
+    "default": {
+        "ENGINE": "django.db.backends.sqlite3",
+        "NAME": config("DATABASE_PATH", default="/app/data/db.sqlite3"),
     }
 }
 ```

@@ -6,7 +6,7 @@ Explorer is SmallStack's built-in model browser. It reads existing Django `Model
 
 Explorer runs on an **admin-first** discovery system:
 
-1. On app startup, `ExplorerRegistry.discover()` walks `admin.site._registry`
+1. On app startup, `ExplorerSite.discover()` walks `admin.site._registry`
 2. Any `ModelAdmin` with `explorer_enabled = True` is picked up
 3. Explorer reads `list_display`, permissions, and other supported admin attributes
 4. It dynamically generates a `CRUDView` subclass for each registered model
@@ -19,7 +19,7 @@ The result is a staff-only data browser with an index page, sidebar filtering, p
 ```
 apps/explorer/
 ├── apps.py                # ExplorerConfig — nav registration
-├── registry.py            # ExplorerRegistry — model discovery and CRUDView generation
+├── registry.py            # ExplorerSite — model registration and CRUDView generation
 ├── mixins.py              # ExplorerGroupMixin, ExplorerAppMixin, ExplorerModelMixin
 ├── urls.py                # URL patterns
 ├── content/               # Help documentation (app-contributed)
@@ -63,7 +63,10 @@ Explorer reads `list_display` for columns (real model fields only — callables 
 | `explorer_paginate_by` | `int` | `10` | Rows per page in the Explorer list view. |
 | `explorer_preview_fields` | `list[str]` | `[]` | Fields that get truncated with click-to-preview. Merged into `field_transforms`. |
 | `explorer_field_transforms` | `dict` | `{}` | Custom field rendering: `{field: "transform_name"}`. Overrides preview mappings. |
-| `explorer_accessories` | — | — | Reserved for future use. |
+| `explorer_displays` | `list` | `[Table2Display]` | Display protocol classes for list view. |
+| `explorer_detail_displays` | `list` | `[]` | Display protocol classes for detail view. |
+| `explorer_export_formats` | `list` | `[]` | Export formats, e.g. `["csv", "json"]`. |
+| `explorer_enable_api` | `bool` | `False` | Enable REST API endpoints for this model. |
 
 ## Supported Django ModelAdmin Attributes
 
@@ -81,7 +84,7 @@ Explorer auto-detects these from the model's fields — no configuration needed:
 |---------|-------------------|-----------------|
 | **Search** | CharField and TextField in resolved fields → `search_fields` | `?q=` text search across the list view |
 | **Filters** | Fields with choices, ForeignKey, or BooleanField → `filter_fields` | Sidebar filter controls via django-filter |
-| **Export** | Always enabled | CSV and JSON download buttons (`export_formats = ("csv", "json")`) |
+| **Export** | Set via `explorer_export_formats` | CSV and JSON download buttons when configured |
 
 ## Field Auto-Detection
 
@@ -103,7 +106,7 @@ For each opted-in model, Explorer dynamically creates a `CRUDView` subclass with
 - `actions` — LIST + DETAIL for readonly; full CRUD for editable models
 - `search_fields` — auto-detected CharField/TextField
 - `filter_fields` — auto-detected choice/FK/boolean fields
-- `export_formats` — `("csv", "json")`
+- `export_formats` — from `explorer_export_formats` (default `[]`)
 - `field_transforms` — merged from `explorer_preview_fields` + `explorer_field_transforms`
 - `breadcrumb_parent` — `("Explorer", "explorer-index")`
 
@@ -114,8 +117,8 @@ For each opted-in model, Explorer dynamically creates a `CRUDView` subclass with
 | **Setup** | One attribute on ModelAdmin | View class + table class + URL wiring |
 | **Search** | Auto-detected from CharField/TextField | Set `search_fields` manually |
 | **Filtering** | Auto-detected from choice/FK/boolean fields | Set `filter_fields` manually |
-| **Export** | CSV + JSON always enabled | Set `export_formats` manually |
-| **API** | Not enabled (use CRUDView for API) | Set `api_enabled = True` |
+| **Export** | Set `explorer_export_formats` on ModelAdmin | Set `export_formats` manually |
+| **API** | Set `explorer_enable_api = True` on ModelAdmin | Set `enable_api = True` |
 | **Customization** | Admin API attributes | Full control over views, forms, templates |
 | **Layout** | Auto-generated from registry | You design the page |
 | **Best for** | Quick data browsing, staff tools | Production-facing management pages |
