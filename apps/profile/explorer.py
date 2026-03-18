@@ -37,4 +37,4 @@ class UserProfileExplorerAdmin(admin.ModelAdmin):
     explorer_field_transforms = {"bio": "preview"}
 
 
-explorer.register(UserProfile, UserProfileExplorerAdmin, group="Users")
+explorer.register(UserProfile, UserProfileExplorerAdmin, group="Accounts")

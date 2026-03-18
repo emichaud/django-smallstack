@@ -1,0 +1,30 @@
+#!/bin/bash
+# Pre-deploy hook: ensure volume directories exist with correct ownership
+# on all remote hosts. Runs locally but SSHes to each KAMAL_HOSTS server.
+#
+# The container runs as non-root (USER app, uid 1000). Docker bind mounts
+# create host dirs as root by default, so the app user can't write to them.
+# This hook fixes that before the container starts.
+
+# Extract volume host paths from deploy.yml
+# Matches the host side of volume mounts (before the colon)
+VOLUME_DIRS=$(ruby -ryaml -e '
+  config = YAML.load_file("config/deploy.yml")
+  (config["volumes"] || []).each do |v|
+    puts v.split(":").first
+  end
+')
+
+if [ -z "$VOLUME_DIRS" ]; then
+  echo "No volumes found, skipping permission fix."
+  exit 0
+fi
+
+# Convert newline-separated paths to a space-separated string
+VOLUME_LIST=$(echo "$VOLUME_DIRS" | tr '\n' ' ')
+
+# KAMAL_HOSTS is set by Kamal with the list of target hosts
+for HOST in $(echo "$KAMAL_HOSTS" | tr ',' ' '); do
+  echo "Fixing volume permissions on $HOST..."
+  ssh root@"$HOST" "for dir in $VOLUME_LIST; do mkdir -p \"\$dir\" && chown -R 1000:1000 \"\$dir\"; done"
+done
