@@ -1,0 +1,226 @@
+<style>
+/* ── Calendar container ──────────────────────── */
+.wk-cal {
+    background: var(--card-bg, var(--body-bg));
+    border: 1px solid color-mix(in srgb, var(--body-fg) 10%, var(--body-bg));
+    border-radius: var(--radius-md, 8px);
+    overflow: hidden;
+}
+
+/* ── Header bar ──────────────────────────────── */
+.wk-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.65rem 1.25rem;
+    background: color-mix(in srgb, var(--body-fg) 4%, var(--body-bg));
+    border-bottom: 1px solid color-mix(in srgb, var(--body-fg) 8%, var(--body-bg));
+}
+.wk-header-title {
+    font-weight: 700;
+    font-size: 0.85rem;
+    color: var(--body-fg);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+.wk-header-title svg { opacity: 0.45; }
+.wk-header-agg {
+    display: flex;
+    gap: 1.25rem;
+    font-size: 0.7rem;
+    color: var(--body-quiet-color);
+}
+.wk-header-agg strong {
+    color: var(--body-fg);
+    font-weight: 700;
+}
+
+/* ── Day grid ────────────────────────────────── */
+.wk-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+}
+@media (max-width: 900px) {
+    .wk-grid { grid-template-columns: repeat(4, 1fr); }
+}
+@media (max-width: 550px) {
+    .wk-grid { grid-template-columns: repeat(2, 1fr); }
+}
+
+/* ── Individual day cell ─────────────────────── */
+.wk-day {
+    position: relative;
+    border-right: 1px solid color-mix(in srgb, var(--body-fg) 6%, var(--body-bg));
+    border-bottom: 1px solid color-mix(in srgb, var(--body-fg) 6%, var(--body-bg));
+    min-height: 120px;
+    display: flex;
+    flex-direction: column;
+    transition: background 0.15s;
+}
+.wk-day:last-child { border-right: none; }
+@media (max-width: 900px) {
+    .wk-day:nth-child(4n) { border-right: none; }
+}
+
+/* Day header label */
+.wk-day-label {
+    padding: 0.4rem 0.6rem;
+    font-size: 0.65rem;
+    font-weight: 600;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    color: color-mix(in srgb, var(--body-fg) 55%, var(--body-bg));
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+.wk-day-date {
+    font-weight: 400;
+    font-size: 0.65rem;
+    opacity: 0.7;
+}
+.wk-day.is-today .wk-day-label {
+    color: var(--body-fg);
+}
+.wk-day.is-today .wk-day-label::after {
+    content: "";
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: var(--primary);
+    margin-left: 0.3rem;
+}
+
+/* Day body — the colored uptime area */
+.wk-day-body {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 0.5rem;
+    margin: 0 0.4rem 0.4rem;
+    border-radius: 6px;
+    gap: 0.2rem;
+    transition: transform 0.12s, box-shadow 0.12s;
+}
+.wk-day:hover .wk-day-body.has-data {
+    transform: scale(1.02);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+}
+
+/* Status backgrounds — translucent enough for text overlay */
+.wk-day-body.sla-met {
+    background: color-mix(in srgb, var(--success-fg, #22c55e) 18%, var(--body-bg));
+    border: 1px solid color-mix(in srgb, var(--success-fg, #22c55e) 25%, var(--body-bg));
+}
+.wk-day-body.sla-miss {
+    background: color-mix(in srgb, var(--error-fg, #ef4444) 15%, var(--body-bg));
+    border: 1px solid color-mix(in srgb, var(--error-fg, #ef4444) 22%, var(--body-bg));
+}
+.wk-day-body.no-data {
+    background: color-mix(in srgb, var(--body-fg) 3%, var(--body-bg));
+    border: 1px solid color-mix(in srgb, var(--body-fg) 6%, var(--body-bg));
+}
+.wk-day.is-future .wk-day-body {
+    background: transparent;
+    border: 1px dashed color-mix(in srgb, var(--body-fg) 8%, var(--body-bg));
+}
+
+/* Uptime number */
+.wk-day-uptime {
+    font-size: 1.35rem;
+    font-weight: 800;
+    line-height: 1;
+    letter-spacing: -0.02em;
+}
+.wk-day-body.sla-met .wk-day-uptime { color: var(--success-fg, #22c55e); }
+.wk-day-body.sla-miss .wk-day-uptime { color: var(--error-fg, #ef4444); }
+.wk-day-body.no-data .wk-day-uptime {
+    color: var(--body-quiet-color);
+    font-size: 1rem;
+    opacity: 0.5;
+}
+
+.wk-day-pct {
+    font-size: 0.65rem;
+    font-weight: 600;
+    opacity: 0.7;
+}
+.wk-day-body.sla-met .wk-day-pct { color: var(--success-fg, #22c55e); }
+.wk-day-body.sla-miss .wk-day-pct { color: var(--error-fg, #ef4444); }
+
+/* Subtitle: volume / response */
+.wk-day-sub {
+    font-size: 0.65rem;
+    font-weight: 500;
+    color: var(--body-quiet-color);
+    margin-top: 0.15rem;
+}
+.wk-day-body.no-data .wk-day-sub { display: none; }
+
+/* Fail badge */
+.wk-fail-badge {
+    position: absolute;
+    top: 0.35rem;
+    right: 0.45rem;
+    font-size: 0.55rem;
+    font-weight: 700;
+    color: var(--error-fg, #ef4444);
+    background: color-mix(in srgb, var(--error-fg, #ef4444) 12%, var(--body-bg));
+    padding: 0.1rem 0.35rem;
+    border-radius: 8px;
+    line-height: 1.3;
+}
+</style>
+
+<div class="wk-cal">
+
+    <!-- ═══ Header ═══ -->
+    <div class="wk-header">
+        <div class="wk-header-title">
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor"><path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11z"/></svg>
+            {{ monday|date:"M j" }} – {{ sunday|date:"M j, Y" }}
+        </div>
+        <div class="wk-header-agg">
+            {% if week_total %}
+            <span><strong>{{ week_uptime }}%</strong> uptime</span>
+            <span><strong>{{ week_total_fmt }}</strong> checks</span>
+            <span><strong>{{ week_avg_ms }}ms</strong> avg</span>
+            {% if week_fail %}<span><strong style="color: var(--error-fg, #ef4444);">{{ week_fail }}</strong> fail</span>{% endif %}
+            {% else %}
+            <span>No data this week</span>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- ═══ 7-day grid ═══ -->
+    <div class="wk-grid">
+        {% for day in days %}
+        <div class="wk-day{% if day.is_today %} is-today{% endif %}{% if day.is_future %} is-future{% endif %}">
+            <div class="wk-day-label">
+                <span>{{ day.weekday }}</span>
+                <span class="wk-day-date">{{ day.short_date }}</span>
+            </div>
+            {% if day.fail and day.fail > 0 %}
+            <span class="wk-fail-badge">{{ day.fail }} fail</span>
+            {% endif %}
+            <div class="wk-day-body {% if day.has_data %}has-data {% if day.meets_sla %}sla-met{% else %}sla-miss{% endif %}{% elif day.is_future %}future{% else %}no-data{% endif %}">
+                <span class="wk-day-uptime">{{ day.uptime_fmt }}</span>
+                {% if day.has_data %}<span class="wk-day-pct">%</span>{% endif %}
+                <span class="wk-day-sub">{{ day.total_fmt }} / {{ day.avg_ms }}ms</span>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+</div>
+
+<div style="text-align: center; font-size: 0.6rem; color: var(--body-quiet-color); margin-top: 0.5rem;">
+    SLA Minimum: {{ sla_minimum }}% · Target: {{ sla_target }}%
+    <span style="margin-left: 0.5rem;">
+        <span style="display:inline-block; width:8px; height:8px; border-radius:2px; background:color-mix(in srgb, var(--success-fg, #22c55e) 18%, var(--body-bg)); border:1px solid color-mix(in srgb, var(--success-fg, #22c55e) 25%, var(--body-bg)); vertical-align:middle;"></span> Met
+        <span style="display:inline-block; width:8px; height:8px; border-radius:2px; background:color-mix(in srgb, var(--error-fg, #ef4444) 15%, var(--body-bg)); border:1px solid color-mix(in srgb, var(--error-fg, #ef4444) 22%, var(--body-bg)); vertical-align:middle; margin-left:0.3rem;"></span> Missed
+    </span>
+</div>

@@ -6,6 +6,7 @@
         hx-get="?display={{ display.name }}"
         hx-target="#crud-display-area"
         hx-swap="innerHTML"
+        hx-push-url="true"
         data-display="{{ display.name }}"
         title="{{ display.name|title }}"
         style="padding: 0.35rem 0.5rem; border: 1px solid var(--border-color); border-radius: var(--radius-sm, 4px); cursor: pointer; display: inline-flex; align-items: center;"

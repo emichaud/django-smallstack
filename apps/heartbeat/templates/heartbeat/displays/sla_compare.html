@@ -1,0 +1,114 @@
+<style>
+.sc { max-width: 480px; }
+.sc-card {
+    background: var(--card-bg, var(--body-bg));
+    border: 1px solid color-mix(in srgb, var(--body-fg) 10%, var(--body-bg));
+    border-radius: var(--radius-md, 8px);
+    overflow: hidden;
+}
+
+/* ── Top section: uptime + status ──────────── */
+.sc-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1rem 1.25rem;
+}
+.sc-uptime {
+    font-size: 2.2rem;
+    font-weight: 800;
+    line-height: 1;
+    letter-spacing: -0.03em;
+}
+.sc-uptime.met { color: var(--success-fg, #22c55e); }
+.sc-uptime.miss { color: var(--error-fg, #ef4444); }
+.sc-right { text-align: right; }
+.sc-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    font-size: 0.7rem;
+    font-weight: 700;
+    padding: 0.2rem 0.6rem;
+    border-radius: 10px;
+    letter-spacing: 0.02em;
+}
+.sc-badge.met {
+    color: var(--success-fg, #22c55e);
+    background: color-mix(in srgb, var(--success-fg, #22c55e) 12%, var(--body-bg));
+}
+.sc-badge.miss {
+    color: var(--error-fg, #ef4444);
+    background: color-mix(in srgb, var(--error-fg, #ef4444) 12%, var(--body-bg));
+}
+.sc-delta {
+    font-size: 0.65rem;
+    color: var(--body-quiet-color);
+    margin-top: 0.3rem;
+}
+
+/* ── Bar ───────────────────────────────────── */
+.sc-bar-wrap {
+    padding: 0 1.25rem;
+}
+.sc-bar {
+    height: 6px;
+    border-radius: 3px;
+    background: color-mix(in srgb, var(--body-fg) 8%, var(--body-bg));
+    overflow: hidden;
+}
+.sc-bar-fill {
+    height: 100%;
+    border-radius: 3px;
+    transition: width 0.3s ease;
+}
+.sc-bar-fill.met { background: var(--success-fg, #22c55e); }
+.sc-bar-fill.miss { background: var(--error-fg, #ef4444); }
+
+/* ── Stats row ─────────────────────────────── */
+.sc-stats {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.75rem 1.25rem;
+    font-size: 0.7rem;
+    color: var(--body-quiet-color);
+}
+.sc-stat strong {
+    color: var(--body-fg);
+    font-weight: 700;
+}
+.sc-stat-fail strong { color: var(--error-fg, #ef4444); }
+</style>
+
+<div class="sc">
+    <div class="sc-card">
+
+        <div class="sc-top">
+            <div>
+                <div class="sc-uptime {% if meets_sla %}met{% else %}miss{% endif %}">{{ uptime }}%</div>
+            </div>
+            <div class="sc-right">
+                <div class="sc-badge {% if meets_sla %}met{% else %}miss{% endif %}">
+                    {% if meets_sla %}&#10003; SLA Met{% else %}&#10007; SLA Missed{% endif %}
+                </div>
+                <div class="sc-delta">
+                    {% if meets_sla %}+{% else %}-{% endif %}{{ delta_abs }}% from {{ sla_minimum }}% min
+                </div>
+            </div>
+        </div>
+
+        <div class="sc-bar-wrap">
+            <div class="sc-bar">
+                <div class="sc-bar-fill {% if meets_sla %}met{% else %}miss{% endif %}" style="width: {{ ok_pct }}%;"></div>
+            </div>
+        </div>
+
+        <div class="sc-stats">
+            <span class="sc-stat"><strong>{{ ok_count }}</strong> ok</span>
+            {% if fail_count %}<span class="sc-stat sc-stat-fail"><strong>{{ fail_count }}</strong> fail</span>{% endif %}
+            <span class="sc-stat"><strong>{{ total_checks }}</strong> total</span>
+            <span class="sc-stat"><strong>{{ avg_ms }}ms</strong> avg</span>
+        </div>
+
+    </div>
+</div>

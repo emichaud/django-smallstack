@@ -1,0 +1,104 @@
+<form method="POST" class="crud-form" {% if form.is_multipart %}enctype="multipart/form-data"{% endif %}>
+    {% csrf_token %}
+
+    <div class="sf-grid sf-grid-{{ form_columns|default:'2' }}">
+        {% for section in form_sections %}
+        <div class="sf-section{% if forloop.last and form_sections|length|divisibleby:2 == False and form_columns == 2 %} sf-section-full{% endif %}">
+            <div class="sf-section-header">
+                {% if section.icon %}{{ section.icon|safe }}{% endif %}
+                {{ section.title }}
+            </div>
+            <div class="sf-section-body">
+                {% for field in section.fields %}
+                <div class="crud-field{% if field.errors %} has-error{% endif %}">
+                    {% if field.field.widget.input_type == "checkbox" %}
+                    <div class="crud-checkbox">
+                        {{ field }}
+                        <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+                    </div>
+                    {% else %}
+                    <label class="crud-label" for="{{ field.id_for_label }}">
+                        {{ field.label }}{% if field.field.required %}<span class="required">*</span>{% endif %}
+                    </label>
+                    {{ field }}
+                    {% endif %}
+                    {% if field.help_text %}
+                    <p class="crud-help">{{ field.help_text }}</p>
+                    {% endif %}
+                    {% if field.errors %}
+                    <p class="crud-error">{{ field.errors.0 }}</p>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <div class="crud-actions" style="margin-top: 1.25rem;">
+        <button type="submit" class="btn-save">Save</button>
+        <a href="{{ list_view_url }}" class="btn-cancel">Cancel</a>
+    </div>
+</form>
+
+<style>
+.sf-grid {
+    display: grid;
+    gap: 1.25rem;
+}
+.sf-grid-1 { grid-template-columns: 1fr; }
+.sf-grid-2 { grid-template-columns: 1fr 1fr; }
+@media (max-width: 768px) {
+    .sf-grid-2 { grid-template-columns: 1fr; }
+}
+.sf-section-full { grid-column: 1 / -1; }
+.sf-section {
+    background: var(--card-bg, var(--body-bg));
+    border: 1px solid color-mix(in srgb, var(--body-fg) 10%, var(--body-bg));
+    border-radius: var(--radius-md, 8px);
+    overflow: hidden;
+}
+.sf-section-header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1.25rem;
+    background: color-mix(in srgb, var(--body-fg) 4%, var(--body-bg));
+    border-bottom: 1px solid color-mix(in srgb, var(--body-fg) 8%, var(--body-bg));
+    font-weight: 600;
+    font-size: 0.85rem;
+    color: var(--body-fg);
+}
+.sf-section-header svg { opacity: 0.5; flex-shrink: 0; }
+.sf-section-body { padding: 1.25rem; }
+</style>
+
+<script>
+// Wrap date/datetime-local/time inputs with a picker button
+document.querySelectorAll('.crud-form input[type="date"], .crud-form input[type="datetime-local"], .crud-form input[type="time"]').forEach(function(input) {
+    var wrapper = document.createElement('div');
+    wrapper.className = 'crud-date-wrapper';
+    input.parentNode.insertBefore(wrapper, input);
+    wrapper.appendChild(input);
+
+    var isTime = input.type === 'time';
+    var svg = isTime
+        ? '<svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z"/></svg>'
+        : '<svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11zM9 10H7v2h2v-2zm4 0h-2v2h2v-2zm4 0h-2v2h2v-2zm-8 4H7v2h2v-2zm4 0h-2v2h2v-2zm4 0h-2v2h2v-2z"/></svg>';
+
+    var btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'crud-date-btn';
+    btn.setAttribute('aria-label', isTime ? 'Open time picker' : 'Open calendar');
+    btn.innerHTML = svg;
+    btn.addEventListener('click', function() {
+        if (input.showPicker) {
+            input.showPicker();
+        } else {
+            input.focus();
+            input.click();
+        }
+    });
+    wrapper.appendChild(btn);
+});
+</script>

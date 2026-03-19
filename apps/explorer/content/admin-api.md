@@ -1,147 +1,204 @@
 # Explorer ModelAdmin API Reference
 
-Explorer provides a staff-facing data browser that piggybacks on Django's admin registry. Instead of building a parallel registration system, Explorer reads your existing `ModelAdmin` classes and reuses what it can.
+Explorer reads `ModelAdmin` classes for field layout, display configuration, permissions, and API settings. This page is the complete reference.
 
-## How Discovery Works
+## Registration
 
-Explorer uses an **admin-first** approach:
+Explorer supports three registration methods, checked in this order:
 
-1. When the app starts, `ExplorerRegistry.discover()` walks `admin.site._registry`.
-2. For each registered model, it checks for `explorer_enabled = True` on the `ModelAdmin`.
-3. Models without that flag are ignored entirely -- Explorer is opt-in.
-4. For opted-in models, Explorer reads supported `ModelAdmin` attributes (like `list_display`) to configure the generated CRUD views.
-5. If a `ModelAdmin` attribute is missing or contains unsupported entries (like callables in `list_display`), Explorer falls back to auto-detection from the model's fields.
+### 1. Explicit Registration (Recommended)
 
-This means you register your model in `admin.py` once, add `explorer_enabled = True`, and Explorer builds list/detail/create/update/delete views automatically.
+Create an `explorer.py` in your app:
 
-## Custom Explorer Attributes
+```python
+# apps/myapp/explorer.py
+from apps.explorer.registry import explorer
+from .admin import WidgetAdmin
+from .models import Widget
 
-These attributes are specific to Explorer and are set directly on your `ModelAdmin` subclass.
+explorer.register(Widget, WidgetAdmin, group="Tools")
+```
+
+**Parameters:**
+
+| Param | Type | Default | Description |
+|-------|------|---------|-------------|
+| `model` | Model class | required | The Django model |
+| `admin_class` | ModelAdmin subclass | `ModelAdmin` | Config source for fields, displays, etc. |
+| `group` | `str` | app label (title-cased) | Display group in Explorer index and URL slug |
+
+### 2. Autodiscovery
+
+Explorer automatically imports `explorer.py` from every installed app on startup. No manual wiring needed — just create the file.
+
+### 3. Legacy: `explorer_enabled` on Admin
+
+```python
+@admin.register(Widget)
+class WidgetAdmin(admin.ModelAdmin):
+    list_display = ["name", "category"]
+    explorer_enabled = True  # Discovered from admin.site._registry
+```
+
+Models already registered via `explorer.py` take precedence — they won't be duplicated if also marked with `explorer_enabled`.
+
+## Explorer-Specific Attributes
+
+Set these on the `ModelAdmin` subclass passed to `explorer.register()`:
 
 | Attribute | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `explorer_enabled` | `bool` | `False` | Opt this model into Explorer. Required. |
-| `explorer_fields` | `list[str]` | `None` | Override which fields Explorer shows. Falls back to `list_display` (real fields only), then auto-detection. |
-| `explorer_readonly` | `bool` | `None` | Force readonly mode (list + detail only). When `None`, Explorer auto-detects by checking `has_add_permission` and `has_change_permission`. |
-| `explorer_accessories` | -- | -- | Reserved for future use (charts, maps, visualizations). |
+| `explorer_displays` | `list` | `[Table2Display]` | Display classes for the list view. See [Display Protocol](#display-protocol). |
+| `explorer_detail_displays` | `list` | `[]` | Display classes for the detail view. |
+| `explorer_fields` | `list[str]` | `None` | Override which fields are shown. Falls back to `list_display` (real fields only), then auto-detection. |
+| `explorer_readonly` | `bool` | `None` | Force readonly mode (list + detail only). `None` = auto-detect from permissions. |
+| `explorer_field_transforms` | `dict` | `{}` | Field rendering transforms for basic table display. |
+| `explorer_paginate_by` | `int` | `10` | Items per page in list view. |
+| `explorer_enable_api` | `bool` | `False` | Generate REST API endpoints for this model. |
+| `explorer_export_formats` | `list` | `[]` | Enabled export formats, e.g. `["csv", "json"]`. |
 
-## Django ModelAdmin Attribute Support
+## Standard ModelAdmin Attributes
 
-### Supported
+These Django-standard attributes are read by Explorer:
 
-These attributes are read by Explorer today and affect the generated views.
+| Attribute | Django Behavior | Explorer Behavior |
+|-----------|----------------|-------------------|
+| `list_display` | Changelist columns | List view columns. Real model fields only — callables, `__str__`, and non-field entries are skipped. Falls back to auto-detection if none remain. |
+| `fields` | Detail/edit field list | Detail view fields (flat list). |
+| `fieldsets` | Grouped field layout | Flattened into detail fields. |
+| `search_fields` | Admin search box | API `?q=` search parameter. Auto-detected from CharField/TextField if not set. |
+| `list_per_page` | Changelist pagination | Pagination size (overridden by `explorer_paginate_by`). |
+| `list_filter` | Sidebar filters | API filter parameters. Auto-detected from choice/FK/boolean fields if not set. |
+| `has_add_permission()` | Controls "Add" button | Auto-detects readonly mode. |
+| `has_change_permission()` | Controls editing | Auto-detects readonly mode. |
 
-| Attribute | Django Admin Behavior | Explorer Behavior | Notes |
-|-----------|-----------------------|-------------------|-------|
-| `list_display` | Columns shown in the changelist | Fields shown in Explorer list and forms | Only real model fields are used. Callables, `__str__`, and non-field entries are silently skipped. Falls back to auto-detected fields if none remain. |
-| `has_add_permission()` | Controls whether the "Add" button appears | Auto-detects readonly mode | If overridden to return `False`, Explorer removes create/update/delete actions. |
-| `has_change_permission()` | Controls whether editing is allowed | Auto-detects readonly mode | If overridden to return `False`, Explorer removes create/update/delete actions. |
+## Display Protocol
 
-### Planned
+Display classes control how data renders in the list and detail views. Explorer ships with built-in displays and supports custom ones.
 
-These are low-hanging fruit that Explorer could read from your existing `ModelAdmin` with relatively small implementation effort.
+### List Displays
 
-| Attribute | Django Admin Behavior | Explorer Behavior | Notes |
-|-----------|-----------------------|-------------------|-------|
-| `ordering` | Default sort order for the changelist | Default sort for Explorer list | Straightforward to pass through to the queryset. |
-| `search_fields` | Enables a search box, searches across listed fields | Search box in Explorer | Requires adding a search input to the list template. |
-| `list_per_page` | Number of rows per page (default 100) | Pagination size | Explorer currently hardcodes `paginate_by = 25`. This would override it. |
-| `list_filter` | Sidebar filters in the changelist | Filter controls in Explorer | Requires building filter UI components. |
-| `date_hierarchy` | Date-based drilldown navigation | Date navigation in Explorer | Requires building date nav UI. |
-| `list_display_links` | Which columns link to the detail/change page | Which columns link to Explorer detail view | Currently Explorer links the first column; this would make it configurable. |
-| `list_editable` | Inline editing of fields directly in the changelist | Inline editing in Explorer list | Requires form handling in the list view. |
+| Class | Name | Constructor | Description |
+|-------|------|-------------|-------------|
+| `Table2Display` | `table2` | `Table2Display` | django-tables2 sortable table. Default. |
+| `TableDisplay` | `table` | `TableDisplay` | Basic HTML table. Supports field transforms. |
+| `CardDisplay` | `cards` | `CardDisplay(title_field=None, subtitle_field=None)` | 3-column card grid linking to detail. |
 
-### Not Supported
+### Detail Displays
 
-These attributes are unlikely to be supported because they are tightly coupled to Django admin internals, require significant new UI, or don't map to Explorer's design.
+| Class | Name | Constructor | Description |
+|-------|------|-------------|-------------|
+| `DetailTableDisplay` | `table` | `DetailTableDisplay` | Vertical key/value table. |
+| `DetailCardDisplay` | `card` | `DetailCardDisplay(image_field=None)` | 2-column: image left, fields right. |
 
-| Attribute | Django Admin Behavior | Why Not Supported |
-|-----------|-----------------------|-------------------|
-| `list_display` (callables) | Columns can be methods that compute display values | Would require invoking arbitrary methods and handling their output formatting. Significant complexity. |
-| `list_max_show_all` | Threshold for the "Show all" link | Explorer uses standard pagination; no "show all" concept. |
-| `fieldsets` | Groups fields into sections on the add/change form | Explorer uses a flat field list. Different UX model. |
-| `inlines` | Embedded related-model forms on the change page | Major feature requiring nested form handling and related-object UI. |
-| `actions` | Bulk operations (e.g., "Delete selected") on the changelist | Explorer's CRUD actions are per-object. Bulk actions are a different concept. |
-| `autocomplete_fields` | AJAX-powered select widgets for ForeignKey/M2M fields | Tied to Django admin's widget and URL system. |
-| `raw_id_fields` | Replaces select dropdowns with a raw ID input + lookup popup | Admin-specific widget pattern. |
-| `form` | Custom form class for add/change views | Explorer generates its own forms from the field list. |
-| `formfield_overrides` | Override form field types/widgets by model field type | Coupled to Django admin's form generation pipeline. |
-| `filter_horizontal` / `filter_vertical` | Dual-pane M2M selector widgets | Admin-specific widgets. |
-| `prepopulated_fields` | Auto-fills fields (e.g., slug from title) via JavaScript | Admin-specific JavaScript behavior. |
-| `readonly_fields` | Per-field readonly on the change form | Explorer treats the whole model as readonly or not. Per-field control is not yet supported. |
-| `save_on_top` | Shows save buttons at the top of the change form | Layout-specific to admin. |
-| `save_as` | Adds a "Save as new" button | Admin-specific workflow. |
-| `view_on_site` | Adds a "View on site" link using `get_absolute_url` | Could be added as a future enhancement but not currently planned. |
+### Custom Displays
 
-## Usage Examples
-
-### Minimal Registration
-
-Add `explorer_enabled = True` to any existing `ModelAdmin`. Explorer will auto-detect fields and permissions.
+Subclass `ListDisplay` or `DetailDisplay` to create custom visualizations (charts, calendars, maps, etc.):
 
 ```python
-# apps/tickets/admin.py
-from django.contrib import admin
-from .models import Ticket
+from apps.smallstack.displays import ListDisplay
 
-@admin.register(Ticket)
-class TicketAdmin(admin.ModelAdmin):
-    list_display = ["title", "status", "priority", "created_at"]
-    explorer_enabled = True
+class ChartDisplay(ListDisplay):
+    name = "chart"
+    icon = '<svg>...</svg>'
+    template_name = "myapp/displays/chart.html"
+
+    def get_context(self, queryset, crud_config, request):
+        """Return template context for rendering."""
+        return {"chart_data": aggregate(queryset)}
 ```
 
-Explorer will show the `title`, `status`, `priority`, and `created_at` columns (all real model fields), and allow full CRUD.
+The display protocol has three properties and one method:
 
-### With Field Overrides
+| Property | Purpose |
+|----------|---------|
+| `name` | String used in `?display=___` URL parameter |
+| `icon` | Inline SVG for the palette button |
+| `template_name` | Path to the Django template (rendered as a fragment) |
+| `get_context()` | Returns a dict merged into the template context |
 
-Use `explorer_fields` to show a different set of fields in Explorer than in Django admin.
+`ListDisplay.get_context(queryset, crud_config, request)` receives the full queryset.
+`DetailDisplay.get_context(obj, crud_config, request)` receives a single object.
+
+Register custom displays:
 
 ```python
-@admin.register(Ticket)
-class TicketAdmin(admin.ModelAdmin):
-    list_display = ["title", "status", "priority", "assignee", "created_at"]
-    explorer_enabled = True
-    explorer_fields = ["title", "status", "priority"]  # simpler view for Explorer
+class MyAdmin(admin.ModelAdmin):
+    explorer_displays = [Table2Display, ChartDisplay()]
 ```
 
-### Auto-Detected Readonly
-
-Override `has_change_permission` or `has_add_permission` on the `ModelAdmin` and Explorer will detect it automatically. The model will only get list and detail views (no create, update, or delete).
-
-```python
-@admin.register(AuditLog)
-class AuditLogAdmin(admin.ModelAdmin):
-    list_display = ["timestamp", "user", "action", "detail"]
-    explorer_enabled = True
-
-    def has_add_permission(self, request):
-        return False
-
-    def has_change_permission(self, request, obj=None):
-        return False
-```
-
-### Explicit Readonly Override
-
-Force readonly mode directly, regardless of what the permission methods return.
-
-```python
-@admin.register(SystemConfig)
-class SystemConfigAdmin(admin.ModelAdmin):
-    list_display = ["key", "value", "updated_at"]
-    explorer_enabled = True
-    explorer_readonly = True
-```
+When multiple displays are configured, Explorer shows a palette. The user clicks an icon and HTMX swaps the display in place. The URL updates with `?display=chart` so views are bookmarkable.
 
 ## Field Auto-Detection
 
-When `explorer_fields` is not set and `list_display` contains no real model fields (or only unsupported entries), Explorer falls back to auto-detection. The auto-detection logic:
+When `explorer_fields` is not set and `list_display` yields no real fields, Explorer auto-detects:
 
-1. Iterates over `model._meta.get_fields()`.
-2. Skips reverse relations and many-to-many fields.
-3. Skips `AutoField` and `BigAutoField` (primary keys).
-4. Skips the `password` field.
-5. Skips non-editable fields.
-6. Returns the remaining field names.
+1. Iterates `model._meta.get_fields()`
+2. Skips reverse relations and many-to-many fields
+3. Skips `AutoField` and `BigAutoField`
+4. Skips the `password` field
+5. Skips non-editable fields
+6. Returns the remaining field names
 
-This produces a reasonable default for most models without any configuration.
+## Field Transforms
+
+Transforms change how field values render in `TableDisplay` (basic table). They do **not** affect django-tables2 displays.
+
+```python
+class MyAdmin(admin.ModelAdmin):
+    explorer_field_transforms = {
+        "bio": "preview",          # Truncate with HTMX expand
+        "status": ("badge", {}),   # Colored badge
+    }
+```
+
+Transforms can be:
+- A string name: `"preview"`
+- A tuple: `("badge", {"colors": {"active": "green"}})`
+- A callable: `lambda value, obj, field_name, context: formatted_value`
+
+## Readonly Mode
+
+Explorer determines readonly status in this order:
+
+1. **Explicit:** `explorer_readonly = True` on the admin class
+2. **Auto-detected:** If `has_add_permission()` or `has_change_permission()` returns `False`
+3. **Default:** Full CRUD (list, create, detail, update, delete)
+
+Readonly models get `Action.LIST` and `Action.DETAIL` only — no create, update, or delete.
+
+## Complete Example
+
+```python
+# apps/heartbeat/explorer.py
+from django.contrib import admin
+from apps.explorer.registry import explorer
+from apps.smallstack.displays import Table2Display, DetailTableDisplay
+from .displays import WeeklySummaryDisplay, MonthGridDisplay, SLACompareDisplay
+from .models import HeartbeatDaily
+
+class HeartbeatDailyExplorerAdmin(admin.ModelAdmin):
+    # Standard Django attrs (read by Explorer)
+    list_display = ("date", "ok_count", "fail_count", "uptime_pct", "avg_response_ms")
+
+    # Display palette: three list displays
+    explorer_displays = [
+        Table2Display,
+        WeeklySummaryDisplay(),    # Custom 7-day calendar grid
+        MonthGridDisplay(),        # Custom full-month calendar
+    ]
+
+    # Detail displays
+    explorer_detail_displays = [
+        DetailTableDisplay,
+        SLACompareDisplay(),       # Custom SLA comparison card
+    ]
+
+explorer.register(HeartbeatDaily, HeartbeatDailyExplorerAdmin, group="Monitoring")
+```
+
+## See Also
+
+- [Model Explorer](/smallstack/help/smallstack/explorer/) — Overview, registration, and display palette
+- [Explorer REST API](/smallstack/help/smallstack/explorer-rest-api/) — API authentication, endpoints, and testing
+- [Explorer Composability](/smallstack/help/smallstack/explorer-composability/) — Embed Explorer into custom pages

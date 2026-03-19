@@ -4,13 +4,14 @@ CRUDView is SmallStack's declarative class for generating Django CRUD views from
 
 ## Overview
 
-The pattern: define a model, a table class (django-tables2), and a CRUDView config. CRUDView generates views, URL patterns, forms, breadcrumbs, and context collision protection.
+The pattern: define a model, configure displays (or a table class), and a CRUDView config. CRUDView generates views, URL patterns, forms, breadcrumbs, and context collision protection.
 
 ## File Locations
 
 ```
 apps/smallstack/
 ├── crud.py                # CRUDView, Action enum, base view classes
+├── displays.py            # Display protocol: ListDisplay, DetailDisplay, FormDisplay
 ├── tables.py              # DetailLinkColumn, BooleanColumn, ActionsColumn
 ├── mixins.py              # StaffRequiredMixin and other access mixins
 └── templates/smallstack/crud/
@@ -22,46 +23,25 @@ apps/smallstack/
 
 ## The Simplest Case
 
-### 1. Table Class
-
-```python
-# apps/myfeature/tables.py
-import django_tables2 as tables
-from apps.smallstack.tables import ActionsColumn, BooleanColumn, DetailLinkColumn
-from .models import Widget
-
-class WidgetTable(tables.Table):
-    name = DetailLinkColumn(url_base="manage/widgets", link_view="update")
-    is_active = BooleanColumn(verbose_name="Active")
-    actions = ActionsColumn(url_base="manage/widgets")
-
-    class Meta:
-        model = Widget
-        fields = ("name", "category", "is_active", "owner", "created_at")
-        order_by = "-created_at"
-        attrs = {"class": "crud-table"}   # Required for theme styling
-```
-
-### 2. CRUDView Config
+### 1. CRUDView Config
 
 ```python
 # apps/myfeature/views.py
 from apps.smallstack.crud import Action, CRUDView
+from apps.smallstack.displays import TableDisplay
 from apps.smallstack.mixins import StaffRequiredMixin
 from .models import Widget
-from .tables import WidgetTable
 
 class WidgetCRUDView(CRUDView):
     model = Widget
     fields = ["name", "category", "is_active", "owner"]
     url_base = "manage/widgets"
-    paginate_by = 10
     mixins = [StaffRequiredMixin]
-    table_class = WidgetTable
+    displays = [TableDisplay]
     actions = [Action.LIST, Action.CREATE, Action.UPDATE, Action.DELETE]
 ```
 
-### 3. URL Wiring
+### 2. URL Wiring
 
 ```python
 # apps/myfeature/urls.py
@@ -103,7 +83,82 @@ This generates:
 | `export_formats` | list | `[]` | Export formats, e.g. `["csv", "json"]` (API only) |
 | `breadcrumb_parent` | tuple | None | `(label, url_name)` for parent breadcrumb |
 
-## Column Types
+## Display Protocol
+
+Displays control how data renders in list and detail views. CRUDView and Explorer use the same protocol.
+
+### Built-in List Displays
+
+| Class | Name | Description |
+|-------|------|-------------|
+| `TableDisplay` | `table` | Basic HTML table with field transforms and pagination |
+| `Table2Display` | `table2` | django-tables2 sortable table (requires `table_class`) |
+| `CardDisplay` | `cards` | 3-column card grid with title/subtitle |
+
+### Built-in Detail Displays
+
+| Class | Name | Description |
+|-------|------|-------------|
+| `DetailTableDisplay` | `table` | Vertical key/value table |
+| `DetailCardDisplay` | `card` | 2-column: image left, fields right |
+
+### Custom Displays
+
+Subclass `ListDisplay` or `DetailDisplay` to create custom visualizations (charts, calendars, maps):
+
+```python
+from apps.smallstack.displays import ListDisplay
+
+class WeeklySummaryDisplay(ListDisplay):
+    name = "weekly"
+    icon = '<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">...</svg>'
+    template_name = "myapp/displays/weekly_summary.html"
+
+    def get_context(self, queryset, crud_config, request):
+        # Can ignore queryset and build custom data
+        return {"days": build_weekly_data(), ...}
+```
+
+For detail views:
+
+```python
+from apps.smallstack.displays import DetailDisplay
+
+class SLACompareDisplay(DetailDisplay):
+    name = "sla"
+    icon = '<svg>...</svg>'
+    template_name = "myapp/displays/sla_compare.html"
+
+    def get_context(self, obj, crud_config, request):
+        return {"uptime": float(obj.uptime_pct), ...}
+```
+
+Register on CRUDView:
+
+```python
+class MyCRUDView(CRUDView):
+    displays = [TableDisplay, WeeklySummaryDisplay(), MonthGridDisplay()]
+    detail_displays = [DetailTableDisplay, SLACompareDisplay()]
+```
+
+When `displays` has more than one entry, a palette of icon buttons appears. Clicking swaps the display via HTMX. The URL updates with `?display=weekly` for bookmarking.
+
+### Display Template Pattern
+
+Display templates are standalone fragments with their own `<style>` — no base template extension needed:
+
+```html
+<style>
+.my-display { /* scoped styles */ }
+</style>
+<div class="my-display">
+    {% for item in items %}...{% endfor %}
+</div>
+```
+
+## Column Types (django-tables2)
+
+Used with `Table2Display` or `table_class`. Not needed when using `TableDisplay` or custom displays.
 
 | Column | What It Does |
 |--------|-------------|
@@ -257,11 +312,9 @@ Legacy attributes `field_formatters` and `preview_fields` still work but emit de
 ## Quick Checklist
 
 - [ ] Model in `apps/<appname>/models.py`
-- [ ] Table class with `attrs = {"class": "crud-table"}`
-- [ ] CRUDView with `paginate_by = 10`
+- [ ] CRUDView with `displays` configured (or `table_class` for sortable tables)
 - [ ] URLs using `*MyCRUDView.get_urls()`
-- [ ] `"django_tables2"` in `INSTALLED_APPS`
 - [ ] URL include in `config/urls.py`
 - [ ] Sidebar link (see navigation skill)
 - [ ] Migrations created and applied
-- [ ] Tests for access control and table rendering
+- [ ] Tests for access control

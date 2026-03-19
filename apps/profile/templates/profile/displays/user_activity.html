@@ -1,0 +1,191 @@
+<style>
+.ua-grid {
+    display: grid;
+    grid-template-columns: 280px 1fr;
+    gap: 1.5rem;
+    align-items: start;
+}
+@media (max-width: 768px) { .ua-grid { grid-template-columns: 1fr; } }
+
+/* ── Period bars ─────────────────────────────────────── */
+.ua-bars {
+    background: var(--card-bg, var(--body-bg));
+    border: 1px solid color-mix(in srgb, var(--body-fg) 10%, var(--body-bg));
+    border-radius: var(--radius-md, 8px);
+    overflow: hidden;
+}
+.ua-bars-header {
+    padding: 0.75rem 1.25rem;
+    background: color-mix(in srgb, var(--body-fg) 4%, var(--body-bg));
+    border-bottom: 1px solid color-mix(in srgb, var(--body-fg) 8%, var(--body-bg));
+    font-weight: 600;
+    font-size: 0.85rem;
+    color: var(--body-fg);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+.ua-bars-header svg { opacity: 0.5; }
+.ua-bars-body { padding: 1.25rem; }
+.ua-bar-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+}
+.ua-bar-row:last-child { margin-bottom: 0; }
+.ua-bar-label {
+    width: 60px;
+    flex-shrink: 0;
+    font-size: 0.8rem;
+    font-weight: 500;
+    color: var(--body-quiet-color);
+    text-align: right;
+}
+.ua-bar-track {
+    flex: 1;
+    height: 28px;
+    background: color-mix(in srgb, var(--body-fg) 5%, var(--body-bg));
+    border-radius: 4px;
+    overflow: hidden;
+    position: relative;
+}
+.ua-bar-fill {
+    height: 100%;
+    border-radius: 4px;
+    transition: width 0.4s ease;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    padding-right: 0.5rem;
+    min-width: 2.5rem;
+}
+.ua-bar-count {
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: #fff;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.2);
+}
+.ua-bar-fill.bar-30 { background: var(--primary); }
+.ua-bar-fill.bar-60 { background: color-mix(in srgb, var(--primary) 70%, var(--body-fg)); }
+.ua-bar-fill.bar-90 { background: color-mix(in srgb, var(--primary) 45%, var(--body-fg)); }
+.ua-total {
+    margin-top: 1rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid color-mix(in srgb, var(--body-fg) 8%, var(--body-bg));
+    text-align: center;
+    font-size: 0.75rem;
+    color: var(--body-quiet-color);
+}
+.ua-total strong {
+    color: var(--body-fg);
+    font-size: 1.1rem;
+}
+
+/* ── Daily sparkline ─────────────────────────────────── */
+.ua-daily {
+    background: var(--card-bg, var(--body-bg));
+    border: 1px solid color-mix(in srgb, var(--body-fg) 10%, var(--body-bg));
+    border-radius: var(--radius-md, 8px);
+    overflow: hidden;
+}
+.ua-daily-header {
+    padding: 0.75rem 1.25rem;
+    background: color-mix(in srgb, var(--body-fg) 4%, var(--body-bg));
+    border-bottom: 1px solid color-mix(in srgb, var(--body-fg) 8%, var(--body-bg));
+    font-weight: 600;
+    font-size: 0.85rem;
+    color: var(--body-fg);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+.ua-daily-peak {
+    font-weight: 400;
+    font-size: 0.75rem;
+    color: var(--body-quiet-color);
+}
+.ua-daily-body { padding: 1.25rem 1.25rem 0.75rem; }
+.ua-spark {
+    display: flex;
+    align-items: flex-end;
+    gap: 2px;
+    height: 80px;
+}
+.ua-spark-bar {
+    flex: 1;
+    min-width: 0;
+    border-radius: 2px 2px 0 0;
+    background: var(--primary);
+    opacity: 0.7;
+    transition: opacity 0.15s, height 0.3s ease;
+    position: relative;
+    cursor: default;
+}
+.ua-spark-bar:hover {
+    opacity: 1;
+}
+.ua-spark-bar[data-count="0"] {
+    background: color-mix(in srgb, var(--body-fg) 8%, var(--body-bg));
+    opacity: 1;
+    min-height: 2px;
+}
+.ua-spark-labels {
+    display: flex;
+    justify-content: space-between;
+    padding-top: 0.4rem;
+    font-size: 0.65rem;
+    color: var(--body-quiet-color);
+}
+</style>
+
+<div class="ua-grid">
+
+    <!-- ═══ Period bars ═══ -->
+    <div class="ua-bars">
+        <div class="ua-bars-header">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z"/></svg>
+            Request Volume
+        </div>
+        <div class="ua-bars-body">
+            {% for bar in bars %}
+            <div class="ua-bar-row">
+                <span class="ua-bar-label">{{ bar.label }}</span>
+                <div class="ua-bar-track">
+                    <div class="ua-bar-fill bar-{{ bar.days }}" style="width: {{ bar.pct }}%;">
+                        <span class="ua-bar-count">{{ bar.count }}</span>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+            <div class="ua-total">
+                <strong>{{ total_90 }}</strong> requests in 90 days
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══ Daily sparkline ═══ -->
+    <div class="ua-daily">
+        <div class="ua-daily-header">
+            <span>Last 30 Days</span>
+            {% if daily_max %}<span class="ua-daily-peak">Peak: {{ daily_max }}/day</span>{% endif %}
+        </div>
+        <div class="ua-daily-body">
+            <div class="ua-spark">
+                {% for day in daily %}
+                <div
+                    class="ua-spark-bar"
+                    style="height: {% if day.pct > 0 %}{{ day.pct }}%{% else %}2px{% endif %};"
+                    data-count="{{ day.count }}"
+                    title="{{ day.date|date:'M j' }}: {{ day.count }} requests"
+                ></div>
+                {% endfor %}
+            </div>
+            <div class="ua-spark-labels">
+                <span>{{ daily.0.date|date:"M j" }}</span>
+                <span>Today</span>
+            </div>
+        </div>
+    </div>
+
+</div>

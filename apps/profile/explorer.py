@@ -7,10 +7,12 @@ from apps.smallstack.displays import (
     CardDisplay,
     DetailCardDisplay,
     DetailTableDisplay,
+    SectionedFormDisplay,
     Table2Display,
     TableDisplay,
 )
 
+from .displays import UserActivityDisplay
 from .models import UserProfile
 
 
@@ -31,10 +33,18 @@ class UserProfileExplorerAdmin(admin.ModelAdmin):
     ]
 
     # Detail: table (classic) and card (grid) layouts
-    explorer_detail_displays = [DetailTableDisplay, DetailCardDisplay(image_field="profile_photo")]
+    explorer_detail_displays = [DetailTableDisplay, DetailCardDisplay(image_field="profile_photo"), UserActivityDisplay()]
 
     # Transforms apply in the basic table display (TableDisplay)
     explorer_field_transforms = {"bio": "preview"}
+
+    # Form: sectioned layout for create/edit
+    explorer_form_displays = [
+        SectionedFormDisplay(sections=[
+            ("Identity", None, ["display_name", "location"]),
+            ("About", None, ["bio"]),
+        ]),
+    ]
 
 
 explorer.register(UserProfile, UserProfileExplorerAdmin, group="Accounts")

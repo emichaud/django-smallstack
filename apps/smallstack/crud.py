@@ -141,6 +141,8 @@ class _CRUDListBase(_CRUDContextMixin, ListView):
         return displays[0]
 
     def get_context_data(self, **kwargs):
+        from .displays import build_palette_context
+
         context = super().get_context_data(**kwargs)
         cfg = self.crud_config
 
@@ -152,6 +154,9 @@ class _CRUDListBase(_CRUDContextMixin, ListView):
             context["display_template"] = display.template_name
             context["active_display"] = display.name
             all_displays = cfg._get_displays()
+            context["display_palette"] = build_palette_context(
+                all_displays, display, self.request
+            )
             if len(all_displays) > 1:
                 context["available_displays"] = all_displays
         elif cfg.table_class:
@@ -206,6 +211,8 @@ class _CRUDDetailBase(_CRUDContextMixin, DetailView):
         return displays[0]
 
     def get_context_data(self, **kwargs):
+        from .displays import build_palette_context
+
         context = super().get_context_data(**kwargs)
         cfg = self.crud_config
 
@@ -216,33 +223,100 @@ class _CRUDDetailBase(_CRUDContextMixin, DetailView):
             context["display_template"] = display.template_name
             context["active_display"] = display.name
             all_displays = cfg._get_detail_displays()
+            context["display_palette"] = build_palette_context(
+                all_displays, display, self.request
+            )
             if len(all_displays) > 1:
                 context["available_displays"] = all_displays
 
         return context
 
 
-class _CRUDCreateBase(_CRUDContextMixin, CreateView):
+class _CRUDFormDisplayMixin:
+    """Shared display protocol logic for create and update views."""
+
+    _form_action = "form"  # Override in subclass: "create" or "edit"
+
+    def _get_active_form_display(self):
+        """Determine the active form display for this request."""
+        cfg = self.crud_config
+        displays = cfg._get_form_displays(self._form_action)
+        if not displays:
+            return None
+
+        requested = self.request.GET.get("display", "")
+        if requested:
+            for d in displays:
+                if d.name == requested:
+                    return d
+
+        if cfg.default_form_display:
+            d = cfg.default_form_display
+            return d() if isinstance(d, type) else d
+        return displays[0]
+
+    def _inject_display_context(self, context, obj=None):
+        """Add display protocol context if form displays are configured."""
+        from .displays import build_palette_context
+
+        display = self._get_active_form_display()
+        if display:
+            display_ctx = display.get_context(
+                context.get("form"), obj, self.crud_config, self.request
+            )
+            context.update(display_ctx)
+            context["display_template"] = display.template_name
+            context["active_display"] = display.name
+            all_displays = self.crud_config._get_form_displays(self._form_action)
+            context["display_palette"] = build_palette_context(
+                all_displays, display, self.request
+            )
+            if len(all_displays) > 1:
+                context["available_displays"] = all_displays
+        return context
+
+
+class _CRUDCreateBase(_CRUDFormDisplayMixin, _CRUDContextMixin, CreateView):
+    _form_action = "create"
+
     def get_template_names(self):
-        return self.crud_config._get_template_names("form")
+        if getattr(self.request, "htmx", False):
+            display = self._get_active_form_display()
+            if display and self.request.GET.get("display"):
+                return [display.template_name]
+        return self.crud_config._get_template_names("create")
 
     def get_form_class(self):
         return self.crud_config.form_class or self.crud_config._make_form_class()
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        return self._inject_display_context(context, obj=None)
 
     def get_success_url(self):
         url_base = self.crud_config._get_url_base()
         return reverse(f"{url_base}-list")
 
 
-class _CRUDUpdateBase(_CRUDContextMixin, UpdateView):
+class _CRUDUpdateBase(_CRUDFormDisplayMixin, _CRUDContextMixin, UpdateView):
+    _form_action = "edit"
+
     def get_template_names(self):
-        return self.crud_config._get_template_names("form")
+        if getattr(self.request, "htmx", False):
+            display = self._get_active_form_display()
+            if display and self.request.GET.get("display"):
+                return [display.template_name]
+        return self.crud_config._get_template_names("edit")
 
     def get_queryset(self):
         return self.crud_config._get_queryset()
 
     def get_form_class(self):
         return self.crud_config.form_class or self.crud_config._make_form_class()
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        return self._inject_display_context(context, obj=self.object)
 
     def get_success_url(self):
         url_base = self.crud_config._get_url_base()
@@ -388,6 +462,12 @@ class CRUDView:
     default_display = None  # Defaults to first in displays
     detail_displays = []  # List of DetailDisplay classes/instances
 
+    # Form displays
+    form_displays = []  # FormDisplay classes/instances (both create + edit)
+    create_displays = []  # Create-only (overrides form_displays for create)
+    edit_displays = []  # Edit-only (overrides form_displays for edit)
+    default_form_display = None  # Defaults to first in resolved list
+
     # API
     enable_api = False  # Opt-in: generate JSON API endpoints alongside HTML views
     search_fields = []  # Fields for ?q= search (reads from admin_class.search_fields)
@@ -473,6 +553,22 @@ class CRUDView:
         if not cls.detail_displays:
             return []
         return [d() if isinstance(d, type) else d for d in cls.detail_displays]
+
+    @classmethod
+    def _get_form_displays(cls, action="form"):
+        """Return list of form display instances for create or edit.
+
+        Resolution: create_displays/edit_displays → form_displays → empty.
+        """
+        if action == "create" and cls.create_displays:
+            source = cls.create_displays
+        elif action == "edit" and cls.edit_displays:
+            source = cls.edit_displays
+        elif cls.form_displays:
+            source = cls.form_displays
+        else:
+            return []
+        return [d() if isinstance(d, type) else d for d in source]
 
     @classmethod
     def _get_effective_transforms(cls):
@@ -573,13 +669,25 @@ class CRUDView:
         Templates are namespaced under {app_label}/crud/ to avoid collisions
         with public-facing templates that use Django's standard naming
         convention ({app_label}/{model_name}_{suffix}.html).
+
+        For "create" and "edit" suffixes, falls back to "form" for backward
+        compatibility — existing {model}_form.html overrides still work.
         """
         app_label = cls.model._meta.app_label
         model_name = cls.model._meta.model_name
-        return [
-            f"{app_label}/crud/{model_name}_{suffix}.html",
-            f"smallstack/crud/object_{suffix}.html",
-        ]
+
+        templates = [f"{app_label}/crud/{model_name}_{suffix}.html"]
+
+        # Fallback: create/edit → form (backward compat)
+        if suffix in ("create", "edit"):
+            templates.append(f"{app_label}/crud/{model_name}_form.html")
+
+        templates.append(f"smallstack/crud/object_{suffix}.html")
+
+        if suffix in ("create", "edit"):
+            templates.append("smallstack/crud/object_form.html")
+
+        return templates
 
     @classmethod
     def _make_form_class(cls):

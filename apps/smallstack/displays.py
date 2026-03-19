@@ -4,10 +4,46 @@ Display classes render a dataset into a visual format. CRUDView provides
 the data; the display class renders it.
 
 Built-in displays:
-    TableDisplay  — basic HTML table (uses {% crud_table %} tag)
-    Table2Display — django-tables2 sortable table
-    CardDisplay   — 3-column card grid with title/subtitle
+    List:   TableDisplay, Table2Display, CardDisplay
+    Detail: DetailTableDisplay, DetailCardDisplay
+    Form:   DefaultFormDisplay, SectionedFormDisplay
 """
+
+
+# ---------------------------------------------------------------------------
+# Shared helpers
+# ---------------------------------------------------------------------------
+
+
+def build_palette_context(displays, active_display, request):
+    """Build structured palette context used by all action types.
+
+    Returns a dict with:
+        displays: list of {name, icon, active, url}
+        active: name of the active display
+        show_palette: whether the palette should be shown
+    """
+    items = []
+    for d in displays:
+        items.append(
+            {
+                "name": d.name,
+                "icon": d.icon,
+                "active": d.name == active_display.name,
+                "url": f"?display={d.name}",
+            }
+        )
+    show = getattr(active_display, "show_palette", True) and len(displays) > 1
+    return {
+        "displays": items,
+        "active": active_display.name,
+        "show_palette": show,
+    }
+
+
+# ---------------------------------------------------------------------------
+# List displays
+# ---------------------------------------------------------------------------
 
 
 class ListDisplay:
@@ -257,3 +293,86 @@ class CardDisplay(ListDisplay):
             "object_list": items,
             **page_context,
         }
+
+
+# ---------------------------------------------------------------------------
+# Form displays
+# ---------------------------------------------------------------------------
+
+
+class FormDisplay:
+    """Base class for form view displays.
+
+    Subclass this to create custom form layouts (sectioned, wizard,
+    multi-column, etc.). CRUDView picks the active display and calls
+    get_context() to build template context, then renders template_name.
+    """
+
+    name = ""
+    icon = ""
+    template_name = ""
+    show_palette = True
+
+    def get_context(self, form, obj, crud_config, request):
+        """Return additional template context for rendering this form display.
+
+        Args:
+            form: The Django Form instance (bound on POST, unbound on GET)
+            obj: The model instance (None for create, instance for update)
+            crud_config: The CRUDView config class
+            request: The HTTP request
+        """
+        return {}
+
+
+class DefaultFormDisplay(FormDisplay):
+    """Auto-generated vertical form — the current default layout."""
+
+    name = "form"
+    icon = (
+        '<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">'
+        '<path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 '
+        '0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/>'
+        "</svg>"
+    )
+    template_name = "smallstack/crud/displays/form_default.html"
+    show_palette = False
+
+
+class SectionedFormDisplay(FormDisplay):
+    """Group form fields into labeled section cards.
+
+    Usage:
+        SectionedFormDisplay(sections=[
+            ("Contact Info", None, ["first_name", "last_name", "phone"]),
+            ("Project", None, ["title", "description", "status"]),
+        ])
+
+    Each section is a tuple of (title, icon_html_or_None, [field_names]).
+    Fields not present in the form are silently skipped.
+    """
+
+    name = "sectioned"
+    icon = (
+        '<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">'
+        '<path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"/>'
+        "</svg>"
+    )
+    template_name = "smallstack/crud/displays/form_sectioned.html"
+
+    def __init__(self, sections, columns=2):
+        """
+        Args:
+            sections: list of (title, icon_html_or_None, [field_names])
+            columns: grid columns for the section layout (1 or 2)
+        """
+        self.sections = sections
+        self.columns = columns
+
+    def get_context(self, form, obj, crud_config, request):
+        sections = []
+        for title, icon, field_names in self.sections:
+            fields = [form[name] for name in field_names if name in form.fields]
+            if fields:
+                sections.append({"title": title, "icon": icon, "fields": fields})
+        return {"form_sections": sections, "form_columns": self.columns}

@@ -5,6 +5,7 @@ SmallStack middleware.
 import zoneinfo
 
 from django.conf import settings
+from django.http import HttpResponse
 from django.utils import timezone
 
 
@@ -43,4 +44,32 @@ class TimezoneMiddleware:
         timezone.activate(user_tz)
 
         response = self.get_response(request)
+        return response
+
+
+class HtmxLoginRedirectMiddleware:
+    """Convert login redirects to full-page navigations for HTMX requests.
+
+    When an HTMX fragment request hits a LoginRequired redirect, Django
+    returns a 302 to the login page. HTMX follows it and injects the login
+    page HTML into the target element. This middleware detects that case
+    and responds with HX-Redirect so the browser does a proper navigation.
+    """
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        response = self.get_response(request)
+
+        if (
+            getattr(request, "htmx", False)
+            and response.status_code in (301, 302)
+            and hasattr(response, "url")
+        ):
+            redirect_url = response.url
+            resp = HttpResponse(status=200)
+            resp["HX-Redirect"] = redirect_url
+            return resp
+
         return response
