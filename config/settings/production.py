@@ -19,11 +19,14 @@ ALLOWED_HOSTS = config("ALLOWED_HOSTS", cast=Csv())
 # SQLite is the default - stored in /app/data/ which is mounted as a volume
 # This means the database persists across container rebuilds and deploys
 # VPS backups automatically include your database - simple and effective
+# SQLITE_OPTIONS (from base.py) enables WAL mode, IMMEDIATE transactions,
+# and performance PRAGMAs to prevent "database is locked" errors
 # See /help/database-sqlite/ for more on why SQLite works great in production
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.sqlite3",
         "NAME": config("DATABASE_PATH", default="/app/data/db.sqlite3"),
+        "OPTIONS": SQLITE_OPTIONS,  # noqa: F405
     }
 }
 

@@ -51,16 +51,31 @@ The project separates the database file from the application code, which is crit
 └── media/              # Uploads (PERSISTENT)
 ```
 
-In `config/settings/base.py`:
+In `config/settings/development.py`:
 
 ```python
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.sqlite3",
-        "NAME": BASE_DIR / "data" / "db.sqlite3",
+        "NAME": BASE_DIR / "db.sqlite3",
+        "OPTIONS": SQLITE_OPTIONS,  # WAL, IMMEDIATE, performance PRAGMAs
     }
 }
 ```
+
+In `config/settings/production.py`:
+
+```python
+DATABASES = {
+    "default": {
+        "ENGINE": "django.db.backends.sqlite3",
+        "NAME": config("DATABASE_PATH", default="/app/data/db.sqlite3"),
+        "OPTIONS": SQLITE_OPTIONS,
+    }
+}
+```
+
+`SQLITE_OPTIONS` is defined in `base.py` and includes WAL mode, IMMEDIATE transactions, and performance PRAGMAs. See the [Best Practices](#enable-wal-mode) section below for details.
 
 ### Why This Matters for Docker
 
@@ -97,10 +112,13 @@ For manual or ad-hoc backups outside the built-in tool:
 
 1. **VPS snapshots** — Most providers offer automated snapshots. Enable them and your database is automatically backed up.
 
-2. **File copy** — SQLite is a single file. Copy it anywhere:
+2. **File copy** — With WAL mode enabled, the database uses three files: `db.sqlite3`, `db.sqlite3-wal`, and `db.sqlite3-shm`. A plain `cp` of the main file alone may produce a corrupt backup. Use `sqlite3 .backup` or `make backup` instead:
    ```bash
-   # On the VPS
-   cp /root/app_data/db/db.sqlite3 /root/backups/db-$(date +%Y%m%d).sqlite3
+   # UNSAFE with WAL mode:
+   # cp /root/app_data/db/db.sqlite3 /root/backups/db-$(date +%Y%m%d).sqlite3
+
+   # SAFE — use the built-in backup command instead:
+   make backup
    ```
 
 3. **SQLite backup command** — For live backups without stopping the app:
@@ -110,32 +128,47 @@ For manual or ad-hoc backups outside the built-in tool:
 
 ## SQLite Best Practices
 
-### Enable WAL Mode
+### Production-Grade SQLite Tuning
 
-Write-Ahead Logging improves concurrent read performance. {{ project_name }} enables this automatically, but here's how it works:
+{{ project_name }} applies a set of PRAGMAs automatically via `SQLITE_OPTIONS` in `base.py`:
 
 ```python
-# In settings
-DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.sqlite3",
-        "NAME": BASE_DIR / "data" / "db.sqlite3",
-        "OPTIONS": {
-            "init_command": "PRAGMA journal_mode=WAL;",
-        },
-    }
+SQLITE_OPTIONS = {
+    "transaction_mode": "IMMEDIATE",
+    "timeout": 5,
+    "init_command": (
+        "PRAGMA journal_mode=WAL;"
+        "PRAGMA synchronous=NORMAL;"
+        "PRAGMA temp_store=MEMORY;"
+        "PRAGMA mmap_size=134217728;"
+        "PRAGMA journal_size_limit=27103364;"
+        "PRAGMA cache_size=2000;"
+    ),
 }
 ```
 
+| Setting | What it does |
+|---------|-------------|
+| `journal_mode=WAL` | Allows concurrent reads while a write is in progress |
+| `synchronous=NORMAL` | Safe with WAL; reduces fsync overhead |
+| `transaction_mode=IMMEDIATE` | Acquires write lock upfront, preventing "database is locked" errors from lock upgrades |
+| `timeout=5` | Waits up to 5 seconds for the write lock instead of failing immediately |
+| `temp_store=MEMORY` | Keeps temporary tables in memory |
+| `mmap_size=128MB` | Memory-maps the database file for faster reads |
+| `journal_size_limit` | Prevents the WAL file from growing unbounded |
+| `cache_size=2000` | 2000 pages (~8 MB) of page cache |
+
 ### Understand the Limitations
 
-SQLite has **one write at a time**. This is fine for:
+SQLite allows **one writer at a time**, but with WAL mode enabled, reads are never blocked by writes. Combined with IMMEDIATE transactions, concurrent writers queue properly instead of failing with lock errors. This is fine for:
+
 - ✅ Read-heavy workloads (admin dashboards, content sites)
 - ✅ Low-to-moderate write volume (internal tools, small teams)
 - ✅ Single-server deployments
+- ✅ Background workers and cron jobs alongside web requests
 
 Consider PostgreSQL if you need:
-- ❌ High concurrent write volume
+- ❌ Sustained high concurrent write volume beyond single-writer capacity
 - ❌ Multiple servers writing to the same database
 - ❌ Advanced features (full-text search, JSON operators, PostGIS)
 
@@ -178,7 +211,7 @@ The web development community is recognizing that **not every application needs 
 
 You'll know it's time to consider PostgreSQL when:
 
-1. **Write contention** — You're seeing database lock errors under load
+1. **Sustained write contention** — Lock errors persist even with WAL + IMMEDIATE tuning (indicates write volume exceeds single-writer capacity)
 2. **Team growth** — Multiple developers need concurrent write access
 3. **Scale requirements** — You need horizontal scaling or read replicas
 4. **Feature needs** — You need full-text search, JSONB, or geospatial queries

@@ -220,6 +220,24 @@ BACKUP_RETENTION = config("BACKUP_RETENTION", default=10, cast=int)
 BACKUP_CRON_ENABLED = config("BACKUP_CRON_ENABLED", default=True, cast=bool)
 BACKUP_DOWNLOAD_ENABLED = config("BACKUP_DOWNLOAD_ENABLED", default=True, cast=bool)
 
+# SQLite Performance Tuning
+# Applied to all SQLite connections in dev and production.
+# WAL mode enables concurrent reads during writes.
+# IMMEDIATE transactions prevent "database is locked" errors.
+# See: https://blog.pecar.me/sqlite-django-config
+SQLITE_OPTIONS = {
+    "transaction_mode": "IMMEDIATE",
+    "timeout": 5,
+    "init_command": (
+        "PRAGMA journal_mode=WAL;"
+        "PRAGMA synchronous=NORMAL;"
+        "PRAGMA temp_store=MEMORY;"
+        "PRAGMA mmap_size=134217728;"
+        "PRAGMA journal_size_limit=27103364;"
+        "PRAGMA cache_size=2000;"
+    ),
+}
+
 # Heartbeat / Uptime Monitoring
 HEARTBEAT_RETENTION_DAYS = config("HEARTBEAT_RETENTION_DAYS", default=7, cast=int)
 HEARTBEAT_EXPECTED_INTERVAL = config("HEARTBEAT_EXPECTED_INTERVAL", default=60, cast=int)

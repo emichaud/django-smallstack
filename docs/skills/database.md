@@ -31,11 +31,26 @@ apps/smallstack/docs/
 In development, the database file lives at `db.sqlite3` in the project root. In production (Docker/Kamal), it uses a configurable path via `DATABASE_PATH` (default: `/app/data/db.sqlite3`) for volume mounting.
 
 ```python
+# config/settings/base.py — shared SQLite tuning
+SQLITE_OPTIONS = {
+    "transaction_mode": "IMMEDIATE",
+    "timeout": 5,
+    "init_command": (
+        "PRAGMA journal_mode=WAL;"
+        "PRAGMA synchronous=NORMAL;"
+        "PRAGMA temp_store=MEMORY;"
+        "PRAGMA mmap_size=134217728;"
+        "PRAGMA journal_size_limit=27103364;"
+        "PRAGMA cache_size=2000;"
+    ),
+}
+
 # config/settings/development.py
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.sqlite3",
         "NAME": BASE_DIR / "db.sqlite3",
+        "OPTIONS": SQLITE_OPTIONS,
     }
 }
 
@@ -44,9 +59,12 @@ DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.sqlite3",
         "NAME": config("DATABASE_PATH", default="/app/data/db.sqlite3"),
+        "OPTIONS": SQLITE_OPTIONS,
     }
 }
 ```
+
+**Note:** Do not use `ATOMIC_REQUESTS = True` with `transaction_mode = "IMMEDIATE"` — every request would acquire an exclusive write lock upfront, serializing all traffic.
 
 ### When SQLite Works
 
@@ -62,7 +80,7 @@ DATABASES = {
 
 ### When to Switch
 
-- "database is locked" errors (too many concurrent writes)
+- "database is locked" errors persist even with WAL + IMMEDIATE tuning
 - Need JSONB, arrays, full-text search
 - Multiple developers need simultaneous write access
 - Horizontal scaling (read replicas, connection pooling)

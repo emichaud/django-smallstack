@@ -112,6 +112,25 @@ SMALLSTACK_SIDEBAR_DEFAULT = config("SMALLSTACK_SIDEBAR_DEFAULT", default="open"
 SMALLSTACK_TOPBAR_NAV_ALWAYS = config("SMALLSTACK_TOPBAR_NAV_ALWAYS", default=True, cast=bool)
 ```
 
+### SQLite Performance Tuning
+
+```python
+SQLITE_OPTIONS = {
+    "transaction_mode": "IMMEDIATE",
+    "timeout": 5,
+    "init_command": (
+        "PRAGMA journal_mode=WAL;"
+        "PRAGMA synchronous=NORMAL;"
+        "PRAGMA temp_store=MEMORY;"
+        "PRAGMA mmap_size=134217728;"
+        "PRAGMA journal_size_limit=27103364;"
+        "PRAGMA cache_size=2000;"
+    ),
+}
+```
+
+Referenced by both `development.py` and `production.py` as `"OPTIONS": SQLITE_OPTIONS`. Prevents "database is locked" errors by enabling WAL mode and IMMEDIATE transactions. Do not use `ATOMIC_REQUESTS = True` with this configuration.
+
 ### Activity Tracking
 
 ```python
