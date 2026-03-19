@@ -79,10 +79,19 @@ result = send_email_task.enqueue(
     message="This is a test."
 )
 
+# Send to multiple recipients in a single task
+result = send_email_task.enqueue(
+    recipient=["owner@example.com", "backup@example.com"],
+    subject="New order",
+    message="Order #1234 received."
+)
+
 # Check status later
 result.refresh()
 print(result.status)  # SUCCESSFUL, RUNNING, or FAILED
 ```
+
+**Tip:** `send_email_task` accepts a single string or a list of strings. Prefer passing a list over looping and enqueuing one task per recipient — it's one task, one SMTP call, one row in the task table.
 
 ## Running the Worker
 
@@ -140,13 +149,35 @@ SmallStack ships with these tasks in `apps/tasks/tasks.py`:
 - **Import models inside the function** to avoid circular imports
 - **Tasks run in a separate process** — they don't share request context
 
-## Admin Interface
+## Test Configuration
+
+The test settings must declare the same queues as production, or tasks with `queue_name="email"` will raise `InvalidTask`:
+
+```python
+# config/settings/test.py
+TASKS = {
+    "default": {
+        "BACKEND": "django.tasks.backends.immediate.ImmediateBackend",
+        "QUEUES": ["default", "email"],  # Must match production queues
+    }
+}
+```
+
+The `ImmediateBackend` executes tasks synchronously — no worker needed during tests — but still validates queue names against the allowed list.
+
+## Task Visibility
+
+### Django Admin
 
 Task results are visible in the Django admin under "Django Tasks Database". You can see:
 - Task status (pending, running, successful, failed)
 - Arguments passed
 - Result or error message
 - Timing information
+
+### Explorer
+
+Task results are also registered in Explorer under the **System** group, providing staff users a read-only view of recent task activity without needing Django admin access. Visit Explorer → System → DB Task Results.
 
 ## Best Practices
 

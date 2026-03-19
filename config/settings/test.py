@@ -56,9 +56,12 @@ STORAGES = {
 # Disable axes rate limiting during tests (avoids false lockouts)
 AXES_ENABLED = False
 
-# Background Tasks - execute immediately during tests (no worker needed)
+# Background Tasks - execute immediately during tests (no worker needed).
+# QUEUES must match production config so tasks with queue_name="email" don't
+# raise InvalidTask during tests.
 TASKS = {
     "default": {
         "BACKEND": "django.tasks.backends.immediate.ImmediateBackend",
+        "QUEUES": ["default", "email"],
     }
 }
