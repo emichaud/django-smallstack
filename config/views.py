@@ -4,8 +4,12 @@ Utility views for the project.
 
 from pathlib import Path
 
-from django.http import Http404, HttpResponse
+import logging
+
+from django.http import Http404, JsonResponse
 from django.shortcuts import render
+
+logger = logging.getLogger(__name__)
 
 from apps.help.utils import render_markdown
 
@@ -36,5 +40,17 @@ def legal_page_view(request, page):
 
 
 def health_check(request):
-    """Simple health check endpoint."""
-    return HttpResponse("OK", content_type="text/plain")
+    """Health check endpoint with database connectivity test."""
+    from django.db import connection
+
+    db_ok = True
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT 1")
+    except Exception as e:
+        db_ok = False
+        logger.error("Health check: database unreachable — %s", e)
+
+    status = "ok" if db_ok else "error"
+    payload = {"status": status, "database": "ok" if db_ok else "unreachable"}
+    return JsonResponse(payload, status=200 if db_ok else 503)
