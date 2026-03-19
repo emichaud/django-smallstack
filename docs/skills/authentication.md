@@ -87,44 +87,51 @@ AUTH_USER_MODEL = "accounts.User"
 
 ## URL Configuration
 
+Auth views live inside `apps/smallstack/site_urls.py`, which is mounted at `/smallstack/`:
+
 ```python
-# config/urls.py
-
-from django.contrib.auth import views as auth_views
-from apps.accounts.views import SignupView
-
-urlpatterns = [
-    # Custom signup
-    path("accounts/signup/", SignupView.as_view(), name="signup"),
-
-    # Django's built-in auth views
-    path("accounts/", include("django.contrib.auth.urls")),
-
-    # This includes:
-    # - accounts/login/
-    # - accounts/logout/
-    # - accounts/password_reset/
-    # - accounts/password_reset/done/
-    # - accounts/reset/<uidb64>/<token>/
-    # - accounts/reset/done/
-    # - accounts/password_change/
-    # - accounts/password_change/done/
-]
+# apps/smallstack/site_urls.py (relevant lines)
+path("accounts/", include("django.contrib.auth.urls")),
+path("accounts/signup/", SignupView.as_view(), name="signup"),
 ```
+
+This produces canonical auth URLs under `/smallstack/accounts/`:
+
+| URL | Name | Purpose |
+|-----|------|---------|
+| `/smallstack/accounts/login/` | `login` | Login form |
+| `/smallstack/accounts/logout/` | `logout` | Logout |
+| `/smallstack/accounts/signup/` | `signup` | Registration |
+| `/smallstack/accounts/password_reset/` | `password_reset` | Password reset flow |
+
+### Public Auth Aliases
+
+`config/urls.py` also registers convenience redirects so `/accounts/login/` works for downstream projects that want cleaner public URLs:
+
+```python
+# config/urls.py (public convenience aliases)
+path("accounts/login/", RedirectView.as_view(pattern_name="login", permanent=False)),
+path("accounts/logout/", RedirectView.as_view(pattern_name="logout", permanent=False)),
+path("accounts/signup/", RedirectView.as_view(pattern_name="signup", permanent=False)),
+```
+
+Downstream projects can remove these aliases or replace them with direct views.
 
 ## Auth Settings
 
 ```python
 # config/settings/base.py
 
-LOGIN_URL = "/accounts/login/"
-LOGIN_REDIRECT_URL = "/"
+LOGIN_URL = "/smallstack/accounts/login/"
+LOGIN_REDIRECT_URL = "/smallstack/"
 LOGOUT_REDIRECT_URL = "/"
 
 # Auth feature flags (default True, configurable via .env)
 SMALLSTACK_LOGIN_ENABLED = config("SMALLSTACK_LOGIN_ENABLED", default=True, cast=bool)
 SMALLSTACK_SIGNUP_ENABLED = config("SMALLSTACK_SIGNUP_ENABLED", default=True, cast=bool)
 ```
+
+Downstream projects that use the public aliases can override `LOGIN_URL` to `/accounts/login/` in their settings.
 
 ## Auth Feature Flags
 
