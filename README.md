@@ -60,10 +60,11 @@ Open http://localhost:8005 and log in with `admin` / `admin`.
 ### Docker
 
 ```bash
-docker compose up -d
+cp .env.example .env      # create env file (edit as needed)
+docker compose up -d       # build and start
 ```
 
-Access at http://localhost:8010.
+Access at http://localhost:8010. Default port can be changed in `docker-compose.yml`.
 
 ## Project Structure
 
