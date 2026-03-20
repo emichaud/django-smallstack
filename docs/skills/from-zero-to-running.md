@@ -331,13 +331,15 @@ mkdir -p apps/inventory
 uv run python manage.py startapp inventory apps/inventory
 ```
 
-Then fix the app config:
+> **Important:** Django's `startapp` generates `name = "inventory"` in `apps.py`, but SmallStack apps live under `apps/` and must use the dotted path `"apps.inventory"`. If you skip this step, Django will fail with an `AppRegistryNotReady` or `ModuleNotFoundError`. This is the most common setup mistake.
+
+Fix the app config immediately after `startapp`:
 
 ```python
 # apps/inventory/apps.py
 class InventoryConfig(AppConfig):
     default_auto_field = "django.db.models.BigAutoField"
-    name = "apps.inventory"       # Must include apps. prefix
+    name = "apps.inventory"       # Must be "apps.<appname>", not just "<appname>"
     verbose_name = "Inventory"
 ```
 
@@ -634,16 +636,34 @@ curl -H "Authorization: Bearer <token>" http://localhost:8005/api/inventory/prod
 CORS_ALLOWED_ORIGINS=http://localhost:3000,http://localhost:5173
 ```
 
-**Filtering:** Add `filter_fields` to your view for query-parameter filtering (uses `django-filter`, included in dependencies):
+**Filtering:** Add `filter_fields` to your view for query-parameter filtering (uses `django-filter`, included in dependencies). Date/DateTime fields automatically get range lookups (`__gte`, `__lte`, `__gt`, `__lt`):
 
 ```python
-filter_fields = ["category", "in_stock"]
-# Then: GET /api/inventory/products/?category=1&in_stock=true
+filter_fields = ["category", "in_stock", "created_at"]
+# GET /api/inventory/products/?category=1&in_stock=true
+# GET /api/inventory/products/?created_at__gte=2026-03-01
 ```
 
-**ForeignKey fields** serialize as integer PKs. Fetch related objects separately to resolve names.
+**FK expansion:** Add `api_expand_fields` to inline related object names instead of raw PKs:
 
-See `docs/skills/api.md` for full details including CORS setup, serialization behavior, and JavaScript examples.
+```python
+api_expand_fields = ["category"]
+# Returns: "category": {"id": 3, "name": "Electronics"} instead of "category": 3
+```
+
+Clients can also request expansion per-request with `?expand=category,owner`.
+
+**Aggregation:** Add `api_aggregate_fields` for server-side stats (avoids fetching all pages for dashboards):
+
+```python
+api_aggregate_fields = ["price"]
+# GET /api/inventory/products/?count_by=in_stock → {"counts": {"true": 30, "false": 5}, ...}
+# GET /api/inventory/products/?sum=price → {"sum_price": 12450.00, ...}
+```
+
+**Programmatic login:** `POST /api/auth/token/` exchanges credentials for a Bearer token (for SPAs and mobile apps).
+
+See `docs/skills/api.md` for full details including CORS setup, pagination, serialization, and all query parameters.
 
 ---
 
