@@ -8,9 +8,11 @@ from .models import Heartbeat, HeartbeatDaily, HeartbeatEpoch, MaintenanceWindow
 @admin.register(Heartbeat)
 class HeartbeatAdmin(admin.ModelAdmin):
     list_display = ("timestamp", "status", "response_time_ms", "note")
+    list_filter = ("status", "timestamp")
     search_fields = ("note", "status")
     explorer_enable_api = True
     explorer_export_formats = ["csv", "json"]
+    explorer_api_aggregate_fields = ["response_time_ms"]
 
 
 @admin.register(HeartbeatEpoch)

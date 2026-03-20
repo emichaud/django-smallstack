@@ -413,6 +413,9 @@ class ExplorerSite:
                 "breadcrumb_parent": ("Explorer", "explorer-index"),
                 "enable_api": getattr(admin_class, "explorer_enable_api", False),
                 "export_formats": list(getattr(admin_class, "explorer_export_formats", [])),
+                "api_extra_fields": list(getattr(admin_class, "explorer_api_extra_fields", [])),
+                "api_expand_fields": list(getattr(admin_class, "explorer_api_expand_fields", [])),
+                "api_aggregate_fields": list(getattr(admin_class, "explorer_api_aggregate_fields", [])),
             },
         )
 

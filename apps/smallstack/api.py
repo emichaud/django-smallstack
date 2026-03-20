@@ -20,6 +20,16 @@ from .crud import Action
 
 def build_api_urls(crud_config) -> list[URLPattern]:
     """Generate API URL patterns from a CRUDView config."""
+    # Safety warning: public API endpoints with no auth mixins
+    if not crud_config.mixins:
+        import warnings
+
+        warnings.warn(
+            f"{crud_config.__name__} has enable_api=True with no mixins "
+            "— API endpoints are public",
+            stacklevel=2,
+        )
+
     prefix = getattr(settings, "SMALLSTACK_API_PREFIX", "api/")
     url_base = crud_config._get_url_base()
     name_base = url_base.replace("/", "-")
@@ -150,12 +160,147 @@ def _resolve_page(raw: str, total_pages: int, current: int | None = None) -> int
 
 
 # ---------------------------------------------------------------------------
+# FK expansion helpers
+# ---------------------------------------------------------------------------
+
+
+def _resolve_expand_fields(request: HttpRequest, crud_config) -> set[str]:
+    """Merge api_expand_fields with ?expand= query param."""
+    expand: set[str] = set(getattr(crud_config, "api_expand_fields", []))
+    param = request.GET.get("expand", "").strip()
+    if param:
+        expand.update(f.strip() for f in param.split(",") if f.strip())
+    return expand
+
+
+def _apply_select_related(qs, model, expand_fields: set[str]):
+    """Add select_related() for FK fields in the expand set to avoid N+1."""
+    if not expand_fields:
+        return qs
+    fk_names: list[str] = []
+    for name in expand_fields:
+        try:
+            field = model._meta.get_field(name)
+            if field.is_relation and (field.many_to_one or field.one_to_one):
+                fk_names.append(name)
+        except Exception:
+            pass
+    if fk_names:
+        qs = qs.select_related(*fk_names)
+    return qs
+
+
+# ---------------------------------------------------------------------------
+# Smart filter field spec builder
+# ---------------------------------------------------------------------------
+
+_DATE_LOOKUPS: list[str] = ["exact", "gte", "lte", "gt", "lt"]
+
+
+def _build_filter_fields_spec(
+    model, filter_fields: list[str]
+) -> dict[str, list[str]] | list[str]:
+    """Convert a flat filter_fields list to a dict with smart lookups.
+
+    Date and DateTime fields automatically get range lookups (gte, lte, gt, lt)
+    in addition to exact match. Other fields keep exact match only.
+    """
+    from django.db import models as django_models
+
+    spec: dict[str, list[str]] = {}
+    has_dates = False
+    for name in filter_fields:
+        try:
+            field = model._meta.get_field(name)
+            if isinstance(field, (django_models.DateField, django_models.DateTimeField)):
+                spec[name] = _DATE_LOOKUPS
+                has_dates = True
+            else:
+                spec[name] = ["exact"]
+        except Exception:
+            spec[name] = ["exact"]
+    # Only return dict if we found date fields; otherwise keep list for simplicity
+    return spec if has_dates else filter_fields
+
+
+# ---------------------------------------------------------------------------
+# Aggregation
+# ---------------------------------------------------------------------------
+
+_AGG_OPS: set[str] = {"sum", "avg", "min", "max"}
+
+
+def _compute_aggregations(
+    request: HttpRequest, qs, crud_config
+) -> tuple[dict, JsonResponse | None]:
+    """Process aggregation query params and return (extra_data, error_or_none).
+
+    Supported params:
+        ?count_by=<field>       — group counts (field must be in filter_fields)
+        ?sum=<field>            — sum (field must be in api_aggregate_fields)
+        ?avg=<field>            — average
+        ?min=<field>            — minimum
+        ?max=<field>            — maximum
+
+    Multiple aggregate ops can be combined. Returns dict of extra keys to merge
+    into the response, or a 400 JsonResponse on validation error.
+    """
+    from django.db.models import Avg, Count, Max, Min, Sum
+
+    extra: dict = {}
+    filter_fields = set(crud_config._resolve_filter_fields())
+    agg_fields = set(getattr(crud_config, "api_aggregate_fields", []))
+
+    # count_by
+    count_by = request.GET.get("count_by", "").strip()
+    if count_by:
+        if count_by not in filter_fields:
+            return {}, JsonResponse(
+                {"error": f"count_by field '{count_by}' not in filter_fields"},
+                status=400,
+            )
+        rows = qs.values(count_by).annotate(_count=Count("id")).order_by(count_by)
+        extra["counts"] = {str(row[count_by]): row["_count"] for row in rows}
+
+    # sum / avg / min / max
+    agg_funcs = {"sum": Sum, "avg": Avg, "min": Min, "max": Max}
+    agg_kwargs: dict = {}
+    for op in _AGG_OPS:
+        field_name = request.GET.get(op, "").strip()
+        if not field_name:
+            continue
+        if field_name not in agg_fields:
+            return {}, JsonResponse(
+                {"error": f"{op} field '{field_name}' not in api_aggregate_fields"},
+                status=400,
+            )
+        agg_kwargs[f"{op}_{field_name}"] = agg_funcs[op](field_name)
+
+    if agg_kwargs:
+        result = qs.aggregate(**agg_kwargs)
+        for key, val in result.items():
+            extra[key] = round(val, 2) if isinstance(val, float) else val
+
+    return extra, None
+
+
+# ---------------------------------------------------------------------------
 # Serialization
 # ---------------------------------------------------------------------------
 
 
-def _serialize(obj, fields: list[str], extra_fields: list[str] | None = None) -> dict:
-    """Serialize a model instance to a dict."""
+def _serialize(
+    obj,
+    fields: list[str],
+    extra_fields: list[str] | None = None,
+    expand_fields: set[str] | None = None,
+) -> dict:
+    """Serialize a model instance to a dict.
+
+    When *expand_fields* is provided, FK fields in that set are serialized as
+    ``{"id": pk, "name": str(related_obj)}`` instead of a bare integer PK.
+    Nullable FKs still serialize as ``null``.
+    """
     data: dict = {"id": obj.pk}
     all_fields = list(fields) + list(extra_fields or [])
     for f in all_fields:
@@ -163,7 +308,10 @@ def _serialize(obj, fields: list[str], extra_fields: list[str] | None = None) ->
         if hasattr(val, "isoformat"):
             val = val.isoformat()
         elif hasattr(val, "pk"):
-            val = val.pk
+            if expand_fields and f in expand_fields:
+                val = {"id": val.pk, "name": str(val)}
+            else:
+                val = val.pk
         elif isinstance(val, bool):
             val = val  # keep as bool for JSON
         data[f] = val
@@ -211,6 +359,9 @@ def _make_api_detail_view(crud_config):
             return perm_err
 
         qs = crud_config._get_queryset()
+        expand_fields = _resolve_expand_fields(request, crud_config)
+        if expand_fields:
+            qs = _apply_select_related(qs, crud_config.model, expand_fields)
         try:
             obj = qs.get(pk=pk)
         except qs.model.DoesNotExist:
@@ -218,7 +369,9 @@ def _make_api_detail_view(crud_config):
 
         if request.method == "GET":
             fields = crud_config._get_detail_fields() or crud_config.fields
-            return JsonResponse(_serialize(obj, fields, crud_config.api_extra_fields))
+            return JsonResponse(
+                _serialize(obj, fields, crud_config.api_extra_fields, expand_fields)
+            )
 
         elif request.method in ("PUT", "PATCH"):
             if Action.UPDATE not in crud_config.actions:
@@ -270,6 +423,7 @@ def _api_list(request, crud_config):
 
         fs_class = filter_class
         if not fs_class:
+            fields_spec = _build_filter_fields_spec(crud_config.model, filter_fields)
             fs_class = type(
                 "AutoFilter",
                 (django_filters.FilterSet,),
@@ -277,7 +431,7 @@ def _api_list(request, crud_config):
                     "Meta": type(
                         "Meta",
                         (),
-                        {"model": crud_config.model, "fields": filter_fields},
+                        {"model": crud_config.model, "fields": fields_spec},
                     )
                 },
             )
@@ -290,6 +444,16 @@ def _api_list(request, crud_config):
     if export_fmt and export_fmt in export_formats:
         return _api_export(qs, crud_config, export_fmt)
 
+    # Aggregation (computed before pagination, on the full filtered queryset)
+    agg_extra, agg_err = _compute_aggregations(request, qs, crud_config)
+    if agg_err:
+        return agg_err
+
+    # FK expansion
+    expand_fields = _resolve_expand_fields(request, crud_config)
+    if expand_fields:
+        qs = _apply_select_related(qs, crud_config.model, expand_fields)
+
     # Paginate
     page_size: int = crud_config._resolve_paginate_by() or 25
     total: int = qs.count()
@@ -299,23 +463,28 @@ def _api_list(request, crud_config):
     items = list(qs[start : start + page_size])
 
     fields = crud_config._get_list_fields()
-    results: list[dict] = [_serialize(obj, fields, crud_config.api_extra_fields) for obj in items]
+    results: list[dict] = [
+        _serialize(obj, fields, crud_config.api_extra_fields, expand_fields)
+        for obj in items
+    ]
 
     # Build next/previous URLs
     base_path: str = request.path
     next_url: str | None = f"{base_path}?page={page_num + 1}" if page_num < total_pages else None
     prev_url: str | None = f"{base_path}?page={page_num - 1}" if page_num > 1 else None
 
-    return JsonResponse(
-        {
-            "count": total,
-            "page": page_num,
-            "total_pages": total_pages,
-            "next": next_url,
-            "previous": prev_url,
-            "results": results,
-        }
-    )
+    response_data: dict = {
+        "count": total,
+        "page": page_num,
+        "total_pages": total_pages,
+        "next": next_url,
+        "previous": prev_url,
+        "results": results,
+    }
+    # Merge aggregation data into response (counts, sum_*, avg_*, etc.)
+    response_data.update(agg_extra)
+
+    return JsonResponse(response_data)
 
 
 def _api_create(request, crud_config):
@@ -329,7 +498,12 @@ def _api_create(request, crud_config):
     if form.is_valid():
         obj = form.save()
         crud_config.on_form_valid(request, form, obj, is_create=True)
-        return JsonResponse(_serialize(obj, crud_config._get_detail_fields() or crud_config.fields, crud_config.api_extra_fields), status=201)
+        expand_fields = _resolve_expand_fields(request, crud_config)
+        fields = crud_config._get_detail_fields() or crud_config.fields
+        return JsonResponse(
+            _serialize(obj, fields, crud_config.api_extra_fields, expand_fields),
+            status=201,
+        )
     return JsonResponse({"errors": form.errors}, status=400)
 
 
@@ -366,7 +540,11 @@ def _api_update(request, obj, crud_config):
     if form.is_valid():
         obj = form.save()
         crud_config.on_form_valid(request, form, obj, is_create=False)
-        return JsonResponse(_serialize(obj, crud_config._get_detail_fields() or crud_config.fields, crud_config.api_extra_fields))
+        expand_fields = _resolve_expand_fields(request, crud_config)
+        fields = crud_config._get_detail_fields() or crud_config.fields
+        return JsonResponse(
+            _serialize(obj, fields, crud_config.api_extra_fields, expand_fields)
+        )
     return JsonResponse({"errors": form.errors}, status=400)
 
 
@@ -410,3 +588,60 @@ def _api_export(qs, crud_config, fmt):
     )
     response["Content-Disposition"] = f'attachment; filename="{filename}"'
     return response
+
+
+# ---------------------------------------------------------------------------
+# Auth token endpoint
+# ---------------------------------------------------------------------------
+
+
+@csrf_exempt
+def api_auth_token(request: HttpRequest) -> JsonResponse:
+    """Exchange username + password for a Bearer token.
+
+    POST /api/auth/token/
+    {"username": "alice", "password": "secret123"}
+
+    Success → 200: {"token": "aBcD1234...", "user": {"id": 1, "username": "alice", "is_staff": true}}
+    Bad credentials → 401: {"error": "Invalid credentials"}
+    Missing fields → 400: {"error": "..."}
+    """
+    if request.method != "POST":
+        return JsonResponse({"error": "Method not allowed"}, status=405)
+
+    try:
+        data = json.loads(request.body)
+    except (json.JSONDecodeError, ValueError):
+        return JsonResponse({"error": "Invalid JSON"}, status=400)
+
+    username = data.get("username", "").strip()
+    password = data.get("password", "")
+    if not username or not password:
+        return JsonResponse({"error": "username and password are required"}, status=400)
+
+    from django.contrib.auth import authenticate
+
+    user = authenticate(request, username=username, password=password)
+    if user is None or not user.is_active:
+        return JsonResponse({"error": "Invalid credentials"}, status=401)
+
+    from .models import APIToken
+
+    # Return existing active token or create new one
+    existing = APIToken.objects.filter(user=user, is_active=True).first()
+    if existing:
+        # Can't return the raw key for existing tokens (hashed), create a new one
+        pass
+
+    token, raw_key = APIToken.create_token(user, name="Login token")
+
+    return JsonResponse(
+        {
+            "token": raw_key,
+            "user": {
+                "id": user.pk,
+                "username": user.get_username(),
+                "is_staff": user.is_staff,
+            },
+        }
+    )

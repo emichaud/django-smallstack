@@ -396,6 +396,46 @@ Access in templates:
 {% endif %}
 ```
 
+## API Authentication
+
+SmallStack includes Bearer token authentication for the REST API layer. See the `api` skill for full details.
+
+### Token Creation
+
+```bash
+# Via CLI
+uv run python manage.py create_api_token <username>
+```
+
+### Programmatic Login (SPA / Mobile)
+
+```
+POST /api/auth/token/
+Content-Type: application/json
+
+{"username": "alice", "password": "secret123"}
+
+→ 200: {"token": "aBcD1234...", "user": {"id": 1, "username": "alice", "is_staff": true}}
+→ 401: {"error": "Invalid credentials"}
+```
+
+The endpoint uses Django's `authenticate()` under the hood, so custom auth backends (e.g., email login) work automatically.
+
+### Using the Token
+
+```bash
+curl -H "Authorization: Bearer <token>" https://example.com/api/manage/widgets/
+```
+
+### What's Not Included (By Design)
+
+- No JSON signup endpoint — signup stays HTML or admin-provisioned
+- No JSON password reset — stays HTML/email flow
+- No token refresh — create a new one if needed
+- No logout endpoint — client discards the token
+
+These are intentionally omitted to keep SmallStack simple. If you need full REST auth flows, add `dj-rest-auth` — it coexists without conflicts.
+
 ## Best Practices
 
 1. **Always use `settings.AUTH_USER_MODEL`** - Not direct User import

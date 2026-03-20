@@ -74,7 +74,7 @@ This generates:
 | `detail_displays` | list | `[]` | List of display protocol classes for detail view |
 | `table_class` | Table class | None | django-tables2 Table for list view (legacy, still works) |
 | `form_class` | Form class | auto | Custom ModelForm |
-| `enable_api` | bool | `False` | Generate REST API endpoints alongside HTML views |
+| `enable_api` | bool | `False` | Generate REST API endpoints alongside HTML views (warns if no mixins) |
 | `actions` | list | all 5 | Which CRUD actions to generate |
 | `queryset` | QuerySet | `model.objects.all()` | Base queryset for all views |
 | `search_fields` | list | `[]` | Fields for `?q=` text search (API only) |

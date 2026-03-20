@@ -471,6 +471,8 @@ class CRUDView:
     # API
     enable_api = False  # Opt-in: generate JSON API endpoints alongside HTML views
     api_extra_fields = []  # Extra read-only fields appended to API responses (e.g. ["created_at", "updated_at"])
+    api_expand_fields = []  # FK fields always expanded as {"id": pk, "name": str(obj)} (e.g. ["category"])
+    api_aggregate_fields = []  # Numeric fields that support sum/avg/min/max aggregation
     search_fields = []  # Fields for ?q= search (reads from admin_class.search_fields)
     filter_fields = []  # Fields for query-param filtering (reads from admin_class.list_filter)
     filter_class = None  # Optional django-filters FilterSet class

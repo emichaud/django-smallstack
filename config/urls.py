@@ -9,6 +9,7 @@ from django.urls import include, path
 from django.views.generic import RedirectView
 
 from apps.heartbeat.views import StatusPageView, status_json
+from apps.smallstack.api import api_auth_token
 
 from .views import health_check, legal_page_view
 
@@ -27,6 +28,8 @@ urlpatterns = [
     path("status/json/", status_json, name="public_status_json"),
     path("profile/", RedirectView.as_view(pattern_name="profile", permanent=False), name="public_profile"),
     path("help/", RedirectView.as_view(pattern_name="help:index", permanent=False), name="public_help"),
+    # API auth
+    path("api/auth/token/", api_auth_token, name="api-auth-token"),
     # Admin
     path("admin/", admin.site.urls),
     # Legal pages (public)
