@@ -50,10 +50,11 @@ URL names: `{url_base}-api-list` and `{url_base}-api-detail`.
 ### Bearer Token
 
 ```bash
-curl -H "Authorization: Bearer <token>" https://example.com/api/manage/widgets/
+# Token is the raw key returned by create_api_token (a base64url string, ~54 chars)
+curl -H "Authorization: Bearer aBcD1234efGh..." https://example.com/api/manage/widgets/
 ```
 
-The token is validated via `APIToken.authenticate(raw_key)`. On success, `request._api_token_auth = True` is set.
+Create a token: `uv run python manage.py create_api_token <username>`. The raw key is printed once — copy it immediately. It is validated via `APIToken.authenticate(raw_key)` which looks up by prefix + SHA-256 hash.
 
 ### Session (Browser)
 
@@ -81,7 +82,9 @@ Authorization: Bearer <token>
 Response:
 {
     "count": 42,
-    "next": "http://example.com/api/manage/widgets/?page=2",
+    "page": 1,
+    "total_pages": 2,
+    "next": "/api/manage/widgets/?page=2",
     "previous": null,
     "results": [
         {"id": 1, "name": "Widget A", "category": "Tools", "is_active": true},
@@ -91,6 +94,15 @@ Response:
 ```
 
 Supports `?q=` search (if `search_fields` set), django-filter parameters (if `filter_fields` set), and `?format=csv` or `?format=json` for file downloads (if `export_formats` set).
+
+#### Filter Value Formats
+
+| Field Type | Filter Value | Example |
+|------------|-------------|---------|
+| ForeignKey | Primary key (integer) | `?category=1` |
+| BooleanField | `true` or `false` (lowercase) | `?in_stock=true` |
+| CharField with choices | Choice **value**, not display name | `?status=active` (not `?status=Active`) |
+| DateField | ISO date string | `?due_date=2026-03-20` |
 
 The `page` parameter accepts numbers or named aliases:
 
@@ -209,7 +221,7 @@ class WidgetCRUDView(CRUDView):
     api_extra_fields = ["created_at", "updated_at"]
 ```
 
-These fields are appended to every API response (list, detail, create, update) but don't appear in create/edit forms. Works with any model attribute, property, or method that returns a serializable value.
+These fields are appended to every API response (list, detail, create, update) but don't appear in create/edit forms. Works with any model attribute, property, or method that returns a serializable value. Datetime fields are serialized as ISO 8601 strings (e.g., `"2026-03-20T14:26:14.308662+00:00"`).
 
 ## CRUDView Integration
 
@@ -218,7 +230,7 @@ The API layer calls these CRUDView methods:
 - `get_list_queryset(qs, request)` — view-level queryset filtering
 - `search_fields`, `filter_fields`, `filter_class` — search and filter
 - `export_formats` — allowed export types
-- `paginate_by` — page size (default 25 for API)
+- `paginate_by` — page size. The API respects the CRUDView's `paginate_by` value; if unset, falls back to 25 (the HTML list view is unpaginated when unset)
 - `form_class` / `_make_form_class()` — forms for create/update
 - `on_form_valid(request, form, obj, is_create)` — post-save hook
 - `can_update(obj, request)`, `can_delete(obj, request)` — per-object permissions

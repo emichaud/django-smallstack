@@ -68,7 +68,7 @@ This generates:
 | `model` | Model class | required | The Django model |
 | `fields` | list | required | Fields for auto-generated forms |
 | `url_base` | str | model name | URL prefix (e.g., `"manage/widgets"`) |
-| `paginate_by` | int | None | Rows per page (10 is standard) |
+| `paginate_by` | int | None | Rows per page. When unset, HTML views are unpaginated; API endpoints fall back to 25 |
 | `mixins` | list | `[]` | View mixins applied to all views |
 | `displays` | list | `[]` | List of display protocol classes for list view |
 | `detail_displays` | list | `[]` | List of display protocol classes for detail view |

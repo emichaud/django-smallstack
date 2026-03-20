@@ -628,7 +628,7 @@ uv run python manage.py create_api_token <username>
 curl -H "Authorization: Bearer <token>" http://localhost:8005/api/inventory/products/
 ```
 
-**CORS for frontend projects:** If your frontend runs on a different origin (e.g., React on port 3000), set `CORS_ALLOWED_ORIGINS` in `.env`:
+**CORS for frontend projects:** SmallStack includes `django-cors-headers` — no additional installation needed. If your frontend runs on a different origin (e.g., React on port 3000), set `CORS_ALLOWED_ORIGINS` in `.env`:
 
 ```bash
 CORS_ALLOWED_ORIGINS=http://localhost:3000,http://localhost:5173
