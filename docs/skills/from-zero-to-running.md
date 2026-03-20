@@ -628,7 +628,22 @@ uv run python manage.py create_api_token <username>
 curl -H "Authorization: Bearer <token>" http://localhost:8005/api/inventory/products/
 ```
 
-See `docs/skills/api.md` and `apps/smallstack/docs/explorer-rest-api.md` for full details including Python/JavaScript examples.
+**CORS for frontend projects:** If your frontend runs on a different origin (e.g., React on port 3000), set `CORS_ALLOWED_ORIGINS` in `.env`:
+
+```bash
+CORS_ALLOWED_ORIGINS=http://localhost:3000,http://localhost:5173
+```
+
+**Filtering:** Add `filter_fields` to your view for query-parameter filtering (uses `django-filter`, included in dependencies):
+
+```python
+filter_fields = ["category", "in_stock"]
+# Then: GET /api/inventory/products/?category=1&in_stock=true
+```
+
+**ForeignKey fields** serialize as integer PKs. Fetch related objects separately to resolve names.
+
+See `docs/skills/api.md` for full details including CORS setup, serialization behavior, and JavaScript examples.
 
 ---
 

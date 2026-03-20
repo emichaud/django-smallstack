@@ -158,6 +158,24 @@ The `_serialize(obj, fields)` function converts model instances:
 
 Always includes `id` field.
 
+### ForeignKey Fields
+
+ForeignKey fields are serialized as their primary key (integer). To display related object names in a frontend, fetch the related objects separately and build a lookup map:
+
+```javascript
+// Fetch categories once, build lookup
+const categories = await fetch('/api/manage/categories/').then(r => r.json());
+const categoryMap = Object.fromEntries(categories.results.map(c => [c.id, c.name]));
+
+// Resolve in product list
+products.results.map(p => ({
+  ...p,
+  categoryName: categoryMap[p.category] ?? 'Unknown',
+}));
+```
+
+> **Note:** There is no built-in FK expansion. This is by design — the API is intentionally minimal. If you need nested serialization, consider graduating to DRF.
+
 ## JSON Body Parsing
 
 JSON request bodies are parsed and converted to Django's `QueryDict` for ModelForm compatibility:
@@ -182,6 +200,23 @@ The API layer calls these CRUDView methods:
 | Setting | Default | Description |
 |---------|---------|-------------|
 | `SMALLSTACK_API_PREFIX` | `"api/"` | URL prefix for all API endpoints |
+
+## CORS Configuration
+
+SmallStack includes `django-cors-headers` for cross-origin API access. If your frontend runs on a different origin (e.g., React on port 3000, Django on port 8000), set `CORS_ALLOWED_ORIGINS` in your `.env`:
+
+```bash
+# .env
+CORS_ALLOWED_ORIGINS=http://localhost:3000,http://localhost:5173
+```
+
+This is already wired up in `config/settings/base.py` — no code changes needed. The middleware is installed and reads from the environment variable. By default (empty string), no cross-origin requests are allowed.
+
+For production, set the actual frontend domain:
+
+```bash
+CORS_ALLOWED_ORIGINS=https://app.example.com
+```
 
 ## Best Practices
 
