@@ -146,6 +146,20 @@ This is automatic — no configuration needed. Any Date/DateTime field in `filte
 
 #### Pagination
 
+The `page_size` parameter overrides the default page size (capped at 1000):
+
+```
+GET /api/tasks/?page_size=200    → up to 200 results per page
+GET /api/tasks/?page_size=9999   → capped at 1000
+```
+
+Useful for populating `<select>` dropdowns where you need all options in one call:
+
+```js
+const allTasks = await fetch('/api/tasks/?page_size=500').then(r => r.json());
+// allTasks.results has up to 500 items — enough for any dropdown
+```
+
 The `page` parameter accepts numbers or named aliases:
 
 | Value | Resolves to |
@@ -261,6 +275,17 @@ Both `api_expand_fields` (defaults) and `?expand=` (per-request) work together �
 ```
 
 Nullable FKs expand to `null`. Non-FK fields in the expand list are silently ignored. The API adds `select_related()` automatically for expanded FK fields to avoid N+1 queries.
+
+### Expansion and Edit Forms
+
+`api_expand_fields` applies to **all** responses — list, detail, create, and update. When an edit form loads a record, FK fields arrive as objects instead of integers. Handle both formats in your frontend:
+
+```js
+// Works whether category is expanded {"id": 3, "name": "Electronics"} or raw 3
+formData.category = typeof data.category === 'object' ? data.category.id : data.category
+```
+
+This pattern is safe to use unconditionally on any FK field.
 
 ## Smart Date Filtering
 

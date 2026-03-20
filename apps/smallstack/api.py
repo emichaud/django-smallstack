@@ -260,7 +260,11 @@ def _compute_aggregations(
                 status=400,
             )
         rows = qs.values(count_by).annotate(_count=Count("id")).order_by(count_by)
-        extra["counts"] = {str(row[count_by]): row["_count"] for row in rows}
+        extra["counts"] = {
+            str(row[count_by]).lower() if isinstance(row[count_by], bool) else str(row[count_by]):
+            row["_count"]
+            for row in rows
+        }
 
     # sum / avg / min / max
     agg_funcs = {"sum": Sum, "avg": Avg, "min": Min, "max": Max}
@@ -454,8 +458,15 @@ def _api_list(request, crud_config):
     if expand_fields:
         qs = _apply_select_related(qs, crud_config.model, expand_fields)
 
-    # Paginate
+    # Paginate (client can override page size via ?page_size=N, capped at 1000)
+    _MAX_PAGE_SIZE: int = 1000
     page_size: int = crud_config._resolve_paginate_by() or 25
+    raw_page_size = request.GET.get("page_size", "").strip()
+    if raw_page_size:
+        try:
+            page_size = max(1, min(int(raw_page_size), _MAX_PAGE_SIZE))
+        except (ValueError, TypeError):
+            pass
     total: int = qs.count()
     total_pages: int = max(1, math.ceil(total / page_size))
     page_num: int = _resolve_page(request.GET.get("page", "1"), total_pages)

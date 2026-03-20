@@ -319,6 +319,67 @@ class TestAPIPaginationIntegration:
 
 
 # ---------------------------------------------------------------------------
+# Integration tests: page_size override
+# ---------------------------------------------------------------------------
+
+
+class TestPageSizeOverride:
+    """Integration tests for ?page_size=N query param."""
+
+    def test_page_size_increases_results(self, client, staff_user, heartbeats, auth_header):
+        """?page_size=100 should return all 53 heartbeats in one page."""
+        url = reverse(HEARTBEAT_API_LIST)
+        response = client.get(url, {"page_size": "100"}, **auth_header)
+        data = response.json()
+        assert data["count"] == 53
+        assert len(data["results"]) == 53
+        assert data["total_pages"] == 1
+        assert data["next"] is None
+
+    def test_page_size_reduces_results(self, client, staff_user, heartbeats, auth_header):
+        """?page_size=5 should return only 5 results per page."""
+        url = reverse(HEARTBEAT_API_LIST)
+        response = client.get(url, {"page_size": "5"}, **auth_header)
+        data = response.json()
+        assert len(data["results"]) == 5
+        assert data["total_pages"] == 11  # ceil(53/5)
+
+    def test_page_size_capped_at_1000(self, client, staff_user, heartbeats, auth_header):
+        """?page_size=9999 is capped at 1000."""
+        url = reverse(HEARTBEAT_API_LIST)
+        response = client.get(url, {"page_size": "9999"}, **auth_header)
+        data = response.json()
+        # With 53 items and effective page_size=1000, all fit on one page
+        assert data["total_pages"] == 1
+        assert len(data["results"]) == 53
+
+    def test_page_size_zero_clamps_to_1(self, client, staff_user, heartbeats, auth_header):
+        """?page_size=0 clamps to 1 (minimum)."""
+        url = reverse(HEARTBEAT_API_LIST)
+        response = client.get(url, {"page_size": "0"}, **auth_header)
+        data = response.json()
+        assert len(data["results"]) == 1
+
+    def test_page_size_invalid_ignored(self, client, staff_user, heartbeats, auth_header):
+        """?page_size=abc falls back to default."""
+        url = reverse(HEARTBEAT_API_LIST)
+        response = client.get(url, {"page_size": "abc"}, **auth_header)
+        data = response.json()
+        # Should use default page size, not crash
+        assert response.status_code == 200
+        assert data["count"] == 53
+
+    def test_page_size_with_page_param(self, client, staff_user, heartbeats, auth_header):
+        """?page_size and ?page compose correctly."""
+        url = reverse(HEARTBEAT_API_LIST)
+        response = client.get(url, {"page_size": "10", "page": "2"}, **auth_header)
+        data = response.json()
+        assert data["page"] == 2
+        assert len(data["results"]) == 10
+        assert data["total_pages"] == 6  # ceil(53/10)
+
+
+# ---------------------------------------------------------------------------
 # Unit tests: FK expansion in _serialize
 # ---------------------------------------------------------------------------
 
