@@ -41,6 +41,8 @@ INSTALLED_APPS = [
     "django_extensions",
     "django_tasks_db",
     "django_tables2",
+    "django_filters",
+    "corsheaders",
     "axes",
 ]
 
@@ -57,6 +59,7 @@ TASKS = {
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",
+    "corsheaders.middleware.CorsMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
@@ -263,6 +266,23 @@ CONTENT_SECURITY_POLICY = {
     }
 }
 
+
+# CORS (django-cors-headers)
+# By default, no cross-origin requests are allowed. To enable a frontend on a
+# different origin (e.g., React dev server), set CORS_ALLOWED_ORIGINS in .env:
+#   CORS_ALLOWED_ORIGINS=http://localhost:3000,http://localhost:5173
+CORS_ALLOWED_ORIGINS = config(
+    "CORS_ALLOWED_ORIGINS",
+    default="",
+    cast=lambda v: [s.strip() for s in v.split(",") if s.strip()] if v else [],
+)
+CORS_ALLOW_HEADERS = [
+    "accept",
+    "authorization",
+    "content-type",
+    "origin",
+    "x-requested-with",
+]
 
 # Default primary key field type
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"

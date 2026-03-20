@@ -1,10 +1,13 @@
 """Models for the SmallStack core app."""
 
+import hashlib
+import secrets
 from pathlib import Path
 
 from django.conf import settings
 from django.db import models
 from django.urls import reverse
+from django.utils import timezone
 
 
 class BackupRecord(models.Model):
@@ -54,3 +57,60 @@ class BackupRecord(models.Model):
             return False
         backup_dir = Path(getattr(settings, "BACKUP_DIR", settings.BASE_DIR / "backups"))
         return (backup_dir / self.filename).exists()
+
+
+class APIToken(models.Model):
+    """Bearer token for REST API authentication.
+
+    Tokens are stored as SHA-256 hashes with an 8-character prefix for lookup.
+    The raw key is shown once at creation and cannot be retrieved later.
+    """
+
+    TOKEN_LENGTH = 40
+    PREFIX_LENGTH = 8
+
+    name = models.CharField(max_length=100)
+    prefix = models.CharField(max_length=8, db_index=True)
+    hashed_key = models.CharField(max_length=64)
+    created_at = models.DateTimeField(auto_now_add=True)
+    last_used_at = models.DateTimeField(null=True, blank=True)
+    is_active = models.BooleanField(default=True)
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="api_tokens",
+    )
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.name} ({self.prefix}…) — {self.user}"
+
+    @classmethod
+    def create_token(cls, user, name="API Token"):
+        """Create a new token. Returns (token_instance, raw_key)."""
+        raw_key = secrets.token_urlsafe(cls.TOKEN_LENGTH)
+        prefix = raw_key[: cls.PREFIX_LENGTH]
+        hashed = hashlib.sha256(raw_key.encode()).hexdigest()
+        token = cls.objects.create(
+            user=user, name=name, prefix=prefix, hashed_key=hashed
+        )
+        return token, raw_key
+
+    @classmethod
+    def authenticate(cls, raw_key):
+        """Validate a raw key. Returns the user or None."""
+        if not raw_key or len(raw_key) < cls.PREFIX_LENGTH:
+            return None
+        prefix = raw_key[: cls.PREFIX_LENGTH]
+        hashed = hashlib.sha256(raw_key.encode()).hexdigest()
+        try:
+            token = cls.objects.select_related("user").get(
+                prefix=prefix, hashed_key=hashed, is_active=True
+            )
+        except cls.DoesNotExist:
+            return None
+        token.last_used_at = timezone.now()
+        token.save(update_fields=["last_used_at"])
+        return token.user
