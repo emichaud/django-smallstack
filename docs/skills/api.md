@@ -92,6 +92,20 @@ Response:
 
 Supports `?q=` search (if `search_fields` set), django-filter parameters (if `filter_fields` set), and `?format=csv` or `?format=json` for file downloads (if `export_formats` set).
 
+The `page` parameter accepts numbers or named aliases:
+
+| Value | Resolves to |
+|-------|-------------|
+| `1`, `2`, ... | That page number (clamped to valid range) |
+| `first` | Page 1 |
+| `last` | Last page |
+| `next` | Current page + 1 (clamped) |
+| `prev` / `previous` | Current page - 1 (clamped) |
+
+Out-of-range numbers are clamped (e.g., `?page=9999` returns the last page, `?page=0` returns page 1). Invalid strings default to page 1. Aliases are case-insensitive.
+
+The response includes `page` (current) and `total_pages` alongside `count`, `next`, and `previous`.
+
 ### Detail
 
 ```

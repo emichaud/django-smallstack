@@ -8,6 +8,7 @@ delete this file and write DRF viewsets. Everything else
 from __future__ import annotations
 
 import json
+import math
 
 from django.conf import settings
 from django.http import HttpRequest, HttpResponse, JsonResponse, QueryDict
@@ -107,13 +108,55 @@ def _parse_json_body(request):
 
 
 # ---------------------------------------------------------------------------
+# Pagination helpers
+# ---------------------------------------------------------------------------
+
+# Named page values accepted by ?page=
+_PAGE_ALIASES: dict[str, str] = {"first": "first", "last": "last", "next": "next", "prev": "prev", "previous": "prev"}
+
+
+def _resolve_page(raw: str, total_pages: int, current: int | None = None) -> int:
+    """Resolve a page parameter to a 1-based page number.
+
+    Accepts numeric strings ("1", "3") and named aliases:
+      - "first" → 1
+      - "last"  → total_pages
+      - "next"  → current + 1 (clamped to total_pages)
+      - "prev" / "previous" → current - 1 (clamped to 1)
+
+    Out-of-range numeric values are clamped to [1, total_pages].
+    Invalid strings fall back to page 1.
+    """
+    key = raw.strip().lower()
+    alias = _PAGE_ALIASES.get(key)
+
+    if alias == "first":
+        return 1
+    if alias == "last":
+        return total_pages
+    if alias == "next":
+        base = current if current is not None else 1
+        return min(base + 1, total_pages)
+    if alias == "prev":
+        base = current if current is not None else 1
+        return max(base - 1, 1)
+
+    # Numeric — clamp to valid range
+    try:
+        page = int(raw)
+    except (ValueError, TypeError):
+        return 1
+    return max(1, min(page, total_pages))
+
+
+# ---------------------------------------------------------------------------
 # Serialization
 # ---------------------------------------------------------------------------
 
 
-def _serialize(obj, fields, extra_fields=None):
+def _serialize(obj, fields: list[str], extra_fields: list[str] | None = None) -> dict:
     """Serialize a model instance to a dict."""
-    data = {"id": obj.pk}
+    data: dict = {"id": obj.pk}
     all_fields = list(fields) + list(extra_fields or [])
     for f in all_fields:
         val = getattr(obj, f, None)
@@ -248,23 +291,26 @@ def _api_list(request, crud_config):
         return _api_export(qs, crud_config, export_fmt)
 
     # Paginate
-    page_size = crud_config._resolve_paginate_by() or 25
-    page_num = int(request.GET.get("page", 1))
-    total = qs.count()
-    start = (page_num - 1) * page_size
+    page_size: int = crud_config._resolve_paginate_by() or 25
+    total: int = qs.count()
+    total_pages: int = max(1, math.ceil(total / page_size))
+    page_num: int = _resolve_page(request.GET.get("page", "1"), total_pages)
+    start: int = (page_num - 1) * page_size
     items = list(qs[start : start + page_size])
 
     fields = crud_config._get_list_fields()
-    results = [_serialize(obj, fields, crud_config.api_extra_fields) for obj in items]
+    results: list[dict] = [_serialize(obj, fields, crud_config.api_extra_fields) for obj in items]
 
     # Build next/previous URLs
-    base_path = request.path
-    next_url = f"{base_path}?page={page_num + 1}" if start + page_size < total else None
-    prev_url = f"{base_path}?page={page_num - 1}" if page_num > 1 else None
+    base_path: str = request.path
+    next_url: str | None = f"{base_path}?page={page_num + 1}" if page_num < total_pages else None
+    prev_url: str | None = f"{base_path}?page={page_num - 1}" if page_num > 1 else None
 
     return JsonResponse(
         {
             "count": total,
+            "page": page_num,
+            "total_pages": total_pages,
             "next": next_url,
             "previous": prev_url,
             "results": results,
