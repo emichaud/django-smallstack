@@ -111,10 +111,11 @@ def _parse_json_body(request):
 # ---------------------------------------------------------------------------
 
 
-def _serialize(obj, fields):
+def _serialize(obj, fields, extra_fields=None):
     """Serialize a model instance to a dict."""
     data = {"id": obj.pk}
-    for f in fields:
+    all_fields = list(fields) + list(extra_fields or [])
+    for f in all_fields:
         val = getattr(obj, f, None)
         if hasattr(val, "isoformat"):
             val = val.isoformat()
@@ -174,7 +175,7 @@ def _make_api_detail_view(crud_config):
 
         if request.method == "GET":
             fields = crud_config._get_detail_fields() or crud_config.fields
-            return JsonResponse(_serialize(obj, fields))
+            return JsonResponse(_serialize(obj, fields, crud_config.api_extra_fields))
 
         elif request.method in ("PUT", "PATCH"):
             if Action.UPDATE not in crud_config.actions:
@@ -254,7 +255,7 @@ def _api_list(request, crud_config):
     items = list(qs[start : start + page_size])
 
     fields = crud_config._get_list_fields()
-    results = [_serialize(obj, fields) for obj in items]
+    results = [_serialize(obj, fields, crud_config.api_extra_fields) for obj in items]
 
     # Build next/previous URLs
     base_path = request.path
@@ -282,7 +283,7 @@ def _api_create(request, crud_config):
     if form.is_valid():
         obj = form.save()
         crud_config.on_form_valid(request, form, obj, is_create=True)
-        return JsonResponse(_serialize(obj, crud_config._get_detail_fields() or crud_config.fields), status=201)
+        return JsonResponse(_serialize(obj, crud_config._get_detail_fields() or crud_config.fields, crud_config.api_extra_fields), status=201)
     return JsonResponse({"errors": form.errors}, status=400)
 
 
@@ -319,7 +320,7 @@ def _api_update(request, obj, crud_config):
     if form.is_valid():
         obj = form.save()
         crud_config.on_form_valid(request, form, obj, is_create=False)
-        return JsonResponse(_serialize(obj, crud_config._get_detail_fields() or crud_config.fields))
+        return JsonResponse(_serialize(obj, crud_config._get_detail_fields() or crud_config.fields, crud_config.api_extra_fields))
     return JsonResponse({"errors": form.errors}, status=400)
 
 

@@ -183,6 +183,20 @@ JSON request bodies are parsed and converted to Django's `QueryDict` for ModelFo
 - `null` values become empty string `""`
 - All values stringified for form processing
 
+## Extra API Fields
+
+By default, API responses only include fields from `fields` (or `list_fields`/`detail_fields`). To include read-only fields like timestamps without adding them to forms, use `api_extra_fields`:
+
+```python
+class WidgetCRUDView(CRUDView):
+    model = Widget
+    fields = ["name", "category", "is_active"]
+    enable_api = True
+    api_extra_fields = ["created_at", "updated_at"]
+```
+
+These fields are appended to every API response (list, detail, create, update) but don't appear in create/edit forms. Works with any model attribute, property, or method that returns a serializable value.
+
 ## CRUDView Integration
 
 The API layer calls these CRUDView methods:
@@ -200,6 +214,17 @@ The API layer calls these CRUDView methods:
 | Setting | Default | Description |
 |---------|---------|-------------|
 | `SMALLSTACK_API_PREFIX` | `"api/"` | URL prefix for all API endpoints |
+
+### CRUDView API Attributes
+
+| Attribute | Default | Description |
+|-----------|---------|-------------|
+| `enable_api` | `False` | Generate JSON API endpoints |
+| `api_extra_fields` | `[]` | Read-only fields appended to API responses |
+| `search_fields` | `[]` | Fields for `?q=` search |
+| `filter_fields` | `[]` | Fields for query-param filtering (django-filter) |
+| `filter_class` | `None` | Custom django-filters FilterSet class |
+| `export_formats` | `[]` | `["csv", "json"]` for `?format=` export |
 
 ## CORS Configuration
 
