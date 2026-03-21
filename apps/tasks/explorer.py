@@ -1,9 +1,9 @@
 """Explorer registration for background task results."""
 
 from django.contrib import admin
+from django_tasks_db.models import DBTaskResult
 
 from apps.explorer.registry import explorer
-from django_tasks_db.models import DBTaskResult
 
 
 class TaskResultExplorerAdmin(admin.ModelAdmin):

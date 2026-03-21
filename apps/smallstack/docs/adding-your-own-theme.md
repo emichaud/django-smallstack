@@ -177,7 +177,7 @@ There are three **required** pieces that must be present for dark mode, palettes
 </html>
 ```
 
-> **CDN vs local:** CDN links are fine for development. Before deploying to production, vendor the CSS/JS files locally into `static/mytheme/` and update the paths. See [Step 7](#step-7-vendor-assets-for-production) below.
+> **CDN vs local:** CDN stylesheet and font links work out of the box — SmallStack's CSP allows external styles, fonts, and images over HTTPS. However, **CDN script tags are blocked** by default (scripts are restricted to `'self'` to prevent XSS). For Bootstrap JS or other third-party scripts, either download them locally into `static/mytheme/` or add the CDN origin to `script-src` in `config/settings/base.py`.
 
 ### Why These Three Pieces Are Required
 
@@ -249,6 +249,7 @@ SmallStack sets `data-theme="dark"` or `data-theme="light"` on the `<html>` elem
     background-color: var(--primary-hover) !important;
     border-color: var(--primary-hover) !important;
 }
+
 ```
 
 The key insight: use SmallStack's CSS variables (`var(--body-bg)`, `var(--card-bg)`, `var(--primary)`, etc.) instead of hardcoding colors. This way your theme automatically adapts to dark mode and palette changes. See [Theming & Customization — Available CSS Variables](/help/smallstack/theming/#available-css-variables) for the full list.
@@ -510,7 +511,7 @@ Create `templates/website/dashboard.html`:
 {% endblock %}
 ```
 
-SmallStack template tags like `{% breadcrumb %}` and `{% render_breadcrumbs %}` work in your custom theme — they generate markup, not styling.
+SmallStack template tags like `{% breadcrumb %}` and `{% render_breadcrumbs %}` work in your custom theme. The breadcrumb markup uses Bootstrap-compatible classes (`<ol class="breadcrumb">` + `<li class="breadcrumb-item">`), so Bootstrap themes get styled breadcrumbs automatically.
 
 ## Linking to SmallStack Apps
 

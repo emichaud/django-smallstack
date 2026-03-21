@@ -183,7 +183,7 @@ There are three **required** pieces that must be present for dark mode, palettes
 </html>
 ```
 
-> **CDN vs local:** CDN links are fine for development. Before deploying to production, vendor the CSS/JS files locally into `static/mytheme/` and update the paths. See [Static Asset Placement](#static-asset-placement) below.
+> **CDN vs local:** CDN stylesheet and font links work out of the box — SmallStack's CSP allows external styles, fonts, and images over HTTPS. However, **CDN script tags are blocked** by default (scripts are restricted to `'self'` to prevent XSS). For Bootstrap JS or other third-party scripts, either download them locally into `static/mytheme/` or add the CDN origin to `script-src` in `config/settings/base.py`. See [Content Security Policy](#content-security-policy) and [Static Asset Placement](#static-asset-placement) below.
 
 ### Step 3: Create Your Theme's CSS Override File
 
@@ -251,6 +251,7 @@ Create `static/css/mytheme.css`. This file bridges your framework's styling with
     background-color: var(--primary-hover) !important;
     border-color: var(--primary-hover) !important;
 }
+
 ```
 
 ### Step 4: Create Your Navbar Partial
@@ -451,7 +452,7 @@ Create `templates/website/dashboard.html`:
 {% endblock %}
 ```
 
-Note how `{% breadcrumb %}` and `{% render_breadcrumbs %}` work in your custom theme — SmallStack template tags are framework-agnostic.
+`{% breadcrumb %}` and `{% render_breadcrumbs %}` work in your custom theme. SmallStack's breadcrumb markup uses Bootstrap-compatible classes (`<ol class="breadcrumb">` + `<li class="breadcrumb-item">`), so Bootstrap themes get styled breadcrumbs automatically. For other frameworks, add basic breadcrumb CSS to your theme override file.
 
 ## Linking to SmallStack Apps from Your Theme
 
@@ -569,6 +570,46 @@ They differ in:
 - **Don't modify `templates/smallstack/base.html`.** If you need changes to the SmallStack layout, that's a different task (customizing SmallStack itself, not adding a parallel theme).
 - **Don't reimplement dark mode.** If your purchased theme has its own dark mode JS, remove it. Use SmallStack's `theme.js` — it handles localStorage persistence, profile sync, and palette switching.
 - **Don't put pages in other apps.** Keep all your custom pages in `apps/website/`. This is the designated project-specific app that won't conflict with upstream updates.
+
+## Content Security Policy
+
+SmallStack ships with a Content Security Policy (CSP) via `django-csp`. The defaults in `config/settings/base.py` are designed to let CDN frameworks work while keeping scripts locked down:
+
+| Directive | Default | What it allows |
+|-----------|---------|----------------|
+| `script-src` | `'self' 'unsafe-inline'` | Only your own JS files and inline `<script>` tags. **CDN scripts are blocked.** |
+| `style-src` | `'self' 'unsafe-inline' https:` | Your CSS files, inline styles, and any HTTPS CDN stylesheet |
+| `font-src` | `'self' https: data:` | Local fonts, CDN fonts (Google Fonts, etc.), and data: URIs |
+| `img-src` | `'self' data: https:` | Local images, data: URIs, and any HTTPS image source |
+| `connect-src` | `'self'` | AJAX/fetch only to your own origin |
+
+### Using CDN Scripts (Bootstrap JS, etc.)
+
+If you need third-party JavaScript from a CDN, you have two options:
+
+**Option A: Download locally (recommended)**
+```bash
+curl -o static/mytheme/js/bootstrap.bundle.min.js \
+  https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js
+```
+
+**Option B: Add the CDN to `script-src`**
+```python
+# config/settings/base.py
+"script-src": ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net"],
+```
+
+Option A is preferred — it eliminates the external dependency and works offline.
+
+### Tightening for Production
+
+If your production site doesn't use external resources, lock everything back to `'self'`:
+
+```python
+"style-src": ["'self'", "'unsafe-inline'"],
+"font-src": ["'self'"],
+"img-src": ["'self'", "data:"],
+```
 
 ## Related Documentation
 

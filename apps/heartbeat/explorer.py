@@ -5,7 +5,6 @@ from django.contrib import admin
 from apps.explorer.registry import explorer
 from apps.smallstack.displays import (
     DetailTableDisplay,
-    Table2Display,
     TableDisplay,
 )
 

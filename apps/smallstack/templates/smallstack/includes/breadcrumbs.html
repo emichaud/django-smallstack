@@ -1,6 +1,6 @@
 {% if breadcrumbs %}
 <nav class="breadcrumbs" aria-label="Breadcrumb">
-    <ul class="breadcrumb-list">
+    <ol class="breadcrumb">
         {% for crumb in breadcrumbs %}
         <li class="breadcrumb-item {% if forloop.last %}active{% endif %}">
             {% if crumb.url and not forloop.last %}
@@ -10,6 +10,6 @@
             {% endif %}
         </li>
         {% endfor %}
-    </ul>
+    </ol>
 </nav>
 {% endif %}

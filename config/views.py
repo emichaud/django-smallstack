@@ -2,16 +2,15 @@
 Utility views for the project.
 """
 
-from pathlib import Path
-
 import logging
+from pathlib import Path
 
 from django.http import Http404, JsonResponse
 from django.shortcuts import render
 
-logger = logging.getLogger(__name__)
-
 from apps.help.utils import render_markdown
+
+logger = logging.getLogger(__name__)
 
 LEGAL_PAGES = {
     "privacy-policy": "Privacy Policy",

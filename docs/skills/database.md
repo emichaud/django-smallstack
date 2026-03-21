@@ -127,7 +127,7 @@ uv run python manage.py dumpdata --natural-foreign --natural-primary -o data_dum
 # 2. Switch DATABASE_URL to PostgreSQL
 
 # 3. Apply migrations
-uv run python manage.py migrate
+make migrate
 
 # 4. Import data
 uv run python manage.py loaddata data_dump.json

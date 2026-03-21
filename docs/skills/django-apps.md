@@ -406,9 +406,11 @@ Edit `templates/smallstack/includes/sidebar.html` — add a nav item in the admi
 ### Step 11: Run Migrations
 
 ```bash
-uv run python manage.py makemigrations myfeature
-uv run python manage.py migrate
+make migrations                                    # Creates migrations for ALL apps
+make migrate                                       # Applies pending migrations
 ```
+
+> **Tip:** To create migrations for just your new app, use `uv run python manage.py makemigrations myfeature`. `make migrations` runs `makemigrations` without an app label, which picks up changes across all apps — fine in most cases.
 
 ### Step 12: Write Tests
 

@@ -641,3 +641,7 @@ If you changed `SMALLSTACK_COLOR_PALETTE` but the UI still shows the old palette
 3. **Clear browser localStorage** — open DevTools → Application → Local Storage → delete `smallstack-palette`. This key can hold a stale value from a previous session, especially for anonymous users.
 4. **Verify the palette ID** — valid options: `django`, `high-contrast`, `dark-blue`, `orange`, `purple`. An invalid ID silently falls back to `django`.
 5. **Check `data-palette` in DevTools** — inspect the `<html>` element and confirm the `data-palette` attribute matches what you expect.
+
+### CDN stylesheets not applying
+
+SmallStack's Content Security Policy (CSP) controls which external resources the browser will load. By default, CDN **stylesheets, fonts, and images** are allowed over HTTPS. CDN **scripts** are blocked (`script-src` is `'self'` only). If a CDN stylesheet isn't working, check the browser console for CSP violations. See `config/settings/base.py` for the full policy and [adding-your-own-theme.md](adding-your-own-theme.md#content-security-policy) for details.

@@ -253,13 +253,17 @@ AXES_LOCKOUT_PARAMETERS = [["username", "ip_address"]]  # Lock per username+IP c
 AXES_RESET_ON_SUCCESS = True  # Reset failure count after successful login
 
 # Content Security Policy (django-csp)
+# Styles, fonts, and images allow "https:" so CDN frameworks (Bootstrap, Tailwind,
+# Google Fonts, etc.) work out of the box. Scripts stay restricted to 'self' — that's
+# where XSS risk lives. Tighten these in production if you don't use external resources,
+# or loosen script-src if you need third-party analytics/widgets.
 CONTENT_SECURITY_POLICY = {
     "DIRECTIVES": {
         "default-src": ["'self'"],
         "script-src": ["'self'", "'unsafe-inline'"],
-        "style-src": ["'self'", "'unsafe-inline'"],
-        "img-src": ["'self'", "data:"],
-        "font-src": ["'self'"],
+        "style-src": ["'self'", "'unsafe-inline'", "https:"],
+        "img-src": ["'self'", "data:", "https:"],
+        "font-src": ["'self'", "https:", "data:"],
         "connect-src": ["'self'"],
         "frame-ancestors": ["'none'"],
         "form-action": ["'self'"],

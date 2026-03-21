@@ -55,7 +55,7 @@
     --info-bg: #d9edf7;
     --info-fg: #31708f;
 
-    /* Button colors */
+    /* Button colors — button-fg must contrast with --primary/--button-bg */
     --button-bg: #417690;
     --button-fg: #ffffff;
     --button-hover-bg: #205067;
@@ -192,9 +192,21 @@ a:visited {
     transition: color var(--transition-fast);
 }
 
+/* Override Django 6.0 admin base.css blanket underline rule.
+   Django's a:not(... #content-main.app-list a ...) has specificity (1,1,2),
+   so we must match it exactly. Source order wins since theme.css loads after. */
+a:not(
+    [role="button"],
+    #header a,
+    #nav-sidebar a,
+    #content-main.app-list a,
+    .object-tools a
+) {
+    text-decoration: none;
+}
+
 a:hover {
     color: var(--link-hover);
-    text-decoration: underline;
 }
 
 /* ============================================
@@ -730,12 +742,8 @@ body.sidebar-closed .main-content {
 
 .topbar .auth-link.btn-primary {
     background-color: var(--primary);
-    color: #ffffff;
+    color: var(--button-fg);
     border: none;
-}
-
-[data-theme="dark"] .topbar .auth-link.btn-primary {
-    color: #000000;
 }
 
 .topbar .auth-link.btn-primary:hover {
@@ -1121,12 +1129,14 @@ body[data-topbar-nav="hidden"] .topbar-nav-auto {
     margin-bottom: 20px;
 }
 
-.breadcrumb-list {
+.breadcrumb {
     list-style: none;
     display: flex;
     flex-wrap: wrap;
     align-items: center;
     gap: 8px;
+    padding: 0;
+    margin: 0;
 }
 
 .breadcrumb-item {
@@ -2412,7 +2422,7 @@ a.button.button-secondary:hover {
     padding: 32px 36px;
     margin-bottom: 28px;
     text-align: center;
-    color: #ffffff;
+    color: var(--button-fg);
     position: relative;
     overflow: hidden;
 }
@@ -2436,7 +2446,7 @@ a.button.button-secondary:hover {
 .hero-badge {
     display: inline-block;
     background-color: rgba(255, 255, 255, 0.2);
-    color: #ffffff;
+    color: var(--button-fg);
     padding: 5px 14px;
     border-radius: 20px;
     font-size: 0.8rem;
@@ -2450,7 +2460,7 @@ a.button.button-secondary:hover {
     font-size: 2rem;
     font-weight: 700;
     margin-bottom: 10px;
-    color: #ffffff;
+    color: var(--button-fg);
 }
 
 .hero-logo {
@@ -2492,14 +2502,14 @@ a.button.button-secondary:hover {
 
 .hero-actions .button-secondary {
     background-color: transparent;
-    color: #ffffff;
+    color: var(--button-fg);
     border-color: rgba(255, 255, 255, 0.5);
 }
 
 .hero-actions .button-secondary:hover {
     background-color: rgba(255, 255, 255, 0.15);
     border-color: rgba(255, 255, 255, 0.8);
-    color: #ffffff;
+    color: var(--button-fg);
 }
 
 [data-theme="dark"] .hero-section {

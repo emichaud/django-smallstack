@@ -355,8 +355,8 @@ INSTALLED_APPS = [
 Create models, then migrate:
 
 ```bash
-uv run python manage.py makemigrations inventory
-uv run python manage.py migrate
+make migrations          # Or: uv run python manage.py makemigrations inventory
+make migrate
 ```
 
 ### 4.3 Navigation Registration

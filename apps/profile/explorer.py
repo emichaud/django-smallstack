@@ -33,7 +33,9 @@ class UserProfileExplorerAdmin(admin.ModelAdmin):
     ]
 
     # Detail: table (classic) and card (grid) layouts
-    explorer_detail_displays = [DetailTableDisplay, DetailCardDisplay(image_field="profile_photo"), UserActivityDisplay()]
+    explorer_detail_displays = [
+        DetailTableDisplay, DetailCardDisplay(image_field="profile_photo"), UserActivityDisplay(),
+    ]
 
     # Transforms apply in the basic table display (TableDisplay)
     explorer_field_transforms = {"bio": "preview"}

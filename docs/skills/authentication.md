@@ -266,8 +266,8 @@ class User(AbstractBaseUser, PermissionsMixin):
 ### Step 2: Create Migration
 
 ```bash
-uv run python manage.py makemigrations accounts
-uv run python manage.py migrate
+make migrations          # Or: uv run python manage.py makemigrations accounts
+make migrate
 ```
 
 ### Step 3: Update Admin
