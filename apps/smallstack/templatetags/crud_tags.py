@@ -229,6 +229,27 @@ def field_transform(context, obj, field_name, transform_name, url_base=None, **o
     return _get_field_value(obj, field_name, field_transforms, context)
 
 
+@register.filter
+def ns(base_name, namespace):
+    """Build the correct Explorer URL name for the current site context.
+
+    In custom CRUD templates that may be rendered by either the root Explorer
+    or a namespaced child site, use this instead of hardcoding URL names::
+
+        {% load crud_tags %}
+        {% url "construction/client-list"|ns:url_namespace %}
+
+    Root explorer (url_namespace is None/empty): prepends ``explorer/``
+    → ``explorer/construction/client-list``
+
+    Child site (url_namespace is e.g. ``"estimating"``): prepends namespace
+    → ``estimating:construction/client-list``
+    """
+    if namespace:
+        return f"{namespace}:{base_name}"
+    return f"explorer/{base_name}"
+
+
 @register.inclusion_tag("smallstack/crud/includes/form.html", takes_context=True)
 def crud_form(context):
     """Render a styled CRUD form from context.
