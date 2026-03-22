@@ -21,8 +21,8 @@
 
             {% for item in group.items %}
                 {% if item.children %}
-                <li class="nav-group {% if item.has_active_child %}open{% endif %}" data-submenu>
-                    <button class="nav-link nav-parent" type="button">
+                <li class="nav-group {% if item.has_active_child or item.active %}open{% endif %}" data-submenu>
+                    <button class="nav-link nav-parent {% if item.active and not item.has_active_child %}active{% endif %}" type="button">
                         {{ item.icon_svg|safe }}
                         <span>{{ item.label }}</span>
                         <svg class="nav-chevron" viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
