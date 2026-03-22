@@ -14,7 +14,7 @@ from typing import TYPE_CHECKING
 
 import django_tables2 as tables
 from django.db.models import AutoField, BigAutoField, Field, ForeignKey
-from django.urls import reverse
+from django.urls import path, reverse
 from django.utils.text import slugify
 
 from apps.smallstack.crud import Action, CRUDView
@@ -535,6 +535,16 @@ class ExplorerSite:
         patterns = []
         for crud_cls in self._crud_classes:
             patterns.extend(crud_cls.get_urls())
+        # Child sites: add an index redirect to the first model's list view
+        if self._name and self._model_info:
+            first_list_url_name = f"{self._name}:{self._model_info[0].url_base}-list"
+
+            def _index_redirect(request, _url=first_list_url_name):
+                from django.shortcuts import redirect
+
+                return redirect(reverse(_url))
+
+            patterns.append(path("", _index_redirect, name="index"))
         return patterns
 
     def get_models(self) -> list[ModelInfo]:
