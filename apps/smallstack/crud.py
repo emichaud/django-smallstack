@@ -104,7 +104,10 @@ class _CRUDContextMixin:
             context["create_view_url"] = cfg._reverse(f"{url_base}-create")
         if Action.LIST in cfg.actions:
             context["list_view_url"] = cfg._reverse(f"{url_base}-list")
-            context["list_view_url_name"] = f"{url_base}-list"
+            list_name = f"{url_base}-list"
+            if cfg.namespace:
+                list_name = f"{cfg.namespace}:{list_name}"
+            context["list_view_url_name"] = list_name
         return context
 
 
