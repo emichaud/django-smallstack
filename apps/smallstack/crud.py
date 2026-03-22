@@ -84,6 +84,7 @@ class _CRUDContextMixin:
                 "object_verbose_name": str(meta.verbose_name).capitalize(),
                 "object_verbose_name_plural": str(meta.verbose_name_plural).capitalize(),
                 "url_base": url_base,
+                "url_namespace": cfg.namespace,
                 "list_fields": cfg._get_list_fields(),
                 "detail_fields": cfg._get_detail_fields(),
                 "link_field": cfg._get_link_field(),
@@ -100,9 +101,9 @@ class _CRUDContextMixin:
             context["breadcrumb_parent_label"] = label
             context["breadcrumb_parent_url_name"] = url_name
         if Action.CREATE in cfg.actions:
-            context["create_view_url"] = reverse(f"{url_base}-create")
+            context["create_view_url"] = cfg._reverse(f"{url_base}-create")
         if Action.LIST in cfg.actions:
-            context["list_view_url"] = reverse(f"{url_base}-list")
+            context["list_view_url"] = cfg._reverse(f"{url_base}-list")
             context["list_view_url_name"] = f"{url_base}-list"
         return context
 
@@ -294,8 +295,7 @@ class _CRUDCreateBase(_CRUDFormDisplayMixin, _CRUDContextMixin, CreateView):
         return self._inject_display_context(context, obj=None)
 
     def get_success_url(self):
-        url_base = self.crud_config._get_url_base()
-        return reverse(f"{url_base}-list")
+        return self.crud_config._reverse(f"{self.crud_config._get_url_base()}-list")
 
 
 class _CRUDUpdateBase(_CRUDFormDisplayMixin, _CRUDContextMixin, UpdateView):
@@ -319,8 +319,9 @@ class _CRUDUpdateBase(_CRUDFormDisplayMixin, _CRUDContextMixin, UpdateView):
         return self._inject_display_context(context, obj=self.object)
 
     def get_success_url(self):
-        url_base = self.crud_config._get_url_base()
-        return reverse(f"{url_base}-detail", kwargs={"pk": self.object.pk})
+        return self.crud_config._reverse(
+            f"{self.crud_config._get_url_base()}-detail", kwargs={"pk": self.object.pk}
+        )
 
 
 class _CRUDDeleteBase(_CRUDContextMixin, DeleteView):
@@ -331,8 +332,7 @@ class _CRUDDeleteBase(_CRUDContextMixin, DeleteView):
         return self.crud_config._get_queryset()
 
     def get_success_url(self):
-        url_base = self.crud_config._get_url_base()
-        return reverse(f"{url_base}-list")
+        return self.crud_config._reverse(f"{self.crud_config._get_url_base()}-list")
 
 
 class _CRUDFieldPreviewBase(_CRUDContextMixin, DetailView):
@@ -452,6 +452,7 @@ class CRUDView:
 
     # View/routing
     url_base = None
+    namespace: str | None = None  # URL namespace for child ExplorerSite instances
     paginate_by = None
     mixins = []
     actions = [Action.LIST, Action.CREATE, Action.DETAIL, Action.UPDATE, Action.DELETE]
@@ -493,6 +494,13 @@ class CRUDView:
         if cls.url_base:
             return cls.url_base
         return cls.model._meta.model_name
+
+    @classmethod
+    def _reverse(cls, url_name: str, **kwargs) -> str:
+        """Reverse a URL name, prepending namespace if set."""
+        if cls.namespace:
+            return reverse(f"{cls.namespace}:{url_name}", **kwargs)
+        return reverse(url_name, **kwargs)
 
     @classmethod
     def _get_list_fields(cls):

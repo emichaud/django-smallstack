@@ -52,13 +52,25 @@ class DetailLinkColumn(tables.Column):
         username = DetailLinkColumn(url_base="manage/users", link_view="update")
     """
 
-    def __init__(self, url_base, link_view="detail", **kwargs):
+    def __init__(
+        self,
+        url_base: str,
+        link_view: str = "detail",
+        namespace: str | None = None,
+        **kwargs,
+    ):
         super().__init__(linkify=False, **kwargs)
         self.url_base = url_base
         self.link_view = link_view
+        self.namespace = namespace
+
+    def _reverse(self, url_name: str, **kwargs) -> str:
+        if self.namespace:
+            return reverse(f"{self.namespace}:{url_name}", **kwargs)
+        return reverse(url_name, **kwargs)
 
     def render(self, value, record):
-        url = reverse(f"{self.url_base}-{self.link_view}", kwargs={"pk": record.pk})
+        url = self._reverse(f"{self.url_base}-{self.link_view}", kwargs={"pk": record.pk})
         return format_html('<a href="{}">{}</a>', url, value)
 
 
@@ -84,7 +96,14 @@ class ActionsColumn(tables.Column):
         'M19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>'
     )
 
-    def __init__(self, url_base, edit=True, delete=True, **kwargs):
+    def __init__(
+        self,
+        url_base: str,
+        edit: bool = True,
+        delete: bool = True,
+        namespace: str | None = None,
+        **kwargs,
+    ):
         kwargs["empty_values"] = ()  # Always render, even if no value
         kwargs["orderable"] = False
         kwargs["verbose_name"] = ""
@@ -95,20 +114,26 @@ class ActionsColumn(tables.Column):
         self.url_base = url_base
         self.show_edit = edit
         self.show_delete = delete
+        self.namespace = namespace
+
+    def _reverse(self, url_name: str, **kwargs) -> str:
+        if self.namespace:
+            return reverse(f"{self.namespace}:{url_name}", **kwargs)
+        return reverse(url_name, **kwargs)
 
     def render(self, record):
         links = []
         style = "display: inline-flex; align-items: center; gap: 0.3rem; margin-left: 0.75rem;"
 
         if self.show_edit:
-            url = reverse(f"{self.url_base}-update", kwargs={"pk": record.pk})
+            url = self._reverse(f"{self.url_base}-update", kwargs={"pk": record.pk})
             links.append(format_html(
                 '<a href="{}" style="{}" title="Edit">{}</a>',
                 url, style, self.EDIT_SVG,
             ))
 
         if self.show_delete:
-            url = reverse(f"{self.url_base}-delete", kwargs={"pk": record.pk})
+            url = self._reverse(f"{self.url_base}-delete", kwargs={"pk": record.pk})
             links.append(format_html(
                 '<a href="{}" class="crud-action-delete" style="{}" title="Delete"'
                 ' onclick="event.preventDefault();crudDeleteModal(this,\'{}\')"'

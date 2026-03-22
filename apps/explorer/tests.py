@@ -369,3 +369,321 @@ class TestDisplayProtocol:
         client.force_login(staff_user)
         response = client.get(reverse("explorer/monitoring/heartbeat-list") + "?display=table2")
         assert response.status_code == 200
+
+
+class TestChildExplorerSite:
+    """Tests for namespaced child ExplorerSite instances."""
+
+    def test_child_inherits_parent_registrations(self):
+        """Child site inherits models from parent filtered by groups."""
+        from django.contrib import admin
+
+        from apps.heartbeat.models import Heartbeat, HeartbeatEpoch
+
+        from .registry import ExplorerSite
+
+        parent = ExplorerSite()
+        parent.register(Heartbeat, admin.ModelAdmin, group="Monitoring")
+        parent.register(HeartbeatEpoch, admin.ModelAdmin, group="Other")
+
+        child = ExplorerSite(
+            name="monitoring_child",
+            parent=parent,
+            groups=["Monitoring"],
+        )
+        child._inherit_from_parent()
+
+        assert (Heartbeat, "Monitoring") in child._registry
+        assert (HeartbeatEpoch, "Other") not in child._registry
+
+    def test_child_inherits_all_groups_when_none(self):
+        """Child with groups=None inherits everything."""
+        from django.contrib import admin
+
+        from apps.heartbeat.models import Heartbeat, HeartbeatEpoch
+
+        from .registry import ExplorerSite
+
+        parent = ExplorerSite()
+        parent.register(Heartbeat, admin.ModelAdmin, group="Monitoring")
+        parent.register(HeartbeatEpoch, admin.ModelAdmin, group="Other")
+
+        child = ExplorerSite(name="all_child", parent=parent)
+        child._inherit_from_parent()
+
+        assert (Heartbeat, "Monitoring") in child._registry
+        assert (HeartbeatEpoch, "Other") in child._registry
+
+    def test_set_form_overrides_in_child_not_parent(self):
+        """set_form() on child doesn't leak to parent."""
+        from django import forms
+        from django.contrib import admin
+
+        from apps.heartbeat.models import Heartbeat
+
+        from .registry import ExplorerSite
+
+        parent = ExplorerSite()
+        parent.register(Heartbeat, admin.ModelAdmin, group="Monitoring")
+
+        class CustomForm(forms.ModelForm):
+            class Meta:
+                model = Heartbeat
+                fields = ["status"]
+
+        child = ExplorerSite(
+            name="custom_child",
+            parent=parent,
+            groups=["Monitoring"],
+        )
+        child.set_form(Heartbeat, CustomForm)
+
+        assert child._form_overrides[Heartbeat] is CustomForm
+        assert Heartbeat not in parent._form_overrides
+
+    def test_child_build_sets_namespace_on_crud(self, db):
+        """Built CRUD classes have the child's namespace set."""
+        from django.contrib import admin
+
+        from apps.heartbeat.models import Heartbeat
+
+        from .registry import ExplorerSite
+
+        parent = ExplorerSite()
+        parent.register(Heartbeat, admin.ModelAdmin, group="Monitoring")
+
+        child = ExplorerSite(
+            name="test_ns",
+            parent=parent,
+            groups=["Monitoring"],
+        )
+        child.build_crud_classes()
+
+        assert len(child._crud_classes) == 1
+        assert child._crud_classes[0].namespace == "test_ns"
+
+    def test_child_url_base_no_explorer_prefix(self, db):
+        """Child site URL bases don't have 'explorer/' prefix."""
+        from django.contrib import admin
+
+        from apps.heartbeat.models import Heartbeat
+
+        from .registry import ExplorerSite
+
+        parent = ExplorerSite()
+        parent.register(Heartbeat, admin.ModelAdmin, group="Monitoring")
+
+        child = ExplorerSite(
+            name="test_prefix",
+            parent=parent,
+            groups=["Monitoring"],
+        )
+        child.build_crud_classes()
+
+        info = child._model_info[0]
+        assert info.url_base == "monitoring/heartbeat"
+        assert not info.url_base.startswith("explorer/")
+
+    def test_child_model_info_has_namespace(self, db):
+        """ModelInfo from child has namespace set."""
+        from django.contrib import admin
+
+        from apps.heartbeat.models import Heartbeat
+
+        from .registry import ExplorerSite
+
+        parent = ExplorerSite()
+        parent.register(Heartbeat, admin.ModelAdmin, group="Monitoring")
+
+        child = ExplorerSite(
+            name="ns_test",
+            parent=parent,
+            groups=["Monitoring"],
+        )
+        child.build_crud_classes()
+
+        assert child._model_info[0].namespace == "ns_test"
+
+    def test_child_urls_property_returns_tuple(self, db):
+        """urls property returns (patterns, name) tuple for include()."""
+        from django.contrib import admin
+
+        from apps.heartbeat.models import Heartbeat
+
+        from .registry import ExplorerSite
+
+        parent = ExplorerSite()
+        parent.register(Heartbeat, admin.ModelAdmin, group="Monitoring")
+
+        child = ExplorerSite(
+            name="urls_test",
+            parent=parent,
+            groups=["Monitoring"],
+        )
+        patterns, app_name = child.urls
+
+        assert app_name == "urls_test"
+        assert len(patterns) > 0
+
+    def test_lazy_build_on_get_url_patterns(self, db):
+        """get_url_patterns() triggers lazy build for child sites."""
+        from django.contrib import admin
+
+        from apps.heartbeat.models import Heartbeat
+
+        from .registry import ExplorerSite
+
+        parent = ExplorerSite()
+        parent.register(Heartbeat, admin.ModelAdmin, group="Monitoring")
+
+        child = ExplorerSite(
+            name="lazy_test",
+            parent=parent,
+            groups=["Monitoring"],
+        )
+        assert not child._built
+        child.get_url_patterns()
+        assert child._built
+        assert len(child._crud_classes) == 1
+
+    def test_child_form_override_used_in_build(self, db):
+        """Form override via set_form is used when building CRUD classes."""
+        from django import forms
+        from django.contrib import admin
+
+        from apps.heartbeat.models import Heartbeat
+
+        from .registry import ExplorerSite
+
+        parent = ExplorerSite()
+        parent.register(Heartbeat, admin.ModelAdmin, group="Monitoring")
+
+        class WorkflowForm(forms.ModelForm):
+            class Meta:
+                model = Heartbeat
+                fields = ["status"]
+
+        child = ExplorerSite(
+            name="form_test",
+            parent=parent,
+            groups=["Monitoring"],
+        )
+        child.set_form(Heartbeat, WorkflowForm)
+        child.build_crud_classes()
+
+        assert child._crud_classes[0].form_class is WorkflowForm
+
+    def test_parent_not_affected_by_child_form(self, db):
+        """Parent CRUD classes don't get child's form override."""
+        from django import forms
+        from django.contrib import admin
+
+        from apps.heartbeat.models import Heartbeat
+
+        from .registry import ExplorerSite
+
+        parent = ExplorerSite()
+        parent.register(Heartbeat, admin.ModelAdmin, group="Monitoring")
+        parent.build_crud_classes()
+
+        class WorkflowForm(forms.ModelForm):
+            class Meta:
+                model = Heartbeat
+                fields = ["status"]
+
+        child = ExplorerSite(
+            name="isolation_test",
+            parent=parent,
+            groups=["Monitoring"],
+        )
+        child.set_form(Heartbeat, WorkflowForm)
+        child.build_crud_classes()
+
+        assert parent._crud_classes[0].form_class is None
+        assert child._crud_classes[0].form_class is WorkflowForm
+
+    def test_child_display_name_default(self):
+        """Display name defaults to titlecased name."""
+        from .registry import ExplorerSite
+
+        site = ExplorerSite(name="my_workflow")
+        assert site._display_name == "My Workflow"
+
+    def test_child_display_name_custom(self):
+        """Custom display_name overrides default."""
+        from .registry import ExplorerSite
+
+        site = ExplorerSite(name="est", display_name="Estimating Portal")
+        assert site._display_name == "Estimating Portal"
+
+    def test_multiple_groups_in_child(self, db):
+        """Child with multiple groups inherits from all specified groups."""
+        from django.contrib import admin
+
+        from apps.heartbeat.models import Heartbeat, HeartbeatDaily, HeartbeatEpoch
+
+        from .registry import ExplorerSite
+
+        parent = ExplorerSite()
+        parent.register(Heartbeat, admin.ModelAdmin, group="Monitoring")
+        parent.register(HeartbeatEpoch, admin.ModelAdmin, group="Epochs")
+        parent.register(HeartbeatDaily, admin.ModelAdmin, group="Reports")
+
+        child = ExplorerSite(
+            name="multi_group",
+            parent=parent,
+            groups=["Monitoring", "Epochs"],
+        )
+        child._inherit_from_parent()
+
+        assert (Heartbeat, "Monitoring") in child._registry
+        assert (HeartbeatEpoch, "Epochs") in child._registry
+        assert (HeartbeatDaily, "Reports") not in child._registry
+
+    def test_root_site_namespace_is_none(self):
+        """Root explorer singleton has no namespace."""
+        from .registry import explorer
+
+        assert explorer._name is None
+        assert explorer._parent is None
+
+
+class TestMixinSiteAwareness:
+    """Tests for site-aware Explorer mixins."""
+
+    def test_group_mixin_defaults_to_root(self):
+        """ExplorerGroupMixin with no explorer_site uses root explorer."""
+        from .mixins import ExplorerGroupMixin
+
+        mixin = ExplorerGroupMixin()
+        from .registry import explorer
+
+        assert mixin._get_site() is explorer
+
+    def test_group_mixin_uses_custom_site(self):
+        """ExplorerGroupMixin with explorer_site uses that site."""
+        from .mixins import ExplorerGroupMixin
+        from .registry import ExplorerSite
+
+        custom_site = ExplorerSite(name="custom")
+        mixin = ExplorerGroupMixin()
+        mixin.explorer_site = custom_site
+        assert mixin._get_site() is custom_site
+
+    def test_app_mixin_defaults_to_root(self):
+        """ExplorerAppMixin with no explorer_site uses root explorer."""
+        from .mixins import ExplorerAppMixin
+
+        mixin = ExplorerAppMixin()
+        from .registry import explorer
+
+        assert mixin._get_site() is explorer
+
+    def test_model_mixin_defaults_to_root(self):
+        """ExplorerModelMixin with no explorer_site uses root explorer."""
+        from .mixins import ExplorerModelMixin
+
+        mixin = ExplorerModelMixin()
+        from .registry import explorer
+
+        assert mixin._get_site() is explorer

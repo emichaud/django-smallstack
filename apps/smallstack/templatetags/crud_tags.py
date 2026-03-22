@@ -71,6 +71,13 @@ def _get_field_label(model, field_name):
         return field_name.replace("_", " ").capitalize()
 
 
+def _ns_reverse(url_name: str, namespace: str | None = None, **kwargs) -> str:
+    """Reverse a URL name, prepending namespace if set."""
+    if namespace:
+        return reverse(f"{namespace}:{url_name}", **kwargs)
+    return reverse(url_name, **kwargs)
+
+
 @register.inclusion_tag("smallstack/crud/includes/table.html", takes_context=True)
 def crud_table(context):
     """Render a CRUD list table from context variables.
@@ -86,6 +93,7 @@ def crud_table(context):
     url_base = context.get("url_base", "")
     crud_actions = context.get("crud_actions", [])
     field_transforms = context.get("field_transforms", {})
+    url_namespace = context.get("url_namespace")
 
     # Resolve model from first object or from context
     model = object_list[0].__class__ if object_list else None
@@ -120,20 +128,20 @@ def crud_table(context):
                 }
             )
 
-        detail_url = reverse(f"{url_base}-detail", kwargs={"pk": obj.pk}) if has_detail else None
+        detail_url = _ns_reverse(f"{url_base}-detail", url_namespace, kwargs={"pk": obj.pk}) if has_detail else None
 
         actions = []
         if has_update:
             actions.append(
                 {
-                    "url": reverse(f"{url_base}-update", kwargs={"pk": obj.pk}),
+                    "url": _ns_reverse(f"{url_base}-update", url_namespace, kwargs={"pk": obj.pk}),
                     "label": "Edit",
                 }
             )
         if has_delete:
             actions.append(
                 {
-                    "url": reverse(f"{url_base}-delete", kwargs={"pk": obj.pk}),
+                    "url": _ns_reverse(f"{url_base}-delete", url_namespace, kwargs={"pk": obj.pk}),
                     "label": "Delete",
                     "is_delete": True,
                 }
@@ -155,14 +163,15 @@ def crud_table(context):
     }
 
 
-@register.simple_tag
-def field_preview_url(url_base, obj, field_name):
+@register.simple_tag(takes_context=True)
+def field_preview_url(context, url_base, obj, field_name):
     """Return the URL for a field preview endpoint.
 
     Usage: {% field_preview_url url_base obj "field_name" %}
     """
-    return reverse(
+    return _ns_reverse(
         f"{url_base}-field-preview",
+        context.get("url_namespace"),
         kwargs={"pk": obj.pk, "field_name": field_name},
     )
 
@@ -191,8 +200,9 @@ def field_preview(url_base, obj, field_name, threshold=None):
     needs_truncation = len(text) > threshold
     truncated = text[:threshold].rstrip() if needs_truncation else text
 
-    preview_url = reverse(
+    preview_url = _ns_reverse(
         f"{url_base}-field-preview",
+        namespace=None,
         kwargs={"pk": obj.pk, "field_name": field_name},
     )
 

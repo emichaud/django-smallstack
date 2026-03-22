@@ -22,7 +22,9 @@ from apps.smallstack.mixins import StaffRequiredMixin
 from apps.smallstack.tables import ActionsColumn, DetailLinkColumn
 
 if TYPE_CHECKING:
+    from django import forms
     from django.db import models
+    from django.urls import URLPattern
 
 logger = logging.getLogger(__name__)
 
@@ -44,6 +46,13 @@ class ModelInfo:
     url_base: str
     readonly: bool
     group: str
+    namespace: str | None = None
+
+    def _reverse(self, url_name: str, **kwargs) -> str:
+        """Reverse a URL name, prepending namespace if set."""
+        if self.namespace:
+            return reverse(f"{self.namespace}:{url_name}", **kwargs)
+        return reverse(url_name, **kwargs)
 
     def with_counts(self) -> ModelCardInfo:
         """Return a ModelCardInfo with live count and resolved list URL."""
@@ -56,8 +65,9 @@ class ModelInfo:
             url_base=self.url_base,
             readonly=self.readonly,
             group=self.group,
+            namespace=self.namespace,
             count=self.model_class.objects.count(),
-            list_url=reverse(f"{self.url_base}-list"),
+            list_url=self._reverse(f"{self.url_base}-list"),
         )
 
     # Allow dict-style access so django-tables2 render_* methods work
@@ -209,7 +219,13 @@ def _resolve_group(model, modeladmin):
     return model._meta.app_label.replace("_", " ").title()
 
 
-def _build_auto_table(model, list_fields, url_base, actions):
+def _build_auto_table(
+    model: type[models.Model],
+    list_fields: list[str],
+    url_base: str,
+    actions: list[Action],
+    namespace: str | None = None,
+) -> type[tables.Table]:
     """Auto-generate a django-tables2 Table class with sortable columns.
 
     The first field becomes a DetailLinkColumn (if DETAIL action exists),
@@ -224,13 +240,13 @@ def _build_auto_table(model, list_fields, url_base, actions):
 
     for field_name in list_fields:
         if field_name == link_field and has_detail:
-            attrs[field_name] = DetailLinkColumn(url_base=url_base)
+            attrs[field_name] = DetailLinkColumn(url_base=url_base, namespace=namespace)
         else:
             attrs[field_name] = tables.Column()
 
     if has_update or has_delete:
         attrs["actions"] = ActionsColumn(
-            url_base=url_base, edit=has_update, delete=has_delete
+            url_base=url_base, edit=has_update, delete=has_delete, namespace=namespace
         )
 
     meta_attrs = {
@@ -253,16 +269,44 @@ class ExplorerSite:
 
     Supports explicit registration via register(), autodiscovery of explorer.py
     files, and legacy discovery from admin.site._registry.
+
+    Child sites can inherit from a parent, filtered by groups, with per-instance
+    form overrides that don't leak back to the parent:
+
+        estimating = ExplorerSite(
+            name="estimating",
+            parent=explorer,
+            groups=["Construction"],
+            display_name="Estimating",
+        )
+        estimating.set_form(Estimate, EstimateWorkflowForm)
     """
 
-    def __init__(self):
-        self._registry = {}  # {(model, group_key): admin_class}
-        self._crud_classes = []  # built CRUDView subclasses
+    def __init__(
+        self,
+        name: str | None = None,
+        parent: ExplorerSite | None = None,
+        groups: list[str] | None = None,
+        display_name: str | None = None,
+    ):
+        self._name = name
+        self._parent = parent
+        self._groups = [g.lower() for g in groups] if groups else None
+        self._display_name = display_name or (name.replace("_", " ").title() if name else "Explorer")
+        self._registry: dict[tuple[type[models.Model], str], type] = {}
+        self._crud_classes: list[type[CRUDView]] = []
         self._model_info: list[ModelInfo] = []
+        self._form_overrides: dict[type[models.Model], type[forms.ModelForm]] = {}
+        self._built = False
 
     # -- Registration --
 
-    def register(self, model, admin_class=None, group=None):
+    def register(
+        self,
+        model: type[models.Model],
+        admin_class: type | None = None,
+        group: str | None = None,
+    ) -> None:
         """Register a model with Explorer.
 
         Args:
@@ -278,13 +322,13 @@ class ExplorerSite:
         group_key = group or model._meta.app_label.replace("_", " ").title()
         self._registry[(model, group_key)] = admin_class
 
-    def autodiscover(self):
+    def autodiscover(self) -> None:
         """Import explorer.py from every installed app."""
         from django.utils.module_loading import autodiscover_modules
 
         autodiscover_modules("explorer")
 
-    def discover_admin(self):
+    def discover_admin(self) -> None:
         """Legacy: scan admin.site._registry for explorer_enabled=True.
 
         Only registers models not already in _registry (autodiscover takes precedence).
@@ -310,10 +354,38 @@ class ExplorerSite:
                     model._meta.model_name,
                 )
 
+    def set_form(self, model: type[models.Model], form_class: type[forms.ModelForm]) -> None:
+        """Set a per-instance form override. Only this site sees this form."""
+        self._form_overrides[model] = form_class
+
+    def _inherit_from_parent(self) -> None:
+        """Copy filtered entries from parent._registry into own _registry."""
+        if not self._parent:
+            return
+        for (model, group_key), admin_class in self._parent._registry.items():
+            if self._groups and group_key.lower() not in self._groups:
+                continue
+            if (model, group_key) not in self._registry:
+                self._registry[(model, group_key)] = admin_class
+
+    @property
+    def urls(self) -> tuple[list[URLPattern], str | None]:
+        """Return (patterns, app_name) tuple for use with include().
+
+        Usage: path("estimating/", include(estimating.urls, namespace="estimating"))
+        """
+        return (self.get_url_patterns(), self._name)
+
     # -- Build phase --
 
-    def build_crud_classes(self):
-        """Create CRUDView subclasses for all registered models."""
+    def build_crud_classes(self) -> None:
+        """Create CRUDView subclasses for all registered models.
+
+        For child sites with a parent, inherits from parent first (lazy build).
+        """
+        if self._parent and not self._built:
+            self._inherit_from_parent()
+
         from django.contrib import admin
 
         for (model, group_key), admin_class in self._registry.items():
@@ -326,6 +398,7 @@ class ExplorerSite:
                     model._meta.model_name,
                     exc_info=True,
                 )
+        self._built = True
 
     def _build_one(self, model, group_key, admin_class, admin_site):
         """Build a single CRUDView subclass and register its ModelInfo."""
@@ -333,7 +406,12 @@ class ExplorerSite:
 
         group_slug = slugify(group_key)
         model_name = model._meta.model_name
-        url_base = f"explorer/{group_slug}/{model_name}"
+
+        # Child sites: no "explorer/" prefix — the mount path provides that
+        if self._name:
+            url_base = f"{group_slug}/{model_name}"
+        else:
+            url_base = f"explorer/{group_slug}/{model_name}"
 
         # Instantiate admin for reading instance-level attrs
         admin_instance = admin_class(model, admin_site)
@@ -367,7 +445,8 @@ class ExplorerSite:
         form_fields = [f for f in resolved_fields if f in editable_names]
 
         # Auto-generate a django-tables2 Table for sortable columns
-        table_class = _build_auto_table(model, resolved_fields, url_base, actions)
+        namespace = self._name
+        table_class = _build_auto_table(model, resolved_fields, url_base, actions, namespace=namespace)
 
         # Merge transforms: explorer_preview_fields → "preview", then explicit wins
         preview_fields = getattr(admin_instance, "explorer_preview_fields", [])
@@ -387,10 +466,22 @@ class ExplorerSite:
         form_displays = getattr(admin_class, "explorer_form_displays", [])
         create_displays = getattr(admin_class, "explorer_create_displays", [])
         edit_displays = getattr(admin_class, "explorer_edit_displays", [])
-        form_class = getattr(admin_instance, "explorer_form_class", None)
+
+        # Form class: per-instance override wins, then admin's explorer_form_class
+        form_class = self._form_overrides.get(model)
+        if form_class is None:
+            form_class = getattr(admin_instance, "explorer_form_class", None)
+
+        # Breadcrumb parent: child sites use their own display name + namespaced index
+        if self._name:
+            breadcrumb_parent = (self._display_name, f"{self._name}:index")
+            class_name_prefix = f"{self._name.title().replace('_', '')}"
+        else:
+            breadcrumb_parent = ("Explorer", "explorer-index")
+            class_name_prefix = "Explorer"
 
         crud_cls = type(
-            f"Explorer{model.__name__}CRUDView",
+            f"{class_name_prefix}{model.__name__}CRUDView",
             (CRUDView,),
             {
                 "model": model,
@@ -398,6 +489,7 @@ class ExplorerSite:
                 "fields": form_fields or resolved_fields,
                 "list_fields": resolved_fields,
                 "url_base": url_base,
+                "namespace": namespace,
                 "paginate_by": paginate_by,
                 "table_class": table_class,
                 "mixins": [StaffRequiredMixin],
@@ -410,7 +502,7 @@ class ExplorerSite:
                 "form_class": form_class,
                 "preview_fields": preview_fields,
                 "field_transforms": merged_transforms,
-                "breadcrumb_parent": ("Explorer", "explorer-index"),
+                "breadcrumb_parent": breadcrumb_parent,
                 "enable_api": getattr(admin_class, "explorer_enable_api", False),
                 "export_formats": list(getattr(admin_class, "explorer_export_formats", [])),
                 "api_extra_fields": list(getattr(admin_class, "explorer_api_extra_fields", [])),
@@ -430,12 +522,16 @@ class ExplorerSite:
                 url_base=url_base,
                 readonly=readonly,
                 group=group_key,
+                namespace=namespace,
             )
         )
 
     # -- Public API: raw data --
 
-    def get_url_patterns(self):
+    def get_url_patterns(self) -> list[URLPattern]:
+        # Lazy build: child sites build on first URL pattern request
+        if self._parent and not self._built:
+            self.build_crud_classes()
         patterns = []
         for crud_cls in self._crud_classes:
             patterns.extend(crud_cls.get_urls())
@@ -529,7 +625,7 @@ class ExplorerSite:
         url_base = crud_cls._get_url_base()
         create_url = None
         if Action.CREATE in crud_cls.actions:
-            create_url = reverse(f"{url_base}-create")
+            create_url = crud_cls._reverse(f"{url_base}-create")
 
         return ModelContext(
             info=info.with_counts(),
@@ -548,7 +644,7 @@ class ExplorerSite:
         )
 
 
-# Module-level singleton
+# Module-level singleton — root site (no name, no parent)
 explorer = ExplorerSite()
 
 # Backward compat alias — existing code importing explorer_registry still works

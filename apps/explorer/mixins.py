@@ -35,64 +35,86 @@ Usage — single model page (hardcoded):
         explorer_model_name = "heartbeat"
 """
 
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
 from django.http import Http404
 
-from .registry import explorer
+if TYPE_CHECKING:
+    from .registry import ExplorerSite
 
 
-class ExplorerGroupMixin:
+class _ExplorerSiteMixin:
+    """Base mixin that resolves which ExplorerSite to query."""
+
+    explorer_site: ExplorerSite | None = None
+
+    def _get_site(self) -> ExplorerSite:
+        if self.explorer_site:
+            return self.explorer_site
+        from .registry import explorer
+
+        return explorer
+
+
+class ExplorerGroupMixin(_ExplorerSiteMixin):
     """Mixin that populates template context with Explorer group data.
 
     Adds to context: group_name, models (list of ModelCardInfo), all_groups.
 
     Set ``explorer_group`` on the class to hardcode a group, or leave it
     unset to read from ``self.kwargs["group"]`` (URL parameter).
+
+    Set ``explorer_site`` to use a child ExplorerSite instead of the default.
     """
 
-    explorer_group = None  # Set to hardcode, or read from URL kwargs
+    explorer_group: str | None = None  # Set to hardcode, or read from URL kwargs
 
-    def get_explorer_group_name(self):
+    def get_explorer_group_name(self) -> str:
         if self.explorer_group:
             return self.explorer_group
         return self.kwargs["group"]
 
-    def get_context_data(self, **kwargs):
+    def get_context_data(self, **kwargs) -> dict:
         context = super().get_context_data(**kwargs)
         group_name = self.get_explorer_group_name()
-        ctx = explorer.get_group_context(group_name)
+        ctx = self._get_site().get_group_context(group_name)
         if not ctx:
             raise Http404(f"Group '{group_name}' not found in Explorer registry.")
         context.update(ctx.as_context())
         return context
 
 
-class ExplorerAppMixin:
+class ExplorerAppMixin(_ExplorerSiteMixin):
     """Mixin that populates template context with Explorer app data.
 
     Adds to context: app_label, app_verbose_name, models (list of ModelCardInfo), all_apps.
 
     Set ``explorer_app`` on the class to hardcode an app_label, or leave it
     unset to read from ``self.kwargs["app_label"]`` (URL parameter).
+
+    Set ``explorer_site`` to use a child ExplorerSite instead of the default.
     """
 
-    explorer_app = None  # Set to hardcode, or read from URL kwargs
+    explorer_app: str | None = None  # Set to hardcode, or read from URL kwargs
 
-    def get_explorer_app_label(self):
+    def get_explorer_app_label(self) -> str:
         if self.explorer_app:
             return self.explorer_app
         return self.kwargs["app_label"]
 
-    def get_context_data(self, **kwargs):
+    def get_context_data(self, **kwargs) -> dict:
         context = super().get_context_data(**kwargs)
         app_label = self.get_explorer_app_label()
-        ctx = explorer.get_app_context(app_label)
+        ctx = self._get_site().get_app_context(app_label)
         if not ctx:
             raise Http404(f"App '{app_label}' not found in Explorer registry.")
         context.update(ctx.as_context())
         return context
 
 
-class ExplorerModelMixin:
+class ExplorerModelMixin(_ExplorerSiteMixin):
     """Mixin that populates template context with Explorer model data.
 
     Adds to context: everything the crud_table template tag needs —
@@ -101,26 +123,28 @@ class ExplorerModelMixin:
     Set ``explorer_app_label`` and ``explorer_model_name`` to hardcode,
     or leave unset to read from ``self.kwargs["app_label"]`` and
     ``self.kwargs["model_name"]``.
+
+    Set ``explorer_site`` to use a child ExplorerSite instead of the default.
     """
 
-    explorer_app_label = None
-    explorer_model_name = None
+    explorer_app_label: str | None = None
+    explorer_model_name: str | None = None
 
-    def get_explorer_app_label(self):
+    def get_explorer_app_label(self) -> str:
         if self.explorer_app_label:
             return self.explorer_app_label
         return self.kwargs["app_label"]
 
-    def get_explorer_model_name(self):
+    def get_explorer_model_name(self) -> str:
         if self.explorer_model_name:
             return self.explorer_model_name
         return self.kwargs["model_name"]
 
-    def get_context_data(self, **kwargs):
+    def get_context_data(self, **kwargs) -> dict:
         context = super().get_context_data(**kwargs)
         app_label = self.get_explorer_app_label()
         model_name = self.get_explorer_model_name()
-        ctx = explorer.get_model_context(app_label, model_name)
+        ctx = self._get_site().get_model_context(app_label, model_name)
         if not ctx:
             raise Http404(f"Model '{app_label}.{model_name}' not found in Explorer registry.")
         context.update(ctx.as_context())

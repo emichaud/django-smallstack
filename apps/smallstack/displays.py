@@ -272,15 +272,18 @@ class CardDisplay(ListDisplay):
         from apps.smallstack.crud import Action
 
         has_detail = Action.DETAIL in crud_config.actions
+        namespace = getattr(crud_config, "namespace", None)
         cards = []
         for obj in items:
             title = getattr(obj, title_field, str(obj))
             subtitle = getattr(obj, subtitle_field, "") if subtitle_field else ""
-            detail_url = (
-                reverse(f"{url_base}-detail", kwargs={"pk": obj.pk})
-                if has_detail
-                else None
-            )
+            if has_detail:
+                url_name = f"{url_base}-detail"
+                if namespace:
+                    url_name = f"{namespace}:{url_name}"
+                detail_url = reverse(url_name, kwargs={"pk": obj.pk})
+            else:
+                detail_url = None
             cards.append({
                 "obj": obj,
                 "title": title,
