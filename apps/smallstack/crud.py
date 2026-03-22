@@ -678,26 +678,35 @@ class CRUDView:
 
     @classmethod
     def _get_template_names(cls, suffix):
-        """Return template list: app-specific override first, then default.
+        """Return template list with instance → app → default fallback.
 
-        Templates are namespaced under {app_label}/crud/ to avoid collisions
-        with public-facing templates that use Django's standard naming
-        convention ({app_label}/{model_name}_{suffix}.html).
+        Resolution order (first match wins):
+        1. {namespace}/crud/{model}_{suffix}.html  — instance-specific override
+        2. {app_label}/crud/{model}_{suffix}.html  — shared custom template
+        3. smallstack/crud/object_{suffix}.html     — default
 
-        For "create" and "edit" suffixes, falls back to "form" for backward
-        compatibility — existing {model}_form.html overrides still work.
+        Named Explorer instances inherit shared custom templates from step 2
+        automatically. Only add a step-1 template when an instance needs its
+        own version of a view for that model.
         """
         app_label = cls.model._meta.app_label
         model_name = cls.model._meta.model_name
 
-        templates = [f"{app_label}/crud/{model_name}_{suffix}.html"]
+        templates = []
 
-        # Fallback: create/edit → form (backward compat)
+        # Instance-specific override (only for named child sites)
+        if cls.namespace:
+            templates.append(f"{cls.namespace}/crud/{model_name}_{suffix}.html")
+            if suffix in ("create", "edit"):
+                templates.append(f"{cls.namespace}/crud/{model_name}_form.html")
+
+        # Shared app-level custom template
+        templates.append(f"{app_label}/crud/{model_name}_{suffix}.html")
         if suffix in ("create", "edit"):
             templates.append(f"{app_label}/crud/{model_name}_form.html")
 
+        # Default
         templates.append(f"smallstack/crud/object_{suffix}.html")
-
         if suffix in ("create", "edit"):
             templates.append("smallstack/crud/object_form.html")
 
