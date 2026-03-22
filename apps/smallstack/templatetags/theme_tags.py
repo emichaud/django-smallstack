@@ -14,7 +14,14 @@ register = template.Library()
 
 
 class BreadcrumbNode(template.Node):
-    """Node for rendering a breadcrumb item."""
+    """Node for rendering a breadcrumb item.
+
+    All arguments are compiled FilterExpression objects so that filters
+    work in breadcrumb arguments::
+
+        {% load crud_tags %}
+        {% breadcrumb "Clients" "construction/client-list"|ns:url_namespace %}
+    """
 
     def __init__(self, label, url_name=None, url_args=None):
         self.label = label
@@ -22,11 +29,7 @@ class BreadcrumbNode(template.Node):
         self.url_args = url_args or []
 
     def render(self, context):
-        # Resolve label if it's a variable
-        try:
-            label = template.Variable(self.label).resolve(context)
-        except template.VariableDoesNotExist:
-            label = self.label.strip("\"'")
+        label = self.label.resolve(context)
 
         # Get or create breadcrumbs list in context
         if "breadcrumbs" not in context:
@@ -36,18 +39,10 @@ class BreadcrumbNode(template.Node):
 
         # Resolve URL if provided
         if self.url_name:
-            try:
-                url_name = template.Variable(self.url_name).resolve(context)
-            except template.VariableDoesNotExist:
-                url_name = self.url_name.strip("\"'")
+            url_name = self.url_name.resolve(context)
 
             # Resolve URL args
-            resolved_args = []
-            for arg in self.url_args:
-                try:
-                    resolved_args.append(template.Variable(arg).resolve(context))
-                except template.VariableDoesNotExist:
-                    resolved_args.append(arg.strip("\"'"))
+            resolved_args = [arg.resolve(context) for arg in self.url_args]
 
             try:
                 breadcrumb["url"] = reverse(url_name, args=resolved_args) if resolved_args else reverse(url_name)
@@ -68,6 +63,7 @@ def breadcrumb(parser, token):
         {% breadcrumb "Profile" "profile" %}
         {% breadcrumb "Edit" %}  {# No URL for current page #}
         {% breadcrumb "User" "profile_detail" username %}  {# With URL args #}
+        {% breadcrumb "Clients" "construction/client-list"|ns:url_namespace %}
     """
     bits = token.split_contents()
     tag_name = bits[0]
@@ -75,9 +71,9 @@ def breadcrumb(parser, token):
     if len(bits) < 2:
         raise template.TemplateSyntaxError(f"'{tag_name}' tag requires at least a label argument")
 
-    label = bits[1]
-    url_name = bits[2] if len(bits) > 2 else None
-    url_args = bits[3:] if len(bits) > 3 else []
+    label = parser.compile_filter(bits[1])
+    url_name = parser.compile_filter(bits[2]) if len(bits) > 2 else None
+    url_args = [parser.compile_filter(b) for b in bits[3:]]
 
     return BreadcrumbNode(label, url_name, url_args)
 
