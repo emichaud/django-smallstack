@@ -33,7 +33,7 @@ Where `NN` is the percentage from the scale above. Never use `var(--card-bg)` or
 
 ## Template Skeleton
 
-Every SmallStack page starts from this skeleton:
+Every SmallStack page starts from this skeleton. For a full copy-paste starter with all sections, use `templates/smallstack/starter.html`.
 
 ```html
 {% extends "smallstack/base.html" %}
@@ -59,45 +59,23 @@ Every SmallStack page starts from this skeleton:
 {% endblock %}
 ```
 
-## Pattern 1: Page Header with Tinted Background
+## Pattern 1: Page Header
 
-The standard page header sits above the content and uses 15% primary tint:
+The standard page header is a full-bleed colored bar. **Use the CSS classes** — never inline the background/padding. The `.page-header-bleed` class handles the 15% primary tint. See [admin-page-styling.md](admin-page-styling.md#page-header) for all header variants.
 
 ```html
-<div style="
-    background: color-mix(in srgb, var(--primary) 15%, var(--body-bg));
-    margin: -24px -24px 24px -24px;
-    padding: 24px;
-    border-radius: 8px 8px 0 0;
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-">
-    <div>
-        <h1 style="font-size: 1.75rem; font-weight: 600; color: var(--body-fg); margin: 0;">
-            Page Title
-        </h1>
-        <p style="color: var(--text-muted); margin-top: 4px; font-size: 1rem;">
-            A brief description of this page.
-        </p>
-        <nav style="margin-top: 0.5rem; font-size: 0.8rem;">
-            <a href="/" style="color: var(--body-quiet-color); text-decoration: none;">Home</a>
-            <span style="color: var(--body-quiet-color); margin: 0 0.3rem;">/</span>
-            <span style="color: var(--body-fg);">Page Title</span>
-        </nav>
+{% block page_header %}
+<div class="page-header-bleed page-header-with-actions">
+    <div class="page-header-content">
+        <h1>Page Title</h1>
+        <p class="page-subtitle">A brief description of this page.</p>
     </div>
-    <div>
-        <a href="#" class="btn" style="
-            background: var(--primary);
-            color: var(--button-fg);
-            padding: 0.5rem 1rem;
-            border: none;
-            border-radius: var(--radius-sm, 4px);
-            text-decoration: none;
-            font-size: 0.9rem;
-        ">+ Add Item</a>
+    <div class="page-header-actions">
+        <a href="#" class="btn-primary">+ Add Item</a>
+        <a href="#" class="btn-secondary">Docs</a>
     </div>
 </div>
+{% endblock %}
 ```
 
 ## Pattern 2: Tables
@@ -182,30 +160,44 @@ Cards use `var(--card-bg)`, `var(--card-border)`, and `var(--card-header-bg)` wh
 
 ## Pattern 4: Stat / Widget Cards
 
-Dashboard-style clickable widgets use the 6%/12% tint pattern:
+**Use the built-in `.stat-card` classes** from `components.css`. For clickable stat cards that open a modal, add `.stat-card-clickable`:
 
 ```html
-<a href="/some-page/" style="
-    display: block;
-    text-decoration: none;
-    color: var(--body-fg);
-    background: color-mix(in srgb, var(--primary) 6%, var(--body-bg));
-    border: 1px solid transparent;
-    border-radius: var(--radius-md, 8px);
-    padding: 20px;
-    transition: border-color 0.15s, background 0.15s;
-" onmouseover="this.style.borderColor='var(--primary)';this.style.background='color-mix(in srgb, var(--primary) 12%, var(--body-bg))'"
-   onmouseout="this.style.borderColor='transparent';this.style.background='color-mix(in srgb, var(--primary) 6%, var(--body-bg))'">
-    <div style="font-size: 0.8rem; text-transform: uppercase; color: var(--body-quiet-color); letter-spacing: 0.5px;">
-        Metric Label
+<div class="stat-cards">
+    <div class="stat-card">
+        <div class="stat-card-value">42</div>
+        <div class="stat-card-label">Metric Label</div>
     </div>
-    <div style="font-size: 2rem; font-weight: 700; color: var(--primary); margin: 4px 0;">
-        42
+    <div class="stat-card stat-card-clickable"
+         hx-get="{% url 'app:stat_detail' 'metric' %}"
+         hx-target="#stat-modal-body"
+         onclick="openStatModal('Metric Details')">
+        <div class="stat-card-value">{{ count }}</div>
+        <div class="stat-card-label">Clickable Metric</div>
     </div>
-</a>
+</div>
+{% include "smallstack/includes/stat_modal.html" %}
 ```
 
-For cleaner code, use a `<style>` block with a class instead of inline hover handlers:
+For **action cards** with icons (like Backups: Backup Now, Download), use `.action-card`:
+
+```html
+<div class="action-cards">
+    <div class="action-card" onclick="doAction()">
+        <div class="action-card-body">
+            <svg class="action-card-icon" viewBox="0 0 24 24"><path d="..."/></svg>
+            <div>
+                <div class="action-card-title">Run Action</div>
+                <div class="action-card-subtitle">Description</div>
+            </div>
+        </div>
+    </div>
+</div>
+```
+
+See [admin-page-styling.md](admin-page-styling.md#stat-cards) for all stat card and action card variants.
+
+If you need a custom widget card that doesn't fit these classes, use the `color-mix` tint pattern:
 
 ```css
 .widget-card {
@@ -222,55 +214,22 @@ For cleaner code, use a `<style>` block with a class instead of inline hover han
     border-color: var(--primary);
     background: color-mix(in srgb, var(--primary) 12%, var(--body-bg));
 }
-.widget-value {
-    font-size: 2rem;
-    font-weight: 700;
-    color: var(--primary);
-}
-.widget-label {
-    font-size: 0.8rem;
-    text-transform: uppercase;
-    color: var(--body-quiet-color);
-    letter-spacing: 0.5px;
-}
 ```
 
 ## Pattern 5: Status Badges
 
-Badges use the status color variables with a 15% `color-mix` background:
+**Use the built-in badge classes** from `components.css`:
 
-```css
-.badge {
-    display: inline-block;
-    padding: 2px 8px;
-    border-radius: 4px;
-    font-size: 0.75rem;
-    font-weight: 600;
-    text-transform: uppercase;
-}
-.badge-success {
-    background: color-mix(in srgb, var(--success-fg) 15%, var(--card-bg));
-    color: var(--success-fg);
-}
-.badge-error {
-    background: color-mix(in srgb, var(--error-fg) 15%, var(--card-bg));
-    color: var(--error-fg);
-}
-.badge-warning {
-    background: color-mix(in srgb, var(--warning-fg) 15%, var(--card-bg));
-    color: var(--warning-fg);
-}
-.badge-info {
-    background: color-mix(in srgb, var(--info-fg) 15%, var(--card-bg));
-    color: var(--info-fg);
-}
-.badge-muted {
-    background: color-mix(in srgb, var(--body-quiet-color) 15%, var(--card-bg));
-    color: var(--body-quiet-color);
-}
+```html
+<span class="badge badge-success">Active</span>
+<span class="badge badge-warning">Pending</span>
+<span class="badge badge-error">Failed</span>
+<span class="badge badge-info">Draft</span>
 ```
 
-For a primary-colored tag/label:
+These use 15% `color-mix` tinting with status color variables — they adapt to all themes automatically. Don't redefine badge CSS.
+
+For a primary-colored tag/label (not a status badge), use the same tint pattern:
 
 ```css
 .tag {
@@ -333,31 +292,32 @@ For showing object details (label → value pairs), use the same tint pattern as
 
 ## Pattern 7: Buttons and Actions
 
-SmallStack buttons use the `btn` class. Primary actions use `var(--primary)`:
+**Use the button classes** from `components.css`. Never inline button styles.
 
 ```html
-<!-- Primary button -->
-<a href="#" class="btn" style="
-    background: var(--primary);
-    color: var(--button-fg);
-    border: none;
-    padding: 0.5rem 1rem;
-    border-radius: var(--radius-sm, 4px);
-    text-decoration: none;
-    font-size: 0.9rem;
-">Save</a>
+<!-- Primary action -->
+<a href="#" class="btn-primary">+ Add Item</a>
 
-<!-- Secondary / muted button -->
-<a href="#" style="
-    background: color-mix(in srgb, var(--primary) 20%, var(--body-bg));
-    color: var(--primary);
-    border: none;
-    padding: 0.5rem 1rem;
-    border-radius: var(--radius-sm, 4px);
-    text-decoration: none;
-    font-size: 0.9rem;
-">Cancel</a>
+<!-- Secondary / navigation link -->
+<a href="#" class="btn-secondary">Public Status</a>
+
+<!-- Low-emphasis -->
+<a href="#" class="btn-outline">View All</a>
+
+<!-- Danger / delete -->
+<button type="button" class="btn-danger" onclick="crudDeleteModal(this, '{{ obj }}')">Delete</button>
+
+<!-- Small variant -->
+<a href="#" class="btn-primary btn-sm">Edit</a>
+
+<!-- Form submit / cancel -->
+<div class="crud-actions">
+    <button type="submit" class="btn-save">Save</button>
+    <a href="..." class="btn-cancel">Cancel</a>
+</div>
 ```
+
+See [admin-page-styling.md](admin-page-styling.md#buttons) for the complete button reference including filter toggles and tab buttons.
 
 ## Pattern 8: Messages / Alerts
 
@@ -530,31 +490,6 @@ Use these variables and nothing else. Never hardcode hex colors.
 {% extends "smallstack/base.html" %}
 {% load static theme_tags %}
 
-{% block extra_css %}
-{% include "smallstack/crud/_table_styles.html" %}
-<style>
-    .widget-card {
-        display: block;
-        text-decoration: none;
-        color: var(--body-fg);
-        background: color-mix(in srgb, var(--primary) 6%, var(--body-bg));
-        border: 1px solid transparent;
-        border-radius: var(--radius-md, 8px);
-        padding: 20px;
-        transition: border-color 0.15s, background 0.15s;
-    }
-    .widget-card:hover {
-        border-color: var(--primary);
-        background: color-mix(in srgb, var(--primary) 12%, var(--body-bg));
-    }
-    .widget-value { font-size: 2rem; font-weight: 700; color: var(--primary); }
-    .widget-label { font-size: 0.8rem; text-transform: uppercase; color: var(--body-quiet-color); letter-spacing: 0.5px; }
-    .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; }
-    .badge-success { background: color-mix(in srgb, var(--success-fg) 15%, var(--card-bg)); color: var(--success-fg); }
-    .badge-error { background: color-mix(in srgb, var(--error-fg) 15%, var(--card-bg)); color: var(--error-fg); }
-</style>
-{% endblock %}
-
 {% block title %}Dashboard{% endblock %}
 
 {% block breadcrumbs %}
@@ -563,37 +498,50 @@ Use these variables and nothing else. Never hardcode hex colors.
 {% render_breadcrumbs %}
 {% endblock %}
 
+{% block page_header %}
+<div class="page-header-bleed page-header-with-actions">
+    <div class="page-header-content">
+        <h1>Dashboard</h1>
+        <p class="page-subtitle">System overview</p>
+    </div>
+    <div class="page-header-actions">
+        <a href="#" class="btn-secondary">Settings</a>
+    </div>
+</div>
+{% endblock %}
+
 {% block content %}
-<!-- Page header -->
-<div style="
-    background: color-mix(in srgb, var(--primary) 15%, var(--body-bg));
-    margin: -24px -24px 24px -24px;
-    padding: 24px;
-    border-radius: 8px 8px 0 0;
-">
-    <h1 style="font-size: 1.75rem; font-weight: 600; color: var(--body-fg); margin: 0;">Dashboard</h1>
-    <p style="color: var(--text-muted); margin-top: 4px;">System overview</p>
+<!-- Stat cards -->
+<div class="stat-cards">
+    <div class="stat-card stat-card-clickable"
+         hx-get="{% url 'app:stat_detail' 'users' %}"
+         hx-target="#stat-modal-body"
+         onclick="openStatModal('Users')">
+        <div class="stat-card-value">{{ user_count }}</div>
+        <div class="stat-card-label">Users</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-card-value">{{ task_count }}</div>
+        <div class="stat-card-label">Tasks</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-card-value">{{ error_count }}</div>
+        <div class="stat-card-label">Errors</div>
+    </div>
 </div>
 
-<!-- Stat widgets -->
-<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 24px;">
-    <a href="#" class="widget-card">
-        <div class="widget-label">Users</div>
-        <div class="widget-value">{{ user_count }}</div>
-    </a>
-    <a href="#" class="widget-card">
-        <div class="widget-label">Tasks</div>
-        <div class="widget-value">{{ task_count }}</div>
-    </a>
-    <a href="#" class="widget-card">
-        <div class="widget-label">Errors</div>
-        <div class="widget-value">{{ error_count }}</div>
-    </a>
-</div>
-
-<!-- Data table -->
+<!-- Data table with filter toggles -->
 <div class="card">
-    <div class="card-header"><h2>Recent Activity</h2></div>
+    <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
+        <div style="display: flex; align-items: center; gap: 16px;">
+            <h2>Recent Activity</h2>
+            <div class="filter-toggles">
+                <button class="filter-toggle active" data-tab="all" onclick="showFilterTab('all')">All</button>
+                <button class="filter-toggle" data-tab="errors" onclick="showFilterTab('errors')">Errors</button>
+            </div>
+        </div>
+        <a href="{% url 'app:list' %}" class="btn-outline btn-sm">View All</a>
+    </div>
     <div class="card-body" style="padding: 0;">
         <table class="crud-table">
             <thead>
@@ -629,13 +577,16 @@ Use these variables and nothing else. Never hardcode hex colors.
         </table>
     </div>
 </div>
+
+{% include "smallstack/includes/stat_modal.html" %}
 {% endblock %}
 ```
 
-This page works in light mode, dark mode, and all five palettes with zero dark mode overrides.
+This page works in light mode, dark mode, and all five palettes with zero dark mode overrides. Every element uses CSS classes from `components.css` — no inline button styles, stat card styles, or page header styles.
 
 ## Related Skills
 
+- [admin-page-styling.md](admin-page-styling.md) — **Definitive UI reference**: all CSS classes, button types, card patterns, starter template
 - [theming-system.md](theming-system.md) — Full variable reference, palette system, dark mode internals
 - [templates.md](templates.md) — Template inheritance, blocks, includes
 - [django-apps.md](django-apps.md) — Creating apps, CRUDView, django-tables2

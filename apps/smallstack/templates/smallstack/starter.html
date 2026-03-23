@@ -1,0 +1,242 @@
+{# ──────────────────────────────────────────────────────────────────────
+   SmallStack Starter Template
+   Copy this file, rename it, and modify for your page.
+   Uncomment the sections you need. Delete the rest.
+   See docs/skills/admin-page-styling.md for the full reference.
+   ────────────────────────────────────────────────────────────────────── #}
+{% extends "smallstack/base.html" %}
+{% load theme_tags %}
+
+{% block title %}Page Title{% endblock %}
+
+{% block breadcrumbs %}
+{% breadcrumb "Home" "website:home" %}
+{% breadcrumb "Section" "app:list" %}
+{% breadcrumb "Current Page" %}
+{% render_breadcrumbs %}
+{% endblock %}
+
+
+{# ════════════════════════════════════════════════════════════════════════
+   PAGE HEADER — Full-bleed colored bar. Sits OUTSIDE .content-wrapper.
+   Pick ONE of these header variants and delete the others.
+   ════════════════════════════════════════════════════════════════════════ #}
+
+{# ── Variant A: Header with Buttons (list/detail pages) ────────────── #}
+{% block page_header %}
+<div class="page-header-bleed page-header-with-actions">
+    <div class="page-header-content">
+        <h1>Page Title</h1>
+        <p class="page-subtitle">Brief description of this page</p>
+    </div>
+    <div class="page-header-actions">
+        {# Primary action #}
+        {# <a href="{% url 'app:create' %}" class="btn-primary">+ Add Item</a> #}
+        {# Secondary navigation links #}
+        {# <a href="{% url 'app:status' %}" class="btn-secondary">Status</a> #}
+        {# Low-emphasis link #}
+        {# <a href="{% url 'help:section_index' 'myapp' %}" class="btn-outline">Docs</a> #}
+        {# Delete trigger (opens modal) #}
+        {# <button type="button" class="btn-danger" data-delete-url="delete/" onclick="crudDeleteModal(this, '{{ object }}')">Delete</button> #}
+    </div>
+</div>
+{% endblock %}
+
+{# ── Variant B: Header with Action Cards (dashboard pages) ─────────── #}
+{#
+{% block page_header %}
+<div class="page-header-bleed page-header-with-actions">
+    <div class="page-header-content">
+        <h1>Dashboard</h1>
+        <p class="page-subtitle">System overview</p>
+    </div>
+    <div class="action-cards">
+        <div class="action-card action-card-success action-card-static">
+            <div class="action-card-body">
+                <svg class="action-card-icon" viewBox="0 0 24 24">
+                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                </svg>
+                <div>
+                    <div class="action-card-title">Scheduled</div>
+                    <div class="action-card-subtitle">Cron enabled</div>
+                </div>
+            </div>
+        </div>
+        <div class="action-card" onclick="doAction()">
+            <div class="action-card-body">
+                <svg class="action-card-icon" viewBox="0 0 24 24">
+                    <path d="M5 4v2h14V4H5zm0 10h4v6h6v-6h4l-7-7-7 7z"/>
+                </svg>
+                <div>
+                    <div class="action-card-title">Run Action</div>
+                    <div class="action-card-subtitle">Description</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+#}
+
+
+{# ════════════════════════════════════════════════════════════════════════
+   MAIN CONTENT — Inside .content-wrapper (max-width constrained).
+   Mix and match the sections below.
+   ════════════════════════════════════════════════════════════════════════ #}
+{% block content %}
+
+{# ── Stat Cards ─────────────────────────────────────────────────────── #}
+{#
+<div class="stat-cards">
+    <div class="stat-card">
+        <div class="stat-card-value">42</div>
+        <div class="stat-card-label">Total Items</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-card-value">7</div>
+        <div class="stat-card-label">Active</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-card-value">0</div>
+        <div class="stat-card-label">Errors</div>
+    </div>
+</div>
+#}
+
+{# ── Clickable Stat Cards (open modal on click) ────────────────────── #}
+{#
+<div class="stat-cards">
+    <div class="stat-card stat-card-clickable"
+         hx-get="{% url 'app:stat_detail' 'metric' %}"
+         hx-target="#stat-modal-body"
+         onclick="openStatModal('Metric Details')">
+        <div class="stat-card-value">42</div>
+        <div class="stat-card-label">Metric</div>
+    </div>
+</div>
+{% include "smallstack/includes/stat_modal.html" %}
+#}
+
+{# ── Card with Table ────────────────────────────────────────────────── #}
+<div class="card">
+    <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
+        <h2>Items</h2>
+        {# <a href="{% url 'app:create' %}" class="btn-primary">+ Add</a> #}
+    </div>
+    <div class="card-body">
+        <table class="crud-table">
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Status</th>
+                    <th>Created</th>
+                </tr>
+            </thead>
+            <tbody>
+                {# {% for obj in object_list %}
+                <tr>
+                    <td><a href="{{ obj.get_absolute_url }}">{{ obj.name }}</a></td>
+                    <td><span class="badge badge-success">Active</span></td>
+                    <td>{{ obj.created_at }}</td>
+                </tr>
+                {% endfor %} #}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{# ── Card with Filter Toggles + Table ──────────────────────────────── #}
+{#
+<div class="card">
+    <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
+        <div style="display: flex; align-items: center; gap: 16px;">
+            <h2>Latest Requests</h2>
+            <div class="filter-toggles" id="my-filter-tabs">
+                <button type="button" class="filter-toggle active" data-tab="all" onclick="showFilterTab('all')">All</button>
+                <button type="button" class="filter-toggle" data-tab="errors" onclick="showFilterTab('errors')">Errors</button>
+            </div>
+        </div>
+        <a href="{% url 'app:list' %}" class="btn-outline btn-sm">View All</a>
+    </div>
+    <div class="card-body" style="padding: 0;">
+        <table class="crud-table" id="tab-all">...</table>
+        <table class="crud-table" id="tab-errors" style="display: none;">...</table>
+    </div>
+</div>
+#}
+
+{# ── Tabs (full-width section switching) ────────────────────────────── #}
+{#
+<div class="tab-bar">
+    <button class="tab-btn active" onclick="switchTab(event, 'overview')">
+        Overview <span class="tab-count">3</span>
+    </button>
+    <button class="tab-btn" onclick="switchTab(event, 'config')">
+        Config
+    </button>
+</div>
+<div id="tab-overview" class="tab-panel active">
+    overview content
+</div>
+<div id="tab-config" class="tab-panel">
+    config content
+</div>
+#}
+
+{# ── Card with Form ─────────────────────────────────────────────────── #}
+{#
+<div class="card">
+    <div class="card-header"><h2>Create Item</h2></div>
+    <div class="card-body">
+        <form method="POST" class="crud-form">
+            {% csrf_token %}
+            {% for field in form %}
+            <div class="crud-field{% if field.errors %} has-error{% endif %}">
+                <label class="crud-label">
+                    {{ field.label }}
+                    {% if field.field.required %}<span class="required">*</span>{% endif %}
+                </label>
+                {{ field }}
+                {% if field.help_text %}<div class="crud-help">{{ field.help_text }}</div>{% endif %}
+                {% if field.errors %}<div class="crud-error">{{ field.errors.0 }}</div>{% endif %}
+            </div>
+            {% endfor %}
+            <div class="crud-actions">
+                <button type="submit" class="btn-save">Save</button>
+                <a href="{{ cancel_url }}" class="btn-cancel">Cancel</a>
+            </div>
+        </form>
+    </div>
+</div>
+#}
+
+{# ── Delete Modal (include once if page has delete buttons) ──── #}
+{# {% include "smallstack/crud/includes/delete_modal.html" %} #}
+
+{% endblock %}
+
+{% block extra_css %}{% endblock %}
+
+{% block extra_js %}
+{# ── JS helpers — uncomment what you need ───────────────────────────── #}
+<script>
+{# Tab switching (for .tab-bar / .tab-btn) #}
+function switchTab(e, tabId) {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    e.currentTarget.classList.add('active');
+    document.getElementById('tab-' + tabId).classList.add('active');
+}
+
+{# Filter toggle switching (for .filter-toggles) #}
+function showFilterTab(tab) {
+    document.querySelectorAll('.filter-toggle').forEach(function(btn) {
+        btn.classList.toggle('active', btn.dataset.tab === tab);
+    });
+    {# Show/hide corresponding tables or panels by id="tab-{name}" #}
+    document.querySelectorAll('[id^="tab-"]').forEach(function(el) {
+        el.style.display = el.id === 'tab-' + tab ? '' : 'none';
+    });
+}
+</script>
+{% endblock %}

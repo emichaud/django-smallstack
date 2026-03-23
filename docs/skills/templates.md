@@ -130,7 +130,8 @@ templates/
 | `title` | Page title (before " \| SmallStack") | `<title>` |
 | `extra_css` | Additional stylesheets | `<head>` |
 | `breadcrumbs` | Breadcrumb navigation | Before content |
-| `content` | Main page content | Main area |
+| `page_header` | Full-bleed colored header bar (outside `.content-wrapper`) | Before content wrapper |
+| `content` | Main page content (inside `.content-wrapper`) | Main area |
 | `extra_js` | Additional scripts | Before `</body>` |
 
 ## Thin Wrapper + Include Pattern
@@ -346,35 +347,34 @@ def my_view(request):
 {% render_breadcrumbs %}
 {% endblock %}
 
+{% block page_header %}
+<div class="page-header-bleed">
+    <div class="page-header-content">
+        <h1>Create Item</h1>
+        <p class="page-subtitle">Add a new item</p>
+    </div>
+</div>
+{% endblock %}
+
 {% block content %}
 <div class="card">
-    <div class="card-header">
-        <h1>Create Item</h1>
-    </div>
     <div class="card-body">
-        <form method="post" enctype="multipart/form-data">
+        <form method="post" class="crud-form" enctype="multipart/form-data">
             {% csrf_token %}
-
             {% for field in form %}
-            <div class="form-group">
-                <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+            <div class="crud-field{% if field.errors %} has-error{% endif %}">
+                <label class="crud-label">
+                    {{ field.label }}
+                    {% if field.field.required %}<span class="required">*</span>{% endif %}
+                </label>
                 {{ field }}
-                {% if field.help_text %}
-                <span class="helptext">{{ field.help_text }}</span>
-                {% endif %}
-                {% if field.errors %}
-                <ul class="errorlist">
-                    {% for error in field.errors %}
-                    <li>{{ error }}</li>
-                    {% endfor %}
-                </ul>
-                {% endif %}
+                {% if field.help_text %}<div class="crud-help">{{ field.help_text }}</div>{% endif %}
+                {% if field.errors %}<div class="crud-error">{{ field.errors.0 }}</div>{% endif %}
             </div>
             {% endfor %}
-
-            <div class="form-actions">
-                <button type="submit" class="button button-primary">Save</button>
-                <a href="{% url 'item_list' %}" class="button">Cancel</a>
+            <div class="crud-actions">
+                <button type="submit" class="btn-save">Save</button>
+                <a href="{% url 'item_list' %}" class="btn-cancel">Cancel</a>
             </div>
         </form>
     </div>
@@ -396,37 +396,44 @@ def my_view(request):
 {% render_breadcrumbs %}
 {% endblock %}
 
+{% block page_header %}
+<div class="page-header-bleed page-header-with-actions">
+    <div class="page-header-content">
+        <h1>Items</h1>
+        <p class="page-subtitle">All items</p>
+    </div>
+    <div class="page-header-actions">
+        <a href="{% url 'item_create' %}" class="btn-primary">+ Add Item</a>
+    </div>
+</div>
+{% endblock %}
+
 {% block content %}
 <div class="card">
-    <div class="card-header">
-        <h1>Items</h1>
-        <a href="{% url 'item_create' %}" class="button button-primary">Add Item</a>
-    </div>
     <div class="card-body">
         {% if items %}
-        <table class="table">
+        <table class="crud-table">
             <thead>
                 <tr>
                     <th>Title</th>
                     <th>Created</th>
-                    <th>Actions</th>
+                    <th>Status</th>
                 </tr>
             </thead>
             <tbody>
                 {% for item in items %}
                 <tr>
-                    <td>{{ item.title }}</td>
+                    <td><a href="{% url 'item_detail' item.pk %}">{{ item.title }}</a></td>
                     <td>{{ item.created_at|date:"M d, Y" }}</td>
-                    <td>
-                        <a href="{% url 'item_detail' item.pk %}">View</a>
-                        <a href="{% url 'item_edit' item.pk %}">Edit</a>
-                    </td>
+                    <td><span class="badge badge-success">Active</span></td>
                 </tr>
                 {% endfor %}
             </tbody>
         </table>
         {% else %}
-        <p>No items yet. <a href="{% url 'item_create' %}">Create one</a>.</p>
+        <p style="color: var(--body-quiet-color); padding: 2rem 0; text-align: center;">
+            No items yet. <a href="{% url 'item_create' %}" style="color: var(--primary);">Create one</a>.
+        </p>
         {% endif %}
     </div>
 </div>
@@ -448,19 +455,33 @@ def my_view(request):
 {% render_breadcrumbs %}
 {% endblock %}
 
-{% block content %}
-<div class="card">
-    <div class="card-header">
+{% block page_header %}
+<div class="page-header-bleed page-header-with-actions">
+    <div class="page-header-content">
         <h1>{{ item.title }}</h1>
-        <a href="{% url 'item_edit' item.pk %}" class="button">Edit</a>
+        <p class="page-subtitle">Item detail</p>
     </div>
-    <div class="card-body">
-        <p>{{ item.description }}</p>
-        <p class="text-muted">Created: {{ item.created_at|date:"F d, Y" }}</p>
+    <div class="page-header-actions">
+        <a href="{% url 'item_edit' item.pk %}" class="btn-primary">Edit</a>
+        <button type="button" class="btn-danger"
+            data-delete-url="{% url 'item_delete' item.pk %}"
+            onclick="crudDeleteModal(this, '{{ item }}')">Delete</button>
     </div>
 </div>
 {% endblock %}
+
+{% block content %}
+<div class="card" data-list-url="{% url 'item_list' %}">
+    <div class="card-body">
+        <p>{{ item.description }}</p>
+        <p style="color: var(--body-quiet-color);">Created: {{ item.created_at|date:"F d, Y" }}</p>
+    </div>
+</div>
+{% include "smallstack/crud/includes/delete_modal.html" %}
+{% endblock %}
 ```
+
+> **Tip:** For a full copy-paste starter with all page sections, copy `templates/smallstack/starter.html`. See [admin-page-styling.md](admin-page-styling.md) for the complete CSS class reference.
 
 ## Conditional Content
 
