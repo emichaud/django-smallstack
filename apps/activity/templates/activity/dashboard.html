@@ -7,8 +7,8 @@
 
 {% comment %}Table styles are in components.css{% endcomment %}
 
-{% block content %}
-<div class="page-header-with-actions" style="background: color-mix(in srgb, var(--primary) 15%, var(--body-bg)); margin: -24px -24px 24px -24px; padding: 24px; border-radius: 8px 8px 0 0;">
+{% block page_header %}
+<div class="page-header-bleed page-header-with-actions">
     <div class="page-header-content">
         <h1>Activity</h1>
         <p class="page-subtitle">Site overview — {{ total_requests|stringformat:"," }} tracked requests, {{ max_rows|stringformat:"," }} max</p>
@@ -19,7 +19,9 @@
         </nav>
     </div>
 </div>
+{% endblock %}
 
+{% block content %}
 <!-- ── Top-level stats ──────────────────────────────────────────── -->
 <div style="display: grid; grid-template-columns: repeat(6, 1fr); gap: 12px; margin-bottom: 24px;">
     <div class="card stat-card-clickable"

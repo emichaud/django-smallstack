@@ -24,8 +24,10 @@ import enum
 import warnings
 
 from django import forms
+from django.contrib import messages
 from django.db.models import ProtectedError
 from django.http import Http404, HttpResponse
+from django.shortcuts import redirect as _redirect
 from django.urls import path, reverse
 from django.views.generic import (
     CreateView,
@@ -349,7 +351,10 @@ class _CRUDDeleteBase(_CRUDContextMixin, DeleteView):
                 f"Cannot delete \u2014 {count} {model_name} "
                 f"record{'s' if count != 1 else ''} still linked."
             )
-            return HttpResponse(msg, status=409)
+            if getattr(request, "htmx", False) or request.headers.get("X-Requested-With") == "XMLHttpRequest":
+                return HttpResponse(msg, status=409)
+            messages.error(request, msg)
+            return _redirect(self.get_success_url())
 
 
 class _CRUDFieldPreviewBase(_CRUDContextMixin, DetailView):

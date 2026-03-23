@@ -68,6 +68,9 @@
                 <!-- Messages -->
                 {% include "smallstack/includes/messages.html" %}
 
+                <!-- Full-bleed page header (outside max-width wrapper) -->
+                {% block page_header %}{% endblock %}
+
                 <!-- Page Content -->
                 <div class="content-wrapper">
                     {% block content %}{% endblock %}

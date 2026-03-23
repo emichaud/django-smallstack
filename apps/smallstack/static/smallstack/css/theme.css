@@ -1906,6 +1906,13 @@ body.sidebar-closed .site-footer {
     gap: 20px;
 }
 
+/* Full-bleed header — used inside {% block page_header %} (outside .content-wrapper) */
+.page-header-bleed {
+    background: color-mix(in srgb, var(--primary) 15%, var(--body-bg));
+    margin: -20px -20px 20px -20px;
+    padding: 24px;
+}
+
 .page-header-content h1 {
     font-size: 1.75rem;
     font-weight: 600;

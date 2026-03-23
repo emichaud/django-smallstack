@@ -203,8 +203,8 @@
 </style>
 {% endblock %}
 
-{% block content %}
-<div class="page-header-with-actions" style="background: color-mix(in srgb, var(--primary) 15%, var(--body-bg)); margin: -24px -24px 24px -24px; padding: 24px; border-radius: 8px 8px 0 0;">
+{% block page_header %}
+<div class="page-header-bleed page-header-with-actions">
     <div class="page-header-content">
         <h1>Heartbeat Dashboard</h1>
         <p class="page-subtitle">{{ total_heartbeats|stringformat:"," }} total records &middot; {{ retention_days }}-day retention &middot; {{ expected_interval }}s interval</p>
@@ -223,7 +223,9 @@
         </a>
     </div>
 </div>
+{% endblock %}
 
+{% block content %}
 <!-- Summary stats -->
 <div style="display: grid; grid-template-columns: repeat(6, 1fr); gap: 12px; margin-bottom: 24px;">
     <div class="card">

@@ -9,8 +9,8 @@
 
 {% block breadcrumbs %}{% endblock %}
 
-{% block content %}
-<div class="page-header-with-actions" style="background: color-mix(in srgb, var(--primary) 15%, var(--body-bg)); margin: -24px -24px 24px -24px; padding: 24px; border-radius: 8px 8px 0 0; display: flex; align-items: flex-end; justify-content: space-between;">
+{% block page_header %}
+<div class="page-header-bleed page-header-with-actions" style="display: flex; align-items: flex-end; justify-content: space-between;">
     <div class="page-header-content">
         <h1 style="margin: 0; font-size: 1.5rem; font-weight: 600;">{{ page.title }}</h1>
         {% if page.description %}
@@ -41,7 +41,9 @@
         </button>
     </div>
 </div>
+{% endblock %}
 
+{% block content %}
 <div class="help-layout">
     <!-- Help Sidebar Navigation -->
     <aside class="help-sidebar">

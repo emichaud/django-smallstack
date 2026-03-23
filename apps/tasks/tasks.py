@@ -5,13 +5,21 @@ This module demonstrates Django 6's built-in Tasks framework.
 Tasks defined here can be executed in the background by the db_worker.
 
 Usage:
-    from apps.tasks.tasks import send_email_task, process_data_task
+    from apps.tasks.tasks import send_email_task, send_html_email_task, process_data_task
 
-    # Enqueue a task to run in background
+    # Enqueue a plain-text email
     result = send_email_task.enqueue(
         recipient="user@example.com",
         subject="Hello",
         message="This is a test email."
+    )
+
+    # Enqueue an HTML email from a template
+    send_html_email_task.enqueue(
+        recipient="user@example.com",
+        subject="Your monthly report",
+        template="email/monthly_report.html",
+        context={"user_name": "Alice", "total": 42},
     )
 
     # Check task status later
@@ -67,6 +75,63 @@ def send_email_task(recipient, subject, message, from_email=None):
         recipient_list=recipient_list,
         fail_silently=False,
     )
+
+
+@task(queue_name="email")
+def send_html_email_task(recipient, subject, template, context=None, from_email=None):
+    """
+    Send an HTML email in the background using a Django template.
+
+    Renders an HTML template with the given context and sends it as an email.
+    If a matching .txt template exists alongside the HTML template, it's used
+    as the plain-text alternative. Otherwise, the subject is used as fallback.
+
+    Args:
+        recipient: Email address to send to (string or list of strings)
+        subject: Email subject line
+        template: Path to the HTML template (e.g. "email/invoice.html")
+        context: Optional dict of template context variables
+        from_email: Optional sender address (defaults to DEFAULT_FROM_EMAIL)
+
+    Returns:
+        int: Number of emails sent (1 if successful, 0 if failed)
+
+    Example:
+        send_html_email_task.enqueue(
+            recipient="user@example.com",
+            subject="Your monthly report",
+            template="email/monthly_report.html",
+            context={"user_name": "Alice", "total": 42},
+        )
+    """
+    from django.core.mail import EmailMultiAlternatives
+    from django.template.loader import render_to_string
+
+    if isinstance(recipient, str):
+        recipient_list = [recipient]
+    else:
+        recipient_list = list(recipient)
+
+    ctx = context or {}
+    html_content = render_to_string(template, ctx)
+
+    # Try to find a matching .txt template for plain-text fallback
+    txt_template = template.rsplit(".", 1)[0] + ".txt"
+    try:
+        text_content = render_to_string(txt_template, ctx)
+    except Exception:
+        text_content = subject
+
+    logger.info(f"Sending HTML email to {recipient_list}: {subject}")
+
+    email = EmailMultiAlternatives(
+        subject=subject,
+        body=text_content,
+        from_email=from_email or getattr(settings, "DEFAULT_FROM_EMAIL", None),
+        to=recipient_list,
+    )
+    email.attach_alternative(html_content, "text/html")
+    return email.send(fail_silently=False)
 
 
 @task(queue_name="email")

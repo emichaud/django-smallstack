@@ -14,9 +14,7 @@
             <button type="button"
                 id="crud-delete-confirm"
                 class="crud-modal-btn-delete"
-                hx-post=""
-                hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'
-                hx-swap="none">
+                onclick="crudDeleteConfirm()">
                 Delete
             </button>
             <button type="button" class="crud-modal-btn-cancel" onclick="crudDeleteModalClose()">Cancel</button>
@@ -78,76 +76,77 @@
 </style>
 
 <script>
-// Store reference to the row being deleted
 let _crudDeleteRow = null;
+let _crudDeleteUrl = null;
 
 function crudDeleteModal(el, name) {
-    const modal = document.getElementById('crud-delete-modal');
-    const nameEl = document.getElementById('crud-delete-name');
-    const confirmBtn = document.getElementById('crud-delete-confirm');
-    const errorEl = document.getElementById('crud-delete-error');
-    const url = el.getAttribute('data-delete-url');
-
-    nameEl.textContent = name;
-    confirmBtn.setAttribute('hx-post', url);
-    htmx.process(confirmBtn);
-
-    // Clear any previous error
+    var errorEl = document.getElementById('crud-delete-error');
+    document.getElementById('crud-delete-name').textContent = name;
     errorEl.style.display = 'none';
     errorEl.textContent = '';
-
-    // Find the closest table row for removal after delete
+    _crudDeleteUrl = el.getAttribute('data-delete-url');
     _crudDeleteRow = el.closest('tr');
-
-    modal.style.display = 'flex';
+    document.getElementById('crud-delete-modal').style.display = 'flex';
 }
 
 function crudDeleteModalClose() {
     document.getElementById('crud-delete-modal').style.display = 'none';
     _crudDeleteRow = null;
+    _crudDeleteUrl = null;
+}
+
+function crudDeleteConfirm() {
+    if (!_crudDeleteUrl) return;
+    var btn = document.getElementById('crud-delete-confirm');
+    btn.disabled = true;
+    btn.textContent = 'Deleting…';
+
+    fetch(_crudDeleteUrl, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': '{{ csrf_token }}',
+            'X-Requested-With': 'XMLHttpRequest',
+        },
+        redirect: 'manual',
+    }).then(function(resp) {
+        if (resp.ok || resp.type === 'opaqueredirect') {
+            // Success — remove row or reload
+            if (_crudDeleteRow) {
+                _crudDeleteRow.style.transition = 'opacity 0.3s';
+                _crudDeleteRow.style.opacity = '0';
+                setTimeout(function() { _crudDeleteRow.remove(); }, 300);
+                crudDeleteModalClose();
+            } else {
+                var listUrl = document.querySelector('[data-list-url]');
+                window.location.href = listUrl
+                    ? listUrl.getAttribute('data-list-url')
+                    : window.location.pathname.replace(/[^/]+\/$/, '');
+            }
+        } else {
+            // Error — show message in modal
+            return resp.text().then(function(msg) {
+                var errorEl = document.getElementById('crud-delete-error');
+                errorEl.textContent = msg || 'Delete failed.';
+                errorEl.style.display = 'block';
+            });
+        }
+    }).catch(function() {
+        var errorEl = document.getElementById('crud-delete-error');
+        errorEl.textContent = 'Network error — please try again.';
+        errorEl.style.display = 'block';
+    }).finally(function() {
+        btn.disabled = false;
+        btn.textContent = 'Delete';
+    });
 }
 
 // Close modal on overlay click
 document.addEventListener('click', function(e) {
-    if (e.target.id === 'crud-delete-modal') {
-        crudDeleteModalClose();
-    }
+    if (e.target.id === 'crud-delete-modal') crudDeleteModalClose();
 });
 
 // Close on Escape
 document.addEventListener('keydown', function(e) {
     if (e.key === 'Escape') crudDeleteModalClose();
-});
-
-// After htmx delete request completes
-document.addEventListener('htmx:afterRequest', function(e) {
-    if (e.detail.elt.id !== 'crud-delete-confirm') return;
-
-    if (e.detail.successful) {
-        if (_crudDeleteRow) {
-            // List view: fade out and remove the row
-            _crudDeleteRow.style.transition = 'opacity 0.3s';
-            _crudDeleteRow.style.opacity = '0';
-            setTimeout(function() {
-                _crudDeleteRow.remove();
-                _crudDeleteRow = null;
-            }, 300);
-            crudDeleteModalClose();
-        } else {
-            // Detail view: redirect to list (go up two levels from /pk/)
-            var listUrl = document.querySelector('[data-list-url]');
-            if (listUrl) {
-                window.location.href = listUrl.getAttribute('data-list-url');
-            } else {
-                window.location.href = window.location.pathname.replace(/[^/]+\/$/, '');
-            }
-        }
-    } else {
-        // Show error message in modal
-        var errorEl = document.getElementById('crud-delete-error');
-        var xhr = e.detail.xhr;
-        errorEl.textContent = xhr && xhr.responseText ? xhr.responseText : 'Delete failed.';
-        errorEl.style.display = 'block';
-    }
 });
 </script>

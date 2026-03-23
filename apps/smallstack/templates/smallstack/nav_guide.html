@@ -299,14 +299,16 @@
 </style>
 {% endblock %}
 
-{% block content %}
-<div class="page-header-with-actions" style="background: color-mix(in srgb, var(--primary) 15%, var(--body-bg)); margin: -24px -24px 24px -24px; padding: 24px; border-radius: 8px 8px 0 0;">
+{% block page_header %}
+<div class="page-header-bleed page-header-with-actions">
     <div class="page-header-content" style="width: 100%;">
         <h1>Navigation Guide</h1>
         <p class="page-subtitle">How to configure the sidebar, topbar, and contextual navigation areas. One registry drives everything.</p>
     </div>
 </div>
+{% endblock %}
 
+{% block content %}
 <!-- ===== SIDEBAR ===== -->
 <div class="guide-section" id="section-sidebar">
     <div class="guide-section-header">

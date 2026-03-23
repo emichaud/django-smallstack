@@ -41,10 +41,21 @@ from django.tasks import task
 
 @task(queue_name="email")
 def send_email_task(recipient, subject, message):
-    """Send an email in the background."""
+    """Send a plain-text email in the background."""
     from django.core.mail import send_mail
     return send_mail(subject=subject, message=message,
                      from_email=None, recipient_list=[recipient])
+
+@task(queue_name="email")
+def send_html_email_task(recipient, subject, template, context=None):
+    """Send an HTML email using a Django template."""
+    from django.core.mail import EmailMultiAlternatives
+    from django.template.loader import render_to_string
+    html = render_to_string(template, context or {})
+    email = EmailMultiAlternatives(subject=subject, body=subject,
+                                   from_email=None, to=[recipient])
+    email.attach_alternative(html, "text/html")
+    return email.send()
 
 @task(priority=5)
 def process_data_task(data, operation="transform"):
@@ -93,6 +104,31 @@ print(result.status)  # SUCCESSFUL, RUNNING, or FAILED
 
 **Tip:** `send_email_task` accepts a single string or a list of strings. Prefer passing a list over looping and enqueuing one task per recipient — it's one task, one SMTP call, one row in the task table.
 
+### HTML Email
+
+Use `send_html_email_task` to send a rendered Django template as an HTML email. If a matching `.txt` template exists alongside the HTML template, it's automatically used as the plain-text fallback.
+
+```python
+from apps.tasks.tasks import send_html_email_task
+
+send_html_email_task.enqueue(
+    recipient="user@example.com",
+    subject="Your monthly report",
+    template="email/monthly_report.html",
+    context={"user_name": "Alice", "total": 42},
+)
+```
+
+| Argument | Required | Description |
+|----------|----------|-------------|
+| `recipient` | Yes | Email address (string) or list of addresses |
+| `subject` | Yes | Email subject line |
+| `template` | Yes | Path to the HTML template (e.g. `"email/invoice.html"`) |
+| `context` | No | Dict of template context variables (default: `{}`) |
+| `from_email` | No | Sender address (default: `DEFAULT_FROM_EMAIL`) |
+
+**Plain-text fallback:** For `email/invoice.html`, the task looks for `email/invoice.txt`. If found, it's rendered with the same context and attached as the plain-text body. If not found, the subject line is used as fallback.
+
 ## Running the Worker
 
 ### Development
@@ -133,6 +169,7 @@ SmallStack ships with these tasks in `apps/tasks/tasks.py`:
 | Task | Queue | Description |
 |------|-------|-------------|
 | `send_email_task` | email | Send a plain-text email |
+| `send_html_email_task` | email | Send an HTML email from a Django template |
 | `send_welcome_email` | email | Send welcome email to new user (by user ID) |
 | `process_data_task` | default | Example data processing task |
 | `example_task_with_context` | default | Demonstrates `takes_context=True` |
