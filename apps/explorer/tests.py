@@ -1,8 +1,15 @@
 """Tests for the Explorer app."""
 
+from unittest.mock import patch
+
 import pytest
 from django.contrib.auth import get_user_model
+from django.db import IntegrityError
+from django.db.models import ProtectedError, RestrictedError
 from django.urls import reverse
+from django.utils import timezone
+
+from apps.heartbeat.models import HeartbeatEpoch
 
 User = get_user_model()
 
@@ -62,6 +69,12 @@ class TestExplorerModelList:
         assert response.status_code == 200
 
 
+@pytest.fixture
+def epoch(db):
+    """Create a HeartbeatEpoch for CRUD tests."""
+    return HeartbeatEpoch.objects.create(started_at=timezone.now(), note="Test epoch")
+
+
 class TestExplorerCRUDOperations:
     """Tests for CRUD operations via explorer."""
 
@@ -70,15 +83,201 @@ class TestExplorerCRUDOperations:
         response = client.get(reverse("explorer/monitoring/heartbeatepoch-create"))
         assert response.status_code == 200
 
-    def test_detail_view(self, client, staff_user, db):
-        from django.utils import timezone
+    def test_create_post(self, client, staff_user, db):
+        client.force_login(staff_user)
+        response = client.post(
+            reverse("explorer/monitoring/heartbeatepoch-create"),
+            {
+                "started_at": timezone.now().strftime("%Y-%m-%d %H:%M:%S"),
+                "service_target": "99.9",
+                "service_minimum": "99.5",
+            },
+        )
+        assert response.status_code == 302
+        assert HeartbeatEpoch.objects.count() == 1
 
-        from apps.heartbeat.models import HeartbeatEpoch
-
-        epoch = HeartbeatEpoch.objects.create(started_at=timezone.now())
+    def test_detail_view(self, client, staff_user, epoch):
         client.force_login(staff_user)
         response = client.get(reverse("explorer/monitoring/heartbeatepoch-detail", kwargs={"pk": epoch.pk}))
         assert response.status_code == 200
+
+    def test_edit_view_get(self, client, staff_user, epoch):
+        client.force_login(staff_user)
+        response = client.get(reverse("explorer/monitoring/heartbeatepoch-update", kwargs={"pk": epoch.pk}))
+        assert response.status_code == 200
+
+    def test_edit_view_post(self, client, staff_user, epoch):
+        client.force_login(staff_user)
+        response = client.post(
+            reverse("explorer/monitoring/heartbeatepoch-update", kwargs={"pk": epoch.pk}),
+            {
+                "started_at": timezone.now().strftime("%Y-%m-%d %H:%M:%S"),
+                "note": "Updated",
+                "service_target": "99.9",
+                "service_minimum": "99.5",
+            },
+        )
+        assert response.status_code == 302
+        epoch.refresh_from_db()
+        assert epoch.note == "Updated"
+
+
+class TestExplorerCRUDPermissions:
+    """Tests for CRUD permission enforcement."""
+
+    def test_create_anonymous_redirected(self, client):
+        response = client.get(reverse("explorer/monitoring/heartbeatepoch-create"))
+        assert response.status_code == 302
+
+    def test_create_non_staff_denied(self, client, user):
+        client.force_login(user)
+        response = client.get(reverse("explorer/monitoring/heartbeatepoch-create"))
+        assert response.status_code == 403
+
+    def test_edit_anonymous_redirected(self, client, epoch):
+        response = client.get(reverse("explorer/monitoring/heartbeatepoch-update", kwargs={"pk": epoch.pk}))
+        assert response.status_code == 302
+
+    def test_edit_non_staff_denied(self, client, user, epoch):
+        client.force_login(user)
+        response = client.get(reverse("explorer/monitoring/heartbeatepoch-update", kwargs={"pk": epoch.pk}))
+        assert response.status_code == 403
+
+    def test_delete_anonymous_redirected(self, client, epoch):
+        response = client.get(reverse("explorer/monitoring/heartbeatepoch-delete", kwargs={"pk": epoch.pk}))
+        assert response.status_code == 302
+
+    def test_delete_non_staff_denied(self, client, user, epoch):
+        client.force_login(user)
+        response = client.get(reverse("explorer/monitoring/heartbeatepoch-delete", kwargs={"pk": epoch.pk}))
+        assert response.status_code == 403
+
+
+class TestExplorerCRUDDelete:
+    """Tests for CRUD delete — success, ProtectedError, RestrictedError, IntegrityError."""
+
+    def test_delete_confirm_page(self, client, staff_user, epoch):
+        """GET on delete URL shows confirmation page."""
+        client.force_login(staff_user)
+        response = client.get(reverse("explorer/monitoring/heartbeatepoch-delete", kwargs={"pk": epoch.pk}))
+        assert response.status_code == 200
+        assert "Are you sure" in response.content.decode()
+
+    def test_delete_success_regular(self, client, staff_user, epoch):
+        """POST delete redirects to list on success."""
+        client.force_login(staff_user)
+        response = client.post(reverse("explorer/monitoring/heartbeatepoch-delete", kwargs={"pk": epoch.pk}))
+        assert response.status_code == 302
+        assert not HeartbeatEpoch.objects.filter(pk=epoch.pk).exists()
+
+    def test_delete_success_ajax(self, client, staff_user, epoch):
+        """AJAX POST delete returns redirect (opaqueredirect in browser, 302 in test client)."""
+        client.force_login(staff_user)
+        response = client.post(
+            reverse("explorer/monitoring/heartbeatepoch-delete", kwargs={"pk": epoch.pk}),
+            HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+        )
+        # Django's DeleteView redirects on success — AJAX still gets 302
+        assert response.status_code == 302
+        assert not HeartbeatEpoch.objects.filter(pk=epoch.pk).exists()
+
+    def test_protected_error_ajax_returns_409(self, client, staff_user, epoch):
+        """ProtectedError on AJAX returns 409 with error message."""
+        client.force_login(staff_user)
+        error = ProtectedError("Cannot delete", {epoch})
+        with patch("apps.smallstack.crud._CRUDDeleteBase.post", side_effect=error):
+            # Call the view directly without the mocked post interfering
+            pass
+        # Better approach: mock the actual delete at model level
+        with patch.object(HeartbeatEpoch, "delete", side_effect=ProtectedError("Cannot delete", {epoch})):
+            response = client.post(
+                reverse("explorer/monitoring/heartbeatepoch-delete", kwargs={"pk": epoch.pk}),
+                HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+            )
+        assert response.status_code == 409
+        body = response.content.decode()
+        assert "Cannot delete" in body
+        assert "still linked" in body
+        # Object should still exist
+        assert HeartbeatEpoch.objects.filter(pk=epoch.pk).exists()
+
+    def test_protected_error_regular_redirects_with_message(self, client, staff_user, epoch):
+        """ProtectedError on regular POST redirects with error flash message."""
+        client.force_login(staff_user)
+        with patch.object(HeartbeatEpoch, "delete", side_effect=ProtectedError("Cannot delete", {epoch})):
+            response = client.post(
+                reverse("explorer/monitoring/heartbeatepoch-delete", kwargs={"pk": epoch.pk}),
+                follow=True,
+            )
+        assert response.status_code == 200
+        messages = list(response.context["messages"])
+        assert len(messages) == 1
+        assert "Cannot delete" in str(messages[0])
+        assert HeartbeatEpoch.objects.filter(pk=epoch.pk).exists()
+
+    def test_restricted_error_ajax_returns_409(self, client, staff_user, epoch):
+        """RestrictedError on AJAX returns 409 with error message."""
+        client.force_login(staff_user)
+        err = RestrictedError("Cannot delete", {epoch})
+        with patch.object(HeartbeatEpoch, "delete", side_effect=err):
+            response = client.post(
+                reverse("explorer/monitoring/heartbeatepoch-delete", kwargs={"pk": epoch.pk}),
+                HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+            )
+        assert response.status_code == 409
+        assert "Cannot delete" in response.content.decode()
+
+    def test_integrity_error_ajax_returns_409(self, client, staff_user, epoch):
+        """IntegrityError on AJAX returns 409 with generic message."""
+        client.force_login(staff_user)
+        with patch.object(HeartbeatEpoch, "delete", side_effect=IntegrityError("FK constraint")):
+            response = client.post(
+                reverse("explorer/monitoring/heartbeatepoch-delete", kwargs={"pk": epoch.pk}),
+                HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+            )
+        assert response.status_code == 409
+        assert "database constraint" in response.content.decode()
+
+    def test_integrity_error_regular_redirects_with_message(self, client, staff_user, epoch):
+        """IntegrityError on regular POST redirects with error flash."""
+        client.force_login(staff_user)
+        with patch.object(HeartbeatEpoch, "delete", side_effect=IntegrityError("FK constraint")):
+            response = client.post(
+                reverse("explorer/monitoring/heartbeatepoch-delete", kwargs={"pk": epoch.pk}),
+                follow=True,
+            )
+        messages = list(response.context["messages"])
+        assert len(messages) == 1
+        assert "database constraint" in str(messages[0])
+
+    def test_unexpected_error_ajax_returns_409(self, client, staff_user, epoch):
+        """Unexpected exception on AJAX returns 409 with generic message."""
+        client.force_login(staff_user)
+        with patch.object(HeartbeatEpoch, "delete", side_effect=RuntimeError("something broke")):
+            response = client.post(
+                reverse("explorer/monitoring/heartbeatepoch-delete", kwargs={"pk": epoch.pk}),
+                HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+            )
+        assert response.status_code == 409
+        assert "unexpected error" in response.content.decode()
+
+    def test_protected_error_message_includes_model_name_and_count(self, client, staff_user, epoch):
+        """ProtectedError message mentions the blocking model name and count."""
+        client.force_login(staff_user)
+        # Simulate 3 HeartbeatEpoch objects blocking deletion
+        fake_protected = set()
+        for i in range(3):
+            obj = HeartbeatEpoch(pk=100 + i)
+            fake_protected.add(obj)
+        with patch.object(HeartbeatEpoch, "delete", side_effect=ProtectedError("Cannot delete", fake_protected)):
+            response = client.post(
+                reverse("explorer/monitoring/heartbeatepoch-delete", kwargs={"pk": epoch.pk}),
+                HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+            )
+        body = response.content.decode()
+        assert "3" in body
+        assert "HeartbeatEpoch" in body
+        assert "records" in body
 
 
 class TestExplorerReadonly:

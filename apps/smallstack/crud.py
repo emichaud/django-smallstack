@@ -25,7 +25,8 @@ import warnings
 
 from django import forms
 from django.contrib import messages
-from django.db.models import ProtectedError
+from django.db import IntegrityError
+from django.db.models import ProtectedError, RestrictedError
 from django.http import Http404, HttpResponse
 from django.shortcuts import redirect as _redirect
 from django.urls import path, reverse
@@ -343,18 +344,24 @@ class _CRUDDeleteBase(_CRUDContextMixin, DeleteView):
     def post(self, request, *args, **kwargs):
         try:
             return super().post(request, *args, **kwargs)
-        except ProtectedError as e:
-            protected = e.protected_objects
+        except (ProtectedError, RestrictedError) as e:
+            protected = getattr(e, "protected_objects", None) or getattr(e, "restricted_objects", set())
             model_name = type(next(iter(protected))).__name__ if protected else "other records"
             count = len(protected)
             msg = (
-                f"Cannot delete \u2014 {count} {model_name} "
+                f"Cannot delete — {count} {model_name} "
                 f"record{'s' if count != 1 else ''} still linked."
             )
-            if getattr(request, "htmx", False) or request.headers.get("X-Requested-With") == "XMLHttpRequest":
-                return HttpResponse(msg, status=409)
-            messages.error(request, msg)
-            return _redirect(self.get_success_url())
+        except IntegrityError:
+            msg = "Cannot delete — a database constraint prevented this action."
+        except Exception:
+            msg = "Delete failed — an unexpected error occurred."
+        else:
+            return  # unreachable, but keeps linters happy
+        if getattr(request, "htmx", False) or request.headers.get("X-Requested-With") == "XMLHttpRequest":
+            return HttpResponse(msg, status=409)
+        messages.error(request, msg)
+        return _redirect(self.get_success_url())
 
 
 class _CRUDFieldPreviewBase(_CRUDContextMixin, DetailView):
