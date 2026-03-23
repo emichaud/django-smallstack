@@ -24,7 +24,8 @@ import enum
 import warnings
 
 from django import forms
-from django.http import Http404
+from django.db.models import ProtectedError
+from django.http import Http404, HttpResponse
 from django.urls import path, reverse
 from django.views.generic import (
     CreateView,
@@ -336,6 +337,19 @@ class _CRUDDeleteBase(_CRUDContextMixin, DeleteView):
 
     def get_success_url(self):
         return self.crud_config._reverse(f"{self.crud_config._get_url_base()}-list")
+
+    def post(self, request, *args, **kwargs):
+        try:
+            return super().post(request, *args, **kwargs)
+        except ProtectedError as e:
+            protected = e.protected_objects
+            model_name = type(next(iter(protected))).__name__ if protected else "other records"
+            count = len(protected)
+            msg = (
+                f"Cannot delete \u2014 {count} {model_name} "
+                f"record{'s' if count != 1 else ''} still linked."
+            )
+            return HttpResponse(msg, status=409)
 
 
 class _CRUDFieldPreviewBase(_CRUDContextMixin, DetailView):

@@ -8,6 +8,7 @@
         </div>
         <div class="crud-modal-body">
             <p>Are you sure you want to delete <strong id="crud-delete-name"></strong>?</p>
+            <div id="crud-delete-error" style="display:none; margin-top: 0.75rem; padding: 0.6rem 0.9rem; border-radius: var(--radius-sm, 4px); background: color-mix(in srgb, #dc3545 12%, var(--body-bg)); color: #dc3545; font-size: 0.85rem; font-weight: 500;"></div>
         </div>
         <div class="crud-modal-footer">
             <button type="button"
@@ -84,11 +85,16 @@ function crudDeleteModal(el, name) {
     const modal = document.getElementById('crud-delete-modal');
     const nameEl = document.getElementById('crud-delete-name');
     const confirmBtn = document.getElementById('crud-delete-confirm');
+    const errorEl = document.getElementById('crud-delete-error');
     const url = el.getAttribute('data-delete-url');
 
     nameEl.textContent = name;
     confirmBtn.setAttribute('hx-post', url);
     htmx.process(confirmBtn);
+
+    // Clear any previous error
+    errorEl.style.display = 'none';
+    errorEl.textContent = '';
 
     // Find the closest table row for removal after delete
     _crudDeleteRow = el.closest('tr');
@@ -113,9 +119,11 @@ document.addEventListener('keydown', function(e) {
     if (e.key === 'Escape') crudDeleteModalClose();
 });
 
-// After successful htmx delete, remove row or redirect to list
+// After htmx delete request completes
 document.addEventListener('htmx:afterRequest', function(e) {
-    if (e.detail.elt.id === 'crud-delete-confirm' && e.detail.successful) {
+    if (e.detail.elt.id !== 'crud-delete-confirm') return;
+
+    if (e.detail.successful) {
         if (_crudDeleteRow) {
             // List view: fade out and remove the row
             _crudDeleteRow.style.transition = 'opacity 0.3s';
@@ -131,10 +139,15 @@ document.addEventListener('htmx:afterRequest', function(e) {
             if (listUrl) {
                 window.location.href = listUrl.getAttribute('data-list-url');
             } else {
-                // Fallback: go up from /url_base/pk/ to /url_base/
                 window.location.href = window.location.pathname.replace(/[^/]+\/$/, '');
             }
         }
+    } else {
+        // Show error message in modal
+        var errorEl = document.getElementById('crud-delete-error');
+        var xhr = e.detail.xhr;
+        errorEl.textContent = xhr && xhr.responseText ? xhr.responseText : 'Delete failed.';
+        errorEl.style.display = 'block';
     }
 });
 </script>
