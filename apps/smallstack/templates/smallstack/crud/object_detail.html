@@ -35,7 +35,7 @@
         <a href="edit/" class="btn" style="background: var(--primary); color: var(--button-fg); padding: 0.4rem 1rem; border: none; border-radius: var(--radius-sm, 4px); text-decoration: none; font-size: 0.85rem;">Edit</a>
         {% endif %}
         {% if action.value == "delete" %}
-        <a href="delete/" class="btn" style="background: var(--delete-button-bg, #dc3545); color: #fff; padding: 0.4rem 1rem; border: none; border-radius: var(--radius-sm, 4px); text-decoration: none; font-size: 0.85rem;">Delete</a>
+        <button type="button" class="btn" style="background: var(--delete-button-bg, #dc3545); color: #fff; padding: 0.4rem 1rem; border: none; border-radius: var(--radius-sm, 4px); cursor: pointer; font-size: 0.85rem;" data-delete-url="delete/" onclick="crudDeleteModal(this, '{{ object }}')">Delete</button>
         {% endif %}
         {% endfor %}
         {% endif %}
@@ -43,7 +43,7 @@
 </div>
 {% endif %}
 
-<div class="card">
+<div class="card" data-list-url="{{ list_view_url }}">
     {% if not breadcrumb_parent_label %}
     <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
         <h2>{{ object }}</h2>
@@ -54,7 +54,7 @@
             <a href="edit/" class="btn" style="background: var(--primary); color: var(--button-fg); padding: 0.4rem 1rem; border: none; border-radius: var(--radius-sm, 4px); text-decoration: none; font-size: 0.85rem;">Edit</a>
             {% endif %}
             {% if action.value == "delete" %}
-            <a href="delete/" class="btn" style="background: var(--delete-button-bg, #dc3545); color: #fff; padding: 0.4rem 1rem; border: none; border-radius: var(--radius-sm, 4px); text-decoration: none; font-size: 0.85rem;">Delete</a>
+            <button type="button" class="btn" style="background: var(--delete-button-bg, #dc3545); color: #fff; padding: 0.4rem 1rem; border: none; border-radius: var(--radius-sm, 4px); cursor: pointer; font-size: 0.85rem;" data-delete-url="delete/" onclick="crudDeleteModal(this, '{{ object }}')">Delete</button>
             {% endif %}
             {% endfor %}
             {% endif %}
@@ -72,4 +72,5 @@
         {% endif %}
     </div>
 </div>
+{% include "smallstack/crud/includes/delete_modal.html" %}
 {% endblock %}

@@ -3,7 +3,7 @@
 <div id="crud-delete-modal" class="crud-modal-overlay" style="display:none;">
     <div class="crud-modal">
         <div class="crud-modal-header">
-            <h3>Confirm Delete</h3>
+            <h3 id="crud-delete-title">Confirm Delete</h3>
             <button type="button" class="crud-modal-close" onclick="crudDeleteModalClose()">&times;</button>
         </div>
         <div class="crud-modal-body">
@@ -81,9 +81,16 @@ let _crudDeleteUrl = null;
 
 function crudDeleteModal(el, name) {
     var errorEl = document.getElementById('crud-delete-error');
+    var btn = document.getElementById('crud-delete-confirm');
+    var cancelBtn = document.querySelector('.crud-modal-btn-cancel');
+    document.getElementById('crud-delete-title').textContent = 'Confirm Delete';
     document.getElementById('crud-delete-name').textContent = name;
     errorEl.style.display = 'none';
     errorEl.textContent = '';
+    btn.style.display = '';
+    btn.disabled = false;
+    btn.textContent = 'Delete';
+    cancelBtn.textContent = 'Cancel';
     _crudDeleteUrl = el.getAttribute('data-delete-url');
     _crudDeleteRow = el.closest('tr');
     document.getElementById('crud-delete-modal').style.display = 'flex';
@@ -123,11 +130,14 @@ function crudDeleteConfirm() {
                     : window.location.pathname.replace(/[^/]+\/$/, '');
             }
         } else {
-            // Error — show message in modal
+            // Error — show message, hide delete button, change cancel to close
             return resp.text().then(function(msg) {
                 var errorEl = document.getElementById('crud-delete-error');
+                document.getElementById('crud-delete-title').textContent = 'Cannot Delete';
                 errorEl.textContent = msg || 'Delete failed.';
                 errorEl.style.display = 'block';
+                btn.style.display = 'none';
+                document.querySelector('.crud-modal-btn-cancel').textContent = 'Close';
             });
         }
     }).catch(function() {
