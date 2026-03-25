@@ -95,10 +95,12 @@
         font-size: 0.9rem;
         font-weight: 500;
         color: var(--body-quiet-color);
-        transition: color 0.15s, border-color 0.15s;
+        transition: color 0.15s, border-color 0.15s, background-color 0.15s;
+        border-radius: var(--radius-sm) var(--radius-sm) 0 0;
     }
     .tab-btn:hover {
         color: var(--body-fg);
+        background-color: color-mix(in srgb, var(--body-fg) 5%, transparent);
     }
     .tab-btn.active {
         color: var(--primary);
