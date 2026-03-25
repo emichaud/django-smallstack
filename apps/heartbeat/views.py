@@ -554,6 +554,11 @@ class HeartbeatDashboardView(StaffRequiredMixin, TemplateView):
             return TemplateResponse(request, self.TAB_PARTIALS[context["active_tab"]], context)
 
         context["tab_partial"] = self.TAB_PARTIALS[context["active_tab"]]
+        # If tab or page params are present, user is in the Heartbeat Log view
+        if "tab" in request.GET or "page" in request.GET or "sort" in request.GET:
+            context["active_view"] = "log"
+        else:
+            context["active_view"] = "timelines"
         return TemplateResponse(request, self.template_name, context)
 
 

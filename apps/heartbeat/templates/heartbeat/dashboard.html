@@ -201,14 +201,14 @@
 <div class="card">
     <div class="card-header" style="padding-bottom: 0;">
         <div class="view-bar">
-            <button class="view-btn active" onclick="switchView('timelines', this)">Timelines</button>
-            <button class="view-btn" onclick="switchView('log', this)">Heartbeat Log</button>
-            <button class="view-btn" onclick="switchView('json', this)">JSON</button>
+            <button class="view-btn{% if active_view == 'timelines' %} active{% endif %}" onclick="switchView('timelines', this)">Timelines</button>
+            <button class="view-btn{% if active_view == 'log' %} active{% endif %}" onclick="switchView('log', this)">Heartbeat Log</button>
+            <button class="view-btn{% if active_view == 'json' %} active{% endif %}" onclick="switchView('json', this)">JSON</button>
         </div>
     </div>
 
     <!-- Timelines panel -->
-    <div id="view-timelines" class="view-panel active">
+    <div id="view-timelines" class="view-panel{% if active_view == 'timelines' %} active{% endif %}">
         <div class="card-body">
             {% if timeline_24h %}
             <h3 style="margin: 0 0 12px 0; font-size: 1rem;">Last 24 Hours</h3>
@@ -250,7 +250,7 @@
     </div>
 
     <!-- Heartbeat Log panel -->
-    <div id="view-log" class="view-panel">
+    <div id="view-log" class="view-panel{% if active_view == 'log' %} active{% endif %}">
         <div class="card-body" style="padding: 0 0 0 0;">
             <div style="padding: 0 16px;">
                 <div class="tab-bar">
@@ -286,7 +286,7 @@
     </div>
 
     <!-- JSON panel -->
-    <div id="view-json" class="view-panel">
+    <div id="view-json" class="view-panel{% if active_view == 'json' %} active{% endif %}">
         <div class="card-body">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
                 <div style="font-size: 0.8rem; color: var(--body-quiet-color);">
