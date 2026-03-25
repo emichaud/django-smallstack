@@ -409,6 +409,18 @@
     // Message Dismissal
     // ============================================
 
+    function removeMessage(message) {
+        message.style.opacity = '0';
+        message.style.transform = 'translateX(100%)';
+        setTimeout(() => {
+            var container = message.closest('.messages-container');
+            message.remove();
+            if (container && !container.querySelector('.message')) {
+                container.remove();
+            }
+        }, 300);
+    }
+
     function initMessages() {
         const closeButtons = document.querySelectorAll('.message-close');
 
@@ -416,11 +428,7 @@
             button.addEventListener('click', () => {
                 const message = button.closest('.message');
                 if (message) {
-                    message.style.opacity = '0';
-                    message.style.transform = 'translateX(100%)';
-                    setTimeout(() => {
-                        message.remove();
-                    }, 300);
+                    removeMessage(message);
                 }
             });
         });
@@ -430,11 +438,7 @@
         messages.forEach((message) => {
             setTimeout(() => {
                 if (message.parentNode) {
-                    message.style.opacity = '0';
-                    message.style.transform = 'translateX(100%)';
-                    setTimeout(() => {
-                        message.remove();
-                    }, 300);
+                    removeMessage(message);
                 }
             }, 5000);
         });

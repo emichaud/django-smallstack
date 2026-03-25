@@ -1167,6 +1167,10 @@ body[data-topbar-nav="hidden"] .topbar-nav-auto {
     margin-bottom: 20px;
 }
 
+.messages-container:empty {
+    display: none;
+}
+
 .message {
     display: flex;
     align-items: center;
