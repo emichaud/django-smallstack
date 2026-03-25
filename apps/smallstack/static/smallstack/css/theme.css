@@ -89,6 +89,9 @@
     --transition-fast: 0.15s ease;
     --transition-normal: 0.3s ease;
 
+    /* Controls */
+    --control-height: 36px;
+
     /* Border radius */
     --radius-sm: 4px;
     --radius-md: 8px;
@@ -1361,6 +1364,7 @@ body[data-topbar-nav="hidden"] .topbar-nav-auto {
 .form-group textarea,
 .form-group select {
     width: 100%;
+    min-height: var(--control-height, 36px);
     padding: 10px 12px;
     border: 1px solid var(--input-border);
     border-radius: var(--radius-sm);
@@ -2930,10 +2934,10 @@ a.button.button-secondary:hover {
 
 .paginator {
     display: flex;
-    justify-content: space-between;
+    flex-direction: column;
     align-items: center;
-    padding: 12px 16px;
-    border-top: 1px solid var(--card-border);
+    gap: 8px;
+    padding: 1rem 0 0;
     font-size: 0.85rem;
 }
 
@@ -2943,20 +2947,21 @@ a.button.button-secondary:hover {
 
 .paginator-pages {
     display: flex;
+    justify-content: center;
     align-items: center;
-    gap: 4px;
+    gap: 0.25rem;
 }
 
-.paginator-link {
+.paginator-link,
+a.paginator-link:link,
+a.paginator-link:visited {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    min-width: 32px;
-    height: 32px;
-    padding: 0 6px;
-    border: 1px solid var(--card-border);
+    padding: 0.3rem 0.75rem;
     border-radius: var(--radius-sm);
-    color: var(--body-fg);
+    background: none;
+    color: var(--body-quiet-color);
     text-decoration: none;
     font-size: 0.85rem;
     transition: all var(--transition-fast);
@@ -2964,13 +2969,13 @@ a.button.button-secondary:hover {
 }
 
 .paginator-link:hover {
-    background-color: var(--sidebar-hover-bg);
+    color: var(--primary);
+    background: color-mix(in srgb, var(--primary) 10%, var(--body-bg));
     text-decoration: none;
 }
 
 .paginator-link.active {
-    background-color: var(--primary);
-    border-color: var(--primary);
+    background: var(--primary);
     color: var(--button-fg);
     cursor: default;
 }
@@ -2979,17 +2984,9 @@ a.button.button-secondary:hover {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    min-width: 32px;
-    height: 32px;
+    padding: 0.3rem 0.25rem;
     color: var(--body-quiet-color);
     font-size: 0.85rem;
-}
-
-@media (max-width: 480px) {
-    .paginator {
-        flex-direction: column;
-        gap: 8px;
-    }
 }
 
 /* ============================================

@@ -12,26 +12,6 @@
     .crud-table thead th a:hover { color: var(--primary); }
     .crud-table thead th.asc a::after { content: " \25B2"; font-size: 0.65rem; }
     .crud-table thead th.desc a::after { content: " \25BC"; font-size: 0.65rem; }
-    /* django-tables2 pagination */
-    ul.pagination {
-        display: flex; justify-content: center; gap: 0.25rem;
-        list-style: none !important; padding: 1rem 0 0 !important; margin: 0 !important;
-    }
-    ul.pagination li { list-style: none !important; }
-    ul.pagination li a,
-    ul.pagination li span {
-        display: inline-block; padding: 0.3rem 0.75rem;
-        border-radius: var(--radius-sm, 4px); color: var(--body-quiet-color);
-        text-decoration: none; font-size: 0.85rem;
-    }
-    ul.pagination li a:hover {
-        color: var(--primary);
-        background: color-mix(in srgb, var(--primary) 10%, var(--body-bg));
-    }
-    ul.pagination li.active a,
-    ul.pagination li.active span {
-        background: var(--primary); color: var(--button-fg);
-    }
     .tab-bar {
         margin-top: 12px;
         margin-bottom: 0;
