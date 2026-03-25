@@ -725,7 +725,9 @@ body.sidebar-closed .main-content {
     height: 100%;
 }
 
-.topbar .auth-link {
+.topbar .auth-link,
+.topbar .auth-link:link,
+.topbar .auth-link:visited {
     color: var(--header-fg);
     padding: 8px 16px;
     border-radius: var(--radius-sm);
