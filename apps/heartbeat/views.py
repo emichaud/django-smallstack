@@ -210,7 +210,7 @@ def _build_minute_timeline(minutes=60):
                 "status": "pre-epoch",
                 "timestamp": slot_start,
                 "response_time_ms": 0,
-                "label": slot_start.strftime("%-I:%M %p"),
+                "label": localtime(slot_start).strftime("%-I:%M %p"),
             })
             continue
 
@@ -225,7 +225,7 @@ def _build_minute_timeline(minutes=60):
                 "status": "maintenance",
                 "timestamp": slot_start,
                 "response_time_ms": avg_ms,
-                "label": slot_start.strftime("%-I:%M %p"),
+                "label": localtime(slot_start).strftime("%-I:%M %p"),
             })
         elif slot_beats:
             has_fail = any(b["status"] == "fail" for b in slot_beats)
@@ -234,14 +234,14 @@ def _build_minute_timeline(minutes=60):
                 "status": "fail" if has_fail else "ok",
                 "timestamp": slot_beats[0]["timestamp"],
                 "response_time_ms": avg_ms,
-                "label": slot_start.strftime("%-I:%M %p"),
+                "label": localtime(slot_start).strftime("%-I:%M %p"),
             })
         else:
             slots.append({
                 "status": "missed",
                 "timestamp": slot_start,
                 "response_time_ms": 0,
-                "label": slot_start.strftime("%-I:%M %p"),
+                "label": localtime(slot_start).strftime("%-I:%M %p"),
             })
 
     return slots
@@ -275,7 +275,7 @@ def _build_24h_timeline():
                 "ok_count": 0,
                 "fail_count": 0,
                 "total": 0,
-                "hour_label": slot_start.strftime("%-I:%M %p"),
+                "hour_label": localtime(slot_start).strftime("%-I:%M %p"),
                 "timestamp": slot_start,
             })
             continue
@@ -305,7 +305,7 @@ def _build_24h_timeline():
             "ok_count": ok_count,
             "fail_count": fail_count,
             "total": total,
-            "hour_label": slot_start.strftime("%-I:%M %p"),
+            "hour_label": localtime(slot_start).strftime("%-I:%M %p"),
             "timestamp": slot_start,
         })
 
