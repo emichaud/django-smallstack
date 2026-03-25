@@ -286,6 +286,7 @@ Quick summary of available classes:
 | Action cards | `.action-card`, `.action-card-success`, `.action-card-danger`, `.action-card-static` |
 | Badges | `.badge-success`, `.badge-warning`, `.badge-error`, `.badge-info` |
 | Tabs | `.tab-bar`, `.tab-btn`, `.tab-panel`, `.tab-count` |
+| View switcher | `.view-bar`, `.view-btn`, `.view-panel` |
 | Filter toggles | `.filter-toggles`, `.filter-toggle` |
 | Page header | `.page-header-bleed`, `.page-header-with-actions`, `.page-header-actions` |
 | Forms | `.crud-form`, `.crud-field`, `.crud-label`, `.crud-actions` |

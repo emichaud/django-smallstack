@@ -37,30 +37,6 @@
         margin-bottom: 0;
     }
 
-    /* Top-level view switcher */
-    .view-bar {
-        display: flex;
-        gap: 0;
-        border-bottom: 2px solid var(--hairline-color);
-        margin-bottom: 0;
-    }
-    .view-btn {
-        padding: 12px 24px;
-        background: none;
-        border: none;
-        border-bottom: 3px solid transparent;
-        margin-bottom: -2px;
-        cursor: pointer;
-        font-size: 0.95rem;
-        font-weight: 600;
-        color: var(--body-quiet-color);
-        transition: color 0.15s, border-color 0.15s, background-color 0.15s;
-        border-radius: var(--radius-sm) var(--radius-sm) 0 0;
-    }
-    .view-btn:hover { color: var(--body-fg); background-color: color-mix(in srgb, var(--body-fg) 5%, transparent); }
-    .view-btn.active { color: var(--primary); border-bottom-color: var(--primary); }
-    .view-panel { display: none; }
-    .view-panel.active { display: block; }
 
     /* Timeline styles (from status page) */
     .timeline-bar {

@@ -926,6 +926,47 @@ ul.pagination li.active span {
     display: block;
 }
 
+/* View switcher — larger variant for top-level section switching */
+
+.view-bar {
+    display: flex;
+    gap: 0;
+    border-bottom: 2px solid var(--hairline-color, color-mix(in srgb, var(--body-fg) 10%, var(--body-bg)));
+    margin-bottom: 0;
+}
+
+.view-btn {
+    padding: 12px 24px;
+    background: none;
+    border: none;
+    border-bottom: 3px solid transparent;
+    margin-bottom: -2px;
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--body-quiet-color);
+    cursor: pointer;
+    transition: color 0.15s, border-color 0.15s, background-color 0.15s;
+    border-radius: var(--radius-sm, 4px) var(--radius-sm, 4px) 0 0;
+}
+
+.view-btn:hover {
+    color: var(--body-fg);
+    background-color: color-mix(in srgb, var(--body-fg) 5%, transparent);
+}
+
+.view-btn.active {
+    color: var(--primary);
+    border-bottom-color: var(--primary);
+}
+
+.view-panel {
+    display: none;
+}
+
+.view-panel.active {
+    display: block;
+}
+
 
 /* --------------------------------------------------------------------------
    Badges / Pills

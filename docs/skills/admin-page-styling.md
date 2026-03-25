@@ -580,6 +580,27 @@ function switchTab(e, tabId) {
 | `.tab-panel` | Content panel (hidden by default) |
 | `.tab-panel.active` | Visible content panel |
 
+### View Switcher (larger tabs)
+
+For top-level section switching (e.g. Timelines / Heartbeat Log / JSON), use `.view-bar` / `.view-btn` — a larger, bolder variant of tabs:
+
+```django
+<div class="view-bar">
+    <button class="view-btn active" onclick="switchView(event, 'overview')">Overview</button>
+    <button class="view-btn" onclick="switchView(event, 'details')">Details</button>
+</div>
+<div id="view-overview" class="view-panel active">...</div>
+<div id="view-details" class="view-panel">...</div>
+```
+
+| Class | Purpose |
+|-------|---------|
+| `.view-bar` | Flex container with bottom border (like `.tab-bar` but no margin) |
+| `.view-btn` | Larger tab button (0.95rem, 600 weight, 3px underline) |
+| `.view-btn.active` | Primary color + bottom border |
+| `.view-panel` | Content panel (hidden by default) |
+| `.view-panel.active` | Visible content panel |
+
 ### Tab Hover Styling
 
 Tab buttons use a subtle background tint on hover rather than a color-only change. This is critical for light-theme readability — a color-only hover (e.g. `color: var(--body-fg)`) can make text disappear against light backgrounds.
