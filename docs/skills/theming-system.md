@@ -91,6 +91,9 @@ Core layout and component variables are defined in `static/smallstack/css/theme.
     --topbar-height: 56px;
     --sidebar-width: 250px;
 
+    /* Controls */
+    --control-height: 36px;
+
     /* Effects */
     --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
     --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.1);
@@ -565,6 +568,8 @@ See `docs/skills/timezones.md` for the full timezone architecture.
 6. **Keep Django admin CSS** - It provides useful form styling
 7. **Use `var(--primary)` for branded elements** - They'll automatically adapt to palette changes
 8. **Use `{% localtime_tooltip %}` for dates** - It inherits theme variables and works in all modes
+9. **Beat `a:visited` on button classes** - Any class that sets `color` on an `<a>` must include `a.<class>:link, a.<class>:visited` selectors; otherwise the global `a:visited { color: var(--link-color) }` rule wins and can make text invisible. See [admin-page-styling.md](admin-page-styling.md#visited-link-specificity-rule) for details.
+10. **Use background tint for tab/button hover states** - Never use color-only hover on tabs or navigation buttons — text becomes invisible in light themes. Always pair with `background-color: color-mix(in srgb, var(--body-fg) 5%, transparent)`. See [admin-page-styling.md](admin-page-styling.md#tab-hover-styling) for the pattern.
 
 ## Troubleshooting
 
@@ -577,6 +582,10 @@ If you changed `SMALLSTACK_COLOR_PALETTE` but the UI still shows the old palette
 3. **Clear browser localStorage** — open DevTools → Application → Local Storage → delete `smallstack-palette`. This key can hold a stale value from a previous session, especially for anonymous users.
 4. **Verify the palette ID** — valid options: `django`, `high-contrast`, `dark-blue`, `orange`, `purple`. An invalid ID silently falls back to `django`.
 5. **Check `data-palette` in DevTools** — inspect the `<html>` element and confirm the `data-palette` attribute matches what you expect.
+
+### Button text invisible or wrong color
+
+If an `<a>` with a button class (`.btn-primary`, etc.) shows invisible or palette-colored text instead of white, the global `a:visited` rule is winning. The fix is to add `:link`/`:visited` selectors — see [admin-page-styling.md](admin-page-styling.md#visited-link-specificity-rule). This is already handled for all built-in button classes; it only affects custom button classes you add.
 
 ### CDN stylesheets not applying
 

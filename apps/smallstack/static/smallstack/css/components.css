@@ -881,6 +881,9 @@ ul.pagination li.active span {
 }
 
 .tab-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
     padding: 10px 20px;
     background: none;
     border: none;

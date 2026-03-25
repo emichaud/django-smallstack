@@ -160,6 +160,28 @@ Five button classes are defined in `components.css`. Use them on `<a>`, `<button
 <a href="edit/" class="btn-primary btn-sm">Edit</a>
 ```
 
+### Visited-Link Specificity Rule
+
+Button classes are used on `<a>` elements throughout the framework (e.g. `<a href="..." class="btn-primary">`). The global `a:visited` rule in `theme.css` has specificity `(0,1,1)` and sets `color: var(--link-color)`. A plain class selector like `.btn-primary` is only `(0,1,0)` — so the visited-link color wins, making button text invisible when `--link-color` matches the button background (e.g. purple palette light mode).
+
+**Rule:** Any button class that sets `color` must also include `a.<class>:link` and `a.<class>:visited` selectors:
+
+```css
+/* WRONG — text disappears on visited links */
+.btn-primary {
+    color: var(--button-fg);
+}
+
+/* RIGHT — always beats a:visited */
+.btn-primary,
+a.btn-primary:link,
+a.btn-primary:visited {
+    color: var(--button-fg);
+}
+```
+
+This is already done for `.btn-primary`, `.btn-secondary`, `.btn-outline`, and `.btn-danger` in `components.css`, and for `.button-primary` and `.topbar .auth-link` in `theme.css`. Follow the same pattern when adding new button or link classes that set an explicit `color`.
+
 ### Form Buttons
 
 Inside `.crud-form`, use these for submit/cancel:
@@ -344,7 +366,7 @@ For metric/KPI displays at the top of dashboard pages:
 
 ### Clickable Stat Cards with Modal
 
-For stat cards that open a detail panel on click (like Activity dashboard):
+For stat cards that open a detail table on click (like Activity dashboard). Clicking a card fires an HTMX GET, loads a table into the modal, and opens it:
 
 ```django
 <div class="stat-cards">
@@ -365,7 +387,51 @@ For stat cards that open a detail panel on click (like Activity dashboard):
 |-------|---------|
 | `.stat-card-clickable` | Adds hover effect and pointer cursor (defined in theme.css) |
 
-The stat modal is a reusable slide-in panel. HTMX loads the detail content, JS opens/closes the panel.
+**How it works:**
+
+1. `hx-get` fetches an HTML fragment and injects it into `#stat-modal-body`
+2. `onclick="openStatModal('Title')"` sets the modal title and adds the `.open` class
+3. Escape key or clicking the backdrop closes the modal
+
+**The HTMX endpoint should return a plain HTML table** — no `<html>`, no layout, just the table:
+
+```python
+# views.py
+def stat_detail(request, stat_type):
+    if stat_type == "requests":
+        qs = RequestLog.objects.order_by("-timestamp")[:50]
+    return render(request, "app/partials/stat_table.html", {"items": qs})
+```
+
+```django
+{# partials/stat_table.html — just the table, no base template #}
+<table>
+    <thead><tr><th>Timestamp</th><th>Path</th><th>Status</th></tr></thead>
+    <tbody>
+    {% for item in items %}
+    <tr><td>{{ item.timestamp }}</td><td>{{ item.path }}</td><td>{{ item.status_code }}</td></tr>
+    {% endfor %}
+    </tbody>
+</table>
+```
+
+The modal panel automatically styles tables inside it — sticky header, alternating row colors, hover highlights — all derived from `--primary` via `color-mix()`. No extra classes needed on the `<table>`.
+
+**Stat modal CSS classes** (in `theme.css`):
+
+| Class | Purpose |
+|-------|---------|
+| `.stat-modal` | Fixed full-screen overlay backdrop (`display: none` by default) |
+| `.stat-modal.open` | Shows the modal (`display: flex`) |
+| `.stat-modal-panel` | The card container — sized `min(80%, 90vw)` x `min(520px, 80vh)` |
+| `.stat-modal-panel table` | Full-width table with sticky header and themed row colors |
+
+**JavaScript API:**
+
+| Function | Description |
+|----------|-------------|
+| `openStatModal('Title')` | Sets the title and shows the modal |
+| `closeStatModal()` | Hides the modal and clears state |
 
 ## Badges
 
@@ -431,6 +497,45 @@ All forms use the `.crud-form` class. This handles input styling, labels, error 
 </div>
 ```
 
+### Control Sizing
+
+All text inputs, selects, and search fields use `min-height: var(--control-height)` (default `36px`). This ensures dropdowns and inputs are tall enough to display text without clipping, and that adjacent controls (e.g. a search box next to filter dropdowns) align at the same height.
+
+The `--control-height` variable is defined in `theme.css` and referenced in `components.css`. To make all controls taller or shorter across the app, override the single variable:
+
+```css
+:root {
+    --control-height: 40px;  /* taller controls */
+}
+```
+
+This applies to:
+- `.content-wrapper` bare inputs and selects (admin-style pages)
+- `.crud-form` inputs and selects (CRUD create/edit forms)
+- `.form-group select` (profile and auth forms)
+- Toolbar search and filter controls
+
+### File Inputs
+
+File inputs (`<input type="file">`) are styled automatically in both `.crud-form` and bare `.content-wrapper` contexts. They get a dashed border, themed background, and a styled "Choose File" button that uses the primary color.
+
+No extra classes are needed — Django's `ClearableFileInput` widget renders a plain `<input type="file">` and the CSS handles it:
+
+```django
+{# Inside a crud-form — automatically styled #}
+<div class="crud-field">
+    <label class="crud-label">File *</label>
+    {{ form.file }}
+</div>
+```
+
+The `::file-selector-button` pseudo-element styles the browser's native button:
+- Primary-colored background with white text
+- Hover state uses `--primary-hover`
+- Dashed border on the input area turns solid primary on hover
+
+For forms with file uploads, remember to add `enctype="multipart/form-data"` to the `<form>` tag.
+
 ## Tabs
 
 For pages with multiple content sections (full-width tab bar with underline indicator):
@@ -475,9 +580,33 @@ function switchTab(e, tabId) {
 | `.tab-panel` | Content panel (hidden by default) |
 | `.tab-panel.active` | Visible content panel |
 
+### Tab Hover Styling
+
+Tab buttons use a subtle background tint on hover rather than a color-only change. This is critical for light-theme readability — a color-only hover (e.g. `color: var(--body-fg)`) can make text disappear against light backgrounds.
+
+The correct hover pattern for tabs:
+
+```css
+.tab-btn {
+    transition: color 0.15s, border-color 0.15s, background-color 0.15s;
+    border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+}
+
+.tab-btn:hover {
+    color: var(--body-fg);
+    background-color: color-mix(in srgb, var(--body-fg) 5%, transparent);
+}
+```
+
+**Anti-pattern:** Never use only `color` for tab hover — it's unreadable in light themes. Always include `background-color` with a `color-mix()` tint. The same applies to view switcher buttons (`.view-btn`) or any tab-like navigation.
+
 ## Delete Modal
 
-The delete modal is included automatically on list and detail pages via `{% include "smallstack/crud/includes/delete_modal.html" %}`. To trigger it from a button:
+The delete modal is a confirmation dialog included automatically on CRUDView list and detail pages via `{% include "smallstack/crud/includes/delete_modal.html" %}`.
+
+### Triggering the Modal
+
+**From a standalone button** (detail pages, card actions):
 
 ```django
 <button type="button" class="btn-danger"
@@ -487,18 +616,56 @@ The delete modal is included automatically on list and detail pages via `{% incl
 </button>
 ```
 
-The modal handles:
-- Confirmation prompt with object name
-- AJAX POST to the delete URL
-- Success: removes table row (list) or redirects to list (detail)
-- ProtectedError/RestrictedError: shows "Cannot Delete" with explanation, hides Delete button
-- Network errors: shows inline error message
+**From a table row** (list pages — the modal auto-detects the `<tr>` and removes it on success):
 
-For the detail page, add `data-list-url` to any parent element so the modal knows where to redirect:
+```django
+<td>
+    <a href="{% url 'app:edit' pk=obj.pk %}" class="btn-primary btn-sm">Edit</a>
+    <button type="button" class="btn-danger btn-sm"
+        data-delete-url="{% url 'app:delete' pk=obj.pk %}"
+        onclick="crudDeleteModal(this, '{{ obj }}')">Delete</button>
+</td>
+```
+
+### How It Works
+
+1. `crudDeleteModal(element, name)` — reads `data-delete-url` from the trigger element, shows the modal with the object name
+2. User confirms → AJAX POST to the delete URL with CSRF token
+3. **From a list page**: the table row fades out and is removed from the DOM (no page reload)
+4. **From a detail page**: redirects to the list URL (found via `data-list-url` on a parent element)
+5. **On ProtectedError**: title changes to "Cannot Delete", error message shown, Delete button hidden, Cancel becomes "Close"
+6. **On network error**: inline error message, buttons remain functional for retry
+
+For detail pages, add `data-list-url` so the modal knows where to redirect after deletion:
 
 ```django
 <div class="card" data-list-url="{{ list_view_url }}">
 ```
+
+### CSS Classes
+
+The modal styles are defined inline in the template (`delete_modal.html`) and in `components.css`:
+
+| Class | Purpose |
+|-------|---------|
+| `.crud-modal-overlay` | Fixed full-screen backdrop with blur |
+| `.crud-modal` | Centered card container (max-width 420px) |
+| `.crud-modal-header` | Title bar with close button |
+| `.crud-modal-body` | Content area (confirmation text + error messages) |
+| `.crud-modal-footer` | Action buttons (Delete + Cancel), right-aligned |
+| `.crud-modal-btn-delete` | Red delete button (`--delete-button-bg`) |
+| `.crud-modal-btn-cancel` | Outlined cancel/close button |
+| `.crud-modal-close` | The &times; close button in the header |
+
+### JavaScript API
+
+| Function | Description |
+|----------|-------------|
+| `crudDeleteModal(el, name)` | Opens the modal. `el` is the trigger element (reads `data-delete-url`), `name` is displayed in the confirmation text |
+| `crudDeleteModalClose()` | Closes the modal and resets state |
+| `crudDeleteConfirm()` | Sends the DELETE POST — called by the modal's Delete button |
+
+Escape key and backdrop click also close the modal.
 
 ## Search
 
