@@ -1321,7 +1321,9 @@ body[data-topbar-nav="hidden"] .topbar-nav-auto {
     text-decoration: none;
 }
 
-.button-primary {
+.button-primary,
+.button-primary:link,
+.button-primary:visited {
     background-color: var(--button-bg);
     border-color: var(--button-bg);
     color: var(--button-fg);
