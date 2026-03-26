@@ -1021,7 +1021,8 @@ a.topbar-nav-link.active::after {
     width: 100%;
     background: none;
     border: none;
-    font: inherit;
+    font-size: 1rem;
+    font-family: inherit;
     /* Inherits .nav-link styles via class */
 }
 
