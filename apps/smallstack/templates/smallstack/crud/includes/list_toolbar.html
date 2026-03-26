@@ -1,0 +1,87 @@
+{% if show_toolbar %}
+<div class="list-toolbar" id="list-toolbar">
+    {% if toolbar_search_fields %}
+    <div class="list-toolbar-search">
+        <svg class="list-toolbar-search-icon" viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
+            <path d="M15.5 14h-.79l-.28-.27A6.47 6.47 0 0016 9.5 6.5 6.5 0 109.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
+        </svg>
+        <input type="search"
+               class="list-toolbar-search-input"
+               name="q"
+               value="{{ toolbar_search_query }}"
+               placeholder="{{ toolbar_search_placeholder }}"
+               autocomplete="off"
+               hx-get=""
+               hx-trigger="input changed delay:300ms, search"
+               hx-target="#crud-list-content"
+               hx-push-url="true"
+               hx-include="#list-toolbar"
+        >
+    </div>
+    {% endif %}
+
+    {% if toolbar_filters %}
+    <div class="list-toolbar-filters">
+        {% for filter in toolbar_filters %}
+        {% if filter.type == "choice" or filter.type == "boolean" %}
+        <select name="{{ filter.name }}"
+                class="list-toolbar-filter-select"
+                hx-get=""
+                hx-trigger="change"
+                hx-target="#crud-list-content"
+                hx-push-url="true"
+                hx-include="#list-toolbar"
+        >
+            {% for val, label in filter.choices %}
+            <option value="{{ val }}"{% if val == filter.current_value %} selected{% endif %}>
+                {% if val %}{{ label }}{% else %}{{ filter.label }}: All{% endif %}
+            </option>
+            {% endfor %}
+        </select>
+        {% elif filter.type == "text" %}
+        <input type="text"
+               name="{{ filter.name }}"
+               value="{{ filter.current_value }}"
+               placeholder="{{ filter.label }}..."
+               class="list-toolbar-filter-text"
+               hx-get=""
+               hx-trigger="input changed delay:300ms"
+               hx-target="#crud-list-content"
+               hx-push-url="true"
+               hx-include="#list-toolbar"
+        >
+        {% endif %}
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <div class="list-toolbar-spacer"></div>
+
+    {% if toolbar_search_query or toolbar_has_active_filter %}
+    <a href="?" class="list-toolbar-clear" title="Clear all filters">
+        <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor">
+            <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+        </svg>
+        Clear
+    </a>
+    {% endif %}
+    <span class="list-toolbar-count">{{ toolbar_total_count }} record{{ toolbar_total_count|pluralize }}</span>
+    {% if available_displays|length > 1 %}
+    <div class="display-palette">
+        {% for display in available_displays %}
+        <button
+            class="display-palette-btn{% if display.name == active_display %} active{% endif %}"
+            hx-get="?display={{ display.name }}"
+            hx-target="#crud-display-area"
+            hx-swap="innerHTML"
+            hx-push-url="true"
+            data-display="{{ display.name }}"
+            title="{{ display.name|title }}"
+        >
+            {{ display.icon|safe }}
+        </button>
+        {% endfor %}
+    </div>
+    {% endif %}
+</div>
+{% endif %}

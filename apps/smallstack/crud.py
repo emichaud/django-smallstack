@@ -63,6 +63,195 @@ class Action(enum.Enum):
 # ---------------------------------------------------------------------------
 
 
+# ---------------------------------------------------------------------------
+# List search & filter helpers (shared between HTML and API views)
+# ---------------------------------------------------------------------------
+
+
+def _apply_list_search(qs, request, crud_config):
+    """Apply ?q= text search to a queryset using configured search_fields.
+
+    Text fields use __icontains.  Date/DateTime fields use smart date
+    matching: "2026" → year, "2026-03" → year+month, "2026-03-15" → exact date.
+    """
+    import re
+
+    from django.db import models as _m
+    from django.db.models import Q
+
+    search_fields = crud_config._resolve_search_fields()
+    if not search_fields:
+        return qs
+    q = request.GET.get("q", "").strip()
+    if not q:
+        return qs
+
+    # Pre-parse the query for date-like patterns
+    date_filters = None
+    if re.fullmatch(r"\d{4}", q):
+        date_filters = {"__year": int(q)}
+    elif re.fullmatch(r"\d{4}-\d{1,2}", q):
+        parts = q.split("-")
+        date_filters = {"__year": int(parts[0]), "__month": int(parts[1])}
+    elif re.fullmatch(r"\d{4}-\d{1,2}-\d{1,2}", q):
+        date_filters = {"__date": q}
+
+    query = Q()
+    for field in search_fields:
+        try:
+            model_field = crud_config.model._meta.get_field(field.split("__")[0])
+        except Exception:
+            model_field = None
+
+        if isinstance(model_field, (_m.DateField, _m.DateTimeField)):
+            if date_filters:
+                field_q = Q()
+                for suffix, val in date_filters.items():
+                    field_q &= Q(**{f"{field}{suffix}": val})
+                query |= field_q
+        else:
+            query |= Q(**{f"{field}__icontains": q})
+
+    return qs.filter(query)
+
+
+def _apply_list_filters(qs, request, crud_config):
+    """Apply query-param filters to a queryset using configured filter_fields."""
+    filter_fields = crud_config._resolve_filter_fields()
+    if not filter_fields:
+        return qs
+    for field_name in filter_fields:
+        value = request.GET.get(field_name, "").strip()
+        if not value:
+            continue
+        # Boolean fields: accept true/false/1/0
+        try:
+            model_field = crud_config.model._meta.get_field(field_name)
+            from django.db import models as _m
+
+            if isinstance(model_field, _m.BooleanField):
+                if value.lower() in ("true", "1", "yes"):
+                    qs = qs.filter(**{field_name: True})
+                elif value.lower() in ("false", "0", "no"):
+                    qs = qs.filter(**{field_name: False})
+                continue
+        except Exception:
+            pass
+        qs = qs.filter(**{field_name: value})
+    return qs
+
+
+def _build_toolbar_context(request, crud_config):
+    """Build context dict for the list toolbar template.
+
+    The toolbar shows when any of: search_fields, filter_fields, or
+    multiple list displays are configured.
+    """
+    search_fields = crud_config._resolve_search_fields()
+    filter_fields = crud_config._resolve_filter_fields()
+    has_multiple_displays = len(crud_config._get_displays()) > 1
+
+    if not search_fields and not filter_fields and not has_multiple_displays:
+        return {"show_toolbar": False}
+
+    # Build filter metadata for the template
+    filters = []
+    for field_name in filter_fields:
+        meta = _build_filter_meta(crud_config.model, field_name)
+        if meta:
+            meta["current_value"] = request.GET.get(field_name, "")
+            filters.append(meta)
+
+    has_active_filter = any(f["current_value"] for f in filters)
+
+    # Build a helpful search placeholder
+    search_placeholder = "Search..."
+    if search_fields:
+        field_labels = []
+        for f in search_fields[:3]:
+            clean = f.replace("__", " ").replace("_", " ")
+            field_labels.append(clean)
+        search_placeholder = f"Search {', '.join(field_labels)}..."
+
+    return {
+        "show_toolbar": True,
+        "toolbar_search_fields": search_fields,
+        "toolbar_search_query": request.GET.get("q", ""),
+        "toolbar_search_placeholder": search_placeholder,
+        "toolbar_filters": filters,
+        "toolbar_has_active_filter": has_active_filter,
+    }
+
+
+def _build_filter_meta(model, field_name):
+    """Build filter widget metadata for a single field."""
+    from django.db import models as _m
+
+    try:
+        field = model._meta.get_field(field_name)
+    except Exception:
+        return None
+
+    meta = {
+        "name": field_name,
+        "label": str(getattr(field, "verbose_name", field_name)).capitalize(),
+    }
+
+    # Date/DateTime fields — skip for now (future: date range picker)
+    if isinstance(field, (_m.DateField, _m.DateTimeField)):
+        return None
+
+    # Boolean fields → toggle (All / Yes / No)
+    if isinstance(field, (_m.BooleanField,)):
+        meta["type"] = "boolean"
+        meta["choices"] = [("", "All"), ("true", "Yes"), ("false", "No")]
+        return meta
+
+    # Choice fields → dropdown
+    if field.choices:
+        choices = [("", "All")]
+        for val, label in field.flatchoices:
+            choices.append((str(val), str(label)))
+        meta["type"] = "choice"
+        meta["choices"] = choices
+        return meta
+
+    # ForeignKey → dropdown of related objects (capped at 100)
+    if isinstance(field, _m.ForeignKey):
+        related_model = field.related_model
+        try:
+            objects = related_model.objects.all()[:100]
+            choices = [("", "All")]
+            for obj in objects:
+                choices.append((str(obj.pk), str(obj)))
+            meta["type"] = "choice"
+            meta["choices"] = choices
+            return meta
+        except Exception:
+            return None
+
+    # Integer/text fields with limited distinct values → dropdown
+    try:
+        distinct_count = model.objects.values(field_name).distinct().count()
+        if distinct_count <= 30:
+            values = model.objects.values_list(field_name, flat=True).distinct().order_by(field_name)[:30]
+            choices = [("", "All")]
+            for val in values:
+                if val is not None:
+                    display = str(val)
+                    # Use get_FOO_display style if available
+                    choices.append((str(val), display))
+            meta["type"] = "choice"
+            meta["choices"] = choices
+            return meta
+    except Exception:
+        pass
+
+    # Fallback: text input filter
+    meta["type"] = "text"
+    return meta
+
+
 class _CRUDContextMixin:
     """Injects CRUD metadata into template context for all generated views."""
 
@@ -118,6 +307,10 @@ class _CRUDContextMixin:
 class _CRUDListBase(_CRUDContextMixin, ListView):
     def get_template_names(self):
         if getattr(self.request, "htmx", False):
+            htmx_target = self.request.headers.get("HX-Target", "")
+            # Toolbar search/filter: return the list content partial
+            if htmx_target == "crud-list-content":
+                return self.crud_config._get_template_names("list_content")
             # Display swap via HTMX: return just the display template
             display = self._get_active_display()
             if display and self.request.GET.get("display"):
@@ -126,7 +319,11 @@ class _CRUDListBase(_CRUDContextMixin, ListView):
         return self.crud_config._get_template_names("list")
 
     def get_queryset(self):
-        return self.crud_config._get_queryset()
+        qs = self.crud_config._get_queryset()
+        qs = self.crud_config.get_list_queryset(qs, self.request)
+        qs = _apply_list_search(qs, self.request, self.crud_config)
+        qs = _apply_list_filters(qs, self.request, self.crud_config)
+        return qs
 
     def _get_active_display(self):
         """Determine the active display for this request."""
@@ -154,24 +351,29 @@ class _CRUDListBase(_CRUDContextMixin, ListView):
         context = super().get_context_data(**kwargs)
         cfg = self.crud_config
 
+        # Toolbar context (search + filters)
+        context.update(_build_toolbar_context(self.request, cfg))
+
+        # Total count for toolbar (before pagination, after search/filter)
+        qs = self.get_queryset()
+        context["toolbar_total_count"] = qs.count()
+
         # Try display protocol first (when displays are configured)
         display = self._get_active_display()
         if display:
-            display_ctx = display.get_context(self.get_queryset(), cfg, self.request)
+            display_ctx = display.get_context(qs, cfg, self.request)
             context.update(display_ctx)
             context["display_template"] = display.template_name
             context["active_display"] = display.name
             all_displays = cfg._get_displays()
-            context["display_palette"] = build_palette_context(
-                all_displays, display, self.request
-            )
+            context["display_palette"] = build_palette_context(all_displays, display, self.request)
             if len(all_displays) > 1:
                 context["available_displays"] = all_displays
         elif cfg.table_class:
             # Legacy table2 path (no displays configured, but table_class set)
             from django_tables2 import RequestConfig
 
-            table = cfg.table_class(self.get_queryset())
+            table = cfg.table_class(qs)
             paginate = {"per_page": cfg.paginate_by} if cfg.paginate_by else False
             RequestConfig(self.request, paginate=paginate).configure(table)
             context["table"] = table
@@ -231,9 +433,7 @@ class _CRUDDetailBase(_CRUDContextMixin, DetailView):
             context["display_template"] = display.template_name
             context["active_display"] = display.name
             all_displays = cfg._get_detail_displays()
-            context["display_palette"] = build_palette_context(
-                all_displays, display, self.request
-            )
+            context["display_palette"] = build_palette_context(all_displays, display, self.request)
             if len(all_displays) > 1:
                 context["available_displays"] = all_displays
 
@@ -269,16 +469,12 @@ class _CRUDFormDisplayMixin:
 
         display = self._get_active_form_display()
         if display:
-            display_ctx = display.get_context(
-                context.get("form"), obj, self.crud_config, self.request
-            )
+            display_ctx = display.get_context(context.get("form"), obj, self.crud_config, self.request)
             context.update(display_ctx)
             context["display_template"] = display.template_name
             context["active_display"] = display.name
             all_displays = self.crud_config._get_form_displays(self._form_action)
-            context["display_palette"] = build_palette_context(
-                all_displays, display, self.request
-            )
+            context["display_palette"] = build_palette_context(all_displays, display, self.request)
             if len(all_displays) > 1:
                 context["available_displays"] = all_displays
         return context
@@ -326,9 +522,7 @@ class _CRUDUpdateBase(_CRUDFormDisplayMixin, _CRUDContextMixin, UpdateView):
         return self._inject_display_context(context, obj=self.object)
 
     def get_success_url(self):
-        return self.crud_config._reverse(
-            f"{self.crud_config._get_url_base()}-detail", kwargs={"pk": self.object.pk}
-        )
+        return self.crud_config._reverse(f"{self.crud_config._get_url_base()}-detail", kwargs={"pk": self.object.pk})
 
 
 class _CRUDDeleteBase(_CRUDContextMixin, DeleteView):
@@ -348,10 +542,7 @@ class _CRUDDeleteBase(_CRUDContextMixin, DeleteView):
             protected = getattr(e, "protected_objects", None) or getattr(e, "restricted_objects", set())
             model_name = type(next(iter(protected))).__name__ if protected else "other records"
             count = len(protected)
-            msg = (
-                f"Cannot delete — {count} {model_name} "
-                f"record{'s' if count != 1 else ''} still linked."
-            )
+            msg = f"Cannot delete — {count} {model_name} record{'s' if count != 1 else ''} still linked."
         except IntegrityError:
             msg = "Cannot delete — a database constraint prevented this action."
         except Exception:

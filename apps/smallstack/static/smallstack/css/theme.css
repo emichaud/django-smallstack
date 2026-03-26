@@ -1170,7 +1170,8 @@ body[data-topbar-nav="hidden"] .topbar-nav-auto {
    ============================================ */
 
 .messages-container {
-    margin-bottom: 20px;
+    margin: 0 -20px 20px -20px;
+    padding: 0 20px;
 }
 
 .messages-container:empty {
