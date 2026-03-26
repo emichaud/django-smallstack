@@ -28,16 +28,24 @@ def remap_trigger_values(apps, schema_editor):
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('smallstack', '0004_consolidate_pruned_records'),
+        ("smallstack", "0004_consolidate_pruned_records"),
     ]
 
     operations = [
         migrations.RunPython(remap_trigger_values, migrations.RunPython.noop),
         migrations.AlterField(
-            model_name='backuprecord',
-            name='triggered_by',
-            field=models.CharField(choices=[('manual', 'Manual'), ('command', 'Command'), ('scheduler', 'Scheduler'), ('system', 'System')], default='manual', max_length=10),
+            model_name="backuprecord",
+            name="triggered_by",
+            field=models.CharField(
+                choices=[
+                    ("manual", "Manual"),
+                    ("command", "Command"),
+                    ("scheduler", "Scheduler"),
+                    ("system", "System"),
+                ],
+                default="manual",
+                max_length=10,
+            ),
         ),
     ]

@@ -18,9 +18,7 @@ class UserAccountForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         for name, field in self.fields.items():
-            if field.help_text and not isinstance(
-                field.widget, (forms.CheckboxInput, forms.Select)
-            ):
+            if field.help_text and not isinstance(field.widget, (forms.CheckboxInput, forms.Select)):
                 field.widget.attrs.setdefault("placeholder", str(field.help_text))
 
 
@@ -52,7 +50,5 @@ class UserProfileForm(forms.ModelForm):
         # All profile fields are optional
         for field in self.fields.values():
             field.required = False
-            if field.help_text and not isinstance(
-                field.widget, (forms.CheckboxInput, forms.FileInput, forms.Select)
-            ):
+            if field.help_text and not isinstance(field.widget, (forms.CheckboxInput, forms.FileInput, forms.Select)):
                 field.widget.attrs.setdefault("placeholder", str(field.help_text))

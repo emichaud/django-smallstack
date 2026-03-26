@@ -93,9 +93,7 @@ class APIToken(models.Model):
         raw_key = secrets.token_urlsafe(cls.TOKEN_LENGTH)
         prefix = raw_key[: cls.PREFIX_LENGTH]
         hashed = hashlib.sha256(raw_key.encode()).hexdigest()
-        token = cls.objects.create(
-            user=user, name=name, prefix=prefix, hashed_key=hashed
-        )
+        token = cls.objects.create(user=user, name=name, prefix=prefix, hashed_key=hashed)
         return token, raw_key
 
     @classmethod
@@ -106,9 +104,7 @@ class APIToken(models.Model):
         prefix = raw_key[: cls.PREFIX_LENGTH]
         hashed = hashlib.sha256(raw_key.encode()).hexdigest()
         try:
-            token = cls.objects.select_related("user").get(
-                prefix=prefix, hashed_key=hashed, is_active=True
-            )
+            token = cls.objects.select_related("user").get(prefix=prefix, hashed_key=hashed, is_active=True)
         except cls.DoesNotExist:
             return None
         token.last_used_at = timezone.now()

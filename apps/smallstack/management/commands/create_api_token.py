@@ -24,6 +24,4 @@ class Command(BaseCommand):
         token, raw_key = APIToken.create_token(user=user, name=options["name"])
         self.stdout.write(self.style.SUCCESS(f"Token created for {user.username}:"))
         self.stdout.write(f"\n  {raw_key}\n")
-        self.stdout.write(
-            self.style.WARNING("Save this key — it cannot be retrieved later.")
-        )
+        self.stdout.write(self.style.WARNING("Save this key — it cannot be retrieved later."))

@@ -32,10 +32,14 @@ def legal_page_view(request, page):
     content = file_path.read_text(encoding="utf-8")
     rendered = render_markdown(content)
 
-    return render(request, "legal/page.html", {
-        "page_title": LEGAL_PAGES[page],
-        "content": rendered["html"],
-    })
+    return render(
+        request,
+        "legal/page.html",
+        {
+            "page_title": LEGAL_PAGES[page],
+            "content": rendered["html"],
+        },
+    )
 
 
 def health_check(request):

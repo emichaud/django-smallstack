@@ -111,23 +111,27 @@ def _resolve_nav_items(items, request):
             if not resolved_children:
                 continue
             has_active_child = any(c.get("active") for c in resolved_children)
-            resolved.append({
-                "label": item["label"],
-                "children": resolved_children,
-                "has_active_child": has_active_child,
-            })
+            resolved.append(
+                {
+                    "label": item["label"],
+                    "children": resolved_children,
+                    "has_active_child": has_active_child,
+                }
+            )
         else:
             # Leaf item
             resolved_url = _resolve_url(item)
             if resolved_url is None:
                 continue
             active = _is_active(resolved_url, request.path)
-            resolved.append({
-                "label": item["label"],
-                "url": resolved_url,
-                "active": active,
-                "external": item.get("external", False),
-            })
+            resolved.append(
+                {
+                    "label": item["label"],
+                    "url": resolved_url,
+                    "active": active,
+                    "external": item.get("external", False),
+                }
+            )
 
     return resolved
 

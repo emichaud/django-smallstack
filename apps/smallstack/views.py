@@ -61,14 +61,16 @@ class SmallStackDashboardView(StaffRequiredMixin, TemplateView):
 
             status_data = _get_status_data()
             uptime_24h = _calc_uptime(24)
-            widgets.append({
-                "title": "Status",
-                "icon": self._ICONS["status"],
-                "headline": status_data.get("status_label", "Unknown"),
-                "detail": f"{uptime_24h}% uptime (24h)" if uptime_24h is not None else "No data",
-                "url_name": "heartbeat:dashboard",
-                "status": status_data.get("status", "unknown"),
-            })
+            widgets.append(
+                {
+                    "title": "Status",
+                    "icon": self._ICONS["status"],
+                    "headline": status_data.get("status_label", "Unknown"),
+                    "detail": f"{uptime_24h}% uptime (24h)" if uptime_24h is not None else "No data",
+                    "url_name": "heartbeat:dashboard",
+                    "status": status_data.get("status", "unknown"),
+                }
+            )
         except Exception:
             pass
 
@@ -79,13 +81,15 @@ class SmallStackDashboardView(StaffRequiredMixin, TemplateView):
             total = RequestLog.objects.count()
             twenty_four_hours_ago = now - timezone.timedelta(hours=24)
             recent = RequestLog.objects.filter(timestamp__gte=twenty_four_hours_ago).count()
-            widgets.append({
-                "title": "Activity",
-                "icon": self._ICONS["activity"],
-                "headline": f"{total:,} requests",
-                "detail": f"{recent:,} in last 24h",
-                "url_name": "activity:dashboard",
-            })
+            widgets.append(
+                {
+                    "title": "Activity",
+                    "icon": self._ICONS["activity"],
+                    "headline": f"{total:,} requests",
+                    "detail": f"{recent:,} in last 24h",
+                    "url_name": "activity:dashboard",
+                }
+            )
         except Exception:
             pass
 
@@ -97,13 +101,15 @@ class SmallStackDashboardView(StaffRequiredMixin, TemplateView):
             active_count = User.objects.filter(is_active=True).count()
             thirty_days_ago = now - timezone.timedelta(days=30)
             new_count = User.objects.filter(date_joined__gte=thirty_days_ago).count()
-            widgets.append({
-                "title": "Users",
-                "icon": self._ICONS["users"],
-                "headline": f"{active_count} active",
-                "detail": f"{new_count} new (30d)",
-                "url_name": "manage/users-list",
-            })
+            widgets.append(
+                {
+                    "title": "Users",
+                    "icon": self._ICONS["users"],
+                    "headline": f"{active_count} active",
+                    "detail": f"{new_count} new (30d)",
+                    "url_name": "manage/users-list",
+                }
+            )
         except Exception:
             pass
 
@@ -115,13 +121,15 @@ class SmallStackDashboardView(StaffRequiredMixin, TemplateView):
                 headline = latest.created_at.strftime("%b %d, %I:%M %p")
             else:
                 headline = "No backups"
-            widgets.append({
-                "title": "Backups",
-                "icon": self._ICONS["backups"],
-                "headline": headline,
-                "detail": f"{total_backups} stored",
-                "url_name": "smallstack:backups",
-            })
+            widgets.append(
+                {
+                    "title": "Backups",
+                    "icon": self._ICONS["backups"],
+                    "headline": headline,
+                    "detail": f"{total_backups} stored",
+                    "url_name": "smallstack:backups",
+                }
+            )
         except Exception:
             pass
 
@@ -132,14 +140,16 @@ class SmallStackDashboardView(StaffRequiredMixin, TemplateView):
             sections = get_all_sections()
             article_count = sum(len(s.get("pages", [])) for s in sections)
             section_count = len(sections)
-            widgets.append({
-                "title": "Help & Docs",
-                "icon": self._ICONS["help"],
-                "headline": f"{article_count} article{'s' if article_count != 1 else ''}",
-                "detail": f"Across {section_count} section{'s' if section_count != 1 else ''}",
-                "url_name": "help:section_index",
-                "url_kwargs": {"section": "smallstack"},
-            })
+            widgets.append(
+                {
+                    "title": "Help & Docs",
+                    "icon": self._ICONS["help"],
+                    "headline": f"{article_count} article{'s' if article_count != 1 else ''}",
+                    "detail": f"Across {section_count} section{'s' if section_count != 1 else ''}",
+                    "url_name": "help:section_index",
+                    "url_kwargs": {"section": "smallstack"},
+                }
+            )
         except Exception:
             pass
 
@@ -148,13 +158,15 @@ class SmallStackDashboardView(StaffRequiredMixin, TemplateView):
             from apps.explorer.registry import explorer_registry
 
             model_count = len(explorer_registry.get_models())
-            widgets.append({
-                "title": "Explorer",
-                "icon": self._ICONS["explorer"],
-                "headline": f"{model_count} model{'s' if model_count != 1 else ''}",
-                "detail": "Registered for exploration",
-                "url_name": "explorer-index",
-            })
+            widgets.append(
+                {
+                    "title": "Explorer",
+                    "icon": self._ICONS["explorer"],
+                    "headline": f"{model_count} model{'s' if model_count != 1 else ''}",
+                    "detail": "Registered for exploration",
+                    "url_name": "explorer-index",
+                }
+            )
         except Exception:
             pass
 

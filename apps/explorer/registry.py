@@ -245,9 +245,7 @@ def _build_auto_table(
             attrs[field_name] = tables.Column()
 
     if has_update or has_delete:
-        attrs["actions"] = ActionsColumn(
-            url_base=url_base, edit=has_update, delete=has_delete, namespace=namespace
-        )
+        attrs["actions"] = ActionsColumn(url_base=url_base, edit=has_update, delete=has_delete, namespace=namespace)
 
     meta_attrs = {
         "model": model,

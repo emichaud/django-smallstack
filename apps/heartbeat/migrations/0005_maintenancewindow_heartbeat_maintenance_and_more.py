@@ -4,35 +4,34 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('heartbeat', '0004_truncate_timestamp_to_minute'),
+        ("heartbeat", "0004_truncate_timestamp_to_minute"),
     ]
 
     operations = [
         migrations.CreateModel(
-            name='MaintenanceWindow',
+            name="MaintenanceWindow",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('title', models.CharField(max_length=200)),
-                ('start', models.DateTimeField()),
-                ('end', models.DateTimeField()),
-                ('note', models.TextField(blank=True, default='')),
-                ('exclude_from_sla', models.BooleanField(default=True)),
-                ('created_at', models.DateTimeField(auto_now_add=True)),
+                ("id", models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name="ID")),
+                ("title", models.CharField(max_length=200)),
+                ("start", models.DateTimeField()),
+                ("end", models.DateTimeField()),
+                ("note", models.TextField(blank=True, default="")),
+                ("exclude_from_sla", models.BooleanField(default=True)),
+                ("created_at", models.DateTimeField(auto_now_add=True)),
             ],
             options={
-                'ordering': ['-start'],
+                "ordering": ["-start"],
             },
         ),
         migrations.AddField(
-            model_name='heartbeat',
-            name='maintenance',
+            model_name="heartbeat",
+            name="maintenance",
             field=models.BooleanField(default=False),
         ),
         migrations.AddField(
-            model_name='heartbeatdaily',
-            name='maintenance_count',
+            model_name="heartbeatdaily",
+            name="maintenance_count",
             field=models.PositiveIntegerField(default=0),
         ),
     ]

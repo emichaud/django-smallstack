@@ -126,11 +126,11 @@ def _render_json_preview(text):
         return ""
     escaped = escape(pretty)
     # Apply syntax spans (same CSS classes as the old JS version)
-    html = re.sub(r'(&quot;(?:\\.|[^&])*?&quot;)\s*:', r'<span class="json-key">\1</span>:', escaped)
-    html = re.sub(r':\s*(&quot;(?:\\.|[^&])*?&quot;)', r': <span class="json-str">\1</span>', html)
-    html = re.sub(r':\s*(true|false)', r': <span class="json-bool">\1</span>', html)
-    html = re.sub(r':\s*(-?\d+\.?\d*)', r': <span class="json-num">\1</span>', html)
-    html = re.sub(r':\s*(null)', r': <span class="json-null">\1</span>', html)
+    html = re.sub(r"(&quot;(?:\\.|[^&])*?&quot;)\s*:", r'<span class="json-key">\1</span>:', escaped)
+    html = re.sub(r":\s*(&quot;(?:\\.|[^&])*?&quot;)", r': <span class="json-str">\1</span>', html)
+    html = re.sub(r":\s*(true|false)", r': <span class="json-bool">\1</span>', html)
+    html = re.sub(r":\s*(-?\d+\.?\d*)", r': <span class="json-num">\1</span>', html)
+    html = re.sub(r":\s*(null)", r': <span class="json-null">\1</span>', html)
     return mark_safe(html)
 
 

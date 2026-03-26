@@ -57,10 +57,12 @@ class UserActivityDisplay(DetailDisplay):
                 timestamp__gte=day_start,
                 timestamp__lt=day_end,
             ).count()
-            daily.append({
-                "date": day_start,
-                "count": count,
-            })
+            daily.append(
+                {
+                    "date": day_start,
+                    "count": count,
+                }
+            )
 
         daily_max = max((d["count"] for d in daily), default=0)
         for d in daily:

@@ -174,9 +174,7 @@ class TableDisplay(ListDisplay):
         page_obj.showing_start = page_obj.start_index()
         page_obj.showing_end = page_obj.end_index()
         page_obj.total_count = paginator.count
-        page_obj.page_range_display = paginator.get_elided_page_range(
-            page_obj.number, on_each_side=2, on_ends=1
-        )
+        page_obj.page_range_display = paginator.get_elided_page_range(page_obj.number, on_each_side=2, on_ends=1)
 
         return {
             "object_list": page_obj.object_list,
@@ -257,9 +255,7 @@ class CardDisplay(ListDisplay):
             page_obj.showing_start = page_obj.start_index()
             page_obj.showing_end = page_obj.end_index()
             page_obj.total_count = paginator.count
-            page_obj.page_range_display = paginator.get_elided_page_range(
-                page_obj.number, on_each_side=2, on_ends=1
-            )
+            page_obj.page_range_display = paginator.get_elided_page_range(page_obj.number, on_each_side=2, on_ends=1)
             page_context = {
                 "page_obj": page_obj,
                 "paginator": paginator,
@@ -284,12 +280,14 @@ class CardDisplay(ListDisplay):
                 detail_url = reverse(url_name, kwargs={"pk": obj.pk})
             else:
                 detail_url = None
-            cards.append({
-                "obj": obj,
-                "title": title,
-                "subtitle": subtitle,
-                "detail_url": detail_url,
-            })
+            cards.append(
+                {
+                    "obj": obj,
+                    "title": title,
+                    "subtitle": subtitle,
+                    "detail_url": detail_url,
+                }
+            )
 
         return {
             "cards": cards,

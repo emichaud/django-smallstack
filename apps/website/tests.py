@@ -58,9 +58,7 @@ class TestHomePageAuthenticated:
 
     @pytest.fixture
     def staff_user(self, django_user_model):
-        return django_user_model.objects.create_user(
-            username="staff", password="testpass", is_staff=True
-        )
+        return django_user_model.objects.create_user(username="staff", password="testpass", is_staff=True)
 
     def test_quick_links_for_staff(self, client, staff_user):
         """Staff users should see all quick links including built-in apps."""
@@ -77,9 +75,7 @@ class TestHomePageAuthenticated:
 
     def test_quick_links_for_regular_user(self, client, django_user_model):
         """Regular users should see basic quick links only."""
-        user = django_user_model.objects.create_user(
-            username="regular", password="testpass"
-        )
+        user = django_user_model.objects.create_user(username="regular", password="testpass")
         client.force_login(user)
         response = client.get("/")
         content = response.content.decode()

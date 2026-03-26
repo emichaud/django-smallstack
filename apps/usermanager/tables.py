@@ -20,7 +20,9 @@ class UserActionsColumn(ActionsColumn):
             url = reverse(f"{self.url_base}-update", kwargs={"pk": record.pk})
             return format_html(
                 '<a href="{}" style="{}" title="Edit">{}</a>',
-                url, style, self.EDIT_SVG,
+                url,
+                style,
+                self.EDIT_SVG,
             )
         return super().render(record)
 
@@ -54,7 +56,8 @@ class UserTable(tables.Table):
         city = tz.split("/")[-1].replace("_", " ")
         return format_html(
             '<span title="{}">{}</span>',
-            tz, city,
+            tz,
+            city,
         )
 
 
@@ -82,15 +85,16 @@ class TimezoneTable(tables.Table):
         initial = user.username[:1].upper()
         avatar_html = format_html(
             '<span style="display:inline-flex;align-items:center;justify-content:center;'
-            'width:26px;height:26px;border-radius:50%;font-size:0.7rem;font-weight:700;'
-            'background:color-mix(in srgb,var(--primary) 20%,var(--body-bg));color:var(--primary);'
+            "width:26px;height:26px;border-radius:50%;font-size:0.7rem;font-weight:700;"
+            "background:color-mix(in srgb,var(--primary) 20%,var(--body-bg));color:var(--primary);"
             'flex-shrink:0;">{}</span>',
             initial,
         )
         if profile and profile.profile_photo:
             avatar_html = format_html(
                 '<img src="{}" style="width:26px;height:26px;border-radius:50%;object-fit:cover;" alt="{}">',
-                profile.profile_photo.url, user.username,
+                profile.profile_photo.url,
+                user.username,
             )
         name = user.get_full_name() or user.username
         url = reverse("manage/users-update", kwargs={"pk": user.pk})
@@ -102,9 +106,11 @@ class TimezoneTable(tables.Table):
                 "staff",
             )
         return format_html(
-            '<div style="display:flex;align-items:center;gap:0.5rem;">'
-            '{} <a href="{}">{}</a>{}</div>',
-            avatar_html, url, name, staff_badge,
+            '<div style="display:flex;align-items:center;gap:0.5rem;">{} <a href="{}">{}</a>{}</div>',
+            avatar_html,
+            url,
+            name,
+            staff_badge,
         )
 
     def render_timezone_display(self, record):
@@ -116,7 +122,8 @@ class TimezoneTable(tables.Table):
         tz_abbr = lt.strftime("%Z")  # e.g. EDT, CDT, CET
         return format_html(
             '<span style="font-weight:600;font-variant-numeric:tabular-nums;">{} {}</span>',
-            time_12, tz_abbr,
+            time_12,
+            tz_abbr,
         )
 
     def render_offset(self, record):
@@ -141,7 +148,7 @@ class TimezoneTable(tables.Table):
         return format_html(
             '<span style="display:inline-flex;align-items:center;gap:0.35rem;">'
             '<span style="width:8px;height:8px;border-radius:50%;'
-            'background:color-mix(in srgb,var(--body-fg) 25%,var(--body-bg));'
+            "background:color-mix(in srgb,var(--body-fg) 25%,var(--body-bg));"
             'display:inline-block;"></span>'
             '<span style="font-size:0.8rem;color:var(--body-quiet-color);">{}</span></span>',
             "Off Hours",
@@ -164,5 +171,3 @@ class TimezoneTable(tables.Table):
 
     def value_user(self, record):
         return record["user"].get_full_name() or record["user"].username
-
-

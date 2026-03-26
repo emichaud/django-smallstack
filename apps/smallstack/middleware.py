@@ -62,11 +62,7 @@ class HtmxLoginRedirectMiddleware:
     def __call__(self, request):
         response = self.get_response(request)
 
-        if (
-            getattr(request, "htmx", False)
-            and response.status_code in (301, 302)
-            and hasattr(response, "url")
-        ):
+        if getattr(request, "htmx", False) and response.status_code in (301, 302) and hasattr(response, "url"):
             redirect_url = response.url
             resp = HttpResponse(status=200)
             resp["HX-Redirect"] = redirect_url

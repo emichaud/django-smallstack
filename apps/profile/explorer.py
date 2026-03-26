@@ -34,7 +34,9 @@ class UserProfileExplorerAdmin(admin.ModelAdmin):
 
     # Detail: table (classic) and card (grid) layouts
     explorer_detail_displays = [
-        DetailTableDisplay, DetailCardDisplay(image_field="profile_photo"), UserActivityDisplay(),
+        DetailTableDisplay,
+        DetailCardDisplay(image_field="profile_photo"),
+        UserActivityDisplay(),
     ]
 
     # Transforms apply in the basic table display (TableDisplay)
@@ -42,10 +44,12 @@ class UserProfileExplorerAdmin(admin.ModelAdmin):
 
     # Form: sectioned layout for create/edit
     explorer_form_displays = [
-        SectionedFormDisplay(sections=[
-            ("Identity", None, ["display_name", "location"]),
-            ("About", None, ["bio"]),
-        ]),
+        SectionedFormDisplay(
+            sections=[
+                ("Identity", None, ["display_name", "location"]),
+                ("About", None, ["bio"]),
+            ]
+        ),
     ]
 
 

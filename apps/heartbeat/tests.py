@@ -51,16 +51,19 @@ def full_heartbeats(epoch):
     base = epoch.started_at
     beats = []
     for i in range(60):
-        beats.append(Heartbeat(
-            status="ok",
-            response_time_ms=1,
-            timestamp=base + timedelta(seconds=i * 60),
-        ))
+        beats.append(
+            Heartbeat(
+                status="ok",
+                response_time_ms=1,
+                timestamp=base + timedelta(seconds=i * 60),
+            )
+        )
     Heartbeat.objects.bulk_create(beats)
     return Heartbeat.objects.all()
 
 
 # ─── Model tests ────────────────────────────────────────────────────
+
 
 class TestHeartbeatEpoch:
     def test_get_epoch_returns_started_at(self, epoch):
@@ -111,6 +114,7 @@ class TestHeartbeatEpoch:
 
 # ─── Uptime calculation tests ───────────────────────────────────────
 
+
 class TestUptimeCalculation:
     def test_overall_uptime_100_percent(self, full_heartbeats):
         uptime = _calc_overall_uptime()
@@ -126,9 +130,7 @@ class TestUptimeCalculation:
             Heartbeat.objects.create(status="ok", response_time_ms=1)
         # Fix timestamps to be in the first 30 minutes only
         for i, b in enumerate(Heartbeat.objects.order_by("pk")):
-            Heartbeat.objects.filter(pk=b.pk).update(
-                timestamp=base + timedelta(seconds=i * 60)
-            )
+            Heartbeat.objects.filter(pk=b.pk).update(timestamp=base + timedelta(seconds=i * 60))
         uptime = _calc_overall_uptime()
         assert uptime is not None
         assert uptime < 100.0
@@ -149,9 +151,7 @@ class TestUptimeCalculation:
         for i in range(30):
             Heartbeat.objects.create(status="ok", response_time_ms=1)
         for i, b in enumerate(Heartbeat.objects.order_by("pk")):
-            Heartbeat.objects.filter(pk=b.pk).update(
-                timestamp=base + timedelta(seconds=i * 60)
-            )
+            Heartbeat.objects.filter(pk=b.pk).update(timestamp=base + timedelta(seconds=i * 60))
         uptime = _calc_uptime(24)
         assert uptime is not None
         assert uptime == 100.0
@@ -163,9 +163,7 @@ class TestUptimeCalculation:
             status = "ok" if i < 50 else "fail"
             Heartbeat.objects.create(status=status, response_time_ms=1)
         for i, b in enumerate(Heartbeat.objects.order_by("pk")):
-            Heartbeat.objects.filter(pk=b.pk).update(
-                timestamp=base + timedelta(seconds=i * 60)
-            )
+            Heartbeat.objects.filter(pk=b.pk).update(timestamp=base + timedelta(seconds=i * 60))
         uptime = _calc_overall_uptime()
         assert uptime is not None
         # 50 ok out of ~60 expected = ~83%
@@ -173,6 +171,7 @@ class TestUptimeCalculation:
 
 
 # ─── SLA color tests ────────────────────────────────────────────────
+
 
 class TestSLAColor:
     """Test _sla_color with use_target flag."""
@@ -221,6 +220,7 @@ class TestSLAColor:
 
 # ─── Form timezone tests ────────────────────────────────────────────
 
+
 class TestSLAFormTimezone:
     """Test that the SLA form correctly handles timezones."""
 
@@ -228,12 +228,14 @@ class TestSLAFormTimezone:
         """datetime-local input should produce a timezone-aware datetime."""
         activate(EDT)
         try:
-            form = SLAForm(data={
-                "started_at": "2026-03-10T14:30",
-                "service_target": "99.9",
-                "service_minimum": "99.5",
-                "note": "",
-            })
+            form = SLAForm(
+                data={
+                    "started_at": "2026-03-10T14:30",
+                    "service_target": "99.9",
+                    "service_minimum": "99.5",
+                    "note": "",
+                }
+            )
             assert form.is_valid(), form.errors
             dt = form.cleaned_data["started_at"]
             assert dt.tzinfo is not None
@@ -244,12 +246,14 @@ class TestSLAFormTimezone:
         """2:30 PM with EDT active should be 6:30 PM UTC."""
         activate(EDT)
         try:
-            form = SLAForm(data={
-                "started_at": "2026-03-10T14:30",
-                "service_target": "99.9",
-                "service_minimum": "99.5",
-                "note": "",
-            })
+            form = SLAForm(
+                data={
+                    "started_at": "2026-03-10T14:30",
+                    "service_target": "99.9",
+                    "service_minimum": "99.5",
+                    "note": "",
+                }
+            )
             assert form.is_valid(), form.errors
             dt = form.cleaned_data["started_at"]
             # Convert to UTC and check
@@ -263,12 +267,14 @@ class TestSLAFormTimezone:
         """Same local time in different timezone should produce different UTC."""
         activate(ZoneInfo("US/Pacific"))  # PDT = UTC-7
         try:
-            form = SLAForm(data={
-                "started_at": "2026-03-10T14:30",
-                "service_target": "99.9",
-                "service_minimum": "99.5",
-                "note": "",
-            })
+            form = SLAForm(
+                data={
+                    "started_at": "2026-03-10T14:30",
+                    "service_target": "99.9",
+                    "service_minimum": "99.5",
+                    "note": "",
+                }
+            )
             assert form.is_valid(), form.errors
             dt = form.cleaned_data["started_at"]
             dt_utc = dt.astimezone(UTC)
@@ -278,6 +284,7 @@ class TestSLAFormTimezone:
 
 
 # ─── View integration tests ─────────────────────────────────────────
+
 
 class TestResetEpochView:
     def test_reset_epoch_saves_correct_timezone(self, staff_client, db):
@@ -306,14 +313,18 @@ class TestResetEpochView:
 
     def test_reset_epoch_forbidden_for_non_staff(self, client, db):
         user = User.objects.create_user(
-            username="regular", password="testpass123",
+            username="regular",
+            password="testpass123",
         )
         client.force_login(user)
-        response = client.post(reverse("heartbeat:reset_epoch"), data={
-            "started_at": "2026-03-10T14:30",
-            "service_target": "99.9",
-            "service_minimum": "99.5",
-        })
+        response = client.post(
+            reverse("heartbeat:reset_epoch"),
+            data={
+                "started_at": "2026-03-10T14:30",
+                "service_target": "99.9",
+                "service_minimum": "99.5",
+            },
+        )
         assert response.status_code == 403
 
     def test_uptime_100_after_reset_to_recent(self, staff_client, db):
@@ -323,9 +334,7 @@ class TestResetEpochView:
         for i in range(10):
             Heartbeat.objects.create(status="ok", response_time_ms=1)
         for i, b in enumerate(Heartbeat.objects.order_by("pk")):
-            Heartbeat.objects.filter(pk=b.pk).update(
-                timestamp=base + timedelta(seconds=i * 60)
-            )
+            Heartbeat.objects.filter(pk=b.pk).update(timestamp=base + timedelta(seconds=i * 60))
         # Set epoch to 10 minutes ago
         HeartbeatEpoch.objects.create(started_at=base)
         uptime = _calc_overall_uptime()
@@ -375,9 +384,7 @@ class TestStatusPages:
         for i in range(95):
             Heartbeat.objects.create(status="ok", response_time_ms=1)
         for i, b in enumerate(Heartbeat.objects.order_by("pk")):
-            Heartbeat.objects.filter(pk=b.pk).update(
-                timestamp=base + timedelta(seconds=i * 60)
-            )
+            Heartbeat.objects.filter(pk=b.pk).update(timestamp=base + timedelta(seconds=i * 60))
         response = staff_client.get(reverse("heartbeat:dashboard"))
         # Should show warning color (yellow) on dashboard — below target, above minimum
         assert response.context["uptime_overall_color"] == "var(--warning-fg)"
@@ -394,9 +401,7 @@ class TestStatusPages:
         for i in range(95):
             Heartbeat.objects.create(status="ok", response_time_ms=1)
         for i, b in enumerate(Heartbeat.objects.order_by("pk")):
-            Heartbeat.objects.filter(pk=b.pk).update(
-                timestamp=base + timedelta(seconds=i * 60)
-            )
+            Heartbeat.objects.filter(pk=b.pk).update(timestamp=base + timedelta(seconds=i * 60))
         response = staff_client.get(reverse("heartbeat:sla"))
         # The uptime color values should be green (success), not yellow (warning).
         # Check the context directly — uptime_*_color should all be success-fg.

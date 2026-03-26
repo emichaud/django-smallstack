@@ -43,11 +43,13 @@ class UserCRUDView(CRUDView):
         view_class = super()._make_view(base_class)
 
         if base_class is _CRUDListBase:
+
             def get_queryset(self):
                 qs = super(view_class, self).get_queryset().select_related("profile")
                 q = self.request.GET.get("q", "").strip()
                 if q:
                     from django.db.models import Q
+
                     qs = qs.filter(
                         Q(username__icontains=q)
                         | Q(email__icontains=q)
@@ -130,15 +132,14 @@ class UserCRUDView(CRUDView):
                         form.save()
                         # After User save + signal, force-write profile
                         # fields from the form's cleaned data.
-                        profile_obj.save(update_fields=[
-                            f.name for f in profile_obj._meta.fields
-                            if f.name in profile_form.cleaned_data
-                        ])
+                        profile_obj.save(
+                            update_fields=[
+                                f.name for f in profile_obj._meta.fields if f.name in profile_form.cleaned_data
+                            ]
+                        )
                     messages.success(request, "User updated successfully.")
                     url_base = self.crud_config._get_url_base()
-                    return HttpResponseRedirect(
-                        reverse(f"{url_base}-update", kwargs={"pk": self.object.pk})
-                    )
+                    return HttpResponseRedirect(reverse(f"{url_base}-update", kwargs={"pk": self.object.pk}))
                 # Re-render with errors
                 context = self.get_context_data(form=form)
                 context["profile_form"] = profile_form
@@ -153,6 +154,7 @@ class UserCRUDView(CRUDView):
                 self.object = self.get_object()
                 if self.object.pk == request.user.pk:
                     from django.http import HttpResponseForbidden
+
                     return HttpResponseForbidden("You cannot delete your own account.")
                 return super(view_class, self).delete(request, *args, **kwargs)
 
@@ -203,27 +205,15 @@ def _get_user_activity_stats(user_obj):
     )
 
     # Top paths (last 30 days)
-    top_paths = (
-        last_30.values("path")
-        .annotate(hits=Count("id"))
-        .order_by("-hits")[:5]
-    )
+    top_paths = last_30.values("path").annotate(hits=Count("id")).order_by("-hits")[:5]
 
     # Status code breakdown (last 30 days)
-    status_breakdown = (
-        last_30.values("status_code")
-        .annotate(count=Count("id"))
-        .order_by("-count")[:5]
-    )
+    status_breakdown = last_30.values("status_code").annotate(count=Count("id")).order_by("-count")[:5]
 
     # Daily request counts for last 7 days (for sparkline)
     from django.db.models.functions import TruncDate
-    daily_counts = (
-        last_7.annotate(day=TruncDate("timestamp"))
-        .values("day")
-        .annotate(count=Count("id"))
-        .order_by("day")
-    )
+
+    daily_counts = last_7.annotate(day=TruncDate("timestamp")).values("day").annotate(count=Count("id")).order_by("day")
 
     return {
         "total_requests": total,
@@ -257,6 +247,7 @@ def user_stat_detail(request, stat_type):
         rows = [{"label": u.username, "value": u.email or "—"} for u in items]
     elif stat_type == "timezones":
         from apps.profile.models import UserProfile
+
         tz_counts = (
             UserProfile.objects.exclude(timezone="")
             .exclude(timezone__isnull=True)
@@ -273,10 +264,10 @@ def user_stat_detail(request, stat_type):
     html = '<table style="width:100%;"><thead><tr><th>Name</th><th>Detail</th></tr></thead><tbody>'
     for row in rows:
         html += (
-            f'<tr>'
+            f"<tr>"
             f'<td style="font-size:0.85rem;">{row["label"]}</td>'
             f'<td style="font-size:0.85rem;text-align:right;">{row["value"]}</td>'
-            f'</tr>'
+            f"</tr>"
         )
-    html += '</tbody></table>'
+    html += "</tbody></table>"
     return HttpResponse(html)

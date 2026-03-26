@@ -31,11 +31,7 @@ class TimezoneDashboardView(StaffRequiredMixin, TemplateView):
         server_tz = zoneinfo.ZoneInfo(server_tz_name)
 
         # Build user timezone data
-        users = (
-            User.objects.filter(is_active=True)
-            .select_related("profile")
-            .order_by("username")
-        )
+        users = User.objects.filter(is_active=True).select_related("profile").order_by("username")
 
         user_rows = []
         tz_groups = {}  # tz_name -> list of users
@@ -98,7 +94,8 @@ class TimezoneDashboardView(StaffRequiredMixin, TemplateView):
         if search_query:
             q_lower = search_query.lower()
             user_rows = [
-                r for r in user_rows
+                r
+                for r in user_rows
                 if q_lower in r["user"].username.lower()
                 or q_lower in r["user"].get_full_name().lower()
                 or q_lower in (r["user"].email or "").lower()
@@ -115,20 +112,22 @@ class TimezoneDashboardView(StaffRequiredMixin, TemplateView):
         # Unique regions for filter buttons
         regions = sorted(set(r["region"] for r in user_rows))
 
-        context.update({
-            "now_utc": now_utc,
-            "server_tz_name": server_tz_name,
-            "server_time": now_utc.astimezone(server_tz),
-            "user_rows": user_rows,
-            "tz_groups": sorted_groups,
-            "region_counts": sorted_regions,
-            "total_users": len(user_rows),
-            "unique_timezones": len(tz_groups),
-            "table": table,
-            "sorted_rows": sorted_rows,
-            "regions": regions,
-            "search_query": search_query,
-        })
+        context.update(
+            {
+                "now_utc": now_utc,
+                "server_tz_name": server_tz_name,
+                "server_time": now_utc.astimezone(server_tz),
+                "user_rows": user_rows,
+                "tz_groups": sorted_groups,
+                "region_counts": sorted_regions,
+                "total_users": len(user_rows),
+                "unique_timezones": len(tz_groups),
+                "table": table,
+                "sorted_rows": sorted_rows,
+                "regions": regions,
+                "search_query": search_query,
+            }
+        )
         return context
 
 

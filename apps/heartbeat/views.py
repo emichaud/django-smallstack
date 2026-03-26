@@ -196,8 +196,7 @@ def _build_minute_timeline(minutes=60):
     )
 
     maint_windows = list(
-        MaintenanceWindow.objects.filter(start__lt=current, end__gt=cutoff)
-        .values_list("start", "end")
+        MaintenanceWindow.objects.filter(start__lt=current, end__gt=cutoff).values_list("start", "end")
     )
 
     slots = []
@@ -206,12 +205,14 @@ def _build_minute_timeline(minutes=60):
         slot_end = slot_start + timedelta(minutes=1)
 
         if epoch and slot_end <= epoch:
-            slots.append({
-                "status": "pre-epoch",
-                "timestamp": slot_start,
-                "response_time_ms": 0,
-                "label": localtime(slot_start).strftime("%-I:%M %p"),
-            })
+            slots.append(
+                {
+                    "status": "pre-epoch",
+                    "timestamp": slot_start,
+                    "response_time_ms": 0,
+                    "label": localtime(slot_start).strftime("%-I:%M %p"),
+                }
+            )
             continue
 
         in_maintenance = _is_in_any_window(slot_start, maint_windows)
@@ -221,28 +222,34 @@ def _build_minute_timeline(minutes=60):
             avg_ms = 0
             if slot_beats:
                 avg_ms = sum(b["response_time_ms"] for b in slot_beats) // len(slot_beats)
-            slots.append({
-                "status": "maintenance",
-                "timestamp": slot_start,
-                "response_time_ms": avg_ms,
-                "label": localtime(slot_start).strftime("%-I:%M %p"),
-            })
+            slots.append(
+                {
+                    "status": "maintenance",
+                    "timestamp": slot_start,
+                    "response_time_ms": avg_ms,
+                    "label": localtime(slot_start).strftime("%-I:%M %p"),
+                }
+            )
         elif slot_beats:
             has_fail = any(b["status"] == "fail" for b in slot_beats)
             avg_ms = sum(b["response_time_ms"] for b in slot_beats) // len(slot_beats)
-            slots.append({
-                "status": "fail" if has_fail else "ok",
-                "timestamp": slot_beats[0]["timestamp"],
-                "response_time_ms": avg_ms,
-                "label": localtime(slot_start).strftime("%-I:%M %p"),
-            })
+            slots.append(
+                {
+                    "status": "fail" if has_fail else "ok",
+                    "timestamp": slot_beats[0]["timestamp"],
+                    "response_time_ms": avg_ms,
+                    "label": localtime(slot_start).strftime("%-I:%M %p"),
+                }
+            )
         else:
-            slots.append({
-                "status": "missed",
-                "timestamp": slot_start,
-                "response_time_ms": 0,
-                "label": localtime(slot_start).strftime("%-I:%M %p"),
-            })
+            slots.append(
+                {
+                    "status": "missed",
+                    "timestamp": slot_start,
+                    "response_time_ms": 0,
+                    "label": localtime(slot_start).strftime("%-I:%M %p"),
+                }
+            )
 
     return slots
 
@@ -253,15 +260,10 @@ def _build_24h_timeline():
     epoch = _get_epoch()
     cutoff = current - timedelta(hours=24)
 
-    beats = list(
-        Heartbeat.objects.filter(timestamp__gte=cutoff)
-        .order_by("timestamp")
-        .values("status", "timestamp")
-    )
+    beats = list(Heartbeat.objects.filter(timestamp__gte=cutoff).order_by("timestamp").values("status", "timestamp"))
 
     maint_windows = list(
-        MaintenanceWindow.objects.filter(start__lt=current, end__gt=cutoff)
-        .values_list("start", "end")
+        MaintenanceWindow.objects.filter(start__lt=current, end__gt=cutoff).values_list("start", "end")
     )
 
     slots = []
@@ -270,19 +272,19 @@ def _build_24h_timeline():
         slot_end = slot_start + timedelta(minutes=15)
 
         if epoch and slot_end <= epoch:
-            slots.append({
-                "status": "pre-epoch",
-                "ok_count": 0,
-                "fail_count": 0,
-                "total": 0,
-                "hour_label": localtime(slot_start).strftime("%-I:%M %p"),
-                "timestamp": slot_start,
-            })
+            slots.append(
+                {
+                    "status": "pre-epoch",
+                    "ok_count": 0,
+                    "fail_count": 0,
+                    "total": 0,
+                    "hour_label": localtime(slot_start).strftime("%-I:%M %p"),
+                    "timestamp": slot_start,
+                }
+            )
             continue
 
-        in_maintenance = any(
-            ws < slot_end and we > slot_start for ws, we in maint_windows
-        )
+        in_maintenance = any(ws < slot_end and we > slot_start for ws, we in maint_windows)
 
         slot_beats = [b for b in beats if slot_start <= b["timestamp"] < slot_end]
         ok_count = sum(1 for b in slot_beats if b["status"] == "ok")
@@ -300,14 +302,16 @@ def _build_24h_timeline():
         else:
             status = "ok"
 
-        slots.append({
-            "status": status,
-            "ok_count": ok_count,
-            "fail_count": fail_count,
-            "total": total,
-            "hour_label": localtime(slot_start).strftime("%-I:%M %p"),
-            "timestamp": slot_start,
-        })
+        slots.append(
+            {
+                "status": status,
+                "ok_count": ok_count,
+                "fail_count": fail_count,
+                "total": total,
+                "hour_label": localtime(slot_start).strftime("%-I:%M %p"),
+                "timestamp": slot_start,
+            }
+        )
 
     return slots
 
@@ -347,12 +351,12 @@ class StatusPageView(TemplateView):
 
         # Maintenance banners
         current = now()
-        context["active_maintenance"] = MaintenanceWindow.objects.filter(
-            start__lte=current, end__gt=current
-        ).first()
-        context["upcoming_maintenance"] = MaintenanceWindow.objects.filter(
-            start__gt=current, start__lte=current + timedelta(hours=24)
-        ).order_by("start").first()
+        context["active_maintenance"] = MaintenanceWindow.objects.filter(start__lte=current, end__gt=current).first()
+        context["upcoming_maintenance"] = (
+            MaintenanceWindow.objects.filter(start__gt=current, start__lte=current + timedelta(hours=24))
+            .order_by("start")
+            .first()
+        )
 
         return context
 
@@ -510,9 +514,7 @@ class HeartbeatDashboardView(StaffRequiredMixin, TemplateView):
 
         # Active maintenance indicator
         current = now()
-        context["active_maintenance"] = MaintenanceWindow.objects.filter(
-            start__lte=current, end__gt=current
-        ).first()
+        context["active_maintenance"] = MaintenanceWindow.objects.filter(start__lte=current, end__gt=current).first()
 
         context["total_heartbeats"] = Heartbeat.objects.count()
         context["ok_count"] = Heartbeat.objects.filter(status="ok").count()
@@ -586,11 +588,15 @@ def maintenance_create(request):
     else:
         form = MaintenanceWindowForm()
 
-    return TemplateResponse(request, "heartbeat/maintenance_form.html", {
-        "form": form,
-        "form_timezone": localtime(now()).strftime("%Z"),
-        "editing": False,
-    })
+    return TemplateResponse(
+        request,
+        "heartbeat/maintenance_form.html",
+        {
+            "form": form,
+            "form_timezone": localtime(now()).strftime("%Z"),
+            "editing": False,
+        },
+    )
 
 
 def maintenance_edit(request, pk):
@@ -617,17 +623,24 @@ def maintenance_edit(request, pk):
             window.save()
             return redirect("heartbeat:sla")
     else:
-        form = MaintenanceWindowForm(instance=window, initial={
-            "start": localtime(window.start),
-            "end": localtime(window.end),
-        })
+        form = MaintenanceWindowForm(
+            instance=window,
+            initial={
+                "start": localtime(window.start),
+                "end": localtime(window.end),
+            },
+        )
 
-    return TemplateResponse(request, "heartbeat/maintenance_form.html", {
-        "form": form,
-        "form_timezone": localtime(now()).strftime("%Z"),
-        "editing": True,
-        "window": window,
-    })
+    return TemplateResponse(
+        request,
+        "heartbeat/maintenance_form.html",
+        {
+            "form": form,
+            "form_timezone": localtime(now()).strftime("%Z"),
+            "editing": True,
+            "window": window,
+        },
+    )
 
 
 def maintenance_delete(request, pk):

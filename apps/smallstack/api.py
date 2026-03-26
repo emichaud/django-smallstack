@@ -25,8 +25,7 @@ def build_api_urls(crud_config) -> list[URLPattern]:
         import warnings
 
         warnings.warn(
-            f"{crud_config.__name__} has enable_api=True with no mixins "
-            "— API endpoints are public",
+            f"{crud_config.__name__} has enable_api=True with no mixins — API endpoints are public",
             stacklevel=2,
         )
 
@@ -102,9 +101,7 @@ def _parse_json_body(request):
     try:
         data = json.loads(request.body)
     except (json.JSONDecodeError, ValueError):
-        return None, JsonResponse(
-            {"errors": {"__all__": ["Invalid JSON"]}}, status=400
-        )
+        return None, JsonResponse({"errors": {"__all__": ["Invalid JSON"]}}, status=400)
 
     q = QueryDict(mutable=True)
     for key, value in data.items():
@@ -197,9 +194,7 @@ def _apply_select_related(qs, model, expand_fields: set[str]):
 _DATE_LOOKUPS: list[str] = ["exact", "gte", "lte", "gt", "lt"]
 
 
-def _build_filter_fields_spec(
-    model, filter_fields: list[str]
-) -> dict[str, list[str]] | list[str]:
+def _build_filter_fields_spec(model, filter_fields: list[str]) -> dict[str, list[str]] | list[str]:
     """Convert a flat filter_fields list to a dict with smart lookups.
 
     Date and DateTime fields automatically get range lookups (gte, lte, gt, lt)
@@ -230,9 +225,7 @@ def _build_filter_fields_spec(
 _AGG_OPS: set[str] = {"sum", "avg", "min", "max"}
 
 
-def _compute_aggregations(
-    request: HttpRequest, qs, crud_config
-) -> tuple[dict, JsonResponse | None]:
+def _compute_aggregations(request: HttpRequest, qs, crud_config) -> tuple[dict, JsonResponse | None]:
     """Process aggregation query params and return (extra_data, error_or_none).
 
     Supported params:
@@ -261,8 +254,7 @@ def _compute_aggregations(
             )
         rows = qs.values(count_by).annotate(_count=Count("id")).order_by(count_by)
         extra["counts"] = {
-            str(row[count_by]).lower() if isinstance(row[count_by], bool) else str(row[count_by]):
-            row["_count"]
+            str(row[count_by]).lower() if isinstance(row[count_by], bool) else str(row[count_by]): row["_count"]
             for row in rows
         }
 
@@ -373,9 +365,7 @@ def _make_api_detail_view(crud_config):
 
         if request.method == "GET":
             fields = crud_config._get_detail_fields() or crud_config.fields
-            return JsonResponse(
-                _serialize(obj, fields, crud_config.api_extra_fields, expand_fields)
-            )
+            return JsonResponse(_serialize(obj, fields, crud_config.api_extra_fields, expand_fields))
 
         elif request.method in ("PUT", "PATCH"):
             if Action.UPDATE not in crud_config.actions:
@@ -474,10 +464,7 @@ def _api_list(request, crud_config):
     items = list(qs[start : start + page_size])
 
     fields = crud_config._get_list_fields()
-    results: list[dict] = [
-        _serialize(obj, fields, crud_config.api_extra_fields, expand_fields)
-        for obj in items
-    ]
+    results: list[dict] = [_serialize(obj, fields, crud_config.api_extra_fields, expand_fields) for obj in items]
 
     # Build next/previous URLs
     base_path: str = request.path
@@ -553,9 +540,7 @@ def _api_update(request, obj, crud_config):
         crud_config.on_form_valid(request, form, obj, is_create=False)
         expand_fields = _resolve_expand_fields(request, crud_config)
         fields = crud_config._get_detail_fields() or crud_config.fields
-        return JsonResponse(
-            _serialize(obj, fields, crud_config.api_extra_fields, expand_fields)
-        )
+        return JsonResponse(_serialize(obj, fields, crud_config.api_extra_fields, expand_fields))
     return JsonResponse({"errors": form.errors}, status=400)
 
 

@@ -118,7 +118,10 @@ def crud_table(context):
         for field_name in list_fields:
             is_link = field_name == link_field and has_detail
             value = _get_field_value(
-                obj, field_name, field_transforms, context,
+                obj,
+                field_name,
+                field_transforms,
+                context,
                 is_link_field=is_link,
             )
             cells.append(

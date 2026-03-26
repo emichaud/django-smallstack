@@ -336,13 +336,10 @@ def get_section_pages_grouped(section: str) -> list[dict]:
             result.append({"category": cat, "pages": buckets[cat]})
 
     # 2. Unlisted categories (referenced by pages but not in the list), alphabetically
-    unlisted = sorted(
-        cat for cat in buckets if cat and cat not in defined_set
-    )
+    unlisted = sorted(cat for cat in buckets if cat and cat not in defined_set)
     for cat in unlisted:
         logger.warning(
-            "Category '%s' is referenced by pages in section '%s' "
-            "but not defined in the categories list.",
+            "Category '%s' is referenced by pages in section '%s' but not defined in the categories list.",
             cat,
             section,
         )

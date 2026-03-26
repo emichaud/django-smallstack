@@ -37,14 +37,30 @@ SECTION_ORDER = ["main", "topbar", "app", "page", "resources", "admin"]
 
 class _NavItem:
     __slots__ = (
-        "section", "label", "url_name", "url_args", "url_kwargs",
-        "icon_svg", "auth_required", "staff_required", "order",
+        "section",
+        "label",
+        "url_name",
+        "url_args",
+        "url_kwargs",
+        "icon_svg",
+        "auth_required",
+        "staff_required",
+        "order",
         "parent",
     )
 
     def __init__(
-        self, *, section, label, url_name, url_args=None, url_kwargs=None,
-        icon_svg="", auth_required=False, staff_required=False, order=0,
+        self,
+        *,
+        section,
+        label,
+        url_name,
+        url_args=None,
+        url_kwargs=None,
+        icon_svg="",
+        auth_required=False,
+        staff_required=False,
+        order=0,
         parent=None,
     ):
         self.section = section
@@ -64,22 +80,33 @@ class NavRegistry:
         self._items: list[_NavItem] = []
 
     def register(
-        self, *, section, label, url_name, url_args=None, url_kwargs=None,
-        icon_svg="", auth_required=False, staff_required=False, order=0,
+        self,
+        *,
+        section,
+        label,
+        url_name,
+        url_args=None,
+        url_kwargs=None,
+        icon_svg="",
+        auth_required=False,
+        staff_required=False,
+        order=0,
         parent=None,
     ):
-        self._items.append(_NavItem(
-            section=section,
-            label=label,
-            url_name=url_name,
-            url_args=url_args,
-            url_kwargs=url_kwargs,
-            icon_svg=icon_svg,
-            auth_required=auth_required,
-            staff_required=staff_required,
-            order=order,
-            parent=parent,
-        ))
+        self._items.append(
+            _NavItem(
+                section=section,
+                label=label,
+                url_name=url_name,
+                url_args=url_args,
+                url_kwargs=url_kwargs,
+                icon_svg=icon_svg,
+                auth_required=auth_required,
+                staff_required=staff_required,
+                order=order,
+                parent=parent,
+            )
+        )
 
     def get_nav_items(self, request):
         """Return nav items resolved and filtered for the current request.
@@ -114,16 +141,22 @@ class NavRegistry:
                 url = reverse(item.url_name, args=item.url_args, kwargs=item.url_kwargs)
             except NoReverseMatch:
                 continue
-            resolved.append(({
-                "label": item.label,
-                "url": url,
-                "icon_svg": item.icon_svg,
-                "active": False,
-                "url_name": item.url_name,
-                "section": item.section,
-                "children": [],
-                "has_active_child": False,
-            }, url, item.parent))
+            resolved.append(
+                (
+                    {
+                        "label": item.label,
+                        "url": url,
+                        "icon_svg": item.icon_svg,
+                        "active": False,
+                        "url_name": item.url_name,
+                        "section": item.section,
+                        "children": [],
+                        "has_active_child": False,
+                    },
+                    url,
+                    item.parent,
+                )
+            )
 
         # Second pass: mark only the longest matching URL as active
         best_match = ""

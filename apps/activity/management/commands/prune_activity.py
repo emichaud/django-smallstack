@@ -18,8 +18,6 @@ class Command(BaseCommand):
             return
 
         # Get the pk of the oldest row to keep, then delete everything older
-        cutoff_pk = (
-            RequestLog.objects.order_by("-timestamp").values_list("pk", flat=True)[max_rows - 1]
-        )
+        cutoff_pk = RequestLog.objects.order_by("-timestamp").values_list("pk", flat=True)[max_rows - 1]
         deleted, _ = RequestLog.objects.filter(pk__lt=cutoff_pk).delete()
         self.stdout.write(f"Pruned {deleted} activity log rows (was {count}, max {max_rows}).")

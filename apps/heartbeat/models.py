@@ -111,11 +111,15 @@ class MaintenanceWindow(models.Model):
     @classmethod
     def get_excluded_ranges(cls, range_start, range_end):
         """Return merged (start, end) tuples of SLA-excluded windows overlapping the range."""
-        windows = cls.objects.filter(
-            exclude_from_sla=True,
-            start__lt=range_end,
-            end__gt=range_start,
-        ).order_by("start").values_list("start", "end")
+        windows = (
+            cls.objects.filter(
+                exclude_from_sla=True,
+                start__lt=range_end,
+                end__gt=range_start,
+            )
+            .order_by("start")
+            .values_list("start", "end")
+        )
 
         merged = []
         for ws, we in windows:
@@ -130,10 +134,7 @@ class MaintenanceWindow(models.Model):
     @classmethod
     def get_excluded_seconds(cls, range_start, range_end):
         """Total seconds excluded from SLA in the given range (merged to avoid double-counting)."""
-        return sum(
-            (e - s).total_seconds()
-            for s, e in cls.get_excluded_ranges(range_start, range_end)
-        )
+        return sum((e - s).total_seconds() for s, e in cls.get_excluded_ranges(range_start, range_end))
 
 
 class HeartbeatDaily(models.Model):
@@ -171,19 +172,24 @@ class HeartbeatDaily(models.Model):
         from django.utils import timezone
 
         today = timezone.localdate()
-        lookup = {d.date: d for d in cls.objects.filter(
-            date__gte=today - datetime.timedelta(days=days - 1),
-        )}
+        lookup = {
+            d.date: d
+            for d in cls.objects.filter(
+                date__gte=today - datetime.timedelta(days=days - 1),
+            )
+        }
         result = []
         for i in range(days - 1, -1, -1):
             day = today - datetime.timedelta(days=i)
             d = lookup.get(day)
-            result.append({
-                "label": day.strftime("%a"),
-                "date": day.isoformat(),
-                "ok": d.ok_count if d else 0,
-                "fail": d.fail_count if d else 0,
-            })
+            result.append(
+                {
+                    "label": day.strftime("%a"),
+                    "date": day.isoformat(),
+                    "ok": d.ok_count if d else 0,
+                    "fail": d.fail_count if d else 0,
+                }
+            )
         return result
 
 

@@ -4,22 +4,21 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('heartbeat', '0001_initial'),
+        ("heartbeat", "0001_initial"),
     ]
 
     operations = [
         migrations.CreateModel(
-            name='HeartbeatEpoch',
+            name="HeartbeatEpoch",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('started_at', models.DateTimeField()),
-                ('note', models.CharField(blank=True, default='', max_length=255)),
+                ("id", models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name="ID")),
+                ("started_at", models.DateTimeField()),
+                ("note", models.CharField(blank=True, default="", max_length=255)),
             ],
             options={
-                'verbose_name': 'Heartbeat Epoch',
-                'verbose_name_plural': 'Heartbeat Epoch',
+                "verbose_name": "Heartbeat Epoch",
+                "verbose_name_plural": "Heartbeat Epoch",
             },
         ),
     ]

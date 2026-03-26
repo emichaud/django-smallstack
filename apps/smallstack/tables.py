@@ -127,18 +127,28 @@ class ActionsColumn(tables.Column):
 
         if self.show_edit:
             url = self._reverse(f"{self.url_base}-update", kwargs={"pk": record.pk})
-            links.append(format_html(
-                '<a href="{}" style="{}" title="Edit">{}</a>',
-                url, style, self.EDIT_SVG,
-            ))
+            links.append(
+                format_html(
+                    '<a href="{}" style="{}" title="Edit">{}</a>',
+                    url,
+                    style,
+                    self.EDIT_SVG,
+                )
+            )
 
         if self.show_delete:
             url = self._reverse(f"{self.url_base}-delete", kwargs={"pk": record.pk})
-            links.append(format_html(
-                '<a href="{}" class="crud-action-delete" style="{}" title="Delete"'
-                ' onclick="event.preventDefault();crudDeleteModal(this,\'{}\')"'
-                ' data-delete-url="{}">{}</a>',
-                url, style, record, url, self.DELETE_SVG,
-            ))
+            links.append(
+                format_html(
+                    '<a href="{}" class="crud-action-delete" style="{}" title="Delete"'
+                    " onclick=\"event.preventDefault();crudDeleteModal(this,'{}')\""
+                    ' data-delete-url="{}">{}</a>',
+                    url,
+                    style,
+                    record,
+                    url,
+                    self.DELETE_SVG,
+                )
+            )
 
         return format_html("".join("{}") * len(links), *links) if links else ""

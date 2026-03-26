@@ -25,9 +25,7 @@ User = get_user_model()
 
 @pytest.fixture
 def staff_user(db) -> User:
-    return User.objects.create_user(
-        username="apistaff", email="api@example.com", password="testpass123", is_staff=True
-    )
+    return User.objects.create_user(username="apistaff", email="api@example.com", password="testpass123", is_staff=True)
 
 
 @pytest.fixture
@@ -154,9 +152,7 @@ class TestSerializeExtraFields:
     """Test that api_extra_fields are included in serialization."""
 
     def test_extra_fields_appended(self, db):
-        hb = Heartbeat.objects.create(
-            timestamp=timezone.now(), status="ok", response_time_ms=42
-        )
+        hb = Heartbeat.objects.create(timestamp=timezone.now(), status="ok", response_time_ms=42)
         data = _serialize(hb, ["status"], extra_fields=["response_time_ms", "timestamp"])
         assert "id" in data
         assert data["status"] == "ok"
@@ -164,16 +160,12 @@ class TestSerializeExtraFields:
         assert data["timestamp"] is not None  # ISO string
 
     def test_no_extra_fields(self, db):
-        hb = Heartbeat.objects.create(
-            timestamp=timezone.now(), status="ok", response_time_ms=42
-        )
+        hb = Heartbeat.objects.create(timestamp=timezone.now(), status="ok", response_time_ms=42)
         data = _serialize(hb, ["status"])
         assert "response_time_ms" not in data
 
     def test_extra_fields_none(self, db):
-        hb = Heartbeat.objects.create(
-            timestamp=timezone.now(), status="ok", response_time_ms=42
-        )
+        hb = Heartbeat.objects.create(timestamp=timezone.now(), status="ok", response_time_ms=42)
         data = _serialize(hb, ["status"], extra_fields=None)
         assert "response_time_ms" not in data
 
@@ -223,9 +215,7 @@ class TestAPIPaginationIntegration:
         url = reverse(HEARTBEAT_API_LIST)
         response = client.get(url, {"page": "last"}, **auth_header)
         data = response.json()
-        page_size = len(
-            client.get(url, {"page": "1"}, **auth_header).json()["results"]
-        )
+        page_size = len(client.get(url, {"page": "1"}, **auth_header).json()["results"])
         remainder = 53 % page_size
         if remainder == 0:
             assert len(data["results"]) == page_size
@@ -305,9 +295,7 @@ class TestAPIPaginationIntegration:
 
     def test_single_page_dataset(self, client, staff_user, db, auth_header):
         """With fewer items than page_size, everything is on page 1."""
-        Heartbeat.objects.create(
-            timestamp=timezone.now(), status="ok", response_time_ms=100
-        )
+        Heartbeat.objects.create(timestamp=timezone.now(), status="ok", response_time_ms=100)
         url = reverse(HEARTBEAT_API_LIST)
         response = client.get(url, **auth_header)
         data = response.json()
@@ -444,18 +432,14 @@ class TestSerializeFKExpansion:
     def test_expand_with_extra_fields(self):
         related = _FakeRelated(pk=3, name="Alice")
         obj = _FakeObj(pk=1, name="Token", owner=related)
-        data = _serialize(
-            obj, ["name"], extra_fields=["owner"], expand_fields={"owner"}
-        )
+        data = _serialize(obj, ["name"], extra_fields=["owner"], expand_fields={"owner"})
         assert data["owner"] == {"id": 3, "name": "Alice"}
 
     def test_multiple_fk_expansion(self):
         cat = _FakeRelated(pk=7, name="Electronics")
         owner = _FakeRelated(pk=3, name="Alice")
         obj = _FakeObj(pk=1, category=cat, owner=owner, name="Widget")
-        data = _serialize(
-            obj, ["name", "category", "owner"], expand_fields={"category", "owner"}
-        )
+        data = _serialize(obj, ["name", "category", "owner"], expand_fields={"category", "owner"})
         assert data["category"] == {"id": 7, "name": "Electronics"}
         assert data["owner"] == {"id": 3, "name": "Alice"}
 
@@ -630,9 +614,7 @@ class TestDateFilteringIntegration:
         gte = (now - timezone.timedelta(days=5, hours=12)).isoformat()
         lte = (now - timezone.timedelta(days=1, hours=12)).isoformat()
         url = reverse(HEARTBEAT_API_LIST)
-        response = client.get(
-            url, {"timestamp__gte": gte, "timestamp__lte": lte}, **auth_header
-        )
+        response = client.get(url, {"timestamp__gte": gte, "timestamp__lte": lte}, **auth_header)
         data = response.json()
         assert data["count"] == 4
 
@@ -658,16 +640,20 @@ class TestAggregationIntegration:
     def mixed_heartbeats(self, db):
         """Create heartbeats with varied status and response times."""
         now = timezone.now()
-        objs = [
-            Heartbeat(timestamp=now - timezone.timedelta(minutes=i), status="ok", response_time_ms=100)
-            for i in range(5)
-        ] + [
-            Heartbeat(timestamp=now - timezone.timedelta(minutes=10 + i), status="fail", response_time_ms=500)
-            for i in range(3)
-        ] + [
-            Heartbeat(timestamp=now - timezone.timedelta(minutes=20 + i), status="ok", response_time_ms=200)
-            for i in range(2)
-        ]
+        objs = (
+            [
+                Heartbeat(timestamp=now - timezone.timedelta(minutes=i), status="ok", response_time_ms=100)
+                for i in range(5)
+            ]
+            + [
+                Heartbeat(timestamp=now - timezone.timedelta(minutes=10 + i), status="fail", response_time_ms=500)
+                for i in range(3)
+            ]
+            + [
+                Heartbeat(timestamp=now - timezone.timedelta(minutes=20 + i), status="ok", response_time_ms=200)
+                for i in range(2)
+            ]
+        )
         return Heartbeat.objects.bulk_create(objs)
 
     def test_count_by_status(self, client, staff_user, mixed_heartbeats, auth_header):
@@ -701,9 +687,7 @@ class TestAggregationIntegration:
     def test_min_max_response_time(self, client, staff_user, mixed_heartbeats, auth_header):
         """?min= and ?max= should return extremes."""
         url = reverse(HEARTBEAT_API_LIST)
-        response = client.get(
-            url, {"min": "response_time_ms", "max": "response_time_ms"}, **auth_header
-        )
+        response = client.get(url, {"min": "response_time_ms", "max": "response_time_ms"}, **auth_header)
         data = response.json()
         assert data["min_response_time_ms"] == 100
         assert data["max_response_time_ms"] == 500
@@ -730,9 +714,7 @@ class TestAggregationIntegration:
     def test_count_by_with_filter(self, client, staff_user, mixed_heartbeats, auth_header):
         """Aggregation composes with filters."""
         url = reverse(HEARTBEAT_API_LIST)
-        response = client.get(
-            url, {"status": "ok", "count_by": "status"}, **auth_header
-        )
+        response = client.get(url, {"status": "ok", "count_by": "status"}, **auth_header)
         data = response.json()
         assert data["count"] == 7
         assert data["counts"] == {"ok": 7}
@@ -740,9 +722,7 @@ class TestAggregationIntegration:
     def test_sum_with_filter(self, client, staff_user, mixed_heartbeats, auth_header):
         """Sum composes with filters."""
         url = reverse(HEARTBEAT_API_LIST)
-        response = client.get(
-            url, {"status": "fail", "sum": "response_time_ms"}, **auth_header
-        )
+        response = client.get(url, {"status": "fail", "sum": "response_time_ms"}, **auth_header)
         data = response.json()
         assert data["sum_response_time_ms"] == 1500  # 3 * 500
 
@@ -763,9 +743,7 @@ class TestAggregationIntegration:
     def test_empty_queryset_aggregation(self, client, staff_user, db, auth_header):
         """Aggregation on empty queryset returns None/zero, not errors."""
         url = reverse(HEARTBEAT_API_LIST)
-        response = client.get(
-            url, {"sum": "response_time_ms", "count_by": "status"}, **auth_header
-        )
+        response = client.get(url, {"sum": "response_time_ms", "count_by": "status"}, **auth_header)
         data = response.json()
         assert data["sum_response_time_ms"] is None
         assert data["counts"] == {}
@@ -792,9 +770,7 @@ class TestAuthTokenEndpoint:
 
     @pytest.fixture
     def regular_user(self, db):
-        return User.objects.create_user(
-            username="alice", email="alice@example.com", password="goodpass123"
-        )
+        return User.objects.create_user(username="alice", email="alice@example.com", password="goodpass123")
 
     def test_valid_credentials_returns_token(self, client, regular_user):
         """Valid username + password returns 200 with token and user info."""
@@ -831,9 +807,7 @@ class TestAuthTokenEndpoint:
 
     def test_inactive_user_returns_401(self, client, db):
         """Inactive user returns 401."""
-        User.objects.create_user(
-            username="inactive", password="pass123", is_active=False
-        )
+        User.objects.create_user(username="inactive", password="pass123", is_active=False)
         response = client.post(
             AUTH_TOKEN_URL,
             json.dumps({"username": "inactive", "password": "pass123"}),
@@ -859,9 +833,7 @@ class TestAuthTokenEndpoint:
 
     def test_invalid_json_returns_400(self, client, db):
         """Malformed JSON returns 400."""
-        response = client.post(
-            AUTH_TOKEN_URL, "not json", content_type="application/json"
-        )
+        response = client.post(AUTH_TOKEN_URL, "not json", content_type="application/json")
         assert response.status_code == 400
 
     def test_get_method_not_allowed(self, client, db):

@@ -448,7 +448,7 @@ class TestLocaltimeTooltipTag:
         """None datetime should return empty string."""
         request = self._make_request("America/New_York", "America/New_York")
         output = self._render(
-            '{% load theme_tags %}{% localtime_tooltip dt %}',
+            "{% load theme_tags %}{% localtime_tooltip dt %}",
             {"dt": None, "request": request},
         )
         assert output.strip() == ""
@@ -470,9 +470,7 @@ class TestUserLocaltimeFilter:
         # Activate user TZ (as middleware would) so |date renders correctly
         timezone.activate(zoneinfo.ZoneInfo("America/New_York"))
         try:
-            template = Template(
-                '{% load theme_tags %}{{ dt|user_localtime:request|date:"H" }}'
-            )
+            template = Template('{% load theme_tags %}{{ dt|user_localtime:request|date:"H" }}')
             output = template.render(Context({"dt": dt, "request": request}))
             assert output.strip() == "14"  # 18 UTC - 4 = 14 EDT
         finally:
@@ -488,9 +486,7 @@ class TestUserLocaltimeFilter:
         # Activate server TZ (as middleware would for anonymous)
         timezone.activate(zoneinfo.ZoneInfo("America/New_York"))
         try:
-            template = Template(
-                '{% load theme_tags %}{{ dt|user_localtime:request|date:"H" }}'
-            )
+            template = Template('{% load theme_tags %}{{ dt|user_localtime:request|date:"H" }}')
             output = template.render(Context({"dt": dt, "request": request}))
             assert output.strip() == "13"  # 18 UTC - 5 = 13 EST (January)
         finally:
@@ -501,9 +497,7 @@ class TestUserLocaltimeFilter:
         request = RequestFactory().get("/")
         request.user = type("AnonymousUser", (), {"is_authenticated": False})()
 
-        template = Template(
-            '{% load theme_tags %}{{ dt|user_localtime:request|default:"empty" }}'
-        )
+        template = Template('{% load theme_tags %}{{ dt|user_localtime:request|default:"empty" }}')
         output = template.render(Context({"dt": None, "request": request}))
         assert "empty" in output
 
@@ -631,9 +625,12 @@ class TestTopbarNav:
         content = response.content.decode()
         assert "topbar-nav" in content
 
-    @override_settings(SMALLSTACK_TOPBAR_NAV_ENABLED=True, SMALLSTACK_TOPBAR_NAV_ITEMS=[
-        {"label": "Home", "url": "website:home"},
-    ])
+    @override_settings(
+        SMALLSTACK_TOPBAR_NAV_ENABLED=True,
+        SMALLSTACK_TOPBAR_NAV_ITEMS=[
+            {"label": "Home", "url": "website:home"},
+        ],
+    )
     def test_enabled_with_items(self, client, db):
         """Topbar nav should render when enabled with items."""
         response = client.get("/")
@@ -698,10 +695,15 @@ class TestTopbarNav:
     def test_submenu_rendering(self, db):
         """Submenu items should be resolved recursively."""
         request = self._make_request("/")
-        items = [{"label": "More", "children": [
-            {"label": "Home", "url": "website:home"},
-            {"label": "Docs", "url": "/docs/"},
-        ]}]
+        items = [
+            {
+                "label": "More",
+                "children": [
+                    {"label": "Home", "url": "website:home"},
+                    {"label": "Docs", "url": "/docs/"},
+                ],
+            }
+        ]
         resolved = _resolve_nav_items(items, request)
         assert len(resolved) == 1
         assert "children" in resolved[0]
@@ -710,9 +712,14 @@ class TestTopbarNav:
     def test_submenu_has_active_child(self, db):
         """Parent should have has_active_child when a child is active."""
         request = self._make_request("/")
-        items = [{"label": "More", "children": [
-            {"label": "Home", "url": "website:home"},
-        ]}]
+        items = [
+            {
+                "label": "More",
+                "children": [
+                    {"label": "Home", "url": "website:home"},
+                ],
+            }
+        ]
         resolved = _resolve_nav_items(items, request)
         assert resolved[0]["has_active_child"] is True
 
@@ -747,9 +754,12 @@ class TestTopbarNav:
         resolved = _resolve_nav_items(items, request)
         assert len(resolved) == 1
 
-    @override_settings(SMALLSTACK_TOPBAR_NAV_ENABLED=True, SMALLSTACK_TOPBAR_NAV_ITEMS=[
-        {"label": "GitHub", "url": "https://github.com", "external": True},
-    ])
+    @override_settings(
+        SMALLSTACK_TOPBAR_NAV_ENABLED=True,
+        SMALLSTACK_TOPBAR_NAV_ITEMS=[
+            {"label": "GitHub", "url": "https://github.com", "external": True},
+        ],
+    )
     def test_external_link_attributes(self, client, db):
         """External links should have target=_blank and rel=noopener."""
         response = client.get("/")
@@ -793,9 +803,7 @@ class TestCRUDViewTemplateNames:
 
         names = TestCRUD._get_template_names("detail")
         public_pattern = "accounts/user_detail.html"
-        assert public_pattern not in names, (
-            "Public template pattern should not appear in CRUD template candidates"
-        )
+        assert public_pattern not in names, "Public template pattern should not appear in CRUD template candidates"
 
 
 # ── Transform Registry Tests ─────────────────────────────
@@ -1058,7 +1066,7 @@ class TestFieldValueRendering:
         """Truncated text should be HTML-escaped to prevent XSS."""
         from .templatetags.crud_tags import _get_field_value
 
-        xss_text = 'x' * 40 + '<script>alert("xss")</script>' + 'x' * 20
+        xss_text = "x" * 40 + '<script>alert("xss")</script>' + "x" * 20
         obj = self._make_obj(note=xss_text)
         result = str(_get_field_value(obj, "note", {"note": "preview"}))
         assert "<script>" not in result
@@ -1070,10 +1078,7 @@ class TestFieldValueRendering:
 
         long_text = "x" * (TRUNCATE_THRESHOLD + 10)
         obj = self._make_obj(bio=long_text)
-        template_str = (
-            '{% load crud_tags %}'
-            '{% field_transform obj "bio" "preview" url_base="manage/users" %}'
-        )
+        template_str = '{% load crud_tags %}{% field_transform obj "bio" "preview" url_base="manage/users" %}'
         t = Template(template_str)
         ctx = Context({"obj": obj})
         result = t.render(ctx)
@@ -1103,10 +1108,13 @@ class TestFieldPreviewView:
     def test_preview_returns_html(self, client, preview_staff):
         """Field preview endpoint should return HTML partial."""
         client.force_login(preview_staff)
-        url = reverse("manage/users-field-preview", kwargs={
-            "pk": preview_staff.pk,
-            "field_name": "first_name",
-        })
+        url = reverse(
+            "manage/users-field-preview",
+            kwargs={
+                "pk": preview_staff.pk,
+                "field_name": "first_name",
+            },
+        )
         response = client.get(url)
         assert response.status_code == 200
         content = response.content.decode()
@@ -1116,19 +1124,25 @@ class TestFieldPreviewView:
     def test_preview_unlisted_field_returns_404(self, client, preview_staff):
         """Requesting a field without has_expanded transform should return 404."""
         client.force_login(preview_staff)
-        url = reverse("manage/users-field-preview", kwargs={
-            "pk": preview_staff.pk,
-            "field_name": "password",
-        })
+        url = reverse(
+            "manage/users-field-preview",
+            kwargs={
+                "pk": preview_staff.pk,
+                "field_name": "password",
+            },
+        )
         response = client.get(url)
         assert response.status_code == 404
 
     def test_preview_requires_auth(self, client, preview_staff):
         """Field preview endpoint should require authentication."""
-        url = reverse("manage/users-field-preview", kwargs={
-            "pk": preview_staff.pk,
-            "field_name": "first_name",
-        })
+        url = reverse(
+            "manage/users-field-preview",
+            kwargs={
+                "pk": preview_staff.pk,
+                "field_name": "first_name",
+            },
+        )
         response = client.get(url)
         # StaffRequiredMixin returns 302 or 403
         assert response.status_code in (302, 403)
@@ -1138,10 +1152,13 @@ class TestFieldPreviewView:
         client.force_login(preview_staff)
         # "last_name" has "localtime" (has_expanded=False) in some configs,
         # but here it just has no transform at all — should 404
-        url = reverse("manage/users-field-preview", kwargs={
-            "pk": preview_staff.pk,
-            "field_name": "last_name",
-        })
+        url = reverse(
+            "manage/users-field-preview",
+            kwargs={
+                "pk": preview_staff.pk,
+                "field_name": "last_name",
+            },
+        )
         response = client.get(url)
         assert response.status_code == 404
 
@@ -1151,37 +1168,46 @@ class TestFormatDetection:
 
     def test_detect_json_object(self):
         from apps.smallstack.transforms import _detect_format
+
         assert _detect_format('{"key": "value"}') == "json"
 
     def test_detect_json_array(self):
         from apps.smallstack.transforms import _detect_format
-        assert _detect_format('[1, 2, 3]') == "json"
+
+        assert _detect_format("[1, 2, 3]") == "json"
 
     def test_detect_invalid_json(self):
         from apps.smallstack.transforms import _detect_format
-        assert _detect_format('{not json}') != "json"
+
+        assert _detect_format("{not json}") != "json"
 
     def test_detect_markdown_heading(self):
         from apps.smallstack.transforms import _detect_format
-        assert _detect_format('# Hello World') == "markdown"
+
+        assert _detect_format("# Hello World") == "markdown"
 
     def test_detect_markdown_bold(self):
         from apps.smallstack.transforms import _detect_format
-        assert _detect_format('This is **bold** text') == "markdown"
+
+        assert _detect_format("This is **bold** text") == "markdown"
 
     def test_detect_markdown_link(self):
         from apps.smallstack.transforms import _detect_format
-        assert _detect_format('Click [here](https://example.com)') == "markdown"
+
+        assert _detect_format("Click [here](https://example.com)") == "markdown"
 
     def test_detect_plain_text(self):
         from apps.smallstack.transforms import _detect_format
-        assert _detect_format('Just plain text') == "text"
+
+        assert _detect_format("Just plain text") == "text"
 
     def test_detect_empty_string(self):
         from apps.smallstack.transforms import _detect_format
-        assert _detect_format('') == "text"
+
+        assert _detect_format("") == "text"
 
     def test_backward_compat_import_from_crud(self):
         """_detect_format should still be importable from crud.py."""
         from apps.smallstack.crud import _detect_format
+
         assert _detect_format('{"key": "value"}') == "json"

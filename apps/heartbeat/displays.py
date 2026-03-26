@@ -33,12 +33,7 @@ class WeeklySummaryDisplay(ListDisplay):
         sunday = monday + datetime.timedelta(days=6)
 
         # Fetch records for the week
-        records = {
-            d.date: d
-            for d in HeartbeatDaily.objects.filter(
-                date__gte=monday, date__lte=sunday
-            )
-        }
+        records = {d.date: d for d in HeartbeatDaily.objects.filter(date__gte=monday, date__lte=sunday)}
 
         # Build 7-day grid (Mon–Sun), filling gaps with empty days
         days = []
@@ -60,37 +55,41 @@ class WeeklySummaryDisplay(ListDisplay):
                 if d.avg_response_ms:
                     week_ms_total += d.avg_response_ms
                     week_ms_count += 1
-                days.append({
-                    "date": date,
-                    "weekday": date.strftime("%A"),
-                    "short_date": date.strftime("%-m/%-d"),
-                    "uptime": uptime,
-                    "uptime_fmt": f"{uptime:.1f}" if uptime < 100 else "100",
-                    "meets_sla": meets_sla,
-                    "total": total,
-                    "total_fmt": _fmt_count(total),
-                    "avg_ms": d.avg_response_ms,
-                    "fail": d.fail_count,
-                    "has_data": True,
-                    "is_today": date == today,
-                    "is_future": False,
-                })
+                days.append(
+                    {
+                        "date": date,
+                        "weekday": date.strftime("%A"),
+                        "short_date": date.strftime("%-m/%-d"),
+                        "uptime": uptime,
+                        "uptime_fmt": f"{uptime:.1f}" if uptime < 100 else "100",
+                        "meets_sla": meets_sla,
+                        "total": total,
+                        "total_fmt": _fmt_count(total),
+                        "avg_ms": d.avg_response_ms,
+                        "fail": d.fail_count,
+                        "has_data": True,
+                        "is_today": date == today,
+                        "is_future": False,
+                    }
+                )
             else:
-                days.append({
-                    "date": date,
-                    "weekday": date.strftime("%A"),
-                    "short_date": date.strftime("%-m/%-d"),
-                    "uptime": 0,
-                    "uptime_fmt": "—",
-                    "meets_sla": False,
-                    "total": 0,
-                    "total_fmt": "—",
-                    "avg_ms": 0,
-                    "fail": 0,
-                    "has_data": False,
-                    "is_today": date == today,
-                    "is_future": is_future,
-                })
+                days.append(
+                    {
+                        "date": date,
+                        "weekday": date.strftime("%A"),
+                        "short_date": date.strftime("%-m/%-d"),
+                        "uptime": 0,
+                        "uptime_fmt": "—",
+                        "meets_sla": False,
+                        "total": 0,
+                        "total_fmt": "—",
+                        "avg_ms": 0,
+                        "fail": 0,
+                        "has_data": False,
+                        "is_today": date == today,
+                        "is_future": is_future,
+                    }
+                )
 
         # Week aggregate
         week_total = week_ok + week_fail
@@ -137,12 +136,7 @@ class MonthGridDisplay(ListDisplay):
         month_end = today.replace(day=last_day_num)
 
         # Fetch all records for the month
-        records = {
-            d.date: d
-            for d in HeartbeatDaily.objects.filter(
-                date__gte=month_start, date__lte=month_end
-            )
-        }
+        records = {d.date: d for d in HeartbeatDaily.objects.filter(date__gte=month_start, date__lte=month_end)}
 
         # Build calendar weeks (Mon=0 start)
         # Leading blanks for days before the 1st
@@ -296,9 +290,7 @@ def _month_stats(start, end):
     """Aggregate HeartbeatDaily stats for a date range."""
     from .models import HeartbeatDaily
 
-    agg = HeartbeatDaily.objects.filter(
-        date__gte=start, date__lte=end
-    ).aggregate(
+    agg = HeartbeatDaily.objects.filter(date__gte=start, date__lte=end).aggregate(
         total_ok=Sum("ok_count"),
         total_fail=Sum("fail_count"),
         total_maint=Sum("maintenance_count"),
@@ -335,11 +327,13 @@ def _build_sparkline(daily_qs, max_checks):
     for d in daily_qs:
         total = d.ok_count + d.fail_count
         pct = round(total / max_checks * 100) if max_checks else 0
-        bars.append({
-            "date": d.date,
-            "count": total,
-            "pct": max(pct, 3),  # min 3% so bars are visible
-            "uptime": float(d.uptime_pct),
-            "status": _uptime_status(d.uptime_pct),
-        })
+        bars.append(
+            {
+                "date": d.date,
+                "count": total,
+                "pct": max(pct, 3),  # min 3% so bars are visible
+                "uptime": float(d.uptime_pct),
+                "status": _uptime_status(d.uptime_pct),
+            }
+        )
     return bars

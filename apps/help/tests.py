@@ -267,9 +267,7 @@ class TestHelpViews:
     @pytest.mark.django_db
     def test_section_toc_view(self, client):
         """TOC view should render for a valid section."""
-        response = client.get(
-            reverse("help:section_toc", kwargs={"section": "smallstack"})
-        )
+        response = client.get(reverse("help:section_toc", kwargs={"section": "smallstack"}))
         assert response.status_code == 200
         content = response.content.decode()
         assert "toc-category" in content
@@ -277,7 +275,5 @@ class TestHelpViews:
     @pytest.mark.django_db
     def test_section_toc_view_404(self, client):
         """TOC view should 404 for nonexistent section."""
-        response = client.get(
-            reverse("help:section_toc", kwargs={"section": "nonexistent"})
-        )
+        response = client.get(reverse("help:section_toc", kwargs={"section": "nonexistent"}))
         assert response.status_code == 404
