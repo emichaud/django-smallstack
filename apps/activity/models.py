@@ -16,6 +16,13 @@ class RequestLog(models.Model):
         null=True,
         blank=True,
     )
+    api_token = models.ForeignKey(
+        "smallstack.APIToken",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="request_logs",
+    )
     timestamp = models.DateTimeField(auto_now_add=True, db_index=True)
     response_time_ms = models.PositiveIntegerField()
     ip_address = models.GenericIPAddressField(null=True, blank=True)

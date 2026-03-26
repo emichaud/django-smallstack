@@ -53,6 +53,7 @@ class ActivityMiddleware:
             method=request.method,
             status_code=response.status_code,
             user=user,
+            api_token=getattr(request, "_api_token", None),
             response_time_ms=elapsed_ms,
             ip_address=self._get_ip(request),
             user_agent=request.META.get("HTTP_USER_AGENT", "")[:4096],

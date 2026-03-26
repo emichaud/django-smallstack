@@ -61,10 +61,11 @@ def _authenticate_api_request(
         from .models import APIToken
 
         raw_key = auth_header[7:]
-        user = APIToken.authenticate(raw_key)
+        user, token = APIToken.authenticate(raw_key)
         if user is None:
             return None, JsonResponse({"error": "Invalid token"}, status=401)
         request.user = user
+        request._api_token = token
         request._api_token_auth = True
         return user, None
 
