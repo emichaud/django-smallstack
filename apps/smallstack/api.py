@@ -872,6 +872,19 @@ def api_auth_user_password(request: HttpRequest, user_id: int) -> JsonResponse:
     return JsonResponse({"message": "Password updated"})
 
 
+def api_auth_password_requirements(request: HttpRequest) -> JsonResponse:
+    """Return the active password validation rules.
+
+    GET /api/auth/password-requirements/
+    """
+    if request.method != "GET":
+        return JsonResponse({"error": "Method not allowed"}, status=405)
+
+    from django.contrib.auth.password_validation import password_validators_help_texts
+
+    return JsonResponse({"requirements": password_validators_help_texts()})
+
+
 @csrf_exempt
 def api_auth_user_deactivate(request: HttpRequest, user_id: int) -> JsonResponse:
     """System deactivates a user account and revokes all their tokens.

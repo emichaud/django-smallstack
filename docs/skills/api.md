@@ -56,7 +56,15 @@ URL names: `{url_base}-api-list` and `{url_base}-api-detail`.
 curl -H "Authorization: Bearer aBcD1234efGh..." https://example.com/api/manage/widgets/
 ```
 
-Create a token via CLI: `uv run python manage.py create_api_token <username>`. The raw key is printed once — copy it immediately. It is validated via `APIToken.authenticate(raw_key)` which looks up by prefix + SHA-256 hash.
+Create a token via CLI:
+
+```bash
+uv run python manage.py create_api_token <username>                      # default: staff
+uv run python manage.py create_api_token <username> --access-level auth  # auth-level (register, password mgmt)
+uv run python manage.py create_api_token <username> --access-level readonly
+```
+
+The raw key is printed once — copy it immediately. It is validated via `APIToken.authenticate(raw_key)` which looks up by prefix + SHA-256 hash.
 
 ### Token Authentication Endpoint
 
@@ -121,6 +129,7 @@ These endpoints handle user lifecycle operations. All are `@csrf_exempt` for cro
 | `POST /api/auth/register/` | Auth-level token | Create user + login token |
 | `GET /api/auth/me/` | Any Bearer | Get current user info |
 | `POST /api/auth/password/` | Any Bearer | Change own password |
+| `GET /api/auth/password-requirements/` | None (public) | List password validation rules |
 | `POST /api/auth/users/<id>/password/` | Auth-level token | System password change |
 | `POST /api/auth/users/<id>/deactivate/` | Auth-level token | Deactivate user + revoke tokens |
 
@@ -198,6 +207,35 @@ Authorization: Bearer <auth-level-token>
 Success → 200: {"message": "User deactivated"}
 User not found → 404: {"error": "User not found"}
 ```
+
+### GET /api/auth/password-requirements/
+
+Returns the active Django password validation rules as a list of human-readable strings. No authentication required — useful for showing requirements in registration/password-change forms before submission.
+
+```
+GET /api/auth/password-requirements/
+
+→ 200:
+{
+    "requirements": [
+        "Your password must contain at least 8 characters.",
+        "Your password can't be a commonly used password.",
+        "Your password can't be entirely numeric."
+    ]
+}
+```
+
+### Architecture Notes
+
+**Single-session token upsert:** The login endpoint (`POST /api/auth/token/`) maintains one active login token per user. Calling it again regenerates the key and immediately invalidates the previous one. This is a security feature — not a bug. Clients should store the token and re-authenticate when it expires rather than expecting multiple concurrent sessions.
+
+**Registration requires auth-level token by design:** The `POST /api/auth/register/` endpoint requires an auth-level Bearer token because registration is a privileged, system-initiated operation — not public self-service. Auth-level tokens belong on servers, never in browser JavaScript. For frontend apps that need user registration, use a backend proxy:
+
+1. React/frontend calls YOUR backend's registration endpoint (no token in the browser)
+2. Your backend holds the auth-level token server-side
+3. Your backend calls SmallStack's `/api/auth/register/` on behalf of the user
+
+**Staff requirement for CRUD APIs:** CRUDViews that use `StaffRequiredMixin` (the default in most SmallStack examples) return 403 for non-staff users. Newly registered users are always non-staff. To give API users access to CRUD endpoints, either promote them to staff via Django admin, or use `LoginRequiredMixin` instead of `StaffRequiredMixin` on CRUDViews that should be accessible to all authenticated users.
 
 ## Permission Checking
 
