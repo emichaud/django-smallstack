@@ -133,6 +133,10 @@ These endpoints handle user lifecycle operations. All are `@csrf_exempt` for cro
 | `GET /api/auth/password-requirements/` | None (public) | List password validation rules |
 | `POST /api/auth/users/<id>/password/` | Auth-level token | System password change |
 | `POST /api/auth/users/<id>/deactivate/` | Auth-level token | Deactivate user + revoke tokens |
+| `GET /api/auth/users/` | Auth-level token | List/search users |
+| `GET /api/auth/users/<id>/` | Auth-level token | User detail |
+| `PATCH /api/auth/users/<id>/` | Auth-level token | Update user fields |
+| `POST /api/auth/token/refresh/` | Login Bearer | Refresh login token |
 
 ### POST /api/auth/logout/
 
@@ -237,6 +241,153 @@ GET /api/auth/password-requirements/
 }
 ```
 
+### GET /api/auth/users/
+
+List and search users. Requires an auth-level token. Returns paginated results with extended user fields.
+
+```
+GET /api/auth/users/?q=alice&page=1&page_size=25
+Authorization: Bearer <auth-level-token>
+
+→ 200:
+{
+    "count": 1,
+    "page": 1,
+    "total_pages": 1,
+    "next": null,
+    "previous": null,
+    "results": [
+        {
+            "id": 2, "username": "alice", "email": "alice@example.com",
+            "is_staff": false, "first_name": "Alice", "last_name": "Smith",
+            "is_active": true, "date_joined": "2026-03-20T14:00:00+00:00"
+        }
+    ]
+}
+```
+
+Query parameters:
+- `?q=` — searches `username` and `email` (case-insensitive contains)
+- `?page=` / `?page_size=` — pagination (same semantics as CRUDView list)
+
+### GET /api/auth/users/\<id\>/
+
+User detail. Returns extended user JSON (same fields as list results).
+
+```
+GET /api/auth/users/2/
+Authorization: Bearer <auth-level-token>
+
+→ 200:
+{
+    "id": 2, "username": "alice", "email": "alice@example.com",
+    "is_staff": false, "first_name": "Alice", "last_name": "Smith",
+    "is_active": true, "date_joined": "2026-03-20T14:00:00+00:00"
+}
+```
+
+### PATCH /api/auth/users/\<id\>/
+
+Update user fields. Only these fields are allowed: `email`, `first_name`, `last_name`, `is_staff`, `is_active`. Unknown fields return 400 with per-field errors.
+
+```
+PATCH /api/auth/users/2/
+Authorization: Bearer <auth-level-token>
+Content-Type: application/json
+
+{"first_name": "Alice", "is_staff": true}
+
+Success → 200: (updated user JSON)
+Unknown field → 400: {"errors": {"username": ["Field 'username' is not allowed"]}}
+Duplicate email → 400: {"errors": {"email": ["A user with that email already exists."]}}
+```
+
+Empty body `{}` returns 200 with the unchanged user.
+
+### POST /api/auth/token/refresh/
+
+Refresh a login token — regenerates the key and extends the expiry. The old key immediately stops working. Only login tokens can be refreshed; manual tokens are rejected with 403.
+
+```
+POST /api/auth/token/refresh/
+Authorization: Bearer <login-token>
+Content-Type: application/json
+
+{"expires_hours": 48}   ← optional
+
+Success → 200:
+{
+    "token": "newKey1234...",
+    "user": {"id": 1, "username": "alice", "is_staff": false},
+    "expires_at": "2026-03-29T14:00:00+00:00"
+}
+
+Manual token → 403: {"errors": {"__all__": ["Only login tokens can be refreshed"]}}
+Expired token → 401: {"errors": {"__all__": ["Invalid token"]}}
+```
+
+- `expires_hours` defaults to `SMALLSTACK_LOGIN_TOKEN_EXPIRY_HOURS`, capped at `SMALLSTACK_LOGIN_TOKEN_MAX_HOURS`
+- Response shape matches the login endpoint (`POST /api/auth/token/`)
+- Expired tokens are rejected at the auth layer (401) — they cannot be refreshed
+
+### GET /api/schema/
+
+Returns a schema of all registered CRUDView API endpoints and auth endpoints. No authentication required.
+
+```
+GET /api/schema/
+
+→ 200:
+{
+    "endpoints": [
+        {
+            "url": "/api/explorer/monitoring/heartbeat/",
+            "model": "Heartbeat",
+            "methods": ["DELETE", "GET", "PATCH", "POST", "PUT"],
+            "fields": ["timestamp", "status", "response_time_ms", "note"],
+            "list_fields": [...],
+            "detail_fields": [...],
+            "search_fields": [...],
+            "filter_fields": [...],
+            "expand_fields": [...],
+            "aggregate_fields": [...],
+            "extra_fields": [...],
+            "export_formats": [...]
+        }
+    ],
+    "auth": {
+        "login": "/api/auth/token/",
+        "logout": "/api/auth/logout/",
+        "register": "/api/auth/register/",
+        "me": "/api/auth/me/",
+        "password": "/api/auth/password/",
+        "password_requirements": "/api/auth/password-requirements/",
+        "users": "/api/auth/users/",
+        "token_refresh": "/api/auth/token/refresh/"
+    }
+}
+```
+
+### OPTIONS on CRUDView Endpoints
+
+`OPTIONS` on any CRUDView API endpoint returns field types and constraints without authentication. Useful for building dynamic forms.
+
+```
+OPTIONS /api/explorer/monitoring/heartbeat/
+
+→ 200:
+{
+    "fields": {
+        "timestamp": {"type": "datetime", "required": true},
+        "status": {"type": "choice", "required": true, "choices": [["ok", "Ok"], ["fail", "Fail"]]},
+        "response_time_ms": {"type": "integer", "required": true, "min_value": 0}
+    },
+    "methods": ["DELETE", "GET", "PATCH", "POST", "PUT"]
+}
+```
+
+Field types include: `string`, `text`, `integer`, `float`, `decimal`, `boolean`, `date`, `datetime`, `time`, `email`, `url`, `choice`, `fk`, `file`. Extra fields (from `api_extra_fields`) are marked `read_only: true`.
+
 ### Architecture Notes
 
 **Single-session token upsert:** The login endpoint (`POST /api/auth/token/`) maintains one active login token per user. Calling it again regenerates the key and immediately invalidates the previous one. This is a security feature — not a bug. Clients should store the token and re-authenticate when it expires rather than expecting multiple concurrent sessions.
@@ -246,6 +397,8 @@ GET /api/auth/password-requirements/
 1. React/frontend calls YOUR backend's registration endpoint (no token in the browser)
 2. Your backend holds the auth-level token server-side
 3. Your backend calls SmallStack's `/api/auth/register/` on behalf of the user
+
+**Token lifecycle:** Login → token → use → refresh (extends session) → logout (revokes). Login tokens are for user sessions (one per user, upserted). Manual tokens are for system/service use (can have access levels). Auth-level tokens gate privileged operations like user management and registration.
 
 **Staff requirement for CRUD APIs:** CRUDViews that use `StaffRequiredMixin` (the default in most SmallStack examples) return 403 for non-staff users. Newly registered users are always non-staff. To give API users access to CRUD endpoints, either promote them to staff via Django admin, or use `LoginRequiredMixin` instead of `StaffRequiredMixin` on CRUDViews that should be accessible to all authenticated users.
 

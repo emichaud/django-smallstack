@@ -383,6 +383,7 @@ def _build_endpoint_schema(crud_config, list_url_name: str) -> dict:
     }
 
 
+@csrf_exempt
 def api_schema(request: HttpRequest) -> JsonResponse:
     """Return schema of all registered API endpoints.
 
@@ -400,6 +401,8 @@ def api_schema(request: HttpRequest) -> JsonResponse:
         "me": "/api/auth/me/",
         "password": "/api/auth/password/",
         "password_requirements": "/api/auth/password-requirements/",
+        "users": "/api/auth/users/",
+        "token_refresh": "/api/auth/token/refresh/",
     }
     return JsonResponse({"endpoints": endpoints, "auth": auth})
 
@@ -804,14 +807,21 @@ def _api_export(qs, crud_config, fmt):
 # ---------------------------------------------------------------------------
 
 
-def _user_json(user):
+def _user_json(user, extended=False):
     """Serialize a user to a dict for API responses."""
-    return {
+    data = {
         "id": user.pk,
         "username": user.get_username(),
         "email": getattr(user, "email", ""),
         "is_staff": user.is_staff,
     }
+    if extended:
+        data["first_name"] = getattr(user, "first_name", "")
+        data["last_name"] = getattr(user, "last_name", "")
+        data["is_active"] = user.is_active
+        date_joined = getattr(user, "date_joined", None)
+        data["date_joined"] = date_joined.isoformat() if date_joined else None
+    return data
 
 
 @csrf_exempt
@@ -1121,6 +1131,187 @@ def api_auth_user_deactivate(request: HttpRequest, user_id: int) -> JsonResponse
     )
 
     return JsonResponse({"message": "User deactivated"})
+
+
+@csrf_exempt
+def api_auth_users(request: HttpRequest) -> JsonResponse:
+    """List and search users.
+
+    GET /api/auth/users/?q=&page=&page_size=
+
+    Requires auth-level Bearer token.
+    """
+    if request.method != "GET":
+        return _error("Method not allowed", 405)
+
+    user, err = _authenticate_api_request(request)
+    if err:
+        return err
+    perm_err = _require_auth_token(request)
+    if perm_err:
+        return perm_err
+
+    from django.contrib.auth import get_user_model
+    from django.db.models import Q
+
+    User = get_user_model()
+    qs = User.objects.all().order_by("pk")
+
+    # Search
+    q = request.GET.get("q", "").strip()
+    if q:
+        qs = qs.filter(Q(username__icontains=q) | Q(email__icontains=q))
+
+    # Paginate
+    _MAX_PAGE_SIZE = 1000
+    page_size = 25
+    raw_page_size = request.GET.get("page_size", "").strip()
+    if raw_page_size:
+        try:
+            page_size = max(1, min(int(raw_page_size), _MAX_PAGE_SIZE))
+        except (ValueError, TypeError):
+            pass
+    total = qs.count()
+    total_pages = max(1, math.ceil(total / page_size))
+    page_num = _resolve_page(request.GET.get("page", "1"), total_pages)
+    start = (page_num - 1) * page_size
+    items = list(qs[start : start + page_size])
+
+    results = [_user_json(u, extended=True) for u in items]
+
+    base_path = request.path
+    next_url = f"{base_path}?page={page_num + 1}" if page_num < total_pages else None
+    prev_url = f"{base_path}?page={page_num - 1}" if page_num > 1 else None
+
+    return JsonResponse({
+        "count": total,
+        "page": page_num,
+        "total_pages": total_pages,
+        "next": next_url,
+        "previous": prev_url,
+        "results": results,
+    })
+
+
+@csrf_exempt
+def api_auth_user_detail(request: HttpRequest, user_id: int) -> JsonResponse:
+    """User detail and update.
+
+    GET   /api/auth/users/<id>/   — detail
+    PATCH /api/auth/users/<id>/   — update
+
+    Requires auth-level Bearer token.
+    """
+    if request.method not in ("GET", "PATCH"):
+        return _error("Method not allowed", 405)
+
+    caller, err = _authenticate_api_request(request)
+    if err:
+        return err
+    perm_err = _require_auth_token(request)
+    if perm_err:
+        return perm_err
+
+    from django.contrib.auth import get_user_model
+
+    User = get_user_model()
+    try:
+        target = User.objects.get(pk=user_id)
+    except User.DoesNotExist:
+        return _error("User not found", 404)
+
+    if request.method == "GET":
+        return JsonResponse(_user_json(target, extended=True))
+
+    # PATCH
+    try:
+        data = json.loads(request.body)
+    except (json.JSONDecodeError, ValueError):
+        return _error("Invalid JSON", 400)
+
+    allowed_fields = {"email", "first_name", "last_name", "is_staff", "is_active"}
+    unknown = set(data.keys()) - allowed_fields
+    if unknown:
+        errors = {f: [f"Field '{f}' is not allowed"] for f in unknown}
+        return JsonResponse({"errors": errors}, status=400)
+
+    update_fields = []
+    for field, value in data.items():
+        setattr(target, field, value)
+        update_fields.append(field)
+
+    if update_fields:
+        from django.db import IntegrityError
+
+        try:
+            target.save(update_fields=update_fields)
+        except IntegrityError:
+            return JsonResponse({"errors": {"email": ["A user with that email already exists."]}}, status=400)
+
+    return JsonResponse(_user_json(target, extended=True))
+
+
+@csrf_exempt
+def api_auth_token_refresh(request: HttpRequest) -> JsonResponse:
+    """Refresh a login token — regenerates key, extends expiry.
+
+    POST /api/auth/token/refresh/
+    Authorization: Bearer <login-token>
+    Optional body: {"expires_hours": 48}
+
+    Old key immediately stops working. Manual tokens are rejected.
+    """
+    if request.method != "POST":
+        return _error("Method not allowed", 405)
+
+    user, err = _authenticate_api_request(request)
+    if err:
+        return err
+
+    token = getattr(request, "_api_token", None)
+    if not token or token.token_type != "login":
+        return _error("Only login tokens can be refreshed", 403)
+
+    from datetime import timedelta
+
+    from django.utils import timezone
+
+    from .models import APIToken
+
+    # Parse optional expires_hours
+    expires_hours = None
+    if request.body:
+        try:
+            data = json.loads(request.body)
+            expires_hours = data.get("expires_hours")
+        except (json.JSONDecodeError, ValueError):
+            pass
+
+    default_hours = getattr(settings, "SMALLSTACK_LOGIN_TOKEN_EXPIRY_HOURS", 24)
+    max_hours = getattr(settings, "SMALLSTACK_LOGIN_TOKEN_MAX_HOURS", 168)
+    if expires_hours is not None:
+        try:
+            expires_hours = int(expires_hours)
+        except (ValueError, TypeError):
+            expires_hours = default_hours
+    else:
+        expires_hours = default_hours
+    expiry_hours = min(max(1, expires_hours), max_hours)
+    expires_at = timezone.now() + timedelta(hours=expiry_hours)
+
+    # Regenerate key
+    raw_key, prefix, hashed = APIToken._generate_raw_key()
+    token.prefix = prefix
+    token.hashed_key = hashed
+    token.expires_at = expires_at
+    token.last_used_at = timezone.now()
+    token.save(update_fields=["prefix", "hashed_key", "expires_at", "last_used_at"])
+
+    return JsonResponse({
+        "token": raw_key,
+        "user": _user_json(user),
+        "expires_at": expires_at.isoformat(),
+    })
 
 
 @csrf_exempt

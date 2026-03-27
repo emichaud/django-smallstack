@@ -16,8 +16,11 @@ from apps.smallstack.api import (
     api_auth_password_requirements,
     api_auth_register,
     api_auth_token,
+    api_auth_token_refresh,
     api_auth_user_deactivate,
+    api_auth_user_detail,
     api_auth_user_password,
+    api_auth_users,
     api_schema,
 )
 
@@ -42,12 +45,15 @@ urlpatterns = [
     path("api/schema/", api_schema, name="api-schema"),
     # API auth
     path("api/auth/token/", api_auth_token, name="api-auth-token"),
+    path("api/auth/token/refresh/", api_auth_token_refresh, name="api-auth-token-refresh"),
     path("api/auth/register/", api_auth_register, name="api-auth-register"),
     path("api/auth/me/", api_auth_me, name="api-auth-me"),
     path("api/auth/password/", api_auth_password, name="api-auth-password"),
     path("api/auth/password-requirements/", api_auth_password_requirements, name="api-auth-password-requirements"),
     path("api/auth/users/<int:user_id>/password/", api_auth_user_password, name="api-auth-user-password"),
     path("api/auth/users/<int:user_id>/deactivate/", api_auth_user_deactivate, name="api-auth-user-deactivate"),
+    path("api/auth/users/", api_auth_users, name="api-auth-users"),
+    path("api/auth/users/<int:user_id>/", api_auth_user_detail, name="api-auth-user-detail"),
     path("api/auth/logout/", api_auth_logout, name="api-auth-logout"),
     # Admin
     path("admin/", admin.site.urls),

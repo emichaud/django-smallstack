@@ -427,12 +427,17 @@ The endpoint uses Django's `authenticate()` under the hood, so custom auth backe
 curl -H "Authorization: Bearer <token>" https://example.com/api/manage/widgets/
 ```
 
+### Token Refresh
+
+Login tokens can be refreshed via `POST /api/auth/token/refresh/` — this regenerates the key and extends the expiry. The old key immediately stops working. Only login tokens can be refreshed; manual tokens are rejected. See the `api` skill for full details.
+
+### User Management API
+
+Auth-level tokens can list, search, and update users via `GET /api/auth/users/` and `PATCH /api/auth/users/<id>/`. See the `api` skill for full details.
+
 ### What's Not Included (By Design)
 
-- No JSON signup endpoint — signup stays HTML or admin-provisioned
 - No JSON password reset — stays HTML/email flow
-- No token refresh — create a new one if needed
-- No logout endpoint — client discards the token
 
 These are intentionally omitted to keep SmallStack simple. If you need full REST auth flows, add `dj-rest-auth` — it coexists without conflicts.
 
