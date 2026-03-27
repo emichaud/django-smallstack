@@ -1,13 +1,13 @@
 {
   "name": "smallstack-skills",
-  "version": "0.8.5",
+  "version": "0.8.6",
   "description": "AI skill index for Django SmallStack. Read the relevant skill before modifying the corresponding part of the codebase.",
   "skills": [
     {
       "id": "django-apps",
       "file": "django-apps.md",
       "name": "Django Apps & CRUDView",
-      "description": "Creating new Django apps, CRUDView configuration, django-tables2 integration, title bar pattern.",
+      "description": "Creating new Django apps, CRUDView configuration, django-tables2 integration, title bar pattern. See also: api skill for REST API and auth management.",
       "keywords": ["app", "model", "crud", "view", "tables2", "management", "admin page"],
       "use_when": "Creating a new app, adding a model, building management pages, or wiring up CRUDView."
     },
@@ -154,6 +154,22 @@
       "description": "Semantic versioning, release checklist, version bumping in pyproject.toml and _config.yaml, GitHub releases.",
       "keywords": ["release", "version", "semver", "changelog", "tag", "github"],
       "use_when": "Preparing a release, bumping the version, or creating a GitHub release."
+    },
+    {
+      "id": "api",
+      "file": "api.md",
+      "name": "REST API",
+      "description": "CRUDView JSON API layer with Bearer token auth, token types (login/manual), access levels (auth/staff/readonly), auth management endpoints (register, me, password, deactivate), FK expansion, date filtering, aggregation, and CORS.",
+      "keywords": ["api", "rest", "bearer", "token", "crud", "json", "auth", "register", "access level", "cors"],
+      "use_when": "Building or consuming REST API endpoints, managing tokens, or configuring API authentication and access levels."
+    },
+    {
+      "id": "frontend-integration",
+      "file": "frontend-integration.md",
+      "name": "Frontend Integration",
+      "description": "Using SmallStack as a headless API backend for React, Vue, Next.js, or Svelte frontends. Covers system tokens, user lifecycle (register, login, password change, deactivate), CORS setup, and token architecture.",
+      "keywords": ["react", "vue", "next", "svelte", "frontend", "spa", "api", "cors", "system token", "headless"],
+      "use_when": "Setting up SmallStack as a backend API for a frontend framework, or understanding the system token + login token architecture."
     },
     {
       "id": "integration-workflow",

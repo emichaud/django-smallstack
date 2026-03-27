@@ -69,10 +69,22 @@ class APIToken(models.Model):
     TOKEN_LENGTH = 40
     PREFIX_LENGTH = 8
 
+    TOKEN_TYPE_CHOICES = [
+        ("login", "Login"),
+        ("manual", "Manual"),
+    ]
+    ACCESS_LEVEL_CHOICES = [
+        ("auth", "Auth"),
+        ("staff", "Staff"),
+        ("readonly", "Readonly"),
+    ]
+
     name = models.CharField(max_length=100)
     prefix = models.CharField(max_length=8, db_index=True)
     hashed_key = models.CharField(max_length=64)
     description = models.TextField(blank=True, default="")
+    token_type = models.CharField(max_length=10, choices=TOKEN_TYPE_CHOICES, default="manual")
+    access_level = models.CharField(max_length=10, choices=ACCESS_LEVEL_CHOICES, default="staff", blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     last_used_at = models.DateTimeField(null=True, blank=True)
     expires_at = models.DateTimeField(null=True, blank=True)
@@ -106,14 +118,24 @@ class APIToken(models.Model):
         return True
 
     @classmethod
-    def create_token(cls, user, name="API Token", description="", expires_at=None):
-        """Create a new token. Returns (token_instance, raw_key)."""
+    def _generate_raw_key(cls):
+        """Generate a raw API key and return (raw_key, prefix, hashed_key)."""
         raw_key = secrets.token_urlsafe(cls.TOKEN_LENGTH)
         prefix = raw_key[: cls.PREFIX_LENGTH]
         hashed = hashlib.sha256(raw_key.encode()).hexdigest()
+        return raw_key, prefix, hashed
+
+    @classmethod
+    def create_token(
+        cls, user, name="API Token", description="", expires_at=None,
+        token_type="manual", access_level="staff",
+    ):
+        """Create a new token. Returns (token_instance, raw_key)."""
+        raw_key, prefix, hashed = cls._generate_raw_key()
         token = cls.objects.create(
             user=user, name=name, prefix=prefix, hashed_key=hashed,
             description=description, expires_at=expires_at,
+            token_type=token_type, access_level=access_level,
         )
         return token, raw_key
 

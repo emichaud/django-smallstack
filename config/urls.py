@@ -9,7 +9,14 @@ from django.urls import include, path
 from django.views.generic import RedirectView
 
 from apps.heartbeat.views import StatusPageView, status_json
-from apps.smallstack.api import api_auth_token
+from apps.smallstack.api import (
+    api_auth_me,
+    api_auth_password,
+    api_auth_register,
+    api_auth_token,
+    api_auth_user_deactivate,
+    api_auth_user_password,
+)
 
 from .views import health_check, legal_page_view
 
@@ -30,6 +37,11 @@ urlpatterns = [
     path("help/", RedirectView.as_view(pattern_name="help:index", permanent=False), name="public_help"),
     # API auth
     path("api/auth/token/", api_auth_token, name="api-auth-token"),
+    path("api/auth/register/", api_auth_register, name="api-auth-register"),
+    path("api/auth/me/", api_auth_me, name="api-auth-me"),
+    path("api/auth/password/", api_auth_password, name="api-auth-password"),
+    path("api/auth/users/<int:user_id>/password/", api_auth_user_password, name="api-auth-user-password"),
+    path("api/auth/users/<int:user_id>/deactivate/", api_auth_user_deactivate, name="api-auth-user-deactivate"),
     # Admin
     path("admin/", admin.site.urls),
     # Legal pages (public)

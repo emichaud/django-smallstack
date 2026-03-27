@@ -81,7 +81,7 @@ def _authenticate_api_request(
 # ---------------------------------------------------------------------------
 
 
-def _check_api_permissions(request, crud_config):
+def _check_api_permissions(request, crud_config, method="GET"):
     """Translate CRUDView mixins to API responses (JSON, not redirects)."""
     from apps.smallstack.mixins import StaffRequiredMixin
 
@@ -89,6 +89,20 @@ def _check_api_permissions(request, crud_config):
         if issubclass(mixin, StaffRequiredMixin) or mixin.__name__ == "StaffRequiredMixin":
             if not request.user.is_staff:
                 return JsonResponse({"error": "Staff access required"}, status=403)
+
+    # Enforce access_level on manual tokens
+    token = getattr(request, "_api_token", None)
+    if token and token.token_type == "manual":
+        if token.access_level == "readonly" and method not in ("GET", "HEAD", "OPTIONS"):
+            return JsonResponse({"error": "Token is read-only"}, status=403)
+    return None
+
+
+def _require_auth_token(request):
+    """Check that the request uses a manual token with access_level='auth'."""
+    token = getattr(request, "_api_token", None)
+    if not token or token.token_type != "manual" or token.access_level != "auth":
+        return JsonResponse({"error": "Auth-level token required"}, status=403)
     return None
 
 
@@ -328,7 +342,7 @@ def _make_api_list_view(crud_config):
         user, err = _authenticate_api_request(request)
         if err:
             return err
-        perm_err = _check_api_permissions(request, crud_config)
+        perm_err = _check_api_permissions(request, crud_config, method=request.method)
         if perm_err:
             return perm_err
 
@@ -351,7 +365,7 @@ def _make_api_detail_view(crud_config):
         user, err = _authenticate_api_request(request)
         if err:
             return err
-        perm_err = _check_api_permissions(request, crud_config)
+        perm_err = _check_api_permissions(request, crud_config, method=request.method)
         if perm_err:
             return perm_err
 
@@ -592,16 +606,25 @@ def _api_export(qs, crud_config, fmt):
 # ---------------------------------------------------------------------------
 
 
+def _user_json(user):
+    """Serialize a user to a dict for API responses."""
+    return {
+        "id": user.pk,
+        "username": user.get_username(),
+        "email": getattr(user, "email", ""),
+        "is_staff": user.is_staff,
+    }
+
+
 @csrf_exempt
 def api_auth_token(request: HttpRequest) -> JsonResponse:
-    """Exchange username + password for a Bearer token.
+    """Exchange username + password for a Bearer token (upsert).
 
     POST /api/auth/token/
-    {"username": "alice", "password": "secret123"}
+    {"username": "alice", "password": "secret123", "expires_hours": 24}
 
-    Success → 200: {"token": "aBcD1234...", "user": {"id": 1, "username": "alice", "is_staff": true}}
-    Bad credentials → 401: {"error": "Invalid credentials"}
-    Missing fields → 400: {"error": "..."}
+    Upserts: finds existing active login token for the user, regenerates key
+    and updates expiry. Old raw key immediately stops working.
     """
     if request.method != "POST":
         return JsonResponse({"error": "Method not allowed"}, status=405)
@@ -616,29 +639,274 @@ def api_auth_token(request: HttpRequest) -> JsonResponse:
     if not username or not password:
         return JsonResponse({"error": "username and password are required"}, status=400)
 
+    from datetime import timedelta
+
     from django.contrib.auth import authenticate
+    from django.utils import timezone
+
+    from .models import APIToken
 
     user = authenticate(request, username=username, password=password)
     if user is None or not user.is_active:
         return JsonResponse({"error": "Invalid credentials"}, status=401)
 
+    # Compute expiry
+    default_hours = getattr(settings, "SMALLSTACK_LOGIN_TOKEN_EXPIRY_HOURS", 24)
+    max_hours = getattr(settings, "SMALLSTACK_LOGIN_TOKEN_MAX_HOURS", 168)
+    requested_hours = data.get("expires_hours", default_hours)
+    try:
+        requested_hours = int(requested_hours)
+    except (ValueError, TypeError):
+        requested_hours = default_hours
+    expiry_hours = min(max(1, requested_hours), max_hours)
+    expires_at = timezone.now() + timedelta(hours=expiry_hours)
+
+    # Upsert: find existing active login token for this user
+    existing = APIToken.objects.filter(
+        user=user, token_type="login", is_active=True,
+    ).first()
+
+    raw_key, prefix, hashed = APIToken._generate_raw_key()
+
+    if existing:
+        existing.prefix = prefix
+        existing.hashed_key = hashed
+        existing.expires_at = expires_at
+        existing.last_used_at = timezone.now()
+        existing.save(update_fields=["prefix", "hashed_key", "expires_at", "last_used_at"])
+        token = existing
+    else:
+        token = APIToken.objects.create(
+            user=user, name="Login token", prefix=prefix, hashed_key=hashed,
+            token_type="login", access_level="", expires_at=expires_at,
+        )
+
+    return JsonResponse({
+        "token": raw_key,
+        "user": _user_json(user),
+        "expires_at": expires_at.isoformat(),
+    })
+
+
+@csrf_exempt
+def api_auth_register(request: HttpRequest) -> JsonResponse:
+    """Create a new user and return a login token.
+
+    POST /api/auth/register/
+    {"username": "alice", "password": "secret123", "email": "alice@example.com"}
+
+    Requires auth-level Bearer token.
+    """
+    if request.method != "POST":
+        return JsonResponse({"error": "Method not allowed"}, status=405)
+
+    user, err = _authenticate_api_request(request)
+    if err:
+        return err
+    perm_err = _require_auth_token(request)
+    if perm_err:
+        return perm_err
+
+    if not getattr(settings, "SMALLSTACK_API_REGISTER_ENABLED", False):
+        return JsonResponse({"error": "Registration is disabled"}, status=403)
+
+    try:
+        data = json.loads(request.body)
+    except (json.JSONDecodeError, ValueError):
+        return JsonResponse({"error": "Invalid JSON"}, status=400)
+
+    username = data.get("username", "").strip()
+    password = data.get("password", "")
+    email = data.get("email", "").strip()
+
+    if not username or not password:
+        return JsonResponse({"error": "username and password are required"}, status=400)
+
+    from django.contrib.auth import get_user_model
+    from django.contrib.auth.password_validation import validate_password
+    from django.core.exceptions import ValidationError
+
+    User = get_user_model()
+
+    # Check uniqueness
+    if User.objects.filter(username=username).exists():
+        return JsonResponse({"errors": {"username": ["A user with that username already exists."]}}, status=400)
+
+    # Validate password
+    try:
+        validate_password(password)
+    except ValidationError as e:
+        return JsonResponse({"errors": {"password": e.messages}}, status=400)
+
+    # Create user — always non-staff, non-superuser
+    new_user = User.objects.create_user(
+        username=username, password=password, email=email,
+        is_staff=False, is_superuser=False, is_active=True,
+    )
+
+    from datetime import timedelta
+
+    from django.utils import timezone
+
     from .models import APIToken
 
-    # Return existing active token or create new one
-    existing = APIToken.objects.filter(user=user, is_active=True).first()
-    if existing:
-        # Can't return the raw key for existing tokens (hashed), create a new one
-        pass
+    default_hours = getattr(settings, "SMALLSTACK_LOGIN_TOKEN_EXPIRY_HOURS", 24)
+    expires_at = timezone.now() + timedelta(hours=default_hours)
 
-    token, raw_key = APIToken.create_token(user, name="Login token")
-
-    return JsonResponse(
-        {
-            "token": raw_key,
-            "user": {
-                "id": user.pk,
-                "username": user.get_username(),
-                "is_staff": user.is_staff,
-            },
-        }
+    token, raw_key = APIToken.create_token(
+        user=new_user, name="Login token",
+        token_type="login", access_level="", expires_at=expires_at,
     )
+
+    return JsonResponse({
+        "token": raw_key,
+        "user": _user_json(new_user),
+        "expires_at": expires_at.isoformat(),
+    }, status=201)
+
+
+@csrf_exempt
+def api_auth_me(request: HttpRequest) -> JsonResponse:
+    """Return the authenticated user's profile.
+
+    GET /api/auth/me/
+    """
+    if request.method != "GET":
+        return JsonResponse({"error": "Method not allowed"}, status=405)
+
+    user, err = _authenticate_api_request(request)
+    if err:
+        return err
+
+    return JsonResponse(_user_json(user))
+
+
+@csrf_exempt
+def api_auth_password(request: HttpRequest) -> JsonResponse:
+    """User changes their own password.
+
+    POST /api/auth/password/
+    {"current_password": "old123", "new_password": "new456"}
+    """
+    if request.method != "POST":
+        return JsonResponse({"error": "Method not allowed"}, status=405)
+
+    user, err = _authenticate_api_request(request)
+    if err:
+        return err
+
+    try:
+        data = json.loads(request.body)
+    except (json.JSONDecodeError, ValueError):
+        return JsonResponse({"error": "Invalid JSON"}, status=400)
+
+    current_password = data.get("current_password", "")
+    new_password = data.get("new_password", "")
+
+    if not current_password or not new_password:
+        return JsonResponse({"error": "current_password and new_password are required"}, status=400)
+
+    if not user.check_password(current_password):
+        return JsonResponse({"error": "Current password is incorrect"}, status=400)
+
+    from django.contrib.auth.password_validation import validate_password
+    from django.core.exceptions import ValidationError
+
+    try:
+        validate_password(new_password, user=user)
+    except ValidationError as e:
+        return JsonResponse({"errors": {"new_password": e.messages}}, status=400)
+
+    user.set_password(new_password)
+    user.save(update_fields=["password"])
+
+    return JsonResponse({"message": "Password updated"})
+
+
+@csrf_exempt
+def api_auth_user_password(request: HttpRequest, user_id: int) -> JsonResponse:
+    """System changes a user's password (no current password required).
+
+    POST /api/auth/users/<id>/password/
+    {"new_password": "new456"}
+
+    Requires auth-level Bearer token.
+    """
+    if request.method != "POST":
+        return JsonResponse({"error": "Method not allowed"}, status=405)
+
+    caller, err = _authenticate_api_request(request)
+    if err:
+        return err
+    perm_err = _require_auth_token(request)
+    if perm_err:
+        return perm_err
+
+    try:
+        data = json.loads(request.body)
+    except (json.JSONDecodeError, ValueError):
+        return JsonResponse({"error": "Invalid JSON"}, status=400)
+
+    new_password = data.get("new_password", "")
+    if not new_password:
+        return JsonResponse({"error": "new_password is required"}, status=400)
+
+    from django.contrib.auth import get_user_model
+    from django.contrib.auth.password_validation import validate_password
+    from django.core.exceptions import ValidationError
+
+    User = get_user_model()
+    try:
+        target_user = User.objects.get(pk=user_id)
+    except User.DoesNotExist:
+        return JsonResponse({"error": "User not found"}, status=404)
+
+    try:
+        validate_password(new_password, user=target_user)
+    except ValidationError as e:
+        return JsonResponse({"errors": {"new_password": e.messages}}, status=400)
+
+    target_user.set_password(new_password)
+    target_user.save(update_fields=["password"])
+
+    return JsonResponse({"message": "Password updated"})
+
+
+@csrf_exempt
+def api_auth_user_deactivate(request: HttpRequest, user_id: int) -> JsonResponse:
+    """System deactivates a user account and revokes all their tokens.
+
+    POST /api/auth/users/<id>/deactivate/
+
+    Requires auth-level Bearer token.
+    """
+    if request.method != "POST":
+        return JsonResponse({"error": "Method not allowed"}, status=405)
+
+    caller, err = _authenticate_api_request(request)
+    if err:
+        return err
+    perm_err = _require_auth_token(request)
+    if perm_err:
+        return perm_err
+
+    from django.contrib.auth import get_user_model
+    from django.utils import timezone
+
+    from .models import APIToken
+
+    User = get_user_model()
+    try:
+        target_user = User.objects.get(pk=user_id)
+    except User.DoesNotExist:
+        return JsonResponse({"error": "User not found"}, status=404)
+
+    target_user.is_active = False
+    target_user.save(update_fields=["is_active"])
+
+    # Revoke all active tokens for this user
+    APIToken.objects.filter(user=target_user, is_active=True).update(
+        is_active=False, revoked_at=timezone.now(),
+    )
+
+    return JsonResponse({"message": "User deactivated"})

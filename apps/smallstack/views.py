@@ -49,6 +49,8 @@ class SmallStackDashboardView(StaffRequiredMixin, TemplateView):
         "backups": '<svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>',  # noqa: E501
         "help": '<svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/></svg>',  # noqa: E501
         "explorer": '<svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/></svg>',  # noqa: E501
+        "runbook": '<svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M18 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM6 4h5v8l-2.5-1.5L6 12V4z"/></svg>',  # noqa: E501
+        "tokens": '<svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M12.65 10C11.83 7.67 9.61 6 7 6c-3.31 0-6 2.69-6 6s2.69 6 6 6c2.61 0 4.83-1.67 5.65-4H17v4h4v-4h3v-4H12.65zM7 14c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2z"/></svg>',  # noqa: E501
     }
 
     def _build_widgets(self):
@@ -165,6 +167,43 @@ class SmallStackDashboardView(StaffRequiredMixin, TemplateView):
                     "headline": f"{model_count} model{'s' if model_count != 1 else ''}",
                     "detail": "Registered for exploration",
                     "url_name": "explorer-index",
+                }
+            )
+        except Exception:
+            pass
+
+        # Runbook widget
+        try:
+            from smallstack_runbook.models import Document, Runbook
+
+            runbook_count = Runbook.objects.count()
+            doc_count = Document.objects.filter(is_current=True).count()
+            widgets.append(
+                {
+                    "title": "Runbooks",
+                    "icon": self._ICONS["runbook"],
+                    "headline": f"{runbook_count} runbook{'s' if runbook_count != 1 else ''}",
+                    "detail": f"{doc_count} document{'s' if doc_count != 1 else ''}",
+                    "url_name": "runbook:dashboard",
+                }
+            )
+        except Exception:
+            pass
+
+        # API Tokens widget
+        try:
+            from smallstack_tokenmgr.stats import get_overview_stats as get_token_stats
+
+            token_stats = get_token_stats()
+            active = token_stats["active_tokens"]
+            volume = token_stats["volume_24h"]
+            widgets.append(
+                {
+                    "title": "API Tokens",
+                    "icon": self._ICONS["tokens"],
+                    "headline": f"{active} active",
+                    "detail": f"{volume:,} API calls (24h)",
+                    "url_name": "tokenmgr:token-list",
                 }
             )
         except Exception:

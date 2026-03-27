@@ -66,12 +66,13 @@ For SPAs and mobile apps that need programmatic login:
 POST /api/auth/token/
 Content-Type: application/json
 
-{"username": "alice", "password": "secret123"}
+{"username": "alice", "password": "secret123", "expires_hours": 24}
 
 Success → 200:
 {
     "token": "aBcD1234...",
-    "user": {"id": 1, "username": "alice", "is_staff": true}
+    "user": {"id": 1, "username": "alice", "is_staff": true},
+    "expires_at": "2026-03-27T14:00:00+00:00"
 }
 
 Bad credentials → 401: {"error": "Invalid credentials"}
@@ -79,23 +80,132 @@ Missing fields → 400: {"error": "username and password are required"}
 ```
 
 This endpoint:
+- **Upserts** — finds existing active login token for the user, regenerates the key, and updates expiry. The old raw key immediately stops working. One login token per user.
+- `expires_hours` is optional (default: `SMALLSTACK_LOGIN_TOKEN_EXPIRY_HOURS`, capped at `SMALLSTACK_LOGIN_TOKEN_MAX_HOURS`)
+- Response includes `expires_at` (ISO 8601)
 - Validates credentials via Django's `authenticate()`
-- Creates a new APIToken and returns the raw key
 - Respects `axes` rate limiting (same backend as HTML login)
 - Is `@csrf_exempt` for cross-origin use
-
-**By design, there is no signup, password reset, or logout endpoint.** Signup stays HTML/admin-provisioned. Password reset stays HTML/email. To "logout", the client discards the token.
+- To "logout", the client discards the token. Calling this endpoint again replaces the key.
 
 ### Session (Browser)
 
 If the user is logged in via Django session, API endpoints work without a token.
 
+## Token Types & Access Levels
+
+### Token Types
+
+| Type | Created By | Purpose |
+|------|-----------|---------|
+| `login` | `POST /api/auth/token/` or `POST /api/auth/register/` | User session token. One per user (upserted). Has expiry. No access level — inherits user permissions. |
+| `manual` | Token Manager UI or `create_token()` management command | System/service tokens. Can have an access level. No expiry unless explicitly set. |
+
+### Access Levels (Manual Tokens Only)
+
+| Access Level | CRUDView Read | CRUDView Write | Auth Management APIs |
+|-------------|--------------|----------------|---------------------|
+| `auth` | Yes | Yes | Yes (register, password, deactivate) |
+| `staff` | Yes | Yes | No (403) |
+| `readonly` | Yes | No (403) | No (403) |
+
+Login tokens have no access level — they inherit the authenticated user's permissions (staff status, per-object checks, etc.).
+
+## Auth Management API
+
+These endpoints handle user lifecycle operations. All are `@csrf_exempt` for cross-origin use.
+
+| Endpoint | Auth Required | Purpose |
+|----------|--------------|---------|
+| `POST /api/auth/token/` | None (credentials) | Login — upsert token |
+| `POST /api/auth/register/` | Auth-level token | Create user + login token |
+| `GET /api/auth/me/` | Any Bearer | Get current user info |
+| `POST /api/auth/password/` | Any Bearer | Change own password |
+| `POST /api/auth/users/<id>/password/` | Auth-level token | System password change |
+| `POST /api/auth/users/<id>/deactivate/` | Auth-level token | Deactivate user + revoke tokens |
+
+### POST /api/auth/register/
+
+Creates a new user (always non-staff, non-superuser) and returns a login token. Requires an auth-level Bearer token and `SMALLSTACK_API_REGISTER_ENABLED=True`.
+
+```
+POST /api/auth/register/
+Authorization: Bearer <auth-level-token>
+Content-Type: application/json
+
+{"username": "alice", "password": "secret123", "email": "alice@example.com"}
+
+Success → 201:
+{
+    "token": "aBcD1234...",
+    "user": {"id": 2, "username": "alice", "is_staff": false},
+    "expires_at": "2026-03-27T14:00:00+00:00"
+}
+
+Duplicate username → 400: {"errors": {"username": ["A user with that username already exists."]}}
+Registration disabled → 403: {"error": "Registration is disabled"}
+```
+
+### GET /api/auth/me/
+
+Returns the authenticated user's profile. Works with any Bearer token.
+
+```
+GET /api/auth/me/
+Authorization: Bearer <any-token>
+
+→ 200: {"id": 1, "username": "alice", "is_staff": true}
+```
+
+### POST /api/auth/password/
+
+Self-service password change. Requires the current password.
+
+```
+POST /api/auth/password/
+Authorization: Bearer <any-token>
+Content-Type: application/json
+
+{"current_password": "old123", "new_password": "new456"}
+
+Success → 200: {"message": "Password updated"}
+Wrong password → 400: {"error": "Current password is incorrect"}
+```
+
+### POST /api/auth/users/\<id\>/password/
+
+System password change (no current password required). Requires an auth-level token.
+
+```
+POST /api/auth/users/5/password/
+Authorization: Bearer <auth-level-token>
+Content-Type: application/json
+
+{"new_password": "new456"}
+
+Success → 200: {"message": "Password updated"}
+User not found → 404: {"error": "User not found"}
+```
+
+### POST /api/auth/users/\<id\>/deactivate/
+
+Deactivates a user account and revokes all their active tokens. Requires an auth-level token.
+
+```
+POST /api/auth/users/5/deactivate/
+Authorization: Bearer <auth-level-token>
+
+Success → 200: {"message": "User deactivated"}
+User not found → 404: {"error": "User not found"}
+```
+
 ## Permission Checking
 
 1. **Authentication** — Bearer token or session. Returns 401 if neither.
 2. **Mixin permissions** — Inspects `crud_config.mixins` for `StaffRequiredMixin`. Returns 403 if user is not staff.
-3. **Per-object permissions** — `crud_config.can_update(obj, request)` and `crud_config.can_delete(obj, request)` checked on detail endpoint.
-4. **Action checks** — Returns 405 if the HTTP method's action isn't in `crud_config.actions`.
+3. **Access level enforcement** — Manual tokens with `readonly` access level are blocked from POST/PUT/PATCH/DELETE on CRUDView endpoints (403). Staff tokens can read+write CRUDView endpoints but cannot access auth management APIs. Auth tokens can do everything.
+4. **Per-object permissions** — `crud_config.can_update(obj, request)` and `crud_config.can_delete(obj, request)` checked on detail endpoint.
+5. **Action checks** — Returns 405 if the HTTP method's action isn't in `crud_config.actions`.
 
 ## Request/Response Format
 
@@ -387,6 +497,9 @@ The API layer calls these CRUDView methods:
 | Setting | Default | Description |
 |---------|---------|-------------|
 | `SMALLSTACK_API_PREFIX` | `"api/"` | URL prefix for all API endpoints |
+| `SMALLSTACK_LOGIN_TOKEN_EXPIRY_HOURS` | `24` | Default expiry for login tokens |
+| `SMALLSTACK_LOGIN_TOKEN_MAX_HOURS` | `168` | Maximum expiry hours (caps `expires_hours` parameter) |
+| `SMALLSTACK_API_REGISTER_ENABLED` | `False` | Enable `POST /api/auth/register/` endpoint |
 
 ### CRUDView API Attributes
 
