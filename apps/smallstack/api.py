@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import math
+from typing import TYPE_CHECKING
 
 from django.conf import settings
 from django.http import HttpRequest, HttpResponse, JsonResponse, QueryDict
@@ -16,6 +17,15 @@ from django.urls import URLPattern, path
 from django.views.decorators.csrf import csrf_exempt
 
 from .crud import Action
+
+if TYPE_CHECKING:
+    from django import forms
+
+# ---------------------------------------------------------------------------
+# API registry — populated by build_api_urls() for schema introspection
+# ---------------------------------------------------------------------------
+
+_api_registry: list[tuple] = []
 
 
 def build_api_urls(crud_config) -> list[URLPattern]:
@@ -36,8 +46,11 @@ def build_api_urls(crud_config) -> list[URLPattern]:
     list_view = _make_api_list_view(crud_config)
     detail_view = _make_api_detail_view(crud_config)
 
+    list_url_name = f"{name_base}-api-list"
+    _api_registry.append((crud_config, list_url_name))
+
     return [
-        path(f"{prefix}{url_base}/", list_view, name=f"{name_base}-api-list"),
+        path(f"{prefix}{url_base}/", list_view, name=list_url_name),
         path(
             f"{prefix}{url_base}/<int:pk>/",
             detail_view,
@@ -329,6 +342,186 @@ def _serialize(
 
 
 # ---------------------------------------------------------------------------
+# Schema introspection
+# ---------------------------------------------------------------------------
+
+
+def _get_methods_from_actions(crud_config) -> list[str]:
+    """Derive HTTP methods from CRUDView actions."""
+    methods = set()
+    for action in crud_config.actions:
+        if action == Action.LIST:
+            methods.add("GET")
+        elif action == Action.CREATE:
+            methods.add("POST")
+        elif action == Action.DETAIL:
+            methods.add("GET")
+        elif action == Action.UPDATE:
+            methods.update(("PUT", "PATCH"))
+        elif action == Action.DELETE:
+            methods.add("DELETE")
+    return sorted(methods)
+
+
+def _build_endpoint_schema(crud_config, list_url_name: str) -> dict:
+    """Build schema dict for a single registered CRUDView."""
+    from django.urls import reverse
+
+    return {
+        "url": reverse(list_url_name),
+        "model": crud_config.model.__name__,
+        "methods": _get_methods_from_actions(crud_config),
+        "fields": crud_config.fields,
+        "list_fields": crud_config._get_list_fields(),
+        "detail_fields": crud_config._get_detail_fields() or crud_config.fields,
+        "search_fields": crud_config._resolve_search_fields(),
+        "filter_fields": crud_config._resolve_filter_fields(),
+        "expand_fields": list(getattr(crud_config, "api_expand_fields", [])),
+        "aggregate_fields": list(getattr(crud_config, "api_aggregate_fields", [])),
+        "extra_fields": list(getattr(crud_config, "api_extra_fields", [])),
+        "export_formats": crud_config._resolve_export_formats(),
+    }
+
+
+def api_schema(request: HttpRequest) -> JsonResponse:
+    """Return schema of all registered API endpoints.
+
+    GET /api/schema/
+    No authentication required.
+    """
+    if request.method != "GET":
+        return _error("Method not allowed", 405)
+
+    endpoints = [_build_endpoint_schema(cfg, name) for cfg, name in _api_registry]
+    auth = {
+        "login": "/api/auth/token/",
+        "logout": "/api/auth/logout/",
+        "register": "/api/auth/register/",
+        "me": "/api/auth/me/",
+        "password": "/api/auth/password/",
+        "password_requirements": "/api/auth/password-requirements/",
+    }
+    return JsonResponse({"endpoints": endpoints, "auth": auth})
+
+
+# ---------------------------------------------------------------------------
+# OPTIONS field metadata
+# ---------------------------------------------------------------------------
+
+
+def _field_to_schema(name: str, form_field: forms.Field, model: type) -> dict:
+    """Map a Django form field to a type/constraints dict."""
+    from django import forms
+
+    info: dict = {"required": form_field.required}
+
+    # Determine type
+    widget = form_field.widget
+    if isinstance(form_field, forms.ModelChoiceField):
+        info["type"] = "fk"
+        related_model = form_field.queryset.model
+        info["related_model"] = related_model.__name__
+    elif isinstance(form_field, forms.TypedChoiceField) or isinstance(form_field, forms.ChoiceField):
+        info["type"] = "choice"
+        info["choices"] = [[v, str(label)] for v, label in form_field.choices if v != ""]
+    elif isinstance(form_field, (forms.FileField, forms.ImageField)):
+        info["type"] = "file"
+    elif isinstance(form_field, forms.BooleanField):
+        info["type"] = "boolean"
+    elif isinstance(form_field, forms.DateTimeField):
+        info["type"] = "datetime"
+    elif isinstance(form_field, forms.DateField):
+        info["type"] = "date"
+    elif isinstance(form_field, forms.TimeField):
+        info["type"] = "time"
+    elif isinstance(form_field, forms.DecimalField):
+        info["type"] = "decimal"
+        if form_field.max_digits is not None:
+            info["max_digits"] = form_field.max_digits
+        if form_field.decimal_places is not None:
+            info["decimal_places"] = form_field.decimal_places
+    elif isinstance(form_field, forms.FloatField):
+        info["type"] = "float"
+    elif isinstance(form_field, forms.IntegerField):
+        info["type"] = "integer"
+        if form_field.min_value is not None:
+            info["min_value"] = form_field.min_value
+        if form_field.max_value is not None:
+            info["max_value"] = form_field.max_value
+    elif isinstance(form_field, forms.EmailField):
+        info["type"] = "email"
+        if form_field.max_length is not None:
+            info["max_length"] = form_field.max_length
+    elif isinstance(form_field, forms.URLField):
+        info["type"] = "url"
+        if form_field.max_length is not None:
+            info["max_length"] = form_field.max_length
+    elif isinstance(form_field, forms.CharField):
+        # Check widget for textarea
+        if isinstance(widget, forms.Textarea):
+            info["type"] = "text"
+        else:
+            info["type"] = "string"
+        if form_field.max_length is not None:
+            info["max_length"] = form_field.max_length
+    else:
+        info["type"] = "string"
+
+    return info
+
+
+def _model_field_type(model: type, field_name: str) -> str:
+    """Derive a schema type from a model field for read-only extra fields."""
+    from django.db import models as dm
+
+    try:
+        field = model._meta.get_field(field_name)
+    except Exception:
+        return "string"
+
+    if isinstance(field, (dm.DateTimeField,)):
+        return "datetime"
+    if isinstance(field, (dm.DateField,)):
+        return "date"
+    if isinstance(field, (dm.TimeField,)):
+        return "time"
+    if isinstance(field, (dm.BooleanField, dm.NullBooleanField)):
+        return "boolean"
+    int_types = (dm.IntegerField, dm.SmallIntegerField, dm.BigIntegerField,
+                  dm.PositiveIntegerField, dm.PositiveSmallIntegerField)
+    if isinstance(field, int_types):
+        return "integer"
+    if isinstance(field, (dm.FloatField,)):
+        return "float"
+    if isinstance(field, (dm.DecimalField,)):
+        return "decimal"
+    if isinstance(field, (dm.ForeignKey, dm.OneToOneField)):
+        return "fk"
+    return "string"
+
+
+def _build_options_response(crud_config) -> JsonResponse:
+    """Build OPTIONS response with field metadata for a CRUDView."""
+    form_class = crud_config.form_class or crud_config._make_form_class()
+    form = form_class()
+
+    fields: dict = {}
+    for name, form_field in form.fields.items():
+        fields[name] = _field_to_schema(name, form_field, crud_config.model)
+
+    # Append api_extra_fields as read-only
+    for name in getattr(crud_config, "api_extra_fields", []):
+        fields[name] = {
+            "type": _model_field_type(crud_config.model, name),
+            "required": False,
+            "read_only": True,
+        }
+
+    methods = _get_methods_from_actions(crud_config)
+    return JsonResponse({"fields": fields, "methods": methods})
+
+
+# ---------------------------------------------------------------------------
 # View factories
 # ---------------------------------------------------------------------------
 
@@ -338,6 +531,9 @@ def _make_api_list_view(crud_config):
 
     @csrf_exempt
     def api_list_view(request):
+        if request.method == "OPTIONS":
+            return _build_options_response(crud_config)
+
         user, err = _authenticate_api_request(request)
         if err:
             return err
@@ -361,6 +557,9 @@ def _make_api_detail_view(crud_config):
 
     @csrf_exempt
     def api_detail_view(request, pk):
+        if request.method == "OPTIONS":
+            return _build_options_response(crud_config)
+
         user, err = _authenticate_api_request(request)
         if err:
             return err

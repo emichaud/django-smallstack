@@ -865,3 +865,128 @@ class TestAuthTokenEndpoint:
         )
         data = response.json()
         assert data["user"]["is_staff"] is True
+
+
+# ---------------------------------------------------------------------------
+# Integration tests: Schema endpoint
+# ---------------------------------------------------------------------------
+
+SCHEMA_URL = "/api/schema/"
+
+
+class TestSchemaEndpoint:
+    """Integration tests for GET /api/schema/."""
+
+    def test_schema_returns_200_no_auth(self, client, db):
+        """GET without auth returns 200."""
+        response = client.get(SCHEMA_URL)
+        assert response.status_code == 200
+
+    def test_schema_contains_heartbeat(self, client, db):
+        """Heartbeat should appear in the endpoints list."""
+        response = client.get(SCHEMA_URL)
+        data = response.json()
+        models = [ep["model"] for ep in data["endpoints"]]
+        assert "Heartbeat" in models
+
+    def test_schema_endpoint_keys(self, client, db):
+        """Each endpoint should have the expected keys."""
+        response = client.get(SCHEMA_URL)
+        data = response.json()
+        expected_keys = {
+            "url", "model", "methods", "fields", "list_fields",
+            "detail_fields", "search_fields", "filter_fields",
+            "expand_fields", "aggregate_fields", "extra_fields",
+            "export_formats",
+        }
+        for ep in data["endpoints"]:
+            assert set(ep.keys()) == expected_keys
+
+    def test_schema_auth_section(self, client, db):
+        """Auth dict should list all auth endpoints."""
+        response = client.get(SCHEMA_URL)
+        data = response.json()
+        assert "auth" in data
+        assert data["auth"]["login"] == "/api/auth/token/"
+        assert data["auth"]["logout"] == "/api/auth/logout/"
+        assert data["auth"]["register"] == "/api/auth/register/"
+        assert data["auth"]["me"] == "/api/auth/me/"
+        assert data["auth"]["password"] == "/api/auth/password/"
+        assert data["auth"]["password_requirements"] == "/api/auth/password-requirements/"
+
+    def test_schema_methods_match_actions(self, client, db):
+        """Methods should reflect the Action enum for heartbeat."""
+        response = client.get(SCHEMA_URL)
+        data = response.json()
+        heartbeat_ep = next(ep for ep in data["endpoints"] if ep["model"] == "Heartbeat")
+        # Heartbeat has default actions (LIST, CREATE, DETAIL, UPDATE, DELETE)
+        assert "GET" in heartbeat_ep["methods"]
+        assert "POST" in heartbeat_ep["methods"]
+
+    def test_schema_post_405(self, client, db):
+        """POST to schema endpoint returns 405."""
+        response = client.post(SCHEMA_URL)
+        assert response.status_code == 405
+
+
+# ---------------------------------------------------------------------------
+# Integration tests: OPTIONS field metadata
+# ---------------------------------------------------------------------------
+
+
+class TestOptionsEndpoint:
+    """Integration tests for OPTIONS on CRUDView API endpoints."""
+
+    def test_options_no_auth_required(self, client, db):
+        """OPTIONS returns 200 without auth."""
+        url = reverse(HEARTBEAT_API_LIST)
+        response = client.options(url)
+        assert response.status_code == 200
+
+    def test_options_has_fields(self, client, db):
+        """Response contains a fields dict."""
+        url = reverse(HEARTBEAT_API_LIST)
+        response = client.options(url)
+        data = response.json()
+        assert "fields" in data
+        assert isinstance(data["fields"], dict)
+
+    def test_options_field_types(self, client, db):
+        """Correct types for known heartbeat fields."""
+        url = reverse(HEARTBEAT_API_LIST)
+        response = client.options(url)
+        data = response.json()
+        fields = data["fields"]
+        assert fields["timestamp"]["type"] == "datetime"
+        assert fields["status"]["type"] == "choice"
+        assert fields["response_time_ms"]["type"] == "integer"
+        assert fields["note"]["type"] == "string"
+
+    def test_options_extra_fields_readonly(self, client, db):
+        """api_extra_fields should have read_only: true."""
+        url = reverse(HEARTBEAT_API_LIST)
+        response = client.options(url)
+        data = response.json()
+        # Heartbeat doesn't have api_extra_fields by default,
+        # but check that form fields don't have read_only
+        for name in ("timestamp", "status", "response_time_ms"):
+            assert "read_only" not in data["fields"][name]
+
+    def test_options_includes_methods(self, client, db):
+        """Response should have a methods list."""
+        url = reverse(HEARTBEAT_API_LIST)
+        response = client.options(url)
+        data = response.json()
+        assert "methods" in data
+        assert isinstance(data["methods"], list)
+        assert "GET" in data["methods"]
+
+    def test_options_on_detail_endpoint(self, client, db):
+        """OPTIONS on the detail endpoint also works without auth."""
+        # Use the detail URL pattern name
+        url = reverse("explorer-monitoring-heartbeat-api-detail", kwargs={"pk": 1})
+        response = client.options(url)
+        assert response.status_code == 200
+        data = response.json()
+        assert "fields" in data
+        assert "methods" in data

@@ -18,6 +18,7 @@ from apps.smallstack.api import (
     api_auth_token,
     api_auth_user_deactivate,
     api_auth_user_password,
+    api_schema,
 )
 
 from .views import health_check, legal_page_view
@@ -37,6 +38,8 @@ urlpatterns = [
     path("status/json/", status_json, name="public_status_json"),
     path("profile/", RedirectView.as_view(pattern_name="profile", permanent=False), name="public_profile"),
     path("help/", RedirectView.as_view(pattern_name="help:index", permanent=False), name="public_help"),
+    # API schema (no auth required)
+    path("api/schema/", api_schema, name="api-schema"),
     # API auth
     path("api/auth/token/", api_auth_token, name="api-auth-token"),
     path("api/auth/register/", api_auth_register, name="api-auth-register"),
