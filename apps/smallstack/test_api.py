@@ -731,14 +731,14 @@ class TestAggregationIntegration:
         url = reverse(HEARTBEAT_API_LIST)
         response = client.get(url, {"count_by": "nonexistent"}, **auth_header)
         assert response.status_code == 400
-        assert "not in filter_fields" in response.json()["error"]
+        assert "not in filter_fields" in response.json()["errors"]["__all__"][0]
 
     def test_sum_invalid_field_returns_400(self, client, staff_user, db, auth_header):
         """sum on a field not in api_aggregate_fields should return 400."""
         url = reverse(HEARTBEAT_API_LIST)
         response = client.get(url, {"sum": "status"}, **auth_header)
         assert response.status_code == 400
-        assert "not in api_aggregate_fields" in response.json()["error"]
+        assert "not in api_aggregate_fields" in response.json()["errors"]["__all__"][0]
 
     def test_empty_queryset_aggregation(self, client, staff_user, db, auth_header):
         """Aggregation on empty queryset returns None/zero, not errors."""
@@ -794,7 +794,7 @@ class TestAuthTokenEndpoint:
             content_type="application/json",
         )
         assert response.status_code == 401
-        assert response.json()["error"] == "Invalid credentials"
+        assert response.json()["errors"]["__all__"][0] == "Invalid credentials"
 
     def test_nonexistent_user_returns_401(self, client, db):
         """Non-existent username returns 401."""

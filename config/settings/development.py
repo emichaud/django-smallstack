@@ -107,6 +107,10 @@ LOGGING = {
     },
 }
 
+# Auto-allow localhost CORS in development when no explicit origins are set
+if not CORS_ALLOWED_ORIGINS:  # noqa: F405
+    CORS_ALLOWED_ORIGIN_REGEXES = [r"^http://localhost:\d+$", r"^http://127\.0\.0\.1:\d+$"]
+
 # Explorer — show all admin-registered models without requiring explorer_enabled
 EXPLORER_DISCOVER_ALL = True
 

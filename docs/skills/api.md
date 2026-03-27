@@ -83,8 +83,8 @@ Success → 200:
     "expires_at": "2026-03-27T14:00:00+00:00"
 }
 
-Bad credentials → 401: {"error": "Invalid credentials"}
-Missing fields → 400: {"error": "username and password are required"}
+Bad credentials → 401: {"errors": {"__all__": ["Invalid credentials"]}}
+Missing fields → 400: {"errors": {"__all__": ["username and password are required"]}}
 ```
 
 This endpoint:
@@ -94,7 +94,7 @@ This endpoint:
 - Validates credentials via Django's `authenticate()`
 - Respects `axes` rate limiting (same backend as HTML login)
 - Is `@csrf_exempt` for cross-origin use
-- To "logout", the client discards the token. Calling this endpoint again replaces the key.
+- To logout, call `POST /api/auth/logout/` to revoke server-side, or call this endpoint again to replace the key.
 
 ### Session (Browser)
 
@@ -126,12 +126,24 @@ These endpoints handle user lifecycle operations. All are `@csrf_exempt` for cro
 | Endpoint | Auth Required | Purpose |
 |----------|--------------|---------|
 | `POST /api/auth/token/` | None (credentials) | Login — upsert token |
+| `POST /api/auth/logout/` | Any Bearer | Revoke caller's token |
 | `POST /api/auth/register/` | Auth-level token | Create user + login token |
 | `GET /api/auth/me/` | Any Bearer | Get current user info |
 | `POST /api/auth/password/` | Any Bearer | Change own password |
 | `GET /api/auth/password-requirements/` | None (public) | List password validation rules |
 | `POST /api/auth/users/<id>/password/` | Auth-level token | System password change |
 | `POST /api/auth/users/<id>/deactivate/` | Auth-level token | Deactivate user + revoke tokens |
+
+### POST /api/auth/logout/
+
+Revokes the caller's token server-side. The token immediately stops working.
+
+```
+POST /api/auth/logout/
+Authorization: Bearer <any-token>
+
+Success → 200: {"message": "Logged out"}
+```
 
 ### POST /api/auth/register/
 
@@ -152,7 +164,7 @@ Success → 201:
 }
 
 Duplicate username → 400: {"errors": {"username": ["A user with that username already exists."]}}
-Registration disabled → 403: {"error": "Registration is disabled"}
+Registration disabled → 403: {"errors": {"__all__": ["Registration is disabled"]}}
 ```
 
 ### GET /api/auth/me/
@@ -178,7 +190,7 @@ Content-Type: application/json
 {"current_password": "old123", "new_password": "new456"}
 
 Success → 200: {"message": "Password updated"}
-Wrong password → 400: {"error": "Current password is incorrect"}
+Wrong password → 400: {"errors": {"__all__": ["Current password is incorrect"]}}
 ```
 
 ### POST /api/auth/users/\<id\>/password/
@@ -193,7 +205,7 @@ Content-Type: application/json
 {"new_password": "new456"}
 
 Success → 200: {"message": "Password updated"}
-User not found → 404: {"error": "User not found"}
+User not found → 404: {"errors": {"__all__": ["User not found"]}}
 ```
 
 ### POST /api/auth/users/\<id\>/deactivate/
@@ -205,7 +217,7 @@ POST /api/auth/users/5/deactivate/
 Authorization: Bearer <auth-level-token>
 
 Success → 200: {"message": "User deactivated"}
-User not found → 404: {"error": "User not found"}
+User not found → 404: {"errors": {"__all__": ["User not found"]}}
 ```
 
 ### GET /api/auth/password-requirements/
@@ -366,13 +378,16 @@ Success: 204 No Content
 
 ### Error Responses
 
+All errors use a consistent format: `{"errors": {"__all__": ["message"]}}` for general errors, or `{"errors": {"field": ["message"]}}` for field-specific validation errors. Frontend code only needs to handle one shape.
+
 | Status | Body | When |
 |--------|------|------|
-| 400 | `{"errors": form.errors}` | Validation failure |
-| 401 | `{"error": "Invalid token"}` | Bad Bearer token |
-| 403 | `{"error": "Staff access required"}` | Non-staff user |
-| 404 | `{"error": "Not found"}` | Object doesn't exist |
-| 405 | `{"error": "Method not allowed"}` | Action not in `actions` |
+| 400 | `{"errors": {"field": ["message"]}}` | Field validation failure |
+| 400 | `{"errors": {"__all__": ["message"]}}` | General validation error |
+| 401 | `{"errors": {"__all__": ["Invalid token"]}}` | Bad Bearer token |
+| 403 | `{"errors": {"__all__": ["Staff access required"]}}` | Non-staff user |
+| 404 | `{"errors": {"__all__": ["Not found"]}}` | Object doesn't exist |
+| 405 | `{"errors": {"__all__": ["Method not allowed"]}}` | Action not in `actions` |
 
 ## Serialization
 
@@ -574,6 +589,8 @@ CORS_ALLOWED_ORIGINS=http://localhost:3000,http://localhost:5173
 ```
 
 This is already wired up in `config/settings/base.py` — no code changes needed. The middleware is installed and reads from the environment variable. By default (empty string), no cross-origin requests are allowed.
+
+**Dev mode auto-config:** In development (`DEBUG=True`), if no `CORS_ALLOWED_ORIGINS` are set, SmallStack automatically allows requests from any `localhost` or `127.0.0.1` port. This means React on port 3000, Vite on port 5173, etc. all work out of the box with no configuration needed.
 
 For production, set the actual frontend domain:
 

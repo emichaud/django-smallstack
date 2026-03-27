@@ -51,6 +51,11 @@ def build_api_urls(crud_config) -> list[URLPattern]:
 # ---------------------------------------------------------------------------
 
 
+def _error(message, status):
+    """Return a consistent error JsonResponse."""
+    return JsonResponse({"errors": {"__all__": [message]}}, status=status)
+
+
 def _authenticate_api_request(
     request: HttpRequest,
 ) -> tuple[object | None, JsonResponse | None]:
@@ -63,7 +68,7 @@ def _authenticate_api_request(
         raw_key = auth_header[7:]
         user, token = APIToken.authenticate(raw_key)
         if user is None:
-            return None, JsonResponse({"error": "Invalid token"}, status=401)
+            return None, _error("Invalid token", 401)
         request.user = user
         request._api_token = token
         request._api_token_auth = True
@@ -73,7 +78,7 @@ def _authenticate_api_request(
     if request.user.is_authenticated:
         return request.user, None
 
-    return None, JsonResponse({"error": "Authentication required"}, status=401)
+    return None, _error("Authentication required", 401)
 
 
 # ---------------------------------------------------------------------------
@@ -88,13 +93,13 @@ def _check_api_permissions(request, crud_config, method="GET"):
     for mixin in crud_config.mixins:
         if issubclass(mixin, StaffRequiredMixin) or mixin.__name__ == "StaffRequiredMixin":
             if not request.user.is_staff:
-                return JsonResponse({"error": "Staff access required"}, status=403)
+                return _error("Staff access required", 403)
 
     # Enforce access_level on manual tokens
     token = getattr(request, "_api_token", None)
     if token and token.token_type == "manual":
         if token.access_level == "readonly" and method not in ("GET", "HEAD", "OPTIONS"):
-            return JsonResponse({"error": "Token is read-only"}, status=403)
+            return _error("Token is read-only", 403)
     return None
 
 
@@ -102,7 +107,7 @@ def _require_auth_token(request):
     """Check that the request uses a manual token with access_level='auth'."""
     token = getattr(request, "_api_token", None)
     if not token or token.token_type != "manual" or token.access_level != "auth":
-        return JsonResponse({"error": "Auth-level token required"}, status=403)
+        return _error("Auth-level token required", 403)
     return None
 
 
@@ -263,10 +268,7 @@ def _compute_aggregations(request: HttpRequest, qs, crud_config) -> tuple[dict, 
     count_by = request.GET.get("count_by", "").strip()
     if count_by:
         if count_by not in filter_fields:
-            return {}, JsonResponse(
-                {"error": f"count_by field '{count_by}' not in filter_fields"},
-                status=400,
-            )
+            return {}, _error(f"count_by field '{count_by}' not in filter_fields", 400)
         rows = qs.values(count_by).annotate(_count=Count("id")).order_by(count_by)
         extra["counts"] = {
             str(row[count_by]).lower() if isinstance(row[count_by], bool) else str(row[count_by]): row["_count"]
@@ -281,10 +283,7 @@ def _compute_aggregations(request: HttpRequest, qs, crud_config) -> tuple[dict, 
         if not field_name:
             continue
         if field_name not in agg_fields:
-            return {}, JsonResponse(
-                {"error": f"{op} field '{field_name}' not in api_aggregate_fields"},
-                status=400,
-            )
+            return {}, _error(f"{op} field '{field_name}' not in api_aggregate_fields", 400)
         agg_kwargs[f"{op}_{field_name}"] = agg_funcs[op](field_name)
 
     if agg_kwargs:
@@ -350,9 +349,9 @@ def _make_api_list_view(crud_config):
             return _api_list(request, crud_config)
         elif request.method == "POST":
             if Action.CREATE not in crud_config.actions:
-                return JsonResponse({"error": "Method not allowed"}, status=405)
+                return _error("Method not allowed", 405)
             return _api_create(request, crud_config)
-        return JsonResponse({"error": "Method not allowed"}, status=405)
+        return _error("Method not allowed", 405)
 
     return api_list_view
 
@@ -376,7 +375,7 @@ def _make_api_detail_view(crud_config):
         try:
             obj = qs.get(pk=pk)
         except qs.model.DoesNotExist:
-            return JsonResponse({"error": "Not found"}, status=404)
+            return _error("Not found", 404)
 
         if request.method == "GET":
             fields = crud_config._get_detail_fields() or crud_config.fields
@@ -384,20 +383,20 @@ def _make_api_detail_view(crud_config):
 
         elif request.method in ("PUT", "PATCH"):
             if Action.UPDATE not in crud_config.actions:
-                return JsonResponse({"error": "Method not allowed"}, status=405)
+                return _error("Method not allowed", 405)
             if not crud_config.can_update(obj, request):
-                return JsonResponse({"error": "Permission denied"}, status=403)
+                return _error("Permission denied", 403)
             return _api_update(request, obj, crud_config)
 
         elif request.method == "DELETE":
             if Action.DELETE not in crud_config.actions:
-                return JsonResponse({"error": "Method not allowed"}, status=405)
+                return _error("Method not allowed", 405)
             if not crud_config.can_delete(obj, request):
-                return JsonResponse({"error": "Permission denied"}, status=403)
+                return _error("Permission denied", 403)
             obj.delete()
             return HttpResponse(status=204)
 
-        return JsonResponse({"error": "Method not allowed"}, status=405)
+        return _error("Method not allowed", 405)
 
     return api_detail_view
 
@@ -627,17 +626,17 @@ def api_auth_token(request: HttpRequest) -> JsonResponse:
     and updates expiry. Old raw key immediately stops working.
     """
     if request.method != "POST":
-        return JsonResponse({"error": "Method not allowed"}, status=405)
+        return _error("Method not allowed", 405)
 
     try:
         data = json.loads(request.body)
     except (json.JSONDecodeError, ValueError):
-        return JsonResponse({"error": "Invalid JSON"}, status=400)
+        return _error("Invalid JSON", 400)
 
     username = data.get("username", "").strip()
     password = data.get("password", "")
     if not username or not password:
-        return JsonResponse({"error": "username and password are required"}, status=400)
+        return _error("username and password are required", 400)
 
     from datetime import timedelta
 
@@ -648,7 +647,7 @@ def api_auth_token(request: HttpRequest) -> JsonResponse:
 
     user = authenticate(request, username=username, password=password)
     if user is None or not user.is_active:
-        return JsonResponse({"error": "Invalid credentials"}, status=401)
+        return _error("Invalid credentials", 401)
 
     # Compute expiry
     default_hours = getattr(settings, "SMALLSTACK_LOGIN_TOKEN_EXPIRY_HOURS", 24)
@@ -698,7 +697,7 @@ def api_auth_register(request: HttpRequest) -> JsonResponse:
     Requires auth-level Bearer token.
     """
     if request.method != "POST":
-        return JsonResponse({"error": "Method not allowed"}, status=405)
+        return _error("Method not allowed", 405)
 
     user, err = _authenticate_api_request(request)
     if err:
@@ -708,19 +707,19 @@ def api_auth_register(request: HttpRequest) -> JsonResponse:
         return perm_err
 
     if not getattr(settings, "SMALLSTACK_API_REGISTER_ENABLED", False):
-        return JsonResponse({"error": "Registration is disabled"}, status=403)
+        return _error("Registration is disabled", 403)
 
     try:
         data = json.loads(request.body)
     except (json.JSONDecodeError, ValueError):
-        return JsonResponse({"error": "Invalid JSON"}, status=400)
+        return _error("Invalid JSON", 400)
 
     username = data.get("username", "").strip()
     password = data.get("password", "")
     email = data.get("email", "").strip()
 
     if not username or not password:
-        return JsonResponse({"error": "username and password are required"}, status=400)
+        return _error("username and password are required", 400)
 
     from django.contrib.auth import get_user_model
     from django.contrib.auth.password_validation import validate_password
@@ -772,7 +771,7 @@ def api_auth_me(request: HttpRequest) -> JsonResponse:
     GET /api/auth/me/
     """
     if request.method != "GET":
-        return JsonResponse({"error": "Method not allowed"}, status=405)
+        return _error("Method not allowed", 405)
 
     user, err = _authenticate_api_request(request)
     if err:
@@ -789,7 +788,7 @@ def api_auth_password(request: HttpRequest) -> JsonResponse:
     {"current_password": "old123", "new_password": "new456"}
     """
     if request.method != "POST":
-        return JsonResponse({"error": "Method not allowed"}, status=405)
+        return _error("Method not allowed", 405)
 
     user, err = _authenticate_api_request(request)
     if err:
@@ -798,16 +797,16 @@ def api_auth_password(request: HttpRequest) -> JsonResponse:
     try:
         data = json.loads(request.body)
     except (json.JSONDecodeError, ValueError):
-        return JsonResponse({"error": "Invalid JSON"}, status=400)
+        return _error("Invalid JSON", 400)
 
     current_password = data.get("current_password", "")
     new_password = data.get("new_password", "")
 
     if not current_password or not new_password:
-        return JsonResponse({"error": "current_password and new_password are required"}, status=400)
+        return _error("current_password and new_password are required", 400)
 
     if not user.check_password(current_password):
-        return JsonResponse({"error": "Current password is incorrect"}, status=400)
+        return _error("Current password is incorrect", 400)
 
     from django.contrib.auth.password_validation import validate_password
     from django.core.exceptions import ValidationError
@@ -833,7 +832,7 @@ def api_auth_user_password(request: HttpRequest, user_id: int) -> JsonResponse:
     Requires auth-level Bearer token.
     """
     if request.method != "POST":
-        return JsonResponse({"error": "Method not allowed"}, status=405)
+        return _error("Method not allowed", 405)
 
     caller, err = _authenticate_api_request(request)
     if err:
@@ -845,11 +844,11 @@ def api_auth_user_password(request: HttpRequest, user_id: int) -> JsonResponse:
     try:
         data = json.loads(request.body)
     except (json.JSONDecodeError, ValueError):
-        return JsonResponse({"error": "Invalid JSON"}, status=400)
+        return _error("Invalid JSON", 400)
 
     new_password = data.get("new_password", "")
     if not new_password:
-        return JsonResponse({"error": "new_password is required"}, status=400)
+        return _error("new_password is required", 400)
 
     from django.contrib.auth import get_user_model
     from django.contrib.auth.password_validation import validate_password
@@ -859,7 +858,7 @@ def api_auth_user_password(request: HttpRequest, user_id: int) -> JsonResponse:
     try:
         target_user = User.objects.get(pk=user_id)
     except User.DoesNotExist:
-        return JsonResponse({"error": "User not found"}, status=404)
+        return _error("User not found", 404)
 
     try:
         validate_password(new_password, user=target_user)
@@ -878,7 +877,7 @@ def api_auth_password_requirements(request: HttpRequest) -> JsonResponse:
     GET /api/auth/password-requirements/
     """
     if request.method != "GET":
-        return JsonResponse({"error": "Method not allowed"}, status=405)
+        return _error("Method not allowed", 405)
 
     from django.contrib.auth.password_validation import password_validators_help_texts
 
@@ -894,7 +893,7 @@ def api_auth_user_deactivate(request: HttpRequest, user_id: int) -> JsonResponse
     Requires auth-level Bearer token.
     """
     if request.method != "POST":
-        return JsonResponse({"error": "Method not allowed"}, status=405)
+        return _error("Method not allowed", 405)
 
     caller, err = _authenticate_api_request(request)
     if err:
@@ -912,7 +911,7 @@ def api_auth_user_deactivate(request: HttpRequest, user_id: int) -> JsonResponse
     try:
         target_user = User.objects.get(pk=user_id)
     except User.DoesNotExist:
-        return JsonResponse({"error": "User not found"}, status=404)
+        return _error("User not found", 404)
 
     target_user.is_active = False
     target_user.save(update_fields=["is_active"])
@@ -923,3 +922,23 @@ def api_auth_user_deactivate(request: HttpRequest, user_id: int) -> JsonResponse
     )
 
     return JsonResponse({"message": "User deactivated"})
+
+
+@csrf_exempt
+def api_auth_logout(request: HttpRequest) -> JsonResponse:
+    """Revoke the caller's login token.
+
+    POST /api/auth/logout/
+    """
+    if request.method != "POST":
+        return _error("Method not allowed", 405)
+
+    user, err = _authenticate_api_request(request)
+    if err:
+        return err
+
+    token = getattr(request, "_api_token", None)
+    if token:
+        token.revoke()
+
+    return JsonResponse({"message": "Logged out"})
