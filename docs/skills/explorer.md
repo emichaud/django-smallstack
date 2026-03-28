@@ -66,6 +66,9 @@ Explorer reads `list_display` for columns (real model fields only — callables 
 | `explorer_displays` | `list` | `[Table2Display]` | Display protocol classes for list view. |
 | `explorer_detail_displays` | `list` | `[]` | Display protocol classes for detail view. |
 | `explorer_export_formats` | `list` | `[]` | Export formats, e.g. `["csv", "json"]`. |
+| `explorer_api_extra_fields` | `list[str]` | `[]` | Read-only fields appended to API responses |
+| `explorer_api_expand_fields` | `list[str]` | `[]` | FK fields always expanded in API responses |
+| `explorer_api_aggregate_fields` | `list[str]` | `[]` | Fields supporting `?sum=`, `?avg=`, `?min=`, `?max=` |
 | `explorer_enable_api` | `bool` | `False` | Enable REST API endpoints for this model. |
 
 ## Supported Django ModelAdmin Attributes

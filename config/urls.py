@@ -21,6 +21,7 @@ from apps.smallstack.api import (
     api_auth_user_detail,
     api_auth_user_password,
     api_auth_users,
+    api_openapi_schema,
     api_schema,
 )
 
@@ -43,6 +44,7 @@ urlpatterns = [
     path("help/", RedirectView.as_view(pattern_name="help:index", permanent=False), name="public_help"),
     # API schema (no auth required)
     path("api/schema/", api_schema, name="api-schema"),
+    path("api/schema/openapi.json", api_openapi_schema, name="api-openapi-schema"),
     # API auth
     path("api/auth/token/", api_auth_token, name="api-auth-token"),
     path("api/auth/token/refresh/", api_auth_token_refresh, name="api-auth-token-refresh"),

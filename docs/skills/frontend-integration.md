@@ -109,6 +109,18 @@ Browser → GET /api/manage/widgets/
       ← 200 {"count": 42, "results": [...]}
 ```
 
+### Discovering the API
+
+SmallStack provides three discovery endpoints (no auth required):
+
+| Endpoint | Purpose |
+|----------|---------|
+| `GET /api/schema/` | SmallStack-native schema — lists all endpoints, fields, filters, ordering |
+| `GET /api/schema/openapi.json` | OpenAPI 3.0.3 spec — for Swagger UI, code generators, Postman |
+| `OPTIONS /api/{endpoint}/` | Field types, constraints, allowed methods for a single endpoint |
+
+Use the OpenAPI spec to auto-generate TypeScript types or API clients for your frontend framework.
+
 ### Password Change (Self-Service)
 
 ```

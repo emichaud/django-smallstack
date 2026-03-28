@@ -143,7 +143,19 @@ When `export_formats` is set, `export_formats` is available in the template cont
 
 Export downloads contain the **currently filtered** data. If the user has an active search query or filter, the export reflects that subset — not the full dataset.
 
-## Combining All Three
+## Ordering (`?ordering=`)
+
+Sort API results by any field in `list_fields` or `api_extra_fields`:
+
+```
+GET /api/tasks/?ordering=-created_at,name    → by date desc, then name asc
+```
+
+Ordering is automatic — no CRUDView attribute needed. The allowed fields are derived from your CRUDView's `list_fields` and `api_extra_fields`. Invalid fields are silently ignored.
+
+See `api.md` for full details.
+
+## Combining All Four
 
 ```python
 class WidgetCRUDView(CRUDView):
@@ -161,6 +173,8 @@ class WidgetCRUDView(CRUDView):
 
     # Export
     export_formats = ("csv", "json")
+
+    # Ordering — automatic, uses list_fields + api_extra_fields
 ```
 
 ## Field Type Handling in Export

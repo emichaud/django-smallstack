@@ -1,8 +1,11 @@
-"""Stock Django REST API views for CRUDView.
+"""Lightweight REST API layer for CRUDView.
 
-~200 lines of throwaway glue. If the project graduates to DRF,
-delete this file and write DRF viewsets. Everything else
-(filters, tokens, models, exports) transfers directly.
+Auto-generates JSON endpoints (list, detail, create, update, delete) from
+CRUDView configs, plus standalone auth endpoints (login, register, token
+refresh, user management).  Also provides schema introspection, OPTIONS
+field metadata, FK expansion, aggregation, and CSV/JSON export.
+
+No external dependencies beyond Django (tablib for export).
 """
 
 from __future__ import annotations
@@ -20,6 +23,7 @@ from .crud import Action
 
 if TYPE_CHECKING:
     from django import forms
+    from django.db.models import QuerySet
 
 # ---------------------------------------------------------------------------
 # API registry — populated by build_api_urls() for schema introspection
@@ -187,6 +191,52 @@ def _resolve_page(raw: str, total_pages: int, current: int | None = None) -> int
     except (ValueError, TypeError):
         return 1
     return max(1, min(page, total_pages))
+
+
+_MAX_PAGE_SIZE: int = 1000
+_DEFAULT_PAGE_SIZE: int = 25
+
+
+def _paginate(request: HttpRequest, qs, page_size: int = _DEFAULT_PAGE_SIZE) -> tuple[list, dict]:
+    """Paginate a queryset and return (items, page_meta).
+
+    Respects ?page= and ?page_size= query params.  Preserves all existing
+    query parameters in next/previous URLs so filters aren't lost.
+    """
+    from urllib.parse import urlencode
+
+    raw_page_size = request.GET.get("page_size", "").strip()
+    if raw_page_size:
+        try:
+            page_size = max(1, min(int(raw_page_size), _MAX_PAGE_SIZE))
+        except (ValueError, TypeError):
+            pass
+
+    total: int = qs.count()
+    total_pages: int = max(1, math.ceil(total / page_size))
+    page_num: int = _resolve_page(request.GET.get("page", "1"), total_pages)
+    start: int = (page_num - 1) * page_size
+    items = list(qs[start : start + page_size])
+
+    # Build next/previous URLs preserving all query params
+    base_path: str = request.path
+
+    def _page_url(page: int) -> str:
+        params = request.GET.copy()
+        params["page"] = str(page)
+        return f"{base_path}?{urlencode(params, doseq=True)}"
+
+    next_url: str | None = _page_url(page_num + 1) if page_num < total_pages else None
+    prev_url: str | None = _page_url(page_num - 1) if page_num > 1 else None
+
+    meta = {
+        "count": total,
+        "page": page_num,
+        "total_pages": total_pages,
+        "next": next_url,
+        "previous": prev_url,
+    }
+    return items, meta
 
 
 # ---------------------------------------------------------------------------
@@ -380,6 +430,9 @@ def _build_endpoint_schema(crud_config, list_url_name: str) -> dict:
         "aggregate_fields": list(getattr(crud_config, "api_aggregate_fields", [])),
         "extra_fields": list(getattr(crud_config, "api_extra_fields", [])),
         "export_formats": crud_config._resolve_export_formats(),
+        "ordering_fields": sorted(
+            set(crud_config._get_list_fields()) | set(getattr(crud_config, "api_extra_fields", []))
+        ),
     }
 
 
@@ -521,7 +574,10 @@ def _build_options_response(crud_config) -> JsonResponse:
         }
 
     methods = _get_methods_from_actions(crud_config)
-    return JsonResponse({"fields": fields, "methods": methods})
+    ordering_fields = sorted(
+        set(crud_config._get_list_fields()) | set(getattr(crud_config, "api_extra_fields", []))
+    )
+    return JsonResponse({"fields": fields, "methods": methods, "ordering_fields": ordering_fields})
 
 
 # ---------------------------------------------------------------------------
@@ -608,6 +664,22 @@ def _make_api_detail_view(crud_config):
 # ---------------------------------------------------------------------------
 
 
+def _apply_ordering(qs, ordering: str, allowed: set[str]) -> QuerySet:
+    """Apply comma-separated ordering fields to a queryset.
+
+    Each field may be prefixed with ``-`` for descending.  Fields not in
+    *allowed* are silently ignored (matches Django/DRF convention).
+    """
+    validated: list[str] = []
+    for part in ordering.split(","):
+        field = part.strip().lstrip("-")
+        if field in allowed:
+            validated.append(part.strip())
+    if validated:
+        return qs.order_by(*validated)
+    return qs
+
+
 def _api_list(request, crud_config):
     """Handle GET on list endpoint: list, search, filter, paginate, export."""
     from django.db.models import Q
@@ -654,6 +726,12 @@ def _api_list(request, crud_config):
     if export_fmt and export_fmt in export_formats:
         return _api_export(qs, crud_config, export_fmt)
 
+    # Ordering
+    ordering = request.GET.get("ordering", "").strip()
+    if ordering:
+        allowed = set(crud_config._get_list_fields()) | set(getattr(crud_config, "api_extra_fields", []))
+        qs = _apply_ordering(qs, ordering, allowed)
+
     # Aggregation (computed before pagination, on the full filtered queryset)
     agg_extra, agg_err = _compute_aggregations(request, qs, crud_config)
     if agg_err:
@@ -664,37 +742,13 @@ def _api_list(request, crud_config):
     if expand_fields:
         qs = _apply_select_related(qs, crud_config.model, expand_fields)
 
-    # Paginate (client can override page size via ?page_size=N, capped at 1000)
-    _MAX_PAGE_SIZE: int = 1000
-    page_size: int = crud_config._resolve_paginate_by() or 25
-    raw_page_size = request.GET.get("page_size", "").strip()
-    if raw_page_size:
-        try:
-            page_size = max(1, min(int(raw_page_size), _MAX_PAGE_SIZE))
-        except (ValueError, TypeError):
-            pass
-    total: int = qs.count()
-    total_pages: int = max(1, math.ceil(total / page_size))
-    page_num: int = _resolve_page(request.GET.get("page", "1"), total_pages)
-    start: int = (page_num - 1) * page_size
-    items = list(qs[start : start + page_size])
+    # Paginate
+    items, page_meta = _paginate(request, qs, page_size=crud_config._resolve_paginate_by() or _DEFAULT_PAGE_SIZE)
 
     fields = crud_config._get_list_fields()
     results: list[dict] = [_serialize(obj, fields, crud_config.api_extra_fields, expand_fields) for obj in items]
 
-    # Build next/previous URLs
-    base_path: str = request.path
-    next_url: str | None = f"{base_path}?page={page_num + 1}" if page_num < total_pages else None
-    prev_url: str | None = f"{base_path}?page={page_num - 1}" if page_num > 1 else None
-
-    response_data: dict = {
-        "count": total,
-        "page": page_num,
-        "total_pages": total_pages,
-        "next": next_url,
-        "previous": prev_url,
-        "results": results,
-    }
+    response_data: dict = {**page_meta, "results": results}
     # Merge aggregation data into response (counts, sum_*, avg_*, etc.)
     response_data.update(agg_extra)
 
@@ -803,8 +857,22 @@ def _api_export(qs, crud_config, fmt):
 
 
 # ---------------------------------------------------------------------------
-# Auth token endpoint
+# Auth helpers
 # ---------------------------------------------------------------------------
+
+
+def _resolve_token_expiry(requested_hours=None) -> int:
+    """Return clamped token expiry in hours from settings."""
+    default = getattr(settings, "SMALLSTACK_LOGIN_TOKEN_EXPIRY_HOURS", 24)
+    max_h = getattr(settings, "SMALLSTACK_LOGIN_TOKEN_MAX_HOURS", 168)
+    if requested_hours is not None:
+        try:
+            requested_hours = int(requested_hours)
+        except (ValueError, TypeError):
+            requested_hours = default
+    else:
+        requested_hours = default
+    return min(max(1, requested_hours), max_h)
 
 
 def _user_json(user, extended=False):
@@ -859,14 +927,7 @@ def api_auth_token(request: HttpRequest) -> JsonResponse:
         return _error("Invalid credentials", 401)
 
     # Compute expiry
-    default_hours = getattr(settings, "SMALLSTACK_LOGIN_TOKEN_EXPIRY_HOURS", 24)
-    max_hours = getattr(settings, "SMALLSTACK_LOGIN_TOKEN_MAX_HOURS", 168)
-    requested_hours = data.get("expires_hours", default_hours)
-    try:
-        requested_hours = int(requested_hours)
-    except (ValueError, TypeError):
-        requested_hours = default_hours
-    expiry_hours = min(max(1, requested_hours), max_hours)
+    expiry_hours = _resolve_token_expiry(data.get("expires_hours"))
     expires_at = timezone.now() + timedelta(hours=expiry_hours)
 
     # Upsert: find existing active login token for this user
@@ -882,9 +943,8 @@ def api_auth_token(request: HttpRequest) -> JsonResponse:
         existing.expires_at = expires_at
         existing.last_used_at = timezone.now()
         existing.save(update_fields=["prefix", "hashed_key", "expires_at", "last_used_at"])
-        token = existing
     else:
-        token = APIToken.objects.create(
+        APIToken.objects.create(
             user=user, name="Login token", prefix=prefix, hashed_key=hashed,
             token_type="login", access_level="", expires_at=expires_at,
         )
@@ -958,8 +1018,8 @@ def api_auth_register(request: HttpRequest) -> JsonResponse:
 
     from .models import APIToken
 
-    default_hours = getattr(settings, "SMALLSTACK_LOGIN_TOKEN_EXPIRY_HOURS", 24)
-    expires_at = timezone.now() + timedelta(hours=default_hours)
+    expiry_hours = _resolve_token_expiry()
+    expires_at = timezone.now() + timedelta(hours=expiry_hours)
 
     token, raw_key = APIToken.create_token(
         user=new_user, name="Login token",
@@ -1162,35 +1222,16 @@ def api_auth_users(request: HttpRequest) -> JsonResponse:
     if q:
         qs = qs.filter(Q(username__icontains=q) | Q(email__icontains=q))
 
-    # Paginate
-    _MAX_PAGE_SIZE = 1000
-    page_size = 25
-    raw_page_size = request.GET.get("page_size", "").strip()
-    if raw_page_size:
-        try:
-            page_size = max(1, min(int(raw_page_size), _MAX_PAGE_SIZE))
-        except (ValueError, TypeError):
-            pass
-    total = qs.count()
-    total_pages = max(1, math.ceil(total / page_size))
-    page_num = _resolve_page(request.GET.get("page", "1"), total_pages)
-    start = (page_num - 1) * page_size
-    items = list(qs[start : start + page_size])
+    # Ordering
+    ordering = request.GET.get("ordering", "").strip()
+    if ordering:
+        qs = _apply_ordering(qs, ordering, {"username", "email", "pk"})
 
+    # Paginate
+    items, page_meta = _paginate(request, qs)
     results = [_user_json(u, extended=True) for u in items]
 
-    base_path = request.path
-    next_url = f"{base_path}?page={page_num + 1}" if page_num < total_pages else None
-    prev_url = f"{base_path}?page={page_num - 1}" if page_num > 1 else None
-
-    return JsonResponse({
-        "count": total,
-        "page": page_num,
-        "total_pages": total_pages,
-        "next": next_url,
-        "previous": prev_url,
-        "results": results,
-    })
+    return JsonResponse({**page_meta, "results": results})
 
 
 @csrf_exempt
@@ -1287,16 +1328,7 @@ def api_auth_token_refresh(request: HttpRequest) -> JsonResponse:
         except (json.JSONDecodeError, ValueError):
             pass
 
-    default_hours = getattr(settings, "SMALLSTACK_LOGIN_TOKEN_EXPIRY_HOURS", 24)
-    max_hours = getattr(settings, "SMALLSTACK_LOGIN_TOKEN_MAX_HOURS", 168)
-    if expires_hours is not None:
-        try:
-            expires_hours = int(expires_hours)
-        except (ValueError, TypeError):
-            expires_hours = default_hours
-    else:
-        expires_hours = default_hours
-    expiry_hours = min(max(1, expires_hours), max_hours)
+    expiry_hours = _resolve_token_expiry(expires_hours)
     expires_at = timezone.now() + timedelta(hours=expiry_hours)
 
     # Regenerate key
@@ -1332,3 +1364,20 @@ def api_auth_logout(request: HttpRequest) -> JsonResponse:
         token.revoke()
 
     return JsonResponse({"message": "Logged out"})
+
+
+@csrf_exempt
+def api_openapi_schema(request: HttpRequest) -> JsonResponse:
+    """Return an OpenAPI 3.0.3 spec for all registered API endpoints.
+
+    GET /api/schema/openapi.json
+    No authentication required.
+    """
+    if request.method != "GET":
+        return _error("Method not allowed", 405)
+
+    from .openapi import build_openapi_spec
+
+    server_url = request.build_absolute_uri("/")
+    spec = build_openapi_spec(_api_registry, server_url=server_url)
+    return JsonResponse(spec)

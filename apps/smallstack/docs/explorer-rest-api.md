@@ -172,6 +172,20 @@ Timestamp,Status,Response time ms,Note
 
 Export respects any active search/filter — combine `?q=fail&format=csv` to export filtered results.
 
+### Ordering
+
+Sort results by any column:
+
+```bash
+# Sort by response time descending
+curl "$BASE_URL/?ordering=-response_time_ms"
+
+# Multi-field sort
+curl "$BASE_URL/?ordering=-status,response_time_ms"
+```
+
+Orderable fields are auto-detected from the model's list fields. Invalid fields are silently ignored.
+
 ## Detail Endpoint
 
 ```bash
@@ -410,6 +424,16 @@ Request → authenticate → check permissions → route to handler
 ```
 
 This means any config you set on the ModelAdmin (search fields, filters, pagination) automatically works in both the HTML views and the API.
+
+## OpenAPI Specification
+
+An OpenAPI 3.0.3 spec is available at:
+
+```bash
+curl http://localhost:8005/api/schema/openapi.json | python3 -m json.tool
+```
+
+Import into Swagger UI, Postman, or use with code generators. Includes all CRUD and auth endpoints with request/response schemas.
 
 ## See Also
 

@@ -11,6 +11,7 @@ The API is opt-in per CRUDView. When enabled, `get_urls()` generates JSON list a
 ```
 apps/smallstack/
 ├── api.py                 # build_api_urls(), auth, serialization, export, aggregation
+├── openapi.py             # build_openapi_spec() — OpenAPI 3.0.3 generator
 ├── crud.py                # CRUDView — enable_api flag, get_urls() integration
 ```
 
@@ -352,7 +353,8 @@ GET /api/schema/
             "expand_fields": [...],
             "aggregate_fields": [...],
             "extra_fields": [...],
-            "export_formats": [...]
+            "export_formats": [...],
+            "ordering_fields": [...]
         }
     ],
     "auth": {
@@ -382,11 +384,44 @@ OPTIONS /api/explorer/monitoring/heartbeat/
         "status": {"type": "choice", "required": true, "choices": [["ok", "Ok"], ["fail", "Fail"]]},
         "response_time_ms": {"type": "integer", "required": true, "min_value": 0}
     },
-    "methods": ["DELETE", "GET", "PATCH", "POST", "PUT"]
+    "methods": ["DELETE", "GET", "PATCH", "POST", "PUT"],
+    "ordering_fields": ["timestamp", "status", "response_time_ms", "note"]
 }
 ```
 
 Field types include: `string`, `text`, `integer`, `float`, `decimal`, `boolean`, `date`, `datetime`, `time`, `email`, `url`, `choice`, `fk`, `file`. Extra fields (from `api_extra_fields`) are marked `read_only: true`.
+
+### GET /api/schema/openapi.json
+
+Returns an OpenAPI 3.0.3 specification for all registered API endpoints. No authentication required. Useful for code generation, Swagger UI, and frontend SDK tooling.
+
+```
+GET /api/schema/openapi.json
+
+→ 200:
+{
+    "openapi": "3.0.3",
+    "info": {"title": "SmallStack API", "version": "1.0.0", ...},
+    "paths": {
+        "/api/explorer/monitoring/heartbeat/": {...},
+        "/api/auth/token/": {...},
+        ...
+    },
+    "components": {
+        "schemas": {"Heartbeat": {...}, "Error": {...}},
+        "securitySchemes": {"bearerAuth": {"type": "http", "scheme": "bearer"}}
+    }
+}
+```
+
+The spec includes:
+- All CRUDView endpoints with request/response schemas
+- All auth endpoints (token, register, me, password, users, logout, etc.)
+- Component schemas derived from Django model/form fields
+- Bearer token security scheme
+- Paginated list response envelope
+
+Import into Swagger UI, Postman, or use with code generators like `openapi-typescript` or `openapi-generator`.
 
 ### Architecture Notes
 
@@ -486,6 +521,24 @@ The `page` parameter accepts numbers or named aliases:
 Out-of-range numbers are clamped (e.g., `?page=9999` returns the last page, `?page=0` returns page 1). Invalid strings default to page 1. Aliases are case-insensitive.
 
 The response includes `page` (current) and `total_pages` alongside `count`, `next`, and `previous`.
+
+#### Ordering
+
+Sort results with `?ordering=`:
+
+```
+GET /api/tasks/?ordering=-created_at          → newest first
+GET /api/tasks/?ordering=name                 → alphabetical
+GET /api/tasks/?ordering=-status,name         → by status desc, then name asc
+```
+
+- Comma-separated fields, each optionally prefixed with `-` for descending
+- Only fields in `list_fields` and `api_extra_fields` are orderable
+- Invalid fields are silently ignored (no 400 — matches Django/DRF convention)
+- Ordering is preserved in `next`/`previous` pagination URLs
+- Available ordering fields are listed in `GET /api/schema/` and `OPTIONS` responses
+
+User list endpoint (`GET /api/auth/users/`) also supports ordering by `username`, `email`, `pk`.
 
 ### Detail
 

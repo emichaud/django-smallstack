@@ -897,7 +897,7 @@ class TestSchemaEndpoint:
             "url", "model", "methods", "fields", "list_fields",
             "detail_fields", "search_fields", "filter_fields",
             "expand_fields", "aggregate_fields", "extra_fields",
-            "export_formats",
+            "export_formats", "ordering_fields",
         }
         for ep in data["endpoints"]:
             assert set(ep.keys()) == expected_keys
@@ -1383,3 +1383,448 @@ class TestTokenRefreshEndpoint:
         response = client.post(TOKEN_REFRESH_URL, **header)
         assert response.status_code == 200
         assert "token" in response.json()
+
+
+# ---------------------------------------------------------------------------
+# Integration tests: Logout endpoint
+# ---------------------------------------------------------------------------
+
+LOGOUT_URL = "/api/auth/logout/"
+
+
+class TestLogoutEndpoint:
+    """Integration tests for POST /api/auth/logout/."""
+
+    def test_logout_revokes_token(self, client, login_token_and_header):
+        """Logout revokes the token so it can't be used again."""
+        user, token, raw_key, header = login_token_and_header
+        response = client.post(LOGOUT_URL, **header)
+        assert response.status_code == 200
+        assert response.json()["message"] == "Logged out"
+
+        # Token should now be revoked
+        token.refresh_from_db()
+        assert token.is_active is False
+        assert token.revoked_at is not None
+
+    def test_logout_token_stops_working(self, client, login_token_and_header):
+        """After logout, the same token returns 401."""
+        user, token, raw_key, header = login_token_and_header
+        client.post(LOGOUT_URL, **header)
+        response = client.get("/api/auth/me/", **header)
+        assert response.status_code == 401
+
+    def test_logout_requires_auth(self, client, db):
+        """Unauthenticated request returns 401."""
+        response = client.post(LOGOUT_URL)
+        assert response.status_code == 401
+
+    def test_logout_get_returns_405(self, client, login_token_and_header):
+        """GET returns 405."""
+        _, _, _, header = login_token_and_header
+        response = client.get(LOGOUT_URL, **header)
+        assert response.status_code == 405
+
+
+# ---------------------------------------------------------------------------
+# Integration tests: User deactivate endpoint
+# ---------------------------------------------------------------------------
+
+
+class TestUserDeactivateEndpoint:
+    """Integration tests for POST /api/auth/users/<id>/deactivate/."""
+
+    @pytest.fixture
+    def auth_token_header(self, db):
+        """Create a user with an auth-level manual token."""
+        admin = User.objects.create_user(
+            username="authadmin", password="testpass123", email="authadmin@example.com", is_staff=True,
+        )
+        token, raw_key = APIToken.create_token(admin, name="Auth Token", access_level="auth", token_type="manual")
+        header = {"HTTP_AUTHORIZATION": f"Bearer {raw_key}"}
+        return admin, header
+
+    @pytest.fixture
+    def target_user(self, db):
+        return User.objects.create_user(username="targetuser", password="pass123", email="target@example.com")
+
+    def test_deactivate_sets_user_inactive(self, client, auth_token_header, target_user):
+        """Deactivating a user sets is_active=False."""
+        _, header = auth_token_header
+        url = f"/api/auth/users/{target_user.pk}/deactivate/"
+        response = client.post(url, **header)
+        assert response.status_code == 200
+        assert response.json()["message"] == "User deactivated"
+
+        target_user.refresh_from_db()
+        assert target_user.is_active is False
+
+    def test_deactivate_revokes_user_tokens(self, client, auth_token_header, target_user):
+        """Deactivation revokes all active tokens for the target user."""
+        _, header = auth_token_header
+        # Create a token for the target user
+        target_token, _ = APIToken.create_token(target_user, name="Target Token")
+        assert target_token.is_active is True
+
+        url = f"/api/auth/users/{target_user.pk}/deactivate/"
+        client.post(url, **header)
+
+        target_token.refresh_from_db()
+        assert target_token.is_active is False
+
+    def test_deactivate_requires_auth_token(self, client, staff_user, auth_header, target_user):
+        """Staff token (not auth-level) is rejected."""
+        url = f"/api/auth/users/{target_user.pk}/deactivate/"
+        response = client.post(url, **auth_header)
+        assert response.status_code == 403
+
+    def test_deactivate_nonexistent_user_returns_404(self, client, auth_token_header):
+        """Deactivating a nonexistent user returns 404."""
+        _, header = auth_token_header
+        response = client.post("/api/auth/users/99999/deactivate/", **header)
+        assert response.status_code == 404
+
+    def test_deactivate_get_returns_405(self, client, auth_token_header, target_user):
+        """GET returns 405."""
+        _, header = auth_token_header
+        url = f"/api/auth/users/{target_user.pk}/deactivate/"
+        response = client.get(url, **header)
+        assert response.status_code == 405
+
+
+# ---------------------------------------------------------------------------
+# Integration tests: Password requirements endpoint
+# ---------------------------------------------------------------------------
+
+PASSWORD_REQUIREMENTS_URL = "/api/auth/password-requirements/"
+
+
+class TestPasswordRequirementsEndpoint:
+    """Integration tests for GET /api/auth/password-requirements/."""
+
+    def test_returns_requirements_list(self, client, db):
+        """Returns a list of password validation rules."""
+        response = client.get(PASSWORD_REQUIREMENTS_URL)
+        assert response.status_code == 200
+        data = response.json()
+        assert "requirements" in data
+        assert isinstance(data["requirements"], list)
+        assert len(data["requirements"]) > 0
+
+    def test_no_auth_required(self, client, db):
+        """Endpoint is public — no auth needed."""
+        response = client.get(PASSWORD_REQUIREMENTS_URL)
+        assert response.status_code == 200
+
+    def test_post_returns_405(self, client, db):
+        """POST returns 405."""
+        response = client.post(PASSWORD_REQUIREMENTS_URL)
+        assert response.status_code == 405
+
+
+# ---------------------------------------------------------------------------
+# Integration tests: Export
+# ---------------------------------------------------------------------------
+
+
+class TestExportIntegration:
+    """Integration tests for ?format=csv|json export on CRUD API endpoints."""
+
+    def test_csv_export_returns_attachment(self, client, staff_user, heartbeats, auth_header):
+        """CSV export returns a file download with correct content type."""
+        url = reverse(HEARTBEAT_API_LIST)
+        response = client.get(url, {"format": "csv"}, **auth_header)
+        assert response.status_code == 200
+        assert response["Content-Type"] == "text/csv"
+        assert "attachment" in response["Content-Disposition"]
+        assert ".csv" in response["Content-Disposition"]
+
+    def test_csv_export_contains_all_rows(self, client, staff_user, heartbeats, auth_header):
+        """CSV export includes all records (not just one page)."""
+        url = reverse(HEARTBEAT_API_LIST)
+        response = client.get(url, {"format": "csv"}, **auth_header)
+        content = response.content.decode()
+        # Header row + 53 data rows
+        lines = [line for line in content.strip().split("\n") if line.strip()]
+        assert len(lines) == 54  # 1 header + 53 records
+
+    def test_csv_export_headers_match_list_fields(self, client, staff_user, heartbeats, auth_header):
+        """CSV header row reflects the model's list_fields."""
+        url = reverse(HEARTBEAT_API_LIST)
+        response = client.get(url, {"format": "csv"}, **auth_header)
+        content = response.content.decode()
+        header_line = content.strip().split("\n")[0]
+        # Heartbeat list_display: timestamp, status, response_time_ms, note
+        for expected in ["Timestamp", "Status", "Response time ms", "Note"]:
+            assert expected in header_line
+
+    def test_json_export_returns_json(self, client, staff_user, heartbeats, auth_header):
+        """JSON export returns application/json with array structure."""
+        url = reverse(HEARTBEAT_API_LIST)
+        response = client.get(url, {"format": "json"}, **auth_header)
+        assert response.status_code == 200
+        assert response["Content-Type"] == "application/json"
+        assert "attachment" in response["Content-Disposition"]
+        assert ".json" in response["Content-Disposition"]
+        data = json.loads(response.content)
+        assert isinstance(data, list)
+        assert len(data) == 53
+
+    def test_export_with_search_filter(self, client, staff_user, heartbeats, auth_header):
+        """Export respects ?q= search filter (exports filtered set, not all)."""
+        url = reverse(HEARTBEAT_API_LIST)
+        response = client.get(url, {"format": "csv", "q": "ok"}, **auth_header)
+        assert response.status_code == 200
+        assert response["Content-Type"] == "text/csv"
+
+    def test_invalid_format_returns_normal_json(self, client, staff_user, heartbeats, auth_header):
+        """Unsupported format falls through to normal paginated JSON response."""
+        url = reverse(HEARTBEAT_API_LIST)
+        response = client.get(url, {"format": "xml"}, **auth_header)
+        assert response.status_code == 200
+        data = response.json()
+        assert "results" in data  # normal paginated response
+
+
+# ---------------------------------------------------------------------------
+# Integration tests: CRUD delete and partial update via API
+# ---------------------------------------------------------------------------
+
+
+class TestCRUDDeleteIntegration:
+    """Integration tests for DELETE /api/{model}/{pk}/."""
+
+    def test_delete_returns_204(self, client, staff_user, heartbeats, auth_header):
+        """DELETE removes the object and returns 204."""
+        obj = heartbeats[0]
+        url = reverse("explorer-monitoring-heartbeat-api-detail", kwargs={"pk": obj.pk})
+        response = client.delete(url, **auth_header)
+        assert response.status_code == 204
+
+        from apps.heartbeat.models import Heartbeat
+        assert not Heartbeat.objects.filter(pk=obj.pk).exists()
+
+    def test_delete_nonexistent_returns_404(self, client, staff_user, auth_header):
+        """DELETE on nonexistent pk returns 404."""
+        url = reverse("explorer-monitoring-heartbeat-api-detail", kwargs={"pk": 99999})
+        response = client.delete(url, **auth_header)
+        assert response.status_code == 404
+
+    def test_delete_requires_auth(self, client, heartbeats):
+        """DELETE without auth returns 401."""
+        obj = heartbeats[0]
+        url = reverse("explorer-monitoring-heartbeat-api-detail", kwargs={"pk": obj.pk})
+        response = client.delete(url)
+        assert response.status_code == 401
+
+
+class TestCRUDPatchIntegration:
+    """Integration tests for PATCH /api/{model}/{pk}/."""
+
+    def test_patch_updates_single_field(self, client, staff_user, heartbeats, auth_header):
+        """PATCH with a single field updates only that field."""
+        obj = heartbeats[0]
+        url = reverse("explorer-monitoring-heartbeat-api-detail", kwargs={"pk": obj.pk})
+        response = client.patch(
+            url,
+            json.dumps({"note": "patched note"}),
+            content_type="application/json",
+            **auth_header,
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert data["note"] == "patched note"
+
+        obj.refresh_from_db()
+        assert obj.note == "patched note"
+
+    def test_patch_preserves_unset_fields(self, client, staff_user, heartbeats, auth_header):
+        """PATCH doesn't blank out fields not included in the request."""
+        obj = heartbeats[0]
+        original_status = obj.status
+        url = reverse("explorer-monitoring-heartbeat-api-detail", kwargs={"pk": obj.pk})
+        client.patch(
+            url,
+            json.dumps({"note": "only note changed"}),
+            content_type="application/json",
+            **auth_header,
+        )
+        obj.refresh_from_db()
+        assert obj.status == original_status
+        assert obj.note == "only note changed"
+
+
+# ---------------------------------------------------------------------------
+# Integration tests: Pagination URL query param preservation
+# ---------------------------------------------------------------------------
+
+
+class TestPaginationURLParams:
+    """Verify that next/previous URLs preserve query parameters."""
+
+    def test_next_url_preserves_search(self, client, staff_user, heartbeats, auth_header):
+        """next URL includes ?q= when search is active."""
+        url = reverse(HEARTBEAT_API_LIST)
+        response = client.get(url, {"q": "ok", "page_size": "5"}, **auth_header)
+        data = response.json()
+        if data["next"]:
+            assert "q=ok" in data["next"]
+            assert "page_size=5" in data["next"]
+
+    def test_prev_url_preserves_params(self, client, staff_user, heartbeats, auth_header):
+        """previous URL includes original query params."""
+        url = reverse(HEARTBEAT_API_LIST)
+        response = client.get(url, {"page": "2", "page_size": "10"}, **auth_header)
+        data = response.json()
+        if data["previous"]:
+            assert "page_size=10" in data["previous"]
+
+    def test_next_url_preserves_filter(self, client, staff_user, heartbeats, auth_header):
+        """next URL includes filter params."""
+        url = reverse(HEARTBEAT_API_LIST)
+        response = client.get(url, {"status": "ok", "page_size": "5"}, **auth_header)
+        data = response.json()
+        if data["next"]:
+            assert "status=ok" in data["next"]
+
+
+# ---------------------------------------------------------------------------
+# Integration tests: Ordering
+# ---------------------------------------------------------------------------
+
+
+class TestOrderingIntegration:
+    """Verify ?ordering= support on CRUD list endpoints."""
+
+    def test_ordering_ascending(self, client, staff_user, heartbeats, auth_header):
+        """?ordering=response_time_ms sorts ascending."""
+        url = reverse(HEARTBEAT_API_LIST)
+        response = client.get(url, {"ordering": "response_time_ms", "page_size": "100"}, **auth_header)
+        data = response.json()
+        values = [r["response_time_ms"] for r in data["results"]]
+        assert values == sorted(values)
+
+    def test_ordering_descending(self, client, staff_user, heartbeats, auth_header):
+        """?ordering=-response_time_ms sorts descending."""
+        url = reverse(HEARTBEAT_API_LIST)
+        response = client.get(url, {"ordering": "-response_time_ms", "page_size": "100"}, **auth_header)
+        data = response.json()
+        values = [r["response_time_ms"] for r in data["results"]]
+        assert values == sorted(values, reverse=True)
+
+    def test_ordering_multiple_fields(self, client, staff_user, db, auth_header):
+        """?ordering=-status,response_time_ms sorts by multiple fields."""
+        now = timezone.now()
+        Heartbeat.objects.create(timestamp=now, status="ok", response_time_ms=200)
+        Heartbeat.objects.create(timestamp=now - timezone.timedelta(minutes=1), status="fail", response_time_ms=100)
+        Heartbeat.objects.create(timestamp=now - timezone.timedelta(minutes=2), status="ok", response_time_ms=50)
+        Heartbeat.objects.create(timestamp=now - timezone.timedelta(minutes=3), status="fail", response_time_ms=300)
+
+        url = reverse(HEARTBEAT_API_LIST)
+        response = client.get(url, {"ordering": "-status,response_time_ms", "page_size": "100"}, **auth_header)
+        data = response.json()
+        results = data["results"]
+        # "ok" > "fail" alphabetically, so -status puts "ok" first
+        assert results[0]["status"] == "ok"
+        assert results[1]["status"] == "ok"
+        # Within same status, ascending by response_time_ms
+        ok_times = [r["response_time_ms"] for r in results if r["status"] == "ok"]
+        assert ok_times == sorted(ok_times)
+
+    def test_ordering_invalid_field_ignored(self, client, staff_user, heartbeats, auth_header):
+        """?ordering=nonexistent falls back to default ordering."""
+        url = reverse(HEARTBEAT_API_LIST)
+        response = client.get(url, {"ordering": "nonexistent"}, **auth_header)
+        assert response.status_code == 200
+        data = response.json()
+        assert len(data["results"]) > 0
+
+    def test_ordering_preserved_in_next_url(self, client, staff_user, heartbeats, auth_header):
+        """Pagination next URL carries ?ordering= param."""
+        url = reverse(HEARTBEAT_API_LIST)
+        response = client.get(url, {"ordering": "-response_time_ms", "page_size": "5"}, **auth_header)
+        data = response.json()
+        if data["next"]:
+            assert "ordering=-response_time_ms" in data["next"]
+
+
+# ---------------------------------------------------------------------------
+# Integration tests: OpenAPI Schema
+# ---------------------------------------------------------------------------
+
+
+class TestOpenAPISchema:
+    """Verify the OpenAPI 3.0.3 spec endpoint."""
+
+    def test_openapi_endpoint_returns_valid_spec(self, client, db):
+        """GET /api/schema/openapi.json returns 200 with top-level keys."""
+        url = reverse("api-openapi-schema")
+        response = client.get(url)
+        assert response.status_code == 200
+        data = response.json()
+        assert "openapi" in data
+        assert "info" in data
+        assert "paths" in data
+
+    def test_openapi_version_is_3(self, client, db):
+        """spec['openapi'] starts with '3.0'."""
+        url = reverse("api-openapi-schema")
+        data = client.get(url).json()
+        assert data["openapi"].startswith("3.0")
+
+    def test_openapi_includes_crud_endpoints(self, client, db):
+        """Registered CRUDView paths appear in the spec."""
+        url = reverse("api-openapi-schema")
+        data = client.get(url).json()
+        paths = data["paths"]
+        # Heartbeat is registered via explorer — its list URL should be present
+        heartbeat_paths = [p for p in paths if "heartbeat" in p.lower()]
+        assert len(heartbeat_paths) > 0
+
+    def test_openapi_includes_auth_endpoints(self, client, db):
+        """Auth endpoints appear in the spec."""
+        url = reverse("api-openapi-schema")
+        data = client.get(url).json()
+        paths = data["paths"]
+        assert "/api/auth/token/" in paths
+        assert "/api/auth/me/" in paths
+        assert "/api/auth/logout/" in paths
+
+    def test_openapi_field_types_correct(self, client, db):
+        """Spot-check that heartbeat fields have the right OpenAPI types."""
+        url = reverse("api-openapi-schema")
+        data = client.get(url).json()
+        schemas = data["components"]["schemas"]
+        assert "Heartbeat" in schemas
+        props = schemas["Heartbeat"]["properties"]
+        assert props["id"]["type"] == "integer"
+        # status is a choice field → string
+        assert props["status"]["type"] == "string"
+
+    def test_openapi_bearer_auth_defined(self, client, db):
+        """components.securitySchemes.bearerAuth exists."""
+        url = reverse("api-openapi-schema")
+        data = client.get(url).json()
+        schemes = data["components"]["securitySchemes"]
+        assert "bearerAuth" in schemes
+        assert schemes["bearerAuth"]["type"] == "http"
+        assert schemes["bearerAuth"]["scheme"] == "bearer"
+
+    def test_openapi_pagination_schema(self, client, db):
+        """List responses use the paginated envelope schema."""
+        url = reverse("api-openapi-schema")
+        data = client.get(url).json()
+        # Find any GET list operation
+        for path_url, methods in data["paths"].items():
+            if "get" in methods and "List" in methods["get"].get("summary", ""):
+                schema = methods["get"]["responses"]["200"]["content"]["application/json"]["schema"]
+                assert "properties" in schema
+                assert "results" in schema["properties"]
+                assert "count" in schema["properties"]
+                break
+
+    def test_openapi_no_auth_required(self, client, db):
+        """Endpoint is public — no auth needed."""
+        url = reverse("api-openapi-schema")
+        response = client.get(url)
+        assert response.status_code == 200
