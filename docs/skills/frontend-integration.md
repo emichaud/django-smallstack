@@ -237,6 +237,93 @@ async function getWidgets(page = 1) {
 }
 ```
 
+## TanStack Query Integration
+
+SmallStack's API maps naturally to [TanStack Query](https://tanstack.com/query) patterns. Here are the recommended patterns:
+
+### Setup
+
+```jsx
+// main.jsx
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 30 * 1000,  // 30s — good default for CRUD data
+      retry: 1,
+    },
+  },
+});
+
+function App() {
+  return (
+    <QueryClientProvider client={queryClient}>
+      <YourApp />
+    </QueryClientProvider>
+  );
+}
+```
+
+### Query Key Factories
+
+Organize keys by resource to match SmallStack's URL structure:
+
+```js
+const queryKeys = {
+  widgets: {
+    all: ["widgets"],
+    list: (params) => ["widgets", "list", params],
+    detail: (id) => ["widgets", "detail", id],
+  },
+  passwordRequirements: ["password-requirements"],  // staleTime: Infinity
+};
+```
+
+### Hooks Pattern
+
+```jsx
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+
+function useWidgets(params) {
+  return useQuery({
+    queryKey: queryKeys.widgets.list(params),
+    queryFn: () => apiFetch(`/api/manage/widgets/?${params}`).then(r => r.json()),
+    enabled: !!user,  // prevent 401 spam before login
+  });
+}
+
+function useCreateWidget() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (data) => apiFetch("/api/manage/widgets/", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }).then(r => r.json()),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.widgets.all });
+    },
+  });
+}
+```
+
+### Key Recommendations
+
+- **`enabled: !!user` on authenticated queries** — prevents unnecessary 401 errors before the user logs in
+- **`queryClient.clear()` on logout** — clears cached data from the previous session to prevent cross-session data leaks
+- **Token rotation awareness** — SmallStack's login upserts the token (old key stops working). If a user logs in from another tab, the first tab's token is dead. Handle this by redirecting to login on 401 rather than retrying
+- **`staleTime: Infinity` for static data** — use for endpoints like `/api/auth/password-requirements/` that rarely change
+
+### OpenAPI Codegen
+
+Generate a fully typed TypeScript client from SmallStack's OpenAPI spec:
+
+```bash
+npx orval --input http://localhost:8005/api/schema/openapi.json --output ./src/api/
+```
+
+This produces typed functions for every endpoint, including auth responses, filter parameters, and pagination envelopes.
+
 ## Security Notes
 
 - **System token is a backend secret** — store it in server-side environment variables, never expose it to the browser. If your frontend is a pure SPA with no server component, you cannot safely use register/deactivate/system-password-change endpoints from the client.
