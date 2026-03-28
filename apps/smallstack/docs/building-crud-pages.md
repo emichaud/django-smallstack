@@ -1,6 +1,6 @@
 ---
 title: Building CRUD Pages
-description: How to create management pages for your models using CRUDView and django-tables2
+description: How to create management pages for your models using CRUDView with built-in sortable tables
 ---
 
 # Building CRUD Pages
@@ -13,7 +13,7 @@ This guide walks through the process from simplest to most advanced, starting wi
 
 ## The Simplest Case
 
-You need three things: a model, a table class, and a CRUDView config. Everything else is optional.
+You need two things: a model and a CRUDView config. The built-in `TableDisplay` handles sorting, pagination, and rendering automatically. Everything else is optional.
 
 ### 1. Define Your Model
 
@@ -38,61 +38,31 @@ class Widget(models.Model):
         return self.name
 ```
 
-### 2. Define the Table
-
-The table controls what columns appear in the list view, how they render, and what actions are available. {{ project_name }} provides three reusable column types in `apps.smallstack.tables`:
-
-```python
-# apps/myfeature/tables.py
-import django_tables2 as tables
-
-from apps.smallstack.tables import ActionsColumn, BooleanColumn, DetailLinkColumn
-
-from .models import Widget
-
-
-class WidgetTable(tables.Table):
-    name = DetailLinkColumn(url_base="manage/widgets", link_view="update")
-    is_active = BooleanColumn(verbose_name="Active")
-    actions = ActionsColumn(url_base="manage/widgets")
-
-    class Meta:
-        model = Widget
-        fields = ("name", "category", "is_active", "owner", "created_at")
-        order_by = "-created_at"
-        attrs = {"class": "crud-table"}   # Required for theme styling
-```
-
-| Column | What It Does |
-|--------|-------------|
-| `DetailLinkColumn` | Makes the cell value a clickable link. Set `link_view="update"` to link to the edit page, or `"detail"` for a read-only detail page. |
-| `BooleanColumn` | Renders `True` as a themed checkmark and `False` as a dash. |
-| `ActionsColumn` | Adds edit (pencil) and delete (trash) icon buttons. Pass `edit=False` or `delete=False` to hide either. |
-
-All three take `url_base` — the same string you set on CRUDView. This is how columns know which URLs to link to.
-
-### 3. Define the CRUDView
+### 2. Define the CRUDView
 
 ```python
 # apps/myfeature/views.py
 from apps.smallstack.crud import Action, CRUDView
+from apps.smallstack.displays import TableDisplay
 from apps.smallstack.mixins import StaffRequiredMixin
 
 from .models import Widget
-from .tables import WidgetTable
 
 
 class WidgetCRUDView(CRUDView):
     model = Widget
     fields = ["name", "category", "is_active", "owner"]
+    list_fields = ["name", "category", "is_active", "owner", "created_at"]
     url_base = "manage/widgets"
     paginate_by = 10
     mixins = [StaffRequiredMixin]
-    table_class = WidgetTable
+    displays = [TableDisplay]
     actions = [Action.LIST, Action.CREATE, Action.UPDATE, Action.DELETE]
 ```
 
-That's it. This single class generates four views and four URL patterns:
+The built-in `TableDisplay` renders a sortable table with clickable column headers (for model-backed fields), themed styling, and pagination. The first field in `list_fields` links to the detail view by default (set `link_field` to change this).
+
+That's it. This single class generates four views and four URL patterns (no separate `tables.py` needed):
 
 | URL | Name | Purpose |
 |-----|------|---------|
@@ -101,7 +71,7 @@ That's it. This single class generates four views and four URL patterns:
 | `/manage/widgets/<pk>/edit/` | `manage/widgets-update` | Edit form |
 | `/manage/widgets/<pk>/delete/` | `manage/widgets-delete` | Delete confirmation |
 
-### 4. Wire Up URLs
+### 3. Wire Up URLs
 
 ```python
 # apps/myfeature/urls.py
@@ -122,18 +92,17 @@ urlpatterns = [
 ]
 ```
 
-### 5. Register the App
+### 4. Register the App
 
 ```python
 # config/settings/base.py
 INSTALLED_APPS = [
     # ...
-    "django_tables2",
     "apps.myfeature",
 ]
 ```
 
-### 6. Run Migrations
+### 5. Run Migrations
 
 ```bash
 uv run python manage.py makemigrations myfeature
@@ -146,7 +115,7 @@ At this point you have a working management interface. CRUDView provides generic
 
 Before writing any templates, CRUDView's generic templates handle:
 
-- **List page** — card layout with your django-tables2 table, sorting, pagination, and an "Add" button
+- **List page** — card layout with sortable table, pagination, and an "Add" button
 - **Create/Edit form** — styled form with labels, help text, error messages, Save and Cancel buttons
 - **Delete confirmation** — "Are you sure?" prompt with Delete and Cancel buttons
 - **Breadcrumbs** — automatic Home / Model Name / Action breadcrumbs
@@ -189,7 +158,7 @@ To use this pattern, you write a custom list template instead of using the gener
 ```html
 {# templates/myfeature/widget_list.html #}
 {% extends "smallstack/base.html" %}
-{% load theme_tags django_tables2 %}
+{% load theme_tags crud_tags %}
 
 {% block title %}Widgets{% endblock %}
 
@@ -198,29 +167,6 @@ To use this pattern, you write a custom list template instead of using the gener
 
 {% block extra_css %}
 {% include "smallstack/crud/_table_styles.html" %}
-<style>
-    .crud-table thead th a { color: var(--body-quiet-color); text-decoration: none; }
-    .crud-table thead th a:hover { color: var(--primary); }
-    .crud-table thead th.asc a::after { content: " \25B2"; font-size: 0.65rem; }
-    .crud-table thead th.desc a::after { content: " \25BC"; font-size: 0.65rem; }
-    ul.pagination {
-        display: flex; justify-content: center; gap: 0.25rem;
-        list-style: none !important; padding: 1rem 0 0 !important; margin: 0 !important;
-    }
-    ul.pagination li { list-style: none !important; }
-    ul.pagination li a, ul.pagination li span {
-        display: inline-block; padding: 0.3rem 0.75rem;
-        border-radius: var(--radius-sm, 4px); color: var(--body-quiet-color);
-        text-decoration: none; font-size: 0.85rem;
-    }
-    ul.pagination li a:hover {
-        color: var(--primary);
-        background: color-mix(in srgb, var(--primary) 10%, var(--body-bg));
-    }
-    ul.pagination li.active a, ul.pagination li.active span {
-        background: var(--primary); color: var(--button-fg);
-    }
-</style>
 {% endblock %}
 
 {% block content %}
@@ -240,24 +186,19 @@ To use this pattern, you write a custom list template instead of using the gener
     </div>
     <div style="display: flex; gap: 0.5rem; align-items: center;">
         {% if create_view_url %}
-        <a href="{{ create_view_url }}" class="btn"
-           style="background: var(--primary); color: var(--button-fg);
-                  padding: 0.5rem 1rem; border: none;
-                  border-radius: var(--radius-sm, 4px);
-                  text-decoration: none; font-size: 0.85rem;">
+        <a href="{{ create_view_url }}" class="btn-primary"
+           style="text-decoration: none; font-size: 0.85rem;">
             + Add Widget
         </a>
         {% endif %}
     </div>
 </div>
 
-{# ── Table ── #}
-{% if table %}
-    {% render_table table %}
+{# ── Table (rendered by display or crud_table tag) ── #}
+{% if display_template %}
+    {% include display_template %}
 {% else %}
-    <p style="color: var(--body-quiet-color); padding: 2rem 0; text-align: center;">
-        No widgets found.
-    </p>
+    {% crud_table %}
 {% endif %}
 {% endblock %}
 ```
@@ -317,9 +258,9 @@ The search bar lets users filter the table without a page reload. It requires th
 **The partial** (`templates/myfeature/_widget_table.html`):
 
 ```html
-{% load django_tables2 %}
-{% if table %}
-    {% render_table table %}
+{% load crud_tags %}
+{% if object_list %}
+    {% crud_table %}
 {% else %}
     <p style="color: var(--body-quiet-color); padding: 2rem 0;
               text-align: center;">No widgets found.</p>
@@ -471,7 +412,8 @@ The User Manager demonstrates this — its edit form has three tabs (Account, Pr
 | `url_base` | str | model name | URL prefix (e.g., `"manage/widgets"`) |
 | `paginate_by` | int | None | Rows per page (falls back to `admin_class.list_per_page`) |
 | `mixins` | list | `[]` | View mixins applied to all views |
-| `table_class` | Table class | None | django-tables2 Table for the list view |
+| `column_widths` | dict | `None` | Custom column proportions, e.g. `{"name": "30%", "description": "50%"}` |
+| `ordering_fields` | list | `[]` | Fields allowed for column sorting (defaults to sortable list_fields) |
 | `form_class` | Form class | auto | Custom ModelForm (auto-generated if None) |
 | `actions` | list | all 5 | Which CRUD actions to generate |
 | `queryset` | QuerySet | `model.objects.all()` | Base queryset for all views |
@@ -516,7 +458,7 @@ CRUDView reads `list_display` for list columns, `fields` for forms, `search_fiel
 | `Action.UPDATE` | `url_base/<pk>/edit/` | UpdateView |
 | `Action.DELETE` | `url_base/<pk>/delete/` | DeleteView |
 
-You don't have to enable all five. A common pattern is `[Action.LIST, Action.CREATE, Action.UPDATE, Action.DELETE]` — skipping the read-only detail view in favor of linking directly to the edit page via `DetailLinkColumn(link_view="update")`.
+You don't have to enable all five. A common pattern is `[Action.LIST, Action.CREATE, Action.UPDATE, Action.DELETE]` — skipping the read-only detail view in favor of linking directly to the edit page.
 
 ### Template Resolution
 
@@ -633,23 +575,22 @@ These built-in apps demonstrate the pattern at different complexity levels:
 
 | Page | URL | What It Demonstrates |
 |------|-----|---------------------|
-| **User Manager** | `/manage/users/` | Full CRUDView + tables2 + search + stat card drilldowns + custom edit form with tabs |
+| **User Manager** | `/manage/users/` | Full CRUDView + search + stat card drilldowns + custom edit form with tabs |
 | **Backups** | `/backups/` | Title bar with action cards + stat cards + tabbed content + detail pages with timeline |
-| **Activity Requests** | `/activity/requests/` | Title bar number cards + tabbed tables2 views + HTMX live refresh |
+| **Activity Requests** | `/activity/requests/` | Title bar number cards + tabbed sortable tables + HTMX live refresh |
 | **Activity Users** | `/activity/users/` | Title bar number cards + multiple tables per page |
-| **Timezone Dashboard** | `/manage/users/timezones/` | Standalone tables2 + search (not CRUDView, but uses the same table/search pattern) |
+| **Timezone Dashboard** | `/manage/users/timezones/` | Standalone sortable table + search (not CRUDView, but uses the same table/search pattern) |
 
-The **User Manager** (`apps/usermanager/`) is the canonical reference for CRUDView. The **Backups** page demonstrates the pattern applied to a non-CRUDView context (custom views using the same visual conventions). The **Activity** pages show how far you can push tables2 with tabs and live refresh.
+The **User Manager** (`apps/usermanager/`) is the canonical reference for CRUDView. The **Backups** page demonstrates the pattern applied to a non-CRUDView context (custom views using the same visual conventions). The **Activity** pages show sortable manual tables with tabs and live refresh.
 
 ## Quick Checklist
 
 When adding a new CRUD management page:
 
 - [ ] Model in `apps/<appname>/models.py`
-- [ ] Table class in `apps/<appname>/tables.py` with `attrs = {"class": "crud-table"}`
-- [ ] CRUDView in `apps/<appname>/views.py` with `paginate_by = 10`
+- [ ] CRUDView in `apps/<appname>/views.py` with `displays = [TableDisplay]` and `paginate_by = 10`
 - [ ] URLs in `apps/<appname>/urls.py` using `*MyCRUDView.get_urls()`
-- [ ] App registered in `INSTALLED_APPS` (and `"django_tables2"` if not already there)
+- [ ] App registered in `INSTALLED_APPS`
 - [ ] URL include in `config/urls.py`
 - [ ] Sidebar link in `templates/smallstack/includes/sidebar.html`
 - [ ] Migrations created and applied
@@ -662,14 +603,13 @@ When adding a new CRUD management page:
 CRUDView supports the same display palette as Explorer. Configure multiple displays and users can swap between them at runtime:
 
 ```python
-from apps.smallstack.displays import Table2Display, TableDisplay, CardDisplay
+from apps.smallstack.displays import TableDisplay, CardDisplay
 
 class WidgetCRUDView(CRUDView):
     model = Widget
     fields = ["name", "category", "is_active"]
     url_base = "manage/widgets"
     displays = [
-        Table2Display,
         TableDisplay,
         CardDisplay(title_field="name", subtitle_field="category"),
     ]

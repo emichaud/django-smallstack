@@ -198,6 +198,14 @@ class Table2Display(ListDisplay):
 
     def get_context(self, queryset, crud_config, request):
         """Configure a django-tables2 table with pagination."""
+        import warnings
+
+        warnings.warn(
+            "Table2Display is deprecated. Use TableDisplay instead — "
+            "the built-in table now supports column sorting.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         table_class = crud_config.table_class
         if not table_class:
             # Fall back to basic table if no table_class configured

@@ -3,7 +3,18 @@
 <thead>
 <tr>
 {% for header in headers %}
-    <th>{{ header }}</th>
+    {% if header.sortable %}
+    <th style="cursor: pointer; user-select: none;{% if header.width %} width: {{ header.width }};{% endif %}"
+        hx-get="?ordering={{ header.next_ordering }}"
+        hx-target="#crud-list-content"
+        hx-include="#list-toolbar"
+        hx-push-url="true"
+        hx-swap="innerHTML">
+        {{ header.label }} <span style="font-size: 0.65rem; display: inline-block; width: 0.65em;{% if not header.direction %} visibility: hidden;{% endif %}">{% if header.direction == "desc" %}&#9660;{% else %}&#9650;{% endif %}</span>
+    </th>
+    {% else %}
+    <th{% if header.width %} style="width: {{ header.width }};"{% endif %}>{{ header.label }}</th>
+    {% endif %}
 {% endfor %}
 {% if show_actions %}
     <th style="text-align: right;">Actions</th>
@@ -14,7 +25,7 @@
 {% for row in rows %}
 <tr>
     {% for cell in row.cells %}
-    <td>
+    <td{% if cell.title %} title="{{ cell.title }}"{% endif %}>
         {% if cell.is_link and row.detail_url %}
         <a href="{{ row.detail_url }}">{{ cell.value }}</a>
         {% else %}

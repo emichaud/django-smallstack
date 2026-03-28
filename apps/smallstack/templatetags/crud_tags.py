@@ -78,6 +78,52 @@ def _ns_reverse(url_name: str, namespace: str | None = None, **kwargs) -> str:
     return reverse(url_name, **kwargs)
 
 
+def _build_sort_headers(list_fields, model, request, column_widths=None):
+    """Build header metadata with sort state for each column.
+
+    Returns a list of dicts with keys: label, field_name, sortable,
+    direction (asc/desc/None), next_ordering (the ?ordering= value to toggle to),
+    width (optional CSS width from column_widths).
+    """
+    current_ordering = request.GET.get("ordering", "").strip() if request else ""
+    current_field = current_ordering.lstrip("-")
+    current_dir = None
+    if current_ordering.startswith("-") and current_field:
+        current_dir = "desc"
+    elif current_field:
+        current_dir = "asc"
+
+    # Determine which fields are sortable (must be real model fields)
+    model_field_names = {f.name for f in model._meta.get_fields()} if model else set()
+
+    headers = []
+    for field_name in list_fields:
+        label = _get_field_label(model, field_name) if model else field_name.replace("_", " ").capitalize()
+        sortable = field_name in model_field_names
+
+        direction = None
+        next_ordering = field_name  # default: first click → ascending
+        if sortable and field_name == current_field:
+            direction = current_dir
+            if current_dir == "asc":
+                next_ordering = f"-{field_name}"
+            else:
+                # desc → clear (no ordering)
+                next_ordering = ""
+
+        header = {
+            "label": label,
+            "field_name": field_name,
+            "sortable": sortable,
+            "direction": direction,
+            "next_ordering": next_ordering,
+        }
+        if column_widths and field_name in column_widths:
+            header["width"] = column_widths[field_name]
+        headers.append(header)
+    return headers
+
+
 @register.inclusion_tag("smallstack/crud/includes/table.html", takes_context=True)
 def crud_table(context):
     """Render a CRUD list table from context variables.
@@ -94,17 +140,15 @@ def crud_table(context):
     crud_actions = context.get("crud_actions", [])
     field_transforms = context.get("field_transforms", {})
     url_namespace = context.get("url_namespace")
+    request = context.get("request")
 
     # Resolve model from first object or from context
     model = object_list[0].__class__ if object_list else None
 
-    # Build headers
-    headers = []
-    for field_name in list_fields:
-        if model:
-            headers.append(_get_field_label(model, field_name))
-        else:
-            headers.append(field_name.replace("_", " ").capitalize())
+    # Build sortable headers
+    crud_config = context.get("crud_config")
+    column_widths = getattr(crud_config, "column_widths", None) if crud_config else None
+    headers = _build_sort_headers(list_fields, model, request, column_widths=column_widths)
 
     has_detail = Action.DETAIL in crud_actions
     has_update = Action.UPDATE in crud_actions
@@ -117,6 +161,15 @@ def crud_table(context):
         cells = []
         for field_name in list_fields:
             is_link = field_name == link_field and has_detail
+            # Raw value for title tooltip (before transforms add HTML)
+            raw = getattr(obj, field_name, "")
+            if isinstance(raw, (dict, list)):
+                title = json.dumps(raw, ensure_ascii=False)
+            elif raw is None:
+                title = ""
+            else:
+                display_method = getattr(obj, f"get_{field_name}_display", None)
+                title = str(display_method()) if display_method else str(raw)
             value = _get_field_value(
                 obj,
                 field_name,
@@ -128,6 +181,7 @@ def crud_table(context):
                 {
                     "value": value,
                     "is_link": is_link,
+                    "title": title,
                 }
             )
 
@@ -163,6 +217,45 @@ def crud_table(context):
         "headers": headers,
         "rows": rows,
         "show_actions": show_actions,
+    }
+
+
+@register.inclusion_tag("smallstack/crud/includes/sortable_th.html", takes_context=True)
+def sortable_th(context, field_name, label, target="#tab-content", include_selector=""):
+    """Render a sortable <th> header for manual tables.
+
+    Usage in templates:
+        {% load crud_tags %}
+        {% sortable_th "timestamp" "Time" target="#tab-content" %}
+
+    Reads ?ordering= from the current request to show sort direction.
+    Clicking toggles asc → desc → clear.
+    """
+    request = context.get("request")
+    current_ordering = request.GET.get("ordering", "").strip() if request else ""
+    current_field = current_ordering.lstrip("-")
+
+    direction = None
+    next_ordering = field_name
+    if field_name == current_field:
+        if current_ordering.startswith("-"):
+            direction = "desc"
+            next_ordering = ""  # clear
+        else:
+            direction = "asc"
+            next_ordering = f"-{field_name}"
+
+    # Build the URL preserving existing query params
+    params = request.GET.copy() if request else {}
+    params["ordering"] = next_ordering
+
+    return {
+        "label": label,
+        "direction": direction,
+        "next_ordering": next_ordering,
+        "hx_target": target,
+        "hx_include": include_selector,
+        "query_string": params.urlencode(),
     }
 
 

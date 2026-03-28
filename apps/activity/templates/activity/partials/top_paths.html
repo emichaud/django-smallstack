@@ -1,2 +1,33 @@
-{% load theme_tags django_tables2 %}
-{% render_table table %}
+{% load theme_tags crud_tags %}
+<div class="card">
+    <div class="card-body" style="padding: 0; overflow-x: auto;">
+        {% if top_paths_list %}
+        <table class="crud-table">
+            <colgroup>
+                <col style="width: 60%;">
+                <col style="width: 20%;">
+                <col style="width: 20%;">
+            </colgroup>
+            <thead>
+                <tr>
+                    {% sortable_th "path" "Path" target="#tab-content" %}
+                    {% sortable_th "hits" "Hits" target="#tab-content" %}
+                    {% sortable_th "avg_time" "Avg Time" target="#tab-content" %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in top_paths_list %}
+                <tr>
+                    <td style="font-family: monospace; font-size: 0.9rem;" title="{{ row.path }}">{{ row.path }}</td>
+                    <td style="text-align: right;" title="{{ row.hits }}">{{ row.hits }}</td>
+                    <td style="text-align: right;" title="{{ row.avg_time|floatformat:0 }}ms">{{ row.avg_time|floatformat:0 }}ms</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <p style="padding: 16px; color: var(--body-quiet-color);">No path data recorded yet.</p>
+        {% endif %}
+    </div>
+    {% render_paginator page_obj %}
+</div>

@@ -1,0 +1,8 @@
+<th style="cursor: pointer; user-select: none; text-align: left; padding: 10px 16px; color: var(--body-quiet-color); font-size: 0.85rem;"
+    hx-get="?{{ query_string }}"
+    hx-target="{{ hx_target }}"
+    {% if hx_include %}hx-include="{{ hx_include }}"{% endif %}
+    hx-push-url="true"
+    hx-swap="innerHTML">
+    {{ label }} <span style="font-size: 0.65rem; display: inline-block; width: 0.65em;{% if not direction %} visibility: hidden;{% endif %}">{% if direction == "desc" %}&#9660;{% else %}&#9650;{% endif %}</span>
+</th>

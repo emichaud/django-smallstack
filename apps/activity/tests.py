@@ -196,8 +196,8 @@ class TestRequestListView:
     def test_context_contains_data(self, client, staff_user):
         client.login(username="staffuser", password="testpass123")
         response = client.get(reverse("activity:requests"))
-        # Full page includes status cards and default (recent) tab with tables2
-        assert "table" in response.context
+        # Full page includes status cards and default (recent) tab
+        assert "recent_requests" in response.context
         assert "status_groups" in response.context
         assert "total_requests" in response.context
         assert "active_tab" in response.context
@@ -208,7 +208,7 @@ class TestRequestListView:
         client.login(username="staffuser", password="testpass123")
         response = client.get(reverse("activity:requests") + "?tab=top_paths")
         assert response.context["active_tab"] == "top_paths"
-        assert "table" in response.context
+        assert "top_paths_list" in response.context
 
     def test_htmx_returns_partial(self, client, staff_user):
         """htmx requests should return only the partial template."""
@@ -239,8 +239,8 @@ class TestRequestListView:
         assert "Activity" in content
         assert "Requests" in content
 
-    def test_recent_tab_uses_tables2(self, client, staff_user, db):
-        """Recent tab should use django-tables2 with crud-table class."""
+    def test_recent_tab_uses_crud_table(self, client, staff_user, db):
+        """Recent tab should render a crud-table with sortable headers."""
         from .models import RequestLog
 
         RequestLog.objects.create(path="/test/", method="GET", status_code=200, response_time_ms=10)

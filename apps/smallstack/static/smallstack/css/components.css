@@ -25,6 +25,17 @@
     border-collapse: collapse;
 }
 
+/* Fixed layout: column widths determined by header row only, immune to content changes */
+.crud-table {
+    table-layout: fixed;
+}
+
+.crud-table td {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
 /* Reset inherited admin/tables2 backgrounds */
 .crud-table tr:nth-child(odd),
 .crud-table tr:nth-child(even),

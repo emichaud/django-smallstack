@@ -1,6 +1,6 @@
 ---
 title: Tables
-description: HTML tables and django-tables2 with SmallStack's dark theme
+description: HTML tables with built-in column sorting and SmallStack's dark theme
 ---
 
 # Tables
@@ -82,95 +82,71 @@ That gives you:
 
 Always use `crud-table` and let the CSS variables handle the theming.
 
-## django-tables2 Setup
+## Built-in Column Sorting
 
-For dynamic data, [django-tables2](https://django-tables2.readthedocs.io/) is the way to go. SmallStack uses it throughout -- User Manager, Activity Tracking, Uptime Monitoring, and Explorer all use django-tables2 tables with the `crud-table` class.
+The built-in `TableDisplay` and `{% crud_table %}` tag now support column sorting via HTMX. Clicking a column header sorts ascending, clicking again sorts descending, and a third click clears the sort. Sort indicators (▲/▼) show the active sort direction.
 
-### 1. Define a Table class
+Sorting works automatically for any column backed by a real model field. Computed or transform-only columns render as plain (non-clickable) headers.
 
-```python
-# apps/myapp/tables.py
-import django_tables2 as tables
-from .models import Project
+### How it works
 
-class ProjectTable(tables.Table):
-    name = tables.Column()
-    status = tables.Column()
-    created_at = tables.DateTimeColumn(format="M d, Y")
+- The list view reads `?ordering=field` (or `?ordering=-field` for descending) from the URL
+- Allowed fields are derived from `list_fields`, filtered to actual model fields
+- Override with `ordering_fields` on your CRUDView to allow/restrict specific fields
+- Sort state persists in the URL via `hx-push-url="true"`, so sorting works with search and filters
 
-    class Meta:
-        model = Project
-        fields = ("name", "status", "created_at")
-        order_by = "-created_at"
-        attrs = {"class": "crud-table"}   # <-- This is the key line
-```
+### Using `{% sortable_th %}` in manual tables
 
-The `attrs = {"class": "crud-table"}` in `Meta` is what connects your table to SmallStack's styling. Without it, django-tables2 renders a plain unstyled table.
-
-### 2. Use it in a view
-
-```python
-# apps/myapp/views.py
-import django_tables2 as tables
-from .models import Project
-from .tables import ProjectTable
-
-class ProjectListView(tables.SingleTableView):
-    model = Project
-    table_class = ProjectTable
-    template_name = "myapp/project_list.html"
-    paginate_by = 15
-```
-
-### 3. Render it in a template
+For tables outside CRUDView (like the Activity app), use the `{% sortable_th %}` template tag:
 
 ```html
-{% extends "smallstack/base.html" %}
-{% load django_tables2 %}
-
-{% block extra_css %}
-{% include "smallstack/crud/_table_styles.html" %}
-<style>
-    /* Sort indicators for clickable column headers */
-    .crud-table thead th a { color: var(--body-quiet-color); text-decoration: none; }
-    .crud-table thead th a:hover { color: var(--primary); }
-    .crud-table thead th.asc a::after { content: " \25B2"; font-size: 0.65rem; }
-    .crud-table thead th.desc a::after { content: " \25BC"; font-size: 0.65rem; }
-
-    /* Pagination styling */
-    ul.pagination {
-        display: flex; justify-content: center; gap: 0.25rem;
-        list-style: none !important; padding: 1rem 0 0 !important; margin: 0 !important;
-    }
-    ul.pagination li { list-style: none !important; }
-    ul.pagination li a, ul.pagination li span {
-        display: inline-block; padding: 0.3rem 0.75rem;
-        border-radius: var(--radius-sm, 4px); color: var(--body-quiet-color);
-        text-decoration: none; font-size: 0.85rem;
-    }
-    ul.pagination li a:hover {
-        color: var(--primary);
-        background: color-mix(in srgb, var(--primary) 10%, var(--body-bg));
-    }
-    ul.pagination li.active a, ul.pagination li.active span {
-        background: var(--primary); color: var(--button-fg);
-    }
-</style>
-{% endblock %}
-
-{% block content %}
-<div class="card">
-    <div class="card-header">
-        <h2>Projects</h2>
-    </div>
-    <div class="card-body">
-        {% render_table table %}
-    </div>
-</div>
-{% endblock %}
+{% load crud_tags %}
+<table class="crud-table">
+    <thead>
+        <tr>
+            {% sortable_th "name" "Name" target="#my-table-container" %}
+            {% sortable_th "created_at" "Created" target="#my-table-container" %}
+            <th>Non-sortable Column</th>
+        </tr>
+    </thead>
+    ...
+</table>
 ```
 
-The `{% render_table table %}` tag handles the `<table>`, sorting links, and pagination all at once. The sort indicator and pagination styles above are needed because django-tables2 generates its own markup for those elements -- without the CSS, sort arrows won't appear and pagination will render as a raw bullet list.
+The tag reads `?ordering=` from the request, shows the correct indicator, and generates HTMX attributes for the toggle.
+
+## Stable Column Widths
+
+Tables use `table-layout: fixed` so column widths are determined by the header row, not cell content. This prevents columns from shifting when sort order changes and different rows become visible.
+
+Long content is truncated with CSS `text-overflow: ellipsis`. Hovering any truncated cell shows the full value in a native tooltip.
+
+### Custom column proportions
+
+For tables where equal-width columns don't make sense (e.g., a wide "Path" column alongside a narrow "Method" column), use a `<colgroup>`:
+
+```html
+<table class="crud-table">
+    <colgroup>
+        <col style="width: 20%;">
+        <col style="width: 50%;">
+        <col style="width: 15%;">
+        <col style="width: 15%;">
+    </colgroup>
+    ...
+</table>
+```
+
+For CRUDView tables, set `column_widths` on the view class instead:
+
+```python
+class WidgetCRUDView(CRUDView):
+    model = Widget
+    list_fields = ["name", "description", "status", "created_at"]
+    column_widths = {"name": "20%", "description": "50%"}
+```
+
+Fields not listed in `column_widths` share the remaining space equally.
 
 ## Matching the Built-in Theme
 
@@ -190,97 +166,29 @@ Every table in SmallStack's built-in apps follows the same visual pattern. Here 
 | **No borders** | `border: none !important` on all elements | Clean, modern look |
 | **Links** | `color: var(--primary)` | Consistent link color |
 
-### SmallStack's reusable column types
-
-SmallStack provides three column classes in `apps.smallstack.tables` that handle common patterns:
-
-```python
-from apps.smallstack.tables import ActionsColumn, BooleanColumn, DetailLinkColumn
-```
-
-- **`DetailLinkColumn(url_base, link_view="detail")`** -- Wraps the cell value in a link to the detail or edit page. Set `link_view="update"` to go straight to the edit form.
-- **`BooleanColumn(true_mark="...", false_mark="...")`** -- Renders `True` as a themed checkmark and `False` as a muted dash. Centers the content automatically.
-- **`ActionsColumn(url_base, edit=True, delete=True)`** -- Adds edit (pencil) and delete (trash) icon buttons aligned to the right. The delete button uses `var(--delete-button-bg)` for the red color.
-
-### Complete example matching built-in apps
-
-Here is a table definition that looks exactly like User Manager or Activity Tracking:
-
-```python
-# apps/inventory/tables.py
-import django_tables2 as tables
-from apps.smallstack.tables import ActionsColumn, BooleanColumn, DetailLinkColumn
-from .models import Item
-
-class ItemTable(tables.Table):
-    name = DetailLinkColumn(url_base="manage/items", link_view="update")
-    category = tables.Column()
-    in_stock = BooleanColumn(verbose_name="In Stock")
-    quantity = tables.Column(attrs={"td": {"style": "text-align: right;"}})
-    actions = ActionsColumn(url_base="manage/items")
-
-    class Meta:
-        model = Item
-        fields = ("name", "category", "in_stock", "quantity")
-        order_by = "name"
-        attrs = {"class": "crud-table"}
-```
-
-### Custom rendering with `format_html`
-
-The built-in apps use `render_<column>` methods to add visual polish. Here are patterns pulled from the real codebase:
-
-```python
-# Monospace text for paths or codes
-def render_sku(self, value):
-    return format_html(
-        '<span style="font-family:monospace;font-size:0.9rem;">{}</span>',
-        value,
-    )
-
-# Status badges with color coding
-def render_status(self, value):
-    colors = {
-        "active": "var(--primary)",
-        "archived": "var(--body-quiet-color)",
-        "error": "var(--delete-button-bg, red)",
-    }
-    color = colors.get(value, "var(--body-fg)")
-    return format_html('<span style="color:{};">{}</span>', color, value)
-
-# Timestamps with timezone-aware formatting
-def render_updated_at(self, value):
-    if value:
-        local = localtime(value)
-        return format_html(
-            '<span style="white-space:nowrap;font-size:0.85rem;">{}</span>',
-            local.strftime("%b %d %I:%M %p %Z").lstrip("0"),
-        )
-    return format_html('<span style="color:var(--body-quiet-color);">{}</span>', chr(8212))
-```
-
-Always use `var(--primary)`, `var(--body-quiet-color)`, `var(--body-fg)`, and other CSS variables instead of hardcoded hex colors. That way your custom rendering adapts to both light and dark mode without any extra work.
-
 ### Tables inside stat modals
 
 SmallStack's stat modal (`smallstack/includes/stat_modal.html`) has its own table styles under `.stat-modal-panel table`. These mirror the `crud-table` styles -- same striped rows, same hover, same header treatment -- so any `<table>` inside a stat modal looks consistent automatically. You don't need to add `crud-table` to tables inside the modal.
 
 ## CRUDView Tables
 
-If you are using SmallStack's CRUDView system, table setup is largely automatic. You define a `table_class` on your CRUDView, and the generic list template handles including the table styles, rendering the table with `{% render_table %}`, and wiring up pagination.
+If you are using SmallStack's CRUDView system, table setup is automatic. Use `TableDisplay` (the default) -- it renders the `{% crud_table %}` tag with built-in column sorting, pagination, and themed styling. No separate table class is needed.
 
 ```python
 from apps.smallstack.crud import Action, CRUDView
-from .tables import ItemTable
+from apps.smallstack.displays import TableDisplay
 
 class ItemCRUDView(CRUDView):
     model = Item
-    table_class = ItemTable
+    fields = ["name", "category", "is_active"]
+    list_fields = ["name", "category", "is_active", "created_at"]
+    url_base = "manage/items"
     paginate_by = 10
-    # ... rest of config
+    displays = [TableDisplay]
+    # ordering_fields = ["name", "created_at"]  # optional: restrict sortable columns
 ```
 
-The generic list template at `smallstack/crud/object_list.html` automatically includes `_table_styles.html` and adds sort indicator CSS when it detects a django-tables2 table.
+Column headers are automatically sortable for any field backed by a real model field. The `ordering_fields` attribute lets you restrict which columns are sortable.
 
 For the full walkthrough on setting up CRUD pages with tables, see [Building CRUD Pages](/smallstack/help/building-crud-pages/).
 
@@ -291,11 +199,5 @@ For the full walkthrough on setting up CRUD pages with tables, see [Building CRU
 **Hardcoded background colors** -- Writing `style="background: #f5f5f5"` on rows or cells defeats the theming system. Use CSS variables: `var(--body-bg)`, `var(--card-bg)`, or `color-mix()` expressions with `var(--primary)`.
 
 **Hardcoded text colors** -- Same problem. Use `var(--body-fg)` for regular text, `var(--body-quiet-color)` for muted text, `var(--primary)` for emphasis.
-
-**Missing sort indicator CSS** -- django-tables2 adds `.asc` and `.desc` classes to `<th>` elements but doesn't style them. Without the sort indicator CSS shown above, users have no visual feedback when they click a column to sort. Copy the four-line block from the template examples in this guide.
-
-**Pagination rendered as bullet list** -- django-tables2 outputs pagination as a `<ul class="pagination">`. Without the pagination CSS, it renders as a bulleted list. Include the pagination styles shown in the django-tables2 template example.
-
-**Forgetting `attrs` in the Table Meta** -- If you define a django-tables2 Table class but omit `attrs = {"class": "crud-table"}`, the table renders without any SmallStack styling. This is easy to miss because the table still *works* -- it just looks wrong.
 
 **Using Bootstrap classes** -- SmallStack does not use Bootstrap. Classes like `table-dark`, `table-striped`, or `table-hover` have no effect. Use `crud-table` instead.

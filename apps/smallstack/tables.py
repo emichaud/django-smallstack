@@ -1,5 +1,11 @@
 """Reusable django-tables2 column types for SmallStack CRUD views.
 
+.. deprecated::
+    The built-in TableDisplay now supports column sorting via HTMX.
+    Prefer TableDisplay over Table2Display and these column helpers.
+    These classes remain available for backward compatibility but will
+    be removed in a future release.
+
 Provides composable columns that integrate with the CRUDView system:
 
     from apps.smallstack.tables import BooleanColumn, DetailLinkColumn, ActionsColumn
@@ -15,6 +21,8 @@ Provides composable columns that integrate with the CRUDView system:
             attrs = {"class": "crud-table"}
 """
 
+import warnings
+
 import django_tables2 as tables
 from django.urls import reverse
 from django.utils.html import format_html
@@ -25,6 +33,11 @@ class BooleanColumn(tables.Column):
     """Renders True/False as ✓/— with theme-aware color."""
 
     def __init__(self, true_mark="✓", false_mark="—", **kwargs):
+        warnings.warn(
+            "BooleanColumn is deprecated. Use TableDisplay with field_transforms instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         kwargs.setdefault("attrs", {})
         kwargs["attrs"].setdefault("td", {"style": "text-align: center;"})
         kwargs["attrs"].setdefault("th", {"style": "text-align: center;"})
@@ -59,6 +72,11 @@ class DetailLinkColumn(tables.Column):
         namespace: str | None = None,
         **kwargs,
     ):
+        warnings.warn(
+            "DetailLinkColumn is deprecated. Use TableDisplay with link_field instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         super().__init__(linkify=False, **kwargs)
         self.url_base = url_base
         self.link_view = link_view
@@ -104,6 +122,11 @@ class ActionsColumn(tables.Column):
         namespace: str | None = None,
         **kwargs,
     ):
+        warnings.warn(
+            "ActionsColumn is deprecated. Use TableDisplay with CRUDView actions instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         kwargs["empty_values"] = ()  # Always render, even if no value
         kwargs["orderable"] = False
         kwargs["verbose_name"] = ""

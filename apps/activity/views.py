@@ -11,11 +11,11 @@ from django.views import View
 from django.views.generic import TemplateView
 
 from apps.profile.models import UserProfile
+from apps.smallstack.crud import _apply_ordering_fields
 from apps.smallstack.mixins import StaffRequiredMixin
 from apps.smallstack.pagination import paginate_queryset
 
 from .models import RequestLog
-from .tables import RecentRequestsTable, TopPathsTable
 
 User = get_user_model()
 
@@ -165,18 +165,24 @@ class RequestListView(StaffRequiredMixin, TemplateView):
     page_size = 15
 
     def get_tab_context(self, tab):
-        from django_tables2 import RequestConfig
-
         qs = RequestLog.objects.all()
         if tab == "recent":
-            table = RecentRequestsTable(qs.select_related("user"))
-            RequestConfig(self.request, paginate={"per_page": self.page_size}).configure(table)
-            return {"table": table}
+            recent_qs = qs.select_related("user").order_by("-timestamp")
+            # Apply ordering from query param
+            ordering = self.request.GET.get("ordering", "").strip()
+            if ordering:
+                allowed = {"timestamp", "method", "path", "status_code", "response_time_ms", "ip_address"}
+                recent_qs = _apply_ordering_fields(recent_qs, ordering, allowed)
+            page_obj = paginate_queryset(recent_qs, self.request, page_size=self.page_size)
+            return {"recent_requests": page_obj, "page_obj": page_obj}
         elif tab == "top_paths":
-            data = qs.values("path").annotate(hits=Count("pk"), avg_time=Avg("response_time_ms"))
-            table = TopPathsTable(data)
-            RequestConfig(self.request, paginate={"per_page": self.page_size}).configure(table)
-            return {"table": table}
+            data = qs.values("path").annotate(hits=Count("pk"), avg_time=Avg("response_time_ms")).order_by("-hits")
+            ordering = self.request.GET.get("ordering", "").strip()
+            if ordering:
+                allowed = {"path", "hits", "avg_time"}
+                data = _apply_ordering_fields(data, ordering, allowed)
+            page_obj = paginate_queryset(data, self.request, page_size=self.page_size)
+            return {"top_paths_list": page_obj, "page_obj": page_obj}
         elif tab == "errors":
             error_qs = qs.filter(status_code__gte=300)
             last_24h = timezone.now() - timezone.timedelta(hours=24)

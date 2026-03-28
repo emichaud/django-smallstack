@@ -115,6 +115,45 @@ def _apply_list_search(qs, request, crud_config):
     return qs.filter(query)
 
 
+def _apply_ordering_fields(qs, ordering, allowed):
+    """Apply comma-separated ordering fields to a queryset.
+
+    Each field may be prefixed with ``-`` for descending.  Fields not in
+    *allowed* are silently ignored (matches Django/DRF convention).
+
+    This is the low-level helper used by both the HTML list view and the
+    REST API layer.
+    """
+    validated = []
+    for part in ordering.split(","):
+        field = part.strip().lstrip("-")
+        if field in allowed:
+            validated.append(part.strip())
+    if validated:
+        return qs.order_by(*validated)
+    return qs
+
+
+def _apply_ordering(qs, request, crud_config):
+    """Apply ?ordering= sort to a queryset using list_fields as allowed fields.
+
+    The allowed set is derived from ``ordering_fields`` (if set) or
+    ``list_fields``, restricted to real model fields (computed/transform-only
+    columns are excluded).
+    """
+    ordering = request.GET.get("ordering", "").strip()
+    if not ordering:
+        return qs
+
+    # Build allowed set: ordering_fields override, else list_fields filtered to model fields
+    allowed = set(getattr(crud_config, "ordering_fields", None) or [])
+    if not allowed:
+        model_field_names = {f.name for f in crud_config.model._meta.get_fields()}
+        allowed = {f for f in crud_config._get_list_fields() if f in model_field_names}
+
+    return _apply_ordering_fields(qs, ordering, allowed)
+
+
 def _apply_list_filters(qs, request, crud_config):
     """Apply query-param filters to a queryset using configured filter_fields."""
     filter_fields = crud_config._resolve_filter_fields()
@@ -274,6 +313,7 @@ class _CRUDContextMixin:
         meta = cfg.model._meta
         context.update(
             {
+                "crud_config": cfg,
                 "object_verbose_name": str(meta.verbose_name).capitalize(),
                 "object_verbose_name_plural": str(meta.verbose_name_plural).capitalize(),
                 "url_base": url_base,
@@ -323,6 +363,7 @@ class _CRUDListBase(_CRUDContextMixin, ListView):
         qs = self.crud_config.get_list_queryset(qs, self.request)
         qs = _apply_list_search(qs, self.request, self.crud_config)
         qs = _apply_list_filters(qs, self.request, self.crud_config)
+        qs = _apply_ordering(qs, self.request, self.crud_config)
         return qs
 
     def _get_active_display(self):
@@ -371,6 +412,12 @@ class _CRUDListBase(_CRUDContextMixin, ListView):
                 context["available_displays"] = all_displays
         elif cfg.table_class:
             # Legacy table2 path (no displays configured, but table_class set)
+            warnings.warn(
+                f"{cfg.__name__}.table_class is deprecated. Use TableDisplay "
+                "instead — the built-in table now supports column sorting.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
             from django_tables2 import RequestConfig
 
             table = cfg.table_class(qs)
@@ -694,6 +741,7 @@ class CRUDView:
     api_extra_fields = []  # Extra read-only fields appended to API responses (e.g. ["created_at", "updated_at"])
     api_expand_fields = []  # FK fields always expanded as {"id": pk, "name": str(obj)} (e.g. ["category"])
     api_aggregate_fields = []  # Numeric fields that support sum/avg/min/max aggregation
+    ordering_fields = []  # Fields allowed for ?ordering= (defaults to sortable list_fields)
     search_fields = []  # Fields for ?q= search (reads from admin_class.search_fields)
     filter_fields = []  # Fields for query-param filtering (reads from admin_class.list_filter)
     filter_class = None  # Optional django-filters FilterSet class
@@ -706,6 +754,7 @@ class CRUDView:
     table_class = None  # Optional django-tables2 Table class for enhanced list view
     preview_fields = []  # Deprecated — use field_transforms
     field_transforms = {}  # {field_name: "transform_name" | ("name", {opts}) | callable}
+    column_widths = None  # Optional {field_name: "30%"} for custom column proportions
 
     # -- Config resolution: admin_class → legacy attrs → defaults --
 

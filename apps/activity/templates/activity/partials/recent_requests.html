@@ -1,13 +1,60 @@
-{% load theme_tags django_tables2 %}
+{% load theme_tags crud_tags %}
 <div id="recent-requests"
-     {% if table.page and table.page.number == 1 %}
+     {% if page_obj.number == 1 %}
      hx-get="{% url 'activity:requests' %}?tab=recent"
      hx-trigger="every 30s"
      hx-target="#tab-content"
      hx-swap="innerHTML"
      {% endif %}>
-    {% if table.page and table.page.number == 1 %}
+    {% if page_obj.number == 1 %}
     <p style="font-size: 0.8rem; color: var(--body-quiet-color); margin-bottom: 0.75rem;">Auto-refreshes every 30s</p>
     {% endif %}
-    {% render_table table %}
+    <div class="card">
+        <div class="card-body" style="padding: 0; overflow-x: auto;">
+            {% if recent_requests %}
+            <table class="crud-table">
+                <colgroup>
+                    <col style="width: 22%;">
+                    <col style="width: 7%;">
+                    <col style="width: 28%;">
+                    <col style="width: 7%;">
+                    <col style="width: 12%;">
+                    <col style="width: 10%;">
+                    <col style="width: 14%;">
+                </colgroup>
+                <thead>
+                    <tr>
+                        {% sortable_th "timestamp" "Time" target="#tab-content" %}
+                        {% sortable_th "method" "Method" target="#tab-content" %}
+                        {% sortable_th "path" "Path" target="#tab-content" %}
+                        {% sortable_th "status_code" "Status" target="#tab-content" %}
+                        <th style="text-align: left; padding: 10px 16px; color: var(--body-quiet-color); font-size: 0.85rem;">User</th>
+                        {% sortable_th "response_time_ms" "Time (ms)" target="#tab-content" %}
+                        {% sortable_th "ip_address" "IP" target="#tab-content" %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for log in recent_requests %}
+                    <tr>
+                        <td style="font-size: 0.85rem;" title="{{ log.timestamp }}">{% localtime_tooltip log.timestamp "M d g:i:s A T" %}</td>
+                        <td title="{{ log.method }}"><code style="font-weight: 600;">{{ log.method }}</code></td>
+                        <td style="font-family: monospace; font-size: 0.9rem;" title="{{ log.path }}">{{ log.path }}</td>
+                        <td style="text-align: right;" title="{{ log.status_code }}">
+                            <span style="{% if log.status_code >= 500 %}color: var(--delete-button-bg, red);{% elif log.status_code >= 400 %}color: var(--message-warning-bg, orange);{% endif %}">
+                                {{ log.status_code }}
+                            </span>
+                        </td>
+                        <td style="font-size: 0.85rem;" title="{{ log.user.username|default:"—" }}">{{ log.user.username|default:"—" }}</td>
+                        <td style="text-align: right;" title="{{ log.response_time_ms|default:"—" }}">{{ log.response_time_ms|default:"—" }}</td>
+                        <td style="font-size: 0.85rem;" title="{{ log.ip_address|default:"—" }}">{{ log.ip_address|default:"—" }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <p style="padding: 16px; color: var(--body-quiet-color);">No requests recorded yet.</p>
+            {% endif %}
+        </div>
+        {% render_paginator page_obj %}
+    </div>
 </div>

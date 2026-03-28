@@ -27,7 +27,7 @@ The list page follows the standard management page pattern:
 
 **Search** — type in the search bar to filter users by username, email, first name, or last name. Results update instantly via HTMX without a page reload.
 
-**Sortable table** — django-tables2 table with columns for Username, Email, Name, Timezone, Staff status, and Active status. Click column headers to sort. The username links to the edit page.
+**Sortable table** — themed table with columns for Username, Email, Name, Timezone, Staff status, and Active status. Click column headers to sort. The username links to the edit page.
 
 **Self-protection** — the delete button is hidden for your own row. You can't accidentally delete your own account.
 
@@ -138,7 +138,7 @@ WORK_DAYS = (0, 1, 2, 3, 4, 5)  # Mon–Sat
 | File | Purpose |
 |------|---------|
 | `apps/usermanager/views.py` | CRUDView config, dashboard stats, stat detail endpoint |
-| `apps/usermanager/tables.py` | UserTable, TimezoneTable with custom columns |
+| `apps/usermanager/tables.py` | UserTable, TimezoneTable (legacy django-tables2, being migrated to TableDisplay) |
 | `apps/usermanager/forms.py` | UserAccountForm, UserProfileForm |
 | `apps/usermanager/timezone_views.py` | Timezone dashboard view |
 | `apps/usermanager/urls.py` | URL configuration |
@@ -157,12 +157,11 @@ class UserCRUDView(CRUDView):
     url_base = "manage/users"
     paginate_by = 10
     mixins = [StaffRequiredMixin]
-    table_class = UserTable
     form_class = UserAccountForm
     actions = [Action.LIST, Action.CREATE, Action.UPDATE, Action.DELETE]
 ```
 
-This generates four URL patterns, four views, and wires up the table, form, pagination, and access control. The `_make_view` method is overridden to inject search filtering, profile form handling, and self-delete protection.
+This generates four URL patterns, four views, and wires up the form, pagination, and access control. The built-in `TableDisplay` handles sortable column headers, pagination, and themed styling automatically. The `_make_view` method is overridden to inject search filtering, profile form handling, and self-delete protection.
 
 See the [Building CRUD Pages](/help/smallstack/building-crud-pages/) guide for the full CRUDView pattern documentation.
 

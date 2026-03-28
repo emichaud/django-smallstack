@@ -19,7 +19,7 @@ from django.http import HttpRequest, HttpResponse, JsonResponse, QueryDict
 from django.urls import URLPattern, path
 from django.views.decorators.csrf import csrf_exempt
 
-from .crud import Action
+from .crud import Action, _apply_ordering_fields
 
 if TYPE_CHECKING:
     from django import forms
@@ -667,17 +667,9 @@ def _make_api_detail_view(crud_config):
 def _apply_ordering(qs, ordering: str, allowed: set[str]) -> QuerySet:
     """Apply comma-separated ordering fields to a queryset.
 
-    Each field may be prefixed with ``-`` for descending.  Fields not in
-    *allowed* are silently ignored (matches Django/DRF convention).
+    Thin wrapper around the shared ``_apply_ordering_fields`` in crud.py.
     """
-    validated: list[str] = []
-    for part in ordering.split(","):
-        field = part.strip().lstrip("-")
-        if field in allowed:
-            validated.append(part.strip())
-    if validated:
-        return qs.order_by(*validated)
-    return qs
+    return _apply_ordering_fields(qs, ordering, allowed)
 
 
 def _api_list(request, crud_config):

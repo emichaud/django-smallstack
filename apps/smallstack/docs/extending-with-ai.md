@@ -15,7 +15,7 @@ Skills are markdown files in `docs/skills/`. An AI agent reads the relevant skil
 
 | Skill | File | What It Teaches |
 |-------|------|-----------------|
-| **Django Apps & CRUD** | `django-apps.md` | Creating new apps, CRUDView + django-tables2 management pages, title bar pattern, search, stat cards, modal drilldowns |
+| **Django Apps & CRUD** | `django-apps.md` | Creating new apps, CRUDView management pages with sortable tables, title bar pattern, search, stat cards, modal drilldowns |
 | **Templates** | `templates.md` | Template inheritance, blocks, includes, common layout patterns |
 | **Theming** | `theming-system.md` | CSS variables, palettes, dark/light mode, UI component styling |
 | **Authentication** | `authentication.md` | Custom user model, auth views, protecting views with mixins |
@@ -57,7 +57,7 @@ Every management list page follows this consistent structure:
 
 **Search Bar** (optional) — HTMX-powered search that filters the table progressively without page reload.
 
-**Sortable Table** — django-tables2 table with themed styling, column sorting, and pagination. Click column headers to sort.
+**Sortable Table** — built-in table with themed styling, column sorting via HTMX, and pagination. Click column headers to sort.
 
 **Stat Modal** — an 80%-width popup that appears when clicking stat cards, showing a detail table inside.
 
@@ -67,6 +67,7 @@ A single Python class produces all the views and URL patterns:
 
 ```python
 from apps.smallstack.crud import Action, CRUDView
+from apps.smallstack.displays import TableDisplay
 from apps.smallstack.mixins import StaffRequiredMixin
 
 class WidgetCRUDView(CRUDView):
@@ -74,7 +75,7 @@ class WidgetCRUDView(CRUDView):
     url_base = "manage/widgets"
     paginate_by = 10
     mixins = [StaffRequiredMixin]
-    table_class = WidgetTable
+    displays = [TableDisplay]
     actions = [Action.LIST, Action.CREATE, Action.UPDATE, Action.DELETE]
 ```
 
@@ -87,28 +88,9 @@ This generates four URL patterns:
 | `/manage/widgets/<pk>/edit/` | Update form |
 | `/manage/widgets/<pk>/delete/` | Delete confirmation |
 
-### Reusable Table Columns
+### Built-in Column Sorting
 
-The `apps.smallstack.tables` module provides themed column types that integrate with CRUDView:
-
-| Column | Purpose |
-|--------|---------|
-| `DetailLinkColumn` | Wraps cell value in a link to the detail or edit page |
-| `BooleanColumn` | Renders True/False as a themed checkmark or dash |
-| `ActionsColumn` | Edit and Delete icon buttons |
-
-```python
-from apps.smallstack.tables import ActionsColumn, BooleanColumn, DetailLinkColumn
-
-class WidgetTable(tables.Table):
-    name = DetailLinkColumn(url_base="manage/widgets", link_view="update")
-    is_active = BooleanColumn()
-    actions = ActionsColumn(url_base="manage/widgets")
-
-    class Meta:
-        model = Widget
-        attrs = {"class": "crud-table"}   # Required for theme styling
-```
+The built-in `TableDisplay` renders sortable column headers automatically. No separate table class is needed — just set `list_fields` on your CRUDView and columns backed by real model fields become clickable sort headers. Use `ordering_fields` to restrict which columns are sortable.
 
 ### The Title Bar Convention
 
@@ -139,9 +121,9 @@ These existing pages demonstrate the full pattern:
 
 | Page | URL | Features |
 |------|-----|----------|
-| **User Manager** | `/manage/users/` | CRUDView + tables2 + search + stat cards + modal drilldowns |
-| **Timezone Dashboard** | `/manage/users/timezones/` | Standalone tables2 + search + title bar number cards |
-| **Activity Requests** | `/activity/requests/` | HTMX tabbed views, tables2 for Recent/Top Paths tabs |
+| **User Manager** | `/manage/users/` | CRUDView + search + stat cards + modal drilldowns |
+| **Timezone Dashboard** | `/manage/users/timezones/` | Standalone sortable table + search + title bar number cards |
+| **Activity Requests** | `/activity/requests/` | HTMX tabbed views, sortable tables for Recent/Top Paths tabs |
 | **Activity Users** | `/activity/users/` | HTMX tabs, title bar number cards |
 | **Backups** | `/backups/` | Title bar with action cards, stat cards, modal drilldowns |
 | **Backup Detail** | `/backups/<pk>/` | Title bar with status/size cards, timeline, detail table |
@@ -168,11 +150,11 @@ The AI knows to override `_make_view`, add queryset filtering, return the table 
 
 The AI wires up the stat-card-clickable HTML, HTMX endpoint, backend view returning an HTML table fragment, and includes the stat modal template.
 
-### Converting Old Tables to tables2
+### Adding Sortable Headers to Manual Tables
 
-> "Convert the errors tab on the activity requests page from hand-written HTML to django-tables2 with column sorting."
+> "Add sortable column headers to the errors tab on the activity requests page."
 
-The AI creates a Table class, updates the view to use RequestConfig, and replaces the template HTML with `{% render_table table %}`.
+The AI uses the `{% sortable_th %}` template tag, adds `_apply_ordering_fields` to the view, and wires up the HTMX attributes.
 
 ## CLAUDE.md Integration
 
