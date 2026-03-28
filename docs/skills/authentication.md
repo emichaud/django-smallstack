@@ -416,7 +416,8 @@ Content-Type: application/json
 {"username": "alice", "password": "secret123"}
 
 → 200: {"token": "aBcD1234...", "user": {"id": 1, "username": "alice", "is_staff": true}}
-→ 401: {"error": "Invalid credentials"}
+→ 400: {"errors": {"__all__": ["username and password are required"]}}
+→ 401: {"errors": {"__all__": ["Invalid credentials"]}}
 ```
 
 The endpoint uses Django's `authenticate()` under the hood, so custom auth backends (e.g., email login) work automatically.

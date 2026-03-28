@@ -636,6 +636,8 @@ curl -H "Authorization: Bearer <token>" http://localhost:8005/api/inventory/prod
 CORS_ALLOWED_ORIGINS=http://localhost:3000,http://localhost:5173
 ```
 
+In development (`DEBUG=True`), if no `CORS_ALLOWED_ORIGINS` are set, SmallStack auto-allows any `localhost` or `127.0.0.1` origin — no configuration needed for local dev.
+
 **Filtering:** Add `filter_fields` to your view for query-parameter filtering (uses `django-filter`, included in dependencies). Date/DateTime fields automatically get range lookups (`__gte`, `__lte`, `__gt`, `__lt`):
 
 ```python

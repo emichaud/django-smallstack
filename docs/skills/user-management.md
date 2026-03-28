@@ -176,6 +176,18 @@ Common extensions:
 - Bulk operations
 - User activity detail linking
 
+## API Endpoints
+
+For programmatic user management, SmallStack provides REST endpoints that mirror the UI functionality:
+
+- `GET /api/auth/users/` — list and search users (auth-level token required)
+- `GET /api/auth/users/<id>/` — user detail
+- `PATCH /api/auth/users/<id>/` — update user fields
+- `POST /api/auth/users/<id>/password/` — set password
+- `POST /api/auth/users/<id>/deactivate/` — deactivate and revoke tokens
+
+See `api.md` for full details.
+
 ## Best Practices
 
 1. **Use `settings.AUTH_USER_MODEL`** — never import User directly

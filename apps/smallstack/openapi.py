@@ -150,6 +150,44 @@ def _build_crud_paths(crud_config, list_url_name: str) -> dict[str, dict]:
                 {"name": "q", "in": "query", "schema": {"type": "string"},
                  "description": f"Search {', '.join(search_fields)}"},
             )
+
+        # Filter parameters
+        filter_fields = crud_config._resolve_filter_fields()
+        for field_name in filter_fields:
+            parameters.append(
+                {"name": field_name, "in": "query", "schema": {"type": "string"},
+                 "description": f"Filter by {field_name}"},
+            )
+
+        # Expand parameter
+        expand_fields = getattr(crud_config, "api_expand_fields", [])
+        if expand_fields:
+            parameters.append(
+                {"name": "expand", "in": "query", "schema": {"type": "string"},
+                 "description": f"Comma-separated FK fields to expand: {', '.join(expand_fields)}"},
+            )
+
+        # Export format parameter
+        export_formats = getattr(crud_config, "export_formats", [])
+        if export_formats:
+            parameters.append(
+                {"name": "format", "in": "query",
+                 "schema": {"type": "string", "enum": list(export_formats)},
+                 "description": "Export format (returns file download)"},
+            )
+
+        # Aggregation parameters
+        agg_fields = getattr(crud_config, "api_aggregate_fields", [])
+        if agg_fields:
+            for agg in ["sum", "avg", "min", "max"]:
+                parameters.append(
+                    {"name": agg, "in": "query", "schema": {"type": "string"},
+                     "description": f"Compute {agg} of a numeric field ({', '.join(agg_fields)})"},
+                )
+            parameters.append(
+                {"name": "count_by", "in": "query", "schema": {"type": "string"},
+                 "description": "Group counts by field"},
+            )
         list_ops["get"] = {
             "tags": [tag],
             "summary": f"List {model_name} records",

@@ -48,6 +48,8 @@ Without this, `POST /api/auth/register/` returns 403.
 
 In the Token Manager UI (`/smallstack/tokens/`), create a manual token with **auth** access level. Only superusers can create auth-level tokens.
 
+Or via CLI: `uv run python manage.py create_api_token <username> --access-level auth`
+
 Store this token in your frontend's server-side environment config (`.env.local`, Vercel secrets, etc.) — **never in client-side code**.
 
 ## Token Architecture
@@ -63,16 +65,25 @@ SmallStack uses two kinds of tokens:
 
 ```
 Frontend Server (has system token)
-├── POST /api/auth/register/     → system token (creates user + returns login token)
-├── POST /api/auth/users/5/password/   → system token
-└── POST /api/auth/users/5/deactivate/ → system token
+├── POST /api/auth/register/              → system token
+├── GET/PATCH /api/auth/users/            → system token (list, search, update)
+├── POST /api/auth/users/5/password/      → system token
+└── POST /api/auth/users/5/deactivate/    → system token
 
 Browser (has user's login token)
-├── POST /api/auth/token/        → no token needed (sends credentials)
-├── GET  /api/auth/me/           → login token
-├── POST /api/auth/password/     → login token (self-service)
-├── GET  /api/manage/widgets/    → login token (CRUDView read)
-└── POST /api/manage/widgets/    → login token (CRUDView write)
+├── POST /api/auth/token/                 → no token needed (sends credentials)
+├── GET  /api/auth/me/                    → login token
+├── POST /api/auth/password/              → login token (self-service)
+├── POST /api/auth/token/refresh/         → login token (extends session)
+├── POST /api/auth/logout/                → login token (revokes token)
+├── GET  /api/manage/widgets/             → login token (CRUDView read)
+└── POST /api/manage/widgets/             → login token (CRUDView write)
+
+No token needed (public)
+├── GET  /api/auth/password-requirements/ → password validation rules
+├── GET  /api/schema/                     → endpoint discovery
+├── GET  /api/schema/openapi.json         → OpenAPI 3.0.3 spec
+└── OPTIONS /api/{endpoint}/              → field metadata
 ```
 
 ## User Lifecycle Flow
@@ -154,9 +165,11 @@ This sets `is_active=False` and revokes all the user's tokens.
 
 ### Token Refresh
 
-Login tokens expire (default 24h, configurable). To refresh, call `POST /api/auth/token/` again with the user's credentials. The old token is replaced.
+Login tokens expire (default 24h, configurable). To extend a session without re-entering
+credentials, call `POST /api/auth/token/refresh/` with the current login token. The key is
+regenerated and the old one immediately stops working.
 
-Handle 401 responses by redirecting to your login page.
+If the token has already expired (401), redirect to your login page for re-authentication.
 
 ## React Example
 
@@ -196,7 +209,25 @@ async function login(username, password) {
     localStorage.setItem("token", data.token);
     return data.user;
   }
-  throw new Error(data.error);
+  throw new Error(Object.values(data.errors).flat().join(", "));
+}
+
+// Refresh token (extends session without re-entering credentials)
+async function refreshToken() {
+  const res = await apiFetch("/api/auth/token/refresh/", { method: "POST" });
+  const data = await res.json();
+  if (res.ok) {
+    localStorage.setItem("token", data.token);
+    return data;
+  }
+  throw new Error("Token refresh failed");
+}
+
+// Logout (revokes token server-side)
+async function logout() {
+  await apiFetch("/api/auth/logout/", { method: "POST" });
+  localStorage.removeItem("token");
+  window.location.href = "/login";
 }
 
 // Fetch data
@@ -219,4 +250,3 @@ async function getWidgets(page = 1) {
 - **Public signup** (no system token needed) — would require rate limiting and CAPTCHA
 - **Password reset via email** — requires email sending infrastructure
 - **Social auth / OAuth** — consider `django-allauth` if needed
-- **Rate limiting on auth endpoints** — `axes` handles login brute-force; register endpoint is protected by requiring an auth-level token
