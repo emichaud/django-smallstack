@@ -88,6 +88,12 @@ pages:
     icon: "palette"
     category: "Theming"
 
+  - slug: theme-color-reference
+    title: "Theme Color Quick Reference"
+    description: "Every CSS variable with current light/dark values and an AI prompt template for generating new palettes"
+    icon: "palette"
+    category: "Theming"
+
   - slug: adding-your-own-theme
     title: "Adding Your Own Theme"
     description: "Add a custom CSS framework alongside SmallStack's built-in theme"

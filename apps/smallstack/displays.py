@@ -5,7 +5,7 @@ the data; the display class renders it.
 
 Built-in displays:
     List:   TableDisplay, Table2Display, CardDisplay
-    Detail: DetailTableDisplay, DetailCardDisplay
+    Detail: DetailTableDisplay, DetailFormDisplay, DetailGridDisplay, DetailCardDisplay
     Form:   DefaultFormDisplay, SectionedFormDisplay
 """
 
@@ -88,6 +88,62 @@ class DetailTableDisplay(DetailDisplay):
         "</svg>"
     )
     template_name = "smallstack/crud/displays/detail_table.html"
+
+
+class DetailFormDisplay(DetailDisplay):
+    """Form-style detail view — renders fields as readonly form inputs."""
+
+    name = "form"
+    icon = (
+        '<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">'
+        '<path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 '
+        '0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/>'
+        "</svg>"
+    )
+    template_name = "smallstack/crud/displays/detail_form.html"
+
+    def get_context(self, obj, crud_config, request):
+        from apps.smallstack.templatetags.crud_tags import _get_field_label, _get_field_value
+
+        detail_fields = crud_config._get_detail_fields() or []
+        field_transforms = crud_config._get_effective_transforms()
+
+        field_rows = []
+        for field_name in detail_fields:
+            label = _get_field_label(obj.__class__, field_name)
+            value = _get_field_value(obj, field_name, field_transforms)
+            is_bool = isinstance(getattr(obj, field_name, None), bool)
+            field_rows.append({"label": label, "value": value, "is_bool": is_bool})
+
+        return {"field_rows": field_rows}
+
+
+class DetailGridDisplay(DetailDisplay):
+    """Two-column grid detail view — label in left column, boxed value in right."""
+
+    name = "grid"
+    icon = (
+        '<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">'
+        '<path d="M3 3v18h18V3H3zm7 16H5v-3h5v3zm0-5H5v-3h5v3zm0-5H5V6h5v3z'
+        'm9 10h-7v-3h7v3zm0-5h-7v-3h7v3zm0-5h-7V6h7v3z"/>'
+        "</svg>"
+    )
+    template_name = "smallstack/crud/displays/detail_grid.html"
+
+    def get_context(self, obj, crud_config, request):
+        from apps.smallstack.templatetags.crud_tags import _get_field_label, _get_field_value
+
+        detail_fields = crud_config._get_detail_fields() or []
+        field_transforms = crud_config._get_effective_transforms()
+
+        field_rows = []
+        for field_name in detail_fields:
+            label = _get_field_label(obj.__class__, field_name)
+            value = _get_field_value(obj, field_name, field_transforms)
+            is_bool = isinstance(getattr(obj, field_name, None), bool)
+            field_rows.append({"label": label, "value": value, "is_bool": is_bool})
+
+        return {"field_rows": field_rows}
 
 
 class DetailCardDisplay(DetailDisplay):
@@ -174,13 +230,13 @@ class TableDisplay(ListDisplay):
         page_obj.showing_start = page_obj.start_index()
         page_obj.showing_end = page_obj.end_index()
         page_obj.total_count = paginator.count
-        page_obj.page_range_display = paginator.get_elided_page_range(page_obj.number, on_each_side=2, on_ends=1)
 
         return {
             "object_list": page_obj.object_list,
             "page_obj": page_obj,
             "paginator": paginator,
             "is_paginated": page_obj.has_other_pages(),
+            "paginate_by": paginate_by,
         }
 
 
@@ -201,8 +257,7 @@ class Table2Display(ListDisplay):
         import warnings
 
         warnings.warn(
-            "Table2Display is deprecated. Use TableDisplay instead — "
-            "the built-in table now supports column sorting.",
+            "Table2Display is deprecated. Use TableDisplay instead — the built-in table now supports column sorting.",
             DeprecationWarning,
             stacklevel=2,
         )
@@ -263,7 +318,6 @@ class CardDisplay(ListDisplay):
             page_obj.showing_start = page_obj.start_index()
             page_obj.showing_end = page_obj.end_index()
             page_obj.total_count = paginator.count
-            page_obj.page_range_display = paginator.get_elided_page_range(page_obj.number, on_each_side=2, on_ends=1)
             page_context = {
                 "page_obj": page_obj,
                 "paginator": paginator,
@@ -300,6 +354,7 @@ class CardDisplay(ListDisplay):
         return {
             "cards": cards,
             "object_list": items,
+            "paginate_by": paginate_by or 0,
             **page_context,
         }
 

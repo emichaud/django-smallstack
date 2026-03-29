@@ -4,50 +4,40 @@
     <span class="paginator-info">
         Showing {{ page_obj.showing_start }}&ndash;{{ page_obj.showing_end }} of {{ page_obj.total_count }}
     </span>
-    <div class="paginator-pages">
-        {% if page_obj.has_previous %}
-        <a class="paginator-link"
+    <nav class="paginator-nav" aria-label="Pagination">
+        <a class="paginator-btn{% if not page_obj.has_previous %} disabled{% endif %}"
+           {% if page_obj.has_previous %}
            href="{% querystring page=1 %}"
            hx-get="{% querystring page=1 %}"
            hx-target="{{ hx_target }}"
            hx-swap="{{ hx_swap }}"
-           title="First page">&laquo;</a>
-        <a class="paginator-link"
+           {% endif %}
+           title="First page" aria-label="First page">&laquo;</a>
+        <a class="paginator-btn{% if not page_obj.has_previous %} disabled{% endif %}"
+           {% if page_obj.has_previous %}
            href="{% querystring page=page_obj.previous_page_number %}"
            hx-get="{% querystring page=page_obj.previous_page_number %}"
            hx-target="{{ hx_target }}"
            hx-swap="{{ hx_swap }}"
-           title="Previous page">&lsaquo;</a>
-        {% endif %}
-
-        {% for page_num in page_obj.page_range_display %}
-            {% if page_num == page_obj.paginator.ELLIPSIS %}
-                <span class="paginator-ellipsis">&hellip;</span>
-            {% elif page_num == page_obj.number %}
-                <span class="paginator-link active">{{ page_num }}</span>
-            {% else %}
-                <a class="paginator-link"
-                   href="{% querystring page=page_num %}"
-                   hx-get="{% querystring page=page_num %}"
-                   hx-target="{{ hx_target }}"
-                   hx-swap="{{ hx_swap }}">{{ page_num }}</a>
-            {% endif %}
-        {% endfor %}
-
-        {% if page_obj.has_next %}
-        <a class="paginator-link"
+           {% endif %}
+           title="Previous page" aria-label="Previous page">&lsaquo;</a>
+        <span class="paginator-current">{{ page_obj.number }}<span class="paginator-of">of</span>{{ page_obj.paginator.num_pages }}</span>
+        <a class="paginator-btn{% if not page_obj.has_next %} disabled{% endif %}"
+           {% if page_obj.has_next %}
            href="{% querystring page=page_obj.next_page_number %}"
            hx-get="{% querystring page=page_obj.next_page_number %}"
            hx-target="{{ hx_target }}"
            hx-swap="{{ hx_swap }}"
-           title="Next page">&rsaquo;</a>
-        <a class="paginator-link"
+           {% endif %}
+           title="Next page" aria-label="Next page">&rsaquo;</a>
+        <a class="paginator-btn{% if not page_obj.has_next %} disabled{% endif %}"
+           {% if page_obj.has_next %}
            href="{% querystring page=page_obj.paginator.num_pages %}"
            hx-get="{% querystring page=page_obj.paginator.num_pages %}"
            hx-target="{{ hx_target }}"
            hx-swap="{{ hx_swap }}"
-           title="Last page">&raquo;</a>
-        {% endif %}
-    </div>
+           {% endif %}
+           title="Last page" aria-label="Last page">&raquo;</a>
+    </nav>
 </div>
 {% endif %}

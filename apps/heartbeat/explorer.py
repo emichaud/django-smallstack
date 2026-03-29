@@ -4,7 +4,7 @@ from django.contrib import admin
 
 from apps.explorer.registry import explorer
 from apps.smallstack.displays import (
-    DetailTableDisplay,
+    DetailGridDisplay,
     TableDisplay,
 )
 
@@ -24,7 +24,7 @@ class HeartbeatDailyExplorerAdmin(admin.ModelAdmin):
     ]
 
     explorer_detail_displays = [
-        DetailTableDisplay,
+        DetailGridDisplay,
         SLACompareDisplay(),
     ]
 

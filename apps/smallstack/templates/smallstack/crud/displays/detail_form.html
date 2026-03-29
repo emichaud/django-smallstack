@@ -1,0 +1,16 @@
+{% include "smallstack/crud/_form_styles.html" %}
+
+<div class="crud-detail-form">
+  {% for row in field_rows %}
+  <div class="crud-field">
+    <label class="crud-label">{{ row.label }}</label>
+    {% if row.is_bool %}
+    <div class="crud-readonly-value crud-readonly-bool">
+      {% if row.value %}&#10003;{% else %}—{% endif %}
+    </div>
+    {% else %}
+    <div class="crud-readonly-value">{{ row.value }}</div>
+    {% endif %}
+  </div>
+  {% endfor %}
+</div>

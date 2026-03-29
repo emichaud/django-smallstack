@@ -108,8 +108,8 @@ def _build_sort_headers(list_fields, model, request, column_widths=None):
             if current_dir == "asc":
                 next_ordering = f"-{field_name}"
             else:
-                # desc → clear (no ordering)
-                next_ordering = ""
+                # desc → back to asc (two-state toggle)
+                next_ordering = field_name
 
         header = {
             "label": label,
@@ -229,7 +229,7 @@ def sortable_th(context, field_name, label, target="#tab-content", include_selec
         {% sortable_th "timestamp" "Time" target="#tab-content" %}
 
     Reads ?ordering= from the current request to show sort direction.
-    Clicking toggles asc → desc → clear.
+    Clicking toggles asc ↔ desc (two-state).
     """
     request = context.get("request")
     current_ordering = request.GET.get("ordering", "").strip() if request else ""
@@ -240,7 +240,7 @@ def sortable_th(context, field_name, label, target="#tab-content", include_selec
     if field_name == current_field:
         if current_ordering.startswith("-"):
             direction = "desc"
-            next_ordering = ""  # clear
+            next_ordering = field_name  # back to asc
         else:
             direction = "asc"
             next_ordering = f"-{field_name}"
