@@ -8,7 +8,6 @@ from apps.smallstack.displays import (
     DetailCardDisplay,
     DetailTableDisplay,
     SectionedFormDisplay,
-    Table2Display,
     TableDisplay,
 )
 
@@ -27,7 +26,6 @@ class UserProfileExplorerAdmin(admin.ModelAdmin):
 
     # List: three displays
     explorer_displays = [
-        Table2Display,
         TableDisplay,
         CardDisplay(title_field="user", subtitle_field="created_at"),
     ]

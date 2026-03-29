@@ -400,7 +400,7 @@ class ExplorerSite:
 
     def _build_one(self, model, group_key, admin_class, admin_site):
         """Build a single CRUDView subclass and register its ModelInfo."""
-        from apps.smallstack.displays import Table2Display
+        from apps.smallstack.displays import TableDisplay
 
         group_slug = slugify(group_key)
         model_name = model._meta.model_name
@@ -457,7 +457,7 @@ class ExplorerSite:
         paginate_by = getattr(admin_instance, "explorer_paginate_by", 10)
 
         # Display config: admin class can specify explorer_displays / explorer_detail_displays
-        displays = getattr(admin_class, "explorer_displays", [Table2Display])
+        displays = getattr(admin_class, "explorer_displays", [TableDisplay])
         detail_displays = getattr(admin_class, "explorer_detail_displays", [])
 
         # Form display config
