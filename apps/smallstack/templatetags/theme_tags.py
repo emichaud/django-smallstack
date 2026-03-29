@@ -159,7 +159,7 @@ def querystring(context, **kwargs):
 
 
 @register.inclusion_tag("smallstack/includes/paginator.html", takes_context=True)
-def render_paginator(context, page_obj, hx_target="#tab-content", hx_swap="innerHTML"):
+def render_paginator(context, page_obj, hx_target="#tab-content", hx_swap="innerHTML swap:150ms"):
     """Render paginator controls for a Page object.
 
     Usage:

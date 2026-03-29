@@ -11,6 +11,36 @@
 
 
 /* --------------------------------------------------------------------------
+   HTMX Swap Transitions
+   --------------------------------------------------------------------------
+   Fade-out on swap, fade-in on settle. Requires hx-swap="… swap:150ms" so
+   the htmx-swapping class stays long enough for the CSS transition.
+   -------------------------------------------------------------------------- */
+
+#crud-display-area {
+    transition: opacity 150ms ease;
+}
+
+#crud-display-area.htmx-swapping {
+    opacity: 0;
+}
+
+
+/* --------------------------------------------------------------------------
+   Stable Table Height
+   --------------------------------------------------------------------------
+   Uses --paginate-by CSS custom property (set on #crud-display-area via
+   template) to keep the container at a consistent min-height regardless
+   of how many rows the current page has. Only applies when a .crud-table
+   is present (cards are excluded).
+   -------------------------------------------------------------------------- */
+
+#crud-display-area:has(.crud-table) {
+    min-height: calc(7.7rem + var(--paginate-by, 0) * 2.7rem);
+}
+
+
+/* --------------------------------------------------------------------------
    Tables
    --------------------------------------------------------------------------
    Use class="crud-table" on any <table> for themed styling.

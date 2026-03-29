@@ -1,6 +1,6 @@
 {% load theme_tags crud_tags %}
 {% if display_template %}
-    <div id="crud-display-area">
+    <div id="crud-display-area" style="--paginate-by: {{ paginate_by|default:0 }};">
         {% include display_template %}
     </div>
 {% elif use_tables2 %}

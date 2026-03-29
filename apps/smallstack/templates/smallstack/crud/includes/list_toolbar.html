@@ -14,6 +14,7 @@
                hx-get=""
                hx-trigger="input changed delay:300ms, search"
                hx-target="#crud-list-content"
+               hx-swap="innerHTML swap:150ms"
                hx-push-url="true"
                hx-include="#list-toolbar"
         >
@@ -29,6 +30,7 @@
                 hx-get=""
                 hx-trigger="change"
                 hx-target="#crud-list-content"
+                hx-swap="innerHTML swap:150ms"
                 hx-push-url="true"
                 hx-include="#list-toolbar"
         >
@@ -47,6 +49,7 @@
                hx-get=""
                hx-trigger="input changed delay:300ms"
                hx-target="#crud-list-content"
+               hx-swap="innerHTML swap:150ms"
                hx-push-url="true"
                hx-include="#list-toolbar"
         >
@@ -73,7 +76,7 @@
             class="display-palette-btn{% if display.name == active_display %} active{% endif %}"
             hx-get="?display={{ display.name }}"
             hx-target="#crud-display-area"
-            hx-swap="innerHTML"
+            hx-swap="innerHTML swap:150ms"
             hx-push-url="true"
             data-display="{{ display.name }}"
             title="{{ display.name|title }}"

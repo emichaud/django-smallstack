@@ -351,9 +351,9 @@ class _CRUDListBase(_CRUDContextMixin, ListView):
             # Toolbar search/filter: return the list content partial
             if htmx_target == "crud-list-content":
                 return self.crud_config._get_template_names("list_content")
-            # Display swap via HTMX: return just the display template
+            # Display area swap (pagination, display switch): return just the display template
             display = self._get_active_display()
-            if display and self.request.GET.get("display"):
+            if display and (self.request.GET.get("display") or htmx_target == "crud-display-area"):
                 return [display.template_name]
             return self.crud_config._get_template_names("list_partial")
         return self.crud_config._get_template_names("list")
@@ -720,7 +720,7 @@ class CRUDView:
     # View/routing
     url_base = None
     namespace: str | None = None  # URL namespace for child ExplorerSite instances
-    paginate_by = None
+    paginate_by = 25
     mixins = []
     actions = [Action.LIST, Action.CREATE, Action.DETAIL, Action.UPDATE, Action.DELETE]
     breadcrumb_parent = None  # Optional (label, url_name) for parent breadcrumb
@@ -831,7 +831,9 @@ class CRUDView:
     def _get_detail_displays(cls):
         """Return list of display instances for the detail view."""
         if not cls.detail_displays:
-            return []
+            from .displays import DetailGridDisplay
+
+            return [DetailGridDisplay()]
         return [d() if isinstance(d, type) else d for d in cls.detail_displays]
 
     @classmethod
@@ -900,8 +902,16 @@ class CRUDView:
             return list(cls.filter_fields)
         if cls.admin_class:
             raw = getattr(cls.admin_class, "list_filter", [])
-            # list_filter can contain strings or (field, FilterClass) tuples
-            return [f if isinstance(f, str) else f[0] for f in raw]
+            # list_filter can contain strings, (field, FilterClass) tuples,
+            # or bare filter classes — skip classes we can't resolve to a field name
+            resolved = []
+            for f in raw:
+                if isinstance(f, str):
+                    resolved.append(f)
+                elif isinstance(f, (list, tuple)) and f:
+                    resolved.append(f[0])
+                # bare filter classes (e.g. IsLockedOutFilter) are skipped
+            return resolved
         return []
 
     @classmethod

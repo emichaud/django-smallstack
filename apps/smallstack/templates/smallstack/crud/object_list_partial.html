@@ -1,28 +1,39 @@
 {% load theme_tags crud_tags %}
+{% if not breadcrumb_parent_label %}
 <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
     <h2>{{ object_verbose_name_plural }}</h2>
     {% if create_view_url %}
-    <a href="{{ create_view_url }}" class="btn" style="background: var(--primary); color: var(--button-fg); padding: 0.5rem 1rem; border: none; border-radius: var(--radius-sm, 4px); text-decoration: none; font-size: 0.9rem;">
-        + Add {{ object_verbose_name }}
-    </a>
+    <a href="{{ create_view_url }}" class="btn-primary">+ Add {{ object_verbose_name }}</a>
     {% endif %}
 </div>
+{% endif %}
 <div class="card-body">
-    {% if use_tables2 %}
-        {% load django_tables2 %}
-        {% render_table table %}
-    {% elif object_list %}
-        {% crud_table %}
-    {% else %}
-        <p style="color: var(--body-quiet-color); padding: 2rem 0; text-align: center;">
-            No {{ object_verbose_name_plural }} found.
-            {% if create_view_url %}
-            <a href="{{ create_view_url }}" style="color: var(--primary);">Create one now?</a>
-            {% endif %}
-        </p>
-    {% endif %}
+    {% include "smallstack/crud/includes/list_toolbar.html" %}
 
-    {% if not use_tables2 and is_paginated %}
-    {% render_paginator page_obj "#crud-content" %}
-    {% endif %}
+    <div id="crud-list-content">
+        {% if display_template %}
+            {% if not show_toolbar and available_displays|length > 1 %}
+            {% include "smallstack/crud/includes/display_palette.html" %}
+            {% endif %}
+            <div id="crud-display-area" style="--paginate-by: {{ paginate_by|default:0 }};">
+                {% include display_template %}
+            </div>
+        {% elif use_tables2 %}
+            {% load django_tables2 %}
+            {% render_table table %}
+        {% elif object_list %}
+            {% crud_table %}
+        {% else %}
+            <p style="color: var(--body-quiet-color); padding: 2rem 0; text-align: center;">
+                No {{ object_verbose_name_plural }} found.
+                {% if create_view_url %}
+                <a href="{{ create_view_url }}" style="color: var(--primary);">Create one now?</a>
+                {% endif %}
+            </p>
+        {% endif %}
+
+        {% if not use_tables2 and not display_template and is_paginated %}
+        {% render_paginator page_obj "#crud-content" %}
+        {% endif %}
+    </div>
 </div>
