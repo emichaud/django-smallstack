@@ -1,0 +1,8 @@
+<div class="crud-accessories">
+{% for item in accessory_items %}
+<div class="crud-stat-card">
+    <div class="crud-stat-value"{% if item.color %} style="color: {{ item.color }}"{% endif %}>{{ item.value }}</div>
+    <div class="crud-stat-label">{{ item.label }}</div>
+</div>
+{% endfor %}
+</div>

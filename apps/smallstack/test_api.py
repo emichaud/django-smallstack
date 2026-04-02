@@ -894,10 +894,19 @@ class TestSchemaEndpoint:
         response = client.get(SCHEMA_URL)
         data = response.json()
         expected_keys = {
-            "url", "model", "methods", "fields", "list_fields",
-            "detail_fields", "search_fields", "filter_fields",
-            "expand_fields", "aggregate_fields", "extra_fields",
-            "export_formats", "ordering_fields",
+            "url",
+            "model",
+            "methods",
+            "fields",
+            "list_fields",
+            "detail_fields",
+            "search_fields",
+            "filter_fields",
+            "expand_fields",
+            "aggregate_fields",
+            "extra_fields",
+            "export_formats",
+            "ordering_fields",
         }
         for ep in data["endpoints"]:
             assert set(ep.keys()) == expected_keys
@@ -1037,8 +1046,13 @@ def login_token_and_header(db):
     user = User.objects.create_user(username="loginuser", password="testpass123", email="login@example.com")
     raw_key, prefix, hashed = APIToken._generate_raw_key()
     token = APIToken.objects.create(
-        user=user, name="Login token", prefix=prefix, hashed_key=hashed,
-        token_type="login", access_level="", expires_at=timezone.now() + timedelta(hours=24),
+        user=user,
+        name="Login token",
+        prefix=prefix,
+        hashed_key=hashed,
+        token_type="login",
+        access_level="",
+        expires_at=timezone.now() + timedelta(hours=24),
     )
     header = {"HTTP_AUTHORIZATION": f"Bearer {raw_key}"}
     return user, token, raw_key, header
@@ -1360,8 +1374,12 @@ class TestTokenRefreshEndpoint:
         user = User.objects.create_user(username="expired", password="pass123")
         raw_key, prefix, hashed = APIToken._generate_raw_key()
         APIToken.objects.create(
-            user=user, name="Expired", prefix=prefix, hashed_key=hashed,
-            token_type="login", access_level="",
+            user=user,
+            name="Expired",
+            prefix=prefix,
+            hashed_key=hashed,
+            token_type="login",
+            access_level="",
             expires_at=timezone.now() - timedelta(hours=1),
         )
         response = client.post(TOKEN_REFRESH_URL, HTTP_AUTHORIZATION=f"Bearer {raw_key}")
@@ -1438,7 +1456,10 @@ class TestUserDeactivateEndpoint:
     def auth_token_header(self, db):
         """Create a user with an auth-level manual token."""
         admin = User.objects.create_user(
-            username="authadmin", password="testpass123", email="authadmin@example.com", is_staff=True,
+            username="authadmin",
+            password="testpass123",
+            email="authadmin@example.com",
+            is_staff=True,
         )
         token, raw_key = APIToken.create_token(admin, name="Auth Token", access_level="auth", token_type="manual")
         header = {"HTTP_AUTHORIZATION": f"Bearer {raw_key}"}
@@ -1602,6 +1623,7 @@ class TestCRUDDeleteIntegration:
         assert response.status_code == 204
 
         from apps.heartbeat.models import Heartbeat
+
         assert not Heartbeat.objects.filter(pk=obj.pk).exists()
 
     def test_delete_nonexistent_returns_404(self, client, staff_user, auth_header):

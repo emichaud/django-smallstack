@@ -13,7 +13,6 @@ def set_existing_tokens(apps, schema_editor):
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         ("smallstack", "0007_add_apitoken_fields"),
     ]

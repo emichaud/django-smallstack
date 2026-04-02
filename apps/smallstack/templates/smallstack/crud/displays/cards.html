@@ -4,9 +4,9 @@
     {% for card in cards %}
     <{% if card.detail_url %}a href="{{ card.detail_url }}"{% else %}div{% endif %}
         class="card-display-item"
-        style="display: block; padding: 1.25rem; background: var(--card-bg); border: 1px solid var(--border-color); border-radius: var(--radius-sm, 6px); text-decoration: none; color: inherit; transition: border-color 0.15s, box-shadow 0.15s;{% if card.detail_url %} cursor: pointer;{% endif %}"
+        style="display: block; padding: 1.25rem; background: var(--card-bg); border: 1px solid var(--card-border); border-radius: var(--radius-sm, 6px); text-decoration: none; color: inherit; transition: border-color 0.15s, box-shadow 0.15s;{% if card.detail_url %} cursor: pointer;{% endif %}"
         onmouseover="this.style.borderColor='var(--primary)';this.style.boxShadow='0 2px 8px rgba(0,0,0,0.15)'"
-        onmouseout="this.style.borderColor='var(--border-color)';this.style.boxShadow='none'"
+        onmouseout="this.style.borderColor='var(--card-border)';this.style.boxShadow='none'"
     >
         <div style="font-weight: 600; font-size: 1rem; color: var(--body-fg); margin-bottom: 0.35rem;">
             {{ card.title }}

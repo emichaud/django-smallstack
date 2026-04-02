@@ -156,6 +156,10 @@ def _apply_ordering(qs, request, crud_config):
 
 def _apply_list_filters(qs, request, crud_config):
     """Apply query-param filters to a queryset using configured filter_fields."""
+    from datetime import timedelta
+
+    from django.utils import timezone
+
     filter_fields = crud_config._resolve_filter_fields()
     if not filter_fields:
         return qs
@@ -163,19 +167,44 @@ def _apply_list_filters(qs, request, crud_config):
         value = request.GET.get(field_name, "").strip()
         if not value:
             continue
-        # Boolean fields: accept true/false/1/0
         try:
             model_field = crud_config.model._meta.get_field(field_name)
-            from django.db import models as _m
-
-            if isinstance(model_field, _m.BooleanField):
-                if value.lower() in ("true", "1", "yes"):
-                    qs = qs.filter(**{field_name: True})
-                elif value.lower() in ("false", "0", "no"):
-                    qs = qs.filter(**{field_name: False})
-                continue
         except Exception:
-            pass
+            continue
+        from django.db import models as _m
+
+        # Boolean fields: accept true/false/1/0
+        if isinstance(model_field, _m.BooleanField):
+            if value.lower() in ("true", "1", "yes"):
+                qs = qs.filter(**{field_name: True})
+            elif value.lower() in ("false", "0", "no"):
+                qs = qs.filter(**{field_name: False})
+            continue
+
+        # Date/DateTime fields: preset filters
+        if isinstance(model_field, (_m.DateField, _m.DateTimeField)):
+            today = timezone.localdate()
+            is_datetime = isinstance(model_field, _m.DateTimeField)
+            lookup_prefix = f"{field_name}__date" if is_datetime else field_name
+            if value == "today":
+                qs = qs.filter(**{lookup_prefix: today})
+            elif value == "yesterday":
+                qs = qs.filter(**{lookup_prefix: today - timedelta(days=1)})
+            elif value == "week":
+                qs = qs.filter(**{f"{lookup_prefix}__gte": today - timedelta(days=7)})
+            elif value == "month":
+                qs = qs.filter(**{f"{lookup_prefix}__month": today.month, f"{lookup_prefix}__year": today.year})
+            elif value == "year":
+                qs = qs.filter(**{f"{lookup_prefix}__year": today.year})
+            continue
+
+        # Text-type fields: use icontains for substring matching
+        if isinstance(model_field, (_m.CharField, _m.TextField)):
+            meta = _build_filter_meta(crud_config.model, field_name)
+            if meta and meta["type"] == "text":
+                qs = qs.filter(**{f"{field_name}__icontains": value})
+                continue
+
         qs = qs.filter(**{field_name: value})
     return qs
 
@@ -183,15 +212,12 @@ def _apply_list_filters(qs, request, crud_config):
 def _build_toolbar_context(request, crud_config):
     """Build context dict for the list toolbar template.
 
-    The toolbar shows when any of: search_fields, filter_fields, or
-    multiple list displays are configured.
+    The toolbar shows when search_fields or filter_fields are configured.
     """
     search_fields = crud_config._resolve_search_fields()
     filter_fields = crud_config._resolve_filter_fields()
-    has_multiple_displays = len(crud_config._get_displays()) > 1
-
-    if not search_fields and not filter_fields and not has_multiple_displays:
-        return {"show_toolbar": False}
+    if not search_fields and not filter_fields:
+        return {"show_toolbar": False, "toolbar_filters": [], "toolbar_has_active_filter": False}
 
     # Build filter metadata for the template
     filters = []
@@ -236,9 +262,19 @@ def _build_filter_meta(model, field_name):
         "label": str(getattr(field, "verbose_name", field_name)).capitalize(),
     }
 
-    # Date/DateTime fields — skip for now (future: date range picker)
+    # Date/DateTime fields → preset dropdown
     if isinstance(field, (_m.DateField, _m.DateTimeField)):
-        return None
+        meta["type"] = "choice"
+        meta["is_date"] = True
+        meta["choices"] = [
+            ("", "All"),
+            ("today", "Today"),
+            ("yesterday", "Yesterday"),
+            ("week", "Past 7 days"),
+            ("month", "This month"),
+            ("year", "This year"),
+        ]
+        return meta
 
     # Boolean fields → toggle (All / Yes / No)
     if isinstance(field, (_m.BooleanField,)):
@@ -398,6 +434,15 @@ class _CRUDListBase(_CRUDContextMixin, ListView):
         # Total count for toolbar (before pagination, after search/filter)
         qs = self.get_queryset()
         context["toolbar_total_count"] = qs.count()
+
+        # List accessories — pass UNFILTERED queryset so stats reflect totals
+        if cfg.list_accessories:
+            full_qs = cfg._get_queryset()
+            full_qs = cfg.get_list_queryset(full_qs, self.request)
+            rendered = []
+            for accessory in cfg.list_accessories:
+                rendered.append(accessory.render(full_qs, cfg, self.request))
+            context["list_accessories_html"] = rendered
 
         # Try display protocol first (when displays are configured)
         display = self._get_active_display()
@@ -729,6 +774,7 @@ class CRUDView:
     displays = []  # List of ListDisplay classes/instances. Empty = legacy auto-detect.
     default_display = None  # Defaults to first in displays
     detail_displays = []  # List of DetailDisplay classes/instances
+    list_accessories = []  # ListAccessory instances rendered above the toolbar
 
     # Form displays
     form_displays = []  # FormDisplay classes/instances (both create + edit)
@@ -802,7 +848,19 @@ class CRUDView:
                     flat.extend(opts.get("fields", []))
                 if flat:
                     return flat
-        return cls.fields
+        # Detail is read-only — show all concrete fields, not just form fields.
+        # This ensures fields like TextField notes or auto_now_add timestamps
+        # appear even when they aren't in list_display.
+        from django.db.models import AutoField, BigAutoField, Field, ForeignKey
+
+        all_fields = []
+        for f in cls.model._meta.get_fields():
+            if not isinstance(f, (Field, ForeignKey)):
+                continue
+            if isinstance(f, (AutoField, BigAutoField)):
+                continue
+            all_fields.append(f.name)
+        return all_fields or cls.fields
 
     @classmethod
     def _get_link_field(cls):

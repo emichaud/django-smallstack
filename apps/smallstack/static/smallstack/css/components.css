@@ -126,6 +126,7 @@
     border: none !important;
     padding: 10px 16px;
     font-size: 0.85rem;
+    text-align: left;
 }
 
 .crud-table tbody tr:hover,
@@ -1163,8 +1164,11 @@ a.btn-primary:visited {
     cursor: pointer;
     font-size: 0.85rem;
     font-weight: 500;
+    line-height: 1.2;
     text-decoration: none;
     display: inline-block;
+    box-sizing: border-box;
+    font-family: inherit;
     transition: background 0.15s;
 }
 
@@ -1207,8 +1211,11 @@ a.btn-danger:visited {
     cursor: pointer;
     font-size: 0.85rem;
     font-weight: 500;
+    line-height: 1.2;
     text-decoration: none;
     display: inline-block;
+    box-sizing: border-box;
+    font-family: inherit;
 }
 
 .btn-danger:hover {
@@ -1409,7 +1416,7 @@ a.btn-secondary:visited {
     height: var(--control-height, 36px);
     min-height: var(--control-height, 36px);
     padding: 0 10px 0 32px !important;
-    border: 1px solid var(--border-color) !important;
+    border: 1px solid var(--input-border) !important;
     border-radius: var(--radius-sm, 4px) !important;
     background: var(--body-bg) !important;
     color: var(--body-fg) !important;
@@ -1436,7 +1443,7 @@ a.btn-secondary:visited {
     height: var(--control-height, 36px);
     min-height: var(--control-height, 36px);
     padding: 4px 8px !important;
-    border: 1px solid var(--border-color) !important;
+    border: 1px solid var(--input-border) !important;
     border-radius: var(--radius-sm, 4px) !important;
     background: var(--body-bg) !important;
     color: var(--body-fg) !important;
@@ -1455,6 +1462,13 @@ a.btn-secondary:visited {
 .list-toolbar-filter-select:focus,
 .list-toolbar-filter-text:focus {
     border-color: var(--primary) !important;
+}
+
+/* Active filter indicator */
+.list-toolbar-filter-select.is-filtered,
+.list-toolbar-filter-text.is-filtered {
+    border-left: 3px solid var(--primary) !important;
+    background: color-mix(in srgb, var(--primary) 6%, var(--body-bg)) !important;
 }
 
 /* Spacer pushes right-side content */
@@ -1488,15 +1502,16 @@ a.btn-secondary:visited {
     background: color-mix(in srgb, var(--primary) 10%, var(--body-bg));
 }
 
-/* Display palette (used in toolbar and standalone) */
+/* Display palette (in card-header / page-header-actions) */
 .display-palette {
     display: inline-flex;
     gap: 0.25rem;
+    margin-right: 0.75rem;
 }
 
 .display-palette-btn {
     padding: 0.5rem 0.6rem;
-    border: 1px solid var(--border-color) !important;
+    border: 1px solid var(--input-border) !important;
     border-radius: var(--radius-sm, 4px);
     cursor: pointer;
     display: inline-flex;
@@ -1526,4 +1541,39 @@ a.btn-secondary:visited {
     .list-toolbar-filters {
         flex-wrap: wrap;
     }
+}
+
+
+/* --------------------------------------------------------------------------
+   CRUD Accessories (stat cards above list)
+   -------------------------------------------------------------------------- */
+
+.crud-accessories {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 12px;
+    margin-bottom: 16px;
+}
+
+.crud-stat-card {
+    background: var(--card-bg, var(--body-bg));
+    border: 1px solid var(--hairline-color, rgba(128, 128, 128, 0.2));
+    border-radius: 8px;
+    padding: 16px;
+    text-align: center;
+}
+
+.crud-stat-value {
+    font-size: 1.5rem;
+    font-weight: 700;
+    line-height: 1.2;
+    color: var(--primary);
+}
+
+.crud-stat-label {
+    font-size: 0.75rem;
+    color: var(--body-quiet-color);
+    margin-top: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
 }

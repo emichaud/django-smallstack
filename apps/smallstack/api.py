@@ -543,8 +543,13 @@ def _model_field_type(model: type, field_name: str) -> str:
         return "time"
     if isinstance(field, (dm.BooleanField, dm.NullBooleanField)):
         return "boolean"
-    int_types = (dm.IntegerField, dm.SmallIntegerField, dm.BigIntegerField,
-                  dm.PositiveIntegerField, dm.PositiveSmallIntegerField)
+    int_types = (
+        dm.IntegerField,
+        dm.SmallIntegerField,
+        dm.BigIntegerField,
+        dm.PositiveIntegerField,
+        dm.PositiveSmallIntegerField,
+    )
     if isinstance(field, int_types):
         return "integer"
     if isinstance(field, (dm.FloatField,)):
@@ -574,9 +579,7 @@ def _build_options_response(crud_config) -> JsonResponse:
         }
 
     methods = _get_methods_from_actions(crud_config)
-    ordering_fields = sorted(
-        set(crud_config._get_list_fields()) | set(getattr(crud_config, "api_extra_fields", []))
-    )
+    ordering_fields = sorted(set(crud_config._get_list_fields()) | set(getattr(crud_config, "api_extra_fields", [])))
     return JsonResponse({"fields": fields, "methods": methods, "ordering_fields": ordering_fields})
 
 
@@ -924,7 +927,9 @@ def api_auth_token(request: HttpRequest) -> JsonResponse:
 
     # Upsert: find existing active login token for this user
     existing = APIToken.objects.filter(
-        user=user, token_type="login", is_active=True,
+        user=user,
+        token_type="login",
+        is_active=True,
     ).first()
 
     raw_key, prefix, hashed = APIToken._generate_raw_key()
@@ -937,15 +942,22 @@ def api_auth_token(request: HttpRequest) -> JsonResponse:
         existing.save(update_fields=["prefix", "hashed_key", "expires_at", "last_used_at"])
     else:
         APIToken.objects.create(
-            user=user, name="Login token", prefix=prefix, hashed_key=hashed,
-            token_type="login", access_level="", expires_at=expires_at,
+            user=user,
+            name="Login token",
+            prefix=prefix,
+            hashed_key=hashed,
+            token_type="login",
+            access_level="",
+            expires_at=expires_at,
         )
 
-    return JsonResponse({
-        "token": raw_key,
-        "user": _user_json(user),
-        "expires_at": expires_at.isoformat(),
-    })
+    return JsonResponse(
+        {
+            "token": raw_key,
+            "user": _user_json(user),
+            "expires_at": expires_at.isoformat(),
+        }
+    )
 
 
 @csrf_exempt
@@ -1000,8 +1012,12 @@ def api_auth_register(request: HttpRequest) -> JsonResponse:
 
     # Create user — always non-staff, non-superuser
     new_user = User.objects.create_user(
-        username=username, password=password, email=email,
-        is_staff=False, is_superuser=False, is_active=True,
+        username=username,
+        password=password,
+        email=email,
+        is_staff=False,
+        is_superuser=False,
+        is_active=True,
     )
 
     from datetime import timedelta
@@ -1014,15 +1030,21 @@ def api_auth_register(request: HttpRequest) -> JsonResponse:
     expires_at = timezone.now() + timedelta(hours=expiry_hours)
 
     token, raw_key = APIToken.create_token(
-        user=new_user, name="Login token",
-        token_type="login", access_level="", expires_at=expires_at,
+        user=new_user,
+        name="Login token",
+        token_type="login",
+        access_level="",
+        expires_at=expires_at,
     )
 
-    return JsonResponse({
-        "token": raw_key,
-        "user": _user_json(new_user),
-        "expires_at": expires_at.isoformat(),
-    }, status=201)
+    return JsonResponse(
+        {
+            "token": raw_key,
+            "user": _user_json(new_user),
+            "expires_at": expires_at.isoformat(),
+        },
+        status=201,
+    )
 
 
 @csrf_exempt
@@ -1179,7 +1201,8 @@ def api_auth_user_deactivate(request: HttpRequest, user_id: int) -> JsonResponse
 
     # Revoke all active tokens for this user
     APIToken.objects.filter(user=target_user, is_active=True).update(
-        is_active=False, revoked_at=timezone.now(),
+        is_active=False,
+        revoked_at=timezone.now(),
     )
 
     return JsonResponse({"message": "User deactivated"})
@@ -1331,11 +1354,13 @@ def api_auth_token_refresh(request: HttpRequest) -> JsonResponse:
     token.last_used_at = timezone.now()
     token.save(update_fields=["prefix", "hashed_key", "expires_at", "last_used_at"])
 
-    return JsonResponse({
-        "token": raw_key,
-        "user": _user_json(user),
-        "expires_at": expires_at.isoformat(),
-    })
+    return JsonResponse(
+        {
+            "token": raw_key,
+            "user": _user_json(user),
+            "expires_at": expires_at.isoformat(),
+        }
+    )
 
 
 @csrf_exempt

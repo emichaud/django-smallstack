@@ -4,15 +4,49 @@ Display classes render a dataset into a visual format. CRUDView provides
 the data; the display class renders it.
 
 Built-in displays:
-    List:   TableDisplay, Table2Display, CardDisplay
+    List:   TableDisplay, CardDisplay
     Detail: DetailTableDisplay, DetailFormDisplay, DetailGridDisplay, DetailCardDisplay
     Form:   DefaultFormDisplay, SectionedFormDisplay
+
+List accessories (rendered above the toolbar):
+    ListAccessory (base), StatsAccessory
 """
 
 
 # ---------------------------------------------------------------------------
 # Shared helpers
 # ---------------------------------------------------------------------------
+
+
+def paginate_queryset(queryset, paginate_by, request):
+    """Paginate a queryset and return context dict for templates.
+
+    Returns a dict with object_list, page_obj, paginator, is_paginated,
+    and paginate_by — ready to context.update() in any display.
+
+    If paginate_by is falsy, returns {"object_list": queryset} unchanged.
+    """
+    if not paginate_by:
+        return {"object_list": queryset}
+
+    from django.core.paginator import Paginator
+
+    paginator = Paginator(queryset, paginate_by)
+    page_number = request.GET.get("page", 1)
+    page_obj = paginator.get_page(page_number)
+
+    # SmallStack pagination display helpers
+    page_obj.showing_start = page_obj.start_index()
+    page_obj.showing_end = page_obj.end_index()
+    page_obj.total_count = paginator.count
+
+    return {
+        "object_list": page_obj.object_list,
+        "page_obj": page_obj,
+        "paginator": paginator,
+        "is_paginated": page_obj.has_other_pages(),
+        "paginate_by": paginate_by,
+    }
 
 
 def build_palette_context(displays, active_display, request):
@@ -216,63 +250,7 @@ class TableDisplay(ListDisplay):
 
     def get_context(self, queryset, crud_config, request):
         """Paginate the queryset for the basic table display."""
-        paginate_by = crud_config._resolve_paginate_by()
-        if not paginate_by:
-            return {"object_list": queryset}
-
-        from django.core.paginator import Paginator
-
-        paginator = Paginator(queryset, paginate_by)
-        page_number = request.GET.get("page", 1)
-        page_obj = paginator.get_page(page_number)
-
-        # SmallStack pagination display helpers
-        page_obj.showing_start = page_obj.start_index()
-        page_obj.showing_end = page_obj.end_index()
-        page_obj.total_count = paginator.count
-
-        return {
-            "object_list": page_obj.object_list,
-            "page_obj": page_obj,
-            "paginator": paginator,
-            "is_paginated": page_obj.has_other_pages(),
-            "paginate_by": paginate_by,
-        }
-
-
-class Table2Display(ListDisplay):
-    """django-tables2 sortable table display."""
-
-    name = "table2"
-    icon = (
-        '<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">'
-        '<path d="M3 3v18h18V3H3zm8 16H5v-6h6v6zm0-8H5V5h6v6zm8 8h-6v-6h6v6zm0-8h-6V5h6v6z"/>'
-        '<path d="M16 1l-3 3h2v4h2V4h2l-3-3z" opacity="0.6"/>'
-        "</svg>"
-    )
-    template_name = "smallstack/crud/displays/table2.html"
-
-    def get_context(self, queryset, crud_config, request):
-        """Configure a django-tables2 table with pagination."""
-        import warnings
-
-        warnings.warn(
-            "Table2Display is deprecated. Use TableDisplay instead — the built-in table now supports column sorting.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        table_class = crud_config.table_class
-        if not table_class:
-            # Fall back to basic table if no table_class configured
-            return TableDisplay().get_context(queryset, crud_config, request)
-
-        from django_tables2 import RequestConfig
-
-        table = table_class(queryset)
-        paginate_by = crud_config._resolve_paginate_by()
-        paginate = {"per_page": paginate_by} if paginate_by else False
-        RequestConfig(request, paginate=paginate).configure(table)
-        return {"table": table}
+        return paginate_queryset(queryset, crud_config._resolve_paginate_by(), request)
 
 
 class CardDisplay(ListDisplay):
@@ -307,24 +285,8 @@ class CardDisplay(ListDisplay):
         subtitle_field = self.subtitle_field
 
         # Paginate
-        page_context = {}
-        if paginate_by:
-            from django.core.paginator import Paginator
-
-            paginator = Paginator(queryset, paginate_by)
-            page_number = request.GET.get("page", 1)
-            page_obj = paginator.get_page(page_number)
-            items = page_obj.object_list
-            page_obj.showing_start = page_obj.start_index()
-            page_obj.showing_end = page_obj.end_index()
-            page_obj.total_count = paginator.count
-            page_context = {
-                "page_obj": page_obj,
-                "paginator": paginator,
-                "is_paginated": page_obj.has_other_pages(),
-            }
-        else:
-            items = queryset
+        page_context = paginate_queryset(queryset, paginate_by, request)
+        items = page_context.pop("object_list", queryset)
 
         # Build cards
         from apps.smallstack.crud import Action
@@ -357,6 +319,76 @@ class CardDisplay(ListDisplay):
             "paginate_by": paginate_by or 0,
             **page_context,
         }
+
+
+# ---------------------------------------------------------------------------
+# Form displays
+# ---------------------------------------------------------------------------
+
+
+# ---------------------------------------------------------------------------
+# List accessories
+# ---------------------------------------------------------------------------
+
+
+class ListAccessory:
+    """Renders supplementary content above the list display (stats, charts, etc.).
+
+    Subclass this to create custom accessories. CRUDView calls render()
+    with the unfiltered queryset so stats reflect totals regardless of filters.
+    """
+
+    template_name = ""
+
+    def get_context(self, queryset, crud_config, request):
+        """Return template context. queryset is the UNFILTERED full set."""
+        return {}
+
+    def render(self, queryset, crud_config, request):
+        """Render this accessory to an HTML string."""
+        from django.template.loader import render_to_string
+
+        ctx = self.get_context(queryset, crud_config, request)
+        return render_to_string(self.template_name, ctx, request=request)
+
+
+class StatsAccessory(ListAccessory):
+    """Row of stat cards above the list. Declarative config, no custom template.
+
+    Usage:
+        list_accessories = [
+            StatsAccessory(stats=[
+                {"label": "Total", "value": lambda qs: qs.count()},
+                {"label": "Staff", "value": lambda qs: qs.filter(is_staff=True).count()},
+                {"label": "Admins", "value": 0},
+            ])
+        ]
+
+    Each stat dict has:
+        label: Display label
+        value: callable(queryset) → value, or a static string/int
+        color: Optional CSS color for the value (e.g. "var(--primary)")
+    """
+
+    template_name = "smallstack/crud/accessories/stats.html"
+
+    def __init__(self, stats):
+        self.stats = stats
+
+    def get_context(self, queryset, crud_config, request):
+        items = []
+        for spec in self.stats:
+            value = spec["value"]
+            if callable(value):
+                value = value(queryset)
+            items.append(
+                {
+                    "label": spec["label"],
+                    "value": value,
+                    "color": spec.get("color", ""),
+                }
+            )
+        return {"accessory_items": items}
 
 
 # ---------------------------------------------------------------------------

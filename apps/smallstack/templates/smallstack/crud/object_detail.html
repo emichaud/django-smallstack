@@ -28,14 +28,17 @@
             <span style="color: var(--body-fg);">{{ object }}</span>
         </nav>
     </div>
-    <div class="page-header-actions" style="display: flex; gap: 0.5rem;">
+    <div class="page-header-actions" style="display: flex; align-items: center; gap: 8px;">
+        {% if available_displays|length > 1 %}
+        {% include "smallstack/crud/includes/display_palette.html" %}
+        {% endif %}
         {% if crud_actions %}
         {% for action in crud_actions %}
         {% if action.value == "update" %}
-        <a href="edit/" class="btn" style="background: var(--primary); color: var(--button-fg); padding: 0.4rem 1rem; border: none; border-radius: var(--radius-sm, 4px); text-decoration: none; font-size: 0.85rem;">Edit</a>
+        <a href="edit/" class="btn-primary">Edit</a>
         {% endif %}
         {% if action.value == "delete" %}
-        <button type="button" class="btn" style="background: var(--delete-button-bg, #dc3545); color: #fff; padding: 0.4rem 1rem; border: none; border-radius: var(--radius-sm, 4px); cursor: pointer; font-size: 0.85rem;" data-delete-url="delete/" onclick="crudDeleteModal(this, '{{ object }}')">Delete</button>
+        <button type="button" class="btn-danger" data-delete-url="delete/" onclick="crudDeleteModal(this, '{{ object }}')">Delete</button>
         {% endif %}
         {% endfor %}
         {% endif %}
@@ -47,14 +50,17 @@
     {% if not breadcrumb_parent_label %}
     <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
         <h2>{{ object }}</h2>
-        <div style="display: flex; gap: 0.5rem;">
+        <div style="display: flex; align-items: center; gap: 8px;">
+            {% if available_displays|length > 1 %}
+            {% include "smallstack/crud/includes/display_palette.html" %}
+            {% endif %}
             {% if crud_actions %}
             {% for action in crud_actions %}
             {% if action.value == "update" %}
-            <a href="edit/" class="btn" style="background: var(--primary); color: var(--button-fg); padding: 0.4rem 1rem; border: none; border-radius: var(--radius-sm, 4px); text-decoration: none; font-size: 0.85rem;">Edit</a>
+            <a href="edit/" class="btn-primary">Edit</a>
             {% endif %}
             {% if action.value == "delete" %}
-            <button type="button" class="btn" style="background: var(--delete-button-bg, #dc3545); color: #fff; padding: 0.4rem 1rem; border: none; border-radius: var(--radius-sm, 4px); cursor: pointer; font-size: 0.85rem;" data-delete-url="delete/" onclick="crudDeleteModal(this, '{{ object }}')">Delete</button>
+            <button type="button" class="btn-danger" data-delete-url="delete/" onclick="crudDeleteModal(this, '{{ object }}')">Delete</button>
             {% endif %}
             {% endfor %}
             {% endif %}
@@ -63,7 +69,6 @@
     {% endif %}
     <div class="card-body">
         {% if display_template %}
-            {% include "smallstack/crud/includes/display_palette.html" %}
             <div id="crud-display-area">
                 {% include display_template %}
             </div>

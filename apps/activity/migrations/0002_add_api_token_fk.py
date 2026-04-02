@@ -5,16 +5,21 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('activity', '0001_initial'),
-        ('smallstack', '0007_add_apitoken_fields'),
+        ("activity", "0001_initial"),
+        ("smallstack", "0007_add_apitoken_fields"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='requestlog',
-            name='api_token',
-            field=models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='request_logs', to='smallstack.apitoken'),
+            model_name="requestlog",
+            name="api_token",
+            field=models.ForeignKey(
+                blank=True,
+                null=True,
+                on_delete=django.db.models.deletion.SET_NULL,
+                related_name="request_logs",
+                to="smallstack.apitoken",
+            ),
         ),
     ]

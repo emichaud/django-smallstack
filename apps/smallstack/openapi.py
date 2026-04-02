@@ -141,39 +141,58 @@ def _build_crud_paths(crud_config, list_url_name: str) -> dict[str, dict]:
         parameters: list[dict] = [
             {"name": "page", "in": "query", "schema": {"type": "integer"}},
             {"name": "page_size", "in": "query", "schema": {"type": "integer"}},
-            {"name": "ordering", "in": "query", "schema": {"type": "string"},
-             "description": "Comma-separated fields, prefix with - for descending"},
+            {
+                "name": "ordering",
+                "in": "query",
+                "schema": {"type": "string"},
+                "description": "Comma-separated fields, prefix with - for descending",
+            },
         ]
         search_fields = crud_config._resolve_search_fields()
         if search_fields:
             parameters.append(
-                {"name": "q", "in": "query", "schema": {"type": "string"},
-                 "description": f"Search {', '.join(search_fields)}"},
+                {
+                    "name": "q",
+                    "in": "query",
+                    "schema": {"type": "string"},
+                    "description": f"Search {', '.join(search_fields)}",
+                },
             )
 
         # Filter parameters
         filter_fields = crud_config._resolve_filter_fields()
         for field_name in filter_fields:
             parameters.append(
-                {"name": field_name, "in": "query", "schema": {"type": "string"},
-                 "description": f"Filter by {field_name}"},
+                {
+                    "name": field_name,
+                    "in": "query",
+                    "schema": {"type": "string"},
+                    "description": f"Filter by {field_name}",
+                },
             )
 
         # Expand parameter
         expand_fields = getattr(crud_config, "api_expand_fields", [])
         if expand_fields:
             parameters.append(
-                {"name": "expand", "in": "query", "schema": {"type": "string"},
-                 "description": f"Comma-separated FK fields to expand: {', '.join(expand_fields)}"},
+                {
+                    "name": "expand",
+                    "in": "query",
+                    "schema": {"type": "string"},
+                    "description": f"Comma-separated FK fields to expand: {', '.join(expand_fields)}",
+                },
             )
 
         # Export format parameter
         export_formats = getattr(crud_config, "export_formats", [])
         if export_formats:
             parameters.append(
-                {"name": "format", "in": "query",
-                 "schema": {"type": "string", "enum": list(export_formats)},
-                 "description": "Export format (returns file download)"},
+                {
+                    "name": "format",
+                    "in": "query",
+                    "schema": {"type": "string", "enum": list(export_formats)},
+                    "description": "Export format (returns file download)",
+                },
             )
 
         # Aggregation parameters
@@ -181,12 +200,20 @@ def _build_crud_paths(crud_config, list_url_name: str) -> dict[str, dict]:
         if agg_fields:
             for agg in ["sum", "avg", "min", "max"]:
                 parameters.append(
-                    {"name": agg, "in": "query", "schema": {"type": "string"},
-                     "description": f"Compute {agg} of a numeric field ({', '.join(agg_fields)})"},
+                    {
+                        "name": agg,
+                        "in": "query",
+                        "schema": {"type": "string"},
+                        "description": f"Compute {agg} of a numeric field ({', '.join(agg_fields)})",
+                    },
                 )
             parameters.append(
-                {"name": "count_by", "in": "query", "schema": {"type": "string"},
-                 "description": "Group counts by field"},
+                {
+                    "name": "count_by",
+                    "in": "query",
+                    "schema": {"type": "string"},
+                    "description": "Group counts by field",
+                },
             )
         list_ops["get"] = {
             "tags": [tag],
@@ -196,9 +223,11 @@ def _build_crud_paths(crud_config, list_url_name: str) -> dict[str, dict]:
             "responses": {
                 "200": {
                     "description": "Paginated list",
-                    "content": {"application/json": {
-                        "schema": _build_list_response_schema(model_name),
-                    }},
+                    "content": {
+                        "application/json": {
+                            "schema": _build_list_response_schema(model_name),
+                        }
+                    },
                 },
             },
         }
@@ -219,9 +248,11 @@ def _build_crud_paths(crud_config, list_url_name: str) -> dict[str, dict]:
                 },
                 "400": {
                     "description": "Validation error",
-                    "content": {"application/json": {
-                        "schema": {"$ref": "#/components/schemas/Error"},
-                    }},
+                    "content": {
+                        "application/json": {
+                            "schema": {"$ref": "#/components/schemas/Error"},
+                        }
+                    },
                 },
             },
         }
@@ -267,9 +298,11 @@ def _build_crud_paths(crud_config, list_url_name: str) -> dict[str, dict]:
                 },
                 "400": {
                     "description": "Validation error",
-                    "content": {"application/json": {
-                        "schema": {"$ref": "#/components/schemas/Error"},
-                    }},
+                    "content": {
+                        "application/json": {
+                            "schema": {"$ref": "#/components/schemas/Error"},
+                        }
+                    },
                 },
             },
         }
@@ -336,15 +369,19 @@ def _build_auth_paths() -> dict[str, dict]:
                 "summary": "Login — exchange credentials for a Bearer token",
                 "requestBody": {
                     "required": True,
-                    "content": {"application/json": {"schema": {
-                        "type": "object",
-                        "properties": {
-                            "username": {"type": "string"},
-                            "password": {"type": "string"},
-                            "expires_hours": {"type": "integer"},
-                        },
-                        "required": ["username", "password"],
-                    }}},
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "username": {"type": "string"},
+                                    "password": {"type": "string"},
+                                    "expires_hours": {"type": "integer"},
+                                },
+                                "required": ["username", "password"],
+                            }
+                        }
+                    },
                 },
                 "responses": {
                     "200": {
@@ -368,12 +405,16 @@ def _build_auth_paths() -> dict[str, dict]:
                 "summary": "Refresh a login token",
                 "security": bearer,
                 "requestBody": {
-                    "content": {"application/json": {"schema": {
-                        "type": "object",
-                        "properties": {
-                            "expires_hours": {"type": "integer"},
-                        },
-                    }}},
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "expires_hours": {"type": "integer"},
+                                },
+                            }
+                        }
+                    },
                 },
                 "responses": {
                     "200": {
@@ -390,15 +431,19 @@ def _build_auth_paths() -> dict[str, dict]:
                 "security": bearer,
                 "requestBody": {
                     "required": True,
-                    "content": {"application/json": {"schema": {
-                        "type": "object",
-                        "properties": {
-                            "username": {"type": "string"},
-                            "password": {"type": "string"},
-                            "email": {"type": "string", "format": "email"},
-                        },
-                        "required": ["username", "password"],
-                    }}},
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "username": {"type": "string"},
+                                    "password": {"type": "string"},
+                                    "email": {"type": "string", "format": "email"},
+                                },
+                                "required": ["username", "password"],
+                            }
+                        }
+                    },
                 },
                 "responses": {
                     "201": {
@@ -420,9 +465,13 @@ def _build_auth_paths() -> dict[str, dict]:
                 "responses": {
                     "200": {
                         "description": "User profile",
-                        "content": {"application/json": {"schema": {
-                            "$ref": "#/components/schemas/AuthUser",
-                        }}},
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/AuthUser",
+                                }
+                            }
+                        },
                     },
                 },
             },
@@ -434,14 +483,18 @@ def _build_auth_paths() -> dict[str, dict]:
                 "security": bearer,
                 "requestBody": {
                     "required": True,
-                    "content": {"application/json": {"schema": {
-                        "type": "object",
-                        "properties": {
-                            "current_password": {"type": "string"},
-                            "new_password": {"type": "string"},
-                        },
-                        "required": ["current_password", "new_password"],
-                    }}},
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "current_password": {"type": "string"},
+                                    "new_password": {"type": "string"},
+                                },
+                                "required": ["current_password", "new_password"],
+                            }
+                        }
+                    },
                 },
                 "responses": {
                     "200": {
@@ -462,15 +515,19 @@ def _build_auth_paths() -> dict[str, dict]:
                 "responses": {
                     "200": {
                         "description": "Password requirements",
-                        "content": {"application/json": {"schema": {
-                            "type": "object",
-                            "properties": {
-                                "requirements": {
-                                    "type": "array",
-                                    "items": {"type": "string"},
-                                },
-                            },
-                        }}},
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "requirements": {
+                                            "type": "array",
+                                            "items": {"type": "string"},
+                                        },
+                                    },
+                                }
+                            }
+                        },
                     },
                 },
             },
@@ -484,26 +541,34 @@ def _build_auth_paths() -> dict[str, dict]:
                     {"name": "q", "in": "query", "schema": {"type": "string"}},
                     {"name": "page", "in": "query", "schema": {"type": "integer"}},
                     {"name": "page_size", "in": "query", "schema": {"type": "integer"}},
-                    {"name": "ordering", "in": "query", "schema": {"type": "string"},
-                     "description": "Order by: username, email, pk"},
+                    {
+                        "name": "ordering",
+                        "in": "query",
+                        "schema": {"type": "string"},
+                        "description": "Order by: username, email, pk",
+                    },
                 ],
                 "responses": {
                     "200": {
                         "description": "Paginated user list",
-                        "content": {"application/json": {"schema": {
-                            "type": "object",
-                            "properties": {
-                                "count": {"type": "integer"},
-                                "page": {"type": "integer"},
-                                "total_pages": {"type": "integer"},
-                                "next": {"type": "string", "nullable": True},
-                                "previous": {"type": "string", "nullable": True},
-                                "results": {
-                                    "type": "array",
-                                    "items": {"$ref": "#/components/schemas/AuthUserExtended"},
-                                },
-                            },
-                        }}},
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "count": {"type": "integer"},
+                                        "page": {"type": "integer"},
+                                        "total_pages": {"type": "integer"},
+                                        "next": {"type": "string", "nullable": True},
+                                        "previous": {"type": "string", "nullable": True},
+                                        "results": {
+                                            "type": "array",
+                                            "items": {"$ref": "#/components/schemas/AuthUserExtended"},
+                                        },
+                                    },
+                                }
+                            }
+                        },
                     },
                 },
             },
@@ -519,9 +584,13 @@ def _build_auth_paths() -> dict[str, dict]:
                 "responses": {
                     "200": {
                         "description": "User detail",
-                        "content": {"application/json": {"schema": {
-                            "$ref": "#/components/schemas/AuthUserExtended",
-                        }}},
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/AuthUserExtended",
+                                }
+                            }
+                        },
                     },
                     "404": {"description": "Not found"},
                 },
@@ -534,23 +603,31 @@ def _build_auth_paths() -> dict[str, dict]:
                     {"name": "id", "in": "path", "required": True, "schema": {"type": "integer"}},
                 ],
                 "requestBody": {
-                    "content": {"application/json": {"schema": {
-                        "type": "object",
-                        "properties": {
-                            "email": {"type": "string", "format": "email"},
-                            "first_name": {"type": "string"},
-                            "last_name": {"type": "string"},
-                            "is_staff": {"type": "boolean"},
-                            "is_active": {"type": "boolean"},
-                        },
-                    }}},
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "email": {"type": "string", "format": "email"},
+                                    "first_name": {"type": "string"},
+                                    "last_name": {"type": "string"},
+                                    "is_staff": {"type": "boolean"},
+                                    "is_active": {"type": "boolean"},
+                                },
+                            }
+                        }
+                    },
                 },
                 "responses": {
                     "200": {
                         "description": "User updated",
-                        "content": {"application/json": {"schema": {
-                            "$ref": "#/components/schemas/AuthUserExtended",
-                        }}},
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/AuthUserExtended",
+                                }
+                            }
+                        },
                     },
                     "400": {
                         "description": "Validation error",
@@ -569,11 +646,15 @@ def _build_auth_paths() -> dict[str, dict]:
                 ],
                 "requestBody": {
                     "required": True,
-                    "content": {"application/json": {"schema": {
-                        "type": "object",
-                        "properties": {"new_password": {"type": "string"}},
-                        "required": ["new_password"],
-                    }}},
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {"new_password": {"type": "string"}},
+                                "required": ["new_password"],
+                            }
+                        }
+                    },
                 },
                 "responses": {
                     "200": {

@@ -28,7 +28,9 @@ class Command(BaseCommand):
             raise CommandError(f"User '{options['username']}' does not exist")
 
         token, raw_key = APIToken.create_token(
-            user=user, name=options["name"], access_level=options["access_level"],
+            user=user,
+            name=options["name"],
+            access_level=options["access_level"],
         )
         self.stdout.write(self.style.SUCCESS(f"Token created for {user.username}:"))
         self.stdout.write(f"  Access level: {token.access_level}")

@@ -4,30 +4,29 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('smallstack', '0006_apitoken'),
+        ("smallstack", "0006_apitoken"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='apitoken',
-            name='description',
-            field=models.TextField(blank=True, default=''),
+            model_name="apitoken",
+            name="description",
+            field=models.TextField(blank=True, default=""),
         ),
         migrations.AddField(
-            model_name='apitoken',
-            name='expires_at',
+            model_name="apitoken",
+            name="expires_at",
             field=models.DateTimeField(blank=True, null=True),
         ),
         migrations.AddField(
-            model_name='apitoken',
-            name='request_count',
+            model_name="apitoken",
+            name="request_count",
             field=models.PositiveIntegerField(default=0),
         ),
         migrations.AddField(
-            model_name='apitoken',
-            name='revoked_at',
+            model_name="apitoken",
+            name="revoked_at",
             field=models.DateTimeField(blank=True, null=True),
         ),
     ]

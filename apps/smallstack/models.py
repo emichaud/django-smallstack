@@ -127,15 +127,25 @@ class APIToken(models.Model):
 
     @classmethod
     def create_token(
-        cls, user, name="API Token", description="", expires_at=None,
-        token_type="manual", access_level="staff",
+        cls,
+        user,
+        name="API Token",
+        description="",
+        expires_at=None,
+        token_type="manual",
+        access_level="staff",
     ):
         """Create a new token. Returns (token_instance, raw_key)."""
         raw_key, prefix, hashed = cls._generate_raw_key()
         token = cls.objects.create(
-            user=user, name=name, prefix=prefix, hashed_key=hashed,
-            description=description, expires_at=expires_at,
-            token_type=token_type, access_level=access_level,
+            user=user,
+            name=name,
+            prefix=prefix,
+            hashed_key=hashed,
+            description=description,
+            expires_at=expires_at,
+            token_type=token_type,
+            access_level=access_level,
         )
         return token, raw_key
 

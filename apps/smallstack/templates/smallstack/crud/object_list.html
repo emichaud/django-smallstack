@@ -27,11 +27,14 @@
             <span style="color: var(--body-fg);">{{ object_verbose_name_plural }}</span>
         </nav>
     </div>
-    {% if create_view_url %}
-    <div class="page-header-actions">
+    <div class="page-header-actions" style="display: flex; align-items: center; gap: 8px;">
+        {% if available_displays|length > 1 %}
+        {% include "smallstack/crud/includes/display_palette.html" %}
+        {% endif %}
+        {% if create_view_url %}
         <a href="{{ create_view_url }}" class="btn-primary">+ Add {{ object_verbose_name }}</a>
+        {% endif %}
     </div>
-    {% endif %}
 </div>
 {% endif %}
 
@@ -39,19 +42,23 @@
     {% if not breadcrumb_parent_label %}
     <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
         <h2>{{ object_verbose_name_plural }}</h2>
-        {% if create_view_url %}
-        <a href="{{ create_view_url }}" class="btn-primary">+ Add {{ object_verbose_name }}</a>
-        {% endif %}
+        <div style="display: flex; align-items: center; gap: 8px;">
+            {% if available_displays|length > 1 %}
+            {% include "smallstack/crud/includes/display_palette.html" %}
+            {% endif %}
+            {% if create_view_url %}
+            <a href="{{ create_view_url }}" class="btn-primary">+ Add {{ object_verbose_name }}</a>
+            {% endif %}
+        </div>
     </div>
     {% endif %}
     <div class="card-body">
+        {% for acc_html in list_accessories_html %}{{ acc_html|safe }}{% endfor %}
+
         {% include "smallstack/crud/includes/list_toolbar.html" %}
 
         <div id="crud-list-content">
             {% if display_template %}
-                {% if not show_toolbar and available_displays|length > 1 %}
-                {% include "smallstack/crud/includes/display_palette.html" %}
-                {% endif %}
                 <div id="crud-display-area" style="--paginate-by: {{ paginate_by|default:0 }};">
                     {% include display_template %}
                 </div>
@@ -79,7 +86,7 @@
 {% endblock %}
 
 {% block extra_js %}
-{% if show_toolbar and available_displays|length > 1 %}
+{% if available_displays|length > 1 %}
 <script>
 (function() {
     var key = 'ss_display_{{ url_base|escapejs }}';

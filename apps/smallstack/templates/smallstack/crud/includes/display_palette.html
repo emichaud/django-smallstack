@@ -1,5 +1,5 @@
 {% if available_displays|length > 1 %}
-<div class="display-palette" style="display: inline-flex; gap: 0.25rem; margin-bottom: 0.75rem;">
+<div class="display-palette">
     {% for display in available_displays %}
     <button
         class="display-palette-btn{% if display.name == active_display %} active{% endif %}"
@@ -9,41 +9,10 @@
         hx-push-url="true"
         data-display="{{ display.name }}"
         title="{{ display.name|title }}"
-        style="padding: 0.35rem 0.5rem; border: 1px solid var(--border-color); border-radius: var(--radius-sm, 4px); cursor: pointer; display: inline-flex; align-items: center;"
+        onclick="this.closest('.display-palette').querySelectorAll('.display-palette-btn').forEach(b => b.classList.remove('active')); this.classList.add('active');"
     >
         {{ display.icon|safe }}
     </button>
     {% endfor %}
 </div>
-<style>
-.display-palette-btn { background: var(--card-bg); color: var(--body-fg); }
-.display-palette-btn.active { background: var(--primary); color: var(--button-fg); }
-</style>
-<script>
-(function() {
-    var key = 'ss_display_{{ url_base|escapejs }}';
-
-    // On click: save preference, update active state
-    document.querySelectorAll('.display-palette-btn').forEach(function(btn) {
-        btn.addEventListener('click', function() {
-            localStorage.setItem(key, this.dataset.display);
-            document.querySelectorAll('.display-palette-btn').forEach(function(b) {
-                b.classList.remove('active');
-            });
-            this.classList.add('active');
-        });
-    });
-
-    // On load: if no ?display= in URL but localStorage has a preference, restore it
-    var params = new URLSearchParams(window.location.search);
-    if (!params.has('display')) {
-        var saved = localStorage.getItem(key);
-        if (saved && saved !== '{{ active_display|escapejs }}') {
-            // Redirect with saved preference (replace so no extra history entry)
-            params.set('display', saved);
-            window.location.replace(window.location.pathname + '?' + params.toString());
-        }
-    }
-})();
-</script>
 {% endif %}

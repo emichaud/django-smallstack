@@ -563,13 +563,13 @@ class TestDisplayProtocol:
         client.force_login(staff_user)
         response = client.get(reverse("explorer/monitoring/heartbeat-list"))
         assert response.status_code == 200
-        # Should use display protocol (Table2Display)
-        assert "display_template" in response.context or "table" in response.context
+        # Should use display protocol (TableDisplay)
+        assert "display_template" in response.context
 
     def test_display_query_param(self, client, staff_user):
         """?display= param selects a display."""
         client.force_login(staff_user)
-        response = client.get(reverse("explorer/monitoring/heartbeat-list") + "?display=table2")
+        response = client.get(reverse("explorer/monitoring/heartbeat-list") + "?display=table")
         assert response.status_code == 200
 
 
