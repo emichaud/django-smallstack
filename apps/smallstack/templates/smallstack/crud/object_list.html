@@ -13,7 +13,7 @@
 
 {% comment %}All table, sort indicator, and pagination styles are in components.css{% endcomment %}
 
-{% block content %}
+{% block page_header %}
 {% if breadcrumb_parent_label %}
 <div class="page-header-bleed page-header-with-actions" style="display: flex; align-items: flex-start; justify-content: space-between;">
     <div class="page-header-content">
@@ -37,6 +37,9 @@
     </div>
 </div>
 {% endif %}
+{% endblock %}
+
+{% block content %}
 
 <div class="card" id="crud-content">
     {% if not breadcrumb_parent_label %}
@@ -56,6 +59,7 @@
         {% for acc_html in list_accessories_html %}{{ acc_html|safe }}{% endfor %}
 
         {% include "smallstack/crud/includes/list_toolbar.html" %}
+        {% if enable_bulk %}{% include "smallstack/crud/includes/bulk_actions_bar.html" %}{% endif %}
 
         <div id="crud-list-content">
             {% if display_template %}
@@ -83,6 +87,12 @@
     </div>
 </div>
 {% include "smallstack/crud/includes/delete_modal.html" %}
+{% if enable_bulk %}
+{% include "smallstack/crud/includes/bulk_delete_modal.html" %}
+{% if "update" in bulk_actions %}
+{% include "smallstack/crud/includes/bulk_update_modal.html" %}
+{% endif %}
+{% endif %}
 {% endblock %}
 
 {% block extra_js %}

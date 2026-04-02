@@ -16,7 +16,7 @@ from django.db.models import AutoField, BigAutoField, Field, ForeignKey
 from django.urls import path, reverse
 from django.utils.text import slugify
 
-from apps.smallstack.crud import Action, CRUDView
+from apps.smallstack.crud import Action, BulkAction, CRUDView
 from apps.smallstack.mixins import StaffRequiredMixin
 
 if TYPE_CHECKING:
@@ -207,6 +207,17 @@ def _resolve_readonly_from_admin(modeladmin):
         except Exception:
             pass
     return False
+
+
+def _resolve_bulk_actions(admin_class):
+    """Map explorer_bulk_actions strings to BulkAction enum values.
+
+    Defaults to ["delete"] (matching Django admin behavior) unless
+    explicitly set to [] to opt out.
+    """
+    raw = getattr(admin_class, "explorer_bulk_actions", ["delete"])
+    _mapping = {"delete": BulkAction.DELETE, "update": BulkAction.UPDATE}
+    return [_mapping[a] for a in raw if a in _mapping]
 
 
 def _resolve_group(model, modeladmin):
@@ -466,6 +477,7 @@ class ExplorerSite:
                 "api_expand_fields": list(getattr(admin_class, "explorer_api_expand_fields", [])),
                 "api_aggregate_fields": list(getattr(admin_class, "explorer_api_aggregate_fields", [])),
                 "list_accessories": list(getattr(admin_class, "explorer_list_accessories", [])),
+                "bulk_actions": _resolve_bulk_actions(admin_class),
             },
         )
 

@@ -1920,7 +1920,7 @@ body.sidebar-closed .site-footer {
     gap: 20px;
 }
 
-/* Full-bleed header — used inside {% block page_header %} (outside .content-wrapper) */
+/* Full-bleed header — lives outside .content-wrapper, inside .main-content */
 .page-header-bleed {
     background: color-mix(in srgb, var(--primary) 15%, var(--body-bg));
     margin: -20px -20px 20px -20px;

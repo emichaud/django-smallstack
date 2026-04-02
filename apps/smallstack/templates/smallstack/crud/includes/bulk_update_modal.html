@@ -1,0 +1,170 @@
+<!-- Bulk Update Modal — field picker + form submission -->
+<div id="bulk-update-modal" class="crud-modal-overlay" style="display:none;">
+    <div class="crud-modal" style="max-width: 520px;">
+        <div class="crud-modal-header">
+            <h3 id="bulk-update-title">Bulk Update</h3>
+            <button type="button" class="crud-modal-close" onclick="bulkUpdateModalClose()">&times;</button>
+        </div>
+        <div class="crud-modal-body" id="bulk-update-body">
+            <p style="margin-bottom: 1rem;">Select fields to update for <strong id="bulk-update-count">0</strong> items:</p>
+            <div id="bulk-update-fields" style="max-height: 400px; overflow-y: auto;"></div>
+            <div id="bulk-update-result" style="display:none; margin-top: 0.75rem; font-size: 0.85rem;"></div>
+        </div>
+        <div class="crud-modal-footer">
+            <button type="button"
+                id="bulk-update-confirm"
+                class="crud-modal-btn-delete"
+                style="background: var(--primary);"
+                onclick="bulkUpdateConfirm()">
+                Update All
+            </button>
+            <button type="button" class="crud-modal-btn-cancel" onclick="bulkUpdateModalClose()">Cancel</button>
+        </div>
+    </div>
+</div>
+
+<script>
+function bulkUpdatePrompt() {
+    var ids = window.bulkGetSelectedIds();
+    if (!ids.length) return;
+    document.getElementById('bulk-update-count').textContent = ids.length;
+    document.getElementById('bulk-update-title').textContent = 'Bulk Update';
+    var resultEl = document.getElementById('bulk-update-result');
+    resultEl.style.display = 'none';
+    resultEl.innerHTML = '';
+    var btn = document.getElementById('bulk-update-confirm');
+    btn.style.display = '';
+    btn.disabled = false;
+    btn.textContent = 'Update All';
+    document.querySelector('#bulk-update-modal .crud-modal-btn-cancel').textContent = 'Cancel';
+
+    // Fetch the bulk update form
+    fetch('{{ bulk_url }}update-form/', {
+        headers: { 'X-Requested-With': 'XMLHttpRequest' },
+    }).then(function(resp) {
+        if (!resp.ok) {
+            document.getElementById('bulk-update-fields').innerHTML = '<p style="color: #dc3545;">Failed to load update form.</p>';
+            return;
+        }
+        return resp.text();
+    }).then(function(html) {
+        if (html) document.getElementById('bulk-update-fields').innerHTML = html;
+    });
+
+    document.getElementById('bulk-update-modal').style.display = 'flex';
+}
+
+function bulkUpdateModalClose() {
+    document.getElementById('bulk-update-modal').style.display = 'none';
+}
+
+function bulkUpdateConfirm() {
+    var ids = window.bulkGetSelectedIds();
+    if (!ids.length) return;
+
+    // Collect checked fields and their values
+    var fields = {};
+    document.querySelectorAll('#bulk-update-fields .bulk-field-toggle').forEach(function(cb) {
+        if (cb.checked) {
+            var fieldName = cb.getAttribute('data-field');
+            var input = document.querySelector('#bulk-update-fields [name="bulk_' + fieldName + '"]');
+            if (input) {
+                if (input.type === 'checkbox') {
+                    fields[fieldName] = input.checked ? 'true' : 'false';
+                } else {
+                    fields[fieldName] = input.value;
+                }
+            }
+        }
+    });
+
+    if (Object.keys(fields).length === 0) {
+        var resultEl = document.getElementById('bulk-update-result');
+        resultEl.innerHTML = '<div style="padding: 0.6rem 0.9rem; border-radius: 4px; background: color-mix(in srgb, #f0ad4e 12%, var(--body-bg)); color: #f0ad4e;">Select at least one field to update.</div>';
+        resultEl.style.display = 'block';
+        return;
+    }
+
+    var btn = document.getElementById('bulk-update-confirm');
+    btn.disabled = true;
+    btn.textContent = 'Updating\u2026';
+
+    fetch('{{ bulk_url }}', {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': '{{ csrf_token }}',
+            'Content-Type': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest',
+        },
+        body: JSON.stringify({ action: 'update', ids: ids, fields: fields }),
+    }).then(function(resp) {
+        return resp.json();
+    }).then(function(data) {
+        var resultEl = document.getElementById('bulk-update-result');
+        if (data.error) {
+            resultEl.innerHTML = '<div style="padding: 0.6rem 0.9rem; border-radius: 4px; background: color-mix(in srgb, #dc3545 12%, var(--body-bg)); color: #dc3545;">' + data.error + '</div>';
+            resultEl.style.display = 'block';
+            btn.disabled = false;
+            btn.textContent = 'Update All';
+            return;
+        }
+
+        var updatedIds = data.updated || [];
+        var errors = data.errors || {};
+        var errorKeys = Object.keys(errors);
+
+        if (errorKeys.length === 0) {
+            // Complete success — reload the list
+            bulkUpdateModalClose();
+            window.bulkClearAll();
+            // Refresh list content
+            var listContent = document.getElementById('crud-list-content');
+            if (listContent && window.htmx) {
+                htmx.trigger(listContent, 'htmx:load');
+                location.reload();
+            } else {
+                location.reload();
+            }
+        } else {
+            var html = '';
+            if (updatedIds.length > 0) {
+                html += '<div style="padding: 0.6rem 0.9rem; border-radius: 4px; background: color-mix(in srgb, #28a745 12%, var(--body-bg)); color: #28a745; margin-bottom: 0.5rem;"><strong>' + data.message + '</strong></div>';
+            }
+            html += '<div style="padding: 0.6rem 0.9rem; border-radius: 4px; background: color-mix(in srgb, #dc3545 12%, var(--body-bg)); color: #dc3545;">';
+            html += '<ul style="margin: 0; padding-left: 1.2rem; font-size: 0.82rem;">';
+            errorKeys.forEach(function(pk) {
+                var err = errors[pk];
+                if (typeof err === 'object') {
+                    var msgs = [];
+                    Object.keys(err).forEach(function(f) { msgs.push(f + ': ' + err[f].join(', ')); });
+                    html += '<li>ID ' + pk + ': ' + msgs.join('; ') + '</li>';
+                } else {
+                    html += '<li>ID ' + pk + ': ' + err + '</li>';
+                }
+            });
+            html += '</ul></div>';
+            resultEl.innerHTML = html;
+            resultEl.style.display = 'block';
+            if (updatedIds.length > 0) {
+                btn.style.display = 'none';
+                document.querySelector('#bulk-update-modal .crud-modal-btn-cancel').textContent = 'Close';
+            } else {
+                btn.disabled = false;
+                btn.textContent = 'Update All';
+            }
+        }
+    }).catch(function() {
+        var resultEl = document.getElementById('bulk-update-result');
+        resultEl.innerHTML = '<div style="padding: 0.6rem 0.9rem; border-radius: 4px; background: color-mix(in srgb, #dc3545 12%, var(--body-bg)); color: #dc3545;">Network error \u2014 please try again.</div>';
+        resultEl.style.display = 'block';
+    }).finally(function() {
+        btn.disabled = false;
+        btn.textContent = 'Update All';
+    });
+}
+
+// Close on overlay click
+document.addEventListener('click', function(e) {
+    if (e.target.id === 'bulk-update-modal') bulkUpdateModalClose();
+});
+</script>

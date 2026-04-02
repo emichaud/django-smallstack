@@ -1850,3 +1850,344 @@ class TestOpenAPISchema:
         url = reverse("api-openapi-schema")
         response = client.get(url)
         assert response.status_code == 200
+
+
+# ---------------------------------------------------------------------------
+# @api_view decorator tests
+# ---------------------------------------------------------------------------
+
+
+class TestApiViewDecorator:
+    """Tests for the api_view decorator used by custom (non-CRUD) endpoints."""
+
+    def test_dict_return_becomes_json_response(self, client, staff_user, auth_header):
+        """Returning a dict auto-wraps as JsonResponse with 200."""
+        from .api import api_view
+
+        @api_view(methods=["GET"])
+        def my_view(request):
+            return {"hello": "world"}
+
+        from django.test import RequestFactory
+
+        factory = RequestFactory()
+        req = factory.get("/fake/")
+        req.user = staff_user
+        req.META["HTTP_AUTHORIZATION"] = auth_header["HTTP_AUTHORIZATION"]
+
+        resp = my_view(req)
+        assert resp.status_code == 200
+        assert json.loads(resp.content) == {"hello": "world"}
+
+    def test_tuple_return_with_status(self, client, staff_user, auth_header):
+        """Returning (dict, int) sets the status code."""
+        from .api import api_view
+
+        @api_view(methods=["POST"])
+        def my_view(request):
+            return {"created": True}, 201
+
+        from django.test import RequestFactory
+
+        factory = RequestFactory()
+        req = factory.post("/fake/", data=json.dumps({"x": 1}), content_type="application/json")
+        req.user = staff_user
+        req.META["HTTP_AUTHORIZATION"] = auth_header["HTTP_AUTHORIZATION"]
+
+        resp = my_view(req)
+        assert resp.status_code == 201
+        assert json.loads(resp.content) == {"created": True}
+
+    def test_wrong_method_returns_405(self, client, db):
+        """Requesting with wrong HTTP method returns 405."""
+        from .api import api_view
+
+        @api_view(methods=["POST"])
+        def my_view(request):
+            return {"ok": True}
+
+        from django.test import RequestFactory
+
+        factory = RequestFactory()
+        req = factory.get("/fake/")
+        resp = my_view(req)
+        assert resp.status_code == 405
+
+    def test_options_returns_allowed_methods(self, client, db):
+        """OPTIONS request returns allowed methods."""
+        from .api import api_view
+
+        @api_view(methods=["GET", "POST"])
+        def my_view(request):
+            return {"ok": True}
+
+        from django.test import RequestFactory
+
+        factory = RequestFactory()
+        req = factory.options("/fake/")
+        resp = my_view(req)
+        assert resp.status_code == 200
+        data = json.loads(resp.content)
+        assert "GET" in data["methods"]
+        assert "POST" in data["methods"]
+
+    def test_unauthenticated_returns_401(self, client, db):
+        """No auth header or session returns 401."""
+        from django.contrib.auth.models import AnonymousUser
+
+        from .api import api_view
+
+        @api_view(methods=["GET"], require_auth=True)
+        def my_view(request):
+            return {"secret": True}
+
+        from django.test import RequestFactory
+
+        factory = RequestFactory()
+        req = factory.get("/fake/")
+        req.user = AnonymousUser()
+        resp = my_view(req)
+        assert resp.status_code == 401
+
+    def test_require_staff_blocks_non_staff(self, client, db):
+        """Non-staff user gets 403 when require_staff=True."""
+        from .api import api_view
+
+        regular_user = User.objects.create_user(username="regular", password="testpass123", is_staff=False)
+
+        @api_view(methods=["GET"], require_staff=True)
+        def my_view(request):
+            return {"admin_data": True}
+
+        from django.test import RequestFactory
+
+        factory = RequestFactory()
+        req = factory.get("/fake/")
+        req.user = regular_user
+        # Use session auth (user is already authenticated)
+        resp = my_view(req)
+        assert resp.status_code == 403
+
+    def test_require_auth_false_skips_auth(self, client, db):
+        """Public endpoints work without auth when require_auth=False."""
+        from django.contrib.auth.models import AnonymousUser
+
+        from .api import api_view
+
+        @api_view(methods=["GET"], require_auth=False)
+        def public_view(request):
+            return {"public": True}
+
+        from django.test import RequestFactory
+
+        factory = RequestFactory()
+        req = factory.get("/fake/")
+        req.user = AnonymousUser()
+        resp = public_view(req)
+        assert resp.status_code == 200
+        assert json.loads(resp.content) == {"public": True}
+
+    def test_json_body_parsed_into_request_json(self, client, staff_user, auth_header):
+        """POST body is parsed and available as request.json."""
+        from .api import api_view
+
+        captured = {}
+
+        @api_view(methods=["POST"])
+        def my_view(request):
+            captured["json"] = request.json
+            return {"ok": True}
+
+        from django.test import RequestFactory
+
+        factory = RequestFactory()
+        req = factory.post("/fake/", data=json.dumps({"name": "test", "count": 42}), content_type="application/json")
+        req.user = staff_user
+        req.META["HTTP_AUTHORIZATION"] = auth_header["HTTP_AUTHORIZATION"]
+
+        my_view(req)
+        assert captured["json"] == {"name": "test", "count": 42}
+
+    def test_invalid_json_returns_400(self, client, staff_user, auth_header):
+        """Malformed JSON body returns 400."""
+        from .api import api_view
+
+        @api_view(methods=["POST"])
+        def my_view(request):
+            return {"ok": True}
+
+        from django.test import RequestFactory
+
+        factory = RequestFactory()
+        req = factory.post("/fake/", data="not json{{{", content_type="application/json")
+        req.user = staff_user
+        req.META["HTTP_AUTHORIZATION"] = auth_header["HTTP_AUTHORIZATION"]
+
+        resp = my_view(req)
+        assert resp.status_code == 400
+
+    def test_get_request_json_is_none(self, client, staff_user, auth_header):
+        """GET requests have request.json = None."""
+        from .api import api_view
+
+        captured = {}
+
+        @api_view(methods=["GET"])
+        def my_view(request):
+            captured["json"] = request.json
+            return {"ok": True}
+
+        from django.test import RequestFactory
+
+        factory = RequestFactory()
+        req = factory.get("/fake/")
+        req.user = staff_user
+        req.META["HTTP_AUTHORIZATION"] = auth_header["HTTP_AUTHORIZATION"]
+
+        my_view(req)
+        assert captured["json"] is None
+
+    def test_httpresponse_passthrough(self, client, staff_user, auth_header):
+        """Returning an HttpResponse directly passes through unchanged."""
+        from django.http import HttpResponse
+
+        from .api import api_view
+
+        @api_view(methods=["DELETE"])
+        def my_view(request):
+            return HttpResponse(status=204)
+
+        from django.test import RequestFactory
+
+        factory = RequestFactory()
+        req = factory.delete("/fake/")
+        req.user = staff_user
+        req.META["HTTP_AUTHORIZATION"] = auth_header["HTTP_AUTHORIZATION"]
+
+        resp = my_view(req)
+        assert resp.status_code == 204
+
+
+# ---------------------------------------------------------------------------
+# Bulk Delete API tests
+# ---------------------------------------------------------------------------
+
+HEARTBEAT_BULK_DELETE = "explorer-monitoring-heartbeat-api-bulk-delete"
+
+
+class TestBulkDeleteAPI:
+    """Tests for the bulk delete endpoint."""
+
+    def test_bulk_delete_requires_auth(self, client, heartbeats):
+        url = reverse(HEARTBEAT_BULK_DELETE)
+        ids = [heartbeats[0].pk, heartbeats[1].pk]
+        resp = client.post(url, json.dumps({"ids": ids}), content_type="application/json")
+        assert resp.status_code == 401
+
+    def test_bulk_delete_success(self, client, staff_user, heartbeats, auth_header):
+        url = reverse(HEARTBEAT_BULK_DELETE)
+        ids = [heartbeats[0].pk, heartbeats[1].pk, heartbeats[2].pk]
+        resp = client.post(
+            url,
+            json.dumps({"ids": ids}),
+            content_type="application/json",
+            **auth_header,
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert sorted(data["deleted"]) == sorted(ids)
+        assert data["errors"] == {}
+        assert data["message"] == "Deleted 3 of 3"
+        # Verify actually deleted
+        assert Heartbeat.objects.filter(pk__in=ids).count() == 0
+
+    def test_bulk_delete_not_found(self, client, staff_user, auth_header, db):
+        url = reverse(HEARTBEAT_BULK_DELETE)
+        resp = client.post(
+            url,
+            json.dumps({"ids": [99999]}),
+            content_type="application/json",
+            **auth_header,
+        )
+        data = resp.json()
+        assert data["deleted"] == []
+        assert "99999" in data["errors"]
+
+    def test_bulk_delete_empty_ids(self, client, staff_user, auth_header, db):
+        url = reverse(HEARTBEAT_BULK_DELETE)
+        resp = client.post(
+            url,
+            json.dumps({"ids": []}),
+            content_type="application/json",
+            **auth_header,
+        )
+        assert resp.status_code == 400
+
+    def test_bulk_delete_readonly_token_blocked(self, client, staff_user, db):
+        token, raw_key = APIToken.create_token(
+            staff_user, name="RO Token", access_level="readonly"
+        )
+        url = reverse(HEARTBEAT_BULK_DELETE)
+        resp = client.post(
+            url,
+            json.dumps({"ids": [1]}),
+            content_type="application/json",
+            HTTP_AUTHORIZATION=f"Bearer {raw_key}",
+        )
+        assert resp.status_code == 403
+
+    def test_bulk_delete_invalid_json(self, client, staff_user, auth_header, db):
+        url = reverse(HEARTBEAT_BULK_DELETE)
+        resp = client.post(
+            url,
+            "not json",
+            content_type="application/json",
+            **auth_header,
+        )
+        assert resp.status_code == 400
+
+
+# ---------------------------------------------------------------------------
+# Bulk CRUD endpoint tests (HTML layer)
+# ---------------------------------------------------------------------------
+
+
+class TestBulkCRUDEndpoint:
+    """Tests for the CRUDView bulk action endpoint."""
+
+    def test_bulk_delete_via_crud(self, client, staff_user, heartbeats):
+        """Bulk delete via the CRUDView bulk endpoint."""
+        client.force_login(staff_user)
+        url = "/smallstack/explorer/monitoring/heartbeat/bulk/"
+        ids = [heartbeats[0].pk, heartbeats[1].pk]
+        resp = client.post(
+            url,
+            json.dumps({"action": "delete", "ids": ids}),
+            content_type="application/json",
+        )
+        assert resp.status_code == 200
+        data = json.loads(resp.content)
+        assert sorted(data["deleted"]) == sorted(ids)
+        assert Heartbeat.objects.filter(pk__in=ids).count() == 0
+
+    def test_bulk_unknown_action(self, client, staff_user, heartbeats):
+        """Unknown action returns 400."""
+        client.force_login(staff_user)
+        url = "/smallstack/explorer/monitoring/heartbeat/bulk/"
+        resp = client.post(
+            url,
+            json.dumps({"action": "nope", "ids": [heartbeats[0].pk]}),
+            content_type="application/json",
+        )
+        assert resp.status_code == 400
+
+    def test_bulk_requires_auth(self, client, heartbeats):
+        """Unauthenticated request is redirected (login required mixin)."""
+        url = "/smallstack/explorer/monitoring/heartbeat/bulk/"
+        resp = client.post(
+            url,
+            json.dumps({"action": "delete", "ids": [heartbeats[0].pk]}),
+            content_type="application/json",
+        )
+        # StaffRequiredMixin redirects to login
+        assert resp.status_code == 302

@@ -306,6 +306,7 @@ class CardDisplay(ListDisplay):
                 detail_url = None
             cards.append(
                 {
+                    "pk": obj.pk,
                     "obj": obj,
                     "title": title,
                     "subtitle": subtitle,

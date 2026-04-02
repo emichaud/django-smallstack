@@ -27,7 +27,7 @@ from django import forms
 from django.contrib import messages
 from django.db import IntegrityError
 from django.db.models import ProtectedError, RestrictedError
-from django.http import Http404, HttpResponse
+from django.http import Http404, HttpResponse, QueryDict
 from django.shortcuts import redirect as _redirect
 from django.urls import path, reverse
 from django.views.generic import (
@@ -56,6 +56,11 @@ class Action(enum.Enum):
     DETAIL = "detail"
     UPDATE = "update"
     DELETE = "delete"
+
+
+class BulkAction(enum.Enum):
+    DELETE = "delete"
+    UPDATE = "update"
 
 
 # ---------------------------------------------------------------------------
@@ -362,6 +367,10 @@ class _CRUDContextMixin:
                 # Legacy keys for backward compat with custom templates
                 "field_formatters": cfg.field_formatters,
                 "preview_fields": cfg.preview_fields,
+                # Bulk operations
+                "enable_bulk": bool(cfg.bulk_actions),
+                "bulk_actions": [a.value for a in cfg.bulk_actions],
+                "bulk_url": cfg._reverse(f"{url_base}-bulk") if cfg.bulk_actions else "",
             }
         )
         # Optional parent breadcrumb: (label, url_name) tuple
@@ -647,6 +656,262 @@ class _CRUDDeleteBase(_CRUDContextMixin, DeleteView):
         return _redirect(self.get_success_url())
 
 
+class _CRUDBulkActionView:
+    """Handles bulk delete and bulk update operations via POST.
+
+    Processes objects individually to respect per-object permission hooks
+    and catch ProtectedError per row.
+    """
+
+    crud_config = None
+
+    @classmethod
+    def as_view(cls):
+        from django.views import View
+
+        config = cls.crud_config
+
+        class BulkView(View):
+            def post(self, request, *args, **kwargs):
+                import json as _json
+
+                # Parse request body (JSON or form data)
+                content_type = request.content_type or ""
+                if "json" in content_type:
+                    try:
+                        body = _json.loads(request.body)
+                    except (ValueError, _json.JSONDecodeError):
+                        return HttpResponse(
+                            _json.dumps({"error": "Invalid JSON"}),
+                            status=400,
+                            content_type="application/json",
+                        )
+                    action = body.get("action", "")
+                    ids = body.get("ids", [])
+                    fields_data = body.get("fields", {})
+                else:
+                    action = request.POST.get("action", "")
+                    ids = request.POST.getlist("ids[]") or request.POST.getlist("ids")
+                    fields_data = {}
+
+                # Validate IDs
+                try:
+                    ids = [int(pk) for pk in ids]
+                except (ValueError, TypeError):
+                    return HttpResponse(
+                        _json.dumps({"error": "Invalid IDs"}),
+                        status=400,
+                        content_type="application/json",
+                    )
+
+                if not ids:
+                    return HttpResponse(
+                        _json.dumps({"error": "No IDs provided"}),
+                        status=400,
+                        content_type="application/json",
+                    )
+
+                if action == "delete":
+                    return self._bulk_delete(request, ids, config)
+                elif action == "update":
+                    return self._bulk_update(request, ids, fields_data, config)
+                else:
+                    return HttpResponse(
+                        _json.dumps({"error": f"Unknown action: {action}"}),
+                        status=400,
+                        content_type="application/json",
+                    )
+
+            def _bulk_delete(self, request, ids, cfg):
+                import json as _json
+
+                if BulkAction.DELETE not in cfg.bulk_actions:
+                    return HttpResponse(
+                        _json.dumps({"error": "Bulk delete not enabled"}),
+                        status=403,
+                        content_type="application/json",
+                    )
+
+                qs = cfg._get_queryset().filter(pk__in=ids)
+                objects = {obj.pk: obj for obj in qs}
+                deleted_ids = []
+                errors = {}
+
+                for pk in ids:
+                    obj = objects.get(pk)
+                    if obj is None:
+                        errors[str(pk)] = "Not found"
+                        continue
+                    if not cfg.can_delete(obj, request):
+                        errors[str(pk)] = "Permission denied"
+                        continue
+                    try:
+                        obj.delete()
+                        deleted_ids.append(pk)
+                    except (ProtectedError, RestrictedError) as e:
+                        protected = getattr(e, "protected_objects", None) or getattr(
+                            e, "restricted_objects", set()
+                        )
+                        name = type(next(iter(protected))).__name__ if protected else "other records"
+                        cnt = len(protected)
+                        s = "s" if cnt != 1 else ""
+                        errors[str(pk)] = f"Cannot delete — {cnt} {name} record{s} still linked."
+                    except IntegrityError:
+                        errors[str(pk)] = "Cannot delete — a database constraint prevented this action."
+                    except Exception:
+                        errors[str(pk)] = "Delete failed — an unexpected error occurred."
+
+                msg = f"Deleted {len(deleted_ids)} of {len(ids)}"
+
+                return HttpResponse(
+                    _json.dumps({"deleted": deleted_ids, "errors": errors, "message": msg}),
+                    content_type="application/json",
+                )
+
+            def _bulk_update(self, request, ids, fields_data, cfg):
+                import json as _json
+
+                if BulkAction.UPDATE not in cfg.bulk_actions:
+                    return HttpResponse(
+                        _json.dumps({"error": "Bulk update not enabled"}),
+                        status=403,
+                        content_type="application/json",
+                    )
+
+                if not fields_data:
+                    return HttpResponse(
+                        _json.dumps({"error": "No fields provided"}),
+                        status=400,
+                        content_type="application/json",
+                    )
+
+                # Validate field names
+                allowed = set(cfg.can_bulk_update_fields())
+                invalid = set(fields_data.keys()) - allowed
+                if invalid:
+                    return HttpResponse(
+                        _json.dumps({"error": f"Fields not allowed for bulk update: {', '.join(sorted(invalid))}"}),
+                        status=400,
+                        content_type="application/json",
+                    )
+
+                qs = cfg._get_queryset().filter(pk__in=ids)
+                objects = {obj.pk: obj for obj in qs}
+                updated = []
+                errors = {}
+
+                for pk in ids:
+                    obj = objects.get(pk)
+                    if obj is None:
+                        errors[str(pk)] = "Not found"
+                        continue
+                    if not cfg.can_update(obj, request):
+                        errors[str(pk)] = "Permission denied"
+                        continue
+
+                    # Build PATCH-style form: merge existing values with new fields
+                    from django.forms.models import model_to_dict
+
+                    existing = model_to_dict(obj, fields=cfg.fields or [])
+                    merged = QueryDict(mutable=True)
+                    for key, value in existing.items():
+                        if value is None:
+                            merged[key] = ""
+                        elif isinstance(value, list):
+                            merged.setlist(key, [str(v) for v in value])
+                        else:
+                            merged[key] = str(value)
+                    for key, value in fields_data.items():
+                        merged[key] = str(value) if value is not None else ""
+
+                    form_class = cfg.form_class or cfg._make_form_class()
+                    form = form_class(merged, instance=obj)
+                    if form.is_valid():
+                        obj = form.save()
+                        cfg.on_form_valid(request, form, obj, is_create=False)
+                        updated.append(pk)
+                    else:
+                        errors[str(pk)] = {k: [str(e) for e in v] for k, v in form.errors.items()}
+
+                total = len(ids)
+                updated_count = len(updated)
+                msg = f"Updated {updated_count} of {total}"
+
+                return HttpResponse(
+                    _json.dumps({"updated": updated, "errors": errors, "message": msg}),
+                    content_type="application/json",
+                )
+
+        # Apply mixins
+        bases = tuple(config.mixins) + (BulkView,)
+        view_cls = type(f"{config.model.__name__}BulkActionView", bases, {})
+        return view_cls.as_view()
+
+
+def _make_bulk_update_form_view(crud_config):
+    """Create a view that returns HTML for the bulk update field picker."""
+    from django.views import View
+
+    config = crud_config
+
+    class BulkUpdateFormView(View):
+        def get(self, request, *args, **kwargs):
+            from django.utils.html import escape
+
+            allowed_fields = config.can_bulk_update_fields()
+            form_class = config.form_class or config._make_form_class()
+            form = form_class()
+
+            html_parts = []
+            for field_name in allowed_fields:
+                if field_name not in form.fields:
+                    continue
+                field = form.fields[field_name]
+                label = field.label or field_name.replace("_", " ").capitalize()
+                attrs = {
+                    "id": f"id_bulk_{field_name}",
+                    "class": "vTextField",
+                    "style": "width: 100%;",
+                }
+                widget_html = field.widget.render(
+                    f"bulk_{field_name}", None, attrs=attrs,
+                )
+
+                esc_name = escape(field_name)
+                esc_label = escape(label)
+                html_parts.append(
+                    '<div class="bulk-field-row">'
+                    '<label class="bulk-field-label">'
+                    f'<input type="checkbox" class="bulk-field-toggle"'
+                    f' data-field="{esc_name}">'
+                    f" {esc_label}"
+                    "</label>"
+                    '<div class="bulk-field-widget"'
+                    ' style="display: none; margin-top: 0.5rem;">'
+                    f"{widget_html}"
+                    "</div>"
+                    "</div>"
+                )
+
+            html_parts.append(
+                '<script>'
+                'document.querySelectorAll("#bulk-update-fields .bulk-field-toggle").forEach(function(cb) {'
+                '  cb.addEventListener("change", function() {'
+                '    var widget = this.closest("div").querySelector(".bulk-field-widget");'
+                '    widget.style.display = this.checked ? "block" : "none";'
+                '  });'
+                '});'
+                '</script>'
+            )
+
+            return HttpResponse("".join(html_parts))
+
+    # Apply mixins
+    bases = tuple(config.mixins) + (BulkUpdateFormView,)
+    view_cls = type(f"{config.model.__name__}BulkUpdateFormView", bases, {})
+    return view_cls.as_view()
+
+
 class _CRUDFieldPreviewBase(_CRUDContextMixin, DetailView):
     """Server-rendered field preview partial, loaded via HTMX."""
 
@@ -781,6 +1046,9 @@ class CRUDView:
     create_displays = []  # Create-only (overrides form_displays for create)
     edit_displays = []  # Edit-only (overrides form_displays for edit)
     default_form_display = None  # Defaults to first in resolved list
+
+    # Bulk operations
+    bulk_actions = []  # Opt-in: [BulkAction.DELETE, BulkAction.UPDATE]
 
     # API
     enable_api = False  # Opt-in: generate JSON API endpoints alongside HTML views
@@ -1005,6 +1273,11 @@ class CRUDView:
         pass
 
     @classmethod
+    def can_bulk_update_fields(cls):
+        """Return list of field names allowed for bulk update. Override to restrict."""
+        return cls.fields or []
+
+    @classmethod
     def _get_queryset(cls):
         if cls.queryset is not None:
             return cls.queryset.all()
@@ -1136,6 +1409,23 @@ class CRUDView:
         if Action.CREATE in cls.actions:
             view = cls._make_view(_CRUDCreateBase)
             urls.append(path(f"{url_base}/new/", view.as_view(), name=f"{url_base}-create"))
+
+        # Bulk action endpoints (opt-in) — must be before <pk>/ detail catch-all
+        if cls.bulk_actions:
+            bulk_view_cls = type(
+                f"{cls.model.__name__}BulkAction",
+                (_CRUDBulkActionView,),
+                {"crud_config": cls},
+            )
+            urls.append(path(f"{url_base}/bulk/", bulk_view_cls.as_view(), name=f"{url_base}-bulk"))
+            if BulkAction.UPDATE in cls.bulk_actions:
+                urls.append(
+                    path(
+                        f"{url_base}/bulk/update-form/",
+                        _make_bulk_update_form_view(cls),
+                        name=f"{url_base}-bulk-update-form",
+                    )
+                )
 
         if Action.DETAIL in cls.actions:
             view = cls._make_view(_CRUDDetailBase)

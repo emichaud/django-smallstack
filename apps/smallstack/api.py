@@ -5,11 +5,15 @@ CRUDView configs, plus standalone auth endpoints (login, register, token
 refresh, user management).  Also provides schema introspection, OPTIONS
 field metadata, FK expansion, aggregation, and CSV/JSON export.
 
+Provides ``api_view`` decorator for building custom (non-CRUD) endpoints
+with consistent auth, error handling, and JSON parsing.
+
 No external dependencies beyond Django (tablib for export).
 """
 
 from __future__ import annotations
 
+import functools
 import json
 import math
 from typing import TYPE_CHECKING
@@ -19,7 +23,7 @@ from django.http import HttpRequest, HttpResponse, JsonResponse, QueryDict
 from django.urls import URLPattern, path
 from django.views.decorators.csrf import csrf_exempt
 
-from .crud import Action, _apply_ordering_fields
+from .crud import Action, BulkAction, _apply_ordering_fields
 
 if TYPE_CHECKING:
     from django import forms
@@ -53,7 +57,7 @@ def build_api_urls(crud_config) -> list[URLPattern]:
     list_url_name = f"{name_base}-api-list"
     _api_registry.append((crud_config, list_url_name))
 
-    return [
+    urls = [
         path(f"{prefix}{url_base}/", list_view, name=list_url_name),
         path(
             f"{prefix}{url_base}/<int:pk>/",
@@ -61,6 +65,27 @@ def build_api_urls(crud_config) -> list[URLPattern]:
             name=f"{name_base}-api-detail",
         ),
     ]
+
+    # Bulk endpoints (only when bulk_actions configured)
+    bulk_actions = getattr(crud_config, "bulk_actions", [])
+    if BulkAction.DELETE in bulk_actions:
+        urls.append(
+            path(
+                f"{prefix}{url_base}/bulk-delete/",
+                _make_api_bulk_delete_view(crud_config),
+                name=f"{name_base}-api-bulk-delete",
+            )
+        )
+    if BulkAction.UPDATE in bulk_actions:
+        urls.append(
+            path(
+                f"{prefix}{url_base}/bulk-update/",
+                _make_api_bulk_update_view(crud_config),
+                name=f"{name_base}-api-bulk-update",
+            )
+        )
+
+    return urls
 
 
 # ---------------------------------------------------------------------------
@@ -71,6 +96,104 @@ def build_api_urls(crud_config) -> list[URLPattern]:
 def _error(message, status):
     """Return a consistent error JsonResponse."""
     return JsonResponse({"errors": {"__all__": [message]}}, status=status)
+
+
+# Public alias
+api_error = _error
+
+
+# ---------------------------------------------------------------------------
+# @api_view decorator — for custom (non-CRUD) endpoints
+# ---------------------------------------------------------------------------
+
+
+def api_view(methods=None, require_auth=True, require_staff=False, require_auth_token=False):
+    """Decorator for custom API endpoints with consistent auth/error handling.
+
+    Handles csrf exemption, method checking, Bearer/session authentication,
+    JSON body parsing, and response wrapping so you only write business logic.
+
+    The decorated function receives ``request`` (with ``request.json`` set to
+    the parsed body dict for non-GET requests, or ``None``).  Return values
+    are automatically wrapped:
+
+    * ``dict``                → ``JsonResponse(data, status=200)``
+    * ``(dict, int)``         → ``JsonResponse(data, status=int)``
+    * ``HttpResponse``/etc.   → passed through unchanged
+
+    Use ``api_error(message, status)`` for error responses that match the
+    standard ``{"errors": {"__all__": [message]}}`` envelope.
+
+    Example::
+
+        from apps.smallstack.api import api_view, api_error
+
+        @api_view(methods=["POST"], require_staff=True)
+        def run_sync(request):
+            if not request.json.get("target"):
+                return api_error("target is required", 400)
+            count = sync_external_system(request.json["target"])
+            return {"synced": count}
+
+        # urls.py
+        urlpatterns = [path("api/sync/", run_sync, name="api-sync")]
+    """
+    if methods is None:
+        methods = ["GET"]
+    methods_upper = [m.upper() for m in methods]
+
+    def decorator(fn):
+        @csrf_exempt
+        @functools.wraps(fn)
+        def wrapper(request, *args, **kwargs):
+            # OPTIONS — return allowed methods
+            if request.method == "OPTIONS":
+                resp = JsonResponse({"methods": methods_upper})
+                resp["Allow"] = ", ".join(methods_upper + ["OPTIONS"])
+                return resp
+
+            if request.method not in methods_upper:
+                return _error("Method not allowed", 405)
+
+            # Authentication
+            if require_auth:
+                user, err = _authenticate_api_request(request)
+                if err:
+                    return err
+                if require_auth_token:
+                    token_err = _require_auth_token(request)
+                    if token_err:
+                        return token_err
+                if require_staff and not request.user.is_staff:
+                    return _error("Staff access required", 403)
+
+            # Parse JSON body for write methods
+            if request.method not in ("GET", "HEAD") and request.body:
+                try:
+                    request.json = json.loads(request.body)
+                except (json.JSONDecodeError, ValueError):
+                    return _error("Invalid JSON", 400)
+            else:
+                request.json = None
+
+            # Call the view function
+            result = fn(request, *args, **kwargs)
+
+            # Auto-wrap return values
+            if isinstance(result, dict):
+                return JsonResponse(result)
+            if isinstance(result, (list, tuple)) and len(result) == 2:
+                data, status = result
+                if isinstance(data, dict) and isinstance(status, int):
+                    return JsonResponse(data, status=status)
+            # HttpResponse, JsonResponse, etc. — pass through
+            return result
+
+        wrapper._api_view = True
+        wrapper._api_methods = methods_upper
+        return wrapper
+
+    return decorator
 
 
 def _authenticate_api_request(
@@ -849,6 +972,167 @@ def _api_export(qs, crud_config, fmt):
     )
     response["Content-Disposition"] = f'attachment; filename="{filename}"'
     return response
+
+
+# ---------------------------------------------------------------------------
+# Bulk API endpoints
+# ---------------------------------------------------------------------------
+
+
+def _make_api_bulk_delete_view(crud_config):
+    """POST /api/{url_base}/bulk-delete/ — delete multiple objects."""
+    from django.db import IntegrityError
+    from django.db.models import ProtectedError, RestrictedError
+
+    @csrf_exempt
+    def api_bulk_delete(request):
+        if request.method != "POST":
+            return _error("Method not allowed", 405)
+
+        user, err = _authenticate_api_request(request)
+        if err:
+            return err
+        perm_err = _check_api_permissions(request, crud_config, method="DELETE")
+        if perm_err:
+            return perm_err
+
+        try:
+            body = json.loads(request.body)
+        except (json.JSONDecodeError, ValueError):
+            return _error("Invalid JSON", 400)
+
+        ids = body.get("ids", [])
+        if not ids or not isinstance(ids, list):
+            return _error("ids must be a non-empty list", 400)
+
+        try:
+            ids = [int(pk) for pk in ids]
+        except (ValueError, TypeError):
+            return _error("ids must be integers", 400)
+
+        qs = crud_config._get_queryset().filter(pk__in=ids)
+        objects = {obj.pk: obj for obj in qs}
+        deleted_ids = []
+        errors = {}
+
+        for pk in ids:
+            obj = objects.get(pk)
+            if obj is None:
+                errors[str(pk)] = "Not found"
+                continue
+            if not crud_config.can_delete(obj, request):
+                errors[str(pk)] = "Permission denied"
+                continue
+            try:
+                obj.delete()
+                deleted_ids.append(pk)
+            except (ProtectedError, RestrictedError) as e:
+                protected = getattr(e, "protected_objects", None) or getattr(
+                    e, "restricted_objects", set()
+                )
+                name = type(next(iter(protected))).__name__ if protected else "other records"
+                cnt = len(protected)
+                s = "s" if cnt != 1 else ""
+                errors[str(pk)] = f"Cannot delete — {cnt} {name} record{s} still linked."
+            except IntegrityError:
+                errors[str(pk)] = "Cannot delete — a database constraint prevented this action."
+            except Exception:
+                errors[str(pk)] = "Delete failed — an unexpected error occurred."
+
+        return JsonResponse({
+            "deleted": deleted_ids,
+            "errors": errors,
+            "message": f"Deleted {len(deleted_ids)} of {len(ids)}",
+        })
+
+    return api_bulk_delete
+
+
+def _make_api_bulk_update_view(crud_config):
+    """POST /api/{url_base}/bulk-update/ — update multiple objects."""
+
+    @csrf_exempt
+    def api_bulk_update(request):
+        if request.method != "POST":
+            return _error("Method not allowed", 405)
+
+        user, err = _authenticate_api_request(request)
+        if err:
+            return err
+        perm_err = _check_api_permissions(request, crud_config, method="PATCH")
+        if perm_err:
+            return perm_err
+
+        try:
+            body = json.loads(request.body)
+        except (json.JSONDecodeError, ValueError):
+            return _error("Invalid JSON", 400)
+
+        ids = body.get("ids", [])
+        fields_data = body.get("fields", {})
+        if not ids or not isinstance(ids, list):
+            return _error("ids must be a non-empty list", 400)
+        if not fields_data or not isinstance(fields_data, dict):
+            return _error("fields must be a non-empty dict", 400)
+
+        try:
+            ids = [int(pk) for pk in ids]
+        except (ValueError, TypeError):
+            return _error("ids must be integers", 400)
+
+        # Validate field names
+        allowed = set(crud_config.can_bulk_update_fields())
+        invalid = set(fields_data.keys()) - allowed
+        if invalid:
+            return _error(f"Fields not allowed for bulk update: {', '.join(sorted(invalid))}", 400)
+
+        qs = crud_config._get_queryset().filter(pk__in=ids)
+        objects = {obj.pk: obj for obj in qs}
+        updated = []
+        errors = {}
+        expand_fields = _resolve_expand_fields(request, crud_config)
+
+        for pk in ids:
+            obj = objects.get(pk)
+            if obj is None:
+                errors[str(pk)] = "Not found"
+                continue
+            if not crud_config.can_update(obj, request):
+                errors[str(pk)] = "Permission denied"
+                continue
+
+            # Build PATCH-style form
+            from django.forms.models import model_to_dict
+
+            existing = model_to_dict(obj, fields=crud_config.fields or [])
+            merged = QueryDict(mutable=True)
+            for key, value in existing.items():
+                if value is None:
+                    merged[key] = ""
+                elif isinstance(value, list):
+                    merged.setlist(key, [str(v) for v in value])
+                else:
+                    merged[key] = str(value)
+            for key, value in fields_data.items():
+                merged[key] = str(value) if value is not None else ""
+
+            form_class = crud_config.form_class or crud_config._make_form_class()
+            form = form_class(merged, instance=obj)
+            if form.is_valid():
+                obj = form.save()
+                crud_config.on_form_valid(request, form, obj, is_create=False)
+                fields = crud_config._get_detail_fields() or crud_config.fields
+                updated.append(_serialize(obj, fields, crud_config.api_extra_fields, expand_fields))
+            else:
+                errors[str(pk)] = {k: [str(e) for e in v] for k, v in form.errors.items()}
+
+        return JsonResponse({
+            "updated": updated,
+            "errors": errors,
+            "message": f"Updated {len(updated)} of {len(ids)}",
+        })
+
+    return api_bulk_update
 
 
 # ---------------------------------------------------------------------------

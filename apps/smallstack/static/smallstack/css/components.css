@@ -66,6 +66,13 @@
     white-space: nowrap;
 }
 
+/* Checkbox and actions columns should never truncate */
+.crud-table td:has(.bulk-select-row),
+.crud-table td.crud-actions-cell {
+    overflow: visible;
+    text-overflow: clip;
+}
+
 /* Reset inherited admin/tables2 backgrounds */
 .crud-table tr:nth-child(odd),
 .crud-table tr:nth-child(even),
@@ -151,7 +158,10 @@
 
 /* Table action cells */
 .crud-actions-cell {
-    text-align: right;
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 0.5rem;
     white-space: nowrap;
 }
 
@@ -590,6 +600,90 @@ ul.pagination li.active span {
 .crud-form .crud-actions .btn-cancel:hover {
     color: var(--body-fg);
 }
+
+/* --------------------------------------------------------------------------
+   Grid Form Layout (label left, field right — matches detail grid)
+   --------------------------------------------------------------------------
+   Add class="crud-form-grid" alongside "crud-form" to switch from stacked
+   to a two-column grid where labels sit left and inputs sit right, matching
+   the detail grid display pattern.
+   -------------------------------------------------------------------------- */
+
+.crud-form-grid {
+    border: 1px solid color-mix(in srgb, var(--body-fg) 12%, var(--body-bg));
+    border-radius: var(--radius-sm, 6px);
+    overflow: hidden;
+}
+
+.crud-form-grid .crud-field {
+    display: grid;
+    grid-template-columns: minmax(140px, 0.35fr) 1fr;
+    border-bottom: 1px solid color-mix(in srgb, var(--body-fg) 12%, var(--body-bg));
+    margin-bottom: 0;
+}
+
+.crud-form-grid .crud-field:last-of-type {
+    border-bottom: none;
+}
+
+.crud-form-grid .crud-field-label {
+    padding: 0.7rem 0.9rem;
+    font-weight: 600;
+    font-size: 0.85rem;
+    color: var(--body-fg);
+    background: color-mix(in srgb, var(--body-fg) 5%, var(--body-bg));
+    border-right: 1px solid color-mix(in srgb, var(--body-fg) 12%, var(--body-bg));
+    display: flex;
+    align-items: center;
+}
+
+.crud-form-grid .crud-field-label .required {
+    color: var(--delete-button-bg, #dc3545);
+    margin-left: 0.15rem;
+}
+
+.crud-form-grid .crud-field-input {
+    padding: 0.5rem 0.9rem;
+    background: color-mix(in srgb, var(--body-fg) 2%, var(--body-bg));
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 0.25rem;
+}
+
+.crud-form-grid .crud-field-input input[type="text"],
+.crud-form-grid .crud-field-input input[type="email"],
+.crud-form-grid .crud-field-input input[type="url"],
+.crud-form-grid .crud-field-input input[type="number"],
+.crud-form-grid .crud-field-input input[type="password"],
+.crud-form-grid .crud-field-input input[type="date"],
+.crud-form-grid .crud-field-input input[type="datetime-local"],
+.crud-form-grid .crud-field-input input[type="tel"],
+.crud-form-grid .crud-field-input input[type="search"],
+.crud-form-grid .crud-field-input select,
+.crud-form-grid .crud-field-input textarea {
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.crud-form-grid .crud-field-input .crud-checkbox {
+    padding: 0.2rem 0;
+}
+
+.crud-form-grid .crud-field.has-error .crud-field-label {
+    color: var(--delete-button-bg, #dc3545);
+}
+
+@media (max-width: 600px) {
+    .crud-form-grid .crud-field {
+        grid-template-columns: 1fr;
+    }
+    .crud-form-grid .crud-field-label {
+        border-right: none;
+        border-bottom: 1px solid color-mix(in srgb, var(--body-fg) 12%, var(--body-bg));
+    }
+}
+
 
 /* Date/datetime input wrapper */
 .crud-date-wrapper {
@@ -1576,4 +1670,106 @@ a.btn-secondary:visited {
     margin-top: 4px;
     text-transform: uppercase;
     letter-spacing: 0.05em;
+}
+
+
+/* --------------------------------------------------------------------------
+   Bulk Selection & Actions Bar
+   --------------------------------------------------------------------------
+   Inline bar between toolbar and table (Django admin style). Hidden by
+   default, shown via .visible when rows are selected.
+   -------------------------------------------------------------------------- */
+
+.bulk-select-all,
+.bulk-select-row {
+    width: 16px;
+    height: 16px;
+    accent-color: var(--primary);
+}
+
+.crud-table tbody tr.bulk-selected {
+    background-color: color-mix(in srgb, var(--primary) 25%, var(--body-bg)) !important;
+}
+
+.card-display-item.bulk-selected {
+    border-color: var(--primary) !important;
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 30%, transparent) !important;
+}
+
+/* Bar layout — left-aligned single line, smooth reveal */
+.bulk-actions-bar {
+    display: flex;
+    justify-content: flex-start;
+    overflow: hidden;
+    max-height: 0;
+    padding: 0;
+    opacity: 0;
+    transition: max-height 0.2s ease, padding 0.2s ease, opacity 0.15s ease;
+}
+
+.bulk-actions-bar.visible {
+    max-height: 3rem;
+    padding: 0.5rem 0;
+    opacity: 1;
+}
+
+/* Nav container — mirrors .paginator-nav */
+.bulk-nav {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    border: 1px solid var(--hairline-color);
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+}
+
+/* Count — mirrors .paginator-current */
+.bulk-nav-current {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0 0.6rem;
+    height: 2rem;
+    color: var(--body-fg);
+    font-weight: 600;
+    font-size: 0.85rem;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.bulk-nav-of {
+    font-weight: 400;
+    color: var(--body-quiet-color);
+}
+
+/* Buttons — mirrors .paginator-btn */
+.bulk-nav-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    height: 2rem;
+    padding: 0 0.85rem;
+    background: none;
+    color: var(--body-quiet-color);
+    font-size: 0.85rem;
+    font-weight: 500;
+    border: none;
+    cursor: pointer;
+    transition: all var(--transition-fast, 0.15s);
+}
+
+.bulk-nav-btn:hover {
+    color: var(--primary);
+    background: color-mix(in srgb, var(--primary) 10%, var(--body-bg));
+}
+
+/* Delete — red text to signal danger */
+.bulk-nav-delete {
+    color: #dc3545 !important;
+    font-weight: 600;
+}
+
+.bulk-nav-delete:hover {
+    background: color-mix(in srgb, #dc3545 12%, var(--body-bg)) !important;
+    color: #c82333 !important;
 }

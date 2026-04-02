@@ -1,30 +1,34 @@
 {% for field in form %}
 <div class="crud-field{% if field.errors %} has-error{% endif %}">
-    {% if field.field.widget.input_type == "checkbox" %}
-    <div class="crud-checkbox">
-        {{ field }}
+    <div class="crud-field-label">
+        {% if field.field.widget.input_type != "checkbox" %}
         <label for="{{ field.id_for_label }}">
             {{ field.label }}
             {% if field.field.required %}<span class="required">*</span>{% endif %}
         </label>
+        {% else %}
+        <span>{{ field.label }}</span>
+        {% endif %}
     </div>
-    {% else %}
-    <label class="crud-label" for="{{ field.id_for_label }}">
-        {{ field.label }}
-        {% if field.field.required %}<span class="required">*</span>{% endif %}
-    </label>
-    {% if field.field.widget.input_type == "file" and field.value %}
-    <div class="crud-image-preview">
-        <img src="{{ field.value.url }}" alt="{{ field.label }}">
+    <div class="crud-field-input">
+        {% if field.field.widget.input_type == "checkbox" %}
+        <div class="crud-checkbox">
+            {{ field }}
+        </div>
+        {% elif field.field.widget.input_type == "file" and field.value %}
+        <div class="crud-image-preview">
+            <img src="{{ field.value.url }}" alt="{{ field.label }}">
+        </div>
+        {{ field }}
+        {% else %}
+        {{ field }}
+        {% endif %}
+        {% if field.help_text %}
+        <p class="crud-help">{{ field.help_text }}</p>
+        {% endif %}
+        {% if field.errors %}
+        <p class="crud-error">{{ field.errors.0 }}</p>
+        {% endif %}
     </div>
-    {% endif %}
-    {{ field }}
-    {% endif %}
-    {% if field.help_text %}
-    <p class="crud-help">{{ field.help_text }}</p>
-    {% endif %}
-    {% if field.errors %}
-    <p class="crud-error">{{ field.errors.0 }}</p>
-    {% endif %}
 </div>
 {% endfor %}

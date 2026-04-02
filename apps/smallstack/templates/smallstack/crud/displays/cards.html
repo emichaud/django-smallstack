@@ -4,11 +4,17 @@
     {% for card in cards %}
     <{% if card.detail_url %}a href="{{ card.detail_url }}"{% else %}div{% endif %}
         class="card-display-item"
-        style="display: block; padding: 1.25rem; background: var(--card-bg); border: 1px solid var(--card-border); border-radius: var(--radius-sm, 6px); text-decoration: none; color: inherit; transition: border-color 0.15s, box-shadow 0.15s;{% if card.detail_url %} cursor: pointer;{% endif %}"
+        {% if enable_bulk %}data-pk="{{ card.pk }}"{% endif %}
+        style="display: block; padding: 1.25rem; background: var(--card-bg); border: 1px solid var(--card-border); border-radius: var(--radius-sm, 6px); text-decoration: none; color: inherit; transition: border-color 0.15s, box-shadow 0.15s;{% if card.detail_url %} cursor: pointer;{% endif %}{% if enable_bulk %} position: relative;{% endif %}"
         onmouseover="this.style.borderColor='var(--primary)';this.style.boxShadow='0 2px 8px rgba(0,0,0,0.15)'"
         onmouseout="this.style.borderColor='var(--card-border)';this.style.boxShadow='none'"
     >
-        <div style="font-weight: 600; font-size: 1rem; color: var(--body-fg); margin-bottom: 0.35rem;">
+        {% if enable_bulk %}
+        <div style="position: absolute; top: 0.5rem; left: 0.5rem; z-index: 1;" onclick="event.preventDefault(); event.stopPropagation();">
+            <input type="checkbox" class="bulk-select-row" data-pk="{{ card.pk }}" style="cursor: pointer;">
+        </div>
+        {% endif %}
+        <div style="font-weight: 600; font-size: 1rem; color: var(--body-fg); margin-bottom: 0.35rem;{% if enable_bulk %} padding-left: 1.5rem;{% endif %}">
             {{ card.title }}
         </div>
         {% if card.subtitle %}

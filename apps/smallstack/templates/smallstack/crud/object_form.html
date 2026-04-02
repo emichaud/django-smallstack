@@ -51,27 +51,34 @@
                 {% include display_template %}
             </div>
         {% else %}
-            <form method="POST" class="crud-form" {% if form.is_multipart %}enctype="multipart/form-data"{% endif %}>
+            <form method="POST" class="crud-form crud-form-grid" {% if form.is_multipart %}enctype="multipart/form-data"{% endif %}>
                 {% csrf_token %}
                 {% for field in form %}
                 <div class="crud-field{% if field.errors %} has-error{% endif %}">
-                    {% if field.field.widget.input_type == "checkbox" %}
-                    <div class="crud-checkbox">
-                        {{ field }}
-                        <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+                    <div class="crud-field-label">
+                        {% if field.field.widget.input_type != "checkbox" %}
+                        <label for="{{ field.id_for_label }}">
+                            {{ field.label }}{% if field.field.required %}<span class="required">*</span>{% endif %}
+                        </label>
+                        {% else %}
+                        <span>{{ field.label }}</span>
+                        {% endif %}
                     </div>
-                    {% else %}
-                    <label class="crud-label" for="{{ field.id_for_label }}">
-                        {{ field.label }}{% if field.field.required %}<span class="required">*</span>{% endif %}
-                    </label>
-                    {{ field }}
-                    {% endif %}
-                    {% if field.help_text %}
-                    <p class="crud-help">{{ field.help_text }}</p>
-                    {% endif %}
-                    {% if field.errors %}
-                    <p class="crud-error">{{ field.errors.0 }}</p>
-                    {% endif %}
+                    <div class="crud-field-input">
+                        {% if field.field.widget.input_type == "checkbox" %}
+                        <div class="crud-checkbox">
+                            {{ field }}
+                        </div>
+                        {% else %}
+                        {{ field }}
+                        {% endif %}
+                        {% if field.help_text %}
+                        <p class="crud-help">{{ field.help_text }}</p>
+                        {% endif %}
+                        {% if field.errors %}
+                        <p class="crud-error">{{ field.errors.0 }}</p>
+                        {% endif %}
+                    </div>
                 </div>
                 {% endfor %}
                 <div class="crud-actions">

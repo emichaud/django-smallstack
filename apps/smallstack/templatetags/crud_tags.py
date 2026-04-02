@@ -141,6 +141,7 @@ def crud_table(context):
     field_transforms = context.get("field_transforms", {})
     url_namespace = context.get("url_namespace")
     request = context.get("request")
+    enable_bulk = context.get("enable_bulk", False)
 
     # Resolve model from first object or from context
     model = object_list[0].__class__ if object_list else None
@@ -206,6 +207,7 @@ def crud_table(context):
 
         rows.append(
             {
+                "pk": obj.pk,
                 "cells": cells,
                 "detail_url": detail_url,
                 "actions": actions,
@@ -217,6 +219,7 @@ def crud_table(context):
         "headers": headers,
         "rows": rows,
         "show_actions": show_actions,
+        "enable_bulk": enable_bulk,
     }
 
 

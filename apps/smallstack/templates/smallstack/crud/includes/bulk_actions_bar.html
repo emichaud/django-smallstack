@@ -1,0 +1,125 @@
+<!-- Bulk Actions Bar — single-line, paginator-style -->
+<div id="bulk-actions-bar" class="bulk-actions-bar">
+    <nav class="bulk-nav">
+        <span class="bulk-nav-current"><span id="bulk-count-num">0</span><span class="bulk-nav-of">selected</span></span>
+        {% if "delete" in bulk_actions %}
+        <button type="button" class="bulk-nav-btn bulk-nav-delete" onclick="bulkDeletePrompt()">Delete</button>
+        {% endif %}
+        {% if "update" in bulk_actions %}
+        <button type="button" class="bulk-nav-btn" onclick="bulkUpdatePrompt()">Update</button>
+        {% endif %}
+        <button type="button" class="bulk-nav-btn" onclick="bulkClearAll()">Clear</button>
+    </nav>
+</div>
+
+<script>
+(function() {
+    // Selection state: survives HTMX swaps
+    const _bulkSelected = new Set();
+
+    function reapplyCheckboxState() {
+        document.querySelectorAll('.bulk-select-row').forEach(function(cb) {
+            var pk = parseInt(cb.getAttribute('data-pk'), 10);
+            cb.checked = _bulkSelected.has(pk);
+            // Highlight row/card
+            var row = cb.closest('tr') || cb.closest('.card-display-item');
+            if (row) {
+                if (cb.checked) {
+                    row.classList.add('bulk-selected');
+                } else {
+                    row.classList.remove('bulk-selected');
+                }
+            }
+        });
+        // Update select-all checkbox
+        var selectAll = document.querySelector('.bulk-select-all');
+        if (selectAll) {
+            var rowCbs = document.querySelectorAll('.bulk-select-row');
+            var allChecked = rowCbs.length > 0 && Array.from(rowCbs).every(function(c) { return c.checked; });
+            selectAll.checked = allChecked;
+            selectAll.indeterminate = !allChecked && _bulkSelected.size > 0 && Array.from(rowCbs).some(function(c) { return c.checked; });
+        }
+    }
+
+    function updateBulkBar() {
+        var bar = document.getElementById('bulk-actions-bar');
+        var countEl = document.getElementById('bulk-count-num');
+        if (!bar) return;
+        countEl.textContent = _bulkSelected.size;
+        if (_bulkSelected.size > 0) {
+            bar.classList.add('visible');
+        } else {
+            bar.classList.remove('visible');
+        }
+    }
+
+    // Checkbox change handler (delegated)
+    document.addEventListener('change', function(e) {
+        if (e.target.classList.contains('bulk-select-row')) {
+            var pk = parseInt(e.target.getAttribute('data-pk'), 10);
+            if (e.target.checked) {
+                _bulkSelected.add(pk);
+            } else {
+                _bulkSelected.delete(pk);
+            }
+            // Highlight row/card
+            var row = e.target.closest('tr') || e.target.closest('.card-display-item');
+            if (row) {
+                if (e.target.checked) {
+                    row.classList.add('bulk-selected');
+                } else {
+                    row.classList.remove('bulk-selected');
+                }
+            }
+            reapplyCheckboxState();
+            updateBulkBar();
+        }
+        if (e.target.classList.contains('bulk-select-all')) {
+            var checked = e.target.checked;
+            document.querySelectorAll('.bulk-select-row').forEach(function(cb) {
+                var pk = parseInt(cb.getAttribute('data-pk'), 10);
+                cb.checked = checked;
+                if (checked) {
+                    _bulkSelected.add(pk);
+                } else {
+                    _bulkSelected.delete(pk);
+                }
+                var row = cb.closest('tr') || cb.closest('.card-display-item');
+                if (row) {
+                    if (checked) {
+                        row.classList.add('bulk-selected');
+                    } else {
+                        row.classList.remove('bulk-selected');
+                    }
+                }
+            });
+            updateBulkBar();
+        }
+    });
+
+    // Re-apply state after HTMX swap (pagination, sort, filter)
+    document.addEventListener('htmx:afterSwap', function(e) {
+        if (e.detail.target.id === 'crud-list-content' || e.detail.target.id === 'crud-display-area') {
+            reapplyCheckboxState();
+            updateBulkBar();
+        }
+    });
+
+    // Public API for modals
+    window.bulkGetSelectedIds = function() {
+        return Array.from(_bulkSelected);
+    };
+
+    window.bulkClearAll = function() {
+        _bulkSelected.clear();
+        reapplyCheckboxState();
+        updateBulkBar();
+    };
+
+    window.bulkRemoveIds = function(ids) {
+        ids.forEach(function(pk) { _bulkSelected.delete(pk); });
+        reapplyCheckboxState();
+        updateBulkBar();
+    };
+})();
+</script>
