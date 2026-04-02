@@ -43,6 +43,17 @@ sections:
         description: "Use SmallStack's built-in theme for everything."
         icon: "palette"
 
+  # Developer guides
+  - slug: developers
+    title: "Developer Guides"
+    description: "Extending and customizing SmallStack"
+    icon: "code"
+    pages:
+      - slug: custom-api-endpoints
+        title: "Custom API Endpoints"
+        description: "Build non-CRUD API endpoints with the @api_view decorator"
+        icon: "code"
+
   # Add your own sections here:
   # - slug: guides
   #   title: "User Guides"

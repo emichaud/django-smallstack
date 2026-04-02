@@ -419,6 +419,7 @@ The User Manager demonstrates this — its edit form has three tabs (Account, Pr
 | `queryset` | QuerySet | `model.objects.all()` | Base queryset for all views |
 | `displays` | list | `[]` | Display classes for list view (enables palette) |
 | `detail_displays` | list | `[]` | Display classes for detail view |
+| `bulk_actions` | list | `["delete"]` | Bulk actions on list view. Options: `"delete"`, `"update"`. Set to `[]` to disable. |
 | `enable_api` | bool | `False` | Generate REST API endpoints |
 | `search_fields` | list | `[]` | API search fields (falls back to `admin_class.search_fields`) |
 | `export_formats` | list | `[]` | API export formats: `["csv", "json"]` |
@@ -598,6 +599,30 @@ When adding a new CRUD management page:
 - [ ] Custom list template (optional — only if you want the title bar pattern)
 - [ ] Search partial template (optional — only if you add HTMX search)
 
+## Bulk Actions
+
+CRUDView list pages include bulk delete by default. When users select rows via checkboxes, a compact action bar appears with the selection count and a "Delete" button.
+
+```python
+class WidgetCRUDView(CRUDView):
+    model = Widget
+    fields = ["name", "category", "is_active"]
+    url_base = "manage/widgets"
+
+    # Default — bulk delete enabled (like Django admin)
+    bulk_actions = ["delete"]
+
+    # Enable both delete and update
+    bulk_actions = ["delete", "update"]
+
+    # Disable bulk actions
+    bulk_actions = []
+```
+
+Bulk delete processes each object individually, catching `ProtectedError` per row so that FK-constrained objects report errors while the rest are deleted.
+
+When using `admin_class`, set `explorer_bulk_actions` on the ModelAdmin instead — CRUDView reads it automatically.
+
 ## Display Palette
 
 CRUDView supports the same display palette as Explorer. Configure multiple displays and users can swap between them at runtime:
@@ -644,6 +669,21 @@ This adds:
 | `DELETE` | `/api/manage/widgets/<pk>/` | Delete |
 
 See [Explorer REST API](/smallstack/help/smallstack/explorer-rest-api/) for authentication, testing, and the full API guide.
+
+### Beyond CRUD
+
+For endpoints that don't map to a model — actions, webhooks, reports, multi-step workflows — use the `@api_view` decorator. It provides the same authentication, error format, and token system without requiring a CRUDView:
+
+```python
+from apps.smallstack.api import api_view, api_error
+
+@api_view(methods=["POST"], require_staff=True)
+def run_sync(request):
+    count = sync_from_external(request.json["target"])
+    return {"synced": count}
+```
+
+Wire it up in your `urls.py` like any Django view. See [Explorer REST API — Custom API Endpoints](/smallstack/help/smallstack/explorer-rest-api/#custom-api-endpoints) for the full guide.
 
 ## See Also: Explorer
 

@@ -7,7 +7,9 @@ description: Getting started with Explorer's auto-generated REST API — authent
 
 Explorer can generate a JSON REST API for any registered model. No serializers, no viewsets, no routers — just set `explorer_enable_api = True` on the ModelAdmin and you get full CRUD endpoints with search, filtering, pagination, and CSV/JSON export.
 
-This is not a replacement for Django REST Framework. It's a lightweight, zero-config API for internal tools, scripts, and quick integrations. If your project graduates to a public API, delete this and write proper DRF viewsets — everything else (models, filters, auth) transfers directly.
+For endpoints that don't fit the CRUD pattern — actions, webhooks, reports, multi-model workflows — SmallStack provides the `@api_view` decorator. It shares the same authentication, error format, and token system. See [Custom API Endpoints](#custom-api-endpoints) at the bottom of this page.
+
+This is not a replacement for Django REST Framework. It's a lightweight, zero-config API for internal tools, scripts, and quick integrations. If your project graduates to a public API with complex serialization needs, DRF is still an option — everything else (models, filters, auth) transfers directly.
 
 ## Enabling the API
 
@@ -185,6 +187,88 @@ curl "$BASE_URL/?ordering=-status,response_time_ms"
 ```
 
 Orderable fields are auto-detected from the model's list fields. Invalid fields are silently ignored.
+
+## Bulk Operations
+
+Bulk delete and update are available via a single endpoint. Bulk delete is enabled by default for all Explorer models.
+
+### Endpoint
+
+```
+POST /smallstack/api/explorer/{group}/{model}/bulk/
+```
+
+### Bulk Delete
+
+```bash
+curl -X POST "$BASE_URL/bulk/" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "action": "delete",
+    "ids": [1, 2, 3]
+  }'
+```
+
+Response (all successful):
+
+```json
+{
+    "deleted": [1, 2, 3],
+    "errors": {},
+    "message": "Deleted 3 items"
+}
+```
+
+Response (partial failure — e.g., FK constraints):
+
+```json
+{
+    "deleted": [1, 3],
+    "errors": {"2": "Cannot delete: referenced by other records"},
+    "message": "Deleted 2 items, 1 error"
+}
+```
+
+Each object is deleted individually. If one fails (e.g., `ProtectedError`), the others still succeed.
+
+### Bulk Update
+
+Requires `"update"` in `explorer_bulk_actions`:
+
+```bash
+curl -X POST "$BASE_URL/bulk/" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "action": "update",
+    "ids": [1, 2, 3],
+    "fields": {"status": "closed"}
+  }'
+```
+
+Response:
+
+```json
+{
+    "updated": [1, 2, 3],
+    "errors": {},
+    "message": "Updated 3 items"
+}
+```
+
+The `fields` object contains key-value pairs to apply to all selected objects. Updatable fields are controlled by the `can_bulk_update_fields()` hook on the CRUDView.
+
+### Configuration
+
+Bulk actions are controlled by `explorer_bulk_actions` on the ModelAdmin:
+
+```python
+class MyAdmin(admin.ModelAdmin):
+    explorer_bulk_actions = ["delete"]            # Default
+    explorer_bulk_actions = ["delete", "update"]  # Both
+    explorer_bulk_actions = []                    # Disabled
+```
 
 ## Detail Endpoint
 
@@ -434,6 +518,114 @@ curl http://localhost:8005/api/schema/openapi.json | python3 -m json.tool
 ```
 
 Import into Swagger UI, Postman, or use with code generators. Includes all CRUD and auth endpoints with request/response schemas.
+
+## Custom API Endpoints
+
+Not every endpoint maps to a model. Actions ("approve this ticket"), integrations (webhook receivers), reports (computed aggregations), and multi-model workflows all need custom logic. The `@api_view` decorator handles the boilerplate — authentication, CSRF, JSON parsing, error format — so you only write the business logic.
+
+### Quick Example
+
+```python
+# apps/myapp/api.py
+from apps.smallstack.api import api_view, api_error
+
+@api_view(methods=["POST"], require_staff=True)
+def approve_ticket(request):
+    ticket_id = request.json.get("ticket_id")
+    if not ticket_id:
+        return api_error("ticket_id is required", 400)
+
+    ticket = Ticket.objects.get(pk=ticket_id)
+    ticket.status = "approved"
+    ticket.approved_by = request.user
+    ticket.save()
+    return {"id": ticket.pk, "status": "approved"}
+```
+
+```python
+# apps/myapp/urls.py
+from django.urls import path
+from . import api
+
+urlpatterns = [
+    path("api/tickets/approve/", api.approve_ticket, name="api-tickets-approve"),
+]
+```
+
+### What the Decorator Handles
+
+| Concern | How |
+|---------|-----|
+| CSRF exemption | Applied automatically |
+| Method checking | Wrong method → 405 |
+| Authentication | Bearer token or session → 401 if missing |
+| Staff/token checks | `require_staff`, `require_auth_token` params → 403 |
+| JSON body parsing | Available as `request.json` (or `None` for GET) |
+| Invalid JSON | Returns 400 with standard error envelope |
+| Response wrapping | Return a `dict` → `JsonResponse` with 200 |
+
+### Parameters
+
+```python
+@api_view(
+    methods=["GET"],           # Allowed HTTP methods
+    require_auth=True,         # Bearer or session (401 if missing)
+    require_staff=False,       # Staff-only (403 if not)
+    require_auth_token=False,  # Auth-level manual token (403 if not)
+)
+```
+
+### Return Conventions
+
+| You return | Client receives |
+|------------|----------------|
+| `{"key": "value"}` | `200` with JSON body |
+| `{"key": "value"}, 201` | `201` with JSON body |
+| `HttpResponse(status=204)` | `204` passed through |
+| `api_error("msg", 400)` | `400` with `{"errors": {"__all__": ["msg"]}}` |
+
+### Common Patterns
+
+**Public endpoint (no auth):**
+
+```python
+@api_view(methods=["GET"], require_auth=False)
+def health(request):
+    return {"status": "ok"}
+```
+
+**Multi-model orchestration:**
+
+```python
+@api_view(methods=["POST"])
+def create_order(request):
+    order = Order.objects.create(customer=request.user)
+    for item in request.json["items"]:
+        OrderLine.objects.create(order=order, product_id=item["product_id"])
+    return {"id": order.pk, "lines": order.lines.count()}, 201
+```
+
+**Webhook receiver (system token):**
+
+```python
+@api_view(methods=["POST"], require_auth_token=True)
+def webhook(request):
+    process_event(request.json)
+    return {"received": True}
+```
+
+### When to Use What
+
+| Situation | Approach |
+|-----------|----------|
+| Standard CRUD on a model | `enable_api = True` on CRUDView or Explorer |
+| Trigger an action | `@api_view` with POST |
+| Multi-model orchestration | `@api_view` with your own logic |
+| Webhook receiver | `@api_view` with `require_auth_token=True` |
+| Computed report or dashboard data | `@api_view` with GET |
+| Public status/health check | `@api_view` with `require_auth=False` |
+
+Both patterns share the same token system, error format, and authentication layer. Mix them freely.
 
 ## See Also
 

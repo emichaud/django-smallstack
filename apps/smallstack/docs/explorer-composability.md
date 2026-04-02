@@ -350,6 +350,12 @@ class ProjectDetailView(ExplorerModelMixin, DetailView):
 
 The CRUD table shows only tasks for this project, but all the sorting, pagination, and action links work normally.
 
+## Bulk Actions
+
+Embedded CRUD tables inherit bulk actions from the model's Explorer registration. When `explorer_bulk_actions` includes `"delete"` (the default), the table renders selection checkboxes and the bulk action bar automatically. No extra configuration is needed in your custom page.
+
+To disable bulk actions for an embedded table, set `explorer_bulk_actions = []` on the ModelAdmin.
+
 ## See Also
 
 - [Model Explorer](/smallstack/help/smallstack/explorer/) — Overview, registration, and displays

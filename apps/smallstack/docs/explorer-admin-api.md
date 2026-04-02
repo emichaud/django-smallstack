@@ -61,6 +61,7 @@ Set these on the `ModelAdmin` subclass passed to `explorer.register()`:
 | `explorer_paginate_by` | `int` | `10` | Items per page in list view. |
 | `explorer_enable_api` | `bool` | `False` | Generate REST API endpoints for this model. |
 | `explorer_export_formats` | `list` | `[]` | Enabled export formats, e.g. `["csv", "json"]`. |
+| `explorer_bulk_actions` | `list` | `["delete"]` | Bulk actions on list view. Options: `"delete"`, `"update"`. Set to `[]` to disable. |
 
 ## Standard ModelAdmin Attributes
 
@@ -198,5 +199,5 @@ explorer.register(UserProfile, UserProfileExplorerAdmin, group="Users")
 ## See Also
 
 - [Model Explorer](/smallstack/help/smallstack/explorer/) — Overview, registration, and display palette
-- [Explorer REST API](/smallstack/help/smallstack/explorer-rest-api/) — API authentication, endpoints, and testing
+- [Explorer REST API](/smallstack/help/smallstack/explorer-rest-api/) — API authentication, CRUD endpoints, custom endpoints, and testing
 - [Explorer Composability](/smallstack/help/smallstack/explorer-composability/) — Embed Explorer into custom pages

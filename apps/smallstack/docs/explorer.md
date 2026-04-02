@@ -222,6 +222,38 @@ The palette handles the rest — HTMX swaps the display area when the user click
 4. The display area swaps in place
 5. localStorage remembers the choice for next visit
 
+## Bulk Actions
+
+Explorer list views include bulk actions by default. When rows are selected via checkboxes, a compact action bar appears below the toolbar showing the selection count and available actions.
+
+**Bulk delete** is enabled by default — no configuration needed. Select rows, click "Delete", and confirm in the modal. The operation processes each object individually, so protected objects (with FK constraints) return per-object errors while the rest are deleted.
+
+To add bulk update or disable bulk actions entirely:
+
+```python
+class MyAdmin(admin.ModelAdmin):
+    # Default — bulk delete enabled
+    explorer_bulk_actions = ["delete"]
+
+    # Enable both delete and update
+    explorer_bulk_actions = ["delete", "update"]
+
+    # Disable all bulk actions
+    explorer_bulk_actions = []
+```
+
+When bulk update is enabled, the `can_bulk_update_fields()` hook controls which fields are updatable.
+
+### Bulk API
+
+Bulk operations use a single endpoint:
+
+```
+POST /smallstack/api/explorer/{group}/{model}/bulk/
+```
+
+See [Explorer REST API](/smallstack/help/smallstack/explorer-rest-api/) for request/response format.
+
 ## REST API
 
 Explorer models can opt into a JSON REST API by setting `explorer_enable_api = True` on the ModelAdmin.
@@ -275,6 +307,7 @@ These attributes can be set on any `ModelAdmin` used with Explorer:
 | `explorer_paginate_by` | `int` | `10` | Items per page |
 | `explorer_enable_api` | `bool` | `False` | Generate REST API endpoints |
 | `explorer_export_formats` | `list` | `[]` | Enabled export formats (e.g., `["csv", "json"]`) |
+| `explorer_bulk_actions` | `list` | `["delete"]` | Bulk actions available on list view. Options: `"delete"`, `"update"`. Set to `[]` to disable. |
 
 Standard ModelAdmin attributes that Explorer reads:
 

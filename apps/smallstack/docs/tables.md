@@ -170,6 +170,12 @@ Every table in SmallStack's built-in apps follows the same visual pattern. Here 
 
 SmallStack's stat modal (`smallstack/includes/stat_modal.html`) has its own table styles under `.stat-modal-panel table`. These mirror the `crud-table` styles -- same striped rows, same hover, same header treatment -- so any `<table>` inside a stat modal looks consistent automatically. You don't need to add `crud-table` to tables inside the modal.
 
+## Bulk Selection
+
+CRUDView and Explorer tables include bulk selection checkboxes by default (when bulk actions are enabled). A "select all" checkbox in the header toggles all visible rows, and a compact action bar appears below the toolbar with the selection count and available actions (Delete, Update, Clear).
+
+Bulk delete is enabled by default — no configuration needed. Set `bulk_actions = []` on CRUDView or `explorer_bulk_actions = []` on the ModelAdmin to disable the checkboxes.
+
 ## CRUDView Tables
 
 If you are using SmallStack's CRUDView system, table setup is automatic. Use `TableDisplay` (the default) -- it renders the `{% crud_table %}` tag with built-in column sorting, pagination, and themed styling. No separate table class is needed.

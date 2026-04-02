@@ -582,6 +582,28 @@ DELETE api/manage/widgets/1/
 Success: 204 No Content
 ```
 
+### Bulk Operations
+
+Bulk delete and update use a single endpoint. Bulk delete is enabled by default.
+
+```
+POST api/manage/widgets/bulk/
+Content-Type: application/json
+
+# Bulk delete
+{"action": "delete", "ids": [1, 2, 3]}
+
+Success: {"deleted": [1, 2, 3], "errors": {}, "message": "Deleted 3 items"}
+Partial: {"deleted": [1, 3], "errors": {"2": "Cannot delete: referenced by other records"}, "message": "Deleted 2 items, 1 error"}
+
+# Bulk update (requires "update" in bulk_actions)
+{"action": "update", "ids": [1, 2, 3], "fields": {"status": "closed"}}
+
+Success: {"updated": [1, 2, 3], "errors": {}, "message": "Updated 3 items"}
+```
+
+Each object is processed individually — failures don't block other objects. Controlled by `bulk_actions` on CRUDView or `explorer_bulk_actions` on ModelAdmin (default: `["delete"]`).
+
 ### Error Responses
 
 All errors use a consistent format: `{"errors": {"__all__": ["message"]}}` for general errors, or `{"errors": {"field": ["message"]}}` for field-specific validation errors. Frontend code only needs to handle one shape.
@@ -804,12 +826,31 @@ For production, set the actual frontend domain:
 CORS_ALLOWED_ORIGINS=https://app.example.com
 ```
 
+## Custom (Non-CRUD) Endpoints
+
+Not every endpoint fits the CRUD pattern. For actions, integrations, reports, and multi-model workflows, use the `api_view` decorator instead of `enable_api`. It provides the same auth, error handling, and JSON conventions without requiring a CRUDView.
+
+```python
+from apps.smallstack.api import api_view, api_error
+
+@api_view(methods=["POST"], require_staff=True)
+def run_sync(request):
+    target = request.json.get("target")
+    if not target:
+        return api_error("target is required", 400)
+    count = sync_external_system(target)
+    return {"synced": count}
+```
+
+See **`custom-api-endpoints.md`** for the full reference: parameters, return conventions, error handling, and examples.
+
 ## Best Practices
 
 1. **Use `enable_api` only on CRUDViews that need external access** — not every model needs an API
-2. **Token management** — create tokens via CLI, auth endpoint, or Django admin
-3. **Permissions cascade** — API respects the same `mixins` as HTML views. A warning is emitted if `enable_api=True` with no mixins.
-4. **No third-party dependency** — built on stock Django views, not DRF
-5. **CSRF exempt** — API views use `@csrf_exempt` (required for external API clients)
-6. **Filters apply to exports and aggregates** — `?q=search&format=csv` exports only matching rows; `?status=done&sum=hours` aggregates only matching rows
-7. **Designed to be replaced** — if you need DRF, delete `api.py` and write viewsets; filters, tokens, and models transfer directly. No conflicts with DRF, dj-rest-auth, or allauth.
+2. **Use `@api_view` for non-CRUD endpoints** — actions, webhooks, reports, orchestration. See `custom-api-endpoints.md`.
+3. **Token management** — create tokens via CLI, auth endpoint, or Django admin
+4. **Permissions cascade** — API respects the same `mixins` as HTML views. A warning is emitted if `enable_api=True` with no mixins.
+5. **No third-party dependency** — built on stock Django views, not DRF
+6. **CSRF exempt** — API views use `@csrf_exempt` (required for external API clients)
+7. **Filters apply to exports and aggregates** — `?q=search&format=csv` exports only matching rows; `?status=done&sum=hours` aggregates only matching rows
+8. **Designed to be replaced** — if you need DRF, delete `api.py` and write viewsets; filters, tokens, and models transfer directly. No conflicts with DRF, dj-rest-auth, or allauth.

@@ -37,6 +37,7 @@ When an AI agent is asked to modify or extend this project, these files help it:
 | [release-process.md](release-process.md) | Versioning, release checklist, GitHub releases |
 | [integration-workflow.md](integration-workflow.md) | Pulling upstream into downstream projects, deploying |
 | [api-discovery.md](api-discovery.md) | API discovery endpoints: schema introspection, OpenAPI spec, OPTIONS metadata |
+| [custom-api-endpoints.md](custom-api-endpoints.md) | Building non-CRUD API endpoints with the `@api_view` decorator |
 
 ## Usage
 
@@ -62,6 +63,7 @@ AI agents should read relevant skill files before making changes to the correspo
 - Before releasing a version → read `release-process.md`
 - Before pulling upstream into downstream → read `integration-workflow.md`
 - Before integrating with the SmallStack API → read `api-discovery.md`
+- Before building custom (non-CRUD) API endpoints → read `custom-api-endpoints.md`
 
 ## For Humans
 
