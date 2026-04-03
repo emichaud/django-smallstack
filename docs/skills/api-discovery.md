@@ -16,10 +16,13 @@ All three are unauthenticated. They expose metadata only, not data.
 
 ```
 apps/smallstack/
-├── api.py                 # GET /api/schema/ and OPTIONS handler
+├── api.py                 # GET /api/schema/, OPTIONS handler, Swagger/ReDoc views
 ├── openapi.py             # OpenAPI 3.0.3 spec builder
+├── templates/smallstack/api/
+│   ├── swagger.html       # Swagger UI page (CDN-loaded)
+│   └── redoc.html         # ReDoc page (CDN-loaded)
 config/
-├── urls.py                # URL registration for /api/schema/openapi.json
+├── urls.py                # URL registration for schema, docs, and redoc
 ```
 
 ## GET /api/schema/ — SmallStack Native Schema
@@ -154,6 +157,19 @@ The spec includes:
 - Paginated list response envelope
 
 **When to use:** Import into Swagger UI, Postman, or feed to code generators.
+
+## Built-In Interactive Documentation
+
+SmallStack includes Swagger UI and ReDoc pages that consume the OpenAPI spec:
+
+| URL | Tool | Purpose |
+|-----|------|---------|
+| `/api/docs/` | Swagger UI | Interactive "try it out" explorer — send real requests from the browser |
+| `/api/redoc/` | ReDoc | Clean three-panel API reference for sharing with teams |
+
+Both load from CDN (`cdn.jsdelivr.net`) — no Python packages required. The views set a per-response CSP header to allow the CDN scripts. Templates are at `apps/smallstack/templates/smallstack/api/swagger.html` and `redoc.html`.
+
+See the help page at `/help/smallstack/api-documentation/` for theming options, CSP details, and troubleshooting.
 
 ## Comparison Table
 

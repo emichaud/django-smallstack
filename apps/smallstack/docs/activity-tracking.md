@@ -30,6 +30,7 @@ Each HTTP request is captured with the following data:
 | **Response time** | How long the server took to respond, in milliseconds |
 | **IP address** | Client IP (supports `X-Forwarded-For` for reverse proxies) |
 | **User agent** | Browser or client identification string |
+| **Request ID** | Unique identifier for correlating logs (from `X-Request-ID` header) |
 
 All of this stays in your database. Nothing is sent to external services.
 

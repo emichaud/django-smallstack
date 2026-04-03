@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>API Reference | {{ brand.name }}</title>
+    <link rel="icon" type="image/x-icon" href="{% load static %}{% static brand.favicon %}">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { margin: 0; }
+    </style>
+</head>
+<body>
+    <redoc spec-url="{{ schema_url }}"
+           hide-download-button
+           theme='{
+               "colors": {
+                   "primary": { "main": "#417690" },
+                   "text": { "primary": "#1e293b" },
+                   "http": {
+                       "get": "#417690",
+                       "post": "#44b78b",
+                       "put": "#e0a458",
+                       "delete": "#dc3545",
+                       "patch": "#e0a458"
+                   }
+               },
+               "typography": {
+                   "fontSize": "15px",
+                   "fontFamily": "Inter, sans-serif",
+                   "headings": { "fontFamily": "Inter, sans-serif", "fontWeight": "700" },
+                   "code": { "fontFamily": "ui-monospace, SFMono-Regular, Menlo, monospace", "fontSize": "13px" }
+               },
+               "sidebar": {
+                   "width": "280px",
+                   "backgroundColor": "#1a2332",
+                   "textColor": "#cbd5e1",
+                   "activeTextColor": "#f5dd5d"
+               },
+               "rightPanel": {
+                   "backgroundColor": "#1a2332"
+               }
+           }'>
+    </redoc>
+    <script src="https://cdn.jsdelivr.net/npm/redoc@2/bundles/redoc.standalone.js"></script>
+</body>
+</html>

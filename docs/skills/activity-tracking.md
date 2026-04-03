@@ -23,7 +23,12 @@ apps/activity/
 
 1. Check if the path is excluded (static, media, health check, etc.)
 2. If not excluded, time the request and record it after the response
-3. Probabilistically prune old rows (1-in-N chance per request, controlled by `ACTIVITY_PRUNE_INTERVAL`)
+3. Store the `request.id` (set by `RequestIDMiddleware`) for correlation
+4. Probabilistically prune old rows (1-in-N chance per request, controlled by `ACTIVITY_PRUNE_INTERVAL`)
+
+### Request ID Correlation
+
+Every `RequestLog` entry includes a `request_id` field populated by the `RequestIDMiddleware` (first in the middleware stack). This allows correlating a specific user-reported issue to the exact log entry. The same ID is returned to the client in the `X-Request-ID` response header.
 
 ## RequestLog Model
 
@@ -33,6 +38,7 @@ apps/activity/
 | `method` | CharField(10) | HTTP method (GET, POST, etc.) |
 | `status_code` | PositiveSmallIntegerField | Response status code |
 | `user` | ForeignKey(User, null) | Authenticated user or null |
+| `request_id` | CharField(255) | Unique request ID (from `X-Request-ID` header) |
 | `timestamp` | DateTimeField(auto_now_add) | When the request occurred |
 | `response_time_ms` | PositiveIntegerField | Response time in milliseconds |
 | `ip_address` | GenericIPAddressField(null) | Client IP (supports X-Forwarded-For) |

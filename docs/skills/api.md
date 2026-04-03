@@ -10,9 +10,13 @@ The API is opt-in per CRUDView. When enabled, `get_urls()` generates JSON list a
 
 ```
 apps/smallstack/
-├── api.py                 # build_api_urls(), auth, serialization, export, aggregation
+├── api.py                 # build_api_urls(), auth, serialization, export, aggregation, docs views
 ├── openapi.py             # build_openapi_spec() — OpenAPI 3.0.3 generator
 ├── crud.py                # CRUDView — enable_api flag, get_urls() integration
+├── middleware.py           # RequestIDMiddleware — X-Request-ID on every response
+├── templates/smallstack/api/
+│   ├── swagger.html       # Swagger UI (CDN-loaded, /api/docs/)
+│   └── redoc.html         # ReDoc (CDN-loaded, /api/redoc/)
 ```
 
 ## How It Works
@@ -422,6 +426,27 @@ The spec includes:
 - Paginated list response envelope
 
 Import into Swagger UI, Postman, or use with code generators like `openapi-typescript` or `openapi-generator`.
+
+### Interactive API Documentation
+
+SmallStack includes built-in Swagger UI and ReDoc pages — no Python packages needed:
+
+| URL | Tool | Purpose |
+|-----|------|---------|
+| `/api/docs/` | Swagger UI | Interactive "try it out" explorer |
+| `/api/redoc/` | ReDoc | Clean, readable API reference |
+
+Both load from CDN and consume the OpenAPI spec at `/api/schema/openapi.json`. Templates are at `apps/smallstack/templates/smallstack/api/`. The views set a per-response CSP to allow `cdn.jsdelivr.net`. See the `api-discovery.md` skill for details.
+
+### Request ID (X-Request-ID)
+
+Every API response includes an `X-Request-ID` header. The `RequestIDMiddleware` (first in the middleware stack) either reuses an incoming `X-Request-ID` from a load balancer or generates `req_{uuid}`. The ID is:
+
+- Stored on `request.id` for use in any downstream code
+- Returned in the `X-Request-ID` response header
+- Recorded in `RequestLog.request_id` by `ActivityMiddleware`
+
+This allows correlating client-reported errors to specific server-side log entries. Clients should capture and log the `X-Request-ID` from error responses for debugging.
 
 ### Architecture Notes
 

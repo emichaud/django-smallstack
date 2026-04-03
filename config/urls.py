@@ -21,6 +21,8 @@ from apps.smallstack.api import (
     api_auth_user_detail,
     api_auth_user_password,
     api_auth_users,
+    api_docs_redoc,
+    api_docs_swagger,
     api_openapi_schema,
     api_schema,
 )
@@ -45,6 +47,8 @@ urlpatterns = [
     # API schema (no auth required)
     path("api/schema/", api_schema, name="api-schema"),
     path("api/schema/openapi.json", api_openapi_schema, name="api-openapi-schema"),
+    path("api/docs/", api_docs_swagger, name="api-docs"),
+    path("api/redoc/", api_docs_redoc, name="api-redoc"),
     # API auth
     path("api/auth/token/", api_auth_token, name="api-auth-token"),
     path("api/auth/token/refresh/", api_auth_token_refresh, name="api-auth-token-refresh"),
@@ -70,13 +74,14 @@ urlpatterns = [
     ),
 ]
 
-# Debug toolbar (development only)
-if settings.DEBUG:
+# Debug toolbar (off by default, enable with DEBUG_TOOLBAR=true in .env)
+if settings.DEBUG and "debug_toolbar" in settings.INSTALLED_APPS:
     urlpatterns += [
         path("__debug__/", include("debug_toolbar.urls")),
     ]
 
-    # Preview error pages in development
+# Preview error pages in development
+if settings.DEBUG:
     from django.views.defaults import bad_request, page_not_found, permission_denied, server_error
 
     urlpatterns += [

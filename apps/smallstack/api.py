@@ -1027,9 +1027,7 @@ def _make_api_bulk_delete_view(crud_config):
                 obj.delete()
                 deleted_ids.append(pk)
             except (ProtectedError, RestrictedError) as e:
-                protected = getattr(e, "protected_objects", None) or getattr(
-                    e, "restricted_objects", set()
-                )
+                protected = getattr(e, "protected_objects", None) or getattr(e, "restricted_objects", set())
                 name = type(next(iter(protected))).__name__ if protected else "other records"
                 cnt = len(protected)
                 s = "s" if cnt != 1 else ""
@@ -1039,11 +1037,13 @@ def _make_api_bulk_delete_view(crud_config):
             except Exception:
                 errors[str(pk)] = "Delete failed — an unexpected error occurred."
 
-        return JsonResponse({
-            "deleted": deleted_ids,
-            "errors": errors,
-            "message": f"Deleted {len(deleted_ids)} of {len(ids)}",
-        })
+        return JsonResponse(
+            {
+                "deleted": deleted_ids,
+                "errors": errors,
+                "message": f"Deleted {len(deleted_ids)} of {len(ids)}",
+            }
+        )
 
     return api_bulk_delete
 
@@ -1126,11 +1126,13 @@ def _make_api_bulk_update_view(crud_config):
             else:
                 errors[str(pk)] = {k: [str(e) for e in v] for k, v in form.errors.items()}
 
-        return JsonResponse({
-            "updated": updated,
-            "errors": errors,
-            "message": f"Updated {len(updated)} of {len(ids)}",
-        })
+        return JsonResponse(
+            {
+                "updated": updated,
+                "errors": errors,
+                "message": f"Updated {len(updated)} of {len(ids)}",
+            }
+        )
 
     return api_bulk_update
 
@@ -1682,3 +1684,32 @@ def api_openapi_schema(request: HttpRequest) -> JsonResponse:
     server_url = request.build_absolute_uri("/")
     spec = build_openapi_spec(_api_registry, server_url=server_url)
     return JsonResponse(spec)
+
+
+def _api_docs_response(request, template):
+    """Render an API docs page with a relaxed CSP for CDN scripts."""
+    from django.template.loader import render_to_string
+
+    schema_url = request.build_absolute_uri("/api/schema/openapi.json")
+    html = render_to_string(template, {"schema_url": schema_url}, request=request)
+    response = HttpResponse(html, content_type="text/html")
+    response["Content-Security-Policy"] = (
+        "default-src 'self'; "
+        "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
+        "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://fonts.googleapis.com; "
+        "font-src 'self' https://fonts.gstatic.com; "
+        "img-src 'self' data: https:; "
+        "connect-src 'self'; "
+        "worker-src blob:; "
+    )
+    return response
+
+
+def api_docs_swagger(request: HttpRequest) -> HttpResponse:
+    """Serve Swagger UI pointing at the OpenAPI schema."""
+    return _api_docs_response(request, "smallstack/api/swagger.html")
+
+
+def api_docs_redoc(request: HttpRequest) -> HttpResponse:
+    """Serve ReDoc pointing at the OpenAPI schema."""
+    return _api_docs_response(request, "smallstack/api/redoc.html")

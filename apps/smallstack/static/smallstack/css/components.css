@@ -1727,9 +1727,33 @@ a.btn-secondary:visited {
 
 .bulk-select-all,
 .bulk-select-row {
+    appearance: none;
     width: 16px;
     height: 16px;
-    accent-color: var(--primary);
+    border: 1.5px solid color-mix(in srgb, var(--body-fg) 35%, transparent);
+    border-radius: 3px;
+    background: color-mix(in srgb, var(--body-fg) 10%, var(--body-bg));
+    cursor: pointer;
+    position: relative;
+}
+
+.bulk-select-all:checked,
+.bulk-select-row:checked {
+    background: var(--primary);
+    border-color: var(--primary);
+}
+
+.bulk-select-all:checked::after,
+.bulk-select-row:checked::after {
+    content: "";
+    position: absolute;
+    left: 4px;
+    top: 1px;
+    width: 5px;
+    height: 9px;
+    border: solid var(--body-bg);
+    border-width: 0 2px 2px 0;
+    transform: rotate(45deg);
 }
 
 .crud-table tbody tr.bulk-selected {

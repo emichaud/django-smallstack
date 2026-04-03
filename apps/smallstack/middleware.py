@@ -2,11 +2,37 @@
 SmallStack middleware.
 """
 
+import uuid
 import zoneinfo
 
 from django.conf import settings
 from django.http import HttpResponse
 from django.utils import timezone
+
+
+class RequestIDMiddleware:
+    """Attach a unique request ID to every request/response.
+
+    If the incoming request already carries an ``X-Request-ID`` header
+    (e.g. from a load balancer), that value is reused.  Otherwise a new
+    UUID is generated.
+
+    The ID is stored on ``request.id`` for downstream code and returned
+    in the ``X-Request-ID`` response header so clients can reference it.
+    """
+
+    HEADER = "X-Request-ID"
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        request_id = request.META.get("HTTP_X_REQUEST_ID") or f"req_{uuid.uuid4()}"
+        request.id = request_id
+
+        response = self.get_response(request)
+        response[self.HEADER] = request_id
+        return response
 
 
 class TimezoneMiddleware:

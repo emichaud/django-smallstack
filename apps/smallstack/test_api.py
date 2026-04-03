@@ -2124,9 +2124,7 @@ class TestBulkDeleteAPI:
         assert resp.status_code == 400
 
     def test_bulk_delete_readonly_token_blocked(self, client, staff_user, db):
-        token, raw_key = APIToken.create_token(
-            staff_user, name="RO Token", access_level="readonly"
-        )
+        token, raw_key = APIToken.create_token(staff_user, name="RO Token", access_level="readonly")
         url = reverse(HEARTBEAT_BULK_DELETE)
         resp = client.post(
             url,

@@ -23,6 +23,7 @@ class RequestLog(models.Model):
         blank=True,
         related_name="request_logs",
     )
+    request_id = models.CharField(max_length=255, blank=True, default="")
     timestamp = models.DateTimeField(auto_now_add=True, db_index=True)
     response_time_ms = models.PositiveIntegerField()
     ip_address = models.GenericIPAddressField(null=True, blank=True)

@@ -749,9 +749,7 @@ class _CRUDBulkActionView:
                         obj.delete()
                         deleted_ids.append(pk)
                     except (ProtectedError, RestrictedError) as e:
-                        protected = getattr(e, "protected_objects", None) or getattr(
-                            e, "restricted_objects", set()
-                        )
+                        protected = getattr(e, "protected_objects", None) or getattr(e, "restricted_objects", set())
                         name = type(next(iter(protected))).__name__ if protected else "other records"
                         cnt = len(protected)
                         s = "s" if cnt != 1 else ""
@@ -874,7 +872,9 @@ def _make_bulk_update_form_view(crud_config):
                     "style": "width: 100%;",
                 }
                 widget_html = field.widget.render(
-                    f"bulk_{field_name}", None, attrs=attrs,
+                    f"bulk_{field_name}",
+                    None,
+                    attrs=attrs,
                 )
 
                 esc_name = escape(field_name)
@@ -894,14 +894,14 @@ def _make_bulk_update_form_view(crud_config):
                 )
 
             html_parts.append(
-                '<script>'
+                "<script>"
                 'document.querySelectorAll("#bulk-update-fields .bulk-field-toggle").forEach(function(cb) {'
                 '  cb.addEventListener("change", function() {'
                 '    var widget = this.closest("div").querySelector(".bulk-field-widget");'
                 '    widget.style.display = this.checked ? "block" : "none";'
-                '  });'
-                '});'
-                '</script>'
+                "  });"
+                "});"
+                "</script>"
             )
 
             return HttpResponse("".join(html_parts))

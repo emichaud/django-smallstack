@@ -241,18 +241,23 @@ SmallStack includes these feature flags out of the box:
 
 See [Authentication](/help/smallstack/authentication/) for details on the auth flags. See [Working with Timezones](/help/smallstack/timezones/) for the full timezone architecture.
 
-**Example: Adding debug-only settings**
+**Example: Debug Toolbar (env-gated dev tool)**
 
-Add directly to `development.py` (no env var needed):
+The debug toolbar is installed but off by default — controlled by an env var:
+
+```bash
+# .env
+DEBUG_TOOLBAR=true
+```
 
 ```python
 # development.py
-
-# Django Debug Toolbar
-INSTALLED_APPS += ["debug_toolbar"]
-MIDDLEWARE += ["debug_toolbar.middleware.DebugToolbarMiddleware"]
-INTERNAL_IPS = ["127.0.0.1"]
+if config("DEBUG_TOOLBAR", default=False, cast=bool):
+    INSTALLED_APPS += ["debug_toolbar"]
+    MIDDLEWARE.insert(0, "debug_toolbar.middleware.DebugToolbarMiddleware")
 ```
+
+See the [Debug Toolbar](/help/smallstack/debug-toolbar/) page for full usage guide.
 
 ---
 

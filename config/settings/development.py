@@ -38,18 +38,24 @@ DATABASES = {
 #     }
 # }
 
-# Debug toolbar
-INSTALLED_APPS += ["debug_toolbar"]  # noqa: F405
-MIDDLEWARE.insert(0, "debug_toolbar.middleware.DebugToolbarMiddleware")  # noqa: F405
+# Debug toolbar — installed but off by default
+# Enable with DEBUG_TOOLBAR=true in .env (requires DEBUG=True)
+# Stays out of the way for screenshots and normal development
+if config("DEBUG_TOOLBAR", default=False, cast=bool):
+    INSTALLED_APPS += ["debug_toolbar"]  # noqa: F405
+    MIDDLEWARE.insert(0, "debug_toolbar.middleware.DebugToolbarMiddleware")  # noqa: F405
 
 INTERNAL_IPS = [
     "127.0.0.1",
     "localhost",
 ]
 
-# Debug toolbar settings
 DEBUG_TOOLBAR_CONFIG = {
-    "SHOW_TOOLBAR_CALLBACK": lambda request: DEBUG,
+    "SHOW_TOOLBAR_CALLBACK": lambda request: (
+        DEBUG
+        and "debug_toolbar" in INSTALLED_APPS  # noqa: F405
+        and not request.path.startswith(("/api/docs/", "/api/redoc/"))
+    ),
 }
 
 # Logging configuration

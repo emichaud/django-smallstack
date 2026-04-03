@@ -220,6 +220,12 @@ pages:
     icon: "settings"
     category: "Development"
 
+  - slug: api-documentation
+    title: "API Documentation (Swagger & ReDoc)"
+    description: "Interactive API docs with Swagger UI and ReDoc — no packages required"
+    icon: "code"
+    category: "Development"
+
   - slug: explorer-rest-api
     title: "Explorer REST API"
     description: "Auto-generated JSON API with authentication, search, filtering, and CSV/JSON export"
@@ -261,6 +267,12 @@ pages:
     description: "Visual dashboard for scheduling, running, and downloading database backups"
     icon: "database"
     category: "Built-in Tools"
+
+  - slug: debug-toolbar
+    title: "Debug Toolbar"
+    description: "Enable Django Debug Toolbar for SQL profiling, template inspection, and request debugging"
+    icon: "terminal"
+    category: "Development"
 
   - slug: logging-audit
     title: "Logging & Audit Trail"

@@ -23,6 +23,10 @@ def close_ticket(request, pk):
 
 All `apps.*` loggers are captured by the `apps` logger configured in settings.
 
+### Request IDs for correlation
+
+Every request gets a unique `X-Request-ID` via `RequestIDMiddleware` (first in the middleware stack). Access it as `request.id` in views and middleware. The ID is returned in the response header and stored in `RequestLog.request_id`, making it easy to correlate user-reported errors to specific log entries.
+
 ### Log levels by environment
 
 | Logger | Development | Production |
