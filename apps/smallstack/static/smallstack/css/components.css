@@ -1480,6 +1480,7 @@ a.btn-secondary:visited {
 
 .list-toolbar {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     gap: 8px;
     padding: 0 0 12px 0;
@@ -1563,6 +1564,50 @@ a.btn-secondary:visited {
 .list-toolbar-filter-text.is-filtered {
     border-left: 3px solid var(--primary) !important;
     background: color-mix(in srgb, var(--primary) 6%, var(--body-bg)) !important;
+}
+
+/* Overflow toggle button (4+ filters) */
+.list-toolbar-overflow-toggle {
+    height: var(--control-height, 36px);
+    padding: 4px 10px;
+    border: 1px dashed var(--input-border);
+    border-radius: var(--radius-sm, 4px);
+    background: var(--body-bg);
+    color: var(--body-quiet-color);
+    font-size: 0.75rem;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: border-color 0.15s, color 0.15s;
+}
+
+.list-toolbar-overflow-toggle:hover {
+    border-color: var(--primary);
+    color: var(--primary);
+}
+
+.list-toolbar.show-overflow .list-toolbar-overflow-toggle {
+    border-color: var(--primary);
+    color: var(--primary);
+}
+
+/* Overflow panel — hidden by default, 2-col grid */
+.list-toolbar-overflow-panel {
+    display: none;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 8px;
+    padding-top: 10px;
+    margin-top: 4px;
+    border-top: 1px solid var(--hairline-color);
+    width: 100%;
+}
+
+.list-toolbar.show-overflow .list-toolbar-overflow-panel {
+    display: grid;
+}
+
+.list-toolbar-overflow-panel .list-toolbar-filter-select,
+.list-toolbar-overflow-panel .list-toolbar-filter-text {
+    width: 100%;
 }
 
 /* Spacer pushes right-side content */

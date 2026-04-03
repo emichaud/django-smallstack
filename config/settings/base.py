@@ -122,7 +122,7 @@ AUTH_PASSWORD_VALIDATORS = [
 
 # Authentication settings
 LOGIN_URL = "/smallstack/accounts/login/"
-LOGIN_REDIRECT_URL = "/smallstack/"
+LOGIN_REDIRECT_URL = "/"
 LOGOUT_REDIRECT_URL = "/"
 
 # Internationalization

@@ -1,5 +1,5 @@
 {% if show_toolbar %}
-<div class="list-toolbar" id="list-toolbar">
+<div class="list-toolbar{% if toolbar_filters|length > 3 %} has-overflow-filters{% endif %}" id="list-toolbar">
     {% if toolbar_search_fields %}
     <div class="list-toolbar-search">
         <svg class="list-toolbar-search-icon" viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
@@ -24,6 +24,7 @@
     {% if toolbar_filters %}
     <div class="list-toolbar-filters">
         {% for filter in toolbar_filters %}
+        {% if forloop.counter <= 3 %}
         {% if filter.type == "choice" or filter.type == "boolean" %}
         <select name="{{ filter.name }}"
                 class="list-toolbar-filter-select{% if filter.current_value %} is-filtered{% endif %}"
@@ -54,8 +55,17 @@
                hx-include="#list-toolbar"
         >
         {% endif %}
+        {% endif %}
         {% endfor %}
     </div>
+
+    {% if toolbar_filters|length > 3 %}
+    <button type="button"
+            class="list-toolbar-overflow-toggle"
+            onclick="this.closest('.list-toolbar').classList.toggle('show-overflow')">
+        + {{ toolbar_filters|length|add:"-3" }} Filter{{ toolbar_filters|length|add:"-3"|pluralize }}
+    </button>
+    {% endif %}
     {% endif %}
 
     <div class="list-toolbar-spacer"></div>
@@ -69,5 +79,48 @@
     </a>
     {% endif %}
     <span class="list-toolbar-count">{{ toolbar_total_count }} record{{ toolbar_total_count|pluralize }}</span>
+
+    {% if toolbar_filters|length > 3 %}
+    <div class="list-toolbar-overflow-panel">
+        {% for filter in toolbar_filters %}
+        {% if forloop.counter > 3 %}
+        {% if filter.type == "choice" or filter.type == "boolean" %}
+        <select name="{{ filter.name }}"
+                class="list-toolbar-filter-select{% if filter.current_value %} is-filtered{% endif %}"
+                hx-get=""
+                hx-trigger="change"
+                hx-target="#crud-list-content"
+                hx-swap="innerHTML swap:150ms"
+                hx-push-url="true"
+                hx-include="#list-toolbar"
+        >
+            {% for val, label in filter.choices %}
+            <option value="{{ val }}"{% if val == filter.current_value %} selected{% endif %}>
+                {% if val %}{{ label }}{% else %}{{ filter.label }}: All{% endif %}
+            </option>
+            {% endfor %}
+        </select>
+        {% elif filter.type == "text" %}
+        <input type="text"
+               name="{{ filter.name }}"
+               value="{{ filter.current_value }}"
+               placeholder="{{ filter.label }}..."
+               class="list-toolbar-filter-text{% if filter.current_value %} is-filtered{% endif %}"
+               hx-get=""
+               hx-trigger="input changed delay:300ms"
+               hx-target="#crud-list-content"
+               hx-swap="innerHTML swap:150ms"
+               hx-push-url="true"
+               hx-include="#list-toolbar"
+        >
+        {% endif %}
+        {% endif %}
+        {% endfor %}
+    </div>
+    <script>
+    (function(){var p=document.querySelector('#list-toolbar .list-toolbar-overflow-panel');
+    if(p&&p.querySelector('.is-filtered'))p.closest('.list-toolbar').classList.add('show-overflow');})();
+    </script>
+    {% endif %}
 </div>
 {% endif %}

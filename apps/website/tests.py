@@ -80,6 +80,6 @@ class TestHomePageAuthenticated:
         response = client.get("/")
         content = response.content.decode()
         assert "My Profile" in content
-        assert "Help &amp; Docs" in content
+        assert "Help & Docs" in content
         # Staff-only links should not appear
         assert "Admin Panel" not in content

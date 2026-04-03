@@ -40,7 +40,7 @@ urlpatterns = [
     path("accounts/signup/", RedirectView.as_view(pattern_name="signup", permanent=False), name="public_signup"),
     path("status/", StatusPageView.as_view(), name="public_status"),
     path("status/json/", status_json, name="public_status_json"),
-    path("profile/", RedirectView.as_view(pattern_name="profile", permanent=False), name="public_profile"),
+    path("profile/", include("apps.profile.urls")),
     path("help/", RedirectView.as_view(pattern_name="help:index", permanent=False), name="public_help"),
     # API schema (no auth required)
     path("api/schema/", api_schema, name="api-schema"),

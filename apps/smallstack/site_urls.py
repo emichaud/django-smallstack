@@ -22,8 +22,6 @@ urlpatterns = [
     # Authentication
     path("accounts/", include("django.contrib.auth.urls")),
     path("accounts/signup/", SignupView.as_view(), name="signup"),
-    # Profile
-    path("profile/", include("apps.profile.urls")),
     # Help/Documentation
     path("help/", include("apps.help.urls")),
     # Activity tracking

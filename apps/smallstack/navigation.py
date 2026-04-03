@@ -47,6 +47,7 @@ class _NavItem:
         "staff_required",
         "order",
         "parent",
+        "zone",
     )
 
     def __init__(
@@ -62,6 +63,7 @@ class _NavItem:
         staff_required=False,
         order=0,
         parent=None,
+        zone="smallstack",
     ):
         self.section = section
         self.label = label
@@ -73,6 +75,7 @@ class _NavItem:
         self.staff_required = staff_required
         self.order = order
         self.parent = parent
+        self.zone = zone
 
 
 class NavRegistry:
@@ -92,6 +95,7 @@ class NavRegistry:
         staff_required=False,
         order=0,
         parent=None,
+        zone="smallstack",
     ):
         self._items.append(
             _NavItem(
@@ -105,10 +109,11 @@ class NavRegistry:
                 staff_required=staff_required,
                 order=order,
                 parent=parent,
+                zone=zone,
             )
         )
 
-    def get_nav_items(self, request):
+    def get_nav_items(self, request, zone=None):
         """Return nav items resolved and filtered for the current request.
 
         Returns a list of dicts grouped by section (ordered per SECTION_ORDER):
@@ -133,6 +138,8 @@ class NavRegistry:
         # First pass: resolve URLs and collect candidates
         resolved: list[tuple[dict, str, str | None]] = []  # (item_dict, url, parent)
         for item in sorted(self._items, key=lambda i: i.order):
+            if zone is not None and item.zone != zone:
+                continue
             if item.auth_required and not is_authenticated:
                 continue
             if item.staff_required and not is_staff:

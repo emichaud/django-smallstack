@@ -760,9 +760,11 @@ class TestTopbarNav:
             {"label": "GitHub", "url": "https://github.com", "external": True},
         ],
     )
-    def test_external_link_attributes(self, client, db):
+    def test_external_link_attributes(self, client, db, django_user_model):
         """External links should have target=_blank and rel=noopener."""
-        response = client.get("/")
+        staff = django_user_model.objects.create_user(username="staff", password="testpass", is_staff=True)
+        client.force_login(staff)
+        response = client.get("/smallstack/")
         content = response.content.decode()
         assert 'target="_blank"' in content
         assert 'rel="noopener"' in content

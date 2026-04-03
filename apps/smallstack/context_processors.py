@@ -195,8 +195,9 @@ def branding(request):
     sidebar_state, sidebar_state_forced = _get_sidebar_state(request)
     sidebar_enabled = getattr(settings, "SMALLSTACK_SIDEBAR_ENABLED", True)
 
-    # Nav items from registry
-    nav_items = nav.get_nav_items(request)
+    # Nav items from registry (smallstack zone for sidebar/topbar)
+    nav_items = nav.get_nav_items(request, zone="smallstack")
+    website_nav_items = nav.get_nav_items(request, zone="website")
 
     # Check if special sections exist in nav_items (for template logic)
     nav_has_app_section = any(g["section"] == "app" for g in nav_items)
@@ -234,6 +235,7 @@ def branding(request):
             "signup_terms_notice": getattr(settings, "BRAND_SIGNUP_TERMS_NOTICE", True),
         },
         "nav_items": nav_items,
+        "website_nav_items": website_nav_items,
         "nav_has_app_section": nav_has_app_section,
         "nav_has_page_section": nav_has_page_section,
         "nav_has_topbar_section": nav_has_topbar_section,
