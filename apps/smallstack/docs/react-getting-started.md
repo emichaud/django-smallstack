@@ -223,6 +223,54 @@ export function Dashboard() {
 }
 ```
 
+## API Response Shapes
+
+### Paginated Responses
+
+All list endpoints return a paginated wrapper:
+
+```json
+{
+  "count": 42,
+  "next": "http://localhost:8005/api/items/?page=2",
+  "previous": null,
+  "results": [{ "id": 1, "name": "Widget" }, ...]
+}
+```
+
+Use the `PaginatedResponse<T>` type from the SDK:
+
+```typescript
+import type { PaginatedResponse } from "smallstack-sdk-js";
+const { data } = await client.api<PaginatedResponse<Item>>("/api/items/");
+// data.results, data.count, data.next, data.previous
+```
+
+### FK Expansion
+
+By default, ForeignKey fields return as integer IDs:
+
+```json
+{ "id": 1, "name": "Widget", "category": 3 }
+```
+
+If the CRUDView declares `api_expand_fields = ["category"]`, you can request expanded objects with `?expand=category`:
+
+```json
+{ "id": 1, "name": "Widget", "category": { "id": 3, "name": "Electronics" } }
+```
+
+In your frontend code:
+
+```typescript
+const { data } = await client.api<PaginatedResponse<Item>>("/api/items/", {
+  params: { expand: "category,bin" },
+});
+// data.results[0].category is now { id: 3, name: "Electronics" }
+```
+
+The CRUDView must declare which fields are expandable — `?expand=` only works for fields listed in `api_expand_fields`. Fields not in the list are silently ignored.
+
 ## How the Token Flow Works
 
 ```
