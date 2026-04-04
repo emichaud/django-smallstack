@@ -90,16 +90,52 @@ Success → 200:
 
 Bad credentials → 401: {"errors": {"__all__": ["Invalid credentials"]}}
 Missing fields → 400: {"errors": {"__all__": ["username and password are required"]}}
+Locked out → 403:
+{
+    "errors": {"__all__": ["Too many failed login attempts. Please try again later."]},
+    "retry_after_seconds": 900
+}
 ```
+
+The 403 lockout response also includes a `Retry-After` HTTP header (seconds).
 
 This endpoint:
 - **Upserts** — finds existing active login token for the user, regenerates the key, and updates expiry. The old raw key immediately stops working. One login token per user.
 - `expires_hours` is optional (default: `SMALLSTACK_LOGIN_TOKEN_EXPIRY_HOURS`, capped at `SMALLSTACK_LOGIN_TOKEN_MAX_HOURS`)
 - Response includes `expires_at` (ISO 8601)
 - Validates credentials via Django's `authenticate()`
-- Respects `axes` rate limiting (same backend as HTML login)
+- Respects `axes` rate limiting — returns JSON 403 (not HTML) when locked out (see below)
 - Is `@csrf_exempt` for cross-origin use
 - To logout, call `POST /api/auth/logout/` to revoke server-side, or call this endpoint again to replace the key.
+
+### Rate Limiting (axes)
+
+The token endpoint integrates with `django-axes` to prevent brute-force attacks. After `AXES_FAILURE_LIMIT` failed attempts (default: 5), the endpoint returns a JSON 403 instead of 401:
+
+```json
+{
+    "errors": {"__all__": ["Too many failed login attempts. Please try again later."]},
+    "retry_after_seconds": 900
+}
+```
+
+The response includes a `Retry-After` HTTP header with the cooldown period in seconds. During lockout, even correct credentials are rejected with 403.
+
+Two scenarios are handled:
+
+1. **Already locked out** — if the user/IP combination is locked before `authenticate()` runs, the endpoint returns 403 immediately without touching the database
+2. **Just hit the limit** — if this attempt is the Nth failure that triggers lockout, the endpoint intercepts the response and returns JSON 403 (instead of the HTML 403 that axes middleware would normally produce)
+
+This ensures API consumers always receive JSON responses, never HTML lockout pages.
+
+Lockout is configured in `config/settings/base.py`:
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| `AXES_FAILURE_LIMIT` | `5` | Failed attempts before lockout |
+| `AXES_COOLOFF_TIME` | `0.25` (hours) | Lockout duration (15 minutes) |
+| `AXES_LOCKOUT_PARAMETERS` | `["username", "ip_address"]` | Lock per username+IP combination |
+| `AXES_RESET_ON_SUCCESS` | `True` | Reset failure count after successful login |
 
 ### Session (Browser)
 
@@ -638,6 +674,7 @@ All errors use a consistent format: `{"errors": {"__all__": ["message"]}}` for g
 | 400 | `{"errors": {"field": ["message"]}}` | Field validation failure |
 | 400 | `{"errors": {"__all__": ["message"]}}` | General validation error |
 | 401 | `{"errors": {"__all__": ["Invalid token"]}}` | Bad Bearer token |
+| 403 | `{"errors": {"__all__": ["Too many failed login attempts..."]}, "retry_after_seconds": 900}` | Rate limited (axes lockout) |
 | 403 | `{"errors": {"__all__": ["Staff access required"]}}` | Non-staff user |
 | 404 | `{"errors": {"__all__": ["Not found"]}}` | Object doesn't exist |
 | 405 | `{"errors": {"__all__": ["Method not allowed"]}}` | Action not in `actions` |

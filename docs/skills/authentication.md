@@ -418,9 +418,10 @@ Content-Type: application/json
 → 200: {"token": "aBcD1234...", "user": {"id": 1, "username": "alice", "is_staff": true}}
 → 400: {"errors": {"__all__": ["username and password are required"]}}
 → 401: {"errors": {"__all__": ["Invalid credentials"]}}
+→ 403: {"errors": {"__all__": ["Too many failed login attempts. Please try again later."]}, "retry_after_seconds": 900}
 ```
 
-The endpoint uses Django's `authenticate()` under the hood, so custom auth backends (e.g., email login) work automatically.
+The endpoint uses Django's `authenticate()` under the hood, so custom auth backends (e.g., email login) work automatically. Rate limiting via `django-axes` returns JSON 403 with a `Retry-After` header when the failure limit is exceeded — see the `api` skill's "Rate Limiting (axes)" section for details.
 
 ### Using the Token
 

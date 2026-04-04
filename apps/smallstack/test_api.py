@@ -868,6 +868,92 @@ class TestAuthTokenEndpoint:
 
 
 # ---------------------------------------------------------------------------
+# Integration tests: Auth token lockout (axes)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.django_db
+class TestAuthTokenLockout:
+    """Verify the token endpoint returns JSON 403 when axes locks out a user."""
+
+    AXES_SETTINGS = {
+        "AXES_ENABLED": True,
+        "AXES_FAILURE_LIMIT": 3,
+        "AXES_COOLOFF_TIME": 0.25,  # 15 minutes
+    }
+
+    @pytest.fixture
+    def lockout_user(self, db):
+        return User.objects.create_user(
+            username="lockme", email="lock@example.com", password="goodpass123"
+        )
+
+    def _bad_login(self, client):
+        return client.post(
+            AUTH_TOKEN_URL,
+            json.dumps({"username": "lockme", "password": "wrong"}),
+            content_type="application/json",
+        )
+
+    @pytest.mark.override_settings(**AXES_SETTINGS)
+    def test_lockout_returns_403_after_failures(self, client, lockout_user, settings):
+        """After exceeding failure limit, response is 403 JSON."""
+        for k, v in self.AXES_SETTINGS.items():
+            setattr(settings, k, v)
+
+        # Exhaust failure limit
+        for _ in range(3):
+            self._bad_login(client)
+
+        # Next attempt should be 403
+        resp = self._bad_login(client)
+        assert resp.status_code == 403
+        data = resp.json()
+        assert "Too many failed login attempts" in data["errors"]["__all__"][0]
+        assert "retry_after_seconds" in data
+
+    @pytest.mark.override_settings(**AXES_SETTINGS)
+    def test_lockout_blocks_even_correct_password(self, client, lockout_user, settings):
+        """Locked user gets 403 even with the correct password."""
+        for k, v in self.AXES_SETTINGS.items():
+            setattr(settings, k, v)
+
+        for _ in range(3):
+            self._bad_login(client)
+
+        resp = client.post(
+            AUTH_TOKEN_URL,
+            json.dumps({"username": "lockme", "password": "goodpass123"}),
+            content_type="application/json",
+        )
+        assert resp.status_code == 403
+
+    @pytest.mark.override_settings(**AXES_SETTINGS)
+    def test_lockout_has_retry_after_header(self, client, lockout_user, settings):
+        """Locked-out response includes Retry-After header."""
+        for k, v in self.AXES_SETTINGS.items():
+            setattr(settings, k, v)
+
+        for _ in range(3):
+            self._bad_login(client)
+
+        resp = self._bad_login(client)
+        assert resp.status_code == 403
+        assert resp["Retry-After"] == "900"  # 0.25 hours = 900 seconds
+
+    @pytest.mark.override_settings(**AXES_SETTINGS)
+    def test_below_limit_returns_401(self, client, lockout_user, settings):
+        """Failures below the limit still return normal 401."""
+        for k, v in self.AXES_SETTINGS.items():
+            setattr(settings, k, v)
+
+        # Only 2 failures (limit is 3)
+        for _ in range(2):
+            resp = self._bad_login(client)
+            assert resp.status_code == 401
+
+
+# ---------------------------------------------------------------------------
 # Integration tests: Schema endpoint
 # ---------------------------------------------------------------------------
 

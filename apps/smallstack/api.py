@@ -102,6 +102,27 @@ def _error(message, status):
 api_error = _error
 
 
+def _lockout_response(request):
+    """Return a JSON 403 for axes lockout with Retry-After header."""
+    from axes.helpers import get_cool_off
+
+    cooloff = get_cool_off()
+    retry_seconds = int(cooloff.total_seconds()) if cooloff else 900
+    resp = JsonResponse(
+        {
+            "errors": {
+                "__all__": [
+                    "Too many failed login attempts. Please try again later."
+                ]
+            },
+            "retry_after_seconds": retry_seconds,
+        },
+        status=403,
+    )
+    resp["Retry-After"] = str(retry_seconds)
+    return resp
+
+
 # ---------------------------------------------------------------------------
 # @api_view decorator — for custom (non-CRUD) endpoints
 # ---------------------------------------------------------------------------
@@ -1203,7 +1224,23 @@ def api_auth_token(request: HttpRequest) -> JsonResponse:
 
     from .models import APIToken
 
+    # Pre-check: if axes is enabled and user is already locked out, return 403
+    if getattr(settings, "AXES_ENABLED", True):
+        from axes.handlers.proxy import AxesProxyHandler
+        from axes.helpers import get_credentials
+
+        credentials = get_credentials(username=username)
+        if not AxesProxyHandler.is_allowed(request, credentials):
+            return _lockout_response(request)
+
     user = authenticate(request, username=username, password=password)
+
+    # Post-check: if this attempt just triggered lockout, return 403 JSON
+    # (clear the flag so AxesMiddleware doesn't replace with HTML)
+    if getattr(request, "axes_locked_out", False):
+        request.axes_locked_out = False
+        return _lockout_response(request)
+
     if user is None or not user.is_active:
         return _error("Invalid credentials", 401)
 
