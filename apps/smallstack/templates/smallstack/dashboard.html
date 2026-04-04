@@ -5,71 +5,6 @@
 
 {% block breadcrumbs %}{% endblock %}
 
-{% block extra_css %}
-<style>
-    .dashboard-widget-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-        gap: 1rem;
-    }
-    a.dashboard-widget,
-    a.dashboard-widget:link,
-    a.dashboard-widget:visited,
-    a.dashboard-widget:hover,
-    a.dashboard-widget:active {
-        display: flex;
-        flex-direction: column;
-        gap: 0.75rem;
-        background: color-mix(in srgb, var(--primary) 6%, var(--body-bg));
-        border: 1px solid transparent;
-        border-radius: var(--radius-sm, 6px);
-        padding: 1.25rem;
-        text-decoration: none !important;
-        color: var(--body-fg) !important;
-        transition: border-color 0.15s, background 0.15s;
-    }
-    a.dashboard-widget:hover {
-        border-color: var(--primary);
-        background: color-mix(in srgb, var(--primary) 12%, var(--body-bg));
-    }
-    .widget-header {
-        display: flex;
-        align-items: center;
-        gap: 0.6rem;
-    }
-    .widget-icon {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        width: 36px;
-        height: 36px;
-        border-radius: 8px;
-        background: color-mix(in srgb, var(--primary) 15%, var(--body-bg));
-        color: var(--primary);
-        flex-shrink: 0;
-    }
-    .widget-title {
-        font-size: 0.85rem;
-        font-weight: 600;
-        text-transform: uppercase;
-        letter-spacing: 0.04em;
-        color: var(--body-quiet-color);
-    }
-    .widget-headline {
-        font-size: 1.25rem;
-        font-weight: 600;
-        line-height: 1.2;
-    }
-    .widget-detail {
-        font-size: 0.85rem;
-        color: var(--body-quiet-color);
-    }
-    .widget-status-operational .widget-headline { color: var(--success-fg); }
-    .widget-status-degraded .widget-headline { color: var(--warning-fg); }
-    .widget-status-down .widget-headline { color: var(--error-fg); }
-</style>
-{% endblock %}
-
 {% block page_header %}
 <div class="page-header-bleed page-header-with-actions">
     <div class="page-header-content">
@@ -98,15 +33,8 @@
 
 {% if widgets %}
 <div class="dashboard-widget-grid">
-    {% for w in widgets %}
-    <a href="{{ w.url }}" class="dashboard-widget{% if w.status %} widget-status-{{ w.status }}{% endif %}">
-        <div class="widget-header">
-            <div class="widget-icon">{{ w.icon }}</div>
-            <span class="widget-title">{{ w.title }}</span>
-        </div>
-        <div class="widget-headline">{{ w.headline }}</div>
-        <div class="widget-detail">{{ w.detail }}</div>
-    </a>
+    {% for ctx in widgets %}
+        {% include "smallstack/widgets/"|add:ctx.widget.widget_type|add:".html" %}
     {% endfor %}
 </div>
 {% else %}

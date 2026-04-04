@@ -84,6 +84,16 @@ When the user says "update docs and skills" (or similar), this skill defines whi
 | Help | `apps/smallstack/docs/explorer-rest-api.md` | Explorer REST API |
 | Help | `apps/smallstack/docs/explorer-composability.md` | Embedding explorer |
 
+### Dashboard Widgets (`apps/smallstack/dashboard.py`, `apps/smallstack/displays.py` DashboardWidget, `apps/smallstack/dashboard_widgets.py`)
+
+| Type | File | What it covers |
+|------|------|----------------|
+| Skill | `docs/skills/dashboard-widgets.md` | DashboardWidget class, Explorer vs standalone registration, data layer, mixin, API |
+| Skill | `docs/skills/explorer.md` | `explorer_dashboard_widgets` attribute + Explorer widget toggle |
+| Skill | `docs/skills/api.md` | `/api/dashboard/widgets/` endpoint |
+| Help | `apps/smallstack/docs/dashboard-widgets.md` | User-facing guide |
+| Config | `apps/smallstack/docs/_config.yaml` | Registers the help page |
+
 ### Settings & Configuration (`config/settings/`)
 
 | Type | File | What it covers |

@@ -410,6 +410,40 @@ GET /api/schema/
 }
 ```
 
+### GET /api/dashboard/widgets/
+
+Returns all registered dashboard widgets as JSON. Requires a staff-level token (or staff session). Each widget exposes its title, icon, URL, order, group, and a `data` dict with headline/detail plus any `extra` fields.
+
+```
+GET /api/dashboard/widgets/?group=Monitoring&dashboard_only=1
+Authorization: Bearer <staff-token>
+
+→ 200:
+{
+  "widgets": [
+    {
+      "title": "Activity",
+      "icon": "<svg>...</svg>",
+      "order": 20,
+      "widget_type": "card",
+      "span": 1,
+      "on_dashboard": true,
+      "url": "/activity/",
+      "data": {
+        "headline": "1,234 requests",
+        "detail": "42 in last 24h",
+        "extra": {"total": 1234, "last_24h": 42, "window_hours": 24}
+      },
+      "group": "Monitoring",
+      "app_label": "activity",
+      "model_name": "requestlog"
+    }
+  ]
+}
+```
+
+Query params: `?group=<name>`, `?app=<app_label>`, `?dashboard_only=1`. See `dashboard-widgets.md` for the full widget protocol.
+
 ### OPTIONS on CRUDView Endpoints
 
 `OPTIONS` on any CRUDView API endpoint returns field types and constraints without authentication. Useful for building dynamic forms.

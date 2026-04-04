@@ -70,6 +70,7 @@ Explorer reads `list_display` for columns (real model fields only — callables 
 | `explorer_api_expand_fields` | `list[str]` | `[]` | FK fields always expanded in API responses |
 | `explorer_api_aggregate_fields` | `list[str]` | `[]` | Fields supporting `?sum=`, `?avg=`, `?min=`, `?max=` |
 | `explorer_enable_api` | `bool` | `False` | Enable REST API endpoints for this model. |
+| `explorer_dashboard_widgets` | `list` | `[]` | Dashboard widgets published by this model. See `dashboard-widgets.md`. |
 
 ## Supported Django ModelAdmin Attributes
 
@@ -168,6 +169,18 @@ class HeartbeatView(ExplorerModelMixin, TemplateView):
 | **Source** | `explorer_group` attribute on ModelAdmin | Django's `app_label` |
 | **Flexibility** | Custom labels — group however you want | Fixed to Django's app structure |
 | **Mixin** | `ExplorerGroupMixin` | `ExplorerAppMixin` |
+
+## Dashboard Widgets
+
+Admin classes can publish cards to the main dashboard (`/smallstack/`) and to per-group/per-app Explorer index pages by setting `explorer_dashboard_widgets`:
+
+```python
+class OrderAdmin(admin.ModelAdmin):
+    explorer_enabled = True
+    explorer_dashboard_widgets = [OrdersWidget()]
+```
+
+The widget inherits its group from the Explorer registration. The Explorer group/app index pages show a **Models | Widgets** toggle when scoped widgets exist. See `dashboard-widgets.md` for the full widget protocol, `DashboardWidget` class reference, and REST API (`/api/dashboard/widgets/`).
 
 ## Access Control
 

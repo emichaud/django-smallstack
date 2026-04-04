@@ -1,0 +1,12 @@
+<a href="{{ ctx.url }}"
+   class="dashboard-widget{% if ctx.data.status %} widget-status-{{ ctx.data.status }}{% endif %}{% if ctx.widget.span > 1 %} dashboard-widget-span-{{ ctx.widget.span }}{% endif %}"
+   data-name="{{ ctx.widget.title }}"
+   data-app="{{ ctx.app_label|default:'' }}"
+   data-group="{{ ctx.group|default:'' }}">
+    <div class="widget-header">
+        <div class="widget-icon">{{ ctx.icon_safe }}</div>
+        <span class="widget-title">{{ ctx.widget.title }}</span>
+    </div>
+    <div class="widget-headline">{{ ctx.data.headline }}</div>
+    <div class="widget-detail">{{ ctx.data.detail }}</div>
+</a>

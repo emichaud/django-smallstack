@@ -8,12 +8,10 @@ from django.contrib import messages
 from django.http import FileResponse, Http404, HttpResponseForbidden
 from django.shortcuts import redirect
 from django.template.response import TemplateResponse
-from django.urls import reverse
-from django.utils import timezone
-from django.utils.safestring import mark_safe
 from django.views import View
 from django.views.generic import TemplateView
 
+from .dashboard import DashboardWidgetsMixin
 from .mixins import StaffRequiredMixin
 from .models import BackupRecord
 from .pagination import paginate_queryset
@@ -31,188 +29,10 @@ class NavGuideView(StaffRequiredMixin, TemplateView):
     template_name = "smallstack/nav_guide.html"
 
 
-class SmallStackDashboardView(StaffRequiredMixin, TemplateView):
+class SmallStackDashboardView(StaffRequiredMixin, DashboardWidgetsMixin, TemplateView):
     """Staff-only dashboard with at-a-glance widgets from each app."""
 
     template_name = "smallstack/dashboard.html"
-
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context["widgets"] = self._build_widgets()
-        return context
-
-    # SVG icons for dashboard widgets (long paths, suppress line-length lint)
-    _ICONS = {
-        "status": '<svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>',  # noqa: E501
-        "activity": '<svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M13 3c-4.97 0-9 4.03-9 9H1l3.89 3.89.07.14L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7c-1.93 0-3.68-.79-4.94-2.06l-1.42 1.42C8.27 19.99 10.51 21 13 21c4.97 0 9-4.03 9-9s-4.03-9-9-9zm-1 5v5l4.28 2.54.72-1.21-3.5-2.08V8H12z"/></svg>',  # noqa: E501
-        "users": '<svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg>',  # noqa: E501
-        "backups": '<svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>',  # noqa: E501
-        "help": '<svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/></svg>',  # noqa: E501
-        "explorer": '<svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/></svg>',  # noqa: E501
-        "runbook": '<svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M18 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM6 4h5v8l-2.5-1.5L6 12V4z"/></svg>',  # noqa: E501
-        "tokens": '<svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M12.65 10C11.83 7.67 9.61 6 7 6c-3.31 0-6 2.69-6 6s2.69 6 6 6c2.61 0 4.83-1.67 5.65-4H17v4h4v-4h3v-4H12.65zM7 14c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2z"/></svg>',  # noqa: E501
-    }
-
-    def _build_widgets(self):
-        widgets = []
-        now = timezone.now()
-
-        # Status widget (heartbeat)
-        try:
-            from apps.heartbeat.views import _calc_uptime, _get_status_data
-
-            status_data = _get_status_data()
-            uptime_24h = _calc_uptime(24)
-            widgets.append(
-                {
-                    "title": "Status",
-                    "icon": self._ICONS["status"],
-                    "headline": status_data.get("status_label", "Unknown"),
-                    "detail": f"{uptime_24h}% uptime (24h)" if uptime_24h is not None else "No data",
-                    "url_name": "heartbeat:dashboard",
-                    "status": status_data.get("status", "unknown"),
-                }
-            )
-        except Exception:
-            pass
-
-        # Activity widget
-        try:
-            from apps.activity.models import RequestLog
-
-            total = RequestLog.objects.count()
-            twenty_four_hours_ago = now - timezone.timedelta(hours=24)
-            recent = RequestLog.objects.filter(timestamp__gte=twenty_four_hours_ago).count()
-            widgets.append(
-                {
-                    "title": "Activity",
-                    "icon": self._ICONS["activity"],
-                    "headline": f"{total:,} requests",
-                    "detail": f"{recent:,} in last 24h",
-                    "url_name": "activity:dashboard",
-                }
-            )
-        except Exception:
-            pass
-
-        # Users widget
-        try:
-            from django.contrib.auth import get_user_model
-
-            User = get_user_model()
-            active_count = User.objects.filter(is_active=True).count()
-            thirty_days_ago = now - timezone.timedelta(days=30)
-            new_count = User.objects.filter(date_joined__gte=thirty_days_ago).count()
-            widgets.append(
-                {
-                    "title": "Users",
-                    "icon": self._ICONS["users"],
-                    "headline": f"{active_count} active",
-                    "detail": f"{new_count} new (30d)",
-                    "url_name": "manage/users-list",
-                }
-            )
-        except Exception:
-            pass
-
-        # Backups widget
-        try:
-            latest = BackupRecord.objects.filter(status="success").first()
-            total_backups = BackupRecord.objects.filter(status="success", pruned_at__isnull=True).count()
-            if latest:
-                headline = latest.created_at.strftime("%b %d, %I:%M %p")
-            else:
-                headline = "No backups"
-            widgets.append(
-                {
-                    "title": "Backups",
-                    "icon": self._ICONS["backups"],
-                    "headline": headline,
-                    "detail": f"{total_backups} stored",
-                    "url_name": "smallstack:backups",
-                }
-            )
-        except Exception:
-            pass
-
-        # Help & Docs widget
-        try:
-            from apps.help.utils import get_all_sections
-
-            sections = get_all_sections()
-            article_count = sum(len(s.get("pages", [])) for s in sections)
-            section_count = len(sections)
-            widgets.append(
-                {
-                    "title": "Help & Docs",
-                    "icon": self._ICONS["help"],
-                    "headline": f"{article_count} article{'s' if article_count != 1 else ''}",
-                    "detail": f"Across {section_count} section{'s' if section_count != 1 else ''}",
-                    "url_name": "help:section_index",
-                    "url_kwargs": {"section": "smallstack"},
-                }
-            )
-        except Exception:
-            pass
-
-        # Explorer widget
-        try:
-            from apps.explorer.registry import explorer_registry
-
-            model_count = len(explorer_registry.get_models())
-            widgets.append(
-                {
-                    "title": "Explorer",
-                    "icon": self._ICONS["explorer"],
-                    "headline": f"{model_count} model{'s' if model_count != 1 else ''}",
-                    "detail": "Registered for exploration",
-                    "url_name": "explorer-index",
-                }
-            )
-        except Exception:
-            pass
-
-        # Runbook widget
-        try:
-            from smallstack_runbook.models import Document, Runbook
-
-            runbook_count = Runbook.objects.count()
-            doc_count = Document.objects.filter(is_current=True).count()
-            widgets.append(
-                {
-                    "title": "Runbooks",
-                    "icon": self._ICONS["runbook"],
-                    "headline": f"{runbook_count} runbook{'s' if runbook_count != 1 else ''}",
-                    "detail": f"{doc_count} document{'s' if doc_count != 1 else ''}",
-                    "url_name": "runbook:dashboard",
-                }
-            )
-        except Exception:
-            pass
-
-        # API Tokens widget
-        try:
-            from smallstack_tokenmgr.stats import get_overview_stats as get_token_stats
-
-            token_stats = get_token_stats()
-            active = token_stats["active_tokens"]
-            volume = token_stats["volume_24h"]
-            widgets.append(
-                {
-                    "title": "API Tokens",
-                    "icon": self._ICONS["tokens"],
-                    "headline": f"{active} active",
-                    "detail": f"{volume:,} API calls (24h)",
-                    "url_name": "tokenmgr:token-list",
-                }
-            )
-        except Exception:
-            pass
-
-        for w in widgets:
-            w["icon"] = mark_safe(w["icon"])
-            w["url"] = reverse(w.pop("url_name"), kwargs=w.pop("url_kwargs", None))
-        return widgets
 
 
 def _get_db_info():

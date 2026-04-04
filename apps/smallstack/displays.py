@@ -10,6 +10,9 @@ Built-in displays:
 
 List accessories (rendered above the toolbar):
     ListAccessory (base), StatsAccessory
+
+Dashboard widgets (rendered on /smallstack/):
+    DashboardWidget (base)
 """
 
 
@@ -473,3 +476,89 @@ class SectionedFormDisplay(FormDisplay):
             if fields:
                 sections.append({"title": title, "icon": icon, "fields": fields})
         return {"form_sections": sections, "form_columns": self.columns}
+
+
+# ---------------------------------------------------------------------------
+# Dashboard widgets
+# ---------------------------------------------------------------------------
+
+
+class DashboardWidget:
+    """At-a-glance widget rendered on the SmallStack dashboard.
+
+    Subclass this and override get_data() to produce the widget's content.
+    For Explorer-registered models, attach widgets via:
+        AdminClass.explorer_dashboard_widgets = [MyWidget()]
+
+    For standalone widgets (no Explorer model), register via:
+        from apps.smallstack import dashboard
+        dashboard.register(MyWidget())
+
+    Class attributes:
+        title: Label shown above the headline.
+        icon: SVG icon markup (trusted HTML).
+        order: Sort order among widgets (lower = earlier).
+        widget_type: Template partial selector. Today only "card" is shipped.
+        span: CSS grid column span (1 = normal, 2 = wide).
+        url_name: Overrides auto-resolved Explorer list URL.
+        url_kwargs: kwargs for URL reversal.
+        group: Optional group name for filtered views (standalone widgets only;
+               Explorer widgets inherit group from ModelInfo).
+        on_dashboard: Whether this widget surfaces on the main /smallstack/
+               dashboard. Set False to scope a widget to its group/app/model
+               page only (useful for granular widgets that would clutter the
+               top-level view). Default True.
+    """
+
+    title: str = ""
+    icon: str = ""
+    order: int = 50
+    widget_type: str = "card"
+    span: int = 1
+    url_name: str | None = None
+    url_kwargs: dict | None = None
+    group: str | None = None
+    on_dashboard: bool = True
+
+    def get_data(self, model_class=None) -> dict:
+        """Return widget data. Shape depends on widget_type.
+
+        For widget_type="card", the template reads:
+            {"headline": str, "detail": str, "status"?: str}
+
+        Any additional keys are passed through to the API (GET
+        /api/dashboard/widgets/) but ignored by the HTML template.
+        This lets you surface richer, machine-readable data to API
+        consumers (raw counts, timestamps, trends, thresholds, etc.)
+        without affecting the card UI.
+
+        Example:
+            return {
+                "headline": "42 requests",
+                "detail": "in last 24h",
+                # Extras — API only:
+                "extra": {
+                    "total": 42,
+                    "window_hours": 24,
+                    "by_status": {"2xx": 38, "4xx": 3, "5xx": 1},
+                },
+            }
+
+        If the extras are expensive to compute, override
+        get_api_extras() instead — it's only called for API responses.
+
+        Args:
+            model_class: For Explorer widgets, the Django model class the
+                         widget is attached to. None for standalone widgets.
+        """
+        raise NotImplementedError
+
+    def get_api_extras(self, model_class=None) -> dict | None:
+        """Return additional API-only data, merged into the serialized
+        widget's "data" field. Called only when serializing for the API,
+        not when rendering HTML.
+
+        Override this when the extra data is expensive to compute and
+        you don't want it slowing down page renders.
+        """
+        return None

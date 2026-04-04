@@ -297,6 +297,34 @@
         color: var(--body-fg);
         font-weight: 600;
     }
+
+    /* View toggle (Models | Widgets) */
+    .explorer-view-toggle {
+        display: inline-flex;
+        gap: 2px;
+        border: 1px solid color-mix(in srgb, var(--body-fg) 10%, var(--body-bg));
+        border-radius: var(--radius-sm, 4px);
+        padding: 2px;
+    }
+    .explorer-view-toggle a,
+    .explorer-view-toggle a:link,
+    .explorer-view-toggle a:visited {
+        padding: 4px 10px;
+        border-radius: 3px;
+        color: var(--body-quiet-color);
+        text-decoration: none !important;
+        font-size: 0.75rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        transition: background 0.15s, color 0.15s;
+    }
+    .explorer-view-toggle a:hover { color: var(--body-fg); }
+    .explorer-view-toggle a.active {
+        background: color-mix(in srgb, var(--primary) 15%, var(--body-bg));
+        color: var(--primary) !important;
+    }
+
 </style>
 {% endblock %}
 
@@ -352,19 +380,40 @@
     <!-- Main content -->
     <div>
         <div class="explorer-search">
-            <input type="text" id="explorer-search" placeholder="Search models..." autocomplete="off">
-            <div class="explorer-stat-cards">
-                <div class="explorer-stat-card">
-                    <span class="explorer-stat-value" id="explorer-model-count">{{ filtered_models|length }}</span>
-                    <span class="explorer-stat-label">Models</span>
+            <input type="text" id="explorer-search" placeholder="Search {% if view_mode == 'widgets' %}widgets{% else %}models{% endif %}..." autocomplete="off">
+            <div style="display: flex; align-items: center; gap: 0.75rem;">
+                {% if has_widgets %}
+                <div class="explorer-view-toggle">
+                    <a href="?{% if active_group %}by=group&group={{ active_group }}{% elif active_app %}by=app&app={{ active_app }}{% endif %}" {% if view_mode != "widgets" %}class="active"{% endif %}>Models</a>
+                    <a href="?{% if active_group %}by=group&group={{ active_group }}{% elif active_app %}by=app&app={{ active_app }}{% endif %}&view=widgets" {% if view_mode == "widgets" %}class="active"{% endif %}>Widgets</a>
                 </div>
-                <div class="explorer-stat-card">
-                    <span class="explorer-stat-value" id="explorer-record-count">{{ total_records|default:"0" }}</span>
-                    <span class="explorer-stat-label">Records</span>
+                {% endif %}
+                <div class="explorer-stat-cards">
+                    <div class="explorer-stat-card">
+                        <span class="explorer-stat-value" id="explorer-model-count">{{ filtered_models|length }}</span>
+                        <span class="explorer-stat-label">Models</span>
+                    </div>
+                    <div class="explorer-stat-card">
+                        <span class="explorer-stat-value" id="explorer-record-count">{{ total_records|default:"0" }}</span>
+                        <span class="explorer-stat-label">Records</span>
+                    </div>
+                    {% if has_widgets %}
+                    <div class="explorer-stat-card">
+                        <span class="explorer-stat-value">{{ widget_contexts|length }}</span>
+                        <span class="explorer-stat-label">Widgets</span>
+                    </div>
+                    {% endif %}
                 </div>
             </div>
         </div>
 
+        {% if view_mode == "widgets" and has_widgets %}
+        <div class="dashboard-widget-grid">
+            {% for ctx in widget_contexts %}
+                {% include "smallstack/widgets/"|add:ctx.widget.widget_type|add:".html" %}
+            {% endfor %}
+        </div>
+        {% else %}
         <div class="explorer-grid" id="explorer-grid">
             {% for m in filtered_models %}
             <a href="{{ m.list_url }}" class="explorer-card"
@@ -389,6 +438,7 @@
             </div>
             {% endfor %}
         </div>
+        {% endif %}
     </div>
 </div>
 {% endblock %}
@@ -439,7 +489,8 @@
 
     // ── Client-side search ─────────────────────────────────────────
     const searchInput = document.getElementById('explorer-search');
-    const cards = document.querySelectorAll('.explorer-card');
+    // Search whichever grid is currently rendered: model cards or widgets
+    const items = document.querySelectorAll('.explorer-card, .dashboard-widget');
     const modelCount = document.getElementById('explorer-model-count');
     const recordCount = document.getElementById('explorer-record-count');
 
@@ -447,19 +498,20 @@
         const q = this.value.toLowerCase();
         let visible = 0;
         let records = 0;
-        cards.forEach(card => {
-            const text = (card.dataset.name || '') + ' ' +
-                         (card.dataset.app || '') + ' ' +
-                         (card.dataset.group || '');
+        items.forEach(item => {
+            const text = (item.dataset.name || '') + ' ' +
+                         (item.dataset.app || '') + ' ' +
+                         (item.dataset.group || '');
             const match = !q || text.toLowerCase().includes(q);
-            card.style.display = match ? '' : 'none';
+            item.style.display = match ? '' : 'none';
             if (match) {
                 visible++;
-                records += parseInt(card.dataset.count || '0', 10);
+                records += parseInt(item.dataset.count || '0', 10);
             }
         });
-        modelCount.textContent = visible;
-        recordCount.textContent = records.toLocaleString();
+        // Only update counts that exist on the current page
+        if (modelCount) modelCount.textContent = visible;
+        if (recordCount) recordCount.textContent = records.toLocaleString();
     });
 })();
 </script>

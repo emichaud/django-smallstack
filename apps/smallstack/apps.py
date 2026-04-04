@@ -14,7 +14,15 @@ class SmallStackConfig(AppConfig):
     help_section_title = "SmallStack Reference"
 
     def ready(self):
+        from apps.smallstack import dashboard
+        from apps.smallstack.dashboard_widgets import (
+            BackupsDashboardWidget,
+            HelpDashboardWidget,
+        )
         from apps.smallstack.navigation import nav
+
+        dashboard.register(BackupsDashboardWidget())
+        dashboard.register(HelpDashboardWidget())
 
         nav.register(
             section="admin",

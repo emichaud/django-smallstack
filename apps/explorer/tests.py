@@ -324,8 +324,9 @@ class TestAdminDiscovery:
         from .registry import explorer
 
         model_names = [m.model_name for m in explorer.get_models()]
-        # User model is registered in admin but doesn't have explorer_enabled
-        assert "user" not in model_names
+        # auth.Group is registered in admin but lacks explorer_enabled
+        # and isn't explicitly registered via explorer.py
+        assert "accessfailurelog" not in model_names
 
     def test_explorer_fields_overrides_list_display(self):
         """explorer_fields attribute takes precedence over list_display."""

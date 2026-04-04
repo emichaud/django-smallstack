@@ -520,6 +520,29 @@ class ExplorerSite:
     def get_models(self) -> list[ModelInfo]:
         return self._model_info
 
+    def get_dashboard_widgets(self) -> list[tuple]:
+        """Return [(widget, model_info), ...] for every registered widget.
+
+        Reads explorer_dashboard_widgets from each admin class, same pattern
+        as explorer_displays, explorer_list_accessories, etc.
+        """
+        results = []
+        for (model, group_key), admin_class in self._registry.items():
+            widgets = getattr(admin_class, "explorer_dashboard_widgets", None)
+            if not widgets:
+                continue
+            # Find matching ModelInfo
+            info = None
+            for m in self._model_info:
+                if m.model_class is model and m.group == group_key:
+                    info = m
+                    break
+            if info is None:
+                continue
+            for widget in widgets:
+                results.append((widget, info))
+        return results
+
     def get_grouped_models(self) -> dict[str, list[ModelInfo]]:
         """Return models organized by group, preserving discovery order."""
         groups: dict[str, list[ModelInfo]] = {}

@@ -26,6 +26,7 @@ from apps.smallstack.api import (
     api_openapi_schema,
     api_schema,
 )
+from apps.smallstack.dashboard import api_widgets as api_dashboard_widgets
 
 from .views import health_check, legal_page_view
 
@@ -61,6 +62,8 @@ urlpatterns = [
     path("api/auth/users/", api_auth_users, name="api-auth-users"),
     path("api/auth/users/<int:user_id>/", api_auth_user_detail, name="api-auth-user-detail"),
     path("api/auth/logout/", api_auth_logout, name="api-auth-logout"),
+    # API dashboard
+    path("api/dashboard/widgets/", api_dashboard_widgets, name="api-dashboard-widgets"),
     # Admin
     path("admin/", admin.site.urls),
     # Legal pages (public)

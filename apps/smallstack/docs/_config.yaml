@@ -256,6 +256,12 @@ pages:
     icon: "users"
     category: "Built-in Tools"
 
+  - slug: dashboard-widgets
+    title: "Dashboard Widgets"
+    description: "Add cards to the /smallstack/ dashboard from your own apps"
+    icon: "chart"
+    category: "Built-in Tools"
+
   - slug: uptime-monitoring
     title: "Uptime Monitoring"
     description: "Heartbeat checks, public status page, and uptime tracking"

@@ -43,6 +43,19 @@ class ExplorerIndexView(StaffRequiredMixin, TemplateView):
         context["filtered_models"] = sorted(flat, key=lambda m: m.verbose_name_plural.lower())
         context["total_records"] = sum(m.count for m in context["filtered_models"])
 
+        # Widget toggle: check if widgets exist for the active filter
+        from apps.smallstack.dashboard import get_widget_contexts
+
+        if active_group:
+            widget_contexts = get_widget_contexts(group=active_group)
+        elif active_app:
+            widget_contexts = get_widget_contexts(app=active_app)
+        else:
+            widget_contexts = []
+        context["widget_contexts"] = widget_contexts
+        context["has_widgets"] = bool(widget_contexts)
+        context["view_mode"] = self.request.GET.get("view", "models")
+
         return context
 
 
