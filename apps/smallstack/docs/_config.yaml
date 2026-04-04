@@ -58,6 +58,12 @@ pages:
     icon: "settings"
     category: "Development"
 
+  - slug: react-getting-started
+    title: "React + SmallStack"
+    description: "Connect a React frontend to SmallStack in 5 minutes — SDK setup, auth, and data fetching"
+    icon: "code"
+    category: "Getting Started"
+
   - slug: about
     title: "About & Inspiration"
     description: "The philosophy behind Django SmallStack"

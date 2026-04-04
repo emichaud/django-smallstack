@@ -171,7 +171,98 @@ regenerated and the old one immediately stops working.
 
 If the token has already expired (401), redirect to your login page for re-authentication.
 
-## React Example
+## Using the SDK (Recommended)
+
+The `smallstack-sdk-js` package handles token management, persistence, and the system token proxy for registration. Install it in your frontend project:
+
+```bash
+npm install smallstack-sdk-js
+```
+
+### Client Setup
+
+```typescript
+// lib/client.ts
+import { SmallStackClient } from "smallstack-sdk-js";
+
+export const client = new SmallStackClient({
+  baseUrl: import.meta.env.VITE_API_URL || "http://localhost:8005",
+  systemToken: import.meta.env.VITE_SYSTEM_TOKEN,  // enables register()
+  persist: true,                                     // auto-sync token to localStorage
+});
+```
+
+### Auth Context (React)
+
+```tsx
+// context/AuthContext.tsx
+import { createContext, useContext, useState, useEffect } from "react";
+import { client } from "../lib/client";
+import type { User } from "smallstack-sdk-js";
+
+const AuthContext = createContext(null);
+
+export function AuthProvider({ children }) {
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    // On mount, check if persisted token is still valid
+    client.auth.me().then(res => {
+      if (res.ok) setUser(res.data);
+    }).finally(() => setLoading(false));
+  }, []);
+
+  const login = async (username: string, password: string) => {
+    const res = await client.auth.login(username, password);
+    if (res.ok) setUser(res.data.user);
+    return res;
+  };
+
+  const register = async (data) => {
+    const res = await client.auth.register(data);
+    if (res.ok) setUser(res.data.user);
+    return res;
+  };
+
+  const logout = async () => {
+    await client.auth.logout();
+    setUser(null);
+  };
+
+  return (
+    <AuthContext.Provider value={{ user, loading, login, register, logout }}>
+      {children}
+    </AuthContext.Provider>
+  );
+}
+
+export const useAuth = () => useContext(AuthContext);
+```
+
+### Fetching Data
+
+```typescript
+// Use client.api() for any endpoint — token is sent automatically
+const { data } = await client.api<PaginatedResponse<Widget>>("/api/manage/widgets/");
+console.log(data.results);
+```
+
+The SDK handles: token storage/restoration on page refresh, system token swap for `register()`, and token cleanup on `logout()`. No manual `localStorage` or `Authorization` header management needed.
+
+### SDK Constructor Options
+
+| Option        | Type      | Default              | Description                                      |
+|---------------|-----------|----------------------|--------------------------------------------------|
+| `baseUrl`     | `string`  | —                    | Base URL of your SmallStack instance             |
+| `token`       | `string`  | —                    | Pre-existing Bearer token                        |
+| `systemToken` | `string`  | —                    | Auth-level token for `register()` (auto-proxied) |
+| `persist`     | `boolean` | `false`              | Auto-sync token to localStorage                  |
+| `storageKey`  | `string`  | `"smallstack_token"` | localStorage key for persisted token             |
+
+## React Example (Without SDK)
+
+If you prefer not to use the SDK, here's the equivalent manual approach:
 
 ```jsx
 // lib/api.js
