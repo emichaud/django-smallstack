@@ -54,8 +54,9 @@ Create `.env.local` in your React project root:
 
 ```bash
 VITE_API_URL=http://localhost:8005
-VITE_SYSTEM_TOKEN=your-system-token-here
 ```
+
+> **Note:** If you need registration during local development, you can add `VITE_SYSTEM_TOKEN=your-token-here` for convenience. **Do not deploy this to production** — `VITE_` variables are bundled into client-side JavaScript. See [What About the System Token?](#what-about-the-system-token) for production patterns.
 
 ## 5. Create the Client
 
@@ -65,7 +66,6 @@ import { SmallStackClient } from "smallstack-sdk-js";
 
 export const client = new SmallStackClient({
   baseUrl: import.meta.env.VITE_API_URL,
-  systemToken: import.meta.env.VITE_SYSTEM_TOKEN,
   persist: true,  // saves token to localStorage, restores on page refresh
 });
 ```
@@ -249,9 +249,26 @@ export function Dashboard() {
 
 ## What About the System Token?
 
-The system token is an auth-level API token that gives permission to create users. It lives in your `.env.local` file and is only used by the SDK internally during `register()` calls. Users never see it.
+The system token is an auth-level API token that can register users, list users, reset passwords, and deactivate accounts. It is a **privileged credential** — treat it like a database password.
 
-For apps that don't need registration (users are created by admins), you can skip `systemToken` entirely:
+**Do not put it in client-side environment variables** like `VITE_SYSTEM_TOKEN` or `NEXT_PUBLIC_SYSTEM_TOKEN`. These prefixes tell bundlers to include the value in the JavaScript bundle, which means anyone can see it in their browser's dev tools.
+
+### For production apps that need registration
+
+Proxy the registration request through your own server-side endpoint that holds the system token:
+
+```
+Browser → POST /api/register (your server)
+Your server → POST /api/auth/register/ (SmallStack, with system token)
+Your server ← 201 { token, user }
+Browser ← 201 { token, user }
+```
+
+In **Next.js**, this means an API route. In **Express/Fastify**, a dedicated endpoint. The SDK's `systemToken` option is designed for these server-side contexts.
+
+### For apps that don't need registration
+
+Skip `systemToken` entirely — users are created by admins through the SmallStack UI:
 
 ```typescript
 const client = new SmallStackClient({
@@ -260,6 +277,10 @@ const client = new SmallStackClient({
 });
 // login() works fine without systemToken
 ```
+
+### For local development / internal tools
+
+Using `VITE_SYSTEM_TOKEN` during local development is fine — just don't deploy it to production that way.
 
 ## Next Steps
 

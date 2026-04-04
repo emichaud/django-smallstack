@@ -187,10 +187,11 @@ import { SmallStackClient } from "smallstack-sdk-js";
 
 export const client = new SmallStackClient({
   baseUrl: import.meta.env.VITE_API_URL || "http://localhost:8005",
-  systemToken: import.meta.env.VITE_SYSTEM_TOKEN,  // enables register()
-  persist: true,                                     // auto-sync token to localStorage
+  persist: true,  // auto-sync token to localStorage
 });
 ```
+
+> **Do not pass `systemToken` in client-side code.** `VITE_` and `NEXT_PUBLIC_` environment variables are bundled into JavaScript that anyone can view in their browser. The system token can register users, reset passwords, and deactivate accounts — it must stay server-side. For SPAs that need registration, proxy through a server-side endpoint (Next.js API route, Express, etc.) that holds the system token. Using `VITE_SYSTEM_TOKEN` during local development is acceptable.
 
 ### Auth Context (React)
 
@@ -417,7 +418,7 @@ This produces typed functions for every endpoint, including auth responses, filt
 
 ## Security Notes
 
-- **System token is a backend secret** — store it in server-side environment variables, never expose it to the browser. If your frontend is a pure SPA with no server component, you cannot safely use register/deactivate/system-password-change endpoints from the client.
+- **System token is a backend secret** — store it in server-side environment variables, never expose it to the browser. `VITE_`, `NEXT_PUBLIC_`, and `REACT_APP_` prefixed variables are bundled into client-side JavaScript and visible to anyone. For SPAs that need registration, proxy through a server-side endpoint (Next.js API route, Express, etc.) that holds the system token. If your frontend has no server component, you cannot safely use register/deactivate/system-password-change endpoints from the client.
 - **Login tokens expire** — default 24 hours, configurable via `SMALLSTACK_LOGIN_TOKEN_EXPIRY_HOURS`. Handle 401 gracefully (redirect to login).
 - **Registration creates non-staff users only** — the register endpoint always sets `is_staff=False`, `is_superuser=False`.
 - **CORS restricts origins** — only origins listed in `CORS_ALLOWED_ORIGINS` can make cross-origin requests.
