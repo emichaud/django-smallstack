@@ -191,7 +191,44 @@ export const client = new SmallStackClient({
 });
 ```
 
-> **Do not pass `systemToken` in client-side code.** `VITE_` and `NEXT_PUBLIC_` environment variables are bundled into JavaScript that anyone can view in their browser. The system token can register users, reset passwords, and deactivate accounts — it must stay server-side. For SPAs that need registration, proxy through a server-side endpoint (Next.js API route, Express, etc.) that holds the system token. Using `VITE_SYSTEM_TOKEN` during local development is acceptable.
+> **Do not pass `systemToken` in client-side code.** `VITE_` and `NEXT_PUBLIC_` environment variables are bundled into JavaScript that anyone can view in their browser. The system token can register users, reset passwords, and deactivate accounts — it must stay server-side. Using `VITE_SYSTEM_TOKEN` during local development is acceptable.
+
+#### Production Registration Proxy
+
+For SPAs that need registration, proxy through a server-side endpoint that holds the system token:
+
+**Next.js API Route** (`app/api/register/route.ts`):
+```typescript
+import { SmallStackClient } from "smallstack-sdk-js";
+
+const server = new SmallStackClient({
+  baseUrl: process.env.SMALLSTACK_API_URL!,
+  systemToken: process.env.SMALLSTACK_SYSTEM_TOKEN!,
+});
+
+export async function POST(request: Request) {
+  const body = await request.json();
+  const res = await server.auth.register(body);
+  return Response.json(res.data, { status: res.status });
+}
+```
+
+**Express** (`routes/register.js`):
+```javascript
+import { SmallStackClient } from "smallstack-sdk-js";
+
+const server = new SmallStackClient({
+  baseUrl: process.env.SMALLSTACK_API_URL,
+  systemToken: process.env.SMALLSTACK_SYSTEM_TOKEN,
+});
+
+app.post("/api/register", async (req, res) => {
+  const result = await server.auth.register(req.body);
+  res.status(result.status).json(result.data);
+});
+```
+
+The browser calls your server, your server calls SmallStack with the system token, and the user's login token is returned to the browser.
 
 ### Auth Context (React)
 

@@ -303,7 +303,7 @@ The system token is an auth-level API token that can register users, list users,
 
 ### For production apps that need registration
 
-Proxy the registration request through your own server-side endpoint that holds the system token:
+Proxy the registration request through your own server-side endpoint that holds the system token. The browser never sees it — your server makes the SmallStack call:
 
 ```
 Browser → POST /api/register (your server)
@@ -312,7 +312,53 @@ Your server ← 201 { token, user }
 Browser ← 201 { token, user }
 ```
 
-In **Next.js**, this means an API route. In **Express/Fastify**, a dedicated endpoint. The SDK's `systemToken` option is designed for these server-side contexts.
+**Next.js API Route** (`app/api/register/route.ts`):
+
+```typescript
+import { SmallStackClient } from "smallstack-sdk-js";
+
+const server = new SmallStackClient({
+  baseUrl: process.env.SMALLSTACK_API_URL!,   // not NEXT_PUBLIC_ — server only
+  systemToken: process.env.SMALLSTACK_SYSTEM_TOKEN!,
+});
+
+export async function POST(request: Request) {
+  const body = await request.json();
+  const res = await server.auth.register(body);
+  return Response.json(res.data, { status: res.status });
+}
+```
+
+**Express** (`routes/register.js`):
+
+```javascript
+import { SmallStackClient } from "smallstack-sdk-js";
+
+const server = new SmallStackClient({
+  baseUrl: process.env.SMALLSTACK_API_URL,
+  systemToken: process.env.SMALLSTACK_SYSTEM_TOKEN,
+});
+
+app.post("/api/register", async (req, res) => {
+  const result = await server.auth.register(req.body);
+  res.status(result.status).json(result.data);
+});
+```
+
+Then your React client calls your own server instead of SmallStack directly:
+
+```typescript
+// No systemToken needed — your server handles it
+const res = await fetch("/api/register", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ username, email, password, password_confirm }),
+});
+const data = await res.json();
+if (res.ok) {
+  client.setToken(data.token);  // SDK stores + persists the user's token
+}
+```
 
 ### For apps that don't need registration
 
