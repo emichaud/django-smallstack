@@ -392,6 +392,12 @@ class ExplorerSite:
         else:
             resolved_fields = _resolve_fields_from_admin(model, admin_instance)
 
+        # explorer_list_fields: list-only override (doesn't touch form fields).
+        # Use this to trim columns from the list view while keeping all fields
+        # editable on create/edit forms.
+        explorer_list_fields = getattr(admin_instance, "explorer_list_fields", None)
+        list_fields_override = list(explorer_list_fields) if explorer_list_fields else resolved_fields
+
         # Readonly detection
         readonly = getattr(
             admin_instance,
@@ -456,6 +462,7 @@ class ExplorerSite:
                 "admin_class": admin_class,
                 "fields": form_fields or resolved_fields,
                 "list_fields": resolved_fields,
+                "list_columns": list_fields_override if explorer_list_fields else None,
                 "url_base": url_base,
                 "namespace": namespace,
                 "paginate_by": paginate_by,

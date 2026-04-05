@@ -359,7 +359,7 @@ class _CRUDContextMixin:
                 "object_verbose_name_plural": str(meta.verbose_name_plural).capitalize(),
                 "url_base": url_base,
                 "url_namespace": cfg.namespace,
-                "list_fields": cfg._get_list_fields(),
+                "list_fields": cfg._get_list_columns(),
                 "detail_fields": cfg._get_detail_fields(),
                 "link_field": cfg._get_link_field(),
                 "crud_actions": cfg.actions,
@@ -464,6 +464,9 @@ class _CRUDListBase(_CRUDContextMixin, ListView):
             context["display_palette"] = build_palette_context(all_displays, display, self.request)
             if len(all_displays) > 1:
                 context["available_displays"] = all_displays
+            # Per-display bulk opt-out: displays can set supports_bulk=False
+            if not getattr(display, "supports_bulk", True):
+                context["enable_bulk"] = False
         elif cfg.table_class:
             # Legacy table2 path (no displays configured, but table_class set)
             warnings.warn(
@@ -1024,6 +1027,7 @@ class CRUDView:
     model = None
     fields = None
     list_fields = None
+    list_columns = None  # Optional UI-only override: narrower column set for list template (API/CSV still use list_fields)
     detail_fields = None
     link_field = None
 
@@ -1099,6 +1103,16 @@ class CRUDView:
                 if fields:
                     return fields
         return cls.fields
+
+    @classmethod
+    def _get_list_columns(cls):
+        """UI-only column subset for the list template. Falls back to list_fields.
+
+        Use this to trim the list table without affecting API/CSV/ordering.
+        """
+        if cls.list_columns:
+            return list(cls.list_columns)
+        return cls._get_list_fields()
 
     @classmethod
     def _get_detail_fields(cls):
