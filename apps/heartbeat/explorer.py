@@ -4,12 +4,13 @@ from django.contrib import admin
 
 from apps.explorer.registry import explorer
 from apps.smallstack.displays import (
+    CalendarDisplay,
     DashboardWidget,
     DetailGridDisplay,
     TableDisplay,
 )
 
-from .displays import MonthGridDisplay, SLACompareDisplay, WeeklySummaryDisplay
+from .displays import SLACompareDisplay, WeeklySummaryDisplay
 from .models import Heartbeat, HeartbeatDaily, HeartbeatEpoch, MaintenanceWindow
 
 
@@ -21,7 +22,12 @@ class HeartbeatDailyExplorerAdmin(admin.ModelAdmin):
     explorer_displays = [
         TableDisplay,
         WeeklySummaryDisplay(),
-        MonthGridDisplay(),
+        CalendarDisplay(
+            date_field="date",
+            title_field=lambda d: f"{float(d.uptime_pct):.2f}%",
+            status_field="sla_status",
+            variant="block",
+        ),
     ]
 
     explorer_detail_displays = [
@@ -57,7 +63,27 @@ class StatusDashboardWidget(DashboardWidget):
         }
 
 
+HeartbeatAdmin.explorer_list_fields = ("timestamp", "status")
+HeartbeatAdmin.explorer_column_widths = {"timestamp": "30%", "status": "70%"}
 HeartbeatAdmin.explorer_dashboard_widgets = [StatusDashboardWidget()]
+
+HeartbeatEpochAdmin.explorer_list_fields = ("started_at", "service_target", "service_minimum")
+HeartbeatEpochAdmin.explorer_column_widths = {
+    "started_at": "30%",
+    "service_target": "35%",
+    "service_minimum": "35%",
+}
+
+MaintenanceWindowAdmin.explorer_list_fields = ("title", "start", "end")
+MaintenanceWindowAdmin.explorer_column_widths = {
+    "title": "34%",
+    "start": "33%",
+    "end": "33%",
+}
+MaintenanceWindowAdmin.explorer_displays = [
+    TableDisplay,
+    CalendarDisplay(date_field="start", end_field="end", title_field="title"),
+]
 
 explorer.register(Heartbeat, HeartbeatAdmin, group="Monitoring")
 explorer.register(HeartbeatEpoch, HeartbeatEpochAdmin, group="Monitoring")

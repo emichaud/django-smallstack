@@ -3,7 +3,11 @@
 from django.utils import timezone
 
 from apps.explorer.registry import explorer
-from apps.smallstack.displays import DashboardWidget
+from apps.smallstack.displays import (
+    AvatarCardDisplay,
+    DashboardWidget,
+    TableDisplay,
+)
 
 from .admin import UserAdmin
 from .models import User
@@ -30,6 +34,23 @@ class UsersDashboardWidget(DashboardWidget):
         return {"headline": f"{active_count} active", "detail": f"{new_count} new (30d)"}
 
 
+UserAdmin.explorer_list_fields = ("username", "email", "is_staff", "is_active")
+UserAdmin.explorer_column_widths = {
+    "username": "20%",
+    "email": "50%",
+    "is_staff": "15%",
+    "is_active": "15%",
+}
 UserAdmin.explorer_dashboard_widgets = [UsersDashboardWidget()]
+UserAdmin.explorer_displays = [
+    TableDisplay,
+    AvatarCardDisplay(
+        title_field="username",
+        subtitle_field="email",
+        show_avatar=True,  # no photo on User — initials only
+        pill_field=lambda u: u.date_joined.strftime("%Y") if u.date_joined else None,
+        pill_label="joined",
+    ),
+]
 
 explorer.register(User, UserAdmin, group="Accounts")

@@ -4,7 +4,34 @@ from datetime import timedelta
 
 from django.utils import timezone
 
-from apps.smallstack.displays import DetailDisplay
+from apps.smallstack.displays import AvatarCardDisplay, DetailDisplay
+
+
+class ProfileCardDisplay(AvatarCardDisplay):
+    """Profile card grid: avatar, username, display name, tenure pill.
+
+    Thin subclass of AvatarCardDisplay that adds a computed 'days as user'
+    pill. Everything else (layout, pagination, bulk-select) is inherited.
+    """
+
+    def __init__(self):
+        super().__init__(
+            title_field="user.username",
+            subtitle_field="display_name",
+            image_field="profile_photo",
+        )
+
+    def get_context(self, queryset, crud_config, request):
+        ctx = super().get_context(queryset, crud_config, request)
+        now = timezone.now()
+        for card in ctx["cards"]:
+            created_at = getattr(card["obj"], "created_at", None)
+            days = (now - created_at).days if created_at else 0
+            card["pill_value"] = days
+            card["pill_label"] = "day" if days == 1 else "days"
+            if not card["subtitle"]:
+                card["subtitle"] = "No display name"
+        return ctx
 
 
 class UserActivityDisplay(DetailDisplay):

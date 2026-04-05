@@ -160,6 +160,24 @@ class HeartbeatDaily(models.Model):
     def __str__(self):
         return f"{self.date} — {self.uptime_pct}% ({self.ok_count}/{self.expected_count})"
 
+    @property
+    def sla_status(self):
+        """Classify this day's uptime against SLA targets.
+
+        Returns ``"success"`` when uptime meets the target, ``"warning"`` when
+        it meets the minimum (but not the target), ``"danger"`` when below
+        minimum, or ``None`` when there's no meaningful sample.
+        """
+        if (self.ok_count + self.fail_count) == 0:
+            return None
+        target, minimum = HeartbeatEpoch.get_sla_targets()
+        uptime = float(self.uptime_pct)
+        if uptime >= float(target):
+            return "success"
+        if uptime >= float(minimum):
+            return "warning"
+        return "danger"
+
     @classmethod
     def get_daily_summary(cls, days=7):
         """Return a list of daily ok/fail dicts for the last N days.

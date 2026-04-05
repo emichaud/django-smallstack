@@ -8,6 +8,13 @@ from apps.smallstack.displays import DashboardWidget, StatsAccessory
 from .admin import RequestLogAdmin
 from .models import RequestLog
 
+RequestLogAdmin.explorer_list_fields = ("timestamp", "method", "status_code", "path")
+RequestLogAdmin.explorer_column_widths = {
+    "timestamp": "22%",
+    "method": "10%",
+    "status_code": "10%",
+}
+
 
 class ActivityDashboardWidget(DashboardWidget):
     title = "Activity"

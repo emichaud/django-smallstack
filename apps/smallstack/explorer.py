@@ -8,7 +8,13 @@ from apps.explorer.registry import explorer
 class AccessLogExplorerAdmin(admin.ModelAdmin):
     list_display = (
         "attempt_time",
-        "logout_time",
+        "ip_address",
+        "username",
+        "user_agent",
+        "path_info",
+    )
+    explorer_list_fields = (
+        "attempt_time",
         "ip_address",
         "username",
         "user_agent",
@@ -16,11 +22,9 @@ class AccessLogExplorerAdmin(admin.ModelAdmin):
     )
     explorer_field_transforms = {
         "attempt_time": ("localtime", {"fmt": "M d, Y g:i A"}),
-        "logout_time": ("localtime", {"fmt": "M d, Y g:i A"}),
     }
     explorer_column_widths = {
-        "attempt_time": "18%",
-        "logout_time": "18%",
+        "attempt_time": "22%",
     }
 
 

@@ -4,14 +4,13 @@ from django.contrib import admin
 
 from apps.explorer.registry import explorer
 from apps.smallstack.displays import (
-    CardDisplay,
     DetailCardDisplay,
-    DetailTableDisplay,
+    DetailGridDisplay,
     SectionedFormDisplay,
     TableDisplay,
 )
 
-from .displays import UserActivityDisplay
+from .displays import ProfileCardDisplay, UserActivityDisplay
 from .models import UserProfile
 
 
@@ -24,15 +23,27 @@ class UserProfileExplorerAdmin(admin.ModelAdmin):
     list_display = ("user", "display_name", "bio", "location", "created_at")
     list_per_page = 12
 
+    # Toolbar: search + filters, shared across all displays (table, cards, etc.)
+    search_fields = ("user__username", "display_name", "location")
+    list_filter = ("theme_preference",)
+
+    explorer_list_fields = ("user", "display_name", "location", "created_at")
+    explorer_column_widths = {
+        "user": "25%",
+        "display_name": "25%",
+        "location": "25%",
+        "created_at": "25%",
+    }
+
     # List: three displays
     explorer_displays = [
         TableDisplay,
-        CardDisplay(title_field="user", subtitle_field="created_at"),
+        ProfileCardDisplay(),
     ]
 
-    # Detail: table (classic) and card (grid) layouts
+    # Detail: two-column grid (default), card (photo + grid), activity chart
     explorer_detail_displays = [
-        DetailTableDisplay,
+        DetailGridDisplay,
         DetailCardDisplay(image_field="profile_photo"),
         UserActivityDisplay(),
     ]
