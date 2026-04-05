@@ -7,7 +7,7 @@
     <div class="crud-grid-value">
       {% if row.is_bool %}
         {% if row.value %}&#10003;{% else %}—{% endif %}
-      {% elif row.value %}
+      {% else %}
         {{ row.value }}
       {% endif %}
     </div>

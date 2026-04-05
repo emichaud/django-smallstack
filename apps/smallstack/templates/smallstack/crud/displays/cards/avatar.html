@@ -1,0 +1,31 @@
+<{% if card.detail_url %}a href="{{ card.detail_url }}"{% else %}div{% endif %}
+    class="card-grid-item card-grid-item--avatar"
+    {% if enable_bulk %}data-pk="{{ card.pk }}"{% endif %}
+>
+    {% if enable_bulk %}
+    <div class="card-grid-check" onclick="event.stopPropagation();">
+        <input type="checkbox" class="bulk-select-row" data-pk="{{ card.pk }}">
+    </div>
+    {% endif %}
+    {% if card.show_avatar %}
+    <div class="card-grid-avatar">
+        {% if card.image_url %}
+        <img src="{{ card.image_url }}" alt="{{ card.title }}">
+        {% else %}
+        <span class="card-grid-initials">{{ card.initials }}</span>
+        {% endif %}
+    </div>
+    {% endif %}
+    <div class="card-grid-body">
+        <div class="card-grid-title">{{ card.title }}</div>
+        {% if card.subtitle %}
+        <div class="card-grid-subtitle">{{ card.subtitle }}</div>
+        {% endif %}
+        {% if card.pill_value is not None %}
+        <div class="card-grid-pill">
+            <span class="card-grid-pill-value">{{ card.pill_value }}</span>
+            {% if card.pill_label %}<span class="card-grid-pill-label">{{ card.pill_label }}</span>{% endif %}
+        </div>
+        {% endif %}
+    </div>
+</{% if card.detail_url %}a{% else %}div{% endif %}>

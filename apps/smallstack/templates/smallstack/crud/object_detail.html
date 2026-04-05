@@ -16,7 +16,7 @@
 {% if breadcrumb_parent_label %}
 <div class="page-header-bleed page-header-with-actions" style="display: flex; align-items: flex-start; justify-content: space-between;">
     <div class="page-header-content">
-        <h1>{{ object }}</h1>
+        <h1 class="crud-title">{{ object }}</h1>
         <p class="page-subtitle">{{ object_verbose_name }} detail</p>
         <nav style="margin-top: 0.5rem; font-size: 0.8rem;">
             <a href="{% url 'website:home' %}" style="color: var(--body-quiet-color); text-decoration: none;">Home</a>
@@ -49,7 +49,7 @@
 <div class="card" data-list-url="{{ list_view_url }}">
     {% if not breadcrumb_parent_label %}
     <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
-        <h2>{{ object }}</h2>
+        <h2 class="crud-title">{{ object }}</h2>
         <div style="display: flex; align-items: center; gap: 8px;">
             {% if available_displays|length > 1 %}
             {% include "smallstack/crud/includes/display_palette.html" %}

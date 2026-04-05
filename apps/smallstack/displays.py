@@ -4,7 +4,7 @@ Display classes render a dataset into a visual format. CRUDView provides
 the data; the display class renders it.
 
 Built-in displays:
-    List:   TableDisplay, CardDisplay
+    List:   TableDisplay, CardDisplay, AvatarCardDisplay, CalendarDisplay
     Detail: DetailTableDisplay, DetailFormDisplay, DetailGridDisplay, DetailCardDisplay
     Form:   DefaultFormDisplay, SectionedFormDisplay
 
@@ -89,11 +89,17 @@ class ListDisplay:
     Subclass this to create custom list displays (maps, charts, etc.).
     CRUDView picks the active display and calls get_context() to build
     template context, then renders template_name inside the list view.
+
+    Class attributes:
+        supports_bulk: If False, the list page hides bulk-select UI when
+            this display is active (e.g. map views, charts, custom layouts
+            where per-row checkboxes don't fit).
     """
 
     name = ""
     icon = ""
     template_name = ""
+    supports_bulk: bool = True
 
     def get_context(self, queryset, crud_config, request):
         """Return additional template context for rendering this display."""
@@ -256,13 +262,78 @@ class TableDisplay(ListDisplay):
         return paginate_queryset(queryset, crud_config._resolve_paginate_by(), request)
 
 
-class CardDisplay(ListDisplay):
-    """3-column card grid display.
+def _resolve_field(obj, path):
+    """Resolve a field reference: callable, dotted path ('user.username'), or attr name.
 
-    Each card shows a title and subtitle, and links to the detail view.
+    Returns None if any segment is missing.
+    """
+    if path is None:
+        return None
+    if callable(path):
+        return path(obj)
+    value = obj
+    for part in str(path).split("."):
+        value = getattr(value, part, None)
+        if value is None:
+            return None
+    return value
+
+
+def _resolve_image_url(obj, path):
+    """Resolve an ImageField-style reference to its .url (or None)."""
+    image = _resolve_field(obj, path)
+    if not image:
+        return None
+    try:
+        return image.url
+    except (ValueError, AttributeError):
+        return None
+
+
+def _derive_initials(text, n=2):
+    """Derive up-to-N-letter initials from a string (e.g. 'Jane Doe' -> 'JD')."""
+    if not text:
+        return "?"
+    parts = [p for p in str(text).strip().split() if p]
+    if len(parts) >= 2:
+        return (parts[0][0] + parts[-1][0]).upper()
+    return str(text)[:n].upper()
+
+
+class CardDisplay(ListDisplay):
+    """Grid-of-cards base display — peer to TableDisplay.
+
+    Handles the grid wrapper, pagination, bulk-select checkbox, pk, and
+    detail URL for each card. Subclasses define `item_template` (the
+    per-card partial) and override `build_card()` to shape each card's
+    dict for their template.
+
+    Default behavior (no subclass needed): renders a key-value card for
+    each object using the model's list_columns/list_fields — the first
+    field becomes the card title, remaining fields render as
+    label: value rows. Works on any model with zero config.
+
+    Variants:
+        CardDisplay()               — key-value layout (zero config)
+        AvatarCardDisplay(...)      — avatar + title + subtitle + pill
+        (custom)                    — subclass with your own item_template
 
     Usage:
-        displays = [CardDisplay(title_field="name", subtitle_field="created_at")]
+        explorer_displays = [TableDisplay, CardDisplay]  # zero config
+        explorer_displays = [TableDisplay, AvatarCardDisplay(
+            title_field="name", image_field="photo")]
+
+    Authoring new variants:
+        class StatCardDisplay(CardDisplay):
+            item_template = "myapp/cards/stat.html"
+            def __init__(self, value_field, label_field):
+                self.value_field = value_field
+                self.label_field = label_field
+            def build_card(self, obj, cfg, req):
+                return {
+                    "value": _resolve_field(obj, self.value_field),
+                    "label": _resolve_field(obj, self.label_field),
+                }
     """
 
     name = "cards"
@@ -273,56 +344,317 @@ class CardDisplay(ListDisplay):
         "</svg>"
     )
     template_name = "smallstack/crud/displays/cards.html"
-
-    def __init__(self, title_field=None, subtitle_field=None):
-        self.title_field = title_field
-        self.subtitle_field = subtitle_field
+    item_template = "smallstack/crud/displays/cards/keyvalue.html"
 
     def get_context(self, queryset, crud_config, request):
-        """Build card data with pagination."""
-        from django.urls import reverse
+        """Orchestrate pagination, per-card URLs, and item-template dispatch."""
+        from apps.smallstack.crud import Action
 
         paginate_by = crud_config._resolve_paginate_by()
-        url_base = crud_config._get_url_base()
-        title_field = self.title_field or crud_config._get_list_fields()[0]
-        subtitle_field = self.subtitle_field
-
-        # Paginate
         page_context = paginate_queryset(queryset, paginate_by, request)
         items = page_context.pop("object_list", queryset)
 
-        # Build cards
-        from apps.smallstack.crud import Action
-
         has_detail = Action.DETAIL in crud_config.actions
-        namespace = getattr(crud_config, "namespace", None)
+
         cards = []
         for obj in items:
-            title = getattr(obj, title_field, str(obj))
-            subtitle = getattr(obj, subtitle_field, "") if subtitle_field else ""
-            if has_detail:
-                url_name = f"{url_base}-detail"
-                if namespace:
-                    url_name = f"{namespace}:{url_name}"
-                detail_url = reverse(url_name, kwargs={"pk": obj.pk})
-            else:
-                detail_url = None
-            cards.append(
-                {
-                    "pk": obj.pk,
-                    "obj": obj,
-                    "title": title,
-                    "subtitle": subtitle,
-                    "detail_url": detail_url,
-                }
-            )
+            card = self.build_card(obj, crud_config, request)
+            card["pk"] = obj.pk
+            card["obj"] = obj
+            card["detail_url"] = self._resolve_detail_url(obj, crud_config) if has_detail else None
+            cards.append(card)
 
         return {
             "cards": cards,
+            "item_template": self.item_template,
             "object_list": items,
             "paginate_by": paginate_by or 0,
             **page_context,
         }
+
+    def build_card(self, obj, crud_config, request):
+        """Build the per-card dict. Default: key-value layout using list_fields.
+
+        Returns a dict with {"title": ..., "rows": [{"label", "value"}, ...]}.
+        Subclasses typically replace this with their own shape.
+        """
+        from apps.smallstack.templatetags.crud_tags import _get_field_label, _get_field_value
+
+        field_transforms = crud_config._get_effective_transforms()
+        list_fields = crud_config._get_list_columns() or crud_config._get_list_fields() or []
+
+        title = str(obj)
+        rows = []
+        for i, field_name in enumerate(list_fields):
+            value = _get_field_value(obj, field_name, field_transforms)
+            if i == 0:
+                title = value or str(obj)
+                continue
+            label = _get_field_label(obj.__class__, field_name)
+            rows.append({"label": label, "value": value})
+        return {"title": title, "rows": rows}
+
+    @staticmethod
+    def _resolve_detail_url(obj, crud_config):
+        from django.urls import reverse
+
+        url_base = crud_config._get_url_base()
+        namespace = getattr(crud_config, "namespace", None)
+        url_name = f"{url_base}-detail"
+        if namespace:
+            url_name = f"{namespace}:{url_name}"
+        return reverse(url_name, kwargs={"pk": obj.pk})
+
+
+class AvatarCardDisplay(CardDisplay):
+    """Card variant with avatar, title, subtitle, and optional pill.
+
+    Fields can be referenced as attribute names, dotted paths
+    ('user.username'), or callables (obj -> value).
+
+    Subclass + override build_card (or get_context) to inject computed
+    fields (e.g. pills whose values aren't plain model fields). Subclasses
+    that only need to annotate cards can call super().get_context() and
+    mutate the returned 'cards' list.
+
+    Usage:
+        displays = [
+            AvatarCardDisplay(
+                title_field="name",
+                subtitle_field="email",
+                image_field="avatar",
+                pill_field="status",
+            ),
+        ]
+    """
+
+    item_template = "smallstack/crud/displays/cards/avatar.html"
+
+    def __init__(
+        self,
+        title_field=None,
+        subtitle_field=None,
+        image_field=None,
+        pill_field=None,
+        pill_label=None,
+        show_avatar=None,
+    ):
+        self.title_field = title_field
+        self.subtitle_field = subtitle_field
+        self.image_field = image_field
+        self.pill_field = pill_field
+        self.pill_label = pill_label
+        # Default: show avatar when an image_field is provided. Pass
+        # show_avatar=True to force an initials-only avatar for models
+        # without a photo (e.g. User).
+        self.show_avatar = show_avatar if show_avatar is not None else (image_field is not None)
+
+    def build_card(self, obj, crud_config, request):
+        title_field = self.title_field or (crud_config._get_list_fields() or ["__str__"])[0]
+        title = _resolve_field(obj, title_field) or str(obj)
+        subtitle = _resolve_field(obj, self.subtitle_field) if self.subtitle_field else None
+        pill_value = _resolve_field(obj, self.pill_field) if self.pill_field else None
+
+        if self.show_avatar:
+            image_url = _resolve_image_url(obj, self.image_field) if self.image_field else None
+            initials = _derive_initials(title) if not image_url else None
+        else:
+            image_url = None
+            initials = None
+
+        return {
+            "title": title,
+            "subtitle": subtitle,
+            "image_url": image_url,
+            "initials": initials,
+            "show_avatar": self.show_avatar,
+            "pill_value": pill_value,
+            "pill_label": self.pill_label,
+        }
+
+
+class CalendarDisplay(ListDisplay):
+    """Month-grid calendar view of records with a date or datetime field.
+
+    Each record renders as a clickable chip on its date cell. For records
+    with a range (start + end), pass `end_field` to stretch the event
+    across every day in the range.
+
+    Usage:
+        # Single-date events
+        CalendarDisplay(date_field="due_date", title_field="title")
+
+        # Ranged events (e.g. maintenance windows, reservations)
+        CalendarDisplay(
+            date_field="start",
+            end_field="end",
+            title_field="title",
+        )
+
+    URL navigation:
+        ?display=calendar&month=YYYY-MM
+
+    The display filters the queryset to the visible month, so very large
+    datasets don't blow up. Bulk-select is disabled (doesn't fit the
+    calendar cell layout).
+    """
+
+    name = "calendar"
+    icon = (
+        '<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">'
+        '<path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19'
+        "c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11z"
+        'M9 10H7v2h2v-2zm4 0h-2v2h2v-2zm4 0h-2v2h2v-2z"/>'
+        "</svg>"
+    )
+    template_name = "smallstack/crud/displays/calendar.html"
+    supports_bulk = False
+
+    def __init__(
+        self,
+        date_field,
+        end_field=None,
+        title_field=None,
+        status_field=None,
+        variant="chip",
+        month_param="month",
+    ):
+        self.date_field = date_field
+        self.end_field = end_field
+        self.title_field = title_field
+        self.status_field = status_field
+        self.variant = variant
+        self.month_param = month_param
+
+    def get_context(self, queryset, crud_config, request):
+        import calendar as pycal
+        from datetime import date as date_cls
+        from datetime import timedelta
+
+        from django.utils import timezone
+
+        from apps.smallstack.crud import Action
+
+        today = timezone.localdate()
+
+        # Parse month from URL (?month=YYYY-MM), default to current month
+        month_str = request.GET.get(self.month_param, "")
+        try:
+            year, month = (int(x) for x in month_str.split("-"))
+            cursor = date_cls(year, month, 1)
+        except (ValueError, TypeError):
+            cursor = today.replace(day=1)
+
+        _, last_day = pycal.monthrange(cursor.year, cursor.month)
+        month_start = cursor
+        month_end = cursor.replace(day=last_day)
+        next_day_after = month_end + timedelta(days=1)
+
+        # Filter queryset to events overlapping the visible month
+        if self.end_field:
+            filtered = queryset.filter(
+                **{f"{self.date_field}__lt": next_day_after},
+                **{f"{self.end_field}__gte": month_start},
+            )
+        else:
+            filtered = queryset.filter(
+                **{f"{self.date_field}__gte": month_start},
+                **{f"{self.date_field}__lt": next_day_after},
+            )
+
+        # Bucket events onto each day they touch
+        has_detail = Action.DETAIL in crud_config.actions
+        events_by_day = {}
+        for obj in filtered:
+            start = _to_local_date(_resolve_field(obj, self.date_field))
+            end = (
+                _to_local_date(_resolve_field(obj, self.end_field))
+                if self.end_field
+                else start
+            )
+            if start is None:
+                continue
+            if end is None:
+                end = start
+
+            title = (
+                _resolve_field(obj, self.title_field) if self.title_field else str(obj)
+            )
+            detail_url = (
+                CardDisplay._resolve_detail_url(obj, crud_config) if has_detail else None
+            )
+            # Raw values for the hover tooltip
+            raw_start = _resolve_field(obj, self.date_field)
+            raw_end = _resolve_field(obj, self.end_field) if self.end_field else None
+            status = (
+                _resolve_field(obj, self.status_field) if self.status_field else None
+            )
+            event = {
+                "title": title,
+                "detail_url": detail_url,
+                "pk": obj.pk,
+                "start": raw_start,
+                "end": raw_end,
+                "status": status,
+            }
+
+            day = max(start, month_start)
+            last = min(end, month_end)
+            while day <= last:
+                events_by_day.setdefault(day, []).append(event)
+                day += timedelta(days=1)
+
+        # Build Monday-start 7-column week grid
+        first_weekday = month_start.weekday()  # 0 = Monday
+        weeks = []
+        current_week = [None] * first_weekday
+        for day_num in range(1, last_day + 1):
+            d = month_start.replace(day=day_num)
+            current_week.append(
+                {
+                    "day": day_num,
+                    "date": d,
+                    "is_today": d == today,
+                    "events": events_by_day.get(d, []),
+                }
+            )
+            if len(current_week) == 7:
+                weeks.append(current_week)
+                current_week = []
+        if current_week:
+            current_week.extend([None] * (7 - len(current_week)))
+            weeks.append(current_week)
+
+        prev_month = (month_start - timedelta(days=1)).replace(day=1)
+        next_month_any_day = next_day_after
+
+        return {
+            "weeks": weeks,
+            "weekday_headers": ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
+            "month_label": month_start.strftime("%B %Y"),
+            "month_start": month_start,
+            "month_end": month_end,
+            "prev_month": f"{prev_month.year}-{prev_month.month:02d}",
+            "next_month": f"{next_month_any_day.year}-{next_month_any_day.month:02d}",
+            "today_month": f"{today.year}-{today.month:02d}",
+            "is_current_month": month_start.year == today.year and month_start.month == today.month,
+            "month_param": self.month_param,
+            "event_count": sum(len(v) for v in events_by_day.values()),
+            "variant": self.variant,
+        }
+
+
+def _to_local_date(value):
+    """Coerce a date/datetime/None into a local date."""
+    if value is None:
+        return None
+    if hasattr(value, "hour"):  # datetime
+        from django.utils import timezone
+
+        if timezone.is_aware(value):
+            value = timezone.localtime(value)
+        return value.date()
+    return value  # already a date
 
 
 # ---------------------------------------------------------------------------

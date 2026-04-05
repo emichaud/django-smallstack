@@ -1,0 +1,61 @@
+{% load theme_tags %}
+<div class="calendar-display calendar-display--{{ variant|default:'chip' }}">
+    <div class="calendar-header">
+        <div class="calendar-nav">
+            <a href="?display=calendar&amp;{{ month_param }}={{ prev_month }}"
+               class="calendar-nav-btn"
+               aria-label="Previous month">&lsaquo;</a>
+            <h3 class="calendar-title">{{ month_label }}</h3>
+            <a href="?display=calendar&amp;{{ month_param }}={{ next_month }}"
+               class="calendar-nav-btn"
+               aria-label="Next month">&rsaquo;</a>
+            {% if not is_current_month %}
+            <a href="?display=calendar&amp;{{ month_param }}={{ today_month }}"
+               class="calendar-today-btn">Today</a>
+            {% endif %}
+        </div>
+        <div class="calendar-count">
+            <span class="calendar-count-value">{{ event_count }}</span>
+            <span class="calendar-count-label">{{ object_verbose_name_plural }}</span>
+        </div>
+    </div>
+
+    <div class="calendar-weekdays">
+        {% for name in weekday_headers %}
+        <div class="calendar-weekday">{{ name }}</div>
+        {% endfor %}
+    </div>
+
+    <div class="calendar-grid">
+        {% for week in weeks %}
+        {% for cell in week %}
+        {% if cell %}
+        <div class="calendar-cell{% if cell.is_today %} calendar-cell--today{% endif %}">
+            <div class="calendar-cell-day">{{ cell.day }}</div>
+            {% for event in cell.events %}
+            <{% if event.detail_url %}a href="{{ event.detail_url }}"{% else %}div{% endif %}
+                class="calendar-event{% if event.status %} calendar-event--{{ event.status }}{% endif %}">
+                <span class="calendar-event-label">{{ event.title }}</span>
+                <div class="calendar-event-tooltip">
+                    <div class="calendar-event-tooltip-title">{{ event.title }}</div>
+                    <div class="calendar-event-tooltip-row">
+                        <span class="calendar-event-tooltip-label">Start</span>
+                        <span>{{ event.start }}</span>
+                    </div>
+                    {% if event.end %}
+                    <div class="calendar-event-tooltip-row">
+                        <span class="calendar-event-tooltip-label">End</span>
+                        <span>{{ event.end }}</span>
+                    </div>
+                    {% endif %}
+                </div>
+            </{% if event.detail_url %}a{% else %}div{% endif %}>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="calendar-cell calendar-cell--blank"></div>
+        {% endif %}
+        {% endfor %}
+        {% endfor %}
+    </div>
+</div>
