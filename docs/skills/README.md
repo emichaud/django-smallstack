@@ -39,6 +39,8 @@ When an AI agent is asked to modify or extend this project, these files help it:
 | [api-discovery.md](api-discovery.md) | API discovery endpoints: schema introspection, OpenAPI spec, OPTIONS metadata |
 | [custom-api-endpoints.md](custom-api-endpoints.md) | Building non-CRUD API endpoints with the `@api_view` decorator |
 | [dashboard-widgets.md](dashboard-widgets.md) | Dashboard widget protocol: `DashboardWidget` class, Explorer vs standalone registration, data layer, REST API |
+| [card-displays.md](card-displays.md) | Card grid displays: `CardDisplay` (key-value), `AvatarCardDisplay`, authoring new card variants |
+| [calendar-displays.md](calendar-displays.md) | Month-grid calendar display: `CalendarDisplay` config, ranged vs single-date events, month navigation |
 | [update-docs-and-skills.md](update-docs-and-skills.md) | File group map for updating docs/skills after code changes |
 
 ## Usage
@@ -67,6 +69,8 @@ AI agents should read relevant skill files before making changes to the correspo
 - Before integrating with the SmallStack API → read `api-discovery.md`
 - Before building custom (non-CRUD) API endpoints → read `custom-api-endpoints.md`
 - Before adding dashboard widgets → read `dashboard-widgets.md`
+- Before configuring or building card-grid list displays → read `card-displays.md`
+- Before adding a month-grid calendar to a model → read `calendar-displays.md`
 - Before updating docs after code changes → read `update-docs-and-skills.md`
 
 ## For Humans

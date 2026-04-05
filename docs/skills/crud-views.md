@@ -93,7 +93,9 @@ Displays control how data renders in list and detail views. CRUDView and Explore
 |-------|------|-------------|
 | `TableDisplay` | `table` | Basic HTML table with field transforms and pagination |
 | `Table2Display` | `table2` | django-tables2 sortable table (requires `table_class`) |
-| `CardDisplay` | `cards` | 3-column card grid with title/subtitle |
+| `CardDisplay` | `cards` | Card grid — zero-config key-value layout using `list_fields` |
+| `AvatarCardDisplay` | `cards` | Card grid with avatar + title + subtitle + optional pill |
+| `CalendarDisplay` | `calendar` | Month-grid calendar — events placed on date cells (supports single-date and date-range events) |
 
 ### Built-in Detail Displays
 
@@ -101,6 +103,8 @@ Displays control how data renders in list and detail views. CRUDView and Explore
 |-------|------|-------------|
 | `DetailTableDisplay` | `table` | Vertical key/value table |
 | `DetailCardDisplay` | `card` | 2-column: image left, fields right |
+
+See `card-displays.md` for the full card display protocol, authoring new card variants, and pushing computed fields down to managers/properties. See `calendar-displays.md` for `CalendarDisplay` configuration and date-based list displays.
 
 ### Custom Displays
 

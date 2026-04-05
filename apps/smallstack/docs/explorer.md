@@ -62,7 +62,7 @@ One ModelAdmin. Django admin, Explorer, and CRUDView all read from it.
 from django.contrib import admin
 from apps.explorer.registry import explorer
 from apps.smallstack.displays import (
-    CardDisplay, DetailCardDisplay, DetailTableDisplay,
+    AvatarCardDisplay, DetailCardDisplay, DetailTableDisplay,
     Table2Display, TableDisplay,
 )
 from .models import UserProfile
@@ -76,7 +76,7 @@ class UserProfileExplorerAdmin(admin.ModelAdmin):
     explorer_displays = [
         Table2Display,
         TableDisplay,
-        CardDisplay(title_field="user", subtitle_field="created_at"),
+        AvatarCardDisplay(title_field="user", subtitle_field="created_at"),
     ]
 
     # Detail displays: table and photo card
@@ -150,18 +150,26 @@ When a model has multiple displays configured, Explorer shows a palette of icon 
 |---------|------|-------------|
 | `Table2Display` | `table2` | django-tables2 sortable table (default) |
 | `TableDisplay` | `table` | Basic HTML table with field transforms |
-| `CardDisplay` | `cards` | 3-column card grid with title/subtitle |
+| `CardDisplay` | `cards` | Zero-config card grid (label:value rows) |
+| `AvatarCardDisplay` | `cards` | Card grid with avatar + title + subtitle + pill |
+| `CalendarDisplay` | `calendar` | Month-grid calendar for models with date/datetime fields |
 
 ```python
-from apps.smallstack.displays import Table2Display, TableDisplay, CardDisplay
+from apps.smallstack.displays import (
+    Table2Display, TableDisplay, CardDisplay, AvatarCardDisplay, CalendarDisplay,
+)
 
 class MyAdmin(admin.ModelAdmin):
     explorer_displays = [
         Table2Display,                    # Sortable columns
         TableDisplay,                     # Basic table (supports transforms)
-        CardDisplay(title_field="name", subtitle_field="created_at"),
+        CardDisplay,                      # Zero-config key-value cards
+        AvatarCardDisplay(title_field="name", subtitle_field="created_at"),
+        CalendarDisplay(date_field="start", end_field="end", title_field="title"),
     ]
 ```
+
+For date-based models, `CalendarDisplay` renders a month grid with event chips on each date cell. Ranged events (with `end_field`) stretch across every day they span. See the **Calendar Displays** skill for the full reference.
 
 ![Card display](/static/smallstack/docs/images/explorer-cards-display.png)
 

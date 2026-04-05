@@ -63,7 +63,7 @@ Explorer reads `list_display` for columns (real model fields only — callables 
 | `explorer_paginate_by` | `int` | `10` | Rows per page in the Explorer list view. |
 | `explorer_preview_fields` | `list[str]` | `[]` | Fields that get truncated with click-to-preview. Merged into `field_transforms`. |
 | `explorer_field_transforms` | `dict` | `{}` | Custom field rendering: `{field: "transform_name"}`. Overrides preview mappings. |
-| `explorer_displays` | `list` | `[Table2Display]` | Display protocol classes for list view. |
+| `explorer_displays` | `list` | `[Table2Display]` | Display protocol classes for list view. Add `CardDisplay`, `AvatarCardDisplay`, or `CalendarDisplay` for alternate views. See `card-displays.md` and `calendar-displays.md`. |
 | `explorer_detail_displays` | `list` | `[]` | Display protocol classes for detail view. |
 | `explorer_export_formats` | `list` | `[]` | Export formats, e.g. `["csv", "json"]`. |
 | `explorer_api_extra_fields` | `list[str]` | `[]` | Read-only fields appended to API responses |

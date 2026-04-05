@@ -628,7 +628,9 @@ When using `admin_class`, set `explorer_bulk_actions` on the ModelAdmin instead 
 CRUDView supports the same display palette as Explorer. Configure multiple displays and users can swap between them at runtime:
 
 ```python
-from apps.smallstack.displays import TableDisplay, CardDisplay
+from apps.smallstack.displays import (
+    TableDisplay, CardDisplay, AvatarCardDisplay, CalendarDisplay,
+)
 
 class WidgetCRUDView(CRUDView):
     model = Widget
@@ -636,7 +638,11 @@ class WidgetCRUDView(CRUDView):
     url_base = "manage/widgets"
     displays = [
         TableDisplay,
-        CardDisplay(title_field="name", subtitle_field="category"),
+        CardDisplay,  # zero-config key-value card grid using list_fields
+        # Or, for records with a hero field + image:
+        # AvatarCardDisplay(title_field="name", subtitle_field="category"),
+        # Or, for models with a date/datetime field:
+        # CalendarDisplay(date_field="scheduled_for", title_field="name"),
     ]
 ```
 

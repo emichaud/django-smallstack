@@ -405,12 +405,12 @@ Register any model in Explorer for instant staff-facing CRUD at `/smallstack/exp
 # apps/inventory/explorer.py
 from django.contrib import admin
 from apps.explorer.registry import explorer
-from apps.smallstack.displays import Table2Display, TableDisplay, CardDisplay
+from apps.smallstack.displays import Table2Display, TableDisplay, CardDisplay, AvatarCardDisplay
 from .models import Product
 
 class ProductExplorerAdmin(admin.ModelAdmin):
     list_display = ("name", "sku", "price", "in_stock", "created_at")
-    explorer_displays = [Table2Display, TableDisplay, CardDisplay(title_field="name", subtitle_field="sku")]
+    explorer_displays = [Table2Display, TableDisplay, CardDisplay, AvatarCardDisplay(title_field="name", subtitle_field="sku")]
     explorer_paginate_by = 25
     explorer_enable_api = True                  # Adds REST API at /api/...
     explorer_export_formats = ["csv", "json"]   # Enable export
@@ -491,7 +491,7 @@ path("", include("apps.inventory.urls")),
 
 | Option | Purpose |
 |--------|---------|
-| `displays` | List view displays (TableDisplay, CardDisplay, Table2Display, or custom) |
+| `displays` | List view displays (TableDisplay, CardDisplay, AvatarCardDisplay, Table2Display, or custom) |
 | `detail_displays` | Detail view displays (DetailTableDisplay, DetailCardDisplay, or custom) |
 | `form_class` | Custom ModelForm (auto-generated from `fields` if not set) |
 | `table_class` | django-tables2 Table for sortable columns |

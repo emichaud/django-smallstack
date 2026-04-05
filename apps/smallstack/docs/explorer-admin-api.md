@@ -88,7 +88,9 @@ Display classes control how data renders in the list and detail views. Explorer 
 |-------|------|-------------|-------------|
 | `Table2Display` | `table2` | `Table2Display` | django-tables2 sortable table. Default. |
 | `TableDisplay` | `table` | `TableDisplay` | Basic HTML table. Supports field transforms. |
-| `CardDisplay` | `cards` | `CardDisplay(title_field=None, subtitle_field=None)` | 3-column card grid linking to detail. |
+| `CardDisplay` | `cards` | `CardDisplay` | Zero-config card grid — label:value rows using the model's `list_fields`. |
+| `AvatarCardDisplay` | `cards` | `AvatarCardDisplay(title_field=None, subtitle_field=None, image_field=None, pill_field=None, pill_label=None, show_avatar=None)` | Card grid with avatar + title + subtitle + optional pill. |
+| `CalendarDisplay` | `calendar` | `CalendarDisplay(date_field, end_field=None, title_field=None, status_field=None, variant="chip", month_param="month")` | Month-grid calendar. Events render on their date cell; `end_field` stretches ranged events across days; `status_field` tints chips green/yellow/red for `"success"`/`"warning"`/`"danger"`; `variant="block"` swaps small chips for one large colored block per day (for daily stats). |
 
 ### Detail Displays
 
@@ -168,7 +170,7 @@ Readonly models get `Action.LIST` and `Action.DETAIL` only — no create, update
 from django.contrib import admin
 from apps.explorer.registry import explorer
 from apps.smallstack.displays import (
-    CardDisplay, DetailCardDisplay, DetailTableDisplay,
+    AvatarCardDisplay, DetailCardDisplay, DetailTableDisplay,
     Table2Display, TableDisplay,
 )
 from .models import UserProfile
@@ -183,7 +185,7 @@ class UserProfileExplorerAdmin(admin.ModelAdmin):
     explorer_displays = [
         Table2Display,
         TableDisplay,
-        CardDisplay(title_field="user", subtitle_field="created_at"),
+        AvatarCardDisplay(title_field="user", subtitle_field="created_at"),
     ]
     explorer_detail_displays = [
         DetailTableDisplay,

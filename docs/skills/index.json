@@ -1,6 +1,6 @@
 {
   "name": "smallstack-skills",
-  "version": "0.8.6",
+  "version": "0.8.7",
   "description": "AI skill index for Django SmallStack. Read the relevant skill before modifying the corresponding part of the codebase.",
   "skills": [
     {
@@ -162,6 +162,22 @@
       "description": "CRUDView JSON API layer with Bearer token auth, token types (login/manual), access levels (auth/staff/readonly), auth management endpoints (register, me, password, deactivate), FK expansion, date filtering, aggregation, and CORS.",
       "keywords": ["api", "rest", "bearer", "token", "crud", "json", "auth", "register", "access level", "cors"],
       "use_when": "Building or consuming REST API endpoints, managing tokens, or configuring API authentication and access levels."
+    },
+    {
+      "id": "card-displays",
+      "file": "card-displays.md",
+      "name": "Card & Calendar Displays",
+      "description": "Card-grid list display protocol. CardDisplay (zero-config key-value), AvatarCardDisplay (avatar+title+subtitle+pill), authoring new card variants via item_template + build_card() subclasses, and generalizing the pattern to new list-display families.",
+      "keywords": ["card", "cards", "display", "grid", "avatar", "list", "keyvalue", "CardDisplay", "AvatarCardDisplay", "item_template"],
+      "use_when": "Building list displays that render as card grids, configuring CardDisplay/AvatarCardDisplay for a model, or authoring a new card variant or list display family."
+    },
+    {
+      "id": "calendar-displays",
+      "file": "calendar-displays.md",
+      "name": "Calendar Displays",
+      "description": "Month-grid calendar list display. CalendarDisplay configuration (date_field, end_field, title_field, month_param), single-date vs ranged events, month navigation, timezone handling, hover tooltips, and authoring new date-based displays.",
+      "keywords": ["calendar", "month", "date", "datetime", "event", "schedule", "maintenance window", "booking", "CalendarDisplay", "date_field", "end_field"],
+      "use_when": "Adding a month-grid calendar view to a model, configuring CalendarDisplay for date-ranged events, or authoring a new date-based list display (week, gantt, timeline)."
     },
     {
       "id": "frontend-integration",
