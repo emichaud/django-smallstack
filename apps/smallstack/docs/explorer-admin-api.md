@@ -62,6 +62,9 @@ Set these on the `ModelAdmin` subclass passed to `explorer.register()`:
 | `explorer_enable_api` | `bool` | `False` | Generate REST API endpoints for this model. |
 | `explorer_export_formats` | `list` | `[]` | Enabled export formats, e.g. `["csv", "json"]`. |
 | `explorer_bulk_actions` | `list` | `["delete"]` | Bulk actions on list view. Options: `"delete"`, `"update"`. Set to `[]` to disable. |
+| `explorer_related_tabs` | `list\|None\|False` | `None` | Related object tabs on detail page. `None`=auto-discover reverse FKs with registered CRUDViews. A list of accessor names shows only those tabs in that order. `False`=disabled. |
+| `explorer_related_tabs_exclude` | `list` | `[]` | Accessor names to exclude from auto-discovery. |
+| `explorer_related_tabs_paginate_by` | `int` | `10` | Rows per tab in related object tabs. |
 
 ## Standard ModelAdmin Attributes
 

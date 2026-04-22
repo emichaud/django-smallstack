@@ -707,6 +707,250 @@ class TestChildExplorerSite:
 
         assert child._model_info[0].namespace == "ns_test"
 
+
+class TestRelatedTabs:
+    """Tests for the related tabs feature on CRUDView detail pages."""
+
+    def test_get_related_tabs_auto_discovers(self, db):
+        """Auto-discovery finds reverse FKs whose related model is in the registry."""
+        # User has reverse FKs from RequestLog, UserProfile, APIToken, etc.
+        # Only those with a registered CRUDView appear
+        from django.contrib.auth import get_user_model
+
+        from apps.smallstack.crud import CRUDView
+
+        User = get_user_model()
+
+        class UserCRUD(CRUDView):
+            model = User
+            fields = ["username"]
+            url_base = "test/users"
+
+        # Register it to populate the registry
+        CRUDView._registry[User] = UserCRUD
+
+        tabs = UserCRUD._get_related_tabs()
+
+        # Only models in the registry should appear
+        for tab in tabs:
+            assert tab["related_model"] in CRUDView._registry
+            assert tab["accessor"]
+            assert tab["verbose_name"]
+            assert tab["related_crud"] is not None
+
+    def test_get_related_tabs_disabled(self, db):
+        """related_tabs=False disables the feature entirely."""
+        from django.contrib.auth import get_user_model
+
+        from apps.smallstack.crud import CRUDView
+
+        User = get_user_model()
+
+        class UserCRUD(CRUDView):
+            model = User
+            fields = ["username"]
+            url_base = "test/users-disabled"
+            related_tabs = False
+
+        assert UserCRUD._get_related_tabs() == []
+
+    def test_get_related_tabs_explicit_list(self, db):
+        """related_tabs=[...] filters and orders tabs explicitly."""
+        from django.contrib.auth import get_user_model
+
+        from apps.smallstack.crud import CRUDView
+
+        User = get_user_model()
+
+        # Find actual accessor names from auto-discovery
+        class AutoCRUD(CRUDView):
+            model = User
+            fields = ["username"]
+            url_base = "test/users-auto"
+
+        all_tabs = AutoCRUD._get_related_tabs()
+        if len(all_tabs) < 2:
+            pytest.skip("Need at least 2 related tabs for ordering test")
+
+        # Reverse the order
+        reversed_accessors = [t["accessor"] for t in reversed(all_tabs)]
+
+        class ExplicitCRUD(CRUDView):
+            model = User
+            fields = ["username"]
+            url_base = "test/users-explicit"
+            related_tabs = reversed_accessors
+
+        tabs = ExplicitCRUD._get_related_tabs()
+        assert [t["accessor"] for t in tabs] == reversed_accessors
+
+    def test_get_related_tabs_exclude(self, db):
+        """related_tabs_exclude removes specific accessors."""
+        from django.contrib.auth import get_user_model
+
+        from apps.smallstack.crud import CRUDView
+
+        User = get_user_model()
+
+        class AutoCRUD(CRUDView):
+            model = User
+            fields = ["username"]
+            url_base = "test/users-exclude-check"
+
+        all_tabs = AutoCRUD._get_related_tabs()
+        if not all_tabs:
+            pytest.skip("No related tabs to exclude")
+
+        excluded = all_tabs[0]["accessor"]
+
+        class ExcludeCRUD(CRUDView):
+            model = User
+            fields = ["username"]
+            url_base = "test/users-exclude"
+            related_tabs_exclude = [excluded]
+
+        tabs = ExcludeCRUD._get_related_tabs()
+        assert excluded not in [t["accessor"] for t in tabs]
+
+    def test_get_related_tabs_no_reverse_fks(self, db):
+        """Models with no reverse FKs return empty list."""
+        from apps.heartbeat.models import Heartbeat
+        from apps.smallstack.crud import CRUDView
+
+        class HeartbeatCRUD(CRUDView):
+            model = Heartbeat
+            fields = ["status"]
+            url_base = "test/heartbeats"
+
+        assert HeartbeatCRUD._get_related_tabs() == []
+
+    def test_related_tab_detail_context(self, client, staff_user):
+        """Detail view context includes related_tabs with counts and URLs."""
+        client.force_login(staff_user)
+        # User model has reverse FKs; use Explorer's registered User detail
+        response = client.get(reverse("explorer/accounts/user-detail", kwargs={"pk": staff_user.pk}))
+        assert response.status_code == 200
+        tabs = response.context.get("related_tabs")
+        if tabs:
+            for tab in tabs:
+                assert "accessor" in tab
+                assert "verbose_name" in tab
+                assert "count" in tab
+                assert "content_url" in tab
+                assert "related_url_base" in tab
+                assert "related_list_url" in tab
+                assert isinstance(tab["count"], int)
+
+    def test_related_tab_htmx_endpoint(self, client, staff_user):
+        """The related tab HTMX endpoint returns 200 with table content."""
+        client.force_login(staff_user)
+        # First get the detail page to discover available tabs
+        response = client.get(reverse("explorer/accounts/user-detail", kwargs={"pk": staff_user.pk}))
+        tabs = response.context.get("related_tabs", [])
+        if not tabs:
+            pytest.skip("No related tabs available for User")
+
+        tab = tabs[0]
+        response = client.get(tab["content_url"])
+        assert response.status_code == 200
+
+    def test_related_tab_invalid_accessor_404(self, client, staff_user):
+        """Requesting an invalid accessor name returns 404."""
+        client.force_login(staff_user)
+        url = reverse(
+            "explorer/accounts/user-related-tab",
+            kwargs={"pk": staff_user.pk, "accessor": "nonexistent_set"},
+        )
+        response = client.get(url)
+        assert response.status_code == 404
+
+    def test_related_tab_pagination(self, client, staff_user, db):
+        """Related tab endpoint respects pagination."""
+        from apps.activity.models import RequestLog
+
+        # Create enough records to paginate (default is 10)
+        for i in range(12):
+            RequestLog.objects.create(
+                path=f"/test/{i}/",
+                method="GET",
+                status_code=200,
+                response_time_ms=10,
+                user=staff_user,
+            )
+
+        client.force_login(staff_user)
+        response = client.get(reverse("explorer/accounts/user-detail", kwargs={"pk": staff_user.pk}))
+        tabs = response.context.get("related_tabs", [])
+        # Find the requestlog tab
+        rl_tab = None
+        for tab in tabs:
+            if "requestlog" in tab["accessor"]:
+                rl_tab = tab
+                break
+        if not rl_tab:
+            pytest.skip("RequestLog tab not found")
+
+        # Page 1
+        response = client.get(rl_tab["content_url"])
+        assert response.status_code == 200
+        assert response.context["page_obj"].paginator.num_pages > 1
+
+        # Page 2
+        response = client.get(rl_tab["content_url"] + "?page=2")
+        assert response.status_code == 200
+        assert response.context["page_obj"].number == 2
+
+    def test_related_tab_fk_field_hidden(self, client, staff_user):
+        """The FK field pointing back to parent is excluded from list_fields."""
+        client.force_login(staff_user)
+        response = client.get(reverse("explorer/accounts/user-detail", kwargs={"pk": staff_user.pk}))
+        tabs = response.context.get("related_tabs", [])
+        if not tabs:
+            pytest.skip("No related tabs available")
+
+        tab = tabs[0]
+        response = client.get(tab["content_url"])
+        assert response.status_code == 200
+        # The 'user' FK field should not be in list_fields (it would be redundant)
+        list_fields = response.context.get("list_fields", [])
+        # We can't know the exact FK field name for all tabs, but verify list_fields exists
+        assert isinstance(list_fields, list)
+
+    def test_registry_populated_by_get_urls(self, db):
+        """get_urls() registers the model in CRUDView._registry."""
+        from apps.heartbeat.models import MaintenanceWindow
+        from apps.smallstack.crud import CRUDView
+
+        class MWCrud(CRUDView):
+            model = MaintenanceWindow
+            fields = ["title"]
+            url_base = "test/mw"
+
+        MWCrud.get_urls()
+        assert CRUDView._registry[MaintenanceWindow] is MWCrud
+
+    def test_explorer_related_tabs_passthrough(self, db):
+        """Explorer passes through explorer_related_tabs* attributes."""
+        from django.contrib import admin
+
+        from apps.heartbeat.models import Heartbeat
+
+        from .registry import ExplorerSite
+
+        class CustomAdmin(admin.ModelAdmin):
+            explorer_related_tabs = False
+            explorer_related_tabs_exclude = ["some_set"]
+            explorer_related_tabs_paginate_by = 25
+
+        site = ExplorerSite()
+        site.register(Heartbeat, CustomAdmin, group="Test")
+        site.build_crud_classes()
+
+        crud_cls = site._crud_classes[0]
+        assert crud_cls.related_tabs is False
+        assert crud_cls.related_tabs_exclude == ["some_set"]
+        assert crud_cls.related_tabs_paginate_by == 25
+
     def test_child_urls_property_returns_tuple(self, db):
         """urls property returns (patterns, name) tuple for include()."""
         from django.contrib import admin

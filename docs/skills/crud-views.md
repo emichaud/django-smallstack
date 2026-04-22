@@ -82,6 +82,9 @@ This generates:
 | `filter_class` | FilterSet | None | Custom FilterSet class (API only) |
 | `export_formats` | list | `[]` | Export formats, e.g. `["csv", "json"]` (API only) |
 | `breadcrumb_parent` | tuple | None | `(label, url_name)` for parent breadcrumb |
+| `related_tabs` | `list\|None\|False` | `None` | Related object tabs on detail page. `None`=auto-discover, list=explicit, `False`=disabled |
+| `related_tabs_exclude` | list | `[]` | Accessor names to exclude from auto-discovery |
+| `related_tabs_paginate_by` | int | `10` | Rows per tab in related object tabs |
 
 ## Display Protocol
 
@@ -312,6 +315,72 @@ class WidgetCRUDView(CRUDView):
 ```
 
 Legacy attributes `field_formatters` and `preview_fields` still work but emit deprecation warnings.
+
+## Related Object Tabs
+
+Detail pages can show tabbed sections for reverse FK relations. Each tab displays a paginated table of related objects with links into their own CrudView detail page. Only relations whose model has a registered CRUDView appear.
+
+### Configuration
+
+| Option | Type | Default | Purpose |
+|--------|------|---------|---------|
+| `related_tabs` | `list\|None\|False` | `None` | `None`=auto-discover, `["accessor_name", ...]`=explicit list+order, `False`=disabled |
+| `related_tabs_exclude` | `list` | `[]` | Accessor names to hide from auto-discovery |
+| `related_tabs_paginate_by` | `int` | `10` | Rows per tab page |
+
+### How It Works
+
+1. CRUDView maintains a `_registry` mapping Model→CRUDView, populated at URL-config time
+2. On the detail page, `_get_related_tabs()` iterates `model._meta.get_fields()` for `ManyToOneRel` (reverse FK) relations
+3. Only relations whose related model is in `_registry` are shown
+4. Tab counts are eager (indexed FK lookups); tab content loads lazily via HTMX
+5. The FK field pointing back to the parent is automatically hidden from tab columns (redundant)
+
+### Example
+
+```python
+class CustomerCRUDView(CRUDView):
+    model = Customer
+    fields = ["name", "email"]
+    url_base = "manage/customers"
+    # Show only orders and invoices tabs, in that order
+    related_tabs = ["order_set", "invoice_set"]
+    related_tabs_paginate_by = 20
+```
+
+### Context Model
+
+The detail view passes `related_tabs` to the template — a list of dicts with:
+
+| Key | Description |
+|-----|-------------|
+| `accessor` | Django accessor name (e.g. `"order_set"`) |
+| `field_name` | FK field name on the related model |
+| `verbose_name` | Plural display name |
+| `verbose_name_singular` | Singular display name |
+| `count` | Number of related objects |
+| `related_model_name` | Model name of the related model |
+| `related_app_label` | App label of the related model |
+| `related_url_base` | URL base of the related model's CRUDView |
+| `related_list_url` | Full URL to the related model's list view |
+| `content_url` | Endpoint for fetching tab content |
+
+The tab content endpoint (`<pk>/related/<accessor>/`) returns a partial with `{% crud_table %}` and paginator, plus additional `related_tab_*` context variables for custom templates.
+
+### URL Pattern
+
+When `related_tabs is not False`, an additional URL is registered:
+
+| URL | Name | Purpose |
+|-----|------|---------|
+| `url_base/<pk>/related/<accessor>/` | `url_base-related-tab` | HTMX partial for one tab's content |
+
+### Custom Templates
+
+Override the tab bar: `smallstack/crud/includes/related_tabs.html`
+Override tab content: `smallstack/crud/includes/related_tab_content.html`
+
+The default templates use HTMX for lazy loading, but since the context provides raw URLs and model metadata, custom templates can use any approach (fetch, iframes, inline rendering, links to the related list view).
 
 ## Quick Checklist
 

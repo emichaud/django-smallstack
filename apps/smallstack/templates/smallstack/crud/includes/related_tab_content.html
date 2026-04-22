@@ -1,0 +1,10 @@
+{% load crud_tags theme_tags %}
+
+{% if object_list %}
+    {% crud_table %}
+    {% include "smallstack/includes/paginator.html" with hx_target="#related-tab-content" hx_swap="innerHTML" %}
+{% else %}
+    <div style="padding: 2rem; text-align: center; color: var(--body-quiet-color);">
+        No related records found.
+    </div>
+{% endif %}

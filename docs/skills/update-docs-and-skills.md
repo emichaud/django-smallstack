@@ -69,10 +69,10 @@ When the user says "update docs and skills" (or similar), this skill defines whi
 
 | Type | File | What it covers |
 |------|------|----------------|
-| Skill | `docs/skills/crud-views.md` | CRUDView class, actions, config |
+| Skill | `docs/skills/crud-views.md` | CRUDView class, actions, config, related tabs |
 | Skill | `docs/skills/django-apps.md` | Creating apps with CRUDView |
 | Skill | `docs/skills/api.md` | API integration via enable_api |
-| Help | `apps/smallstack/docs/building-crud-pages.md` | User-facing CRUD guide |
+| Help | `apps/smallstack/docs/building-crud-pages.md` | User-facing CRUD guide, related object tabs |
 
 ### Explorer (`apps/smallstack/explorer.py`)
 

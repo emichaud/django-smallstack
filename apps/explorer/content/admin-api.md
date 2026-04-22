@@ -56,6 +56,9 @@ Set these on the `ModelAdmin` subclass passed to `explorer.register()`:
 | `explorer_paginate_by` | `int` | `10` | Items per page in list view. |
 | `explorer_enable_api` | `bool` | `False` | Generate REST API endpoints for this model. |
 | `explorer_export_formats` | `list` | `[]` | Enabled export formats, e.g. `["csv", "json"]`. |
+| `explorer_related_tabs` | `list\|None\|False` | `None` | Related object tabs on detail page. `None`=auto-discover, list=explicit, `False`=disabled. |
+| `explorer_related_tabs_exclude` | `list` | `[]` | Accessor names to exclude from auto-discovery. |
+| `explorer_related_tabs_paginate_by` | `int` | `10` | Rows per tab in related object tabs. |
 
 ## Standard ModelAdmin Attributes
 

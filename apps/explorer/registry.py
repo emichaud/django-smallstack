@@ -485,6 +485,9 @@ class ExplorerSite:
                 "api_aggregate_fields": list(getattr(admin_class, "explorer_api_aggregate_fields", [])),
                 "list_accessories": list(getattr(admin_class, "explorer_list_accessories", [])),
                 "bulk_actions": _resolve_bulk_actions(admin_class),
+                "related_tabs": getattr(admin_class, "explorer_related_tabs", None),
+                "related_tabs_exclude": list(getattr(admin_class, "explorer_related_tabs_exclude", [])),
+                "related_tabs_paginate_by": getattr(admin_class, "explorer_related_tabs_paginate_by", 10),
             },
         )
 

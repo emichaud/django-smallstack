@@ -70,6 +70,9 @@ Explorer reads `list_display` for columns (real model fields only — callables 
 | `explorer_api_expand_fields` | `list[str]` | `[]` | FK fields always expanded in API responses |
 | `explorer_api_aggregate_fields` | `list[str]` | `[]` | Fields supporting `?sum=`, `?avg=`, `?min=`, `?max=` |
 | `explorer_enable_api` | `bool` | `False` | Enable REST API endpoints for this model. |
+| `explorer_related_tabs` | `list\|None\|False` | `None` | Related object tabs on detail page. `None`=auto-discover, list=explicit accessor names, `False`=disabled |
+| `explorer_related_tabs_exclude` | `list` | `[]` | Accessor names to exclude from auto-discovery |
+| `explorer_related_tabs_paginate_by` | `int` | `10` | Rows per tab in related object tabs |
 | `explorer_dashboard_widgets` | `list` | `[]` | Dashboard widgets published by this model. See `dashboard-widgets.md`. |
 
 ## Supported Django ModelAdmin Attributes

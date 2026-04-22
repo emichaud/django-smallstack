@@ -22,6 +22,7 @@ Usage:
 
 import enum
 import warnings
+from typing import Any
 
 from django import forms
 from django.contrib import messages
@@ -541,6 +542,37 @@ class _CRUDDetailBase(_CRUDContextMixin, DetailView):
             if len(all_displays) > 1:
                 context["available_displays"] = all_displays
 
+        # Related tabs: enrich _get_related_tabs() with live counts and URLs
+        tabs = cfg._get_related_tabs()
+        if tabs:
+            url_base = cfg._get_url_base()
+            related_tabs = []
+            for tab in tabs:
+                accessor = tab["accessor"]
+                related_crud = tab["related_crud"]
+                related_url_base = related_crud._get_url_base()
+                enriched = {
+                    # Identity
+                    "accessor": accessor,
+                    "field_name": tab["field_name"],
+                    # Display
+                    "verbose_name": tab["verbose_name"],
+                    "verbose_name_singular": str(tab["related_model"]._meta.verbose_name).capitalize(),
+                    "count": getattr(self.object, accessor).count(),
+                    # Related model info (for custom templates)
+                    "related_model_name": tab["related_model"]._meta.model_name,
+                    "related_app_label": tab["related_model"]._meta.app_label,
+                    "related_url_base": related_url_base,
+                    "related_list_url": related_crud._reverse(f"{related_url_base}-list"),
+                    # Tab content URL (HTMX or full-page)
+                    "content_url": cfg._reverse(
+                        f"{url_base}-related-tab",
+                        kwargs={"pk": self.object.pk, "accessor": accessor},
+                    ),
+                }
+                related_tabs.append(enriched)
+            context["related_tabs"] = related_tabs
+
         return context
 
 
@@ -954,6 +986,87 @@ class _CRUDFieldPreviewBase(_CRUDContextMixin, DetailView):
         return self.crud_config._get_template_names("field_preview")
 
 
+class _CRUDRelatedTabBase(_CRUDContextMixin, DetailView):
+    """HTMX partial: renders a paginated table of related objects for one tab."""
+
+    def get_queryset(self) -> Any:
+        return self.crud_config._get_queryset()
+
+    def get_template_names(self) -> list[str]:
+        return ["smallstack/crud/includes/related_tab_content.html"]
+
+    def get(self, request, *args, **kwargs) -> HttpResponse:
+        self.object = self.get_object()
+        accessor = self.kwargs["accessor"]
+
+        # Validate accessor against allowed tabs
+        cfg = self.crud_config
+        tabs = cfg._get_related_tabs()
+        tab = None
+        for t in tabs:
+            if t["accessor"] == accessor:
+                tab = t
+                break
+        if tab is None:
+            raise Http404
+
+        # Get related queryset
+        related_qs = getattr(self.object, accessor).all()
+
+        # Related model's CRUDView for field/link config
+        related_crud = tab["related_crud"]
+        list_fields = list(related_crud._get_list_columns())
+        link_field = related_crud._get_link_field()
+        url_base = related_crud._get_url_base()
+
+        # Remove FK field pointing back to parent (redundant in context)
+        fk_field = tab["field_name"]
+        if fk_field and fk_field in list_fields:
+            list_fields.remove(fk_field)
+            if link_field == fk_field:
+                link_field = list_fields[0] if list_fields else None
+
+        # Paginate
+        from .pagination import paginate_queryset
+
+        page_obj = paginate_queryset(
+            related_qs, request, page_size=cfg.related_tabs_paginate_by
+        )
+
+        related_model = tab["related_model"]
+        content_url = cfg._reverse(
+            f"{cfg._get_url_base()}-related-tab",
+            kwargs={"pk": self.object.pk, "accessor": accessor},
+        )
+
+        context = self.get_context_data(object=self.object)
+        context.update(
+            {
+                # Table rendering (consumed by {% crud_table %})
+                "object_list": page_obj.object_list,
+                "page_obj": page_obj,
+                "list_fields": list_fields,
+                "link_field": link_field,
+                "url_base": url_base,
+                "url_namespace": related_crud.namespace,
+                "crud_actions": [Action.DETAIL],
+                "field_transforms": related_crud._get_effective_transforms(),
+                "enable_bulk": False,
+                # Related tab metadata (for custom templates)
+                "related_tab_accessor": accessor,
+                "related_tab_field_name": fk_field,
+                "related_tab_verbose_name": str(related_model._meta.verbose_name_plural).capitalize(),
+                "related_tab_verbose_name_singular": str(related_model._meta.verbose_name).capitalize(),
+                "related_tab_model_name": related_model._meta.model_name,
+                "related_tab_app_label": related_model._meta.app_label,
+                "related_tab_content_url": content_url,
+                "related_tab_list_url": related_crud._reverse(f"{url_base}-list"),
+                "related_tab_total_count": page_obj.paginator.count,
+            }
+        )
+        return self.render_to_response(context)
+
+
 # ---------------------------------------------------------------------------
 # Transform spec resolution
 # ---------------------------------------------------------------------------
@@ -1020,6 +1133,9 @@ class CRUDView:
         field_transforms: {field_name: "transform_name" | ("name", {opts}) | callable}
     """
 
+    # Model→CRUDView registry: populated by get_urls() at URL-config time
+    _registry: dict[type, type["CRUDView"]] = {}
+
     # Config source
     admin_class = None  # ModelAdmin subclass — the standard Django config DSL
 
@@ -1064,6 +1180,11 @@ class CRUDView:
     filter_fields = []  # Fields for query-param filtering (reads from admin_class.list_filter)
     filter_class = None  # Optional django-filters FilterSet class
     export_formats = []  # e.g. ["csv", "json"] — enables ?format= on API list
+
+    # Related object tabs (reverse FK relations on detail page)
+    related_tabs = None  # None=auto-discover, list=explicit accessor names, False=disabled
+    related_tabs_exclude = []  # Accessor names to exclude from auto-discovery
+    related_tabs_paginate_by = 10
 
     # Legacy/direct config
     form_class = None
@@ -1225,6 +1346,50 @@ class CRUDView:
         merged.update(cls.field_transforms)
 
         return merged
+
+    @classmethod
+    def _get_related_tabs(cls) -> list[dict[str, Any]]:
+        """Return list of related tab dicts for reverse FK relations.
+
+        Each dict: {"accessor", "verbose_name", "related_model", "related_crud", "field_name"}
+        Only includes relations whose related model has a registered CRUDView.
+        """
+
+        if cls.related_tabs is False:
+            return []
+
+        tabs = []
+        for rel in cls.model._meta.get_fields():
+            if not rel.one_to_many:
+                continue
+            related_model = rel.related_model
+            related_crud = CRUDView._registry.get(related_model)
+            if not related_crud:
+                continue
+            accessor = rel.get_accessor_name()
+            # Find the FK field name on the related model
+            field_name = rel.field.name if hasattr(rel, "field") else None
+            tabs.append(
+                {
+                    "accessor": accessor,
+                    "verbose_name": str(related_model._meta.verbose_name_plural).capitalize(),
+                    "related_model": related_model,
+                    "related_crud": related_crud,
+                    "field_name": field_name,
+                }
+            )
+
+        # If explicit list, filter and preserve user's order
+        if cls.related_tabs is not None:
+            by_accessor = {t["accessor"]: t for t in tabs}
+            tabs = [by_accessor[a] for a in cls.related_tabs if a in by_accessor]
+
+        # Apply excludes
+        if cls.related_tabs_exclude:
+            exclude_set = set(cls.related_tabs_exclude)
+            tabs = [t for t in tabs if t["accessor"] not in exclude_set]
+
+        return tabs
 
     @classmethod
     def _resolve_search_fields(cls):
@@ -1405,6 +1570,9 @@ class CRUDView:
     @classmethod
     def get_urls(cls):
         """Generate URL patterns for configured actions."""
+        # Register model→CRUDView mapping for related tabs discovery
+        CRUDView._registry[cls.model] = cls
+
         url_base = cls._get_url_base()
         urls = []
 
@@ -1444,6 +1612,17 @@ class CRUDView:
         if Action.DETAIL in cls.actions:
             view = cls._make_view(_CRUDDetailBase)
             urls.append(path(f"{url_base}/<pk>/", view.as_view(), name=f"{url_base}-detail"))
+
+            # Related tabs endpoint (lazy HTMX loading)
+            if cls.related_tabs is not False:
+                related_view = cls._make_view(_CRUDRelatedTabBase)
+                urls.append(
+                    path(
+                        f"{url_base}/<pk>/related/<str:accessor>/",
+                        related_view.as_view(),
+                        name=f"{url_base}-related-tab",
+                    )
+                )
 
         if Action.UPDATE in cls.actions:
             view = cls._make_view(_CRUDUpdateBase)

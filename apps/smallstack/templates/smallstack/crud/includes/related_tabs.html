@@ -1,0 +1,18 @@
+{% if related_tabs %}
+<div class="card" style="margin-top: 1.5rem;">
+    <div class="tab-bar">
+        {% for tab in related_tabs %}
+        <button class="tab-btn{% if forloop.first %} active{% endif %}"
+                hx-get="{{ tab.content_url }}"
+                hx-target="#related-tab-content"
+                hx-swap="innerHTML"
+                {% if forloop.first %}hx-trigger="load, click"{% endif %}
+                onclick="this.closest('.tab-bar').querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active')); this.classList.add('active')">
+            {{ tab.verbose_name }}
+            <span class="tab-count">{{ tab.count }}</span>
+        </button>
+        {% endfor %}
+    </div>
+    <div id="related-tab-content"></div>
+</div>
+{% endif %}
