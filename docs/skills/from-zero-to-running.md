@@ -765,7 +765,7 @@ docker compose logs worker -f
 │  web container                      │
 │  ├── gunicorn (2 workers, 4 threads)│
 │  ├── supercronic (cron daemon)      │
-│  │   ├── heartbeat (every 1m)       │
+│  │   ├── heartbeat via curl (every 1m)│
 │  │   ├── prune activity (every 15m) │
 │  │   └── backup db (daily 2 AM)     │
 │  └── port 8000                      │

@@ -14,7 +14,7 @@ As your site grows, you may want to add an external monitoring tool that can ale
 
 ## How It Works
 
-A cron job runs `python3 manage.py heartbeat` every minute inside the Docker container. Each run:
+A cron job uses `curl` to POST to `http://localhost:8000/heartbeat/ping/` every minute inside the Docker container. The request is handled by a gunicorn worker that already has a database connection open, which avoids SQLite "database is locked" errors from external-process contention. Each ping:
 
 1. Checks database connectivity (`connection.ensure_connection()`)
 2. Records a `Heartbeat` row with status (ok/fail) and response time
@@ -116,10 +116,16 @@ Both can be set via environment variables.
 
 ## Running Locally
 
-The heartbeat command works outside Docker too:
+The management command works outside Docker for manual use:
 
 ```bash
 uv run python manage.py heartbeat
+```
+
+You can also test the HTTP endpoint directly (server must be running):
+
+```bash
+curl -X POST http://localhost:8005/heartbeat/ping/
 ```
 
 To reset the monitoring epoch from the command line:
@@ -133,8 +139,10 @@ uv run python manage.py heartbeat --reset-epoch --reset-note "Fresh start"
 In production Docker containers, scheduled tasks run automatically via [supercronic](https://github.com/aptible/supercronic). The heartbeat job is in `scripts/smallstack-cron`:
 
 ```cron
-* * * * * cd /app && python3 manage.py heartbeat
+* * * * * curl -sf -X POST http://localhost:${PORT:-8000}/heartbeat/ping/
 ```
+
+This uses `curl` to POST to the heartbeat endpoint served by a gunicorn worker, rather than spawning a separate `manage.py` process. This avoids SQLite write contention and more accurately tests whether the app is serving requests. If `curl` fails, the app is genuinely down.
 
 Supercronic inherits the container's environment variables directly — no `.env.cron` sourcing needed. It runs as a non-root user alongside the application. Logs go to stdout for easy access via `docker logs` or `kamal app logs`.
 
@@ -172,4 +180,4 @@ The built-in system doesn't try to replace professional monitoring — it fills 
 
 ## Extending
 
-To add more checks beyond database connectivity, modify `apps/heartbeat/management/commands/heartbeat.py`. For example, check Redis, external APIs, or disk space.
+To add more checks beyond database connectivity, modify `apps/heartbeat/services.py`. For example, check Redis, external APIs, or disk space. The management command and HTTP endpoint both call the same service function, so your extensions apply everywhere.

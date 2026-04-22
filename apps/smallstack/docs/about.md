@@ -97,7 +97,7 @@ A built-in heartbeat system with a public status page — no external services n
 
 ![Public status page](/static/smallstack/docs/images/about-status.png)
 
-- **Automatic heartbeat** — cron checks database connectivity every minute
+- **Automatic heartbeat** — cron pings the app every minute to verify database connectivity
 - **Public status page** at `/status/` with uptime %, visual timelines, response times
 - **Staff dashboard** with heartbeat log, timeline views, and JSON output
 - **SLA tracking** — configurable goal and commitment thresholds with color-coded compliance

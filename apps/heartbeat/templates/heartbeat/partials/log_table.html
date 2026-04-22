@@ -3,6 +3,6 @@
 {% render_table table %}
 {% else %}
 <p style="padding: 24px; text-align: center; color: var(--body-quiet-color);">
-    {% if active_tab == "fail" %}No failures recorded.{% elif active_tab == "ok" %}No successful heartbeats yet.{% else %}No heartbeat records yet. Run <code>python manage.py heartbeat</code> to create one.{% endif %}
+    {% if active_tab == "fail" %}No failures recorded.{% elif active_tab == "ok" %}No successful heartbeats yet.{% else %}No heartbeat records yet. Run <code>curl -X POST http://localhost:8005/heartbeat/ping/</code> or <code>python manage.py heartbeat</code> to create one.{% endif %}
 </p>
 {% endif %}
