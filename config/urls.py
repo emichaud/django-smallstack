@@ -8,7 +8,7 @@ from django.contrib import admin
 from django.urls import include, path
 from django.views.generic import RedirectView
 
-from apps.heartbeat.views import StatusPageView, status_json
+from apps.heartbeat.views import StatusPageView, heartbeat_ping, status_json
 from apps.smallstack.api import (
     api_auth_logout,
     api_auth_me,
@@ -69,6 +69,8 @@ urlpatterns = [
     # Legal pages (public)
     path("privacy/", legal_page_view, {"page": "privacy-policy"}, name="privacy_policy"),
     path("terms/", legal_page_view, {"page": "terms-of-service"}, name="terms_of_service"),
+    # Heartbeat ping (localhost-only, used by cron instead of manage.py heartbeat)
+    path("heartbeat/ping/", heartbeat_ping, name="heartbeat_ping"),
     # Utility routes
     path("health/", health_check, name="health_check"),
     path(

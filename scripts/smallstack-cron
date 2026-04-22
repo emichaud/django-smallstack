@@ -2,8 +2,8 @@
 # supercronic inherits the container environment — no .env.cron sourcing needed.
 # Timezone follows the TZ env var. Default is UTC.
 
-# Heartbeat — every minute
-* * * * * cd /app && python3 manage.py heartbeat
+# Heartbeat — every minute (POST to gunicorn to avoid SQLite locking)
+* * * * * curl -sf -X POST http://localhost:${PORT:-8000}/heartbeat/ping/ > /dev/null
 
 # Prune activity log — every 15 minutes
 */15 * * * * cd /app && python3 manage.py prune_activity

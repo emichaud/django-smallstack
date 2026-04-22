@@ -219,6 +219,7 @@ ACTIVITY_EXCLUDE_PATHS = [
     "/media/",
     "/favicon.ico",
     "/health/",
+    "/heartbeat/ping/",
     "/status/",
     "/smallstack/status/",
     "/admin/jsi18n/",

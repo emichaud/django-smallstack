@@ -6,11 +6,42 @@ from django.conf import settings
 from django.http import JsonResponse
 from django.template.response import TemplateResponse
 from django.utils.timezone import get_current_timezone, is_naive, localtime, make_aware, now
+from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_POST
 from django.views.generic import TemplateView
 
 from apps.smallstack.mixins import StaffRequiredMixin
 
 from .models import Heartbeat, HeartbeatEpoch, MaintenanceWindow
+from .services import prune_old_heartbeats, run_heartbeat_check
+
+LOCALHOST_IPS = {"127.0.0.1", "::1"}
+
+
+@csrf_exempt
+@require_POST
+def heartbeat_ping(request):
+    """Localhost-only endpoint for cron to trigger a heartbeat check.
+
+    Replaces ``manage.py heartbeat`` in cron to avoid external-process
+    SQLite locking contention — the check runs inside a gunicorn worker.
+    """
+    remote_ip = request.META.get("REMOTE_ADDR", "")
+    if remote_ip not in LOCALHOST_IPS:
+        return JsonResponse({"error": "forbidden"}, status=403)
+
+    result = run_heartbeat_check()
+    prune_old_heartbeats()
+
+    status_code = 200 if result["status"] == "ok" else 503
+    return JsonResponse(
+        {
+            "status": result["status"],
+            "response_time_ms": result["response_time_ms"],
+            "maintenance": result["maintenance"],
+        },
+        status=status_code,
+    )
 
 
 def _get_epoch():

@@ -6,6 +6,7 @@ from .views import (
     HeartbeatDashboardView,
     SLADetailView,
     StatusPageView,
+    heartbeat_ping,
     maintenance_create,
     maintenance_delete,
     maintenance_edit,
@@ -16,6 +17,7 @@ from .views import (
 app_name = "heartbeat"
 
 urlpatterns = [
+    path("ping/", heartbeat_ping, name="ping"),
     path("status/", StatusPageView.as_view(), name="status"),
     path("status/json/", status_json, name="status_json"),
     path("status/dashboard/", HeartbeatDashboardView.as_view(), name="dashboard"),
