@@ -1,6 +1,6 @@
 [project]
 name = "django-smallstack"
-version = "0.8.33"
+version = "0.8.34"
 description = "A minimal Django stack for building and deploying admin-style apps"
 requires-python = ">=3.12"
 dependencies = [
@@ -46,6 +46,16 @@ DJANGO_SETTINGS_MODULE = "config.settings.test"
 python_files = ["test_*.py", "*_test.py", "tests.py"]
 testpaths = ["apps"]
 addopts = "--cov=apps --cov-report=term-missing:skip-covered --cov-report=html"
+filterwarnings = [
+    "ignore:DetailLinkColumn is deprecated:DeprecationWarning",
+    "ignore:BooleanColumn is deprecated:DeprecationWarning",
+    "ignore:ActionsColumn is deprecated:DeprecationWarning",
+    "ignore:.*table_class is deprecated:DeprecationWarning",
+    "ignore:SMALLSTACK_TOPBAR_NAV_ITEMS:DeprecationWarning",
+]
+markers = [
+    "starter_content: tests that assert upstream starter text/HTML — safe to skip in downstream projects",
+]
 
 [tool.coverage.run]
 source = ["apps"]

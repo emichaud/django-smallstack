@@ -3,6 +3,7 @@
 import pytest
 
 
+@pytest.mark.starter_content
 @pytest.mark.django_db
 class TestWebsiteViews:
     """Smoke tests for all website views."""
@@ -52,6 +53,7 @@ class TestWebsiteViews:
         assert "/help/" in response.url
 
 
+@pytest.mark.starter_content
 @pytest.mark.django_db
 class TestHomePageAuthenticated:
     """Test home page with authenticated user."""

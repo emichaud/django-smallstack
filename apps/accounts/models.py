@@ -10,7 +10,9 @@ from django.utils import timezone
 class UserManager(BaseUserManager):
     """Custom manager for User model."""
 
-    def create_user(self, username, email=None, password=None, **extra_fields):
+    def create_user(
+        self, username: str, email: str | None = None, password: str | None = None, **extra_fields
+    ) -> "User":
         """Create and save a regular user."""
         if not username:
             raise ValueError("The username must be set")
@@ -21,7 +23,9 @@ class UserManager(BaseUserManager):
         user.save(using=self._db)
         return user
 
-    def create_superuser(self, username, email=None, password=None, **extra_fields):
+    def create_superuser(
+        self, username: str, email: str | None = None, password: str | None = None, **extra_fields
+    ) -> "User":
         """Create and save a superuser."""
         extra_fields.setdefault("is_staff", True)
         extra_fields.setdefault("is_superuser", True)
@@ -58,14 +62,14 @@ class User(AbstractBaseUser, PermissionsMixin):
         verbose_name = "user"
         verbose_name_plural = "users"
 
-    def __str__(self):
+    def __str__(self) -> str:
         return self.username
 
-    def get_full_name(self):
+    def get_full_name(self) -> str:
         """Return the first_name plus the last_name, with a space in between."""
         full_name = f"{self.first_name} {self.last_name}".strip()
         return full_name or self.username
 
-    def get_short_name(self):
+    def get_short_name(self) -> str:
         """Return the short name for the user."""
         return self.first_name or self.username

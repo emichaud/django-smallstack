@@ -895,7 +895,6 @@ class TestAuthTokenLockout:
             content_type="application/json",
         )
 
-    @pytest.mark.override_settings(**AXES_SETTINGS)
     def test_lockout_returns_403_after_failures(self, client, lockout_user, settings):
         """After exceeding failure limit, response is 403 JSON."""
         for k, v in self.AXES_SETTINGS.items():
@@ -912,7 +911,6 @@ class TestAuthTokenLockout:
         assert "Too many failed login attempts" in data["errors"]["__all__"][0]
         assert "retry_after_seconds" in data
 
-    @pytest.mark.override_settings(**AXES_SETTINGS)
     def test_lockout_blocks_even_correct_password(self, client, lockout_user, settings):
         """Locked user gets 403 even with the correct password."""
         for k, v in self.AXES_SETTINGS.items():
@@ -928,7 +926,6 @@ class TestAuthTokenLockout:
         )
         assert resp.status_code == 403
 
-    @pytest.mark.override_settings(**AXES_SETTINGS)
     def test_lockout_has_retry_after_header(self, client, lockout_user, settings):
         """Locked-out response includes Retry-After header."""
         for k, v in self.AXES_SETTINGS.items():
@@ -941,7 +938,6 @@ class TestAuthTokenLockout:
         assert resp.status_code == 403
         assert resp["Retry-After"] == "900"  # 0.25 hours = 900 seconds
 
-    @pytest.mark.override_settings(**AXES_SETTINGS)
     def test_below_limit_returns_401(self, client, lockout_user, settings):
         """Failures below the limit still return normal 401."""
         for k, v in self.AXES_SETTINGS.items():

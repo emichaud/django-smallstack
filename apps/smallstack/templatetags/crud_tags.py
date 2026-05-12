@@ -2,6 +2,7 @@
 
 import datetime
 import json
+from typing import Any
 
 from django import template
 from django.urls import reverse
@@ -13,7 +14,7 @@ from apps.smallstack.transforms import TRUNCATE_THRESHOLD
 register = template.Library()
 
 
-def _get_field_value(obj, field_name, field_transforms, context=None, is_link_field=False):
+def _get_field_value(obj, field_name: str, field_transforms: dict, context=None, is_link_field: bool = False) -> Any:
     """Extract and format a field value from an object.
 
     Args:
@@ -62,7 +63,7 @@ def _get_field_value(obj, field_name, field_transforms, context=None, is_link_fi
     return value
 
 
-def _get_field_label(model, field_name):
+def _get_field_label(model, field_name: str) -> str:
     """Get the verbose_name for a model field, with fallback."""
     try:
         field = model._meta.get_field(field_name)
@@ -78,7 +79,9 @@ def _ns_reverse(url_name: str, namespace: str | None = None, **kwargs) -> str:
     return reverse(url_name, **kwargs)
 
 
-def _build_sort_headers(list_fields, model, request, column_widths=None):
+def _build_sort_headers(
+    list_fields: list[str], model, request, column_widths: dict | None = None,
+) -> list[dict[str, Any]]:
     """Build header metadata with sort state for each column.
 
     Returns a list of dicts with keys: label, field_name, sortable,

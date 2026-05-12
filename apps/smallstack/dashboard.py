@@ -16,7 +16,7 @@ an API endpoint.
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from django.urls import NoReverseMatch, reverse
 from django.utils.safestring import mark_safe
@@ -235,7 +235,7 @@ class DashboardWidgetsMixin:
     widget_model = None
     widget_dashboard_only: bool | None = None
 
-    def get_context_data(self, **kwargs):
+    def get_context_data(self, **kwargs) -> dict[str, Any]:
         context = super().get_context_data(**kwargs)
         dashboard_only = self.widget_dashboard_only
         if dashboard_only is None:

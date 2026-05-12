@@ -2,6 +2,7 @@
 
 import os
 import time
+from typing import Any
 
 from django.conf import settings
 from django.contrib import messages
@@ -35,7 +36,7 @@ class SmallStackDashboardView(StaffRequiredMixin, DashboardWidgetsMixin, Templat
     template_name = "smallstack/dashboard.html"
 
 
-def _get_db_info():
+def _get_db_info() -> dict[str, Any]:
     """Return database engine and file path info."""
     db = settings.DATABASES["default"]
     engine = db["ENGINE"]
@@ -52,7 +53,7 @@ def _get_db_info():
     }
 
 
-def _prune_backups(triggered_by="manual", keep=None):
+def _prune_backups(triggered_by: str = "manual", keep: int | None = None) -> list[str]:
     """Remove oldest backups beyond the keep count (defaults to BACKUP_RETENTION)."""
     from pathlib import Path
 
@@ -90,7 +91,7 @@ def _prune_backups(triggered_by="manual", keep=None):
     return pruned
 
 
-def _do_backup(triggered_by="manual"):
+def _do_backup(triggered_by: str = "manual") -> BackupRecord:
     """Perform a SQLite backup and return the BackupRecord."""
     import sqlite3
     from datetime import datetime
@@ -378,7 +379,7 @@ class BackupFileDownloadView(StaffRequiredMixin, View):
         return response
 
 
-def _format_size(size_bytes):
+def _format_size(size_bytes: int) -> str:
     """Format bytes to human-readable size."""
     if size_bytes < 1024:
         return f"{size_bytes} B"

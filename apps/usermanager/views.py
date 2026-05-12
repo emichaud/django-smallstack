@@ -1,5 +1,7 @@
 """User Manager views — CRUDView config + bespoke overrides."""
 
+from typing import Any
+
 from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib.auth import get_user_model
 from django.db.models import Avg, Count, Max
@@ -163,7 +165,7 @@ class UserCRUDView(CRUDView):
         return view_class
 
 
-def _get_dashboard_stats():
+def _get_dashboard_stats() -> dict[str, int]:
     """Build dashboard stats for the user manager list page."""
     now = timezone.now()
     thirty_days_ago = now - timezone.timedelta(days=30)
@@ -187,7 +189,7 @@ def _get_dashboard_stats():
     }
 
 
-def _get_user_activity_stats(user_obj):
+def _get_user_activity_stats(user_obj) -> dict[str, Any]:
     """Build activity stats dict for a user."""
     now = timezone.now()
     thirty_days_ago = now - timezone.timedelta(days=30)
@@ -229,7 +231,7 @@ def _get_user_activity_stats(user_obj):
 
 
 @staff_member_required
-def user_stat_detail(request, stat_type):
+def user_stat_detail(request, stat_type: str) -> HttpResponse:
     """HTMX endpoint returning HTML for stat card drill-down modals."""
     now = timezone.now()
     thirty_days_ago = now - timezone.timedelta(days=30)

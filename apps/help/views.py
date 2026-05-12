@@ -4,7 +4,7 @@ Views for the help/documentation app.
 Supports hierarchical documentation with sections (folders).
 """
 
-from django.http import Http404, JsonResponse
+from django.http import Http404, HttpRequest, JsonResponse
 from django.views.generic import TemplateView
 
 from .utils import (
@@ -201,7 +201,7 @@ class SlideView(TemplateView):
         return context
 
 
-def search_index_view(request):
+def search_index_view(request: HttpRequest) -> JsonResponse:
     """Return JSON search index for client-side search."""
     index = build_search_index()
     return JsonResponse({"pages": index})

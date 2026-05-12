@@ -1,5 +1,8 @@
 """Models for heartbeat/uptime monitoring."""
 
+from datetime import datetime
+from typing import Any
+
 from django.db import models
 from django.utils.timezone import now
 
@@ -28,14 +31,15 @@ class HeartbeatEpoch(models.Model):
     )
 
     class Meta:
+        ordering = ["-started_at"]
         verbose_name = "Heartbeat Epoch"
         verbose_name_plural = "Heartbeat Epoch"
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f"Monitoring since {self.started_at:%Y-%m-%d %H:%M}"
 
     @classmethod
-    def get_epoch(cls):
+    def get_epoch(cls) -> datetime | None:
         """Return the current epoch timestamp, or None if no monitoring has started."""
         obj = cls.objects.first()
         if obj:
@@ -44,12 +48,12 @@ class HeartbeatEpoch(models.Model):
         return oldest
 
     @classmethod
-    def get_config(cls):
+    def get_config(cls) -> "HeartbeatEpoch | None":
         """Return the epoch config object, or None."""
         return cls.objects.first()
 
     @classmethod
-    def get_sla_targets(cls):
+    def get_sla_targets(cls) -> tuple[float, float]:
         """Return (service_target, service_minimum) as floats."""
         obj = cls.objects.first()
         if obj:
@@ -57,7 +61,7 @@ class HeartbeatEpoch(models.Model):
         return 99.9, 99.5
 
     @classmethod
-    def reset(cls, note="", started_at=None, service_target=None, service_minimum=None):
+    def reset(cls, note="", started_at=None, service_target=None, service_minimum=None) -> "HeartbeatEpoch":
         """Reset the epoch. Returns the new epoch object.
 
         started_at is truncated to the minute to align with heartbeat timestamps.
@@ -77,7 +81,7 @@ class HeartbeatEpoch(models.Model):
         return cls.objects.create(**defaults)
 
     @classmethod
-    def ensure_epoch(cls):
+    def ensure_epoch(cls) -> "HeartbeatEpoch | None":
         """Create the epoch from the first heartbeat if it doesn't exist yet."""
         if cls.objects.exists():
             return cls.objects.first()
@@ -100,16 +104,16 @@ class MaintenanceWindow(models.Model):
     class Meta:
         ordering = ["-start"]
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f"{self.title} ({self.start:%Y-%m-%d %H:%M} – {self.end:%H:%M})"
 
     @classmethod
-    def is_in_maintenance(cls, dt):
+    def is_in_maintenance(cls, dt) -> bool:
         """Check if a datetime falls within any maintenance window."""
         return cls.objects.filter(start__lte=dt, end__gt=dt).exists()
 
     @classmethod
-    def get_excluded_ranges(cls, range_start, range_end):
+    def get_excluded_ranges(cls, range_start, range_end) -> list[tuple[datetime, datetime]]:
         """Return merged (start, end) tuples of SLA-excluded windows overlapping the range."""
         windows = (
             cls.objects.filter(
@@ -132,7 +136,7 @@ class MaintenanceWindow(models.Model):
         return merged
 
     @classmethod
-    def get_excluded_seconds(cls, range_start, range_end):
+    def get_excluded_seconds(cls, range_start, range_end) -> float:
         """Total seconds excluded from SLA in the given range (merged to avoid double-counting)."""
         return sum((e - s).total_seconds() for s, e in cls.get_excluded_ranges(range_start, range_end))
 
@@ -157,11 +161,11 @@ class HeartbeatDaily(models.Model):
         verbose_name = "Daily Summary"
         verbose_name_plural = "Daily Summaries"
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f"{self.date} — {self.uptime_pct}% ({self.ok_count}/{self.expected_count})"
 
     @property
-    def sla_status(self):
+    def sla_status(self) -> str | None:
         """Classify this day's uptime against SLA targets.
 
         Returns ``"success"`` when uptime meets the target, ``"warning"`` when
@@ -179,7 +183,7 @@ class HeartbeatDaily(models.Model):
         return "danger"
 
     @classmethod
-    def get_daily_summary(cls, days=7):
+    def get_daily_summary(cls, days: int = 7) -> list[dict[str, Any]]:
         """Return a list of daily ok/fail dicts for the last N days.
 
         Always returns exactly `days` entries (oldest first), filling in
@@ -232,5 +236,5 @@ class Heartbeat(models.Model):
         ordering = ["-timestamp"]
         get_latest_by = "timestamp"
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f"{self.timestamp:%Y-%m-%d %H:%M} [{self.status}] {self.response_time_ms}ms"

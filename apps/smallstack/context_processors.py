@@ -7,9 +7,11 @@ Provides branding, site configuration, and palette data to all templates.
 import logging
 import warnings
 from pathlib import Path
+from typing import Any
 
 import yaml
 from django.conf import settings
+from django.http import HttpRequest
 from django.urls import NoReverseMatch, reverse
 
 from apps.smallstack.navigation import nav
@@ -19,7 +21,7 @@ logger = logging.getLogger(__name__)
 _cached_version = None
 
 
-def _get_version():
+def _get_version() -> str:
     """Get SmallStack version from pyproject.toml."""
     global _cached_version
     if _cached_version is not None:
@@ -36,7 +38,7 @@ def _get_version():
     return _cached_version
 
 
-def _load_palettes():
+def _load_palettes() -> list[dict]:
     """Load palette definitions from palettes.yaml."""
     palette_file = Path(__file__).parent / "palettes.yaml"
     try:
@@ -47,7 +49,7 @@ def _load_palettes():
         return []
 
 
-def _get_effective_palette(request):
+def _get_effective_palette(request: HttpRequest) -> str:
     """Resolve effective palette: user override > system default."""
     system_default = getattr(settings, "SMALLSTACK_COLOR_PALETTE", "django")
 
@@ -62,7 +64,7 @@ def _get_effective_palette(request):
     return system_default
 
 
-def _is_active(resolved_url, request_path):
+def _is_active(resolved_url: str, request_path: str) -> bool:
     """Check if a resolved URL matches the current request path."""
     if request_path == resolved_url:
         return True
@@ -71,7 +73,7 @@ def _is_active(resolved_url, request_path):
     return False
 
 
-def _resolve_url(item):
+def _resolve_url(item: dict) -> str | None:
     """Resolve a nav item's URL. Returns the resolved URL string or None."""
     url = item.get("url", "")
     if not url:
@@ -90,7 +92,7 @@ def _resolve_url(item):
         return None
 
 
-def _resolve_nav_items(items, request):
+def _resolve_nav_items(items: list[dict], request: HttpRequest) -> list[dict]:
     """Resolve nav items: filter by auth/staff, reverse URLs, determine active state."""
     resolved = []
     user = getattr(request, "user", None)
@@ -136,7 +138,7 @@ def _resolve_nav_items(items, request):
     return resolved
 
 
-def _get_sidebar_state(request):
+def _get_sidebar_state(request: HttpRequest) -> tuple[str, bool]:
     """Resolve the effective sidebar state.
 
     Precedence (highest to lowest):
@@ -165,7 +167,7 @@ def _get_sidebar_state(request):
     return default, False
 
 
-def branding(request):
+def branding(request: HttpRequest) -> dict[str, Any]:
     """
     Add branding configuration to template context.
 

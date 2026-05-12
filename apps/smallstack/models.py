@@ -3,6 +3,7 @@
 import hashlib
 import secrets
 from pathlib import Path
+from typing import Any
 
 from django.conf import settings
 from django.db import models
@@ -38,18 +39,18 @@ class BackupRecord(models.Model):
     class Meta:
         ordering = ["-created_at"]
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f"{self.filename or 'failed'} ({self.status})"
 
-    def get_absolute_url(self):
+    def get_absolute_url(self) -> str:
         return reverse("smallstack:backup_detail", kwargs={"pk": self.pk})
 
     @property
-    def is_pruned(self):
+    def is_pruned(self) -> bool:
         return self.pruned_at is not None
 
     @property
-    def file_exists(self):
+    def file_exists(self) -> bool:
         """Check if the backup file still exists on disk."""
         if self.pruned_at:
             return False
@@ -100,10 +101,10 @@ class APIToken(models.Model):
     class Meta:
         ordering = ["-created_at"]
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f"{self.name} ({self.prefix}…) — {self.user}"
 
-    def revoke(self):
+    def revoke(self) -> None:
         """Soft-delete: deactivate and record revocation time."""
         self.is_active = False
         self.revoked_at = timezone.now()
@@ -118,7 +119,7 @@ class APIToken(models.Model):
         return True
 
     @classmethod
-    def _generate_raw_key(cls):
+    def _generate_raw_key(cls) -> tuple[str, str, str]:
         """Generate a raw API key and return (raw_key, prefix, hashed_key)."""
         raw_key = secrets.token_urlsafe(cls.TOKEN_LENGTH)
         prefix = raw_key[: cls.PREFIX_LENGTH]
@@ -134,7 +135,7 @@ class APIToken(models.Model):
         expires_at=None,
         token_type="manual",
         access_level="staff",
-    ):
+    ) -> "tuple[APIToken, str]":
         """Create a new token. Returns (token_instance, raw_key)."""
         raw_key, prefix, hashed = cls._generate_raw_key()
         token = cls.objects.create(
@@ -150,7 +151,7 @@ class APIToken(models.Model):
         return token, raw_key
 
     @classmethod
-    def authenticate(cls, raw_key):
+    def authenticate(cls, raw_key: str) -> "tuple[Any, APIToken | None]":
         """Validate a raw key. Returns (user, token) or (None, None)."""
         if not raw_key or len(raw_key) < cls.PREFIX_LENGTH:
             return None, None

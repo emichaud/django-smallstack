@@ -4,9 +4,10 @@ SmallStack middleware.
 
 import uuid
 import zoneinfo
+from collections.abc import Callable
 
 from django.conf import settings
-from django.http import HttpResponse
+from django.http import HttpRequest, HttpResponse
 from django.utils import timezone
 
 
@@ -23,10 +24,10 @@ class RequestIDMiddleware:
 
     HEADER = "X-Request-ID"
 
-    def __init__(self, get_response):
+    def __init__(self, get_response: Callable[[HttpRequest], HttpResponse]) -> None:
         self.get_response = get_response
 
-    def __call__(self, request):
+    def __call__(self, request: HttpRequest) -> HttpResponse:
         request_id = request.META.get("HTTP_X_REQUEST_ID") or f"req_{uuid.uuid4()}"
         request.id = request_id
 
@@ -49,10 +50,10 @@ class TimezoneMiddleware:
         request._tz_differs – True when user TZ ≠ server TZ
     """
 
-    def __init__(self, get_response):
+    def __init__(self, get_response: Callable[[HttpRequest], HttpResponse]) -> None:
         self.get_response = get_response
 
-    def __call__(self, request):
+    def __call__(self, request: HttpRequest) -> HttpResponse:
         server_tz = zoneinfo.ZoneInfo(settings.TIME_ZONE)
         user_tz = server_tz
 
@@ -82,10 +83,10 @@ class HtmxLoginRedirectMiddleware:
     and responds with HX-Redirect so the browser does a proper navigation.
     """
 
-    def __init__(self, get_response):
+    def __init__(self, get_response: Callable[[HttpRequest], HttpResponse]) -> None:
         self.get_response = get_response
 
-    def __call__(self, request):
+    def __call__(self, request: HttpRequest) -> HttpResponse:
         response = self.get_response(request)
 
         if getattr(request, "htmx", False) and response.status_code in (301, 302) and hasattr(response, "url"):

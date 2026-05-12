@@ -28,6 +28,9 @@ the same nav data — adding/removing an app in INSTALLED_APPS automatically
 updates navigation.
 """
 
+from typing import Any
+
+from django.http import HttpRequest
 from django.urls import NoReverseMatch, reverse
 
 # Sections render in this order; unlisted sections appear last.
@@ -53,18 +56,18 @@ class _NavItem:
     def __init__(
         self,
         *,
-        section,
-        label,
-        url_name,
-        url_args=None,
-        url_kwargs=None,
-        icon_svg="",
-        auth_required=False,
-        staff_required=False,
-        order=0,
-        parent=None,
-        zone="smallstack",
-    ):
+        section: str,
+        label: str,
+        url_name: str,
+        url_args: list | None = None,
+        url_kwargs: dict | None = None,
+        icon_svg: str = "",
+        auth_required: bool = False,
+        staff_required: bool = False,
+        order: int = 0,
+        parent: str | None = None,
+        zone: str = "smallstack",
+    ) -> None:
         self.section = section
         self.label = label
         self.url_name = url_name
@@ -79,24 +82,24 @@ class _NavItem:
 
 
 class NavRegistry:
-    def __init__(self):
+    def __init__(self) -> None:
         self._items: list[_NavItem] = []
 
     def register(
         self,
         *,
-        section,
-        label,
-        url_name,
-        url_args=None,
-        url_kwargs=None,
-        icon_svg="",
-        auth_required=False,
-        staff_required=False,
-        order=0,
-        parent=None,
-        zone="smallstack",
-    ):
+        section: str,
+        label: str,
+        url_name: str,
+        url_args: list | None = None,
+        url_kwargs: dict | None = None,
+        icon_svg: str = "",
+        auth_required: bool = False,
+        staff_required: bool = False,
+        order: int = 0,
+        parent: str | None = None,
+        zone: str = "smallstack",
+    ) -> None:
         self._items.append(
             _NavItem(
                 section=section,
@@ -113,7 +116,7 @@ class NavRegistry:
             )
         )
 
-    def get_nav_items(self, request, zone=None):
+    def get_nav_items(self, request: HttpRequest, zone: str | None = None) -> list[dict[str, Any]]:
         """Return nav items resolved and filtered for the current request.
 
         Returns a list of dicts grouped by section (ordered per SECTION_ORDER):
@@ -216,7 +219,7 @@ class NavRegistry:
             sections.setdefault(sec, []).append(item_dict)
 
         # Return in defined order
-        def _section_key(name):
+        def _section_key(name: str) -> int:
             try:
                 return SECTION_ORDER.index(name)
             except ValueError:

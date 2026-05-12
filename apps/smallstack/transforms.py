@@ -28,10 +28,11 @@ Custom transforms register via AppConfig.ready():
 
 import json
 import re
+from typing import Any
 
 from django.urls import reverse
 from django.utils.html import escape
-from django.utils.safestring import mark_safe
+from django.utils.safestring import SafeString, mark_safe
 
 # ---------------------------------------------------------------------------
 # Base class
@@ -49,7 +50,7 @@ class FieldTransform:
     name: str = ""
     has_expanded: bool = False
 
-    def inline(self, value, obj, field_name, context, **options):
+    def inline(self, value: Any, obj: Any, field_name: str, context: Any, **options: Any) -> Any:
         """Render the table-cell representation.
 
         Receives the *cooked* value (after choice display, boolean, null handling).
@@ -57,7 +58,7 @@ class FieldTransform:
         """
         return value
 
-    def expanded(self, raw_value, obj, field_name, context, **options):
+    def expanded(self, raw_value: Any, obj: Any, field_name: str, context: Any, **options: Any) -> dict[str, Any]:
         """Render the modal/panel content.
 
         Receives the *raw* attribute value (for proper JSON/markdown rendering).
@@ -65,7 +66,7 @@ class FieldTransform:
         """
         raise NotImplementedError
 
-    def get_expanded_template(self):
+    def get_expanded_template(self) -> str:
         """Template for expanded view. Override for custom layouts."""
         return "smallstack/crud/object_field_preview.html"
 
@@ -77,12 +78,12 @@ class FieldTransform:
 _registry: dict[str, FieldTransform] = {}
 
 
-def register(transform):
+def register(transform: FieldTransform) -> None:
     """Register a transform instance by its name."""
     _registry[transform.name] = transform
 
 
-def get(name):
+def get(name: str) -> FieldTransform | None:
     """Look up a registered transform. Returns None if not found."""
     return _registry.get(name)
 
@@ -92,7 +93,7 @@ def get(name):
 # ---------------------------------------------------------------------------
 
 
-def _detect_format(text):
+def _detect_format(text: str) -> str:
     """Detect whether text is JSON, Markdown, or plain text."""
     t = text.strip()
     if t and ((t[0] == "{" and t[-1] == "}") or (t[0] == "[" and t[-1] == "]")):
@@ -116,7 +117,7 @@ def _detect_format(text):
     return "text"
 
 
-def _render_json_preview(text):
+def _render_json_preview(text: str) -> SafeString | str:
     """Render JSON with syntax-highlighted spans, or empty string if not valid JSON."""
     t = text.strip()
     try:
@@ -134,7 +135,7 @@ def _render_json_preview(text):
     return mark_safe(html)
 
 
-def _render_markdown_preview(text):
+def _render_markdown_preview(text: str) -> SafeString:
     """Render markdown to HTML, without TOC permalinks."""
     import markdown as md_lib
 
@@ -161,7 +162,9 @@ class PreviewTransform(FieldTransform):
     name = "preview"
     has_expanded = True
 
-    def inline(self, value, obj, field_name, context, threshold=None, **options):
+    def inline(
+        self, value: Any, obj: Any, field_name: str, context: Any, threshold: int | None = None, **options: Any,
+    ) -> Any:
         from django.utils.safestring import SafeString
 
         # Link fields should not be truncated — they render as clickable links
@@ -207,7 +210,7 @@ class PreviewTransform(FieldTransform):
             f"</span>"
         )
 
-    def expanded(self, raw_value, obj, field_name, context, **options):
+    def expanded(self, raw_value: Any, obj: Any, field_name: str, context: Any, **options: Any) -> dict[str, Any]:
         if isinstance(raw_value, (dict, list)):
             raw_text = json.dumps(raw_value, ensure_ascii=False)
         else:
@@ -237,7 +240,9 @@ class LocaltimeTransform(FieldTransform):
     name = "localtime"
     has_expanded = False
 
-    def inline(self, value, obj, field_name, context, fmt="M d, Y g:i A T", **options):
+    def inline(
+        self, value: Any, obj: Any, field_name: str, context: Any, fmt: str = "M d, Y g:i A T", **options: Any,
+    ) -> Any:
         import datetime
 
         if not isinstance(value, datetime.datetime):

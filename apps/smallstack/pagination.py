@@ -1,9 +1,12 @@
 """Reusable pagination utilities for SmallStack."""
 
-from django.core.paginator import Paginator
+from typing import Any
+
+from django.core.paginator import Page, Paginator
+from django.http import HttpRequest
 
 
-def paginate_queryset(queryset, request, page_size=20, page_param="page"):
+def paginate_queryset(queryset: Any, request: HttpRequest, page_size: int = 20, page_param: str = "page") -> Page:
     """Paginate a queryset and return a Page object with display helpers.
 
     Works with regular querysets and .values().annotate() aggregations.
@@ -42,5 +45,5 @@ class PaginationMixin:
 
     page_size = 20
 
-    def paginate(self, queryset, page_size=None):
+    def paginate(self, queryset: Any, page_size: int | None = None) -> Page:
         return paginate_queryset(queryset, self.request, page_size=page_size or self.page_size)

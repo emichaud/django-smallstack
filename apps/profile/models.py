@@ -3,6 +3,7 @@ UserProfile model for extended user information.
 """
 
 import zoneinfo
+from datetime import datetime
 
 from django.conf import settings
 from django.core.validators import FileExtensionValidator
@@ -80,7 +81,7 @@ TIMEZONE_CHOICES = [
 ]
 
 
-def validate_image_size(image):
+def validate_image_size(image) -> None:
     """Validate that uploaded image is not too large (max 5MB)."""
     from django.core.exceptions import ValidationError
 
@@ -185,14 +186,14 @@ class UserProfile(models.Model):
         verbose_name_plural = "user profiles"
         ordering = ["-created_at"]
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f"Profile for {self.user.username}"
 
-    def get_display_name(self):
+    def get_display_name(self) -> str:
         """Return display name or username as fallback."""
         return self.display_name or self.user.username
 
-    def get_timezone(self):
+    def get_timezone(self) -> zoneinfo.ZoneInfo:
         """Return the user's timezone as a ZoneInfo object.
 
         Falls back to the Django TIME_ZONE setting if the user hasn't set one.
@@ -200,7 +201,7 @@ class UserProfile(models.Model):
         tz_name = self.timezone or settings.TIME_ZONE
         return zoneinfo.ZoneInfo(tz_name)
 
-    def to_local_time(self, dt):
+    def to_local_time(self, dt: datetime) -> datetime:
         """Convert a UTC datetime to the user's local timezone.
 
         Usage in views:

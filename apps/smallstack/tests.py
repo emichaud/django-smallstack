@@ -204,6 +204,7 @@ class TestBackupViewPermissions:
         response = client.get(reverse("smallstack:backup_detail", kwargs={"pk": success_record.pk}))
         assert response.status_code == 200
 
+    @pytest.mark.starter_content
     def test_backup_list_has_breadcrumbs(self, client, staff_user):
         client.force_login(staff_user)
         response = client.get(reverse("smallstack:backups"))
@@ -211,6 +212,7 @@ class TestBackupViewPermissions:
         assert "Home" in content
         assert "Backups" in content
 
+    @pytest.mark.starter_content
     def test_backup_detail_has_breadcrumbs(self, client, staff_user, success_record):
         client.force_login(staff_user)
         response = client.get(reverse("smallstack:backup_detail", kwargs={"pk": success_record.pk}))
@@ -538,11 +540,13 @@ class TestBackupStatDetailView:
 class TestLegalPages:
     """Tests for privacy policy and terms of service pages."""
 
+    @pytest.mark.starter_content
     def test_privacy_page_loads(self, client, db):
         response = client.get("/privacy/")
         assert response.status_code == 200
         assert "Privacy Policy" in response.content.decode()
 
+    @pytest.mark.starter_content
     def test_terms_page_loads(self, client, db):
         response = client.get("/terms/")
         assert response.status_code == 200
@@ -568,6 +572,7 @@ class TestLegalPages:
         with pytest.raises(Exception):
             legal_page_view(request, page="nonexistent-page")
 
+    @pytest.mark.starter_content
     def test_footer_contains_legal_links(self, client, db):
         """Footer should contain privacy and terms links."""
         response = client.get("/")
@@ -583,6 +588,7 @@ class TestLegalPages:
         assert "Privacy</a>" not in content
         assert "Terms</a>" not in content
 
+    @pytest.mark.starter_content
     def test_cookie_banner_present(self, client, db):
         """Cookie banner should be in the page HTML."""
         response = client.get("/")
@@ -596,6 +602,7 @@ class TestLegalPages:
         content = response.content.decode()
         assert "cookie-banner" not in content
 
+    @pytest.mark.starter_content
     def test_signup_terms_notice(self, client, db):
         """Signup page should show terms notice."""
         response = client.get("/smallstack/accounts/signup/")
@@ -619,12 +626,14 @@ class TestTopbarNav:
             request.user = type("AnonymousUser", (), {"is_authenticated": False, "is_staff": False})()
         return request
 
+    @pytest.mark.starter_content
     def test_topbar_nav_renders(self, client, db):
         """Topbar nav should render with registered nav items."""
         response = client.get("/")
         content = response.content.decode()
         assert "topbar-nav" in content
 
+    @pytest.mark.starter_content
     @override_settings(
         SMALLSTACK_TOPBAR_NAV_ENABLED=True,
         SMALLSTACK_TOPBAR_NAV_ITEMS=[

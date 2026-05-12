@@ -1,9 +1,10 @@
 """Views for heartbeat status page and dashboard."""
 
-from datetime import timedelta
+from datetime import datetime, timedelta
+from typing import Any
 
 from django.conf import settings
-from django.http import JsonResponse
+from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.template.response import TemplateResponse
 from django.utils.timezone import get_current_timezone, is_naive, localtime, make_aware, now
 from django.views.decorators.csrf import csrf_exempt
@@ -20,7 +21,7 @@ LOCALHOST_IPS = {"127.0.0.1", "::1"}
 
 @csrf_exempt
 @require_POST
-def heartbeat_ping(request):
+def heartbeat_ping(request: HttpRequest) -> JsonResponse:
     """Localhost-only endpoint for cron to trigger a heartbeat check.
 
     Replaces ``manage.py heartbeat`` in cron to avoid external-process
@@ -44,17 +45,17 @@ def heartbeat_ping(request):
     )
 
 
-def _get_epoch():
+def _get_epoch() -> datetime | None:
     """Return the monitoring epoch, or None."""
     return HeartbeatEpoch.get_epoch()
 
 
-def _get_sla_targets():
+def _get_sla_targets() -> tuple[float, float]:
     """Return (service_target, service_minimum) as floats."""
     return HeartbeatEpoch.get_sla_targets()
 
 
-def _sla_color(uptime_pct, use_target=False):
+def _sla_color(uptime_pct: float | None, use_target: bool = False) -> str:
     """Return a CSS color variable based on uptime vs SLA thresholds.
 
     With use_target=True (dashboard): green >= target, yellow >= minimum, red < minimum.
@@ -77,7 +78,7 @@ def _sla_color(uptime_pct, use_target=False):
             return "var(--error-fg)"
 
 
-def _get_status_data():
+def _get_status_data() -> dict[str, Any]:
     """Compute current status from recent heartbeats."""
     expected_interval = getattr(settings, "HEARTBEAT_EXPECTED_INTERVAL", 60)
     recent = list(Heartbeat.objects.all()[:5])
@@ -113,7 +114,7 @@ def _get_status_data():
     }
 
 
-def _get_non_maintenance_ok_count(window_start, window_end):
+def _get_non_maintenance_ok_count(window_start, window_end) -> int:
     """Count OK beats excluding those within SLA-excluded maintenance windows."""
     excluded_ranges = MaintenanceWindow.get_excluded_ranges(window_start, window_end)
     qs = Heartbeat.objects.filter(timestamp__gte=window_start, timestamp__lt=window_end, status="ok")
@@ -122,7 +123,7 @@ def _get_non_maintenance_ok_count(window_start, window_end):
     return qs.count()
 
 
-def _calc_uptime(hours):
+def _calc_uptime(hours: int) -> float | None:
     """Calculate uptime percentage over the given window, epoch-aware.
 
     Expected checks are floored to complete intervals — the current
@@ -156,7 +157,7 @@ def _calc_uptime(hours):
     return min(round((ok_count / expected) * 100, 2), 100.0)
 
 
-def _calc_overall_uptime():
+def _calc_overall_uptime() -> float | None:
     """Calculate uptime since the epoch.
 
     Expected checks are floored to complete intervals — the current
@@ -188,7 +189,7 @@ def _calc_overall_uptime():
     return min(round((ok_count / expected) * 100, 2), 100.0)
 
 
-def _add_sla_context(context, use_target=False):
+def _add_sla_context(context: dict, use_target: bool = False) -> dict:
     """Add SLA targets and color info to a template context.
 
     use_target=True: 3-tier coloring (green/yellow/red) for dashboard.
@@ -206,7 +207,7 @@ def _add_sla_context(context, use_target=False):
     return context
 
 
-def _is_in_any_window(dt, windows):
+def _is_in_any_window(dt, windows) -> bool:
     """Check if a datetime falls within any of the given (start, end) tuples."""
     for ws, we in windows:
         if ws <= dt < we:
@@ -214,7 +215,7 @@ def _is_in_any_window(dt, windows):
     return False
 
 
-def _build_minute_timeline(minutes=60):
+def _build_minute_timeline(minutes: int = 60) -> list[dict]:
     """Build a slot-based timeline for the last N minutes."""
     current = now()
     epoch = _get_epoch()
@@ -285,7 +286,7 @@ def _build_minute_timeline(minutes=60):
     return slots
 
 
-def _build_24h_timeline():
+def _build_24h_timeline() -> list[dict]:
     """Build a 24-hour timeline grouped into 15-minute buckets."""
     current = now()
     epoch = _get_epoch()
@@ -392,7 +393,7 @@ class StatusPageView(TemplateView):
         return context
 
 
-def reset_epoch(request):
+def reset_epoch(request: HttpRequest) -> HttpResponse:
     """Staff-only POST endpoint to reset the monitoring epoch (SLA baseline)."""
     from django.shortcuts import redirect
 
@@ -419,7 +420,7 @@ def reset_epoch(request):
     return redirect("heartbeat:sla")
 
 
-def status_json(request):
+def status_json(request: HttpRequest) -> JsonResponse:
     """Machine-readable JSON status endpoint."""
     data = _get_status_data()
     data["uptime_24h"] = _calc_uptime(24)
@@ -595,7 +596,7 @@ class HeartbeatDashboardView(StaffRequiredMixin, TemplateView):
         return TemplateResponse(request, self.template_name, context)
 
 
-def maintenance_create(request):
+def maintenance_create(request: HttpRequest) -> HttpResponse | TemplateResponse:
     """Staff-only view to create a maintenance window."""
     from django.shortcuts import redirect
 
@@ -630,7 +631,7 @@ def maintenance_create(request):
     )
 
 
-def maintenance_edit(request, pk):
+def maintenance_edit(request: HttpRequest, pk: int) -> HttpResponse | TemplateResponse:
     """Staff-only view to edit a maintenance window."""
     from django.shortcuts import get_object_or_404, redirect
 
@@ -674,7 +675,7 @@ def maintenance_edit(request, pk):
     )
 
 
-def maintenance_delete(request, pk):
+def maintenance_delete(request: HttpRequest, pk: int) -> HttpResponse:
     """Staff-only POST endpoint to delete a maintenance window."""
     from django.shortcuts import get_object_or_404, redirect
 

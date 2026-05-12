@@ -3,7 +3,9 @@ Template tags for theme functionality including breadcrumbs, navigation helpers,
 and timezone conversion.
 """
 
+import datetime
 import zoneinfo
+from typing import Any
 
 from django import template
 from django.conf import settings
@@ -23,12 +25,12 @@ class BreadcrumbNode(template.Node):
         {% breadcrumb "Clients" "construction/client-list"|ns:url_namespace %}
     """
 
-    def __init__(self, label, url_name=None, url_args=None):
+    def __init__(self, label, url_name=None, url_args=None) -> None:
         self.label = label
         self.url_name = url_name
         self.url_args = url_args or []
 
-    def render(self, context):
+    def render(self, context) -> str:
         label = self.label.resolve(context)
 
         # Get or create breadcrumbs list in context
@@ -54,7 +56,7 @@ class BreadcrumbNode(template.Node):
 
 
 @register.tag
-def breadcrumb(parser, token):
+def breadcrumb(parser, token) -> BreadcrumbNode:
     """
     Add a breadcrumb item to the breadcrumb trail.
 
@@ -86,7 +88,7 @@ def clear_breadcrumbs(context):
 
 
 @register.simple_tag(takes_context=True)
-def nav_active(context, *url_names):
+def nav_active(context, *url_names) -> str:
     """
     Return 'active' class if current URL matches any of the given URL names.
 
@@ -126,7 +128,7 @@ def nav_active(context, *url_names):
 
 
 @register.inclusion_tag("smallstack/includes/breadcrumbs.html", takes_context=True)
-def render_breadcrumbs(context):
+def render_breadcrumbs(context) -> dict[str, Any]:
     """Render the breadcrumbs trail."""
     return {
         "breadcrumbs": context.get("breadcrumbs", []),
@@ -135,7 +137,7 @@ def render_breadcrumbs(context):
 
 
 @register.simple_tag(takes_context=True)
-def querystring(context, **kwargs):
+def querystring(context, **kwargs) -> str:
     """Build a query string merging kwargs into the current request.GET.
 
     Usage:
@@ -176,7 +178,7 @@ def render_paginator(context, page_obj, hx_target="#tab-content", hx_swap="inner
 
 
 @register.filter
-def user_localtime(dt, request):
+def user_localtime(dt, request) -> datetime.datetime | None:
     """Convert a datetime to the current user's local timezone.
 
     Falls back to the system TIME_ZONE setting for anonymous users or
@@ -198,7 +200,7 @@ def user_localtime(dt, request):
 
 
 @register.simple_tag(takes_context=True)
-def localtime_tooltip(context, dt, fmt="M d, Y g:i A T", force_tooltip=False):
+def localtime_tooltip(context, dt, fmt="M d, Y g:i A T", force_tooltip=False) -> str:
     """Render a datetime with a CSS hover tooltip showing server time and UTC.
 
     Uses timezone info cached on the request by TimezoneMiddleware to avoid
