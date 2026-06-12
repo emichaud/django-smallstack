@@ -43,6 +43,18 @@ When an AI agent is asked to modify or extend this project, these files help it:
 | [calendar-displays.md](calendar-displays.md) | Month-grid calendar display: `CalendarDisplay` config, ranged vs single-date events, month navigation |
 | [update-docs-and-skills.md](update-docs-and-skills.md) | File group map for updating docs/skills after code changes |
 
+### MCP (Model Context Protocol)
+
+| File | Description |
+|------|-------------|
+| [mcp/enable-mcp-for-a-model.md](mcp/enable-mcp-for-a-model.md) | Opt a CRUDView into MCP via `enable_mcp = True` |
+| [mcp/write-a-custom-tool.md](mcp/write-a-custom-tool.md) | Add cross-cutting tools with the `@tool` decorator + `current_context()` |
+| [mcp/add-a-write-tool.md](mcp/add-a-write-tool.md) | Expose create/update/delete via factory vs custom write tools |
+| [mcp/connect-claude-desktop.md](mcp/connect-claude-desktop.md) | Connect Claude Desktop / Claude.ai Connectors UI to the server |
+| [mcp/debug-mcp-failure.md](mcp/debug-mcp-failure.md) | Decision tree for diagnosing connector failures |
+| [mcp/add-mcp-to-this-project.md](mcp/add-mcp-to-this-project.md) | Bootstrap MCP in a fresh / non-MCP-aware project |
+| [mcp/extend-explorer-for-tokens.md](mcp/extend-explorer-for-tokens.md) | Surface APIToken management via Explorer |
+
 ## Usage
 
 AI agents should read relevant skill files before making changes to the corresponding parts of the codebase. For example:
@@ -72,6 +84,9 @@ AI agents should read relevant skill files before making changes to the correspo
 - Before configuring or building card-grid list displays → read `card-displays.md`
 - Before adding a month-grid calendar to a model → read `calendar-displays.md`
 - Before updating docs after code changes → read `update-docs-and-skills.md`
+- Before exposing a CRUDView to AI clients → read `mcp/enable-mcp-for-a-model.md`
+- Before adding a custom MCP tool → read `mcp/write-a-custom-tool.md`
+- Before debugging an MCP failure → read `mcp/debug-mcp-failure.md`
 
 ## For Humans
 

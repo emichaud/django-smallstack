@@ -22,6 +22,7 @@ categories:
   - "Database"
   - "Auth & Users"
   - "Built-in Tools"
+  - "MCP (AI)"
   - "Packages"
   - "Deployment"
   - "Reference"
@@ -346,3 +347,55 @@ pages:
     icon: "chat"
     is_faq: true
     category: "Reference"
+
+  # ---------------------------------------------------------------------------
+  # MCP — Model Context Protocol server for AI clients
+  # ---------------------------------------------------------------------------
+
+  - slug: mcp
+    title: "MCP Overview"
+    description: "Model Context Protocol server for AI clients (Claude Desktop, Claude.ai Connectors)"
+    icon: "ai"
+    category: "MCP (AI)"
+
+  - slug: mcp-enable-models
+    title: "Enable MCP for a CRUDView"
+    description: "Opt a CRUDView into the MCP factory's auto-derived tool surface"
+    icon: "toggle"
+    category: "MCP (AI)"
+
+  - slug: mcp-custom-tools
+    title: "Writing Custom MCP Tools"
+    description: "Add cross-cutting tools (summary, aggregate, lookup) with the @tool decorator"
+    icon: "code"
+    category: "MCP (AI)"
+
+  - slug: mcp-auth
+    title: "MCP Authentication"
+    description: "API tokens, OAuth flow, PKCE, Claude.ai Connectors UI"
+    icon: "lock"
+    category: "MCP (AI)"
+
+  - slug: mcp-testing
+    title: "Testing MCP Tools"
+    description: "Patterns for tenancy, calling tools directly, HTTP-level tests"
+    icon: "check"
+    category: "MCP (AI)"
+
+  - slug: mcp-debugging
+    title: "Debugging MCP"
+    description: "mcp_doctor walkthrough, log lines, common failure modes"
+    icon: "bug"
+    category: "MCP (AI)"
+
+  - slug: mcp-claude-desktop
+    title: "Connecting Claude Desktop"
+    description: "Connect Claude Desktop / Claude.ai Connectors UI to your MCP server"
+    icon: "link"
+    category: "MCP (AI)"
+
+  - slug: mcp-architecture
+    title: "MCP Architecture"
+    description: "The three layers (HTTP, registry, tools), file map, and where to add what"
+    icon: "diagram"
+    category: "MCP (AI)"
