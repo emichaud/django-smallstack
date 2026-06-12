@@ -110,6 +110,15 @@ LOGGING = {
             "level": "DEBUG",
             "propagate": False,
         },
+        # MCP gets its own namespace so production tuning can be precise
+        # without touching the wider apps.* tree. Do NOT register a
+        # top-level "mcp" logger — it conflicts with the mcp package's
+        # internal logger.
+        "smallstack.mcp": {
+            "handlers": ["console"],
+            "level": "INFO",
+            "propagate": False,
+        },
     },
 }
 

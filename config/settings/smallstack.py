@@ -128,3 +128,47 @@ AXES_FAILURE_LIMIT = config("AXES_FAILURE_LIMIT", default=5, cast=int)
 AXES_COOLOFF_TIME = 0.25  # 15 minutes lockout
 AXES_LOCKOUT_PARAMETERS = [["username", "ip_address"]]  # Lock per username+IP combination
 AXES_RESET_ON_SUCCESS = True  # Reset failure count after successful login
+
+# ---------------------------------------------------------------------------
+# MCP — Model Context Protocol server for AI clients
+# ---------------------------------------------------------------------------
+
+# Server name advertised on `initialize` and the friendly GET banner.
+MCP_SERVER_NAME = config("MCP_SERVER_NAME", default=BRAND_NAME.lower().replace(" ", "-"))
+
+# Version string advertised on `initialize`.
+MCP_SERVER_VERSION = config("MCP_SERVER_VERSION", default="1.0.0")
+
+# Base template the OAuth consent page extends. Derived projects with a
+# different theme override this in their own smallstack.py.
+MCP_BASE_TEMPLATE = config("MCP_BASE_TEMPLATE", default="website/base.html")
+
+# Prefix for APITokens auto-minted by the OAuth flow. Final token name is
+# f"{MCP_TOKEN_NAME_PREFIX} — {client_id}".
+MCP_TOKEN_NAME_PREFIX = config("MCP_TOKEN_NAME_PREFIX", default="MCP")
+
+# Protocol versions we know how to speak. The dispatcher echoes back the
+# client's version if it's in this list; otherwise falls back to the first
+# entry. Hardcoding a single version makes Claude.ai silently disconnect
+# when its negotiated version isn't matched.
+MCP_SUPPORTED_PROTOCOL_VERSIONS = [
+    "2025-06-18",
+    "2025-03-26",
+    "2024-11-05",
+]
+
+# How long an OAuth authorization code is valid (seconds).
+MCP_OAUTH_CODE_TTL_SECONDS = config("MCP_OAUTH_CODE_TTL_SECONDS", default=600, cast=int)
+
+# Disable to ship without OAuth (only direct bearer-token MCP calls).
+# Useful for internal-only servers behind a VPN.
+MCP_ENABLE_OAUTH = config("MCP_ENABLE_OAUTH", default=True, cast=bool)
+
+# When True, the dispatch logger emits DEBUG body previews (truncated to
+# 1 KB each direction). Defaults to False so production stays quiet.
+MCP_VERBOSE_LOGGING = config("MCP_VERBOSE_LOGGING", default=False, cast=bool)
+
+# Tool modules imported at app-ready time. Each module's @tool calls
+# self-register against the singleton server. Derived projects add their
+# own curated cross-cutting tools here.
+MCP_TOOL_MODULES: list[str] = []  # e.g. ["apps.mcp_tools.summary"]

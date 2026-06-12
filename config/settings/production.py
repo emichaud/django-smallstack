@@ -134,6 +134,11 @@ LOGGING = {
             "level": "INFO",
             "propagate": False,
         },
+        "smallstack.mcp": {
+            "handlers": ["console"],
+            "level": "INFO",
+            "propagate": False,
+        },
     },
 }
 
