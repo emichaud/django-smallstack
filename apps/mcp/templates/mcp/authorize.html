@@ -1,0 +1,134 @@
+{% extends base_template %}
+{% load static %}
+
+{% block title %}Authorize MCP client{% endblock %}
+
+{% block content %}
+<div class="mcp-authorize-shell" style="
+  max-width: 520px;
+  margin: 4rem auto;
+  padding: 2rem;
+  background: var(--card-bg, #fff);
+  color: var(--body-fg, #111);
+  border: 1px solid var(--border, #ddd);
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.08);
+  font-family: system-ui, -apple-system, sans-serif;
+">
+  <h1 style="font-size: 1.4rem; margin: 0 0 0.5rem 0;">
+    Authorize MCP client
+  </h1>
+
+  <p style="margin: 0 0 1.5rem 0; color: var(--muted-fg, #666);">
+    A Model Context Protocol client is requesting access to your account.
+  </p>
+
+  <div style="
+    display: inline-block;
+    padding: 0.25rem 0.75rem;
+    margin-bottom: 1.5rem;
+    background: var(--code-bg, #f4f4f4);
+    border-radius: 999px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 0.85rem;
+  " title="Client identifier from Dynamic Client Registration">
+    {{ client_id }}
+  </div>
+
+  <p style="margin: 0 0 1rem 0;">
+    Signed in as <strong>{{ user }}</strong>.
+  </p>
+
+  <h2 style="font-size: 1rem; margin: 1.5rem 0 0.5rem 0;">Requested access</h2>
+  <ul style="margin: 0 0 1.5rem 0; padding-left: 1.25rem; color: var(--body-fg, #111);">
+    {% for line in scope_human %}<li>{{ line }}</li>{% endfor %}
+  </ul>
+
+  <p style="margin: 0 0 1.5rem 0; font-size: 0.85rem; color: var(--muted-fg, #666);">
+    You can review or revoke this client's token at any time from your
+    <a href="{{ tokens_url }}" style="color: var(--primary, #0066cc);">API tokens</a>.
+  </p>
+
+  <form method="post" action="{% url 'mcp:authorize' %}" id="mcp-authorize-form" style="
+    display: flex;
+    gap: 0.75rem;
+    margin-top: 1.5rem;
+  ">
+    {% csrf_token %}
+    <input type="hidden" name="client_id" value="{{ client_id }}">
+    <input type="hidden" name="redirect_uri" value="{{ redirect_uri }}">
+    <input type="hidden" name="code_challenge" value="{{ code_challenge }}">
+    <input type="hidden" name="code_challenge_method" value="{{ code_challenge_method }}">
+    <input type="hidden" name="state" value="{{ state }}">
+    <input type="hidden" name="scope" value="{{ scope }}">
+
+    <button type="submit" name="decision" value="deny" data-mcp-action="deny" style="
+      flex: 1;
+      padding: 0.7rem 1rem;
+      background: transparent;
+      color: var(--body-fg, #111);
+      border: 1px solid var(--border, #ccc);
+      border-radius: 8px;
+      font-size: 1rem;
+      cursor: pointer;
+    ">Deny</button>
+
+    <button type="submit" name="decision" value="allow" data-mcp-action="allow" style="
+      flex: 1;
+      padding: 0.7rem 1rem;
+      background: var(--primary, #0066cc);
+      color: #fff;
+      border: 1px solid var(--primary, #0066cc);
+      border-radius: 8px;
+      font-size: 1rem;
+      cursor: pointer;
+      font-weight: 600;
+    ">Allow</button>
+  </form>
+</div>
+
+<div id="mcp-handoff-overlay" style="
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: var(--body-bg, #fff);
+  color: var(--body-fg, #111);
+  z-index: 9999;
+  align-items: center;
+  justify-content: center;
+  font-family: system-ui, -apple-system, sans-serif;
+  font-size: 1.1rem;
+">
+  <div style="text-align: center;">
+    <div style="margin-bottom: 1rem; opacity: 0.7;">⠋</div>
+    <div>Handing off to the client…</div>
+  </div>
+</div>
+
+<script>
+  (function () {
+    // First-click guard with deferred disable: keep the original click's
+    // `decision` value but block subsequent rapid clicks. We use a flag on
+    // the form rather than disabling the button synchronously, so the
+    // browser's form submission still carries the chosen value.
+    var form = document.getElementById("mcp-authorize-form");
+    var overlay = document.getElementById("mcp-handoff-overlay");
+    var clicked = false;
+    if (!form) return;
+    form.addEventListener("submit", function (e) {
+      if (clicked) {
+        e.preventDefault();
+        return;
+      }
+      clicked = true;
+      // Defer the disable to the next microtask so the FormData still includes
+      // the clicked submitter's value.
+      setTimeout(function () {
+        var buttons = form.querySelectorAll("button");
+        buttons.forEach(function (b) { b.disabled = true; });
+        if (overlay) overlay.style.display = "flex";
+      }, 0);
+    });
+  })();
+</script>
+{% endblock %}
