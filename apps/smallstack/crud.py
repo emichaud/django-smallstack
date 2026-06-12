@@ -1133,8 +1133,15 @@ class CRUDView:
         field_transforms: {field_name: "transform_name" | ("name", {opts}) | callable}
     """
 
-    # Model→CRUDView registry: populated by get_urls() at URL-config time
+    # Model→CRUDView registry: populated eagerly via __init_subclass__ so
+    # apps.mcp.AppConfig.ready() can iterate before URL config runs.
+    # get_urls() still tops it up — that path remains for legacy compatibility.
     _registry: dict[type, type["CRUDView"]] = {}
+
+    def __init_subclass__(cls, **kwargs):
+        super().__init_subclass__(**kwargs)
+        if getattr(cls, "model", None) is not None:
+            CRUDView._registry[cls.model] = cls
 
     # Config source
     admin_class = None  # ModelAdmin subclass — the standard Django config DSL
@@ -1180,6 +1187,18 @@ class CRUDView:
     filter_fields = []  # Fields for query-param filtering (reads from admin_class.list_filter)
     filter_class = None  # Optional django-filters FilterSet class
     export_formats = []  # e.g. ["csv", "json"] — enables ?format= on API list
+
+    # MCP (Model Context Protocol) exposure — opt-in surface for AI clients.
+    # When enable_mcp=True, apps.mcp.factory emits list_<base>, get_<singular>,
+    # and (when CREATE/UPDATE/DELETE are in `actions`) create_/update_/delete_
+    # tools wired through the existing form_class / get_list_queryset / hooks.
+    enable_mcp = False
+    # Human-readable description for the auto-generated tools. AI clients use
+    # this to decide when to call the tool — write it for the LLM, not the dev.
+    mcp_description: str | None = None
+    # Restrict which CRUD actions become MCP tools. None means "follow
+    # `actions`". Use to keep web writes while exposing MCP as read-only.
+    mcp_actions: list | None = None
 
     # Related object tabs (reverse FK relations on detail page)
     related_tabs = None  # None=auto-discover, list=explicit accessor names, False=disabled
