@@ -9,6 +9,7 @@ from django.urls import include, path
 from django.views.generic import RedirectView
 
 from apps.heartbeat.views import StatusPageView, heartbeat_ping, status_json
+from apps.mcp.urls import oauth_wellknown_urlpatterns
 from apps.smallstack.api import (
     api_auth_logout,
     api_auth_me,
@@ -26,7 +27,6 @@ from apps.smallstack.api import (
     api_openapi_schema,
     api_schema,
 )
-from apps.mcp.urls import oauth_wellknown_urlpatterns
 from apps.smallstack.dashboard import api_widgets as api_dashboard_widgets
 
 from .views import health_check, legal_page_view

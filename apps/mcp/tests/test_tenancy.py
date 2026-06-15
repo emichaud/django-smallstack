@@ -15,7 +15,6 @@ from apps.mcp.server import (
 from .conftest import WidgetCRUDView
 from .models import Widget
 
-
 pytestmark = pytest.mark.django_db
 
 

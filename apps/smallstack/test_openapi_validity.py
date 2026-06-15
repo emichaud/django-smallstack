@@ -17,7 +17,6 @@ from openapi_spec_validator.validation.exceptions import OpenAPIValidationError
 from apps.smallstack.api import _api_registry
 from apps.smallstack.openapi import build_openapi_spec
 
-
 pytestmark = pytest.mark.django_db
 
 

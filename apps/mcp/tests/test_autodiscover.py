@@ -16,7 +16,6 @@ from apps.mcp.factory import register_mcp_tools_from_crudview
 from apps.mcp.server import TOOL_REGISTRY, clear_registry_for_tests
 from apps.smallstack.crud import CRUDView
 
-
 pytestmark = pytest.mark.django_db
 
 

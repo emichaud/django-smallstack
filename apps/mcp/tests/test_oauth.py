@@ -12,7 +12,6 @@ from django.utils import timezone
 from apps.mcp.models import OAuthAuthorizationCode
 from apps.smallstack.models import APIToken
 
-
 User = get_user_model()
 pytestmark = pytest.mark.django_db
 

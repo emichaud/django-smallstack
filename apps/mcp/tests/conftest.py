@@ -10,7 +10,6 @@ from __future__ import annotations
 import pytest
 from django import forms
 from django.contrib.auth import get_user_model
-from django.db import connection
 
 from apps.mcp.server import clear_registry_for_tests
 from apps.smallstack.crud import Action, CRUDView

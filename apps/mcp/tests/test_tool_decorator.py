@@ -1,6 +1,5 @@
 """@tool registry + ToolContext semantics."""
 
-import asyncio
 
 import pytest
 

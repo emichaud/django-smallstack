@@ -17,7 +17,6 @@ from django.core.management.base import CommandError
 
 from apps.smallstack.models import APIToken
 
-
 pytestmark = pytest.mark.django_db
 User = get_user_model()
 

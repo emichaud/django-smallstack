@@ -14,11 +14,10 @@ from io import StringIO
 from django.conf import settings
 from django.core.management.base import BaseCommand
 from django.test import Client
-from django.urls import URLResolver, get_resolver
+from django.urls import get_resolver
 
 from apps.mcp.server import TOOL_REGISTRY
 from apps.smallstack.models import APIToken
-
 
 GREEN = "\033[32m"
 YELLOW = "\033[33m"

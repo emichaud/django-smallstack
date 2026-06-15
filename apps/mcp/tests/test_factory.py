@@ -6,8 +6,7 @@ from apps.mcp.factory import register_mcp_tools_from_crudview
 from apps.mcp.server import TOOL_REGISTRY
 from apps.smallstack.crud import Action
 
-from .conftest import GadgetCRUDView, WidgetCRUDView
-
+from .conftest import WidgetCRUDView
 
 pytestmark = pytest.mark.django_db
 

@@ -13,8 +13,8 @@ from typing import Any, Optional
 
 from django.http import HttpRequest
 
-from apps.smallstack.models import APIToken
 from apps.smallstack.mixins import StaffRequiredMixin
+from apps.smallstack.models import APIToken
 
 from .server import ToolDef
 

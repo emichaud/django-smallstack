@@ -5,8 +5,7 @@ import json
 import pytest
 from django.test import Client
 
-from apps.mcp.server import TOOL_REGISTRY, clear_registry_for_tests, tool
-
+from apps.mcp.server import clear_registry_for_tests, tool
 
 pytestmark = pytest.mark.django_db
 
