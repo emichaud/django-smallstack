@@ -49,8 +49,51 @@ def test_mcp_actions_can_narrow_below_actions(widget_view):
 
 
 def test_mcp_description_used_in_tool(widget_view):
+    """The model-level mcp_description is the BASE; each action's
+    description is the verb prefix + the base. The LLM sees distinct
+    descriptions for each tool instead of five copies of the same line."""
     register_mcp_tools_from_crudview(widget_view)
-    assert TOOL_REGISTRY["list_widgets"].description == widget_view.mcp_description
+    assert TOOL_REGISTRY["list_widgets"].description == "List " + widget_view.mcp_description
+    assert TOOL_REGISTRY["get_widget"].description == "Get a single " + widget_view.mcp_description
+    assert TOOL_REGISTRY["create_widget"].description == "Create a new " + widget_view.mcp_description
+    assert TOOL_REGISTRY["update_widget"].description == "Update an existing " + widget_view.mcp_description
+    assert TOOL_REGISTRY["delete_widget"].description == "Delete a " + widget_view.mcp_description
+
+
+def test_mcp_descriptions_override_per_action(widget_view):
+    """mcp_descriptions = {Action.X: "..."} overrides ONLY that action.
+    Other actions still use the auto-prefixed default."""
+
+    class _CustomDesc(widget_view):
+        url_base = "custom_desc_widgets"
+        mcp_descriptions = {
+            Action.CREATE: "File a brand-new widget. Use sparingly.",
+        }
+
+    register_mcp_tools_from_crudview(_CustomDesc)
+    # create_<singular> still uses the model's verbose_name (singular), not
+    # url_base. P23 adds mcp_singular for the override knob.
+    assert (
+        TOOL_REGISTRY["create_widget"].description
+        == "File a brand-new widget. Use sparingly."
+    )
+    # Other tools still get the auto-prefix.
+    assert (
+        TOOL_REGISTRY["list_custom_desc_widgets"].description
+        == "List " + widget_view.mcp_description
+    )
+
+
+def test_descriptions_fall_back_to_verbose_name(widget_view):
+    """When mcp_description is unset, descriptions use model._meta.verbose_name."""
+
+    class _NoDesc(widget_view):
+        url_base = "no_desc_widgets"
+        mcp_description = None
+
+    register_mcp_tools_from_crudview(_NoDesc)
+    verbose = str(_NoDesc.model._meta.verbose_name)
+    assert TOOL_REGISTRY["list_no_desc_widgets"].description == "List " + verbose
 
 
 def test_write_actions_marked_write(widget_view):

@@ -76,6 +76,32 @@ def _has_staff_mixin(view_cls) -> bool:
     )
 
 
+# Per-action verb prefix so the LLM sees distinct descriptions for each tool
+# from the same CRUDView instead of five copies of the same `mcp_description`.
+_ACTION_VERB = {
+    Action.LIST:   "List ",
+    Action.DETAIL: "Get a single ",
+    Action.CREATE: "Create a new ",
+    Action.UPDATE: "Update an existing ",
+    Action.DELETE: "Delete a ",
+}
+
+
+def _action_description(view_cls, action: Action) -> str:
+    """Build the per-action description for an MCP tool.
+
+    Resolution order:
+    1. view_cls.mcp_descriptions[action] (explicit per-action override)
+    2. f"<verb> {view_cls.mcp_description}" (auto-prefix the model-level description)
+    3. f"<verb> {model._meta.verbose_name}" (final fallback)
+    """
+    overrides = getattr(view_cls, "mcp_descriptions", None) or {}
+    if action in overrides:
+        return str(overrides[action])
+    base = view_cls.mcp_description or str(view_cls.model._meta.verbose_name)
+    return _ACTION_VERB[action] + base
+
+
 def _build_list_input_schema(view_cls) -> dict[str, Any]:
     """Map filter_fields + search_fields + ordering + limit into JSON Schema."""
     props: dict[str, Any] = {}
@@ -139,7 +165,7 @@ def _build_form_input_schema(view_cls, *, include_pk: bool = False) -> dict[str,
 # ---------------------------------------------------------------------------
 
 
-def _build_list_tool(view_cls, *, base: str, description: str):
+def _build_list_tool(view_cls, *, base: str):
     name = f"list_{base}"
 
     def handler(args: dict[str, Any]):
@@ -188,13 +214,13 @@ def _build_list_tool(view_cls, *, base: str, description: str):
             "results": [serialize(obj, fields, extra, expand) for obj in rows],
         }
 
-    desc = description or f"List {view_cls.model._meta.verbose_name_plural}. Supports filters + search."
+    desc = _action_description(view_cls, Action.LIST)
     schema = _build_list_input_schema(view_cls)
     requires = "staff" if _has_staff_mixin(view_cls) else None
     return tool(name, desc, schema, requires_access=requires)(handler)
 
 
-def _build_get_tool(view_cls, *, singular: str, description: str):
+def _build_get_tool(view_cls, *, singular: str):
     name = f"get_{singular}"
 
     def handler(args: dict[str, Any]):
@@ -220,12 +246,12 @@ def _build_get_tool(view_cls, *, singular: str, description: str):
         "required": ["pk"],
         "additionalProperties": False,
     }
-    desc = description or f"Fetch one {view_cls.model._meta.verbose_name} by primary key."
+    desc = _action_description(view_cls, Action.DETAIL)
     requires = "staff" if _has_staff_mixin(view_cls) else None
     return tool(name, desc, schema, requires_access=requires)(handler)
 
 
-def _build_create_tool(view_cls, *, singular: str, description: str):
+def _build_create_tool(view_cls, *, singular: str):
     name = f"create_{singular}"
 
     def handler(args: dict[str, Any]):
@@ -247,12 +273,12 @@ def _build_create_tool(view_cls, *, singular: str, description: str):
         return serialize(obj, fields, extra, expand)
 
     schema = _build_form_input_schema(view_cls)
-    desc = description or f"Create a new {view_cls.model._meta.verbose_name}."
+    desc = _action_description(view_cls, Action.CREATE)
     requires = "staff" if _has_staff_mixin(view_cls) else None
     return tool(name, desc, schema, write=True, requires_access=requires)(handler)
 
 
-def _build_update_tool(view_cls, *, singular: str, description: str):
+def _build_update_tool(view_cls, *, singular: str):
     name = f"update_{singular}"
 
     def handler(args: dict[str, Any]):
@@ -300,12 +326,12 @@ def _build_update_tool(view_cls, *, singular: str, description: str):
         return serialize(obj, fields, extra, expand)
 
     schema = _build_form_input_schema(view_cls, include_pk=True)
-    desc = description or f"Update a {view_cls.model._meta.verbose_name}."
+    desc = _action_description(view_cls, Action.UPDATE)
     requires = "staff" if _has_staff_mixin(view_cls) else None
     return tool(name, desc, schema, write=True, requires_access=requires)(handler)
 
 
-def _build_delete_tool(view_cls, *, singular: str, description: str):
+def _build_delete_tool(view_cls, *, singular: str):
     name = f"delete_{singular}"
 
     def handler(args: dict[str, Any]):
@@ -331,7 +357,7 @@ def _build_delete_tool(view_cls, *, singular: str, description: str):
         "required": ["pk"],
         "additionalProperties": False,
     }
-    desc = description or f"Delete a {view_cls.model._meta.verbose_name}."
+    desc = _action_description(view_cls, Action.DELETE)
     requires = "staff" if _has_staff_mixin(view_cls) else None
     return tool(name, desc, schema, write=True, requires_access=requires)(handler)
 
@@ -355,25 +381,24 @@ def register_mcp_tools_from_crudview(view_cls) -> list[str]:
     base = view_cls.url_base or view_cls.model._meta.model_name
     base = str(base).replace("/", "_").replace("-", "_")
     singular = view_cls.model._meta.verbose_name.lower().replace(" ", "_").replace("-", "_")
-    description = view_cls.mcp_description or ""
 
     selected = view_cls.mcp_actions if view_cls.mcp_actions is not None else view_cls.actions
     selected_set = set(selected)
     registered: list[str] = []
 
     if Action.LIST in view_cls.actions and Action.LIST in selected_set:
-        registered.append(_build_list_tool(view_cls, base=base, description=description).__name__)
+        registered.append(_build_list_tool(view_cls, base=base).__name__)
     if Action.DETAIL in view_cls.actions and Action.DETAIL in selected_set:
-        _build_get_tool(view_cls, singular=singular, description=description)
+        _build_get_tool(view_cls, singular=singular)
         registered.append(f"get_{singular}")
     if Action.CREATE in view_cls.actions and Action.CREATE in selected_set:
-        _build_create_tool(view_cls, singular=singular, description=description)
+        _build_create_tool(view_cls, singular=singular)
         registered.append(f"create_{singular}")
     if Action.UPDATE in view_cls.actions and Action.UPDATE in selected_set:
-        _build_update_tool(view_cls, singular=singular, description=description)
+        _build_update_tool(view_cls, singular=singular)
         registered.append(f"update_{singular}")
     if Action.DELETE in view_cls.actions and Action.DELETE in selected_set:
-        _build_delete_tool(view_cls, singular=singular, description=description)
+        _build_delete_tool(view_cls, singular=singular)
         registered.append(f"delete_{singular}")
 
     # Filter out duplicates that the decorator skipped (already in registry

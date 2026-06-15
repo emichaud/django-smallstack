@@ -1199,6 +1199,10 @@ class CRUDView:
     # Restrict which CRUD actions become MCP tools. None means "follow
     # `actions`". Use to keep web writes while exposing MCP as read-only.
     mcp_actions: list | None = None
+    # Per-action description overrides for finer-grained tool descriptions.
+    # Default is f"<verb> {mcp_description or model._meta.verbose_name}".
+    # Example: {Action.CREATE: "File a brand-new support ticket."}
+    mcp_descriptions: dict | None = None
 
     # Related object tabs (reverse FK relations on detail page)
     related_tabs = None  # None=auto-discover, list=explicit accessor names, False=disabled
