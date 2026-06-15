@@ -112,14 +112,60 @@ class Command(BaseCommand):
 
     def _check_registry(self, report):
         names = sorted(TOOL_REGISTRY.keys())
-        report.append(
-            {
-                "name": "Server registry",
-                "status": "PASS",
-                "detail": f"{len(names)} tools registered",
-                "tools": names[:20],
-            }
-        )
+        entry: dict = {
+            "name": "Server registry",
+            "status": "PASS",
+            "detail": f"{len(names)} tools registered",
+            "tools": names[:20],
+        }
+        # If the registry is empty but the tree contains `enable_mcp = True`
+        # somewhere, that's almost certainly the import-ordering footgun —
+        # downgrade to WARN with the fix.
+        if not names:
+            orphans = self._scan_for_enable_mcp_optins()
+            if orphans:
+                preview = ", ".join(orphans[:3]) + ("…" if len(orphans) > 3 else "")
+                entry["status"] = "WARN"
+                entry["detail"] = (
+                    f"Registry empty but found `enable_mcp = True` in {len(orphans)} file(s): {preview}. "
+                    "Likely cause: the file isn't imported during app startup. "
+                    "Verify MCP_AUTODISCOVER is True (default), or add "
+                    "`from . import views` to that app's AppConfig.ready()."
+                )
+                entry["orphans"] = orphans
+        report.append(entry)
+
+    def _scan_for_enable_mcp_optins(self) -> list[str]:
+        """Return repo-relative paths of .py files containing the literal
+        ``enable_mcp = True`` outside tests/migrations. Used to warn the
+        operator when the registry is empty but they almost certainly
+        meant to register tools."""
+        from pathlib import Path
+
+        from django.apps import apps as django_apps
+
+        marker = "enable_mcp = True"
+        hits: list[str] = []
+        for app_config in django_apps.get_app_configs():
+            if app_config.label == "mcp_server":
+                continue
+            try:
+                app_path = Path(app_config.path)
+            except Exception:
+                continue
+            for py_file in app_path.rglob("*.py"):
+                parts = py_file.parts
+                if "tests" in parts or "migrations" in parts:
+                    continue
+                try:
+                    if marker in py_file.read_text(encoding="utf-8", errors="ignore"):
+                        try:
+                            hits.append(str(py_file.relative_to(app_path.parent)))
+                        except ValueError:
+                            hits.append(str(py_file))
+                except OSError:
+                    continue
+        return sorted(hits)
 
     def _check_urls(self, report):
         wanted = [
