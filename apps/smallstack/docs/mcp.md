@@ -7,7 +7,7 @@ SmallStack ships an MCP server at `/mcp` so AI clients (Claude Desktop, Claude.a
 - `POST /mcp` and `POST /mcp/` — JSON-RPC 2.0 dispatch
 - `GET /mcp` — friendly JSON banner for health checks
 - Full OAuth 2.0 + PKCE surface (`/.well-known/oauth-authorization-server`, `/mcp/oauth/{register,authorize,token,revoke}`) for Claude.ai Connectors UI
-- `enable_mcp = True` on any `CRUDView` auto-derives 1–5 MCP tools from it
+- `enable_mcp = True` on any `CRUDView` auto-derives 1–5 MCP tools from it. Each `Action` in the view's `actions` (filtered by `mcp_actions` if set) becomes one tool — up to 5 per view (`list_`, `get_`, `create_`, `update_`, `delete_`).
 - `@tool` decorator for adding curated cross-cutting tools that wrap aggregation or lookups an LLM would otherwise need many CRUD calls for
 - Bearer-only auth (session cookies are deliberately rejected)
 - `python manage.py mcp_doctor` for diagnostics
@@ -16,7 +16,7 @@ SmallStack ships an MCP server at `/mcp` so AI clients (Claude Desktop, Claude.a
 
 ```bash
 # 1. Mint a token
-uv run python manage.py create_api_token --user admin --name "test" --access-level readonly
+uv run python manage.py create_api_token admin --name "test" --access-level readonly
 
 # 2. List tools
 curl -s -X POST http://localhost:8005/mcp \

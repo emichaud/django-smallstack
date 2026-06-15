@@ -28,7 +28,7 @@ The user wants to validate the MCP server from a real client.
 1. Mint a token:
 
    ```bash
-   uv run python manage.py create_api_token --user me --name "claude-desktop" --access-level readonly
+   uv run python manage.py create_api_token me --name "claude-desktop" --access-level readonly
    ```
 
 2. Edit `~/Library/Application Support/Claude/claude_desktop_config.json`:

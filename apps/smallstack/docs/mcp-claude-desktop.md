@@ -40,7 +40,7 @@ For Desktop's `claude_desktop_config.json`:
 Mint the token with:
 
 ```bash
-uv run python manage.py create_api_token --user me --name "claude-desktop" --access-level readonly
+uv run python manage.py create_api_token me --name "claude-desktop" --access-level readonly
 ```
 
 `mcp-remote` proxies stdio to HTTP and passes the `AUTHORIZATION` env through.
