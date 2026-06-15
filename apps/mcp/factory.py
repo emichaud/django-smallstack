@@ -88,18 +88,35 @@ _ACTION_VERB = {
 
 
 def _action_description(view_cls, action: Action) -> str:
-    """Build the per-action description for an MCP tool.
+    """Build the grammatically-correct per-action description for an MCP tool.
+
+    LIST uses the plural noun; every other action uses singular. The user's
+    `mcp_description` (when set) is appended as a tail clause via " — " so
+    the LLM still sees the model-level hint without it bending the grammar
+    of the auto-prefix.
 
     Resolution order:
-    1. view_cls.mcp_descriptions[action] (explicit per-action override)
-    2. f"<verb> {view_cls.mcp_description}" (auto-prefix the model-level description)
-    3. f"<verb> {model._meta.verbose_name}" (final fallback)
+    1. view_cls.mcp_descriptions[action] — explicit per-action override (wins)
+    2. f"<verb><noun> — <mcp_description>" — auto-prefix + tail clause
+    3. f"<verb><noun>"                     — auto-prefix only (no description set)
+
+    For LIST, <noun> is mcp_plural or model._meta.verbose_name_plural.
+    For DETAIL/CREATE/UPDATE/DELETE, <noun> is mcp_singular or verbose_name.
     """
     overrides = getattr(view_cls, "mcp_descriptions", None) or {}
     if action in overrides:
         return str(overrides[action])
-    base = view_cls.mcp_description or str(view_cls.model._meta.verbose_name)
-    return _ACTION_VERB[action] + base
+
+    verb = _ACTION_VERB[action]
+    if action == Action.LIST:
+        noun = view_cls.mcp_plural or str(view_cls.model._meta.verbose_name_plural)
+    else:
+        noun = view_cls.mcp_singular or str(view_cls.model._meta.verbose_name)
+
+    head = f"{verb}{noun}"
+    if view_cls.mcp_description:
+        return f"{head} — {view_cls.mcp_description}"
+    return head
 
 
 def _build_list_input_schema(view_cls) -> dict[str, Any]:

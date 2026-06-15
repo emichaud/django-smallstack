@@ -49,15 +49,49 @@ def test_mcp_actions_can_narrow_below_actions(widget_view):
 
 
 def test_mcp_description_used_in_tool(widget_view):
-    """The model-level mcp_description is the BASE; each action's
-    description is the verb prefix + the base. The LLM sees distinct
-    descriptions for each tool instead of five copies of the same line."""
+    """LIST uses plural noun; non-LIST uses singular. mcp_description is
+    appended as a tail clause via " — " so users who phrased their
+    description in plural don't get "Get a single Service tickets..."
+    style broken grammar."""
     register_mcp_tools_from_crudview(widget_view)
-    assert TOOL_REGISTRY["list_widgets"].description == "List " + widget_view.mcp_description
-    assert TOOL_REGISTRY["get_widget"].description == "Get a single " + widget_view.mcp_description
-    assert TOOL_REGISTRY["create_widget"].description == "Create a new " + widget_view.mcp_description
-    assert TOOL_REGISTRY["update_widget"].description == "Update an existing " + widget_view.mcp_description
-    assert TOOL_REGISTRY["delete_widget"].description == "Delete a " + widget_view.mcp_description
+    desc = widget_view.mcp_description
+    # WidgetCRUDView model: verbose_name="widget", verbose_name_plural="widgets"
+    assert TOOL_REGISTRY["list_widgets"].description == f"List widgets — {desc}"
+    assert TOOL_REGISTRY["get_widget"].description == f"Get a single widget — {desc}"
+    assert TOOL_REGISTRY["create_widget"].description == f"Create a new widget — {desc}"
+    assert TOOL_REGISTRY["update_widget"].description == f"Update an existing widget — {desc}"
+    assert TOOL_REGISTRY["delete_widget"].description == f"Delete a widget — {desc}"
+
+
+def test_default_descriptions_are_grammatical_without_user_input(widget_view):
+    """Without mcp_description set, descriptions are just <verb><noun>.
+    The point of the singular/plural split is that 'Get a single widget'
+    and 'List widgets' both parse as English."""
+
+    class _Bare(widget_view):
+        url_base = "bare_widgets"
+        mcp_description = None
+
+    register_mcp_tools_from_crudview(_Bare)
+    assert TOOL_REGISTRY["list_bare_widgets"].description == "List widgets"
+    assert TOOL_REGISTRY["get_widget"].description == "Get a single widget"
+    assert TOOL_REGISTRY["create_widget"].description == "Create a new widget"
+    assert TOOL_REGISTRY["delete_widget"].description == "Delete a widget"
+
+
+def test_mcp_singular_plural_used_for_descriptions(widget_view):
+    """When mcp_singular/mcp_plural are set, the auto-prefix uses them
+    too — not just the tool name."""
+
+    class _Renamed(widget_view):
+        url_base = "renamed"
+        mcp_singular = "ticket"
+        mcp_plural = "tickets"
+        mcp_description = None
+
+    register_mcp_tools_from_crudview(_Renamed)
+    assert TOOL_REGISTRY["list_tickets"].description == "List tickets"
+    assert TOOL_REGISTRY["get_ticket"].description == "Get a single ticket"
 
 
 def test_mcp_descriptions_override_per_action(widget_view):
@@ -77,15 +111,16 @@ def test_mcp_descriptions_override_per_action(widget_view):
         TOOL_REGISTRY["create_widget"].description
         == "File a brand-new widget. Use sparingly."
     )
-    # Other tools still get the auto-prefix.
+    # Other tools still get the auto-prefix + tail clause.
     assert (
         TOOL_REGISTRY["list_custom_desc_widgets"].description
-        == "List " + widget_view.mcp_description
+        == f"List widgets — {widget_view.mcp_description}"
     )
 
 
 def test_descriptions_fall_back_to_verbose_name(widget_view):
-    """When mcp_description is unset, descriptions use model._meta.verbose_name."""
+    """When mcp_description is unset, LIST uses verbose_name_plural and
+    non-LIST uses verbose_name. No trailing " — " clause."""
 
     class _NoDesc(widget_view):
         url_base = "no_desc_widgets"
@@ -93,7 +128,9 @@ def test_descriptions_fall_back_to_verbose_name(widget_view):
 
     register_mcp_tools_from_crudview(_NoDesc)
     verbose = str(_NoDesc.model._meta.verbose_name)
-    assert TOOL_REGISTRY["list_no_desc_widgets"].description == "List " + verbose
+    verbose_pl = str(_NoDesc.model._meta.verbose_name_plural)
+    assert TOOL_REGISTRY["list_no_desc_widgets"].description == "List " + verbose_pl
+    assert TOOL_REGISTRY["get_widget"].description == "Get a single " + verbose
 
 
 def test_write_actions_marked_write(widget_view):
