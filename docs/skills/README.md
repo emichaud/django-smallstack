@@ -54,6 +54,7 @@ When an AI agent is asked to modify or extend this project, these files help it:
 | [mcp/debug-mcp-failure.md](mcp/debug-mcp-failure.md) | Decision tree for diagnosing connector failures |
 | [mcp/add-mcp-to-this-project.md](mcp/add-mcp-to-this-project.md) | Bootstrap MCP in a fresh / non-MCP-aware project |
 | [mcp/extend-explorer-for-tokens.md](mcp/extend-explorer-for-tokens.md) | Surface APIToken management via Explorer |
+| [mcp/mcp-admin-pages.md](mcp/mcp-admin-pages.md) | Use the `/smallstack/mcp/` Health / Tools / Activity admin pages from a debugging session |
 
 ## Usage
 

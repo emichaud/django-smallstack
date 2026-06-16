@@ -394,6 +394,12 @@ pages:
     icon: "bug"
     category: "MCP (AI)"
 
+  - slug: mcp-admin
+    title: "MCP Admin Pages"
+    description: "Health, Tools, Activity pages at /smallstack/mcp/ — browser-based admin for the MCP subsystem"
+    icon: "dashboard"
+    category: "MCP (AI)"
+
   - slug: mcp-claude-desktop
     title: "Connecting Claude Desktop"
     description: "Connect Claude Desktop / Claude.ai Connectors UI to your MCP server"

@@ -12,6 +12,7 @@ SmallStack ships an MCP server at `/mcp` so AI clients (Claude Desktop, Claude.a
 - Bearer-only auth (session cookies are deliberately rejected)
 - `python manage.py mcp_doctor` for diagnostics (and `mcp_doctor --explain` to dump tool schemas — the same thing the LLM sees from `tools/list`)
 - `make mcp-test` for an end-to-end HTTP smoke test against a running dev server (mint → tools/list → tools/call → revoke)
+- **Admin pages at `/smallstack/mcp/`** — Health (mcp_doctor in HTML), Tools (browseable registry), Activity (recent /mcp requests). Staff-gated. See [`mcp-admin.md`](mcp-admin.md)
 
 ## First connection (smoke test)
 

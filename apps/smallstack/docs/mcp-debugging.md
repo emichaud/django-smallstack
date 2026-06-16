@@ -16,6 +16,8 @@ Flags:
 - `--check-only` — exit 1 on any FAIL (useful in CI)
 - `--explain [TOOL]` — dump descriptions + `inputSchema` for every registered tool (or just one). Useful for the "Claude doesn't know it can filter by status" class of issues.
 
+Prefer clicking to typing? The same checks live at **`/smallstack/mcp/`** (staff-only) — Health page renders the report as color-coded cards with a "Run self-test now" button. The Tools and Activity tabs at the top of the page cover the other common debugging questions. See [`mcp-admin.md`](mcp-admin.md).
+
 The doctor's self-test runs through Django's test client (in-process), so it won't catch reverse-proxy bugs, port conflicts, WSGI quirks, or middleware that strips headers. For that, use `make mcp-test` against a live server:
 
 ```bash

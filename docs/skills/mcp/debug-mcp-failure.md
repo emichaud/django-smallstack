@@ -5,6 +5,8 @@ A client (Claude Desktop, Claude.ai, custom) is failing to attach to `/mcp` or a
 
 ## Decision tree
 
+0. **Prefer clicking?** If `/smallstack/mcp/` resolves on this project, every check below has a browser surface — Health page mirrors `mcp_doctor`, Tools page mirrors `--explain`, Activity page filters request history. See [`mcp-admin-pages.md`](mcp-admin-pages.md) for the page → answer mapping.
+
 1. **No tools showing up at all** → `mcp_doctor`. If the registry shows 0 tools, no CRUDView has `enable_mcp = True` and `MCP_TOOL_MODULES` is empty. If the doctor WARNs that `enable_mcp = True` files aren't represented in the registry, the named file's CRUDView isn't being imported — either `MCP_AUTODISCOVER` is off, or the CRUDView lives outside `views.py`/`mcp_tools.py` and the owning app's `AppConfig.ready()` isn't importing it.
 
    **The LLM sees the wrong tool list or wrong schema?** → `mcp_doctor --explain` dumps every registered tool's description + `inputSchema`. Use `--explain TOOL_NAME` for one tool; pipe `--explain --json` through `jq` for surgical queries like "which tools take a `status` parameter?". Typical findings:

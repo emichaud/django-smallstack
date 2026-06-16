@@ -64,7 +64,7 @@ class MCPConfig(AppConfig):
                 url_name="mcp_admin:health",
                 icon_svg=(
                     '<svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">'
-                    '<path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm1 17.93V18a2 2 0 0 0-2-2v-1a2 2 0 0 1-2-2H7.09a8 8 0 0 1 6.91-6.91V8h-1V6h2v-.93A8 8 0 0 1 19 12a8 8 0 0 1-6 7.93z"/>'
+                    '<path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm1 17.93V18a2 2 0 0 0-2-2v-1a2 2 0 0 1-2-2H7.09a8 8 0 0 1 6.91-6.91V8h-1V6h2v-.93A8 8 0 0 1 19 12a8 8 0 0 1-6 7.93z"/>'  # noqa: E501
                     "</svg>"
                 ),
                 staff_required=True,
