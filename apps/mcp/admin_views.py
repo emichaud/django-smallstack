@@ -36,9 +36,30 @@ class MCPAdminHealthView(_AdminBase):
     template_name = "mcp/admin/health.html"
 
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
+        from apps.mcp.management.commands.mcp_doctor import Command
+
         ctx = super().get_context_data(**kwargs)
         ctx["page"] = "health"
-        ctx["report"] = []  # Phase 2 fills this in.
+
+        # Rebind mcp_doctor's checks to an HTML surface — same exact
+        # `_check_*` methods, same exact `report` shape. Only difference:
+        # we skip `_self_test` here. It mints DB rows and makes HTTP calls,
+        # which is fine for a CLI invocation but not for every page load
+        # — it lives behind the POST endpoint instead.
+        cmd = Command()
+        report: list[dict] = []
+        cmd._check_mcp_package(report)
+        cmd._check_settings(report)
+        cmd._check_registry(report)
+        cmd._check_urls(report)
+        cmd._check_tokens(report)
+        cmd._check_apitoken_admin(report)
+        ctx["report"] = report
+
+        # Coarse summary numbers for the page header strip.
+        ctx["pass_count"] = sum(1 for r in report if r["status"] == "PASS")
+        ctx["warn_count"] = sum(1 for r in report if r["status"] == "WARN")
+        ctx["fail_count"] = sum(1 for r in report if r["status"] == "FAIL")
         return ctx
 
 

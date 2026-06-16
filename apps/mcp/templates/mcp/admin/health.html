@@ -7,8 +7,44 @@
   <h1 style="margin: 0 0 1rem 0;">MCP</h1>
   {% include "mcp/admin/_nav.html" %}
 
-  <p style="color: var(--body-quiet-color, #666); margin-bottom: 1rem;">
-    Coming soon — Phase 2 renders <code>mcp_doctor</code> checks here.
-  </p>
+  {# Header strip: PASS / WARN / FAIL counts at a glance. #}
+  <div style="
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+    padding: 0.75rem 1rem;
+    background: var(--card-bg, #fff);
+    border: 1px solid var(--border, #ddd);
+    border-radius: 8px;
+    font-size: 0.95rem;
+  ">
+    <span><strong>{{ pass_count }}</strong> ✓ pass</span>
+    <span style="color: {% if warn_count %}var(--warning-fg, #b78d05){% else %}var(--body-quiet-color, #888){% endif %};">
+      <strong>{{ warn_count }}</strong> ⚠ warn
+    </span>
+    <span style="color: {% if fail_count %}var(--error-fg, #c0392b){% else %}var(--body-quiet-color, #888){% endif %};">
+      <strong>{{ fail_count }}</strong> ✗ fail
+    </span>
+    <span style="margin-left: auto; color: var(--body-quiet-color, #666); font-size: 0.85rem;">
+      Mirrors <code>manage.py mcp_doctor</code> — refresh to re-run checks.
+    </span>
+  </div>
+
+  {# One card per check entry. #}
+  {% for entry in report %}
+    {% if entry.status == "PASS" %}
+      {% with badge_bg="var(--success-bg, #e6f4ea)" badge_fg="var(--success-fg, #1e7e34)" icon="✓" %}
+        {% include "mcp/admin/_health_card.html" %}
+      {% endwith %}
+    {% elif entry.status == "WARN" %}
+      {% with badge_bg="var(--warning-bg, #fff8e1)" badge_fg="var(--warning-fg, #b78d05)" icon="⚠" %}
+        {% include "mcp/admin/_health_card.html" %}
+      {% endwith %}
+    {% else %}
+      {% with badge_bg="var(--error-bg, #fce8e6)" badge_fg="var(--error-fg, #c0392b)" icon="✗" %}
+        {% include "mcp/admin/_health_card.html" %}
+      {% endwith %}
+    {% endif %}
+  {% endfor %}
 </div>
 {% endblock %}

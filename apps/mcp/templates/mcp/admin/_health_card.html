@@ -1,0 +1,86 @@
+{% comment %}
+One health-check card. Expects:
+  entry      — the report dict (name, status, detail, plus optional tools/orphans)
+  badge_bg   — CSS color value for the badge background
+  badge_fg   — CSS color value for the badge text + icon
+  icon       — single-glyph status indicator
+{% endcomment %}
+<div style="
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 1rem;
+  padding: 1rem;
+  margin-bottom: 0.75rem;
+  background: var(--card-bg, #fff);
+  border: 1px solid var(--border, #ddd);
+  border-left: 4px solid {{ badge_fg }};
+  border-radius: 8px;
+">
+  <div style="
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.25rem;
+    height: 2.25rem;
+    background: {{ badge_bg }};
+    color: {{ badge_fg }};
+    border-radius: 50%;
+    font-weight: 700;
+    font-size: 1.1rem;
+  ">{{ icon }}</div>
+
+  <div>
+    <div style="display: flex; align-items: baseline; gap: 0.75rem; margin-bottom: 0.35rem;">
+      <strong style="font-size: 1.05rem;">{{ entry.name }}</strong>
+      <span style="
+        padding: 0.1rem 0.55rem;
+        background: {{ badge_bg }};
+        color: {{ badge_fg }};
+        border-radius: 999px;
+        font-size: 0.75rem;
+        font-weight: 600;
+        letter-spacing: 0.04em;
+      ">{{ entry.status }}</span>
+    </div>
+
+    {# The detail can be a string (one-liner) or a dict (settings, self-test sub-results). #}
+    {% if entry.detail|stringformat:"s"|slice:":1" == "{" %}
+      {# It's a dict-repr — render as a definition list. #}
+      <dl style="margin: 0; display: grid; grid-template-columns: max-content 1fr; gap: 0.25rem 1rem;">
+        {% for k, v in entry.detail.items %}
+          <dt style="color: var(--body-quiet-color, #666); font-family: ui-monospace, Menlo, monospace; font-size: 0.85rem;">{{ k }}</dt>
+          <dd style="margin: 0; font-family: ui-monospace, Menlo, monospace; font-size: 0.85rem;">{{ v }}</dd>
+        {% endfor %}
+      </dl>
+    {% else %}
+      <div style="color: var(--body-fg, #333); font-size: 0.9rem; line-height: 1.45;">
+        {{ entry.detail }}
+      </div>
+    {% endif %}
+
+    {# Registry check: list a few of the registered tool names. #}
+    {% if entry.tools %}
+      <div style="margin-top: 0.5rem; font-size: 0.85rem; color: var(--body-quiet-color, #555);">
+        Tools: {{ entry.tools|join:", " }}{% if entry.tools|length >= 20 %}…{% endif %}
+      </div>
+    {% endif %}
+
+    {# Registry WARN: orphan files. #}
+    {% if entry.orphans %}
+      <div style="
+        margin-top: 0.5rem;
+        padding: 0.5rem 0.75rem;
+        background: var(--warning-bg, #fffbe6);
+        border-radius: 4px;
+        font-size: 0.85rem;
+      ">
+        <strong>Orphan files:</strong>
+        <ul style="margin: 0.25rem 0 0 1rem; padding: 0;">
+          {% for path in entry.orphans %}
+            <li><code>{{ path }}</code></li>
+          {% endfor %}
+        </ul>
+      </div>
+    {% endif %}
+  </div>
+</div>
