@@ -140,6 +140,22 @@ def _add_csp_for_redirect(resp: HttpResponse, redirect_uri: str) -> HttpResponse
 class AuthorizeView(View):
     """OAuth authorize endpoint. login_required via decorator on get/post."""
 
+    @staticmethod
+    def _tokens_url() -> str:
+        """Resolve where the consent page sends users for token management.
+
+        Prefers the self-service tokenmgr surface (any authenticated user
+        can manage their own tokens). Falls back to the staff-only
+        Explorer view if tokenmgr isn't installed — so downstream projects
+        that don't install apps.tokenmgr still get a valid link.
+        """
+        try:
+            from django.urls import NoReverseMatch, reverse
+
+            return reverse("tokenmgr:tokens-list")
+        except (ImportError, NoReverseMatch):
+            return "/explorer/auth/apitoken/"
+
     @method_decorator(login_required)
     def get(self, request: HttpRequest) -> HttpResponse:
         params = request.GET
@@ -171,7 +187,9 @@ class AuthorizeView(View):
             "scope_human": _scope_to_prose(scope),
             "user": request.user,
             "base_template": getattr(settings, "MCP_BASE_TEMPLATE", "website/base.html"),
-            "tokens_url": "/explorer/auth/apitoken/",  # link for post-grant management
+            # Self-service token mgmt — works for any authenticated user.
+            # Falls back to Explorer (staff-only) if tokenmgr isn't installed.
+            "tokens_url": self._tokens_url(),
         }
         resp = render(request, "mcp/authorize.html", ctx)
         return _add_csp_for_redirect(resp, redirect_uri)
