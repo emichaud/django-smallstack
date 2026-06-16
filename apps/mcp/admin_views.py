@@ -106,11 +106,74 @@ class MCPAdminToolDetailView(_AdminBase):
 class MCPAdminActivityView(_AdminBase):
     template_name = "mcp/admin/activity.html"
 
+    PAGE_SIZE = 50
+    SINCE_CHOICES = (("24h", "Last 24 hours"), ("7d", "Last 7 days"), ("all", "All time"))
+    STATUS_CHOICES = (("any", "Any"), ("2xx", "2xx success"), ("4xx", "4xx client"), ("5xx", "5xx server"))
+    METHOD_CHOICES = (("any", "Any"), ("GET", "GET"), ("POST", "POST"))
+
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
+        from datetime import timedelta
+
+        from django.core.paginator import EmptyPage, PageNotAnInteger, Paginator
+        from django.utils import timezone
+
         ctx = super().get_context_data(**kwargs)
         ctx["page"] = "activity"
-        ctx["entries"] = []  # Phase 5 fills this in.
         ctx["activity_app_installed"] = self._activity_app_installed()
+        ctx["filters_method"] = self.METHOD_CHOICES
+        ctx["filters_status"] = self.STATUS_CHOICES
+        ctx["filters_since"] = self.SINCE_CHOICES
+        ctx["current"] = {
+            "method": self.request.GET.get("method", "any"),
+            "status_class": self.request.GET.get("status_class", "any"),
+            "since": self.request.GET.get("since", "24h"),
+            "user": self.request.GET.get("user", ""),
+        }
+        if not ctx["activity_app_installed"]:
+            ctx["entries"] = []
+            ctx["paginator"] = None
+            return ctx
+
+        # Importing here keeps the page importable even when apps.activity
+        # is excluded from INSTALLED_APPS — the graceful-degradation banner
+        # handles the no-data case.
+        from apps.activity.models import RequestLog
+
+        qs = RequestLog.objects.filter(path__startswith="/mcp").select_related("user", "api_token")
+
+        method = ctx["current"]["method"]
+        if method in {"GET", "POST"}:
+            qs = qs.filter(method=method)
+
+        status_class = ctx["current"]["status_class"]
+        if status_class == "2xx":
+            qs = qs.filter(status_code__gte=200, status_code__lt=300)
+        elif status_class == "4xx":
+            qs = qs.filter(status_code__gte=400, status_code__lt=500)
+        elif status_class == "5xx":
+            qs = qs.filter(status_code__gte=500, status_code__lt=600)
+
+        since = ctx["current"]["since"]
+        if since == "24h":
+            qs = qs.filter(timestamp__gte=timezone.now() - timedelta(hours=24))
+        elif since == "7d":
+            qs = qs.filter(timestamp__gte=timezone.now() - timedelta(days=7))
+        # "all" → no filter
+
+        username = ctx["current"]["user"].strip()
+        if username:
+            qs = qs.filter(user__username__icontains=username)
+
+        paginator = Paginator(qs.order_by("-timestamp"), self.PAGE_SIZE)
+        page_num = self.request.GET.get("page") or 1
+        try:
+            page_obj = paginator.page(page_num)
+        except (EmptyPage, PageNotAnInteger):
+            page_obj = paginator.page(1)
+        ctx["entries"] = page_obj.object_list
+        ctx["page_obj"] = page_obj
+        ctx["paginator"] = paginator
+        ctx["total"] = paginator.count
         return ctx
 
     @staticmethod

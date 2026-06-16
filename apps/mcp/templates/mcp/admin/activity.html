@@ -17,13 +17,153 @@
       margin-bottom: 1rem;
     ">
       <strong>apps.activity isn't installed.</strong> Add it to
-      <code>INSTALLED_APPS</code> to capture MCP request history.
+      <code>INSTALLED_APPS</code> to capture MCP request history. Until
+      then this page can't show anything — every other admin surface still
+      works.
     </div>
   {% else %}
-    <p style="color: var(--body-quiet-color, #666);">
-      Coming soon — Phase 5 renders the filtered <code>RequestLog</code>
-      table here.
-    </p>
+    <form method="get" style="
+      display: flex;
+      flex-wrap: wrap;
+      align-items: end;
+      gap: 0.75rem;
+      margin-bottom: 1rem;
+      padding: 0.75rem 1rem;
+      background: var(--card-bg, #fff);
+      border: 1px solid var(--border, #ddd);
+      border-radius: 8px;
+    ">
+      <label style="display: flex; flex-direction: column; gap: 0.2rem; font-size: 0.8rem;">
+        <span style="color: var(--body-quiet-color, #666);">Method</span>
+        <select name="method" style="padding: 0.3rem 0.5rem; font-size: 0.9rem;">
+          {% for value, label in filters_method %}
+            <option value="{{ value }}" {% if current.method == value %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label style="display: flex; flex-direction: column; gap: 0.2rem; font-size: 0.8rem;">
+        <span style="color: var(--body-quiet-color, #666);">Status</span>
+        <select name="status_class" style="padding: 0.3rem 0.5rem; font-size: 0.9rem;">
+          {% for value, label in filters_status %}
+            <option value="{{ value }}" {% if current.status_class == value %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label style="display: flex; flex-direction: column; gap: 0.2rem; font-size: 0.8rem;">
+        <span style="color: var(--body-quiet-color, #666);">Since</span>
+        <select name="since" style="padding: 0.3rem 0.5rem; font-size: 0.9rem;">
+          {% for value, label in filters_since %}
+            <option value="{{ value }}" {% if current.since == value %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label style="display: flex; flex-direction: column; gap: 0.2rem; font-size: 0.8rem; flex: 1; min-width: 12rem;">
+        <span style="color: var(--body-quiet-color, #666);">User (icontains)</span>
+        <input type="text" name="user" value="{{ current.user }}" placeholder="username"
+               style="padding: 0.3rem 0.5rem; font-size: 0.9rem;">
+      </label>
+      <button type="submit" style="
+        padding: 0.4rem 1rem;
+        background: var(--primary, #0066cc);
+        color: #fff;
+        border: 1px solid var(--primary, #0066cc);
+        border-radius: 5px;
+        cursor: pointer;
+        font-size: 0.9rem;
+      ">Apply</button>
+    </form>
+
+    {% if total is not None %}
+      <div style="margin-bottom: 0.5rem; font-size: 0.85rem; color: var(--body-quiet-color, #666);">
+        {{ total }} request{{ total|pluralize }} matching filters
+        {% if page_obj %}— page {{ page_obj.number }} of {{ paginator.num_pages }}{% endif %}.
+      </div>
+    {% endif %}
+
+    {% if entries %}
+      <div style="
+        background: var(--card-bg, #fff);
+        border: 1px solid var(--border, #ddd);
+        border-radius: 8px;
+        overflow: hidden;
+      ">
+        <table style="width: 100%; border-collapse: collapse; font-size: 0.85rem;">
+          <thead>
+            <tr style="background: var(--table-header-bg, #f5f5f5); text-align: left;">
+              <th style="padding: 0.55rem 0.75rem;">Timestamp</th>
+              <th style="padding: 0.55rem 0.75rem;">Method</th>
+              <th style="padding: 0.55rem 0.75rem;">Path</th>
+              <th style="padding: 0.55rem 0.75rem;">Status</th>
+              <th style="padding: 0.55rem 0.75rem;">User</th>
+              <th style="padding: 0.55rem 0.75rem;">Token</th>
+              <th style="padding: 0.55rem 0.75rem; text-align: right;">ms</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for r in entries %}
+              <tr style="border-top: 1px solid var(--border, #eee);">
+                <td style="padding: 0.55rem 0.75rem; white-space: nowrap; color: var(--body-quiet-color, #555); font-family: ui-monospace, Menlo, monospace; font-size: 0.8rem;">
+                  {{ r.timestamp|date:"Y-m-d H:i:s" }}
+                </td>
+                <td style="padding: 0.55rem 0.75rem; font-family: ui-monospace, Menlo, monospace;">{{ r.method }}</td>
+                <td style="padding: 0.55rem 0.75rem; font-family: ui-monospace, Menlo, monospace; font-size: 0.8rem;">
+                  {{ r.path }}
+                </td>
+                <td style="padding: 0.55rem 0.75rem;">
+                  <span style="
+                    padding: 0.05rem 0.5rem;
+                    border-radius: 999px;
+                    font-size: 0.75rem;
+                    font-weight: 600;
+                    {% if r.status_code < 300 %}
+                      background: var(--success-bg, #e6f4ea); color: var(--success-fg, #1e7e34);
+                    {% elif r.status_code < 400 %}
+                      background: var(--card-bg, #f3f3f3); color: var(--body-fg, #333);
+                    {% elif r.status_code < 500 %}
+                      background: var(--warning-bg, #fff8e1); color: var(--warning-fg, #b78d05);
+                    {% else %}
+                      background: var(--error-bg, #fce8e6); color: var(--error-fg, #c0392b);
+                    {% endif %}
+                  ">{{ r.status_code }}</span>
+                </td>
+                <td style="padding: 0.55rem 0.75rem;">{{ r.user.username|default:"—" }}</td>
+                <td style="padding: 0.55rem 0.75rem; color: var(--body-quiet-color, #666);">
+                  {{ r.api_token.name|truncatechars:24|default:"—" }}
+                </td>
+                <td style="padding: 0.55rem 0.75rem; text-align: right; color: var(--body-quiet-color, #555); font-family: ui-monospace, Menlo, monospace;">
+                  {{ r.response_time_ms }}
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      {% if paginator and paginator.num_pages > 1 %}
+        <div style="display: flex; gap: 0.5rem; margin-top: 0.75rem; font-size: 0.85rem;">
+          {% if page_obj.has_previous %}
+            <a href="?{% for k, v in current.items %}{{ k }}={{ v }}&amp;{% endfor %}page={{ page_obj.previous_page_number }}">← prev</a>
+          {% endif %}
+          <span style="color: var(--body-quiet-color, #666);">
+            Page {{ page_obj.number }} of {{ paginator.num_pages }}
+          </span>
+          {% if page_obj.has_next %}
+            <a href="?{% for k, v in current.items %}{{ k }}={{ v }}&amp;{% endfor %}page={{ page_obj.next_page_number }}">next →</a>
+          {% endif %}
+        </div>
+      {% endif %}
+    {% else %}
+      <div style="
+        padding: 1.25rem;
+        background: var(--card-bg, #fff);
+        border: 1px dashed var(--border, #ddd);
+        border-radius: 8px;
+        color: var(--body-quiet-color, #666);
+      ">
+        No <code>/mcp</code> requests match the current filters. Try widening
+        the time window or relaxing the status filter.
+      </div>
+    {% endif %}
   {% endif %}
 </div>
 {% endblock %}
