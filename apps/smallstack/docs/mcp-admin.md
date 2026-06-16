@@ -8,6 +8,18 @@ All three pages are gated by `StaffRequiredMixin`. Anonymous users get redirecte
 
 A single **MCP** item under the admin section of the sidebar lands you on the Health page. From there, three tabs at the top of the page navigate between Health, Tools, and Activity.
 
+## Dashboard widget
+
+The `/smallstack/` dashboard surfaces an at-a-glance **MCP** card next to Backups and Help & Docs. It shows:
+
+- `N tools` (green) — registry populated, no `enable_mcp = True` orphans
+- `N tools` + "N unregistered files" (amber) — orphan WARN; some `enable_mcp` opt-in didn't make it to the registry
+- `No tools` (green) — empty registry, no opt-ins anywhere; "awaiting `enable_mcp`"
+
+Click → Health page. The widget is intentionally cheap (registry count + the cached orphan scan); it does NOT run the self-test on every dashboard load.
+
+Also surfaced on the `/api/dashboard/widgets/` JSON endpoint with `tool_count`, `write_tool_count`, `read_tool_count`, and `orphan_count` for monitoring tools.
+
 ## Health (`/smallstack/mcp/`)
 
 The same checks `mcp_doctor` prints, rendered as color-coded cards: mcp package presence, settings sanity, server registry contents (with orphan-file warnings if any), URL conf, APIToken inventory, APIToken admin Explorer integration.

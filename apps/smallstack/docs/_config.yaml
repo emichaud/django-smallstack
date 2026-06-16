@@ -400,6 +400,12 @@ pages:
     icon: "dashboard"
     category: "MCP (AI)"
 
+  - slug: mcp-settings
+    title: "MCP Settings Reference"
+    description: "Every MCP_* Django setting: default, what it does, when to change. Common configurations."
+    icon: "settings"
+    category: "MCP (AI)"
+
   - slug: mcp-claude-desktop
     title: "Connecting Claude Desktop"
     description: "Connect Claude Desktop / Claude.ai Connectors UI to your MCP server"

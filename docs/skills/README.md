@@ -55,6 +55,9 @@ When an AI agent is asked to modify or extend this project, these files help it:
 | [mcp/add-mcp-to-this-project.md](mcp/add-mcp-to-this-project.md) | Bootstrap MCP in a fresh / non-MCP-aware project |
 | [mcp/extend-explorer-for-tokens.md](mcp/extend-explorer-for-tokens.md) | Surface APIToken management via Explorer |
 | [mcp/mcp-admin-pages.md](mcp/mcp-admin-pages.md) | Use the `/smallstack/mcp/` Health / Tools / Activity admin pages from a debugging session |
+| [mcp/build-mcp-solution.md](mcp/build-mcp-solution.md) | "User wants Claude to do X" → decision tree for CRUDView vs `@tool` + copy-pasteable patterns. Start here when designing new MCP features. |
+| [mcp/verify-mcp.md](mcp/verify-mcp.md) | Consolidated verify checklist: doctor, --explain, make mcp-test, admin pages, dashboard widget, Claude Desktop — picks the right path per question |
+| [mcp/configure-mcp.md](mcp/configure-mcp.md) | Scenario → `MCP_*` setting map: turn off OAuth, custom theme, kamal-proxy, multi-tenant, verbose logging, autodiscover |
 
 ## Usage
 
@@ -85,8 +88,11 @@ AI agents should read relevant skill files before making changes to the correspo
 - Before configuring or building card-grid list displays → read `card-displays.md`
 - Before adding a month-grid calendar to a model → read `calendar-displays.md`
 - Before updating docs after code changes → read `update-docs-and-skills.md`
+- **Before designing any MCP feature** → read `mcp/build-mcp-solution.md` (decision tree + patterns)
 - Before exposing a CRUDView to AI clients → read `mcp/enable-mcp-for-a-model.md`
 - Before adding a custom MCP tool → read `mcp/write-a-custom-tool.md`
+- Before changing any `MCP_*` setting → read `mcp/configure-mcp.md`
+- Before saying "MCP works" → read `mcp/verify-mcp.md`
 - Before debugging an MCP failure → read `mcp/debug-mcp-failure.md`
 
 ## For Humans

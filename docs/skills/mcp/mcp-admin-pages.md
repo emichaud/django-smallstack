@@ -9,6 +9,7 @@ Single sidebar entry **MCP** under Admin. Lands on Health. Internal tabs: Health
 
 | URL | Equivalent CLI | What it answers |
 |---|---|---|
+| `/smallstack/` (dashboard widget) | quick `mcp_doctor` summary | MCP status at a glance — green / amber |
 | `/smallstack/mcp/` | `mcp_doctor` | Is MCP healthy right now? |
 | `/smallstack/mcp/tools/` | `mcp_doctor --explain` | What tools can Claude see? |
 | `/smallstack/mcp/tools/<name>/` | `mcp_doctor --explain <name>` | What does the schema for one tool look like? |
@@ -16,6 +17,8 @@ Single sidebar entry **MCP** under Admin. Lands on Health. Internal tabs: Health
 | `/smallstack/mcp/self-test/` (POST) | `mcp_doctor` self-test step | Does the in-process dispatcher work right now? |
 
 All pages: `StaffRequiredMixin`. Anonymous → 302 login; non-staff → 403.
+
+The dashboard widget is the cheapest signal — it's just a registry count + a cached orphan-file scan. Use it as the first-look "is anything off?" check before diving into the Health page.
 
 ## Debug flow — when to use which
 
