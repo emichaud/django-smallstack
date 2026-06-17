@@ -299,6 +299,16 @@ html[data-palette="orange"][data-theme="dark"] {
     --breadcrumb-separator: #52525b;
 }
 
+/* Page-header band: skip the color-mix(--primary 15%, --body-bg) rule
+   from theme.css for the orange palette. Warm hues at low lightness
+   mix toward brown (dark orange = brown), so the default recipe that
+   reads as navy/plum on blue/purple goes muddy on orange. Use the
+   card surface instead — the band reads clean and the orange accent
+   stays reserved for data + actions where it pops. */
+html[data-palette="orange"][data-theme="dark"] .page-header-bleed {
+    background: var(--card-bg) !important;
+}
+
 /* ============================================
    Purple Palette
    ============================================ */
