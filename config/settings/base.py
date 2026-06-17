@@ -34,6 +34,7 @@ INSTALLED_APPS = [
     "apps.website",  # Project-specific pages (customize freely)
     "apps.mcp",  # Model Context Protocol server for AI clients
     "apps.tokenmgr",  # User-facing UI for API token management
+    "apps.api",  # API admin: /smallstack/api/ health + activity + threat panel
     # Django built-in apps
     "django.contrib.admin",
     "django.contrib.auth",
