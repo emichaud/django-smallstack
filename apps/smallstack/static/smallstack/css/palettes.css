@@ -12,6 +12,68 @@
  */
 
 /* ============================================
+   Django (default) Palette — dark mode override
+   ============================================ */
+
+html[data-palette="django"][data-theme="dark"] {
+    /* Modern black + vibrant emerald accent. Same pattern as the other
+       dark palettes: near-black neutral surfaces with cool channel bias
+       (R<G<B by 3-7 points) + a saturated accent that does all the
+       visual work. Emerald (#10b981) was chosen over green-500 because
+       it keeps the slight teal character of Django's original brand
+       green (#44b78b) while modernizing the saturation and lightness.
+
+       Surfaces (identical to dark-blue / dark-purple / dark-orange —
+       palette-agnostic):
+         body-bg / footer-bg  #0a0b0f
+         header-bg            #111218
+         sidebar-bg           #0c0d12
+         card-bg / input-bg   #16181f
+         card-header-bg       #1d1f28
+         card-border          #262936 */
+
+    /* Vibrant emerald accent */
+    --primary: #10b981;
+    --primary-hover: #34d399;
+    --secondary: #059669;
+    --sidebar-active-bg: #10b981;
+    --sidebar-active-fg: #ffffff;
+    --input-focus-border: #10b981;
+    --button-bg: #10b981;
+    --button-fg: #ffffff;
+    --button-hover-bg: #34d399;
+
+    /* Links — lighter emerald to pop on near-black without competing
+       with the primary saturated emerald. */
+    --link-fg: #34d399;
+    --link-color: #34d399;
+    --link-hover: #6ee7b7;
+    --breadcrumb-link: #e4e4e7;
+
+    /* Surfaces — same cool-biased near-black as the other dark palettes */
+    --body-bg: #0a0b0f;
+    --content-bg: #0a0b0f;
+    --header-bg: #111218;
+    --hero-gradient-end: #181a22;
+    --card-bg: #16181f;
+    --card-header-bg: #1d1f28;
+    --card-border: #262936;
+    --hairline-color: #262936;
+    --sidebar-bg: #0c0d12;
+    --sidebar-hover-bg: #16181f;
+    --sidebar-border: #262936;
+    --footer-bg: #0a0b0f;
+    --footer-fg: #71717a;
+    --input-bg: #16181f;
+    --input-border: #3c3f4a;
+
+    /* Muted text — zinc family, readable on near-black */
+    --text-muted: #a1a1aa;
+    --breadcrumb-fg: #a1a1aa;
+    --breadcrumb-separator: #52525b;
+}
+
+/* ============================================
    High Contrast Palette (Accessibility)
    ============================================ */
 
