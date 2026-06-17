@@ -190,22 +190,28 @@ html[data-palette="dark-blue"][data-theme="dark"] {
     --link-hover: #93c5fd;
     --breadcrumb-link: #e4e4e7;
 
-    /* Surfaces — neutral near-black */
-    --body-bg: #0a0a0b;
-    --content-bg: #0a0a0b;
-    --header-bg: #111114;
-    --hero-gradient-end: #18181b;
-    --card-bg: #18181b;
-    --card-header-bg: #1f1f23;
-    --card-border: #27272a;
-    --hairline-color: #27272a;
-    --sidebar-bg: #0d0d0f;
-    --sidebar-hover-bg: #18181b;
-    --sidebar-border: #27272a;
-    --footer-bg: #0a0a0b;
+    /* Surfaces — near-black with a subtle cool bias.
+       Same perceptual lightness as the pure-neutral zinc family, but
+       the channels are intentionally B > G > R by 3-7 points so the
+       surfaces resist looking "warm" when red content (error states,
+       failure timelines, alert banners) sits adjacent. Color-context
+       contrast pulls neutral grays toward warm hues when reds are
+       nearby — these values pre-correct for that. */
+    --body-bg: #0a0b0f;
+    --content-bg: #0a0b0f;
+    --header-bg: #111218;
+    --hero-gradient-end: #181a22;
+    --card-bg: #16181f;
+    --card-header-bg: #1d1f28;
+    --card-border: #262936;
+    --hairline-color: #262936;
+    --sidebar-bg: #0c0d12;
+    --sidebar-hover-bg: #16181f;
+    --sidebar-border: #262936;
+    --footer-bg: #0a0b0f;
     --footer-fg: #71717a;
-    --input-bg: #18181b;
-    --input-border: #3f3f46;
+    --input-bg: #16181f;
+    --input-border: #3c3f4a;
 
     /* Muted text — zinc family, readable on near-black */
     --text-muted: #a1a1aa;
