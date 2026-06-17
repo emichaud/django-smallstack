@@ -1,0 +1,41 @@
+{% comment %}
+htmx fragment swapped into #self-test-result on the API Health page
+when "Run Self-Test" is clicked.
+{% endcomment %}
+<div id="self-test-result" class="card" style="
+  margin-bottom: 24px;
+  border-left: 4px solid {% if entry.status == 'PASS' %}var(--success-fg){% else %}var(--delete-button-bg, red){% endif %};
+">
+  <div class="card-body" style="padding: 14px 18px;">
+    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 6px;">
+      {% if entry.status == "PASS" %}
+        <span style="
+          display: inline-block; padding: 2px 8px; border-radius: 4px;
+          font-size: 0.7rem; font-weight: 700; letter-spacing: 0.04em;
+          background: color-mix(in srgb, var(--success-fg) 15%, var(--card-bg));
+          color: var(--success-fg);
+        ">✓ PASS</span>
+      {% else %}
+        <span style="
+          display: inline-block; padding: 2px 8px; border-radius: 4px;
+          font-size: 0.7rem; font-weight: 700; letter-spacing: 0.04em;
+          background: color-mix(in srgb, var(--delete-button-bg, red) 15%, var(--card-bg));
+          color: var(--delete-button-bg, red);
+        ">✗ FAIL</span>
+      {% endif %}
+      <strong>Self-test result</strong>
+    </div>
+    {% if entry.detail|stringformat:"s"|slice:":1" == "{" %}
+      <ul style="margin: 0; padding-left: 18px; font-family: var(--font-monospace, ui-monospace, Menlo, monospace); font-size: 0.85rem; line-height: 1.7;">
+        {% for step, ok in entry.detail.items %}
+          <li>{{ step }} — {% if ok is True %}<span style="color: var(--success-fg);">✓</span>{% elif ok is False %}<span style="color: var(--delete-button-bg, red);">✗</span>{% else %}<span style="color: var(--body-quiet-color);">{{ ok }}</span>{% endif %}</li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <div style="font-size: 0.9rem;">{{ entry.detail }}</div>
+    {% endif %}
+    <div style="margin-top: 8px; font-size: 0.75rem; color: var(--body-quiet-color);">
+      Token cleanup ran in a finally — no APIToken left active.
+    </div>
+  </div>
+</div>

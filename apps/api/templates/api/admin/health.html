@@ -1,0 +1,115 @@
+{% extends "smallstack/base.html" %}
+{% load theme_tags %}
+
+{% block title %}API — Health{% endblock %}
+
+{% block breadcrumbs %}{% endblock %}
+
+{% block page_header %}
+<div class="page-header-bleed page-header-with-actions" style="display: flex; align-items: center; justify-content: space-between;">
+  <div class="page-header-content">
+    <h1>API</h1>
+    <p class="page-subtitle">REST surface — schema validity, endpoint registry, Swagger / ReDoc, request activity.</p>
+    <nav style="margin-top: 0.5rem; font-size: 0.8rem;">
+      <a href="{% url 'website:home' %}" style="color: var(--body-quiet-color); text-decoration: none;">Home</a>
+      <span style="color: var(--body-quiet-color); margin: 0 0.3rem;">/</span>
+      <span style="color: var(--body-fg);">API</span>
+      <span style="color: var(--body-quiet-color); margin: 0 0.3rem;">/</span>
+      <span style="color: var(--body-fg);">Health</span>
+    </nav>
+  </div>
+  <div style="display: flex; gap: 12px; align-items: stretch;">
+    <form method="post"
+          action="{% url 'api_admin:self_test' %}"
+          hx-post="{% url 'api_admin:self_test' %}"
+          hx-target="#self-test-result"
+          hx-swap="outerHTML"
+          style="margin: 0;">
+      {% csrf_token %}
+      <button type="submit" class="card" style="
+        border: 2px solid color-mix(in srgb, var(--primary) 30%, transparent);
+        margin: 0;
+        min-width: 180px;
+        cursor: pointer;
+        background: var(--card-bg);
+        transition: border-color 0.15s, background 0.15s;
+        padding: 0;
+      "
+      onmouseover="this.style.borderColor='var(--primary)';this.style.background='color-mix(in srgb, var(--primary) 8%, var(--card-bg))'"
+      onmouseout="this.style.borderColor='color-mix(in srgb, var(--primary) 30%, transparent)';this.style.background='var(--card-bg)'">
+        <div class="card-body" style="display: flex; align-items: center; gap: 10px; padding: 12px 16px;">
+          <svg viewBox="0 0 24 24" width="28" height="28" fill="var(--primary)">
+            <path d="M8 5v14l11-7z"/>
+          </svg>
+          <div style="text-align: left;">
+            <div style="font-weight: 700; font-size: 0.95rem; color: var(--primary);">Run Self-Test</div>
+            <div style="color: var(--body-quiet-color); font-size: 0.75rem;">schema · openapi · sample</div>
+          </div>
+        </div>
+      </button>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block content %}
+{% include "api/admin/_nav.html" %}
+
+{# ── Stat cards: PASS / WARN / FAIL / Endpoints ─────────────────── #}
+<div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 24px;">
+  <div class="card">
+    <div class="card-body" style="text-align: center; padding: 14px 8px;">
+      <div style="font-size: 1.75rem; font-weight: 700; color: var(--success-fg);">{{ pass_count }}</div>
+      <div style="color: var(--body-quiet-color); font-size: 0.8rem;">Passing checks</div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-body" style="text-align: center; padding: 14px 8px;">
+      <div style="font-size: 1.75rem; font-weight: 700; color: {% if warn_count %}var(--message-warning-bg, orange){% else %}var(--body-quiet-color){% endif %};">{{ warn_count }}</div>
+      <div style="color: var(--body-quiet-color); font-size: 0.8rem;">Warnings</div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-body" style="text-align: center; padding: 14px 8px;">
+      <div style="font-size: 1.75rem; font-weight: 700; color: {% if fail_count %}var(--delete-button-bg, red){% else %}var(--body-quiet-color){% endif %};">{{ fail_count }}</div>
+      <div style="color: var(--body-quiet-color); font-size: 0.8rem;">Failures</div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-body" style="text-align: center; padding: 14px 8px;">
+      <div style="font-size: 1.75rem; font-weight: 700; color: var(--primary);">{{ endpoint_count }}</div>
+      <div style="color: var(--body-quiet-color); font-size: 0.8rem;">Registered endpoints</div>
+    </div>
+  </div>
+</div>
+
+{# ── Self-test result swap target ──────────────────────────────── #}
+<div id="self-test-result"></div>
+
+{# ── Diagnostics ───────────────────────────────────────────────── #}
+<div class="card">
+  <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
+    <h2>Diagnostics</h2>
+    <span style="font-size: 0.8rem; color: var(--body-quiet-color);">
+      Same checks as <code>manage.py api_doctor</code> — refresh to re-run.
+    </span>
+  </div>
+  <div class="card-body" style="padding: 0;">
+    <table class="table-plain" style="width: 100%; border-collapse: collapse;">
+      <thead>
+        <tr>
+          <th style="text-align: left; padding: 10px 16px; width: 110px;">Status</th>
+          <th style="text-align: left; padding: 10px 16px;">Check</th>
+          <th style="text-align: left; padding: 10px 16px;">Detail</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for entry in report %}
+          {# Reuses the MCP row partial — pure render, no MCP-specific data. #}
+          {% include "mcp/admin/_health_row.html" with entry=entry %}
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

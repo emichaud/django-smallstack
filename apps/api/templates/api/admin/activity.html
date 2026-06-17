@@ -1,0 +1,25 @@
+{% extends "smallstack/base.html" %}
+{% load theme_tags %}
+
+{% block title %}API — Activity{% endblock %}
+
+{% block breadcrumbs %}{% endblock %}
+
+{% block page_header %}
+<div class="page-header-bleed">
+  <div class="page-header-content">
+    <h1>API</h1>
+    <p class="page-subtitle">Per-endpoint operational view + threat signals (Phase 3 — coming soon).</p>
+  </div>
+</div>
+{% endblock %}
+
+{% block content %}
+{% include "api/admin/_nav.html" %}
+
+<div class="card">
+  <div class="card-body" style="padding: 20px;">
+    <p style="color: var(--body-quiet-color);">Activity + threat panel lands in Phase 3.</p>
+  </div>
+</div>
+{% endblock %}

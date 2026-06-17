@@ -1,0 +1,16 @@
+{% comment %}
+Section tabs for the API admin pages. Uses the canonical .tab-btn
+component. Owning view sets `page` to "health" / "activity".
+{% endcomment %}
+<div style="display: flex; gap: 4px; margin-bottom: 20px; border-bottom: 2px solid var(--hairline-color, color-mix(in srgb, var(--body-fg) 10%, var(--body-bg)));">
+  <a href="{% url 'api_admin:health' %}" class="tab-btn{% if page == 'health' %} active{% endif %}" style="text-decoration: none;">
+    Health
+    {% if page == 'health' and warn_count|add:fail_count %}
+      <span class="tab-count" style="background: color-mix(in srgb, var(--message-warning-bg, orange) 18%, var(--card-bg)); color: var(--message-warning-bg, orange);">{{ warn_count|add:fail_count }}</span>
+    {% endif %}
+  </a>
+  <a href="{% url 'api_admin:activity' %}" class="tab-btn{% if page == 'activity' %} active{% endif %}" style="text-decoration: none;">
+    Activity
+    {% if threat_count %}<span class="tab-count" style="background: color-mix(in srgb, var(--delete-button-bg, red) 18%, var(--card-bg)); color: var(--delete-button-bg, red);">{{ threat_count }}</span>{% endif %}
+  </a>
+</div>
