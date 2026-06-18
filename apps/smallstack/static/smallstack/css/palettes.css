@@ -28,9 +28,9 @@ html[data-palette="django"][data-theme="dark"] {
          body-bg / footer-bg  #0a0b0f
          header-bg            #111218
          sidebar-bg           #0c0d12
-         card-bg / input-bg   #16181f
-         card-header-bg       #1d1f28
-         card-border          #262936 */
+         card-bg / input-bg   #161b22
+         card-header-bg       #1d2230
+         card-border          #262d3d */
 
     /* Vibrant emerald accent */
     --primary: #10b981;
@@ -307,18 +307,18 @@ html[data-palette="dark-blue"][data-theme="dark"] {
     --body-bg: #0a0b0f;
     --content-bg: #0a0b0f;
     --header-bg: #111218;
-    --hero-gradient-end: #181a22;
-    --card-bg: #16181f;
-    --card-header-bg: #1d1f28;
-    --card-border: #262936;
-    --hairline-color: #262936;
+    --hero-gradient-end: #181d24;
+    --card-bg: #161b22;
+    --card-header-bg: #1d2230;
+    --card-border: #262d3d;
+    --hairline-color: #262d3d;
     --sidebar-bg: #0c0d12;
-    --sidebar-hover-bg: #16181f;
-    --sidebar-border: #262936;
+    --sidebar-hover-bg: #161b22;
+    --sidebar-border: #262d3d;
     --footer-bg: #0a0b0f;
     --footer-fg: #71717a;
-    --input-bg: #16181f;
-    --input-border: #3c3f4a;
+    --input-bg: #161b22;
+    --input-border: #3c4356;
 
     /* Muted text — zinc family, readable on near-black */
     --text-muted: #a1a1aa;
@@ -361,9 +361,9 @@ html[data-palette="orange"][data-theme="dark"] {
          body-bg / footer-bg  #0a0b0f  ◀── deep near-black canvas
          header-bg            #111218  ◀── chrome band, slight lift
          sidebar-bg           #0c0d12  ◀── between body and card
-         card-bg / input-bg   #16181f  ◀── elevated surface
-         card-header-bg       #1d1f28  ◀── subtle band on cards
-         card-border          #262936  ◀── visible hairline */
+         card-bg / input-bg   #161b22  ◀── elevated surface
+         card-header-bg       #1d2230  ◀── subtle band on cards
+         card-border          #262d3d  ◀── visible hairline */
 
     /* Vibrant orange accent */
     --primary: #f97316;
@@ -387,18 +387,18 @@ html[data-palette="orange"][data-theme="dark"] {
     --body-bg: #0a0b0f;
     --content-bg: #0a0b0f;
     --header-bg: #111218;
-    --hero-gradient-end: #181a22;
-    --card-bg: #16181f;
-    --card-header-bg: #1d1f28;
-    --card-border: #262936;
-    --hairline-color: #262936;
+    --hero-gradient-end: #181d24;
+    --card-bg: #161b22;
+    --card-header-bg: #1d2230;
+    --card-border: #262d3d;
+    --hairline-color: #262d3d;
     --sidebar-bg: #0c0d12;
-    --sidebar-hover-bg: #16181f;
-    --sidebar-border: #262936;
+    --sidebar-hover-bg: #161b22;
+    --sidebar-border: #262d3d;
     --footer-bg: #0a0b0f;
     --footer-fg: #71717a;
-    --input-bg: #16181f;
-    --input-border: #3c3f4a;
+    --input-bg: #161b22;
+    --input-border: #3c4356;
 
     /* Muted text — zinc family, readable on near-black */
     --text-muted: #a1a1aa;
@@ -465,9 +465,9 @@ html[data-palette="purple"][data-theme="dark"] {
          body-bg / footer-bg  #0a0b0f  ◀── deep near-black canvas
          header-bg            #111218  ◀── chrome band, slight lift
          sidebar-bg           #0c0d12  ◀── between body and card
-         card-bg / input-bg   #16181f  ◀── elevated surface
-         card-header-bg       #1d1f28  ◀── subtle band on cards
-         card-border          #262936  ◀── visible hairline */
+         card-bg / input-bg   #161b22  ◀── elevated surface
+         card-header-bg       #1d2230  ◀── subtle band on cards
+         card-border          #262d3d  ◀── visible hairline */
 
     /* Vibrant purple accent */
     --primary: #a855f7;
@@ -491,18 +491,18 @@ html[data-palette="purple"][data-theme="dark"] {
     --body-bg: #0a0b0f;
     --content-bg: #0a0b0f;
     --header-bg: #111218;
-    --hero-gradient-end: #181a22;
-    --card-bg: #16181f;
-    --card-header-bg: #1d1f28;
-    --card-border: #262936;
-    --hairline-color: #262936;
+    --hero-gradient-end: #181d24;
+    --card-bg: #161b22;
+    --card-header-bg: #1d2230;
+    --card-border: #262d3d;
+    --hairline-color: #262d3d;
     --sidebar-bg: #0c0d12;
-    --sidebar-hover-bg: #16181f;
-    --sidebar-border: #262936;
+    --sidebar-hover-bg: #161b22;
+    --sidebar-border: #262d3d;
     --footer-bg: #0a0b0f;
     --footer-fg: #71717a;
-    --input-bg: #16181f;
-    --input-border: #3c3f4a;
+    --input-bg: #161b22;
+    --input-border: #3c4356;
 
     /* Muted text — zinc family, readable on near-black */
     --text-muted: #a1a1aa;
