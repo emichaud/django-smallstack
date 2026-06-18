@@ -8,6 +8,8 @@
 
 A small-footprint Django foundation for shipping **scheduler systems, websites, API servers, and MCP servers** — with Explorer, CRUDView, and a model-to-API-to-MCP pipeline already wired up. SQLite-first, no external services required.
 
+📖 **Docs, guides, and examples → [www.smallstack.site](https://www.smallstack.site/)**
+
 > Pre-1.0 and changing rapidly. APIs and conventions will stabilize at 1.0.
 
 ![Django SmallStack Homepage](apps/smallstack/docs/images/smallstack-home.png)
@@ -90,7 +92,9 @@ Visit `/help/` once running for full docs (getting started, theming, deployment,
 
 ## Learn more
 
-**[django-small-stack.space](https://django-small-stack.space/)**
+Full documentation, demos, examples, and the latest news live at **[www.smallstack.site](https://www.smallstack.site/)**.
+
+That's the canonical reference for setup guides, palette details, the CRUDView pipeline, MCP setup, and downstream-project patterns. The bundled `/help/` docs in your local clone are a subset; the site has the long-form material.
 
 ## License
 
