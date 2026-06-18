@@ -1,103 +1,94 @@
 # Django SmallStack
 
-*A stable foundation for your next small Django app.*
+*Django that's batteries-included for the AI era.*
 
 ![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue)
 ![Django 6.0](https://img.shields.io/badge/django-6.0-green)
 ![License MIT](https://img.shields.io/badge/license-MIT-brightgreen)
 
-> **Note:** SmallStack is pre-1.0 and changing rapidly. The API and conventions will stabilize at the 1.0.0 milestone.
+A small-footprint Django foundation for shipping **scheduler systems, websites, API servers, and MCP servers** — with Explorer, CRUDView, and a model-to-API-to-MCP pipeline already wired up. SQLite-first, no external services required.
 
-SmallStack is a batteries-included Django starter for small teams, self-hosters, and container deployments. Clone it, customize it, ship it.
+> Pre-1.0 and changing rapidly. APIs and conventions will stabilize at 1.0.
 
-**SQLite is a first-class citizen.** SmallStack comes configured to run production-ready on SQLite — no database service fees, just simple reliable storage that backs up with your VPS. Need Postgres? The [docs](https://django-small-stack.space/) include setup instructions.
+![Django SmallStack Homepage](apps/smallstack/docs/images/smallstack-home.png)
 
-**Build websites, API servers, or background task runners.** SmallStack includes built-in support for scheduled background tasks via Django 6's Tasks framework — no Redis or Celery required.
+## One model, three surfaces
 
-![Django SmallStack Homepage](apps/help/smallstack/images/smallstack-home.png)
+The headline pattern: a single `CRUDView` declaration produces an HTML admin page, REST endpoints, and MCP tools.
 
-## Theming
+```python
+class TicketCRUDView(CRUDView):
+    model           = Ticket
+    actions         = [Action.LIST, Action.CREATE, Action.DETAIL, Action.UPDATE, Action.DELETE]
+    filter_fields   = ["status", "priority", "customer"]
+    enable_api      = True     # → REST  /api/tickets/
+    enable_mcp      = True     # → MCP   list_tickets, create_ticket, …
+    enable_explorer = True     # → HTML  /smallstack/explorer/support/ticket/
+```
 
-SmallStack extends Django's built-in admin theme — forms, widgets, tables, and all the standard elements — without any external CSS. It adds dark/light mode support with multiple color palettes, all driven by CSS custom properties.
+Same form/queryset/permission logic, three surfaces.
 
-**Bring your own theme.** SmallStack separates public pages from management pages. Use your own CSS framework for your app while SmallStack preserves its own theme for the included tools: Explorer, Activity, Backups, Status, Users, and Dashboard. Build your app your way, then log in to manage it with the built-in SmallStack tools when you need to.
+## Batteries included
 
-<p>
-  <img src="apps/help/smallstack/images/smallstack-docs.png" alt="Help System Dark Mode" width="49%">
-  <img src="apps/help/smallstack/images/smallstack-docs-light.png" alt="Help System Light Mode" width="49%">
-</p>
+Built-in apps that run themselves — no setup beyond `make setup`:
 
-## What's Included
+- **Explorer** — universal model browser with auto-generated CRUD pages
+- **MCP server** — JSON-RPC + OAuth + PKCE at `/mcp`. Claude Desktop and Connectors UI work without setup
+- **API server** — Bearer-auth REST + OpenAPI 3.0.3 + Swagger UI + ReDoc, emitted from CRUDViews
+- **API admin** — `/smallstack/api/` health checks + threat panel (auth bursts, scanner UAs, path scanning)
+- **MCP admin** — `/smallstack/mcp/` health + tools + activity admin pages
+- **Activity** — request logging with auto-pruning, status breakdowns
+- **API Tokens** — self-service mint / reveal-once / revoke
+- **Backups** — SQLite snapshots, optional cron schedule
+- **Status** — uptime monitoring + public status page
+- **Help & Docs** — bundled reference + AI skill files
+- **Background tasks** — DB-backed task queue, no Redis / Celery
+- **Auth + Profile** — custom User model, photo, timezone, theme preference
 
-- **Authentication** — custom User model, login, signup, password reset
-- **User profiles** — photo, bio, timezone, display name
-- **Model Explorer** — auto-generated CRUD views for any registered model
-- **Activity tracking** — request logging with staff dashboard and auto-pruning
-- **Database backups** — on-demand + scheduled, with retention policies
-- **Background tasks** — database-backed task queue, no external services
-- **Help system** — markdown docs with search and table of contents
-- **htmx** — partial page updates with no build step, vendored locally
-- **Docker + Kamal** — production-ready container config with zero-downtime deploys
-
-## Quick Start
-
-### Prerequisites
-
-- Python 3.12+
-- [UV](https://github.com/astral-sh/uv) package manager
-
-### Setup
+## Quick start
 
 ```bash
 git clone https://github.com/emichaud/django-smallstack.git myapp
 cd myapp
-make setup    # install deps, migrate, create dev superuser (admin/admin)
-make run      # start dev server
+make setup    # uv sync + migrate + create dev superuser (admin/admin)
+make run      # dev server on port 8005
 ```
 
-Open http://localhost:8005 and log in with `admin` / `admin`.
+Open http://localhost:8005, log in with `admin` / `admin`.
 
-### Docker
+For Docker: `cp .env.example .env && docker compose up -d` (port 8010).
 
-```bash
-cp .env.example .env      # create env file (edit as needed)
-docker compose up -d       # build and start
-```
+## Modern dark theme
 
-Access at http://localhost:8010. Default port can be changed in `docker-compose.yml`.
+Five palettes × two themes (light/dark) — switchable from the user-menu dropdown. The modern-dark default uses near-black surfaces with vibrant Tailwind-style accents (Linear / Vercel / Anthropic console aesthetic).
 
-## Project Structure
+<p>
+  <img src="apps/smallstack/docs/images/smallstack-docs.png" alt="Help System Dark Mode" width="49%">
+  <img src="apps/smallstack/docs/images/smallstack-docs-light.png" alt="Help System Light Mode" width="49%">
+</p>
 
-```
-django-smallstack/
-├── apps/                      # Django applications
-│   ├── accounts/              # Custom user model & auth
-│   ├── smallstack/            # Theme, CRUD library, admin tools
-│   ├── profile/               # User profile management
-│   ├── help/                  # Documentation system
-│   ├── activity/              # Request tracking & dashboard
-│   ├── explorer/              # Auto-generated model CRUD
-│   └── tasks/                 # Background tasks
-├── config/
-│   └── settings/              # Split settings (base, dev, prod, test)
-├── templates/                 # HTML templates
-├── static/                    # CSS, JS, brand assets
-├── Dockerfile
-├── docker-compose.yml
-└── pyproject.toml
-```
+## Vibe coding with AI
+
+SmallStack is tuned for clone-and-build-with-an-AI workflows. When you start a session with Claude Code / Cursor / similar:
+
+- **`CLAUDE.md`** in the repo root orients the AI to the codebase and lists the read-first skills per task type
+- **`docs/skills/modern-dark-theme.md`** is the prescriptive "before building a page, read this" guide — following it produces pages that work correctly across all five palettes on the first try (the most common AI-built-page failure mode is hard-coded colors)
+- **`docs/skills/cli-tools.md`** is the task → tool decision tree — keeps the AI from hand-rolling backup scripts when `make backup` exists
+- **`docs/skills/README.md`** indexes the full skill set (40+ files covering apps, theming, MCP, API, deployment, etc.)
 
 ## Development
 
 ```bash
-make test         # run pytest with coverage
-make lint         # ruff check
-make lint-fix     # ruff check --fix
+make test          # pytest with coverage
+make lint          # ruff check
+make lint-fix      # ruff check --fix
+make api-test      # API smoke test against running server
+make mcp-test      # MCP smoke test
 ```
 
-Once running, visit `/help/` for full documentation including getting started, theming, deployment, and more.
+Visit `/help/` once running for full docs (getting started, theming, deployment, MCP setup, API patterns, and more).
 
-## Learn More
+## Learn more
 
 **[django-small-stack.space](https://django-small-stack.space/)**
 
