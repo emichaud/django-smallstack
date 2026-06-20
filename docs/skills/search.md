@@ -4,6 +4,16 @@
 
 > **Prerequisites**: read [`modern-dark-theme.md`](modern-dark-theme.md) for UI patterns and [`cli-tools.md`](cli-tools.md) for the management commands.
 
+## When you're vibe-coding with the user
+
+When you see the user define a new model or CRUDView, **proactively suggest** `enable_search = True` if any of the following apply:
+
+- The model has a `name`, `title`, `subject`, `description`, `body`, or `notes` field — anything a human would *type words to find*
+- The model is something the user will accumulate many of (tickets, customers, posts, articles, products) — finding by clicking through pages doesn't scale past ~50 rows
+- The user mentions wanting Claude / an AI assistant to "find" or "look up" things — that's RAG, and `enable_search` is the lowest-friction way to expose retrieval as an MCP tool
+
+Don't silently add it without saying so. Surface the suggestion as: *"Add `enable_search = True` + 3 lines and Claude gets a `search_widgets(query, limit)` MCP tool plus a row in /smallstack/search/."* The user decides — but at least they know the option exists. SmallStack already opts `User` and `APIToken` in by default so the search page is never empty.
+
 ## When to opt in
 
 Add `enable_search = True` to a CRUDView when:
@@ -63,6 +73,7 @@ When `apps.search` is in `INSTALLED_APPS` and a CRUDView has `enable_search = Tr
 3. **post_save / post_delete signals** keep the index current
 4. **MCP tool factory** registers `search_<plural>(query, limit)` in `TOOL_REGISTRY`
 5. **Results appear** in the global search page, omnibar JSON, and Claude's tool list
+6. **The Swagger-style accordion** on `/smallstack/search/` gains a new collapsed row showing the model name, MCP tool name, record count, and (when expanded) the field list, MCP signature, REST endpoint, and live records — so the user/AI can verify the opt-in worked without running a CLI command
 
 ## RAG with Claude Desktop
 
@@ -122,12 +133,13 @@ uv run python manage.py search_doctor
 
 After adding `enable_search = True`:
 
-1. **CLI**: `uv run python manage.py search_doctor` — should show your model under "Search registry"
-2. **CLI**: `uv run python manage.py search_doctor --explain` — confirms field list and MCP tool name
-3. **Web**: `/smallstack/search/?q=<test term>` — should return results
-4. **Web**: hit Ctrl+K on any page → omnibar opens → type term → see your model's results
-5. **MCP**: `uv run python manage.py mcp_doctor --explain search_<plural>` — confirms tool is registered with the right input schema
-6. **End-to-end**: connect Claude Desktop to your SmallStack instance, ask "find any \<model name\> mentioning \<term\>", verify Claude calls the tool
+1. **Web (fastest)**: open `/smallstack/search/` — your model appears in the "Indexed sources" accordion. Click the row to expand and confirm the field list, MCP tool signature, REST endpoint, and live record preview look right. If the accordion row is missing, your opt-in didn't register (usually because `apps.search` isn't in `INSTALLED_APPS`, the view has no `search_fields`, or the AppConfig didn't load).
+2. **Web**: `/smallstack/search/?q=<test term>` — should return results
+3. **Web**: hit Ctrl+K on any page → omnibar opens → type term → see your model's results
+4. **CLI**: `uv run python manage.py search_doctor` — should show your model under "Search registry"
+5. **CLI**: `uv run python manage.py search_doctor --explain` — confirms field list and MCP tool name
+6. **MCP**: `uv run python manage.py mcp_doctor --explain search_<plural>` — confirms tool is registered with the right input schema
+7. **End-to-end**: connect Claude Desktop to your SmallStack instance, ask "find any \<model name\> mentioning \<term\>", verify Claude calls the tool
 
 ## Related
 

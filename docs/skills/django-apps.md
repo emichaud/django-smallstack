@@ -177,6 +177,17 @@ class WidgetCRUDView(CRUDView):
 | `form_class` | Custom ModelForm (optional, auto-generated if not set) |
 | `actions` | Which CRUD actions to enable |
 
+**Opt-in capability flags** (the SmallStack superpower — one boolean lights up a whole surface):
+
+| Flag | What it lights up | Read first |
+|---|---|---|
+| `enable_explorer = True` | The model appears in `/smallstack/explorer/` for ad-hoc browsing without a hand-built admin page | `explorer.md` |
+| `enable_api = True` | REST endpoints (`GET /list`, `GET /{id}`, `POST`, `PATCH`, `DELETE`) auto-emitted into `/api/docs/` Swagger UI | `custom-api-endpoints.md` |
+| `enable_mcp = True` | MCP tools (`list_X`, `get_X`, `create_X`, ...) registered for Claude Desktop / Connectors UI | `mcp/build-mcp-solution.md` |
+| `enable_search = True` | Keyword search via FTS5/PG-FTS, a `search_X` MCP tool, results in the topbar omnibar + `/smallstack/search/` page | `search.md` |
+
+You almost always want at least `enable_api = True` + `enable_search = True`. Combined with `enable_mcp = True` they form the "one model → admin + REST + MCP + RAG" pattern that makes SmallStack distinct.
+
 **Generated URL patterns** (from `get_urls()`):
 
 | URL | Name | View |
@@ -187,44 +198,28 @@ class WidgetCRUDView(CRUDView):
 | `manage/widgets/<pk>/edit/` | `manage/widgets-update` | UpdateView |
 | `manage/widgets/<pk>/delete/` | `manage/widgets-delete` | DeleteView |
 
-### Step 5: Add Search (Optional)
+### Step 5: Opt into the unified search index
 
-Override `_make_view` to add HTMX search filtering:
+Add three lines to the CRUDView and the model gets:
+
+- A working keyword search box on the list page (`search_fields` powers the toolbar `?q=`)
+- A `search_widgets(query, limit)` MCP tool Claude can call
+- Results in the topbar omnibar (Ctrl+K) and the dedicated `/smallstack/search/` page
+- A row in the Swagger-style accordion on the search page so curious users can see the tool signature, REST endpoint, and live records
 
 ```python
-    @classmethod
-    def _make_view(cls, base_class):
-        from apps.smallstack.crud import _CRUDListBase
-
-        view_class = super()._make_view(base_class)
-
-        if base_class is _CRUDListBase:
-            def get_queryset(self):
-                qs = super(view_class, self).get_queryset()
-                q = self.request.GET.get("q", "").strip()
-                if q:
-                    from django.db.models import Q
-                    qs = qs.filter(
-                        Q(name__icontains=q) | Q(category__icontains=q)
-                    )
-                return qs
-
-            def get_context_data(self, **kwargs):
-                context = super(view_class, self).get_context_data(**kwargs)
-                context["search_query"] = self.request.GET.get("q", "")
-                return context
-
-            def get_template_names(self):
-                if self.request.headers.get("HX-Request"):
-                    return ["myfeature/_widget_table.html"]
-                return super(view_class, self).get_template_names()
-
-            view_class.get_queryset = get_queryset
-            view_class.get_context_data = get_context_data
-            view_class.get_template_names = get_template_names
-
-        return view_class
+class WidgetCRUDView(CRUDView):
+    model = Widget
+    # ... fields/url_base/etc above ...
+    enable_search = True
+    search_fields = ["name", "category", "owner__username"]
+    search_display = "name"            # row title in results
+    search_subtitle = "category"       # secondary line
 ```
+
+That's it. No `_make_view` override needed. The list-page `?q=` reuses the same `search_fields`, signals keep the index current on save/delete, and the MCP tool registers at startup. Read `search.md` before deciding which fields to index — it has the prescriptive patterns + anti-patterns.
+
+**Heuristic for vibe coders**: if the model has a `name`, `title`, `description`, `body`, or any text field a human would type to find a record, opt in. If it's a junction table or purely numeric/datetime, don't.
 
 ### Step 6: Create the URL Config
 

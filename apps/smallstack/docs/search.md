@@ -7,6 +7,8 @@ description: FTS5 + Postgres FTS keyword search with per-CRUDView opt-in, MCP to
 
 SmallStack ships a unified keyword search across your models — opt-in per CRUDView, with results visible in the topbar omnibar (Ctrl+K), a dedicated `/smallstack/search/` page, a REST endpoint, and an MCP tool Claude can call directly.
 
+`User` and `APIToken` are opted in by default, so a fresh SmallStack clone has a working search experience without any code changes — open `/smallstack/search/` to see the indexed-sources accordion populated from day one.
+
 > **For AI agents adding search to a model**, the prescriptive skill is [`docs/skills/search.md`](https://github.com/emichaud/django-smallstack/blob/main/docs/skills/search.md).
 
 ## One flag, four surfaces
@@ -108,12 +110,22 @@ Then `make migrate && uv run python manage.py rebuild_search_index --all`.
 
 ## Verifying
 
+The fastest check is to open `/smallstack/search/` itself. The page has an **Indexed sources** accordion — one collapsed row per opted-in source. Each row shows the kind (MODEL / DOC), the MCP tool name, the human label, and the record count. Click a row to expand a Swagger-style detail panel:
+
+- **Indexed fields** — every field in `search_fields`, with the display field highlighted in the accent color and the subtitle field in a lighter tint (so it's obvious what shows up in result rows)
+- **MCP tool** — the full signature Claude sees: `search_widgets(query: str, limit: int = 10)`
+- **Web endpoint** — the GET URL that returns the same data as HTML
+- **Browse latest** — the most recent records, clickable
+- **Try a query** — pill links to one-click example searches
+
+The accordion is the canonical answer to "did my opt-in work?" — if your model isn't there, the registration failed. CLI commands give the same information:
+
 ```bash
 uv run python manage.py search_doctor          # health checks
 uv run python manage.py search_doctor --explain  # dump every indexed model + MCP tool name
 ```
 
-Open `/smallstack/search/?q=test` and hit Ctrl+K on any page for the omnibar.
+Hit Ctrl+K on any other page for the omnibar.
 
 ## RAG via Claude Desktop / Connectors UI
 
