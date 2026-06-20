@@ -1,166 +1,574 @@
 {% extends "smallstack/base.html" %}
 {% load theme_tags %}
 
-{% block title %}Search{% endblock %}
+{% block title %}Search · {{ query|default:"SmallStack" }}{% endblock %}
 
 {% block breadcrumbs %}{% endblock %}
 
-{% block page_header %}
-<div class="page-header-bleed">
-  <div class="page-header-content">
-    <h1>Search</h1>
-    <p class="page-subtitle">Find anything across {{ registered_models }} indexed model{{ registered_models|pluralize }} + the help docs.</p>
-    <nav style="margin-top: 0.5rem; font-size: 0.8rem;">
-      <a href="{% url 'website:home' %}" style="color: var(--body-quiet-color); text-decoration: none;">Home</a>
-      <span style="color: var(--body-quiet-color); margin: 0 0.3rem;">/</span>
-      <span style="color: var(--body-fg);">Search</span>
-    </nav>
-  </div>
-</div>
+{% block page_header %}{% endblock %}
+
+{% block extra_css %}
+<style>
+  /* ============================================================
+     Cinematic-editorial search. The page IS the search experience —
+     not a card-bordered form. Hairlines, generous whitespace, one
+     serif-italic display moment, mono annotations. Palette-aware
+     via CSS vars; no hard-coded hex literals.
+     ============================================================ */
+
+  /* Suppress the standard content-wrapper max-width so the page can
+     breathe at its own scale. */
+  .search-stage {
+    max-width: 980px;
+    margin: 0 auto;
+    padding: clamp(2rem, 6vw, 5rem) clamp(1rem, 4vw, 3rem) 6rem;
+  }
+
+  /* ── Header ─────────────────────────────────────────────────── */
+  .search-eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.6rem;
+    font-family: var(--font-monospace, ui-monospace, SFMono-Regular, Menlo, monospace);
+    font-size: 0.72rem;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--body-quiet-color);
+    margin-bottom: 1.8rem;
+  }
+  .search-eyebrow .dot {
+    width: 6px; height: 6px; border-radius: 999px;
+    background: var(--primary);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 25%, transparent);
+  }
+
+  .search-display {
+    font-family: ui-serif, "Iowan Old Style", Georgia, "Times New Roman", serif;
+    font-style: italic;
+    font-weight: 500;
+    font-size: clamp(2.4rem, 7vw, 4.8rem);
+    line-height: 1.02;
+    letter-spacing: -0.025em;
+    margin: 0;
+    color: var(--body-fg);
+  }
+  .search-display .accent {
+    color: var(--primary);
+    background: linear-gradient(to bottom,
+      transparent 0% 64%,
+      color-mix(in srgb, var(--primary) 22%, transparent) 64% 96%,
+      transparent 96% 100%);
+    padding: 0 0.06em;
+  }
+
+  .search-subhead {
+    margin: 1.4rem 0 2.6rem 0;
+    max-width: 38rem;
+    font-size: clamp(0.95rem, 1.2vw, 1.05rem);
+    color: color-mix(in srgb, var(--body-fg) 70%, transparent);
+    line-height: 1.6;
+  }
+  .search-subhead strong {
+    color: var(--body-fg);
+    font-weight: 600;
+  }
+
+  /* ── The Input — the focal interaction ─────────────────────── */
+  .search-instrument {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1.4rem 0;
+    border-bottom: 2px solid var(--body-fg);
+    transition: border-color 0.18s;
+  }
+  .search-instrument:focus-within {
+    border-bottom-color: var(--primary);
+  }
+  .search-instrument:focus-within .search-icon {
+    color: var(--primary);
+  }
+  .search-instrument:focus-within .search-input-decor::after {
+    background: var(--primary);
+    box-shadow: 0 0 12px color-mix(in srgb, var(--primary) 50%, transparent);
+  }
+  .search-icon {
+    width: 28px;
+    height: 28px;
+    color: var(--body-quiet-color);
+    flex: 0 0 auto;
+    transition: color 0.18s;
+  }
+  .search-input {
+    flex: 1;
+    background: transparent;
+    border: none;
+    outline: none;
+    color: var(--body-fg);
+    font-family: ui-serif, "Iowan Old Style", Georgia, serif;
+    font-style: italic;
+    font-weight: 500;
+    font-size: clamp(1.4rem, 2.8vw, 2.1rem);
+    line-height: 1.2;
+    padding: 0;
+  }
+  .search-input::placeholder {
+    color: color-mix(in srgb, var(--body-fg) 30%, transparent);
+    font-style: italic;
+  }
+  /* Custom caret-like decoration that responds to focus */
+  .search-input-decor {
+    position: relative;
+    width: 18px;
+    height: 28px;
+    flex: 0 0 auto;
+  }
+  .search-input-decor::after {
+    content: "";
+    position: absolute;
+    inset: 4px auto 4px auto;
+    width: 2px;
+    background: color-mix(in srgb, var(--body-fg) 30%, transparent);
+    transition: background 0.18s, box-shadow 0.18s;
+  }
+  .search-meta {
+    margin-top: 0.85rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    font-family: var(--font-monospace, ui-monospace, Menlo, monospace);
+    font-size: 0.7rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--body-quiet-color);
+  }
+  .search-meta .return-hint kbd {
+    padding: 2px 7px;
+    background: color-mix(in srgb, var(--body-fg) 6%, var(--card-bg));
+    border: 1px solid var(--card-border);
+    border-radius: 3px;
+    font-family: inherit;
+    font-size: 0.7rem;
+    color: var(--body-fg);
+  }
+
+  /* ── Empty state — syntax poster ────────────────────────────── */
+  .syntax-poster {
+    margin-top: 4rem;
+    display: grid;
+    grid-template-columns: 1fr 2fr;
+    gap: 3rem;
+    align-items: start;
+  }
+  @media (max-width: 720px) {
+    .syntax-poster { grid-template-columns: 1fr; gap: 1.5rem; }
+  }
+  .syntax-poster-label {
+    font-family: var(--font-monospace, ui-monospace, Menlo, monospace);
+    font-size: 0.7rem;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--body-quiet-color);
+    border-top: 1px solid var(--body-fg);
+    padding-top: 0.8rem;
+  }
+  .syntax-table {
+    display: grid;
+    grid-template-columns: max-content 1fr;
+    gap: 1rem 2rem;
+    font-size: 0.95rem;
+  }
+  .syntax-table dt {
+    font-family: var(--font-monospace, ui-monospace, Menlo, monospace);
+    font-size: 0.85rem;
+    color: var(--body-fg);
+    padding: 0.35rem 0.75rem;
+    background: color-mix(in srgb, var(--body-fg) 6%, var(--card-bg));
+    border-radius: 4px;
+    width: fit-content;
+    line-height: 1.5;
+  }
+  .syntax-table dd {
+    margin: 0;
+    padding: 0.45rem 0;
+    color: color-mix(in srgb, var(--body-fg) 75%, transparent);
+    font-size: 0.92rem;
+  }
+  .syntax-table dd code {
+    font-family: var(--font-monospace, ui-monospace, Menlo, monospace);
+    color: var(--body-fg);
+    background: color-mix(in srgb, var(--body-fg) 8%, var(--card-bg));
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-size: 0.85em;
+  }
+  .syntax-coda {
+    margin-top: 2.5rem;
+    font-size: 0.85rem;
+    color: var(--body-quiet-color);
+    line-height: 1.7;
+  }
+  .syntax-coda kbd {
+    padding: 2px 7px;
+    background: color-mix(in srgb, var(--body-fg) 6%, var(--card-bg));
+    border: 1px solid var(--card-border);
+    border-radius: 3px;
+    font-family: var(--font-monospace, ui-monospace, Menlo, monospace);
+    font-size: 0.75rem;
+    color: var(--body-fg);
+  }
+
+  /* ── Results — editorial grouping ──────────────────────────── */
+  .results-wrap {
+    margin-top: 3.5rem;
+  }
+  .results-summary {
+    font-family: ui-serif, "Iowan Old Style", Georgia, serif;
+    font-style: italic;
+    font-size: clamp(1.2rem, 1.8vw, 1.4rem);
+    line-height: 1.4;
+    color: var(--body-fg);
+    margin: 0 0 3rem 0;
+    padding-bottom: 1.4rem;
+    border-bottom: 1px solid color-mix(in srgb, var(--body-fg) 12%, transparent);
+  }
+  .results-summary .mono {
+    font-family: var(--font-monospace, ui-monospace, Menlo, monospace);
+    font-style: normal;
+    color: var(--primary);
+    font-weight: 600;
+    font-size: 0.9em;
+  }
+
+  .result-group {
+    margin-bottom: 3.5rem;
+  }
+  .result-group-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 0.5rem;
+    padding-bottom: 0.6rem;
+    border-bottom: 1px solid color-mix(in srgb, var(--body-fg) 18%, transparent);
+  }
+  .result-group-head .label {
+    font-family: var(--font-monospace, ui-monospace, Menlo, monospace);
+    font-size: 0.72rem;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--body-fg);
+    font-weight: 600;
+  }
+  .result-group-head .label .ordinal {
+    color: var(--primary);
+    margin-right: 0.6rem;
+    font-weight: 700;
+  }
+  .result-group-head .count {
+    font-family: var(--font-monospace, ui-monospace, Menlo, monospace);
+    font-size: 0.72rem;
+    letter-spacing: 0.12em;
+    color: var(--body-quiet-color);
+  }
+  .result-group-head .count .mono-num {
+    color: var(--body-fg);
+    font-weight: 600;
+  }
+
+  .result-row {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 1.5rem;
+    align-items: baseline;
+    padding: 1.1rem 0;
+    text-decoration: none;
+    color: var(--body-fg);
+    border-bottom: 1px solid color-mix(in srgb, var(--body-fg) 7%, transparent);
+    transition: padding 0.15s, color 0.15s;
+    position: relative;
+  }
+  .result-row:hover {
+    padding-left: 0.5rem;
+  }
+  .result-row:last-child {
+    border-bottom: none;
+  }
+  .result-row-text { min-width: 0; }
+  .result-row-title {
+    font-family: ui-serif, "Iowan Old Style", Georgia, serif;
+    font-style: italic;
+    font-size: 1.25rem;
+    font-weight: 500;
+    color: var(--body-fg);
+    margin: 0 0 0.3rem 0;
+    line-height: 1.3;
+    transition: color 0.15s;
+  }
+  .result-row:hover .result-row-title {
+    color: var(--primary);
+  }
+  .result-row-snippet {
+    font-size: 0.92rem;
+    color: color-mix(in srgb, var(--body-fg) 65%, transparent);
+    line-height: 1.6;
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+  }
+  .result-row-snippet em {
+    font-style: normal;
+    color: var(--body-fg);
+    background: color-mix(in srgb, var(--primary) 18%, transparent);
+    padding: 0 2px;
+    border-radius: 2px;
+  }
+  .result-row-meta {
+    text-align: right;
+    flex: 0 0 auto;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 0.3rem;
+    padding-top: 0.2rem;
+  }
+  .result-row-url {
+    font-family: var(--font-monospace, ui-monospace, Menlo, monospace);
+    font-size: 0.7rem;
+    letter-spacing: 0.04em;
+    color: var(--body-quiet-color);
+    max-width: 240px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .result-row-arrow {
+    font-family: ui-serif, Georgia, serif;
+    font-style: italic;
+    font-size: 1.1rem;
+    color: var(--body-quiet-color);
+    transition: color 0.15s, transform 0.18s;
+  }
+  .result-row:hover .result-row-arrow {
+    color: var(--primary);
+    transform: translateX(4px);
+  }
+
+  /* ── Empty / no-results ────────────────────────────────────── */
+  .no-results {
+    margin-top: 3rem;
+    padding: 4rem 0;
+    text-align: center;
+  }
+  .no-results-display {
+    font-family: ui-serif, Georgia, serif;
+    font-style: italic;
+    font-size: clamp(1.5rem, 2.5vw, 2rem);
+    color: color-mix(in srgb, var(--body-fg) 55%, transparent);
+    margin: 0 0 1rem 0;
+  }
+  .no-results-coda {
+    font-size: 0.95rem;
+    color: var(--body-quiet-color);
+    line-height: 1.7;
+    max-width: 30rem;
+    margin: 0 auto;
+  }
+  .no-results-coda code {
+    font-family: var(--font-monospace, ui-monospace, Menlo, monospace);
+    color: var(--body-fg);
+    background: color-mix(in srgb, var(--body-fg) 6%, var(--card-bg));
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-size: 0.85em;
+  }
+  .no-results-coda a {
+    color: var(--primary);
+    text-decoration: none;
+    border-bottom: 1px solid color-mix(in srgb, var(--primary) 30%, transparent);
+    transition: border-color 0.15s;
+  }
+  .no-results-coda a:hover {
+    border-bottom-color: var(--primary);
+  }
+
+  /* ── Page entrance — staggered fade ────────────────────────── */
+  @keyframes searchFade {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: none; }
+  }
+  .search-fade { animation: searchFade 0.55s cubic-bezier(.2,.6,.2,1) both; }
+  .search-fade.d1 { animation-delay: 0.06s; }
+  .search-fade.d2 { animation-delay: 0.14s; }
+  .search-fade.d3 { animation-delay: 0.22s; }
+  .search-fade.d4 { animation-delay: 0.30s; }
+  @media (prefers-reduced-motion: reduce) {
+    .search-fade, .search-fade.d1, .search-fade.d2, .search-fade.d3, .search-fade.d4 {
+      animation: none;
+    }
+  }
+
+  /* When ON the search page itself, suppress the topbar omnibar trigger
+     so there aren't two search inputs competing for attention. The
+     omnibar is for OTHER pages; here the page is the omnibar. */
+  body.is-search-page .omnibar-trigger {
+    visibility: hidden;
+    pointer-events: none;
+  }
+
+  /* Subtle decorative cross-grid in the body — only visible on very
+     wide viewports. Adds an editorial atmosphere without competing. */
+  .search-stage::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    background-image:
+      linear-gradient(to right, color-mix(in srgb, var(--body-fg) 3%, transparent) 1px, transparent 1px),
+      linear-gradient(to bottom, color-mix(in srgb, var(--body-fg) 3%, transparent) 1px, transparent 1px);
+    background-size: 120px 120px;
+    opacity: 0.5;
+    z-index: -1;
+  }
+</style>
 {% endblock %}
 
+{% block body_class %}is-search-page{% endblock %}
+
 {% block content %}
-<form method="get" action="{% url 'search:page' %}" style="margin-bottom: 24px;">
-  <div style="position: relative;">
-    <svg viewBox="0 0 24 24" width="20" height="20"
-         style="position: absolute; left: 14px; top: 50%; transform: translateY(-50%);
-                color: var(--body-quiet-color); pointer-events: none;"
-         fill="currentColor">
-      <path d="M15.5 14h-.79l-.28-.27A6.5 6.5 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16
-               c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14
-               5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
-    </svg>
-    <input type="search"
-           name="q"
-           value="{{ query }}"
-           autofocus
-           autocomplete="off"
-           placeholder="Search models and docs… try acme, &quot;customer support&quot;, refund*, api -slow"
-           style="
-             width: 100%;
-             padding: 14px 14px 14px 44px;
-             font-size: 1rem;
-             background: var(--card-bg);
-             border: 1px solid var(--card-border);
-             color: var(--body-fg);
-             border-radius: 8px;
-             outline: none;
-           "
-           onfocus="this.style.borderColor='var(--primary)'"
-           onblur="this.style.borderColor='var(--card-border)'">
-  </div>
-</form>
+<div class="search-stage">
 
-{% if query %}
-  <div style="display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 16px;">
-    <h2 style="margin: 0;">{{ total_hits }} result{{ total_hits|pluralize }} for "{{ query }}"</h2>
-    {% if total_hits == 0 %}
-      <span style="color: var(--body-quiet-color); font-size: 0.85rem;">
-        Try a shorter query, a prefix like <code>{{ query|slice:":3" }}*</code>, or
-        check <a href="{% url 'search:page' %}" style="color: var(--primary);">clear search</a>.
-      </span>
-    {% endif %}
+  <!-- ───────── Eyebrow + display ───────── -->
+  <div class="search-eyebrow search-fade">
+    <span class="dot" aria-hidden="true"></span>
+    <span>SmallStack · Search</span>
   </div>
 
-  {% for group in grouped %}
-    <div class="card" style="margin-bottom: 16px;">
-      <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
-        <h3 style="margin: 0; font-size: 0.95rem;">
-          {{ group.model_verbose }}
-          <span style="
-            display: inline-block;
-            margin-left: 8px;
-            padding: 2px 8px;
-            background: color-mix(in srgb, var(--primary) 15%, var(--card-bg));
-            color: var(--primary);
-            border-radius: 999px;
-            font-size: 0.72rem;
-            font-weight: 600;
-          ">{{ group.count }}</span>
-        </h3>
-        <span style="font-size: 0.75rem; color: var(--body-quiet-color); font-family: var(--font-monospace, ui-monospace, Menlo, monospace);">{{ group.model_label }}</span>
-      </div>
-      <div class="card-body" style="padding: 0;">
-        {% for hit in group.hits %}
-          <a href="{{ hit.url|default:'#' }}" style="
-            display: block;
-            padding: 14px 18px;
-            text-decoration: none;
-            color: var(--body-fg);
-            border-bottom: 1px solid var(--hairline-color, var(--card-border));
-            transition: background 0.1s;
-          "
-          onmouseover="this.style.background='color-mix(in srgb, var(--primary) 6%, var(--card-bg))'"
-          onmouseout="this.style.background='transparent'">
-            <div style="font-weight: 600; margin-bottom: 2px;">{{ hit.display }}</div>
-            {% if hit.subtitle or hit.snippet %}
-              <div style="font-size: 0.85rem; color: var(--body-quiet-color); line-height: 1.5;">
-                {{ hit.snippet|default:hit.subtitle }}
-              </div>
-            {% endif %}
-          </a>
-        {% endfor %}
-      </div>
+  <h1 class="search-display search-fade d1">
+    Find <span class="accent">anything.</span>
+  </h1>
+
+  <p class="search-subhead search-fade d2">
+    Across <strong>{{ registered_models }}</strong>
+    indexed model{{ registered_models|pluralize }} and the bundled help
+    documentation. Free-text query with phrase, prefix, exclusion, and
+    boolean operators — same syntax across SQLite FTS5 and Postgres FTS.
+  </p>
+
+  <!-- ───────── The instrument ───────── -->
+  <form method="get" action="{% url 'search:page' %}" class="search-fade d3" autocomplete="off">
+    <label class="search-instrument">
+      <svg viewBox="0 0 24 24" class="search-icon" fill="currentColor" aria-hidden="true">
+        <path d="M15.5 14h-.79l-.28-.27A6.5 6.5 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16
+                 c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14
+                 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
+      </svg>
+      <input type="search"
+             id="q"
+             name="q"
+             value="{{ query }}"
+             placeholder="acme support · &ldquo;customer support&rdquo; · refund* · api -slow"
+             autofocus
+             class="search-input">
+      <span class="search-input-decor" aria-hidden="true"></span>
+    </label>
+    <div class="search-meta">
+      <span>Query is case-insensitive · stems on supported backends</span>
+      <span class="return-hint"><kbd>RETURN</kbd> to search</span>
     </div>
-  {% empty %}
-    <div class="card">
-      <div class="card-body" style="text-align: center; padding: 40px 20px; color: var(--body-quiet-color);">
-        <p style="margin: 0 0 8px 0;">No matches for "{{ query }}".</p>
-        <p style="margin: 0; font-size: 0.85rem;">
-          The search index covers {{ registered_models }} model{{ registered_models|pluralize }}.
-          Models opt in via <code>enable_search = True</code> on their CRUDView.
+  </form>
+
+  {% if query %}
+    <!-- ───────── Results ───────── -->
+    <div class="results-wrap search-fade d4">
+      {% if total_hits %}
+        <p class="results-summary">
+          Returned <span class="mono">{{ total_hits }}</span>
+          result{{ total_hits|pluralize }} for <em>&ldquo;{{ query }}&rdquo;</em>
+          across <span class="mono">{{ grouped|length }}</span>
+          source{{ grouped|length|pluralize }}.
+        </p>
+
+        {% for group in grouped %}
+          <section class="result-group">
+            <div class="result-group-head">
+              <div class="label">
+                <span class="ordinal">{{ forloop.counter|stringformat:"02d" }}</span>{{ group.model_verbose }}
+              </div>
+              <div class="count">
+                <span class="mono-num">{{ group.count }}</span>
+                result{{ group.count|pluralize }}
+              </div>
+            </div>
+            {% for hit in group.hits %}
+              <a href="{{ hit.url|default:'#' }}" class="result-row">
+                <div class="result-row-text">
+                  <div class="result-row-title">{{ hit.display }}</div>
+                  {% if hit.snippet or hit.subtitle %}
+                    <div class="result-row-snippet">{{ hit.snippet|default:hit.subtitle|safe }}</div>
+                  {% endif %}
+                </div>
+                <div class="result-row-meta">
+                  <div class="result-row-url">{{ hit.url|default:group.model_label }}</div>
+                  <div class="result-row-arrow">→</div>
+                </div>
+              </a>
+            {% endfor %}
+          </section>
+        {% endfor %}
+
+      {% else %}
+        <div class="no-results">
+          <p class="no-results-display">
+            Nothing matched &ldquo;{{ query }}&rdquo;.
+          </p>
+          <p class="no-results-coda">
+            Try a shorter term, a prefix like
+            <code>{{ query|slice:":3" }}*</code>,
+            or
+            <a href="{% url 'search:page' %}">clear and start over</a>.
+            The index covers
+            {{ registered_models }} model{{ registered_models|pluralize }}
+            plus the help docs.
+          </p>
+        </div>
+      {% endif %}
+    </div>
+
+  {% else %}
+    <!-- ───────── Syntax poster ───────── -->
+    <div class="syntax-poster search-fade d4">
+      <div class="syntax-poster-label">Query<br>syntax</div>
+      <div>
+        <dl class="syntax-table">
+          <dt>acme</dt>
+          <dd>Single term</dd>
+
+          <dt>acme support</dt>
+          <dd>Both words — implicit <code>AND</code></dd>
+
+          <dt>"customer support"</dt>
+          <dd>Exact phrase, word-adjacent</dd>
+
+          <dt>refund*</dt>
+          <dd>Prefix — also matches <code>refunding</code>, <code>refunded</code></dd>
+
+          <dt>acme OR beta</dt>
+          <dd>Either word</dd>
+
+          <dt>api -slow</dt>
+          <dd>Contains <code>api</code>, excludes <code>slow</code></dd>
+        </dl>
+        <p class="syntax-coda">
+          From anywhere else on the site, press
+          <kbd>Ctrl</kbd> + <kbd>K</kbd>
+          (or <kbd>⌘</kbd> + <kbd>K</kbd>)
+          to pop up the quick search overlay — a smaller version of this
+          page. This page itself is the deeper experience.
         </p>
       </div>
     </div>
-  {% endfor %}
-{% else %}
-  <div class="card">
-    <div class="card-body" style="padding: 24px;">
-      <h3 style="margin: 0 0 12px 0;">Query syntax</h3>
-      <table style="width: 100%; border-collapse: collapse; font-size: 0.9rem;">
-        <tr>
-          <td style="padding: 6px 12px 6px 0; font-family: var(--font-monospace, ui-monospace, Menlo, monospace);"><code>acme</code></td>
-          <td style="padding: 6px 0; color: var(--body-quiet-color);">Single word</td>
-        </tr>
-        <tr>
-          <td style="padding: 6px 12px 6px 0; font-family: var(--font-monospace, ui-monospace, Menlo, monospace);"><code>acme support</code></td>
-          <td style="padding: 6px 0; color: var(--body-quiet-color);">Both words (implicit AND)</td>
-        </tr>
-        <tr>
-          <td style="padding: 6px 12px 6px 0; font-family: var(--font-monospace, ui-monospace, Menlo, monospace);"><code>"customer support"</code></td>
-          <td style="padding: 6px 0; color: var(--body-quiet-color);">Exact phrase</td>
-        </tr>
-        <tr>
-          <td style="padding: 6px 12px 6px 0; font-family: var(--font-monospace, ui-monospace, Menlo, monospace);"><code>refund*</code></td>
-          <td style="padding: 6px 0; color: var(--body-quiet-color);">Prefix match (also <code>refunding</code>, <code>refunded</code>)</td>
-        </tr>
-        <tr>
-          <td style="padding: 6px 12px 6px 0; font-family: var(--font-monospace, ui-monospace, Menlo, monospace);"><code>acme OR beta</code></td>
-          <td style="padding: 6px 0; color: var(--body-quiet-color);">Either word</td>
-        </tr>
-        <tr>
-          <td style="padding: 6px 12px 6px 0; font-family: var(--font-monospace, ui-monospace, Menlo, monospace);"><code>api -slow</code></td>
-          <td style="padding: 6px 0; color: var(--body-quiet-color);">API but not <code>slow</code></td>
-        </tr>
-      </table>
-      <p style="margin: 16px 0 0 0; font-size: 0.85rem; color: var(--body-quiet-color);">
-        Press <kbd style="
-          padding: 2px 6px;
-          font-family: var(--font-monospace, ui-monospace, Menlo, monospace);
-          font-size: 0.8rem;
-          background: var(--card-header-bg);
-          border: 1px solid var(--card-border);
-          border-radius: 4px;
-        ">Ctrl</kbd> + <kbd style="
-          padding: 2px 6px;
-          font-family: var(--font-monospace, ui-monospace, Menlo, monospace);
-          font-size: 0.8rem;
-          background: var(--card-header-bg);
-          border: 1px solid var(--card-border);
-          border-radius: 4px;
-        ">K</kbd> from any page for the omnibar.
-      </p>
-    </div>
-  </div>
-{% endif %}
+  {% endif %}
+</div>
 {% endblock %}

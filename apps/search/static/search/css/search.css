@@ -40,6 +40,12 @@
     justify-content: center;
     padding-top: 12vh;
 }
+/* The `hidden` HTML attribute sets display: none, but class selectors
+   have higher specificity than [hidden]. Restore the precedence so
+   the overlay actually hides when JS sets overlay.hidden = true. */
+.omnibar-overlay[hidden] {
+    display: none;
+}
 .omnibar-modal {
     width: min(640px, 92vw);
     background: var(--card-bg);
