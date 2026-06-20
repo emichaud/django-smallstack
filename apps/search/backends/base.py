@@ -11,6 +11,7 @@ based on your configured database engine.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any, Protocol, runtime_checkable
 
@@ -61,6 +62,27 @@ class IndexedView:
     weights: dict[str, int] = field(default_factory=dict)  # search_weight
     display_field: str | None = None             # search_display
     subtitle_field: str | None = None            # search_subtitle
+
+    # ── Security knobs (secure by default; opt-in to broaden) ──────────────
+    # search_requires_staff (default True):
+    #   When True, only staff users see hits from this model in cross-model
+    #   search results. Non-staff users get zero hits for this view, as if
+    #   it were not registered. This is the default because most CRUDViews
+    #   (User, APIToken, etc.) expose data that should not leak to arbitrary
+    #   authenticated end-users.
+    #
+    # search_visibility (default None):
+    #   Optional callable applied to the model queryset AFTER the FTS query
+    #   returns candidate ids. Signature: (queryset, user) -> queryset.
+    #   Use to scope rows per user (e.g. "users see their own tickets only").
+    #   Runs only for non-staff users when search_requires_staff is False —
+    #   staff and trusted internal callers (user=None) bypass it.
+    #
+    # Both knobs apply to the HTTP search surface (the search page, omnibar,
+    # and the public website search). MCP tools currently run as the token
+    # holder; gate plumbing there is tracked separately.
+    requires_staff: bool = True
+    visibility: Callable[[Any, Any], Any] | None = None
 
     @property
     def model_label(self) -> str:

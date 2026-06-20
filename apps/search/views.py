@@ -35,15 +35,18 @@ class SearchPageView(StaffRequiredMixin, TemplateView):
         limit_per_model = int(self.request.GET.get("limit_per_model") or 10)
 
         ctx["query"] = query
+        # StaffRequiredMixin guarantees self.request.user.is_staff here,
+        # so the registry's staff gate is a no-op — but we pass the user
+        # anyway so the visibility hook (if any) sees the right identity.
         ctx["registered_models"] = view_count()
-        ctx["indexed_sources"] = get_indexed_sources()
+        ctx["indexed_sources"] = get_indexed_sources(user=self.request.user)
 
         if not query:
             ctx["grouped"] = []
             ctx["total_hits"] = 0
             return ctx
 
-        hits = search_all(query, limit_per_model=limit_per_model)
+        hits = search_all(query, limit_per_model=limit_per_model, user=self.request.user)
         ctx["grouped"] = group_by_model(hits)
         ctx["total_hits"] = len(hits)
         return ctx
@@ -66,11 +69,15 @@ class OmnibarSearchView(StaffRequiredMixin, View):
             return JsonResponse({
                 "query": "",
                 "results": [],
-                "sources": get_indexed_sources(),
+                "sources": get_indexed_sources(user=request.user),
                 "indexed_model_count": view_count(),
             })
 
-        hits = search_all(query, limit_per_model=max(3, limit // max(1, view_count() or 1)))
+        hits = search_all(
+            query,
+            limit_per_model=max(3, limit // max(1, view_count() or 1)),
+            user=request.user,
+        )
         # Trim to the requested overall limit AFTER cross-model ranking.
         hits = hits[:limit]
         return JsonResponse({

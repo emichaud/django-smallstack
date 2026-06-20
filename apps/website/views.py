@@ -25,9 +25,14 @@ def search_view(request: HttpRequest) -> HttpResponse:
     inside the website topbar/nav. The admin /smallstack/search/ uses
     the dashboard-style variant.
 
-    Auth: any logged-in user (anonymous → /accounts/login/). The set of
-    searchable models is whatever the registry has indexed; per-tenant
-    filtering, if needed, lives in the SearchBackend layer.
+    Auth: any logged-in user (anonymous → /accounts/login/).
+
+    Data access: the registry applies the per-view security knobs
+    (``search_requires_staff`` + ``search_visibility``) given the
+    request user. By default, CRUDViews are staff-only, so non-staff
+    users searching here see only help docs plus any CRUDView that has
+    explicitly opted in to non-staff search. See
+    ``apps/smallstack/docs/search.md`` for the recipes.
     """
     # Imported lazily so collectstatic / migrate-only invocations don't
     # trigger search backend initialization.
@@ -40,10 +45,10 @@ def search_view(request: HttpRequest) -> HttpResponse:
     ctx: dict[str, Any] = {
         "query": query,
         "registered_models": view_count(),
-        "indexed_sources": get_indexed_sources(),
+        "indexed_sources": get_indexed_sources(user=request.user),
     }
     if query:
-        hits = search_all(query, limit_per_model=limit_per_model)
+        hits = search_all(query, limit_per_model=limit_per_model, user=request.user)
         ctx["grouped"] = group_by_model(hits)
         ctx["total_hits"] = len(hits)
     else:

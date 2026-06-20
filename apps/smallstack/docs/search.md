@@ -137,6 +137,81 @@ Combined with the help-docs integration, the same Claude conversation can ask "h
 
 The help/docs system feeds the same index. Search results group by source (your models + a "Help & Docs" group). The `search_help(query, limit)` MCP tool gives Claude direct access to the bundled SmallStack documentation.
 
+## Security model — secure by default, opt-in to broaden
+
+Search exposes data across every registered model. The same row that lives behind a `StaffRequiredMixin`-gated list page would, without protection, leak via cross-model search to anyone who can hit `/search/`. Two per-view knobs control this. Both default to the safe end.
+
+| Attribute on a `CRUDView` | Type | Default | Meaning |
+|---|---|---|---|
+| `search_requires_staff` | `bool` | `True` | Non-staff users get zero hits from this view in cross-model search. The view is also hidden from the "Indexed sources" panel for non-staff. |
+| `search_visibility` | `(queryset, user) -> queryset` or `None` | `None` | Optional per-user row filter. When `search_requires_staff` is `False`, the queryset returned by this callable is what the user can see. Runs *after* the FTS query returns candidate ids. |
+
+The gates are enforced in `apps.search.registry.search_all(query, user=...)` and `apps.search.registry.get_indexed_sources(user=...)`. The HTTP views (admin search, omnibar, public website search) plumb `request.user` through. MCP tools currently call with `user=None` (trusted internal — they have their own access-level gate via the API token); that path is unchanged.
+
+Three call-shapes determine what gets returned:
+
+| Caller | `user` value | Staff gate | Visibility filter |
+|---|---|---|---|
+| Trusted internal (MCP, management commands) | `None` | bypassed | bypassed |
+| Staff HTTP user | `request.user` (`is_staff=True`) | bypassed | bypassed |
+| Non-staff HTTP user | `request.user` (`is_staff=False`) | **enforced** | **enforced** |
+
+### Recipe 1 — keep it staff-only (default)
+
+Do nothing. Any CRUDView with `enable_search = True` is staff-only out of the box. This is the right answer for User, APIToken, AuditLog, and anything else where a leak across rows would be a problem.
+
+```python
+class UserCRUDView(CRUDView):
+    model = User
+    enable_search = True
+    search_fields = ["username", "email", "first_name", "last_name"]
+    # search_requires_staff defaults to True — non-staff see no hits here.
+```
+
+### Recipe 2 — public to any authenticated user (e.g. shared knowledge base)
+
+When the data is meant to be readable by everyone who is signed in (think a wiki, a public ticket queue, a product catalog), flip the flag:
+
+```python
+class ArticleCRUDView(CRUDView):
+    model = Article
+    enable_search = True
+    search_fields = ["title", "body"]
+    search_requires_staff = False   # any authenticated user can find these
+```
+
+### Recipe 3 — per-user row scoping (e.g. "find my own tickets")
+
+When each authenticated user should be able to search *their own* data only, combine the flag with a visibility callback. The callback receives the queryset (already narrowed to FTS-matched ids) and the user, and returns whatever rows that user is allowed to see.
+
+```python
+class TicketCRUDView(CRUDView):
+    model = Ticket
+    enable_search = True
+    search_fields = ["title", "body", "customer__name"]
+
+    search_requires_staff = False
+    search_visibility = staticmethod(
+        lambda qs, user: qs.filter(owner=user)
+    )
+```
+
+The callable can be any function with `(queryset, user) -> queryset` shape — a `staticmethod`, a module-level function, even a classmethod that accesses `self`. If the callback raises, **the view fails safe**: every hit from that view is dropped for the request rather than leaking unfiltered rows. The exception is logged via `smallstack.search`.
+
+### What's not gated
+
+- **Help docs** (`apps/help/`). Help articles are treated as broadly readable — any authenticated user can search them. They are documentation; staff and non-staff alike are expected to look things up.
+- **MCP tools**. The MCP server enforces its own auth (API token + access level). The token's `requires_access` declaration is the gate. Per-user row visibility within MCP search responses is tracked as a future improvement — today, MCP tools see everything.
+- **The CRUDView's own list page** (e.g. `/smallstack/manage/users/`). That URL has its own access gate (typically `StaffRequiredMixin`). The search gates are a separate, complementary layer.
+
+### Verifying
+
+```bash
+uv run python manage.py search_doctor          # registry snapshot
+uv run pytest apps/search/tests/test_security.py -v
+```
+
+
 ## What this doesn't do (yet)
 
 - **Vector / semantic search**: keyword only in v0.11.0. Vector embeddings (sqlite-vec / pgvector) for hybrid keyword+vector RAG ship in v0.12.0 with the same `enable_search = True` opt-in pattern plus a new `enable_vector = True` flag.

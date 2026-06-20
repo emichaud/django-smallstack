@@ -13,7 +13,7 @@ that get a Django ``sender`` can find the matching IndexedView quickly.
 from __future__ import annotations
 
 import logging
-from typing import Iterator
+from typing import Any, Iterator
 
 from .backends.base import IndexedView, SearchHit
 
@@ -45,6 +45,11 @@ def register(view_cls: type) -> IndexedView | None:
     display = getattr(view_cls, "search_display", None)
     subtitle = getattr(view_cls, "search_subtitle", None)
 
+    # Security: default to staff-only (secure default), and pull the
+    # optional per-user visibility callback if the CRUDView declared one.
+    requires_staff = bool(getattr(view_cls, "search_requires_staff", True))
+    visibility = getattr(view_cls, "search_visibility", None)
+
     view = IndexedView(
         view_cls=view_cls,
         model=model,
@@ -52,6 +57,8 @@ def register(view_cls: type) -> IndexedView | None:
         weights=weights,
         display_field=display,
         subtitle_field=subtitle,
+        requires_staff=requires_staff,
+        visibility=visibility,
     )
     _search_registry[view.model_label] = view
 
@@ -91,16 +98,25 @@ def view_count() -> int:
     return len(_search_registry)
 
 
-def get_indexed_sources() -> list[dict]:
+def get_indexed_sources(user: Any = None) -> list[dict]:
     """Structured info on every searchable source.
 
     Returns one entry per opted-in CRUDView plus one entry for the help
     docs (if installed). Used by the search page's "what's indexed"
     panel and the omnibar's empty-state. Cheap — derived from in-memory
     registry + a count query on the help index.
+
+    Security: same staff gate as :func:`search_all`. A non-staff user
+    sees only views with ``requires_staff = False`` plus the help index.
+    Trusted internal callers (``user=None``) and staff see every source.
     """
+    is_staff = bool(user is not None and getattr(user, "is_staff", False))
+    enforce_gates = user is not None and not is_staff
+
     sources: list[dict] = []
     for view in _search_registry.values():
+        if enforce_gates and view.requires_staff:
+            continue
         # Sample recent records to show as a live preview — far more
         # useful than abstract example strings because users see real
         # data they can click into.
@@ -214,25 +230,73 @@ def _list_url_for(view) -> str | None:
     return None
 
 
-def search_all(query: str, limit_per_model: int = 5) -> list[SearchHit]:
+def search_all(query: str, limit_per_model: int = 5, user: Any = None) -> list[SearchHit]:
     """Cross-model search — query every registered view + help docs and
     return a combined ranked list.
 
-    Used by the topbar omnibar, the /smallstack/search/ page, and the
-    ``search_all`` MCP tool.
+    Security model
+    --------------
+    ``user`` is the request user (or None for trusted internal callers
+    like the MCP server, which manages its own auth). Two gates apply
+    per registered view, in order:
+
+      1. **Staff gate** — if ``view.requires_staff`` is True and the
+         user is non-staff, every hit from that view is dropped before
+         it leaves the registry. The view is invisible to non-staff
+         users (no listing, no preview, no leak).
+
+      2. **Visibility filter** — if the view declares a
+         ``search_visibility(queryset, user) -> queryset`` callable,
+         the FTS hits are re-filtered through it. Hits whose pk doesn't
+         survive the filter are dropped.
+
+    Both gates are skipped when ``user is None`` (trusted internal call)
+    or when ``user.is_staff`` is True (staff sees everything).
+
+    Used by the topbar omnibar, the /smallstack/search/ page, the
+    public /search/ page, and the ``search_all`` MCP tool.
     """
     from .backends import get_backend
 
     backend = get_backend()
+    is_staff = bool(user is not None and getattr(user, "is_staff", False))
+    enforce_gates = user is not None and not is_staff
+
     out: list[SearchHit] = []
     for view in _search_registry.values():
+        # Staff gate — non-staff users skip staff-only views entirely.
+        if enforce_gates and view.requires_staff:
+            continue
+
         try:
-            out.extend(backend.query(view, query, limit=limit_per_model))
+            hits = backend.query(view, query, limit=limit_per_model)
         except Exception:
             logger.exception("search_all failed for %s", view.model_label)
+            continue
 
-    # Help docs are a separate non-CRUDView source. Cheap to query and
-    # almost always present in a SmallStack install.
+        # Visibility filter — scope rows for non-staff users when the
+        # CRUDView opts non-staff in with a per-user filter.
+        if hits and enforce_gates and view.visibility is not None:
+            try:
+                hit_ids = [h.object_id for h in hits]
+                visible_qs = view.visibility(view.model.objects.filter(pk__in=hit_ids), user)
+                visible_ids = set(visible_qs.values_list("pk", flat=True))
+                hits = [h for h in hits if h.object_id in visible_ids]
+            except Exception:
+                # A misconfigured visibility callback fails safe: drop
+                # all hits from this view for this request rather than
+                # leaking unfiltered rows.
+                logger.exception(
+                    "search_visibility failed for %s — dropping all hits this request",
+                    view.model_label,
+                )
+                hits = []
+
+        out.extend(hits)
+
+    # Help docs are a separate non-CRUDView source. Treated as broadly
+    # readable (intentionally so — they're documentation). Available to
+    # any authenticated user and to anonymous-trusted callers.
     try:
         from apps.help.search import search_help_articles
 

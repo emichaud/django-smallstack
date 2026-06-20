@@ -140,13 +140,37 @@ class TestPublicSearchView:
         response = client.get("/search/")
         assert response.status_code == 200
         content = response.content.decode()
-        # Editorial design tells — "Find anything" serif moment + indexed sources panel.
+        # Editorial design tells — "Find anything" serif moment renders.
         assert "Find" in content
         assert "anything" in content
-        assert "Indexed" in content  # the "Indexed sources" label
         # No results section without a query.
         assert response.context["total_hits"] == 0
         assert response.context["grouped"] == []
+
+    def test_non_staff_user_does_not_see_staff_only_sources(self, client, django_user_model):
+        """Security: non-staff users see the page, but staff-only models
+        (User, APIToken — the default) are hidden from the sources panel."""
+        user = django_user_model.objects.create_user(username="non_staff_user", password="testpass")
+        client.force_login(user)
+        response = client.get("/search/")
+        assert response.status_code == 200
+        # No model-kind sources reach the page for a non-staff user.
+        sources = response.context["indexed_sources"]
+        model_sources = [s for s in sources if s["kind"] == "model"]
+        assert model_sources == []
+
+    def test_staff_user_sees_staff_only_sources(self, client, django_user_model):
+        """Security: staff users see all registered sources, including the
+        default staff-only ones (User, APIToken)."""
+        staff = django_user_model.objects.create_user(
+            username="staff_searcher", password="testpass", is_staff=True
+        )
+        client.force_login(staff)
+        response = client.get("/search/")
+        assert response.status_code == 200
+        sources = response.context["indexed_sources"]
+        # At least the User CRUDView is registered by default and visible to staff.
+        assert any(s["kind"] == "model" for s in sources)
 
     def test_authenticated_with_query_renders_results_shape(self, client, django_user_model):
         """A query renders the results-with-shape context.
