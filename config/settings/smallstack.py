@@ -59,7 +59,7 @@ SMALLSTACK_DOCS_ENABLED = config("SMALLSTACK_DOCS_ENABLED", default=True, cast=b
 # SmallStack Color Palette
 # System-wide default palette. Users can override in their profile.
 # Options: django, high-contrast, dark-blue, orange, purple
-SMALLSTACK_COLOR_PALETTE = config("SMALLSTACK_COLOR_PALETTE", default="django")
+SMALLSTACK_COLOR_PALETTE = config("SMALLSTACK_COLOR_PALETTE", default="purple")
 
 # Auth Feature Flags
 # Set to False to hide Login/Sign Up buttons from the topbar

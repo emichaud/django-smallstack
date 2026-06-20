@@ -117,3 +117,79 @@ class TestHomePageAuthenticated:
         assert 'href="/smallstack/tokens/"' not in content
         # But doc deep-links are present.
         assert "/smallstack/help/smallstack/explorer/" in content
+
+
+@pytest.mark.django_db
+class TestPublicSearchView:
+    """Public-site /search/ (editorial "Find anything" design).
+
+    Auth-gated by @login_required. Reuses apps.search registry for data.
+    """
+
+    def test_anonymous_redirects_to_login(self, client):
+        """Anonymous visitors are bounced to /accounts/login/?next=/search/."""
+        response = client.get("/search/")
+        assert response.status_code == 302
+        assert "/accounts/login/" in response.url
+        assert "next=/search/" in response.url
+
+    def test_authenticated_empty_query_renders_editorial_layout(self, client, django_user_model):
+        """Authenticated GET with no query renders the editorial shell."""
+        user = django_user_model.objects.create_user(username="searcher", password="testpass")
+        client.force_login(user)
+        response = client.get("/search/")
+        assert response.status_code == 200
+        content = response.content.decode()
+        # Editorial design tells — "Find anything" serif moment + indexed sources panel.
+        assert "Find" in content
+        assert "anything" in content
+        assert "Indexed" in content  # the "Indexed sources" label
+        # No results section without a query.
+        assert response.context["total_hits"] == 0
+        assert response.context["grouped"] == []
+
+    def test_authenticated_with_query_renders_results_shape(self, client, django_user_model):
+        """A query renders the results-with-shape context.
+
+        We assert the view's contract (status + context keys + grouped
+        shape), not the search backend's recall — the latter depends on
+        FTS index state that is exercised in apps/search/tests/.
+        """
+        user = django_user_model.objects.create_user(username="searcher2", password="testpass")
+        client.force_login(user)
+        response = client.get("/search/?q=admin")
+        assert response.status_code == 200
+        ctx = response.context
+        assert ctx["query"] == "admin"
+        assert "total_hits" in ctx
+        assert "grouped" in ctx
+        assert isinstance(ctx["grouped"], list)
+        # Each grouped entry (if any) carries the documented shape.
+        for group in ctx["grouped"]:
+            assert "model_label" in group
+            assert "model_verbose" in group
+            assert "count" in group
+            assert "hits" in group
+
+    def test_authenticated_with_no_match_renders_empty_state(self, client, django_user_model):
+        """A query with no matches renders the no-results state without crashing."""
+        user = django_user_model.objects.create_user(username="searcher3", password="testpass")
+        client.force_login(user)
+        response = client.get("/search/?q=zzzzzznotfounditem")
+        assert response.status_code == 200
+        assert response.context["total_hits"] == 0
+        assert response.context["grouped"] == []
+        # No-results display copy.
+        assert "Nothing matched" in response.content.decode()
+
+    def test_nav_link_visible_only_when_authenticated(self, client, django_user_model):
+        """The Search link in the website topbar is gated by user.is_authenticated."""
+        # Anonymous — no link.
+        response = client.get("/")
+        assert 'href="/search/"' not in response.content.decode()
+
+        # Authenticated — link present.
+        user = django_user_model.objects.create_user(username="navtest", password="testpass")
+        client.force_login(user)
+        response = client.get("/")
+        assert 'href="/search/"' in response.content.decode()

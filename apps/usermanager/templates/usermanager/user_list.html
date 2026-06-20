@@ -32,44 +32,40 @@
 {% endblock %}
 
 {% block content %}
-<!-- Dashboard stat cards -->
+<!-- Dashboard stat cards (editorial spec-card pattern) -->
 {% if dashboard_stats %}
-<div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 24px;">
-    <div class="card stat-card-clickable"
+<div class="stat-cards" style="margin-bottom: 24px;">
+    <div class="stat-card stat-card-clickable"
          hx-get="{% url 'manage/users-stat-detail' 'recent' %}"
          hx-target="#stat-modal-body"
-         onclick="openStatModal('Recent Users (30 Days)')">
-        <div class="card-body" style="text-align: center; padding: 14px 8px;">
-            <div style="font-size: 1.75rem; font-weight: 700; color: var(--primary);">{{ dashboard_stats.recent }}</div>
-            <div style="color: var(--body-quiet-color); font-size: 0.8rem;">Recent (30d)</div>
-        </div>
+         onclick="openStatModal('Recent Users (30 Days)')"
+         style="cursor: pointer;">
+        <div class="stat-card-value">{{ dashboard_stats.recent }}</div>
+        <div class="stat-card-label">Recent · 30d</div>
     </div>
-    <div class="card stat-card-clickable"
+    <div class="stat-card stat-card-clickable"
          hx-get="{% url 'manage/users-stat-detail' 'total' %}"
          hx-target="#stat-modal-body"
-         onclick="openStatModal('All Active Users')">
-        <div class="card-body" style="text-align: center; padding: 14px 8px;">
-            <div style="font-size: 1.75rem; font-weight: 700; color: var(--primary);">{{ dashboard_stats.total }}</div>
-            <div style="color: var(--body-quiet-color); font-size: 0.8rem;">Total Users</div>
-        </div>
+         onclick="openStatModal('All Active Users')"
+         style="cursor: pointer;">
+        <div class="stat-card-value">{{ dashboard_stats.total }}</div>
+        <div class="stat-card-label">Total Users</div>
     </div>
-    <div class="card stat-card-clickable"
+    <div class="stat-card stat-card-clickable"
          hx-get="{% url 'manage/users-stat-detail' 'staff' %}"
          hx-target="#stat-modal-body"
-         onclick="openStatModal('Staff Users')">
-        <div class="card-body" style="text-align: center; padding: 14px 8px;">
-            <div style="font-size: 1.75rem; font-weight: 700; color: var(--primary);">{{ dashboard_stats.staff }}</div>
-            <div style="color: var(--body-quiet-color); font-size: 0.8rem;">Staff</div>
-        </div>
+         onclick="openStatModal('Staff Users')"
+         style="cursor: pointer;">
+        <div class="stat-card-value">{{ dashboard_stats.staff }}</div>
+        <div class="stat-card-label">Staff</div>
     </div>
-    <div class="card stat-card-clickable"
+    <div class="stat-card stat-card-clickable"
          hx-get="{% url 'manage/users-stat-detail' 'timezones' %}"
          hx-target="#stat-modal-body"
-         onclick="openStatModal('Unique Timezones')">
-        <div class="card-body" style="text-align: center; padding: 14px 8px;">
-            <div style="font-size: 1.75rem; font-weight: 700; color: var(--primary);">{{ dashboard_stats.unique_tz }}</div>
-            <div style="color: var(--body-quiet-color); font-size: 0.8rem;">Timezones</div>
-        </div>
+         onclick="openStatModal('Unique Timezones')"
+         style="cursor: pointer;">
+        <div class="stat-card-value">{{ dashboard_stats.unique_tz }}</div>
+        <div class="stat-card-label">Timezones</div>
     </div>
 </div>
 {% endif %}

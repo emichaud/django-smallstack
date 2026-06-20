@@ -44,7 +44,7 @@ class SearchPageView(StaffRequiredMixin, TemplateView):
             return ctx
 
         hits = search_all(query, limit_per_model=limit_per_model)
-        ctx["grouped"] = _group_by_model(hits)
+        ctx["grouped"] = group_by_model(hits)
         ctx["total_hits"] = len(hits)
         return ctx
 
@@ -80,7 +80,7 @@ class OmnibarSearchView(StaffRequiredMixin, View):
         })
 
 
-def _group_by_model(hits: list[SearchHit]) -> list[dict[str, Any]]:
+def group_by_model(hits: list[SearchHit]) -> list[dict[str, Any]]:
     """Bucket hits by model_label preserving per-bucket rank order."""
     buckets: dict[str, list[SearchHit]] = defaultdict(list)
     label_to_verbose: dict[str, str] = {}

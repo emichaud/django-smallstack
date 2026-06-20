@@ -49,31 +49,23 @@
 {% endblock %}
 
 {% block content %}
-{# ── Stat cards ─────────────────────────────────────────────── #}
-<div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 24px;">
-  <div class="card">
-    <div class="card-body" style="text-align: center; padding: 14px 8px;">
-      <div style="font-size: 1.75rem; font-weight: 700; color: var(--primary);">{{ overview_stats.total_tokens }}</div>
-      <div style="color: var(--body-quiet-color); font-size: 0.8rem;">{% if request.user.is_staff %}All tokens{% else %}Your tokens{% endif %}</div>
-    </div>
+{# ── Stat cards (editorial spec-card pattern) ───────────────── #}
+<div class="stat-cards" style="margin-bottom: 24px;">
+  <div class="stat-card">
+    <div class="stat-card-value">{{ overview_stats.total_tokens }}</div>
+    <div class="stat-card-label">{% if request.user.is_staff %}All tokens{% else %}Your tokens{% endif %}</div>
   </div>
-  <div class="card">
-    <div class="card-body" style="text-align: center; padding: 14px 8px;">
-      <div style="font-size: 1.75rem; font-weight: 700; color: var(--success-fg);">{{ overview_stats.active_tokens }}</div>
-      <div style="color: var(--body-quiet-color); font-size: 0.8rem;">Active</div>
-    </div>
+  <div class="stat-card" style="border-left-color: var(--success-fg);">
+    <div class="stat-card-value" style="color: var(--success-fg);">{{ overview_stats.active_tokens }}</div>
+    <div class="stat-card-label">Active</div>
   </div>
-  <div class="card">
-    <div class="card-body" style="text-align: center; padding: 14px 8px;">
-      <div style="font-size: 1.75rem; font-weight: 700; color: var(--body-quiet-color);">{{ overview_stats.revoked_tokens }}</div>
-      <div style="color: var(--body-quiet-color); font-size: 0.8rem;">Revoked</div>
-    </div>
+  <div class="stat-card stat-card--muted">
+    <div class="stat-card-value" style="color: var(--body-quiet-color);">{{ overview_stats.revoked_tokens }}</div>
+    <div class="stat-card-label">Revoked</div>
   </div>
-  <div class="card">
-    <div class="card-body" style="text-align: center; padding: 14px 8px;">
-      <div style="font-size: 1.75rem; font-weight: 700; color: var(--primary);">{{ overview_stats.volume_24h }}</div>
-      <div style="color: var(--body-quiet-color); font-size: 0.8rem;">Requests (24h)</div>
-    </div>
+  <div class="stat-card">
+    <div class="stat-card-value">{{ overview_stats.volume_24h }}</div>
+    <div class="stat-card-label">Requests · 24h</div>
   </div>
 </div>
 

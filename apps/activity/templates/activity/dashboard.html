@@ -22,58 +22,51 @@
 {% endblock %}
 
 {% block content %}
-<!-- ── Top-level stats ──────────────────────────────────────────── -->
-<div style="display: grid; grid-template-columns: repeat(6, 1fr); gap: 12px; margin-bottom: 24px;">
-    <div class="card stat-card-clickable"
+<!-- ── Top-level stats (editorial spec-card pattern) ─────────────── -->
+<div class="stat-cards" style="margin-bottom: 24px;">
+    <div class="stat-card stat-card-clickable"
          hx-get="{% url 'activity:stat_detail' 'requests' %}"
          hx-target="#stat-modal-body"
-         onclick="openStatModal('Recent Requests')">
-        <div class="card-body" style="text-align: center; padding: 14px 8px;">
-            <div style="font-size: 1.75rem; font-weight: 700; color: var(--primary);">{{ total_requests }}</div>
-            <div style="color: var(--body-quiet-color); font-size: 0.8rem;">Requests</div>
-        </div>
+         onclick="openStatModal('Recent Requests')"
+         style="cursor: pointer;">
+        <div class="stat-card-value">{{ total_requests }}</div>
+        <div class="stat-card-label">Requests</div>
     </div>
-    <div class="card">
-        <div class="card-body" style="text-align: center; padding: 14px 8px;">
-            <div style="font-size: 1.75rem; font-weight: 700; color: var(--primary);">{{ avg_response_time }}<span style="font-size: 0.9rem;">ms</span></div>
-            <div style="color: var(--body-quiet-color); font-size: 0.8rem;">Avg Response</div>
-        </div>
+    <div class="stat-card">
+        <div class="stat-card-value">{{ avg_response_time }}<span style="font-size: 0.55em; color: var(--body-quiet-color); margin-left: 2px;">ms</span></div>
+        <div class="stat-card-label">Avg Response</div>
     </div>
-    <div class="card stat-card-clickable"
+    <div class="stat-card stat-card-clickable"
          hx-get="{% url 'activity:stat_detail' '4xx' %}"
          hx-target="#stat-modal-body"
-         onclick="openStatModal('4xx Client Errors')">
-        <div class="card-body" style="text-align: center; padding: 14px 8px;">
-            <div style="font-size: 1.75rem; font-weight: 700; color: {% if count_4xx %}var(--message-warning-bg, orange){% else %}var(--primary){% endif %};">{{ count_4xx }}</div>
-            <div style="color: var(--body-quiet-color); font-size: 0.8rem;">4xx Errors</div>
-        </div>
+         onclick="openStatModal('4xx Client Errors')"
+         {% if count_4xx %}style="border-left-color: var(--warning-fg); cursor: pointer;"{% else %}style="cursor: pointer;"{% endif %}>
+        <div class="stat-card-value" {% if count_4xx %}style="color: var(--warning-fg);"{% endif %}>{{ count_4xx }}</div>
+        <div class="stat-card-label">4xx Errors</div>
     </div>
-    <div class="card stat-card-clickable"
+    <div class="stat-card stat-card-clickable"
          hx-get="{% url 'activity:stat_detail' '5xx' %}"
          hx-target="#stat-modal-body"
-         onclick="openStatModal('5xx Server Errors')">
-        <div class="card-body" style="text-align: center; padding: 14px 8px;">
-            <div style="font-size: 1.75rem; font-weight: 700; color: {% if count_5xx %}var(--delete-button-bg, red){% else %}var(--primary){% endif %};">{{ count_5xx }}</div>
-            <div style="color: var(--body-quiet-color); font-size: 0.8rem;">5xx Errors</div>
-        </div>
+         onclick="openStatModal('5xx Server Errors')"
+         {% if count_5xx %}style="border-left-color: var(--error-fg); cursor: pointer;"{% else %}style="cursor: pointer;"{% endif %}>
+        <div class="stat-card-value" {% if count_5xx %}style="color: var(--error-fg);"{% endif %}>{{ count_5xx }}</div>
+        <div class="stat-card-label">5xx Errors</div>
     </div>
-    <div class="card stat-card-clickable"
+    <div class="stat-card stat-card-clickable"
          hx-get="{% url 'activity:stat_detail' 'users' %}"
          hx-target="#stat-modal-body"
-         onclick="openStatModal('All Users')">
-        <div class="card-body" style="text-align: center; padding: 14px 8px;">
-            <div style="font-size: 1.75rem; font-weight: 700; color: var(--primary);">{{ user_count }}</div>
-            <div style="color: var(--body-quiet-color); font-size: 0.8rem;">Users</div>
-        </div>
+         onclick="openStatModal('All Users')"
+         style="cursor: pointer;">
+        <div class="stat-card-value">{{ user_count }}</div>
+        <div class="stat-card-label">Users</div>
     </div>
-    <div class="card stat-card-clickable"
+    <div class="stat-card stat-card-clickable"
          hx-get="{% url 'activity:stat_detail' 'new_signups' %}"
          hx-target="#stat-modal-body"
-         onclick="openStatModal('New Users (30 Days)')">
-        <div class="card-body" style="text-align: center; padding: 14px 8px;">
-            <div style="font-size: 1.75rem; font-weight: 700; color: var(--primary);">{{ recent_signup_count }}</div>
-            <div style="color: var(--body-quiet-color); font-size: 0.8rem;">New (30d)</div>
-        </div>
+         onclick="openStatModal('New Users (30 Days)')"
+         style="cursor: pointer;">
+        <div class="stat-card-value">{{ recent_signup_count }}</div>
+        <div class="stat-card-label">New · 30d</div>
     </div>
 </div>
 
