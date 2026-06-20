@@ -51,11 +51,15 @@ def test_register_returns_view():
 
 
 def test_register_idempotent():
+    """Re-registering the same view doesn't grow the registry."""
     User = get_user_model()
     cls = _make_view_class(User)
     register(cls)
+    count_after_first = view_count()
     register(cls)
-    assert view_count() == 1
+    register(cls)
+    # Registering twice more should leave the count unchanged.
+    assert view_count() == count_after_first
 
 
 def test_register_skipped_with_no_search_fields():
