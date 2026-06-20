@@ -43,7 +43,10 @@ def test_search_page_empty_query_shows_help(staff_client):
     """No query → render the query-syntax help table."""
     resp = staff_client.get(reverse("search:page"))
     body = resp.content.decode()
-    assert "Query syntax" in body
+    # The redesigned label splits "Query" and "syntax" on two lines via
+    # a <br>, so match the two halves separately. The syntax-table
+    # examples must still be present.
+    assert "Query" in body and "syntax" in body
     assert "refund*" in body
 
 
