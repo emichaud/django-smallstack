@@ -1,20 +1,24 @@
 """Search security model — the two per-view knobs that gate cross-model search.
 
-  - ``search_requires_staff`` (default True): non-staff users see zero hits
-    from this CRUDView in cross-model search.
-  - ``search_visibility`` (callable, default None): when staff-gating is off,
-    further scope rows per user via ``(queryset, user) -> queryset``.
+  - ``search_access`` (default SearchAccess.STAFF): the level a caller
+    must reach to see hits from this CRUDView. Three levels — STAFF,
+    AUTHENTICATED, ANONYMOUS — each a strict superset of the prior.
+  - ``search_visibility`` (callable, default None): when access is
+    broader than staff, further scope rows per user via
+    ``(queryset, user) -> queryset``.
 
 Both apply in :func:`apps.search.registry.search_all` and
 :func:`apps.search.registry.get_indexed_sources`. ``user=None`` (trusted
-internal call) skips both gates. ``user.is_staff`` skips both gates.
+internal call) bypasses both. ``user.is_staff`` bypasses both.
 """
 
 from __future__ import annotations
 
 import pytest
 from django.contrib.auth import get_user_model
+from django.contrib.auth.models import AnonymousUser
 
+from apps.search.access import SearchAccess
 from apps.search.backends import get_backend
 from apps.search.registry import (
     all_views,
@@ -32,7 +36,7 @@ def _make_view_class(
     *,
     fields=("username",),
     display="username",
-    requires_staff=True,
+    access=SearchAccess.STAFF,
     visibility=None,
     name="TestSecView",
 ):
@@ -42,7 +46,7 @@ def _make_view_class(
         "enable_search": True,
         "search_fields": list(fields),
         "search_display": display,
-        "search_requires_staff": requires_staff,
+        "search_access": access,
     }
     if visibility is not None:
         attrs["search_visibility"] = staticmethod(visibility)
@@ -75,18 +79,18 @@ def _rebuild_indexes():
 
 
 def test_default_view_is_staff_only():
-    """A view that doesn't set search_requires_staff defaults to staff-only."""
+    """A view that doesn't set search_access defaults to STAFF."""
     User = get_user_model()
     cls = _make_view_class(User)
     view = register(cls)
     assert view is not None
-    assert view.requires_staff is True
+    assert view.access == SearchAccess.STAFF
 
 
 def test_non_staff_user_sees_zero_hits_from_staff_only_view():
     """Default = closed. Non-staff users get no hits from staff-only views."""
     User = get_user_model()
-    register(_make_view_class(User))  # default requires_staff=True
+    register(_make_view_class(User))  # default access=STAFF
     User.objects.create_user(username="staff-only-needle-zz")
     _rebuild_indexes()
 
@@ -95,10 +99,21 @@ def test_non_staff_user_sees_zero_hits_from_staff_only_view():
     assert hits == []
 
 
+def test_anonymous_user_sees_zero_hits_from_staff_only_view():
+    """Default = closed. Anonymous visitors get no hits from staff-only views."""
+    User = get_user_model()
+    register(_make_view_class(User))  # default access=STAFF
+    User.objects.create_user(username="anon-cannot-see-zz")
+    _rebuild_indexes()
+
+    hits = search_all("anon-cannot-see-zz", user=AnonymousUser())
+    assert hits == []
+
+
 def test_staff_user_sees_hits_from_staff_only_view():
     """Staff users skip the gate entirely."""
     User = get_user_model()
-    register(_make_view_class(User))  # default requires_staff=True
+    register(_make_view_class(User))  # default access=STAFF
     User.objects.create_user(username="staff-only-needle-zz")
     _rebuild_indexes()
 
@@ -110,7 +125,7 @@ def test_staff_user_sees_hits_from_staff_only_view():
 def test_trusted_internal_caller_sees_hits_when_user_is_none():
     """``user=None`` means trusted internal — bypasses both gates."""
     User = get_user_model()
-    register(_make_view_class(User))  # default requires_staff=True
+    register(_make_view_class(User))  # default access=STAFF
     User.objects.create_user(username="internal-needle-zz")
     _rebuild_indexes()
 
@@ -119,20 +134,74 @@ def test_trusted_internal_caller_sees_hits_when_user_is_none():
 
 
 # ────────────────────────────────────────────────────────────────────────────
-#  staff gate opt-out — search_requires_staff = False
+#  AUTHENTICATED level — opt-in to any-signed-in-user access
 # ────────────────────────────────────────────────────────────────────────────
 
 
-def test_non_staff_sees_hits_when_view_opts_out_of_staff_only():
-    """search_requires_staff=False makes the view searchable by any auth user."""
+def test_non_staff_sees_hits_when_view_is_authenticated_access():
+    """search_access=AUTHENTICATED lets any signed-in user find rows."""
     User = get_user_model()
-    register(_make_view_class(User, requires_staff=False))
-    User.objects.create_user(username="public-needle-zz")
+    register(_make_view_class(User, access=SearchAccess.AUTHENTICATED))
+    User.objects.create_user(username="authed-needle-zz")
     _rebuild_indexes()
 
     regular = User.objects.create_user(username="regular2", password="x")
-    hits = search_all("public-needle-zz", user=regular)
-    assert any(h.display == "public-needle-zz" for h in hits)
+    hits = search_all("authed-needle-zz", user=regular)
+    assert any(h.display == "authed-needle-zz" for h in hits)
+
+
+def test_anonymous_does_not_see_authenticated_access_view():
+    """search_access=AUTHENTICATED still gates out signed-out visitors."""
+    User = get_user_model()
+    register(_make_view_class(User, access=SearchAccess.AUTHENTICATED))
+    User.objects.create_user(username="not-anon-zz")
+    _rebuild_indexes()
+
+    hits = search_all("not-anon-zz", user=AnonymousUser())
+    assert hits == []
+
+
+# ────────────────────────────────────────────────────────────────────────────
+#  ANONYMOUS level — opt-in to fully public access
+# ────────────────────────────────────────────────────────────────────────────
+
+
+def test_anonymous_sees_hits_when_view_is_anonymous_access():
+    """search_access=ANONYMOUS makes the view visible to signed-out visitors."""
+    User = get_user_model()
+    register(_make_view_class(User, access=SearchAccess.ANONYMOUS))
+    User.objects.create_user(username="public-anon-needle-zz")
+    _rebuild_indexes()
+
+    hits = search_all("public-anon-needle-zz", user=AnonymousUser())
+    assert any(h.display == "public-anon-needle-zz" for h in hits)
+
+
+def test_authenticated_user_also_sees_anonymous_access_views():
+    """ANONYMOUS is a superset of AUTHENTICATED — signed-in users see them too."""
+    User = get_user_model()
+    register(_make_view_class(User, access=SearchAccess.ANONYMOUS))
+    User.objects.create_user(username="open-needle-zz")
+    _rebuild_indexes()
+
+    regular = User.objects.create_user(username="any_user", password="x")
+    hits = search_all("open-needle-zz", user=regular)
+    assert any(h.display == "open-needle-zz" for h in hits)
+
+
+# ────────────────────────────────────────────────────────────────────────────
+#  Invalid search_access value falls back to STAFF
+# ────────────────────────────────────────────────────────────────────────────
+
+
+def test_invalid_search_access_falls_back_to_staff():
+    """A typo'd or unknown search_access value is treated as STAFF (safe)."""
+    User = get_user_model()
+    cls = _make_view_class(User)
+    cls.search_access = "publik"  # typo'd value
+    view = register(cls)
+    assert view is not None
+    assert view.access == SearchAccess.STAFF
 
 
 # ────────────────────────────────────────────────────────────────────────────
@@ -148,7 +217,7 @@ def test_visibility_filter_scopes_rows_per_user():
     def only_self(qs, user):
         return qs.filter(pk=user.pk)
 
-    register(_make_view_class(User, requires_staff=False, visibility=only_self))
+    register(_make_view_class(User, access=SearchAccess.AUTHENTICATED, visibility=only_self))
 
     alice = User.objects.create_user(username="alice-needle-zz", password="x")
     User.objects.create_user(username="bob-needle-zz", password="x")
@@ -168,7 +237,7 @@ def test_visibility_filter_does_not_apply_to_staff():
     def only_self(qs, user):
         return qs.filter(pk=user.pk)
 
-    register(_make_view_class(User, requires_staff=False, visibility=only_self))
+    register(_make_view_class(User, access=SearchAccess.AUTHENTICATED, visibility=only_self))
 
     User.objects.create_user(username="alice-needle-zz", password="x")
     User.objects.create_user(username="bob-needle-zz", password="x")
@@ -190,7 +259,7 @@ def test_visibility_filter_fails_safe_when_callback_raises():
     def broken(qs, user):
         raise RuntimeError("boom")
 
-    register(_make_view_class(User, requires_staff=False, visibility=broken))
+    register(_make_view_class(User, access=SearchAccess.AUTHENTICATED, visibility=broken))
     User.objects.create_user(username="protected-needle-zz")
     _rebuild_indexes()
 
@@ -200,8 +269,31 @@ def test_visibility_filter_fails_safe_when_callback_raises():
     assert all(h.model_label != f"{User._meta.app_label}.{User.__name__}" for h in hits)
 
 
+def test_visibility_filter_runs_for_anonymous_access_view():
+    """When access=ANONYMOUS, the visibility callback still scopes rows.
+    Receives AnonymousUser as the user argument."""
+    User = get_user_model()
+    seen_users: list = []
+
+    def only_active(qs, user):
+        seen_users.append(user)
+        return qs.filter(is_active=True)
+
+    register(_make_view_class(User, access=SearchAccess.ANONYMOUS, visibility=only_active))
+    User.objects.create_user(username="active-anon-needle-zz", is_active=True)
+    User.objects.create_user(username="inactive-anon-needle-zz", is_active=False)
+    _rebuild_indexes()
+
+    hits = search_all("anon-needle-zz", user=AnonymousUser())
+    displays = {h.display for h in hits}
+    assert "active-anon-needle-zz" in displays
+    assert "inactive-anon-needle-zz" not in displays
+    # The callback was invoked with the anonymous identity.
+    assert seen_users and seen_users[0].is_anonymous
+
+
 # ────────────────────────────────────────────────────────────────────────────
-#  get_indexed_sources — same staff gate
+#  get_indexed_sources — applies the same access gate
 # ────────────────────────────────────────────────────────────────────────────
 
 
@@ -209,17 +301,35 @@ def test_indexed_sources_hides_staff_only_views_from_non_staff():
     """get_indexed_sources applies the same gate as search_all — non-staff
     users don't see staff-only views even in the 'what's indexed' panel."""
     User = get_user_model()
-    register(_make_view_class(User))  # default requires_staff=True
+    register(_make_view_class(User))  # default access=STAFF
 
     regular = User.objects.create_user(username="regular4", password="x")
     sources = get_indexed_sources(user=regular)
-    # No model-kind source survives the gate for a non-staff user.
     model_sources = [s for s in sources if s["kind"] == "model"]
     assert model_sources == []
 
 
+def test_indexed_sources_hides_authenticated_views_from_anonymous():
+    """An AUTHENTICATED-level view is hidden from anonymous visitors in the panel."""
+    User = get_user_model()
+    register(_make_view_class(User, access=SearchAccess.AUTHENTICATED))
+
+    sources = get_indexed_sources(user=AnonymousUser())
+    model_sources = [s for s in sources if s["kind"] == "model"]
+    assert model_sources == []
+
+
+def test_indexed_sources_shows_anonymous_views_to_anonymous():
+    """An ANONYMOUS-level view IS listed for signed-out visitors."""
+    User = get_user_model()
+    register(_make_view_class(User, access=SearchAccess.ANONYMOUS))
+
+    sources = get_indexed_sources(user=AnonymousUser())
+    assert any(s["kind"] == "model" for s in sources)
+
+
 def test_indexed_sources_shows_all_to_staff():
-    """Staff see every registered source."""
+    """Staff see every registered source regardless of level."""
     User = get_user_model()
     register(_make_view_class(User))
 

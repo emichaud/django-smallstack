@@ -139,50 +139,78 @@ The help/docs system feeds the same index. Search results group by source (your 
 
 ## Security model — secure by default, opt-in to broaden
 
-Search exposes data across every registered model. The same row that lives behind a `StaffRequiredMixin`-gated list page would, without protection, leak via cross-model search to anyone who can hit `/search/`. Two per-view knobs control this. Both default to the safe end.
+Search exposes data across every registered model. The same row that lives behind a staff-gated list page would, without protection, leak via cross-model search to whoever can hit `/search/`. Two per-view knobs control this. Both default to the safe end.
 
 | Attribute on a `CRUDView` | Type | Default | Meaning |
 |---|---|---|---|
-| `search_requires_staff` | `bool` | `True` | Non-staff users get zero hits from this view in cross-model search. The view is also hidden from the "Indexed sources" panel for non-staff. |
-| `search_visibility` | `(queryset, user) -> queryset` or `None` | `None` | Optional per-user row filter. When `search_requires_staff` is `False`, the queryset returned by this callable is what the user can see. Runs *after* the FTS query returns candidate ids. |
+| `search_access` | one of `SearchAccess.STAFF` / `AUTHENTICATED` / `ANONYMOUS` | `STAFF` | The level a caller must reach to see hits from this view. Strict supersets: any level grants the level above. |
+| `search_visibility` | `(queryset, user) -> queryset` or `None` | `None` | Optional per-user row filter. Runs *after* the FTS query returns candidate ids and *only* for non-staff callers. Receives `AnonymousUser` when the view is `ANONYMOUS` and the visitor is signed-out. |
 
-The gates are enforced in `apps.search.registry.search_all(query, user=...)` and `apps.search.registry.get_indexed_sources(user=...)`. The HTTP views (admin search, omnibar, public website search) plumb `request.user` through. MCP tools currently call with `user=None` (trusted internal — they have their own access-level gate via the API token); that path is unchanged.
+The gates live in `apps.search.registry.search_all(query, user=...)` and `apps.search.registry.get_indexed_sources(user=...)`. The HTTP views (admin search, omnibar, public website search) plumb `request.user` through. MCP tools call with `user=None` (trusted internal — they have their own access-level gate via the API token).
 
-Three call-shapes determine what gets returned:
+### The three access levels
 
-| Caller | `user` value | Staff gate | Visibility filter |
-|---|---|---|---|
-| Trusted internal (MCP, management commands) | `None` | bypassed | bypassed |
-| Staff HTTP user | `request.user` (`is_staff=True`) | bypassed | bypassed |
-| Non-staff HTTP user | `request.user` (`is_staff=False`) | **enforced** | **enforced** |
+| Level | Constant | Who can find rows |
+|---|---|---|
+| Staff | `SearchAccess.STAFF` (default) | `is_staff` users + trusted internal callers (`user=None`) |
+| Authenticated | `SearchAccess.AUTHENTICATED` | Any signed-in user |
+| Anonymous | `SearchAccess.ANONYMOUS` | Anyone, including signed-out visitors |
+
+Resolution order per registered view:
+
+```
+caller            → result for a view declared at level X
+─────────────────────────────────────────────────────────
+user is None      → visible (trusted internal — bypass)
+user.is_staff     → visible (bypass)
+view.access == STAFF                  → hidden for everyone else
+view.access == AUTHENTICATED          → visible only if signed in
+view.access == ANONYMOUS              → always visible
+```
+
+### The starter pattern (what the default `make setup` ships)
+
+SmallStack opts the bundled `User` and `APIToken` CRUDViews into search at the default `STAFF` level. The `/search/` page itself is *open to anonymous visitors* — they can search the help docs (broadly readable by design) but see zero hits from any user/token data. This demonstrates the full surface without leaking anything sensitive:
+
+```
+URL                          who can hit it         what they can find
+────────────────────────────────────────────────────────────────────────
+/search/   (public)          everyone               help docs +
+                                                    anonymous-opted-in models
+/smallstack/search/  (admin) staff only             everything indexed
+```
+
+That gives downstream projects a concrete, demonstrable security pattern out of the box — and the recipes below let you broaden access per CRUDView without rewriting any plumbing.
 
 ### Recipe 1 — keep it staff-only (default)
 
-Do nothing. Any CRUDView with `enable_search = True` is staff-only out of the box. This is the right answer for User, APIToken, AuditLog, and anything else where a leak across rows would be a problem.
+Do nothing. Any CRUDView with `enable_search = True` is staff-only. This is the right answer for User, APIToken, AuditLog, internal stock counts, anything else where a leak across rows would be a problem.
 
 ```python
 class UserCRUDView(CRUDView):
     model = User
     enable_search = True
     search_fields = ["username", "email", "first_name", "last_name"]
-    # search_requires_staff defaults to True — non-staff see no hits here.
+    # search_access defaults to SearchAccess.STAFF — non-staff see zero hits.
 ```
 
-### Recipe 2 — public to any authenticated user (e.g. shared knowledge base)
+### Recipe 2 — readable by any authenticated user
 
-When the data is meant to be readable by everyone who is signed in (think a wiki, a public ticket queue, a product catalog), flip the flag:
+When the data is meant to be findable by everyone signed in but not by anonymous visitors (a shared internal knowledge base, a directory of team members), set the level to AUTHENTICATED:
 
 ```python
+from apps.search.access import SearchAccess
+
 class ArticleCRUDView(CRUDView):
     model = Article
     enable_search = True
     search_fields = ["title", "body"]
-    search_requires_staff = False   # any authenticated user can find these
+    search_access = SearchAccess.AUTHENTICATED
 ```
 
 ### Recipe 3 — per-user row scoping (e.g. "find my own tickets")
 
-When each authenticated user should be able to search *their own* data only, combine the flag with a visibility callback. The callback receives the queryset (already narrowed to FTS-matched ids) and the user, and returns whatever rows that user is allowed to see.
+When each authenticated user should find only *their own* rows, combine the level with a visibility callback. The callback receives the candidate queryset (already narrowed to FTS-matched ids) and the user; whatever it returns is what the user gets.
 
 ```python
 class TicketCRUDView(CRUDView):
@@ -190,25 +218,169 @@ class TicketCRUDView(CRUDView):
     enable_search = True
     search_fields = ["title", "body", "customer__name"]
 
-    search_requires_staff = False
+    search_access = SearchAccess.AUTHENTICATED
     search_visibility = staticmethod(
         lambda qs, user: qs.filter(owner=user)
     )
 ```
 
-The callable can be any function with `(queryset, user) -> queryset` shape — a `staticmethod`, a module-level function, even a classmethod that accesses `self`. If the callback raises, **the view fails safe**: every hit from that view is dropped for the request rather than leaking unfiltered rows. The exception is logged via `smallstack.search`.
+### Recipe 4 — fully public, anyone can find it
+
+When data is genuinely public (a product catalogue, published posts, a job listing), set the level to ANONYMOUS. Combine with `search_visibility` if you want to expose only a subset of rows (e.g. `published=True`):
+
+```python
+class PublishedPostCRUDView(CRUDView):
+    model = Post
+    enable_search = True
+    search_fields = ["title", "body", "tags"]
+
+    search_access = SearchAccess.ANONYMOUS
+    search_visibility = staticmethod(
+        lambda qs, user: qs.filter(published=True)
+    )
+```
+
+The callable can be any `(queryset, user) -> queryset` function — a `staticmethod`, a module-level function, a classmethod. If it raises, **the view fails safe**: every hit from that view is dropped for the request rather than leaking unfiltered rows. The exception is logged via `smallstack.search`.
+
+## Walkthrough: building an Inventory app
+
+Suppose you're adding an `inventory` app to a SmallStack project. You have two natural surfaces:
+
+1. **Internal stock management** — only staff should see exact counts, suppliers, cost prices.
+2. **Public product catalogue** — anyone (including signed-out visitors) should be able to search products by name, SKU, or description.
+
+That's two CRUDViews on the same model — each with its own `search_access`. Here's the whole pattern.
+
+### The model
+
+```python
+# apps/inventory/models.py
+from django.db import models
+from django.conf import settings
+
+
+class InventoryItem(models.Model):
+    name = models.CharField(max_length=200)
+    sku = models.CharField(max_length=64, unique=True)
+    description = models.TextField(blank=True)
+    catalogue_summary = models.CharField(
+        max_length=240,
+        help_text="The blurb shown to public visitors. Distinct from internal description.",
+    )
+
+    # Internal-only fields:
+    quantity_on_hand = models.IntegerField(default=0)
+    cost_price_cents = models.IntegerField(default=0)
+    supplier_notes = models.TextField(blank=True)
+
+    # Publishing controls:
+    is_listed = models.BooleanField(
+        default=False,
+        help_text="When True, the item appears in the public catalogue.",
+    )
+
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self) -> str:
+        return self.name
+```
+
+### The internal CRUDView (staff-only)
+
+The default access level is exactly what you want here. The page lives at `/smallstack/inventory/` and is staff-gated by the CRUDView's own auth mixin; search inherits the same gate via the default `STAFF` level. Every field is searchable — including supplier notes — because staff are the only ones who can find rows.
+
+```python
+# apps/inventory/views.py
+from apps.smallstack.crud import CRUDView
+from .models import InventoryItem
+
+
+class InventoryAdminCRUDView(CRUDView):
+    model = InventoryItem
+    url_base = "inventory-admin"
+    enable_search = True
+    enable_mcp = True   # Claude can search the internal index too — via API token
+
+    search_fields = [
+        "name", "sku", "description",
+        "supplier_notes",   # ← only staff can find by this; truly internal
+    ]
+    search_display = "name"
+    search_subtitle = "sku"
+
+    # search_access defaults to SearchAccess.STAFF — no explicit setting needed.
+```
+
+### The public catalogue CRUDView (anonymous access)
+
+A separate CRUDView, same model. Different name (`inventory-catalogue`), different `search_fields` (only the public-safe ones), and a `search_visibility` callable that scopes results to `is_listed=True` so unpublished items never appear.
+
+```python
+# apps/inventory/views.py  (continued)
+from apps.search.access import SearchAccess
+
+
+class InventoryCatalogueCRUDView(CRUDView):
+    model = InventoryItem
+    url_base = "inventory-catalogue"
+    enable_search = True
+
+    # PUBLIC-SAFE FIELDS ONLY — supplier_notes, quantity, cost not searchable here.
+    search_fields = ["name", "sku", "catalogue_summary"]
+    search_display = "name"
+    search_subtitle = "catalogue_summary"
+
+    search_access = SearchAccess.ANONYMOUS
+    search_visibility = staticmethod(
+        lambda qs, user: qs.filter(is_listed=True)
+    )
+
+    # Optional — give the public the MCP tool too, so Claude can power
+    # a "what do you sell?" agent against your catalogue.
+    enable_mcp = True
+```
+
+### What the developer sees
+
+After `make migrations && make migrate && make rebuild_search_index` and a server restart:
+
+```
+$ curl http://localhost:8005/search/?q=widget       # anonymous
+   → 3 results from "Inventory Item" (catalogue rows only)
+   → 1 result from "Help & Docs"
+   → 0 from User, APIToken, or the internal Inventory CRUDView
+
+$ curl http://localhost:8005/search/?q=widget  \    # as a signed-in non-staff user
+       -b sessionid=...
+   → same as above (their access doesn't broaden anything new
+     unless you add an AUTHENTICATED-level view)
+
+$ curl http://localhost:8005/search/?q=widget  \    # as staff
+       -b sessionid=...
+   → full results across every indexed view, including the
+     internal InventoryAdminCRUDView with supplier_notes
+```
+
+The same model has two faces — staff see everything, anonymous see the published catalogue, and the developer wrote **two CRUDView classes plus four configuration lines**. No middleware, no decorator stack, no API mode. The story is "declare what you want, ship safely."
+
+### Why this works
+
+- **The model owns the data.** Both CRUDViews share `InventoryItem`. There's no duplication.
+- **Each surface owns its visibility.** The internal view searches every field; the catalogue view searches only the catalogue-safe ones and filters out unpublished rows.
+- **Failures are safe.** A typo in `search_visibility` drops the whole view's hits for that request — never an unfiltered leak.
+- **The pattern scales.** Adding a third surface (e.g. an `AUTHENTICATED`-level "members-only" view that includes pricing for signed-in customers) is the same shape: one more CRUDView, one more `search_access`, one more `search_visibility`.
 
 ### What's not gated
 
-- **Help docs** (`apps/help/`). Help articles are treated as broadly readable — any authenticated user can search them. They are documentation; staff and non-staff alike are expected to look things up.
-- **MCP tools**. The MCP server enforces its own auth (API token + access level). The token's `requires_access` declaration is the gate. Per-user row visibility within MCP search responses is tracked as a future improvement — today, MCP tools see everything.
-- **The CRUDView's own list page** (e.g. `/smallstack/manage/users/`). That URL has its own access gate (typically `StaffRequiredMixin`). The search gates are a separate, complementary layer.
+- **Help docs** (`apps/help/`). Always returned, to every caller — anonymous, authenticated, staff, internal. They are documentation by intent.
+- **MCP tools**. The MCP server enforces its own auth (API token + `requires_access` access level). Per-user row visibility within MCP responses is a future improvement; today, MCP search runs with `user=None` (trusted internal).
+- **The CRUDView's own list page**. That URL has its own access gate (typically a mixin like `StaffRequiredMixin`). The search gates are a separate, complementary layer.
 
 ### Verifying
 
 ```bash
-uv run python manage.py search_doctor          # registry snapshot
-uv run pytest apps/search/tests/test_security.py -v
+uv run python manage.py search_doctor              # registry snapshot
+uv run pytest apps/search/tests/test_security.py   # exercises all three levels
 ```
 
 

@@ -123,15 +123,29 @@ class TestHomePageAuthenticated:
 class TestPublicSearchView:
     """Public-site /search/ (editorial "Find anything" design).
 
-    Auth-gated by @login_required. Reuses apps.search registry for data.
+    The page is open to everyone — including anonymous visitors. The
+    registry's per-view access gate determines what each visitor can
+    find. Help docs are visible to everyone; CRUDViews default to
+    staff-only and must opt in to broader access (see
+    apps/smallstack/docs/search.md).
     """
 
-    def test_anonymous_redirects_to_login(self, client):
-        """Anonymous visitors are bounced to /accounts/login/?next=/search/."""
+    def test_anonymous_can_load_the_page(self, client):
+        """Anonymous visitors can load /search/ — the page is public."""
         response = client.get("/search/")
-        assert response.status_code == 302
-        assert "/accounts/login/" in response.url
-        assert "next=/search/" in response.url
+        assert response.status_code == 200
+        content = response.content.decode()
+        assert "Find" in content
+        assert "anything" in content
+
+    def test_anonymous_sees_no_staff_or_authenticated_sources(self, client):
+        """Anonymous visitors only see ANONYMOUS-level CRUDViews (none by
+        default) plus the help docs. No User / APIToken / etc. leakage."""
+        response = client.get("/search/")
+        sources = response.context["indexed_sources"]
+        # No model-kind sources (User + APIToken default to STAFF).
+        model_sources = [s for s in sources if s["kind"] == "model"]
+        assert model_sources == []
 
     def test_authenticated_empty_query_renders_editorial_layout(self, client, django_user_model):
         """Authenticated GET with no query renders the editorial shell."""
@@ -206,13 +220,15 @@ class TestPublicSearchView:
         # No-results display copy.
         assert "Nothing matched" in response.content.decode()
 
-    def test_nav_link_visible_only_when_authenticated(self, client, django_user_model):
-        """The Search link in the website topbar is gated by user.is_authenticated."""
-        # Anonymous — no link.
+    def test_nav_link_is_visible_to_everyone(self, client, django_user_model):
+        """The Search link is in the website topbar for every visitor — the
+        page is open to anonymous users (who can search help docs) and to
+        signed-in users (who additionally see whatever they're permitted)."""
+        # Anonymous — link present.
         response = client.get("/")
-        assert 'href="/search/"' not in response.content.decode()
+        assert 'href="/search/"' in response.content.decode()
 
-        # Authenticated — link present.
+        # Authenticated — link still present.
         user = django_user_model.objects.create_user(username="navtest", password="testpass")
         client.force_login(user)
         response = client.get("/")

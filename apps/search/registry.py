@@ -15,6 +15,7 @@ from __future__ import annotations
 import logging
 from typing import Any, Iterator
 
+from .access import SearchAccess
 from .backends.base import IndexedView, SearchHit
 
 logger = logging.getLogger("smallstack.search")
@@ -47,7 +48,15 @@ def register(view_cls: type) -> IndexedView | None:
 
     # Security: default to staff-only (secure default), and pull the
     # optional per-user visibility callback if the CRUDView declared one.
-    requires_staff = bool(getattr(view_cls, "search_requires_staff", True))
+    access = getattr(view_cls, "search_access", SearchAccess.STAFF)
+    if not SearchAccess.is_valid(access):
+        logger.warning(
+            "%s declared search_access=%r — not a valid SearchAccess value; "
+            "falling back to STAFF",
+            view_cls,
+            access,
+        )
+        access = SearchAccess.STAFF
     visibility = getattr(view_cls, "search_visibility", None)
 
     view = IndexedView(
@@ -57,7 +66,7 @@ def register(view_cls: type) -> IndexedView | None:
         weights=weights,
         display_field=display,
         subtitle_field=subtitle,
-        requires_staff=requires_staff,
+        access=access,
         visibility=visibility,
     )
     _search_registry[view.model_label] = view
@@ -98,6 +107,35 @@ def view_count() -> int:
     return len(_search_registry)
 
 
+def _user_can_see(view: IndexedView, user: Any) -> bool:
+    """Apply the access-level gate for one indexed view.
+
+    Returns True if ``user`` is allowed to find rows from this view in
+    cross-model search, given the view's declared ``search_access``.
+
+    Trusted internal callers pass ``user=None`` and bypass the gate.
+    Adding a new SearchAccess level is a single clause here plus a
+    new sentinel in :mod:`apps.search.access`.
+    """
+    if user is None:
+        # Trusted internal call (MCP server, management commands, etc.).
+        return True
+    if getattr(user, "is_staff", False):
+        # Staff are exempt — they see everything that's indexed.
+        return True
+
+    level = view.access
+    if level == SearchAccess.STAFF:
+        return False
+    if level == SearchAccess.AUTHENTICATED:
+        return bool(getattr(user, "is_authenticated", False))
+    if level == SearchAccess.ANONYMOUS:
+        # Any caller — signed-in or anonymous — passes.
+        return True
+    # Unknown level (registry validates at register-time, but stay safe).
+    return False
+
+
 def get_indexed_sources(user: Any = None) -> list[dict]:
     """Structured info on every searchable source.
 
@@ -106,16 +144,13 @@ def get_indexed_sources(user: Any = None) -> list[dict]:
     panel and the omnibar's empty-state. Cheap — derived from in-memory
     registry + a count query on the help index.
 
-    Security: same staff gate as :func:`search_all`. A non-staff user
-    sees only views with ``requires_staff = False`` plus the help index.
-    Trusted internal callers (``user=None``) and staff see every source.
+    Security: applies the same per-view access gate as :func:`search_all`.
+    Help docs are always returned (intentionally — they are
+    documentation and broadly readable).
     """
-    is_staff = bool(user is not None and getattr(user, "is_staff", False))
-    enforce_gates = user is not None and not is_staff
-
     sources: list[dict] = []
     for view in _search_registry.values():
-        if enforce_gates and view.requires_staff:
+        if not _user_can_see(view, user):
             continue
         # Sample recent records to show as a live preview — far more
         # useful than abstract example strings because users see real
@@ -236,36 +271,34 @@ def search_all(query: str, limit_per_model: int = 5, user: Any = None) -> list[S
 
     Security model
     --------------
-    ``user`` is the request user (or None for trusted internal callers
-    like the MCP server, which manages its own auth). Two gates apply
-    per registered view, in order:
+    ``user`` is the request user (or ``None`` for trusted internal callers
+    like the MCP server). Two gates apply per registered view, in order:
 
-      1. **Staff gate** — if ``view.requires_staff`` is True and the
-         user is non-staff, every hit from that view is dropped before
-         it leaves the registry. The view is invisible to non-staff
-         users (no listing, no preview, no leak).
+      1. **Access gate** — :func:`_user_can_see` evaluates the view's
+         declared ``search_access`` against the caller. Non-matching
+         views are dropped before any query runs (no listing, no
+         preview, no leak).
 
       2. **Visibility filter** — if the view declares a
          ``search_visibility(queryset, user) -> queryset`` callable,
-         the FTS hits are re-filtered through it. Hits whose pk doesn't
-         survive the filter are dropped.
+         the surviving hits are re-filtered through it. Hits whose pk
+         doesn't survive the filter are dropped.
 
-    Both gates are skipped when ``user is None`` (trusted internal call)
-    or when ``user.is_staff`` is True (staff sees everything).
+    Staff and trusted-internal (``user=None``) callers bypass both
+    gates. Visibility filters that raise fail safe: the view's hits are
+    dropped entirely rather than leaking unfiltered rows.
 
-    Used by the topbar omnibar, the /smallstack/search/ page, the
-    public /search/ page, and the ``search_all`` MCP tool.
+    Used by the topbar omnibar, the admin /smallstack/search/ page,
+    the public /search/ page, and the ``search_all`` MCP tool.
     """
     from .backends import get_backend
 
     backend = get_backend()
-    is_staff = bool(user is not None and getattr(user, "is_staff", False))
-    enforce_gates = user is not None and not is_staff
+    is_privileged = user is None or bool(getattr(user, "is_staff", False))
 
     out: list[SearchHit] = []
     for view in _search_registry.values():
-        # Staff gate — non-staff users skip staff-only views entirely.
-        if enforce_gates and view.requires_staff:
+        if not _user_can_see(view, user):
             continue
 
         try:
@@ -274,9 +307,9 @@ def search_all(query: str, limit_per_model: int = 5, user: Any = None) -> list[S
             logger.exception("search_all failed for %s", view.model_label)
             continue
 
-        # Visibility filter — scope rows for non-staff users when the
-        # CRUDView opts non-staff in with a per-user filter.
-        if hits and enforce_gates and view.visibility is not None:
+        # Visibility filter — scope rows per user when the view declared
+        # one. Skipped for staff and trusted-internal callers.
+        if hits and not is_privileged and view.visibility is not None:
             try:
                 hit_ids = [h.object_id for h in hits]
                 visible_qs = view.visibility(view.model.objects.filter(pk__in=hit_ids), user)

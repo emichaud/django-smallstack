@@ -20,11 +20,9 @@
             <li class="topbar-nav-item">
                 <a href="{% url 'website:getting_started' %}" class="topbar-nav-link{% if '/getting-started' in request.path %} active{% endif %}">Getting Started</a>
             </li>
-            {% if user.is_authenticated %}
             <li class="topbar-nav-item">
                 <a href="{% url 'website:search' %}" class="topbar-nav-link{% if request.path == '/search/' %} active{% endif %}">Search</a>
             </li>
-            {% endif %}
         </ul>
     </nav>
 

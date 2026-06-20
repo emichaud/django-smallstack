@@ -12,27 +12,29 @@ from __future__ import annotations
 
 from typing import Any
 
-from django.contrib.auth.decorators import login_required
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import redirect, render
 from django.urls import reverse
 
 
-@login_required
 def search_view(request: HttpRequest) -> HttpResponse:
-    """Public-site search — uses the editorial "Find anything" design
-    (serif-italic display + Swagger-style indexed sources) rendered
-    inside the website topbar/nav. The admin /smallstack/search/ uses
-    the dashboard-style variant.
+    """Public-site search.
 
-    Auth: any logged-in user (anonymous → /accounts/login/).
+    Open to everyone — including signed-out visitors. The registry
+    applies the per-view ``search_access`` gate (and the optional
+    ``search_visibility`` callback) given the request user, so the
+    *page* is public but the *data* a given visitor can find is
+    determined by what each CRUDView opted into:
 
-    Data access: the registry applies the per-view security knobs
-    (``search_requires_staff`` + ``search_visibility``) given the
-    request user. By default, CRUDViews are staff-only, so non-staff
-    users searching here see only help docs plus any CRUDView that has
-    explicitly opted in to non-staff search. See
-    ``apps/smallstack/docs/search.md`` for the recipes.
+      - Anonymous visitors see help docs plus any CRUDView with
+        ``search_access = SearchAccess.ANONYMOUS``.
+      - Authenticated users additionally see CRUDViews opted in to
+        ``SearchAccess.AUTHENTICATED`` (often filtered per user via
+        ``search_visibility``).
+      - Staff see every registered view.
+
+    The recipes — and an Inventory app walkthrough — are in
+    ``apps/smallstack/docs/search.md``.
     """
     # Imported lazily so collectstatic / migrate-only invocations don't
     # trigger search backend initialization.

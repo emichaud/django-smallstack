@@ -64,24 +64,26 @@ class IndexedView:
     subtitle_field: str | None = None            # search_subtitle
 
     # ── Security knobs (secure by default; opt-in to broaden) ──────────────
-    # search_requires_staff (default True):
-    #   When True, only staff users see hits from this model in cross-model
-    #   search results. Non-staff users get zero hits for this view, as if
-    #   it were not registered. This is the default because most CRUDViews
-    #   (User, APIToken, etc.) expose data that should not leak to arbitrary
-    #   authenticated end-users.
+    # access (default "staff"):
+    #   One of the SearchAccess sentinels. Determines who can find rows
+    #   from this view via cross-model search:
+    #     - "staff"         → only is_staff users (default)
+    #     - "authenticated" → any signed-in user
+    #     - "anonymous"     → anyone, including signed-out visitors
     #
-    # search_visibility (default None):
+    # visibility (default None):
     #   Optional callable applied to the model queryset AFTER the FTS query
     #   returns candidate ids. Signature: (queryset, user) -> queryset.
-    #   Use to scope rows per user (e.g. "users see their own tickets only").
-    #   Runs only for non-staff users when search_requires_staff is False —
-    #   staff and trusted internal callers (user=None) bypass it.
+    #   Used to scope rows per user (e.g. "users see their own tickets").
+    #   Receives AnonymousUser when access == "anonymous" and the visitor
+    #   is signed out. Skipped for staff and trusted internal callers
+    #   (user=None) — they see the unfiltered set.
     #
-    # Both knobs apply to the HTTP search surface (the search page, omnibar,
-    # and the public website search). MCP tools currently run as the token
-    # holder; gate plumbing there is tracked separately.
-    requires_staff: bool = True
+    # Both knobs apply to the HTTP search surface (the admin search page,
+    # the topbar omnibar, and the public website search). MCP tools call
+    # with user=None (trusted internal); access-level gating there lives
+    # in the API token + ``requires_access`` declaration on the tool.
+    access: str = "staff"
     visibility: Callable[[Any, Any], Any] | None = None
 
     @property
