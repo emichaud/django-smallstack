@@ -80,6 +80,36 @@ def register_search_tools() -> int:
         except Exception:
             logger.exception("Failed to register MCP tool %r", tool_name)
 
+    # search_help — bundled-docs RAG. Always registered (the help system
+    # always exists in a SmallStack clone).
+    try:
+        tool(
+            "search_help",
+            (
+                "Search SmallStack's bundled help documentation (apps/smallstack/docs/) "
+                "by free-text query. Returns matching articles with a title, section, "
+                "snippet, and URL. Use this when the user asks how to configure, use, "
+                "or extend SmallStack — for example: 'how do I add a custom palette?', "
+                "'what's the MCP setup?', 'how does the search system work?'."
+            ),
+            input_schema={
+                "type": "object",
+                "properties": {
+                    "query": {"type": "string", "description": "The search text."},
+                    "limit": {
+                        "type": "integer",
+                        "description": "Max results (default 10).",
+                        "default": 10,
+                    },
+                },
+                "required": ["query"],
+            },
+            requires_access="readonly",
+        )(_search_help_handler)
+        count += 1
+    except Exception:
+        logger.exception("Failed to register search_help MCP tool")
+
     # Cross-model tool — always registered if MCP is on, even with zero
     # indexed views (returns an empty list rather than 404).
     try:
@@ -119,6 +149,19 @@ async def _search_all_handler(args: dict):
     if not query:
         return {"results": []}
     hits = await sync_to_async(_search_all)(query, limit)
+    return {"results": [h.as_dict() for h in hits]}
+
+
+async def _search_help_handler(args: dict):
+    query = (args.get("query") or "").strip()
+    limit = int(args.get("limit") or 10)
+    if not query:
+        return {"results": []}
+    try:
+        from apps.help.search import search_help_articles
+    except Exception:
+        return {"results": [], "error": "apps.help not installed"}
+    hits = await sync_to_async(search_help_articles)(query, limit)
     return {"results": [h.as_dict() for h in hits]}
 
 

@@ -92,11 +92,10 @@ def view_count() -> int:
 
 
 def search_all(query: str, limit_per_model: int = 5) -> list[SearchHit]:
-    """Cross-model search — query every registered view and return a
-    combined ranked list.
+    """Cross-model search — query every registered view + help docs and
+    return a combined ranked list.
 
-    Used by the topbar omnibar (where the user just types and wants
-    "show me anything matching"), the /smallstack/search/ page, and the
+    Used by the topbar omnibar, the /smallstack/search/ page, and the
     ``search_all`` MCP tool.
     """
     from .backends import get_backend
@@ -108,6 +107,17 @@ def search_all(query: str, limit_per_model: int = 5) -> list[SearchHit]:
             out.extend(backend.query(view, query, limit=limit_per_model))
         except Exception:
             logger.exception("search_all failed for %s", view.model_label)
+
+    # Help docs are a separate non-CRUDView source. Cheap to query and
+    # almost always present in a SmallStack install.
+    try:
+        from apps.help.search import search_help_articles
+
+        out.extend(search_help_articles(query, limit=limit_per_model))
+    except Exception:
+        # apps.help missing or query failed — silently skip.
+        pass
+
     # Stable sort by rank descending. Ranks are per-backend; comparison
     # is meaningful WITHIN a backend across models.
     out.sort(key=lambda h: h.rank, reverse=True)
