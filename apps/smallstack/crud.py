@@ -1193,6 +1193,23 @@ class CRUDView:
     filter_class = None  # Optional django-filters FilterSet class
     export_formats = []  # e.g. ["csv", "json"] — enables ?format= on API list
 
+    # Search exposure — opt-in keyword search via FTS5 (SQLite) /
+    # SearchVector+GIN (Postgres) / __icontains (fallback). When
+    # enable_search=True, the model joins the unified search index
+    # and gets:
+    #   - A search_<plural> MCP tool that Claude can call directly
+    #   - Results in /smallstack/search/?q= and the topbar Ctrl+K omnibar
+    #   - GET /api/search/?q= entries
+    # search_fields above is reused for the indexed columns.
+    # Optional knobs:
+    #   search_display  — field name for the result row title (defaults to str(obj))
+    #   search_subtitle — field name for the secondary line (truncated)
+    #   search_weight   — {field: int} per-field BM25/ts_rank weight (default 1)
+    enable_search = False
+    search_display: str | None = None
+    search_subtitle: str | None = None
+    search_weight: dict | None = None
+
     # MCP (Model Context Protocol) exposure — opt-in surface for AI clients.
     # When enable_mcp=True, apps.mcp.factory emits list_<base>, get_<singular>,
     # and (when CREATE/UPDATE/DELETE are in `actions`) create_/update_/delete_

@@ -35,6 +35,7 @@ INSTALLED_APPS = [
     "apps.mcp",  # Model Context Protocol server for AI clients
     "apps.tokenmgr",  # User-facing UI for API token management
     "apps.api",  # API admin: /smallstack/api/ health + activity + threat panel
+    "apps.search",  # Search: FTS5/PG-FTS + per-CRUDView opt-in + MCP search tools
     # Django built-in apps
     "django.contrib.admin",
     "django.contrib.auth",

@@ -38,6 +38,8 @@ urlpatterns = [
     path("mcp/", include("apps.mcp.admin_urls")),
     # API admin pages (staff-only) — Health, Activity + threat panel
     path("api/", include("apps.api.admin_urls")),
+    # Search — global keyword search page + omnibar JSON endpoint
+    path("search/", include("apps.search.urls")),
     # Token manager (self-service + staff) — list, mint, reveal, revoke
     path("", include("apps.tokenmgr.urls")),
 ]

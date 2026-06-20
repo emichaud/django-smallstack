@@ -251,6 +251,12 @@ pages:
     icon: "stethoscope"
     category: "Development"
 
+  - slug: search
+    title: "Search"
+    description: "FTS5/Postgres-FTS keyword search with per-CRUDView opt-in, topbar omnibar (Ctrl+K), and an MCP tool Claude can call"
+    icon: "search"
+    category: "Development"
+
   - slug: explorer-rest-api
     title: "Explorer REST API"
     description: "Auto-generated JSON API with authentication, search, filtering, and CSV/JSON export"

@@ -113,6 +113,9 @@
     {% endif %}
 
     <div class="topbar-right">
+        <!-- Global search omnibar (Ctrl+K). Renders only when apps.search installed. -->
+        {% if user.is_authenticated and user.is_staff %}{% include "search/_omnibar.html" %}{% endif %}
+
         <!-- Dark/Light mode toggle (always visible) -->
         <button class="theme-toggle" id="theme-toggle" type="button" aria-label="Toggle theme">
             <svg class="sun-icon" viewBox="0 0 24 24" width="20" height="20" fill="currentColor">

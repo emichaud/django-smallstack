@@ -1,0 +1,166 @@
+{% extends "smallstack/base.html" %}
+{% load theme_tags %}
+
+{% block title %}Search{% endblock %}
+
+{% block breadcrumbs %}{% endblock %}
+
+{% block page_header %}
+<div class="page-header-bleed">
+  <div class="page-header-content">
+    <h1>Search</h1>
+    <p class="page-subtitle">Find anything across {{ registered_models }} indexed model{{ registered_models|pluralize }} + the help docs.</p>
+    <nav style="margin-top: 0.5rem; font-size: 0.8rem;">
+      <a href="{% url 'website:home' %}" style="color: var(--body-quiet-color); text-decoration: none;">Home</a>
+      <span style="color: var(--body-quiet-color); margin: 0 0.3rem;">/</span>
+      <span style="color: var(--body-fg);">Search</span>
+    </nav>
+  </div>
+</div>
+{% endblock %}
+
+{% block content %}
+<form method="get" action="{% url 'search:page' %}" style="margin-bottom: 24px;">
+  <div style="position: relative;">
+    <svg viewBox="0 0 24 24" width="20" height="20"
+         style="position: absolute; left: 14px; top: 50%; transform: translateY(-50%);
+                color: var(--body-quiet-color); pointer-events: none;"
+         fill="currentColor">
+      <path d="M15.5 14h-.79l-.28-.27A6.5 6.5 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16
+               c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14
+               5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
+    </svg>
+    <input type="search"
+           name="q"
+           value="{{ query }}"
+           autofocus
+           autocomplete="off"
+           placeholder="Search models and docs… try acme, &quot;customer support&quot;, refund*, api -slow"
+           style="
+             width: 100%;
+             padding: 14px 14px 14px 44px;
+             font-size: 1rem;
+             background: var(--card-bg);
+             border: 1px solid var(--card-border);
+             color: var(--body-fg);
+             border-radius: 8px;
+             outline: none;
+           "
+           onfocus="this.style.borderColor='var(--primary)'"
+           onblur="this.style.borderColor='var(--card-border)'">
+  </div>
+</form>
+
+{% if query %}
+  <div style="display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 16px;">
+    <h2 style="margin: 0;">{{ total_hits }} result{{ total_hits|pluralize }} for "{{ query }}"</h2>
+    {% if total_hits == 0 %}
+      <span style="color: var(--body-quiet-color); font-size: 0.85rem;">
+        Try a shorter query, a prefix like <code>{{ query|slice:":3" }}*</code>, or
+        check <a href="{% url 'search:page' %}" style="color: var(--primary);">clear search</a>.
+      </span>
+    {% endif %}
+  </div>
+
+  {% for group in grouped %}
+    <div class="card" style="margin-bottom: 16px;">
+      <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
+        <h3 style="margin: 0; font-size: 0.95rem;">
+          {{ group.model_verbose }}
+          <span style="
+            display: inline-block;
+            margin-left: 8px;
+            padding: 2px 8px;
+            background: color-mix(in srgb, var(--primary) 15%, var(--card-bg));
+            color: var(--primary);
+            border-radius: 999px;
+            font-size: 0.72rem;
+            font-weight: 600;
+          ">{{ group.count }}</span>
+        </h3>
+        <span style="font-size: 0.75rem; color: var(--body-quiet-color); font-family: var(--font-monospace, ui-monospace, Menlo, monospace);">{{ group.model_label }}</span>
+      </div>
+      <div class="card-body" style="padding: 0;">
+        {% for hit in group.hits %}
+          <a href="{{ hit.url|default:'#' }}" style="
+            display: block;
+            padding: 14px 18px;
+            text-decoration: none;
+            color: var(--body-fg);
+            border-bottom: 1px solid var(--hairline-color, var(--card-border));
+            transition: background 0.1s;
+          "
+          onmouseover="this.style.background='color-mix(in srgb, var(--primary) 6%, var(--card-bg))'"
+          onmouseout="this.style.background='transparent'">
+            <div style="font-weight: 600; margin-bottom: 2px;">{{ hit.display }}</div>
+            {% if hit.subtitle or hit.snippet %}
+              <div style="font-size: 0.85rem; color: var(--body-quiet-color); line-height: 1.5;">
+                {{ hit.snippet|default:hit.subtitle }}
+              </div>
+            {% endif %}
+          </a>
+        {% endfor %}
+      </div>
+    </div>
+  {% empty %}
+    <div class="card">
+      <div class="card-body" style="text-align: center; padding: 40px 20px; color: var(--body-quiet-color);">
+        <p style="margin: 0 0 8px 0;">No matches for "{{ query }}".</p>
+        <p style="margin: 0; font-size: 0.85rem;">
+          The search index covers {{ registered_models }} model{{ registered_models|pluralize }}.
+          Models opt in via <code>enable_search = True</code> on their CRUDView.
+        </p>
+      </div>
+    </div>
+  {% endfor %}
+{% else %}
+  <div class="card">
+    <div class="card-body" style="padding: 24px;">
+      <h3 style="margin: 0 0 12px 0;">Query syntax</h3>
+      <table style="width: 100%; border-collapse: collapse; font-size: 0.9rem;">
+        <tr>
+          <td style="padding: 6px 12px 6px 0; font-family: var(--font-monospace, ui-monospace, Menlo, monospace);"><code>acme</code></td>
+          <td style="padding: 6px 0; color: var(--body-quiet-color);">Single word</td>
+        </tr>
+        <tr>
+          <td style="padding: 6px 12px 6px 0; font-family: var(--font-monospace, ui-monospace, Menlo, monospace);"><code>acme support</code></td>
+          <td style="padding: 6px 0; color: var(--body-quiet-color);">Both words (implicit AND)</td>
+        </tr>
+        <tr>
+          <td style="padding: 6px 12px 6px 0; font-family: var(--font-monospace, ui-monospace, Menlo, monospace);"><code>"customer support"</code></td>
+          <td style="padding: 6px 0; color: var(--body-quiet-color);">Exact phrase</td>
+        </tr>
+        <tr>
+          <td style="padding: 6px 12px 6px 0; font-family: var(--font-monospace, ui-monospace, Menlo, monospace);"><code>refund*</code></td>
+          <td style="padding: 6px 0; color: var(--body-quiet-color);">Prefix match (also <code>refunding</code>, <code>refunded</code>)</td>
+        </tr>
+        <tr>
+          <td style="padding: 6px 12px 6px 0; font-family: var(--font-monospace, ui-monospace, Menlo, monospace);"><code>acme OR beta</code></td>
+          <td style="padding: 6px 0; color: var(--body-quiet-color);">Either word</td>
+        </tr>
+        <tr>
+          <td style="padding: 6px 12px 6px 0; font-family: var(--font-monospace, ui-monospace, Menlo, monospace);"><code>api -slow</code></td>
+          <td style="padding: 6px 0; color: var(--body-quiet-color);">API but not <code>slow</code></td>
+        </tr>
+      </table>
+      <p style="margin: 16px 0 0 0; font-size: 0.85rem; color: var(--body-quiet-color);">
+        Press <kbd style="
+          padding: 2px 6px;
+          font-family: var(--font-monospace, ui-monospace, Menlo, monospace);
+          font-size: 0.8rem;
+          background: var(--card-header-bg);
+          border: 1px solid var(--card-border);
+          border-radius: 4px;
+        ">Ctrl</kbd> + <kbd style="
+          padding: 2px 6px;
+          font-family: var(--font-monospace, ui-monospace, Menlo, monospace);
+          font-size: 0.8rem;
+          background: var(--card-header-bg);
+          border: 1px solid var(--card-border);
+          border-radius: 4px;
+        ">K</kbd> from any page for the omnibar.
+      </p>
+    </div>
+  </div>
+{% endif %}
+{% endblock %}

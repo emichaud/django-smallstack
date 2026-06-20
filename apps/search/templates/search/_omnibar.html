@@ -1,0 +1,45 @@
+{% comment %}
+Topbar omnibar. Included from apps/smallstack/templates/smallstack/includes/topbar.html.
+Mount inside the topbar between the brand and the user menu.
+
+The button opens an overlay (#search-omnibar) with an input and a
+results list. omnibar.js wires Ctrl+K → open, type → debounced fetch,
+Esc → close, arrow keys + Enter → navigate results.
+{% endcomment %}
+<button type="button"
+        class="omnibar-trigger"
+        aria-label="Open search (Ctrl+K)"
+        onclick="window.__smallstackOmnibar && window.__smallstackOmnibar.open()">
+  <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+    <path d="M15.5 14h-.79l-.28-.27A6.5 6.5 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16
+             c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14
+             5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
+  </svg>
+  <span class="omnibar-hint">Search</span>
+  <kbd class="omnibar-kbd">⌘K</kbd>
+</button>
+
+<div id="search-omnibar" class="omnibar-overlay" hidden>
+  <div class="omnibar-modal">
+    <div class="omnibar-input-row">
+      <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"
+           class="omnibar-search-icon">
+        <path d="M15.5 14h-.79l-.28-.27A6.5 6.5 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16
+                 c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14
+                 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
+      </svg>
+      <input type="search"
+             id="omnibar-input"
+             autocomplete="off"
+             placeholder="Search…">
+      <button type="button" class="omnibar-close" aria-label="Close"
+              onclick="window.__smallstackOmnibar && window.__smallstackOmnibar.close()">
+        Esc
+      </button>
+    </div>
+    <div id="omnibar-results" class="omnibar-results"></div>
+    <div class="omnibar-footer">
+      <a href="{% url 'search:page' %}" id="omnibar-fullpage-link">Open full search →</a>
+    </div>
+  </div>
+</div>
