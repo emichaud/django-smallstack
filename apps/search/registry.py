@@ -91,6 +91,75 @@ def view_count() -> int:
     return len(_search_registry)
 
 
+def get_indexed_sources() -> list[dict]:
+    """Structured info on every searchable source.
+
+    Returns one entry per opted-in CRUDView plus one entry for the help
+    docs (if installed). Used by the search page's "what's indexed"
+    panel and the omnibar's empty-state. Cheap — derived from in-memory
+    registry + a count query on the help index.
+    """
+    sources: list[dict] = []
+    for view in _search_registry.values():
+        # Sample a couple of records' display values as example searches.
+        examples: list[str] = []
+        try:
+            qs = view.model.objects.all()
+            if view.display_field:
+                values = qs.values_list(view.display_field, flat=True)[:3]
+                examples = [str(v).split()[0] for v in values if v][:2]
+        except Exception:
+            pass
+
+        sources.append({
+            "kind": "model",
+            "label": view.model_verbose,
+            "model_label": view.model_label,
+            "fields": view.fields,
+            "examples": examples,
+            "url": _list_url_for(view),
+        })
+
+    # Append help docs as a separate source.
+    try:
+        from apps.help.search import help_article_count
+
+        n = help_article_count()
+        if n > 0:
+            sources.append({
+                "kind": "help",
+                "label": "Help & Docs",
+                "model_label": "help.HelpArticle",
+                "fields": ["title", "section", "text"],
+                "examples": ["custom palette", "MCP setup", "API tokens"],
+                "url": "/smallstack/help/",
+                "count": n,
+            })
+    except Exception:
+        pass
+
+    return sources
+
+
+def _list_url_for(view) -> str | None:
+    """Best-effort URL to the model's list page (if a URL name is exposed)."""
+    from django.urls import NoReverseMatch, reverse
+
+    url_base = getattr(view.view_cls, "url_base", None)
+    if not url_base:
+        return None
+    candidates = [
+        f"{url_base}-list",
+        f"{url_base}_list",
+    ]
+    for name in candidates:
+        try:
+            return reverse(name)
+        except NoReverseMatch:
+            continue
+    return None
+
+
 def search_all(query: str, limit_per_model: int = 5) -> list[SearchHit]:
     """Cross-model search — query every registered view + help docs and
     return a combined ranked list.

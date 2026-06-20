@@ -1,149 +1,452 @@
-/* SmallStack search — topbar omnibar styling. Uses palette variables
-   so the omnibar renders correctly across every dark palette. */
+/* ================================================================
+   SmallStack search — topbar omnibar styling.
 
+   Shares the editorial-cinematic aesthetic of /smallstack/search/:
+   italic serif typography, monospace labels, hairline rules. Compact
+   enough to feel like a command palette but typographically
+   confident.
+
+   All values reference palette tokens so the omnibar renders
+   correctly across every dark palette (django / blue / purple /
+   orange / high-contrast).
+   ================================================================ */
+
+/* ── Trigger button in the topbar ──────────────────────────────── */
 .omnibar-trigger {
     display: inline-flex;
     align-items: center;
     gap: 8px;
-    padding: 6px 12px;
-    background: color-mix(in srgb, var(--header-fg, #fff) 10%, transparent);
-    border: 1px solid color-mix(in srgb, var(--header-fg, #fff) 18%, transparent);
+    padding: 6px 8px 6px 11px;
+    background: color-mix(in srgb, var(--header-fg, #fff) 8%, transparent);
+    border: 1px solid color-mix(in srgb, var(--header-fg, #fff) 14%, transparent);
     color: var(--header-fg, #fff);
-    border-radius: 6px;
-    font-size: 0.85rem;
+    border-radius: 5px;
+    font-size: 0.78rem;
+    font-family: inherit;
     cursor: pointer;
-    transition: background 0.15s, border-color 0.15s;
+    transition: background 0.18s, border-color 0.18s;
 }
 .omnibar-trigger:hover {
-    background: color-mix(in srgb, var(--header-fg, #fff) 18%, transparent);
-    border-color: color-mix(in srgb, var(--header-fg, #fff) 30%, transparent);
+    background: color-mix(in srgb, var(--header-fg, #fff) 16%, transparent);
+    border-color: color-mix(in srgb, var(--header-fg, #fff) 28%, transparent);
+}
+.omnibar-trigger-icon {
+    color: color-mix(in srgb, var(--header-fg, #fff) 65%, transparent);
 }
 .omnibar-trigger .omnibar-hint {
-    color: color-mix(in srgb, var(--header-fg, #fff) 70%, transparent);
+    color: color-mix(in srgb, var(--header-fg, #fff) 75%, transparent);
 }
 .omnibar-trigger .omnibar-kbd {
     padding: 1px 6px;
-    background: color-mix(in srgb, var(--header-fg, #fff) 12%, transparent);
+    background: color-mix(in srgb, var(--header-fg, #fff) 10%, transparent);
     border-radius: 3px;
-    font-size: 0.72rem;
-    font-family: var(--font-monospace, ui-monospace, Menlo, monospace);
-    color: color-mix(in srgb, var(--header-fg, #fff) 80%, transparent);
+    font-size: 0.7rem;
+    font-family: var(--font-monospace, ui-monospace, SFMono-Regular, Menlo, monospace);
+    color: color-mix(in srgb, var(--header-fg, #fff) 78%, transparent);
+    letter-spacing: 0.04em;
 }
 
+/* ── Overlay backdrop ──────────────────────────────────────────── */
 .omnibar-overlay {
     position: fixed;
     inset: 0;
-    background: rgba(0, 0, 0, 0.5);
+    background: color-mix(in srgb, var(--body-bg) 80%, transparent);
+    backdrop-filter: blur(8px) saturate(1.1);
+    -webkit-backdrop-filter: blur(8px) saturate(1.1);
     z-index: 1000;
     display: flex;
     align-items: flex-start;
     justify-content: center;
-    padding-top: 12vh;
+    padding-top: 14vh;
+    animation: omnibarFade 0.18s ease-out;
 }
-/* The `hidden` HTML attribute sets display: none, but class selectors
-   have higher specificity than [hidden]. Restore the precedence so
-   the overlay actually hides when JS sets overlay.hidden = true. */
+/* The `hidden` attribute defaults to display:none, but a class
+   selector has higher specificity than [hidden]. Restore precedence. */
 .omnibar-overlay[hidden] {
     display: none;
 }
+@keyframes omnibarFade {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+/* ── Modal itself ──────────────────────────────────────────────── */
 .omnibar-modal {
-    width: min(640px, 92vw);
-    background: var(--card-bg);
-    border: 1px solid var(--card-border);
-    border-radius: 12px;
-    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.4);
+    width: min(660px, 92vw);
+    background:
+        linear-gradient(180deg,
+            color-mix(in srgb, var(--primary) 4%, var(--card-bg)) 0%,
+            var(--card-bg) 40%,
+            var(--card-bg) 100%);
+    border: 1px solid color-mix(in srgb, var(--body-fg) 14%, transparent);
+    border-radius: 14px;
+    box-shadow:
+        0 32px 80px -16px rgba(0, 0, 0, 0.55),
+        0 0 0 1px color-mix(in srgb, var(--primary) 10%, transparent);
     overflow: hidden;
     display: flex;
     flex-direction: column;
-    max-height: 70vh;
+    max-height: 72vh;
+    animation: omnibarPop 0.22s cubic-bezier(.18,.8,.25,1);
 }
+@keyframes omnibarPop {
+    from { opacity: 0; transform: translateY(-6px) scale(0.98); }
+    to { opacity: 1; transform: none; }
+}
+
+/* ── Eyebrow (the top bar above the input) ────────────────────── */
+.omnibar-eyebrow {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.85rem 1.3rem 0.6rem;
+    font-family: var(--font-monospace, ui-monospace, Menlo, monospace);
+    font-size: 0.66rem;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+}
+.omnibar-eyebrow .dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 999px;
+    background: var(--primary);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 22%, transparent);
+}
+.omnibar-eyebrow .eyebrow-label {
+    color: var(--body-fg);
+    font-weight: 600;
+}
+.omnibar-eyebrow .eyebrow-coda {
+    margin-left: auto;
+    color: var(--body-quiet-color);
+    font-weight: 500;
+}
+
+/* ── Input row — the focal moment ─────────────────────────────── */
 .omnibar-input-row {
     display: flex;
     align-items: center;
-    gap: 10px;
-    padding: 14px 16px;
-    border-bottom: 1px solid var(--card-border);
+    gap: 0.85rem;
+    padding: 0.4rem 1.3rem 1rem;
+    border-bottom: 1px solid color-mix(in srgb, var(--body-fg) 12%, transparent);
 }
-.omnibar-search-icon { color: var(--body-quiet-color); flex: 0 0 auto; }
+.omnibar-search-icon {
+    color: var(--body-quiet-color);
+    flex: 0 0 auto;
+    transition: color 0.18s;
+}
+.omnibar-input-row:focus-within .omnibar-search-icon {
+    color: var(--primary);
+}
 #omnibar-input {
     flex: 1;
     background: transparent;
     border: none;
     outline: none;
     color: var(--body-fg);
-    font-size: 1rem;
-    font-family: inherit;
+    font-family: ui-serif, "Iowan Old Style", Georgia, "Times New Roman", serif;
+    font-style: italic;
+    font-weight: 500;
+    font-size: 1.45rem;
+    line-height: 1.2;
+    padding: 0;
 }
-.omnibar-close {
-    padding: 3px 8px;
-    background: var(--card-header-bg);
-    border: 1px solid var(--card-border);
-    color: var(--body-quiet-color);
-    border-radius: 4px;
-    font-size: 0.75rem;
-    font-family: var(--font-monospace, ui-monospace, Menlo, monospace);
-    cursor: pointer;
+#omnibar-input::placeholder {
+    color: color-mix(in srgb, var(--body-fg) 32%, transparent);
+    font-style: italic;
 }
-.omnibar-close:hover {
-    color: var(--body-fg);
-    border-color: var(--primary);
+/* Custom caret indicator that pulses with focus */
+.omnibar-input-caret {
+    width: 2px;
+    height: 22px;
+    background: color-mix(in srgb, var(--body-fg) 25%, transparent);
+    flex: 0 0 auto;
+    transition: background 0.18s, box-shadow 0.18s;
+    border-radius: 1px;
 }
+.omnibar-input-row:focus-within .omnibar-input-caret {
+    background: var(--primary);
+    box-shadow: 0 0 10px color-mix(in srgb, var(--primary) 60%, transparent);
+    animation: caretBlink 1.2s ease-in-out infinite;
+}
+@keyframes caretBlink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.35; }
+}
+
+/* ── Results list ──────────────────────────────────────────────── */
 .omnibar-results {
     overflow-y: auto;
     flex: 1;
     min-height: 0;
+    padding: 0.25rem 0;
 }
+/* Custom scrollbar — discreet */
+.omnibar-results::-webkit-scrollbar {
+    width: 8px;
+}
+.omnibar-results::-webkit-scrollbar-track {
+    background: transparent;
+}
+.omnibar-results::-webkit-scrollbar-thumb {
+    background: color-mix(in srgb, var(--body-fg) 12%, transparent);
+    border-radius: 4px;
+}
+.omnibar-results::-webkit-scrollbar-thumb:hover {
+    background: color-mix(in srgb, var(--body-fg) 20%, transparent);
+}
+
 .omnibar-row {
-    display: block;
-    padding: 12px 16px;
+    display: grid;
+    grid-template-columns: 3px 1fr auto;
+    gap: 0.85rem;
+    padding: 0.75rem 1.3rem;
     text-decoration: none;
     color: var(--body-fg);
-    border-bottom: 1px solid var(--hairline-color, var(--card-border));
-    transition: background 0.08s;
+    border-bottom: 1px solid color-mix(in srgb, var(--body-fg) 5%, transparent);
+    transition: background 0.12s;
+    position: relative;
+}
+.omnibar-row::before {
+    content: "";
+    background: transparent;
+    border-radius: 1px;
+    transition: background 0.12s;
 }
 .omnibar-row:hover,
 .omnibar-row.active {
-    background: color-mix(in srgb, var(--primary) 10%, var(--card-bg));
+    background: color-mix(in srgb, var(--primary) 7%, transparent);
 }
+.omnibar-row:hover::before,
+.omnibar-row.active::before {
+    background: var(--primary);
+}
+.omnibar-row-text { min-width: 0; }
 .omnibar-row-main {
     display: flex;
-    justify-content: space-between;
     align-items: baseline;
-    gap: 12px;
-    margin-bottom: 2px;
+    gap: 0.6rem;
+    margin-bottom: 0.18rem;
 }
-.omnibar-row-title { font-weight: 600; }
+.omnibar-row-title {
+    font-family: ui-serif, "Iowan Old Style", Georgia, serif;
+    font-style: italic;
+    font-weight: 500;
+    font-size: 1.02rem;
+    color: var(--body-fg);
+    line-height: 1.3;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
 .omnibar-row-model {
-    font-size: 0.72rem;
+    font-family: var(--font-monospace, ui-monospace, Menlo, monospace);
+    font-size: 0.62rem;
     color: var(--body-quiet-color);
     text-transform: uppercase;
-    letter-spacing: 0.05em;
+    letter-spacing: 0.14em;
+    flex: 0 0 auto;
+    padding-top: 0.1rem;
 }
 .omnibar-row-snippet {
     font-size: 0.82rem;
-    color: var(--body-quiet-color);
+    color: color-mix(in srgb, var(--body-fg) 60%, transparent);
     line-height: 1.5;
     overflow: hidden;
     text-overflow: ellipsis;
     display: -webkit-box;
-    -webkit-line-clamp: 2;
+    -webkit-line-clamp: 1;
     -webkit-box-orient: vertical;
 }
+.omnibar-row-arrow {
+    font-family: ui-serif, Georgia, serif;
+    font-style: italic;
+    font-size: 1.1rem;
+    color: color-mix(in srgb, var(--body-fg) 25%, transparent);
+    transition: color 0.15s, transform 0.18s;
+    align-self: center;
+}
+.omnibar-row:hover .omnibar-row-arrow,
+.omnibar-row.active .omnibar-row-arrow {
+    color: var(--primary);
+    transform: translateX(3px);
+}
+
+/* ── Empty / loading / no-results state ────────────────────────── */
 .omnibar-empty {
-    padding: 24px 16px;
+    padding: 2.2rem 1.3rem;
     text-align: center;
     color: var(--body-quiet-color);
-    font-size: 0.9rem;
+    font-family: ui-serif, Georgia, serif;
+    font-style: italic;
+    font-size: 0.95rem;
 }
+.omnibar-empty .empty-coda {
+    display: block;
+    margin-top: 0.3rem;
+    font-family: var(--font-monospace, ui-monospace, Menlo, monospace);
+    font-style: normal;
+    font-size: 0.7rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: color-mix(in srgb, var(--body-quiet-color) 70%, transparent);
+}
+
+/* ── Discovery panel (shown when input is empty) ──────────────── */
+.omnibar-discovery {
+    padding: 0.6rem 0;
+}
+.omnibar-discovery-head {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.4rem 1.3rem 0.7rem;
+    font-family: var(--font-monospace, ui-monospace, Menlo, monospace);
+    font-size: 0.62rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--body-quiet-color);
+    border-bottom: 1px solid color-mix(in srgb, var(--body-fg) 7%, transparent);
+    margin-bottom: 0.3rem;
+}
+.omnibar-discovery-head .dot {
+    width: 5px;
+    height: 5px;
+    border-radius: 999px;
+    background: var(--primary);
+}
+.omnibar-source {
+    padding: 0.7rem 1.3rem;
+    border-bottom: 1px solid color-mix(in srgb, var(--body-fg) 5%, transparent);
+}
+.omnibar-source:last-of-type { border-bottom: none; }
+.omnibar-source-head {
+    display: flex;
+    align-items: baseline;
+    gap: 0.7rem;
+    margin-bottom: 0.4rem;
+}
+.omnibar-source-kind {
+    font-family: var(--font-monospace, ui-monospace, Menlo, monospace);
+    font-size: 0.58rem;
+    letter-spacing: 0.18em;
+    color: var(--primary);
+    font-weight: 700;
+    background: color-mix(in srgb, var(--primary) 14%, transparent);
+    padding: 2px 6px;
+    border-radius: 3px;
+}
+.omnibar-source-title {
+    font-family: ui-serif, Georgia, serif;
+    font-style: italic;
+    font-weight: 500;
+    color: var(--body-fg);
+    font-size: 0.95rem;
+}
+.omnibar-source-fields {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.3rem;
+    margin-bottom: 0.4rem;
+}
+.omnibar-source-fields code {
+    font-family: var(--font-monospace, ui-monospace, Menlo, monospace);
+    font-size: 0.7rem;
+    color: color-mix(in srgb, var(--body-fg) 75%, transparent);
+    background: color-mix(in srgb, var(--body-fg) 5%, var(--card-bg));
+    padding: 1px 6px;
+    border-radius: 3px;
+}
+.omnibar-source-examples {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+}
+.omnibar-example {
+    font-family: var(--font-monospace, ui-monospace, Menlo, monospace);
+    font-size: 0.72rem;
+    color: var(--primary);
+    background: color-mix(in srgb, var(--primary) 8%, transparent);
+    padding: 3px 9px;
+    border-radius: 999px;
+    border: 1px solid color-mix(in srgb, var(--primary) 25%, transparent);
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s;
+}
+.omnibar-example:hover {
+    background: color-mix(in srgb, var(--primary) 18%, transparent);
+    border-color: var(--primary);
+}
+.omnibar-discovery-foot {
+    padding: 0.7rem 1.3rem;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.4rem;
+    border-top: 1px solid color-mix(in srgb, var(--body-fg) 7%, transparent);
+    font-family: var(--font-monospace, ui-monospace, Menlo, monospace);
+    font-size: 0.65rem;
+    color: var(--body-quiet-color);
+    letter-spacing: 0.06em;
+}
+.omnibar-discovery-foot code {
+    font-family: inherit;
+    font-size: 0.7rem;
+    color: var(--body-fg);
+    background: color-mix(in srgb, var(--body-fg) 6%, var(--card-bg));
+    padding: 1px 6px;
+    border-radius: 3px;
+    letter-spacing: 0;
+}
+
+/* ── Footer ────────────────────────────────────────────────────── */
 .omnibar-footer {
-    padding: 10px 16px;
-    border-top: 1px solid var(--card-border);
-    background: var(--card-header-bg);
-    text-align: right;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.7rem 1.3rem;
+    border-top: 1px solid color-mix(in srgb, var(--body-fg) 10%, transparent);
+    background: color-mix(in srgb, var(--body-fg) 2%, var(--card-bg));
+    font-family: var(--font-monospace, ui-monospace, Menlo, monospace);
+    font-size: 0.66rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
 }
-.omnibar-footer a {
+.omnibar-keynav {
+    display: flex;
+    gap: 0.85rem;
+    color: var(--body-quiet-color);
+}
+.omnibar-keynav .key-hint {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+}
+.omnibar-keynav kbd {
+    padding: 1px 5px;
+    background: color-mix(in srgb, var(--body-fg) 8%, var(--card-bg));
+    border: 1px solid color-mix(in srgb, var(--body-fg) 14%, transparent);
+    border-radius: 3px;
+    font-family: inherit;
+    font-size: 0.62rem;
+    color: var(--body-fg);
+    text-transform: none;
+    letter-spacing: 0;
+}
+.omnibar-fullpage {
     color: var(--primary);
     text-decoration: none;
-    font-size: 0.85rem;
+    font-weight: 600;
+    transition: opacity 0.15s;
 }
-.omnibar-footer a:hover { text-decoration: underline; }
+.omnibar-fullpage:hover { opacity: 0.75; }
+.omnibar-fullpage .arrow {
+    display: inline-block;
+    transition: transform 0.18s;
+    font-family: ui-serif, Georgia, serif;
+    font-style: italic;
+    margin-left: 0.15rem;
+}
+.omnibar-fullpage:hover .arrow {
+    transform: translateX(3px);
+}

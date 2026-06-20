@@ -17,7 +17,7 @@ from django.views.generic import TemplateView, View
 from apps.smallstack.mixins import StaffRequiredMixin
 
 from .backends.base import SearchHit
-from .registry import all_views, search_all, view_count
+from .registry import all_views, get_indexed_sources, search_all, view_count
 
 
 class SearchPageView(StaffRequiredMixin, TemplateView):
@@ -36,6 +36,7 @@ class SearchPageView(StaffRequiredMixin, TemplateView):
 
         ctx["query"] = query
         ctx["registered_models"] = view_count()
+        ctx["indexed_sources"] = get_indexed_sources()
 
         if not query:
             ctx["grouped"] = []
@@ -59,7 +60,15 @@ class OmnibarSearchView(StaffRequiredMixin, View):
         query = (request.GET.get("q") or "").strip()
         limit = int(request.GET.get("limit") or 8)
         if not query:
-            return JsonResponse({"query": "", "results": []})
+            # Empty query → return discoverability payload so the
+            # omnibar can show "here's what you can search" instead
+            # of a blank dropdown.
+            return JsonResponse({
+                "query": "",
+                "results": [],
+                "sources": get_indexed_sources(),
+                "indexed_model_count": view_count(),
+            })
 
         hits = search_all(query, limit_per_model=max(3, limit // max(1, view_count() or 1)))
         # Trim to the requested overall limit AFTER cross-model ranking.

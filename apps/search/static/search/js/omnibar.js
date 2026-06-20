@@ -21,6 +21,8 @@
     function open() {
       overlay.hidden = false;
       requestAnimationFrame(() => input.focus());
+      // If the input is empty, show the discoverability panel.
+      if (!input.value.trim()) renderSourcesPanel();
     }
 
     function close() {
@@ -79,7 +81,7 @@
 
     async function fetchResults(q) {
       if (!q) {
-        results.innerHTML = "";
+        renderSourcesPanel();
         return;
       }
       try {
@@ -95,6 +97,81 @@
       } catch (err) {
         results.innerHTML = `<div class="omnibar-empty">Search failed: ${err.message}</div>`;
       }
+    }
+
+    let sourcesCache = null;
+
+    async function renderSourcesPanel() {
+      // Cache for the session — sources rarely change between opens.
+      if (!sourcesCache) {
+        try {
+          const resp = await fetch(`${OMNIBAR_URL}?q=`, {
+            headers: { Accept: "application/json" },
+          });
+          if (resp.ok) {
+            const data = await resp.json();
+            sourcesCache = data.sources || [];
+          }
+        } catch (err) {
+          // Silent — fall through to the static empty message
+        }
+      }
+
+      if (!sourcesCache || sourcesCache.length === 0) {
+        results.innerHTML = `
+          <div class="omnibar-empty">
+            Type to begin searching.
+            <span class="empty-coda">Indexed sources will appear when models opt in.</span>
+          </div>
+        `;
+        return;
+      }
+
+      const sourceRows = sourcesCache.map(src => {
+        const kind = src.kind === "help" ? "DOC" : "MODEL";
+        const count = src.count ? ` · ${src.count} articles` : "";
+        const examples = (src.examples || []).slice(0, 3).map(ex => `
+          <button type="button" class="omnibar-example" data-query="${escapeHtml(ex)}">${escapeHtml(ex)}</button>
+        `).join("");
+        const fields = (src.fields || []).slice(0, 4).map(f => `<code>${escapeHtml(f)}</code>`).join(" ");
+        return `
+          <div class="omnibar-source">
+            <div class="omnibar-source-head">
+              <span class="omnibar-source-kind">${kind}</span>
+              <span class="omnibar-source-title">${escapeHtml(src.label)}${count}</span>
+            </div>
+            <div class="omnibar-source-fields">${fields}</div>
+            ${examples ? `<div class="omnibar-source-examples">${examples}</div>` : ""}
+          </div>
+        `;
+      }).join("");
+
+      results.innerHTML = `
+        <div class="omnibar-discovery">
+          <div class="omnibar-discovery-head">
+            <span class="dot" aria-hidden="true"></span>
+            <span>Searching across ${sourcesCache.length} source${sourcesCache.length === 1 ? "" : "s"}</span>
+          </div>
+          ${sourceRows}
+          <div class="omnibar-discovery-foot">
+            <span>Syntax:</span>
+            <code>acme support</code>
+            <code>"customer support"</code>
+            <code>refund*</code>
+            <code>api -slow</code>
+          </div>
+        </div>
+      `;
+
+      // Click an example pill → fill the input and fetch.
+      results.querySelectorAll(".omnibar-example").forEach(btn => {
+        btn.addEventListener("click", () => {
+          const q = btn.dataset.query;
+          input.value = q;
+          input.focus();
+          fetchResults(q);
+        });
+      });
     }
 
     input.addEventListener("input", () => {

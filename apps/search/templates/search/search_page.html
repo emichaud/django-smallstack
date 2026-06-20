@@ -153,6 +153,105 @@
     color: var(--body-fg);
   }
 
+  /* ── Empty state — what's indexed ───────────────────────────── */
+  .sources-panel {
+    margin-top: 4rem;
+    display: grid;
+    grid-template-columns: 1fr 2fr;
+    gap: 3rem;
+    align-items: start;
+  }
+  @media (max-width: 720px) {
+    .sources-panel { grid-template-columns: 1fr; gap: 1.5rem; }
+  }
+  .sources-label {
+    font-family: var(--font-monospace, ui-monospace, Menlo, monospace);
+    font-size: 0.7rem;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--body-quiet-color);
+    border-top: 1px solid var(--body-fg);
+    padding-top: 0.8rem;
+  }
+  .sources-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1.4rem;
+  }
+  .source-card {
+    padding: 1.1rem 1.3rem;
+    background: color-mix(in srgb, var(--body-fg) 3%, var(--card-bg));
+    border: 1px solid color-mix(in srgb, var(--body-fg) 10%, transparent);
+    border-left: 3px solid var(--primary);
+    border-radius: 6px;
+  }
+  .source-card-head {
+    display: flex;
+    align-items: baseline;
+    gap: 0.85rem;
+    margin-bottom: 0.7rem;
+  }
+  .source-card-kind {
+    font-family: var(--font-monospace, ui-monospace, Menlo, monospace);
+    font-size: 0.62rem;
+    letter-spacing: 0.16em;
+    color: var(--primary);
+    font-weight: 700;
+  }
+  .source-card-title {
+    font-family: ui-serif, "Iowan Old Style", Georgia, serif;
+    font-style: italic;
+    font-size: 1.15rem;
+    font-weight: 500;
+    color: var(--body-fg);
+    flex: 1;
+  }
+  .source-card-count {
+    font-family: var(--font-monospace, ui-monospace, Menlo, monospace);
+    font-size: 0.7rem;
+    color: var(--body-quiet-color);
+    letter-spacing: 0.06em;
+  }
+  .source-card-fields,
+  .source-card-examples {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.45rem;
+    margin-top: 0.45rem;
+  }
+  .source-card-fields .fields-label,
+  .source-card-examples .examples-label {
+    font-family: var(--font-monospace, ui-monospace, Menlo, monospace);
+    font-size: 0.6rem;
+    letter-spacing: 0.18em;
+    color: var(--body-quiet-color);
+    margin-right: 0.4rem;
+  }
+  .source-card-fields code {
+    font-family: var(--font-monospace, ui-monospace, Menlo, monospace);
+    font-size: 0.75rem;
+    color: var(--body-fg);
+    background: color-mix(in srgb, var(--body-fg) 6%, var(--card-bg));
+    padding: 2px 7px;
+    border-radius: 3px;
+  }
+  .example-pill {
+    font-family: var(--font-monospace, ui-monospace, Menlo, monospace);
+    font-size: 0.75rem;
+    color: var(--primary);
+    background: color-mix(in srgb, var(--primary) 8%, transparent);
+    padding: 3px 9px;
+    border-radius: 999px;
+    text-decoration: none;
+    border: 1px solid color-mix(in srgb, var(--primary) 25%, transparent);
+    transition: background 0.15s, border-color 0.15s;
+  }
+  .example-pill:hover {
+    background: color-mix(in srgb, var(--primary) 18%, transparent);
+    border-color: var(--primary);
+  }
+
   /* ── Empty state — syntax poster ────────────────────────────── */
   .syntax-poster {
     margin-top: 4rem;
@@ -537,6 +636,36 @@
     </div>
 
   {% else %}
+    <!-- ───────── What's indexed ───────── -->
+    {% if indexed_sources %}
+    <div class="sources-panel search-fade d4">
+      <div class="sources-label">What's<br>indexed</div>
+      <div class="sources-list">
+        {% for source in indexed_sources %}
+          <div class="source-card">
+            <div class="source-card-head">
+              <span class="source-card-kind">{% if source.kind == "help" %}DOC{% else %}MODEL{% endif %}</span>
+              <span class="source-card-title">{{ source.label }}</span>
+              {% if source.count %}<span class="source-card-count">{{ source.count }} articles</span>{% endif %}
+            </div>
+            <div class="source-card-fields">
+              <span class="fields-label">FIELDS</span>
+              {% for field in source.fields %}<code>{{ field }}</code>{% endfor %}
+            </div>
+            {% if source.examples %}
+              <div class="source-card-examples">
+                <span class="examples-label">TRY</span>
+                {% for ex in source.examples %}
+                  <a href="?q={{ ex }}" class="example-pill">{{ ex }}</a>
+                {% endfor %}
+              </div>
+            {% endif %}
+          </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
     <!-- ───────── Syntax poster ───────── -->
     <div class="syntax-poster search-fade d4">
       <div class="syntax-poster-label">Query<br>syntax</div>
