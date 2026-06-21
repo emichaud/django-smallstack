@@ -7,15 +7,33 @@ from django.contrib.auth import get_user_model
 from django.db.models import Avg, Count, Max
 from django.http import HttpResponse
 from django.utils import timezone
+from django.utils.html import format_html
+from django.utils.safestring import mark_safe
 
 from apps.activity.models import RequestLog
 from apps.smallstack.crud import Action, CRUDView
 from apps.smallstack.mixins import StaffRequiredMixin
 
 from .forms import UserAccountForm, UserProfileForm
-from .tables import UserTable
 
 User = get_user_model()
+
+
+def _render_name(value, obj):
+    """Show the user's full name when set, else the username."""
+    return obj.get_full_name() or obj.username
+
+
+def _render_timezone(value, obj):
+    """Show the city part of the user's profile timezone (e.g. "New York" for
+    ``America/New_York``) with the full tz name as a tooltip; em-dash when
+    no timezone is set."""
+    profile = getattr(obj, "profile", None)
+    tz = profile.timezone if profile and profile.timezone else ""
+    if not tz:
+        return mark_safe('<span style="color: var(--body-quiet-color);">—</span>')
+    city = tz.split("/")[-1].replace("_", " ")
+    return format_html('<span title="{}">{}</span>', tz, city)
 
 
 class UserCRUDView(CRUDView):
@@ -24,10 +42,18 @@ class UserCRUDView(CRUDView):
     url_base = "manage/users"
     paginate_by = 10
     mixins = [StaffRequiredMixin]
-    table_class = UserTable
     form_class = UserAccountForm
     actions = [Action.LIST, Action.CREATE, Action.UPDATE, Action.DELETE]
-    field_transforms = {"first_name": "preview"}
+
+    # List rendering — TableDisplay + per-row action filter (was UserTable
+    # + UserActionsColumn pre-v0.12, when django-tables2 was still around).
+    list_fields = ["username", "email", "name", "timezone", "is_staff", "is_active"]
+    link_field = "username"   # clickable username → goes to update view
+    field_transforms = {
+        "first_name": "preview",
+        "name": _render_name,
+        "timezone": _render_timezone,
+    }
 
     # Opted into the unified search index by default. Lights up an MCP
     # `search_users` tool so Claude Desktop can answer "find the user
@@ -37,6 +63,16 @@ class UserCRUDView(CRUDView):
     search_fields = ["username", "email", "first_name", "last_name"]
     search_display = "username"
     search_subtitle = "email"
+
+    @classmethod
+    def row_actions(cls, obj, request, default_actions):
+        """Don't render the Delete button on the current user's own row —
+        admins shouldn't be able to delete themselves out of the system.
+        The corresponding write gate is in the ``_CRUDDeleteBase.delete``
+        override below (renders + view both deny; defense in depth)."""
+        if request and getattr(request.user, "pk", None) == obj.pk:
+            return [a for a in default_actions if not a.get("is_delete")]
+        return default_actions
 
     @classmethod
     def _get_template_names(cls, suffix):
@@ -71,12 +107,6 @@ class UserCRUDView(CRUDView):
 
             def get_context_data(self, **kwargs):
                 context = super(view_class, self).get_context_data(**kwargs)
-                # Stamp current_user_pk on the table so UserActionsColumn can
-                # hide the delete button for the logged-in user's own row.
-                table = context.get("table")
-                if table is not None:
-                    table.current_user_pk = self.request.user.pk
-                # Dashboard stats
                 context["dashboard_stats"] = _get_dashboard_stats()
                 context["search_query"] = self.request.GET.get("q", "")
                 return context

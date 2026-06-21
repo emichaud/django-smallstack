@@ -1512,6 +1512,34 @@ class CRUDView:
         return True
 
     @classmethod
+    def row_actions(cls, obj, request, default_actions):
+        """Per-row hook to filter the actions rendered for ``obj`` in the
+        list view (TableDisplay et al.).
+
+        Receives the default action list (each item is a dict with at
+        least ``url`` and ``label``; delete actions also carry
+        ``is_delete: True``) and returns whatever subset should render
+        for this row. Override to hide e.g. ``Delete`` for the current
+        user's own row, or to suppress ``Edit`` for archived items.
+
+        Default: return the full list unchanged.
+
+        Example — protect against self-delete on a User CRUDView::
+
+            @classmethod
+            def row_actions(cls, obj, request, default_actions):
+                if request and obj.pk == getattr(request.user, "pk", None):
+                    return [a for a in default_actions if not a.get("is_delete")]
+                return default_actions
+
+        Note: ``can_update`` / ``can_delete`` still gate the actual write
+        when the action is invoked. ``row_actions`` is the *render-time*
+        filter — using it alone leaves the action endpoint callable
+        directly via URL; pair both for defense in depth.
+        """
+        return default_actions
+
+    @classmethod
     def get_list_queryset(cls, qs, request):
         """Filter the list queryset per-request. Override for tenant scoping, etc."""
         return qs

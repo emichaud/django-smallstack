@@ -38,7 +38,9 @@ class TestUserListView:
     def test_has_table_context(self, client, staff_user):
         client.force_login(staff_user)
         response = client.get(reverse("manage/users-list"))
-        assert "table" in response.context
+        # v0.12+ uses TableDisplay/{% crud_table %}, which renders straight
+        # from object_list rather than a django-tables2 ``table`` object.
+        assert "object_list" in response.context
 
     def test_search_filters_users(self, client, staff_user, user):
         client.force_login(staff_user)

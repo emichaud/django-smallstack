@@ -208,6 +208,16 @@ def crud_table(context):
                 }
             )
 
+        # Per-row action filter — CRUDView subclasses can hide actions
+        # for specific rows (e.g. suppress "Delete" on the current user's
+        # own row in a User CRUDView). Default impl returns actions
+        # unchanged. See CRUDView.row_actions for the contract.
+        if crud_config is not None:
+            try:
+                actions = crud_config.row_actions(obj, request, actions)
+            except Exception:  # pragma: no cover — defensive
+                pass
+
         rows.append(
             {
                 "pk": obj.pk,

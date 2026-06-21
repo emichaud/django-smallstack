@@ -6,12 +6,9 @@ from datetime import datetime
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.views.generic import TemplateView
-from django_tables2 import RequestConfig
 
 from apps.profile.models import TIMEZONE_CHOICES
 from apps.smallstack.mixins import StaffRequiredMixin
-
-from .tables import TimezoneTable
 
 User = get_user_model()
 
@@ -104,10 +101,11 @@ class TimezoneDashboardView(StaffRequiredMixin, TemplateView):
                 or q_lower in r["region"].lower()
             ]
 
-        # Build table — sorted by offset (west to east)
+        # Sorted by offset (west to east). Not paginated — the dashboard JS
+        # iterates every row in parallel with the `sorted_rows` context list
+        # to stamp data attributes and live-update local-time cells, so the
+        # rendered row count must match `sorted_rows` length.
         sorted_rows = sorted(user_rows, key=lambda r: (r["offset_hours"], r["user"].username))
-        table = TimezoneTable(sorted_rows)
-        RequestConfig(self.request, paginate={"per_page": 10}).configure(table)
 
         # Unique regions for filter buttons
         regions = sorted(set(r["region"] for r in user_rows))
@@ -122,7 +120,6 @@ class TimezoneDashboardView(StaffRequiredMixin, TemplateView):
                 "region_counts": sorted_regions,
                 "total_users": len(user_rows),
                 "unique_timezones": len(tz_groups),
-                "table": table,
                 "sorted_rows": sorted_rows,
                 "regions": regions,
                 "search_query": search_query,
