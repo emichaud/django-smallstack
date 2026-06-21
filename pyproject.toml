@@ -15,7 +15,6 @@ dependencies = [
     "pyyaml>=6.0",
     "django-tasks-db>=0.2",
     "django-htmx>=1.19",
-    "django-tables2>=2.8.0",
     "django-axes>=7.0",
     "django-csp>=4.0",
     "tablib>=3.9.0",
@@ -49,10 +48,6 @@ python_files = ["test_*.py", "*_test.py", "tests.py"]
 testpaths = ["apps"]
 addopts = "--cov=apps --cov-report=term-missing:skip-covered --cov-report=html"
 filterwarnings = [
-    "ignore:DetailLinkColumn is deprecated:DeprecationWarning",
-    "ignore:BooleanColumn is deprecated:DeprecationWarning",
-    "ignore:ActionsColumn is deprecated:DeprecationWarning",
-    "ignore:.*table_class is deprecated:DeprecationWarning",
     "ignore:SMALLSTACK_TOPBAR_NAV_ITEMS:DeprecationWarning",
 ]
 markers = [

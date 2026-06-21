@@ -1,5 +1,5 @@
 {% extends "smallstack/base.html" %}
-{% load theme_tags crud_tags django_tables2 %}
+{% load theme_tags crud_tags %}
 
 {% block title %}User Manager{% endblock %}
 
@@ -68,10 +68,14 @@
 </div>
 {% endif %}
 
-{% include "smallstack/includes/search_bar.html" with placeholder="Search users by name, email..." target="#search-results" %}
-
-<div id="search-results">
-{% include "usermanager/_user_table.html" %}
+<div class="card" id="crud-content">
+    <div class="card-body">
+        {# Framework toolbar: ?q= search reuses the model's search_fields #}
+        {% include "smallstack/crud/includes/list_toolbar.html" %}
+        <div id="crud-list-content">
+            {% include "smallstack/crud/object_list_content.html" %}
+        </div>
+    </div>
 </div>
 
 {% include "smallstack/includes/stat_modal.html" %}

@@ -54,6 +54,33 @@ class TestExplorerIndex:
         assert "explorer-card" in content
 
 
+class TestExplorerClassicIndexSorting:
+    """Regression guard: the classic list table kept django-tables2-style
+    column sorting after the tables2 removal (v0.12)."""
+
+    def test_default_orders_by_model_name(self, client, staff_user):
+        client.force_login(staff_user)
+        resp = client.get(reverse("explorer-example-classic"))
+        assert resp.status_code == 200
+        names = [m.verbose_name_plural.lower() for m in resp.context["models_az"]]
+        assert names == sorted(names)
+
+    def test_ordering_by_records_desc(self, client, staff_user):
+        client.force_login(staff_user)
+        resp = client.get(reverse("explorer-example-classic"), {"ordering": "-records"})
+        counts = [m.count for m in resp.context["models_az"]]
+        assert counts == sorted(counts, reverse=True)
+        records_header = next(h for h in resp.context["list_headers"] if h["key"] == "records")
+        assert records_header["direction"] == "desc"
+
+    def test_invalid_ordering_falls_back_to_default(self, client, staff_user):
+        client.force_login(staff_user)
+        resp = client.get(reverse("explorer-example-classic"), {"ordering": "bogus"})
+        assert resp.status_code == 200
+        names = [m.verbose_name_plural.lower() for m in resp.context["models_az"]]
+        assert names == sorted(names)
+
+
 class TestExplorerModelList:
     """Tests for the model list view."""
 
@@ -495,14 +522,11 @@ class TestExplorerContextHelpers:
         assert ctx is None
 
     def test_model_info_attribute_access(self):
-        """ModelInfo supports both attribute and dict-style access."""
+        """ModelInfo exposes registered metadata via attribute access."""
         from .registry import explorer
 
         info = explorer.get_models()[0]
-        # Attribute access
         assert info.app_label is not None
-        # Dict-style access (for django-tables2 compat)
-        assert info["app_label"] == info.app_label
 
     def test_model_card_info_has_count_and_url(self, db):
         """with_counts() returns a ModelCardInfo with live data."""

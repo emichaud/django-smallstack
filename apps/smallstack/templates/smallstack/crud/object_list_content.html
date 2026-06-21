@@ -3,9 +3,6 @@
     <div id="crud-display-area" style="--paginate-by: {{ paginate_by|default:0 }};">
         {% include display_template %}
     </div>
-{% elif use_tables2 %}
-    {% load django_tables2 %}
-    {% render_table table %}
 {% elif object_list %}
     {% crud_table %}
 {% else %}
@@ -24,6 +21,6 @@
     {% endif %}
 {% endif %}
 
-{% if not use_tables2 and not display_template and is_paginated %}
+{% if not display_template and is_paginated %}
 {% render_paginator page_obj "#crud-content" %}
 {% endif %}

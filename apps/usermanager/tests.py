@@ -59,6 +59,15 @@ class TestUserListView:
         content = response.content.decode()
         assert "<html" not in content
 
+    def test_uses_framework_toolbar_search(self, client, staff_user):
+        """The list uses the framework's search_fields-driven toolbar (not a
+        bespoke search bar), while keeping the custom dashboard stat cards."""
+        client.force_login(staff_user)
+        response = client.get(reverse("manage/users-list"))
+        content = response.content.decode()
+        assert "list-toolbar-search-input" in content
+        assert response.context["dashboard_stats"] is not None
+
     @pytest.mark.starter_content
     def test_breadcrumbs_in_title_bar(self, client, staff_user):
         client.force_login(staff_user)
@@ -103,3 +112,64 @@ class TestUserStatDetail:
         response = client.get(reverse("manage/users-stat-detail", kwargs={"stat_type": "total"}))
         assert response.status_code == 200
         assert "<table" in response.content.decode()
+
+
+class TestTimezoneDashboardSorting:
+    """Regression guard: the timezone table kept django-tables2-style column
+    sorting after the tables2 removal (v0.12)."""
+
+    def test_requires_staff(self, client, user):
+        client.force_login(user)
+        response = client.get(reverse("manage/users-timezones"))
+        assert response.status_code == 403
+
+    def test_default_orders_by_offset(self, client, staff_user):
+        client.force_login(staff_user)
+        resp = client.get(reverse("manage/users-timezones"))
+        assert resp.status_code == 200
+        offsets = [r["offset_hours"] for r in resp.context["sorted_rows"]]
+        assert offsets == sorted(offsets)
+
+    def test_ordering_by_user_desc(self, client, staff_user):
+        client.force_login(staff_user)
+        # add a second user so ordering is observable
+        User.objects.create_user(username="aaa_first", email="a@example.com", password="x")
+        resp = client.get(reverse("manage/users-timezones"), {"ordering": "-user"})
+        usernames = [r["user"].username.lower() for r in resp.context["sorted_rows"]]
+        assert usernames == sorted(usernames, reverse=True)
+        user_header = next(h for h in resp.context["tz_headers"] if h["key"] == "user")
+        assert user_header["direction"] == "desc"
+
+    def test_sort_link_preserves_search_query(self, client, staff_user):
+        client.force_login(staff_user)
+        resp = client.get(reverse("manage/users-timezones"), {"q": "staff", "ordering": "user"})
+        assert resp.status_code == 200
+        # the rendered sort links must carry the active q so search survives a sort click
+        assert "q=staff" in resp.content.decode()
+
+    def test_search_form_carries_active_sort(self, client, staff_user):
+        """The search form re-sends the active sort (hidden field) so an HTMX
+        search keeps the current column ordering instead of resetting it."""
+        client.force_login(staff_user)
+        resp = client.get(reverse("manage/users-timezones"), {"ordering": "user"})
+        assert '<input type="hidden" name="ordering" value="user">' in resp.content.decode()
+
+    def test_default_sort_keeps_search_url_clean(self, client, staff_user):
+        client.force_login(staff_user)
+        resp = client.get(reverse("manage/users-timezones"))
+        # default "offset" sort needs no hidden field — keeps search URLs clean
+        assert 'name="ordering"' not in resp.content.decode()
+
+    def test_search_request_keeps_sort_and_filters(self, client, staff_user):
+        """An HTMX search that carries ?ordering= returns results both filtered
+        and sorted (the round-trip the hidden field enables)."""
+        client.force_login(staff_user)
+        for i in range(3):
+            User.objects.create_user(username=f"zsorttest_{i}", email=f"z{i}@e.com", password="x")
+        resp = client.get(
+            reverse("manage/users-timezones"),
+            {"q": "zsorttest", "ordering": "-user"},
+            HTTP_HX_REQUEST="true",
+        )
+        names = [r["user"].username for r in resp.context["sorted_rows"]]
+        assert names == ["zsorttest_2", "zsorttest_1", "zsorttest_0"]

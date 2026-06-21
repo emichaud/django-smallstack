@@ -75,6 +75,13 @@ class UserCRUDView(CRUDView):
         return default_actions
 
     @classmethod
+    def get_list_queryset(cls, qs, request):
+        """Prefetch the profile for the timezone column. Free-text ``?q=``
+        search (over ``search_fields``), filtering, sort, and pagination are
+        all handled by the framework's list view — no custom queryset needed."""
+        return qs.select_related("profile")
+
+    @classmethod
     def _get_template_names(cls, suffix):
         if suffix == "form":
             return ["accounts/user_form.html"]
@@ -90,35 +97,16 @@ class UserCRUDView(CRUDView):
         view_class = super()._make_view(base_class)
 
         if base_class is _CRUDListBase:
-
-            def get_queryset(self):
-                qs = super(view_class, self).get_queryset().select_related("profile")
-                q = self.request.GET.get("q", "").strip()
-                if q:
-                    from django.db.models import Q
-
-                    qs = qs.filter(
-                        Q(username__icontains=q)
-                        | Q(email__icontains=q)
-                        | Q(first_name__icontains=q)
-                        | Q(last_name__icontains=q)
-                    )
-                return qs
-
+            # Add the dashboard stat cards to the list page. Search / filter /
+            # sort / pagination are all handled by the base list view (the
+            # toolbar's ?q= search reuses search_fields), so no get_queryset or
+            # get_template_names override is needed here anymore.
             def get_context_data(self, **kwargs):
                 context = super(view_class, self).get_context_data(**kwargs)
                 context["dashboard_stats"] = _get_dashboard_stats()
-                context["search_query"] = self.request.GET.get("q", "")
                 return context
 
-            def get_template_names(self):
-                if self.request.headers.get("HX-Request"):
-                    return ["usermanager/_user_table.html"]
-                return super(view_class, self).get_template_names()
-
-            view_class.get_queryset = get_queryset
             view_class.get_context_data = get_context_data
-            view_class.get_template_names = get_template_names
 
         elif base_class is _CRUDUpdateBase:
             # Add profile form + activity stats to edit view

@@ -7,11 +7,8 @@
 
 {% block extra_css %}
 <style>
-    /* django-tables2 sort indicators */
-    .crud-table thead th a { color: var(--body-quiet-color); text-decoration: none; }
-    .crud-table thead th a:hover { color: var(--primary); }
-    .crud-table thead th.asc a::after { content: " \25B2"; font-size: 0.65rem; }
-    .crud-table thead th.desc a::after { content: " \25BC"; font-size: 0.65rem; }
+    /* Sortable log-table headers (sortable_th tag) */
+    .crud-table thead th[hx-get]:hover { color: var(--primary); }
     .tab-bar {
         margin-top: 12px;
         margin-bottom: 0;

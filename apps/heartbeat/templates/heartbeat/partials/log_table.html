@@ -1,6 +1,38 @@
-{% load django_tables2 %}
-{% if table.rows %}
-{% render_table table %}
+{% load crud_tags theme_tags tz %}
+{% if beats %}
+<table class="crud-table">
+    <thead>
+        <tr>
+            {% sortable_th "timestamp" "Time" target="#tab-content" %}
+            {% sortable_th "status" "Status" target="#tab-content" %}
+            {% sortable_th "response_time_ms" "Response" target="#tab-content" %}
+            {% sortable_th "note" "Note" target="#tab-content" %}
+        </tr>
+    </thead>
+    <tbody>
+        {% for beat in beats %}
+        <tr>
+            <td><span style="white-space:nowrap;font-size:0.85rem;">{{ beat.timestamp|localtime|date:"M d g:i:s A T" }}</span></td>
+            <td>
+                {% if beat.status == "ok" %}
+                <span style="color:var(--success-fg);font-weight:600;">OK</span>
+                {% else %}
+                <span style="color:var(--error-fg);font-weight:600;">FAIL</span>
+                {% endif %}
+            </td>
+            <td><span style="font-size:0.85rem;">{{ beat.response_time_ms }}ms</span></td>
+            <td>
+                {% if beat.note %}
+                <span style="font-size:0.85rem;color:var(--body-quiet-color);">{{ beat.note|truncatechars:81 }}</span>
+                {% else %}—{% endif %}
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% if is_paginated %}
+{% render_paginator page_obj "#tab-content" %}
+{% endif %}
 {% else %}
 <p style="padding: 24px; text-align: center; color: var(--body-quiet-color);">
     {% if active_tab == "fail" %}No failures recorded.{% elif active_tab == "ok" %}No successful heartbeats yet.{% else %}No heartbeat records yet. Run <code>curl -X POST http://localhost:8005/heartbeat/ping/</code> or <code>python manage.py heartbeat</code> to create one.{% endif %}

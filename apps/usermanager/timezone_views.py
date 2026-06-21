@@ -9,12 +9,34 @@ from django.views.generic import TemplateView
 
 from apps.profile.models import TIMEZONE_CHOICES
 from apps.smallstack.mixins import StaffRequiredMixin
+from apps.smallstack.sorting import build_sort_headers
 
 User = get_user_model()
 
 
 class TimezoneDashboardView(StaffRequiredMixin, TemplateView):
     template_name = "usermanager/timezone_dashboard.html"
+
+    # Sortable columns — parity with the old django-tables2 table. Sorting is a
+    # full-page reload (preserving search ``q``) so the inline dashboard JS
+    # re-stamps row data + live-updates clocks; the rendered row order always
+    # matches the ``sorted_rows`` context the JS indexes against.
+    SORT_KEYS = {
+        "user": lambda r: r["user"].username.lower(),
+        "timezone": lambda r: r["tz_display"].lower(),
+        "local_time": lambda r: r["offset_hours"],
+        "offset": lambda r: r["offset_hours"],
+        "status": lambda r: not r["is_workday"],  # working-hours users first (asc)
+        "region": lambda r: r["region"].lower(),
+    }
+    SORT_COLUMNS = [
+        ("user", "User"),
+        ("timezone", "Timezone"),
+        ("local_time", "Local Time"),
+        ("offset", "UTC Offset"),
+        ("status", "Status"),
+        ("region", "Region"),
+    ]
 
     def get_template_names(self):
         if self.request.headers.get("HX-Request"):
@@ -101,11 +123,17 @@ class TimezoneDashboardView(StaffRequiredMixin, TemplateView):
                 or q_lower in r["region"].lower()
             ]
 
-        # Sorted by offset (west to east). Not paginated — the dashboard JS
-        # iterates every row in parallel with the `sorted_rows` context list
-        # to stamp data attributes and live-update local-time cells, so the
-        # rendered row count must match `sorted_rows` length.
-        sorted_rows = sorted(user_rows, key=lambda r: (r["offset_hours"], r["user"].username))
+        # Column sort (default: UTC offset, west to east). Not paginated — the
+        # dashboard JS iterates every row in parallel with the `sorted_rows`
+        # context list to stamp data attributes and live-update local-time
+        # cells, so the rendered row count must match `sorted_rows` length.
+        ordering = self.request.GET.get("ordering", "offset").strip()
+        key = ordering.lstrip("-")
+        if key not in self.SORT_KEYS:
+            ordering, key = "offset", "offset"
+        # Stable secondary sort by username, then the chosen column.
+        by_name = sorted(user_rows, key=lambda r: r["user"].username.lower())
+        sorted_rows = sorted(by_name, key=self.SORT_KEYS[key], reverse=ordering.startswith("-"))
 
         # Unique regions for filter buttons
         regions = sorted(set(r["region"] for r in user_rows))
@@ -121,6 +149,10 @@ class TimezoneDashboardView(StaffRequiredMixin, TemplateView):
                 "total_users": len(user_rows),
                 "unique_timezones": len(tz_groups),
                 "sorted_rows": sorted_rows,
+                "tz_headers": build_sort_headers(self.SORT_COLUMNS, ordering),
+                # Carry the active sort through an HTMX search so results stay
+                # sorted (default "offset" needs no param — keeps URLs clean).
+                "search_preserve": {} if ordering == "offset" else {"ordering": ordering},
                 "regions": regions,
                 "search_query": search_query,
             }

@@ -68,11 +68,6 @@ class ModelInfo:
             list_url=self._reverse(f"{self.url_base}-list"),
         )
 
-    # Allow dict-style access so django-tables2 render_* methods work
-    # with record["key"] or record.key interchangeably.
-    def __getitem__(self, key: str):
-        return getattr(self, key)
-
 
 @dataclasses.dataclass
 class ModelCardInfo(ModelInfo):

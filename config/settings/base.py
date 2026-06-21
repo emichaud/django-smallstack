@@ -66,7 +66,6 @@ INSTALLED_APPS = [
     # Third-party apps
     "django_extensions",
     "django_tasks_db",
-    "django_tables2",
     "django_filters",
     "corsheaders",
     "axes",

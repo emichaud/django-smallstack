@@ -502,9 +502,20 @@ class HeartbeatDashboardView(StaffRequiredMixin, TemplateView):
         "fail": "heartbeat/partials/log_table.html",
     }
 
+    # Sortable columns for the hand-rolled log table (was HeartbeatTable's
+    # Meta.fields when django-tables2 drove sorting pre-v0.12).
+    ALLOWED_ORDERING = {"timestamp", "status", "response_time_ms", "note"}
+
     def get_tab(self):
         tab = self.request.GET.get("tab", "all")
         return tab if tab in self.TAB_PARTIALS else "all"
+
+    def get_ordering(self) -> str:
+        """Resolve the ?ordering= param against the allowlist (default -timestamp)."""
+        ordering = self.request.GET.get("ordering", "-timestamp").strip()
+        if ordering.lstrip("-") in self.ALLOWED_ORDERING:
+            return ordering
+        return "-timestamp"
 
     def get_tab_queryset(self, tab):
         qs = Heartbeat.objects.all()
@@ -515,20 +526,25 @@ class HeartbeatDashboardView(StaffRequiredMixin, TemplateView):
         return qs
 
     def get_context_data(self, **kwargs):
+        from django.core.paginator import Paginator
         from django.db.models import Avg
-        from django_tables2 import RequestConfig
-
-        from .tables import HeartbeatTable
 
         context = super().get_context_data(**kwargs)
         tab = self.get_tab()
         context["active_tab"] = tab
 
-        # Table for current tab
-        qs = self.get_tab_queryset(tab)
-        table = HeartbeatTable(qs)
-        RequestConfig(self.request, paginate={"per_page": self.page_size}).configure(table)
-        context["table"] = table
+        # Heartbeat log for the current tab — hand-rolled table with
+        # {% sortable_th %} headers + Django pagination (was HeartbeatTable
+        # + django-tables2 RequestConfig pre-v0.12).
+        qs = self.get_tab_queryset(tab).order_by(self.get_ordering())
+        page_obj = Paginator(qs, self.page_size).get_page(self.request.GET.get("page"))
+        # render_paginator's template reads these display helpers.
+        page_obj.showing_start = page_obj.start_index()
+        page_obj.showing_end = page_obj.end_index()
+        page_obj.total_count = page_obj.paginator.count
+        context["beats"] = page_obj.object_list
+        context["page_obj"] = page_obj
+        context["is_paginated"] = page_obj.has_other_pages()
 
         status_data = _get_status_data()
         context.update(status_data)
@@ -589,7 +605,7 @@ class HeartbeatDashboardView(StaffRequiredMixin, TemplateView):
 
         context["tab_partial"] = self.TAB_PARTIALS[context["active_tab"]]
         # If tab or page params are present, user is in the Heartbeat Log view
-        if "tab" in request.GET or "page" in request.GET or "sort" in request.GET:
+        if "tab" in request.GET or "page" in request.GET or "ordering" in request.GET:
             context["active_view"] = "log"
         else:
             context["active_view"] = "timelines"

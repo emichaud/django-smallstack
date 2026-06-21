@@ -468,21 +468,6 @@ class _CRUDListBase(_CRUDContextMixin, ListView):
             # Per-display bulk opt-out: displays can set supports_bulk=False
             if not getattr(display, "supports_bulk", True):
                 context["enable_bulk"] = False
-        elif cfg.table_class:
-            # Legacy table2 path (no displays configured, but table_class set)
-            warnings.warn(
-                f"{cfg.__name__}.table_class is deprecated. Use TableDisplay "
-                "instead — the built-in table now supports column sorting.",
-                DeprecationWarning,
-                stacklevel=2,
-            )
-            from django_tables2 import RequestConfig
-
-            table = cfg.table_class(qs)
-            paginate = {"per_page": cfg.paginate_by} if cfg.paginate_by else False
-            RequestConfig(self.request, paginate=paginate).configure(table)
-            context["table"] = table
-            context["use_tables2"] = True
         else:
             # Legacy basic table path — pagination display helpers
             page_obj = context.get("page_obj")
@@ -1132,7 +1117,6 @@ class CRUDView:
         form_class:       Custom ModelForm (auto-generated if None)
         queryset:         Custom queryset (model.objects.all() if None)
         field_formatters: Deprecated — use field_transforms
-        table_class:      Optional django-tables2 Table class for enhanced list view
         preview_fields:   Deprecated — use field_transforms
         field_transforms: {field_name: "transform_name" | ("name", {opts}) | callable}
     """
@@ -1250,7 +1234,6 @@ class CRUDView:
     form_class = None
     queryset = None
     field_formatters = {}  # Deprecated — use field_transforms
-    table_class = None  # Optional django-tables2 Table class for enhanced list view
     preview_fields = []  # Deprecated — use field_transforms
     field_transforms = {}  # {field_name: "transform_name" | ("name", {opts}) | callable}
     column_widths = None  # Optional {field_name: "30%"} for custom column proportions
@@ -1651,9 +1634,9 @@ class CRUDView:
         name = f"{cls.model.__name__}{base_class.__name__.lstrip('_')}"
         bases = tuple(cls.mixins) + (base_class,)
         resolved_paginate_by = cls._resolve_paginate_by()
-        # When displays are configured or table_class is set, the display/table
-        # handles pagination — skip Django's built-in paginate_by.
-        if base_class is _CRUDListBase and (cls.displays or cls.table_class):
+        # When displays are configured, the display handles pagination —
+        # skip Django's built-in paginate_by.
+        if base_class is _CRUDListBase and cls.displays:
             resolved_paginate_by = None
         return type(
             name,

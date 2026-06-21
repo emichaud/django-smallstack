@@ -2,12 +2,7 @@
     <table class="crud-table" style="width: 100%; border-collapse: collapse;">
         <thead>
             <tr>
-                <th style="text-align: left;">User</th>
-                <th style="text-align: left;">Timezone</th>
-                <th style="text-align: left;">Local Time</th>
-                <th style="text-align: left;">UTC Offset</th>
-                <th style="text-align: left;">Status</th>
-                <th style="text-align: left;">Region</th>
+                {% for h in tz_headers %}{% include "smallstack/includes/sort_header_link.html" with header=h %}{% endfor %}
             </tr>
         </thead>
         <tbody>
