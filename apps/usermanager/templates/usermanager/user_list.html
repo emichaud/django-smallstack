@@ -19,13 +19,11 @@
         </nav>
     </div>
     <div style="display: flex; gap: 0.5rem; align-items: center;">
-        <a href="{% url 'manage/users-timezones' %}" class="btn" style="background: color-mix(in srgb, var(--primary) 20%, var(--body-bg)); color: var(--primary); padding: 0.5rem 1rem; border: none; border-radius: var(--radius-sm, 4px); text-decoration: none; font-size: 0.85rem;">
+        <a href="{% url 'manage/users-timezones' %}" class="btn-tint">
             Timezones
         </a>
         {% if create_view_url %}
-        <a href="{{ create_view_url }}" class="btn" style="background: var(--primary); color: var(--button-fg); padding: 0.5rem 1rem; border: none; border-radius: var(--radius-sm, 4px); text-decoration: none; font-size: 0.85rem;">
-            + Add User
-        </a>
+        <a href="{{ create_view_url }}" class="btn-primary">+ Add User</a>
         {% endif %}
     </div>
 </div>

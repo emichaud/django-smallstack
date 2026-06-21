@@ -2,7 +2,7 @@
 
 **Read this first** before building any new page, component, card, table, or admin surface in SmallStack. The patterns here produce pages that work correctly across every palette + theme combination on the first try. Following them avoids the most common AI-built-page failure mode: pages that look fine on the default palette but turn brown / olive / muddy on others.
 
-> **Other skill files**: `building-themed-pages.md` and `admin-page-styling.md` have many useful patterns (forms, modals, badges, etc.). When they conflict with this file, **this file wins** — it reflects the post-v0.9 modern-dark refactor with the cool-biased near-black surfaces and vibrant Tailwind -500 accents.
+> **Other skill files**: `admin-page-styling.md` has many useful patterns (forms, modals, badges, etc.). When it conflicts with this file, **this file wins** — it reflects the post-v0.9 modern-dark refactor with the cool-biased near-black surfaces and vibrant Tailwind -500 accents.
 
 ## The architecture in one paragraph
 
@@ -385,7 +385,6 @@ Building a new page or component?
 
 ## Related skills
 
-- `building-themed-pages.md` — the original (pre-modern-dark) version. Patterns still valid, but reference this file's variable values.
 - `admin-page-styling.md` — exhaustive component-by-component reference (buttons, modals, etc).
 - `theming-system.md` — architectural overview of the variable cascade.
 - `modify-palettes.md` — adding a new palette or modifying an existing one.

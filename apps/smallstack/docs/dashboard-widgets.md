@@ -1,5 +1,7 @@
 # Dashboard Widgets
 
+> **Building this?** Read the agent-facing skill first: [`docs/skills/dashboard-widgets.md`](../../../docs/skills/dashboard-widgets.md). It's prescriptive (what to do); this page is the reference (why + worked examples).
+
 The SmallStack dashboard at `/smallstack/` is a grid of at-a-glance cards. Each card is a **widget** — a small piece of Python that returns a headline, a detail line, and a link. You can add your own without editing base code.
 
 ## Two Ways to Add a Widget

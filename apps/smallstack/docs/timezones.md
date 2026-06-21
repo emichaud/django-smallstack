@@ -5,6 +5,8 @@ description: How SmallStack stores, displays, and converts dates and times
 
 # Working with Timezones
 
+> **Building this?** Read the agent-facing skill first: [`docs/skills/timezones.md`](../../../docs/skills/timezones.md). It's prescriptive (what to do); this page is the reference (why + worked examples).
+
 SmallStack uses a three-layer timezone architecture that keeps things predictable: UTC in the database, a server timezone for default display, and optional per-user overrides.
 
 ## The Three Layers

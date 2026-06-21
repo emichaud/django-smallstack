@@ -5,6 +5,8 @@ description: Running tasks outside the request-response cycle
 
 # Background Tasks
 
+> **Building this?** Read the agent-facing skill first: [`docs/skills/background-tasks.md`](../../../docs/skills/background-tasks.md). It's prescriptive (what to do); this page is the reference (why + worked examples).
+
 Django 6.0 introduced a built-in **Tasks framework** for running code outside the HTTP request-response cycle. This enables offloading work like sending emails, processing data, or generating reports to background workers, keeping your web responses fast.
 
 ## Why Use Background Tasks?

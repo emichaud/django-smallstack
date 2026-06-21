@@ -5,6 +5,8 @@ description: Add a custom CSS framework alongside SmallStack's built-in theme
 
 # Adding Your Own Theme
 
+> **Building this?** Read the agent-facing skill first: [`docs/skills/adding-your-own-theme.md`](../../../docs/skills/adding-your-own-theme.md). It's prescriptive (what to do); this page is the reference (why + worked examples).
+
 {{ project_name }} ships with a complete theme — topbar, sidebar, cards, dark mode, palettes. That theme powers all the built-in apps: Activity, Status, Backups, User Manager, Help, and Profile.
 
 You don't need to rewrite those pages. Instead, add your own theme **alongside** SmallStack's. Your new pages use your theme. SmallStack's built-in pages keep using `smallstack/base.html`. Both themes share dark mode, palettes, and authentication — users move between them seamlessly.

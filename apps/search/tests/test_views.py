@@ -57,13 +57,20 @@ def test_search_page_non_staff_renders(non_staff_client):
 
 def test_search_page_non_staff_sees_no_staff_only_sources(non_staff_client):
     """Non-staff get the page but the indexed_sources panel is filtered:
-    User + APIToken (default STAFF tier) are hidden."""
+    the bundled STAFF-tier sources (User, APIToken) are hidden.
+
+    Assertion is "the specific STAFF-tier sources we ship by default are
+    hidden" rather than "no model sources visible at all" — round-4 audit
+    A1 — so the test survives downstream projects that register their own
+    AUTH-tier CRUDViews per ``building-a-user-facing-site.md``.
+    """
     resp = non_staff_client.get(reverse("search:page"))
     sources = resp.context["indexed_sources"]
-    model_sources = [s for s in sources if s["kind"] == "model"]
-    # No model-kind source is reachable for a non-staff user at the default
-    # STAFF tier. Only help docs (kind="help") and any AUTH/ANON opt-in show.
-    assert model_sources == []
+    model_labels = {s["model_label"] for s in sources if s["kind"] == "model"}
+    # The default STAFF-tier opt-ins ship as User + APIToken; both must
+    # be hidden from a non-staff caller.
+    assert "accounts.User" not in model_labels
+    assert "smallstack.APIToken" not in model_labels
 
 
 def test_search_page_with_query_shows_results_or_no_match(staff_client):

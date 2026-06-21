@@ -5,6 +5,8 @@ description: FTS5 + Postgres FTS keyword search with per-CRUDView opt-in, MCP to
 
 # Search
 
+> **Building this?** Read the agent-facing skill first: [`docs/skills/search.md`](../../../docs/skills/search.md). It's prescriptive (what to do); this page is the reference (why + worked examples).
+
 SmallStack ships a unified keyword search across your models — opt-in per CRUDView, with results visible in the topbar omnibar (Ctrl+K), a dedicated `/smallstack/search/` page, a REST endpoint, and an MCP tool Claude can call directly.
 
 `User` and `APIToken` are opted in by default, so a fresh SmallStack clone has a working search experience without any code changes — open `/smallstack/search/` to see the indexed-sources accordion populated from day one.

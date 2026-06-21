@@ -1,5 +1,7 @@
 # Navigation System
 
+> **Building this?** Read the agent-facing skill first: [`docs/skills/navigation.md`](../../../docs/skills/navigation.md). It's prescriptive (what to do); this page is the reference (why + worked examples).
+
 SmallStack uses a unified, data-driven navigation system. One registry drives both the sidebar and the topbar — adding or removing an app in `INSTALLED_APPS` automatically updates navigation everywhere.
 
 ## Architecture

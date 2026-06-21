@@ -1,5 +1,7 @@
 # Custom API Endpoints
 
+> **Building this?** Read the agent-facing skill first: [`docs/skills/custom-api-endpoints.md`](../../../docs/skills/custom-api-endpoints.md). It's prescriptive (what to do); this page is the reference (why + worked examples).
+
 SmallStack auto-generates REST endpoints when you set `enable_api = True` on a CRUDView. That covers the standard list, create, read, update, and delete operations. But real applications need endpoints that don't map to a single model — triggering actions, orchestrating multi-step workflows, integrating with external services, or returning computed results.
 
 The `api_view` decorator gives you a clean way to build these endpoints while keeping the same authentication, error format, and conventions as the generated ones.

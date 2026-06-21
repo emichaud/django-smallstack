@@ -5,6 +5,8 @@ description: Built-in logging and activity tracking that just works
 
 # Logging & Audit Trail
 
+> **Building this?** Read the agent-facing skill first: [`docs/skills/logging-audit.md`](../../../docs/skills/logging-audit.md). It's prescriptive (what to do); this page is the reference (why + worked examples).
+
 Python's logging module is powerful but notoriously fiddly to configure. Django adds its own layer of loggers, handlers, and formatters on top — and most tutorials either skip it entirely or dump a wall of configuration without explaining what it does.
 
 {{ project_name }} takes a different approach: **sensible defaults that just work**, using the same proven patterns Django admin already uses internally. You get structured logging in dev and production, plus a built-in audit trail — no extra packages required.

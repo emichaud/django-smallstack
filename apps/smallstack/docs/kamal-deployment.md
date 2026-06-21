@@ -5,6 +5,8 @@ description: Zero-downtime VPS deployment for small teams
 
 # Kamal Deployment
 
+> **Building this?** Read the agent-facing skill first: [`docs/skills/kamal-deployment.md`](../../../docs/skills/kamal-deployment.md). It's prescriptive (what to do); this page is the reference (why + worked examples).
+
 Kamal is a deployment tool that makes it easy to deploy containerized applications to VPS servers with zero-downtime updates. Created by **David Heinemeier Hansson (DHH)**, the founder of Ruby on Rails, Kamal works with any Docker container—including Django applications.
 
 For more information, visit the official documentation at **[kamal-deploy.org](https://kamal-deploy.org)**.

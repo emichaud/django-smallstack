@@ -1,5 +1,7 @@
 # API Doctor & Activity
 
+> **Building this?** Read the agent-facing skill first: [`docs/skills/api-doctor.md`](../../../docs/skills/api-doctor.md). It's prescriptive (what to do); this page is the reference (why + worked examples).
+
 The `/smallstack/api/` admin pages give you a one-pane sanity check for the REST surface, plus an operational view of `/api/*` traffic and the threat signals derived from it.
 
 Two pages, both staff-gated:

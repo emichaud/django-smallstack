@@ -1313,6 +1313,36 @@ a.btn-outline:visited {
     text-decoration: none;
 }
 
+/* Tinted accent button — primary-coloured text on a soft primary-mix
+   background. Used in page-header CTAs where .btn-primary is too loud
+   and .btn-outline reads too quiet. Replaces a handful of hand-rolled
+   inline-styled <a>s across the admin. */
+.btn-tint,
+a.btn-tint:link,
+a.btn-tint:visited {
+    background: color-mix(in srgb, var(--primary) 20%, var(--body-bg));
+    color: var(--primary);
+    padding: 0.5rem 1rem;
+    border: none;
+    border-radius: var(--radius-sm, 6px);
+    cursor: pointer;
+    font-size: 0.85rem;
+    font-weight: 500;
+    line-height: 1.2;
+    text-decoration: none;
+    display: inline-block;
+    font-family: inherit;
+    transition: background 0.15s, color 0.15s;
+}
+
+.btn-tint:hover,
+.btn-tint:focus-visible {
+    background: color-mix(in srgb, var(--primary) 35%, var(--body-bg));
+    color: var(--primary);
+    text-decoration: none;
+    outline: none;
+}
+
 .btn-danger,
 a.btn-danger:link,
 a.btn-danger:visited {

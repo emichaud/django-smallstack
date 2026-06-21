@@ -5,6 +5,8 @@ description: Local development and generic container hosting
 
 # Docker Deployment
 
+> **Building this?** Read the agent-facing skill first: [`docs/skills/docker-deployment.md`](../../../docs/skills/docker-deployment.md). It's prescriptive (what to do); this page is the reference (why + worked examples).
+
 This guide walks you through deploying {{ project_name }} using Docker Compose. This approach works for local development and is compatible with virtually any container hosting service.
 
 > **See also:** [Deployment Overview](/help/smallstack/deployment/) for a comparison of deployment options, or [Kamal Deployment](/help/smallstack/kamal-deployment/) for zero-downtime VPS deployments.

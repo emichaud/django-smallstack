@@ -299,24 +299,37 @@ def test_visibility_filter_runs_for_anonymous_access_view():
 
 def test_indexed_sources_hides_staff_only_views_from_non_staff():
     """get_indexed_sources applies the same gate as search_all — non-staff
-    users don't see staff-only views even in the 'what's indexed' panel."""
+    users don't see staff-only views even in the 'what's indexed' panel.
+
+    Assertion is "the User we just registered as STAFF is hidden" rather
+    than "no model sources visible at all" — round-4 audit A1 — so the
+    test survives downstream projects that register their own AUTH-tier
+    or ANON-tier CRUDViews per ``building-a-user-facing-site.md``.
+    """
     User = get_user_model()
     register(_make_view_class(User))  # default access=STAFF
+    user_label = f"{User._meta.app_label}.{User.__name__}"
 
     regular = User.objects.create_user(username="regular4", password="x")
     sources = get_indexed_sources(user=regular)
-    model_sources = [s for s in sources if s["kind"] == "model"]
-    assert model_sources == []
+    model_labels = [s["model_label"] for s in sources if s["kind"] == "model"]
+    assert user_label not in model_labels
 
 
 def test_indexed_sources_hides_authenticated_views_from_anonymous():
-    """An AUTHENTICATED-level view is hidden from anonymous visitors in the panel."""
+    """An AUTHENTICATED-level view is hidden from anonymous visitors in the panel.
+
+    Assertion is "the AUTH-tier User we just registered is hidden" rather
+    than "no model sources visible at all" — round-4 audit A1 — so the
+    test survives downstream projects that register ANON-tier CRUDViews.
+    """
     User = get_user_model()
     register(_make_view_class(User, access=SearchAccess.AUTHENTICATED))
+    user_label = f"{User._meta.app_label}.{User.__name__}"
 
     sources = get_indexed_sources(user=AnonymousUser())
-    model_sources = [s for s in sources if s["kind"] == "model"]
-    assert model_sources == []
+    model_labels = [s["model_label"] for s in sources if s["kind"] == "model"]
+    assert user_label not in model_labels
 
 
 def test_indexed_sources_shows_anonymous_views_to_anonymous():

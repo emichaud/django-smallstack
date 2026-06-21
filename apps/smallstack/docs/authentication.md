@@ -5,6 +5,8 @@ description: Built-in Django authentication, signup control, and feature flags
 
 # Authentication
 
+> **Building this?** Read the agent-facing skill first: [`docs/skills/authentication.md`](../../../docs/skills/authentication.md). It's prescriptive (what to do); this page is the reference (why + worked examples).
+
 {{ project_name }} uses **Django's built-in authentication system** — the same one that powers the admin. Login, logout, password reset, and signup all work out of the box with no extra packages.
 
 ## How It Works

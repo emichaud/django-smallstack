@@ -20,14 +20,6 @@
       "use_when": "Creating or modifying HTML templates, understanding block inheritance, or adding includes."
     },
     {
-      "id": "building-themed-pages",
-      "file": "building-themed-pages.md",
-      "name": "Building Themed Pages",
-      "description": "Recipe guide for building pages on the SmallStack theme. Covers the color-mix scale (4%-30%), page headers, tables, cards, stat widgets, badges, modals, and the CSS variable cheat sheet. Pages built this way work in all 10 theme/palette combinations with zero dark mode overrides.",
-      "keywords": ["page", "style", "css", "color-mix", "dark mode", "light mode", "table", "card", "badge", "widget", "dashboard", "ui"],
-      "use_when": "Building any new page that extends smallstack/base.html. This is the primary styling reference."
-    },
-    {
       "id": "theming-system",
       "file": "theming-system.md",
       "name": "Theming System Reference",

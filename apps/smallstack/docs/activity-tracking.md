@@ -5,6 +5,8 @@ description: Lightweight, privacy-respecting analytics built into your site — 
 
 # Activity Tracking
 
+> **Building this?** Read the agent-facing skill first: [`docs/skills/activity-tracking.md`](../../../docs/skills/activity-tracking.md). It's prescriptive (what to do); this page is the reference (why + worked examples).
+
 **Is anyone using my site?** That is the first question every developer asks after deploying a project. Most Django starters leave you guessing. Full-blown analytics platforms like Google Analytics, Plausible, or Umami are powerful, but they are overkill when you just want to answer a few basic questions:
 
 - Is anyone visiting my site?

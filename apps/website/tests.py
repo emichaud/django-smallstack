@@ -140,12 +140,19 @@ class TestPublicSearchView:
 
     def test_anonymous_sees_no_staff_or_authenticated_sources(self, client):
         """Anonymous visitors only see ANONYMOUS-level CRUDViews (none by
-        default) plus the help docs. No User / APIToken / etc. leakage."""
+        default) plus the help docs. No User / APIToken / etc. leakage.
+
+        Assertion is "the specific STAFF/AUTH-tier bundled sources are
+        hidden" rather than "no model sources visible at all" — round-4
+        audit A1 — so the test survives downstream projects that register
+        their own ANON-tier CRUDViews per ``building-a-user-facing-site.md``.
+        """
         response = client.get("/search/")
         sources = response.context["indexed_sources"]
-        # No model-kind sources (User + APIToken default to STAFF).
-        model_sources = [s for s in sources if s["kind"] == "model"]
-        assert model_sources == []
+        model_labels = {s["model_label"] for s in sources if s["kind"] == "model"}
+        # Bundled STAFF-tier opt-ins must not leak to anonymous visitors.
+        assert "accounts.User" not in model_labels
+        assert "smallstack.APIToken" not in model_labels
 
     def test_authenticated_empty_query_renders_editorial_layout(self, client, django_user_model):
         """Authenticated GET with no query renders the editorial shell."""
@@ -163,15 +170,22 @@ class TestPublicSearchView:
 
     def test_non_staff_user_does_not_see_staff_only_sources(self, client, django_user_model):
         """Security: non-staff users see the page, but staff-only models
-        (User, APIToken — the default) are hidden from the sources panel."""
+        (User, APIToken — the default) are hidden from the sources panel.
+
+        Assertion is "the specific bundled STAFF-tier sources are hidden"
+        rather than "no model sources visible at all" — round-4 audit A1
+        — so the test survives downstream projects that register their own
+        AUTH-tier CRUDViews per ``building-a-user-facing-site.md``.
+        """
         user = django_user_model.objects.create_user(username="non_staff_user", password="testpass")
         client.force_login(user)
         response = client.get("/search/")
         assert response.status_code == 200
-        # No model-kind sources reach the page for a non-staff user.
         sources = response.context["indexed_sources"]
-        model_sources = [s for s in sources if s["kind"] == "model"]
-        assert model_sources == []
+        model_labels = {s["model_label"] for s in sources if s["kind"] == "model"}
+        # Bundled STAFF-tier opt-ins must not leak to non-staff users.
+        assert "accounts.User" not in model_labels
+        assert "smallstack.APIToken" not in model_labels
 
     def test_staff_user_sees_staff_only_sources(self, client, django_user_model):
         """Security: staff users see all registered sources, including the

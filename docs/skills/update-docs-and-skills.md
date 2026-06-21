@@ -61,7 +61,6 @@ When the user says "update docs and skills" (or similar), this skill defines whi
 |------|------|----------------|
 | Skill | `docs/skills/templates.md` | Template inheritance, blocks, includes |
 | Skill | `docs/skills/theming-system.md` | CSS vars, palettes, dark mode |
-| Skill | `docs/skills/building-themed-pages.md` | Building pages that fit the theme |
 | Skill | `docs/skills/admin-page-styling.md` | Definitive UI component reference |
 | Skill | `docs/skills/components.md` | UI component catalog |
 

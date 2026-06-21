@@ -1,5 +1,7 @@
 # Getting Started
 
+> **Building this?** Read the agent-facing skill first: [`docs/skills/components.md`](../../../docs/skills/components.md). It's prescriptive (what to do); this page is the reference (why + worked examples).
+
 Every page in SmallStack extends `base.html`, which gives you the topbar, sidebar, breadcrumbs, and theme support automatically.
 
 ## Minimal Page Template

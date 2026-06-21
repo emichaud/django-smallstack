@@ -5,6 +5,8 @@ description: A staff-facing data browser with display palette, REST API, and com
 
 # Model Explorer
 
+> **Building this?** Read the agent-facing skill first: [`docs/skills/explorer.md`](../../../docs/skills/explorer.md). It's prescriptive (what to do); this page is the reference (why + worked examples).
+
 Explorer is SmallStack's built-in model browser. It reads `ModelAdmin` classes — whether registered with Django admin or not — and generates a full CRUD interface with swappable display modes, optional REST API, and CSV/JSON export.
 
 **Direct link:** [Open Explorer](/smallstack/explorer/)
