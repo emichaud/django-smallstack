@@ -1,6 +1,6 @@
 [project]
 name = "django-smallstack"
-version = "0.11.13"
+version = "0.11.14"
 description = "A minimal Django stack for building and deploying admin-style apps"
 requires-python = ">=3.12"
 dependencies = [
@@ -51,7 +51,7 @@ select = ["E", "F", "I", "W"]
 DJANGO_SETTINGS_MODULE = "config.settings.test"
 python_files = ["test_*.py", "*_test.py", "tests.py"]
 testpaths = ["apps"]
-addopts = "--cov=apps --cov-report=term-missing:skip-covered --cov-report=html"
+addopts = "--ds=config.settings.test --cov=apps --cov-report=term-missing:skip-covered --cov-report=html"
 filterwarnings = [
     "ignore:SMALLSTACK_TOPBAR_NAV_ITEMS:DeprecationWarning",
 ]

@@ -219,9 +219,15 @@ class TestCreateDevSuperuser:
                 call_command("create_dev_superuser")
         assert not get_user_model().objects.filter(username="admin").exists()
 
-    def test_creates_in_debug(self, db):
+    def test_creates_in_debug(self, db, monkeypatch):
         from django.core.management import call_command
 
+        # Hermetic: create_dev_superuser reads DEV_SUPERUSER_* via python-decouple
+        # config(), which reads os.environ *before* the .env file. Pin them here so
+        # the test doesn't depend on the developer's ambient .env (e.g. a custom
+        # DEV_SUPERUSER_USERNAME would otherwise cause a false failure).
+        monkeypatch.setenv("DEV_SUPERUSER_USERNAME", "admin")
+        monkeypatch.setenv("DEV_SUPERUSER_PASSWORD", "admin")
         with override_settings(DEBUG=True):
             call_command("create_dev_superuser")
         assert get_user_model().objects.filter(username="admin", is_superuser=True).exists()
