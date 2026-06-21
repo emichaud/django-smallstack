@@ -261,10 +261,14 @@ class Command(BaseCommand):
 
         # Help docs are not in the registry, but the report should mention
         # them — they are always returned, to every caller.
+        # Force the lazy index sync so the count reflects the live corpus
+        # on a fresh clone (round-2 audit §4.3 — was reporting 0 articles
+        # because the FTS table hadn't been populated yet).
         help_count = 0
         try:
-            from apps.help.search import help_article_count
+            from apps.help.search import _ensure_help_index, help_article_count
 
+            _ensure_help_index()
             help_count = help_article_count()
         except Exception:
             pass
@@ -347,17 +351,22 @@ class Command(BaseCommand):
         self.stdout.write(self.style.MIGRATE_HEADING("What each audience can find"))
         self.stdout.write("-" * 60)
         self.stdout.write(
-            f"  Anonymous visitor      → {audience['anonymous']:>3} model(s) + help docs"
+            f"  Anonymous visitor      → {audience['anonymous']:>3} model(s) + help docs (via public /search/)"
         )
         self.stdout.write(
             f"  Authenticated user     → {audience['authenticated']:>3} model(s) + help docs"
+            "  (via /search/ or /smallstack/search/)"
         )
         self.stdout.write(
-            f"  Staff user             → {audience['staff']:>3} model(s) + help docs"
+            f"  Staff user             → {audience['staff']:>3} model(s) + help docs (full registry)"
         )
         self.stdout.write("")
         self.stdout.write(
             self.style.NOTICE(
+                "Surfaces:\n"
+                "  • /search/             — public, anyone (anon + auth + staff)\n"
+                "  • /smallstack/search/  — admin chrome, any signed-in user (auth + staff)\n"
+                "  • MCP search_* tools   — token-gated; access_level enforces parity with mixins\n"
                 "Tip: visibility callables further scope rows per user when set. "
                 "This audit shows model-level visibility only."
             )

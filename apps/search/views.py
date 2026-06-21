@@ -1,9 +1,17 @@
 """Search views — the HTML results page and the JSON omnibar endpoint.
 
-Both pages live behind StaffRequiredMixin (search exposes data across
-every registered model and warrants the same gate as Explorer / the
-MCP admin / the API admin). Per-user search filtering by tenancy is a
-future improvement that lives in the SearchBackend layer, not here.
+Both pages live behind LoginRequiredMixin: any signed-in user can land
+on them. The actual data each visitor sees is gated by the per-view
+``search_access`` knob enforced in :mod:`apps.search.registry` — staff
+see every indexed CRUDView, non-staff see only the ones a project
+opted into ``SearchAccess.AUTHENTICATED`` or ``SearchAccess.ANONYMOUS``,
+plus help docs.
+
+This page-level lift (was StaffRequiredMixin before v0.11.8) closes
+the doc-vs-reality gap surfaced in the round-2 audit: the AUTH tier
+in the registry promised non-staff users could search those views,
+but the page-level mixin gated them out with a bare 403 before the
+registry ever ran.
 """
 
 from __future__ import annotations
@@ -11,16 +19,15 @@ from __future__ import annotations
 from collections import defaultdict
 from typing import Any
 
+from django.contrib.auth.mixins import LoginRequiredMixin
 from django.http import HttpRequest, JsonResponse
 from django.views.generic import TemplateView, View
-
-from apps.smallstack.mixins import StaffRequiredMixin
 
 from .backends.base import SearchHit
 from .registry import all_views, get_indexed_sources, search_all, view_count
 
 
-class SearchPageView(StaffRequiredMixin, TemplateView):
+class SearchPageView(LoginRequiredMixin, TemplateView):
     """Dedicated /smallstack/search/ HTML page.
 
     Results grouped by model with snippets and per-group "View more"
@@ -37,9 +44,10 @@ class SearchPageView(StaffRequiredMixin, TemplateView):
         from .access import SearchAccess
 
         ctx["query"] = query
-        # StaffRequiredMixin guarantees self.request.user.is_staff here,
-        # so the registry's staff gate is a no-op — but we pass the user
-        # anyway so the visibility hook (if any) sees the right identity.
+        # LoginRequiredMixin gates anonymous out; the registry's per-view
+        # access gate then narrows what each user actually sees here.
+        # Staff bypass the gate; non-staff see only AUTH/ANON-opted-in
+        # CRUDViews plus help docs.
         ctx["registered_models"] = view_count()
         sources = get_indexed_sources(user=self.request.user)
         ctx["indexed_sources"] = sources
@@ -68,11 +76,16 @@ class SearchPageView(StaffRequiredMixin, TemplateView):
         return ctx
 
 
-class OmnibarSearchView(StaffRequiredMixin, View):
+class OmnibarSearchView(LoginRequiredMixin, View):
     """JSON endpoint for the topbar omnibar.
 
     Returns a compact ranked list across all models. The omnibar.js
     debounces calls and renders the response inline.
+
+    Auth: any signed-in user. Per-view access is enforced in the
+    registry's :func:`search_all`, so a non-staff caller only gets
+    hits from CRUDViews opted in to ``SearchAccess.AUTHENTICATED``
+    or ``SearchAccess.ANONYMOUS`` (plus help docs).
     """
 
     def get(self, request: HttpRequest) -> JsonResponse:

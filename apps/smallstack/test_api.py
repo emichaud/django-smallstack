@@ -1835,13 +1835,18 @@ class TestOrderingIntegration:
         ok_times = [r["response_time_ms"] for r in results if r["status"] == "ok"]
         assert ok_times == sorted(ok_times)
 
-    def test_ordering_invalid_field_ignored(self, client, staff_user, heartbeats, auth_header):
-        """?ordering=nonexistent falls back to default ordering."""
+    def test_ordering_invalid_field_returns_400(self, client, staff_user, heartbeats, auth_header):
+        """?ordering=nonexistent is rejected with HTTP 400 (changed in v0.11.8).
+
+        Previously the API silently fell back to default ordering for unknown
+        ordering fields; the round-2 audit (§4.5) flagged this as a
+        data-integrity surprise. The behaviour is covered in detail by
+        TestFilterAndOrderingValidation — this test exists as a regression
+        guard at the integration layer.
+        """
         url = reverse(HEARTBEAT_API_LIST)
         response = client.get(url, {"ordering": "nonexistent"}, **auth_header)
-        assert response.status_code == 200
-        data = response.json()
-        assert len(data["results"]) > 0
+        assert response.status_code == 400
 
     def test_ordering_preserved_in_next_url(self, client, staff_user, heartbeats, auth_header):
         """Pagination next URL carries ?ordering= param."""
@@ -2271,3 +2276,61 @@ class TestBulkCRUDEndpoint:
         )
         # StaffRequiredMixin redirects to login
         assert resp.status_code == 302
+
+
+# ---------------------------------------------------------------------------
+# Validation: invalid filter values and ordering fields return HTTP 400
+# (v0.11.8 — round-2 audit §4.5 fix)
+# ---------------------------------------------------------------------------
+
+
+class TestFilterAndOrderingValidation:
+    """The API used to silently no-op on unknown filters/ordering, returning
+    unfiltered results for typo'd parameters. Now it returns HTTP 400 so the
+    caller sees the mistake instead of acting on bad data."""
+
+    def _err_msg(self, response):
+        """Helper: extract the error message from the canonical
+        ``{"errors": {"__all__": [msg]}}`` shape used by _error()."""
+        return response.json()["errors"]["__all__"][0]
+
+    def test_unknown_ordering_field_returns_400(self, client, staff_user, heartbeats, auth_header):
+        """?ordering=nonexistent_field is rejected with 400, not silently dropped."""
+        url = reverse(HEARTBEAT_API_LIST)
+        response = client.get(url, {"ordering": "nonexistent_field"}, **auth_header)
+        assert response.status_code == 400
+        msg = self._err_msg(response)
+        assert "nonexistent_field" in msg
+        assert "Allowed" in msg
+
+    def test_unknown_ordering_field_mixed_with_valid_returns_400(self, client, staff_user, heartbeats, auth_header):
+        """Even one bad field in a comma list trips the gate."""
+        url = reverse(HEARTBEAT_API_LIST)
+        response = client.get(url, {"ordering": "timestamp,bogus"}, **auth_header)
+        assert response.status_code == 400
+        assert "bogus" in self._err_msg(response)
+
+    def test_valid_ordering_still_works(self, client, staff_user, heartbeats, auth_header):
+        """Regression guard: a real ordering field still produces an ordered list."""
+        url = reverse(HEARTBEAT_API_LIST)
+        response = client.get(url, {"ordering": "-timestamp"}, **auth_header)
+        assert response.status_code == 200
+        results = response.json()["results"]
+        timestamps = [r["timestamp"] for r in results]
+        assert timestamps == sorted(timestamps, reverse=True)
+
+    def test_invalid_filter_choice_returns_400(self, client, staff_user, heartbeats, auth_header):
+        """?status=garbage on a choice field (status has choices 'ok'/'fail')
+        is rejected with 400 instead of returning all rows unfiltered."""
+        url = reverse(HEARTBEAT_API_LIST)
+        response = client.get(url, {"status": "garbage"}, **auth_header)
+        assert response.status_code == 400
+        assert "status" in self._err_msg(response).lower()
+
+    def test_valid_filter_choice_still_works(self, client, staff_user, heartbeats, auth_header):
+        """Regression guard: ?status=ok filters correctly to only ok rows."""
+        url = reverse(HEARTBEAT_API_LIST)
+        response = client.get(url, {"status": "ok"}, **auth_header)
+        assert response.status_code == 200
+        for row in response.json()["results"]:
+            assert row["status"] == "ok"

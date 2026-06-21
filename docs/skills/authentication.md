@@ -357,10 +357,11 @@ Custom management command for development:
 uv run python manage.py create_dev_superuser
 ```
 
-Uses credentials from `.env`:
+Uses credentials from `.env` (defaults to `admin/admin` to match the
+README quick-start; override per-project if you want a different value):
 ```bash
 DEV_SUPERUSER_USERNAME=admin
-DEV_SUPERUSER_PASSWORD=change-me-for-dev
+DEV_SUPERUSER_PASSWORD=admin
 DEV_SUPERUSER_EMAIL=admin@example.com
 ```
 

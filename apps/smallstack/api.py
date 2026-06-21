@@ -857,6 +857,15 @@ def _api_list(request, crud_config):
                 },
             )
         filterset = fs_class(request.GET, queryset=qs)
+        # Surface invalid filter values as HTTP 400 instead of silently
+        # falling through to "no filter applied" — the round-2 audit's
+        # §4.5: ``?status=garbage`` used to return every row, which is a
+        # data-integrity surprise on a typo.
+        if filterset.errors:
+            problems = []
+            for field, errs in filterset.errors.items():
+                problems.append(f"{field}: {', '.join(str(e) for e in errs)}")
+            return _error(f"Invalid filter value(s): {'; '.join(problems)}.", 400)
         qs = filterset.qs
 
     # Export
@@ -869,6 +878,19 @@ def _api_list(request, crud_config):
     ordering = request.GET.get("ordering", "").strip()
     if ordering:
         allowed = set(crud_config._get_list_fields()) | set(getattr(crud_config, "api_extra_fields", []))
+        # Reject unknown ordering fields with HTTP 400 instead of silently
+        # dropping them (round-2 audit §4.5). The shared
+        # ``_apply_ordering_fields`` helper still silently ignores, which
+        # is correct for the HTML list view (rendered controls don't emit
+        # bogus values); the API surface is stricter.
+        requested = [part.strip().lstrip("-") for part in ordering.split(",") if part.strip()]
+        invalid = [f for f in requested if f not in allowed]
+        if invalid:
+            return _error(
+                f"Invalid ordering field(s): {', '.join(invalid)}. "
+                f"Allowed: {', '.join(sorted(allowed))}.",
+                400,
+            )
         qs = _apply_ordering(qs, ordering, allowed)
 
     # Aggregation (computed before pagination, on the full filtered queryset)

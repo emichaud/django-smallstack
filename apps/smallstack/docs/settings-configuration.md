@@ -167,9 +167,9 @@ EMAIL_HOST=smtp.gmail.com
 EMAIL_HOST_USER=your-email@gmail.com
 EMAIL_HOST_PASSWORD=your-app-password
 
-# Development superuser
+# Development superuser (defaults match the README quick-start)
 DEV_SUPERUSER_USERNAME=admin
-DEV_SUPERUSER_PASSWORD=change-me-for-dev
+DEV_SUPERUSER_PASSWORD=admin
 DEV_SUPERUSER_EMAIL=admin@example.com
 ```
 
@@ -178,13 +178,19 @@ DEV_SUPERUSER_EMAIL=admin@example.com
 python-decouple looks for values in this order:
 
 1. **Environment variables** - System or shell environment
-2. **`.env` file** - In the project root
+2. **`.env` file** - In the project root (`BASE_DIR / ".env"`)
 3. **Default value** - Specified in code with `default=`
 
 This means:
 - In production, set real environment variables (more secure)
 - In development, use `.env` file (convenient)
 - Defaults provide fallbacks for optional settings
+
+**Project-scoped, not walk-up.** SmallStack overrides the default decouple
+behaviour (which walks UP the filesystem looking for any `.env`) and binds
+the lookup to `BASE_DIR / ".env"` only. This stops a parent-directory `.env`
+(e.g. in a multi-project workspace) from silently shadowing your project's
+defaults. See `config/settings/base.py` for the monkey-patch.
 
 ---
 

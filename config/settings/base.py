@@ -5,10 +5,28 @@ Base Django settings for smallstack project.
 import secrets
 from pathlib import Path
 
-from decouple import config
+import decouple
+from decouple import Config, RepositoryEmpty, RepositoryEnv
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
+
+# Scope python-decouple to *this project's* .env BEFORE anything else
+# imports from it. The default ``from decouple import config`` walks UP
+# the filesystem looking for an .env file, which silently picks up
+# parent-directory .env files in nested-project workspaces (a
+# sandbox/.env shadowing the project's own defaults was the round-2
+# audit's environmental finding). Binding to BASE_DIR / ".env" keeps
+# each project's secrets local. Environment variables still take
+# precedence — that's the decouple contract.
+#
+# We monkey-patch ``decouple.config`` so every subsequent
+# ``from decouple import config`` (in smallstack.py, development.py,
+# production.py, etc.) picks up the scoped version automatically — no
+# need to change four call sites.
+_PROJECT_ENV = BASE_DIR / ".env"
+config = Config(RepositoryEnv(str(_PROJECT_ENV)) if _PROJECT_ENV.exists() else RepositoryEmpty())
+decouple.config = config
 
 # SmallStack app-level settings (branding, feature flags, sidebar, etc.)
 # Edit config/settings/smallstack.py to customize your instance.

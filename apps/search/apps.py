@@ -104,7 +104,11 @@ class SearchConfig(AppConfig):
                     'S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>'
                     "</svg>"
                 ),
-                staff_required=True,
+                # Lifted to authenticated (was staff-only) in v0.11.8.
+                # The page enforces per-view access via the registry, so
+                # non-staff signed-in users land here and see whatever the
+                # SearchAccess.AUTHENTICATED tier allows (plus help docs).
+                staff_required=False,
                 order=33,  # before MCP (35) — search is more general
             )
         except Exception:

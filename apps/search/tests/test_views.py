@@ -21,6 +21,19 @@ def staff_client():
     return client
 
 
+@pytest.fixture
+def non_staff_client():
+    """A signed-in, non-staff user — should be admitted by the page (v0.11.8)
+    even though they previously got 403 under StaffRequiredMixin."""
+    User = get_user_model()
+    user = User.objects.create_user(
+        username="search-regular", password="p", email="r@example.com", is_staff=False
+    )
+    client = Client()
+    client.force_login(user)
+    return client
+
+
 def test_search_page_anon_redirected(client):
     resp = client.get(reverse("search:page"))
     assert resp.status_code in (302, 401, 403)
@@ -30,6 +43,27 @@ def test_search_page_staff_renders(staff_client):
     resp = staff_client.get(reverse("search:page"))
     assert resp.status_code == 200
     assert b"Search" in resp.content
+
+
+def test_search_page_non_staff_renders(non_staff_client):
+    """Audit round-2 finding §4.2: non-staff authenticated users used to
+    get a bare 403 here, contradicting the SearchAccess.AUTHENTICATED tier
+    promised in docs/skills/search.md. The page is now LoginRequiredMixin —
+    the registry enforces per-view access, not the page mixin."""
+    resp = non_staff_client.get(reverse("search:page"))
+    assert resp.status_code == 200
+    assert b"Search" in resp.content
+
+
+def test_search_page_non_staff_sees_no_staff_only_sources(non_staff_client):
+    """Non-staff get the page but the indexed_sources panel is filtered:
+    User + APIToken (default STAFF tier) are hidden."""
+    resp = non_staff_client.get(reverse("search:page"))
+    sources = resp.context["indexed_sources"]
+    model_sources = [s for s in sources if s["kind"] == "model"]
+    # No model-kind source is reachable for a non-staff user at the default
+    # STAFF tier. Only help docs (kind="help") and any AUTH/ANON opt-in show.
+    assert model_sources == []
 
 
 def test_search_page_with_query_shows_results_or_no_match(staff_client):

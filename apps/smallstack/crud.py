@@ -1140,12 +1140,21 @@ class CRUDView:
     # Model→CRUDView registry: populated eagerly via __init_subclass__ so
     # apps.mcp.AppConfig.ready() can iterate before URL config runs.
     # get_urls() still tops it up — that path remains for legacy compatibility.
+    #
+    # First-wins (setdefault) on both write paths: the user's CRUDView is
+    # defined when its module is imported by Django's app loader. Any
+    # CRUDView subclass defined later — notably the Explorer<Model>CRUDView
+    # classes apps.explorer dynamically synthesises in its AppConfig.ready()
+    # — must not overwrite it. Overwriting silently displaces the user's
+    # class from any code that walks _registry at runtime (mcp_doctor's
+    # orphan detector, related-tabs URL resolution, etc.), pointing them at
+    # Explorer's clone instead.
     _registry: dict[type, type["CRUDView"]] = {}
 
     def __init_subclass__(cls, **kwargs):
         super().__init_subclass__(**kwargs)
         if getattr(cls, "model", None) is not None:
-            CRUDView._registry[cls.model] = cls
+            CRUDView._registry.setdefault(cls.model, cls)
 
     # Config source
     admin_class = None  # ModelAdmin subclass — the standard Django config DSL
@@ -1631,8 +1640,10 @@ class CRUDView:
     @classmethod
     def get_urls(cls):
         """Generate URL patterns for configured actions."""
-        # Register model→CRUDView mapping for related tabs discovery
-        CRUDView._registry[cls.model] = cls
+        # Register model→CRUDView mapping for related tabs discovery.
+        # First-wins (see _registry docstring): don't displace a previously-
+        # registered class for the same model.
+        CRUDView._registry.setdefault(cls.model, cls)
 
         url_base = cls._get_url_base()
         urls = []
