@@ -23,6 +23,7 @@ from django.http import HttpRequest, HttpResponse, JsonResponse, QueryDict
 from django.urls import URLPattern, path
 from django.views.decorators.csrf import csrf_exempt
 
+from .audit import ADDITION, CHANGE, DELETION, log_write
 from .crud import Action, BulkAction, _apply_ordering_fields
 
 if TYPE_CHECKING:
@@ -814,6 +815,7 @@ def _make_api_detail_view(crud_config):
                 return _error("Method not allowed", 405)
             if not crud_config.can_delete(obj, request):
                 return _error("Permission denied", 403)
+            log_write(request.user, obj, DELETION, "REST API")  # before delete
             obj.delete()
             return HttpResponse(status=204)
 
@@ -943,6 +945,7 @@ def _api_create(request, crud_config):
     if form.is_valid():
         obj = form.save()
         crud_config.on_form_valid(request, form, obj, is_create=True)
+        log_write(request.user, obj, ADDITION, "REST API")
         expand_fields = _resolve_expand_fields(request, crud_config)
         fields = crud_config._get_detail_fields() or crud_config.fields
         return JsonResponse(
@@ -985,6 +988,7 @@ def _api_update(request, obj, crud_config):
     if form.is_valid():
         obj = form.save()
         crud_config.on_form_valid(request, form, obj, is_create=False)
+        log_write(request.user, obj, CHANGE, "REST API")
         expand_fields = _resolve_expand_fields(request, crud_config)
         fields = crud_config._get_detail_fields() or crud_config.fields
         return JsonResponse(_serialize(obj, fields, crud_config.api_extra_fields, expand_fields))
@@ -1083,6 +1087,7 @@ def _make_api_bulk_delete_view(crud_config):
                 errors[str(pk)] = "Permission denied"
                 continue
             try:
+                log_write(request.user, obj, DELETION, "REST API (bulk)")  # before delete
                 obj.delete()
                 deleted_ids.append(pk)
             except (ProtectedError, RestrictedError) as e:
@@ -1180,6 +1185,7 @@ def _make_api_bulk_update_view(crud_config):
             if form.is_valid():
                 obj = form.save()
                 crud_config.on_form_valid(request, form, obj, is_create=False)
+                log_write(request.user, obj, CHANGE, "REST API (bulk)")
                 fields = crud_config._get_detail_fields() or crud_config.fields
                 updated.append(_serialize(obj, fields, crud_config.api_extra_fields, expand_fields))
             else:

@@ -26,6 +26,7 @@ from apps.smallstack.api import (
     field_to_schema,
     serialize,
 )
+from apps.smallstack.audit import ADDITION, CHANGE, DELETION, log_write
 from apps.smallstack.crud import Action
 from apps.smallstack.mixins import StaffRequiredMixin
 
@@ -284,6 +285,7 @@ def _build_create_tool(view_cls, *, singular: str):
             return {"errors": form.errors}
         obj = form.save()
         view_cls.on_form_valid(request, form, obj, is_create=True)
+        log_write(ctx.user, obj, ADDITION, "MCP")
         fields = view_cls._get_detail_fields() or view_cls.fields
         extra = getattr(view_cls, "api_extra_fields", [])
         expand = set(getattr(view_cls, "api_expand_fields", []) or [])
@@ -337,6 +339,7 @@ def _build_update_tool(view_cls, *, singular: str):
             return {"errors": form.errors}
         obj = form.save()
         view_cls.on_form_valid(request, form, obj, is_create=False)
+        log_write(ctx.user, obj, CHANGE, "MCP")
         fields = view_cls._get_detail_fields() or view_cls.fields
         extra = getattr(view_cls, "api_extra_fields", [])
         expand = set(getattr(view_cls, "api_expand_fields", []) or [])
@@ -365,6 +368,7 @@ def _build_delete_tool(view_cls, *, singular: str):
             return {"error": f"{view_cls.model.__name__} pk={pk} not found"}
         if not view_cls.can_delete(obj, request):
             return {"error": "delete not permitted"}
+        log_write(ctx.user, obj, DELETION, "MCP")  # before delete — obj.pk needed
         obj.delete()
         return {"deleted": True, "pk": pk}
 

@@ -1714,6 +1714,17 @@ class TestCRUDDeleteIntegration:
         response = client.delete(url, **auth_header)
         assert response.status_code == 404
 
+    def test_delete_is_audit_logged(self, client, staff_user, heartbeats, auth_header):
+        """Audit L9: a programmatic REST delete records a LogEntry."""
+        from django.contrib.admin.models import DELETION, LogEntry
+
+        obj = heartbeats[0]
+        url = reverse("explorer-monitoring-heartbeat-api-detail", kwargs={"pk": obj.pk})
+        client.delete(url, **auth_header)
+        entry = LogEntry.objects.filter(action_flag=DELETION).latest("id")
+        assert entry.object_id == str(obj.pk)
+        assert "REST API" in entry.change_message
+
     def test_delete_requires_auth(self, client, heartbeats):
         """DELETE without auth returns 401."""
         obj = heartbeats[0]

@@ -24,7 +24,7 @@ from django.contrib.contenttypes.models import ContentType
 logger = logging.getLogger(__name__)
 
 # Re-export for convenience
-__all__ = ["log_action", "AuditMixin", "ADDITION", "CHANGE", "DELETION"]
+__all__ = ["log_action", "log_write", "AuditMixin", "ADDITION", "CHANGE", "DELETION"]
 
 
 def log_action(user, obj, action_flag, message=""):
@@ -41,7 +41,10 @@ def log_action(user, obj, action_flag, message=""):
         The created LogEntry instance.
     """
     ct = ContentType.objects.get_for_model(obj)
-    entry = LogEntry.objects.log_action(
+    # Construct the LogEntry directly rather than via the manager's log_action()
+    # helper, which Django 6.0 removed (replaced by the batch log_actions()).
+    # Creating the row directly is equivalent and version-stable.
+    entry = LogEntry.objects.create(
         user_id=user.pk,
         content_type_id=ct.pk,
         object_id=str(obj.pk),
@@ -59,6 +62,23 @@ def log_action(user, obj, action_flag, message=""):
         message,
     )
     return entry
+
+
+def log_write(user, obj, action_flag, source=""):
+    """Best-effort audit log for a programmatic write (REST API / MCP tools).
+
+    Unlike :func:`log_action`, this NEVER raises — audit logging must not break
+    the write it records — and it no-ops when there's no real acting user
+    (e.g. an anonymous/session-less context). ``source`` labels the channel
+    ("REST API", "MCP") in the change message. (Audit L9.)
+    """
+    try:
+        if getattr(user, "pk", None) is None:
+            return None
+        return log_action(user, obj, action_flag, f"via {source}" if source else "")
+    except Exception:
+        logger.exception("Audit log_write failed for %r", obj)
+        return None
 
 
 class AuditMixin:
