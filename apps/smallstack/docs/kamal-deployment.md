@@ -189,8 +189,9 @@ cp .kamal/secrets.example .kamal/secrets
 Then edit `.kamal/secrets`:
 
 ```bash
-# Include your domain, www, VPS IP, and * for health checks
-ALLOWED_HOSTS=myapp.com,www.myapp.com,123.45.67.89,localhost,127.0.0.1,*
+# Include your domain, www, VPS IP, localhost. Do NOT add "*" — health checks
+# are handled by HealthCheckMiddleware before Host validation, so it's not needed.
+ALLOWED_HOSTS=myapp.com,www.myapp.com,123.45.67.89,localhost,127.0.0.1
 
 # HTTPS origins (required for CSRF protection)
 CSRF_TRUSTED_ORIGINS=https://myapp.com,https://www.myapp.com
@@ -292,8 +293,8 @@ Environment secrets (gitignored):
 
 ```bash
 SECRET_KEY=your-secret-key-here
-# Important: Include * at the end for kamal-proxy health checks
-ALLOWED_HOSTS=myapp.com,www.myapp.com,123.45.67.89,localhost,127.0.0.1,*
+# Do NOT add "*" — kamal-proxy health checks are handled before Host validation.
+ALLOWED_HOSTS=myapp.com,www.myapp.com,123.45.67.89,localhost,127.0.0.1
 CSRF_TRUSTED_ORIGINS=https://myapp.com,https://www.myapp.com
 ```
 

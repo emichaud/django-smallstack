@@ -35,7 +35,19 @@
     </div>
     <div style="display: flex; gap: 12px; align-items: stretch;">
         <!-- Scheduled Backups Status -->
-        {% if backup_cron_enabled %}
+        {% if not is_sqlite %}
+        <div class="action-card action-card-danger">
+            <div class="action-card-body">
+                <svg viewBox="0 0 24 24" class="action-card-icon">
+                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/>
+                </svg>
+                <div>
+                    <div class="action-card-title">Not Protected</div>
+                    <div class="action-card-subtitle">SQLite-only — see below</div>
+                </div>
+            </div>
+        </div>
+        {% elif backup_cron_enabled %}
         <div class="action-card action-card-success">
             <div class="action-card-body">
                 <svg viewBox="0 0 24 24" class="action-card-icon">
@@ -96,6 +108,23 @@
 
 {% block content %}
 {% csrf_token %}
+{% if not is_sqlite %}
+<div class="card" role="alert" style="
+    margin-bottom: 1.25rem;
+    border-left: 4px solid var(--error-fg);
+    background: color-mix(in srgb, var(--error-fg) 8%, var(--card-bg));
+">
+    <strong style="color: var(--error-fg);">This database is not protected by the built-in backup system.</strong>
+    <p style="margin: 0.4rem 0 0 0; color: var(--body-fg);">
+        The bundled backup tools (<code>make backup</code>, the scheduled cron, and Backup&nbsp;Now)
+        only support <strong>SQLite</strong> — they snapshot the <code>.sqlite3</code> file. This
+        deployment runs on <strong>{{ engine }}</strong>, so they do nothing and the history below
+        will stay empty even if a nightly cron is configured. Back this database up with
+        <code>pg_dump</code> or your managed provider's snapshots instead. See
+        <a href="{% url 'help:section_detail' 'smallstack' 'database-postgresql' %}">PostgreSQL &rarr; Backups</a>.
+    </p>
+</div>
+{% endif %}
 <div id="backup-page-content">
     {% include "smallstack/partials/backup_page_content.html" %}
 </div>

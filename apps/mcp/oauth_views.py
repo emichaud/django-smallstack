@@ -118,6 +118,40 @@ def register(request: HttpRequest) -> JsonResponse:
 # ---------------------------------------------------------------------------
 
 
+def _is_safe_redirect_uri(redirect_uri: str) -> bool:
+    """Guard against authorization-code interception via a poisoned
+    ``redirect_uri`` (open redirect).
+
+    Per RFC 8252: allow ``https`` for any host; allow ``http`` only for
+    loopback (native/desktop clients); reject every other scheme
+    (``javascript:``, ``data:``, ``file:``, custom) and non-loopback ``http``.
+    DCR is stateless, so we can't exact-match a registered URI — this check,
+    plus showing the destination host on the consent page, is the defense.
+    (Audit H1.)
+    """
+    try:
+        parsed = urlparse(redirect_uri)
+    except ValueError:
+        return False
+    if not parsed.scheme or not parsed.netloc:
+        return False
+    if parsed.scheme == "https":
+        return True
+    if parsed.scheme == "http":
+        return (parsed.hostname or "").lower() in ("127.0.0.1", "::1", "localhost")
+    return False
+
+
+def _invalid_redirect_response() -> JsonResponse:
+    return JsonResponse(
+        {
+            "error": "invalid_request",
+            "error_description": "redirect_uri must be https, or http on a loopback host",
+        },
+        status=400,
+    )
+
+
 def _add_csp_for_redirect(resp: HttpResponse, redirect_uri: str) -> HttpResponse:
     """Allow the post-Authorize form to navigate to `redirect_uri` origin."""
     parsed = urlparse(redirect_uri)
@@ -176,10 +210,15 @@ class AuthorizeView(View):
                 {"error": "invalid_request", "error_description": "S256 required"},
                 status=400,
             )
+        if not _is_safe_redirect_uri(redirect_uri):
+            return _invalid_redirect_response()
 
         ctx = {
             "client_id": client_id,
             "redirect_uri": redirect_uri,
+            # Shown prominently on the consent page so the user can see where
+            # the authorization code will be sent and detect a poisoned URI.
+            "redirect_host": urlparse(redirect_uri).netloc,
             "code_challenge": code_challenge,
             "code_challenge_method": code_challenge_method,
             "state": state,
@@ -203,6 +242,11 @@ class AuthorizeView(View):
         state = post.get("state", "")
         scope = post.get("scope", "read")
         decision = post.get("decision", "deny")
+
+        # Never 302 to an unvalidated redirect_uri — not even the deny path.
+        # (Audit H1.)
+        if not _is_safe_redirect_uri(redirect_uri):
+            return _invalid_redirect_response()
 
         if decision != "allow":
             qs = urlencode({"error": "access_denied", "state": state})
@@ -279,6 +323,16 @@ def token(request: HttpRequest) -> JsonResponse:
     except OAuthAuthorizationCode.DoesNotExist:
         logger.warning("OAUTH TOKEN reject reason=unknown_code client_id=%s", client_id)
         return JsonResponse({"error": "invalid_grant", "error_description": "Unknown code"}, status=400)
+
+    # If the client sends redirect_uri at /token (RFC 6749 §4.1.3), it must
+    # match the one bound to the code at /authorize. Defense in depth against
+    # code interception. Omitted is tolerated for client compatibility. (Audit H1.)
+    req_redirect = request.POST.get("redirect_uri", "")
+    if req_redirect and req_redirect != row.redirect_uri:
+        logger.warning("OAUTH TOKEN reject reason=redirect_uri_mismatch client_id=%s", client_id)
+        return JsonResponse(
+            {"error": "invalid_grant", "error_description": "redirect_uri mismatch"}, status=400
+        )
 
     if row.used_at is not None:
         logger.warning("OAUTH TOKEN reject reason=code_reused client_id=%s", client_id)

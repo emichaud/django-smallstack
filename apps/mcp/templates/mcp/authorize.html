@@ -44,6 +44,21 @@
     {% for line in scope_human %}<li>{{ line }}</li>{% endfor %}
   </ul>
 
+  <h2 style="font-size: 1rem; margin: 1.5rem 0 0.5rem 0;">Authorization code will be sent to</h2>
+  <div style="
+    padding: 0.6rem 0.85rem;
+    margin-bottom: 0.5rem;
+    background: var(--code-bg, #f4f4f4);
+    border: 1px solid var(--border, #ddd);
+    border-radius: 8px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 0.9rem;
+    word-break: break-all;
+  ">{{ redirect_host }}</div>
+  <p style="margin: 0 0 1.5rem 0; font-size: 0.8rem; color: var(--muted-fg, #666);">
+    Only continue if you recognize this destination. If it's unexpected, click <strong>Deny</strong>.
+  </p>
+
   <p style="margin: 0 0 1.5rem 0; font-size: 0.85rem; color: var(--muted-fg, #666);">
     You can review or revoke this client's token at any time from your
     <a href="{{ tokens_url }}" style="color: var(--primary, #0066cc);">API tokens</a>.

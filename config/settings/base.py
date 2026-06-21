@@ -82,6 +82,9 @@ TASKS = {
 }
 
 MIDDLEWARE = [
+    # First: answer /health/ before Host validation so proxy/LB health checks
+    # (unpredictable container-IP Host) succeed without ALLOWED_HOSTS=*.
+    "apps.smallstack.middleware.HealthCheckMiddleware",
     "apps.smallstack.middleware.RequestIDMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",

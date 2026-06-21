@@ -2,13 +2,57 @@
 SmallStack middleware.
 """
 
+import logging
 import uuid
 import zoneinfo
 from collections.abc import Callable
 
 from django.conf import settings
-from django.http import HttpRequest, HttpResponse
+from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.utils import timezone
+
+logger = logging.getLogger("smallstack")
+
+
+def health_response() -> JsonResponse:
+    """Build the ``/health/`` response (database connectivity probe).
+
+    Shared by the health view (``config.views.health_check``) and
+    ``HealthCheckMiddleware`` so the two can never drift.
+    """
+    from django.db import connection
+
+    db_ok = True
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT 1")
+    except Exception as e:  # pragma: no cover - exercised via the view's tests
+        db_ok = False
+        logger.error("Health check: database unreachable — %s", e)
+
+    payload = {"status": "ok" if db_ok else "error", "database": "ok" if db_ok else "unreachable"}
+    return JsonResponse(payload, status=200 if db_ok else 503)
+
+
+class HealthCheckMiddleware:
+    """Answer ``/health/`` before ALLOWED_HOSTS validation runs.
+
+    Proxy / load-balancer health checks (kamal-proxy, ALBs, k8s) hit the
+    container by IP, so they send a ``Host`` header that can't be predicted
+    and isn't in ``ALLOWED_HOSTS``. Handling ``/health/`` here — first in the
+    chain, before SecurityMiddleware/CommonMiddleware call ``get_host()`` —
+    lets the probe succeed WITHOUT ``ALLOWED_HOSTS=*`` (which would disable
+    Host-header validation for the whole site). Must stay first in MIDDLEWARE.
+    (Audit H5.)
+    """
+
+    def __init__(self, get_response: Callable[[HttpRequest], HttpResponse]) -> None:
+        self.get_response = get_response
+
+    def __call__(self, request: HttpRequest) -> HttpResponse:
+        if request.path == "/health/":
+            return health_response()
+        return self.get_response(request)
 
 
 class RequestIDMiddleware:

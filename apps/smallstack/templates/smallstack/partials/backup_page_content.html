@@ -195,7 +195,9 @@
                         <tr>
                             <td class="config-label">Scheduled</td>
                             <td>
-                                {% if settings_info.backup_cron_enabled %}
+                                {% if not is_sqlite %}
+                                <span style="color: var(--error-fg);">Not effective (SQLite-only)</span>
+                                {% elif settings_info.backup_cron_enabled %}
                                 <span style="color: var(--success-fg);">Enabled</span>
                                 {% else %}
                                 <span style="color: var(--body-quiet-color);">Disabled</span>

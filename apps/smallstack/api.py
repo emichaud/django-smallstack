@@ -268,11 +268,15 @@ def _check_api_permissions(request, crud_config, method="GET"):
             if not request.user.is_staff:
                 return _error("Staff access required", 403)
 
-    # Enforce access_level on manual tokens
+    # Enforce read-only regardless of token_type. OAuth tokens minted with
+    # scope=read carry token_type="oauth", access_level="readonly" — they must
+    # be blocked from writes here exactly as the MCP channel blocks them
+    # (apps/mcp/auth.py gates on access_level, not token_type). Gating on
+    # token_type="manual" let a read-scoped OAuth bearer POST/PUT/DELETE on the
+    # REST surface. Login tokens carry access_level="" and stay unaffected. (Audit H2/H3.)
     token = getattr(request, "_api_token", None)
-    if token and token.token_type == "manual":
-        if token.access_level == "readonly" and method not in ("GET", "HEAD", "OPTIONS"):
-            return _error("Token is read-only", 403)
+    if token and token.access_level == "readonly" and method not in ("GET", "HEAD", "OPTIONS"):
+        return _error("Token is read-only", 403)
     return None
 
 

@@ -112,6 +112,90 @@ def test_authorize_post_deny_redirects_with_error():
     assert "error=access_denied" in resp["Location"]
 
 
+def test_authorize_get_rejects_unsafe_redirect_uri():
+    """Audit H1: javascript:/data:/non-loopback-http redirect_uri is rejected
+    at the consent page (open-redirect / code-interception guard)."""
+    user = User.objects.create_user(username="u_rr1", password="p")
+    client = Client()
+    client.force_login(user)
+    for bad in ("javascript:alert(1)", "http://evil.example/cb", "data:text/html,x"):
+        resp = client.get(
+            "/mcp/oauth/authorize"
+            f"?client_id=mcp_x&redirect_uri={bad}&code_challenge=abc&code_challenge_method=S256",
+            HTTP_HOST="localhost",
+        )
+        assert resp.status_code == 400, bad
+        assert resp.json()["error"] == "invalid_request"
+
+
+def test_authorize_get_allows_https_and_loopback_http():
+    """https (any host) and http on a loopback host are valid redirect targets."""
+    user = User.objects.create_user(username="u_rr2", password="p")
+    client = Client()
+    client.force_login(user)
+    for ok in ("https://claude.ai/cb", "http://127.0.0.1:8765/callback", "http://localhost:9000/cb"):
+        resp = client.get(
+            "/mcp/oauth/authorize"
+            f"?client_id=mcp_x&redirect_uri={ok}&code_challenge=abc&code_challenge_method=S256",
+            HTTP_HOST="localhost",
+        )
+        assert resp.status_code == 200, ok
+        # destination host is surfaced on the consent page (anti-phishing)
+        assert b"Authorization code will be sent to" in resp.content
+
+
+def test_authorize_post_rejects_unsafe_redirect_uri_without_minting():
+    """A poisoned redirect_uri at POST must 400 and NOT mint a token or 302."""
+    user = User.objects.create_user(username="u_rr3", password="p")
+    client = Client()
+    client.force_login(user)
+    resp = client.post(
+        "/mcp/oauth/authorize",
+        {
+            "client_id": "mcp_x",
+            "redirect_uri": "http://evil.example/cb",
+            "code_challenge": "abc",
+            "code_challenge_method": "S256",
+            "state": "s1",
+            "scope": "read",
+            "decision": "allow",
+        },
+        HTTP_HOST="localhost",
+    )
+    assert resp.status_code == 400
+    assert APIToken.objects.filter(user=user).count() == 0
+
+
+def test_token_rejects_redirect_uri_mismatch():
+    """Audit H1: if the client sends redirect_uri at /token it must match the
+    one bound to the code at /authorize."""
+    user = User.objects.create_user(username="u_rr4", password="p")
+    client = Client()
+    client.force_login(user)
+    verifier = "v" * 64
+    chal = _chal(verifier)
+    auth = client.post(
+        "/mcp/oauth/authorize",
+        {
+            "client_id": "mcp_x", "redirect_uri": "https://claude.ai/cb",
+            "code_challenge": chal, "code_challenge_method": "S256",
+            "state": "s1", "scope": "read", "decision": "allow",
+        },
+        HTTP_HOST="localhost",
+    )
+    code = auth["Location"].split("code=")[1].split("&")[0]
+    resp = client.post(
+        "/mcp/oauth/token",
+        {
+            "grant_type": "authorization_code", "code": code, "code_verifier": verifier,
+            "redirect_uri": "https://claude.ai/EVIL",  # != the bound URI
+        },
+        HTTP_HOST="localhost",
+    )
+    assert resp.status_code == 400
+    assert resp.json()["error"] == "invalid_grant"
+
+
 def test_full_token_exchange_yields_bearer():
     user = User.objects.create_user(username="u4", password="p")
     client = Client()

@@ -5,7 +5,7 @@ Utility views for the project.
 import logging
 from pathlib import Path
 
-from django.http import Http404, JsonResponse
+from django.http import Http404
 from django.shortcuts import render
 
 from apps.help.utils import render_markdown
@@ -43,17 +43,13 @@ def legal_page_view(request, page):
 
 
 def health_check(request):
-    """Health check endpoint with database connectivity test."""
-    from django.db import connection
+    """Health check endpoint with database connectivity test.
 
-    db_ok = True
-    try:
-        with connection.cursor() as cursor:
-            cursor.execute("SELECT 1")
-    except Exception as e:
-        db_ok = False
-        logger.error("Health check: database unreachable — %s", e)
+    In production this path is normally short-circuited by
+    ``HealthCheckMiddleware`` (so proxy health checks bypass Host validation);
+    this view backs the same URL for direct/local requests. Both delegate to
+    the one shared ``health_response`` helper.
+    """
+    from apps.smallstack.middleware import health_response
 
-    status = "ok" if db_ok else "error"
-    payload = {"status": status, "database": "ok" if db_ok else "unreachable"}
-    return JsonResponse(payload, status=200 if db_ok else 503)
+    return health_response()

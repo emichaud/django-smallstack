@@ -2231,6 +2231,24 @@ class TestBulkDeleteAPI:
         )
         assert resp.status_code == 400
 
+    def test_bulk_delete_readonly_oauth_token_blocked(self, client, staff_user, db):
+        """Audit H2/H3: a read-only OAuth token (token_type='oauth') must be
+        blocked from writes exactly like a manual read-only token. Regression
+        for the bug where _check_api_permissions only enforced read-only on
+        token_type='manual', letting OAuth read-scope tokens write via REST."""
+        token, raw_key = APIToken.create_token(
+            staff_user, name="RO OAuth", token_type="oauth", access_level="readonly"
+        )
+        url = reverse(HEARTBEAT_BULK_DELETE)
+        resp = client.post(
+            url,
+            json.dumps({"ids": [1]}),
+            content_type="application/json",
+            HTTP_AUTHORIZATION=f"Bearer {raw_key}",
+        )
+        assert resp.status_code == 403
+        assert "read-only" in resp.content.decode().lower()
+
 
 # ---------------------------------------------------------------------------
 # Bulk CRUD endpoint tests (HTML layer)

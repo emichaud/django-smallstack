@@ -492,7 +492,7 @@ Copy from `secrets.example` and fill in:
 
 ```bash
 SECRET_KEY=your-unique-secret-key
-ALLOWED_HOSTS=myproject.com,www.myproject.com,123.45.67.89,*
+ALLOWED_HOSTS=myproject.com,www.myproject.com,123.45.67.89,localhost,127.0.0.1
 CSRF_TRUSTED_ORIGINS=https://myproject.com,https://www.myproject.com
 ```
 
