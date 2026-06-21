@@ -27,6 +27,22 @@ def _post(client, body, **extra):
     )
 
 
+@pytest.mark.parametrize("body", [[1, 2, 3], "a string", 5, True])
+def test_non_object_body_returns_invalid_request(body):
+    """Audit L2: a valid-JSON but non-object body (e.g. a batch array) must
+    return -32600 Invalid Request, not an uncaught 500."""
+    resp = _post(Client(), body)
+    assert resp.status_code == 400
+    assert resp.json()["error"]["code"] == -32600
+
+
+def test_non_dict_params_returns_invalid_request():
+    """Non-object params must also be rejected with -32600, not crash."""
+    resp = _post(Client(), {"jsonrpc": "2.0", "id": 1, "method": "ping", "params": [1, 2]})
+    assert resp.status_code == 400
+    assert resp.json()["error"]["code"] == -32600
+
+
 def test_get_banner_returns_json():
     resp = Client().get("/mcp", HTTP_HOST="localhost")
     assert resp.status_code == 200

@@ -143,9 +143,23 @@ class McpHttpView(View):
             logger.warning("MCP REQ parse_error body=%s", _truncate(body_bytes))
             return _rpc_error(None, _RPC_PARSE_ERROR, "Parse error", status=400)
 
+        # A syntactically valid but non-object body (array/string/number/null,
+        # e.g. a JSON-RPC batch) must yield -32600 Invalid Request, not an
+        # uncaught AttributeError → HTTP 500. This runs pre-auth, so it also
+        # closes a trivial unauthenticated way to spam 500s. (Audit L2.)
+        if not isinstance(payload, dict):
+            logger.warning("MCP REQ invalid_request: non-object body")
+            return _rpc_error(
+                None, _RPC_INVALID_REQUEST, "Invalid Request: body must be a JSON object", status=400
+            )
+
         method = payload.get("method", "")
         rpc_id = payload.get("id")
         params = payload.get("params") or {}
+        if not isinstance(params, dict):
+            return _rpc_error(
+                rpc_id, _RPC_INVALID_REQUEST, "Invalid Request: params must be an object", status=400
+            )
         logger.info("MCP REQ method=%s id=%s params_keys=%s", method, rpc_id, list(params.keys()))
 
         response: HttpResponse | None = None
