@@ -7,6 +7,8 @@ A downstream project can wrap with a prefix if desired:
     path("tools/", include("apps.smallstack.site_urls"))
 """
 
+from django.conf import settings
+from django.contrib.auth.views import PasswordResetView
 from django.urls import include, path
 
 from apps.accounts.views import SignupView
@@ -19,7 +21,19 @@ urlpatterns = [
     path("layouts/", LayoutPreviewView.as_view(), name="layout_preview"),
     # Navigation guide (staff-only)
     path("nav-guide/", NavGuideView.as_view(), name="nav_guide"),
-    # Authentication
+    # Authentication. Override password_reset BEFORE the stock auth-urls
+    # include so reset emails get the branded HTML alternative and the real
+    # SITE_NAME (otherwise django.contrib.auth sends plain-text only and signs
+    # off with the raw request host, since contrib.sites isn't installed).
+    # (Audit L4/L5.)
+    path(
+        "accounts/password_reset/",
+        PasswordResetView.as_view(
+            html_email_template_name="registration/password_reset_email_html.html",
+            extra_email_context={"site_name": getattr(settings, "SITE_NAME", "SmallStack")},
+        ),
+        name="password_reset",
+    ),
     path("accounts/", include("django.contrib.auth.urls")),
     path("accounts/signup/", SignupView.as_view(), name="signup"),
     # Help/Documentation

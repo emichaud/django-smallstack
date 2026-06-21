@@ -139,8 +139,10 @@ def send_welcome_email(user_id):
     """
     Send a welcome email to a newly registered user.
 
-    This is a convenience task that fetches user data and sends a welcome message.
-    Useful for triggering from signals after user creation.
+    Sample/convenience task — NOT wired into signup by default, because the
+    bundled SignupForm collects username only (no email), so there'd be nothing
+    to send to. Enqueue it from your own signup/signal once your signup form
+    collects an email address. Fetches user data and sends a welcome message.
 
     Args:
         user_id: The ID of the user to email
