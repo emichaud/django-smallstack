@@ -6,7 +6,13 @@
 ![Django 6.0](https://img.shields.io/badge/django-6.0-green)
 ![License MIT](https://img.shields.io/badge/license-MIT-brightgreen)
 
-A small-footprint Django foundation for shipping **scheduler systems, websites, API servers, and MCP servers** — with Explorer, CRUDView, and a model-to-API-to-MCP pipeline already wired up. SQLite-first, no external services required.
+A small-footprint Django foundation for shipping **websites, API servers, MCP servers, and background-task systems** — with Explorer, CRUDView, and a model-to-API-to-MCP pipeline already wired up. SQLite-first, no external services required.
+
+> **A note on "background tasks" vs "schedulers"**: SmallStack ships a one-shot
+> background-task queue (django-tasks-db + a worker via `manage.py db_worker`).
+> Recurring / cron-style scheduling (`@scheduled(every="5m")`, retries with
+> backoff, dead-letter handling) is planned for v0.12.0 — until then,
+> recurring jobs are management commands triggered by system cron.
 
 📖 **Docs, guides, and examples → [www.smallstack.site](https://www.smallstack.site/)**
 

@@ -13,6 +13,22 @@ process-level dict, so we just call ``tool(...)`` at startup time from
 If ``apps.mcp`` isn't installed (downstream project chose to disable
 MCP), the import is guarded and we silently skip — the search backend
 still works for HTML + REST.
+
+Security
+--------
+Every search MCP handler now pulls the calling token's user from the
+MCP context (``current_context().user``) and feeds it to the registry's
+access gate. Before v0.11.9 the handlers called ``backend.query()`` /
+``search_all()`` directly with no user, which bypassed the
+``search_access`` gate that the HTTP surface enforced — a non-staff
+caller with a readonly token could pull rows from a STAFF-tier view
+(the v0.11.8 round-2 audit §3.3 ``search_users`` leak). The fix mirrors
+the web search path: STAFF-tier views deny non-staff callers, AUTH-tier
+views accept any authenticated, ANONYMOUS-tier always passes, and
+``search_visibility`` callbacks still scope rows per user.
+
+Help docs remain always-visible (intentionally — they are
+documentation).
 """
 
 from __future__ import annotations
@@ -52,10 +68,55 @@ def register_search_tools() -> int:
             limit = int(args.get("limit") or 10)
             if not query:
                 return {"results": []}
+
+            # Apply the same access gate the web /search/ + /smallstack/search/
+            # pages get from the registry. Pull the caller from the MCP
+            # context — for an MCP request this is the user the API token
+            # was minted for. If the view's search_access tier is above
+            # the caller's identity, deny without running the query.
+            from apps.mcp.server import current_context
+
             from .backends import get_backend
+            from .registry import _user_can_see
+
+            ctx = current_context()
+            user = getattr(ctx, "user", None)
+            if not _user_can_see(_view, user):
+                return {
+                    "results": [],
+                    "denied": True,
+                    "reason": (
+                        f"Access to {_view.model_label} requires "
+                        f"search_access >= {_view.access}; "
+                        f"this token's user does not satisfy that tier."
+                    ),
+                }
 
             backend = get_backend()
             hits = await sync_to_async(backend.query)(_view, query, limit)
+
+            # Run search_visibility for non-staff callers — same fail-safe
+            # semantics as registry.search_all (a raising callback drops
+            # every hit rather than leaking the unfiltered set).
+            is_privileged = user is None or bool(getattr(user, "is_staff", False))
+            if hits and not is_privileged and _view.visibility is not None:
+                try:
+                    hit_ids = [h.object_id for h in hits]
+
+                    def _filter():
+                        qs = _view.model.objects.filter(pk__in=hit_ids)
+                        qs = _view.visibility(qs, user)
+                        return set(qs.values_list("pk", flat=True))
+
+                    visible_ids = await sync_to_async(_filter)()
+                    hits = [h for h in hits if h.object_id in visible_ids]
+                except Exception:
+                    logger.exception(
+                        "search_visibility failed for %s — dropping all hits",
+                        _view.model_label,
+                    )
+                    hits = []
+
             return {"results": [h.as_dict() for h in hits], "backend": backend.name}
 
         try:
@@ -148,7 +209,15 @@ async def _search_all_handler(args: dict):
     limit = int(args.get("limit_per_model") or 5)
     if not query:
         return {"results": []}
-    hits = await sync_to_async(_search_all)(query, limit)
+    from apps.mcp.server import current_context
+
+    ctx = current_context()
+    user = getattr(ctx, "user", None)
+    # Pass the caller into the registry's access gate. STAFF-tier views
+    # are filtered out for non-staff callers; visibility callbacks scope
+    # rows. ``search_all`` was already user-aware (see registry.py); this
+    # just feeds it the right identity instead of None (trusted-internal).
+    hits = await sync_to_async(_search_all)(query, limit, user=user)
     return {"results": [h.as_dict() for h in hits]}
 
 

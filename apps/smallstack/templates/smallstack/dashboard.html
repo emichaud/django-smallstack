@@ -38,8 +38,10 @@
     {% endfor %}
 </div>
 {% else %}
-<p style="color: var(--body-quiet-color); padding: 2rem 0; text-align: center;">
-    No dashboard widgets available.
-</p>
+{% include "smallstack/includes/empty_state.html" with
+   title="No dashboard widgets available"
+   body="Add a <code>DashboardWidget</code> subclass and register it in your app's <code>AppConfig.ready()</code> via <code>dashboard.register(...)</code>. Built-in widgets in <code>apps/smallstack/dashboard_widgets.py</code> are good starting templates."
+   cta_url="/smallstack/help/smallstack/dashboard-widgets/"
+   cta_label="Read the widget docs" %}
 {% endif %}
 {% endblock %}

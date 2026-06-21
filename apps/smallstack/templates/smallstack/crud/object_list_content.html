@@ -9,14 +9,19 @@
 {% elif object_list %}
     {% crud_table %}
 {% else %}
-    <p style="color: var(--body-quiet-color); padding: 2rem 0; text-align: center;">
-        No {{ object_verbose_name_plural }} found.
-        {% if toolbar_search_query or toolbar_has_active_filter %}
-        Try adjusting your search or filters.
-        {% elif create_view_url %}
-        <a href="{{ create_view_url }}" style="color: var(--primary);">Create one now?</a>
-        {% endif %}
-    </p>
+    {% if toolbar_search_query or toolbar_has_active_filter %}
+        {% include "smallstack/includes/empty_state.html" with
+           no_card=True
+           title="No matches"
+           body="No "|add:object_verbose_name_plural|add:" matched your search and filters. Try adjusting them or clearing them to see everything." %}
+    {% else %}
+        {% include "smallstack/includes/empty_state.html" with
+           no_card=True
+           title="Nothing here yet"
+           body="No "|add:object_verbose_name_plural|add:" have been added."
+           cta_url=create_view_url
+           cta_label="Create the first one" %}
+    {% endif %}
 {% endif %}
 
 {% if not use_tables2 and not display_template and is_paginated %}

@@ -229,6 +229,18 @@ def _authenticate_api_request(
         raw_key = auth_header[7:]
         user, token = APIToken.authenticate(raw_key)
         if user is None:
+            # Distinguish "credential was real but is now invalid" from
+            # "credential is wrong" so CI logs and human debuggers see
+            # the failure mode immediately. Round-2 audit §4.6.
+            if token is not None:
+                if token.revoked_at is not None or not token.is_active:
+                    return None, _error("Token revoked", 401)
+                if token.expires_at is not None:
+                    expired_at = token.expires_at.isoformat()
+                    return None, _error(f"Token expired at {expired_at}", 401)
+                # Found but failed is_valid() for some other reason —
+                # treat as inactive.
+                return None, _error("Token inactive", 401)
             return None, _error("Invalid token", 401)
         request.user = user
         request._api_token = token

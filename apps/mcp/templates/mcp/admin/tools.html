@@ -25,18 +25,11 @@
 {% include "mcp/admin/_nav.html" %}
 
 {% if not tools %}
-  <div class="card">
-    <div class="card-body" style="padding: 32px 24px; text-align: center;">
-      <div style="font-size: 1.05rem; font-weight: 600; margin-bottom: 6px;">No tools registered yet</div>
-      <p style="margin: 0 auto 16px auto; max-width: 480px; color: var(--body-quiet-color); font-size: 0.9rem;">
-        Opt a <code>CRUDView</code> in with <code>enable_mcp = True</code>, or add
-        a custom tool via <code>@tool</code> in your app's
-        <code>mcp_tools.py</code>.
-      </p>
-      <a href="{% url 'help:section_detail' section='smallstack' slug='mcp-enable-models' %}"
-         class="btn-outline btn-sm">Read the opt-in guide →</a>
-    </div>
-  </div>
+  {% include "smallstack/includes/empty_state.html" with
+     title="No tools registered yet"
+     body="Opt a <code>CRUDView</code> in with <code>enable_mcp = True</code>, or add a custom tool via <code>@tool</code> in your app's <code>mcp_tools.py</code>."
+     cta_url="/smallstack/help/smallstack/mcp-enable-models/"
+     cta_label="Read the opt-in guide" %}
 {% else %}
   {# ── Stat cards: total / read / write ───────────────────────── #}
   {% with read_count=tools|length %}

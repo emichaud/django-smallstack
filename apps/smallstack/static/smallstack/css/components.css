@@ -1379,12 +1379,20 @@ a.btn-secondary:visited {
     background: var(--card-bg, var(--body-bg));
     min-width: 160px;
     cursor: pointer;
+    text-decoration: none;
+    color: inherit;
     transition: border-color 0.15s, background 0.15s;
+    display: inline-block;
 }
 
-.action-card:hover {
+/* :hover for mouse, :focus-visible for keyboard. Together they give the
+   same affordance to both interaction modes — was missing on the inline-
+   onmouseover pattern this class replaced. */
+.action-card:hover,
+.action-card:focus-visible {
     border-color: var(--primary);
     background: color-mix(in srgb, var(--primary) 8%, var(--card-bg, var(--body-bg)));
+    outline: none;
 }
 
 .action-card-body {
@@ -1417,9 +1425,11 @@ a.btn-secondary:visited {
     border-color: color-mix(in srgb, var(--success-fg) 40%, transparent);
 }
 
-.action-card-success:hover {
+.action-card-success:hover,
+.action-card-success:focus-visible {
     border-color: var(--success-fg);
     background: color-mix(in srgb, var(--success-fg) 6%, var(--card-bg, var(--body-bg)));
+    outline: none;
 }
 
 .action-card-success .action-card-icon { fill: var(--success-fg); }
@@ -1429,13 +1439,120 @@ a.btn-secondary:visited {
     border-color: color-mix(in srgb, var(--delete-button-bg, #dc3545) 40%, transparent);
 }
 
-.action-card-danger:hover {
+.action-card-danger:hover,
+.action-card-danger:focus-visible {
     border-color: var(--delete-button-bg, #dc3545);
     background: color-mix(in srgb, var(--delete-button-bg, #dc3545) 6%, var(--card-bg, var(--body-bg)));
+    outline: none;
 }
 
 .action-card-danger .action-card-icon { fill: var(--delete-button-bg, #dc3545); }
 .action-card-danger .action-card-title { color: var(--delete-button-bg, #dc3545); }
+
+/* --------------------------------------------------------------------------
+   Empty state — used wherever a list/grid/widget surface has nothing to
+   show yet. Reaches parity with the search-page no-results state across
+   the dashboard, list views, and MCP/API tools tables.
+   Renders via smallstack/includes/empty_state.html.
+   -------------------------------------------------------------------------- */
+
+.empty-state {
+    /* When no_card=False the parent template wraps in .card; we just add
+       the inner padding + presentation. */
+    text-align: center;
+}
+
+.empty-state-body {
+    padding: 2.5rem 1.5rem;
+    max-width: 540px;
+    margin: 0 auto;
+}
+
+.empty-state-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 56px;
+    height: 56px;
+    margin-bottom: 1rem;
+    border-radius: 50%;
+    background: color-mix(in srgb, var(--primary) 12%, var(--card-bg, var(--body-bg)));
+    color: var(--primary);
+}
+
+.empty-state-icon svg {
+    width: 28px;
+    height: 28px;
+}
+
+.empty-state-title {
+    font-family: var(--font-monospace);
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--body-fg);
+    margin-bottom: 0.5rem;
+}
+
+.empty-state-message {
+    color: var(--body-quiet-color);
+    font-size: 0.92rem;
+    line-height: 1.55;
+    margin: 0 0 1.25rem;
+}
+
+.empty-state-message code {
+    font-family: var(--font-monospace);
+    background: color-mix(in srgb, var(--body-fg) 7%, var(--card-bg, var(--body-bg)));
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-size: 0.85em;
+    color: var(--body-fg);
+}
+
+.empty-state-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.85rem;
+    flex-wrap: wrap;
+    justify-content: center;
+}
+
+.empty-state-cta {
+    display: inline-block;
+    padding: 0.55rem 1.1rem;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    text-decoration: none;
+    background: color-mix(in srgb, var(--primary) 16%, var(--card-bg, var(--body-bg)));
+    color: var(--primary);
+    border: 1px solid color-mix(in srgb, var(--primary) 30%, transparent);
+    transition: background 0.15s, border-color 0.15s;
+}
+
+.empty-state-cta:hover,
+.empty-state-cta:focus-visible {
+    background: var(--primary);
+    color: var(--button-fg, #fff);
+    border-color: var(--primary);
+    outline: none;
+}
+
+.empty-state-secondary {
+    font-size: 0.85rem;
+    color: var(--body-quiet-color);
+    text-decoration: none;
+    border-bottom: 1px solid color-mix(in srgb, var(--body-quiet-color) 25%, transparent);
+}
+
+.empty-state-secondary:hover,
+.empty-state-secondary:focus-visible {
+    color: var(--primary);
+    border-bottom-color: var(--primary);
+    outline: none;
+}
 
 /* Non-clickable status variant */
 .action-card-static {

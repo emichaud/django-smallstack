@@ -1,0 +1,43 @@
+{% comment %}
+  Reusable empty-state component. Reaches parity with the search-page
+  empty state — concise, themed, optional CTA + icon. Pulls into the
+  parent template's existing `.card` chrome by default.
+
+  Required context:
+    title (str)         — short headline, e.g. "No tools registered yet"
+
+  Optional context:
+    body (str/safe)     — explainer paragraph; may include inline <code>
+    cta_url (str)       — if set, renders a primary call-to-action link
+    cta_label (str)     — label for the CTA (defaults to "Learn more")
+    icon_svg (safe)     — full <svg>…</svg> markup, ~40-48px square
+    secondary_url (str) — optional secondary link (rendered as text-link)
+    secondary_label (str)
+    no_card (bool)      — if true, skip the wrapping .card (caller already provides one)
+
+  Usage:
+    {% include "smallstack/includes/empty_state.html" with
+       title="No dashboard widgets available"
+       body="Register a DashboardWidget in your app's apps.py or use one of the built-in widgets."
+       cta_url=help_url
+       cta_label="See widget docs" %}
+{% endcomment %}
+{% load static %}
+
+{% if no_card %}<div class="empty-state">{% else %}<div class="card empty-state">{% endif %}
+  <div class="empty-state-body">
+    {% if icon_svg %}<div class="empty-state-icon">{{ icon_svg|safe }}</div>{% endif %}
+    <div class="empty-state-title">{{ title }}</div>
+    {% if body %}<p class="empty-state-message">{{ body|safe }}</p>{% endif %}
+    {% if cta_url or secondary_url %}
+      <div class="empty-state-actions">
+        {% if cta_url %}
+          <a href="{{ cta_url }}" class="empty-state-cta">{{ cta_label|default:"Learn more" }}</a>
+        {% endif %}
+        {% if secondary_url %}
+          <a href="{{ secondary_url }}" class="empty-state-secondary">{{ secondary_label|default:"Or read more" }}</a>
+        {% endif %}
+      </div>
+    {% endif %}
+  </div>
+</div>

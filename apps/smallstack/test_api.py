@@ -2279,6 +2279,74 @@ class TestBulkCRUDEndpoint:
 
 
 # ---------------------------------------------------------------------------
+# Round-2 audit §4.6: distinguish expired / revoked / invalid tokens
+# ---------------------------------------------------------------------------
+
+
+class TestTokenErrorMessages:
+    """Bearer auth used to return a generic ``Invalid token`` 401 for every
+    failure mode — wrong key, revoked key, expired key. v0.11.9 distinguishes
+    them so CI logs + human debuggers see the failure cause immediately."""
+
+    @pytest.fixture
+    def auth_user(self, db):
+        return User.objects.create_user(
+            username="tokerr", email="t@example.com", password="testpass"
+        )
+
+    def test_wrong_key_still_says_invalid(self, client, db):
+        """A genuinely wrong key (never matched a row) still gets 'Invalid token'."""
+        response = client.get(
+            "/api/auth/me/",
+            HTTP_AUTHORIZATION="Bearer abc_xx_not_a_real_key_at_all_definitely",
+        )
+        assert response.status_code == 401
+        msg = response.json()["errors"]["__all__"][0]
+        assert msg == "Invalid token"
+
+    def test_expired_token_says_expired_with_timestamp(self, client, auth_user):
+        """An expired token (real prefix + hash, but past expires_at)
+        gets ``Token expired at <iso8601>`` so the developer sees the deadline."""
+        from django.utils import timezone
+
+        from apps.smallstack.models import APIToken
+
+        token, raw = APIToken.create_token(
+            user=auth_user,
+            name="will-expire",
+            access_level="auth",
+        )
+        # Push expiry into the past — token is otherwise valid.
+        token.expires_at = timezone.now() - timezone.timedelta(hours=1)
+        token.save(update_fields=["expires_at"])
+
+        response = client.get("/api/auth/me/", HTTP_AUTHORIZATION=f"Bearer {raw}")
+        assert response.status_code == 401
+        msg = response.json()["errors"]["__all__"][0]
+        assert msg.startswith("Token expired at "), msg
+        # ISO-8601 timestamp follows the prefix.
+        assert "T" in msg
+        # Don't say "Invalid token" any more — that's the v0.11.8 regression.
+        assert "Invalid token" != msg
+
+    def test_revoked_token_says_revoked(self, client, auth_user):
+        """A revoked (is_active=False) token gets ``Token revoked``."""
+        from apps.smallstack.models import APIToken
+
+        token, raw = APIToken.create_token(
+            user=auth_user,
+            name="will-be-revoked",
+            access_level="auth",
+        )
+        token.revoke()  # sets is_active=False + revoked_at
+
+        response = client.get("/api/auth/me/", HTTP_AUTHORIZATION=f"Bearer {raw}")
+        assert response.status_code == 401
+        msg = response.json()["errors"]["__all__"][0]
+        assert msg == "Token revoked"
+
+
+# ---------------------------------------------------------------------------
 # Validation: invalid filter values and ordering fields return HTTP 400
 # (v0.11.8 — round-2 audit §4.5 fix)
 # ---------------------------------------------------------------------------

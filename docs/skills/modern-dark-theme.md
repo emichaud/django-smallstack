@@ -188,32 +188,25 @@ Numbers use `var(--primary)` for the accent. Use the SEMANTIC variables for stat
 ### Pattern: Action-card buttons (the htmx-style top-right buttons on admin pages)
 
 ```html
-<a href="..." class="card" style="
-  border: 2px solid color-mix(in srgb, var(--primary) 30%, transparent);
-  margin: 0;
-  min-width: 180px;
-  cursor: pointer;
-  text-decoration: none;
-  background: var(--card-bg);
-  transition: border-color 0.15s, background 0.15s;
-"
-onmouseover="this.style.borderColor='var(--primary)';
-             this.style.background='color-mix(in srgb, var(--primary) 8%, var(--card-bg))'"
-onmouseout="this.style.borderColor='color-mix(in srgb, var(--primary) 30%, transparent)';
-            this.style.background='var(--card-bg)'">
-  <div class="card-body" style="display: flex; align-items: center; gap: 10px; padding: 12px 16px;">
-    <svg viewBox="0 0 24 24" width="28" height="28" fill="var(--primary)">
+<a href="..." class="action-card">
+  <div class="action-card-body">
+    <svg viewBox="0 0 24 24" class="action-card-icon">
       <path d="..."/>
     </svg>
     <div style="text-align: left;">
-      <div style="font-weight: 700; font-size: 0.95rem; color: var(--primary);">Mint Token</div>
-      <div style="color: var(--body-quiet-color); font-size: 0.75rem;">Create a new API key</div>
+      <div class="action-card-title">Mint Token</div>
+      <div class="action-card-subtitle">Create a new API key</div>
     </div>
   </div>
 </a>
 ```
 
-This is the canonical "card-button" pattern used across Tokens, Backups, MCP admin. Every value uses a variable — no hex literals.
+This is the canonical card-button used across Tokens, MCP admin, API admin. The hover *and* keyboard-focus affordances live on the `.action-card`
+class in `components.css` (`:hover, :focus-visible` together); use `<button>` for "performs an action," `<a>` for "goes somewhere." Wrap multiple in `.action-cards` for the standard 12px-gap row.
+
+Two colour variants for state-tinted CTAs: `.action-card-success` (green border, success-tinted hover) and `.action-card-danger` (red, for destructive actions).
+
+> **Anti-pattern**: hand-rolled inline `style="border: 2px solid …" onmouseover="…" onmouseout="…"` button. Bypasses keyboard focus (`:focus-visible` doesn't fire), defeats CSP `script-src 'self'` if tightened, and duplicates ~6 lines of inline JS at every call site. Use the class.
 
 ### Pattern: Status badges (inside table cells)
 

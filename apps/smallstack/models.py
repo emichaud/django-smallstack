@@ -73,6 +73,11 @@ class APIToken(models.Model):
     TOKEN_TYPE_CHOICES = [
         ("login", "Login"),
         ("manual", "Manual"),
+        # OAuth/PKCE-issued tokens (typically MCP clients via dynamic
+        # client registration + authorize/exchange). Tagged distinctly
+        # so audit trails can tell client-issued tokens apart from human-
+        # minted ones — round-2 audit §4.7.
+        ("oauth", "OAuth"),
     ]
     ACCESS_LEVEL_CHOICES = [
         ("auth", "Auth"),
@@ -152,17 +157,30 @@ class APIToken(models.Model):
 
     @classmethod
     def authenticate(cls, raw_key: str) -> "tuple[Any, APIToken | None]":
-        """Validate a raw key. Returns (user, token) or (None, None)."""
+        """Validate a raw key. Returns one of:
+
+        * ``(user, token)`` — success
+        * ``(None, found_token)`` — found, but expired or revoked.
+          Callers can distinguish "credential was real but is no longer
+          valid" from "credential is wrong" and surface a helpful error
+          message instead of a generic "Invalid token."
+        * ``(None, None)`` — not found / wrong prefix / wrong hash.
+        """
         if not raw_key or len(raw_key) < cls.PREFIX_LENGTH:
             return None, None
         prefix = raw_key[: cls.PREFIX_LENGTH]
         hashed = hashlib.sha256(raw_key.encode()).hexdigest()
         try:
-            token = cls.objects.select_related("user").get(prefix=prefix, hashed_key=hashed, is_active=True)
+            # No is_active=True filter — we want to distinguish "wrong key"
+            # from "right key but revoked/expired" so the caller can produce
+            # an actionable error message.
+            token = cls.objects.select_related("user").get(prefix=prefix, hashed_key=hashed)
         except cls.DoesNotExist:
             return None, None
         if not token.is_valid():
-            return None, None
+            # Found the token, but it's revoked or expired. Return without
+            # a user so the caller can introspect the reason.
+            return None, token
         token.last_used_at = timezone.now()
         token.request_count = models.F("request_count") + 1
         token.save(update_fields=["last_used_at", "request_count"])

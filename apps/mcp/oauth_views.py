@@ -220,7 +220,7 @@ class AuthorizeView(View):
             user=request.user,
             name=f"{prefix} — {client_id}",
             description=f"Auto-minted via OAuth (scope={scope})",
-            token_type="manual",
+            token_type="oauth",  # distinguish from human-minted; round-2 §4.7
             access_level=access_level,
         )
 

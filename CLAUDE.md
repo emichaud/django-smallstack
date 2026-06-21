@@ -27,7 +27,7 @@ The full skill index lives at `docs/skills/README.md`.
 
 A small-footprint Django foundation for shipping four kinds of apps from one codebase:
 
-- **Scheduler systems** — `django-tasks-db` is pre-wired; `manage.py db_worker` runs background jobs
+- **Background tasks** — `django-tasks-db` is pre-wired; `manage.py db_worker` runs queued jobs. One-shot enqueue today; recurring `@scheduled` primitive lands in v0.12.0.
 - **Websites** — themed admin shell, dark mode, palettes, sidebar, breadcrumbs
 - **API servers** — REST emitted from CRUDViews; OpenAPI 3.0.3 schema; Swagger UI at `/api/docs/`; ReDoc at `/api/redoc/`
 - **MCP servers** — JSON-RPC + OAuth 2.0 + PKCE at `/mcp`; Claude Desktop and Claude.ai Connectors UI work without setup

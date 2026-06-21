@@ -38,8 +38,22 @@ def authenticate(request: HttpRequest) -> tuple[Optional[Any], Optional[APIToken
 
     user, token = APIToken.authenticate(raw_key)
     if user is None:
-        logger.warning("MCP AUTH failed reason=invalid_token prefix=%s", raw_key[:8])
-        return None, None, "invalid_token"
+        # Round-2 audit §4.6 — distinguish "real token, no longer valid"
+        # from "bogus token." The reason string is what the view layer
+        # maps into a JSON-RPC error + WWW-Authenticate code; rejected
+        # but recognisable tokens get a more actionable reason than
+        # the generic "invalid_token".
+        if token is not None:
+            if token.revoked_at is not None or not token.is_active:
+                reason = "token_revoked"
+            elif token.expires_at is not None:
+                reason = "token_expired"
+            else:
+                reason = "token_inactive"
+        else:
+            reason = "invalid_token"
+        logger.warning("MCP AUTH failed reason=%s prefix=%s", reason, raw_key[:8])
+        return None, None, reason
 
     # Stash on request so downstream code (logging, tools) can read it.
     request.user = user
