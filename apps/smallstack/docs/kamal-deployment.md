@@ -262,7 +262,6 @@ volumes:
 env:
   clear:
     DJANGO_SETTINGS_MODULE: config.settings.production
-    DJANGO_DEBUG: "False"
   secret:
     - SECRET_KEY
     - ALLOWED_HOSTS

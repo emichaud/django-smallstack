@@ -50,7 +50,8 @@ volumes:
 env:
   clear:
     DJANGO_SETTINGS_MODULE: config.settings.production
-    DJANGO_DEBUG: "False"
+    # (No DJANGO_DEBUG here — production.py hardcodes DEBUG=False. A no-op env
+    # var would falsely imply you can flip debug on in prod by changing it.)
     BACKUP_CRON_ENABLED: "true"
   secret:
     - ALLOWED_HOSTS

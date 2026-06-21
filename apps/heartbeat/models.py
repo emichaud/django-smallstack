@@ -3,7 +3,7 @@
 from datetime import datetime
 from typing import Any
 
-from django.db import models
+from django.db import models, transaction
 from django.utils.timezone import now
 
 
@@ -77,8 +77,11 @@ class HeartbeatEpoch(models.Model):
                 service_minimum if service_minimum is not None else (old.service_minimum if old else 99.5)
             ),
         }
-        cls.objects.all().delete()
-        return cls.objects.create(**defaults)
+        # Atomic so a failure between delete and create can't leave the table
+        # empty and silently restart SLA tracking. (Audit L10.)
+        with transaction.atomic():
+            cls.objects.all().delete()
+            return cls.objects.create(**defaults)
 
     @classmethod
     def ensure_epoch(cls) -> "HeartbeatEpoch | None":

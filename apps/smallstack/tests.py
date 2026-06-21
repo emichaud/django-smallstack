@@ -206,6 +206,27 @@ class TestBackupDbCommand:
         assert "only supports SQLite" in rec.error_message
 
 
+class TestCreateDevSuperuser:
+    """Tests for the create_dev_superuser command's production guard."""
+
+    def test_refuses_when_not_debug(self, db):
+        """Audit L3: must refuse to mint admin/admin when DEBUG=False."""
+        from django.core.management import call_command
+        from django.core.management.base import CommandError
+
+        with override_settings(DEBUG=False):
+            with pytest.raises(CommandError):
+                call_command("create_dev_superuser")
+        assert not get_user_model().objects.filter(username="admin").exists()
+
+    def test_creates_in_debug(self, db):
+        from django.core.management import call_command
+
+        with override_settings(DEBUG=True):
+            call_command("create_dev_superuser")
+        assert get_user_model().objects.filter(username="admin", is_superuser=True).exists()
+
+
 # ── View Permission Tests ────────────────────────────────────
 
 
