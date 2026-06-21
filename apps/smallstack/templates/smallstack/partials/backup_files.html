@@ -17,7 +17,10 @@
             <td>{% localtime_tooltip file.modified "M d, Y g:i A T" %}</td>
             <td style="text-align: center;">
                 {% if backup_download_enabled %}
-                <a href="{% url 'smallstack:backup_file_download' file.filename %}" title="Download {{ file.filename }}" style="color: var(--body-quiet-color); transition: color 0.15s;" onmouseover="this.style.color='var(--primary)'" onmouseout="this.style.color='var(--body-quiet-color)'">
+                <a href="{% url 'smallstack:backup_file_download' file.filename %}"
+                   class="icon-link"
+                   title="Download {{ file.filename }}"
+                   aria-label="Download {{ file.filename }}">
                     <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
                 </a>
                 {% endif %}

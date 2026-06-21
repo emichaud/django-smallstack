@@ -102,14 +102,14 @@ class ActionsColumn(tables.Column):
     """
 
     EDIT_SVG = mark_safe(
-        '<svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor">'
+        '<svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor" aria-hidden="true">'
         '<path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25z'
         "M20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34"
         "c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"
         '"/></svg>'
     )
     DELETE_SVG = mark_safe(
-        '<svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor">'
+        '<svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor" aria-hidden="true">'
         '<path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12z'
         'M19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>'
     )
@@ -148,13 +148,20 @@ class ActionsColumn(tables.Column):
         links = []
         style = "display: inline-flex; align-items: center; gap: 0.3rem; margin-left: 0.75rem;"
 
+        # The aria-label includes the record's str() so a screen reader
+        # reads "Edit Ticket #42" rather than the bare "button" the
+        # title-only version produced. The icon SVG carries aria-hidden
+        # so it isn't double-announced.
+        record_str = str(record)
+
         if self.show_edit:
             url = self._reverse(f"{self.url_base}-update", kwargs={"pk": record.pk})
             links.append(
                 format_html(
-                    '<a href="{}" style="{}" title="Edit">{}</a>',
+                    '<a href="{}" style="{}" title="Edit" aria-label="Edit {}">{}</a>',
                     url,
                     style,
+                    record_str,
                     self.EDIT_SVG,
                 )
             )
@@ -164,10 +171,12 @@ class ActionsColumn(tables.Column):
             links.append(
                 format_html(
                     '<a href="{}" class="crud-action-delete" style="{}" title="Delete"'
+                    ' aria-label="Delete {}"'
                     " onclick=\"event.preventDefault();crudDeleteModal(this,'{}')\""
                     ' data-delete-url="{}">{}</a>',
                     url,
                     style,
+                    record_str,
                     record,
                     url,
                     self.DELETE_SVG,

@@ -2682,3 +2682,42 @@ a.dashboard-widget.widget-status-down        { border-left-color: var(--error-fg
 
 .dashboard-widget-span-2 { grid-column: span 2; }
 .dashboard-widget-span-3 { grid-column: span 3; }
+
+/* --------------------------------------------------------------------------
+   Small interactive utilities — replace inline onmouseover handlers
+   sprinkled through templates. Both expose :focus-visible parallels for
+   keyboard accessibility, which the inline-JS versions skipped.
+   -------------------------------------------------------------------------- */
+
+/* A subdued icon link that lights up to primary on hover/focus.
+   Used for the download / detail icons in tables (backup history,
+   backup files, etc.). */
+.icon-link {
+    color: var(--body-quiet-color);
+    text-decoration: none;
+    transition: color 0.15s, background 0.15s;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+.icon-link:hover,
+.icon-link:focus-visible {
+    color: var(--primary);
+    outline: none;
+}
+
+/* A text link that underlines on hover/focus. Useful when the default
+   theme's plain colour-only hover isn't strong enough — record-id links
+   in dense tables, breadcrumb middles, etc. */
+.link-underline-hover,
+.link-underline-hover:link,
+.link-underline-hover:visited {
+    color: var(--primary);
+    text-decoration: none;
+    font-weight: 600;
+}
+.link-underline-hover:hover,
+.link-underline-hover:focus-visible {
+    text-decoration: underline;
+    outline: none;
+}

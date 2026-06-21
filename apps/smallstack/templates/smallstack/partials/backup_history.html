@@ -17,7 +17,7 @@
         {% for record in backup_records %}
         <tr class="{% if record.status == 'failed' %}status-failed-row{% endif %}">
             <td>
-                <a href="{% url 'smallstack:backup_detail' record.pk %}" style="color: var(--primary); text-decoration: none; font-weight: 600; font-size: 0.85rem;" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">#{{ record.pk }}</a>
+                <a href="{% url 'smallstack:backup_detail' record.pk %}" class="link-underline-hover" style="font-size: 0.85rem;">#{{ record.pk }}</a>
             </td>
             <td>
                 {% localtime_tooltip record.created_at "M d, Y g:i A T" %}
@@ -51,7 +51,7 @@
                     </span>
                 {% elif record.status == "success" %}
                     {% if record.file_exists and backup_download_enabled %}
-                    <a href="{% url 'smallstack:backup_file_download' record.filename %}" title="Download {{ record.filename }}" style="color: var(--body-quiet-color); transition: color 0.15s;" onmouseover="this.style.color='var(--primary)'" onmouseout="this.style.color='var(--body-quiet-color)'">
+                    <a href="{% url 'smallstack:backup_file_download' record.filename %}" class="icon-link" title="Download {{ record.filename }}" aria-label="Download {{ record.filename }}">
                         <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
                     </a>
                     {% elif not record.file_exists %}

@@ -26,24 +26,14 @@
     <form method="post" action="{% url 'tokenmgr:token-revoke' pk=object.pk %}" style="margin: 0;"
           onsubmit="return confirm('Revoke {{ object.name|escapejs }}? Any client using this key will start getting 401s immediately.');">
       {% csrf_token %}
-      <button type="submit" class="card" style="
-        border: 2px solid color-mix(in srgb, var(--delete-button-bg, red) 30%, transparent);
-        margin: 0;
-        min-width: 160px;
-        cursor: pointer;
-        background: var(--card-bg);
-        transition: border-color 0.15s, background 0.15s;
-        padding: 0;
-      "
-      onmouseover="this.style.borderColor='var(--delete-button-bg, red)';this.style.background='color-mix(in srgb, var(--delete-button-bg, red) 8%, var(--card-bg))'"
-      onmouseout="this.style.borderColor='color-mix(in srgb, var(--delete-button-bg, red) 30%, transparent)';this.style.background='var(--card-bg)'">
-        <div class="card-body" style="display: flex; align-items: center; gap: 10px; padding: 12px 16px;">
-          <svg viewBox="0 0 24 24" width="28" height="28" fill="var(--delete-button-bg, red)">
+      <button type="submit" class="action-card action-card-danger" style="padding: 0;">
+        <div class="action-card-body">
+          <svg viewBox="0 0 24 24" class="action-card-icon">
             <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
           </svg>
           <div style="text-align: left;">
-            <div style="font-weight: 700; font-size: 0.95rem; color: var(--delete-button-bg, red);">Revoke</div>
-            <div style="color: var(--body-quiet-color); font-size: 0.75rem;">Soft-delete this key</div>
+            <div class="action-card-title">Revoke</div>
+            <div class="action-card-subtitle">Soft-delete this key</div>
           </div>
         </div>
       </button>

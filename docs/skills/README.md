@@ -55,6 +55,7 @@ When an AI agent is asked to modify or extend this project, these files help it:
 | File | Description |
 |------|-------------|
 | [mcp/enable-mcp-for-a-model.md](mcp/enable-mcp-for-a-model.md) | Opt a CRUDView into MCP via `enable_mcp = True` |
+| [mcp/end-user-tools.md](mcp/end-user-tools.md) | **Read for non-staff MCP** — `LoginRequiredMixin` + `get_list_queryset` tenancy + `search_access`/`search_visibility` so Alice's token sees only Alice's data |
 | [mcp/write-a-custom-tool.md](mcp/write-a-custom-tool.md) | Add cross-cutting tools with the `@tool` decorator + `current_context()` |
 | [mcp/add-a-write-tool.md](mcp/add-a-write-tool.md) | Expose create/update/delete via factory vs custom write tools |
 | [mcp/connect-claude-desktop.md](mcp/connect-claude-desktop.md) | Connect Claude Desktop / Claude.ai Connectors UI to the server |
@@ -107,6 +108,25 @@ AI agents should read relevant skill files before making changes to the correspo
 - Before changing any `MCP_*` setting → read `mcp/configure-mcp.md`
 - Before saying "MCP works" → read `mcp/verify-mcp.md`
 - Before debugging an MCP failure → read `mcp/debug-mcp-failure.md`
+
+## Common combinations
+
+Multi-skill recipes for the headline use cases. Each row is "pick this combination, read these files in this order."
+
+| Goal | Read in this order |
+|---|---|
+| **Model → web admin + REST + MCP + Search in one class** (the headline pipeline) | `crud-views.md` → `enable-mcp-for-a-model.md` → `search.md` → `api-discovery.md` |
+| **End-user CRUD** (Alice signs in and sees only her stuff, on web + REST + MCP) | `building-a-user-facing-site.md` → `mcp/end-user-tools.md` → `crud-views.md` (for `get_list_queryset` + `can_update`/`can_delete`) |
+| **Public catalogue** (anonymous visitors can browse + search published rows) | `building-a-user-facing-site.md` (Recipe 4) → `search.md` (Inventory walkthrough, "Recipe 4") |
+| **AI/RAG over a custom model** (Claude searches your tickets, finds rows, answers with citations) | `search.md` → `mcp/build-mcp-solution.md` → `mcp/enable-mcp-for-a-model.md` → `mcp/connect-claude-desktop.md` |
+| **Both staff + end-user views of the same model** (operator console + customer portal on `Invoice`) | `crud-views.md` (two CRUDView classes on one model, different `url_base`) → `building-a-user-facing-site.md` (the user-facing class) → `search.md` ("Walkthrough: building an Inventory app") |
+| **Custom non-CRUD tool** (a "send-email" or "regenerate-report" MCP/REST action) | `custom-api-endpoints.md` (for REST) → `mcp/write-a-custom-tool.md` (for MCP) → `mcp/enable-mcp-for-a-model.md` (for the auth model) |
+| **OAuth-issued tokens via the Connectors UI** (Claude Desktop calling your CRUDView) | `mcp/connect-claude-desktop.md` → `mcp/enable-mcp-for-a-model.md` → `mcp/verify-mcp.md` |
+| **Theme-correct page across all five palettes** (your custom landing page that doesn't break on `orange`) | `modern-dark-theme.md` → `screenshot-workflow.md` (for the palette-cycle verification) |
+| **Add a per-model dashboard widget** (a stat card on `/smallstack/` that summarises your data) | `dashboard-widgets.md` → `crud-views.md` (for `get_list_queryset` if the widget should respect tenancy) |
+| **Recurring/scheduled job** (today: cron + management command; v0.12.0: `@scheduled` primitive) | `background-tasks.md` (read the "no recurring primitive yet" note) |
+
+If a goal isn't covered here yet, the canonical decision tree is in `mcp/build-mcp-solution.md` for AI-touching features, or `from-zero-to-running.md` for project-shape questions.
 
 ## For Humans
 

@@ -137,6 +137,77 @@ def test_tools_list_returns_registered_tools(readonly_token):
     assert "ping_alt" in names
 
 
+def test_tools_list_filters_out_staff_only_tools_for_readonly_caller(readonly_token):
+    """Per-token tools/list filtering (v0.11.10) — a readonly token must
+    not see staff-required tools in the list. Hides the tool *name* from
+    casual enumeration and removes LLM-surface noise for end-user tokens."""
+
+    @tool(
+        "staff_only_probe",
+        "Staff-only probe tool",
+        input_schema={"type": "object", "properties": {}},
+        requires_access="staff",
+    )
+    async def staff_only_probe(args):
+        return {"ok": True}
+
+    _, raw = readonly_token
+    resp = _post(
+        Client(),
+        {"jsonrpc": "2.0", "id": 1, "method": "tools/list"},
+        HTTP_AUTHORIZATION=f"Bearer {raw}",
+    )
+    payload = resp.json()
+    names = [t["name"] for t in payload["result"]["tools"]]
+    # Staff-required tool MUST be hidden from readonly caller.
+    assert "staff_only_probe" not in names
+
+
+def test_tools_list_shows_staff_only_tools_to_staff_token(staff_token):
+    """Regression guard: staff tokens still see staff-only tools."""
+
+    @tool(
+        "staff_only_probe_2",
+        "Staff-only probe tool",
+        input_schema={"type": "object", "properties": {}},
+        requires_access="staff",
+    )
+    async def staff_only_probe_2(args):
+        return {"ok": True}
+
+    _, raw = staff_token
+    resp = _post(
+        Client(),
+        {"jsonrpc": "2.0", "id": 1, "method": "tools/list"},
+        HTTP_AUTHORIZATION=f"Bearer {raw}",
+    )
+    names = [t["name"] for t in resp.json()["result"]["tools"]]
+    assert "staff_only_probe_2" in names
+
+
+def test_tools_list_filters_out_write_tools_for_readonly_caller(readonly_token):
+    """A readonly token can't call write tools — they're filtered out of
+    tools/list to match the call-time enforcement."""
+
+    @tool(
+        "write_probe",
+        "Write probe tool",
+        input_schema={"type": "object", "properties": {}},
+        write=True,
+    )
+    async def write_probe(args):
+        return {"ok": True}
+
+    _, raw = readonly_token
+    resp = _post(
+        Client(),
+        {"jsonrpc": "2.0", "id": 1, "method": "tools/list"},
+        HTTP_AUTHORIZATION=f"Bearer {raw}",
+    )
+    names = [t["name"] for t in resp.json()["result"]["tools"]]
+    assert "write_probe" not in names
+
+
 def test_unknown_tool_call_returns_method_not_found(readonly_token):
     _, raw = readonly_token
     resp = _post(

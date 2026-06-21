@@ -201,6 +201,14 @@ class McpHttpView(View):
         ctx_token = set_context(ToolContext(user=user, token=token))
         try:
             if method == "tools/list":
+                # Round-2 surfaces audit §3.3 follow-up + quality review:
+                # filter tools/list so the caller only sees tools their
+                # token is actually allowed to invoke. Hides write tools
+                # from readonly tokens and staff-required tools from
+                # non-staff tokens — the audit's "tool-name leak" concern,
+                # plus a real LLM-surface-noise win when an end-user
+                # token sees only the four tools it can call instead of
+                # all 13 registered ones.
                 tools = [
                     {
                         "name": td.name,
@@ -208,6 +216,7 @@ class McpHttpView(View):
                         "inputSchema": td.input_schema,
                     }
                     for td in TOOL_REGISTRY.values()
+                    if check_tool_access(token, td, mixins=None) is None
                 ]
                 return _rpc_result(rpc_id, {"tools": tools})
 
