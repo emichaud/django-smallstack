@@ -85,34 +85,38 @@ special-case the backend in product code unless the behavior itself is wrong).
 
 ## CI matrix
 
-Run both engines in CI so Postgres-only regressions can't ship. Postgres comes
-from a service container:
+CI runs both engines so Postgres-only regressions can't ship — shipped at
+**`.github/workflows/test.yml`**. The `test` job uses a matrix over
+`TEST_DB` (`""` = SQLite, `postgres`) with Postgres provided by a service
+container; a separate `lint` job runs ruff. The shape:
 
 ```yaml
-# .github/workflows/test.yml
+# .github/workflows/test.yml (excerpt — see the file for the full version)
 jobs:
   test:
-    runs-on: ubuntu-latest
     strategy:
       matrix:
-        test_db: ["", "postgres"]      # "" = SQLite default
+        include:
+          - { label: sqlite,   test_db: "" }
+          - { label: postgres, test_db: postgres }
     services:
       postgres:
         image: postgres:16
-        env: { POSTGRES_PASSWORD: postgres, POSTGRES_USER: postgres }
+        env: { POSTGRES_USER: postgres, POSTGRES_PASSWORD: postgres }
         ports: ["5432:5432"]
         options: >-
           --health-cmd pg_isready --health-interval 5s
           --health-timeout 5s --health-retries 5
     env:
       TEST_DB: ${{ matrix.test_db }}
+      TEST_DB_HOST: localhost
       TEST_DB_PORT: "5432"
     steps:
       - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v3
+      - uses: astral-sh/setup-uv@v4
+        with: { python-version: "3.13" }
       - run: uv sync --all-extras
       - run: uv run pytest -q --no-cov
-      - run: uv run ruff check .
 ```
 
 ## Teardown
