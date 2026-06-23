@@ -9,20 +9,6 @@
 {% include "smallstack/pages/getting_started_css.html" %}
 {% endblock %}
 
-{% block page_header %}
-<div class="page-header-bleed page-header-with-actions">
-    <div class="page-header-content">
-        <h1 style="margin: 0; font-size: 1.5rem; font-weight: 600;">Getting Started</h1>
-        <p style="margin: 0.35rem 0 0; font-size: 0.88rem; color: color-mix(in srgb, var(--body-fg) 70%, transparent);">Everything you need to make SmallStack your own</p>
-        <nav style="margin-top: 0.5rem; font-size: 0.8rem;">
-            <a href="{% url 'website:home' %}" style="color: var(--body-quiet-color); text-decoration: none;">Home</a>
-            <span style="color: var(--body-quiet-color); margin: 0 0.3rem;">/</span>
-            <span style="color: var(--body-fg);">Getting Started</span>
-        </nav>
-    </div>
-</div>
-{% endblock %}
-
 {% block content %}
 {% include "smallstack/pages/getting_started_content.html" %}
 {% endblock %}

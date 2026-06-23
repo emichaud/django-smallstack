@@ -512,6 +512,49 @@
 
 <hr class="ss-rule">
 
+{# ── SEARCH ─────────────────────────────────────────────────────── #}
+<section class="ss-section ss-fade d4">
+  <div class="ss-section-label">Find anything</div>
+  <h2 class="ss-display" style="font-size: clamp(1.7rem, 3.2vw, 2.4rem); margin-bottom: 0.5rem;">
+    One index. <em>Everything searchable.</em>
+  </h2>
+  <p style="max-width: 44rem; color: var(--body-quiet-color); margin: 0;">
+    A single full-text index spans your models and the bundled help docs. A three-tier access
+    model keeps staff-only data staff-only while public doc search stays open — and the same
+    index backs a <code>search_all</code> MCP tool, so an AI agent queries your app the way a
+    person would.
+  </p>
+
+  <div class="ss-surfaces">
+    <div class="ss-surface">
+      <div class="ss-surface-name">Public</div>
+      <p class="ss-surface-path">/search/</p>
+      <p class="ss-surface-note">An instant omnibar over your documentation — open to anyone, no login required.</p>
+    </div>
+    <div class="ss-surface">
+      <div class="ss-surface-name">Gated</div>
+      <p class="ss-surface-path">your models</p>
+      <p class="ss-surface-note">Opt a model in with one flag; results respect each viewer's staff / auth access tier.</p>
+    </div>
+    <div class="ss-surface">
+      <div class="ss-surface-name">MCP</div>
+      <p class="ss-surface-path">search_all</p>
+      <p class="ss-surface-note">The same index as a tool — Claude searches across every source in one call.</p>
+    </div>
+  </div>
+
+  <div class="ss-cta-row" style="margin-top: 1.5rem;">
+    <a href="{% url 'website:search' %}" class="ss-btn-link" style="padding-left: 0;">
+      Open search <span class="arrow">→</span>
+    </a>
+    <a href="{% url 'help:section_detail' 'smallstack' 'search' %}" class="ss-btn-link">
+      How search works <span class="arrow">→</span>
+    </a>
+  </div>
+</section>
+
+<hr class="ss-rule">
+
 {# ── BUILT ON DJANGO BEST PRACTICES (compact) ───────────────────── #}
 <section class="ss-section ss-fade d4">
   <div class="ss-section-label">Foundation</div>
