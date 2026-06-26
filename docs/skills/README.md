@@ -27,6 +27,7 @@ When an AI agent is asked to modify or extend this project, these files help it:
 | [adding-your-own-theme.md](adding-your-own-theme.md) | Adding a custom CSS framework alongside SmallStack's built-in theme |
 | [theme-scenarios.md](theme-scenarios.md) | Three theme integration scenarios: public-only, user login, or build on SmallStack |
 | [authentication.md](authentication.md) | Custom user model, auth views, protecting views |
+| [testing.md](testing.md) | **Read before writing tests** — pytest/locmem stack, patterns for email + multi-step auth flows + CRUDView + guardrails, regression guards, and the `form.is_valid()`/`DeleteView` gotchas |
 | [manage-api-tokens.md](manage-api-tokens.md) | Pick the right token surface (/smallstack/tokens/, CLI, OAuth) by question; permissions matrix; reveal-once flow |
 | [htmx-patterns.md](htmx-patterns.md) | htmx setup, CSRF, partials, dual-response views, OOB messages |
 | [help-documentation.md](help-documentation.md) | Help system, sections, bundled SmallStack docs |

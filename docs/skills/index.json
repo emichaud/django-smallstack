@@ -12,6 +12,14 @@
       "use_when": "Creating a new app, adding a model, building management pages, or wiring up CRUDView."
     },
     {
+      "id": "testing",
+      "file": "testing.md",
+      "name": "Testing",
+      "description": "pytest/pytest-django stack (config.settings.test, locmem email, axes off). Patterns for testing email flows (mail.outbox), multi-step + token auth flows (invite, passwordless, reset, email login), CRUDView management pages, privilege guardrails, and regression guards. Documents the form.is_valid()-mutates-instance and Django-6 DeleteView gotchas.",
+      "keywords": ["test", "pytest", "tests", "mail.outbox", "locmem", "fixture", "client", "force_login", "coverage", "regression"],
+      "use_when": "Writing or changing tests — especially for auth, email, CRUDView, or User Manager work."
+    },
+    {
       "id": "templates",
       "file": "templates.md",
       "name": "Template System",
