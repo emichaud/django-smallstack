@@ -3599,53 +3599,7 @@ a.dashboard-widget.widget-status-operational { border-left-color: var(--success-
 a.dashboard-widget.widget-status-degraded    { border-left-color: var(--warning-fg); }
 a.dashboard-widget.widget-status-down        { border-left-color: var(--error-fg); }
 
-/* ============================================================
-   Stat cards — editorial spec-card refresh
-   ------------------------------------------------------------
-   Top-of-page metric rows used on Tokens, Users, etc. Same
-   silhouette as the dashboard widget: hairline + accent stripe,
-   left-aligned with mono uppercase label below the value.
-   ============================================================ */
-
-.stat-card {
-    flex: 1;
-    min-width: 140px;
-    padding: 0.95rem 1.1rem 1rem 1rem;
-    text-align: left;
-    background: var(--card-bg);
-    border: 1px solid color-mix(in srgb, var(--body-fg) 9%, transparent);
-    border-left: 3px solid var(--primary);
-    border-radius: 5px;
-    display: flex;
-    flex-direction: column;
-    gap: 0.35rem;
-    transition: border-color 0.15s, background 0.15s, transform 0.15s;
-}
-
-.stat-card-value {
-    font-size: 1.85rem;
-    font-weight: 700;
-    line-height: 1.05;
-    color: var(--primary);
-    font-feature-settings: "tnum", "lnum";
-    letter-spacing: -0.015em;
-}
-
-.stat-card-label {
-    font-family: var(--font-monospace);
-    font-size: 0.68rem;
-    letter-spacing: 0.18em;
-    text-transform: uppercase;
-    color: var(--body-quiet-color);
-    margin-top: 0;
-    font-weight: 600;
-    line-height: 1.4;
-}
-
-/* Clickable variant — pair with stat-card-clickable defined above. */
-.stat-card.stat-card-clickable:hover {
-    border-color: color-mix(in srgb, var(--primary) 45%, transparent);
-    border-left-color: var(--primary);
-    background: color-mix(in srgb, var(--primary) 4%, var(--card-bg)) !important;
-    transform: translateY(-1px);
-}
+/* Stat-card styles (.stat-card / -value / -label / semantic modifiers /
+   clickable hover) are defined once in components.css — see "Stat Cards"
+   there. The duplicate block that lived here was removed during the
+   admin-apps consistency pass (2026-06-25). */

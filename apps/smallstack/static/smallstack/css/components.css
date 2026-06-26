@@ -1230,6 +1230,27 @@ ul.pagination li.active span {
     line-height: 1.4;
 }
 
+/* Semantic accent modifiers — drive BOTH the left stripe and the value
+   color from STATE, replacing scattered inline border-left-color / color
+   overrides across the admin apps. Use --muted for a zero / neutral metric. */
+.stat-card--success { border-left-color: var(--success-fg); }
+.stat-card--success .stat-card-value { color: var(--success-fg); }
+.stat-card--warning { border-left-color: var(--warning-fg); }
+.stat-card--warning .stat-card-value { color: var(--warning-fg); }
+.stat-card--danger { border-left-color: var(--error-fg); }
+.stat-card--danger .stat-card-value { color: var(--error-fg); }
+.stat-card--muted { border-left-color: color-mix(in srgb, var(--body-fg) 20%, transparent); }
+.stat-card--muted .stat-card-value { color: var(--body-quiet-color); }
+
+/* Clickable variant: cursor + lift so interactive tiles read as interactive
+   and static ones don't. (Base .stat-card-clickable cursor lives in theme.css.) */
+.stat-card.stat-card-clickable { cursor: pointer; }
+.stat-card.stat-card-clickable:hover {
+    border-color: color-mix(in srgb, var(--primary) 45%, transparent);
+    background: color-mix(in srgb, var(--primary) 4%, var(--card-bg));
+    transform: translateY(-1px);
+}
+
 
 /* --------------------------------------------------------------------------
    Search Bar

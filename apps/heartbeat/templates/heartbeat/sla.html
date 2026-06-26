@@ -117,30 +117,9 @@
     }
     .sla-how-it-works li { margin-bottom: 4px; }
 
-    /* Daily summary table */
-    table.daily-table { width: 100%; border-collapse: collapse; }
-    table.daily-table thead tr {
-        background-color: color-mix(in srgb, var(--primary) 15%, var(--body-bg)) !important;
-    }
-    table.daily-table thead th {
-        border: none !important;
-        background-color: transparent !important;
-        color: var(--body-quiet-color) !important;
-        font-weight: 600;
-        font-size: 0.8rem !important;
-        text-transform: uppercase;
-        letter-spacing: 0.3px;
-        padding: 8px 16px;
-        text-align: left;
-    }
-    table.daily-table tbody tr { border: none !important; }
-    table.daily-table tbody td { border: none !important; padding: 8px 16px; font-size: 0.85rem; }
-    table.daily-table tbody tr:nth-child(odd) {
-        background-color: color-mix(in srgb, var(--primary) 4%, var(--body-bg)) !important;
-    }
-    table.daily-table tbody tr:nth-child(even) {
-        background-color: color-mix(in srgb, var(--primary) 12%, var(--body-bg)) !important;
-    }
+    /* Daily summary + maintenance tables now use shared .table-plain
+       (neutral zebra striping) — local primary-tinted .daily-table styles
+       removed in the admin-apps consistency pass. */
 
     /* Fix datetime-local calendar icon in dark modes */
     [data-theme="dark"] input[type="datetime-local"],
@@ -152,14 +131,14 @@
 {% endblock %}
 
 {% block content %}
-<div class="page-header-with-actions" style="background: color-mix(in srgb, var(--primary) 15%, var(--body-bg)); margin: -24px -24px 24px -24px; padding: 24px; border-radius: 8px 8px 0 0; display: flex; align-items: center; justify-content: space-between;">
+<div class="page-header-with-actions" style="background: var(--accent-band-bg); margin: -24px -24px 24px -24px; padding: 24px; border-radius: 8px 8px 0 0; display: flex; align-items: center; justify-content: space-between;">
     <div class="page-header-content">
         <h1>SLA</h1>
         <p class="page-subtitle">{% if epoch %}Monitoring since {{ epoch|date:"M d, Y g:i A T" }}{% if monitoring_days %} ({{ monitoring_days }} day{{ monitoring_days|pluralize }}){% endif %}{% else %}No monitoring data{% endif %}</p>
         <nav style="margin-top: 0.5rem; font-size: 0.8rem;">
             <a href="{% url 'website:home' %}" style="color: var(--body-quiet-color); text-decoration: none;">Home</a>
             <span style="color: var(--body-quiet-color); margin: 0 0.3rem;">/</span>
-            <a href="{% url 'heartbeat:dashboard' %}" style="color: var(--body-quiet-color); text-decoration: none;">Heartbeat</a>
+            <a href="{% url 'heartbeat:dashboard' %}" style="color: var(--body-quiet-color); text-decoration: none;">Status</a>
             <span style="color: var(--body-quiet-color); margin: 0 0.3rem;">/</span>
             <span style="color: var(--body-fg);">SLA</span>
         </nav>
@@ -198,51 +177,45 @@
 </div>
 
 <!-- Uptime + SLA Threshold cards -->
-<div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 24px;">
+<div class="stat-cards" style="margin-bottom: 24px;">
     <!-- Overall -->
-    <div class="card">
-        <div class="card-body" style="padding: 20px;">
-            <div style="display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 6px;">
-                <div style="font-size: 1.8rem; font-weight: 700; color: {{ uptime_overall_color }};">{% if uptime_overall != None %}{{ uptime_overall }}%{% else %}&mdash;{% endif %}</div>
-                <div style="display: flex; gap: 4px;">
-                    {% if uptime_overall != None %}
-                    {% if uptime_overall >= sla_target %}<span class="sla-badge sla-badge-met">Goal</span>{% else %}<span class="sla-badge sla-badge-below">Below</span>{% endif %}
-                    {% if uptime_overall >= sla_minimum %}<span class="sla-badge sla-badge-met">Commit</span>{% else %}<span class="sla-badge sla-badge-breach">Breach</span>{% endif %}
-                    {% endif %}
-                </div>
+    <div class="stat-card">
+        <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 8px;">
+            <div class="stat-card-value" style="color: {{ uptime_overall_color }};">{% if uptime_overall != None %}{{ uptime_overall }}%{% else %}&mdash;{% endif %}</div>
+            <div style="display: flex; gap: 4px;">
+                {% if uptime_overall != None %}
+                {% if uptime_overall >= sla_target %}<span class="sla-badge sla-badge-met">Goal</span>{% else %}<span class="sla-badge sla-badge-below">Below</span>{% endif %}
+                {% if uptime_overall >= sla_minimum %}<span class="sla-badge sla-badge-met">Commit</span>{% else %}<span class="sla-badge sla-badge-breach">Breach</span>{% endif %}
+                {% endif %}
             </div>
-            <div style="color: var(--body-quiet-color); font-size: 0.8rem;">Overall{% if monitoring_days %} ({{ monitoring_days }}d){% endif %}</div>
         </div>
+        <div class="stat-card-label">Overall{% if monitoring_days %} ({{ monitoring_days }}d){% endif %}</div>
     </div>
     <!-- 24h -->
-    <div class="card">
-        <div class="card-body" style="padding: 20px;">
-            <div style="display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 6px;">
-                <div style="font-size: 1.8rem; font-weight: 700; color: {{ uptime_24h_color }};">{% if uptime_24h != None %}{{ uptime_24h }}%{% else %}&mdash;{% endif %}</div>
-                <div style="display: flex; gap: 4px;">
-                    {% if uptime_24h != None %}
-                    {% if uptime_24h >= sla_target %}<span class="sla-badge sla-badge-met">Goal</span>{% else %}<span class="sla-badge sla-badge-below">Below</span>{% endif %}
-                    {% if uptime_24h >= sla_minimum %}<span class="sla-badge sla-badge-met">Commit</span>{% else %}<span class="sla-badge sla-badge-breach">Breach</span>{% endif %}
-                    {% endif %}
-                </div>
+    <div class="stat-card">
+        <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 8px;">
+            <div class="stat-card-value" style="color: {{ uptime_24h_color }};">{% if uptime_24h != None %}{{ uptime_24h }}%{% else %}&mdash;{% endif %}</div>
+            <div style="display: flex; gap: 4px;">
+                {% if uptime_24h != None %}
+                {% if uptime_24h >= sla_target %}<span class="sla-badge sla-badge-met">Goal</span>{% else %}<span class="sla-badge sla-badge-below">Below</span>{% endif %}
+                {% if uptime_24h >= sla_minimum %}<span class="sla-badge sla-badge-met">Commit</span>{% else %}<span class="sla-badge sla-badge-breach">Breach</span>{% endif %}
+                {% endif %}
             </div>
-            <div style="color: var(--body-quiet-color); font-size: 0.8rem;">Last 24 Hours</div>
         </div>
+        <div class="stat-card-label">Last 24 Hours</div>
     </div>
     <!-- 7d -->
-    <div class="card">
-        <div class="card-body" style="padding: 20px;">
-            <div style="display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 6px;">
-                <div style="font-size: 1.8rem; font-weight: 700; color: {{ uptime_7d_color }};">{% if uptime_7d != None %}{{ uptime_7d }}%{% else %}&mdash;{% endif %}</div>
-                <div style="display: flex; gap: 4px;">
-                    {% if uptime_7d != None %}
-                    {% if uptime_7d >= sla_target %}<span class="sla-badge sla-badge-met">Goal</span>{% else %}<span class="sla-badge sla-badge-below">Below</span>{% endif %}
-                    {% if uptime_7d >= sla_minimum %}<span class="sla-badge sla-badge-met">Commit</span>{% else %}<span class="sla-badge sla-badge-breach">Breach</span>{% endif %}
-                    {% endif %}
-                </div>
+    <div class="stat-card">
+        <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 8px;">
+            <div class="stat-card-value" style="color: {{ uptime_7d_color }};">{% if uptime_7d != None %}{{ uptime_7d }}%{% else %}&mdash;{% endif %}</div>
+            <div style="display: flex; gap: 4px;">
+                {% if uptime_7d != None %}
+                {% if uptime_7d >= sla_target %}<span class="sla-badge sla-badge-met">Goal</span>{% else %}<span class="sla-badge sla-badge-below">Below</span>{% endif %}
+                {% if uptime_7d >= sla_minimum %}<span class="sla-badge sla-badge-met">Commit</span>{% else %}<span class="sla-badge sla-badge-breach">Breach</span>{% endif %}
+                {% endif %}
             </div>
-            <div style="color: var(--body-quiet-color); font-size: 0.8rem;">Last 7 Days</div>
         </div>
+        <div class="stat-card-label">Last 7 Days</div>
     </div>
 </div>
 
@@ -276,7 +249,7 @@
                     </div>
                 </div>
                 <div style="margin-top: 16px;">
-                    <button type="button" class="button" style="width: 100%; padding: 10px 24px;" onclick="document.getElementById('sla-confirm-modal').style.display='flex'">Save SLA Settings</button>
+                    <button type="button" class="btn-primary" style="width: 100%; padding: 10px 24px;" onclick="document.getElementById('sla-confirm-modal').style.display='flex'">Save SLA Settings</button>
                 </div>
             </form>
         </div>
@@ -311,11 +284,11 @@
 <div class="card" style="margin-bottom: 24px;">
     <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
         <h2>Maintenance Windows</h2>
-        <a href="{% url 'heartbeat:maintenance_create' %}" class="button button-primary button-small">Schedule Maintenance</a>
+        <a href="{% url 'heartbeat:maintenance_create' %}" class="btn-primary btn-sm">Schedule Maintenance</a>
     </div>
     <div class="card-body" style="padding: 0; overflow-x: auto;">
         {% if maintenance_windows %}
-        <table class="daily-table">
+        <table class="table-plain" style="width: 100%; border-collapse: collapse;">
             <thead>
                 <tr>
                     <th>Title</th>
@@ -359,7 +332,7 @@
 <div class="card">
     <div class="card-header"><h2>Daily Summaries</h2></div>
     <div class="card-body" style="padding: 0; overflow-x: auto;">
-        <table class="daily-table">
+        <table class="table-plain" style="width: 100%; border-collapse: collapse;">
             <thead>
                 <tr>
                     <th>Date</th>

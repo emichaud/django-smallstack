@@ -1,73 +1,58 @@
 {% load theme_tags %}
 <!-- ── Tab navigation ─────────────────────────────────────────── -->
-<div style="display: flex; gap: 4px; margin-bottom: 20px; border-bottom: 2px solid var(--hairline-color);">
-    <button type="button" id="tab-activity" onclick="switchBackupTab('activity')"
-            style="padding: 10px 20px; font-size: 0.9rem; font-weight: 600; background: none; border: none; border-bottom: 2px solid var(--primary); margin-bottom: -2px; color: var(--primary); cursor: pointer;">
+<div class="tab-bar">
+    <button type="button" id="tab-activity" class="tab-btn active" onclick="switchBackupTab('activity')">
         Backup Activity
     </button>
-    <button type="button" id="tab-files" onclick="switchBackupTab('files')"
-            style="padding: 10px 20px; font-size: 0.9rem; font-weight: 600; background: none; border: none; border-bottom: 2px solid transparent; margin-bottom: -2px; color: var(--body-quiet-color); cursor: pointer; display: inline-flex; align-items: center; gap: 8px;">
+    <button type="button" id="tab-files" class="tab-btn" onclick="switchBackupTab('files')">
         Files
-        <span style="display: inline-block; padding: 1px 7px; border-radius: 10px; font-size: 0.7rem; font-weight: 700; background: color-mix(in srgb, var(--primary) 15%, var(--card-bg)); color: var(--primary);">{{ backup_files|length }}</span>
+        <span class="tab-count">{{ backup_files|length }}</span>
     </button>
-    <button type="button" id="tab-config" onclick="switchBackupTab('config')"
-            style="padding: 10px 20px; font-size: 0.9rem; font-weight: 600; background: none; border: none; border-bottom: 2px solid transparent; margin-bottom: -2px; color: var(--body-quiet-color); cursor: pointer; display: inline-flex; align-items: center; gap: 8px;">
+    <button type="button" id="tab-config" class="tab-btn" onclick="switchBackupTab('config')">
         Configuration
-        <span style="display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: {% if email_is_console or not admins %}var(--delete-button-bg, red){% else %}var(--success-fg){% endif %};"></span>
+        <span style="display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: {% if email_is_console or not admins %}var(--error-fg){% else %}var(--success-fg){% endif %};"></span>
     </button>
 </div>
 
 <!-- ── Tab: Backup Activity (default) ─────────────────────────── -->
 <div id="panel-activity">
     <!-- Top-level stats -->
-    <div style="display: grid; grid-template-columns: repeat(6, 1fr); gap: 12px; margin-bottom: 24px;">
-        <div class="card stat-card-clickable"
+    <div class="stat-cards" style="margin-bottom: 24px;">
+        <div class="stat-card stat-card-clickable"
              hx-get="{% url 'smallstack:backup_stat_detail' 'recent' %}"
              hx-target="#stat-modal-body"
              onclick="openStatModal('Recent Backups (24h)')">
-            <div class="card-body" style="text-align: center; padding: 14px 8px;">
-                <div style="font-size: 1.75rem; font-weight: 700; color: var(--primary);">{{ recent_count }}</div>
-                <div style="color: var(--body-quiet-color); font-size: 0.8rem;">Recent (24h)</div>
-            </div>
+            <div class="stat-card-value">{{ recent_count }}</div>
+            <div class="stat-card-label">Recent (24h)</div>
         </div>
-        <div class="card stat-card-clickable"
+        <div class="stat-card stat-card--success stat-card-clickable"
              hx-get="{% url 'smallstack:backup_stat_detail' 'success' %}"
              hx-target="#stat-modal-body"
              onclick="openStatModal('Successful Backups')">
-            <div class="card-body" style="text-align: center; padding: 14px 8px;">
-                <div style="font-size: 1.75rem; font-weight: 700; color: var(--success-fg);">{{ success_count }}</div>
-                <div style="color: var(--body-quiet-color); font-size: 0.8rem;">Successful</div>
-            </div>
+            <div class="stat-card-value">{{ success_count }}</div>
+            <div class="stat-card-label">Successful</div>
         </div>
-        <div class="card stat-card-clickable"
+        <div class="stat-card {% if failed_count %}stat-card--danger{% endif %} stat-card-clickable"
              hx-get="{% url 'smallstack:backup_stat_detail' 'failed' %}"
              hx-target="#stat-modal-body"
              onclick="openStatModal('Failed Backups')">
-            <div class="card-body" style="text-align: center; padding: 14px 8px;">
-                <div style="font-size: 1.75rem; font-weight: 700; color: {% if failed_count %}var(--delete-button-bg, red){% else %}var(--primary){% endif %};">{{ failed_count }}</div>
-                <div style="color: var(--body-quiet-color); font-size: 0.8rem;">Failed</div>
-            </div>
+            <div class="stat-card-value">{{ failed_count }}</div>
+            <div class="stat-card-label">Failed</div>
         </div>
-        <div class="card stat-card-clickable"
+        <div class="stat-card stat-card-clickable"
              hx-get="{% url 'smallstack:backup_stat_detail' 'pruned' %}"
              hx-target="#stat-modal-body"
              onclick="openStatModal('Pruned Backups')">
-            <div class="card-body" style="text-align: center; padding: 14px 8px;">
-                <div style="font-size: 1.75rem; font-weight: 700; color: var(--primary);">{{ pruned_count }}</div>
-                <div style="color: var(--body-quiet-color); font-size: 0.8rem;">Pruned</div>
-            </div>
+            <div class="stat-card-value">{{ pruned_count }}</div>
+            <div class="stat-card-label">Pruned</div>
         </div>
-        <div class="card">
-            <div class="card-body" style="text-align: center; padding: 14px 8px;">
-                <div style="font-size: 1.75rem; font-weight: 700; color: var(--primary);">{{ avg_duration }}<span style="font-size: 0.9rem;">ms</span></div>
-                <div style="color: var(--body-quiet-color); font-size: 0.8rem;">Avg Duration</div>
-            </div>
+        <div class="stat-card">
+            <div class="stat-card-value">{{ avg_duration }}<span style="font-size: 0.9rem; font-weight: 600;">ms</span></div>
+            <div class="stat-card-label">Avg Duration</div>
         </div>
-        <div class="card">
-            <div class="card-body" style="text-align: center; padding: 14px 8px;">
-                <div style="font-size: 1.75rem; font-weight: 700; color: var(--primary);">{{ total_backup_size|filesizeformat }}</div>
-                <div style="color: var(--body-quiet-color); font-size: 0.8rem;">Total Size</div>
-            </div>
+        <div class="stat-card">
+            <div class="stat-card-value">{{ total_backup_size|filesizeformat }}</div>
+            <div class="stat-card-label">Total Size</div>
         </div>
     </div>
 
@@ -229,12 +214,10 @@ function switchBackupTab(tab) {
         var btn = document.getElementById('tab-' + t);
         if (t === tab) {
             panel.style.display = '';
-            btn.style.borderBottomColor = 'var(--primary)';
-            btn.style.color = 'var(--primary)';
+            btn.classList.add('active');
         } else {
             panel.style.display = 'none';
-            btn.style.borderBottomColor = 'transparent';
-            btn.style.color = 'var(--body-quiet-color)';
+            btn.classList.remove('active');
         }
     });
 }

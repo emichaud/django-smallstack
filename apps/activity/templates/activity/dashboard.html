@@ -11,7 +11,7 @@
 <div class="page-header-bleed page-header-with-actions">
     <div class="page-header-content">
         <h1>Activity</h1>
-        <p class="page-subtitle">Site overview — {{ total_requests|stringformat:"," }} tracked requests, {{ max_rows|stringformat:"," }} max</p>
+        <p class="page-subtitle">Site overview &middot; {{ total_requests }} tracked requests &middot; {{ max_rows }}-row retention cap</p>
         <nav style="margin-top: 0.5rem; font-size: 0.8rem;">
             <a href="{% url 'website:home' %}" style="color: var(--body-quiet-color); text-decoration: none;">Home</a>
             <span style="color: var(--body-quiet-color); margin: 0 0.3rem;">/</span>
@@ -36,20 +36,18 @@
         <div class="stat-card-value">{{ avg_response_time }}<span style="font-size: 0.55em; color: var(--body-quiet-color); margin-left: 2px;">ms</span></div>
         <div class="stat-card-label">Avg Response</div>
     </div>
-    <div class="stat-card stat-card-clickable"
+    <div class="stat-card stat-card-clickable {% if count_4xx %}stat-card--warning{% endif %}"
          hx-get="{% url 'activity:stat_detail' '4xx' %}"
          hx-target="#stat-modal-body"
-         onclick="openStatModal('4xx Client Errors')"
-         {% if count_4xx %}style="border-left-color: var(--warning-fg); cursor: pointer;"{% else %}style="cursor: pointer;"{% endif %}>
-        <div class="stat-card-value" {% if count_4xx %}style="color: var(--warning-fg);"{% endif %}>{{ count_4xx }}</div>
+         onclick="openStatModal('4xx Client Errors')">
+        <div class="stat-card-value">{{ count_4xx }}</div>
         <div class="stat-card-label">4xx Errors</div>
     </div>
-    <div class="stat-card stat-card-clickable"
+    <div class="stat-card stat-card-clickable {% if count_5xx %}stat-card--danger{% endif %}"
          hx-get="{% url 'activity:stat_detail' '5xx' %}"
          hx-target="#stat-modal-body"
-         onclick="openStatModal('5xx Server Errors')"
-         {% if count_5xx %}style="border-left-color: var(--error-fg); cursor: pointer;"{% else %}style="cursor: pointer;"{% endif %}>
-        <div class="stat-card-value" {% if count_5xx %}style="color: var(--error-fg);"{% endif %}>{{ count_5xx }}</div>
+         onclick="openStatModal('5xx Server Errors')">
+        <div class="stat-card-value">{{ count_5xx }}</div>
         <div class="stat-card-label">5xx Errors</div>
     </div>
     <div class="stat-card stat-card-clickable"

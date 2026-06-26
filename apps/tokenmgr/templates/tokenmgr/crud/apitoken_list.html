@@ -45,12 +45,12 @@
     <div class="stat-card-value">{{ overview_stats.total_tokens }}</div>
     <div class="stat-card-label">{% if request.user.is_staff %}All tokens{% else %}Your tokens{% endif %}</div>
   </div>
-  <div class="stat-card" style="border-left-color: var(--success-fg);">
-    <div class="stat-card-value" style="color: var(--success-fg);">{{ overview_stats.active_tokens }}</div>
+  <div class="stat-card stat-card--success">
+    <div class="stat-card-value">{{ overview_stats.active_tokens }}</div>
     <div class="stat-card-label">Active</div>
   </div>
   <div class="stat-card stat-card--muted">
-    <div class="stat-card-value" style="color: var(--body-quiet-color);">{{ overview_stats.revoked_tokens }}</div>
+    <div class="stat-card-value">{{ overview_stats.revoked_tokens }}</div>
     <div class="stat-card-label">Revoked</div>
   </div>
   <div class="stat-card">

@@ -8,7 +8,7 @@
 {% block page_header %}
 <div class="page-header-bleed page-header-with-actions" style="display: flex; align-items: center; justify-content: space-between;">
   <div class="page-header-content">
-    <h1>API</h1>
+    <h1>API Health</h1>
     <p class="page-subtitle">REST surface — schema validity, endpoint registry, Swagger / ReDoc, request activity.</p>
     <nav style="margin-top: 0.5rem; font-size: 0.8rem;">
       <a href="{% url 'website:home' %}" style="color: var(--body-quiet-color); text-decoration: none;">Home</a>
@@ -20,7 +20,7 @@
   </div>
   <div style="display: flex; gap: 12px; align-items: stretch;">
     {% if swagger_url %}
-    <a href="{{ swagger_url }}" target="_blank" rel="noopener" class="btn-outline" style="display: inline-flex; align-items: center;">Open Swagger ↗</a>
+    <a href="{{ swagger_url }}" target="_blank" rel="noopener" class="btn-tint" style="display: inline-flex; align-items: center;">Open Swagger ↗</a>
     {% endif %}
     <form method="post"
           action="{% url 'api_admin:self_test' %}"
@@ -49,30 +49,22 @@
 {% include "api/admin/_nav.html" %}
 
 {# ── Stat cards: PASS / WARN / FAIL / Endpoints ─────────────────── #}
-<div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 24px;">
-  <div class="card">
-    <div class="card-body" style="text-align: center; padding: 14px 8px;">
-      <div style="font-size: 1.75rem; font-weight: 700; color: var(--success-fg);">{{ pass_count }}</div>
-      <div style="color: var(--body-quiet-color); font-size: 0.8rem;">Passing checks</div>
-    </div>
+<div class="stat-cards" style="margin-bottom: 24px;">
+  <div class="stat-card stat-card--success">
+    <div class="stat-card-value">{{ pass_count }}</div>
+    <div class="stat-card-label">Passing checks</div>
   </div>
-  <div class="card">
-    <div class="card-body" style="text-align: center; padding: 14px 8px;">
-      <div style="font-size: 1.75rem; font-weight: 700; color: {% if warn_count %}var(--message-warning-bg, orange){% else %}var(--body-quiet-color){% endif %};">{{ warn_count }}</div>
-      <div style="color: var(--body-quiet-color); font-size: 0.8rem;">Warnings</div>
-    </div>
+  <div class="stat-card {% if warn_count %}stat-card--warning{% else %}stat-card--muted{% endif %}">
+    <div class="stat-card-value">{{ warn_count }}</div>
+    <div class="stat-card-label">Warnings</div>
   </div>
-  <div class="card">
-    <div class="card-body" style="text-align: center; padding: 14px 8px;">
-      <div style="font-size: 1.75rem; font-weight: 700; color: {% if fail_count %}var(--delete-button-bg, red){% else %}var(--body-quiet-color){% endif %};">{{ fail_count }}</div>
-      <div style="color: var(--body-quiet-color); font-size: 0.8rem;">Failures</div>
-    </div>
+  <div class="stat-card {% if fail_count %}stat-card--danger{% else %}stat-card--muted{% endif %}">
+    <div class="stat-card-value">{{ fail_count }}</div>
+    <div class="stat-card-label">Failures</div>
   </div>
-  <a href="{% url 'api_admin:endpoints' %}" class="card" style="text-decoration: none; display: block;">
-    <div class="card-body" style="text-align: center; padding: 14px 8px;">
-      <div style="font-size: 1.75rem; font-weight: 700; color: var(--primary);">{{ endpoint_count }}</div>
-      <div style="color: var(--body-quiet-color); font-size: 0.8rem;">Registered endpoints →</div>
-    </div>
+  <a href="{% url 'api_admin:endpoints' %}" class="stat-card stat-card-clickable" style="text-decoration: none;">
+    <div class="stat-card-value">{{ endpoint_count }}</div>
+    <div class="stat-card-label">Registered endpoints →</div>
   </a>
 </div>
 

@@ -132,12 +132,12 @@
 {% block page_header %}
 <div class="page-header-bleed page-header-with-actions">
     <div class="page-header-content">
-        <h1>Heartbeat Dashboard</h1>
-        <p class="page-subtitle">{{ total_heartbeats|stringformat:"," }} total records &middot; {{ retention_days }}-day retention &middot; {{ expected_interval }}s interval</p>
+        <h1>Status</h1>
+        <p class="page-subtitle">Heartbeat monitoring &middot; {{ total_heartbeats }} record{{ total_heartbeats|pluralize }} &middot; {{ retention_days }}-day retention &middot; {{ expected_interval }}s interval</p>
         <nav style="margin-top: 0.5rem; font-size: 0.8rem;">
             <a href="{% url 'website:home' %}" style="color: var(--body-quiet-color); text-decoration: none;">Home</a>
             <span style="color: var(--body-quiet-color); margin: 0 0.3rem;">/</span>
-            <span style="color: var(--body-fg);">Heartbeat</span>
+            <span style="color: var(--body-fg);">Status</span>
         </nav>
     </div>
     <div style="display: flex; gap: 0.5rem; align-items: center;">
@@ -153,44 +153,30 @@
 
 {% block content %}
 <!-- Summary stats -->
-<div style="display: grid; grid-template-columns: repeat(6, 1fr); gap: 12px; margin-bottom: 24px;">
-    <div class="card">
-        <div class="card-body" style="text-align: center; padding: 12px 8px;">
-            <div style="font-size: 1.4rem; font-weight: 700; color: {% if status == 'operational' %}var(--success-fg){% elif status == 'degraded' %}var(--warning-fg){% elif status == 'down' %}var(--error-fg){% else %}var(--body-quiet-color){% endif %};">
-                {{ status_label }}
-            </div>
-            <div style="color: var(--body-quiet-color); font-size: 0.75rem;">Current Status{% if active_maintenance %} <span style="color: var(--warning-fg);">(Maint)</span>{% endif %}</div>
-        </div>
+<div class="stat-cards" style="margin-bottom: 24px;">
+    <div class="stat-card {% if status == 'operational' %}stat-card--success{% elif status == 'degraded' %}stat-card--warning{% elif status == 'down' %}stat-card--danger{% else %}stat-card--muted{% endif %}">
+        <div class="stat-card-value">{{ status_label }}</div>
+        <div class="stat-card-label">Current Status{% if active_maintenance %} <span style="color: var(--warning-fg);">(Maint)</span>{% endif %}</div>
     </div>
-    <div class="card">
-        <div class="card-body" style="text-align: center; padding: 12px 8px;">
-            <div style="font-size: 1.4rem; font-weight: 700; color: {{ uptime_overall_color }};">{% if uptime_overall != None %}{{ uptime_overall }}%{% else %}&mdash;{% endif %}</div>
-            <div style="color: var(--body-quiet-color); font-size: 0.75rem;">Overall{% if monitoring_days %} ({{ monitoring_days }}d){% endif %}</div>
-        </div>
+    <div class="stat-card">
+        <div class="stat-card-value" style="color: {{ uptime_overall_color }};">{% if uptime_overall != None %}{{ uptime_overall }}%{% else %}&mdash;{% endif %}</div>
+        <div class="stat-card-label">Overall{% if monitoring_days %} ({{ monitoring_days }}d){% endif %}</div>
     </div>
-    <div class="card">
-        <div class="card-body" style="text-align: center; padding: 12px 8px;">
-            <div style="font-size: 1.4rem; font-weight: 700; color: {{ uptime_24h_color }};">{% if uptime_24h != None %}{{ uptime_24h }}%{% else %}&mdash;{% endif %}</div>
-            <div style="color: var(--body-quiet-color); font-size: 0.75rem;">Uptime (24h)</div>
-        </div>
+    <div class="stat-card">
+        <div class="stat-card-value" style="color: {{ uptime_24h_color }};">{% if uptime_24h != None %}{{ uptime_24h }}%{% else %}&mdash;{% endif %}</div>
+        <div class="stat-card-label">Uptime (24h)</div>
     </div>
-    <div class="card">
-        <div class="card-body" style="text-align: center; padding: 12px 8px;">
-            <div style="font-size: 1.4rem; font-weight: 700; color: {{ uptime_7d_color }};">{% if uptime_7d != None %}{{ uptime_7d }}%{% else %}&mdash;{% endif %}</div>
-            <div style="color: var(--body-quiet-color); font-size: 0.75rem;">Uptime (7d)</div>
-        </div>
+    <div class="stat-card">
+        <div class="stat-card-value" style="color: {{ uptime_7d_color }};">{% if uptime_7d != None %}{{ uptime_7d }}%{% else %}&mdash;{% endif %}</div>
+        <div class="stat-card-label">Uptime (7d)</div>
     </div>
-    <div class="card">
-        <div class="card-body" style="text-align: center; padding: 12px 8px;">
-            <div style="font-size: 1.4rem; font-weight: 700; color: var(--primary);">{{ response_time_ms }}<span style="font-size: 0.8rem;">ms</span></div>
-            <div style="color: var(--body-quiet-color); font-size: 0.75rem;">Last Response</div>
-        </div>
+    <div class="stat-card">
+        <div class="stat-card-value">{{ response_time_ms }}<span style="font-size: 0.9rem; font-weight: 600;">ms</span></div>
+        <div class="stat-card-label">Last Response</div>
     </div>
-    <div class="card">
-        <div class="card-body" style="text-align: center; padding: 12px 8px;">
-            <div style="font-size: 1.4rem; font-weight: 700; color: var(--primary);">{{ avg_response_time }}<span style="font-size: 0.8rem;">ms</span></div>
-            <div style="color: var(--body-quiet-color); font-size: 0.75rem;">Avg Response</div>
-        </div>
+    <div class="stat-card">
+        <div class="stat-card-value">{{ avg_response_time }}<span style="font-size: 0.9rem; font-weight: 600;">ms</span></div>
+        <div class="stat-card-label">Avg Response</div>
     </div>
 </div>
 

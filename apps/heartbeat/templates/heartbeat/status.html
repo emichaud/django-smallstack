@@ -8,15 +8,18 @@
 {% block extra_css %}
 <style>
     .status-hero {
+        position: relative;
         text-align: center;
         padding: 40px 24px;
         margin: -24px -24px 24px -24px;
         border-radius: 8px 8px 0 0;
+        background: var(--accent-band-bg);
     }
-    .status-hero.operational { background: color-mix(in srgb, var(--success-fg) 12%, var(--body-bg)); }
-    .status-hero.degraded { background: color-mix(in srgb, var(--warning-fg) 12%, var(--body-bg)); }
-    .status-hero.down { background: color-mix(in srgb, var(--error-fg) 12%, var(--body-bg)); }
-    .status-hero.unknown { background: color-mix(in srgb, var(--body-quiet-color) 12%, var(--body-bg)); }
+    .status-hero-back {
+        position: absolute;
+        top: 16px;
+        right: 16px;
+    }
 
     .status-indicator {
         display: inline-flex;
@@ -42,26 +45,9 @@
         margin-top: 8px;
     }
 
-    .uptime-stats {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-        gap: 12px;
-        margin-bottom: 24px;
-    }
-    .uptime-stat {
-        text-align: center;
-        padding: 16px;
-    }
-    .uptime-stat .value {
-        font-size: 1.5rem;
-        font-weight: 700;
-        color: var(--primary);
-    }
-    .uptime-stat .label {
-        font-size: 0.8rem;
-        color: var(--body-quiet-color);
-        margin-top: 4px;
-    }
+    /* Uptime stat tiles now use the shared .stat-card component
+       (see components.css) — local .uptime-stat styles removed in the
+       admin-apps consistency pass. */
 
     /* Shared timeline bar styles */
     .timeline-bar {
@@ -199,6 +185,9 @@
      hx-trigger="every 60s"
      hx-select=".status-hero"
      hx-swap="outerHTML">
+    {% if user.is_staff %}
+    <a href="{% url 'heartbeat:dashboard' %}" class="btn-tint status-hero-back">Dashboard</a>
+    {% endif %}
     <div class="status-indicator">
         <span class="status-dot {{ status }}"></span>
         {{ status_label }}
@@ -227,26 +216,26 @@
 {% endif %}
 
 <!-- Uptime Stats -->
-<div class="uptime-stats">
-    <div class="card uptime-stat">
-        <div class="value" style="color: {{ uptime_overall_color }};">{% if uptime_overall != None %}{{ uptime_overall }}%{% else %}&mdash;{% endif %}</div>
-        <div class="label">Overall{% if monitoring_days %} ({{ monitoring_days }}d){% endif %}</div>
+<div class="stat-cards" style="margin-bottom: 24px;">
+    <div class="stat-card">
+        <div class="stat-card-value" style="color: {{ uptime_overall_color }};">{% if uptime_overall != None %}{{ uptime_overall }}%{% else %}&mdash;{% endif %}</div>
+        <div class="stat-card-label">Overall{% if monitoring_days %} ({{ monitoring_days }}d){% endif %}</div>
     </div>
-    <div class="card uptime-stat">
-        <div class="value" style="color: {{ uptime_24h_color }};">{% if uptime_24h != None %}{{ uptime_24h }}%{% else %}&mdash;{% endif %}</div>
-        <div class="label">Uptime (24h)</div>
+    <div class="stat-card">
+        <div class="stat-card-value" style="color: {{ uptime_24h_color }};">{% if uptime_24h != None %}{{ uptime_24h }}%{% else %}&mdash;{% endif %}</div>
+        <div class="stat-card-label">Uptime (24h)</div>
     </div>
-    <div class="card uptime-stat">
-        <div class="value" style="color: {{ uptime_7d_color }};">{% if uptime_7d != None %}{{ uptime_7d }}%{% else %}&mdash;{% endif %}</div>
-        <div class="label">Uptime (7 days)</div>
+    <div class="stat-card">
+        <div class="stat-card-value" style="color: {{ uptime_7d_color }};">{% if uptime_7d != None %}{{ uptime_7d }}%{% else %}&mdash;{% endif %}</div>
+        <div class="stat-card-label">Uptime (7 days)</div>
     </div>
-    <div class="card uptime-stat">
-        <div class="value">{{ response_time_ms }}<span style="font-size: 0.9rem;">ms</span></div>
-        <div class="label">Last Response</div>
+    <div class="stat-card">
+        <div class="stat-card-value">{{ response_time_ms }}<span style="font-size: 0.9rem; font-weight: 600;">ms</span></div>
+        <div class="stat-card-label">Last Response</div>
     </div>
-    <div class="card uptime-stat">
-        <div class="value">{{ avg_response_time }}<span style="font-size: 0.9rem;">ms</span></div>
-        <div class="label">Avg Response</div>
+    <div class="stat-card">
+        <div class="stat-card-value">{{ avg_response_time }}<span style="font-size: 0.9rem; font-weight: 600;">ms</span></div>
+        <div class="stat-card-label">Avg Response</div>
     </div>
 </div>
 
