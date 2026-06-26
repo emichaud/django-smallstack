@@ -324,10 +324,16 @@ class EmailOrUsernameBackend(ModelBackend):
 # config/settings/base.py
 
 AUTHENTICATION_BACKENDS = [
+    # Keep the axes backend FIRST — it ships enabled and provides brute-force
+    # lockout. Dropping it disables that protection (and can break axes).
+    "axes.backends.AxesStandaloneBackend",
     "apps.accounts.backends.EmailOrUsernameBackend",
     "django.contrib.auth.backends.ModelBackend",
 ]
 ```
+
+> Also update the login template label from "Username" to "Username or email"
+> (`apps/accounts/templates/registration/login.html`) so the field invites either.
 
 ## Password Reset
 

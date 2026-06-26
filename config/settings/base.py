@@ -129,7 +129,11 @@ AUTH_USER_MODEL = "accounts.User"
 
 # Authentication backends (axes must be first for rate limiting)
 AUTHENTICATION_BACKENDS = [
+    # Axes must stay first so brute-force protection wraps every attempt.
     "axes.backends.AxesStandaloneBackend",
+    # Allow signing in with username OR email. Remove this line to require
+    # username-only login.
+    "apps.accounts.backends.EmailOrUsernameBackend",
     "django.contrib.auth.backends.ModelBackend",
 ]
 
