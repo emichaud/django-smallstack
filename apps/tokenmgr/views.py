@@ -16,10 +16,15 @@ the `is_owner_or_staff` helper.
 from __future__ import annotations
 
 from django.contrib import messages
+from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.exceptions import PermissionDenied
+from django.db.models import Count
+from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse
+from django.utils import timezone
+from django.utils.html import format_html, format_html_join
 from django.views import View
 from django.views.generic import FormView, TemplateView
 
@@ -258,3 +263,89 @@ class TokenStatsView(LoginRequiredMixin, TemplateView):
         context["stats"] = get_usage_stats(token, hours=hours)
         context["selected_hours"] = hours
         return context
+
+
+def _token_list_row(token, meta) -> str:
+    """A clickable token row for the stat modal: avatar · name · meta · chevron."""
+    return format_html(
+        '<a class="stat-list-row" href="{}">'
+        '<span class="stat-list-avatar" aria-hidden="true">{}</span>'
+        '<span class="stat-list-name">{}</span>'
+        '<span class="stat-list-meta">{}</span>'
+        '<span class="stat-list-chevron" aria-hidden="true">→</span>'
+        "</a>",
+        reverse("tokenmgr:tokens-detail", kwargs={"pk": token.pk}),
+        (token.name[:2] or "?").upper(),
+        token.name,
+        meta,
+    )
+
+
+@login_required
+def token_stat_detail(request, stat_type: str) -> HttpResponse:
+    """HTMX endpoint returning HTML for the token stat-card drill-down modals.
+
+    Respects self-service scoping: non-staff callers only ever see their own
+    tokens (same rule as the overview counts).
+    """
+    user = request.user
+    is_staff = bool(getattr(user, "is_staff", False))
+    qs = APIToken.objects.select_related("user").order_by("-created_at")
+    if not is_staff:
+        qs = qs.filter(user=user)
+
+    def _meta(token) -> str:
+        # Staff see the owner; an owner viewing their own tokens sees the
+        # access level + key prefix instead (owner would be redundant).
+        if is_staff and token.user:
+            return str(token.user)
+        return f"{token.access_level or 'staff'} · {token.prefix}…"
+
+    rows: list = []
+    empty_msg = "Nothing to show."
+
+    if stat_type == "total":
+        rows = [_token_list_row(t, _meta(t)) for t in qs]
+        empty_msg = "No tokens yet."
+    elif stat_type == "active":
+        rows = [_token_list_row(t, _meta(t)) for t in qs.filter(is_active=True)]
+        empty_msg = "No active tokens."
+    elif stat_type == "revoked":
+        rows = [_token_list_row(t, _meta(t)) for t in qs.filter(is_active=False)]
+        empty_msg = "No revoked tokens."
+    elif stat_type == "volume":
+        empty_msg = "No API requests in the last 24 hours."
+        try:
+            from apps.activity.models import RequestLog
+
+            cutoff = timezone.now() - timezone.timedelta(hours=24)
+            counts = dict(
+                RequestLog.objects.filter(api_token__in=qs, timestamp__gte=cutoff)
+                .values_list("api_token")
+                .annotate(c=Count("id"))
+            )
+            tokens_by_id = {t.pk: t for t in qs}
+            rows = [
+                format_html(
+                    '<a class="stat-list-row" href="{}">'
+                    '<span class="stat-list-avatar" aria-hidden="true">{}</span>'
+                    '<span class="stat-list-name">{}</span>'
+                    '<span class="stat-list-count">{}</span>'
+                    '<span class="stat-list-chevron" aria-hidden="true">→</span>'
+                    "</a>",
+                    reverse("tokenmgr:tokens-detail", kwargs={"pk": tid}),
+                    (tokens_by_id[tid].name[:2] or "?").upper(),
+                    tokens_by_id[tid].name,
+                    cnt,
+                )
+                for tid, cnt in sorted(counts.items(), key=lambda kv: -kv[1])
+                if tid in tokens_by_id
+            ]
+        except Exception:  # noqa: BLE001 — activity app optional / any query failure → empty
+            rows = []
+
+    if rows:
+        body = format_html('<div class="stat-list">{}</div>', format_html_join("", "{}", ((r,) for r in rows)))
+    else:
+        body = format_html('<p class="stat-list-empty">{}</p>', empty_msg)
+    return HttpResponse(body)

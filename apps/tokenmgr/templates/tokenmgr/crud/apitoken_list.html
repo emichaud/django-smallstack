@@ -39,21 +39,29 @@
 {% endblock %}
 
 {% block content %}
-{# ── Stat cards (editorial spec-card pattern) ───────────────── #}
+{# ── Stat cards (clickable → drill-down modal) ──────────────── #}
 <div class="stat-cards" style="margin-bottom: 24px;">
-  <div class="stat-card">
+  <div class="stat-card stat-card-clickable" style="cursor: pointer;"
+       hx-get="{% url 'tokenmgr:token-stat-detail' 'total' %}" hx-target="#stat-modal-body"
+       onclick="openStatModal('{% if request.user.is_staff %}All Tokens{% else %}Your Tokens{% endif %}')">
     <div class="stat-card-value">{{ overview_stats.total_tokens }}</div>
     <div class="stat-card-label">{% if request.user.is_staff %}All tokens{% else %}Your tokens{% endif %}</div>
   </div>
-  <div class="stat-card stat-card--success">
+  <div class="stat-card stat-card--success stat-card-clickable" style="cursor: pointer;"
+       hx-get="{% url 'tokenmgr:token-stat-detail' 'active' %}" hx-target="#stat-modal-body"
+       onclick="openStatModal('Active Tokens')">
     <div class="stat-card-value">{{ overview_stats.active_tokens }}</div>
     <div class="stat-card-label">Active</div>
   </div>
-  <div class="stat-card stat-card--muted">
+  <div class="stat-card stat-card--muted stat-card-clickable" style="cursor: pointer;"
+       hx-get="{% url 'tokenmgr:token-stat-detail' 'revoked' %}" hx-target="#stat-modal-body"
+       onclick="openStatModal('Revoked Tokens')">
     <div class="stat-card-value">{{ overview_stats.revoked_tokens }}</div>
     <div class="stat-card-label">Revoked</div>
   </div>
-  <div class="stat-card">
+  <div class="stat-card stat-card-clickable" style="cursor: pointer;"
+       hx-get="{% url 'tokenmgr:token-stat-detail' 'volume' %}" hx-target="#stat-modal-body"
+       onclick="openStatModal('API Requests · 24h')">
     <div class="stat-card-value">{{ overview_stats.volume_24h }}</div>
     <div class="stat-card-label">Requests · 24h</div>
   </div>
@@ -82,4 +90,6 @@
     </div>
   </div>
 </div>
+
+{% include "smallstack/includes/stat_modal.html" %}
 {% endblock %}

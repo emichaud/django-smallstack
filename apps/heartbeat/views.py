@@ -442,6 +442,8 @@ class SLADetailView(StaffRequiredMixin, TemplateView):
     template_name = "heartbeat/sla.html"
 
     def get_context_data(self, **kwargs):
+        from apps.smallstack.pagination import paginate_queryset
+
         from .forms import SLAForm
         from .models import HeartbeatDaily
 
@@ -461,8 +463,10 @@ class SLADetailView(StaffRequiredMixin, TemplateView):
         # Maintenance windows
         context["maintenance_windows"] = MaintenanceWindow.objects.all()[:50]
 
-        # Daily summaries for long-term view
-        context["daily_summaries"] = HeartbeatDaily.objects.all()[:30]
+        # Daily summaries for long-term view — paginated, 15 rows per page.
+        context["daily_summaries"] = paginate_queryset(
+            HeartbeatDaily.objects.order_by("-date"), self.request, page_size=15
+        )
 
         # Pre-fill form with current values (convert epoch to local time
         # so the datetime-local input shows in the user's timezone)

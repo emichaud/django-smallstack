@@ -6,8 +6,9 @@ from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib.auth import get_user_model
 from django.db.models import Avg, Count, Max
 from django.http import HttpResponse
+from django.urls import reverse
 from django.utils import timezone
-from django.utils.html import format_html
+from django.utils.html import format_html, format_html_join
 from django.utils.safestring import mark_safe
 
 from apps.activity.models import RequestLog
@@ -257,6 +258,22 @@ def _get_user_activity_stats(user_obj) -> dict[str, Any]:
     }
 
 
+def _user_list_row(u) -> str:
+    """A clickable user row for the stat modal: avatar · name · meta · chevron."""
+    return format_html(
+        '<a class="stat-list-row" href="{}">'
+        '<span class="stat-list-avatar" aria-hidden="true">{}</span>'
+        '<span class="stat-list-name">{}</span>'
+        '<span class="stat-list-meta">{}</span>'
+        '<span class="stat-list-chevron" aria-hidden="true">→</span>'
+        "</a>",
+        reverse("manage/users-update", args=[u.pk]),
+        (u.username[:2] or "?").upper(),
+        u.username,
+        u.email or "No email on file",
+    )
+
+
 @staff_member_required
 def user_stat_detail(request, stat_type: str) -> HttpResponse:
     """HTMX endpoint returning HTML for stat card drill-down modals."""
@@ -264,17 +281,21 @@ def user_stat_detail(request, stat_type: str) -> HttpResponse:
     thirty_days_ago = now - timezone.timedelta(days=30)
     users = User.objects.filter(is_active=True).order_by("username")
 
+    rows: list = []
+    empty_msg = "Nothing to show."
+
     if stat_type == "recent":
-        items = users.filter(date_joined__gte=thirty_days_ago)
-        rows = [{"label": u.username, "value": u.date_joined.strftime("%b %d, %Y")} for u in items]
-        if not rows:
-            rows = [{"label": "No new users in the last 30 days", "value": ""}]
+        rows = [_user_list_row(u) for u in users.filter(date_joined__gte=thirty_days_ago)]
+        empty_msg = "No new users in the last 30 days."
     elif stat_type == "total":
-        rows = [{"label": u.username, "value": u.email or "—"} for u in users]
+        rows = [_user_list_row(u) for u in users]
+        empty_msg = "No active users."
     elif stat_type == "staff":
-        items = users.filter(is_staff=True)
-        rows = [{"label": u.username, "value": u.email or "—"} for u in items]
+        rows = [_user_list_row(u) for u in users.filter(is_staff=True)]
+        empty_msg = "No staff users."
     elif stat_type == "timezones":
+        from urllib.parse import urlencode
+
         from apps.profile.models import UserProfile
 
         tz_counts = (
@@ -284,19 +305,27 @@ def user_stat_detail(request, stat_type: str) -> HttpResponse:
             .annotate(count=Count("id"))
             .order_by("-count")
         )
-        rows = [{"label": t["timezone"].split("/")[-1].replace("_", " "), "value": str(t["count"])} for t in tz_counts]
-        if not rows:
-            rows = [{"label": "No timezones configured", "value": ""}]
-    else:
-        rows = []
+        tz_dashboard = reverse("manage/users-timezones")
+        rows = [
+            format_html(
+                # Links into the Timezones dashboard filtered to this zone
+                # (its search matches the raw IANA name, e.g. America/New_York).
+                '<a class="stat-list-row" href="{}?{}">'
+                '<span class="stat-list-name">{}</span>'
+                '<span class="stat-list-count">{}</span>'
+                '<span class="stat-list-chevron" aria-hidden="true">→</span>'
+                "</a>",
+                tz_dashboard,
+                urlencode({"q": t["timezone"]}),
+                t["timezone"].split("/")[-1].replace("_", " "),
+                t["count"],
+            )
+            for t in tz_counts
+        ]
+        empty_msg = "No timezones configured."
 
-    html = '<table style="width:100%;"><thead><tr><th>Name</th><th>Detail</th></tr></thead><tbody>'
-    for row in rows:
-        html += (
-            f"<tr>"
-            f'<td style="font-size:0.85rem;">{row["label"]}</td>'
-            f'<td style="font-size:0.85rem;text-align:right;">{row["value"]}</td>'
-            f"</tr>"
-        )
-    html += "</tbody></table>"
-    return HttpResponse(html)
+    if rows:
+        body = format_html('<div class="stat-list">{}</div>', format_html_join("", "{}", ((r,) for r in rows)))
+    else:
+        body = format_html('<p class="stat-list-empty">{}</p>', empty_msg)
+    return HttpResponse(body)

@@ -158,13 +158,17 @@ def crud_table(context):
     has_update = Action.UPDATE in crud_actions
     has_delete = Action.DELETE in crud_actions
     show_actions = has_update or has_delete
+    # The link_field column links to the detail view; when the CRUDView has no
+    # DETAIL action, fall back to the edit view so the name stays clickable
+    # (the common admin-list pattern: click a row to edit it).
+    row_linkable = has_detail or has_update
 
     # Build rows
     rows = []
     for obj in object_list:
         cells = []
         for field_name in list_fields:
-            is_link = field_name == link_field and has_detail
+            is_link = field_name == link_field and row_linkable
             # Raw value for title tooltip (before transforms add HTML)
             raw = getattr(obj, field_name, "")
             if isinstance(raw, (dict, list)):
@@ -189,7 +193,12 @@ def crud_table(context):
                 }
             )
 
-        detail_url = _ns_reverse(f"{url_base}-detail", url_namespace, kwargs={"pk": obj.pk}) if has_detail else None
+        if has_detail:
+            detail_url = _ns_reverse(f"{url_base}-detail", url_namespace, kwargs={"pk": obj.pk})
+        elif has_update:
+            detail_url = _ns_reverse(f"{url_base}-update", url_namespace, kwargs={"pk": obj.pk})
+        else:
+            detail_url = None
 
         actions = []
         if has_update:

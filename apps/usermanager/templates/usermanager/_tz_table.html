@@ -81,4 +81,26 @@
             {% endfor %}
         </tbody>
     </table>
+    {% if page_obj.paginator.num_pages > 1 %}
+    <div class="paginator" style="border-top: 1px solid var(--card-border);">
+        <span class="paginator-info">
+            Showing {{ page_obj.showing_start }}&ndash;{{ page_obj.showing_end }} of {{ page_obj.total_count }}
+        </span>
+        <nav class="paginator-nav" aria-label="Users pagination">
+            <a class="paginator-btn{% if not page_obj.has_previous %} disabled{% endif %}"
+               {% if page_obj.has_previous %}href="{% querystring page=1 %}"{% endif %}
+               title="First page" aria-label="First page">&laquo;</a>
+            <a class="paginator-btn{% if not page_obj.has_previous %} disabled{% endif %}"
+               {% if page_obj.has_previous %}href="{% querystring page=page_obj.previous_page_number %}"{% endif %}
+               title="Previous page" aria-label="Previous page">&lsaquo;</a>
+            <span class="paginator-current">{{ page_obj.number }}<span class="paginator-of">of</span>{{ page_obj.paginator.num_pages }}</span>
+            <a class="paginator-btn{% if not page_obj.has_next %} disabled{% endif %}"
+               {% if page_obj.has_next %}href="{% querystring page=page_obj.next_page_number %}"{% endif %}
+               title="Next page" aria-label="Next page">&rsaquo;</a>
+            <a class="paginator-btn{% if not page_obj.has_next %} disabled{% endif %}"
+               {% if page_obj.has_next %}href="{% querystring page=page_obj.paginator.num_pages %}"{% endif %}
+               title="Last page" aria-label="Last page">&raquo;</a>
+        </nav>
+    </div>
+    {% endif %}
 </div>

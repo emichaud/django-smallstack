@@ -19,6 +19,8 @@ urlpatterns = [
     path("tokens/<int:pk>/reveal/", views.TokenRevealView.as_view(), name="token-reveal"),
     path("tokens/<int:pk>/revoke/", views.TokenRevokeView.as_view(), name="token-revoke"),
     path("tokens/<int:pk>/stats/", views.TokenStatsView.as_view(), name="token-stats"),
+    # Overview stat-card drill-down modals on the list page.
+    path("tokens/stats/<str:stat_type>/", views.token_stat_detail, name="token-stat-detail"),
     # CRUDView-generated list + detail (tokens/ and tokens/<pk>/).
     *views.TokenCRUDView.get_urls(),
 ]

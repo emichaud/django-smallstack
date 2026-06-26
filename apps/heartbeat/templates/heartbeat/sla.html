@@ -359,6 +359,28 @@
             </tbody>
         </table>
     </div>
+    {% if daily_summaries.paginator.num_pages > 1 %}
+    <div class="paginator" style="border-top: 1px solid var(--card-border);">
+        <span class="paginator-info">
+            Showing {{ daily_summaries.showing_start }}&ndash;{{ daily_summaries.showing_end }} of {{ daily_summaries.total_count }}
+        </span>
+        <nav class="paginator-nav" aria-label="Daily summaries pagination">
+            <a class="paginator-btn{% if not daily_summaries.has_previous %} disabled{% endif %}"
+               {% if daily_summaries.has_previous %}href="{% querystring page=1 %}"{% endif %}
+               title="First page" aria-label="First page">&laquo;</a>
+            <a class="paginator-btn{% if not daily_summaries.has_previous %} disabled{% endif %}"
+               {% if daily_summaries.has_previous %}href="{% querystring page=daily_summaries.previous_page_number %}"{% endif %}
+               title="Previous page" aria-label="Previous page">&lsaquo;</a>
+            <span class="paginator-current">{{ daily_summaries.number }}<span class="paginator-of">of</span>{{ daily_summaries.paginator.num_pages }}</span>
+            <a class="paginator-btn{% if not daily_summaries.has_next %} disabled{% endif %}"
+               {% if daily_summaries.has_next %}href="{% querystring page=daily_summaries.next_page_number %}"{% endif %}
+               title="Next page" aria-label="Next page">&rsaquo;</a>
+            <a class="paginator-btn{% if not daily_summaries.has_next %} disabled{% endif %}"
+               {% if daily_summaries.has_next %}href="{% querystring page=daily_summaries.paginator.num_pages %}"{% endif %}
+               title="Last page" aria-label="Last page">&raquo;</a>
+        </nav>
+    </div>
+    {% endif %}
 </div>
 {% endif %}
 

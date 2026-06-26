@@ -110,7 +110,11 @@ class TestUserStatDetail:
         client.force_login(staff_user)
         response = client.get(reverse("manage/users-stat-detail", kwargs={"stat_type": "total"}))
         assert response.status_code == 200
-        assert "<table" in response.content.decode()
+        body = response.content.decode()
+        # New list layout: each user is a row linking into their edit page.
+        assert "stat-list" in body
+        assert staff_user.username in body
+        assert reverse("manage/users-update", kwargs={"pk": staff_user.pk}) in body
 
 
 class TestTimezoneDashboardSorting:

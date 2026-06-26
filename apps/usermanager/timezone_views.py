@@ -123,10 +123,10 @@ class TimezoneDashboardView(StaffRequiredMixin, TemplateView):
                 or q_lower in r["region"].lower()
             ]
 
-        # Column sort (default: UTC offset, west to east). Not paginated — the
-        # dashboard JS iterates every row in parallel with the `sorted_rows`
-        # context list to stamp data attributes and live-update local-time
-        # cells, so the rendered row count must match `sorted_rows` length.
+        # Column sort (default: UTC offset, west to east). The dashboard JS
+        # zips the `sorted_rows` data array against the rendered table rows by
+        # index to stamp data attributes + live-update local-time cells, so the
+        # rendered rows and that array must be the SAME paginated page (below).
         ordering = self.request.GET.get("ordering", "offset").strip()
         key = ordering.lstrip("-")
         if key not in self.SORT_KEYS:
@@ -134,6 +134,14 @@ class TimezoneDashboardView(StaffRequiredMixin, TemplateView):
         # Stable secondary sort by username, then the chosen column.
         by_name = sorted(user_rows, key=lambda r: r["user"].username.lower())
         sorted_rows = sorted(by_name, key=self.SORT_KEYS[key], reverse=ordering.startswith("-"))
+
+        # Paginate to 15 rows. `page_obj` feeds BOTH the table loop and the JS
+        # data array (via the "sorted_rows" context key), keeping their indexes
+        # aligned. Pagination links are full-reload, so each page rebuilds the
+        # array + clocks cleanly.
+        from apps.smallstack.pagination import paginate_queryset
+
+        page_obj = paginate_queryset(sorted_rows, self.request, page_size=10)
 
         # Unique regions for filter buttons
         regions = sorted(set(r["region"] for r in user_rows))
@@ -148,7 +156,8 @@ class TimezoneDashboardView(StaffRequiredMixin, TemplateView):
                 "region_counts": sorted_regions,
                 "total_users": len(user_rows),
                 "unique_timezones": len(tz_groups),
-                "sorted_rows": sorted_rows,
+                "sorted_rows": page_obj,
+                "page_obj": page_obj,
                 "tz_headers": build_sort_headers(self.SORT_COLUMNS, ordering),
                 # Carry the active sort through an HTMX search so results stay
                 # sorted (default "offset" needs no param — keeps URLs clean).
