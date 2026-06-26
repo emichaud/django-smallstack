@@ -288,7 +288,7 @@
                 </tr>
             </thead>
             <tbody>
-                {% for w in maintenance_windows %}
+                {% for w in maintenance_windows|slice:":5" %}
                 <tr>
                     <td>
                         {{ w.title }}
@@ -308,6 +308,11 @@
                 {% endfor %}
             </tbody>
         </table>
+        {% if maintenance_windows|length > 5 %}
+        <div style="padding: 10px 16px; font-size: 0.8rem; color: var(--body-quiet-color); border-top: 1px solid var(--card-border);">
+            Showing 5 of {{ maintenance_windows|length }} maintenance windows.
+        </div>
+        {% endif %}
         {% else %}
         <div style="padding: 24px; text-align: center; color: var(--body-quiet-color); font-size: 0.85rem;">
             No maintenance windows scheduled.
