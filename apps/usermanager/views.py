@@ -85,7 +85,12 @@ class UserCRUDView(CRUDView):
 
     @classmethod
     def _get_template_names(cls, suffix):
-        if suffix == "form":
+        # The CRUD engine asks for suffix "create"/"edit" (plus the legacy
+        # "form"); match all three so the custom tabbed user form keeps being
+        # used. v0.11.19 renamed the suffix, so this override stopped matching
+        # and the create/edit pages silently fell back to the generic CRUD
+        # form — losing the Profile + Activity tabs.
+        if suffix in ("form", "create", "edit"):
             return ["accounts/user_form.html"]
         if suffix == "list":
             return ["usermanager/user_list.html"]
