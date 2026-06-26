@@ -176,3 +176,128 @@ class TestTimezoneDashboardSorting:
         )
         names = [r["user"].username for r in resp.context["sorted_rows"]]
         assert names == ["zsorttest_2", "zsorttest_1", "zsorttest_0"]
+
+
+# ── Create with password (closes the passwordless-create blocker) ────────────
+@pytest.fixture
+def superuser(db):
+    return User.objects.create_user(
+        username="root", email="root@example.com", password="testpass123",
+        is_staff=True, is_superuser=True,
+    )
+
+
+class TestCreateUser:
+    def test_add_user_sets_a_usable_password(self, client, staff_user):
+        client.force_login(staff_user)
+        resp = client.post(
+            reverse("manage/users-create"),
+            {
+                "username": "freshie", "email": "fresh@example.com", "is_active": "on",
+                "password1": "Cr3ate!pass99", "password2": "Cr3ate!pass99",
+            },
+        )
+        assert resp.status_code == 302
+        u = User.objects.get(username="freshie")
+        assert u.has_usable_password()
+        assert u.check_password("Cr3ate!pass99")  # never passwordless
+
+    def test_add_user_requires_a_password(self, client, staff_user):
+        client.force_login(staff_user)
+        resp = client.post(
+            reverse("manage/users-create"), {"username": "nopw", "is_active": "on"}
+        )
+        assert resp.status_code == 200  # re-render with errors
+        assert not User.objects.filter(username="nopw").exists()
+
+
+# ── Privilege guardrails ─────────────────────────────────────────────────────
+class TestGuardrails:
+    def _edit(self, client, target, **extra):
+        data = {"username": target.username, "email": target.email or ""}
+        data.update(extra)
+        return client.post(reverse("manage/users-update", kwargs={"pk": target.pk}), data)
+
+    def test_cannot_remove_own_staff(self, client, superuser):
+        client.force_login(superuser)
+        resp = self._edit(client, superuser, is_active="on")  # is_staff omitted -> unchecked
+        assert resp.status_code == 200  # blocked, re-render
+        superuser.refresh_from_db()
+        assert superuser.is_staff
+
+    def test_cannot_deactivate_self(self, client, superuser):
+        client.force_login(superuser)
+        resp = self._edit(client, superuser, is_staff="on")  # is_active omitted
+        assert resp.status_code == 200
+        superuser.refresh_from_db()
+        assert superuser.is_active
+
+    def test_nonsuperuser_cannot_destaff_superuser(self, client, staff_user, superuser):
+        client.force_login(staff_user)  # staff, not superuser
+        resp = self._edit(client, superuser, is_active="on")  # try to drop is_staff
+        assert resp.status_code == 200
+        superuser.refresh_from_db()
+        assert superuser.is_staff and superuser.is_superuser
+
+    def test_nonsuperuser_cannot_delete_superuser(self, client, staff_user, superuser):
+        client.force_login(staff_user)
+        resp = client.post(reverse("manage/users-delete", kwargs={"pk": superuser.pk}))
+        assert resp.status_code == 403
+        assert User.objects.filter(pk=superuser.pk).exists()
+
+    def test_superuser_can_delete_normal_user(self, client, superuser, user):
+        client.force_login(superuser)
+        resp = client.post(reverse("manage/users-delete", kwargs={"pk": user.pk}))
+        assert resp.status_code == 302
+        assert not User.objects.filter(pk=user.pk).exists()
+
+    def test_cannot_delete_self(self, client, superuser):
+        client.force_login(superuser)
+        resp = client.post(reverse("manage/users-delete", kwargs={"pk": superuser.pk}))
+        assert resp.status_code == 403
+        assert User.objects.filter(pk=superuser.pk).exists()
+
+
+# ── Edit account actions ─────────────────────────────────────────────────────
+class TestAccountActions:
+    def test_send_link_invites_user_without_password(self, client, staff_user):
+        from django.core import mail
+
+        invited = User.objects.create_user("pending", email="pending@example.com")
+        invited.set_unusable_password()
+        invited.save()
+        client.force_login(staff_user)
+        resp = client.post(reverse("manage/users-send-link", kwargs={"pk": invited.pk}))
+        assert resp.status_code == 302
+        assert len(mail.outbox) == 1
+        assert "invited" in mail.outbox[0].subject.lower()
+
+    def test_send_link_resets_user_with_password(self, client, staff_user, user):
+        from django.core import mail
+
+        client.force_login(staff_user)
+        resp = client.post(reverse("manage/users-send-link", kwargs={"pk": user.pk}))
+        assert resp.status_code == 302
+        assert len(mail.outbox) == 1
+        assert "reset" in mail.outbox[0].subject.lower()
+
+    def test_unlock_account(self, client, staff_user, user):
+        client.force_login(staff_user)
+        resp = client.post(reverse("manage/users-unlock", kwargs={"pk": user.pk}))
+        assert resp.status_code == 302  # clears axes lockouts, redirects back
+
+
+# ── v0.11.19 template-suffix regression guard ────────────────────────────────
+class TestTabbedFormRegression:
+    def test_template_names_match_create_edit_form(self):
+        from apps.usermanager.views import UserCRUDView
+
+        for suffix in ("create", "edit", "form"):
+            assert UserCRUDView._get_template_names(suffix) == ["accounts/user_form.html"]
+
+    def test_edit_page_renders_the_tabbed_form(self, client, staff_user):
+        client.force_login(staff_user)
+        resp = client.get(reverse("manage/users-update", kwargs={"pk": staff_user.pk}))
+        assert resp.status_code == 200
+        # The custom tabbed form (not the generic CRUD form) must render.
+        assert "user-tabs" in resp.content.decode()
