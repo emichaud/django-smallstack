@@ -43,6 +43,7 @@ When an AI agent is asked to modify or extend this project, these files help it:
 | [release-process.md](release-process.md) | Versioning, release checklist, GitHub releases |
 | [integration-workflow.md](integration-workflow.md) | Pulling upstream into downstream projects, deploying |
 | [downstream-release-migration.md](downstream-release-migration.md) | Migrating a downstream onto a new release — additive vs breaking changes, the false-test-result + removed-symbol traps, this release's actions |
+| [merge-0.12.0.md](merge-0.12.0.md) | **Merging the v0.12.0 release** into an older base — the `django-tables2` removal (BREAKING) plus the status-monitoring subsystem's integration points (surface toggles, route gating, the `views` autodiscover that moved to the core, INSTALLED_APPS, migrations) |
 | [api-discovery.md](api-discovery.md) | API discovery endpoints: schema introspection, OpenAPI spec, OPTIONS metadata |
 | [custom-api-endpoints.md](custom-api-endpoints.md) | Building non-CRUD API endpoints with the `@api_view` decorator |
 | [api-doctor.md](api-doctor.md) | Debug API setup + threat signals via `/smallstack/api/` (Health + Activity) and `python manage.py api_doctor` |

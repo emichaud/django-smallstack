@@ -194,6 +194,14 @@
       "description": "Pulling upstream SmallStack changes into downstream projects, resolving merge conflicts, and deploying after integration.",
       "keywords": ["upstream", "downstream", "merge", "pull", "integrate", "conflict"],
       "use_when": "Merging upstream SmallStack updates into a downstream project like opshugger or smallstack_web."
+    },
+    {
+      "id": "merge-0.12.0",
+      "file": "merge-0.12.0.md",
+      "name": "Merge v0.12.0",
+      "description": "Merging the v0.12.0 release into an older SmallStack base. Covers the BREAKING django-tables2 removal (points to UPGRADING.md) and the additive status-monitoring subsystem's integration points: the three surface toggles, the /status/ + /api/* + /mcp route gating in config/urls.py, the views autodiscover that moved to SmallStackConfig.ready(), INSTALLED_APPS, heartbeat migrations 0007-0011, and the search-breaks-without-autodiscover gotcha.",
+      "keywords": ["merge", "upgrade", "0.12.0", "status monitoring", "surface toggle", "autodiscover", "tables2", "downstream", "migration"],
+      "use_when": "Bringing a downstream project up to v0.12.0 — reconciling the status-monitoring subsystem and surface toggles against a customized settings/urls/apps layout."
     }
   ]
 }

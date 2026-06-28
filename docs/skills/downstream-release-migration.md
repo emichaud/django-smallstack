@@ -76,6 +76,7 @@ The django-tables2 removal is the one breaking change; everything else is additi
 | **Test-settings pin + hermetic dev-superuser test** (v0.11.14) | Fix | None. After merge `make test` is settings-deterministic; drop any local Makefile `--ds` workaround. |
 | **API admin "Endpoints" page** (new tab on `/smallstack/api/` — services links + enabled-models table) | Additive | None. New view/url/template. *Only* if you customized `apps/api/templates/api/admin/_nav.html` or `health.html`, take upstream and reapply your changes (the nav gained a third tab). |
 | **MCP activity filter buttons + placeholder fix** (`apps/mcp/templates/mcp/admin/activity.html`) | Cosmetic | Take upstream. Conflict only if you edited that template. |
+| **Pluggable status-monitoring subsystem** (`/smallstack/status/` + public `/status/` board, Site/External monitors, per-monitor SLA, surface toggles) | Additive (touches shared config) | Read **`merge-0.12.0.md`** — it covers the integration points (surface-toggle settings, `config/urls.py` route gating, the `views` autodiscover that moved to `SmallStackConfig.ready()`, heartbeat migrations `0007`–`0011`). The one trap: keep the autodiscover call if you overrode `apps/smallstack/apps.py`, or Search goes empty. |
 
 ---
 

@@ -70,3 +70,14 @@ class PortfolioCRUDView(CRUDView):
 
 After migrating, remove `django-tables2` from your own `pyproject.toml` if you pinned it, and
 delete the now-unused `apps/<app>/tables.py`.
+
+### Also in v0.12.0 (additive): the status-monitoring subsystem
+
+v0.12.0 also ships the pluggable status-monitoring system — `/smallstack/status/`, the
+branded public `/status/` board, Site/External monitors, per-monitor SLA, and three
+site-level **surface toggles** (`SMALLSTACK_PUBLIC_STATUS_ENABLED` /
+`SMALLSTACK_API_ENABLED` / `SMALLSTACK_MCP_ENABLED`). It's **additive** — no breaking
+change — but it touches shared config (`config/urls.py`, `config/settings/smallstack.py`)
+and moves the CRUDView `views` autodiscover into `SmallStackConfig.ready()`. For the
+merge integration points and the one gotcha (keep that autodiscover call or Search goes
+empty), see **`docs/skills/merge-0.12.0.md`**.
