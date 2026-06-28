@@ -161,8 +161,13 @@ class DetailFormDisplay(DetailDisplay):
         field_rows = []
         for field_name in detail_fields:
             label = _get_field_label(obj.__class__, field_name)
-            value = _get_field_value(obj, field_name, field_transforms)
-            is_bool = isinstance(getattr(obj, field_name, None), bool)
+            # Plain booleans pass through RAW so the template renders ✓/— itself.
+            # (The formatter pre-renders a bool to a "✓"/"—" *string*, which the
+            # template then re-tested as truthy → every boolean showed ✓.) Boolean
+            # *choice* fields still go through the formatter for their display label.
+            raw = getattr(obj, field_name, None)
+            is_bool = isinstance(raw, bool) and getattr(obj, f"get_{field_name}_display", None) is None
+            value = raw if is_bool else _get_field_value(obj, field_name, field_transforms)
             field_rows.append({"label": label, "value": value, "is_bool": is_bool})
 
         return {"field_rows": field_rows}
@@ -189,8 +194,13 @@ class DetailGridDisplay(DetailDisplay):
         field_rows = []
         for field_name in detail_fields:
             label = _get_field_label(obj.__class__, field_name)
-            value = _get_field_value(obj, field_name, field_transforms)
-            is_bool = isinstance(getattr(obj, field_name, None), bool)
+            # Plain booleans pass through RAW so the template renders ✓/— itself.
+            # (The formatter pre-renders a bool to a "✓"/"—" *string*, which the
+            # template then re-tested as truthy → every boolean showed ✓.) Boolean
+            # *choice* fields still go through the formatter for their display label.
+            raw = getattr(obj, field_name, None)
+            is_bool = isinstance(raw, bool) and getattr(obj, f"get_{field_name}_display", None) is None
+            value = raw if is_bool else _get_field_value(obj, field_name, field_transforms)
             field_rows.append({"label": label, "value": value, "is_bool": is_bool})
 
         return {"field_rows": field_rows}
