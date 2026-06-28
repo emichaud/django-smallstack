@@ -134,6 +134,30 @@ BACKUP_DOWNLOAD_ENABLED = config("BACKUP_DOWNLOAD_ENABLED", default=True, cast=b
 # ---------------------------------------------------------------------------
 HEARTBEAT_RETENTION_DAYS = config("HEARTBEAT_RETENTION_DAYS", default=7, cast=int)
 HEARTBEAT_EXPECTED_INTERVAL = config("HEARTBEAT_EXPECTED_INTERVAL", default=60, cast=int)
+# A monitor younger than this shows a "warming up" pill instead of a not-yet-
+# representative uptime % on the status overview / public board.
+HEARTBEAT_WARMUP_MINUTES = config("HEARTBEAT_WARMUP_MINUTES", default=60, cast=int)
+
+# Master switch for the ANONYMOUS public status surface — the branded /status/
+# board, /status/json/, and the public scheduled-maintenance pages. Set False to
+# turn it off entirely (those routes return 404 and their links are hidden); the
+# staff status tooling under /smallstack/status/ (overview, dashboard, SLA,
+# per-monitor) is unaffected. Default on.
+SMALLSTACK_PUBLIC_STATUS_ENABLED = config("SMALLSTACK_PUBLIC_STATUS_ENABLED", default=True, cast=bool)
+
+# Temporary "Status Links (dev)" hub. Shown automatically under DEBUG; set this
+# True to force it on in a non-DEBUG environment (auto-hidden in production).
+SMALLSTACK_STATUS_DEV_LINKS = config("SMALLSTACK_STATUS_DEV_LINKS", default=False, cast=bool)
+
+# ---------------------------------------------------------------------------
+# REST API surface
+# ---------------------------------------------------------------------------
+# Master switch for the whole HTTP API: the OpenAPI schema, Swagger UI / ReDoc,
+# the API-auth + dashboard endpoints, and every per-CRUDView REST endpoint
+# (``enable_api = True`` becomes a no-op when this is off). Set False to ship with
+# no API published — the routes 404, the "API Health" nav + status monitor hide.
+# Default on.
+SMALLSTACK_API_ENABLED = config("SMALLSTACK_API_ENABLED", default=True, cast=bool)
 
 # ---------------------------------------------------------------------------
 # Login Rate Limiting (django-axes)
@@ -146,6 +170,12 @@ AXES_RESET_ON_SUCCESS = True  # Reset failure count after successful login
 # ---------------------------------------------------------------------------
 # MCP — Model Context Protocol server for AI clients
 # ---------------------------------------------------------------------------
+
+# Master switch for the whole MCP surface: the /mcp JSON-RPC endpoint, OAuth +
+# discovery routes, all tool registration (``enable_mcp = True`` becomes a no-op),
+# and the MCP nav + dashboard widget + status monitor. Set False to ship without
+# MCP — the endpoint 404s and nothing registers. Default on.
+SMALLSTACK_MCP_ENABLED = config("SMALLSTACK_MCP_ENABLED", default=True, cast=bool)
 
 # Server name advertised on `initialize` and the friendly GET banner.
 MCP_SERVER_NAME = config("MCP_SERVER_NAME", default=BRAND_NAME.lower().replace(" ", "-"))

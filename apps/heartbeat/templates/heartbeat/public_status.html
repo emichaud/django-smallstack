@@ -1,0 +1,264 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ brand_name }} Status</title>
+
+    {% comment %}Blocking theme/palette script (same as the admin base) so the public page tracks the visitor's theme + palette with no flash.{% endcomment %}
+    <script>
+    (function() {
+        var theme = localStorage.getItem('smallstack-theme') || 'dark';
+        document.documentElement.setAttribute('data-theme', theme);
+        var palette = localStorage.getItem('smallstack-palette') || '{{ color_palette }}' || 'django';
+        document.documentElement.setAttribute('data-palette', palette);
+    })();
+    </script>
+
+    <link rel="icon" type="image/x-icon" href="{% static brand.favicon %}">
+    <link rel="stylesheet" href="{% static 'smallstack/css/theme.css' %}">
+    <link rel="stylesheet" href="{% static 'smallstack/css/palettes.css' %}">
+    <link rel="stylesheet" href="{% static 'smallstack/css/components.css' %}">
+
+    <style>
+        body { background: var(--body-bg); color: var(--body-fg); margin: 0; }
+        .status-page { max-width: 920px; margin: 0 auto; padding: 48px 24px 64px; }
+        .status-header { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 40px; }
+        .status-brand { display: flex; align-items: center; gap: 12px; }
+        .status-brand img { height: 34px; width: auto; }
+        .status-brand-title { font-size: 1.45rem; font-weight: 650; letter-spacing: -0.01em; }
+        .status-brand-title .muted { color: var(--body-quiet-color); font-weight: 500; }
+        .status-admin-link { color: var(--body-quiet-color); text-decoration: none; font-size: 0.85rem; font-weight: 500; white-space: nowrap; padding: 6px 12px; border: 1px solid var(--card-border); border-radius: 8px; }
+        .status-admin-link:hover { color: var(--primary); border-color: var(--primary); }
+
+        /* Overall status banner */
+        .status-overall { display: flex; align-items: center; gap: 12px; padding: 16px 20px; border-radius: 10px; margin-bottom: 36px; font-size: 1.05rem; font-weight: 600; border: 1px solid; }
+        .status-overall .dot { width: 12px; height: 12px; border-radius: 50%; flex: 0 0 auto; }
+        .status-overall.operational { color: var(--success-fg); border-color: color-mix(in srgb, var(--success-fg) 35%, transparent); background: color-mix(in srgb, var(--success-fg) 10%, var(--body-bg)); }
+        .status-overall.operational .dot { background: var(--success-fg); }
+        .status-overall.degraded { color: var(--warning-fg); border-color: color-mix(in srgb, var(--warning-fg) 38%, transparent); background: color-mix(in srgb, var(--warning-fg) 11%, var(--body-bg)); }
+        .status-overall.degraded .dot { background: var(--warning-fg); }
+        .status-overall.down { color: var(--error-fg); border-color: color-mix(in srgb, var(--error-fg) 38%, transparent); background: color-mix(in srgb, var(--error-fg) 12%, var(--body-bg)); }
+        .status-overall.down .dot { background: var(--error-fg); }
+        .status-overall.unknown { color: var(--body-quiet-color); border-color: var(--card-border); background: var(--card-bg); }
+        .status-overall.unknown .dot { background: var(--body-quiet-color); }
+
+        .status-section-label { text-align: right; color: var(--body-quiet-color); font-size: 0.85rem; margin-bottom: 12px; }
+
+        /* Per-monitor card with the 90-day timeline */
+        .status-monitors { display: flex; flex-direction: column; gap: 4px; border: 1px solid var(--card-border); border-radius: 12px; overflow: hidden; }
+        .status-monitor { padding: 22px 24px; background: var(--card-bg); border-top: 1px solid var(--card-border); }
+        .status-monitor:first-child { border-top: none; }
+        .status-monitor-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
+        .status-monitor-name { font-weight: 650; font-size: 1.05rem; }
+        .status-monitor-state { font-size: 0.9rem; font-weight: 600; }
+        .status-monitor-state.operational { color: var(--success-fg); }
+        .status-monitor-state.degraded { color: var(--warning-fg); }
+        .status-monitor-state.down { color: var(--error-fg); }
+        .status-monitor-state.unknown { color: var(--body-quiet-color); }
+
+        .status-timeline { display: flex; align-items: stretch; gap: 2px; height: 34px; }
+        .day-bar { flex: 1 1 0; min-width: 0; border-radius: 2px; position: relative; background: var(--day-nodata); transition: transform var(--transition-fast); }
+        .day-bar.up { background: var(--success-fg); }
+        .day-bar.degraded { background: var(--warning-fg); }
+        .day-bar.down { background: var(--error-fg); }
+        .day-bar.nodata { background: color-mix(in srgb, var(--body-quiet-color) 30%, var(--card-bg)); }
+        .day-bar:hover { transform: scaleY(1.12); }
+        /* Shared hover tooltip for timeline bars + calendar cells. */
+        .day-bar, .cal-cell { position: relative; }
+        [data-tip]:hover::after {
+            content: attr(data-tip);
+            position: absolute; bottom: calc(100% + 9px); left: 50%; transform: translateX(-50%);
+            background: var(--card-bg); color: var(--body-fg);
+            border: 1px solid var(--card-border); border-radius: 6px;
+            padding: 6px 10px; font-size: 0.78rem; line-height: 1.35; white-space: nowrap; text-align: center;
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.28); z-index: 20; pointer-events: none;
+        }
+
+        /* Rolling 3-month calendar */
+        .cal-section { margin-bottom: 44px; }
+        .cal-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 22px; flex-wrap: wrap; }
+        .cal-monitor { font-weight: 650; font-size: 1.1rem; }
+        .cal-nav { display: flex; align-items: center; gap: 12px; color: var(--body-quiet-color); font-size: 0.92rem; }
+        .cal-nav a, .cal-nav .disabled { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; border: 1px solid var(--card-border); border-radius: 8px; color: var(--body-fg); text-decoration: none; font-size: 1.1rem; }
+        .cal-nav a:hover { border-color: var(--primary); color: var(--primary); }
+        .cal-nav .disabled { opacity: 0.3; }
+        .cal-months { display: grid; grid-template-columns: repeat(3, 1fr); gap: 30px; }
+        .cal-month-head { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 12px; }
+        .cal-month-name { font-weight: 650; }
+        .cal-month-pct { color: var(--body-quiet-color); font-size: 0.85rem; font-variant-numeric: tabular-nums; }
+        .cal-grid { display: flex; flex-direction: column; gap: 5px; }
+        .cal-week { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; }
+        .cal-cell { aspect-ratio: 1 / 1; border-radius: 4px; background: transparent; }
+        .cal-cell.up { background: var(--success-fg); }
+        .cal-cell.degraded { background: var(--warning-fg); }
+        .cal-cell.down { background: var(--error-fg); }
+        .cal-cell.nodata { background: color-mix(in srgb, var(--body-quiet-color) 30%, var(--card-bg)); }
+        .cal-cell.future { background: color-mix(in srgb, var(--body-quiet-color) 11%, var(--card-bg)); }
+        .cal-cell.maintenance { background: repeating-linear-gradient(45deg,
+            color-mix(in srgb, var(--warning-fg) 34%, var(--body-bg)), color-mix(in srgb, var(--warning-fg) 34%, var(--body-bg)) 3px,
+            color-mix(in srgb, var(--warning-fg) 12%, var(--body-bg)) 3px, color-mix(in srgb, var(--warning-fg) 12%, var(--body-bg)) 6px); }
+        .cal-cell[data-tip]:hover { outline: 2px solid var(--primary); outline-offset: 1px; }
+        .cal-legend { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 14px 18px; margin-top: 22px; color: var(--body-quiet-color); font-size: 0.8rem; }
+        .cal-legend-items { display: flex; flex-wrap: wrap; gap: 18px; }
+        .cal-legend span { display: inline-flex; align-items: center; gap: 6px; }
+        .cal-maint-link { color: var(--primary); text-decoration: none; font-weight: 600; white-space: nowrap; }
+        .cal-maint-link:link, .cal-maint-link:visited { color: var(--primary); }
+        .cal-maint-link:hover { text-decoration: underline; }
+        .cal-legend .sw { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
+        .cal-legend .sw.up { background: var(--success-fg); }
+        .cal-legend .sw.degraded { background: var(--warning-fg); }
+        .cal-legend .sw.down { background: var(--error-fg); }
+        .cal-legend .sw.nodata { background: color-mix(in srgb, var(--body-quiet-color) 30%, var(--card-bg)); }
+        .cal-legend .sw.maintenance { background: repeating-linear-gradient(45deg,
+            color-mix(in srgb, var(--warning-fg) 34%, var(--body-bg)), color-mix(in srgb, var(--warning-fg) 34%, var(--body-bg)) 2px,
+            color-mix(in srgb, var(--warning-fg) 12%, var(--body-bg)) 2px, color-mix(in srgb, var(--warning-fg) 12%, var(--body-bg)) 4px); }
+        @media (max-width: 720px) { .cal-months { grid-template-columns: 1fr; gap: 24px; } }
+
+        .status-timeline-foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 10px; color: var(--body-quiet-color); font-size: 0.82rem; }
+        .status-timeline-foot .rule { flex: 1; height: 1px; background: var(--card-border); }
+        .status-timeline-foot .pct { color: var(--body-fg); font-weight: 600; white-space: nowrap; }
+        /* Stacked 1d / 7d / 90d windows inside the site card */
+        .status-window { margin-top: 20px; }
+        .status-window:first-of-type { margin-top: 2px; }
+        .status-window-head { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 8px; }
+        .status-window-label { font-size: 0.85rem; color: var(--body-quiet-color); font-weight: 600; }
+        .status-window-pct { font-size: 0.82rem; color: var(--body-fg); font-weight: 600; font-variant-numeric: tabular-nums; }
+
+        .status-foot { margin-top: 36px; text-align: center; color: var(--body-quiet-color); font-size: 0.8rem; }
+        .status-foot a { color: var(--primary); text-decoration: none; }
+        @media (max-width: 560px) { .status-brand-title { font-size: 1.2rem; } .status-monitor { padding: 18px 16px; } }
+    </style>
+</head>
+<body>
+    <div class="status-page">
+        <header class="status-header">
+            <div class="status-brand">
+                <img src="{% static brand.icon %}" alt="{{ brand_name }}">
+                <span class="status-brand-title">{{ brand_name }} <span class="muted">Status</span></span>
+            </div>
+            {% if request.user.is_authenticated %}
+            <a href="{% url 'heartbeat:status_overview' %}" class="status-admin-link">&larr; Status overview</a>
+            {% endif %}
+        </header>
+
+        <div class="status-overall {{ overall_state }}">
+            <span class="dot" aria-hidden="true"></span>
+            {% if overall_state == 'operational' %}All systems operational
+            {% elif overall_state == 'down' %}{{ overall_down_count }} system{{ overall_down_count|pluralize }} down{% if overall_degraded_count %} &middot; {{ overall_degraded_count }} degraded{% endif %}
+            {% elif overall_state == 'degraded' %}{{ overall_degraded_count }} system{{ overall_degraded_count|pluralize }} degraded
+            {% else %}Status unavailable{% endif %}
+        </div>
+
+        {% if calendar_months %}
+        <section class="cal-section">
+            <div class="cal-head">
+                <span class="cal-monitor">{{ cal_monitor_label }}</span>
+                <div class="cal-nav">
+                    <a href="?cal={{ cal_prev }}" title="Earlier months" aria-label="Earlier months">&lsaquo;</a>
+                    <span>{{ cal_range_label }}</span>
+                    {% if cal_next %}<a href="?cal={{ cal_next }}" title="Later months" aria-label="Later months">&rsaquo;</a>{% else %}<span class="disabled" aria-hidden="true">&rsaquo;</span>{% endif %}
+                </div>
+            </div>
+            <div class="cal-months">
+                {% for month in calendar_months %}
+                <div class="cal-month">
+                    <div class="cal-month-head">
+                        <span class="cal-month-name">{{ month.name }}</span>
+                        <span class="cal-month-pct">{% if month.uptime_pct != None %}{{ month.uptime_pct }}%{% endif %}</span>
+                    </div>
+                    <div class="cal-grid">
+                        {% for week in month.weeks %}
+                        <div class="cal-week">
+                            {% for cell in week %}
+                                {% if not cell %}
+                                <span class="cal-cell empty"></span>
+                                {% elif cell.is_future %}
+                                <span class="cal-cell future"></span>
+                                {% elif cell.status == 'maintenance' %}
+                                <span class="cal-cell maintenance" data-tip="&#9888; {{ cell.maintenance.0.title }} &middot; {{ cell.maintenance.0.start }} – {{ cell.maintenance.0.end }}"></span>
+                                {% else %}
+                                <span class="cal-cell {{ cell.status }}" data-tip="{{ cell.label }} &middot; {% if cell.status == 'nodata' %}No data{% elif cell.uptime != None %}{{ cell.uptime }}% uptime{% else %}No data{% endif %}"></span>
+                                {% endif %}
+                            {% endfor %}
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            <div class="cal-legend">
+                <div class="cal-legend-items">
+                    <span><span class="sw up"></span>Operational</span>
+                    <span><span class="sw degraded"></span>Degraded</span>
+                    <span><span class="sw down"></span>Down</span>
+                    <span><span class="sw maintenance"></span>Maintenance</span>
+                    <span><span class="sw nodata"></span>No data</span>
+                </div>
+                <a class="cal-maint-link" href="{% url 'public_maintenance' %}">Scheduled maintenance{% if upcoming_maintenance_count %} ({{ upcoming_maintenance_count }}){% endif %} &rarr;</a>
+            </div>
+        </section>
+        {% endif %}
+
+        <div class="status-section-label">Recent uptime</div>
+        <div class="status-monitors">
+            {% if site_timelines %}
+            <div class="status-monitor">
+                <div class="status-monitor-head">
+                    <span class="status-monitor-name">{{ site_label }}</span>
+                    <span class="status-monitor-state {{ site_state }}">{{ site_state_label }}</span>
+                </div>
+                {% for t in site_timelines %}
+                <div class="status-window">
+                    <div class="status-window-head">
+                        <span class="status-window-label">{{ t.window }}</span>
+                        <span class="status-window-pct">{% if t.uptime != None %}{{ t.uptime }}% uptime{% endif %}</span>
+                    </div>
+                    <div class="status-timeline">
+                        {% for slot in t.slots %}
+                        <span class="day-bar {{ slot.status }}" data-tip="{{ slot.tip }}"></span>
+                        {% endfor %}
+                    </div>
+                    <div class="status-timeline-foot">
+                        <span>{{ t.ago }}</span>
+                        <span class="rule"></span>
+                        <span>{{ t.now_label }}</span>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+
+            {% for m in monitors %}
+            <div class="status-monitor">
+                <div class="status-monitor-head">
+                    <span class="status-monitor-name">{{ m.label }}</span>
+                    <span class="status-monitor-state {{ m.state }}">{{ m.state_label }}</span>
+                </div>
+                <div class="status-timeline">
+                    {% for slot in m.timeline %}
+                    <span class="day-bar {{ slot.status }}" data-tip="{{ slot.tip }}"></span>
+                    {% endfor %}
+                </div>
+                <div class="status-timeline-foot">
+                    <span>90 days ago</span>
+                    <span class="rule"></span>
+                    <span class="pct">{% if m.uptime_90d != None %}{{ m.uptime_90d }}% uptime{% else %}no data yet{% endif %}</span>
+                    <span class="rule"></span>
+                    <span>Today</span>
+                </div>
+            </div>
+            {% endfor %}
+
+            {% if not site_timelines and not monitors %}
+            <div class="status-monitor"><span class="status-monitor-name" style="color: var(--body-quiet-color);">No public monitors configured.</span></div>
+            {% endif %}
+        </div>
+
+        <div class="status-foot">
+            Powered by {{ brand_name }} &middot; <a href="{% url 'public_status_json' %}">JSON</a>
+        </div>
+    </div>
+</body>
+</html>

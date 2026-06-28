@@ -51,6 +51,7 @@ class _NavItem:
         "order",
         "parent",
         "zone",
+        "active_prefix",
     )
 
     def __init__(
@@ -67,6 +68,7 @@ class _NavItem:
         order: int = 0,
         parent: str | None = None,
         zone: str = "smallstack",
+        active_prefix: str | None = None,
     ) -> None:
         self.section = section
         self.label = label
@@ -79,6 +81,11 @@ class _NavItem:
         self.order = order
         self.parent = parent
         self.zone = zone
+        # Optional path prefix that marks this item active for ANY URL beneath it
+        # (e.g. "/smallstack/status/" so all status sub-pages highlight one item).
+        # Include the trailing slash to avoid bleeding into siblings like
+        # "/status-report/". Falls back to the item's own resolved URL when unset.
+        self.active_prefix = active_prefix
 
 
 class NavRegistry:
@@ -99,6 +106,7 @@ class NavRegistry:
         order: int = 0,
         parent: str | None = None,
         zone: str = "smallstack",
+        active_prefix: str | None = None,
     ) -> None:
         self._items.append(
             _NavItem(
@@ -113,6 +121,7 @@ class NavRegistry:
                 order=order,
                 parent=parent,
                 zone=zone,
+                active_prefix=active_prefix,
             )
         )
 
@@ -162,22 +171,25 @@ class NavRegistry:
                         "section": item.section,
                         "children": [],
                         "has_active_child": False,
+                        # Match against the explicit prefix when given, else the URL.
+                        "active_match": item.active_prefix or url,
                     },
                     url,
                     item.parent,
                 )
             )
 
-        # Second pass: mark only the longest matching URL as active
+        # Second pass: mark only the longest matching URL/prefix as active
         best_match = ""
         best_item = None
         for item_dict, url, _parent in resolved:
-            if request.path == url:
-                best_match = url
+            match = item_dict["active_match"]
+            if request.path == match:
+                best_match = match
                 best_item = item_dict
                 break
-            if url != "/" and request.path.startswith(url) and len(url) > len(best_match):
-                best_match = url
+            if match != "/" and request.path.startswith(match) and len(match) > len(best_match):
+                best_match = match
                 best_item = item_dict
         if best_item is not None:
             best_item["active"] = True
@@ -212,10 +224,12 @@ class NavRegistry:
         for item_dict, _url in top_level:
             sec = item_dict.pop("section")
             item_dict.pop("url_name", None)
-            # Also clean url_name from children
+            item_dict.pop("active_match", None)
+            # Also clean internal keys from children
             for child in item_dict["children"]:
                 child.pop("section", None)
                 child.pop("url_name", None)
+                child.pop("active_match", None)
             sections.setdefault(sec, []).append(item_dict)
 
         # Return in defined order

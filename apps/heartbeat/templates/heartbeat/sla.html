@@ -116,26 +116,59 @@
     [data-theme="dark"] input[type="time"] {
         color-scheme: dark;
     }
+
+    /* Tabbed SLA / How It Works card */
+    .sla-tabs { display: flex; gap: 4px; padding: 0 10px; align-items: stretch; }
+    .sla-tab { background: none; border: none; padding: 16px 16px 14px; font-size: 0.95rem; font-weight: 600;
+        color: var(--body-quiet-color); cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px;
+        transition: color var(--transition-fast), border-color var(--transition-fast); }
+    .sla-tab:hover { color: var(--body-fg); }
+    .sla-tab.active { color: var(--primary); border-bottom-color: var(--primary); }
+    .sla-tab-panel[hidden] { display: none; }
+    /* Make the SLA card a flex column that fills its grid row, so its height matches
+       the maintenance card exactly and the Save bar can sit at the card bottom. */
+    .sla-tab-card { display: flex; flex-direction: column; }
+    .sla-tab-card > .card-body { flex: 1 1 auto; display: flex; flex-direction: column; min-height: 0; }
+    .sla-config-form:not([hidden]) { flex: 1 1 auto; display: flex; flex-direction: column; }
+    .sla-config-form form { flex: 1 1 auto; display: flex; flex-direction: column; }
+    .sla-save-bar { margin-top: auto; padding-top: 16px; }
+
+    /* Compact maintenance table + icon actions */
+    .maint-table { font-size: 0.8rem; }
+    .maint-table th, .maint-table td { padding: 8px 10px; vertical-align: top; }
+    .maint-table .maint-when { white-space: nowrap; color: var(--body-quiet-color); font-variant-numeric: tabular-nums; }
+    .maint-actions { display: inline-flex; gap: 12px; align-items: center; }
+    .maint-actions a, .maint-actions button { display: inline-flex; align-items: center; padding: 0; background: none; border: none; cursor: pointer; color: var(--primary); }
+    .maint-actions a:hover { color: var(--primary); opacity: 0.8; text-decoration: none; }
+    .maint-actions .maint-delete { color: var(--error-fg); }
+    .maint-actions .maint-delete:hover { opacity: 0.8; }
+    .maint-actions svg { width: 16px; height: 16px; }
 </style>
 {% endblock %}
 
 {% block content %}
 <div class="page-header-with-actions" style="background: var(--accent-band-bg); margin: -24px -24px 24px -24px; padding: 24px; border-radius: 8px 8px 0 0; display: flex; align-items: center; justify-content: space-between;">
     <div class="page-header-content">
-        <h1>SLA</h1>
+        <h1>SLA{% if not is_site_sla %} &middot; {{ monitor_title }}{% endif %}</h1>
         <p class="page-subtitle">{% if epoch %}Monitoring since {{ epoch|date:"M d, Y g:i A T" }}{% if monitoring_days %} ({{ monitoring_days }} day{{ monitoring_days|pluralize }}){% endif %}{% else %}No monitoring data{% endif %}</p>
         <nav style="margin-top: 0.5rem; font-size: 0.8rem;">
             <a href="{% url 'website:home' %}" style="color: var(--body-quiet-color); text-decoration: none;">Home</a>
             <span style="color: var(--body-quiet-color); margin: 0 0.3rem;">/</span>
-            <a href="{% url 'heartbeat:dashboard' %}" style="color: var(--body-quiet-color); text-decoration: none;">Status</a>
+            <a href="{% url 'heartbeat:status_overview' %}" style="color: var(--body-quiet-color); text-decoration: none;">Status</a>
+            {% if not is_site_sla %}
+            <span style="color: var(--body-quiet-color); margin: 0 0.3rem;">/</span>
+            <a href="{% url 'heartbeat:monitor_detail' monitor_key %}" style="color: var(--body-quiet-color); text-decoration: none;">{{ monitor_title }}</a>
+            {% endif %}
             <span style="color: var(--body-quiet-color); margin: 0 0.3rem;">/</span>
             <span style="color: var(--body-fg);">SLA</span>
         </nav>
     </div>
     <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 10px;">
-        <a href="{% url 'heartbeat:dashboard' %}" class="btn-tint">
-            Dashboard
-        </a>
+        {% if is_site_sla %}
+        <a href="{% url 'heartbeat:dashboard' %}" class="btn-tint">Site timeline</a>
+        {% else %}
+        <a href="{% url 'heartbeat:monitor_detail' monitor_key %}" class="btn-tint">Back to monitor</a>
+        {% endif %}
         <div style="display: flex; gap: 12px; align-items: stretch;">
             <!-- Goal card -->
             <div class="action-card" style="min-width: 140px;">
@@ -178,7 +211,13 @@
                 {% endif %}
             </div>
         </div>
-        <div class="stat-card-label">Overall{% if monitoring_days %} ({{ monitoring_days }}d){% endif %}</div>
+        <div class="stat-card-label">Overall{% if monitoring_days %} ({{ monitoring_days }}d){% endif %}{% if monitoring_coverage != None %} &middot; {{ monitoring_coverage }}% coverage{% endif %}</div>
+        {% if monitoring_coverage != None and monitoring_coverage < 90 %}
+        <div class="stat-card-label" style="text-transform: none; letter-spacing: 0; margin-top: 4px; color: var(--warning-fg);"
+             title="Overall uptime only reflects periods with data. Some retired days have no daily summary, so the headline % may over-report.">
+            &#9888; Low data coverage &mdash; the headline % may over-report.
+        </div>
+        {% endif %}
     </div>
     <!-- 24h -->
     <div class="stat-card">
@@ -208,116 +247,125 @@
     </div>
 </div>
 
-<!-- Configuration + How It Works -->
-<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 24px;">
-    <div class="card">
-        <div class="card-header"><h2>Configuration</h2></div>
-        <div class="card-body sla-config-form">
-            <form method="post" action="{% url 'heartbeat:reset_epoch' %}">
-                {% csrf_token %}
-                <div style="display: grid; grid-template-columns: 3fr 2fr; gap: 16px 20px;">
-                    <div class="form-row">
-                        <label for="id_started_at">Monitoring Start ({{ form_timezone }})</label>
-                        {{ form.started_at }}
-                        <span class="helptext">Times are interpreted as {{ form_timezone }}.</span>
+<!-- SLA/How-It-Works tabbed card (left) + Maintenance Windows (right) — equal height -->
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 24px; align-items: stretch;">
+    <div class="card sla-tab-card" style="margin: 0;">
+        <div class="card-header sla-tabs" role="tablist">
+            <button type="button" class="sla-tab active" data-tab="config" role="tab" aria-selected="true">SLA</button>
+            <button type="button" class="sla-tab" data-tab="how" role="tab" aria-selected="false">How It Works</button>
+        </div>
+        <div class="card-body">
+            <!-- Tab 1 (default): SLA configuration -->
+            <div class="sla-tab-panel sla-config-form" data-panel="config" role="tabpanel">
+                <form method="post" action="{% url 'heartbeat:reset_epoch' %}">
+                    {% csrf_token %}
+                    <input type="hidden" name="monitor" value="{{ monitor_key }}">{# scope the reset to this monitor's epoch #}
+                    <div style="display: grid; grid-template-columns: 3fr 2fr; gap: 16px 20px;">
+                        <div class="form-row">
+                            <label for="id_started_at">Monitoring Start ({{ form_timezone }})</label>
+                            {{ form.started_at }}
+                            <span class="helptext">Times are interpreted as {{ form_timezone }}.</span>
+                        </div>
+                        <div class="form-row">
+                            <label for="id_service_target">Goal %</label>
+                            {{ form.service_target }}
+                            <span class="helptext">{{ form.service_target.help_text }}</span>
+                        </div>
+                        <div class="form-row">
+                            <label for="id_note">Note</label>
+                            {{ form.note }}
+                            <span class="helptext">{{ form.note.help_text }}</span>
+                        </div>
+                        <div class="form-row">
+                            <label for="id_service_minimum">Commitment %</label>
+                            {{ form.service_minimum }}
+                            <span class="helptext">{{ form.service_minimum.help_text }}</span>
+                        </div>
                     </div>
-                    <div class="form-row">
-                        <label for="id_service_target">Goal %</label>
-                        {{ form.service_target }}
-                        <span class="helptext">{{ form.service_target.help_text }}</span>
+                    <div class="sla-save-bar">
+                        <button type="button" class="btn-primary" style="width: 100%; padding: 10px 24px;" onclick="document.getElementById('sla-confirm-modal').style.display='flex'">Save SLA Settings</button>
                     </div>
-                    <div class="form-row">
-                        <label for="id_note">Note</label>
-                        {{ form.note }}
-                        <span class="helptext">{{ form.note.help_text }}</span>
-                    </div>
-                    <div class="form-row">
-                        <label for="id_service_minimum">Commitment %</label>
-                        {{ form.service_minimum }}
-                        <span class="helptext">{{ form.service_minimum.help_text }}</span>
-                    </div>
-                </div>
-                <div style="margin-top: 16px;">
-                    <button type="button" class="btn-primary" style="width: 100%; padding: 10px 24px;" onclick="document.getElementById('sla-confirm-modal').style.display='flex'">Save SLA Settings</button>
-                </div>
-            </form>
+                </form>
+            </div>
+
+            <!-- Tab 2: How It Works -->
+            <div class="sla-tab-panel sla-how-it-works" data-panel="how" role="tabpanel" hidden>
+                <h4>Monitoring Interval</h4>
+                <p>The heartbeat system checks service availability every <strong>{{ expected_interval }} second{{ expected_interval|pluralize }}</strong>. Each check records an "ok" or "fail" status along with the response time.</p>
+
+                <h4>Uptime Calculation</h4>
+                <p style="font-family: monospace; padding: 6px 10px; background: color-mix(in srgb, var(--primary) 8%, var(--body-bg)); border-radius: 4px; display: inline-block;">
+                    uptime % = (ok checks / expected checks) &times; 100
+                </p>
+                <ul>
+                    <li><strong>Expected checks</strong> = elapsed seconds since monitoring start / {{ expected_interval }}s interval</li>
+                    <li><strong>OK checks</strong> = heartbeats with "ok" status in the window</li>
+                    <li><strong>Missed checks</strong> (no heartbeat recorded) count against uptime</li>
+                </ul>
+
+                <h4>SLA Thresholds</h4>
+                <ul>
+                    <li><strong style="color: var(--success-fg);">Goal</strong> ({{ sla_target }}%) &mdash; internal target. Allows up to {{ target_down_monthly }} min downtime/month.</li>
+                    <li><strong style="color: var(--error-fg);">Commitment</strong> ({{ sla_minimum }}%) &mdash; breach threshold. Allows up to {{ minimum_down_monthly }} min downtime/month.</li>
+                </ul>
+            </div>
         </div>
     </div>
 
-    <div class="card">
-        <div class="card-header"><h2>How It Works</h2></div>
-        <div class="card-body sla-how-it-works">
-            <h4>Monitoring Interval</h4>
-            <p>The heartbeat system checks service availability every <strong>{{ expected_interval }} second{{ expected_interval|pluralize }}</strong>. Each check records an "ok" or "fail" status along with the response time.</p>
-
-            <h4>Uptime Calculation</h4>
-            <p style="font-family: monospace; padding: 6px 10px; background: color-mix(in srgb, var(--primary) 8%, var(--body-bg)); border-radius: 4px; display: inline-block;">
-                uptime % = (ok checks / expected checks) &times; 100
-            </p>
-            <ul>
-                <li><strong>Expected checks</strong> = elapsed seconds since monitoring start / {{ expected_interval }}s interval</li>
-                <li><strong>OK checks</strong> = heartbeats with "ok" status in the window</li>
-                <li><strong>Missed checks</strong> (no heartbeat recorded) count against uptime</li>
-            </ul>
-
-            <h4>SLA Thresholds</h4>
-            <ul>
-                <li><strong style="color: var(--success-fg);">Goal</strong> ({{ sla_target }}%) &mdash; internal target. Allows up to {{ target_down_monthly }} min downtime/month.</li>
-                <li><strong style="color: var(--error-fg);">Commitment</strong> ({{ sla_minimum }}%) &mdash; breach threshold. Allows up to {{ minimum_down_monthly }} min downtime/month.</li>
-            </ul>
+    <!-- Maintenance Windows — half-page, beside the SLA card -->
+    <div class="card" style="margin: 0;">
+        <div class="card-header" style="display: flex; justify-content: space-between; align-items: center; gap: 12px;">
+            <h2>Maintenance Windows</h2>
+            <a href="{% url 'heartbeat:maintenance_create' %}?monitor={{ monitor_key }}" class="btn-primary btn-sm">Schedule</a>
         </div>
-    </div>
-</div>
-
-<!-- Maintenance Windows -->
-<div class="card" style="margin-bottom: 24px;">
-    <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
-        <h2>Maintenance Windows</h2>
-        <a href="{% url 'heartbeat:maintenance_create' %}" class="btn-primary btn-sm">Schedule Maintenance</a>
-    </div>
-    <div class="card-body" style="padding: 0; overflow-x: auto;">
-        {% if maintenance_windows %}
-        <table class="table-plain" style="width: 100%; border-collapse: collapse;">
-            <thead>
-                <tr>
-                    <th>Title</th>
-                    <th>Start</th>
-                    <th>End</th>
-                    <th>Exclude from SLA</th>
-                    <th style="text-align: right;">Actions</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for w in maintenance_windows|slice:":5" %}
-                <tr>
-                    <td>
-                        {{ w.title }}
-                        {% if w.note %}<div style="font-size: 0.75rem; color: var(--body-quiet-color);">{{ w.note|truncatewords:12 }}</div>{% endif %}
-                    </td>
-                    <td>{{ w.start|date:"M d, Y g:i A" }}</td>
-                    <td>{{ w.end|date:"M d, Y g:i A" }}</td>
-                    <td>{% if w.exclude_from_sla %}<span style="color: var(--success-fg);">Yes</span>{% else %}No{% endif %}</td>
-                    <td style="text-align: right;">
-                        <a href="{% url 'heartbeat:maintenance_edit' w.pk %}" style="color: var(--primary); text-decoration: none; font-size: 0.82rem; margin-right: 8px;">Edit</a>
-                        <form method="post" action="{% url 'heartbeat:maintenance_delete' w.pk %}" style="display: inline;">
-                            {% csrf_token %}
-                            <button type="submit" onclick="return confirm('Delete this maintenance window?')" style="background: none; border: none; color: var(--error-fg); cursor: pointer; font-size: 0.82rem;">Delete</button>
-                        </form>
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-        {% if maintenance_windows|length > 5 %}
-        <div style="padding: 10px 16px; font-size: 0.8rem; color: var(--body-quiet-color); border-top: 1px solid var(--card-border);">
-            Showing 5 of {{ maintenance_windows|length }} maintenance windows.
+        <div class="card-body" style="padding: 0; overflow-x: auto;">
+            {% if maintenance_windows %}
+            <table class="table-plain maint-table" style="width: 100%; border-collapse: collapse;">
+                <thead>
+                    <tr>
+                        <th>Title</th>
+                        <th>Start</th>
+                        <th>End</th>
+                        <th style="text-align: right;">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for w in maintenance_windows|slice:":5" %}
+                    <tr>
+                        <td>
+                            {{ w.title }}
+                            {% if w.note %}<div style="font-size: 0.72rem; color: var(--body-quiet-color);">{{ w.note|truncatewords:8 }}</div>{% endif %}
+                        </td>
+                        <td class="maint-when">{{ w.start|date:"M j, g:i A" }}</td>
+                        <td class="maint-when">{{ w.end|date:"M j, g:i A" }}</td>
+                        <td style="text-align: right;">
+                            <span class="maint-actions">
+                                <a href="{% url 'heartbeat:maintenance_edit' w.pk %}" title="Edit" aria-label="Edit {{ w.title }}">
+                                    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
+                                </a>
+                                <form method="post" action="{% url 'heartbeat:maintenance_delete' w.pk %}" style="display: inline;">
+                                    {% csrf_token %}
+                                    <button type="submit" class="maint-delete" title="Delete" aria-label="Delete {{ w.title }}" onclick="return confirm('Delete this maintenance window?')">
+                                        <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
+                                    </button>
+                                </form>
+                            </span>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% if maintenance_windows|length > 5 %}
+            <div style="padding: 10px 16px; font-size: 0.8rem; color: var(--body-quiet-color); border-top: 1px solid var(--card-border);">
+                Showing 5 of {{ maintenance_windows|length }} maintenance windows.
+            </div>
+            {% endif %}
+            {% else %}
+            <div style="padding: 24px; text-align: center; color: var(--body-quiet-color); font-size: 0.85rem;">
+                No maintenance windows scheduled.
+            </div>
+            {% endif %}
         </div>
-        {% endif %}
-        {% else %}
-        <div style="padding: 24px; text-align: center; color: var(--body-quiet-color); font-size: 0.85rem;">
-            No maintenance windows scheduled.
-        </div>
-        {% endif %}
     </div>
 </div>
 
@@ -410,6 +458,21 @@ document.addEventListener('click', function(e) {
 });
 document.addEventListener('keydown', function(e) {
     if (e.key === 'Escape') slaModalClose();
+});
+
+// SLA / How It Works tabs
+document.querySelectorAll('.sla-tab').forEach(function (tab) {
+    tab.addEventListener('click', function () {
+        var card = tab.closest('.sla-tab-card');
+        card.querySelectorAll('.sla-tab').forEach(function (t) {
+            var on = t === tab;
+            t.classList.toggle('active', on);
+            t.setAttribute('aria-selected', on ? 'true' : 'false');
+        });
+        card.querySelectorAll('.sla-tab-panel').forEach(function (p) {
+            p.hidden = p.dataset.panel !== tab.dataset.tab;
+        });
+    });
 });
 </script>
 {% endblock %}

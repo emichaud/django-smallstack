@@ -1,0 +1,11 @@
+{% comment %}
+Reusable last-hour sparkline control — one thin bar per minute over the last 60
+minutes. Drop it anywhere:
+
+    {% include "heartbeat/_hour_spark_css.html" %}          (once per page)
+    {% include "heartbeat/_hour_spark.html" with slots=my_timeline only %}   (per use)
+
+``slots`` is a list from status._build_minute_timeline (each {status, ...}); pass
+``wide=1`` for the wider, line-filling hero variant. Colors come from the styles
+partial (palette state vars → correct on every palette + light/dark).
+{% endcomment %}<span class="hour-spark{% if wide %} hour-spark-wide{% endif %}" title="Last hour">{% for s in slots %}<span class="hb {{ s.status }}"></span>{% endfor %}</span>

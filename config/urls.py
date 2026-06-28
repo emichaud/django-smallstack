@@ -8,7 +8,13 @@ from django.contrib import admin
 from django.urls import include, path
 from django.views.generic import RedirectView
 
-from apps.heartbeat.views import StatusPageView, heartbeat_ping, status_json
+from apps.heartbeat.views import (
+    PublicMaintenanceCalendarView,
+    PublicMaintenanceView,
+    StatusPageView,
+    heartbeat_ping,
+    status_json,
+)
 from apps.mcp.urls import oauth_wellknown_urlpatterns
 from apps.smallstack.api import (
     api_auth_logout,
@@ -43,32 +49,11 @@ urlpatterns = [
     path("accounts/logout/", RedirectView.as_view(pattern_name="logout", permanent=False), name="public_logout"),
     path("accounts/signup/", RedirectView.as_view(pattern_name="signup", permanent=False), name="public_signup"),
     path("status/", StatusPageView.as_view(), name="public_status"),
+    path("status/maintenance/", PublicMaintenanceView.as_view(), name="public_maintenance"),
+    path("status/maintenance/calendar/", PublicMaintenanceCalendarView.as_view(), name="public_maintenance_calendar"),
     path("status/json/", status_json, name="public_status_json"),
     path("profile/", include("apps.profile.urls")),
     path("help/", RedirectView.as_view(pattern_name="help:index", permanent=False), name="public_help"),
-    # API schema (no auth required)
-    path("api/schema/", api_schema, name="api-schema"),
-    path("api/schema/openapi.json", api_openapi_schema, name="api-openapi-schema"),
-    path("api/docs/", api_docs_swagger, name="api-docs"),
-    path("api/redoc/", api_docs_redoc, name="api-redoc"),
-    # API auth
-    path("api/auth/token/", api_auth_token, name="api-auth-token"),
-    path("api/auth/token/refresh/", api_auth_token_refresh, name="api-auth-token-refresh"),
-    path("api/auth/register/", api_auth_register, name="api-auth-register"),
-    path("api/auth/me/", api_auth_me, name="api-auth-me"),
-    path("api/auth/password/", api_auth_password, name="api-auth-password"),
-    path("api/auth/password-requirements/", api_auth_password_requirements, name="api-auth-password-requirements"),
-    path("api/auth/users/<int:user_id>/password/", api_auth_user_password, name="api-auth-user-password"),
-    path("api/auth/users/<int:user_id>/deactivate/", api_auth_user_deactivate, name="api-auth-user-deactivate"),
-    path("api/auth/users/", api_auth_users, name="api-auth-users"),
-    path("api/auth/users/<int:user_id>/", api_auth_user_detail, name="api-auth-user-detail"),
-    path("api/auth/logout/", api_auth_logout, name="api-auth-logout"),
-    # API dashboard
-    path("api/dashboard/widgets/", api_dashboard_widgets, name="api-dashboard-widgets"),
-    # MCP (Model Context Protocol) — JSON-RPC + OAuth surface
-    path("", include("apps.mcp.urls")),
-    # MCP well-known discovery endpoints mounted at the root
-    *oauth_wellknown_urlpatterns,
     # Admin
     path("admin/", admin.site.urls),
     # Legal pages (public)
@@ -83,6 +68,41 @@ urlpatterns = [
         RedirectView.as_view(url=f"{settings.STATIC_URL}robots.txt", permanent=True),
     ),
 ]
+
+# REST API surface — gated by SMALLSTACK_API_ENABLED. Off ⇒ no /api/* routes at all
+# (and CRUDView.get_urls skips per-model endpoints, so the registry stays empty).
+if getattr(settings, "SMALLSTACK_API_ENABLED", True):
+    urlpatterns += [
+        # API schema (no auth required)
+        path("api/schema/", api_schema, name="api-schema"),
+        path("api/schema/openapi.json", api_openapi_schema, name="api-openapi-schema"),
+        path("api/docs/", api_docs_swagger, name="api-docs"),
+        path("api/redoc/", api_docs_redoc, name="api-redoc"),
+        # API auth
+        path("api/auth/token/", api_auth_token, name="api-auth-token"),
+        path("api/auth/token/refresh/", api_auth_token_refresh, name="api-auth-token-refresh"),
+        path("api/auth/register/", api_auth_register, name="api-auth-register"),
+        path("api/auth/me/", api_auth_me, name="api-auth-me"),
+        path("api/auth/password/", api_auth_password, name="api-auth-password"),
+        path("api/auth/password-requirements/", api_auth_password_requirements, name="api-auth-password-requirements"),
+        path("api/auth/users/<int:user_id>/password/", api_auth_user_password, name="api-auth-user-password"),
+        path("api/auth/users/<int:user_id>/deactivate/", api_auth_user_deactivate, name="api-auth-user-deactivate"),
+        path("api/auth/users/", api_auth_users, name="api-auth-users"),
+        path("api/auth/users/<int:user_id>/", api_auth_user_detail, name="api-auth-user-detail"),
+        path("api/auth/logout/", api_auth_logout, name="api-auth-logout"),
+        # API dashboard
+        path("api/dashboard/widgets/", api_dashboard_widgets, name="api-dashboard-widgets"),
+    ]
+
+# MCP surface — gated by SMALLSTACK_MCP_ENABLED. Off ⇒ no /mcp endpoint, OAuth, or
+# discovery routes (and apps/mcp/apps.py skips all tool/nav/monitor registration).
+if getattr(settings, "SMALLSTACK_MCP_ENABLED", True):
+    urlpatterns += [
+        # MCP (Model Context Protocol) — JSON-RPC + OAuth surface
+        path("", include("apps.mcp.urls")),
+        # MCP well-known discovery endpoints mounted at the root
+        *oauth_wellknown_urlpatterns,
+    ]
 
 # Debug toolbar (off by default, enable with DEBUG_TOOLBAR=true in .env)
 if settings.DEBUG and "debug_toolbar" in settings.INSTALLED_APPS:

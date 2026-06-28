@@ -1289,3 +1289,109 @@ class TestFormatDetection:
         from apps.smallstack.crud import _detect_format
 
         assert _detect_format('{"key": "value"}') == "json"
+
+
+# ─── Pluggable monitor registry ──────────────────────────────────────
+
+
+class TestMonitorsRegistry:
+    @pytest.fixture
+    def registry(self):
+        """Snapshot + restore the module-level registry so tests don't leak state."""
+        from apps.smallstack import monitors as m
+
+        services, monitors, sources = dict(m._services), dict(m._monitors), list(m._monitor_sources)
+        yield m
+        m._services.clear()
+        m._services.update(services)
+        m._monitors.clear()
+        m._monitors.update(monitors)
+        m._monitor_sources[:] = sources
+
+    def test_register_and_get_service(self, registry):
+        registry.register_service(registry.Service(key="t_demo", title="Demo", order=5))
+        assert registry.get_service("t_demo").title == "Demo"
+        assert any(s.key == "t_demo" for s in registry.get_services())
+
+    def test_register_and_filter_monitors_by_service(self, registry):
+        registry.register_monitor(registry.Monitor(key="t_a", service="t_demo"))
+        registry.register_monitor(registry.Monitor(key="t_b", service="other"))
+        assert [m.key for m in registry.get_monitors("t_demo")] == ["t_a"]
+
+    def test_dynamic_source_monitor(self, registry):
+        registry.register_monitor_source(lambda: [registry.Monitor(key="t_dyn", service="t_demo")])
+        assert registry.get_monitor("t_dyn") is not None
+
+    def test_dynamic_source_overrides_code_monitor(self, registry):
+        registry.register_monitor(registry.Monitor(key="t_x", service="s", title="code"))
+        registry.register_monitor_source(lambda: [registry.Monitor(key="t_x", service="s", title="dynamic")])
+        assert registry.get_monitor("t_x").title == "dynamic"
+
+    def test_monitors_ordered_by_order_then_key(self, registry):
+        registry.register_monitor(registry.Monitor(key="t_2", service="s", order=20))
+        registry.register_monitor(registry.Monitor(key="t_1", service="s", order=10))
+        ordered = [m.key for m in registry.get_monitors("s")]
+        assert ordered.index("t_1") < ordered.index("t_2")
+
+    def test_check_result_helpers(self, registry):
+        up = registry.CheckResult.up(5, "fine")
+        down = registry.CheckResult.down("bad", 3)
+        assert up.ok and up.response_time_ms == 5 and up.note == "fine"
+        assert (not down.ok) and down.response_time_ms == 3 and down.note == "bad"
+
+
+class TestVisualizationsRegistry:
+    @pytest.fixture
+    def viz(self):
+        from apps.smallstack import visualizations as v
+
+        saved = dict(v._visualizations)
+        yield v
+        v._visualizations.clear()
+        v._visualizations.update(saved)
+
+    def test_register_and_order(self, viz):
+        viz.register(viz.Visualization(key="t_v2", order=20))
+        viz.register(viz.Visualization(key="t_v1", order=10))
+        keys = [x.key for x in viz.get_visualizations()]
+        assert keys.index("t_v1") < keys.index("t_v2")
+
+    def test_public_only_filter(self, viz):
+        viz.register(viz.Visualization(key="t_pub", public_safe=True))
+        viz.register(viz.Visualization(key="t_priv", public_safe=False))
+        public = [x.key for x in viz.get_visualizations(public_only=True)]
+        assert "t_pub" in public
+        assert "t_priv" not in public
+
+
+class TestNavActivePrefix:
+    """active_prefix marks an item active for any URL beneath it (the status-page fix)."""
+
+    def test_active_prefix_matches_subpath(self):
+        from django.contrib.auth.models import AnonymousUser
+
+        from .navigation import NavRegistry
+
+        reg = NavRegistry()
+        reg.register(
+            section="admin",
+            label="Status",
+            url_name="heartbeat:status_overview",
+            active_prefix="/smallstack/status/",
+        )
+        request = RequestFactory().get("/smallstack/status/monitor/site/")
+        request.user = AnonymousUser()
+        active = [i["label"] for g in reg.get_nav_items(request) for i in g["items"] if i["active"]]
+        assert active == ["Status"]
+
+    def test_without_active_prefix_no_subpath_match(self):
+        from django.contrib.auth.models import AnonymousUser
+
+        from .navigation import NavRegistry
+
+        reg = NavRegistry()
+        reg.register(section="admin", label="Status", url_name="heartbeat:status_overview")
+        request = RequestFactory().get("/smallstack/status/monitor/site/")
+        request.user = AnonymousUser()
+        active = [i["label"] for g in reg.get_nav_items(request) for i in g["items"] if i["active"]]
+        assert active == []

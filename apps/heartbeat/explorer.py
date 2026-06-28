@@ -17,7 +17,7 @@ from .models import Heartbeat, HeartbeatDaily, HeartbeatEpoch, MaintenanceWindow
 class HeartbeatDailyExplorerAdmin(admin.ModelAdmin):
     """Explorer config for daily summaries with custom list displays."""
 
-    list_display = ("date", "ok_count", "fail_count", "uptime_pct", "avg_response_ms")
+    list_display = ("monitor_key", "date", "ok_count", "fail_count", "uptime_pct", "avg_response_ms")
 
     explorer_displays = [
         TableDisplay,
@@ -52,7 +52,7 @@ class StatusDashboardWidget(DashboardWidget):
     url_name = "heartbeat:dashboard"
 
     def get_data(self, model_class=None):
-        from .views import _calc_uptime, _get_status_data
+        from .status import _calc_uptime, _get_status_data
 
         status_data = _get_status_data()
         uptime_24h = _calc_uptime(24)
@@ -63,10 +63,14 @@ class StatusDashboardWidget(DashboardWidget):
         }
 
 
-HeartbeatAdmin.explorer_list_fields = ("timestamp", "status")
-HeartbeatAdmin.explorer_column_widths = {"timestamp": "30%", "status": "70%"}
+HeartbeatAdmin.explorer_list_fields = ("monitor_key", "timestamp", "status")
+HeartbeatAdmin.explorer_column_widths = {"monitor_key": "20%", "timestamp": "45%", "status": "35%"}
 HeartbeatAdmin.explorer_dashboard_widgets = [StatusDashboardWidget()]
 
+# NB: HeartbeatEpoch + MaintenanceWindow are editable via the explorer, and the
+# explorer derives the edit form from explorer_list_fields — so monitor_key is
+# left out of these lists (it would become a required form field). The Django
+# admin list_filter (admin.py) covers per-monitor filtering for them instead.
 HeartbeatEpochAdmin.explorer_list_fields = ("started_at", "service_target", "service_minimum")
 HeartbeatEpochAdmin.explorer_column_widths = {
     "started_at": "30%",

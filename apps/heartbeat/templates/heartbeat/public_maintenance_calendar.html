@@ -1,0 +1,121 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Maintenance Calendar · {{ brand_name }} Status</title>
+    <script>
+    (function() {
+        var theme = localStorage.getItem('smallstack-theme') || 'dark';
+        document.documentElement.setAttribute('data-theme', theme);
+        var palette = localStorage.getItem('smallstack-palette') || '{{ color_palette }}' || 'django';
+        document.documentElement.setAttribute('data-palette', palette);
+    })();
+    </script>
+    <link rel="icon" type="image/x-icon" href="{% static brand.favicon %}">
+    <link rel="stylesheet" href="{% static 'smallstack/css/theme.css' %}">
+    <link rel="stylesheet" href="{% static 'smallstack/css/palettes.css' %}">
+    <link rel="stylesheet" href="{% static 'smallstack/css/components.css' %}">
+    <style>
+        body { background: var(--body-bg); color: var(--body-fg); margin: 0; }
+        .status-page { max-width: 1000px; margin: 0 auto; padding: 48px 24px 64px; }
+        .status-header { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 14px; }
+        .status-brand { display: flex; align-items: center; gap: 12px; }
+        .status-brand img { height: 34px; width: auto; }
+        .status-brand-title { font-size: 1.45rem; font-weight: 650; letter-spacing: -0.01em; }
+        .status-brand-title .muted { color: var(--body-quiet-color); font-weight: 500; }
+        .head-links { display: flex; align-items: center; gap: 16px; }
+        .head-links a { color: var(--body-quiet-color); text-decoration: none; font-size: 0.9rem; }
+        .head-links a:link, .head-links a:visited { color: var(--body-quiet-color); }
+        .head-links a:hover { color: var(--primary); }
+        .page-title { font-size: 1.6rem; font-weight: 700; margin: 16px 0 4px; }
+        .page-sub { color: var(--body-quiet-color); font-size: 0.92rem; margin-bottom: 32px; }
+
+        .mc-months { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 30px 28px; }
+        .mc-month.is-current .mc-month-name { color: var(--primary); }
+        .mc-month-head { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 10px; }
+        .mc-month-name { font-weight: 650; }
+        .mc-month-count { color: var(--body-quiet-color); font-size: 0.8rem; }
+        .mc-dow { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; margin-bottom: 4px; }
+        .mc-dow span { text-align: center; font-size: 0.66rem; color: var(--body-quiet-color); text-transform: uppercase; letter-spacing: 0.03em; }
+        .mc-grid { display: flex; flex-direction: column; gap: 4px; }
+        .mc-week { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+        .mc-cell { aspect-ratio: 1 / 1; display: flex; align-items: center; justify-content: center; font-size: 0.72rem;
+            color: var(--body-quiet-color); border-radius: 5px; background: color-mix(in srgb, var(--body-quiet-color) 9%, var(--card-bg)); position: relative; }
+        .mc-cell.empty { background: transparent; }
+        .mc-cell.today { outline: 2px solid var(--primary); outline-offset: -2px; color: var(--body-fg); font-weight: 700; }
+        .mc-cell.maint { color: var(--body-fg); font-weight: 700; cursor: default;
+            background: repeating-linear-gradient(45deg,
+                color-mix(in srgb, var(--warning-fg) 38%, var(--body-bg)), color-mix(in srgb, var(--warning-fg) 38%, var(--body-bg)) 3px,
+                color-mix(in srgb, var(--warning-fg) 14%, var(--body-bg)) 3px, color-mix(in srgb, var(--warning-fg) 14%, var(--body-bg)) 6px); }
+        .mc-cell[data-tip]:hover::after {
+            content: attr(data-tip); position: absolute; bottom: calc(100% + 8px); left: 50%; transform: translateX(-50%);
+            background: var(--card-bg); color: var(--body-fg); border: 1px solid var(--card-border); border-radius: 6px;
+            padding: 6px 10px; font-size: 0.76rem; white-space: nowrap; z-index: 20; box-shadow: 0 6px 20px rgba(0,0,0,0.28); pointer-events: none; }
+
+        .mc-legend { display: flex; flex-wrap: wrap; gap: 18px; margin-top: 28px; color: var(--body-quiet-color); font-size: 0.8rem; }
+        .mc-legend span { display: inline-flex; align-items: center; gap: 6px; }
+        .mc-legend .sw { width: 13px; height: 13px; border-radius: 3px; display: inline-block; }
+        .mc-legend .sw.maint { background: repeating-linear-gradient(45deg,
+            color-mix(in srgb, var(--warning-fg) 38%, var(--body-bg)), color-mix(in srgb, var(--warning-fg) 38%, var(--body-bg)) 2px,
+            color-mix(in srgb, var(--warning-fg) 14%, var(--body-bg)) 2px, color-mix(in srgb, var(--warning-fg) 14%, var(--body-bg)) 4px); }
+        .mc-legend .sw.today { outline: 2px solid var(--primary); outline-offset: -2px; background: color-mix(in srgb, var(--body-quiet-color) 9%, var(--card-bg)); }
+        .status-foot { margin-top: 36px; text-align: center; color: var(--body-quiet-color); font-size: 0.8rem; }
+        .status-foot a { color: var(--primary); text-decoration: none; }
+    </style>
+</head>
+<body>
+    <div class="status-page">
+        <header class="status-header">
+            <div class="status-brand">
+                <img src="{% static brand.icon %}" alt="{{ brand_name }}">
+                <span class="status-brand-title">{{ brand_name }} <span class="muted">Status</span></span>
+            </div>
+            <div class="head-links">
+                <a href="{% url 'public_maintenance' %}">List view</a>
+                <a href="{% url 'public_status' %}">&larr; Status</a>
+            </div>
+        </header>
+
+        <h1 class="page-title">Maintenance Calendar</h1>
+        <p class="page-sub">{{ range_label }} &middot; {{ event_count }} scheduled maintenance day{{ event_count|pluralize }}.</p>
+
+        <div class="mc-months">
+            {% for month in calendar_months %}
+            <div class="mc-month{% if month.is_current %} is-current{% endif %}">
+                <div class="mc-month-head">
+                    <span class="mc-month-name">{{ month.name }}</span>
+                    {% if month.count %}<span class="mc-month-count">{{ month.count }} day{{ month.count|pluralize }}</span>{% endif %}
+                </div>
+                <div class="mc-dow"><span>Su</span><span>Mo</span><span>Tu</span><span>We</span><span>Th</span><span>Fr</span><span>Sa</span></div>
+                <div class="mc-grid">
+                    {% for week in month.weeks %}
+                    <div class="mc-week">
+                        {% for cell in week %}
+                            {% if not cell %}
+                            <span class="mc-cell empty"></span>
+                            {% elif cell.maintenance %}
+                            <span class="mc-cell maint{% if cell.is_today %} today{% endif %}" data-tip="{{ cell.tip }}">{{ cell.day }}</span>
+                            {% else %}
+                            <span class="mc-cell{% if cell.is_today %} today{% endif %}">{{ cell.day }}</span>
+                            {% endif %}
+                        {% endfor %}
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+
+        <div class="mc-legend">
+            <span><span class="sw maint"></span>Scheduled maintenance</span>
+            <span><span class="sw today"></span>Today</span>
+        </div>
+
+        <div class="status-foot">
+            <a href="{% url 'public_maintenance' %}">View as a list</a>
+        </div>
+    </div>
+</body>
+</html>

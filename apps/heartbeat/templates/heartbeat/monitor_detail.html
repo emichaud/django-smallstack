@@ -1,0 +1,45 @@
+{% extends "smallstack/base.html" %}
+{% load theme_tags %}
+
+{% block title %}{{ monitor.title }} &middot; Status{% endblock %}
+
+{% block page_header %}
+<div class="page-header-bleed page-header-with-actions">
+    <div class="page-header-content">
+        <h1>{{ monitor.title }}</h1>
+        <p class="page-subtitle">
+            {% if service %}{{ service.title }} &middot; {% endif %}{{ label }}
+            {% if not monitor.public %}&middot; <span title="Private — not shown on the public status board">private</span>{% endif %}
+        </p>
+        <nav style="margin-top: 0.5rem; font-size: 0.8rem;">
+            <a href="{% url 'heartbeat:status_overview' %}" style="color: var(--body-quiet-color); text-decoration: none;">Status</a>
+            <span style="color: var(--body-quiet-color); margin: 0 0.3rem;">/</span>
+            {% if parent_url %}<a href="{{ parent_url }}" style="color: var(--body-quiet-color); text-decoration: none;">{{ parent_label }}</a>
+            <span style="color: var(--body-quiet-color); margin: 0 0.3rem;">/</span>{% endif %}
+            <span style="color: var(--body-fg);">{{ monitor.title }}</span>
+        </nav>
+    </div>
+    <div class="page-header-actions" style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+        {% if edit_url %}<a href="{{ edit_url }}" class="btn-tint btn-sm">Edit</a>{% endif %}
+        {% if sla_url %}<a href="{{ sla_url }}" class="btn-tint btn-sm">SLA</a>{% endif %}
+        <span class="badge badge-{{ variant }}">{{ label }}</span>
+    </div>
+</div>
+{% endblock %}
+
+{% block content %}
+{% comment %}
+Composed from the visualization registry — one card per registered Visualization.
+Adding a panel is a new Visualization subclass + partial; this page never changes.
+{% endcomment %}
+<div style="display: flex; flex-direction: column; gap: 24px;">
+{% for panel in panels %}
+    <div class="card">
+        <div class="card-header"><h2>{{ panel.viz.title }}</h2></div>
+        <div class="card-body">{{ panel.html|safe }}</div>
+    </div>
+{% empty %}
+    <div class="card"><div class="card-body"><p style="margin: 0; color: var(--body-quiet-color);">No visualizations registered.</p></div></div>
+{% endfor %}
+</div>
+{% endblock %}

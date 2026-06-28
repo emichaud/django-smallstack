@@ -1,0 +1,46 @@
+{% load theme_tags %}
+{% comment %}
+Shared status banners — included by the staff overview, the site-timeline
+dashboard, and the public board. Two signals:
+
+  1. Overall-health banner (everywhere): the single most-scannable signal —
+     "All systems operational" vs "N down" — rolled up from every visible monitor.
+  2. Stale-runner self-diagnostic (staff only): if the freshest beat anywhere is
+     far older than the interval, the per-minute runner probably isn't running,
+     which would make every monitor read down regardless of real health.
+
+Colors come from palette state variables (never hex), so the bands track every
+palette + light/dark.
+{% endcomment %}
+<style>
+    .status-banner { display: flex; align-items: center; gap: 12px; padding: 13px 16px; border-radius: 8px; margin-bottom: 16px; border: 1px solid; font-size: 0.9rem; line-height: 1.4; }
+    .status-banner-glyph { font-size: 1.15rem; font-weight: 700; flex: 0 0 auto; line-height: 1; }
+    .status-banner strong { font-weight: 650; }
+    .status-banner code { font-size: 0.82em; padding: 1px 5px; border-radius: 4px; background: color-mix(in srgb, var(--body-fg) 10%, transparent); }
+    .status-banner-success { color: var(--success-fg); border-color: color-mix(in srgb, var(--success-fg) 35%, transparent); background: color-mix(in srgb, var(--success-fg) 10%, var(--body-bg)); }
+    .status-banner-warning { color: var(--warning-fg); border-color: color-mix(in srgb, var(--warning-fg) 38%, transparent); background: color-mix(in srgb, var(--warning-fg) 11%, var(--body-bg)); }
+    .status-banner-error { color: var(--error-fg); border-color: color-mix(in srgb, var(--error-fg) 38%, transparent); background: color-mix(in srgb, var(--error-fg) 12%, var(--body-bg)); }
+    .status-banner-neutral { color: var(--body-quiet-color); border-color: var(--card-border); background: var(--card-bg); }
+</style>
+
+{% if not is_public_view %}{% if runner_stale or runner_never_run %}
+<div class="status-banner status-banner-warning" role="alert">
+    <span class="status-banner-glyph" aria-hidden="true">&#9888;</span>
+    <div>
+        {% if runner_never_run %}<strong>No heartbeats recorded yet.</strong>{% else %}<strong>Last heartbeat {{ runner_last_beat_age_minutes }} minute{{ runner_last_beat_age_minutes|pluralize }} ago.</strong>{% endif %}
+        The per-minute check may not be running &mdash; run <code>manage.py heartbeat</code> or wire the localhost cron ping to <code>POST /heartbeat/ping/</code>. Until then, monitors read &ldquo;down&rdquo; / &ldquo;warming up&rdquo; regardless of real health.
+    </div>
+</div>
+{% endif %}{% endif %}
+
+{% if overall_state %}
+<div class="status-banner status-banner-{{ overall_variant }}" role="status">
+    <span class="status-banner-glyph" aria-hidden="true">{{ overall_glyph }}</span>
+    <div>
+        {% if overall_state == 'operational' %}<strong>All systems operational</strong>
+        {% elif overall_state == 'down' %}<strong>{{ overall_down_count }} monitor{{ overall_down_count|pluralize }} down</strong>{% if overall_degraded_count %} &middot; {{ overall_degraded_count }} degraded{% endif %}
+        {% elif overall_state == 'degraded' %}<strong>{{ overall_degraded_count }} monitor{{ overall_degraded_count|pluralize }} degraded</strong>
+        {% else %}<strong>No monitoring data yet</strong>{% endif %}
+    </div>
+</div>
+{% endif %}

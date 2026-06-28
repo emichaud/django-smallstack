@@ -115,6 +115,31 @@ SMALLSTACK_SIDEBAR_DEFAULT = config("SMALLSTACK_SIDEBAR_DEFAULT", default="open"
 SMALLSTACK_TOPBAR_NAV_ALWAYS = config("SMALLSTACK_TOPBAR_NAV_ALWAYS", default=True, cast=bool)
 ```
 
+### Surface toggles — turn whole subsystems off (smallstack.py)
+
+Three master switches let you ship without a surface **without touching code** — set
+them in `.env` and restart. All default **on**.
+
+```python
+# Anonymous public status board (/status/, /status/json/, public maintenance pages)
+SMALLSTACK_PUBLIC_STATUS_ENABLED = config("SMALLSTACK_PUBLIC_STATUS_ENABLED", default=True, cast=bool)
+
+# The whole HTTP REST API (schema, Swagger/ReDoc, /api/auth/*, every CRUDView endpoint)
+SMALLSTACK_API_ENABLED = config("SMALLSTACK_API_ENABLED", default=True, cast=bool)
+
+# The whole MCP surface (/mcp JSON-RPC, OAuth, all tools, the MCP nav + status monitor)
+SMALLSTACK_MCP_ENABLED = config("SMALLSTACK_MCP_ENABLED", default=True, cast=bool)
+```
+
+| Flag | When `False` | Still works |
+|---|---|---|
+| `SMALLSTACK_PUBLIC_STATUS_ENABLED` | `/status/`, `/status/json/`, and the public scheduled-maintenance pages return **404**; the "Public page"/"JSON" links hide on the staff overview. | The staff status tooling under `/smallstack/status/` (overview, dashboard, SLA, per-monitor). |
+| `SMALLSTACK_API_ENABLED` | No `/api/*` routes (schema, Swagger, ReDoc, auth, dashboard); `enable_api = True` becomes a **no-op** (the API registry stays empty); the **API Health** nav + API status monitor disappear. | The `api_doctor` command and the `/smallstack/api/` admin pages (they just report an empty surface). |
+| `SMALLSTACK_MCP_ENABLED` | No `/mcp` endpoint, OAuth, or discovery routes; **no tools register** (`enable_mcp = True` and `@tool`/search tools are skipped); the **MCP** nav + dashboard widget + status monitor disappear. | The `/smallstack/mcp/` admin pages (they report zero tools). |
+
+These are **deploy-time** flags — read once at startup (the URL gating is import-time),
+so change them in `.env` and restart; they aren't per-request toggles.
+
 ### REST API Settings (smallstack.py)
 
 ```python
@@ -122,6 +147,7 @@ SMALLSTACK_API_PREFIX = config("SMALLSTACK_API_PREFIX", default="api/")
 SMALLSTACK_API_REGISTER_ENABLED = config("SMALLSTACK_API_REGISTER_ENABLED", default=False, cast=bool)
 SMALLSTACK_LOGIN_TOKEN_EXPIRY_HOURS = config("SMALLSTACK_LOGIN_TOKEN_EXPIRY_HOURS", default=24, cast=int)
 SMALLSTACK_LOGIN_TOKEN_MAX_HOURS = config("SMALLSTACK_LOGIN_TOKEN_MAX_HOURS", default=168, cast=int)
+# See "Surface toggles" above for SMALLSTACK_API_ENABLED (disables the whole API).
 ```
 
 ### SQLite Performance Tuning (base.py)

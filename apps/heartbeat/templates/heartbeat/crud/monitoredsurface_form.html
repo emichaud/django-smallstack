@@ -1,0 +1,98 @@
+{% extends request.META.HTTP_X_REQUESTED_WITH|yesno:"smallstack/_form_modal_base.html,smallstack/base.html" %}
+{% load theme_tags %}
+
+{% block title %}{% if object %}Edit{% else %}Add{% endif %} site monitor{% endblock %}
+
+{% block content %}
+{% if not request.META.HTTP_X_REQUESTED_WITH %}
+<div class="page-header-bleed page-header-with-actions">
+    <div class="page-header-content">
+        <h1>{% if object %}Edit site monitor{% else %}Add site monitor{% endif %}</h1>
+        <nav style="margin-top: 0.5rem; font-size: 0.8rem;">
+            <a href="{% url 'website:home' %}" style="color: var(--body-quiet-color); text-decoration: none;">Home</a>
+            <span style="color: var(--body-quiet-color); margin: 0 0.3rem;">/</span>
+            <a href="{% url 'heartbeat:status_overview' %}" style="color: var(--body-quiet-color); text-decoration: none;">Status</a>
+            <span style="color: var(--body-quiet-color); margin: 0 0.3rem;">/</span>
+            <a href="{% url list_view_url_name %}" style="color: var(--body-quiet-color); text-decoration: none;">Site monitors</a>
+            <span style="color: var(--body-quiet-color); margin: 0 0.3rem;">/</span>
+            <span style="color: var(--body-fg);">{% if object %}Edit{% else %}Add{% endif %}</span>
+        </nav>
+    </div>
+</div>
+{% endif %}
+
+<style>
+    .ep-form { max-width: 640px; }
+    .ff { margin-bottom: 22px; }
+    .ff-label { display: block; font-size: 0.82rem; font-weight: 600; color: var(--body-fg); margin-bottom: 7px; }
+    .ff-label .req { color: var(--error-fg); margin-left: 2px; }
+    .ff-help { font-size: 0.78rem; color: var(--body-quiet-color); margin: 6px 0 0; }
+    .ff-err { font-size: 0.78rem; color: var(--error-fg); margin: 6px 0 0; }
+    .ep-form input[type="text"], .ep-form select {
+        width: 100%; box-sizing: border-box; background: var(--card-bg); color: var(--body-fg);
+        border: 1px solid var(--card-border); border-radius: 8px; padding: 10px 12px; font-size: 0.92rem; }
+    .ep-form input:focus, .ep-form select:focus { outline: none; border-color: var(--primary); }
+
+    .ep-intro { font-size: 0.85rem; color: var(--body-quiet-color); margin: 0 0 22px; line-height: 1.5; }
+
+    /* Toggle switch (boolean) — shared with the endpoint form. */
+    .toggle { display: inline-flex; align-items: center; gap: 11px; cursor: pointer; }
+    .toggle input { position: absolute; opacity: 0; pointer-events: none; }
+    .toggle-track { width: 42px; height: 24px; border-radius: 999px; background: color-mix(in srgb, var(--body-quiet-color) 35%, var(--card-bg));
+        position: relative; flex: 0 0 auto; transition: background var(--transition-fast); }
+    .toggle-thumb { position: absolute; top: 3px; left: 3px; width: 18px; height: 18px; border-radius: 50%; background: #fff;
+        transition: transform var(--transition-fast); box-shadow: 0 1px 3px rgba(0,0,0,0.3); }
+    .toggle input:checked ~ .toggle-track { background: var(--primary); }
+    .toggle input:checked ~ .toggle-track .toggle-thumb { transform: translateX(18px); }
+    .toggle-text { font-size: 0.9rem; color: var(--body-fg); }
+
+    .ep-actions { display: flex; gap: 12px; margin-top: 8px; }
+    .ep-actions .btn-save { background: var(--primary); color: var(--button-fg); border: none; border-radius: 8px; padding: 11px 28px; font-weight: 600; cursor: pointer; }
+    .ep-actions .btn-cancel { color: var(--body-quiet-color); text-decoration: none; padding: 11px 8px; display: inline-flex; align-items: center; }
+</style>
+
+<div class="card">
+    <div class="card-body">
+        <form method="POST" action="{{ request.path }}" class="ep-form">
+            {% csrf_token %}
+            <p class="ep-intro">A <strong>site monitor</strong> watches one surface this project exposes — a REST
+                endpoint or an MCP tool. The list below is everything exposed right now; if a surface is later
+                removed, its monitor is flagged <em>not exposed</em> rather than failing.</p>
+            {% if form.non_field_errors %}<div class="ff-err" style="margin-bottom:16px;">{{ form.non_field_errors }}</div>{% endif %}
+
+            {# ── Surface picker ── #}
+            <div class="ff">
+                <label class="ff-label" for="{{ form.surface.id_for_label }}">Surface<span class="req">*</span></label>
+                {{ form.surface }}
+                <p class="ff-help">{{ form.surface.help_text }}</p>
+                {% if form.surface.errors %}<p class="ff-err">{{ form.surface.errors.0 }}</p>{% endif %}
+            </div>
+
+            {# ── Name (optional) ── #}
+            <div class="ff">
+                <label class="ff-label" for="{{ form.name.id_for_label }}">Name</label>
+                {{ form.name }}
+                <p class="ff-help">{{ form.name.help_text }}</p>
+                {% if form.name.errors %}<p class="ff-err">{{ form.name.errors.0 }}</p>{% endif %}
+            </div>
+
+            {# ── Enabled ── #}
+            <div class="ff">
+                <label class="ff-label">Enabled</label>
+                <label class="toggle">{{ form.enabled }}<span class="toggle-track"><span class="toggle-thumb"></span></span><span class="toggle-text">Run this monitor</span></label>
+            </div>
+
+            {# ── Public ── #}
+            <div class="ff">
+                <label class="ff-label">Public</label>
+                <label class="toggle">{{ form.public }}<span class="toggle-track"><span class="toggle-thumb"></span></span><span class="toggle-text">Show on the public status board</span></label>
+            </div>
+
+            <div class="ep-actions">
+                <button type="submit" class="btn-save">{% if object %}Save changes{% else %}Add site monitor{% endif %}</button>
+                <a href="{{ list_view_url }}" class="btn-cancel">Cancel</a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

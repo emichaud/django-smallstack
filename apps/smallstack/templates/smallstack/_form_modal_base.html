@@ -1,0 +1,7 @@
+{% comment %}
+Bare base for rendering a CRUD form page as a modal *fragment* (AJAX request).
+Renders only the content block — no nav/sidebar/header chrome — so a page that
+extends this can be fetched with X-Requested-With and dropped straight into a
+modal body. The full-page base ("smallstack/base.html") is used for direct visits;
+templates pick between them with the request.META.HTTP_X_REQUESTED_WITH yesno trick.
+{% endcomment %}{% block content %}{% endblock %}

@@ -8,6 +8,7 @@ All settings are declared in `config/settings/smallstack.py` and read via `pytho
 
 | Setting | Default | What it does |
 |---|---|---|
+| `SMALLSTACK_MCP_ENABLED` | `True` | **Master switch.** `False` removes the entire MCP surface |
 | `MCP_SERVER_NAME` | `BRAND_NAME.lower()` | Server name advertised on `initialize` + GET banner |
 | `MCP_SERVER_VERSION` | `"1.0.0"` | Version string on `initialize` |
 | `MCP_BASE_TEMPLATE` | `"website/base.html"` | Base template the OAuth consent page extends |
@@ -22,6 +23,20 @@ All settings are declared in `config/settings/smallstack.py` and read via `pytho
 ---
 
 ## Setting-by-setting
+
+### `SMALLSTACK_MCP_ENABLED`
+
+The master switch for the whole MCP subsystem. Default `True`. Set `False` (in
+`.env`, then restart) to ship **without** MCP:
+
+- the `/mcp` JSON-RPC endpoint, OAuth routes, and `.well-known` discovery routes are
+  not registered (they 404);
+- **no tools register** — `enable_mcp = True` on CRUDViews, `@tool`-decorated
+  callbacks, and the search MCP tools are all skipped;
+- the **MCP** sidebar entry, dashboard widget, and status monitor don't appear.
+
+The `/smallstack/mcp/` admin pages stay registered (they simply report zero tools),
+so links to them never break. This is a deploy-time flag — read once at startup.
 
 ### `MCP_SERVER_NAME`
 

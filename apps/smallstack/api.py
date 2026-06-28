@@ -56,7 +56,13 @@ def build_api_urls(crud_config) -> list[URLPattern]:
     detail_view = _make_api_detail_view(crud_config)
 
     list_url_name = f"{name_base}-api-list"
-    _api_registry.append((crud_config, list_url_name))
+    # The path is registered with the bare name, but when the CRUDView is mounted
+    # inside a namespaced app include (``app_name`` set, e.g. heartbeat), reverse()
+    # needs the namespace prefix. Store the *reversible* name in the registry so the
+    # OpenAPI schema/spec resolve it whether or not the host app is namespaced.
+    namespace = getattr(crud_config, "namespace", None)
+    registry_name = f"{namespace}:{list_url_name}" if namespace else list_url_name
+    _api_registry.append((crud_config, registry_name))
 
     urls = [
         path(f"{prefix}{url_base}/", list_view, name=list_url_name),

@@ -3,11 +3,11 @@
 from django.core.management.base import BaseCommand
 
 from apps.heartbeat.models import HeartbeatEpoch
-from apps.heartbeat.services import prune_old_heartbeats, run_heartbeat_check
+from apps.heartbeat.services import prune_old_heartbeats, run_all_monitors
 
 
 class Command(BaseCommand):
-    help = "Run a heartbeat check (DB connectivity) and record the result."
+    help = "Run all registered monitor checks and record their results."
 
     def add_arguments(self, parser):
         parser.add_argument(
@@ -31,14 +31,15 @@ class Command(BaseCommand):
                 self.stdout.write(f"  Note: {note}")
             return
 
-        result = run_heartbeat_check()
+        results = run_all_monitors()
 
-        if result["status"] == "ok":
-            suffix = "" if result["created"] else " (updated)"
-            maint_tag = " [maintenance]" if result["maintenance"] else ""
-            self.stdout.write(f"Heartbeat OK ({result['response_time_ms']}ms){suffix}{maint_tag}")
-        else:
-            self.stderr.write(f"Heartbeat FAIL: {result['note']}")
+        for key, result in results.items():
+            if result["status"] == "ok":
+                suffix = "" if result.get("created") else " (updated)"
+                maint_tag = " [maintenance]" if result.get("maintenance") else ""
+                self.stdout.write(f"{key}: OK ({result['response_time_ms']}ms){suffix}{maint_tag}")
+            else:
+                self.stderr.write(f"{key}: FAIL — {result.get('note')}")
 
         deleted = prune_old_heartbeats()
         if deleted:

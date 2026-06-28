@@ -1,0 +1,9 @@
+{% load theme_tags %}
+{% comment %}Uptime stat cards — a Visualization partial, rendered by monitor_detail.{% endcomment %}
+<div class="stat-cards">
+    {% stat_card value=status_label label="Current Status" state=status_state %}
+    {% stat_card value=uptime_overall_display label="Overall" state=uptime_overall_state %}
+    {% stat_card value=uptime_24h_display label="Uptime (24h)" state=uptime_24h_state %}
+    {% stat_card value=uptime_7d_display label="Uptime (7d)" state=uptime_7d_state %}
+    {% if response_time_ms %}{% stat_card value=response_time_ms label="Last Response" unit="ms" %}{% endif %}
+</div>

@@ -200,6 +200,16 @@ def crud_table(context):
         else:
             detail_url = None
 
+        # Per-row hook: a CRUDView may redirect the row link elsewhere (e.g. a
+        # monitored-endpoint row → its status timeline instead of the edit form).
+        if crud_config is not None:
+            try:
+                custom_link = crud_config.row_link_url(obj, request)
+            except Exception:  # pragma: no cover — defensive
+                custom_link = None
+            if custom_link is not None:
+                detail_url = custom_link
+
         actions = []
         if has_update:
             actions.append(

@@ -418,7 +418,11 @@ def register_mcp_tools_from_crudview(view_cls) -> list[str]:
     registered: list[str] = []
 
     if Action.LIST in view_cls.actions and Action.LIST in selected_set:
-        registered.append(_build_list_tool(view_cls, base=base).__name__)
+        _build_list_tool(view_cls, base=base)
+        # Append the registered tool name (``list_<base>``), not the inner
+        # handler's ``__name__`` — they differ, which previously dropped the list
+        # tool from this function's reported names even though it registered fine.
+        registered.append(f"list_{base}")
     if Action.DETAIL in view_cls.actions and Action.DETAIL in selected_set:
         _build_get_tool(view_cls, singular=singular)
         registered.append(f"get_{singular}")

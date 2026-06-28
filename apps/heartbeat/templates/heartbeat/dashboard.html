@@ -15,105 +15,6 @@
     }
 
 
-    /* Timeline styles (from status page) */
-    .timeline-bar {
-        display: flex;
-        gap: 2px;
-        height: 32px;
-        align-items: stretch;
-    }
-    .timeline-bar .beat {
-        flex: 1;
-        border-radius: 2px;
-        min-width: 2px;
-        position: relative;
-        transition: opacity 0.1s;
-    }
-    .timeline-bar .beat.ok { background: var(--success-fg); opacity: 0.7; }
-    .timeline-bar .beat.fail { background: var(--error-fg); opacity: 0.9; }
-    .timeline-bar .beat.missed {
-        background: repeating-linear-gradient(
-            45deg,
-            color-mix(in srgb, var(--error-fg) 25%, var(--body-bg)),
-            color-mix(in srgb, var(--error-fg) 25%, var(--body-bg)) 2px,
-            color-mix(in srgb, var(--error-fg) 10%, var(--body-bg)) 2px,
-            color-mix(in srgb, var(--error-fg) 10%, var(--body-bg)) 4px
-        );
-        opacity: 0.8;
-    }
-    .timeline-bar .beat.partial {
-        background: linear-gradient(to top, var(--error-fg) 40%, var(--success-fg) 40%);
-        opacity: 0.8;
-    }
-    .timeline-bar .beat.pre-epoch {
-        background: color-mix(in srgb, var(--body-quiet-color) 8%, var(--body-bg));
-        opacity: 1;
-    }
-    .timeline-bar .beat:hover { opacity: 1; }
-    .timeline-bar .beat .tooltip {
-        display: none;
-        position: absolute;
-        bottom: 100%;
-        left: 50%;
-        transform: translateX(-50%);
-        background: var(--body-fg);
-        color: var(--body-bg);
-        padding: 4px 8px;
-        border-radius: 4px;
-        font-size: 0.7rem;
-        white-space: nowrap;
-        z-index: 10;
-        margin-bottom: 4px;
-        pointer-events: none;
-    }
-    .timeline-bar .beat:hover .tooltip { display: block; }
-    .timeline-bar-24h .beat { min-width: 4px; }
-    .timeline-legend {
-        display: flex;
-        gap: 16px;
-        font-size: 0.75rem;
-        color: var(--body-quiet-color);
-        margin-top: 8px;
-    }
-    .timeline-legend .swatch {
-        display: inline-block;
-        width: 12px;
-        height: 12px;
-        border-radius: 2px;
-        vertical-align: middle;
-        margin-right: 4px;
-    }
-    .timeline-legend .swatch.ok { background: var(--success-fg); opacity: 0.7; }
-    .timeline-legend .swatch.fail { background: var(--error-fg); }
-    .timeline-legend .swatch.missed {
-        background: repeating-linear-gradient(
-            45deg,
-            color-mix(in srgb, var(--error-fg) 25%, var(--body-bg)),
-            color-mix(in srgb, var(--error-fg) 25%, var(--body-bg)) 2px,
-            color-mix(in srgb, var(--error-fg) 10%, var(--body-bg)) 2px,
-            color-mix(in srgb, var(--error-fg) 10%, var(--body-bg)) 4px
-        );
-    }
-    .timeline-bar .beat.maintenance {
-        background: repeating-linear-gradient(
-            45deg,
-            color-mix(in srgb, var(--warning-fg) 30%, var(--body-bg)),
-            color-mix(in srgb, var(--warning-fg) 30%, var(--body-bg)) 2px,
-            color-mix(in srgb, var(--warning-fg) 12%, var(--body-bg)) 2px,
-            color-mix(in srgb, var(--warning-fg) 12%, var(--body-bg)) 4px
-        );
-        opacity: 0.8;
-    }
-    .timeline-legend .swatch.maintenance {
-        background: repeating-linear-gradient(
-            45deg,
-            color-mix(in srgb, var(--warning-fg) 30%, var(--body-bg)),
-            color-mix(in srgb, var(--warning-fg) 30%, var(--body-bg)) 2px,
-            color-mix(in srgb, var(--warning-fg) 12%, var(--body-bg)) 2px,
-            color-mix(in srgb, var(--warning-fg) 12%, var(--body-bg)) 4px
-        );
-    }
-
     /* JSON display */
     .json-display {
         background: color-mix(in srgb, var(--primary) 4%, var(--body-bg));
@@ -132,12 +33,14 @@
 {% block page_header %}
 <div class="page-header-bleed page-header-with-actions">
     <div class="page-header-content">
-        <h1>Status</h1>
-        <p class="page-subtitle">Heartbeat monitoring &middot; {{ total_heartbeats }} record{{ total_heartbeats|pluralize }} &middot; {{ retention_days }}-day retention &middot; {{ expected_interval }}s interval</p>
+        <h1>Site Timeline</h1>
+        <p class="page-subtitle">Database connectivity &middot; {{ total_heartbeats }} record{{ total_heartbeats|pluralize }} &middot; {{ retention_days }}-day retention &middot; {{ expected_interval }}s interval</p>
         <nav style="margin-top: 0.5rem; font-size: 0.8rem;">
             <a href="{% url 'website:home' %}" style="color: var(--body-quiet-color); text-decoration: none;">Home</a>
             <span style="color: var(--body-quiet-color); margin: 0 0.3rem;">/</span>
-            <span style="color: var(--body-fg);">Status</span>
+            <a href="{% url 'heartbeat:status_overview' %}" style="color: var(--body-quiet-color); text-decoration: none;">Status</a>
+            <span style="color: var(--body-quiet-color); margin: 0 0.3rem;">/</span>
+            <span style="color: var(--body-fg);">Site timeline</span>
         </nav>
     </div>
     <div style="display: flex; gap: 0.5rem; align-items: center;">
@@ -152,6 +55,7 @@
 {% endblock %}
 
 {% block content %}
+{% include "heartbeat/_status_banners.html" %}
 <!-- Summary stats ({% templatetag openblock %} stat_card {% templatetag closeblock %} tag) -->
 <div class="stat-cards" style="margin-bottom: 24px;">
     {% stat_card value=status_label label=status_card_label title="Recent Incidents" state=status_state detail_url="heartbeat:incidents" %}
@@ -175,42 +79,8 @@
     <!-- Timelines panel -->
     <div id="view-timelines" class="view-panel{% if active_view == 'timelines' %} active{% endif %}">
         <div class="card-body">
-            {% if timeline_24h %}
-            <h3 style="margin: 0 0 12px 0; font-size: 1rem;">Last 24 Hours</h3>
-            <div class="timeline-bar timeline-bar-24h">
-                {% for slot in timeline_24h %}
-                <div class="beat {{ slot.status }}">
-                    <span class="tooltip">{{ slot.hour_label }} &mdash; {% if slot.status == "pre-epoch" %}Not monitored{% elif slot.status == "maintenance" %}Maintenance{% elif slot.status == "missed" %}No data{% elif slot.status == "partial" %}{{ slot.ok_count }} OK, {{ slot.fail_count }} fail{% elif slot.status == "fail" %}{{ slot.fail_count }} failure{{ slot.fail_count|pluralize }}{% else %}{{ slot.ok_count }} OK{% endif %}</span>
-                </div>
-                {% endfor %}
-            </div>
-            <div style="display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--body-quiet-color); margin-top: 4px;">
-                <span>24h ago</span>
-                <span>12h ago</span>
-                <span>Now</span>
-            </div>
-            <div class="timeline-legend">
-                <span><span class="swatch ok"></span> OK</span>
-                <span><span class="swatch fail"></span> Failure</span>
-                <span><span class="swatch missed"></span> No data</span>
-                <span><span class="swatch maintenance"></span> Maintenance</span>
-            </div>
-            {% endif %}
-
-            {% if timeline %}
-            <h3 style="margin: 24px 0 12px 0; font-size: 1rem;">Last Hour</h3>
-            <div class="timeline-bar">
-                {% for beat in timeline %}
-                <div class="beat {{ beat.status }}">
-                    <span class="tooltip">{{ beat.label }} &mdash; {% if beat.status == "pre-epoch" %}Not monitored{% elif beat.status == "maintenance" %}Maintenance{% elif beat.status == "missed" %}No heartbeat{% else %}{{ beat.status|upper }} ({{ beat.response_time_ms }}ms){% endif %}</span>
-                </div>
-                {% endfor %}
-            </div>
-            <div style="display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--body-quiet-color); margin-top: 4px;">
-                <span>60 min ago</span>
-                <span>Now</span>
-            </div>
-            {% endif %}
+            {# Public-status style stacked 1d / 7d / 90d uptime bars for the site. #}
+            {% include "heartbeat/_site_timelines.html" %}
         </div>
     </div>
 

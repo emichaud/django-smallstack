@@ -17,6 +17,8 @@ description: Interactive API docs with Swagger UI and ReDoc — no packages requ
 
 All three URLs are public — no authentication required to view the documentation. The spec is auto-generated from your registered CRUDView endpoints and auth endpoints.
 
+> **Turning the API off entirely.** Set `SMALLSTACK_API_ENABLED=False` in `.env` (then restart) to ship without any HTTP API: all `/api/*` routes (these docs, the schema, `/api/auth/*`, every CRUDView endpoint) return 404, `enable_api = True` becomes a no-op, and the "API Health" nav + API status monitor disappear. The `api_doctor` command and `/smallstack/api/` admin pages stay (they report an empty surface). See [Settings → Surface toggles](../../docs/skills/settings.md).
+
 For a staff-facing health dashboard around the same API — health checks, per-endpoint activity, and threat signals — see [`/smallstack/api/`](api-doctor.md).
 
 ## How It Works

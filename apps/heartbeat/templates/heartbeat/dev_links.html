@@ -1,0 +1,66 @@
+{% extends "smallstack/base.html" %}
+{% load theme_tags %}
+
+{% block title %}Status Links (dev){% endblock %}
+
+{% block page_header %}
+<div class="page-header-bleed">
+    <div class="page-header-content">
+        <h1>Status Links <span class="badge badge-warning">dev</span></h1>
+        <p class="page-subtitle">Temporary index of every status page while we build the monitoring system. Removed before release.</p>
+    </div>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="card" style="margin-bottom: 24px;">
+    <div class="card-header"><h2>Pages</h2></div>
+    <div class="card-body" style="padding: 0;">
+        <table class="table-plain" style="width: 100%; border-collapse: collapse;">
+            <thead><tr>
+                <th style="text-align: left; padding: 10px 16px;">Page</th>
+                <th style="text-align: left; padding: 10px 16px;">URL</th>
+                <th style="text-align: left; padding: 10px 16px;">Notes</th>
+            </tr></thead>
+            <tbody>
+            {% for p in pages %}
+                <tr>
+                    <td style="padding: 10px 16px;"><a href="{{ p.url }}">{{ p.label }}</a></td>
+                    <td style="padding: 10px 16px;"><code>{{ p.url }}</code></td>
+                    <td style="padding: 10px 16px; color: var(--body-quiet-color);">{{ p.note }}</td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header"><h2>Monitor detail pages <span class="badge badge-neutral">{{ monitor_pages|length }}</span></h2></div>
+    <div class="card-body" style="padding: 0;">
+        <table class="table-plain" style="width: 100%; border-collapse: collapse;">
+            <thead><tr>
+                <th style="text-align: left; padding: 10px 16px;">Monitor</th>
+                <th style="text-align: left; padding: 10px 16px;">Service</th>
+                <th style="text-align: left; padding: 10px 16px;">URL</th>
+                <th style="text-align: left; padding: 10px 16px;">Public</th>
+            </tr></thead>
+            <tbody>
+            {% for m in monitor_pages %}
+                <tr>
+                    <td style="padding: 10px 16px;"><a href="{{ m.url }}">{{ m.title }}</a></td>
+                    <td style="padding: 10px 16px; color: var(--body-quiet-color);">{{ m.service }}</td>
+                    <td style="padding: 10px 16px;"><code>{{ m.url }}</code></td>
+                    <td style="padding: 10px 16px;">{% if m.public %}{% status_badge "yes" "success" %}{% else %}{% status_badge "internal" "neutral" %}{% endif %}</td>
+                </tr>
+            {% empty %}
+                <tr><td colspan="4" style="padding: 14px 16px; color: var(--body-quiet-color);">No monitors registered.</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    <div class="card-body" style="border-top: 1px solid var(--card-border); color: var(--body-quiet-color); font-size: 0.85rem;">
+        Registered visualizations: {% for k in viz_keys %}<code>{{ k }}</code>{% if not forloop.last %}, {% endif %}{% endfor %}
+    </div>
+</div>
+{% endblock %}

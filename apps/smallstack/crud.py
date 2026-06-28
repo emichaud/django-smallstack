@@ -647,7 +647,14 @@ class _CRUDUpdateBase(_CRUDFormDisplayMixin, _CRUDContextMixin, UpdateView):
         return self._inject_display_context(context, obj=self.object)
 
     def get_success_url(self):
-        return self.crud_config._reverse(f"{self.crud_config._get_url_base()}-detail", kwargs={"pk": self.object.pk})
+        # Redirect to the detail page when the view exposes DETAIL; otherwise
+        # fall back to the list (a DETAIL-less CRUDView has no `-detail` route,
+        # so reversing it would 500 after a successful save).
+        cfg = self.crud_config
+        base = cfg._get_url_base()
+        if Action.DETAIL in cfg.actions:
+            return cfg._reverse(f"{base}-detail", kwargs={"pk": self.object.pk})
+        return cfg._reverse(f"{base}-list")
 
 
 class _CRUDDeleteBase(_CRUDContextMixin, DeleteView):
@@ -1523,6 +1530,17 @@ class CRUDView:
         return default_actions
 
     @classmethod
+    def row_link_url(cls, obj, request):
+        """Per-row hook for where the list view's link column points.
+
+        By default a row's name links to the detail page (or the edit page when the
+        CRUDView has no DETAIL action). Override to send rows somewhere else — e.g.
+        link a monitored-endpoint row to its status timeline instead of its edit form.
+        Return ``None`` to keep the default target.
+        """
+        return None
+
+    @classmethod
     def get_list_queryset(cls, qs, request):
         """Filter the list queryset per-request. Override for tenant scoping, etc."""
         return qs
@@ -1715,8 +1733,11 @@ class CRUDView:
             view = cls._make_view(_CRUDDeleteBase)
             urls.append(path(f"{url_base}/<pk>/delete/", view.as_view(), name=f"{url_base}-delete"))
 
-        # API endpoints (opt-in)
-        if cls.enable_api:
+        # API endpoints (opt-in per CRUDView, and gated site-wide by
+        # SMALLSTACK_API_ENABLED — off ⇒ enable_api is a no-op, registry stays empty).
+        from django.conf import settings
+
+        if cls.enable_api and getattr(settings, "SMALLSTACK_API_ENABLED", True):
             from .api import build_api_urls
 
             urls.extend(build_api_urls(cls))

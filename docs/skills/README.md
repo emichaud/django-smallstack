@@ -47,6 +47,7 @@ When an AI agent is asked to modify or extend this project, these files help it:
 | [api-doctor.md](api-doctor.md) | Debug API setup + threat signals via `/smallstack/api/` (Health + Activity) and `python manage.py api_doctor` |
 | [dashboard-cards.md](dashboard-cards.md) | **The stat-card standard**: the `{% stat_card %}` tag, the global drill-down modal, and the `render_stat_list` helper for the metric tiles atop dashboard pages |
 | [dashboard-widgets.md](dashboard-widgets.md) | Dashboard widget protocol: `DashboardWidget` class, Explorer vs standalone registration, data layer, REST API |
+| [status-monitors.md](status-monitors.md) | **The status/uptime monitoring standard**: register a `Service` + `Monitor` (cheap `check()`), the 3-tier taxonomy (Site / Site Monitors / External), the branded public `/status/` page (90-day timelines + maintenance calendar), per-monitor public flag + independent SLA/maintenance, the no-code Add-monitor wizard, and pluggable `Visualization` panels |
 | [card-displays.md](card-displays.md) | Card grid displays: `CardDisplay` (key-value), `AvatarCardDisplay`, authoring new card variants |
 | [calendar-displays.md](calendar-displays.md) | Month-grid calendar display: `CalendarDisplay` config, ranged vs single-date events, month navigation |
 | [update-docs-and-skills.md](update-docs-and-skills.md) | File group map for updating docs/skills after code changes |
@@ -114,6 +115,7 @@ AI agents should read relevant skill files before making changes to the correspo
 - Before debugging an API setup, an empty Swagger, or a "weird traffic" report → read `api-doctor.md`
 - Before adding stat cards / metric tiles + drill-down modals to a dashboard page → read `dashboard-cards.md`
 - Before adding dashboard widgets (the `/smallstack/` central dashboard data protocol) → read `dashboard-widgets.md`
+- Before monitoring a subsystem's uptime/health (a `Service` + `Monitor`), exposing a health check on `/smallstack/status/`, or adding a status visualization → read `status-monitors.md`
 - Before configuring or building card-grid list displays → read `card-displays.md`
 - Before adding a month-grid calendar to a model → read `calendar-displays.md`
 - Before updating docs after code changes → read `update-docs-and-skills.md`
@@ -140,6 +142,7 @@ Multi-skill recipes for the headline use cases. Each row is "pick this combinati
 | **Theme-correct page across all five palettes** (your custom landing page that doesn't break on `orange`) | `modern-dark-theme.md` → `screenshot-workflow.md` (for the palette-cycle verification) |
 | **Add clickable metric tiles + drill-down modals** (the stat cards atop an app's own dashboard page) | `dashboard-cards.md` → `htmx-patterns.md` (for the partial-response endpoint) |
 | **Add a per-model dashboard widget** (a tile on the central `/smallstack/` dashboard that summarises your data) | `dashboard-widgets.md` → `crud-views.md` (for `get_list_queryset` if the widget should respect tenancy) |
+| **Monitor a subsystem's uptime/health** (a `Service` + `Monitor` on `/smallstack/status/`, or a new status chart) | `status-monitors.md` → `modern-dark-theme.md` (for visualization partial colors) |
 | **Recurring/scheduled job** (today: cron + management command; v0.12.0: `@scheduled` primitive) | `background-tasks.md` (read the "no recurring primitive yet" note) |
 
 If a goal isn't covered here yet, the canonical decision tree is in `mcp/build-mcp-solution.md` for AI-touching features, or `from-zero-to-running.md` for project-shape questions.

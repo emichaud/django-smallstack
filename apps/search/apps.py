@@ -77,13 +77,17 @@ class SearchConfig(AppConfig):
             logger.exception("Failed to wire search signal handlers")
 
         # Step 3: register MCP tools for every opted-in CRUDView. The
-        # mcp_tools factory is a no-op if apps.mcp isn't installed.
-        try:
-            from .mcp_tools import register_search_tools
+        # mcp_tools factory is a no-op if apps.mcp isn't installed — and we skip it
+        # entirely when MCP is turned off site-wide (SMALLSTACK_MCP_ENABLED).
+        from django.conf import settings
 
-            register_search_tools()
-        except Exception:
-            logger.exception("Failed to register search MCP tools")
+        if getattr(settings, "SMALLSTACK_MCP_ENABLED", True):
+            try:
+                from .mcp_tools import register_search_tools
+
+                register_search_tools()
+            except Exception:
+                logger.exception("Failed to register search MCP tools")
 
         # Step 4: dashboard widget + sidebar entry (best-effort).
         try:
@@ -113,3 +117,14 @@ class SearchConfig(AppConfig):
             )
         except Exception:
             logger.exception("Failed to register search widget/nav")
+
+        # Step 5: register the search status monitor (pluggable status framework).
+        try:
+            from apps.smallstack import monitors
+
+            from .monitors import SearchMonitor, SearchService
+
+            monitors.register_service(SearchService())
+            monitors.register_monitor(SearchMonitor())
+        except Exception:
+            logger.exception("Failed to register search status monitor")

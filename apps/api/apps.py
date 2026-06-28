@@ -19,6 +19,14 @@ class APIAdminConfig(AppConfig):
     verbose_name = "API Admin"
 
     def ready(self):
+        from django.conf import settings
+
+        # Honor the site-wide API switch: with the API off, don't surface the
+        # "API Health" nav, dashboard widget, or status monitor (there's no API
+        # to observe). The /smallstack/api/ admin pages stay registered.
+        if not getattr(settings, "SMALLSTACK_API_ENABLED", True):
+            return
+
         # Sidebar entry + dashboard widget. Both are best-effort — if the
         # widget/nav registries aren't available (smallstack not yet loaded
         # in some test bootstrap), don't crash app startup.
@@ -43,3 +51,14 @@ class APIAdminConfig(AppConfig):
             )
         except Exception:
             logger.exception("Failed to register API admin widget/nav")
+
+        # Status monitor (pluggable status framework). Best-effort.
+        try:
+            from apps.smallstack import monitors
+
+            from .monitors import ApiMonitor, ApiService
+
+            monitors.register_service(ApiService())
+            monitors.register_monitor(ApiMonitor())
+        except Exception:
+            logger.exception("Failed to register API status monitor")

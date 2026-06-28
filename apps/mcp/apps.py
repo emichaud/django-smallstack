@@ -20,6 +20,12 @@ class MCPConfig(AppConfig):
     verbose_name = "Model Context Protocol"
 
     def ready(self):
+        # Honor the site-wide MCP switch: with MCP off, register nothing — no
+        # tools, autodiscovery, nav, dashboard widget, or status monitor. The
+        # /mcp endpoint + OAuth routes are unregistered in config/urls.py too.
+        if not getattr(settings, "SMALLSTACK_MCP_ENABLED", True):
+            return
+
         # Step 1: import any project-supplied tool modules so their @tool
         # decorators self-register against the singleton server.
         for path in getattr(settings, "MCP_TOOL_MODULES", []) or []:
@@ -84,6 +90,17 @@ class MCPConfig(AppConfig):
             )
         except Exception:
             logger.exception("Failed to register MCP sidebar entry")
+
+        # Step 6: register the MCP status monitor (pluggable status framework).
+        try:
+            from apps.smallstack import monitors
+
+            from .monitors import McpMonitor, McpService
+
+            monitors.register_service(McpService())
+            monitors.register_monitor(McpMonitor())
+        except Exception:
+            logger.exception("Failed to register MCP status monitor")
 
     def _autodiscover_apps(self, module_names: tuple[str, ...]) -> list[str]:
         """Import `<app>.<module>` for every installed app and module name.

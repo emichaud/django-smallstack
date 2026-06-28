@@ -66,9 +66,9 @@
         <nav style="margin-top: 0.5rem; font-size: 0.8rem;">
             <a href="{% url 'website:home' %}" style="color: var(--body-quiet-color); text-decoration: none;">Home</a>
             <span style="color: var(--body-quiet-color); margin: 0 0.3rem;">/</span>
-            <a href="{% url 'heartbeat:dashboard' %}" style="color: var(--body-quiet-color); text-decoration: none;">Heartbeat</a>
+            <a href="{% url 'heartbeat:status_overview' %}" style="color: var(--body-quiet-color); text-decoration: none;">Status</a>
             <span style="color: var(--body-quiet-color); margin: 0 0.3rem;">/</span>
-            <a href="{% url 'heartbeat:sla' %}" style="color: var(--body-quiet-color); text-decoration: none;">SLA</a>
+            <a href="{% url 'heartbeat:sla' %}?monitor={{ monitor_key }}" style="color: var(--body-quiet-color); text-decoration: none;">SLA</a>
             <span style="color: var(--body-quiet-color); margin: 0 0.3rem;">/</span>
             <span style="color: var(--body-fg);">{% if editing %}Edit{% else %}Schedule{% endif %} Maintenance</span>
         </nav>
@@ -89,6 +89,7 @@
 
             <form method="post">
                 {% csrf_token %}
+                <input type="hidden" name="monitor" value="{{ monitor_key }}">{# scope a new window to the selected monitor #}
 
                 <div class="form-row">
                     <label for="id_title">Title</label>
@@ -125,7 +126,7 @@
 
                 <div style="display: flex; gap: 12px; margin-top: 8px;">
                     <button type="submit" class="button" style="padding: 10px 24px;">{% if editing %}Update{% else %}Schedule{% endif %} Maintenance</button>
-                    <a href="{% url 'heartbeat:sla' %}" style="padding: 10px 24px; color: var(--body-quiet-color); text-decoration: none; font-size: 0.85rem; display: flex; align-items: center;">Cancel</a>
+                    <a href="{% url 'heartbeat:sla' %}?monitor={{ monitor_key }}" style="padding: 10px 24px; color: var(--body-quiet-color); text-decoration: none; font-size: 0.85rem; display: flex; align-items: center;">Cancel</a>
                 </div>
             </form>
         </div>
