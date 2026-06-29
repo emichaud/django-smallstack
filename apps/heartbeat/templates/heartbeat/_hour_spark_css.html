@@ -7,13 +7,13 @@ The control owns its look (size, colors, the ``wide`` variant); *placement* (whi
 column / line it sits in) stays in the host page.
 {% endcomment %}<style>
     .hour-spark { display: inline-flex; align-items: stretch; gap: 1px; height: 18px; width: 120px; flex: 0 0 auto; vertical-align: middle; }
-    .hour-spark .hb { flex: 1 1 0; min-width: 0; border-radius: 1px; background: color-mix(in srgb, var(--body-quiet-color) 26%, var(--card-bg)); }
+    .hour-spark .hb { flex: 1 1 0; min-width: 0; border-radius: 1px; background: color-mix(in srgb, var(--body-quiet-color, #8b949e) 26%, var(--card-bg)); }
     .hour-spark .hb.ok { background: var(--success-fg); opacity: 0.78; }
     .hour-spark .hb.fail { background: var(--error-fg); }
     .hour-spark .hb.partial { background: var(--warning-fg); }
     .hour-spark .hb.maintenance { background: var(--warning-fg); opacity: 0.5; }
-    .hour-spark .hb.missed { background: color-mix(in srgb, var(--body-quiet-color) 26%, var(--card-bg)); }
-    .hour-spark .hb.pre-epoch { background: color-mix(in srgb, var(--body-quiet-color) 12%, var(--card-bg)); }
+    .hour-spark .hb.missed { background: color-mix(in srgb, var(--body-quiet-color, #8b949e) 26%, var(--card-bg)); }
+    .hour-spark .hb.pre-epoch { background: color-mix(in srgb, var(--body-quiet-color, #8b949e) 12%, var(--card-bg)); }
     /* Wider variant — fills its line instead of the fixed 120px column. */
     .hour-spark-wide { width: auto; flex: 1 1 auto; height: 20px; }
 </style>

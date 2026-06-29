@@ -9,13 +9,13 @@ public-status style. Expects ``site_timelines`` in context (a list of
     .status-window:first-child { margin-top: 2px; }
     .status-window-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 8px; }
     .status-window-label { font-size: 0.9rem; color: var(--body-fg); font-weight: 650; }
-    .status-window-pct { font-size: 0.82rem; color: var(--body-quiet-color); font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .status-window-pct { font-size: 0.82rem; color: var(--body-quiet-color, #8b949e); font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
     .status-timeline { display: flex; align-items: stretch; gap: 2px; height: 34px; }
-    .status-timeline .day-bar { flex: 1 1 0; min-width: 0; border-radius: 2px; position: relative; background: color-mix(in srgb, var(--body-quiet-color) 30%, var(--card-bg)); transition: transform var(--transition-fast); }
+    .status-timeline .day-bar { flex: 1 1 0; min-width: 0; border-radius: 2px; position: relative; background: color-mix(in srgb, var(--body-quiet-color, #8b949e) 30%, var(--card-bg)); transition: transform var(--transition-fast); }
     .status-timeline .day-bar.up { background: var(--success-fg); }
     .status-timeline .day-bar.degraded { background: var(--warning-fg); }
     .status-timeline .day-bar.down { background: var(--error-fg); }
-    .status-timeline .day-bar.nodata { background: color-mix(in srgb, var(--body-quiet-color) 30%, var(--card-bg)); }
+    .status-timeline .day-bar.nodata { background: color-mix(in srgb, var(--body-quiet-color, #8b949e) 30%, var(--card-bg)); }
     .status-timeline .day-bar:hover { transform: scaleY(1.12); }
     .status-timeline .day-bar[data-tip]:hover::after {
         content: attr(data-tip);
@@ -25,7 +25,7 @@ public-status style. Expects ``site_timelines`` in context (a list of
         padding: 6px 10px; font-size: 0.78rem; line-height: 1.35; white-space: nowrap; text-align: center;
         box-shadow: 0 6px 20px rgba(0, 0, 0, 0.28); z-index: 20; pointer-events: none;
     }
-    .status-timeline-foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 10px; color: var(--body-quiet-color); font-size: 0.82rem; }
+    .status-timeline-foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 10px; color: var(--body-quiet-color, #8b949e); font-size: 0.82rem; }
     .status-timeline-foot .rule { flex: 1; height: 1px; background: var(--card-border); }
 </style>
 

@@ -24,25 +24,25 @@
         .status-brand { display: flex; align-items: center; gap: 12px; }
         .status-brand img { height: 34px; width: auto; }
         .status-brand-title { font-size: 1.45rem; font-weight: 650; letter-spacing: -0.01em; }
-        .status-brand-title .muted { color: var(--body-quiet-color); font-weight: 500; }
+        .status-brand-title .muted { color: var(--body-quiet-color, #8b949e); font-weight: 500; }
         .head-links { display: flex; align-items: center; gap: 16px; }
-        .head-links a { color: var(--body-quiet-color); text-decoration: none; font-size: 0.9rem; }
-        .head-links a:link, .head-links a:visited { color: var(--body-quiet-color); }
+        .head-links a { color: var(--body-quiet-color, #8b949e); text-decoration: none; font-size: 0.9rem; }
+        .head-links a:link, .head-links a:visited { color: var(--body-quiet-color, #8b949e); }
         .head-links a:hover { color: var(--primary); }
         .page-title { font-size: 1.6rem; font-weight: 700; margin: 16px 0 4px; }
-        .page-sub { color: var(--body-quiet-color); font-size: 0.92rem; margin-bottom: 32px; }
+        .page-sub { color: var(--body-quiet-color, #8b949e); font-size: 0.92rem; margin-bottom: 32px; }
 
         .mc-months { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 30px 28px; }
         .mc-month.is-current .mc-month-name { color: var(--primary); }
         .mc-month-head { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 10px; }
         .mc-month-name { font-weight: 650; }
-        .mc-month-count { color: var(--body-quiet-color); font-size: 0.8rem; }
+        .mc-month-count { color: var(--body-quiet-color, #8b949e); font-size: 0.8rem; }
         .mc-dow { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; margin-bottom: 4px; }
-        .mc-dow span { text-align: center; font-size: 0.66rem; color: var(--body-quiet-color); text-transform: uppercase; letter-spacing: 0.03em; }
+        .mc-dow span { text-align: center; font-size: 0.66rem; color: var(--body-quiet-color, #8b949e); text-transform: uppercase; letter-spacing: 0.03em; }
         .mc-grid { display: flex; flex-direction: column; gap: 4px; }
         .mc-week { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
         .mc-cell { aspect-ratio: 1 / 1; display: flex; align-items: center; justify-content: center; font-size: 0.72rem;
-            color: var(--body-quiet-color); border-radius: 5px; background: color-mix(in srgb, var(--body-quiet-color) 9%, var(--card-bg)); position: relative; }
+            color: var(--body-quiet-color, #8b949e); border-radius: 5px; background: color-mix(in srgb, var(--body-quiet-color, #8b949e) 9%, var(--card-bg)); position: relative; }
         .mc-cell.empty { background: transparent; }
         .mc-cell.today { outline: 2px solid var(--primary); outline-offset: -2px; color: var(--body-fg); font-weight: 700; }
         .mc-cell.maint { color: var(--body-fg); font-weight: 700; cursor: default;
@@ -54,14 +54,14 @@
             background: var(--card-bg); color: var(--body-fg); border: 1px solid var(--card-border); border-radius: 6px;
             padding: 6px 10px; font-size: 0.76rem; white-space: nowrap; z-index: 20; box-shadow: 0 6px 20px rgba(0,0,0,0.28); pointer-events: none; }
 
-        .mc-legend { display: flex; flex-wrap: wrap; gap: 18px; margin-top: 28px; color: var(--body-quiet-color); font-size: 0.8rem; }
+        .mc-legend { display: flex; flex-wrap: wrap; gap: 18px; margin-top: 28px; color: var(--body-quiet-color, #8b949e); font-size: 0.8rem; }
         .mc-legend span { display: inline-flex; align-items: center; gap: 6px; }
         .mc-legend .sw { width: 13px; height: 13px; border-radius: 3px; display: inline-block; }
         .mc-legend .sw.maint { background: repeating-linear-gradient(45deg,
             color-mix(in srgb, var(--warning-fg) 38%, var(--body-bg)), color-mix(in srgb, var(--warning-fg) 38%, var(--body-bg)) 2px,
             color-mix(in srgb, var(--warning-fg) 14%, var(--body-bg)) 2px, color-mix(in srgb, var(--warning-fg) 14%, var(--body-bg)) 4px); }
-        .mc-legend .sw.today { outline: 2px solid var(--primary); outline-offset: -2px; background: color-mix(in srgb, var(--body-quiet-color) 9%, var(--card-bg)); }
-        .status-foot { margin-top: 36px; text-align: center; color: var(--body-quiet-color); font-size: 0.8rem; }
+        .mc-legend .sw.today { outline: 2px solid var(--primary); outline-offset: -2px; background: color-mix(in srgb, var(--body-quiet-color, #8b949e) 9%, var(--card-bg)); }
+        .status-foot { margin-top: 36px; text-align: center; color: var(--body-quiet-color, #8b949e); font-size: 0.8rem; }
         .status-foot a { color: var(--primary); text-decoration: none; }
     </style>
 </head>

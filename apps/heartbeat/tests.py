@@ -1925,3 +1925,18 @@ class TestMaintenancePill:
 
         ctx = _status_overview_context(public_only=True)
         assert ctx["overall_state"] == "down"  # ...but the real outage on pubdown wins
+
+
+class TestStandaloneStatusCssFallback:
+    """The standalone status pages (/status/, public maintenance) don't load Django
+    admin's base.css, so --body-quiet-color is undefined off the high-contrast
+    palette. Every use must carry a var() fallback or the calendar/timeline cells
+    color-mix to `transparent` and vanish. Regression guard for the invisible-cells bug."""
+
+    @pytest.mark.parametrize(
+        "name", ["public_status", "public_maintenance", "public_maintenance_calendar"]
+    )
+    def test_no_bare_body_quiet_color(self, client, db, name):
+        body = client.get(reverse(name)).content.decode()
+        assert "var(--body-quiet-color)" not in body  # bare = undefined off admin pages → invisible
+        assert "var(--body-quiet-color, " in body  # the fallback form is present

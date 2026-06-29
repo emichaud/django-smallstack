@@ -28,8 +28,8 @@
         .status-brand { display: flex; align-items: center; gap: 12px; }
         .status-brand img { height: 34px; width: auto; }
         .status-brand-title { font-size: 1.45rem; font-weight: 650; letter-spacing: -0.01em; }
-        .status-brand-title .muted { color: var(--body-quiet-color); font-weight: 500; }
-        .status-admin-link { color: var(--body-quiet-color); text-decoration: none; font-size: 0.85rem; font-weight: 500; white-space: nowrap; padding: 6px 12px; border: 1px solid var(--card-border); border-radius: 8px; }
+        .status-brand-title .muted { color: var(--body-quiet-color, #8b949e); font-weight: 500; }
+        .status-admin-link { color: var(--body-quiet-color, #8b949e); text-decoration: none; font-size: 0.85rem; font-weight: 500; white-space: nowrap; padding: 6px 12px; border: 1px solid var(--card-border); border-radius: 8px; }
         .status-admin-link:hover { color: var(--primary); border-color: var(--primary); }
 
         /* Overall status banner */
@@ -41,12 +41,12 @@
         .status-overall.degraded .dot { background: var(--warning-fg); }
         .status-overall.down { color: var(--error-fg); border-color: color-mix(in srgb, var(--error-fg) 38%, transparent); background: color-mix(in srgb, var(--error-fg) 12%, var(--body-bg)); }
         .status-overall.down .dot { background: var(--error-fg); }
-        .status-overall.unknown { color: var(--body-quiet-color); border-color: var(--card-border); background: var(--card-bg); }
-        .status-overall.unknown .dot { background: var(--body-quiet-color); }
+        .status-overall.unknown { color: var(--body-quiet-color, #8b949e); border-color: var(--card-border); background: var(--card-bg); }
+        .status-overall.unknown .dot { background: var(--body-quiet-color, #8b949e); }
         .status-overall.maintenance { color: var(--primary); border-color: color-mix(in srgb, var(--primary) 38%, transparent); background: color-mix(in srgb, var(--primary) 10%, var(--body-bg)); }
         .status-overall.maintenance .dot { background: var(--primary); }
 
-        .status-section-label { text-align: right; color: var(--body-quiet-color); font-size: 0.85rem; margin-bottom: 12px; }
+        .status-section-label { text-align: right; color: var(--body-quiet-color, #8b949e); font-size: 0.85rem; margin-bottom: 12px; }
 
         /* Per-monitor card with the 90-day timeline */
         .status-monitors { display: flex; flex-direction: column; gap: 4px; border: 1px solid var(--card-border); border-radius: 12px; overflow: hidden; }
@@ -58,7 +58,7 @@
         .status-monitor-state.operational { color: var(--success-fg); }
         .status-monitor-state.degraded { color: var(--warning-fg); }
         .status-monitor-state.down { color: var(--error-fg); }
-        .status-monitor-state.unknown { color: var(--body-quiet-color); }
+        .status-monitor-state.unknown { color: var(--body-quiet-color, #8b949e); }
         .status-monitor-state.maintenance { color: var(--primary); }
 
         .status-timeline { display: flex; align-items: stretch; gap: 2px; height: 34px; }
@@ -66,7 +66,7 @@
         .day-bar.up { background: var(--success-fg); }
         .day-bar.degraded { background: var(--warning-fg); }
         .day-bar.down { background: var(--error-fg); }
-        .day-bar.nodata { background: color-mix(in srgb, var(--body-quiet-color) 30%, var(--card-bg)); }
+        .day-bar.nodata { background: color-mix(in srgb, var(--body-quiet-color, #8b949e) 30%, var(--card-bg)); }
         .day-bar:hover { transform: scaleY(1.12); }
         /* Shared hover tooltip for timeline bars + calendar cells. */
         .day-bar, .cal-cell { position: relative; }
@@ -83,27 +83,27 @@
         .cal-section { margin-bottom: 44px; }
         .cal-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 22px; flex-wrap: wrap; }
         .cal-monitor { font-weight: 650; font-size: 1.1rem; }
-        .cal-nav { display: flex; align-items: center; gap: 12px; color: var(--body-quiet-color); font-size: 0.92rem; }
+        .cal-nav { display: flex; align-items: center; gap: 12px; color: var(--body-quiet-color, #8b949e); font-size: 0.92rem; }
         .cal-nav a, .cal-nav .disabled { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; border: 1px solid var(--card-border); border-radius: 8px; color: var(--body-fg); text-decoration: none; font-size: 1.1rem; }
         .cal-nav a:hover { border-color: var(--primary); color: var(--primary); }
         .cal-nav .disabled { opacity: 0.3; }
         .cal-months { display: grid; grid-template-columns: repeat(3, 1fr); gap: 30px; }
         .cal-month-head { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 12px; }
         .cal-month-name { font-weight: 650; }
-        .cal-month-pct { color: var(--body-quiet-color); font-size: 0.85rem; font-variant-numeric: tabular-nums; }
+        .cal-month-pct { color: var(--body-quiet-color, #8b949e); font-size: 0.85rem; font-variant-numeric: tabular-nums; }
         .cal-grid { display: flex; flex-direction: column; gap: 5px; }
         .cal-week { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; }
         .cal-cell { aspect-ratio: 1 / 1; border-radius: 4px; background: transparent; }
         .cal-cell.up { background: var(--success-fg); }
         .cal-cell.degraded { background: var(--warning-fg); }
         .cal-cell.down { background: var(--error-fg); }
-        .cal-cell.nodata { background: color-mix(in srgb, var(--body-quiet-color) 30%, var(--card-bg)); }
-        .cal-cell.future { background: color-mix(in srgb, var(--body-quiet-color) 11%, var(--card-bg)); }
+        .cal-cell.nodata { background: color-mix(in srgb, var(--body-quiet-color, #8b949e) 30%, var(--card-bg)); }
+        .cal-cell.future { background: color-mix(in srgb, var(--body-quiet-color, #8b949e) 11%, var(--card-bg)); }
         .cal-cell.maintenance { background: repeating-linear-gradient(45deg,
             color-mix(in srgb, var(--warning-fg) 34%, var(--body-bg)), color-mix(in srgb, var(--warning-fg) 34%, var(--body-bg)) 3px,
             color-mix(in srgb, var(--warning-fg) 12%, var(--body-bg)) 3px, color-mix(in srgb, var(--warning-fg) 12%, var(--body-bg)) 6px); }
         .cal-cell[data-tip]:hover { outline: 2px solid var(--primary); outline-offset: 1px; }
-        .cal-legend { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 14px 18px; margin-top: 22px; color: var(--body-quiet-color); font-size: 0.8rem; }
+        .cal-legend { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 14px 18px; margin-top: 22px; color: var(--body-quiet-color, #8b949e); font-size: 0.8rem; }
         .cal-legend-items { display: flex; flex-wrap: wrap; gap: 18px; }
         .cal-legend span { display: inline-flex; align-items: center; gap: 6px; }
         .cal-maint-link { color: var(--primary); text-decoration: none; font-weight: 600; white-space: nowrap; }
@@ -113,23 +113,23 @@
         .cal-legend .sw.up { background: var(--success-fg); }
         .cal-legend .sw.degraded { background: var(--warning-fg); }
         .cal-legend .sw.down { background: var(--error-fg); }
-        .cal-legend .sw.nodata { background: color-mix(in srgb, var(--body-quiet-color) 30%, var(--card-bg)); }
+        .cal-legend .sw.nodata { background: color-mix(in srgb, var(--body-quiet-color, #8b949e) 30%, var(--card-bg)); }
         .cal-legend .sw.maintenance { background: repeating-linear-gradient(45deg,
             color-mix(in srgb, var(--warning-fg) 34%, var(--body-bg)), color-mix(in srgb, var(--warning-fg) 34%, var(--body-bg)) 2px,
             color-mix(in srgb, var(--warning-fg) 12%, var(--body-bg)) 2px, color-mix(in srgb, var(--warning-fg) 12%, var(--body-bg)) 4px); }
         @media (max-width: 720px) { .cal-months { grid-template-columns: 1fr; gap: 24px; } }
 
-        .status-timeline-foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 10px; color: var(--body-quiet-color); font-size: 0.82rem; }
+        .status-timeline-foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 10px; color: var(--body-quiet-color, #8b949e); font-size: 0.82rem; }
         .status-timeline-foot .rule { flex: 1; height: 1px; background: var(--card-border); }
         .status-timeline-foot .pct { color: var(--body-fg); font-weight: 600; white-space: nowrap; }
         /* Stacked 1d / 7d / 90d windows inside the site card */
         .status-window { margin-top: 20px; }
         .status-window:first-of-type { margin-top: 2px; }
         .status-window-head { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 8px; }
-        .status-window-label { font-size: 0.85rem; color: var(--body-quiet-color); font-weight: 600; }
+        .status-window-label { font-size: 0.85rem; color: var(--body-quiet-color, #8b949e); font-weight: 600; }
         .status-window-pct { font-size: 0.82rem; color: var(--body-fg); font-weight: 600; font-variant-numeric: tabular-nums; }
 
-        .status-foot { margin-top: 36px; text-align: center; color: var(--body-quiet-color); font-size: 0.8rem; }
+        .status-foot { margin-top: 36px; text-align: center; color: var(--body-quiet-color, #8b949e); font-size: 0.8rem; }
         .status-foot a { color: var(--primary); text-decoration: none; }
         @media (max-width: 560px) { .status-brand-title { font-size: 1.2rem; } .status-monitor { padding: 18px 16px; } }
     </style>
@@ -256,7 +256,7 @@
             {% endfor %}
 
             {% if not site_timelines and not monitors %}
-            <div class="status-monitor"><span class="status-monitor-name" style="color: var(--body-quiet-color);">No public monitors configured.</span></div>
+            <div class="status-monitor"><span class="status-monitor-name" style="color: var(--body-quiet-color, #8b949e);">No public monitors configured.</span></div>
             {% endif %}
         </div>
 
