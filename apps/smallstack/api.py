@@ -36,6 +36,44 @@ if TYPE_CHECKING:
 
 _api_registry: list[tuple] = []
 
+# Hand-rolled (non-CRUDView) endpoints that opt into the OpenAPI schema.
+_custom_api_registry: list[dict] = []
+
+
+def register_api_path(
+    url_name,
+    *,
+    methods,
+    summary,
+    subpath="",
+    tags=None,
+    parameters=None,
+    request_body=None,
+    responses=None,
+):
+    """Register a hand-rolled ``@api_view`` endpoint in the OpenAPI schema.
+
+    CRUDView endpoints self-register; custom function views don't. Call this at
+    import time (e.g. next to the view) so ``/api/schema/openapi.json`` — and
+    Swagger/ReDoc — advertise the endpoint too.
+
+    ``url_name`` is a **parameter-free, reversible** URL name that anchors the
+    resource's base path; its mount prefix is resolved at schema-build time, so
+    a package need not know where the host mounts it. ``subpath`` is appended to
+    that base and may contain ``{param}`` tokens. The rest is standard OpenAPI
+    operation metadata (``parameters``, ``request_body``, ``responses``).
+    """
+    _custom_api_registry.append({
+        "url_name": url_name,
+        "subpath": subpath,
+        "methods": [m.upper() for m in methods],
+        "summary": summary,
+        "tags": tags or ["Custom"],
+        "parameters": parameters or [],
+        "request_body": request_body,
+        "responses": responses or {"200": {"description": "Success"}},
+    })
+
 
 def build_api_urls(crud_config) -> list[URLPattern]:
     """Generate API URL patterns from a CRUDView config."""
@@ -1769,7 +1807,7 @@ def api_openapi_schema(request: HttpRequest) -> JsonResponse:
     from .openapi import build_openapi_spec
 
     server_url = request.build_absolute_uri("/")
-    spec = build_openapi_spec(_api_registry, server_url=server_url)
+    spec = build_openapi_spec(_api_registry, server_url=server_url, custom_paths=_custom_api_registry)
     return JsonResponse(spec)
 
 

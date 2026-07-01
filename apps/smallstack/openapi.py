@@ -705,7 +705,44 @@ def _build_auth_paths() -> dict[str, dict]:
 # ---------------------------------------------------------------------------
 
 
-def build_openapi_spec(api_registry: list[tuple[object, str]], server_url: str | None = None) -> dict:
+def _build_custom_paths(custom_registry: list[dict]) -> dict[str, dict]:
+    """Turn ``register_api_path`` entries into OpenAPI path objects.
+
+    The base path is resolved by reversing each entry's ``url_name`` (so the
+    host's mount prefix is picked up), then ``subpath`` is appended.
+    """
+    from django.urls import NoReverseMatch, reverse
+
+    paths: dict[str, dict] = {}
+    for entry in custom_registry:
+        try:
+            base = reverse(entry["url_name"])
+        except NoReverseMatch:
+            continue
+        subpath = entry.get("subpath", "")
+        path = base.rstrip("/") + "/" + subpath.lstrip("/") if subpath else base
+
+        operations: dict[str, dict] = {}
+        for method in entry["methods"]:
+            op: dict = {
+                "tags": entry["tags"],
+                "summary": entry["summary"],
+                "parameters": entry["parameters"],
+                "responses": entry["responses"],
+                "security": [{"bearerAuth": []}],
+            }
+            if entry.get("request_body") and method not in ("GET", "DELETE"):
+                op["requestBody"] = entry["request_body"]
+            operations[method.lower()] = op
+        paths.setdefault(path, {}).update(operations)
+    return paths
+
+
+def build_openapi_spec(
+    api_registry: list[tuple[object, str]],
+    server_url: str | None = None,
+    custom_paths: list[dict] | None = None,
+) -> dict:
     """Build a complete OpenAPI 3.0.3 spec from the SmallStack API registry.
 
     Parameters
@@ -714,6 +751,9 @@ def build_openapi_spec(api_registry: list[tuple[object, str]], server_url: str |
         List of ``(crud_config, list_url_name)`` tuples from ``_api_registry``.
     server_url:
         Optional base URL (e.g. ``http://localhost:8005/``).
+    custom_paths:
+        Optional list of ``register_api_path`` entries (``_custom_api_registry``)
+        for hand-rolled function views that opt into the schema.
 
     Returns
     -------
@@ -744,6 +784,10 @@ def build_openapi_spec(api_registry: list[tuple[object, str]], server_url: str |
 
     # Auth paths
     paths.update(_build_auth_paths())
+
+    # Custom (non-CRUDView) paths registered via register_api_path
+    if custom_paths:
+        paths.update(_build_custom_paths(custom_paths))
 
     # Auth schemas
     schemas["AuthUser"] = {

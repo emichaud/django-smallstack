@@ -211,11 +211,36 @@ The convention is to prefix your paths with `api/` to keep them alongside the ge
 | **Use when** | Standard CRUD on a model | Anything else |
 | **Generated from** | CRUDView class config | Hand-written function |
 | **Auth** | Automatic from mixins | Explicit via decorator params |
-| **Schema/OpenAPI** | Auto-included | Not included (manual) |
+| **Schema/OpenAPI** | Auto-included | Opt-in via `register_api_path()` (see below) |
 | **Serialization** | Auto from model fields | You serialize the response |
 | **Filtering/pagination** | Built-in | You build it (or import helpers) |
 
 Both share the same authentication layer, error format, and token system. A project can mix auto-generated CRUD endpoints with custom `@api_view` endpoints freely.
+
+## Adding a custom endpoint to the OpenAPI schema
+
+CRUDView endpoints self-register in `/api/schema/openapi.json` (Swagger UI at `/api/docs/`, ReDoc at `/api/redoc/`). Hand-rolled `@api_view` endpoints don't — but they can **opt in** with `register_api_path()`, called at import time next to the view:
+
+```python
+from apps.smallstack.api import api_view, register_api_path
+
+register_api_path(
+    "myapp:report_list",              # a parameter-free, reversible URL name (anchors the base path)
+    methods=["GET"],
+    summary="List reports",
+    subpath="",                        # appended to the anchor's reversed path; may contain {param} tokens
+    tags=["Reports"],
+    parameters=[{"name": "q", "in": "query", "schema": {"type": "string"}}],
+    request_body=None,                 # or {"required": True, "content": {"application/json": {"schema": {...}}}}
+    responses={"200": {"description": "A list of reports"}},
+)
+
+@api_view(methods=["GET"])
+def report_list(request):
+    ...
+```
+
+The mount prefix is resolved by `reverse(url_name)` at schema-build time, so a **package** doesn't need to know where the host mounts it — anchor every operation of a resource on one param-free URL name and vary `subpath` (`"{id}/"`, `"{id}/archive/"`, …). The endpoint then shows up in Swagger/ReDoc alongside the CRUD ones.
 
 ## Best Practices
 
