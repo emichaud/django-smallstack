@@ -5,6 +5,10 @@
 ![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue)
 ![Django 6.0](https://img.shields.io/badge/django-6.0-green)
 ![License MIT](https://img.shields.io/badge/license-MIT-brightgreen)
+![Version 0.12.4](https://img.shields.io/badge/version-0.12.4-blue)
+[![Quality A−](https://img.shields.io/badge/quality-A%E2%88%92-2ea44f)](docs/report-cards/v0.12.4.md)
+![Coverage 80%](https://img.shields.io/badge/coverage-80%25-9acd32)
+[![Security policy](https://img.shields.io/badge/security-policy-brightgreen)](SECURITY.md)
 
 A small-footprint Django foundation for shipping **websites, API servers, MCP servers, and background-task systems** — with Explorer, CRUDView, and a model-to-API-to-MCP pipeline already wired up. SQLite-first, no external services required.
 
@@ -111,6 +115,23 @@ make mcp-test      # MCP smoke test
 ```
 
 Visit `/help/` once running for full docs (getting started, theming, deployment, MCP setup, API patterns, and more).
+
+## Quality & audits
+
+Every release ships with a **quality report card** — a graded scorecard (security, code quality,
+testing & coverage, docs, architecture, operability, accessibility) with the changes, findings, and
+evidence behind it. See **[docs/report-cards/](docs/report-cards/)** — latest:
+**[v0.12.4 — A−](docs/report-cards/v0.12.4.md)**.
+
+What makes it trustworthy rather than self-congratulatory:
+
+- **Independent** — cards are produced by a separate integration test harness
+  ([smallstack-testing-agent](https://github.com/emichaud/smallstack-testing-agent)), not by grading
+  ourselves. It clones a fresh copy and exercises it end-to-end.
+- **Reproducible** — the rubric, data commands, and honesty rules are public
+  ([docs/skills/report-card.md](docs/skills/report-card.md)); anyone can re-run them.
+- **Honest** — grades are evidence-backed (tests, `pip-audit`, doctors) and un-inflated; an open
+  security BLOCKER caps the whole card at F. The trajectory across releases is the point.
 
 ## Learn more
 

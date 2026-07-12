@@ -453,6 +453,14 @@
         "pipe"
       ],
       "use_when": "Browsing or editing runbook pages from the shell."
+    },
+    {
+      "id": "report-card",
+      "file": "report-card.md",
+      "name": "Quality Report Card",
+      "description": "Generate a consistent, evidence-backed project quality report card committed to docs/report-cards/. Defines the rubric (7 graded areas A–F: Security, Code Quality, Testing & Coverage, Documentation & Skills, Architecture & Design, Operability & Release, Accessibility & Theming), the change taxonomy (security/feature/enhancement/fix/refactor/docs/chore), the data-gathering commands (ruff, pytest coverage, pip-audit, doctors, git log), BLOCKER/MAJOR grade caps, and honesty rules. Snapshots are immutable, one file per commit.",
+      "keywords": ["report card", "scorecard", "quality", "audit", "grade", "rubric", "review", "release", "metrics", "coverage"],
+      "use_when": "After a feature branch, release, or audit cycle — to record the resulting quality state (graded areas + changes-by-category + findings) as a committable indicator in docs/report-cards/."
     }
   ]
 }
