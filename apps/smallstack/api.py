@@ -897,101 +897,106 @@ def _apply_ordering(qs, ordering: str, allowed: set[str]) -> QuerySet:
     return _apply_ordering_fields(qs, ordering, allowed)
 
 
-def _api_list(request, crud_config):
-    """Handle GET on list endpoint: list, search, filter, paginate, export."""
+def _apply_list_search(request, qs, search_fields):
+    """Apply the ``?q=`` icontains search across ``search_fields``; return the (maybe) filtered qs."""
+    if not search_fields:
+        return qs
+    q = request.GET.get("q", "").strip()
+    if not q:
+        return qs
+
     from django.db.models import Q
 
+    query = Q()
+    for field in search_fields:
+        query |= Q(**{f"{field}__icontains": q})
+    return qs.filter(query)
+
+
+def _apply_list_filter(request, qs, crud_config):
+    """Apply django-filter filtering. Return ``(qs, error)``.
+
+    ``error`` is a 400 JsonResponse when a value is invalid — surfacing typos like
+    ``?status=garbage`` instead of silently returning every row (round-2 audit §4.5).
+    """
+    filter_fields = crud_config._resolve_filter_fields()
+    filter_class = crud_config._resolve_filter_class()
+    if not (filter_fields or filter_class):
+        return qs, None
+
+    import django_filters
+
+    fs_class = filter_class
+    if not fs_class:
+        fields_spec = _build_filter_fields_spec(crud_config.model, filter_fields)
+        fs_class = type(
+            "AutoFilter",
+            (django_filters.FilterSet,),
+            {"Meta": type("Meta", (), {"model": crud_config.model, "fields": fields_spec})},
+        )
+    filterset = fs_class(request.GET, queryset=qs)
+    if filterset.errors:
+        problems = [f"{field}: {', '.join(str(e) for e in errs)}" for field, errs in filterset.errors.items()]
+        return None, _error(f"Invalid filter value(s): {'; '.join(problems)}.", 400)
+    return filterset.qs, None
+
+
+def _apply_list_ordering(request, qs, crud_config):
+    """Apply ``?ordering=``. Return ``(qs, error)``.
+
+    Unknown fields return a 400 rather than being silently dropped — the API is
+    stricter than the HTML list view, whose rendered controls never emit bogus
+    values (round-2 audit §4.5).
+    """
+    ordering = request.GET.get("ordering", "").strip()
+    if not ordering:
+        return qs, None
+    allowed = set(crud_config._get_list_fields()) | set(getattr(crud_config, "api_extra_fields", []))
+    requested = [part.strip().lstrip("-") for part in ordering.split(",") if part.strip()]
+    invalid = [f for f in requested if f not in allowed]
+    if invalid:
+        return None, _error(
+            f"Invalid ordering field(s): {', '.join(invalid)}. Allowed: {', '.join(sorted(allowed))}.",
+            400,
+        )
+    return _apply_ordering(qs, ordering, allowed), None
+
+
+def _api_list(request, crud_config):
+    """Handle GET on the list endpoint: search → filter → export → order → aggregate → paginate."""
     qs = crud_config._get_queryset()
     qs = crud_config.get_list_queryset(qs, request)
 
-    # Search
-    search_fields = crud_config._resolve_search_fields()
-    if search_fields:
-        q = request.GET.get("q", "").strip()
-        if q:
-            query = Q()
-            for field in search_fields:
-                query |= Q(**{f"{field}__icontains": q})
-            qs = qs.filter(query)
+    qs = _apply_list_search(request, qs, crud_config._resolve_search_fields())
 
-    # Filter
-    filter_fields = crud_config._resolve_filter_fields()
-    filter_class = crud_config._resolve_filter_class()
-    if filter_fields or filter_class:
-        import django_filters
+    qs, err = _apply_list_filter(request, qs, crud_config)
+    if err:
+        return err
 
-        fs_class = filter_class
-        if not fs_class:
-            fields_spec = _build_filter_fields_spec(crud_config.model, filter_fields)
-            fs_class = type(
-                "AutoFilter",
-                (django_filters.FilterSet,),
-                {
-                    "Meta": type(
-                        "Meta",
-                        (),
-                        {"model": crud_config.model, "fields": fields_spec},
-                    )
-                },
-            )
-        filterset = fs_class(request.GET, queryset=qs)
-        # Surface invalid filter values as HTTP 400 instead of silently
-        # falling through to "no filter applied" — the round-2 audit's
-        # §4.5: ``?status=garbage`` used to return every row, which is a
-        # data-integrity surprise on a typo.
-        if filterset.errors:
-            problems = []
-            for field, errs in filterset.errors.items():
-                problems.append(f"{field}: {', '.join(str(e) for e in errs)}")
-            return _error(f"Invalid filter value(s): {'; '.join(problems)}.", 400)
-        qs = filterset.qs
-
-    # Export
+    # Export runs on the searched + filtered set, before ordering/pagination.
     export_fmt = request.GET.get("format")
-    export_formats = crud_config._resolve_export_formats()
-    if export_fmt and export_fmt in export_formats:
+    if export_fmt and export_fmt in crud_config._resolve_export_formats():
         return _api_export(qs, crud_config, export_fmt)
 
-    # Ordering
-    ordering = request.GET.get("ordering", "").strip()
-    if ordering:
-        allowed = set(crud_config._get_list_fields()) | set(getattr(crud_config, "api_extra_fields", []))
-        # Reject unknown ordering fields with HTTP 400 instead of silently
-        # dropping them (round-2 audit §4.5). The shared
-        # ``_apply_ordering_fields`` helper still silently ignores, which
-        # is correct for the HTML list view (rendered controls don't emit
-        # bogus values); the API surface is stricter.
-        requested = [part.strip().lstrip("-") for part in ordering.split(",") if part.strip()]
-        invalid = [f for f in requested if f not in allowed]
-        if invalid:
-            return _error(
-                f"Invalid ordering field(s): {', '.join(invalid)}. "
-                f"Allowed: {', '.join(sorted(allowed))}.",
-                400,
-            )
-        qs = _apply_ordering(qs, ordering, allowed)
+    qs, err = _apply_list_ordering(request, qs, crud_config)
+    if err:
+        return err
 
-    # Aggregation (computed before pagination, on the full filtered queryset)
+    # Aggregation is computed before pagination, on the full filtered queryset.
     agg_extra, agg_err = _compute_aggregations(request, qs, crud_config)
     if agg_err:
         return agg_err
 
-    # FK expansion
     expand_fields = _resolve_expand_fields(request, crud_config)
     if expand_fields:
         qs = _apply_select_related(qs, crud_config.model, expand_fields)
 
-    # Paginate
     items, page_meta = _paginate(request, qs, page_size=crud_config._resolve_paginate_by() or _DEFAULT_PAGE_SIZE)
-
     fields = crud_config._get_list_fields()
     results: list[dict] = [_serialize(obj, fields, crud_config.api_extra_fields, expand_fields) for obj in items]
 
-    response_data: dict = {**page_meta, "results": results}
-    # Merge aggregation data into response (counts, sum_*, avg_*, etc.)
-    response_data.update(agg_extra)
-
-    return JsonResponse(response_data)
+    # agg_extra (sum_*, avg_*, count_by, …) merges last, matching the prior .update() order.
+    return JsonResponse({**page_meta, "results": results, **agg_extra})
 
 
 def _api_create(request, crud_config):

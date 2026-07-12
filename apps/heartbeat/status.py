@@ -289,22 +289,33 @@ def _is_in_any_window(dt, windows) -> bool:
     return False
 
 
-def _build_minute_timeline(minutes: int = 60, monitor_key: str = "site") -> list[dict]:
-    """Build a slot-based timeline for the monitor over the last N minutes."""
-    current = now()
-    epoch = _get_epoch(monitor_key)
-    cutoff = current - timedelta(minutes=minutes)
+def _timeline_window_data(monitor_key, cutoff, current, *beat_fields):
+    """Shared preamble for the sub-day timelines.
 
+    Returns ``(epoch, beats, maint_windows)`` covering ``[cutoff, current]``.
+    ``beat_fields`` selects the beat columns the caller needs (the minute timeline
+    also wants ``response_time_ms``).
+    """
+    epoch = _get_epoch(monitor_key)
     beats = list(
         Heartbeat.objects.filter(monitor_key=monitor_key, timestamp__gte=cutoff)
         .order_by("timestamp")
-        .values("status", "timestamp", "response_time_ms")
+        .values(*beat_fields)
     )
-
     maint_windows = list(
         MaintenanceWindow.objects.filter(monitor_key=monitor_key, start__lt=current, end__gt=cutoff).values_list(
             "start", "end"
         )
+    )
+    return epoch, beats, maint_windows
+
+
+def _build_minute_timeline(minutes: int = 60, monitor_key: str = "site") -> list[dict]:
+    """Build a slot-based timeline for the monitor over the last N minutes."""
+    current = now()
+    cutoff = current - timedelta(minutes=minutes)
+    epoch, beats, maint_windows = _timeline_window_data(
+        monitor_key, cutoff, current, "status", "timestamp", "response_time_ms"
     )
 
     slots = []
@@ -365,20 +376,8 @@ def _build_minute_timeline(minutes: int = 60, monitor_key: str = "site") -> list
 def _build_24h_timeline(monitor_key: str = "site") -> list[dict]:
     """Build a 24-hour timeline for the monitor, grouped into 15-minute buckets."""
     current = now()
-    epoch = _get_epoch(monitor_key)
     cutoff = current - timedelta(hours=24)
-
-    beats = list(
-        Heartbeat.objects.filter(monitor_key=monitor_key, timestamp__gte=cutoff)
-        .order_by("timestamp")
-        .values("status", "timestamp")
-    )
-
-    maint_windows = list(
-        MaintenanceWindow.objects.filter(monitor_key=monitor_key, start__lt=current, end__gt=cutoff).values_list(
-            "start", "end"
-        )
-    )
+    epoch, beats, maint_windows = _timeline_window_data(monitor_key, cutoff, current, "status", "timestamp")
 
     slots = []
     for i in range(96):
