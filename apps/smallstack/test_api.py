@@ -2431,3 +2431,36 @@ class TestFilterAndOrderingValidation:
         assert response.status_code == 200
         for row in response.json()["results"]:
             assert row["status"] == "ok"
+
+
+@pytest.mark.django_db
+class TestOrderingRobustness:
+    """A computed/non-DB column in an ordering set must degrade to no-sort, not 500.
+
+    Guards the case a downstream project hits when a display-only column (e.g.
+    ``price_display``) is mistakenly listed in ``ordering_fields`` and someone
+    hand-crafts ``?ordering=price_display``.
+    """
+
+    def test_field_is_orderable_resolution(self):
+        from apps.smallstack.crud import _field_is_orderable
+
+        qs = Heartbeat.objects.all()
+        assert _field_is_orderable(qs, "status") is True  # real field
+        assert _field_is_orderable(qs, "pk") is True  # pk alias
+        assert _field_is_orderable(qs, "price_display") is False  # computed / not a DB field
+
+    def test_computed_field_in_ordering_does_not_500(self):
+        from apps.smallstack.crud import _apply_ordering_fields
+
+        qs = Heartbeat.objects.all()
+        # "allowed" (misconfigured) but not actually orderable → dropped, no FieldError on eval.
+        result = _apply_ordering_fields(qs, "price_display", {"price_display"})
+        list(result)  # would raise FieldError before the fix
+        assert "price_display" not in str(result.query)  # the bad field was not applied
+
+    def test_real_field_still_sorts(self):
+        from apps.smallstack.crud import _apply_ordering_fields
+
+        result = _apply_ordering_fields(Heartbeat.objects.all(), "-timestamp", {"timestamp"})
+        assert "ORDER BY" in str(result.query)

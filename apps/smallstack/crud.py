@@ -26,6 +26,7 @@ from typing import Any
 
 from django import forms
 from django.contrib import messages
+from django.core.exceptions import FieldDoesNotExist
 from django.db import IntegrityError
 from django.db.models import ProtectedError, QuerySet, RestrictedError
 from django.http import Http404, HttpRequest, HttpResponse, QueryDict
@@ -121,11 +122,41 @@ def _apply_list_search(qs, request: HttpRequest, crud_config) -> QuerySet:
     return qs.filter(query)
 
 
+def _field_is_orderable(qs, field_path: str) -> bool:
+    """Whether ``qs`` can actually be ordered by ``field_path``.
+
+    Handles ``pk``, FK traversal (``category__name``), and query annotations.
+    Returns False for computed / property columns that aren't DB fields — so a
+    misconfigured ``ordering_fields`` (e.g. a display-only ``price_display``)
+    degrades to "no sort" instead of raising ``FieldError`` when the queryset is
+    evaluated (which would surface as a 500).
+    """
+    if field_path in qs.query.annotations:
+        return True
+    model = qs.model
+    parts = field_path.split("__")
+    for i, part in enumerate(parts):
+        if part == "pk":
+            field = model._meta.pk
+        else:
+            try:
+                field = model._meta.get_field(part)
+            except FieldDoesNotExist:
+                return False
+        if i < len(parts) - 1:  # more segments → must be a relation to keep walking
+            model = getattr(field, "related_model", None)
+            if model is None:
+                return False
+    return True
+
+
 def _apply_ordering_fields(qs, ordering: str, allowed: set[str]) -> QuerySet:
     """Apply comma-separated ordering fields to a queryset.
 
     Each field may be prefixed with ``-`` for descending.  Fields not in
-    *allowed* are silently ignored (matches Django/DRF convention).
+    *allowed*, or not actually orderable on the model (e.g. a computed column a
+    caller mistakenly listed in ``ordering_fields``), are silently ignored —
+    matching the Django/DRF convention and keeping a bad sort from 500-ing.
 
     This is the low-level helper used by both the HTML list view and the
     REST API layer.
@@ -133,7 +164,7 @@ def _apply_ordering_fields(qs, ordering: str, allowed: set[str]) -> QuerySet:
     validated = []
     for part in ordering.split(","):
         field = part.strip().lstrip("-")
-        if field in allowed:
+        if field in allowed and _field_is_orderable(qs, field):
             validated.append(part.strip())
     if validated:
         return qs.order_by(*validated)
