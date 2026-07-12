@@ -112,6 +112,13 @@ The `screenshot_auth` command creates a Django session for the dev superuser and
 
 **Do not commit auth files** — they are in `.gitignore` by default.
 
+> **`SECRET_KEY` must be stable across processes** for the minted session to be
+> valid — the session hash is keyed on it. Development settings handle this
+> automatically (the auto-generated key is persisted to `.secret_key`), so
+> authenticated screenshots work out of the box. If you set `SECRET_KEY`
+> yourself, make sure the `screenshot_auth` process and the running server see
+> the *same* value — otherwise `--auth` silently lands on the login page.
+
 ### 5. Responsive Testing
 
 ```bash

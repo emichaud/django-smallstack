@@ -2,11 +2,27 @@
 Development settings for smallstack project.
 """
 
+import secrets
+
 from decouple import config
 
 from .base import *  # noqa: F401, F403
 
 DEBUG = True
+
+# Persist the dev SECRET_KEY so every local process (runserver, screenshot_auth,
+# manage.py shell) shares one key. base.py otherwise generates a *fresh* random
+# key per process — so a session minted by e.g. `screenshot_auth` is rejected by
+# the running server, and authenticated screenshots silently land on the login
+# page. Mirrors the production entrypoint, which persists a key to the data
+# volume. Only applies when SECRET_KEY isn't explicitly set (.env / environment).
+if not config("SECRET_KEY", default=""):
+    _dev_secret_key_file = BASE_DIR / ".secret_key"  # noqa: F405  (BASE_DIR from base import *)
+    if _dev_secret_key_file.exists():
+        SECRET_KEY = _dev_secret_key_file.read_text().strip()
+    else:
+        SECRET_KEY = secrets.token_urlsafe(50)
+        _dev_secret_key_file.write_text(SECRET_KEY)
 
 ALLOWED_HOSTS = ["localhost", "127.0.0.1", "0.0.0.0"]
 

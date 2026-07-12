@@ -54,3 +54,6 @@ htmlcov/
 
 # UV
 # uv.lock is tracked for reproducible Docker builds
+
+# Persisted dev SECRET_KEY (config/settings/development.py)
+.secret_key
