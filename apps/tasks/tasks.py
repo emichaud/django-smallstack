@@ -38,7 +38,12 @@ logger = logging.getLogger(__name__)
 
 
 @task(queue_name="email")
-def send_email_task(recipient, subject, message, from_email=None):
+def send_email_task(
+    recipient: str | list[str],
+    subject: str,
+    message: str,
+    from_email: str | None = None,
+) -> int:
     """
     Send an email in the background.
 
@@ -78,7 +83,13 @@ def send_email_task(recipient, subject, message, from_email=None):
 
 
 @task(queue_name="email")
-def send_html_email_task(recipient, subject, template, context=None, from_email=None):
+def send_html_email_task(
+    recipient: str | list[str],
+    subject: str,
+    template: str,
+    context: dict | None = None,
+    from_email: str | None = None,
+) -> int:
     """
     Send an HTML email in the background using a Django template.
 
@@ -105,6 +116,7 @@ def send_html_email_task(recipient, subject, template, context=None, from_email=
         )
     """
     from django.core.mail import EmailMultiAlternatives
+    from django.template import TemplateDoesNotExist
     from django.template.loader import render_to_string
 
     if isinstance(recipient, str):
@@ -119,7 +131,7 @@ def send_html_email_task(recipient, subject, template, context=None, from_email=
     txt_template = template.rsplit(".", 1)[0] + ".txt"
     try:
         text_content = render_to_string(txt_template, ctx)
-    except Exception:
+    except TemplateDoesNotExist:
         text_content = subject
 
     logger.info(f"Sending HTML email to {recipient_list}: {subject}")
@@ -135,7 +147,7 @@ def send_html_email_task(recipient, subject, template, context=None, from_email=
 
 
 @task(queue_name="email")
-def send_welcome_email(user_id):
+def send_welcome_email(user_id: int) -> int:
     """
     Send a welcome email to a newly registered user.
 
@@ -198,7 +210,7 @@ def send_welcome_email(user_id):
 
 
 @task(priority=5)
-def process_data_task(data, operation="transform"):
+def process_data_task(data: dict, operation: str = "transform") -> dict:
     """
     A simple example task for processing data in the background.
 
@@ -245,7 +257,7 @@ def process_data_task(data, operation="transform"):
 
 
 @task(takes_context=True)
-def example_task_with_context(context, message):
+def example_task_with_context(context, message: str) -> dict:
     """
     Example task that demonstrates accessing task context.
 

@@ -2,8 +2,10 @@
 
 import logging
 import time
+from collections.abc import Callable
 
 from django.conf import settings
+from django.http import HttpRequest, HttpResponse
 
 logger = logging.getLogger(__name__)
 
@@ -15,7 +17,7 @@ class ActivityMiddleware:
     separately by the `prune_activity` management command on a schedule.
     """
 
-    def __init__(self, get_response):
+    def __init__(self, get_response: Callable[[HttpRequest], HttpResponse]) -> None:
         self.get_response = get_response
         self.exclude_paths = getattr(
             settings,
@@ -23,7 +25,7 @@ class ActivityMiddleware:
             ["/static/", "/media/", "/favicon.ico", "/health/", "/admin/jsi18n/", "/__debug__/"],
         )
 
-    def __call__(self, request):
+    def __call__(self, request: HttpRequest) -> HttpResponse:
         if self._should_skip(request.path):
             return self.get_response(request)
 
@@ -38,10 +40,10 @@ class ActivityMiddleware:
 
         return response
 
-    def _should_skip(self, path):
+    def _should_skip(self, path: str) -> bool:
         return any(path.startswith(prefix) for prefix in self.exclude_paths)
 
-    def _record(self, request, response, elapsed_ms):
+    def _record(self, request: HttpRequest, response: HttpResponse, elapsed_ms: int) -> None:
         from .models import RequestLog
 
         user = getattr(request, "user", None)
@@ -60,7 +62,7 @@ class ActivityMiddleware:
             user_agent=request.META.get("HTTP_USER_AGENT", "")[:4096],
         )
 
-    def _get_ip(self, request):
+    def _get_ip(self, request: HttpRequest) -> str | None:
         forwarded = request.META.get("HTTP_X_FORWARDED_FOR")
         if forwarded:
             return forwarded.split(",")[0].strip()

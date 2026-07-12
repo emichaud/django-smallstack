@@ -10,9 +10,9 @@ A small-footprint Django foundation for shipping **websites, API servers, MCP se
 
 > **A note on "background tasks" vs "schedulers"**: SmallStack ships a one-shot
 > background-task queue (django-tasks-db + a worker via `manage.py db_worker`).
-> Recurring / cron-style scheduling (`@scheduled(every="5m")`, retries with
-> backoff, dead-letter handling) is planned for v0.12.0 — until then,
-> recurring jobs are management commands triggered by system cron.
+> **Coming soon:** a recurring `@scheduled(every="5m")` primitive (retries with
+> backoff, dead-letter handling). Until it lands, recurring jobs run as
+> management commands triggered by system cron.
 
 📖 **Docs, guides, and examples → [www.smallstack.site](https://www.smallstack.site/)**
 

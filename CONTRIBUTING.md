@@ -135,7 +135,10 @@ Comments answering "why is this load-bearing weird?" are valuable. Comments rest
 
 ### Test shape
 
-- Test files: `apps/<name>/tests.py` or `apps/<name>/tests/test_*.py`. Either pattern is fine; pick the one already used in that app.
+- Test layout — **one pattern per app, don't mix**:
+  - A single test file → `apps/<name>/tests.py`.
+  - Multiple test files → a package: `apps/<name>/tests/__init__.py` + `tests/test_*.py` (as `api`, `mcp`, `search`, `tokenmgr`, `accounts`, `heartbeat` do).
+  - Never keep both a flat `tests.py` and a stray `apps/<name>/test_*.py` — promote to a package instead. Inside a package, import app modules **absolutely** (`from apps.<name>.models import X`), not relatively.
 - DB-touching tests: `pytestmark = pytest.mark.django_db` at the module top.
 - Fixtures live in `conftest.py` at the right scope. The narrower the better.
 - One test asserts one thing. If you find yourself writing `# also verifies X` in a docstring, split the test.
@@ -166,6 +169,21 @@ The same split exists for MCP (`apps/mcp/server.py` runtime vs `apps/mcp/admin/`
 ### Why the split matters
 
 A `apps/api/` "kitchen sink" that combined the runtime and the observer would put the API admin pages behind the same auth gate as the API itself (or vice versa), and would couple the two evolution paths together. The split lets the runtime stay small and the observer evolve independently.
+
+### Where management commands live
+
+A `manage.py` command lives in **the app that owns the subsystem it operates on**, not in a central `commands` app:
+
+- `apps/smallstack/` — cross-cutting ops: `backup_db`, `create_api_token`, `create_dev_superuser`, `screenshot_auth`.
+- `apps/heartbeat/` — `heartbeat`, `maintenance` (monitoring / status).
+- `apps/search/` — `rebuild_search_index`, `search_doctor`, `sync_help_index`.
+- `apps/activity/` — `prune_activity`.
+
+Rule of thumb: if the command reads/writes an app's models or diagnoses its feature, it ships in that app. The full catalogue with flags is [`apps/smallstack/docs/cli-reference.md`](apps/smallstack/docs/cli-reference.md).
+
+### App-label naming
+
+App labels match the `apps/<name>/` directory (`accounts`, `heartbeat`, …). One label — `tokenmgr` — reads a bit cryptic versus its user-facing name ("token manager"), but it is **kept deliberately**: the label is baked into migrations, the `tokenmgr:` URL namespace, and downstream references, so renaming it for cosmetics would be a breaking change with no functional gain.
 
 ---
 

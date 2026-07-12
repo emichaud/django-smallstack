@@ -57,6 +57,12 @@ env:
     - ALLOWED_HOSTS
     - CSRF_TRUSTED_ORIGINS
 
+# Optional: wrap each deploy in a maintenance window so the container-swap
+# downtime is SLA-excluded on /status/. Opt-in — set MAINTENANCE_ON_DEPLOY=true
+# (and optionally MAINTENANCE_WINDOW_MINUTES) in .kamal/secrets. The .kamal/hooks/
+# pre-deploy + post-deploy hooks open/close it via `kamal app exec` (no extra
+# token). Left unset, the hooks no-op. See docs/skills/status-monitors.md.
+
 # Kamal proxy configuration
 # IMPORTANT: Update hosts with your domain(s)
 proxy:

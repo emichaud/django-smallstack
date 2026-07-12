@@ -6,6 +6,8 @@ This skill describes how to create and run background tasks in SmallStack using 
 
 SmallStack uses Django 6's native `django.tasks` framework with the `django-tasks-db` database backend. Tasks are stored in the database and processed by a separate worker process. No Redis or Celery required.
 
+> **Coming soon: recurring scheduling.** Today the queue is *one-shot* — you `.enqueue()` a task and a worker runs it once. A recurring `@scheduled(every="5m")` primitive (retries with backoff, dead-letter handling) is **coming soon**. Until it lands, run recurring jobs as management commands wired to system cron — e.g. `rebuild_search_index`, `heartbeat`, `prune_activity`.
+
 ## File Locations
 
 ```
@@ -142,6 +144,25 @@ Or with a specific queue:
 ```bash
 uv run python manage.py db_worker --queue-name "email"
 ```
+
+### Testing the backends locally (worker + heartbeat in one process)
+
+In production the `db_worker` and a per-minute heartbeat run alongside the web
+server. Local dev has neither, so to confirm "is the queue actually draining?"
+run the dev harness in a second terminal — it starts the worker **and** fires
+the heartbeat on a loop, and reaps the worker on Ctrl-C:
+
+```bash
+make run                                   # window 1 — the dev server
+make services                              # window 2 — worker + heartbeat
+# Fast end-to-end check: enqueue one task and watch the worker drain it
+make services ARGS="--interval 5 --smoke"
+```
+
+`--smoke` enqueues a `process_data_task`; you should see it reach `SUCCESSFUL`
+(also visible at `/smallstack/explorer/` → System → Task results). The script is
+`utils/dev_services.sh` (see `utils/README.md` for all flags). It does **not**
+replace the production worker — that's wired into the container entrypoint below.
 
 ### Production (Docker Compose / Kamal)
 

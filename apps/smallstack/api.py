@@ -235,10 +235,9 @@ def api_view(methods=None, require_auth=True, require_staff=False, require_auth_
 
             # Parse JSON body for write methods
             if request.method not in ("GET", "HEAD") and request.body:
-                try:
-                    request.json = json.loads(request.body)
-                except (json.JSONDecodeError, ValueError):
-                    return _error("Invalid JSON", 400)
+                request.json, err = _load_json_body(request, require_object=False)
+                if err:
+                    return err
             else:
                 request.json = None
 
@@ -338,12 +337,29 @@ def _require_auth_token(request):
 # ---------------------------------------------------------------------------
 
 
-def _parse_json_body(request):
-    """Parse JSON body into a QueryDict for ModelForm compatibility."""
+def _load_json_body(request, *, require_object: bool = True):
+    """Parse the request body as JSON.
+
+    Returns ``(data, None)`` on success or ``(None, error)`` where ``error`` is a
+    standard 400 "Invalid JSON" :class:`JsonResponse`. When ``require_object`` is
+    True (the default) a body that parses to something other than a JSON object
+    is also rejected, so callers can safely ``.get()`` the result. Custom
+    endpoints that accept arrays/scalars pass ``require_object=False``.
+    """
     try:
         data = json.loads(request.body)
     except (json.JSONDecodeError, ValueError):
-        return None, JsonResponse({"errors": {"__all__": ["Invalid JSON"]}}, status=400)
+        return None, _error("Invalid JSON", 400)
+    if require_object and not isinstance(data, dict):
+        return None, _error("Invalid JSON", 400)
+    return data, None
+
+
+def _parse_json_body(request):
+    """Parse JSON body into a QueryDict for ModelForm compatibility."""
+    data, err = _load_json_body(request)
+    if err:
+        return None, err
 
     q = QueryDict(mutable=True)
     for key, value in data.items():
@@ -1103,10 +1119,9 @@ def _make_api_bulk_delete_view(crud_config):
         if perm_err:
             return perm_err
 
-        try:
-            body = json.loads(request.body)
-        except (json.JSONDecodeError, ValueError):
-            return _error("Invalid JSON", 400)
+        body, err = _load_json_body(request)
+        if err:
+            return err
 
         ids = body.get("ids", [])
         if not ids or not isinstance(ids, list):
@@ -1171,10 +1186,9 @@ def _make_api_bulk_update_view(crud_config):
         if perm_err:
             return perm_err
 
-        try:
-            body = json.loads(request.body)
-        except (json.JSONDecodeError, ValueError):
-            return _error("Invalid JSON", 400)
+        body, err = _load_json_body(request)
+        if err:
+            return err
 
         ids = body.get("ids", [])
         fields_data = body.get("fields", {})
@@ -1295,10 +1309,9 @@ def api_auth_token(request: HttpRequest) -> JsonResponse:
     if request.method != "POST":
         return _error("Method not allowed", 405)
 
-    try:
-        data = json.loads(request.body)
-    except (json.JSONDecodeError, ValueError):
-        return _error("Invalid JSON", 400)
+    data, err = _load_json_body(request)
+    if err:
+        return err
 
     username = data.get("username", "").strip()
     password = data.get("password", "")
@@ -1393,10 +1406,9 @@ def api_auth_register(request: HttpRequest) -> JsonResponse:
     if not getattr(settings, "SMALLSTACK_API_REGISTER_ENABLED", False):
         return _error("Registration is disabled", 403)
 
-    try:
-        data = json.loads(request.body)
-    except (json.JSONDecodeError, ValueError):
-        return _error("Invalid JSON", 400)
+    data, err = _load_json_body(request)
+    if err:
+        return err
 
     username = data.get("username", "").strip()
     password = data.get("password", "")
@@ -1488,10 +1500,9 @@ def api_auth_password(request: HttpRequest) -> JsonResponse:
     if err:
         return err
 
-    try:
-        data = json.loads(request.body)
-    except (json.JSONDecodeError, ValueError):
-        return _error("Invalid JSON", 400)
+    data, err = _load_json_body(request)
+    if err:
+        return err
 
     current_password = data.get("current_password", "")
     new_password = data.get("new_password", "")
@@ -1535,10 +1546,9 @@ def api_auth_user_password(request: HttpRequest, user_id: int) -> JsonResponse:
     if perm_err:
         return perm_err
 
-    try:
-        data = json.loads(request.body)
-    except (json.JSONDecodeError, ValueError):
-        return _error("Invalid JSON", 400)
+    data, err = _load_json_body(request)
+    if err:
+        return err
 
     new_password = data.get("new_password", "")
     if not new_password:
@@ -1691,10 +1701,9 @@ def api_auth_user_detail(request: HttpRequest, user_id: int) -> JsonResponse:
         return JsonResponse(_user_json(target, extended=True))
 
     # PATCH
-    try:
-        data = json.loads(request.body)
-    except (json.JSONDecodeError, ValueError):
-        return _error("Invalid JSON", 400)
+    data, err = _load_json_body(request)
+    if err:
+        return err
 
     allowed_fields = {"email", "first_name", "last_name", "is_staff", "is_active"}
     unknown = set(data.keys()) - allowed_fields
@@ -1748,11 +1757,10 @@ def api_auth_token_refresh(request: HttpRequest) -> JsonResponse:
     # Parse optional expires_hours
     expires_hours = None
     if request.body:
-        try:
-            data = json.loads(request.body)
+        # Body is optional here — ignore a malformed/non-object body rather than 400.
+        data, _ = _load_json_body(request)
+        if data:
             expires_hours = data.get("expires_hours")
-        except (json.JSONDecodeError, ValueError):
-            pass
 
     expiry_hours = _resolve_token_expiry(expires_hours)
     expires_at = timezone.now() + timedelta(hours=expiry_hours)

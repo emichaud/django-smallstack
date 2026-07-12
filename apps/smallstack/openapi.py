@@ -118,6 +118,47 @@ def _build_error_schema() -> dict:
     }
 
 
+# ---------------------------------------------------------------------------
+# Operation-object builders — collapse the repeated OpenAPI boilerplate
+# (``content → application/json → schema`` wrappers) that otherwise balloons
+# the path builders. Purely structural; output is byte-for-byte equivalent.
+# ---------------------------------------------------------------------------
+
+
+def _json_content(schema: dict) -> dict:
+    """An OpenAPI ``application/json`` content object wrapping ``schema``."""
+    return {"application/json": {"schema": schema}}
+
+
+def _response(description: str, schema: dict | None = None) -> dict:
+    """An OpenAPI response object, with an optional JSON body ``schema``."""
+    resp: dict = {"description": description}
+    if schema is not None:
+        resp["content"] = _json_content(schema)
+    return resp
+
+
+def _request_body(schema: dict, *, required: bool = False) -> dict:
+    """An OpenAPI ``requestBody`` wrapping a JSON ``schema``."""
+    body: dict = {}
+    if required:
+        body["required"] = True
+    body["content"] = _json_content(schema)
+    return body
+
+
+def _object_schema(properties: dict, *, required: list[str] | None = None) -> dict:
+    """A JSON-Schema ``object`` with ``properties`` and optional ``required``."""
+    schema: dict = {"type": "object", "properties": properties}
+    if required:
+        schema["required"] = required
+    return schema
+
+
+# A path parameter that reappears across every /users/{id}/... auth endpoint.
+_ID_PATH_PARAM: dict = {"name": "id", "in": "path", "required": True, "schema": {"type": "integer"}}
+
+
 def _build_crud_paths(crud_config, list_url_name: str) -> dict[str, dict]:
     """Generate path objects for a single CRUDView (list + detail)."""
     from django.urls import reverse
@@ -129,6 +170,8 @@ def _build_crud_paths(crud_config, list_url_name: str) -> dict[str, dict]:
     detail_url = list_url.rstrip("/") + "/{id}/"
     model_name = crud_config.model.__name__
     ref = f"#/components/schemas/{model_name}"
+    ref_schema = {"$ref": ref}
+    error_ref = {"$ref": "#/components/schemas/Error"}
     methods = _get_methods_from_actions(crud_config)
     actions = set(crud_config.actions)
     tag = model_name
@@ -221,14 +264,7 @@ def _build_crud_paths(crud_config, list_url_name: str) -> dict[str, dict]:
             "parameters": parameters,
             "security": [{"bearerAuth": []}],
             "responses": {
-                "200": {
-                    "description": "Paginated list",
-                    "content": {
-                        "application/json": {
-                            "schema": _build_list_response_schema(model_name),
-                        }
-                    },
-                },
+                "200": _response("Paginated list", _build_list_response_schema(model_name)),
             },
         }
 
@@ -237,23 +273,10 @@ def _build_crud_paths(crud_config, list_url_name: str) -> dict[str, dict]:
             "tags": [tag],
             "summary": f"Create a {model_name}",
             "security": [{"bearerAuth": []}],
-            "requestBody": {
-                "required": True,
-                "content": {"application/json": {"schema": {"$ref": ref}}},
-            },
+            "requestBody": _request_body(ref_schema, required=True),
             "responses": {
-                "201": {
-                    "description": "Created",
-                    "content": {"application/json": {"schema": {"$ref": ref}}},
-                },
-                "400": {
-                    "description": "Validation error",
-                    "content": {
-                        "application/json": {
-                            "schema": {"$ref": "#/components/schemas/Error"},
-                        }
-                    },
-                },
+                "201": _response("Created", ref_schema),
+                "400": _response("Validation error", error_ref),
             },
         }
 
@@ -273,11 +296,8 @@ def _build_crud_paths(crud_config, list_url_name: str) -> dict[str, dict]:
             "parameters": detail_params,
             "security": [{"bearerAuth": []}],
             "responses": {
-                "200": {
-                    "description": "Detail",
-                    "content": {"application/json": {"schema": {"$ref": ref}}},
-                },
-                "404": {"description": "Not found"},
+                "200": _response("Detail", ref_schema),
+                "404": _response("Not found"),
             },
         }
 
@@ -287,23 +307,10 @@ def _build_crud_paths(crud_config, list_url_name: str) -> dict[str, dict]:
             "summary": f"Update a {model_name}",
             "parameters": detail_params,
             "security": [{"bearerAuth": []}],
-            "requestBody": {
-                "required": True,
-                "content": {"application/json": {"schema": {"$ref": ref}}},
-            },
+            "requestBody": _request_body(ref_schema, required=True),
             "responses": {
-                "200": {
-                    "description": "Updated",
-                    "content": {"application/json": {"schema": {"$ref": ref}}},
-                },
-                "400": {
-                    "description": "Validation error",
-                    "content": {
-                        "application/json": {
-                            "schema": {"$ref": "#/components/schemas/Error"},
-                        }
-                    },
-                },
+                "200": _response("Updated", ref_schema),
+                "400": _response("Validation error", error_ref),
             },
         }
         detail_ops["patch"] = {
@@ -311,15 +318,9 @@ def _build_crud_paths(crud_config, list_url_name: str) -> dict[str, dict]:
             "summary": f"Partially update a {model_name}",
             "parameters": detail_params,
             "security": [{"bearerAuth": []}],
-            "requestBody": {
-                "required": True,
-                "content": {"application/json": {"schema": {"$ref": ref}}},
-            },
+            "requestBody": _request_body(ref_schema, required=True),
             "responses": {
-                "200": {
-                    "description": "Updated",
-                    "content": {"application/json": {"schema": {"$ref": ref}}},
-                },
+                "200": _response("Updated", ref_schema),
             },
         }
 
@@ -329,7 +330,7 @@ def _build_crud_paths(crud_config, list_url_name: str) -> dict[str, dict]:
             "summary": f"Delete a {model_name}",
             "parameters": detail_params,
             "security": [{"bearerAuth": []}],
-            "responses": {"204": {"description": "Deleted"}},
+            "responses": {"204": _response("Deleted")},
         }
 
     if detail_ops:
@@ -348,54 +349,38 @@ def _build_auth_paths() -> dict[str, dict]:
     tag = "Auth"
     bearer = [{"bearerAuth": []}]
     error_ref = {"$ref": "#/components/schemas/Error"}
+    auth_user_ref = {"$ref": "#/components/schemas/AuthUser"}
+    auth_user_ext_ref = {"$ref": "#/components/schemas/AuthUserExtended"}
 
-    token_response_schema = {
-        "type": "object",
-        "properties": {
+    token_response_schema = _object_schema(
+        {
             "token": {"type": "string"},
-            "user": {"$ref": "#/components/schemas/AuthUser"},
+            "user": auth_user_ref,
             "expires_at": {"type": "string", "format": "date-time"},
-        },
-    }
-    message_schema = {
-        "type": "object",
-        "properties": {"message": {"type": "string"}},
-    }
+        }
+    )
+    message_schema = _object_schema({"message": {"type": "string"}})
 
     return {
         "/api/auth/token/": {
             "post": {
                 "tags": [tag],
                 "summary": "Login — exchange credentials for a Bearer token",
-                "requestBody": {
-                    "required": True,
-                    "content": {
-                        "application/json": {
-                            "schema": {
-                                "type": "object",
-                                "properties": {
-                                    "username": {"type": "string"},
-                                    "password": {"type": "string"},
-                                    "expires_hours": {"type": "integer"},
-                                },
-                                "required": ["username", "password"],
-                            }
-                        }
-                    },
-                },
+                "requestBody": _request_body(
+                    _object_schema(
+                        {
+                            "username": {"type": "string"},
+                            "password": {"type": "string"},
+                            "expires_hours": {"type": "integer"},
+                        },
+                        required=["username", "password"],
+                    ),
+                    required=True,
+                ),
                 "responses": {
-                    "200": {
-                        "description": "Token issued",
-                        "content": {"application/json": {"schema": token_response_schema}},
-                    },
-                    "400": {
-                        "description": "Missing fields",
-                        "content": {"application/json": {"schema": error_ref}},
-                    },
-                    "401": {
-                        "description": "Invalid credentials",
-                        "content": {"application/json": {"schema": error_ref}},
-                    },
+                    "200": _response("Token issued", token_response_schema),
+                    "400": _response("Missing fields", error_ref),
+                    "401": _response("Invalid credentials", error_ref),
                 },
             },
         },
@@ -404,23 +389,11 @@ def _build_auth_paths() -> dict[str, dict]:
                 "tags": [tag],
                 "summary": "Refresh a login token",
                 "security": bearer,
-                "requestBody": {
-                    "content": {
-                        "application/json": {
-                            "schema": {
-                                "type": "object",
-                                "properties": {
-                                    "expires_hours": {"type": "integer"},
-                                },
-                            }
-                        }
-                    },
-                },
+                "requestBody": _request_body(
+                    _object_schema({"expires_hours": {"type": "integer"}})
+                ),
                 "responses": {
-                    "200": {
-                        "description": "Token refreshed",
-                        "content": {"application/json": {"schema": token_response_schema}},
-                    },
+                    "200": _response("Token refreshed", token_response_schema),
                 },
             },
         },
@@ -429,31 +402,20 @@ def _build_auth_paths() -> dict[str, dict]:
                 "tags": [tag],
                 "summary": "Register a new user",
                 "security": bearer,
-                "requestBody": {
-                    "required": True,
-                    "content": {
-                        "application/json": {
-                            "schema": {
-                                "type": "object",
-                                "properties": {
-                                    "username": {"type": "string"},
-                                    "password": {"type": "string"},
-                                    "email": {"type": "string", "format": "email"},
-                                },
-                                "required": ["username", "password"],
-                            }
-                        }
-                    },
-                },
+                "requestBody": _request_body(
+                    _object_schema(
+                        {
+                            "username": {"type": "string"},
+                            "password": {"type": "string"},
+                            "email": {"type": "string", "format": "email"},
+                        },
+                        required=["username", "password"],
+                    ),
+                    required=True,
+                ),
                 "responses": {
-                    "201": {
-                        "description": "User created",
-                        "content": {"application/json": {"schema": token_response_schema}},
-                    },
-                    "400": {
-                        "description": "Validation error",
-                        "content": {"application/json": {"schema": error_ref}},
-                    },
+                    "201": _response("User created", token_response_schema),
+                    "400": _response("Validation error", error_ref),
                 },
             },
         },
@@ -463,16 +425,7 @@ def _build_auth_paths() -> dict[str, dict]:
                 "summary": "Get current user profile",
                 "security": bearer,
                 "responses": {
-                    "200": {
-                        "description": "User profile",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/AuthUser",
-                                }
-                            }
-                        },
-                    },
+                    "200": _response("User profile", auth_user_ref),
                 },
             },
         },
@@ -481,30 +434,19 @@ def _build_auth_paths() -> dict[str, dict]:
                 "tags": [tag],
                 "summary": "Change own password",
                 "security": bearer,
-                "requestBody": {
-                    "required": True,
-                    "content": {
-                        "application/json": {
-                            "schema": {
-                                "type": "object",
-                                "properties": {
-                                    "current_password": {"type": "string"},
-                                    "new_password": {"type": "string"},
-                                },
-                                "required": ["current_password", "new_password"],
-                            }
-                        }
-                    },
-                },
+                "requestBody": _request_body(
+                    _object_schema(
+                        {
+                            "current_password": {"type": "string"},
+                            "new_password": {"type": "string"},
+                        },
+                        required=["current_password", "new_password"],
+                    ),
+                    required=True,
+                ),
                 "responses": {
-                    "200": {
-                        "description": "Password updated",
-                        "content": {"application/json": {"schema": message_schema}},
-                    },
-                    "400": {
-                        "description": "Validation error",
-                        "content": {"application/json": {"schema": error_ref}},
-                    },
+                    "200": _response("Password updated", message_schema),
+                    "400": _response("Validation error", error_ref),
                 },
             },
         },
@@ -513,22 +455,17 @@ def _build_auth_paths() -> dict[str, dict]:
                 "tags": [tag],
                 "summary": "Get password validation rules",
                 "responses": {
-                    "200": {
-                        "description": "Password requirements",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "type": "object",
-                                    "properties": {
-                                        "requirements": {
-                                            "type": "array",
-                                            "items": {"type": "string"},
-                                        },
-                                    },
-                                }
+                    "200": _response(
+                        "Password requirements",
+                        _object_schema(
+                            {
+                                "requirements": {
+                                    "type": "array",
+                                    "items": {"type": "string"},
+                                },
                             }
-                        },
-                    },
+                        ),
+                    ),
                 },
             },
         },
@@ -549,27 +486,22 @@ def _build_auth_paths() -> dict[str, dict]:
                     },
                 ],
                 "responses": {
-                    "200": {
-                        "description": "Paginated user list",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "type": "object",
-                                    "properties": {
-                                        "count": {"type": "integer"},
-                                        "page": {"type": "integer"},
-                                        "total_pages": {"type": "integer"},
-                                        "next": {"type": "string", "nullable": True},
-                                        "previous": {"type": "string", "nullable": True},
-                                        "results": {
-                                            "type": "array",
-                                            "items": {"$ref": "#/components/schemas/AuthUserExtended"},
-                                        },
-                                    },
-                                }
+                    "200": _response(
+                        "Paginated user list",
+                        _object_schema(
+                            {
+                                "count": {"type": "integer"},
+                                "page": {"type": "integer"},
+                                "total_pages": {"type": "integer"},
+                                "next": {"type": "string", "nullable": True},
+                                "previous": {"type": "string", "nullable": True},
+                                "results": {
+                                    "type": "array",
+                                    "items": auth_user_ext_ref,
+                                },
                             }
-                        },
-                    },
+                        ),
+                    ),
                 },
             },
         },
@@ -578,61 +510,31 @@ def _build_auth_paths() -> dict[str, dict]:
                 "tags": [tag],
                 "summary": "Get user detail",
                 "security": bearer,
-                "parameters": [
-                    {"name": "id", "in": "path", "required": True, "schema": {"type": "integer"}},
-                ],
+                "parameters": [_ID_PATH_PARAM],
                 "responses": {
-                    "200": {
-                        "description": "User detail",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/AuthUserExtended",
-                                }
-                            }
-                        },
-                    },
-                    "404": {"description": "Not found"},
+                    "200": _response("User detail", auth_user_ext_ref),
+                    "404": _response("Not found"),
                 },
             },
             "patch": {
                 "tags": [tag],
                 "summary": "Update a user",
                 "security": bearer,
-                "parameters": [
-                    {"name": "id", "in": "path", "required": True, "schema": {"type": "integer"}},
-                ],
-                "requestBody": {
-                    "content": {
-                        "application/json": {
-                            "schema": {
-                                "type": "object",
-                                "properties": {
-                                    "email": {"type": "string", "format": "email"},
-                                    "first_name": {"type": "string"},
-                                    "last_name": {"type": "string"},
-                                    "is_staff": {"type": "boolean"},
-                                    "is_active": {"type": "boolean"},
-                                },
-                            }
+                "parameters": [_ID_PATH_PARAM],
+                "requestBody": _request_body(
+                    _object_schema(
+                        {
+                            "email": {"type": "string", "format": "email"},
+                            "first_name": {"type": "string"},
+                            "last_name": {"type": "string"},
+                            "is_staff": {"type": "boolean"},
+                            "is_active": {"type": "boolean"},
                         }
-                    },
-                },
+                    )
+                ),
                 "responses": {
-                    "200": {
-                        "description": "User updated",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/AuthUserExtended",
-                                }
-                            }
-                        },
-                    },
-                    "400": {
-                        "description": "Validation error",
-                        "content": {"application/json": {"schema": error_ref}},
-                    },
+                    "200": _response("User updated", auth_user_ext_ref),
+                    "400": _response("Validation error", error_ref),
                 },
             },
         },
@@ -641,30 +543,17 @@ def _build_auth_paths() -> dict[str, dict]:
                 "tags": [tag],
                 "summary": "Set a user's password (admin)",
                 "security": bearer,
-                "parameters": [
-                    {"name": "id", "in": "path", "required": True, "schema": {"type": "integer"}},
-                ],
-                "requestBody": {
-                    "required": True,
-                    "content": {
-                        "application/json": {
-                            "schema": {
-                                "type": "object",
-                                "properties": {"new_password": {"type": "string"}},
-                                "required": ["new_password"],
-                            }
-                        }
-                    },
-                },
+                "parameters": [_ID_PATH_PARAM],
+                "requestBody": _request_body(
+                    _object_schema(
+                        {"new_password": {"type": "string"}},
+                        required=["new_password"],
+                    ),
+                    required=True,
+                ),
                 "responses": {
-                    "200": {
-                        "description": "Password updated",
-                        "content": {"application/json": {"schema": message_schema}},
-                    },
-                    "400": {
-                        "description": "Validation error",
-                        "content": {"application/json": {"schema": error_ref}},
-                    },
+                    "200": _response("Password updated", message_schema),
+                    "400": _response("Validation error", error_ref),
                 },
             },
         },
@@ -673,14 +562,9 @@ def _build_auth_paths() -> dict[str, dict]:
                 "tags": [tag],
                 "summary": "Deactivate a user and revoke tokens",
                 "security": bearer,
-                "parameters": [
-                    {"name": "id", "in": "path", "required": True, "schema": {"type": "integer"}},
-                ],
+                "parameters": [_ID_PATH_PARAM],
                 "responses": {
-                    "200": {
-                        "description": "User deactivated",
-                        "content": {"application/json": {"schema": message_schema}},
-                    },
+                    "200": _response("User deactivated", message_schema),
                 },
             },
         },
@@ -690,10 +574,7 @@ def _build_auth_paths() -> dict[str, dict]:
                 "summary": "Revoke current login token",
                 "security": bearer,
                 "responses": {
-                    "200": {
-                        "description": "Logged out",
-                        "content": {"application/json": {"schema": message_schema}},
-                    },
+                    "200": _response("Logged out", message_schema),
                 },
             },
         },

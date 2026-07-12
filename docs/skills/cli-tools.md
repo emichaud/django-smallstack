@@ -31,6 +31,10 @@ Two tables: a **task → tool map** (the most common lookups) and a **tool → d
 | trim the activity log | `uv run python manage.py prune_activity` |
 | run a single **heartbeat / uptime** check | `uv run python manage.py heartbeat` |
 | reset the uptime epoch after a restore | `uv run python manage.py heartbeat --reset-epoch --reset-note "..."` |
+| **test the task queue + heartbeat locally** (worker + heartbeat in one process) | `make services` (= `./utils/dev_services.sh`; `ARGS="--interval 5 --smoke"` for a fast end-to-end check) |
+| **open a maintenance window** (planned downtime, SLA-excluded) | `uv run python manage.py maintenance open --minutes N --title "..."` |
+| close / list maintenance windows | `uv run python manage.py maintenance close` / `... maintenance list` |
+| **SLA-exclude the container swap on deploy** | set `MAINTENANCE_ON_DEPLOY=true` in `.kamal/secrets` (the deploy hooks open/close it) |
 | take an **authenticated screenshot** | `make screenshot-auth` → `shot-scraper <url> --auth /tmp/auth.json -o /tmp/out.png` |
 | take an unauthenticated screenshot | `shot-scraper <url> -o /tmp/out.png --width 1440 --wait 1500` |
 | migrate the database | `make migrate` |
@@ -57,6 +61,8 @@ When the user reports a problem, **start at the matching doctor**.
 | "Suspicious traffic on `/api/*`" | Open `/smallstack/api/activity/` (Threat panel) | [`api-doctor.md`](api-doctor.md) |
 | "Suspicious MCP calls" | Open `/smallstack/mcp/activity/` | [`mcp/mcp-admin-pages.md`](mcp/mcp-admin-pages.md) |
 | "Server is up but `/status/` says down" | `manage.py heartbeat` | (Heartbeat docs) |
+| "Is the task queue actually draining locally?" | `make services ARGS="--smoke"` (watch the worker drain it) | [`background-tasks.md`](background-tasks.md) |
+| "Deploy downtime is counting against my SLA" | open a maintenance window (`manage.py maintenance`) or enable `MAINTENANCE_ON_DEPLOY` | [`status-monitors.md`](status-monitors.md) |
 | "DB file is huge" | `manage.py prune_activity`, then `make backup --keep 7` | — |
 
 ## Tool → docs

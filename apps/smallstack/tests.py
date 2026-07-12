@@ -1150,6 +1150,36 @@ class TestFieldValueRendering:
         assert "<script>" not in result
         assert "&lt;script&gt;" in result
 
+    def test_markdown_preview_neutralizes_xss(self):
+        """The field-preview markdown renderer must neutralize raw HTML, attribute
+        injection, and dangerous URL schemes — the expanded view renders arbitrary
+        (often user-supplied) field content, so it must not be a stored-XSS vector."""
+        from apps.smallstack.transforms import _render_markdown_preview
+
+        raw = str(_render_markdown_preview("<script>alert(1)</script>\n<img src=x onerror=alert(1)>"))
+        assert "<script" not in raw  # no live script tag (escaped &lt;script is fine)
+        assert "<img" not in raw  # no live img tag
+
+        # attr_list must be disabled: {: onclick=...} stays literal text, never an <h1 onclick=...> attribute
+        attr = str(_render_markdown_preview('# Heading {: onclick="alert(1)"}'))
+        assert "<h1>" in attr and "<h1 " not in attr  # bare h1 → no injected attribute
+
+        # dangerous URL schemes in link/image syntax must be blanked
+        assert "javascript:" not in str(_render_markdown_preview("[x](javascript:alert(1))"))
+        assert "javascript:" not in str(_render_markdown_preview("[x](java\tscript:alert(1))"))  # tab-hidden
+        assert 'src="data:' not in str(_render_markdown_preview("![a](data:text/html;base64,PHN2Zz4=)"))
+        # …but legitimate links/images survive
+        assert 'href="https://example.com"' in str(_render_markdown_preview("[x](https://example.com)"))
+        assert 'href="/foo"' in str(_render_markdown_preview("[x](/foo)"))
+
+        # fenced code containing HTML is *single*-escaped (not double — guards the regression)
+        code = str(_render_markdown_preview("```\n<div>a & b</div>\n```"))
+        assert "&lt;div&gt;" in code and "&amp;lt;" not in code
+
+        # legitimate structural markdown still renders
+        assert "<h1" in str(_render_markdown_preview("# Heading"))
+        assert "<table" in str(_render_markdown_preview("| a | b |\n|---|---|\n| 1 | 2 |"))
+
     def test_field_transform_tag_with_url_base(self):
         """{% field_transform %} with explicit url_base generates hx-get."""
         from apps.smallstack.transforms import TRUNCATE_THRESHOLD

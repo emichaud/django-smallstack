@@ -5,7 +5,8 @@ Views for the profile app.
 from django.contrib import messages
 from django.contrib.auth import get_user_model
 from django.contrib.auth.mixins import LoginRequiredMixin
-from django.http import HttpResponse
+from django.db.models import QuerySet
+from django.http import HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404
 from django.urls import reverse_lazy
 from django.views import View
@@ -24,7 +25,7 @@ class ProfileView(LoginRequiredMixin, DetailView):
     template_name = "profile/profile.html"
     context_object_name = "profile"
 
-    def get_object(self, queryset=None):
+    def get_object(self, queryset: QuerySet | None = None) -> UserProfile:
         """Get the current user's profile."""
         return get_object_or_404(UserProfile, user=self.request.user)
 
@@ -38,11 +39,11 @@ class ProfileEditView(LoginRequiredMixin, UpdateView):
     context_object_name = "profile"
     success_url = reverse_lazy("profile")
 
-    def get_object(self, queryset=None):
+    def get_object(self, queryset: QuerySet | None = None) -> UserProfile:
         """Get the current user's profile."""
         return get_object_or_404(UserProfile, user=self.request.user)
 
-    def form_valid(self, form):
+    def form_valid(self, form: UserProfileForm) -> HttpResponse:
         """Add success message on form save."""
         messages.success(self.request, "Profile updated successfully.")
         return super().form_valid(form)
@@ -51,7 +52,7 @@ class ProfileEditView(LoginRequiredMixin, UpdateView):
 class ThemePreferenceView(LoginRequiredMixin, View):
     """Save theme preference via htmx POST."""
 
-    def post(self, request):
+    def post(self, request: HttpRequest) -> HttpResponse:
         theme = request.POST.get("theme", "").strip()
         if theme in ("dark", "light"):
             profile = get_object_or_404(UserProfile, user=request.user)
@@ -65,7 +66,7 @@ class PalettePreferenceView(LoginRequiredMixin, View):
 
     VALID_PALETTES = {"", "django", "high-contrast", "dark-blue", "orange", "purple"}
 
-    def post(self, request):
+    def post(self, request: HttpRequest) -> HttpResponse:
         palette = request.POST.get("palette", "").strip()
         if palette in self.VALID_PALETTES:
             profile = get_object_or_404(UserProfile, user=request.user)
@@ -81,7 +82,7 @@ class ProfileDetailView(DetailView):
     template_name = "profile/profile_detail.html"
     context_object_name = "profile"
 
-    def get_object(self, queryset=None):
+    def get_object(self, queryset: QuerySet | None = None) -> UserProfile:
         """Get the profile by username from URL."""
         username = self.kwargs.get("username")
         user = get_object_or_404(User, username=username)

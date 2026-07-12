@@ -215,6 +215,10 @@ CONTENT_SECURITY_POLICY = {
         "connect-src": ["'self'"],
         "frame-ancestors": ["'none'"],
         "form-action": ["'self'"],
+        # Strict directives that cost nothing here (no inline-script trade-off):
+        # block <base> tag hijacking and <object>/<embed> plugin injection.
+        "base-uri": ["'self'"],
+        "object-src": ["'none'"],
     }
 }
 

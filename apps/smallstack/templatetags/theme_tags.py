@@ -4,15 +4,17 @@ and timezone conversion.
 """
 
 import datetime
+import logging
 import zoneinfo
 from typing import Any
 
 from django import template
 from django.conf import settings
-from django.urls import reverse
+from django.urls import NoReverseMatch, reverse
 from django.utils import dateformat
 
 register = template.Library()
+logger = logging.getLogger("smallstack")
 
 
 class BreadcrumbNode(template.Node):
@@ -112,7 +114,8 @@ def nav_active(context, *url_names) -> str:
                     base_url = reverse(f"{namespace}:index")
                     if request.path.startswith(base_url):
                         return "active"
-                except Exception:
+                except NoReverseMatch:
+                    # Namespace has no ``:index`` route — not resolvable, so not active.
                     pass
 
             url = reverse(url_name)
@@ -121,8 +124,9 @@ def nav_active(context, *url_names) -> str:
             # For nested URLs, check if current path starts with the URL
             if request.path.startswith(url) and url != "/":
                 return "active"
-        except Exception:
-            pass
+        except NoReverseMatch:
+            # This url_name doesn't reverse (needs args, or isn't registered) — skip it.
+            continue
 
     return ""
 
@@ -194,7 +198,9 @@ def user_localtime(dt, request) -> datetime.datetime | None:
         if request and hasattr(request, "user") and request.user.is_authenticated:
             return request.user.profile.to_local_time(dt)
     except Exception:
-        pass
+        # Broad by design: a template filter must never raise. Log for debugging
+        # a missing profile / bad timezone, then fall back to the system tz below.
+        logger.debug("user_localtime: falling back to system tz", exc_info=True)
     # Fall back to system timezone
     return dt.astimezone(zoneinfo.ZoneInfo(settings.TIME_ZONE))
 

@@ -15,13 +15,18 @@ Dashboard widgets (rendered on /smallstack/):
     DashboardWidget (base)
 """
 
+from __future__ import annotations
+
+from typing import Any
+
+from django.http import HttpRequest
 
 # ---------------------------------------------------------------------------
 # Shared helpers
 # ---------------------------------------------------------------------------
 
 
-def paginate_queryset(queryset, paginate_by, request):
+def paginate_queryset(queryset: Any, paginate_by: int | None, request: HttpRequest) -> dict[str, Any]:
     """Paginate a queryset and return context dict for templates.
 
     Returns a dict with object_list, page_obj, paginator, is_paginated,
@@ -32,34 +37,21 @@ def paginate_queryset(queryset, paginate_by, request):
     if not paginate_by:
         return {"object_list": queryset}
 
-    from django.core.paginator import Paginator
+    # Delegate to the canonical helper so the four display attributes are
+    # attached in exactly one place (see pagination.attach_display_helpers).
+    from .pagination import paginate_queryset as _paginate_page
 
-    paginator = Paginator(queryset, paginate_by)
-    page_number = request.GET.get("page", 1)
-    page_obj = paginator.get_page(page_number)
-
-    # SmallStack pagination display helpers — keep parity with the
-    # other two pagination call sites (crud.py legacy path,
-    # pagination.paginate_queryset) so every list-render gets the same
-    # four attributes. list-cast the elided range so it's re-iterable
-    # (Paginator.get_elided_page_range returns a one-shot generator).
-    page_obj.showing_start = page_obj.start_index()
-    page_obj.showing_end = page_obj.end_index()
-    page_obj.total_count = paginator.count
-    page_obj.page_range_display = list(
-        paginator.get_elided_page_range(page_obj.number, on_each_side=2, on_ends=1)
-    )
-
+    page_obj = _paginate_page(queryset, request, page_size=paginate_by)
     return {
         "object_list": page_obj.object_list,
         "page_obj": page_obj,
-        "paginator": paginator,
+        "paginator": page_obj.paginator,
         "is_paginated": page_obj.has_other_pages(),
         "paginate_by": paginate_by,
     }
 
 
-def build_palette_context(displays, active_display, request):
+def build_palette_context(displays: list[Any], active_display: Any, request: HttpRequest) -> dict[str, Any]:
     """Build structured palette context used by all action types.
 
     Returns a dict with:
@@ -108,7 +100,7 @@ class ListDisplay:
     template_name = ""
     supports_bulk: bool = True
 
-    def get_context(self, queryset, crud_config, request):
+    def get_context(self, queryset: Any, crud_config: Any, request: HttpRequest) -> dict[str, Any]:
         """Return additional template context for rendering this display."""
         return {}
 
@@ -123,7 +115,7 @@ class DetailDisplay:
     icon = ""
     template_name = ""
 
-    def get_context(self, obj, crud_config, request):
+    def get_context(self, obj: Any, crud_config: Any, request: HttpRequest) -> dict[str, Any]:
         """Return additional template context for rendering this display."""
         return {}
 
@@ -152,7 +144,7 @@ class DetailFormDisplay(DetailDisplay):
     )
     template_name = "smallstack/crud/displays/detail_form.html"
 
-    def get_context(self, obj, crud_config, request):
+    def get_context(self, obj: Any, crud_config: Any, request: HttpRequest) -> dict[str, Any]:
         from apps.smallstack.templatetags.crud_tags import _get_field_label, _get_field_value
 
         detail_fields = crud_config._get_detail_fields() or []
@@ -185,7 +177,7 @@ class DetailGridDisplay(DetailDisplay):
     )
     template_name = "smallstack/crud/displays/detail_grid.html"
 
-    def get_context(self, obj, crud_config, request):
+    def get_context(self, obj: Any, crud_config: Any, request: HttpRequest) -> dict[str, Any]:
         from apps.smallstack.templatetags.crud_tags import _get_field_label, _get_field_value
 
         detail_fields = crud_config._get_detail_fields() or []
@@ -228,10 +220,10 @@ class DetailCardDisplay(DetailDisplay):
     )
     template_name = "smallstack/crud/displays/detail_card.html"
 
-    def __init__(self, image_field=None):
+    def __init__(self, image_field: str | None = None) -> None:
         self.image_field = image_field
 
-    def get_context(self, obj, crud_config, request):
+    def get_context(self, obj: Any, crud_config: Any, request: HttpRequest) -> dict[str, Any]:
         """Build field rows and resolve image URL."""
         from apps.smallstack.templatetags.crud_tags import _get_field_label, _get_field_value
 
@@ -274,12 +266,12 @@ class TableDisplay(ListDisplay):
     )
     template_name = "smallstack/crud/displays/table.html"
 
-    def get_context(self, queryset, crud_config, request):
+    def get_context(self, queryset: Any, crud_config: Any, request: HttpRequest) -> dict[str, Any]:
         """Paginate the queryset for the basic table display."""
         return paginate_queryset(queryset, crud_config._resolve_paginate_by(), request)
 
 
-def _resolve_field(obj, path):
+def _resolve_field(obj: Any, path: Any) -> Any:
     """Resolve a field reference: callable, dotted path ('user.username'), or attr name.
 
     Returns None if any segment is missing.
@@ -296,7 +288,7 @@ def _resolve_field(obj, path):
     return value
 
 
-def _resolve_image_url(obj, path):
+def _resolve_image_url(obj: Any, path: str) -> str | None:
     """Resolve an ImageField-style reference to its .url (or None)."""
     image = _resolve_field(obj, path)
     if not image:
@@ -307,7 +299,7 @@ def _resolve_image_url(obj, path):
         return None
 
 
-def _derive_initials(text, n=2):
+def _derive_initials(text: str, n: int = 2) -> str:
     """Derive up-to-N-letter initials from a string (e.g. 'Jane Doe' -> 'JD')."""
     if not text:
         return "?"
@@ -363,7 +355,7 @@ class CardDisplay(ListDisplay):
     template_name = "smallstack/crud/displays/cards.html"
     item_template = "smallstack/crud/displays/cards/keyvalue.html"
 
-    def get_context(self, queryset, crud_config, request):
+    def get_context(self, queryset: Any, crud_config: Any, request: HttpRequest) -> dict[str, Any]:
         """Orchestrate pagination, per-card URLs, and item-template dispatch."""
         from apps.smallstack.crud import Action
 
@@ -389,7 +381,7 @@ class CardDisplay(ListDisplay):
             **page_context,
         }
 
-    def build_card(self, obj, crud_config, request):
+    def build_card(self, obj: Any, crud_config: Any, request: HttpRequest) -> dict[str, Any]:
         """Build the per-card dict. Default: key-value layout using list_fields.
 
         Returns a dict with {"title": ..., "rows": [{"label", "value"}, ...]}.
@@ -412,7 +404,7 @@ class CardDisplay(ListDisplay):
         return {"title": title, "rows": rows}
 
     @staticmethod
-    def _resolve_detail_url(obj, crud_config):
+    def _resolve_detail_url(obj: Any, crud_config: Any) -> str | None:
         from django.urls import reverse
 
         url_base = crud_config._get_url_base()
@@ -449,13 +441,13 @@ class AvatarCardDisplay(CardDisplay):
 
     def __init__(
         self,
-        title_field=None,
-        subtitle_field=None,
-        image_field=None,
-        pill_field=None,
-        pill_label=None,
-        show_avatar=None,
-    ):
+        title_field: str | None = None,
+        subtitle_field: str | None = None,
+        image_field: str | None = None,
+        pill_field: str | None = None,
+        pill_label: str | None = None,
+        show_avatar: bool | None = None,
+    ) -> None:
         self.title_field = title_field
         self.subtitle_field = subtitle_field
         self.image_field = image_field
@@ -466,7 +458,7 @@ class AvatarCardDisplay(CardDisplay):
         # without a photo (e.g. User).
         self.show_avatar = show_avatar if show_avatar is not None else (image_field is not None)
 
-    def build_card(self, obj, crud_config, request):
+    def build_card(self, obj: Any, crud_config: Any, request: HttpRequest) -> dict[str, Any]:
         title_field = self.title_field or (crud_config._get_list_fields() or ["__str__"])[0]
         title = _resolve_field(obj, title_field) or str(obj)
         subtitle = _resolve_field(obj, self.subtitle_field) if self.subtitle_field else None
@@ -529,13 +521,13 @@ class CalendarDisplay(ListDisplay):
 
     def __init__(
         self,
-        date_field,
-        end_field=None,
-        title_field=None,
-        status_field=None,
-        variant="chip",
-        month_param="month",
-    ):
+        date_field: str,
+        end_field: str | None = None,
+        title_field: str | None = None,
+        status_field: str | None = None,
+        variant: str = "chip",
+        month_param: str = "month",
+    ) -> None:
         self.date_field = date_field
         self.end_field = end_field
         self.title_field = title_field
@@ -543,7 +535,7 @@ class CalendarDisplay(ListDisplay):
         self.variant = variant
         self.month_param = month_param
 
-    def get_context(self, queryset, crud_config, request):
+    def get_context(self, queryset: Any, crud_config: Any, request: HttpRequest) -> dict[str, Any]:
         import calendar as pycal
         from datetime import date as date_cls
         from datetime import timedelta
@@ -661,7 +653,7 @@ class CalendarDisplay(ListDisplay):
         }
 
 
-def _to_local_date(value):
+def _to_local_date(value: Any) -> Any:
     """Coerce a date/datetime/None into a local date."""
     if value is None:
         return None
@@ -693,11 +685,11 @@ class ListAccessory:
 
     template_name = ""
 
-    def get_context(self, queryset, crud_config, request):
+    def get_context(self, queryset: Any, crud_config: Any, request: HttpRequest) -> dict[str, Any]:
         """Return template context. queryset is the UNFILTERED full set."""
         return {}
 
-    def render(self, queryset, crud_config, request):
+    def render(self, queryset: Any, crud_config: Any, request: HttpRequest) -> str:
         """Render this accessory to an HTML string."""
         from django.template.loader import render_to_string
 
@@ -725,10 +717,10 @@ class StatsAccessory(ListAccessory):
 
     template_name = "smallstack/crud/accessories/stats.html"
 
-    def __init__(self, stats):
+    def __init__(self, stats: Any) -> None:
         self.stats = stats
 
-    def get_context(self, queryset, crud_config, request):
+    def get_context(self, queryset: Any, crud_config: Any, request: HttpRequest) -> dict[str, Any]:
         items = []
         for spec in self.stats:
             value = spec["value"]
@@ -762,7 +754,7 @@ class FormDisplay:
     template_name = ""
     show_palette = True
 
-    def get_context(self, form, obj, crud_config, request):
+    def get_context(self, form: Any, obj: Any, crud_config: Any, request: HttpRequest) -> dict[str, Any]:
         """Return additional template context for rendering this form display.
 
         Args:
@@ -809,7 +801,7 @@ class SectionedFormDisplay(FormDisplay):
     )
     template_name = "smallstack/crud/displays/form_sectioned.html"
 
-    def __init__(self, sections, columns=2):
+    def __init__(self, sections: Any, columns: int = 2) -> None:
         """
         Args:
             sections: list of (title, icon_html_or_None, [field_names])
@@ -818,7 +810,7 @@ class SectionedFormDisplay(FormDisplay):
         self.sections = sections
         self.columns = columns
 
-    def get_context(self, form, obj, crud_config, request):
+    def get_context(self, form: Any, obj: Any, crud_config: Any, request: HttpRequest) -> dict[str, Any]:
         sections = []
         for title, icon, field_names in self.sections:
             fields = [form[name] for name in field_names if name in form.fields]
@@ -869,7 +861,7 @@ class DashboardWidget:
     group: str | None = None
     on_dashboard: bool = True
 
-    def get_data(self, model_class=None) -> dict:
+    def get_data(self, model_class: type | None = None) -> dict:
         """Return widget data. Shape depends on widget_type.
 
         For widget_type="card", the template reads:
@@ -902,7 +894,7 @@ class DashboardWidget:
         """
         raise NotImplementedError
 
-    def get_api_extras(self, model_class=None) -> dict | None:
+    def get_api_extras(self, model_class: type | None = None) -> dict | None:
         """Return additional API-only data, merged into the serialized
         widget's "data" field. Called only when serializing for the API,
         not when rendering HTML.

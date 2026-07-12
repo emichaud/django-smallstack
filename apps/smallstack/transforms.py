@@ -135,13 +135,61 @@ def _render_json_preview(text: str) -> SafeString | str:
     return mark_safe(html)
 
 
-def _render_markdown_preview(text: str) -> SafeString:
-    """Render markdown to HTML, without TOC permalinks."""
-    import markdown as md_lib
+# URL schemes allowed in rendered-markdown links/images. Anything else
+# (``javascript:``, ``data:``, ``vbscript:`` …) is a stored-XSS vector.
+_ALLOWED_URL_SCHEMES = {"http", "https", "mailto", "ftp", "tel"}
+_URL_SCHEME_RE = re.compile(r"^([a-z][a-z0-9+.\-]*):", re.IGNORECASE)
 
-    renderer = md_lib.Markdown(
-        extensions=["fenced_code", "tables", "attr_list", "md_in_html"],
-    )
+
+def _is_safe_url(url: str) -> bool:
+    """Whether ``url`` is safe to keep as an ``href``/``src``.
+
+    False only when it carries a scheme outside the allowlist. Whitespace and NULs
+    are stripped before the scheme check because browsers ignore them inside a URL
+    (``java\\tscript:`` still fires). Relative URLs and fragments (no scheme) are safe.
+    """
+    if not url:
+        return True
+    cleaned = re.sub(r"[\s\x00]+", "", url)
+    match = _URL_SCHEME_RE.match(cleaned)
+    return True if not match else match.group(1).lower() in _ALLOWED_URL_SCHEMES
+
+
+def _render_markdown_preview(text: str) -> SafeString:
+    """Render markdown to HTML for the field-preview modal.
+
+    Security: ``text`` is arbitrary — often user-supplied — field content, so this
+    must not become a stored-XSS vector. Three defenses:
+
+    1. **Raw HTML** — the ``html_block`` preprocessor and ``html`` inline pattern are
+       deregistered, so raw ``<script>`` / ``<img onerror>`` render as escaped *text*.
+       (Python-Markdown removed ``safe_mode``; this is the version-independent
+       equivalent, and unlike pre-escaping the input it keeps fenced code blocks
+       correctly *single*-escaped.)
+    2. **Dangerous URL schemes** — a tree processor blanks ``href``/``src`` values that
+       use ``javascript:`` / ``data:`` / etc., which markdown link syntax can still emit.
+    3. **Restricted extensions** — only ``fenced_code`` + ``tables`` (structural,
+       output-only). ``md_in_html`` (raw HTML) and ``attr_list`` (attribute/event-handler
+       injection) are deliberately absent.
+
+    Rich *untrusted* markdown beyond this belongs behind a dedicated sanitizer (e.g. nh3).
+    """
+    import markdown as md_lib
+    from markdown.treeprocessors import Treeprocessor
+
+    class _SafeUrlTreeprocessor(Treeprocessor):
+        def run(self, root):
+            for el in root.iter():
+                if el.tag == "a" and "href" in el.attrib and not _is_safe_url(el.attrib["href"]):
+                    el.set("href", "#")
+                elif el.tag == "img" and "src" in el.attrib and not _is_safe_url(el.attrib["src"]):
+                    el.set("src", "")
+            return root
+
+    renderer = md_lib.Markdown(extensions=["fenced_code", "tables"])
+    renderer.preprocessors.deregister("html_block", strict=False)
+    renderer.inlinePatterns.deregister("html", strict=False)
+    renderer.treeprocessors.register(_SafeUrlTreeprocessor(renderer), "safe_urls", 5)
     return mark_safe(renderer.convert(text))
 
 

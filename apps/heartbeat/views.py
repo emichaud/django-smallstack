@@ -12,7 +12,7 @@ from django.views.decorators.http import require_POST
 from django.views.generic import TemplateView
 
 from apps.smallstack.crud import Action, CRUDView
-from apps.smallstack.mixins import StaffRequiredMixin
+from apps.smallstack.mixins import StaffRequiredMixin, staff_required
 from apps.smallstack.monitors import Monitor
 from apps.smallstack.stat_lists import render_stat_list, stat_list_row
 
@@ -100,6 +100,7 @@ def _verify_partial(ok: bool, message: str) -> HttpResponse:
 
 
 @require_POST
+@staff_required
 def verify_smallstack(request: HttpRequest) -> HttpResponse:
     """Staff-only htmx probe: does ``<url>/health/`` look like a live SmallStack site?
 
@@ -112,11 +113,6 @@ def verify_smallstack(request: HttpRequest) -> HttpResponse:
     import urllib.error
     import urllib.request
     from urllib.parse import urlparse
-
-    if not request.user.is_staff:
-        from django.http import HttpResponseForbidden
-
-        return HttpResponseForbidden()
 
     raw = (request.POST.get("url") or "").strip().rstrip("/")
     if not raw or urlparse(raw).scheme not in ("http", "https"):
@@ -320,6 +316,7 @@ class PublicMaintenanceCalendarView(PublicStatusGateMixin, TemplateView):
         return ctx
 
 
+@staff_required
 def reset_epoch(request: HttpRequest) -> HttpResponse:
     """Staff-only POST endpoint to reset a monitor's monitoring epoch (SLA baseline).
 
@@ -327,11 +324,6 @@ def reset_epoch(request: HttpRequest) -> HttpResponse:
     form), defaulting to ``"site"`` — so the per-monitor SLA editor writes that
     monitor's epoch and leaves the others untouched.
     """
-
-    if not request.user.is_staff:
-        from django.http import HttpResponseForbidden
-
-        return HttpResponseForbidden()
     monitor_key, _ = _resolve_status_monitor(request.POST.get("monitor", "site"))
     if request.method == "POST":
         from .forms import SLAForm
@@ -646,13 +638,9 @@ class HeartbeatDashboardView(StaffRequiredMixin, TemplateView):
         return TemplateResponse(request, self.template_name, context)
 
 
+@staff_required
 def heartbeat_incidents(request: HttpRequest) -> HttpResponse:
     """htmx drill-down for the dashboard "Current Status" card: recent failures."""
-    if not request.user.is_staff:
-        from django.http import HttpResponseForbidden
-
-        return HttpResponseForbidden("Staff access required.")
-
     fails = Heartbeat.objects.filter(monitor_key="site", status="fail").order_by("-timestamp")[:50]
     rows = [
         stat_list_row(
@@ -665,15 +653,10 @@ def heartbeat_incidents(request: HttpRequest) -> HttpResponse:
     return render_stat_list(rows, empty="No failures recorded — all clear.")
 
 
+@staff_required
 def maintenance_create(request: HttpRequest) -> HttpResponse | TemplateResponse:
     """Staff-only view to create a maintenance window."""
-
     from .forms import MaintenanceWindowForm
-
-    if not request.user.is_staff:
-        from django.http import HttpResponseForbidden
-
-        return HttpResponseForbidden()
 
     monitor_key, monitor = _resolve_status_monitor(request.GET.get("monitor") or request.POST.get("monitor") or "site")
 
@@ -704,16 +687,12 @@ def maintenance_create(request: HttpRequest) -> HttpResponse | TemplateResponse:
     )
 
 
+@staff_required
 def maintenance_edit(request: HttpRequest, pk: int) -> HttpResponse | TemplateResponse:
     """Staff-only view to edit a maintenance window."""
     from django.shortcuts import get_object_or_404
 
     from .forms import MaintenanceWindowForm
-
-    if not request.user.is_staff:
-        from django.http import HttpResponseForbidden
-
-        return HttpResponseForbidden()
 
     window = get_object_or_404(MaintenanceWindow, pk=pk)
 
@@ -751,14 +730,11 @@ def maintenance_edit(request: HttpRequest, pk: int) -> HttpResponse | TemplateRe
     )
 
 
+@staff_required
 def maintenance_delete(request: HttpRequest, pk: int) -> HttpResponse:
     """Staff-only POST endpoint to delete a maintenance window."""
     from django.shortcuts import get_object_or_404, redirect
 
-    if not request.user.is_staff:
-        from django.http import HttpResponseForbidden
-
-        return HttpResponseForbidden()
 
     if request.method == "POST":
         window = get_object_or_404(MaintenanceWindow, pk=pk)

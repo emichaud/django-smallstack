@@ -9,11 +9,11 @@ from django.contrib.auth import get_user_model
 from django.urls import reverse
 from django.utils.timezone import activate, deactivate, localdate, now
 
-from . import status as status_mod
-from .forms import SLAForm
-from .models import Heartbeat, HeartbeatEpoch, MonitoredEndpoint
-from .services import run_all_monitors, run_monitor_check
-from .status import _calc_overall_uptime, _calc_uptime, _sla_color
+from apps.heartbeat import status as status_mod
+from apps.heartbeat.forms import SLAForm
+from apps.heartbeat.models import Heartbeat, HeartbeatEpoch, MonitoredEndpoint
+from apps.heartbeat.services import run_all_monitors, run_monitor_check
+from apps.heartbeat.status import _calc_overall_uptime, _calc_uptime, _sla_color
 
 User = get_user_model()
 
@@ -513,16 +513,15 @@ class TestMonitoredEndpoint:
     def test_source_yields_enabled_only(self, db):
         MonitoredEndpoint.objects.create(name="On", slug="on", url="https://e.com/", enabled=True)
         MonitoredEndpoint.objects.create(name="Off", slug="off", url="https://e.com/", enabled=False)
-        from .monitors import endpoint_monitor_source
+        from apps.heartbeat.monitors import endpoint_monitor_source
 
         keys = [m.key for m in endpoint_monitor_source()]
         assert "ep_on" in keys
         assert "ep_off" not in keys
 
     def test_endpoint_monitor_passes_row_fields_to_check(self, db, monkeypatch):
+        from apps.heartbeat import monitors as mon
         from apps.smallstack.monitors import CheckResult
-
-        from . import monitors as mon
 
         captured: dict = {}
 
@@ -565,7 +564,7 @@ class TestStatusMonitorViews:
         assert "Last Hour" not in body  # the old per-minute panel is gone
 
     def test_stacked_timelines_helper_is_monitor_scoped(self, db):
-        from .status import build_stacked_timelines
+        from apps.heartbeat.status import build_stacked_timelines
 
         rows = build_stacked_timelines("ep_anything")
         assert [r["window"] for r in rows] == ["Last 24 hours", "Last 7 days", "Last 90 days"]
@@ -681,8 +680,8 @@ class TestRetentionAwareUptime:
     def test_overall_folds_pruned_daily_summaries(self, db):
         import datetime
 
-        from .models import HeartbeatDaily
-        from .status import _calc_overall_uptime, _calc_uptime
+        from apps.heartbeat.models import HeartbeatDaily
+        from apps.heartbeat.status import _calc_overall_uptime, _calc_uptime
 
         # Epoch 25 days ago; only ~2h of recent raw beats survive retention.
         HeartbeatEpoch.objects.create(started_at=now() - timedelta(days=25))
@@ -905,7 +904,7 @@ class TestEndpointWizardForm:
     """The polished Add-monitor form: SmallStack shortcut + custom mode + auto-slug."""
 
     def _form(self, **overrides):
-        from .forms import MonitoredEndpointForm
+        from apps.heartbeat.forms import MonitoredEndpointForm
 
         data = {
             "mode": "smallstack",
@@ -1109,7 +1108,7 @@ class TestEndpointFormAndJson:
     def test_endpoint_form_has_no_tier_field(self, db):
         # The Tier/service picker was removed — user endpoints default to the model's
         # "custom" (External Monitors) tier; the field is no longer on the form.
-        from .forms import MonitoredEndpointForm
+        from apps.heartbeat.forms import MonitoredEndpointForm
 
         assert "service" not in MonitoredEndpointForm().fields
 
@@ -1246,7 +1245,7 @@ class TestServiceDropdownDefault:
     """User endpoints default to the 'custom' (External Monitors) tier."""
 
     def test_service_defaults_to_custom_on_model(self, db):
-        from .models import MonitoredEndpoint
+        from apps.heartbeat.models import MonitoredEndpoint
 
         assert MonitoredEndpoint._meta.get_field("service").default == "custom"
 
@@ -1459,28 +1458,28 @@ class TestSiteMonitors:
     """The Site Monitors tier: pick an exposed surface, orphan handling, override checks."""
 
     def _surface(self, kind="mcp", target="demo_tool", label="Demo Tool"):
-        from .surfaces import Surface
+        from apps.heartbeat.surfaces import Surface
 
         return Surface(kind=kind, target=target, label=label, meta="a demo")
 
     def test_monitor_key_format(self):
-        from .models import MonitoredSurface
+        from apps.heartbeat.models import MonitoredSurface
 
         assert MonitoredSurface(slug="search-all").monitor_key == "sm_search-all"
 
     def test_unique_per_target(self, db):
         from django.db import IntegrityError
 
-        from .models import MonitoredSurface
+        from apps.heartbeat.models import MonitoredSurface
 
         MonitoredSurface.objects.create(kind="mcp", target="t1", name="A", slug="a")
         with pytest.raises(IntegrityError):
             MonitoredSurface.objects.create(kind="mcp", target="t1", name="B", slug="b")
 
     def test_source_tags_orphan_and_presence_check(self, db, monkeypatch):
-        from . import surfaces
-        from .models import MonitoredSurface
-        from .monitors import surface_monitor_source
+        from apps.heartbeat import surfaces
+        from apps.heartbeat.models import MonitoredSurface
+        from apps.heartbeat.monitors import surface_monitor_source
 
         monkeypatch.setattr(surfaces, "exposed_keys", lambda: {("mcp", "live_tool")})
         monkeypatch.setattr(surfaces, "is_surface_exposed", lambda k, t: (k, t) == ("mcp", "live_tool"))
@@ -1495,12 +1494,11 @@ class TestSiteMonitors:
         assert mons["sm_gone"].check().ok is False
 
     def test_override_check_runs_when_registered(self, db, monkeypatch):
+        from apps.heartbeat import surfaces
+        from apps.heartbeat.models import MonitoredSurface
+        from apps.heartbeat.monitors import surface_monitor_source
         from apps.smallstack import monitors as M
         from apps.smallstack.monitors import CheckResult
-
-        from . import surfaces
-        from .models import MonitoredSurface
-        from .monitors import surface_monitor_source
 
         monkeypatch.setattr(surfaces, "exposed_keys", lambda: {("mcp", "deep")})
         monkeypatch.setattr(M, "_surface_checks", {("mcp", "deep"): lambda: CheckResult.down("tool broken")})
@@ -1511,9 +1509,9 @@ class TestSiteMonitors:
         assert result.note == "tool broken"
 
     def test_runner_skips_orphans(self, db, monkeypatch):
-        from . import surfaces
-        from .models import Heartbeat, MonitoredSurface
-        from .services import run_all_monitors
+        from apps.heartbeat import surfaces
+        from apps.heartbeat.models import Heartbeat, MonitoredSurface
+        from apps.heartbeat.services import run_all_monitors
 
         monkeypatch.setattr(surfaces, "exposed_keys", lambda: set())  # everything orphaned
         monkeypatch.setattr(surfaces, "is_surface_exposed", lambda k, t: False)
@@ -1524,8 +1522,7 @@ class TestSiteMonitors:
 
     def test_form_only_offers_exposed_surfaces(self, db, monkeypatch):
         import apps.heartbeat.surfaces as surfaces_mod
-
-        from .forms import MonitoredSurfaceForm
+        from apps.heartbeat.forms import MonitoredSurfaceForm
 
         monkeypatch.setattr(surfaces_mod, "get_exposed_surfaces", lambda: [self._surface()])
         form = MonitoredSurfaceForm()
@@ -1534,8 +1531,7 @@ class TestSiteMonitors:
 
     def test_form_creates_with_derived_fields(self, db, monkeypatch):
         import apps.heartbeat.surfaces as surfaces_mod
-
-        from .forms import MonitoredSurfaceForm
+        from apps.heartbeat.forms import MonitoredSurfaceForm
 
         s = self._surface()
         monkeypatch.setattr(surfaces_mod, "get_exposed_surfaces", lambda: [s])
@@ -1549,8 +1545,7 @@ class TestSiteMonitors:
 
     def test_create_and_delete_via_crud(self, staff_client, db, monkeypatch):
         import apps.heartbeat.surfaces as surfaces_mod
-
-        from .models import MonitoredSurface
+        from apps.heartbeat.models import MonitoredSurface
 
         s = self._surface()
         monkeypatch.setattr(surfaces_mod, "get_exposed_surfaces", lambda: [s])
@@ -1566,8 +1561,8 @@ class TestSiteMonitors:
         assert not MonitoredSurface.objects.filter(pk=obj.pk).exists()
 
     def test_orphan_renders_muted_with_remove(self, staff_client, db, monkeypatch):
-        from . import surfaces
-        from .models import MonitoredSurface
+        from apps.heartbeat import surfaces
+        from apps.heartbeat.models import MonitoredSurface
 
         monkeypatch.setattr(surfaces, "exposed_keys", lambda: set())
         MonitoredSurface.objects.create(kind="mcp", target="gone", name="Ghost Tool", slug="ghost")
@@ -1770,8 +1765,8 @@ class TestStatusBackLinks:
         assert "Monitored endpoints" in body
 
     def test_surface_monitor_links_back_to_site_monitors(self, staff_client, db, monkeypatch):
-        from . import surfaces
-        from .models import MonitoredSurface
+        from apps.heartbeat import surfaces
+        from apps.heartbeat.models import MonitoredSurface
 
         monkeypatch.setattr(surfaces, "exposed_keys", lambda: {("mcp", "search_all")})
         MonitoredSurface.objects.create(kind="mcp", target="search_all", name="Search", slug="search-x")

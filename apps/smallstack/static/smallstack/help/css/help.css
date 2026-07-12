@@ -74,7 +74,8 @@
     border-bottom: none;
 }
 
-.search-result-item:hover {
+.search-result-item:hover,
+.search-result-item.active {
     background-color: var(--sidebar-hover-bg);
     text-decoration: none;
 }

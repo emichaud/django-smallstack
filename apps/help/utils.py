@@ -505,6 +505,22 @@ def build_search_index() -> list:
                         "section": page.get("section", ""),
                         "title": page["title"],
                         "text": text[:2000],
+                        # Resolve the canonical URL server-side so client-side
+                        # search never has to guess the app's mount prefix
+                        # (the app lives under /smallstack/help/, not /help/).
+                        "url": _resolve_help_url(page["slug"], page.get("section", "")),
                     }
                 )
     return index
+
+
+def _resolve_help_url(slug: str, section: str) -> str:
+    """Reverse the public URL for a help page (section-aware)."""
+    from django.urls import NoReverseMatch, reverse
+
+    try:
+        if section:
+            return reverse("help:section_detail", kwargs={"section": section, "slug": slug})
+        return reverse("help:detail", kwargs={"slug": slug})
+    except NoReverseMatch:
+        return ""

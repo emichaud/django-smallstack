@@ -8,9 +8,18 @@ Infrastructure settings (INSTALLED_APPS, MIDDLEWARE, DATABASES, etc.)
 remain in base.py.
 """
 
+from importlib.metadata import PackageNotFoundError
+from importlib.metadata import version as _pkg_version
 from pathlib import Path
 
 from decouple import config
+
+try:
+    # Single source of truth: the installed distribution's version (pyproject.toml).
+    _PACKAGE_VERSION = _pkg_version("django-smallstack")
+except PackageNotFoundError:
+    # Running from source without an installed distribution — keep in sync with pyproject.toml.
+    _PACKAGE_VERSION = "0.12.3"
 
 # Needed by BACKUP_DIR below. Same calculation as base.py — duplicated
 # here to avoid circular imports (this file is imported INTO base.py).
@@ -176,8 +185,9 @@ SMALLSTACK_MCP_ENABLED = config("SMALLSTACK_MCP_ENABLED", default=True, cast=boo
 # Server name advertised on `initialize` and the friendly GET banner.
 MCP_SERVER_NAME = config("MCP_SERVER_NAME", default=BRAND_NAME.lower().replace(" ", "-"))
 
-# Version string advertised on `initialize`.
-MCP_SERVER_VERSION = config("MCP_SERVER_VERSION", default="1.0.0")
+# Version string advertised on `initialize`. Defaults to the package version so
+# MCP clients see the real release, not a hardcoded number.
+MCP_SERVER_VERSION = config("MCP_SERVER_VERSION", default=_PACKAGE_VERSION)
 
 # Base template the OAuth consent page extends. Derived projects with a
 # different theme override this in their own smallstack.py.

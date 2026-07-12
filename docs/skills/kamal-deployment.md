@@ -11,7 +11,7 @@ Kamal is an optional deployment utility included with SmallStack. It deploys Doc
 - **VPS with SSH access** — Any provider (Digital Ocean, Linode, Hetzner, etc.) running Ubuntu 22.04+ or Debian 12+
 - **SSH key authentication** — Root or sudo access to the VPS
 - **Docker Desktop** — Must be running locally during deployments (builds images and transfers via SSH)
-- **Kamal installed locally** — `brew install kamal` or `gem install kamal`
+- **Kamal installed locally** — `brew install kamal` or `gem install kamal`. **Kamal 2.x** (verified against 2.10–2.12). Kamal **2.11+ requires kamal-proxy v0.9.2+**; the proxy upgrades on your next `kamal deploy` / `kamal proxy reboot`. See [Keeping Kamal updated](#keeping-kamal-updated).
 - **Domain name** (optional but recommended) — Required for HTTPS. When configured, Kamal provides free, automatic SSL certificates via Let's Encrypt with seamless renewal.
 
 Without a domain name, the app is accessible via the VPS IP address over HTTP only.
@@ -24,7 +24,10 @@ smallstack/
 │   └── deploy.yml           # Main Kamal deployment configuration
 ├── .kamal/
 │   ├── secrets              # Environment secrets (gitignored)
-│   └── secrets.example      # Template for secrets file
+│   ├── secrets.example      # Template for secrets file
+│   └── hooks/               # Deploy lifecycle hooks (run locally during deploy)
+│       ├── pre-deploy       # Fix volume perms; optionally open a maintenance window
+│       └── post-deploy      # Optionally close the maintenance window
 ├── Dockerfile               # Production container build
 ├── docker-entrypoint.sh     # Container startup script
 ├── gunicorn.conf            # Gunicorn production settings
@@ -127,6 +130,10 @@ kamal app exec "python manage.py migrate"
 kamal app exec "python manage.py createsuperuser"
 kamal app exec "python manage.py shell"
 
+# Open/close a maintenance window manually (SLA-excluded planned downtime)
+kamal app exec "python manage.py maintenance open --minutes 15 --title 'Manual maintenance'"
+kamal app exec "python manage.py maintenance close"
+
 # Release a stuck deploy lock
 kamal lock release
 ```
@@ -137,12 +144,42 @@ When `make deploy` (or `kamal deploy`) runs:
 
 1. Docker image is built locally using Docker Desktop
 2. Image transfers to VPS via SSH tunnel (no external registry needed)
-3. New container starts alongside the old one
-4. Kamal waits for `/health/` endpoint to return 200
-5. kamal-proxy routes traffic to new container
-6. Old container is stopped and removed
+3. **`.kamal/hooks/pre-deploy`** runs locally (fixes volume perms; optionally opens a maintenance window)
+4. New container starts alongside the old one
+5. Kamal waits for `/health/` endpoint to return 200
+6. kamal-proxy routes traffic to new container
+7. Old container is stopped and removed
+8. **`.kamal/hooks/post-deploy`** runs locally (optionally closes the maintenance window)
 
 The old container **continues serving traffic** until the new one passes health checks. If the new container fails, deployment aborts and the old container keeps running.
+
+## Deploy Hooks & Maintenance Windows
+
+Hooks live in `.kamal/hooks/` and run **locally on the deploy machine** (not in the container) at deploy lifecycle points. SmallStack ships two:
+
+- **`pre-deploy`** — always fixes volume ownership (uid 1000) on each host; *optionally* opens a maintenance window covering the swap.
+- **`post-deploy`** — *optionally* closes that window once the new container is healthy.
+
+### SLA-excluding the container swap
+
+A brief blip is normal during the swap. To stop it counting against your SLA, have the deploy wrap itself in a [maintenance window](status-monitors.md#maintenance-windows-from-the-cli) so `/status/` reads "Under maintenance" instead of "Down". **Opt in** by setting in `.kamal/secrets`:
+
+```bash
+MAINTENANCE_ON_DEPLOY=true
+MAINTENANCE_WINDOW_MINUTES=15   # optional; default 15
+```
+
+Then `pre-deploy` runs `kamal app exec --reuse "python manage.py maintenance open --minutes 15 --title 'Deploy <version>'"` and `post-deploy` runs `... maintenance close`.
+
+Key properties (why this is safe to ship enabled or disabled):
+
+- **No extra token/secret to manage** — the hook reaches the live container over the **SSH channel Kamal already authenticates**, via `kamal app exec`. (The window is written by the *old* container in pre-deploy; the SQLite DB is on a shared volume, so it persists across the swap.)
+- **Self-healing** — the window is *bounded* by `--minutes`. If a deploy aborts before `post-deploy`, the window simply expires; it never leaves the status page stuck in maintenance.
+- **No-op when unset** — left unconfigured, both hooks exit 0 and the deploy is unchanged. Safe default for the base template.
+
+> Caveat: `kamal app exec` invoked from inside a hook works in common setups but is environment-dependent (the hook env must carry `MAINTENANCE_ON_DEPLOY`, and behavior varies slightly by Kamal version). Dry-run it on your VPS before relying on it. Because the window is bounded, a failure here degrades safely.
+
+See [`status-monitors.md`](status-monitors.md) for the `manage.py maintenance` command itself (open/close/list, `--monitor`, `--start/--end`).
 
 ## SSL / HTTPS
 
@@ -284,7 +321,7 @@ proxy:
 | SSH connection failed | Verify `ssh root@your-vps-ip` works, run `ssh-add` |
 | Docker errors during deploy | Ensure Docker Desktop is running (`docker info`) |
 | SSL not working | Verify domain DNS points to VPS IP, ports 80/443 open |
-| Health check failing | Ensure `/health/` endpoint exists and ALLOWED_HOSTS includes `*` |
+| Health check failing | Ensure the `/health/` endpoint exists and returns 200 (it answers *before* Host validation, so **no** `*` in `ALLOWED_HOSTS` is needed — see the `.kamal/secrets` note above) |
 | Missing env vars | Check `.kamal/secrets` has all required variables |
 
 ### Modifying deploy.yml
@@ -306,6 +343,30 @@ path("health/", health_check, name="health_check"),
 ```
 
 This returns a simple 200 response. Kamal uses this to verify the container is ready before routing traffic to it. Do not remove or break this endpoint.
+
+## Keeping Kamal updated
+
+Kamal is a system gem (no Gemfile pins it in this repo), so it updates independently of the app:
+
+```bash
+gem update kamal      # or: gem install kamal
+kamal version         # confirm
+gem cleanup kamal     # optional: prune old gem versions
+```
+
+Check the latest release before updating:
+
+```bash
+gem list -r -e kamal                                      # latest on RubyGems
+curl -s https://rubygems.org/api/v1/versions/kamal/latest.json
+```
+
+### Upgrade notes (2.10 → 2.12)
+
+- ⚠️ **Kamal 2.11+ requires kamal-proxy v0.9.2+.** After `gem update kamal`, your next `kamal deploy` (or `kamal proxy reboot`) rolls the proxy to a compatible version — do it during a quiet window. Convenient with `manage.py maintenance open --minutes 15`.
+- **2.11** added secret loading for the pre-connect phase and configurable hook-output verbosity (both relevant to `.kamal/hooks/`), plus `--skip-commit` fixes for pre-connect hooks.
+- **2.12** added `kamal app exec --raw` (unmodified stdout — handy if a hook parses command output), `stop_timeout`, `--lock-wait` (retry deploy-lock acquisition), `forward_agent` SSH option, and a UTF-8 deploy-lock-file fix.
+- None of these are **required** for SmallStack's deploy hooks or the maintenance-on-deploy feature — those rely on long-stable `kamal app exec` + hook mechanics.
 
 ## Multi-App VPS
 

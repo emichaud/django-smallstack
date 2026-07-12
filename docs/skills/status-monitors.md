@@ -412,6 +412,44 @@ The SLA page (`heartbeat/sla.html`) is a **tabbed card** (SLA targets / How it w
 Save bar at the card bottom) beside a half-page **Maintenance Windows** panel (compact
 table, icon Edit/Delete actions); the daily-summary table shows the last 7 days.
 
+## Maintenance windows from the CLI
+
+A `MaintenanceWindow` marks planned downtime: while one is active the status page
+reads **"Under maintenance"** (not "Down") and the SLA calculation excludes the
+span (`MaintenanceWindow.is_in_maintenance()` / `get_excluded_ranges()`). Besides
+the staff form on the SLA page, there's a management command — use it for scripts,
+AI/automation, and deploys:
+
+```bash
+# Open a 15-minute window starting now (typical for a deploy)
+uv run python manage.py maintenance open --minutes 15 --title "Deploy v1.2.3"
+
+# Explicit bounds (naive times are read in the project timezone, like the form)
+uv run python manage.py maintenance open --start "2026-07-01 02:00" --end "2026-07-01 03:00" --title "DB migration"
+
+# Scope to a non-site monitor, or record without excluding from SLA
+uv run python manage.py maintenance open --minutes 30 --monitor ep_docs-site
+uv run python manage.py maintenance open --minutes 30 --no-sla-exclude   # informational only
+
+uv run python manage.py maintenance close          # end active windows now (keeps the row)
+uv run python manage.py maintenance close --delete-future   # also drop not-yet-started windows
+uv run python manage.py maintenance list [--active] [--json]
+```
+
+The shared helpers live in `apps/heartbeat/maintenance.py`
+(`open_window` / `open_window_for` / `close_windows` / `list_windows`) — call
+those directly from other Python rather than re-implementing the model writes.
+
+### SLA-excluding a deploy (Kamal)
+
+Opt in by setting `MAINTENANCE_ON_DEPLOY=true` (and optionally
+`MAINTENANCE_WINDOW_MINUTES`) in `.kamal/secrets`. Then `.kamal/hooks/pre-deploy`
+opens a **bounded** window before the container swap and `.kamal/hooks/post-deploy`
+closes it once the new container is healthy — both via `kamal app exec`, so no
+separate token is needed (it rides the SSH channel Kamal already uses). The window
+is bounded by `--minutes`, so an aborted deploy that never reaches post-deploy
+self-heals when the window expires. Left unset, the hooks no-op.
+
 ## Trust signals (overview + board)
 
 - **Overall-health banner** — every visible monitor rolls up to one banner at the

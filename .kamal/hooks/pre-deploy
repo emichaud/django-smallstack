@@ -28,3 +28,22 @@ for HOST in $(echo "$KAMAL_HOSTS" | tr ',' ' '); do
   echo "Fixing volume permissions on $HOST..."
   ssh root@"$HOST" "for dir in $VOLUME_LIST; do mkdir -p \"\$dir\" && chown -R 1000:1000 \"\$dir\"; done"
 done
+
+# ── Optional: open a maintenance window covering the deploy ────────────────────
+# Opt-in via MAINTENANCE_ON_DEPLOY=true (see config/deploy.yml / .kamal/secrets).
+# This marks the container-swap downtime as planned so the status page reads
+# "Under maintenance" (not "Down") and the SLA calc excludes it. The old
+# container is still serving here, and the SQLite DB lives on a shared volume,
+# so the window written now persists across the swap.
+#
+# No separate token is needed: we reach the live container over the SSH channel
+# Kamal already authenticates, via `kamal app exec`. The window is BOUNDED
+# (--minutes), so if the deploy aborts and post-deploy never runs, it self-heals
+# when the window expires. post-deploy closes it on success.
+if [ "${MAINTENANCE_ON_DEPLOY}" = "true" ]; then
+  MAINT_MINUTES="${MAINTENANCE_WINDOW_MINUTES:-15}"
+  echo "Opening ${MAINT_MINUTES}m maintenance window for deploy ${KAMAL_VERSION:-}..."
+  kamal app exec --reuse \
+    "python manage.py maintenance open --minutes ${MAINT_MINUTES} --title 'Deploy ${KAMAL_VERSION:-}'" \
+    || echo "WARN: could not open maintenance window (continuing deploy)."
+fi

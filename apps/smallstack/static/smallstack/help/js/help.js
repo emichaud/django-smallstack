@@ -11,13 +11,31 @@
     // ===========================================
 
     let searchIndex = null;
+    let activeIndex = -1;   // keyboard-highlighted result in the dropdown
 
-    async function loadSearchIndex() {
+    function getResultItems(resultsContainer) {
+        return Array.from(resultsContainer.querySelectorAll('.search-result-item'));
+    }
+
+    function setActiveResult(resultsContainer, index) {
+        const items = getResultItems(resultsContainer);
+        if (items.length === 0) return;
+        // Wrap around the ends so the list feels continuous.
+        activeIndex = (index + items.length) % items.length;
+        items.forEach((item, i) => {
+            item.classList.toggle('active', i === activeIndex);
+            if (i === activeIndex) item.scrollIntoView({ block: 'nearest' });
+        });
+    }
+
+    async function loadSearchIndex(url) {
         try {
-            const response = await fetch('/help/search-index.json');
+            const response = await fetch(url);
             if (response.ok) {
                 const data = await response.json();
                 searchIndex = data.pages;
+            } else {
+                console.error('Search index request failed:', response.status, url);
             }
         } catch (error) {
             console.error('Failed to load search index:', error);
@@ -30,8 +48,18 @@
 
         if (!searchInput || !resultsContainer) return;
 
-        // Load search index
-        loadSearchIndex();
+        // The help app is mounted under a prefix (e.g. /smallstack/help/), so the
+        // index URL is provided by the template via {% url %}. Fall back to a
+        // page-relative path for safety.
+        const indexUrl = searchInput.dataset.indexUrl || 'search-index.json';
+
+        // Load search index; if the user already typed while it was loading,
+        // re-run the search once it's ready (avoids an empty first result set).
+        loadSearchIndex(indexUrl).then(() => {
+            if (searchInput.value.trim().length >= 2) {
+                performSearch(searchInput.value, resultsContainer);
+            }
+        });
 
         // Debounce search input
         let debounceTimer;
@@ -56,17 +84,44 @@
             }
         });
 
-        // Keyboard navigation
+        // Keyboard navigation: ↑/↓ to move, Enter to open, Escape to close.
         searchInput.addEventListener('keydown', (e) => {
+            const items = getResultItems(resultsContainer);
+
             if (e.key === 'Escape') {
                 resultsContainer.classList.remove('show');
                 searchInput.blur();
+                return;
+            }
+
+            if (e.key === 'ArrowDown' && items.length) {
+                e.preventDefault();
+                resultsContainer.classList.add('show');
+                setActiveResult(resultsContainer, activeIndex + 1);
+                return;
+            }
+
+            if (e.key === 'ArrowUp' && items.length) {
+                e.preventDefault();
+                setActiveResult(resultsContainer, activeIndex - 1);
+                return;
+            }
+
+            if (e.key === 'Enter') {
+                // Open the highlighted result, or the first one if none is
+                // highlighted. Prevents the (form-less) input from doing nothing.
+                if (items.length) {
+                    e.preventDefault();
+                    const target = items[activeIndex] || items[0];
+                    if (target && target.href) window.location.href = target.href;
+                }
             }
         });
     }
 
     function performSearch(query, resultsContainer) {
         query = query.toLowerCase().trim();
+        activeIndex = -1;   // reset keyboard highlight on every new query
 
         if (query.length < 2 || !searchIndex) {
             resultsContainer.innerHTML = '';
@@ -86,10 +141,11 @@
             resultsContainer.innerHTML = results.map(page => {
                 // Highlight matching text in title
                 const highlightedTitle = highlightMatch(page.title, query);
-                // Handle section paths
-                const url = page.section
+                // Prefer the server-resolved URL (mount-prefix-aware); fall back
+                // to building one for older cached indexes.
+                const url = page.url || (page.section
                     ? `/help/${page.section}/${page.slug}/`
-                    : `/help/${page.slug}/`;
+                    : `/help/${page.slug}/`);
                 return `
                     <a href="${url}" class="search-result-item">
                         <strong>${highlightedTitle}</strong>

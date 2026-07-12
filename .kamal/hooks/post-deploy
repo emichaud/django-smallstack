@@ -1,0 +1,20 @@
+#!/bin/bash
+# Post-deploy hook: close the deploy maintenance window.
+#
+# Runs after the new container is live and healthy. Pairs with the maintenance
+# window opened in pre-deploy. Opt-in via MAINTENANCE_ON_DEPLOY=true (see
+# config/deploy.yml / .kamal/secrets); a no-op otherwise, so the generic base
+# template deploys unchanged.
+#
+# We reach the (now new) container over the SSH channel Kamal already uses, via
+# `kamal app exec` — no separate token required. If this never runs (deploy
+# aborted before post-deploy), the bounded window opened in pre-deploy simply
+# expires on its own.
+
+if [ "${MAINTENANCE_ON_DEPLOY}" != "true" ]; then
+  exit 0
+fi
+
+echo "Closing deploy maintenance window..."
+kamal app exec --reuse "python manage.py maintenance close" \
+  || echo "WARN: could not close maintenance window (it will expire on its own)."

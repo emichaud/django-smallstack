@@ -16,6 +16,7 @@ Every command-line tool SmallStack provides — `manage.py` commands, Make targe
 | Smoke | `make mcp-test` / `make api-test` | HTTP smoke tests against a running server |
 | Auth | `manage.py create_api_token` | Mint a token for a user |
 | DB | `make backup` | SQLite backup with retention |
+| Search | `manage.py rebuild_search_index` / `search_doctor` | Rebuild FTS index / diagnose search |
 | Visual | `manage.py screenshot_auth` + `shot-scraper` | Authenticated browser screenshots |
 | Deploy | `make deploy` / `make logs` | Kamal deploy + tail logs |
 
@@ -172,11 +173,13 @@ uv run python manage.py prune_activity
 
 No flags — the cap is a setting (`ACTIVITY_MAX_ROWS`). For cron / deploy hooks.
 
+> *Coming soon:* schedule this with the recurring `@scheduled` primitive; until then, wire it to system cron.
+
 ### Monitoring
 
 #### `heartbeat`
 
-Run a single heartbeat check (DB connectivity + write/read) and record the result. Powers the `/status/` page and the SLA tracking. Schedule it externally (cron / systemd / Kamal) — there's no built-in scheduler.
+Run a single heartbeat check (DB connectivity + write/read) and record the result. Powers the `/status/` page and the SLA tracking. Schedule it externally (cron / systemd / Kamal) — a built-in recurring `@scheduled` primitive is **coming soon**.
 
 ```bash
 uv run python manage.py heartbeat
@@ -190,6 +193,85 @@ uv run python manage.py heartbeat --reset-epoch --reset-note "Restored from back
 | `--reset-note NOTE` | Annotate the epoch reset with a reason. Surfaces on the status page. |
 
 See [`uptime-monitoring.md`](uptime-monitoring.md) for cron setup.
+
+#### `maintenance`
+
+Open, close, or list maintenance windows — planned downtime that the status page
+shows as "Under maintenance" (not "Down") and the SLA calculation excludes. Use it
+for deploys, scripts, and AI/automation. (The staff SLA page has an equivalent form.)
+
+```bash
+uv run python manage.py maintenance open --minutes 15 --title "Deploy v1.2.3"
+uv run python manage.py maintenance open --start "2026-07-01 02:00" --end "2026-07-01 03:00" --title "DB migration"
+uv run python manage.py maintenance close                 # end active windows now (keeps the row)
+uv run python manage.py maintenance close --delete-future # also drop not-yet-started windows
+uv run python manage.py maintenance list --active --json
+```
+
+| Flag | What it does |
+|---|---|
+| `open` / `close` / `list` | Subcommand (required positional). |
+| `--minutes N` | open: window starting now, lasting N minutes (bounded → self-heals). |
+| `--start ISO --end ISO` | open: explicit bounds (naive times read in the project timezone). |
+| `--title` / `--note` | open: window title (default "Maintenance") / optional note. |
+| `--monitor KEY` | Monitor the window applies to (default `site`; e.g. `ep_<slug>`). |
+| `--no-sla-exclude` | open: record the window but DON'T exclude it from SLA. |
+| `--delete-future` | close: also delete windows that haven't started yet. |
+| `--active` | list: only windows active right now. |
+| `--json` | Machine-readable output (open/close/list). |
+
+Shared helpers: `apps/heartbeat/maintenance.py`. Wire it into deploys with
+`MAINTENANCE_ON_DEPLOY=true` in `.kamal/secrets` (see
+[`status-monitors.md`](../../../docs/skills/status-monitors.md)).
+
+### Search
+
+#### `rebuild_search_index`
+
+Rebuild the full-text search index for one or all indexed CRUDViews. Run after a bulk import, a change to searchable fields, or whenever the index drifts from the data.
+
+```bash
+uv run python manage.py rebuild_search_index                 # rebuild every indexed model
+uv run python manage.py rebuild_search_index support.Ticket  # just one model
+uv run python manage.py rebuild_search_index --all           # explicit "all"
+```
+
+| Argument | What it does |
+|---|---|
+| `target` (positional, optional) | Model label (e.g. `support.Ticket`). Omit to rebuild all. |
+| `--all` | Rebuild every indexed model. |
+
+Rows are indexed automatically on save via signals — you mainly need this for backfills and drift. For a periodic safety-net rebuild, run it on a schedule.
+
+> *Coming soon:* schedule this with the recurring `@scheduled` primitive; until then, wire it to system cron.
+
+#### `search_doctor`
+
+Diagnose the search subsystem end-to-end — backend, indexed models, `search_fields`, and MCP-tool exposure. The search-side counterpart to `api_doctor` / `mcp_doctor`.
+
+```bash
+uv run python manage.py search_doctor
+uv run python manage.py search_doctor --explain
+uv run python manage.py search_doctor --audit
+uv run python manage.py search_doctor --check-only   # CI gate
+```
+
+| Flag | What it does |
+|---|---|
+| `--json` | Machine-readable output. |
+| `--check-only` | Exit non-zero if any check FAILs (for CI). |
+| `--explain` | Dump every indexed model + its `search_fields` + the MCP tool name. |
+| `--audit` | Access audit: every indexed CRUDView grouped by `search_access` level, plus a staff/auth/anonymous audience simulation. |
+
+See [`search.md`](../../../docs/skills/search.md).
+
+#### `sync_help_index`
+
+Sync the help-article search index from the filesystem markdown (the bundled `/help/` docs), so help content is findable in search. Run it after editing help articles. No-ops on a non-SQLite database or when there are zero articles.
+
+```bash
+uv run python manage.py sync_help_index
+```
 
 ### Visual / dev tooling
 
@@ -229,6 +311,7 @@ Every target in the `Makefile`, grouped by purpose. Run `make help` (or just `ma
 | Target | What it does |
 |---|---|
 | `make run` | Start dev server on port 8005 (override: `PORT=8000 make run`) |
+| `make services` | Run the worker + heartbeat locally (`utils/dev_services.sh`); `ARGS="--interval 5 --smoke"` to pass flags |
 | `make migrate` | Apply pending migrations |
 | `make migrations` | Create new migrations after model changes |
 | `make shell` | Open `shell_plus` with auto-imports |

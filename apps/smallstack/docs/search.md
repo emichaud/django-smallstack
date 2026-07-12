@@ -389,7 +389,7 @@ uv run pytest apps/search/tests/test_security.py   # exercises all three levels
 
 ## What this doesn't do (yet)
 
-- **Vector / semantic search**: keyword only in v0.11.0. Vector embeddings (sqlite-vec / pgvector) for hybrid keyword+vector RAG ship in v0.12.0 with the same `enable_search = True` opt-in pattern plus a new `enable_vector = True` flag.
+- **Vector / semantic search**: keyword only today. Vector embeddings (sqlite-vec / pgvector) for hybrid keyword+vector RAG are **coming soon** — same `enable_search = True` opt-in pattern plus a new `enable_vector = True` flag.
 - **Faceted search in the omnibar**: filter combinators are separate from `?q=` for now. The CRUDView list pages still have their own `filter_fields` for that.
 - **Synonyms / custom stopwords / custom tokenizers**: defaults to `english`. Both FTS5 and Postgres FTS support customization; override per-view in a future release.
 - **External engines** (Meilisearch / Typesense / Algolia): documented as future SearchBackend implementations. Implement the protocol in `apps/search/backends/base.py:SearchBackend` and register.

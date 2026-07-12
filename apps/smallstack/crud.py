@@ -469,19 +469,12 @@ class _CRUDListBase(_CRUDContextMixin, ListView):
             if not getattr(display, "supports_bulk", True):
                 context["enable_bulk"] = False
         else:
-            # Legacy basic table path — pagination display helpers
+            # Legacy basic table path — attach the shared pagination helpers.
             page_obj = context.get("page_obj")
             if page_obj:
-                page_obj.showing_start = page_obj.start_index()
-                page_obj.showing_end = page_obj.end_index()
-                page_obj.total_count = page_obj.paginator.count
-                # list-cast: get_elided_page_range returns a one-shot
-                # generator, which silently empties on second iteration.
-                page_obj.page_range_display = list(
-                    page_obj.paginator.get_elided_page_range(
-                        page_obj.number, on_each_side=2, on_ends=1
-                    )
-                )
+                from .pagination import attach_display_helpers
+
+                attach_display_helpers(page_obj)
         return context
 
 

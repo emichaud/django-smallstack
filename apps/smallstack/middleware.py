@@ -105,7 +105,9 @@ class TimezoneMiddleware:
             if hasattr(request, "user") and request.user.is_authenticated:
                 user_tz = request.user.profile.get_timezone()
         except Exception:
-            pass
+            # Broad by design: never let a missing profile / bad tz break a request.
+            # Log at debug and fall back to the server timezone set above.
+            logger.debug("TimezoneMiddleware: falling back to server tz", exc_info=True)
 
         # Cache on request for template tags
         request._tz_user = user_tz

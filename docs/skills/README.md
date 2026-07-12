@@ -145,7 +145,7 @@ Multi-skill recipes for the headline use cases. Each row is "pick this combinati
 | **Add clickable metric tiles + drill-down modals** (the stat cards atop an app's own dashboard page) | `dashboard-cards.md` → `htmx-patterns.md` (for the partial-response endpoint) |
 | **Add a per-model dashboard widget** (a tile on the central `/smallstack/` dashboard that summarises your data) | `dashboard-widgets.md` → `crud-views.md` (for `get_list_queryset` if the widget should respect tenancy) |
 | **Monitor a subsystem's uptime/health** (a `Service` + `Monitor` on `/smallstack/status/`, or a new status chart) | `status-monitors.md` → `modern-dark-theme.md` (for visualization partial colors) |
-| **Recurring/scheduled job** (today: cron + management command; v0.12.0: `@scheduled` primitive) | `background-tasks.md` (read the "no recurring primitive yet" note) |
+| **Recurring/scheduled job** (today: cron + management command; **coming soon**: `@scheduled` primitive) | `background-tasks.md` (see the "Coming soon: recurring scheduling" note) |
 
 If a goal isn't covered here yet, the canonical decision tree is in `mcp/build-mcp-solution.md` for AI-touching features, or `from-zero-to-running.md` for project-shape questions.
 
