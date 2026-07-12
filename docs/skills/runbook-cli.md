@@ -38,7 +38,9 @@ from its markdown headings, not the database.
 
 **Path parsing differs by verb** (exactly like unix `ls` vs `cat`): for **listing** verbs
 (`ls`, `toc`) the path is `runbook` or `runbook/section`; for **page** verbs (`cat`, `write`,
-`rm`, `mv`, `log`, `stat`) it's `runbook/key`.
+`cp`, `rm`, `restore`, `mv`, `revert`, `log`, `stat`) it's `runbook/key`. An **earlier
+version** is addressed by appending `@<n>`: `cat ops/backup@3`. Every verb takes `--json`;
+failures exit non-zero.
 
 ## Verbs
 
@@ -46,13 +48,19 @@ from its markdown headings, not the database.
 |---|---|---|
 | `ls [runbook[/section]]` | No arg → runbooks + page counts. With a runbook → its pages. | `--all` (incl. archived), `--source`, `--doc-type`, `-q/--query`, `--json` |
 | `toc <runbook>` | Table of contents: sections → pages (sectionless grouped last). | `--all`, `--json` |
-| `cat <runbook>/<key>` | Print the page's **raw markdown** to stdout (pipe-clean). | `--uid`, `--json` (metadata + body) |
+| `find <query>` | **Ranked** full-text search across all runbooks (BM25 via the shared search engine; substring fallback if `apps.search` is absent). | `--limit`, `--json` |
+| `cat <runbook>/<key>[@N]` | Print the page's **raw markdown** to stdout (pipe-clean). `@N` / `--version N` reads an earlier version. | `--uid`, `--version`, `--json` (metadata + body) |
 | `write <runbook>/<key>` | Create **or** update a page. Body from **stdin** (default) or `-f FILE`. | `--title`, `--section`, `--mode`, `--expected-version`, `--source`, `--doc-type`, `--locked/--unlocked`, `--user`, `--bypass-lock`, `--json` |
-| `rm <runbook>/<key>` | Archive (recoverable) by default. | `--force` (hard-delete), `--uid`, `--user`, `--bypass-lock` |
-| `mv <src> [dest]` | Re-place a page. `dest` = `runbook[/section]`; `-` or omitted **detaches** it. | `--section`, `--uid`, `--user`, `--bypass-lock` |
+| `cp <src> <dest>` | Duplicate a page (`dest` = `runbook/key`); the copy gets its **own** images. Auto-creates the dest runbook. | `-f/--force` (overwrite), `--section`, `--title`, `--uid`, `--user`, `--json` |
+| `rm <runbook>/<key>` | Archive (recoverable) by default. | `--force` (hard-delete), `--uid`, `--user`, `--bypass-lock`, `--json` |
+| `restore <runbook>/<key>` | Un-archive a soft-deleted page (reverse of `rm`). | `--uid`, `--user`, `--bypass-lock`, `--json` |
+| `mv <src> [dest]` | Re-place a page. `dest` = `runbook[/section]`; `-` or omitted **detaches** it. | `--section`, `--uid`, `--user`, `--bypass-lock`, `--json` |
+| `revert <runbook>/<key> --to N` | Roll back to version `N` by snapshotting it as a **new** head (history preserved). | `--to` (required), `--uid`, `--user`, `--bypass-lock`, `--json` |
 | `log <runbook>/<key>` | Version history, newest first. | `--uid`, `--json` |
 | `stat <runbook>/<key>` | Page metadata (uid, version, source, locked, …) **without** the body. | `--uid`, `--json` |
+| `mkdir <runbook>[/section]` | Create an empty runbook (and optionally a section). Idempotent. | `--name`, `--description`, `--json` |
 | `sections <runbook>` | List sections; `--create SLUG` adds one. | `--create`, `--name`, `--order`, `--json` |
+| `publish <runbook>` / `unpublish <runbook>` | Toggle a runbook's public flag (public = any signed-in user may read; editing stays owner/staff). | `--json` |
 
 ### `write` in depth — the create-or-update workhorse
 
@@ -71,6 +79,21 @@ happens **when the page already exists**:
 - **`--expected-version N`** is an optimistic lock — errors with a non-zero exit if the head moved.
 - **Auto-creates** a missing runbook (and `--section`) `mkdir -p`-style. Pass
   `--no-create-runbook` to error instead.
+
+### Versions & recovery
+
+Every `write` (in `new_version` mode) snapshots history, and the CLI can read and roll it back:
+
+```bash
+rb log ops/backup                # list versions, newest first
+rb cat ops/backup@3              # read version 3's markdown (does not change the head)
+rb revert ops/backup --to 3      # roll back — writes v3's content as a NEW head version
+```
+
+`revert` never rewrites history; it appends a fresh version whose body equals the old one, so
+the rollback is itself auditable and reversible. Deletion is recoverable the same way: `rm`
+soft-**archives** (hidden from `ls`/search but intact), and `restore` un-archives it. Only
+`rm --force` is irreversible.
 
 ## Piping — the whole point
 

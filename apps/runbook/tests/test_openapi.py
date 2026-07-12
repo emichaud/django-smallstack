@@ -34,8 +34,8 @@ def test_rest_surface_registered_in_openapi_schema(client):
     assert "requestBody" in paths[detail]["put"]
 
     # Sibling actions are present too.
-    assert base.rstrip("/") + "/{runbook}/{key}/append/" in paths
-    assert base.rstrip("/") + "/{runbook}/{key}/move/" in paths
+    for action in ("append", "move", "archive", "unarchive", "revert", "copy"):
+        assert base.rstrip("/") + f"/{{runbook}}/{{key}}/{action}/" in paths, f"{action} missing from schema"
     assert base.rstrip("/") + "/by-uid/{uid}/" in paths
 
     # Tagged so Swagger/ReDoc group them.

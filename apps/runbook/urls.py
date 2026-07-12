@@ -64,5 +64,15 @@ urlpatterns = [
     path("api/documents/<slug:runbook>/<slug:key>/", api.api_document, name="api_document"),
     path("api/documents/<slug:runbook>/<slug:key>/append/", api.api_document_append, name="api_document_append"),
     path("api/documents/<slug:runbook>/<slug:key>/archive/", api.api_document_archive, name="api_document_archive"),
+    path("api/documents/<slug:runbook>/<slug:key>/unarchive/", api.api_document_unarchive,
+         name="api_document_unarchive"),
     path("api/documents/<slug:runbook>/<slug:key>/move/", api.api_document_move, name="api_document_move"),
+    path("api/documents/<slug:runbook>/<slug:key>/revert/", api.api_document_revert, name="api_document_revert"),
+    path("api/documents/<slug:runbook>/<slug:key>/copy/", api.api_document_copy, name="api_document_copy"),
+    # REST API — runbook containers (list/create, detail+TOC, sections, publish).
+    path("api/runbooks/", api.api_runbooks, name="api_runbooks"),
+    path("api/runbooks/<slug:slug>/", api.api_runbook_detail, name="api_runbook_detail"),
+    path("api/runbooks/<slug:slug>/sections/", api.api_runbook_sections, name="api_runbook_sections"),
+    path("api/runbooks/<slug:slug>/publish/", api.api_runbook_publish, name="api_runbook_publish"),
+    path("api/runbooks/<slug:slug>/unpublish/", api.api_runbook_unpublish, name="api_runbook_unpublish"),
 ]

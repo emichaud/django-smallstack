@@ -444,3 +444,149 @@ def test_ls_runbooks_query_count_is_constant(db, tmp_path):
         Section.objects.create(runbook=rb, slug="s", name="S")
         write_page(slug, "p", "# x", tmp_path, section="s")
     assert _query_count("ls") == few
+
+
+# -- cp -----------------------------------------------------------------------
+
+@pytest.mark.django_db
+def test_cp_duplicates_page(rb, tmp_path):
+    write_page("ops", "src", "# Source body", tmp_path)
+    out = run("cp", "ops/src", "ops/dst")
+    assert "copied ops/src → ops/dst" in out
+    assert service.get_document("ops", "dst", with_body=True).content_markdown == "# Source body"
+    # Source is untouched.
+    assert service.get_document("ops", "src", with_body=True).content_markdown == "# Source body"
+
+
+@pytest.mark.django_db
+def test_cp_refuses_to_clobber_without_force(rb, tmp_path):
+    write_page("ops", "src", "# A", tmp_path)
+    write_page("ops", "dst", "# B", tmp_path)
+    with pytest.raises(CommandError, match="already exists"):
+        run("cp", "ops/src", "ops/dst")
+
+
+@pytest.mark.django_db
+def test_cp_force_overwrites(rb, tmp_path):
+    write_page("ops", "src", "# A", tmp_path)
+    write_page("ops", "dst", "# B", tmp_path)
+    run("cp", "ops/src", "ops/dst", "--force")
+    assert service.get_document("ops", "dst", with_body=True).content_markdown == "# A"
+
+
+@pytest.mark.django_db
+def test_cp_creates_missing_destination_runbook(rb, tmp_path):
+    write_page("ops", "src", "# A", tmp_path)
+    run("cp", "ops/src", "archive/copied")
+    assert Runbook.objects.filter(slug="archive").exists()
+
+
+# -- cat @version -------------------------------------------------------------
+
+@pytest.mark.django_db
+def test_cat_reads_old_version(rb, tmp_path):
+    write_page("ops", "p", "version one", tmp_path)
+    write_page("ops", "p", "version two", tmp_path)  # new_version by default
+    assert run("cat", "ops/p").strip() == "version two"
+    assert run("cat", "ops/p@1").strip() == "version one"
+    assert run("cat", "ops/p", "--version", "1").strip() == "version one"
+
+
+@pytest.mark.django_db
+def test_cat_unknown_version_errors(rb, tmp_path):
+    write_page("ops", "p", "x", tmp_path)
+    with pytest.raises(CommandError, match="has no version 9"):
+        run("cat", "ops/p@9")
+
+
+@pytest.mark.django_db
+def test_cat_bad_version_syntax_errors(rb, tmp_path):
+    write_page("ops", "p", "x", tmp_path)
+    with pytest.raises(CommandError, match="invalid version"):
+        run("cat", "ops/p@abc")
+
+
+# -- revert -------------------------------------------------------------------
+
+@pytest.mark.django_db
+def test_revert_rolls_back_as_new_version(rb, tmp_path):
+    write_page("ops", "p", "one", tmp_path)
+    write_page("ops", "p", "two", tmp_path)
+    out = run("revert", "ops/p", "--to", "1")
+    assert "new head v3" in out
+    result = service.get_document("ops", "p", with_body=True)
+    assert result.content_markdown == "one"
+    assert result.version == 3  # history preserved, not rewritten
+
+
+@pytest.mark.django_db
+def test_revert_unknown_version_errors(rb, tmp_path):
+    write_page("ops", "p", "x", tmp_path)
+    with pytest.raises(CommandError, match="no version 5"):
+        run("revert", "ops/p", "--to", "5")
+
+
+# -- restore (un-archive) -----------------------------------------------------
+
+@pytest.mark.django_db
+def test_restore_unarchives(rb, tmp_path):
+    write_page("ops", "p", "x", tmp_path)
+    run("rm", "ops/p")
+    assert service.get_document("ops", "p").is_archived is True
+    out = run("restore", "ops/p")
+    assert "restored ops/p" in out
+    assert service.get_document("ops", "p").is_archived is False
+
+
+# -- mkdir --------------------------------------------------------------------
+
+@pytest.mark.django_db
+def test_mkdir_creates_runbook():
+    out = run("mkdir", "newbook", "--name", "New Book")
+    assert "created runbook newbook" in out
+    assert Runbook.objects.get(slug="newbook").name == "New Book"
+
+
+@pytest.mark.django_db
+def test_mkdir_creates_section_under_runbook(rb):
+    out = run("mkdir", "ops/procedures")
+    assert "section ops/procedures" in out
+    assert Section.objects.filter(runbook=rb, slug="procedures").exists()
+
+
+@pytest.mark.django_db
+def test_mkdir_is_idempotent(rb):
+    out = run("mkdir", "ops")
+    assert "exists" in out
+
+
+# -- publish / unpublish ------------------------------------------------------
+
+@pytest.mark.django_db
+def test_publish_and_unpublish(rb):
+    assert rb.is_public is False
+    run("publish", "ops")
+    rb.refresh_from_db()
+    assert rb.is_public is True
+    run("unpublish", "ops")
+    rb.refresh_from_db()
+    assert rb.is_public is False
+
+
+# -- find ---------------------------------------------------------------------
+
+@pytest.mark.django_db
+def test_find_matches_content(rb, tmp_path):
+    write_page("ops", "backup", "How to run the nightly backup window", tmp_path)
+    write_page("ops", "deploy", "Deploy the app with kamal", tmp_path)
+    out = run("find", "backup")
+    assert "ops/backup" in out
+    assert "ops/deploy" not in out
+
+
+@pytest.mark.django_db
+def test_find_json_is_a_list(rb, tmp_path):
+    write_page("ops", "backup", "nightly backup window", tmp_path)
+    payload = json.loads(run("find", "backup", "--json"))
+    assert isinstance(payload, list)
+    assert any(hit["ref"] == "ops/backup" for hit in payload)

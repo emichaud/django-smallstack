@@ -94,7 +94,7 @@ Because it matches `content_text` (frontmatter-stripped, resynced on every write
 - **Ownership-scoped** — the same `permissions.viewable_documents` gates results everywhere (omnibar, search page, *and* MCP), so private runbooks never leak.
 - **Live** — every write reindexes (via the head-sync `post_save`); backfill existing rows with `manage.py rebuild_search_index smallstack_runbook.Document`.
 
-This is the runbook acting as a **lightweight RAG retrieval source**: a doc written via REST/MCP/CLI is instantly ranked-searchable, and a chatbot (Claude via MCP) can `search_runbook_documents` to pull grounded context. See `docs/skills/search.md` for the registration pattern. (The local `?q=`/`list_documents` path stays for the runbook's own search page; consolidating them onto the engine is an optional follow-up.)
+This is the runbook acting as a **lightweight RAG retrieval source**: a doc written via REST/MCP/CLI is instantly ranked-searchable, and a chatbot (Claude via MCP) can `search_runbook_documents` to pull grounded context. See `docs/skills/search.md` for the registration pattern. The engine now backs `GET api/documents/?q=` (BM25-ranked, `limit`-capped) and the CLI's `find` verb too, both scoped to what the caller may view (`service.search_documents`); they fall back to the substring `list_documents` path only when `apps.search` is absent. The runbook's own `/runbook/search/` HTML page still uses the local `?q=` substring scan.
 
 **Coming next (not built yet):** passage-level *chunking* (return the relevant paragraph + a `#anchor`, not the whole doc) and an *original-source link* so an app can convert a PDF/docx → markdown, keep the original, and have search return both. Tracked in the base project's `ai_cowork/search/search-rag-roadmap.md`.
 
@@ -118,7 +118,8 @@ For MCP design patterns see [`mcp/build-mcp-solution.md`](mcp/build-mcp-solution
 Under the runbook URLs. Reads need auth (and are ownership-scoped by `viewer`). Writes need an **authenticated user** and a **non-read-only** token (`_require_write` enforces both); the **service** then enforces per-runbook **ownership** — any owner or staff may write (`NotAuthorized` → 403). A write (or read) targeting a runbook/doc the caller can't even *view* returns **404**, so the API never leaks whether a private slug exists.
 
 ```
-GET    api/documents/?runbook=&source=&q=          # list / search
+# Documents
+GET    api/documents/?runbook=&source=&q=&limit=   # list / BM25-ranked search (q)
 GET    api/documents/by-uid/<uid>/                 # read by canonical uid
 GET    api/documents/<runbook>/<key>/              # read (with body)
 PUT    api/documents/<runbook>/<key>/              # upsert (JSON body: body, title, on_exists, …)
@@ -126,9 +127,23 @@ DELETE api/documents/<runbook>/<key>/[?force=true] # archive / hard-delete
 POST   api/documents/<runbook>/<key>/append/       # accumulate
 POST   api/documents/<runbook>/<key>/move/         # re-place / detach
 POST   api/documents/<runbook>/<key>/archive/      # soft-delete
+POST   api/documents/<runbook>/<key>/unarchive/    # reverse a soft-delete
+POST   api/documents/<runbook>/<key>/revert/       # roll back to a version (JSON: {"to": N})
+POST   api/documents/<runbook>/<key>/copy/         # duplicate (JSON: to_runbook, to_key, …)
+
+# Runbook containers
+GET    api/runbooks/                               # list (ownership-scoped)
+POST   api/runbooks/                               # create — owned by the caller (JSON: slug, name, …)
+GET    api/runbooks/<slug>/                        # detail + table of contents (sections → pages)
+GET    api/runbooks/<slug>/sections/               # list sections
+POST   api/runbooks/<slug>/sections/               # create a section (edit rights)
+POST   api/runbooks/<slug>/publish/                # make public (edit rights)
+POST   api/runbooks/<slug>/unpublish/              # make private (edit rights)
 ```
 
-Error mapping: `DocumentLocked` → **403**, `VersionConflict`/`DocumentAlreadyExists` → **409**, not-found → **404**, other service errors → **400**. To add a *new* endpoint, follow [`custom-api-endpoints.md`](custom-api-endpoints.md) and keep it a thin skin over the service.
+A REST-created runbook is owned by the calling user (a private runbook they control) — unlike the CLI's `mkdir`, which makes an `owner=NULL` system runbook. `publish`/`unpublish` and section creation require **edit rights** (owner or staff); a runbook the caller can't view returns **404**.
+
+Error mapping: `DocumentLocked`/`NotAuthorized` → **403**, `VersionConflict`/`DocumentAlreadyExists`/`RunbookAlreadyExists` → **409**, not-found → **404**, other service errors → **400**. To add a *new* endpoint, follow [`custom-api-endpoints.md`](custom-api-endpoints.md) and keep it a thin skin over the service.
 
 ## CLI
 
@@ -141,8 +156,10 @@ uv run python manage.py runbook cat ops/backup-report                # print mar
 echo "# Report" | uv run python manage.py runbook write ops/report   # body from stdin
 ```
 
-Verbs: `ls`, `toc`, `cat`, `write` (create-or-update), `rm`, `mv`, `log`, `stat`, `sections`.
-Page verbs address `runbook/key` (or `--uid`); read/list verbs take `--json`. `write` writes
+Verbs: `ls`, `toc`, `find` (ranked search), `cat` (`@N` reads old versions), `write`
+(create-or-update), `cp`, `rm`, `restore` (un-archive), `mv`, `revert` (roll back a version),
+`log`, `stat`, `mkdir`, `sections`, `publish`/`unpublish`.
+Page verbs address `runbook/key` (or `--uid`); every verb takes `--json`. `write` writes
 `via="cli"`, auto-creates a missing runbook/section, and honors locking (`--bypass-lock` /
 `--user` for a superuser). The package installs an `rb` console script, so `rb ls` works too. Full
 reference: [`runbook-cli.md`](runbook-cli.md).

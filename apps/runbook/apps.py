@@ -23,6 +23,16 @@ class RunbookConfig(AppConfig):
 
         register_document()
 
+        # Central-dashboard widget (best-effort; independent of nav below).
+        try:
+            from apps.smallstack import dashboard
+
+            from .dashboard_widgets import RunbookDashboardWidget
+
+            dashboard.register(RunbookDashboardWidget())
+        except ImportError:
+            pass
+
         try:
             from apps.smallstack.navigation import nav
         except ImportError:

@@ -12,11 +12,13 @@ from __future__ import annotations
 import dataclasses
 from typing import Any, Optional
 
+from django.db.models import Count, Q
 from django.http import HttpRequest, JsonResponse
 
 from apps.smallstack.api import api_error, api_view
 
-from . import service
+from . import permissions, service
+from .models import Document
 
 
 def _json_safe(value: Any) -> Any:
@@ -38,7 +40,7 @@ def _error_for(exc: service.DocumentServiceError) -> JsonResponse:
         return api_error("Not found", 404)
     if isinstance(exc, (service.DocumentLocked, service.NotAuthorized)):
         return api_error(str(exc), 403)
-    if isinstance(exc, (service.VersionConflict, service.DocumentAlreadyExists)):
+    if isinstance(exc, (service.VersionConflict, service.DocumentAlreadyExists, service.RunbookAlreadyExists)):
         return api_error(str(exc), 409)
     return api_error(str(exc), 400)
 
@@ -59,13 +61,31 @@ def _require_write(request: HttpRequest) -> Optional[JsonResponse]:
 
 @api_view(methods=["GET"])
 def api_list_documents(request: HttpRequest) -> JsonResponse:
-    """GET api/documents/?runbook=&source=&q="""
-    docs = service.list_documents(
-        runbook=request.GET.get("runbook") or None,
-        source=request.GET.get("source") or None,
-        query=request.GET.get("q") or None,
-        viewer=request.user,
-    )
+    """GET api/documents/?runbook=&source=&q=&limit=
+
+    ``q`` is BM25-ranked full-text (via the shared search engine); results come
+    back in relevance order and honor ``limit`` (default 50). If the search app
+    isn't installed it degrades to a substring scan. Without ``q`` it's a plain
+    ownership-scoped listing.
+    """
+    runbook = request.GET.get("runbook") or None
+    source = request.GET.get("source") or None
+    query = request.GET.get("q") or None
+    try:
+        limit = min(int(request.GET.get("limit", 50)), 200)
+    except (TypeError, ValueError):
+        return api_error("'limit' must be an integer", 400)
+
+    try:
+        docs = None
+        if query:
+            docs = service.search_documents(
+                query, viewer=request.user, runbook=runbook, source=source, limit=limit,
+            )
+        if docs is None:  # no query, or search engine unavailable → substring path
+            docs = service.list_documents(runbook=runbook, source=source, query=query, viewer=request.user)
+    except service.DocumentServiceError as exc:
+        return _error_for(exc)
     return {"results": [_result_summary(d) for d in docs]}
 
 
@@ -174,6 +194,195 @@ def api_document_archive(request: HttpRequest, runbook: str, key: str) -> JsonRe
         return _error_for(exc)
 
 
+@api_view(methods=["POST"])
+def api_document_unarchive(request: HttpRequest, runbook: str, key: str) -> JsonResponse:
+    """POST api/documents/<runbook>/<key>/unarchive/ — reverse a soft-delete."""
+    write_error = _require_write(request)
+    if write_error is not None:
+        return write_error
+    try:
+        return _result(service.unarchive_document(runbook=runbook, key=key, actor=request.user))
+    except service.DocumentServiceError as exc:
+        return _error_for(exc)
+
+
+@api_view(methods=["POST"])
+def api_document_revert(request: HttpRequest, runbook: str, key: str) -> JsonResponse:
+    """POST api/documents/<runbook>/<key>/revert/ — roll back to a version.
+
+    JSON body: ``{"to": N}`` (the version number). Snapshots that version's
+    content as a new head; history is preserved.
+    """
+    write_error = _require_write(request)
+    if write_error is not None:
+        return write_error
+    data = request.json or {}
+    raw = data.get("to", data.get("version"))
+    if raw is None:
+        return api_error("'to' (version number) is required", 400)
+    try:
+        version = int(raw)
+    except (TypeError, ValueError):
+        return api_error("'to' must be an integer", 400)
+    try:
+        doc = service.restore_version(runbook=runbook, key=key, version=version, actor=request.user, via="api")
+    except service.DocumentServiceError as exc:
+        return _error_for(exc)
+    return _result(service.get_document(uid=str(doc.uid), with_body=True, viewer=request.user))
+
+
+@api_view(methods=["POST"])
+def api_document_copy(request: HttpRequest, runbook: str, key: str) -> JsonResponse:
+    """POST api/documents/<runbook>/<key>/copy/ — duplicate to another location.
+
+    JSON body: ``{"to_runbook": …, "to_key": …, "title"?, "section"?, "on_exists"?}``.
+    The copy gets its own images. The destination runbook must already exist.
+    """
+    write_error = _require_write(request)
+    if write_error is not None:
+        return write_error
+    data = request.json or {}
+    if not data.get("to_runbook") or not data.get("to_key"):
+        return api_error("'to_runbook' and 'to_key' are required", 400)
+    try:
+        result = service.copy_document(
+            runbook=runbook, key=key, viewer=request.user,
+            to_runbook=data["to_runbook"], to_key=data["to_key"],
+            title=data.get("title"), section=data.get("section"),
+            on_exists=data.get("on_exists", "fail"), via="api", actor=request.user,
+        )
+    except service.DocumentServiceError as exc:
+        return _error_for(exc)
+    return _result(result)
+
+
+# -- Runbook resource ---------------------------------------------------------
+
+def _runbook_summary(rb: Any) -> dict[str, Any]:
+    pages = rb.n_pages if hasattr(rb, "n_pages") else rb.documents.filter(is_archived=False).count()
+    return {
+        "slug": rb.slug,
+        "name": rb.name,
+        "description": rb.description,
+        "owner": rb.owner.username if rb.owner_id else None,
+        "is_public": rb.is_public,
+        "is_template": rb.is_template,
+        "pages": pages,
+    }
+
+
+def _section_summary(sec: Any) -> dict[str, Any]:
+    return {"slug": sec.slug, "name": sec.name, "order": sec.order}
+
+
+@api_view(methods=["GET", "POST"])
+def api_runbooks(request: HttpRequest) -> JsonResponse:
+    """GET api/runbooks/ — list runbooks the caller may see.
+    POST api/runbooks/ — create one, owned by the caller."""
+    if request.method == "GET":
+        rbs = permissions.viewable_runbooks(request.user).annotate(
+            n_pages=Count("documents", filter=Q(documents__is_archived=False), distinct=True),
+        ).order_by("name")
+        return {"results": [_runbook_summary(rb) for rb in rbs]}
+
+    write_error = _require_write(request)
+    if write_error is not None:
+        return write_error
+    data = request.json or {}
+    slug = data.get("slug") or data.get("name")
+    if not slug:
+        return api_error("slug (or name) is required", 400)
+    try:
+        rb = service.create_runbook(
+            slug, name=data.get("name"), description=data.get("description", ""),
+            owner=request.user, is_public=bool(data.get("is_public", False)),
+        )
+    except service.DocumentServiceError as exc:
+        return _error_for(exc)
+    return _runbook_summary(rb)
+
+
+@api_view(methods=["GET"])
+def api_runbook_detail(request: HttpRequest, slug: str) -> JsonResponse:
+    """GET api/runbooks/<slug>/ — runbook metadata + its table of contents
+    (sections → viewable pages, sectionless grouped last)."""
+    try:
+        rb = service._resolve_runbook(slug)
+    except service.DocumentServiceError as exc:
+        return _error_for(exc)
+    if not permissions.can_view(request.user, rb):
+        return api_error("Not found", 404)
+
+    docs = service.list_documents(runbook=rb.slug, viewer=request.user)
+    section_by_id = dict(
+        Document.objects.filter(pk__in=[d.id for d in docs]).values_list("pk", "section__slug")
+    )
+    by_section: dict[Optional[str], list] = {}
+    for d in docs:
+        by_section.setdefault(section_by_id.get(d.id), []).append(_result_summary(d))
+
+    data = _runbook_summary(rb)
+    data["sections"] = [
+        {**_section_summary(sec), "documents": by_section.get(sec.slug, [])}
+        for sec in rb.sections.all().order_by("order", "name")
+    ]
+    data["sectionless"] = by_section.get(None, [])
+    return data
+
+
+@api_view(methods=["GET", "POST"])
+def api_runbook_sections(request: HttpRequest, slug: str) -> JsonResponse:
+    """GET api/runbooks/<slug>/sections/ — list sections.
+    POST — create one (edit rights required)."""
+    if request.method == "GET":
+        try:
+            rb = service._resolve_runbook(slug)
+        except service.DocumentServiceError as exc:
+            return _error_for(exc)
+        if not permissions.can_view(request.user, rb):
+            return api_error("Not found", 404)
+        secs = rb.sections.all().order_by("order", "name")
+        return {"results": [_section_summary(s) for s in secs]}
+
+    write_error = _require_write(request)
+    if write_error is not None:
+        return write_error
+    data = request.json or {}
+    sec_slug = data.get("slug") or data.get("name")
+    if not sec_slug:
+        return api_error("slug (or name) is required", 400)
+    try:
+        section = service.create_section(
+            slug, sec_slug, name=data.get("name"), order=data.get("order", 0), actor=request.user,
+        )
+    except service.DocumentServiceError as exc:
+        return _error_for(exc)
+    return _section_summary(section)
+
+
+def _set_runbook_visibility(request: HttpRequest, slug: str, *, public: bool) -> JsonResponse:
+    write_error = _require_write(request)
+    if write_error is not None:
+        return write_error
+    try:
+        rb = service.set_runbook_public(slug, public=public, actor=request.user)
+    except service.DocumentServiceError as exc:
+        return _error_for(exc)
+    return _runbook_summary(rb)
+
+
+@api_view(methods=["POST"])
+def api_runbook_publish(request: HttpRequest, slug: str) -> JsonResponse:
+    """POST api/runbooks/<slug>/publish/ — make it public (edit rights required)."""
+    return _set_runbook_visibility(request, slug, public=True)
+
+
+@api_view(methods=["POST"])
+def api_runbook_unpublish(request: HttpRequest, slug: str) -> JsonResponse:
+    """POST api/runbooks/<slug>/unpublish/ — make it private (edit rights required)."""
+    return _set_runbook_visibility(request, slug, public=False)
+
+
 # -- OpenAPI schema registration ----------------------------------------------
 # Hand-rolled views don't self-register the way CRUDViews do, so advertise them
 # to /api/schema/openapi.json (Swagger/ReDoc) via the framework hook when present.
@@ -239,9 +448,11 @@ def register_openapi() -> None:
         parameters=[
             _query("runbook", "Scope to a runbook slug."),
             _query("source", "Filter by provenance source."),
-            _query("q", "Search title, description, and content."),
+            _query("q", "BM25-ranked full-text search over title, description, and content."),
+            {"name": "limit", "in": "query", "schema": {"type": "integer", "default": 50},
+             "description": "Max ranked results for q (capped at 200)."},
         ],
-        responses={"200": {"description": "Matching documents",
+        responses={"200": {"description": "Matching documents (relevance-ordered when q is set)",
                            "content": {"application/json": {"schema": _LIST_SCHEMA}}}},
     )
     register_api_path(
@@ -293,6 +504,110 @@ def register_openapi() -> None:
         anchor, subpath="{runbook}/{key}/archive/", methods=["POST"],
         summary="Archive (soft-delete) a document", tags=tags, parameters=[p_runbook, p_key],
         responses={**doc_ok, **err_404},
+    )
+    register_api_path(
+        anchor, subpath="{runbook}/{key}/unarchive/", methods=["POST"],
+        summary="Un-archive a document", tags=tags, parameters=[p_runbook, p_key],
+        responses={**doc_ok, **err_404},
+    )
+    register_api_path(
+        anchor, subpath="{runbook}/{key}/revert/", methods=["POST"],
+        summary="Roll back to an earlier version", tags=tags, parameters=[p_runbook, p_key],
+        request_body=_json_body({
+            "type": "object", "required": ["to"],
+            "properties": {"to": {"type": "integer", "description": "Version number to roll back to."}},
+        }),
+        responses={**doc_ok, **err_404},
+    )
+    register_api_path(
+        anchor, subpath="{runbook}/{key}/copy/", methods=["POST"],
+        summary="Copy a document to another location", tags=tags, parameters=[p_runbook, p_key],
+        request_body=_json_body({
+            "type": "object", "required": ["to_runbook", "to_key"],
+            "properties": {
+                "to_runbook": {"type": "string"},
+                "to_key": {"type": "string"},
+                "title": {"type": "string"},
+                "section": {"type": "string"},
+                "on_exists": {"type": "string", "enum": ["fail", "overwrite", "new_version", "append"],
+                              "default": "fail"},
+            },
+        }),
+        responses={**doc_ok, **err_404},
+    )
+
+    # -- Runbook containers ---------------------------------------------------
+    rb_anchor = "runbook:api_runbooks"
+    rb_tags = ["Runbooks"]
+    p_slug = {"name": "slug", "in": "path", "required": True,
+              "schema": {"type": "string"}, "description": "Runbook slug."}
+    runbook_schema = {
+        "type": "object",
+        "properties": {
+            "slug": {"type": "string"},
+            "name": {"type": "string"},
+            "description": {"type": "string"},
+            "owner": {"type": "string", "nullable": True, "description": "Owner username (null = system runbook)."},
+            "is_public": {"type": "boolean"},
+            "is_template": {"type": "boolean"},
+            "pages": {"type": "integer", "description": "Non-archived page count."},
+        },
+    }
+    section_schema = {
+        "type": "object",
+        "properties": {"slug": {"type": "string"}, "name": {"type": "string"}, "order": {"type": "integer"}},
+    }
+    rb_ok = {"200": {"description": "The runbook",
+                     "content": {"application/json": {"schema": runbook_schema}}}}
+
+    register_api_path(
+        rb_anchor, methods=["GET", "POST"], summary="List or create runbooks", tags=rb_tags,
+        request_body=_json_body({
+            "type": "object", "required": ["slug"],
+            "properties": {
+                "slug": {"type": "string", "description": "Globally unique slug (falls back to name)."},
+                "name": {"type": "string"},
+                "description": {"type": "string"},
+                "is_public": {"type": "boolean", "default": False},
+            },
+        }, required=False),
+        responses={"200": {"description": "Runbooks (GET) or the created runbook (POST)",
+                           "content": {"application/json": {"schema": {
+                               "oneOf": [
+                                   {"type": "object", "properties": {
+                                       "results": {"type": "array", "items": runbook_schema}}},
+                                   runbook_schema,
+                               ]}}}}},
+    )
+    register_api_path(
+        rb_anchor, subpath="{slug}/", methods=["GET"],
+        summary="Runbook detail + table of contents", tags=rb_tags, parameters=[p_slug],
+        responses={"200": {"description": "Runbook with grouped sections + pages",
+                           "content": {"application/json": {"schema": {
+                               "allOf": [runbook_schema, {"type": "object", "properties": {
+                                   "sections": {"type": "array"}, "sectionless": {"type": "array"}}}]}}}},
+                   **err_404},
+    )
+    register_api_path(
+        rb_anchor, subpath="{slug}/sections/", methods=["GET", "POST"],
+        summary="List or create sections", tags=rb_tags, parameters=[p_slug],
+        request_body=_json_body({
+            "type": "object", "required": ["slug"],
+            "properties": {"slug": {"type": "string"}, "name": {"type": "string"},
+                           "order": {"type": "integer", "default": 0}},
+        }, required=False),
+        responses={"200": {"description": "Sections (GET) or the created section (POST)",
+                           "content": {"application/json": {"schema": section_schema}}}, **err_404},
+    )
+    register_api_path(
+        rb_anchor, subpath="{slug}/publish/", methods=["POST"],
+        summary="Publish a runbook (make it public)", tags=rb_tags, parameters=[p_slug],
+        responses={**rb_ok, **err_404},
+    )
+    register_api_path(
+        rb_anchor, subpath="{slug}/unpublish/", methods=["POST"],
+        summary="Unpublish a runbook (make it private)", tags=rb_tags, parameters=[p_slug],
+        responses={**rb_ok, **err_404},
     )
 
 

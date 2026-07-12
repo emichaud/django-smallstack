@@ -62,6 +62,10 @@ class DocumentAlreadyExists(DocumentServiceError):
     pass
 
 
+class RunbookAlreadyExists(DocumentServiceError):
+    """Raised when creating a runbook whose slug is already taken."""
+
+
 class VersionConflict(DocumentServiceError):
     """Raised when ``expected_version`` does not match the current head."""
 
@@ -382,6 +386,59 @@ def archive_document(
     return DocumentResult.of(doc)
 
 
+def unarchive_document(
+    *,
+    document: Optional[Document] = None,
+    runbook: Optional[RunbookRef] = None,
+    key: Optional[str] = None,
+    uid: Optional[str] = None,
+    actor: Actor = None,
+    bypass_lock: bool = False,
+) -> DocumentResult:
+    """Reverse :func:`archive_document`: return a soft-deleted doc to active
+    listings. Idempotent. The save re-emits the search index write (post_save),
+    so the doc reappears in search as well as ``ls``."""
+    doc = document if document is not None else _get_doc(runbook, key, uid=uid)
+    _check_writable(doc, actor, bypass_lock)
+    if doc.is_archived:
+        doc.is_archived = False
+        doc.archived_at = None
+        doc.save(update_fields=["is_archived", "archived_at", "updated_at"])
+    return DocumentResult.of(doc)
+
+
+def restore_version(
+    document: Optional[Document] = None,
+    *,
+    runbook: Optional[RunbookRef] = None,
+    key: Optional[str] = None,
+    uid: Optional[str] = None,
+    version: int,
+    actor: Actor = None,
+    via: str = "web",
+    bypass_lock: bool = False,
+) -> Document:
+    """Roll a document back to an earlier ``version`` by snapshotting that
+    version's content as a new head version (history is never rewritten). Mirrors
+    the web UI's Restore action so every transport agrees. Address the document by
+    a ``document`` instance or by ``runbook``/``key``/``uid``; edit rights are
+    enforced by the underlying ``write_version``."""
+    doc = document if document is not None else _get_doc(runbook, key, uid=uid)
+    old = doc.versions.filter(version=version).first()
+    if old is None:
+        raise DocumentNotFound(f"Document has no version {version}.")
+    old.file.open("rb")
+    try:
+        body = old.file.read().decode("utf-8", errors="replace")
+    finally:
+        old.file.close()
+    return write_version(
+        doc, body=body, mode="new_version",
+        description=f"Restored from version {version}",
+        actor=actor, via=via, bypass_lock=bypass_lock,
+    )
+
+
 def delete_document(
     *,
     document: Optional[Document] = None,
@@ -598,6 +655,105 @@ def list_documents(
     return [DocumentSummary.of(doc) for doc in qs]
 
 
+def search_documents(
+    query: str,
+    *,
+    viewer: Actor = None,
+    runbook: Optional[RunbookRef] = None,
+    source: Optional[str] = None,
+    limit: int = 50,
+) -> Optional[list[DocumentSummary]]:
+    """Ranked full-text search (BM25 via ``apps.search``) scoped to what
+    ``viewer`` may see, ordered by relevance. Returns ``None`` when the search
+    engine isn't installed / ``Document`` isn't registered, so callers can fall
+    back to the substring path in :func:`list_documents`.
+
+    Unlike ``list_documents(query=…)`` (a substring ``icontains`` scan), this
+    uses the shared engine's tokenized ranking — the same retrieval the omnibar
+    and the ``search_runbook_documents`` MCP tool use."""
+    try:
+        from apps.search import registry
+        from apps.search.backends import get_backend
+    except ImportError:
+        return None
+    view = registry.get_view(Document)
+    if view is None:
+        return None
+
+    hits = get_backend().query(view, query, limit=limit)
+    qs = Document.objects.filter(pk__in=[h.object_id for h in hits], is_archived=False)
+    if viewer is not None:
+        qs = permissions.viewable_documents(viewer, qs)
+    if runbook is not None:
+        qs = qs.filter(runbook=_resolve_runbook(runbook))
+    if source:
+        qs = qs.filter(source=source)
+    by_id = {d.pk: d for d in qs.select_related("runbook", "section")}
+    # Preserve the engine's relevance order; drop hits filtered out by scope.
+    return [DocumentSummary.of(by_id[h.object_id]) for h in hits if h.object_id in by_id]
+
+
+# -- Runbook & section operations ---------------------------------------------
+
+def create_runbook(
+    slug: str,
+    *,
+    name: Optional[str] = None,
+    description: str = "",
+    owner: Actor = None,
+    is_public: bool = False,
+) -> Runbook:
+    """Create a new runbook owned by ``owner`` (None → a staff-managed *system*
+    runbook). Any authenticated caller may create one they own. Raises
+    ``RunbookAlreadyExists`` if the (globally unique) slug is taken."""
+    slug = slugify(slug)
+    if not slug:
+        raise DocumentServiceError("A runbook slug is required.")
+    if Runbook.objects.filter(slug=slug).exists():
+        raise RunbookAlreadyExists(f"A runbook with slug {slug!r} already exists.")
+    return Runbook.objects.create(
+        slug=slug, name=name or slug, description=description, owner=owner, is_public=is_public,
+    )
+
+
+def create_section(
+    runbook: RunbookRef,
+    slug: str,
+    *,
+    name: Optional[str] = None,
+    order: int = 0,
+    actor: Actor = None,
+) -> Section:
+    """Add a section to a runbook (idempotent by slug). Requires edit rights on
+    the runbook; a caller who can't even view it gets not-found (never a leak)."""
+    rb = _resolve_runbook(runbook)
+    if actor is not None and not permissions.can_edit(actor, rb):
+        if not permissions.can_view(actor, rb):
+            raise RunbookNotFound(f"No runbook with slug {rb.slug!r}.")
+        raise NotAuthorized(f"You do not have permission to modify '{rb.slug}'.")
+    slug = slugify(slug)
+    if not slug:
+        raise DocumentServiceError("A section slug is required.")
+    section, _ = Section.objects.get_or_create(
+        runbook=rb, slug=slug, defaults={"name": name or slug, "order": order},
+    )
+    return section
+
+
+def set_runbook_public(runbook: RunbookRef, *, public: bool, actor: Actor = None) -> Runbook:
+    """Publish (``public=True``) or unpublish a runbook. Requires edit rights.
+    Public = any signed-in user may read; editing stays owner/staff-only."""
+    rb = _resolve_runbook(runbook)
+    if actor is not None and not permissions.can_edit(actor, rb):
+        if not permissions.can_view(actor, rb):
+            raise RunbookNotFound(f"No runbook with slug {rb.slug!r}.")
+        raise NotAuthorized(f"You do not have permission to modify '{rb.slug}'.")
+    if rb.is_public != public:
+        rb.is_public = public
+        rb.save(update_fields=["is_public"])
+    return rb
+
+
 # -- Cloning (templates) ------------------------------------------------------
 
 def _unique_slug(base: str) -> str:
@@ -675,6 +831,44 @@ def create_from_template(
     if rewritten != body:
         write_version(doc, body=rewritten, mode="overwrite", via="web", actor=actor)
     return doc
+
+
+def copy_document(
+    source: Optional[Document] = None,
+    *,
+    runbook: Optional[RunbookRef] = None,
+    key: Optional[str] = None,
+    uid: Optional[str] = None,
+    viewer: Actor = None,
+    to_runbook: RunbookRef,
+    to_key: str,
+    title: Optional[str] = None,
+    section: SectionRef = None,
+    on_exists: OnExists = "fail",
+    via: str = "api",
+    actor: Actor = None,
+) -> DocumentResult:
+    """Copy the source's current content into ``(to_runbook, to_key)`` as an
+    independent document. Address the source by a ``source`` instance or by
+    ``runbook``/``key``/``uid``; pass ``viewer`` to require the caller can see the
+    source (a hidden source raises ``DocumentNotFound``, never a leak). The copy
+    gets its **own** copies of any images the source referenced, so the two never
+    share storage. ``on_exists`` defaults to ``fail`` (never clobber silently).
+    Authorization on the *target* runbook is enforced by :func:`put_document`."""
+    src = source if source is not None else _get_doc(runbook, key, uid=uid, viewer=viewer)
+    rb = _resolve_runbook(to_runbook)
+    body = read_head(src)
+    result = put_document(
+        rb.slug, to_key, body=body, title=title or src.title,
+        section=section, on_exists=on_exists, doc_type=src.doc_type,
+        source=src.source, via=via, actor=actor,
+    )
+    target = Document.objects.get(uid=result.uid)
+    rewritten = clone_referenced_images(body, src, target, actor)
+    if rewritten != body:
+        write_version(target, body=rewritten, mode="overwrite", via=via, actor=actor)
+        result = DocumentResult.of(target)
+    return result
 
 
 @transaction.atomic

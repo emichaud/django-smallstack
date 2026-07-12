@@ -35,7 +35,14 @@ def sclient(staff):
     return client
 
 
-_NAMES = {"": "api_document", "append": "api_document_append", "archive": "api_document_archive"}
+_NAMES = {
+    "": "api_document",
+    "append": "api_document_append",
+    "archive": "api_document_archive",
+    "unarchive": "api_document_unarchive",
+    "revert": "api_document_revert",
+    "copy": "api_document_copy",
+}
 
 
 def _url(runbook, key, suffix=""):
@@ -130,6 +137,106 @@ class TestRestApi:
         assert r.status_code == 200
         arch = sclient.post(_url("ops", "log", "archive"), data=json.dumps({}), content_type="application/json")
         assert arch.status_code == 200 and arch.json()["is_archived"] is True
+
+    def _post(self, client, runbook, key, suffix, payload=None):
+        return client.post(_url(runbook, key, suffix), data=json.dumps(payload or {}),
+                           content_type="application/json")
+
+    def test_unarchive_reverses_archive(self, sclient, rb):
+        _put(sclient, "ops", "n", {"body": "x", "title": "N"})
+        self._post(sclient, "ops", "n", "archive")
+        assert service.get_document("ops", "n").is_archived is True
+        resp = self._post(sclient, "ops", "n", "unarchive")
+        assert resp.status_code == 200 and resp.json()["is_archived"] is False
+
+    def test_revert_rolls_back_as_new_version(self, sclient, rb):
+        _put(sclient, "ops", "n", {"body": "one", "title": "N"})
+        _put(sclient, "ops", "n", {"body": "two"})  # v2
+        resp = self._post(sclient, "ops", "n", "revert", {"to": 1})
+        assert resp.status_code == 200
+        assert resp.json()["version"] == 3
+        assert "one" in service.get_document("ops", "n", with_body=True).content_markdown
+
+    def test_revert_requires_version(self, sclient, rb):
+        _put(sclient, "ops", "n", {"body": "x", "title": "N"})
+        assert self._post(sclient, "ops", "n", "revert", {}).status_code == 400
+
+    def test_revert_unknown_version_404(self, sclient, rb):
+        _put(sclient, "ops", "n", {"body": "x", "title": "N"})
+        assert self._post(sclient, "ops", "n", "revert", {"to": 9}).status_code == 404
+
+    def test_copy_duplicates(self, sclient, rb):
+        _put(sclient, "ops", "src", {"body": "# Src", "title": "Src"})
+        resp = self._post(sclient, "ops", "src", "copy", {"to_runbook": "ops", "to_key": "dst"})
+        assert resp.status_code == 200
+        assert resp.json()["key"] == "dst"
+        assert service.get_document("ops", "dst", with_body=True).content_markdown == "# Src"
+
+    def test_copy_requires_destination(self, sclient, rb):
+        _put(sclient, "ops", "src", {"body": "x", "title": "Src"})
+        assert self._post(sclient, "ops", "src", "copy", {"to_runbook": "ops"}).status_code == 400
+
+    def test_copy_refuses_clobber_without_on_exists(self, sclient, rb):
+        _put(sclient, "ops", "src", {"body": "a", "title": "Src"})
+        _put(sclient, "ops", "dst", {"body": "b", "title": "Dst"})
+        assert self._post(sclient, "ops", "src", "copy",
+                          {"to_runbook": "ops", "to_key": "dst"}).status_code == 409
+
+    def test_copy_hidden_source_404(self, db):
+        # A source the caller can't view returns 404 (never a leak), even though
+        # they could otherwise write to their own destination.
+        owner = User.objects.create_user("po2", password="p")
+        Runbook.objects.create(name="Priv", slug="privr", owner=owner)  # private, not public
+        service.put_document("privr", "secret", body="x", title="S", actor=owner)
+        client = Client()
+        client.force_login(User.objects.create_user("stranger2", password="p"))
+        resp = self._post(client, "privr", "secret", "copy", {"to_runbook": "privr", "to_key": "leak"})
+        assert resp.status_code == 404
+
+    def test_list_q_is_ranked_search(self, sclient, rb):
+        _put(sclient, "ops", "backup", {"body": "nightly backup window procedure", "title": "Backup"})
+        _put(sclient, "ops", "deploy", {"body": "deploy with kamal", "title": "Deploy"})
+        resp = sclient.get(reverse("runbook:api_documents") + "?q=backup")
+        assert resp.status_code == 200
+        keys = [d["key"] for d in resp.json()["results"]]
+        assert "backup" in keys
+        assert "deploy" not in keys
+
+    def test_list_q_ranked_scoped_to_viewer(self, db):
+        owner = User.objects.create_user("owner", password="p")
+        Runbook.objects.create(name="Priv", slug="privr", owner=owner)  # private
+        service.put_document("privr", "secret", body="classified backup plan", title="S", actor=owner)
+        client = Client()
+        client.force_login(User.objects.create_user("stranger3", password="p"))
+        resp = client.get(reverse("runbook:api_documents") + "?q=backup")
+        assert "secret" not in [d["key"] for d in resp.json()["results"]]
+
+    def test_list_bad_limit_400(self, sclient, rb):
+        assert sclient.get(reverse("runbook:api_documents") + "?q=x&limit=abc").status_code == 400
+
+
+@pytest.mark.django_db
+class TestDashboardWidget:
+    def test_registered_in_dashboard(self):
+        from apps.runbook.dashboard_widgets import RunbookDashboardWidget
+        from apps.smallstack import dashboard
+
+        assert any(isinstance(w, RunbookDashboardWidget) for w in dashboard.get_standalone_widgets())
+
+    def test_data_degraded_when_empty(self):
+        from apps.runbook.dashboard_widgets import RunbookDashboardWidget
+
+        assert RunbookDashboardWidget().get_data()["status"] == "degraded"
+
+    def test_data_counts_runbooks(self, rb):
+        from apps.runbook.dashboard_widgets import RunbookDashboardWidget
+
+        service.put_document("ops", "p", body="x", title="P")
+        data = RunbookDashboardWidget().get_data()
+        assert data["status"] == "operational"
+        assert "1 runbook" in data["headline"]   # runbooks are the headline metric
+        assert "1 document" in data["detail"]     # documents are the secondary detail
+        assert RunbookDashboardWidget().get_api_extras()["runbooks"] == 1
 
     def test_version_conflict_409(self, sclient, rb):
         _put(sclient, "ops", "n", {"body": "a", "title": "N"})
