@@ -22,6 +22,10 @@ wheels/
 # Django
 *.sqlite3
 db.sqlite3
+# SQLite WAL-mode sidecar files (created when journal_mode=WAL)
+*.sqlite3-wal
+*.sqlite3-shm
+*.sqlite3-journal
 staticfiles/
 media/
 backups/
