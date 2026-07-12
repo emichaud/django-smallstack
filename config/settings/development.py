@@ -116,6 +116,14 @@ LOGGING = {
             "level": "WARNING",
             "propagate": False,
         },
+        # django-axes logs an INFO "AXES: BEGIN version …" banner on every
+        # startup — including every manage.py / rb command, which is noise
+        # (and pollutes piped CLI output). Keep WARNING+ (lockouts) visible.
+        "axes": {
+            "handlers": ["console"],
+            "level": "WARNING",
+            "propagate": False,
+        },
         "django.security": {
             "handlers": ["console"],
             "level": "INFO",
