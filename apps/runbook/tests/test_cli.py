@@ -394,3 +394,53 @@ def test_shim_main_no_manage_py(tmp_path, monkeypatch):
 
     monkeypatch.chdir(tmp_path)
     assert shim.main(["ls"]) == 2
+
+
+# ---------------------------------------------------------------------------
+# N+1 regression guards: query count must stay constant as the dataset grows.
+# ---------------------------------------------------------------------------
+from django.db import connection  # noqa: E402
+from django.test.utils import CaptureQueriesContext  # noqa: E402
+
+
+def _query_count(*argv):
+    with CaptureQueriesContext(connection) as ctx:
+        run(*argv)
+    return len(ctx.captured_queries)
+
+
+def test_toc_query_count_is_constant(db, tmp_path):
+    def build(slug, n_pages):
+        rb = Runbook.objects.create(name=slug, slug=slug)
+        Section.objects.create(runbook=rb, slug="s", name="S")
+        for i in range(n_pages):
+            write_page(slug, f"p{i}", "# x", tmp_path, section="s")
+        return slug
+
+    build("small", 2)
+    build("large", 12)
+    assert _query_count("toc", "small") == _query_count("toc", "large")
+
+
+def test_sections_query_count_is_constant(db, tmp_path):
+    rb = Runbook.objects.create(name="ops", slug="ops")
+    for i in range(2):
+        Section.objects.create(runbook=rb, slug=f"a{i}", name=f"A{i}", order=i)
+        write_page("ops", f"p{i}", "# x", tmp_path, section=f"a{i}")
+    few = _query_count("sections", "ops")
+    for i in range(2, 12):
+        Section.objects.create(runbook=rb, slug=f"a{i}", name=f"A{i}", order=i)
+        write_page("ops", f"p{i}", "# x", tmp_path, section=f"a{i}")
+    assert _query_count("sections", "ops") == few
+
+
+def test_ls_runbooks_query_count_is_constant(db, tmp_path):
+    Runbook.objects.create(name="a", slug="a")
+    Runbook.objects.create(name="b", slug="b")
+    few = _query_count("ls")
+    for i in range(10):
+        slug = f"x{i}"
+        rb = Runbook.objects.create(name=slug, slug=slug)
+        Section.objects.create(runbook=rb, slug="s", name="S")
+        write_page(slug, "p", "# x", tmp_path, section="s")
+    assert _query_count("ls") == few

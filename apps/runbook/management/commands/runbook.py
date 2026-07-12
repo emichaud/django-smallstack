@@ -30,6 +30,7 @@ from typing import Any, Optional
 
 from django.contrib.auth import get_user_model
 from django.core.management.base import BaseCommand, CommandError
+from django.db.models import Count, Q
 
 from apps.runbook import service
 from apps.runbook.models import Document, Runbook, Section
@@ -167,15 +168,20 @@ class Command(BaseCommand):
         self.stdout.write(_table(rows, ["KEY", "VER", "TITLE", "SOURCE", "UPDATED"]))
 
     def _ls_runbooks(self, *, as_json: bool) -> None:
-        runbooks = Runbook.objects.all()
+        # Annotate page/section counts in one query rather than two .count()s per row.
+        # distinct=True keeps the two joins from inflating each other's counts.
+        runbooks = Runbook.objects.annotate(
+            n_pages=Count("documents", filter=Q(documents__is_archived=False), distinct=True),
+            n_sections=Count("sections", distinct=True),
+        )
         if as_json:
             payload = [
                 {
                     "slug": rb.slug,
                     "name": rb.name,
                     "description": rb.description,
-                    "sections": rb.sections.count(),
-                    "pages": rb.documents.filter(is_archived=False).count(),
+                    "sections": rb.n_sections,
+                    "pages": rb.n_pages,
                     "is_template": rb.is_template,
                 }
                 for rb in runbooks
@@ -185,11 +191,7 @@ class Command(BaseCommand):
         if not runbooks:
             self.stdout.write("(no runbooks)")
             return
-        rows = [
-            [rb.slug, str(rb.documents.filter(is_archived=False).count()),
-             str(rb.sections.count()), rb.name]
-            for rb in runbooks
-        ]
+        rows = [[rb.slug, str(rb.n_pages), str(rb.n_sections), rb.name] for rb in runbooks]
         self.stdout.write(_table(rows, ["RUNBOOK", "PAGES", "SECTIONS", "NAME"]))
 
     # -- toc ------------------------------------------------------------------
@@ -203,11 +205,14 @@ class Command(BaseCommand):
 
         rb = service._resolve_runbook(opts.runbook)
         docs = service.list_documents(runbook=rb.slug, include_archived=opts.all)
+        # One query maps every page to its section slug (NULL → sectionless),
+        # instead of a Document.objects.get() per page.
+        section_by_id = dict(
+            Document.objects.filter(pk__in=[d.id for d in docs]).values_list("pk", "section__slug")
+        )
         by_section: dict[Optional[str], list[service.DocumentSummary]] = {}
         for d in docs:
-            doc = Document.objects.get(pk=d.id)
-            key = doc.section.slug if doc.section_id else None
-            by_section.setdefault(key, []).append(d)
+            by_section.setdefault(section_by_id.get(d.id), []).append(d)
 
         sections = list(rb.sections.all())
         if opts.json:
@@ -457,11 +462,11 @@ class Command(BaseCommand):
             self.stdout.write(self.style.SUCCESS(f"{verb}: section {rb.slug}/{section.slug} ({section.name})"))
             return
 
-        sections = list(rb.sections.all())
+        # One query with an annotated page count, not a .count() per section.
+        sections = list(rb.sections.annotate(n_pages=Count("documents", filter=Q(documents__is_archived=False))))
         if opts.json:
             payload = [
-                {"slug": s.slug, "name": s.name, "order": s.order,
-                 "pages": s.documents.filter(is_archived=False).count()}
+                {"slug": s.slug, "name": s.name, "order": s.order, "pages": s.n_pages}
                 for s in sections
             ]
             self.stdout.write(_json_dump(payload))
@@ -469,5 +474,5 @@ class Command(BaseCommand):
         if not sections:
             self.stdout.write("(no sections)")
             return
-        rows = [[s.slug, str(s.order), str(s.documents.filter(is_archived=False).count()), s.name] for s in sections]
+        rows = [[s.slug, str(s.order), str(s.n_pages), s.name] for s in sections]
         self.stdout.write(_table(rows, ["SECTION", "ORDER", "PAGES", "NAME"]))
