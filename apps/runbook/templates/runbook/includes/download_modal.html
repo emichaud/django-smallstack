@@ -1,0 +1,68 @@
+<!-- Download Confirmation Modal -->
+<div id="download-modal" class="crud-modal-overlay" style="display:none;">
+    <div class="crud-modal">
+        <div class="crud-modal-header">
+            <h3>Confirm Download</h3>
+            <button type="button" class="crud-modal-close" onclick="downloadModalClose()">&times;</button>
+        </div>
+        <div class="crud-modal-body">
+            <p>This will download <strong id="download-desc"></strong> to your default downloads folder.</p>
+        </div>
+        <div class="crud-modal-footer">
+            <button type="button" class="crud-modal-btn-cancel" onclick="downloadModalClose()">Cancel</button>
+            <a id="download-link" href="#" class="crud-modal-btn-confirm">Download</a>
+        </div>
+    </div>
+</div>
+
+<style>
+#download-modal .crud-modal-footer {
+    display: flex; gap: 0.75rem; justify-content: flex-end;
+    padding: 1rem 1.25rem;
+    border-top: 1px solid color-mix(in srgb, var(--body-fg) 10%, var(--body-bg));
+}
+#download-modal .crud-modal-btn-cancel {
+    background: none; border: 1px solid color-mix(in srgb, var(--body-fg) 20%, var(--body-bg));
+    color: var(--body-fg); padding: 0.5rem 1.25rem; border-radius: var(--radius-sm, 4px);
+    cursor: pointer; font-size: 0.85rem;
+}
+#download-modal .crud-modal-btn-cancel:hover {
+    background: color-mix(in srgb, var(--body-fg) 5%, var(--body-bg));
+}
+.crud-modal-btn-confirm,
+a.crud-modal-btn-confirm,
+a.crud-modal-btn-confirm:link,
+a.crud-modal-btn-confirm:visited {
+    background: var(--primary); color: var(--button-fg);
+    border: none; padding: 0.5rem 1.25rem; border-radius: var(--radius-sm, 4px);
+    cursor: pointer; font-size: 0.85rem; text-decoration: none;
+    display: inline-block; text-align: center;
+}
+a.crud-modal-btn-confirm:hover { opacity: 0.9; text-decoration: none; }
+</style>
+
+<script>
+function confirmDownload(el) {
+    var url = el.getAttribute('data-download-url');
+    var desc = el.getAttribute('data-download-desc');
+    document.getElementById('download-desc').textContent = desc;
+    document.getElementById('download-link').href = url;
+    document.getElementById('download-link').onclick = function() {
+        setTimeout(downloadModalClose, 300);
+    };
+    document.getElementById('download-modal').style.display = 'flex';
+}
+
+function downloadModalClose() {
+    document.getElementById('download-modal').style.display = 'none';
+}
+
+document.addEventListener('click', function(e) {
+    if (e.target.id === 'download-modal') downloadModalClose();
+});
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape' && document.getElementById('download-modal').style.display === 'flex') {
+        downloadModalClose();
+    }
+});
+</script>

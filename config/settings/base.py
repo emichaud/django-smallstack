@@ -54,6 +54,7 @@ INSTALLED_APPS = [
     "apps.tokenmgr",  # User-facing UI for API token management
     "apps.api",  # API admin: /smallstack/api/ health + activity + threat panel
     "apps.search",  # Search: FTS5/PG-FTS + per-CRUDView opt-in + MCP search tools
+    "apps.runbook",  # Runbook: versioned markdown documents (label: smallstack_runbook)
     # Django built-in apps
     "django.contrib.admin",
     "django.contrib.auth",
@@ -117,6 +118,7 @@ TEMPLATES = [
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
                 "apps.smallstack.context_processors.branding",
+                "apps.runbook.context_processors.runbook_settings",
             ],
         },
     },

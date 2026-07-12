@@ -1,0 +1,39 @@
+{% extends "runbook/base.html" %}
+
+{% block title %}Make template from {{ runbook.name }} — Runbook{% endblock %}
+
+{% block breadcrumbs %}{% endblock %}
+
+{% block page_header %}
+<div class="page-header-bleed">
+    <div class="page-header-content">
+        <h1>Make a template from "{{ runbook.name }}"</h1>
+        <p class="page-subtitle">{{ section_count }} section{{ section_count|pluralize }} &middot; {{ doc_count }} document{{ doc_count|pluralize }}</p>
+    </div>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="card" style="max-width: 640px;">
+    <div class="card-body">
+        <p>This creates a separate <strong>template</strong> runbook — a copy of "{{ runbook.name }}"
+        with its {{ section_count }} section{{ section_count|pluralize }} and
+        {{ doc_count }} document{{ doc_count|pluralize }} (and any images). The original runbook is
+        left exactly as it is. Template runbooks live in the Templates area and can seed new
+        documents or be instantiated into fresh runbooks.</p>
+
+        <form method="post" style="margin-top: 16px;">
+            {% csrf_token %}
+            <div class="crud-field">
+                <label class="crud-label">Template name</label>
+                <input type="text" name="name" class="vTextField"
+                       value="{{ runbook.name }} Template" placeholder="{{ runbook.name }} Template">
+            </div>
+            <div style="margin-top: 16px; display: flex; gap: 12px;">
+                <button type="submit" class="btn-primary">Create template</button>
+                <a href="{{ runbook.get_absolute_url }}" class="btn-outline">Cancel</a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

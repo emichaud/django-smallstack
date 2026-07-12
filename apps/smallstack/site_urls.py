@@ -60,6 +60,8 @@ urlpatterns = [
     path("api/", include("apps.api.admin_urls")),
     # Search — global keyword search page + omnibar JSON endpoint
     path("search/", include("apps.search.urls")),
+    # Runbook — versioned markdown documents (namespace "runbook")
+    path("runbook/", include("apps.runbook.urls")),
     # Token manager (self-service + staff) — list, mint, reveal, revoke
     path("", include("apps.tokenmgr.urls")),
 ]

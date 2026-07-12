@@ -1,0 +1,395 @@
+{% extends "runbook/base.html" %}
+{% load static runbook_tags %}
+
+{% block title %}{{ runbook.name }} — Table of Contents{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% runbook_css %}">
+<style>
+.toc-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 20px;
+}
+.toc-header h1 { margin: 0 0 0.25rem 0; }
+.toc-header .toc-meta {
+    color: var(--body-quiet-color);
+    font-size: 0.85rem;
+}
+.toc-category {
+    margin-bottom: 1.5rem;
+}
+.toc-category-title {
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--body-quiet-color);
+    border-bottom: 1px solid color-mix(in srgb, var(--primary) 20%, var(--body-bg));
+    padding-bottom: 0.4rem;
+    margin: 0 0 0.25rem 0;
+}
+.toc-list {
+    list-style: none !important;
+    margin: 0;
+    padding: 0;
+}
+.toc-list li {
+    list-style: none !important;
+}
+.toc-list li::before {
+    display: none !important;
+}
+.toc-item {
+    border-bottom: 1px solid color-mix(in srgb, var(--primary) 8%, var(--body-bg));
+}
+.toc-item:last-child {
+    border-bottom: none;
+}
+.toc-link {
+    display: block;
+    padding: 0.45rem 0.5rem;
+    text-decoration: none !important;
+    color: var(--body-fg);
+    transition: background 0.15s;
+    border-radius: 4px;
+}
+.toc-link:hover {
+    text-decoration: none !important;
+    background: color-mix(in srgb, var(--primary) 10%, var(--body-bg));
+}
+.toc-title {
+    font-weight: 600;
+    font-size: 0.85rem;
+    color: var(--primary);
+}
+.toc-desc {
+    display: block;
+    color: var(--body-quiet-color);
+    font-size: 0.78rem;
+    line-height: 1.3;
+    margin-top: 0.1rem;
+}
+.toc-badge {
+    font-size: 0.7rem;
+    margin-left: 0.4rem;
+    vertical-align: middle;
+}
+.toc-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0 2.5rem;
+}
+@media (min-width: 768px) {
+    .toc-grid {
+        grid-template-columns: 1fr 1fr;
+    }
+}
+</style>
+{% endblock %}
+
+{% block breadcrumbs %}{% endblock %}
+
+{% block page_header %}
+<div class="page-header-bleed toc-header">
+    <div class="page-header-content">
+        <h1>
+            {% if runbook.icon %}<span style="margin-right: 6px;">{{ runbook.icon }}</span>{% endif %}
+            {{ runbook.name }}
+            {% if runbook.is_template %}<span class="badge badge-secondary" style="vertical-align: middle; margin-left: 8px;">Template</span>{% endif %}
+            <span style="vertical-align: middle; margin-left: 8px;">{% include "runbook/includes/visibility_badge.html" with rb=runbook %}</span>
+        </h1>
+        {% if runbook.description %}
+        <div class="toc-meta">{{ runbook.description }}</div>
+        {% endif %}
+        <div class="toc-meta">
+            Table of Contents &middot; {{ sections|length }} section{{ sections|length|pluralize }} &middot; {{ total_docs }} page{{ total_docs|pluralize }}
+            {% if runbook.owner %}&middot; Owner: {{ runbook.owner }}{% else %}&middot; System{% endif %}
+        </div>
+        <nav style="margin-top: 0.5rem; font-size: 0.8rem;">
+            <a href="{% url 'runbook:dashboard' %}" style="color: var(--body-quiet-color); text-decoration: none;">Runbooks</a>
+            <span style="color: var(--body-quiet-color); margin: 0 0.3rem;">/</span>
+            <span style="color: var(--body-fg);">{{ runbook.name }}</span>
+        </nav>
+    </div>
+    <div class="page-header-actions rb-doc-actions">
+        <div class="rb-actions-row">
+            {% if runbook.is_template %}
+            <a href="{% url 'runbook:runbook_from_template' runbook.slug %}" class="btn-primary">Use This Template</a>
+            {% else %}
+            <a href="{% url 'runbook:runbook_read' runbook.slug %}" class="btn-primary">Read All</a>
+            {% endif %}
+            {% if can_edit %}
+            <button type="button" class="btn-secondary" onclick="openFormModal('New Page', 'new-page-source')">New Page</button>
+            <button type="button" class="btn-secondary" onclick="openFormModal('Upload Markdown', 'upload-source')">Upload</button>
+            <button type="button" class="btn-secondary" onclick="openFormModal('Add Section', 'add-section-source')">Add Section</button>
+            {% endif %}
+            <button type="button" class="btn-secondary"
+                data-download-url="{% url 'runbook:download_zip' %}?runbook={{ runbook.slug }}"
+                data-download-desc="&quot;{{ runbook.name }}&quot; runbook as a ZIP archive"
+                onclick="confirmDownload(this)">Download</button>
+        </div>
+        {% if can_edit %}
+        <div class="rb-actions-row rb-actions-secondary">
+            {% if not runbook.is_template %}
+            <button type="button" class="btn-outline" onclick="openFormModal('Make Template', 'make-template-source')">Make Template</button>
+            {% endif %}
+            <form method="post" action="{% url 'runbook:runbook_publish' runbook.slug %}" style="display: inline;">
+                {% csrf_token %}
+                <button type="submit" class="btn-outline"
+                    title="{% if runbook.is_public %}Make private — only you and staff can see it{% else %}Publish — any signed-in user can read it{% endif %}">
+                    {% if runbook.is_public %}🔒 Make Private{% else %}🌐 Publish{% endif %}
+                </button>
+            </form>
+            <button type="button" class="btn-outline" onclick="openFormModal('Edit Runbook', 'edit-runbook-source')">Edit</button>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block content %}
+{% if sections or ungrouped_docs %}
+<div class="toc-grid">
+    {% for section in sections %}
+    <div class="toc-category" id="{{ section.slug }}">
+        <h2 class="toc-category-title" style="display: flex; justify-content: space-between; align-items: baseline;">
+            <a href="{% url 'runbook:section_update' section.pk %}" style="text-decoration: none; color: inherit;">
+                {% if section.icon %}<span style="margin-right: 4px;">{{ section.icon }}</span>{% endif %}
+                {{ section.name }}
+            </a>
+            <span class="badge badge-secondary toc-badge">{{ section.doc_count }}</span>
+        </h2>
+        {% if section.description %}
+        <div style="color: var(--body-quiet-color); font-size: 0.78rem; margin-bottom: 0.25rem;">{{ section.description }}</div>
+        {% endif %}
+        <ul class="toc-list">
+            {% for doc in section.documents.all %}
+            {% if not doc.is_archived %}
+            <li class="toc-item">
+                <a href="{{ doc.get_absolute_url }}" class="toc-link">
+                    <span class="toc-title">{{ doc.title }}</span>
+                    {% if doc.description %}
+                    <span class="toc-desc">{{ doc.description|truncatechars:100 }}</span>
+                    {% endif %}
+                </a>
+            </li>
+            {% endif %}
+            {% empty %}
+            <li class="toc-item">
+                <span class="toc-link" style="color: var(--body-quiet-color); font-size: 0.8rem;">No pages in this section yet.</span>
+            </li>
+            {% endfor %}
+        </ul>
+    </div>
+    {% endfor %}
+
+    {% if ungrouped_docs %}
+    <div class="toc-category" id="ungrouped">
+        <h2 class="toc-category-title" style="display: flex; justify-content: space-between; align-items: baseline;">
+            <span style="color: var(--body-quiet-color);">Ungrouped</span>
+            <span class="badge badge-secondary toc-badge">{{ ungrouped_docs.count }}</span>
+        </h2>
+        <div style="color: var(--body-quiet-color); font-size: 0.78rem; margin-bottom: 0.25rem;">Pages not assigned to a section.</div>
+        <ul class="toc-list">
+            {% for doc in ungrouped_docs %}
+            <li class="toc-item">
+                <a href="{{ doc.get_absolute_url }}" class="toc-link">
+                    <span class="toc-title">{{ doc.title }}</span>
+                    {% if doc.description %}
+                    <span class="toc-desc">{{ doc.description|truncatechars:100 }}</span>
+                    {% endif %}
+                </a>
+            </li>
+            {% endfor %}
+        </ul>
+    </div>
+    {% endif %}
+</div>
+{% else %}
+<div style="text-align: center; padding: 3rem 1rem; color: var(--body-quiet-color);">
+    <p>No sections yet. <a href="{% url 'runbook:section_create' runbook.slug %}">Add a section</a> to start organizing this runbook.</p>
+</div>
+{% endif %}
+
+{% include "runbook/includes/download_modal.html" %}
+
+{# Built-in shared modal (same one the dashboard stat cards + backups page use). #}
+{% include "runbook/includes/stat_modal.html" %}
+
+{# New Page — creates the page, then opens the editor. Optionally seeds from a template. #}
+<div id="new-page-source" style="display: none;">
+    <div style="padding: 20px 24px;">
+        <form method="post" action="{% url 'runbook:document_create_scratch' runbook.slug %}" class="crud-form">
+            {% csrf_token %}
+            <div class="crud-field">
+                <label class="crud-label">Page name <span class="required">*</span></label>
+                <input type="text" name="title" class="vTextField" required placeholder="e.g. Deploy Checklist">
+            </div>
+            {% if template_docs %}
+            <div class="crud-field">
+                <label class="crud-label">Template</label>
+                <select name="template">
+                    <option value="">— blank page —</option>
+                    {% for t in template_docs %}
+                    <option value="{{ t.pk }}">{{ t.runbook.name }} · {{ t.title }}</option>
+                    {% endfor %}
+                </select>
+                <div class="crud-help">Optional — start from a template page's content, or leave blank for an empty page.</div>
+            </div>
+            {% endif %}
+            <div class="crud-field">
+                <label class="crud-label">Section</label>
+                <select name="section">
+                    {% for s in sections %}
+                    <option value="{{ s.pk }}"{% if forloop.first %} selected{% endif %}>{{ s.name }}</option>
+                    {% endfor %}
+                    <option value="">— No section (ungrouped) —</option>
+                </select>
+                <div class="crud-help">Defaults to the first section; pick any, or leave ungrouped.</div>
+            </div>
+            <div class="crud-field">
+                <label class="crud-label">Description</label>
+                <input type="text" name="description" class="vTextField" placeholder="Optional one-line summary">
+            </div>
+            <div class="crud-actions">
+                <button type="submit" class="btn-save">Create &amp; Edit</button>
+                <button type="button" class="btn-cancel" onclick="closeStatModal()">Cancel</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+{# Upload — a .md file becomes the page's first version. #}
+<div id="upload-source" style="display: none;">
+    <div style="padding: 20px 24px;">
+        <form method="post" enctype="multipart/form-data" action="{% url 'runbook:document_create' runbook.slug %}" class="crud-form">
+            {% csrf_token %}
+            <div class="crud-field">
+                <label class="crud-label">Markdown file <span class="required">*</span></label>
+                <input type="file" name="file" accept=".md" required>
+                <div class="crud-help">A <code>.md</code> file seeds the page's first version.</div>
+            </div>
+            <div class="crud-field">
+                <label class="crud-label">Title <span class="required">*</span></label>
+                <input type="text" name="title" class="vTextField" required placeholder="e.g. Runbook Overview">
+            </div>
+            <div class="crud-field">
+                <label class="crud-label">Section</label>
+                <select name="section">
+                    {% for s in sections %}
+                    <option value="{{ s.pk }}"{% if forloop.first %} selected{% endif %}>{{ s.name }}</option>
+                    {% endfor %}
+                    <option value="">— No section (ungrouped) —</option>
+                </select>
+            </div>
+            <div class="crud-field">
+                <label class="crud-label">Description</label>
+                <input type="text" name="description" class="vTextField" placeholder="Optional">
+            </div>
+            <div class="crud-actions">
+                <button type="submit" class="btn-save">Upload</button>
+                <button type="button" class="btn-cancel" onclick="closeStatModal()">Cancel</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+{# Add Section. #}
+<div id="add-section-source" style="display: none;">
+    <div style="padding: 20px 24px;">
+        <form method="post" action="{% url 'runbook:section_create' runbook.slug %}" class="crud-form">
+            {% csrf_token %}
+            <div class="crud-field">
+                <label class="crud-label">Section name <span class="required">*</span></label>
+                <input type="text" name="name" class="vTextField" required placeholder="e.g. Onboarding">
+            </div>
+            <div class="crud-field">
+                <label class="crud-label">Description</label>
+                <input type="text" name="description" class="vTextField" placeholder="Optional">
+            </div>
+            <div style="display: flex; gap: 12px;">
+                <div class="crud-field" style="flex: 0 0 96px;">
+                    <label class="crud-label">Icon</label>
+                    <input type="text" name="icon" class="vTextField" placeholder="📁" maxlength="8">
+                </div>
+                <div class="crud-field" style="flex: 0 0 96px;">
+                    <label class="crud-label">Order</label>
+                    <input type="number" name="order" class="vTextField" value="0">
+                </div>
+            </div>
+            <div class="crud-actions">
+                <button type="submit" class="btn-save">Add Section</button>
+                <button type="button" class="btn-cancel" onclick="closeStatModal()">Cancel</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+{# Make Template — clones this runbook into a reusable template. #}
+{% if not runbook.is_template %}
+<div id="make-template-source" style="display: none;">
+    <div style="padding: 20px 24px;">
+        <form method="post" action="{% url 'runbook:runbook_make_template' runbook.slug %}" class="crud-form">
+            {% csrf_token %}
+            <p style="margin-top: 0; color: var(--body-quiet-color);">
+                Clones this runbook's sections and pages into a reusable template. The original is left untouched.
+            </p>
+            <div class="crud-field">
+                <label class="crud-label">Template name <span class="required">*</span></label>
+                <input type="text" name="name" class="vTextField" required value="{{ runbook.name }} Template">
+            </div>
+            <div class="crud-actions">
+                <button type="submit" class="btn-save">Create Template</button>
+                <button type="button" class="btn-cancel" onclick="closeStatModal()">Cancel</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endif %}
+
+{# Edit Runbook — name / description / icon / visibility. Posts to RunbookUpdateView. #}
+{% if can_edit %}
+<div id="edit-runbook-source" style="display: none;">
+    <div style="padding: 20px 24px;">
+        <form method="post" action="{% url 'runbook:runbook_update' runbook.slug %}" class="crud-form">
+            {% csrf_token %}
+            <div class="crud-field">
+                <label class="crud-label">Name <span class="required">*</span></label>
+                <input type="text" name="name" class="vTextField" required value="{{ runbook.name }}">
+            </div>
+            <div class="crud-field">
+                <label class="crud-label">Description</label>
+                <textarea name="description" class="vTextField" rows="2" placeholder="What this runbook covers (optional)">{{ runbook.description }}</textarea>
+            </div>
+            <div class="crud-field" style="max-width: 130px;">
+                <label class="crud-label">Icon</label>
+                <input type="text" name="icon" class="vTextField" value="{{ runbook.icon }}" placeholder="📘" maxlength="12" autocomplete="off">
+            </div>
+            <div class="crud-field">
+                <label class="crud-label" style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                    <input type="checkbox" name="is_public" {% if runbook.is_public %}checked{% endif %}> Publish (make public)
+                </label>
+                <div class="crud-help">Public runbooks are readable by everyone; private stays visible to you and staff.</div>
+            </div>
+            <div class="crud-actions">
+                <button type="submit" class="btn-save">Save Changes</button>
+                <button type="button" class="btn-cancel" onclick="closeStatModal()">Cancel</button>
+            </div>
+        </form>
+        <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--card-border);">
+            <a href="{% url 'runbook:runbook_delete' runbook.slug %}" class="btn-danger">Delete Runbook…</a>
+        </div>
+    </div>
+</div>
+{% endif %}
+<script>
+// Inject a hidden source form into the shared modal (same pattern as the stat cards).
+function openFormModal(title, sourceId) {
+    openStatModal(title);
+    document.getElementById('stat-modal-body').innerHTML =
+        document.getElementById(sourceId).innerHTML;
+}
+</script>
+{% endblock %}

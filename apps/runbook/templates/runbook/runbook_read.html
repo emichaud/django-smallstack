@@ -1,0 +1,114 @@
+{% extends "runbook/base.html" %}
+{% load static runbook_tags %}
+
+{% block title %}{{ runbook.name }} — Full Runbook{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% runbook_css %}">
+{% endblock %}
+
+{% block breadcrumbs %}{% endblock %}
+
+{% block page_header %}
+<div class="page-header-bleed page-header-with-actions">
+    <div class="page-header-content">
+        <h1>
+            {% if runbook.icon %}<span style="margin-right: 6px;">{{ runbook.icon }}</span>{% endif %}
+            {{ runbook.name }}
+        </h1>
+        <p class="page-subtitle">
+            Full runbook &middot; {{ rendered_sections|length }} section{{ rendered_sections|length|pluralize }} &middot; {{ total_docs }} page{{ total_docs|pluralize }}
+        </p>
+        <nav style="margin-top: 0.5rem; font-size: 0.8rem;">
+            <a href="{% url 'runbook:dashboard' %}" style="color: var(--body-quiet-color); text-decoration: none;">Runbooks</a>
+            <span style="color: var(--body-quiet-color); margin: 0 0.3rem;">/</span>
+            <a href="{% url 'runbook:runbook_detail' runbook.slug %}" style="color: var(--body-quiet-color); text-decoration: none;">{{ runbook.name }}</a>
+            <span style="color: var(--body-quiet-color); margin: 0 0.3rem;">/</span>
+            <span style="color: var(--body-fg);">Full View</span>
+        </nav>
+    </div>
+    <div class="page-header-actions">
+        <a href="{% url 'runbook:runbook_detail' runbook.slug %}" class="btn-secondary">Table of Contents</a>
+        <button type="button" class="btn-secondary"
+            data-download-url="{% url 'runbook:download_zip' %}?runbook={{ runbook.slug }}"
+            data-download-desc="&quot;{{ runbook.name }}&quot; runbook as a ZIP archive (with images)"
+            onclick="confirmDownload(this)">Download</button>
+        <button type="button" id="focus-toggle" onclick="toggleFocusMode()" class="btn-outline">
+            <svg id="focus-icon" viewBox="0 0 24 24" width="16" height="16" fill="currentColor" style="vertical-align: middle;">
+                <path d="M3 5v4h2V5h4V3H5c-1.1 0-2 .9-2 2zm2 10H3v4c0 1.1.9 2 2 2h4v-2H5v-4zm14 4h-4v2h4c1.1 0 2-.9 2-2v-4h-2v4zm0-16h-4v2h4v4h2V5c0-1.1-.9-2-2-2z"/>
+            </svg>
+            <span id="focus-label">Focus</span>
+        </button>
+    </div>
+</div>
+{% endblock %}
+
+{% block content %}
+{% if rendered_sections %}
+<div class="runbook-layout" style="display: grid; grid-template-columns: minmax(0, 1fr) 250px; gap: 24px;">
+    <!-- Continuous content -->
+    <div style="min-width: 0;">
+        {% for entry in rendered_sections %}
+        <section id="section-{{ entry.section.slug }}" style="margin-bottom: 8px;">
+            <h2 style="font-size: 1.1rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--body-quiet-color); border-bottom: 1px solid color-mix(in srgb, var(--primary) 20%, var(--body-bg)); padding-bottom: 0.4rem; margin: 1.5rem 0 1rem;">
+                {% if entry.section.icon %}<span style="margin-right: 4px;">{{ entry.section.icon }}</span>{% endif %}
+                {{ entry.section.name }}
+            </h2>
+            {% for rd in entry.documents %}
+            <div class="card" id="doc-{{ rd.doc.pk }}" style="margin-bottom: 16px; scroll-margin-top: 80px;">
+                <div class="card-header" style="display: flex; align-items: center; justify-content: space-between;">
+                    <h3 style="margin: 0; font-size: 1rem;">{{ rd.doc.title }}</h3>
+                    <a href="{{ rd.doc.get_absolute_url }}" style="font-size: 0.75rem; color: var(--body-quiet-color); text-decoration: none;">Open ↗</a>
+                </div>
+                <div class="card-body runbook-content">
+                    {{ rd.html|safe }}
+                </div>
+            </div>
+            {% endfor %}
+        </section>
+        {% endfor %}
+    </div>
+
+    <!-- Sticky TOC sidebar -->
+    <nav class="runbook-toc-sidebar card" style="position: sticky; top: 80px; align-self: start;">
+        <div class="card-header"><h3 style="margin: 0; font-size: 0.9rem;">Contents</h3></div>
+        <div class="card-body" style="font-size: 0.85rem;">
+            {% for entry in rendered_sections %}
+            <div style="margin-bottom: 0.6rem;">
+                <a href="#section-{{ entry.section.slug }}" style="display: block; font-weight: 600; color: var(--body-fg); text-decoration: none; margin-bottom: 0.2rem;">{{ entry.section.name }}</a>
+                <ul style="list-style: none; margin: 0; padding: 0 0 0 0.5rem;">
+                    {% for rd in entry.documents %}
+                    <li style="margin: 0.1rem 0;">
+                        <a href="#doc-{{ rd.doc.pk }}" style="color: var(--primary); text-decoration: none; font-size: 0.8rem;">{{ rd.doc.title }}</a>
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div>
+            {% endfor %}
+        </div>
+    </nav>
+</div>
+{% else %}
+<div style="text-align: center; padding: 3rem 1rem; color: var(--body-quiet-color);">
+    <p>This runbook has no pages yet. <a href="{% url 'runbook:runbook_detail' runbook.slug %}">Back to the table of contents</a>.</p>
+</div>
+{% endif %}
+
+{% include "runbook/includes/download_modal.html" %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function toggleFocusMode() {
+    var body = document.body;
+    var label = document.getElementById('focus-label');
+    var icon = document.getElementById('focus-icon');
+    body.classList.toggle('runbook-focus-mode');
+    var focused = body.classList.contains('runbook-focus-mode');
+    label.textContent = focused ? 'Expand' : 'Focus';
+    icon.innerHTML = focused
+        ? '<path d="M5 16h3v3h2v-5H5v2zm3-8H5v2h5V5H8v3zm6 11h2v-3h3v-2h-5v5zm2-11V5h-2v5h5V8h-3z"/>'
+        : '<path d="M3 5v4h2V5h4V3H5c-1.1 0-2 .9-2 2zm2 10H3v4c0 1.1.9 2 2 2h4v-2H5v-4zm14 4h-4v2h4c1.1 0 2-.9 2-2v-4h-2v4zm0-16h-4v2h4v4h2V5c0-1.1-.9-2-2-2z"/>';
+}
+</script>
+{% endblock %}

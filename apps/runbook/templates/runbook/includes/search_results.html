@@ -1,0 +1,25 @@
+{% if results %}
+<div class="card" style="margin-top: 8px;">
+    <div class="card-header" style="padding: 8px 16px;">
+        <span style="font-size: 0.8rem; color: var(--body-quiet-color);">{{ results|length }} result{{ results|length|pluralize }} for "{{ search_query }}"</span>
+    </div>
+    <div class="card-body" style="padding: 0;">
+        {% for doc in results %}
+        <a href="{{ doc.get_absolute_url }}" style="display: flex; justify-content: space-between; align-items: center; padding: 8px 16px; text-decoration: none; color: var(--body-fg); border-bottom: 1px solid var(--hairline-color);">
+            <div>
+                <span style="font-weight: 600;">{{ doc.title }}</span>
+                <span class="badge badge-secondary" style="margin-left: 6px;">.{{ doc.file_type }}</span>
+                {% if doc.section %}
+                <span style="font-size: 0.75rem; color: var(--body-quiet-color); margin-left: 6px;">{{ doc.section.name }}</span>
+                {% endif %}
+            </div>
+            <span style="font-size: 0.75rem; color: var(--body-quiet-color);">v{{ doc.version }}</span>
+        </a>
+        {% endfor %}
+    </div>
+</div>
+{% elif search_query %}
+<div style="margin-top: 8px; padding: 12px 16px; color: var(--body-quiet-color); font-size: 0.85rem;">
+    No results for "{{ search_query }}"
+</div>
+{% endif %}

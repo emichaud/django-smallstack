@@ -1,0 +1,355 @@
+{% extends "runbook/base.html" %}
+{% load static runbook_tags %}
+
+{% block title %}{{ document.title }} — Runbook{% endblock %}
+
+{% block breadcrumbs %}{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% runbook_css %}">
+{% endblock %}
+
+{% block page_header %}
+<div class="page-header-bleed page-header-with-actions">
+    <div class="page-header-content">
+        <h1>{{ document.title }}</h1>
+        <p class="page-subtitle">
+            <span class="badge badge-secondary">.{{ document.file_type }}</span>
+            &nbsp;v{{ document.version }}
+            {% if document.section %}&nbsp;&middot;&nbsp;{{ document.section.name }}{% endif %}
+            &nbsp;&middot;&nbsp;Uploaded by {{ document.created_by|default:"unknown" }}
+            {% if document.locked %}&nbsp;&middot;&nbsp;<span class="badge badge-secondary" title="Managed / read-only — {% if document.source %}{{ document.source }}{% endif %}">🔒 Managed</span>{% endif %}
+            {% if document.is_template %}&nbsp;&middot;&nbsp;<span class="badge badge-secondary" title="Offered as a template in the New Page dialog">★ Template</span>{% endif %}
+        </p>
+        <nav style="margin-top: 0.5rem; font-size: 0.8rem;">
+            <a href="{% url 'runbook:dashboard' %}" style="color: var(--body-quiet-color); text-decoration: none;">Runbooks</a>
+            <span style="color: var(--body-quiet-color); margin: 0 0.3rem;">/</span>
+            {% if document.runbook %}
+            <a href="{% url 'runbook:runbook_detail' document.runbook.slug %}" style="color: var(--body-quiet-color); text-decoration: none;">{{ document.runbook.name }}</a>
+            <span style="color: var(--body-quiet-color); margin: 0 0.3rem;">/</span>
+            {% if document.section %}
+            <span style="color: var(--body-quiet-color);">{{ document.section.name }}</span>
+            <span style="color: var(--body-quiet-color); margin: 0 0.3rem;">/</span>
+            {% endif %}
+            {% else %}
+            <a href="{% url 'runbook:document_list' %}" style="color: var(--body-quiet-color); text-decoration: none;">Documents</a>
+            <span style="color: var(--body-quiet-color); margin: 0 0.3rem;">/</span>
+            {% endif %}
+            <span style="color: var(--body-fg);">{{ document.title }}</span>
+        </nav>
+    </div>
+    <div class="page-header-actions rb-doc-actions">
+        {% comment %} Subscriptions are parked while the design is reconsidered — the model,
+        event fan-out, admin, and DocumentSubscribeView all remain; un-comment to re-enable.
+        <form method="post" action="{% url 'runbook:document_subscribe' document.pk %}" style="display: inline;">
+            {% csrf_token %}
+            {% if is_subscribed %}
+            <button type="submit" class="btn-secondary" title="You're subscribed to updates">★ Subscribed</button>
+            {% else %}
+            <button type="submit" class="btn-outline" title="Get emailed when this document changes">☆ Subscribe</button>
+            {% endif %}
+        </form>
+        {% endcomment %}
+        <div class="rb-actions-row">
+            {% if can_edit and document.is_markdown %}
+            <a href="{% url 'runbook:document_edit_content' document.pk %}" class="btn-primary">Edit Content</a>
+            {% endif %}
+            {% if can_edit %}
+            <button type="button" class="btn-secondary" onclick="openFormModal('Edit Details', 'edit-details-source')">Edit Details</button>
+            {% endif %}
+            <a href="{% url 'runbook:document_versions' document.pk %}" class="btn-secondary">Versions ({{ document.version }})</a>
+            <button type="button" class="btn-secondary"
+                data-download-url="{% url 'runbook:serve_file' document.pk %}?download"
+                data-download-desc="&quot;{{ document.title }}&quot; ({{ document.slug }}.{{ document.file_type }})"
+                onclick="confirmDownload(this)">Download</button>
+        </div>
+        <div class="rb-actions-row rb-actions-secondary">
+            {% if can_edit %}
+            <form method="post" action="{% url 'runbook:document_make_template' document.pk %}" style="display: inline;">
+                {% csrf_token %}
+                <button type="submit" class="btn-outline" title="{% if document.is_template %}Remove this page from templates{% else %}Offer this page as a template in the New Page dialog{% endif %}">{% if document.is_template %}★ Template{% else %}☆ Make Template{% endif %}</button>
+            </form>
+            {% endif %}
+            {% if can_manage_lock %}
+            <form method="post" action="{% url 'runbook:document_lock' document.pk %}" style="display: inline;">
+                {% csrf_token %}
+                <button type="submit" class="btn-outline" title="Toggle managed/read-only (superuser)">{% if document.locked %}🔓 Unlock{% else %}🔒 Lock{% endif %}</button>
+            </form>
+            {% endif %}
+            <button type="button" id="focus-toggle" onclick="toggleFocusMode()" class="btn-outline">
+                <svg id="focus-icon" viewBox="0 0 24 24" width="16" height="16" fill="currentColor" style="vertical-align: middle;">
+                    <path d="M3 5v4h2V5h4V3H5c-1.1 0-2 .9-2 2zm2 10H3v4c0 1.1.9 2 2 2h4v-2H5v-4zm14 4h-4v2h4c1.1 0 2-.9 2-2v-4h-2v4zm0-16h-4v2h4v4h2V5c0-1.1-.9-2-2-2z"/>
+                </svg>
+                <span id="focus-label">Focus</span>
+            </button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block content %}
+{% if document.description %}
+<div class="runbook-description" style="margin-bottom: 16px; color: var(--body-quiet-color); font-style: italic;">{{ document.description }}</div>
+{% endif %}
+
+<div class="runbook-layout" style="display: grid; grid-template-columns: {% if rendered.toc %}minmax(0, 1fr) 250px{% else %}minmax(0, 1fr){% endif %}; gap: 24px;">
+    <!-- Main content -->
+    <div class="card">
+        <div class="card-body runbook-content">
+            {% if document.is_pdf %}
+            <iframe src="{% url 'runbook:serve_file' document.pk %}" style="width: 100%; height: 80vh; border: none; border-radius: var(--radius-sm);"></iframe>
+            {% else %}
+            {{ rendered.html|safe }}
+            {% endif %}
+        </div>
+    </div>
+
+    {% if rendered.toc %}
+    <!-- Table of Contents sidebar -->
+    <div class="runbook-toc-sidebar card" style="position: sticky; top: 80px; align-self: start;">
+        <div class="card-header"><h3 style="margin: 0; font-size: 0.9rem;">On This Page</h3></div>
+        <div class="card-body" style="font-size: 0.85rem;">
+            {{ rendered.toc|safe }}
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+{% if document.is_markdown %}
+<!-- Images panel: upload a pool for this document, then copy Markdown into the editor -->
+<div class="card runbook-images" style="margin-top: 24px;">
+    <div class="card-header" style="display: flex; align-items: center; justify-content: space-between;">
+        <h3 style="margin: 0; font-size: 0.9rem;">Images</h3>
+        <button type="button" id="rb-img-upload-btn" class="btn-secondary">Upload image</button>
+    </div>
+    <div class="card-body">
+        <p style="color: var(--body-quiet-color); font-size: 0.85rem; margin-top: 0;">
+            Upload images for this document, then copy the Markdown into the editor — or
+            insert/paste images directly while editing content. Images are shared across all
+            versions of this document.
+        </p>
+        <input type="file" id="rb-img-input" accept="image/*" multiple style="display: none;">
+        <div id="rb-img-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px;">
+            {% for img in images %}
+            <figure class="rb-img-tile" style="margin: 0;" data-url="{% url 'runbook:serve_image' img.pk %}" data-alt="{{ img.alt|escape }}">
+                <a href="{% url 'runbook:serve_image' img.pk %}" target="_blank" rel="noopener">
+                    <img src="{% url 'runbook:serve_image' img.pk %}" alt="{{ img.alt }}"
+                         style="width: 100%; height: 100px; object-fit: cover; border-radius: var(--radius-sm); border: 1px solid var(--card-border);">
+                </a>
+                <div style="display: flex; gap: 4px; margin-top: 6px;">
+                    <label style="flex: 1; font-size: 0.65rem; color: var(--body-quiet-color);">Align
+                        <select class="rb-img-align vTextField" style="width: 100%; font-size: 0.7rem; padding: 2px 4px;">
+                            <option value="">Inline</option>
+                            <option value=".rb-img-center">Center</option>
+                            <option value=".rb-img-left">Left</option>
+                            <option value=".rb-img-right">Right</option>
+                        </select>
+                    </label>
+                    <label style="flex: 1; font-size: 0.65rem; color: var(--body-quiet-color);">Size
+                        <select class="rb-img-width vTextField" style="width: 100%; font-size: 0.7rem; padding: 2px 4px;">
+                            <option value="">Auto</option>
+                            <option value=".rb-img-w-25">25%</option>
+                            <option value=".rb-img-w-50">50%</option>
+                            <option value=".rb-img-w-75">75%</option>
+                            <option value=".rb-img-sm">Small (200px)</option>
+                            <option value=".rb-img-md">Medium (400px)</option>
+                            <option value=".rb-img-lg">Large (800px)</option>
+                        </select>
+                    </label>
+                </div>
+                <button type="button" class="btn-outline rb-img-copy"
+                        style="width: 100%; margin-top: 6px; font-size: 0.75rem;">Copy Markdown</button>
+            </figure>
+            {% empty %}
+            <p id="rb-img-empty" style="color: var(--body-quiet-color); font-size: 0.85rem; grid-column: 1 / -1;">No images yet.</p>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{% include "runbook/includes/download_modal.html" %}
+
+{# Shared modal (same one the dashboard stat cards + New Page dialog use). #}
+{% include "runbook/includes/stat_modal.html" %}
+
+{# Edit Details — injected into the shared modal by openFormModal(); posts to DocumentUpdateView. #}
+{% if can_edit %}
+<div id="edit-details-source" style="display: none;">
+    <div style="padding: 20px 24px;">
+        <form method="post" enctype="multipart/form-data" action="{% url 'runbook:document_update' document.pk %}" class="crud-form">
+            {% csrf_token %}
+            <div class="crud-field">
+                <label class="crud-label">Title <span class="required">*</span></label>
+                <input type="text" name="title" class="vTextField" required value="{{ document.title }}">
+            </div>
+            {% if document.runbook %}
+            <div class="crud-field">
+                <label class="crud-label">Section</label>
+                <select name="section">
+                    <option value="">— No section (ungrouped) —</option>
+                    {% for s in document.runbook.sections.all %}
+                    <option value="{{ s.pk }}"{% if document.section_id == s.pk %} selected{% endif %}>{{ s.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            {% endif %}
+            <div class="crud-field">
+                <label class="crud-label">Description</label>
+                <input type="text" name="description" class="vTextField" value="{{ document.description }}" placeholder="Optional one-line summary">
+            </div>
+            <div class="crud-field">
+                <label class="crud-label">Replace content (optional)</label>
+                <input type="file" name="file" accept=".md">
+                <div class="crud-help">Uploading a file saves it as a new version.</div>
+            </div>
+            <div class="crud-actions">
+                <button type="submit" class="btn-save">Save Changes</button>
+                <button type="button" class="btn-cancel" onclick="closeStatModal()">Cancel</button>
+            </div>
+        </form>
+        <form method="post" action="{% url 'runbook:document_delete' document.pk %}"
+              onsubmit="return confirm('Delete “{{ document.title|escapejs }}”? This cannot be undone.');"
+              style="margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--card-border);">
+            {% csrf_token %}
+            <button type="submit" class="btn-danger">Delete Document</button>
+        </form>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Inject a hidden source form into the shared modal (same pattern as the New Page dialog).
+function openFormModal(title, sourceId) {
+    openStatModal(title);
+    document.getElementById('stat-modal-body').innerHTML =
+        document.getElementById(sourceId).innerHTML;
+}
+
+function toggleFocusMode() {
+    var body = document.body;
+    var btn = document.getElementById('focus-toggle');
+    var label = document.getElementById('focus-label');
+    var icon = document.getElementById('focus-icon');
+    body.classList.toggle('runbook-focus-mode');
+    var focused = body.classList.contains('runbook-focus-mode');
+    label.textContent = focused ? 'Expand' : 'Focus';
+    icon.innerHTML = focused
+        ? '<path d="M5 16h3v3h2v-5H5v2zm3-8H5v2h5V5H8v3zm6 11h2v-3h3v-2h-5v5zm2-11V5h-2v5h5V8h-3z"/>'
+        : '<path d="M3 5v4h2V5h4V3H5c-1.1 0-2 .9-2 2zm2 10H3v4c0 1.1.9 2 2 2h4v-2H5v-4zm14 4h-4v2h4c1.1 0 2-.9 2-2v-4h-2v4zm0-16h-4v2h4v4h2V5c0-1.1-.9-2-2-2z"/>';
+}
+
+/* -- Images panel: upload + copy markdown -------------------------------- */
+(function() {
+    var btn = document.getElementById('rb-img-upload-btn');
+    if (!btn) { return; }
+    var input = document.getElementById('rb-img-input');
+    var grid = document.getElementById('rb-img-grid');
+    var uploadUrl = "{% url 'runbook:document_image_upload' document.pk %}";
+    var csrf = '{{ csrf_token }}';
+
+    var MAX_IMAGES = 10;
+    var pending = 0;
+    function setBusy(delta) {
+        pending = Math.max(0, pending + delta);
+        btn.disabled = pending > 0;
+        btn.textContent = pending > 0 ? 'Uploading…' : 'Upload image';
+    }
+
+    btn.addEventListener('click', function() { input.click(); });
+    input.addEventListener('change', function() {
+        var files = Array.prototype.slice.call(this.files || []);
+        if (files.length > MAX_IMAGES) {
+            alert('You can upload up to ' + MAX_IMAGES + ' images at once — using the first ' + MAX_IMAGES + '.');
+            files = files.slice(0, MAX_IMAGES);
+        }
+        files.forEach(uploadImage);
+        this.value = '';
+    });
+
+    function uploadImage(file) {
+        var fd = new FormData();
+        fd.append('image', file, file.name || 'pasted-image.png');
+        setBusy(1);
+        fetch(uploadUrl, { method: 'POST', headers: { 'X-CSRFToken': csrf }, body: fd })
+            .then(function(r) { return r.json().then(function(d) { return { ok: r.ok, data: d }; }); })
+            .then(function(res) {
+                setBusy(-1);
+                if (!res.ok) { alert('Upload failed: ' + (res.data.error || 'unknown error')); return; }
+                addTile(res.data);
+            })
+            .catch(function() {
+                setBusy(-1);
+                alert('Upload failed.');
+            });
+    }
+
+    var ALIGN_OPTIONS =
+        '<option value="">Inline</option>' +
+        '<option value=".rb-img-center">Center</option>' +
+        '<option value=".rb-img-left">Left</option>' +
+        '<option value=".rb-img-right">Right</option>';
+    var WIDTH_OPTIONS =
+        '<option value="">Auto</option>' +
+        '<option value=".rb-img-w-25">25%</option>' +
+        '<option value=".rb-img-w-50">50%</option>' +
+        '<option value=".rb-img-w-75">75%</option>' +
+        '<option value=".rb-img-sm">Small (200px)</option>' +
+        '<option value=".rb-img-md">Medium (400px)</option>' +
+        '<option value=".rb-img-lg">Large (800px)</option>';
+
+    function labeledSelect(label, cls, options) {
+        return '<label style="flex:1;font-size:0.65rem;color:var(--body-quiet-color);">' + label +
+            '<select class="' + cls + ' vTextField" style="width:100%;font-size:0.7rem;padding:2px 4px;">' +
+            options + '</select></label>';
+    }
+
+    function addTile(d) {
+        var empty = document.getElementById('rb-img-empty');
+        if (empty) { empty.remove(); }
+        var fig = document.createElement('figure');
+        fig.className = 'rb-img-tile';
+        fig.style.margin = '0';
+        fig.setAttribute('data-url', d.url);
+        fig.setAttribute('data-alt', '');
+        fig.innerHTML =
+            '<a href="' + d.url + '" target="_blank" rel="noopener">' +
+            '<img src="' + d.url + '" style="width:100%;height:100px;object-fit:cover;' +
+            'border-radius:var(--radius-sm);border:1px solid var(--card-border);"></a>' +
+            '<div style="display:flex;gap:4px;margin-top:6px;">' +
+            labeledSelect('Align', 'rb-img-align', ALIGN_OPTIONS) +
+            labeledSelect('Size', 'rb-img-width', WIDTH_OPTIONS) +
+            '</div>' +
+            '<button type="button" class="btn-outline rb-img-copy" ' +
+            'style="width:100%;margin-top:6px;font-size:0.75rem;">Copy Markdown</button>';
+        grid.appendChild(fig);
+    }
+
+    function buildMarkdown(tile) {
+        var url = tile.getAttribute('data-url');
+        var alt = tile.getAttribute('data-alt') || '';
+        var alignSel = tile.querySelector('.rb-img-align');
+        var widthSel = tile.querySelector('.rb-img-width');
+        // Both selects emit CSS class tokens (e.g. ".rb-img-center .rb-img-w-50").
+        var classes = [];
+        if (alignSel && alignSel.value) { classes.push(alignSel.value); }
+        if (widthSel && widthSel.value) { classes.push(widthSel.value); }
+        var suffix = classes.length ? '{: ' + classes.join(' ') + ' }' : '';
+        return '![' + alt + '](' + url + ')' + suffix;
+    }
+
+    grid.addEventListener('click', function(e) {
+        var b = e.target.closest('.rb-img-copy');
+        if (!b) { return; }
+        var tile = b.closest('.rb-img-tile');
+        navigator.clipboard.writeText(buildMarkdown(tile)).then(function() {
+            var old = b.textContent;
+            b.textContent = 'Copied!';
+            setTimeout(function() { b.textContent = old; }, 1200);
+        });
+    });
+})();
+</script>
+{% endblock %}

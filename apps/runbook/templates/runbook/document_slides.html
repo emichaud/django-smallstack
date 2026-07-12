@@ -1,0 +1,53 @@
+{% extends "runbook/base.html" %}
+{% load static runbook_tags %}
+
+{% block title %}{{ document.title }} — Slides{% endblock %}
+
+{% block breadcrumbs %}{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% runbook_css %}">
+{% endblock %}
+
+{% block content %}
+<div style="margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center;">
+    <div>
+        <h1 style="margin: 0;">{{ document.title }}</h1>
+        <nav style="margin-top: 0.3rem; font-size: 0.8rem;">
+            <a href="{% url 'runbook:dashboard' %}" style="color: var(--body-quiet-color); text-decoration: none;">Runbook</a>
+            <span style="color: var(--body-quiet-color); margin: 0 0.3rem;">/</span>
+            <a href="{% url 'runbook:document_detail' document.pk %}" style="color: var(--body-quiet-color); text-decoration: none;">{{ document.title }}</a>
+            <span style="color: var(--body-quiet-color); margin: 0 0.3rem;">/</span>
+            <span style="color: var(--body-fg);">Slides</span>
+        </nav>
+    </div>
+    <a href="{% url 'runbook:document_detail' document.pk %}" class="button button-small button-secondary">Back to Document</a>
+</div>
+
+<!-- Progress bar -->
+<div class="slide-progress" style="margin-bottom: 16px;">
+    <div class="slide-progress-bar" id="slideProgress" style="width: 0%;"></div>
+</div>
+
+<!-- Slide deck -->
+<div class="slide-deck" id="slideDeck">
+    {% for slide in slides %}
+    <div class="slide-card card {% if forloop.first %}active{% endif %}" data-slide="{{ forloop.counter0 }}">
+        <div class="card-body runbook-content" style="min-height: 400px; padding: 32px;">
+            {{ slide.html|safe }}
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- Navigation -->
+<div style="display: flex; justify-content: space-between; align-items: center; margin-top: 16px;">
+    <button type="button" class="button button-secondary" id="prevSlide" disabled>Previous</button>
+    <span id="slideCounter" style="font-size: 0.9rem; color: var(--body-quiet-color);">1 / {{ slides|length }}</span>
+    <button type="button" class="button button-secondary" id="nextSlide">Next</button>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'runbook/runbook.js' %}"></script>
+{% endblock %}

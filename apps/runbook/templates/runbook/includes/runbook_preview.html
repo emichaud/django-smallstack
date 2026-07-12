@@ -1,0 +1,21 @@
+{% comment %}Rendered preview of a runbook's content, loaded into the dashboard preview modal.{% endcomment %}
+{% if rendered_sections %}
+<div class="runbook-content" style="padding: 20px 24px;">
+    {% for entry in rendered_sections %}
+    <h2 style="font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--body-quiet-color); border-bottom: 1px solid color-mix(in srgb, var(--primary) 20%, var(--body-bg)); padding-bottom: 0.3rem; margin: 1.4rem 0 0.8rem;">
+        {% if entry.section.icon %}<span style="margin-right: 4px;">{{ entry.section.icon }}</span>{% endif %}
+        {{ entry.section.name }}
+    </h2>
+    {% for rd in entry.documents %}
+    <h3 style="font-size: 1rem; margin: 1rem 0 0.4rem;">{{ rd.doc.title }}</h3>
+    {{ rd.html|safe }}
+    {% endfor %}
+    {% endfor %}
+</div>
+{% else %}
+<p style="padding: 24px; text-align: center; color: var(--body-quiet-color);">This runbook has no pages yet.</p>
+{% endif %}
+<div style="padding: 12px 24px; border-top: 1px solid var(--card-border); display: flex; gap: 8px; justify-content: flex-end;">
+    <a href="{% url 'runbook:runbook_read' runbook.slug %}" class="btn-secondary btn-sm">Open full view</a>
+    <a href="{% url 'runbook:runbook_detail' runbook.slug %}" class="btn-outline btn-sm">Table of contents</a>
+</div>

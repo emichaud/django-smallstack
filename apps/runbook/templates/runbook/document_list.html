@@ -1,0 +1,93 @@
+{% extends "runbook/base.html" %}
+{% load static runbook_tags %}
+
+{% block title %}Documents — Runbook{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% runbook_css %}">
+{% endblock %}
+
+{% block breadcrumbs %}{% endblock %}
+
+{% block page_header %}
+<div class="page-header-bleed page-header-with-actions">
+    <div class="page-header-content">
+        <h1>Documents</h1>
+        <p class="page-subtitle">{{ page_obj.paginator.count }} document{{ page_obj.paginator.count|pluralize }} you can see</p>
+        <nav style="margin-top: 0.5rem; font-size: 0.8rem;">
+            <a href="{% url 'runbook:dashboard' %}" style="color: var(--body-quiet-color); text-decoration: none;">Runbooks</a>
+            <span style="color: var(--body-quiet-color); margin: 0 0.3rem;">/</span>
+            <span style="color: var(--body-fg);">Documents</span>
+        </nav>
+    </div>
+    <div class="page-header-actions">
+        <a href="{% url 'runbook:dashboard' %}" class="btn-secondary">Dashboard</a>
+    </div>
+</div>
+{% endblock %}
+
+{% block content %}
+<!-- Search bar, then Search / Clear, then the section filter -->
+<form method="get" class="rb-doclist-search">
+    <input type="search" name="q" value="{{ search_query }}" class="rb-doclist-input"
+           placeholder="Search documents by title or content…" autofocus>
+    <button type="submit" class="btn-primary">Search</button>
+    <a href="{% url 'runbook:document_list' %}" class="btn-secondary">Clear</a>
+    <select name="section" class="rb-doclist-select" onchange="this.form.submit()">
+        <option value="">All sections</option>
+        {% for sec in sections %}
+        <option value="{{ sec.slug }}" {% if active_section == sec.slug %}selected{% endif %}>{{ sec.name }}</option>
+        {% endfor %}
+    </select>
+</form>
+
+<div class="card rb-doclist-card">
+    <div class="card-body" style="padding: 0;">
+        {% if documents %}
+        <table class="table-plain rb-doclist-table">
+            <thead>
+                <tr>
+                    {% for key, label, align in columns %}
+                    <th class="rb-sort-th" style="text-align: {{ align }};">
+                        <a href="?sort={% if current_sort == key %}-{{ key }}{% else %}{{ key }}{% endif %}{% if filter_qs %}&{{ filter_qs }}{% endif %}"
+                           class="rb-sort-link {% if current_sort == key %}rb-sort-asc{% elif current_sort == '-'|add:key %}rb-sort-desc{% endif %}">
+                            {{ label }}<span class="rb-sort-ind">{% if current_sort == key %}&#9650;{% elif current_sort == '-'|add:key %}&#9660;{% endif %}</span>
+                        </a>
+                    </th>
+                    {% endfor %}
+                    <th style="text-align: right;">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for doc in documents %}
+                <tr>
+                    <td><a href="{{ doc.get_absolute_url }}" class="rb-doclist-title">{{ doc.title }}</a></td>
+                    <td class="rb-muted">{% if doc.runbook %}{{ doc.runbook.name }}{% elif doc.section %}{{ doc.section.runbook.name }}{% else %}&mdash;{% endif %}</td>
+                    <td class="rb-muted">{{ doc.section.name|default:"—" }}</td>
+                    <td style="text-align: center;"><span class="badge badge-secondary">.{{ doc.file_type }}</span></td>
+                    <td class="rb-muted" style="text-align: right;">v{{ doc.version }}</td>
+                    <td class="rb-muted">{{ doc.created_by|default:"—" }}</td>
+                    <td class="rb-muted">{{ doc.updated_at|date:"M d, Y" }}</td>
+                    <td style="text-align: right;"><a href="{{ doc.get_absolute_url }}" class="btn-outline btn-sm">Open</a></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        {% if is_paginated %}
+        <div class="rb-doclist-pager">
+            {% if page_obj.has_previous %}
+            <a href="?page={{ page_obj.previous_page_number }}&sort={{ current_sort }}{% if filter_qs %}&{{ filter_qs }}{% endif %}" class="btn-secondary btn-sm">&larr; Prev</a>
+            {% else %}<span class="btn-secondary btn-sm rb-pager-disabled">&larr; Prev</span>{% endif %}
+            <span class="rb-muted rb-pager-status">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+            {% if page_obj.has_next %}
+            <a href="?page={{ page_obj.next_page_number }}&sort={{ current_sort }}{% if filter_qs %}&{{ filter_qs }}{% endif %}" class="btn-secondary btn-sm">Next &rarr;</a>
+            {% else %}<span class="btn-secondary btn-sm rb-pager-disabled">Next &rarr;</span>{% endif %}
+        </div>
+        {% endif %}
+        {% else %}
+        <p class="rb-doclist-empty">No documents found{% if search_query %} for &ldquo;{{ search_query }}&rdquo;{% endif %}.</p>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

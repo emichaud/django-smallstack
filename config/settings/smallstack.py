@@ -234,3 +234,15 @@ MCP_TOOL_MODULES: list[str] = []  # e.g. ["apps.mcp_tools.summary"]
 # circular imports — but then every app with enable_mcp=True must
 # explicitly `from . import views` in its AppConfig.ready().
 MCP_AUTODISCOVER = config("MCP_AUTODISCOVER", default=True, cast=bool)
+
+
+# ---------------------------------------------------------------------------
+# Runbook (apps.runbook) — versioned markdown documents
+# ---------------------------------------------------------------------------
+# The base template every runbook page extends. In SmallStack this is the
+# themed shell so runbook pages match the rest of the admin UI.
+RUNBOOK_BASE_TEMPLATE = config("RUNBOOK_BASE_TEMPLATE", default="smallstack/base.html")
+# Restrict the runbook UI to staff users (True) or allow any signed-in user.
+RUNBOOK_STAFF_REQUIRED = config("RUNBOOK_STAFF_REQUIRED", default=True, cast=bool)
+# Other RUNBOOK_* knobs (version/retention caps) default sensibly in
+# apps/runbook/conf.py — override here only if needed.

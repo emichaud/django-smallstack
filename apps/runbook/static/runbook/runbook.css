@@ -1,0 +1,729 @@
+/* smallstack-runbook styles
+ *
+ * Requires SmallStack's theme.css and components.css for CSS variables
+ * (--primary, --body-bg, --body-fg, etc.) and component classes
+ * (.card, .btn-primary, .crud-table, etc.).
+ */
+
+/* ── Focus mode ──────────────────────────────────────────────── */
+body.runbook-focus-mode .runbook-toc-sidebar {
+    display: none !important;
+}
+
+body.runbook-focus-mode .runbook-layout {
+    grid-template-columns: 1fr !important;
+    max-width: 900px;
+    margin: 0 auto;
+}
+
+/* ── Layout containment ────────────────────────────────────────────
+ * Grid/flex items default to min-width:auto (= min-content), so a wide
+ * child (a long <pre> line, an unbreakable URL) can push a 1fr track past
+ * the viewport. min-width:0 lets the track shrink and the <pre> scroll
+ * internally instead of blowing out the whole page. */
+.runbook-layout {
+    min-width: 0;
+}
+
+.runbook-layout > * {
+    min-width: 0;
+}
+
+.runbook-content {
+    min-width: 0;
+    overflow-wrap: break-word;
+}
+
+.runbook-content pre {
+    max-width: 100%;
+}
+
+/* ── Image alignment helpers (used via attr_list, e.g.
+ *    ![alt](url){: .rb-img-center width="400" }) ─────────────────── */
+.runbook-content img.rb-img-center {
+    display: block;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.runbook-content img.rb-img-left {
+    float: left;
+    margin: 0.25em 1em 0.5em 0;
+}
+
+.runbook-content img.rb-img-right {
+    float: right;
+    margin: 0.25em 0 0.5em 1em;
+}
+
+/* Width presets (CSS, not the HTML width attribute, so percentages are
+ * reliable). max-width:100% on the base img rule keeps them responsive. */
+.runbook-content img.rb-img-w-25 { width: 25%; }
+.runbook-content img.rb-img-w-50 { width: 50%; }
+.runbook-content img.rb-img-w-75 { width: 75%; }
+.runbook-content img.rb-img-sm { width: 200px; }
+.runbook-content img.rb-img-md { width: 400px; }
+.runbook-content img.rb-img-lg { width: 800px; }
+
+/* Contain floats so a following block doesn't wrap awkwardly. */
+.runbook-content::after {
+    content: "";
+    display: block;
+    clear: both;
+}
+
+/* ── Editor: "New version" pill switch ─────────────────────────────
+ * An iOS-style toggle: track fills with the palette accent when on, thumb
+ * slides across. The native checkbox stays (keyboard + form semantics) but
+ * is visually hidden. Reads correctly on all palettes (theme tokens only). */
+.rb-switch {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.55rem;
+    font-size: 0.9rem;
+    font-weight: 500;
+    line-height: 1;
+    color: var(--body-fg);
+    cursor: pointer;
+    user-select: none;
+    white-space: nowrap;
+    transition: color 0.15s ease;
+}
+
+/* Visually hide the native checkbox but keep it operable + focusable. */
+.rb-switch input {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: 0;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.rb-switch-track {
+    position: relative;
+    flex-shrink: 0;
+    width: 48px;
+    height: 27px;
+    /* A clearly-visible neutral so the off state reads on dark backgrounds
+       (--card-border was almost invisible against the near-black header). */
+    background: color-mix(in srgb, var(--body-fg) 42%, var(--body-bg));
+    border-radius: 999px;
+    transition: background 0.18s ease;
+}
+
+.rb-switch-thumb {
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    width: 21px;
+    height: 21px;
+    background: #fff;
+    border-radius: 50%;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.55);
+    transition: transform 0.18s ease;
+}
+
+.rb-switch input:checked + .rb-switch-track {
+    background: var(--primary);
+}
+
+.rb-switch input:checked + .rb-switch-track .rb-switch-thumb {
+    transform: translateX(21px);
+}
+
+.rb-switch input:focus-visible + .rb-switch-track {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+}
+
+.rb-switch input:checked ~ .rb-switch-label {
+    color: var(--body-fg);
+    font-weight: 500;
+}
+
+/* ── Editor formatting-help panel ──────────────────────────────────
+ * Full-contrast prose + tinted code chips so the instructions and class
+ * names stay readable in dark mode. */
+.rb-format-help summary {
+    color: var(--primary);
+    font-weight: 600;
+}
+
+.rb-format-help .card-body {
+    color: var(--body-fg);
+    line-height: 1.55;
+}
+
+.rb-format-help code {
+    background: color-mix(in srgb, var(--primary) 18%, var(--card-bg));
+    color: var(--body-fg);
+    padding: 1px 6px;
+    border-radius: 4px;
+    border: 1px solid color-mix(in srgb, var(--primary) 30%, transparent);
+    font-size: 0.85em;
+    white-space: nowrap;
+}
+
+/* ── Rendered content ──────────────────────────────────────────── */
+.runbook-content h1,
+.runbook-content h2,
+.runbook-content h3,
+.runbook-content h4 {
+    margin-top: 1.5em;
+    margin-bottom: 0.5em;
+    color: var(--body-fg);
+}
+
+.runbook-content h1:first-child,
+.runbook-content h2:first-child,
+.runbook-content h3:first-child {
+    margin-top: 0;
+}
+
+.runbook-content p {
+    margin-bottom: 0.75em;
+    line-height: 1.6;
+}
+
+.runbook-content pre {
+    background: color-mix(in srgb, var(--primary) 5%, var(--body-bg));
+    padding: 12px 16px;
+    border-radius: var(--radius-sm);
+    overflow-x: auto;
+    font-size: 0.85rem;
+    margin-bottom: 1em;
+}
+
+.runbook-content code {
+    font-size: 0.9em;
+    background: color-mix(in srgb, var(--primary) 8%, var(--body-bg));
+    padding: 2px 6px;
+    border-radius: 3px;
+}
+
+.runbook-content pre code {
+    background: none;
+    padding: 0;
+}
+
+.runbook-content table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 1em;
+}
+
+.runbook-content table th,
+.runbook-content table td {
+    padding: 8px 12px;
+    border: 1px solid var(--hairline-color);
+    text-align: left;
+}
+
+.runbook-content table th {
+    background: color-mix(in srgb, var(--primary) 8%, var(--body-bg));
+    font-weight: 600;
+}
+
+.runbook-content blockquote {
+    border-left: 3px solid var(--primary);
+    padding: 8px 16px;
+    margin: 0 0 1em 0;
+    color: var(--body-quiet-color);
+    background: color-mix(in srgb, var(--primary) 5%, var(--body-bg));
+    border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+}
+
+.runbook-content ul,
+.runbook-content ol {
+    margin-bottom: 1em;
+    padding-left: 1.5em;
+}
+
+.runbook-content li {
+    margin-bottom: 0.3em;
+    line-height: 1.5;
+}
+
+.runbook-content img {
+    max-width: 100%;
+    height: auto;
+    border: 1px solid var(--hairline-color);
+    border-radius: var(--radius-sm);
+}
+
+/* ── Slide viewer ──────────────────────────────────────────────── */
+.slide-progress {
+    height: 4px;
+    background: var(--hairline-color);
+    border-radius: 2px;
+    overflow: hidden;
+}
+
+.slide-progress-bar {
+    height: 100%;
+    background: var(--primary);
+    transition: width 0.3s ease;
+}
+
+.slide-deck .slide-card {
+    display: none;
+}
+
+.slide-deck .slide-card.active {
+    display: block;
+}
+
+/* ── Step viewer ───────────────────────────────────────────────── */
+.step-timeline {
+    position: relative;
+    padding-left: 40px;
+}
+
+.step-timeline::before {
+    content: "";
+    position: absolute;
+    left: 18px;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: var(--hairline-color);
+}
+
+.step-item {
+    position: relative;
+    margin-bottom: 24px;
+}
+
+.step-marker {
+    position: absolute;
+    left: -40px;
+    top: 12px;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: var(--primary);
+    color: var(--button-fg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 0.85rem;
+    z-index: 1;
+}
+
+.step-content {
+    padding-left: 16px;
+}
+
+.step-note {
+    margin: 0 16px 16px;
+    padding: 10px 14px;
+    background: color-mix(in srgb, var(--primary) 8%, var(--body-bg));
+    border-left: 3px solid var(--primary);
+    border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+    font-size: 0.9rem;
+}
+
+/* ── Badges ────────────────────────────────────────────────────── */
+.badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    background: var(--primary);
+    color: var(--button-fg);
+}
+
+.badge-secondary {
+    background: color-mix(in srgb, var(--primary) 15%, var(--body-bg));
+    color: var(--body-fg);
+}
+
+/* ── Markdown editor ───────────────────────────────────────────── */
+.runbook-editor {
+    width: 100%;
+    font-family: ui-monospace, "Cascadia Code", "Source Code Pro", Menlo, Consolas, monospace;
+    font-size: 0.9rem;
+    line-height: 1.6;
+    padding: 16px;
+    background: var(--body-bg);
+    color: var(--body-fg);
+    border: 1px solid var(--hairline-color);
+    border-radius: var(--radius-sm);
+    resize: vertical;
+    tab-size: 4;
+}
+
+.runbook-editor:focus {
+    outline: 2px solid var(--primary);
+    outline-offset: -1px;
+    border-color: var(--primary);
+}
+
+/* ── TOC sidebar ───────────────────────────────────────────────── */
+.runbook-content .toc ul {
+    list-style: none;
+    padding-left: 0;
+    margin: 0;
+}
+
+.runbook-content .toc ul ul {
+    padding-left: 16px;
+}
+
+.runbook-content .toc a {
+    text-decoration: none;
+    color: var(--body-quiet-color);
+    display: block;
+    padding: 3px 0;
+}
+
+.runbook-content .toc a:hover {
+    color: var(--primary);
+}
+
+
+/* ── Dashboard: runbook cards + inline search + list view ───────────────────
+   Help-home aesthetic, expressed with theme variables so it stays palette-correct
+   on all five palettes (no hex literals). */
+
+.rb-section { margin-bottom: 32px; }
+
+.rb-section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
+    gap: 12px;
+}
+
+.rb-section-title {
+    margin: 0;
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--body-fg);
+}
+
+/* Inline home search (reuses the runbook:search_results htmx fragment) */
+.rb-home-search { margin-bottom: 24px; }
+
+.rb-home-search input {
+    width: 100%;
+    max-width: 640px;
+    padding: 10px 14px;
+    font-size: 0.95rem;
+    color: var(--body-fg);
+    background-color: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: var(--radius-sm);
+}
+
+.rb-home-search input:focus {
+    outline: none;
+    border-color: var(--primary);
+}
+
+#rb-home-search-results { max-width: 640px; }
+
+/* Card grid */
+.rb-card-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 16px;
+}
+
+/* The card is a compact, vertically-centered row (icon · content · chevron),
+   matching the help-card proportions. */
+.rb-card {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 16px;
+    text-decoration: none !important;
+    color: var(--body-fg);
+    background-color: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: var(--radius-md);
+    transition: border-color var(--transition-fast),
+                box-shadow var(--transition-fast),
+                transform var(--transition-fast);
+}
+
+.rb-card:hover {
+    border-color: var(--primary);
+    box-shadow: var(--shadow-md);
+    transform: translateY(-2px);
+}
+
+.rb-card-icon {
+    flex-shrink: 0;
+    width: 42px;
+    height: 42px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.35rem;
+    line-height: 1;
+    background-color: var(--sidebar-hover-bg);
+    border-radius: var(--radius-md);
+    color: var(--primary);
+}
+
+.rb-card-content { flex: 1; min-width: 0; }
+
+/* Title owns the full content width — visibility + meta moved to the line below. */
+.rb-card-name {
+    margin: 0 0 5px 0;
+    font-size: 1.05rem;
+    font-weight: 600;
+    color: var(--body-fg);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.rb-card-meta {
+    font-size: 0.8rem;
+    color: var(--body-quiet-color);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* Compact public/private status pill for the card meta line. */
+.rb-vis-badge {
+    display: inline-block;
+    vertical-align: middle;
+    font-size: 0.66rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    padding: 1px 6px;
+    border-radius: 4px;
+    line-height: 1.6;
+}
+.rb-vis-private {
+    color: var(--body-quiet-color);
+    background: color-mix(in srgb, var(--body-fg) 10%, transparent);
+}
+.rb-vis-public {
+    color: var(--primary);
+    background: color-mix(in srgb, var(--primary) 16%, transparent);
+}
+
+.rb-card-arrow {
+    flex-shrink: 0;
+    color: var(--body-quiet-color);
+    transition: transform var(--transition-fast), color var(--transition-fast);
+}
+
+.rb-card:hover .rb-card-arrow {
+    transform: translateX(4px);
+    color: var(--primary);
+}
+
+.rb-empty {
+    padding: 24px;
+    color: var(--body-quiet-color);
+    text-align: center;
+    background-color: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: var(--radius-md);
+}
+
+/* Dense list view (help Table-of-Contents aesthetic) */
+/* Items flow into balanced columns so a flat runbook list fills the width
+   instead of hugging the left edge. */
+.rb-list { columns: 1; column-gap: 2.5rem; }
+
+@media (min-width: 768px) {
+    .rb-list { columns: 2; }
+}
+
+.rb-list-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 0.5rem;
+    border-bottom: 1px solid color-mix(in srgb, var(--primary) 8%, var(--body-bg));
+    border-radius: 4px;
+    break-inside: avoid;
+}
+
+.rb-list-item:hover {
+    background: color-mix(in srgb, var(--primary) 10%, var(--body-bg));
+}
+
+.rb-list-link { text-decoration: none !important; min-width: 0; }
+
+.rb-list-name { font-weight: 600; font-size: 0.9rem; color: var(--primary); }
+
+.rb-list-meta {
+    display: block;
+    font-size: 0.78rem;
+    color: var(--body-quiet-color);
+    margin-top: 0.1rem;
+}
+
+/* Runbook modals host taller forms (New Page, Edit Details) than the stat
+   drill-down default — give the shared panel more room so the form's Save/Delete
+   actions fit without scrolling. Scoped to runbook pages (only they load this file). */
+.stat-modal-panel {
+    height: auto;
+    max-height: min(640px, 88vh);
+}
+
+/* Document header actions: a primary line, then a subtler secondary line right
+   below it (Make Template / Lock / Focus). Right-aligned to match the header. */
+.page-header-actions.rb-doc-actions {
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 0.55rem;
+}
+.rb-actions-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+}
+.rb-actions-secondary .btn-outline {
+    font-size: 0.8rem;
+    padding: 0.32rem 0.7rem;
+}
+.rb-actions-secondary svg {
+    width: 13px;
+    height: 13px;
+}
+
+/* ── Editor text-size control (A− / A / A+) ─────────────────────────── */
+.rb-font-control {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    margin-left: auto;   /* push to the right end of the editor toolbar */
+}
+.rb-font-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 30px;
+    padding: 0.22rem 0.4rem;
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: var(--radius-sm, 6px);
+    color: var(--body-fg);
+    line-height: 1;
+    font-weight: 600;
+    cursor: pointer;
+    transition: border-color 0.15s ease, color 0.15s ease;
+}
+.rb-font-btn:hover {
+    border-color: var(--primary);
+    color: var(--primary);
+}
+.rb-font-btn-dec { font-size: 0.72rem; }
+.rb-font-btn-reset { font-size: 0.85rem; }
+.rb-font-btn-inc { font-size: 1.02rem; }
+
+/* ── Documents list page: wide search, sortable table, pager ──────────── */
+.rb-doclist-search {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    align-items: center;
+    margin-bottom: 16px;
+}
+.rb-doclist-input {
+    flex: 1 1 340px;
+    min-width: 220px;
+    padding: 0.55rem 0.9rem;
+    font-size: 0.9rem;
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: var(--radius-md);
+    color: var(--body-fg);
+}
+.rb-doclist-input:focus {
+    outline: none;
+    border-color: var(--primary);
+}
+.rb-doclist-select {
+    flex: 0 1 24%;
+    width: auto;
+    min-width: 160px;
+    padding: 0.55rem 0.7rem;
+    font-size: 0.85rem;
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: var(--radius-md);
+    color: var(--body-fg);
+    cursor: pointer;
+}
+
+.rb-doclist-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+.rb-doclist-table th,
+.rb-doclist-table td {
+    padding: 10px 16px;
+    font-size: 0.875rem;
+}
+.rb-doclist-table td.rb-muted {
+    color: var(--body-quiet-color);
+    white-space: nowrap;
+}
+.rb-doclist-title {
+    font-weight: 500;
+    color: var(--primary);
+    text-decoration: none;
+}
+.rb-doclist-title:hover { text-decoration: underline; }
+
+/* Sortable column headers */
+.rb-sort-th { white-space: nowrap; }
+.rb-sort-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    color: var(--body-quiet-color);
+    text-decoration: none !important;
+    font-weight: 600;
+    font-size: 0.76rem;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    transition: color 0.15s ease;
+}
+.rb-sort-link:hover { color: var(--body-fg); }
+.rb-sort-link.rb-sort-asc,
+.rb-sort-link.rb-sort-desc { color: var(--primary); }
+.rb-sort-ind { font-size: 0.6rem; }
+
+.rb-doclist-pager {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    padding: 14px 16px;
+    border-top: 1px solid var(--card-border);
+}
+.rb-pager-status { font-size: 0.82rem; }
+.rb-pager-disabled { opacity: 0.4; pointer-events: none; }
+.rb-doclist-empty {
+    padding: 40px 24px;
+    text-align: center;
+    color: var(--body-quiet-color);
+}
+
+/* Sortable stat drill-down tables (in the shared modal). */
+.rb-sortable thead th:hover {
+    filter: brightness(1.2);
+}
+.rb-sort-arrow {
+    font-size: 0.72em;
+    color: var(--primary);
+}

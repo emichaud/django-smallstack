@@ -1,0 +1,61 @@
+{% extends "runbook/base.html" %}
+
+{% block title %}Search — Runbook{% endblock %}
+
+{% block breadcrumbs %}{% endblock %}
+
+{% block page_header %}
+<div class="page-header-bleed page-header-with-actions">
+    <div class="page-header-content">
+        <h1>Search Runbook</h1>
+        <p class="page-subtitle">Find documents by title, description, and content</p>
+        <nav style="margin-top: 0.5rem; font-size: 0.8rem;">
+            <a href="{% url 'runbook:dashboard' %}" style="color: var(--body-quiet-color); text-decoration: none;">Runbook</a>
+            <span style="color: var(--body-quiet-color); margin: 0 0.3rem;">/</span>
+            <span style="color: var(--body-fg);">Search</span>
+        </nav>
+    </div>
+    <div class="page-header-actions">
+        <a href="{% url 'runbook:document_list' %}" class="btn-secondary">All Documents</a>
+        <a href="{% url 'runbook:dashboard' %}" class="btn-secondary">Dashboard</a>
+    </div>
+</div>
+{% endblock %}
+
+{% block content %}
+<form method="get" style="margin-bottom: 24px; display: flex; gap: 8px;">
+    <input type="text" name="q" value="{{ search_query }}" placeholder="Search documents..." class="search-input" style="flex: 1; max-width: 500px;" autofocus>
+    <button type="submit" class="btn-primary">Search</button>
+</form>
+
+{% if search_query %}
+<div class="card">
+    <div class="card-header">
+        <h2 style="margin: 0;">{{ results|length }} result{{ results|length|pluralize }} for "{{ search_query }}"</h2>
+    </div>
+    <div class="card-body" style="padding: 0;">
+        {% if results %}
+        {% for doc in results %}
+        <a href="{{ doc.get_absolute_url }}" style="display: block; padding: 12px 16px; text-decoration: none; color: var(--body-fg); border-bottom: 1px solid var(--hairline-color);">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                    <strong>{{ doc.title }}</strong>
+                    <span class="badge badge-secondary" style="margin-left: 8px;">.{{ doc.file_type }}</span>
+                    {% if doc.section %}
+                    <span style="font-size: 0.8rem; color: var(--body-quiet-color); margin-left: 8px;">{{ doc.section.name }}</span>
+                    {% endif %}
+                </div>
+                <span style="font-size: 0.8rem; color: var(--body-quiet-color);">v{{ doc.version }}</span>
+            </div>
+            {% if doc.description %}
+            <div style="font-size: 0.85rem; color: var(--body-quiet-color); margin-top: 4px;">{{ doc.description|truncatechars:120 }}</div>
+            {% endif %}
+        </a>
+        {% endfor %}
+        {% else %}
+        <p style="padding: 24px; color: var(--body-quiet-color); text-align: center;">No documents found matching "{{ search_query }}".</p>
+        {% endif %}
+    </div>
+</div>
+{% endif %}
+{% endblock %}

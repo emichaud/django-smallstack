@@ -1,0 +1,47 @@
+{% extends "runbook/base.html" %}
+
+{% block title %}New Version — {{ parent_doc.title }}{% endblock %}
+
+{% block breadcrumbs %}{% endblock %}
+
+{% block page_header %}
+<div class="page-header-bleed page-header-with-actions">
+    <div class="page-header-content">
+        <h1>Upload New Version</h1>
+        <p class="page-subtitle">Creating version {{ parent_doc.version|add:1 }} of {{ parent_doc.title }} (currently v{{ parent_doc.version }})</p>
+        <nav style="margin-top: 0.5rem; font-size: 0.8rem;">
+            <a href="{% url 'runbook:dashboard' %}" style="color: var(--body-quiet-color); text-decoration: none;">Runbook</a>
+            <span style="color: var(--body-quiet-color); margin: 0 0.3rem;">/</span>
+            <a href="{% url 'runbook:document_detail' parent_doc.pk %}" style="color: var(--body-quiet-color); text-decoration: none;">{{ parent_doc.title }}</a>
+            <span style="color: var(--body-quiet-color); margin: 0 0.3rem;">/</span>
+            <span style="color: var(--body-fg);">New Version</span>
+        </nav>
+    </div>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="card" style="max-width: 600px;">
+    <div class="card-body">
+        <form method="post" enctype="multipart/form-data" class="crud-form">
+            {% csrf_token %}
+
+            {% for field in form %}
+            <div class="crud-field{% if field.errors %} has-error{% endif %}">
+                <label class="crud-label">
+                    {{ field.label }}{% if field.field.required %} <span class="required">*</span>{% endif %}
+                </label>
+                {{ field }}
+                {% if field.help_text %}<div class="crud-help">{{ field.help_text }}</div>{% endif %}
+                {% if field.errors %}<div class="crud-error">{{ field.errors.0 }}</div>{% endif %}
+            </div>
+            {% endfor %}
+
+            <div class="crud-actions">
+                <button type="submit" class="btn-save">Upload Version</button>
+                <a href="{% url 'runbook:document_detail' parent_doc.pk %}" class="btn-cancel">Cancel</a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

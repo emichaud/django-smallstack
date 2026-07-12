@@ -1,0 +1,1 @@
+{% comment %}Compact public/private status pill for a runbook. Expects `rb` in context.{% endcomment %}{% if rb.is_public %}<span class="rb-vis-badge rb-vis-public" title="Public — any signed-in user can read this">Public</span>{% else %}<span class="rb-vis-badge rb-vis-private" title="Private — only you and staff can see this">Private</span>{% endif %}

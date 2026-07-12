@@ -1,0 +1,32 @@
+{% comment %}
+Runbook preview modal. Include once on the dashboard.
+Trigger from any element with:
+  hx-get="{% url 'runbook:runbook_preview' rb.slug %}"
+  hx-target="#runbook-preview-body"
+  onclick="openRunbookPreview('Runbook name')"
+{% endcomment %}
+<div id="runbook-preview-modal" class="stat-modal" onclick="if(event.target===this)closeRunbookPreview()">
+    <div class="card stat-modal-panel" style="width: min(900px, 92vw); height: min(820px, 85vh);">
+        <div class="card-header" style="display: flex; align-items: center; justify-content: space-between;">
+            <h2 id="runbook-preview-title" style="margin: 0;">Preview</h2>
+            <button type="button" onclick="closeRunbookPreview()" style="background: none; border: none; font-size: 1.4rem; cursor: pointer; color: var(--body-quiet-color); line-height: 1; padding: 0 4px;">&times;</button>
+        </div>
+        <div class="card-body" style="padding: 0;">
+            <div id="runbook-preview-body">
+                <p style="padding: 24px; text-align: center; color: var(--body-quiet-color);">Loading…</p>
+            </div>
+        </div>
+    </div>
+</div>
+<script>
+function openRunbookPreview(name) {
+    document.getElementById('runbook-preview-title').textContent = name;
+    document.getElementById('runbook-preview-modal').classList.add('open');
+}
+function closeRunbookPreview() {
+    document.getElementById('runbook-preview-modal').classList.remove('open');
+}
+document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') { closeRunbookPreview(); }
+});
+</script>

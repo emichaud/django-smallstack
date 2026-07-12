@@ -1,0 +1,74 @@
+{% extends "runbook/base.html" %}
+
+{% block title %}{{ document.title }} — Versions{% endblock %}
+
+{% block breadcrumbs %}{% endblock %}
+
+{% block page_header %}
+<div class="page-header-bleed page-header-with-actions">
+    <div class="page-header-content">
+        <h1>Version History</h1>
+        <p class="page-subtitle">{{ document.title }} &middot; {{ version_chain|length }} version{{ version_chain|length|pluralize }}</p>
+        <nav style="margin-top: 0.5rem; font-size: 0.8rem;">
+            <a href="{% url 'runbook:dashboard' %}" style="color: var(--body-quiet-color); text-decoration: none;">Runbook</a>
+            <span style="color: var(--body-quiet-color); margin: 0 0.3rem;">/</span>
+            <a href="{% url 'runbook:document_detail' document.pk %}" style="color: var(--body-quiet-color); text-decoration: none;">{{ document.title }}</a>
+            <span style="color: var(--body-quiet-color); margin: 0 0.3rem;">/</span>
+            <span style="color: var(--body-fg);">Versions</span>
+        </nav>
+    </div>
+    <div class="page-header-actions">
+        <a href="{% url 'runbook:document_new_version' document.pk %}" class="btn-primary">Upload New Version</a>
+    </div>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
+        <h2>{{ version_chain|length }} Version{{ version_chain|length|pluralize }}</h2>
+    </div>
+    <div class="card-body" style="padding: 0;">
+        <table class="crud-table">
+            <thead>
+                <tr>
+                    <th>Version</th>
+                    <th>File Type</th>
+                    <th>Description</th>
+                    <th>Uploaded By</th>
+                    <th>Date</th>
+                    <th style="text-align: right;">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for ver in version_chain %}
+                <tr>
+                    <td>
+                        <a href="{% url 'runbook:document_detail' document.pk %}">v{{ ver.version }}</a>
+                        {% if ver.is_current %}<span class="badge badge-info">Current</span>{% endif %}
+                    </td>
+                    <td><span class="badge badge-secondary">.{{ ver.file_type }}</span></td>
+                    <td>{{ ver.description|truncatechars:60 }}</td>
+                    <td>{{ ver.created_by|default:"—" }}</td>
+                    <td>{{ ver.created_at|date:"M d, Y g:i A" }}</td>
+                    <td style="text-align: right;">
+                        {% if not ver.is_current %}
+                        <form method="post" action="{% url 'runbook:document_restore' ver.pk %}" style="display: inline;">
+                            {% csrf_token %}
+                            <button type="submit" class="btn-secondary btn-sm">Restore</button>
+                        </form>
+                        {% endif %}
+                        <button type="button" class="btn-outline btn-sm"
+                            data-download-url="{% url 'runbook:serve_version' ver.pk %}?download"
+                            data-download-desc="&quot;{{ document.title }}&quot; v{{ ver.version }} ({{ ver.file_type }})"
+                            onclick="confirmDownload(this)">Download</button>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% include "runbook/includes/download_modal.html" %}
+{% endblock %}

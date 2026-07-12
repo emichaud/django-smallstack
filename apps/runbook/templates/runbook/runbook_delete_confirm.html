@@ -1,0 +1,58 @@
+{% extends "runbook/base.html" %}
+
+{% block title %}Delete {{ runbook.name }}? — Runbook{% endblock %}
+
+{% block breadcrumbs %}{% endblock %}
+
+{% block page_header %}
+<div class="page-header-bleed">
+    <div class="page-header-content">
+        <h1>Delete "{{ runbook.name }}"?</h1>
+        <p class="page-subtitle">{{ section_count }} section{{ section_count|pluralize }} &middot; {{ doc_count }} document{{ doc_count|pluralize }}</p>
+    </div>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="card" style="max-width: 640px;">
+    <div class="card-body">
+        <p>Deleting this runbook removes it and its {{ section_count }} section{{ section_count|pluralize }}.
+        {% if doc_count %}It contains <strong>{{ doc_count }} document{{ doc_count|pluralize }}</strong> — choose what happens to them:{% else %}It has no documents.{% endif %}</p>
+
+        {% if doc_count %}
+        <div style="display: flex; flex-direction: column; gap: 12px; margin-top: 16px;">
+            <form method="post">
+                {% csrf_token %}
+                <input type="hidden" name="mode" value="detach">
+                <button type="submit" class="btn-primary" style="width: 100%; text-align: left;">
+                    Keep documents (detach to standalone)
+                    <div style="font-size: 0.8rem; font-weight: normal; color: var(--body-quiet-color); margin-top: 2px;">
+                        Documents survive without a runbook; they stay addressable by uid. Their keys are cleared.
+                    </div>
+                </button>
+            </form>
+            <form method="post" onsubmit="return confirm('Permanently delete {{ doc_count }} document(s) and all their versions?');">
+                {% csrf_token %}
+                <input type="hidden" name="mode" value="cascade">
+                <button type="submit" class="btn-secondary" style="width: 100%; text-align: left; border-color: var(--error-fg, #b91c1c);">
+                    Delete the {{ doc_count }} document{{ doc_count|pluralize }} too
+                    <div style="font-size: 0.8rem; font-weight: normal; color: var(--body-quiet-color); margin-top: 2px;">
+                        Permanently removes the documents, all versions, and their images.
+                    </div>
+                </button>
+            </form>
+        </div>
+        {% else %}
+        <form method="post" style="margin-top: 16px;">
+            {% csrf_token %}
+            <input type="hidden" name="mode" value="detach">
+            <button type="submit" class="btn-primary">Delete runbook</button>
+        </form>
+        {% endif %}
+
+        <div style="margin-top: 16px;">
+            <a href="{{ runbook.get_absolute_url }}" class="btn-outline">Cancel</a>
+        </div>
+    </div>
+</div>
+{% endblock %}

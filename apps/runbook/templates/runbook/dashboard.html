@@ -1,0 +1,230 @@
+{% extends "runbook/base.html" %}
+{% load static runbook_tags %}
+
+{% block title %}Runbooks{% endblock %}
+
+{% block breadcrumbs %}{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% runbook_css %}">
+{% endblock %}
+
+{% block page_header %}
+<div class="page-header-bleed page-header-with-actions">
+    <div class="page-header-content">
+        <h1>Runbooks</h1>
+        <p class="page-subtitle">{{ total_runbooks }} runbook{{ total_runbooks|pluralize }} &mdash; {{ total_docs }} document{{ total_docs|pluralize }} across {{ total_sections }} section{{ total_sections|pluralize }}</p>
+        <nav style="margin-top: 0.5rem; font-size: 0.8rem;">
+            <span style="color: var(--body-fg);">Runbooks</span>
+        </nav>
+    </div>
+    <div class="page-header-actions">
+        <button type="button" class="btn-primary" onclick="openFormModal('New Runbook', 'new-runbook-source')">New Runbook</button>
+        {% if view == "list" %}
+        <a href="{% url 'runbook:dashboard' %}" class="btn-secondary">Card view</a>
+        {% else %}
+        <a href="{% url 'runbook:dashboard' %}?view=list" class="btn-secondary">List view</a>
+        {% endif %}
+        <a href="{% url 'runbook:document_list' %}" class="btn-secondary">All Documents</a>
+        <button type="button" class="btn-secondary"
+            data-download-url="{% url 'runbook:download_zip' %}"
+            data-download-desc="all runbooks as a ZIP archive"
+            onclick="confirmDownload(this)">Download All</button>
+    </div>
+</div>
+{% endblock %}
+
+{% block content %}
+<!-- Stats -->
+<div class="stat-cards" style="margin-bottom: 32px;">
+    <div class="stat-card stat-card-clickable"
+         hx-get="{% url 'runbook:stat_detail' 'runbooks' %}"
+         hx-target="#stat-modal-body"
+         onclick="openStatModal('All Runbooks')">
+        <div class="stat-card-value">{{ total_runbooks }}</div>
+        <div class="stat-card-label">Runbooks</div>
+    </div>
+    <div class="stat-card stat-card-clickable"
+         hx-get="{% url 'runbook:stat_detail' 'documents' %}"
+         hx-target="#stat-modal-body"
+         onclick="openStatModal('All Documents')">
+        <div class="stat-card-value">{{ total_docs }}</div>
+        <div class="stat-card-label">Documents</div>
+    </div>
+    <div class="stat-card stat-card-clickable"
+         hx-get="{% url 'runbook:stat_detail' 'recent' %}"
+         hx-target="#stat-modal-body"
+         onclick="openStatModal('Recent Uploads (7 Days)')">
+        <div class="stat-card-value">{{ recent_uploads }}</div>
+        <div class="stat-card-label">Recent (7d)</div>
+    </div>
+    <div class="stat-card stat-card-clickable"
+         hx-get="{% url 'runbook:stat_detail' 'images' %}"
+         hx-target="#stat-modal-body"
+         onclick="openStatModal('Documents with Images')">
+        <div class="stat-card-value">{{ total_images }}</div>
+        <div class="stat-card-label">Images</div>
+    </div>
+</div>
+
+<!-- My Runbooks -->
+{% if my_runbooks %}
+<div class="rb-section">
+    <div class="rb-section-header">
+        <h2 class="rb-section-title">My Runbooks</h2>
+    </div>
+    {% if view == "list" %}
+    <div class="rb-list">
+        {% for rb in my_runbooks %}
+        <div class="rb-list-item">
+            <a class="rb-list-link" href="{{ rb.get_absolute_url }}">
+                <span class="rb-list-name">{% if rb.icon %}{{ rb.icon }} {% endif %}{{ rb.name }} {% include "runbook/includes/visibility_badge.html" %}</span>
+                <span class="rb-list-meta">{{ rb.section_count }} section{{ rb.section_count|pluralize }} · {{ rb.doc_count }} doc{{ rb.doc_count|pluralize }}</span>
+            </a>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="rb-card-grid">
+        {% for rb in my_runbooks %}
+        <a class="rb-card" href="{{ rb.get_absolute_url }}" title="{{ rb.slug }}{% if rb.description %} — {{ rb.description }}{% endif %}">
+            <div class="rb-card-icon">{{ rb.icon|default:"📘" }}</div>
+            <div class="rb-card-content">
+                <h3 class="rb-card-name">{{ rb.name }}</h3>
+                <div class="rb-card-meta">{% include "runbook/includes/visibility_badge.html" %} &middot; {{ rb.doc_count }} doc{{ rb.doc_count|pluralize }}</div>
+            </div>
+            <div class="rb-card-arrow"><svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg></div>
+        </a>
+        {% endfor %}
+    </div>
+    {% endif %}
+</div>
+{% endif %}
+
+<!-- Public & System runbooks (public ones from others, and staff-managed system runbooks) -->
+{% if other_runbooks %}
+<div class="rb-section">
+    <div class="rb-section-header">
+        <h2 class="rb-section-title">{% if my_runbooks %}Public &amp; System{% else %}Runbooks{% endif %}</h2>
+    </div>
+    {% if view == "list" %}
+    <div class="rb-list">
+        {% for rb in other_runbooks %}
+        <div class="rb-list-item">
+            <a class="rb-list-link" href="{{ rb.get_absolute_url }}">
+                <span class="rb-list-name">{% if rb.icon %}{{ rb.icon }} {% endif %}{{ rb.name }} {% include "runbook/includes/visibility_badge.html" %}</span>
+                <span class="rb-list-meta">{% if rb.owner %}by {{ rb.owner }}{% else %}System{% endif %} · {{ rb.doc_count }} doc{{ rb.doc_count|pluralize }}</span>
+            </a>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="rb-card-grid">
+        {% for rb in other_runbooks %}
+        <a class="rb-card" href="{{ rb.get_absolute_url }}" title="{{ rb.slug }}{% if rb.description %} — {{ rb.description }}{% endif %}">
+            <div class="rb-card-icon">{{ rb.icon|default:"📘" }}</div>
+            <div class="rb-card-content">
+                <h3 class="rb-card-name">{{ rb.name }}</h3>
+                <div class="rb-card-meta">{% include "runbook/includes/visibility_badge.html" %} &middot; {% if rb.owner %}by {{ rb.owner }}{% else %}System{% endif %} &middot; {{ rb.doc_count }} doc{{ rb.doc_count|pluralize }}</div>
+            </div>
+            <div class="rb-card-arrow"><svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg></div>
+        </a>
+        {% endfor %}
+    </div>
+    {% endif %}
+</div>
+{% endif %}
+
+{% if not my_runbooks and not other_runbooks %}
+<div class="rb-section">
+    <p class="rb-empty">No runbooks yet. <a href="#" onclick="openFormModal('New Runbook', 'new-runbook-source'); return false;">Create your first runbook</a>.</p>
+</div>
+{% endif %}
+
+<!-- Templates -->
+{% if templates %}
+<div class="rb-section">
+    <div class="rb-section-header">
+        <h2 class="rb-section-title">Templates</h2>
+    </div>
+    {% if view == "list" %}
+    <div class="rb-list">
+        {% for rb in templates %}
+        <div class="rb-list-item">
+            <a class="rb-list-link" href="{{ rb.get_absolute_url }}">
+                <span class="rb-list-name">{% if rb.icon %}{{ rb.icon }} {% endif %}{{ rb.name }}</span>
+                <span class="rb-list-meta">{{ rb.section_count }} section{{ rb.section_count|pluralize }} · {{ rb.doc_count }} doc{{ rb.doc_count|pluralize }}</span>
+            </a>
+            <a href="{% url 'runbook:runbook_from_template' rb.slug %}" class="btn-outline btn-sm">Use</a>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="rb-card-grid">
+        {% for rb in templates %}
+        <a class="rb-card" href="{{ rb.get_absolute_url }}" title="{{ rb.slug }}{% if rb.description %} — {{ rb.description }}{% endif %}">
+            <div class="rb-card-icon">{{ rb.icon|default:"📄" }}</div>
+            <div class="rb-card-content">
+                <h3 class="rb-card-name">{{ rb.name }}</h3>
+                <div class="rb-card-meta">{% include "runbook/includes/visibility_badge.html" %} &middot; {{ rb.section_count }} section{{ rb.section_count|pluralize }} &middot; {{ rb.doc_count }} doc{{ rb.doc_count|pluralize }}</div>
+            </div>
+            <div class="rb-card-arrow"><svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg></div>
+        </a>
+        {% endfor %}
+    </div>
+    {% endif %}
+</div>
+{% endif %}
+
+{% include "runbook/includes/stat_modal.html" %}
+{% include "runbook/includes/download_modal.html" %}
+
+{# New Runbook — injected into the shared modal by openFormModal(); posts to RunbookCreateView. #}
+<div id="new-runbook-source" style="display: none;">
+    <div style="padding: 20px 24px;">
+        <form method="post" action="{% url 'runbook:runbook_create' %}" class="crud-form">
+            {% csrf_token %}
+            <div class="crud-field">
+                <label class="crud-label">Name <span class="required">*</span></label>
+                <input type="text" name="name" class="vTextField" required placeholder="e.g. Deployment Runbook">
+            </div>
+            {% if templates %}
+            <div class="crud-field">
+                <label class="crud-label">Start from template</label>
+                <select name="template">
+                    <option value="">— blank runbook —</option>
+                    {% for t in templates %}<option value="{{ t.pk }}">{{ t.icon }} {{ t.name }}</option>{% endfor %}
+                </select>
+                <div class="crud-help">Optional — clone a template's sections and documents.</div>
+            </div>
+            {% endif %}
+            <div class="crud-field">
+                <label class="crud-label">Description</label>
+                <input type="text" name="description" class="vTextField" placeholder="Optional one-line summary">
+            </div>
+            <div class="crud-field" style="max-width: 130px;">
+                <label class="crud-label">Icon</label>
+                <input type="text" name="icon" class="vTextField" placeholder="📘" maxlength="12" autocomplete="off">
+            </div>
+            <div class="crud-field">
+                <label class="crud-label" style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                    <input type="checkbox" name="is_public"> Publish (make public)
+                </label>
+                <div class="crud-help">Public runbooks are readable by everyone; private stays visible to you and staff.</div>
+            </div>
+            <div class="crud-actions">
+                <button type="submit" class="btn-save">Create Runbook</button>
+                <button type="button" class="btn-cancel" onclick="closeStatModal()">Cancel</button>
+            </div>
+        </form>
+    </div>
+</div>
+<script>
+// Inject a hidden source form into the shared modal (same pattern as New Page).
+function openFormModal(title, sourceId) {
+    openStatModal(title);
+    document.getElementById('stat-modal-body').innerHTML =
+        document.getElementById(sourceId).innerHTML;
+}
+</script>
+{% endblock %}

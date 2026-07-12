@@ -1,0 +1,144 @@
+{% extends "runbook/base.html" %}
+
+{% block title %}{% if object %}Edit {{ object.name }}{% else %}New Runbook{% endif %}{% endblock %}
+
+{% block breadcrumbs %}{% endblock %}
+
+{% block extra_css %}
+{{ block.super }}
+<style>
+.rb-form-card { max-width: 620px; }
+.icon-picker { display: flex; align-items: center; gap: 12px; }
+.icon-picker-preview {
+    width: 46px; height: 46px; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.6rem; line-height: 1;
+    background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 10px;
+}
+.icon-input { max-width: 110px; text-align: center; }
+.icon-grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(42px, 1fr));
+    gap: 6px; margin-top: 12px;
+}
+.icon-choice {
+    height: 42px; font-size: 1.3rem; line-height: 1; cursor: pointer;
+    background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 8px;
+    transition: border-color .12s ease, background .12s ease, transform .06s ease;
+}
+.icon-choice:hover { border-color: var(--primary); }
+.icon-choice:active { transform: scale(0.94); }
+.icon-choice.selected {
+    border-color: var(--primary);
+    background: color-mix(in srgb, var(--primary) 18%, var(--card-bg));
+}
+</style>
+{% endblock %}
+
+{% block page_header %}
+<div class="page-header-bleed page-header-with-actions">
+    <div class="page-header-content">
+        <h1>{% if object %}Edit Runbook{% else %}New Runbook{% endif %}</h1>
+        <p class="page-subtitle">{% if object %}{{ object.name }}{% else %}Create a new runbook — optionally from a template{% endif %}</p>
+        <nav style="margin-top: 0.5rem; font-size: 0.8rem;">
+            <a href="{% url 'runbook:dashboard' %}" style="color: var(--body-quiet-color); text-decoration: none;">Runbook</a>
+            {% if object %}
+            <span style="color: var(--body-quiet-color); margin: 0 0.3rem;">/</span>
+            <a href="{{ object.get_absolute_url }}" style="color: var(--body-quiet-color); text-decoration: none;">{{ object.name }}</a>
+            {% endif %}
+            <span style="color: var(--body-quiet-color); margin: 0 0.3rem;">/</span>
+            <span style="color: var(--body-fg);">{% if object %}Edit{% else %}New{% endif %}</span>
+        </nav>
+    </div>
+    {% if object %}
+    <div class="page-header-actions">
+        <a href="{{ object.get_absolute_url }}" class="btn-secondary">View Runbook</a>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="card rb-form-card">
+    <div class="card-body">
+        <form method="post" class="crud-form">
+            {% csrf_token %}
+            {% if form.non_field_errors %}<div class="crud-error">{{ form.non_field_errors.0 }}</div>{% endif %}
+
+            <div class="crud-field{% if form.name.errors %} has-error{% endif %}">
+                <label class="crud-label" for="{{ form.name.id_for_label }}">Name <span class="required">*</span></label>
+                {{ form.name }}
+                {% if form.name.errors %}<div class="crud-error">{{ form.name.errors.0 }}</div>{% endif %}
+            </div>
+
+            {% if form.template %}
+            <div class="crud-field{% if form.template.errors %} has-error{% endif %}">
+                <label class="crud-label" for="{{ form.template.id_for_label }}">Start from template</label>
+                {{ form.template }}
+                <div class="crud-help">{{ form.template.help_text }}</div>
+                {% if form.template.errors %}<div class="crud-error">{{ form.template.errors.0 }}</div>{% endif %}
+            </div>
+            {% endif %}
+
+            <div class="crud-field{% if form.description.errors %} has-error{% endif %}">
+                <label class="crud-label" for="{{ form.description.id_for_label }}">Description</label>
+                {{ form.description }}
+            </div>
+
+            <div class="crud-field{% if form.icon.errors %} has-error{% endif %}">
+                <label class="crud-label" for="{{ form.icon.id_for_label }}">Icon</label>
+                <div class="icon-picker">
+                    <div class="icon-picker-preview" id="icon-preview">{{ form.icon.value|default:"📘" }}</div>
+                    {{ form.icon }}
+                </div>
+                <div class="icon-grid">
+                    {% for emoji in icon_choices %}
+                    <button type="button" class="icon-choice" data-icon="{{ emoji }}" aria-label="Use {{ emoji }}">{{ emoji }}</button>
+                    {% endfor %}
+                </div>
+                <div class="crud-help">Pick an emoji or type your own.</div>
+                {% if form.icon.errors %}<div class="crud-error">{{ form.icon.errors.0 }}</div>{% endif %}
+            </div>
+
+            <div class="crud-field{% if form.is_public.errors %} has-error{% endif %}">
+                <label class="crud-label" style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                    {{ form.is_public }} {{ form.is_public.label }}
+                </label>
+                <div class="crud-help">{{ form.is_public.help_text }}</div>
+                {% if form.is_public.errors %}<div class="crud-error">{{ form.is_public.errors.0 }}</div>{% endif %}
+            </div>
+
+            <div class="crud-actions">
+                <button type="submit" class="btn-save">{% if object %}Save Changes{% else %}Create Runbook{% endif %}</button>
+                <a href="{% url 'runbook:dashboard' %}" class="btn-cancel">Cancel</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+{% if object %}
+<div style="margin-top: 24px;">
+    <a href="{% url 'runbook:runbook_delete' object.slug %}" class="btn-danger">Delete Runbook…</a>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+{{ block.super }}
+<script>
+(function () {
+    var input = document.getElementById("{{ form.icon.id_for_label }}");
+    var preview = document.getElementById("icon-preview");
+    if (!input || !preview) return;
+    var choices = document.querySelectorAll(".icon-choice");
+    function refresh(val) {
+        preview.textContent = val || "📘";
+        choices.forEach(function (b) { b.classList.toggle("selected", b.dataset.icon === val); });
+    }
+    choices.forEach(function (btn) {
+        btn.addEventListener("click", function () { input.value = btn.dataset.icon; refresh(btn.dataset.icon); });
+    });
+    input.addEventListener("input", function () { refresh(input.value); });
+    refresh(input.value);
+})();
+</script>
+{% endblock %}

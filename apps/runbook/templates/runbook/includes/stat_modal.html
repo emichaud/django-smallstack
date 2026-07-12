@@ -1,0 +1,77 @@
+{% comment %}
+Reusable stat card drill-down modal.
+Include once at the bottom of any page that uses clickable stat cards.
+Usage:
+  1. include "runbook/includes/stat_modal.html"
+  2. Add to any card: class="stat-card-clickable"
+     hx-get="your-detail-url" hx-target="#stat-modal-body"
+     onclick="openStatModal('Title')"
+{% endcomment %}
+<div id="stat-modal" class="stat-modal" onclick="if(event.target===this)closeStatModal()">
+    <div class="card stat-modal-panel">
+        <div class="card-header" style="display: flex; align-items: center; justify-content: space-between;">
+            <h2 id="stat-modal-title">Details</h2>
+            <button type="button" onclick="closeStatModal()" style="background: none; border: none; font-size: 1.4rem; cursor: pointer; color: var(--body-quiet-color); line-height: 1; padding: 0 4px;">&times;</button>
+        </div>
+        <div class="card-body" style="padding: 0;">
+            <div id="stat-modal-body">
+                <p style="padding: 24px; text-align: center; color: var(--body-quiet-color);">Loading...</p>
+            </div>
+        </div>
+    </div>
+</div>
+<script>
+function openStatModal(title) {
+    document.getElementById('stat-modal-title').textContent = title;
+    document.getElementById('stat-modal').classList.add('open');
+}
+function closeStatModal() {
+    document.getElementById('stat-modal').classList.remove('open');
+}
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') closeStatModal();
+});
+
+/* Client-side column sorting for stat drill-down tables (.rb-sortable).
+   Delegated on document so it works on htmx-injected content. */
+(function() {
+    function typed(s) {
+        s = s.trim();
+        if (/[A-Za-z]{3,}\s+\d{1,2},?\s+\d{4}/.test(s)) {          // "Jul 10, 2026"
+            var d = Date.parse(s);
+            if (!isNaN(d)) return { t: 'd', v: d };
+        }
+        var m = s.replace(/,/g, '').match(/-?\d+(\.\d+)?/);          // "v2", "3 images", "12"
+        if (m && /^[v#$]?\s*-?\d/.test(s)) return { t: 'n', v: parseFloat(m[0]) };
+        return { t: 's', v: s.toLowerCase() };
+    }
+    document.addEventListener('click', function(e) {
+        var th = e.target.closest('.rb-sortable thead th');
+        if (!th) return;
+        var table = th.closest('table');
+        var heads = table.querySelectorAll('thead th');
+        var idx = Array.prototype.indexOf.call(th.parentNode.children, th);
+        var tbody = table.querySelector('tbody');
+        var rows = Array.prototype.slice.call(tbody.querySelectorAll('tr'));
+        if (rows.length <= 1 && (!rows[0] || rows[0].children.length < heads.length)) return;  // empty msg
+
+        var asc = th.getAttribute('data-sort') !== 'asc';
+        heads.forEach(function(h) {
+            h.removeAttribute('data-sort');
+            var a = h.querySelector('.rb-sort-arrow'); if (a) a.textContent = '';
+        });
+        th.setAttribute('data-sort', asc ? 'asc' : 'desc');
+        var arrow = th.querySelector('.rb-sort-arrow');
+        if (arrow) arrow.textContent = asc ? ' ▲' : ' ▼';
+
+        function cell(row) { var td = row.children[idx]; return td ? td.textContent : ''; }
+        rows.sort(function(a, b) {
+            var A = typed(cell(a)), B = typed(cell(b)), cmp;
+            if (A.t === B.t && A.t !== 's') { cmp = A.v < B.v ? -1 : (A.v > B.v ? 1 : 0); }
+            else { cmp = cell(a).trim().toLowerCase().localeCompare(cell(b).trim().toLowerCase()); }
+            return asc ? cmp : -cmp;
+        });
+        rows.forEach(function(r) { tbody.appendChild(r); });
+    });
+})();
+</script>

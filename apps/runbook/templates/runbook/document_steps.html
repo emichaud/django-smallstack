@@ -1,0 +1,63 @@
+{% extends "runbook/base.html" %}
+{% load static runbook_tags %}
+
+{% block title %}{{ document.title }} — Steps{% endblock %}
+
+{% block breadcrumbs %}{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% runbook_css %}">
+{% endblock %}
+
+{% block content %}
+<div style="margin-bottom: 24px;">
+    <h1 style="margin: 0;">{{ document.title }}</h1>
+    <nav style="margin-top: 0.3rem; font-size: 0.8rem;">
+        <a href="{% url 'runbook:dashboard' %}" style="color: var(--body-quiet-color); text-decoration: none;">Runbook</a>
+        <span style="color: var(--body-quiet-color); margin: 0 0.3rem;">/</span>
+        <a href="{% url 'runbook:document_detail' document.pk %}" style="color: var(--body-quiet-color); text-decoration: none;">{{ document.title }}</a>
+        <span style="color: var(--body-quiet-color); margin: 0 0.3rem;">/</span>
+        <span style="color: var(--body-fg);">Steps</span>
+    </nav>
+</div>
+
+{% if steps %}
+<div class="step-timeline">
+    {% for step in steps %}
+    <div class="step-item" id="step-{{ step.number }}">
+        <div class="step-marker">
+            <span class="step-number">{{ step.number }}</span>
+        </div>
+        <div class="step-content">
+            <div class="card">
+                <div class="card-header">
+                    <h2 style="margin: 0;">{{ step.title }}</h2>
+                </div>
+                <div class="card-body runbook-content">
+                    {{ step.content_html|safe }}
+                </div>
+                {% if step.notes %}
+                {% for note in step.notes %}
+                <div class="step-note">
+                    <strong>Note:</strong> {{ note }}
+                </div>
+                {% endfor %}
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="card">
+    <div class="card-body" style="padding: 24px; text-align: center; color: var(--body-quiet-color);">
+        <p>No steps found. Steps are parsed from <code>## Step N: Title</code> headings in the markdown.</p>
+        <a href="{% url 'runbook:document_detail' document.pk %}" class="button button-secondary" style="margin-top: 8px;">View as Document</a>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'runbook/runbook.js' %}"></script>
+{% endblock %}

@@ -1,0 +1,61 @@
+{% extends "runbook/base.html" %}
+
+{% block title %}{% if object %}Edit {{ object.name }}{% else %}New Section{% endif %} — {{ runbook.name }}{% endblock %}
+
+{% block breadcrumbs %}{% endblock %}
+
+{% block page_header %}
+<div class="page-header-bleed page-header-with-actions">
+    <div class="page-header-content">
+        <h1>{% if object %}Edit Section{% else %}New Section{% endif %}</h1>
+        <p class="page-subtitle">{% if object %}{{ object.name }} &middot; {{ runbook.name }}{% else %}Add a section to {{ runbook.name }}{% endif %}</p>
+        <nav style="margin-top: 0.5rem; font-size: 0.8rem;">
+            <a href="{% url 'runbook:dashboard' %}" style="color: var(--body-quiet-color); text-decoration: none;">Runbook</a>
+            <span style="color: var(--body-quiet-color); margin: 0 0.3rem;">/</span>
+            <a href="{{ runbook.get_absolute_url }}" style="color: var(--body-quiet-color); text-decoration: none;">{{ runbook.name }}</a>
+            <span style="color: var(--body-quiet-color); margin: 0 0.3rem;">/</span>
+            <span style="color: var(--body-fg);">{% if object %}Edit Section{% else %}New Section{% endif %}</span>
+        </nav>
+    </div>
+    {% if object %}
+    <div class="page-header-actions">
+        <a href="{{ runbook.get_absolute_url }}" class="btn-secondary">View Runbook</a>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="card" style="max-width: 600px;">
+    <div class="card-body">
+        <form method="post" class="crud-form">
+            {% csrf_token %}
+
+            {% for field in form %}
+            <div class="crud-field{% if field.errors %} has-error{% endif %}">
+                <label class="crud-label">
+                    {{ field.label }}{% if field.field.required %} <span class="required">*</span>{% endif %}
+                </label>
+                {{ field }}
+                {% if field.help_text %}<div class="crud-help">{{ field.help_text }}</div>{% endif %}
+                {% if field.errors %}<div class="crud-error">{{ field.errors.0 }}</div>{% endif %}
+            </div>
+            {% endfor %}
+
+            <div class="crud-actions">
+                <button type="submit" class="btn-save">{% if object %}Save Changes{% else %}Create Section{% endif %}</button>
+                <a href="{{ runbook.get_absolute_url }}" class="btn-cancel">Cancel</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+{% if object %}
+<div style="margin-top: 24px;">
+    <form method="post" action="{% url 'runbook:section_delete' object.pk %}" onsubmit="return confirm('Delete section &quot;{{ object.name }}&quot;?');">
+        {% csrf_token %}
+        <button type="submit" class="btn-danger">Delete Section</button>
+    </form>
+</div>
+{% endif %}
+{% endblock %}

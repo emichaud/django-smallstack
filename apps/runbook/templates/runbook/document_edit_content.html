@@ -1,0 +1,233 @@
+{% extends "runbook/base.html" %}
+{% load static runbook_tags %}
+
+{% block title %}Edit — {{ document.title }} — Runbook{% endblock %}
+
+{% block breadcrumbs %}{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% runbook_css %}">
+{% endblock %}
+
+{% block page_header %}
+<div class="page-header-bleed page-header-with-actions">
+    <div class="page-header-content">
+        <h1>Edit Content</h1>
+        <p class="page-subtitle">{{ document.title }} &middot; v{{ document.version }}</p>
+        <nav style="margin-top: 0.5rem; font-size: 0.8rem;">
+            <a href="{% url 'runbook:dashboard' %}" style="color: var(--body-quiet-color); text-decoration: none;">Runbooks</a>
+            <span style="color: var(--body-quiet-color); margin: 0 0.3rem;">/</span>
+            {% if document.runbook %}
+            <a href="{% url 'runbook:runbook_detail' document.runbook.slug %}" style="color: var(--body-quiet-color); text-decoration: none;">{{ document.runbook.name }}</a>
+            <span style="color: var(--body-quiet-color); margin: 0 0.3rem;">/</span>
+            {% endif %}
+            <a href="{% url 'runbook:document_detail' document.pk %}" style="color: var(--body-quiet-color); text-decoration: none;">{{ document.title }}</a>
+            <span style="color: var(--body-quiet-color); margin: 0 0.3rem;">/</span>
+            <span style="color: var(--body-fg);">Edit Content</span>
+        </nav>
+    </div>
+    <div class="page-header-actions" style="display: flex; align-items: center; gap: 0.5rem;">
+        <label class="rb-switch" title="On: save your changes as a new version. Off: overwrite this version in place.">
+            <input type="checkbox" name="save_as_version" value="1" form="editor-form">
+            <span class="rb-switch-track"><span class="rb-switch-thumb"></span></span>
+            <span class="rb-switch-label">New version</span>
+        </label>
+        <span style="width: 1px; height: 1.4rem; background: var(--card-border); margin: 0 0.35rem;"></span>
+        <button type="button" id="preview-toggle" onclick="togglePreview()" class="btn-secondary">Preview</button>
+        <button type="submit" form="editor-form" class="btn-primary">Save</button>
+        <a href="{% url 'runbook:document_detail' document.pk %}" class="btn-outline">Cancel</a>
+    </div>
+</div>
+{% endblock %}
+
+{% block content %}
+<form id="editor-form" method="post" action="{% url 'runbook:document_edit_content' document.pk %}">
+    {% csrf_token %}
+    <div id="editor-panel">
+        <div class="runbook-editor-toolbar" style="display: flex; gap: 0.5rem; align-items: center; margin-bottom: 0.5rem;">
+            <button type="button" id="insert-image-btn" class="btn-secondary">Insert image</button>
+            <span style="color: var(--body-quiet-color); font-size: 0.8rem;">or paste an image directly into the editor</span>
+            <div class="rb-font-control" title="Editor text size">
+                <button type="button" class="rb-font-btn rb-font-btn-dec" id="rb-font-dec" aria-label="Decrease text size">A&minus;</button>
+                <button type="button" class="rb-font-btn rb-font-btn-reset" id="rb-font-reset" aria-label="Reset text size" title="Reset to default">A</button>
+                <button type="button" class="rb-font-btn rb-font-btn-inc" id="rb-font-inc" aria-label="Increase text size">A+</button>
+            </div>
+        </div>
+        <details class="rb-format-help" style="margin-bottom: 0.5rem;">
+            <summary style="cursor: pointer; color: var(--primary); font-size: 0.8rem; display: inline-block;">Formatting &amp; image options</summary>
+            <div class="card" style="margin-top: 0.5rem;">
+                <div class="card-body" style="font-size: 0.82rem;">
+                    <p style="margin-top: 0;"><strong>Images.</strong> On the document page, open the <strong>Images</strong> panel, upload, choose <em>Align</em> and <em>Size</em>, and click <em>Copy Markdown</em> — then paste it here. Inserting or pasting directly in the editor adds a plain image you can size/align with the attributes below.</p>
+                    <p style="margin-bottom: 0.3rem;"><strong>Size</strong> (append to an image): <code>{: .rb-img-w-50 }</code> — also <code>.rb-img-w-25</code>, <code>.rb-img-w-75</code>, <code>.rb-img-sm</code>, <code>.rb-img-md</code>, <code>.rb-img-lg</code></p>
+                    <p style="margin-bottom: 0.3rem;"><strong>Align</strong>: <code>{: .rb-img-center }</code> — also <code>.rb-img-left</code> / <code>.rb-img-right</code> to float</p>
+                    <p style="margin-bottom: 0;"><strong>Combine</strong>: <code>![alt](url){: .rb-img-center .rb-img-w-50 }</code></p>
+                </div>
+            </div>
+        </details>
+        <input type="file" id="image-file-input" accept="image/*" multiple style="display: none;">
+        <textarea id="editor-textarea" name="content" class="runbook-editor" rows="30" spellcheck="false">{{ content }}</textarea>
+    </div>
+</form>
+
+<div id="preview-panel" class="card" style="display: none;">
+    <div class="card-body runbook-content" id="preview-content">
+        <p style="color: var(--body-quiet-color);">Loading preview...</p>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+var previewActive = false;
+var previewBtn = document.getElementById('preview-toggle');
+
+function togglePreview() {
+    var editor = document.getElementById('editor-panel');
+    var preview = document.getElementById('preview-panel');
+    previewActive = !previewActive;
+
+    if (previewActive) {
+        editor.style.display = 'none';
+        preview.style.display = 'block';
+        previewBtn.textContent = 'Edit';
+        previewBtn.className = 'btn-primary';
+        loadPreview();
+    } else {
+        editor.style.display = 'block';
+        preview.style.display = 'none';
+        previewBtn.textContent = 'Preview';
+        previewBtn.className = 'btn-secondary';
+    }
+}
+
+function loadPreview() {
+    var content = document.getElementById('editor-textarea').value;
+    var target = document.getElementById('preview-content');
+    var csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+
+    target.innerHTML = '<p style="color: var(--body-quiet-color);">Loading preview...</p>';
+
+    fetch("{% url 'runbook:document_preview' document.pk %}", {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': csrfToken,
+            'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: 'content=' + encodeURIComponent(content),
+    })
+    .then(function(response) { return response.text(); })
+    .then(function(html) { target.innerHTML = html; })
+    .catch(function() { target.innerHTML = '<p style="color: var(--error-fg, red);">Preview failed.</p>'; });
+}
+
+/* -- Editor text-size control (A− / A / A+), persisted to localStorage ---- */
+(function() {
+    var textarea = document.getElementById('editor-textarea');
+    var dec = document.getElementById('rb-font-dec');
+    if (!textarea || !dec) { return; }
+    var previewContent = document.getElementById('preview-content');
+    var KEY = 'rb-editor-font-size';
+    var MIN = 0.75, MAX = 1.25, STEP = 0.05, DEFAULT = 0.9;
+    var size = parseFloat(localStorage.getItem(KEY));
+    if (!size || isNaN(size)) { size = DEFAULT; }
+
+    function apply() {
+        size = Math.min(MAX, Math.max(MIN, Math.round(size * 100) / 100));
+        textarea.style.fontSize = size + 'rem';
+        // Scale the rendered preview proportionally to its natural size.
+        if (previewContent) { previewContent.style.fontSize = (size / DEFAULT).toFixed(3) + 'em'; }
+        localStorage.setItem(KEY, size);
+    }
+    dec.addEventListener('click', function() { size -= STEP; apply(); });
+    document.getElementById('rb-font-inc').addEventListener('click', function() { size += STEP; apply(); });
+    document.getElementById('rb-font-reset').addEventListener('click', function() { size = DEFAULT; apply(); });
+    apply();
+})();
+
+/* Tab key inserts spaces instead of changing focus */
+document.getElementById('editor-textarea').addEventListener('keydown', function(e) {
+    if (e.key === 'Tab') {
+        e.preventDefault();
+        var start = this.selectionStart;
+        var end = this.selectionEnd;
+        this.value = this.value.substring(0, start) + '    ' + this.value.substring(end);
+        this.selectionStart = this.selectionEnd = start + 4;
+    }
+});
+
+/* -- Image upload: file picker + clipboard paste -------------------------- */
+var rbTextarea = document.getElementById('editor-textarea');
+var rbCsrf = document.querySelector('[name=csrfmiddlewaretoken]').value;
+var rbUploadUrl = "{% url 'runbook:document_image_upload' document.pk %}";
+var rbUploadSeq = 0;
+
+function rbInsertAtCursor(text) {
+    var start = rbTextarea.selectionStart;
+    var end = rbTextarea.selectionEnd;
+    rbTextarea.value = rbTextarea.value.substring(0, start) + text + rbTextarea.value.substring(end);
+    rbTextarea.selectionStart = rbTextarea.selectionEnd = start + text.length;
+    rbTextarea.focus();
+}
+
+function rbUploadImage(file) {
+    if (!file) { return; }
+    /* Unique placeholder so the async result lands where the upload started. */
+    var token = '![uploading…](#rb-upload-' + (rbUploadSeq++) + ')';
+    rbInsertAtCursor(token);
+
+    var fd = new FormData();
+    fd.append('image', file, file.name || 'pasted-image.png');
+
+    fetch(rbUploadUrl, {
+        method: 'POST',
+        headers: { 'X-CSRFToken': rbCsrf },
+        body: fd,
+    })
+    .then(function(r) { return r.json().then(function(d) { return { ok: r.ok, data: d }; }); })
+    .then(function(res) {
+        if (res.ok) {
+            rbTextarea.value = rbTextarea.value.replace(token, res.data.markdown);
+        } else {
+            rbTextarea.value = rbTextarea.value.replace(token, '');
+            alert('Image upload failed: ' + (res.data.error || 'unknown error'));
+        }
+    })
+    .catch(function() {
+        rbTextarea.value = rbTextarea.value.replace(token, '');
+        alert('Image upload failed.');
+    });
+}
+
+var RB_MAX_IMAGES = 10;
+function rbUploadFiles(fileList) {
+    var files = Array.prototype.slice.call(fileList || []);
+    if (!files.length) { return; }
+    if (files.length > RB_MAX_IMAGES) {
+        alert('You can upload up to ' + RB_MAX_IMAGES + ' images at once — using the first ' + RB_MAX_IMAGES + '.');
+        files = files.slice(0, RB_MAX_IMAGES);
+    }
+    files.forEach(function(f) { rbUploadImage(f); });
+}
+
+var rbFileInput = document.getElementById('image-file-input');
+document.getElementById('insert-image-btn').addEventListener('click', function() {
+    rbFileInput.click();
+});
+rbFileInput.addEventListener('change', function() {
+    rbUploadFiles(this.files);
+    this.value = '';  /* reset so the same file(s) can be picked again */
+});
+
+rbTextarea.addEventListener('paste', function(e) {
+    var items = (e.clipboardData || window.clipboardData).items;
+    if (!items) { return; }
+    for (var i = 0; i < items.length; i++) {
+        if (items[i].type.indexOf('image') === 0) {
+            e.preventDefault();
+            rbUploadImage(items[i].getAsFile());
+            return;
+        }
+    }
+});
+</script>
+{% endblock %}

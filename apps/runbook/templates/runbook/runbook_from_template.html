@@ -1,0 +1,39 @@
+{% extends "runbook/base.html" %}
+
+{% block title %}New runbook from {{ template.name }} — Runbook{% endblock %}
+
+{% block breadcrumbs %}{% endblock %}
+
+{% block page_header %}
+<div class="page-header-bleed">
+    <div class="page-header-content">
+        <h1>New runbook from template</h1>
+        <p class="page-subtitle">Based on the "{{ template.name }}" template</p>
+    </div>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="card" style="max-width: 640px;">
+    <div class="card-body">
+        <p>Creates a fresh runbook with copies of this template's sections and documents. You can
+        edit it freely afterwards — nothing stays linked to the template.</p>
+
+        <form method="post" style="margin-top: 16px;">
+            {% csrf_token %}
+            <div class="crud-field">
+                <label class="crud-label">Runbook name <span class="required">*</span></label>
+                <input type="text" name="name" class="vTextField" required autofocus placeholder="e.g. Q3 Onboarding">
+            </div>
+            <div class="crud-field" style="margin-top: 12px;">
+                <label class="crud-label">Slug (optional)</label>
+                <input type="text" name="slug" class="vTextField" placeholder="auto from name if blank">
+            </div>
+            <div style="margin-top: 16px; display: flex; gap: 12px;">
+                <button type="submit" class="btn-primary">Create runbook</button>
+                <a href="{{ template.get_absolute_url }}" class="btn-outline">Cancel</a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
