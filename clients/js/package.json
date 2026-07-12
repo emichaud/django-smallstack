@@ -1,0 +1,48 @@
+{
+  "name": "smallstack-sdk-js",
+  "version": "0.3.0",
+  "description": "JavaScript/TypeScript SDK for the SmallStack Django framework",
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "test": "echo \"No tests yet\" && exit 0",
+    "lint": "tsc --noEmit",
+    "clean": "rm -rf dist"
+  },
+  "devDependencies": {
+    "tsup": "^8.0.0",
+    "typescript": "^5.4.0"
+  },
+  "keywords": [
+    "smallstack",
+    "django",
+    "sdk",
+    "api",
+    "client"
+  ],
+  "author": "SmallStack",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/emichaud/smallstack-sdk-js"
+  }
+}
