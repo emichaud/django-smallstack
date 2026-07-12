@@ -9,18 +9,43 @@ Breaking-change migration recipes live in [`UPGRADING.md`](UPGRADING.md).
 
 ## [Unreleased]
 
-### Added
-- `register_api_path` — let custom `@api_view` endpoints join the OpenAPI schema.
-- Maintenance-window tooling for heartbeat/status: `manage.py maintenance` command and
-  `apps/heartbeat/maintenance.py` (open a maintenance window / SLA-exclude a deploy).
-- CSP: added `base-uri 'self'` and `object-src 'none'` directives (no inline-script trade-off).
+## [0.12.4] - 2026-07-11
 
 ### Security
+- **Dependencies:** bumped Django (→6.0.7), Pillow (→12.3.0), starlette, pydantic-settings, pygments,
+  and pytest to their fix releases — `pip-audit` goes from 13 known vulnerabilities to 0.
 - Fixed stored-XSS in the CRUD field-preview markdown renderer — arbitrary field content can no
   longer inject script. Raw HTML is neutralized (rendered as escaped text), dangerous link/image
   URL schemes (`javascript:`, `data:`, …) are blanked via a URL allowlist, and the extension set
   is restricted to `fenced_code`/`tables` (no `md_in_html` / `attr_list`). Regression-tested.
 - Fixed stored-XSS in search-result snippets — the plain-text snippet is no longer rendered `|safe`.
+- CSP: added `base-uri 'self'` and `object-src 'none'` directives (no inline-script trade-off).
+
+### Added
+- `register_api_path` — let custom `@api_view` endpoints join the OpenAPI schema.
+- Maintenance-window tooling for heartbeat/status: `manage.py maintenance` command and
+  `apps/heartbeat/maintenance.py` (open a maintenance window / SLA-exclude a deploy).
+- Per-app `README.md` files, plus `SECURITY.md` and this `CHANGELOG.md`.
+
+### Fixed
+- Ordering by a computed/non-DB column no longer 500s — a misconfigured `ordering_fields` (or a
+  hand-crafted `?ordering=`) degrades to no-sort instead of raising `FieldError`.
+- Search: a model registered *after* the search app's `ready()` (from a later app in
+  `INSTALLED_APPS`) now gets its per-model `search_<plural>` MCP tool — registration is now
+  independent of app order.
+- OpenAPI `info.version` and `MCP_SERVER_VERSION` derive from the package version (new
+  `SMALLSTACK_VERSION` setting) instead of a hardcoded `1.0.0`.
+- Dev `SECRET_KEY` is persisted to a gitignored `.secret_key` so all local processes share one key —
+  `screenshot_auth` sessions are no longer silently rejected on a fresh clone.
+
+### Changed
+- API-layer dedup: `json.loads` bodies via `_load_json_body`; the three HTML-pagination sites via
+  `attach_display_helpers`; `_api_list` and the OpenAPI path builders slimmed via extracted helpers.
+- Heartbeat: six function-based views moved to a shared `staff_required` decorator.
+- Type hints completed on `apps/activity`, `apps/tasks`, `apps/profile`, and `apps/smallstack/displays.py`;
+  narrowed/logged several broad `except` handlers.
+- Standardized test layout (`accounts`/`heartbeat` → `tests/` packages); `apps/tasks` coverage 0% → 99%.
+- Docs: unified "Coming soon" framing for `@scheduled` + vector search; completed the CLI reference.
 
 ## [0.12.3] - 2026
 
@@ -81,7 +106,8 @@ Condensed highlights of the v0.11 series (see git history for per-patch detail):
 See the git tag history (`git tag`) and `ai_cowork/audit_history/` for the full record of the
 v0.8–v0.10 API-server, modern-dark-theme, search, MCP, and Postgres eras.
 
-[Unreleased]: https://github.com/emichaud/django-smallstack/compare/v0.12.3...HEAD
+[Unreleased]: https://github.com/emichaud/django-smallstack/compare/v0.12.4...HEAD
+[0.12.4]: https://github.com/emichaud/django-smallstack/compare/v0.12.3...v0.12.4
 [0.12.3]: https://github.com/emichaud/django-smallstack/compare/v0.12.2...v0.12.3
 [0.12.2]: https://github.com/emichaud/django-smallstack/compare/v0.12.1...v0.12.2
 [0.12.1]: https://github.com/emichaud/django-smallstack/compare/v0.12.0...v0.12.1

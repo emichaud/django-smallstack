@@ -19,7 +19,7 @@ try:
     _PACKAGE_VERSION = _pkg_version("django-smallstack")
 except PackageNotFoundError:
     # Running from source without an installed distribution — keep in sync with pyproject.toml.
-    _PACKAGE_VERSION = "0.12.3"
+    _PACKAGE_VERSION = "0.12.4"
 
 # The version SmallStack advertises across its surfaces (OpenAPI info.version,
 # MCP initialize). Derived from the package so it never drifts; override via env
