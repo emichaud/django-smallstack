@@ -53,6 +53,7 @@ When an AI agent is asked to modify or extend this project, these files help it:
 | [card-displays.md](card-displays.md) | Card grid displays: `CardDisplay` (key-value), `AvatarCardDisplay`, authoring new card variants |
 | [calendar-displays.md](calendar-displays.md) | Month-grid calendar display: `CalendarDisplay` config, ranged vs single-date events, month navigation |
 | [update-docs-and-skills.md](update-docs-and-skills.md) | File group map for updating docs/skills after code changes |
+| [report-card.md](report-card.md) | **The quality report-card standard**: rubric (7 graded areas A–F), change taxonomy, data commands, and procedure to generate a consistent, committable quality scorecard in `docs/report-cards/` |
 
 ### MCP (Model Context Protocol)
 
