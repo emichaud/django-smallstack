@@ -641,11 +641,16 @@ def build_openapi_spec(
     dict
         OpenAPI 3.0.3 specification as a JSON-serialisable dict.
     """
+    from django.conf import settings
+
     spec: dict = {
         "openapi": "3.0.3",
         "info": {
             "title": "SmallStack API",
-            "version": "1.0.0",
+            # Derived from the package version (settings.SMALLSTACK_VERSION) so the
+            # published contract never drifts from the release — same reconciliation
+            # applied to MCP_SERVER_VERSION.
+            "version": getattr(settings, "SMALLSTACK_VERSION", "0.0.0"),
             "description": "Auto-generated API documentation for SmallStack.",
         },
     }

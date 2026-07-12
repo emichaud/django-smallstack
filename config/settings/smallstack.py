@@ -21,6 +21,11 @@ except PackageNotFoundError:
     # Running from source without an installed distribution — keep in sync with pyproject.toml.
     _PACKAGE_VERSION = "0.12.3"
 
+# The version SmallStack advertises across its surfaces (OpenAPI info.version,
+# MCP initialize). Derived from the package so it never drifts; override via env
+# if you version your API contract independently of the package.
+SMALLSTACK_VERSION = config("SMALLSTACK_VERSION", default=_PACKAGE_VERSION)
+
 # Needed by BACKUP_DIR below. Same calculation as base.py — duplicated
 # here to avoid circular imports (this file is imported INTO base.py).
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
@@ -187,7 +192,7 @@ MCP_SERVER_NAME = config("MCP_SERVER_NAME", default=BRAND_NAME.lower().replace("
 
 # Version string advertised on `initialize`. Defaults to the package version so
 # MCP clients see the real release, not a hardcoded number.
-MCP_SERVER_VERSION = config("MCP_SERVER_VERSION", default=_PACKAGE_VERSION)
+MCP_SERVER_VERSION = config("MCP_SERVER_VERSION", default=SMALLSTACK_VERSION)
 
 # Base template the OAuth consent page extends. Derived projects with a
 # different theme override this in their own smallstack.py.
