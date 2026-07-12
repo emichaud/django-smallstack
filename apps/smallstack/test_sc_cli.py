@@ -375,3 +375,49 @@ def test_commands_json():
     assert "runbook" in data
     names = {c["command"] for cmds in data.values() for c in cmds}
     assert "api_doctor" in names
+
+
+# -- regression: testing-agent findings ---------------------------------------
+
+def test_get_omits_password_and_m2m(db):
+    # #1: sc get must not leak the password hash (or dump M2M managers).
+    u = User.objects.create_user("alice", email="a@x.com", password="secret123")
+    data = json.loads(run("get", "user", str(u.pk), "--json"))
+    assert "password" not in data
+    assert "groups" not in data and "user_permissions" not in data
+    assert data["username"] == "alice"  # normal fields still present
+
+
+def test_new_unknown_field_errors(db):
+    # #2: a typo'd --field on create errors instead of silently dropping.
+    _staff()
+    argv = ["new", "monitoredendpoint",
+            *[f"--{k}={v}" for k, v in {**REQUIRED, "slug": "uf1"}.items()],
+            "--bogus=1", "--user", "staffy"]
+    with pytest.raises(CommandError, match="unknown field"):
+        run(*argv)
+
+
+def test_set_unknown_field_errors(db):
+    # #2: the dangerous one — a typo'd --field on update must not no-op silently.
+    _staff()
+    m = _endpoint(slug="uf2")
+    with pytest.raises(CommandError, match="unknown field"):
+        run("set", "monitoredendpoint", str(m.pk), "--enalbed=false", "--user", "staffy")
+
+
+def test_ls_order_desc_space_form(db):
+    # #3: --order -field (space form, leading dash) must parse, not error.
+    User.objects.create_user("aaa")
+    User.objects.create_user("zzz")
+    out = run("ls", "user", "--order", "-username", "--limit", "1")
+    assert "zzz" in out and "aaa" not in out
+
+
+def test_counts_agree_with_rows_unscoped(db):
+    # #5: without --user, --counts and ls use the same (unscoped) queryset.
+    _make_token()  # 1 token, owned by a user (APIToken list is tenancy-scoped)
+    counts = json.loads(run("ls", "--counts", "--json"))
+    n = next(e["rows"] for e in counts if e["model"] == "apitoken")
+    rows = json.loads(run("ls", "apitoken", "--json"))
+    assert n == len(rows) == 1

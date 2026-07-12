@@ -43,11 +43,15 @@ prints the canonical token for each. A miss raises a "did you mean …" error.
 
 ## Security / actor
 
-`--user <username>` sets the audit actor and tenancy context (`get_list_queryset` sees the user). Writes
-to a **staff-only** model (`StaffRequiredMixin`) require a **staff** `--user`, mirroring the MCP
-`requires_access="staff"` gate. Reads default to an anonymous, unscoped request.
+**Without `--user`**, `sc` acts as a **local admin with full, unscoped access** (like `manage.py shell`
+and `sc search`) — so `ls`, `get`, and `ls --counts` agree with each other. Pass `--user <username>` to
+scope reads/writes through the view's `get_list_queryset` tenancy hook *as that user* and to set the
+audit actor. Writes to a **staff-only** model (`StaffRequiredMixin`) require a **staff** `--user`,
+mirroring the MCP `requires_access="staff"` gate.
 
-`sc` runs with local shell privileges (it's `manage.py`) — treat it as a local admin tool.
+Field names use **underscores** (`--expected_status`, not `--expected-status`); unknown `--field` keys on
+a write error out rather than silently no-op. `sc` runs with local shell privileges (it's `manage.py`) —
+treat it as a local admin tool.
 
 ## Examples
 
@@ -61,7 +65,7 @@ sc search "acme"                        # cross-model, ranked
 
 # writes (staff-gated model → staff --user)
 sc new monitoredendpoint --name "Homepage" --slug home --method GET \
-   --url https://example.com --expected-status 200 --timeout-seconds 10 --user admin
+   --url https://example.com --expected_status 200 --timeout_seconds 10 --user admin
 echo "$LONG_BODY" | sc new note --title Report --stdin-field=body --user admin
 sc set monitoredendpoint 5 --enabled=false --user admin
 sc rm monitoredendpoint 5 --force --user admin

@@ -37,6 +37,11 @@ from apps.smallstack.audit import ADDITION, CHANGE, DELETION, log_write
 from apps.smallstack.cli_format import json_dump, table
 from apps.smallstack.crud import CRUDView
 
+# Never emitted by the CLI, even when a view falls back to "all concrete fields" for
+# detail: a password hash in --json (which gets piped/logged) is a sharp edge, and the
+# User model's real REST surface omits it too.
+SENSITIVE_FIELDS = frozenset({"password"})
+
 
 class Command(BaseCommand):
     help = "SmallStack framework CLI (ls, get, describe, search) over the CRUDView registry."
@@ -84,7 +89,13 @@ class Command(BaseCommand):
         return argparse.ArgumentParser(prog=f"manage.py sc {verb}")
 
     def _resolve_actor(self, username: Optional[str]):
-        """A username → User (for tenancy/scoping), or None (trusted/unscoped)."""
+        """A username → User, or None.
+
+        None means **no --user**: the CLI acts as a local admin with full,
+        unscoped access (like ``manage.py shell`` and ``sc search``). A username
+        scopes reads/writes through the view's ``get_list_queryset`` tenancy hook
+        as that user, and is the audit actor.
+        """
         if not username:
             return None
         user = get_user_model().objects.filter(username=username).first()
@@ -100,6 +111,33 @@ class Command(BaseCommand):
         req.GET = QueryDict("", mutable=False)
         req.META = {}
         return req
+
+    def _scoped_qs(self, view, actor, request):
+        """Base queryset, scoped by the view's tenancy hook **only** when acting as
+        a user (``--user``). Without ``--user`` the CLI is a local admin tool with
+        full access, so no scoping is applied — this keeps ``ls``/``get``/``--counts``
+        consistent with each other and with ``sc search``."""
+        qs = view._get_queryset()
+        if actor is not None:
+            qs = view.get_list_queryset(qs, request)
+        return qs
+
+    @staticmethod
+    def _display_fields(view, field_list: list[str]) -> list[str]:
+        """Drop sensitive fields (password) and many-to-many relations (which don't
+        serialize cleanly in the flat CLI view) from a resolved field list."""
+        model = view.model
+        out = []
+        for f in field_list:
+            if f in SENSITIVE_FIELDS:
+                continue
+            try:
+                if model._meta.get_field(f).many_to_many:
+                    continue
+            except Exception:
+                pass  # property / computed column — keep it
+            out.append(f)
+        return out
 
     # -- model addressing -----------------------------------------------------
 
@@ -167,6 +205,21 @@ class Command(BaseCommand):
         text = text.replace("\n", " ")
         return text if len(text) <= 48 else text[:47] + "…"
 
+    @staticmethod
+    def _normalize_order(argv: list[str]) -> list[str]:
+        """Join ``--order -field`` into ``--order=-field`` so argparse doesn't read a
+        descending-order value (leading ``-``) as an unknown option."""
+        out: list[str] = []
+        i = 0
+        while i < len(argv):
+            if argv[i] == "--order" and i + 1 < len(argv) and argv[i + 1].startswith("-"):
+                out.append(f"--order={argv[i + 1]}")
+                i += 2
+            else:
+                out.append(argv[i])
+                i += 1
+        return out
+
     # -- ls -------------------------------------------------------------------
 
     def _cmd_ls(self, argv: list[str]) -> None:
@@ -175,21 +228,23 @@ class Command(BaseCommand):
         parser.add_argument("-q", "--query", help="text search over the model's search fields")
         parser.add_argument("--filter", action="append", default=[], metavar="k=v",
                             help="field filter (repeatable)")
-        parser.add_argument("--order", help="comma-separated order fields ('-' prefix = desc)")
+        parser.add_argument("--order", help="comma-separated order fields ('-' prefix = desc; "
+                                            "e.g. --order=-created_at)")
         parser.add_argument("--limit", type=int, help="max rows")
         parser.add_argument("--counts", action="store_true",
                             help="include a row count per model (one extra COUNT each)")
         parser.add_argument("--user", help="act as this username (tenancy scoping)")
         parser.add_argument("--json", action="store_true")
-        opts = parser.parse_args(argv)
+        opts = parser.parse_args(self._normalize_order(argv))
 
         if not opts.model:
             self._ls_models(as_json=opts.json, counts=opts.counts)
             return
 
         view = self._resolve_view(opts.model)
-        req = self._fake_request(self._resolve_actor(opts.user))
-        qs = view.get_list_queryset(view._get_queryset(), req)
+        actor = self._resolve_actor(opts.user)
+        req = self._fake_request(actor)
+        qs = self._scoped_qs(view, actor, req)
 
         if opts.query and view._resolve_search_fields():
             req.GET = QueryDict(urlencode({"q": opts.query}), mutable=False)
@@ -218,7 +273,7 @@ class Command(BaseCommand):
 
         limit = opts.limit or view._resolve_paginate_by() or 50
         limit = max(1, min(int(limit), 500))
-        fields = view._get_list_fields()
+        fields = self._display_fields(view, view._get_list_fields())
         # select_related FK columns present in the list so serialize() doesn't N+1.
         fk_names = []
         for f in fields:
@@ -289,8 +344,9 @@ class Command(BaseCommand):
         opts = parser.parse_args(argv)
 
         view = self._resolve_view(opts.model)
-        req = self._fake_request(self._resolve_actor(opts.user))
-        qs = view.get_list_queryset(view._get_queryset(), req)
+        actor = self._resolve_actor(opts.user)
+        req = self._fake_request(actor)
+        qs = self._scoped_qs(view, actor, req)
         try:
             obj = qs.filter(pk=opts.pk).first()
         except (ValueError, TypeError):
@@ -298,7 +354,7 @@ class Command(BaseCommand):
         if obj is None:
             raise CommandError(f"{self._canonical_token(view.model)} {opts.pk!r} not found")
 
-        result = serialize(obj, view._get_detail_fields())
+        result = serialize(obj, self._display_fields(view, view._get_detail_fields()))
         if opts.json:
             self.stdout.write(json_dump(result))
             return
@@ -413,6 +469,20 @@ class Command(BaseCommand):
         return fields
 
     @staticmethod
+    def _validate_write_fields(form_class, field_names) -> None:
+        """Reject unknown ``--field`` keys before a write, so a typo (``--enalbed``)
+        errors instead of silently no-op'ing. Mirrors --filter's key validation.
+        Django field names use underscores — write ``--expected_status``, not
+        ``--expected-status``."""
+        valid = set(form_class.base_fields)
+        unknown = set(field_names) - valid
+        if unknown:
+            raise CommandError(
+                f"unknown field(s): {', '.join(sorted(unknown))}. "
+                f"valid: {', '.join(sorted(valid)) or '(none)'}"
+            )
+
+    @staticmethod
     def _read_stdin_or_file(file_arg: Optional[str]) -> str:
         if file_arg:
             with open(file_arg, encoding="utf-8") as handle:
@@ -432,7 +502,7 @@ class Command(BaseCommand):
 
     def _emit_write(self, view, obj, *, as_json: bool, verb: str) -> None:
         if as_json:
-            self.stdout.write(json_dump(serialize(obj, view._get_detail_fields())))
+            self.stdout.write(json_dump(serialize(obj, self._display_fields(view, view._get_detail_fields()))))
             return
         self.stdout.write(self.style.SUCCESS(f"{verb} {self._canonical_token(view.model)} #{obj.pk}"))
 
@@ -453,8 +523,10 @@ class Command(BaseCommand):
         if opts.stdin_field:
             fields[opts.stdin_field] = self._read_stdin_or_file(opts.file)
 
+        form_class = self._form_class_for(view)
+        self._validate_write_fields(form_class, fields)
         request = self._fake_request(actor)
-        form = self._form_class_for(view)(QueryDict(urlencode(fields), mutable=False))
+        form = form_class(QueryDict(urlencode(fields), mutable=False))
         if not form.is_valid():
             self._fail_form(form)
         try:
@@ -480,7 +552,7 @@ class Command(BaseCommand):
         self._check_write_permission(view, actor)
         request = self._fake_request(actor)
 
-        obj = self._fetch(view, request, opts.pk)
+        obj = self._fetch(view, actor, request, opts.pk)
         if not view.can_update(obj, request):
             raise CommandError("update not permitted")
 
@@ -489,6 +561,9 @@ class Command(BaseCommand):
             fields[opts.stdin_field] = self._read_stdin_or_file(opts.file)
         if not fields:
             raise CommandError("nothing to update; pass --field=value")
+
+        form_class = self._form_class_for(view)
+        self._validate_write_fields(form_class, fields)
 
         # PATCH-merge: existing values overlaid with incoming (mirrors the REST/MCP path).
         merged = QueryDict(mutable=True)
@@ -502,7 +577,7 @@ class Command(BaseCommand):
         for key, value in fields.items():
             merged[key] = "" if value is None else str(value)
 
-        form = self._form_class_for(view)(merged, instance=obj)
+        form = form_class(merged, instance=obj)
         if not form.is_valid():
             self._fail_form(form)
         try:
@@ -527,7 +602,7 @@ class Command(BaseCommand):
         self._check_write_permission(view, actor)
         request = self._fake_request(actor)
 
-        obj = self._fetch(view, request, opts.pk)
+        obj = self._fetch(view, actor, request, opts.pk)
         if not view.can_delete(obj, request):
             raise CommandError("delete not permitted")
         if not opts.force:
@@ -542,10 +617,10 @@ class Command(BaseCommand):
             return
         self.stdout.write(self.style.SUCCESS(f"deleted {self._canonical_token(view.model)} #{opts.pk} ({label})"))
 
-    def _fetch(self, view, request, pk):
-        """Fetch one object through the tenancy hook, with clean errors."""
+    def _fetch(self, view, actor, request, pk):
+        """Fetch one object (scoped as ``actor`` when given), with clean errors."""
         try:
-            obj = view.get_list_queryset(view._get_queryset(), request).filter(pk=pk).first()
+            obj = self._scoped_qs(view, actor, request).filter(pk=pk).first()
         except (ValueError, TypeError):
             raise CommandError(f"invalid id {pk!r} for {self._canonical_token(view.model)}")
         if obj is None:
