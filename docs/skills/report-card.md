@@ -14,11 +14,20 @@ vibes), the change taxonomy, the data sources, and the procedure. Pair it with t
 - On a cadence (e.g. each release) to show trend.
 - The card is a **snapshot at one commit**. Always stamp the exact commit; never retro-edit an old card.
 
-## Output
-- **Path:** `docs/report-cards/<YYYY-MM-DD>_<label>_<version>.md` (e.g.
-  `2026-07-12_feat-runbook_v0.12.4.md`). `<label>` = branch or milestone, kebab-case.
-- One file per snapshot. Keep old cards — the history *is* the value. Update
-  `docs/report-cards/README.md`'s index with the new row.
+## Output — two tiers
+There are two kinds of card; keep them separate:
+
+1. **Release card (canonical, public):** `docs/report-cards/v<version>.md` (e.g. `v0.12.4.md`) — **one
+   per release**, finalized at tag time, committed here. This is the trust artifact: browsable per-release
+   history, linked from the README and each GitHub Release. Keep old ones — the trajectory *is* the value.
+2. **Round snapshot (working record):** a per-test-round draft named
+   `<YYYY-MM-DD>_<label>_<version>.md`, produced by the integration test harness
+   (github.com/emichaud/smallstack-testing-agent → `results/`). These are the audit trail; they stay in
+   the harness repo and do **not** clutter this public folder.
+
+A release card is typically the finalized version of the last round snapshot before the tag. Update
+`docs/report-cards/README.md`'s index when you add a release card. **Immutable:** never retro-edit a
+released card; a new state is a new card.
 
 ## The rubric — how to grade (keep it reproducible)
 
