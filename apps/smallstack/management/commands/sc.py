@@ -25,6 +25,7 @@ from urllib.parse import urlencode
 
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import AnonymousUser
+from django.core.management import call_command
 from django.core.management.base import BaseCommand, CommandError
 from django.http import HttpRequest, QueryDict
 
@@ -46,10 +47,18 @@ class Command(BaseCommand):
     def handle(self, *args: Any, **options: Any) -> None:
         sub = options.get("subcommand")
         dispatch = {
+            # resource verbs (model CRUD)
             "ls": self._cmd_ls,
             "get": self._cmd_get,
             "describe": self._cmd_describe,
             "search": self._cmd_search,
+            # operational verbs (framework ops)
+            "doctor": self._cmd_doctor,
+            "backup": self._cmd_backup,
+            "token": self._cmd_token,
+            "status": self._cmd_status,
+            "index": self._cmd_index,
+            "commands": self._cmd_commands,
         }
         if sub is None:
             self.stdout.write(self.help)
@@ -362,3 +371,137 @@ class Command(BaseCommand):
             return
         rows = [[h.model_verbose, f"{h.rank:.3f}", (h.display or "")[:60]] for h in hits]
         self.stdout.write(table(rows, ["TYPE", "RANK", "RESULT"]))
+
+    # -- operational verbs (thin fronts over management commands) --------------
+
+    def _run(self, command: str, args: list[str]) -> None:
+        """Dispatch to an existing management command, routing its output to ours."""
+        call_command(command, *args, stdout=self.stdout, stderr=self.stderr)
+
+    def _cmd_doctor(self, argv: list[str]) -> None:
+        """sc doctor [api|mcp|search|all] [--json …] — health-check the framework surfaces."""
+        rest = list(argv)
+        which = "all"
+        if rest and not rest[0].startswith("-"):
+            which = rest.pop(0)
+        mapping = {"api": "api_doctor", "mcp": "mcp_doctor", "search": "search_doctor"}
+        if which == "all":
+            targets = ["api_doctor", "mcp_doctor", "search_doctor"]
+        elif which in mapping:
+            targets = [mapping[which]]
+        else:
+            raise CommandError(f"unknown doctor {which!r}; use api | mcp | search | all")
+        for cmd in targets:
+            if len(targets) > 1:
+                self.stdout.write(self.style.MIGRATE_HEADING(f"\n=== {cmd} ==="))
+            self._run(cmd, rest)
+
+    def _cmd_backup(self, argv: list[str]) -> None:
+        """sc backup [--flags] — SQLite database backup (backup_db)."""
+        self._run("backup_db", list(argv))
+
+    def _cmd_status(self, argv: list[str]) -> None:
+        """sc status [check|maintenance …] — run monitors, or manage maintenance windows."""
+        rest = list(argv)
+        sub = rest.pop(0) if rest and not rest[0].startswith("-") else "check"
+        if sub == "check":
+            self._run("heartbeat", rest)
+        elif sub == "maintenance":
+            self._run("maintenance", rest)
+        else:
+            raise CommandError(f"unknown status verb {sub!r}; use check | maintenance")
+
+    def _cmd_index(self, argv: list[str]) -> None:
+        """sc index [rebuild|sync …] — rebuild the search index, or sync the help index."""
+        rest = list(argv)
+        sub = rest.pop(0) if rest and not rest[0].startswith("-") else None
+        if sub == "rebuild":
+            self._run("rebuild_search_index", rest)
+        elif sub == "sync":
+            self._run("sync_help_index", rest)
+        else:
+            raise CommandError("usage: sc index rebuild [model|--all] | sync")
+
+    def _cmd_token(self, argv: list[str]) -> None:
+        """sc token create|list|revoke — API token operations."""
+        rest = list(argv)
+        sub = rest.pop(0) if rest else None
+        if sub == "create":
+            self._run("create_api_token", rest)
+        elif sub == "list":
+            self._token_list(rest)
+        elif sub == "revoke":
+            self._token_revoke(rest)
+        else:
+            raise CommandError("usage: sc token create <username> [--name --access-level] | list | revoke <prefix>")
+
+    def _token_list(self, argv: list[str]) -> None:
+        from apps.smallstack.models import APIToken
+
+        parser = self._parser("token list")
+        parser.add_argument("--user", help="filter by username")
+        parser.add_argument("--all", action="store_true", help="include revoked tokens")
+        parser.add_argument("--json", action="store_true")
+        opts = parser.parse_args(argv)
+
+        qs = APIToken.objects.select_related("user").order_by("-created_at")
+        if opts.user:
+            qs = qs.filter(user__username=opts.user)
+        if not opts.all:
+            qs = qs.filter(is_active=True)
+        rows_objs = list(qs)
+        data = [
+            {"prefix": t.prefix, "name": t.name, "access_level": t.access_level,
+             "active": t.is_active, "user": t.user.username if t.user_id else None,
+             "last_used_at": t.last_used_at}
+            for t in rows_objs
+        ]
+        if opts.json:
+            self.stdout.write(json_dump(data))
+            return
+        if not data:
+            self.stdout.write("(no tokens)")
+            return
+        rows = [[d["prefix"], d["name"], d["access_level"], "yes" if d["active"] else "no",
+                 d["user"] or "-", str(d["last_used_at"] or "-")] for d in data]
+        self.stdout.write(table(rows, ["PREFIX", "NAME", "ACCESS", "ACTIVE", "USER", "LAST USED"]))
+
+    def _token_revoke(self, argv: list[str]) -> None:
+        from apps.smallstack.models import APIToken
+
+        parser = self._parser("token revoke")
+        parser.add_argument("prefix", help="token prefix to revoke")
+        opts = parser.parse_args(argv)
+        n = APIToken.objects.filter(prefix=opts.prefix, is_active=True).update(is_active=False)
+        if not n:
+            raise CommandError(f"no active token with prefix {opts.prefix!r}")
+        self.stdout.write(self.style.SUCCESS(f"revoked token {opts.prefix}"))
+
+    def _cmd_commands(self, argv: list[str]) -> None:
+        """sc commands — discover the framework's management commands, grouped by app."""
+        from django.core.management import get_commands, load_command_class
+
+        parser = self._parser("commands")
+        parser.add_argument("--json", action="store_true")
+        opts = parser.parse_args(argv)
+
+        groups: dict[str, list[tuple[str, str]]] = {}
+        for name, app in sorted(get_commands().items()):
+            if not str(app).startswith("apps."):
+                continue  # framework apps only (skip Django core + third-party)
+            try:
+                help_text = (load_command_class(app, name).help or "").strip().splitlines()
+                help_line = help_text[0] if help_text else ""
+            except Exception:
+                help_line = ""
+            groups.setdefault(str(app).split(".")[-1], []).append((name, help_line))
+
+        if opts.json:
+            self.stdout.write(json_dump(
+                {app: [{"command": n, "help": h} for n, h in cmds] for app, cmds in groups.items()}
+            ))
+            return
+        for app in sorted(groups):
+            self.stdout.write(self.style.MIGRATE_HEADING(app))
+            for name, help_line in groups[app]:
+                self.stdout.write(f"  {name:<26} {help_line[:66]}")

@@ -179,3 +179,109 @@ def test_search_unavailable_without_engine(monkeypatch):
     monkeypatch.setattr(builtins, "__import__", _blocked)
     with pytest.raises(CommandError, match="search is unavailable"):
         run("search", "x")
+
+
+# -- operational verbs (thin fronts over management commands) ------------------
+
+SC_CALL = "apps.smallstack.management.commands.sc.call_command"
+
+
+def _capture_calls(monkeypatch):
+    calls = []
+    monkeypatch.setattr(SC_CALL, lambda cmd, *a, **k: calls.append((cmd, a)))
+    return calls
+
+
+def test_doctor_all_runs_three(monkeypatch):
+    calls = _capture_calls(monkeypatch)
+    run("doctor", "all")
+    assert [c[0] for c in calls] == ["api_doctor", "mcp_doctor", "search_doctor"]
+
+
+def test_doctor_one_passes_flags(monkeypatch):
+    calls = _capture_calls(monkeypatch)
+    run("doctor", "search", "--json")
+    assert calls == [("search_doctor", ("--json",))]
+
+
+def test_doctor_bare_flag_means_all(monkeypatch):
+    calls = _capture_calls(monkeypatch)
+    run("doctor", "--json")
+    assert [c[0] for c in calls] == ["api_doctor", "mcp_doctor", "search_doctor"]
+
+
+def test_doctor_unknown_errors(monkeypatch):
+    _capture_calls(monkeypatch)
+    with pytest.raises(CommandError, match="unknown doctor"):
+        run("doctor", "bogus")
+
+
+def test_backup_dispatches(monkeypatch):
+    calls = _capture_calls(monkeypatch)
+    run("backup")
+    assert calls[0][0] == "backup_db"
+
+
+def test_status_and_index_dispatch(monkeypatch):
+    calls = _capture_calls(monkeypatch)
+    run("status", "check")
+    run("status", "maintenance", "list")
+    run("index", "rebuild", "--all")
+    run("index", "sync")
+    assert [c[0] for c in calls] == ["heartbeat", "maintenance", "rebuild_search_index", "sync_help_index"]
+
+
+def test_index_usage_error(monkeypatch):
+    _capture_calls(monkeypatch)
+    with pytest.raises(CommandError, match="usage: sc index"):
+        run("index", "bogus")
+
+
+def test_token_create_dispatches(monkeypatch):
+    calls = _capture_calls(monkeypatch)
+    run("token", "create", "alice", "--name", "x")
+    assert calls[0][0] == "create_api_token" and "alice" in calls[0][1]
+
+
+def _make_token(username="tokuser", active=True, name="t"):
+    from apps.smallstack.models import APIToken
+
+    u = User.objects.create_user(username)
+    raw, prefix, hashed = APIToken._generate_raw_key()
+    return APIToken.objects.create(user=u, name=name, prefix=prefix, hashed_key=hashed,
+                                   access_level="readonly", is_active=active)
+
+
+def test_token_list(db):
+    tok = _make_token()
+    out = run("token", "list")
+    assert "PREFIX" in out and tok.prefix in out
+
+
+def test_token_revoke(db):
+    tok = _make_token(active=True)
+    run("token", "revoke", tok.prefix)
+    tok.refresh_from_db()
+    assert tok.is_active is False
+
+
+def test_token_revoke_unknown_errors(db):
+    with pytest.raises(CommandError, match="no active token"):
+        run("token", "revoke", "nope")
+
+
+def test_token_usage_error(db):
+    with pytest.raises(CommandError, match="usage: sc token"):
+        run("token", "wat")
+
+
+def test_commands_lists_grouped():
+    out = run("commands")
+    assert "runbook" in out and "api_doctor" in out and "backup_db" in out
+
+
+def test_commands_json():
+    data = json.loads(run("commands", "--json"))
+    assert "runbook" in data
+    names = {c["command"] for cmds in data.values() for c in cmds}
+    assert "api_doctor" in names
