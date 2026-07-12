@@ -21,6 +21,7 @@ dependencies = [
     "django-filter>=25.2",
     "django-cors-headers>=4.9.0",
     "mcp>=1.27",
+    "django-ipware>=7.0",  # axes: real client IP from X-Forwarded-For behind a proxy
 ]
 
 [project.scripts]
