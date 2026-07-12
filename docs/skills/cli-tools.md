@@ -15,6 +15,9 @@ Two tables: a **task → tool map** (the most common lookups) and a **tool → d
 | If the user wants to… | Reach for |
 |---|---|
 | **set up SmallStack from scratch** | `make setup` (one-time) |
+| **inspect / query / edit any model from the shell** | `sc ls <model> -q …` · `sc get <model> <pk>` · `sc new/set/rm` (the `sc` CLI — audited + validated like REST/MCP; prefer over `manage.py shell` snippets). See [`sc-cli.md`](sc-cli.md) |
+| discover **what models / commands exist** | `sc ls` (models) · `sc commands` (management commands, grouped) |
+| **health-check the whole framework** at once | `sc doctor all` (api + mcp + search) |
 | start the dev server | `make run` (port 8005; `PORT=N make run` to change) |
 | run tests | `make test` (full) or `uv run pytest -k <name>` (one) |
 | lint | `make lint` (check) / `make lint-fix` (autofix) |

@@ -116,7 +116,11 @@ uv run python manage.py mcp_doctor               # health-check the MCP surface
 uv run python manage.py shell                    # shell_plus with auto-imports
 uv run python manage.py screenshot_auth          # auth.json for shot-scraper
 shot-scraper http://localhost:8005/ -o out.png   # browser screenshot
+uv run python manage.py sc ls                    # every CRUDView model (the framework CLI)
+uv run python manage.py sc doctor all            # api + mcp + search health in one
 ```
+
+The **`sc` CLI** (`manage.py sc` / the `sc` shim) is the framework front door for the shell: generic CRUD over any registered CRUDView (`sc ls/get/describe/new/set/rm`, same validation + audit as REST/MCP) plus ops verbs (`doctor/backup/token/status/index`) and `sc commands` discovery. Prefer it over ad-hoc `manage.py shell` snippets — see `docs/skills/sc-cli.md`.
 
 If you find yourself about to write a bash one-liner for "back up the SQLite database" or "validate the OpenAPI spec," **stop and check `docs/skills/cli-tools.md` first**. There's almost certainly a built-in tool for it.
 

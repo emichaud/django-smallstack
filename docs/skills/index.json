@@ -455,6 +455,26 @@
       "use_when": "Browsing or editing runbook pages from the shell."
     },
     {
+      "id": "sc-cli",
+      "file": "sc-cli.md",
+      "name": "sc — framework CLI",
+      "description": "The manage.py sc / sc console CLI: generic CRUD over any CRUDView (ls, get, describe, new, set, rm) with the same form validation + log_write audit as REST/MCP, plus operational verbs (doctor, backup, token, status, index) and 'sc commands' discovery. Model addressing by token; --json on every read; staff-gated writes.",
+      "keywords": [
+        "sc",
+        "cli",
+        "crudview",
+        "crud",
+        "ls",
+        "get",
+        "describe",
+        "doctor",
+        "manage.py",
+        "registry",
+        "json"
+      ],
+      "use_when": "Inspecting, querying, or mutating any CRUDView model from the shell, discovering the model/command surface, or health-checking the framework — instead of ad-hoc manage.py shell snippets."
+    },
+    {
       "id": "report-card",
       "file": "report-card.md",
       "name": "Quality Report Card",

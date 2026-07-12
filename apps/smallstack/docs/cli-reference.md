@@ -18,6 +18,7 @@ Every command-line tool SmallStack provides — `manage.py` commands, Make targe
 | DB | `make backup` | SQLite backup with retention |
 | Search | `manage.py rebuild_search_index` / `search_doctor` | Rebuild FTS index / diagnose search |
 | Visual | `manage.py screenshot_auth` + `shot-scraper` | Authenticated browser screenshots |
+| CLI | `manage.py sc` (`sc` shim) | Framework CLI: CRUD over any CRUDView (`ls/get/describe/new/set/rm`) + ops verbs (`doctor/backup/token/status/index/commands`) — see [`docs/skills/sc-cli.md`](../../../docs/skills/sc-cli.md) |
 | Deploy | `make deploy` / `make logs` | Kamal deploy + tail logs |
 
 ---

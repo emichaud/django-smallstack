@@ -33,6 +33,7 @@ When an AI agent is asked to modify or extend this project, these files help it:
 | [help-documentation.md](help-documentation.md) | Help system, sections, bundled SmallStack docs |
 | [runbook-documents.md](runbook-documents.md) | **Read before writing to runbook docs any way but the UI** — versioned markdown documents via web, `service`, MCP, REST, CLI; FTS search, locking, retention, ownership, anti-patterns |
 | [runbook-cli.md](runbook-cli.md) | The `manage.py runbook` / `rb` unix-style CLI for runbook pages — verbs, stdin piping, JSON, provenance, locking |
+| [sc-cli.md](sc-cli.md) | The `manage.py sc` / `sc` framework CLI — generic CRUD over any CRUDView (`ls/get/describe/new/set/rm`) + ops verbs (`doctor/backup/token/status/index/commands`); same validation + audit as REST/MCP |
 | [settings.md](settings.md) | Split settings, environment variables, feature flags |
 | [timezones.md](timezones.md) | Timezone middleware, per-user timezone, localtime_tooltip tag |
 | [background-tasks.md](background-tasks.md) | Django Tasks framework with django-tasks-db backend |
