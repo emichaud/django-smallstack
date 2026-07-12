@@ -1004,14 +1004,17 @@ class DownloadZipView(LoginRequiredMixin, View):
 
         runbook_slug = request.GET.get("runbook", "").strip()
 
+        # Group by the document's own runbook FK — not section__runbook — so
+        # section-less ("loose") docs attached straight to a runbook are included
+        # (they're first-class in list_documents, the dashboard, and search).
         docs = permissions.viewable_documents(request.user, _current_docs()).select_related(
-            "section", "section__runbook"
-        ).order_by("section__runbook__name", "section__order", "section__name", "title")
+            "section", "section__runbook", "runbook"
+        ).order_by("runbook__name", "section__order", "section__name", "title")
 
         if runbook_slug:
             runbook = get_object_or_404(Runbook, slug=runbook_slug)
             _require_view(request.user, runbook)
-            docs = docs.filter(section__runbook=runbook)
+            docs = docs.filter(runbook=runbook)
             zip_name = f"{runbook.slug}.zip"
             single_runbook = True
         else:
@@ -1026,7 +1029,7 @@ class DownloadZipView(LoginRequiredMixin, View):
         with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
             for doc in docs:
                 parts: list[str] = []
-                rb = doc.section.runbook if doc.section else None
+                rb = doc.runbook  # direct FK: set for both sectioned and loose docs
                 sec = doc.section
 
                 if not single_runbook and rb:
@@ -1060,7 +1063,7 @@ class DownloadZipView(LoginRequiredMixin, View):
 
             for rb, sections in runbook_map.items():
                 index_html = _build_zip_index(rb, sections, single_runbook)
-                prefix = "" if single_runbook else f"{rb.slug}/"
+                prefix = "" if single_runbook or rb is None else f"{rb.slug}/"
                 zf.writestr(f"{prefix}index.html", index_html)
 
         buf.seek(0)

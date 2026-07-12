@@ -106,3 +106,19 @@ class TestZipExportImages:
         data = b"".join(resp.streaming_content)
         names = zipfile.ZipFile(io.BytesIO(data)).namelist()
         assert not any("/images/" in n for n in names)
+
+    def test_section_less_doc_included_in_export(self, staff_client, runbook, section, staff_user):
+        # Regression (F5): a doc attached straight to the runbook (no section) must
+        # be exported, not silently dropped by a section__runbook filter.
+        import os
+
+        loose = make_document(title="Loose", body=b"# Loose report", runbook=runbook,
+                              section=None, created_by=staff_user)
+        insec = make_document(title="InSec", body=b"# In a section", section=section, created_by=staff_user)
+
+        resp = staff_client.get(reverse("runbook:download_zip") + f"?runbook={runbook.slug}")
+        assert resp.status_code == 200
+        names = zipfile.ZipFile(io.BytesIO(b"".join(resp.streaming_content))).namelist()
+
+        assert os.path.basename(loose.file.name) in names               # loose doc at ZIP root
+        assert f"{section.slug}/{os.path.basename(insec.file.name)}" in names  # sectioned doc under its folder
