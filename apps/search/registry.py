@@ -22,6 +22,23 @@ logger = logging.getLogger("smallstack.search")
 
 _search_registry: dict[str, IndexedView] = {}
 
+# Callbacks fired with each IndexedView as it is registered. Lets
+# order-sensitive consumers — chiefly the MCP tool factory — react to *late*
+# registrations from another app's ready() (which runs after search's own
+# ready()), instead of only seeing the views present at that instant.
+_on_register_hooks: list = []
+
+
+def add_register_hook(hook) -> None:
+    """Register a callback invoked with each ``IndexedView`` as it's registered.
+
+    Idempotent (adding the same hook twice is a no-op). The hook fires for
+    *future* ``register()`` calls, not retroactively — call it after processing
+    the already-registered views.
+    """
+    if hook not in _on_register_hooks:
+        _on_register_hooks.append(hook)
+
 
 def register(view_cls: type) -> IndexedView | None:
     """Register a CRUDView. Idempotent — re-registering is fine.
@@ -76,6 +93,14 @@ def register(view_cls: type) -> IndexedView | None:
     # queries during AppConfig.ready(), which Django warns about.
     # For non-migrate commands, the indexes already exist from a
     # prior `manage.py migrate` (or `make setup`).
+
+    # Notify order-sensitive consumers (e.g. the MCP tool factory) so a view
+    # registered after search's ready() still gets its per-model surface.
+    for hook in _on_register_hooks:
+        try:
+            hook(view)
+        except Exception:
+            logger.exception("search register hook failed for %s", view.model_label)
 
     return view
 

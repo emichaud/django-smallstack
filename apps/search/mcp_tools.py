@@ -43,8 +43,19 @@ from .registry import search_all as _search_all
 logger = logging.getLogger("smallstack.search")
 
 
-def register_search_tools() -> int:
-    """Called from SearchConfig.ready(). Returns the number of tools registered."""
+def _late_view_hook(view) -> None:
+    """Registry hook: register the MCP tool for a view registered after ready()."""
+    register_search_tools(only_view=view)
+
+
+def register_search_tools(only_view=None) -> int:
+    """Register search MCP tools. Called from ``SearchConfig.ready()``.
+
+    With ``only_view`` set, registers just that one view's ``search_<plural>``
+    tool — used as a ``registry`` hook so views registered *after* this app's
+    ready() (from a later app in INSTALLED_APPS, e.g. a downstream package) still
+    get their per-model tool. Returns the number of tools registered.
+    """
     try:
         from apps.mcp.server import tool
     except Exception:
@@ -53,8 +64,9 @@ def register_search_tools() -> int:
 
     count = 0
 
-    # Per-CRUDView search_<plural> tools.
-    for view in all_views():
+    # Per-CRUDView search_<plural> tools (everything registered so far, or just
+    # one view when invoked as a late-registration hook).
+    for view in ([only_view] if only_view is not None else all_views()):
         tool_name = _tool_name_for(view)
         description = (
             f"Search {view.model_verbose} records by free-text query against "
@@ -151,6 +163,18 @@ def register_search_tools() -> int:
             count += 1
         except Exception:
             logger.exception("Failed to register MCP tool %r", tool_name)
+
+    # Per-view work is done. When invoked as a late-registration hook we stop
+    # here — search_help / search_all are site-level and registered once.
+    if only_view is not None:
+        return count
+
+    # First full run: subscribe a hook so any *future* per-model registration
+    # (e.g. from a downstream app's ready()) also gets its tool. This is what
+    # makes tool registration independent of INSTALLED_APPS ordering.
+    from .registry import add_register_hook
+
+    add_register_hook(_late_view_hook)
 
     # search_help — bundled-docs RAG. Always registered (the help system
     # always exists in a SmallStack clone).
