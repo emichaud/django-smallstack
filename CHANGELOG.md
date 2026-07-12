@@ -9,6 +9,50 @@ Breaking-change migration recipes live in [`UPGRADING.md`](UPGRADING.md).
 
 ## [Unreleased]
 
+## [0.13.0] - 2026-07-12
+
+### Added
+- **Runbook — a first-class dynamic-documents app** (`apps/runbook/`): versioned markdown documents
+  with images, sections, keyword + full-text search, retention, subscriptions, and portable ZIP
+  bundles — readable and writable from the web UI, a transport-agnostic service layer, REST, MCP,
+  and a unix-style CLI. (Previously the standalone `smallstack-runbook` package; now permanent core.
+  The `smallstack_runbook` DB label is preserved, so existing tables/migrations reuse as-is.)
+- **Runbook CLI** (`manage.py runbook` / the `rb` console script): `ls`, `toc`, `find` (BM25-ranked
+  search), `cat` (`<ref>@N` reads an earlier version), `write` (stdin), `cp`, `rm`, `restore`, `mv`,
+  `revert`, `log`, `stat`, `mkdir`, `sections`, `publish`/`unpublish`. Every verb takes `--json`.
+- **Runbook REST API**: full document lifecycle (`api/documents/…`, incl. `append`/`move`/`archive`/
+  `unarchive`/`revert`/`copy`) plus an `api/runbooks/…` container resource (list/create, detail +
+  table of contents, sections, publish/unpublish). All registered in the OpenAPI schema (Swagger/
+  ReDoc) and ownership-scoped. `GET api/documents/?q=` is BM25-ranked (substring fallback).
+- **Runbook MCP tools** + search-engine registration (`search_runbook_documents`, global omnibar).
+- **Runbook dashboard widget** on the central `/smallstack/` dashboard (runbook + document counts).
+- `api_doctor` now lists hand-registered (`register_api_path`) custom endpoints, so its inventory
+  matches the OpenAPI schema (and warns on any `url_name` that no longer reverses).
+
+### Changed
+- Client-IP resolution is now proxy-aware and shared by the activity log and the django-axes login
+  lockout. Behind a trusted reverse proxy (`TRUST_PROXY_HEADERS`, defaulted on in production for
+  kamal-proxy) the real client is read from the rightmost, proxy-appended `X-Forwarded-For` entry
+  (spoof-resistant); otherwise the unspoofable `REMOTE_ADDR` is used. One helper
+  (`apps/smallstack/client_ip.py`) is the single source of truth.
+- The markdown hardening from the CRUD field-preview is extracted into a reusable
+  `harden_markdown_renderer()` and shared with the runbook renderer.
+
+### Fixed
+- **Stored XSS in runbook document rendering** — user- and AI-authored document bodies could inject
+  `<script>` / `<img onerror>` / `javascript:` links that executed in a viewer's session. The
+  renderer now escapes raw HTML and blanks dangerous URL schemes, and drops the unsafe `md_in_html`
+  and `attr_list` extensions. Regression-tested.
+- Runbook ZIP export silently omitted section-less ("loose") documents attached straight to a
+  runbook — they are now included (loose docs at the archive root).
+- Runbook CLI N+1 queries in `ls`, `toc`, and `sections`.
+- MCP activity page: the filter `Apply`/`Reset` buttons now align with the control row.
+- Silenced the django-axes INFO startup banner in development (it polluted piped CLI output).
+
+### Security
+- django-axes now resolves the real client IP behind kamal-proxy, so per-IP brute-force lockout is
+  effective in production (previously every request keyed to the proxy's address, neutering it).
+
 ## [0.12.4] - 2026-07-11
 
 ### Security
@@ -106,7 +150,8 @@ Condensed highlights of the v0.11 series (see git history for per-patch detail):
 See the git tag history (`git tag`) and `ai_cowork/audit_history/` for the full record of the
 v0.8–v0.10 API-server, modern-dark-theme, search, MCP, and Postgres eras.
 
-[Unreleased]: https://github.com/emichaud/django-smallstack/compare/v0.12.4...HEAD
+[Unreleased]: https://github.com/emichaud/django-smallstack/compare/v0.13.0...HEAD
+[0.13.0]: https://github.com/emichaud/django-smallstack/compare/v0.12.4...v0.13.0
 [0.12.4]: https://github.com/emichaud/django-smallstack/compare/v0.12.3...v0.12.4
 [0.12.3]: https://github.com/emichaud/django-smallstack/compare/v0.12.2...v0.12.3
 [0.12.2]: https://github.com/emichaud/django-smallstack/compare/v0.12.1...v0.12.2
