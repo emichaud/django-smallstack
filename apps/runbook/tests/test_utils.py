@@ -24,6 +24,31 @@ class TestRenderMarkdown:
         result = render_markdown("")
         assert result["html"] == ""
 
+    # -- stored-XSS neutralization (documents are user/AI-authored) -----------
+
+    def test_raw_script_is_escaped_not_executed(self):
+        html = render_markdown("<script>alert(document.cookie)</script>")["html"]
+        assert "<script" not in html.lower()
+        assert "&lt;script&gt;" in html
+
+    def test_raw_event_handler_tag_is_escaped(self):
+        html = render_markdown("<img src=x onerror=alert(1)>")["html"]
+        # No live <img> element survives — it renders as escaped text.
+        assert "<img" not in html.lower()
+
+    def test_javascript_scheme_link_is_neutralized(self):
+        html = render_markdown("[click](javascript:alert(1))")["html"]
+        assert 'href="#"' in html
+        assert "javascript:" not in html
+
+    def test_data_scheme_link_is_neutralized(self):
+        html = render_markdown("[x](data:text/html,<script>alert(1)</script>)")["html"]
+        assert 'href="#"' in html
+
+    def test_safe_link_is_preserved(self):
+        html = render_markdown("[ok](https://example.com)")["html"]
+        assert 'href="https://example.com"' in html
+
 
 class TestParseSlides:
     def test_basic_split(self):

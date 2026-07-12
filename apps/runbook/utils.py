@@ -35,14 +35,22 @@ class StepData(TypedDict):
 
 
 def render_markdown(content: str) -> RenderedMarkdown:
-    """Render markdown string to HTML with TOC metadata."""
+    """Render a document's markdown to HTML with TOC metadata.
+
+    Documents are user- and AI-authored (web/API/MCP/CLI), so the output is
+    untrusted and rendered with ``|safe`` in the templates. ``harden_markdown_renderer``
+    strips raw HTML (``<script>``, ``<img onerror>``) and dangerous URL schemes
+    (``javascript:``…) — the same neutralization the CRUD field-preview uses. We
+    deliberately do NOT enable ``md_in_html`` (raw-HTML passthrough) or
+    ``attr_list`` (event-handler injection): both are stored-XSS vectors here.
+    """
+    from apps.smallstack.transforms import harden_markdown_renderer
+
     md = markdown.Markdown(
         extensions=[
             "fenced_code",
             "tables",
             "toc",
-            "attr_list",
-            "md_in_html",
         ],
         extension_configs={
             "toc": {
@@ -50,6 +58,7 @@ def render_markdown(content: str) -> RenderedMarkdown:
             },
         },
     )
+    harden_markdown_renderer(md)
     rendered_html = md.convert(content)
     return {
         "html": rendered_html,
