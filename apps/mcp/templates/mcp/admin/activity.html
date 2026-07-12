@@ -99,9 +99,14 @@
           <input type="text" name="user" value="{{ current.user }}" placeholder="username contains"
                  style="padding: 6px 10px;">
         </label>
-        {# Buttons match the control box model (6px vertical padding + 1px border) so they sit flush with the selects/input on the align-items:end baseline. #}
-        <button type="submit" class="btn-primary" style="display: inline-flex; align-items: center; padding: 6px 16px; border: 1px solid transparent;">Apply</button>
-        <a href="{% url 'mcp_admin:activity' %}" class="btn-outline" style="display: inline-flex; align-items: center; padding: 6px 16px;">Reset</a>
+        {# Buttons get the controls' two-line field structure (hidden label line + 36px control) so the button row shares the selects/input baseline. #}
+        <div style="display: flex; flex-direction: column; gap: 4px; align-self: flex-start;">
+          <span aria-hidden="true" style="font-size: 0.78rem; font-weight: 600; letter-spacing: 0.04em; visibility: hidden;">Go</span>
+          <div style="display: flex; gap: 10px;">
+            <button type="submit" class="btn-primary" style="display: inline-flex; align-items: center; height: 36px; padding: 0 18px;">Apply</button>
+            <a href="{% url 'mcp_admin:activity' %}" class="btn-outline" style="display: inline-flex; align-items: center; height: 36px; padding: 0 18px;">Reset</a>
+          </div>
+        </div>
       </form>
     </div>
   </div>
