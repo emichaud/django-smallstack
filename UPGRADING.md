@@ -9,6 +9,32 @@ listed, no downstream migration is required.
 
 ---
 
+## v0.13.0 — Runbook app (additive, non-breaking)
+
+**Who is affected:** everyone upgrading from v0.12.x. No manual steps are required — this entry is
+informational.
+
+**What's new:** the runbook dynamic-document system ships as a new `smallstack_runbook` app (documents
+with immutable versioning, retention, subscriptions, and web / REST / MCP / CLI surfaces over one
+service layer).
+
+**Migrations:** `make migrate` applies ten new migrations automatically
+(`smallstack_runbook.0001_initial` … `0010_runbook_is_public_runbook_owner`). This was verified with an
+upgrade test — cloned v0.12.4, seeded data, merged v0.13.0, and migrated forward on the populated DB:
+migrations applied cleanly, **no data loss**, `manage.py check` passed.
+
+**New settings (all optional, safe defaults — no action needed):**
+
+- `RUNBOOK_BASE_TEMPLATE`, `RUNBOOK_STAFF_REQUIRED` (default `True`), and the
+  `RUNBOOK_GENERATED_*` retention caps — see `config/settings/smallstack.py`.
+- `TRUST_PROXY_HEADERS` (default `False`) — only enable behind a trusted proxy that sets
+  `X-Forwarded-For` (kamal-proxy does).
+
+**Evidence:** upgrade path and full quality assessment in the v0.13.0 report card
+([`docs/report-cards/`](docs/report-cards/)).
+
+---
+
 ## v0.12.0 — `django-tables2` removed (BREAKING)
 
 **Who is affected:** any downstream project that defined its own `tables.Table` subclass and
