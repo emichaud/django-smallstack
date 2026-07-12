@@ -90,6 +90,7 @@ class Command(BaseCommand):
         self._check_openapi_package(report)
         self._check_dependencies(report)
         self._check_registry(report)
+        self._check_custom_paths(report)
         self._check_urls(report)
         self._check_swagger_redoc(report)
         self._check_openapi_validity(report)
@@ -235,6 +236,45 @@ class Command(BaseCommand):
                 "Add `enable_api = True` to a CRUDView subclass, or check that "
                 "the CRUDView is reachable via INSTALLED_APPS (see orphans check)."
             )
+        report.append(entry)
+
+    def _check_custom_paths(self, report):
+        """Hand-registered ``@api_view`` endpoints (``register_api_path``).
+
+        These are in the OpenAPI schema / Swagger but NOT the CRUDView registry,
+        so the doctor's per-view inventory otherwise misses them. List them here
+        (and flag any whose ``url_name`` no longer reverses) so the reported
+        surface matches the real one.
+        """
+        from collections import Counter
+
+        from apps.smallstack.api import _custom_api_registry
+
+        paths: list[str] = []
+        unresolved: list[str] = []
+        by_tag: Counter = Counter()
+        for spec in _custom_api_registry:
+            for tag in spec.get("tags") or ["Custom"]:
+                by_tag[tag] += 1
+            try:
+                base = reverse(spec["url_name"])
+            except NoReverseMatch:
+                unresolved.append(spec["url_name"])
+                continue
+            methods = ",".join(spec.get("methods", []))
+            paths.append(f"{methods} {base}{spec.get('subpath', '')}")
+
+        detail: dict = {"total": len(_custom_api_registry)}
+        detail.update(dict(sorted(by_tag.items())))
+        entry: dict = {
+            "name": "Custom endpoints",
+            "status": "PASS",
+            "detail": detail if _custom_api_registry else "none registered via register_api_path",
+            "paths": sorted(paths),
+        }
+        if unresolved:
+            entry["status"] = "WARN"
+            detail["unresolvable url_names"] = ", ".join(sorted(set(unresolved)))
         report.append(entry)
 
     def _check_urls(self, report):
@@ -526,6 +566,11 @@ class Command(BaseCommand):
                     self.stdout.write(f"             - {o}")
                 if len(row["orphans"]) > 5:
                     self.stdout.write(f"             … (+{len(row['orphans']) - 5} more)")
+            if "paths" in row and row["paths"]:
+                for p in row["paths"][:12]:
+                    self.stdout.write(f"             {p}")
+                if len(row["paths"]) > 12:
+                    self.stdout.write(f"             … (+{len(row['paths']) - 12} more)")
 
     def _fmt_detail(self, detail):
         if isinstance(detail, dict):

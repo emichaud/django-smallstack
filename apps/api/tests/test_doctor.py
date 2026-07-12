@@ -55,6 +55,22 @@ def test_doctor_check_openapi_validity_passes():
     assert validity["status"] == "PASS", validity
 
 
+def test_doctor_lists_custom_registered_paths():
+    """Hand-registered (register_api_path) endpoints — which aren't CRUDViews —
+    must appear in the doctor's inventory, not just the OpenAPI schema."""
+    from apps.smallstack.api import _custom_api_registry
+
+    parsed = json.loads(_run(["--no-self-test", "--json"]))
+    card = next(r for r in parsed if r["name"] == "Custom endpoints")
+    assert card["detail"]["total"] == len(_custom_api_registry)
+    if _custom_api_registry:
+        # Every resolvable custom path is listed with its methods.
+        assert card["paths"], card
+        assert all(" /" in p for p in card["paths"])  # "<METHODS> <path>"
+    # Human output surfaces the section too.
+    assert "Custom endpoints" in _run(["--no-self-test"])
+
+
 def test_doctor_check_urls_passes():
     """All canonical API URL names must resolve."""
     output = _run(["--no-self-test", "--json"])
