@@ -213,7 +213,7 @@ edits the source and re-imports. See
         """# The Document Service & Transports
 
 Every write — browser, MCP, REST, CLI — goes through **one service layer**
-(`smallstack_runbook.service`), so versioning, provenance, concurrency, and events
+(`apps.runbook.service`), so versioning, provenance, concurrency, and events
 behave identically everywhere.
 
 ## The service

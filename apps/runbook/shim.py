@@ -1,7 +1,7 @@
 """``rb`` — a console-script shim for the ``runbook`` management command.
 
-Registered via ``[project.scripts]`` in ``pyproject.toml`` (``rb = smallstack_runbook.shim:main``),
-so once the package is installed in a project's environment you can type::
+Registered via ``[project.scripts]`` in SmallStack's ``pyproject.toml``
+(``rb = apps.runbook.shim:main``), so in an installed SmallStack project you can type::
 
     rb ls
     echo "# Report" | rb write ops/report --title Report

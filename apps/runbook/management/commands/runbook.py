@@ -1,7 +1,7 @@
 """A unix-style CLI over the runbook document service.
 
 One ``manage.py runbook`` command with git-style subcommands. Every verb is a
-thin skin over ``smallstack_runbook.service`` — the same write path the web UI,
+thin skin over ``apps.runbook.service`` — the same write path the web UI,
 REST API, and MCP tools use — so versioning, provenance, locking, and domain
 events behave identically here.
 

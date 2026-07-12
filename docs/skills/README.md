@@ -31,6 +31,8 @@ When an AI agent is asked to modify or extend this project, these files help it:
 | [manage-api-tokens.md](manage-api-tokens.md) | Pick the right token surface (/smallstack/tokens/, CLI, OAuth) by question; permissions matrix; reveal-once flow |
 | [htmx-patterns.md](htmx-patterns.md) | htmx setup, CSRF, partials, dual-response views, OOB messages |
 | [help-documentation.md](help-documentation.md) | Help system, sections, bundled SmallStack docs |
+| [runbook-documents.md](runbook-documents.md) | **Read before writing to runbook docs any way but the UI** — versioned markdown documents via web, `service`, MCP, REST, CLI; FTS search, locking, retention, ownership, anti-patterns |
+| [runbook-cli.md](runbook-cli.md) | The `manage.py runbook` / `rb` unix-style CLI for runbook pages — verbs, stdin piping, JSON, provenance, locking |
 | [settings.md](settings.md) | Split settings, environment variables, feature flags |
 | [timezones.md](timezones.md) | Timezone middleware, per-user timezone, localtime_tooltip tag |
 | [background-tasks.md](background-tasks.md) | Django Tasks framework with django-tasks-db backend |

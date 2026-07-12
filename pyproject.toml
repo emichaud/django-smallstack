@@ -23,6 +23,10 @@ dependencies = [
     "mcp>=1.27",
 ]
 
+[project.scripts]
+# `rb` — shorthand for `manage.py runbook` (finds manage.py by walking up, keeps stdin piping).
+rb = "apps.runbook.shim:main"
+
 [project.optional-dependencies]
 dev = [
     "pytest>=7.0",
@@ -76,3 +80,14 @@ exclude_lines = [
 ]
 show_missing = true
 skip_covered = true
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["apps*", "config*"]
+
+[tool.uv]
+package = true
+

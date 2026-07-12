@@ -44,9 +44,9 @@ class TestCanView:
     def test_other_cannot_see_private(self, other, rbs):
         assert not permissions.can_view(other, rbs["private"])
 
-    def test_anyone_sees_public(self, other, rbs):
-        assert permissions.can_view(other, rbs["public"])
-        assert permissions.can_view(AnonymousUser(), rbs["public"])
+    def test_signed_in_users_see_public_anon_does_not(self, other, rbs):
+        assert permissions.can_view(other, rbs["public"])  # any signed-in user
+        assert not permissions.can_view(AnonymousUser(), rbs["public"])  # anon: nothing (signed-in only)
 
     def test_staff_sees_everything(self, staff, rbs):
         assert all(permissions.can_view(staff, rb) for rb in rbs.values())
@@ -84,7 +84,7 @@ class TestScopers:
         assert set(permissions.viewable_runbooks(owner).values_list("slug", flat=True)) == {"priv", "pub"}
         assert set(permissions.viewable_runbooks(other).values_list("slug", flat=True)) == {"pub"}
         assert permissions.viewable_runbooks(staff).count() == 3
-        assert set(permissions.viewable_runbooks(AnonymousUser()).values_list("slug", flat=True)) == {"pub"}
+        assert permissions.viewable_runbooks(AnonymousUser()).count() == 0  # anon: nothing (signed-in only)
 
     def test_viewable_documents_scopes_and_hides_detached(self, owner, other, staff, rbs):
         make_document(title="p", slug="p", runbook=rbs["private"])
@@ -95,3 +95,5 @@ class TestScopers:
         assert set(permissions.viewable_documents(other).values_list("slug", flat=True)) == {"u"}
         # staff sees the detached doc too
         assert "det" in set(permissions.viewable_documents(staff).values_list("slug", flat=True))
+        # anonymous sees nothing (public is signed-in-only)
+        assert permissions.viewable_documents(AnonymousUser()).count() == 0

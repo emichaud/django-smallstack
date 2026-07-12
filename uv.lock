@@ -372,7 +372,7 @@ wheels = [
 [[package]]
 name = "django-smallstack"
 version = "0.12.4"
-source = { virtual = "." }
+source = { editable = "." }
 dependencies = [
     { name = "django" },
     { name = "django-axes" },

@@ -35,11 +35,19 @@ def is_staff(user: Any) -> bool:
 
 
 def can_view(user: Any, runbook: Optional[Runbook]) -> bool:
-    """May ``user`` read this runbook (and everything inheriting from it)?"""
+    """May ``user`` read this runbook (and everything inheriting from it)?
+
+    "Public" means readable by any *signed-in* user — anonymous callers get
+    nothing (the runbook surface is login-gated anyway). Keeps this layer
+    consistent with ``DocumentSearchConfig.search_access = "authenticated"`` and
+    the ``Runbook.is_public`` model docstring.
+    """
     if runbook is None:  # detached document's runbook — staff-only
         return is_staff(user)
     if is_staff(user):
         return True
+    if _uid(user) is None:  # anonymous — public is signed-in-only
+        return False
     if runbook.is_public:
         return True
     return runbook.owner_id is not None and runbook.owner_id == _uid(user)
@@ -83,8 +91,8 @@ def viewable_runbooks(user: Any, qs: Optional[QuerySet[Runbook]] = None) -> Quer
     qs = Runbook.objects.all() if qs is None else qs
     if is_staff(user):
         return qs
-    if _uid(user) is None:  # anonymous
-        return qs.filter(is_public=True)
+    if _uid(user) is None:  # anonymous — public is signed-in-only, so nothing
+        return qs.none()
     return qs.filter(Q(is_public=True) | Q(owner_id=user.id))
 
 
@@ -97,6 +105,6 @@ def viewable_documents(user: Any, qs: Optional[QuerySet[Document]] = None) -> Qu
     qs = Document.objects.all() if qs is None else qs
     if is_staff(user):
         return qs
-    if _uid(user) is None:  # anonymous
-        return qs.filter(runbook__is_public=True)
+    if _uid(user) is None:  # anonymous — public is signed-in-only, so nothing
+        return qs.none()
     return qs.filter(Q(runbook__is_public=True) | Q(runbook__owner_id=user.id))
