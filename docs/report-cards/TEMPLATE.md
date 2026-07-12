@@ -28,6 +28,7 @@ BLOCKER/MAJOR caps — an open BLOCKER makes this F.>
 | 5 | Architecture & Design | | | <reuse; boundaries> |
 | 6 | Operability & Release | | | <doctors; migrations; setup> |
 | 7 | Accessibility & Theming | | | <palettes; or "— not assessed"> |
+| 8 | Locality of Behavior | | | <files-to-understand-a-feature; colocation; anti-local patterns> |
 
 _Trend is vs the previous card (↑ improved · → held · ↓ regressed); "baseline" on the first card._
 
@@ -72,6 +73,7 @@ _Trend is vs the previous card (↑ improved · → held · ↓ regressed); "bas
 - **Lint:** <ruff status> · **Security:** pip-audit <k> known vulns
 - **Doctors:** api <a✓> · mcp <m✓> · search <s✓> · **Migrations:** <clean?>
 - **Theming:** <palette pass result, or "not assessed">
+- **Upgrade path (<prev> → this):** <PASS/FAIL — forward migrations clean, data preserved; link upgrade notes> (feeds Operability & Release)
 
 ## Methodology
 <How this card was produced: snapshot commit, clean checkout, commands run, finding sources. Keep it

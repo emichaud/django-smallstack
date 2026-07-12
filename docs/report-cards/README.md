@@ -1,7 +1,7 @@
 # Report Cards
 
 Standardized, point-in-time **quality report cards** for SmallStack — a public indicator of code and
-solution quality over time. Each card grades the project across seven core areas, summarizes what
+solution quality over time. Each card grades the project across eight core areas, summarizes what
 changed (by category), and lists open/resolved findings, backed by concrete evidence (tests, coverage,
 vulnerabilities, doctors).
 
@@ -22,9 +22,9 @@ The method (rubric, change taxonomy, exact data commands, honesty rules) is spel
   `results/`, not here.
 
 ## Grading at a glance
-Seven areas, each **A–F**: Security · Code Quality · Testing & Coverage · Documentation & Skills ·
-Architecture & Design · Operability & Release · Accessibility & Theming. An open **BLOCKER** caps the
-overall grade at **F** until fixed. Full rubric in the skill.
+Eight areas, each **A–F**: Security · Code Quality · Testing & Coverage · Documentation & Skills ·
+Architecture & Design · Operability & Release · Accessibility & Theming · Locality of Behavior. An open
+**BLOCKER** caps the overall grade at **F** until fixed. Full rubric in the skill.
 
 ## Index
 | Version | Card | Date | Overall | Headline |

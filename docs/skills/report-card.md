@@ -31,7 +31,7 @@ released card; a new state is a new card.
 
 ## The rubric — how to grade (keep it reproducible)
 
-Grade seven core areas. Use letter grades **A · A− · B+ · B · B− · C · D · F** (`+`/`−` for within-band
+Grade eight core areas. Use letter grades **A · A− · B+ · B · B− · C · D · F** (`+`/`−` for within-band
 nuance). Every grade must cite **evidence** (a number, a command output, a finding). When an area
 wasn't meaningfully assessed this cycle, grade it **`— (not assessed)`** rather than guessing.
 
@@ -45,11 +45,23 @@ caps the affected area at C.
 | 3 | **Testing & Coverage** | pass rate + coverage band | 100% pass **and** coverage ≥ 85% | pass but coverage < 70%, or flaky/skipped core paths | any failing test |
 | 4 | **Documentation & Skills** | docs present + *accurate*, skill index current, changelog | docs verified accurate (followed verbatim), skills + `index.json` updated, CHANGELOG/SECURITY current | stale or missing docs for shipped behavior | docs contradict the code |
 | 5 | **Architecture & Design** | separation, reuse, extensibility | single responsibility, shared write-paths/helpers, no duplicated logic, clean extension points | duplicated subsystems, leaky boundaries | tangled / unmaintainable |
-| 6 | **Operability & Release** | doctors, migrations, setup, versioning | doctors green, migrations clean, reproducible `make setup`, version synced, backups/monitoring present | a doctor warns, or setup needs undocumented steps | setup broken / missing migrations |
+| 6 | **Operability & Release** | doctors, migrations, setup, versioning, **upgrade path** | doctors green, migrations clean, reproducible `make setup`, version synced, **clean upgrade from the previous release (forward migrations on a populated DB, no data loss)**, backups/monitoring present | a doctor warns, setup needs undocumented steps, or the upgrade path needs manual reconciliation | setup broken, missing migrations, or upgrade loses data / fails |
 | 7 | **Accessibility & Theming** | palettes, contrast, responsive (SmallStack-specific) | renders correctly across all 5 palettes × light/dark, good contrast, responsive | one palette broken or contrast issues | unusable UI |
+| 8 | **Locality of Behavior** | files-to-understand-one-feature; colocation; indirection cost | a typical feature is legible from 1–2 files; behavior sits with its config/model; code starts local and splits only when real complexity demands | common features routinely need ~5 files, or rely on anti-local escape hatches (dynamic view patching, monkey-patching, display logic split across registry/template/endpoint) | can't tell what a feature does without tracing many layers; splitting is convention-driven, not complexity-driven |
 
 **Coverage bands (area 3, for consistency):** ≥85% → A · 75–85% → B+ · 70–75% → B · 60–70% → C · <60% → D.
 100% pass is required for any grade above C.
+
+**Locality of Behavior (area 8)** applies Carlton Gibson's *locality of behavior* principle: everything
+needed to understand a piece of code should be close together (ideally one file); optimize for
+comprehension over structural purity; **start local, split only when complexity demands** — every split
+asks the reader to hold more context. Assess it: pick 2–3 representative features and count how many
+files you must open to understand each, and whether behavior is colocated with its config. Reward the
+simple-case-stays-simple path (e.g. a 7-line CRUDView with no forms/tables/urls files). Penalize
+anti-local patterns: one-item `forms.py`/`tables.py`/`filters.py` for trivial cases, dynamic view
+patching (`_make_view`-style overrides), and display logic fragmented across a registry + template +
+HTMX endpoint. Guiding line: *build it local, split it later.* (If the repo keeps a locality assessment
+under `ai_cowork/`, use it as the reference exemplar.)
 
 **Overall grade:** the holistic roll-up (not a strict mean) — weight Security and Testing highest.
 State a one-line rationale. Respect the BLOCKER/MAJOR caps above.
@@ -86,13 +98,17 @@ git log <base>..<head> --pretty=format:'%s'                # Change taxonomy
 - **Findings** (open + resolved, with severity) come from the review/test cycle — e.g. the integration
   test harness's `OPEN_ISSUES.md` + `results/*/SUMMARY.md`, or an `ai_cowork/audit_history/*` audit.
 - **Theming** needs a visual pass (shot-scraper palette matrix) — cite it, or mark `— (not assessed)`.
+- **Upgrade path** (for a release card): run the harness's `scripts/upgrade-test.sh` (clones the
+  previous release, seeds data, merges the new version, migrates forward on the existing DB). It emits
+  `upgrade-notes_<prev>_to_<new>.md` — cite PASS/FAIL + the breaking-change signals in Operability &
+  Release, and fold the notes into the release's `UPGRADING.md` / GitHub release notes.
 
 ## Procedure
 1. Pick the snapshot commit; provision/checkout a clean copy of it.
 2. Run the data-source commands above; record the raw numbers.
 3. Collect findings (open + resolved this cycle) with severity from the review/test record.
 4. Categorize every change via the taxonomy.
-5. Grade each of the 7 areas against the rubric, citing evidence. Apply the BLOCKER/MAJOR caps.
+5. Grade each of the 8 areas against the rubric, citing evidence. Apply the BLOCKER/MAJOR caps.
 6. Write the overall grade + one-line verdict.
 7. Fill `TEMPLATE.md` into `docs/report-cards/<date>_<label>_<version>.md`.
 8. Set **Trend** vs the previous card (↑ / → / ↓ per area); for the first card, "baseline".
