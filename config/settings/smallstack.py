@@ -177,6 +177,14 @@ AXES_COOLOFF_TIME = 0.25  # 15 minutes lockout
 AXES_LOCKOUT_PARAMETERS = [["username", "ip_address"]]  # Lock per username+IP combination
 AXES_RESET_ON_SUCCESS = True  # Reset failure count after successful login
 
+# Resolve the client IP the same way everywhere (activity log + axes lockout).
+# The callable honors TRUST_PROXY_HEADERS: behind a trusted proxy it reads the
+# real client from X-Forwarded-For, otherwise it uses REMOTE_ADDR. Deployments
+# behind a proxy set TRUST_PROXY_HEADERS=true (production.py defaults it on for
+# the blessed kamal-proxy path). See apps/smallstack/client_ip.py.
+TRUST_PROXY_HEADERS = config("TRUST_PROXY_HEADERS", default=False, cast=bool)
+AXES_CLIENT_IP_CALLABLE = "apps.smallstack.client_ip.get_client_ip"
+
 # ---------------------------------------------------------------------------
 # MCP — Model Context Protocol server for AI clients
 # ---------------------------------------------------------------------------

@@ -127,6 +127,30 @@ class TestActivityMiddleware:
         log = RequestLog.objects.first()
         assert log.response_time_ms >= 0
 
+    @override_settings(TRUST_PROXY_HEADERS=True)
+    def test_logs_real_client_ip_behind_trusted_proxy(self, db, request_factory):
+        # Behind a trusted proxy the log records the real client from
+        # X-Forwarded-For (rightmost, proxy-appended), ignoring a spoofed
+        # leftmost entry — same resolution axes uses for lockout.
+        middleware = self._get_middleware()
+        request = request_factory.get(
+            "/page/", HTTP_X_FORWARDED_FOR="6.6.6.6, 203.0.113.7", REMOTE_ADDR="10.0.0.9"
+        )
+        request.user = None
+        middleware(request)
+        assert RequestLog.objects.first().ip_address == "203.0.113.7"
+
+    @override_settings(TRUST_PROXY_HEADERS=False)
+    def test_logs_remote_addr_without_trusted_proxy(self, db, request_factory):
+        # No trusted proxy: X-Forwarded-For is attacker-controlled and ignored.
+        middleware = self._get_middleware()
+        request = request_factory.get(
+            "/page/", HTTP_X_FORWARDED_FOR="6.6.6.6", REMOTE_ADDR="10.0.0.9"
+        )
+        request.user = None
+        middleware(request)
+        assert RequestLog.objects.first().ip_address == "10.0.0.9"
+
     @override_settings(ACTIVITY_MAX_ROWS=5)
     def test_prune_command_keeps_table_bounded(self, db, request_factory):
         middleware = self._get_middleware()
