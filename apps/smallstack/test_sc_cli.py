@@ -181,6 +181,96 @@ def test_search_unavailable_without_engine(monkeypatch):
         run("search", "x")
 
 
+# -- writes (new / set / rm) --------------------------------------------------
+# MonitoredEndpoint is staff-gated, so writes require a staff --user — this also
+# exercises the staff-gate + audit path (same as REST/MCP).
+
+REQUIRED = {"name": "Mon", "method": "GET", "url": "https://example.com",
+            "expected_status": "200", "timeout_seconds": "10"}
+
+
+def _staff(username="staffy"):
+    return User.objects.create_user(username, is_staff=True)
+
+
+def _endpoint(**over):
+    from apps.heartbeat.models import MonitoredEndpoint
+
+    defaults = dict(name="M", slug="s", service="custom", url="https://example.com", method="GET",
+                    expected_status=200, timeout_seconds=10)
+    defaults.update(over)
+    return MonitoredEndpoint.objects.create(**defaults)
+
+
+def _new_argv(**over):
+    fields = {**REQUIRED, **over}
+    return ["new", "monitoredendpoint", *[f"--{k}={v}" for k, v in fields.items()], "--user", "staffy"]
+
+
+def test_new_creates(db):
+    from apps.heartbeat.models import MonitoredEndpoint
+
+    _staff()
+    run(*_new_argv(slug="new1"))
+    assert MonitoredEndpoint.objects.filter(slug="new1").exists()
+
+
+def test_new_staff_gate(db):
+    argv = ["new", "monitoredendpoint", *[f"--{k}={v}" for k, v in {**REQUIRED, "slug": "x"}.items()]]
+    with pytest.raises(CommandError, match="staff-only"):
+        run(*argv)
+
+
+def test_new_validation_fail(db):
+    _staff()
+    fields = {k: v for k, v in {**REQUIRED, "slug": "vf"}.items() if k != "url"}  # omit required url
+    argv = ["new", "monitoredendpoint", *[f"--{k}={v}" for k, v in fields.items()], "--user", "staffy"]
+    with pytest.raises(CommandError, match="validation failed"):
+        run(*argv)
+
+
+def test_new_writes_audit_entry(db):
+    from django.contrib.admin.models import LogEntry
+
+    _staff()
+    before = LogEntry.objects.count()
+    run(*_new_argv(slug="aud"))
+    assert LogEntry.objects.count() == before + 1
+
+
+def test_set_updates(db):
+    _staff()
+    m = _endpoint(slug="up1", enabled=True)
+    run("set", "monitoredendpoint", str(m.pk), "--enabled=false", "--user", "staffy")
+    m.refresh_from_db()
+    assert m.enabled is False
+
+
+def test_set_not_found(db):
+    _staff()
+    with pytest.raises(CommandError, match="not found"):
+        run("set", "monitoredendpoint", "999999", "--enabled=false", "--user", "staffy")
+
+
+def test_rm_requires_force(db):
+    from apps.heartbeat.models import MonitoredEndpoint
+
+    _staff()
+    m = _endpoint(slug="rm1")
+    with pytest.raises(CommandError, match="--force"):
+        run("rm", "monitoredendpoint", str(m.pk), "--user", "staffy")
+    assert MonitoredEndpoint.objects.filter(pk=m.pk).exists()
+
+
+def test_rm_deletes_with_force(db):
+    from apps.heartbeat.models import MonitoredEndpoint
+
+    _staff()
+    m = _endpoint(slug="rm2")
+    run("rm", "monitoredendpoint", str(m.pk), "--force", "--user", "staffy")
+    assert not MonitoredEndpoint.objects.filter(pk=m.pk).exists()
+
+
 # -- operational verbs (thin fronts over management commands) ------------------
 
 SC_CALL = "apps.smallstack.management.commands.sc.call_command"

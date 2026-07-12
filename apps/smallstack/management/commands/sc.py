@@ -19,17 +19,21 @@ from __future__ import annotations
 
 import argparse
 import difflib
+import sys
 from collections import Counter
 from typing import Any, Optional
 from urllib.parse import urlencode
 
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import AnonymousUser
+from django.core.exceptions import ValidationError as DjangoValidationError
 from django.core.management import call_command
 from django.core.management.base import BaseCommand, CommandError
+from django.forms.models import model_to_dict
 from django.http import HttpRequest, QueryDict
 
 from apps.smallstack.api import apply_filters, apply_ordering, apply_search, serialize
+from apps.smallstack.audit import ADDITION, CHANGE, DELETION, log_write
 from apps.smallstack.cli_format import json_dump, table
 from apps.smallstack.crud import CRUDView
 
@@ -52,6 +56,10 @@ class Command(BaseCommand):
             "get": self._cmd_get,
             "describe": self._cmd_describe,
             "search": self._cmd_search,
+            # write verbs (model mutations)
+            "new": self._cmd_new,
+            "set": self._cmd_set,
+            "rm": self._cmd_rm,
             # operational verbs (framework ops)
             "doctor": self._cmd_doctor,
             "backup": self._cmd_backup,
@@ -371,6 +379,178 @@ class Command(BaseCommand):
             return
         rows = [[h.model_verbose, f"{h.rank:.3f}", (h.display or "")[:60]] for h in hits]
         self.stdout.write(table(rows, ["TYPE", "RANK", "RESULT"]))
+
+    # -- write verbs ----------------------------------------------------------
+
+    def _check_write_permission(self, view, actor) -> None:
+        """Staff-gated models (StaffRequiredMixin) require a staff --user for writes,
+        mirroring the MCP tools' requires_access='staff'."""
+        if self._is_staff_gated(view) and not (actor is not None and getattr(actor, "is_staff", False)):
+            raise CommandError(
+                f"{self._canonical_token(view.model)} is staff-only; pass --user <staff-username> to write"
+            )
+
+    @staticmethod
+    def _parse_field_assignments(tokens: list[str]) -> dict[str, str]:
+        """Parse leftover ``--key=value`` / ``--key value`` / ``--flag`` tokens into a dict."""
+        fields: dict[str, str] = {}
+        i = 0
+        while i < len(tokens):
+            tok = tokens[i]
+            if not tok.startswith("--"):
+                raise CommandError(f"unexpected argument {tok!r}; use --field=value")
+            body = tok[2:]
+            if "=" in body:
+                key, value = body.split("=", 1)
+                fields[key] = value
+                i += 1
+            elif i + 1 < len(tokens) and not tokens[i + 1].startswith("--"):
+                fields[body] = tokens[i + 1]
+                i += 2
+            else:
+                fields[body] = "true"  # bare --flag → truthy
+                i += 1
+        return fields
+
+    @staticmethod
+    def _read_stdin_or_file(file_arg: Optional[str]) -> str:
+        if file_arg:
+            with open(file_arg, encoding="utf-8") as handle:
+                return handle.read()
+        return sys.stdin.read()
+
+    @staticmethod
+    def _form_class_for(view):
+        form_class = view.form_class or (view._make_form_class() if hasattr(view, "_make_form_class") else None)
+        if form_class is None:
+            raise CommandError(f"{view.model._meta.label_lower} has no form (writes unsupported)")
+        return form_class
+
+    def _fail_form(self, form) -> None:
+        lines = [f"{field}: {err}" for field, errs in form.errors.items() for err in errs]
+        raise CommandError("validation failed:\n  " + "\n  ".join(lines))
+
+    def _emit_write(self, view, obj, *, as_json: bool, verb: str) -> None:
+        if as_json:
+            self.stdout.write(json_dump(serialize(obj, view._get_detail_fields())))
+            return
+        self.stdout.write(self.style.SUCCESS(f"{verb} {self._canonical_token(view.model)} #{obj.pk}"))
+
+    def _cmd_new(self, argv: list[str]) -> None:
+        parser = self._parser("new")
+        parser.add_argument("model", help="model token")
+        parser.add_argument("--stdin-field", help="read this field's value from stdin (or -f FILE)")
+        parser.add_argument("-f", "--file", help="read the --stdin-field value from FILE")
+        parser.add_argument("--user", help="act as this username (audit actor + staff gate)")
+        parser.add_argument("--json", action="store_true")
+        opts, extras = parser.parse_known_args(argv)
+
+        view = self._resolve_view(opts.model)
+        actor = self._resolve_actor(opts.user)
+        self._check_write_permission(view, actor)
+
+        fields = self._parse_field_assignments(extras)
+        if opts.stdin_field:
+            fields[opts.stdin_field] = self._read_stdin_or_file(opts.file)
+
+        request = self._fake_request(actor)
+        form = self._form_class_for(view)(QueryDict(urlencode(fields), mutable=False))
+        if not form.is_valid():
+            self._fail_form(form)
+        try:
+            obj = form.save()
+        except DjangoValidationError as exc:
+            raise CommandError("validation failed:\n  " + "\n  ".join(exc.messages))
+        view.on_form_valid(request, form, obj, is_create=True)
+        log_write(actor, obj, ADDITION, "CLI")
+        self._emit_write(view, obj, as_json=opts.json, verb="created")
+
+    def _cmd_set(self, argv: list[str]) -> None:
+        parser = self._parser("set")
+        parser.add_argument("model", help="model token")
+        parser.add_argument("pk", help="primary key")
+        parser.add_argument("--stdin-field", help="read this field's value from stdin (or -f FILE)")
+        parser.add_argument("-f", "--file", help="read the --stdin-field value from FILE")
+        parser.add_argument("--user", help="act as this username (audit actor + staff gate)")
+        parser.add_argument("--json", action="store_true")
+        opts, extras = parser.parse_known_args(argv)
+
+        view = self._resolve_view(opts.model)
+        actor = self._resolve_actor(opts.user)
+        self._check_write_permission(view, actor)
+        request = self._fake_request(actor)
+
+        obj = self._fetch(view, request, opts.pk)
+        if not view.can_update(obj, request):
+            raise CommandError("update not permitted")
+
+        fields = self._parse_field_assignments(extras)
+        if opts.stdin_field:
+            fields[opts.stdin_field] = self._read_stdin_or_file(opts.file)
+        if not fields:
+            raise CommandError("nothing to update; pass --field=value")
+
+        # PATCH-merge: existing values overlaid with incoming (mirrors the REST/MCP path).
+        merged = QueryDict(mutable=True)
+        for key, value in model_to_dict(obj, fields=view.fields or view._get_detail_fields()).items():
+            if value is None:
+                merged[key] = ""
+            elif isinstance(value, list):
+                merged.setlist(key, [str(v) for v in value])
+            else:
+                merged[key] = str(value)
+        for key, value in fields.items():
+            merged[key] = "" if value is None else str(value)
+
+        form = self._form_class_for(view)(merged, instance=obj)
+        if not form.is_valid():
+            self._fail_form(form)
+        try:
+            obj = form.save()
+        except DjangoValidationError as exc:
+            raise CommandError("validation failed:\n  " + "\n  ".join(exc.messages))
+        view.on_form_valid(request, form, obj, is_create=False)
+        log_write(actor, obj, CHANGE, "CLI")
+        self._emit_write(view, obj, as_json=opts.json, verb="updated")
+
+    def _cmd_rm(self, argv: list[str]) -> None:
+        parser = self._parser("rm")
+        parser.add_argument("model", help="model token")
+        parser.add_argument("pk", help="primary key")
+        parser.add_argument("--force", action="store_true", help="required — there is no undo")
+        parser.add_argument("--user", help="act as this username (audit actor + staff gate)")
+        parser.add_argument("--json", action="store_true")
+        opts = parser.parse_args(argv)
+
+        view = self._resolve_view(opts.model)
+        actor = self._resolve_actor(opts.user)
+        self._check_write_permission(view, actor)
+        request = self._fake_request(actor)
+
+        obj = self._fetch(view, request, opts.pk)
+        if not view.can_delete(obj, request):
+            raise CommandError("delete not permitted")
+        if not opts.force:
+            raise CommandError(
+                f"refusing to delete {self._canonical_token(view.model)} #{obj.pk} without --force"
+            )
+        label = str(obj)
+        log_write(actor, obj, DELETION, "CLI")  # before delete — obj.pk still set
+        obj.delete()
+        if opts.json:
+            self.stdout.write(json_dump({"deleted": True, "pk": opts.pk}))
+            return
+        self.stdout.write(self.style.SUCCESS(f"deleted {self._canonical_token(view.model)} #{opts.pk} ({label})"))
+
+    def _fetch(self, view, request, pk):
+        """Fetch one object through the tenancy hook, with clean errors."""
+        try:
+            obj = view.get_list_queryset(view._get_queryset(), request).filter(pk=pk).first()
+        except (ValueError, TypeError):
+            raise CommandError(f"invalid id {pk!r} for {self._canonical_token(view.model)}")
+        if obj is None:
+            raise CommandError(f"{self._canonical_token(view.model)} {pk!r} not found")
+        return obj
 
     # -- operational verbs (thin fronts over management commands) --------------
 
