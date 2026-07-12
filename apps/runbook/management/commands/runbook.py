@@ -31,8 +31,6 @@ Every verb accepts ``--json`` for machine consumption; failures exit non-zero.
 from __future__ import annotations
 
 import argparse
-import dataclasses
-import json
 import sys
 from typing import Any, Optional
 
@@ -42,26 +40,9 @@ from django.db.models import Count, Q
 
 from apps.runbook import service
 from apps.runbook.models import Document, Runbook, Section
-
-
-def _json_dump(payload: Any) -> str:
-    return json.dumps(payload, indent=2, default=str)
-
-
-def _asdict(obj: Any) -> dict[str, Any]:
-    return dataclasses.asdict(obj)
-
-
-def _table(rows: list[list[str]], headers: list[str]) -> str:
-    """Render a simple left-aligned monospace table (headers + rows)."""
-    cols = list(zip(*([headers] + rows))) if rows else [[h] for h in headers]
-    widths = [max(len(str(cell)) for cell in col) for col in cols]
-    line = lambda cells: "  ".join(str(c).ljust(widths[i]) for i, c in enumerate(cells))  # noqa: E731
-    out = [line(headers)]
-    if rows:
-        for row in rows:
-            out.append(line(row))
-    return "\n".join(out)
+from apps.smallstack.cli_format import asdict as _asdict
+from apps.smallstack.cli_format import json_dump as _json_dump
+from apps.smallstack.cli_format import table as _table
 
 
 class Command(BaseCommand):

@@ -383,7 +383,9 @@ def test_shim_main_execs_runbook(tmp_path, monkeypatch):
         captured["cmd"] = cmd
         return _Result()
 
-    monkeypatch.setattr(shim.subprocess, "run", fake_run)
+    from apps.smallstack import cli_format
+
+    monkeypatch.setattr(cli_format.subprocess, "run", fake_run)
     assert shim.main(["ls", "ops", "--json"]) == 0
     assert captured["cmd"][1].endswith("manage.py")
     assert captured["cmd"][2:] == ["runbook", "ls", "ops", "--json"]

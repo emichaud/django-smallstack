@@ -26,6 +26,8 @@ dependencies = [
 [project.scripts]
 # `rb` — shorthand for `manage.py runbook` (finds manage.py by walking up, keeps stdin piping).
 rb = "apps.runbook.shim:main"
+# `sc` — SmallStack framework CLI: `manage.py sc <verb>` over the CRUDView registry + ops verbs.
+sc = "apps.smallstack.shim:main"
 
 [project.optional-dependencies]
 dev = [

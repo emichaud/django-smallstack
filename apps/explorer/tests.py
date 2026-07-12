@@ -745,22 +745,30 @@ class TestRelatedTabs:
 
         User = get_user_model()
 
+        original = CRUDView._registry.get(User)
+
         class UserCRUD(CRUDView):
             model = User
             fields = ["username"]
             url_base = "test/users"
 
-        # Register it to populate the registry
+        # Force this test view into the registry, then restore afterwards — the
+        # registry is class-level state; leaking it breaks tests that rely on the
+        # real registered view for User (e.g. the sc CLI tests).
         CRUDView._registry[User] = UserCRUD
-
-        tabs = UserCRUD._get_related_tabs()
-
-        # Only models in the registry should appear
-        for tab in tabs:
-            assert tab["related_model"] in CRUDView._registry
-            assert tab["accessor"]
-            assert tab["verbose_name"]
-            assert tab["related_crud"] is not None
+        try:
+            tabs = UserCRUD._get_related_tabs()
+            # Only models in the registry should appear
+            for tab in tabs:
+                assert tab["related_model"] in CRUDView._registry
+                assert tab["accessor"]
+                assert tab["verbose_name"]
+                assert tab["related_crud"] is not None
+        finally:
+            if original is not None:
+                CRUDView._registry[User] = original
+            else:
+                CRUDView._registry.pop(User, None)
 
     def test_get_related_tabs_disabled(self, db):
         """related_tabs=False disables the feature entirely."""
