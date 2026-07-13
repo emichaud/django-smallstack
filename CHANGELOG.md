@@ -9,6 +9,8 @@ Breaking-change migration recipes live in [`UPGRADING.md`](UPGRADING.md).
 
 ## [Unreleased]
 
+## [0.13.2] - 2026-07-12
+
 ### Added
 - **`sc` — a framework CLI** (`manage.py sc` / the `sc` console script): a fifth thin skin over the
   CRUDView registry, the same operations as web/REST/MCP. Resource verbs — `ls` (registered models +
@@ -18,6 +20,10 @@ Breaking-change migration recipes live in [`UPGRADING.md`](UPGRADING.md).
   management commands) plus `sc commands` discovery. `--json` on every read. Explorer-synthesized views
   mean it reaches every admin-registered model, not just hand-written CRUDViews. See
   `docs/skills/sc-cli.md`.
+
+### Fixed
+- **Bundled JS client** (`clients/js` v0.3.1): SSR-safe `localStorage` access — the client guards
+  `localStorage` so it's safe to import in a server-side-rendering context.
 
 ## [0.13.1] - 2026-07-12
 
@@ -167,7 +173,8 @@ Condensed highlights of the v0.11 series (see git history for per-patch detail):
 See the git tag history (`git tag`) and `ai_cowork/audit_history/` for the full record of the
 v0.8–v0.10 API-server, modern-dark-theme, search, MCP, and Postgres eras.
 
-[Unreleased]: https://github.com/emichaud/django-smallstack/compare/v0.13.1...HEAD
+[Unreleased]: https://github.com/emichaud/django-smallstack/compare/v0.13.2...HEAD
+[0.13.2]: https://github.com/emichaud/django-smallstack/compare/v0.13.1...v0.13.2
 [0.13.1]: https://github.com/emichaud/django-smallstack/compare/v0.13.0...v0.13.1
 [0.13.0]: https://github.com/emichaud/django-smallstack/compare/v0.12.4...v0.13.0
 [0.12.4]: https://github.com/emichaud/django-smallstack/compare/v0.12.3...v0.12.4
