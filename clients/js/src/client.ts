@@ -30,6 +30,19 @@ export class ApiError extends Error {
   }
 }
 
+/**
+ * True only when a usable Web Storage API is present. Guards against SSR
+ * environments (Next.js, SvelteKit/Node) where `localStorage` may be defined
+ * as a global but not actually callable.
+ */
+function storageAvailable(): boolean {
+  try {
+    return typeof localStorage !== "undefined" && typeof localStorage.getItem === "function";
+  } catch {
+    return false;
+  }
+}
+
 /** Query params for list requests — values are coerced to strings, empties dropped. */
 export type QueryParams = Record<string, string | number | boolean | undefined | null>;
 
@@ -78,7 +91,7 @@ export class SmallStackClient {
     // Restore token: explicit > storage > none
     if (config.token) {
       this.token = config.token;
-    } else if (this.persist && typeof localStorage !== "undefined") {
+    } else if (this.persist && storageAvailable()) {
       const stored = localStorage.getItem(this.storageKey);
       if (stored) this.token = stored;
     }
@@ -111,7 +124,7 @@ export class SmallStackClient {
   }
 
   private persistToken(token: string | undefined): void {
-    if (!this.persist || typeof localStorage === "undefined") return;
+    if (!this.persist || !storageAvailable()) return;
     if (token) {
       localStorage.setItem(this.storageKey, token);
     } else {

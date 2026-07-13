@@ -30,6 +30,13 @@ var ApiError = class extends Error {
     this.fieldErrors = parseFieldErrors({ data, status, ok: false });
   }
 };
+function storageAvailable() {
+  try {
+    return typeof localStorage !== "undefined" && typeof localStorage.getItem === "function";
+  } catch {
+    return false;
+  }
+}
 function toStringParams(params) {
   if (!params) return void 0;
   const out = {};
@@ -53,7 +60,7 @@ var SmallStackClient = class {
     this.storageKey = config.storageKey ?? "smallstack_token";
     if (config.token) {
       this.token = config.token;
-    } else if (this.persist && typeof localStorage !== "undefined") {
+    } else if (this.persist && storageAvailable()) {
       const stored = localStorage.getItem(this.storageKey);
       if (stored) this.token = stored;
     }
@@ -82,7 +89,7 @@ var SmallStackClient = class {
     this.persistToken(void 0);
   }
   persistToken(token) {
-    if (!this.persist || typeof localStorage === "undefined") return;
+    if (!this.persist || !storageAvailable()) return;
     if (token) {
       localStorage.setItem(this.storageKey, token);
     } else {
