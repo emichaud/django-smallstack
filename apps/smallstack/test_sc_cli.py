@@ -117,7 +117,7 @@ def test_get_not_found(db):
 
 def test_describe_human():
     out = run("describe", "user")
-    assert "user" in out and "fields:" in out and "username" in out
+    assert "user" in out and "fields" in out and "username" in out and "writable" in out
 
 
 def test_describe_json():
@@ -421,3 +421,21 @@ def test_counts_agree_with_rows_unscoped(db):
     n = next(e["rows"] for e in counts if e["model"] == "apitoken")
     rows = json.loads(run("ls", "apitoken", "--json"))
     assert n == len(rows) == 1
+
+
+def test_ls_order_by_non_list_field(db):
+    # #2 polish: ordering by any concrete field (not just list columns) works.
+    User.objects.create_user("u1", first_name="Aaa")
+    User.objects.create_user("u2", first_name="Zzz")
+    data = json.loads(run("ls", "user", "--order", "-first_name", "--limit", "1", "--json"))
+    assert data[0]["username"] == "u2"
+
+
+def test_describe_marks_writable_fields():
+    # #3 polish: describe distinguishes writable (form) fields from display/filter-only ones.
+    d = json.loads(run("describe", "monitoredendpoint", "--json"))
+    assert "service" in d["filter_fields"] and "service" not in d["write_fields"]
+    svc = next(f for f in d["fields"] if f["name"] == "service")
+    assert svc["writable"] is False
+    name = next(f for f in d["fields"] if f["name"] == "name")
+    assert name["writable"] is True

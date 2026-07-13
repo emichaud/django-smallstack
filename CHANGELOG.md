@@ -9,6 +9,16 @@ Breaking-change migration recipes live in [`UPGRADING.md`](UPGRADING.md).
 
 ## [Unreleased]
 
+### Added
+- **`sc` — a framework CLI** (`manage.py sc` / the `sc` console script): a fifth thin skin over the
+  CRUDView registry, the same operations as web/REST/MCP. Resource verbs — `ls` (registered models +
+  rows, with `-q`/`--filter`/`--order`/`--limit`), `get`, `describe`, `search`, and writes `new`/`set`/
+  `rm` through the model's `form_class` validation + `log_write` audit (staff-gated like the MCP tools).
+  Operational verbs — `doctor`/`backup`/`token`/`status`/`index` (thin fronts over the framework's
+  management commands) plus `sc commands` discovery. `--json` on every read. Explorer-synthesized views
+  mean it reaches every admin-registered model, not just hand-written CRUDViews. See
+  `docs/skills/sc-cli.md`.
+
 ## [0.13.1] - 2026-07-12
 
 ### Added

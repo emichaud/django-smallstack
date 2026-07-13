@@ -41,6 +41,13 @@ prints the canonical token for each. A miss raises a "did you mean …" error.
 | `sc index [rebuild\|sync]` | Rebuild the search index / sync the help index. | passthrough |
 | `sc commands` | Discover every framework management command, grouped by app. | `--json` |
 
+**Writable fields ⊆ shown fields.** `new`/`set` go through the model's **form** (exactly like the web UI
+and MCP), so they accept only the form's fields — a *subset* of what `ls`/`get`/`describe`/`--filter`
+surface. A display-only or filter column (e.g. a computed one) will error `unknown field(s): …` on a write.
+`sc describe <model>` marks writable fields (`rw`) and lists them under `writable:` — check there before a
+write. Field names use **underscores** (`--expected_status`), and an unknown `--field` errors rather than
+silently no-op'ing.
+
 ## Security / actor
 
 **Without `--user`**, `sc` acts as a **local admin with full, unscoped access** (like `manage.py shell`

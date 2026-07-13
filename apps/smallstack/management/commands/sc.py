@@ -268,7 +268,10 @@ class Command(BaseCommand):
             qs = apply_filters(qs, req, view)
 
         if opts.order:
-            allowed_order = set(view._get_list_fields()) | {"pk", "id"}
+            # Allow ordering by any concrete DB column (not just list columns);
+            # apply_ordering still ignores computed/non-orderable fields.
+            allowed_order = ({f.name for f in view.model._meta.concrete_fields}
+                             | set(view._get_list_fields()) | {"pk", "id"})
             qs = apply_ordering(qs, opts.order, allowed_order)
 
         limit = opts.limit or view._resolve_paginate_by() or 50
@@ -372,6 +375,7 @@ class Command(BaseCommand):
 
         view = self._resolve_view(opts.model)
         model = view.model
+        write_fields = self._writable_fields(view)
         info = {
             "model": self._canonical_token(model),
             "label": model._meta.label,
@@ -387,8 +391,11 @@ class Command(BaseCommand):
             "detail_fields": list(view._get_detail_fields()),
             "search_fields": list(view._resolve_search_fields()),
             "filter_fields": list(view._resolve_filter_fields()),
+            # Fields sc new/set accept (the view's form) — a subset of model fields.
+            "write_fields": write_fields,
             "fields": [
-                {"name": f.name, "type": f.get_internal_type(), "null": bool(f.null)}
+                {"name": f.name, "type": f.get_internal_type(), "null": bool(f.null),
+                 "writable": f.name in write_fields}
                 for f in model._meta.concrete_fields
             ],
         }
@@ -406,9 +413,11 @@ class Command(BaseCommand):
         self.stdout.write(f"  list       : {', '.join(info['list_fields']) or '(none)'}")
         self.stdout.write(f"  search     : {', '.join(info['search_fields']) or '(none)'}")
         self.stdout.write(f"  filter     : {', '.join(info['filter_fields']) or '(none)'}")
-        self.stdout.write("  fields:")
+        self.stdout.write(f"  writable   : {', '.join(info['write_fields']) or '(none — read-only)'}")
+        self.stdout.write("  fields  (rw = accepted by new/set):")
         for f in info["fields"]:
-            self.stdout.write(f"    {f['name']:<24} {f['type']}{' (null)' if f['null'] else ''}")
+            marker = "rw " if f["writable"] else "   "
+            self.stdout.write(f"    {marker}{f['name']:<22} {f['type']}{' (null)' if f['null'] else ''}")
 
     # -- search ---------------------------------------------------------------
 
@@ -495,6 +504,13 @@ class Command(BaseCommand):
         if form_class is None:
             raise CommandError(f"{view.model._meta.label_lower} has no form (writes unsupported)")
         return form_class
+
+    def _writable_fields(self, view) -> list[str]:
+        """Field names sc new/set accept (the view's form) — [] for read-only views."""
+        try:
+            return list(self._form_class_for(view).base_fields)
+        except Exception:
+            return []
 
     def _fail_form(self, form) -> None:
         lines = [f"{field}: {err}" for field, errs in form.errors.items() for err in errs]
