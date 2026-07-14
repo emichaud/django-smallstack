@@ -18,8 +18,17 @@ try:
     # Single source of truth: the installed distribution's version (pyproject.toml).
     _PACKAGE_VERSION = _pkg_version("django-smallstack")
 except PackageNotFoundError:
-    # Running from source without an installed distribution — keep in sync with pyproject.toml.
-    _PACKAGE_VERSION = "0.12.4"
+    # Running from source without an installed distribution — read the version
+    # straight from pyproject.toml so it can never drift from the real one. (A
+    # hardcoded string here silently goes stale every release; see the version
+    # locations in docs/skills/release-process.md.)
+    import tomllib
+
+    try:
+        _pyproject = Path(__file__).resolve().parent.parent.parent / "pyproject.toml"
+        _PACKAGE_VERSION = tomllib.loads(_pyproject.read_text())["project"]["version"]
+    except (OSError, KeyError, tomllib.TOMLDecodeError):
+        _PACKAGE_VERSION = "0.0.0+unknown"
 
 # The version SmallStack advertises across its surfaces (OpenAPI info.version,
 # MCP initialize). Derived from the package so it never drifts; override via env
