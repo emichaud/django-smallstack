@@ -9,6 +9,15 @@ Breaking-change migration recipes live in [`UPGRADING.md`](UPGRADING.md).
 
 ## [Unreleased]
 
+## [0.13.3] - 2026-07-16
+
+### Fixed
+- **Runbook dark-mode CSS** — enhanced styling now correctly scoped to app theme (`html[data-theme="dark"]`) 
+  instead of OS setting (`@media prefers-color-scheme`), ensuring enhancements apply on default dark mode 
+  regardless of OS theme setting.
+- **Seeder idempotency** — `seed_platform_runbook` command now properly assigns section before guard check, 
+  preventing `IntegrityError` crashes on re-run; added comprehensive idempotency test.
+
 ## [0.13.2] - 2026-07-12
 
 ### Added
