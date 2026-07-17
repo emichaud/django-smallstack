@@ -877,8 +877,8 @@ ul.pagination li.active span {
 
 .field-preview-content {
     padding: 16px 20px;
-    font-size: 0.85rem;
-    line-height: 1.6;
+    font-size: 0.95rem;
+    line-height: 1.7;
     overflow-y: auto;
     flex: 1;
     min-height: 0;
@@ -939,13 +939,21 @@ ul.pagination li.active span {
     margin: 0.15em 0;
 }
 
+.field-preview-content .md-preview li::marker {
+    color: var(--primary);
+}
+
 .field-preview-content .md-preview blockquote {
-    margin: 0.5em 0;
-    padding: 0.4em 0.8em;
-    border-left: 3px solid var(--primary);
+    margin: 0.6em 0;
+    padding: 0.7em 1em;
+    border-left: 4px solid var(--primary);
     color: var(--body-quiet-color);
-    background: color-mix(in srgb, var(--primary) 5%, var(--body-bg));
+    background: var(--card-header-bg);
     border-radius: 0 4px 4px 0;
+}
+
+.field-preview-content .md-preview blockquote p:last-child {
+    margin-bottom: 0;
 }
 
 .field-preview-content .md-preview a {

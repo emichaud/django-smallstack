@@ -226,12 +226,16 @@ body.runbook-focus-mode .runbook-layout {
 }
 
 .runbook-content blockquote {
-    border-left: 3px solid var(--primary);
-    padding: 8px 16px;
+    border-left: 4px solid var(--primary);
+    padding: 12px 18px;
     margin: 0 0 1em 0;
     color: var(--body-quiet-color);
-    background: color-mix(in srgb, var(--primary) 5%, var(--body-bg));
+    background: var(--card-header-bg);
     border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+}
+
+.runbook-content blockquote p:last-child {
+    margin-bottom: 0;
 }
 
 .runbook-content ul,
@@ -243,6 +247,10 @@ body.runbook-focus-mode .runbook-layout {
 .runbook-content li {
     margin-bottom: 0.3em;
     line-height: 1.5;
+}
+
+.runbook-content li::marker {
+    color: var(--primary);
 }
 
 .runbook-content img {
@@ -726,4 +734,112 @@ body.runbook-focus-mode .runbook-layout {
 .rb-sort-arrow {
     font-size: 0.72em;
     color: var(--primary);
+}
+
+
+/* ── Dark mode enhancements for runbook pages ──────────────────────────── */
+
+/* TOC sidebar: larger fonts, better contrast in dark mode */
+/* ── Dark mode enhancements for runbook pages ──────────────────────────── */
+
+/* TOC sidebar: larger fonts, better contrast in dark mode */
+html[data-theme="dark"] .runbook-content .toc a {
+    color: var(--body-fg);
+    font-size: 0.95rem;
+    font-weight: 500;
+}
+
+html[data-theme="dark"] .runbook-content .toc a:hover {
+    color: var(--primary);
+    font-weight: 600;
+}
+
+/* Main content headings: enhanced contrast */
+html[data-theme="dark"] .runbook-content h1,
+html[data-theme="dark"] .runbook-content h2,
+html[data-theme="dark"] .runbook-content h3,
+html[data-theme="dark"] .runbook-content h4 {
+    color: var(--body-fg);
+    font-weight: 700;
+}
+
+html[data-theme="dark"] .runbook-content h1 {
+    font-size: 1.95rem;
+    letter-spacing: -0.5px;
+}
+
+html[data-theme="dark"] .runbook-content h2 {
+    font-size: 1.55rem;
+    letter-spacing: -0.3px;
+}
+
+html[data-theme="dark"] .runbook-content h3 {
+    font-size: 1.25rem;
+}
+
+/* Images: enhanced border contrast + background */
+html[data-theme="dark"] .runbook-content img {
+    border: 2px solid var(--primary);
+    border-radius: var(--radius-md);
+    background: color-mix(in srgb, var(--body-bg) 50%, var(--card-bg));
+    padding: 4px;
+}
+
+/* Code blocks in preview: significantly higher contrast */
+html[data-theme="dark"] .runbook-content pre {
+    background: color-mix(in srgb, var(--body-fg) 8%, var(--body-bg));
+    border: 1px solid color-mix(in srgb, var(--primary) 15%, var(--body-bg));
+    color: var(--body-fg);
+    padding: 16px;
+}
+
+html[data-theme="dark"] .runbook-content pre code {
+    color: var(--body-fg);
+}
+
+/* Inline code: more visible in dark mode */
+html[data-theme="dark"] .runbook-content code {
+    background: color-mix(in srgb, var(--primary) 18%, var(--body-bg));
+    color: var(--body-fg);
+    border: 1px solid color-mix(in srgb, var(--primary) 12%, transparent);
+}
+
+html[data-theme="dark"] .runbook-content blockquote {
+    background: color-mix(in srgb, var(--primary) 8%, var(--body-bg));
+    border-left: 4px solid var(--primary);
+    color: var(--body-fg);
+}
+
+/* Lists & markers: higher contrast */
+html[data-theme="dark"] .runbook-content ul,
+html[data-theme="dark"] .runbook-content ol {
+    color: var(--body-fg);
+}
+
+html[data-theme="dark"] .runbook-content li::marker {
+    color: var(--primary);
+    font-weight: 600;
+}
+
+/* Table headers: better visibility */
+html[data-theme="dark"] .runbook-content table th {
+    background: color-mix(in srgb, var(--primary) 15%, var(--body-bg));
+    color: var(--body-fg);
+    font-weight: 700;
+}
+
+html[data-theme="dark"] .runbook-content table td {
+    color: var(--body-fg);
+}
+
+/* TOC list page: improve card contrast */
+html[data-theme="dark"] .rb-list-name {
+    color: var(--primary);
+    font-weight: 700;
+    font-size: 0.95rem;
+}
+
+html[data-theme="dark"] .rb-list-meta {
+    color: color-mix(in srgb, var(--body-fg) 70%, transparent);
+    font-size: 0.8rem;
 }
