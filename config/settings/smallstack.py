@@ -263,3 +263,19 @@ RUNBOOK_BASE_TEMPLATE = config("RUNBOOK_BASE_TEMPLATE", default="smallstack/base
 RUNBOOK_STAFF_REQUIRED = config("RUNBOOK_STAFF_REQUIRED", default=True, cast=bool)
 # Other RUNBOOK_* knobs (version/retention caps) default sensibly in
 # apps/runbook/conf.py — override here only if needed.
+
+
+# ---------------------------------------------------------------------------
+# Scheduler (apps.scheduler) — DB-backed recurring jobs over django.tasks
+# ---------------------------------------------------------------------------
+# Master switch for the scheduler surface: @scheduled autodiscovery/sync, the
+# tick, and the nav item + dashboard widget + status monitor. Off ⇒ nothing
+# registers and the tick is a no-op. Harmless with zero jobs, so default on.
+SMALLSTACK_SCHEDULER_ENABLED = config("SMALLSTACK_SCHEDULER_ENABLED", default=True, cast=bool)
+
+# A previous run still marked unfinished after this many seconds is treated as
+# abandoned by the overlap guard, so a dead worker can never permanently wedge
+# an allow_overlap=False schedule. Default 24h.
+SMALLSTACK_SCHEDULER_STALE_RUN_SECONDS = config(
+    "SMALLSTACK_SCHEDULER_STALE_RUN_SECONDS", default=86_400, cast=int
+)
