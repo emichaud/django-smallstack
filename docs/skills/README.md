@@ -17,14 +17,14 @@ When an AI agent is asked to modify or extend this project, these files help it:
 |------|-------------|
 | [cli-tools.md](cli-tools.md) | **Start here for "is there a tool for X?"** — task → tool / failure → tool / tool → docs lookup tables |
 | [modern-dark-theme.md](modern-dark-theme.md) | **Read before building any page** — canonical patterns, anti-patterns, variable list for the v0.9.x modern-dark theme |
-| [modify-palettes.md](modify-palettes.md) | Add a new color palette or tune an existing one — file map, color-science gotchas, verification |
+| [modify-palettes.md](modify-palettes.md) | **Change accent colors** — add a brand palette or tune one. The 4 wiring points (yaml/CSS/model+migration/`VALID_PALETTES`), color-science gotchas, verification |
 | [search.md](search.md) | Add keyword search + MCP tool to a CRUDView (`enable_search = True`) — FTS5/PG-FTS backend dispatch, RAG via Claude Desktop |
 | [django-apps.md](django-apps.md) | Creating apps, CRUDView + tables2 management pages, title bar pattern |
 | [building-a-user-facing-site.md](building-a-user-facing-site.md) | **Read for any non-staff user-facing surface** — LoginRequiredMixin + tenancy scoping + SearchAccess for end-user dashboards, "my X" lists, public catalogues |
 | [templates.md](templates.md) | Template inheritance, blocks, includes, common patterns |
 | [admin-page-styling.md](admin-page-styling.md) | **Definitive UI reference**: buttons, cards, tables, stat cards, action cards, tabs, filter toggles, forms, modals, starter template |
 | [theming-system.md](theming-system.md) | CSS variables, palettes, dark mode |
-| [adding-your-own-theme.md](adding-your-own-theme.md) | Adding a custom CSS framework alongside SmallStack's built-in theme |
+| [adding-your-own-theme.md](adding-your-own-theme.md) | **Bring your own look** — mount Bootstrap / Tailwind / a bespoke base template *alongside* SmallStack's theme (for teams with an existing design system). Not for changing colors — that's `modify-palettes.md` |
 | [theme-scenarios.md](theme-scenarios.md) | Three theme integration scenarios: public-only, user login, or build on SmallStack |
 | [authentication.md](authentication.md) | Custom user model, auth views, protecting views |
 | [testing.md](testing.md) | **Read before writing tests** — pytest/locmem stack, patterns for email + multi-step auth flows + CRUDView + guardrails, regression guards, and the `form.is_valid()`/`DeleteView` gotchas |

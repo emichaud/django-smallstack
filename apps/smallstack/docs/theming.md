@@ -7,6 +7,20 @@ description: Customize colors, dark mode, and components
 
 The {{ project_name }} theme is built on Django admin's CSS foundation with custom CSS variables for easy customization and automatic dark/light mode support.
 
+## First: which "theme" job are you doing?
+
+"Theme" is an overloaded word, so pin down your goal before you dig in — the three jobs live in three different docs, and reading the wrong one is the main reason theming feels confusing.
+
+| Your goal | The job | Read |
+|---|---|---|
+| Change the accent **colors** — add a brand palette or tune an existing one | **Palette** | [`docs/skills/modify-palettes.md`](../../../docs/skills/modify-palettes.md) |
+| Build **new pages/components** that match the built-in admin look | **Consume the theme** | [`docs/skills/modern-dark-theme.md`](../../../docs/skills/modern-dark-theme.md) |
+| Ship your **own** look — Bootstrap, Tailwind, a bespoke base template | **Bring your own** | [`docs/skills/adding-your-own-theme.md`](../../../docs/skills/adding-your-own-theme.md) |
+
+The positioning behind those three: SmallStack's theme is a **batteries-included admin skin for people who don't want to build one** — Django-admin app builders, and headless/API builders who still want a management UI without hand-rolling it. Adopt it and topbar, sidebar, dark mode, and the five palettes come for free. If you already have a design system, you don't rip ours out — you mount yours **alongside** (the bring-your-own path), and the built-in pages (Activity, Status, Backups, Users, Help) keep their skin.
+
+Everything below is the **reference** for that built-in theme — its colors, variables, and branding.
+
 > **As of v0.9.x SmallStack ships a modern-dark theme system** with five palettes (Django/default, Blue, Purple, Orange, Contrast), cool-biased near-black surfaces, and vibrant Tailwind-style accents. For the design philosophy behind the new defaults, read [`theme-architecture.md`](theme-architecture.md). For the variable values per palette, read [`theme-color-reference.md`](theme-color-reference.md). To switch palettes as a user, use the swatch grid in the user-menu dropdown (avatar in top-right).
 
 ## Key Files

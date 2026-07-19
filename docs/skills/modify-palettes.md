@@ -19,6 +19,13 @@
 
 ## Add a new palette in 4 steps
 
+Four wiring points, in this order. They're independent, and **each failure mode is silent and different** — so do all four, don't stop early:
+
+1. **`palettes.yaml`** — or the swatch never appears in the picker
+2. **`palettes.css`** — or the swatch appears but selecting it does nothing visible
+3. **`COLOR_PALETTE_CHOICES` + migration** — or the profile-edit dropdown omits it (and `makemigrations --check` fails in CI)
+4. **`VALID_PALETTES`** — or the live swap silently rejects the save
+
 ### Step 1 — append to the registry (`palettes.yaml`)
 
 ```yaml
@@ -135,19 +142,34 @@ This guards the AJAX endpoint that fires when a user clicks a swatch in the user
 
 ## Test it
 
-1. `uv run python manage.py runserver`
+1. `uv run python manage.py runserver` — **if a server is already running, restart it** and hard-refresh the browser. The autoreloader watches `.py` files but not `palettes.yaml`, and browsers cache `palettes.css`. (Also make sure you're running the branch that has your changes — a palette that "won't show up" is usually a stale server or the wrong branch, not a code bug.)
 2. Open the user menu (avatar dropdown) — your new swatch should appear in the palette grid
 3. Click it — the page should re-skin instantly
 4. Navigate to `/smallstack/`, `/smallstack/activity/`, `/smallstack/help/`, `/smallstack/backups/`
 5. Verify: cards are not warm-gray brown; accent shows on numbers / buttons / sidebar-active; hero band reads correctly
 
-If a hero band goes muddy, the palette's accent at low lightness is producing a problematic hue. Add it to the `--accent-band-bg` override block in `palettes.css`:
+If a band or the hero gradient goes muddy, the palette's accent at low lightness is producing a problematic hue (brown/olive/gray). `palettes.css` already has **two grouped override rules** for this — add your palette's selector to **both** (missing the second is the easy mistake: the band cleans up but the `.hero-section` gradient stays brown):
 
 ```css
-html[data-palette="emerald-bright"][data-theme="dark"] {
+/* 1. the band VARIABLE — page-header-bleed, toc-header, etc. */
+html[data-palette="orange"][data-theme="dark"],
+html[data-palette="emerald-bright"][data-theme="dark"],          /* ← add here */
+html[data-palette="django"][data-theme="dark"],
+html[data-palette="high-contrast"][data-theme="dark"] {
     --accent-band-bg: var(--card-bg);
 }
+
+/* 2. .hero-section uses a saturated GRADIENT, not the variable, so it
+      has its own sibling override rule just below the first */
+html[data-palette="orange"][data-theme="dark"] .hero-section,
+html[data-palette="emerald-bright"][data-theme="dark"] .hero-section,   /* ← and here */
+html[data-palette="django"][data-theme="dark"] .hero-section,
+html[data-palette="high-contrast"][data-theme="dark"] .hero-section {
+    background: var(--card-bg) !important;
+}
 ```
+
+Warm and desaturated accents (orange, **gold**, django-emerald, contrast-white) all need both; blue and purple don't.
 
 ## Tune an existing palette
 
@@ -163,10 +185,13 @@ If you're not adding a new palette but changing an existing one:
 - Blue × dark = navy ✓
 - Purple × dark = plum ✓
 - **Orange × dark = brown ✗**
+- **Gold × dark = muddy tan ✗** (shipped: the `gold` palette — the reference case for this fix)
 - **Emerald × dark = olive ✗**
 - **White × dark = noisy medium gray ✗**
 
-For affected palettes, override `--accent-band-bg` to `var(--card-bg)` so hero bands stay clean.
+For affected palettes, add the selector to **both** override rules (the `--accent-band-bg` group *and* the `.hero-section` group — see "Test it" above) so bands and hero gradients stay clean.
+
+Also, warm/light accents like gold need **dark** `--button-fg` / `--sidebar-active-fg` (near-black, not white) or button and active-nav text is unreadable on the accent.
 
 ### Gotcha 2: bright accents pull neutral surfaces warm
 Neutral cards next to bright accents drift warm via complementary-contrast. Mitigate with cool channel bias on surfaces:

@@ -8,8 +8,9 @@ When the user asks you to do any of these, read the matching skill file BEFORE w
 
 | If the user wants to… | Read first |
 |---|---|
-| Build a new page, component, card, table, modal, badge | `docs/skills/modern-dark-theme.md` |
-| Add or tune a color palette | `docs/skills/modify-palettes.md` |
+| Build a new page, component, card, table, modal, badge (using SmallStack's theme) | `docs/skills/modern-dark-theme.md` |
+| Change accent colors — add or tune a color palette | `docs/skills/modify-palettes.md` |
+| Ship your own look — Bootstrap / Tailwind / a bespoke base template, alongside ours | `docs/skills/adding-your-own-theme.md` |
 | Run any operational task (diagnose, smoke-test, mint, backup, screenshot, deploy) | `docs/skills/cli-tools.md` |
 | Create a new Django app with admin pages | `docs/skills/django-apps.md` |
 | Add a CRUDView (model → admin + REST + MCP) | `docs/skills/django-apps.md` + `apps/smallstack/docs/building-crud-pages.md` |
