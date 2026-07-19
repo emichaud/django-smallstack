@@ -59,7 +59,7 @@ class SchedulerConfig(AppConfig):
             nav.register(
                 section="admin",
                 label="Scheduler",
-                url_name="scheduler:dashboard",
+                url_name="scheduler_dashboard",
                 icon_svg=(
                     '<svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">'
                     '<path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12'
