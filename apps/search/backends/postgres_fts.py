@@ -109,13 +109,30 @@ class PostgresFTSBackend:
         pass
 
     def rebuild(self, view: IndexedView) -> int:
-        self.ensure_index(view)
-        count = 0
-        for obj in view.model.objects.all().iterator(chunk_size=500):
-            self.index_object(view, obj)
-            count += 1
-        return count
+        """Rebuild the search index for a model.
 
+        Materializes the pk list up front, then loads and indexes in
+        batches with one transaction per batch. This avoids connection
+        contention and is significantly faster than per-row indexing.
+        """
+        from django.db import transaction
+
+        self.ensure_index(view)
+
+        # Materialize pk list upfront
+        pks = list(view.model.objects.values_list("pk", flat=True))
+        chunk_size = 500
+        count = 0
+
+        # Load and index in explicit batches, one transaction per batch
+        for start in range(0, len(pks), chunk_size):
+            batch = list(view.model.objects.filter(pk__in=pks[start : start + chunk_size]))
+            with transaction.atomic():
+                for obj in batch:
+                    self.index_object(view, obj)
+            count += len(batch)
+
+        return count
     # ---- query -----------------------------------------------------------
 
     def query(

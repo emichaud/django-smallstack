@@ -89,14 +89,14 @@ def _make_hit(
 
     if view.has_search_builder and hasattr(view.view_cls, 'transform_hit'):
         try:
-            transformed = view.view_cls.transform_hit(obj, variant)
+            transformed = view.view_cls().transform_hit(obj, variant)
             if isinstance(transformed, dict):
                 # Extract display/subtitle from transformed dict
                 display_val = transformed.pop("display", None)
                 subtitle_val = transformed.pop("subtitle", None)
                 extra = transformed  # Rest goes to extra
         except Exception:
-            logger.exception("transform_hit failed for %s", view.model_label)
+            logger.exception("transform_hit failed for %s; transform_hit must be an instance method or @staticmethod", view.model_label)
 
     # Fallback to default field resolution
     if display_val is None:
