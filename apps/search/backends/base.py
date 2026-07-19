@@ -32,9 +32,10 @@ class SearchHit:
     snippet: str = ""         # short text around the matched terms
     url: str | None = None    # detail URL if available
     rank: float = 0.0         # higher = better; absolute values may differ per backend
+    extra: dict[str, Any] = field(default_factory=dict)  # Variant-specific data from transform_hit
 
     def as_dict(self) -> dict[str, Any]:
-        return {
+        result = {
             "model_label": self.model_label,
             "model_verbose": self.model_verbose,
             "object_id": self.object_id,
@@ -44,6 +45,10 @@ class SearchHit:
             "url": self.url,
             "rank": round(self.rank, 4),
         }
+        # Include variant-specific fields
+        if self.extra:
+            result.update(self.extra)
+        return result
 
 
 @dataclass
@@ -62,8 +67,9 @@ class IndexedView:
     weights: dict[str, int] = field(default_factory=dict)  # search_weight
     display_field: str | None = None             # search_display
     subtitle_field: str | None = None            # search_subtitle
+    has_search_builder: bool = False  # Set by registry if view implements SearchBuilder
 
-    # ── Security knobs (secure by default; opt-in to broaden) ──────────────
+        # ── Security knobs (secure by default; opt-in to broaden) ──────────────
     # access (default "staff"):
     #   One of the SearchAccess sentinels. Determines who can find rows
     #   from this view via cross-model search:
@@ -138,6 +144,7 @@ class SearchBackend(Protocol):
         view: IndexedView,
         query: str,
         limit: int = 10,
+        variant: str = "default",
     ) -> list[SearchHit]:
         """Run a search against this view's index and return ranked hits."""
         ...

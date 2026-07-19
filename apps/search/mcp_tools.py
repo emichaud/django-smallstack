@@ -2,7 +2,9 @@
 
 For every CRUDView with ``enable_search = True``, register a
 ``search_<plural>(query, limit)`` tool with the MCP server. Also
-register a cross-model ``search_all(query, limit_per_model)`` tool so
+register per-variant tools if the view implements SearchBuilder
+(e.g., ``search_tickets_default``, ``search_tickets_summary``).
+Register a cross-model ``search_all(query, limit_per_model)`` tool so
 Claude can find anything matching across the whole site.
 
 Tools follow the same async-handler shape as the existing factory tools
@@ -43,6 +45,30 @@ from .registry import search_all as _search_all
 logger = logging.getLogger("smallstack.search")
 
 
+def _tool_name_for(view, variant: str = "default") -> str:
+    """Generate MCP tool name, including variant if not default.
+
+    Args:
+        view: The IndexedView
+        variant: Output variant name (default "default")
+
+    Returns:
+        Tool name like "search_tickets" or "search_tickets_summary"
+    """
+    custom = getattr(view.view_cls, "mcp_tool_noun_plural", None)
+    if custom:
+        base_name = f"search_{custom}"
+    else:
+        plural = str(view.model._meta.verbose_name_plural).lower().replace(" ", "_")
+        base_name = f"search_{plural}"
+
+    # Only append variant if it's not the default
+    if variant and variant != "default":
+        base_name = f"{base_name}_{variant}"
+
+    return base_name
+
+
 def _late_view_hook(view) -> None:
     """Registry hook: register the MCP tool for a view registered after ready()."""
     register_search_tools(only_view=view)
@@ -51,10 +77,10 @@ def _late_view_hook(view) -> None:
 def register_search_tools(only_view=None) -> int:
     """Register search MCP tools. Called from ``SearchConfig.ready()``.
 
-    With ``only_view`` set, registers just that one view's ``search_<plural>``
-    tool — used as a ``registry`` hook so views registered *after* this app's
-    ready() (from a later app in INSTALLED_APPS, e.g. a downstream package) still
-    get their per-model tool. Returns the number of tools registered.
+    With ``only_view`` set, registers tools for that one view — used as a
+    ``registry`` hook so views registered *after* this app's ready() (from
+    a later app in INSTALLED_APPS, e.g. a downstream package) still get
+    their per-model tools. Returns the number of tools registered.
     """
     try:
         from apps.mcp.server import tool
@@ -67,102 +93,117 @@ def register_search_tools(only_view=None) -> int:
     # Per-CRUDView search_<plural> tools (everything registered so far, or just
     # one view when invoked as a late-registration hook).
     for view in ([only_view] if only_view is not None else all_views()):
-        tool_name = _tool_name_for(view)
-        description = (
-            f"Search {view.model_verbose} records by free-text query against "
-            f"fields {view.fields}. Returns ranked matches with display title, "
-            f"snippet, and detail URL. Use this when the user asks 'find', "
-            f"'search', or anything implying retrieval over {view.model_verbose}."
-        )
+        # Generate tools for each variant if view has SearchBuilder
+        variants = {}
+        if view.has_search_builder and hasattr(view.view_cls, 'get_search_variants'):
+            try:
+                variants = view.view_cls().get_search_variants() or {}
+            except Exception:
+                logger.exception("Failed to get variants for %s", view.model_label)
 
-        async def _handler(args: dict, *, _view=view):
-            query = (args.get("query") or "").strip()
-            limit = int(args.get("limit") or 10)
-            if not query:
-                return {"results": []}
+        # Default to just "default" variant if no variants defined
+        if not variants:
+            variants = {"default": f"Search {view.model_verbose}"}
 
-            # Apply the same access gate the web /search/ + /smallstack/search/
-            # pages get from the registry. Pull the caller from the MCP
-            # context — for an MCP request this is the user the API token
-            # was minted for. If the view's search_access tier is above
-            # the caller's identity, deny without running the query.
-            from apps.mcp.server import current_context
+        # Generate a tool for each variant
+        for variant_name, variant_desc in variants.items():
+            tool_name = _tool_name_for(view, variant_name)
+            description = (
+                f"Search {view.model_verbose} ({variant_name}) by free-text query. "
+                f"{variant_desc} "
+                f"Fields: {', '.join(view.fields)}. "
+                f"Returns ranked matches. Use this when searching "
+                f"over {view.model_verbose}."
+            )
 
-            from .backends import get_backend
-            from .registry import _user_can_see
+            async def _handler(args: dict, *, _view=view, _variant=variant_name):
+                query = (args.get("query") or "").strip()
+                limit = int(args.get("limit") or 10)
+                if not query:
+                    return {"results": []}
 
-            ctx = current_context()
-            user = getattr(ctx, "user", None)
-            if not _user_can_see(_view, user):
-                return {
-                    "results": [],
-                    "denied": True,
-                    "reason": (
-                        f"Access to {_view.model_label} requires "
-                        f"search_access >= {_view.access}; "
-                        f"this token's user does not satisfy that tier."
-                    ),
-                }
+                # Apply the same access gate the web /search/ + /smallstack/search/
+                # pages get from the registry. Pull the caller from the MCP
+                # context — for an MCP request this is the user the API token
+                # was minted for. If the view's search_access tier is above
+                # the caller's identity, deny without running the query.
+                from apps.mcp.server import current_context
 
-            backend = get_backend()
-            hits = await sync_to_async(backend.query)(_view, query, limit)
+                from .backends import get_backend
+                from .registry import _user_can_see
 
-            # Run search_visibility for non-staff callers — same fail-safe
-            # semantics as registry.search_all (a raising callback drops
-            # every hit rather than leaking the unfiltered set).
-            is_privileged = user is None or bool(getattr(user, "is_staff", False))
-            if hits and not is_privileged and _view.visibility is not None:
-                try:
-                    hit_ids = [h.object_id for h in hits]
+                ctx = current_context()
+                user = getattr(ctx, "user", None)
+                if not _user_can_see(_view, user):
+                    return {
+                        "results": [],
+                        "denied": True,
+                        "reason": (
+                            f"Access to {_view.model_label} requires "
+                            f"search_access >= {_view.access}; "
+                            f"this token's user does not satisfy that tier."
+                        ),
+                    }
 
-                    def _filter():
-                        qs = _view.model.objects.filter(pk__in=hit_ids)
-                        qs = _view.visibility(qs, user)
-                        return set(qs.values_list("pk", flat=True))
+                backend = get_backend()
+                hits = await sync_to_async(backend.query)(_view, query, limit, variant=_variant)
 
-                    visible_ids = await sync_to_async(_filter)()
-                    hits = [h for h in hits if h.object_id in visible_ids]
-                except Exception:
-                    logger.exception(
-                        "search_visibility failed for %s — dropping all hits",
-                        _view.model_label,
-                    )
-                    hits = []
+                # Run search_visibility for non-staff callers — same fail-safe
+                # semantics as registry.search_all (a raising callback drops
+                # every hit rather than leaking the unfiltered set).
+                is_privileged = user is None or bool(getattr(user, "is_staff", False))
+                if hits and not is_privileged and _view.visibility is not None:
+                    try:
+                        hit_ids = [h.object_id for h in hits]
 
-            return {"results": [h.as_dict() for h in hits], "backend": backend.name}
+                        def _filter():
+                            qs = _view.model.objects.filter(pk__in=hit_ids)
+                            qs = _view.visibility(qs, user)
+                            return set(qs.values_list("pk", flat=True))
 
-        # Hide the tool from tools/list for callers whose ``search_access``
-        # tier on the underlying view doesn't admit them. Without this the
-        # tool is visible-but-non-functional — non-staff callers see
-        # search_users in their tools/list and get ``{"denied": true}`` on
-        # call. The handler still applies the gate at call time (defense
-        # in depth); this is the listing-side mirror.
-        def _is_visible(user, *, _view=view):
-            from .registry import _user_can_see
-            return _user_can_see(_view, user)
+                        visible_ids = await sync_to_async(_filter)()
+                        hits = [h for h in hits if h.object_id in visible_ids]
+                    except Exception:
+                        logger.exception(
+                            "search_visibility failed for %s — dropping all hits",
+                            _view.model_label,
+                        )
+                        hits = []
 
-        try:
-            tool(
-                tool_name,
-                description,
-                input_schema={
-                    "type": "object",
-                    "properties": {
-                        "query": {"type": "string", "description": "The search text."},
-                        "limit": {
-                            "type": "integer",
-                            "description": "Max results (default 10).",
-                            "default": 10,
+                return {"results": [h.as_dict() for h in hits], "backend": backend.name, "variant": _variant}
+
+            # Hide the tool from tools/list for callers whose ``search_access``
+            # tier on the underlying view doesn't admit them. Without this the
+            # tool is visible-but-non-functional — non-staff callers see
+            # search_users in their tools/list and get ``{"denied": true}`` on
+            # call. The handler still applies the gate at call time (defense
+            # in depth); this is the listing-side mirror.
+            def _is_visible(user, *, _view=view):
+                from .registry import _user_can_see
+                return _user_can_see(_view, user)
+
+            try:
+                tool(
+                    tool_name,
+                    description,
+                    input_schema={
+                        "type": "object",
+                        "properties": {
+                            "query": {"type": "string", "description": "The search text."},
+                            "limit": {
+                                "type": "integer",
+                                "description": "Max results (default 10).",
+                                "default": 10,
+                            },
                         },
+                        "required": ["query"],
                     },
-                    "required": ["query"],
-                },
-                requires_access="readonly",
-                visible_to=_is_visible,
-            )(_handler)
-            count += 1
-        except Exception:
-            logger.exception("Failed to register MCP tool %r", tool_name)
+                    requires_access="readonly",
+                    visible_to=_is_visible,
+                )(_handler)
+                count += 1
+            except Exception:
+                logger.exception("Failed to register MCP tool %r", tool_name)
 
     # Per-view work is done. When invoked as a late-registration hook we stop
     # here — search_help / search_all are site-level and registered once.
@@ -267,12 +308,3 @@ async def _search_help_handler(args: dict):
         return {"results": [], "error": "apps.help not installed"}
     hits = await sync_to_async(search_help_articles)(query, limit)
     return {"results": [h.as_dict() for h in hits]}
-
-
-def _tool_name_for(view) -> str:
-    """Match the per-view custom MCP noun if set, else fall back to plural."""
-    custom = getattr(view.view_cls, "mcp_tool_noun_plural", None)
-    if custom:
-        return f"search_{custom}"
-    plural = str(view.model._meta.verbose_name_plural).lower().replace(" ", "_")
-    return f"search_{plural}"

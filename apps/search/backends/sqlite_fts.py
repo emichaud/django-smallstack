@@ -78,7 +78,13 @@ class SQLiteFTSBackend:
 
     # ---- query -----------------------------------------------------------
 
-    def query(self, view: IndexedView, query: str, limit: int = 10) -> list[SearchHit]:
+    def query(
+        self,
+        view: IndexedView,
+        query: str,
+        limit: int = 10,
+        variant: str = "default",
+    ) -> list[SearchHit]:
         from ..query_parser import to_fts5
 
         translated = to_fts5(query)
@@ -119,7 +125,7 @@ class SQLiteFTSBackend:
             if not obj:
                 continue
             snippet = _build_snippet(view, obj, translated)
-            hit = _make_hit(view, obj, rank=float(rank_by_id[obj_id]), snippet=snippet)
+            hit = _make_hit(view, obj, rank=float(rank_by_id[obj_id]), snippet=snippet, variant=variant)
             hits.append(hit)
         return hits
 

@@ -118,7 +118,13 @@ class PostgresFTSBackend:
 
     # ---- query -----------------------------------------------------------
 
-    def query(self, view: IndexedView, query: str, limit: int = 10) -> list[SearchHit]:
+    def query(
+        self,
+        view: IndexedView,
+        query: str,
+        limit: int = 10,
+        variant: str = "default",
+    ) -> list[SearchHit]:
         from ..query_parser import to_postgres
 
         translated, search_type = to_postgres(query)
@@ -158,7 +164,7 @@ class PostgresFTSBackend:
             if not obj:
                 continue
             snippet = _build_snippet_pg(view, obj, query)
-            hits.append(_make_hit(view, obj, rank=float(rank_by_id[obj_id]), snippet=snippet))
+            hits.append(_make_hit(view, obj, rank=float(rank_by_id[obj_id]), snippet=snippet, variant=variant))
         return hits
 
 

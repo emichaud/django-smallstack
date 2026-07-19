@@ -29,6 +29,87 @@ _search_registry: dict[str, IndexedView] = {}
 _on_register_hooks: list = []
 
 
+
+
+def _has_search_builder(view_cls: type) -> bool:
+    """Check if a view class implements the SearchBuilder protocol.
+
+    Returns True if the view has any SearchBuilder methods.
+    All methods are optional — a view is valid if it has ANY of them.
+    """
+    builder_methods = {
+        'get_search_variants',
+        'transform_hit',
+        'filter_searchable_queryset',
+        'get_ranking_weights'
+    }
+    implemented = {
+        m for m in builder_methods
+        if hasattr(view_cls, m) and callable(getattr(view_cls, m))
+    }
+    return len(implemented) > 0
+
+
+def get_view_by_label(model_label: str) -> IndexedView | None:
+    """Get IndexedView by model label (internal helper)."""
+    return _search_registry.get(model_label)
+
+
+def get_search_config(model_label: str) -> dict[str, Any]:
+    """Get search configuration for a single model.
+
+    Returns:
+        {
+            "model_label": "app.Model",
+            "fields": ["field1", "field2"],
+            "weights": {"field1": 3, "field2": 1},
+            "variants": {
+                "default": "Full output",
+                "summary": "Lightweight version"
+            },
+            "display_field": "title",
+            "subtitle_field": "description",
+            "has_search_builder": true,
+            "search_access": "staff"
+        }
+    """
+    view = get_view_by_label(model_label)
+    if not view:
+        return {}
+
+    config: dict[str, Any] = {
+        "model_label": view.model_label,
+        "fields": view.fields,
+        "weights": dict(view.weights) if view.weights else {},
+        "display_field": view.display_field,
+        "subtitle_field": view.subtitle_field,
+        "has_search_builder": view.has_search_builder,
+        "search_access": view.access,
+        "variants": {},
+    }
+
+    if view.has_search_builder:
+        try:
+            variants = view.view_cls().get_search_variants()
+            config["variants"] = variants or {}
+        except TypeError as e:
+            logger.error(
+                "SearchBuilder variant detection failed for %s: %s",
+                model_label, e
+            )
+        except Exception:
+            logger.exception("Failed to get variants for %s", model_label)
+
+    return config
+
+
+def list_search_configs() -> list[dict[str, Any]]:
+    """List all search configurations across all registered views.
+
+    Returns a list of dicts, one per view, with full config including variants.
+    """
+    return [get_search_config(view.model_label) for view in _search_registry.values()]
+
 def add_register_hook(hook) -> None:
     """Register a callback invoked with each ``IndexedView`` as it's registered.
 
@@ -86,6 +167,11 @@ def register(view_cls: type) -> IndexedView | None:
         access=access,
         visibility=visibility,
     )
+
+    # Detect SearchBuilder protocol
+    has_builder = _has_search_builder(view_cls)
+    view.has_search_builder = has_builder
+
     _search_registry[view.model_label] = view
 
     # Backend index creation is deferred to the post_migrate signal
