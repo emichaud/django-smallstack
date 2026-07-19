@@ -64,7 +64,7 @@ class ThemePreferenceView(LoginRequiredMixin, View):
 class PalettePreferenceView(LoginRequiredMixin, View):
     """Save color palette preference via htmx POST."""
 
-    VALID_PALETTES = {"", "django", "high-contrast", "dark-blue", "orange", "purple"}
+    VALID_PALETTES = {"", "django", "high-contrast", "dark-blue", "orange", "purple", "gold"}
 
     def post(self, request: HttpRequest) -> HttpResponse:
         palette = request.POST.get("palette", "").strip()

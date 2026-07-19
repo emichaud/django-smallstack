@@ -41,3 +41,10 @@ palettes:
     preview:
       light: "#7e57c2"
       dark: "#b39ddb"
+
+  - id: gold
+    label: Gold
+    description: Auxiom gold accent
+    preview:
+      light: "#a17c1a"
+      dark: "#d3b559"

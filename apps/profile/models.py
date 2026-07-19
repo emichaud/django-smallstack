@@ -108,6 +108,7 @@ class UserProfile(models.Model):
         ("dark-blue", "Blue"),
         ("orange", "Orange"),
         ("purple", "Purple"),
+        ("gold", "Gold"),
     ]
 
     user = models.OneToOneField(

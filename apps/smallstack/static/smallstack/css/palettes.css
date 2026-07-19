@@ -416,6 +416,7 @@ html[data-palette="orange"][data-theme="dark"] {
    Blue and purple are unaffected — their accents stay readable as
    navy/plum at the same mix, so they keep the tinted band. */
 html[data-palette="orange"][data-theme="dark"],
+html[data-palette="gold"][data-theme="dark"],
 html[data-palette="django"][data-theme="dark"],
 html[data-palette="high-contrast"][data-theme="dark"] {
     --accent-band-bg: var(--card-bg);
@@ -425,9 +426,81 @@ html[data-palette="high-contrast"][data-theme="dark"] {
    needs an explicit override per palette where the gradient goes muddy.
    Override matches the same set as --accent-band-bg above. */
 html[data-palette="orange"][data-theme="dark"] .hero-section,
+html[data-palette="gold"][data-theme="dark"] .hero-section,
 html[data-palette="django"][data-theme="dark"] .hero-section,
 html[data-palette="high-contrast"][data-theme="dark"] .hero-section {
     background: var(--card-bg) !important;
+}
+
+/* ============================================
+   Gold Palette (Auxiom brand)
+   ============================================ */
+
+html[data-palette="gold"] {
+    --primary: #a17c1a;
+    --primary-hover: #856616;
+    --secondary: #4f636d;
+    --header-bg: #a17c1a;
+    --sidebar-active-bg: #a17c1a;
+    --sidebar-active-fg: #ffffff;
+    --input-focus-border: #a17c1a;
+    --button-bg: #a17c1a;
+    --button-fg: #ffffff;
+    --button-hover-bg: #856616;
+    --link-color: #a17c1a;
+    --link-hover: #856616;
+    --breadcrumb-link: #a17c1a;
+}
+
+html[data-palette="gold"][data-theme="dark"] {
+    /* Modern black + Auxiom gold accent. Same near-black canvas as
+       orange / dark-blue / dark-purple (cool-biased surfaces); the warm
+       gold accent does all the visual work. Because gold is a light
+       accent, button + sidebar-active text is near-black (not white) for
+       contrast — the one deliberate difference from the other palettes.
+
+       Accent: #d3b559 (Auxiom Gold). Secondary: #4f636d (Auxiom smoky
+       blue). Surfaces identical to orange / dark-blue / dark-purple. */
+
+    /* Auxiom gold accent — dark text sits on the accent for readability */
+    --primary: #d3b559;
+    --primary-hover: #e0c876;
+    --secondary: #4f636d;
+    --sidebar-active-bg: #d3b559;
+    --sidebar-active-fg: #1a1a1a;
+    --input-focus-border: #d3b559;
+    --button-bg: #d3b559;
+    --button-fg: #1a1a1a;
+    --button-hover-bg: #e0c876;
+
+    /* Links — lighter gold to pop on near-black without competing with
+       the primary accent. */
+    --link-fg: #e0c876;
+    --link-color: #e0c876;
+    --link-hover: #ecd9a0;
+    --breadcrumb-link: #e4e4e7;
+
+    /* Surfaces — same cool-biased near-black as orange / dark-blue */
+    --body-bg: #0a0b0f;
+    --content-bg: #0a0b0f;
+    --header-bg: #111218;
+    --hero-gradient-end: #181d24;
+    --card-bg: #161b22;
+    --card-header-bg: #1d2230;
+    --card-border: #262d3d;
+    --hairline-color: #262d3d;
+    --sidebar-bg: #0c0d12;
+    --sidebar-hover-bg: #161b22;
+    --sidebar-border: #262d3d;
+    --footer-bg: #0a0b0f;
+    --footer-fg: #71717a;
+    --input-bg: #161b22;
+    --input-border: #3c4356;
+
+    /* Muted text — zinc family, readable on near-black */
+    --text-muted: #a1a1aa;
+    --breadcrumb-fg: #a1a1aa;
+    --breadcrumb-separator: #52525b;
 }
 
 /* ============================================
