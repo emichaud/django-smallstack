@@ -9,6 +9,38 @@ Breaking-change migration recipes live in [`UPGRADING.md`](UPGRADING.md).
 
 ## [Unreleased]
 
+## [0.13.4] - 2026-07-18
+
+### Added
+- **SearchBuilder — programmable search customization** (Phases 1-2, ~3,500 LOC): Optional SearchBuilder protocol 
+  enables models to define custom search variants (admin, public, api, mcp, etc.) with computed fields, custom 
+  display logic, cross-model orchestration, and automatic MCP tool generation per variant. Native dict serialization 
+  (no DRF dependency). Full type hints and comprehensive testing.
+- **Native search serialization** — 4 pure-Python dict functions (`serialize_search_hit`, `serialize_search_results`, 
+  `serialize_search_config`, `serialize_all_search_configs`) for JSON-safe output. Supports variant-specific extra fields 
+  with transparent flattening.
+- **Search introspection API** — `SearchAPI` class with 5 methods (get_config, list_variants, search, search_and_filter, 
+  get_output_schema) for high-level orchestration; `SearchOrchestrator` for multi-stage workflows and cross-model search.
+- **Search variant caching** — In-memory config cache with 1-hour TTL and cache invalidation on view registration.
+- **Per-variant MCP tools** — Auto-generated MCP tools for each search variant (search_model, search_model_summary, 
+  search_model_admin, etc.) for agent orchestration.
+
+### Fixed
+- **F1 (BLOCKER)** — Instance method call on class; fixed by instantiating view_cls before calling get_search_variants().
+- **F2 (MAJOR)** — Removed djangorestframework dependency; replaced with 4 native dict serialization functions.
+- **F4 (MAJOR)** — Guarded 3 unguarded date_joined references in search examples; added missing email field to admin variant.
+- **F5 (MAJOR)** — Fixed 252 ruff lint errors (226 W293 whitespace, 16 F401 unused imports, 9 I001 unsorted, 1 E501 line length).
+- **F6 (MAJOR)** — Replaced broken DRF serializer tests with real native serializer tests; removed false pytest.skip guards.
+- **F7 (OBSERVATION)** — Documented extra field flattening behavior and collision risk in serialize_search_hit() docstring.
+
+### Technical Details
+- All new code is fully typed (Python 3.10+ syntax: dict[str, Any], QuerySet, return types)
+- 119 integration tests covering all variants, orchestration, caching, and admin integration
+- Comprehensive documentation: RUNBOOK.md, TUTORIAL.md, ORCHESTRATION-GUIDE.md, and 2 AI skills
+- Backward compatible: all SearchBuilder methods optional; existing search works unchanged
+- No breaking changes to SearchBackend protocol or query() signature
+
+
 ## [0.13.3] - 2026-07-16
 
 ### Fixed
