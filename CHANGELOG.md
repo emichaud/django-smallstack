@@ -9,6 +9,29 @@ Breaking-change migration recipes live in [`UPGRADING.md`](UPGRADING.md).
 
 ## [Unreleased]
 
+## [0.13.5] - 2026-07-19
+
+### Fixed
+- **SQLiteFTSBackend.rebuild() deadlock** — Fixed "database is locked" error on models with >500 rows. 
+  Root cause: iterator(chunk_size=500) kept read cursor open during writes. Solution: materialize pk list, 
+  batch with explicit transactions. Approximately 50x faster; tested with 25,713+ rows.
+- **SearchBuilder.transform_hit() call convention** — Fixed silent failure where custom variants returned 
+  empty extra payload. Root cause: instance method called unbound on class (TypeError swallowed). 
+  Solution: instantiate view before calling, matching pattern elsewhere. Enhanced error logging to 
+  document contract.
+- **PostgresFTSBackend.rebuild()** — Applied same deadlock fix as SQLite (consistent batching pattern).
+
+### Documentation
+- Added fixes/DOWNSTREAM-ISSUES.md documenting both bugs, root causes, and fixes.
+- Clarified that filter_searchable_queryset and get_ranking_weights are dead code in v0.13.4; 
+  use search_weight and post-filtering instead.
+
+### Backward Compatible
+- No API changes
+- All fixes are transparent to downstream apps
+- Required for any model with >500 rows + enable_search, or custom SearchBuilder.transform_hit()
+
+
 ## [0.13.4] - 2026-07-18
 
 ### Added
