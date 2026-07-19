@@ -62,6 +62,27 @@ class TestSendHtmlEmailTask:
         assert result.return_value == 1
         assert mail.outbox[0].body == "No-Txt-Subject"
 
+    def test_injects_brand_context_without_caller_passing_it(self, settings):
+        # Templates that extend base_email.html need brand_name/brand_accent. The
+        # task must inject brand context so a caller passing only its own data
+        # (a scheduled digest) still renders a branded header.
+        settings.BRAND_NAME = "Acme Ops"
+        send_html_email_task.enqueue(
+            recipient="ops@example.com", subject="Digest", template="email/base_email.html", context={},
+        )
+        html = mail.outbox[0].alternatives[0][0]
+        assert "Acme Ops" in html  # brand_name rendered though caller never passed it
+
+    def test_caller_context_overrides_brand_defaults(self, settings):
+        settings.BRAND_NAME = "Default Brand"
+        send_html_email_task.enqueue(
+            recipient="ops@example.com", subject="Digest", template="email/base_email.html",
+            context={"brand_name": "Overridden"},
+        )
+        html = mail.outbox[0].alternatives[0][0]
+        assert "Overridden" in html
+        assert "Default Brand" not in html
+
 
 class TestSendWelcomeEmail:
     def test_sends_to_user_with_email(self):

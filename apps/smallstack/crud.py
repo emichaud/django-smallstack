@@ -1627,6 +1627,20 @@ class CRUDView:
         _model = cls.model
         _fields = cls.fields
 
+        # Drop non-editable model fields (auto_now / auto_now_add / AutoField pk)
+        # from the generated form. Listing one in `fields` — natural for a
+        # read-only ingest/audit column — otherwise makes the ModelForm metaclass
+        # raise FieldError, which surfaces as a 500 on /api/schema for a view that
+        # may not even expose create/update. Such fields stay available for
+        # display and `api_extra_fields`; they simply can't be form inputs.
+        if isinstance(_fields, (list, tuple)):
+            _non_editable = {
+                f.name
+                for f in _model._meta.get_fields()
+                if hasattr(f, "editable") and not f.editable
+            }
+            _fields = [f for f in _fields if f not in _non_editable]
+
         class AutoCRUDForm(forms.ModelForm):
             class Meta:
                 model = _model

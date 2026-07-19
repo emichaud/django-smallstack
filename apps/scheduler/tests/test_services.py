@@ -56,6 +56,65 @@ def _make_due(**kw):
     return job
 
 
+def _set_engine_result(task_result_id, *, status, return_value=None, traceback=""):
+    """Force a DBTaskResult into a terminal state for reconcile tests."""
+    from django_tasks_db.models import DBTaskResult
+
+    DBTaskResult.objects.filter(id=task_result_id).update(
+        status=status, return_value=return_value, traceback=traceback
+    )
+
+
+# --- reconcile surfaces the return value (C-3) ------------------------------
+
+
+def test_reconcile_surfaces_success_return_value(db_backend):
+    job = _make_due(name="etl")
+    services.run_due_jobs()
+    run = job.runs.get()
+    _set_engine_result(run.task_result_id, status="SUCCESSFUL", return_value={"upserted": 5})
+
+    services.reconcile_run_outcomes()
+    run.refresh_from_db()
+    assert run.status == ScheduledJobRun.Status.SUCCESS
+    assert "upserted" in run.message and "5" in run.message  # the count is visible
+
+
+def test_reconcile_surfaces_failure_message(db_backend):
+    job = _make_due(name="boom")
+    services.run_due_jobs()
+    run = job.runs.get()
+    _set_engine_result(
+        run.task_result_id, status="FAILED", traceback="Traceback...\nValueError: provider timeout"
+    )
+
+    services.reconcile_run_outcomes()
+    run.refresh_from_db()
+    assert run.status == ScheduledJobRun.Status.FAILED
+    assert "ValueError: provider timeout" in run.message
+
+
+# --- lazy code-job sync on first tick (C-1) ---------------------------------
+
+
+def test_first_tick_lazily_syncs_code_jobs(db_backend, monkeypatch):
+    from apps.scheduler import decorators
+    from apps.scheduler.decorators import ScheduleSpec
+
+    # sync_code_jobs() reads decorators._SCHEDULE_REGISTRY at call time.
+    monkeypatch.setattr(decorators, "_SCHEDULE_REGISTRY", [
+        ScheduleSpec(
+            task_path=TASK_PATH, name="Lazy job", schedule_type="cron", cron_expression="0 6 * * *"
+        )
+    ])
+    # Reset the once-per-process guard so this tick performs the sync.
+    monkeypatch.setattr(services, "_code_jobs_synced", False)
+
+    assert not ScheduledJob.objects.filter(name="Lazy job").exists()
+    services.run_due_jobs()
+    assert ScheduledJob.objects.filter(name="Lazy job", source=ScheduledJob.Source.CODE).exists()
+
+
 # --- firing -----------------------------------------------------------------
 
 

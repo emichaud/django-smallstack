@@ -92,19 +92,64 @@ running two on purpose only wastes work.
 - **Retries**: currently lean on `django.tasks`' own retry semantics. Per-schedule
   `max_retries` is a reserved field (not yet enforced).
 
+## Run lifecycle (why a just-run job shows `queued`)
+
+A `ScheduledJobRun` moves through two stages, and they're driven by **different**
+steps — this trips up first-time users:
+
+1. **Enqueue** (the tick, `run_due_jobs`): a run is recorded as **`queued`** the
+   moment the task is enqueued. The tick's job ends here.
+2. **Reconcile** (`reconcile_run_outcomes`): a *later* pass reads the task
+   engine's `DBTaskResult` and promotes the run to **`success`**/**`failed`**,
+   copying the task's **return value** (success) or the **exception line**
+   (failure) onto `run.message` — which the dashboard shows under the status.
+
+Reconcile runs at the **start of each tick** and on **every dashboard load**. So
+right after `scheduler_beat --once` + `db_worker`, the run still reads `queued`
+(the worker finished *after* that tick's reconcile) — open the dashboard, or run
+one more tick, and it flips to `success`/`failed`. The task's return value is
+**not** stored on the run until reconcile; it lives on `DBTaskResult` until then.
+
+## Testing schedules
+
+Under `config.settings.test` the task backend is `ImmediateBackend`, so
+`.enqueue()` runs the task **inline** (no worker). Three patterns:
+
+```python
+# 1. Unit-test the raw function — no queue at all:
+result = my_task.func(keep_days=30)          # .func is the undecorated callable
+assert result == {"deleted": 3}
+
+# 2. Exercise the scheduler path (enqueue + record):
+from apps.scheduler import services
+services.run_due_jobs()                       # enqueues due jobs → runs record as 'queued'
+
+# 3. Force terminal status in a test (no real worker):
+services.reconcile_run_outcomes()             # promotes queued → success/failed
+run.refresh_from_db(); assert run.status == "success"
+```
+
+To assert a **failure** path, drive a task that raises; to assert a **failure
+email**, patch the *whole* task object, not its method —
+`mock.patch("apps.tasks.tasks.send_email_task")` then
+`.enqueue.assert_called_once()` (patching `send_email_task.enqueue` directly
+raises a `TypeError` on teardown because it's a `django.tasks.Task`, not a plain
+object). Ready-made examples live in `apps/scheduler/tests/`.
+
 ## Local testing
 
 ```bash
-uv run python manage.py scheduler_beat --once     # run one tick now
-uv run python manage.py db_worker                 # drain what it enqueued
-uv run python manage.py run_due_tasks             # cron-path equivalent
+uv run python manage.py scheduler_beat --once     # tick: enqueue due jobs (runs = queued)
+uv run python manage.py db_worker                 # drain the queue (task runs)
+uv run python manage.py scheduler_beat --once     # tick again: reconcile → success/failed
+uv run python manage.py run_due_tasks             # cron-path equivalent (enqueue + reconcile)
 ```
 
 Then watch `/smallstack/scheduler/` — stat cards, the 24h run timeline, upcoming
-runs, recent runs, and a per-job **Run now**. The scheduler also registers a
-core status monitor on `/smallstack/status/` that trips if an enabled job is
-overdue (a proxy for "the tick isn't firing") or if the recent failure rate
-spikes.
+runs, recent runs (with each run's **return-value summary** under its status),
+and a per-job **Run now**. The scheduler also registers a core status monitor on
+`/smallstack/status/` that trips if an enabled job is overdue (a proxy for "the
+tick isn't firing") or if the recent failure rate spikes.
 
 ## Files
 

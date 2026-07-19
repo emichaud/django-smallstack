@@ -14,9 +14,28 @@ import logging
 
 from django.apps import AppConfig
 from django.conf import settings
-from django.db.utils import OperationalError, ProgrammingError
+from django.db.models.signals import post_migrate
 
 logger = logging.getLogger("smallstack.scheduler")
+
+
+def _sync_code_jobs_after_migrate(*args, **kwargs) -> None:
+    """post_migrate handler: reconcile @scheduled declarations into the DB.
+
+    Runs at migrate time (the deploy path), when the scheduler tables are
+    guaranteed to exist — so the sync never touches the DB during app
+    initialization (which Django warns about) and never races table creation.
+    A running server that adds a code job *without* migrating still picks it up
+    lazily on its first tick (see services.run_due_jobs).
+    """
+    if not getattr(settings, "SMALLSTACK_SCHEDULER_ENABLED", True):
+        return
+    try:
+        from .registry import sync_code_jobs
+
+        sync_code_jobs()
+    except Exception:  # noqa: BLE001 — never let a sync failure break migrate
+        logger.warning("scheduler: code-job sync failed", exc_info=True)
 
 
 class SchedulerConfig(AppConfig):
@@ -29,8 +48,8 @@ class SchedulerConfig(AppConfig):
             return
 
         # Import @scheduled declarations from every app's schedules.py / tasks.py.
-        # tasks.py is already imported elsewhere, but discovering it here too is
-        # harmless and covers apps that keep schedules beside their tasks.
+        # Pure imports (no DB) — populates the in-memory registry that the DB
+        # sync (below, on post_migrate) drains.
         try:
             from apps.smallstack.autodiscover import autodiscover_app_modules
 
@@ -38,16 +57,10 @@ class SchedulerConfig(AppConfig):
         except Exception:  # noqa: BLE001
             logger.warning("scheduler: autodiscovery failed", exc_info=True)
 
-        # Reconcile code-declared schedules into the DB. Guarded: during the
-        # initial migrate the scheduler tables don't exist yet.
-        try:
-            from .registry import sync_code_jobs
-
-            sync_code_jobs()
-        except (OperationalError, ProgrammingError):
-            pass  # tables not migrated yet — normal on first boot / during migrate
-        except Exception:  # noqa: BLE001
-            logger.warning("scheduler: code-job sync failed", exc_info=True)
+        # Reconcile code-declared schedules on migrate — NOT here in ready(),
+        # which must not query the DB (Django emits a RuntimeWarning, and the
+        # tables may not exist yet on first boot).
+        post_migrate.connect(_sync_code_jobs_after_migrate, sender=self)
 
         # P2 surfaces (nav item, dashboard widget, status monitor) register here.
         self._register_surfaces()

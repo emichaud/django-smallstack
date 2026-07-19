@@ -28,10 +28,32 @@ logger = logging.getLogger("smallstack.scheduler")
 # missing result) counts as finished for overlap purposes.
 _UNFINISHED = {"READY", "RUNNING"}
 
+# Longest run-return summary stored on ScheduledJobRun.message (the field is 255).
+_SUMMARY_MAX = 240
+
+# One-time-per-process guard: a running server that gained a @scheduled decl
+# without a migrate still reconciles code jobs on its first tick (post_migrate
+# covers the deploy path). Reset only matters within a process lifetime.
+_code_jobs_synced = False
+
 
 def _stale_run_seconds() -> int:
     """A previous run older than this is treated as abandoned (never wedge)."""
     return int(getattr(settings, "SMALLSTACK_SCHEDULER_STALE_RUN_SECONDS", 86_400))
+
+
+def _ensure_code_jobs_synced() -> None:
+    """Lazily reconcile code-declared schedules once per process (idempotent)."""
+    global _code_jobs_synced
+    if _code_jobs_synced:
+        return
+    _code_jobs_synced = True
+    try:
+        from .registry import sync_code_jobs
+
+        sync_code_jobs()
+    except Exception:  # noqa: BLE001 — a sync hiccup must not stop the tick
+        logger.warning("scheduler: lazy code-job sync failed", exc_info=True)
 
 
 @dataclass
@@ -51,6 +73,7 @@ class TickResult:
 
 def run_due_jobs(*, now: datetime | None = None) -> TickResult:
     """Enqueue every schedule whose ``next_run_at`` is due. Idempotent per tick."""
+    _ensure_code_jobs_synced()
     now = now or timezone.now()
     result = TickResult()
 
@@ -174,6 +197,45 @@ def _engine_status(task_result_id: str) -> str | None:
         return None
 
 
+def _engine_result(task_result_id: str) -> tuple[str | None, object, str]:
+    """Return (status, return_value, traceback) for a result id (best-effort)."""
+    if not task_result_id:
+        return None, None, ""
+    try:
+        from django_tasks_db.models import DBTaskResult
+
+        row = (
+            DBTaskResult.objects.filter(id=task_result_id)
+            .values("status", "return_value", "traceback")
+            .first()
+        )
+        if not row:
+            return None, None, ""
+        return row["status"], row.get("return_value"), row.get("traceback") or ""
+    except Exception:  # noqa: BLE001 — backend shape may vary; treat as unknown
+        return None, None, ""
+
+
+def _summarize_result(return_value: object) -> str:
+    """Compact one-line summary of a task's return value for the run row."""
+    if return_value is None:
+        return ""
+    try:
+        import json
+
+        text = json.dumps(return_value, default=str, ensure_ascii=False)
+    except (TypeError, ValueError):
+        text = str(return_value)
+    text = " ".join(text.split())  # collapse whitespace/newlines
+    return text[:_SUMMARY_MAX]
+
+
+def _summarize_error(traceback: str) -> str:
+    """Last meaningful line of a traceback (usually the exception message)."""
+    lines = [ln.strip() for ln in (traceback or "").splitlines() if ln.strip()]
+    return lines[-1][:_SUMMARY_MAX] if lines else "task failed"
+
+
 def _record(
     job: ScheduledJob,
     status: str,
@@ -206,12 +268,19 @@ def reconcile_run_outcomes(*, limit: int = 200) -> int:
     )
     terminal = {"SUCCESSFUL": ScheduledJobRun.Status.SUCCESS, "FAILED": ScheduledJobRun.Status.FAILED}
     for run in queued:
-        status = _engine_status(run.task_result_id)
+        status, return_value, tb = _engine_result(run.task_result_id)
         new = terminal.get(status or "")
         if not new:
             continue
         run.status = new
-        run.save(update_fields=["status"])
+        # Surface the outcome on the run itself: the task's return value on
+        # success, the exception line on failure — so the dashboard shows the
+        # *result*, not just the word "Success". (message is rendered already.)
+        if new == ScheduledJobRun.Status.SUCCESS:
+            run.message = _summarize_result(return_value)
+        else:
+            run.message = _summarize_error(tb)
+        run.save(update_fields=["status", "message"])
         # Only reflect onto the job's last_status if this is its most recent run,
         # so a straggling older run can't overwrite a newer run's state.
         is_latest = not ScheduledJobRun.objects.filter(

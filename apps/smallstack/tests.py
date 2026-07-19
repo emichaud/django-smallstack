@@ -884,6 +884,30 @@ class TestCRUDViewTemplateNames:
         assert public_pattern not in names, "Public template pattern should not appear in CRUD template candidates"
 
 
+# ── CRUDView non-editable field handling ─────────────────
+
+
+class TestCRUDNonEditableFields:
+    """A non-editable field (auto_now/auto_now_add) listed in `fields` must not
+    crash the generated ModelForm — it 500'd /api/schema before the fix."""
+
+    def test_make_form_class_excludes_non_editable(self, db):
+        from apps.smallstack.crud import CRUDView
+        from apps.smallstack.models import BackupRecord  # created_at = auto_now_add
+
+        class BackupCRUD(CRUDView):
+            model = BackupRecord
+            fields = ["filename", "status", "created_at"]  # created_at is non-editable
+            url_base = "test/backups"
+
+        # Previously raised FieldError at class-build time; now it just drops it.
+        form_class = BackupCRUD._make_form_class()
+        form = form_class()
+        assert "filename" in form.fields
+        assert "status" in form.fields
+        assert "created_at" not in form.fields  # non-editable → not a form input
+
+
 # ── Transform Registry Tests ─────────────────────────────
 
 

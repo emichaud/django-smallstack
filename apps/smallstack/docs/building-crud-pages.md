@@ -62,6 +62,8 @@ class WidgetCRUDView(CRUDView):
 
 The built-in `TableDisplay` renders a sortable table with clickable column headers (for model-backed fields), themed styling, and pagination. The first field in `list_fields` links to the detail view by default (set `link_field` to change this).
 
+> **Non-editable fields** (`auto_now`, `auto_now_add`, computed/read-only columns) belong in `list_fields` (to show in the table) and/or `api_extra_fields` (to include read-only in API responses) — **not** in `fields`. `fields` builds the create/edit form, and a non-editable column can't be a form input. Non-editable entries in `fields` are auto-excluded from the generated form, so they no longer break `/api/schema`; still, keep them out of `fields` for clarity. Note `created_at` above is in `list_fields`, not `fields`.
+
 That's it. This single class generates four views and four URL patterns (no separate `tables.py` needed):
 
 | URL | Name | Purpose |

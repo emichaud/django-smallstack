@@ -239,9 +239,18 @@ SmallStack ships with these tasks in `apps/tasks/tasks.py`:
 
 ### Important Constraints
 
-- **All arguments must be JSON-serializable** (no model instances — pass IDs instead)
+- **All arguments must be JSON-serializable** (no model instances — pass IDs instead).
+  This includes nested values like an email task's `context` dict — a `datetime`
+  or model instance in there breaks `.enqueue()` under the `DatabaseBackend`.
+  **The test `ImmediateBackend` does *not* serialize args**, so a green unit test
+  can still fail on the real queue — pass ISO strings / primitives, and test the
+  enqueue path against `DatabaseBackend` when serialization matters.
 - **Import models inside the function** to avoid circular imports
 - **Tasks run in a separate process** — they don't share request context
+- **HTML emails are auto-branded**: `send_html_email_task` merges brand context
+  (`brand_name` / `brand_accent` / `site_url`) so templates extending
+  `email/base_email.html` render their header even from a background task. Your
+  `context` overrides these if you pass them.
 
 ## Test Configuration
 
