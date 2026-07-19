@@ -1,0 +1,134 @@
+{% extends "smallstack/base.html" %}
+{% load theme_tags %}
+
+{% block title %}Scheduler{% endblock %}
+
+{% block breadcrumbs %}{% endblock %}
+
+{% block page_header %}
+<div class="page-header-bleed page-header-with-actions"
+     style="display: flex; align-items: center; justify-content: space-between;">
+  <div class="page-header-content">
+    <h1>Scheduler</h1>
+    <p class="page-subtitle">Recurring background jobs &middot; {{ runs_24h }} run{{ runs_24h|pluralize }} in the last 24h</p>
+    <nav style="margin-top: 0.5rem; font-size: 0.8rem;">
+      <a href="{% url 'website:home' %}" style="color: var(--body-quiet-color); text-decoration: none;">Home</a>
+      <span style="color: var(--body-quiet-color); margin: 0 0.3rem;">/</span>
+      <span style="color: var(--body-fg);">Scheduler</span>
+    </nav>
+  </div>
+  <div style="display: flex; gap: 0.5rem;">
+    <a href="{% url 'scheduler/jobs-list' %}" class="btn-outline btn-sm">All schedules</a>
+    <a href="{% url 'scheduler/jobs-create' %}" class="btn-primary btn-sm">+ New schedule</a>
+  </div>
+</div>
+{% endblock %}
+
+{% block content %}
+<!-- Stat cards -->
+<div class="stat-cards" style="margin-bottom: 24px;">
+  {% stat_card value=active_jobs label="Active" title="Active schedules" detail_url="scheduler_stat_detail" detail_arg="active" %}
+  {% stat_card value=total_jobs label="Total" %}
+  {% stat_card value=next_run_display label=next_run_time|default:"Next run" title="Upcoming runs" detail_url="scheduler_stat_detail" detail_arg="upcoming" %}
+  {% stat_card value=failures_24h label="Failed · 24h" title="Failures (24h)" detail_url="scheduler_stat_detail" detail_arg="failed" state=failures_24h|yesno:"danger," %}
+  {% stat_card value=skipped_24h label="Skipped · 24h" title="Skipped (24h)" detail_url="scheduler_stat_detail" detail_arg="skipped" state=skipped_24h|yesno:"warning," %}
+</div>
+
+<!-- Run timeline -->
+<div class="card" style="margin-bottom: 24px;">
+  <div class="card-header"><h2>Runs · last 24h</h2></div>
+  <div class="card-body">
+    <div style="display: flex; align-items: flex-end; gap: 3px; height: 72px;">
+      {% for bucket in timeline %}
+      <div title="{{ bucket.hour|date:'H:i' }} · {{ bucket.total }} run{{ bucket.total|pluralize }}"
+           style="flex: 1; display: flex; flex-direction: column; justify-content: flex-end; height: 100%;">
+        {% if bucket.total %}
+        <div style="height: {% widthratio bucket.total 1 8 %}px; max-height: 64px; min-height: 4px;
+                    border-radius: 2px;
+                    background: {% if bucket.failed %}var(--error-fg){% elif bucket.skipped %}var(--warning-fg){% else %}var(--success-fg){% endif %};
+                    opacity: 0.85;"></div>
+        {% else %}
+        <div style="height: 4px; border-radius: 2px; background: var(--card-border);"></div>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+    <div style="display: flex; justify-content: space-between; margin-top: 6px; font-size: 0.72rem; color: var(--body-quiet-color);">
+      <span>24h ago</span><span>now</span>
+    </div>
+  </div>
+</div>
+
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px;">
+  <!-- Upcoming -->
+  <div class="card">
+    <div class="card-header"><h2>Upcoming</h2></div>
+    <div class="card-body" style="padding: 0;">
+      {% if upcoming %}
+      <table class="table-plain" style="width: 100%; border-collapse: collapse;">
+        <thead>
+          <tr>
+            <th style="text-align: left; padding: 8px 16px;">Schedule</th>
+            <th style="text-align: left; padding: 8px 16px;">Next run</th>
+            <th style="text-align: right; padding: 8px 16px;">Run</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for job in upcoming %}
+          <tr>
+            <td style="padding: 8px 16px;">
+              <a href="{% url 'scheduler/jobs-update' job.pk %}" style="color: var(--link-color); text-decoration: none;">{{ job.name }}</a>
+              <div style="font-size: 0.75rem; color: var(--body-quiet-color);">{{ job.cadence_display }}</div>
+            </td>
+            <td style="padding: 8px 16px; font-size: 0.85rem;">{{ job.next_run_at|date:"M d H:i" }}</td>
+            <td style="text-align: right; padding: 8px 16px;">
+              <form method="post" action="{% url 'scheduler_run_now' job.pk %}" style="display: inline;">
+                {% csrf_token %}
+                <button type="submit" class="btn-outline btn-sm">Run now</button>
+              </form>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <p style="padding: 16px; color: var(--body-quiet-color);">No active schedules yet. <a href="{% url 'scheduler/jobs-create' %}" style="color: var(--link-color);">Create one</a>.</p>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Recent runs -->
+  <div class="card">
+    <div class="card-header"><h2>Recent runs</h2></div>
+    <div class="card-body" style="padding: 0;">
+      {% if recent_runs %}
+      <table class="table-plain" style="width: 100%; border-collapse: collapse;">
+        <thead>
+          <tr>
+            <th style="text-align: left; padding: 8px 16px;">Schedule</th>
+            <th style="text-align: left; padding: 8px 16px;">Status</th>
+            <th style="text-align: right; padding: 8px 16px;">When</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for run in recent_runs %}
+          <tr>
+            <td style="padding: 8px 16px;">
+              <a href="{% url 'scheduler/jobs-update' run.job_id %}" style="color: var(--link-color); text-decoration: none;">{{ run.job.name }}</a>
+            </td>
+            <td style="padding: 8px 16px;">
+              <span style="color: {% if run.status == 'success' %}var(--success-fg){% elif run.status == 'failed' %}var(--error-fg){% elif run.status == 'skipped' %}var(--warning-fg){% else %}var(--body-quiet-color){% endif %};">{{ run.get_status_display }}</span>
+              {% if run.message %}<div style="font-size: 0.72rem; color: var(--body-quiet-color);">{{ run.message }}</div>{% endif %}
+            </td>
+            <td style="text-align: right; padding: 8px 16px; font-size: 0.8rem; color: var(--body-quiet-color);">{{ run.created_at|date:"M d H:i" }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <p style="padding: 16px; color: var(--body-quiet-color);">No runs recorded yet.</p>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}

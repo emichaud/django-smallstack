@@ -21,6 +21,7 @@ dependencies = [
     "django-filter>=25.2",
     "django-cors-headers>=4.9.0",
     "mcp>=1.27",
+    "croniter>=6.2.4",
 ]
 
 [project.scripts]

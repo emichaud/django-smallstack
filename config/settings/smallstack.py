@@ -263,3 +263,33 @@ RUNBOOK_BASE_TEMPLATE = config("RUNBOOK_BASE_TEMPLATE", default="smallstack/base
 RUNBOOK_STAFF_REQUIRED = config("RUNBOOK_STAFF_REQUIRED", default=True, cast=bool)
 # Other RUNBOOK_* knobs (version/retention caps) default sensibly in
 # apps/runbook/conf.py — override here only if needed.
+
+
+# ---------------------------------------------------------------------------
+# Scheduler (apps.scheduler) — DB-backed recurring jobs over django.tasks
+# ---------------------------------------------------------------------------
+# Master switch for the scheduler surface: @scheduled autodiscovery/sync, the
+# tick, and the nav item + dashboard widget + status monitor. Off ⇒ nothing
+# registers and the tick is a no-op. Harmless with zero jobs, so default on.
+SMALLSTACK_SCHEDULER_ENABLED = config("SMALLSTACK_SCHEDULER_ENABLED", default=True, cast=bool)
+
+# A previous run still marked unfinished after this many seconds is treated as
+# abandoned by the overlap guard, so a dead worker can never permanently wedge
+# an allow_overlap=False schedule. Default 24h.
+SMALLSTACK_SCHEDULER_STALE_RUN_SECONDS = config(
+    "SMALLSTACK_SCHEDULER_STALE_RUN_SECONDS", default=86_400, cast=int
+)
+
+# An enabled job overdue by more than this trips the scheduler status monitor
+# (a proxy for "the tick isn't firing"). Default 5 min.
+SMALLSTACK_SCHEDULER_OVERDUE_GRACE_SECONDS = config(
+    "SMALLSTACK_SCHEDULER_OVERDUE_GRACE_SECONDS", default=300, cast=int
+)
+
+# Recipients emailed when a scheduled run fails (via send_email_task). Empty ⇒
+# no failure emails. Comma-separated in env, e.g. "ops@x.com,oncall@x.com".
+SMALLSTACK_SCHEDULER_FAILURE_EMAILS = config(
+    "SMALLSTACK_SCHEDULER_FAILURE_EMAILS",
+    default="",
+    cast=lambda v: [a.strip() for a in v.split(",") if a.strip()],
+)

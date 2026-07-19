@@ -55,6 +55,7 @@ INSTALLED_APPS = [
     "apps.api",  # API admin: /smallstack/api/ health + activity + threat panel
     "apps.search",  # Search: FTS5/PG-FTS + per-CRUDView opt-in + MCP search tools
     "apps.runbook",  # Runbook: versioned markdown documents (label: smallstack_runbook)
+    "apps.scheduler",  # Scheduler: DB-backed recurring jobs over django.tasks
     # Django built-in apps
     "django.contrib.admin",
     "django.contrib.auth",

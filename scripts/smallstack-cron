@@ -5,8 +5,16 @@
 # Heartbeat — every minute (POST to gunicorn to avoid SQLite locking)
 * * * * * curl -sf -X POST http://localhost:${PORT:-8000}/heartbeat/ping/ > /dev/null
 
+# Scheduler tick — every minute (POST to gunicorn, same rationale as heartbeat).
+# Drives recurring @scheduled / UI-created jobs. Use exactly one trigger per
+# deployment; the alternative is `manage.py run_due_tasks` on system cron.
+* * * * * curl -sf -X POST http://localhost:${PORT:-8000}/smallstack/scheduler/tick/ > /dev/null
+
 # Prune activity log — every 15 minutes
 */15 * * * * cd /app && python3 manage.py prune_activity
+
+# Prune scheduler run history — daily at 3 AM (keep 30 days)
+0 3 * * * cd /app && python3 manage.py prune_job_runs --keep-days 30
 
 # Database backup — daily at 2 AM (if enabled via BACKUP_CRON_ENABLED)
 0 2 * * * cd /app && [ "${BACKUP_CRON_ENABLED}" = "true" ] && python3 manage.py backup_db --keep 14

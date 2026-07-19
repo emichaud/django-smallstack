@@ -62,6 +62,8 @@ urlpatterns = [
     path("search/", include("apps.search.urls")),
     # Runbook — versioned markdown documents (namespace "runbook")
     path("runbook/", include("apps.runbook.urls")),
+    # Scheduler — recurring background jobs (bare names, "scheduler/" prefix)
+    path("", include("apps.scheduler.urls")),
     # Token manager (self-service + staff) — list, mint, reveal, revoke
     path("", include("apps.tokenmgr.urls")),
 ]

@@ -19,6 +19,7 @@ When the user asks you to do any of these, read the matching skill file BEFORE w
 | Monitor a subsystem's uptime/health on `/smallstack/status/` (Service + Monitor, or a status chart) | `docs/skills/status-monitors.md` |
 | Open a maintenance window / SLA-exclude a deploy (`manage.py maintenance`, Kamal hooks) | `docs/skills/status-monitors.md` |
 | Test the task queue / heartbeat backend locally (worker + heartbeat harness) | `docs/skills/background-tasks.md` |
+| Schedule recurring work (`@scheduled`, cron/interval/once, the scheduler UI + tick) | `docs/skills/scheduler.md` |
 | Expose a model to AI clients via MCP | `docs/skills/mcp/build-mcp-solution.md` |
 | Add a custom REST endpoint (non-CRUD) | `docs/skills/custom-api-endpoints.md` |
 | Debug a "Swagger is empty" / "MCP can't see my tools" / "weird traffic" report | `docs/skills/api-doctor.md` or `docs/skills/mcp/debug-mcp-failure.md` |
@@ -31,7 +32,7 @@ The full skill index lives at `docs/skills/README.md`.
 
 A small-footprint Django foundation for shipping four kinds of apps from one codebase:
 
-- **Background tasks** — `django-tasks-db` is pre-wired; `manage.py db_worker` runs queued jobs. One-shot enqueue ships today; a recurring `@scheduled` primitive is **coming soon** (until then, run recurring jobs as management commands via system cron).
+- **Background tasks** — `django-tasks-db` is pre-wired; `manage.py db_worker` runs queued jobs. One-shot enqueue plus a recurring **`@scheduled`** primitive (`apps/scheduler/`) — DB-backed schedules with a themed `/smallstack/scheduler/` UI, REST + MCP tools, cron/interval/once cadences, and a per-minute tick. See `docs/skills/scheduler.md`.
 - **Websites** — themed admin shell, dark mode, palettes, sidebar, breadcrumbs
 - **API servers** — REST emitted from CRUDViews; OpenAPI 3.0.3 schema; Swagger UI at `/api/docs/`; ReDoc at `/api/redoc/`
 - **MCP servers** — JSON-RPC + OAuth 2.0 + PKCE at `/mcp`; Claude Desktop and Claude.ai Connectors UI work without setup

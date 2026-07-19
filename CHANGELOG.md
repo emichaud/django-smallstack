@@ -9,6 +9,27 @@ Breaking-change migration recipes live in [`UPGRADING.md`](UPGRADING.md).
 
 ## [Unreleased]
 
+### Added
+- **Scheduler (`apps/scheduler/`)** — recurring background jobs over `django.tasks`
+  (no Celery/Redis). Ships the `@scheduled` decorator (cron / interval / once,
+  with calendar-aware intervals and anchors), DB-backed `ScheduledJob` schedules
+  with idempotent code-sync, and a `run_due_jobs` tick with an **atomic claim**
+  so concurrent triggers can't double-fire. Overlap guard (with a stale-run
+  timeout so a dead worker can't wedge a schedule), catch-up policy, and run
+  history linked to the task engine's `DBTaskResult`.
+- **Scheduler surfaces** — themed `/smallstack/scheduler/` dashboard (stat cards,
+  24h run timeline, upcoming + recent runs, per-job Run-now), a `ScheduledJob`
+  CRUDView with REST (`enable_api`) + MCP (`list_schedules` … `delete_schedule`)
+  + search, a dashboard widget, a `/status/` core monitor, and Explorer browsing.
+- **Triggers** — `POST /smallstack/scheduler/tick/` (localhost-only, runs inside
+  gunicorn), `manage.py run_due_tasks`, `manage.py scheduler_beat`; plus
+  `manage.py prune_job_runs` history retention. Cron lines added to
+  `scripts/smallstack-cron`.
+- Settings: `SMALLSTACK_SCHEDULER_ENABLED`, `_STALE_RUN_SECONDS`,
+  `_OVERDUE_GRACE_SECONDS`, `_FAILURE_EMAILS`. New dependency: `croniter`.
+- Docs: `docs/skills/scheduler.md`; `@scheduled` flipped from "coming soon" to
+  shipped in `CLAUDE.md`, `README.md`, `background-tasks.md`, `skills/README.md`.
+
 ## [0.13.5] - 2026-07-19
 
 ### Fixed

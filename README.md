@@ -61,7 +61,7 @@ Same form validation, same permission logic, all five surfaces. You change the m
 - **MCP server** — JSON-RPC + OAuth + PKCE, works with Claude Desktop and agent frameworks
 - **Full-text search** — SQLite FTS or Postgres SearchVector, with custom ranking and variants (SearchBuilder)
 - **CLI tool** — Terminal CRUD operations with `--json` output, staff-gated writes
-- **Background tasks** — DB-backed queue (no Redis/Celery to operate)
+- **Background tasks & scheduler** — DB-backed queue (no Redis/Celery to operate) plus a `@scheduled` recurring-job scheduler with a themed UI, REST + MCP surfaces, and cron/interval/once cadences
 - **Activity & audit logs** — Request logging with auto-pruning and breakdown stats
 - **Auth** — Custom User model, photo, timezone, theme preference, token management
 - **Health monitoring** — Uptime monitoring, status page, API/MCP health dashboards
