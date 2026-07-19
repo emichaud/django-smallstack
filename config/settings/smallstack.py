@@ -279,3 +279,17 @@ SMALLSTACK_SCHEDULER_ENABLED = config("SMALLSTACK_SCHEDULER_ENABLED", default=Tr
 SMALLSTACK_SCHEDULER_STALE_RUN_SECONDS = config(
     "SMALLSTACK_SCHEDULER_STALE_RUN_SECONDS", default=86_400, cast=int
 )
+
+# An enabled job overdue by more than this trips the scheduler status monitor
+# (a proxy for "the tick isn't firing"). Default 5 min.
+SMALLSTACK_SCHEDULER_OVERDUE_GRACE_SECONDS = config(
+    "SMALLSTACK_SCHEDULER_OVERDUE_GRACE_SECONDS", default=300, cast=int
+)
+
+# Recipients emailed when a scheduled run fails (via send_email_task). Empty ⇒
+# no failure emails. Comma-separated in env, e.g. "ops@x.com,oncall@x.com".
+SMALLSTACK_SCHEDULER_FAILURE_EMAILS = config(
+    "SMALLSTACK_SCHEDULER_FAILURE_EMAILS",
+    default="",
+    cast=lambda v: [a.strip() for a in v.split(",") if a.strip()],
+)

@@ -192,5 +192,34 @@ def reconcile_run_outcomes(*, limit: int = 200) -> int:
             ScheduledJob.objects.filter(pk=run.job_id, last_status=ScheduledJobRun.Status.QUEUED).update(
                 last_status=new
             )
+            if new == ScheduledJobRun.Status.FAILED:
+                _notify_failure(run)
             updated += 1
     return updated
+
+
+def _notify_failure(run: ScheduledJobRun) -> None:
+    """Email configured recipients when a scheduled run fails.
+
+    Opt-in via ``SMALLSTACK_SCHEDULER_FAILURE_EMAILS`` (list of addresses).
+    Reuses the existing ``send_email_task`` so delivery is itself backgrounded.
+    Best-effort — a notification failure must not disturb reconciliation.
+    """
+    recipients = getattr(settings, "SMALLSTACK_SCHEDULER_FAILURE_EMAILS", None)
+    if not recipients:
+        return
+    try:
+        from apps.tasks.tasks import send_email_task
+
+        job_name = run.job.name
+        send_email_task.enqueue(
+            recipient=list(recipients),
+            subject=f"[scheduler] job failed: {job_name}",
+            message=(
+                f"Scheduled job “{job_name}” failed.\n\n"
+                f"Scheduled for: {run.scheduled_for:%Y-%m-%d %H:%M %Z}\n"
+                f"Task result id: {run.task_result_id}\n"
+            ),
+        )
+    except Exception:  # noqa: BLE001
+        logger.warning("scheduler: failure notification could not be enqueued", exc_info=True)

@@ -175,6 +175,50 @@ def test_catchup_run_once_fires_once(db_backend):
 # --- once retire ------------------------------------------------------------
 
 
+def test_reconcile_emails_on_failure(db_backend, settings, monkeypatch):
+    settings.SMALLSTACK_SCHEDULER_FAILURE_EMAILS = ["ops@example.com"]
+    calls = []
+
+    class _FakeTask:
+        def enqueue(self, **kw):
+            calls.append(kw)
+
+    monkeypatch.setattr("apps.tasks.tasks.send_email_task", _FakeTask())
+
+    job = _make_due(name="failmail")
+    services.run_due_jobs()  # enqueues → DBTaskResult READY
+    run = job.runs.get()
+
+    from django_tasks_db.models import DBTaskResult
+
+    DBTaskResult.objects.filter(id=run.task_result_id).update(status="FAILED")
+    services.reconcile_run_outcomes()
+
+    run.refresh_from_db()
+    assert run.status == ScheduledJobRun.Status.FAILED
+    assert calls and calls[0]["recipient"] == ["ops@example.com"]
+    assert "failmail" in calls[0]["subject"]
+
+
+def test_reconcile_no_email_when_unconfigured(db_backend, monkeypatch):
+    calls = []
+
+    class _FakeTask:
+        def enqueue(self, **kw):
+            calls.append(kw)
+
+    monkeypatch.setattr("apps.tasks.tasks.send_email_task", _FakeTask())
+
+    job = _make_due(name="silentfail")
+    services.run_due_jobs()
+    run = job.runs.get()
+    from django_tasks_db.models import DBTaskResult
+
+    DBTaskResult.objects.filter(id=run.task_result_id).update(status="FAILED")
+    services.reconcile_run_outcomes()
+    assert calls == []  # no recipients configured → no email
+
+
 def test_once_job_fires_then_retires(db_backend):
     # Created with a future run_at (so save seeds next_run_at); then time
     # "passes" and both move into the past, making it due.

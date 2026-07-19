@@ -6,7 +6,7 @@ This skill describes how to create and run background tasks in SmallStack using 
 
 SmallStack uses Django 6's native `django.tasks` framework with the `django-tasks-db` database backend. Tasks are stored in the database and processed by a separate worker process. No Redis or Celery required.
 
-> **Coming soon: recurring scheduling.** Today the queue is *one-shot* — you `.enqueue()` a task and a worker runs it once. A recurring `@scheduled(every="5m")` primitive (retries with backoff, dead-letter handling) is **coming soon**. Until it lands, run recurring jobs as management commands wired to system cron — e.g. `rebuild_search_index`, `heartbeat`, `prune_activity`.
+> **Recurring scheduling ships in `apps/scheduler/`.** The queue itself is *one-shot* — you `.enqueue()` a task and a worker runs it once. To run a task on a **repeating** cadence, decorate it with `@scheduled(...)` (or create a schedule in the `/smallstack/scheduler/` UI). The scheduler decides *when* to enqueue and hands the actual execution to this same task engine. See **`docs/skills/scheduler.md`** for the full guide. Failure retries currently lean on `django.tasks`' own retry semantics; per-schedule `max_retries` is reserved.
 
 ## File Locations
 
