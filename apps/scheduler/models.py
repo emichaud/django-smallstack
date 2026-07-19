@@ -107,10 +107,16 @@ class ScheduledJob(models.Model):
         except schedules.ScheduleConfigError as exc:
             raise ValidationError({field_name: str(exc)}) from exc
 
-    def save(self, *args, **kwargs) -> None:
+    def save(self, *args: object, **kwargs: object) -> None:
         # Seed next_run_at for a freshly enabled schedule so the tick can find it.
+        # A malformed cadence saved without full_clean() (e.g. a direct .create())
+        # leaves the row unscheduled rather than raising out of save() — clean()
+        # is the real gate; this just avoids a 500 on the unvalidated path.
         if self.enabled and self.next_run_at is None:
-            self.next_run_at = self.compute_next_run(after=timezone.now())
+            try:
+                self.next_run_at = self.compute_next_run(after=timezone.now())
+            except schedules.ScheduleConfigError:
+                self.next_run_at = None
         super().save(*args, **kwargs)
 
     # -- helpers ----------------------------------------------------------

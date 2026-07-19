@@ -10,7 +10,7 @@ from __future__ import annotations
 from datetime import timedelta
 from typing import Any
 
-from django.core.management.base import BaseCommand
+from django.core.management.base import BaseCommand, CommandParser
 from django.utils import timezone
 
 from apps.scheduler.models import ScheduledJobRun
@@ -19,7 +19,7 @@ from apps.scheduler.models import ScheduledJobRun
 class Command(BaseCommand):
     help = "Delete scheduled-job run history older than --keep-days."
 
-    def add_arguments(self, parser) -> None:
+    def add_arguments(self, parser: CommandParser) -> None:
         parser.add_argument("--keep-days", type=int, default=30, help="Retention window in days.")
 
     def handle(self, *args: Any, **options: Any) -> None:

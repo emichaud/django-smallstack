@@ -20,7 +20,30 @@ intervals) is only imported when a cron/calendar schedule actually needs it, so
 from __future__ import annotations
 
 import re
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, tzinfo
+from typing import TYPE_CHECKING, Protocol, Union
+
+if TYPE_CHECKING:
+    from dateutil.relativedelta import relativedelta
+
+# Either a fixed-length delta (s/m/h/d/w) or a calendar delta (mo/y).
+IntervalDelta = Union[timedelta, "relativedelta"]
+
+
+class ScheduleLike(Protocol):
+    """The duck-typed surface next_run() needs — a ScheduledJob or any stand-in.
+
+    Kept as a Protocol so the pure math stays callable on an unsaved model
+    instance (validation) or a lightweight test double, without importing the
+    model (which would create an apps-not-ready import cycle).
+    """
+
+    schedule_type: str
+    interval_spec: str
+    anchor_at: datetime | None
+    cron_expression: str
+    run_at: datetime | None
+    timezone: str
 
 # Fixed-length units resolve straight to a timedelta. Month/year are *calendar*
 # units (variable length) and are handled with dateutil.relativedelta so that
@@ -42,7 +65,7 @@ class ScheduleConfigError(ValueError):
     """Raised when a schedule's fields don't describe a valid cadence."""
 
 
-def parse_interval(spec: str):
+def parse_interval(spec: str) -> IntervalDelta:
     """Parse an interval spec into a ``timedelta`` or ``relativedelta``.
 
     Fixed units (``s/m/h/d/w``) return a ``timedelta``; calendar units
@@ -82,7 +105,8 @@ def _step_interval(anchor: datetime, spec: str, after: datetime) -> datetime:
         gap = (after - anchor).total_seconds()
         period = delta.total_seconds()
         if gap < 0:
-            return anchor + delta if anchor <= after else anchor
+            # anchor is already in the future — it is itself the next fire.
+            return anchor
         steps = int(gap // period) + 1
         return anchor + steps * delta
     # Calendar interval — step forward until strictly after `after`.
@@ -95,7 +119,7 @@ def _step_interval(anchor: datetime, spec: str, after: datetime) -> datetime:
     return nxt  # pragma: no cover - only reachable with absurd anchors
 
 
-def next_run(schedule, *, after: datetime) -> datetime | None:
+def next_run(schedule: ScheduleLike, *, after: datetime) -> datetime | None:
     """Return the next fire time strictly after ``after``, or ``None``.
 
     ``None`` means "never again" — a ``once`` job whose time has passed. The
@@ -131,7 +155,7 @@ def next_run(schedule, *, after: datetime) -> datetime | None:
     raise ScheduleConfigError(f"Unknown schedule_type {stype!r}.")
 
 
-def schedule_tz(schedule):
+def schedule_tz(schedule: ScheduleLike) -> tzinfo:
     """Resolve the schedule's evaluation timezone (falls back to Django's)."""
     from django.utils import timezone as djtz
 
@@ -146,7 +170,7 @@ def schedule_tz(schedule):
         raise ScheduleConfigError(f"Unknown timezone {name!r}.") from exc
 
 
-def _cron_next(expr: str, tz, after: datetime) -> datetime:
+def _cron_next(expr: str, tz: tzinfo, after: datetime) -> datetime:
     """Next cron fire strictly after ``after``, timezone-aware.
 
     ``croniter`` does the cron arithmetic in the target timezone; we hand back
@@ -164,7 +188,7 @@ def _cron_next(expr: str, tz, after: datetime) -> datetime:
     return itr.get_next(datetime)
 
 
-def missed_periods(schedule, *, scheduled_for: datetime, now: datetime) -> int:
+def missed_periods(schedule: ScheduleLike, *, scheduled_for: datetime, now: datetime) -> int:
     """How many whole periods elapsed between ``scheduled_for`` and ``now``.
 
     ``0`` means the tick is on time (fired within one period of its due time);

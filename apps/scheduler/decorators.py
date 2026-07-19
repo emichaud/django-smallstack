@@ -18,9 +18,13 @@ each spec into a ``source="code"`` :class:`~apps.scheduler.models.ScheduledJob`.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any
+from typing import Any, TypeVar
+
+# The wrapped object is returned unchanged, so preserve its type for callers.
+T = TypeVar("T")
 
 # Populated at import time by @scheduled; drained by registry.sync_code_jobs().
 _SCHEDULE_REGISTRY: list["ScheduleSpec"] = []
@@ -62,7 +66,7 @@ def scheduled(
     catch_up: str = "run_once",
     allow_overlap: bool = False,
     **kwargs: Any,
-):
+) -> Callable[[T], T]:
     """Declare a recurring/one-off schedule for a ``@task``.
 
     Exactly one of ``every`` (interval), ``cron``, or ``at`` (once) must be set.
@@ -81,7 +85,7 @@ def scheduled(
     else:
         stype, kw = "once", {"run_at": at}
 
-    def wrap(task_obj):
+    def wrap(task_obj: T) -> T:
         path = _dotted_path(task_obj)
         _SCHEDULE_REGISTRY.append(
             ScheduleSpec(

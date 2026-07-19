@@ -12,9 +12,11 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from datetime import timedelta
+from datetime import datetime, timedelta
 
 from django.conf import settings
+from django.db.models import F
+from django.tasks import Task
 from django.utils import timezone
 
 from . import schedules
@@ -47,7 +49,7 @@ class TickResult:
         )
 
 
-def run_due_jobs(*, now=None) -> TickResult:
+def run_due_jobs(*, now: datetime | None = None) -> TickResult:
     """Enqueue every schedule whose ``next_run_at`` is due. Idempotent per tick."""
     now = now or timezone.now()
     result = TickResult()
@@ -64,7 +66,7 @@ def run_due_jobs(*, now=None) -> TickResult:
     return result
 
 
-def _process_job(job: ScheduledJob, *, now, result: TickResult) -> None:
+def _process_job(job: ScheduledJob, *, now: datetime, result: TickResult) -> None:
     observed = job.next_run_at  # the value we must still see to win the claim
 
     # Compute the cursor's next position (None => 'once' job retires).
@@ -101,14 +103,26 @@ def _process_job(job: ScheduledJob, *, now, result: TickResult) -> None:
             return
 
     # --- fire ---------------------------------------------------------------
+    enqueue_and_record(job, scheduled_for=observed, now=now)
+    result.enqueued += 1
+
+
+def enqueue_and_record(job: ScheduledJob, *, scheduled_for: datetime, now: datetime | None = None) -> str:
+    """Enqueue the job's task, record a QUEUED run, and bump bookkeeping.
+
+    Shared by the tick and the UI's Run-now so both stay consistent — notably
+    the ``F()`` increment, which keeps a concurrent tick + Run-now from losing a
+    ``total_runs`` count. Returns the enqueued DBTaskResult id.
+    """
+    now = now or timezone.now()
     task_result_id = _enqueue(job)
-    _record(job, ScheduledJobRun.Status.QUEUED, observed, task_result_id=task_result_id)
+    _record(job, ScheduledJobRun.Status.QUEUED, scheduled_for, task_result_id=task_result_id)
     ScheduledJob.objects.filter(pk=job.pk).update(
         last_enqueued_at=now,
         last_status=ScheduledJobRun.Status.QUEUED,
-        total_runs=job.total_runs + 1,
+        total_runs=F("total_runs") + 1,
     )
-    result.enqueued += 1
+    return task_result_id
 
 
 def _enqueue(job: ScheduledJob) -> str:
@@ -119,14 +133,14 @@ def _enqueue(job: ScheduledJob) -> str:
     return str(getattr(task_result, "id", "") or "")
 
 
-def _resolve_task(dotted: str):
+def _resolve_task(dotted: str) -> Task:
     from importlib import import_module
 
     module_path, attr = dotted.rsplit(".", 1)
     return getattr(import_module(module_path), attr)
 
 
-def _previous_run_active(job: ScheduledJob, *, now) -> bool:
+def _previous_run_active(job: ScheduledJob, *, now: datetime) -> bool:
     """True if the job's last enqueued run is still unfinished and not stale.
 
     A run whose engine result is missing, terminal, or older than the stale
@@ -160,7 +174,14 @@ def _engine_status(task_result_id: str) -> str | None:
         return None
 
 
-def _record(job, status, scheduled_for, *, task_result_id="", message="") -> ScheduledJobRun:
+def _record(
+    job: ScheduledJob,
+    status: str,
+    scheduled_for: datetime,
+    *,
+    task_result_id: str = "",
+    message: str = "",
+) -> ScheduledJobRun:
     return ScheduledJobRun.objects.create(
         job=job,
         status=status,
@@ -180,21 +201,27 @@ def reconcile_run_outcomes(*, limit: int = 200) -> int:
     queued = (
         ScheduledJobRun.objects.filter(status=ScheduledJobRun.Status.QUEUED)
         .exclude(task_result_id="")
+        .select_related("job")  # _notify_failure reads run.job.name
         .order_by("-created_at")[:limit]
     )
     terminal = {"SUCCESSFUL": ScheduledJobRun.Status.SUCCESS, "FAILED": ScheduledJobRun.Status.FAILED}
     for run in queued:
         status = _engine_status(run.task_result_id)
-        new = terminal.get(status)
-        if new:
-            run.status = new
-            run.save(update_fields=["status"])
-            ScheduledJob.objects.filter(pk=run.job_id, last_status=ScheduledJobRun.Status.QUEUED).update(
-                last_status=new
-            )
-            if new == ScheduledJobRun.Status.FAILED:
-                _notify_failure(run)
-            updated += 1
+        new = terminal.get(status or "")
+        if not new:
+            continue
+        run.status = new
+        run.save(update_fields=["status"])
+        # Only reflect onto the job's last_status if this is its most recent run,
+        # so a straggling older run can't overwrite a newer run's state.
+        is_latest = not ScheduledJobRun.objects.filter(
+            job_id=run.job_id, created_at__gt=run.created_at
+        ).exists()
+        if is_latest:
+            ScheduledJob.objects.filter(pk=run.job_id).update(last_status=new)
+        if new == ScheduledJobRun.Status.FAILED:
+            _notify_failure(run)
+        updated += 1
     return updated
 
 

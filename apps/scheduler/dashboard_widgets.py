@@ -20,7 +20,7 @@ class SchedulerDashboardWidget(DashboardWidget):
     order = 45
     url_name = "scheduler_dashboard"
 
-    def get_data(self, model_class=None) -> dict:
+    def get_data(self, model_class: type | None = None) -> dict:
         from .models import ScheduledJob, ScheduledJobRun
 
         active = ScheduledJob.objects.filter(enabled=True).count()

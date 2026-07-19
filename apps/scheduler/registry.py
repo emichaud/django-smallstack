@@ -11,12 +11,19 @@ never touches ``enabled`` (user-controlled) and never deletes. Removing a
 from __future__ import annotations
 
 import logging
-from datetime import datetime
+from datetime import datetime, tzinfo
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from .models import ScheduledJob
 
 logger = logging.getLogger("smallstack.scheduler")
 
+# Cadence fields refreshed from code on every sync (task wiring included).
+_CADENCE_FIELDS = ("schedule_type", "interval_spec", "cron_expression", "run_at", "timezone")
 
-def _resolve_anchor(anchor: str, tz) -> datetime | None:
+
+def _resolve_anchor(anchor: str, tz: tzinfo) -> datetime | None:
     """Resolve a decorator ``anchor`` string to an aware datetime.
 
     Accepts ``"MM-DD"`` (this year, midnight in the schedule TZ) or a full ISO
@@ -49,17 +56,11 @@ def sync_code_jobs() -> int:
     """
     from .decorators import _SCHEDULE_REGISTRY
     from .models import ScheduledJob
-    from .schedules import ScheduleConfigError, schedule_tz
+    from .schedules import schedule_tz
 
     synced = 0
     for spec in _SCHEDULE_REGISTRY:
-        cadence = {
-            "schedule_type": spec.schedule_type,
-            "interval_spec": spec.interval_spec,
-            "cron_expression": spec.cron_expression,
-            "run_at": spec.run_at,
-            "timezone": spec.timezone,
-        }
+        cadence = {field: getattr(spec, field) for field in _CADENCE_FIELDS}
         job, created = ScheduledJob.objects.get_or_create(
             name=spec.name,
             defaults={
@@ -73,16 +74,14 @@ def sync_code_jobs() -> int:
             },
         )
 
-        # Resolve the anchor now that we know the job's timezone.
-        anchor_at = _resolve_anchor(spec.anchor, schedule_tz(job if not created else _spec_tz(spec)))
+        # job.timezone is populated in both branches (defaults on create), so a
+        # single schedule_tz(job) resolves the anchor's zone — no spec shim needed.
+        anchor_at = _resolve_anchor(spec.anchor, schedule_tz(job))
 
         if created:
             if anchor_at is not None:
                 job.anchor_at = anchor_at
-            try:
-                job.next_run_at = job.compute_next_run(after=_now())
-            except ScheduleConfigError:
-                logger.warning("scheduler: %s has an invalid cadence; left unscheduled", spec.name)
+            _reseed_next_run(job, spec.name)
             job.save(update_fields=["anchor_at", "next_run_at"])
         else:
             # Refresh cadence + task wiring from code; preserve user's enabled flag,
@@ -95,29 +94,31 @@ def sync_code_jobs() -> int:
             if anchor_at is not None and job.anchor_at != anchor_at:
                 job.anchor_at = anchor_at
                 changed.append("anchor_at")
-            # Ensure a code job that lost its next_run gets rescheduled.
-            if job.enabled and job.next_run_at is None:
-                try:
-                    job.next_run_at = job.compute_next_run(after=_now())
-                    changed.append("next_run_at")
-                except ScheduleConfigError:
-                    pass
+            # If the cadence changed (or a code job lost its next_run), recompute
+            # next_run_at so the new cadence takes effect on the *next* tick —
+            # not one stale fire later at the old time.
+            cadence_changed = any(f in changed for f in (*_CADENCE_FIELDS, "anchor_at"))
+            if job.enabled and (cadence_changed or job.next_run_at is None):
+                _reseed_next_run(job, spec.name)
+                changed.append("next_run_at")
             if changed:
                 job.save(update_fields=list(set(changed)))
         synced += 1
     return synced
 
 
-def _spec_tz(spec):
-    """Duck-typed shim so schedule_tz() can resolve a spec's timezone pre-save."""
+def _reseed_next_run(job: ScheduledJob, name: str) -> None:
+    """Recompute job.next_run_at in place; log and leave it unscheduled if invalid."""
+    from .schedules import ScheduleConfigError
 
-    class _Shim:
-        timezone = spec.timezone
+    try:
+        job.next_run_at = job.compute_next_run(after=_now())
+    except ScheduleConfigError:
+        job.next_run_at = None
+        logger.warning("scheduler: %s has an invalid cadence; left unscheduled", name)
 
-    return _Shim()
 
-
-def _now():
+def _now() -> datetime:
     from django.utils import timezone as djtz
 
     return djtz.now()

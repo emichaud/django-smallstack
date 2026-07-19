@@ -12,7 +12,7 @@ import signal
 import time
 from typing import Any
 
-from django.core.management.base import BaseCommand
+from django.core.management.base import BaseCommand, CommandParser
 
 from apps.scheduler.services import reconcile_run_outcomes, run_due_jobs
 
@@ -20,7 +20,7 @@ from apps.scheduler.services import reconcile_run_outcomes, run_due_jobs
 class Command(BaseCommand):
     help = "Run the scheduler as a foreground loop (dev/single-process)."
 
-    def add_arguments(self, parser) -> None:
+    def add_arguments(self, parser: CommandParser) -> None:
         parser.add_argument("--interval", type=int, default=60, help="Seconds between ticks.")
         parser.add_argument("--once", action="store_true", help="Run one tick and exit.")
 
@@ -28,7 +28,7 @@ class Command(BaseCommand):
         interval = max(1, options["interval"])
         self._running = True
 
-        def _stop(*_a):
+        def _stop(*_a: object) -> None:
             self._running = False
 
         signal.signal(signal.SIGINT, _stop)

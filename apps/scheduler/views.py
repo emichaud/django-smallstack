@@ -25,7 +25,7 @@ from .models import ScheduledJob, ScheduledJobRun
 LOCALHOST_IPS = {"127.0.0.1", "::1"}
 
 
-def _status_badge(value, obj):
+def _status_badge(value: str | None, obj: ScheduledJob) -> str:
     """Colored last-status pill for the list view."""
     from django.utils.html import format_html
 
@@ -40,7 +40,7 @@ def _status_badge(value, obj):
     return format_html('<span style="color: {};">{}</span>', color, label)
 
 
-def _cadence(value, obj):
+def _cadence(value: str | None, obj: ScheduledJob) -> str:
     return obj.cadence_display
 
 
@@ -223,13 +223,7 @@ def run_now(request: HttpRequest, pk: int) -> HttpResponse:
         return HttpResponse(status=403)
     job = get_object_or_404(ScheduledJob, pk=pk)
     try:
-        task_result_id = services._enqueue(job)
-        services._record(job, ScheduledJobRun.Status.QUEUED, timezone.now(), task_result_id=task_result_id)
-        ScheduledJob.objects.filter(pk=job.pk).update(
-            last_enqueued_at=timezone.now(),
-            last_status=ScheduledJobRun.Status.QUEUED,
-            total_runs=job.total_runs + 1,
-        )
+        services.enqueue_and_record(job, scheduled_for=timezone.now())
         messages.success(request, f"“{job.name}” enqueued.")
     except Exception as exc:  # noqa: BLE001 — surface the failure to the operator
         messages.error(request, f"Could not enqueue “{job.name}”: {exc}")

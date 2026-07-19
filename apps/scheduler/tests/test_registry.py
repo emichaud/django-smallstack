@@ -64,6 +64,22 @@ def test_sync_refreshes_cadence_but_preserves_enabled(clean_registry):
     assert job.enabled is False  # user's pause survived the deploy
 
 
+def test_sync_recomputes_next_run_on_cadence_change(clean_registry):
+    clean_registry.append(_spec(cron_expression="0 6 * * *"))
+    registry.sync_code_jobs()
+    before = ScheduledJob.objects.get(name="Nightly").next_run_at
+
+    # Redeploy with a different cron.
+    clean_registry.clear()
+    clean_registry.append(_spec(cron_expression="0 2 * * *"))
+    registry.sync_code_jobs()
+
+    job = ScheduledJob.objects.get(name="Nightly")
+    # next_run_at must move to the new cadence — not stay at the old 06:00 slot
+    # until one stale fire (the bug this guards).
+    assert job.next_run_at != before
+
+
 def test_sync_resolves_interval_anchor(clean_registry):
     clean_registry.append(
         _spec(name="Annual", schedule_type="interval", interval_spec="1y", anchor="12-25", cron_expression="")

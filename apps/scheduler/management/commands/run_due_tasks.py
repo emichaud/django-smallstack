@@ -12,7 +12,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from django.core.management.base import BaseCommand
+from django.core.management.base import BaseCommand, CommandParser
 
 from apps.scheduler.services import reconcile_run_outcomes, run_due_jobs
 
@@ -20,7 +20,7 @@ from apps.scheduler.services import reconcile_run_outcomes, run_due_jobs
 class Command(BaseCommand):
     help = "Enqueue any scheduled jobs whose next run is due."
 
-    def add_arguments(self, parser) -> None:
+    def add_arguments(self, parser: CommandParser) -> None:
         parser.add_argument(
             "--no-reconcile",
             action="store_true",

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from datetime import datetime
+
 from django import forms
 from django.utils import timezone
 
@@ -34,7 +36,7 @@ class ScheduledJobForm(forms.ModelForm):
             "cron_expression": forms.TextInput(attrs={"placeholder": "0 6 * * *"}),
         }
 
-    def clean(self):
+    def clean(self) -> dict:
         """Run the model's cadence validation and surface it on the right field."""
         cleaned = super().clean()
         # Build a throwaway instance to reuse the model's coherence checks.
@@ -46,7 +48,7 @@ class ScheduledJobForm(forms.ModelForm):
             self.add_error(None, exc)
         return cleaned
 
-    def preview_runs(self, n: int = 5) -> list:
+    def preview_runs(self, n: int = 5) -> list[datetime]:
         """Return the next ``n`` fire times for the current cleaned cadence.
 
         Used by the template to show operators what they just configured.
