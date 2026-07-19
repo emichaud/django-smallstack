@@ -3,6 +3,7 @@
 
 import pytest
 
+from apps.search.backends.base import SearchHit
 from apps.search.cache import VariantCache, clear_variant_cache
 from apps.search.examples import (
     TicketSearchBuilderExample,
@@ -10,12 +11,11 @@ from apps.search.examples import (
 )
 from apps.search.orchestration import get_search_orchestrator
 from apps.search.serializers import (
+    serialize_all_search_configs,
+    serialize_search_config,
     serialize_search_hit,
     serialize_search_results,
-    serialize_search_config,
-    serialize_all_search_configs,
 )
-from apps.search.backends.base import SearchHit
 
 
 class MockUser:
