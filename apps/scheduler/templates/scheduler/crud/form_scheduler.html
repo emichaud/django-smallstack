@@ -1,0 +1,653 @@
+{% comment %}
+Custom schedule editor for ScheduledJob. Renders the real Django form fields
+(so validation + submit are unchanged) but wraps the cadence fields in visual
+builders: a segmented schedule-type picker with progressive disclosure, an
+interval builder, and a cron builder — all narrated by a live plain-English
+summary. Theme-variable-only, palette-correct across all 10 combos.
+{% endcomment %}
+
+<form method="POST" class="crud-form sjf" {% if form.is_multipart %}enctype="multipart/form-data"{% endif %}>
+    {% csrf_token %}
+    {% if form.non_field_errors %}<div class="sjf-formerror">{{ form.non_field_errors }}</div>{% endif %}
+
+    {# ── Definition (read-only — owned by code) ─────────────────── #}
+    <div class="sjf-section">
+        <div class="sjf-section-header">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"/></svg>
+            What it runs
+            <span class="sjf-code-badge">{{ form.instance.get_source_display }}</span>
+        </div>
+        <div class="sjf-section-body">
+            <dl class="sjf-def">
+                <div class="sjf-def-row"><dt>Name</dt><dd>{{ form.instance.name }}</dd></div>
+                <div class="sjf-def-row"><dt>Task</dt><dd><code>{{ form.instance.task_path }}</code></dd></div>
+                {% if form.instance.description %}<div class="sjf-def-row"><dt>Description</dt><dd>{{ form.instance.description }}</dd></div>{% endif %}
+                <div class="sjf-def-row"><dt>Arguments</dt><dd><code>{{ form.instance.kwargs|default:"{}" }}</code></dd></div>
+                <div class="sjf-def-row"><dt>Queue</dt><dd>{{ form.instance.queue_name }}</dd></div>
+            </dl>
+            <p class="crud-help">Defined in code. <strong>What</strong> it runs, its arguments and queue are managed by a developer — you can override its <strong>schedule</strong> and <strong>pause</strong> it below.</p>
+        </div>
+    </div>
+
+    {# ── Schedule ──────────────────────────────────────────────── #}
+    <div class="sjf-section" id="sjf-schedule">
+        <div class="sjf-section-header">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z"/></svg>
+            When it runs
+        </div>
+        <div class="sjf-section-body">
+
+            {# live plain-English summary — the read-back #}
+            <div class="sjf-summary" id="sjf-summary">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M9 16.17 4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
+                <span id="sjf-summary-text">Pick a cadence below</span>
+            </div>
+
+            {% if form.instance.schedule_overridden %}
+            <div class="sjf-override-note">
+                <span><svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor"><path d="M14.4 6 14 4H5v17h2v-7h5.6l.4 2h7V6z"/></svg> Schedule overridden here — code changes won't revert it.</span>
+                <button type="submit" class="sjf-reset-btn" formaction="{% url 'scheduler_reset_schedule' form.instance.pk %}" formnovalidate>Reset to code default</button>
+            </div>
+            {% endif %}
+
+            {# segmented schedule-type picker (drives the hidden <select>) #}
+            <div class="sjf-seg" id="sjf-type-seg">
+                <button type="button" class="sjf-seg-btn" data-value="once">
+                    <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.24 14.24L11 13V7h1.5v5.25l4.5 2.67-.76 1.32z"/></svg>
+                    <span>Once</span></button>
+                <button type="button" class="sjf-seg-btn" data-value="interval">
+                    <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor"><path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46C19.54 15.03 20 13.57 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74C4.46 8.97 4 10.43 4 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z"/></svg>
+                    <span>Every…</span></button>
+                <button type="button" class="sjf-seg-btn" data-value="cron">
+                    <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor"><path d="M7 11h2v2H7v-2zm14-5v14c0 1.1-.9 2-2 2H5a2 2 0 0 1-2-2l.01-14c0-1.1.88-2 1.99-2h1V2h2v2h8V2h2v2h1c1.1 0 2 .9 2 2zM5 8h14V6H5v2zm14 12V10H5v10h14zm-4-7h2v-2h-2v2zm-4 0h2v-2h-2v2z"/></svg>
+                    <span>Cron</span></button>
+            </div>
+            {# real select — hidden, kept in DOM so it submits #}
+            <div class="sjf-hidden-native">{{ form.schedule_type }}</div>
+            {% if form.schedule_type.errors %}<p class="crud-error">{{ form.schedule_type.errors.0 }}</p>{% endif %}
+
+            {# ── ONCE group ── #}
+            <div class="sjf-group" data-group="once">
+                <div class="crud-field sjf-field{% if form.run_at.errors %} has-error{% endif %}">
+                    <label class="crud-label" for="{{ form.run_at.id_for_label }}">Run at</label>
+                    <div class="sjf-runat-row">
+                        {{ form.run_at }}
+                        <div class="sjf-chips" id="sjf-runat-presets">
+                            <button type="button" class="sjf-chip" data-run="+1h">In 1 hour</button>
+                            <button type="button" class="sjf-chip" data-run="tonight">Tonight, 8 PM</button>
+                            <button type="button" class="sjf-chip" data-run="tomorrow9">Tomorrow, 9 AM</button>
+                            <button type="button" class="sjf-chip" data-run="nextmon9">Next Mon, 9 AM</button>
+                        </div>
+                    </div>
+                    <p class="crud-help">A single fire at this exact moment, then done.</p>
+                    {% if form.run_at.errors %}<p class="crud-error">{{ form.run_at.errors.0 }}</p>{% endif %}
+                </div>
+            </div>
+
+            {# ── INTERVAL group ── #}
+            <div class="sjf-group" data-group="interval">
+                <div class="sjf-builder">
+                    <div class="sjf-inline">
+                        <span class="sjf-lead">Every</span>
+                        <input type="number" id="sjf-int-num" class="sjf-num" min="1" value="1" aria-label="Interval count">
+                        <div class="sjf-seg sjf-seg-sm" id="sjf-int-unit">
+                            <button type="button" class="sjf-seg-btn" data-unit="m">min</button>
+                            <button type="button" class="sjf-seg-btn" data-unit="h">hours</button>
+                            <button type="button" class="sjf-seg-btn" data-unit="d">days</button>
+                            <button type="button" class="sjf-seg-btn" data-unit="w">weeks</button>
+                            <button type="button" class="sjf-seg-btn" data-unit="mo">months</button>
+                        </div>
+                    </div>
+                    <div class="sjf-chips" id="sjf-int-presets">
+                        <button type="button" class="sjf-chip" data-preset="5m">5 min</button>
+                        <button type="button" class="sjf-chip" data-preset="15m">15 min</button>
+                        <button type="button" class="sjf-chip" data-preset="30m">30 min</button>
+                        <button type="button" class="sjf-chip" data-preset="1h">Hourly</button>
+                        <button type="button" class="sjf-chip" data-preset="6h">6 hours</button>
+                        <button type="button" class="sjf-chip" data-preset="1d">Daily</button>
+                        <button type="button" class="sjf-chip" data-preset="1w">Weekly</button>
+                    </div>
+                    <div class="crud-field sjf-field sjf-raw{% if form.interval_spec.errors %} has-error{% endif %}">
+                        <label class="crud-label" for="{{ form.interval_spec.id_for_label }}">Interval value</label>
+                        {{ form.interval_spec }}
+                        <p class="crud-help">Forms like <code>5m</code>, <code>2h</code>, <code>1d</code>, <code>1mo</code>. The builder above fills this in.</p>
+                        {% if form.interval_spec.errors %}<p class="crud-error">{{ form.interval_spec.errors.0 }}</p>{% endif %}
+                    </div>
+                </div>
+                <div class="crud-field sjf-field{% if form.anchor_at.errors %} has-error{% endif %}">
+                    <label class="crud-label" for="{{ form.anchor_at.id_for_label }}">Anchor (optional)</label>
+                    {{ form.anchor_at }}
+                    <p class="crud-help">Align the interval to this start instant. Leave blank to count from now.</p>
+                    {% if form.anchor_at.errors %}<p class="crud-error">{{ form.anchor_at.errors.0 }}</p>{% endif %}
+                </div>
+            </div>
+
+            {# ── CRON group ── #}
+            <div class="sjf-group" data-group="cron">
+                <div class="sjf-builder">
+                    <div class="sjf-seg" id="sjf-cron-freq">
+                        <button type="button" class="sjf-seg-btn" data-freq="hourly">Hourly</button>
+                        <button type="button" class="sjf-seg-btn" data-freq="daily">Daily</button>
+                        <button type="button" class="sjf-seg-btn" data-freq="weekly">Weekly</button>
+                        <button type="button" class="sjf-seg-btn" data-freq="monthly">Monthly</button>
+                        <button type="button" class="sjf-seg-btn" data-freq="advanced">Advanced</button>
+                    </div>
+
+                    <div class="sjf-cron-controls">
+                        <div class="sjf-cron-row" data-when="hourly">
+                            <span class="sjf-lead">at minute</span>
+                            <input type="number" id="sjf-cron-min" class="sjf-num" min="0" max="59" value="0" aria-label="Minute">
+                        </div>
+                        <div class="sjf-cron-row" data-when="daily weekly monthly">
+                            <span class="sjf-lead">at</span>
+                            <input type="time" id="sjf-cron-time" class="sjf-time" value="00:00" aria-label="Time of day">
+                        </div>
+                        <div class="sjf-cron-row sjf-cron-dow" data-when="weekly">
+                            <span class="sjf-lead">on</span>
+                            <div class="sjf-chips" id="sjf-cron-dow">
+                                <button type="button" class="sjf-chip" data-dow="1">Mon</button>
+                                <button type="button" class="sjf-chip" data-dow="2">Tue</button>
+                                <button type="button" class="sjf-chip" data-dow="3">Wed</button>
+                                <button type="button" class="sjf-chip" data-dow="4">Thu</button>
+                                <button type="button" class="sjf-chip" data-dow="5">Fri</button>
+                                <button type="button" class="sjf-chip" data-dow="6">Sat</button>
+                                <button type="button" class="sjf-chip" data-dow="0">Sun</button>
+                            </div>
+                        </div>
+                        <div class="sjf-cron-row" data-when="monthly">
+                            <span class="sjf-lead">on day</span>
+                            <input type="number" id="sjf-cron-dom" class="sjf-num" min="1" max="31" value="1" aria-label="Day of month">
+                            <span class="sjf-lead">of the month</span>
+                        </div>
+                    </div>
+
+                    <div class="crud-field sjf-field sjf-raw{% if form.cron_expression.errors %} has-error{% endif %}">
+                        <label class="crud-label" for="{{ form.cron_expression.id_for_label }}">Cron expression</label>
+                        <div class="sjf-cron-raw-row">
+                            {{ form.cron_expression }}
+                            <div class="sjf-cron-legend"><span>min</span><span>hour</span><span>dom</span><span>mon</span><span>dow</span></div>
+                        </div>
+                        <p class="crud-help">The builder writes here — or type a 5-field cron directly (advanced).</p>
+                        {% if form.cron_expression.errors %}<p class="crud-error">{{ form.cron_expression.errors.0 }}</p>{% endif %}
+                    </div>
+                </div>
+            </div>
+
+            {# timezone — the project's grouped, scrollable region select #}
+            <div class="crud-field sjf-field sjf-tz{% if form.timezone.errors %} has-error{% endif %}">
+                <label class="crud-label" for="{{ form.timezone.id_for_label }}">Timezone</label>
+                {{ form.timezone }}
+                <p class="crud-help">The times above are interpreted in this zone (blank = server default).</p>
+                {% if form.timezone.errors %}<p class="crud-error">{{ form.timezone.errors.0 }}</p>{% endif %}
+            </div>
+
+            {# ── live "next 5 runs" preview (htmx) ── #}
+            <div class="sjf-preview-wrap">
+                <div class="sjf-preview-head">
+                    <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor"><path d="M15 1H9v2h6V1zm-4 13h2V8h-2v6zm8.03-6.61 1.42-1.42c-.43-.51-.9-.99-1.41-1.41l-1.42 1.42A8.962 8.962 0 0 0 12 4c-4.97 0-9 4.03-9 9s4.02 9 9 9 9-4.03 9-9c0-2.12-.74-4.07-1.97-5.61zM12 20c-3.87 0-7-3.13-7-7s3.13-7 7-7 7 3.13 7 7-3.13 7-7 7z"/></svg>
+                    Next 5 runs
+                </div>
+                <div id="sjf-preview"
+                     hx-post="{% url 'scheduler_preview' %}"
+                     hx-include="#sjf-schedule, [name=csrfmiddlewaretoken]"
+                     hx-trigger="load, sjf:cadence from:body delay:450ms"
+                     hx-target="#sjf-preview" hx-swap="innerHTML">
+                    <div class="sjf-preview-empty">Configure a cadence to preview…</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {# ── Behaviour ─────────────────────────────────────────────── #}
+    <div class="sjf-section">
+        <div class="sjf-section-header">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.49.49 0 0 0 .12-.61l-1.92-3.32a.488.488 0 0 0-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.484.484 0 0 0-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58a.49.49 0 0 0-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>
+            How it behaves
+        </div>
+        <div class="sjf-section-body sjf-two">
+            <div class="crud-field sjf-field sjf-toggle-field">
+                <label class="sjf-switch">
+                    {{ form.enabled }}
+                    <span class="sjf-switch-track"><span class="sjf-switch-thumb"></span></span>
+                    <span class="sjf-switch-label">{{ form.enabled.label }}</span>
+                </label>
+                <p class="crud-help">Off pauses the schedule without deleting it.</p>
+            </div>
+            <div class="crud-field sjf-field sjf-toggle-field">
+                <label class="sjf-switch">
+                    {{ form.allow_overlap }}
+                    <span class="sjf-switch-track"><span class="sjf-switch-thumb"></span></span>
+                    <span class="sjf-switch-label">{{ form.allow_overlap.label }}</span>
+                </label>
+                <p class="crud-help">{{ form.allow_overlap.help_text }}</p>
+            </div>
+            <div class="crud-field sjf-field sjf-span">
+                <label class="crud-label">After downtime (catch-up)</label>
+                <div class="sjf-seg" id="sjf-catchup-seg">
+                    <button type="button" class="sjf-seg-btn" data-value="run_once">Run once, then resume</button>
+                    <button type="button" class="sjf-seg-btn" data-value="skip">Skip missed runs</button>
+                </div>
+                <div class="sjf-hidden-native">{{ form.catch_up }}</div>
+                <p class="crud-help">If the worker was down through one or more fires, run a single catch-up then resume — or skip them entirely.</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="crud-actions" style="margin-top: 1.25rem;">
+        <button type="submit" class="btn-save">Save changes</button>
+        <button type="submit" class="btn-outline" formaction="{% url 'scheduler_run_now' form.instance.pk %}" formnovalidate>Run now</button>
+        <a href="{{ list_view_url }}" class="btn-cancel">Cancel</a>
+    </div>
+</form>
+
+<style>
+/* ── layout ─────────────────────────────────────────────────── */
+.sjf { display: flex; flex-direction: column; gap: 1.1rem; }
+.sjf-section {
+    background: var(--card-bg, var(--body-bg));
+    border: 1px solid var(--card-border, color-mix(in srgb, var(--body-fg) 10%, var(--body-bg)));
+    border-radius: var(--radius-md, 8px);
+    overflow: hidden;
+}
+.sjf-section-header {
+    display: flex; align-items: center; gap: 0.5rem;
+    padding: 0.7rem 1.1rem;
+    background: color-mix(in srgb, var(--body-fg) 4%, var(--body-bg));
+    border-bottom: 1px solid color-mix(in srgb, var(--body-fg) 8%, var(--body-bg));
+    font-weight: 600; font-size: 0.82rem; letter-spacing: 0.01em;
+    color: var(--body-fg);
+}
+.sjf-section-header svg { color: var(--primary); flex-shrink: 0; }
+.sjf-code-badge {
+    margin-left: auto; padding: 2px 9px; border-radius: 999px;
+    font-size: 0.66rem; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase;
+    color: var(--primary); background: color-mix(in srgb, var(--primary) 15%, var(--body-bg));
+    border: 1px solid color-mix(in srgb, var(--primary) 35%, transparent);
+}
+
+/* ── read-only definition ───────────────────────────────────── */
+.sjf-def { margin: 0; display: flex; flex-direction: column; gap: 0.55rem; }
+.sjf-def-row { display: grid; grid-template-columns: 7rem 1fr; gap: 0.75rem; align-items: baseline; }
+.sjf-def dt { color: var(--body-quiet-color); font-size: 0.8rem; font-weight: 600; margin: 0; }
+.sjf-def dd { color: var(--body-fg); font-size: 0.92rem; margin: 0; word-break: break-word; }
+.sjf-def code {
+    font-family: ui-monospace, "Cascadia Code", Menlo, monospace; font-size: 0.85rem;
+    background: color-mix(in srgb, var(--body-fg) 7%, var(--body-bg));
+    padding: 2px 7px; border-radius: 4px;
+}
+@media (max-width: 560px) { .sjf-def-row { grid-template-columns: 1fr; gap: 0.15rem; } }
+
+/* ── schedule-override banner ───────────────────────────────── */
+.sjf-override-note {
+    display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;
+    padding: 0.6rem 0.9rem; border-radius: var(--radius-sm, 6px);
+    background: color-mix(in srgb, var(--warning-fg) 12%, var(--body-bg));
+    border: 1px solid color-mix(in srgb, var(--warning-fg) 35%, transparent);
+    color: var(--body-fg); font-size: 0.85rem;
+}
+.sjf-override-note > span { display: inline-flex; align-items: center; gap: 0.4rem; }
+.sjf-override-note svg { color: var(--warning-fg); }
+.sjf-reset-btn {
+    margin-left: auto; padding: 5px 12px; border-radius: var(--radius-sm, 5px);
+    border: 1px solid var(--card-border, color-mix(in srgb, var(--body-fg) 20%, var(--body-bg)));
+    background: var(--body-bg); color: var(--body-fg);
+    font-size: 0.8rem; font-weight: 600; font-family: inherit; cursor: pointer; transition: all 0.13s;
+}
+.sjf-reset-btn:hover { border-color: var(--primary); color: var(--primary); }
+.sjf-section-body { padding: 1.1rem; display: flex; flex-direction: column; gap: 1rem; }
+.sjf-two { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+.sjf-span { grid-column: 1 / -1; }
+@media (max-width: 720px) { .sjf-two { grid-template-columns: 1fr; } }
+.sjf-field { display: flex; flex-direction: column; gap: 0.35rem; }
+.sjf-field .crud-label { font-size: 0.8rem; font-weight: 600; color: var(--body-fg); }
+.sjf-hidden-native { display: none; }
+.sjf-formerror { color: var(--error-fg); font-size: 0.85rem; }
+
+/* ── live summary ───────────────────────────────────────────── */
+.sjf-summary {
+    display: flex; align-items: center; gap: 0.6rem;
+    padding: 0.8rem 1rem;
+    border-radius: var(--radius-sm, 6px);
+    border: 1px solid color-mix(in srgb, var(--primary) 35%, transparent);
+    border-left: 3px solid var(--primary);
+    background: var(--accent-band-bg, color-mix(in srgb, var(--primary) 8%, var(--body-bg)));
+    color: var(--body-fg);
+    font-size: 0.95rem; font-weight: 500;
+}
+.sjf-summary svg { color: var(--primary); flex-shrink: 0; }
+#sjf-summary-text b { color: var(--primary); font-weight: 700; }
+
+/* ── segmented control (schedule type, cron freq) ───────────── */
+.sjf-seg {
+    display: inline-flex; flex-wrap: wrap; gap: 3px;
+    background: color-mix(in srgb, var(--body-fg) 6%, var(--body-bg));
+    border-radius: var(--radius-sm, 6px);
+    padding: 3px;
+}
+.sjf-seg-btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 8px 16px;
+    border: none; border-radius: var(--radius-sm, 5px);
+    background: transparent; color: var(--text-muted, var(--body-quiet-color));
+    font-size: 0.85rem; font-weight: 600; font-family: inherit;
+    cursor: pointer; transition: background 0.15s, color 0.15s;
+}
+.sjf-seg-btn:hover { color: var(--body-fg); background: color-mix(in srgb, var(--body-fg) 6%, var(--body-bg)); }
+.sjf-seg-btn.active { background: var(--primary); color: var(--button-fg); box-shadow: var(--shadow-sm, 0 1px 3px rgba(0,0,0,0.25)); }
+.sjf-seg-btn.active svg { color: var(--button-fg); }
+.sjf-seg-sm .sjf-seg-btn { padding: 6px 12px; font-size: 0.8rem; }
+
+/* ── builder box ────────────────────────────────────────────── */
+.sjf-builder {
+    display: flex; flex-direction: column; gap: 0.9rem;
+    padding: 0.95rem;
+    border: 1px dashed color-mix(in srgb, var(--body-fg) 16%, var(--body-bg));
+    border-radius: var(--radius-sm, 6px);
+    background: color-mix(in srgb, var(--body-fg) 2.5%, var(--body-bg));
+}
+.sjf-inline { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; }
+.sjf-lead { color: var(--body-quiet-color); font-size: 0.88rem; }
+.sjf-num { width: 5.5rem !important; text-align: center; }
+.sjf-time { width: 8.5rem !important; }
+
+/* ── chips (presets, day-of-week) ───────────────────────────── */
+.sjf-chips { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+.sjf-chip {
+    padding: 5px 12px;
+    border: 1px solid var(--card-border, color-mix(in srgb, var(--body-fg) 15%, var(--body-bg)));
+    border-radius: 999px;
+    background: transparent; color: var(--body-quiet-color);
+    font-size: 0.8rem; font-weight: 600; font-family: inherit;
+    cursor: pointer; transition: all 0.13s;
+}
+.sjf-chip:hover { color: var(--body-fg); border-color: var(--primary); }
+.sjf-chip.active {
+    background: color-mix(in srgb, var(--primary) 16%, var(--body-bg));
+    border-color: var(--primary); color: var(--primary);
+}
+
+/* ── cron controls ──────────────────────────────────────────── */
+.sjf-cron-controls { display: flex; flex-direction: column; gap: 0.75rem; }
+.sjf-cron-row { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; }
+.sjf-cron-row[hidden] { display: none; }
+.sjf-cron-raw-row { display: flex; flex-direction: column; gap: 0.35rem; }
+.sjf-cron-raw-row .sjf-cron-legend {
+    display: grid; grid-template-columns: repeat(5, 1fr);
+    max-width: 26rem; gap: 2px;
+    font-size: 0.62rem; letter-spacing: 0.04em; text-transform: uppercase;
+    color: var(--body-quiet-color); text-align: center;
+}
+.sjf-raw input { font-family: ui-monospace, "Cascadia Code", Menlo, monospace; max-width: 26rem; }
+.sjf-cron-legend span { padding: 1px 0; }
+
+/* ── toggle switch (enabled / allow_overlap) ────────────────── */
+.sjf-toggle-field { justify-content: flex-start; }
+.sjf-switch { display: inline-flex; align-items: center; gap: 0.6rem; cursor: pointer; user-select: none; }
+.sjf-switch input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.sjf-switch-track {
+    position: relative; width: 42px; height: 24px; flex-shrink: 0;
+    background: color-mix(in srgb, var(--body-fg) 38%, var(--body-bg));
+    border-radius: 999px; transition: background 0.18s;
+}
+.sjf-switch-thumb {
+    position: absolute; top: 3px; left: 3px; width: 18px; height: 18px;
+    background: #fff; border-radius: 50%; box-shadow: 0 1px 3px rgba(0,0,0,0.5);
+    transition: transform 0.18s;
+}
+.sjf-switch input:checked + .sjf-switch-track { background: var(--primary); }
+.sjf-switch input:checked + .sjf-switch-track .sjf-switch-thumb { transform: translateX(18px); }
+.sjf-switch input:focus-visible + .sjf-switch-track { outline: 2px solid var(--primary); outline-offset: 2px; }
+.sjf-switch-label { font-size: 0.88rem; font-weight: 600; color: var(--body-fg); }
+
+/* ── queue + timezone + run-at helpers ──────────────────────── */
+.sjf-queue-input input { max-width: 13rem; }
+.sjf-tz select { max-width: 24rem; }
+.sjf-runat-row { display: flex; align-items: center; gap: 0.7rem; flex-wrap: wrap; }
+.sjf-runat-row .crud-date-wrapper { flex: 0 0 auto; width: 15rem; }
+/* compact the two identity textareas (override the global 120px min-height) */
+.sjf #id_description, .sjf #id_kwargs { min-height: 0; }
+.sjf #id_kwargs { font-family: ui-monospace, "Cascadia Code", Menlo, monospace; }
+
+/* ── next-5-runs preview ────────────────────────────────────── */
+.sjf-preview-wrap {
+    border: 1px solid var(--card-border, color-mix(in srgb, var(--body-fg) 12%, var(--body-bg)));
+    border-radius: var(--radius-sm, 6px); overflow: hidden;
+}
+.sjf-preview-head {
+    display: flex; align-items: center; gap: 0.45rem;
+    padding: 0.55rem 0.9rem;
+    background: color-mix(in srgb, var(--body-fg) 4%, var(--body-bg));
+    border-bottom: 1px solid color-mix(in srgb, var(--body-fg) 8%, var(--body-bg));
+    font-size: 0.72rem; font-weight: 700; letter-spacing: 0.05em;
+    text-transform: uppercase; color: var(--body-quiet-color);
+}
+.sjf-preview-head svg { color: var(--primary); }
+.sjf-preview-list { list-style: none; margin: 0; padding: 0.35rem 0.5rem; }
+.sjf-preview-item { display: flex; align-items: center; gap: 0.7rem; padding: 0.38rem 0.5rem; border-radius: var(--radius-sm, 5px); }
+.sjf-preview-item:hover { background: color-mix(in srgb, var(--body-fg) 4%, var(--body-bg)); }
+.sjf-preview-dot {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 20px; height: 20px; flex-shrink: 0; border-radius: 50%;
+    font-size: 0.7rem; font-weight: 700;
+    background: color-mix(in srgb, var(--primary) 16%, var(--body-bg)); color: var(--primary);
+}
+.sjf-preview-abs { color: var(--body-fg); font-size: 0.9rem; font-weight: 500; }
+.sjf-preview-rel { margin-left: auto; color: var(--body-quiet-color); font-size: 0.8rem; font-variant-numeric: tabular-nums; }
+.sjf-preview-empty { padding: 0.9rem; color: var(--body-quiet-color); font-size: 0.85rem; }
+#sjf-preview.htmx-request { opacity: 0.45; transition: opacity 0.15s; }
+</style>
+
+<script>
+(function () {
+    var form = document.querySelector('.sjf');
+    if (!form) return;
+
+    // ── real inputs (source of truth) ──────────────────────────
+    var typeSel = document.getElementById('id_schedule_type');
+    var intInput = document.getElementById('id_interval_spec');
+    var cronInput = document.getElementById('id_cron_expression');
+    var tzInput = document.getElementById('id_timezone');
+
+    // ── helpers ────────────────────────────────────────────────
+    function setActive(container, matchFn) {
+        container.querySelectorAll('.sjf-seg-btn, .sjf-chip').forEach(function (b) {
+            b.classList.toggle('active', matchFn(b));
+        });
+    }
+    var DOW = { 0: 'Sun', 1: 'Mon', 2: 'Tue', 3: 'Wed', 4: 'Thu', 5: 'Fri', 6: 'Sat' };
+    var UNIT_WORD = { s: 'second', m: 'minute', h: 'hour', d: 'day', w: 'week', mo: 'month', y: 'year' };
+    function pl(n, w) { return n + ' ' + w + (n == 1 ? '' : 's'); }
+    function pad(n) { return (n < 10 ? '0' : '') + n; }
+    function h12(h, m) { var ap = h < 12 ? 'AM' : 'PM'; var hh = h % 12; if (hh === 0) hh = 12; return hh + ':' + pad(m) + ' ' + ap; }
+    function tzSuffix() { var v = tzInput && tzInput.value.trim(); return v ? ' (' + v + ')' : ''; }
+
+    // ── summary ────────────────────────────────────────────────
+    var summaryEl = document.getElementById('sjf-summary-text');
+    function setSummary(html) { summaryEl.innerHTML = html; }
+
+    // ── progressive disclosure by schedule type ────────────────
+    var typeSeg = document.getElementById('sjf-type-seg');
+    function showType(val) {
+        typeSel.value = val;
+        setActive(typeSeg, function (b) { return b.dataset.value === val; });
+        form.querySelectorAll('.sjf-group').forEach(function (g) {
+            g.style.display = (g.dataset.group === val) ? '' : 'none';
+        });
+        refreshSummary();
+    }
+    typeSeg.addEventListener('click', function (e) {
+        var btn = e.target.closest('.sjf-seg-btn'); if (btn) showType(btn.dataset.value);
+    });
+
+    // ── INTERVAL builder ───────────────────────────────────────
+    var intNum = document.getElementById('sjf-int-num');
+    var intUnitSeg = document.getElementById('sjf-int-unit');
+    var intPresets = document.getElementById('sjf-int-presets');
+    function currentUnit() { var a = intUnitSeg.querySelector('.sjf-seg-btn.active'); return a ? a.dataset.unit : 'm'; }
+    function buildInterval() {
+        var n = Math.max(1, parseInt(intNum.value, 10) || 1);
+        var u = currentUnit();
+        intInput.value = n + u;
+        setActive(intPresets, function (b) { return b.dataset.preset === (n + u); });
+        refreshSummary();
+    }
+    function loadInterval(spec) {
+        var m = /^(\d+)\s*(mo|[smhdwy])$/i.exec((spec || '').trim());
+        if (m) {
+            intNum.value = m[1];
+            var u = m[2].toLowerCase();
+            setActive(intUnitSeg, function (b) { return b.dataset.unit === u; });
+        } else {
+            intNum.value = 1;
+            setActive(intUnitSeg, function (b) { return b.dataset.unit === 'm'; });
+        }
+    }
+    intNum.addEventListener('input', buildInterval);
+    intUnitSeg.addEventListener('click', function (e) {
+        var b = e.target.closest('.sjf-seg-btn'); if (!b) return;
+        setActive(intUnitSeg, function (x) { return x === b; }); buildInterval();
+    });
+    intPresets.addEventListener('click', function (e) {
+        var b = e.target.closest('.sjf-chip'); if (!b) return;
+        loadInterval(b.dataset.preset); buildInterval();
+    });
+    intInput.addEventListener('input', function () { loadInterval(intInput.value); refreshSummary(); });
+
+    // ── CRON builder ───────────────────────────────────────────
+    var freqSeg = document.getElementById('sjf-cron-freq');
+    var cMin = document.getElementById('sjf-cron-min');
+    var cTime = document.getElementById('sjf-cron-time');
+    var cDom = document.getElementById('sjf-cron-dom');
+    var dowChips = document.getElementById('sjf-cron-dow');
+    function currentFreq() { var a = freqSeg.querySelector('.sjf-seg-btn.active'); return a ? a.dataset.freq : 'daily'; }
+    function timeParts() { var p = (cTime.value || '00:00').split(':'); return [parseInt(p[1], 10) || 0, parseInt(p[0], 10) || 0]; } // [min, hour]
+    function selectedDows() {
+        return Array.prototype.map.call(dowChips.querySelectorAll('.sjf-chip.active'), function (c) { return parseInt(c.dataset.dow, 10); });
+    }
+    function showFreqRows(freq) {
+        form.querySelectorAll('.sjf-cron-row').forEach(function (r) {
+            r.hidden = r.dataset.when.split(' ').indexOf(freq) === -1;
+        });
+    }
+    function buildCron() {
+        var freq = currentFreq();
+        if (freq === 'advanced') { refreshSummary(); return; }  // raw field is the source
+        var tp = timeParts(), mm = tp[0], hh = tp[1], expr = '';
+        if (freq === 'hourly') { expr = (parseInt(cMin.value, 10) || 0) + ' * * * *'; }
+        else if (freq === 'daily') { expr = mm + ' ' + hh + ' * * *'; }
+        else if (freq === 'weekly') {
+            var d = selectedDows(); if (!d.length) d = [1];
+            expr = mm + ' ' + hh + ' * * ' + d.sort(function (a, b) { return a - b; }).join(',');
+        } else if (freq === 'monthly') { expr = mm + ' ' + hh + ' ' + (parseInt(cDom.value, 10) || 1) + ' * *'; }
+        cronInput.value = expr;
+        refreshSummary();
+    }
+    function loadCron(expr) {
+        var parts = (expr || '').trim().split(/\s+/);
+        if (parts.length !== 5) { setActive(freqSeg, function (b) { return b.dataset.freq === 'advanced'; }); showFreqRows('advanced'); return; }
+        var mi = parts[0], ho = parts[1], dom = parts[2], mon = parts[3], dow = parts[4];
+        var isNum = function (s) { return /^\d+$/.test(s); };
+        var freq = 'advanced';
+        if (ho === '*' && dom === '*' && mon === '*' && dow === '*' && isNum(mi)) { freq = 'hourly'; cMin.value = mi; }
+        else if (isNum(mi) && isNum(ho) && dom === '*' && mon === '*' && dow === '*') { freq = 'daily'; cTime.value = pad(ho) + ':' + pad(mi); }
+        else if (isNum(mi) && isNum(ho) && dom === '*' && mon === '*' && /^[0-6](,[0-6])*$/.test(dow)) {
+            freq = 'weekly'; cTime.value = pad(ho) + ':' + pad(mi);
+            var set = dow.split(',');
+            dowChips.querySelectorAll('.sjf-chip').forEach(function (c) { c.classList.toggle('active', set.indexOf(c.dataset.dow) !== -1); });
+        } else if (isNum(mi) && isNum(ho) && isNum(dom) && mon === '*' && dow === '*') { freq = 'monthly'; cTime.value = pad(ho) + ':' + pad(mi); cDom.value = dom; }
+        setActive(freqSeg, function (b) { return b.dataset.freq === freq; });
+        showFreqRows(freq);
+    }
+    freqSeg.addEventListener('click', function (e) {
+        var b = e.target.closest('.sjf-seg-btn'); if (!b) return;
+        setActive(freqSeg, function (x) { return x === b; }); showFreqRows(b.dataset.freq); buildCron();
+    });
+    [cMin, cTime, cDom].forEach(function (el) { el.addEventListener('input', buildCron); });
+    dowChips.addEventListener('click', function (e) {
+        var c = e.target.closest('.sjf-chip'); if (!c) return; c.classList.toggle('active'); buildCron();
+    });
+    cronInput.addEventListener('input', function () { loadCron(cronInput.value); refreshSummary(); });
+
+    // ── cron → English (builder-driven, deterministic) ─────────
+    function cronEnglish() {
+        var freq = currentFreq();
+        var tp = timeParts(), at = h12(tp[1], tp[0]);
+        if (freq === 'hourly') { var m = parseInt(cMin.value, 10) || 0; return 'every hour at <b>:' + pad(m) + '</b>'; }
+        if (freq === 'daily') { return 'every day at <b>' + at + '</b>'; }
+        if (freq === 'weekly') {
+            var d = selectedDows(); if (!d.length) return 'weekly — <b>pick a day</b>';
+            return 'every <b>' + d.sort(function (a, b) { return a - b; }).map(function (x) { return DOW[x]; }).join(', ') + '</b> at <b>' + at + '</b>';
+        }
+        if (freq === 'monthly') { return 'on day <b>' + (parseInt(cDom.value, 10) || 1) + '</b> of every month at <b>' + at + '</b>'; }
+        return 'cron <b>' + (cronInput.value.trim() || '—') + '</b>';
+    }
+
+    // ── unified summary ────────────────────────────────────────
+    function refreshSummary() {
+        var t = typeSel.value;
+        if (t === 'once') {
+            var rv = document.getElementById('id_run_at');
+            setSummary('runs <b>once</b>' + (rv && rv.value ? ' at <b>' + rv.value.replace('T', ' ') + '</b>' : '') + tzSuffix());
+        } else if (t === 'interval') {
+            var m = /^(\d+)\s*(mo|[smhdwy])$/i.exec((intInput.value || '').trim());
+            if (m) setSummary('runs every <b>' + pl(parseInt(m[1], 10), UNIT_WORD[m[2].toLowerCase()]) + '</b>' + tzSuffix());
+            else setSummary('runs on an <b>interval</b>' + tzSuffix());
+        } else if (t === 'cron') {
+            setSummary('runs ' + cronEnglish() + tzSuffix());
+        } else { setSummary('Pick a cadence below'); }
+        document.body.dispatchEvent(new CustomEvent('sjf:cadence'));  // → htmx next-runs preview
+    }
+
+    // ── catch-up segmented (drives hidden select) ──────────────
+    var catchSel = document.getElementById('id_catch_up');
+    var catchupSeg = document.getElementById('sjf-catchup-seg');
+    if (catchupSeg && catchSel) {
+        catchupSeg.addEventListener('click', function (e) {
+            var b = e.target.closest('.sjf-seg-btn'); if (!b) return;
+            catchSel.value = b.dataset.value;
+            setActive(catchupSeg, function (x) { return x === b; });
+        });
+        setActive(catchupSeg, function (b) { return b.dataset.value === catchSel.value; });
+    }
+
+    // ── timezone select → refresh summary + preview ───────────
+    if (tzInput) tzInput.addEventListener('change', refreshSummary);
+
+    // ── run-at quick presets ───────────────────────────────────
+    var runAtEl = document.getElementById('id_run_at');
+    var runPresets = document.getElementById('sjf-runat-presets');
+    function fmtLocal(d) {
+        return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) + 'T' + pad(d.getHours()) + ':' + pad(d.getMinutes());
+    }
+    if (runAtEl) runAtEl.addEventListener('input', refreshSummary);
+    if (runPresets && runAtEl) runPresets.addEventListener('click', function (e) {
+        var b = e.target.closest('.sjf-chip'); if (!b) return;
+        var d = new Date(), k = b.dataset.run;
+        if (k === '+1h') { d.setHours(d.getHours() + 1, 0, 0, 0); }
+        else if (k === 'tonight') { d.setHours(20, 0, 0, 0); }
+        else if (k === 'tomorrow9') { d.setDate(d.getDate() + 1); d.setHours(9, 0, 0, 0); }
+        else if (k === 'nextmon9') { d.setDate(d.getDate() + ((8 - d.getDay()) % 7 || 7)); d.setHours(9, 0, 0, 0); }
+        runAtEl.value = fmtLocal(d); refreshSummary();
+    });
+
+    // ── project calendar button on the datetime fields ─────────
+    ['id_run_at', 'id_anchor_at'].forEach(function (id) {
+        var input = document.getElementById(id);
+        if (!input || input.closest('.crud-date-wrapper')) return;
+        var wrap = document.createElement('div');
+        wrap.className = 'crud-date-wrapper';
+        input.parentNode.insertBefore(wrap, input);
+        wrap.appendChild(input);
+        var btn = document.createElement('button');
+        btn.type = 'button'; btn.className = 'crud-date-btn'; btn.setAttribute('aria-label', 'Open calendar');
+        btn.innerHTML = '<svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11zM9 10H7v2h2v-2zm4 0h-2v2h2v-2zm4 0h-2v2h2v-2zm-8 4H7v2h2v-2zm4 0h-2v2h2v-2zm4 0h-2v2h2v-2z"/></svg>';
+        btn.addEventListener('click', function () { if (input.showPicker) { input.showPicker(); } else { input.focus(); } });
+        wrap.appendChild(btn);
+    });
+
+    // ── init from existing values ──────────────────────────────
+    loadInterval(intInput.value);
+    loadCron(cronInput.value);
+    showType(typeSel.value || 'interval');
+})();
+</script>

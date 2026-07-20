@@ -19,7 +19,7 @@
   </div>
   <div style="display: flex; gap: 0.5rem;">
     <a href="{% url 'scheduler/jobs-list' %}" class="btn-outline btn-sm">All schedules</a>
-    <a href="{% url 'scheduler/jobs-create' %}" class="btn-primary btn-sm">+ New schedule</a>
+    <a href="{% url 'scheduler/runs-list' %}" class="btn-outline btn-sm">Run history</a>
   </div>
 </div>
 {% endblock %}
@@ -92,7 +92,7 @@
         </tbody>
       </table>
       {% else %}
-      <p style="padding: 16px; color: var(--body-quiet-color);">No active schedules yet. <a href="{% url 'scheduler/jobs-create' %}" style="color: var(--link-color);">Create one</a>.</p>
+      <p style="padding: 16px; color: var(--body-quiet-color);">No active schedules yet. Jobs appear here when a developer registers one with <code>@scheduled</code> (or a feature like a monitor creates one).</p>
       {% endif %}
     </div>
   </div>

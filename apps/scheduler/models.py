@@ -69,6 +69,9 @@ class ScheduledJob(models.Model):
     max_retries = models.PositiveSmallIntegerField(default=0, help_text="Reserved (Phase 3).")
 
     source = models.CharField(max_length=8, choices=Source.choices, default=Source.UI)
+    # An operator changed the cadence in the UI. Code sync keeps their value
+    # instead of reverting to the @scheduled default (task/kwargs still sync).
+    schedule_overridden = models.BooleanField(default=False)
 
     # Bookkeeping maintained by the tick.
     next_run_at = models.DateTimeField(null=True, blank=True, db_index=True)
@@ -133,6 +136,20 @@ class ScheduledJob(models.Model):
             return f"every {self.interval_spec}{anchored}"
         return f"cron: {self.cron_expression}"
 
+    @property
+    def calendar_status(self) -> str:
+        """Map last-run status → CalendarDisplay chip tint (success/warning/danger).
+
+        The jobs calendar plots each schedule on its next fire; tinting that chip
+        by the previous run's outcome gives an at-a-glance health signal.
+        """
+        return {
+            "success": "success",
+            "failed": "danger",
+            "invalid": "danger",
+            "skipped": "warning",
+        }.get(self.last_status, "")
+
 
 class ScheduledJobRun(models.Model):
     """Append-only record of one tick's decision for a job.
@@ -166,3 +183,17 @@ class ScheduledJobRun(models.Model):
 
     def __str__(self) -> str:
         return f"{self.job_id} · {self.status} @ {self.scheduled_for:%Y-%m-%d %H:%M}"
+
+    @property
+    def job_name(self) -> str:
+        """The parent schedule's name — the run-history calendar chip label."""
+        return self.job.name
+
+    @property
+    def calendar_status(self) -> str:
+        """Map run status → CalendarDisplay chip tint (success/warning/danger)."""
+        return {
+            "success": "success",
+            "failed": "danger",
+            "skipped": "warning",
+        }.get(self.status, "")

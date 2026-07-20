@@ -84,16 +84,22 @@ def sync_code_jobs() -> int:
             _reseed_next_run(job, spec.name)
             job.save(update_fields=["anchor_at", "next_run_at"])
         else:
-            # Refresh cadence + task wiring from code; preserve user's enabled flag,
-            # overlap/catch-up (user may have tuned them), and bookkeeping.
+            # Task wiring always follows code. Cadence follows code too — UNLESS
+            # an operator overrode the schedule in the UI, in which case we honor
+            # their value (enabled, overlap/catch-up are always user-owned).
+            updates = {"task_path": spec.task_path, "kwargs": spec.kwargs}
+            if not job.schedule_overridden:
+                updates.update(cadence)
             changed = []
-            for attr, value in {**cadence, "task_path": spec.task_path, "kwargs": spec.kwargs}.items():
+            for attr, value in updates.items():
                 if getattr(job, attr) != value:
                     setattr(job, attr, value)
                     changed.append(attr)
-            if anchor_at is not None and job.anchor_at != anchor_at:
+            if not job.schedule_overridden and anchor_at is not None and job.anchor_at != anchor_at:
                 job.anchor_at = anchor_at
                 changed.append("anchor_at")
+            if job.schedule_overridden:
+                logger.info("scheduler: %s keeps its UI schedule override (code cadence not applied)", spec.name)
             # If the cadence changed (or a code job lost its next_run), recompute
             # next_run_at so the new cadence takes effect on the *next* tick —
             # not one stale fire later at the old time.

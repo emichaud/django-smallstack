@@ -1,0 +1,15 @@
+{% if error %}
+<div class="sjf-preview-empty">{{ error }}</div>
+{% elif runs %}
+<ol class="sjf-preview-list">
+    {% for r in runs %}
+    <li class="sjf-preview-item">
+        <span class="sjf-preview-dot">{{ forloop.counter }}</span>
+        <span class="sjf-preview-abs">{{ r.abs }}</span>
+        <span class="sjf-preview-rel">{{ r.rel }}</span>
+    </li>
+    {% endfor %}
+</ol>
+{% else %}
+<div class="sjf-preview-empty">No upcoming runs — finish the cadence above.</div>
+{% endif %}
