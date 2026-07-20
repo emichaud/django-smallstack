@@ -176,16 +176,18 @@ def _cron_next(expr: str, tz: tzinfo, after: datetime) -> datetime:
     ``croniter`` does the cron arithmetic in the target timezone; we hand back
     an aware datetime in that same zone so the DB stores a correct UTC instant.
     """
-    from croniter import CroniterBadCronError, croniter
+    from croniter import CroniterError, croniter
 
     # Evaluate in the schedule's own timezone so "0 6 * * *" means 6am *there*,
     # crossing DST correctly, regardless of the server's zone.
     local_after = after.astimezone(tz)
     try:
-        itr = croniter(expr, local_after)
-    except (CroniterBadCronError, ValueError) as exc:
+        # get_next() must be inside the try: an *impossible* cron (e.g. "0 0 30 2 *"
+        # — Feb 30) parses fine but raises CroniterBadDateError only when advanced,
+        # which would otherwise escape as a 500 on save/clean/PATCH.
+        return croniter(expr, local_after).get_next(datetime)
+    except (CroniterError, ValueError) as exc:
         raise ScheduleConfigError(f"Bad cron expression {expr!r}: {exc}") from exc
-    return itr.get_next(datetime)
 
 
 def missed_periods(schedule: ScheduleLike, *, scheduled_for: datetime, now: datetime) -> int:

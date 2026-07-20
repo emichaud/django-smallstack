@@ -10,8 +10,9 @@ overlap, and history*; the task engine owns *execution and results*, joined by a
 harmless with zero jobs.
 
 **Surfaces:** themed dashboard (stat cards, 24h timeline, upcoming + recent, Run-now),
-a `ScheduledJob` CRUDView with REST (`enable_api`) + MCP (`list_schedules` …
-`delete_schedule`) + search, a `/status/` core monitor, and a `/smallstack/` widget.
+a `ScheduledJob` CRUDView (**list + update only** — jobs are code-owned) with REST
+(`enable_api`) + MCP (`list_schedules`, `update_schedule`) + search, a `/status/` core
+monitor, and a `/smallstack/` widget.
 
 **Triggers (use exactly one per deployment):** `POST /smallstack/scheduler/tick/`
 (localhost-only, runs inside gunicorn — the default cron line), `manage.py

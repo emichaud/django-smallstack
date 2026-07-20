@@ -126,8 +126,20 @@ def _process_job(job: ScheduledJob, *, now: datetime, result: TickResult) -> Non
             return
 
     # --- fire ---------------------------------------------------------------
-    enqueue_and_record(job, scheduled_for=observed, now=now)
-    result.enqueued += 1
+    try:
+        enqueue_and_record(job, scheduled_for=observed, now=now)
+        result.enqueued += 1
+    except (ImportError, AttributeError, ValueError) as exc:
+        # An unresolvable task_path (typo, or a task renamed/removed while its
+        # code-owned row persists) can never succeed — disable + mark invalid and
+        # surface it, instead of erroring silently on every tick with a blank
+        # status. Mirrors the invalid-cadence handling above.
+        logger.warning(
+            "scheduler: %s disabled — task_path %r unresolvable: %s", job.name, job.task_path, exc
+        )
+        _record(job, ScheduledJobRun.Status.FAILED, observed, message=f"task_path unresolvable: {exc}"[:255])
+        ScheduledJob.objects.filter(pk=job.pk).update(enabled=False, last_status="invalid")
+        result.errors += 1
 
 
 def enqueue_and_record(job: ScheduledJob, *, scheduled_for: datetime, now: datetime | None = None) -> str:

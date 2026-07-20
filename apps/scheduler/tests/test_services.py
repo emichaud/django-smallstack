@@ -65,6 +65,27 @@ def _set_engine_result(task_result_id, *, status, return_value=None, traceback="
     )
 
 
+# --- unresolvable task_path is disabled, not silently erroring (AI-3) --------
+
+
+def test_unresolvable_task_path_disables_and_marks_invalid(db_backend):
+    job = _make_due(name="ghost", task_path="apps.scheduler.tests.test_services.no_such_task")
+    result = services.run_due_jobs()
+
+    assert result.enqueued == 0
+    assert result.errors == 1
+    job.refresh_from_db()
+    assert job.enabled is False  # can never succeed → disabled, not left ticking
+    assert job.last_status == "invalid"  # visible in the health list, not blank
+    run = job.runs.get()
+    assert run.status == ScheduledJobRun.Status.FAILED
+    assert "unresolvable" in run.message
+
+    # And it doesn't keep erroring every tick now that it's disabled.
+    ScheduledJob.objects.filter(pk=job.pk).update(next_run_at=timezone.now() - timedelta(minutes=1))
+    assert services.run_due_jobs().errors == 0  # disabled → not even considered
+
+
 # --- reconcile surfaces the return value (C-3) ------------------------------
 
 

@@ -15,9 +15,13 @@ owns *execution and results*. The two are joined by a `task_result_id`.
 > rollup, a digest email. For one-shot "do this now, off the request thread,"
 > just `.enqueue()` a task (see `background-tasks.md`); no schedule needed.
 
-## Two ways to create a schedule
+## Declaring and managing schedules
 
-### 1. `@scheduled` in code (source = `code`)
+**Schedules are code-owned.** You *create* them in code with `@scheduled`; you
+*manage* them (pause, retune) from the UI / REST / MCP. There is intentionally no
+create-a-schedule-from-scratch UI or API.
+
+### 1. Declare in code with `@scheduled` (the only way to create)
 
 Declare the cadence next to the task. Apply `@scheduled` **above** `@task`:
 
@@ -50,16 +54,24 @@ On boot, `apps.py:ready()` autodiscovers each app's `schedules.py`/`tasks.py` an
 **idempotently syncs** every `@scheduled` spec into a `source="code"`
 `ScheduledJob` row. The *cadence* is refreshed from code each deploy; the
 `enabled` flag stays under user control (pause survives a redeploy). Removing the
-decorator + redeploying retires the code declaration (the row can then be
-disabled/deleted from the UI).
+decorator + redeploying retires the code declaration; the orphaned row can then
+be disabled from the UI (hard deletion is admin/CLI only).
 
-### 2. The UI (source = `ui`)
+### 2. Manage a schedule (UI / REST / MCP)
 
-`/smallstack/scheduler/jobs/new/` — a themed form (validated, with a next-run
-preview). Fully user-owned. The same model is exposed over **REST**
-(`enable_api`) and **MCP** (`list_schedules` / `get_schedule` / `create_schedule`
-/ `update_schedule` / `delete_schedule`), so an agent can manage schedules
-through the same audited path a human uses.
+The `ScheduledJob` CRUDView is **list + update only** — no create or delete. An
+operator (or an agent) *manages* an existing code-owned schedule: pause it
+(`enabled=false`), or **retune its cadence** (a change re-seeds `next_run_at`
+immediately). A UI cadence edit sticks as an override (`schedule_overridden`), so
+`sync_code_jobs` won't stomp the human's value on the next deploy.
+
+- **UI** — the themed control page at `/smallstack/scheduler/jobs/<id>/` (the
+  definition is read-only; you edit the cadence + enabled/overlap/catch-up).
+- **REST** (`enable_api`) — `GET` list + `PATCH` update. No `POST`/`DELETE`.
+- **MCP** (`enable_mcp`) — exactly two tools: **`list_schedules`** (introspect
+  health: `enabled` / `last_status` / `next_run_at` / `total_runs`) and
+  **`update_schedule`** (pause / retune). No `create_`/`get_`/`delete_` tools,
+  because the CRUDView exposes only LIST + UPDATE.
 
 ## How the tick works
 

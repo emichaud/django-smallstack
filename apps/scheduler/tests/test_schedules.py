@@ -124,6 +124,16 @@ def test_cron_bad_expression_raises():
         schedules.next_run(job, after=datetime(2026, 1, 1, tzinfo=UTC))
 
 
+@pytest.mark.parametrize("expr", ["0 0 30 2 *", "0 0 31 4 *"])  # Feb 30, Apr 31 — never match
+def test_impossible_but_valid_cron_raises_config_error(expr):
+    # AI-2: a syntactically valid cron that can never match a real date must
+    # raise ScheduleConfigError (→ a clean 400), not an uncaught CroniterBadDateError
+    # (→ 500) from get_next().
+    job = _job(schedule_type="cron", cron_expression=expr, timezone="UTC")
+    with pytest.raises(ScheduleConfigError):
+        schedules.next_run(job, after=datetime(2026, 1, 1, tzinfo=UTC))
+
+
 # --- missed_periods ---------------------------------------------------------
 
 
