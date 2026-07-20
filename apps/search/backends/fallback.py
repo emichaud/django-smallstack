@@ -96,7 +96,10 @@ def _make_hit(
                 subtitle_val = transformed.pop("subtitle", None)
                 extra = transformed  # Rest goes to extra
         except Exception:
-            logger.exception("transform_hit failed for %s; transform_hit must be an instance method or @staticmethod", view.model_label)
+            logger.exception(
+                "transform_hit failed for %s; transform_hit must be an instance method or @staticmethod",
+                view.model_label,
+            )
 
     # Fallback to default field resolution
     if display_val is None:
