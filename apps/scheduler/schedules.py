@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import re
 from datetime import datetime, timedelta, tzinfo
+from functools import lru_cache
 from typing import TYPE_CHECKING, Protocol, Union
 
 if TYPE_CHECKING:
@@ -155,6 +156,33 @@ def next_run(schedule: ScheduleLike, *, after: datetime) -> datetime | None:
     raise ScheduleConfigError(f"Unknown schedule_type {stype!r}.")
 
 
+@lru_cache(maxsize=1)
+def _tz_canonical_map() -> dict[str, str]:
+    """lowercased IANA name -> canonical name, built once from the tz database.
+
+    ``available_timezones()`` returns canonical keys identically on every OS, so
+    resolving through this map is platform-independent — unlike ``ZoneInfo(name)``,
+    whose filesystem lookup is *case-insensitive on macOS* but case-sensitive on
+    Linux. (``tzdata`` is a hard dependency so the set is populated in slim
+    containers that ship no system zoneinfo.)
+    """
+    from zoneinfo import available_timezones
+
+    return {name.lower(): name for name in available_timezones()}
+
+
+def canonical_timezone(name: str) -> str | None:
+    """Return the canonical IANA name for ``name`` (case-insensitive), or None.
+
+    Closes a dev/prod footgun: ``"america/new_york"`` silently works on a macOS
+    dev box but raises ``ZoneInfoNotFoundError`` on case-sensitive Linux prod.
+    Normalizing here makes both behave the same.
+    """
+    if not name:
+        return None
+    return _tz_canonical_map().get(name.strip().lower())
+
+
 def schedule_tz(schedule: ScheduleLike) -> tzinfo:
     """Resolve the schedule's evaluation timezone (falls back to Django's)."""
     from django.utils import timezone as djtz
@@ -162,12 +190,12 @@ def schedule_tz(schedule: ScheduleLike) -> tzinfo:
     name = getattr(schedule, "timezone", "") or ""
     if not name:
         return djtz.get_current_timezone()
-    try:
-        from zoneinfo import ZoneInfo
+    canonical = canonical_timezone(name)
+    if canonical is None:
+        raise ScheduleConfigError(f"Unknown timezone {name!r}.")
+    from zoneinfo import ZoneInfo
 
-        return ZoneInfo(name)
-    except Exception as exc:  # noqa: BLE001
-        raise ScheduleConfigError(f"Unknown timezone {name!r}.") from exc
+    return ZoneInfo(canonical)
 
 
 def _cron_next(expr: str, tz: tzinfo, after: datetime) -> datetime:

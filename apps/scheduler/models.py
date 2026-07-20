@@ -104,6 +104,16 @@ class ScheduledJob(models.Model):
         field_name, value = required
         if not value:
             raise ValidationError({field_name: f"Required for a {self.schedule_type} schedule."})
+        # Normalize the timezone to its canonical IANA name (case-insensitive) so
+        # "america/new_york" — which works on a case-insensitive macOS dev FS but
+        # fails on Linux prod — is accepted and stored correctly on every OS. An
+        # unknown zone is a clean field error, not a runtime ZoneInfoNotFoundError.
+        if self.timezone:
+            canonical = schedules.canonical_timezone(self.timezone)
+            if canonical is None:
+                raise ValidationError({"timezone": f"Unknown timezone {self.timezone!r}."})
+            self.timezone = canonical
+
         # Surfaces bad interval/cron/timezone strings as a clean field error.
         try:
             schedules.next_run(self, after=timezone.now())
@@ -129,6 +139,12 @@ class ScheduledJob(models.Model):
         # A malformed cadence saved without full_clean() (e.g. a direct .create())
         # leaves the row unscheduled rather than raising out of save() — clean()
         # is the real gate; this just avoids a 500 on the unvalidated path.
+        # Normalize the tz to canonical on any save path (form, API, programmatic),
+        # so the DB never holds a case that only resolves on macOS. Unknown zones
+        # are left as-is here (clean() is the gate) and get disabled at tick time.
+        if self.timezone:
+            self.timezone = schedules.canonical_timezone(self.timezone) or self.timezone
+
         cadence_changed = self._cadence_changed()
         if self.enabled and (self.next_run_at is None or cadence_changed):
             try:

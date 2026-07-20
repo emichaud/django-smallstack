@@ -124,6 +124,25 @@ def test_cron_bad_expression_raises():
         schedules.next_run(job, after=datetime(2026, 1, 1, tzinfo=UTC))
 
 
+def test_canonical_timezone_normalizes_case():
+    # Dev/prod parity: lowercase resolves the same on macOS and Linux.
+    assert schedules.canonical_timezone("america/new_york") == "America/New_York"
+    assert schedules.canonical_timezone("UTC") == "UTC"
+    assert schedules.canonical_timezone("Mars/Phobos") is None
+    assert schedules.canonical_timezone("") is None
+
+
+def test_schedule_tz_resolves_lowercase():
+    job = _job(schedule_type="cron", cron_expression="0 6 * * *", timezone="america/new_york")
+    assert schedules.schedule_tz(job) == ZoneInfo("America/New_York")
+
+
+def test_schedule_tz_rejects_unknown():
+    job = _job(schedule_type="cron", cron_expression="0 6 * * *", timezone="Mars/Phobos")
+    with pytest.raises(ScheduleConfigError):
+        schedules.schedule_tz(job)
+
+
 @pytest.mark.parametrize("expr", ["0 0 30 2 *", "0 0 31 4 *"])  # Feb 30, Apr 31 — never match
 def test_impossible_but_valid_cron_raises_config_error(expr):
     # AI-2: a syntactically valid cron that can never match a real date must

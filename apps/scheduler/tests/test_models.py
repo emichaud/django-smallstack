@@ -89,6 +89,26 @@ def test_save_reseeds_under_partial_update_fields():
     assert job.next_run_at < before  # next_run_at persisted despite update_fields
 
 
+def test_save_normalizes_timezone_case():
+    # A lowercase tz that only resolves on macOS must be stored canonical so it
+    # works on Linux prod (Docker).
+    job = _base(
+        name="tz", schedule_type="cron", cron_expression="0 6 * * *",
+        timezone="america/new_york", enabled=True,
+    )
+    job.save()
+    job.refresh_from_db()
+    assert job.timezone == "America/New_York"
+
+
+def test_clean_normalizes_timezone_and_rejects_unknown():
+    job = _base(schedule_type="cron", cron_expression="0 6 * * *", timezone="america/new_york")
+    job.clean()
+    assert job.timezone == "America/New_York"
+    with pytest.raises(ValidationError):
+        _base(schedule_type="cron", cron_expression="0 6 * * *", timezone="Mars/Phobos").clean()
+
+
 def test_cadence_display():
     assert "every 5m" in _base(schedule_type="interval", interval_spec="5m").cadence_display
     assert "cron" in _base(schedule_type="cron", cron_expression="0 6 * * *").cadence_display
