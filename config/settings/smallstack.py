@@ -286,6 +286,12 @@ SMALLSTACK_SCHEDULER_OVERDUE_GRACE_SECONDS = config(
     "SMALLSTACK_SCHEDULER_OVERDUE_GRACE_SECONDS", default=300, cast=int
 )
 
+# Minimum runs in the last hour before the status monitor's failure-rate check
+# applies — so a single failed run in a quiet hour (1/1) can't trip it DOWN.
+SMALLSTACK_SCHEDULER_FAILURE_MIN_SAMPLE = config(
+    "SMALLSTACK_SCHEDULER_FAILURE_MIN_SAMPLE", default=5, cast=int
+)
+
 # Recipients emailed when a scheduled run fails (via send_email_task). Empty ⇒
 # no failure emails. Comma-separated in env, e.g. "ops@x.com,oncall@x.com".
 SMALLSTACK_SCHEDULER_FAILURE_EMAILS = config(

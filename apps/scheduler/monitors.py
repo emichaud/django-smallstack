@@ -44,6 +44,10 @@ class SchedulerMonitor(Monitor):
         # Overdue beyond this ⇒ the tick isn't firing. Default 5 min.
         return int(getattr(settings, "SMALLSTACK_SCHEDULER_OVERDUE_GRACE_SECONDS", 300))
 
+    def _min_sample(self) -> int:
+        # Minimum runs in the last hour before the failure-rate check applies.
+        return int(getattr(settings, "SMALLSTACK_SCHEDULER_FAILURE_MIN_SAMPLE", 5))
+
     def check(self) -> CheckResult:
         from .models import ScheduledJob, ScheduledJobRun
 
@@ -61,7 +65,9 @@ class SchedulerMonitor(Monitor):
         recent = ScheduledJobRun.objects.filter(created_at__gte=now - timedelta(hours=1))
         total = recent.count()
         failed = recent.filter(status=ScheduledJobRun.Status.FAILED).count()
-        if total and failed / total > 0.5:
+        # Require a minimum sample before trusting the ratio, so a single failed
+        # run in a quiet hour (1/1) can't trip the core monitor DOWN.
+        if total >= self._min_sample() and failed / total > 0.5:
             return CheckResult.down(note=f"{failed}/{total} runs failed in the last hour")
 
         active = ScheduledJob.objects.filter(enabled=True).count()

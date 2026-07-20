@@ -110,17 +110,46 @@ class ScheduledJob(models.Model):
         except schedules.ScheduleConfigError as exc:
             raise ValidationError({field_name: str(exc)}) from exc
 
+    # Fields that define *when* the job fires. A change to any of them must
+    # re-seed next_run_at (see save()), so a retune actually takes effect.
+    CADENCE_FIELDS = (
+        "schedule_type",
+        "interval_spec",
+        "cron_expression",
+        "run_at",
+        "timezone",
+        "anchor_at",
+    )
+
     def save(self, *args: object, **kwargs: object) -> None:
-        # Seed next_run_at for a freshly enabled schedule so the tick can find it.
+        # Re-seed next_run_at when the schedule is freshly enabled (cursor is
+        # None) OR its cadence changed — so a retune via the themed form, the
+        # REST/MCP update path, or a programmatic edit takes effect on the *next*
+        # tick instead of firing once more on the stale cadence.
         # A malformed cadence saved without full_clean() (e.g. a direct .create())
         # leaves the row unscheduled rather than raising out of save() — clean()
         # is the real gate; this just avoids a 500 on the unvalidated path.
-        if self.enabled and self.next_run_at is None:
+        cadence_changed = self._cadence_changed()
+        if self.enabled and (self.next_run_at is None or cadence_changed):
             try:
                 self.next_run_at = self.compute_next_run(after=timezone.now())
             except schedules.ScheduleConfigError:
                 self.next_run_at = None
+            # Make the recompute stick even under a partial update_fields save
+            # (e.g. a serializer that saves only the changed fields).
+            uf = kwargs.get("update_fields")
+            if uf is not None and "next_run_at" not in uf:
+                kwargs["update_fields"] = [*uf, "next_run_at"]
         super().save(*args, **kwargs)
+
+    def _cadence_changed(self) -> bool:
+        """True if this is an update whose cadence differs from the stored row."""
+        if not self.pk:
+            return False
+        old = type(self).objects.filter(pk=self.pk).values(*self.CADENCE_FIELDS).first()
+        if old is None:
+            return False
+        return any(old[f] != getattr(self, f) for f in self.CADENCE_FIELDS)
 
     # -- helpers ----------------------------------------------------------
 

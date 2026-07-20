@@ -53,6 +53,42 @@ def test_save_does_not_seed_when_disabled():
     assert job.next_run_at is None
 
 
+def test_save_reseeds_next_run_on_cadence_change():
+    # F-A1: a retune (via form/API/programmatic save) must recompute next_run_at,
+    # not leave it pointing at the old cadence until one stale fire.
+    job = _base(name="retune", schedule_type="interval", interval_spec="1h", enabled=True)
+    job.save()
+    before = job.next_run_at  # ~now + 1h
+
+    job.interval_spec = "5m"
+    job.save()
+    assert job.next_run_at < before  # moved to the new, sooner cadence
+    assert job.next_run_at <= timezone.now() + timedelta(minutes=6)
+
+
+def test_save_does_not_reseed_on_non_cadence_change():
+    job = _base(name="descr", schedule_type="interval", interval_spec="1h", enabled=True)
+    job.save()
+    before = job.next_run_at
+
+    job.description = "just a note"
+    job.save()
+    assert job.next_run_at == before  # unchanged — no cadence field moved
+
+
+def test_save_reseeds_under_partial_update_fields():
+    # A serializer that saves only the changed cadence field still gets a reseed.
+    job = _base(name="partial", schedule_type="interval", interval_spec="1h", enabled=True)
+    job.save()
+    before = job.next_run_at
+
+    job.cron_expression = ""  # keep interval; just shorten it
+    job.interval_spec = "10m"
+    job.save(update_fields=["interval_spec"])
+    job.refresh_from_db()
+    assert job.next_run_at < before  # next_run_at persisted despite update_fields
+
+
 def test_cadence_display():
     assert "every 5m" in _base(schedule_type="interval", interval_spec="5m").cadence_display
     assert "cron" in _base(schedule_type="cron", cron_expression="0 6 * * *").cadence_display
