@@ -193,10 +193,20 @@ For affected palettes, add the selector to **both** override rules (the `--accen
 
 Also, warm/light accents like gold need **dark** `--button-fg` / `--sidebar-active-fg` (near-black, not white) or button and active-nav text is unreadable on the accent.
 
-### Gotcha 2: bright accents pull neutral surfaces warm
-Neutral cards next to bright accents drift warm via complementary-contrast. Mitigate with cool channel bias on surfaces:
-- Blue/purple/orange palettes: card-bg = `#161b22` (+12 B vs R)
-- Django (emerald — complement is red): card-bg = `#131722` (+15 B vs R, stronger correction)
+### Gotcha 2: accent/surface temperature is a deliberate lever
+By default, surfaces are **cool-biased** near-black (B>G>R) so bright accents don't drag neutral cards warm via complementary-contrast:
+- Blue / purple palettes: card-bg `#161b22` (+12 B vs R)
+- Django (emerald — complement is red): card-bg `#131722` (+15 B vs R, stronger correction)
+
+**But temperature is a design choice, not a rule.** A warm accent can pair with a **warm** ground for a cohesive, candlelit feel — the **`orange` dark palette does this on purpose** (body `#0b0a08`, card-bg `#1a1611`, borders `#332b20`, warm-stone muted text `#a8a29e` — all R>G>B). **Don't "fix" orange's warm surfaces back to the cool family values; the inversion is intentional.**
+
+### Making a palette read "elegant" (the levers)
+Three independent knobs, from tuning the gold + orange palettes:
+1. **Dark text on a light accent.** When `--primary` is light (gold `#d3b559`), set `--button-fg` / `--sidebar-active-fg` to near-black, not white — reads considered *and* fixes a real contrast bug (white on a light accent often fails WCAG AA; e.g. white on `#f97316` is ~2.7:1). Vibrant `#f97316` + near-black text is the "Hermès" look.
+2. **Desaturate — carefully.** Low chroma reads refined/luxury, but over-muting a *warm* accent goes washed-out ("peachy"). To keep vibrancy, **deepen** (lower lightness) rather than desaturate.
+3. **Warm the ground** (Gotcha 2) for a warm accent.
+
+A muted complementary **secondary** (gold's smoky-blue, orange's teal) adds a considered two-tone harmony instead of one loud hue.
 
 ### Gotcha 3: data-palette must always be set
 The blocking script in `base.html` and `setPalette()` in `theme.js` must set `data-palette` on every page load, even when the value is the default ("django"). If they skip it for the default, the default palette's CSS overrides never apply and the page falls back to base `[data-theme="dark"]` (legacy warm-gray). This is fixed in the current codebase — don't reintroduce the skip.

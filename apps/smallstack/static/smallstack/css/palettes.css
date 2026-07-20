@@ -347,23 +347,13 @@ html[data-palette="orange"] {
 }
 
 html[data-palette="orange"][data-theme="dark"] {
-    /* Modern black + vibrant orange accent. Same pattern as dark-blue
-       and dark-purple: near-black neutral surfaces with a deliberate
-       cool channel bias (R<G<B by 3-7 points) that resists color-
-       context warming when red content sits adjacent. The saturated
-       orange accent does all the visual work — used for primary
-       buttons, sidebar-active, link color, focus borders, badges.
+    /* Modern black + the original VIBRANT orange (white text) — but on a
+       deliberately WARM near-black ground: warm-biased surfaces (R>G>B) and
+       warm stone-gray muted text, so the warm accent feels candlelit and
+       cohesive instead of sitting on a cold blue-black. An intentional,
+       palette-scoped inversion of the usual cool surface bias.
 
-       Accent: #f97316 (Tailwind orange-500) — vibrant, saturated.
-
-       Surfaces (identical to dark-blue and dark-purple — palette-
-       agnostic):
-         body-bg / footer-bg  #0a0b0f  ◀── deep near-black canvas
-         header-bg            #111218  ◀── chrome band, slight lift
-         sidebar-bg           #0c0d12  ◀── between body and card
-         card-bg / input-bg   #161b22  ◀── elevated surface
-         card-header-bg       #1d2230  ◀── subtle band on cards
-         card-border          #262d3d  ◀── visible hairline */
+       Accent: #f97316 (Tailwind orange-500). */
 
     /* Vibrant orange accent */
     --primary: #f97316;
@@ -376,34 +366,33 @@ html[data-palette="orange"][data-theme="dark"] {
     --button-fg: #ffffff;
     --button-hover-bg: #fb923c;
 
-    /* Links — lighter orange to pop on near-black without competing
-       with the primary saturated orange. */
+    /* Links — lighter orange to pop on the warm near-black. */
     --link-fg: #fb923c;
     --link-color: #fb923c;
     --link-hover: #fdba74;
     --breadcrumb-link: #e4e4e7;
 
-    /* Surfaces — same cool-biased near-black as dark-blue / dark-purple */
-    --body-bg: #0a0b0f;
-    --content-bg: #0a0b0f;
-    --header-bg: #111218;
-    --hero-gradient-end: #181d24;
-    --card-bg: #161b22;
-    --card-header-bg: #1d2230;
-    --card-border: #262d3d;
-    --hairline-color: #262d3d;
-    --sidebar-bg: #0c0d12;
-    --sidebar-hover-bg: #161b22;
-    --sidebar-border: #262d3d;
-    --footer-bg: #0a0b0f;
-    --footer-fg: #71717a;
-    --input-bg: #161b22;
-    --input-border: #3c4356;
+    /* Surfaces — WARM near-black (R>G>B), the inverse of the cool family bias. */
+    --body-bg: #0b0a08;
+    --content-bg: #0b0a08;
+    --header-bg: #15110c;
+    --hero-gradient-end: #241c12;
+    --card-bg: #1a1611;
+    --card-header-bg: #241d15;
+    --card-border: #332b20;
+    --hairline-color: #332b20;
+    --sidebar-bg: #0d0b09;
+    --sidebar-hover-bg: #1a1611;
+    --sidebar-border: #332b20;
+    --footer-bg: #0b0a08;
+    --footer-fg: #78716c;
+    --input-bg: #1a1611;
+    --input-border: #4a3f30;
 
-    /* Muted text — zinc family, readable on near-black */
-    --text-muted: #a1a1aa;
-    --breadcrumb-fg: #a1a1aa;
-    --breadcrumb-separator: #52525b;
+    /* Muted text — warm stone gray (was cool zinc) to match the warm ground. */
+    --text-muted: #a8a29e;
+    --breadcrumb-fg: #a8a29e;
+    --breadcrumb-separator: #57534e;
 }
 
 /* Accent band override — orange, django (emerald), and high-contrast
