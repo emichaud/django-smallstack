@@ -44,7 +44,8 @@ service.put_document("ops", "backup-report", body=md, title="Backup Report",
 service.get_document("ops", "backup-report", with_body=True)        # -> DocumentResult
 service.get_document(uid="…")                                       # address by uid
 service.list_documents(runbook="ops", query="backup")               # -> [DocumentSummary]
-service.append_to_document("ops", "backup-report", body="\n- 03:00 ok")
+service.append_to_document("ops", "backup-report", body="\n- 03:00 ok")   # grow head, version unchanged
+service.append_version("ops", "status", body=snapshot_md)                 # grow head AND snapshot a version
 service.move_document(runbook="ops", key="backup-report", to_runbook="archive")
 service.move_document(uid="…", to_runbook=None)                     # detach → standalone
 service.archive_document(runbook="ops", key="backup-report")        # soft-delete (recoverable)
@@ -55,9 +56,10 @@ service.delete_document(runbook="ops", key="backup-report", force=True)  # hard-
 
 | Value | Effect |
 |---|---|
-| `new_version` (default) | Snapshot a new version; history grows. |
+| `new_version` (default) | Snapshot a new version; history grows. Replaces the head content. |
 | `overwrite` | Replace the head content in place; no new version. |
-| `append` | Concatenate to the head content in place. |
+| `append` | Concatenate to the head content in place; **no** new version. |
+| `append_version` | Concatenate to the head content **and** snapshot a new version — a running, versioned log. Prefer `service.append_version(...)`. |
 | `fail` | Raise `DocumentAlreadyExists`. |
 
 **`expected_version=N`** is an optimistic lock — the write raises `VersionConflict` if the head moved.

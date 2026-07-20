@@ -33,9 +33,9 @@ from .models import Document, DocumentImage, DocumentVersion, Runbook, Section, 
 
 # -- Types --------------------------------------------------------------------
 
-WriteMode = Literal["new_version", "overwrite", "append"]
-OnExists = Literal["new_version", "overwrite", "append", "fail"]
-ChangeType = Literal["created", "new_version", "overwrite", "append"]
+WriteMode = Literal["new_version", "overwrite", "append", "append_version"]
+OnExists = Literal["new_version", "overwrite", "append", "append_version", "fail"]
+ChangeType = Literal["created", "new_version", "overwrite", "append", "append_version"]
 
 RunbookRef = Union[Runbook, str]
 SectionRef = Union[Section, str, None]
@@ -271,7 +271,8 @@ def write_version(
     """Write ``body`` to ``doc`` per ``mode`` and emit ``document_written``.
 
     ``new_version`` snapshots a new version; ``overwrite`` replaces the head in
-    place; ``append`` concatenates to the head content in place.
+    place; ``append`` concatenates to the head content in place; ``append_version``
+    concatenates **and** snapshots a new version (a running, versioned log).
     """
     _check_writable(doc, actor, bypass_lock)
     if mode == "new_version":
@@ -289,6 +290,15 @@ def write_version(
         combined = (read_head(doc).rstrip() + "\n\n" + body.strip() + "\n").lstrip("\n")
         _overwrite_head(doc, combined, source=source, via=via)
         change = "append"
+    elif mode == "append_version":
+        # Grow the head like `append`, but snapshot it as a new version like
+        # `new_version` — so history keeps every appended entry.
+        previous_version = doc.current_version
+        combined = (read_head(doc).rstrip() + "\n\n" + body.strip() + "\n").lstrip("\n")
+        doc.create_new_version(
+            file=_md_file(combined, doc), created_by=actor, description=description, source=source, via=via
+        )
+        change = "append_version"
     else:  # pragma: no cover - guarded by the WriteMode type
         raise ValueError(f"Unknown write mode {mode!r}")
 
@@ -509,7 +519,8 @@ def put_document(
     """Idempotent upsert of the document addressed by ``(runbook, key)``.
 
     Creates it if missing; otherwise applies ``on_exists``
-    (``new_version`` | ``overwrite`` | ``append`` | ``fail``). ``expected_version``
+    (``new_version`` | ``overwrite`` | ``append`` | ``append_version`` | ``fail``).
+    ``append_version`` grows the head *and* snapshots a version. ``expected_version``
     is an optional optimistic lock against the current head.
 
     ``locked`` is a tri-state on update: ``None`` (the default) leaves the flag
@@ -563,8 +574,26 @@ def put_document(
 def append_to_document(
     runbook: RunbookRef, key: str, *, body: str, **kwargs: Any
 ) -> DocumentResult:
-    """Convenience wrapper: ``put_document(..., on_exists="append")``."""
+    """Convenience wrapper: ``put_document(..., on_exists="append")``.
+
+    Grows the head content in place; the version is unchanged. Use
+    :func:`append_version` instead if each append should also be a new version.
+    """
     return put_document(runbook, key, body=body, on_exists="append", **kwargs)
+
+
+def append_version(
+    runbook: RunbookRef, key: str, *, body: str, **kwargs: Any
+) -> DocumentResult:
+    """Append ``body`` to the head **and** snapshot a new version, in one call.
+
+    The primitive a recurring job wants for a running, versioned log (e.g. an
+    hourly status snapshot): unlike :func:`append_to_document` (grows the head,
+    version unchanged) or ``on_exists="new_version"`` (snapshots but *replaces*
+    the head), this both concatenates and records a version, so history keeps
+    every entry. Creates the document on the first call.
+    """
+    return put_document(runbook, key, body=body, on_exists="append_version", **kwargs)
 
 
 def get_document(

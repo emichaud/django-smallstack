@@ -165,7 +165,7 @@ else:
                     "title": {"type": "string", "description": "Title (set on create; updated if provided)."},
                     "on_exists": {
                         "type": "string",
-                        "enum": ["new_version", "overwrite", "append", "fail"],
+                        "enum": ["new_version", "overwrite", "append", "append_version", "fail"],
                         "default": "new_version",
                     },
                     "expected_version": {"type": "integer", "description": "Optimistic lock: reject if head differs."},

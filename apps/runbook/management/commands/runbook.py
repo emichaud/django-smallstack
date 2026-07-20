@@ -372,7 +372,8 @@ class Command(BaseCommand):
         parser.add_argument("--title", help="page title (defaults to key on create)")
         parser.add_argument("--section", help="section slug (auto-created if missing)")
         parser.add_argument(
-            "--mode", choices=["new_version", "overwrite", "append", "fail"], default="new_version",
+            "--mode", choices=["new_version", "overwrite", "append", "append_version", "fail"],
+            default="new_version",
             help="what to do if the page already exists (default: new_version)",
         )
         parser.add_argument("--expected-version", type=int, help="optimistic lock against the current head")

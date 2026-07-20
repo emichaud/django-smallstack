@@ -38,6 +38,25 @@ class TestPutDocument:
         body = service.get_document("ops", "log", with_body=True).content_markdown
         assert "line1" in body and "line2" in body
 
+    def test_append_version_grows_body_and_bumps_version(self, rb):
+        # First call creates the doc (v1); each subsequent append_version grows
+        # the body AND snapshots a new version — the running-log primitive.
+        r1 = service.append_version("ops", "status", body="snap1", title="Status")
+        assert r1.version == 1
+        r2 = service.append_version("ops", "status", body="snap2")
+        assert r2.version == 2  # version bumped (unlike append)
+        doc = Document.objects.get(key="status")
+        assert doc.versions.count() == 2
+        body = service.get_document("ops", "status", with_body=True).content_markdown
+        assert "snap1" in body and "snap2" in body  # both entries retained (unlike new_version)
+
+    def test_append_version_via_put_document_on_exists(self, rb):
+        service.put_document("ops", "log2", body="a", title="Log2")
+        r = service.put_document("ops", "log2", body="b", on_exists="append_version")
+        assert r.version == 2
+        body = service.get_document("ops", "log2", with_body=True).content_markdown
+        assert "a" in body and "b" in body
+
     def test_fail_on_exists(self, rb):
         service.put_document("ops", "d", body="a", title="D")
         with pytest.raises(service.DocumentAlreadyExists):
