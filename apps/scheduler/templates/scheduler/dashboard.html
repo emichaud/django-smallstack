@@ -40,13 +40,20 @@
   <div class="card-body">
     <div style="display: flex; align-items: flex-end; gap: 3px; height: 72px;">
       {% for bucket in timeline %}
-      <div title="{{ bucket.hour|date:'H:i' }} · {{ bucket.total }} run{{ bucket.total|pluralize }}"
+      <div title="{{ bucket.hour|date:'H:i' }} · {{ bucket.success }} ok · {{ bucket.failed }} failed · {{ bucket.skipped }} skipped"
            style="flex: 1; display: flex; flex-direction: column; justify-content: flex-end; height: 100%;">
         {% if bucket.total %}
-        <div style="height: {% widthratio bucket.total 1 8 %}px; max-height: 64px; min-height: 4px;
-                    border-radius: 2px;
-                    background: {% if bucket.failed %}var(--error-fg){% elif bucket.skipped %}var(--warning-fg){% else %}var(--success-fg){% endif %};
-                    opacity: 0.85;"></div>
+        {% comment %}Bar height scales with total; each status is a proportional segment
+        (flex-grow = count), so a mostly-green bucket reads mostly green with a small red
+        cap instead of going fully red on a single failure.{% endcomment %}
+        <div style="height: {% widthratio bucket.total 1 8 %}px; max-height: 64px; min-height: 8px;
+                    border-radius: 2px; overflow: hidden; opacity: 0.9;
+                    display: flex; flex-direction: column;">
+          {% if bucket.failed %}<div style="flex: {{ bucket.failed }}; background: var(--error-fg);"></div>{% endif %}
+          {% if bucket.skipped %}<div style="flex: {{ bucket.skipped }}; background: var(--warning-fg);"></div>{% endif %}
+          {% if bucket.queued %}<div style="flex: {{ bucket.queued }}; background: var(--body-quiet-color);"></div>{% endif %}
+          {% if bucket.success %}<div style="flex: {{ bucket.success }}; background: var(--success-fg);"></div>{% endif %}
+        </div>
         {% else %}
         <div style="height: 4px; border-radius: 2px; background: var(--card-border);"></div>
         {% endif %}
