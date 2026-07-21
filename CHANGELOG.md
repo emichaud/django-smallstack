@@ -9,6 +9,8 @@ Breaking-change migration recipes live in [`UPGRADING.md`](UPGRADING.md).
 
 ## [Unreleased]
 
+## [0.13.6] - 2026-07-21
+
 ### Added
 - **Scheduler (`apps/scheduler/`)** — recurring background jobs over `django.tasks`
   (no Celery/Redis). Ships the `@scheduled` decorator (cron / interval / once,
@@ -21,14 +23,36 @@ Breaking-change migration recipes live in [`UPGRADING.md`](UPGRADING.md).
   24h run timeline, upcoming + recent runs, per-job Run-now), a `ScheduledJob`
   CRUDView with REST (`enable_api`) + MCP (`list_schedules` … `delete_schedule`)
   + search, a dashboard widget, a `/status/` core monitor, and Explorer browsing.
+- **Scheduler control UI** — the jobs list gains a table⇄calendar toggle (upcoming
+  runs by next fire) plus a read-only **run-history** view with its own
+  table⇄calendar coloured by outcome. Code-owned jobs render as a **read-only
+  control page**: the definition is locked to code; operators override only the
+  schedule + enable/pause + Run-now. UI schedule overrides survive code-sync
+  (`schedule_overridden`), with a "reset to code default".
 - **Triggers** — `POST /smallstack/scheduler/tick/` (localhost-only, runs inside
   gunicorn), `manage.py run_due_tasks`, `manage.py scheduler_beat`; plus
   `manage.py prune_job_runs` history retention. Cron lines added to
   `scripts/smallstack-cron`.
+- **Focus mode** on Help & Docs and Runbook now also collapses the SmallStack side
+  menu for an immersive read (non-persistent; restored on Expand). `theme.js`
+  exposes `window.smallstackSidebar` (get/set state with a persist opt-out).
 - Settings: `SMALLSTACK_SCHEDULER_ENABLED`, `_STALE_RUN_SECONDS`,
   `_OVERDUE_GRACE_SECONDS`, `_FAILURE_EMAILS`. New dependency: `croniter`.
 - Docs: `docs/skills/scheduler.md`; `@scheduled` flipped from "coming soon" to
   shipped in `CLAUDE.md`, `README.md`, `background-tasks.md`, `skills/README.md`.
+
+### Changed
+- **Runbook markdown** now renders with the same recipe as Help & Docs (roomier
+  18px/1.8 prose, heading rules, neutral non-accent-tinted code inset into the
+  card) — fixes the long-standing readability gap between the two surfaces.
+- **Orange palette** retuned to a warm-ground "quiet luxury" look (vivid accent,
+  warm-biased surfaces); the elegance levers are documented in `modify-palettes.md`.
+- User-menu **"Admin"** now opens the SmallStack dashboard (`/smallstack/`) rather
+  than raw Django admin (still reachable from the sidebar "Admin Panel").
+
+### Fixed
+- Scheduler hardening: timezone dev/prod parity (Linux/Docker), recompute + monitor
+  sample-floor tuning, and agent-hostile input hardening.
 
 ## [0.13.5] - 2026-07-19
 
