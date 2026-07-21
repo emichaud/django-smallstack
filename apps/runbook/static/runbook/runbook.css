@@ -32,6 +32,9 @@ body.runbook-focus-mode .runbook-layout {
 .runbook-content {
     min-width: 0;
     overflow-wrap: break-word;
+    font-size: 1.125rem;   /* 18px — match the Help & Docs reading size */
+    line-height: 1.8;
+    color: var(--body-fg);
 }
 
 .runbook-content pre {
@@ -165,16 +168,38 @@ body.runbook-focus-mode .runbook-layout {
     white-space: nowrap;
 }
 
-/* ── Rendered content ──────────────────────────────────────────── */
-.runbook-content h1,
-.runbook-content h2,
-.runbook-content h3,
-.runbook-content h4 {
-    margin-top: 1.5em;
-    margin-bottom: 0.5em;
+/* ── Rendered content ──────────────────────────────────────────────
+   Mirrors the Help & Docs markdown renderer verbatim so the two surfaces read
+   identically — keep in sync with `.markdown-body` in
+   apps/smallstack/static/smallstack/help/css/help.css. (Both render the same
+   markdown; they're separate blocks only for historical reasons.) The base
+   font-size / line-height / colour are set on `.runbook-content` above. */
+.runbook-content h1 {
+    margin-top: 44px;
+    margin-bottom: 20px;
+    font-size: 2rem;
     color: var(--body-fg);
 }
-
+.runbook-content h2 {
+    margin-top: 44px;
+    margin-bottom: 20px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--card-border);
+    font-size: 1.75rem;
+    color: var(--body-fg);
+}
+.runbook-content h3 {
+    margin-top: 36px;
+    margin-bottom: 14px;
+    font-size: 1.5rem;
+    color: var(--body-fg);
+}
+.runbook-content h4 {
+    margin-top: 28px;
+    margin-bottom: 10px;
+    font-size: 1.25rem;
+    color: var(--body-fg);
+}
 .runbook-content h1:first-child,
 .runbook-content h2:first-child,
 .runbook-content h3:first-child {
@@ -182,81 +207,104 @@ body.runbook-focus-mode .runbook-layout {
 }
 
 .runbook-content p {
-    margin-bottom: 0.75em;
-    line-height: 1.6;
+    margin-bottom: 18px;
 }
 
+.runbook-content ul,
+.runbook-content ol {
+    margin-bottom: 20px;
+    padding-left: 28px;
+}
+.runbook-content li {
+    margin-bottom: 10px;
+    line-height: 1.7;
+}
+.runbook-content li::marker {
+    color: var(--primary);
+    font-size: 1.1em;
+}
+.runbook-content li > ul,
+.runbook-content li > ol {
+    margin-top: 10px;
+    margin-bottom: 0;
+}
+
+/* One intentional divergence from Help: the runbook renders inside a `.card`
+   (card-bg), so code is INSET (darker --body-bg) to keep clean contrast on the
+   elevated surface. Help renders on the page ground and lifts code with the
+   lighter --card-header-bg. Same visual result, different surrounding surface. */
 .runbook-content pre {
-    background: color-mix(in srgb, var(--primary) 5%, var(--body-bg));
-    padding: 12px 16px;
-    border-radius: var(--radius-sm);
+    background-color: var(--body-bg);
+    padding: 18px 20px;
+    border-radius: var(--radius-md);
     overflow-x: auto;
-    font-size: 0.85rem;
-    margin-bottom: 1em;
+    margin-bottom: 20px;
+    border: 1px solid var(--card-border);
 }
-
 .runbook-content code {
-    font-size: 0.9em;
-    background: color-mix(in srgb, var(--primary) 8%, var(--body-bg));
-    padding: 2px 6px;
-    border-radius: 3px;
+    background-color: var(--body-bg);
+    padding: 3px 8px;
+    border-radius: 4px;
+    font-size: 0.95em;
+    font-family: "SF Mono", Monaco, "Cascadia Code", "Roboto Mono", Consolas, monospace;
 }
-
+/* Light mode: the card is near-white, so --body-bg would be ~invisible — inset
+   with the light-gray header surface instead (still darker than the card). */
+[data-theme="light"] .runbook-content pre,
+[data-theme="light"] .runbook-content code {
+    background-color: var(--card-header-bg);
+}
 .runbook-content pre code {
     background: none;
     padding: 0;
+    font-size: 1rem;
+    line-height: 1.65;
+}
+
+.runbook-content blockquote {
+    margin: 0 0 20px 0;
+    padding: 16px 24px;
+    border-left: 4px solid var(--primary);
+    background-color: var(--card-header-bg);
+    border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+    font-size: 1.0625rem;
+}
+.runbook-content blockquote p:last-child {
+    margin-bottom: 0;
 }
 
 .runbook-content table {
     width: 100%;
     border-collapse: collapse;
-    margin-bottom: 1em;
+    margin-bottom: 24px;
 }
-
-.runbook-content table th,
-.runbook-content table td {
-    padding: 8px 12px;
-    border: 1px solid var(--hairline-color);
+.runbook-content th,
+.runbook-content td {
+    padding: 14px 18px;
+    border: 1px solid var(--card-border);
     text-align: left;
+    line-height: 1.6;
 }
-
-.runbook-content table th {
-    background: color-mix(in srgb, var(--primary) 8%, var(--body-bg));
+.runbook-content th {
+    background-color: var(--card-header-bg);
     font-weight: 600;
 }
-
-.runbook-content blockquote {
-    border-left: 4px solid var(--primary);
-    padding: 12px 18px;
-    margin: 0 0 1em 0;
-    color: var(--body-quiet-color);
-    background: var(--card-header-bg);
-    border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+.runbook-content tr:nth-child(even) {
+    background-color: var(--card-header-bg);
 }
 
-.runbook-content blockquote p:last-child {
-    margin-bottom: 0;
+.runbook-content hr {
+    border: none;
+    border-top: 1px solid var(--card-border);
+    margin: 32px 0;
 }
 
-.runbook-content ul,
-.runbook-content ol {
-    margin-bottom: 1em;
-    padding-left: 1.5em;
-}
-
-.runbook-content li {
-    margin-bottom: 0.3em;
-    line-height: 1.5;
-}
-
-.runbook-content li::marker {
-    color: var(--primary);
-}
+.runbook-content a { color: var(--primary); }
+.runbook-content a:hover { color: var(--primary-hover); }
 
 .runbook-content img {
     max-width: 100%;
     height: auto;
-    border: 1px solid var(--hairline-color);
     border-radius: var(--radius-sm);
 }
 

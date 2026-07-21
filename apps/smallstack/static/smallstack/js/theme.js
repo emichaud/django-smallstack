@@ -212,7 +212,7 @@
             return window.innerWidth <= 768;
         }
 
-        function setState(state) {
+        function setState(state, persist) {
             currentState = state;
             body.dataset.sidebarState = state;
 
@@ -226,8 +226,10 @@
                 if (overlay) overlay.classList.remove('show');
             }
 
-            // Persist to localStorage (only if not forced by server)
-            if (!isForced && !isMobile()) {
+            // Persist to localStorage — unless the server forces the state, we're
+            // on mobile, or the caller opts out (persist === false, e.g. a
+            // temporary collapse by focus mode that should snap back on reload).
+            if (persist !== false && !isForced && !isMobile()) {
                 localStorage.setItem(SIDEBAR_STATE_KEY, state);
             }
         }
@@ -259,6 +261,14 @@
         if (sidebarToggle) {
             sidebarToggle.addEventListener('click', toggleSidebar);
         }
+
+        // Public handle so features (Help/Runbook focus mode) can collapse the
+        // sidebar temporarily and keep dataset/classes/currentState in sync.
+        // Only defined when the sidebar is actually present + enabled.
+        window.smallstackSidebar = {
+            getState: function () { return currentState; },
+            setState: setState,   // setState(state, persist) — pass false for a temporary change
+        };
 
         // Close sidebar when clicking overlay (mobile)
         if (overlay) {
