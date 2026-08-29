@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 Breaking-change migration recipes live in [`UPGRADING.md`](UPGRADING.md).
 
+## [Unreleased]
+
+## [0.20.1] - 2026-08-29
+
+### Changed
+- **`make lint` now runs ruff *and* mypy** — one command, the full static gate.
+  `make typecheck` existed as a deliberately separate target wired only into
+  the pre-commit hook, so *commits* were type-checked but a by-hand
+  `make test && make lint` gave no type check and no signal one existed. A
+  hand-run lint now enforces exactly what the hook enforces; the hook drops
+  its duplicate mypy step, and `make typecheck` remains for running mypy alone.
+- **CLAUDE.md gains a Types convention**: prefer strongly typed code where
+  practical, annotate signatures on new and edited code — under this mypy
+  config (`check_untyped_defs = false`) annotating a function is what opts its
+  body into checking — and keep `make lint` green before reporting work done.
+  CLI reference docs synced (`cli-reference.md`, `cli-tools.md`).
+
 ## [0.20.0] - 2026-08-16
 
 ### Added
@@ -1148,6 +1165,8 @@ See the git tag history (`git tag`) and `ai_cowork/audit_history/` for the full 
 v0.8–v0.10 API-server, modern-dark-theme, search, MCP, and Postgres eras.
 
 [Unreleased]: https://github.com/emichaud/django-smallstack/compare/v0.15.1...HEAD
+[0.20.1]: https://github.com/emichaud/django-smallstack/compare/v0.20.0...v0.20.1
+[0.20.0]: https://github.com/emichaud/django-smallstack/compare/v0.19.0...v0.20.0
 [0.19.0]: https://github.com/emichaud/django-smallstack/compare/v0.18.0...v0.19.0
 [0.18.0]: https://github.com/emichaud/django-smallstack/compare/v0.17.0...v0.18.0
 [0.17.0]: https://github.com/emichaud/django-smallstack/compare/v0.16.2...v0.17.0
