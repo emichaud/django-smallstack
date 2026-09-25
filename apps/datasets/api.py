@@ -172,8 +172,13 @@ class DatasetRowsView(_DatasetApiView):
         # CSV is the whole filtered set (an export), ignoring paging unless the
         # caller explicitly passes limit/offset; JSON pages (default limit 50).
         # Query params are strings — parse to int (rows() slices with them).
+        # CSV is capped too (SMALLSTACK_DATASET_CSV_MAX_ROWS): it materializes
+        # the whole set in memory. Over the cap is a loud 400, never a silently
+        # truncated file. (Audit 2026-09-13, C9c.)
+        csv_cap = int(getattr(settings, "SMALLSTACK_DATASET_CSV_MAX_ROWS", 50_000))
         if is_csv:
-            limit = _int_param(request, "limit", None)  # None → unbounded
+            requested = _int_param(request, "limit", None)
+            limit = csv_cap + 1 if requested is None or requested > csv_cap else requested
         else:
             limit = _int_param(request, "limit", 50)
         offset = _int_param(request, "offset", 0)
@@ -195,6 +200,16 @@ class DatasetRowsView(_DatasetApiView):
         except ValueError as exc:
             return JsonResponse({"error": str(exc)}, status=400)
         if is_csv:
+            if len(rows) > csv_cap:
+                return JsonResponse(
+                    {
+                        "error": (
+                            f"Export exceeds {csv_cap} rows (SMALLSTACK_DATASET_CSV_MAX_ROWS). "
+                            "Narrow the filters, or page with limit/offset."
+                        )
+                    },
+                    status=400,
+                )
             return _rows_csv_response(ds, key, rows)
         offset_echo = max(0, offset)
         # ``total`` is the full matching count (of the bucket, if drilling down);

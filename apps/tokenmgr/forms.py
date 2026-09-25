@@ -108,3 +108,14 @@ class TokenCreateForm(forms.Form):
         if not u.is_staff and target.pk != u.pk:
             raise forms.ValidationError("Non-staff users may only mint tokens for themselves.")
         return target
+
+    def clean(self):
+        cleaned = super().clean()
+        target = cleaned.get("user")
+        level = cleaned.get("access_level")
+        # A token's level never exceeds its owner's real role: a staff-level
+        # token for a non-staff user would be refused by REST (which checks the
+        # user) and only mislead whoever holds it. (Audit 2026-09-13, C1.)
+        if target is not None and level in ("staff", "auth") and not target.is_staff:
+            self.add_error("access_level", f"{target} is not staff; only read-only tokens can be minted for them.")
+        return cleaned

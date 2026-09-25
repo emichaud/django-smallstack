@@ -75,6 +75,12 @@ def check_tool_access(
     Rules (most-restrictive wins):
     - tool_def.requires_access overrides everything; tokens below that level
       are rejected. Order: readonly < staff < auth.
+    - requires_access of "staff" or above ⇒ token.user must ALSO be staff.
+      The token's level is a label chosen at mint time; the user's staff flag
+      is the live fact. REST gates on the user (``request.user.is_staff``), so
+      MCP must too — otherwise a staff-level token held by a non-staff user
+      (flag cleared after minting, or minted for them by another staffer)
+      keeps staff power over MCP that REST refuses. (Audit 2026-09-13, C1.)
     - tool_def.write=True ⇒ readonly tokens rejected.
     - StaffRequiredMixin on the view ⇒ token.user must be staff.
     """
@@ -85,6 +91,8 @@ def check_tool_access(
         needed = level_rank.get(tool_def.requires_access, 0)
         if token_level < needed:
             return f"access_required:{tool_def.requires_access}"
+        if needed >= level_rank["staff"] and not getattr(token.user, "is_staff", False):
+            return "staff_required"
 
     if tool_def.write and token.access_level == "readonly":
         return "readonly_blocked"

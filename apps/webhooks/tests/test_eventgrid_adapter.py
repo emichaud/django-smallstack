@@ -127,7 +127,7 @@ def test_eventgrid_outbound_transform_and_sas(monkeypatch):
         sink["body"] = req.data
         return FakeResp()
 
-    monkeypatch.setattr("urllib.request.urlopen", fake)
+    monkeypatch.setattr("apps.webhooks.tasks._open", fake)
     deliver_webhook.func(d.pk)
 
     # Event Grid schema: an array of events, mapped off the SmallStack envelope.

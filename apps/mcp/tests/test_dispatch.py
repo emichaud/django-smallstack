@@ -201,6 +201,41 @@ def test_tools_list_shows_staff_only_tools_to_staff_token(staff_token):
     assert "staff_only_probe_2" in names
 
 
+def test_staff_level_token_held_by_non_staff_user_is_refused(user_a):
+    """A staff-*level* token whose *user* is not staff (flag cleared after
+    minting, or minted for them by another staffer) must not reach staff tools
+    — REST refuses the same caller. The tool is neither listed nor callable.
+    (Audit 2026-09-13, C1.)"""
+    from apps.smallstack.models import APIToken
+
+    calls = []
+
+    @tool(
+        "staff_write_probe",
+        "Staff-only write probe",
+        input_schema={"type": "object", "properties": {}},
+        write=True,
+        requires_access="staff",
+    )
+    async def staff_write_probe(args):
+        calls.append(args)
+        return {"ok": True}
+
+    _, raw = APIToken.create_token(user=user_a, name="stale-staff", access_level="staff")
+    auth = {"HTTP_AUTHORIZATION": f"Bearer {raw}"}
+
+    listed = _post(Client(), {"jsonrpc": "2.0", "id": 1, "method": "tools/list"}, **auth)
+    assert "staff_write_probe" not in [t["name"] for t in listed.json()["result"]["tools"]]
+
+    called = _post(
+        Client(),
+        {"jsonrpc": "2.0", "id": 2, "method": "tools/call", "params": {"name": "staff_write_probe", "arguments": {}}},
+        **auth,
+    )
+    assert called.status_code == 403
+    assert calls == [], "handler ran for a non-staff user"
+
+
 def test_tools_list_filters_out_write_tools_for_readonly_caller(readonly_token):
     """A readonly token can't call write tools — they're filtered out of
     tools/list to match the call-time enforcement."""

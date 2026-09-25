@@ -9,6 +9,27 @@ listed, no downstream migration is required.
 
 ---
 
+## Unreleased — 2026-09-13 audit fixes (behaviour tightened, no code changes required)
+
+These are security/correctness fixes. Most projects need to do nothing; check the list only if
+you see one of the symptoms.
+
+| Symptom after pulling | Cause | What to do |
+|---|---|---|
+| A REST `GET/PATCH/DELETE /api/<base>/<pk>/` (or bulk endpoint) now 404s | Those endpoints now apply your CRUDView's `get_list_queryset`, like the list endpoint and MCP already did | Nothing, if the row really shouldn't be visible to that user. If `get_list_queryset` holds list-only filtering (e.g. "hide inactive by default"), move that into the list view. |
+| An MCP client gets `staff_required` | Staff-level tools now require the token's **user** to be staff, as REST does | Mark the user staff, or mint the token for a staff user. |
+| A file under `/media/runbook/...` 404s | Runbook files are served only through their access-checked views | Use the runbook's own links. For your own gated uploads, add their folder to `SMALLSTACK_PRIVATE_MEDIA_PREFIXES`. |
+| A webhook endpoint that answers with a redirect now fails | Redirects are no longer followed (SSRF protection) | Point the endpoint at the final URL. |
+| A dataset `?format=csv` export returns 400 | Exports are capped at `SMALLSTACK_DATASET_CSV_MAX_ROWS` (50,000) | Filter or page with `limit`/`offset`, or raise the setting. |
+| Starting a log capture at WARNING/ERROR is refused | Such a window captures nothing beyond the baseline | Pick a lower level (DEBUG/INFO). |
+| Gunicorn access-log lines no longer show query strings | Tokens can ride in query strings | Nothing; revert `access_log_format` in `gunicorn.conf` if you need them. |
+
+If you deploy with your own crontab instead of `scripts/smallstack-cron`, add the three new
+entries from it: the webhook tick (`POST /webhooks/tick/`), `run_retention`, and
+`prune_webhook_receipts`. Run `make migrate` (one new runbook migration).
+
+---
+
 ## v0.15.0 — CRUDViews require login by default (BREAKING)
 
 **Who is affected:** any CRUDView that relied on the old empty-`mixins` default to be

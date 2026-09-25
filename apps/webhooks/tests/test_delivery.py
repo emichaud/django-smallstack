@@ -29,13 +29,13 @@ def fake_response(status: int):
     resp = mock.MagicMock()
     resp.status = status
     resp.__enter__.return_value = resp
-    with mock.patch("apps.webhooks.tasks.urllib.request.urlopen", return_value=resp) as m:
+    with mock.patch("apps.webhooks.tasks._open", return_value=resp) as m:
         yield m
 
 
 @contextmanager
 def fake_error(exc: Exception):
-    with mock.patch("apps.webhooks.tasks.urllib.request.urlopen", side_effect=exc) as m:
+    with mock.patch("apps.webhooks.tasks._open", side_effect=exc) as m:
         yield m
 
 

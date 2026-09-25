@@ -29,7 +29,7 @@ from apps.smallstack.audit import ADDITION, CHANGE, log_action
 from apps.smallstack.mixins import StaffRequiredMixin
 from apps.smallstack.pagination import paginate_queryset
 
-from . import capture
+from . import capture, queries
 from .handlers import get_handlers
 from .logger_match import prefix_q
 from .models import LogRecord
@@ -44,6 +44,7 @@ LEVEL_FILTERS = [
     ("INFO", "Info", logging.INFO),
     ("WARNING", "Warning", logging.WARNING),
     ("ERROR", "Error", logging.ERROR),
+    ("CRITICAL", "Critical", logging.CRITICAL),
 ]
 
 TIME_RANGES = [
@@ -117,6 +118,11 @@ class LogListView(StaffRequiredMixin, TemplateView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         filters = self.get_filters()
+        if filters["level"] and filters["level"] not in {name for name, _label, _no in LEVEL_FILTERS}:
+            # Say so instead of rendering the unfiltered table as if it were
+            # the filtered result — the API 400s on the same input. (Audit D10a.)
+            messages.warning(self.request, f"Unknown level {filters['level']!r} ignored — showing all levels.")
+            filters["level"] = ""
         qs = self.filtered_queryset(filters)
 
         page_obj = paginate_queryset(qs, self.request, page_size=self.page_size)
@@ -223,7 +229,11 @@ class CaptureControlView(StaffRequiredMixin, View):
         redirect_to = reverse("telemetry:logs")
 
         if action == "start":
-            level = request.POST.get("level", "DEBUG").upper()
+            try:
+                level = queries.parse_capture_level(request.POST.get("level", "DEBUG"))
+            except queries.TelemetryQueryError as exc:
+                messages.error(request, f"Capture not started: {exc}.")
+                return HttpResponseRedirect(redirect_to)
             try:
                 minutes = int(request.POST.get("minutes", 15))
             except (TypeError, ValueError):

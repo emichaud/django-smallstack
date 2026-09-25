@@ -28,9 +28,9 @@ from __future__ import annotations
 import getpass
 from typing import Any
 
-from django.core.management.base import BaseCommand, CommandParser
+from django.core.management.base import BaseCommand, CommandError, CommandParser
 
-from apps.telemetry import capture
+from apps.telemetry import capture, queries
 from apps.telemetry.handlers import get_handlers
 from apps.telemetry.models import LogRecord
 
@@ -74,8 +74,6 @@ class Command(BaseCommand):
         """
         import json
 
-        from apps.telemetry import queries
-
         try:
             if action == "start":
                 try:
@@ -107,6 +105,11 @@ class Command(BaseCommand):
             actor = getpass.getuser()
         except Exception:
             actor = ""
+
+        try:
+            queries.parse_capture_level(options["level"])
+        except queries.TelemetryQueryError as exc:
+            raise CommandError(str(exc)) from None
 
         requested = options["minutes"]
         window = capture.start(

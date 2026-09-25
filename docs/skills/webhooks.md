@@ -104,7 +104,9 @@ X-SmallStack-Delivery: 123
 
 Delivery failures retry with exponential backoff (`SMALLSTACK_WEBHOOK_BACKOFF`), driven
 by a tick — **the framework has no automatic task retry, this is ours**. Pick exactly
-one trigger per deployment (same choices as the scheduler):
+one trigger per deployment (same choices as the scheduler). **The Docker image ships
+`POST /webhooks/tick/` every minute in `scripts/smallstack-cron`**; wire one of the others
+only if you don't deploy with that crontab:
 
 - cron/systemd: `* * * * * python manage.py run_due_deliveries`
 - localhost POST inside gunicorn: `POST /webhooks/tick/`

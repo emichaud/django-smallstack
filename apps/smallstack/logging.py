@@ -241,10 +241,29 @@ def extract_extra(record: logging.LogRecord) -> dict[str, Any]:
     attributes (``_foo``) are treated as internal bookkeeping and skipped.
     """
     return {
-        key: value
+        key: _redact_request(value)
         for key, value in record.__dict__.items()
         if key not in _STANDARD_ATTRS and key not in _CONTEXT_ATTRS and not key.startswith("_")
     }
+
+
+def _redact_request(value: Any) -> Any:
+    """Reduce an ``HttpRequest`` in ``extra`` to its method and path.
+
+    Django's ``log_response`` attaches the request object to every
+    ``django.request`` record, and its ``repr()`` carries the full query
+    string — so a feed URL's ``?token=<raw key>`` was written verbatim into
+    JSON log lines and the ``LogRecord.extra`` column on any 4xx/5xx. The path
+    is what's useful for debugging; the query is where credentials ride.
+    (Audit 2026-09-13, C3.) Duck-typed so this module never imports Django's
+    HTTP machinery.
+    """
+    if hasattr(value, "method") and hasattr(value, "path") and hasattr(value, "GET"):
+        try:
+            return f"<{type(value).__name__}: {value.method} {value.path!r}>"
+        except Exception:  # pragma: no cover - defensive
+            return f"<{type(value).__name__}>"
+    return value
 
 
 class JSONFormatter(logging.Formatter):

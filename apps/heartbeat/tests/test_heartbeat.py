@@ -519,6 +519,34 @@ class TestMonitoredEndpoint:
         assert "ep_on" in keys
         assert "ep_off" not in keys
 
+    def test_source_logs_instead_of_silently_dropping_monitors(self, db, monkeypatch, caplog):
+        """A DB error used to return [] with nothing logged — every endpoint
+        vanished from the tick while uptime stayed green. (Audit D7.)"""
+        from apps.heartbeat import monitors as mon
+
+        def locked(*a, **k):
+            raise RuntimeError("database is locked")
+
+        monkeypatch.setattr(MonitoredEndpoint.objects, "filter", locked)
+        with caplog.at_level("WARNING", logger="apps.heartbeat.monitors"):
+            assert mon.endpoint_monitor_source() == []
+        assert any("could not load endpoint monitors" in r.message for r in caplog.records)
+
+    def test_one_bad_row_does_not_drop_the_others(self, db, monkeypatch):
+        from apps.heartbeat import monitors as mon
+
+        MonitoredEndpoint.objects.create(name="Good", slug="good", url="https://e.com/", enabled=True)
+        MonitoredEndpoint.objects.create(name="Bad", slug="bad", url="https://e.com/", enabled=True)
+        real = mon.EndpointMonitor
+
+        def picky(ep):
+            if ep.slug == "bad":
+                raise ValueError("corrupt row")
+            return real(ep)
+
+        monkeypatch.setattr(mon, "EndpointMonitor", picky)
+        assert [m.key for m in mon.endpoint_monitor_source()] == ["ep_good"]
+
     def test_endpoint_monitor_passes_row_fields_to_check(self, db, monkeypatch):
         from apps.heartbeat import monitors as mon
         from apps.smallstack.monitors import CheckResult
@@ -1646,6 +1674,17 @@ class TestPublicStatusFlag:
 
         with override_settings(SMALLSTACK_PUBLIC_STATUS_ENABLED=False):
             assert client.get(reverse(name)).status_code == 404
+
+    def test_public_monitor_detail_404s_for_anonymous_when_disabled(self, staff_client, db):
+        """The monitor detail page is part of the public surface (audit C9a)."""
+        from django.test import Client, override_settings
+
+        anon = Client()
+        url = reverse("heartbeat:monitor_detail", kwargs={"monitor_key": "site"})
+        assert anon.get(url).status_code == 200
+        with override_settings(SMALLSTACK_PUBLIC_STATUS_ENABLED=False):
+            assert anon.get(url).status_code == 404
+            assert staff_client.get(url).status_code == 200
 
     def test_public_routes_work_when_enabled(self, client, db):
         # Default on — the board renders.

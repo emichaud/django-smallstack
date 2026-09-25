@@ -501,11 +501,13 @@ def search_all(query: str, limit_per_model: int = 5, user: Any = None) -> list[S
     # any authenticated user and to anonymous-trusted callers.
     try:
         from apps.help.search import search_help_articles
-
-        out.extend(search_help_articles(query, limit=limit_per_model))
-    except Exception:
-        # apps.help missing or query failed — silently skip.
-        pass
+    except ImportError:
+        pass  # apps.help not installed — nothing to add
+    else:
+        try:
+            out.extend(search_help_articles(query, limit=limit_per_model))
+        except Exception:
+            logger.exception("search_all failed for help docs")
 
     # Stable sort by rank descending. Ranks are per-backend; comparison
     # is meaningful WITHIN a backend across models.

@@ -93,20 +93,33 @@ def url_is_allowed(url: str) -> tuple[bool, str]:
         infos = socket.getaddrinfo(host, parts.port or (443 if parts.scheme == "https" else 80))
     except OSError:
         # Unresolvable at save time is not necessarily fatal (DNS may be
-        # transient); allow it and let the delivery attempt surface the error.
+        # transient); allow it. This pre-check is not the last line: at send
+        # time the delivery re-checks the socket's *connected* peer address
+        # (tasks._check_peer), which also closes the DNS-rebinding window
+        # between this lookup and the connect. (Audit C4.)
         return True, ""
     for info in infos:
-        ip = info[4][0]
-        try:
-            addr = ipaddress.ip_address(ip)
-        except ValueError:
-            continue
-        if addr.is_private or addr.is_loopback or addr.is_link_local or addr.is_reserved:
+        ip = str(info[4][0])
+        if ip_is_blocked(ip):
             return False, (
                 f"Host {host!r} resolves to a private/loopback address ({ip}). "
                 "Set SMALLSTACK_WEBHOOK_ALLOW_PRIVATE=true to allow (dev only)."
             )
     return True, ""
+
+
+def ip_is_blocked(ip: str) -> bool:
+    """True for private/loopback/link-local/reserved addresses (the SSRF set)."""
+    try:
+        addr = ipaddress.ip_address(ip.split("%", 1)[0])
+    except ValueError:
+        return False
+    if isinstance(addr, ipaddress.IPv6Address) and addr.ipv4_mapped is not None:
+        addr = addr.ipv4_mapped
+    return bool(
+        addr.is_private or addr.is_loopback or addr.is_link_local or addr.is_reserved
+        or addr.is_multicast or addr.is_unspecified
+    )
 
 
 # ---------------------------------------------------------------------------

@@ -10,6 +10,7 @@ Uses urllib from the stdlib for the POST so the app adds no new dependency.
 
 from __future__ import annotations
 
+import http.client
 import logging
 import time
 import urllib.error
@@ -109,7 +110,7 @@ def deliver_webhook(delivery_id: int) -> dict[str, Any]:
     else:
         req = urllib.request.Request(target_url, data=body, headers=headers, method="POST")
         try:
-            with urllib.request.urlopen(req, timeout=timeout) as resp:  # noqa: S310 — scheme checked
+            with _open(req, timeout=timeout) as resp:
                 status_code = resp.status
         except urllib.error.HTTPError as exc:
             status_code = exc.code
@@ -130,6 +131,72 @@ def deliver_webhook(delivery_id: int) -> dict[str, Any]:
         "response_status": status_code,
         "success": succeeded,
     }
+
+
+# ---------------------------------------------------------------------------
+# Guarded HTTP: no redirects, and the connected peer is re-checked
+# ---------------------------------------------------------------------------
+#
+# url_is_allowed() vets the URL's host by resolving it, but urllib resolves
+# again when it connects (a DNS-rebinding window), and the default opener
+# follows 3xx into wherever Location points — e.g. cloud metadata at
+# 169.254.169.254. The delivery record's status/latency then served as a
+# blind-SSRF oracle. So: redirects are refused (a 3xx is a failed delivery,
+# never followed), and the socket's actual peer address is checked right after
+# connect, before any request byte (or TLS handshake) is sent. (Audit C4.)
+
+
+class _BlockedPeer(OSError):
+    pass
+
+
+def _check_peer(sock: Any) -> None:
+    if getattr(settings, "SMALLSTACK_WEBHOOK_ALLOW_PRIVATE", False):
+        return
+    peer = sock.getpeername()[0]
+    if services.ip_is_blocked(peer):
+        sock.close()
+        raise _BlockedPeer(f"blocked by SSRF guard: connected peer {peer} is a private/loopback address")
+
+
+class _PeerCheckedHTTPConnection(http.client.HTTPConnection):
+    def connect(self) -> None:
+        super().connect()
+        _check_peer(self.sock)
+
+
+class _PeerCheckedHTTPSConnection(http.client.HTTPSConnection, _PeerCheckedHTTPConnection):
+    # MRO: HTTPSConnection.connect → super().connect() lands in the peer check
+    # above, which runs before HTTPSConnection wraps the socket in TLS.
+    pass
+
+
+def _via_proxy(req: urllib.request.Request) -> bool:
+    # Through an env-configured proxy the socket's peer is the proxy, not the
+    # target — the pre-send url_is_allowed() check is what applies then.
+    return bool(getattr(req, "_tunnel_host", None)) or req.has_proxy()
+
+
+class _GuardedHTTPHandler(urllib.request.HTTPHandler):
+    def http_open(self, req: urllib.request.Request) -> Any:
+        return self.do_open(http.client.HTTPConnection if _via_proxy(req) else _PeerCheckedHTTPConnection, req)
+
+
+class _GuardedHTTPSHandler(urllib.request.HTTPSHandler):
+    def https_open(self, req: urllib.request.Request) -> Any:
+        conn = http.client.HTTPSConnection if _via_proxy(req) else _PeerCheckedHTTPSConnection
+        return self.do_open(conn, req, context=self._context)  # type: ignore[attr-defined]
+
+
+class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):  # type: ignore[no-untyped-def]
+        return None  # urllib then raises HTTPError(3xx) — recorded as a failed attempt
+
+
+def _open(req: urllib.request.Request, *, timeout: int) -> Any:
+    """Send ``req`` through the guarded opener. Patched in tests."""
+    opener = urllib.request.build_opener(_GuardedHTTPHandler, _GuardedHTTPSHandler, _NoRedirectHandler)
+    return opener.open(req, timeout=timeout)
 
 
 def _record_attempt(

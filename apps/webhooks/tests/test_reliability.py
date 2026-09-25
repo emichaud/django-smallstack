@@ -76,7 +76,7 @@ def test_event_id_header_sent(monkeypatch):
         captured["headers"] = req.headers
         return FakeResp()
 
-    monkeypatch.setattr("urllib.request.urlopen", fake_urlopen)
+    monkeypatch.setattr("apps.webhooks.tasks._open", fake_urlopen)
     from apps.webhooks.tasks import deliver_webhook
 
     deliver_webhook.func(d.pk)

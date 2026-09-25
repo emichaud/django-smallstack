@@ -205,6 +205,13 @@ class TestProfileViews:
         response = client.get(reverse("profile_detail", kwargs={"username": "nonexistent"}))
         assert response.status_code == 404
 
+    @override_settings(SMALLSTACK_PUBLIC_PROFILES=False)
+    def test_profile_detail_requires_login_when_public_profiles_off(self, client, user):
+        """With the flag off, anonymous callers can't tell real usernames from fake. (Audit C9d.)"""
+        real = client.get(reverse("profile_detail", kwargs={"username": user.username}))
+        fake = client.get(reverse("profile_detail", kwargs={"username": "nonexistent"}))
+        assert real.status_code == fake.status_code == 302
+
 
 class TestThemePreferenceView:
     """Tests for the theme preference endpoint."""

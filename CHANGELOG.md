@@ -9,6 +9,94 @@ Breaking-change migration recipes live in [`UPGRADING.md`](UPGRADING.md).
 
 ## [Unreleased]
 
+Fixes from the 2026-09-13 base-framework audit (v0.20.1). Each carries a
+regression test that fails against the old code.
+
+### Security
+- **MCP now checks the *user's* staff flag, not just the token's label.** Any
+  tool at `requires_access="staff"` (or `"auth"`) also requires
+  `token.user.is_staff`, matching REST. Previously a staff-level token held by a
+  non-staff user — flag cleared after minting, or minted for them by another
+  staffer — kept full staff read/write over MCP (26 of 40 tools, incl.
+  `create_webhook`). The token form also refuses to mint staff/auth-level
+  tokens for non-staff users. (C1)
+- **`/media/` no longer serves access-controlled files.** Runbook bodies were
+  reachable anonymously at `/media/runbook/<key>.md`. The media route now 404s
+  prefixes listed in the new `SMALLSTACK_PRIVATE_MEDIA_PREFIXES` (default
+  `runbook/`, env-overridable, comma-separated); profile photos stay public.
+  The gate compares the resolved file path the server would open — not URL
+  strings — so `..` tricks (`/media/%2e%2e/media/runbook/x.md`) and symlinks
+  can't slip past it. (C2)
+- **API tokens no longer leak into logs.** An `HttpRequest` in a log record's
+  `extra` (every `django.request` 4xx/5xx) is reduced to method + path, so a
+  feed's `?token=` never reaches JSON log lines or `LogRecord.extra`. Gunicorn's
+  access log format drops the query string too. (C3)
+- **Webhook delivery can't be redirected into the private network.** 3xx
+  responses are recorded as failures, never followed, and the connected
+  socket's peer address is re-checked before any byte is sent — closing the
+  DNS-rebinding window as well. (C4)
+- **REST detail/update/delete and bulk endpoints honour `get_list_queryset`**,
+  as REST list and all MCP verbs already did. A fork scoping rows per owner
+  leaked other tenants' rows at `/api/<base>/<pk>/`. (C5)
+- **Inbound webhook receiver hardened**: bodies over
+  `SMALLSTACK_WEBHOOK_INBOUND_MAX_BYTES` (1 MB) get 413 before anything is
+  stored; signature-rejected receipts keep a 1 KB excerpt + SHA-256 and stop
+  being recorded past `SMALLSTACK_WEBHOOK_REJECTED_PER_MINUTE` (30); new
+  `prune_webhook_receipts` command (in the shipped crontab). (C6)
+- **Runbook images get server-generated names and a pinned content type.**
+  Only png/jpg/gif/webp are accepted by the form; any other stored name
+  (service/bundle paths, pre-fix uploads) is served as an
+  `application/octet-stream` download, never rendered. (C7)
+- **OAuth consent POST requires a CSRF token** (`AuthorizeView` is no longer
+  `csrf_exempt`), and `SESSION_COOKIE_SAMESITE`/`CSRF_COOKIE_SAMESITE` are
+  pinned to `"Lax"`. The consent page's CSP override regains `base-uri`,
+  `object-src`, `font-src`, `connect-src`. (C8, H5)
+- **Abandoned OAuth codes are scrubbed**: past their TTL the plaintext key is
+  cleared and the never-delivered token deactivated. (C9b)
+- **Passwordless login**: attempts are spent atomically before the code check
+  (parallel guesses bypassed the 5-attempt limit) and codes per account are
+  capped by `SMALLSTACK_LOGIN_CODES_PER_HOUR` (5). (H3)
+- **`.dockerignore` excludes `backups/`, `data/`, `.secret_key`, `.kamal/` and
+  nested `*.sqlite3`** — `COPY . .` was baking DB snapshots into images. (H1)
+- `SMALLSTACK_PUBLIC_STATUS_ENABLED=False` now also closes the per-monitor
+  detail page to anonymous visitors (C9a). New `SMALLSTACK_PUBLIC_PROFILES`
+  flag (default on) lets a deployment require sign-in for `/profile/<username>/`,
+  which otherwise answers "does this account exist" (C9d).
+
+### Fixed
+- **The telemetry `after_id` cursor skipped records.** It filtered by pk but
+  ordered by ts, so batch-inserted records captured earlier than their pk
+  suggests were never returned — with `has_more=False`. Cursor mode now pages
+  in pk order. Affects `/api/logger/records/`, MCP `logs_search`, and
+  `logs --follow`. (D1)
+- **A scheduler fire that failed to enqueue was lost silently.** Any enqueue
+  exception now records a FAILED run and `last_status="failed"`; an unknown
+  `queue_name` is rejected by `ScheduledJob.clean()`. (D2)
+- **The shipped crontab now drives the webhook retry tick** (`POST
+  /webhooks/tick/` every minute) — failed deliveries were never retried or
+  dead-lettered — **and nightly `run_retention`**, the only driver of runbook
+  document TTL expiry. (D3, D4)
+- `api_doctor` and the OpenAPI validity tests validate the spec actually
+  served (custom endpoints included: 68 operations, not 42), via the new
+  `build_served_spec()`. (D5)
+- A log-capture window that would capture nothing extra (a typo, or a level at
+  or above the baseline) is refused with a clear message on every channel
+  instead of being audited and reported as active. (D6)
+- Dynamic status monitors: a DB error is logged instead of silently dropping
+  every endpoint/surface monitor from the tick; one bad row no longer drops
+  the rest. (D7)
+- Bulk deletes log at WARNING, so the v0.20.0 summary line actually reaches
+  the log viewer at the default baseline. (D8)
+- Smaller: heartbeat log uses `attach_display_helpers` (D9); the log viewer
+  gains a CRITICAL filter and flags unknown levels (D10a); write give-ups count
+  toward `dropped` (D10b); `reset_schedule` reports a failed re-sync (D10c);
+  bulk-delete and help-search failures are logged (D10d); the api/mcp/webhook
+  doctors report a missing schema instead of a traceback (D10f); CRUD lists
+  fall back to pk order when the queryset is unordered — fixes
+  `UnorderedObjectListWarning` on the user list (D10g).
+- Dataset CSV export is capped by `SMALLSTACK_DATASET_CSV_MAX_ROWS` (50,000);
+  over the cap is a 400 asking the caller to filter or page. (C9c)
+
 ## [0.20.1] - 2026-08-29
 
 ### Changed

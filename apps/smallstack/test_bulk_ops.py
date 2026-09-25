@@ -216,6 +216,8 @@ def test_html_bulk_delete_logs_one_summary_line(staff, caplog):
     assert staff.get_username() in record.message
     assert sorted(record.ids) == sorted(t.pk for t in toks)
     assert record.errors == {}
+    # WARNING, so it clears the DB log handler's default baseline (audit D8).
+    assert record.levelno == logging.WARNING
 
 
 def test_html_bulk_update_logs_one_summary_line_with_field_names(staff, caplog):

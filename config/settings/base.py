@@ -207,6 +207,13 @@ SQLITE_OPTIONS = {
     ),
 }
 
+# Cookie SameSite — pinned explicitly (these are Django's defaults) so a
+# downstream enabling cross-origin SPA access doesn't weaken them unknowingly.
+# The MCP OAuth consent POST and every session-authenticated form rely on it
+# alongside CSRF tokens. Don't set "None" without understanding that trade.
+SESSION_COOKIE_SAMESITE = "Lax"
+CSRF_COOKIE_SAMESITE = "Lax"
+
 # Content Security Policy (django-csp)
 # Styles, fonts, and images allow "https:" so CDN frameworks (Bootstrap, Tailwind,
 # Google Fonts, etc.) work out of the box. Scripts stay restricted to 'self' — that's

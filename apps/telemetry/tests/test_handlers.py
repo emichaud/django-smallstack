@@ -303,6 +303,22 @@ def test_missing_table_drops_quietly_without_retrying(handler, monkeypatch):
     assert handler.dropped == 1
 
 
+def test_giving_up_after_retries_counts_the_rows_as_dropped(handler, monkeypatch):
+    """After three failed attempts the batch is gone — ``dropped`` must say so,
+    or capture_status reports ``dropped: 0`` while records vanish. (Audit D10b.)"""
+    monkeypatch.setattr("apps.telemetry.handlers.time.sleep", lambda s: None)
+
+    def locked(*args, **kwargs):
+        raise RuntimeError("database is locked")
+
+    monkeypatch.setattr(LogRecord.objects, "bulk_create", locked)
+    handler.emit(make_record("a"))
+    handler.emit(make_record("b"))
+    handler.flush()
+
+    assert handler.dropped == 2
+
+
 # ---------------------------------------------------------------------------
 # Guard 4: bounded queue
 # ---------------------------------------------------------------------------

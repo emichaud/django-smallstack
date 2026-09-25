@@ -489,6 +489,18 @@ def test_rest_rows_csv_export(client, _api_token):
     assert len(lines) >= 2  # header + at least one data row
 
 
+def test_rest_rows_csv_export_is_capped_loudly(client, _api_token, settings):
+    """An export over the cap is a 400, never an unbounded (or silently cut) file. (Audit C9c.)"""
+    _seed()
+    settings.SMALLSTACK_DATASET_CSV_MAX_ROWS = 1
+    resp = client.get(
+        "/smallstack/datasets/t_requestlog/?format=csv",
+        HTTP_AUTHORIZATION=f"Bearer {_api_token}",
+    )
+    assert resp.status_code == 400
+    assert "SMALLSTACK_DATASET_CSV_MAX_ROWS" in resp.json()["error"]
+
+
 def test_rest_scalar_route(client, _api_token):
     """Round-2: /<key>/scalar/ returns a single {value}, no GROUP BY."""
     _seed()

@@ -126,3 +126,39 @@ class TestVersionFidelity:
         # uploading again lands on the same logical document's shared pool
         staff_client.post(_upload_url(document.pk), {"image": _png_upload("second.png")})
         assert DocumentImage.objects.filter(document=document).count() == 2
+
+
+@pytest.mark.django_db
+class TestImageNamingAndContentType:
+    """The uploader's filename never decides how the file is served (audit C7)."""
+
+    def test_html_named_upload_is_rejected_by_the_form(self, staff_client, document):
+        resp = staff_client.post(_upload_url(document.pk), {"image": _png_upload("logo.html")})
+        assert resp.status_code == 400
+        assert not DocumentImage.objects.exists()
+
+    def test_stored_name_is_server_generated(self, staff_client, document):
+        staff_client.post(_upload_url(document.pk), {"image": _png_upload("my holiday.png")})
+        name = DocumentImage.objects.get().image.name
+        assert "holiday" not in name
+        assert name.endswith(".png")
+
+    def test_png_is_served_inline_with_a_pinned_type(self, staff_client, document):
+        staff_client.post(_upload_url(document.pk), {"image": _png_upload()})
+        resp = staff_client.get(_serve_url(DocumentImage.objects.get().pk))
+        assert resp["Content-Type"] == "image/png"
+        assert "attachment" not in resp.get("Content-Disposition", "")
+
+    def test_non_allowlisted_name_via_service_is_a_download(self, staff_client, document):
+        """service.attach_image and bundle import skip the form; the model's
+        upload_to still neutralises the name, and serving never renders it."""
+        from django.core.files.base import ContentFile
+
+        from apps.runbook import service
+
+        service.attach_image(document=document, file=ContentFile(_png_bytes(), name="evil.html"))
+        img = DocumentImage.objects.get()
+        assert img.image.name.endswith(".bin")
+        resp = staff_client.get(_serve_url(img.pk))
+        assert resp["Content-Type"] == "application/octet-stream"
+        assert "attachment" in resp["Content-Disposition"]

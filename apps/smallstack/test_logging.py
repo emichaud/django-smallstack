@@ -571,3 +571,18 @@ def test_settings_logging_config_is_valid(module_path, monkeypatch):
 def test_console_handler_carries_the_request_context_filter(module_path, monkeypatch):
     logging_config = load_logging_config(module_path, monkeypatch)
     assert "request_context" in logging_config["handlers"]["console"]["filters"]
+
+
+def test_request_in_extra_is_reduced_to_method_and_path():
+    """django.request records carry the HttpRequest in extra; its repr includes
+    the query string, where a feed's ?token=<raw key> rides. Neither the JSON
+    line nor the telemetry row may contain it. (Audit 2026-09-13, C3.)"""
+    from apps.smallstack.logging import extract_extra
+
+    request = RequestFactory().get("/feed/private.rss?token=SUPERSECRETTOKEN123")
+    record = make_record("Internal Server Error", status_code=500, request=request)
+
+    line = JSONFormatter().format(record)
+    assert "SUPERSECRETTOKEN123" not in line
+    assert "/feed/private.rss" in line
+    assert "SUPERSECRETTOKEN123" not in str(extract_extra(record))

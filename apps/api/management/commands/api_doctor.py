@@ -100,19 +100,25 @@ class Command(BaseCommand):
                 self.stdout.write("Summary: 1 ✓ / 0 ⚠ / 0 ✗ (API disabled via SMALLSTACK_API_ENABLED)")
             return
 
+        from apps.smallstack.doctor_checks import schema_check
+
         report: list[dict] = []
-        self._check_openapi_package(report)
-        self._check_dependencies(report)
-        self._check_registry(report)
-        self._check_custom_paths(report)
-        self._check_urls(report)
-        self._check_swagger_redoc(report)
-        self._check_openapi_validity(report)
-        self._check_endpoint_consistency(report)
-        self._check_orphans(report)
-        self._check_token_auth(report)
-        if not options.get("no_self_test"):
-            self._self_test(report)
+        schema_problem = schema_check()
+        if schema_problem is not None:
+            report.append(schema_problem)
+        if schema_problem is None or schema_problem["status"] != "FAIL":
+            self._check_openapi_package(report)
+            self._check_dependencies(report)
+            self._check_registry(report)
+            self._check_custom_paths(report)
+            self._check_urls(report)
+            self._check_swagger_redoc(report)
+            self._check_openapi_validity(report)
+            self._check_endpoint_consistency(report)
+            self._check_orphans(report)
+            self._check_token_auth(report)
+            if not options.get("no_self_test"):
+                self._self_test(report)
 
         if options.get("json"):
             self.stdout.write(jsonlib.dumps(report, indent=2, default=str))
@@ -339,13 +345,12 @@ class Command(BaseCommand):
             from openapi_spec_validator import validate
             from openapi_spec_validator.validation.exceptions import OpenAPIValidationError
 
-            from apps.smallstack.api import _api_registry
-            from apps.smallstack.openapi import build_openapi_spec
+            from apps.smallstack.api import build_served_spec
         except Exception as exc:
             report.append({"name": "OpenAPI validity", "status": "FAIL", "detail": str(exc)})
             return
         try:
-            spec = build_openapi_spec(_api_registry, server_url="http://localhost/")
+            spec = build_served_spec(server_url="http://localhost/")
         except Exception as exc:
             report.append({"name": "OpenAPI validity", "status": "FAIL", "detail": f"builder error: {exc}"})
             return

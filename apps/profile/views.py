@@ -76,11 +76,25 @@ class PalettePreferenceView(LoginRequiredMixin, View):
 
 
 class ProfileDetailView(DetailView):
-    """View for displaying any user's public profile."""
+    """View for displaying any user's public profile.
+
+    Anonymous access is on by default; ``SMALLSTACK_PUBLIC_PROFILES = False``
+    requires sign-in. A public page answers 200/404 per username, which lets an
+    anonymous visitor enumerate accounts. (Audit 2026-09-13, C9d.)
+    """
 
     model = UserProfile
     template_name = "profile/profile_detail.html"
     context_object_name = "profile"
+
+    def dispatch(self, request: HttpRequest, *args, **kwargs):
+        from django.conf import settings
+
+        if not getattr(settings, "SMALLSTACK_PUBLIC_PROFILES", True) and not request.user.is_authenticated:
+            from django.contrib.auth.views import redirect_to_login
+
+            return redirect_to_login(request.get_full_path())
+        return super().dispatch(request, *args, **kwargs)
 
     def get_object(self, queryset: QuerySet | None = None) -> UserProfile:
         """Get the profile by username from URL."""

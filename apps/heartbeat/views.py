@@ -534,6 +534,8 @@ class HeartbeatDashboardView(StaffRequiredMixin, TemplateView):
         from django.core.paginator import Paginator
         from django.db.models import Avg
 
+        from apps.smallstack.pagination import attach_display_helpers
+
         context = super().get_context_data(**kwargs)
         tab = self.get_tab()
         context["active_tab"] = tab
@@ -542,11 +544,7 @@ class HeartbeatDashboardView(StaffRequiredMixin, TemplateView):
         # {% sortable_th %} headers + Django pagination (was HeartbeatTable
         # + django-tables2 RequestConfig pre-v0.12).
         qs = self.get_tab_queryset(tab).order_by(self.get_ordering())
-        page_obj = Paginator(qs, self.page_size).get_page(self.request.GET.get("page"))
-        # render_paginator's template reads these display helpers.
-        page_obj.showing_start = page_obj.start_index()
-        page_obj.showing_end = page_obj.end_index()
-        page_obj.total_count = page_obj.paginator.count
+        page_obj = attach_display_helpers(Paginator(qs, self.page_size).get_page(self.request.GET.get("page")))
         context["beats"] = page_obj.object_list
         context["page_obj"] = page_obj
         context["is_paginated"] = page_obj.has_other_pages()
@@ -852,6 +850,11 @@ class MonitorDetailView(TemplateView):
         monitor_key = self.kwargs["monitor_key"]
         monitor = monitors.get_monitor(monitor_key)
         is_staff = bool(getattr(self.request.user, "is_staff", False))
+        # Staff always reach this page (it's their per-monitor view too); for
+        # everyone else it is part of the public status surface, so it honours
+        # SMALLSTACK_PUBLIC_STATUS_ENABLED like the rest of it. (Audit C9a.)
+        if not is_staff and not _public_status_enabled():
+            raise Http404("The public status page is disabled.")
         if monitor is None or (not is_staff and not monitor.public):
             raise Http404(f"No monitor '{monitor_key}'")
         service = monitors.get_service(monitor.service)

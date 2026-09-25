@@ -10,6 +10,11 @@
 # deployment; the alternative is `manage.py run_due_tasks` on system cron.
 * * * * * curl -sf -X POST http://localhost:${PORT:-8000}/smallstack/scheduler/tick/ > /dev/null
 
+# Webhook delivery tick — every minute (POST to gunicorn, same rationale).
+# Re-enqueues RETRYING deliveries whose backoff has elapsed; without it a
+# delivery that fails its first attempt is never retried and never dead-letters.
+* * * * * curl -sf -X POST http://localhost:${PORT:-8000}/webhooks/tick/ > /dev/null
+
 # Prune activity log — every 15 minutes
 */15 * * * * cd /app && python3 manage.py prune_activity
 
@@ -17,6 +22,13 @@
 # and the row cap; a DEBUG capture window can add rows fast, so don't stretch
 # this interval.
 */15 * * * * cd /app && python3 manage.py prune_logs
+
+# Prune inbound webhook receipts — daily at 3:15 AM (SMALLSTACK_WEBHOOK_RECEIPT_RETENTION_DAYS, default 30)
+15 3 * * * cd /app && python3 manage.py prune_webhook_receipts
+
+# Runbook retention — daily at 3:30 AM. Applies document TTLs (ttl_days /
+# on_expire) and sweeps version history; TTL expiry has no other driver.
+30 3 * * * cd /app && python3 manage.py run_retention
 
 # Prune scheduler run history — daily at 3 AM (keep 30 days)
 0 3 * * * cd /app && python3 manage.py prune_job_runs --keep-days 30

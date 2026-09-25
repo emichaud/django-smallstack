@@ -348,7 +348,7 @@ receiver. `is_paired` is read-only (set by `pair`). See [`webhooks.md`](../../..
 
 #### `run_due_deliveries`
 
-The cron/systemd entry point for the webhook **retry tick** — re-enqueues deliveries whose backoff has elapsed. Pick exactly one trigger per deployment (this command, `POST /webhooks/tick/` on localhost, or fold `services.run_due_deliveries()` into the scheduler beat).
+The cron/systemd entry point for the webhook **retry tick** — re-enqueues deliveries whose backoff has elapsed. Pick exactly one trigger per deployment (this command, `POST /webhooks/tick/` on localhost, or fold `services.run_due_deliveries()` into the scheduler beat). The shipped `scripts/smallstack-cron` already POSTs `/webhooks/tick/` every minute — use this command only when you don't run that crontab.
 
 ```bash
 * * * * * cd /app && uv run python manage.py run_due_deliveries

@@ -53,7 +53,7 @@ def _capture_urlopen(monkeypatch, sink):
         sink["body"] = req.data
         return FakeResp()
 
-    monkeypatch.setattr("urllib.request.urlopen", fake)
+    monkeypatch.setattr("apps.webhooks.tasks._open", fake)
 
 
 # --- F-019 outbound transform ------------------------------------------------

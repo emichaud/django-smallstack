@@ -9,6 +9,7 @@ from django.conf import settings as django_settings
 from django.contrib import messages
 from django.contrib.auth import get_user_model, login
 from django.contrib.auth.tokens import default_token_generator
+from django.db.models import F
 from django.http import Http404
 from django.shortcuts import redirect, render
 from django.urls import reverse, reverse_lazy
@@ -227,9 +228,15 @@ class PasswordlessLoginView(View):
                 return self._render(request, "email", error="Please enter your email address.")
             user = User.objects.filter(email__iexact=email, is_active=True).first()
             if user and user.email:
-                cutoff = timezone.now() - timedelta(seconds=self.RESEND_THROTTLE_SECONDS)
+                now = timezone.now()
+                cutoff = now - timedelta(seconds=self.RESEND_THROTTLE_SECONDS)
                 recent = user.login_codes.filter(consumed=False, created_at__gte=cutoff).exists()
-                if not recent:
+                # Per-account hourly cap: each code allows MAX_ATTEMPTS guesses,
+                # so without it an attacker re-requesting every minute gets
+                # ~7,200 guesses/day at a 6-digit code. (Audit 2026-09-13, H3.)
+                hourly_cap = int(getattr(django_settings, "SMALLSTACK_LOGIN_CODES_PER_HOUR", 5))
+                issued_last_hour = user.login_codes.filter(created_at__gte=now - timedelta(hours=1)).count()
+                if not recent and issued_last_hour < hourly_cap:
                     _, code = LoginCode.issue(user)
                     send_login_code_email(request, user, code)
             request.session["pwl_email"] = email
@@ -246,16 +253,20 @@ class PasswordlessLoginView(View):
             user = User.objects.filter(email__iexact=email, is_active=True).first()
             if user and code:
                 lc = user.login_codes.filter(consumed=False).order_by("-created_at").first()
-                if lc and lc.is_live:
-                    if lc.check_code(code):
-                        lc.consumed = True
-                        lc.save(update_fields=["consumed"])
+                # Spend an attempt atomically *before* checking: a
+                # read-then-save counter let parallel guesses all pass the
+                # attempt limit. Likewise, consuming is a conditional UPDATE so
+                # one code can't log in two concurrent requests. (Audit H3.)
+                if lc and lc.is_live and LoginCode.objects.filter(
+                    pk=lc.pk, consumed=False, attempts__lt=LoginCode.MAX_ATTEMPTS, expires_at__gt=timezone.now()
+                ).update(attempts=F("attempts") + 1):
+                    if lc.check_code(code) and LoginCode.objects.filter(pk=lc.pk, consumed=False).update(
+                        consumed=True
+                    ):
                         request.session.pop("pwl_email", None)
                         login(request, user, backend=MODEL_BACKEND)
                         messages.success(request, "You're signed in.")
                         return redirect("website:home")
-                    lc.attempts += 1
-                    lc.save(update_fields=["attempts"])
             return self._render(
                 request, "code", email=email, error="That code is invalid or has expired."
             )

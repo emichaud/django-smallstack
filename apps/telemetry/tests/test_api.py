@@ -274,6 +274,29 @@ def test_after_id_returns_oldest_first_so_the_cursor_advances(staff_client):
     assert data["next_after_id"] == records[-1].pk
 
 
+def test_after_id_never_skips_records_inserted_out_of_capture_order(staff_client):
+    """Two workers' batches land in reverse ts order: the later-captured batch
+    gets the lower pks. A cursor ordered by ts advanced ``next_after_id`` past
+    the earlier-captured rows and reported ``has_more=False`` with half the
+    records never returned (audit 2026-09-13, D1)."""
+    now = timezone.now()
+    late = [make_record(ts=now + timezone.timedelta(seconds=i), message=f"B{i}") for i in range(10)]
+    early = [make_record(ts=now - timezone.timedelta(minutes=5, seconds=-i), message=f"A{i}") for i in range(10)]
+    expected = {r.pk for r in late + early}
+
+    seen: list[int] = []
+    cursor = 0
+    for _ in range(10):
+        data = body(staff_client.get(RECORDS_URL, {"after_id": cursor, "limit": "10"}))
+        seen.extend(r["id"] for r in data["records"])
+        cursor = data["next_after_id"]
+        if not data["has_more"]:
+            break
+
+    assert len(seen) == len(set(seen)), "cursor returned a record twice"
+    assert set(seen) == expected, "cursor skipped records"
+
+
 def test_default_ordering_is_newest_first(staff_client):
     older = make_record(ts=timezone.now() - timezone.timedelta(minutes=5), message="older")
     newer = make_record(message="newer")

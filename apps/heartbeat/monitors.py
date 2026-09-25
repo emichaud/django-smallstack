@@ -9,6 +9,7 @@ same overview as the API / MCP / search monitors.
 
 from __future__ import annotations
 
+import logging
 import time
 import urllib.error
 import urllib.request
@@ -17,6 +18,8 @@ from typing import TYPE_CHECKING
 from django.db import connection
 
 from apps.smallstack.monitors import CheckResult, Monitor, Service
+
+logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from .models import MonitoredEndpoint, MonitoredSurface
@@ -189,11 +192,37 @@ def endpoint_monitor_source() -> list[Monitor]:
     lookup, so it always reflects the current rows. Resilient to the table not
     existing yet (e.g. before the migration runs).
     """
-    try:
-        from .models import MonitoredEndpoint
+    from .models import MonitoredEndpoint
 
-        return [EndpointMonitor(ep) for ep in MonitoredEndpoint.objects.filter(enabled=True)]
-    except Exception:  # noqa: BLE001 — pre-migrate / DB unavailable → no dynamic monitors
+    rows = _load_rows(MonitoredEndpoint, "endpoint")
+    monitors: list[Monitor] = []
+    for ep in rows:
+        try:
+            monitors.append(EndpointMonitor(ep))
+        except Exception:  # noqa: BLE001 — one bad row must not drop the rest
+            logger.warning("heartbeat: skipping MonitoredEndpoint pk=%s", ep.pk, exc_info=True)
+    return monitors
+
+
+def _is_missing_table(exc: Exception) -> bool:
+    message = str(exc).lower()
+    return "no such table" in message or ("relation" in message and "does not exist" in message)
+
+
+def _load_rows(model: type, label: str) -> list:
+    """Enabled rows for a dynamic monitor source, or [] — loudly unless pre-migrate.
+
+    A monitor that isn't yielded is never checked, so it leaves no beat at all —
+    an *absence*, not a fail, which uptime math can't see. Swallowing a DB
+    error here silently dropped every dynamic monitor for that tick while
+    uptime stayed green. Pre-migrate is the one expected case and stays quiet;
+    anything else is logged at WARNING. (Audit 2026-09-13, D7.)
+    """
+    try:
+        return list(model.objects.filter(enabled=True))  # type: ignore[attr-defined]
+    except Exception as exc:  # noqa: BLE001 — the source must never raise into the tick
+        if not _is_missing_table(exc):
+            logger.warning("heartbeat: could not load %s monitors; none checked this tick", label, exc_info=True)
         return []
 
 
@@ -250,14 +279,21 @@ def surface_monitor_source() -> list[Monitor]:
     single in-process scan of the exposed set. Resilient to the table not existing
     yet (pre-migrate).
     """
-    try:
-        from .models import MonitoredSurface
-        from .surfaces import exposed_keys
+    from .models import MonitoredSurface
+    from .surfaces import exposed_keys
 
-        exposed = exposed_keys()
-        return [
-            SurfaceMonitor(s, (s.kind, s.target) in exposed)
-            for s in MonitoredSurface.objects.filter(enabled=True)
-        ]
-    except Exception:  # noqa: BLE001 — pre-migrate / DB unavailable → no dynamic monitors
+    rows = _load_rows(MonitoredSurface, "surface")
+    if not rows:
         return []
+    try:
+        exposed = exposed_keys()
+    except Exception:  # noqa: BLE001
+        logger.warning("heartbeat: could not scan exposed surfaces; none checked this tick", exc_info=True)
+        return []
+    monitors: list[Monitor] = []
+    for s in rows:
+        try:
+            monitors.append(SurfaceMonitor(s, (s.kind, s.target) in exposed))
+        except Exception:  # noqa: BLE001 — one bad row must not drop the rest
+            logger.warning("heartbeat: skipping MonitoredSurface pk=%s", s.pk, exc_info=True)
+    return monitors

@@ -359,6 +359,32 @@ class DocumentVersion(models.Model):
         return self.document.get_absolute_url()
 
 
+# Image types runbook serves inline. Anything else is stored with a ``.bin``
+# name and served as a download, never rendered. (Audit 2026-09-13, C7.)
+IMAGE_CONTENT_TYPES: dict[str, str] = {
+    ".png": "image/png",
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".gif": "image/gif",
+    ".webp": "image/webp",
+}
+
+
+def document_image_upload_to(instance: "DocumentImage", filename: str) -> str:
+    """Server-generated storage name; the uploader's filename is discarded.
+
+    Keeping the client's name let ``logo.html`` be stored as such and served
+    with a content type guessed from it. Every creation path (upload form,
+    ``service.attach_image``, bundle import) goes through here.
+    """
+    from django.utils import timezone
+
+    ext = "." + filename.rsplit(".", 1)[-1].lower() if "." in filename else ""
+    if ext not in IMAGE_CONTENT_TYPES:
+        ext = ".bin"
+    return f"runbook/images/{timezone.now():%Y/%m}/{uuid.uuid4().hex}{ext}"
+
+
 class DocumentImage(models.Model):
     """An image asset attached to a document, for use in its markdown.
 
@@ -376,7 +402,10 @@ class DocumentImage(models.Model):
         on_delete=models.CASCADE,
         related_name="images",
     )
-    image = models.ImageField(upload_to="runbook/images/%Y/%m/")
+    image = models.ImageField(
+        upload_to=document_image_upload_to,
+        validators=[FileExtensionValidator(allowed_extensions=["png", "jpg", "jpeg", "gif", "webp"])],
+    )
     alt = models.CharField(max_length=255, blank=True)
     uploaded_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,

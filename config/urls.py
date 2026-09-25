@@ -3,7 +3,6 @@ URL configuration for smallstack project.
 """
 
 from django.conf import settings
-from django.conf.urls.static import static
 from django.contrib import admin
 from django.urls import include, path
 from django.views.generic import RedirectView
@@ -143,19 +142,19 @@ if settings.DEBUG:
         path("_error/500/", server_error),
     ]
 
-# Serve media files in development
-if settings.DEBUG:
-    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
-else:
-    # Serve media files in production via Django
-    # Note: For high-traffic sites, use nginx or cloud storage (S3) instead
+# Serve media files (dev and production) — except the access-controlled
+# subtrees in SMALLSTACK_PRIVATE_MEDIA_PREFIXES (runbook files), which only
+# their own permission-checked views may read. See apps/smallstack/media.py.
+# Note: for high-traffic sites, use nginx or cloud storage (S3) instead — and
+# carry the same private-prefix exclusion into that config.
+if settings.MEDIA_URL.startswith("/"):
     from django.urls import re_path
-    from django.views.static import serve
+
+    from apps.smallstack.media import public_media_serve
 
     urlpatterns += [
         re_path(
-            r"^media/(?P<path>.*)$",
-            serve,
-            {"document_root": settings.MEDIA_ROOT},
+            r"^%s(?P<path>.*)$" % settings.MEDIA_URL.lstrip("/"),
+            public_media_serve,
         ),
     ]

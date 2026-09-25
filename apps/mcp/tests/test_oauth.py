@@ -81,6 +81,33 @@ def test_authorize_get_with_login_renders_csp_with_redirect_origin():
     csp = resp.get("Content-Security-Policy", "")
     assert "form-action" in csp
     assert "https://claude.ai" in csp
+    # The per-response override must keep the global hardening (audit H5).
+    assert "base-uri 'self'" in csp
+    assert "object-src 'none'" in csp
+
+
+def test_authorize_post_without_csrf_token_is_rejected_and_mints_nothing():
+    """A cross-site auto-submitted consent form must not mint a token.
+    (Audit 2026-09-13, C8.)"""
+    user = User.objects.create_user(username="csrfvictim", password="p", is_staff=True)
+    client = Client(enforce_csrf_checks=True)
+    client.force_login(user)
+    resp = client.post(
+        "/mcp/oauth/authorize",
+        {
+            "client_id": "mcp_x",
+            "redirect_uri": "https://attacker.example/cb",
+            "code_challenge": "abc",
+            "code_challenge_method": "S256",
+            "state": "s1",
+            "scope": "write",
+            "decision": "allow",
+        },
+        HTTP_HOST="localhost",
+    )
+    assert resp.status_code == 403
+    assert not APIToken.objects.filter(user=user).exists()
+    assert not OAuthAuthorizationCode.objects.exists()
 
 
 def test_authorize_bad_params_return_400():
@@ -384,3 +411,22 @@ def test_revoke_soft_deletes_apitoken():
     token.refresh_from_db()
     assert token.is_active is False
     assert token.revoked_at is not None
+
+
+def test_unredeemed_expired_code_is_scrubbed_and_its_token_revoked(settings):
+    """An abandoned consent left a live bearer key in plaintext forever. (Audit C9b.)"""
+    from datetime import timedelta
+
+    from apps.mcp.models import expire_unredeemed_codes
+
+    client = Client()
+    client.force_login(User.objects.create_user(username="abandoner", password="p"))
+    _authorize_allow(client)
+    row = OAuthAuthorizationCode.objects.get()
+    assert row.raw_key
+    OAuthAuthorizationCode.objects.filter(pk=row.pk).update(created_at=timezone.now() - timedelta(hours=1))
+
+    assert expire_unredeemed_codes() == 1
+    row.refresh_from_db()
+    assert row.raw_key == ""
+    assert row.api_token.is_active is False

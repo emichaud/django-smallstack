@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from datetime import datetime, timedelta
 from typing import Any
 
@@ -23,6 +24,8 @@ from apps.smallstack.stat_lists import render_stat_list, stat_list_row
 from . import schedules, services
 from .forms import ScheduledJobForm
 from .models import ScheduledJob, ScheduledJobRun
+
+logger = logging.getLogger(__name__)
 
 LOCALHOST_IPS = {"127.0.0.1", "::1"}
 
@@ -407,8 +410,16 @@ def reset_schedule(request: HttpRequest, pk: int) -> HttpResponse:
 
             sync_code_jobs()  # re-applies the @scheduled cadence when a spec exists
         except Exception:  # noqa: BLE001 — never let re-sync block the reset
-            pass
-        messages.success(request, f"“{job.name}” schedule reset to the code default.")
+            # The flag is cleared, so the next sync will re-apply the code
+            # cadence — but it hasn't happened yet; say so. (Audit D10c.)
+            logger.exception("scheduler: re-sync after resetting %s failed", job.name)
+            messages.warning(
+                request,
+                f"“{job.name}” override cleared, but re-applying the code cadence failed — "
+                "it will be retried on the next scheduler sync. See the logs for details.",
+            )
+        else:
+            messages.success(request, f"“{job.name}” schedule reset to the code default.")
     return redirect("scheduler/jobs-update", pk=pk)
 
 

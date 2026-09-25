@@ -33,7 +33,7 @@ from django.views.decorators.http import require_http_methods
 from apps.accounts.models import User
 from apps.smallstack.models import APIToken
 
-from .models import OAuthAuthorizationCode
+from .models import OAuthAuthorizationCode, expire_unredeemed_codes
 from .oauth import absolute_url, issuer_url, verify_pkce
 
 logger = logging.getLogger("smallstack.mcp.oauth")
@@ -161,18 +161,27 @@ def _add_csp_for_redirect(resp: HttpResponse, redirect_uri: str) -> HttpResponse
         return resp
     origin = f"{parsed.scheme}://{parsed.netloc}"
     # django-csp middleware sets the header from settings — override per-response.
+    # Mirrors settings.CONTENT_SECURITY_POLICY except form-action; keep the two
+    # in step (the base-uri/object-src hardening was once lost here — audit H5).
     resp["Content-Security-Policy"] = (
         f"default-src 'self'; "
         f"script-src 'self' 'unsafe-inline'; "
         f"style-src 'self' 'unsafe-inline' https:; "
         f"img-src 'self' data: https:; "
+        f"font-src 'self' https: data:; "
+        f"connect-src 'self'; "
         f"form-action 'self' {origin}; "
-        f"frame-ancestors 'none'"
+        f"frame-ancestors 'none'; "
+        f"base-uri 'self'; "
+        f"object-src 'none'"
     )
     return resp
 
 
-@method_decorator(csrf_exempt, name="dispatch")
+# Not csrf_exempt: the consent POST is cookie-authenticated and mints a token,
+# so it is exactly what CSRF protection is for. The template renders
+# {% csrf_token %}. Only /register, /token and /revoke — which are not
+# cookie-authenticated — are exempt. (Audit 2026-09-13, C8.)
 class AuthorizeView(View):
     """OAuth authorize endpoint. login_required via decorator on get/post."""
 
@@ -274,6 +283,7 @@ class AuthorizeView(View):
             access_level=access_level,
         )
 
+        expire_unredeemed_codes()
         code = secrets.token_urlsafe(32)
         OAuthAuthorizationCode.objects.create(
             code=code,
@@ -350,6 +360,7 @@ def token(request: HttpRequest) -> JsonResponse:
     age = (timezone.now() - row.created_at).total_seconds()
     if age > ttl:
         logger.warning("OAUTH TOKEN reject reason=code_expired client_id=%s", client_id)
+        expire_unredeemed_codes()
         return JsonResponse(
             {"error": "invalid_grant", "error_description": "Code expired"}, status=400
         )

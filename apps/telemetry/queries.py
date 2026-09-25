@@ -86,6 +86,23 @@ def parse_level(value: Any) -> str:
     return level
 
 
+def parse_capture_level(value: Any) -> str:
+    """A capture-window level: known, and strictly below the baseline.
+
+    A window at or above the baseline captures nothing the baseline doesn't
+    already (``effective_level`` takes the min) — accepting one would audit,
+    log, and report "capturing" while changing nothing. (Audit 2026-09-13, D6.)
+    """
+    level = parse_level(value) or "DEBUG"
+    baseline = capture.baseline_level()
+    if LEVELS[level] >= baseline:
+        raise TelemetryQueryError(
+            f"level {level} would capture nothing extra — the baseline already records "
+            f"{logging.getLevelName(baseline)} and above; choose a lower level"
+        )
+    return level
+
+
 def parse_timestamp(value: Any, field: str) -> datetime | None:
     """Absolute ISO-8601 only.
 
@@ -240,7 +257,11 @@ def search_records(
     applied["limit"] = resolved_limit
 
     total = qs.count()
-    ordering = ("ts", "pk") if cursor is not None else ("-ts", "-pk")
+    # Cursor mode pages on the cursor's own axis. Records are written in
+    # batches, so insertion order is not capture order (see prune_logs): a
+    # record captured earlier can land at a higher pk. Ordering a pk cursor by
+    # ts would advance next_after_id past rows the page never returned.
+    ordering = ("pk",) if cursor is not None else ("-ts", "-pk")
 
     # One extra row is the cheapest correct has_more: no second COUNT, and no
     # "was the last page exactly `limit` long?" ambiguity.
@@ -252,7 +273,7 @@ def search_records(
         "records": [serialize_record(r, full=False) for r in rows],
         "count": len(rows),
         "has_more": has_more,
-        "next_after_id": max((r.pk for r in rows), default=cursor) if rows else cursor,
+        "next_after_id": rows[-1].pk if rows else cursor,
         "total_matching": total,
         "applied_filters": applied,
     }
@@ -372,7 +393,7 @@ def open_capture(*, level: Any = "DEBUG", minutes: Any = 15, note: Any = "", act
             "operators in the capture list"
         )
 
-    resolved_level = parse_level(level) or "DEBUG"
+    resolved_level = parse_capture_level(level)
     resolved_minutes = parse_int(minutes if minutes not in (None, "") else 15, "minutes", minimum=1)
     ceiling = capture.max_capture_minutes()
 

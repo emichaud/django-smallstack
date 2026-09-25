@@ -337,6 +337,10 @@ Age alone wouldn't save you from an incident that logs a million lines in ten mi
 
 To switch the whole subsystem off, set `TELEMETRY_LOG_CAPTURE_ENABLED=false`. No handler is installed, so there's no queue, no thread, and no rows.
 
+## Credentials in URLs
+
+Feeds accept an API token as `?token=`. SmallStack keeps query strings out of the logs it controls: a request attached to a log record is reduced to method + path before it reaches JSON log lines or the `LogRecord` table, and the shipped `gunicorn.conf` access log omits the query string. **`manage.py runserver`'s own access line is the exception** — it prints the full URL, query included, and has no setting to change that. Treat dev-server output as containing tokens: don't paste it into tickets or chat.
+
 ## Logging to a File
 
 By default, all logs go to the console (stdout) — which is the right choice for Docker containers and most cloud platforms, where a log collector picks up stdout automatically.

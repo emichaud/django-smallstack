@@ -121,6 +121,36 @@ class TestPasswordless:
         assert resp.status_code == 200  # same code-entry screen as a real address
         assert len(mail.outbox) == 0  # but nothing is sent
 
+    def test_correct_code_after_attempts_exhausted_is_refused(self, client, settings):
+        """The attempt budget is spent atomically before the check (audit H3)."""
+        from apps.accounts.models import LoginCode
+
+        settings.SMALLSTACK_PASSWORDLESS_LOGIN = True
+        user = User.objects.create_user("coder3", email="c3@acme.com", password="pw")
+        client.post(reverse("accounts:passwordless_login"), {"action": "request", "email": "c3@acme.com"})
+        code = re.search(r"\b(\d{6})\b", mail.outbox[0].subject).group(1)
+        LoginCode.objects.filter(user=user).update(attempts=LoginCode.MAX_ATTEMPTS)
+        client.post(reverse("accounts:passwordless_login"), {"action": "verify", "code": code})
+        assert "_auth_user_id" not in client.session
+
+    def test_codes_per_hour_are_capped(self, client, settings):
+        """Re-requesting every minute must not mint unlimited codes (audit H3)."""
+        from datetime import timedelta
+
+        from django.utils import timezone
+
+        from apps.accounts.models import LoginCode
+
+        settings.SMALLSTACK_PASSWORDLESS_LOGIN = True
+        settings.SMALLSTACK_LOGIN_CODES_PER_HOUR = 2
+        user = User.objects.create_user("coder4", email="c4@acme.com", password="pw")
+        for _ in range(4):
+            client.post(reverse("accounts:passwordless_login"), {"action": "request", "email": "c4@acme.com"})
+            # step past the 60 s resend throttle
+            LoginCode.objects.filter(user=user).update(created_at=timezone.now() - timedelta(minutes=2))
+        assert LoginCode.objects.filter(user=user).count() == 2
+        assert len(mail.outbox) == 2
+
 
 # ── Username-or-email login ──────────────────────────────────────────────────
 class TestEmailLogin:

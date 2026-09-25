@@ -89,6 +89,37 @@ def test_unresolvable_task_path_disables_and_marks_invalid(db_backend):
 # --- reconcile surfaces the return value (C-3) ------------------------------
 
 
+def test_enqueue_failure_is_recorded_not_lost(db_backend):
+    """An exception outside the unresolvable-path allowlist (here InvalidTask
+    for an unknown queue) used to advance next_run_at with no run row and
+    last_status still "success" — a silently lost fire. (Audit 2026-09-13, D2.)"""
+    job = _make_due(queue_name="nope-not-configured")
+    ScheduledJob.objects.filter(pk=job.pk).update(last_status="success")
+
+    result = services.run_due_jobs()
+
+    assert result.errors == 1
+    job.refresh_from_db()
+    assert job.last_status == ScheduledJobRun.Status.FAILED
+    assert job.enabled, "possibly-transient failures must not disable the job"
+    run = ScheduledJobRun.objects.get(job=job)
+    assert run.status == ScheduledJobRun.Status.FAILED
+    assert "enqueue failed" in run.message
+
+
+def test_clean_rejects_unknown_queue_name(db_backend):
+    from django.core.exceptions import ValidationError
+
+    job = ScheduledJob(
+        name="q", task_path=TASK_PATH, schedule_type="interval", interval_spec="1h", queue_name="bogus"
+    )
+    with pytest.raises(ValidationError) as exc:
+        job.clean()
+    assert "queue_name" in exc.value.message_dict
+    job.queue_name = "email"
+    job.clean()
+
+
 def test_reconcile_surfaces_success_return_value(db_backend):
     job = _make_due(name="etl")
     services.run_due_jobs()

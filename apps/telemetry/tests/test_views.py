@@ -16,7 +16,7 @@ pytestmark = pytest.mark.django_db
 
 User = get_user_model()
 
-LEVELS = {"DEBUG": 10, "INFO": 20, "WARNING": 30, "ERROR": 40}
+LEVELS = {"DEBUG": 10, "INFO": 20, "WARNING": 30, "ERROR": 40, "CRITICAL": 50}
 
 
 def make_record(level="WARNING", logger="apps.demo", message="something happened", *, age_seconds=0, **kwargs):
@@ -99,6 +99,18 @@ def test_level_filter_means_this_level_and_above(client, staff, logs_url):
     assert "error line" in body
     assert "info line" not in body
     assert "debug line" not in body
+
+
+def test_critical_level_filter_and_unknown_level_notice(client, staff, logs_url):
+    make_record(level="ERROR", message="error line")
+    make_record(level="CRITICAL", message="critical line")
+
+    body = client.get(logs_url, {"level": "CRITICAL"}).content.decode()
+    assert "critical line" in body
+    assert "error line" not in body
+
+    body = client.get(logs_url, {"level": "BOGUS"}).content.decode()
+    assert "Unknown level" in body
 
 
 def test_level_counts_are_totals_not_one_per_row(client, staff, logs_url):
@@ -299,6 +311,16 @@ def test_start_opens_a_window_and_audits_it(client, staff):
 def test_start_survives_a_junk_duration(client, staff):
     client.post(reverse("telemetry:capture"), {"action": "start", "minutes": "not-a-number"})
     assert capture.active_window() is not None
+
+
+@pytest.mark.parametrize("level", ["DEGUB", "WARNING", "ERROR"])
+def test_start_refuses_a_window_that_would_capture_nothing(client, staff, level):
+    """A typo, or a level at/above the WARNING baseline, used to be accepted,
+    audited, and flashed as "Capturing …" while changing nothing. (Audit D6.)"""
+    response = client.post(reverse("telemetry:capture"), {"action": "start", "level": level}, follow=True)
+    assert capture.active_window() is None
+    assert not LogEntry.objects.filter(user=staff).exists()
+    assert "Capture not started" in response.content.decode()
 
 
 def test_stop_closes_the_window(client, staff):

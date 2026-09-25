@@ -190,7 +190,10 @@ def _apply_ordering(qs, request: HttpRequest, crud_config) -> QuerySet:
     """
     ordering = request.GET.get("ordering", "").strip()
     if not ordering:
-        return qs
+        # Paginating an unordered queryset can repeat or skip rows between
+        # pages (Django's UnorderedObjectListWarning) — e.g. the custom User
+        # model has no Meta.ordering. Fall back to a stable pk order.
+        return qs if qs.ordered else qs.order_by("pk")
 
     # Build allowed set: ordering_fields override, else list_fields filtered to model fields
     allowed = set(getattr(crud_config, "ordering_fields", None) or [])
@@ -712,6 +715,7 @@ class _CRUDDeleteBase(_CRUDContextMixin, DeleteView):
         except IntegrityError:
             msg = "Cannot delete — a database constraint prevented this action."
         except Exception:
+            logger.exception("Delete of %s pk=%s failed", self.crud_config.model.__name__, kwargs.get("pk"))
             msg = "Delete failed — an unexpected error occurred."
         else:
             return  # unreachable, but keeps linters happy
@@ -737,7 +741,11 @@ def _log_bulk_action(request, verb: str, model: type[Model], ok_ids: list, error
     extra = {"ids": ok_ids[:_BULK_LOG_ID_CAP], "errors": errors}
     if fields is not None:
         extra["fields"] = fields
-    logger.info(
+    # Deletes log at WARNING so they reach the DB log handler at its default
+    # WARNING baseline — at INFO the "visible in the log viewer" half of the
+    # v0.20.0 fix never persisted. Updates stay INFO. (Audit 2026-09-13, D8.)
+    logger.log(
+        logging.WARNING if verb == "delete" else logging.INFO,
         "Bulk %s: %s %s %d/%d %s row(s), %d error(s)",
         verb,
         actor,
@@ -901,6 +909,7 @@ class _CRUDBulkActionView:
                     except IntegrityError:
                         errors[str(pk)] = "Cannot delete — a database constraint prevented this action."
                     except Exception:
+                        logger.exception("Bulk delete of %s pk=%s failed", cfg.model.__name__, pk)
                         errors[str(pk)] = "Delete failed — an unexpected error occurred."
 
                 msg = f"Deleted {len(deleted_ids)} of {len(ids)}"

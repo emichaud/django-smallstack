@@ -159,6 +159,16 @@ def _process_job_body(job: ScheduledJob, *, now: datetime, result: TickResult) -
         _record(job, ScheduledJobRun.Status.FAILED, observed, message=f"task_path unresolvable: {exc}"[:255])
         ScheduledJob.objects.filter(pk=job.pk).update(enabled=False, last_status="invalid")
         result.errors += 1
+    except Exception as exc:  # noqa: BLE001 — the claim already advanced next_run_at
+        # Anything else (InvalidTask for an unknown queue_name, a DB error
+        # inside enqueue) must still leave a trace: the claim above already
+        # moved next_run_at, so without a FAILED run + last_status this fire
+        # is lost with the job still showing its last good status. Not
+        # disabled — the cause may be transient. (Audit 2026-09-13, D2.)
+        logger.exception("scheduler: %s failed to enqueue", job.name)
+        _record(job, ScheduledJobRun.Status.FAILED, observed, message=f"enqueue failed: {exc}"[:255])
+        ScheduledJob.objects.filter(pk=job.pk).update(last_status=ScheduledJobRun.Status.FAILED)
+        result.errors += 1
 
 
 def enqueue_and_record(job: ScheduledJob, *, scheduled_for: datetime, now: datetime | None = None) -> str:

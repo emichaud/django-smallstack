@@ -21,10 +21,10 @@ Access is deliberately identical to the REST surface, which took a correction
 worth recording. MCP's ``requires_access`` gates on the **token's** access
 level, while ``/api/logger/``'s ``require_staff`` gates on the **user**. Those
 are different questions: nothing stops a staff-*level* token being minted for a
-non-staff user, and with ``requires_access="staff"`` alone such a token would
-read logs over MCP while being refused over REST. The framework only checks
-``user.is_staff`` for CRUDView-derived tools (via their mixins) — these are
-hand-written, so they must check it themselves.
+non-staff user. Since the 2026-09-13 audit (C1), ``check_tool_access`` also
+requires ``token.user.is_staff`` for any ``requires_access`` of "staff" or
+above, so the framework now enforces this too — the handler-level check below
+stays as defence in depth and as the source of a readable error message.
 
 So, matching REST exactly:
 

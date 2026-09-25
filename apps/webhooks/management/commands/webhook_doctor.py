@@ -50,12 +50,18 @@ class Command(BaseCommand):
             self._emit(disabled_report, options)
             return
 
+        from apps.smallstack.doctor_checks import schema_check
+
         report: Report = []
-        self._check_outbound_registry(report)
-        self._check_origin(report)
-        self._check_endpoints(report)
-        self._check_stuck_retries(report)
-        self._check_inbound(report)
+        schema_problem = schema_check()
+        if schema_problem is not None:
+            report.append(schema_problem)
+        if schema_problem is None or schema_problem["status"] != "FAIL":
+            self._check_outbound_registry(report)
+            self._check_origin(report)
+            self._check_endpoints(report)
+            self._check_stuck_retries(report)
+            self._check_inbound(report)
         self._emit(report, options)
 
         if options.get("check_only") and any(c["status"] == "FAIL" for c in report):

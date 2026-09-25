@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from datetime import timedelta
 from typing import Any, Optional
 
@@ -31,7 +32,15 @@ from .forms import (
     SectionForm,
 )
 from .mixins import StaffRequiredMixin  # noqa: F401  (kept for staff-only endpoints if any)
-from .models import Document, DocumentImage, DocumentVersion, Runbook, Section, strip_frontmatter
+from .models import (
+    IMAGE_CONTENT_TYPES,
+    Document,
+    DocumentImage,
+    DocumentVersion,
+    Runbook,
+    Section,
+    strip_frontmatter,
+)
 from .utils import parse_slides, parse_steps, render_document, render_markdown
 
 # -- Dashboard ----------------------------------------------------------------
@@ -992,7 +1001,19 @@ class ServeImageView(LoginRequiredMixin, View):
     def get(self, request: HttpRequest, pk: int) -> FileResponse:
         image = get_object_or_404(DocumentImage, pk=pk)
         _require_view(request.user, image.document)
-        return FileResponse(image.image.open("rb"))
+        # Pin the type from an allowlist rather than letting FileResponse guess
+        # it from the stored name; anything unrecognised (incl. pre-fix uploads
+        # that kept a client-chosen name) is a download, never rendered.
+        ext = os.path.splitext(image.image.name or "")[1].lower()
+        content_type = IMAGE_CONTENT_TYPES.get(ext)
+        if content_type is None:
+            return FileResponse(
+                image.image.open("rb"),
+                content_type="application/octet-stream",
+                as_attachment=True,
+                filename=f"image-{image.pk}.bin",
+            )
+        return FileResponse(image.image.open("rb"), content_type=content_type)
 
 
 # -- Bulk Download ------------------------------------------------------------

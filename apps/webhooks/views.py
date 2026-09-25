@@ -662,7 +662,19 @@ def incoming_webhook(request: HttpRequest, slug: str) -> HttpResponse:
         if resp is not None:
             return resp
 
+    # Size cap before the body is read or anything touches the DB — this route
+    # is public and unauthenticated. (Audit 2026-09-13, C6.)
+    max_bytes = int(getattr(settings, "SMALLSTACK_WEBHOOK_INBOUND_MAX_BYTES", 1_048_576))
+    try:
+        declared = int(request.META.get("CONTENT_LENGTH") or 0)
+    except ValueError:
+        declared = 0
+    if declared > max_bytes:
+        return JsonResponse({"error": "payload too large"}, status=413)
+
     raw = request.body
+    if len(raw) > max_bytes:
+        return JsonResponse({"error": "payload too large"}, status=413)
     origin = request.headers.get(services.ORIGIN_HEADER, "")
 
     # 2. Verifier seam (F-016): default "hmac" is the current raw-body HMAC check;
@@ -681,16 +693,32 @@ def incoming_webhook(request: HttpRequest, slug: str) -> HttpResponse:
     }
 
     if receiver.require_signature and not verified:
-        WebhookReceipt.objects.create(
+        # Anyone can POST here without a credential, so a rejection must not
+        # cost a full-size durable row each time: keep a short excerpt plus a
+        # digest (enough to debug a mis-set secret), and stop recording once a
+        # receiver has taken a burst of rejections this minute. (Audit C6.)
+        limit = int(getattr(settings, "SMALLSTACK_WEBHOOK_REJECTED_PER_MINUTE", 30))
+        recent = WebhookReceipt.objects.filter(
             receiver=receiver,
-            source_ip=request.META.get("REMOTE_ADDR"),
-            headers=safe_headers,
-            body=raw.decode("utf-8", "replace")[:100_000],
-            verified=False,
-            origin=origin,
             status=WebhookReceipt.Status.REJECTED,
-            error="signature verification failed",
-        )
+            received_at__gte=timezone.now() - timedelta(minutes=1),
+        ).count()
+        if recent < limit:
+            import hashlib
+
+            WebhookReceipt.objects.create(
+                receiver=receiver,
+                source_ip=request.META.get("REMOTE_ADDR"),
+                headers=safe_headers,
+                body=raw[:1024].decode("utf-8", "replace"),
+                verified=False,
+                origin=origin[:200],
+                status=WebhookReceipt.Status.REJECTED,
+                error=(
+                    f"signature verification failed "
+                    f"(body {len(raw)} bytes, sha256 {hashlib.sha256(raw).hexdigest()}; first 1 KB kept)"
+                ),
+            )
         return JsonResponse({"error": "invalid signature"}, status=401)
 
     # 3. Loop guard (F-020): drop an event this SmallStack originated (a two-way S2S

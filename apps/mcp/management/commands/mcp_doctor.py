@@ -100,15 +100,21 @@ class Command(BaseCommand):
                 self.stdout.write(f"{GREEN}MCP disabled via SMALLSTACK_MCP_ENABLED — 0 issues.{RESET}")
             return
 
+        from apps.smallstack.doctor_checks import schema_check
+
         report: list[dict] = []
-        self._check_mcp_package(report)
-        self._check_settings(report)
-        self._check_registry(report)
-        self._check_urls(report)
-        self._check_tokens(report)
-        self._check_apitoken_admin(report)
-        if not options.get("no_self_test"):
-            self._self_test(report)
+        schema_problem = schema_check()
+        if schema_problem is not None:
+            report.append(schema_problem)
+        if schema_problem is None or schema_problem["status"] != "FAIL":
+            self._check_mcp_package(report)
+            self._check_settings(report)
+            self._check_registry(report)
+            self._check_urls(report)
+            self._check_tokens(report)
+            self._check_apitoken_admin(report)
+            if not options.get("no_self_test"):
+                self._self_test(report)
 
         if options.get("json"):
             self.stdout.write(jsonlib.dumps(report, indent=2))

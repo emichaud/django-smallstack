@@ -10,8 +10,19 @@
 **/node_modules
 .venv/
 venv/
-.kamal/secrets
 .claude/
+
+# Secrets and local data — never bake these into an image. (Audit 2026-09-13, H1.)
+# Note: a bare "*.sqlite3" only matches the build-context root; the "**/"
+# forms below also catch backups/db-*.sqlite3 and data/*.
+.kamal/
+.secret_key
+**/.secret_key
+data/
+backups/
+**/*.sqlite3
+**/*.sqlite3-*
+**/*.db
 
 # Python
 __pycache__

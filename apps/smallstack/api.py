@@ -915,7 +915,11 @@ def _make_api_detail_view(crud_config):
         if perm_err:
             return perm_err
 
-        qs = crud_config._get_queryset()
+        # Tenancy: get_list_queryset is the only read scoper a CRUDView has,
+        # and MCP get/update/delete already apply it. Without it here a row
+        # hidden from GET /api/<base>/ was readable and editable at
+        # /api/<base>/<pk>/. (Audit 2026-09-13, C5.)
+        qs = crud_config.get_list_queryset(crud_config._get_queryset(), request)
         expand_fields = _resolve_expand_fields(request, crud_config)
         if expand_fields:
             qs = _apply_select_related(qs, crud_config.model, expand_fields)
@@ -1209,7 +1213,7 @@ def _make_api_bulk_delete_view(crud_config):
         except (ValueError, TypeError):
             return _error("ids must be integers", 400)
 
-        qs = crud_config._get_queryset().filter(pk__in=ids)
+        qs = crud_config.get_list_queryset(crud_config._get_queryset(), request).filter(pk__in=ids)
         objects = {obj.pk: obj for obj in qs}
         deleted_ids = []
         errors = {}
@@ -1285,7 +1289,7 @@ def _make_api_bulk_update_view(crud_config):
         if invalid:
             return _error(f"Fields not allowed for bulk update: {', '.join(sorted(invalid))}", 400)
 
-        qs = crud_config._get_queryset().filter(pk__in=ids)
+        qs = crud_config.get_list_queryset(crud_config._get_queryset(), request).filter(pk__in=ids)
         objects = {obj.pk: obj for obj in qs}
         updated = []
         errors = {}
@@ -1889,11 +1893,25 @@ def api_openapi_schema(request: HttpRequest) -> JsonResponse:
     if request.method != "GET":
         return _error("Method not allowed", 405)
 
+    return JsonResponse(build_served_spec(server_url=request.build_absolute_uri("/")))
+
+
+def build_served_spec(server_url: str | None = None) -> dict[str, Any]:
+    """The OpenAPI spec exactly as ``/api/schema/openapi.json`` serves it.
+
+    CRUDView routes *and* ``register_api_path`` custom endpoints. api_doctor and
+    the validity tests call this rather than ``build_openapi_spec`` directly —
+    they used to omit ``custom_paths`` and so validated a spec nobody served.
+    (Audit 2026-09-13, D5.)
+    """
+    from django.urls import get_resolver
+
     from .openapi import build_openapi_spec
 
-    server_url = request.build_absolute_uri("/")
-    spec = build_openapi_spec(_api_registry, server_url=server_url, custom_paths=_custom_api_registry)
-    return JsonResponse(spec)
+    # Custom endpoints register when their urls/api modules import; loading
+    # the URLconf makes a management command or test see what a request sees.
+    get_resolver().url_patterns
+    return build_openapi_spec(_api_registry, server_url=server_url, custom_paths=_custom_api_registry)
 
 
 def _api_docs_response(request, template):

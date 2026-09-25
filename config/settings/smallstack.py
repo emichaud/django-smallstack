@@ -109,6 +109,8 @@ SMALLSTACK_SIGNUP_ENABLED = config("SMALLSTACK_SIGNUP_ENABLED", default=True, ca
 SMALLSTACK_PASSWORDLESS_LOGIN = config("SMALLSTACK_PASSWORDLESS_LOGIN", default=False, cast=bool)
 # Validity window for a passwordless sign-in code, in seconds (default 10 min).
 SMALLSTACK_LOGIN_CODE_TTL = config("SMALLSTACK_LOGIN_CODE_TTL", default=600, cast=int)
+# Most passwordless codes one account can be sent per hour (each allows 5 guesses).
+SMALLSTACK_LOGIN_CODES_PER_HOUR = config("SMALLSTACK_LOGIN_CODES_PER_HOUR", default=5, cast=int)
 
 # ---------------------------------------------------------------------------
 # Sidebar
@@ -214,6 +216,11 @@ HEARTBEAT_WARMUP_MINUTES = config("HEARTBEAT_WARMUP_MINUTES", default=60, cast=i
 # per-monitor) is unaffected. Default on.
 SMALLSTACK_PUBLIC_STATUS_ENABLED = config("SMALLSTACK_PUBLIC_STATUS_ENABLED", default=True, cast=bool)
 
+# Public profile pages (/profile/<username>/). On: anyone can view them — which
+# also lets an anonymous visitor probe whether a username exists (200 vs 404).
+# Off: sign-in required. Default on (historical behaviour).
+SMALLSTACK_PUBLIC_PROFILES = config("SMALLSTACK_PUBLIC_PROFILES", default=True, cast=bool)
+
 # ---------------------------------------------------------------------------
 # REST API surface
 # ---------------------------------------------------------------------------
@@ -228,6 +235,9 @@ SMALLSTACK_API_ENABLED = config("SMALLSTACK_API_ENABLED", default=True, cast=boo
 # and the dataset MCP tools (list_datasets + query_dataset_<key>). Per-dataset
 # ``enable_api`` / ``enable_mcp`` become no-ops when this is off. Default on.
 SMALLSTACK_DATASETS_ENABLED = config("SMALLSTACK_DATASETS_ENABLED", default=True, cast=bool)
+# Largest ?format=csv export (rows). Over it the endpoint returns 400 asking the
+# caller to filter or page — the export is built in memory.
+SMALLSTACK_DATASET_CSV_MAX_ROWS = config("SMALLSTACK_DATASET_CSV_MAX_ROWS", default=50_000, cast=int)
 
 # ---------------------------------------------------------------------------
 # Login Rate Limiting (django-axes)
@@ -312,6 +322,14 @@ MCP_AUTODISCOVER = config("MCP_AUTODISCOVER", default=True, cast=bool)
 RUNBOOK_BASE_TEMPLATE = config("RUNBOOK_BASE_TEMPLATE", default="smallstack/base.html")
 # Restrict the runbook UI to staff users (True) or allow any signed-in user.
 RUNBOOK_STAFF_REQUIRED = config("RUNBOOK_STAFF_REQUIRED", default=True, cast=bool)
+# MEDIA_ROOT subtrees the public /media/ route refuses (404). Runbook files are
+# served only through access-checked views; list any of your own gated upload
+# dirs here too. Profile photos stay public. (See apps/smallstack/media.py.)
+SMALLSTACK_PRIVATE_MEDIA_PREFIXES = config(
+    "SMALLSTACK_PRIVATE_MEDIA_PREFIXES",
+    default="runbook/",
+    cast=lambda v: [p.strip() for p in v.split(",") if p.strip()],
+)
 # Other RUNBOOK_* knobs (version/retention caps) default sensibly in
 # apps/runbook/conf.py — override here only if needed.
 
@@ -400,6 +418,15 @@ SMALLSTACK_WEBHOOK_ALLOWLIST = config(
     cast=lambda v: [a.strip().lower() for a in v.split(",") if a.strip()],
 )
 SMALLSTACK_WEBHOOK_ALLOW_PRIVATE = config("SMALLSTACK_WEBHOOK_ALLOW_PRIVATE", default=False, cast=bool)
+
+# Inbound receiver hardening (the /webhooks/in/<slug>/ route is public).
+# Bodies above this are refused with 413 before anything is stored.
+SMALLSTACK_WEBHOOK_INBOUND_MAX_BYTES = config("SMALLSTACK_WEBHOOK_INBOUND_MAX_BYTES", default=1_048_576, cast=int)
+# Signature-rejected requests recorded per receiver per minute; beyond this the
+# 401 is still returned but no receipt row is written.
+SMALLSTACK_WEBHOOK_REJECTED_PER_MINUTE = config("SMALLSTACK_WEBHOOK_REJECTED_PER_MINUTE", default=30, cast=int)
+# Receipts older than this are deleted by `manage.py prune_webhook_receipts`.
+SMALLSTACK_WEBHOOK_RECEIPT_RETENTION_DAYS = config("SMALLSTACK_WEBHOOK_RECEIPT_RETENTION_DAYS", default=30, cast=int)
 
 # Recipients emailed when a delivery exhausts its retries (via send_email_task).
 # Empty ⇒ no emails. Comma-separated in env.

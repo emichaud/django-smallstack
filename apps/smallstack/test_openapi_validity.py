@@ -14,8 +14,7 @@ from django.test import Client
 from openapi_spec_validator import validate
 from openapi_spec_validator.validation.exceptions import OpenAPIValidationError
 
-from apps.smallstack.api import _api_registry
-from apps.smallstack.openapi import build_openapi_spec
+from apps.smallstack.api import build_served_spec
 
 pytestmark = pytest.mark.django_db
 
@@ -27,21 +26,27 @@ pytestmark = pytest.mark.django_db
 
 def test_build_openapi_spec_returns_valid_openapi_3_0_3():
     """The generated spec passes the openapi-spec-validator gauntlet."""
-    spec = build_openapi_spec(_api_registry, server_url="http://localhost:8005/")
+    spec = build_served_spec(server_url="http://localhost:8005/")
     try:
         validate(spec)
     except OpenAPIValidationError as exc:
         pytest.fail(f"OpenAPI spec is invalid: {exc}")
 
 
+def test_validated_spec_includes_custom_endpoints():
+    """The spec under test must be the served one, custom paths included —
+    the /api/logger/ surface is registered via register_api_path. (Audit D5.)"""
+    assert any(p.startswith("/api/logger/") for p in build_served_spec()["paths"])
+
+
 def test_spec_declares_openapi_3_0_3_version():
-    spec = build_openapi_spec(_api_registry)
+    spec = build_served_spec()
     assert spec["openapi"].startswith("3.0")
 
 
 def test_spec_has_required_top_level_keys():
     """OpenAPI 3.x requires openapi, info, and paths (paths can be empty)."""
-    spec = build_openapi_spec(_api_registry)
+    spec = build_served_spec()
     assert "openapi" in spec
     assert "info" in spec
     assert "paths" in spec
@@ -53,7 +58,7 @@ def test_spec_has_required_top_level_keys():
 def test_each_path_has_at_least_one_http_method():
     """Empty path objects are valid OpenAPI but useless and almost always
     a builder bug. Surface them in tests."""
-    spec = build_openapi_spec(_api_registry)
+    spec = build_served_spec()
     valid_methods = {
         "get", "put", "post", "delete", "options", "head", "patch", "trace",
         "parameters", "summary", "description", "servers",
@@ -66,7 +71,7 @@ def test_each_path_has_at_least_one_http_method():
 
 
 def test_server_url_included_when_passed():
-    spec = build_openapi_spec(_api_registry, server_url="https://prod.example/")
+    spec = build_served_spec(server_url="https://prod.example/")
     assert spec["servers"][0]["url"] == "https://prod.example"
 
 
