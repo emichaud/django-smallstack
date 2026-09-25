@@ -1,0 +1,7 @@
+Approval needed: {{ req.title }}
+
+{{ req.requested_by.username|default:"Someone" }} filed an approval request on {{ site_name }}.
+{% if req.description %}{{ req.description }}
+{% endif %}{% if req.expires_at %}Expires {{ req.expires_at|date:"D, M j, Y g:i A" }}.
+{% endif %}
+Review and decide: {{ site_url }}{{ console_path }}

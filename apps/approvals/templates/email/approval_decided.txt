@@ -1,0 +1,6 @@
+{{ req.get_status_display }}: {{ req.title }}
+
+Your approval request on {{ site_name }} is {{ req.get_status_display|lower }}{% if req.decided_by %} by {{ req.decided_by.username }}{% endif %}.
+{% if req.decision_note %}Note: {{ req.decision_note }}
+{% endif %}
+View: {{ site_url }}{{ console_path }}

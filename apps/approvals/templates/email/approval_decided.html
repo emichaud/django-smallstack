@@ -1,0 +1,15 @@
+{% extends "email/base_email.html" %}
+{% block subject %}{{ req.get_status_display }}: {{ req.title }}{% endblock %}
+{% block preheader %}<div style="display:none; max-height:0; overflow:hidden; opacity:0; color:#f4f5f7;">Your approval request was decided on {{ site_name }}.</div>{% endblock %}
+{% block content %}
+  <p style="margin:0 0 16px;">Your approval request on <strong>{{ site_name }}</strong> is
+    <strong>{{ req.get_status_display|lower }}</strong>{% if req.decided_by %} by {{ req.decided_by.get_full_name|default:req.decided_by.username }}{% endif %}:</p>
+  <p style="margin:0 0 6px; font-size:16px; font-weight:600;">{{ req.title }}</p>
+  {% if req.decision_note %}<p style="margin:0 0 16px; color:#5a6169;">&ldquo;{{ req.decision_note }}&rdquo;</p>{% endif %}
+  <table role="presentation" cellpadding="0" cellspacing="0" style="margin:24px 0;">
+    <tr><td style="border-radius:6px; background:{{ brand_accent }};">
+      <a href="{{ site_url }}{{ console_path }}" style="display:inline-block; padding:12px 28px; color:#ffffff; font-size:15px; font-weight:600; text-decoration:none; border-radius:6px;">View the request</a>
+    </td></tr>
+  </table>
+{% endblock %}
+{% block footer %}You're receiving this because you filed an approval request on {{ site_name }}.{% endblock %}

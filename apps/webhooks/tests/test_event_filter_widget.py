@@ -191,14 +191,16 @@ def test_endpoint_form_rejects_malformed_patterns():
     assert "event_filter" in form.errors
 
 
-def test_unmatched_patterns_warns_only_when_events_exist():
+def test_unmatched_patterns_warns_only_when_events_exist(monkeypatch):
     """On an instance with no concrete events, everything is 'unmatched' — warning
-    would be pure noise, so the check stays silent."""
+    would be pure noise, so the check stays silent. (The framework ships opted-in
+    models — approvals — so the no-events case is constructed explicitly.)"""
+    from apps.smallstack.crud import CRUDView
+
+    for view in set(CRUDView._registry.values()):
+        if getattr(view, "enable_webhooks", False):
+            monkeypatch.setattr(view, "enable_webhooks", False)
     assert services.unmatched_patterns(["nosuch.thing.*"]) == []
-    original = WebhookReceiverCRUDView.enable_webhooks
-    WebhookReceiverCRUDView.enable_webhooks = True
-    try:
-        dead = services.unmatched_patterns(["nosuch.thing.*", "webhooks.webhookreceiver.*", "*"])
-    finally:
-        WebhookReceiverCRUDView.enable_webhooks = original
+    monkeypatch.setattr(WebhookReceiverCRUDView, "enable_webhooks", True)
+    dead = services.unmatched_patterns(["nosuch.thing.*", "webhooks.webhookreceiver.*", "*"])
     assert dead == ["nosuch.thing.*"]

@@ -287,6 +287,18 @@ pages:
     icon: "tasks"
     category: "Development"
 
+  - slug: approvals
+    title: "Approvals"
+    description: "A generic human-in-the-loop approval gate — apps or AI agents file a request, a person decides, your code reacts"
+    icon: "check"
+    category: "Development"
+
+  - slug: notifications
+    title: "Notifications"
+    description: "In-app notifications — a notify() call becomes a topbar bell badge and an inbox row that links back to your page"
+    icon: "info"
+    category: "Development"
+
   - slug: user-manager
     title: "User Manager"
     description: "Built-in user management with search, profiles, activity stats, and timezone dashboard"

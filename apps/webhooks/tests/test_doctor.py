@@ -29,7 +29,14 @@ def _status(report, name_contains):
     return None
 
 
-def test_no_optin_warns_outbound_registry():
+def test_no_optin_warns_outbound_registry(monkeypatch):
+    # The framework itself ships opted-in models (approvals since v0.21) — build
+    # the zero-opt-in baseline explicitly to prove the doctor warns on it.
+    from apps.smallstack.crud import CRUDView
+
+    for view in set(CRUDView._registry.values()):
+        if getattr(view, "enable_webhooks", False):
+            monkeypatch.setattr(view, "enable_webhooks", False)
     report = _report()
     assert _status(report, "Outbound registry") == "WARN"
 

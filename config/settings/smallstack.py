@@ -435,3 +435,50 @@ SMALLSTACK_WEBHOOK_FAILURE_EMAILS = config(
     default="",
     cast=lambda v: [a.strip() for a in v.split(",") if a.strip()],
 )
+
+# ---------------------------------------------------------------------------
+# Notifications — the in-app bell/inbox primitive (apps/notifications)
+# ---------------------------------------------------------------------------
+# Master switch. Off ⇒ notify() no-ops, the bell and inbox routes vanish, and
+# producers (e.g. approvals) silently skip the in-app channel.
+SMALLSTACK_NOTIFICATIONS_ENABLED = config("SMALLSTACK_NOTIFICATIONS_ENABLED", default=True, cast=bool)
+# Rows older than this are pruned by the daily sweep. 0 = keep forever.
+SMALLSTACK_NOTIFICATIONS_RETENTION_DAYS = config(
+    "SMALLSTACK_NOTIFICATIONS_RETENTION_DAYS", default=90, cast=int
+)
+
+# ---------------------------------------------------------------------------
+# Approvals — the side-car human-approval gate (apps/approvals)
+# ---------------------------------------------------------------------------
+# Master switch. Off ⇒ no routes, no kind autodiscovery, no surfaces.
+SMALLSTACK_APPROVALS_ENABLED = config("SMALLSTACK_APPROVALS_ENABLED", default=True, cast=bool)
+# May the requester decide their own request? Off by default — a human gate
+# you can wave yourself through isn't a gate.
+SMALLSTACK_APPROVALS_ALLOW_SELF_APPROVE = config(
+    "SMALLSTACK_APPROVALS_ALLOW_SELF_APPROVE", default=False, cast=bool
+)
+# When a request names assignees, may staff still decide it? On by default —
+# is_staff is the trust anchor and an assignee-only request must not wedge
+# permanently. Flip off for hard assignee exclusivity (four-eyes policies).
+SMALLSTACK_APPROVALS_STAFF_OVERRIDE = config(
+    "SMALLSTACK_APPROVALS_STAFF_OVERRIDE", default=True, cast=bool
+)
+# Fallback TTL in minutes when neither the request nor its kind sets one.
+# 0 = requests never expire by default.
+SMALLSTACK_APPROVALS_DEFAULT_EXPIRES_MINUTES = config(
+    "SMALLSTACK_APPROVALS_DEFAULT_EXPIRES_MINUTES", default=0, cast=int
+)
+# Email channel (in-app notifications + webhooks are independent of this).
+SMALLSTACK_APPROVALS_EMAILS_ENABLED = config(
+    "SMALLSTACK_APPROVALS_EMAILS_ENABLED", default=True, cast=bool
+)
+# Extra recipients (comma-separated) copied on every request + decision.
+SMALLSTACK_APPROVALS_NOTIFY_EMAILS = config(
+    "SMALLSTACK_APPROVALS_NOTIFY_EMAILS",
+    default="",
+    cast=lambda v: [e.strip() for e in str(v).split(",") if e.strip()],
+)
+# The @scheduled 5-minute expiry sweep (lazy expiry still applies without it).
+SMALLSTACK_APPROVALS_SWEEP_ENABLED = config(
+    "SMALLSTACK_APPROVALS_SWEEP_ENABLED", default=True, cast=bool
+)

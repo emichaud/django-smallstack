@@ -384,6 +384,43 @@ body.sidebar-closed .main-content {
     transition: background-color var(--transition-fast);
 }
 
+/* Notification bell — sits with the topbar controls; badge shows unread count.
+   :link/:visited required to beat the global a:visited color rule. */
+.notif-bell,
+.notif-bell:link,
+.notif-bell:visited {
+    position: relative;
+    color: var(--header-fg);
+    padding: 8px;
+    border-radius: var(--radius-sm);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-decoration: none;
+    transition: background-color var(--transition-fast);
+}
+
+.notif-bell:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+    color: var(--header-fg);
+}
+
+.notif-bell-badge {
+    position: absolute;
+    top: 2px;
+    right: 0;
+    min-width: 16px;
+    height: 16px;
+    padding: 0 4px;
+    border-radius: 999px;
+    background: var(--primary);
+    color: var(--btn-primary-fg, var(--button-fg));
+    font-size: 0.62rem;
+    font-weight: 700;
+    line-height: 16px;
+    text-align: center;
+}
+
 .theme-toggle:hover {
     background-color: rgba(255, 255, 255, 0.1);
 }

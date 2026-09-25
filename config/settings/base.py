@@ -59,6 +59,8 @@ INSTALLED_APPS = [
     "apps.runbook",  # Runbook: versioned markdown documents (label: smallstack_runbook)
     "apps.scheduler",  # Scheduler: DB-backed recurring jobs over django.tasks
     "apps.webhooks",  # Webhooks: outbound event delivery + inbound receivers
+    "apps.notifications",  # Notifications: in-app bell/inbox primitive (label: smallstack_notifications)
+    "apps.approvals",  # Approvals: side-car human-approval gate (label: smallstack_approvals)
     "apps.feeds",  # Feeds: RSS/Atom publish (enable_rss) + consume (collector)
     # Django built-in apps
     "django.contrib.admin",
@@ -123,6 +125,7 @@ TEMPLATES = [
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
                 "apps.smallstack.context_processors.branding",
+                "apps.notifications.context_processors.notifications",
                 "apps.runbook.context_processors.runbook_settings",
             ],
         },

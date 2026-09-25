@@ -314,6 +314,31 @@ for the full feature.
 `SMALLSTACK_WEBHOOK_MAX_BACKOFF` and `SMALLSTACK_WEBHOOK_ORIGIN` were added with the webhooks
 foundation reshape; the rest are backward-compatible defaults.
 
+### Approvals Settings
+
+The human-in-the-loop approval gate (`apps/approvals`). See [Approvals](/help/smallstack/approvals/)
+for the full feature.
+
+| Setting | Default | Purpose |
+|---------|---------|---------|
+| `SMALLSTACK_APPROVALS_ENABLED` | `True` | Master switch — off ⇒ the app boots dark (no nav, no URLs, no fan-out) |
+| `SMALLSTACK_APPROVALS_ALLOW_SELF_APPROVE` | `False` | Let a requester decide their own request |
+| `SMALLSTACK_APPROVALS_STAFF_OVERRIDE` | `True` | Staff may decide requests that name assignees |
+| `SMALLSTACK_APPROVALS_DEFAULT_EXPIRES_MINUTES` | `0` | Fallback TTL for new requests (`0` = never expire) |
+| `SMALLSTACK_APPROVALS_EMAILS_ENABLED` | `True` | Email fan-out on request + decision |
+| `SMALLSTACK_APPROVALS_NOTIFY_EMAILS` | `""` | Extra recipients on every approval email (comma-separated) |
+| `SMALLSTACK_APPROVALS_SWEEP_ENABLED` | `True` | Register the every-5-minutes expiry sweep with the scheduler |
+
+### Notification Settings
+
+The in-app notification bell + inbox (`apps/notifications`). See
+[Notifications](/help/smallstack/notifications/).
+
+| Setting | Default | Purpose |
+|---------|---------|---------|
+| `SMALLSTACK_NOTIFICATIONS_ENABLED` | `True` | Master switch — off ⇒ the bell hides and `notify()` no-ops |
+| `SMALLSTACK_NOTIFICATIONS_RETENTION_DAYS` | `90` | Daily prune horizon (`0` = keep forever) |
+
 ---
 
 ## Selecting the Active Settings

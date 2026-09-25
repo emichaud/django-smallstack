@@ -131,6 +131,27 @@ When the user says "update docs and skills" (or similar), this skill defines whi
 | Skill | `docs/skills/background-tasks.md` | Task system, worker, queues |
 | Help | `apps/smallstack/docs/background-tasks.md` | User-facing tasks guide |
 
+### Approvals (`apps/approvals/`)
+
+| Type | File | What it covers |
+|------|------|----------------|
+| Skill | `docs/skills/approvals.md` | `@approval_kind`, filing, eligibility rules, fan-out, template namespaces, settings |
+| Skill | `docs/skills/notifications.md` | The in-app channel approvals fan out to |
+| Skill | `docs/skills/webhooks.md` | The `.updated` event decisions ride on |
+| Skill | `docs/skills/settings.md` | `SMALLSTACK_APPROVALS_*` flags |
+| Help | `apps/smallstack/docs/approvals.md` | User-facing approvals guide |
+| Config | `apps/smallstack/docs/_config.yaml` | Registers the help page |
+
+### Notifications (`apps/notifications/`)
+
+| Type | File | What it covers |
+|------|------|----------------|
+| Skill | `docs/skills/notifications.md` | `notify()` contract, bell/inbox, REST, retention |
+| Skill | `docs/skills/approvals.md` | The first producer (cross-reference) |
+| Skill | `docs/skills/settings.md` | `SMALLSTACK_NOTIFICATIONS_*` flags |
+| Help | `apps/smallstack/docs/notifications.md` | User-facing notifications guide |
+| Config | `apps/smallstack/docs/_config.yaml` | Registers the help page |
+
 ### Deployment (Docker, Kamal)
 
 | Type | File | What it covers |

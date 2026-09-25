@@ -40,6 +40,8 @@ When an AI agent is asked to modify or extend this project, these files help it:
 | [timezones.md](timezones.md) | Timezone middleware, per-user timezone, localtime_tooltip tag |
 | [background-tasks.md](background-tasks.md) | Django Tasks framework with django-tasks-db backend |
 | [scheduler.md](scheduler.md) | **Recurring jobs** — the `@scheduled` decorator, the scheduler UI, cron/interval/once cadences, the tick, overlap/catch-up policies |
+| [approvals.md](approvals.md) | **Human-in-the-loop approval gate** — `@approval_kind` + `request_approval()`, the decision console, eligibility rules (assignees/self-approval/staff), the callback + signal + webhook + poll reaction paths, expiry sweep |
+| [notifications.md](notifications.md) | **In-app notifications** — the never-raising `notify()` service, the topbar bell + unread badge, the inbox, per-user REST, daily prune |
 | [webhooks.md](webhooks.md) | **Webhooks** — a foundational integration surface: outbound event delivery (`enable_webhooks = True`) + inbound receivers (`@webhook_handler`), plus **four extension seams** (`@webhook_transform`/`@webhook_auth`/`@webhook_verifier`/`@webhook_challenge`) that make Zapier/n8n/Stripe/Slack/Event Grid plug-ins, first-class **SmallStack↔SmallStack** pairing (`sc webhook pair`, loop-safe), stable `event_id` dedupe, `Retry-After` + bulk dead-letter replay |
 | [rss.md](rss.md) | **RSS/Atom feeds** — symmetric publish + consume surface. Publish a model with `enable_rss = True` (or a curated `Feed`); the enclosure/podcast seam is `rss_item_extra`. Consume external feeds into a model with `register_feed_source` + the collector (`@scheduled` + `manage.py collect_feeds`). Status-page feed is the reference |
 | [activity-tracking.md](activity-tracking.md) | HTTP request logging middleware and configuration |
@@ -113,6 +115,8 @@ AI agents should read relevant skill files before making changes to the correspo
 - Before changing settings → read `settings.md`
 - Before adding background tasks → read `background-tasks.md`
 - Before scheduling recurring work (`@scheduled`) → read `scheduler.md`
+- Before gating anything on a human decision (an approval step, an AI-agent HITL gate) → read `approvals.md`
+- Before surfacing an in-app "you should see this" message (bell/inbox) → read `notifications.md`
 - Before working with activity tracking → read `activity-tracking.md`
 - Before taking screenshots → read `screenshot-workflow.md`
 - Before deploying with Docker → read `docker-deployment.md`
@@ -155,6 +159,7 @@ Multi-skill recipes for the headline use cases. Each row is "pick this combinati
 | **Add a per-model dashboard widget** (a tile on the central `/smallstack/` dashboard that summarises your data) | `dashboard-widgets.md` → `crud-views.md` (for `get_list_queryset` if the widget should respect tenancy) |
 | **Monitor a subsystem's uptime/health** (a `Service` + `Monitor` on `/smallstack/status/`, or a new status chart) | `status-monitors.md` → `modern-dark-theme.md` (for visualization partial colors) |
 | **Recurring/scheduled job** (`@scheduled` decorator or the scheduler UI; cron/interval/once) | `scheduler.md` |
+| **Human approval before an action** (publish gate, refund sign-off, AI agent files → human decides → app reacts) | `approvals.md` → `notifications.md` (how approvers hear about it) → `webhooks.md` (remote reaction) |
 | **Notify an external system when data changes** (outbound webhook — Slack/Zapier/a microservice on model create/update/delete; shape the payload with `@webhook_transform`) | `webhooks.md` → `crud-views.md` (for `enable_webhooks` alongside the other flags) |
 | **Receive events from an external system** (inbound webhook — Stripe/GitHub POST; verify with `@webhook_verifier`, handshake with `@webhook_challenge`) | `webhooks.md` (the `@webhook_handler` + seam half) |
 | **Link two SmallStacks** (loop-safe two-way event flow between instances) | `webhooks.md` → the SmallStack↔SmallStack `sc webhook pair` section |

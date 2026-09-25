@@ -70,6 +70,10 @@ urlpatterns = [
     path("", include("apps.scheduler.urls")),
     # Webhooks — outbound endpoints + inbound receivers (bare names, "webhooks/" prefix)
     path("", include("apps.webhooks.urls")),
+    # Notifications — the in-app bell/inbox (all authenticated users)
+    path("notifications/", include("apps.notifications.urls")),
+    # Approvals — the side-car human-approval gate (queue + console + REST)
+    path("", include("apps.approvals.urls")),
     # Token manager (self-service + staff) — list, mint, reveal, revoke
     path("", include("apps.tokenmgr.urls")),
 ]

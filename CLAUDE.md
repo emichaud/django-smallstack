@@ -23,6 +23,8 @@ When the user asks you to do any of these, read the matching skill file BEFORE w
 | Open a maintenance window / SLA-exclude a deploy (`manage.py maintenance`, Kamal hooks) | `docs/skills/status-monitors.md` |
 | Test the task queue / heartbeat backend locally (worker + heartbeat harness) | `docs/skills/background-tasks.md` |
 | Schedule recurring work (`@scheduled`, cron/interval/once, the scheduler UI + tick) | `docs/skills/scheduler.md` |
+| Gate an action on a **human approval** (`@approval_kind`, the decision console, agent-files-human-decides) | `docs/skills/approvals.md` |
+| Show a signed-in user an **in-app notification** (topbar bell + inbox, `notify()`) | `docs/skills/notifications.md` |
 | **Any integration work** (Zapier/n8n/Slack/Stripe/GitHub/Azure, or SmallStack↔SmallStack) — read this FIRST | `docs/skills/webhooks.md` |
 | Notify an external system when a model changes — **outbound webhooks** (`enable_webhooks = True`); shape the payload with `@webhook_transform` | `docs/skills/webhooks.md` |
 | Receive/verify an inbound webhook (`@webhook_handler`; provider signatures via `@webhook_verifier`, handshakes via `@webhook_challenge`) | `docs/skills/webhooks.md` |
@@ -46,6 +48,8 @@ A small-footprint Django foundation for shipping four kinds of apps from one cod
 - **MCP servers** — JSON-RPC + OAuth 2.0 + PKCE at `/mcp`; Claude Desktop and Claude.ai Connectors UI work without setup
 - **Webhooks** — a foundational integration surface: outbound signed delivery (`enable_webhooks = True`) + inbound receivers (`@webhook_handler`), **four extension seams** (`@webhook_transform`/`@webhook_auth`/`@webhook_verifier`/`@webhook_challenge`) that make Zapier/n8n/Stripe/Slack/Event Grid plug-ins, first-class **SmallStack↔SmallStack** pairing (`sc webhook pair`, loop-safe), stable `event_id` dedupe, `Retry-After` + bulk dead-letter replay; `webhook_doctor`, `sc webhook`
 
+- **Human-in-the-loop approvals** — a generic side-car gate (`apps/approvals/`): apps or AI agents file an `ApprovalRequest` (`@approval_kind` + `request_approval()`), a human decides in the themed console (or the `{% approval_card %}` embed), and the app reacts via per-kind callback, signal, webhook event, or polling. Fan-out to in-app notifications (`apps/notifications/`: topbar bell + inbox) and branded email.
+
 The headline pattern: **one `CRUDView` declaration produces HTML admin pages, REST endpoints, and MCP tools** from a single model. Flip `enable_api = True` / `enable_mcp = True` / `enable_webhooks = True` flags on a CRUDView subclass and the surfaces light up.
 
 ## Quick start
@@ -64,6 +68,8 @@ All custom apps in `apps/`, registered as `apps.<name>`:
 - `apps/accounts/` — Custom User model, auth views, login/signup
 - `apps/smallstack/` — Theme, CRUDView library, navigation, dashboard, displays, APIToken model — the framework core
 - `apps/activity/` — RequestLog middleware and admin
+- `apps/approvals/` — Human-in-the-loop approval gate (`@approval_kind` + decision console) at `/smallstack/approvals/requests/`
+- `apps/notifications/` — In-app notifications (topbar bell + inbox) at `/smallstack/notifications/`
 - `apps/telemetry/` — DB-backed log capture (`LogRecord`) + the `/smallstack/logs/` staff viewer + time-boxed capture windows; `log_capture` / `prune_logs`
 - `apps/api/` — `/smallstack/api/` health + activity admin + `api_doctor` command
 - `apps/explorer/` — Generic CRUD browser at `/smallstack/explorer/`

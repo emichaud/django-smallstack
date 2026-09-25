@@ -1,0 +1,87 @@
+{% extends "smallstack/base.html" %}
+{% load theme_tags %}
+
+{% block title %}Notifications{% endblock %}
+
+{% block breadcrumbs %}
+{% breadcrumb "Home" "website:home" %}
+{% breadcrumb "Notifications" %}
+{% render_breadcrumbs %}
+{% endblock %}
+
+{% block content %}
+<div class="card" style="max-width: 780px;">
+    <div class="card-header" style="display: flex; align-items: center; justify-content: space-between; gap: 1rem;">
+        <h2>Notifications{% if notifications_unread %} <span class="notif-count-pill">{{ notifications_unread }} unread</span>{% endif %}</h2>
+        {% if notifications_unread %}
+        <form method="post" action="{% url 'notifications:mark_all_read' %}" style="margin: 0;">
+            {% csrf_token %}
+            <button type="submit" class="btn-outline" style="font-size: 0.8rem;">Mark all read</button>
+        </form>
+        {% endif %}
+    </div>
+    <div class="card-body" style="padding: 0;">
+        {% if notifications %}
+        <ul class="notif-list">
+            {% for n in notifications %}
+            <li class="notif-item{% if not n.is_read %} notif-item--unread{% endif %}">
+                <a href="{% url 'notifications:open' n.pk %}" class="notif-link">
+                    <span class="notif-dot" aria-hidden="true"></span>
+                    <span class="notif-body">
+                        <span class="notif-title">{{ n.title }}</span>
+                        {% if n.message %}<span class="notif-message">{{ n.message }}</span>{% endif %}
+                        <span class="notif-meta">
+                            {% if n.actor %}{{ n.actor.get_full_name|default:n.actor.username }} · {% endif %}{{ n.created_at|timesince }} ago
+                        </span>
+                    </span>
+                </a>
+            </li>
+            {% endfor %}
+        </ul>
+        {% if is_paginated %}
+        <div style="padding: 0.75rem 1.25rem; border-top: 1px solid var(--card-border); display: flex; gap: 1rem; font-size: 0.85rem;">
+            {% if page_obj.has_previous %}<a href="?page={{ page_obj.previous_page_number }}">&lsaquo; Newer</a>{% endif %}
+            {% if page_obj.has_next %}<a href="?page={{ page_obj.next_page_number }}">Older &rsaquo;</a>{% endif %}
+        </div>
+        {% endif %}
+        {% else %}
+        {% include "smallstack/includes/empty_state.html" with no_card=True title="No notifications" body="When something needs your attention — an approval request, a mention — it lands here." %}
+        {% endif %}
+    </div>
+</div>
+
+<style>
+.notif-count-pill {
+    font-size: 0.7rem; font-weight: 700; vertical-align: middle;
+    padding: 2px 9px; border-radius: 999px;
+    color: var(--primary);
+    background: color-mix(in srgb, var(--primary) 15%, var(--card-bg));
+}
+.notif-list { list-style: none; margin: 0; padding: 0; }
+/* list-style on the LI too — Django admin's base.css sets
+   `ul > li { list-style-type: square }` which beats a UL-level none. */
+.notif-item { list-style: none; border-bottom: 1px solid var(--hairline-color); }
+.notif-item:last-child { border-bottom: none; }
+.notif-link {
+    display: flex; align-items: flex-start; gap: 0.75rem;
+    padding: 0.85rem 1.25rem;
+    color: var(--body-fg); text-decoration: none;
+    transition: background 0.12s;
+}
+.notif-link:link, .notif-link:visited { color: var(--body-fg); }
+.notif-link:hover { background: color-mix(in srgb, var(--body-fg) 4%, var(--card-bg)); }
+.notif-dot {
+    width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+    margin-top: 0.45rem; background: transparent;
+}
+.notif-item--unread .notif-dot {
+    background: var(--primary);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 22%, transparent);
+}
+.notif-body { display: flex; flex-direction: column; gap: 0.15rem; min-width: 0; }
+.notif-title { font-size: 0.92rem; }
+.notif-item--unread .notif-title { font-weight: 700; }
+.notif-message { font-size: 0.83rem; color: var(--body-quiet-color); }
+.notif-meta { font-size: 0.75rem; color: var(--body-quiet-color); }
+</style>
+{% endblock %}

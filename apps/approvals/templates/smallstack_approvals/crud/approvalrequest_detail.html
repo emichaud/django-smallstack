@@ -1,0 +1,163 @@
+{% extends "smallstack/base.html" %}
+{% load theme_tags crud_tags approvals_tags %}
+{% comment %}
+The decision console. Replaces the generic object_detail chrome via the
+CRUDView template chain (this path wins because app_label is
+smallstack_approvals). Scheduler-console pattern: identity strip with the
+primary actions up top, the kind context card below, framework detail last.
+Theme-variable-only — palette-correct across all 10 combos.
+{% endcomment %}
+
+{% block title %}{{ object.title }} — approval{% endblock %}
+
+{% block breadcrumbs %}
+{% breadcrumb "Home" "website:home" %}
+{% breadcrumb "Approvals" "approvals/requests-list" %}
+{% breadcrumb object.title %}
+{% render_breadcrumbs %}
+{% endblock %}
+
+{% block content %}
+{% approval_can_decide user object as may_decide %}
+{% approval_can_cancel user object as may_cancel %}
+<div class="apr-shell">
+
+    {# ── Identity strip ── #}
+    <header class="apr-strip apr-strip--{{ object.status }}">
+        <div class="apr-id">
+            <div class="apr-titlerow">
+                <span class="apr-dot" aria-hidden="true"></span>
+                <h1 class="apr-name">{{ object.title }}</h1>
+                <span class="apr-kind-badge">{{ object.kind }}</span>
+            </div>
+            <div class="apr-meta">
+                <span>requested by <strong>{{ object.requested_by.get_full_name|default:object.requested_by.username|default:"system" }}</strong></span>
+                <span class="apr-sep" aria-hidden="true">·</span>
+                <span>{{ object.created_at|date:"D, M j · g:i A" }}</span>
+                {% if object.expires_at and object.is_pending %}
+                <span class="apr-sep" aria-hidden="true">·</span>
+                {% if object.is_overdue %}
+                <span class="apr-overdue">overdue since {{ object.expires_at|date:"M j, g:i A" }}</span>
+                {% else %}
+                <span>expires {{ object.expires_at|date:"D, M j · g:i A" }}</span>
+                {% endif %}
+                {% endif %}
+            </div>
+            {% if object.description %}<p class="apr-desc">{{ object.description }}</p>{% endif %}
+        </div>
+        <div class="apr-status-block">
+            <span class="apr-status-label">{{ object.get_status_display }}</span>
+        </div>
+    </header>
+
+    {# ── Decision panel (pending + eligible) or outcome band ── #}
+    {% if object.is_pending and may_decide %}
+    <div class="card apr-decide-card">
+        <div class="card-body" style="padding: 1rem 1.25rem;">
+            <form method="post" action="{% url 'approvals_decide' object.pk %}" class="apr-decide-form">
+                {% csrf_token %}
+                <input type="hidden" name="next" value="{{ request.path }}">
+                <label for="apr-note" class="apr-note-label">Decision note <span style="color: var(--body-quiet-color); font-weight: 400;">(optional — shown to the requester)</span></label>
+                <textarea id="apr-note" name="note" rows="2" class="vTextField" style="width: 100%;"></textarea>
+                <div class="apr-decide-actions">
+                    <button type="submit" name="decision" value="approve" class="btn-primary apr-btn-approve">Approve</button>
+                    <button type="submit" name="decision" value="reject" class="btn-danger">Reject</button>
+                    {% if may_cancel %}
+                    <button type="submit" class="btn-outline" formaction="{% url 'approvals_cancel' object.pk %}">Cancel request</button>
+                    {% endif %}
+                </div>
+            </form>
+        </div>
+    </div>
+    {% elif object.is_pending %}
+    <div class="apr-band apr-band--info">
+        This request is pending{% if may_cancel %} — you may <form method="post" action="{% url 'approvals_cancel' object.pk %}" style="display:inline; margin:0;">{% csrf_token %}<button type="submit" class="apr-linklike">cancel it</button></form>{% else %}; you are not eligible to decide it{% endif %}.
+    </div>
+    {% else %}
+    <div class="apr-band apr-band--{{ object.status }}">
+        <strong>{{ object.get_status_display }}</strong>
+        {% if object.decided_by %} by {{ object.decided_by.get_full_name|default:object.decided_by.username }}{% endif %}
+        {% if object.decided_at %} · {{ object.decided_at|date:"D, M j · g:i A" }}{% endif %}
+        {% if object.decision_note %}<span class="apr-band-note">“{{ object.decision_note }}”</span>{% endif %}
+    </div>
+    {% endif %}
+
+    {% if object.callback_error %}
+    <div class="apr-band apr-band--rejected">
+        <strong>Callback failed</strong> — the decision stands, but the kind's on_decision
+        handler raised. <details style="display:inline;"><summary style="display:inline; cursor:pointer;">traceback</summary>
+        <pre class="apr-cb-error">{{ object.callback_error }}</pre></details>
+    </div>
+    {% endif %}
+
+    {# ── Kind context card ── #}
+    <div class="card">
+        <div class="card-header"><h2>Context</h2></div>
+        <div class="card-body">{% approval_context object %}</div>
+    </div>
+
+    {# ── Framework detail (remaining fields) ── #}
+    <div class="card">
+        <div class="card-header"><h2>Details</h2></div>
+        <div class="card-body">{% crud_detail %}</div>
+    </div>
+</div>
+
+<style>
+.apr-shell { display: flex; flex-direction: column; gap: 1rem; max-width: 900px; }
+.apr-strip {
+    display: flex; align-items: flex-start; justify-content: space-between; gap: 1.25rem;
+    padding: 1rem 1.25rem;
+    background: var(--card-bg); border: 1px solid var(--card-border);
+    border-left: 3px solid var(--warning-fg);
+    border-radius: var(--radius-md, 8px);
+}
+.apr-strip--approved { border-left-color: var(--success-fg); }
+.apr-strip--rejected, .apr-strip--expired { border-left-color: var(--error-fg); }
+.apr-strip--canceled { border-left-color: var(--body-quiet-color); }
+.apr-id { min-width: 0; display: flex; flex-direction: column; gap: 0.4rem; }
+.apr-titlerow { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; }
+.apr-name { margin: 0; font-size: 1.25rem; font-weight: 700; color: var(--body-fg); line-height: 1.2; }
+.apr-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; background: var(--warning-fg);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--warning-fg) 22%, transparent); }
+.apr-strip--approved .apr-dot { background: var(--success-fg); box-shadow: 0 0 0 3px color-mix(in srgb, var(--success-fg) 22%, transparent); }
+.apr-strip--rejected .apr-dot, .apr-strip--expired .apr-dot { background: var(--error-fg); box-shadow: 0 0 0 3px color-mix(in srgb, var(--error-fg) 22%, transparent); }
+.apr-strip--canceled .apr-dot { background: var(--body-quiet-color); box-shadow: none; }
+.apr-kind-badge {
+    padding: 2px 9px; border-radius: 999px;
+    font-size: 0.64rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase;
+    font-family: var(--font-monospace, ui-monospace, Menlo, monospace);
+    color: var(--primary); background: color-mix(in srgb, var(--primary) 14%, var(--card-bg));
+    border: 1px solid color-mix(in srgb, var(--primary) 35%, transparent);
+}
+.apr-meta { display: flex; align-items: baseline; gap: 0.5rem; flex-wrap: wrap;
+    font-size: 0.8rem; color: var(--body-quiet-color); }
+.apr-sep { opacity: 0.6; }
+.apr-overdue { color: var(--error-fg); font-weight: 600; }
+.apr-desc { margin: 0; font-size: 0.85rem; color: var(--body-quiet-color); max-width: 62ch; }
+.apr-status-block { flex-shrink: 0; }
+.apr-status-label {
+    font-size: 0.78rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em;
+    color: var(--body-quiet-color);
+}
+.apr-decide-card { border-left: 3px solid var(--primary); }
+.apr-decide-form { display: flex; flex-direction: column; gap: 0.6rem; }
+.apr-note-label { font-size: 0.8rem; font-weight: 600; color: var(--body-fg); }
+.apr-decide-actions { display: flex; gap: 0.6rem; flex-wrap: wrap; }
+.apr-band {
+    padding: 0.75rem 1.1rem; border-radius: var(--radius-sm, 6px);
+    font-size: 0.9rem; color: var(--body-fg);
+    background: color-mix(in srgb, var(--body-fg) 5%, var(--body-bg));
+    border: 1px solid var(--card-border);
+}
+.apr-band--approved { border-left: 3px solid var(--success-fg); }
+.apr-band--rejected, .apr-band--expired { border-left: 3px solid var(--error-fg); }
+.apr-band--canceled, .apr-band--info { border-left: 3px solid var(--body-quiet-color); }
+.apr-band-note { display: block; margin-top: 0.3rem; color: var(--body-quiet-color); }
+.apr-cb-error { margin: 0.5rem 0 0; font-size: 0.75rem; overflow-x: auto; max-height: 240px;
+    font-family: var(--font-monospace, ui-monospace, Menlo, monospace); }
+.apr-linklike { background: none; border: none; padding: 0; color: var(--link-color);
+    cursor: pointer; font: inherit; text-decoration: underline; }
+@media (max-width: 700px) { .apr-strip { flex-direction: column; } }
+</style>
+{% endblock %}

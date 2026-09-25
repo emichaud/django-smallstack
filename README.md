@@ -79,6 +79,8 @@ SmallStack isn't one kind of app — it's a small backend that plays whatever ro
 - **Webhooks** — Signed outbound delivery on model change + verified inbound receivers, with four seams for Zapier/n8n/Stripe/Slack
 - **RSS / Atom feeds** — Publish any model as a feed with one flag, or consume external feeds on a schedule
 - **Background tasks & scheduler** — DB-backed queue (no Redis/Celery to operate) plus a `@scheduled` recurring-job scheduler with a themed UI, REST + MCP surfaces, and cron/interval/once cadences
+- **Human-in-the-loop approvals** — a generic approval gate: apps (or AI agents, via MCP) file a request, a human approves/rejects in a themed console, your code reacts via callback, signal, webhook, or polling
+- **In-app notifications** — a `notify()` service with a topbar bell, unread badge, and inbox — wired into approvals out of the box
 - **Activity & audit logs** — Request logging with auto-pruning and breakdown stats
 - **Auth** — Custom User model, photo, timezone, theme preference, token management
 - **Health monitoring** — Uptime monitoring, status page, API/MCP health dashboards
