@@ -9,7 +9,7 @@ listed, no downstream migration is required.
 
 ---
 
-## Unreleased — 2026-09-13 audit fixes (behaviour tightened, no code changes required)
+## v0.21.0 — 2026-09-13 audit fixes (behaviour tightened, no code changes required)
 
 These are security/correctness fixes. Most projects need to do nothing; check the list only if
 you see one of the symptoms.
@@ -30,7 +30,7 @@ entries from it: the webhook tick (`POST /webhooks/tick/`), `run_retention`, and
 
 ---
 
-## Unreleased — approvals/notifications review (2026-09-25 → 09-26)
+## v0.21.0 — approvals/notifications review (2026-09-25 → 09-26)
 
 Mostly tightening, but **five changes are visible to an operator on the upgrade itself**.
 Read those five before you deploy; the rest of the table is symptom-driven.

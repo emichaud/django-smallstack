@@ -9,6 +9,8 @@ Breaking-change migration recipes live in [`UPGRADING.md`](UPGRADING.md).
 
 ## [Unreleased]
 
+## [0.21.0] - 2026-09-26
+
 Fixes from the 2026-09-13 base-framework audit (v0.20.1). Each carries a
 regression test that fails against the old code.
 
