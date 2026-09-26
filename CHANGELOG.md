@@ -9,6 +9,16 @@ Breaking-change migration recipes live in [`UPGRADING.md`](UPGRADING.md).
 
 ## [Unreleased]
 
+### Documentation
+- **The palette count is corrected in the three files the v0.21.1 sweep missed.**
+  `README.md` (four claims), `CLAUDE.md` and `apps/smallstack/docs/tldr.md` still said
+  **five** palettes; there are **six** (`django`, `dark-blue`, `purple`, `orange`,
+  `high-contrast`, `gold`). `CLAUDE.md` also named the palettes by label rather than id,
+  omitted `gold`, and left the default unstated — it is `purple`
+  (`SMALLSTACK_COLOR_PALETTE`). These are the read-first files for a new contributor and
+  for an agent onboarding to the repo, so they were contradicting
+  `docs/skills/modern-dark-theme.md`, which v0.21.1 had already fixed.
+
 ## [0.21.2] - 2026-09-26
 
 ### Removed

@@ -127,7 +127,7 @@ No extra configuration needed. These just work:
 
 - **Authentication** — login, signup, password reset
 - **User profiles** — photo, bio, color palette preference
-- **Dark/light mode** — 5 color palettes, user-selectable
+- **Dark/light mode** — 6 color palettes, user-selectable
 - **Activity tracking** — request logging with staff dashboard
 - **Database backups** — on-demand + scheduled, with email alerts
 - **Background tasks** — no Redis or Celery required

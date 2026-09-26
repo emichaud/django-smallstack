@@ -32,7 +32,7 @@ class TicketCRUDView(CRUDView):
 This generates:
 
 **→ HTML** (`/tickets/`)
-CRUD pages with htmx tabs, filters, sorting, pagination. Dark/light themes (5 color palettes).
+CRUD pages with htmx tabs, filters, sorting, pagination. Dark/light themes (6 color palettes).
 
 **→ REST API** (`/api/tickets/`)
 REST endpoints with bearer-token auth, OpenAPI 3.0 spec, automatic pagination and filtering.
@@ -71,7 +71,7 @@ SmallStack isn't one kind of app — it's a small backend that plays whatever ro
 
 **The things you don't have to build:**
 
-- **Web CRUD UI** — HTML pages with htmx interactions, filters, sorting, pagination, dark/light themes (5 color palettes)
+- **Web CRUD UI** — HTML pages with htmx interactions, filters, sorting, pagination, dark/light themes (6 color palettes)
 - **REST API + live docs** — Bearer-token auth, OpenAPI 3.0 with Swagger UI (`/api/docs/`) and ReDoc (`/api/redoc/`), automatic pagination, filtering
 - **Bundled API clients** — Typed TypeScript/JS SDK and a single-file Python client, always the same version as your API (`clients/`)
 - **MCP server** — JSON-RPC + OAuth + PKCE, works with Claude Desktop and agent frameworks
@@ -97,7 +97,7 @@ SmallStack is built around the vibe-coding workflow. When you open Claude Code o
 **`CLAUDE.md`** — Orients the AI to your codebase and lists the essential skills per task type. The AI knows where to look and what patterns to follow.
 
 **`docs/skills/`** — A library of reference guides covering the full stack:
-- Modern dark theme (how to build pages that work across all 5 palettes on the first try)
+- Modern dark theme (how to build pages that work across all 6 palettes on the first try)
 - CRUDView patterns and configuration
 - SearchBuilder (custom variants, computed fields, ranking)
 - MCP tool authoring
@@ -136,7 +136,7 @@ Open http://localhost:8005, log in with `admin` / `admin`. The `/help/` section 
 
 ## Modern dark theme
 
-Five color palettes × two themes (light/dark) — switchable from the user menu. The default near-black aesthetic with vibrant Tailwind-style accents works in any light. Build pages that look correct across all 5 automatically.
+Six color palettes (django, dark-blue, purple, orange, high-contrast, gold) × two themes (light/dark) — switchable from the user menu. The default near-black aesthetic with vibrant Tailwind-style accents works in any light. Build pages that look correct across all 6 automatically.
 
 <p>
   <img src="apps/smallstack/docs/images/smallstack-docs.png" alt="Help System Dark Mode" width="49%">

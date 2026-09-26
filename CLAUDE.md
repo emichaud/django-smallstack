@@ -107,7 +107,7 @@ Settings split in `config/settings/`:
 
 ## Theming — the single biggest thing to get right
 
-SmallStack ships **five palettes** (Django, Blue, Purple, Orange, Contrast) × **two themes** (light, dark). Users switch them from the user-menu dropdown. **Your code must produce pages that look correct on all 10 combinations.**
+SmallStack ships **six palettes** (`django`, `dark-blue`, `purple`, `orange`, `high-contrast`, `gold`) × **two themes** (light, dark); the default is `purple`. Users switch them from the user-menu dropdown. **Your code must produce pages that look correct on all 12 combinations.** The authoritative list is `UserProfile.color_palette.choices` + `palettes.css`.
 
 The way to do that is to **never hard-code a color**. Use the CSS variables:
 
