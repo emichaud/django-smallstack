@@ -61,7 +61,6 @@ urlpatterns = [
     path("status/maintenance/calendar/", PublicMaintenanceCalendarView.as_view(), name="public_maintenance_calendar"),
     path("status/json/", status_json, name="public_status_json"),
     path("profile/", include("apps.profile.urls")),
-    # (Approvals scenario demo routes are appended below, only when present.)
     path("help/", RedirectView.as_view(pattern_name="help:index", permanent=False), name="public_help"),
     # Admin
     path("admin/", admin.site.urls),
@@ -159,13 +158,3 @@ if settings.MEDIA_URL.startswith("/"):
             public_media_serve,
         ),
     ]
-
-# Approvals scenario demos — the test vehicle for the approvals/notifications
-# work, present only in the frontend-testing workspace and deliberately not
-# tracked. Mounted at the root so their url_base values ("demo/<scenario>/...")
-# land at /demo/... and their REST endpoints at /api/demo/... (see
-# docs/skills/crud-views.md "URL anatomy"). Included conditionally so the
-# tracked framework diff resolves on an install without them (finding F-49).
-for _demo_app in ("apps.demo_purchasing", "apps.demo_agentops", "apps.demo_access"):
-    if _demo_app in settings.INSTALLED_APPS:
-        urlpatterns += [path("", include(f"{_demo_app}.urls"))]

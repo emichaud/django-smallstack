@@ -2,7 +2,6 @@
 Base Django settings for smallstack project.
 """
 
-import importlib.util
 import secrets
 from pathlib import Path
 
@@ -80,47 +79,6 @@ INSTALLED_APPS = [
     "corsheaders",
     "axes",
 ]
-
-# Approvals scenario demos — one per consumer story (web / MCP-AI / REST+webhooks).
-# See apps/demo_*/README.md and `manage.py approval_scenario all --check`.
-#
-# These are the TEST VEHICLE for the approvals/notifications work, not part of the
-# framework. They ARE tracked as of v0.21.0 (so the scenario checker ships with the
-# guarantees it verifies), which means a fresh clone registers all three and applies
-# their migrations unless you delete the directories — see "Scenario demo apps" in
-# UPGRADING.md. Registering them conditionally keeps the framework changes
-# self-contained — the tracked diff boots on an install that has no demo_* apps,
-# which a hard reference here would break (finding F-49).
-#
-# (This comment used to say they were "deliberately not tracked"; that stopped being
-# true when they were published, and a test round caught the contradiction. Keep it
-# honest if the packaging changes again.)
-_SCENARIO_DEMOS = ("apps.demo_purchasing", "apps.demo_agentops", "apps.demo_access")
-
-
-def _app_is_really_present(dotted: str) -> bool:
-    """True only for an importable *package* that also has a ``urls`` module.
-
-    ``find_spec`` alone is not enough: a leftover ``__pycache__`` or
-    ``migrations`` directory left behind after the app's files go away still
-    resolves as a **namespace package** (``spec.origin is None``), so the app
-    looked present while every module inside it was gone — which is the exact
-    ImportError this guard exists to prevent. Require a real ``__init__.py`` and
-    the ``urls`` module ``config/urls.py`` goes on to include.
-    """
-    try:
-        spec = importlib.util.find_spec(dotted)
-    except (ImportError, ValueError):
-        return False
-    if spec is None or spec.origin is None:  # missing, or a namespace-package shell
-        return False
-    try:
-        return importlib.util.find_spec(f"{dotted}.urls") is not None
-    except (ImportError, ValueError):
-        return False
-
-
-INSTALLED_APPS += [app for app in _SCENARIO_DEMOS if _app_is_really_present(app)]
 
 # Background Tasks configuration
 # Uses DatabaseBackend for persistent task storage

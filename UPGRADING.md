@@ -44,30 +44,21 @@ Run `make migrate`. Coming from **v0.20.1** — the only previously released ver
 
 The other nine create new tables and need no attention: `smallstack_approvals.0001_initial`,
 `smallstack_notifications.0001_initial`, `smallstack_runbook.0011_document_image_server_named`, and
-two each for the three bundled scenario demos (see *Scenario demo apps* below).
+two each for the three scenario demos that shipped in v0.21.0–v0.21.1 only (see *Scenario demo
+apps* below).
 
-### Scenario demo apps (new — three apps ship enabled)
+### Scenario demo apps (shipped in v0.21.0–v0.21.1; removed in v0.21.2)
 
-v0.21.0 bundles the approvals **test vehicle**: `apps/demo_purchasing` (web), `apps/demo_agentops`
-(MCP/AI) and `apps/demo_access` (REST + webhooks), one per consumer story the gate claims to serve,
-plus `manage.py seed_approval_scenarios` and `manage.py approval_scenario <a|b|c|all> [--check]`
-(102 assertions, no web server needed).
+v0.21.0 and v0.21.1 bundled the approvals **test vehicle**: `apps/demo_purchasing`,
+`apps/demo_agentops` and `apps/demo_access`, plus `manage.py seed_approval_scenarios` and
+`manage.py approval_scenario`. **v0.21.2 removes all three apps and their conditional
+registration** — the base template ships framework only; the scenario harness lives in the QA
+workspace where it came from.
 
-**They register themselves when present.** `config/settings/base.py` adds each to `INSTALLED_APPS`
-if the package imports and has a `urls` module, so on a fresh clone you get three extra apps, **six
-extra migrations**, and **29 extra routes under `/demo/`** without opting in. That is deliberate — the
-scenario checker is how the approvals guarantees stay honest — but it is not the framework, and a
-production install probably does not want it.
-
-**To leave them out**, delete the three directories before `make migrate`:
-
-```bash
-rm -rf apps/demo_purchasing apps/demo_agentops apps/demo_access
-```
-
-The registration guard is built for exactly this: the framework boots with them absent, and nothing
-else references them. If you have already migrated, drop their tables too or just leave them — they
-are inert once the apps are gone.
+If you cloned at v0.21.0/v0.21.1 and migrated, the demo tables and their `django_migrations`
+rows are inert leftovers once you upgrade — drop them or ignore them. If you deleted the
+directories yourself on those versions, v0.21.2 changes nothing for you. Skipping straight from
+v0.20.x to v0.21.2 means the demos never touch your install at all.
 
 ### The five upgrade hazards
 
