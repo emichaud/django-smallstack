@@ -189,3 +189,195 @@ def test_crud_surface_has_no_write_endpoints(client, staff, sample_kind):
         content_type="application/json", **_bearer(staff, "staff"),
     )
     assert resp.status_code in (404, 405)
+
+
+# --- F-02: the filing identity can read its own request ----------------------
+
+
+def test_non_staff_can_poll_its_own_request_but_not_anyone_elses(
+    client, requester, bystander, sample_kind
+):
+    """The advertised "file, then poll until decided" loop must close for a
+    non-staff identity — an AI agent, a SPA user.
+
+    The CRUD read surface used to inherit StaffRequiredMixin, so a non-staff
+    caller got 403 on the list AND on its own detail while being allowed to POST
+    a decision: write-without-read. Existence-hiding scoping is the documented
+    model and the decide endpoint already used it.
+    """
+    mine = _file(requester)
+    theirs = _file(bystander)
+    headers = _bearer(requester)
+
+    listing = client.get(LIST_URL, **headers)
+    assert listing.status_code == 200
+    ids = {r["id"] for r in listing.json()["results"]}
+    assert ids == {mine.pk}
+
+    assert client.get(f"{LIST_URL}{mine.pk}/", **headers).status_code == 200
+    # Not 403 — a viewer who may not see a row is told it isn't there.
+    assert client.get(f"{LIST_URL}{theirs.pk}/", **headers).status_code == 404
+
+
+def test_non_staff_assignee_can_read_the_row_it_may_decide(
+    client, requester, assignee, sample_kind
+):
+    req = _file(requester, assignees=[assignee])
+    headers = _bearer(assignee)
+    assert client.get(f"{LIST_URL}{req.pk}/", **headers).status_code == 200
+    assert client.post(
+        _decide_url(req), {"approved": True}, content_type="application/json", **headers
+    ).status_code == 200
+
+
+# --- F-10: a deactivated account's token decides nothing ---------------------
+
+
+def test_deactivated_staff_token_cannot_read_or_decide(
+    client, requester, staff, sample_kind
+):
+    req = _file(requester)
+    headers = _bearer(staff, "staff")
+    assert client.get(f"{LIST_URL}{req.pk}/", **headers).status_code == 200  # control
+
+    staff.is_active = False
+    staff.save()
+
+    assert client.get(LIST_URL, **headers).status_code == 401
+    assert client.get(f"{LIST_URL}{req.pk}/", **headers).status_code == 401
+    resp = client.post(
+        _decide_url(req), {"approved": True}, content_type="application/json", **headers
+    )
+    assert resp.status_code == 401
+    req.refresh_from_db()
+    assert req.status == ApprovalRequest.Status.PENDING
+    assert req.decided_by is None
+
+
+# --- F-17: errors are always the JSON envelope -------------------------------
+
+
+def test_decide_404_is_json_not_html(client, staff, sample_kind):
+    resp = client.post(
+        "/smallstack/api/approvals/requests/999999/decide/",
+        {"approved": True},
+        content_type="application/json",
+        **_bearer(staff, "staff"),
+    )
+    assert resp.status_code == 404
+    assert resp["Content-Type"].startswith("application/json")
+    assert "999999" in resp.json()["errors"]["__all__"][0]
+
+
+def test_api_view_translates_http404_into_the_envelope(client, staff):
+    """The generic half of F-17: any @api_view endpoint that raises Http404 —
+    get_object_or_404 being the obvious way — answers JSON, not an HTML page."""
+    from django.http import Http404
+
+    from apps.smallstack.api import api_view
+
+    @api_view(methods=["GET"], require_auth=False)
+    def _raiser(request):
+        raise Http404("nope")
+
+    from django.test import RequestFactory
+
+    resp = _raiser(RequestFactory().get("/x/"))
+    assert resp.status_code == 404
+    assert resp["Content-Type"].startswith("application/json")
+
+
+# --- F-03: target + assignees on the remote filing surface -------------------
+
+
+def test_create_accepts_a_target_so_no_app_needs_its_own_endpoint(
+    client, requester, staff, sample_kind
+):
+    resp = client.post(
+        CREATE_URL,
+        {
+            "kind": "test.sample",
+            "title": "points at a row",
+            "target": f"smallstack_approvals.approvalrequest:{_file(requester).pk}",
+        },
+        content_type="application/json",
+        **_bearer(requester),
+    )
+    assert resp.status_code == 201, resp.content
+    assert resp.json()["target_repr"]
+
+
+def test_create_rejects_a_bad_target_and_unallowlisted_assignees(
+    client, requester, assignee, sample_kind
+):
+    bad = client.post(
+        CREATE_URL,
+        {"kind": "test.sample", "title": "x", "target": "not-a-target"},
+        content_type="application/json",
+        **_bearer(requester),
+    )
+    assert bad.status_code == 400
+    assert "app_label.model:pk" in bad.json()["errors"]["__all__"][0]
+
+    # A remote caller must not be able to route a request at an arbitrary user.
+    refused = client.post(
+        CREATE_URL,
+        {"kind": "test.sample", "title": "x", "assignees": [assignee.username]},
+        content_type="application/json",
+        **_bearer(requester),
+    )
+    assert refused.status_code == 400
+    assert "assignable" in refused.json()["errors"]["__all__"][0]
+
+
+def test_create_accepts_assignees_a_kind_allowlists(client, requester, assignee):
+    from apps.approvals.registry import ApprovalKind, register_kind, unregister
+
+    register_kind(ApprovalKind(key="test.routed", assignable=[assignee.username]))
+    try:
+        resp = client.post(
+            CREATE_URL,
+            {"kind": "test.routed", "title": "x", "assignees": [assignee.username]},
+            content_type="application/json",
+            **_bearer(requester),
+        )
+        assert resp.status_code == 201, resp.content
+        req = ApprovalRequest.objects.get(pk=resp.json()["id"])
+        assert list(req.assignees.all()) == [assignee]
+    finally:
+        unregister("test.routed")
+
+
+# --- F-18: one identity cannot flood every approver's inbox ------------------
+
+
+def test_pending_cap_returns_429(client, requester, settings, sample_kind):
+    settings.SMALLSTACK_APPROVALS_MAX_PENDING_PER_REQUESTER = 2
+    headers = _bearer(requester)
+    body = {"kind": "test.sample", "title": "spam"}
+    codes = [
+        client.post(CREATE_URL, body, content_type="application/json", **headers).status_code
+        for _ in range(3)
+    ]
+    assert codes == [201, 201, 429]
+    # 0 disables the cap (negative control).
+    settings.SMALLSTACK_APPROVALS_MAX_PENDING_PER_REQUESTER = 0
+    assert client.post(
+        CREATE_URL, body, content_type="application/json", **headers
+    ).status_code == 201
+
+
+# --- F-16: the OpenAPI document describes what these endpoints really do -----
+
+
+def test_openapi_declares_the_real_responses_for_both_endpoints(client, staff):
+    resp = client.get("/api/schema/openapi.json", **_bearer(staff, "staff"))
+    assert resp.status_code == 200
+    spec = resp.json()
+    create = spec["paths"]["/smallstack/api/approvals/requests/create/"]["post"]
+    decide = spec["paths"]["/smallstack/api/approvals/requests/{id}/decide/"]["post"]
+    assert "201" in create["responses"]
+    assert create["responses"]["201"]["content"]["application/json"]["schema"]["$ref"]
+    # 409-on-already-decided is how a racing client learns it lost; it was
+    # invisible to every consumer of the spec.
+    assert {"200", "403", "404", "409"} <= set(decide["responses"])

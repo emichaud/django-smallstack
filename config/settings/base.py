@@ -2,6 +2,7 @@
 Base Django settings for smallstack project.
 """
 
+import importlib.util
 import secrets
 from pathlib import Path
 
@@ -62,6 +63,7 @@ INSTALLED_APPS = [
     "apps.notifications",  # Notifications: in-app bell/inbox primitive (label: smallstack_notifications)
     "apps.approvals",  # Approvals: side-car human-approval gate (label: smallstack_approvals)
     "apps.feeds",  # Feeds: RSS/Atom publish (enable_rss) + consume (collector)
+    # (Approvals scenario demos are appended below, only when present.)
     # Django built-in apps
     "django.contrib.admin",
     "django.contrib.auth",
@@ -77,6 +79,19 @@ INSTALLED_APPS = [
     "django_filters",
     "corsheaders",
     "axes",
+]
+
+# Approvals scenario demos — one per consumer story (web / MCP-AI / REST+webhooks).
+# See apps/demo_*/README.md and `manage.py approval_scenario all --check`.
+#
+# These are the TEST VEHICLE for the approvals/notifications work, not part of the
+# framework: they live only in the frontend-testing workspace and are deliberately
+# not tracked. Registering them conditionally keeps the framework changes
+# self-contained — the tracked diff boots on an install that has no demo_* apps,
+# which a hard reference here would break (finding F-49).
+_SCENARIO_DEMOS = ("apps.demo_purchasing", "apps.demo_agentops", "apps.demo_access")
+INSTALLED_APPS += [
+    app for app in _SCENARIO_DEMOS if importlib.util.find_spec(app) is not None
 ]
 
 # Background Tasks configuration
@@ -107,6 +122,9 @@ MIDDLEWARE = [
     "django_htmx.middleware.HtmxMiddleware",
     "apps.smallstack.middleware.HtmxLoginRedirectMiddleware",
     "apps.activity.middleware.ActivityMiddleware",
+    # Retires a notification only once its target actually opened (2xx), so a
+    # click that 403s doesn't consume the unread badge.
+    "apps.notifications.middleware.NotificationReadOnArrivalMiddleware",
     "axes.middleware.AxesMiddleware",
     "csp.middleware.CSPMiddleware",
 ]

@@ -34,6 +34,12 @@ class Notification(models.Model):
     # Producer-namespaced category, e.g. "approvals.requested" — filtering and
     # future per-kind preferences hang off this string.
     kind = models.CharField(max_length=100, blank=True, default="", db_index=True)
+    # The thing this row is *about*, as a producer-owned opaque string (e.g.
+    # "approvals.request:42"). notify() is otherwise fire-and-forget: a producer
+    # got no handle back, so nothing could ever retire its own rows when they
+    # stopped being actionable — every approver's bell over-counted forever once
+    # one of them decided (F-13). Blank ⇒ the row is not addressable.
+    subject_key = models.CharField(max_length=200, blank=True, default="", db_index=True)
     read_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -42,6 +48,7 @@ class Notification(models.Model):
         indexes = [
             models.Index(fields=["recipient", "read_at"], name="notif_recipient_unread"),
             models.Index(fields=["recipient", "created_at"], name="notif_recipient_created"),
+            models.Index(fields=["subject_key", "read_at"], name="notif_subject_unread"),
         ]
 
     def __str__(self) -> str:

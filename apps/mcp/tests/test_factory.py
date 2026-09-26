@@ -56,10 +56,10 @@ def test_mcp_description_used_in_tool(widget_view):
     desc = widget_view.mcp_description
     # WidgetCRUDView model: verbose_name="widget", verbose_name_plural="widgets"
     assert TOOL_REGISTRY["list_widgets"].description == f"List widgets — {desc}"
-    assert TOOL_REGISTRY["get_widget"].description == f"Get a single widget — {desc}"
+    assert TOOL_REGISTRY["get_widget"].description.startswith(f"Get a single widget — {desc}")
     assert TOOL_REGISTRY["create_widget"].description == f"Create a new widget — {desc}"
-    assert TOOL_REGISTRY["update_widget"].description == f"Update an existing widget — {desc}"
-    assert TOOL_REGISTRY["delete_widget"].description == f"Delete a widget — {desc}"
+    assert TOOL_REGISTRY["update_widget"].description.startswith(f"Update an existing widget — {desc}")
+    assert TOOL_REGISTRY["delete_widget"].description.startswith(f"Delete a widget — {desc}")
 
 
 def test_default_descriptions_are_grammatical_without_user_input(widget_view):
@@ -73,9 +73,9 @@ def test_default_descriptions_are_grammatical_without_user_input(widget_view):
 
     register_mcp_tools_from_crudview(_Bare)
     assert TOOL_REGISTRY["list_bare_widgets"].description == "List widgets"
-    assert TOOL_REGISTRY["get_widget"].description == "Get a single widget"
+    assert TOOL_REGISTRY["get_widget"].description.startswith("Get a single widget")
     assert TOOL_REGISTRY["create_widget"].description == "Create a new widget"
-    assert TOOL_REGISTRY["delete_widget"].description == "Delete a widget"
+    assert TOOL_REGISTRY["delete_widget"].description.startswith("Delete a widget")
 
 
 def test_mcp_singular_plural_used_for_descriptions(widget_view):
@@ -90,7 +90,7 @@ def test_mcp_singular_plural_used_for_descriptions(widget_view):
 
     register_mcp_tools_from_crudview(_Renamed)
     assert TOOL_REGISTRY["list_tickets"].description == "List tickets"
-    assert TOOL_REGISTRY["get_ticket"].description == "Get a single ticket"
+    assert TOOL_REGISTRY["get_ticket"].description.startswith("Get a single ticket")
 
 
 def test_mcp_descriptions_override_per_action(widget_view):
@@ -129,7 +129,7 @@ def test_descriptions_fall_back_to_verbose_name(widget_view):
     verbose = str(_NoDesc.model._meta.verbose_name)
     verbose_pl = str(_NoDesc.model._meta.verbose_name_plural)
     assert TOOL_REGISTRY["list_no_desc_widgets"].description == "List " + verbose_pl
-    assert TOOL_REGISTRY["get_widget"].description == "Get a single " + verbose
+    assert TOOL_REGISTRY["get_widget"].description.startswith("Get a single " + verbose)
 
 
 def test_write_actions_marked_write(widget_view):
@@ -284,7 +284,10 @@ def test_update_widget_handler_updates(widget_view, user_a, readonly_token, monk
 def test_update_widget_handler_missing_pk(widget_view, user_a, readonly_token):
     register_mcp_tools_from_crudview(widget_view)
     token, _ = readonly_token
-    assert _ctx_call("update_widget", {"name": "x"}, user_a, token) == {"error": "pk is required"}
+    # F-25: `id` is the wire name, `pk` a permanent alias; the message names both.
+    assert _ctx_call("update_widget", {"name": "x"}, user_a, token) == {
+        "error": "id is required (alias: pk)"
+    }
 
 
 def test_update_widget_handler_not_found(widget_view, user_a, readonly_token):
@@ -302,14 +305,17 @@ def test_delete_widget_handler_deletes(widget_view, user_a, readonly_token, monk
     w = Widget.objects.create(name="doomed", owner=user_a)
     token, _ = readonly_token
     result = _ctx_call("delete_widget", {"pk": w.pk}, user_a, token)
-    assert result == {"deleted": True, "pk": w.pk}
+    # Both spellings on the way out, so a caller that sent `pk` still finds it.
+    assert result == {"deleted": True, "id": w.pk, "pk": w.pk}
     assert not Widget.objects.filter(pk=w.pk).exists()
 
 
 def test_delete_widget_handler_missing_pk(widget_view, user_a, readonly_token):
     register_mcp_tools_from_crudview(widget_view)
     token, _ = readonly_token
-    assert _ctx_call("delete_widget", {}, user_a, token) == {"error": "pk is required"}
+    assert _ctx_call("delete_widget", {}, user_a, token) == {
+        "error": "id is required (alias: pk)"
+    }
 
 
 def test_delete_widget_handler_not_found(widget_view, user_a, readonly_token):
@@ -317,3 +323,64 @@ def test_delete_widget_handler_not_found(widget_view, user_a, readonly_token):
     token, _ = readonly_token
     result = _ctx_call("delete_widget", {"pk": 999999}, user_a, token)
     assert "not found" in result["error"]
+
+
+# --- F-25: `id` is the wire name for every single-object tool ---------------
+#
+# `serialize()` emits the row identity as "id" and three hand-written tools
+# accept `id`, but the generated get_/update_/delete_ tools required `pk`. An
+# agent that passed the id it had just been handed got
+# `{"error": "pk is required"}` on its first call — and approvals'
+# `request_approval` description explicitly told it to do exactly that.
+
+
+def test_single_object_tools_accept_id_as_well_as_pk(widget_view, user_a, readonly_token):
+    from .models import Widget
+
+    register_mcp_tools_from_crudview(widget_view)
+    w = Widget.objects.create(name="by-id", owner=user_a)
+    token, _ = readonly_token
+
+    by_id = _ctx_call("get_widget", {"id": w.pk}, user_a, token)
+    by_pk = _ctx_call("get_widget", {"pk": w.pk}, user_a, token)
+    assert "error" not in by_id, by_id
+    assert by_id == by_pk
+    # The identity the tool hands back is the key the next call accepts.
+    assert by_id["id"] == w.pk
+
+
+def test_the_id_a_tool_returns_is_accepted_by_the_next_tool(widget_view, user_a, readonly_token):
+    """The documented loop, end to end, using only keys the wire actually uses."""
+    from .models import Widget
+
+    register_mcp_tools_from_crudview(widget_view)
+    token, _ = readonly_token
+    listed = _ctx_call("list_widgets", {}, user_a, token)
+    Widget.objects.create(name="loopable", owner=user_a)
+    listed = _ctx_call("list_widgets", {}, user_a, token)
+    assert listed["results"], listed
+    row_id = listed["results"][0]["id"]
+    fetched = _ctx_call("get_widget", {"id": row_id}, user_a, token)
+    assert "error" not in fetched, fetched
+
+
+def test_single_object_schemas_declare_both_keys_and_require_one(widget_view):
+    register_mcp_tools_from_crudview(widget_view)
+    for name in ("get_widget", "update_widget", "delete_widget"):
+        schema = TOOL_REGISTRY[name].input_schema
+        props = schema["properties"]
+        assert "id" in props, f"{name} does not accept 'id'"
+        assert "pk" in props, f"{name} dropped the 'pk' alias"
+        assert schema["additionalProperties"] is False, name
+        assert schema.get("anyOf") == [{"required": ["id"]}, {"required": ["pk"]}], name
+        # `required` must not demand pk alone, or an id-only call is invalid.
+        assert "pk" not in schema.get("required", []), name
+
+
+def test_single_object_tool_descriptions_name_the_parameter(widget_view):
+    register_mcp_tools_from_crudview(widget_view)
+    for name in ("get_widget", "update_widget", "delete_widget"):
+        assert "'id'" in TOOL_REGISTRY[name].description, name
+    # …and the clause is not bolted onto tools that take no identifier.
+    for name in ("list_widgets", "create_widget"):
+        assert "Identify the row by" not in TOOL_REGISTRY[name].description, name

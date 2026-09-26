@@ -63,4 +63,14 @@ def _reregister_mcp_tools():
         register_approvals_tools()
     except Exception:
         pass
+    try:
+        # The CRUDView-derived read tools (get_approval / list_approvals) are the
+        # other half of the documented polling loop, so they must be present here
+        # regardless of test ordering too.
+        from apps.approvals.views import ApprovalRequestCRUDView
+        from apps.mcp.factory import register_mcp_tools_from_crudview
+
+        register_mcp_tools_from_crudview(ApprovalRequestCRUDView)
+    except Exception:
+        pass
     yield

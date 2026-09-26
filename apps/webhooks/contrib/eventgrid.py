@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import hmac
 import json
+from collections.abc import Mapping
 from typing import TYPE_CHECKING, Any
 
 from apps.webhooks import (
@@ -99,8 +100,11 @@ def eg_validate(request: HttpRequest, receiver: WebhookReceiver) -> HttpResponse
     return None
 
 
-def verify_eventgrid(body: bytes, headers: dict[str, str], receiver: WebhookReceiver) -> bool:
-    """Verify Event Grid's ``aeg-sas-key`` against the receiver secret (constant-time)."""
+def verify_eventgrid(body: bytes, headers: Mapping[str, str], receiver: WebhookReceiver) -> bool:
+    """Verify Event Grid's ``aeg-sas-key`` against the receiver secret (constant-time).
+
+    ``headers`` is case-insensitive (see hooks.Verifier), so either spelling hits.
+    """
     provided = headers.get("Aeg-Sas-Key") or headers.get(SAS_HEADER) or ""
     if not provided:
         return False

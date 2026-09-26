@@ -13,13 +13,13 @@ from __future__ import annotations
 from typing import Any, Union
 
 from django.http import HttpRequest, JsonResponse
-from django.shortcuts import get_object_or_404
 
 from apps.smallstack.api import _serialize as _crud_serialize
 from apps.smallstack.api import api_error, api_view, register_api_path
 
 from . import permissions, services
 from .models import ApprovalRequest
+from .resolvers import resolve_assignees, resolve_target
 from .views import ApprovalRequestCRUDView
 
 # api_view also accepts (dict, status) tuples — include them in the alias.
@@ -40,7 +40,13 @@ def _serialize(req: ApprovalRequest) -> dict[str, Any]:
 def api_create_request(request: HttpRequest) -> ApiResult:
     """File a request. Any authenticated caller may file (readonly tokens are
     refused for writes by api_view itself); unknown kinds are a 400 here —
-    on a remote surface a typo is likelier than a plan."""
+    on a remote surface a typo is likelier than a plan.
+
+    ``target`` and ``assignees`` are accepted here as well as in Python, so a
+    remote client no longer has to ship its own filing endpoint just to point an
+    approval at a business row (F-03). Assignee selection is gated by the kind's
+    ``assignable`` allowlist so it can't be used to route at an arbitrary user.
+    """
     payload = getattr(request, "json", None) or {}
     kind = str(payload.get("kind") or "").strip()
     title = str(payload.get("title") or "").strip()
@@ -58,6 +64,12 @@ def api_create_request(request: HttpRequest) -> ApiResult:
             expires_in = timedelta(minutes=int(expires_in_minutes))
         except (TypeError, ValueError):
             return api_error("'expires_in_minutes' must be an integer.", 400)
+    target, target_err = resolve_target(payload.get("target"))
+    if target_err:
+        return api_error(target_err, 400)
+    assignees, assignee_err = resolve_assignees(payload.get("assignees"), kind_key=kind)
+    if assignee_err:
+        return api_error(assignee_err, 400)
     try:
         req = services.request_approval(
             kind=kind,
@@ -65,12 +77,22 @@ def api_create_request(request: HttpRequest) -> ApiResult:
             actor=request.user,
             description=str(payload.get("description") or ""),
             context=context,
+            target=target,
+            assignees=assignees,
             expires_in=expires_in,
             require_known_kind=True,
             source="REST API",
         )
     except services.UnknownKind as exc:
         return api_error(str(exc), 400)
+    except services.TooManyPending as exc:
+        return api_error(str(exc), 429)
+    # No ApprovalsDisabled branch: when the master switch is off these routes are
+    # not mounted at all (apps/smallstack/site_urls.py), so the branch was dead
+    # code advertising a status code no client of THIS endpoint could receive.
+    # api_view now translates FeatureDisabled → 503 for every endpoint in the
+    # project, which is where the 503 is actually reachable — a downstream app's
+    # own endpoint calling services.request_approval. (F-31.)
     return _serialize(req), 201
 
 
@@ -78,9 +100,17 @@ def api_create_request(request: HttpRequest) -> ApiResult:
 def api_decide_request(request: HttpRequest, pk: int) -> ApiResult:
     """Decide a pending request. Eligibility (assignees, self-approval, staff
     default) is enforced in the service — assignees may be non-staff."""
-    req = get_object_or_404(
-        permissions.viewable_requests(request.user, ApprovalRequest.objects.all()), pk=pk
+    req = (
+        permissions.viewable_requests(request.user, ApprovalRequest.objects.all())
+        .filter(pk=pk)
+        .first()
     )
+    if req is None:
+        # Explicit, not get_object_or_404: this is also the path a non-eligible
+        # caller takes, and an HTML 404 page there breaks `await res.json()` in
+        # every client. (F-17 — api_view now translates Http404 too, but saying
+        # what was not found is better than a generic envelope.)
+        return api_error(f"No approval request {pk} (or not visible to you).", 404)
     payload = getattr(request, "json", None) or {}
     if "approved" not in payload or not isinstance(payload["approved"], bool):
         return api_error('Provide {"approved": true|false} (and optionally "note").', 400)
@@ -96,14 +126,31 @@ def api_decide_request(request: HttpRequest, pk: int) -> ApiResult:
         return api_error(str(exc), 403)
     except services.NotPending as exc:
         return api_error(str(exc), 409)
+    # See the note on the create endpoint: unreachable here, handled globally.
     return _serialize(req)
 
 
 # --- OpenAPI ---------------------------------------------------------------
 # Anchored on the CRUD list route's param-free bare name (build_api_urls
 # registers "<url_base dashes>-api-list" ⇒ "approvals-requests-api-list").
+#
+# Every response these endpoints can actually produce is declared. A bare 200
+# made a generated client treat 201/403/409 as protocol errors — and 409-on-
+# already-decided is the single most important response in an approvals API,
+# since it is how a racing client learns it lost. (F-16.)
 
 _TAG = ["Approvals"]
+
+
+def _json(ref: str, description: str) -> dict[str, Any]:
+    return {
+        "description": description,
+        "content": {"application/json": {"schema": {"$ref": f"#/components/schemas/{ref}"}}},
+    }
+
+
+_ERR = "Error"
+_REQ = "ApprovalRequest"
 
 register_api_path(
     "approvals-requests-api-list",
@@ -121,9 +168,28 @@ register_api_path(
                 "title": {"type": "string"},
                 "description": {"type": "string"},
                 "context": {"type": "object", "description": "Kind-specific card payload."},
+                "target": {
+                    "type": "string",
+                    "description": "Business row this is about, as 'app_label.model:pk'.",
+                },
+                "assignees": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": (
+                        "Usernames who should decide. Only accepted for kinds "
+                        "declaring an `assignable` allowlist."
+                    ),
+                },
                 "expires_in_minutes": {"type": "integer"},
             },
         }}},
+    },
+    responses={
+        "201": _json(_REQ, "Filed"),
+        "400": _json(_ERR, "Unknown kind, bad target/assignees, or bad body"),
+        "401": _json(_ERR, "Authentication required"),
+        "403": _json(_ERR, "Read-only token"),
+        "429": _json(_ERR, "Too many pending requests for this requester and kind"),
     },
 )
 register_api_path(
@@ -145,5 +211,13 @@ register_api_path(
                 "note": {"type": "string"},
             },
         }}},
+    },
+    responses={
+        "200": _json(_REQ, "Decided"),
+        "400": _json(_ERR, "Missing or non-boolean 'approved'"),
+        "401": _json(_ERR, "Authentication required"),
+        "403": _json(_ERR, "Not eligible to decide this request"),
+        "404": _json(_ERR, "No such request, or not visible to the caller"),
+        "409": _json(_ERR, "Already decided, canceled, or expired — re-read the row"),
     },
 )

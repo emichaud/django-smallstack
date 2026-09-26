@@ -97,6 +97,118 @@ regression test that fails against the old code.
 - Dataset CSV export is capped by `SMALLSTACK_DATASET_CSV_MAX_ROWS` (50,000);
   over the cap is a 400 asking the caller to filter or page. (C9c)
 
+### Security — approvals/notifications review (2026-09-25)
+
+- **Per-object authorization now covers every single-object CRUD surface.** New
+  `CRUDView.check_object_permission(obj, request)` hook, applied by the base to
+  detail, edit, delete, field-preview, related-tab, the REST detail/update/delete
+  handlers, the bulk-action view and the generated MCP `get_*`/`update_*`/`delete_*`
+  tools. Previously a view that expressed ownership by overriding one generated
+  base's `get_object` protected only that base: `/smallstack/tokens/<pk>/related/request_logs/`
+  returned **200** with another user's API-token request log — which endpoints
+  that token calls and when — to any logged-in non-staff account, while the
+  detail page beside it correctly answered 403. `tokenmgr` now uses the hook.
+  (F-27)
+- **Deactivating an account no longer widens an approval's audience.** A request
+  routed to one named assignee used to become a broadcast to every active staff
+  user the moment that assignee was offboarded (1 recipient → 6 recipients, 1
+  bell → 10), silently. The fallback remains — the request must not go unseen —
+  but it logs a warning naming the deactivated assignees and both the email
+  subject and the bell title carry `(assignee deactivated)`. (F-32)
+- **The MCP tier ladder is no longer inverted.** It ranked
+  `readonly < staff < auth`, so `requires_access="auth"` — documented as "gate to
+  any authenticated caller" — could be satisfied by *no* login token, and staff
+  were strictly less capable than non-staff on that tier. The ladder is now
+  `readonly < auth < staff`, and only the `staff` tier implies the staff flag.
+  Latent before this (nothing shipped declares `"auth"`, though a dataset author's
+  `mcp_access="auth"` reaches it). (F-26)
+- **An inbound webhook verifier that raises is logged.** The bare
+  `except Exception` around the verifier swallowed everything, so a verifier
+  raising on a *correct* signature was indistinguishable from a forged one with
+  nothing in the log. Still fails closed. (F-37)
+
+### Fixed — approvals/notifications review (2026-09-25)
+
+- **Multi-line `{# … #}` comments no longer render as page text.** Django's `{# #}`
+  is single-line only; three multi-line ones were being emitted verbatim — on the
+  approvals decision console and in *every* CRUDView's no-match empty state. Swept
+  tree-wide (12 more in `smallstack/starter.html`, which ships as "copy this
+  file"). Guarded by `apps/smallstack/test_template_hygiene.py`, which reads every
+  template in the tree and also asserts that rendered CRUD pages contain no `{#`,
+  `{%` or `{{`. (F-45)
+- **The empty state branches on filters, not on "any query param".** It tested
+  `request.GET.urlencode`, which is truthy for pagination, ordering, the display
+  toggle and the `?_notification=` marker the notification bell appends — so a
+  user who sorted an empty list or arrived from a bell row was told to "clear
+  their filters" and lost the create-the-first-one link. New
+  `has_active_filters` context flag; the four divergent copies of the empty state
+  converge on one include. (F-44)
+- **`?status=pending` on the approvals queue now agrees with its own Pending stat
+  card.** Expiry is lazy, so an overdue row's stored `status` still reads
+  `pending`; the filter matched the column while the card counted `actionable()`,
+  and the page contradicted itself by 900 rows. Both now evaluate
+  `ApprovalRequestQuerySet.for_effective_status`, on HTML, REST and MCP, and
+  `?status=expired` includes overdue-but-unswept rows. New generic
+  `CRUDView.apply_filter(qs, field_name, value, request)` hook. (F-29)
+- **`SMALLSTACK_APPROVALS_SWEEP_ENABLED` is a two-way switch again.** Retiring a
+  code-declared scheduled job whose spec disappeared had no reverse, so turning
+  the flag back on never restored the job. New `ScheduledJob.auto_retired` marks
+  automatic retirements and they are undone when the spec returns; a job an
+  operator disabled by hand stays off (and now says so in the log). A relative
+  safety valve also refuses to retire more than half the known code jobs in one
+  sync, which is the signature of a *partial* autodiscovery failure. (F-30)
+- **A verifier that mutates its headers dict works again.** The case-insensitivity
+  fix had narrowed the argument from `dict[str, str]` to Django's immutable
+  `CaseInsensitiveMapping`, so a third-party verifier doing
+  `headers.pop("X-Smallstack-Signature", "")` began returning 401 on correct
+  credentials. The argument is now `webhooks.hooks.CaseInsensitiveDict` — a real
+  mutable `dict` subclass with case-insensitive lookups. (F-37)
+- **A failing status monitor no longer renders as a green tick.** The core tier of
+  `/smallstack/status/overview/` built each service row from `Monitor.inventory()`,
+  whose base implementation returns `{"ok": True}`, so `approvals-fanout` ("191
+  approval email tasks queued and unrun") and `scheduler-tick` ("2 jobs overdue")
+  both showed "on" while recorded as FAILING. The row now needs `inventory()` **and**
+  the recorded state to be good, and carries the monitor's actionable note.
+  Not-yet-recorded still reads as fine. (F-28, F-07)
+- **Generated MCP `get_*`/`update_*`/`delete_*` tools accept `id`.** `serialize()`
+  emits the row identity as `id` and three hand-written tools accept `id`, but the
+  generated ones required `pk` — so an agent passing the id it had just been
+  handed got `{"error": "pk is required"}` on its first call, which is exactly
+  what `request_approval`'s own description told it to do. `pk` remains a
+  permanent alias; schemas declare both with `anyOf`; descriptions name the
+  parameter. (F-25)
+- **A feature's master switch degrades to 503, not 500.** New
+  `apps.smallstack.exceptions.FeatureDisabled`, translated by `api_view` for every
+  endpoint in the project. `ApprovalsDisabled` is one, so a *downstream* app's
+  endpoint that files an approval with approvals switched off returns a 503
+  envelope naming the setting instead of an unhandled 500. Approvals' own dead 503
+  handlers and OpenAPI entries are removed — those routes are unmounted whenever
+  the exception can be raised. `PermissionDenied` gets the same treatment (403).
+  (F-31)
+- **Approval emails warn when they would link to `localhost`.** Approvals mail is
+  sent without a request, so its absolute console link comes from `SITE_DOMAIN`
+  (default `localhost:8000`) — dead on every unconfigured install, including the
+  headline "non-staff assignees decide via the emailed link" story. The approvals
+  monitor now reports it. Skipped under `DEBUG` and when the email channel is off.
+  (F-33)
+- **Global search finds a non-staff assignee's own approvals.** Search was the one
+  read surface the eligibility scoper never reached (`search_access` defaults to
+  STAFF), so a user who could open and decide a request could not find it.
+  (F-43)
+- **A non-staff approver has a nav entry to the console.** The console is
+  LoginRequired + eligibility-scoped, but its only nav registration sat in the
+  staff-only ADMIN section. New `nav.register(visible=<predicate>)` for rules the
+  `auth_required`/`staff_required` flags cannot express. (F-46)
+- **Stale "Approval needed" bells created before the `subject_key` migration can
+  be retired.** New data migration backfills `subject_key` from the row's URL and
+  marks read any bell whose request is already terminal. Without it the
+  retirement feature reached only rows filed after the upgrade — 105 of 105 unread
+  rows on the reference install were unaddressable. Idempotent. (F-42)
+- The decision-email recipient rule is documented correctly at last: the set is
+  **the approvers — including the decider** — plus the requester. The bell differs
+  from the email by exactly one person (it skips the actor), and that asymmetry is
+  now stated in `emails.py` and both `.md` files. (F-04)
+
 ## [0.20.1] - 2026-08-29
 
 ### Changed

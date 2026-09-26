@@ -97,7 +97,9 @@ def test_suppress_restored_after_exception():
 def _post(slug, body: bytes, sig, origin=None):
     headers = {}
     if sig is not None:
-        headers["X-Signature"] = sig
+        # The receiver default is services.SIGNATURE_HEADER; the lookup is
+        # case-insensitive (F-06).
+        headers[services.SIGNATURE_HEADER] = sig
     if origin is not None:
         headers[services.ORIGIN_HEADER] = origin
     return Client().post(

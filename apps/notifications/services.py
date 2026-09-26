@@ -44,12 +44,18 @@ def notify(
     url: str = "",
     kind: str = "",
     actor: Any = None,
+    subject_key: str = "",
 ) -> int:
     """Create one Notification per recipient. Returns rows created.
 
     Best-effort: swallows every exception (logged), skips anonymous/unsaved/
     inactive users and the actor themselves (you don't need a bell for your
     own action). No-ops when SMALLSTACK_NOTIFICATIONS_ENABLED is off.
+
+    ``subject_key`` is an optional producer-owned handle for *the thing this is
+    about* (e.g. ``"approvals.request:42"``). Pass it and you can later call
+    :func:`resolve` to retire every row about that subject — the missing piece
+    that left stale "Approval needed" bells behind after someone decided.
     """
     if not getattr(settings, "SMALLSTACK_NOTIFICATIONS_ENABLED", True):
         return 0
@@ -66,6 +72,7 @@ def notify(
                 message=message,
                 url=url[:300],
                 kind=kind[:100],
+                subject_key=subject_key[:200],
             )
             for user in users
         )
@@ -97,6 +104,27 @@ def mark_read(user: Any, ids: Iterable[int] | None = None) -> int:
     if ids is not None:
         qs = qs.filter(pk__in=list(ids))
     return qs.update(read_at=timezone.now())
+
+
+def resolve(subject_key: str, *, kind: str = "") -> int:
+    """Retire every unread row about ``subject_key``. Returns rows marked read.
+
+    For producers whose notification means "there is work here": once the work
+    is done, the pointer is noise. A bell that keeps counting finished work stops
+    meaning "something to do", which is the only reason a bell exists. Never
+    raises (same contract as :func:`notify`). Optionally narrow by ``kind`` so a
+    producer can retire its "needed" rows while keeping its "decided" rows.
+    """
+    if not subject_key:
+        return 0
+    try:
+        qs = Notification.objects.filter(subject_key=subject_key, read_at__isnull=True)
+        if kind:
+            qs = qs.filter(kind=kind)
+        return qs.update(read_at=timezone.now())
+    except Exception:  # noqa: BLE001 — must never break the triggering write
+        logger.exception("notifications: resolve(%r) failed", subject_key)
+        return 0
 
 
 def prune(days: int | None = None) -> int:

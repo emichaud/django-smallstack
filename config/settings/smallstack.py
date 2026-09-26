@@ -450,7 +450,10 @@ SMALLSTACK_NOTIFICATIONS_RETENTION_DAYS = config(
 # ---------------------------------------------------------------------------
 # Approvals — the side-car human-approval gate (apps/approvals)
 # ---------------------------------------------------------------------------
-# Master switch. Off ⇒ no routes, no kind autodiscovery, no surfaces.
+# Master switch. Off ⇒ the URLs are never mounted (console, REST, decide POST),
+# no kind autodiscovery, no receivers, no nav/dashboard/monitor, no sweep job,
+# and services.request_approval/decide/cancel raise ApprovalsDisabled. It used
+# to leave every endpoint live and only kill the fan-out. (F-11.)
 SMALLSTACK_APPROVALS_ENABLED = config("SMALLSTACK_APPROVALS_ENABLED", default=True, cast=bool)
 # May the requester decide their own request? Off by default — a human gate
 # you can wave yourself through isn't a gate.
@@ -478,7 +481,49 @@ SMALLSTACK_APPROVALS_NOTIFY_EMAILS = config(
     default="",
     cast=lambda v: [e.strip() for e in str(v).split(",") if e.strip()],
 )
+# Send approval mail in the request path instead of queueing it on the `email`
+# task queue. Defaults to DEBUG: a `make run` demo or a test run delivers with no
+# worker, while production keeps the queue (and then NEEDS a db_worker on the
+# `email` queue — the approvals status monitor trips if nothing drains it). (F-07.)
+# Unset (the default) means "follow DEBUG", resolved at call time in
+# apps/approvals/receivers.py — DEBUG isn't defined yet in this module.
+_approvals_inline = config("SMALLSTACK_APPROVALS_EMAILS_INLINE", default="")
+SMALLSTACK_APPROVALS_EMAILS_INLINE = (
+    None
+    if str(_approvals_inline) == ""
+    else str(_approvals_inline).strip().lower() in {"1", "true", "yes", "on"}
+)
+# How long a queued approval email may sit unrun before the status monitor
+# reports the email channel as down.
+SMALLSTACK_APPROVALS_EMAIL_BACKLOG_MINUTES = config(
+    "SMALLSTACK_APPROVALS_EMAIL_BACKLOG_MINUTES", default=15, cast=int
+)
 # The @scheduled 5-minute expiry sweep (lazy expiry still applies without it).
 SMALLSTACK_APPROVALS_SWEEP_ENABLED = config(
     "SMALLSTACK_APPROVALS_SWEEP_ENABLED", default=True, cast=bool
 )
+# How many overdue rows one interactive page-load may expire itself. Expiring a
+# row runs the kind callback + audit + signal + notification + email + webhook,
+# so an unbounded backlog made the queue page the slowest in the app. The
+# scheduled sweep drains the remainder and a warning is logged when it's behind.
+SMALLSTACK_APPROVALS_LAZY_EXPIRE_LIMIT = config(
+    "SMALLSTACK_APPROVALS_LAZY_EXPIRE_LIMIT", default=25, cast=int
+)
+# Cap on a single requester's outstanding pending requests per kind (0 = no cap).
+# The abuse model is an agent token in a loop: one identity filed 60 requests and
+# generated 600 notification rows unimpeded, which defeats the gate by alert
+# fatigue. Exceeding it raises TooManyPending → 429 on REST/MCP. (F-18.)
+SMALLSTACK_APPROVALS_MAX_PENDING_PER_REQUESTER = config(
+    "SMALLSTACK_APPROVALS_MAX_PENDING_PER_REQUESTER", default=50, cast=int
+)
+
+# ---------------------------------------------------------------------------
+# Audit — attribution for writes no human caused
+# ---------------------------------------------------------------------------
+# django.contrib.admin's LogEntry.user is non-null, so a system transition (an
+# expiry sweep, a scheduled job) previously left NO audit row at all. Writes with
+# no actor are attributed to this reserved account, created on first use as
+# is_active=False with an unusable password — a label, not a credential (nothing
+# can authenticate as an inactive user on any surface). Blank ⇒ system writes are
+# logged to the application log only. (F-15.)
+SMALLSTACK_AUDIT_SYSTEM_USERNAME = config("SMALLSTACK_AUDIT_SYSTEM_USERNAME", default="system")

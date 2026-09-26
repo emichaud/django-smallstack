@@ -3,6 +3,7 @@ receiver endpoint, the delivery tick, and the test/replay/reveal actions."""
 
 from __future__ import annotations
 
+import logging
 from datetime import timedelta
 from typing import Any
 
@@ -22,6 +23,8 @@ from apps.smallstack.mixins import StaffRequiredMixin
 
 from . import services
 from .models import WebhookDelivery, WebhookEndpoint, WebhookReceipt, WebhookReceiver
+
+logger = logging.getLogger("smallstack.webhooks")
 
 LOCALHOST_IPS = {"127.0.0.1", "::1"}
 
@@ -545,6 +548,10 @@ def pair_smallstack(request: HttpRequest) -> HttpResponse:
         "Retrieve secrets later via the staff Reveal action here; rotate via Rotate."
     )
     messages.success(request, "\n".join(lines))
+    for warning in result.get("warnings") or []:
+        # e.g. a loopback target blocked by the SSRF guard — say it here rather
+        # than leaving it buried in a failed delivery's error field. (F-06.)
+        messages.warning(request, warning)
     return redirect("webhooks/endpoints-detail", pk=result["endpoint_id"])
 
 
@@ -681,8 +688,28 @@ def incoming_webhook(request: HttpRequest, slug: str) -> HttpResponse:
     #    a provider scheme (Stripe t.body, GitHub sha256=) is a plug-in.
     verifier = hooks.get_verifier(receiver.verifier)
     try:
-        verified = bool(verifier(raw, dict(request.headers), receiver))
-    except Exception:  # noqa: BLE001 — a broken verifier fails closed (unverified)
+        # Case-INSENSITIVE, and a real mutable dict. HTTP header names are
+        # case-insensitive and Django's HttpHeaders honours that; a plain
+        # `dict(request.headers)` froze Django's own canonicalisation, so a
+        # receiver configured with the documented "X-SmallStack-Signature"
+        # spelling silently 401'd while an undocumented "X-Smallstack-Signature"
+        # worked (F-06). The first fix used Django's CaseInsensitiveMapping, which
+        # is IMMUTABLE — narrowing a seam documented as `dict[str, str]`, so a
+        # third-party verifier doing `headers.pop(...)` started 401ing on a
+        # correct credential (F-37). hooks.CaseInsensitiveDict satisfies both.
+        header_map = hooks.CaseInsensitiveDict(request.headers)
+        verified = bool(verifier(raw, header_map, receiver))
+    except Exception:
+        # A broken verifier fails CLOSED (unverified) — but never silently. This
+        # exception used to be swallowed whole, so a verifier raising on a
+        # perfectly good signature was indistinguishable from a forged one, with
+        # nothing in the log to diagnose. (F-37.)
+        logger.exception(
+            "webhooks: verifier %r raised for receiver %r — treating the delivery "
+            "as UNVERIFIED. Fix the verifier; a raised exception is not a rejection.",
+            receiver.verifier or "hmac",
+            receiver.slug,
+        )
         verified = False
 
     # Snapshot a safe subset of headers (never store cookies/authorization raw).

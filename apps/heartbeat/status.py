@@ -148,6 +148,11 @@ def _get_status_data(monitor_key: str = "site") -> dict[str, Any]:
         "last_heartbeat": last.timestamp,
         "response_time_ms": last.response_time_ms,
         "age_seconds": int(age_seconds),
+        # The monitor's own words from the last recorded beat. A well-written
+        # check() writes the ACTION here ("start a worker on the 'email' queue…"),
+        # and it used to stop at the database — the overview never read it, so the
+        # one sentence that tells an operator what to do was invisible. (F-28.)
+        "note": last.note,
     }
 
 

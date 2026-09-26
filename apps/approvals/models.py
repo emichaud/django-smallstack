@@ -22,6 +22,59 @@ from django.db.models import Q
 from django.utils import timezone
 
 
+class ApprovalRequestQuerySet(models.QuerySet):
+    """One definition of "pending right now", shared by every reader.
+
+    Expiry is lazy (§6), so ``status="pending"`` and *actually awaiting a human*
+    are not the same set: a row whose ``expires_at`` has passed is still
+    ``pending`` in the database until something sweeps it. Every surface that
+    counts or lists the queue must use the same definition or the numbers
+    disagree (the dashboard widget said 7 while the queue said 4 — F-19).
+    """
+
+    def pending(self) -> "ApprovalRequestQuerySet":
+        """Rows whose stored status is pending, overdue ones included."""
+        return self.filter(status=ApprovalRequest.Status.PENDING)
+
+    def overdue(self, now: Any = None) -> "ApprovalRequestQuerySet":
+        """Pending rows past their expiry — what a sweep would flip."""
+        return self.pending().filter(
+            expires_at__isnull=False, expires_at__lte=now or timezone.now()
+        )
+
+    def actionable(self, now: Any = None) -> "ApprovalRequestQuerySet":
+        """Pending rows a human can still decide — pending minus overdue.
+
+        Cheap (one query, no fan-out): safe for dashboards and stat cards.
+        """
+        return self.pending().exclude(
+            expires_at__isnull=False, expires_at__lte=now or timezone.now()
+        )
+
+    def for_effective_status(self, value: str, now: Any = None) -> "ApprovalRequestQuerySet":
+        """Rows whose *effective* status is ``value`` — the single definition.
+
+        The stored ``status`` column is not the effective status while expiry is
+        lazy: an overdue row reads ``pending`` until a sweep flips it. Every
+        surface that counts, lists or filters by status goes through here, so the
+        stat card, the ``?status=`` filter (HTML + REST + MCP) and the row badge
+        cannot disagree — which they did, by 900 rows on one page (F-29).
+
+        ``pending`` → :meth:`actionable`; ``expired`` → stored-expired **plus**
+        :meth:`overdue`; anything else → the stored column.
+        """
+        from django.db.models import Q
+
+        if value == ApprovalRequest.Status.PENDING:
+            return self.actionable(now=now)
+        if value == ApprovalRequest.Status.EXPIRED:
+            return self.filter(
+                Q(status=ApprovalRequest.Status.EXPIRED)
+                | Q(pk__in=self.overdue(now=now).values("pk"))
+            )
+        return self.filter(status=value)
+
+
 class ApprovalRequest(models.Model):
     class Status(models.TextChoices):
         PENDING = "pending", "Pending"
@@ -77,6 +130,8 @@ class ApprovalRequest(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+    objects = ApprovalRequestQuerySet.as_manager()
+
     class Meta:
         ordering = ["-created_at"]
         verbose_name = "Approval request"
@@ -105,6 +160,24 @@ class ApprovalRequest(models.Model):
         return bool(
             self.is_pending and self.expires_at and self.expires_at <= timezone.now()
         )
+
+    @property
+    def effective_status(self) -> str:
+        """The status a human should be shown — row-level twin of
+        :meth:`ApprovalRequestQuerySet.for_effective_status`.
+
+        An overdue row's stored ``status`` still reads ``pending`` until a sweep
+        flips it, so a queue badge rendered straight from the column told the
+        approver a row was theirs to decide when it was not. (F-29.)
+        """
+        if self.is_overdue:
+            return str(self.Status.EXPIRED)
+        return str(self.status)
+
+    @property
+    def effective_status_display(self) -> str:
+        """Human label for :attr:`effective_status`."""
+        return dict(self.Status.choices).get(self.effective_status, self.effective_status)
 
     @property
     def target(self) -> Any:

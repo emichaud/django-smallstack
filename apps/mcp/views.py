@@ -288,13 +288,20 @@ class McpHttpView(View):
                 duration = (time.perf_counter() - tool_started) * 1000
                 # Wrap the value in TextContent for MCP clients
                 text = json.dumps(result_value, default=str)
+                # A tool that refuses (not eligible, conflict, not found) returns
+                # a top-level "error" key by convention. Reporting that as
+                # isError:false made a refusal indistinguishable from success at
+                # the protocol level — a model checking isError would read
+                # "approval refused" as "approved". For an approvals gate that is
+                # the one failure you cannot have. (F-20.)
+                is_error = isinstance(result_value, dict) and "error" in result_value
                 logger.info(
-                    "MCP TOOL tool=%s user_pk=%s duration_ms=%.2f result_len=%d",
-                    name, getattr(user, "pk", None), duration, len(text),
+                    "MCP TOOL tool=%s user_pk=%s duration_ms=%.2f result_len=%d is_error=%s",
+                    name, getattr(user, "pk", None), duration, len(text), is_error,
                 )
                 return _rpc_result(
                     rpc_id,
-                    {"content": [{"type": "text", "text": text}], "isError": False},
+                    {"content": [{"type": "text", "text": text}], "isError": is_error},
                 )
 
             # Unknown method

@@ -34,7 +34,7 @@ When a feed merges sources or is computed (not a raw per-model dump), subclass `
 
 ## Consume — pull an external feed on a schedule
 
-Register a feed source and the collector ingests it into a bundled `CollectedItem` model on a schedule (built on the [scheduler](background-tasks)):
+Register a feed source and the collector ingests it into a bundled `CollectedItem` model on a schedule (built on the [scheduler](/smallstack/help/smallstack/background-tasks/)):
 
 ```python
 from apps.feeds import register_feed_source
@@ -49,6 +49,6 @@ Run `manage.py migrate` once so `CollectedItem` exists, and the collector dedupl
 
 ## Related
 
-- [Webhooks](webhooks) — the other half of the outbound/inbound integration story
-- [Background Tasks](background-tasks) — the scheduler the collector runs on
-- [Search](search) — the `search_display` / `search_subtitle` declarations feeds reuse
+- [Webhooks](/smallstack/help/smallstack/webhooks/) — the other half of the outbound/inbound integration story
+- [Background Tasks](/smallstack/help/smallstack/background-tasks/) — the scheduler the collector runs on
+- [Search](/smallstack/help/smallstack/search/) — the `search_display` / `search_subtitle` declarations feeds reuse

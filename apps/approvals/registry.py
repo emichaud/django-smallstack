@@ -50,6 +50,17 @@ class ApprovalKind:
     # Explicit card template; otherwise approvals/kinds/<key dots→dashes>.html
     # then approvals/kinds/default.html.
     context_template: str = ""
+    # Where this kind sends its humans: a callable ``fn(req) -> str`` (or a
+    # dotted path to one) returning an internal path. Every channel approvals
+    # owns — both emails and both bell rows — uses this one value, so a kind
+    # that owns its own review page (an embedded {% approval_card %}) can point
+    # participants there instead of the shared console. None ⇒ the console.
+    landing_url: Callable[[Any], str] | str | None = None
+    # Who a REMOTE caller (REST/MCP) may name as an assignee: a list of
+    # usernames, or a predicate ``fn(user) -> bool``. None (the default) refuses
+    # remote assignee selection outright, so opening the filing endpoint to an
+    # agent can never be used to route a request at an arbitrary account.
+    assignable: list[str] | Callable[[Any], bool] | None = None
     # Extra email recipients on request + decision.
     notify: list[str] = field(default_factory=list)
 
@@ -88,6 +99,8 @@ def approval_kind(
     default_expires_in: timedelta | None = None,
     context_template: str = "",
     notify: list[str] | None = None,
+    landing_url: Callable[[Any], str] | str | None = None,
+    assignable: list[str] | Callable[[Any], bool] | None = None,
 ) -> Callable[[DecisionCallback], DecisionCallback]:
     """Decorator: the decorated function becomes the kind's on_decision
     callback. Returns the function unchanged (@scheduled idiom)."""
@@ -103,6 +116,8 @@ def approval_kind(
                 default_expires_in=default_expires_in,
                 context_template=context_template,
                 notify=list(notify or []),
+                landing_url=landing_url,
+                assignable=assignable,
             )
         )
         return fn
@@ -146,6 +161,29 @@ def resolve_on_decision(kind: ApprovalKind | None) -> DecisionCallback | None:
     except Exception:  # noqa: BLE001 — surfaced via callback_error downstream
         logger.exception("approvals: cannot resolve on_decision %r", kind.on_decision)
         return None
+
+
+def resolve_landing_url(kind: ApprovalKind | None, req: Any) -> str:
+    """The kind's landing path for ``req``, or "" to fall back to the console.
+
+    Never raises: a downstream app's broken hook must not break an email or a
+    notification. Accepts a callable or a dotted path (import-order-safe, same
+    idiom as ``on_decision``).
+    """
+    target = getattr(kind, "landing_url", None)
+    if target is None:
+        return ""
+    try:
+        if not callable(target):
+            from importlib import import_module
+
+            module_path, attr = str(target).rsplit(".", 1)
+            target = getattr(import_module(module_path), attr)
+        url = target(req)
+        return url if isinstance(url, str) and url.startswith("/") else ""
+    except Exception:  # noqa: BLE001 — fall back to the console
+        logger.exception("approvals: landing_url failed for %r", getattr(kind, "key", None))
+        return ""
 
 
 def unregister(key: str) -> None:

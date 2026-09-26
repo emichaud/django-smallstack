@@ -17,7 +17,7 @@ at Django app-load time must not touch models.
 
 from typing import Any
 
-__all__ = ["notify", "mark_read", "unread_count"]
+__all__ = ["notify", "mark_read", "resolve", "unread_count"]
 
 
 def __getattr__(name: str) -> Any:

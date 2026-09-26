@@ -217,6 +217,17 @@ def _apply_list_filters(qs, request: HttpRequest, crud_config) -> QuerySet:
         value = request.GET.get(field_name, "").strip()
         if not value:
             continue
+        # Per-field override. A CRUDView whose stored column is not the value the
+        # rest of the page reasons about (approvals: an overdue row's `status` is
+        # still "pending" until a sweep flips it) must be able to make the filter
+        # agree with its own stat cards, or the page contradicts itself. (F-29.)
+        # getattr, not a direct call: `crud_config` is duck-typed — datasets passes
+        # a `_ConfigAdapter` that implements only the list-filter surface.
+        _override = getattr(crud_config, "apply_filter", None)
+        overridden = _override(qs, field_name, value, request) if _override else NotImplemented
+        if overridden is not NotImplemented:
+            qs = overridden
+            continue
         try:
             model_field = crud_config.model._meta.get_field(field_name)
         except Exception:
@@ -257,6 +268,48 @@ def _apply_list_filters(qs, request: HttpRequest, crud_config) -> QuerySet:
 
         qs = qs.filter(**{field_name: value})
     return qs
+
+
+# Query params that are *not* filters: they change how the same result set is
+# paged, ordered or drawn, or they are internal markers. A list that comes back
+# empty while only these are present is genuinely empty, not filtered-to-empty,
+# so the empty state must offer "create the first one" rather than "clear your
+# filters" (see _has_active_filters).
+NON_FILTER_QUERY_PARAMS = frozenset(
+    {
+        "page",
+        "page_size",
+        "ordering",
+        "display",
+        "_notification",
+        "format",
+        "expand",
+    }
+)
+
+
+def _has_active_filters(request: HttpRequest, crud_config) -> bool:
+    """True when the request narrows the list with a real search or filter.
+
+    Deliberately *not* ``request.GET.urlencode``: that is truthy for pagination,
+    ordering, the display toggle and the ``?_notification=`` marker the bell
+    click-through appends, none of which narrow anything. The view already knows
+    its own ``search_fields``/``filter_fields``, so ask those instead, and treat
+    an unknown param as a filter only if it is not on the known-inert list (a
+    downstream ``get_list_queryset`` may read its own params).
+    """
+    if request.GET.get("q", "").strip():
+        return True
+    filter_fields = set(crud_config._resolve_filter_fields())
+    for key, value in request.GET.lists():
+        if key in NON_FILTER_QUERY_PARAMS or key == "q":
+            continue
+        if key in filter_fields and any(v.strip() for v in value):
+            return True
+        if key not in filter_fields and any(v.strip() for v in value):
+            # Unknown, non-inert param — a custom scoper may act on it.
+            return True
+    return False
 
 
 def _build_toolbar_context(request: HttpRequest, crud_config) -> dict[str, Any]:
@@ -434,6 +487,24 @@ class _CRUDContextMixin:
         return context
 
 
+class _CRUDObjectPermissionMixin:
+    """Routes every generated single-object fetch through ``check_object_permission``.
+
+    Mixed into all five single-object bases (detail, update, delete, field
+    preview, related tab). Without it, a CRUDView that expresses ownership by
+    overriding one base's ``get_object`` protects exactly that base — the
+    related-tab and field-preview routes stay wide open, which is a live
+    cross-user disclosure on any view that opts out of ``get_detail_queryset``.
+    """
+
+    crud_config: type["CRUDView"]
+
+    def get_object(self, queryset=None):
+        obj = super().get_object(queryset)  # type: ignore[misc]
+        self.crud_config.check_object_permission(obj, self.request)  # type: ignore[attr-defined]
+        return obj
+
+
 class _CRUDListBase(_CRUDContextMixin, ListView):
     def get_template_names(self):
         if getattr(self.request, "htmx", False):
@@ -485,6 +556,11 @@ class _CRUDListBase(_CRUDContextMixin, ListView):
         # Toolbar context (search + filters)
         context.update(_build_toolbar_context(self.request, cfg))
 
+        # Empty-state branch selector. The empty state is lower-cased mid-sentence
+        # and says what to do next: an empty list *after a search* means "widen
+        # it", not "there is nothing here".
+        context["has_active_filters"] = _has_active_filters(self.request, cfg)
+
         # Total count for toolbar (before pagination, after search/filter)
         qs = self.get_queryset()
         context["toolbar_total_count"] = qs.count()
@@ -522,7 +598,7 @@ class _CRUDListBase(_CRUDContextMixin, ListView):
         return context
 
 
-class _CRUDDetailBase(_CRUDContextMixin, DetailView):
+class _CRUDDetailBase(_CRUDObjectPermissionMixin, _CRUDContextMixin, DetailView):
     def get_template_names(self):
         if getattr(self.request, "htmx", False):
             display = self._get_active_detail_display()
@@ -531,7 +607,11 @@ class _CRUDDetailBase(_CRUDContextMixin, DetailView):
         return self.crud_config._get_template_names("detail")
 
     def get_queryset(self):
-        return self.crud_config._get_queryset()
+        # Scoped like the list (get_detail_queryset defaults to get_list_queryset)
+        # so a row hidden from the list isn't readable at its own URL.
+        return self.crud_config.get_detail_queryset(
+            self.crud_config._get_queryset(), self.request
+        )
 
     def _get_active_detail_display(self):
         """Determine the active detail display for this request."""
@@ -659,11 +739,20 @@ class _CRUDCreateBase(_CRUDFormDisplayMixin, _CRUDContextMixin, CreateView):
         context = super().get_context_data(**kwargs)
         return self._inject_display_context(context, obj=None)
 
+    def form_valid(self, form):
+        # The documented `on_form_valid` hook fired from REST, MCP and bulk
+        # update but NOT from the primary (web) path, so every CRUDView using it
+        # to stamp an owner / denormalise / file an approval had a data-integrity
+        # hole reachable from the UI. (F-05.)
+        response = super().form_valid(form)
+        self.crud_config.on_form_valid(self.request, form, self.object, is_create=True)
+        return response
+
     def get_success_url(self):
         return self.crud_config._reverse(f"{self.crud_config._get_url_base()}-list")
 
 
-class _CRUDUpdateBase(_CRUDFormDisplayMixin, _CRUDContextMixin, UpdateView):
+class _CRUDUpdateBase(_CRUDObjectPermissionMixin, _CRUDFormDisplayMixin, _CRUDContextMixin, UpdateView):
     _form_action = "edit"
 
     def get_template_names(self):
@@ -674,7 +763,9 @@ class _CRUDUpdateBase(_CRUDFormDisplayMixin, _CRUDContextMixin, UpdateView):
         return self.crud_config._get_template_names("edit")
 
     def get_queryset(self):
-        return self.crud_config._get_queryset()
+        return self.crud_config.get_detail_queryset(
+            self.crud_config._get_queryset(), self.request
+        )
 
     def get_form_class(self):
         return self.crud_config.form_class or self.crud_config._make_form_class()
@@ -682,6 +773,12 @@ class _CRUDUpdateBase(_CRUDFormDisplayMixin, _CRUDContextMixin, UpdateView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         return self._inject_display_context(context, obj=self.object)
+
+    def form_valid(self, form):
+        # See _CRUDCreateBase.form_valid — same gap on the edit path. (F-05.)
+        response = super().form_valid(form)
+        self.crud_config.on_form_valid(self.request, form, self.object, is_create=False)
+        return response
 
     def get_success_url(self):
         # Redirect to the detail page when the view exposes DETAIL; otherwise
@@ -694,12 +791,14 @@ class _CRUDUpdateBase(_CRUDFormDisplayMixin, _CRUDContextMixin, UpdateView):
         return cfg._reverse(f"{base}-list")
 
 
-class _CRUDDeleteBase(_CRUDContextMixin, DeleteView):
+class _CRUDDeleteBase(_CRUDObjectPermissionMixin, _CRUDContextMixin, DeleteView):
     def get_template_names(self):
         return self.crud_config._get_template_names("confirm_delete")
 
     def get_queryset(self):
-        return self.crud_config._get_queryset()
+        return self.crud_config.get_detail_queryset(
+            self.crud_config._get_queryset(), self.request
+        )
 
     def get_success_url(self):
         return self.crud_config._reverse(f"{self.crud_config._get_url_base()}-list")
@@ -878,7 +977,7 @@ class _CRUDBulkActionView:
                         content_type="application/json",
                     )
 
-                qs = cfg._get_queryset().filter(pk__in=ids)
+                qs = cfg.get_detail_queryset(cfg._get_queryset(), request).filter(pk__in=ids)
                 objects = {obj.pk: obj for obj in qs}
                 deleted_ids = []
                 deleted_snapshots = []  # (pk, repr) captured before delete() clears obj.pk
@@ -948,7 +1047,7 @@ class _CRUDBulkActionView:
                         content_type="application/json",
                     )
 
-                qs = cfg._get_queryset().filter(pk__in=ids)
+                qs = cfg.get_detail_queryset(cfg._get_queryset(), request).filter(pk__in=ids)
                 objects = {obj.pk: obj for obj in qs}
                 updated = []
                 updated_snapshots = []  # (pk, repr) captured just after form.save()
@@ -1071,11 +1170,13 @@ def _make_bulk_update_form_view(crud_config):
     return view_cls.as_view()
 
 
-class _CRUDFieldPreviewBase(_CRUDContextMixin, DetailView):
+class _CRUDFieldPreviewBase(_CRUDObjectPermissionMixin, _CRUDContextMixin, DetailView):
     """Server-rendered field preview partial, loaded via HTMX."""
 
     def get_queryset(self):
-        return self.crud_config._get_queryset()
+        return self.crud_config.get_detail_queryset(
+            self.crud_config._get_queryset(), self.request
+        )
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
@@ -1110,11 +1211,13 @@ class _CRUDFieldPreviewBase(_CRUDContextMixin, DetailView):
         return self.crud_config._get_template_names("field_preview")
 
 
-class _CRUDRelatedTabBase(_CRUDContextMixin, DetailView):
+class _CRUDRelatedTabBase(_CRUDObjectPermissionMixin, _CRUDContextMixin, DetailView):
     """HTMX partial: renders a paginated table of related objects for one tab."""
 
     def get_queryset(self) -> Any:
-        return self.crud_config._get_queryset()
+        return self.crud_config.get_detail_queryset(
+            self.crud_config._get_queryset(), self.request
+        )
 
     def get_template_names(self) -> list[str]:
         """Instance → app → default chain, like every sibling view.
@@ -1773,6 +1876,57 @@ class CRUDView:
         return qs
 
     @classmethod
+    def get_detail_queryset(cls, qs, request):
+        """Scope a SINGLE-object fetch (detail / edit / delete / related tab).
+
+        Defaults to :meth:`get_list_queryset` so a row hidden from the list is
+        not silently readable — or editable — at its own URL. Override only when
+        the list hook does list-specific work you don't want on a detail load
+        (e.g. approvals' lazy expiry sweep); keep the *scoping* identical.
+        """
+        return cls.get_list_queryset(qs, request)
+
+    @classmethod
+    def apply_filter(cls, qs, field_name, value, request):
+        """Override how ONE ``filter_fields`` entry narrows the queryset.
+
+        Return a queryset to take over, or ``NotImplemented`` (the default) to
+        let the built-in per-type handling run. Applies to the HTML list, the
+        REST list and the generated MCP ``list_*`` tool, so ``?status=pending``
+        means the same thing on all three.
+
+        Exists because a stored column is not always the value the rest of the
+        page reasons about. Approvals' expiry is lazy, so an overdue row's
+        ``status`` is still ``"pending"`` in the database until a sweep flips it —
+        which had ``?status=pending`` listing 905 rows beside its own "Pending"
+        stat card reading 5. Whatever a card counts and whatever the filter
+        selects should be *one* expression; this is where you say so.
+        """
+        return NotImplemented
+
+    @classmethod
+    def check_object_permission(cls, obj, request) -> None:
+        """Per-object authorization for EVERY single-object surface.
+
+        Raise :class:`~django.core.exceptions.PermissionDenied` (403) or
+        :class:`~django.http.Http404` to refuse. Called once the object has been
+        fetched, from detail, edit, delete, field-preview, related-tab, the REST
+        detail/update/delete handlers, the bulk-action view and the generated MCP
+        ``get_*``/``update_*``/``delete_*`` tools — so a check written here cannot
+        be bypassed by reaching for a less-travelled route.
+
+        Use it instead of overriding a single view's ``get_object``: that covers
+        one of the five generated single-object bases, which is how
+        ``/…/<pk>/related/<accessor>/`` leaked another user's child rows while the
+        detail page beside it correctly answered 403.
+
+        Prefer :meth:`get_detail_queryset` when "not yours" should read as 404
+        (existence is a secret). Use this hook when it should read as 403, or
+        when the rule is not expressible as a queryset filter.
+        """
+        return None
+
+    @classmethod
     def on_form_valid(cls, request, form, obj, is_create=False):
         """Hook called after successful create/update. Override for side effects."""
         pass
@@ -1905,6 +2059,35 @@ class CRUDView:
         return [LoginRequiredMixin]
 
     @classmethod
+    def _pk_converter(cls):
+        """The URL path converter for this model's pk: ``int``, ``uuid`` or ``str``.
+
+        The HTML routes used a bare ``<pk>`` (the ``str`` converter), so a
+        non-numeric segment — a crawler, a stale link, ``/requests/search/`` —
+        reached the ORM and raised ``ValueError: Field 'id' expected a number but
+        got 'search'``, i.e. a 500 in error monitoring for every CRUDView in the
+        project. The REST routes always used ``<int:pk>`` and 404'd correctly;
+        this makes the HTML routes agree. (F-22.)
+        """
+        field = cls.model._meta.pk
+        internal = field.get_internal_type()
+        if internal in {
+            "AutoField",
+            "BigAutoField",
+            "SmallAutoField",
+            "IntegerField",
+            "BigIntegerField",
+            "SmallIntegerField",
+            "PositiveIntegerField",
+            "PositiveBigIntegerField",
+            "PositiveSmallIntegerField",
+        }:
+            return "int:"
+        if internal == "UUIDField":
+            return "uuid:"
+        return "str:"
+
+    @classmethod
     def _make_view(cls, base_class):
         """Create a view class with mixins applied."""
         name = f"{cls.model.__name__}{base_class.__name__.lstrip('_')}"
@@ -1933,6 +2116,9 @@ class CRUDView:
         CRUDView._registry.setdefault(cls.model, cls)
 
         url_base = cls._get_url_base()
+        # Typed pk converter so a non-numeric segment 404s instead of 500ing
+        # inside the ORM (F-22).
+        pk = f"<{cls._pk_converter()}pk>"
         urls = []
 
         if Action.LIST in cls.actions:
@@ -1941,7 +2127,7 @@ class CRUDView:
             preview_view = cls._make_view(_CRUDFieldPreviewBase)
             urls.append(
                 path(
-                    f"{url_base}/<pk>/field-preview/<str:field_name>/",
+                    f"{url_base}/{pk}/field-preview/<str:field_name>/",
                     preview_view.as_view(),
                     name=f"{url_base}-field-preview",
                 )
@@ -1970,14 +2156,14 @@ class CRUDView:
 
         if Action.DETAIL in cls.actions:
             view = cls._make_view(_CRUDDetailBase)
-            urls.append(path(f"{url_base}/<pk>/", view.as_view(), name=f"{url_base}-detail"))
+            urls.append(path(f"{url_base}/{pk}/", view.as_view(), name=f"{url_base}-detail"))
 
             # Related tabs endpoint (lazy HTMX loading)
             if cls.related_tabs is not False:
                 related_view = cls._make_view(_CRUDRelatedTabBase)
                 urls.append(
                     path(
-                        f"{url_base}/<pk>/related/<str:accessor>/",
+                        f"{url_base}/{pk}/related/<str:accessor>/",
                         related_view.as_view(),
                         name=f"{url_base}-related-tab",
                     )
@@ -1985,11 +2171,11 @@ class CRUDView:
 
         if Action.UPDATE in cls.actions:
             view = cls._make_view(_CRUDUpdateBase)
-            urls.append(path(f"{url_base}/<pk>/edit/", view.as_view(), name=f"{url_base}-update"))
+            urls.append(path(f"{url_base}/{pk}/edit/", view.as_view(), name=f"{url_base}-update"))
 
         if Action.DELETE in cls.actions:
             view = cls._make_view(_CRUDDeleteBase)
-            urls.append(path(f"{url_base}/<pk>/delete/", view.as_view(), name=f"{url_base}-delete"))
+            urls.append(path(f"{url_base}/{pk}/delete/", view.as_view(), name=f"{url_base}-delete"))
 
         # API endpoints (opt-in per CRUDView, and gated site-wide by
         # SMALLSTACK_API_ENABLED — off ⇒ enable_api is a no-op, registry stays empty).

@@ -1,9 +1,9 @@
-{# ──────────────────────────────────────────────────────────────────────
+{% comment %} ──────────────────────────────────────────────────────────────────────
    SmallStack Starter Template
    Copy this file, rename it, and modify for your page.
    Uncomment the sections you need. Delete the rest.
    See docs/skills/admin-page-styling.md for the full reference.
-   ────────────────────────────────────────────────────────────────────── #}
+   ────────────────────────────────────────────────────────────────────── {% endcomment %}
 {% extends "smallstack/base.html" %}
 {% load theme_tags %}
 
@@ -17,10 +17,10 @@
 {% endblock %}
 
 
-{# ════════════════════════════════════════════════════════════════════════
+{% comment %} ════════════════════════════════════════════════════════════════════════
    PAGE HEADER — Full-bleed colored bar. Sits OUTSIDE .content-wrapper.
    Pick ONE of these header variants and delete the others.
-   ════════════════════════════════════════════════════════════════════════ #}
+   ════════════════════════════════════════════════════════════════════════ {% endcomment %}
 
 {# ── Variant A: Header with Buttons (list/detail pages) ────────────── #}
 {% block page_header %}
@@ -43,7 +43,7 @@
 {% endblock %}
 
 {# ── Variant B: Header with Action Cards (dashboard pages) ─────────── #}
-{#
+{% comment %}
 {% block page_header %}
 <div class="page-header-bleed page-header-with-actions">
     <div class="page-header-content">
@@ -76,33 +76,33 @@
     </div>
 </div>
 {% endblock %}
-#}
+{% endcomment %}
 
 
-{# ════════════════════════════════════════════════════════════════════════
+{% comment %} ════════════════════════════════════════════════════════════════════════
    MAIN CONTENT — Inside .content-wrapper (max-width constrained).
    Mix and match the sections below.
-   ════════════════════════════════════════════════════════════════════════ #}
+   ════════════════════════════════════════════════════════════════════════ {% endcomment %}
 {% block content %}
 
-{# ── Stat Cards (use the {% templatetag openblock %} stat_card {% templatetag closeblock %} tag — see docs/skills/dashboard-cards.md) ──
-   Static metrics. `state` ∈ success|warning|danger|muted; `unit` adds a suffix. #}
-{#
+{% comment %} ── Stat Cards (use the {% templatetag openblock %} stat_card {% templatetag closeblock %} tag — see docs/skills/dashboard-cards.md) ──
+   Static metrics. `state` ∈ success|warning|danger|muted; `unit` adds a suffix. {% endcomment %}
+{% comment %}
 <div class="stat-cards">
     {% stat_card value=42 label="Total Items" %}
     {% stat_card value=7 label="Active" state="success" %}
     {% stat_card value=0 label="Errors" state="muted" %}
 </div>
-#}
+{% endcomment %}
 
-{# ── Clickable Stat Cards (open the drill-down modal on click) ──────────
+{% comment %} ── Clickable Stat Cards (open the drill-down modal on click) ──────────
    Add detail_url (+ optional detail_arg) and the tag wires hx-get / onclick.
-   The modal is global — no include needed. The endpoint returns render_stat_list(). #}
-{#
+   The modal is global — no include needed. The endpoint returns render_stat_list(). {% endcomment %}
+{% comment %}
 <div class="stat-cards">
     {% stat_card value=42 label="Metric" title="Metric Details" detail_url="app:stat_detail" detail_arg="metric" %}
 </div>
-#}
+{% endcomment %}
 
 {# ── Card with Table ────────────────────────────────────────────────── #}
 <div class="card">
@@ -120,20 +120,20 @@
                 </tr>
             </thead>
             <tbody>
-                {# {% for obj in object_list %}
+                {% comment %} {% for obj in object_list %}
                 <tr>
                     <td><a href="{{ obj.get_absolute_url }}">{{ obj.name }}</a></td>
                     <td><span class="badge badge-success">Active</span></td>
                     <td>{{ obj.created_at }}</td>
                 </tr>
-                {% endfor %} #}
+                {% endfor %} {% endcomment %}
             </tbody>
         </table>
     </div>
 </div>
 
 {# ── Card with Filter Toggles + Table ──────────────────────────────── #}
-{#
+{% comment %}
 <div class="card">
     <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
         <div style="display: flex; align-items: center; gap: 16px;">
@@ -150,10 +150,10 @@
         <table class="crud-table" id="tab-errors" style="display: none;">...</table>
     </div>
 </div>
-#}
+{% endcomment %}
 
 {# ── Tabs (full-width section switching) ────────────────────────────── #}
-{#
+{% comment %}
 <div class="tab-bar">
     <button class="tab-btn active" onclick="switchTab(event, 'overview')">
         Overview <span class="tab-count">3</span>
@@ -168,10 +168,10 @@
 <div id="tab-config" class="tab-panel">
     config content
 </div>
-#}
+{% endcomment %}
 
 {# ── Card with Form ─────────────────────────────────────────────────── #}
-{#
+{% comment %}
 <div class="card">
     <div class="card-header"><h2>Create Item</h2></div>
     <div class="card-body">
@@ -195,7 +195,7 @@
         </form>
     </div>
 </div>
-#}
+{% endcomment %}
 
 {# ── Delete Modal (include once if page has delete buttons) ──── #}
 {# {% include "smallstack/crud/includes/delete_modal.html" %} #}

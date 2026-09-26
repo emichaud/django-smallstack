@@ -25,6 +25,7 @@ not silently drop a delivery.
 from __future__ import annotations
 
 import logging
+from collections.abc import Mapping, MutableMapping
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Callable
 
@@ -34,6 +35,108 @@ if TYPE_CHECKING:
     from .models import WebhookEndpoint, WebhookReceiver
 
 logger = logging.getLogger("smallstack.webhooks")
+
+
+# ---------------------------------------------------------------------------
+# The verifier's headers argument
+# ---------------------------------------------------------------------------
+
+
+class CaseInsensitiveDict(dict):
+    """A mutable ``dict`` whose key lookups ignore ASCII case.
+
+    This is the argument the inbound view hands a verifier. It has to satisfy two
+    contracts at once:
+
+    * **Case-insensitive**, because HTTP header names are. A plain
+      ``dict(request.headers)`` froze Django's canonicalisation, so a receiver
+      configured with the documented ``X-SmallStack-Signature`` spelling silently
+      401'd while an undocumented ``X-Smallstack-Signature`` worked. (F-06.)
+    * **A real, mutable dict**, because the seam was documented as
+      ``dict[str, str]`` from the start. The first fix reached for
+      ``django.utils.datastructures.CaseInsensitiveMapping``, which is immutable —
+      so a third-party verifier doing the ordinary
+      ``headers.pop("X-Smallstack-Signature", "")`` raised ``AttributeError``
+      inside the verifier, was swallowed by the view's ``except Exception``, and
+      became a bare ``401 invalid signature`` with nothing in the log. Failing
+      closed is right; failing closed *silently* on a correct credential, after a
+      contract change nobody announced, is not. (F-37.)
+
+    Keys keep the casing they were inserted with, so ``.items()`` still shows the
+    wire spelling. Header maps are a few dozen entries, so the case-folded index
+    is rebuilt lazily rather than maintained on every mutation.
+    """
+
+    def _fold(self) -> dict[str, Any]:
+        return {str(k).lower(): k for k in super().keys()}
+
+    def _actual_key(self, key: Any) -> Any:
+        if super().__contains__(key):
+            return key
+        if isinstance(key, str):
+            return self._fold().get(key.lower())
+        return None
+
+    def __getitem__(self, key: Any) -> Any:
+        actual = self._actual_key(key)
+        if actual is None:
+            raise KeyError(key)
+        return super().__getitem__(actual)
+
+    def __contains__(self, key: Any) -> bool:
+        return self._actual_key(key) is not None
+
+    def __delitem__(self, key: Any) -> None:
+        actual = self._actual_key(key)
+        if actual is None:
+            raise KeyError(key)
+        super().__delitem__(actual)
+
+    def get(self, key: Any, default: Any = None) -> Any:
+        actual = self._actual_key(key)
+        return default if actual is None else super().__getitem__(actual)
+
+    def pop(self, key: Any, *default: Any) -> Any:
+        actual = self._actual_key(key)
+        if actual is None:
+            if default:
+                return default[0]
+            raise KeyError(key)
+        return super().pop(actual)
+
+    def setdefault(self, key: Any, default: Any = None) -> Any:
+        actual = self._actual_key(key)
+        if actual is None:
+            super().__setitem__(key, default)
+            return default
+        return super().__getitem__(actual)
+
+    def __setitem__(self, key: Any, value: Any) -> None:
+        actual = self._actual_key(key)
+        super().__setitem__(actual if actual is not None else key, value)
+
+    # __init__ and update() must route through __setitem__ by hand: CPython's
+    # dict.__init__/dict.update write straight to the C storage, so a
+    # differently-cased key would SHADOW the existing one instead of replacing
+    # it (two entries, and the original spelling reading back stale). That is
+    # F-06's failure class one method over, and silent — see F-48.
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__()
+        self.update(*args, **kwargs)
+
+    def update(self, *args: Any, **kwargs: Any) -> None:  # type: ignore[override]
+        if len(args) > 1:
+            raise TypeError(f"update expected at most 1 argument, got {len(args)}")
+        if args:
+            other = args[0]
+            items = other.items() if isinstance(other, Mapping) else other
+            for key, value in items:
+                self[key] = value
+        for key, value in kwargs.items():
+            self[key] = value
+
+    def copy(self) -> "CaseInsensitiveDict":
+        return CaseInsensitiveDict(self)
 
 
 # ---------------------------------------------------------------------------
@@ -73,8 +176,13 @@ class AuthResult:
 Transform = Callable[[dict[str, Any]], "Transformed"]
 # An auth seam takes the OutgoingRequest + endpoint and returns credentials.
 Auth = Callable[["OutgoingRequest", "WebhookEndpoint"], "AuthResult"]
-# A verifier takes raw body + headers + receiver and returns bool (constant-time inside).
-Verifier = Callable[[bytes, "dict[str, str]", "WebhookReceiver"], bool]
+# A verifier takes raw body + headers + receiver and returns bool (constant-time
+# inside). ``headers`` is a :class:`CaseInsensitiveDict` — a real ``dict``
+# subclass, so everything a verifier written against the original ``dict[str, str]``
+# contract does still works (``pop``, ``setdefault``, ``update``, ``del``), and
+# lookups additionally ignore header-name casing so a verifier can use whatever
+# spelling it was written against (F-06).
+Verifier = Callable[[bytes, "MutableMapping[str, str]", "WebhookReceiver"], bool]
 # A challenge takes the request and returns a response to short-circuit, or None.
 Challenge = Callable[["HttpRequest", "WebhookReceiver"], "HttpResponse | None"]
 
@@ -204,11 +312,24 @@ def _default_auth(req: OutgoingRequest, endpoint: WebhookEndpoint) -> AuthResult
     )
 
 
-def _default_verifier(body: bytes, headers: dict[str, str], receiver: WebhookReceiver) -> bool:
-    """The current raw-body HMAC check against ``signature_header`` (GitHub-compatible)."""
+def _default_verifier(body: bytes, headers: Mapping[str, str], receiver: WebhookReceiver) -> bool:
+    """The current raw-body HMAC check against ``signature_header`` (GitHub-compatible).
+
+    HTTP header names are case-insensitive, so the lookup is too. The view used
+    to hand us ``dict(request.headers)``, which collapses Django's
+    case-insensitive ``HttpHeaders`` into a plain dict keyed by Django's own
+    canonicalisation — so configuring ``X-SmallStack-Signature`` (the spelling
+    the constant and three ``help_text`` strings tell you to use) failed while an
+    undocumented ``X-Smallstack-Signature`` worked. (F-06.)
+    """
     from . import services
 
-    provided = headers.get(receiver.signature_header, "")
+    wanted = (receiver.signature_header or "").lower()
+    provided = ""
+    for name, value in headers.items():
+        if name.lower() == wanted:
+            provided = value
+            break
     return services.verify(receiver.secret, body, provided)
 
 

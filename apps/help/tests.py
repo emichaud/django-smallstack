@@ -277,3 +277,50 @@ class TestHelpViews:
         """TOC view should 404 for nonexistent section."""
         response = client.get(reverse("help:section_toc", kwargs={"section": "nonexistent"}))
         assert response.status_code == 404
+
+
+class TestHelpDocCrossLinks:
+    """Cross-links between bundled help pages must be absolute.
+
+    A bare-slug markdown link (``[Notifications](notifications)``) renders as a
+    *relative* href, so from ``/smallstack/help/smallstack/approvals/`` it
+    resolves to ``…/approvals/notifications`` and 404s. Three shipped pages did
+    exactly this (F-39 #10). The house convention is the absolute form
+    ``/smallstack/help/<section>/<slug>/``, so this asserts the convention over
+    the whole bundle rather than the three pages that happened to be caught.
+    """
+
+    #: Slugs that exist as bundled pages, i.e. the ones an author is tempted to
+    #: write bare. Matching on these keeps the test from flagging ordinary
+    #: relative links to non-help assets.
+    def _bare_slug_links(self):
+        import re
+        from pathlib import Path
+
+        from django.conf import settings
+
+        docs = Path(settings.BASE_DIR) / "apps" / "smallstack" / "docs"
+        slugs = {p.stem for p in docs.glob("*.md")}
+        # [text](slug) with no scheme, no slash, no anchor, no extension.
+        pattern = re.compile(r"\[[^\]]+\]\(([A-Za-z0-9][A-Za-z0-9._-]*)\)")
+        offenders = []
+        for md in sorted(docs.glob("*.md")):
+            for lineno, line in enumerate(md.read_text().splitlines(), 1):
+                for target in pattern.findall(line):
+                    if target in slugs:
+                        offenders.append(f"{md.relative_to(settings.BASE_DIR)}:{lineno} -> ({target})")
+        return offenders
+
+    def test_no_bare_slug_cross_links(self):
+        offenders = self._bare_slug_links()
+        assert not offenders, (
+            "bare-slug help links render relative and 404; use "
+            "/smallstack/help/smallstack/<slug>/:\n  " + "\n  ".join(offenders)
+        )
+
+    @pytest.mark.django_db
+    def test_the_previously_broken_cross_links_now_resolve(self, client):
+        """The three specific targets, fetched as the reader would."""
+        for slug in ("approvals", "notifications", "webhooks", "background-tasks"):
+            resp = client.get(f"/smallstack/help/smallstack/{slug}/")
+            assert resp.status_code == 200, f"{slug} help page is {resp.status_code}"

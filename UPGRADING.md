@@ -30,6 +30,111 @@ entries from it: the webhook tick (`POST /webhooks/tick/`), `run_retention`, and
 
 ---
 
+## Unreleased — approvals/notifications review (2026-09-25 → 09-26)
+
+Mostly tightening, but **four changes are visible to an operator on the upgrade itself** —
+two of them fire during `migrate`. Read those four before you deploy; the rest of the table
+is symptom-driven.
+
+Run `make migrate`. Two new migrations: `scheduler.0003_scheduledjob_auto_retired` (schema)
+and `smallstack_notifications.0003_backfill_approvals_subject_key` (**data** — see hazard 4).
+
+### The four upgrade hazards
+
+**1. `migrate` may disable a scheduled job.** `sync_code_jobs()` now reconciles in both
+directions: a `source=CODE` job whose `@scheduled` spec is no longer registered is
+**disabled** (not deleted — run history stays readable). You will see a log line like:
+
+```
+scheduler: disabled 'Approvals: expire overdue requests' — no @scheduled spec declares it
+  any more (will re-enable automatically if the spec returns)
+```
+
+*Why it fires:* the spec genuinely vanished — the feature was removed, or a registration
+guard like `SMALLSTACK_APPROVALS_SWEEP_ENABLED=False` turned it off. Before this, such a flag
+worked on a fresh database and did nothing on an existing install.
+
+*What to do:* usually nothing. It is now **reversible**: the row is marked `auto_retired`, so
+putting the spec back re-enables *and* reschedules it on the next sync. A job **you** disabled
+by hand is never re-enabled (it carries no marker) — and now logs
+`… is declared in code but disabled by an operator — leaving it off`, so "why isn't my job
+running" is a one-line diagnosis. If a *partial* autodiscovery failure (an app's `tasks.py`
+raising on import, an app temporarily out of `INSTALLED_APPS`, `migrate` run against a shared
+database with a different settings module) would retire more than half your known code jobs,
+the sync **refuses** and logs `scheduler: refusing to retire N code job(s) …` instead.
+`source=UI` jobs are never touched.
+
+**2. Inbound webhook verifiers: a contract narrowing has been undone.** The argument a
+`@webhook_verifier` receives is now `apps.webhooks.hooks.CaseInsensitiveDict` — a real,
+**mutable** `dict` subclass whose lookups ignore header-name casing.
+
+*If you are upgrading from the previous unreleased state:* an interim change passed Django's
+immutable `CaseInsensitiveMapping`, so any verifier that mutated its headers (the ordinary
+`headers.pop("X-Smallstack-Signature", "")`) raised inside the verifier, was swallowed, and
+returned a bare `401 invalid signature` **on a correct credential**. If you worked around that
+by rewriting your verifier not to mutate, the workaround is now unnecessary but harmless.
+
+*In all cases:* a verifier that raises still fails **closed**, but is now logged with a
+traceback (`webhooks: verifier 'x' raised for receiver 'y' — treating the delivery as
+UNVERIFIED`). If you were relying on that silence, expect ERROR lines — they are telling you
+a verifier is broken.
+
+**3. API-token prefixes no longer start with `-`.** `_generate_raw_key()` re-rolls on a
+leading dash (no entropy cost), because ~1.4 % of prefixes were being read by argparse as an
+option flag: `sc token revoke -AbC1234` → `error: the following arguments are required:
+prefix`.
+
+*What to do:* nothing for new tokens. **Existing tokens are not rewritten** — a `prefix` is
+derived from a raw key nobody stores, so it cannot be re-rolled after the fact. If you hold a
+pre-upgrade token whose prefix starts with `-`, revoke it with an explicit end-of-options
+marker:
+
+```
+manage.py sc token revoke -- -AbC1234
+```
+
+Check your exposure with
+`APIToken.objects.filter(prefix__startswith="-").count()`.
+
+**4. The notification backfill changes your unread badge count.**
+`smallstack_notifications.0003` is a **data** migration. It backfills `subject_key` on
+`approvals.*` notifications created before `0002` (deriving the request pk from the row's
+`url`), then **marks read** any backfilled "Approval needed" bell whose request has already
+reached a terminal state.
+
+*Why:* `resolve()` addresses rows *by* `subject_key`, so before this the stale-bell retirement
+could only ever reach requests filed **after** the upgrade. On the reference install that left
+105 of 105 unread `approvals.requested` rows permanently un-retirable, several of them
+pointing at requests decided weeks earlier.
+
+*What you will observe:* unread counts **drop** — that is the fix, not data loss. Nothing is
+deleted; only `subject_key` and `read_at` are written, and only on
+`kind__startswith="approvals."` rows with a parseable URL. Bells for **still-pending**
+requests are left unread. The migration is idempotent, so it is safe to re-run as a one-off.
+If you need the old unread state for an audit, snapshot the table before migrating.
+
+### Everything else — symptom-driven
+
+| Symptom after pulling | Cause | What to do |
+|---|---|---|
+| A CRUDView's related-tab or field-preview route now returns 403/404 where it returned 200 | New `CRUDView.check_object_permission(obj, request)` is applied by the base to **all five** single-object surfaces (detail, edit, delete, field preview, related tab) plus REST detail/update/delete and the generated MCP tools | Nothing, if the row really shouldn't be reachable by that user — this closed a live cross-user leak. If you enforced ownership by overriding one generated base's `get_object`, move that check into `check_object_permission` so it covers all five. |
+| `?status=pending` on the approvals queue returns fewer rows than before | The filter now selects the **effective** status (`actionable()` — pending minus overdue) so it agrees with the page's own "Pending" stat card, which was disagreeing by hundreds of rows | Nothing. Overdue-but-unswept rows are now found under `?status=expired`. |
+| Your own CRUDView wants a filter whose stored column isn't the value the page reasons about | New `CRUDView.apply_filter(qs, field_name, value, request)` hook, honoured by the HTML list, the REST list and the generated MCP `list_*` tool | Optional. Return a queryset to take over one `filter_fields` entry, or `NotImplemented` for the default. |
+| An MCP `get_*`/`update_*`/`delete_*` call that sent `pk` still works, and `id` now works too | Generated single-object tools accept `id` (the key `serialize()` actually emits) with `pk` as a permanent alias | Nothing. `delete_*` now returns both `id` and `pk`. |
+| An MCP tool declared `requires_access="auth"` now admits callers it used to refuse | The tier ladder was inverted (`readonly < staff < auth`), so `"auth"` — documented as "any authenticated caller" — could be satisfied by no login token at all, and staff were *less* capable than non-staff on it. It is now `readonly < auth < staff` | Nothing, if `"auth"` meant what the docs say. If you were using `"auth"` as a *higher* tier than `"staff"`, change it to `"staff"`. Nothing in the shipped tree declares `"auth"`, so most projects are unaffected. |
+| An endpoint that calls a disabled feature returns 503 instead of 500 | New `apps.smallstack.exceptions.FeatureDisabled`, translated by `api_view` for every endpoint. `ApprovalsDisabled` is one | Nothing — this is the fix. Subclass `FeatureDisabled` in your own feature's exception hierarchy to get the same treatment. |
+| An `@api_view` endpoint that raised `PermissionDenied` now returns a JSON 403 instead of Django's HTML 403 | `api_view` translates it into the standard envelope, alongside the existing `Http404` branch | Nothing. |
+| The Approvals card on `/smallstack/status/overview/` is **down** and it wasn't before | Core-service rows now need the monitor's live `inventory()` **and** its recorded state to be good. Previously a monitor recording FAIL still rendered a green "on", because the base `inventory()` returns `{"ok": True}` | Read the note now shown on the card — it names the action. Common causes: no worker on the `email` queue, the expiry sweep not running, or `SITE_DOMAIN` still at its `localhost:8000` default (see below). `scheduler-tick` had the identical bug and is fixed by the same change. |
+| The Approvals monitor reports `approval emails link to localhost:8000` | Approvals mail is sent from a signal receiver or a task, so it has no request to derive a host from and builds its absolute console link from `SITE_DOMAIN` | **Set `SITE_DOMAIN`** to this install's real host — otherwise the console link in every approval email is dead, which breaks the "non-staff assignees decide via the emailed link" story. Or set `SMALLSTACK_APPROVALS_EMAILS_ENABLED=False` if you don't use the email channel. Skipped under `DEBUG`. |
+| An approval email subject or bell title now reads `(assignee deactivated) …` | Every named assignee on that request is deactivated, so it fell back to broadcasting to all active staff. Previously silent | Re-assign the request. The fallback is deliberate (an approval must not go unseen) but it should not be invisible. |
+| Decision emails reach more people than you expected, including the decider | Documented behaviour, previously documented **backwards** in both directions: the decision email goes to the requester **and the approvers, including the one who decided**. The in-app bell differs by exactly one person — it skips the actor | Nothing. `SMALLSTACK_APPROVALS_EMAILS_ENABLED=False` and per-kind `notify` are unchanged escape hatches. `apps/approvals/emails.py`'s module docstring is the authority. |
+| A non-staff user sees an "Approvals" entry in the sidebar, or finds approvals in global search | The console has been LoginRequired + eligibility-scoped since the previous change, but had no nav entry outside the staff-only ADMIN section, and `search_access` still defaulted to STAFF | Nothing — rows are scoped by the same eligibility scoper every other read surface uses. Staff still see exactly one entry, in ADMIN. |
+| Your own nav item needs a rule `auth_required`/`staff_required` can't express | New `nav.register(visible=<callable(request) -> bool>)`. A predicate that raises hides the item and logs; it never 500s the page | Optional. |
+| A CRUD list's empty state says "There are no … yet. Create the first one." where it used to say "Nothing matches these filters" | The branch now keys off real search/filter params instead of `request.GET.urlencode`, which was truthy for pagination, ordering, the display toggle and the notification-bell marker | Nothing — this is the fix. If you overrode `object_list.html`, note the new `has_active_filters` context flag and the shared `crud/includes/empty_state.html`. |
+| A custom template of yours shows raw `{# … #}` text | Django's `{# #}` is **single-line only**; a multi-line one is emitted verbatim as body text | Use `{% comment %}…{% endcomment %}`. `apps/smallstack/test_template_hygiene.py` now fails the build on any multi-line `{# … #}` anywhere in the tree, so your own templates are covered too. |
+
+---
+
 ## v0.15.0 — CRUDViews require login by default (BREAKING)
 
 **Who is affected:** any CRUDView that relied on the old empty-`mixins` default to be

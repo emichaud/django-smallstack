@@ -58,7 +58,8 @@ Theme-variable-only — palette-correct across all 10 combos.
                 {% csrf_token %}
                 <input type="hidden" name="next" value="{{ request.path }}">
                 <label for="apr-note" class="apr-note-label">Decision note <span style="color: var(--body-quiet-color); font-weight: 400;">(optional — shown to the requester)</span></label>
-                <textarea id="apr-note" name="note" rows="2" class="vTextField" style="width: 100%;"></textarea>
+                {# autofocus — see ApprovalRequestDetailView notes: deciding is this page's only job. #}
+                <textarea id="apr-note" name="note" rows="2" class="vTextField" style="width: 100%;" autofocus></textarea>
                 <div class="apr-decide-actions">
                     <button type="submit" name="decision" value="approve" class="btn-primary apr-btn-approve">Approve</button>
                     <button type="submit" name="decision" value="reject" class="btn-danger">Reject</button>

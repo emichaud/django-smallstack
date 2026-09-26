@@ -123,11 +123,48 @@ class APIToken(models.Model):
             return False
         return True
 
+    # Machine-readable reasons a token cannot authenticate. Callers map these
+    # onto their own error envelopes; the strings are the contract.
+    REJECT_REVOKED = "revoked"
+    REJECT_EXPIRED = "expired"
+    REJECT_USER_INACTIVE = "user_inactive"
+
+    def rejection_reason(self) -> str | None:
+        """Why this token cannot authenticate right now; ``None`` when usable.
+
+        ``is_valid()`` only covers the *token*. Deactivating the account
+        (``is_active=False``) is the standard offboarding action and must revoke
+        every credential the account holds — otherwise an already-minted bearer
+        token keeps full authority (including approval authority) after the
+        human has been offboarded. Interactive login already refuses an inactive
+        user (``ModelBackend.user_can_authenticate``); the token path must
+        agree, so this is the single place that decides.
+        """
+        if self.revoked_at is not None or not self.is_active:
+            return self.REJECT_REVOKED
+        if self.expires_at and timezone.now() > self.expires_at:
+            return self.REJECT_EXPIRED
+        if not getattr(self.user, "is_active", False):
+            return self.REJECT_USER_INACTIVE
+        return None
+
     @classmethod
     def _generate_raw_key(cls) -> tuple[str, str, str]:
-        """Generate a raw API key and return (raw_key, prefix, hashed_key)."""
-        raw_key = secrets.token_urlsafe(cls.TOKEN_LENGTH)
-        prefix = raw_key[: cls.PREFIX_LENGTH]
+        """Generate a raw API key and return (raw_key, prefix, hashed_key).
+
+        The prefix never starts with ``-``. ``token_urlsafe`` uses the base64url
+        alphabet, which includes ``-``, so roughly 1.4% of tokens got a prefix
+        that argparse reads as an option flag — making ``sc token revoke
+        -AbC1234`` (and every other prefix-taking command) fail with a usage
+        error for those tokens, and making the CLI's own test suite flaky at the
+        same rate. Re-rolling is free and costs no entropy: the key is still 40
+        random bytes.
+        """
+        while True:
+            raw_key = secrets.token_urlsafe(cls.TOKEN_LENGTH)
+            prefix = raw_key[: cls.PREFIX_LENGTH]
+            if not prefix.startswith("-"):
+                break
         hashed = hashlib.sha256(raw_key.encode()).hexdigest()
         return raw_key, prefix, hashed
 
@@ -160,10 +197,11 @@ class APIToken(models.Model):
         """Validate a raw key. Returns one of:
 
         * ``(user, token)`` — success
-        * ``(None, found_token)`` — found, but expired or revoked.
-          Callers can distinguish "credential was real but is no longer
-          valid" from "credential is wrong" and surface a helpful error
-          message instead of a generic "Invalid token."
+        * ``(None, found_token)`` — found, but expired, revoked, or belonging
+          to a deactivated account. Callers can distinguish "credential was
+          real but is no longer valid" from "credential is wrong" and surface a
+          helpful error message instead of a generic "Invalid token."
+          Ask ``found_token.rejection_reason()`` for which.
         * ``(None, None)`` — not found / wrong prefix / wrong hash.
         """
         if not raw_key or len(raw_key) < cls.PREFIX_LENGTH:
@@ -177,9 +215,11 @@ class APIToken(models.Model):
             token = cls.objects.select_related("user").get(prefix=prefix, hashed_key=hashed)
         except cls.DoesNotExist:
             return None, None
-        if not token.is_valid():
-            # Found the token, but it's revoked or expired. Return without
-            # a user so the caller can introspect the reason.
+        if token.rejection_reason() is not None:
+            # Found the token, but it's revoked/expired, or the account it
+            # belongs to has been deactivated. Return without a user so the
+            # caller can introspect the reason — and so NO surface (REST, MCP,
+            # feeds, OAuth) can act as a deactivated account.
             return None, token
         token.last_used_at = timezone.now()
         token.request_count = models.F("request_count") + 1

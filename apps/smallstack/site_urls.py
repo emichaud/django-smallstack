@@ -70,10 +70,18 @@ urlpatterns = [
     path("", include("apps.scheduler.urls")),
     # Webhooks — outbound endpoints + inbound receivers (bare names, "webhooks/" prefix)
     path("", include("apps.webhooks.urls")),
-    # Notifications — the in-app bell/inbox (all authenticated users)
-    path("notifications/", include("apps.notifications.urls")),
-    # Approvals — the side-car human-approval gate (queue + console + REST)
-    path("", include("apps.approvals.urls")),
     # Token manager (self-service + staff) — list, mint, reveal, revoke
     path("", include("apps.tokenmgr.urls")),
 ]
+
+# Master switches mount their app's URLs, following the SMALLSTACK_MCP_ENABLED
+# precedent in config/urls.py. Without this, setting the switch off left every
+# endpoint live — including the decide POST — while silently killing only the
+# notification/email fan-out, which is strictly worse than no switch. (F-11.)
+if getattr(settings, "SMALLSTACK_NOTIFICATIONS_ENABLED", True):
+    # Notifications — the in-app bell/inbox (all authenticated users)
+    urlpatterns += [path("notifications/", include("apps.notifications.urls"))]
+
+if getattr(settings, "SMALLSTACK_APPROVALS_ENABLED", True):
+    # Approvals — the side-car human-approval gate (queue + console + REST)
+    urlpatterns += [path("", include("apps.approvals.urls"))]

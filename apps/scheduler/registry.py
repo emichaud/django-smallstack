@@ -53,6 +53,14 @@ def sync_code_jobs() -> int:
 
     Returns the number of specs synced. Idempotent — running twice does not
     duplicate rows (``name`` is unique and used as the natural key).
+
+    **Reconcile means both directions.** A ``source=CODE`` row whose spec is no
+    longer registered — the feature was removed, or a flag like
+    ``SMALLSTACK_APPROVALS_SWEEP_ENABLED`` turned its registration off — is
+    disabled here. Previously only ``get_or_create`` ran, so the flag worked on a
+    fresh database and did nothing on an existing install: the operator set it,
+    saw no change, and the job kept firing. (F-23.) Rows the operator created in
+    the UI (``source=UI``) are never touched.
     """
     from .decorators import _SCHEDULE_REGISTRY
     from .models import ScheduledJob
@@ -103,6 +111,25 @@ def sync_code_jobs() -> int:
             # If the cadence changed (or a code job lost its next_run), recompute
             # next_run_at so the new cadence takes effect on the *next* tick —
             # not one stale fire later at the old time.
+            # The spec is back. If WE retired it (auto_retired), un-retire it —
+            # otherwise the flag that stopped the job is a one-way switch and the
+            # documented remedy (set it back) does nothing. A row an operator
+            # disabled by hand carries no marker and stays off. (F-30.)
+            if job.auto_retired:
+                job.enabled = True
+                job.auto_retired = False
+                changed.extend(["enabled", "auto_retired"])
+                logger.info(
+                    "scheduler: re-enabled %r — its @scheduled spec is declared again",
+                    spec.name,
+                )
+            elif not job.enabled:
+                logger.info(
+                    "scheduler: %r is declared in code but disabled by an operator "
+                    "— leaving it off",
+                    spec.name,
+                )
+
             cadence_changed = any(f in changed for f in (*_CADENCE_FIELDS, "anchor_at"))
             if job.enabled and (cadence_changed or job.next_run_at is None):
                 _reseed_next_run(job, spec.name)
@@ -110,7 +137,61 @@ def sync_code_jobs() -> int:
             if changed:
                 job.save(update_fields=list(set(changed)))
         synced += 1
+
+    # Retire code-declared rows whose spec disappeared. Disabled, not deleted:
+    # the run history stays readable, and re-enabling the feature re-enables the
+    # job on the next sync only if the operator flips `enabled` back on — which
+    # is the same rule as any other UI-owned field.
+    live_names = {spec.name for spec in _SCHEDULE_REGISTRY}
+    if not live_names:
+        # Safety valve: an empty registry almost always means autodiscovery
+        # hasn't run (or failed), not that every code job was removed. Retiring
+        # everything on that evidence would be worse than doing nothing.
+        return synced
+    orphans = list(
+        ScheduledJob.objects.filter(source=ScheduledJob.Source.CODE, enabled=True).exclude(
+            name__in=live_names
+        )
+    )
+    if orphans and not _retirement_is_plausible(orphans, live_names):
+        # Relative safety valve. The absolute one (empty registry) only catches a
+        # TOTAL autodiscovery failure. A PARTIAL one — one app's tasks.py raising
+        # on import, an app temporarily out of INSTALLED_APPS, `migrate` run
+        # against a shared database with a different settings module — retires
+        # exactly that app's jobs, silently. Treat a large single-sync shrink as
+        # evidence about the registry, not about the jobs. (F-30.)
+        logger.warning(
+            "scheduler: refusing to retire %d code job(s) — only %d spec(s) are "
+            "registered, which looks like a partial autodiscovery failure rather "
+            "than a removal. Retired nothing. Orphans: %s",
+            len(orphans),
+            len(live_names),
+            ", ".join(sorted(job.name for job in orphans)),
+        )
+        return synced
+    for job in orphans:
+        job.enabled = False
+        job.auto_retired = True
+        job.next_run_at = None
+        job.save(update_fields=["enabled", "auto_retired", "next_run_at"])
+        logger.info(
+            "scheduler: disabled %r — no @scheduled spec declares it any more "
+            "(will re-enable automatically if the spec returns)",
+            job.name,
+        )
+
     return synced
+
+
+def _retirement_is_plausible(orphans: list, live_names: set[str]) -> bool:
+    """False when this sync would retire more than half of the known code jobs.
+
+    ``known`` is the registry plus the orphans, i.e. the set of code jobs this
+    install has ever seen. Retiring one of five is a removal; retiring four of
+    five is almost always a broken import.
+    """
+    known = len(live_names) + len(orphans)
+    return len(orphans) * 2 <= known
 
 
 def _reseed_next_run(job: ScheduledJob, name: str) -> None:

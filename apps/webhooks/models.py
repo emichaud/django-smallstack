@@ -240,10 +240,20 @@ class WebhookReceiver(models.Model):
         help_text="Registered handler name. Blank ⇒ use the slug.",
     )
     secret = models.CharField(max_length=100, default=generate_secret)
+    # Defaults to the header SmallStack's own sender emits, so pairing two
+    # SmallStack installs works out of the box. It used to default to
+    # "X-Signature" while services.SIGNATURE_HEADER is
+    # "X-SmallStack-Signature", so a receiver created with defaults 401'd every
+    # delivery from a SmallStack endpoint. Any spelling is still accepted for
+    # third-party senders, and the lookup is case-insensitive. (F-06.)
     signature_header = models.CharField(
         max_length=80,
-        default="X-Signature",
-        help_text="Request header carrying the HMAC-SHA256 hex digest.",
+        default="X-SmallStack-Signature",
+        help_text=(
+            "Request header carrying the HMAC-SHA256 hex digest. Matched "
+            "case-insensitively. Default matches SmallStack's own sender; set "
+            "e.g. 'X-Signature' or 'X-Hub-Signature-256' for a third party."
+        ),
     )
     # When off, signature failures are logged but the payload is still accepted —
     # useful while onboarding a sender that doesn't sign yet. Default on.

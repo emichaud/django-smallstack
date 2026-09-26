@@ -6,9 +6,7 @@
     {% endfor %}
 </div>
 {% else %}
-<p style="color: var(--body-quiet-color); padding: 2rem 0; text-align: center;">
-    No {{ object_verbose_name_plural }} found.
-</p>
+{% include "smallstack/crud/includes/empty_state.html" %}
 {% endif %}
 
 {% if is_paginated %}

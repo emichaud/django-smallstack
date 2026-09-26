@@ -114,3 +114,77 @@ def test_detail_renders_usage_panel(alice):
     resp = c.get(reverse("tokenmgr:tokens-detail", kwargs={"pk": t.pk}), HTTP_HOST="localhost")
     assert "token_stats" in resp.context
     assert "Usage" in resp.content.decode()
+
+
+# --- F-27: every single-object surface, not just the detail page ------------
+#
+# The related-tab route returned 200 with another user's token activity (which
+# endpoints that token calls, and when) while the detail page beside it
+# correctly returned 403 — because ownership was injected into the `get_object`
+# of ONE of the five generated single-object bases. It now lives in
+# `check_object_permission`, which the base applies to all five.
+
+
+def _related_tab_url(token):
+    return reverse("tokenmgr:tokens-related-tab", kwargs={"pk": token.pk, "accessor": "request_logs"})
+
+
+def test_related_tab_refuses_another_users_token(client, alice, bob):
+    """The reported leak. Must 403, like the detail page one route over."""
+    bobs_token = _mint(bob)
+    client.force_login(alice)
+    resp = client.get(_related_tab_url(bobs_token))
+    assert resp.status_code == 403, (
+        f"cross-user token activity leaked: HTTP {resp.status_code}, "
+        f"{len(resp.content)} bytes"
+    )
+
+
+def test_related_tab_still_works_for_the_owner(client, alice):
+    """Negative control — closing the hole must not close the feature."""
+    own = _mint(alice)
+    client.force_login(alice)
+    assert client.get(_related_tab_url(own)).status_code == 200
+
+
+def test_related_tab_works_for_staff(client, alice, staff_user):
+    own = _mint(alice)
+    client.force_login(staff_user)
+    assert client.get(_related_tab_url(own)).status_code == 200
+
+
+def test_owner_can_still_reach_a_revoked_token(client, alice):
+    """Why tokenmgr opts out of the queryset scoper at all.
+
+    `get_list_queryset` hides revoked tokens from the *list* by default; if the
+    detail surfaces inherited it, your own revoked token would 404.
+    """
+    revoked = _mint(alice, name="revoked-one")
+    revoked.is_active = False
+    revoked.save(update_fields=["is_active"])
+    client.force_login(alice)
+    detail = reverse("tokenmgr:tokens-detail", kwargs={"pk": revoked.pk})
+    assert client.get(detail).status_code == 200
+    assert client.get(_related_tab_url(revoked)).status_code == 200
+
+
+def test_every_single_object_surface_refuses_another_users_token(client, alice, bob):
+    """The generic property: enumerate the routes rather than trusting one."""
+    bobs_token = _mint(bob)
+    client.force_login(alice)
+    results = {}
+    for name, kwargs in [
+        ("tokenmgr:tokens-detail", {"pk": bobs_token.pk}),
+        ("tokenmgr:tokens-update", {"pk": bobs_token.pk}),
+        ("tokenmgr:tokens-delete", {"pk": bobs_token.pk}),
+        ("tokenmgr:tokens-related-tab", {"pk": bobs_token.pk, "accessor": "request_logs"}),
+        ("tokenmgr:tokens-field-preview", {"pk": bobs_token.pk, "field_name": "name"}),
+    ]:
+        try:
+            url = reverse(name, kwargs=kwargs)
+        except Exception:  # route not generated for this view
+            continue
+        results[name] = client.get(url).status_code
+    assert results, "no single-object routes found — test is vacuous"
+    leaked = {k: v for k, v in results.items() if v == 200}
+    assert not leaked, f"these surfaces leaked another user's token: {leaked} (all: {results})"

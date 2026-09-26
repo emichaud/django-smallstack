@@ -28,10 +28,13 @@ the same nav data — adding/removing an app in INSTALLED_APPS automatically
 updates navigation.
 """
 
+import logging
 from typing import Any
 
 from django.http import HttpRequest
 from django.urls import NoReverseMatch, reverse
+
+logger = logging.getLogger("smallstack.navigation")
 
 # Sections render in this order; unlisted sections appear last.
 # "topbar" is not rendered in the sidebar — it overrides "main" in the topbar only.
@@ -78,6 +81,7 @@ class _NavItem:
         "parent",
         "zone",
         "active_prefix",
+        "visible",
     )
 
     def __init__(
@@ -95,6 +99,7 @@ class _NavItem:
         parent: str | None = None,
         zone: str = "smallstack",
         active_prefix: str | None = None,
+        visible: Any = None,
     ) -> None:
         self.section = section
         self.label = label
@@ -112,6 +117,13 @@ class _NavItem:
         # Include the trailing slash to avoid bleeding into siblings like
         # "/status-report/". Falls back to the item's own resolved URL when unset.
         self.active_prefix = active_prefix
+        # Optional ``(request) -> bool`` predicate, applied AFTER auth_required /
+        # staff_required. For rules the two flags cannot express — most often
+        # "show this entry only to users the staff-only ADMIN section hides",
+        # which is how a non-staff approver gets a link to a console they are
+        # already allowed to use (F-46). A predicate that raises hides the item
+        # rather than breaking the page.
+        self.visible = visible
 
 
 class NavRegistry:
@@ -133,6 +145,7 @@ class NavRegistry:
         parent: str | None = None,
         zone: str = "smallstack",
         active_prefix: str | None = None,
+        visible: Any = None,
     ) -> None:
         """Register a nav item.
 
@@ -155,6 +168,7 @@ class NavRegistry:
                 parent=parent,
                 zone=zone,
                 active_prefix=active_prefix,
+                visible=visible,
             )
         )
 
@@ -189,6 +203,16 @@ class NavRegistry:
                 continue
             if item.staff_required and not is_staff:
                 continue
+            if item.visible is not None:
+                try:
+                    if not item.visible(request):
+                        continue
+                except Exception:  # noqa: BLE001 — a bad predicate hides, never 500s
+                    logger.warning(
+                        "nav: visible() raised for %r — hiding the item", item.label,
+                        exc_info=True,
+                    )
+                    continue
             try:
                 url = reverse(item.url_name, args=item.url_args, kwargs=item.url_kwargs)
             except NoReverseMatch:

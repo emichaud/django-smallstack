@@ -332,22 +332,31 @@ class Command(BaseCommand):
                     "\n  One-way: the peer only needs to verify our sends with the send secret above.\n"
                     "  This configured OUR instance only — nothing was sent to the peer."
                 )
-                return
-
-            self.stdout.write(
-                "\n  ⇒ HALF 2 of 2 — run THIS on the peer to finish the link "
-                "(secrets already swapped):"
-            )
-            self.stdout.write(f"\n    {d['mirror_command']}\n")
-            self.stdout.write(
-                "  This configured OUR instance only — the link is not live until the peer\n"
-                "  runs the command above. Then re-run with --verify to test the round-trip."
-            )
-            if verify_result:
+            else:
                 self.stdout.write(
-                    f"\n  Verify: queued test delivery #{verify_result['delivery_id']} to "
-                    f"“{verify_result['endpoint']}” — check its status "
-                    f"(sc webhook deliveries --status success) to confirm the peer accepted it."
+                    "\n  ⇒ HALF 2 of 2 — run THIS on the peer to finish the link "
+                    "(secrets already swapped):"
                 )
+                self.stdout.write(f"\n    {d['mirror_command']}\n")
+                self.stdout.write(
+                    "  This configured OUR instance only — the link is not live until the peer\n"
+                    "  runs the command above. Then re-run with --verify to test the round-trip."
+                )
+                if verify_result:
+                    self.stdout.write(
+                        f"\n  Verify: queued test delivery #{verify_result['delivery_id']} to "
+                        f"“{verify_result['endpoint']}” — check its status "
+                        f"(sc webhook deliveries --status success) to confirm the peer accepted it."
+                    )
+
+            # Warnings apply to BOTH shapes and must come after either branch:
+            # this used to sit past an early `return` in the one-way path, so
+            # `pair --one-way` printed nothing while carrying the warning in
+            # --json — and --one-way is exactly what the docs recommend for a
+            # loopback target, the case the warning exists for. (F-39 #5.)
+            for warning in d.get("warnings") or []:
+                # Pairing two instances on one box is the first thing anyone
+                # tries, and the SSRF guard blocks it silently at send time.
+                self.stderr.write(self.style.WARNING(f"\n  ⚠ {warning}"))
 
         self._emit(result, options["json"], render)

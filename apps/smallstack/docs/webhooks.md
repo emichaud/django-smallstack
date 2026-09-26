@@ -54,6 +54,6 @@ Run `manage.py webhook_doctor` (or `sc doctor`) to health-check endpoints, recei
 
 ## Related
 
-- [REST API](explorer-rest-api) — the `serialize()` shape that outbound payloads reuse
-- [Custom API Endpoints](custom-api-endpoints) — non-CRUD endpoints
-- [MCP](mcp) — the `create_webhook` tool and the inbound/outbound distinction
+- [REST API](/smallstack/help/smallstack/explorer-rest-api/) — the `serialize()` shape that outbound payloads reuse
+- [Custom API Endpoints](/smallstack/help/smallstack/custom-api-endpoints/) — non-CRUD endpoints
+- [MCP](/smallstack/help/smallstack/mcp/) — the `create_webhook` tool and the inbound/outbound distinction

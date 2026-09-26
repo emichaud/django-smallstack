@@ -5,6 +5,11 @@ web views, REST, MCP, and the CLI so eligibility is identical on every
 surface. No request objects here.
 
 The decide policy, in order:
+0. Only *active* accounts participate at all. Deactivating a user
+   (``is_active=False``) is the standard offboarding action; it must remove
+   approval authority everywhere, not just from web login. Defence in depth
+   with ``APIToken.rejection_reason()`` (which refuses the credential), because
+   approvals is a compliance control and must not depend on one layer. (F-10.)
 1. Only authenticated, saved users decide, and only PENDING requests.
 2. Self-approval is blocked (SMALLSTACK_APPROVALS_ALLOW_SELF_APPROVE flips it).
 3. If the request names assignees: only they decide — plus staff when
@@ -29,15 +34,24 @@ Actor = Any  # User | AnonymousUser | None — the runbook Actor convention
 
 
 def _pk(user: Actor) -> int | None:
+    """The acting identity's pk, or None when it cannot act at all.
+
+    A deactivated account is treated as absent on every approvals surface
+    (see rule 0 in the module docstring).
+    """
+    if not getattr(user, "is_active", False):
+        return None
     return getattr(user, "pk", None)
 
 
 def is_staff(user: Actor) -> bool:
-    return bool(getattr(user, "is_staff", False))
+    return bool(getattr(user, "is_staff", False)) and bool(
+        getattr(user, "is_active", False)
+    )
 
 
 def can_view(user: Actor, req: ApprovalRequest) -> bool:
-    """Staff, the requester, or an assignee."""
+    """Staff, the requester, or an assignee — active accounts only."""
     pk = _pk(user)
     if pk is None:
         return False

@@ -8,7 +8,9 @@ found broken on every scripted surface:
 - create/update must accept the same native JSON shapes GET emits (F-002),
 - an omitted field must fall back to the model default — critically
   ``require_signature=True`` (fails-open otherwise, F-003) and
-  ``signature_header="X-Signature"`` (F-006).
+  ``signature_header`` = ``services.SIGNATURE_HEADER`` (F-006; the default
+  changed from "X-Signature" so a SmallStack→SmallStack pairing verifies out of
+  the box — 2026-09-25 F-06).
 """
 
 from __future__ import annotations
@@ -21,6 +23,7 @@ from django.contrib.auth import get_user_model
 from django.core.management import call_command
 
 from apps.smallstack.models import APIToken
+from apps.webhooks import services
 from apps.webhooks.models import WebhookEndpoint, WebhookReceiver
 
 pytestmark = pytest.mark.django_db
@@ -175,7 +178,8 @@ def test_mcp_input_schema_uses_valid_json_schema_types():
 
 def test_sc_new_receiver_defaults_require_signature_and_header(staff):
     """[F-003] Omitting --require_signature must NOT store False (fails open);
-    [F-006] --signature_header is optional (model default X-Signature)."""
+    [F-006] --signature_header is optional (model default = the header
+    SmallStack's own sender emits)."""
     _sc(
         "new", "webhookreceiver",
         "--name", "Stripe demo", "--slug", "stripe-demo",
@@ -183,7 +187,7 @@ def test_sc_new_receiver_defaults_require_signature_and_header(staff):
     )
     r = WebhookReceiver.objects.get(slug="stripe-demo")
     assert r.require_signature is True
-    assert r.signature_header == "X-Signature"
+    assert r.signature_header == services.SIGNATURE_HEADER
     assert r.enabled is True
     assert r.secret  # auto-generated model default survives the form path
 
@@ -209,4 +213,4 @@ def test_rest_create_receiver_defaults_require_signature(client, auth_header):
     assert resp.json()["require_signature"] is True
     r = WebhookReceiver.objects.get(slug="github-in")
     assert r.require_signature is True
-    assert r.signature_header == "X-Signature"
+    assert r.signature_header == services.SIGNATURE_HEADER

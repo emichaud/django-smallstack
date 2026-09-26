@@ -1,0 +1,26 @@
+{% comment %}
+The single definition of a CRUD list's empty state. Included by object_list.html,
+object_list_partial.html and every bundled display (table, cards, …) so the copy
+cannot drift between them.
+
+Two branches, selected by `has_active_filters` (computed in
+apps.smallstack.crud._has_active_filters — NOT `request.GET.urlencode`, which is
+truthy for pagination, ordering, the display toggle and the ?_notification=
+marker, none of which are filters):
+
+  filtered  → "Nothing matches these filters. Clear them to see all …"
+  unfiltered → "There are no … yet. Create the first one."
+
+Copy is lower-cased mid-sentence and says what to do next: an empty list after a
+search means "widen it", not "there is nothing here".
+{% endcomment %}
+<p style="color: var(--body-quiet-color); padding: 2rem 0; text-align: center;">
+    {% if has_active_filters %}
+        Nothing matches these filters. <a href="{{ request.path }}" style="color: var(--primary);">Clear them</a> to see all {{ object_verbose_name_plural|lower }}.
+    {% else %}
+        There are no {{ object_verbose_name_plural|lower }} yet.
+        {% if create_view_url %}
+        <a href="{{ create_view_url }}" style="color: var(--primary);">Create the first one</a>.
+        {% endif %}
+    {% endif %}
+</p>

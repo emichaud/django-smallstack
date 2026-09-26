@@ -22,7 +22,8 @@ from django.conf import settings
 from django.db import models, transaction
 from django.utils import timezone
 
-from apps.smallstack.audit import ADDITION, CHANGE, log_write
+from apps.smallstack.audit import ADDITION, CHANGE, log_system_write, log_write
+from apps.smallstack.exceptions import FeatureDisabled
 
 from . import permissions
 from .models import ApprovalRequest
@@ -50,6 +51,55 @@ class UnknownKind(ApprovalError):
     """Filing with a kind no app registered (→ 400 on HTTP surfaces)."""
 
 
+class TooManyPending(ApprovalError):
+    """The requester already has the maximum pending requests for this kind
+    (→ 429 on REST/MCP). The abuse model is an agent token in a loop: without a
+    cap one identity can bury every approver's bell and mailbox, which defeats
+    the gate by fatigue rather than by a bug. (F-18.)"""
+
+
+class ApprovalsDisabled(ApprovalError, FeatureDisabled):
+    """SMALLSTACK_APPROVALS_ENABLED is off — the app is dark (→ 503).
+
+    Also a :class:`~apps.smallstack.exceptions.FeatureDisabled`, so **any**
+    ``@api_view`` endpoint that calls into approvals degrades to a 503 with the
+    standard envelope instead of a 500. Approvals' own routes are unmounted when
+    the switch is off, so this is the only way the 503 is ever observable. (F-31.)
+    """
+
+
+def enabled() -> bool:
+    """The master switch. When off, the URLs are not mounted (see
+    ``apps/smallstack/site_urls.py``), the sweep job is not registered, and
+    every state-changing service call raises :class:`ApprovalsDisabled` rather
+    than half-working with the fan-out silently dead. (F-11.)"""
+    return bool(getattr(settings, "SMALLSTACK_APPROVALS_ENABLED", True))
+
+
+def _require_enabled() -> None:
+    if not enabled():
+        raise ApprovalsDisabled(
+            "Approvals is disabled (SMALLSTACK_APPROVALS_ENABLED=False): no "
+            "request can be filed or decided, and nothing would be notified."
+        )
+
+
+def _check_pending_cap(*, kind: str, actor: Actor) -> None:
+    cap = int(getattr(settings, "SMALLSTACK_APPROVALS_MAX_PENDING_PER_REQUESTER", 50))
+    actor_pk = getattr(actor, "pk", None)
+    if cap <= 0 or actor_pk is None:  # 0 = no cap
+        return
+    outstanding = ApprovalRequest.objects.actionable().filter(
+        requested_by_id=actor_pk, kind=kind
+    ).count()
+    if outstanding >= cap:
+        raise TooManyPending(
+            f"You already have {outstanding} pending {kind!r} requests "
+            f"(limit {cap}). Wait for them to be decided or raise "
+            "SMALLSTACK_APPROVALS_MAX_PENDING_PER_REQUESTER."
+        )
+
+
 def request_approval(
     *,
     kind: str,
@@ -72,6 +122,8 @@ def request_approval(
     code churn); pass ``require_known_kind=True`` on surfaces where a typo is
     likelier than a plan (REST/MCP do).
     """
+    _require_enabled()
+    _check_pending_cap(kind=kind, actor=actor)
     kind_def = get_kind(kind)
     if require_known_kind and kind_def is None:
         from .registry import known_keys
@@ -157,7 +209,12 @@ def _finish(req: ApprovalRequest, *, actor: Actor, source: str) -> ApprovalReque
             "updated_at",
         ]
     )
-    log_write(actor, req, CHANGE, source)
+    if getattr(actor, "pk", None) is None:
+        # Expiry has no human actor; without this the one terminal outcome
+        # nobody caused was also the one with no audit row. (F-15.)
+        log_system_write(req, CHANGE, source)
+    else:
+        log_write(actor, req, CHANGE, source)
     transaction.on_commit(
         lambda: approval_decided.send(
             sender=ApprovalRequest, request=req, actor=actor, source=source
@@ -175,6 +232,7 @@ def decide(
     source: str = "web",
 ) -> ApprovalRequest:
     """Approve or reject a pending request (eligibility enforced here)."""
+    _require_enabled()
     if req.is_overdue:
         # Lazily expire rather than letting a decision land on a dead request.
         _claim(req, status=ApprovalRequest.Status.EXPIRED, decided_at=timezone.now())
@@ -212,6 +270,7 @@ def cancel(
     req: ApprovalRequest, *, actor: Actor, note: str = "", source: str = "web"
 ) -> ApprovalRequest:
     """Withdraw a pending request (requester or staff)."""
+    _require_enabled()
     if not permissions.can_cancel(actor, req):
         raise NotEligible("Only the requester or staff can cancel this request.")
     _claim(
@@ -224,17 +283,44 @@ def cancel(
     return _finish(req, actor=actor, source=source)
 
 
-def mark_expired(qs: models.QuerySet | None = None) -> int:
+def lazy_expire_limit() -> int:
+    """How many overdue rows an interactive page-load may expire itself.
+
+    Expiring a row is not free: it runs the kind callback, re-saves, audits,
+    fires ``approval_decided``, writes in-app notifications, queues an email and
+    fans out a webhook delivery — roughly 20 queries per row. Unbounded, the
+    first visitor after a backlog paid the whole bill inside their GET
+    (200 overdue rows = 4,017 queries / 0.57 s; 1,000 rows = 2.8 s). Bounded, the
+    page stays responsive and the scheduled sweep drains the remainder. (F-12.)
+    """
+    return int(getattr(settings, "SMALLSTACK_APPROVALS_LAZY_EXPIRE_LIMIT", 25))
+
+
+def mark_expired(qs: models.QuerySet | None = None, *, limit: int | None = None) -> int:
     """Expire overdue pending requests. Race-safe per row; the kind callback
-    and the decided signal fire for each (with actor=None, source='expiry')."""
+    and the decided signal fire for each (with actor=None, source='expiry').
+
+    ``limit`` caps how many rows this call processes (oldest expiry first) — the
+    interactive surfaces pass :func:`lazy_expire_limit`; the scheduled sweep
+    passes nothing and drains everything. When a bounded call leaves rows
+    behind it logs a warning naming the backlog, because a silently-truncated
+    sweep is exactly the state an operator needs to know about.
+    """
     if qs is None:
         qs = ApprovalRequest.objects.all()
     now = timezone.now()
-    overdue_ids = list(
-        qs.filter(
-            status=ApprovalRequest.Status.PENDING, expires_at__isnull=False, expires_at__lte=now
-        ).values_list("pk", flat=True)
-    )
+    overdue = qs.filter(
+        status=ApprovalRequest.Status.PENDING,
+        expires_at__isnull=False,
+        expires_at__lte=now,
+    ).order_by("expires_at")
+    if limit is not None and limit >= 0:
+        overdue_ids = list(overdue.values_list("pk", flat=True)[: limit + 1])
+        truncated = len(overdue_ids) > limit
+        overdue_ids = overdue_ids[:limit]
+    else:
+        overdue_ids = list(overdue.values_list("pk", flat=True))
+        truncated = False
     expired = 0
     for pk in overdue_ids:
         updated = ApprovalRequest.objects.filter(
@@ -244,11 +330,21 @@ def mark_expired(qs: models.QuerySet | None = None) -> int:
             expired += 1
             req = ApprovalRequest.objects.get(pk=pk)
             _finish(req, actor=None, source="expiry")
+    if truncated:
+        logger.warning(
+            "approvals: lazy expiry capped at %s rows — overdue requests remain. "
+            "Run the 'Approvals: expire overdue requests' job (a db_worker on the "
+            "default queue) or raise SMALLSTACK_APPROVALS_LAZY_EXPIRE_LIMIT.",
+            limit,
+        )
     return expired
 
 
 def pending_for(user: Actor) -> models.QuerySet:
-    """The user's decision queue (lazily expires overdue rows first)."""
-    mark_expired()
-    qs = ApprovalRequest.objects.filter(status=ApprovalRequest.Status.PENDING)
-    return permissions.viewable_requests(user, qs)
+    """The user's decision queue.
+
+    Reads the *actionable* set (pending minus overdue) so the answer is correct
+    without paying for a sweep; the scheduled job and the queue view flip the
+    overdue rows' stored status.
+    """
+    return permissions.viewable_requests(user, ApprovalRequest.objects.actionable())

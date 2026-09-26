@@ -386,18 +386,39 @@ INSTALLED_APPS = [
 
 ### Step 10: Add to Sidebar
 
-Edit `templates/smallstack/includes/sidebar.html` — add a nav item in the admin section:
+Register the nav entry from your `AppConfig.ready()` — **do not edit
+`templates/smallstack/includes/sidebar.html`.** A hand-pasted `<li>` is ungated
+(it shows for users who can't open the page), unordered, and overwritten by the
+next base upgrade. `nav.register()` is the supported API and handles all three:
 
-```html
-<li class="nav-item">
-    <a href="{% url 'manage/widgets-list' %}" class="nav-link {% if '/manage/widgets/' in request.path %}active{% endif %}">
-        <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
-            <path d="..."/>
-        </svg>
-        <span>Widgets</span>
-    </a>
-</li>
+```python
+# apps/widgets/apps.py
+from django.apps import AppConfig
+
+
+class WidgetsConfig(AppConfig):
+    name = "apps.widgets"
+
+    def ready(self) -> None:
+        from apps.smallstack.navigation import nav
+
+        nav.register(
+            section="admin",              # which sidebar group
+            label="Widgets",
+            url_name="manage/widgets-list",
+            icon_svg=(
+                '<svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">'
+                '<path d="..."/></svg>'
+            ),
+            staff_required=True,          # hidden from non-staff
+            active_prefix="/manage/widgets/",   # drives the `active` class
+            order=50,                     # optional; lower sorts first
+        )
 ```
+
+Wrap it in `try/except Exception` with a logged warning if you want one broken
+registration never to block startup — see `apps/approvals/apps.py` for the
+house pattern. Full reference: `docs/skills/navigation.md`.
 
 ### Step 11: Run Migrations
 

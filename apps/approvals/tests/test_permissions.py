@@ -68,3 +68,49 @@ def test_can_decide_requires_pending(requester, staff, sample_kind):
     services.approve(req, actor=staff)
     assert not permissions.can_decide(staff, req)
     assert req.status == ApprovalRequest.Status.APPROVED
+
+
+# --- F-10: a deactivated account has no approval authority anywhere ----------
+
+
+def test_deactivated_user_cannot_view_decide_or_cancel(
+    requester, staff, assignee, sample_kind
+):
+    """Offboarding must remove approval authority, not just web login.
+
+    Approvals is the compliance control: a decision recorded under an offboarded
+    person's name reads as legitimate. Belt AND braces — the token authenticator
+    refuses the credential (apps/smallstack/models.py) and eligibility refuses
+    the identity here, so neither layer is load-bearing alone.
+    """
+    req = _file(requester, assignees=[assignee])
+
+    # Negative control: while active, all three answers are the expected ones.
+    assert permissions.can_view(staff, req)
+    assert permissions.can_decide(staff, req)
+    assert permissions.can_decide(assignee, req)
+    assert permissions.can_cancel(requester, req)
+    assert permissions.viewable_requests(staff).count() == 1
+
+    for user in (staff, assignee, requester):
+        user.is_active = False
+        user.save()
+
+    assert not permissions.can_view(staff, req)
+    assert not permissions.can_decide(staff, req)
+    assert not permissions.can_decide(assignee, req)
+    assert not permissions.can_cancel(requester, req)
+    assert permissions.viewable_requests(staff).count() == 0
+    assert permissions.viewable_requests(assignee).count() == 0
+    # is_staff alone is not enough — the account must also exist.
+    assert not permissions.is_staff(staff)
+
+
+def test_services_refuse_a_deactivated_actor(requester, staff, sample_kind):
+    req = _file(requester)
+    staff.is_active = False
+    staff.save()
+    with pytest.raises(services.NotEligible):
+        services.decide(req, actor=staff, approved=True)
+    req.refresh_from_db()
+    assert req.status == ApprovalRequest.Status.PENDING

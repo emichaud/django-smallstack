@@ -27,13 +27,16 @@ notify(
 The contract is designed so producers never have to think about failure:
 
 - `notify()` **never raises** — a notification problem can't break the action that caused it. It returns the number of rows created.
-- It skips the actor (no bell for your own action), anonymous users, and duplicate recipients.
+- It skips the actor (no bell for your own action), anonymous and unsaved users, **deactivated accounts**, and duplicate recipients.
+- Pass an optional `subject_key="myapp.thing:42"` and you get a handle back: `resolve("myapp.thing:42")` marks every row about that thing read, for everyone who got one. Use it the moment your notification stops being work to do — a bell that counts finished work stops meaning anything.
 - With `SMALLSTACK_NOTIFICATIONS_ENABLED = False` the bell disappears and `notify()` quietly returns 0.
 - `kind` is free-form — no registry to declare. Use it to group, query, and prune.
 
 ## The inbox
 
-Login-required but **not staff-only** — producers like approvals notify ordinary users too. Unread rows are marked, clicking a row marks it read and follows its link (internal paths only; another user's rows 404), and "Mark all read" clears the badge.
+Login-required but **not staff-only** — producers like approvals notify ordinary users too. Unread rows are marked, clicking a row follows its link (internal paths only; another user's rows 404), and "Mark all read" clears the badge.
+
+A row is marked read when you actually *arrive* — not when you click. If the link turns out to be unreachable for you (a 403, a stale 404), the row stays unread, so a dead end can't quietly take the badge and your only pointer to the thing with it.
 
 ## For other apps and scripts
 
@@ -48,5 +51,5 @@ A daily background job prunes rows older than `SMALLSTACK_NOTIFICATIONS_RETENTIO
 
 ## Related
 
-- [Approvals](approvals) — the first producer (bell on request, bell on decision)
-- [Background Tasks](background-tasks) — runs the daily prune
+- [Approvals](/smallstack/help/smallstack/approvals/) — the first producer (bell on request, bell on decision)
+- [Background Tasks](/smallstack/help/smallstack/background-tasks/) — runs the daily prune

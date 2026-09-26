@@ -22,7 +22,12 @@ class ApprovalsDashboardWidget(DashboardWidget):
     url_name = "approvals/requests-list"
 
     def get_data(self, model_class: Any = None) -> dict[str, Any]:
-        pending = ApprovalRequest.objects.filter(status=ApprovalRequest.Status.PENDING)
+        # `actionable()` — pending minus overdue — is the same definition the
+        # queue and its stat card use. Counting raw `status="pending"` made the
+        # widget disagree with the page it links to until someone loaded that
+        # page and the lazy sweep fired (F-19). Deliberately NOT mark_expired():
+        # the dashboard must not pay the fan-out cost (F-12).
+        pending = ApprovalRequest.objects.actionable()
         count = pending.count()
         if not count:
             return {"headline": "0 pending", "detail": "All decided", "status": "ok"}

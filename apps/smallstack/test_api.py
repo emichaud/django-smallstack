@@ -2374,6 +2374,39 @@ class TestTokenErrorMessages:
         msg = response.json()["errors"]["__all__"][0]
         assert msg == "Token revoked"
 
+    def test_deactivating_the_account_invalidates_its_tokens(self, client, auth_user):
+        """F-10 (security). ``is_active=False`` is the standard offboarding
+        action. It used to revoke web login and NOTHING else: an already-minted,
+        un-revoked bearer token kept full authority under the offboarded user's
+        name. Interactive login already refused the account — the token path
+        just never asked.
+        """
+        from apps.smallstack.models import APIToken
+
+        token, raw = APIToken.create_token(
+            user=auth_user, name="offboarded", access_level="auth"
+        )
+        assert client.get(
+            "/api/auth/me/", HTTP_AUTHORIZATION=f"Bearer {raw}"
+        ).status_code == 200  # negative control: valid before offboarding
+
+        auth_user.is_active = False
+        auth_user.save()
+
+        response = client.get("/api/auth/me/", HTTP_AUTHORIZATION=f"Bearer {raw}")
+        assert response.status_code == 401
+        assert response.json()["errors"]["__all__"][0] == "Account is deactivated"
+        # The token itself is untouched — the ACCOUNT is what became unusable.
+        token.refresh_from_db()
+        assert token.is_active is True
+        assert token.is_valid() is True
+        assert token.rejection_reason() == APIToken.REJECT_USER_INACTIVE
+        # And the low-level authenticator refuses to hand back a user at all,
+        # which is what closes the hole on every other surface (MCP, feeds).
+        user, found = APIToken.authenticate(raw)
+        assert user is None
+        assert found is not None
+
 
 # ---------------------------------------------------------------------------
 # Validation: invalid filter values and ordering fields return HTTP 400
@@ -2546,3 +2579,16 @@ class TestReadOnlyTokenOnCustomEndpoints:
 
         assert response.status_code == 200
         assert state["written"] is True
+
+
+def test_token_prefix_is_never_argparse_hostile():
+    """A prefix starting with '-' is read as an option flag by every CLI command
+    that takes one (`sc token revoke <prefix>`), so ~1.4% of real tokens were
+    unrevokable from the CLI — and the CLI's own suite was flaky at that rate.
+    Found while fixing the 2026-09-25 approvals round."""
+    from apps.smallstack.models import APIToken
+
+    for _ in range(500):
+        _raw, prefix, _hashed = APIToken._generate_raw_key()
+        assert not prefix.startswith("-"), prefix
+        assert len(prefix) == APIToken.PREFIX_LENGTH

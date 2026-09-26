@@ -63,7 +63,9 @@ One rule set, enforced identically on every surface:
 - Naming **assignees** on a request narrows deciding to them — staff can still step in unless you turn off `SMALLSTACK_APPROVALS_STAFF_OVERRIDE`.
 - A kind's `can_decide` hook can narrow further ("only the finance team") but can never widen past those gates.
 
-Assignees don't need to be staff. They decide from the emailed console link, or wherever you drop the embeddable card in your own pages:
+Assignees don't need to be staff, and **deactivating an account removes its approval authority immediately** — on the web, over REST, and over MCP, even if it still holds a valid API token.
+
+Non-staff participants aren't second-class here: the console is login-gated and scoped by eligibility, so a requester or assignee opens the very link the email and the bell row give them, and sees only their own rows. You can also point a kind's humans at your own page with `landing_url=`, or drop the embeddable card straight into it:
 
 ```django
 {% load approvals_tags %}
@@ -72,11 +74,15 @@ Assignees don't need to be staff. They decide from the emailed console link, or 
 
 ## How everyone finds out
 
-A new request notifies its eligible deciders; a decision notifies the requester — via the in-app bell ([Notifications](notifications)), branded email, an `approval_decided` signal, and an outbound webhook (`smallstack_approvals.approvalrequest.updated`, with the new status in `data.status`). Remote systems can subscribe to that event or just poll the REST detail until `status != "pending"`.
+A new request notifies its eligible deciders; a decision notifies the requester and the approvers (and retires their now-stale "Approval needed" bell, so the badge keeps meaning "work to do"). The two channels differ by exactly one person, deliberately: the **bell skips whoever acted** — you don't need telling what you just did — while the **email includes the decider**, because it is the record of the decision rather than a to-do — via the in-app bell ([Notifications](/smallstack/help/smallstack/notifications/)), branded email, an `approval_decided` signal, and an outbound webhook (`smallstack_approvals.approvalrequest.updated`, with the new status in `data.status`). Remote systems can subscribe to that event or just poll the REST detail until `status != "pending"`.
+
+One operational caveat worth knowing before you demo it: email is **queued** on the `email` task queue, so a deployment with no `db_worker` sends nothing. That's on purpose (a decision shouldn't wait on SMTP) and it's visible — the Approvals status monitor goes down when mail piles up unsent. In `DEBUG` the mail is sent in-process instead, so local runs just work.
 
 ## Expiry
 
-Requests can carry a TTL (per request, per kind, or the global `SMALLSTACK_APPROVALS_DEFAULT_EXPIRES_MINUTES`). Overdue requests expire lazily whenever they're touched — plus a background sweep every 5 minutes — and expiry runs the kind callback like any other outcome.
+Requests can carry a TTL (per request, per kind, or the global `SMALLSTACK_APPROVALS_DEFAULT_EXPIRES_MINUTES`). Overdue requests expire lazily whenever they're touched — plus a background sweep every 5 minutes — and expiry runs the kind callback like any other outcome, recorded in the audit trail under the reserved system account since no human caused it.
+
+Lazy expiry is capped per page-load, because expiring a request runs its whole fan-out. A large backlog is drained by the sweep, not by whoever happened to open the queue first.
 
 ## Customizing the UI
 
@@ -85,7 +91,7 @@ Requests can carry a TTL (per request, per kind, or the global `SMALLSTACK_APPRO
 
 ## Related
 
-- [Notifications](notifications) — the in-app bell + inbox channel approvals fan out to
-- [Webhooks](webhooks) — the `.updated` event decisions ride on
-- [Background Tasks](background-tasks) — the queue behind email fan-out and the expiry sweep
-- [MCP](mcp) — how agents reach `request_approval` / `decide_approval`
+- [Notifications](/smallstack/help/smallstack/notifications/) — the in-app bell + inbox channel approvals fan out to
+- [Webhooks](/smallstack/help/smallstack/webhooks/) — the `.updated` event decisions ride on
+- [Background Tasks](/smallstack/help/smallstack/background-tasks/) — the queue behind email fan-out and the expiry sweep
+- [MCP](/smallstack/help/smallstack/mcp/) — how agents reach `request_approval` / `decide_approval`

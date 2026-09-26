@@ -327,10 +327,25 @@ Classmethod hooks for injecting custom logic without `_make_view`:
 
 | Hook | Purpose |
 |------|---------|
-| `get_list_queryset(qs, request)` | Filter/annotate the list queryset (used by API layer) |
-| `on_form_valid(request, form, obj, is_create)` | Callback after successful create/update |
+| `get_list_queryset(qs, request)` | Filter/annotate the list queryset — the read scoper |
+| `get_detail_queryset(qs, request)` | Scope a SINGLE-object fetch; defaults to `get_list_queryset` |
+| `on_form_valid(request, form, obj, is_create)` | Callback after successful create/update — **every** transport |
 | `can_update(obj, request)` | Per-object update permission check |
 | `can_delete(obj, request)` | Per-object delete permission check |
+
+`get_list_queryset` is the one read scoper: the HTML list, the REST list, the
+`list_*` MCP tool and the list accessories all route through it. Single-object
+fetches (detail, edit, delete, related tabs, field preview, bulk actions, REST
+detail, `get_*`/`update_*`/`delete_*` MCP tools) go through
+`get_detail_queryset`, which **defaults to `get_list_queryset`** — so a row
+hidden from the list is not silently readable, or editable, at its own URL.
+Override `get_detail_queryset` only when the list hook does list-specific work
+you don't want on a detail load (e.g. approvals' lazy expiry sweep); keep the
+*scoping* identical, or you have reopened the hole.
+
+`on_form_valid` fires from the HTML create/update views **and** REST, MCP and
+bulk update. (Before v0.20.2 the web path skipped it, so a hook used to stamp an
+owner or file an approval had a data-integrity hole reachable from the UI.)
 
 ## API Endpoints
 

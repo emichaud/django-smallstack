@@ -550,6 +550,19 @@ def pair_smallstack(
         f" --events '{_json.dumps(events)}'"
     )
 
+    # Pairing two instances on one box (localhost / 127.0.0.1) is the FIRST thing
+    # anyone tries, and the SSRF guard blocks it at send time with the failure
+    # buried in WebhookDelivery.error — so the demo silently delivered nothing.
+    # Surface it here, where the operator is looking. (F-06 layer 1.)
+    url_ok, url_reason = url_is_allowed(target_url)
+    warnings: list[str] = []
+    if not url_ok:
+        warnings.append(
+            f"Deliveries to {target_url} will be BLOCKED before they are sent: "
+            f"{url_reason}"
+        )
+        logger.warning("webhooks: paired endpoint target is blocked — %s", url_reason)
+
     return {
         "endpoint_id": endpoint.pk,
         "receiver_id": receiver.pk if receiver else None,
@@ -563,6 +576,7 @@ def pair_smallstack(
         "one_way": one_way,
         "endpoint_created": ep_created,
         "mirror_command": mirror_command,
+        "warnings": warnings,
     }
 
 

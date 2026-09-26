@@ -24,7 +24,16 @@ from django.contrib.contenttypes.models import ContentType
 logger = logging.getLogger(__name__)
 
 # Re-export for convenience
-__all__ = ["log_action", "log_write", "AuditMixin", "ADDITION", "CHANGE", "DELETION"]
+__all__ = [
+    "log_action",
+    "log_write",
+    "log_system_write",
+    "system_audit_user",
+    "AuditMixin",
+    "ADDITION",
+    "CHANGE",
+    "DELETION",
+]
 
 
 def log_action(user, obj, action_flag, message=""):
@@ -78,6 +87,59 @@ def log_write(user, obj, action_flag, source=""):
         return log_action(user, obj, action_flag, f"via {source}" if source else "")
     except Exception:
         logger.exception("Audit log_write failed for %r", obj)
+        return None
+
+
+def system_audit_user():
+    """The reserved account system-caused writes are attributed to.
+
+    ``LogEntry.user`` is a non-null FK, so a write that no human caused (an
+    expiry sweep, a scheduled job) had no way to leave a durable audit row at
+    all — the trail simply ended. This returns (creating on first use) a
+    deactivated, non-staff, password-less account named by
+    ``SMALLSTACK_AUDIT_SYSTEM_USERNAME``. It is deliberately ``is_active=False``:
+    nothing can authenticate as it on any surface (web login, API token, MCP),
+    so it is a label, not a credential.
+
+    Returns ``None`` — and the caller skips logging — when the setting is blank.
+    """
+    from django.conf import settings
+    from django.contrib.auth import get_user_model
+
+    username = getattr(settings, "SMALLSTACK_AUDIT_SYSTEM_USERNAME", "system")
+    if not username:
+        return None
+    User = get_user_model()
+    user = User.objects.filter(username=username).first()
+    if user is not None:
+        return user
+    user = User(username=username, is_active=False, is_staff=False, is_superuser=False)
+    user.set_unusable_password()
+    user.save()
+    return user
+
+
+def log_system_write(obj, action_flag, source=""):
+    """Audit a write no human caused (``actor is None``). NEVER raises.
+
+    ``log_write`` no-ops without an acting user, which silently dropped every
+    system transition — the expiry of an approval request being the case that
+    matters most, since "why was this never approved?" is exactly the question
+    an auditor asks. (F-15.)
+    """
+    try:
+        user = system_audit_user()
+        if user is None:
+            logger.info(
+                "Audit: system write on %r (%s) not recorded — "
+                "SMALLSTACK_AUDIT_SYSTEM_USERNAME is blank",
+                obj,
+                source,
+            )
+            return None
+        return log_action(user, obj, action_flag, f"via {source}" if source else "")
+    except Exception:
+        logger.exception("Audit log_system_write failed for %r", obj)
         return None
 
 

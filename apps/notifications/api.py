@@ -34,9 +34,40 @@ def _serialize(n: Notification) -> dict[str, Any]:
         "message": n.message,
         "url": n.url,
         "kind": n.kind,
+        "subject_key": n.subject_key,
         "actor": getattr(n.actor, "username", None),
         "read": n.is_read,
         "created_at": n.created_at.isoformat(),
+    }
+
+
+# Inline response schemas: Notification has no CRUDView, so there is no
+# auto-generated component to $ref. Declaring them anyway means a generated
+# client sees the shape instead of a bare 200. (F-16.)
+_NOTIFICATION_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "properties": {
+        "id": {"type": "integer"},
+        "title": {"type": "string"},
+        "message": {"type": "string"},
+        "url": {"type": "string", "description": "Internal path to open."},
+        "kind": {"type": "string", "description": 'Producer key, e.g. "approvals.requested".'},
+        "subject_key": {
+            "type": "string",
+            "description": 'What the row is about, e.g. "approvals.request:42".',
+        },
+        # OpenAPI 3.0.3 spells nullability with `nullable`, not a type array.
+        "actor": {"type": "string", "nullable": True},
+        "read": {"type": "boolean"},
+        "created_at": {"type": "string", "format": "date-time"},
+    },
+}
+
+
+def _err_response(description: str) -> dict[str, Any]:
+    return {
+        "description": description,
+        "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}},
     }
 
 
@@ -88,6 +119,21 @@ register_api_path(
          "description": "Only unread rows."},
         {"name": "limit", "in": "query", "schema": {"type": "integer", "default": 50, "maximum": MAX_LIMIT}},
     ],
+    responses={
+        "200": {
+            "description": "The caller's rows, newest first",
+            "content": {"application/json": {"schema": {
+                "type": "object",
+                "properties": {
+                    "count": {"type": "integer"},
+                    "unread_total": {"type": "integer"},
+                    "notifications": {"type": "array", "items": _NOTIFICATION_SCHEMA},
+                },
+            }}},
+        },
+        "400": _err_response("limit is not an integer"),
+        "401": _err_response("Authentication required"),
+    },
 )
 register_api_path(
     "notifications:api_list",
@@ -106,5 +152,20 @@ register_api_path(
                 "all": {"type": "boolean"},
             },
         }}},
+    },
+    responses={
+        "200": {
+            "description": "Rows marked read",
+            "content": {"application/json": {"schema": {
+                "type": "object",
+                "properties": {
+                    "marked": {"type": "integer"},
+                    "unread_total": {"type": "integer"},
+                },
+            }}},
+        },
+        "400": _err_response('Neither {"ids": [...]} nor {"all": true}'),
+        "401": _err_response("Authentication required"),
+        "403": _err_response("Read-only token"),
     },
 )

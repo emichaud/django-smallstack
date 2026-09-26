@@ -12,6 +12,7 @@ from datetime import timedelta
 from typing import Any
 
 from django.contrib import messages
+from django.contrib.auth.mixins import LoginRequiredMixin
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404, redirect
 from django.utils import timezone
@@ -20,9 +21,8 @@ from django.views.decorators.http import require_POST
 
 from apps.smallstack.crud import Action, CRUDView
 from apps.smallstack.displays import StatsAccessory
-from apps.smallstack.mixins import StaffRequiredMixin
 
-from . import services
+from . import permissions, services
 from .models import ApprovalRequest
 from .registry import get_kind
 
@@ -38,8 +38,16 @@ _STATUS_COLORS = {
 def _status_badge(value: Any, obj: ApprovalRequest) -> Any:
     from django.utils.html import format_html
 
-    color = _STATUS_COLORS.get(obj.status, "var(--body-quiet-color)")
-    return format_html('<span style="color: {}; font-weight: 600;">{}</span>', color, value)
+    # Effective, not stored: an overdue row's column still reads "pending" until
+    # a sweep flips it, and a queue badge saying "Pending" on a row nobody can
+    # decide is the row-level half of F-29.
+    status = obj.effective_status
+    color = _STATUS_COLORS.get(status, "var(--body-quiet-color)")
+    return format_html(
+        '<span style="color: {}; font-weight: 600;">{}</span>',
+        color,
+        obj.effective_status_display,
+    )
 
 
 def _kind_label(value: Any, obj: ApprovalRequest) -> Any:
@@ -56,11 +64,20 @@ def _compact_dt(value: Any, obj: Any) -> Any:
 
 
 class ApprovalRequestCRUDView(CRUDView):
-    """The approval queue + decision console host (staff pages).
+    """The approval queue + decision console host.
 
-    Non-staff assignees don't browse here — they decide via the
-    {% approval_card %} embed or an emailed console link (the decide POST
-    endpoint itself is eligibility-gated, not staff-gated).
+    **Login-gated, not staff-gated, and scoped by eligibility.** Every channel
+    approvals owns hands a participant the same console URL — the "Approval
+    needed" email, its bell row, the decision email and its bell row — and
+    assignees may be non-staff by design. A staff-only console made all four of
+    those links a 403 for exactly the people they were sent to (F-01), and made
+    the REST/MCP surface write-without-read: a non-staff assignee could POST a
+    decision but not GET the row (F-02).
+
+    ``permissions.viewable_requests`` (existence-hiding: staff see everything,
+    everyone else sees only rows they requested or are assigned) is applied in
+    ``get_list_queryset``, which the HTML list, the REST list *and detail*, and
+    the MCP list/get tools all route through — so one scoper governs every read.
     """
 
     model = ApprovalRequest
@@ -91,7 +108,7 @@ class ApprovalRequestCRUDView(CRUDView):
     column_widths = {"title": "30%", "kind": "16%", "status": "11%"}
     url_base = "approvals/requests"
     paginate_by = 25
-    mixins = [StaffRequiredMixin]
+    mixins = [LoginRequiredMixin]
     actions = [Action.LIST, Action.DETAIL]
     filter_fields = ["status", "kind"]
     search_fields = ["title", "description", "kind"]
@@ -99,6 +116,22 @@ class ApprovalRequestCRUDView(CRUDView):
     enable_search = True
     search_display = "title"
     search_subtitle = "kind"
+    # Search is the SIXTH read surface, and it was the one the eligibility scoper
+    # never reached: `search_access` defaults to STAFF, so a non-staff assignee
+    # standing on her own queue could open a request and decide it while global
+    # search pretended it did not exist. Search is how a user with one bell row
+    # and no sidebar entry actually finds anything. "One scoper governs every
+    # read" has to be true of all six. (F-43.)
+    search_access = "authenticated"
+
+    @staticmethod
+    def search_visibility(qs: Any, user: Any) -> Any:
+        """The same eligibility scoper every other read surface uses.
+
+        Staff and trusted-internal callers bypass this in the search engine, which
+        matches ``permissions.viewable_requests``' own staff branch.
+        """
+        return permissions.viewable_requests(user, qs)
 
     enable_api = True
     api_extra_fields = [
@@ -130,7 +163,15 @@ class ApprovalRequestCRUDView(CRUDView):
             stats=[
                 {
                     "label": "Pending",
-                    "value": lambda qs: qs.filter(status="pending").count(),
+                    # The SAME expression the ?status=pending filter uses, by
+                    # construction — see ApprovalRequestQuerySet.
+                    # for_effective_status. Not `status="pending"`: overdue rows
+                    # are still stored as pending until a sweep flips them, so
+                    # this card must agree with the dashboard widget (F-19) AND
+                    # with the list beside it (F-29).
+                    "value": lambda qs: qs.for_effective_status(
+                        ApprovalRequest.Status.PENDING
+                    ).count(),
                     "color": "var(--warning-fg)",
                 },
                 {
@@ -162,9 +203,54 @@ class ApprovalRequestCRUDView(CRUDView):
         return False
 
     @classmethod
+    def apply_filter(cls, qs: Any, field_name: str, value: str, request: HttpRequest) -> Any:
+        """``?status=`` selects the *effective* status, not the stored column.
+
+        Expiry is lazy (§6), so an overdue row's ``status`` column still reads
+        ``pending`` until a sweep flips it. With the stored column driving the
+        filter, ``?status=pending`` listed 905 rows on a page whose own "Pending"
+        stat card — correctly counting ``actionable()`` — said 5, and the filter
+        was unusable as the "what needs a human" API it is documented to be.
+        (F-29; the disagreement F-19 fixed between widget and card had simply
+        moved one element to the right.)
+
+        The card and this filter now evaluate the **same** two expressions:
+
+        * ``?status=pending``  → ``actionable()``  (pending minus overdue)
+        * ``?status=expired``  → stored ``expired`` **plus** ``overdue()``
+
+        Everything else falls through to the generic exact-match handling. The
+        stored column is left alone: flipping it here would be a write on a GET,
+        and the sweep still owns the per-row fan-out.
+        """
+        if field_name != "status":
+            return NotImplemented
+        return qs.for_effective_status(value)
+
+    @classmethod
     def get_list_queryset(cls, qs: Any, request: HttpRequest) -> Any:
-        # Lazy expiry keeps the queue truthful even without the sweep worker.
-        services.mark_expired(qs)
+        qs = permissions.viewable_requests(getattr(request, "user", None), qs)
+        # Lazy expiry keeps the queue truthful even without the sweep worker —
+        # BOUNDED, because the fan-out per row is expensive and an unbounded
+        # backlog turned this page into a gateway timeout (F-12). The scheduled
+        # sweep drains the rest and logs a warning when it is behind.
+        #
+        # Once per request: a single page render calls this hook several times
+        # (the rows, the stat-card accessory, pagination), which multiplied the
+        # bounded cost right back up.
+        if not getattr(request, "_approvals_lazy_expired", False):
+            try:
+                request._approvals_lazy_expired = True  # type: ignore[attr-defined]
+            except AttributeError:  # pragma: no cover — exotic request stand-ins
+                pass
+            services.mark_expired(qs, limit=services.lazy_expire_limit())
+        return qs.select_related("requested_by", "decided_by")
+
+    @classmethod
+    def get_detail_queryset(cls, qs: Any, request: HttpRequest) -> Any:
+        # Same scoping, no sweep: a detail load must not pay for the whole
+        # queue's expiry (decide() expires the single row it touches anyway).
+        qs = permissions.viewable_requests(getattr(request, "user", None), qs)
         return qs.select_related("requested_by", "decided_by")
 
 

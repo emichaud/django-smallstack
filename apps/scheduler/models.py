@@ -95,6 +95,17 @@ class ScheduledJob(models.Model):
     # An operator changed the cadence in the UI. Code sync keeps their value
     # instead of reverting to the @scheduled default (task/kwargs still sync).
     schedule_overridden = models.BooleanField(default=False)
+    # Set when sync_code_jobs() disabled this row because its @scheduled spec
+    # disappeared — a feature flag turned off, or the code was removed. It is what
+    # makes the retirement REVERSIBLE: when the spec comes back, a row carrying
+    # this marker is re-enabled, while a row an operator disabled by hand stays
+    # off. Without it, `SMALLSTACK_APPROVALS_SWEEP_ENABLED=False` then `=True`
+    # left the sweep dead forever, with no log line and no UI hint. (F-30.)
+    auto_retired = models.BooleanField(
+        default=False,
+        help_text="Disabled automatically because no code spec declared it. "
+        "Re-enabled automatically if the spec returns.",
+    )
 
     # Bookkeeping maintained by the tick.
     next_run_at = models.DateTimeField(null=True, blank=True, db_index=True)

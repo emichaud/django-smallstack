@@ -38,8 +38,14 @@ def _file(actor, **kwargs):
 
 
 def test_tools_registered_with_the_right_gating():
-    """request_approval: write, ANY token tier (readonly refused structurally
-    by write=True). decide_approval: staff tier + staff-only visibility."""
+    """Both tools are write-gated and open to ANY token tier; ELIGIBILITY — not
+    the tier — decides who may actually act.
+
+    decide_approval used to be additionally staff-tier with staff-only
+    visibility, which made MCP the one surface where a non-staff assignee could
+    not do what the documented model says they can, and where a real staff user's
+    own /api/auth/token/ login token was refused outright. (F-02, F-14.)
+    """
     import apps.approvals.mcp_tools  # noqa: F401  (registers on import)
     from apps.mcp.server import TOOL_REGISTRY
 
@@ -49,13 +55,20 @@ def test_tools_registered_with_the_right_gating():
 
     dec_tool = TOOL_REGISTRY["decide_approval"]
     assert dec_tool.write is True
-    assert dec_tool.requires_access == "staff"
-    assert dec_tool.visible_to is not None
-    # a non-staff user never sees the decide tool in tools/list
-    class _Plain:
-        is_staff = False
+    assert dec_tool.requires_access is None
+    assert dec_tool.visible_to is None  # discoverable, then eligibility-gated
 
-    assert dec_tool.visible_to(_Plain()) is False
+
+def test_read_tools_are_visible_to_a_non_staff_agent():
+    """F-02: the polling tool request_approval's description names must be in
+    tools/list for the identity that filed the request, or the HITL loop that
+    the docs advertise cannot close."""
+    from apps.mcp.server import TOOL_REGISTRY
+
+    for name in ("get_approval", "list_approvals"):
+        spec = TOOL_REGISTRY[name]
+        assert spec.requires_access is None, name
+        assert spec.visible_to is None, name
 
 
 def test_factory_tools_are_read_only():
@@ -92,8 +105,10 @@ def test_request_approval_files_and_serializes(requester, sample_kind):
 
 def test_request_approval_unknown_kind_returns_error(requester, sample_kind):
     result = run_tool("request_approval", {"kind": "tpyo.kind", "title": "x"}, user=requester)
-    assert "tpyo.kind" in result["error"]
-    assert "test.sample" in result["error"]  # the error teaches the fix
+    # Structured: `code` is branchable without parsing prose (F-20).
+    assert result["error"]["code"] == "unknown_kind"
+    assert "tpyo.kind" in result["error"]["message"]
+    assert "test.sample" in result["error"]["message"]  # the error teaches the fix
 
 
 # --- decide_approval --------------------------------------------------------
@@ -116,11 +131,11 @@ def test_decide_approval_conflict_and_ineligible(requester, staff, staff2, sampl
     req = _file(requester)
     services.approve(req, actor=staff2)
     result = run_tool("decide_approval", {"id": req.pk, "approved": False}, user=staff)
-    assert result["error"].startswith("conflict")
+    assert result["error"]["code"] == "conflict"
 
     own = _file(staff)  # self-approval blocked
     result = run_tool("decide_approval", {"id": own.pk, "approved": True}, user=staff)
-    assert "eligible" in result["error"]
+    assert result["error"]["code"] == "not_eligible"
 
 
 def test_decide_approval_hides_missing_rows(staff, sample_kind):

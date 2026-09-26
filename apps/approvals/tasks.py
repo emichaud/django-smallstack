@@ -31,7 +31,11 @@ def sweep_expired_approvals() -> int:
 try:
     from apps.scheduler import scheduled
 
-    if getattr(settings, "SMALLSTACK_APPROVALS_SWEEP_ENABLED", True):
+    # ANDed with the master switch: a disabled app must not keep a scheduled job
+    # expiring rows behind an operator's back. (F-11.)
+    if getattr(settings, "SMALLSTACK_APPROVALS_ENABLED", True) and getattr(
+        settings, "SMALLSTACK_APPROVALS_SWEEP_ENABLED", True
+    ):
         sweep_expired_approvals = scheduled(
             every="5m", name="Approvals: expire overdue requests"
         )(sweep_expired_approvals)

@@ -109,6 +109,41 @@ class TokenCRUDView(CRUDView):
         return super()._get_template_names(suffix)
 
     @classmethod
+    def get_detail_queryset(cls, qs, request):
+        """Unscoped on purpose — ownership is enforced by ``check_object_permission``.
+
+        The base defaults ``get_detail_queryset`` to ``get_list_queryset`` so a
+        row hidden from the list isn't readable at its own URL. Inheriting it here
+        would 404 your *own* revoked tokens, because ``get_list_queryset`` applies
+        a list-only ``is_active=True`` default. So this view opts out of the
+        queryset scoper and expresses ownership as authorization instead:
+        :meth:`check_object_permission`, which the base applies to **every**
+        single-object surface. tokenmgr deliberately tells a signed-in user "not
+        yours" rather than "doesn't exist" — the pk space is small and sequential,
+        so existence is not a secret worth hiding, while a clear 403 is a better
+        answer.
+
+        Historical note (F-27): this docstring used to claim "the ownership check
+        already lives in ``get_object``". It lived in the ``get_object`` of one of
+        the *five* generated single-object bases, so
+        ``/smallstack/tokens/<pk>/related/request_logs/`` returned **200** with
+        another user's token activity while the detail page beside it returned
+        403. Any view that opts out of the read scoper needs a hook that covers
+        all five; per-base ``get_object`` injection is not that hook.
+        """
+        return qs.select_related("user")
+
+    @classmethod
+    def check_object_permission(cls, obj, request):
+        """A token is readable, editable and deletable by its owner, or by staff.
+
+        Applied by the base to detail, edit, delete, field preview, related tabs,
+        the REST detail/update/delete handlers and the generated MCP tools.
+        """
+        if not is_owner_or_staff(getattr(request, "user", None), obj):
+            raise PermissionDenied
+
+    @classmethod
     def get_list_queryset(cls, qs, request):
         """Filter to the requester's tokens when they're not staff.
 
@@ -165,15 +200,11 @@ class TokenCRUDView(CRUDView):
 
         elif base_class is _CRUDDetailBase:
             original_get_context = view_class.get_context_data
-            original_get_object = view_class.get_object
 
-            def get_object(self, *args, **kwargs):
-                obj = original_get_object(self, *args, **kwargs)
-                # Even though get_list_queryset scopes the list, the detail
-                # url accepts a direct pk — re-enforce ownership here.
-                if not is_owner_or_staff(self.request.user, obj):
-                    raise PermissionDenied
-                return obj
+            # Ownership is NOT re-enforced here any more — it lives in
+            # check_object_permission, which the base applies to all five
+            # single-object bases. Injecting it on this one base is what left
+            # the related-tab route open (F-27).
 
             def get_context_data(self, **kwargs):
                 context = original_get_context(self, **kwargs)
@@ -181,7 +212,6 @@ class TokenCRUDView(CRUDView):
                 context["selected_hours"] = 24
                 return context
 
-            view_class.get_object = get_object
             view_class.get_context_data = get_context_data
 
         return view_class
