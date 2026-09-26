@@ -32,18 +32,29 @@ entries from it: the webhook tick (`POST /webhooks/tick/`), `run_retention`, and
 
 ## Unreleased — approvals/notifications review (2026-09-25 → 09-26)
 
-Mostly tightening, but **four changes are visible to an operator on the upgrade itself** —
-two of them fire during `migrate`. Read those four before you deploy; the rest of the table
-is symptom-driven.
+Mostly tightening, but **five changes are visible to an operator on the upgrade itself**.
+Read those five before you deploy; the rest of the table is symptom-driven.
 
-Run `make migrate`. Two new migrations: `scheduler.0003_scheduledjob_auto_retired` (schema)
-and `smallstack_notifications.0003_backfill_approvals_subject_key` (**data** — see hazard 4).
+Run `make migrate`. **Four** new migrations:
+`smallstack_notifications.0002_notification_subject_key_and_more` (schema),
+`smallstack_notifications.0003_backfill_approvals_subject_key` (**data** — see hazard 4),
+`scheduler.0003_scheduledjob_auto_retired` (schema), and
+`webhooks.0004_alter_webhookreceiver_signature_header` (schema — see hazard 5).
 
-### The four upgrade hazards
+### The five upgrade hazards
 
-**1. `migrate` may disable a scheduled job.** `sync_code_jobs()` now reconciles in both
-directions: a `source=CODE` job whose `@scheduled` spec is no longer registered is
-**disabled** (not deleted — run history stays readable). You will see a log line like:
+**1. A scheduled job may be disabled — on `migrate` *or* on any scheduler tick.**
+`sync_code_jobs()` now reconciles in both directions: a `source=CODE` job whose
+`@scheduled` spec is no longer registered is **disabled** (not deleted — run history stays
+readable).
+
+> **Where to look.** `sync_code_jobs()` does not run only during `migrate`. It also runs on
+> the first scheduler tick of every process (`apps/scheduler/services.py`) and from the
+> scheduler admin view — and the tick is the case that matters more, because a *worker* with
+> a partially-failed import is exactly where the safety valves below earn their keep. If a
+> job goes quiet, grep the **worker/tick** logs as well as the deploy log.
+
+You will see a log line like:
 
 ```
 scheduler: disabled 'Approvals: expire overdue requests' — no @scheduled spec declares it
@@ -68,11 +79,16 @@ the sync **refuses** and logs `scheduler: refusing to retire N code job(s) …` 
 `@webhook_verifier` receives is now `apps.webhooks.hooks.CaseInsensitiveDict` — a real,
 **mutable** `dict` subclass whose lookups ignore header-name casing.
 
-*If you are upgrading from the previous unreleased state:* an interim change passed Django's
-immutable `CaseInsensitiveMapping`, so any verifier that mutated its headers (the ordinary
-`headers.pop("X-Smallstack-Signature", "")`) raised inside the verifier, was swallowed, and
-returned a bare `401 invalid signature` **on a correct credential**. If you worked around that
-by rewriting your verifier not to mutate, the workaround is now unnecessary but harmless.
+All the ordinary `dict` mutations work and stay case-insensitive: `headers["x-foo"] = …`,
+`headers.update({"x-foo": …})`, `setdefault`, `pop`, `del`. A differently-cased key replaces
+the existing entry rather than shadowing it, and the original wire spelling is preserved.
+
+*If — and only if — you pulled the intermediate working tree between these two fixes:* that
+state passed Django's immutable `CaseInsensitiveMapping`, so a verifier doing the ordinary
+`headers.pop("X-Smallstack-Signature", "")` raised inside the verifier, was swallowed, and
+returned a bare `401 invalid signature` **on a correct credential**. It was never released, so
+anyone upgrading from a tagged version never saw it; if you worked around it by rewriting your
+verifier not to mutate, that workaround is now unnecessary but harmless.
 
 *In all cases:* a verifier that raises still fails **closed**, but is now logged with a
 traceback (`webhooks: verifier 'x' raised for receiver 'y' — treating the delivery as
@@ -80,9 +96,9 @@ UNVERIFIED`). If you were relying on that silence, expect ERROR lines — they a
 a verifier is broken.
 
 **3. API-token prefixes no longer start with `-`.** `_generate_raw_key()` re-rolls on a
-leading dash (no entropy cost), because ~1.4 % of prefixes were being read by argparse as an
-option flag: `sc token revoke -AbC1234` → `error: the following arguments are required:
-prefix`.
+leading dash (no entropy cost), because ≈1.6 % of prefixes — 1 in 64, the base64url alphabet —
+were being read by argparse as an option flag: `sc token revoke -AbC1234` →
+`error: the following arguments are required: prefix`.
 
 *What to do:* nothing for new tokens. **Existing tokens are not rewritten** — a `prefix` is
 derived from a raw key nobody stores, so it cannot be re-rolled after the fact. If you hold a
@@ -99,8 +115,14 @@ Check your exposure with
 **4. The notification backfill changes your unread badge count.**
 `smallstack_notifications.0003` is a **data** migration. It backfills `subject_key` on
 `approvals.*` notifications created before `0002` (deriving the request pk from the row's
-`url`), then **marks read** any backfilled "Approval needed" bell whose request has already
+`url`), then **marks read** every unread "Approval needed" bell whose request has already
 reached a terminal state.
+
+> Read that scope precisely: pass 2 filters on the *requests* pass 1 touched, not on the
+> individual rows it rewrote. So an unread bell created **after** `0002` — a second approver on
+> one of those same decided requests — is marked read as well. That is the intended outcome (a
+> decided request's bell is stale whenever it was written), but it is wider than "only rows the
+> backfill rewrote".
 
 *Why:* `resolve()` addresses rows *by* `subject_key`, so before this the stale-bell retirement
 could only ever reach requests filed **after** the upgrade. On the reference install that left
@@ -113,10 +135,31 @@ deleted; only `subject_key` and `read_at` are written, and only on
 requests are left unread. The migration is idempotent, so it is safe to re-run as a one-off.
 If you need the old unread state for an audit, snapshot the table before migrating.
 
+**5. New webhook receivers expect a different signature header.**
+`WebhookReceiver.signature_header` now defaults to **`X-SmallStack-Signature`** (was
+`X-Signature`), via `webhooks.0004`. The old default never matched what SmallStack's own
+outbound side signs, so a SmallStack↔SmallStack pairing rejected every delivery.
+
+*What the migration does:* changes the **field default only**. Every existing receiver keeps
+its stored value, so nothing you have configured changes behaviour.
+
+*What to watch:* receivers created **after** the upgrade get the new spelling. If a
+third-party sender signs `X-Signature`, set that receiver's `signature_header` explicitly
+(staff UI, or `sc set webhookreceiver <pk> signature_header=X-Signature`). Check with
+`WebhookReceiver.objects.values_list("name", "signature_header")`.
+
 ### Everything else — symptom-driven
 
 | Symptom after pulling | Cause | What to do |
 |---|---|---|
+| **An API token stops working the moment you deactivate its user** | `APIToken` now refuses a token whose user is `is_active=False`, on every surface (REST, MCP, feeds, OAuth), and approvals eligibility requires an active user too. Previously an offboarded account's un-revoked token kept reading the queue and **approving/rejecting**, recorded under their name | Nothing — this is the fix, and deactivating a user is now sufficient to cut their access. If you deactivate accounts as a *temporary* state and relied on their automation continuing, mint the token under a service account instead. |
+| `NoReverseMatch` for `notifications:inbox` / an approvals URL after setting a master switch off | `SMALLSTACK_APPROVALS_ENABLED=False` / `SMALLSTACK_NOTIFICATIONS_ENABLED=False` now **un-mount** the app's URLs (the `SMALLSTACK_MCP_ENABLED` precedent), instead of leaving every endpoint live — including the decide POST — while killing only the fan-out | Guard your own `reverse()`/`{% url %}` references with the same switch. SmallStack's own templates and nav already are. |
+| An unfamiliar inactive user named `system` appears in the user list | System-initiated audit entries (expiry sweep, scheduler retirement) need an author. The first such write creates one `is_active=False`, non-staff account named by `SMALLSTACK_AUDIT_SYSTEM_USERNAME` (default `system`) | Nothing. It cannot log in. Rename it with that setting before first use if `system` collides with a real account in your directory. |
+| Filing an approval returns **429** `too_many_pending` | New `SMALLSTACK_APPROVALS_MAX_PENDING_PER_REQUESTER` (default 50) caps one requester's open requests **per kind**, so an agent in a retry loop can't fill the queue | Raise the setting, or have the client decide/cancel its open requests. `0` disables the cap. |
+| No approval emails arrive in production, and the Approvals monitor is down | `SMALLSTACK_APPROVALS_EMAILS_INLINE` defaults to `DEBUG`, so **production requires a `db_worker` draining the `email` queue**. The previous "inline fallback" never actually fired: with the shipped `DatabaseBackend`, `enqueue()` does not raise, so mail queued silently and forever | Run a worker on the `email` queue, or set `SMALLSTACK_APPROVALS_EMAILS_INLINE=true` to send in-request (simple installs), or `SMALLSTACK_APPROVALS_EMAILS_ENABLED=False` if you don't use email. `SMALLSTACK_APPROVALS_EMAIL_BACKLOG_MINUTES` (15) tunes when the monitor complains. |
+| A queue page load expires fewer overdue rows than you expected | Lazy expiry is now capped at `SMALLSTACK_APPROVALS_LAZY_EXPIRE_LIMIT` (25) per request, oldest first, and runs once per request rather than three times per page. One GET with 200 overdue rows previously ran 4,017 queries and fired 200 notifications plus 200 webhook deliveries synchronously | Nothing — the 5-minute sweep drains the rest. Raise the cap if you have no worker and want the page to do more of the work. |
+| An MCP client's error handling stopped matching | Generated tool refusals now return `{"error": {"code", "message"}}` — `invalid_argument`, `not_found`, `not_permitted`, `validation_error`, `unsupported` — instead of a bare sentence, and a rejected create now sets the protocol `isError` flag (it previously returned `{"errors": …}` and read as success) | Branch on `error.code` instead of matching prose. Field-level detail moved to `error.fields`. |
+| A fork that pins its own `MIDDLEWARE` loses notification read-on-arrival | New `apps.notifications.middleware.NotificationReadOnArrivalMiddleware` marks a row read only on a 2xx arrival, so a dead-end click can't silently eat the badge | Add the entry to your `MIDDLEWARE`. |
 | A CRUDView's related-tab or field-preview route now returns 403/404 where it returned 200 | New `CRUDView.check_object_permission(obj, request)` is applied by the base to **all five** single-object surfaces (detail, edit, delete, field preview, related tab) plus REST detail/update/delete, the HTML and REST bulk actions, and the generated MCP tools | Nothing, if the row really shouldn't be reachable by that user — this closed a live cross-user leak. If you enforced ownership by overriding one generated base's `get_object`, move that check into `check_object_permission` so it covers all five. |
 | `?status=pending` on the approvals queue returns fewer rows than before | The filter now selects the **effective** status (`actionable()` — pending minus overdue) so it agrees with the page's own "Pending" stat card, which was disagreeing by hundreds of rows | Nothing. Overdue-but-unswept rows are now found under `?status=expired`. |
 | Your own CRUDView wants a filter whose stored column isn't the value the page reasons about | New `CRUDView.apply_filter(qs, field_name, value, request)` hook, honoured by the HTML list, the REST list and the generated MCP `list_*` tool | Optional. Return a queryset to take over one `filter_fields` entry, or `NotImplemented` for the default. |

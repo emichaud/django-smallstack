@@ -173,6 +173,8 @@ def on_stripe(receipt):
 ```
 
 Raising inside a handler marks the receipt `failed` (recorded, not fatal).
+Receipts are pruned by `manage.py prune_webhook_receipts` after
+`SMALLSTACK_WEBHOOK_RECEIPT_RETENTION_DAYS` (default 30; `0` keeps them forever).
 
 **Loop-safe by default (F-020).** A handler runs inside `suppress_webhooks()` — a write it
 makes into an `enable_webhooks` model emits **no** outbound event, so a write-back can't

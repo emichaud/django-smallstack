@@ -156,3 +156,55 @@ def test_rendered_approvals_console_contains_no_template_tokens(client, hygiene_
         client.get(reverse("approvals/requests-detail", args=[req.pk])),
         "approvals console (pending, decidable)",
     )
+
+
+# --- F-56: release notes must not silently drift from the code --------------
+
+
+class TestReleaseNotesCoverSettings:
+    """Every SMALLSTACK_* setting is named in CHANGELOG.md or UPGRADING.md.
+
+    F-56 was ~10 behaviour-changing items missing from the release notes —
+    including five new settings, a new middleware, and the feature's own "Added"
+    entry. Prose can't be fully tested, but "a setting exists and no release note
+    ever mentions it" is mechanical, and it is the half that bit us: an operator
+    cannot tune or disable what is named nowhere.
+
+    "Findable" means named in the release notes **or** in any skill doc / in-app
+    help page — i.e. anywhere an operator actually looks. Add a genuinely internal
+    setting to ``_EXEMPT`` with a reason.
+    """
+
+    #: Settings deliberately absent from the release notes.
+    _EXEMPT: dict[str, str] = {}
+
+    def _setting_names(self) -> set[str]:
+        import re
+        from pathlib import Path
+
+        from django.conf import settings
+
+        src = (Path(settings.BASE_DIR) / "config" / "settings" / "smallstack.py").read_text()
+        # Assignments only — skip the config("...") string literal on the RHS.
+        return set(re.findall(r"^(SMALLSTACK_[A-Z0-9_]+)\s*=", src, re.M))
+
+    def test_every_smallstack_setting_is_mentioned_in_the_release_notes(self):
+        from pathlib import Path
+
+        from django.conf import settings
+
+        base = Path(settings.BASE_DIR)
+        sources = [base / "CHANGELOG.md", base / "UPGRADING.md"]
+        sources += sorted((base / "docs" / "skills").rglob("*.md"))
+        sources += sorted(base.glob("apps/*/docs/*.md"))
+        notes = "".join(p.read_text() for p in sources if p.exists())
+
+        missing = sorted(
+            name
+            for name in self._setting_names()
+            if name not in self._EXEMPT and name not in notes
+        )
+        assert not missing, (
+            "these settings are named in no release note and no settings doc — an "
+            "operator cannot find them:\n  " + "\n  ".join(missing)
+        )

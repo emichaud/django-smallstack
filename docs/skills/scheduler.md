@@ -101,6 +101,11 @@ running two on purpose only wastes work.
   every missed interval.
 - **Failure email**: set `SMALLSTACK_SCHEDULER_FAILURE_EMAILS` to notify on a
   failed run (reuses `send_email_task`).
+- **What the status monitor calls unhealthy**: a job counts as overdue once it is
+  `SMALLSTACK_SCHEDULER_OVERDUE_GRACE_SECONDS` (default 300) past due — the grace
+  absorbs normal tick jitter — and a job's failure rate is only judged once it has
+  `SMALLSTACK_SCHEDULER_FAILURE_MIN_SAMPLE` (default 5) recorded runs, so one
+  failure on a brand-new job doesn't turn the card red.
 - **Retries**: currently lean on `django.tasks`' own retry semantics. Per-schedule
   `max_retries` is a reserved field (not yet enforced).
 

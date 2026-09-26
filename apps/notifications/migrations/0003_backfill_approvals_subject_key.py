@@ -56,7 +56,14 @@ def backfill(apps, schema_editor):
         Notification.objects.bulk_update(to_update, ["subject_key"], batch_size=500)
 
     # Pass 2 — rows whose request is already finished were never going to become
-    # actionable again. Only touch rows this migration just addressed.
+    # actionable again, so retire them.
+    #
+    # Scope note: this filters on `subject_key__in=keys`, i.e. on the *subjects*
+    # pass 1 touched — not on the individual rows it rewrote. So an unread
+    # "Approval needed" bell created AFTER 0002 (a second recipient on the same
+    # terminal request) is marked read too. That is the intended outcome — the
+    # request is decided, so the bell is stale whenever it was written — but it
+    # is wider than "only the rows this migration addressed". (F-56)
     if not request_pks:
         return
     try:

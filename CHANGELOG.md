@@ -97,6 +97,110 @@ regression test that fails against the old code.
 - Dataset CSV export is capped by `SMALLSTACK_DATASET_CSV_MAX_ROWS` (50,000);
   over the cap is a 400 asking the caller to filter or page. (C9c)
 
+### Added — approvals + notifications
+
+The two primitives themselves, which had no changelog entry: ~19 *fixes* to them
+were documented below before this section said they existed. (F-56 #10)
+
+- **`apps/approvals` — a side-car human-in-the-loop approval gate.** An app (or
+  an AI agent) files an `ApprovalRequest`, a human decides it in the staff queue
+  and decision console at `/smallstack/approvals/requests/`, and the app reacts
+  through a per-kind callback. What "approved" *means* stays app-owned:
+  approvals never write your models. State machine
+  `pending → approved | rejected | canceled | expired`, every transition
+  race-safe (conditional UPDATE, single winner) and audited.
+  - `@approval_kind` registry, autodiscovered from `<app>/approvals.py`, with
+    `default_expires_in`, a `can_decide` eligibility hook that *narrows only*,
+    `assignable` allowlisting, `notify` extra recipients, and a context card
+    template per kind.
+  - One eligibility implementation (`permissions.can_decide`) shared by web,
+    REST and MCP: staff by default, self-approval blocked, assignees narrow.
+  - Surfaces: the console, `{% approval_card %}` for non-staff assignees,
+    `POST …/requests/create/` + `{id}/decide/` REST, `request_approval` /
+    `decide_approval` MCP tools, `approval_requested` / `approval_decided`
+    signals, `.created` / `.updated` webhooks carrying `data.status`, a
+    dashboard widget, and a 5-minute expiry sweep plus lazy expiry so
+    correctness never depends on the worker.
+- **`apps/notifications` — an in-app notification primitive.** A never-raising
+  `notify()` service, topbar bell with unread badge, a LoginRequired inbox at
+  `/smallstack/notifications/` (deliberately *not* staff-only), per-user REST
+  (`api/` + `api/mark-read/`), and a daily retention prune.
+- **New public notifications API** beyond `notify()`: `services.resolve(subject_key,
+  kind="")` retires every unread row about a subject, `notify(..., subject_key=…)`
+  tags a row with a producer-owned handle, and `Notification.subject_key` (indexed)
+  stores it. This is what lets a decision retire the other approvers' now-stale
+  "Approval needed" bells instead of leaving a badge that means nothing. (F-56 #3)
+- **New middleware** — `apps.notifications.middleware.NotificationReadOnArrivalMiddleware`
+  is added to `MIDDLEWARE` in `config/settings/base.py`. It marks a notification
+  read only on a 2xx arrival, so a click that dead-ends cannot silently consume
+  the badge. **A fork that pins its own `MIDDLEWARE` list must add this entry**
+  or it loses read-on-arrival. (F-56 #1)
+- **Nine settings**: `SMALLSTACK_APPROVALS_ENABLED`,
+  `SMALLSTACK_APPROVALS_ALLOW_SELF_APPROVE`, `SMALLSTACK_APPROVALS_STAFF_OVERRIDE`,
+  `SMALLSTACK_APPROVALS_DEFAULT_EXPIRES_MINUTES`, `SMALLSTACK_APPROVALS_EMAILS_ENABLED`,
+  `SMALLSTACK_APPROVALS_NOTIFY_EMAILS`, `SMALLSTACK_APPROVALS_SWEEP_ENABLED`,
+  `SMALLSTACK_NOTIFICATIONS_ENABLED`, `SMALLSTACK_NOTIFICATIONS_RETENTION_DAYS`
+  — plus the five added by the review, listed under Changed.
+
+### Changed — approvals/notifications review (2026-09-25)
+
+Behaviour changes an operator or a fork will notice. Recipes for the ones with a
+remedy are in [`UPGRADING.md`](UPGRADING.md).
+
+- **API tokens held by deactivated accounts stop working.** `APIToken` now
+  refuses a token whose user is `is_active=False` on *every* surface (REST, MCP,
+  feeds, OAuth), and approvals eligibility requires an active user too.
+  Previously an offboarded account's un-revoked token kept reading the queue and
+  **approving/rejecting**, recorded under their name. This changes behaviour at
+  every offboarding: deactivating a user is now sufficient to cut their tokens,
+  where before revocation was also required. (F-10, F-56 #4)
+- **The master switches now un-mount their app's URLs**, following the
+  `SMALLSTACK_MCP_ENABLED` precedent. With `SMALLSTACK_APPROVALS_ENABLED=False`
+  or `SMALLSTACK_NOTIFICATIONS_ENABLED=False`, the routes cease to exist rather
+  than staying live while only the fan-out died. **Consequence:** a template or
+  `reverse()` referencing e.g. `notifications:inbox` under a disabled switch now
+  raises `NoReverseMatch` (a 500) instead of rendering a dead link — guard such
+  references with the switch. (F-11, F-56 #2)
+- **New `WebhookReceiver.signature_header` default:** `"X-Signature"` →
+  `"X-SmallStack-Signature"`, matching what outbound signs, with migration
+  `webhooks/0004`. Existing receivers keep their stored value; **receivers
+  created after the upgrade expect the new spelling**, so a third-party sender
+  configured for `X-Signature` will 401 unless the field is set explicitly.
+  (F-06, F-56 #8)
+- **System-initiated audit entries create one inactive `User` row.** The first
+  write with no human actor (expiry sweep, scheduler retirement) creates an
+  `is_active=False`, non-staff account named by the new
+  `SMALLSTACK_AUDIT_SYSTEM_USERNAME` (default `"system"`), so those entries have
+  an author instead of being invisible. Expect one unfamiliar row in the user
+  list; it cannot log in. (F-15, F-56 #7)
+- **Filing an approval can now return 429.** `SMALLSTACK_APPROVALS_MAX_PENDING_PER_REQUESTER`
+  (default 50) caps one requester's open requests **per kind**; over it, REST and MCP return
+  `too_many_pending`. An agent in a retry loop could previously fill the queue
+  unbounded. (F-18, F-56 #5)
+- **Four more new settings** (F-56 #6):
+  - `SMALLSTACK_APPROVALS_EMAILS_INLINE` — defaults to `DEBUG`. Sending falls
+    back to inline only when set; **in production this means approval email
+    requires a `db_worker` draining the `email` queue.** The new
+    `approvals-fanout` monitor goes DOWN when it isn't.
+  - `SMALLSTACK_APPROVALS_EMAIL_BACKLOG_MINUTES` (15) — how stale the email
+    queue may get before that monitor complains.
+  - `SMALLSTACK_APPROVALS_LAZY_EXPIRE_LIMIT` (25) — rows lazily expired per
+    request, bounding what had been an unbounded synchronous sweep inside a GET.
+  - `SMALLSTACK_AUDIT_SYSTEM_USERNAME` (`"system"`) — see above.
+- **Generated MCP tool refusals carry a machine-readable `code`** —
+  `invalid_argument` · `not_found` · `not_permitted` · `validation_error` ·
+  `unsupported` — where they previously returned a bare English sentence. A
+  rejected create also now sets the protocol-level `isError` flag (it returned
+  `{"errors": …}` with no top-level `error` key, so a model reading the flag saw
+  success). Clients string-matching the old prose must switch to `error.code`.
+  (F-53)
+- **REST exposes `target_ref` and `assignee_usernames` on approval requests**,
+  so the API shows the target it accepts (`"app_label.model:pk"`) instead of
+  serializing it to `null`. (F-35)
+- **Four new framework migrations**: `notifications/0002` (+`subject_key` and its
+  index), `notifications/0003` (backfill — see `UPGRADING.md`), `scheduler/0003`
+  (+`auto_retired`), `webhooks/0004` (the header default above).
+
 ### Security — approvals/notifications review (2026-09-25)
 
 - **Per-object authorization now covers every single-object CRUD surface.** New

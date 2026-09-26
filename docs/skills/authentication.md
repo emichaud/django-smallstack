@@ -140,6 +140,13 @@ Two flags control auth UI visibility:
 - `SMALLSTACK_LOGIN_ENABLED` — hides Login/Sign Up buttons from topbar and "Log In Again" from logged-out page
 - `SMALLSTACK_SIGNUP_ENABLED` — hides Sign Up button/link and returns 404 on `/accounts/signup/`
 
+Passwordless ("email me a code") sign-in is a third, off-by-default flag:
+
+- `SMALLSTACK_PASSWORDLESS_LOGIN` (default `False`) — the login page also offers
+  code-based sign-in: enter email → 6-digit code emailed → enter code → in.
+- `SMALLSTACK_LOGIN_CODE_TTL` (default `600`, i.e. 10 minutes) — how long one
+  emailed code stays valid. Each code allows 5 guesses.
+
 Flags are exposed to templates via context processor (`smallstack_login_enabled`, `smallstack_signup_enabled`).
 
 The signup view checks the flag in `dispatch()`:
