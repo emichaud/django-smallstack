@@ -1,0 +1,99 @@
+{% extends "smallstack/base.html" %}
+{% load approvals_tags %}
+
+{% comment %}
+The requester/assignee-facing page. NOT staff-gated — this is the surface a
+non-staff finance approver uses to decide, via {% approval_card %}
+(docs/skills/approvals.md §5). Theme tokens only, no hex literals.
+{% endcomment %}
+
+{% block title %}{{ pr.description }} · Purchase request{% endblock %}
+{% block breadcrumbs %}{% endblock %}
+
+{% block page_header %}
+<div class="page-header-bleed page-header-with-actions"
+     style="display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap;">
+  <div class="page-header-content">
+    <h1>{{ pr.description }}</h1>
+    <p class="page-subtitle">
+      {{ pr.vendor }} · ${{ pr.amount }} · {{ pr.get_category_display }}
+      {% if pr.is_high_value %}· finance approval required{% endif %}
+    </p>
+  </div>
+  {% if pr.can_submit %}
+  <form method="post" action="{% url 'demo_purchasing_submit' pr.pk %}" style="margin: 0;">
+    {% csrf_token %}
+    <button type="submit" class="btn-primary">Send for approval</button>
+  </form>
+  {% endif %}
+</div>
+{% endblock %}
+
+{% block content %}
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-bottom: 24px;">
+  <div class="card">
+    <div class="card-body" style="text-align: center; padding: 14px 8px;">
+      <div style="font-size: 1.6rem; font-weight: 700; color: var(--primary);">${{ pr.amount }}</div>
+      <div style="color: var(--body-quiet-color); font-size: 0.8rem;">Amount</div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-body" style="text-align: center; padding: 14px 8px;">
+      <div style="font-size: 1.6rem; font-weight: 700;
+                  color: {% if pr.state == 'approved' %}var(--success-fg){% elif pr.state == 'pending' %}var(--warning-fg){% elif pr.state == 'draft' %}var(--body-quiet-color){% else %}var(--error-fg){% endif %};">
+        {{ pr.get_state_display }}
+      </div>
+      <div style="color: var(--body-quiet-color); font-size: 0.8rem;">State</div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-body" style="text-align: center; padding: 14px 8px;">
+      <div style="font-size: 1.6rem; font-weight: 700; color: {% if pr.po_number %}var(--success-fg){% else %}var(--body-quiet-color){% endif %};">
+        {{ pr.po_number|default:"—" }}
+      </div>
+      <div style="color: var(--body-quiet-color); font-size: 0.8rem;">Purchase order</div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-body" style="text-align: center; padding: 14px 8px;">
+      <div style="font-size: 1.6rem; font-weight: 700; color: var(--body-fg);">{{ pr.tier }}</div>
+      <div style="color: var(--body-quiet-color); font-size: 0.8rem;">Routing tier</div>
+    </div>
+  </div>
+</div>
+
+<div class="card" style="margin-bottom: 24px;">
+  <div class="card-header"><h2>Approval</h2></div>
+  <div class="card-body">
+    {% if approval %}
+      {# The whole point: the embeddable decision card, eligibility-gated. #}
+      {% approval_card approval %}
+      {% approval_can_decide request.user approval as may_decide %}
+      {% if approval.is_pending and not may_decide %}
+      <p style="color: var(--body-quiet-color); font-size: 0.85rem; margin: 0.8rem 0 0;">
+        You can see this request but you are not eligible to decide it.
+      </p>
+      {% endif %}
+    {% else %}
+      <p style="color: var(--body-quiet-color); margin: 0;">
+        This request is still a draft — nothing has been sent for approval yet.
+      </p>
+    {% endif %}
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header"><h2>Details</h2></div>
+  <div class="card-body" style="padding: 0;">
+    <table class="table-plain" style="width: 100%; border-collapse: collapse;">
+      <tbody>
+        <tr><td style="padding: 10px 16px; color: var(--body-quiet-color);">Vendor</td><td style="padding: 10px 16px;">{{ pr.vendor }}</td></tr>
+        <tr><td style="padding: 10px 16px; color: var(--body-quiet-color);">Category</td><td style="padding: 10px 16px;">{{ pr.get_category_display }}</td></tr>
+        <tr><td style="padding: 10px 16px; color: var(--body-quiet-color);">Requested by</td><td style="padding: 10px 16px;">{{ pr.requested_by.username|default:"—" }}</td></tr>
+        <tr><td style="padding: 10px 16px; color: var(--body-quiet-color);">Justification</td><td style="padding: 10px 16px;">{{ pr.justification|default:"—" }}</td></tr>
+        <tr><td style="padding: 10px 16px; color: var(--body-quiet-color);">Decision note</td><td style="padding: 10px 16px;">{{ pr.decided_note|default:"—" }}</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
