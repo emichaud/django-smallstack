@@ -43,7 +43,7 @@ Complete user profile management (photo, cover image, bio, location, display nam
 Built-in documentation with markdown support, table of contents, search, and easy-to-edit content files. Perfect for user guides or product docs.
 
 ### Theming
-Beautiful light and dark modes with five color palettes and CSS custom properties. Customize colors, shadows, and spacing from a single file. User preferences are saved.
+Beautiful light and dark modes with six color palettes and CSS custom properties. Customize colors, shadows, and spacing from a single file. User preferences are saved.
 
 ### Docker & SQLite
 Production-ready Docker (multi-service compose, health checks, background worker) with SQLite stored outside the container — reliable data storage that backs up with your VPS, no database service fees. [Upgrade to PostgreSQL](/help/smallstack/database-postgresql/) when you need it.

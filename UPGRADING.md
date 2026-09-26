@@ -35,11 +35,39 @@ entries from it: the webhook tick (`POST /webhooks/tick/`), `run_retention`, and
 Mostly tightening, but **five changes are visible to an operator on the upgrade itself**.
 Read those five before you deploy; the rest of the table is symptom-driven.
 
-Run `make migrate`. **Four** new migrations:
+Run `make migrate`. Coming from **v0.20.1** — the only previously released version — you apply
+**thirteen** migrations. Four of them touch data you already have:
 `smallstack_notifications.0002_notification_subject_key_and_more` (schema),
 `smallstack_notifications.0003_backfill_approvals_subject_key` (**data** — see hazard 4),
 `scheduler.0003_scheduledjob_auto_retired` (schema), and
 `webhooks.0004_alter_webhookreceiver_signature_header` (schema — see hazard 5).
+
+The other nine create new tables and need no attention: `smallstack_approvals.0001_initial`,
+`smallstack_notifications.0001_initial`, `smallstack_runbook.0011_document_image_server_named`, and
+two each for the three bundled scenario demos (see *Scenario demo apps* below).
+
+### Scenario demo apps (new — three apps ship enabled)
+
+v0.21.0 bundles the approvals **test vehicle**: `apps/demo_purchasing` (web), `apps/demo_agentops`
+(MCP/AI) and `apps/demo_access` (REST + webhooks), one per consumer story the gate claims to serve,
+plus `manage.py seed_approval_scenarios` and `manage.py approval_scenario <a|b|c|all> [--check]`
+(102 assertions, no web server needed).
+
+**They register themselves when present.** `config/settings/base.py` adds each to `INSTALLED_APPS`
+if the package imports and has a `urls` module, so on a fresh clone you get three extra apps, **six
+extra migrations**, and **29 extra routes under `/demo/`** without opting in. That is deliberate — the
+scenario checker is how the approvals guarantees stay honest — but it is not the framework, and a
+production install probably does not want it.
+
+**To leave them out**, delete the three directories before `make migrate`:
+
+```bash
+rm -rf apps/demo_purchasing apps/demo_agentops apps/demo_access
+```
+
+The registration guard is built for exactly this: the framework boots with them absent, and nothing
+else references them. If you have already migrated, drop their tables too or just leave them — they
+are inert once the apps are gone.
 
 ### The five upgrade hazards
 

@@ -8,7 +8,7 @@
 
 ## The architecture in one paragraph
 
-SmallStack ships **five color palettes** (django/default, dark-blue, dark-purple, orange, high-contrast) × **two themes** (light, dark). Each palette overrides CSS custom properties via `html[data-palette="X"][data-theme="dark"]` selectors. The `data-palette` attribute is set by a blocking script in `templates/smallstack/base.html` from the user's profile (`UserProfile.color_palette`) or the system default (`SMALLSTACK_COLOR_PALETTE`, defaults to `"django"`). Your page **never** hard-codes a color — it references variables. The variables resolve to the right value for whichever palette the visitor is using.
+SmallStack ships **six color palettes** (django, dark-blue, purple, orange, high-contrast, gold) × **two themes** (light, dark). Each palette overrides CSS custom properties via `html[data-palette="X"][data-theme="dark"]` selectors. The `data-palette` attribute is set by a blocking script in `templates/smallstack/base.html` from the user's profile (`UserProfile.color_palette`) or the system default (`SMALLSTACK_COLOR_PALETTE`, defaults to `"purple"`). Your page **never** hard-codes a color — it references variables. The variables resolve to the right value for whichever palette the visitor is using.
 
 The user can switch palettes from the user menu (the avatar dropdown shows Dark/Light toggle + a Palette grid).
 
@@ -351,13 +351,14 @@ You don't need to memorize the hex values — use `var(--primary)`. But this is 
 
 | Palette | `--primary` | `--card-bg` | Hero band |
 |---|---|---|---|
-| `django` (default) | `#10b981` emerald | `#131722` cool near-black | neutral card |
+| `django` | `#10b981` emerald | `#131722` cool near-black | neutral card |
 | `dark-blue` | `#3b82f6` blue | `#161b22` GitHub Dark | tinted `color-mix(primary 15%, body-bg)` |
-| `dark-purple` | `#a855f7` purple | `#161b22` | tinted |
+| `purple` (default) | `#a855f7` purple | `#161b22` | tinted |
 | `orange` | `#f97316` orange | `#161b22` | neutral card |
 | `high-contrast` | `#ffffff` white | `#1a1a1a` pure neutral | neutral card |
+| `gold` | `#d3b559` gold | `#161b22` | neutral card |
 
-**Why the bands differ**: warm and yellow-shifted accents (orange, emerald, white) produce muddy / brown / olive / noisy gray when mixed at 15% with near-black body. Blue and purple stay readable as navy / plum at the same mix. So orange/emerald/high-contrast skip the mix and use the neutral card surface for hero bands.
+**Why the bands differ**: warm and yellow-shifted accents (orange, emerald, gold, white) produce muddy / brown / olive / noisy gray when mixed at 15% with near-black body. Blue and purple stay readable as navy / plum at the same mix. So orange/emerald/high-contrast skip the mix and use the neutral card surface for hero bands.
 
 ## How to test your work
 

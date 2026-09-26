@@ -126,7 +126,7 @@ html[data-palette="gold"][data-theme="dark"] {
     --link-hover: #F0D580;
     --breadcrumb-link: #e4e4e7;
 
-    /* Surfaces — same cool-biased near-black as dark-blue / dark-purple */
+    /* Surfaces — same cool-biased near-black as dark-blue / purple */
     --body-bg: #0a0b0f;
     --content-bg: #0a0b0f;
     --header-bg: #111218;

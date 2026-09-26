@@ -59,22 +59,31 @@ class ApprovalsFanoutMonitor(Monitor):
         )
         return timedelta(minutes=minutes)
 
-    def _queued_email_backlog(self) -> int:
-        """Approval email tasks enqueued but still unrun past the grace window.
+    def _queued_emails(self) -> tuple[int, int]:
+        """``(stale, total)`` approval-email tasks still sitting READY.
 
-        Returns -1 when the task backend keeps no inspectable queue (nothing to
-        report, not a failure).
+        ``stale`` is the subset older than the grace window — the only part that
+        means "nothing is draining this". ``total`` exists so the healthy note can
+        say what is actually true: reporting "email queue drained" while messages
+        are queued-but-young described the opposite of the situation, on the one
+        channel that fails silently. (Test round 2026-09-26, E2.)
+
+        ``(-1, -1)`` when the task backend keeps no inspectable queue, and when the
+        email channel is switched off — with nothing being enqueued, a backlog is
+        not a thing that can exist, and any rows left from before the switch are
+        not an operator's problem to act on. (E1.)
         """
+        if not getattr(settings, "SMALLSTACK_APPROVALS_EMAILS_ENABLED", True):
+            return (-1, -1)
         try:
             from django_tasks_db.models import DBTaskResult
         except Exception:  # noqa: BLE001 — a different task backend
-            return -1
+            return (-1, -1)
+        queued = DBTaskResult.objects.filter(
+            task_path__startswith="apps.approvals.tasks.notify_", status="READY"
+        )
         cutoff = timezone.now() - self._stale_after()
-        return DBTaskResult.objects.filter(
-            task_path__startswith="apps.approvals.tasks.notify_",
-            enqueued_at__lt=cutoff,
-            status="READY",
-        ).count()
+        return (queued.filter(enqueued_at__lt=cutoff).count(), queued.count())
 
     def _email_links_are_broken(self) -> bool:
         """True when the email channel is on but SITE_DOMAIN is still a local default.
@@ -96,51 +105,55 @@ class ApprovalsFanoutMonitor(Monitor):
         if not getattr(settings, "SMALLSTACK_APPROVALS_ENABLED", True):
             return CheckResult.up(note="Approvals disabled")
 
-        notes = []
+        # Collect EVERY problem rather than returning on the first. The
+        # SITE_DOMAIN branch used to return before the backlog was even looked
+        # at, so an install with both faults learned about the second only after
+        # fixing the first — two deploys to discover two one-line config facts.
+        # (Test round 2026-09-26, E3.)
+        problems: list[str] = []
+        notes: list[str] = []
 
         # Every approval email builds an ABSOLUTE url from SITE_DOMAIN, because
         # the mail is sent from a signal receiver or a task and so has no request
         # to derive the host from. On the default (`localhost:8000`) the link in
         # "Approval needed: …" is dead — which matters most for the headline
-        # non-staff story, "assignees decide via the emailed console link". This
-        # is exactly the class of silent operator-configuration fact this monitor
-        # exists for, and webhook_doctor already WARNs on the same shape. (F-33.)
+        # non-staff story, "assignees decide via the emailed console link". (F-33.)
         if self._email_links_are_broken():
-            return CheckResult.down(
-                note=(
-                    "approval emails link to "
-                    f"{getattr(settings, 'SITE_DOMAIN', 'localhost:8000')} — set "
-                    "SITE_DOMAIN to this install's real host, or the console link "
-                    "in every approval email is dead. Set "
-                    "SMALLSTACK_APPROVALS_EMAILS_ENABLED=False if you do not use "
-                    "the email channel."
-                )
+            problems.append(
+                "approval emails link to "
+                f"{getattr(settings, 'SITE_DOMAIN', 'localhost:8000')} — set "
+                "SITE_DOMAIN to this install's real host, or the console link "
+                "in every approval email is dead. Set "
+                "SMALLSTACK_APPROVALS_EMAILS_ENABLED=False if you do not use "
+                "the email channel."
             )
 
-        stale_mail = self._queued_email_backlog()
+        stale_mail, queued_mail = self._queued_emails()
         if stale_mail > 0:
-            return CheckResult.down(
-                note=(
-                    f"{stale_mail} approval email task(s) queued and unrun — "
-                    "start a worker on the 'email' queue "
-                    "(manage.py db_worker --queue-name email), or set "
-                    "SMALLSTACK_APPROVALS_EMAILS_INLINE=True."
-                )
+            problems.append(
+                f"{stale_mail} approval email task(s) queued and unrun — "
+                "start a worker on the 'email' queue "
+                "(manage.py db_worker --queue-name email), or set "
+                "SMALLSTACK_APPROVALS_EMAILS_INLINE=True."
             )
-        if stale_mail == 0:
-            notes.append("email queue drained")
+        elif queued_mail > 0:
+            # Queued but young: healthy, and say so accurately.
+            notes.append(f"{queued_mail} email(s) queued, within the grace window")
+        elif queued_mail == 0:
+            notes.append("email queue clear")
 
         overdue = ApprovalRequest.objects.overdue().count()
         limit = int(getattr(settings, "SMALLSTACK_APPROVALS_LAZY_EXPIRE_LIMIT", 25))
         if overdue > max(limit, 1) * 4:
-            return CheckResult.down(
-                note=(
-                    f"{overdue} overdue request(s) still marked pending — the "
-                    "'Approvals: expire overdue requests' job is not running."
-                )
+            problems.append(
+                f"{overdue} overdue request(s) still marked pending — the "
+                "'Approvals: expire overdue requests' job is not running."
             )
-        if overdue:
+        elif overdue:
             notes.append(f"{overdue} overdue awaiting sweep")
+
+        if problems:
+            return CheckResult.down(note=" · ".join(problems))
 
         pending = ApprovalRequest.objects.actionable().count()
         notes.append(f"{pending} awaiting a human")

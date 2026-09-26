@@ -42,15 +42,16 @@ A visitor's `data-palette` attribute is set by a blocking inline script in `temp
 
 The attribute is ALWAYS set — even for the default "django" palette. This was a bug fix; previously the default skipped the attribute and the default palette's overrides never applied.
 
-## The five palettes
+## The six palettes
 
 | Palette | id | Accent | Surface bias | Hero band |
 |---|---|---|---|---|
-| Django (default) | `django` | `#10b981` emerald | strong cool (B+15 R) | neutral |
+| Django | `django` | `#10b981` emerald | strong cool (B+15 R) | neutral |
 | Blue | `dark-blue` | `#3b82f6` blue | cool (B+12 R) | tinted |
-| Purple | `dark-purple` | `#a855f7` purple | cool (B+12 R) | tinted |
+| Purple (default) | `purple` | `#a855f7` purple | cool (B+12 R) | tinted |
 | Orange | `orange` | `#f97316` orange | cool (B+12 R) | neutral |
 | Contrast | `high-contrast` | `#ffffff` white | strictly neutral (R=G=B) | neutral |
+| Gold | `gold` | `#d3b559` gold | cool (B+12 R) | neutral |
 
 **Switch palettes** via the user-menu dropdown (the avatar in the top-right). The grid below "Palette" shows a swatch per option; clicking persists to your profile AND `localStorage` so it survives a refresh.
 

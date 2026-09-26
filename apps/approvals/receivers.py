@@ -69,6 +69,16 @@ def _enqueue(task: Any, inline: Any, pk: int) -> None:
     database-backed queue ``enqueue()`` succeeds whether or not a worker will
     ever run it, so "it didn't raise" proves nothing about delivery.
     """
+    # The email channel being OFF has to be decided here, not only inside
+    # send_requested/send_decided. Those run on the worker, so with the channel
+    # off and no worker the tasks pile up READY forever — and the fanout monitor
+    # counts exactly those rows, so it sat permanently DOWN telling an operator
+    # to start a mail worker they had deliberately chosen not to run. Worse,
+    # UPGRADING.md offers EMAILS_ENABLED=False as the remedy for that very
+    # symptom. Nothing to send ⇒ nothing to queue. (Test round 2026-09-26, E1.)
+    if not getattr(settings, "SMALLSTACK_APPROVALS_EMAILS_ENABLED", True):
+        return
+
     if _emails_inline():
         try:
             inline(pk)

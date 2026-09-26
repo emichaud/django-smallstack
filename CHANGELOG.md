@@ -9,6 +9,56 @@ Breaking-change migration recipes live in [`UPGRADING.md`](UPGRADING.md).
 
 ## [Unreleased]
 
+## [0.21.1] - 2026-09-26
+
+Fixes for findings from the 2026-09-26 test rounds. Each carries a regression test that
+fails against the old code.
+
+### Fixed
+- **Turning the approval email channel off no longer holds the status page down.**
+  `SMALLSTACK_APPROVALS_EMAILS_ENABLED=False` still enqueued a `notify_*` task per request —
+  the gate lived only at *send* time — so with no worker those rows sat READY forever and
+  `ApprovalsFanoutMonitor` counted exactly them. A **core-category** service card sat
+  permanently DOWN telling the operator to start a mail worker they had deliberately chosen
+  not to run, and `UPGRADING.md` recommended that very setting as the remedy for the
+  symptom. Nothing to send now means nothing to queue, and the monitor ignores a backlog
+  while the channel is off, so rows left from before the switch don't hold it down either.
+- **The approvals monitor no longer reports "email queue drained" while mail is queued.** It
+  now distinguishes *stale* from *queued-but-young* and says which it found — the note
+  described the opposite of the situation on the one channel that fails silently.
+- **The approvals monitor reports every fault in one check.** The `SITE_DOMAIN` branch
+  returned before the backlog was looked at, so an install with both faults learned about
+  the second only after fixing the first.
+- **The notifications inbox has an `<h1>`** — its page heading was an `<h2>`, leaving the
+  page with no `h1` at all and breaking the document outline and heading-jump navigation.
+- **Unread notifications are announced to screen readers.** Unread state was carried only by
+  an `aria-hidden` dot and bold weight, so the state the screen exists to convey was
+  sighted-only (WCAG 1.3.1 / 1.4.1). A visually-hidden "Unread." marker now precedes the row.
+- **The sidebar no longer claims you are on the Dashboard when you are not.** The dashboard
+  lives at `/smallstack/`, which prefixes every admin route, so any page without its own nav
+  entry — the notifications inbox, reached from the topbar bell — lit it up. Nav items gain
+  `active_exact`, set on the dashboard root.
+
+### Changed
+- `nav.register(...)` accepts `active_exact=True`: the item goes active only on an exact path
+  match, never on a prefix. For a section root that is the difference between "you are here"
+  and "you are somewhere below here".
+
+### Documentation
+- **`docs/skills/modern-dark-theme.md` was wrong about the palettes it is the read-first
+  authority for**: it claimed **five**, named a `dark-purple` that does not exist (the id is
+  `purple`), omitted `gold`, and said the default was `django` when it is `purple`. Corrected,
+  with a pointer to `UserProfile.color_palette.choices` + `palettes.css` as the authoritative
+  list. The same claims are fixed in seven other docs.
+- **`UPGRADING.md` under-counted the migrations**: it said "Four", which is what the
+  approvals/notifications *review* added. Coming from v0.20.1 — the only previously released
+  version — you apply **thirteen**. Now stated with the breakdown.
+- **The bundled scenario demo apps are documented.** `apps/demo_purchasing`, `demo_agentops`
+  and `demo_access` ship as of v0.21.0 and register themselves when present, so a fresh clone
+  gets three extra apps, six extra migrations and 29 routes under `/demo/`. `UPGRADING.md`
+  now says so and gives the one-line opt-out; `config/settings/base.py`'s comment no longer
+  claims they are "deliberately not tracked".
+
 ## [0.21.0] - 2026-09-26
 
 Fixes from the 2026-09-13 base-framework audit (v0.20.1). Each carries a

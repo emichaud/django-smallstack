@@ -155,7 +155,7 @@ the global stat modal. (The `.crud-modal` delete/bulk confirm and `.field-previe
 modals are separate on purpose — POST actions and field previews, not drill-downs.)
 
 ❌ **Hard-coded value colors** (`style="color: #e5534b"`). Use `state` — it stays
-correct across all five palettes. See `modern-dark-theme.md`.
+correct across all six palettes. See `modern-dark-theme.md`.
 
 ## Related skills
 

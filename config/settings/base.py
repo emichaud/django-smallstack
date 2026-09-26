@@ -85,10 +85,16 @@ INSTALLED_APPS = [
 # See apps/demo_*/README.md and `manage.py approval_scenario all --check`.
 #
 # These are the TEST VEHICLE for the approvals/notifications work, not part of the
-# framework: they live only in the frontend-testing workspace and are deliberately
-# not tracked. Registering them conditionally keeps the framework changes
+# framework. They ARE tracked as of v0.21.0 (so the scenario checker ships with the
+# guarantees it verifies), which means a fresh clone registers all three and applies
+# their migrations unless you delete the directories — see "Scenario demo apps" in
+# UPGRADING.md. Registering them conditionally keeps the framework changes
 # self-contained — the tracked diff boots on an install that has no demo_* apps,
 # which a hard reference here would break (finding F-49).
+#
+# (This comment used to say they were "deliberately not tracked"; that stopped being
+# true when they were published, and a test round caught the contradiction. Keep it
+# honest if the packaging changes again.)
 _SCENARIO_DEMOS = ("apps.demo_purchasing", "apps.demo_agentops", "apps.demo_access")
 
 

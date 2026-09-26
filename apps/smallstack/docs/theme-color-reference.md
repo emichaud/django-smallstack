@@ -5,7 +5,7 @@ description: Complete reference of every CSS custom property with current values
 
 # Theme Color Quick Reference
 
-Every color in SmallStack is a CSS custom property. This page lists every variable, its purpose, and the current values across the five palettes — so you can hand this to a designer or AI and get back a complete, cohesive theme.
+Every color in SmallStack is a CSS custom property. This page lists every variable, its purpose, and the current values across the six palettes — so you can hand this to a designer or AI and get back a complete, cohesive theme.
 
 > **For the design philosophy behind these values** (modern-dark canvas, vibrant accent, surface bias, color-context corrections), see [`theme-architecture.md`](theme-architecture.md). For AI agents building pages, the prescriptive companion is [`docs/skills/modern-dark-theme.md`](https://github.com/emichaud/django-smallstack/blob/main/docs/skills/modern-dark-theme.md).
 

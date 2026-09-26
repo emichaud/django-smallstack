@@ -12,7 +12,7 @@
 {% block content %}
 <div class="card" style="max-width: 780px;">
     <div class="card-header" style="display: flex; align-items: center; justify-content: space-between; gap: 1rem;">
-        <h2>Notifications{% if notifications_unread %} <span class="notif-count-pill">{{ notifications_unread }} unread</span>{% endif %}</h2>
+        <h1>Notifications{% if notifications_unread %} <span class="notif-count-pill">{{ notifications_unread }} unread</span>{% endif %}</h1>
         {% if notifications_unread %}
         <form method="post" action="{% url 'notifications:mark_all_read' %}" style="margin: 0;">
             {% csrf_token %}
@@ -27,6 +27,12 @@
             <li class="notif-item{% if not n.is_read %} notif-item--unread{% endif %}">
                 <a href="{% url 'notifications:open' n.pk %}" class="notif-link">
                     <span class="notif-dot" aria-hidden="true"></span>
+                    {% comment %}
+                    The dot is decorative and bold weight isn't exposed to assistive tech, so
+                    read/unread — the whole point of this screen — was sighted-only until this
+                    visually-hidden marker was added. (Test round 2026-09-26, T2.)
+                    {% endcomment %}
+                    {% if not n.is_read %}<span class="sr-only">Unread. </span>{% endif %}
                     <span class="notif-body">
                         <span class="notif-title">{{ n.title }}</span>
                         {% if n.message %}<span class="notif-message">{{ n.message }}</span>{% endif %}
@@ -51,6 +57,7 @@
 </div>
 
 <style>
+.card-header h1 { font-size: 1.05rem; margin: 0; }
 .notif-count-pill {
     font-size: 0.7rem; font-weight: 700; vertical-align: middle;
     padding: 2px 9px; border-radius: 999px;
