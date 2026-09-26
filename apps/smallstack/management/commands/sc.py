@@ -763,7 +763,23 @@ class Command(BaseCommand):
         from apps.smallstack.models import APIToken
 
         parser = self._parser("token revoke")
-        parser.add_argument("prefix", help="token prefix to revoke")
+        parser.add_argument(
+            "prefix",
+            help=(
+                "token prefix to revoke. A prefix starting with '-' (possible on "
+                "tokens minted before prefixes were re-rolled) looks like an "
+                "option flag to argparse — pass it after a '--' separator: "
+                "sc token revoke -- -AbC1234"
+            ),
+        )
+        # argparse's own error for a dash-leading prefix is "the following
+        # arguments are required: prefix", which is true but useless — the
+        # argument WAS supplied. Name the fix before it reaches argparse. (F-34.)
+        if argv and argv[0].startswith("-") and argv[0] not in ("-h", "--help", "--"):
+            raise CommandError(
+                f"{argv[0]!r} starts with '-', so argparse reads it as an option. "
+                f"Pass it after a separator:\n\n    sc token revoke -- {argv[0]}\n"
+            )
         opts = parser.parse_args(argv)
         n = APIToken.objects.filter(prefix=opts.prefix, is_active=True).update(is_active=False)
         if not n:

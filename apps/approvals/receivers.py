@@ -10,7 +10,7 @@ fallback" never fired and a default install sent *no* approval email at all,
 silently. The queue is the right design — a decision must not wait on SMTP —
 so the fix is to make the dependency visible instead of guessing: this module
 logs a warning the first time it queues mail on a backend that needs a worker,
-``apps/approvals/health.py`` exposes the backlog as a status monitor, and the
+``apps/approvals/monitors.py`` exposes the backlog as a status monitor, and the
 docs say plainly that mail requires a ``db_worker`` on the ``email`` queue.
 Set ``SMALLSTACK_APPROVALS_EMAILS_INLINE = True`` to send in the request path
 instead (the default in DEBUG). (F-07.)

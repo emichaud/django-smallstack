@@ -54,8 +54,15 @@ def signature_header_value(secret: str, body: bytes) -> str:
 
 def verify(secret: str, body: bytes, provided: str) -> bool:
     """Constant-time check of an inbound signature. Accepts a bare hex digest or
-    an ``sha256=<hex>`` prefixed value."""
-    if not provided:
+    an ``sha256=<hex>`` prefixed value.
+
+    An **empty secret never verifies.** Without this, a receiver with
+    ``secret=''`` and ``require_signature=True`` — which reads as "locked down" —
+    accepted any request whose sender computed the HMAC with the empty key, i.e.
+    anyone who knows the scheme. HMAC is happy to key on b""; nothing else was
+    checking. (F-40.)
+    """
+    if not provided or not secret:
         return False
     expected = sign(secret, body)
     candidate = provided.split("=", 1)[1] if provided.startswith("sha256=") else provided

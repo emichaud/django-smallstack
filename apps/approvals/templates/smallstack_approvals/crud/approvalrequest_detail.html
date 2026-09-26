@@ -128,8 +128,13 @@ Theme-variable-only — palette-correct across all 10 combos.
     padding: 2px 9px; border-radius: 999px;
     font-size: 0.64rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase;
     font-family: var(--font-monospace, ui-monospace, Menlo, monospace);
-    color: var(--primary); background: color-mix(in srgb, var(--primary) 14%, var(--card-bg));
-    border: 1px solid color-mix(in srgb, var(--primary) 35%, transparent);
+    /* Text is --body-fg, not --primary: an accent-on-accent-tint recipe failed
+       WCAG AA (4.5:1) in 6 of 12 palette x theme combos — worst 3.16:1 on
+       orange/light, where the label washed into its own fill. The accent still
+       identifies the badge through the fill and border, which carry no text.
+       (F-47) */
+    color: var(--body-fg); background: color-mix(in srgb, var(--primary) 14%, var(--card-bg));
+    border: 1px solid color-mix(in srgb, var(--primary) 45%, transparent);
 }
 .apr-meta { display: flex; align-items: baseline; gap: 0.5rem; flex-wrap: wrap;
     font-size: 0.8rem; color: var(--body-quiet-color); }

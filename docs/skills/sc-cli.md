@@ -81,6 +81,7 @@ sc rm monitoredendpoint 5 --force --user admin
 # framework ops
 sc doctor all                           # api + mcp + search + webhook health
 sc token list --all
+sc token revoke -- -AbC1234             # '--' when a prefix starts with '-' (pre-0.20 tokens)
 sc backup
 sc commands                             # discover everything else
 

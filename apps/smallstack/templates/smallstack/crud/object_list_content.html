@@ -21,11 +21,23 @@
       hand-written list templates (usermanager does, and downstream projects do),
       which is where it can be absent — so resolve it with a default first.
     {% endcomment %}
+    {% comment %}
+      Routed through the ONE empty-state definition rather than carrying its own
+      copy: this partial was a fifth divergent version, so the same condition read
+      "No matches" here and "Nothing matches these filters" on every other CRUD
+      list. (F-52)
+
+      This partial keeps its own flag — `toolbar_search_query or
+      toolbar_has_active_filter`, computed properly — because it is also included
+      by hand-written templates (usermanager, downstream projects) that never get
+      `has_active_filters` from _CRUDContextMixin. The noun is defaulted for the
+      same reason.
+    {% endcomment %}
     {% with noun=object_verbose_name_plural|default:"records" %}
     {% if toolbar_search_query or toolbar_has_active_filter %}
-        {% include "smallstack/includes/empty_state.html" with no_card=True title="No matches" body="No "|add:noun|add:" matched your search and filters. Try adjusting them or clearing them to see everything." %}
+        {% include "smallstack/crud/includes/empty_state.html" with has_active_filters=True object_verbose_name_plural=noun %}
     {% else %}
-        {% include "smallstack/includes/empty_state.html" with no_card=True title="Nothing here yet" body="No "|add:noun|add:" have been added." cta_url=create_view_url cta_label="Create the first one" %}
+        {% include "smallstack/crud/includes/empty_state.html" with has_active_filters=False object_verbose_name_plural=noun %}
     {% endif %}
     {% endwith %}
 {% endif %}

@@ -96,12 +96,18 @@ need an app-specific filing endpoint to point an approval at a business row:
   in** with `assignable=["finance", …]` (or `assignable=fn(user) -> bool`) — a
   remote caller must not be able to route a request at an arbitrary account.
 
-Abuse model for the MCP path: one identity's outstanding pending requests per
-kind are capped by `SMALLSTACK_APPROVALS_MAX_PENDING_PER_REQUESTER` (default 50,
+Abuse model — the queue-flooding cap. One identity's outstanding **actionable**
+requests per kind (pending *and* not yet overdue, the same definition the queue
+and its stat card use — an expired-but-unswept request does not count against
+you) are capped by `SMALLSTACK_APPROVALS_MAX_PENDING_PER_REQUESTER` (default 50,
 `0` = no cap). Over the cap, `services.request_approval` raises `TooManyPending`
 → **429** on REST, `{"error": {"code": "too_many_pending"}}` on MCP. Without a
 cap one agent in a loop buries every approver's bell, which defeats the gate by
 fatigue rather than by a bug.
+
+The cap is enforced in the **service**, so it applies to every caller — MCP, REST
+and plain in-process Python alike. An agent is the likely offender, not the only
+one; a runaway signal handler filing on every save hits it too.
 
 ## 3. Who may decide (the eligibility rules)
 
@@ -298,7 +304,7 @@ the widget and the queue no longer disagree before a sweep runs.
 | `SMALLSTACK_APPROVALS_STAFF_OVERRIDE` | `True` | staff may decide assigned requests |
 | `SMALLSTACK_APPROVALS_DEFAULT_EXPIRES_MINUTES` | `0` | fallback TTL (0 = never) |
 | `SMALLSTACK_APPROVALS_EMAILS_ENABLED` | `True` | email fan-out |
-| `SMALLSTACK_APPROVALS_EMAILS_INLINE` | `DEBUG` | send mail in-process instead of queueing it |
+| `SMALLSTACK_APPROVALS_EMAILS_INLINE` | unset (`None`) → falls back to `DEBUG` | send mail in-process instead of queueing it. The value is genuinely `None` when unset; the `DEBUG` fallback is applied at the send site (`receivers.py`), so read it with that fallback rather than expecting `settings.…` to be a bool |
 | `SMALLSTACK_APPROVALS_EMAIL_BACKLOG_MINUTES` | `15` | how long queued mail may sit before the monitor trips |
 | `SMALLSTACK_APPROVALS_NOTIFY_EMAILS` | `[]` | extra recipients on every event |
 | `SMALLSTACK_APPROVALS_SWEEP_ENABLED` | `True` | register the expiry sweep job |

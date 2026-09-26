@@ -20,6 +20,7 @@ from typing import TYPE_CHECKING, Any, cast
 
 from django.conf import settings
 from django.core.exceptions import PermissionDenied
+from django.core.exceptions import ValidationError as DjangoValidationError
 from django.http import Http404, HttpRequest, HttpResponse, JsonResponse, QueryDict
 from django.urls import URLPattern, path
 from django.views.decorators.csrf import csrf_exempt
@@ -150,9 +151,18 @@ def build_api_urls(crud_config) -> list[URLPattern]:
 # ---------------------------------------------------------------------------
 
 
-def _error(message, status):
-    """Return a consistent error JsonResponse."""
-    return JsonResponse({"errors": {"__all__": [message]}}, status=status)
+def _error(message, status, code=None):
+    """Return a consistent error JsonResponse.
+
+    ``code`` is an optional machine-readable slug emitted alongside the prose, so
+    a client can branch on the *kind* of failure without matching English (the
+    same reason the MCP factory names its refusals). It is additive — the
+    ``errors`` shape every existing consumer reads is unchanged.
+    """
+    payload = {"errors": {"__all__": [message]}}
+    if code:
+        payload["code"] = code
+    return JsonResponse(payload, status=status)
 
 
 # Public alias
@@ -297,11 +307,18 @@ def api_view(methods=None, require_auth=True, require_staff=False, require_auth_
             try:
                 result = fn(request, *args, **kwargs)
             except Http404 as exc:
-                return _error(str(exc) or "Not found", 404)
+                return _error(str(exc) or "Not found", 404, code="not_found")
             except PermissionDenied as exc:
-                return _error(str(exc) or "Permission denied", 403)
+                return _error(str(exc) or "Permission denied", 403, code="permission_denied")
             except FeatureDisabled as exc:
-                return _error(str(exc) or "This feature is disabled", 503)
+                # The subclass's own `code` — declared on FeatureDisabled and,
+                # until now, read by nothing, while its docstring promised it
+                # reached the envelope. (F-54)
+                return _error(
+                    str(exc) or "This feature is disabled",
+                    503,
+                    code=getattr(exc, "code", None) or "feature_disabled",
+                )
 
             # Auto-wrap return values
             if isinstance(result, dict):
@@ -1260,9 +1277,9 @@ def _make_api_bulk_delete_view(crud_config):
             return _error("ids must be a non-empty list", 400)
 
         try:
-            ids = [int(pk) for pk in ids]
-        except (ValueError, TypeError):
-            return _error("ids must be integers", 400)
+            ids = crud_config._coerce_pks(ids)  # pk-type aware, not int-only (F-38)
+        except (ValueError, TypeError, DjangoValidationError):
+            return _error(f"ids must be valid {crud_config.model._meta.pk.get_internal_type()} values", 400)
 
         qs = crud_config.get_detail_queryset(crud_config._get_queryset(), request).filter(pk__in=ids)
         objects = {obj.pk: obj for obj in qs}
@@ -1337,9 +1354,9 @@ def _make_api_bulk_update_view(crud_config):
             return _error("fields must be a non-empty dict", 400)
 
         try:
-            ids = [int(pk) for pk in ids]
-        except (ValueError, TypeError):
-            return _error("ids must be integers", 400)
+            ids = crud_config._coerce_pks(ids)  # pk-type aware, not int-only (F-38)
+        except (ValueError, TypeError, DjangoValidationError):
+            return _error(f"ids must be valid {crud_config.model._meta.pk.get_internal_type()} values", 400)
 
         # Validate field names
         allowed = set(crud_config.can_bulk_update_fields())

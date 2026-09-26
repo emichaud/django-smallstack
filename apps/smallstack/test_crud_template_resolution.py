@@ -51,23 +51,52 @@ def _render(context: dict) -> str:
 
 
 def test_empty_state_renders_without_the_verbose_name_variable():
-    """The regression: this used to raise VariableDoesNotExist."""
+    """The regression: this used to raise VariableDoesNotExist.
+
+    Copy now comes from the shared `crud/includes/empty_state.html` — this
+    partial used to carry a fifth divergent version, so the same condition read
+    "No matches" here and "Nothing matches these filters" on every other CRUD
+    list (F-52). The noun fallback is still this partial's job.
+    """
     html = _render({"object_list": []})
-    assert "empty-state" in html
-    assert "No records have been added." in html
+    assert "There are no records yet." in html
 
 
 def test_empty_state_search_variant_renders_without_the_variable():
     html = _render({"object_list": [], "toolbar_search_query": "zzz"})
-    assert "No matches" in html
-    assert "No records matched your search and filters." in html
+    assert "Nothing matches these filters." in html
 
 
 def test_empty_state_still_uses_the_model_noun_when_present():
     """The fallback must not mask the real noun when the context supplies it."""
     html = _render({"object_list": [], "object_verbose_name_plural": "API tokens"})
-    assert "No API tokens have been added." in html
-    assert "No records" not in html
+    assert "There are no api tokens yet." in html
+    assert "no records" not in html
+
+
+def test_empty_state_copy_is_identical_to_every_other_crud_list():
+    """The convergence claim, asserted rather than trusted.
+
+    Both branches must render the shared include's exact sentences, so this
+    partial cannot drift from object_list / object_list_partial / the displays.
+    """
+    from django.template.loader import render_to_string
+
+    for ctx, extra in (
+        ({"has_active_filters": True}, {"toolbar_search_query": "zzz"}),
+        ({"has_active_filters": False}, {}),
+    ):
+        canonical = render_to_string(
+            "smallstack/crud/includes/empty_state.html",
+            {"object_verbose_name_plural": "records", **ctx},
+        ).strip()
+        mine = _render({"object_list": [], **extra})
+        # The shared include's visible sentence must appear verbatim.
+        sentence = " ".join(canonical.split())
+        sentence = sentence[sentence.index(">") + 1 : sentence.rindex("<")].strip()
+        assert " ".join(sentence.split()) in " ".join(mine.split()), (
+            f"copy drifted from the shared include: {sentence!r}"
+        )
 
 
 def test_no_template_tag_spans_multiple_lines():

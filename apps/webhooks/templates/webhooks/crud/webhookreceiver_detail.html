@@ -9,7 +9,10 @@ secret to configure the sender) and Rotate. Shows the inbound POST URL.
 {% block content %}
 <div class="card" data-list-url="{{ list_view_url }}">
     <div class="card-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
-        <h2 class="crud-title">{{ object }}</h2>
+        {% comment %}h1: this override replaces the whole content block, and these
+        views declare no breadcrumb_parent, so this is the page's only
+        top-level heading. (F-55){% endcomment %}
+        <h1 class="crud-title">{{ object }}</h1>
         <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
             <button type="button" class="btn-secondary" id="wh-reveal-btn">Reveal secret</button>
             <form method="post" action="{% url 'webhooks_rotate_receiver_secret' pk=object.pk %}" style="margin: 0;"

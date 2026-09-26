@@ -469,3 +469,56 @@ def test_the_case_insensitive_dict_in_isolation():
     del d["CONTENT-TYPE"]
     assert set(d) == {"new-key"}
     assert isinstance(d.copy(), CaseInsensitiveDict)
+
+
+# --- F-40: an empty secret must never verify --------------------------------
+
+
+def test_empty_secret_never_verifies_even_with_a_correctly_computed_hmac(db):
+    """`require_signature=True` with `secret=''` read as "locked down" and was
+    in fact "anyone who knows the scheme": HMAC keys happily on b"", so a sender
+    computing the digest with the empty key passed. `verify()` guarded
+    `if not provided` but never `if not secret`."""
+    rec = WebhookReceiver.objects.create(
+        name="empty-secret", slug="empty-secret", secret="", require_signature=True
+    )
+    body = b'{"hello": true}'
+
+    # The attack: sign with the empty secret the receiver is holding.
+    forged = services.sign("", body)
+    assert _post(Client(), rec.slug, body, forged).status_code == 401
+
+    # Controls: no signature is still 401, and the same receiver with a real
+    # secret still accepts a correctly-signed delivery.
+    assert _post(Client(), rec.slug, body, None).status_code == 401
+    WebhookReceiver.objects.filter(pk=rec.pk).update(secret="shh")
+    rec.refresh_from_db()
+    assert _post(Client(), rec.slug, body, services.sign("shh", body)).status_code == 202
+
+    # And the unsigned mode is unchanged — documented fail-open.
+    WebhookReceiver.objects.filter(pk=rec.pk).update(secret="", require_signature=False)
+    assert _post(Client(), rec.slug, body, forged).status_code == 202
+
+
+def test_validation_already_refuses_a_blank_secret(db):
+    """Why `verify()` is the fix and not a model `clean()`.
+
+    `secret` is `blank=False`, so every validated path (forms, REST, MCP, `sc`)
+    already refuses a blank secret — a `clean()` override for this would be
+    shadowed by field validation and never run. The reachable route to the state
+    is a raw ORM write, which skips validation entirely, so the guard has to live
+    where the signature is actually checked.
+    """
+    from django.core.exceptions import ValidationError
+
+    with pytest.raises(ValidationError) as exc:
+        WebhookReceiver(
+            name="no-secret", slug="no-secret", secret="", require_signature=True
+        ).full_clean()
+    assert "secret" in exc.value.message_dict
+
+    # …and the ORM write that bypasses it succeeds, which is the case verify() covers.
+    rec = WebhookReceiver.objects.create(
+        name="orm-blank", slug="orm-blank", secret="", require_signature=True
+    )
+    assert rec.secret == ""

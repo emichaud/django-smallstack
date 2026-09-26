@@ -29,6 +29,7 @@ from django import forms
 from django.contrib import messages
 from django.contrib.admin.models import LogEntry
 from django.core.exceptions import FieldDoesNotExist, PermissionDenied
+from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import IntegrityError
 from django.db.models import Model, ProtectedError, QuerySet, RestrictedError
 from django.http import Http404, HttpRequest, HttpResponse
@@ -941,8 +942,8 @@ class _CRUDBulkActionView:
 
                 # Validate IDs
                 try:
-                    ids = [int(pk) for pk in ids]
-                except (ValueError, TypeError):
+                    ids = config._coerce_pks(ids)  # pk-type aware, not int-only (F-38)
+                except (ValueError, TypeError, DjangoValidationError):
                     return HttpResponse(
                         _json.dumps({"error": "Invalid IDs"}),
                         status=400,
@@ -2083,8 +2084,25 @@ class CRUDView:
         got 'search'``, i.e. a 500 in error monitoring for every CRUDView in the
         project. The REST routes always used ``<int:pk>`` and 404'd correctly;
         this makes the HTML routes agree. (F-22.)
+
+        Note the ``uuid`` converter accepts only the **canonical** dashed
+        lowercase spelling, so a non-canonical UUID in a bookmark or a log link
+        404s where a bare ``<pk>`` used to resolve it. That is a deliberate
+        tightening, recorded in ``UPGRADING.md``; ``_coerce_pks`` is deliberately
+        laxer for bulk ``ids``, which are data rather than routes. (F-38.)
         """
         field = cls.model._meta.pk
+        # A FK/O2O primary key (multi-table inheritance — the ordinary way to get
+        # one) reports its OWN internal type, not the column's, so it fell
+        # through to `str:` while the underlying column is an integer — the
+        # original 500 surviving for that pk class. Follow the relation to the
+        # field that actually stores the value. (F-38.)
+        seen: set[Any] = set()
+        while field.is_relation and field.target_field is not field:
+            if id(field) in seen:  # pathological self-reference; stop rather than spin
+                break
+            seen.add(id(field))
+            field = field.target_field
         internal = field.get_internal_type()
         if internal in {
             "AutoField",
@@ -2101,6 +2119,19 @@ class CRUDView:
         if internal == "UUIDField":
             return "uuid:"
         return "str:"
+
+    @classmethod
+    def _coerce_pks(cls, raw):
+        """Coerce a list of wire pks to this model's pk type, or raise ValueError.
+
+        The bulk paths hardcoded ``int(pk)``, so a UUID-pk model's bulk action was
+        unusable — a flat ``400 Invalid IDs`` — which is the same asymmetry
+        ``_pk_converter`` removed from the routes: the URLs learned the pk type,
+        the bulk view did not. Uses the model field's own converter, so it follows
+        whatever pk class the model declares. (F-38.)
+        """
+        field = cls.model._meta.pk
+        return [field.to_python(pk) for pk in raw]
 
     @classmethod
     def _make_view(cls, base_class):
