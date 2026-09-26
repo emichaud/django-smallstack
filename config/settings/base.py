@@ -90,9 +90,31 @@ INSTALLED_APPS = [
 # self-contained — the tracked diff boots on an install that has no demo_* apps,
 # which a hard reference here would break (finding F-49).
 _SCENARIO_DEMOS = ("apps.demo_purchasing", "apps.demo_agentops", "apps.demo_access")
-INSTALLED_APPS += [
-    app for app in _SCENARIO_DEMOS if importlib.util.find_spec(app) is not None
-]
+
+
+def _app_is_really_present(dotted: str) -> bool:
+    """True only for an importable *package* that also has a ``urls`` module.
+
+    ``find_spec`` alone is not enough: a leftover ``__pycache__`` or
+    ``migrations`` directory left behind after the app's files go away still
+    resolves as a **namespace package** (``spec.origin is None``), so the app
+    looked present while every module inside it was gone — which is the exact
+    ImportError this guard exists to prevent. Require a real ``__init__.py`` and
+    the ``urls`` module ``config/urls.py`` goes on to include.
+    """
+    try:
+        spec = importlib.util.find_spec(dotted)
+    except (ImportError, ValueError):
+        return False
+    if spec is None or spec.origin is None:  # missing, or a namespace-package shell
+        return False
+    try:
+        return importlib.util.find_spec(f"{dotted}.urls") is not None
+    except (ImportError, ValueError):
+        return False
+
+
+INSTALLED_APPS += [app for app in _SCENARIO_DEMOS if _app_is_really_present(app)]
 
 # Background Tasks configuration
 # Uses DatabaseBackend for persistent task storage
