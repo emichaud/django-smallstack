@@ -69,7 +69,6 @@ def _serialize(req: Any) -> dict[str, Any]:
     effect *failed* — without it a broken callback came back as a clean
     ``{"status": "approved"}``. (F-21.)
     """
-    ct = req.target_content_type
     return {
         "id": req.pk,
         "kind": req.kind,
@@ -78,13 +77,16 @@ def _serialize(req: Any) -> dict[str, Any]:
         "status": req.status,
         "terminal": req.status != "pending",
         "context": req.context,
-        "target": (
-            f"{ct.app_label}.{ct.model}:{req.target_object_id}"
-            if ct is not None and req.target_object_id
-            else None
-        ),
+        # Both read from the model properties rather than recomputing the dotted
+        # identity here, so this payload and the REST serializer (which exposes
+        # the same two properties) cannot drift apart. The keys stay short —
+        # `target`/`assignees` — because this payload is hand-built and flat;
+        # REST reaches the same values as `target_ref`/`assignee_usernames`,
+        # since `target` and `assignees` are already taken there by the instance
+        # and the M2M. (F-35.)
+        "target": req.target_ref,
         "target_repr": req.target_repr,
-        "assignees": [u.username for u in req.assignees.all()],
+        "assignees": req.assignee_usernames,
         "requested_by": getattr(req.requested_by, "username", None),
         "decided_by": getattr(req.decided_by, "username", None),
         "decided_at": req.decided_at.isoformat() if req.decided_at else None,

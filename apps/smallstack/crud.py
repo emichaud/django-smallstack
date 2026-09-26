@@ -28,7 +28,7 @@ from typing import Any
 from django import forms
 from django.contrib import messages
 from django.contrib.admin.models import LogEntry
-from django.core.exceptions import FieldDoesNotExist
+from django.core.exceptions import FieldDoesNotExist, PermissionDenied
 from django.db import IntegrityError
 from django.db.models import Model, ProtectedError, QuerySet, RestrictedError
 from django.http import Http404, HttpRequest, HttpResponse
@@ -991,6 +991,16 @@ class _CRUDBulkActionView:
                     if not cfg.can_delete(obj, request):
                         errors[str(pk)] = "Permission denied"
                         continue
+                    # The per-object hook must run here too: a bulk action is a
+                    # write to N single objects, and a view that expresses
+                    # ownership in check_object_permission (rather than in
+                    # get_detail_queryset) would otherwise have it bypassed by
+                    # the least-travelled route. That is F-27 exactly. (F-50.)
+                    try:
+                        cfg.check_object_permission(obj, request)
+                    except (PermissionDenied, Http404):
+                        errors[str(pk)] = "Permission denied"
+                        continue
                     try:
                         # Captured before delete(): Django sets obj.pk to None
                         # the moment the delete succeeds, so this must not be
@@ -1059,6 +1069,11 @@ class _CRUDBulkActionView:
                         errors[str(pk)] = "Not found"
                         continue
                     if not cfg.can_update(obj, request):
+                        errors[str(pk)] = "Permission denied"
+                        continue
+                    try:
+                        cfg.check_object_permission(obj, request)  # see _bulk_delete (F-50)
+                    except (PermissionDenied, Http404):
                         errors[str(pk)] = "Permission denied"
                         continue
 

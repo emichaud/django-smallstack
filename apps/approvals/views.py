@@ -139,7 +139,14 @@ class ApprovalRequestCRUDView(CRUDView):
         "decided_by",
         "decided_at",
         "decision_note",
+        # REST must show what REST accepts: `target_ref` is the same
+        # "app_label.model:pk" spelling the create endpoint takes, and
+        # `assignee_usernames` exposes an M2M the wire otherwise drops. Without
+        # them a client could file against a row and render a label for it, but
+        # never link back to it. (F-35.)
+        "target_ref",
         "target_repr",
+        "assignee_usernames",
         "callback_error",
         "created_at",
         "updated_at",

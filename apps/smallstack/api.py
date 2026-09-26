@@ -1277,6 +1277,13 @@ def _make_api_bulk_delete_view(crud_config):
             if not crud_config.can_delete(obj, request):
                 errors[str(pk)] = "Permission denied"
                 continue
+            # A bulk action is a write to N single objects, so the per-object
+            # hook applies here as much as on the detail route (F-50).
+            try:
+                crud_config.check_object_permission(obj, request)
+            except (PermissionDenied, Http404):
+                errors[str(pk)] = "Permission denied"
+                continue
             try:
                 log_write(request.user, obj, DELETION, "REST API (bulk)")  # before delete
                 obj.delete()
@@ -1352,6 +1359,11 @@ def _make_api_bulk_update_view(crud_config):
                 errors[str(pk)] = "Not found"
                 continue
             if not crud_config.can_update(obj, request):
+                errors[str(pk)] = "Permission denied"
+                continue
+            try:
+                crud_config.check_object_permission(obj, request)  # see bulk-delete (F-50)
+            except (PermissionDenied, Http404):
                 errors[str(pk)] = "Permission denied"
                 continue
 

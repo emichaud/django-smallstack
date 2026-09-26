@@ -161,3 +161,75 @@ def test_every_bundled_display_uses_the_same_empty_state_copy():
         assert include in text, f"{rel} does not include the shared empty state"
         assert "to show." not in text, f"{rel} still has the old divergent copy"
         assert "Create one now?" not in text, f"{rel} still has the stale CTA"
+
+
+# --- F-50: the per-object hook must cover the bulk paths too -----------------
+#
+# `check_object_permission` was documented as covering "detail, edit, delete,
+# field-preview, related-tab, the REST detail/update/delete handlers, the
+# bulk-action view and the generated MCP tools". It was not called from any bulk
+# path — those applied only `get_detail_queryset`. Not exploitable in the shipped
+# tree (the one view that opts out of the read scoper declares no bulk actions),
+# but it is the same false-docstring failure mode as the leak it was written to
+# fix: it tells the next author "express ownership here, nothing can bypass it".
+#
+# No shipped CRUDView declares bulk_actions, and the bulk routes are registered
+# at import time from that attribute — so the view classes are built here the
+# same way crud.py builds them, and driven through as_view().
+
+
+def _bulk_view_for(view_cls):
+    from apps.smallstack.crud import _CRUDBulkActionView
+
+    return type(
+        f"{view_cls.model.__name__}BulkActionForTest",
+        (_CRUDBulkActionView,),
+        {"crud_config": view_cls},
+    ).as_view()
+
+
+@pytest.fixture
+def bulk_receivers(staff):
+    a = WebhookReceiver.objects.create(name="bulk-allowed", slug="bulk-allowed")
+    b = WebhookReceiver.objects.create(name="bulk-denied", slug="bulk-denied")
+    return a, b
+
+
+@pytest.mark.parametrize("action", ["delete", "update"])
+def test_bulk_actions_honour_check_object_permission(
+    rf, staff, bulk_receivers, monkeypatch, action
+):
+    from django.core.exceptions import PermissionDenied
+
+    from apps.smallstack.crud import BulkAction
+
+    allowed, denied = bulk_receivers
+
+    class Guarded(WebhookReceiverCRUDView):
+        bulk_actions = [BulkAction.DELETE, BulkAction.UPDATE]
+
+        @classmethod
+        def check_object_permission(cls, obj, request):
+            if obj.pk == denied.pk:
+                raise PermissionDenied("not yours")
+
+    payload = {"action": action, "ids": [allowed.pk, denied.pk]}
+    if action == "update":
+        payload["fields"] = {"enabled": False}
+    monkeypatch.setattr(Guarded, "can_bulk_update_fields", classmethod(lambda cls: ["enabled"]))
+
+    import json
+
+    request = rf.post("/x/bulk/", data=json.dumps(payload), content_type="application/json")
+    request.user = staff
+    response = _bulk_view_for(Guarded)(request)
+    body = json.loads(response.content)
+
+    assert body["errors"].get(str(denied.pk)) == "Permission denied", (
+        f"bulk {action} bypassed check_object_permission: {body}"
+    )
+    touched = body.get("deleted") or body.get("updated") or []
+    assert denied.pk not in touched, f"bulk {action} acted on a refused row: {body}"
+    assert allowed.pk in touched, f"bulk {action} refused a permitted row: {body}"
+    if action == "delete":
+        assert WebhookReceiver.objects.filter(pk=denied.pk).exists(), "refused row was deleted"

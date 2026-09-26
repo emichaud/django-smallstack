@@ -307,6 +307,68 @@ def test_create_accepts_a_target_so_no_app_needs_its_own_endpoint(
     assert resp.json()["target_repr"]
 
 
+def test_rest_shows_the_target_and_assignees_it_accepts(
+    client, requester, assignee, staff, sample_kind
+):
+    """REST must round-trip what REST takes.
+
+    `target_repr` is a human label; it used to be all a client got back, with
+    `target` serializing to null (it is the *instance* property) and the
+    assignees M2M invisible. So a client could file against a row, render a
+    label for it, and never link back to it or re-derive which object it was —
+    the duplication the target pointer exists to remove. (F-35.)
+    """
+    row = _file(requester)
+    ref = f"smallstack_approvals.approvalrequest:{row.pk}"
+    resp = client.post(
+        CREATE_URL,
+        {
+            "kind": "test.sample",
+            "title": "reads back what it accepts",
+            "target": ref,
+        },
+        content_type="application/json",
+        **_bearer(requester),
+    )
+    assert resp.status_code == 201, resp.content
+    created = resp.json()
+    # Identical spelling to the one `create` accepts, on create AND on detail.
+    assert created["target_ref"] == ref
+    assert created["assignee_usernames"] == []
+
+    # Assigned server-side (this kind does not allowlist remote assignees), then
+    # read back: the M2M was previously invisible to the wire entirely.
+    ApprovalRequest.objects.get(pk=created["id"]).assignees.set([assignee])
+
+    detail = client.get(
+        f"/smallstack/api/approvals/requests/{created['id']}/", **_bearer(staff)
+    )
+    assert detail.status_code == 200, detail.content
+    assert detail.json()["target_ref"] == ref
+    assert detail.json()["assignee_usernames"] == [assignee.username]
+
+    # The point of the spelling: it resolves back to the row, unaided.
+    from apps.approvals.resolvers import resolve_target
+
+    obj, err = resolve_target(detail.json()["target_ref"])
+    assert err is None
+    assert obj.pk == row.pk
+
+
+def test_rest_and_mcp_report_the_same_target_identity(requester, sample_kind):
+    """Both surfaces read the two model properties, so they cannot drift."""
+    from apps.approvals.mcp_tools import _serialize as mcp_serialize
+
+    row = _file(requester)
+    target = _file(requester)
+    row.set_target(target)
+    row.save()
+
+    assert row.target_ref == f"smallstack_approvals.approvalrequest:{target.pk}"
+    assert mcp_serialize(row)["target"] == row.target_ref
+    assert mcp_serialize(row)["assignees"] == row.assignee_usernames
+
+
 def test_create_rejects_a_bad_target_and_unallowlisted_assignees(
     client, requester, assignee, sample_kind
 ):

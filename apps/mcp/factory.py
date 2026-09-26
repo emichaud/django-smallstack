@@ -293,6 +293,22 @@ def _build_list_tool(view_cls, *, base: str):
 # Fix: `id` is the wire name everywhere; `pk` stays a permanent alias so no
 # existing client breaks.
 
+# Refusals carry a machine-readable `code` so a model can branch on the KIND of
+# failure instead of pattern-matching English. `isError` (set by the dispatcher
+# from the presence of this "error" key) already separates failure from success;
+# without a code, an agent still cannot tell not-found from not-permitted from
+# bad-argument on a generated tool. F-20 gave the hand-written approvals tools
+# this shape and the harness asserts it; F-53 is that shape reaching the ~12
+# apps' worth of GENERATED tools, where the three cases were already
+# distinguished in code but never named.
+#
+# Codes are a closed vocabulary — add to it deliberately, since agents branch on
+# these strings: invalid_argument · not_found · not_permitted · validation_error
+# · unsupported.
+def _tool_error(code: str, message: str, **extra: Any) -> dict[str, Any]:
+    return {"error": {"code": code, "message": message, **extra}}
+
+
 _OBJECT_ID_SCHEMA = {
     "id": {
         "type": "integer",
@@ -339,18 +355,18 @@ def _fetch_one(view_cls, args: dict[str, Any], request) -> Any:
     """
     pk = _object_id(args)
     if pk is None:
-        return {"error": "id is required (alias: pk)"}
+        return _tool_error("invalid_argument", "id is required (alias: pk)")
     qs = view_cls.get_detail_queryset(view_cls._get_queryset(), request)
     try:
         obj = qs.get(pk=pk)
     except (view_cls.model.DoesNotExist, ValueError, TypeError, ValidationError):
-        return {"error": f"{view_cls.model.__name__} id={pk} not found"}
+        return _tool_error("not_found", f"{view_cls.model.__name__} id={pk} not found")
     try:
         view_cls.check_object_permission(obj, request)
     except (PermissionDenied, Http404):
         # Existence-hiding: an agent that may not touch the row is told the same
         # thing as an agent naming a row that isn't there.
-        return {"error": f"{view_cls.model.__name__} id={pk} not found"}
+        return _tool_error("not_found", f"{view_cls.model.__name__} id={pk} not found")
     return obj
 
 
@@ -384,12 +400,12 @@ def _build_create_tool(view_cls, *, singular: str):
             view_cls._make_form_class() if hasattr(view_cls, "_make_form_class") else None
         )
         if form_class is None:
-            return {"error": "no form_class available"}
+            return _tool_error("unsupported", "no form_class available")
         # Native JSON args pass straight through (arrays/objects stay native);
         # omitted fields fall back to model defaults, mirroring REST create.
         form = form_class(merge_form_payload(form_class, args, fill_defaults=True))
         if not form.is_valid():
-            return {"errors": form.errors}
+            return _tool_error("validation_error", "the submitted fields are not valid", fields=form.errors)
         obj = form.save()
         view_cls.on_form_valid(request, form, obj, is_create=True)
         log_write(ctx.user, obj, ADDITION, "MCP")
@@ -415,7 +431,7 @@ def _build_update_tool(view_cls, *, singular: str):
             return obj
 
         if not view_cls.can_update(obj, request):
-            return {"error": "update not permitted"}
+            return _tool_error("not_permitted", "update not permitted")
 
         form_class = view_cls.form_class or view_cls._make_form_class()
 
@@ -430,7 +446,7 @@ def _build_update_tool(view_cls, *, singular: str):
 
         form = form_class(merged, instance=obj)
         if not form.is_valid():
-            return {"errors": form.errors}
+            return _tool_error("validation_error", "the submitted fields are not valid", fields=form.errors)
         obj = form.save()
         view_cls.on_form_valid(request, form, obj, is_create=False)
         log_write(ctx.user, obj, CHANGE, "MCP")
@@ -455,7 +471,7 @@ def _build_delete_tool(view_cls, *, singular: str):
         if isinstance(obj, dict):
             return obj
         if not view_cls.can_delete(obj, request):
-            return {"error": "delete not permitted"}
+            return _tool_error("not_permitted", "delete not permitted")
         pk = obj.pk
         log_write(ctx.user, obj, DELETION, "MCP")  # before delete — obj.pk needed
         obj.delete()

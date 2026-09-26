@@ -2,10 +2,25 @@
 
 ``sync_code_jobs()`` is called from ``SchedulerConfig.ready()`` after
 autodiscovery. It is safe to run on every boot: it *creates* a code-managed
-``ScheduledJob`` if absent and *refreshes its cadence fields* if present, but
-never touches ``enabled`` (user-controlled) and never deletes. Removing a
-``@scheduled`` decorator + redeploying leaves the row orphaned as
-``source="code"`` — retired by ``prune_orphan_code_jobs`` or manual disable.
+``ScheduledJob`` if absent and *refreshes its cadence fields* if present, and it
+**never deletes** — retirement is a disable, so the run history stays readable.
+
+It does write ``enabled``, in both directions, but only for rows *it* owns the
+state of — the ``auto_retired`` flag is what tells the two apart:
+
+* **Spec disappeared** (decorator removed, app dropped from ``INSTALLED_APPS``):
+  the orphan is disabled with ``auto_retired=True`` and ``next_run_at=None``.
+* **Spec came back**: a row carrying ``auto_retired=True`` is re-enabled
+  automatically. Without that, the flag would be a one-way switch and the
+  documented remedy — re-declare the spec — would do nothing.
+* **An operator disabled it by hand**: no ``auto_retired`` marker, so it stays
+  off. Deliberate operator intent is never overwritten.
+
+Two safety valves guard the retirement path, because "no spec declares this" is
+also what a *broken import* looks like: an empty registry retires nothing
+(total autodiscovery failure), and a large single-sync shrink retires nothing
+(partial failure — one app's ``tasks.py`` raising, a different settings module).
+Both log rather than act. See ``UPGRADING.md`` for what an upgrader observes.
 """
 
 from __future__ import annotations
@@ -139,9 +154,9 @@ def sync_code_jobs() -> int:
         synced += 1
 
     # Retire code-declared rows whose spec disappeared. Disabled, not deleted:
-    # the run history stays readable, and re-enabling the feature re-enables the
-    # job on the next sync only if the operator flips `enabled` back on — which
-    # is the same rule as any other UI-owned field.
+    # the run history stays readable. The `auto_retired` marker set below is what
+    # lets the branch above re-enable the row automatically if the spec returns —
+    # an operator-disabled row carries no marker and is left alone.
     live_names = {spec.name for spec in _SCHEDULE_REGISTRY}
     if not live_names:
         # Safety valve: an empty registry almost always means autodiscovery

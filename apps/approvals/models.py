@@ -190,6 +190,27 @@ class ApprovalRequest(models.Model):
         except Exception:  # noqa: BLE001 — deleted target, stale CT, bad pk
             return None
 
+    @property
+    def target_ref(self) -> str | None:
+        """The target as ``"app_label.model:pk"`` — the same spelling REST and
+        MCP *accept* when filing, so a remote client can read back what it sent.
+
+        ``target`` (above) resolves to the instance and is the Python-side API a
+        kind callback uses; it serializes to ``null`` on the wire, which left a
+        client able to set a target and able to render ``target_repr`` for a
+        human, but unable to link back to the row or re-derive which object it
+        was — the duplication the target pointer existed to remove. (F-35.)
+        """
+        ct = self.target_content_type
+        if ct is None or not self.target_object_id:
+            return None
+        return f"{ct.app_label}.{ct.model}:{self.target_object_id}"
+
+    @property
+    def assignee_usernames(self) -> list[str]:
+        """Assignees as usernames — the M2M is invisible to the wire otherwise."""
+        return [u.username for u in self.assignees.all()]
+
     def set_target(self, obj: models.Model | None) -> None:
         if obj is None:
             self.target_content_type = None

@@ -286,7 +286,7 @@ def test_update_widget_handler_missing_pk(widget_view, user_a, readonly_token):
     token, _ = readonly_token
     # F-25: `id` is the wire name, `pk` a permanent alias; the message names both.
     assert _ctx_call("update_widget", {"name": "x"}, user_a, token) == {
-        "error": "id is required (alias: pk)"
+        "error": {"code": "invalid_argument", "message": "id is required (alias: pk)"}
     }
 
 
@@ -294,7 +294,9 @@ def test_update_widget_handler_not_found(widget_view, user_a, readonly_token):
     register_mcp_tools_from_crudview(widget_view)
     token, _ = readonly_token
     result = _ctx_call("update_widget", {"pk": 999999, "name": "x"}, user_a, token)
-    assert "not found" in result["error"]
+    # F-53: refusals carry a machine-readable code, not bare prose.
+    assert result["error"]["code"] == "not_found"
+    assert "not found" in result["error"]["message"]
 
 
 def test_delete_widget_handler_deletes(widget_view, user_a, readonly_token, monkeypatch):
@@ -314,7 +316,7 @@ def test_delete_widget_handler_missing_pk(widget_view, user_a, readonly_token):
     register_mcp_tools_from_crudview(widget_view)
     token, _ = readonly_token
     assert _ctx_call("delete_widget", {}, user_a, token) == {
-        "error": "id is required (alias: pk)"
+        "error": {"code": "invalid_argument", "message": "id is required (alias: pk)"}
     }
 
 
@@ -322,7 +324,9 @@ def test_delete_widget_handler_not_found(widget_view, user_a, readonly_token):
     register_mcp_tools_from_crudview(widget_view)
     token, _ = readonly_token
     result = _ctx_call("delete_widget", {"pk": 999999}, user_a, token)
-    assert "not found" in result["error"]
+    # F-53: refusals carry a machine-readable code, not bare prose.
+    assert result["error"]["code"] == "not_found"
+    assert "not found" in result["error"]["message"]
 
 
 # --- F-25: `id` is the wire name for every single-object tool ---------------
@@ -384,3 +388,50 @@ def test_single_object_tool_descriptions_name_the_parameter(widget_view):
     # …and the clause is not bolted onto tools that take no identifier.
     for name in ("list_widgets", "create_widget"):
         assert "Identify the row by" not in TOOL_REGISTRY[name].description, name
+
+
+# --- F-53: generated tools name the KIND of failure, not just the prose ------
+
+
+def test_refusals_carry_a_machine_readable_code(widget_view, user_a, readonly_token):
+    """Every generated refusal is {"error": {"code", "message"}}.
+
+    `isError` already separates failure from success (F-20), but a model still
+    could not tell not-found from not-permitted from bad-argument on a generated
+    tool without parsing English — while the hand-written approvals tools had
+    carried a `code` since F-20. The three cases were distinguished in code all
+    along; they just were not named.
+    """
+    register_mcp_tools_from_crudview(widget_view)
+    token, _ = readonly_token
+
+    cases = [
+        ("get_widget", {}, "invalid_argument"),
+        ("get_widget", {"id": 999999}, "not_found"),
+        ("update_widget", {}, "invalid_argument"),
+        ("update_widget", {"id": 999999, "name": "x"}, "not_found"),
+        ("delete_widget", {}, "invalid_argument"),
+        ("delete_widget", {"id": 999999}, "not_found"),
+    ]
+    for name, args, expected in cases:
+        result = _ctx_call(name, args, user_a, token)
+        err = result["error"]
+        assert isinstance(err, dict), f"{name}{args} still returns bare prose: {err!r}"
+        assert err["code"] == expected, f"{name}{args} → {err['code']!r}, want {expected!r}"
+        assert err["message"], f"{name}{args} has a code but no human message"
+
+
+def test_validation_failure_is_an_error_not_a_success_payload(
+    widget_view, user_a, readonly_token
+):
+    """A rejected create used to return {"errors": …} with no top-level "error"
+    key — so the dispatcher reported isError:false and a model reading the
+    protocol flag saw "created". Same class as F-20, one shape over."""
+    register_mcp_tools_from_crudview(widget_view)
+    token, _ = readonly_token
+
+    result = _ctx_call("create_widget", {"name": ""}, user_a, token)
+    assert "error" in result, f"validation failure has no top-level 'error': {result!r}"
+    assert result["error"]["code"] == "validation_error"
+    # The per-field detail a client needs to fix the call is preserved.
+    assert result["error"]["fields"], "field-level errors were dropped"
