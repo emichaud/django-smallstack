@@ -9,6 +9,20 @@ Breaking-change migration recipes live in [`UPGRADING.md`](UPGRADING.md).
 
 ## [Unreleased]
 
+## [0.21.2] - 2026-09-26
+
+### Removed
+- **The approvals scenario test-harness apps no longer ship in the base template.**
+  `apps/demo_purchasing`, `apps/demo_agentops` and `apps/demo_access` — plus
+  `manage.py approval_scenario` and `manage.py seed_approval_scenarios` — were the QA
+  workspace's test vehicle for the v0.21.x approvals work. They drove the findings but
+  were never meant to land in the starter template: a fresh clone got three extra apps,
+  six extra migrations, and 29 routes under `/demo/` without opting in. The apps, their
+  conditional `INSTALLED_APPS` registration, and the `/demo/` URL mounting are all
+  removed; the framework itself never referenced them, so no framework behavior changes.
+  If you cloned at v0.21.0/v0.21.1 and migrated, see "Scenario demo apps" in
+  `UPGRADING.md` for what the leftovers are (inert) and how to drop them.
+
 ## [0.21.1] - 2026-09-26
 
 Fixes for findings from the 2026-09-26 test rounds. Each carries a regression test that
@@ -1520,7 +1534,10 @@ Condensed highlights of the v0.11 series (see git history for per-patch detail):
 See the git tag history (`git tag`) and `ai_cowork/audit_history/` for the full record of the
 v0.8–v0.10 API-server, modern-dark-theme, search, MCP, and Postgres eras.
 
-[Unreleased]: https://github.com/emichaud/django-smallstack/compare/v0.15.1...HEAD
+[Unreleased]: https://github.com/emichaud/django-smallstack/compare/v0.21.2...HEAD
+[0.21.2]: https://github.com/emichaud/django-smallstack/compare/v0.21.1...v0.21.2
+[0.21.1]: https://github.com/emichaud/django-smallstack/compare/v0.21.0...v0.21.1
+[0.21.0]: https://github.com/emichaud/django-smallstack/compare/v0.20.1...v0.21.0
 [0.20.1]: https://github.com/emichaud/django-smallstack/compare/v0.20.0...v0.20.1
 [0.20.0]: https://github.com/emichaud/django-smallstack/compare/v0.19.0...v0.20.0
 [0.19.0]: https://github.com/emichaud/django-smallstack/compare/v0.18.0...v0.19.0
