@@ -9,6 +9,8 @@ Breaking-change migration recipes live in [`UPGRADING.md`](UPGRADING.md).
 
 ## [Unreleased]
 
+## [0.21.5] - 2026-09-27
+
 ### Fixed
 - **The 90-day timeline no longer shows a permanent false red square on the day
   currently crossing the retention boundary.** The pruner advances one minute at
@@ -1628,7 +1630,8 @@ Condensed highlights of the v0.11 series (see git history for per-patch detail):
 See the git tag history (`git tag`) and `ai_cowork/audit_history/` for the full record of the
 v0.8–v0.10 API-server, modern-dark-theme, search, MCP, and Postgres eras.
 
-[Unreleased]: https://github.com/emichaud/django-smallstack/compare/v0.21.4...HEAD
+[Unreleased]: https://github.com/emichaud/django-smallstack/compare/v0.21.5...HEAD
+[0.21.5]: https://github.com/emichaud/django-smallstack/compare/v0.21.4...v0.21.5
 [0.21.4]: https://github.com/emichaud/django-smallstack/compare/v0.21.3...v0.21.4
 [0.21.3]: https://github.com/emichaud/django-smallstack/compare/v0.21.2...v0.21.3
 [0.21.2]: https://github.com/emichaud/django-smallstack/compare/v0.21.1...v0.21.2

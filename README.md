@@ -5,7 +5,7 @@
 ![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue)
 ![Django 6.1](https://img.shields.io/badge/django-6.1-green)
 ![License MIT](https://img.shields.io/badge/license-MIT-brightgreen)
-![Version 0.21.4](https://img.shields.io/badge/version-0.21.4-blue)
+![Version 0.21.5](https://img.shields.io/badge/version-0.21.5-blue)
 
 **One small backend. Many roles.** A small-footprint Django foundation that drops into your stack and plays whatever role you need — often several at once. From a single model definition, SmallStack is an **admin app**, a **REST backend** for your React/Svelte/Solid frontend, an **MCP server** for AI agents, a fast **search engine**, an **integration hub** (webhooks, feeds, OpenAPI), and a **task runner**.
 
