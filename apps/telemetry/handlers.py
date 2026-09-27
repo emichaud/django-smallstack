@@ -373,16 +373,28 @@ class DatabaseLogHandler(logging.Handler):
         return batch
 
     def _write_guarded(self, rows: list[dict[str, Any]]) -> None:
-        """Write with the recursion guard set — for callers off the worker thread."""
+        """Write with the recursion guard set — for callers off the worker thread.
+
+        ``manage_connection=False`` because this path runs on the CALLER's
+        thread (``flush()`` from tests, sync-mode users, or
+        ``logging.shutdown()`` at interpreter exit) and therefore borrows the
+        caller's database connection. Closing a connection you don't own is
+        only safe on the worker thread; on Postgres it closes a live
+        request's (or test transaction's) connection mid-flight. SQLite's
+        shared in-memory connection turns both calls into silent no-ops,
+        which is why this never surfaced on the default backend.
+        """
         previous = getattr(_guard, "active", False)
         _guard.active = True
         try:
-            self._write(rows)
+            self._write(rows, manage_connection=False)
         finally:
             _guard.active = previous
 
-    def _write(self, rows: list[dict[str, Any]]) -> None:
-        from django.db import close_old_connections, connection
+    def _write(self, rows: list[dict[str, Any]], *, manage_connection: bool = True) -> None:
+        """Persist a batch. ``manage_connection`` must be True ONLY on the
+        worker thread, which owns its thread-local connection outright."""
+        from django.db import close_old_connections, connection, transaction
 
         from .models import LogRecord
 
@@ -394,8 +406,15 @@ class DatabaseLogHandler(logging.Handler):
 
         for attempt in range(3):
             try:
-                close_old_connections()
-                LogRecord.objects.bulk_create([LogRecord(**row) for row in rows])
+                if manage_connection:
+                    close_old_connections()
+                # atomic() = a savepoint when the caller already holds a
+                # transaction: a failed write rolls back to it instead of
+                # poisoning the outer transaction ("current transaction is
+                # aborted" on Postgres — the caller's NEXT statement would
+                # die, not this one).
+                with transaction.atomic():
+                    LogRecord.objects.bulk_create([LogRecord(**row) for row in rows])
                 self.written += len(rows)
                 return
             except Exception as exc:
@@ -406,11 +425,13 @@ class DatabaseLogHandler(logging.Handler):
                     logger.debug("telemetry_logrecord not present yet; dropping %d record(s)", len(rows))
                     return
                 # "database is locked" (SQLite) and dropped connections both
-                # recover on retry; force a fresh connection and back off.
-                try:
-                    connection.close()
-                except Exception:
-                    pass
+                # recover on retry; force a fresh connection and back off —
+                # but only on the connection this thread owns.
+                if manage_connection:
+                    try:
+                        connection.close()
+                    except Exception:
+                        pass
                 if attempt == 2:
                     self.dropped += len(rows)  # was only logged, never counted (audit D10b)
                     logger.warning("Dropped %d log record(s) after repeated write failures", len(rows), exc_info=True)

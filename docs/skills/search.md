@@ -197,6 +197,18 @@ uv run python manage.py rebuild_search_index --all
 uv run python manage.py search_doctor
 ```
 
+### ⚠️ Never write searchable rows inside a migration
+
+Migrations run BEFORE `post_migrate` provisions the index, and the signal
+handlers deliberately refuse historical models (`view.model is not sender` —
+`apps.get_model()` renders a different class with the same label). Creating a
+searchable row in `RunPython` therefore leaves it un-indexed — and before that
+guard existed it aborted a from-scratch Postgres `migrate` outright (the index
+write hit the missing `search_vector` column inside the migration's
+transaction, poisoning it). Seed data belongs in a management command or
+fixture; after any bulk import, `rebuild_search_index <app.Model>` fills the
+index.
+
 ### ⚠️ Bulk writes bypass the index — reindex after them
 
 The index is kept current by `post_save` / `post_delete` **signals**. Bulk

@@ -144,7 +144,18 @@ is almost always the **hyphen/tokenization** case above — not a backend bug.
 Before tagging a release or merging search/migration/SQL work:
 
 - [ ] Ran the suite with `TEST_DB=postgres` (0 failures)
+- [ ] Ran a **from-scratch `migrate` against an EMPTY Postgres** (~1 min) — the
+      cheapest gate for the whole transaction-poisoning class: a failed
+      statement poisons the entire Postgres transaction ("current transaction
+      is aborted"), so the *visible* error is often Django's next statement,
+      not the culprit; SQLite carries on and hides the category. Fresh-DB runs
+      also order `post_migrate` provisioning AFTER every migration, which
+      incremental databases never exercise
 - [ ] Any data migration's written values fit the column `max_length`
+- [ ] No migration **creates or saves rows of a searchable model** — the
+      search index is provisioned at `post_migrate`, and any `except
+      Exception` around a DB write is a backend-dependent promise unless the
+      write is wrapped in `transaction.atomic()` (a savepoint)
 - [ ] Order-sensitive queries/tests have explicit `order_by()`
 - [ ] FTS tests search whole words, not hyphenated fragments
 - [ ] Case-sensitivity intent is explicit (`iexact`/`icontains`)

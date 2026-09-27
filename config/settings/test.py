@@ -21,9 +21,13 @@ DEBUG = True
 ALLOWED_HOSTS = ["localhost", "127.0.0.1", "testserver"]
 
 # Database. Defaults to in-memory SQLite for fast tests. Set TEST_DB=postgres
-# to exercise the Postgres path (FTS, varchar enforcement, etc.) — e.g.
-# `TEST_DB=postgres make test`. Requires a running Postgres and the
-# `postgres` extra (`uv sync --extra postgres`); CI runs both backends.
+# to exercise the Postgres path (FTS, varchar enforcement, transaction
+# poisoning, etc.) — e.g. `TEST_DB=postgres make test`. Requires a running
+# Postgres and the `postgres` extra (`uv sync --extra postgres`). Nothing runs
+# it automatically — this repo ships no CI (deliberate); downstreams that add
+# CI should run at MINIMUM a from-scratch `migrate` against an empty Postgres
+# (~1 min) — it catches the whole hidden-by-SQLite failure class the full
+# 25-min Postgres suite exists for.
 if os.environ.get("TEST_DB") == "postgres":
     DATABASES = {
         "default": {

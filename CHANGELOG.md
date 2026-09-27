@@ -9,6 +9,39 @@ Breaking-change migration recipes live in [`UPGRADING.md`](UPGRADING.md).
 
 ## [Unreleased]
 
+### Fixed
+- **From-scratch `migrate` on Postgres can no longer be aborted by the search
+  index.** Three facts compounded (downstream report, validated here): the
+  search `post_save` receiver has no `sender` filter; `get_view()` resolves by
+  label string, so the *historical* model `apps.get_model()` hands a RunPython
+  migration matches the real model's registry entry; and the index is
+  provisioned at `post_migrate` — after every migration. A downstream that
+  creates a searchable row in a migration therefore wrote to the missing
+  `search_vector` column inside the migration's transaction, poisoning it —
+  the visible error was Django's own `INSERT INTO django_migrations`, and a
+  fresh Postgres build (DR restore, new region, CI) was impossible. SQLite
+  hid the category: its FTS index is a separate table and a failed statement
+  doesn't poison the transaction. The handlers now require
+  `view.model is sender` (historical models no-op) and wrap each index write
+  in `transaction.atomic()` — a savepoint — so "a search index write should
+  never break a model save" is finally true on Postgres, not just SQLite.
+- **Telemetry's synchronous flush no longer manages a connection it doesn't
+  own.** `_write()` unconditionally called `close_old_connections()` and, on
+  error, `connection.close()` — correct on the worker thread (which owns its
+  thread-local connection), wrong on the `flush()` path, which runs on the
+  CALLER's thread: `start_worker=False` mode, tests, and `logging.shutdown()`
+  at interpreter exit. On Postgres that closes a live request's (or test
+  transaction's) connection; SQLite's shared in-memory connection made both
+  calls no-ops, hiding it. Connection management is now gated to the worker
+  path, and the batch insert runs in `transaction.atomic()` so a failed write
+  can't poison a caller's transaction either. (Same downstream report — two
+  independent instances of code silently depending on SQLite's forgiving
+  semantics.)
+- The `config/settings/test.py` comment claiming "CI runs both backends" is
+  corrected (this repo deliberately ships no CI); it now recommends the cheap
+  gate for downstreams that add CI — a from-scratch `migrate` against an empty
+  Postgres — and the sqlite-vs-postgres skill checklist gained the same item.
+
 ## [0.21.5] - 2026-09-27
 
 ### Fixed
