@@ -32,10 +32,27 @@ class Command(BaseCommand):
                 "status page. Run once after upgrading."
             ),
         )
+        parser.add_argument(
+            "--reprorate",
+            action="store_true",
+            help=(
+                "Recompute every daily summary's expected_count (epoch start, "
+                "SLA-excluded maintenance) and its uptime_pct. Unlike "
+                "--repair-summaries this needs no raw beats — expected depends "
+                "only on the date, the epoch row, and the maintenance windows "
+                "— so it fixes history: an epoch-start day scored ~6%% by the "
+                "old flat full-day denominator rescores correctly. Run "
+                "--repair-summaries FIRST (reprorate cannot tell a corrupted "
+                "row from a sparse one)."
+            ),
+        )
 
     def handle(self, **options):
         if options["repair_summaries"]:
             self._repair_summaries()
+            return
+        if options["reprorate"]:
+            self._reprorate()
             return
         if options["reset_epoch"]:
             note = options["reset_note"]
@@ -92,3 +109,39 @@ class Command(BaseCommand):
         self.stdout.write(f"Deleted {count} corrupted daily summaries (now 'No data'):")
         for key, n in sorted(by_monitor.items()):
             self.stdout.write(f"  {key}: {n} day(s)")
+
+    def _reprorate(self) -> None:
+        """Recompute expected_count + uptime_pct for every summary row.
+
+        Fully repairs epoch-start / mid-day-added days. Days overlapped by a
+        past excluded maintenance window improve but can't be perfect: the
+        pruned beats can no longer be split at the window boundary, so
+        ``ok_count`` may still include (and the recorded arm of the
+        denominator still count) beats from inside the window.
+        """
+        from django.conf import settings
+
+        from apps.heartbeat.models import HeartbeatDaily
+        from apps.heartbeat.services import _epoch_starts_by_key, expected_intervals_for_day
+
+        interval = getattr(settings, "HEARTBEAT_EXPECTED_INTERVAL", 60)
+        rows = HeartbeatDaily.objects.all().order_by("monitor_key", "date")
+        epoch_starts = _epoch_starts_by_key({r.monitor_key for r in rows})
+
+        changed = 0
+        for row in rows:
+            expected = expected_intervals_for_day(
+                row.date, interval, row.monitor_key, epoch_starts[row.monitor_key]
+            )
+            denominator = max(row.ok_count + row.fail_count, expected)
+            uptime = (
+                min(round(row.ok_count / denominator * 100, 3), 100.0)
+                if denominator
+                else 0
+            )
+            if row.expected_count != expected or float(row.uptime_pct) != float(uptime):
+                row.expected_count = expected
+                row.uptime_pct = uptime
+                row.save(update_fields=["expected_count", "uptime_pct"])
+                changed += 1
+        self.stdout.write(f"Reprorated {rows.count()} summaries ({changed} changed).")

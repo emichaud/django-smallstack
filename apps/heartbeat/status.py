@@ -465,7 +465,10 @@ def _daily_uptime_map(monitor_key: str, start, end) -> dict:
     )
     raw_by_date = {r["day"]: r for r in raw_rows}
 
-    full_day_expected = max(int(86400 // interval), 1)
+    from .services import _day_bounds, expected_intervals_for_day
+
+    epoch_cfg = HeartbeatEpoch.get_config(monitor_key)
+    epoch_start = epoch_cfg.started_at if epoch_cfg else None
 
     result: dict = {}
     day = start
@@ -477,11 +480,24 @@ def _daily_uptime_map(monitor_key: str, start, end) -> dict:
         else:
             raw = raw_by_date.get(day)
             if raw and raw["total"]:
-                # Today is partial: judge it by its actual recorded beats (failure-based,
-                # like the 24h timeline) so a sparse-but-all-OK day isn't painted red by an
-                # elapsed-time denominator. Completed days use the full-day SLA denominator.
-                expected = raw["total"] if day == today else full_day_expected
-                uptime = min(round(raw["ok"] / expected * 100, 2), 100.0)
+                if day == today:
+                    # Today is partial: judge it by its actual recorded beats
+                    # (failure-based, like the 24h timeline) so a sparse-but-
+                    # all-OK day isn't painted red by an elapsed-time denominator.
+                    uptime = min(round(raw["ok"] / raw["total"] * 100, 2), 100.0)
+                else:
+                    # Completed days use the same prorated SLA denominator and
+                    # non-excluded numerator the summary writer uses, so a
+                    # day's uptime doesn't change when it crosses the
+                    # retention boundary (epoch-start days painted ~6% red
+                    # while still in raw retention was the visible symptom).
+                    expected = expected_intervals_for_day(
+                        day, interval, monitor_key, epoch_start
+                    )
+                    if expected >= 1:
+                        day_start, day_end = _day_bounds(day)
+                        ok = _get_non_maintenance_ok_count(day_start, day_end, monitor_key)
+                        uptime = min(round(ok / expected * 100, 2), 100.0)
         result[day] = uptime
         day += timedelta(days=1)
     return result

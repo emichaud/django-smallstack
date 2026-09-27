@@ -398,6 +398,19 @@ run `uv run python manage.py heartbeat` (or hit the ping) to record a round.
   raw-retention days stayed green). Deployments that ran the buggy pruner repair
   with `manage.py heartbeat --repair-summaries` (corrupted days become "No data";
   the true counts are unrecoverable).
+- **Prorated `expected_count` + SLA-scoped counts:** a day's expected checks
+  (`expected_intervals_for_day`) shrink for an epoch that began mid-day (which is
+  also how a monitor *added* mid-day looks — `ensure_epoch` pins the first beat)
+  and for SLA-excluded maintenance; beats inside excluded windows land in
+  `maintenance_count`, never `ok_count`/`fail_count` — mirroring
+  `_uptime_over_window`'s raw-span semantics, so a day's uptime doesn't change
+  when it crosses the retention boundary. Missing beats *inside* the monitored
+  span still count as downtime (never prorate from the first observed beat — that
+  erases midnight outages), and the epoch used is the explicit row only
+  (`get_config`), never `get_epoch`'s oldest-surviving-beat fallback. A fully
+  excluded day writes `expected_count=0` ⇒ "No data" on the timeline.
+  `manage.py heartbeat --reprorate` backfills history (needs no raw beats); run
+  `--repair-summaries` first.
 
 ## Per-monitor SLA
 

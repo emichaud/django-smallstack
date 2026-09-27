@@ -10,6 +10,25 @@ Breaking-change migration recipes live in [`UPGRADING.md`](UPGRADING.md).
 ## [Unreleased]
 
 ### Fixed
+- **Daily uptime summaries prorate their expected-checks denominator.** Three
+  spans nobody agreed to monitor were read as downtime by the flat
+  `86400 // interval` denominator: the epoch's first partial day (~6% "down"
+  even with every check green), a monitor added mid-day (same shape — its epoch
+  is its first beat), and SLA-excluded maintenance (a 4h excluded window capped
+  an honest day at 83%, defeating `exclude_from_sla=True`). The summary writer
+  now computes `expected_intervals_for_day` (epoch row → day-in-progress →
+  excluded windows) **and** moves beats recorded inside excluded windows out of
+  `ok_count`/`fail_count` into `maintenance_count` — mirroring the raw span's
+  `_uptime_over_window` semantics; shrinking the denominator alone would have
+  left `max(recorded, expected)` resurrecting the excluded time. The 90-day
+  timeline's raw branch uses the same math, so a day's uptime no longer changes
+  when it crosses the retention boundary. Missing beats inside the monitored
+  span still count as downtime (deliberately: for a self-pinged monitor, "cron
+  didn't run" and "host was down" are the same event). A fully excluded day
+  writes `expected_count=0` and renders "No data". New
+  `manage.py heartbeat --reprorate` backfills existing summaries — expected
+  depends only on the date, the epoch row, and the maintenance windows, so
+  unlike `--repair-summaries` it fixes history (run repair first).
 - **One host setting now satisfies both email links and webhooks.** Emails built
   outside a request (approval notifications, welcome mail) read `SITE_DOMAIN`,
   while webhooks read `SITE_URL` — so a deployment that configured its host the

@@ -2127,3 +2127,240 @@ class TestIncrementalPruneSummaries:
         assert not HeartbeatDaily.objects.filter(pk=corrupt.pk).exists()
         assert HeartbeatDaily.objects.filter(pk=healthy.pk).exists()
         assert HeartbeatDaily.objects.filter(pk=real_outage.pk).exists()
+
+
+class TestProratedExpectedIntervals:
+    """expected_intervals_for_day: time nobody agreed to monitor must not sit
+    in the denominator — epoch-start days, mid-day-added monitors, and
+    SLA-excluded maintenance were all read as downtime by the flat 1440."""
+
+    def _midnight(self, days_ago):
+        return TestIncrementalPruneSummaries._local_midnight(days_ago)
+
+    def test_full_day_without_epoch_or_windows(self, db):
+        from apps.heartbeat.services import expected_intervals_for_day
+
+        day = (self._midnight(10)).date()
+        assert expected_intervals_for_day(day, 60, "site", None) == 1440
+
+    def test_epoch_mid_day_prorates(self, db):
+        from apps.heartbeat.services import expected_intervals_for_day
+
+        day_start = self._midnight(10)
+        epoch = day_start + timedelta(hours=18)  # monitoring began at 6pm
+        assert expected_intervals_for_day(day_start.date(), 60, "site", epoch) == 360
+
+    def test_pre_epoch_day_expects_zero(self, db):
+        from apps.heartbeat.services import expected_intervals_for_day
+
+        day = self._midnight(10).date()
+        epoch = self._midnight(5)  # epoch starts 5 days later
+        assert expected_intervals_for_day(day, 60, "site", epoch) == 0
+
+    def test_excluded_maintenance_shrinks_expected(self, db):
+        from apps.heartbeat.models import MaintenanceWindow
+        from apps.heartbeat.services import expected_intervals_for_day
+
+        day_start = self._midnight(10)
+        MaintenanceWindow.objects.create(
+            monitor_key="site", title="deploy", exclude_from_sla=True,
+            start=day_start + timedelta(hours=2), end=day_start + timedelta(hours=6),
+        )
+        assert expected_intervals_for_day(day_start.date(), 60, "site", None) == 1200
+
+    def test_non_excluded_window_does_not_shrink(self, db):
+        from apps.heartbeat.models import MaintenanceWindow
+        from apps.heartbeat.services import expected_intervals_for_day
+
+        day_start = self._midnight(10)
+        MaintenanceWindow.objects.create(
+            monitor_key="site", title="advisory", exclude_from_sla=False,
+            start=day_start + timedelta(hours=2), end=day_start + timedelta(hours=6),
+        )
+        assert expected_intervals_for_day(day_start.date(), 60, "site", None) == 1440
+
+
+class TestSlaAwareSummaries:
+    """The summary writer must mirror the raw span's SLA semantics
+    (_uptime_over_window): prorated expected AND excluded beats out of the
+    numerator/recorded arm — shrinking expected alone leaves
+    max(recorded, expected) resurrecting the excluded time."""
+
+    def _midnight(self, days_ago):
+        return TestIncrementalPruneSummaries._local_midnight(days_ago)
+
+    def _beats(self, day_start, count, status="ok", offset_minutes=0, maintenance=False):
+        for i in range(count):
+            Heartbeat.objects.create(
+                status=status, response_time_ms=10, maintenance=maintenance,
+                timestamp=day_start + timedelta(minutes=offset_minutes + i),
+            )
+
+    def test_epoch_start_day_scores_full_uptime(self, db):
+        """The report's case 1: monitoring began mid-day, every check since
+        passed — the day must be ~100%, not ~6%."""
+        from apps.heartbeat.models import HeartbeatDaily, HeartbeatEpoch
+        from apps.heartbeat.services import _write_daily_summaries
+
+        day_start = self._midnight(10)
+        epoch = day_start + timedelta(hours=22, minutes=30)  # 90 min monitored
+        HeartbeatEpoch.objects.create(monitor_key="site", started_at=epoch)
+        self._beats(day_start, 90, offset_minutes=22 * 60 + 30)  # all OK
+
+        _write_daily_summaries(Heartbeat.objects.all(), 60)
+        row = HeartbeatDaily.objects.get(date=day_start.date(), monitor_key="site")
+        assert row.expected_count == 90
+        assert float(row.uptime_pct) == 100.0
+
+    def test_outage_during_excluded_window_does_not_count(self, db):
+        """The report's case 3, in the shape its own patch missed: the cron
+        keeps beating THROUGH the excluded window, recording fails. Those
+        fails must leave both the numerator and the recorded arm."""
+        from apps.heartbeat.models import HeartbeatDaily, MaintenanceWindow
+        from apps.heartbeat.services import _write_daily_summaries
+
+        day_start = self._midnight(10)
+        MaintenanceWindow.objects.create(
+            monitor_key="site", title="deploy", exclude_from_sla=True,
+            start=day_start + timedelta(hours=2), end=day_start + timedelta(hours=6),
+        )
+        self._beats(day_start, 120, status="ok")                                # 00:00–02:00
+        self._beats(day_start, 240, status="fail", offset_minutes=120, maintenance=True)  # window
+        self._beats(day_start, 1080, status="ok", offset_minutes=360)           # 06:00–24:00
+
+        _write_daily_summaries(Heartbeat.objects.all(), 60)
+        row = HeartbeatDaily.objects.get(date=day_start.date(), monitor_key="site")
+        assert row.expected_count == 1200
+        assert row.ok_count == 1200 and row.fail_count == 0   # SLA-relevant only
+        assert row.maintenance_count == 240                   # the excluded beats
+        assert float(row.uptime_pct) == 100.0                 # was capped at 83.3%
+
+    def test_outage_during_non_excluded_window_still_counts(self, db):
+        from apps.heartbeat.models import HeartbeatDaily, MaintenanceWindow
+        from apps.heartbeat.services import _write_daily_summaries
+
+        day_start = self._midnight(10)
+        MaintenanceWindow.objects.create(
+            monitor_key="site", title="advisory", exclude_from_sla=False,
+            start=day_start + timedelta(hours=2), end=day_start + timedelta(hours=6),
+        )
+        self._beats(day_start, 120, status="ok")
+        self._beats(day_start, 240, status="fail", offset_minutes=120, maintenance=True)
+        self._beats(day_start, 1080, status="ok", offset_minutes=360)
+
+        _write_daily_summaries(Heartbeat.objects.all(), 60)
+        row = HeartbeatDaily.objects.get(date=day_start.date(), monitor_key="site")
+        assert row.fail_count == 240                          # advisory ≠ excluded
+        assert float(row.uptime_pct) == round(1200 / 1440 * 100, 3)
+
+    def test_sla_split_survives_batchwise_pruning(self, db):
+        """Accumulation and the SLA split compose: prune the excluded-outage
+        day in two batches, same result as one."""
+        from apps.heartbeat.models import HeartbeatDaily, MaintenanceWindow
+        from apps.heartbeat.services import _write_daily_summaries
+
+        day_start = self._midnight(10)
+        MaintenanceWindow.objects.create(
+            monitor_key="site", title="deploy", exclude_from_sla=True,
+            start=day_start + timedelta(hours=2), end=day_start + timedelta(hours=6),
+        )
+        self._beats(day_start, 120, status="ok")
+        self._beats(day_start, 240, status="fail", offset_minutes=120, maintenance=True)
+        self._beats(day_start, 1080, status="ok", offset_minutes=360)
+
+        midpoint = day_start + timedelta(hours=4)  # splits the window itself
+        first = Heartbeat.objects.filter(timestamp__lt=midpoint)
+        _write_daily_summaries(first, 60)
+        first.delete()
+        _write_daily_summaries(Heartbeat.objects.all(), 60)
+
+        row = HeartbeatDaily.objects.get(date=day_start.date(), monitor_key="site")
+        assert (row.ok_count, row.fail_count, row.maintenance_count) == (1200, 0, 240)
+        assert float(row.uptime_pct) == 100.0
+
+    def test_fully_excluded_day_renders_nodata(self, db):
+        """Knock-on pinned deliberately: expected=0 ⇒ the summary can't vouch
+        for the day ⇒ the timeline shows 'No data' (the calendar overlays
+        maintenance separately)."""
+        from apps.heartbeat.models import HeartbeatDaily, MaintenanceWindow
+        from apps.heartbeat.services import _write_daily_summaries
+        from apps.heartbeat.status import _build_daily_timeline
+
+        day_start = self._midnight(10)
+        MaintenanceWindow.objects.create(
+            monitor_key="site", title="all-day", exclude_from_sla=True,
+            start=day_start, end=day_start + timedelta(days=1),
+        )
+        self._beats(day_start, 1440, status="fail", maintenance=True)
+        _write_daily_summaries(Heartbeat.objects.all(), 60)
+        Heartbeat.objects.all().delete()
+
+        row = HeartbeatDaily.objects.get(date=day_start.date(), monitor_key="site")
+        assert row.expected_count == 0
+        slot = next(s for s in _build_daily_timeline(days=90) if s["date"] == day_start.date())
+        assert slot["status"] == "nodata"
+
+    def test_timeline_raw_branch_prorates_epoch_start_day(self, db):
+        """Fix #3: while the epoch-start day is still in RAW retention, the
+        90-day timeline must not paint it red with a full-day denominator —
+        its uptime must not change when it crosses the retention boundary."""
+        from apps.heartbeat.models import HeartbeatEpoch
+        from apps.heartbeat.status import _daily_uptime_map
+
+        day_start = self._midnight(3)  # inside raw retention (7d)
+        epoch = day_start + timedelta(hours=22)
+        HeartbeatEpoch.objects.create(monitor_key="site", started_at=epoch)
+        self._beats(day_start, 120, offset_minutes=22 * 60)  # all OK since epoch
+
+        uptime = _daily_uptime_map("site", day_start.date(), day_start.date())[day_start.date()]
+        assert uptime == 100.0  # was 120/1440 = 8.33
+
+
+class TestReprorate:
+    """`heartbeat --reprorate` fixes history without raw beats: expected
+    recomputes from the date, the epoch row, and the maintenance windows."""
+
+    def test_epoch_start_row_rescored(self, db):
+        from datetime import datetime as _dt
+        from datetime import time as _time
+
+        from django.core.management import call_command
+        from django.utils import timezone
+
+        from apps.heartbeat.models import HeartbeatDaily, HeartbeatEpoch
+
+        day = timezone.localdate() - timedelta(days=30)
+        day_start = timezone.make_aware(_dt.combine(day, _time.min))
+        HeartbeatEpoch.objects.create(
+            monitor_key="site", started_at=day_start + timedelta(hours=22, minutes=30)
+        )
+        # Written by the old flat-denominator code: 90 ok of "1440 expected".
+        row = HeartbeatDaily.objects.create(
+            monitor_key="site", date=day,
+            ok_count=90, fail_count=0, expected_count=1440, uptime_pct=6.25,
+        )
+        call_command("heartbeat", "--reprorate")
+        row.refresh_from_db()
+        assert row.expected_count == 90
+        assert float(row.uptime_pct) == 100.0
+
+    def test_reprorate_does_not_mask_corruption(self, db):
+        """A 1/1440 corrupted row on an ordinary mid-epoch day stays at 0.069%
+        — still carrying the --repair-summaries fingerprint."""
+        from django.core.management import call_command
+        from django.utils import timezone
+
+        from apps.heartbeat.models import HeartbeatDaily, HeartbeatEpoch
+
+        HeartbeatEpoch.objects.create(
+            monitor_key="site",
+            started_at=timezone.now() - timedelta(days=300),
+        )
+        row = HeartbeatDaily.objects.create(
+            monitor_key="site", date=timezone.localdate() - timedelta(days=30),
+            ok_count=1, fail_count=0, expected_count=1440, uptime_pct=0.069,
+        )
+        call_command("heartbeat", "--reprorate")
+        row.refresh_from_db()
+        assert row.expected_count == 1440
+        assert float(row.uptime_pct) == 0.069
