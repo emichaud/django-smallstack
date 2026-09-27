@@ -9,7 +9,17 @@ Breaking-change migration recipes live in [`UPGRADING.md`](UPGRADING.md).
 
 ## [Unreleased]
 
+## [0.21.4] - 2026-09-27
+
 ### Fixed
+- **Heartbeat tests no longer hard-code the brand name or one theme's markup.**
+  A rebranded downstream (`BRAND_NAME=Planner`) or one overriding the
+  `detail_grid.html` display template inherited three false test failures. The
+  public-status assertions now read `settings.BRAND_NAME`, and the boolean-
+  rendering test asserts the actual regression invariant (False renders
+  differently from True) via a template-agnostic extractor instead of pinning
+  upstream's ✓/— glyphs. (Downstream report; verified non-vacuous — simulating
+  the original all-booleans-truthy bug still fails the rewritten test.)
 - **Daily uptime summaries prorate their expected-checks denominator.** Three
   spans nobody agreed to monitor were read as downtime by the flat
   `86400 // interval` denominator: the epoch's first partial day (~6% "down"
@@ -1603,7 +1613,8 @@ Condensed highlights of the v0.11 series (see git history for per-patch detail):
 See the git tag history (`git tag`) and `ai_cowork/audit_history/` for the full record of the
 v0.8–v0.10 API-server, modern-dark-theme, search, MCP, and Postgres eras.
 
-[Unreleased]: https://github.com/emichaud/django-smallstack/compare/v0.21.3...HEAD
+[Unreleased]: https://github.com/emichaud/django-smallstack/compare/v0.21.4...HEAD
+[0.21.4]: https://github.com/emichaud/django-smallstack/compare/v0.21.3...v0.21.4
 [0.21.3]: https://github.com/emichaud/django-smallstack/compare/v0.21.2...v0.21.3
 [0.21.2]: https://github.com/emichaud/django-smallstack/compare/v0.21.1...v0.21.2
 [0.21.1]: https://github.com/emichaud/django-smallstack/compare/v0.21.0...v0.21.1
