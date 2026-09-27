@@ -9,6 +9,8 @@ Breaking-change migration recipes live in [`UPGRADING.md`](UPGRADING.md).
 
 ## [Unreleased]
 
+## [0.21.3] - 2026-09-26
+
 ### Fixed
 - **Public status pages no longer paint all history "down" at 0.07% on long-running
   sites.** The heartbeat pruner runs every minute (the ping view calls it), so one
@@ -1569,7 +1571,8 @@ Condensed highlights of the v0.11 series (see git history for per-patch detail):
 See the git tag history (`git tag`) and `ai_cowork/audit_history/` for the full record of the
 v0.8–v0.10 API-server, modern-dark-theme, search, MCP, and Postgres eras.
 
-[Unreleased]: https://github.com/emichaud/django-smallstack/compare/v0.21.2...HEAD
+[Unreleased]: https://github.com/emichaud/django-smallstack/compare/v0.21.3...HEAD
+[0.21.3]: https://github.com/emichaud/django-smallstack/compare/v0.21.2...v0.21.3
 [0.21.2]: https://github.com/emichaud/django-smallstack/compare/v0.21.1...v0.21.2
 [0.21.1]: https://github.com/emichaud/django-smallstack/compare/v0.21.0...v0.21.1
 [0.21.0]: https://github.com/emichaud/django-smallstack/compare/v0.20.1...v0.21.0
