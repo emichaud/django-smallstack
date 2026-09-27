@@ -5,6 +5,7 @@ from decimal import Decimal
 from zoneinfo import ZoneInfo
 
 import pytest
+from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.urls import reverse
 from django.utils.timezone import activate, deactivate, localdate, now
@@ -19,6 +20,22 @@ User = get_user_model()
 
 EDT = ZoneInfo("America/New_York")
 UTC = ZoneInfo("UTC")
+
+
+def _detail_value_markup(html: str, label: str) -> str:
+    """Rendered value markup for one row of a detail_grid, whitespace-normalized.
+
+    Works against either detail_grid template — upstream's `crud-grid-value` and
+    a downstream override (e.g. Tabler's `detail-field-value`) both put the value
+    in a single non-nested div right after the label div.
+    """
+    label_at = html.find(f">{label}<")
+    assert label_at != -1, f"row {label!r} was not rendered"
+    value_class_at = html.find("-value", label_at)
+    assert value_class_at != -1, f"no value div follows row {label!r}"
+    open_tag_end = html.index(">", value_class_at)
+    close_at = html.index("</div>", open_tag_end)
+    return " ".join(html[open_tag_end + 1 : close_at].split())
 
 
 @pytest.fixture
@@ -741,7 +758,7 @@ class TestPublicStatusBoard:
         response = client.get(reverse("heartbeat:status"))
         assert response.status_code == 200
         body = response.content.decode()
-        assert "SmallStack Status" in body  # branded header; site labelled by brand name
+        assert f"{settings.BRAND_NAME} Status" in body  # branded header; BRAND_NAME is a knob, not a constant
         assert "MCP Server" not in body  # mcp is internal — hidden publicly
         assert "Manage endpoints" not in body  # staff chrome hidden on the public board
 
@@ -777,7 +794,7 @@ class TestPublicStatusBoard:
     def test_public_board_is_standalone_no_admin_sidebar(self, client, db):
         body = client.get(reverse("public_status")).content.decode()
         assert "main-content" not in body  # not the admin shell
-        assert "SmallStack Status" in body
+        assert f"{settings.BRAND_NAME} Status" in body
 
 
 class TestDailyTimeline:
@@ -996,12 +1013,15 @@ class TestEndpointWizardForm:
 
 
 class TestDetailGridBooleanRendering:
-    """Regression (base smallstack): DetailGridDisplay must render False booleans
-    as raw values so the template shows '—', not '✓'.
+    """Regression (base smallstack): DetailGridDisplay must pass booleans through
+    raw so a False renders *differently* from a True.
 
     Bug: ``_get_field_value`` pre-rendered a bool to a "✓"/"—" *string*, which
     ``detail_grid.html`` then re-tested as truthy → every boolean (e.g. an
     endpoint's ``public=False``) displayed ✓. Surfaced on the Explorer detail page.
+    The glyphs themselves are a theme choice (a downstream may override
+    ``detail_grid.html`` to render Yes/No badges) — the invariant is the
+    *distinction*, not the markup.
     """
 
     def test_false_boolean_passes_through_raw(self, db):
@@ -1017,7 +1037,14 @@ class TestDetailGridBooleanRendering:
         assert rows["Public"]["value"] is False and rows["Public"]["is_bool"] is True
         assert rows["Enabled"]["value"] is True and rows["Enabled"]["is_bool"] is True
 
-    def test_template_renders_false_as_dash(self, db):
+    def test_template_renders_false_differently_from_true(self, db):
+        """A False boolean must not render the same as a True one.
+
+        Theme-agnostic on purpose: upstream's detail_grid renders ✓/—, while a
+        downstream override (e.g. Tabler's) renders Yes/No badges. Pinning either
+        theme's glyphs makes the test fail on the other, so assert the regression
+        itself — the bug was False and True rendering *identically* (both ✓).
+        """
         from django.template.loader import render_to_string
 
         from apps.heartbeat.views import MonitoredEndpointCRUDView
@@ -1028,8 +1055,10 @@ class TestDetailGridBooleanRendering:
         )
         ctx = DetailGridDisplay().get_context(ep, MonitoredEndpointCRUDView, None)
         html = render_to_string("smallstack/crud/displays/detail_grid.html", ctx)
-        pub_cell = html[html.find("Public") : html.find("Public") + 240]
-        assert "—" in pub_cell and "&#10003;" not in pub_cell  # False → dash, not check
+        false_cell = _detail_value_markup(html, "Public")   # public=False
+        true_cell = _detail_value_markup(html, "Enabled")   # enabled=True
+        assert false_cell, "a False boolean must still render an indicator, not an empty cell"
+        assert false_cell != true_cell
 
 
 class TestVerifySmallStack:
