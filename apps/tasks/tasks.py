@@ -190,9 +190,13 @@ def send_welcome_email(user_id: int) -> int:
         logger.warning(f"User {user_id} has no email address")
         return 0
 
+    from apps.accounts.emails import site_base_url
+
     site_name = getattr(settings, "SITE_NAME", "SmallStack")
-    domain = getattr(settings, "SITE_DOMAIN", "localhost:8000")
-    protocol = "https" if getattr(settings, "USE_HTTPS", False) else "http"
+    # Same resolution chain as every branded email (SITE_DOMAIN, else a
+    # URL-shaped SITE_URL) so welcome links aren't dead on installs that
+    # configured their host once for webhooks.
+    protocol, _, domain = site_base_url().partition("://")
 
     context = {
         "user": user,

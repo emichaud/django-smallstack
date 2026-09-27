@@ -15,6 +15,39 @@ from django.core.mail import EmailMultiAlternatives
 from django.template.loader import render_to_string
 from django.utils.crypto import get_random_string
 
+_LOCAL_HOSTS = {"localhost", "127.0.0.1", "0.0.0.0", "::1", ""}  # noqa: S104
+
+
+def site_base_url() -> str:
+    """Absolute ``scheme://host`` for links built OUTSIDE a request
+    (signal receivers, tasks — anywhere there's no request to derive from).
+
+    Resolution order:
+    1. ``SITE_DOMAIN`` + ``USE_HTTPS`` — when set to a non-local host (the
+       documented email knob);
+    2. a URL-shaped ``SITE_URL`` / ``SMALLSTACK_SITE_URL`` / ``BASE_URL`` —
+       the knobs the webhook origin chain already accepts, so a deployment
+       that configured its host once for webhooks gets working email links
+       without learning a second variable;
+    3. the ``SITE_DOMAIN`` default (``localhost:8000``) — dev.
+    """
+    domain = str(getattr(settings, "SITE_DOMAIN", "") or "")
+    proto = "https" if getattr(settings, "USE_HTTPS", False) else "http"
+    if domain.split("/")[0].split(":")[0].lower() not in _LOCAL_HOSTS:
+        return f"{proto}://{domain}"
+    for name in ("SITE_URL", "SMALLSTACK_SITE_URL", "BASE_URL"):
+        url = str(getattr(settings, name, "") or "").rstrip("/")
+        if url.startswith(("http://", "https://")):
+            return url
+    return f"{proto}://{domain or 'localhost:8000'}"
+
+
+def site_url_is_local() -> bool:
+    """True when :func:`site_base_url` can only produce a dead local link —
+    the condition monitors alert on in production."""
+    host = site_base_url().split("//", 1)[-1].split("/")[0].split(":")[0].lower()
+    return host in _LOCAL_HOSTS
+
 
 def email_brand_context(request=None, **extra) -> dict:
     """Brand/site values shared by every transactional email.
@@ -26,8 +59,7 @@ def email_brand_context(request=None, **extra) -> dict:
     if request is not None:
         site_url = request.build_absolute_uri("/").rstrip("/")
     else:
-        proto = "https" if getattr(settings, "USE_HTTPS", False) else "http"
-        site_url = f"{proto}://{getattr(settings, 'SITE_DOMAIN', 'localhost:8000')}"
+        site_url = site_base_url()
     ctx = {
         "brand_name": name,
         "site_name": getattr(settings, "SITE_NAME", name),

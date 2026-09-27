@@ -141,3 +141,44 @@ def test_both_faults_reported_together(settings):
     assert result.ok is False
     assert "SITE_DOMAIN" in result.note, "the config fault must be reported"
     assert "queued and unrun" in result.note, "and must not hide the backlog behind it"
+
+
+# --- host resolution: SITE_URL is enough (the two-knob gap) ------------------
+
+
+def test_site_url_alone_satisfies_the_link_check(settings):
+    """A deployment that configured its host ONCE — as SITE_URL, the knob
+    webhook_doctor tells it to set — must not be told to also set SITE_DOMAIN.
+    The monitor and the emails share one resolution chain."""
+    settings.SITE_DOMAIN = "localhost:8000"  # untouched default
+    settings.SITE_URL = "https://planner.example.com"
+    settings.SMALLSTACK_APPROVALS_EMAILS_ENABLED = True
+
+    result = ApprovalsFanoutMonitor().check()
+    assert result.ok is True
+
+    from apps.accounts.emails import site_base_url
+
+    assert site_base_url() == "https://planner.example.com"  # emails agree
+
+
+def test_site_domain_still_wins_when_set(settings):
+    settings.SITE_DOMAIN = "planner.example.com"
+    settings.USE_HTTPS = True
+    settings.SITE_URL = "https://other.example.com"
+
+    from apps.accounts.emails import site_base_url
+
+    assert site_base_url() == "https://planner.example.com"
+
+
+def test_no_host_anywhere_still_flags(settings):
+    settings.SITE_DOMAIN = "localhost:8000"
+    for name in ("SITE_URL", "SMALLSTACK_SITE_URL", "BASE_URL"):
+        if hasattr(settings, name):
+            delattr(settings, name)
+    settings.SMALLSTACK_APPROVALS_EMAILS_ENABLED = True
+
+    result = ApprovalsFanoutMonitor().check()
+    assert result.ok is False
+    assert "SITE_DOMAIN" in result.note and "SITE_URL" in result.note

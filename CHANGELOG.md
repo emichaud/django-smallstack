@@ -9,6 +9,19 @@ Breaking-change migration recipes live in [`UPGRADING.md`](UPGRADING.md).
 
 ## [Unreleased]
 
+### Fixed
+- **One host setting now satisfies both email links and webhooks.** Emails built
+  outside a request (approval notifications, welcome mail) read `SITE_DOMAIN`,
+  while webhooks read `SITE_URL` — so a deployment that configured its host the
+  way `webhook_doctor` instructs still sent dead `localhost:8000` email links,
+  and the Approvals status monitor stayed DOWN telling it to set a *second*
+  variable. `site_base_url()` (in `apps/accounts/emails.py`) now resolves
+  `SITE_DOMAIN`+`USE_HTTPS` → a URL-shaped `SITE_URL`/`SMALLSTACK_SITE_URL`/
+  `BASE_URL` → the localhost default, and every consumer (branded emails, the
+  welcome task, the `ApprovalsFanoutMonitor` link check) shares it. The monitor
+  message now names both knobs, and `.env.example` finally documents
+  `SITE_DOMAIN`/`USE_HTTPS`/`SITE_URL` (it mentioned none of them).
+
 ## [0.21.3] - 2026-09-26
 
 ### Fixed

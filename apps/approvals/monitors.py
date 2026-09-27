@@ -86,18 +86,22 @@ class ApprovalsFanoutMonitor(Monitor):
         return (queued.filter(enqueued_at__lt=cutoff).count(), queued.count())
 
     def _email_links_are_broken(self) -> bool:
-        """True when the email channel is on but SITE_DOMAIN is still a local default.
+        """True when the email channel is on but no real host is configured.
 
-        Only a *configuration* check — no network. Skipped when emails are off (no
-        links are being sent) and when DEBUG is on (localhost is correct there).
+        Only a *configuration* check — no network. Skipped when emails are off
+        (no links are being sent) and when DEBUG is on (localhost is correct
+        there). Uses the same resolution chain the emails themselves use
+        (SITE_DOMAIN, else a URL-shaped SITE_URL/SMALLSTACK_SITE_URL/BASE_URL),
+        so a deployment that set its host for webhooks isn't told to set a
+        second variable it doesn't need.
         """
         if not getattr(settings, "SMALLSTACK_APPROVALS_EMAILS_ENABLED", True):
             return False
         if getattr(settings, "DEBUG", False):
             return False
-        domain = str(getattr(settings, "SITE_DOMAIN", "localhost:8000") or "")
-        host = domain.split("/")[0].split(":")[0].lower()
-        return host in {"localhost", "127.0.0.1", "0.0.0.0", "::1", ""}
+        from apps.accounts.emails import site_url_is_local
+
+        return site_url_is_local()
 
     def check(self) -> CheckResult:
         from .models import ApprovalRequest
@@ -119,11 +123,12 @@ class ApprovalsFanoutMonitor(Monitor):
         # "Approval needed: …" is dead — which matters most for the headline
         # non-staff story, "assignees decide via the emailed console link". (F-33.)
         if self._email_links_are_broken():
+            from apps.accounts.emails import site_base_url
+
             problems.append(
-                "approval emails link to "
-                f"{getattr(settings, 'SITE_DOMAIN', 'localhost:8000')} — set "
-                "SITE_DOMAIN to this install's real host, or the console link "
-                "in every approval email is dead. Set "
+                f"approval emails link to {site_base_url()} — set SITE_DOMAIN "
+                "(or SITE_URL) to this install's real host, or the console "
+                "link in every approval email is dead. Set "
                 "SMALLSTACK_APPROVALS_EMAILS_ENABLED=False if you do not use "
                 "the email channel."
             )
