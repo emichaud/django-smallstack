@@ -2364,3 +2364,95 @@ class TestReprorate:
         row.refresh_from_db()
         assert row.expected_count == 1440
         assert float(row.uptime_pct) == 0.069
+
+
+class TestMidFoldDay:
+    """A day crosses the retention boundary one beat at a time over ~24h
+    (the pruner runs every minute), so its data is SPLIT: the summary holds
+    the pruned prefix, raw beats the remainder. _daily_uptime_map must SUM
+    the halves — choosing the summary scored a flawless mid-fold day at
+    prefix/1440 (live: 563/1440 = 39.097% "down"), a permanent false red
+    square on the 90-day strip since exactly one day is always mid-fold."""
+
+    def _midnight(self, days_ago):
+        return TestIncrementalPruneSummaries._local_midnight(days_ago)
+
+    def _fold_prefix(self, day_start, minutes):
+        from apps.heartbeat.services import _write_daily_summaries
+
+        prefix = Heartbeat.objects.filter(timestamp__lt=day_start + timedelta(minutes=minutes))
+        _write_daily_summaries(prefix, 60)
+        prefix.delete()
+
+    def test_flawless_midfold_day_scores_full_uptime(self, db):
+        from apps.heartbeat.status import _daily_uptime_map
+
+        day_start = self._midnight(7)
+        for i in range(1440):
+            Heartbeat.objects.create(
+                status="ok", response_time_ms=10, timestamp=day_start + timedelta(minutes=i)
+            )
+        self._fold_prefix(day_start, 600)  # summary: 600 ok; raw: 840 ok
+
+        day = day_start.date()
+        assert _daily_uptime_map("site", day, day)[day] == 100.0  # was 41.667
+
+    def test_midfold_real_outage_still_counts(self, db):
+        """The sum must not launder a genuine outage: 240 failed minutes
+        spanning the fold boundary stay in the math."""
+        from apps.heartbeat.status import _daily_uptime_map
+
+        day_start = self._midnight(7)
+        for i in range(1440):
+            status = "fail" if 480 <= i < 720 else "ok"  # 08:00–12:00 down
+            Heartbeat.objects.create(
+                status=status, response_time_ms=10, timestamp=day_start + timedelta(minutes=i)
+            )
+        self._fold_prefix(day_start, 600)  # boundary at 10:00, mid-outage
+
+        day = day_start.date()
+        assert _daily_uptime_map("site", day, day)[day] == round(1200 / 1440 * 100, 2)
+
+    def test_midfold_day_with_excluded_window_spanning_boundary(self, db):
+        """Refinement 1: the raw half must be SLA-scoped on BOTH terms.
+        An excluded window (08:00–12:00) straddles the fold boundary (10:00);
+        its fails must not re-enter through the raw half's observed count."""
+        from apps.heartbeat.models import MaintenanceWindow
+        from apps.heartbeat.status import _daily_uptime_map
+
+        day_start = self._midnight(7)
+        MaintenanceWindow.objects.create(
+            monitor_key="site", title="deploy", exclude_from_sla=True,
+            start=day_start + timedelta(hours=8), end=day_start + timedelta(hours=12),
+        )
+        for i in range(1440):
+            in_window = 480 <= i < 720
+            Heartbeat.objects.create(
+                status="fail" if in_window else "ok", maintenance=in_window,
+                response_time_ms=10, timestamp=day_start + timedelta(minutes=i),
+            )
+        self._fold_prefix(day_start, 600)
+
+        day = day_start.date()
+        # expected = 1200 (240 excluded); ok = 480 (summary) + 720 (raw) = 1200
+        assert _daily_uptime_map("site", day, day)[day] == 100.0
+
+    def test_fully_folded_day_unchanged(self, db):
+        """After the fold completes, the summed path must equal what the
+        summary alone said (the halves reduce to summary + nothing)."""
+        from apps.heartbeat.models import HeartbeatDaily
+        from apps.heartbeat.services import _write_daily_summaries
+        from apps.heartbeat.status import _daily_uptime_map
+
+        day_start = self._midnight(7)
+        for i in range(1440):
+            Heartbeat.objects.create(
+                status="ok" if i % 10 else "fail", response_time_ms=10,
+                timestamp=day_start + timedelta(minutes=i),
+            )
+        _write_daily_summaries(Heartbeat.objects.all(), 60)
+        Heartbeat.objects.all().delete()
+
+        day = day_start.date()
+        row = HeartbeatDaily.objects.get(date=day, monitor_key="site")
+        assert _daily_uptime_map("site", day, day)[day] == round(float(row.uptime_pct), 2)

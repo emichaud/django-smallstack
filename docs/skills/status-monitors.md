@@ -411,6 +411,16 @@ run `uv run python manage.py heartbeat` (or hit the ping) to record a round.
   excluded day writes `expected_count=0` ⇒ "No data" on the timeline.
   `manage.py heartbeat --reprorate` backfills history (needs no raw beats); run
   `--repair-summaries` first.
+- **Mid-fold days sum, never choose:** a day takes ~24h to cross the retention
+  boundary (the pruner moves one minute per run), so its beats are split between
+  the summary (pruned prefix) and raw rows (remainder) the whole time.
+  `_daily_uptime_map` sums the halves — they're disjoint by construction — with
+  the raw half SLA-scoped on both `ok` and `observed`
+  (`_get_non_maintenance_counts`). Choosing the summary scored a flawless
+  mid-fold day at prefix/1440, a permanent false red on the 90-day strip. Note
+  the mid-fold day's `HeartbeatDaily` ROW is inherently partial until folding
+  completes — only blended readers (the timeline, the calendar) see the whole
+  day; don't classify a recent day from its summary row alone.
 
 ## Per-monitor SLA
 

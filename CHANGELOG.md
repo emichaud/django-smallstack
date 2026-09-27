@@ -9,6 +9,21 @@ Breaking-change migration recipes live in [`UPGRADING.md`](UPGRADING.md).
 
 ## [Unreleased]
 
+### Fixed
+- **The 90-day timeline no longer shows a permanent false red square on the day
+  currently crossing the retention boundary.** The pruner advances one minute at
+  a time, so a day takes ~24 hours to fold into its summary — throughout, the
+  summary holds the already-pruned prefix and raw beats hold the remainder.
+  `_daily_uptime_map` *chose* the summary outright, scoring a flawless mid-fold
+  day at `prefix/1440` (live downstream evidence: 563/1440 ⇒ 39.097% "down"),
+  while `_uptime_over_window` handled the same day correctly — the two public
+  surfaces contradicted each other, and exactly one day per monitor is always
+  mid-fold. The map now **sums** the two halves (disjoint by construction), with
+  the raw half SLA-scoped on *both* terms so excluded-maintenance beats can't
+  re-enter the `max(observed, expected)` denominator through the raw side.
+  Four regression tests, three of which fail against the previous code.
+  (Downstream report; validated live.)
+
 ## [0.21.4] - 2026-09-27
 
 ### Fixed

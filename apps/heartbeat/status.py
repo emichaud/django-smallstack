@@ -156,15 +156,30 @@ def _get_status_data(monitor_key: str = "site") -> dict[str, Any]:
     }
 
 
-def _get_non_maintenance_ok_count(window_start, window_end, monitor_key: str = "site") -> int:
-    """Count OK beats excluding those within SLA-excluded maintenance windows."""
+def _get_non_maintenance_counts(window_start, window_end, monitor_key: str = "site") -> tuple[int, int]:
+    """(ok, observed) beat counts excluding SLA-excluded maintenance windows.
+
+    BOTH numbers are SLA-scoped on purpose: the summary rows they get summed
+    with hold SLA-scoped counts (v0.21.4), and the recorded arm of the
+    ``max(observed, expected)`` denominator must match — a plain total here
+    would let excluded beats re-enter through the raw half and resurrect the
+    excluded time the prorated ``expected`` just removed.
+    """
+    from django.db.models import Count, Q
+
     excluded_ranges = MaintenanceWindow.get_excluded_ranges(window_start, window_end, monitor_key)
     qs = Heartbeat.objects.filter(
-        monitor_key=monitor_key, timestamp__gte=window_start, timestamp__lt=window_end, status="ok"
+        monitor_key=monitor_key, timestamp__gte=window_start, timestamp__lt=window_end
     )
     for s, e in excluded_ranges:
         qs = qs.exclude(timestamp__gte=s, timestamp__lt=e)
-    return qs.count()
+    agg = qs.aggregate(ok=Count("id", filter=Q(status="ok")), observed=Count("id"))
+    return agg["ok"] or 0, agg["observed"] or 0
+
+
+def _get_non_maintenance_ok_count(window_start, window_end, monitor_key: str = "site") -> int:
+    """Count OK beats excluding those within SLA-excluded maintenance windows."""
+    return _get_non_maintenance_counts(window_start, window_end, monitor_key)[0]
 
 
 def _uptime_over_window(window_start, monitor_key: str = "site") -> UptimeResult:
@@ -473,31 +488,47 @@ def _daily_uptime_map(monitor_key: str, start, end) -> dict:
     result: dict = {}
     day = start
     while day <= end:
+        # SUM the two sources, never choose between them. The pruner runs
+        # every minute, so a day crosses the retention boundary one beat at a
+        # time over ~24h — throughout, the summary holds the already-pruned
+        # prefix and raw beats hold the remainder. Choosing the summary
+        # (pre-v0.21.5) scored a flawless mid-fold day at prefix/1440 — a
+        # permanent false red square on the 90-day strip, since exactly one
+        # day is always mid-fold. The halves are disjoint by construction
+        # (pruned vs not-yet-pruned), so addition is exact.
         uptime: float | None = None
         summary = summaries.get(day)
-        if summary is not None and summary.expected_count:
-            uptime = float(summary.uptime_pct)
-        else:
-            raw = raw_by_date.get(day)
-            if raw and raw["total"]:
-                if day == today:
-                    # Today is partial: judge it by its actual recorded beats
-                    # (failure-based, like the 24h timeline) so a sparse-but-
-                    # all-OK day isn't painted red by an elapsed-time denominator.
-                    uptime = min(round(raw["ok"] / raw["total"] * 100, 2), 100.0)
-                else:
-                    # Completed days use the same prorated SLA denominator and
-                    # non-excluded numerator the summary writer uses, so a
-                    # day's uptime doesn't change when it crosses the
-                    # retention boundary (epoch-start days painted ~6% red
-                    # while still in raw retention was the visible symptom).
-                    expected = expected_intervals_for_day(
-                        day, interval, monitor_key, epoch_start
-                    )
-                    if expected >= 1:
-                        day_start, day_end = _day_bounds(day)
-                        ok = _get_non_maintenance_ok_count(day_start, day_end, monitor_key)
-                        uptime = min(round(ok / expected * 100, 2), 100.0)
+        raw = raw_by_date.get(day)
+        has_raw = bool(raw and raw["total"])
+
+        if summary is not None or has_raw:
+            ok = summary.ok_count if summary else 0
+            observed = (summary.ok_count + summary.fail_count) if summary else 0
+            if has_raw:
+                # SLA-scoped on both terms — the summary half already is.
+                day_start, day_end = _day_bounds(day)
+                raw_ok, raw_obs = _get_non_maintenance_counts(
+                    day_start, day_end, monitor_key
+                )
+                ok += raw_ok
+                observed += raw_obs
+
+            if day == today:
+                # Today is partial: judge it by its recorded beats
+                # (failure-based, like the 24h timeline) so a sparse-but-
+                # all-OK day isn't painted red by an elapsed-time denominator.
+                if observed:
+                    uptime = min(round(ok / observed * 100, 2), 100.0)
+            else:
+                # Completed days use the same prorated SLA denominator the
+                # summary writer uses, so a day's uptime doesn't change as it
+                # crosses the retention boundary.
+                expected = expected_intervals_for_day(
+                    day, interval, monitor_key, epoch_start
+                )
+                denominator = max(observed, expected)
+                if denominator:
+                    uptime = min(round(ok / denominator * 100, 2), 100.0)
         result[day] = uptime
         day += timedelta(days=1)
     return result
