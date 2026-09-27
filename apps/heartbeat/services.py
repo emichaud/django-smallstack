@@ -100,22 +100,39 @@ def run_heartbeat_check() -> dict[str, Any]:
 
 
 def prune_old_heartbeats() -> int:
-    """Prune expired records, writing daily summaries first. Returns deleted count."""
+    """Prune expired records, folding them into daily summaries first.
+
+    Returns the deleted count. Runs inside one transaction so the
+    aggregate-then-delete pair can't be torn by a concurrent prune (the ping
+    view calls this every minute).
+    """
+    from django.db import transaction
+
     retention_days = getattr(settings, "HEARTBEAT_RETENTION_DAYS", 7)
     interval = getattr(settings, "HEARTBEAT_EXPECTED_INTERVAL", 60)
     cutoff = now() - timedelta(days=retention_days)
-    old_records = Heartbeat.objects.filter(timestamp__lt=cutoff)
 
-    if not old_records.exists():
-        return 0
-
-    _write_daily_summaries(old_records, interval)
-    deleted, _ = old_records.delete()
+    with transaction.atomic():
+        old_records = Heartbeat.objects.filter(timestamp__lt=cutoff)
+        if not old_records.exists():
+            return 0
+        _write_daily_summaries(old_records, interval)
+        deleted, _ = old_records.delete()
     return deleted
 
 
 def _write_daily_summaries(queryset: QuerySet, interval: int) -> None:
-    """Aggregate about-to-be-pruned records into per-monitor daily summaries."""
+    """Fold about-to-be-pruned records into per-monitor daily summaries.
+
+    ACCUMULATES into any existing summary row rather than replacing it. The
+    cutoff is a moving instant and the pruner runs every minute, so one
+    calendar day is pruned across ~1440 separate batches; each batch holds
+    only the beats that just crossed the boundary. The original code
+    ``update_or_create``d the day with *only the current batch*, so every
+    fully-pruned day's summary converged to its final single beat —
+    1/1440 ⇒ ``uptime_pct = 0.069%`` ⇒ the public page painted every
+    summarized day "down" at 0.07% while raw-retention days stayed green.
+    """
     daily_stats = (
         queryset.values("monitor_key", "timestamp__date")
         .annotate(
@@ -131,22 +148,33 @@ def _write_daily_summaries(queryset: QuerySet, interval: int) -> None:
     expected_per_day = (24 * 3600) // interval
 
     for day in daily_stats:
-        ok = day["ok_count"]
-        total = day["total"]
-        avg_ms = int(day["avg_ms"] or 0)
+        batch_ok = day["ok_count"]
+        batch_total = day["total"]
+        batch_avg = float(day["avg_ms"] or 0)
 
-        denominator = max(total, expected_per_day)
-        uptime = round((ok / denominator) * 100, 3) if denominator > 0 else 0
-
-        HeartbeatDaily.objects.update_or_create(
+        row, created = HeartbeatDaily.objects.get_or_create(
             monitor_key=day["monitor_key"],
             date=day["timestamp__date"],
-            defaults={
-                "ok_count": ok,
-                "fail_count": day["fail_count"],
-                "maintenance_count": day["maintenance_count"],
-                "expected_count": expected_per_day,
-                "avg_response_ms": avg_ms,
-                "uptime_pct": uptime,
-            },
+            defaults={"expected_count": expected_per_day},
         )
+        prior_total = row.ok_count + row.fail_count
+        row.ok_count += batch_ok
+        row.fail_count += day["fail_count"]
+        row.maintenance_count += day["maintenance_count"]
+        row.expected_count = expected_per_day
+
+        # Weighted response-time merge across batches (by recorded beats).
+        merged_total = prior_total + batch_total
+        if merged_total:
+            row.avg_response_ms = int(
+                round(
+                    (row.avg_response_ms * prior_total + batch_avg * batch_total)
+                    / merged_total
+                )
+            )
+
+        denominator = max(row.ok_count + row.fail_count, expected_per_day)
+        row.uptime_pct = (
+            min(round(row.ok_count / denominator * 100, 3), 100.0) if denominator else 0
+        )
+        row.save()

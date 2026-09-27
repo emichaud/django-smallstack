@@ -390,6 +390,14 @@ run `uv run python manage.py heartbeat` (or hit the ping) to record a round.
 - **Warming up:** a monitor younger than `HEARTBEAT_WARMUP_MINUTES` (default 60)
   shows a neutral "warming up" pill on the overview/board instead of a 24h % that
   doesn't yet represent a full window.
+- **Summary accumulation:** the pruner runs every minute (the ping view calls it),
+  so one calendar day is folded into `HeartbeatDaily` across ~1440 tiny batches —
+  `_write_daily_summaries` **accumulates** into the existing row. Pre-v0.21.3 it
+  overwrote per batch, so every summarized day converged to its final single beat
+  (`0.069%` uptime ⇒ the public page painted all history "down" at 0.07% while
+  raw-retention days stayed green). Deployments that ran the buggy pruner repair
+  with `manage.py heartbeat --repair-summaries` (corrupted days become "No data";
+  the true counts are unrecoverable).
 
 ## Per-monitor SLA
 

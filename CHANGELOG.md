@@ -9,6 +9,31 @@ Breaking-change migration recipes live in [`UPGRADING.md`](UPGRADING.md).
 
 ## [Unreleased]
 
+### Fixed
+- **Public status pages no longer paint all history "down" at 0.07% on long-running
+  sites.** The heartbeat pruner runs every minute (the ping view calls it), so one
+  calendar day is pruned across ~1440 tiny batches — but `_write_daily_summaries`
+  *overwrote* the day's `HeartbeatDaily` row with only the current batch, so every
+  fully-summarized day converged to its final single beat: 1/1440 ⇒ `uptime_pct =
+  0.069%` ⇒ "down" (while the raw-retention window stayed green — the "only ~7 days
+  survive" symptom). Summaries now **accumulate** across batches (counts merge,
+  response times weighted-average), the aggregate-then-delete pair runs in one
+  transaction, and the timeline/calendar/SLA maths are unchanged. Deployments that
+  ran the buggy pruner: `manage.py heartbeat --repair-summaries` deletes the
+  corrupted rows (recorded beats < 5% of expected — the bug's fingerprint; genuine
+  full days and recorded outages are kept), after which those days honestly render
+  "No data". The true counts are unrecoverable.
+
+### Added
+- **User-facing help pages for the scheduler** (`/smallstack/help/smallstack/scheduler/`)
+  — the control console, `@scheduled` cadences, tick triggers, and the run lifecycle
+  finally have a human-readable page (the skill doc existed; Help had nothing).
+- **Webhooks help covers the v0.19 event picker** — the annotated checkbox event
+  list, the Advanced custom-pattern disclosure, and every-surface pattern validation.
+- **Background Tasks help no longer steers cron work to Celery** — the comparison
+  table predated the `@scheduled` scheduler; it now says scheduling is built in and
+  links to the scheduler page.
+
 ### Documentation
 - **The palette count is corrected in the three files the v0.21.1 sweep missed.**
   `README.md` (four claims), `CLAUDE.md` and `apps/smallstack/docs/tldr.md` still said

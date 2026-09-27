@@ -295,17 +295,19 @@ This blocks the request until the task completes, so it's only for testing.
 - Automatic worker reload in development
 - Good enough for most small-to-medium applications
 
+For **recurring work** — cron expressions, intervals, run-once-at-a-time — you don't need Celery: {{ project_name }} ships a full [scheduler](/smallstack/help/smallstack/scheduler/) on top of this task engine (`@scheduled` decorator, themed control console at `/smallstack/scheduler/`, run history, overlap and catch-up policies).
+
 For **high-volume production** systems, consider [Celery](https://docs.celeryq.dev/):
 
-| Feature | Django Tasks | Celery |
+| Feature | Django Tasks + SmallStack scheduler | Celery |
 |---------|-------------|--------|
 | Setup complexity | Simple | Moderate |
 | External dependencies | None | Redis/RabbitMQ |
-| Scheduling | Basic | Advanced (cron-like) |
-| Retries | Manual | Built-in with backoff |
-| Monitoring | Basic | Flower dashboard |
+| Scheduling | Cron / interval / once (`@scheduled`, DST-aware) | Advanced (celery beat) |
+| Retries | Manual (webhooks add their own backoff tick) | Built-in with backoff |
+| Monitoring | Scheduler console + status monitors | Flower dashboard |
 | Scaling | Limited | Distributed workers |
-| Best for | Simple apps | High-volume systems |
+| Best for | Small-to-medium apps | High-volume systems |
 
 To use Celery instead:
 

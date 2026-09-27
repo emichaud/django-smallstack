@@ -27,6 +27,14 @@ A create/update/delete of `Ticket` through **any** surface — HTML, REST, MCP, 
 
 Register destinations as data — in the UI at `/smallstack/webhooks/endpoints/`, via REST, via the `create_webhook` MCP tool, or the CLI (`sc new webhook …`). Deliveries are signed, retried with `Retry-After`, and dead-lettered; failed batches can be **bulk-replayed**.
 
+## Choosing which events an endpoint receives
+
+An endpoint's **event filter** decides which events it gets. In the endpoint form and the pairing panel you pick events from a **checkbox list of everything this instance can emit**, each annotated in plain English ("when a Ticket is created") — no need to know the `app.model.action` naming to subscribe safely.
+
+Under the hood each selection is an fnmatch pattern: event names are `app.model.action` (`support.ticket.created`), and `*` wildcards any part — `*.created` means every model's creates, `support.*` a whole app, `*` everything. Hand-written **custom patterns** live behind a collapsed *Advanced* disclosure (it opens automatically when patterns were set programmatically, so nothing configured over REST or the CLI is ever hidden). A **?** help popup next to the box explains the pattern grammar in place.
+
+Patterns are **validated on every surface** — the web form, REST, MCP, and the CLI all run the same check — so a malformed pattern (spaces, quotes, a pasted JSON fragment) is rejected as a form error instead of being saved as a filter that silently never matches. A well-formed pattern that matches nothing *currently* emitted is allowed (it may target a future or custom event), but the UI warns you about it.
+
 ## Inbound — receive & verify events from others
 
 Register a `WebhookReceiver` and a `@webhook_handler` to accept events (Stripe, GitHub, an internal service). Provider signatures verify at a `@webhook_verifier` seam and handshakes at a `@webhook_challenge` seam, so a receiver validates authenticity before your handler runs.

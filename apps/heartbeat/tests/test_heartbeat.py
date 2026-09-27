@@ -1974,3 +1974,127 @@ class TestStandaloneStatusCssFallback:
         body = client.get(reverse(name)).content.decode()
         assert "var(--body-quiet-color)" not in body  # bare = undefined off admin pages → invisible
         assert "var(--body-quiet-color, " in body  # the fallback form is present
+
+
+class TestIncrementalPruneSummaries:
+    """The pruner runs every minute (the ping view calls it), so one calendar day
+    is pruned across ~1440 tiny batches. Summaries must ACCUMULATE across batches —
+    the pre-v0.21.3 update_or_create overwrote the day with only the current batch,
+    so every summarized day converged to its final single beat (1/1440 ⇒ 0.069%)
+    and long-running sites painted all history "down" at 0.07%."""
+
+    @staticmethod
+    def _local_midnight(days_ago):
+        """Midnight LOCAL time — the aggregation truncates dates in the local
+        zone, so a UTC-midnight day would straddle two local dates."""
+        from datetime import datetime as _dt
+        from datetime import time as _time
+        from datetime import timedelta
+
+        from django.utils import timezone
+
+        day = timezone.localdate() - timedelta(days=days_ago)
+        return timezone.make_aware(_dt.combine(day, _time.min))
+
+    def _day_of_beats(self, day_start, count=1440, fail_every=None):
+        from datetime import timedelta
+
+        for i in range(count):
+            status = "fail" if (fail_every and i % fail_every == 0) else "ok"
+            Heartbeat.objects.create(
+                status=status, response_time_ms=10,
+                timestamp=day_start + timedelta(seconds=i * 60),
+            )
+
+    def test_batchwise_prune_accumulates_not_overwrites(self, db, settings):
+        """Prune the same day in two batches; the summary must hold BOTH halves."""
+        from datetime import timedelta
+
+        from apps.heartbeat.models import HeartbeatDaily
+        from apps.heartbeat.services import _write_daily_summaries
+
+        settings.HEARTBEAT_EXPECTED_INTERVAL = 60
+        day_start = self._local_midnight(10)
+        self._day_of_beats(day_start, count=1440)
+
+        midpoint = day_start + timedelta(hours=12)
+        _write_daily_summaries(Heartbeat.objects.filter(timestamp__lt=midpoint), 60)
+        Heartbeat.objects.filter(timestamp__lt=midpoint).delete()
+        _write_daily_summaries(Heartbeat.objects.filter(timestamp__lt=day_start + timedelta(days=1)), 60)
+
+        summary = HeartbeatDaily.objects.get(date=day_start.date(), monitor_key="site")
+        assert summary.ok_count == 1440  # both halves, not just the second
+        assert float(summary.uptime_pct) == 100.0
+
+    def test_minute_by_minute_prune_yields_full_day_uptime(self, db, settings):
+        """The real-world cadence in miniature: prune with a cutoff that advances
+        beat-by-beat (the every-minute ping). The finished day must be ~100%,
+        not 0.069%."""
+        from datetime import timedelta
+
+        from apps.heartbeat.models import HeartbeatDaily
+        from apps.heartbeat.services import _write_daily_summaries
+
+        settings.HEARTBEAT_EXPECTED_INTERVAL = 60
+        day_start = self._local_midnight(10)
+        self._day_of_beats(day_start, count=48, fail_every=None)  # 48 beats, pruned one at a time
+
+        for i in range(1, 49):
+            cutoff = day_start + timedelta(seconds=i * 60)
+            batch = Heartbeat.objects.filter(timestamp__lt=cutoff)
+            _write_daily_summaries(batch, 60)
+            batch.delete()
+
+        summary = HeartbeatDaily.objects.get(date=day_start.date(), monitor_key="site")
+        assert summary.ok_count == 48  # every batch folded in
+        # uptime uses the full-day denominator; the point is the count survived,
+        # not the (sparse-data) percentage.
+        assert float(summary.uptime_pct) == round(48 / 1440 * 100, 3)
+
+    def test_fail_and_response_time_merge(self, db, settings):
+        from datetime import timedelta
+
+        from apps.heartbeat.models import HeartbeatDaily
+        from apps.heartbeat.services import _write_daily_summaries
+
+        settings.HEARTBEAT_EXPECTED_INTERVAL = 60
+        day_start = self._local_midnight(10)
+        self._day_of_beats(day_start, count=1440, fail_every=10)  # 144 fails
+
+        midpoint = day_start + timedelta(hours=12)
+        _write_daily_summaries(Heartbeat.objects.filter(timestamp__lt=midpoint), 60)
+        Heartbeat.objects.filter(timestamp__lt=midpoint).delete()
+        _write_daily_summaries(Heartbeat.objects.all(), 60)
+
+        summary = HeartbeatDaily.objects.get(date=day_start.date(), monitor_key="site")
+        assert summary.ok_count + summary.fail_count == 1440
+        assert summary.fail_count == 144
+        assert summary.avg_response_ms == 10  # weighted merge of identical values
+
+    def test_repair_deletes_corrupted_rows_only(self, db):
+        """--repair-summaries removes the overwrite-bug fingerprint (tiny recorded
+        count vs expected) and keeps genuine rows — full days AND real outages."""
+        from datetime import date
+
+        from django.core.management import call_command
+
+        from apps.heartbeat.models import HeartbeatDaily
+
+        corrupt = HeartbeatDaily.objects.create(
+            monitor_key="site", date=date(2026, 7, 1),
+            ok_count=1, fail_count=0, expected_count=1440, uptime_pct=0.069,
+        )
+        healthy = HeartbeatDaily.objects.create(
+            monitor_key="site", date=date(2026, 7, 2),
+            ok_count=1440, fail_count=0, expected_count=1440, uptime_pct=100,
+        )
+        real_outage = HeartbeatDaily.objects.create(
+            monitor_key="site", date=date(2026, 7, 3),
+            ok_count=100, fail_count=1340, expected_count=1440, uptime_pct=6.9,
+        )
+
+        call_command("heartbeat", "--repair-summaries")
+
+        assert not HeartbeatDaily.objects.filter(pk=corrupt.pk).exists()
+        assert HeartbeatDaily.objects.filter(pk=healthy.pk).exists()
+        assert HeartbeatDaily.objects.filter(pk=real_outage.pk).exists()

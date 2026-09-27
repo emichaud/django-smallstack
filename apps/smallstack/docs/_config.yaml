@@ -287,6 +287,12 @@ pages:
     icon: "tasks"
     category: "Development"
 
+  - slug: scheduler
+    title: "Scheduler"
+    description: "Recurring background jobs — declare a cron/interval cadence in code, manage it from a themed control console"
+    icon: "clock"
+    category: "Development"
+
   - slug: approvals
     title: "Approvals"
     description: "A generic human-in-the-loop approval gate — apps or AI agents file a request, a person decides, your code reacts"
