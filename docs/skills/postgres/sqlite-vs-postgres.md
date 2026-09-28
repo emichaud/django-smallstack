@@ -80,6 +80,28 @@ space (`"needle zz"`) not a hyphen — it matches via parts on both backends. Se
 the comment in `apps/search/tests/test_security.py`
 (`test_visibility_filter_scopes_rows_per_user`).
 
+### Dots and emails are worse than hyphens — one atomic token, NO parts
+
+Hyphens at least leave part-lexemes on Postgres. Dotted tokens and emails do
+not: the text-search parser classifies `unique.probe` / `alice@example.com` as
+`file`/`email`-type tokens and stores them **whole, with no parts** — and
+`plainto_tsquery` keeps the *query* atomic the same way. So document-side
+splitting (the hyphen workaround) cannot rescue a dotted query:
+
+```
+SQLite:    'unique.probe'  → tokens: unique, probe        (dot is a separator)
+Postgres:  to_tsvector('english','unique.probe')  → 'unique.probe'  (one token)
+           plainto_tsquery('english','probe')     → no match
+           plainto_tsquery('english','unique.probe') → matches only the
+                                                       exact dotted token
+```
+
+Searching `probe` finds the row on SQLite and **misses it on Postgres**;
+searching the email local-part (`alice`) behaves the same way. Tests (and UX
+expectations) must query either the full dotted/email token or a word that
+appears undotted in the document. There is no split-the-document fix here —
+the asymmetry is on the query side too.
+
 Absolute rank *values* also differ (BM25 vs ts_rank) — never assert on a
 specific score, only on ordering/membership.
 

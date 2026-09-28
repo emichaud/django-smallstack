@@ -9,6 +9,25 @@ Breaking-change migration recipes live in [`UPGRADING.md`](UPGRADING.md).
 
 ## [Unreleased]
 
+### Fixed
+- **The test suite's throwaway MCP tables no longer break Postgres teardown.**
+  The root `conftest.py` creates `mcp_server_widget`/`mcp_server_gadget`
+  (managed=False, schema_editor) with real FK constraints to `accounts_user` —
+  and since flush doesn't truncate unmanaged tables, Postgres refused to
+  TRUNCATE `accounts_user` at every `transaction=True` teardown ("cannot
+  truncate a table referenced in a foreign key constraint"), failing 46 tests
+  and leaking rows that surfaced as duplicate-username collisions later. The
+  FKs are now `db_constraint=False` (ORM joins/expansions unchanged), with an
+  introspection test that fails on any backend if a real constraint returns.
+  Fourth of the SQLite-forgives family, same downstream reporter.
+
+### Documentation
+- `sqlite-vs-postgres.md`: dots and emails tokenize **atomically with no
+  part-lexemes** on Postgres (`file`/`email` parser tokens) on both the
+  document AND query side — unlike hyphens, document-side splitting can't
+  rescue them. Searching `probe` finds `unique.probe` on SQLite and misses it
+  on Postgres.
+
 ## [0.21.7] - 2026-09-27
 
 ### Fixed
