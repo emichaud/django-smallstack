@@ -9,6 +9,23 @@ Breaking-change migration recipes live in [`UPGRADING.md`](UPGRADING.md).
 
 ## [Unreleased]
 
+### Fixed
+- **MCP async tool dispatch keeps ORM work on the request's connection.** Async
+  tool handlers were dispatched with `asyncio.run(handler(...))`, which gives
+  asgiref no executor context — so every `sync_to_async(thread_sensitive=True)`
+  (the default; how every tool touches the ORM) ran on asgiref's process-global
+  `single_thread_executor`: one shared background thread with its own
+  long-lived connection. The tool's DB work therefore ran outside the request's
+  transaction, serialized process-wide across all tools, was one nested
+  thread-sensitive call from asgiref's "would deadlock" guard, and on Postgres
+  killed `transaction=True` test teardowns ("cursor already closed" during the
+  flush) — a downstream's 46 teardown failures. Dispatch now uses
+  `async_to_sync(handler)`, whose `CurrentThreadExecutor` hops the ORM work
+  back to the calling thread and its connection. Third instance of the
+  SQLite-forgives-Postgres-doesn't family (same downstream reporter); the
+  mechanism-pinning tests fail under the old dispatch on SQLite too
+  ("database table is locked" — the cross-connection symptom in miniature).
+
 ## [0.21.6] - 2026-09-27
 
 ### Fixed

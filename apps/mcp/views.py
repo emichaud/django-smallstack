@@ -13,13 +13,13 @@ failure mode observed downstream — please don't "simplify" them away.
 
 from __future__ import annotations
 
-import asyncio
 import inspect
 import json
 import logging
 import time
 from typing import Any
 
+from asgiref.sync import async_to_sync
 from django.conf import settings
 from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.utils.decorators import method_decorator
@@ -275,7 +275,22 @@ class McpHttpView(View):
                 tool_started = time.perf_counter()
                 try:
                     if inspect.iscoroutinefunction(handler):
-                        result_value = asyncio.run(handler(tool_args))
+                        # async_to_sync, NOT asyncio.run. The difference is where
+                        # a handler's sync_to_async(thread_sensitive=True) — the
+                        # default, and what every tool uses for ORM work — runs:
+                        # async_to_sync installs a CurrentThreadExecutor, so the
+                        # ORM code executes on THIS thread, on this request's
+                        # connection, inside its transaction. asyncio.run has no
+                        # such context, so asgiref routed every tool's DB work to
+                        # its process-global single_thread_executor — one shared
+                        # background thread with its own long-lived connection:
+                        # outside the request's transaction in production,
+                        # serialized process-wide, prone to killing Postgres
+                        # test teardowns ("cursor already closed" flushes), and
+                        # one nested thread-sensitive call away from asgiref's
+                        # "would deadlock" guard. SQLite's shared in-memory
+                        # connection masked all of it.
+                        result_value = async_to_sync(handler)(tool_args)
                     else:
                         result_value = handler(tool_args)
                 except Exception as exc:
@@ -312,6 +327,3 @@ class McpHttpView(View):
             logger.info("MCP RESP method=%s duration_ms=%.2f", method, duration)
 
 
-# Backstop for any remaining linter complaints about unused asyncio import in
-# pure-sync test paths — asyncio.run is the dispatch path for async tools.
-_ = asyncio
