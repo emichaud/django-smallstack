@@ -438,7 +438,7 @@ wheels = [
 
 [[package]]
 name = "django-smallstack"
-version = "0.21.6"
+version = "0.21.7"
 source = { editable = "." }
 dependencies = [
     { name = "croniter" },
