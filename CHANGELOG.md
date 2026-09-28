@@ -9,6 +9,8 @@ Breaking-change migration recipes live in [`UPGRADING.md`](UPGRADING.md).
 
 ## [Unreleased]
 
+## [0.21.10] - 2026-09-28
+
 ### Fixed
 - **`help_article_count()` no longer re-parses the whole markdown corpus on
   Postgres.** The last ENGINE-string check in `apps/help/search.py` (everything
@@ -1777,7 +1779,8 @@ Condensed highlights of the v0.11 series (see git history for per-patch detail):
 See the git tag history (`git tag`) and `ai_cowork/audit_history/` for the full record of the
 v0.8–v0.10 API-server, modern-dark-theme, search, MCP, and Postgres eras.
 
-[Unreleased]: https://github.com/emichaud/django-smallstack/compare/v0.21.9...HEAD
+[Unreleased]: https://github.com/emichaud/django-smallstack/compare/v0.21.10...HEAD
+[0.21.10]: https://github.com/emichaud/django-smallstack/compare/v0.21.9...v0.21.10
 [0.21.9]: https://github.com/emichaud/django-smallstack/compare/v0.21.8...v0.21.9
 [0.21.8]: https://github.com/emichaud/django-smallstack/compare/v0.21.7...v0.21.8
 [0.21.7]: https://github.com/emichaud/django-smallstack/compare/v0.21.6...v0.21.7
