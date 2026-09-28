@@ -50,6 +50,20 @@ paths work) and re-hydrate results via the ORM.
 `migrate` (provisions columns) then `rebuild_search_index --all` (backfills
 existing rows). New rows index automatically via post_save signals.
 
+> **Existence-check DDL before issuing it — `IF NOT EXISTS` is not free.** A
+> no-op `ALTER TABLE … ADD COLUMN IF NOT EXISTS` still takes an
+> **AccessExclusiveLock** (verified on PG 16), briefly blocking every reader
+> and writer on a live table; and Postgres refuses it outright when the
+> transaction holds pending **deferred** constraint trigger events —
+> `cannot ALTER TABLE "x" because it has pending trigger events`. Plain writes
+> are not enough to trigger that: a non-deferrable FK's after-row trigger
+> fires at end of statement, so the queue is empty by the next statement. It
+> takes `SET CONSTRAINTS ALL DEFERRED` (what `loaddata` does) or a
+> `DEFERRABLE INITIALLY DEFERRED` constraint. `ensure_index` therefore
+> existence-checks both the column and the index and issues **no DDL at all**
+> once provisioned, which is what makes `rebuild_search_index` safe to call
+> from inside an open transaction.
+
 ### Tokenization differs — hyphens are the sharp edge
 
 | Aspect | SQLite FTS5 | Postgres `english` |
@@ -122,6 +136,70 @@ dev loop). **Rule:** keep every value a migration writes within the column's
 `max_length`, temp values included; run migrations against Postgres before
 tagging.
 
+## The recurring bug: `except Exception` around a DB statement
+
+Hit **four times** in one week (search signals, telemetry writes, help-index
+probes, `ensure_index`), so it gets its own section. On Postgres a failed
+statement **poisons the whole transaction** — every later statement returns
+`current transaction is aborted, commands ignored until end of transaction
+block` — while SQLite treats it as one failed statement and carries on. So:
+
+```python
+try:                                        # ❌ the except is a LIE on Postgres
+    with connection.cursor() as cur:        #    the caller's transaction is now
+        cur.execute("SELECT 1 FROM maybe_missing_table")   #    dead, and this hid it
+except Exception:
+    return 0
+
+try:                                        # ✓ savepoint — failure is contained
+    with transaction.atomic(), connection.cursor() as cur:
+        cur.execute("SELECT 1 FROM maybe_missing_table")
+except Exception:
+    return 0
+```
+
+Two consequences worth internalising:
+
+- **The visible error is usually not the culprit.** It is whatever ran *next* —
+  Django's `INSERT INTO django_migrations`, the activity middleware's log
+  write, an unrelated view's query. When you see `InFailedSqlTransaction`,
+  the bug is upstream of it; read the **Postgres server log**
+  (`docker logs <pg>`), which records the first real `ERROR:` *with the
+  statement that caused it*. That is the fastest way to the culprit.
+- **"Probe by failing" is not free.** Asking the database a question by
+  running a query and catching the error (does this table exist? does this
+  column exist?) costs the whole transaction on Postgres. Ask a question that
+  *succeeds* instead — `information_schema` / `pg_class` — or savepoint the
+  probe.
+
+**Rule:** every `except` around a DB statement needs a savepoint, or it is a
+promise that only holds on SQLite.
+
+## Sequences are NOT transactional — never assert a specific pk
+
+`nextval()` is exempt from rollback on Postgres (by design: concurrent
+inserters must not block on each other), so a test's rolled-back rows still
+consume ids. SQLite's `rowid` counter rolls back with the transaction, so the
+first row in every test is `pk=1` there — and a hard-coded pk passes forever in
+the default dev loop:
+
+```python
+MonitoredSurface.objects.create(...)
+assert reverse("…-delete", kwargs={"pk": 1}) in body   # passes ALONE on both;
+                                                        # fails on Postgres as
+                                                        # soon as an earlier test
+                                                        # created one of these
+```
+
+The symptom is order-dependent and maddening: green in isolation, red in a full
+run, moving as tests are added. **Rule:** assert on `obj.pk` from the row you
+created, never a literal. (A literal pk is fine when the row must *not* exist —
+`pk=99999` "not found" tests — or when the URL shape is all that matters, e.g.
+an `OPTIONS` metadata probe.)
+
+Same family: anything that assumes a *count* of pre-existing rows, or that
+`AutoField` values are contiguous.
+
 ## Query ordering
 
 Postgres returns rows in **no guaranteed order** without `ORDER BY`; SQLite
@@ -174,10 +252,14 @@ Before tagging a release or merging search/migration/SQL work:
       also order `post_migrate` provisioning AFTER every migration, which
       incremental databases never exercise
 - [ ] Any data migration's written values fit the column `max_length`
+- [ ] Every `except` around a DB statement wraps it in `transaction.atomic()`
+      (a savepoint) — otherwise the "contained failure" is SQLite-only
 - [ ] No migration **creates or saves rows of a searchable model** — the
       search index is provisioned at `post_migrate`, and any `except
       Exception` around a DB write is a backend-dependent promise unless the
       write is wrapped in `transaction.atomic()` (a savepoint)
+- [ ] No test asserts a literal primary key (sequences don't roll back on
+      Postgres — use `obj.pk`)
 - [ ] Order-sensitive queries/tests have explicit `order_by()`
 - [ ] FTS tests search whole words, not hyphenated fragments
 - [ ] Case-sensitivity intent is explicit (`iexact`/`icontains`)

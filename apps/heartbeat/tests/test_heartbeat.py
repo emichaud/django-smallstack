@@ -1622,10 +1622,17 @@ class TestSiteMonitors:
         from apps.heartbeat.models import MonitoredSurface
 
         monkeypatch.setattr(surfaces, "exposed_keys", lambda: set())
-        MonitoredSurface.objects.create(kind="mcp", target="gone", name="Ghost Tool", slug="ghost")
+        # Use the row's OWN pk. Postgres sequences are not transactional —
+        # nextval() survives the test rollback — so a hard-coded pk=1 passes
+        # alone and fails whenever an earlier test in the session created a
+        # MonitoredSurface. SQLite's rowid counter rolls back with the
+        # transaction, which hid this in the default dev loop.
+        orphan = MonitoredSurface.objects.create(
+            kind="mcp", target="gone", name="Ghost Tool", slug="ghost"
+        )
         body = staff_client.get(reverse("heartbeat:status_overview")).content.decode()
         assert "not exposed" in body
-        assert reverse("heartbeat:status/site-monitors-delete", kwargs={"pk": 1}) in body
+        assert reverse("heartbeat:status/site-monitors-delete", kwargs={"pk": orphan.pk}) in body
 
 
 class TestAddMonitorModal:

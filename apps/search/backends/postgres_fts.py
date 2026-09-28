@@ -54,8 +54,10 @@ class PostgresFTSBackend:
     def ensure_index(self, view: IndexedView) -> bool:
         """Add the ``search_vector`` column + GIN index if absent.
 
-        Idempotent (``IF NOT EXISTS``), so it is safe to run on every
-        ``post_migrate``. Self-provisioning here — rather than via a model
+        Idempotent, and — once provisioned — issues **no DDL at all**: both
+        the column and the index are existence-checked first, so it is safe
+        to run on every ``post_migrate`` *and* from inside an open
+        transaction that holds deferred constraint events. Self-provisioning here — rather than via a model
         field + migration — is what lets the bundled SQLite-default models
         opt into Postgres FTS without shipping a ``tsvector`` column that
         SQLite can't create.
@@ -73,15 +75,19 @@ class PostgresFTSBackend:
         table = view.model._meta.db_table
         index = _gin_index_name(view)
 
-        # 1. Column add — fast, idempotent, transaction-safe.
-        try:
-            with connection.cursor() as cur:
-                cur.execute(
-                    f'ALTER TABLE "{table}" ADD COLUMN IF NOT EXISTS search_vector tsvector'
-                )
-        except Exception:
-            logger.exception("PG-FTS add-column failed for %s", view.model_label)
-            return False
+        # 1. Column add — skipped entirely when already present. The guard is
+        #    not just an optimisation: the no-op ALTER still takes an
+        #    AccessExclusiveLock, and Postgres refuses it outright while the
+        #    transaction holds pending deferred-constraint trigger events.
+        if not _column_exists(table, "search_vector"):
+            try:
+                with connection.cursor() as cur:
+                    cur.execute(
+                        f'ALTER TABLE "{table}" ADD COLUMN IF NOT EXISTS search_vector tsvector'
+                    )
+            except Exception:
+                logger.exception("PG-FTS add-column failed for %s", view.model_label)
+                return False
 
         # 2. GIN index — skip if already present, else create (concurrently
         #    when we can).
@@ -269,6 +275,31 @@ def _gin_index_name(view: IndexedView) -> str:
     table = view.model._meta.db_table
     digest = hashlib.md5(table.encode()).hexdigest()[:12]
     return f"svecgin_{table[:40]}_{digest}"
+
+
+def _column_exists(table: str, column: str) -> bool:
+    """Whether ``table`` already has ``column`` (current schema).
+
+    Mirrors :func:`_index_exists`, and exists for the same reason: so
+    ``ensure_index`` issues **no DDL at all** on the overwhelmingly common
+    already-provisioned path. ``ADD COLUMN IF NOT EXISTS`` is not free just
+    because it is a no-op — Postgres still takes an **AccessExclusiveLock**
+    on the table (verified), briefly blocking every reader and writer on a
+    live table every time this runs, and it is refused outright when the
+    transaction holds pending (deferred) constraint trigger events:
+    ``cannot ALTER TABLE "x" because it has pending trigger events``. That
+    made ``rebuild_search_index`` uncallable from inside such a transaction.
+    """
+    try:
+        with connection.cursor() as cur:
+            cur.execute(
+                "SELECT 1 FROM information_schema.columns "
+                "WHERE table_name = %s AND column_name = %s",
+                [table, column],
+            )
+            return cur.fetchone() is not None
+    except Exception:
+        return False
 
 
 def _index_exists(name: str) -> bool:

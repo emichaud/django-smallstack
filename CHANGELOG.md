@@ -9,6 +9,51 @@ Breaking-change migration recipes live in [`UPGRADING.md`](UPGRADING.md).
 
 ## [Unreleased]
 
+### Fixed
+- **`rebuild_search_index` can run inside an open transaction again, and
+  `ensure_index` stops locking provisioned tables.** The Postgres backend
+  guarded its GIN index with `_index_exists` but issued the column
+  `ALTER TABLE … ADD COLUMN IF NOT EXISTS` unconditionally. Verified against
+  PG 16, that costs two things even as a no-op: it takes an
+  **AccessExclusiveLock** on the table (every `post_migrate`, every rebuild —
+  briefly blocking every reader and writer on a live table), and Postgres
+  refuses it outright when the transaction holds pending **deferred**
+  constraint trigger events (`cannot ALTER TABLE "x" because it has pending
+  trigger events`). A new `_column_exists` guard mirrors the existing index
+  guard, so a provisioned model issues **no DDL at all**. Note the refined
+  mechanism vs. the downstream report: plain writes aren't enough — a
+  non-deferrable FK's after-row trigger fires at end of statement, so it takes
+  `SET CONSTRAINTS ALL DEFERRED` (what `loaddata` does) or a deferrable
+  constraint. (Downstream item #6.)
+- **Help search no longer poisons the caller's transaction on Postgres.** Every
+  raw query in `apps/help/search.py` sat inside a bare `except Exception` —
+  including the "does my FTS table exist?" probe, which asks by running
+  `SELECT COUNT(*)` and catching the failure. On Postgres that aborts the whole
+  transaction, so the swallowed probe killed every later query in the request:
+  help-search 500s, the activity middleware's log write, and (how it was found)
+  two unrelated approvals *search* tests. All six such cursors now run in
+  `transaction.atomic()`. Second layer: `_HELP_INDEX_BUILT` is a process-global
+  memo of *database* state, so a dropped/restored index left help search empty
+  until the process restarted — a failed query now clears the memo and the next
+  call rebuilds. Found by running the full suite against a real Postgres 16;
+  **both suites are now fully green on both backends** (2,664 PG / 2,663 SQLite).
+- **`test_orphan_renders_muted_with_remove` no longer assumes `pk == 1`.**
+  Postgres sequences are not transactional — `nextval()` survives the test
+  rollback — so the hard-coded pk passed in isolation and failed whenever an
+  earlier test in the session created a `MonitoredSurface`; SQLite's rowid
+  counter rolls back, hiding it. The test now asserts the row's own pk. This
+  was the downstream's one undiagnosed failure; diagnosed and reproduced here
+  against a real Postgres 16.
+
+### Documentation
+- `sqlite-vs-postgres.md`: a dedicated section on **`except Exception` around a
+  DB statement** — the bug hit four times in one week — including *"the visible
+  error is not the culprit; read the Postgres server log"* and *"probe by
+  failing is not free"*. Plus **sequences are not transactional** — never assert a
+  literal primary key (plus the checklist item), and **existence-check DDL
+  before issuing it** — `IF NOT EXISTS` is not free (AccessExclusiveLock +
+  the deferred-trigger-events refusal, with the exact conditions).
+
 ## [0.21.8] - 2026-09-27
 
 ### Fixed

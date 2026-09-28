@@ -14,6 +14,8 @@ from __future__ import annotations
 
 import logging
 
+from django.db import transaction
+
 from apps.search.backends.base import SearchHit
 
 logger = logging.getLogger("smallstack.search.help")
@@ -120,6 +122,18 @@ def _sync_help_index_pg(articles) -> int:
 _HELP_INDEX_BUILT = False
 
 
+def _forget_help_index() -> None:
+    """Clear the built-memo so the next query rebuilds.
+
+    The memo is process-global, but "is the index table there?" is *database*
+    state: a restored or reset database — or a rolled-back transaction —
+    leaves the memo lying, and help search then returns nothing until the
+    process restarts. Called whenever a query against the index fails.
+    """
+    global _HELP_INDEX_BUILT
+    _HELP_INDEX_BUILT = False
+
+
 def _ensure_help_index() -> None:
     """Lazily populate the help-article index on first query.
 
@@ -136,7 +150,10 @@ def _ensure_help_index() -> None:
         _HELP_INDEX_BUILT = True
         return
     try:
-        sync_help_index()
+        # Savepoint for the same reason as _help_index_row_count: a failed
+        # build must not poison the caller's transaction.
+        with transaction.atomic():
+            sync_help_index()
     except Exception:
         logger.exception("Lazy help-index sync failed")
     _HELP_INDEX_BUILT = True
@@ -148,8 +165,15 @@ def _help_index_row_count() -> int:
 
     if connection.vendor not in ("sqlite", "postgresql"):
         return 0
+    # A savepoint, not decoration: on Postgres a failed statement poisons the
+    # WHOLE transaction ("current transaction is aborted"), so probing for a
+    # missing table by running a query and catching the error left every
+    # later query in the request dead — and the bare except hid it. The
+    # visible failure surfaced far away (help-search 500s, and every
+    # subsequent ORM call in the same request). SQLite just shrugs, which is
+    # why the default dev loop never saw it.
     try:
-        with connection.cursor() as cur:
+        with transaction.atomic(), connection.cursor() as cur:
             cur.execute(f'SELECT COUNT(*) FROM "{HELP_FTS_TABLE}"')
             row = cur.fetchone()
             return int(row[0]) if row else 0
@@ -181,11 +205,12 @@ def search_help_articles(query: str, limit: int = 10) -> list[SearchHit]:
         f"ORDER BY rank DESC LIMIT %s"
     )
     try:
-        with connection.cursor() as cur:
+        with transaction.atomic(), connection.cursor() as cur:
             cur.execute(sql, [translated, limit])
             rows = cur.fetchall()
     except Exception:
         logger.exception("Help search query failed: %r", query)
+        _forget_help_index()
         return []
 
     hits: list[SearchHit] = []
@@ -235,11 +260,12 @@ def _search_help_pg(query: str, limit: int) -> list[SearchHit]:
         f"WHERE search_vector @@ q ORDER BY rank DESC LIMIT %s"
     )
     try:
-        with connection.cursor() as cur:
+        with transaction.atomic(), connection.cursor() as cur:
             cur.execute(sql, [translated, limit])
             rows = cur.fetchall()
     except Exception:
         logger.exception("Help search query failed (pg): %r", query)
+        _forget_help_index()  # the index may be gone; rebuild on the next call
         return []
 
     q_lower = query.lower().strip()
@@ -326,7 +352,7 @@ def help_article_count() -> int:
         from apps.help.utils import build_search_index
         return len(build_search_index())
     try:
-        with connection.cursor() as cur:
+        with transaction.atomic(), connection.cursor() as cur:
             cur.execute(f'SELECT COUNT(*) FROM "{HELP_FTS_TABLE}"')
             row = cur.fetchone()
             return int(row[0]) if row else 0
@@ -450,6 +476,12 @@ def _sync_help_rag_index_pg(chunks) -> int:
 _HELP_RAG_INDEX_BUILT = False
 
 
+def _forget_help_rag_index() -> None:
+    """Clear the RAG built-memo — see :func:`_forget_help_index`."""
+    global _HELP_RAG_INDEX_BUILT
+    _HELP_RAG_INDEX_BUILT = False
+
+
 def _ensure_help_rag_index() -> None:
     """Lazily populate the chunk index on first query (mirrors _ensure_help_index)."""
     global _HELP_RAG_INDEX_BUILT
@@ -459,7 +491,8 @@ def _ensure_help_rag_index() -> None:
         _HELP_RAG_INDEX_BUILT = True
         return
     try:
-        sync_help_rag_index()
+        with transaction.atomic():  # see _ensure_help_index
+            sync_help_rag_index()
     except Exception:
         logger.exception("Lazy help-RAG-index sync failed")
     _HELP_RAG_INDEX_BUILT = True
@@ -471,8 +504,15 @@ def help_chunk_count() -> int:
 
     if connection.vendor not in ("sqlite", "postgresql"):
         return 0
+    # A savepoint, not decoration: on Postgres a failed statement poisons the
+    # WHOLE transaction ("current transaction is aborted"), so probing for a
+    # missing table by running a query and catching the error left every
+    # later query in the request dead — and the bare except hid it. The
+    # visible failure surfaced far away (help-search 500s, and every
+    # subsequent ORM call in the same request). SQLite just shrugs, which is
+    # why the default dev loop never saw it.
     try:
-        with connection.cursor() as cur:
+        with transaction.atomic(), connection.cursor() as cur:
             cur.execute(f'SELECT COUNT(*) FROM "{HELP_CHUNK_TABLE}"')
             row = cur.fetchone()
             return int(row[0]) if row else 0
@@ -513,11 +553,12 @@ def search_help_chunks(query: str, limit: int = 5) -> list[SearchHit]:
         f"ORDER BY rank DESC LIMIT %s"
     )
     try:
-        with connection.cursor() as cur:
+        with transaction.atomic(), connection.cursor() as cur:
             cur.execute(sql, [translated, limit])
             rows = cur.fetchall()
     except Exception:
         logger.exception("Help RAG search query failed: %r", query)
+        _forget_help_rag_index()
         return []
 
     hits: list[SearchHit] = []
@@ -561,11 +602,12 @@ def _search_help_chunks_pg(query: str, limit: int) -> list[SearchHit]:
         f"WHERE search_vector @@ q ORDER BY rank DESC LIMIT %s"
     )
     try:
-        with connection.cursor() as cur:
+        with transaction.atomic(), connection.cursor() as cur:
             cur.execute(sql, [translated, limit])
             rows = cur.fetchall()
     except Exception:
         logger.exception("Help RAG search query failed (pg): %r", query)
+        _forget_help_rag_index()
         return []
 
     q_lower = query.lower().strip()

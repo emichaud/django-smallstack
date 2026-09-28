@@ -136,3 +136,81 @@ def test_remove_object_is_noop_row_delete_drops_vector(backend, view):
     backend.remove_object(view, user.pk)  # no-op — vector lives on the row
     user.delete()
     assert backend.query(view, "pggamma") == []
+
+
+class TestEnsureIndexIssuesNoDdlWhenProvisioned:
+    """Downstream-reported (#6): ``ensure_index`` guarded the GIN index with
+    ``_index_exists`` but issued the column ``ALTER TABLE … ADD COLUMN IF NOT
+    EXISTS`` unconditionally. Two costs, both verified against Postgres 16:
+
+    1. the no-op ALTER still takes an **AccessExclusiveLock** on the table —
+       every ``post_migrate`` and every ``rebuild_search_index`` briefly
+       blocks every reader and writer on a live table;
+    2. Postgres refuses it outright while the transaction holds pending
+       **deferred** constraint trigger events (``cannot ALTER TABLE "x"
+       because it has pending trigger events``), which made
+       ``rebuild_search_index`` uncallable from such a transaction.
+
+    Note the refined mechanism: plain writes are NOT enough — a
+    non-deferrable FK's after-row trigger fires at end of statement, so the
+    queue is empty by the next statement. It takes ``SET CONSTRAINTS ALL
+    DEFERRED`` (what ``loaddata`` and fixture loading do) or a
+    ``DEFERRABLE INITIALLY DEFERRED`` constraint. The fix — mirror the
+    existing ``_index_exists`` guard with ``_column_exists`` — makes both
+    costs disappear on the already-provisioned path.
+    """
+
+    def test_provisioned_ensure_index_issues_no_alter(self, backend, view, monkeypatch):
+        """The decisive assertion: zero DDL on the common path."""
+        from apps.search.backends import postgres_fts as pg
+
+        statements: list[str] = []
+        real_cursor = connection.cursor
+
+        class _SpyCursor:
+            def __init__(self, inner):
+                self._inner = inner
+
+            def execute(self, sql, params=None):
+                statements.append(sql)
+                return self._inner.execute(sql, params)
+
+            def __getattr__(self, name):
+                return getattr(self._inner, name)
+
+            def __enter__(self):
+                self._inner.__enter__()
+                return self
+
+            def __exit__(self, *exc):
+                return self._inner.__exit__(*exc)
+
+        monkeypatch.setattr(pg.connection, "cursor", lambda: _SpyCursor(real_cursor()))
+        assert backend.ensure_index(view) is True  # already provisioned by the fixture
+        assert not any("ALTER TABLE" in s.upper() for s in statements), statements
+        assert not any("CREATE INDEX" in s.upper() for s in statements), statements
+
+    def test_ensure_index_with_pending_deferred_trigger_events(self, backend, view):
+        """The reported failure, reproduced: with deferred constraint events
+        queued, the pre-fix unconditional ALTER raised ObjectInUse."""
+        from apps.search.registry import get_view
+        from apps.smallstack.models import APIToken
+
+        User = get_user_model()
+        with connection.cursor() as cur:
+            cur.execute("SET CONSTRAINTS ALL DEFERRED")
+        owner = User.objects.create_user("deferred-probe", password="p")
+        APIToken.create_token(user=owner, name="t")
+
+        token_view = get_view(APIToken)
+        assert token_view is not None
+        assert backend.ensure_index(token_view) is True  # pre-fix: OperationalError
+
+    def test_rebuild_command_runs_inside_such_a_transaction(self, backend, view):
+        from django.core.management import call_command
+
+        User = get_user_model()
+        with connection.cursor() as cur:
+            cur.execute("SET CONSTRAINTS ALL DEFERRED")
+        User.objects.create_user("rebuild-probe", password="p")
+        call_command("rebuild_search_index", "accounts.User")  # pre-fix: raised
