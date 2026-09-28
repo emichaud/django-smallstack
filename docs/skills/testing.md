@@ -134,6 +134,31 @@ def test_edit_renders_tabbed_form(client, staff_user):
     assert "user-tabs" in body            # not the generic CRUD form
 ```
 
+## Framework tests must not pin what downstreams may legitimately change
+
+Every test here ships to every clone. A test that asserts *configuration* or a
+*policy layer* rather than the behaviour it names turns a legitimate downstream
+customisation into a red suite — which trains people to ignore a red suite.
+This has bitten twice:
+
+| Test asserted | Downstream that broke | Fix |
+|---|---|---|
+| the literal string `"SmallStack Status"` | any project setting `BRAND_NAME` | assert `settings.BRAND_NAME` |
+| one theme's `✓`/`—` boolean glyphs | any project overriding `detail_grid.html` | assert False renders *differently* from True |
+| memo self-heal, driven through the help-search **dispatcher** | a project routing Postgres to the fallback scan | drive the FTS query path directly; pin routing in its own named test |
+
+**The rule:** test the invariant *at the layer where it lives*. The self-heal
+fix lives in the query functions, so the test calls those — not the dispatcher
+that decides which engine reaches them. Where a routing/policy contract is
+genuinely upstream's (and it often is), give it **its own test with a name that
+says so**, so a diverging downstream sees one honest failure ("you overrode the
+dispatcher") instead of three misleading ones about something else.
+
+Corollary: when a downstream reports "your new tests fail on our fork," check
+whether the tests over-reach before assuming the fork is wrong — and read their
+justification, because it may be reporting a second bug (it did here: the
+routing divergence existed to dodge an upstream performance bug).
+
 ## Gotchas (these have caused real bugs here)
 
 1. **`form.is_valid()` mutates the model instance.** A `ModelForm`'s `is_valid()`

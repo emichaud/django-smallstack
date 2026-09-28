@@ -345,11 +345,26 @@ def _extract_window(text: str, q: str) -> str:
 
 
 def help_article_count() -> int:
-    """Number of articles currently indexed."""
+    """Number of articles currently indexed.
+
+    Cheap on every engine that HAS an index. The old guard here was an
+    ENGINE-string check — the last one in this module, everything else moved
+    to ``connection.vendor`` — written when only SQLite had a help FTS table:
+    it sent **every non-SQLite engine, i.e. production-on-Postgres**, through
+    ``build_search_index()``, a full re-read and re-render of every markdown
+    doc (~1.5s locally, seconds on a small box). ``@lru_cache`` bounded that,
+    but ``sync_help_index()`` *clears* the cache, so each lazy index build
+    made the next count pay the parse again. Postgres has had a real
+    ``help_articles_search_idx`` since v0.21.9, so it takes the COUNT like
+    SQLite — and the number now means the same thing on both engines (rows in
+    the index, which is what "currently indexed" claims). Engines with no FTS
+    table still have nowhere else to look. (Downstream-reported.)
+    """
     from django.db import connection
 
-    if "sqlite" not in connection.settings_dict["ENGINE"]:
+    if connection.vendor not in ("sqlite", "postgresql"):
         from apps.help.utils import build_search_index
+
         return len(build_search_index())
     try:
         with transaction.atomic(), connection.cursor() as cur:

@@ -9,6 +9,31 @@ Breaking-change migration recipes live in [`UPGRADING.md`](UPGRADING.md).
 
 ## [Unreleased]
 
+### Fixed
+- **`help_article_count()` no longer re-parses the whole markdown corpus on
+  Postgres.** The last ENGINE-string check in `apps/help/search.py` (everything
+  else had moved to `connection.vendor`) was written when only SQLite had a
+  help FTS table, so **every non-SQLite engine — i.e. production** — counted
+  articles by calling `build_search_index()`: a full re-read and re-render of
+  every markdown doc, ~1.5s locally and seconds on a small box. `@lru_cache`
+  bounded it, but `sync_help_index()` *clears* that cache, so after v0.21.9
+  gave Postgres a real lazy index build, each build made the next count pay the
+  parse again. Postgres has had `help_articles_search_idx` since v0.21.9, so it
+  now takes the same cheap `COUNT(*)` as SQLite — and the number means the same
+  thing on both engines (rows in the index, which is what "currently indexed"
+  claims). Guarded by a test that fails if a count ever parses markdown.
+  (Downstream-reported, with their own equivalent guard.)
+
+### Changed
+- **`test_transaction_safety.py` no longer fails a downstream that routes help
+  search differently.** The v0.21.9 memo self-heal tests drove
+  `search_help_articles()`, so they also asserted *which engines route to FTS* —
+  a separate contract, and one a downstream may legitimately override. They now
+  drive the engine's FTS query path directly (where the fix lives), and the
+  routing contract gets **its own named test**, so a diverging project sees one
+  honest failure instead of three misleading ones. `docs/skills/testing.md`
+  gains the general rule with the three cases that taught it.
+
 ## [0.21.9] - 2026-09-28
 
 ### Fixed
