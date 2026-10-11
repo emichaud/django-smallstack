@@ -9,6 +9,49 @@ Breaking-change migration recipes live in [`UPGRADING.md`](UPGRADING.md).
 
 ## [Unreleased]
 
+## [0.24.0] - 2026-10-11
+
+### Added
+- **The agent skill index is generated, and `make lint` checks it.**
+  `docs/skills/README.md`'s tables are now the single source of truth;
+  `docs/skills/index.json` is generated from them by `manage.py skills_index`
+  (`make skills-index`). `--check` runs inside `make lint` and the pre-commit
+  hook, failing on a skill file registered nowhere, a row pointing at a missing
+  file, or a stale index. Hand-curated `name` / `keywords` / `use_when` fields
+  carry forward across regeneration, and a `**(upstream repo only)**` or
+  `**(forks / downstream)**` prefix on a row becomes a `scope` field agents can
+  read. The checks assert self-consistency only — never that a particular skill
+  exists — so a project built on SmallStack stays free to add, delete or rewrite
+  skills. It no-ops where there's no `docs/skills/README.md`.
+- **`docs/skills/local.md`** — a skill registry upstream never ships, so a
+  project can register *its own* skill files (tagged `"origin": "fork-local"` in
+  the generated index) without taking a merge conflict on every
+  `git pull upstream main`.
+
+### Fixed
+- **The skill index agents consult was two-thirds empty.** It listed 29 of 76
+  skill files: every read-first skill (`modern-dark-theme`, `cli-tools`,
+  `accessibility`, `modify-palettes`) was missing, 19 of the 25 files `CLAUDE.md`
+  names were absent, and it still carried an entry for `report-card.md`, deleted
+  releases ago. Nothing read it and registering a skill meant hand-editing two
+  files with no check, so it had rotted since 0.8.7. Now 76 of 76, with 11 files
+  that had no README row given one (`crud-views.md` and `from-zero-to-running.md`
+  among them) and 54 entries carrying keywords + `use_when`.
+  (Downstream-reported: a fork's own skill file was referenced by `CLAUDE.md` but
+  registered in neither index, so an agent looking for release guidance found
+  upstream's `release-process.md` — exactly the wrong one for a fork.)
+- **`release-process.md` now says it's upstream-only** and points a fork at
+  `integration-workflow.md` / `downstream-release-migration.md` instead; its own
+  "Version Locations" table named a file that no longer exists and omitted
+  `CHANGELOG.md` and the post-bump `uv sync`.
+- **Shipped docs no longer name the maintainer's own projects.** Deployment
+  hostnames and project names from the author's workspace appeared in
+  `integration-workflow.md`, `UPGRADING.md`, `kamal-deployment.md`,
+  `screenshot-workflow.md` and others, which every clone inherited as if they
+  were its own. The screenshot "port reference" became the rule it was hiding:
+  8005 is the default here *and* in every clone, so two checkouts collide —
+  override with `PORT=N`.
+
 ## [0.23.1] - 2026-10-11
 
 ### Changed
@@ -2016,7 +2059,8 @@ Condensed highlights of the v0.11 series (see git history for per-patch detail):
 See the git tag history (`git tag`) and `ai_cowork/audit_history/` for the full record of the
 v0.8–v0.10 API-server, modern-dark-theme, search, MCP, and Postgres eras.
 
-[Unreleased]: https://github.com/emichaud/django-smallstack/compare/v0.23.1...HEAD
+[Unreleased]: https://github.com/emichaud/django-smallstack/compare/v0.24.0...HEAD
+[0.24.0]: https://github.com/emichaud/django-smallstack/compare/v0.23.1...v0.24.0
 [0.23.1]: https://github.com/emichaud/django-smallstack/compare/v0.23.0...v0.23.1
 [0.23.0]: https://github.com/emichaud/django-smallstack/compare/v0.22.0...v0.23.0
 [0.22.0]: https://github.com/emichaud/django-smallstack/compare/v0.21.11...v0.22.0

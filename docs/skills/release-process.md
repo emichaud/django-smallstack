@@ -20,13 +20,16 @@ SmallStack uses **Semantic Versioning** (semver): `MAJOR.MINOR.PATCH`
 
 ### Version Locations
 
-Version must be updated in **three** places:
-
 | File | Field | Example |
 |------|-------|---------|
-| `pyproject.toml` | `version = "X.Y.Z"` | `version = "0.7.1"` |
-| `apps/help/smallstack/_config.yaml` | `version: "X.Y.Z"` | `version: "0.7.1"` |
-| `README.md` | Coverage/version badges | Update badge URLs if needed |
+| `pyproject.toml` | `version = "X.Y.Z"` | `version = "0.24.0"` |
+| `README.md` | the version badge | `![Version 0.24.0](…/badge/version-0.24.0-blue)` |
+| `CHANGELOG.md` | a new `## [X.Y.Z] - YYYY-MM-DD` section, plus the `[Unreleased]` and `[X.Y.Z]` link refs at the bottom | — |
+| `uv.lock` | the project's own `version` — refreshed by the `uv sync` below, not by hand | — |
+
+Then **`uv sync --extra dev`**. The bump leaves the installed distribution's metadata on the
+old version, and `smallstack.W001` fires on `manage.py check --deploy` until the package is
+reinstalled — a bare `uv sync` installs it but prunes the dev extras, so pass `--extra dev`.
 
 ## Pre-Release Checklist
 
