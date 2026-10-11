@@ -40,7 +40,7 @@ so links to them never break. This is a deploy-time flag — read once at startu
 
 ### `MCP_SERVER_NAME`
 
-The string MCP clients see in the `initialize` response under `serverInfo.name`, and on the friendly GET `/mcp` banner. Defaults to a slug of `BRAND_NAME` — e.g. `"smallstack"` for the upstream, `"opshugger"` for OpsHugger.
+The string MCP clients see in the `initialize` response under `serverInfo.name`, and on the friendly GET `/mcp` banner. Defaults to a slug of `BRAND_NAME` — e.g. `"smallstack"` for this project, `"acme-support"` for a brand named "Acme Support".
 
 **When to change:** Multi-tenant deployments where you want each tenant's MCP server identifiable by name. Or marketing/branding alignment.
 

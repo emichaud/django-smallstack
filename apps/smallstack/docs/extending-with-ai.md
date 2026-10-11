@@ -40,8 +40,10 @@ Skills are markdown files in `docs/skills/`. An AI agent reads the relevant skil
 | **Docker** | `docker-deployment.md` | Docker Compose setup, services, volumes, local development |
 | **Kamal** | `kamal-deployment.md` | Zero-downtime VPS deployment, SSL, server configuration |
 | **Development Workflow** | `development-workflow.md` | Branching, testing, coverage, commit style |
-| **Release Process** | `release-process.md` | Versioning, release checklist, GitHub releases |
+| **Release Process** | `release-process.md` | Versioning, release checklist, GitHub releases — *for the upstream `django-smallstack` repo only; a project built on SmallStack follows its own release doc* |
 | **Integration** | `integration-workflow.md` | Pulling upstream changes into downstream projects, deploying |
+
+This page lists the highlights. The **authoritative** skill index is `docs/skills/README.md` (and the generated `docs/skills/index.json`) — check there before concluding a skill doesn't exist.
 
 ## The CRUD Management Page Pattern
 

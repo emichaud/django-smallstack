@@ -101,9 +101,13 @@ Settings split in `config/settings/`:
   when the type genuinely can't be expressed. The project typechecks with
   **mypy + django-stubs** over every app (`[tool.mypy]` in `pyproject.toml`;
   migrations/tests excluded, untyped bodies not checked — so annotating a
-  function is what opts its body into checking). `make lint` runs ruff **and
-  mypy**; both must be green before reporting work done, and the pre-commit
-  hook enforces the same gate.
+  function is what opts its body into checking). `make lint` runs ruff, **mypy**,
+  and the skill-index check; all three must be green before reporting work done,
+  and the pre-commit hook enforces the same gate.
+- **New skill file**: add a row to the `docs/skills/README.md` table and run
+  `make skills-index` (that README is the source of truth; `index.json` is
+  generated from it). `make lint` fails on an unregistered skill file — the
+  index agents consult must never be a subset of what's on disk.
 
 ## Theming — the single biggest thing to get right
 
@@ -132,11 +136,12 @@ Most-used:
 ```bash
 make run                                         # dev server (port 8005)
 make test                                        # full pytest suite
-make lint                                        # ruff check + mypy (the full static gate)
+make lint                                        # ruff + mypy + skill-index check (the full static gate)
 make lint-fix                                    # ruff check --fix
 make typecheck                                   # mypy alone
 make migrate                                     # apply migrations
 make migrations                                  # create new ones
+make skills-index                                # rebuild docs/skills/index.json from its README
 make backup                                      # SQLite snapshot with retention
 uv run python manage.py api_doctor               # health-check the REST surface
 uv run python manage.py mcp_doctor               # health-check the MCP surface

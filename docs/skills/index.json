@@ -1,48 +1,227 @@
 {
   "name": "smallstack-skills",
-  "version": "0.8.7",
   "description": "AI skill index for Django SmallStack. Read the relevant skill before modifying the corresponding part of the codebase.",
+  "generated": true,
+  "source": "docs/skills/README.md (+ local.md for this project's own skills)",
+  "regenerate": "make skills-index",
   "skills": [
+    {
+      "id": "from-zero-to-running",
+      "file": "from-zero-to-running.md",
+      "name": "From Zero To Running",
+      "description": "**New project? Start here** — clone → local setup → first app → production, each phase with its verification command",
+      "section": "Available Skills",
+      "keywords": [
+        "setup",
+        "clone",
+        "bootstrap",
+        "new project",
+        "first app",
+        "deploy",
+        "verification"
+      ],
+      "use_when": "Starting a brand-new SmallStack project, from clone to production."
+    },
+    {
+      "id": "cli-tools",
+      "file": "cli-tools.md",
+      "name": "CLI Tools",
+      "description": "**Start here for \"is there a tool for X?\"** — task → tool / failure → tool / tool → docs lookup tables",
+      "section": "Available Skills",
+      "keywords": [
+        "cli",
+        "tool",
+        "command",
+        "manage.py",
+        "make",
+        "diagnose",
+        "smoke test",
+        "backup",
+        "screenshot",
+        "deploy",
+        "operational"
+      ],
+      "use_when": "Before running ANY operational task — diagnose, verify, mint a token, back up, screenshot, deploy. Check here before writing a bash one-liner."
+    },
+    {
+      "id": "modern-dark-theme",
+      "file": "modern-dark-theme.md",
+      "name": "Modern Dark Theme",
+      "description": "**Read before building any page** — canonical patterns, anti-patterns, variable list for the v0.9.x modern-dark theme",
+      "section": "Available Skills",
+      "keywords": [
+        "theme",
+        "dark",
+        "palette",
+        "card",
+        "color",
+        "css variable",
+        "surface",
+        "accent",
+        "page",
+        "component",
+        "hex"
+      ],
+      "use_when": "Before building any new page, card, table, modal, or badge — the canonical patterns that render correctly on every palette."
+    },
+    {
+      "id": "accessibility",
+      "file": "accessibility.md",
+      "name": "Accessibility",
+      "description": "**Read before building any page/form/modal** — a11y primitives (`.sr-only`, `.skip-link`, `:focus-visible`, `trapFocus`), the rules, and the pre-\"done\" checklist (WCAG 2.1 AA)",
+      "section": "Available Skills",
+      "keywords": [
+        "accessibility",
+        "a11y",
+        "wcag",
+        "aria",
+        "focus",
+        "keyboard",
+        "screen reader",
+        "contrast",
+        "sr-only",
+        "skip link"
+      ],
+      "use_when": "Before shipping any page, form, table, modal, or interactive control — the a11y primitives and the pre-done checklist."
+    },
+    {
+      "id": "modify-palettes",
+      "file": "modify-palettes.md",
+      "name": "Modify Palettes",
+      "description": "**Change accent colors** — add a brand palette or tune one. The 4 wiring points (yaml/CSS/model+migration/`VALID_PALETTES`), color-science gotchas, verification",
+      "section": "Available Skills",
+      "keywords": [
+        "palette",
+        "accent",
+        "color",
+        "brand",
+        "yaml",
+        "palettes.css",
+        "VALID_PALETTES",
+        "migration"
+      ],
+      "use_when": "Before adding or tuning a color palette — the four wiring points and the color-science gotchas."
+    },
+    {
+      "id": "add-gold-theme",
+      "file": "add-gold-theme.md",
+      "name": "Add Gold Theme",
+      "description": "Worked example of adding one palette (Gold) end to end — read `modify-palettes.md` first; this is the concrete walk-through, not the canonical guide",
+      "section": "Available Skills"
+    },
+    {
+      "id": "search",
+      "file": "search.md",
+      "name": "Search",
+      "description": "Add keyword search + MCP tool to a CRUDView (`enable_search = True`) — FTS5/PG-FTS backend dispatch, RAG via Claude Desktop",
+      "section": "Available Skills",
+      "keywords": [
+        "search",
+        "fts",
+        "fts5",
+        "keyword",
+        "enable_search",
+        "rag",
+        "index",
+        "rebuild_search_index"
+      ],
+      "use_when": "Before adding enable_search = True or building any search-shaped feature."
+    },
+    {
+      "id": "datasets",
+      "file": "datasets.md",
+      "name": "Datasets",
+      "description": "**Build a dashboard/report/chart UI** — the `@dataset` primitive: a named queryset surfaced as typed rows/columns (`schema()` → dimension/measure + filter widgets), `rows()`/`series()`, opt-in REST + MCP. Read before building anything that inspects a dataset to render pickers/charts",
+      "section": "Available Skills",
+      "keywords": [
+        "dataset",
+        "chart",
+        "report",
+        "dashboard",
+        "rows",
+        "series",
+        "schema",
+        "dimension",
+        "measure",
+        "filter"
+      ],
+      "use_when": "Before exposing a filtered queryset as typed rows/columns for a dashboard, report, or chart UI."
+    },
     {
       "id": "django-apps",
       "file": "django-apps.md",
       "name": "Django Apps & CRUDView",
-      "description": "Creating new Django apps, CRUDView configuration, django-tables2 integration, title bar pattern. See also: api skill for REST API and auth management.",
+      "description": "Creating apps, CRUDView management pages, title bar pattern",
+      "section": "Available Skills",
       "keywords": [
         "app",
         "model",
         "crud",
         "view",
-        "tables2",
         "management",
         "admin page"
       ],
       "use_when": "Creating a new app, adding a model, building management pages, or wiring up CRUDView."
     },
     {
-      "id": "testing",
-      "file": "testing.md",
-      "name": "Testing",
-      "description": "pytest/pytest-django stack (config.settings.test, locmem email, axes off). Patterns for testing email flows (mail.outbox), multi-step + token auth flows (invite, passwordless, reset, email login), CRUDView management pages, privilege guardrails, and regression guards. Documents the form.is_valid()-mutates-instance and Django-6 DeleteView gotchas.",
+      "id": "crud-views",
+      "file": "crud-views.md",
+      "name": "CRUD Views",
+      "description": "**The CRUDView reference** — the declarative class behind list/create/detail/update/delete: actions, config attributes, display protocol, related tabs, `get_list_queryset`",
+      "section": "Available Skills",
       "keywords": [
-        "test",
-        "pytest",
-        "tests",
-        "mail.outbox",
-        "locmem",
-        "fixture",
-        "client",
-        "force_login",
-        "coverage",
-        "regression"
+        "crudview",
+        "crud",
+        "list",
+        "detail",
+        "create",
+        "update",
+        "delete",
+        "actions",
+        "display",
+        "related tabs",
+        "get_list_queryset"
       ],
-      "use_when": "Writing or changing tests \u2014 especially for auth, email, CRUDView, or User Manager work."
+      "use_when": "Before configuring or extending a CRUDView — the reference for its attributes, actions, and display protocol."
+    },
+    {
+      "id": "explorer",
+      "file": "explorer.md",
+      "name": "Explorer",
+      "description": "Model Explorer — the zero-code CRUD browser generated from existing `ModelAdmin` registrations; `explorer_displays`, dashboard widgets",
+      "section": "Available Skills"
+    },
+    {
+      "id": "filtering-export",
+      "file": "filtering-export.md",
+      "name": "Filtering Export",
+      "description": "Declarative search, filtering, and CSV/JSON export on a CRUDView + its REST layer",
+      "section": "Available Skills"
+    },
+    {
+      "id": "building-a-user-facing-site",
+      "file": "building-a-user-facing-site.md",
+      "name": "Building A User Facing Site",
+      "description": "**Read for any non-staff user-facing surface** — LoginRequiredMixin + tenancy scoping + SearchAccess for end-user dashboards, \"my X\" lists, public catalogues",
+      "section": "Available Skills",
+      "keywords": [
+        "user facing",
+        "end user",
+        "tenancy",
+        "LoginRequiredMixin",
+        "scoping",
+        "portal",
+        "catalogue",
+        "public"
+      ],
+      "use_when": "Before building any non-staff surface — end-user dashboards, 'my X' lists, public catalogues."
     },
     {
       "id": "templates",
       "file": "templates.md",
       "name": "Template System",
-      "description": "Template inheritance, available blocks (title, content, extra_css, extra_js, breadcrumbs), includes, and the thin-wrapper pattern for merge-safe customization.",
+      "description": "Template inheritance, blocks, includes, common patterns",
+      "section": "Available Skills",
       "keywords": [
         "template",
         "html",
@@ -55,10 +234,46 @@
       "use_when": "Creating or modifying HTML templates, understanding block inheritance, or adding includes."
     },
     {
+      "id": "navigation",
+      "file": "navigation.md",
+      "name": "Navigation",
+      "description": "The nav registry that drives both sidebar and topbar — zones, ordering, INSTALLED_APPS-driven entries",
+      "section": "Available Skills"
+    },
+    {
+      "id": "admin-page-styling",
+      "file": "admin-page-styling.md",
+      "name": "Admin Page Styling",
+      "description": "**Definitive UI reference**: buttons, cards, tables, stat cards, action cards, tabs, filter toggles, forms, modals, starter template",
+      "section": "Available Skills",
+      "keywords": [
+        "button",
+        "card",
+        "table",
+        "modal",
+        "badge",
+        "form",
+        "tab",
+        "filter",
+        "component",
+        "styling",
+        "starter template"
+      ],
+      "use_when": "When you need the exhaustive component reference while building an admin page."
+    },
+    {
+      "id": "components",
+      "file": "components.md",
+      "name": "Components",
+      "description": "Quick-reference component catalog — the short form of `admin-page-styling.md`",
+      "section": "Available Skills"
+    },
+    {
       "id": "theming-system",
       "file": "theming-system.md",
       "name": "Theming System Reference",
-      "description": "Complete CSS variable definitions for light/dark modes, color palette system (django, high-contrast, dark-blue, orange, purple), palette precedence, JavaScript API, dark mode persistence contract, and responsive breakpoints.",
+      "description": "CSS variables, palettes, dark mode",
+      "section": "Available Skills",
       "keywords": [
         "theme",
         "css",
@@ -75,7 +290,8 @@
       "id": "adding-your-own-theme",
       "file": "adding-your-own-theme.md",
       "name": "Adding a Custom Theme",
-      "description": "Step-by-step tutorial for adding a custom CSS framework (Bootstrap, Tailwind, Tabler) alongside SmallStack's built-in theme. Covers the required template pieces (blocking script, SMALLSTACK config, theme.js), CSS override file, navbar partial, and static asset placement.",
+      "description": "**Bring your own look** — mount Bootstrap / Tailwind / a bespoke base template *alongside* SmallStack's theme (for teams with an existing design system). Not for changing colors — that's `modify-palettes.md`",
+      "section": "Available Skills",
       "keywords": [
         "bootstrap",
         "tailwind",
@@ -90,7 +306,8 @@
       "id": "theme-scenarios",
       "file": "theme-scenarios.md",
       "name": "Theme Integration Scenarios",
-      "description": "Decision tree and step-by-step for three scenarios: (A) public site with no user login, (B) public site with user login, (C) build on SmallStack's theme. Includes settings, file placement, and common mistakes.",
+      "description": "Three theme integration scenarios: public-only, user login, or build on SmallStack",
+      "section": "Available Skills",
       "keywords": [
         "scenario",
         "public site",
@@ -105,7 +322,8 @@
       "id": "authentication",
       "file": "authentication.md",
       "name": "Authentication",
-      "description": "Custom User model (settings.AUTH_USER_MODEL), auth views, LoginRequiredMixin, signup control (SMALLSTACK_SIGNUP_ENABLED), login/logout URLs, and protecting views.",
+      "description": "Custom user model, auth views, protecting views",
+      "section": "Available Skills",
       "keywords": [
         "auth",
         "login",
@@ -119,10 +337,55 @@
       "use_when": "Working with auth views, protecting pages, configuring signup, or extending the User model."
     },
     {
+      "id": "user-management",
+      "file": "user-management.md",
+      "name": "User Management",
+      "description": "The staff-only User Manager — search, profiles, activity stats, timezone dashboard, email/password-reset configuration",
+      "section": "Available Skills"
+    },
+    {
+      "id": "testing",
+      "file": "testing.md",
+      "name": "Testing",
+      "description": "**Read before writing tests** — pytest/locmem stack, patterns for email + multi-step auth flows + CRUDView + guardrails, regression guards, and the `form.is_valid()`/`DeleteView` gotchas",
+      "section": "Available Skills",
+      "keywords": [
+        "test",
+        "pytest",
+        "tests",
+        "mail.outbox",
+        "locmem",
+        "fixture",
+        "client",
+        "force_login",
+        "coverage",
+        "regression"
+      ],
+      "use_when": "Writing or changing tests — especially for auth, email, CRUDView, or User Manager work."
+    },
+    {
+      "id": "manage-api-tokens",
+      "file": "manage-api-tokens.md",
+      "name": "Manage API Tokens",
+      "description": "Pick the right token surface (/smallstack/tokens/, CLI, OAuth) by question; permissions matrix; reveal-once flow",
+      "section": "Available Skills",
+      "keywords": [
+        "token",
+        "api token",
+        "mint",
+        "revoke",
+        "oauth",
+        "permission",
+        "reveal"
+      ],
+      "use_when": "Before answering any API-token question — which surface to use, what permissions apply."
+    },
+    {
       "id": "htmx-patterns",
       "file": "htmx-patterns.md",
       "name": "htmx Patterns",
-      "description": "htmx setup (vendored, no CDN), CSRF handling via hx-headers, partial templates, dual-response views (full page vs htmx partial), OOB swaps, and inline form submissions.",
+      "description": "htmx setup, CSRF, partials, dual-response views, OOB messages",
+      "section": "Available Skills",
       "keywords": [
         "htmx",
         "hx-get",
@@ -139,7 +402,8 @@
       "id": "help-documentation",
       "file": "help-documentation.md",
       "name": "Help & Documentation System",
-      "description": "File-based help system with markdown rendering, _config.yaml structure, sections, categories, variables, FAQ pages, app-contributed docs, and search index.",
+      "description": "Help system, sections, bundled SmallStack docs",
+      "section": "Available Skills",
       "keywords": [
         "help",
         "docs",
@@ -152,10 +416,66 @@
       "use_when": "Adding or editing help pages, creating new doc sections, or configuring the help system."
     },
     {
+      "id": "runbook-documents",
+      "file": "runbook-documents.md",
+      "name": "Runbook & Dynamic Documents",
+      "description": "**Read before writing to runbook docs any way but the UI** — versioned markdown documents via web, `service`, MCP, REST, CLI; FTS search, locking, retention, ownership, anti-patterns",
+      "section": "Available Skills",
+      "keywords": [
+        "runbook",
+        "document",
+        "markdown",
+        "versioned",
+        "knowledge base",
+        "bundle",
+        "mcp",
+        "retention"
+      ],
+      "use_when": "Creating or writing runbook documents any way other than the web UI, or wiring runbook search/MCP/export."
+    },
+    {
+      "id": "runbook-cli",
+      "file": "runbook-cli.md",
+      "name": "Runbook CLI",
+      "description": "The `manage.py runbook` / `rb` unix-style CLI for runbook pages — verbs, stdin piping, JSON, provenance, locking",
+      "section": "Available Skills",
+      "keywords": [
+        "runbook",
+        "cli",
+        "rb",
+        "manage.py",
+        "stdin",
+        "pipe"
+      ],
+      "use_when": "Browsing or editing runbook pages from the shell."
+    },
+    {
+      "id": "sc-cli",
+      "file": "sc-cli.md",
+      "name": "sc — framework CLI",
+      "description": "The `manage.py sc` / `sc` framework CLI — generic CRUD over any CRUDView (`ls/get/describe/new/set/rm`) + ops verbs (`doctor/backup/token/status/index/commands`); same validation + audit as REST/MCP",
+      "section": "Available Skills",
+      "keywords": [
+        "sc",
+        "cli",
+        "crudview",
+        "crud",
+        "ls",
+        "get",
+        "describe",
+        "doctor",
+        "manage.py",
+        "registry",
+        "json"
+      ],
+      "use_when": "Inspecting, querying, or mutating any CRUDView model from the shell, discovering the model/command surface, or health-checking the framework — instead of ad-hoc manage.py shell snippets."
+    },
+    {
       "id": "settings",
       "file": "settings.md",
       "name": "Settings & Configuration",
-      "description": "Split settings (base/development/production/test), environment variables via python-decouple, BRAND_* settings, SMALLSTACK_* feature flags, and .env file usage.",
+      "description": "Split settings, environment variables, feature flags",
+      "section": "Available Skills",
       "keywords": [
         "settings",
         "config",
@@ -171,7 +491,8 @@
       "id": "timezones",
       "file": "timezones.md",
       "name": "Timezone Handling",
-      "description": "TimezoneMiddleware, per-user timezone via UserProfile, localtime_tooltip template tag, and the CSS-only timezone tooltip.",
+      "description": "Timezone middleware, per-user timezone, localtime_tooltip tag",
+      "section": "Available Skills",
       "keywords": [
         "timezone",
         "localtime",
@@ -186,7 +507,8 @@
       "id": "background-tasks",
       "file": "background-tasks.md",
       "name": "Background Tasks",
-      "description": "Django Tasks framework with django-tasks-db backend. Task definition, enqueuing, the db_worker management command (with worker heartbeat + lost-task reaper), @retry_policy retries with backoff, inline vs separate worker deployment, and scaling guidance.",
+      "description": "Django Tasks framework with django-tasks-db backend",
+      "section": "Available Skills",
       "keywords": [
         "task",
         "background",
@@ -208,10 +530,104 @@
       "use_when": "Adding background jobs, making a task retry on failure, diagnosing a task stuck RUNNING, configuring the worker deployment (inline vs separate), or understanding the task queue."
     },
     {
+      "id": "scheduler",
+      "file": "scheduler.md",
+      "name": "Scheduler",
+      "description": "**Recurring jobs** — the `@scheduled` decorator, the scheduler UI, cron/interval/once cadences, the tick, overlap/catch-up policies",
+      "section": "Available Skills",
+      "keywords": [
+        "scheduler",
+        "schedule",
+        "cron",
+        "interval",
+        "recurring",
+        "scheduled",
+        "tick",
+        "catch-up"
+      ],
+      "use_when": "Before scheduling recurring work with @scheduled or the scheduler UI."
+    },
+    {
+      "id": "approvals",
+      "file": "approvals.md",
+      "name": "Approvals",
+      "description": "**Human-in-the-loop approval gate** — `@approval_kind` + `request_approval()`, the decision console, eligibility rules (assignees/self-approval/staff), the callback + signal + webhook + poll reaction paths, expiry sweep",
+      "section": "Available Skills",
+      "keywords": [
+        "approval",
+        "human in the loop",
+        "hitl",
+        "approval_kind",
+        "request_approval",
+        "decision",
+        "console",
+        "gate"
+      ],
+      "use_when": "Before gating an action on a human decision — an approval step or an AI-agent HITL gate."
+    },
+    {
+      "id": "notifications",
+      "file": "notifications.md",
+      "name": "Notifications",
+      "description": "**In-app notifications** — the never-raising `notify()` service, the topbar bell + unread badge, the inbox, per-user REST, daily prune",
+      "section": "Available Skills",
+      "keywords": [
+        "notification",
+        "bell",
+        "inbox",
+        "notify",
+        "unread",
+        "topbar"
+      ],
+      "use_when": "Before surfacing an in-app 'you should see this' message to a signed-in user."
+    },
+    {
+      "id": "webhooks",
+      "file": "webhooks.md",
+      "name": "Webhooks",
+      "description": "**Webhooks** — a foundational integration surface: outbound event delivery (`enable_webhooks = True`) + inbound receivers (`@webhook_handler`), plus **four extension seams** (`@webhook_transform`/`@webhook_auth`/`@webhook_verifier`/`@webhook_challenge`) that make Zapier/n8n/Stripe/Slack/Event Grid plug-ins, first-class **SmallStack↔SmallStack** pairing (`sc webhook pair`, loop-safe), stable `event_id` dedupe, `Retry-After` + bulk dead-letter replay",
+      "section": "Available Skills",
+      "keywords": [
+        "webhook",
+        "outbound",
+        "inbound",
+        "enable_webhooks",
+        "webhook_handler",
+        "webhook_transform",
+        "signature",
+        "zapier",
+        "n8n",
+        "slack",
+        "stripe",
+        "integration",
+        "dead letter"
+      ],
+      "use_when": "Before ANY integration work — outbound delivery, inbound receivers, provider plug-ins, or pairing two SmallStacks."
+    },
+    {
+      "id": "rss",
+      "file": "rss.md",
+      "name": "RSS",
+      "description": "**RSS/Atom feeds** — symmetric publish + consume surface. Publish a model with `enable_rss = True` (or a curated `Feed`); the enclosure/podcast seam is `rss_item_extra`. Consume external feeds into a model with `register_feed_source` + the collector (`@scheduled` + `manage.py collect_feeds`). Status-page feed is the reference",
+      "section": "Available Skills",
+      "keywords": [
+        "rss",
+        "atom",
+        "feed",
+        "enable_rss",
+        "enclosure",
+        "podcast",
+        "register_feed_source",
+        "collector"
+      ],
+      "use_when": "Before publishing a model as a feed or consuming an external feed into a model."
+    },
+    {
       "id": "activity-tracking",
       "file": "activity-tracking.md",
       "name": "Activity Tracking",
-      "description": "HTTP request logging middleware, RequestLog model, auto-pruning (configurable row cap), excluded paths, and the staff-only activity dashboard.",
+      "description": "HTTP request logging middleware and configuration",
+      "section": "Available Skills",
       "keywords": [
         "activity",
         "request",
@@ -227,7 +643,8 @@
       "id": "logging-audit",
       "file": "logging-audit.md",
       "name": "Logging & Audit Trail",
-      "description": "Django logging configuration, log levels, structured JSON output with request/trace correlation IDs, the database-backed log capture that makes a deployment readable when you can't reach its log stream (time-boxed capture windows via manage.py log_capture), and audit trail patterns built on Django's LogEntry.",
+      "description": "Logging configuration, audit trail, and **reading logs from a deployment you can't shell into** — JSON output with `request_id` correlation, DB-backed capture, the `/smallstack/logs/` staff viewer, time-boxed capture windows",
+      "section": "Available Skills",
       "keywords": [
         "logging",
         "audit",
@@ -257,7 +674,8 @@
       "id": "screenshot-workflow",
       "file": "screenshot-workflow.md",
       "name": "Screenshot Workflow",
-      "description": "Visual verification using shot-scraper CLI and the screenshot_auth management command for authenticated screenshots. Light/dark mode, element selectors, and CI usage.",
+      "description": "Visual verification with shot-scraper and screenshot_auth",
+      "section": "Available Skills",
       "keywords": [
         "screenshot",
         "shot-scraper",
@@ -272,7 +690,8 @@
       "id": "docker-deployment",
       "file": "docker-deployment.md",
       "name": "Docker Deployment",
-      "description": "Docker Compose setup, multi-service configuration (web, worker, cron), volumes, health checks, and environment variables for containerized deployment.",
+      "description": "Docker Compose setup, services, volumes",
+      "section": "Available Skills",
       "keywords": [
         "docker",
         "compose",
@@ -287,7 +706,8 @@
       "id": "kamal-deployment",
       "file": "kamal-deployment.md",
       "name": "Kamal Deployment",
-      "description": "Zero-downtime VPS deployment with Kamal. deploy.yml configuration, secrets, SSL, volumes, accessories, and common commands.",
+      "description": "Kamal deployment configuration, VPS setup, SSL, commands",
+      "section": "Available Skills",
       "keywords": [
         "kamal",
         "deploy",
@@ -303,7 +723,8 @@
       "id": "development-workflow",
       "file": "development-workflow.md",
       "name": "Development Workflow",
-      "description": "Branching strategy, testing with pytest, coverage targets, commit style, and code quality with ruff.",
+      "description": "Branching, testing, coverage, documentation, commit style",
+      "section": "Available Skills",
       "keywords": [
         "git",
         "branch",
@@ -320,7 +741,9 @@
       "id": "release-process",
       "file": "release-process.md",
       "name": "Release Process",
-      "description": "Semantic versioning, release checklist, version bumping in pyproject.toml and _config.yaml, GitHub releases.",
+      "description": "Versioning, release checklist, GitHub releases — the ritual for cutting a SmallStack release from *this* repo. A fork that cuts its own releases should keep its own release doc and read `integration-workflow.md` instead",
+      "section": "Available Skills",
+      "scope": "upstream-only",
       "keywords": [
         "release",
         "version",
@@ -332,10 +755,81 @@
       "use_when": "Preparing a release, bumping the version, or creating a GitHub release."
     },
     {
+      "id": "integration-workflow",
+      "file": "integration-workflow.md",
+      "name": "Upstream Integration",
+      "description": "Pulling upstream SmallStack into a fork and redeploying — remote setup, the conflict-resolution table, post-merge verification",
+      "section": "Available Skills",
+      "scope": "fork-facing",
+      "keywords": [
+        "upstream",
+        "downstream",
+        "merge",
+        "pull",
+        "integrate",
+        "conflict"
+      ],
+      "use_when": "Merging upstream SmallStack updates into a project built on it."
+    },
+    {
+      "id": "adopting-smallstack",
+      "file": "adopting-smallstack.md",
+      "name": "Adopting Smallstack",
+      "description": "Adopting SmallStack into an *existing* Django project — overlay into the current repo vs fresh clone + app migration",
+      "section": "Available Skills",
+      "scope": "fork-facing"
+    },
+    {
+      "id": "downstream-release-migration",
+      "file": "downstream-release-migration.md",
+      "name": "Downstream Release Migration",
+      "description": "Migrating a fork onto a new release — additive vs breaking changes, the false-test-result + removed-symbol traps, this release's actions",
+      "section": "Available Skills",
+      "scope": "fork-facing"
+    },
+    {
+      "id": "merge-0.12.0",
+      "file": "merge-0.12.0.md",
+      "name": "Merge v0.12.0",
+      "description": "**Merging the v0.12.0 release** into an older base — the `django-tables2` removal (BREAKING) plus the status-monitoring subsystem's integration points (surface toggles, route gating, the `views` autodiscover that moved to the core, INSTALLED_APPS, migrations)",
+      "section": "Available Skills",
+      "scope": "fork-facing",
+      "keywords": [
+        "merge",
+        "upgrade",
+        "0.12.0",
+        "status monitoring",
+        "surface toggle",
+        "autodiscover",
+        "tables2",
+        "downstream",
+        "migration"
+      ],
+      "use_when": "Bringing a downstream project up to v0.12.0 — reconciling the status-monitoring subsystem and surface toggles against a customized settings/urls/apps layout."
+    },
+    {
+      "id": "api-discovery",
+      "file": "api-discovery.md",
+      "name": "API Discovery",
+      "description": "API discovery endpoints: schema introspection, OpenAPI spec, OPTIONS metadata",
+      "section": "Available Skills",
+      "keywords": [
+        "openapi",
+        "schema",
+        "swagger",
+        "redoc",
+        "options",
+        "discovery",
+        "introspection"
+      ],
+      "use_when": "Before integrating a client against the API surface — schema, spec, and OPTIONS metadata."
+    },
+    {
       "id": "api",
       "file": "api.md",
       "name": "REST API",
-      "description": "CRUDView JSON API layer with Bearer token auth, token types (login/manual), access levels (auth/staff/readonly), auth management endpoints (register, me, password, deactivate), FK expansion, date filtering, aggregation, and CORS.",
+      "description": "**The REST API reference** — token auth, CRUD endpoints, FK expansion, date filtering, aggregation, serialization",
+      "section": "Available Skills",
       "keywords": [
         "api",
         "rest",
@@ -351,10 +845,116 @@
       "use_when": "Building or consuming REST API endpoints, managing tokens, or configuring API authentication and access levels."
     },
     {
+      "id": "frontend-integration",
+      "file": "frontend-integration.md",
+      "name": "Frontend Integration",
+      "description": "SmallStack as a headless backend for React/Vue/Next/Svelte — token architecture, CORS, the full user lifecycle",
+      "section": "Available Skills",
+      "keywords": [
+        "react",
+        "vue",
+        "next",
+        "svelte",
+        "frontend",
+        "spa",
+        "api",
+        "cors",
+        "system token",
+        "headless"
+      ],
+      "use_when": "Setting up SmallStack as a backend API for a frontend framework, or understanding the system token + login token architecture."
+    },
+    {
+      "id": "custom-api-endpoints",
+      "file": "custom-api-endpoints.md",
+      "name": "Custom API Endpoints",
+      "description": "Building non-CRUD API endpoints with the `@api_view` decorator",
+      "section": "Available Skills",
+      "keywords": [
+        "api",
+        "endpoint",
+        "api_view",
+        "non-crud",
+        "custom"
+      ],
+      "use_when": "Before adding a REST endpoint that isn't CRUD over a model."
+    },
+    {
+      "id": "api-doctor",
+      "file": "api-doctor.md",
+      "name": "API Doctor",
+      "description": "Debug API setup + threat signals via `/smallstack/api/` (Health + Activity) and `python manage.py api_doctor`",
+      "section": "Available Skills",
+      "keywords": [
+        "api",
+        "doctor",
+        "health",
+        "swagger",
+        "openapi",
+        "threat",
+        "activity",
+        "debug"
+      ],
+      "use_when": "Before debugging an API setup, an empty Swagger, or a weird-traffic report."
+    },
+    {
+      "id": "dashboard-cards",
+      "file": "dashboard-cards.md",
+      "name": "Dashboard Cards",
+      "description": "**The stat-card standard**: the `{% stat_card %}` tag, the global drill-down modal, and the `render_stat_list` helper for the metric tiles atop dashboard pages",
+      "section": "Available Skills",
+      "keywords": [
+        "stat card",
+        "metric",
+        "tile",
+        "drill-down",
+        "modal",
+        "stat_card",
+        "render_stat_list"
+      ],
+      "use_when": "Before adding metric tiles or drill-down modals to the top of a dashboard page."
+    },
+    {
+      "id": "dashboard-widgets",
+      "file": "dashboard-widgets.md",
+      "name": "Dashboard Widgets",
+      "description": "Dashboard widget protocol: `DashboardWidget` class, Explorer vs standalone registration, data layer, REST API",
+      "section": "Available Skills",
+      "keywords": [
+        "widget",
+        "dashboard",
+        "DashboardWidget",
+        "explorer",
+        "tile",
+        "registration"
+      ],
+      "use_when": "Before adding a widget to the central /smallstack/ dashboard."
+    },
+    {
+      "id": "status-monitors",
+      "file": "status-monitors.md",
+      "name": "Status Monitors",
+      "description": "**The status/uptime monitoring standard**: register a `Service` + `Monitor` (cheap `check()`), the 3-tier taxonomy (Site / Site Monitors / External), the branded public `/status/` page (90-day timelines + maintenance calendar), per-monitor public flag + independent SLA/maintenance, the no-code Add-monitor wizard, and pluggable `Visualization` panels",
+      "section": "Available Skills",
+      "keywords": [
+        "status",
+        "uptime",
+        "monitor",
+        "health",
+        "service",
+        "sla",
+        "maintenance",
+        "timeline",
+        "visualization"
+      ],
+      "use_when": "Before monitoring a subsystem's uptime/health, exposing a health check on the status page, or adding a status visualization."
+    },
+    {
       "id": "card-displays",
       "file": "card-displays.md",
       "name": "Card & Calendar Displays",
-      "description": "Card-grid list display protocol. CardDisplay (zero-config key-value), AvatarCardDisplay (avatar+title+subtitle+pill), authoring new card variants via item_template + build_card() subclasses, and generalizing the pattern to new list-display families.",
+      "description": "Card grid displays: `CardDisplay` (key-value), `AvatarCardDisplay`, authoring new card variants",
+      "section": "Available Skills",
       "keywords": [
         "card",
         "cards",
@@ -373,7 +973,8 @@
       "id": "calendar-displays",
       "file": "calendar-displays.md",
       "name": "Calendar Displays",
-      "description": "Month-grid calendar list display. CalendarDisplay configuration (date_field, end_field, title_field, month_param), single-date vs ranged events, month navigation, timezone handling, hover tooltips, and authoring new date-based displays.",
+      "description": "Month-grid calendar display: `CalendarDisplay` config, ranged vs single-date events, month navigation",
+      "section": "Available Skills",
       "keywords": [
         "calendar",
         "month",
@@ -390,116 +991,168 @@
       "use_when": "Adding a month-grid calendar view to a model, configuring CalendarDisplay for date-ranged events, or authoring a new date-based list display (week, gantt, timeline)."
     },
     {
-      "id": "frontend-integration",
-      "file": "frontend-integration.md",
-      "name": "Frontend Integration",
-      "description": "Using SmallStack as a headless API backend for React, Vue, Next.js, or Svelte frontends. Covers system tokens, user lifecycle (register, login, password change, deactivate), CORS setup, and token architecture.",
+      "id": "update-docs-and-skills",
+      "file": "update-docs-and-skills.md",
+      "name": "Update Docs And Skills",
+      "description": "File group map for updating docs/skills after code changes",
+      "section": "Available Skills",
       "keywords": [
-        "react",
-        "vue",
-        "next",
-        "svelte",
-        "frontend",
-        "spa",
-        "api",
-        "cors",
-        "system token",
-        "headless"
+        "docs",
+        "skills",
+        "documentation",
+        "index",
+        "register",
+        "update"
       ],
-      "use_when": "Setting up SmallStack as a backend API for a frontend framework, or understanding the system token + login token architecture."
+      "use_when": "After changing code, to find every doc and skill file that references the area you touched."
     },
     {
-      "id": "integration-workflow",
-      "file": "integration-workflow.md",
-      "name": "Upstream Integration",
-      "description": "Pulling upstream SmallStack changes into downstream projects, resolving merge conflicts, and deploying after integration.",
-      "keywords": [
-        "upstream",
-        "downstream",
-        "merge",
-        "pull",
-        "integrate",
-        "conflict"
-      ],
-      "use_when": "Merging upstream SmallStack updates into a downstream project like opshugger or smallstack_web."
+      "id": "mcp-enable-mcp-for-a-model",
+      "file": "mcp/enable-mcp-for-a-model.md",
+      "name": "MCP: Enable MCP For A Model",
+      "description": "Opt a CRUDView into MCP via `enable_mcp = True`",
+      "section": "MCP (Model Context Protocol)"
     },
     {
-      "id": "merge-0.12.0",
-      "file": "merge-0.12.0.md",
-      "name": "Merge v0.12.0",
-      "description": "Merging the v0.12.0 release into an older SmallStack base. Covers the BREAKING django-tables2 removal (points to UPGRADING.md) and the additive status-monitoring subsystem's integration points: the three surface toggles, the /status/ + /api/* + /mcp route gating in config/urls.py, the views autodiscover that moved to SmallStackConfig.ready(), INSTALLED_APPS, heartbeat migrations 0007-0011, and the search-breaks-without-autodiscover gotcha.",
-      "keywords": [
-        "merge",
-        "upgrade",
-        "0.12.0",
-        "status monitoring",
-        "surface toggle",
-        "autodiscover",
-        "tables2",
-        "downstream",
-        "migration"
-      ],
-      "use_when": "Bringing a downstream project up to v0.12.0 \u2014 reconciling the status-monitoring subsystem and surface toggles against a customized settings/urls/apps layout."
+      "id": "mcp-end-user-tools",
+      "file": "mcp/end-user-tools.md",
+      "name": "MCP: End User Tools",
+      "description": "**Read for non-staff MCP** — `LoginRequiredMixin` + `get_list_queryset` tenancy + `search_access`/`search_visibility` so Alice's token sees only Alice's data",
+      "section": "MCP (Model Context Protocol)"
     },
     {
-      "id": "runbook-documents",
-      "file": "runbook-documents.md",
-      "name": "Runbook & Dynamic Documents",
-      "description": "Driving versioned markdown documents from the web UI, service layer, MCP, REST, and CLI; FTS search registration, locking, retention, ownership, and anti-patterns.",
+      "id": "mcp-write-a-custom-tool",
+      "file": "mcp/write-a-custom-tool.md",
+      "name": "MCP: Write A Custom Tool",
+      "description": "Add cross-cutting tools with the `@tool` decorator + `current_context()`",
+      "section": "MCP (Model Context Protocol)"
+    },
+    {
+      "id": "mcp-add-a-write-tool",
+      "file": "mcp/add-a-write-tool.md",
+      "name": "MCP: Add A Write Tool",
+      "description": "Expose create/update/delete via factory vs custom write tools",
+      "section": "MCP (Model Context Protocol)"
+    },
+    {
+      "id": "mcp-connect-claude-desktop",
+      "file": "mcp/connect-claude-desktop.md",
+      "name": "MCP: Connect Claude Desktop",
+      "description": "Connect Claude Desktop / Claude.ai Connectors UI to the server",
+      "section": "MCP (Model Context Protocol)"
+    },
+    {
+      "id": "mcp-debug-mcp-failure",
+      "file": "mcp/debug-mcp-failure.md",
+      "name": "MCP: Debug MCP Failure",
+      "description": "Decision tree for diagnosing connector failures",
+      "section": "MCP (Model Context Protocol)",
       "keywords": [
-        "runbook",
-        "document",
-        "markdown",
-        "versioned",
-        "knowledge base",
-        "bundle",
         "mcp",
-        "retention"
+        "debug",
+        "connector",
+        "failure",
+        "claude desktop",
+        "oauth",
+        "doctor"
       ],
-      "use_when": "Creating or writing runbook documents any way other than the web UI, or wiring runbook search/MCP/export."
+      "use_when": "Before debugging an MCP connector failure or a 'Claude can't see my tools' report."
     },
     {
-      "id": "runbook-cli",
-      "file": "runbook-cli.md",
-      "name": "Runbook CLI",
-      "description": "The manage.py runbook / rb unix-style CLI over the document service \u2014 verbs, stdin piping, JSON output, provenance, locking.",
+      "id": "mcp-add-mcp-to-this-project",
+      "file": "mcp/add-mcp-to-this-project.md",
+      "name": "MCP: Add MCP To This Project",
+      "description": "Bootstrap MCP in a fresh / non-MCP-aware project",
+      "section": "MCP (Model Context Protocol)"
+    },
+    {
+      "id": "mcp-extend-explorer-for-tokens",
+      "file": "mcp/extend-explorer-for-tokens.md",
+      "name": "MCP: Extend Explorer For Tokens",
+      "description": "Surface APIToken management via Explorer",
+      "section": "MCP (Model Context Protocol)"
+    },
+    {
+      "id": "mcp-mcp-admin-pages",
+      "file": "mcp/mcp-admin-pages.md",
+      "name": "MCP: MCP Admin Pages",
+      "description": "Use the `/smallstack/mcp/` Health / Tools / Activity admin pages from a debugging session",
+      "section": "MCP (Model Context Protocol)"
+    },
+    {
+      "id": "mcp-build-mcp-solution",
+      "file": "mcp/build-mcp-solution.md",
+      "name": "MCP: Build MCP Solution",
+      "description": "\"User wants Claude to do X\" → decision tree for CRUDView vs `@tool` + copy-pasteable patterns. Start here when designing new MCP features.",
+      "section": "MCP (Model Context Protocol)",
       "keywords": [
-        "runbook",
-        "cli",
-        "rb",
-        "manage.py",
-        "stdin",
-        "pipe"
+        "mcp",
+        "claude",
+        "tool",
+        "design",
+        "decision tree",
+        "ai"
       ],
-      "use_when": "Browsing or editing runbook pages from the shell."
+      "use_when": "Before designing any MCP feature — CRUDView vs custom @tool, with copy-pasteable patterns."
     },
     {
-      "id": "sc-cli",
-      "file": "sc-cli.md",
-      "name": "sc — framework CLI",
-      "description": "The manage.py sc / sc console CLI: generic CRUD over any CRUDView (ls, get, describe, new, set, rm) with the same form validation + log_write audit as REST/MCP, plus operational verbs (doctor, backup, token, status, index) and 'sc commands' discovery. Model addressing by token; --json on every read; staff-gated writes.",
+      "id": "mcp-verify-mcp",
+      "file": "mcp/verify-mcp.md",
+      "name": "MCP: Verify MCP",
+      "description": "Consolidated verify checklist: doctor, --explain, make mcp-test, admin pages, dashboard widget, Claude Desktop — picks the right path per question",
+      "section": "MCP (Model Context Protocol)"
+    },
+    {
+      "id": "mcp-configure-mcp",
+      "file": "mcp/configure-mcp.md",
+      "name": "MCP: Configure MCP",
+      "description": "Scenario → `MCP_*` setting map: turn off OAuth, custom theme, kamal-proxy, multi-tenant, verbose logging, autodiscover",
+      "section": "MCP (Model Context Protocol)"
+    },
+    {
+      "id": "database",
+      "file": "database.md",
+      "name": "Database",
+      "description": "Database overview — SQLite default + tuning (WAL/IMMEDIATE), backups, when to switch, SQLite→Postgres data migration",
+      "section": "Database & PostgreSQL"
+    },
+    {
+      "id": "postgres-setup-local",
+      "file": "postgres/setup-local.md",
+      "name": "Postgres: Setup Local",
+      "description": "Switch a project to Postgres locally — Docker server, `psycopg` extra, `DATABASES` config, FTS auto-provision on migrate",
+      "section": "Database & PostgreSQL"
+    },
+    {
+      "id": "postgres-production",
+      "file": "postgres/production.md",
+      "name": "Postgres: Production",
+      "description": "Postgres in production — driver in the image, `DATABASE_URL`, `CONN_MAX_AGE`/PgBouncer, Kamal accessory, managed services, deploy-time search backfill, `pg_dump` backups (NOT `make backup`)",
+      "section": "Database & PostgreSQL"
+    },
+    {
+      "id": "postgres-testing",
+      "file": "postgres/testing.md",
+      "name": "Postgres: Testing",
+      "description": "Run the suite on Postgres — `TEST_DB=postgres` switch, the `--extra postgres` gotcha (`make test` can't), expected skip deltas, CI matrix",
+      "section": "Database & PostgreSQL"
+    },
+    {
+      "id": "postgres-sqlite-vs-postgres",
+      "file": "postgres/sqlite-vs-postgres.md",
+      "name": "Postgres: SQLite Vs Postgres",
+      "description": "**Read before search/migration/SQL work** — FTS self-provisioning, hyphen tokenization, `varchar` enforcement, query ordering, the \"green on SQLite, red on Postgres\" checklist",
+      "section": "Database & PostgreSQL",
       "keywords": [
-        "sc",
-        "cli",
-        "crudview",
-        "crud",
-        "ls",
-        "get",
-        "describe",
-        "doctor",
-        "manage.py",
-        "registry",
-        "json"
+        "postgres",
+        "sqlite",
+        "fts",
+        "migration",
+        "sql",
+        "engine",
+        "portability"
       ],
-      "use_when": "Inspecting, querying, or mutating any CRUDView model from the shell, discovering the model/command surface, or health-checking the framework — instead of ad-hoc manage.py shell snippets."
-    },
-    {
-      "id": "report-card",
-      "file": "report-card.md",
-      "name": "Quality Report Card",
-      "description": "Generate a consistent, evidence-backed project quality report card committed to docs/report-cards/. Defines the rubric (8 graded areas A–F: Security, Code Quality, Testing & Coverage, Documentation & Skills, Architecture & Design, Operability & Release, Accessibility & Theming, Locality of Behavior), the change taxonomy (security/feature/enhancement/fix/refactor/docs/chore), the data-gathering commands (ruff, pytest coverage, pip-audit, doctors, git log), BLOCKER/MAJOR grade caps, and honesty rules. Snapshots are immutable, one file per commit.",
-      "keywords": ["report card", "scorecard", "quality", "audit", "grade", "rubric", "review", "release", "metrics", "coverage"],
-      "use_when": "After a feature branch, release, or audit cycle — to record the resulting quality state (graded areas + changes-by-category + findings) as a committable indicator in docs/report-cards/."
+      "use_when": "Before search, data-migration, or raw-SQL work that must run on both engines."
     }
   ]
 }

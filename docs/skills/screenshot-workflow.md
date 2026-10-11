@@ -152,12 +152,9 @@ Claude can take screenshots and read them to visually verify UI work. This is us
 
 ## Port Reference
 
-| Project | Default Port |
-|---------|-------------|
-| smallstack (base) | 8005 |
-| smallstack_web | 8005 |
-| opshugger | 8005 |
-| sandbox | 8008 |
+`make run` serves on **8005** by default — in this project and in any project cloned from it, so two
+checkouts can't both use the default at once. Override per checkout with `PORT=N make run`, and point
+`shot-scraper` at the same port.
 
 ## File Organization
 

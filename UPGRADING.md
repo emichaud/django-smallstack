@@ -1,8 +1,7 @@
 # Upgrading SmallStack
 
-Breaking changes and the migration steps for each. Downstream projects (smallstack_web,
-opshugger, and any clone) should read the section for any version they cross when pulling
-upstream.
+Breaking changes and the migration steps for each. Any project built on SmallStack should
+read the section for every version it crosses when pulling upstream.
 
 Most releases are non-breaking patch/minor bumps and won't appear here. If a release isn't
 listed, no downstream migration is required.

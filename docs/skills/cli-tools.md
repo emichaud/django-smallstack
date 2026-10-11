@@ -20,7 +20,8 @@ Two tables: a **task → tool map** (the most common lookups) and a **tool → d
 | **health-check the whole framework** at once | `sc doctor all` (api + mcp + search + webhook) |
 | start the dev server | `make run` (port 8005; `PORT=N make run` to change) |
 | run tests | `make test` (full) or `uv run pytest -k <name>` (one) |
-| lint | `make lint` (ruff + mypy) / `make lint-fix` (ruff autofix) |
+| lint | `make lint` (ruff + mypy + skill-index check) / `make lint-fix` (ruff autofix) |
+| register a **new skill file** (or fix "index.json is stale") | add a row to [`README.md`](README.md)'s table, then `make skills-index` |
 | check that the **REST API is healthy** | `uv run python manage.py api_doctor` |
 | understand **what API endpoints exist** | `uv run python manage.py api_doctor --explain` |
 | validate **OpenAPI spec is still 3.0.3-compliant** | `uv run python manage.py api_doctor` → look at `OpenAPI validity` row |

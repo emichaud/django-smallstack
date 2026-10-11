@@ -18,7 +18,7 @@ git branch -d feature/my-feature
 
 ## Fix-Upstream Pattern
 
-SmallStack is an upstream package. Downstream projects (smallstack_web, opshugger, etc.) clone and extend it. When developing:
+SmallStack is an upstream package. Downstream projects clone and extend it. When developing in a fork that tracks upstream:
 
 1. **Generic improvements go in `smallstack/`** — keep them reusable
 2. **Project-specific code stays downstream** — don't pollute the base

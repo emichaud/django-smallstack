@@ -20,6 +20,7 @@ Every command-line tool SmallStack provides — `manage.py` commands, Make targe
 | Tasks | `manage.py db_worker` / `reap_tasks` | Run the task worker (with worker heartbeat) / fail tasks whose worker died |
 | Webhooks | `manage.py webhook` / `webhook_doctor` / `run_due_deliveries` | Webhook ops (status/test/replay/bulk-replay/pair) / diagnose / retry tick |
 | Visual | `manage.py screenshot_auth` + `shot-scraper` | Authenticated browser screenshots |
+| Docs | `make skills-index` | Rebuild `docs/skills/index.json` from the README skill tables |
 | CLI | `manage.py sc` (`sc` shim) | Framework CLI: CRUD over any CRUDView (`ls/get/describe/new/set/rm`) + ops verbs (`doctor/backup/token/status/index/webhook/commands`) — see [`docs/skills/sc-cli.md`](../../../docs/skills/sc-cli.md) |
 | Deploy | `make deploy` / `make logs` | Kamal deploy + tail logs |
 
@@ -394,6 +395,25 @@ Sync the help-article search index from the filesystem markdown (the bundled `/h
 uv run python manage.py sync_help_index
 ```
 
+#### `skills_index`
+
+Rebuild `docs/skills/index.json` from the skill tables in `docs/skills/README.md` — the README is the single
+source of truth, the JSON is generated. Hand-curated `keywords` / `use_when` / `name` fields on existing
+entries are carried forward; a `**(upstream repo only)**` or `**(forks / downstream)**` prefix on a row
+description becomes a `scope` field.
+
+A project built on SmallStack registers its *own* skills in `docs/skills/local.md` (same table format, never
+shipped by upstream, so no merge conflicts); those entries land in the index tagged `"origin": "fork-local"`.
+
+`--check` writes nothing and exits 1 if a skill file is registered in neither table, a row points at a missing file, or
+the committed index is stale. `make lint` and the pre-commit hook run it in that mode, so an unregistered
+skill can't silently stay out of the index agents consult. No-ops on a project with no `docs/skills/README.md`.
+
+```bash
+uv run python manage.py skills_index            # regenerate (same as `make skills-index`)
+uv run python manage.py skills_index --check    # CI/lint mode
+```
+
 ### Visual / dev tooling
 
 #### `screenshot_auth`
@@ -444,7 +464,8 @@ Every target in the `Makefile`, grouped by purpose. Run `make help` (or just `ma
 |---|---|
 | `make test` | Run pytest with coverage |
 | `make coverage` | Run tests + open `htmlcov/index.html` |
-| `make lint` | Run ruff, then mypy (the full static gate) |
+| `make lint` | Run ruff, then mypy, then the skill-index check (the full static gate) |
+| `make skills-index` | Regenerate `docs/skills/index.json` from the README skill tables |
 | `make lint-fix` | Run ruff with `--fix` (mypy has no autofix) |
 
 ### Diagnostics

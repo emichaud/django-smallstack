@@ -8,6 +8,7 @@ When the user says "update docs and skills" (or similar), this skill defines whi
 2. **Look up the file groups below** — Each area lists the docs and skills that reference it
 3. **Read each file** — Check if the change is already documented or needs to be added
 4. **Update or create** — Weave changes into existing docs where they fit. Create new docs only when a feature is genuinely new and doesn't belong in an existing page.
+5. **Register any new skill file** — add a row to the `docs/skills/README.md` table and run `make skills-index`. A file that exists but is registered nowhere is worse than a missing file: an agent consulting the index finds the *neighbouring* skill and follows it confidently. `make lint` fails if you skip this.
 
 ## File Groups by Change Area
 
@@ -201,7 +202,8 @@ Help docs to check:
 
 Config to check:
 - [ ] apps/smallstack/docs/_config.yaml (new pages)
-- [ ] docs/skills/README.md (new skills)
+- [ ] docs/skills/README.md (new skills — a row here is what registers it)
+- [ ] `make skills-index` (regenerates docs/skills/index.json from that README)
 
 Actions taken:
 - [ ] Updated [file] — added [what]

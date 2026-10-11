@@ -1,5 +1,11 @@
 # Skill: Release Process
 
+> **Scope: the `django-smallstack` upstream repo only.** This is how *SmallStack itself* is versioned and
+> published. If you're working in a project built on SmallStack, this file does not describe your release
+> process — follow your own project's release doc, and read
+> [`integration-workflow.md`](integration-workflow.md) (pull a new upstream version) and
+> [`downstream-release-migration.md`](downstream-release-migration.md) (migrate across releases) instead.
+
 How to version, release, and publish SmallStack.
 
 ## Versioning
@@ -113,8 +119,8 @@ EOF
 After pushing a release, update downstream projects:
 
 ```bash
-# In each downstream project (smallstack_web, opshugger, etc.)
-cd ../smallstack_web
+# In each project built on SmallStack
+cd ../<your-project>
 git pull upstream main              # Pull SmallStack updates
 # Resolve any merge conflicts
 make migrate                        # Run new migrations

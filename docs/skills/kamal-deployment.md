@@ -267,7 +267,7 @@ The separate worker uses the same Docker image as web with a different `cmd`. No
 ### Always Deploy Synchronously
 
 - **Never run concurrent deploys.** Each deploy temporarily doubles memory usage (old + new container). On a 1GB VPS, two simultaneous deploys will exhaust memory.
-- **Deploy one service at a time.** If the VPS hosts multiple apps (e.g., smallstack_web and opshugger), fully complete one deploy before starting the next.
+- **Deploy one service at a time.** If the VPS hosts multiple apps, fully complete one deploy before starting the next.
 - **Never run `kamal deploy` in the background** or launch multiple deploy processes.
 
 ### Never Rapid-Retry Failed Deploys

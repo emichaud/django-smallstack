@@ -1,7 +1,7 @@
 # Makefile for Django SmallStack
 # Run 'make help' to see available commands
 
-.PHONY: help run services migrate migrations superuser shell test coverage collectstatic docker-up docker-down lint lint-fix typecheck install-hooks clean deploy logs backup screenshot-auth optimize-images mcp-doctor mcp-test api-test
+.PHONY: help run services migrate migrations superuser shell test coverage collectstatic docker-up docker-down lint lint-fix typecheck install-hooks clean deploy logs backup screenshot-auth optimize-images mcp-doctor mcp-test api-test skills-index
 
 # Default port for development server
 PORT ?= 8005
@@ -24,7 +24,8 @@ help:
 	@echo "  make mcp-doctor   - Diagnose the MCP server (settings, URLs, registry, self-test)"
 	@echo "  make mcp-test     - End-to-end MCP smoke test (requires \`make run\` in another shell)"
 	@echo "  make api-test     - End-to-end REST API smoke test (requires \`make run\` in another shell)"
-	@echo "  make lint         - Run ruff + mypy (the full static gate)"
+	@echo "  make lint         - Run ruff + mypy + skill-index check (the full static gate)"
+	@echo "  make skills-index - Rebuild docs/skills/index.json from the README tables"
 	@echo "  make typecheck    - Run mypy alone (lint already includes it)"
 	@echo "  make install-hooks - Install the git pre-commit hook (ruff + mypy)"
 	@echo "  make screenshot-auth - Generate shot-scraper auth JSON"
@@ -96,12 +97,18 @@ screenshot-auth:
 lint:
 	uv run ruff check .
 	uv run mypy
+	uv run python manage.py skills_index --check
 
 lint-fix:
 	uv run ruff check --fix .
 
 typecheck:
 	uv run mypy
+
+# Regenerate the machine-readable skill index from docs/skills/README.md.
+# Run after adding, renaming, or re-describing a skill file; `make lint` checks it's current.
+skills-index:
+	uv run python manage.py skills_index
 
 # Point git at the tracked .githooks/ dir so `git commit` runs ruff + mypy first.
 # One-time per clone; safe to re-run. Bypass a commit with `git commit --no-verify`.

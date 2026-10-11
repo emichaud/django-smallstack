@@ -2,9 +2,9 @@
 #
 # SmallStack pre-commit hook: fast static checks before a commit lands.
 #
-#   make lint — ruff (style + imports) followed by mypy (django-stubs type
-#   check). One target, so the hook and a by-hand `make lint` enforce the
-#   same gate.
+#   make lint — ruff (style + imports), mypy (django-stubs type check), then
+#   the skill-index check (docs/skills/index.json matches README.md). One
+#   target, so the hook and a by-hand `make lint` enforce the same gate.
 #
 # Install with `make install-hooks` (points core.hooksPath here).
 # Bypass a single commit with `git commit --no-verify`, or set SKIP_HOOKS=1.
@@ -20,7 +20,7 @@ fi
 # `git commit` was invoked.
 cd "$(git rev-parse --show-toplevel)"
 
-echo "pre-commit: ruff + mypy …"
+echo "pre-commit: ruff + mypy + skill index …"
 make lint
 
 echo "pre-commit: OK"

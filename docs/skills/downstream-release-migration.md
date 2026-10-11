@@ -1,6 +1,6 @@
 # Skill: Downstream Release Migration
 
-How to migrate a downstream project (smallstack_web, opshugger, or any clone) onto a new
+How to migrate a project built on SmallStack onto a new
 SmallStack release **safely** — knowing which changes are additive, which are breaking, and how
 to get a *trustworthy* test result before you deploy.
 
@@ -9,7 +9,7 @@ This is the per-release companion to `integration-workflow.md` (which covers the
 (which lists breaking changes by version). Read this when you're crossing one or more releases,
 not for a same-day patch.
 
-> **Why this skill exists.** A real smallstack_web merge (v0.11.3 → v0.11.13) reported
+> **Why this skill exists.** A real downstream merge (v0.11.3 → v0.11.13) reported
 > `905 passed / 6 failed` — but **4 of the 6 were false failures** from the suite running under
 > the wrong settings, and one breaking change (django-tables2 removal) wasn't recognized until
 > a downstream app failed to import. Both are now preventable; this skill bakes the checks in.
@@ -19,7 +19,7 @@ not for a same-day patch.
 ## The procedure
 
 ```bash
-cd ../<downstream>                      # smallstack_web | opshugger
+cd ../<your-project>                    # the project you're upgrading
 git fetch upstream
 gh release view vX.Y.Z --repo emichaud/django-smallstack   # read what you're pulling
 git merge upstream/main

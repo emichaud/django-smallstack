@@ -1,7 +1,6 @@
 # Skill: Merging the v0.12.0 release into an older SmallStack project
 
-How to bring a downstream project (smallstack_web, opshugger, or any clone) **up to
-v0.12.0** when it's on an older base. v0.12.0 has two distinct parts that need
+How to bring a project built on SmallStack **up to v0.12.0** when it's on an older base. v0.12.0 has two distinct parts that need
 different handling:
 
 1. **`django-tables2` removed** — the one **BREAKING** change. Already fully

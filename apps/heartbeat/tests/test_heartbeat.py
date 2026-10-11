@@ -1646,7 +1646,7 @@ class TestAddMonitorModal:
         body = resp.content.decode()
         assert "<html" not in body.lower()  # no full-page chrome
         # Assert on the structural sidebar selector, not a link label — downstreams
-        # rebrand the nav copy (e.g. smallstack_web's marketing sidebar), but the
+        # rebrand the nav copy (a marketing sidebar, a different app name), but the
         # `id="sidebar"` wrapper is stable across every SmallStack sidebar.
         assert 'id="sidebar"' not in body  # no sidebar nav
         assert "<form" in body

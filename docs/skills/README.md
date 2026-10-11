@@ -13,22 +13,36 @@ When an AI agent is asked to modify or extend this project, these files help it:
 
 ## Available Skills
 
+**This table is the source of truth.** `index.json` is generated from it — run `make skills-index` after adding or renaming a skill file. Every file in this directory needs a row here; `make lint` fails on an unregistered file, a row pointing at a missing file, or a stale `index.json`.
+
+Rows marked **(upstream repo only)** describe the ritual for the `django-smallstack` repo itself and don't apply to a fork; rows marked **(forks / downstream)** are for projects built on top of it.
+
+**Building on SmallStack?** Register *your own* skill files in `docs/skills/local.md` (same table format) instead of adding rows here. Upstream never ships that file, so your registrations don't conflict on the next `git pull upstream main`, and `make skills-index` folds them into `index.json` tagged `"origin": "fork-local"`.
+
 | File | Description |
 |------|-------------|
+| [from-zero-to-running.md](from-zero-to-running.md) | **New project? Start here** — clone → local setup → first app → production, each phase with its verification command |
 | [cli-tools.md](cli-tools.md) | **Start here for "is there a tool for X?"** — task → tool / failure → tool / tool → docs lookup tables |
 | [modern-dark-theme.md](modern-dark-theme.md) | **Read before building any page** — canonical patterns, anti-patterns, variable list for the v0.9.x modern-dark theme |
 | [accessibility.md](accessibility.md) | **Read before building any page/form/modal** — a11y primitives (`.sr-only`, `.skip-link`, `:focus-visible`, `trapFocus`), the rules, and the pre-"done" checklist (WCAG 2.1 AA) |
 | [modify-palettes.md](modify-palettes.md) | **Change accent colors** — add a brand palette or tune one. The 4 wiring points (yaml/CSS/model+migration/`VALID_PALETTES`), color-science gotchas, verification |
+| [add-gold-theme.md](add-gold-theme.md) | Worked example of adding one palette (Gold) end to end — read `modify-palettes.md` first; this is the concrete walk-through, not the canonical guide |
 | [search.md](search.md) | Add keyword search + MCP tool to a CRUDView (`enable_search = True`) — FTS5/PG-FTS backend dispatch, RAG via Claude Desktop |
 | [datasets.md](datasets.md) | **Build a dashboard/report/chart UI** — the `@dataset` primitive: a named queryset surfaced as typed rows/columns (`schema()` → dimension/measure + filter widgets), `rows()`/`series()`, opt-in REST + MCP. Read before building anything that inspects a dataset to render pickers/charts |
-| [django-apps.md](django-apps.md) | Creating apps, CRUDView + tables2 management pages, title bar pattern |
+| [django-apps.md](django-apps.md) | Creating apps, CRUDView management pages, title bar pattern |
+| [crud-views.md](crud-views.md) | **The CRUDView reference** — the declarative class behind list/create/detail/update/delete: actions, config attributes, display protocol, related tabs, `get_list_queryset` |
+| [explorer.md](explorer.md) | Model Explorer — the zero-code CRUD browser generated from existing `ModelAdmin` registrations; `explorer_displays`, dashboard widgets |
+| [filtering-export.md](filtering-export.md) | Declarative search, filtering, and CSV/JSON export on a CRUDView + its REST layer |
 | [building-a-user-facing-site.md](building-a-user-facing-site.md) | **Read for any non-staff user-facing surface** — LoginRequiredMixin + tenancy scoping + SearchAccess for end-user dashboards, "my X" lists, public catalogues |
 | [templates.md](templates.md) | Template inheritance, blocks, includes, common patterns |
+| [navigation.md](navigation.md) | The nav registry that drives both sidebar and topbar — zones, ordering, INSTALLED_APPS-driven entries |
 | [admin-page-styling.md](admin-page-styling.md) | **Definitive UI reference**: buttons, cards, tables, stat cards, action cards, tabs, filter toggles, forms, modals, starter template |
+| [components.md](components.md) | Quick-reference component catalog — the short form of `admin-page-styling.md` |
 | [theming-system.md](theming-system.md) | CSS variables, palettes, dark mode |
 | [adding-your-own-theme.md](adding-your-own-theme.md) | **Bring your own look** — mount Bootstrap / Tailwind / a bespoke base template *alongside* SmallStack's theme (for teams with an existing design system). Not for changing colors — that's `modify-palettes.md` |
 | [theme-scenarios.md](theme-scenarios.md) | Three theme integration scenarios: public-only, user login, or build on SmallStack |
 | [authentication.md](authentication.md) | Custom user model, auth views, protecting views |
+| [user-management.md](user-management.md) | The staff-only User Manager — search, profiles, activity stats, timezone dashboard, email/password-reset configuration |
 | [testing.md](testing.md) | **Read before writing tests** — pytest/locmem stack, patterns for email + multi-step auth flows + CRUDView + guardrails, regression guards, and the `form.is_valid()`/`DeleteView` gotchas |
 | [manage-api-tokens.md](manage-api-tokens.md) | Pick the right token surface (/smallstack/tokens/, CLI, OAuth) by question; permissions matrix; reveal-once flow |
 | [htmx-patterns.md](htmx-patterns.md) | htmx setup, CSRF, partials, dual-response views, OOB messages |
@@ -50,11 +64,14 @@ When an AI agent is asked to modify or extend this project, these files help it:
 | [docker-deployment.md](docker-deployment.md) | Docker Compose setup, services, volumes |
 | [kamal-deployment.md](kamal-deployment.md) | Kamal deployment configuration, VPS setup, SSL, commands |
 | [development-workflow.md](development-workflow.md) | Branching, testing, coverage, documentation, commit style |
-| [release-process.md](release-process.md) | Versioning, release checklist, GitHub releases |
-| [integration-workflow.md](integration-workflow.md) | Pulling upstream into downstream projects, deploying |
-| [downstream-release-migration.md](downstream-release-migration.md) | Migrating a downstream onto a new release — additive vs breaking changes, the false-test-result + removed-symbol traps, this release's actions |
-| [merge-0.12.0.md](merge-0.12.0.md) | **Merging the v0.12.0 release** into an older base — the `django-tables2` removal (BREAKING) plus the status-monitoring subsystem's integration points (surface toggles, route gating, the `views` autodiscover that moved to the core, INSTALLED_APPS, migrations) |
+| [release-process.md](release-process.md) | **(upstream repo only)** Versioning, release checklist, GitHub releases — the ritual for cutting a SmallStack release from *this* repo. A fork that cuts its own releases should keep its own release doc and read `integration-workflow.md` instead |
+| [integration-workflow.md](integration-workflow.md) | **(forks / downstream)** Pulling upstream SmallStack into a fork and redeploying — remote setup, the conflict-resolution table, post-merge verification |
+| [adopting-smallstack.md](adopting-smallstack.md) | **(forks / downstream)** Adopting SmallStack into an *existing* Django project — overlay into the current repo vs fresh clone + app migration |
+| [downstream-release-migration.md](downstream-release-migration.md) | **(forks / downstream)** Migrating a fork onto a new release — additive vs breaking changes, the false-test-result + removed-symbol traps, this release's actions |
+| [merge-0.12.0.md](merge-0.12.0.md) | **(forks / downstream)** **Merging the v0.12.0 release** into an older base — the `django-tables2` removal (BREAKING) plus the status-monitoring subsystem's integration points (surface toggles, route gating, the `views` autodiscover that moved to the core, INSTALLED_APPS, migrations) |
 | [api-discovery.md](api-discovery.md) | API discovery endpoints: schema introspection, OpenAPI spec, OPTIONS metadata |
+| [api.md](api.md) | **The REST API reference** — token auth, CRUD endpoints, FK expansion, date filtering, aggregation, serialization |
+| [frontend-integration.md](frontend-integration.md) | SmallStack as a headless backend for React/Vue/Next/Svelte — token architecture, CORS, the full user lifecycle |
 | [custom-api-endpoints.md](custom-api-endpoints.md) | Building non-CRUD API endpoints with the `@api_view` decorator |
 | [api-doctor.md](api-doctor.md) | Debug API setup + threat signals via `/smallstack/api/` (Health + Activity) and `python manage.py api_doctor` |
 | [dashboard-cards.md](dashboard-cards.md) | **The stat-card standard**: the `{% stat_card %}` tag, the global drill-down modal, and the `render_stat_list` helper for the metric tiles atop dashboard pages |
@@ -122,7 +139,7 @@ AI agents should read relevant skill files before making changes to the correspo
 - Before deploying with Docker → read `docker-deployment.md`
 - Before deploying with Kamal → read `kamal-deployment.md`
 - Before developing features → read `development-workflow.md`
-- Before releasing a version → read `release-process.md`
+- Before cutting a release **of this repo** → read `release-process.md` (upstream-only — if you're working in a fork, follow your own release doc)
 - Before pulling upstream into downstream → read `integration-workflow.md`
 - Before migrating a downstream across one or more releases → read `downstream-release-migration.md`
 - Before integrating with the SmallStack API → read `api-discovery.md`
@@ -176,7 +193,15 @@ These files are also useful for developers new to the project. They provide quic
 
 ## Contributing
 
-When adding significant new features or systems to the project, consider creating a corresponding skill file to document:
+When adding a skill file, register it in the same commit:
+
+1. Add it to the table above — or to `local.md` if this is a fork's own skill rather than an upstream one (file + one-line description).
+2. Run `make skills-index` to regenerate `index.json`.
+3. If it only applies upstream or only to forks, prefix the description with **(upstream repo only)** or **(forks / downstream)** — the generator turns that into a `scope` field agents can read.
+
+`make lint` enforces steps 1–2, so an unregistered skill can't quietly go missing from the index agents consult.
+
+A skill file documents:
 
 - File locations and structure
 - Key concepts and patterns
