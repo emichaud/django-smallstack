@@ -22,8 +22,8 @@ SmallStack uses **Semantic Versioning** (semver): `MAJOR.MINOR.PATCH`
 
 | File | Field | Example |
 |------|-------|---------|
-| `pyproject.toml` | `version = "X.Y.Z"` | `version = "0.24.0"` |
-| `README.md` | the version badge | `![Version 0.24.0](…/badge/version-0.24.0-blue)` |
+| `pyproject.toml` | `version = "X.Y.Z"` | `version = "0.25.0"` |
+| `README.md` | the version badge | `![Version 0.25.0](…/badge/version-0.25.0-blue)` |
 | `CHANGELOG.md` | a new `## [X.Y.Z] - YYYY-MM-DD` section, plus the `[Unreleased]` and `[X.Y.Z]` link refs at the bottom | — |
 | `uv.lock` | the project's own `version` — refreshed by the `uv sync` below, not by hand | — |
 

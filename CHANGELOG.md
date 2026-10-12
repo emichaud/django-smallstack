@@ -9,6 +9,8 @@ Breaking-change migration recipes live in [`UPGRADING.md`](UPGRADING.md).
 
 ## [Unreleased]
 
+## [0.25.0] - 2026-10-12
+
 ### Added
 - **A worked `SearchBuilder` example on the public search page.** The blog's
   `PostCRUDView` now implements `get_search_variants` + `transform_hit`
@@ -131,6 +133,53 @@ Breaking-change migration recipes live in [`UPGRADING.md`](UPGRADING.md).
   handshake and one AUTH per recipient.
 
 ### Fixed
+- **Cross-tenant create on the generated REST and MCP write surfaces.** CRUDView
+  hands `request.user` to its HTML forms (that is how a form scopes its own
+  `ModelChoiceField` querysets), but the scripted surfaces built the form with
+  no user, so the queryset stayed unscoped — and on a create the form is the
+  only gate. Any authenticated account could POST a post into another user's
+  private blog, or do the same through `create_blog_post`. `form_bridge.build_form()`
+  now passes `user=` whenever the form declares it, walking the MRO so a
+  subclass that overrides `__init__` and forwards `**kwargs` still counts.
+  Wired into REST create/update/bulk-update/OPTIONS and MCP create/update.
+- **`serialize()` crashed on `FileField`/`ImageField` and emitted non-JSON
+  primitives.** A create wrote the row and *then* 500'd (three identical POSTs
+  made three posts); GET detail broke; and because `apps/webhooks` stores the
+  same dict in a `JSONField` with no encoder, a `UUIDField` in `detail_fields`
+  raised on the webhook write. Files now serialise to their URL (or `None`),
+  and UUID/Decimal/timedelta to strings — the REST wire format is unchanged.
+- **A webhook fan-out failure silently discarded the caller's write.** `fan_out()`
+  runs in a `post_save` receiver inside the caller's `atomic()`; a failed delivery
+  INSERT marked the block for rollback, so `service.create_post` returned a pk
+  and left no row. Each delivery INSERT now runs in its own savepoint.
+- **`api_expand_fields` and `.only()` were mutually exclusive.** Expanded FKs
+  were joined but deferred, so `/smallstack/api/blog/issues/` 500'd with no
+  client input. Expanded fields now join the `only()` set.
+- **`blog_send --dry-run` sent the newsletter for real** when `--issue` was
+  omitted. The flag is now honoured before the drain, reaping is skipped too,
+  and `service.pending_send_summary()` is read-only.
+- **Queueing a second issue for one post answered 500.** `queue_issue` now
+  raises a readable `AlreadySending` naming the live campaign; the database
+  constraint remains the guarantee.
+- **`SMALLSTACK_BLOG_ENABLED=False` did not take the public blog offline.** Only
+  `ready()` honoured it: the public routes, JSON API, per-blog feeds and both
+  scheduled ticks kept running, and a disabled blog published a scheduled post.
+  `public_surface_enabled()` now requires both switches and the tick bodies
+  check the flag themselves. `SMALLSTACK_BLOG_PUBLIC_ENABLED=False` also
+  unregisters the site-wide `/feed/blog.rss` river.
+- **Blog slugs were enumerable anonymously.** Members blogs redirected to
+  login while unused slugs 404'd; the first fix moved the oracle onto private
+  blogs. An anonymous visitor now gets the same login redirect for members,
+  private and no-such-slug alike; a signed-in visitor still gets an honest 404.
+- **An explicit `https://` in `SITE_URL` was downgraded** to `http://` in
+  mailed unsubscribe and permalink links when `USE_HTTPS` was left at its
+  default. The explicit scheme now wins when it names the same host.
+- **Auto-synced runbook posts had no monitor.** `sync="auto"` enqueues a task,
+  so with no worker the post silently kept old text; `AutoSyncMonitor` now
+  reports it on the status page.
+- **`p` (the shortlink prefix) was not a reserved blog slug**, and
+  `canonical_url` reached an `href` unfiltered from trusted internal callers.
+  Both closed; a test walks `public_urls.py` so the reserved set cannot drift.
 - **MCP tool registry leaks between tests.** Several suites wipe
   `TOOL_REGISTRY` / `TOOL_HANDLERS` with `clear_registry_for_tests()` to
   test registration in isolation and left them empty for the rest of the
@@ -2241,7 +2290,8 @@ Condensed highlights of the v0.11 series (see git history for per-patch detail):
 See the git tag history (`git tag`) and `ai_cowork/audit_history/` for the full record of the
 v0.8–v0.10 API-server, modern-dark-theme, search, MCP, and Postgres eras.
 
-[Unreleased]: https://github.com/emichaud/django-smallstack/compare/v0.24.0...HEAD
+[Unreleased]: https://github.com/emichaud/django-smallstack/compare/v0.25.0...HEAD
+[0.25.0]: https://github.com/emichaud/django-smallstack/compare/v0.24.0...v0.25.0
 [0.24.0]: https://github.com/emichaud/django-smallstack/compare/v0.23.1...v0.24.0
 [0.23.1]: https://github.com/emichaud/django-smallstack/compare/v0.23.0...v0.23.1
 [0.23.0]: https://github.com/emichaud/django-smallstack/compare/v0.22.0...v0.23.0
