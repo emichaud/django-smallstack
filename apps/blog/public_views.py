@@ -100,25 +100,26 @@ def _visible_blog(request: HttpRequest, slug: str) -> Blog:
     404 for private blogs (existence is not public information),
     ``_MembersOnly`` for the signed-in tier.
 
-    **To an anonymous visitor, a slug that does not exist answers exactly like
-    a members blog.** Otherwise the login redirect is an existence oracle: a
-    members blog answered 302 while an unused slug answered 404, so anyone
-    could enumerate internal blog names without an account. Keeping the
-    redirect (rather than 404ing members blogs) preserves the workflow this
-    tier exists for; making the *absent* case answer identically is what closes
-    the leak.
+    **An anonymous visitor gets the same answer for everything they cannot
+    read** — members, private, or no such slug at all. Otherwise the login
+    redirect is an existence oracle, and it is not enough to fix one tier: a
+    first pass made the absent case redirect like a members blog, which merely
+    moved the leak onto *private* blogs (302 for members and absent, 404 for
+    private) — the more sensitive tier. Uniformity across all three is the
+    only version of this that closes rather than relocates it.
 
-    A signed-in visitor still gets an honest 404 for a slug that is not there —
-    the ambiguity is confined to the only audience it protects against.
+    Keeping the redirect, rather than 404ing members blogs, preserves the
+    workflow that tier exists for: share an internal URL with a colleague who
+    is not signed in yet and they get a login prompt, not "no such page".
+
+    A signed-in visitor still gets an honest 404 — the ambiguity is confined to
+    the only audience it protects against, and signing in does not reveal
+    anything, since a non-owner is refused a private blog anyway.
     """
     blog = Blog.objects.select_related("owner").filter(slug=slug).first()
-    if blog is None:
-        if not request.user.is_authenticated:
-            raise _MembersOnly(None)
-        raise Http404("No such blog.")
-    if permissions.can_view(request.user, blog):
+    if blog is not None and permissions.can_view(request.user, blog):
         return blog
-    if blog.visibility == Blog.Visibility.MEMBERS and not request.user.is_authenticated:
+    if not request.user.is_authenticated:
         raise _MembersOnly(blog)
     raise Http404("No such blog.")
 

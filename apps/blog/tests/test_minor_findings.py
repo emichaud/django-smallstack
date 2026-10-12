@@ -47,31 +47,36 @@ def members_blog(owner):
 # ---------------------------------------------------------------------------
 # A-enum — the login redirect must not be an existence oracle
 # ---------------------------------------------------------------------------
-def test_anonymous_cannot_distinguish_a_members_blog_from_an_absent_one(members_blog):
-    anon = Client()
-    existing = anon.get(f"/blog/{members_blog.slug}/")
-    absent = anon.get("/blog/no-such-blog-at-all/")
+def test_anonymous_gets_one_answer_for_everything_it_cannot_read(owner, members_blog):
+    """All three tiers must be indistinguishable, not just two.
 
-    assert existing.status_code == absent.status_code, (
-        "a members blog and an unused slug answered differently, so blog names "
-        "were enumerable anonymously"
-    )
-    assert existing.status_code == 302
-    assert "/login" in existing["Location"]
-    assert "/login" in absent["Location"]
-
-
-def test_a_private_blog_is_still_indistinguishable_too(owner):
+    The first attempt at this fix made the *absent* case redirect like a
+    members blog and left private blogs on 404 — which moved the oracle onto
+    the more sensitive tier instead of removing it. Hence all three here.
+    """
     service.create_blog(
         name="Priv", slug="priv-blog", owner=owner, visibility=Blog.Visibility.PRIVATE
     )
-    # A private blog 404s; so does an absent slug *for a signed-in user*. The
-    # anonymous case is covered above — what must never happen is a private
-    # blog being distinguishable from an absent one for the same viewer.
-    other = User.objects.create_user(username="nosy", password="x")
-    c = Client()
-    c.force_login(other)
-    assert c.get("/blog/priv-blog/").status_code == c.get("/blog/absent/").status_code == 404
+    anon = Client()
+    answers = {
+        "members": anon.get(f"/blog/{members_blog.slug}/"),
+        "private": anon.get("/blog/priv-blog/"),
+        "absent": anon.get("/blog/no-such-blog-at-all/"),
+    }
+
+    codes = {name: r.status_code for name, r in answers.items()}
+    assert len(set(codes.values())) == 1, f"anonymous responses differ by tier: {codes}"
+    assert codes["members"] == 302
+    for name, response in answers.items():
+        assert "/login" in response["Location"], name
+
+
+def test_a_public_blog_is_unaffected(owner):
+    """Guards against over-correcting: public reading must still work."""
+    service.create_blog(
+        name="Pub", slug="pub-blog", owner=owner, visibility=Blog.Visibility.PUBLIC
+    )
+    assert Client().get("/blog/pub-blog/").status_code == 200
 
 
 def test_a_signed_in_visitor_still_gets_an_honest_404(members_blog):
