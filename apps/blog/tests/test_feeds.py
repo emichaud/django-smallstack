@@ -87,10 +87,21 @@ def test_the_per_blog_feed_contains_only_that_blogs_posts(client, blog, other_bl
     assert "Not Mine" not in body
 
 
-def test_a_private_blogs_feed_404s_anonymously(client, private_blog, owner):
+def test_a_private_blogs_feed_is_closed_anonymously(client, private_blog, owner):
+    """401 + challenge, the same as a members feed and as an unknown slug.
+
+    Previously 404 while a members feed answered 401 — which told an anonymous
+    caller which tier a slug was in. The feed body is what matters and it is
+    still never served.
+    """
     p = service.create_post(private_blog, title="Secret", body_markdown="x", actor=owner)
     service.publish_post(p, actor=owner)
-    assert client.get(f"/blog/{private_blog.slug}/feed.rss").status_code == 404
+
+    response = client.get(f"/blog/{private_blog.slug}/feed.rss")
+
+    assert response.status_code == 401
+    assert b"Secret" not in response.content
+    assert client.get("/blog/no-such-slug/feed.rss").status_code == response.status_code
 
 
 def test_a_members_blogs_feed_401s_with_a_challenge(client, members_blog):

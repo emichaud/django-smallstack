@@ -100,11 +100,23 @@ def test_an_embargoed_post_is_not_public_until_its_moment(client, blog, future_p
 # ── Blog visibility tiers ───────────────────────────────────────────────────
 
 
-def test_a_private_blog_404s_for_strangers_and_opens_for_its_owner(
+def test_a_private_blog_is_closed_to_strangers_and_opens_for_its_owner(
     client, private_blog, owner, other_user, staff
 ):
+    """Anonymously it answers like every other thing you may not read.
+
+    This used to assert 404 for the anonymous case. That was half of an
+    enumeration oracle: a members blog redirected to login while a private blog
+    and an unused slug both 404'd, so the response told an anonymous caller
+    which tier a slug was in. Anonymous callers now get the login redirect for
+    members, private and absent alike — the contents stay just as hidden, and
+    a *signed-in* stranger still gets an honest 404, below.
+    """
     path = f"/blog/{private_blog.slug}/"
-    assert client.get(path).status_code == 404
+    anon = client.get(path)
+    assert anon.status_code == 302
+    assert "/login" in anon["Location"]
+    assert client.get("/blog/no-such-slug-at-all/").status_code == anon.status_code
 
     client.force_login(other_user)
     assert client.get(path).status_code == 404

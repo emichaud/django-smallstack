@@ -354,4 +354,9 @@ def test_a_members_blog_subscribe_page_redirects_anonymous(client, members_blog)
 
 
 def test_blog_visibility_still_gates_the_newsletter_archive(client, private_blog):
-    assert client.get(f"/blog/{private_blog.slug}/newsletter/").status_code == 404
+    """Closed anonymously, and indistinguishable from an unknown slug."""
+    response = client.get(f"/blog/{private_blog.slug}/newsletter/")
+
+    assert response.status_code == 302
+    assert "/login" in response["Location"]
+    assert client.get("/blog/no-such-slug/newsletter/").status_code == response.status_code
