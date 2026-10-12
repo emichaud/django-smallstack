@@ -23,3 +23,7 @@ pages:
     title: "Feeds and APIs"
     description: "RSS/Atom/JSON feeds, the public read API, the REST write API, MCP and webhooks"
     icon: "rss"
+  - slug: custom-pages
+    title: "Showing posts in your own pages"
+    description: "Render posts in your own templates or a separate front end, and publish from your own code"
+    icon: "code"

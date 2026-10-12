@@ -271,6 +271,10 @@ subscriber address.
 
 ## Related
 
+- `apps/blog/content/custom-pages.md` — the help page for showing posts in a
+  project's own templates or a separate front end (scopers, JSON API shapes,
+  CORS, publishing from code). Point users there before hand-rolling a query.
+
 - `docs/skills/building-a-user-facing-site.md` — the login-gated-console +
   anonymous-surface pattern this app is the worked example of
 - `docs/skills/rss.md` — the feeds subsystem (and the `enable_rss` caveat)

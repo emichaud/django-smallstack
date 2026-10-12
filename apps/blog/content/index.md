@@ -54,4 +54,6 @@ lifecycle, sending, and the deliverability setup you need before a first send.
 The built-in UI is intentionally plain. The durable part is the backend —
 a service layer, REST endpoints, MCP tools, keyword search and feeds — so you
 can replace the reading experience entirely and keep everything underneath.
-See [Feeds and APIs](feeds-and-apis.md).
+See [Feeds and APIs](feeds-and-apis.md), and
+[Showing posts in your own pages](custom-pages.md) to put posts on your own
+site pages or a separate front end.

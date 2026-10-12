@@ -40,6 +40,10 @@ GET /blog/api/blogs/<slug>/tags/
 This is what to build a custom reader against — a React front end, a
 static-site generator, another service. Responses are cacheable for a minute.
 
+For response shapes, pagination, visibility rules, CORS and worked client code —
+and for rendering posts inside this project's own templates — see
+[Showing posts in your own pages](custom-pages.md).
+
 ## Writing data: the authenticated REST API
 
 ```

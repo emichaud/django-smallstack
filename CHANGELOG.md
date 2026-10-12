@@ -70,7 +70,11 @@ Breaking-change migration recipes live in [`UPGRADING.md`](UPGRADING.md).
   save the editor first and then transition in the same request. Reached from
   "My blogs" beside Runbook in the nav, from the user dropdown, and from a
   Blogs card on the profile page.
-- **`docs/skills/blog.md`** plus five in-app help pages at `/help/blog/`.
+- **`docs/skills/blog.md`** plus six in-app help pages at `/help/blog/`,
+  including *Showing posts in your own pages*: the permission scopers for a
+  same-project template, the anonymous JSON API's shapes and rules for a
+  separate front end, and publishing from code via the service layer, REST
+  or MCP.
 
 ### Changed
 - **The shipped site now frames SmallStack as a platform to build apps on,
