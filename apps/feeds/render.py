@@ -52,7 +52,7 @@ def render_feed(feed: Feed, request: HttpRequest, fmt: str = "rss") -> tuple[str
         kwargs.update(item.extra_kwargs)
         # Normalize the enclosure seam: Django 6 dropped the singular
         # ``enclosure=`` kwarg in favour of ``enclosures=[...]``. Accept either
-        # form (and fold a singular into the list) so downstream ``rss_item_extra``
+        # form (and fold a singular into the list) so a ``FeedItem.extra_kwargs``
         # keeps working regardless of Django version / which key it used.
         if "enclosure" in kwargs:
             enclosure = kwargs.pop("enclosure")

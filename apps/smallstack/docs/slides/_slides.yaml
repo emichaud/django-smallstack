@@ -34,12 +34,12 @@ decks:
         title: "Search"
       - slug: background-tasks
         title: "Background tasks & scheduler"
-      - slug: webhooks-feeds
-        title: "Webhooks & feeds"
+      - slug: webhooks
+        title: "Webhooks"
       - slug: approvals-notifications
         title: "Approvals & notifications"
       - slug: publishing
-        title: "Runbook, blog & newsletter"
+        title: "Runbook, blog, newsletter & feeds"
       - slug: activity-tracking
         title: "Activity tracking"
       - slug: help-system

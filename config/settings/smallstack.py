@@ -413,7 +413,7 @@ SMALLSTACK_TASKS_BACKOFF_MAX_SECONDS = config("SMALLSTACK_TASKS_BACKOFF_MAX_SECO
 # fans out, and /webhooks/in/<slug>/ 404s. Harmless with zero endpoints, so on.
 SMALLSTACK_WEBHOOKS_ENABLED = config("SMALLSTACK_WEBHOOKS_ENABLED", default=True, cast=bool)
 
-# Feeds: publish CRUDViews as RSS/Atom (enable_rss) and consume external feeds
+# Feeds: publish curated RSS/Atom feeds (register_feed) and consume external feeds
 # into a model (the collector). Off ⇒ /feed/ 404s and the collector no-ops.
 SMALLSTACK_FEEDS_ENABLED = config("SMALLSTACK_FEEDS_ENABLED", default=True, cast=bool)
 

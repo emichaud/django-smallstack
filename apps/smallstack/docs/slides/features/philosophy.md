@@ -6,7 +6,7 @@
 A platform to build apps on, not a starter to grow out of.
 
 - **Use what Django gives you** — before adding a package, check if Django already has it
-- **One declaration, every surface** — a model + CRUDView becomes HTML, REST, MCP, search, webhooks, feeds and CLI
+- **One declaration, every surface** — a model + CRUDView becomes HTML, REST, MCP, search, webhooks and CLI
 - **The built-in apps use public seams** — your app registers through the same hooks they do
 - **Production-ready defaults** — secure settings, typed code, SQLite or Postgres, Docker + Kamal
 
@@ -23,7 +23,6 @@ class TicketCRUDView(CRUDView):
     enable_mcp      = True  # Claude tools
     enable_search   = True  # full-text search
     enable_webhooks = True  # signed events
-    enable_rss      = True  # RSS / Atom
 ```
 
 </div>

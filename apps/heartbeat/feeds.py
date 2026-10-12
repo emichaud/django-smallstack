@@ -5,10 +5,10 @@ and scheduled **maintenance windows** — so anyone can subscribe to status
 instead of polling the page. Public (``SearchAccess.ANONYMOUS``), matching the
 public ``/status/`` page, and registered from ``HeartbeatConfig.ready()``.
 
-This is the worked example of a *custom* feed provider (as opposed to the
-``enable_rss`` one-liner): it merges two models and derives incidents, which a
-raw per-model dump can't express. Build your own curated feed the same way —
-subclass :class:`apps.feeds.Feed`, implement :meth:`items`, ``register_feed``.
+This is a worked example of a curated feed provider: it merges two models and
+derives incidents, which a raw per-model dump can't express. Build your own feed
+the same way — subclass :class:`apps.feeds.Feed`, implement :meth:`items` over a
+queryset you scope, ``register_feed``. (The blog is the other example.)
 """
 
 from __future__ import annotations

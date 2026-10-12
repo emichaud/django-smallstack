@@ -9,6 +9,32 @@ Breaking-change migration recipes live in [`UPGRADING.md`](UPGRADING.md).
 
 ## [Unreleased]
 
+### Removed
+- **`enable_rss` and the one-flag model feed.** `ModelFeed` built its items
+  from `model.objects.all()` and never applied `get_list_queryset` or
+  `search_visibility`, so a single flag could syndicate drafts and other
+  tenants' rows to an anonymous URL — the one place in the framework where an
+  opt-in could leak private rows. Nothing upstream used it; the blog and the
+  status page were already curated feeds. `apps/feeds/model_feed.py`, the
+  `enable_rss` / `rss_*` attributes and `rss_item_extra()` are gone, and
+  setting any of them on a CRUDView raises `ImproperlyConfigured` at import so
+  a stale copy fails at startup rather than serving an unscoped feed. The
+  engine — `Feed`, `FeedItem`, `register_feed`, `render_feed`, access tiers,
+  token auth, the collector — is unchanged. Migration recipe in `UPGRADING.md`.
+
+### Changed
+- **Feeds are a publishing surface, not an integration one.** The README, the
+  shipped site (home page pipeline, roles, surface cards, seams; the
+  getting-started reference grid; the features deck, where "Webhooks & feeds"
+  became "Webhooks" and feeds joined the publishing slide), the help Welcome
+  table, `CLAUDE.md` and the settings comments now present RSS/Atom/JSON feeds
+  as how blogs, podcasts and changelogs reach readers and the tools that
+  subscribe on their own terms, with the collector filed under integrations
+  for sources that only speak RSS. Integrations you own are webhooks, the REST
+  API and MCP. `docs/skills/rss.md` and the feeds reference were rewritten to
+  lead with the curated pattern, per-runtime-object feeds via `render_feed`,
+  and a podcast enclosure example.
+
 ## [0.25.0] - 2026-10-12
 
 ### Added

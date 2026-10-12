@@ -28,7 +28,7 @@ A first-class Model Context Protocol server (OAuth + JSON-RPC) exposes your mode
 Real ranked search — SQLite FTS5 or Postgres SearchVector — with a Ctrl-K omnibar, a search page, an MCP retrieval tool (RAG), and custom variants via SearchBuilder.
 
 ### Webhooks & feeds
-Signed outbound webhooks on model change and verified inbound receivers (seams for Zapier/n8n/Stripe/Slack), plus RSS/Atom feeds you can publish from any model or consume on a schedule.
+Signed outbound webhooks on model change and verified inbound receivers (seams for Zapier/n8n/Stripe/Slack), plus RSS/Atom feeds for publishing — curated `Feed`s over your own scoped querysets, as the blog and the status page do — and a collector that consume on a schedule.
 
 ### Background tasks & scheduler
 Django's Tasks framework is pre-configured with a database backend, plus a `@scheduled` recurring-job scheduler with a themed UI. Send emails, process data, and run jobs — no Redis or Celery to operate.

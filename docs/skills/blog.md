@@ -153,17 +153,13 @@ links never do** — an expired opt-out link is a compliance problem.
 > CSRF token; adding protection makes the unsubscribe button in every mail
 > client silently fail. The signed token is the credential.
 
-## Feeds — why `enable_rss` is OFF
+## Feeds — the curated pattern
 
-`apps/feeds/model_feed.py` builds its queryset as `model.objects.all()`. It
-never calls `get_list_queryset`, `get_detail_queryset` or `search_visibility`,
-and there is no `rss_queryset` hook — so `enable_rss = True` on `Post` would
-publish **every draft from every blog, including private ones**, to an
-anonymous feed. `CRUDView._registry` is also first-wins per model, so a second
-published-only CRUDView cannot be registered to work around it.
-
-Both feeds are therefore curated `apps.feeds.base.Feed` subclasses built from
-the permission scopers, rendered through the framework's own
+The blog is the reference publisher for `apps.feeds`. (The one-flag
+`enable_rss` model feed was removed in v0.25.1 precisely because it could not
+do what a blog needs: it published `model.objects.all()` with no visibility
+hook.) Both feeds are curated `apps.feeds.base.Feed` subclasses built from the
+permission scopers, rendered through the framework's own
 `apps.feeds.render.render_feed`:
 
 * **site-wide** — a fixed slug, registered into `apps.feeds` at `ready()`;
@@ -265,7 +261,7 @@ subscriber address.
    ⇒ no search reindex, no webhook, no re-render. `publish_due_posts` iterates
    for exactly this reason; `bulk_actions` is empty on every blog CRUDView.
    After a genuine bulk write, call `service.reindex(posts)`.
-3. **Don't set `enable_rss = True`.** See above.
+3. **Don't hand-roll a feed queryset.** Build it from `permissions.public_posts()` like `apps/blog/feeds.py` does; the one-flag model feed is gone for exactly this reason.
 4. **Don't add CSRF protection to the unsubscribe POST.**
 5. **Don't expose subscribers to MCP or search.**
 6. **Don't pass a permission scoper straight to `search_visibility`.** The
@@ -302,7 +298,7 @@ subscriber address.
 
 - `docs/skills/building-a-user-facing-site.md` — the login-gated-console +
   anonymous-surface pattern this app is the worked example of
-- `docs/skills/rss.md` — the feeds subsystem (and the `enable_rss` caveat)
+- `docs/skills/rss.md` — the feeds subsystem (curated feeds, enclosures, the collector)
 - `docs/skills/runbook-documents.md` — the service the bridge reads through
 - `docs/skills/modern-dark-theme.md` — before touching any template
 - `docs/skills/scheduler.md`, `docs/skills/search.md`, `docs/skills/webhooks.md`

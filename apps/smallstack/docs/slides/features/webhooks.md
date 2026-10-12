@@ -1,4 +1,4 @@
-# Webhooks & feeds
+# Webhooks
 
 <div class="two-col" markdown="1">
 <div class="col" markdown="1">
@@ -8,7 +8,7 @@ The seam between your systems — both directions, signed, replayable.
 - **Outbound** — `enable_webhooks = True` emits signed `created / updated / deleted` events with retries, `Retry-After` and dead-letter replay
 - **Inbound** — `@webhook_handler` receivers; provider signatures via `@webhook_verifier`, handshakes via `@webhook_challenge`
 - **SmallStack ↔ SmallStack pairing** — `sc webhook pair`, loop-safe, stable `event_id` dedupe
-- **RSS / Atom** — `enable_rss = True` on a model, or a curated `Feed`; consume external feeds on a schedule
+- **Collect external feeds** — `register_feed_source` pulls an RSS/Atom source into a model on a schedule, for the systems that only speak RSS
 
 </div>
 <div class="col" markdown="1">

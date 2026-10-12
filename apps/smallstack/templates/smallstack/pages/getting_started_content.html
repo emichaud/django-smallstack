@@ -209,7 +209,7 @@ nav.<span class="fn">register</span>(
       <h2 class="gs-display">One model. <em>Every surface.</em></h2>
       <p>Once the basics are set, the payoff: declare a <span class="gs-inline-code">CRUDView</span> once and
         flip its opt-in flags. The same form, queryset and permission logic become a browsable HTML
-        admin, a REST endpoint, MCP tools, a search index, signed webhook events and a feed — and
+        admin, a REST endpoint, MCP tools, a search index and signed webhook events — and
         the <span class="gs-inline-code">sc</span> CLI sees it too. No duplication.</p>
       <a href="{% url 'help:section_detail' 'smallstack' 'mcp-first-app' %}" class="gs-btn-link" style="padding-left: 0;">
         Walk through it in 10 minutes <span class="arrow">→</span>
@@ -238,8 +238,8 @@ nav.<span class="fn">register</span>(
       </div>
       <div class="gs-surface">
         <span class="gs-surface-tag">Events</span>
-        <p class="gs-surface-path">webhooks · feeds</p>
-        <p class="gs-surface-note">Signed created / updated / deleted deliveries with replay, and RSS/Atom for the same rows.</p>
+        <p class="gs-surface-path">webhooks</p>
+        <p class="gs-surface-note">Signed created / updated / deleted deliveries with retries and dead-letter replay.</p>
       </div>
       <div class="gs-surface">
         <span class="gs-surface-tag">CLI</span>
@@ -289,8 +289,8 @@ nav.<span class="fn">register</span>(
       <p class="gs-ref-note">FTS5 / Postgres ranked search, access tiers, the omnibar and SearchBuilder.</p>
     </a>
     <a href="{% url 'help:section_detail' 'smallstack' 'webhooks' %}" class="gs-ref-item">
-      <span class="gs-ref-name"><svg viewBox="0 0 24 24"><path d="M6.99 11L3 15l3.99 4v-3H14v-2H6.99v-3zM21 9l-3.99-4v3H10v2h7.01v3L21 9z"/></svg>Webhooks &amp; feeds</span>
-      <p class="gs-ref-note">Signed outbound events, inbound receivers, RSS/Atom publish and consume.</p>
+      <span class="gs-ref-name"><svg viewBox="0 0 24 24"><path d="M6.99 11L3 15l3.99 4v-3H14v-2H6.99v-3zM21 9l-3.99-4v3H10v2h7.01v3L21 9z"/></svg>Webhooks</span>
+      <p class="gs-ref-note">Signed outbound events, verified inbound receivers, and a collector for external feeds.</p>
     </a>
     <a href="{% url 'help:section_detail' 'smallstack' 'scheduler' %}" class="gs-ref-item">
       <span class="gs-ref-name"><svg viewBox="0 0 24 24"><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z"/></svg>Scheduler</span>
@@ -344,7 +344,7 @@ nav.<span class="fn">register</span>(
           <span class="arrow">→</span>
         </a>
         <a href="{% url 'help:section_detail' 'smallstack' 'building-crud-pages' %}" class="gs-next-link">
-          <span class="ll"><strong>Build a CRUDView</strong><span>The class that produces HTML, REST, MCP, search, webhooks and feeds from one declaration.</span></span>
+          <span class="ll"><strong>Build a CRUDView</strong><span>The class that produces HTML, REST, MCP, search and webhooks from one declaration.</span></span>
           <span class="arrow">→</span>
         </a>
         <a href="{% url 'help:section_detail' 'smallstack' 'api-documentation' %}" class="gs-next-link">

@@ -1,17 +1,11 @@
 """Feeds — site-wide and per-blog, RSS / Atom / JSON Feed.
 
-**Why no ``enable_rss = True``.** The framework's model-feed path
-(``apps/feeds/model_feed.py``) builds its queryset as
-``self.model.objects.all().order_by(...)[:limit]``. It never calls
-``get_list_queryset``, ``get_detail_queryset`` or ``search_visibility``, and
-there is no ``rss_queryset`` hook — so flipping the flag on ``Post`` would
-publish **every draft, from every blog, including private ones**, to an
-anonymous feed. Compounding it, ``CRUDView._registry`` is first-wins per model,
-so a second published-only CRUDView could not be registered to get a clean one.
-Nothing in the repo currently sets ``enable_rss``, so the blog would have been
-the first to discover this.
+The blog is the reference publisher for ``apps.feeds``. (The framework's
+one-flag ``enable_rss`` model feed was removed in 0.25.1 precisely because it
+could not do what a blog needs: it published ``model.objects.all()`` with no
+visibility hook, so it would have syndicated every draft from every blog.)
 
-Both feeds here are therefore built from ``permissions`` scopers and rendered
+Both feeds here are built from ``permissions`` scopers and rendered
 through the framework's own renderer (``apps.feeds.render.render_feed``), so
 there is one XML code path and one definition of "visible".
 

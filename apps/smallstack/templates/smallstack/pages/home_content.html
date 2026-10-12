@@ -395,7 +395,7 @@
     </div>
     <div class="ss-shape">
       <span class="ss-shape-name">Integration hubs</span>
-      <p class="ss-shape-desc">Signed outbound webhooks on model change, verified inbound receivers, RSS/Atom publish and consume, and SmallStack-to-SmallStack pairing.</p>
+      <p class="ss-shape-desc">Signed outbound webhooks on model change, verified inbound receivers, SmallStack-to-SmallStack pairing, and a collector that pulls external feeds into your models.</p>
     </div>
     <div class="ss-shape">
       <span class="ss-shape-name">Workflow apps</span>
@@ -403,7 +403,7 @@
     </div>
     <div class="ss-shape">
       <span class="ss-shape-name">Publishing</span>
-      <p class="ss-shape-desc">Versioned runbook documents, per-user blogs with a writing studio, a public reading surface with feeds, and a durable newsletter sender.</p>
+      <p class="ss-shape-desc">Versioned runbook documents, per-user blogs with a writing studio, a public reading surface, RSS/Atom/JSON feeds for readers and podcast apps, and a durable newsletter sender.</p>
     </div>
   </div>
 </section>
@@ -419,9 +419,9 @@
   </h2>
   <p style="max-width: 44rem; color: var(--body-quiet-color); margin: 0;">
     Define your model once. CRUDView's opt-in flags emit the same form, queryset and
-    permission logic as an HTML admin page, a REST endpoint, MCP tools, a search index,
-    webhook events and a feed — each wired through the same tenancy hook, and all of
-    them reachable from the terminal.
+    permission logic as an HTML admin page, a REST endpoint, MCP tools, a search index
+    and webhook events — each wired through the same tenancy hook, and all of them
+    reachable from the terminal.
   </p>
 
   <div class="ss-pipeline-card">
@@ -436,7 +436,6 @@
     enable_mcp      = <span class="num">True</span>     <span class="arrow">───→</span>  <span class="com">MCP       list_tickets, get_ticket, create_ticket, …</span>
     enable_search   = <span class="num">True</span>     <span class="arrow">───→</span>  <span class="com">SEARCH    /search/ · search_tickets</span>
     enable_webhooks = <span class="num">True</span>     <span class="arrow">───→</span>  <span class="com">WEBHOOKS  ticket.created / updated / deleted, signed</span>
-    enable_rss      = <span class="num">True</span>     <span class="arrow">───→</span>  <span class="com">FEED      /feed/&lt;slug&gt;.rss · .atom</span>
                                       <span class="com">CLI       sc ls support.Ticket   (always on)</span></pre>
   </div>
 
@@ -462,9 +461,9 @@
       <p class="ss-surface-note">Full-text index across your models, runbooks, blog posts and the help docs — also an MCP tool.</p>
     </div>
     <div class="ss-surface">
-      <div class="ss-surface-name">Webhooks &amp; feeds</div>
+      <div class="ss-surface-name">Webhooks</div>
       <p class="ss-surface-path">/smallstack/webhooks/</p>
-      <p class="ss-surface-note">Signed deliveries with retries and dead-letter replay, inbound receivers, RSS/Atom for any model.</p>
+      <p class="ss-surface-note">Signed deliveries with retries and dead-letter replay, verified inbound receivers, SmallStack-to-SmallStack pairing.</p>
     </div>
     <div class="ss-surface">
       <div class="ss-surface-name">CLI</div>
@@ -564,7 +563,7 @@
     <div class="ss-seam"><code>notify()</code><p class="ss-seam-note">An in-app notification for a signed-in user, with branded email fan-out.</p></div>
     <div class="ss-seam"><code>@webhook_handler</code><p class="ss-seam-note">Receive and verify inbound webhooks; provider signatures via <code>@webhook_verifier</code>.</p></div>
     <div class="ss-seam"><code>@dataset</code><p class="ss-seam-note">A filtered queryset as typed rows and columns for dashboards, reports and charts.</p></div>
-    <div class="ss-seam"><code>register_feed()</code><p class="ss-seam-note">A curated RSS/Atom feed alongside the one-flag model feeds.</p></div>
+    <div class="ss-seam"><code>register_feed()</code><p class="ss-seam-note">An RSS/Atom feed for a blog, podcast or changelog, built over your own scoped queryset.</p></div>
     <div class="ss-seam"><code>@tool</code><p class="ss-seam-note">A custom MCP tool next to the generated ones, under the same OAuth and audit log.</p></div>
     <div class="ss-seam"><code>help_content_dir</code><p class="ss-seam-note">Markdown docs shipped with your app, rendered and searchable in the help system.</p></div>
     <div class="ss-seam"><code>docs/skills/</code><p class="ss-seam-note">Skill files that brief AI agents on your conventions; the index is generated and lint-checked.</p></div>
@@ -657,7 +656,7 @@
           <span class="arrow">→</span>
         </a>
         <a href="{% url 'help:section_detail' 'smallstack' 'building-crud-pages' %}" class="ss-next-link">
-          <span class="ll"><strong>Build a CRUDView</strong><span>The class that produces HTML, REST, MCP, search, webhooks and feeds from one declaration.</span></span>
+          <span class="ll"><strong>Build a CRUDView</strong><span>The class that produces HTML, REST, MCP, search and webhooks from one declaration.</span></span>
           <span class="arrow">→</span>
         </a>
         <a href="{% url 'help:section_detail' 'smallstack' 'approvals' %}" class="ss-next-link">

@@ -29,7 +29,7 @@ When the user asks you to do any of these, read the matching skill file BEFORE w
 | Notify an external system when a model changes — **outbound webhooks** (`enable_webhooks = True`); shape the payload with `@webhook_transform` | `docs/skills/webhooks.md` |
 | Receive/verify an inbound webhook (`@webhook_handler`; provider signatures via `@webhook_verifier`, handshakes via `@webhook_challenge`) | `docs/skills/webhooks.md` |
 | **Build a blog or a newsletter** — markdown posts, per-blog feeds, double-opt-in email, runbook→blog publishing | `docs/skills/blog.md` |
-| **Publish a model as an RSS/Atom feed** (`enable_rss = True`) or a curated `Feed`; enclosures/podcasts via `rss_item_extra` | `docs/skills/rss.md` |
+| **Publish a blog, podcast or changelog as an RSS/Atom feed** (a curated `Feed` over your own scoped queryset; enclosures via `FeedItem(extra_kwargs=…)`) | `docs/skills/rss.md` |
 | **Consume an external RSS/Atom feed** into a model on a schedule (`register_feed_source`, the collector) | `docs/skills/rss.md` |
 | Expose a model to AI clients via MCP | `docs/skills/mcp/build-mcp-solution.md` |
 | Add a custom REST endpoint (non-CRUD) | `docs/skills/custom-api-endpoints.md` |

@@ -15,7 +15,7 @@ SmallStack is a Django platform to build applications on. The admin shell, authe
 **Ready to build?** Jump into the reference docs:
 
 - [SmallStack Reference](/smallstack/help/smallstack/) — Every feature, component, and configuration option
-- [Building CRUD pages](/smallstack/help/smallstack/building-crud-pages/) — One declaration → HTML, REST, MCP, search, webhooks, feeds and CLI
+- [Building CRUD pages](/smallstack/help/smallstack/building-crud-pages/) — One declaration → HTML, REST, MCP, search, webhooks and CLI
 
 ## What's included
 
@@ -26,13 +26,13 @@ Everything below works out of the box, is themed for all six palettes in light a
 | **Authentication** | Login, signup, password reset — themed and ready; custom User model |
 | **User profiles** | Photo, bio, timezone, color palette preference |
 | **Theming** | 6 palettes × light/dark, user-selectable; semantic CSS variables so your pages inherit it |
-| **CRUDView** | Model → admin pages, REST + OpenAPI, MCP tools, search, webhooks, feeds — [reference](/smallstack/help/smallstack/building-crud-pages/) |
+| **CRUDView** | Model → admin pages, REST + OpenAPI, MCP tools, search, webhooks — [reference](/smallstack/help/smallstack/building-crud-pages/) |
 | **Model Explorer** | Browse and edit every registered model at `/smallstack/explorer/` |
 | **REST API** | Bearer-token auth, Swagger UI + ReDoc, typed TypeScript and Python clients — [docs](/smallstack/help/smallstack/api-documentation/) |
 | **MCP server** | OAuth 2.0 + PKCE JSON-RPC server for Claude Desktop and agent frameworks — [docs](/smallstack/help/smallstack/mcp/) |
 | **Search** | FTS5 / Postgres ranked search, Ctrl-K omnibar, `search_all` MCP tool — [docs](/smallstack/help/smallstack/search/) |
 | **Webhooks** | Signed outbound delivery on model change, verified inbound receivers, replay — [docs](/smallstack/help/smallstack/webhooks/) |
-| **Feeds** | RSS/Atom for any model with one flag, or a curated feed; consume external feeds — [docs](/smallstack/help/smallstack/feeds/) |
+| **Feeds** | RSS/Atom/JSON for blogs, podcasts and changelogs (a curated `Feed` over your own scoped queryset); a collector pulls external feeds into a model — [docs](/smallstack/help/smallstack/feeds/) |
 | **Background tasks & scheduler** | DB-backed task queue plus recurring `@scheduled` jobs with a themed UI — [docs](/smallstack/help/smallstack/scheduler/) |
 | **Approvals** | Human-in-the-loop gate: apps or AI agents file a request, a person decides, your code reacts — [docs](/smallstack/help/smallstack/approvals/) |
 | **Notifications** | `notify()` with a topbar bell, unread badge and inbox — [docs](/smallstack/help/smallstack/notifications/) |

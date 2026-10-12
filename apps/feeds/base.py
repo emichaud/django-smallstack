@@ -1,19 +1,15 @@
 """Feed provider primitives — the shape everything published as RSS/Atom takes.
 
-Two ways to publish a feed:
+One way to publish a feed: subclass :class:`Feed`, implement :meth:`Feed.items`
+over a queryset *you* scope, and ``register_feed(MyFeed())`` — or, for a feed per
+runtime object, build it in your own view and call
+:func:`apps.feeds.render.render_feed`. The status page (incidents plus
+maintenance) and the blog (site-wide river plus per-blog feeds) are the shipped
+examples. Every feed renders through :mod:`apps.feeds.render` and is gated by
+the same access levels as search (:class:`apps.search.access.SearchAccess`).
 
-* **Model-backed** — flip ``enable_rss = True`` on a CRUDView and a
-  :class:`ModelFeed` is auto-registered, deriving each ``<item>`` from the same
-  declarations search already reads (``search_display`` → title,
-  ``search_subtitle`` → description, a detected timestamp → ``pubDate``, the
-  detail route → ``link``). This is the "publish a list like the REST API" case.
-
-* **Custom/curated** — subclass :class:`Feed`, implement :meth:`Feed.items`, and
-  ``register_feed(MyFeed())``. Use this when a feed merges sources or is computed
-  (e.g. the status page's incidents-plus-maintenance feed).
-
-Both render through the same code (:mod:`apps.feeds.render`) and are gated by the
-same access levels as search (:class:`apps.search.access.SearchAccess`).
+The one-flag ``enable_rss`` model feed was removed in 0.25.1 — it published
+``model.objects.all()`` with no visibility hook. See UPGRADING.md.
 
 Extension seam: :attr:`FeedItem.extra_kwargs` is passed straight to Django's
 ``feedgenerator.add_item`` — so a downstream app adds ``<enclosure>`` (podcasts),

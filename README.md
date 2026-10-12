@@ -60,7 +60,7 @@ SmallStack isn't one kind of app — it's a small backend that plays whatever ro
 | **Headless API backend** | REST with token auth and OpenAPI 3.0, plus bundled typed clients for React, Svelte, Solid & Streamlit (`clients/`). Point your SPA at it. |
 | **MCP server** | OAuth + JSON-RPC tools derived from your models — Claude Desktop and the Connectors UI work with no setup. |
 | **Search engine** | Real full-text search — FTS5/BM25 on SQLite, `tsvector` + GIN on Postgres — ranked, with a Ctrl-K omnibar, an MCP tool, and custom variants (SearchBuilder). |
-| **Integration hub** | Signed webhooks (inbound + outbound), RSS/Atom publish + consume, and Swagger + ReDoc for every endpoint. The seam between your systems. |
+| **Integration hub** | Signed webhooks (inbound + outbound), a collector that pulls external RSS/Atom feeds into your models, and Swagger + ReDoc for every endpoint. The seam between your systems. |
 | **Task runner** | One-shot jobs plus recurring `@scheduled` work (cron/interval/once) on a DB-backed worker — no Redis or Celery to operate. |
 | **Workflow engine** | Human-in-the-loop approvals (`@approval_kind` — apps or AI agents file, a person decides, your code reacts) fanned out to in-app notifications and branded email. |
 | **Publishing platform** | Versioned runbook documents, per-user blogs with a writing studio and a public reading surface, feeds, and a durable double-opt-in newsletter sender. |
@@ -79,7 +79,7 @@ SmallStack isn't one kind of app — it's a small backend that plays whatever ro
 - **MCP server** — JSON-RPC + OAuth + PKCE, works with Claude Desktop and agent frameworks
 - **Full-text search** — SQLite FTS5 or Postgres SearchVector, with custom ranking and variants (SearchBuilder)
 - **Webhooks** — Signed outbound delivery on model change + verified inbound receivers, with four seams for Zapier/n8n/Stripe/Slack
-- **RSS / Atom feeds** — Publish any model as a feed with one flag, or consume external feeds on a schedule
+- **Feeds** — RSS/Atom/JSON for blogs, podcasts and changelogs via a curated `Feed` over your own scoped queryset; a collector pulls external feeds into a model on a schedule
 - **Background tasks & scheduler** — DB-backed queue (no Redis/Celery to operate) plus a `@scheduled` recurring-job scheduler with a themed UI, REST + MCP surfaces, and cron/interval/once cadences
 - **Human-in-the-loop approvals** — a generic approval gate: apps (or AI agents, via MCP) file a request, a human approves/rejects in a themed console, your code reacts via callback, signal, webhook, or polling
 - **In-app notifications** — a `notify()` service with a topbar bell, unread badge, and inbox — wired into approvals out of the box
@@ -106,7 +106,7 @@ SmallStack is built around the vibe-coding workflow. When you open Claude Code o
 - CRUDView patterns and configuration
 - SearchBuilder (custom variants, computed fields, ranking)
 - MCP tool authoring
-- Webhooks & feeds (integration seams)
+- Webhooks (integration seams)
 - API conventions and client generation
 - CLI patterns
 - Deployment playbooks

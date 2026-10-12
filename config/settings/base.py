@@ -61,7 +61,7 @@ INSTALLED_APPS = [
     "apps.webhooks",  # Webhooks: outbound event delivery + inbound receivers
     "apps.notifications",  # Notifications: in-app bell/inbox primitive (label: smallstack_notifications)
     "apps.approvals",  # Approvals: side-car human-approval gate (label: smallstack_approvals)
-    "apps.feeds",  # Feeds: RSS/Atom publish (enable_rss) + consume (collector)
+    "apps.feeds",  # Feeds: curated RSS/Atom publish (register_feed) + consume (collector)
     "apps.blog",  # Blog: markdown posts + per-blog feeds + newsletter (label: smallstack_blog)
     # (Approvals scenario demos are appended below, only when present.)
     # Django built-in apps

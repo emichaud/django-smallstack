@@ -36,7 +36,8 @@ class TestWebsiteViews:
         assert "enable_mcp" in content
         assert "enable_search" in content
         assert "enable_webhooks" in content
-        assert "enable_rss" in content
+        # Feeds are a publishing surface (curated Feed), not a CRUDView flag.
+        assert "enable_rss" not in content
 
     def test_home_page_batteries_grid(self, client):
         """Batteries-included grid should name the built-in apps — including
@@ -101,9 +102,9 @@ class TestWebsiteViews:
         # The features deck covers the platform apps, not just the 0.9-era ones.
         for title in [
             "One model, every surface",
-            "Webhooks &amp; feeds",
+            "Webhooks",
             "Approvals &amp; notifications",
-            "Runbook, blog &amp; newsletter",
+            "Runbook, blog, newsletter &amp; feeds",
         ]:
             assert title in content, title
 

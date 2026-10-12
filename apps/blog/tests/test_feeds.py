@@ -1,10 +1,10 @@
 """Feeds — site-wide and per-blog, in all three formats.
 
-The framework's `enable_rss = True` path is deliberately NOT used: its
-`ModelFeed.items()` is `model.objects.all()` with no visibility hook, so the
-flag would publish every draft from every blog anonymously. These tests pin
-both halves of that decision — that the flag stays off, and that the curated
-replacements actually scope correctly.
+The blog is the reference publisher for ``apps.feeds``: both feeds are curated
+``Feed``s built from the permission scopers. (The framework's one-flag
+``enable_rss`` model feed was removed in 0.25.1 because it published
+``model.objects.all()`` with no visibility hook — exactly what a blog cannot
+tolerate.) These tests pin that the curated feeds actually scope correctly.
 """
 
 from __future__ import annotations
@@ -24,10 +24,9 @@ pytestmark = pytest.mark.django_db
 # ── The decision itself ─────────────────────────────────────────────────────
 
 
-def test_no_blog_crudview_enables_the_unscoped_model_feed():
-    """`ModelFeed.items()` ignores get_list_queryset / search_visibility, so
-    turning this on would syndicate drafts and private blogs. If someone flips
-    it, this fails and points at apps/blog/feeds.py for the reason."""
+def test_no_blog_crudview_carries_a_model_feed_attribute():
+    """Belt and braces: CRUDView.__init_subclass__ already raises on the old
+    attributes, so this can only fail if that guard is removed too."""
     from apps.blog import views
 
     for name in (
@@ -35,7 +34,7 @@ def test_no_blog_crudview_enables_the_unscoped_model_feed():
         "SubscriptionCRUDView", "SubscriberCRUDView", "DeliveryCRUDView",
     ):
         view = getattr(views, name)
-        assert getattr(view, "enable_rss", False) is False, f"{name} enabled enable_rss"
+        assert not hasattr(view, "enable_rss"), f"{name} carries enable_rss"
 
 
 def test_the_site_feed_is_registered_and_anonymous():

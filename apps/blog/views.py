@@ -286,11 +286,6 @@ class BlogCRUDView(_OwnedCRUDView):
     enable_webhooks = True
     webhook_events = ["created", "updated"]
 
-    # NOT enable_rss. apps/feeds/model_feed.py:139 queries
-    # `model.objects.all()` and never calls get_list_queryset, so the flag
-    # would publish private blogs to an anonymous feed. See apps/blog/feeds.py.
-    enable_rss = False
-
     @staticmethod
     def scope(qs: Any, user: Any) -> Any:
         return permissions.viewable_blogs(user, qs).select_related("owner")
@@ -460,7 +455,6 @@ class PostCRUDView(_OwnedCRUDView):
     enable_webhooks = True
     webhook_events = ["created", "updated", "deleted"]
 
-    enable_rss = False  # see BlogCRUDView.enable_rss
 
     list_accessories = [
         StatsAccessory(
@@ -560,7 +554,6 @@ class TagCRUDView(_OwnedCRUDView):
     enable_mcp = False
     enable_search = False
     enable_webhooks = False
-    enable_rss = False
 
     @staticmethod
     def scope(qs: Any, user: Any) -> Any:
@@ -630,7 +623,6 @@ class SubscriptionCRUDView(_OwnedCRUDView):
     # exfiltration surface, not a feature; likewise addresses in the omnibar.
     enable_mcp = False
     enable_search = False
-    enable_rss = False
     # The CRM-sync seam. Endpoints are staff-configured, so this is opt-in by
     # the operator rather than ambient.
     enable_webhooks = True
@@ -673,7 +665,6 @@ class SubscriberCRUDView(CRUDView):
     enable_mcp = False
     enable_search = False
     enable_webhooks = False
-    enable_rss = False
 
 
 # ---------------------------------------------------------------------------
@@ -729,7 +720,6 @@ class IssueCRUDView(_OwnedCRUDView):
     mcp_actions = [Action.LIST, Action.DETAIL, Action.CREATE, Action.UPDATE]
 
     enable_search = False
-    enable_rss = False
     enable_webhooks = True
     webhook_events = ["updated"]  # status → sent is the downstream signal
 
@@ -790,7 +780,6 @@ class DeliveryCRUDView(_OwnedCRUDView):
     enable_api = True
     enable_mcp = False
     enable_search = False
-    enable_rss = False
     # One row per recipient per issue: a 5,000-recipient send would emit 10,000+
     # webhook deliveries and drown any endpoint subscribed to it. Subscribe to
     # smallstack_blog.issue.updated instead.

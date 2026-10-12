@@ -644,7 +644,7 @@
       "id": "rss",
       "file": "rss.md",
       "name": "RSS",
-      "description": "**RSS/Atom feeds** — symmetric publish + consume surface. Publish a model with `enable_rss = True` (or a curated `Feed`); the enclosure/podcast seam is `rss_item_extra`. Consume external feeds into a model with `register_feed_source` + the collector (`@scheduled` + `manage.py collect_feeds`). Status-page feed is the reference",
+      "description": "**RSS/Atom feeds** — a *publishing* surface: subclass `Feed` over your own scoped queryset and `register_feed()` it (per-runtime-object feeds render through `render_feed` in your own view); enclosures/podcasts via `FeedItem(extra_kwargs=…)`. `enable_rss` was removed in v0.25.1 (migration recipe inside). Collect external feeds into a model with `register_feed_source` + the collector (`@scheduled` + `manage.py collect_feeds`). The blog and the status page are the references",
       "section": "Available Skills",
       "keywords": [
         "rss",

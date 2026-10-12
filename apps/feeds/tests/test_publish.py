@@ -1,14 +1,15 @@
-"""Publish-side tests — ModelFeed derivation, rendering, access gating, hooks."""
+"""Publish-side tests — curated feeds, rendering, access gating, enclosures,
+and the removal of the one-flag model feed."""
 
 from __future__ import annotations
 
 from datetime import datetime, timezone
 
 import pytest
+from django.core.exceptions import ImproperlyConfigured
 from django.test import Client, RequestFactory
 
 from apps.feeds.base import Feed, FeedItem
-from apps.feeds.model_feed import ModelFeed
 from apps.feeds.models import CollectedItem
 from apps.feeds.registry import register_feed, unregister
 from apps.feeds.render import render_feed
@@ -17,59 +18,89 @@ from apps.search.access import SearchAccess
 pytestmark = pytest.mark.django_db
 
 
-class _FakeView:
-    """Stand-in CRUDView: ModelFeed only reads class attributes + .model."""
-
-    model = CollectedItem
-    url_base = "collected/items"
-    search_display = "title"
-    search_subtitle = "summary"
-    rss_date_field = "published"
-
-    def rss_item_extra(self, obj):
-        return {"categories": ("news",)}
-
-
 def _mk(title: str, when: datetime) -> CollectedItem:
     return CollectedItem.objects.create(
         source="t", guid=f"g-{title}", title=title, summary=f"about {title}", published=when
     )
 
 
-def test_model_feed_derives_config_from_view():
-    feed = ModelFeed(_FakeView)
-    assert feed.slug == "collected-items"  # url_base slashes → dashes
-    assert feed.title_field == "title"
-    assert feed.description_field == "summary"
-    assert feed.date_field == "published"
-    assert feed.ordering == ["-published"]
-    assert feed.access == SearchAccess.STAFF  # secure default
+class _CollectedFeed(Feed):
+    """A curated feed over the bundled CollectedItem model — the shape every
+    published feed takes now that the model-feed shortcut is gone."""
+
+    slug = "collected-items"
+    title = "Collected"
+    access = SearchAccess.STAFF
+
+    def items(self, request):
+        for obj in CollectedItem.objects.order_by("-published", "-pk")[:50]:
+            yield FeedItem(
+                title=obj.title,
+                link=f"/collected/{obj.pk}/",
+                unique_id=f"feeds.CollectedItem:{obj.pk}",
+                description=obj.summary,
+                pubdate=obj.published,
+                extra_kwargs={"categories": ("news",)},
+            )
 
 
-def test_model_feed_items_and_ordering():
+def test_curated_feed_items_and_ordering():
     _mk("older", datetime(2021, 1, 1, tzinfo=timezone.utc))
     _mk("newer", datetime(2022, 1, 1, tzinfo=timezone.utc))
-    feed = ModelFeed(_FakeView)
-    items = list(feed.items(RequestFactory().get("/")))
-    assert [i.title for i in items] == ["newer", "older"]  # -published
+    items = list(_CollectedFeed().items(RequestFactory().get("/")))
+    assert [i.title for i in items] == ["newer", "older"]
     assert items[0].description == "about newer"
     assert items[0].unique_id == f"feeds.CollectedItem:{CollectedItem.objects.get(title='newer').pk}"
-
-
-def test_rss_item_extra_flows_into_feed_item():
-    _mk("x", datetime(2022, 1, 1, tzinfo=timezone.utc))
-    item = list(ModelFeed(_FakeView).items(RequestFactory().get("/")))[0]
-    assert item.extra_kwargs == {"categories": ("news",)}
+    assert items[0].extra_kwargs == {"categories": ("news",)}
 
 
 def test_render_produces_rss_and_atom():
     _mk("hello", datetime(2022, 1, 1, tzinfo=timezone.utc))
-    feed = ModelFeed(_FakeView)
     req = RequestFactory(HTTP_HOST="testserver").get("/feed/collected-items.rss")
-    rss, ct_rss = render_feed(feed, req, "rss")
-    atom, ct_atom = render_feed(feed, req, "atom")
+    rss, ct_rss = render_feed(_CollectedFeed(), req, "rss")
+    atom, ct_atom = render_feed(_CollectedFeed(), req, "atom")
     assert "rss+xml" in ct_rss and "<rss" in rss and "hello" in rss
     assert "atom+xml" in ct_atom and "<feed" in atom
+
+
+# --- the one-flag model feed is gone --------------------------------------------
+
+
+def test_the_model_feed_module_is_gone():
+    with pytest.raises(ImportError):
+        import apps.feeds.model_feed  # noqa: F401
+
+
+def test_crudview_has_no_rss_attributes():
+    from apps.smallstack.crud import CRUDView
+
+    for name in ("enable_rss", "rss_slug", "rss_access", "rss_item_extra"):
+        assert not hasattr(CRUDView, name), name
+
+
+@pytest.mark.parametrize(
+    "attrs",
+    [
+        {"enable_rss": True},
+        {"enable_rss": False},  # even "off" — the attribute itself is the stale copy
+        {"rss_slug": "things"},
+        {"rss_item_extra": lambda self, obj: {}},
+    ],
+)
+def test_declaring_a_removed_rss_attribute_fails_at_import(attrs):
+    """A downstream that still carries the old flag must fail loudly at startup,
+    not silently lose its feed (or worse, keep serving an unscoped one)."""
+    from apps.smallstack.crud import CRUDView
+
+    with pytest.raises(ImproperlyConfigured, match="removed in SmallStack 0.25.1"):
+        type("StaleRssView", (CRUDView,), {"model": CollectedItem, **attrs})
+
+
+def test_a_plain_crudview_still_registers():
+    from apps.smallstack.crud import CRUDView
+
+    cls = type("PlainView", (CRUDView,), {"model": CollectedItem, "url_base": "plain-feed-test"})
+    assert cls.model is CollectedItem
 
 
 # --- access gating through the HTTP view -------------------------------------

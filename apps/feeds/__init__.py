@@ -1,7 +1,9 @@
-"""SmallStack feeds — first-party RSS/Atom publish + consume surface.
+"""SmallStack feeds — RSS/Atom as a publishing surface, plus a collector.
 
-Publish: ``enable_rss = True`` on a CRUDView (auto feed at ``/feed/<slug>.rss``),
-or ``register_feed(MyFeed())`` for a curated feed.
+Publish: subclass :class:`Feed` over your own scoped queryset and
+``register_feed(MyFeed())`` (served at ``/feed/<slug>.rss`` and ``.atom``); a
+feed per runtime object renders through :func:`apps.feeds.render.render_feed`
+from your own view. The blog and the status page are the worked examples.
 Consume: ``register_feed_source(name, url, …)`` + the collector (a ``@scheduled``
 job and ``manage.py collect_feeds``) upserts items into a model.
 

@@ -8,6 +8,77 @@ listed, no downstream migration is required.
 
 ---
 
+## v0.25.1 — `enable_rss` removed; feeds are a publishing surface
+
+**Who is affected:** any CRUDView that set `enable_rss = True`, any `rss_*`
+attribute, or overrode `rss_item_extra()`. Nothing in upstream did; the blog
+and the status page were already curated feeds. If you never touched these,
+nothing to do.
+
+**What changed.** The one-flag model feed (`apps/feeds/model_feed.py`) built
+its items from `model.objects.all()` and never applied `get_list_queryset` or
+`search_visibility`, so a single flag could syndicate drafts and other
+tenants' rows to an anonymous URL. Rather than keep a seam that is unsafe on
+exactly the models people want to syndicate, it is gone. Setting `enable_rss`,
+any `rss_*` attribute or `rss_item_extra` on a CRUDView now raises
+`ImproperlyConfigured` at import, so a stale copy fails loudly at startup
+instead of quietly serving an unscoped feed.
+
+The engine is unchanged: `Feed`, `FeedItem`, `register_feed`, `render_feed`,
+the `/feed/<slug>.rss|atom` routes, access tiers, token auth, the collector.
+
+**Migration** (10–20 lines per feed):
+
+```python
+# before
+class ReleaseView(CRUDView):
+    model = Release
+    enable_rss = True
+    rss_slug = "releases"
+    rss_access = SearchAccess.ANONYMOUS
+    search_display = "title"
+    search_subtitle = "summary"
+    def rss_item_extra(self, obj):
+        return {"enclosures": [...]}
+
+# after — apps/<app>/feeds.py
+from apps.feeds import Feed, FeedItem, register_feed
+
+class ReleasesFeed(Feed):
+    slug = "releases"                        # same slug → same URL, subscribers notice nothing
+    title = "Releases"
+    access = SearchAccess.ANONYMOUS
+
+    def items(self, request):
+        qs = Release.objects.filter(published=True).order_by("-published_at", "-id")[:50]
+        for obj in qs:                        # ← scope it; this is the step the flag never did
+            yield FeedItem(
+                title=obj.title, link=obj.get_absolute_url(),
+                unique_id=f"app.Release:{obj.pk}",   # keep the old GUID scheme
+                description=obj.summary, pubdate=obj.published_at,
+                extra_kwargs={"enclosures": [...]},
+            )
+
+# apps/<app>/apps.py  ready():
+register_feed(ReleasesFeed())
+```
+
+Attribute map: `rss_slug`→`slug`; `rss_feed_title`/`rss_feed_description`→
+`title`/`description`; `rss_access`→`access`; `rss_limit`/`rss_ordering`→ the
+slice and `order_by` in `items()`; `rss_title_field`/`rss_description_field`/
+`rss_date_field`/`rss_author_field`→ the `FeedItem` kwargs;
+`rss_item_extra()`→`extra_kwargs=`. The full recipe, including per-runtime-object
+feeds rendered from your own view, is in `docs/skills/rss.md`.
+
+**Positioning.** Feeds moved from the "integration hub" story to "publishing"
+across the README, the shipped site and the skills: feeds are for readers,
+podcast apps and the tools that subscribe on their own terms; integrations you
+own use webhooks, the REST API and MCP. The collector (`register_feed_source`)
+stays, filed under integrations as the way to pull in sources that only speak
+RSS.
+
+---
+
 ## v0.23.0 — task reliability: lost-task reaper + retries
 
 Run `make migrate`. It applies **five** migrations.

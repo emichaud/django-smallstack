@@ -9,7 +9,7 @@ Declare a `CRUDView` once and flip the flags. The same form, queryset and permis
 - **REST** — Bearer auth, OpenAPI 3.0, Swagger UI, ReDoc, typed clients
 - **MCP** — `list_tickets`, `get_ticket`, `create_ticket`… under OAuth + PKCE
 - **Search** — ranked full-text with a Ctrl-K omnibar and an MCP retrieval tool
-- **Webhooks & feeds** — signed events on change, RSS/Atom for any model
+- **Webhooks** — signed `created / updated / deleted` events with retries and replay
 - **CLI** — `sc ls / get / new / set / rm`, same validation and audit as REST
 
 </div>

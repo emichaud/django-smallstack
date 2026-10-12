@@ -1,13 +1,28 @@
-# RSS / Atom feeds — publish and consume
+# RSS / Atom feeds — publish curated feeds, collect external ones
 
-SmallStack ships a first-party **feed surface** (`apps.feeds`), symmetric like
-webhooks: **publish** any model as an RSS/Atom feed the way you expose a REST
-list, and **consume** external feeds on a schedule into a model. It's a
-*foundation to build on*, not a podcast app — media/podcast feeds are a
-documented extension (see "Enclosures & podcasts").
+Feeds are a **publishing** surface in SmallStack, not an integration one. Use a
+feed when other people's tools need to subscribe on their own terms — readers,
+podcast apps, Slack/Discord RSS apps, Zapier/n8n triggers, RSS-to-email — and
+nothing on your side should have to be configured per subscriber. For
+integrations you own, reach for webhooks (push), the REST API (pull) or MCP
+(agents) instead; see [`webhooks.md`](webhooks.md).
 
-Read this before adding a feed, a feed collector, or anything that emits/ingests
-RSS/Atom.
+`apps.feeds` has two halves:
+
+- **Publish** — subclass `Feed`, build items from *your own scoped queryset*,
+  `register_feed()` it. The blog and the status page are the worked examples.
+- **Collect** — `register_feed_source()` pulls an external RSS/Atom source into
+  a model on a schedule, for the systems that only speak RSS.
+
+> **`enable_rss = True` is gone (v0.25.1).** The one-flag model feed published
+> `model.objects.all()` with no tenancy or visibility hook, so one flag could
+> syndicate drafts and other tenants' rows anonymously. Setting `enable_rss`,
+> any `rss_*` attribute or `rss_item_extra` on a CRUDView now raises
+> `ImproperlyConfigured` at import. The migration is below; `UPGRADING.md`
+> has the same recipe.
+
+Read this before adding a feed, a feed collector, or anything that emits or
+ingests RSS/Atom.
 
 ## Setup
 
@@ -18,101 +33,84 @@ no-ops). The consume side stores into a bundled `CollectedItem` model — run
 
 ---
 
-## Publish — "expose a model as a feed"
+## Publish — a curated feed
 
-> ### ⚠ `enable_rss` publishes the WHOLE table
->
-> `ModelFeed.items()` is `model.objects.all().order_by(...)[:limit]`. It does
-> **not** call `get_list_queryset`, `get_detail_queryset` or
-> `search_visibility`, and there is no `rss_queryset` hook — so the flag
-> publishes every row, including drafts, unpublished records and other
-> tenants' data, at whatever `rss_access` allows.
->
-> That is fine for what it was built for: a changelog, a status feed, a
-> genuinely public list. It is **not** safe on a model with a publication
-> state or per-user scoping. `CRUDView._registry` is first-wins per model, so
-> you also cannot register a second, published-only CRUDView to work around
-> it.
->
-> For anything scoped, write a curated `Feed` subclass instead and build its
-> queryset from your own permission helpers. `apps/blog/feeds.py` is the
-> worked example: a site-wide feed registered at `ready()`, plus per-blog
-> feeds constructed per request (blogs are created at runtime, and the
-> registry is a static slug map), both rendered through
-> `apps.feeds.render.render_feed` so there is still one XML code path.
->
-> If you serve a feed from your own view rather than `/feed/<slug>`, check
-> `SMALLSTACK_FEEDS_ENABLED` yourself — it is enforced inside
-> `apps/feeds/views.py`, not in the renderer.
-
-### The one-liner (model-backed)
-
-Flip `enable_rss` on a CRUDView. The feed appears at `/feed/<slug>.rss` and
-`/feed/<slug>.atom`. Item fields fall back to your search declarations, so a
-single flag is usually enough:
+Subclass `Feed`, implement `items()` over a queryset **you** scope, register it
+from `ready()`. The queryset is the whole point: a feed is anonymous and
+cacheable, so it must only ever contain rows that are public by your own rules.
 
 ```python
-class ReleaseView(CRUDView):
-    model = Release
-    enable_rss = True
-    search_display = "title"        # → <item><title>
-    search_subtitle = "summary"     # → <item><description>
-    # <pubDate> auto-detected from published_at / created_at / updated_at
-    # <link>    from get_absolute_url() or the {url_base}-detail route
-    # <guid>    "app.Model:pk"  (stable)
-```
-
-Tune with the `rss_*` attributes when the defaults aren't right:
-
-| Attribute | Default | Purpose |
-|---|---|---|
-| `rss_slug` | `url_base` (slashes→dashes) | Feed URL slug |
-| `rss_title_field` | `search_display`, else `str(obj)` | `<title>` |
-| `rss_description_field` | `search_subtitle` | `<description>` |
-| `rss_date_field` | first detected timestamp | `<pubDate>` |
-| `rss_author_field` | — | `<author>` (e.g. `"owner__username"`) |
-| `rss_ordering` | `["-<date_field>"]` | Feed order (reverse-chron) |
-| `rss_access` | `search_access` | Who can read (see Access) |
-| `rss_limit` | `50` | Max items |
-| `rss_feed_title` / `rss_feed_description` | model plural | Channel metadata |
-
-### Curated feeds (custom provider)
-
-When a feed merges sources or is computed (not a raw per-model dump), subclass
-`Feed` and register it. This is what the **status feed** does (incidents +
-maintenance):
-
-```python
+# apps/changelog/feeds.py
 from apps.feeds import Feed, FeedItem, register_feed
 from apps.search.access import SearchAccess
 
 class ChangelogFeed(Feed):
-    slug = "changelog"
+    slug = "changelog"                    # → /feed/changelog.rss and .atom
     title = "Changelog"
-    access = SearchAccess.ANONYMOUS      # public
+    description = "Every shipped release."
+    access = SearchAccess.ANONYMOUS       # public; default is STAFF
     link = "/changelog/"
 
     def items(self, request):
-        for entry in Entry.objects.order_by("-published")[:50]:
+        qs = Release.objects.filter(published=True).order_by("-published_at", "-id")[:50]
+        for release in qs:
             yield FeedItem(
-                title=entry.title,
-                link=entry.get_absolute_url(),
-                unique_id=f"changelog:{entry.pk}",   # keep stable
-                description=entry.body_html,
-                pubdate=entry.published,
+                title=release.title,
+                link=release.get_absolute_url(),
+                unique_id=f"changelog:{release.uid}",   # stable forever — never a hash of content
+                description=release.body_html,
+                pubdate=release.published_at,
+                author_name=release.author_name,
             )
 
-# in your AppConfig.ready():
-register_feed(ChangelogFeed())
+# apps/changelog/apps.py
+def ready(self):
+    from apps.feeds import register_feed
+    from .feeds import ChangelogFeed
+    register_feed(ChangelogFeed())
 ```
 
-`apps/heartbeat/feeds.py` is the worked reference — read it.
+Rules that keep this safe and readable:
+
+- **Scope the queryset with the same helper your views use.** The blog calls
+  `permissions.public_posts()`; it never filters on `status` by hand.
+- **Order explicitly with a unique tiebreaker** (`-published_at`, `-id`).
+  Postgres returns equal keys in arbitrary order, and a feed that reshuffles
+  looks like new items to every reader.
+- **`unique_id` must survive a slug change and a database restore.** Use a
+  UUID or `"app.Model:pk"`, not the URL.
+- **Register at `ready()` only for fixed slugs.** A feed per runtime object
+  (per blog, per podcast show) is built per request instead — see below.
+
+### Feeds for runtime objects (per blog, per show)
+
+The registry is a static slug → feed map filled at startup. When the thing you
+are syndicating is created at runtime, construct the `Feed` in your own view and
+hand it to the framework renderer, which is already request-relative and emits
+absolute URLs:
+
+```python
+from django.conf import settings
+from django.http import Http404, HttpResponse
+from apps.feeds.render import render_feed
+
+def blog_feed_view(request, blog_slug, fmt="rss"):
+    if not getattr(settings, "SMALLSTACK_FEEDS_ENABLED", True):
+        raise Http404("Feeds are disabled")       # enforced in feeds.views, NOT the renderer
+    blog = _visible_blog(request, blog_slug)      # your own visibility rule
+    xml, content_type = render_feed(BlogFeed(blog), request, "atom" if fmt == "atom" else "rss")
+    return HttpResponse(xml, content_type=content_type)
+```
+
+`apps/blog/feeds.py` does exactly this for `/blog/<slug>/feed.rss|atom|json`,
+plus a site-wide river registered normally. Both kinds share one item builder
+so the formats cannot drift.
 
 ### Access
 
 Feeds gate exactly like search (`SearchAccess`):
 
-- `ANONYMOUS` — public (status pages, changelogs).
+- `ANONYMOUS` — public (blogs, podcasts, changelogs, status pages).
 - `AUTHENTICATED` — any signed-in user, **or** a valid API token.
 - `STAFF` (default) — staff users, or a token whose user is staff.
 
@@ -121,33 +119,46 @@ the `Authorization: Bearer` header **or** a `?token=` query param (embed it in
 the subscribe URL). A gated feed returns **401** (not 403) so readers know to
 retry with credentials.
 
-### Enclosures & podcasts (the extension seam)
+### Enclosures & podcasts
 
-`FeedItem.extra_kwargs` is passed straight to Django's `feedgenerator.add_item`,
-and overriding `rss_item_extra(self, obj)` on a CRUDView populates it per item.
-That's where media/podcast support lives — **without** touching core:
+`FeedItem.extra_kwargs` is passed straight to Django's `feedgenerator.add_item`.
+That is where media lives — cover images, audio, categories — without touching
+core:
 
 ```python
 from django.utils.feedgenerator import Enclosure
 
-class EpisodeView(CRUDView):
-    enable_rss = True
-    def rss_item_extra(self, obj):
-        return {"enclosures": [Enclosure(obj.audio_url, str(obj.bytes), "audio/mpeg")]}
+yield FeedItem(
+    title=episode.title,
+    link=episode.get_absolute_url(),
+    unique_id=f"podcast:{episode.uid}",
+    description=episode.show_notes_html,
+    pubdate=episode.published_at,
+    extra_kwargs={
+        "enclosures": [Enclosure(episode.audio.url, str(episode.audio.size), "audio/mpeg")],
+        "categories": [t.name for t in episode.tags.all()],
+    },
+)
 ```
 
-Use the **plural** `enclosures=[...]` — Django 6 dropped the old singular
-`enclosure=` kwarg. SmallStack still accepts a singular `{"enclosure": …}` for
-back-compat (it's folded into the list before rendering), but new code should
-use the list form.
+Use the **plural** `enclosures=[...]` — Django 6 dropped the singular kwarg.
+SmallStack still folds a singular `{"enclosure": …}` into the list for
+back-compat, but new code should use the list form. The blog attaches a post's
+cover image this way (`apps/blog/feeds.py:_enclosure_kwargs`).
 
-Full podcast feeds also need the iTunes namespace (`itunes:image`,
-`itunes:duration`, …); subclass `Rss201rev2Feed` in a custom renderer for that.
-FTS-style substring search on feeds is out of scope — feeds are chronological.
+Full podcast directories also want the iTunes namespace (`itunes:image`,
+`itunes:duration`, `itunes:explicit`). Subclass `Rss201rev2Feed`, add the
+namespace in `root_attributes()` and the elements in `add_item_elements()`,
+and pass that generator to your own view. That is a downstream add-on, not
+core; the `Feed` / `FeedItem` shape does not change.
 
 ---
 
-## Consume — "collect a feed into a model on a schedule"
+## Collect — pull an external feed into a model on a schedule
+
+This is the integration half, kept here because it shares the parser. Use it
+when the content originates elsewhere and the source only offers RSS/Atom:
+vendor security advisories, a partner's announcements, a podcast's episodes.
 
 ### Register a source
 
@@ -177,9 +188,8 @@ source, so two feeds can share a guid without colliding.
 ### Consuming an authenticated feed
 
 Public feeds need nothing extra. To consume a `STAFF`/`AUTHENTICATED` feed —
-including one **this app itself publishes** (the SmallStack→SmallStack symmetric
-case) — give the source a token so the collector sends
-`Authorization: Bearer <token>`:
+including one **this app itself publishes** (the SmallStack→SmallStack case) —
+give the source a token so the collector sends `Authorization: Bearer <token>`:
 
 ```python
 from django.conf import settings
@@ -198,9 +208,7 @@ register_feed_source("vendor", "https://vendor.example.com/feed.rss",
 Source the secret from settings/env — don't hard-code it. A gated source with no
 `token`/`headers` fails cleanly: the collector reports
 `auth required (HTTP 401) — set token=/headers= on the source` and collects
-nothing. (A reader-style `?token=…` in the source **URL** also works because the
-publish view accepts it, but it stores a long-lived credential in the URL — prefer
-`token=`/`headers=`.)
+nothing.
 
 ### Run the collector
 
@@ -221,12 +229,32 @@ formats (RSS 1.0/RDF, Media RSS)? Swap in `feedparser` behind the same
 
 ---
 
+## Migrating from `enable_rss` (removed in v0.25.1)
+
+If a CRUDView set `enable_rss = True`:
+
+1. Create a `Feed` subclass in your app's `feeds.py`, as in the example above.
+   `rss_slug` → `slug`; `rss_feed_title` / `rss_feed_description` → `title` /
+   `description`; `rss_access` → `access`; `rss_limit` and `rss_ordering` →
+   the slice and `order_by` in `items()`; `rss_title_field` /
+   `rss_description_field` / `rss_date_field` / `rss_author_field` → the
+   `FeedItem` kwargs; `rss_item_extra()` → `extra_kwargs=`.
+2. **Scope the queryset.** This is the step the flag never did. Use the same
+   helper your list view uses, or the public subset explicitly.
+3. `register_feed(YourFeed())` from `AppConfig.ready()`.
+4. Delete the `enable_rss` / `rss_*` lines. They now raise
+   `ImproperlyConfigured` at import so a stale copy cannot be missed.
+
+The feed URL stays `/feed/<slug>.rss` and `.atom`; keep the same slug and
+`unique_id` scheme (`"app.Model:pk"`) and existing subscribers notice nothing.
+
 ## Verifying
 
 ```bash
 # Publish: list feeds, fetch one
 manage.py shell -c "from apps.feeds.registry import all_feeds; print([f.slug for f in all_feeds()])"
 curl -s http://localhost:8005/feed/status.rss | head
+curl -s http://localhost:8005/feed/blog.rss | head
 
 # Consume: register a source, collect, inspect
 manage.py collect_feeds
@@ -235,19 +263,26 @@ manage.py shell -c "from apps.feeds.models import CollectedItem; print(Collected
 
 ## Anti-patterns
 
-1. **Unstable `unique_id`** — the GUID must be stable across renders, or every
-   poll looks new to readers. Use `"app.Model:pk"`, not a hash of the content.
-2. **Publishing a raw high-volume table** — feeds are for human-readable,
+1. **Filtering the feed's queryset by hand** (`status="published"`) instead of
+   with the helper your views use — scheduled posts and visibility tiers slip
+   through. The blog's `public_posts()` is the model.
+2. **Unstable `unique_id`** — the GUID must be stable across renders, or every
+   poll looks new to readers. Use a UUID or `"app.Model:pk"`, not a hash of
+   the content or the URL.
+3. **Publishing a raw high-volume table** — feeds are for human-readable,
    reverse-chronological events. Curate (like the status feed collapses
    per-minute beats into incidents) rather than dumping every row.
-3. **Forgetting access** — a feed defaults to `STAFF`. Set
-   `rss_access`/`access = ANONYMOUS` deliberately to make it public.
-4. **Reinventing HTTP fetching / date parsing on the consume side** — use the
+4. **Forgetting access** — a feed defaults to `STAFF`. Set
+   `access = SearchAccess.ANONYMOUS` deliberately to make it public.
+5. **Using a feed where you own both ends** — if you control the consumer,
+   webhooks push with a signature and retries; the API paginates and filters.
+6. **Reinventing HTTP fetching / date parsing on the consume side** — use the
    collector + parser; they handle dedupe, RFC-822/3339 dates, and failures.
 
 ## Related
 
-- [`webhooks.md`](webhooks.md) — the other integration surface (push, not pull)
-- [`search.md`](search.md) — where `search_display`/`search_subtitle`/`search_access` come from
+- [`blog.md`](blog.md) — the reference publisher: site-wide + per-blog feeds, JSON Feed, enclosures
+- [`webhooks.md`](webhooks.md) — the integration surface (push, not pull)
+- [`search.md`](search.md) — where `SearchAccess` comes from
 - [`scheduler.md`](scheduler.md) — the `@scheduled` primitive the collector uses
 - [`status-monitors.md`](status-monitors.md) — the heartbeat app the status feed publishes from

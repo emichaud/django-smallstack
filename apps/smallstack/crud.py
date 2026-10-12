@@ -28,7 +28,7 @@ from typing import Any
 from django import forms
 from django.contrib import messages
 from django.contrib.admin.models import LogEntry
-from django.core.exceptions import FieldDoesNotExist, PermissionDenied
+from django.core.exceptions import FieldDoesNotExist, ImproperlyConfigured, PermissionDenied
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import IntegrityError
 from django.db.models import Model, ProtectedError, QuerySet, RestrictedError
@@ -1484,6 +1484,24 @@ def _resolve_transform_spec(spec) -> tuple[Any, dict]:
 # ---------------------------------------------------------------------------
 
 
+# The CRUDView attributes of the removed one-flag model feed. Declaring any of
+# them raises ImproperlyConfigured in CRUDView.__init_subclass__ (see there).
+_REMOVED_RSS_ATTRS: tuple[str, ...] = (
+    "enable_rss",
+    "rss_slug",
+    "rss_title_field",
+    "rss_description_field",
+    "rss_date_field",
+    "rss_author_field",
+    "rss_ordering",
+    "rss_access",
+    "rss_limit",
+    "rss_feed_title",
+    "rss_feed_description",
+    "rss_item_extra",
+)
+
+
 class CRUDView:
     """Configuration class that generates CRUD views and URL patterns.
 
@@ -1535,6 +1553,15 @@ class CRUDView:
 
     def __init_subclass__(cls, **kwargs: Any) -> None:
         super().__init_subclass__(**kwargs)
+        stale = [name for name in _REMOVED_RSS_ATTRS if name in cls.__dict__]
+        if stale:
+            raise ImproperlyConfigured(
+                f"{cls.__module__}.{cls.__name__} declares {', '.join(stale)}: the one-flag "
+                "model feed (enable_rss) was removed in SmallStack 0.25.1 because it published "
+                "model.objects.all() with no tenancy or visibility hook. Publish a curated "
+                "apps.feeds.Feed over your own scoped queryset and register_feed() it — "
+                "see UPGRADING.md (v0.25.1) and docs/skills/rss.md for the 10-line migration."
+            )
         model = getattr(cls, "model", None)
         if model is not None:
             CRUDView._registry.setdefault(model, cls)
@@ -1583,20 +1610,12 @@ class CRUDView:
     # Bulk operations
     bulk_actions: list[Any] = []  # Opt-in: [BulkAction.DELETE, BulkAction.UPDATE]
 
-    # RSS/Atom feeds (apps.feeds). Opt-in: publish this model as a feed at
-    # /feed/<slug>.rss (+ .atom). Item fields fall back to the search
-    # declarations, so a single flag usually suffices.
-    enable_rss = False
-    rss_slug = None            # feed slug; defaults to url_base (slashes → dashes)
-    rss_title_field = None     # <item> title; defaults to search_display, else str(obj)
-    rss_description_field = None  # <item> description; defaults to search_subtitle
-    rss_date_field = None      # <pubDate> source; defaults to a detected timestamp field
-    rss_author_field = None    # optional <author>, e.g. "owner__username"
-    rss_ordering = None        # defaults to ["-<date_field>"] (else ["-pk"])
-    rss_access = None          # SearchAccess level; defaults to search_access
-    rss_limit = 50             # max items in the feed
-    rss_feed_title = None      # channel <title>; defaults to the model's plural name
-    rss_feed_description = None  # channel <description>
+    # RSS/Atom feeds are NOT a CRUDView flag. The one-flag model feed
+    # (`enable_rss`) was removed in 0.25.1 because it published
+    # model.objects.all() with no tenancy or visibility hook. Publish a curated
+    # apps.feeds.Feed over your own scoped queryset instead (see
+    # docs/skills/rss.md); declaring any of the old attributes raises at import
+    # in __init_subclass__ so a stale copy fails at startup.
 
     # API
     enable_api = False  # Opt-in: generate JSON API endpoints alongside HTML views
@@ -1939,16 +1958,6 @@ class CRUDView:
     def can_delete(cls, obj, request) -> bool:
         """Return True if the user can delete this object. Override for row-level perms."""
         return True
-
-    def rss_item_extra(self, obj: Any) -> dict[str, Any]:
-        """Extra ``<item>`` fields for the RSS/Atom feed (when ``enable_rss``).
-
-        Returns a dict merged into Django ``feedgenerator.add_item`` kwargs, so
-        override it to attach an ``enclosure`` (podcasts/media), ``categories``,
-        or a computed ``author_name``. Default: nothing extra. This is the seam
-        that lets a downstream build media feeds without changing the core.
-        """
-        return {}
 
     @classmethod
     def row_actions(cls, obj, request, default_actions):
