@@ -10,6 +10,17 @@ Breaking-change migration recipes live in [`UPGRADING.md`](UPGRADING.md).
 ## [Unreleased]
 
 ### Added
+- **A worked `SearchBuilder` example on the public search page.** The blog's
+  `PostCRUDView` now implements `get_search_variants` + `transform_hit`
+  (`apps/blog/views.py:search_hit_for_post`): a hit carries the blog name,
+  publish date, reading time, tags and cover with a `card: "article"`
+  discriminator, and `/search/` renders those hits as an article card
+  (`templates/website/includes/search_article_card.html`) while every other
+  model keeps the default row. The `compact` variant is exposed as its own
+  MCP tool, `search_blog_posts_compact`. The empty `/search/` page gains a
+  "Shape a result" panel with the recipe and a rendered example, so the
+  pattern is visible before any post exists. Documented in
+  `docs/skills/search.md` and the search reference.
 - **Blog + newsletter (`apps/blog/`, label `smallstack_blog`).** Per-user blog
   channels of markdown posts, with a three-tier visibility ladder
   (`private` / `members` / `public`) instead of a single public flag — the

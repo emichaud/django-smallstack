@@ -387,6 +387,14 @@ uv run pytest apps/search/tests/test_security.py   # exercises all three levels
 ```
 
 
+## Shaping a result (SearchBuilder)
+
+A hit is normally a title, a line of context, a snippet and a link. A CRUDView can return more by implementing `transform_hit` (and, optionally, `get_search_variants`) — the `SearchBuilder` protocol. Everything the dict returns beyond `display` and `subtitle` travels with the hit as `extra`, to the search page, the omnibar, `/api/search/` and the MCP tool alike; each extra variant becomes its own MCP tool.
+
+The bundled example is the blog. `PostCRUDView.transform_hit` returns the blog name, publish date, reading time, tags and cover image with a `card: "article"` discriminator, and the public `/search/` page renders those hits as an article card instead of a row (`templates/website/includes/search_article_card.html`). Its `compact` variant — title and permalink only — is exposed as `search_blog_posts_compact`. The empty `/search/` page shows the recipe and a rendered example under "Shape a result".
+
+To shape your own model: return a different `card` value from `transform_hit`, add a branch in `templates/website/search.html`, and keep the function cheap and exception-free (the backend falls back to the default shape if it raises).
+
 ## What this doesn't do (yet)
 
 - **Vector / semantic search**: keyword only today. Vector embeddings (sqlite-vec / pgvector) for hybrid keyword+vector RAG are **coming soon** — same `enable_search = True` opt-in pattern plus a new `enable_vector = True` flag.

@@ -14,32 +14,66 @@ class TestWebsiteViews:
         assert b"SmallStack" in response.content
 
     def test_home_page_hero(self, client):
-        """Hero tagline + four-shapes framing should render."""
+        """Hero frames SmallStack as a platform to build on, not a starter."""
         response = client.get("/")
         content = response.content.decode()
-        assert "batteries-included" in content
-        assert "background scheduler" in content
+        assert "platform" in content
+        assert "to build apps on" in content
+        assert "already built" in content
+        # The "what you can build" shapes name the platform roles.
         assert "MCP servers" in content
+        assert "Integration hubs" in content
+        assert "Workflow apps" in content
+        assert "Publishing" in content
 
     def test_home_page_pipeline_section(self, client):
-        """The model-to-four-surfaces pipeline is the page's centerpiece."""
+        """The model-to-every-surface pipeline is the page's centerpiece."""
         response = client.get("/")
         content = response.content.decode()
         assert "One model" in content
-        assert "Four surfaces" in content
+        assert "Every surface" in content
         assert "TicketCRUDView" in content
         assert "enable_mcp" in content
         assert "enable_search" in content
+        assert "enable_webhooks" in content
+        assert "enable_rss" in content
 
     def test_home_page_batteries_grid(self, client):
-        """Batteries-included grid should name the built-in apps."""
+        """Batteries-included grid should name the built-in apps — including
+        the platform apps added since 0.13 (scheduler, webhooks, approvals,
+        notifications, runbook, blog)."""
         response = client.get("/")
         content = response.content.decode()
-        assert "Explorer" in content
-        assert "MCP admin" in content
-        assert "Activity" in content
-        assert "API Tokens" in content
-        assert "Backups" in content
+        for name in [
+            "Explorer",
+            "Runbook",
+            "Blog &amp; newsletter",
+            "Approvals",
+            "Notifications",
+            "Scheduler",
+            "Webhooks",
+            "Logs",
+            "MCP admin",
+            "Activity",
+            "API tokens",
+            "Backups",
+        ]:
+            assert name in content, name
+
+    def test_home_page_platform_seams(self, client):
+        """The 'build on it' section lists the hooks the shipped apps use."""
+        response = client.get("/")
+        content = response.content.decode()
+        for seam in [
+            "nav.register()",
+            "dashboard.register()",
+            "@scheduled",
+            "@approval_kind",
+            "notify()",
+            "@webhook_handler",
+            "@dataset",
+        ]:
+            assert seam in content, seam
 
     def test_home_page_doc_links_for_anon(self, client):
         """Anonymous visitors get doc-page links into the smallstack help section."""
@@ -49,14 +83,41 @@ class TestWebsiteViews:
         assert "/smallstack/help/smallstack/mcp-first-app/" in content
         assert "/smallstack/help/smallstack/building-crud-pages/" in content
         assert "/smallstack/help/smallstack/api-documentation/" in content
+        # The newer platform apps deep-link into their help pages too.
+        assert "/smallstack/help/smallstack/approvals/" in content
+        assert "/smallstack/help/smallstack/scheduler/" in content
+        assert "/smallstack/help/smallstack/webhooks/" in content
+        assert "/smallstack/help/blog/" in content
+        assert "/smallstack/help/runbook/getting-started/" in content
+        # ...and never the live admin URLs.
+        assert 'href="/smallstack/approvals/requests/"' not in content
+        assert 'href="/smallstack/blog/posts/"' not in content
 
     def test_about_page(self, client):
         response = client.get("/about/")
         assert response.status_code == 200
+        content = response.content.decode()
+        assert "platform to build applications on" in content
+        # The features deck covers the platform apps, not just the 0.9-era ones.
+        for title in [
+            "One model, every surface",
+            "Webhooks &amp; feeds",
+            "Approvals &amp; notifications",
+            "Runbook, blog &amp; newsletter",
+        ]:
+            assert title in content, title
 
     def test_getting_started_page(self, client):
         response = client.get("/getting-started/")
         assert response.status_code == 200
+        content = response.content.decode()
+        assert "Six palettes" in content
+        assert "Every surface" in content
+        # Step 06 — the platform apps and their feature flags.
+        assert "SMALLSTACK_APPROVALS_ENABLED" in content
+        assert "SMALLSTACK_BLOG_ENABLED" in content
+        assert "/smallstack/help/smallstack/approvals/" in content
+        assert "/smallstack/help/blog/" in content
 
     def test_starter_page(self, client):
         response = client.get("/starter/")
@@ -96,6 +157,14 @@ class TestHomePageAuthenticated:
         assert "/smallstack/activity/" in content
         assert "/smallstack/tokens/" in content
         assert "/smallstack/backups/" in content
+        # The platform apps added since 0.13 get live links too.
+        assert 'href="/smallstack/runbook/"' in content
+        assert 'href="/smallstack/blog/posts/"' in content
+        assert 'href="/smallstack/approvals/requests/"' in content
+        assert 'href="/smallstack/notifications/"' in content
+        assert 'href="/smallstack/scheduler/"' in content
+        assert 'href="/smallstack/webhooks/"' in content
+        assert 'href="/smallstack/logs/"' in content
         # Staff get the Dashboard CTA.
         assert "Open Dashboard" in content
 
@@ -116,8 +185,10 @@ class TestHomePageAuthenticated:
         # block is a span, not an anchor — match the href shape).
         assert 'href="/smallstack/explorer/"' not in content
         assert 'href="/smallstack/tokens/"' not in content
+        assert 'href="/smallstack/approvals/requests/"' not in content
         # But doc deep-links are present.
         assert "/smallstack/help/smallstack/explorer/" in content
+        assert "/smallstack/help/smallstack/approvals/" in content
 
 
 @pytest.mark.django_db
@@ -191,9 +262,7 @@ class TestPublicSearchView:
     def test_staff_user_sees_staff_only_sources(self, client, django_user_model):
         """Security: staff users see all registered sources, including the
         default staff-only ones (User, APIToken)."""
-        staff = django_user_model.objects.create_user(
-            username="staff_searcher", password="testpass", is_staff=True
-        )
+        staff = django_user_model.objects.create_user(username="staff_searcher", password="testpass", is_staff=True)
         client.force_login(staff)
         response = client.get("/search/")
         assert response.status_code == 200
@@ -234,6 +303,57 @@ class TestPublicSearchView:
         assert response.context["grouped"] == []
         # No-results display copy.
         assert "Nothing matched" in response.content.decode()
+
+    def test_empty_page_teaches_the_search_builder_shape(self, client):
+        """The empty-query page shows the "Shape a result" panel: the
+        transform_hit recipe plus a rendered example of the article card, so
+        the custom shape is visible even on an install with no posts."""
+        response = client.get("/search/")
+        content = response.content.decode()
+        assert "Shape" in content
+        assert "transform_hit" in content
+        assert "get_search_variants" in content
+        assert 'class="result-card"' in content
+        assert "search_blog_posts_compact" in content
+
+    def test_search_builder_hit_renders_as_an_article_card(self, client, django_user_model):
+        """A published post in a public blog is a SearchBuilder-shaped hit:
+        the page renders the article card (blog byline, reading time, tags)
+        instead of the default title/snippet row."""
+        from apps.blog import service
+        from apps.blog.models import Blog
+        from apps.search.backends import get_backend
+        from apps.search.registry import all_views
+
+        owner = django_user_model.objects.create_user(username="writer", password="testpass")
+        blog = Blog.objects.create(
+            owner=owner, name="Field Notes", slug="field-notes", visibility=Blog.Visibility.PUBLIC
+        )
+        post = service.create_post(
+            blog,
+            title="Zanzibar quartets and quartz",
+            body_markdown="A zanzibar essay.",
+            excerpt="On timekeeping.",
+            tags=["horology"],
+            author=owner,
+        )
+        service.publish_post(post)
+        for view in all_views():
+            if view.model_label == "smallstack_blog.Post":
+                get_backend().rebuild(view)
+
+        response = client.get("/search/?q=zanzibar")
+        assert response.status_code == 200
+        content = response.content.decode()
+        # The card, not the row, for this hit…
+        assert 'class="result-card"' in content
+        assert "Zanzibar quartets and quartz" in content
+        assert "Field Notes" in content
+        assert "min read" in content
+        assert "horology" in content
+        # …and the hit itself carries the shape for REST / MCP consumers.
+        hits = [h for g in response.context["grouped"] for h in g["hits"] if g["model_label"] == "smallstack_blog.Post"]
+        assert hits and hits[0].extra["card"] == "article"
 
     def test_nav_link_is_visible_to_everyone(self, client, django_user_model):
         """The Search link is in the website topbar for every visitor — the

@@ -723,6 +723,148 @@
     transform: translateX(4px);
   }
 
+  /* ── Article card — a SearchBuilder-shaped result ────────────
+     Rendered when a hit carries `extra.card == "article"` (the blog's
+     PostCRUDView.transform_hit). Same hairline rhythm as .result-row,
+     plus a cover thumbnail, a byline strip and tag chips. Palette-aware
+     via CSS vars only. */
+  .result-card {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 1.5rem;
+    align-items: start;
+    padding: 1.3rem 0;
+    text-decoration: none;
+    color: var(--body-fg);
+    border-bottom: 1px solid color-mix(in srgb, var(--body-fg) 7%, transparent);
+    transition: padding 0.15s, color 0.15s;
+  }
+  /* Pin the colour on :link/:visited too — the demo card's href is "#", which
+     counts as visited and would otherwise pick up the global a:visited rule. */
+  .result-card:link, .result-card:visited { color: var(--body-fg); }
+  .result-card:hover { padding-left: 0.5rem; }
+  .result-card:last-child { border-bottom: none; }
+  .result-card-byline {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 0.35rem 0.6rem;
+    font-family: var(--font-monospace, ui-monospace, Menlo, monospace);
+    font-size: 0.7rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--body-quiet-color);
+    margin-bottom: 0.45rem;
+  }
+  .result-card-byline .blog { color: var(--primary); font-weight: 600; }
+  .result-card-byline .sep { opacity: 0.5; }
+  .result-card-byline .featured {
+    color: var(--warning-fg);
+    font-weight: 600;
+  }
+  .result-card-title {
+    font-family: ui-serif, "Iowan Old Style", Georgia, serif;
+    font-style: italic;
+    font-size: 1.35rem;
+    font-weight: 500;
+    line-height: 1.25;
+    margin: 0 0 0.35rem 0;
+    color: var(--body-fg);
+    transition: color 0.15s;
+  }
+  .result-card:hover .result-card-title { color: var(--primary); }
+  .result-card-excerpt {
+    font-size: 0.92rem;
+    color: color-mix(in srgb, var(--body-fg) 65%, transparent);
+    line-height: 1.6;
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    margin: 0;
+  }
+  .result-card-tags {
+    display: flex; flex-wrap: wrap; gap: 0.35rem;
+    margin-top: 0.6rem;
+  }
+  .result-card-tags span {
+    font-family: var(--font-monospace, ui-monospace, Menlo, monospace);
+    font-size: 0.68rem;
+    letter-spacing: 0.04em;
+    padding: 0.15rem 0.5rem;
+    border-radius: 999px;
+    border: 1px solid color-mix(in srgb, var(--body-fg) 16%, transparent);
+    color: var(--body-quiet-color);
+  }
+  .result-card-cover {
+    width: 148px; height: 96px;
+    border-radius: 8px;
+    overflow: hidden;
+    border: 1px solid color-mix(in srgb, var(--body-fg) 12%, transparent);
+    background: var(--card-bg);
+    flex: 0 0 auto;
+  }
+  .result-card-cover img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .result-card-cover.is-empty {
+    display: grid; place-items: center;
+    font-family: ui-serif, Georgia, serif;
+    font-style: italic;
+    font-size: 1.6rem;
+    color: color-mix(in srgb, var(--primary) 55%, transparent);
+    background: var(--accent-band-bg);
+  }
+  @media (max-width: 560px) {
+    .result-card { grid-template-columns: 1fr; }
+    .result-card-cover { width: 100%; height: 140px; }
+  }
+
+  /* ── "Shape a result" teaching panel ───────────────────────── */
+  .shape-panel {
+    display: grid;
+    grid-template-columns: 180px 1fr;
+    gap: 2.5rem;
+    margin-top: 4rem;
+    padding-top: 2.5rem;
+    border-top: 1px solid color-mix(in srgb, var(--body-fg) 12%, transparent);
+  }
+  @media (max-width: 720px) { .shape-panel { grid-template-columns: 1fr; gap: 1.25rem; } }
+  .shape-panel-label {
+    font-family: var(--font-monospace, ui-monospace, Menlo, monospace);
+    font-size: 0.72rem;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--body-quiet-color);
+    line-height: 1.6;
+  }
+  .shape-panel p {
+    margin: 0 0 1rem 0;
+    font-size: 0.95rem;
+    line-height: 1.65;
+    color: color-mix(in srgb, var(--body-fg) 80%, transparent);
+    max-width: 44rem;
+  }
+  .shape-panel pre {
+    font-family: var(--font-monospace, ui-monospace, Menlo, monospace);
+    font-size: 0.82rem;
+    line-height: 1.6;
+    padding: 1.1rem 1.25rem;
+    margin: 0 0 1rem 0;
+    border-radius: 10px;
+    background: var(--card-bg);
+    border: 1px solid color-mix(in srgb, var(--body-fg) 12%, transparent);
+    overflow-x: auto;
+    color: color-mix(in srgb, var(--body-fg) 85%, transparent);
+  }
+  .shape-panel pre .kw { color: var(--primary); font-weight: 600; }
+  .shape-panel pre .st { color: var(--success-fg); }
+  .shape-panel pre .cm { color: var(--body-quiet-color); }
+  .shape-panel-demo {
+    margin-top: 0.5rem;
+    border-top: 1px solid color-mix(in srgb, var(--body-fg) 18%, transparent);
+  }
+  .shape-panel-demo .result-card { pointer-events: none; }
+  .shape-panel-coda {
+    font-size: 0.85rem !important;
+    color: var(--body-quiet-color) !important;
+  }
+
   /* ── Empty / no-results ────────────────────────────────────── */
   .no-results {
     margin-top: 3rem;
@@ -870,18 +1012,23 @@
               </div>
             </div>
             {% for hit in group.hits %}
-              <a href="{{ hit.url|default:'#' }}" class="result-row">
-                <div class="result-row-text">
-                  <div class="result-row-title">{{ hit.display }}</div>
-                  {% if hit.snippet or hit.subtitle %}
-                    <div class="result-row-snippet">{{ hit.snippet|default:hit.subtitle }}</div>
-                  {% endif %}
-                </div>
-                <div class="result-row-meta">
-                  <div class="result-row-url">{{ hit.url|default:group.model_label }}</div>
-                  <div class="result-row-arrow">→</div>
-                </div>
-              </a>
+              {% if hit.extra.card == "article" %}
+                {# A SearchBuilder-shaped hit — PostCRUDView.transform_hit filled hit.extra; render the article card. #}
+                {% include "website/includes/search_article_card.html" with hit=hit %}
+              {% else %}
+                <a href="{{ hit.url|default:'#' }}" class="result-row">
+                  <div class="result-row-text">
+                    <div class="result-row-title">{{ hit.display }}</div>
+                    {% if hit.snippet or hit.subtitle %}
+                      <div class="result-row-snippet">{{ hit.snippet|default:hit.subtitle }}</div>
+                    {% endif %}
+                  </div>
+                  <div class="result-row-meta">
+                    <div class="result-row-url">{{ hit.url|default:group.model_label }}</div>
+                    <div class="result-row-arrow">→</div>
+                  </div>
+                </a>
+              {% endif %}
             {% endfor %}
           </section>
         {% endfor %}
@@ -934,6 +1081,53 @@
           (or <kbd>⌘</kbd> + <kbd>K</kbd>)
           to pop up the quick search overlay — a smaller version of this
           page. This page itself is the deeper experience.
+        </p>
+      </div>
+    </div>
+
+    <!-- ───────── Shape a result — the SearchBuilder example ───────── -->
+    <div class="shape-panel search-fade d4">
+      <div class="shape-panel-label">Shape<br>a result</div>
+      <div>
+        <p>
+          Every hit on this page is a title, a line of context and a link. When a model
+          deserves more, give its CRUDView a <code>transform_hit</code>: whatever the dict
+          returns beyond <code>display</code> and <code>subtitle</code> travels with the hit
+          as <code>extra</code> — to this page, the omnibar, <code>/api/search/</code> and the
+          MCP tool alike. The blog does exactly this, so a published post renders as an
+          article card instead of a row.
+        </p>
+<pre><span class="cm"># apps/blog/views.py</span>
+<span class="kw">class</span> PostCRUDView(CRUDView):
+    enable_search  = <span class="kw">True</span>
+    search_fields  = [<span class="st">"title"</span>, <span class="st">"excerpt"</span>, <span class="st">"body_markdown"</span>]
+
+    <span class="kw">def</span> get_search_variants(self):
+        <span class="kw">return</span> {<span class="st">"default"</span>: <span class="st">"Article card"</span>, <span class="st">"compact"</span>: <span class="st">"Title + permalink"</span>}
+
+    <span class="kw">def</span> transform_hit(self, post, variant=<span class="st">"default"</span>):
+        <span class="kw">if</span> variant == <span class="st">"compact"</span>:
+            <span class="kw">return</span> {<span class="st">"display"</span>: post.title, <span class="st">"url"</span>: post.public_url}
+        <span class="kw">return</span> {
+            <span class="st">"display"</span>: post.title, <span class="st">"subtitle"</span>: post.excerpt,
+            <span class="st">"card"</span>: <span class="st">"article"</span>,                    <span class="cm"># the template switches on this</span>
+            <span class="st">"blog"</span>: post.blog.name, <span class="st">"published_at"</span>: post.published_at,
+            <span class="st">"reading_minutes"</span>: words // 220,
+            <span class="st">"tags"</span>: [t.name <span class="kw">for</span> t <span class="kw">in</span> post.tags.all()],
+            <span class="st">"cover_url"</span>: post.cover_image.url,
+        }</pre>
+        <p>
+          The page then branches on <code>hit.extra.card</code> and renders this instead of
+          the default row:
+        </p>
+        <div class="shape-panel-demo" aria-hidden="true">
+          {% include "website/includes/search_article_card.html" with hit=example_article_hit %}
+        </div>
+        <p class="shape-panel-coda">
+          The <code>compact</code> variant also becomes its own MCP tool,
+          <code>search_blog_posts_compact</code>, for agents that only need a permalink.
+          Template: <code>templates/website/includes/search_article_card.html</code>.
+          Reference: <a href="{% url 'help:section_detail' section='smallstack' slug='search' %}">search docs</a>.
         </p>
       </div>
     </div>

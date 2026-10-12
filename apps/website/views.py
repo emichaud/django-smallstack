@@ -16,6 +16,27 @@ from django.http import HttpRequest, HttpResponse
 from django.shortcuts import redirect, render
 from django.urls import reverse
 
+EXAMPLE_ARTICLE_HIT: dict[str, Any] = {
+    "display": "Shipping a search result that looks like the thing it found",
+    "subtitle": (
+        "A SearchBuilder lets one model return more than a title and a line of "
+        "context. Here it carries the blog, the date, a reading time and tags."
+    ),
+    "snippet": "",
+    "url": "#",
+    "extra": {
+        "card": "article",
+        "blog": "Field Notes",
+        "blog_url": "#",
+        "published_at": "2026-10-11T09:00:00+00:00",
+        "reading_minutes": 4,
+        "tags": ["search", "crudview", "example"],
+        "cover_url": "",
+        "cover_alt": "",
+        "is_featured": True,
+    },
+}
+
 
 def search_view(request: HttpRequest) -> HttpResponse:
     """Public-site search.
@@ -48,6 +69,11 @@ def search_view(request: HttpRequest) -> HttpResponse:
         "query": query,
         "registered_models": view_count(),
         "indexed_sources": get_indexed_sources(user=request.user),
+        # The "Shape a result" panel on the empty page renders one static
+        # example of a SearchBuilder-shaped hit so the card is visible even on
+        # an install with no published posts yet. Real hits carry the same
+        # keys — see ``apps.blog.views.search_hit_for_post``.
+        "example_article_hit": EXAMPLE_ARTICLE_HIT,
     }
     if query:
         hits = search_all(query, limit_per_model=limit_per_model, user=request.user)

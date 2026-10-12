@@ -149,6 +149,56 @@ When `apps.search` is in `INSTALLED_APPS` and a CRUDView has `enable_search = Tr
 5. **Results appear** in the global search page, omnibar JSON, and Claude's tool list
 6. **The Swagger-style accordion** on `/smallstack/search/` gains a new collapsed row showing the model name, MCP tool name, record count, and (when expanded) the field list, MCP signature, REST endpoint, and live records — so the user/AI can verify the opt-in worked without running a CLI command
 
+## Shaping a result — `SearchBuilder` (optional)
+
+The default hit is `display` + `subtitle` + `snippet` + `url`. When a model
+deserves a richer result, implement two methods on the CRUDView (the
+`SearchBuilder` protocol in `apps/search/builder.py`). The shipped example
+is the blog: `apps/blog/views.py:PostCRUDView` + the module-level
+`search_hit_for_post()`.
+
+```python
+class PostCRUDView(CRUDView):
+    enable_search = True
+    search_fields = ["title", "excerpt", "body_markdown"]
+
+    def get_search_variants(self) -> dict[str, str]:
+        return {"default": "Article card", "compact": "Title + permalink"}
+
+    def transform_hit(self, post, variant="default") -> dict:
+        if variant == "compact":
+            return {"display": post.title, "url": post.public_url}
+        return {
+            "display": post.title, "subtitle": post.excerpt,
+            "card": "article",                      # the template switches on this
+            "blog": post.blog.name, "published_at": post.published_at.isoformat(),
+            "reading_minutes": words // 220, "tags": [...], "cover_url": ...,
+        }
+```
+
+What happens:
+
+- The backend lifts `display` / `subtitle` out of the dict; **every other key
+  lands in `SearchHit.extra`** and is serialised as-is by `as_dict()`, so the
+  same shape reaches the search page, the omnibar JSON, `GET /api/search/` and
+  the MCP tool. Keep values JSON-friendly (ISO strings, not datetimes).
+- Each non-default variant becomes **its own MCP tool**: `search_blog_posts`
+  plus `search_blog_posts_compact`. Use it for an agent-cheap shape.
+- The **public search page** (`templates/website/search.html`) branches on
+  `hit.extra.card` and includes
+  `templates/website/includes/search_article_card.html` for `"article"`; every
+  other hit keeps the default row. To shape your own model, return a different
+  `card` value and add a branch + include. The empty-query page carries a
+  "Shape a result" panel that renders the card from a static example dict
+  (`apps/website/views.py:EXAMPLE_ARTICLE_HIT`), so the pattern is visible even
+  before any post exists.
+- `transform_hit` runs **per hit at query time** on an instance created with
+  `view_cls()` — keep it cheap (no unbounded queries; a `values_list` for tags
+  on ≤ `limit_per_model` rows is fine) and never let it raise: the backend logs
+  and falls back to the default shape, which silently hides your card.
+- `transform_hit` does not change *what* is found or *who* may find it —
+  `search_fields`, `search_access` and `search_visibility` still own that.
+
 ## RAG with Claude Desktop
 
 `enable_search = True` + `enable_mcp = True` on the same CRUDView turns Claude Desktop into a knowledge-aware assistant for that model. The user asks "what's the status of Acme's open tickets?" and:

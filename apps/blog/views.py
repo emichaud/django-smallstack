@@ -27,7 +27,7 @@ from django.core.exceptions import PermissionDenied
 from django.http import Http404, HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
-from django.utils.html import format_html
+from django.utils.html import format_html, strip_tags
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.http import require_POST
 
@@ -332,6 +332,41 @@ class BlogCRUDView(_OwnedCRUDView):
 # ---------------------------------------------------------------------------
 
 
+WORDS_PER_MINUTE = 220
+
+
+def search_hit_for_post(post: Post, variant: str = "default") -> dict[str, Any]:
+    """The SearchBuilder payload for one post (see ``PostCRUDView.transform_hit``).
+
+    Kept as a plain function so it is testable without instantiating the
+    CRUDView, and so a downstream project that swaps the card template can
+    reuse the data without re-deriving reading time or tag lists.
+    """
+    url = post.public_url
+    if variant == "compact":
+        return {"display": post.title, "url": url}
+    words = len(strip_tags(post.body_html or post.body_markdown).split())
+    cover_url = ""
+    if post.cover_image:
+        try:
+            cover_url = post.cover_image.url
+        except ValueError:  # no file attached to the field
+            cover_url = ""
+    return {
+        "display": post.title,
+        "subtitle": post.excerpt,
+        "card": "article",
+        "blog": post.blog.name,
+        "blog_url": post.blog.get_absolute_url(),
+        "published_at": post.published_at.isoformat() if post.published_at else None,
+        "reading_minutes": max(1, round(words / WORDS_PER_MINUTE)),
+        "tags": list(post.tags.order_by("name").values_list("name", flat=True)),
+        "cover_url": cover_url,
+        "cover_alt": post.cover_alt,
+        "is_featured": post.is_featured,
+    }
+
+
 class PostCRUDView(_OwnedCRUDView):
     model = Post
     form_class = PostForm
@@ -383,6 +418,27 @@ class PostCRUDView(_OwnedCRUDView):
     # exactly the public subset and nothing else.
     search_access = "anonymous"
     search_visibility = staticmethod(permissions.search_visible_posts)
+
+    # ── SearchBuilder: a uniquely formatted search result ──────────────────
+    # The framework's default hit is `display` + `subtitle` + `snippet`. A
+    # published article deserves more than two lines: the blog it belongs
+    # to, when it ran, how long it takes to read, its tags and its cover.
+    # `transform_hit` returns those as extra keys; everything that is not
+    # `display`/`subtitle` lands in `SearchHit.extra`, so the public search
+    # page can render an article card for `extra.card == "article"` while
+    # every other model keeps the standard row. The same dict reaches REST
+    # (`/api/search/`), the omnibar and the MCP tool, so an agent sees the
+    # reading time too. `get_search_variants` adds a `compact` shape, which
+    # the MCP factory exposes as its own tool (`search_blog_posts_compact`)
+    # for callers that only want a title and a permalink.
+    def get_search_variants(self) -> dict[str, str]:
+        return {
+            "default": "Article card: blog, published date, reading time, tags, cover image",
+            "compact": "Title and permalink only — the cheapest shape for agents",
+        }
+
+    def transform_hit(self, obj: Post, variant: str = "default") -> dict[str, Any]:
+        return search_hit_for_post(obj, variant)
 
     enable_api = True
     api_extra_fields = [

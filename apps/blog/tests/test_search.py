@@ -42,11 +42,7 @@ def _reindex() -> None:
 
 
 def _post_hits(query: str, user) -> list[int]:
-    return [
-        h.object_id
-        for h in search_all(query, user=user, limit_per_model=50)
-        if h.model_label == POST_LABEL
-    ]
+    return [h.object_id for h in search_all(query, user=user, limit_per_model=50) if h.model_label == POST_LABEL]
 
 
 # ── The positive case ───────────────────────────────────────────────────────
@@ -66,9 +62,7 @@ def test_the_owner_finds_her_own_draft(draft, owner):
 def test_search_matches_the_body_not_only_the_title(blog, owner):
     from apps.blog import service
 
-    p = service.create_post(
-        blog, title="Opaque Title", body_markdown="A paragraph about zebras.", actor=owner
-    )
+    p = service.create_post(blog, title="Opaque Title", body_markdown="A paragraph about zebras.", actor=owner)
     service.publish_post(p, actor=owner)
     _reindex()
     assert p.pk in _post_hits("zebras", AnonymousUser())
@@ -161,3 +155,81 @@ def test_the_public_search_page_hides_drafts(client, blog, draft):
     # links to the post.
     assert f"/{draft.slug}/" not in body
     assert "Nothing matched" in body
+
+
+# ── SearchBuilder: the article-card result shape ────────────────────────────
+#
+# PostCRUDView implements the SearchBuilder protocol so a hit carries more
+# than a title and a subtitle. These pin the contract the public search page
+# and the MCP tool rely on: the extra keys, the `card` discriminator, the
+# compact variant, and the variant→tool registration.
+
+
+def _tagged_post(post, *names):
+    from apps.blog import service
+
+    service.set_post_tags(post, list(names))
+    post.refresh_from_db()
+    return post
+
+
+def test_post_crudview_is_a_search_builder():
+    view = next(v for v in all_views() if v.model_label == POST_LABEL)
+    assert view.has_search_builder is True
+
+
+def test_transform_hit_default_variant_shapes_an_article_card(post):
+    from apps.blog.views import PostCRUDView
+
+    post = _tagged_post(post, "Horology", "Essay")
+    hit = PostCRUDView().transform_hit(post)
+    assert hit["display"] == post.title
+    assert hit["subtitle"] == post.excerpt
+    assert hit["card"] == "article"
+    assert hit["blog"] == post.blog.name
+    assert hit["blog_url"] == post.blog.get_absolute_url()
+    assert hit["published_at"] == post.published_at.isoformat()
+    assert hit["reading_minutes"] >= 1
+    assert hit["tags"] == ["Essay", "Horology"]  # sorted by name
+    assert hit["cover_url"] == ""  # no cover on the fixture; never raises
+
+
+def test_transform_hit_compact_variant_is_title_and_permalink_only(post):
+    from apps.blog.views import PostCRUDView
+
+    hit = PostCRUDView().transform_hit(post, "compact")
+    assert hit == {"display": post.title, "url": post.get_absolute_url()}
+
+
+def test_reading_time_is_derived_from_the_rendered_body(blog, owner):
+    from apps.blog import service
+    from apps.blog.views import WORDS_PER_MINUTE, search_hit_for_post
+
+    long_post = service.create_post(
+        blog, title="Long read", body_markdown=("lorem " * (WORDS_PER_MINUTE * 5)), author=owner
+    )
+    service.publish_post(long_post)
+    long_post.refresh_from_db()
+    assert search_hit_for_post(long_post)["reading_minutes"] == 5
+
+
+def test_search_hits_carry_the_article_card_extra(post):
+    """The backend routes transform_hit's extra keys into SearchHit.extra —
+    which is what the public search page branches on."""
+    _reindex()
+    hits = [h for h in search_all("Hello", user=AnonymousUser(), limit_per_model=50) if h.model_label == POST_LABEL]
+    assert hits, "the published post must be found before its shape can be checked"
+    extra = hits[0].extra
+    assert extra["card"] == "article"
+    assert extra["blog"] == post.blog.name
+    assert "reading_minutes" in extra
+    # display/subtitle were lifted out of the dict, not duplicated into extra.
+    assert "display" not in extra and "subtitle" not in extra
+    assert hits[0].display == post.title
+
+
+def test_compact_variant_registers_its_own_mcp_tool():
+    from apps.mcp.server import TOOL_REGISTRY
+
+    assert "search_blog_posts" in TOOL_REGISTRY
+    assert "search_blog_posts_compact" in TOOL_REGISTRY
