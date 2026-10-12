@@ -66,6 +66,22 @@ class ScopedWidgetForm(forms.ModelForm):
             self.fields["owner"].queryset = User.objects.filter(pk=user.pk)
 
 
+class SubclassedScopedWidgetForm(ScopedWidgetForm):
+    """The shape that actually ships: a subclass that *hides* ``user=``.
+
+    ``apps/blog``'s PostForm, BlogForm and TagForm all override ``__init__``
+    with ``(*args, **kwargs)`` for unrelated reasons and forward to the base
+    that declares ``user=``. ``inspect.signature(PostForm.__init__)`` therefore
+    shows no ``user``, and the first version of ``build_form`` skipped it — so
+    three of the four scoped forms stayed unscoped and the cross-tenant write
+    was still open on Post while already closed on Issue.
+    """
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["name"].required = True
+
+
 class PlainWidgetForm(forms.ModelForm):
     """A form that does NOT accept ``user=`` — must still be constructible."""
 
@@ -88,6 +104,20 @@ class _ScopedWidgetView(CRUDView):
         return qs.filter(owner=request.user)
 
 
+class _SubclassScopedWidgetView(CRUDView):
+    model = Widget
+    url_base = "test/subclass-scoped-widgets"
+    form_class = SubclassedScopedWidgetForm
+    fields = ["name", "owner"]
+    list_fields = ["name"]
+    actions = [Action.LIST, Action.CREATE, Action.DETAIL, Action.UPDATE]
+    enable_api = True
+
+    @classmethod
+    def get_list_queryset(cls, qs, request):
+        return qs.filter(owner=request.user)
+
+
 class _ExpandWidgetView(CRUDView):
     """``owner`` is expanded but absent from ``list_fields`` — finding 3."""
 
@@ -98,6 +128,30 @@ class _ExpandWidgetView(CRUDView):
     actions = [Action.LIST]
     enable_api = True
     api_expand_fields = ["owner"]
+
+
+@pytest.fixture(autouse=True)
+def _clear_accepts_user_cache():
+    """Drop ``build_form``'s per-class verdict cache between tests.
+
+    Without this the suite cannot witness the MRO defect: the pre-fix cache was
+    read with ``getattr``, so a verdict cached on a *base* class leaked to
+    subclasses, and whether a subclass got scoped depended on which class the
+    process happened to probe first. That order-dependence is itself the bug —
+    pinning it makes these tests deterministic witnesses rather than artefacts
+    of test ordering.
+    """
+    for klass in (
+        ScopedWidgetForm,
+        SubclassedScopedWidgetForm,
+        PlainWidgetForm,
+    ):
+        # delattr only — a class __dict__ is a read-only mappingproxy.
+        try:
+            delattr(klass, "_accepts_user_kwarg")
+        except AttributeError:
+            pass
+    yield
 
 
 @pytest.fixture(autouse=True)
@@ -156,6 +210,38 @@ def test_create_cannot_point_a_scoped_fk_at_another_user(alice, bob):
         "the form was built without user=, so it never narrowed"
     )
     assert not Widget.objects.filter(owner=bob).exists()
+
+
+def test_create_scoping_survives_a_subclass_that_hides_the_user_param(alice, bob):
+    """Checking only ``form_class.__init__`` fixes one form in four.
+
+    This is the shape ``apps/blog`` ships; see SubclassedScopedWidgetForm.
+    Fails against a ``build_form`` that does not walk the MRO.
+    """
+    view = _make_api_list_view(_SubclassScopedWidgetView)
+    response = view(_req("post", alice, {"name": "injected", "owner": bob.pk}))
+
+    assert response.status_code == 400, (
+        "a subclass overriding __init__ with **kwargs hid the inherited user= "
+        "parameter, so the form was built unscoped"
+    )
+    assert not Widget.objects.filter(owner=bob).exists()
+
+
+def test_accepts_user_is_not_cached_across_the_mro(alice):
+    """A base's cached verdict must not be inherited by a subclass.
+
+    Caching on the class via ``getattr`` made the answer depend on which class
+    was probed first.
+    """
+    from apps.smallstack.form_bridge import _accepts_user
+
+    assert _accepts_user(ScopedWidgetForm) is True
+    assert _accepts_user(SubclassedScopedWidgetForm) is True
+    assert _accepts_user(PlainWidgetForm) is False
+    # Re-probe in the reverse order: a leaked cache would flip one of these.
+    assert _accepts_user(PlainWidgetForm) is False
+    assert _accepts_user(SubclassedScopedWidgetForm) is True
 
 
 def test_create_still_works_for_a_pk_inside_the_scope(alice):

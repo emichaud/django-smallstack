@@ -149,24 +149,61 @@ def build_form(form_class, *args, user: Any = None, **kwargs):
 
 
 def _accepts_user(form_class) -> bool:
-    """Whether ``form_class.__init__`` takes a ``user`` keyword."""
-    cached = getattr(form_class, "_accepts_user_kwarg", None)
+    """Whether *form_class* takes a ``user`` keyword, anywhere in its MRO.
+
+    Checking only ``form_class.__init__`` is not enough, and getting this wrong
+    fails **open**. The shipped pattern is a base that declares the keyword and
+    subclasses that override ``__init__`` for unrelated reasons::
+
+        class _UserScopedForm(forms.ModelForm):
+            def __init__(self, *args, user=None, **kwargs):   # declares it
+                ...
+
+        class PostForm(_UserScopedForm):
+            def __init__(self, *args, **kwargs):              # hides it
+                super().__init__(*args, **kwargs)
+
+    ``inspect.signature(PostForm.__init__)`` shows no ``user``, so a direct
+    check skips the user and leaves the queryset unscoped — which is the whole
+    vulnerability. Three of ``apps/blog``'s four scoped forms have exactly this
+    shape (``PostForm``, ``BlogForm``, ``TagForm``); only ``IssueForm`` declares
+    nothing and inherits the base signature. The first version of this helper
+    checked ``__init__`` alone and consequently fixed one form in four — caught
+    by the integration harness re-running its cross-tenant probe, not by the
+    unit tests, whose fixture form declared ``user=`` directly.
+
+    So: walk the MRO and accept if **any** ``__init__`` declares ``user``
+    explicitly. A VAR_KEYWORD is still not treated as consent on its own —
+    plain ModelForms declare ``(*args, **kwargs)`` and forward to
+    ``ModelForm.__init__``, which has no ``user`` argument, so that would raise
+    TypeError on most forms in the codebase. The combination (a declaring base +
+    kwargs-forwarding subclasses) is what works, and it is the pattern in use.
+    """
+    # `__dict__`, not getattr: a cached answer on a *base* class must not be
+    # inherited by a subclass that hides the parameter — that would make the
+    # verdict depend on which class happened to be probed first.
+    cached = form_class.__dict__.get("_accepts_user_kwarg")
     if cached is not None:
         return bool(cached)
-    try:
-        params = inspect.signature(form_class.__init__).parameters
-    except (TypeError, ValueError):  # pragma: no cover - exotic callables
-        return False
-    # An explicit named `user` parameter only — deliberately NOT `**kwargs`.
-    # Most ModelForms declare `__init__(self, *args, **kwargs)` and forward
-    # straight to `ModelForm.__init__`, which has no `user` argument; treating
-    # a VAR_KEYWORD as consent would raise TypeError on every one of them.
-    accepts = any(
-        name == "user"
-        and p.kind
-        in (inspect.Parameter.POSITIONAL_OR_KEYWORD, inspect.Parameter.KEYWORD_ONLY)
-        for name, p in params.items()
-    )
+
+    accepts = False
+    for klass in getattr(form_class, "__mro__", (form_class,)):
+        init = klass.__dict__.get("__init__")
+        if init is None:
+            continue
+        try:
+            params = inspect.signature(init).parameters
+        except (TypeError, ValueError):  # pragma: no cover - exotic callables
+            continue
+        if any(
+            name == "user"
+            and p.kind
+            in (inspect.Parameter.POSITIONAL_OR_KEYWORD, inspect.Parameter.KEYWORD_ONLY)
+            for name, p in params.items()
+        ):
+            accepts = True
+            break
+
     try:
         form_class._accepts_user_kwarg = accepts
     except Exception:  # pragma: no cover - immutable class
