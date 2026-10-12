@@ -66,6 +66,32 @@ class Command(BaseCommand):
                     raise CommandError(str(exc)) from exc
                 self.stdout.write(f"Queued {issue.recipient_count} recipient(s).")
 
+        # --dry-run has to be honoured on THIS path too, not only inside the
+        # --issue branch above. It was not: `blog_send --dry-run` with no
+        # --issue fell straight through to process_sending_issues() and mailed
+        # every pending recipient, while the flag's own help text promises to
+        # "report the audience size and send nothing". That is the one
+        # irreversible action in the product reached through the flag that
+        # exists to avoid it — an operator checking what is queued sent it.
+        #
+        # Reaping is skipped as well: a dry run that returns claimed rows to
+        # the queue has mutated the thing it was asked only to look at.
+        if options["dry_run"]:
+            pending = service.pending_send_summary()
+            if not pending:
+                self.stdout.write("Nothing queued. Nothing would be sent.")
+                return
+            total = sum(row["pending"] for row in pending)
+            for row in pending:
+                self.stdout.write(
+                    f"Would send “{row['subject']}” to {row['pending']} "
+                    f"remaining recipient(s) ({row['status']})."
+                )
+            self.stdout.write(
+                self.style.SUCCESS(f"Dry run: {total} delivery(s) across {len(pending)} issue(s). Nothing sent.")
+            )
+            return
+
         service.reap_stale_claims()
         results = service.process_sending_issues(
             batch_size=options["batch_size"], max_batches=options["max_batches"]

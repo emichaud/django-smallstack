@@ -123,7 +123,21 @@ class BlogConfig(AppConfig):
             # The site-wide river at /feed/blog.rss. Per-blog feeds are built
             # per request instead — blogs are created at runtime and the
             # registry is a static slug map populated here, at startup.
-            register_feed(LatestPostsFeed())
+            #
+            # Registered only when the ANONYMOUS surface is on. The river
+            # publishes public posts to the internet, so it belongs to the same
+            # switch as /blog/ — previously it survived
+            # SMALLSTACK_BLOG_PUBLIC_ENABLED=False and went on syndicating post
+            # titles after an operator had taken the public blog down, which is
+            # precisely the state that setting exists to express ("authors
+            # draft internally, nothing is on the internet yet").
+            #
+            # Declining to register (rather than 404ing in the view) makes the
+            # feed *absent* from the registry, so apps.feeds answers "No such
+            # feed" — the same "a disabled feature should look absent" rule the
+            # public routes follow.
+            if getattr(settings, "SMALLSTACK_BLOG_PUBLIC_ENABLED", True):
+                register_feed(LatestPostsFeed())
         except ImportError:
             pass  # feeds app not installed — optional
         except Exception:  # noqa: BLE001

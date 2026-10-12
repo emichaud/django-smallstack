@@ -44,6 +44,23 @@ from .models import Blog, Post, Tag
 
 
 def public_surface_enabled() -> bool:
+    """Whether anonymous blog reading is served at all.
+
+    **Both** switches, not just the public one. ``SMALLSTACK_BLOG_ENABLED`` is
+    documented as the master switch — *"Off ⇒ no nav, no console routes, no
+    public routes, no feeds, no scheduled ticks"* — but it was only ever honoured
+    in ``apps.py:ready()``. ``config/urls.py`` mounts ``public_urls``
+    unconditionally and gates per-view through here, so with the master switch
+    off the console and the nav disappeared while ``/blog/<blog>/<post>/`` and
+    the anonymous JSON API kept serving posts. An operator taking the feature
+    offline was told it was gone and it was not.
+
+    One function is the right place for it: the view mixin, the JSON API's
+    ``_require_public_surface``, the per-blog feed view and ``/blog/feed.json``
+    all funnel through here, so they all now honour both flags.
+    """
+    if not getattr(settings, "SMALLSTACK_BLOG_ENABLED", True):
+        return False
     return bool(getattr(settings, "SMALLSTACK_BLOG_PUBLIC_ENABLED", True))
 
 

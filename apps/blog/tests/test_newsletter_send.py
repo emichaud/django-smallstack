@@ -553,15 +553,43 @@ def test_an_issue_from_a_post_uses_the_posts_body_at_queue_time(
 
 
 def test_only_one_live_issue_per_post(newsletter_blog, post, owner):
-    from django.db import IntegrityError, transaction
+    """The service refuses readably; the constraint still backs it.
 
+    This used to assert ``pytest.raises(IntegrityError)`` — which was true, and
+    was the defect: ``views.issue_queue`` catches ``BlogServiceError`` only, so
+    the raw database error escaped as HTTP 500 on the most consequential button
+    in the app. The guarantee hasn't changed (see the constraint check below);
+    what changed is that callers now get a typed, message-bearing error.
+    """
     _subscribe(newsletter_blog, "a@example.test")
     first = service.create_issue_from_post(post, actor=owner)
     service.queue_issue(first, actor=owner)
 
     second = service.create_issue_from_post(post, actor=owner)
-    with pytest.raises(IntegrityError), transaction.atomic():
+    with pytest.raises(service.BlogServiceError):
         service.queue_issue(second, actor=owner)
+
+    second.refresh_from_db()
+    assert second.status == Issue.Status.DRAFT
+
+
+def test_one_live_issue_per_post_is_still_enforced_by_the_database(
+    newsletter_blog, post, owner
+):
+    """The service-level check is for the message; the constraint is the truth.
+
+    Bypassing the service entirely must still be refused, so that the readable
+    error added for the view cannot be mistaken for the whole guarantee.
+    """
+    from django.db import IntegrityError, transaction
+
+    _subscribe(newsletter_blog, "b@example.test")
+    first = service.create_issue_from_post(post, actor=owner)
+    service.queue_issue(first, actor=owner)
+
+    second = service.create_issue_from_post(post, actor=owner)
+    with pytest.raises(IntegrityError), transaction.atomic():
+        Issue.objects.filter(pk=second.pk).update(status=Issue.Status.SENT)
 
 
 def test_our_default_mailer_alias_matches_djangos():

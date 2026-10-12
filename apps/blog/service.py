@@ -1058,6 +1058,30 @@ def queue_issue(
         raise AlreadySending(
             f"This issue is already {locked.get_status_display().lower()}."
         )
+
+    # One live campaign per post, checked here as well as by the partial
+    # UniqueConstraint. The constraint is the real guarantee; this is what makes
+    # hitting it *readable*. Two drafts from one post are legal — the constraint
+    # only covers queued/sending/sent — so "Send newsletter" happily creates a
+    # second one, and queueing it used to surface as a raw IntegrityError out of
+    # issue.save(). views.issue_queue catches BlogServiceError only, so the most
+    # consequential button in the app answered HTTP 500 instead of saying what
+    # was wrong. (Found by the integration harness, round 2.)
+    if issue.post_id is not None:
+        live = (
+            Issue.objects.filter(
+                post_id=issue.post_id,
+                status__in=[Issue.Status.QUEUED, Issue.Status.SENDING, Issue.Status.SENT],
+            )
+            .exclude(pk=issue.pk)
+            .first()
+        )
+        if live is not None:
+            raise AlreadySending(
+                f"“{live.subject}” has already been sent from this post "
+                f"({live.get_status_display().lower()}). A post can only have one "
+                "newsletter campaign — cancel that issue, or write this one from scratch."
+            )
     if not issue.blog.newsletter_enabled:
         raise NewsletterNotReady(f"{issue.blog.name} does not have a newsletter.")
 
@@ -1091,7 +1115,18 @@ def queue_issue(
     issue.status = Issue.Status.SENDING
     issue.queued_at = timezone.now()
     issue.started_at = timezone.now()
-    issue.save()
+    try:
+        with transaction.atomic():
+            issue.save()
+    except IntegrityError as exc:
+        # The race the check above cannot close: two queues for the same post
+        # arriving together. The constraint is the authority — translate it so
+        # every caller sees a BlogServiceError, never a raw database error.
+        # A savepoint keeps the failed INSERT from poisoning the outer atomic().
+        raise AlreadySending(
+            "Another newsletter campaign for this post was queued at the same "
+            "moment. Only one can go out."
+        ) from exc
 
     # ignore_conflicts relies on UniqueConstraint(issue, subscriber): queueing
     # twice adds nobody twice.
@@ -1372,6 +1407,30 @@ def reap_stale_claims(*, older_than_minutes: Optional[int] = None) -> int:
         Q(claimed_at__lt=cutoff) | Q(claimed_at__isnull=True),
         status=Delivery.Status.CLAIMED,
     ).update(status=Delivery.Status.PENDING, claimed_at=None)
+
+
+def pending_send_summary() -> list[dict]:
+    """What ``process_sending_issues()`` *would* drain, without touching it.
+
+    Read-only on purpose: this backs ``blog_send --dry-run``, so it must not
+    claim, reap, or mutate a single row. One row per in-flight issue, with the
+    number of deliveries still outstanding.
+    """
+    from django.db.models import Count, Q
+
+    from .models import Delivery, Issue
+
+    rows = (
+        Issue.objects.filter(status=Issue.Status.SENDING)
+        .annotate(
+            pending=Count("deliveries", filter=Q(deliveries__status=Delivery.Status.PENDING))
+        )
+        .order_by("queued_at")
+    )
+    return [
+        {"uid": str(i.uid), "subject": i.subject, "status": i.status, "pending": i.pending}
+        for i in rows
+    ]
 
 
 def process_sending_issues(
