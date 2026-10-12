@@ -1,0 +1,61 @@
+{% load static %}<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}{{ brand.name }}{% endblock %}</title>
+    <meta name="description" content="{% block meta_description %}{{ brand.tagline }}{% endblock %}">
+
+    {% comment %}Blocking theme/palette script, same as the admin base and the
+    status page, so the public pages track the visitor's theme with no flash.{% endcomment %}
+    <script>
+    (function() {
+        var theme = localStorage.getItem('smallstack-theme') || 'dark';
+        document.documentElement.setAttribute('data-theme', theme);
+        var palette = localStorage.getItem('smallstack-palette') || '{{ color_palette }}' || 'purple';
+        document.documentElement.setAttribute('data-palette', palette);
+    })();
+    </script>
+
+    <link rel="icon" type="image/x-icon" href="{% static brand.favicon %}">
+    <link rel="stylesheet" href="{% static 'smallstack/css/theme.css' %}">
+    <link rel="stylesheet" href="{% static 'smallstack/css/palettes.css' %}">
+    <link rel="stylesheet" href="{% static 'smallstack/css/components.css' %}">
+    <link rel="stylesheet" href="{% static 'blog/blog.css' %}">
+    <link rel="stylesheet" href="{% static 'blog/public.css' %}">
+
+    {% block head_extra %}{% endblock %}
+</head>
+<body>
+<a class="skip-link" href="#content">Skip to content</a>
+
+<div class="blog-site">
+    <header class="blog-site-header">
+        <a class="blog-site-brand" href="{% url 'blog:index' %}">
+            {% comment %}brand.icon, not brand.logo: the latter is the full
+            wordmark and already contains the name, so pairing it with the
+            text renders the brand twice.{% endcomment %}
+            {% if brand.icon %}<img src="{% static brand.icon %}" alt="" aria-hidden="true">{% endif %}
+            <span>{{ brand.name }}</span>
+        </a>
+        <nav class="blog-site-nav" aria-label="Blog">
+            {% block site_nav %}{% endblock %}
+        </nav>
+    </header>
+
+    <main id="content" class="blog-site-main">
+        {% block content %}{% endblock %}
+    </main>
+
+    <footer class="blog-site-footer">
+        <p>&copy; {% now "Y" %} {{ brand.name }}</p>
+        <p>
+            <a href="{% url 'blog:index' %}">All blogs</a>
+            {% if user.is_authenticated %}
+            &middot; <a href="/smallstack/blog/posts/">Write</a>
+            {% endif %}
+        </p>
+    </footer>
+</div>
+</body>
+</html>

@@ -28,7 +28,7 @@
         </nav>
     </div>
     <div class="page-header-actions">
-        <a href="{% url 'runbook:runbook_detail' runbook.slug %}" class="btn-secondary">Table of Contents</a>
+        <a href="{% url 'runbook:runbook_detail' runbook.slug %}" class="btn-secondary">Table of contents</a>
         <button type="button" class="btn-secondary"
             data-download-url="{% url 'runbook:download_zip' %}?runbook={{ runbook.slug }}"
             data-download-desc="&quot;{{ runbook.name }}&quot; runbook as a ZIP archive (with images)"

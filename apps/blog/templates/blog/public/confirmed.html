@@ -1,0 +1,9 @@
+{% extends "blog/public/base.html" %}
+{% block title %}Subscribed | {{ blog.name }}{% endblock %}
+{% block content %}
+<h1 class="blog-page-title">You're subscribed</h1>
+<p class="blog-page-tagline">
+  {{ subscription.subscriber.email }} will receive {{ blog.name }}.
+</p>
+<p><a href="{{ blog.get_absolute_url }}">Read {{ blog.name }} &rarr;</a></p>
+{% endblock %}

@@ -1,0 +1,7 @@
+{% comment %}A post's state as one plain word. Only live and scheduled carry
+colour; a draft is the quiet default, not a warning.{% endcomment %}
+{% if post.status == "published" and post.is_live %}<span class="studio-status studio-status--live">Live</span>
+{% elif post.status == "published" %}<span class="studio-status studio-status--scheduled">Embargoed</span>
+{% elif post.status == "scheduled" %}<span class="studio-status studio-status--scheduled">Scheduled</span>
+{% elif post.status == "archived" %}<span class="studio-status">Archived</span>
+{% else %}<span class="studio-status">Draft</span>{% endif %}

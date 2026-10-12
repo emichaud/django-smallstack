@@ -1,0 +1,20 @@
+{% extends "smallstack/crud/object_form.html" %}
+{% load static %}
+
+{% comment %}
+Deliberately a six-line override rather than a copy of object_form.html.
+
+The markdown editor is progressive enhancement: blog.js finds the
+`.blog-markdown-input` textarea the form already renders and builds the
+toolbar and preview pane around it. Nothing about the framework's form markup
+is duplicated here, so field validation, CSRF, error display and any upstream
+change to the base template all keep working untouched.
+{% endcomment %}
+
+{% block extra_css %}{{ block.super }}
+<link rel="stylesheet" href="{% static 'blog/blog.css' %}">
+{% endblock %}
+
+{% block extra_js %}{{ block.super }}
+<script src="{% static 'blog/blog.js' %}" defer></script>
+{% endblock %}

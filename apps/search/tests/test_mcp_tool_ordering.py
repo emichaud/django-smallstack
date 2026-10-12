@@ -61,3 +61,29 @@ def test_late_registration_still_creates_its_mcp_tool():
     finally:
         unregister(_LATE_LABEL)
         clear_registry_for_tests()
+
+
+def test_mcp_tool_names_match_the_registry():
+    """The "what's indexed" panel must advertise the tool name that is
+    actually registered.
+
+    Two functions derive it — ``registry._mcp_tool_name_for`` for the panel
+    and ``mcp_tools._tool_name_for`` for the real registration — and they had
+    drifted onto different attributes (``mcp_tool_name`` vs
+    ``mcp_tool_noun_plural``). The result was a panel telling an agent to call
+    ``search_documents`` when the tool was ``search_runbook_documents``.
+    """
+    from apps.search.mcp_tools import _tool_name_for
+    from apps.search.registry import _mcp_tool_name_for, all_views
+
+    views = list(all_views())
+    assert views, "no searchable views registered — the assertion would be vacuous"
+    mismatched = [
+        (v.model_label, _mcp_tool_name_for(v), _tool_name_for(v))
+        for v in views
+        if _mcp_tool_name_for(v) != _tool_name_for(v)
+    ]
+    assert not mismatched, (
+        "the indexed-sources panel advertises a different tool name than the "
+        f"one registered: {mismatched}"
+    )

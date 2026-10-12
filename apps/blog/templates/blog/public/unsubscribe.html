@@ -1,0 +1,13 @@
+{% extends "blog/public/base.html" %}
+{% block title %}Unsubscribe | {{ blog.name }}{% endblock %}
+{% block content %}
+<h1 class="blog-page-title">Unsubscribe</h1>
+<p class="blog-page-tagline">
+  Stop sending {{ blog.name }} to <strong>{{ subscription.subscriber.email }}</strong>?
+</p>
+<form method="post">
+  {% csrf_token %}
+  <button type="submit" class="btn-primary">Unsubscribe me</button>
+</form>
+<p class="blog-fineprint"><a href="{{ blog.get_absolute_url }}">Keep my subscription</a></p>
+{% endblock %}

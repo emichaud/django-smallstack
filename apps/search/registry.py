@@ -290,8 +290,24 @@ def get_indexed_sources(user: Any = None) -> list[dict]:
         examples: list[str] = []
         total = 0
         try:
-            qs = view.model._default_manager.all()
+            # `total` is deliberately the table-wide count, computed before the
+            # scoping below so a raising visibility callback still leaves a
+            # usable count: on Postgres it is a planner estimate
+            # (see _display_row_count), and a per-user COUNT here would undo
+            # that optimisation on every render of the search hub.
             total = _display_row_count(view.model)
+
+            # Scope the preview rows exactly as search_all scopes hits. This
+            # panel renders real display values and links, so an unscoped
+            # sample leaks other tenants' rows — and any unpublished ones — to
+            # every caller the access tier admits. Staff and trusted-internal
+            # (`user=None`) callers bypass, as they do in search_all; a raising
+            # callback falls through to `except` and yields no preview at all.
+            qs = view.model._default_manager.all()
+            is_privileged = user is None or bool(getattr(user, "is_staff", False))
+            if not is_privileged and view.visibility is not None:
+                qs = view.visibility(qs, user)
+
             recent = list(qs.order_by("-pk")[:5])
             for obj in recent:
                 display_val = ""
@@ -407,8 +423,21 @@ def _display_row_count(model) -> int:
 
 
 def _mcp_tool_name_for(view) -> str:
-    """Mirror apps.search.mcp_tools._tool_name_for — kept in sync deliberately."""
-    custom = getattr(view.view_cls, "mcp_tool_name", None)
+    """Mirror apps.search.mcp_tools._tool_name_for — kept in sync deliberately.
+
+    It had drifted: the registrar reads ``mcp_tool_noun_plural`` while this
+    read ``mcp_tool_name``, so any view using the documented attribute was
+    *advertised* under one name on the "what's indexed" panel and *registered*
+    under another. Runbook was the shipped instance — the panel said
+    ``search_documents``, the real tool was ``search_runbook_documents`` — so
+    an agent reading the panel to learn the tool name called something that
+    did not exist. ``test_mcp_tool_names_match_the_registry`` now pins the two
+    together; ``mcp_tool_name`` stays as a fallback so nothing relying on it
+    silently changes name.
+    """
+    custom = getattr(view.view_cls, "mcp_tool_noun_plural", None) or getattr(
+        view.view_cls, "mcp_tool_name", None
+    )
     if custom:
         return f"search_{custom}"
     plural = str(view.model._meta.verbose_name_plural).lower().replace(" ", "_")

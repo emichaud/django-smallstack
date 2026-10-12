@@ -1,0 +1,211 @@
+/* Blog console + article styling.
+ *
+ * Not one hex literal in this file. Six palettes x two themes all have to look
+ * right, and a hard-coded surface colour is the single most common reason an
+ * AI-built page renders brown on the orange palette after looking fine on
+ * purple. Every colour here is a theme variable.
+ */
+
+/* ---------------------------------------------------------------------------
+ * Markdown editor — progressive enhancement over the generated form.
+ *
+ * The toolbar and preview pane are injected by blog.js around any
+ * `.blog-markdown-input` textarea, so the framework's own form rendering
+ * (validation, CSRF, error display) is left completely intact.
+ * ------------------------------------------------------------------------- */
+
+.blog-editor-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-bottom: 8px;
+}
+
+.blog-editor-btn {
+    padding: 4px 10px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    line-height: 1.4;
+    background: var(--card-bg);
+    color: var(--body-fg);
+    border: 1px solid var(--card-border);
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.blog-editor-btn:hover,
+.blog-editor-btn:focus-visible {
+    border-color: var(--primary);
+    color: var(--primary);
+}
+
+.blog-editor-btn[aria-pressed="true"] {
+    background: var(--accent-band-bg);
+    border-color: var(--primary);
+    color: var(--primary);
+}
+
+.blog-editor-spacer { flex: 1 1 auto; }
+
+.blog-editor-hint {
+    font-size: 0.72rem;
+    color: var(--text-muted);
+}
+
+/* Side-by-side once there's room; stacked on a phone. */
+.blog-editor-split {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 12px;
+}
+
+@media (min-width: 1100px) {
+    .blog-editor-split.is-previewing {
+        grid-template-columns: 1fr 1fr;
+    }
+}
+
+.blog-editor-pane { min-width: 0; }
+
+.blog-preview-pane {
+    display: none;
+    overflow: auto;
+    max-height: 70vh;
+    padding: 14px 18px;
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: 6px;
+}
+
+.blog-editor-split.is-previewing .blog-preview-pane { display: block; }
+
+.blog-preview-label {
+    margin: 0 0 8px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--body-quiet-color);
+}
+
+.blog-preview-empty {
+    color: var(--text-muted);
+    font-style: italic;
+}
+
+textarea.blog-markdown-input {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: var(--blog-editor-font-size, 0.85rem);
+    line-height: 1.6;
+    tab-size: 2;
+}
+
+/* ---------------------------------------------------------------------------
+ * Article body — shared by the console preview and the public post page.
+ * ------------------------------------------------------------------------- */
+
+.blog-article {
+    /* ~68 characters is the readable measure for long-form prose. */
+    max-width: 68ch;
+    color: var(--body-fg);
+    font-size: 1.02rem;
+    line-height: 1.75;
+}
+
+.blog-article > :first-child { margin-top: 0; }
+.blog-article > :last-child { margin-bottom: 0; }
+
+.blog-article h1,
+.blog-article h2,
+.blog-article h3,
+.blog-article h4 {
+    margin: 1.8em 0 0.6em;
+    line-height: 1.25;
+    color: var(--body-fg);
+}
+
+.blog-article h1 { font-size: 1.8rem; }
+.blog-article h2 { font-size: 1.4rem; }
+.blog-article h3 { font-size: 1.15rem; }
+
+.blog-article p,
+.blog-article ul,
+.blog-article ol { margin: 0 0 1.1em; }
+
+.blog-article li { margin-bottom: 0.35em; }
+
+.blog-article a { color: var(--link-color); }
+
+.blog-article img {
+    max-width: 100%;
+    height: auto;
+    border-radius: 6px;
+}
+
+.blog-article hr {
+    margin: 2em 0;
+    border: 0;
+    border-top: 1px solid var(--card-border);
+}
+
+.blog-article blockquote {
+    margin: 1.4em 0;
+    padding: 0.2em 0 0.2em 1.1em;
+    border-left: 3px solid var(--card-border);
+    color: var(--body-quiet-color);
+}
+
+.blog-article blockquote > :last-child { margin-bottom: 0; }
+
+/* Code. No syntax highlighting by design: Pygments emits fixed token colours,
+ * which would mean hand-maintaining twelve palette variants of a stylesheet.
+ * The language survives as `class="language-x"` so a downstream project can
+ * attach a client-side highlighter. */
+.blog-article code {
+    padding: 0.15em 0.4em;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 0.88em;
+    background: var(--card-header-bg);
+    border: 1px solid var(--card-border);
+    border-radius: 4px;
+}
+
+.blog-article pre {
+    margin: 1.3em 0;
+    padding: 14px 16px;
+    overflow-x: auto;
+    background: var(--card-header-bg);
+    border: 1px solid var(--card-border);
+    border-radius: 6px;
+}
+
+.blog-article pre code {
+    padding: 0;
+    background: none;
+    border: 0;
+    font-size: 0.85em;
+}
+
+.blog-article table {
+    width: 100%;
+    margin: 1.3em 0;
+    border-collapse: collapse;
+    font-size: 0.92rem;
+}
+
+.blog-article th,
+.blog-article td {
+    padding: 8px 12px;
+    text-align: left;
+    border-bottom: 1px solid var(--card-border);
+}
+
+.blog-article th {
+    background: var(--card-header-bg);
+    font-weight: 600;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .blog-editor-btn { transition: none; }
+}

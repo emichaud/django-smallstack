@@ -1,0 +1,8 @@
+{{ issue.subject }}
+From {{ blog.name }} — {{ blog_url }}
+
+{{ body_markdown_text }}
+
+---
+You're receiving this because you subscribed to {{ blog.name }}.
+Unsubscribe: {{ unsubscribe_url }}

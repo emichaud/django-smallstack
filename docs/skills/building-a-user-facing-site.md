@@ -163,6 +163,31 @@ search_visibility = staticmethod(
 
 This is the "Recipe 4" pattern in `apps/smallstack/docs/search.md`.
 
+## What `public = True` does **not** do
+
+It relaxes the HTML mixins. It does **not** make the generated REST endpoints
+anonymous: every one of them calls `_authenticate_api_request`
+(`apps/smallstack/api.py`), so a session-less, token-less caller gets `401`
+whatever `public` says. `build_api_urls` even warns about the
+public-plus-writable combination rather than honouring it.
+
+Two further limits worth knowing before you reach for it:
+
+* `get_urls()` emits `{url_base}/` and `{url_base}/<pk>/` only — single
+  segment, pk addressed. A nested or slug-based public URL
+  (`/blog/<blog>/<post>/`) is not expressible.
+* The CRUD templates extend `smallstack/base.html`, the operator shell, so a
+  `public = True` page still renders the admin chrome.
+
+So a genuinely public *reading* surface is hand-rolled CBVs following the
+`/status/` pattern — a settings switch, a gate mixin raising **404** (a
+disabled feature should look absent, not forbidden), standalone templates, a
+per-row opt-in flag, and a machine-readable sibling behind the same gate — plus
+a few plain `JsonResponse` endpoints if you want an anonymous read API.
+`apps/blog/` is the worked example of both halves: a login-gated,
+ownership-scoped console at `/smallstack/blog/` *and* an anonymous surface at
+`/blog/`, sharing one set of permission scopers. See `docs/skills/blog.md`.
+
 ## A complete user-facing CRUDView
 
 Putting all four moves together:

@@ -28,9 +28,11 @@ Custom transforms register via AppConfig.ready():
 
 import json
 import re
-from typing import Any
+from collections.abc import Sequence
+from typing import Any, TypedDict
 
 import markdown
+import yaml
 from django.urls import reverse
 from django.utils.html import escape
 from django.utils.safestring import SafeString, mark_safe
@@ -190,16 +192,151 @@ def harden_markdown_renderer(renderer: "markdown.Markdown") -> "markdown.Markdow
     return renderer
 
 
-def _render_markdown_preview(text: str) -> SafeString:
-    """Render untrusted markdown to safe HTML for the field-preview modal.
+class RenderedMarkdown(TypedDict):
+    """Output of :func:`render_markdown`."""
 
-    Extensions are limited to ``fenced_code`` + ``tables`` (structural, output-only);
-    :func:`harden_markdown_renderer` strips raw HTML and dangerous URL schemes.
-    Rich untrusted markdown beyond this belongs behind a dedicated sanitizer (nh3).
+    html: str
+    toc: str
+    toc_tokens: list[dict]
+
+
+# Structural, output-only extensions — safe for untrusted input.
+_DEFAULT_MD_EXTENSIONS: tuple[str, ...] = ("fenced_code", "tables")
+
+# Extensions that reopen a stored-XSS vector `harden_markdown_renderer` closes,
+# and which it cannot defend against: `attr_list` / `legacy_attrs` let authored
+# markdown set arbitrary attributes (including `onclick=`), and `md_in_html`
+# restores raw-HTML passthrough. Rejected outright rather than documented,
+# because the `extensions` override is otherwise an invitation to enable one.
+_UNSAFE_MD_EXTENSIONS: frozenset[str] = frozenset({"attr_list", "legacy_attrs", "md_in_html"})
+
+
+def render_markdown(
+    content: str,
+    *,
+    extensions: Sequence[str] | None = None,
+    toc: bool = True,
+) -> RenderedMarkdown:
+    """Render untrusted markdown to safe HTML, with TOC metadata.
+
+    **The** renderer for user- and AI-authored markdown anywhere in SmallStack
+    (runbook documents, blog posts, CRUD field previews). Its output is emitted
+    with ``|safe``, so :func:`harden_markdown_renderer` is applied
+    unconditionally: raw HTML renders as escaped *text* and dangerous URL
+    schemes are blanked.
+
+    ``extensions`` defaults to ``fenced_code`` + ``tables``. ``toc=True``
+    additionally enables the ``toc`` extension with permalinks off and
+    populates the ``toc`` / ``toc_tokens`` keys (ids are still emitted, so
+    deep links work).
+
+    The ``extensions`` override exists so a fork can opt into something richer
+    (``codehilite``, say) and own that decision. It cannot be used to weaken
+    the sanitizer: ``attr_list``, ``legacy_attrs`` and ``md_in_html`` raise
+    :class:`ValueError`, because those three reopen stored-XSS vectors that
+    :func:`harden_markdown_renderer` closes and *cannot* defend against —
+    hardening strips raw HTML and bad URL schemes, not authored attributes.
+
+    Raises eagerly rather than dropping them silently: a caller asking for
+    ``attr_list`` should learn why it is refused, not wonder why the syntax
+    does nothing. The extension list is a code constant, so this can only fire
+    on a programming error, never on user input.
+
+    Note ``apps/help/utils.py`` has its own *unhardened* renderer for bundled,
+    developer-authored docs — it enables exactly these extensions on trusted
+    content. Do not reach for that one on user content.
     """
-    renderer = markdown.Markdown(extensions=["fenced_code", "tables"])
+    exts = list(_DEFAULT_MD_EXTENSIONS if extensions is None else extensions)
+    unsafe = sorted(_UNSAFE_MD_EXTENSIONS.intersection(e for e in exts if isinstance(e, str)))
+    if unsafe:
+        raise ValueError(
+            f"render_markdown() refuses the stored-XSS extension(s) {unsafe}: this renderer "
+            "handles untrusted, user- and AI-authored markdown. If you need them for trusted "
+            "developer-authored content, build your own markdown.Markdown instance."
+        )
+    configs: dict[str, dict[str, Any]] = {}
+    if toc:
+        if "toc" not in exts:
+            exts.append("toc")
+        configs["toc"] = {"permalink": False}
+
+    renderer = markdown.Markdown(extensions=exts, extension_configs=configs)
     harden_markdown_renderer(renderer)
-    return mark_safe(renderer.convert(text))
+    html = renderer.convert(content)
+    return {
+        "html": html,
+        "toc": getattr(renderer, "toc", ""),
+        "toc_tokens": getattr(renderer, "toc_tokens", []),
+    }
+
+
+def _render_markdown_preview(text: str) -> SafeString:
+    """Render untrusted markdown to safe HTML for the field-preview modal."""
+    return mark_safe(render_markdown(text, toc=False)["html"])
+
+
+# ---------------------------------------------------------------------------
+# Frontmatter
+# ---------------------------------------------------------------------------
+
+_FM_KEYVAL = re.compile(r"[\w.\-]+\s*:\s*.*")
+_FM_IMAGE = re.compile(r"!\[[^\]]*\]\([^)]*\)")
+
+
+def split_frontmatter(text: str) -> tuple[str, str]:
+    """Split markdown into ``(raw_frontmatter, body)``.
+
+    ``raw_frontmatter`` is the YAML *inside* the ``---`` fences (``""`` when
+    there is none); ``body`` is everything else, stripped.
+
+    Robust to:
+      * CRLF / LF line endings and a leading BOM,
+      * blank lines or a standalone image before the block — an image inserted
+        at the top of a document is a common way frontmatter gets pushed below
+        the first line (and then renders as body text). Anything skipped this
+        way is kept in ``body``.
+
+    Only a ``---`` fenced block whose every line is ``key: value`` counts as
+    frontmatter, so genuine ``---`` thematic breaks with prose between them are
+    left alone. That check is why this is not ``text.split("---", 2)``.
+    """
+    if text.startswith("\ufeff"):
+        text = text[1:]
+
+    lines = text.splitlines(keepends=True)
+    i = 0
+    # Skip leading blank lines and standalone images (kept in the body).
+    while i < len(lines) and (not lines[i].strip() or _FM_IMAGE.fullmatch(lines[i].strip())):
+        i += 1
+
+    if i < len(lines) and lines[i].strip() == "---":
+        j = i + 1
+        while j < len(lines) and lines[j].strip() != "---":
+            j += 1
+        if j < len(lines):  # found the closing fence
+            block = [ln.strip() for ln in lines[i + 1:j] if ln.strip()]
+            if block and all(_FM_KEYVAL.fullmatch(ln) for ln in block):
+                body = "".join(lines[:i] + lines[j + 1:]).strip()
+                return "".join(lines[i + 1:j]), body
+
+    return "", text.strip()
+
+
+def parse_frontmatter(text: str) -> tuple[dict[str, Any], str]:
+    """Parse leading YAML frontmatter, returning ``(metadata, body)``.
+
+    ``metadata`` is ``{}`` when there is no frontmatter or the block does not
+    parse as a YAML mapping — malformed frontmatter must never cost us the
+    document body, so parse errors degrade to "no metadata" rather than raising.
+    """
+    raw, body = split_frontmatter(text)
+    if not raw:
+        return {}, body
+    try:
+        loaded = yaml.safe_load(raw)
+    except yaml.YAMLError:
+        return {}, body
+    return (loaded, body) if isinstance(loaded, dict) else ({}, body)
 
 
 # ---------------------------------------------------------------------------

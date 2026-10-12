@@ -105,6 +105,15 @@ class SmallStackConfig(AppConfig):
 
 The app's `docs/` directory must contain a `_config.yaml` and `.md` files.
 
+> **The `_config.yaml` is not optional, and omitting it fails quietly.**
+> `get_section_pages()` builds the section index from that file's `pages:`
+> list — not from what is on disk. With no config the section page renders
+> **empty** while every `.md` file still resolves at its own URL, so the pages
+> exist, work, and are linked from nowhere. Nothing errors and no test
+> catches it. `apps/blog/content/_config.yaml` is a minimal example;
+> `apps/runbook/content/` is currently missing one, which is why
+> `/help/runbook/` lists nothing despite shipping six pages.
+
 ## Creating a New Help Page
 
 ### Step 1: Create the Markdown File

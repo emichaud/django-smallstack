@@ -70,10 +70,38 @@ def email_brand_context(request=None, **extra) -> dict:
     return ctx
 
 
-def send_branded_email(*, subject, template, context, to, request=None) -> int:
+def send_branded_email(
+    *,
+    subject,
+    template,
+    context,
+    to,
+    request=None,
+    from_email=None,
+    reply_to=None,
+    headers=None,
+    connection=None,
+) -> int:
     """Render ``template`` (HTML) + its ``.txt`` sibling and send a multipart
     email with the brand context already mixed in. Sent synchronously so the
     console backend shows it immediately and no worker is required.
+
+    The optional arguments exist for *bulk* senders (the newsletter), and every
+    one of them defaults to the previous behaviour:
+
+    ``from_email``
+        Override ``DEFAULT_FROM_EMAIL`` — e.g. a per-publication sender name.
+    ``reply_to``
+        A str or list set as the ``Reply-To`` header.
+    ``headers``
+        Extra SMTP headers. Required for list mail: ``List-Unsubscribe`` and
+        ``List-Unsubscribe-Post`` are what make Gmail/Yahoo one-click
+        unsubscribe (RFC 8058) work, and they cannot be set any other way.
+    ``connection``
+        A backend connection to reuse. Without it every call opens its own
+        SMTP connection (one TCP+TLS handshake and one AUTH *per message*),
+        which is the difference between a 5,000-recipient send taking minutes
+        and taking hours. Pass ``mail.get_connection(...)`` once per batch.
     """
     ctx = email_brand_context(request=request, **(context or {}))
     html_body = render_to_string(template, ctx)
@@ -87,8 +115,11 @@ def send_branded_email(*, subject, template, context, to, request=None) -> int:
     msg = EmailMultiAlternatives(
         subject=subject,
         body=text_body,
-        from_email=getattr(settings, "DEFAULT_FROM_EMAIL", None),
+        from_email=from_email or getattr(settings, "DEFAULT_FROM_EMAIL", None),
         to=recipients,
+        reply_to=[reply_to] if isinstance(reply_to, str) else (list(reply_to) if reply_to else None),
+        connection=connection,
+        headers=headers or None,
     )
     msg.attach_alternative(html_body, "text/html")
     return msg.send()

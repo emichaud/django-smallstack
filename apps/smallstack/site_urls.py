@@ -85,3 +85,8 @@ if getattr(settings, "SMALLSTACK_NOTIFICATIONS_ENABLED", True):
 if getattr(settings, "SMALLSTACK_APPROVALS_ENABLED", True):
     # Approvals — the side-car human-approval gate (queue + console + REST)
     urlpatterns += [path("", include("apps.approvals.urls"))]
+
+if getattr(settings, "SMALLSTACK_BLOG_ENABLED", True):
+    # Blog — the authoring console (bare names, "blog/" prefix). The public
+    # reading surface is mounted separately at /blog/ in config/urls.py.
+    urlpatterns += [path("", include("apps.blog.urls"))]

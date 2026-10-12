@@ -1,0 +1,14 @@
+{% extends "blog/public/base.html" %}
+{% block title %}Check your inbox | {{ blog.name }}{% endblock %}
+{% block content %}
+<h1 class="blog-page-title">Check your inbox</h1>
+<p class="blog-page-tagline">
+  If <strong>{{ email }}</strong> can receive mail from us, a confirmation link is on
+  its way. You're not subscribed until you click it.
+</p>
+<p class="blog-fineprint">
+  Nothing after a few minutes? Check your spam folder, or
+  <a href="{% url 'blog:subscribe' blog.slug %}">try again</a>.
+</p>
+<p><a href="{{ blog.get_absolute_url }}">&larr; Back to {{ blog.name }}</a></p>
+{% endblock %}

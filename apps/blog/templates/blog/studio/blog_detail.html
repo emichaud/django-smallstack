@@ -1,0 +1,46 @@
+{% extends "blog/studio/base.html" %}
+{% load theme_tags %}
+{% block title %}{{ blog.name }}{% endblock %}
+{% block breadcrumbs %}{% endblock %}
+{% block page_header %}
+<div class="page-header-bleed page-header-with-actions" style="display: flex; align-items: flex-start; justify-content: space-between; gap: 16px;">
+  <div class="page-header-content">
+    <h1>{{ blog.name }}</h1>
+    <p class="page-subtitle">{% if public_url %}<a href="{{ public_url }}">Public page</a>{% elif blog.visibility == "members" %}Visible to anyone signed in{% else %}Only you can see this blog{% endif %} · <a href="{% url 'myblogs:blog_settings' blog.slug %}">Settings</a></p>
+    <nav style="margin-top: 0.5rem; font-size: 0.8rem;" aria-label="Breadcrumb">
+      <a href="{% url 'website:home' %}" style="color: var(--body-quiet-color); text-decoration: none;">Home</a>
+      <span style="color: var(--body-quiet-color); margin: 0 0.3rem;">/</span>
+      <a href="{% url 'myblogs:dashboard' %}" style="color: var(--body-quiet-color); text-decoration: none;">My blogs</a>
+      <span style="color: var(--body-quiet-color); margin: 0 0.3rem;">/</span>
+      <span style="color: var(--body-fg);">{{ blog.name }}</span>
+    </nav>
+  </div>
+  <div class="studio-head-actions">
+    {% include "blog/studio/_viewswitch.html" %}
+    <a href="{% url 'myblogs:post_new' blog.slug %}" class="btn-primary">New post</a>
+  </div>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="studio-page">
+  <nav class="studio-filters" aria-label="Filter posts">
+    <a href="?" {% if not status %}aria-current="page"{% endif %}>All</a>
+    <a href="?status=draft" {% if status == "draft" %}aria-current="page"{% endif %}>Drafts {{ counts.drafts }}</a>
+    <a href="?status=scheduled" {% if status == "scheduled" %}aria-current="page"{% endif %}>Scheduled {{ counts.scheduled }}</a>
+    <a href="?status=published" {% if status == "published" %}aria-current="page"{% endif %}>Published {{ counts.live|add:counts.embargoed }}</a>
+    <a href="?status=archived" {% if status == "archived" %}aria-current="page"{% endif %}>Archived {{ counts.archived }}</a>
+  </nav>
+
+  {% if posts %}
+  <ul class="studio-list">
+    {% for post in posts %}{% include "blog/studio/_post_row.html" %}{% endfor %}
+  </ul>
+  {% else %}
+  <div class="studio-empty studio-empty--quiet">
+    <p>{% if status %}Nothing {{ status }} here.{% else %}Nothing written yet.{% endif %}
+       <a href="{% url 'myblogs:post_new' blog.slug %}">Write a post</a>.</p>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

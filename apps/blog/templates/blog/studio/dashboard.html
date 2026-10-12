@@ -1,0 +1,77 @@
+{% extends "blog/studio/base.html" %}
+{% load theme_tags %}
+{% block title %}My blogs{% endblock %}
+{% block breadcrumbs %}{% endblock %}
+{% block page_header %}
+<div class="page-header-bleed page-header-with-actions" style="display: flex; align-items: flex-start; justify-content: space-between; gap: 16px;">
+  <div class="page-header-content">
+    <h1>My blogs</h1>
+    {% if blogs %}<p class="page-subtitle">{% if counts.scheduled %}{{ counts.scheduled }} scheduled, {% endif %}{{ counts.drafts }} in draft{% if not counts.scheduled %}.{% else %}.{% endif %}</p>{% endif %}
+    <nav style="margin-top: 0.5rem; font-size: 0.8rem;" aria-label="Breadcrumb">
+      <a href="{% url 'website:home' %}" style="color: var(--body-quiet-color); text-decoration: none;">Home</a>
+      <span style="color: var(--body-quiet-color); margin: 0 0.3rem;">/</span>
+      <span style="color: var(--body-fg);">My blogs</span>
+    </nav>
+  </div>
+  <div class="studio-head-actions">
+    {% if blogs %}{% include "blog/studio/_viewswitch.html" %}{% endif %}
+    <a href="{% url 'myblogs:blog_new' %}" class="btn-outline">New blog</a>
+  </div>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="studio-page">
+  {% if blogs %}
+  <div class="studio-stats">
+    {% stat_card counts.live "Live" state="success" %}
+    {% stat_card counts.drafts "Drafts" %}
+    {% stat_card counts.scheduled "Scheduled" state="warning" %}
+    {% stat_card blogs|length "Blogs" %}
+  </div>
+  {% endif %}
+
+  {% if not blogs %}
+  <div class="studio-sheet studio-empty">
+    <h2>Start a blog</h2>
+    <p>A blog is a place to publish into. Give it a name, decide who can read it, and write.</p>
+    <a href="{% url 'myblogs:blog_new' %}" class="btn-primary">Create your first blog</a>
+  </div>
+  {% else %}
+
+  <section class="studio-section">
+    <ul class="studio-bloglist">
+      {% for blog in blogs %}
+      <li class="studio-blog">
+        <div>
+          <a class="studio-blog-name" href="{% url 'myblogs:blog_detail' blog.slug %}">{{ blog.name }}</a>
+          <p class="studio-blog-sub">
+            {% if blog.visibility == "public" %}Public{% elif blog.visibility == "members" %}Anyone signed in{% else %}Only you{% endif %}{% if blog.tagline %} — {{ blog.tagline }}{% endif %}
+          </p>
+        </div>
+        <a class="studio-link" href="{% url 'myblogs:post_new' blog.slug %}">Write a post</a>
+      </li>
+      {% endfor %}
+    </ul>
+  </section>
+
+  {% if in_progress %}
+  <section class="studio-section">
+    <h2 class="studio-h2">In progress</h2>
+    <ul class="studio-list">
+      {% for post in in_progress %}{% include "blog/studio/_post_row.html" with show_blog=True %}{% endfor %}
+    </ul>
+  </section>
+  {% endif %}
+
+  {% if recent %}
+  <section class="studio-section">
+    <h2 class="studio-h2">Published recently</h2>
+    <ul class="studio-list">
+      {% for post in recent %}{% include "blog/studio/_post_row.html" with show_blog=True %}{% endfor %}
+    </ul>
+  </section>
+  {% endif %}
+  {% endif %}
+</div>
+{% endblock %}

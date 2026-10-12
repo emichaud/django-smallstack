@@ -1,0 +1,20 @@
+{% extends "blog/public/base.html" %}
+{% block title %}{{ issue.subject }} | {{ blog.name }}{% endblock %}
+{% block meta_description %}{{ issue.preheader }}{% endblock %}
+{% block site_nav %}
+<a href="{% url 'blog:newsletter' blog.slug %}">Archive</a>
+{% if blog.newsletter_enabled %}<a href="{% url 'blog:subscribe' blog.slug %}">Subscribe</a>{% endif %}
+{% endblock %}
+{% block content %}
+<article>
+  <h1 class="blog-page-title">{{ issue.subject }}</h1>
+  <div class="blog-post-meta" style="margin-bottom: 28px;">
+    <time datetime="{{ issue.finished_at|date:'c' }}">{{ issue.finished_at|date:"j F Y" }}</time>
+    <span aria-hidden="true">&middot;</span>
+    <a href="{% url 'blog:newsletter' blog.slug %}">{{ blog.name }} newsletter</a>
+  </div>
+  {% comment %}The frozen snapshot that was actually mailed — safe by
+  construction, written only by the hardened renderer.{% endcomment %}
+  <div class="blog-article">{{ issue.body_html|safe }}</div>
+</article>
+{% endblock %}

@@ -1,0 +1,15 @@
+{% extends "smallstack/base.html" %}
+{% load static %}
+{% comment %}
+The studio lives inside the signed-in shell (sidebar, topbar), like Runbook —
+it is a user's workspace, not a public page. Every studio template extends
+this so the stylesheet and the editor script load once, here.
+{% endcomment %}
+{% block extra_css %}{{ block.super }}
+<link rel="stylesheet" href="{% static 'blog/blog.css' %}">
+<link rel="stylesheet" href="{% static 'blog/studio.css' %}">
+{% endblock %}
+{% block extra_js %}{{ block.super }}
+<script src="{% static 'blog/blog.js' %}" defer></script>
+<script src="{% static 'blog/studio.js' %}" defer></script>
+{% endblock %}

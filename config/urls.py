@@ -74,6 +74,14 @@ urlpatterns = [
     # by external systems; the tick is IP-gated to localhost.
     path("webhooks/in/<slug:slug>/", incoming_webhook, name="webhooks_incoming"),
     path("webhooks/tick/", webhooks_tick, name="webhooks_tick"),
+    # Blog: PUBLIC reading surface at /blog/ (index, per-blog pages, permalinks,
+    # and an anonymous JSON read API). The authoring console is separate, under
+    # /smallstack/blog/. Gated per-view by SMALLSTACK_BLOG_PUBLIC_ENABLED so a
+    # disabled surface 404s rather than breaking every {% url %} that names it.
+    path("blog/", include("apps.blog.public_urls")),
+    # The author's own studio — login-gated, owner-scoped. Separate from the
+    # system blog manager under /smallstack/blog/.
+    path("my/blogs/", include("apps.blog.studio_urls")),
     # Feeds: PUBLIC RSS/Atom publish surface at /feed/<slug>.rss (+ .atom).
     # Per-feed access is enforced in the view (anonymous feeds are public;
     # authenticated/staff feeds accept a session or an API token).

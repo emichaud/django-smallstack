@@ -1,0 +1,11 @@
+{% comment %}
+Htmx fragment returned by blog_post_preview. Rendered by the SAME
+render_markdown the service stores, so this is exactly what a reader gets.
+{% endcomment %}
+<div class="blog-article" id="blog-preview-body">
+  {% if rendered.html %}
+    {{ rendered.html|safe }}
+  {% else %}
+    <p class="blog-preview-empty">Nothing to preview yet — start writing.</p>
+  {% endif %}
+</div>

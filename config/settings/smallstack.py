@@ -568,3 +568,66 @@ SMALLSTACK_APPROVALS_MAX_PENDING_PER_REQUESTER = config(
 # can authenticate as an inactive user on any surface). Blank ⇒ system writes are
 # logged to the application log only. (F-15.)
 SMALLSTACK_AUDIT_SYSTEM_USERNAME = config("SMALLSTACK_AUDIT_SYSTEM_USERNAME", default="system")
+
+
+# ---------------------------------------------------------------------------
+# Blog + newsletter (apps.blog)
+# ---------------------------------------------------------------------------
+# Master switch. Off ⇒ no nav, no console routes, no public routes, no feeds,
+# no scheduled ticks. The app stays installed (migrations apply) so turning it
+# back on never needs a schema change.
+SMALLSTACK_BLOG_ENABLED = config("SMALLSTACK_BLOG_ENABLED", default=True, cast=bool)
+
+# The anonymous reading surface at /blog/ — separately switchable, because
+# "authors draft internally, nothing is on the internet yet" is a real state.
+# Off ⇒ every public route 404s (not 403: a disabled feature should look absent).
+SMALLSTACK_BLOG_PUBLIC_ENABLED = config(
+    "SMALLSTACK_BLOG_PUBLIC_ENABLED", default=True, cast=bool
+)
+
+# Posts per page on the public blog and its archive.
+SMALLSTACK_BLOG_PAGE_SIZE = config("SMALLSTACK_BLOG_PAGE_SIZE", default=10, cast=int)
+
+# Items in a blog feed (RSS/Atom/JSON) and in the site-wide river.
+SMALLSTACK_BLOG_FEED_LIMIT = config("SMALLSTACK_BLOG_FEED_LIMIT", default=25, cast=int)
+
+# --- Newsletter sending ----------------------------------------------------
+# Recipients per batch, and batches per tick. Defaults drain 2,000 recipients a
+# minute while keeping each task well inside the lost-task reaper window (see
+# SMALLSTACK_TASKS_LOST_AFTER_SECONDS) — a batch that outlives it gets declared
+# lost and retried, which is how a send would double up.
+SMALLSTACK_BLOG_SEND_BATCH_SIZE = config("SMALLSTACK_BLOG_SEND_BATCH_SIZE", default=100, cast=int)
+SMALLSTACK_BLOG_SEND_MAX_BATCHES = config("SMALLSTACK_BLOG_SEND_MAX_BATCHES", default=20, cast=int)
+
+# A claimed delivery older than this is assumed orphaned by a dead worker and
+# returned to `pending`. Must exceed the time one batch can take.
+SMALLSTACK_BLOG_CLAIM_TIMEOUT_MINUTES = config(
+    "SMALLSTACK_BLOG_CLAIM_TIMEOUT_MINUTES", default=15, cast=int
+)
+
+# Per-delivery send attempts before giving up on a *soft* failure. Soft
+# failures never suppress the address — only hard bounces do.
+SMALLSTACK_BLOG_SEND_MAX_ATTEMPTS = config(
+    "SMALLSTACK_BLOG_SEND_MAX_ATTEMPTS", default=3, cast=int
+)
+
+# Consecutive soft failures, counted across issues and reset on any success,
+# before an address is suppressed. The prior art suppressed on the FIRST
+# exception, so one transient SMTP hiccup silently and permanently dropped a
+# good reader.
+SMALLSTACK_BLOG_SOFT_FAIL_LIMIT = config("SMALLSTACK_BLOG_SOFT_FAIL_LIMIT", default=5, cast=int)
+
+# Refuse to queue a send when the site URL resolves to localhost. A blast whose
+# unsubscribe links point at http://localhost:8000 cannot be recalled, and the
+# recipients are real people. Set False only for a deliberate local test.
+SMALLSTACK_BLOG_REQUIRE_PUBLIC_URL = config(
+    "SMALLSTACK_BLOG_REQUIRE_PUBLIC_URL", default=True, cast=bool
+)
+
+# How long an emailed confirmation link stays valid (double opt-in). The
+# unsubscribe link deliberately has NO expiry: an RFC 8058 one-click header in
+# a two-year-old email must still work.
+SMALLSTACK_BLOG_CONFIRM_MAX_AGE_DAYS = config(
+    "SMALLSTACK_BLOG_CONFIRM_MAX_AGE_DAYS", default=7, cast=int
+)
+

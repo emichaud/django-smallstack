@@ -1,0 +1,26 @@
+{% comment %}One row in a post list. `post` required.{% endcomment %}
+<li class="blog-post-card">
+  <h2>
+    <a class="blog-post-link" href="{{ post.get_absolute_url }}">{{ post.title }}</a>
+  </h2>
+  {% if post.excerpt %}<p class="blog-post-excerpt">{{ post.excerpt }}</p>{% endif %}
+  <div class="blog-post-meta">
+    {% if post.published_at %}
+      <time datetime="{{ post.published_at|date:'c' }}">{{ post.published_at|date:"j M Y" }}</time>
+    {% else %}
+      <span>Unpublished</span>
+    {% endif %}
+    {% if show_blog and post.blog %}
+      <span aria-hidden="true">&middot;</span>
+      <a href="{{ post.blog.get_absolute_url }}">{{ post.blog.name }}</a>
+    {% endif %}
+    {% if post.tags.all %}
+      <span aria-hidden="true">&middot;</span>
+      <span class="blog-tag-chips">
+        {% for tag in post.tags.all %}
+          <a class="blog-tag-chip" href="{% url 'blog:tag' post.blog.slug tag.slug %}">{{ tag.name }}</a>
+        {% endfor %}
+      </span>
+    {% endif %}
+  </div>
+</li>

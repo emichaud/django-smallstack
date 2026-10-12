@@ -52,10 +52,10 @@
         {% endcomment %}
         <div class="rb-actions-row">
             {% if can_edit and document.is_markdown %}
-            <a href="{% url 'runbook:document_edit_content' document.pk %}" class="btn-primary">Edit Content</a>
+            <a href="{% url 'runbook:document_edit_content' document.pk %}" class="btn-primary">Edit content</a>
             {% endif %}
             {% if can_edit %}
-            <button type="button" class="btn-secondary" onclick="openFormModal('Edit Details', 'edit-details-source')">Edit Details</button>
+            <button type="button" class="btn-secondary" onclick="openFormModal('Edit Details', 'edit-details-source')">Edit details</button>
             {% endif %}
             <a href="{% url 'runbook:document_versions' document.pk %}" class="btn-secondary">Versions ({{ document.version }})</a>
             <button type="button" class="btn-secondary"
@@ -107,7 +107,7 @@
     {% if rendered.toc %}
     <!-- Table of Contents sidebar -->
     <div class="runbook-toc-sidebar card" style="position: sticky; top: 80px; align-self: start;">
-        <div class="card-header"><h3 style="margin: 0; font-size: 0.9rem;">On This Page</h3></div>
+        <div class="card-header"><h3 style="margin: 0; font-size: 0.9rem;">On this page</h3></div>
         <div class="card-body" style="font-size: 0.85rem;">
             {{ rendered.toc|safe }}
         </div>
@@ -204,7 +204,7 @@
                 <div class="crud-help">Uploading a file saves it as a new version.</div>
             </div>
             <div class="crud-actions">
-                <button type="submit" class="btn-save">Save Changes</button>
+                <button type="submit" class="btn-save">Save</button>
                 <button type="button" class="btn-cancel" onclick="closeStatModal()">Cancel</button>
             </div>
         </form>
@@ -212,7 +212,7 @@
               onsubmit="return confirm('Delete “{{ document.title|escapejs }}”? This cannot be undone.');"
               style="margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--card-border);">
             {% csrf_token %}
-            <button type="submit" class="btn-danger">Delete Document</button>
+            <button type="submit" class="btn-danger">Delete document</button>
         </form>
     </div>
 </div>

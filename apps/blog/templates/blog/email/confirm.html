@@ -1,0 +1,30 @@
+{% extends "email/base_email.html" %}
+{% block subject %}Confirm your subscription to {{ blog.name }}{% endblock %}
+{% block content %}
+<p style="margin:0 0 16px;">Hello,</p>
+<p style="margin:0 0 16px;">
+  Someone — we hope you — asked to receive <strong>{{ blog.name }}</strong> by email.
+  Confirm it and you'll get new posts as they're published.
+</p>
+<table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 0 24px;">
+  <tr>
+    <td style="background:{{ brand_accent }}; border-radius:6px;">
+      <a href="{{ confirm_url }}"
+         style="display:inline-block; padding:13px 28px; color:#ffffff; text-decoration:none; font-size:15px; font-weight:600;">
+        Confirm subscription
+      </a>
+    </td>
+  </tr>
+</table>
+<p style="margin:0 0 16px; color:#5c636b; font-size:13px;">
+  Or paste this into your browser:<br>
+  <span style="word-break:break-all;">{{ confirm_url }}</span>
+</p>
+<p style="margin:0; color:#8a9099; font-size:13px;">
+  Didn't sign up? Ignore this email — nothing will be sent to you, and this
+  link expires on its own.
+</p>
+{% endblock %}
+{% block footer %}
+<a href="{{ blog_url }}" style="color:#8a9099;">{{ blog.name }}</a> &middot; &copy; {% now "Y" %} {{ brand_name }}
+{% endblock %}

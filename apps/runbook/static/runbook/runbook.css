@@ -121,7 +121,7 @@ body.runbook-focus-mode .runbook-layout {
     left: 3px;
     width: 21px;
     height: 21px;
-    background: #fff;
+    background: var(--button-fg);
     border-radius: 50%;
     box-shadow: 0 1px 4px rgba(0, 0, 0, 0.55);
     transition: transform 0.18s ease;

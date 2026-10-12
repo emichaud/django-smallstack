@@ -1,0 +1,27 @@
+{% extends "blog/public/base.html" %}
+{% block title %}Newsletter archive | {{ blog.name }}{% endblock %}
+{% block site_nav %}
+<a href="{{ blog.get_absolute_url }}">{{ blog.name }}</a>
+{% if blog.newsletter_enabled %}<a href="{% url 'blog:subscribe' blog.slug %}">Subscribe</a>{% endif %}
+{% endblock %}
+{% block content %}
+<h1 class="blog-page-title">Newsletter archive</h1>
+<p class="blog-page-tagline">Every issue of {{ blog.name }} that has been sent.</p>
+
+{% if issues %}
+<ul class="blog-post-list">
+  {% for issue in issues %}
+  <li class="blog-post-card">
+    <h2><a class="blog-post-link"
+           href="{% url 'blog:newsletter_issue' blog.slug issue.uid %}">{{ issue.subject }}</a></h2>
+    {% if issue.preheader %}<p class="blog-post-excerpt">{{ issue.preheader }}</p>{% endif %}
+    <div class="blog-post-meta">
+      <time datetime="{{ issue.finished_at|date:'c' }}">{{ issue.finished_at|date:"j M Y" }}</time>
+    </div>
+  </li>
+  {% endfor %}
+</ul>
+{% else %}
+<p class="blog-empty">No issues have been sent yet.</p>
+{% endif %}
+{% endblock %}

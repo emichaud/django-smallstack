@@ -1,0 +1,86 @@
+{% extends "smallstack/crud/object_detail.html" %}
+{% load static %}
+
+{% comment %}
+Adds the send controls and the delivery progress to the framework detail page.
+Every control is a POST; sending is the one action in this app that reaches
+real people and cannot be undone, so nothing here is a link.
+{% endcomment %}
+
+{% block extra_css %}{{ block.super }}
+<link rel="stylesheet" href="{% static 'blog/blog.css' %}">
+{% endblock %}
+
+{% block content %}
+{{ block.super }}
+
+{% if can_edit_object %}
+<div class="card" style="margin-top: 16px;">
+  <div class="card-header"><h2>Sending</h2></div>
+  <div class="card-body">
+
+    {% if object.status == "draft" or object.status == "scheduled" %}
+      <p style="margin: 0 0 14px; color: var(--body-quiet-color); font-size: 0.88rem;">
+        Not sent yet. Send yourself a test copy first — it is the only way to
+        catch a rendering or header problem before subscribers see it.
+      </p>
+
+      <form method="post" action="{% url 'blog_issue_test' object.pk %}"
+            style="display: flex; gap: 6px; align-items: center; margin: 0 0 16px;">
+        {% csrf_token %}
+        <label for="issue-test-to" class="sr-only">Send a test copy to</label>
+        <input type="email" id="issue-test-to" name="to" class="vTextField"
+               placeholder="you@example.com" value="{{ user.email }}" style="max-width: 280px;">
+        <button type="submit" class="btn-outline">Send test copy</button>
+      </form>
+
+      <form method="post" action="{% url 'blog_issue_queue' object.pk %}" style="margin: 0;"
+            onsubmit="return confirm('Send “{{ object.subject|escapejs }}” to every confirmed subscriber? This cannot be undone.');">
+        {% csrf_token %}
+        <button type="submit" class="btn-primary">Send to subscribers</button>
+      </form>
+
+    {% elif object.status == "sending" %}
+      <p style="margin: 0 0 12px;">
+        Sending — {{ object.sent_count }} of {{ object.recipient_count }} delivered.
+      </p>
+      {% comment %}A plain meter: no hard-coded colour, and it degrades to a
+      readable number if the element is unsupported.{% endcomment %}
+      <div style="height: 8px; background: var(--card-header-bg); border-radius: 999px; overflow: hidden; margin-bottom: 14px;">
+        <div style="height: 100%; width: {{ object.progress_percent }}%; background: var(--primary);"></div>
+      </div>
+      <form method="post" action="{% url 'blog_issue_cancel' object.pk %}" style="margin: 0;"
+            onsubmit="return confirm('Stop this send? Copies already delivered cannot be recalled.');">
+        {% csrf_token %}
+        <button type="submit" class="btn-outline">Stop sending</button>
+      </form>
+
+    {% else %}
+      <p style="margin: 0 0 14px;">
+        {{ object.get_status_display }}
+        {% if object.finished_at %}on {{ object.finished_at }}{% endif %}
+        — {{ object.sent_count }} delivered{% if object.failed_count %},
+        <span style="color: var(--error-fg);">{{ object.failed_count }} failed</span>{% endif %}.
+      </p>
+      {% if object.failed_count %}
+      <form method="post" action="{% url 'blog_issue_retry' object.pk %}" style="margin: 0;">
+        {% csrf_token %}
+        <button type="submit" class="btn-outline">Retry failed deliveries</button>
+      </form>
+      {% endif %}
+    {% endif %}
+
+  </div>
+</div>
+{% endif %}
+
+{% if object.body_html %}
+<div class="card" style="margin-top: 16px;">
+  <div class="card-header"><h2>What subscribers received</h2></div>
+  <div class="card-body">
+    {% comment %}The frozen snapshot, written only by the hardened renderer.{% endcomment %}
+    <div class="blog-article">{{ object.body_html|safe }}</div>
+  </div>
+</div>
+{% endif %}
+{% endblock %}

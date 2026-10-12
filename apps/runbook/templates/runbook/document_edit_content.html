@@ -12,7 +12,7 @@
 {% block page_header %}
 <div class="page-header-bleed page-header-with-actions">
     <div class="page-header-content">
-        <h1>Edit Content</h1>
+        <h1>Edit content</h1>
         <p class="page-subtitle">{{ document.title }} &middot; v{{ document.version }}</p>
         <nav style="margin-top: 0.5rem; font-size: 0.8rem;">
             <a href="{% url 'runbook:dashboard' %}" style="color: var(--body-quiet-color); text-decoration: none;">Runbooks</a>
@@ -23,7 +23,7 @@
             {% endif %}
             <a href="{% url 'runbook:document_detail' document.pk %}" style="color: var(--body-quiet-color); text-decoration: none;">{{ document.title }}</a>
             <span style="color: var(--body-quiet-color); margin: 0 0.3rem;">/</span>
-            <span style="color: var(--body-fg);">Edit Content</span>
+            <span style="color: var(--body-fg);">Edit content</span>
         </nav>
     </div>
     <div class="page-header-actions" style="display: flex; align-items: center; gap: 0.5rem;">

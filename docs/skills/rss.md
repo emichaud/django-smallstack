@@ -20,6 +20,31 @@ no-ops). The consume side stores into a bundled `CollectedItem` model — run
 
 ## Publish — "expose a model as a feed"
 
+> ### ⚠ `enable_rss` publishes the WHOLE table
+>
+> `ModelFeed.items()` is `model.objects.all().order_by(...)[:limit]`. It does
+> **not** call `get_list_queryset`, `get_detail_queryset` or
+> `search_visibility`, and there is no `rss_queryset` hook — so the flag
+> publishes every row, including drafts, unpublished records and other
+> tenants' data, at whatever `rss_access` allows.
+>
+> That is fine for what it was built for: a changelog, a status feed, a
+> genuinely public list. It is **not** safe on a model with a publication
+> state or per-user scoping. `CRUDView._registry` is first-wins per model, so
+> you also cannot register a second, published-only CRUDView to work around
+> it.
+>
+> For anything scoped, write a curated `Feed` subclass instead and build its
+> queryset from your own permission helpers. `apps/blog/feeds.py` is the
+> worked example: a site-wide feed registered at `ready()`, plus per-blog
+> feeds constructed per request (blogs are created at runtime, and the
+> registry is a static slug map), both rendered through
+> `apps.feeds.render.render_feed` so there is still one XML code path.
+>
+> If you serve a feed from your own view rather than `/feed/<slug>`, check
+> `SMALLSTACK_FEEDS_ENABLED` yourself — it is enforced inside
+> `apps/feeds/views.py`, not in the renderer.
+
 ### The one-liner (model-backed)
 
 Flip `enable_rss` on a CRUDView. The feed appears at `/feed/<slug>.rss` and

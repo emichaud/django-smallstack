@@ -1,0 +1,13 @@
+{% comment %}List / cards toggle. studio.js applies the choice to every
+.studio-list on the page and remembers it per viewer; ?view=cards|list wins
+for one request.{% endcomment %}
+<div class="studio-viewswitch" role="group" aria-label="Layout">
+  <button type="button" class="studio-viewswitch-btn" data-view="list" aria-pressed="true" title="List">
+    <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true"><path d="M3 5h18v2H3zm0 6h18v2H3zm0 6h18v2H3z"/></svg>
+    <span>List</span>
+  </button>
+  <button type="button" class="studio-viewswitch-btn" data-view="cards" aria-pressed="false" title="Cards">
+    <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true"><path d="M3 3h8v8H3zm10 0h8v8h-8zM3 13h8v8H3zm10 0h8v8h-8z"/></svg>
+    <span>Cards</span>
+  </button>
+</div>

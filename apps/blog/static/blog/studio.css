@@ -1,0 +1,238 @@
+/* The writing studio at /my/blogs/.
+ *
+ * One elevated surface — the editor sheet. Everything else sits flat on the
+ * canvas and is quiet. Colour appears only where it means something:
+ * --primary on the publish action, --success-fg for live, --warning-fg for
+ * scheduled. Every value is a theme variable; nothing here is a hex literal.
+ */
+
+.studio-page { max-width: 1120px; margin: 0 auto; }
+.studio-page--narrow { max-width: 620px; margin-left: 0; }
+
+.studio-head {
+    display: flex; align-items: flex-start; justify-content: space-between; gap: 16px;
+    margin-bottom: 28px;
+}
+.studio-h1 { margin: 0 0 4px; font-size: 1.6rem; font-weight: 650; letter-spacing: -0.015em; line-height: 1.2; }
+.studio-h2 { margin: 36px 0 10px; font-size: 1rem; font-weight: 600; color: var(--body-fg); }
+.studio-lede { margin: 0; color: var(--body-quiet-color); font-size: 0.92rem; }
+.studio-lede a, .studio-link { color: var(--link-color); text-decoration: none; }
+.studio-lede a:hover, .studio-link:hover { text-decoration: underline; }
+
+/* --- lists --------------------------------------------------------------- */
+
+.studio-section { margin-bottom: 8px; }
+
+.studio-bloglist, .studio-list { list-style: none; margin: 0; padding: 0; }
+
+.studio-blog {
+    display: flex; align-items: center; justify-content: space-between; gap: 16px;
+    padding: 14px 0; border-bottom: 1px solid var(--card-border);
+}
+.studio-blog-name { font-size: 1.08rem; font-weight: 600; color: var(--body-fg); text-decoration: none; }
+.studio-blog-name:hover { color: var(--primary); }
+.studio-blog-sub { margin: 2px 0 0; color: var(--body-quiet-color); font-size: 0.85rem; }
+
+.studio-row {
+    display: flex; align-items: baseline; justify-content: space-between; gap: 16px;
+    padding: 10px 0; border-bottom: 1px solid var(--card-border);
+}
+.studio-row-title { flex: 1 1 auto; min-width: 0; color: var(--body-fg); font-weight: 500; text-decoration: none;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.studio-row-title:hover { color: var(--primary); }
+.studio-row-meta { flex: 0 0 auto; display: flex; gap: 10px; color: var(--text-muted); font-size: 0.8rem; white-space: nowrap; }
+
+.studio-status { color: var(--body-quiet-color); font-size: 0.8rem; font-weight: 600; }
+.studio-status--live { color: var(--success-fg); }
+.studio-status--scheduled { color: var(--warning-fg); }
+
+.studio-filters { display: flex; flex-wrap: wrap; gap: 4px 18px; margin-bottom: 6px; font-size: 0.88rem; }
+.studio-filters a { color: var(--body-quiet-color); text-decoration: none; padding: 6px 0; border-bottom: 2px solid transparent; }
+.studio-filters a[aria-current="page"] { color: var(--body-fg); border-bottom-color: var(--primary); }
+.studio-filters a:hover { color: var(--body-fg); }
+
+.studio-empty { padding: 40px 32px; }
+.studio-empty h2 { margin: 0 0 8px; font-size: 1.2rem; }
+.studio-empty p { margin: 0 0 20px; color: var(--body-quiet-color); max-width: 48ch; }
+.studio-empty--quiet { padding: 32px 0; color: var(--body-quiet-color); }
+.studio-empty--quiet p { margin: 0; }
+
+/* --- forms ---------------------------------------------------------------- */
+
+.studio-form { max-width: 620px; }
+.studio-field { margin-bottom: 16px; }
+.studio-label { display: block; margin-bottom: 5px; font-size: 0.84rem; font-weight: 600; color: var(--body-fg); }
+.studio-help { margin: 6px 0 0; color: var(--text-muted); font-size: 0.8rem; line-height: 1.5; }
+.studio-help--lead { margin: 0 0 18px; max-width: 60ch; font-size: 0.86rem; color: var(--body-quiet-color); }
+.studio-help a { color: var(--link-color); }
+.studio-error { margin: 6px 0 0; color: var(--error-fg); font-size: 0.82rem; }
+
+.studio-input, .studio-textarea {
+    width: 100%; box-sizing: border-box; padding: 8px 10px;
+    color: var(--body-fg); background: var(--input-bg);
+    border: 1px solid var(--input-border); border-radius: 6px; font: inherit; font-size: 0.92rem;
+}
+.studio-input:focus, .studio-textarea:focus { outline: none; border-color: var(--input-focus-border); }
+.studio-textarea { line-height: 1.5; resize: vertical; }
+.has-error .studio-input { border-color: var(--error-fg); }
+
+.studio-check { display: flex; align-items: center; gap: 8px; font-size: 0.9rem; cursor: pointer; }
+.studio-radios { display: grid; gap: 6px; }
+.studio-radio { display: flex; align-items: center; gap: 8px; font-size: 0.9rem; cursor: pointer; }
+.studio-actions { display: flex; align-items: center; gap: 16px; margin-top: 22px; }
+.studio-inline { display: flex; gap: 6px; }
+.studio-inline .studio-input { flex: 1 1 auto; }
+
+/* --- the editor ------------------------------------------------------------ */
+
+.studio-bar {
+    position: sticky; top: 0; z-index: 5;
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    padding: 10px 0 12px; margin-bottom: 16px;
+    background: var(--body-bg);
+    border-bottom: 1px solid var(--card-border);
+}
+.studio-bar-left, .studio-bar-right { display: flex; align-items: center; gap: 14px; min-width: 0; }
+.studio-bar-count { color: var(--text-muted); font-size: 0.8rem; }
+.studio-bar-right { gap: 8px; }
+
+.studio-grid { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 28px; align-items: start; }
+
+.studio-sheet {
+    padding: 26px 30px 30px;
+    background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 10px;
+}
+
+/* `.studio-sheet input.studio-title` on purpose: the shell styles
+ * input[type="text"] at (0,1,1), which outranks a lone class — the title
+ * came out as a bordered box until this was made more specific. */
+.studio-sheet input.studio-title {
+    display: block; width: 100%; box-sizing: border-box; margin: 0 0 6px; padding: 2px 0;
+    font: inherit; font-size: 1.75rem; font-weight: 600; letter-spacing: -0.015em; line-height: 1.25;
+    color: var(--body-fg); background: transparent; border: 0;
+}
+.studio-sheet input.studio-title::placeholder { color: var(--text-muted); }
+.studio-sheet input.studio-title:focus { outline: none; }
+.studio-sheet input.studio-title:focus-visible { box-shadow: inset 0 -2px 0 var(--primary); }
+
+.studio-address {
+    display: flex; align-items: center; gap: 2px; margin-bottom: 18px;
+    color: var(--text-muted); font-size: 0.8rem; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+.studio-address input.studio-input, .studio-address input {
+    flex: 0 1 auto; width: 32ch; max-width: 100%; height: auto; border-radius: 0; padding: 0 2px; font: inherit; color: var(--body-quiet-color);
+    background: transparent; border: 0; border-bottom: 1px dashed var(--card-border);
+}
+.studio-address input:focus { outline: none; border-bottom-color: var(--primary); }
+
+textarea.studio-body {
+    display: block; width: 100%; box-sizing: border-box; min-height: 58vh; padding: 0;
+    color: var(--body-fg); background: transparent; border: 0; resize: vertical;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 0.95rem; line-height: 1.7;
+}
+textarea.studio-body:focus { outline: none; }
+textarea.studio-body::placeholder { color: var(--text-muted); }
+
+/* blog.js injects its toolbar and preview pane around the textarea; keep the
+ * toolbar quiet inside the sheet and let the preview take the sheet's width. */
+.studio-sheet .blog-editor-toolbar { margin: 0 0 12px; }
+.studio-sheet .blog-preview-pane { max-height: none; }
+.studio-sheet .blog-preview-label { text-transform: none; letter-spacing: 0; font-weight: 600; }
+/* The textarea placeholder already says this. */
+.studio-sheet .blog-editor-hint { display: none; }
+
+.studio-rail { position: sticky; top: 64px; }
+.studio-panel { padding: 0 0 18px; margin-bottom: 18px; border-bottom: 1px solid var(--card-border); }
+.studio-panel:last-child { border-bottom: 0; }
+.studio-panel-h { margin: 0 0 8px; font-size: 0.86rem; font-weight: 600; }
+.studio-panel-p { margin: 0 0 12px; color: var(--body-quiet-color); font-size: 0.86rem; line-height: 1.5; }
+.studio-panel-p a { color: var(--link-color); }
+.studio-panel .studio-field { margin-bottom: 12px; }
+
+.studio-link--button { background: none; border: 0; padding: 0; margin-top: 10px; font: inherit; font-size: 0.84rem; cursor: pointer; }
+.studio-link--danger { color: var(--error-fg); }
+.studio-danger { margin-top: 28px; padding-top: 16px; border-top: 1px solid var(--card-border); }
+
+@media (max-width: 1000px) {
+    .studio-grid { grid-template-columns: 1fr; }
+    .studio-rail { position: static; }
+    textarea.studio-body { min-height: 40vh; }
+}
+@media (max-width: 640px) {
+    .studio-sheet { padding: 18px 16px; }
+    .studio-sheet input.studio-title { font-size: 1.4rem; }
+    .studio-row { flex-direction: column; align-items: flex-start; gap: 4px; }
+    .studio-row-title { white-space: normal; }
+}
+@media (prefers-reduced-motion: no-preference) {
+    .studio-filters a, .studio-row-title, .studio-blog-name { transition: color 120ms; }
+}
+
+
+/* --- view switcher + card mode -------------------------------------------- */
+
+.studio-head-actions { display: flex; align-items: center; gap: 10px; flex: 0 0 auto; }
+
+.studio-viewswitch { display: inline-flex; border: 1px solid var(--card-border); border-radius: 6px; overflow: hidden; }
+.studio-viewswitch-btn {
+    display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px;
+    font: inherit; font-size: 0.8rem; color: var(--body-quiet-color);
+    background: var(--card-bg); border: 0; cursor: pointer;
+}
+.studio-viewswitch-btn + .studio-viewswitch-btn { border-left: 1px solid var(--card-border); }
+.studio-viewswitch-btn[aria-pressed="true"] { color: var(--body-fg); background: var(--accent-band-bg); }
+.studio-viewswitch-btn:focus-visible { outline: 2px solid var(--primary); outline-offset: -2px; }
+
+/* Rows hide the excerpt; cards show it. Same markup either way. */
+.studio-row-excerpt { display: none; }
+
+.studio-list.is-cards {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px;
+    margin-top: 4px;
+}
+.studio-list.is-cards .studio-row {
+    display: flex; flex-direction: column; align-items: stretch; gap: 8px; min-height: 120px;
+    padding: 16px 18px; background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 10px;
+}
+.studio-list.is-cards .studio-row-title { white-space: normal; font-size: 1.02rem; font-weight: 600; line-height: 1.3; }
+.studio-list.is-cards .studio-row-excerpt {
+    display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
+    margin: 0; color: var(--body-quiet-color); font-size: 0.86rem; line-height: 1.5; flex: 1 1 auto;
+}
+.studio-list.is-cards .studio-row-meta { white-space: normal; flex-wrap: wrap; gap: 6px 10px; margin-top: auto; }
+
+/* The themed date picker inside the rail (framework classes, studio sizing). */
+.studio-date { flex: 1 1 auto; }
+.studio-date .studio-input { width: 100%; }
+
+/* Cover image on cards. Rows never show it. */
+.studio-row-cover { display: none; }
+.studio-list.is-cards .studio-row.has-cover { padding-top: 0; overflow: hidden; }
+.studio-list.is-cards .studio-row-cover {
+    display: block; margin: 0 -18px 10px; aspect-ratio: 16 / 9; background: var(--card-header-bg);
+}
+.studio-list.is-cards .studio-row-cover img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+/* --- cover image input ----------------------------------------------------- */
+
+.studio-cover-frame {
+    position: relative; aspect-ratio: 16 / 9; overflow: hidden; margin-bottom: 8px;
+    background: var(--card-header-bg); border: 1px solid var(--card-border); border-radius: 8px;
+}
+.studio-cover-img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.studio-cover-frame.is-empty .studio-cover-img { display: none; }
+.studio-cover-empty { display: none; position: absolute; inset: 0; align-items: center; justify-content: center;
+    color: var(--text-muted); font-size: 0.82rem; }
+.studio-cover-frame.is-empty .studio-cover-empty { display: flex; }
+.studio-cover-frame.is-removing .studio-cover-img { opacity: 0.25; }
+
+.studio-cover-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; }
+.studio-cover-pick { cursor: pointer; }
+.studio-cover-pick:focus-within { outline: 2px solid var(--primary); outline-offset: 2px; }
+.studio-cover-remove { display: inline-flex; align-items: center; gap: 6px; font-size: 0.84rem; color: var(--body-quiet-color); cursor: pointer; }
+.studio-cover-filename { flex-basis: 100%; color: var(--text-muted); font-size: 0.78rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Stat cards on the dashboard — the {% stat_card %} standard, not a sentence. */
+.studio-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 28px; }
+.page-header-bleed .studio-head-actions { align-self: center; }

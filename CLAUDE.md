@@ -28,6 +28,7 @@ When the user asks you to do any of these, read the matching skill file BEFORE w
 | **Any integration work** (Zapier/n8n/Slack/Stripe/GitHub/Azure, or SmallStack↔SmallStack) — read this FIRST | `docs/skills/webhooks.md` |
 | Notify an external system when a model changes — **outbound webhooks** (`enable_webhooks = True`); shape the payload with `@webhook_transform` | `docs/skills/webhooks.md` |
 | Receive/verify an inbound webhook (`@webhook_handler`; provider signatures via `@webhook_verifier`, handshakes via `@webhook_challenge`) | `docs/skills/webhooks.md` |
+| **Build a blog or a newsletter** — markdown posts, per-blog feeds, double-opt-in email, runbook→blog publishing | `docs/skills/blog.md` |
 | **Publish a model as an RSS/Atom feed** (`enable_rss = True`) or a curated `Feed`; enclosures/podcasts via `rss_item_extra` | `docs/skills/rss.md` |
 | **Consume an external RSS/Atom feed** into a model on a schedule (`register_feed_source`, the collector) | `docs/skills/rss.md` |
 | Expose a model to AI clients via MCP | `docs/skills/mcp/build-mcp-solution.md` |
@@ -47,6 +48,8 @@ A small-footprint Django foundation for shipping four kinds of apps from one cod
 - **API servers** — REST emitted from CRUDViews; OpenAPI 3.0.3 schema; Swagger UI at `/api/docs/`; ReDoc at `/api/redoc/`
 - **MCP servers** — JSON-RPC + OAuth 2.0 + PKCE at `/mcp`; Claude Desktop and Claude.ai Connectors UI work without setup
 - **Webhooks** — a foundational integration surface: outbound signed delivery (`enable_webhooks = True`) + inbound receivers (`@webhook_handler`), **four extension seams** (`@webhook_transform`/`@webhook_auth`/`@webhook_verifier`/`@webhook_challenge`) that make Zapier/n8n/Stripe/Slack/Event Grid plug-ins, first-class **SmallStack↔SmallStack** pairing (`sc webhook pair`, loop-safe), stable `event_id` dedupe, `Retry-After` + bulk dead-letter replay; `webhook_doctor`, `sc webhook`
+
+- **Blogs + newsletters** — per-user blog channels of markdown posts (`apps/blog/`): a three-tier visibility ladder (private / members / public), scheduled publishing, per-blog RSS/Atom/JSON feeds, an anonymous JSON read API, and a newsletter with double opt-in and a durable resumable sender. Runbook documents publish into a blog and can stay in sync.
 
 - **Human-in-the-loop approvals** — a generic side-car gate (`apps/approvals/`): apps or AI agents file an `ApprovalRequest` (`@approval_kind` + `request_approval()`), a human decides in the themed console (or the `{% approval_card %}` embed), and the app reacts via per-kind callback, signal, webhook event, or polling. Fan-out to in-app notifications (`apps/notifications/`: topbar bell + inbox) and branded email.
 
@@ -81,6 +84,7 @@ All custom apps in `apps/`, registered as `apps.<name>`:
 - `apps/tokenmgr/` — Self-service API token UI at `/smallstack/tokens/`
 - `apps/usermanager/` — User CRUD at `/smallstack/manage/users/`
 - `apps/webhooks/` — Outbound event delivery (`enable_webhooks`) + inbound receivers (`@webhook_handler`) at `/smallstack/webhooks/`
+- `apps/blog/` — Blogs + newsletters (label: `smallstack_blog`); console at `/smallstack/blog/`, public reading at `/blog/`
 - `apps/website/` — Project-specific pages — **edit freely** (the others are framework-provided)
 
 Settings split in `config/settings/`:

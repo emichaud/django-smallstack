@@ -1,0 +1,38 @@
+{% extends "blog/public/base.html" %}
+{% block title %}Subscribe | {{ blog.name }}{% endblock %}
+{% block site_nav %}<a href="{{ blog.get_absolute_url }}">{{ blog.name }}</a>{% endblock %}
+{% block content %}
+<h1 class="blog-page-title">Subscribe</h1>
+<p class="blog-page-tagline">
+  Get <a href="{{ blog.get_absolute_url }}">{{ blog.name }}</a> by email when something new is published.
+</p>
+
+{% if error %}<p class="blog-notice blog-notice-draft">{{ error }}</p>{% endif %}
+
+<form method="post" class="blog-subscribe-form">
+  {% csrf_token %}
+  <div class="blog-field">
+    <label for="sub-email">Email address</label>
+    <input type="email" id="sub-email" name="email" value="{{ email }}" required autocomplete="email">
+  </div>
+  <div class="blog-field">
+    <label for="sub-name">Name <span class="blog-optional">(optional)</span></label>
+    <input type="text" id="sub-name" name="name" autocomplete="name">
+  </div>
+
+  {% comment %}Honeypot: hidden from people, irresistible to naive bots.
+  aria-hidden + tabindex keep it out of the screen-reader and tab order.{% endcomment %}
+  <div class="blog-hp" aria-hidden="true">
+    <label for="sub-website">Website</label>
+    <input type="text" id="sub-website" name="website" tabindex="-1" autocomplete="off">
+  </div>
+
+  <button type="submit" class="btn-primary">Subscribe</button>
+</form>
+
+<p class="blog-fineprint">
+  We'll email you a confirmation link first — you're not subscribed until you
+  click it. Every issue has a one-click unsubscribe, and we never share your
+  address.
+</p>
+{% endblock %}

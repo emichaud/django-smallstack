@@ -1,0 +1,34 @@
+{% extends "blog/public/base.html" %}
+
+{% block title %}Blogs | {{ brand.name }}{% endblock %}
+{% block meta_description %}Writing from {{ brand.name }}.{% endblock %}
+
+{% block content %}
+<h1 class="blog-page-title">Blogs</h1>
+<p class="blog-page-tagline">Writing from {{ brand.name }}.</p>
+
+{% if blogs %}
+<div class="blog-channel-grid">
+  {% for blog in blogs %}
+  <a class="blog-channel-card" href="{{ blog.get_absolute_url }}">
+    <h2>{{ blog.name }}</h2>
+    {% if blog.tagline %}<p>{{ blog.tagline }}</p>{% endif %}
+    <span class="blog-channel-count">
+      {{ blog.post_count }} post{{ blog.post_count|pluralize }}
+    </span>
+  </a>
+  {% endfor %}
+</div>
+{% else %}
+<p class="blog-empty">No blogs have been published yet.</p>
+{% endif %}
+
+{% if recent_posts %}
+<h2 class="blog-section-label">Latest</h2>
+<ul class="blog-post-list">
+  {% for post in recent_posts %}
+    {% include "blog/public/_post_card.html" with post=post show_blog=True %}
+  {% endfor %}
+</ul>
+{% endif %}
+{% endblock %}

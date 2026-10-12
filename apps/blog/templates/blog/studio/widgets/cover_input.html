@@ -1,0 +1,25 @@
+{% comment %}
+Replaces Django's ClearableFileInput rendering ("Currently: <url> / Clear /
+Change") for the cover image. Same field names and semantics — the clear
+checkbox is still `<name>-clear` — so the form and the service see no
+difference; only the person does.
+{% endcomment %}
+<div class="studio-cover" data-cover-input>
+  <div class="studio-cover-frame{% if not widget.is_initial %} is-empty{% endif %}">
+    <img class="studio-cover-img" {% if widget.is_initial %}src="{{ widget.value.url }}"{% endif %} alt="" data-cover-preview>
+    <span class="studio-cover-empty" data-cover-empty>No cover yet</span>
+  </div>
+  <div class="studio-cover-actions">
+    <label class="btn-outline btn-sm studio-cover-pick">
+      <span data-cover-pick-label>{% if widget.is_initial %}Replace{% else %}Choose image{% endif %}</span>
+      <input type="{{ widget.type }}" name="{{ widget.name }}"{% include "django/forms/widgets/attrs.html" %} class="sr-only" data-cover-file>
+    </label>
+    {% if widget.is_initial and not widget.required %}
+    <label class="studio-cover-remove">
+      <input type="checkbox" name="{{ widget.checkbox_name }}" id="{{ widget.checkbox_id }}" data-cover-clear>
+      <span>Remove</span>
+    </label>
+    {% endif %}
+    <span class="studio-cover-filename" data-cover-filename aria-live="polite"></span>
+  </div>
+</div>

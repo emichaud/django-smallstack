@@ -107,7 +107,7 @@ class HelpSectionTocView(TemplateView):
         context["current_section"] = section_slug
         context["grouped_pages"] = grouped_pages
         context["total_pages"] = total_pages
-        context["page_title"] = f"{section.get('title', 'Documentation')} — Table of Contents"
+        context["page_title"] = f"{section.get('title', 'Documentation')} — Table of contents"
         return context
 
 

@@ -1,0 +1,9 @@
+You're in.
+
+You'll receive {{ blog.name }}{% if blog.tagline %} — {{ blog.tagline }}{% endif %}
+whenever something new is published.
+
+Read the archive: {{ blog_url }}
+
+Changed your mind? Unsubscribe at any time:
+{{ unsubscribe_url }}

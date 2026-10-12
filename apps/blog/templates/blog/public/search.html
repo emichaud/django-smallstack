@@ -1,0 +1,32 @@
+{% extends "blog/public/base.html" %}
+
+{% block title %}Search | {{ blog.name }}{% endblock %}
+
+{% block site_nav %}
+<a href="{{ blog.get_absolute_url }}">{{ blog.name }}</a>
+<a href="{% url 'blog:archive' blog.slug %}">Archive</a>
+{% endblock %}
+
+{% block content %}
+<h1 class="blog-page-title">Search</h1>
+<p class="blog-page-tagline">Find a post on <a href="{{ blog.get_absolute_url }}">{{ blog.name }}</a>.</p>
+
+<form class="blog-search-form" method="get" role="search">
+  <label class="sr-only" for="blog-q">Search this blog</label>
+  <input type="search" id="blog-q" name="q" value="{{ query }}" placeholder="Search posts…" autofocus>
+  <button type="submit" class="btn-primary">Search</button>
+</form>
+
+{% if query %}
+  {% if posts %}
+  <p class="blog-section-label">{{ posts|length }} result{{ posts|length|pluralize }}</p>
+  <ul class="blog-post-list">
+    {% for post in posts %}
+      {% include "blog/public/_post_card.html" with post=post %}
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p class="blog-empty">Nothing matched “{{ query }}”.</p>
+  {% endif %}
+{% endif %}
+{% endblock %}

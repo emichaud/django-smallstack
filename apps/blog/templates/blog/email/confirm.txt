@@ -1,0 +1,12 @@
+Hello,
+
+Someone — we hope you — asked to receive {{ blog.name }} by email.
+Confirm it and you'll get new posts as they're published.
+
+Confirm here:
+{{ confirm_url }}
+
+Didn't sign up? Ignore this email. Nothing will be sent to you, and this
+link expires on its own.
+
+{{ blog.name }} — {{ blog_url }}

@@ -1,0 +1,39 @@
+{% extends "blog/studio/base.html" %}
+{% load theme_tags %}
+{% block title %}New blog{% endblock %}
+{% block breadcrumbs %}{% endblock %}
+{% block page_header %}
+<div class="page-header-bleed page-header-with-actions" style="display: flex; align-items: flex-start; justify-content: space-between; gap: 16px;">
+  <div class="page-header-content">
+    <h1>New blog</h1>
+    <p class="page-subtitle">A place to publish into. Name it and decide who can read it.</p>
+    <nav style="margin-top: 0.5rem; font-size: 0.8rem;" aria-label="Breadcrumb">
+      <a href="{% url 'website:home' %}" style="color: var(--body-quiet-color); text-decoration: none;">Home</a>
+      <span style="color: var(--body-quiet-color); margin: 0 0.3rem;">/</span>
+      <a href="{% url 'myblogs:dashboard' %}" style="color: var(--body-quiet-color); text-decoration: none;">My blogs</a>
+      <span style="color: var(--body-quiet-color); margin: 0 0.3rem;">/</span>
+      <span style="color: var(--body-fg);">New blog</span>
+    </nav>
+  </div>
+  <div class="studio-head-actions">
+  </div>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="studio-page studio-page--narrow">
+  <form method="post" class="studio-form">
+    {% csrf_token %}
+    {% for error in form.non_field_errors %}<p class="studio-error" role="alert">{{ error }}</p>{% endfor %}
+    {% include "blog/studio/_field.html" with field=form.name %}
+    {% include "blog/studio/_field.html" with field=form.tagline %}
+    {% include "blog/studio/_field.html" with field=form.visibility %}
+    {% include "blog/studio/_field.html" with field=form.description %}
+    {% include "blog/studio/_field.html" with field=form.slug %}
+    <div class="studio-actions">
+      <button type="submit" class="btn-primary">Create blog</button>
+      <a href="{% url 'myblogs:dashboard' %}" class="studio-link">Cancel</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

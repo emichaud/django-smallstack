@@ -1,0 +1,19 @@
+{% extends "email/base_email.html" %}
+{% block subject %}You're subscribed to {{ blog.name }}{% endblock %}
+{% block content %}
+<p style="margin:0 0 16px;">You're in.</p>
+<p style="margin:0 0 16px;">
+  You'll receive <strong>{{ blog.name }}</strong>{% if blog.tagline %} — {{ blog.tagline }}{% endif %}
+  whenever something new is published.
+</p>
+<p style="margin:0 0 24px;">
+  <a href="{{ blog_url }}" style="color:{{ brand_accent }};">Read the archive</a>
+</p>
+<p style="margin:0; color:#8a9099; font-size:13px;">
+  Changed your mind? <a href="{{ unsubscribe_url }}" style="color:#8a9099;">Unsubscribe</a> at any time.
+</p>
+{% endblock %}
+{% block footer %}
+<a href="{{ blog_url }}" style="color:#8a9099;">{{ blog.name }}</a> &middot;
+<a href="{{ unsubscribe_url }}" style="color:#8a9099;">Unsubscribe</a>
+{% endblock %}

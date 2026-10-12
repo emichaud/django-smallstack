@@ -1,0 +1,346 @@
+/* Public reading surface.
+ *
+ * A standalone shell (no admin sidebar or topbar) that still uses the
+ * framework's theme variables, so a visitor's palette and light/dark choice
+ * carry over from the console. No hex literals — see blog.css.
+ */
+
+body { background: var(--body-bg); color: var(--body-fg); margin: 0; }
+
+.blog-site {
+    max-width: 920px;
+    margin: 0 auto;
+    padding: 0 20px 72px;
+}
+
+/* --- header / footer ----------------------------------------------------- */
+
+.blog-site-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+    padding: 24px 0;
+    margin-bottom: 32px;
+    border-bottom: 1px solid var(--card-border);
+}
+
+.blog-site-brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 1.15rem;
+    font-weight: 650;
+    letter-spacing: -0.01em;
+    color: var(--body-fg);
+    text-decoration: none;
+}
+
+.blog-site-brand img { height: 28px; width: auto; }
+
+.blog-site-nav {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    font-size: 0.88rem;
+}
+
+.blog-site-nav a { color: var(--body-quiet-color); text-decoration: none; }
+.blog-site-nav a:hover,
+.blog-site-nav a:focus-visible { color: var(--primary); }
+
+.blog-site-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+    margin-top: 64px;
+    padding-top: 20px;
+    border-top: 1px solid var(--card-border);
+    color: var(--text-muted);
+    font-size: 0.82rem;
+}
+
+.blog-site-footer p { margin: 0; }
+.blog-site-footer a { color: var(--text-muted); }
+
+/* --- page headers -------------------------------------------------------- */
+
+.blog-page-title {
+    margin: 0 0 8px;
+    font-size: 2rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    line-height: 1.15;
+}
+
+.blog-page-tagline {
+    margin: 0 0 28px;
+    color: var(--body-quiet-color);
+    font-size: 1rem;
+}
+
+.blog-section-label {
+    margin: 40px 0 14px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--body-quiet-color);
+}
+
+/* --- post cards ---------------------------------------------------------- */
+
+.blog-post-list { list-style: none; margin: 0; padding: 0; }
+
+.blog-post-card {
+    padding: 20px 0;
+    border-bottom: 1px solid var(--card-border);
+}
+
+.blog-post-card:first-child { padding-top: 0; }
+
+.blog-post-card h2,
+.blog-post-card h3 {
+    margin: 0 0 6px;
+    font-size: 1.22rem;
+    line-height: 1.3;
+}
+
+.blog-post-card a.blog-post-link {
+    color: var(--body-fg);
+    text-decoration: none;
+}
+
+.blog-post-card a.blog-post-link:hover,
+.blog-post-card a.blog-post-link:focus-visible { color: var(--primary); }
+
+.blog-post-excerpt {
+    margin: 0 0 10px;
+    color: var(--body-quiet-color);
+    line-height: 1.6;
+}
+
+.blog-post-meta {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    color: var(--text-muted);
+    font-size: 0.8rem;
+}
+
+.blog-post-cover {
+    width: 100%;
+    max-height: 280px;
+    object-fit: cover;
+    border-radius: 8px;
+    margin-bottom: 14px;
+}
+
+/* --- tags ---------------------------------------------------------------- */
+
+.blog-tag-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+
+.blog-tag-chip {
+    padding: 2px 9px;
+    font-size: 0.74rem;
+    font-weight: 600;
+    color: var(--body-quiet-color);
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: 999px;
+    text-decoration: none;
+}
+
+.blog-tag-chip:hover,
+.blog-tag-chip:focus-visible { color: var(--primary); border-color: var(--primary); }
+
+/* --- notices ------------------------------------------------------------- */
+
+.blog-notice {
+    padding: 12px 16px;
+    margin-bottom: 24px;
+    border-radius: 8px;
+    border: 1px solid;
+    font-size: 0.9rem;
+}
+
+.blog-notice-draft {
+    color: var(--warning-fg);
+    border-color: color-mix(in srgb, var(--warning-fg) 38%, transparent);
+    background: color-mix(in srgb, var(--warning-fg) 11%, var(--body-bg));
+}
+
+.blog-empty {
+    padding: 40px 0;
+    color: var(--text-muted);
+    text-align: center;
+}
+
+/* --- pagination ---------------------------------------------------------- */
+
+.blog-pagination {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-top: 32px;
+    font-size: 0.88rem;
+}
+
+.blog-pagination a {
+    padding: 6px 14px;
+    color: var(--body-fg);
+    border: 1px solid var(--card-border);
+    border-radius: 6px;
+    text-decoration: none;
+}
+
+.blog-pagination a:hover,
+.blog-pagination a:focus-visible { color: var(--primary); border-color: var(--primary); }
+
+.blog-pagination .blog-page-count { color: var(--text-muted); }
+
+/* --- search -------------------------------------------------------------- */
+
+.blog-search-form { display: flex; gap: 8px; margin-bottom: 28px; }
+
+.blog-search-form input[type="search"] {
+    flex: 1 1 auto;
+    padding: 9px 12px;
+    color: var(--body-fg);
+    background: var(--input-bg);
+    border: 1px solid var(--input-border);
+    border-radius: 6px;
+}
+
+.blog-search-form input[type="search"]:focus {
+    outline: none;
+    border-color: var(--input-focus-border);
+}
+
+/* --- blog index ---------------------------------------------------------- */
+
+.blog-channel-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 14px;
+}
+
+.blog-channel-card {
+    display: block;
+    padding: 18px;
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: 10px;
+    text-decoration: none;
+    color: var(--body-fg);
+}
+
+.blog-channel-card:hover,
+.blog-channel-card:focus-visible { border-color: var(--primary); }
+
+.blog-channel-card h2 { margin: 0 0 4px; font-size: 1.05rem; }
+
+.blog-channel-card p {
+    margin: 0;
+    color: var(--body-quiet-color);
+    font-size: 0.86rem;
+    line-height: 1.5;
+}
+
+.blog-channel-count {
+    display: block;
+    margin-top: 10px;
+    color: var(--text-muted);
+    font-size: 0.76rem;
+}
+
+/* --- archive ------------------------------------------------------------- */
+
+.blog-archive-months { list-style: none; margin: 0 0 32px; padding: 0; display: flex; flex-wrap: wrap; gap: 8px; }
+
+@media (max-width: 640px) {
+    .blog-page-title { font-size: 1.55rem; }
+    .blog-site-header { padding: 18px 0; margin-bottom: 24px; }
+}
+
+/* --- subscribe / confirm / unsubscribe forms ----------------------------- */
+
+.blog-subscribe-form { max-width: 420px; margin-bottom: 20px; }
+
+.blog-field { margin-bottom: 14px; }
+
+.blog-field label {
+    display: block;
+    margin-bottom: 5px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--body-fg);
+}
+
+.blog-field input[type="email"],
+.blog-field input[type="text"] {
+    width: 100%;
+    padding: 9px 12px;
+    color: var(--body-fg);
+    background: var(--input-bg);
+    border: 1px solid var(--input-border);
+    border-radius: 6px;
+    font-size: 0.95rem;
+}
+
+.blog-field input:focus {
+    outline: none;
+    border-color: var(--input-focus-border);
+}
+
+.blog-optional { font-weight: 400; color: var(--text-muted); }
+
+/* The honeypot. Moved out of view rather than display:none — some bots skip
+ * fields that are explicitly hidden, and a real screen reader is kept out by
+ * aria-hidden + tabindex="-1" on the markup instead. */
+.blog-hp {
+    position: absolute;
+    left: -9999px;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+}
+
+.blog-fineprint {
+    max-width: 52ch;
+    margin-top: 18px;
+    color: var(--text-muted);
+    font-size: 0.82rem;
+    line-height: 1.6;
+}
+
+.blog-fineprint a { color: var(--link-color); }
+
+.blog-subscribe-cta {
+    padding: 12px 16px;
+    margin-bottom: 24px;
+    background: var(--accent-band-bg);
+    border: 1px solid var(--card-border);
+    border-radius: 8px;
+    font-size: 0.88rem;
+}
+
+/* --- "On this page" rail — the same device Runbook and Help use ---------- */
+
+.blog-post-layout.has-toc { display: grid; grid-template-columns: minmax(0, 1fr) 220px; gap: 40px; align-items: start; }
+.blog-toc { position: sticky; top: 24px; font-size: 0.84rem; }
+.blog-toc-h { margin: 0 0 8px; font-weight: 600; color: var(--body-fg); }
+.blog-toc ul { list-style: none; margin: 0; padding: 0 0 0 10px; border-left: 2px solid var(--card-border); }
+.blog-toc ul ul { border-left: 0; padding-left: 12px; }
+.blog-toc li { margin: 4px 0; }
+.blog-toc a { color: var(--body-quiet-color); text-decoration: none; }
+.blog-toc a:hover, .blog-toc a:focus-visible { color: var(--primary); }
+@media (max-width: 960px) {
+    .blog-post-layout.has-toc { grid-template-columns: 1fr; }
+    .blog-toc { position: static; order: -1; margin-bottom: 20px; }
+}

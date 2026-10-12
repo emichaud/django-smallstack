@@ -5,7 +5,10 @@ from __future__ import annotations
 import re
 from typing import TypedDict
 
-import markdown
+# The markdown renderer and its RenderedMarkdown type live in the framework core
+# (apps.smallstack.transforms) so runbook, blog and the CRUD field preview all
+# share one hardened renderer. Re-exported here for the existing call sites.
+from apps.smallstack.transforms import RenderedMarkdown, render_markdown  # noqa: F401
 
 from .models import Document, strip_frontmatter
 
@@ -14,12 +17,6 @@ class RenderedContent(TypedDict):
     html: str
     toc: str
     raw: str
-
-
-class RenderedMarkdown(TypedDict):
-    html: str
-    toc: str
-    toc_tokens: list[dict]
 
 
 class SlideData(TypedDict):
@@ -32,39 +29,6 @@ class StepData(TypedDict):
     title: str
     content_html: str
     notes: list[str]
-
-
-def render_markdown(content: str) -> RenderedMarkdown:
-    """Render a document's markdown to HTML with TOC metadata.
-
-    Documents are user- and AI-authored (web/API/MCP/CLI), so the output is
-    untrusted and rendered with ``|safe`` in the templates. ``harden_markdown_renderer``
-    strips raw HTML (``<script>``, ``<img onerror>``) and dangerous URL schemes
-    (``javascript:``…) — the same neutralization the CRUD field-preview uses. We
-    deliberately do NOT enable ``md_in_html`` (raw-HTML passthrough) or
-    ``attr_list`` (event-handler injection): both are stored-XSS vectors here.
-    """
-    from apps.smallstack.transforms import harden_markdown_renderer
-
-    md = markdown.Markdown(
-        extensions=[
-            "fenced_code",
-            "tables",
-            "toc",
-        ],
-        extension_configs={
-            "toc": {
-                "permalink": False,
-            },
-        },
-    )
-    harden_markdown_renderer(md)
-    rendered_html = md.convert(content)
-    return {
-        "html": rendered_html,
-        "toc": getattr(md, "toc", ""),
-        "toc_tokens": getattr(md, "toc_tokens", []),
-    }
 
 
 def render_document(document: Document) -> RenderedContent:

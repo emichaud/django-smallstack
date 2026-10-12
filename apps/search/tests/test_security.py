@@ -302,7 +302,7 @@ def test_visibility_filter_runs_for_anonymous_access_view():
 
 
 # ────────────────────────────────────────────────────────────────────────────
-#  get_indexed_sources — applies the same access gate
+#  get_indexed_sources — applies the same access gate AND row visibility
 # ────────────────────────────────────────────────────────────────────────────
 
 
@@ -368,3 +368,67 @@ def test_indexed_sources_user_none_is_trusted():
 
     sources = get_indexed_sources(user=None)
     assert any(s["kind"] == "model" for s in sources)
+
+
+def test_indexed_sources_scopes_previews_by_visibility():
+    """The "what's indexed" preview rows honour ``search_visibility``.
+
+    The panel renders real display values and links, so an unscoped sample
+    leaks other users' rows to anyone the *access tier* admits — which for an
+    ANONYMOUS/AUTHENTICATED-tier view on tenant data is everyone. The access
+    gate alone is not enough: it decides whether the view is listed, not which
+    rows are previewed.
+    """
+    User = get_user_model()
+    mine = User.objects.create_user(username="prev_mine", password="x")
+    User.objects.create_user(username="prev_theirs", password="x")
+
+    register(
+        _make_view_class(
+            User,
+            access=SearchAccess.ANONYMOUS,
+            visibility=lambda qs, user: qs.filter(pk=user.pk),
+        )
+    )
+
+    sources = [s for s in get_indexed_sources(user=mine) if s["kind"] == "model"]
+    previews = [p["display"] for s in sources for p in s["previews"]]
+    assert "prev_mine" in previews
+    assert "prev_theirs" not in previews
+
+
+def test_indexed_sources_previews_bypass_visibility_for_staff():
+    """Staff and ``user=None`` bypass row scoping, exactly as in search_all."""
+    User = get_user_model()
+    User.objects.create_user(username="prev_other", password="x")
+    staff = User.objects.create_user(username="prev_staff", password="x", is_staff=True)
+
+    register(
+        _make_view_class(
+            User,
+            access=SearchAccess.ANONYMOUS,
+            visibility=lambda qs, user: qs.none(),
+        )
+    )
+
+    for actor in (staff, None):
+        sources = [s for s in get_indexed_sources(user=actor) if s["kind"] == "model"]
+        previews = [p["display"] for s in sources for p in s["previews"]]
+        assert "prev_other" in previews, f"staff/internal bypass failed for {actor!r}"
+
+
+def test_indexed_sources_failing_visibility_previews_nothing():
+    """A raising visibility callback fails safe — no previews rather than
+    unscoped ones. The source itself stays listed (the access tier allows it)."""
+    User = get_user_model()
+    User.objects.create_user(username="prev_boom", password="x")
+    regular = User.objects.create_user(username="prev_regular", password="x")
+
+    def exploding(qs, user):
+        raise RuntimeError("misconfigured scoper")
+
+    register(_make_view_class(User, access=SearchAccess.ANONYMOUS, visibility=exploding))
+
+    sources = [s for s in get_indexed_sources(user=regular) if s["kind"] == "model"]
+    previews = [p["display"] for s in sources for p in s["previews"]]
+    assert previews == []

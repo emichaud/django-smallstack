@@ -68,7 +68,7 @@
 <div style="margin-top: 24px;">
     <form method="post" action="{% url 'runbook:document_delete' object.pk %}" onsubmit="return confirm('Delete this document?');">
         {% csrf_token %}
-        <button type="submit" class="btn-danger">Delete Document</button>
+        <button type="submit" class="btn-danger">Delete document</button>
     </form>
 </div>
 {% endif %}

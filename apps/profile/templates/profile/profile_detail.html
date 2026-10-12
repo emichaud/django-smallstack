@@ -66,5 +66,35 @@
             {% endif %}
         </div>
     </div>
+
+    {% url 'myblogs:dashboard' as myblogs_url %}
+    {% if blogs or user == profile.user and myblogs_url %}
+    <div class="card" style="margin-top: 16px;">
+        <div class="card-header" style="display: flex; align-items: center; justify-content: space-between;">
+            <h2>Blogs</h2>
+            {% if user == profile.user and myblogs_url %}<a href="{{ myblogs_url }}" class="btn-outline btn-sm">My blogs</a>{% endif %}
+        </div>
+        <div class="card-body">
+            {% if blogs %}
+            <ul style="list-style: none; margin: 0; padding: 0;">
+                {% for blog in blogs %}
+                <li style="display: flex; justify-content: space-between; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--card-border);">
+                    <div>
+                        {% if blog.visibility == "public" %}<a href="{{ blog.get_absolute_url }}" style="font-weight: 600; color: var(--body-fg); text-decoration: none;">{{ blog.name }}</a>
+                        {% else %}<span style="font-weight: 600;">{{ blog.name }}</span>{% endif %}
+                        {% if blog.tagline %}<div style="color: var(--body-quiet-color); font-size: 0.85rem;">{{ blog.tagline }}</div>{% endif %}
+                    </div>
+                    <span style="color: var(--text-muted); font-size: 0.8rem; white-space: nowrap;">
+                        {% if blog.visibility == "public" %}Public{% elif blog.visibility == "members" %}Members{% else %}Private{% endif %}
+                    </span>
+                </li>
+                {% endfor %}
+            </ul>
+            {% else %}
+            <p style="margin: 0; color: var(--body-quiet-color);">No blogs yet. <a href="{{ myblogs_url }}">Start one</a>.</p>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
 </div>
 {% endblock %}

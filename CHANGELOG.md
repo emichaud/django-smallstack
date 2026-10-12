@@ -9,6 +9,144 @@ Breaking-change migration recipes live in [`UPGRADING.md`](UPGRADING.md).
 
 ## [Unreleased]
 
+### Added
+- **Blog + newsletter (`apps/blog/`, label `smallstack_blog`).** Per-user blog
+  channels of markdown posts, with a three-tier visibility ladder
+  (`private` / `members` / `public`) instead of a single public flag — the
+  middle tier is an internal team blog readable by every signed-in colleague
+  and invisible to the internet. A post has its own lifecycle (draft /
+  scheduled / published / archived) and both gates apply, so a published post
+  in a private blog stays private and a draft in a public blog stays a draft.
+  Authoring console at `/smallstack/blog/` (login-gated and ownership-scoped,
+  not staff-only); public reading surface at `/blog/`.
+  New settings: `SMALLSTACK_BLOG_ENABLED` (master switch),
+  `SMALLSTACK_BLOG_PUBLIC_ENABLED` (the anonymous reading surface, separately
+  switchable because "drafting internally, nothing public yet" is a real
+  state — off ⇒ every public route 404s rather than 403s),
+  `SMALLSTACK_BLOG_PAGE_SIZE`, `SMALLSTACK_BLOG_FEED_LIMIT`.
+- **Newsletter sending.** Email-identity subscribers (not tied to
+  `AUTH_USER_MODEL`), double opt-in, and a durable batched sender whose
+  per-recipient `Delivery` rows are the progress ledger — a worker killed
+  mid-send resumes without re-sending anyone.
+  New settings: `SMALLSTACK_BLOG_SEND_BATCH_SIZE`,
+  `SMALLSTACK_BLOG_SEND_MAX_BATCHES` (defaults drain 2,000 recipients a minute
+  while keeping each task inside the lost-task reaper window),
+  `SMALLSTACK_BLOG_CLAIM_TIMEOUT_MINUTES`,
+  `SMALLSTACK_BLOG_SEND_MAX_ATTEMPTS`,
+  `SMALLSTACK_BLOG_SOFT_FAIL_LIMIT` (consecutive soft failures, counted across
+  issues and reset on any success, before an address is suppressed — a single
+  transient SMTP error must never permanently drop a good reader),
+  `SMALLSTACK_BLOG_REQUIRE_PUBLIC_URL` (refuse to queue a send whose
+  unsubscribe links would point at localhost — a blast cannot be recalled), and
+  `SMALLSTACK_BLOG_CONFIRM_MAX_AGE_DAYS`. The unsubscribe link deliberately has
+  no expiry: an RFC 8058 one-click header in a two-year-old email must still
+  work.
+
+- **The runbook → blog bridge.** A runbook `Document` can be published into a
+  blog from `/smallstack/blog/import-runbook/`, from REST, or from MCP. Reads
+  go through `runbook.service` + `runbook.permissions`, so locking,
+  authorization and the audit trail still apply and nothing can publish a
+  document its caller could not read; runbook itself is untouched and unaware.
+  Frontmatter is *parsed* (title/description become the post's title and
+  excerpt) rather than merely stripped, and `sync="auto"` keeps a post
+  following the runbook page via the `document_written` signal while
+  `sync="manual"` leaves an author's adaptations alone.
+- **The writing studio at `/my/blogs/`.** A person's own blogs, apart from the
+  system manager: a list of posts with drafts first (or cards, remembered per viewer), a compact editor
+  (borderless title, markdown body with live server-rendered preview, a side
+  rail for publishing and details, ⌘S to save), and blog settings with the
+  newsletter block split out. Publish, Schedule and Archive are buttons that
+  save the editor first and then transition in the same request. Reached from
+  "My blogs" beside Runbook in the nav, from the user dropdown, and from a
+  Blogs card on the profile page.
+- **`docs/skills/blog.md`** plus five in-app help pages at `/help/blog/`.
+
+### Changed
+- **UI consistency pass across Runbook, Help and Blog.** The studio's list
+  pages (My blogs, a blog, settings, new blog) now use the same header band
+  with the breadcrumb inside it that Runbook, Help and the CRUD console use,
+  and the dashboard shows the `{% stat_card %}` row instead of a sentence; the
+  editor stays flat on purpose. Button and link copy in Runbook and Help is
+  sentence case ("Edit content", "New runbook", "Table of contents"); the three
+  upload buttons all say "Upload new version"; "Save Changes" is "Save". The
+  "On this page" rail is headed identically on all three reading surfaces.
+  Runbook's visibility badge says **Signed-in** rather than "Public", because
+  one sidebar entry away a public *blog* means the internet.
+- **The public blog post has an "On this page" rail** built from the TOC the
+  renderer already stores, shown once a post has three or more headings.
+- **One hardened markdown renderer for the whole framework.**
+  `render_markdown()` moved from `apps/runbook/utils.py` into
+  `apps/smallstack/transforms.py`, beside the `harden_markdown_renderer()` it
+  already depended on, so runbook, blog and the CRUD field preview share a
+  single renderer rather than three near-copies. Re-exported from
+  `apps.runbook.utils`, so every existing import keeps working. It gained
+  `extensions=` / `toc=` options, and refuses `attr_list`, `legacy_attrs` and
+  `md_in_html` outright: hardening strips raw HTML and dangerous URL schemes
+  but *cannot* strip authored attributes, so those three reopen a stored-XSS
+  vector. A fork wanting richer markdown (`codehilite`, say) passes its own
+  `extensions` and owns that choice.
+- **`split_frontmatter()` / `parse_frontmatter()`** added to
+  `apps/smallstack/transforms.py`; `runbook.models.strip_frontmatter()` now
+  delegates to it. The YAML-mapping check that distinguishes real frontmatter
+  from a `---` thematic break is now shared, and malformed frontmatter degrades
+  to "no metadata" rather than costing the document body.
+- **`send_branded_email()`** accepts `headers=`, `connection=`, `reply_to=` and
+  `from_email=`, all optional and all defaulting to the previous behaviour.
+  Without them bulk list mail was impossible: `List-Unsubscribe` /
+  `List-Unsubscribe-Post` could not be set at all (so no RFC 8058 one-click
+  unsubscribe), and every message opened its own SMTP connection — one TCP+TLS
+  handshake and one AUTH per recipient.
+
+### Fixed
+- **Help's dark theme was hard-coded again.** `help.css` carried 26 legacy-grey
+  literals (`#1e1e1e`, `#3a3a3a`, `#e0e0e0`, …) inside `[data-theme="dark"]`
+  blocks — the exact anti-pattern `modern-dark-theme.md` cites that file as
+  the fixed example of. It rendered correctly on the purple palette and muddy
+  on orange and gold. Every value is now a theme variable, Runbook's one
+  literal (the toggle thumb) is `--button-fg`, and a new test pins every app
+  stylesheet literal-free so it cannot drift back quietly.
+- **The search hub advertised MCP tool names that don't exist.** Two functions
+  derive the name — `registry._mcp_tool_name_for` for the "what's indexed"
+  panel and `mcp_tools._tool_name_for` for the actual registration — and they
+  had drifted onto different attributes (`mcp_tool_name` vs the documented
+  `mcp_tool_noun_plural`), despite a comment saying they were kept in sync.
+  Runbook was the shipped instance: the panel said `search_documents` while the
+  registered tool was `search_runbook_documents`, so an agent reading the panel
+  to learn the tool name called something that did not exist. A test now pins
+  the two derivations together for every registered view.
+- **Scheduler tick tests were not isolated from code-declared jobs.**
+  `services.run_due_jobs()` is global — it runs every job that is due — so a
+  test asserting `enqueued == 0` was implicitly asserting that no app anywhere
+  in the project has a `@scheduled` job due at that moment. That held only
+  while every bundled cadence was 5 minutes or longer; adding a one-minute job
+  broke eight unrelated tests intermittently, depending on how long the run had
+  been going. `apps/scheduler/tests/conftest.py` now clears code-declared rows
+  and suppresses the lazy sync per test, so a downstream project with a
+  frequent job does not inherit the same puzzle.
+- **CRUDView filter dropdowns ignored the view's tenancy scope.** `filter_fields`
+  builds a `<select>` per field, and for a `ForeignKey` the options came from
+  `related_model._default_manager.all()[:100]` — the whole related table,
+  whoever was looking. On a tenancy-scoped CRUDView (the documented end-user
+  pattern in `building-a-user-facing-site.md`) `get_list_queryset` correctly
+  hid other people's rows from the table while the filter bar above it listed
+  them by name. `/smallstack/tokens/` is the shipped instance: reachable by any
+  signed-in user, scoped by `owner`, and declaring `user` among its
+  `filter_fields`, so its filter bar enumerated up to 100 usernames from the
+  installation. Choices now come from the tenancy-scoped list queryset, taken
+  *before* the request's own filters are applied so the dropdowns stay
+  switchable; the low-cardinality distinct-values branch is scoped the same
+  way. Staff and `user=None` callers are unaffected.
+- **The search hub's "what's indexed" preview ignored `search_visibility`.**
+  `get_indexed_sources()` sampled five recent rows with
+  `model._default_manager.all()` and rendered their display values and links,
+  applying only the per-view *access tier*. For any view whose tier is broader
+  than staff, that previewed other users' rows — including unpublished ones —
+  to every caller the tier admitted. Now scoped exactly as `search_all()`
+  scopes hits, with staff and trusted-internal callers bypassing as before and
+  a raising callback failing safe to no preview. The row *count* stays
+  table-wide by design: on Postgres it is a planner estimate, and a per-user
+  `COUNT` would undo that on every render.
+
 ## [0.24.0] - 2026-10-11
 
 ### Added

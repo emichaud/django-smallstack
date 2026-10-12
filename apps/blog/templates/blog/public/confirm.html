@@ -1,0 +1,15 @@
+{% extends "blog/public/base.html" %}
+{% block title %}Confirm your subscription | {{ blog.name }}{% endblock %}
+{% block content %}
+<h1 class="blog-page-title">Confirm your subscription</h1>
+<p class="blog-page-tagline">
+  Subscribe <strong>{{ subscription.subscriber.email }}</strong> to {{ blog.name }}?
+</p>
+{% comment %}A button, not an automatic action: a GET must never mutate, or a
+link prefetcher confirms on the reader's behalf.{% endcomment %}
+<form method="post">
+  {% csrf_token %}
+  <button type="submit" class="btn-primary">Yes, subscribe me</button>
+</form>
+<p class="blog-fineprint"><a href="{{ blog.get_absolute_url }}">No thanks — just take me to the blog</a></p>
+{% endblock %}

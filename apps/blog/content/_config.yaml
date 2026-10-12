@@ -1,0 +1,25 @@
+title: "Blog"
+description: "Blogs and newsletters — writing, publishing, feeds and email"
+slug: blog
+
+pages:
+  - slug: index
+    title: "Blog & Newsletter"
+    description: "What a blog is here, how visibility works, and where everything lives"
+    icon: "book"
+  - slug: writing-posts
+    title: "Writing posts"
+    description: "Markdown support, slugs, excerpts, cover images, tags, and publishing"
+    icon: "edit"
+  - slug: publishing-runbook-pages
+    title: "Publishing runbook pages"
+    description: "Turn an existing runbook document into a post, and keep it in sync"
+    icon: "file-text"
+  - slug: newsletter
+    title: "Newsletter"
+    description: "Subscribers, double opt-in, sending issues, bounces and deliverability"
+    icon: "mail"
+  - slug: feeds-and-apis
+    title: "Feeds and APIs"
+    description: "RSS/Atom/JSON feeds, the public read API, the REST write API, MCP and webhooks"
+    icon: "rss"

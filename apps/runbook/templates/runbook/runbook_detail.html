@@ -116,14 +116,14 @@
     <div class="page-header-actions rb-doc-actions">
         <div class="rb-actions-row">
             {% if runbook.is_template %}
-            <a href="{% url 'runbook:runbook_from_template' runbook.slug %}" class="btn-primary">Use This Template</a>
+            <a href="{% url 'runbook:runbook_from_template' runbook.slug %}" class="btn-primary">Use this template</a>
             {% else %}
             <a href="{% url 'runbook:runbook_read' runbook.slug %}" class="btn-primary">Read All</a>
             {% endif %}
             {% if can_edit %}
             <button type="button" class="btn-secondary" onclick="openFormModal('New Page', 'new-page-source')">New Page</button>
             <button type="button" class="btn-secondary" onclick="openFormModal('Upload Markdown', 'upload-source')">Upload</button>
-            <button type="button" class="btn-secondary" onclick="openFormModal('Add Section', 'add-section-source')">Add Section</button>
+            <button type="button" class="btn-secondary" onclick="openFormModal('Add Section', 'add-section-source')">Add section</button>
             {% endif %}
             <button type="button" class="btn-secondary"
                 data-download-url="{% url 'runbook:download_zip' %}?runbook={{ runbook.slug }}"
@@ -133,7 +133,7 @@
         {% if can_edit %}
         <div class="rb-actions-row rb-actions-secondary">
             {% if not runbook.is_template %}
-            <button type="button" class="btn-outline" onclick="openFormModal('Make Template', 'make-template-source')">Make Template</button>
+            <button type="button" class="btn-outline" onclick="openFormModal('Make Template', 'make-template-source')">Make template</button>
             {% endif %}
             <form method="post" action="{% url 'runbook:runbook_publish' runbook.slug %}" style="display: inline;">
                 {% csrf_token %}
@@ -289,7 +289,7 @@
                 <input type="text" name="description" class="vTextField" placeholder="Optional">
             </div>
             <div class="crud-actions">
-                <button type="submit" class="btn-save">Upload</button>
+                <button type="submit" class="btn-save">Upload new version</button>
                 <button type="button" class="btn-cancel" onclick="closeStatModal()">Cancel</button>
             </div>
         </form>
@@ -320,7 +320,7 @@
                 </div>
             </div>
             <div class="crud-actions">
-                <button type="submit" class="btn-save">Add Section</button>
+                <button type="submit" class="btn-save">Add section</button>
                 <button type="button" class="btn-cancel" onclick="closeStatModal()">Cancel</button>
             </div>
         </form>
@@ -374,7 +374,7 @@
                 <div class="crud-help">Public runbooks are readable by everyone; private stays visible to you and staff.</div>
             </div>
             <div class="crud-actions">
-                <button type="submit" class="btn-save">Save Changes</button>
+                <button type="submit" class="btn-save">Save</button>
                 <button type="button" class="btn-cancel" onclick="closeStatModal()">Cancel</button>
             </div>
         </form>

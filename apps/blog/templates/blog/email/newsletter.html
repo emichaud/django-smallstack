@@ -1,0 +1,33 @@
+{% extends "email/base_email.html" %}
+{% comment %}
+The generic issue wrapper. A blog may ship its own branded shell as
+blog/email/newsletter_<email_template>.html; emails.render_issue_html falls
+back here when that template is absent or fails to render, so a blog can be
+restyled without forking this one and a typo in the setting degrades to plain
+rather than to no email at all.
+
+body_html is the snapshot frozen at queue time, produced by the hardened
+markdown renderer — the same HTML the web page shows.
+{% endcomment %}
+{% block subject %}{{ issue.subject }}{% endblock %}
+{% block content %}
+<h1 style="margin:0 0 6px; font-size:22px; line-height:1.25; color:#1a1d21;">{{ issue.subject }}</h1>
+<p style="margin:0 0 24px; color:#8a9099; font-size:13px;">
+  From <a href="{{ blog_url }}" style="color:#8a9099;">{{ blog.name }}</a>
+</p>
+
+<div style="color:#1a1d21; font-size:15px; line-height:1.65;">
+  {{ body_html|safe }}
+</div>
+
+{% if footer_html %}
+<div style="margin-top:28px; padding-top:18px; border-top:1px solid #eceef1; color:#5c636b; font-size:13px; line-height:1.55;">
+  {{ footer_html|safe }}
+</div>
+{% endif %}
+{% endblock %}
+{% block footer %}
+You're receiving this because you subscribed to
+<a href="{{ blog_url }}" style="color:#8a9099;">{{ blog.name }}</a>.<br>
+<a href="{{ unsubscribe_url }}" style="color:#8a9099;">Unsubscribe</a>
+{% endblock %}

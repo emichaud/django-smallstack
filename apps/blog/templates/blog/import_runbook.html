@@ -1,0 +1,134 @@
+{% extends "smallstack/base.html" %}
+{% load theme_tags %}
+
+{% block title %}Publish a runbook page{% endblock %}
+
+{% block breadcrumbs %}
+{% breadcrumb "Home" "website:home" %}
+{% breadcrumb "Posts" "blog/posts-list" %}
+{% breadcrumb "Publish a runbook page" %}
+{% render_breadcrumbs %}
+{% endblock %}
+
+{% block page_header %}
+<div class="page-header-bleed">
+  <div class="page-header-content">
+    <h1>Publish a runbook page</h1>
+    <p class="page-subtitle">
+      Turn a runbook document into a post. Only documents you can read are listed.
+    </p>
+  </div>
+</div>
+{% endblock %}
+
+{% block content %}
+{% if not blogs %}
+  <div class="card">
+    <div class="card-body">
+      <p>You don't own a blog yet. <a href="{% url 'blog/blogs-create' %}">Create one</a> first.</p>
+    </div>
+  </div>
+{% else %}
+<form method="get" style="margin-bottom: 16px; display: flex; gap: 8px; max-width: 480px;">
+  <label class="sr-only" for="rb-q">Filter documents</label>
+  <input type="search" id="rb-q" name="q" value="{{ query }}" class="vTextField"
+         placeholder="Filter by title…">
+  <button type="submit" class="btn-outline">Filter</button>
+</form>
+
+<form method="post">
+  {% csrf_token %}
+  <div class="card">
+    <div class="card-header"><h2>Choose a document</h2></div>
+    <div class="card-body" style="padding: 0;">
+      {% if documents %}
+      <table class="table-plain" style="width: 100%; border-collapse: collapse;">
+        <thead>
+          <tr>
+            <th style="width: 44px; padding: 10px 16px;"><span class="sr-only">Select</span></th>
+            <th style="text-align: left; padding: 10px 16px;">Document</th>
+            <th style="text-align: left; padding: 10px 16px;">Runbook</th>
+            <th style="text-align: left; padding: 10px 16px;">Version</th>
+            <th style="text-align: left; padding: 10px 16px;">Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for doc in documents %}
+          <tr>
+            <td style="padding: 10px 16px;">
+              <input type="radio" name="document" id="doc-{{ doc.pk }}" value="{{ doc.pk }}"
+                     {% if forloop.first %}checked{% endif %}>
+            </td>
+            <td style="padding: 10px 16px;">
+              <label for="doc-{{ doc.pk }}">{{ doc.title }}</label>
+            </td>
+            <td style="padding: 10px 16px; color: var(--body-quiet-color);">
+              {{ doc.runbook.name|default:"—" }}
+            </td>
+            <td style="padding: 10px 16px; color: var(--body-quiet-color);">v{{ doc.version }}</td>
+            <td style="padding: 10px 16px;">
+              {% if doc.pk in already_published %}
+                <span style="color: var(--success-fg); font-weight: 600;">Already published</span>
+              {% else %}
+                <span style="color: var(--body-quiet-color);">Not published</span>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <p style="padding: 24px; color: var(--body-quiet-color);">
+        No runbook documents you can read{% if query %} match “{{ query }}”{% endif %}.
+      </p>
+      {% endif %}
+    </div>
+  </div>
+
+  {% if documents %}
+  <div class="card" style="margin-top: 16px;">
+    <div class="card-header"><h2>Publish into</h2></div>
+    <div class="card-body">
+      <div class="crud-field">
+        <div class="crud-field-label"><label for="rb-blog">Blog</label></div>
+        <div class="crud-field-input">
+          <select name="blog" id="rb-blog" class="vTextField">
+            {% for b in blogs %}<option value="{{ b.pk }}">{{ b.name }}</option>{% endfor %}
+          </select>
+        </div>
+      </div>
+
+      <div class="crud-field">
+        <div class="crud-field-label"><label for="rb-status">Publish as</label></div>
+        <div class="crud-field-input">
+          <select name="status" id="rb-status" class="vTextField">
+            <option value="draft">Draft — review it first</option>
+            <option value="published">Published — live immediately</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="crud-field">
+        <div class="crud-field-label"><label for="rb-sync">Keep in sync</label></div>
+        <div class="crud-field-input">
+          <select name="sync" id="rb-sync" class="vTextField">
+            <option value="manual">Manual — the post is yours to edit from now on</option>
+            <option value="auto">Auto — follow the runbook page whenever it changes</option>
+          </select>
+          <p class="crud-help">
+            Auto-sync overwrites the post body on every runbook edit, so pick
+            manual if you intend to adapt the text for readers.
+          </p>
+        </div>
+      </div>
+
+      <div class="crud-actions">
+        <button type="submit" class="btn-save">Publish</button>
+        <a href="{% url 'blog/posts-list' %}" class="btn-cancel">Cancel</a>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+</form>
+{% endif %}
+{% endblock %}

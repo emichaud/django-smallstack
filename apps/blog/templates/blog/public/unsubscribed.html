@@ -1,0 +1,10 @@
+{% extends "blog/public/base.html" %}
+{% block title %}Unsubscribed | {{ blog.name }}{% endblock %}
+{% block content %}
+<h1 class="blog-page-title">You're unsubscribed</h1>
+<p class="blog-page-tagline">
+  {{ subscription.subscriber.email }} will no longer receive {{ blog.name }}.
+  Sorry to see you go.
+</p>
+<p><a href="{% url 'blog:subscribe' blog.slug %}">Changed your mind?</a></p>
+{% endblock %}

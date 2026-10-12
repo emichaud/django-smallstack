@@ -57,6 +57,7 @@ Rows marked **(upstream repo only)** describe the ritual for the `django-smallst
 | [approvals.md](approvals.md) | **Human-in-the-loop approval gate** — `@approval_kind` + `request_approval()`, the decision console, eligibility rules (assignees/self-approval/staff), the callback + signal + webhook + poll reaction paths, expiry sweep |
 | [notifications.md](notifications.md) | **In-app notifications** — the never-raising `notify()` service, the topbar bell + unread badge, the inbox, per-user REST, daily prune |
 | [webhooks.md](webhooks.md) | **Webhooks** — a foundational integration surface: outbound event delivery (`enable_webhooks = True`) + inbound receivers (`@webhook_handler`), plus **four extension seams** (`@webhook_transform`/`@webhook_auth`/`@webhook_verifier`/`@webhook_challenge`) that make Zapier/n8n/Stripe/Slack/Event Grid plug-ins, first-class **SmallStack↔SmallStack** pairing (`sc webhook pair`, loop-safe), stable `event_id` dedupe, `Retry-After` + bulk dead-letter replay |
+| [blog.md](blog.md) | **Blogs + newsletters** — per-user blog channels of markdown posts, a three-tier visibility ladder, per-blog RSS/Atom/JSON feeds, a double-opt-in newsletter with durable batched sending and RFC 8058 one-click unsubscribe, and runbook→blog publishing. Read before touching posts, subscribers or the send pipeline |
 | [rss.md](rss.md) | **RSS/Atom feeds** — symmetric publish + consume surface. Publish a model with `enable_rss = True` (or a curated `Feed`); the enclosure/podcast seam is `rss_item_extra`. Consume external feeds into a model with `register_feed_source` + the collector (`@scheduled` + `manage.py collect_feeds`). Status-page feed is the reference |
 | [activity-tracking.md](activity-tracking.md) | HTTP request logging middleware and configuration |
 | [logging-audit.md](logging-audit.md) | Logging configuration, audit trail, and **reading logs from a deployment you can't shell into** — JSON output with `request_id` correlation, DB-backed capture, the `/smallstack/logs/` staff viewer, time-boxed capture windows |
@@ -118,6 +119,7 @@ AI agents should read relevant skill files before making changes to the correspo
 - Before building any admin/management page → read `admin-page-styling.md` (buttons, cards, tables, forms, etc.)
 - **Before building ANY new page or component → read `modern-dark-theme.md` first** (the v0.9.x canonical patterns supersede earlier guides)
 - Before adding a new color palette → read `modify-palettes.md`
+- Before building a blog, a newsletter, or anything that publishes content to the public internet → read `blog.md`
 - Before adding `enable_search = True` to a CRUDView (or building any search-shaped feature) → read `search.md`
 - Before switching a project to PostgreSQL (local, production, or testing) → read `postgres/setup-local.md`, `postgres/production.md`, or `postgres/testing.md`
 - **Before search / data-migration / raw-SQL work that must run on both engines → read `postgres/sqlite-vs-postgres.md`** (the SQLite-passes-Postgres-fails gotchas)
@@ -166,6 +168,7 @@ Multi-skill recipes for the headline use cases. Each row is "pick this combinati
 |---|---|
 | **Model → web admin + REST + MCP + Search in one class** (the headline pipeline) | `crud-views.md` → `enable-mcp-for-a-model.md` → `search.md` → `api-discovery.md` |
 | **End-user CRUD** (Alice signs in and sees only her stuff, on web + REST + MCP) | `building-a-user-facing-site.md` → `mcp/end-user-tools.md` → `crud-views.md` (for `get_list_queryset` + `can_update`/`can_delete`) |
+| **Publish content to the internet** (a blog, a changelog, a newsletter — with feeds and an anonymous read API) | `blog.md` → `modern-dark-theme.md` → `rss.md` |
 | **Public catalogue** (anonymous visitors can browse + search published rows) | `building-a-user-facing-site.md` (Recipe 4) → `search.md` (Inventory walkthrough, "Recipe 4") |
 | **AI/RAG over a custom model** (Claude searches your tickets, finds rows, answers with citations) | `search.md` → `mcp/build-mcp-solution.md` → `mcp/enable-mcp-for-a-model.md` → `mcp/connect-claude-desktop.md` |
 | **Both staff + end-user views of the same model** (operator console + customer portal on `Invoice`) | `crud-views.md` (two CRUDView classes on one model, different `url_base`) → `building-a-user-facing-site.md` (the user-facing class) → `search.md` ("Walkthrough: building an Inventory app") |

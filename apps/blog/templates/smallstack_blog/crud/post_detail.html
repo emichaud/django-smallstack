@@ -1,0 +1,104 @@
+{% extends "smallstack/crud/object_detail.html" %}
+{% load static %}
+
+{% comment %}
+Extends rather than replaces the framework detail page: {{ block.super }}
+renders the standard header, field table and related tabs, and this file adds
+the two things a post needs on top — the publishing controls and the rendered
+article.
+
+`can_edit_object` comes from the CRUDView (see _OwnedCRUDView._make_view), not
+from a permission check written out here: the read scope is deliberately wider
+than the write scope, so a reader lands on this page and must not be offered
+buttons that 404.
+{% endcomment %}
+
+{% block extra_css %}{{ block.super }}
+<link rel="stylesheet" href="{% static 'blog/blog.css' %}">
+{% endblock %}
+
+{% block content %}
+{{ block.super }}
+
+{% if can_edit_object %}
+<div class="card" style="margin-top: 16px;">
+  <div class="card-header">
+    <h2>Publishing</h2>
+  </div>
+  <div class="card-body">
+    <p style="margin: 0 0 14px; color: var(--body-quiet-color); font-size: 0.88rem;">
+      {% if object.status == "published" %}
+        {% if object.is_live %}
+          Live since {{ object.published_at }}.
+          {% if object.public_url %}Public URL: <code>{{ object.public_url }}</code>{% endif %}
+        {% else %}
+          Marked published but embargoed until {{ object.published_at }} — no reader can see it yet.
+        {% endif %}
+      {% elif object.status == "scheduled" %}
+        Scheduled for {{ object.scheduled_for }}. The publisher tick will take it live.
+      {% elif object.status == "archived" %}
+        Archived — off the lists and feeds, but its URL still resolves for anyone who linked it.
+      {% else %}
+        Draft. Only you and staff can see this.
+      {% endif %}
+    </p>
+
+    <div style="display: flex; flex-wrap: wrap; gap: 8px; align-items: center;">
+      {% if object.status != "published" %}
+      <form method="post" action="{% url 'blog_post_publish' object.pk %}" style="margin: 0;">
+        {% csrf_token %}
+        <button type="submit" class="btn-primary">Publish now</button>
+      </form>
+      {% else %}
+      <form method="post" action="{% url 'blog_post_unpublish' object.pk %}" style="margin: 0;">
+        {% csrf_token %}
+        <button type="submit" class="btn-outline">Return to draft</button>
+      </form>
+      {% endif %}
+
+      {% if object.status != "archived" %}
+      <form method="post" action="{% url 'blog_post_archive' object.pk %}" style="margin: 0;">
+        {% csrf_token %}
+        <button type="submit" class="btn-outline">Archive</button>
+      </form>
+      {% endif %}
+
+      <form method="post" action="{% url 'blog_post_schedule' object.pk %}"
+            style="margin: 0; display: flex; gap: 6px; align-items: center;">
+        {% csrf_token %}
+        <label for="blog-schedule-at" class="sr-only">Publish at</label>
+        <input type="datetime-local" id="blog-schedule-at" name="scheduled_for"
+               class="vTextField" style="width: auto;">
+        <button type="submit" class="btn-outline">Schedule</button>
+      </form>
+    </div>
+
+    {% if object.source_document_id %}
+    <p style="margin: 14px 0 0; padding-top: 12px; border-top: 1px solid var(--card-border);
+              color: var(--body-quiet-color); font-size: 0.85rem;">
+      Published from runbook document <strong>{{ object.source_document }}</strong>
+      {% if object.source_version %}(version {{ object.source_version }}){% endif %}
+      {% if object.source_synced_at %}· last synced {{ object.source_synced_at }}{% endif %}
+      · sync is <strong>{{ object.get_source_sync_display|lower }}</strong>.
+    </p>
+    {% endif %}
+  </div>
+</div>
+{% endif %}
+
+<div class="card" style="margin-top: 16px;">
+  <div class="card-header">
+    <h2>Rendered</h2>
+  </div>
+  <div class="card-body">
+    {% if object.body_html %}
+      {% comment %}Safe by construction: body_html is produced only by the
+      hardened shared renderer (raw HTML escaped, URL schemes allow-listed),
+      and the service is the sole writer of this column.{% endcomment %}
+      <div class="blog-article">{{ object.body_html|safe }}</div>
+    {% else %}
+      <p class="blog-preview-empty">This post has no body yet.</p>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

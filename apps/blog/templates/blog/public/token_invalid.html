@@ -1,0 +1,15 @@
+{% extends "blog/public/base.html" %}
+{% block title %}Link not valid{% endblock %}
+{% block content %}
+<h1 class="blog-page-title">This link isn't valid</h1>
+<p class="blog-page-tagline">{{ reason }}</p>
+<p class="blog-fineprint">
+  {% if kind == "confirm" %}
+    Confirmation links expire. Subscribe again from the blog and we'll send a fresh one.
+  {% else %}
+    If you're trying to unsubscribe and this link no longer works, reply to any
+    issue and we'll remove you by hand.
+  {% endif %}
+</p>
+<p><a href="{% url 'blog:index' %}">&larr; All blogs</a></p>
+{% endblock %}

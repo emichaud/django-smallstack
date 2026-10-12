@@ -52,7 +52,7 @@ class TestDashboard:
     def test_cards_view_renders_runbook_cards(self, staff_client, document):
         html = staff_client.get(reverse("runbook:dashboard")).content.decode()
         assert "rb-card" in html          # card grid
-        assert "All Documents" in html    # header link to the documents list
+        assert "All documents" in html    # header link to the documents list
         assert "Recent Documents" not in html  # table dropped
 
     def test_list_view_renders_dense_list(self, staff_client, document):
@@ -160,3 +160,18 @@ class TestWebWritesEmitEvents:
             signals.document_written.disconnect(rx)
 
         assert "new_version" in received
+
+
+
+def test_runbook_visibility_badge_says_signed_in_not_public(client, django_user_model):
+    """Runbook "public" admits signed-in users, not the internet. The blog, one
+    sidebar entry away, uses "public" to mean the internet — so the badge must
+    not use the same word for a different audience."""
+    from apps.runbook.models import Runbook
+
+    user = django_user_model.objects.create_user(username="badge", password="x", is_staff=True)
+    Runbook.objects.create(name="Open", slug="open-rb", owner=user, is_public=True)
+    client.force_login(user)
+    html = client.get("/smallstack/runbook/").content.decode()
+    assert "Signed-in" in html
+    assert ">Public<" not in html

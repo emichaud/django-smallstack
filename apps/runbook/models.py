@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import re
 import uuid
 from typing import TYPE_CHECKING, Any, Optional, Union, cast
 
@@ -453,40 +452,15 @@ class Subscription(models.Model):
         return f"{self.subscriber} → {self.document}"
 
 
-_FM_KEYVAL = re.compile(r"[\w.\-]+\s*:\s*.*")
-_FM_IMAGE = re.compile(r"!\[[^\]]*\]\([^)]*\)")
-
-
 def strip_frontmatter(text: str) -> str:
     """Remove a leading YAML frontmatter block from markdown text.
 
-    Robust to:
-      * CRLF / LF line endings and a leading BOM,
-      * blank lines or a standalone image before the block — an image
-        inserted at the top of a document is a common way the frontmatter
-        gets pushed below the first line (and then rendered as body text).
-
-    Only a ``---`` fenced block whose body is entirely ``key: value`` lines
-    is treated as frontmatter, so genuine ``---`` thematic breaks with prose
-    between them are left untouched.
+    Thin wrapper over :func:`apps.smallstack.transforms.split_frontmatter`,
+    which owns the fence detection (BOM/CRLF tolerance, leading-image skip, and
+    the key:value check that keeps genuine ``---`` thematic breaks intact).
+    Runbook only ever needs the body; callers wanting the metadata should use
+    ``parse_frontmatter`` instead.
     """
-    if text.startswith("\ufeff"):
-        text = text[1:]
+    from apps.smallstack.transforms import split_frontmatter
 
-    lines = text.splitlines(keepends=True)
-    i = 0
-    # Skip leading blank lines and standalone images (kept in the output).
-    while i < len(lines) and (not lines[i].strip() or _FM_IMAGE.fullmatch(lines[i].strip())):
-        i += 1
-
-    if i < len(lines) and lines[i].strip() == "---":
-        j = i + 1
-        while j < len(lines) and lines[j].strip() != "---":
-            j += 1
-        if j < len(lines):  # found the closing fence
-            body = [ln.strip() for ln in lines[i + 1:j] if ln.strip()]
-            if body and all(_FM_KEYVAL.fullmatch(ln) for ln in body):
-                kept = lines[:i] + lines[j + 1:]
-                return "".join(kept).strip()
-
-    return text.strip()
+    return split_frontmatter(text)[1]

@@ -380,7 +380,7 @@ def _has_active_filters(request: HttpRequest, crud_config) -> bool:
     return False
 
 
-def _build_toolbar_context(request: HttpRequest, crud_config) -> dict[str, Any]:
+def _build_toolbar_context(request: HttpRequest, crud_config, scoped_qs=None) -> dict[str, Any]:
     """Build context dict for the list toolbar template.
 
     The toolbar shows when search_fields or filter_fields are configured.
@@ -393,7 +393,7 @@ def _build_toolbar_context(request: HttpRequest, crud_config) -> dict[str, Any]:
     # Build filter metadata for the template
     filters = []
     for field_name in filter_fields:
-        meta = _build_filter_meta(crud_config.model, field_name)
+        meta = _build_filter_meta(crud_config.model, field_name, queryset=scoped_qs)
         if meta:
             meta["current_value"] = request.GET.get(field_name, "")
             filters.append(meta)
@@ -419,8 +419,18 @@ def _build_toolbar_context(request: HttpRequest, crud_config) -> dict[str, Any]:
     }
 
 
-def _build_filter_meta(model, field_name: str) -> dict[str, Any] | None:
-    """Build filter widget metadata for a single field."""
+def _build_filter_meta(model, field_name: str, *, queryset=None) -> dict[str, Any] | None:
+    """Build filter widget metadata for a single field.
+
+    ``queryset`` must be the **tenancy-scoped** list queryset *before* the
+    request's own filters are applied. It bounds the choices offered for a
+    ForeignKey (and for a low-cardinality plain column) to values reachable
+    from rows this viewer may see. Passing it is what keeps the filter bar from
+    enumerating other tenants' rows; passing a queryset that already has the
+    GET filters applied would instead collapse each dropdown to the value
+    currently selected. ``None`` means "no row context" and yields an
+    All-only FK dropdown rather than the whole related table.
+    """
     from django.db import models as _m
 
     try:
@@ -465,12 +475,27 @@ def _build_filter_meta(model, field_name: str) -> dict[str, Any] | None:
     # ForeignKey → dropdown of related objects (capped at 100)
     if isinstance(field, _m.ForeignKey):
         related_model = field.related_model
+        meta["type"] = "choice"
         try:
-            objects = related_model._default_manager.all()[:100]
+            # Derived from the rows the viewer can actually see, NOT from
+            # `related_model.objects.all()`. The unscoped version rendered
+            # every related row's __str__ to anyone who could load the list:
+            # on a tenancy-scoped CRUDView (the documented pattern in
+            # building-a-user-facing-site.md) that is a cross-tenant
+            # disclosure — a "User" filter on a per-user list enumerated every
+            # username on the installation. It is also simply more useful this
+            # way: the dropdown offers the values present in your data.
+            if queryset is None:
+                meta["choices"] = [("", "All")]
+                return meta
+            ids = list(
+                queryset.exclude(**{f"{field_name}__isnull": True})
+                .values_list(field_name, flat=True)
+                .distinct()[:100]
+            )
             choices = [("", "All")]
-            for obj in objects:
+            for obj in related_model._default_manager.filter(pk__in=ids):
                 choices.append((str(obj.pk), str(obj)))
-            meta["type"] = "choice"
             meta["choices"] = choices
             return meta
         except Exception:
@@ -478,9 +503,12 @@ def _build_filter_meta(model, field_name: str) -> dict[str, Any] | None:
 
     # Integer/text fields with limited distinct values → dropdown
     try:
-        distinct_count = model.objects.values(field_name).distinct().count()
+        # Same reasoning as the ForeignKey branch: distinct values of a column
+        # across the WHOLE table leak the shape of other tenants' rows.
+        source = model.objects.all() if queryset is None else queryset
+        distinct_count = source.values(field_name).distinct().count()
         if distinct_count <= 30:
-            values = model.objects.values_list(field_name, flat=True).distinct().order_by(field_name)[:30]
+            values = source.values_list(field_name, flat=True).distinct().order_by(field_name)[:30]
             choices = [("", "All")]
             for val in values:
                 if val is not None:
@@ -621,8 +649,16 @@ class _CRUDListBase(_CRUDContextMixin, ListView):
         context = super().get_context_data(**kwargs)
         cfg = self.crud_config
 
-        # Toolbar context (search + filters)
-        context.update(_build_toolbar_context(self.request, cfg))
+        # Toolbar context (search + filters). The queryset handed over is
+        # scoped by `get_list_queryset` but deliberately NOT narrowed by this
+        # request's own filters: the filter choices must stay switchable.
+        context.update(
+            _build_toolbar_context(
+                self.request,
+                cfg,
+                cfg.get_list_queryset(cfg._get_queryset(), self.request),
+            )
+        )
 
         # Empty-state branch selector. The empty state is lower-cased mid-sentence
         # and says what to do next: an empty list *after a search* means "widen

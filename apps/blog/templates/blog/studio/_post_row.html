@@ -1,0 +1,17 @@
+{% comment %}One post in a list. `post` required; `show_blog` optional.{% endcomment %}
+<li class="studio-row{% if post.cover_image %} has-cover{% endif %}">
+  {% if post.cover_image %}{% comment %}Shown in card mode only (CSS); the
+  alt is required by the model whenever a cover is set.{% endcomment %}
+  <a class="studio-row-cover" href="{% url 'myblogs:post_edit' post.blog.slug post.pk %}" tabindex="-1" aria-hidden="true">
+    <img src="{{ post.cover_image.url }}" alt="" loading="lazy">
+  </a>{% endif %}
+  <a class="studio-row-title" href="{% url 'myblogs:post_edit' post.blog.slug post.pk %}">{{ post.title }}</a>
+  {% if post.excerpt %}<p class="studio-row-excerpt">{{ post.excerpt }}</p>{% endif %}
+  <span class="studio-row-meta">
+    {% include "blog/studio/_status.html" %}
+    {% if show_blog %}<span>in {{ post.blog.name }}</span>{% endif %}
+    {% if post.status == "scheduled" and post.scheduled_for %}<span>for {{ post.scheduled_for|date:"j M, H:i" }}</span>
+    {% elif post.published_at %}<span>published {{ post.published_at|date:"j M Y" }}</span>
+    {% else %}<span>edited {{ post.updated_at|date:"j M Y" }}</span>{% endif %}
+  </span>
+</li>

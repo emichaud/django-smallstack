@@ -1,0 +1,28 @@
+{% extends "blog/public/base.html" %}
+
+{% block title %}{{ tag.name }} | {{ blog.name }}{% endblock %}
+{% block meta_description %}Posts tagged {{ tag.name }} on {{ blog.name }}.{% endblock %}
+
+{% block site_nav %}
+<a href="{{ blog.get_absolute_url }}">{{ blog.name }}</a>
+<a href="{% url 'blog:archive' blog.slug %}">Archive</a>
+{% endblock %}
+
+{% block content %}
+<h1 class="blog-page-title">{{ tag.name }}</h1>
+<p class="blog-page-tagline">
+  Posts tagged “{{ tag.name }}” on <a href="{{ blog.get_absolute_url }}">{{ blog.name }}</a>.
+</p>
+{% if tag.description %}<p class="blog-post-excerpt">{{ tag.description }}</p>{% endif %}
+
+{% if page_obj.object_list %}
+<ul class="blog-post-list">
+  {% for post in page_obj.object_list %}
+    {% include "blog/public/_post_card.html" with post=post %}
+  {% endfor %}
+</ul>
+{% include "blog/public/_pagination.html" %}
+{% else %}
+<p class="blog-empty">Nothing tagged “{{ tag.name }}” yet.</p>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,162 @@
+{% extends "blog/studio/base.html" %}
+{% load theme_tags %}
+{% block title %}{% if post %}{{ post.title }}{% else %}New post{% endif %}{% endblock %}
+{% block breadcrumbs %}{% breadcrumb "Home" "website:home" %}{% breadcrumb "My blogs" "myblogs:dashboard" %}{% breadcrumb blog.name "myblogs:blog_detail" blog.slug %}{% breadcrumb post.title|default:"New post" %}{% render_breadcrumbs %}{% endblock %}
+
+{% block content %}
+{% comment %}
+One form, one request. Publish, Schedule and the rest are buttons that set
+`action`: the view saves the editor first and then transitions, so nothing
+typed is lost on the way to publishing and there is still a single
+implementation of "publish" (the service).
+{% endcomment %}
+<form method="post" enctype="multipart/form-data" class="studio-editor" id="studio-editor" novalidate>
+  {% csrf_token %}
+  <input type="hidden" name="action" id="studio-action" value="save">
+
+  <div class="studio-bar">
+    <div class="studio-bar-left">
+      <a href="{% url 'myblogs:blog_detail' blog.slug %}" class="studio-link">{{ blog.name }}</a>
+      {% if post %}{% include "blog/studio/_status.html" %}{% else %}<span class="studio-status">New</span>{% endif %}
+      <span class="studio-bar-count"><span id="studio-words">{{ word_count }}</span> words</span>
+    </div>
+    <div class="studio-bar-right">
+      <button type="submit" class="btn-outline" data-action="save" title="Save (⌘S)">Save</button>
+      {% if post and post.status == "published" %}
+        <button type="submit" class="btn-outline" data-action="unpublish">Return to draft</button>
+      {% else %}
+        <button type="submit" class="btn-primary" data-action="publish">Publish</button>
+      {% endif %}
+    </div>
+  </div>
+
+  {% for error in form.non_field_errors %}<p class="studio-error" role="alert">{{ error }}</p>{% endfor %}
+
+  <div class="studio-grid">
+    <div class="studio-sheet">
+      {{ form.title }}
+      {% for error in form.title.errors %}<p class="studio-error" role="alert">{{ error }}</p>{% endfor %}
+      <div class="studio-address">
+        <span>/blog/{{ blog.slug }}/</span>{{ form.slug }}<span>/</span>
+      </div>
+      {{ form.body_markdown }}
+      {% for error in form.body_markdown.errors %}<p class="studio-error" role="alert">{{ error }}</p>{% endfor %}
+    </div>
+
+    <aside class="studio-rail">
+      <section class="studio-panel">
+        <h2 class="studio-panel-h">Publishing</h2>
+        {% if post %}
+          {% if post.status == "published" and post.is_live %}
+            <p class="studio-panel-p">Live since {{ post.published_at|date:"j M Y, H:i" }}.
+              {% if post.public_url %}<a href="{{ post.public_url }}">Open the page</a>.{% endif %}</p>
+          {% elif post.status == "published" %}
+            <p class="studio-panel-p">Goes live {{ post.published_at|date:"j M Y, H:i" }}.</p>
+          {% elif post.status == "scheduled" %}
+            <p class="studio-panel-p">Scheduled for {{ post.scheduled_for|date:"j M Y, H:i" }}.</p>
+          {% elif post.status == "archived" %}
+            <p class="studio-panel-p">Archived. The address still works for anyone who has it.</p>
+          {% else %}
+            <p class="studio-panel-p">A draft. Only you and staff can see it.</p>
+          {% endif %}
+        {% else %}
+          <p class="studio-panel-p">Save to keep a draft, or publish straight away.</p>
+        {% endif %}
+
+        <label class="studio-label" for="studio-when">Schedule for</label>
+        <div class="studio-inline">
+          {% comment %}The framework's date wrapper: hides the browser's native
+          indicator (which is drawn dark-on-dark in dark themes) and supplies a
+          themed button that opens the picker.{% endcomment %}
+          <div class="crud-date-wrapper studio-date">
+            <input type="datetime-local" id="studio-when" name="scheduled_for" class="studio-input">
+            <button type="button" class="crud-date-btn" data-picker-for="studio-when" aria-label="Open calendar">
+              <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true"><path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11zM9 10H7v2h2v-2zm4 0h-2v2h2v-2zm4 0h-2v2h2v-2zm-8 4H7v2h2v-2zm4 0h-2v2h2v-2zm4 0h-2v2h2v-2z"/></svg>
+            </button>
+          </div>
+          <button type="submit" class="btn-outline btn-sm" data-action="schedule">Schedule</button>
+        </div>
+        {% if post and post.status != "archived" %}
+          <button type="submit" class="studio-link studio-link--button" data-action="archive">Archive this post</button>
+        {% endif %}
+      </section>
+
+      <section class="studio-panel">
+        <h2 class="studio-panel-h">Details</h2>
+        {% include "blog/studio/_field.html" with field=form.tag_names %}
+        {% include "blog/studio/_field.html" with field=form.excerpt %}
+        {% include "blog/studio/_field.html" with field=form.cover_image %}
+        {% include "blog/studio/_field.html" with field=form.cover_alt %}
+        {% include "blog/studio/_field.html" with field=form.canonical_url %}
+        {% include "blog/studio/_field.html" with field=form.allow_newsletter %}
+        {% include "blog/studio/_field.html" with field=form.is_featured %}
+      </section>
+    </aside>
+  </div>
+</form>
+
+{% if post %}
+<form method="post" action="{% url 'myblogs:post_delete' blog.slug post.pk %}" class="studio-danger"
+      onsubmit="return confirm('Delete “{{ post.title|escapejs }}”? This cannot be undone.');">
+  {% csrf_token %}
+  <button type="submit" class="studio-link studio-link--button studio-link--danger">Delete this post</button>
+</form>
+{% endif %}
+
+<script>
+(function () {
+  var form = document.getElementById('studio-editor');
+  var action = document.getElementById('studio-action');
+  if (!form || !action) { return; }
+  form.querySelectorAll('button[data-action]').forEach(function (b) {
+    b.addEventListener('click', function () { action.value = b.getAttribute('data-action'); });
+  });
+  document.addEventListener('keydown', function (e) {
+    if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 's') {
+      e.preventDefault(); action.value = 'save'; form.requestSubmit();
+    }
+  });
+  form.querySelectorAll('[data-picker-for]').forEach(function (b) {
+    b.addEventListener('click', function () {
+      var input = document.getElementById(b.getAttribute('data-picker-for'));
+      if (!input) { return; }
+      if (input.showPicker) { try { input.showPicker(); return; } catch (e) { /* fall through */ } }
+      input.focus(); input.click();
+    });
+  });
+  form.querySelectorAll('[data-cover-input]').forEach(function (box) {
+    var file = box.querySelector('[data-cover-file]');
+    var img = box.querySelector('[data-cover-preview]');
+    var frame = box.querySelector('.studio-cover-frame');
+    var name = box.querySelector('[data-cover-filename]');
+    var clear = box.querySelector('[data-cover-clear]');
+    var label = box.querySelector('[data-cover-pick-label]');
+    if (file) {
+      file.addEventListener('change', function () {
+        var f = file.files && file.files[0];
+        if (!f) { return; }
+        if (img.src && img.src.indexOf('blob:') === 0) { URL.revokeObjectURL(img.src); }
+        img.src = URL.createObjectURL(f);
+        frame.classList.remove('is-empty', 'is-removing');
+        if (clear) { clear.checked = false; }
+        if (name) { name.textContent = f.name; }
+        if (label) { label.textContent = 'Replace'; }
+      });
+    }
+    if (clear) {
+      clear.addEventListener('change', function () {
+        frame.classList.toggle('is-removing', clear.checked);
+      });
+    }
+  });
+  var body = form.querySelector('textarea[name="body_markdown"]');
+  var count = document.getElementById('studio-words');
+  if (body && count) {
+    var update = function () {
+      var t = body.value.trim(); count.textContent = t ? t.split(/\s+/).length : 0;
+    };
+    body.addEventListener('input', update); update();
+  }
+})();
+</script>
+{% endblock %}

@@ -19,17 +19,17 @@
         </nav>
     </div>
     <div class="page-header-actions">
-        <button type="button" class="btn-primary" onclick="openFormModal('New Runbook', 'new-runbook-source')">New Runbook</button>
+        <button type="button" class="btn-primary" onclick="openFormModal('New Runbook', 'new-runbook-source')">New runbook</button>
         {% if view == "list" %}
         <a href="{% url 'runbook:dashboard' %}" class="btn-secondary">Card view</a>
         {% else %}
         <a href="{% url 'runbook:dashboard' %}?view=list" class="btn-secondary">List view</a>
         {% endif %}
-        <a href="{% url 'runbook:document_list' %}" class="btn-secondary">All Documents</a>
+        <a href="{% url 'runbook:document_list' %}" class="btn-secondary">All documents</a>
         <button type="button" class="btn-secondary"
             data-download-url="{% url 'runbook:download_zip' %}"
             data-download-desc="all runbooks as a ZIP archive"
-            onclick="confirmDownload(this)">Download All</button>
+            onclick="confirmDownload(this)">Download all</button>
     </div>
 </div>
 {% endblock %}
@@ -105,11 +105,11 @@
 </div>
 {% endif %}
 
-<!-- Public & System runbooks (public ones from others, and staff-managed system runbooks) -->
+<!-- Signed-in & System runbooks (ones others opened to signed-in users, and staff-managed system runbooks) -->
 {% if other_runbooks %}
 <div class="rb-section">
     <div class="rb-section-header">
-        <h2 class="rb-section-title">{% if my_runbooks %}Public &amp; System{% else %}Runbooks{% endif %}</h2>
+        <h2 class="rb-section-title">{% if my_runbooks %}Signed-in &amp; System{% else %}Runbooks{% endif %}</h2>
     </div>
     {% if view == "list" %}
     <div class="rb-list">
@@ -217,7 +217,7 @@
                 <div class="crud-help">Public runbooks are readable by everyone; private stays visible to you and staff.</div>
             </div>
             <div class="crud-actions">
-                <button type="submit" class="btn-save">Create Runbook</button>
+                <button type="submit" class="btn-save">Create runbook</button>
                 <button type="button" class="btn-cancel" onclick="closeStatModal()">Cancel</button>
             </div>
         </form>
