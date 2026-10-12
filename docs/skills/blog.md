@@ -176,9 +176,19 @@ renderer, so a feed served from anywhere else must check it itself.
 ## The runbook bridge
 
 One-directional: the blog reads runbook through `runbook.service` and
-`runbook.permissions`; runbook does not know the blog exists, and no runbook
-template is edited. The "Publish to blog" entry point is at
+`runbook.permissions`; **`apps/runbook` imports nothing from `apps.blog`, and no
+runbook template references the blog.** The "Publish to blog" entry point is at
 `/smallstack/blog/import-runbook/`.
+
+> That is the dependency claim, and it is the one that matters. It does *not*
+> mean the feature left `apps/runbook/` untouched — it didn't. `93e5726` also
+> made two sentence-case copy edits in `runbook_read.html` / `search.html`
+> (plus relabelling "Public & System" to "Signed-in & System", since
+> `Runbook.is_public` means *signed-in*, which is exactly the distinction the
+> ladder above draws), and moved the markdown renderer out of
+> `runbook/utils.py` into `apps.smallstack.transforms` so runbook, blog and the
+> CRUD field preview share **one hardened renderer**. That shared renderer is
+> why the blog's markdown is XSS-clean; it is worth knowing it is shared.
 
 Frontmatter is **parsed**, not just stripped — `title` and `description` become
 the post's title and excerpt. (Runbook itself only strips it.) A leading `# H1`
@@ -188,12 +198,19 @@ already supplies the `<h1>`; a different first heading is kept.
 `sync="auto"` follows the `document_written` signal. `sync="manual"` does not,
 so an author who adapted the text for readers does not lose it.
 
+> **Auto-sync is queued, not inline.** The receiver enqueues `resync_post_task`,
+> so it needs `manage.py db_worker` on the **default** queue — with no worker the
+> post silently keeps serving the old text. The **Runbook auto-sync** monitor on
+> `/smallstack/status/` reports when auto-synced posts have fallen behind their
+> document, because this was otherwise the one silent-failure path in the app
+> with no signal.
+
 ## Settings
 
 | Setting | Default | Notes |
 |---|---|---|
-| `SMALLSTACK_BLOG_ENABLED` | `True` | Master switch: nav, console, public, feeds, ticks. |
-| `SMALLSTACK_BLOG_PUBLIC_ENABLED` | `True` | The anonymous surface alone. Off ⇒ **404**, not 403. |
+| `SMALLSTACK_BLOG_ENABLED` | `True` | Master switch: nav, console, **public routes**, feeds, **ticks**. Off ⇒ every one of them is gone — the public surface 404s via `public_surface_enabled()`, and both scheduled ticks no-op. |
+| `SMALLSTACK_BLOG_PUBLIC_ENABLED` | `True` | The anonymous surface alone — `/blog/*`, the JSON read API **and both feed families** (per-blog and the site-wide river). Off ⇒ **404**, not 403; the console stays up, which is the point: *authors draft internally, nothing is on the internet yet*. |
 | `SMALLSTACK_BLOG_PAGE_SIZE` | `10` | |
 | `SMALLSTACK_BLOG_FEED_LIMIT` | `25` | |
 | `SMALLSTACK_BLOG_SEND_BATCH_SIZE` | `100` | |
@@ -216,7 +233,15 @@ manage.py rebuild_search_index smallstack_blog.Post   # after enabling search
 Two `@scheduled` jobs: *Blog: publish scheduled posts* (5m) and *Blog: send
 queued newsletter batches* (1m, `email` queue). Both need
 `manage.py db_worker`; the status monitors on `/smallstack/status/` report when
-nothing is draining them, because otherwise both fail completely silently.
+nothing is draining them, because otherwise both fail completely silently. A
+third monitor, **Runbook auto-sync**, covers the on-demand resync task for the
+same reason.
+
+Both ticks **no-op when `SMALLSTACK_BLOG_ENABLED` is off.** They check the flag
+in the task body rather than at registration, because `@scheduled` is applied at
+module import — which the scheduler autodiscovers independently of
+`AppConfig.ready()`, so the jobs exist whatever the setting says. Guarding the
+body keeps them visible in the scheduler UI as deliberately idle.
 
 ## MCP
 

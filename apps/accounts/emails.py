@@ -24,22 +24,52 @@ def site_base_url() -> str:
 
     Resolution order:
     1. ``SITE_DOMAIN`` + ``USE_HTTPS`` — when set to a non-local host (the
-       documented email knob);
+       documented email knob). **An explicit ``https://`` in one of the
+       URL-shaped settings below wins over a false ``USE_HTTPS``** — see below;
     2. a URL-shaped ``SITE_URL`` / ``SMALLSTACK_SITE_URL`` / ``BASE_URL`` —
        the knobs the webhook origin chain already accepts, so a deployment
        that configured its host once for webhooks gets working email links
        without learning a second variable;
     3. the ``SITE_DOMAIN`` default (``localhost:8000``) — dev.
+
+    The scheme rule exists because the two knobs disagreed in a way that
+    silently downgraded links. ``USE_HTTPS`` defaults to ``False``, and step 1
+    used to win outright for any non-local domain — so a deployment that set
+    ``SITE_DOMAIN=example.com`` *and* ``SITE_URL=https://example.com`` (exactly
+    what this docstring invites, "configured its host once for webhooks") mailed
+    ``http://`` unsubscribe and permalink URLs to its entire list. A setting
+    that spells out a scheme is a clearer statement of intent than a boolean
+    left at its default, so it now wins.
     """
     domain = str(getattr(settings, "SITE_DOMAIN", "") or "")
     proto = "https" if getattr(settings, "USE_HTTPS", False) else "http"
+    explicit = _explicit_site_url()
     if domain.split("/")[0].split(":")[0].lower() not in _LOCAL_HOSTS:
+        if explicit and explicit.startswith("https://") and proto == "http":
+            # Only upgrade, and only when the explicit URL names the same host —
+            # a stale SITE_URL pointing somewhere else must not redirect mail.
+            if _host_of(explicit) == _host_of(f"//{domain}"):
+                return f"https://{domain}"
         return f"{proto}://{domain}"
+    if explicit:
+        return explicit
+    return f"{proto}://{domain or 'localhost:8000'}"
+
+
+def _explicit_site_url() -> str:
+    """The first URL-shaped site setting, or ``""``."""
     for name in ("SITE_URL", "SMALLSTACK_SITE_URL", "BASE_URL"):
         url = str(getattr(settings, name, "") or "").rstrip("/")
         if url.startswith(("http://", "https://")):
             return url
-    return f"{proto}://{domain or 'localhost:8000'}"
+    return ""
+
+
+def _host_of(url: str) -> str:
+    """Lower-cased ``host[:port]`` of a URL or ``//host`` fragment."""
+    from urllib.parse import urlsplit
+
+    return (urlsplit(url).netloc or "").lower()
 
 
 def site_url_is_local() -> bool:

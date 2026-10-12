@@ -21,7 +21,7 @@ import logging
 from datetime import datetime, timedelta
 from typing import Any, Iterable, Optional, Sequence
 
-from django.db import IntegrityError, transaction
+from django.db import IntegrityError, models, transaction
 from django.utils import timezone
 from django.utils.text import slugify
 
@@ -650,6 +650,27 @@ def resync_post(post: Post, *, actor: Actor = None, force: bool = False) -> Post
     _apply_document(post, doc, meta, body)
     post.save()
     return post
+
+
+def stale_autosync_count() -> int:
+    """Auto-synced posts whose source document has moved on without them.
+
+    The signal behind the auto-sync status monitor. ``sync="auto"`` is honoured
+    by *enqueuing* ``resync_post_task`` from the ``document_written`` receiver,
+    so with no worker on the default queue the post silently keeps serving the
+    old text — the same "fails completely silently" the other two monitors
+    exist for, in the one place that had no monitor.
+
+    Compares the same predicate ``resync_post`` uses to decide there is work to
+    do, so the monitor cannot disagree with the task about what "behind" means.
+    """
+    from .models import Post
+
+    return (
+        Post.objects.filter(source_sync="auto", source_document__isnull=False)
+        .exclude(source_version=models.F("source_document__version"))
+        .count()
+    )
 
 
 def resync_for_document(document: Any, *, actor: Actor = None) -> list[int]:

@@ -79,25 +79,43 @@ class PublicBlogGateMixin:
 
 
 class _MembersOnly(Exception):
-    """A signed-in-only blog was requested anonymously — redirect to login.
+    """This visitor must sign in before we will say anything about this slug.
 
     Deliberately not a 404. A members blog exists so a team can share its URL
     internally; answering "no such page" to a colleague who simply is not
     signed in yet makes that workflow baffling. Its *contents* stay hidden
     either way.
+
+    ``blog`` is ``None`` when the slug does not exist at all — see
+    :func:`_visible_blog` for why that case ends up here too.
     """
 
-    def __init__(self, blog: Blog) -> None:
+    def __init__(self, blog: Blog | None = None) -> None:
         self.blog = blog
 
 
 def _visible_blog(request: HttpRequest, slug: str) -> Blog:
     """Fetch a blog this visitor may read, or raise.
 
-    404 for private blogs (existence is not public information), ``_MembersOnly``
-    for the signed-in tier.
+    404 for private blogs (existence is not public information),
+    ``_MembersOnly`` for the signed-in tier.
+
+    **To an anonymous visitor, a slug that does not exist answers exactly like
+    a members blog.** Otherwise the login redirect is an existence oracle: a
+    members blog answered 302 while an unused slug answered 404, so anyone
+    could enumerate internal blog names without an account. Keeping the
+    redirect (rather than 404ing members blogs) preserves the workflow this
+    tier exists for; making the *absent* case answer identically is what closes
+    the leak.
+
+    A signed-in visitor still gets an honest 404 for a slug that is not there —
+    the ambiguity is confined to the only audience it protects against.
     """
-    blog = get_object_or_404(Blog.objects.select_related("owner"), slug=slug)
+    blog = Blog.objects.select_related("owner").filter(slug=slug).first()
+    if blog is None:
+        if not request.user.is_authenticated:
+            raise _MembersOnly(None)
+        raise Http404("No such blog.")
     if permissions.can_view(request.user, blog):
         return blog
     if blog.visibility == Blog.Visibility.MEMBERS and not request.user.is_authenticated:

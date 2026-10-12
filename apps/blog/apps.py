@@ -105,11 +105,17 @@ class BlogConfig(AppConfig):
         try:
             from apps.smallstack import monitors
 
-            from .monitors import BlogService, NewsletterSendMonitor, ScheduledPostsMonitor
+            from .monitors import (
+                AutoSyncMonitor,
+                BlogService,
+                NewsletterSendMonitor,
+                ScheduledPostsMonitor,
+            )
 
             monitors.register_service(BlogService())
             monitors.register_monitor(ScheduledPostsMonitor())
             monitors.register_monitor(NewsletterSendMonitor())
+            monitors.register_monitor(AutoSyncMonitor())
         except ImportError:
             pass  # status surface not installed — optional
         except Exception:  # noqa: BLE001

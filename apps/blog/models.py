@@ -43,6 +43,15 @@ if TYPE_CHECKING:
 RESERVED_BLOG_SLUGS: frozenset[str] = frozenset({
     "admin", "api", "feed", "feeds", "media", "search", "sitemap", "sitemap.xml",
     "static", "subscribe", "unsubscribe", "confirm", "newsletter", "tag", "tags",
+    # "p" is the post-shortlink prefix (/blog/p/<uuid>/). It was the one fixed
+    # segment in public_urls.py missing from this set. Route order saves it
+    # today — path("p/<uuid:uid>/") is registered before <slug:blog_slug>/ — but
+    # this set is the stated defence, and "a false negative costs an
+    # unreachable page" is a poor thing to leave resting on declaration order.
+    "p",
+    # NB the other fixed segment, "feed.json", needs no entry: SlugField rejects
+    # dots, so it can never be a blog slug. The dotted names already here
+    # ("sitemap.xml") are belt-and-braces for the same reason.
 })
 RESERVED_POST_SLUGS: frozenset[str] = frozenset({
     "archive", "feed", "feed.atom", "feed.json", "feed.rss", "feeds",
@@ -410,6 +419,30 @@ class Post(models.Model):
             return self.get_absolute_url()
         except NoReverseMatch:
             return ""
+
+    @property
+    def safe_canonical_url(self) -> str:
+        """``canonical_url`` if it is safe to put in an ``href``, else ``""``.
+
+        ``canonical_url`` is a ``URLField``, so every *user-facing* surface
+        already refuses a dangerous scheme — ``URLValidator`` allows only
+        http/https/ftp/ftps, and the REST, MCP and studio form paths all run it.
+        But the service layer does not call ``full_clean()``, so a trusted
+        internal caller (a shell session, a data import, a migration) can store
+        anything, and the template rendered it straight into an ``<a href>`` and
+        a ``<link rel=canonical>``.
+
+        That is not a reachable XSS today; it is the belt to that braces. A
+        stored ``javascript:`` would otherwise be one click from executing in
+        the page's origin, and the thing standing between them would be a
+        validator the writer bypassed.
+        """
+        url = (self.canonical_url or "").strip()
+        if not url:
+            return ""
+        scheme = url.split(":", 1)[0].lower() if ":" in url else ""
+        # Relative URLs ("/elsewhere/") carry no scheme and are safe.
+        return url if scheme in ("", "http", "https") else ""
 
     @property
     def is_live(self) -> bool:

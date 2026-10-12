@@ -76,8 +76,12 @@ urlpatterns = [
     path("webhooks/tick/", webhooks_tick, name="webhooks_tick"),
     # Blog: PUBLIC reading surface at /blog/ (index, per-blog pages, permalinks,
     # and an anonymous JSON read API). The authoring console is separate, under
-    # /smallstack/blog/. Gated per-view by SMALLSTACK_BLOG_PUBLIC_ENABLED so a
-    # disabled surface 404s rather than breaking every {% url %} that names it.
+    # /smallstack/blog/. Gated per-view by public_surface_enabled() — which
+    # honours BOTH SMALLSTACK_BLOG_ENABLED and SMALLSTACK_BLOG_PUBLIC_ENABLED —
+    # so a disabled surface 404s rather than breaking every {% url %} that names
+    # it. Mounting unconditionally and gating in the view is deliberate; it used
+    # to mean the master switch never reached these routes, which is a bug the
+    # gate function now owns rather than the URLConf.
     path("blog/", include("apps.blog.public_urls")),
     # The author's own studio — login-gated, owner-scoped. Separate from the
     # system blog manager under /smallstack/blog/.

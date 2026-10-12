@@ -4,7 +4,7 @@
 {% block meta_description %}{{ post.excerpt }}{% endblock %}
 
 {% block head_extra %}
-<link rel="canonical" href="{{ post.canonical_url|default:request.build_absolute_uri }}">
+<link rel="canonical" href="{{ post.safe_canonical_url|default:request.build_absolute_uri }}">
 <link rel="alternate" type="application/rss+xml" title="{{ blog.name }} (RSS)"
       href="{% url 'blog:feed' blog.slug 'rss' %}">
 <meta property="og:type" content="article">
@@ -63,9 +63,9 @@
   which is the sole writer of this column.{% endcomment %}
   <div class="blog-article">{{ post.body_html|safe }}</div>
 
-  {% if post.canonical_url %}
+  {% if post.safe_canonical_url %}
   <p style="margin-top: 32px; color: var(--text-muted); font-size: 0.85rem;">
-    Originally published at <a href="{{ post.canonical_url }}" rel="canonical">{{ post.canonical_url }}</a>.
+    Originally published at <a href="{{ post.safe_canonical_url }}" rel="canonical">{{ post.safe_canonical_url }}</a>.
   </p>
   {% endif %}
 </article>
