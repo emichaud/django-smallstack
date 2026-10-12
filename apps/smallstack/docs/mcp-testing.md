@@ -62,6 +62,8 @@ def _wipe(clean_registry):
     yield
 ```
 
+Wiping is safe to do from any test: the repo-root `conftest.py` snapshots `TOOL_REGISTRY` and `TOOL_HANDLERS` before every test and restores them afterwards (`apps.mcp.server.isolated_tool_registry`), so the startup registrations — the search tools, every `enable_mcp` CRUDView's tools, each app's `@tool`s — are back for the next test no matter which files ran first. Your own app's tests can therefore assert `"list_widgets" in TOOL_REGISTRY` without re-registering anything in a conftest.
+
 ## Test-only Widget + Gadget models
 
 Live in `apps/mcp/tests/models.py` with `managed = False`. The repo-root `conftest.py` creates their tables once per session via `schema_editor`. Use these when you want to exercise the factory without coupling to a project-specific model.

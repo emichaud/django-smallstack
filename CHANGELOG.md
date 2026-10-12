@@ -127,6 +127,17 @@ Breaking-change migration recipes live in [`UPGRADING.md`](UPGRADING.md).
   handshake and one AUTH per recipient.
 
 ### Fixed
+- **MCP tool registry leaks between tests.** Several suites wipe
+  `TOOL_REGISTRY` / `TOOL_HANDLERS` with `clear_registry_for_tests()` to
+  test registration in isolation and left them empty for the rest of the
+  process, so any later test asserting "my app's tools are registered"
+  passed or failed on file order alone — green in the default alphabetical
+  run, 24 failures when `apps/search apps/mcp apps/blog` ran together. The
+  root `conftest.py` now snapshots both registries before every test and
+  restores them after (`apps.mcp.server.isolated_tool_registry`), pinned by
+  `apps/mcp/tests/test_registry_isolation.py`. The per-app conftests that
+  re-registered their own tools to cope (runbook, webhooks, approvals,
+  telemetry) still work and are now redundant.
 - **Help's dark theme was hard-coded again.** `help.css` carried 26 legacy-grey
   literals (`#1e1e1e`, `#3a3a3a`, `#e0e0e0`, …) inside `[data-theme="dark"]`
   blocks — the exact anti-pattern `modern-dark-theme.md` cites that file as

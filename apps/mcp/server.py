@@ -8,9 +8,10 @@ to get the authenticated user/token, set by views.py before invoking.
 from __future__ import annotations
 
 import logging
+from contextlib import contextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass, field
-from typing import Any, Awaitable, Callable, Optional
+from typing import Any, Awaitable, Callable, Iterator, Optional
 
 logger = logging.getLogger("smallstack.mcp.server")
 
@@ -134,6 +135,34 @@ def current_context() -> ToolContext:
 
 
 def clear_registry_for_tests() -> None:
-    """Test helper: wipe the registries between tests. Do not use in prod."""
+    """Test helper: wipe the registries between tests. Do not use in prod.
+
+    This empties the *process-wide* registries that every app populated at
+    startup. The project-root ``conftest.py`` snapshots both before every
+    test and restores them afterwards (``isolated_tool_registry``), so a
+    test that calls this cannot starve a later test of the startup tools —
+    whatever order pytest runs the files in.
+    """
     TOOL_REGISTRY.clear()
     TOOL_HANDLERS.clear()
+
+
+@contextmanager
+def isolated_tool_registry() -> Iterator[None]:
+    """Snapshot ``TOOL_REGISTRY`` / ``TOOL_HANDLERS`` and restore them on exit.
+
+    The registries are module-level dicts filled during ``AppConfig.ready()``;
+    nothing re-populates them later in the process. A test that wipes or
+    mutates them must therefore put the startup state back, or every later
+    test that asserts "my app's tools are registered" fails depending purely
+    on file order. The root ``conftest.py`` applies this around every test.
+    """
+    tools = dict(TOOL_REGISTRY)
+    handlers = dict(TOOL_HANDLERS)
+    try:
+        yield
+    finally:
+        TOOL_REGISTRY.clear()
+        TOOL_REGISTRY.update(tools)
+        TOOL_HANDLERS.clear()
+        TOOL_HANDLERS.update(handlers)
