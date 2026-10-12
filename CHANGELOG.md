@@ -9,6 +9,8 @@ Breaking-change migration recipes live in [`UPGRADING.md`](UPGRADING.md).
 
 ## [Unreleased]
 
+## [0.25.1] - 2026-10-12
+
 ### Removed
 - **`enable_rss` and the one-flag model feed.** `ModelFeed` built its items
   from `model.objects.all()` and never applied `get_list_queryset` or
@@ -2316,7 +2318,8 @@ Condensed highlights of the v0.11 series (see git history for per-patch detail):
 See the git tag history (`git tag`) and `ai_cowork/audit_history/` for the full record of the
 v0.8–v0.10 API-server, modern-dark-theme, search, MCP, and Postgres eras.
 
-[Unreleased]: https://github.com/emichaud/django-smallstack/compare/v0.25.0...HEAD
+[Unreleased]: https://github.com/emichaud/django-smallstack/compare/v0.25.1...HEAD
+[0.25.1]: https://github.com/emichaud/django-smallstack/compare/v0.25.0...v0.25.1
 [0.25.0]: https://github.com/emichaud/django-smallstack/compare/v0.24.0...v0.25.0
 [0.24.0]: https://github.com/emichaud/django-smallstack/compare/v0.23.1...v0.24.0
 [0.23.1]: https://github.com/emichaud/django-smallstack/compare/v0.23.0...v0.23.1
