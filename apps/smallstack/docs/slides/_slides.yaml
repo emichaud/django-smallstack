@@ -16,23 +16,33 @@ decks:
 
   - slug: features
     title: "SmallStack Features"
-    description: "A quick tour of everything included in Django SmallStack"
+    description: "A quick tour of the platform: every surface and built-in app in Django SmallStack"
     slides:
       - slug: philosophy
         title: "Philosophy"
       - slug: tech-stack
-        title: "Tech Stack"
-      - slug: profile
-        title: "Profile App"
-      - slug: activity-tracking
-        title: "Activity Tracking"
+        title: "Tech stack"
+      - slug: surfaces
+        title: "One model, every surface"
       - slug: theming
         title: "Theming"
       - slug: authentication
         title: "Authentication"
-      - slug: help-system
-        title: "Help System"
+      - slug: profile
+        title: "Profile app"
+      - slug: search
+        title: "Search"
       - slug: background-tasks
-        title: "Background Tasks"
+        title: "Background tasks & scheduler"
+      - slug: webhooks-feeds
+        title: "Webhooks & feeds"
+      - slug: approvals-notifications
+        title: "Approvals & notifications"
+      - slug: publishing
+        title: "Runbook, blog & newsletter"
+      - slug: activity-tracking
+        title: "Activity tracking"
+      - slug: help-system
+        title: "Help system"
       - slug: docker
-        title: "Docker & Deployment"
+        title: "Docker & deployment"

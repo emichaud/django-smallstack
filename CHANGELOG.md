@@ -62,6 +62,24 @@ Breaking-change migration recipes live in [`UPGRADING.md`](UPGRADING.md).
 - **`docs/skills/blog.md`** plus five in-app help pages at `/help/blog/`.
 
 ### Changed
+- **The shipped site now frames SmallStack as a platform to build apps on,
+  not an app starter — and knows about every app added since 0.13.** The
+  home page's hero, "what you can build on it" shapes (internal tools, API
+  backends, MCP servers, integration hubs, workflow apps, publishing), the
+  pipeline (now `enable_webhooks` + `enable_rss` + the `sc` CLI alongside
+  HTML/REST/MCP/search), a 16-tile batteries grid (Runbook, Blog &
+  newsletter, Approvals, Notifications, Scheduler, Webhooks, Search, Logs
+  join the original eight; staff get live links, everyone else the help
+  page, and a switched-off app falls back to its docs automatically), and a
+  new "build on it" section listing the seams the built-in apps register
+  through. The about page's lede and the `features` slide deck (new slides
+  for surfaces, search, webhooks & feeds, approvals & notifications,
+  runbook/blog/newsletter; stale 5-palette and "recurring schedules are on
+  the way" copy fixed), the getting-started page (a sixth "platform apps"
+  step with the `SMALLSTACK_*_ENABLED` flags, six surfaces, an expanded
+  reference grid), the help "Welcome" page (full what's-included table with
+  deep links, and its `/help/...` links — which 404'd — fixed to
+  `/smallstack/help/...`), and the README ledes follow the same framing.
 - **UI consistency pass across Runbook, Help and Blog.** The studio's list
   pages (My blogs, a blog, settings, new blog) now use the same header band
   with the breadcrumb inside it that Runbook, Help and the CRUD console use,

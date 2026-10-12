@@ -5,11 +5,11 @@ description: Project overview and quick start guide
 
 # Django SmallStack
 
-*One small backend. Many roles.*
+*A platform to build apps on.*
 
-A modern, batteries-included Django foundation that plays many roles in your stack — an admin app, a REST backend for your React/Svelte/Solid frontend, an MCP server, a search engine, an integration hub, and a task runner — all from a single model definition. Production-ready with SQLite, Docker, and zero-downtime Kamal deployment. Clone it, customize it, ship it.
+SmallStack is the layer under your application. The admin shell, auth, CRUD pages, REST, MCP, search, webhooks, feeds, a scheduler, human-in-the-loop approvals, notifications and publishing (runbooks, blogs, newsletters) are already built, tested and themed — so your project starts at the business logic. From a single model definition it plays many roles at once: an admin app, a REST backend for your React/Svelte/Solid frontend, an MCP server, a search engine, an integration hub, a task runner, a workflow engine and a publishing platform. Production-ready with SQLite or Postgres, Docker, and zero-downtime Kamal deployment.
 
-SmallStack is not a theme you have to implement — it's a production-ready system with clear patterns for you to extend with your own ideas and creativity. You focus on what makes your app unique, and SmallStack handles the platform.
+SmallStack is not a theme you have to implement and not a starter you grow out of — it's a production-ready system whose built-in apps register through the same seams your app does (`nav.register()`, `dashboard.register()`, status monitors, `@scheduled`, `@approval_kind`, `notify()`, `@webhook_handler`, `@dataset`, `help_content_dir`). You focus on what makes your app unique, and SmallStack handles the platform.
 
 📖 **Full docs & the full story → [www.smallstack.site](https://www.smallstack.site/)**
 

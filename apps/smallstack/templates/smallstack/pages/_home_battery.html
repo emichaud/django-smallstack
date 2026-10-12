@@ -1,0 +1,13 @@
+{% comment %}
+One tile in the home page "Batteries included" grid.
+
+Expects `name`, `note` and `icon` (an SVG path) from the include tag, plus two
+URLs resolved by the caller with `{% url ... as live %}` / `{% url ... as doc %}`
+and `show_live` (whether the viewer may open the app itself). Staff get the live
+app; everyone else — and staff on an install where the app is switched off, in
+which case `live` resolves to "" — get the matching help page.
+{% endcomment %}
+<a href="{% if show_live and live %}{{ live }}{% else %}{{ doc }}{% endif %}" class="ss-battery">
+  <span class="ss-battery-name"><svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true"><path d="{{ icon }}"/></svg>{{ name }}</span>
+  <p class="ss-battery-note">{{ note }}</p>
+</a>

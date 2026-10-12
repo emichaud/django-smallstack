@@ -125,11 +125,12 @@
     line-height: 1.55;
     margin: 0.25rem 0 0 0;
   }
+  .ss-shapes.cols-3 { grid-template-columns: repeat(3, 1fr); }
   @media (max-width: 720px) {
-    .ss-shapes { grid-template-columns: repeat(2, 1fr); }
+    .ss-shapes, .ss-shapes.cols-3 { grid-template-columns: repeat(2, 1fr); }
   }
   @media (max-width: 480px) {
-    .ss-shapes { grid-template-columns: 1fr; }
+    .ss-shapes, .ss-shapes.cols-3 { grid-template-columns: 1fr; }
     .ss-hero h1 { font-size: clamp(2rem, 9vw, 3rem); }
   }
 
@@ -167,6 +168,9 @@
     margin-top: 1.25rem;
   }
   @media (max-width: 720px) { .ss-surfaces { grid-template-columns: 1fr; } }
+  .ss-surfaces.cols-3 { grid-template-columns: repeat(3, 1fr); }
+  @media (max-width: 900px) { .ss-surfaces.cols-3 { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 520px) { .ss-surfaces.cols-3 { grid-template-columns: 1fr; } }
   .ss-surfaces.cols-4 { grid-template-columns: repeat(4, 1fr); }
   @media (max-width: 900px) { .ss-surfaces.cols-4 { grid-template-columns: repeat(2, 1fr); } }
   @media (max-width: 520px) { .ss-surfaces.cols-4 { grid-template-columns: 1fr; } }
@@ -227,6 +231,37 @@
   }
   .ss-battery-name svg { color: var(--primary); }
   .ss-battery-note {
+    font-size: 0.82rem;
+    color: var(--body-quiet-color);
+    line-height: 1.5;
+    margin: 0;
+  }
+
+  /* Platform seams — the hooks the built-in apps register through */
+  .ss-seams {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1px;
+    background: color-mix(in srgb, var(--body-fg) 12%, transparent);
+    border-top: 1px solid color-mix(in srgb, var(--body-fg) 12%, transparent);
+    border-bottom: 1px solid color-mix(in srgb, var(--body-fg) 12%, transparent);
+  }
+  @media (max-width: 900px) { .ss-seams { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 480px) { .ss-seams { grid-template-columns: 1fr; } }
+  .ss-seam {
+    background: var(--body-bg);
+    padding: 1rem 1rem 1.1rem;
+    display: flex; flex-direction: column; gap: 0.3rem;
+  }
+  .ss-seam code {
+    font-family: var(--font-monospace, ui-monospace, Menlo, monospace);
+    font-size: 0.86rem;
+    font-weight: 600;
+    color: var(--primary);
+    background: none;
+    padding: 0;
+  }
+  .ss-seam-note {
     font-size: 0.82rem;
     color: var(--body-quiet-color);
     line-height: 1.5;
@@ -305,22 +340,19 @@
 <section class="ss-hero ss-fade">
   <div class="ss-eyebrow">
     <span class="dot" aria-hidden="true"></span>
-    <span>{{ brand.name|default:"Django SmallStack" }} · v{{ smallstack_version|default:"0.9.1" }}</span>
+    <span>{{ brand.name|default:"Django SmallStack" }} · v{{ smallstack_version|default:"0.24" }}</span>
   </div>
 
   <h1 class="ss-display" style="margin-top: 1.4rem;">
-    Django that's<br>
-    <em>batteries-included</em><br>
-    for the AI era.
+    A Django <em>platform</em><br>
+    to build apps on.
   </h1>
 
   <p class="ss-hero-sub">
-    A small-footprint Django foundation for shipping
-    <strong style="color: var(--body-fg); font-weight: 600;">websites</strong>,
-    <strong style="color: var(--body-fg); font-weight: 600;">API servers</strong>, and
-    <strong style="color: var(--body-fg); font-weight: 600;">MCP servers</strong> — plus
-    a background scheduler — with Explorer, CRUDView, and a model-to-API-to-MCP
-    pipeline already wired up.
+    SmallStack is the layer under your application. Auth, theming, CRUD pages, REST,
+    MCP, search, webhooks, feeds, a scheduler, approvals, notifications and publishing
+    are already built, tested and themed. You write the models and the business logic;
+    every platform surface picks them up.
   </p>
 
   <div class="ss-cta-row">
@@ -344,47 +376,52 @@
 
 <hr class="ss-rule">
 
-{# ── FOUR SHAPES YOU CAN SHIP ───────────────────────────────────── #}
+{# ── WHAT YOU CAN BUILD ON IT ───────────────────────────────────── #}
 <section class="ss-section ss-fade d1">
-  <div class="ss-section-label">Four shapes you can ship</div>
+  <div class="ss-section-label">What you can build on it</div>
 
-  <div class="ss-shapes">
+  <div class="ss-shapes cols-3">
     <div class="ss-shape">
-      <span class="ss-shape-num">01</span>
-      <span class="ss-shape-name">Website</span>
-      <p class="ss-shape-desc">Themed admin, dark mode, palettes, sidebar, breadcrumbs. Templates ready for marketing pages.</p>
+      <span class="ss-shape-name">Internal tools</span>
+      <p class="ss-shape-desc">A themed admin shell with CRUDView pages, the Explorer, user management, activity and audit logs. The ops tool you would otherwise build from scratch.</p>
     </div>
     <div class="ss-shape">
-      <span class="ss-shape-num">02</span>
-      <span class="ss-shape-name">API server</span>
-      <p class="ss-shape-desc">REST with Bearer auth, OpenAPI 3.0.3 schema, Swagger UI, ReDoc — emitted from your CRUDViews.</p>
+      <span class="ss-shape-name">API backends</span>
+      <p class="ss-shape-desc">REST with Bearer auth, an OpenAPI 3.0.3 schema, Swagger UI and ReDoc, plus typed TypeScript and Python clients for your React, Svelte or Streamlit frontend.</p>
     </div>
     <div class="ss-shape">
-      <span class="ss-shape-num">03</span>
-      <span class="ss-shape-name">MCP server</span>
-      <p class="ss-shape-desc">JSON-RPC + OAuth 2.0 + PKCE. Claude Desktop and Claude.ai Connectors UI both connect with no setup.</p>
+      <span class="ss-shape-name">MCP servers</span>
+      <p class="ss-shape-desc">JSON-RPC + OAuth 2.0 + PKCE. Claude Desktop and the Claude.ai Connectors UI connect with no setup, and every opted-in model becomes a set of tools.</p>
     </div>
     <div class="ss-shape">
-      <span class="ss-shape-num">04</span>
-      <span class="ss-shape-name">Scheduler</span>
-      <p class="ss-shape-desc">Django Tasks + a DB worker, pre-wired for background jobs. The newest surface — recurring schedules are on the way.</p>
+      <span class="ss-shape-name">Integration hubs</span>
+      <p class="ss-shape-desc">Signed outbound webhooks on model change, verified inbound receivers, RSS/Atom publish and consume, and SmallStack-to-SmallStack pairing.</p>
+    </div>
+    <div class="ss-shape">
+      <span class="ss-shape-name">Workflow apps</span>
+      <p class="ss-shape-desc">Recurring <code>@scheduled</code> jobs on a DB-backed worker, human-in-the-loop approvals with a decision console, and in-app notifications with a topbar bell.</p>
+    </div>
+    <div class="ss-shape">
+      <span class="ss-shape-name">Publishing</span>
+      <p class="ss-shape-desc">Versioned runbook documents, per-user blogs with a writing studio, a public reading surface with feeds, and a durable newsletter sender.</p>
     </div>
   </div>
 </section>
 
 <hr class="ss-rule">
 
-{# ── ONE MODEL → FOUR SURFACES (the killer feature) ─────────────── #}
+{# ── ONE MODEL → EVERY SURFACE (the killer feature) ─────────────── #}
 <section class="ss-section ss-fade d2">
   <div class="ss-section-label">The pipeline</div>
 
   <h2 class="ss-display" style="font-size: clamp(1.7rem, 3.2vw, 2.4rem); margin-bottom: 0.5rem;">
-    One model. <em>Four surfaces.</em>
+    One model. <em>Every surface.</em>
   </h2>
   <p style="max-width: 44rem; color: var(--body-quiet-color); margin: 0;">
-    Define your model once. CRUDView's opt-in flags emit the same form/queryset
-    logic as an HTML admin page, a REST endpoint, an MCP tool, and a search index —
-    each wired through the same tenancy hook and permission checks.
+    Define your model once. CRUDView's opt-in flags emit the same form, queryset and
+    permission logic as an HTML admin page, a REST endpoint, MCP tools, a search index,
+    webhook events and a feed — each wired through the same tenancy hook, and all of
+    them reachable from the terminal.
   </p>
 
   <div class="ss-pipeline-card">
@@ -394,13 +431,16 @@
     actions         = [<span class="cls">Action</span>.LIST, <span class="cls">Action</span>.CREATE, <span class="cls">Action</span>.DETAIL, <span class="cls">Action</span>.UPDATE, <span class="cls">Action</span>.DELETE]
     filter_fields   = [<span class="str">"status"</span>, <span class="str">"priority"</span>, <span class="str">"customer"</span>]
     search_fields   = [<span class="str">"subject"</span>, <span class="str">"body"</span>]
-    enable_api      = <span class="num">True</span>     <span class="arrow">───→</span>  <span class="com">REST    /api/tickets/</span>
-    enable_mcp      = <span class="num">True</span>     <span class="arrow">───→</span>  <span class="com">MCP     list_tickets, get_ticket, create_ticket, …</span>
-    enable_explorer = <span class="num">True</span>     <span class="arrow">───→</span>  <span class="com">HTML    /smallstack/explorer/support/ticket/</span>
-    enable_search   = <span class="num">True</span>     <span class="arrow">───→</span>  <span class="com">SEARCH  /search/ · search_all</span></pre>
+    enable_explorer = <span class="num">True</span>     <span class="arrow">───→</span>  <span class="com">HTML      /smallstack/explorer/support/ticket/</span>
+    enable_api      = <span class="num">True</span>     <span class="arrow">───→</span>  <span class="com">REST      /api/tickets/ · OpenAPI · typed clients</span>
+    enable_mcp      = <span class="num">True</span>     <span class="arrow">───→</span>  <span class="com">MCP       list_tickets, get_ticket, create_ticket, …</span>
+    enable_search   = <span class="num">True</span>     <span class="arrow">───→</span>  <span class="com">SEARCH    /search/ · search_tickets</span>
+    enable_webhooks = <span class="num">True</span>     <span class="arrow">───→</span>  <span class="com">WEBHOOKS  ticket.created / updated / deleted, signed</span>
+    enable_rss      = <span class="num">True</span>     <span class="arrow">───→</span>  <span class="com">FEED      /feed/&lt;slug&gt;.rss · .atom</span>
+                                      <span class="com">CLI       sc ls support.Ticket   (always on)</span></pre>
   </div>
 
-  <div class="ss-surfaces cols-4">
+  <div class="ss-surfaces cols-3">
     <div class="ss-surface">
       <div class="ss-surface-name">HTML</div>
       <p class="ss-surface-path">Explorer</p>
@@ -417,9 +457,19 @@
       <p class="ss-surface-note">JSON-RPC + OAuth. Claude Desktop and Connectors UI work without extra setup.</p>
     </div>
     <div class="ss-surface">
-      <div class="ss-surface-name">SEARCH</div>
+      <div class="ss-surface-name">Search</div>
       <p class="ss-surface-path">/search/ · search_all</p>
-      <p class="ss-surface-note">Full-text index across your models and the help docs — same index as an MCP tool.</p>
+      <p class="ss-surface-note">Full-text index across your models, runbooks, blog posts and the help docs — also an MCP tool.</p>
+    </div>
+    <div class="ss-surface">
+      <div class="ss-surface-name">Webhooks &amp; feeds</div>
+      <p class="ss-surface-path">/smallstack/webhooks/</p>
+      <p class="ss-surface-note">Signed deliveries with retries and dead-letter replay, inbound receivers, RSS/Atom for any model.</p>
+    </div>
+    <div class="ss-surface">
+      <div class="ss-surface-name">CLI</div>
+      <p class="ss-surface-path">sc ls · get · new · set</p>
+      <p class="ss-surface-note">Terminal CRUD over every registered model, with the same validation and audit trail as REST and MCP.</p>
     </div>
   </div>
 </section>
@@ -429,102 +479,95 @@
 {# ── BATTERIES INCLUDED ─────────────────────────────────────────── #}
 <section class="ss-section ss-fade d3">
   <div class="ss-section-label">Batteries included</div>
-  <h2 class="ss-display" style="font-size: clamp(1.7rem, 3.2vw, 2.4rem); margin-bottom: 1.25rem;">
+  <h2 class="ss-display" style="font-size: clamp(1.7rem, 3.2vw, 2.4rem); margin-bottom: 0.5rem;">
     Apps that run themselves.
   </h2>
+  <p style="max-width: 44rem; color: var(--body-quiet-color); margin: 0 0 1.25rem 0;">
+    Each one registers its own navigation, dashboard widget, status monitor and help
+    pages, and each is a setting away from off (<code>SMALLSTACK_BLOG_ENABLED</code>,
+    <code>SMALLSTACK_APPROVALS_ENABLED</code>, …). Keep what your app needs.
+  </p>
 
+  {% with show_live=user.is_staff %}
   <div class="ss-batteries">
-    {% if user.is_authenticated and user.is_staff %}
-      <a href="{% url 'explorer-index' %}" class="ss-battery">
-        <span class="ss-battery-name">
-          <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93z"/></svg>
-          Explorer
-        </span>
-        <p class="ss-battery-note">Universal model browser with auto-generated CRUD pages.</p>
-      </a>
-      <a href="{% url 'mcp_admin:health' %}" class="ss-battery">
-        <span class="ss-battery-name">
-          <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm0 18a8 8 0 1 1 8-8 8 8 0 0 1-8 8z"/></svg>
-          MCP admin
-        </span>
-        <p class="ss-battery-note">Health / Tools / Activity for the Model Context Protocol server.</p>
-      </a>
-      <a href="{% url 'activity:dashboard' %}" class="ss-battery">
-        <span class="ss-battery-name">
-          <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M5 9.2h3V19H5zM10.6 5h2.8v14h-2.8zm5.6 8H19v6h-2.8z"/></svg>
-          Activity
-        </span>
-        <p class="ss-battery-note">Request logging with auto-pruning, status breakdowns, user activity.</p>
-      </a>
-      <a href="{% url 'tokenmgr:tokens-list' %}" class="ss-battery">
-        <span class="ss-battery-name">
-          <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M12.65 10A6 6 0 0 0 7 6a6 6 0 0 0 0 12 6 6 0 0 0 5.65-4H17v4h4v-4h2v-4H12.65zM7 14a2 2 0 1 1 0-4 2 2 0 0 1 0 4z"/></svg>
-          API Tokens
-        </span>
-        <p class="ss-battery-note">Self-service mint / reveal / revoke. Drops straight into MCP OAuth.</p>
-      </a>
-      <a href="{% url 'smallstack:backups' %}" class="ss-battery">
-        <span class="ss-battery-name">
-          <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
-          Backups
-        </span>
-        <p class="ss-battery-note">SQLite snapshots, optional cron schedule, download or restore.</p>
-      </a>
-      <a href="{% url 'heartbeat:status' %}" class="ss-battery">
-        <span class="ss-battery-name">
-          <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M3.5 18.49l6-6.01 4 4L22 6.92l-1.41-1.41-7.09 7.97-4-4L2 16.99z"/></svg>
-          Status
-        </span>
-        <p class="ss-battery-note">Uptime pings, response-time chart, public status page.</p>
-      </a>
-      <a href="{% url 'manage/users-list' %}" class="ss-battery">
-        <span class="ss-battery-name">
-          <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg>
-          Users
-        </span>
-        <p class="ss-battery-note">User management with custom User model + email-first auth patterns.</p>
-      </a>
-      <a href="{% url 'help:index' %}" class="ss-battery">
-        <span class="ss-battery-name">
-          <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6z"/></svg>
-          Docs
-        </span>
-        <p class="ss-battery-note">Bundled reference + AI skill files. Renders inside the app.</p>
-      </a>
-    {% else %}
-      <a href="{% url 'help:section_detail' 'smallstack' 'explorer' %}" class="ss-battery">
-        <span class="ss-battery-name"><svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93z"/></svg>Explorer</span>
-        <p class="ss-battery-note">Universal model browser with auto-generated CRUD pages.</p>
-      </a>
-      <a href="{% url 'help:section_detail' 'smallstack' 'mcp' %}" class="ss-battery">
-        <span class="ss-battery-name"><svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm0 18a8 8 0 1 1 8-8 8 8 0 0 1-8 8z"/></svg>MCP admin</span>
-        <p class="ss-battery-note">Health / Tools / Activity for the Model Context Protocol server.</p>
-      </a>
-      <a href="{% url 'help:section_detail' 'smallstack' 'activity-tracking' %}" class="ss-battery">
-        <span class="ss-battery-name"><svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M5 9.2h3V19H5zM10.6 5h2.8v14h-2.8zm5.6 8H19v6h-2.8z"/></svg>Activity</span>
-        <p class="ss-battery-note">Request logging with auto-pruning, status breakdowns, user activity.</p>
-      </a>
-      <a href="{% url 'help:section_detail' 'smallstack' 'api-tokens' %}" class="ss-battery">
-        <span class="ss-battery-name"><svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M12.65 10A6 6 0 0 0 7 6a6 6 0 0 0 0 12 6 6 0 0 0 5.65-4H17v4h4v-4h2v-4H12.65zM7 14a2 2 0 1 1 0-4 2 2 0 0 1 0 4z"/></svg>API Tokens</span>
-        <p class="ss-battery-note">Self-service mint / reveal / revoke. Drops straight into MCP OAuth.</p>
-      </a>
-      <a href="{% url 'help:section_detail' 'smallstack' 'database-backups' %}" class="ss-battery">
-        <span class="ss-battery-name"><svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>Backups</span>
-        <p class="ss-battery-note">SQLite snapshots, optional cron schedule, download or restore.</p>
-      </a>
-      <a href="{% url 'help:section_detail' 'smallstack' 'uptime-monitoring' %}" class="ss-battery">
-        <span class="ss-battery-name"><svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M3.5 18.49l6-6.01 4 4L22 6.92l-1.41-1.41-7.09 7.97-4-4L2 16.99z"/></svg>Status</span>
-        <p class="ss-battery-note">Uptime pings, response-time chart, public status page.</p>
-      </a>
-      <a href="{% url 'help:section_detail' 'smallstack' 'authentication' %}" class="ss-battery">
-        <span class="ss-battery-name"><svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg>Users</span>
-        <p class="ss-battery-note">User management with custom User model + email-first auth patterns.</p>
-      </a>
-      <a href="{% url 'help:section_index' 'smallstack' %}" class="ss-battery">
-        <span class="ss-battery-name"><svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6z"/></svg>Docs</span>
-        <p class="ss-battery-note">Bundled reference + AI skill files. Renders inside the app.</p>
-      </a>
-    {% endif %}
+    {% url 'explorer-index' as live %}{% url 'help:section_detail' 'smallstack' 'explorer' as doc %}
+    {% include "smallstack/pages/_home_battery.html" with name="Explorer" note="Universal model browser with auto-generated CRUD pages." icon="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93z" %}
+
+    {% url 'runbook:dashboard' as live %}{% url 'help:section_detail' 'runbook' 'getting-started' as doc %}
+    {% include "smallstack/pages/_home_battery.html" with name="Runbook" note="Versioned markdown documents with a split editor, slide and step views, and search." icon="M18 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM6 4h5v8l-2.5-1.5L6 12V4z" %}
+
+    {% url 'blog/posts-list' as live %}{% url 'help:section_index' 'blog' as doc %}
+    {% include "smallstack/pages/_home_battery.html" with name="Blog &amp; newsletter" note="Per-user blogs, a writing studio, public reading surface, feeds and a durable newsletter sender." icon="M14 17H4v2h10v-2zm6-8H4v2h16V9zM4 15h16v-2H4v2zM4 5v2h16V5H4z" %}
+
+    {% url 'approvals/requests-list' as live %}{% url 'help:section_detail' 'smallstack' 'approvals' as doc %}
+    {% include "smallstack/pages/_home_battery.html" with name="Approvals" note="Human-in-the-loop gate: apps or AI agents file a request, a person decides, your code reacts." icon="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" %}
+
+    {% url 'notifications:inbox' as live %}{% url 'help:section_detail' 'smallstack' 'notifications' as doc %}
+    {% include "smallstack/pages/_home_battery.html" with name="Notifications" note="notify() with a topbar bell, unread badge and inbox. Approvals fan out to it by default." icon="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.89 2 2 2zm6-6v-5c0-3.07-1.64-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.63 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z" %}
+
+    {% url 'scheduler_dashboard' as live %}{% url 'help:section_detail' 'smallstack' 'scheduler' as doc %}
+    {% include "smallstack/pages/_home_battery.html" with name="Scheduler" note="Recurring @scheduled jobs (cron, interval, once) on a DB-backed worker. No Redis or Celery." icon="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z" %}
+
+    {% url 'webhooks_dashboard' as live %}{% url 'help:section_detail' 'smallstack' 'webhooks' as doc %}
+    {% include "smallstack/pages/_home_battery.html" with name="Webhooks" note="Signed outbound delivery on model change, verified inbound receivers, replay for dead letters." icon="M6.99 11L3 15l3.99 4v-3H14v-2H6.99v-3zM21 9l-3.99-4v3H10v2h7.01v3L21 9z" %}
+
+    {% url 'search:page' as live %}{% url 'help:section_detail' 'smallstack' 'search' as doc %}
+    {% include "smallstack/pages/_home_battery.html" with name="Search" note="FTS5 or Postgres ranked search with a Ctrl-K omnibar, a search page and an MCP retrieval tool." icon="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z" %}
+
+    {% url 'telemetry:logs' as live %}{% url 'help:section_detail' 'smallstack' 'logging-audit' as doc %}
+    {% include "smallstack/pages/_home_battery.html" with name="Logs" note="DB-backed log capture with a staff viewer, time-boxed capture windows and pruning." icon="M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z" %}
+
+    {% url 'activity:dashboard' as live %}{% url 'help:section_detail' 'smallstack' 'activity-tracking' as doc %}
+    {% include "smallstack/pages/_home_battery.html" with name="Activity" note="Request logging with auto-pruning, status breakdowns, user activity." icon="M5 9.2h3V19H5zM10.6 5h2.8v14h-2.8zm5.6 8H19v6h-2.8z" %}
+
+    {% url 'tokenmgr:tokens-list' as live %}{% url 'help:section_detail' 'smallstack' 'api-tokens' as doc %}
+    {% include "smallstack/pages/_home_battery.html" with name="API tokens" note="Self-service mint / reveal / revoke. Drops straight into MCP OAuth." icon="M12.65 10A6 6 0 0 0 7 6a6 6 0 0 0 0 12 6 6 0 0 0 5.65-4H17v4h4v-4h2v-4H12.65zM7 14a2 2 0 1 1 0-4 2 2 0 0 1 0 4z" %}
+
+    {% url 'mcp_admin:health' as live %}{% url 'help:section_detail' 'smallstack' 'mcp' as doc %}
+    {% include "smallstack/pages/_home_battery.html" with name="MCP admin" note="Health / Tools / Activity for the Model Context Protocol server." icon="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm0 18a8 8 0 1 1 8-8 8 8 0 0 1-8 8z" %}
+
+    {% url 'smallstack:backups' as live %}{% url 'help:section_detail' 'smallstack' 'database-backups' as doc %}
+    {% include "smallstack/pages/_home_battery.html" with name="Backups" note="SQLite snapshots, optional cron schedule, download or restore." icon="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z" %}
+
+    {% url 'heartbeat:status' as live %}{% url 'help:section_detail' 'smallstack' 'uptime-monitoring' as doc %}
+    {% include "smallstack/pages/_home_battery.html" with name="Status" note="Uptime pings, response-time chart, public status page, pluggable monitors." icon="M3.5 18.49l6-6.01 4 4L22 6.92l-1.41-1.41-7.09 7.97-4-4L2 16.99z" %}
+
+    {% url 'manage/users-list' as live %}{% url 'help:section_detail' 'smallstack' 'authentication' as doc %}
+    {% include "smallstack/pages/_home_battery.html" with name="Users" note="User management with custom User model + email-first auth patterns." icon="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5z" %}
+
+    {% url 'help:index' as live %}{% url 'help:section_index' 'smallstack' as doc %}
+    {% include "smallstack/pages/_home_battery.html" with name="Docs" note="Bundled reference + AI skill files. Renders inside the app." icon="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6z" %}
+  </div>
+  {% endwith %}
+</section>
+
+<hr class="ss-rule">
+
+{# ── PLATFORM SEAMS ─────────────────────────────────────────────── #}
+<section class="ss-section ss-fade d3">
+  <div class="ss-section-label">Build on it</div>
+  <h2 class="ss-display" style="font-size: clamp(1.7rem, 3.2vw, 2.4rem); margin-bottom: 0.5rem;">
+    The seams the built-in apps use <em>are yours too.</em>
+  </h2>
+  <p style="max-width: 44rem; color: var(--body-quiet-color); margin: 0 0 1.25rem 0;">
+    Nothing in the shipped apps is special-cased. Your app registers through the same
+    hooks, so it gets the same navigation, dashboard, status page, docs and agent
+    tooling the moment it does.
+  </p>
+
+  <div class="ss-seams">
+    <div class="ss-seam"><code>nav.register()</code><p class="ss-seam-note">A sidebar or topbar entry from your AppConfig. No template surgery.</p></div>
+    <div class="ss-seam"><code>dashboard.register()</code><p class="ss-seam-note">A widget on the <code>/smallstack/</code> dashboard with live counts and a degraded state.</p></div>
+    <div class="ss-seam"><code>monitors</code><p class="ss-seam-note">A Service + Monitor pair on the status page, with SLA-excluded maintenance windows.</p></div>
+    <div class="ss-seam"><code>@scheduled</code><p class="ss-seam-note">Recurring work with a themed schedule UI, REST and MCP controls, and a per-minute tick.</p></div>
+    <div class="ss-seam"><code>@approval_kind</code><p class="ss-seam-note">Gate any action on a human decision; react via callback, signal, webhook or polling.</p></div>
+    <div class="ss-seam"><code>notify()</code><p class="ss-seam-note">An in-app notification for a signed-in user, with branded email fan-out.</p></div>
+    <div class="ss-seam"><code>@webhook_handler</code><p class="ss-seam-note">Receive and verify inbound webhooks; provider signatures via <code>@webhook_verifier</code>.</p></div>
+    <div class="ss-seam"><code>@dataset</code><p class="ss-seam-note">A filtered queryset as typed rows and columns for dashboards, reports and charts.</p></div>
+    <div class="ss-seam"><code>register_feed()</code><p class="ss-seam-note">A curated RSS/Atom feed alongside the one-flag model feeds.</p></div>
+    <div class="ss-seam"><code>@tool</code><p class="ss-seam-note">A custom MCP tool next to the generated ones, under the same OAuth and audit log.</p></div>
+    <div class="ss-seam"><code>help_content_dir</code><p class="ss-seam-note">Markdown docs shipped with your app, rendered and searchable in the help system.</p></div>
+    <div class="ss-seam"><code>docs/skills/</code><p class="ss-seam-note">Skill files that brief AI agents on your conventions; the index is generated and lint-checked.</p></div>
   </div>
 </section>
 
@@ -537,22 +580,22 @@
     One index. <em>Everything searchable.</em>
   </h2>
   <p style="max-width: 44rem; color: var(--body-quiet-color); margin: 0;">
-    A single full-text index spans your models and the bundled help docs. A three-tier access
-    model keeps staff-only data staff-only while public doc search stays open — and the same
-    index backs a <code>search_all</code> MCP tool, so an AI agent queries your app the way a
-    person would.
+    A single full-text index spans your models, runbook documents, blog posts and the
+    bundled help docs. A three-tier access model keeps staff-only data staff-only while
+    public search stays open — and the same index backs a <code>search_all</code> MCP tool,
+    so an AI agent queries your app the way a person would.
   </p>
 
   <div class="ss-surfaces">
     <div class="ss-surface">
       <div class="ss-surface-name">Public</div>
       <p class="ss-surface-path">/search/</p>
-      <p class="ss-surface-note">An instant omnibar over your documentation — open to anyone, no login required.</p>
+      <p class="ss-surface-note">An instant omnibar over your documentation and public content — open to anyone, no login required.</p>
     </div>
     <div class="ss-surface">
       <div class="ss-surface-name">Gated</div>
       <p class="ss-surface-path">your models</p>
-      <p class="ss-surface-note">Opt a model in with one flag; results respect each viewer's staff / auth access tier.</p>
+      <p class="ss-surface-note">Opt a model in with one flag; results respect each viewer's staff / auth access tier and your tenancy scope.</p>
     </div>
     <div class="ss-surface">
       <div class="ss-surface-name">MCP</div>
@@ -588,8 +631,8 @@
     <div class="ss-bp-item">{{ checkmark|safe }}<span>Signals in separate files</span></div>
     <div class="ss-bp-item">{{ checkmark|safe }}<span>Tests alongside apps</span></div>
     <div class="ss-bp-item">{{ checkmark|safe }}<span>URL namespacing</span></div>
-    <div class="ss-bp-item">{{ checkmark|safe }}<span>Organized static files</span></div>
-    <div class="ss-bp-item">{{ checkmark|safe }}<span>Activity tracking pre-configured</span></div>
+    <div class="ss-bp-item">{{ checkmark|safe }}<span>Typed: mypy + django-stubs</span></div>
+    <div class="ss-bp-item">{{ checkmark|safe }}<span>SQLite or Postgres, one test suite</span></div>
     {% endwith %}
   </div>
 </section>
@@ -614,7 +657,15 @@
           <span class="arrow">→</span>
         </a>
         <a href="{% url 'help:section_detail' 'smallstack' 'building-crud-pages' %}" class="ss-next-link">
-          <span class="ll"><strong>Build a CRUDView</strong><span>The class that produces HTML, REST, and MCP from one declaration.</span></span>
+          <span class="ll"><strong>Build a CRUDView</strong><span>The class that produces HTML, REST, MCP, search, webhooks and feeds from one declaration.</span></span>
+          <span class="arrow">→</span>
+        </a>
+        <a href="{% url 'help:section_detail' 'smallstack' 'approvals' %}" class="ss-next-link">
+          <span class="ll"><strong>Gate an action on a human decision</strong><span>Approvals: file a request from code or an agent, decide in the console, react in your app.</span></span>
+          <span class="arrow">→</span>
+        </a>
+        <a href="{% url 'help:section_index' 'blog' %}" class="ss-next-link">
+          <span class="ll"><strong>Publish a blog or newsletter</strong><span>Write in the studio, publish runbook pages, send to double-opt-in subscribers.</span></span>
           <span class="arrow">→</span>
         </a>
         <a href="{% url 'help:section_detail' 'smallstack' 'api-documentation' %}" class="ss-next-link">
@@ -631,7 +682,7 @@
     <aside>
       <div class="ss-section-label">AI agents</div>
       <p style="font-size: 0.95rem; line-height: 1.6; color: var(--body-quiet-color); margin: 0 0 1rem 0;">
-        Skill files at <code>docs/skills/</code> brief Claude Code &amp; friends on conventions — pick the right pattern without reading the whole codebase.
+        Skill files at <code>docs/skills/</code> brief Claude Code &amp; friends on every platform seam — pick the right pattern without reading the whole codebase. The index agents consult is generated from the skill table and checked in lint, so it can never drift from what's on disk.
       </p>
       <a href="{% url 'help:section_detail' 'smallstack' 'extending-with-ai' %}" class="ss-btn-link" style="padding-left: 0;">
         Extending with AI <span class="arrow">→</span>

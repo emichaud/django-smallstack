@@ -3,28 +3,27 @@
 <div class="two-col" markdown="1">
 <div class="col" markdown="1">
 
+A platform to build apps on, not a starter to grow out of.
+
 - **Use what Django gives you** — before adding a package, check if Django already has it
-- **Keep it simple** — add complexity only when needed
-- **Stay close to Django** — conventions over invention
-- **Production-ready defaults** — secure settings, proper static files, Docker support
+- **One declaration, every surface** — a model + CRUDView becomes HTML, REST, MCP, search, webhooks, feeds and CLI
+- **The built-in apps use public seams** — your app registers through the same hooks they do
+- **Production-ready defaults** — secure settings, typed code, SQLite or Postgres, Docker + Kamal
 
 </div>
 <div class="col" markdown="1">
 
-```toml
-dependencies = [
-    "django>=6.0",
-    "python-decouple>=3.8",
-    "pillow>=10.0",
-    "gunicorn>=21.0",
-    "whitenoise>=6.6",
-    "django-extensions>=3.2",
-    "django-debug-toolbar>=4.2",
-    "markdown>=3.5",
-    "pyyaml>=6.0",
-    "django-tasks-db>=0.2",
-    "django-htmx>=1.19",
-]
+```python
+# apps/tickets/views.py
+class TicketCRUDView(CRUDView):
+    model = Ticket
+    list_columns = ["id", "title", "status"]
+
+    enable_api      = True  # REST + OpenAPI
+    enable_mcp      = True  # Claude tools
+    enable_search   = True  # full-text search
+    enable_webhooks = True  # signed events
+    enable_rss      = True  # RSS / Atom
 ```
 
 </div>

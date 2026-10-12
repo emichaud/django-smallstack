@@ -6,7 +6,7 @@
 <section class="gs-hero gs-fade">
   <p class="gs-eyebrow">
     <span class="dot" aria-hidden="true"></span>
-    <span>Getting Started · v{{ smallstack_version|default:"0.11" }}</span>
+    <span>Getting started · v{{ smallstack_version|default:"0.24" }}</span>
   </p>
 
   <h1 class="gs-display">
@@ -16,7 +16,8 @@
   <p class="gs-hero-sub">
     A guided path from a fresh clone to your first shipped feature — <strong>configure
     the basics</strong>, learn the <strong>navigation, theming and page patterns</strong>,
-    then wire a single model into HTML, REST, and MCP surfaces at once.
+    choose which <strong>platform apps</strong> to keep on, then wire a single model into
+    every surface at once.
   </p>
 
   <div class="gs-cta-row">
@@ -115,7 +116,7 @@ nav.<span class="fn">register</span>(
       <div class="gs-step-body">
         <p class="gs-step-kicker">Theme</p>
         <h2 class="gs-step-name">Own the palette</h2>
-        <p>Five palettes × light and dark, switchable from the topbar. Components read semantic
+        <p>Six palettes × light and dark, switchable from the user menu. Components read semantic
           variables like <span class="gs-inline-code">--primary</span>,
           <span class="gs-inline-code">--card-bg</span> and <span class="gs-inline-code">--body-fg</span>,
           so a single override re-skins everything — and your own pages inherit it for free.</p>
@@ -158,20 +159,58 @@ nav.<span class="fn">register</span>(
       </div>
     </article>
 
+    {# 06 — Platform apps #}
+    <article class="gs-step">
+      <div class="gs-step-num">06</div>
+      <div class="gs-step-body">
+        <p class="gs-step-kicker">Platform apps</p>
+        <h2 class="gs-step-name">Keep what your app needs</h2>
+        <p>Every built-in app — approvals, notifications, scheduler, webhooks, feeds, runbook,
+          blog and newsletter, datasets — is on by default and a single setting away from off.
+          Each one registers its own nav entry, dashboard widget, status monitor and help pages,
+          so turning one off removes it everywhere at once.</p>
+        <dl class="gs-spec">
+          <div class="gs-spec-row"><dt>SMALLSTACK_APPROVALS_ENABLED</dt><dd>the human-in-the-loop decision console and its MCP tools</dd></div>
+          <div class="gs-spec-row"><dt>SMALLSTACK_BLOG_ENABLED</dt><dd>blogs, the writing studio and the newsletter sender; <span class="gs-inline-code">SMALLSTACK_BLOG_PUBLIC_ENABLED</span> gates the anonymous reading surface separately</dd></div>
+          <div class="gs-spec-row"><dt>SMALLSTACK_SCHEDULER_ENABLED</dt><dd>recurring <span class="gs-inline-code">@scheduled</span> jobs and the schedule UI</dd></div>
+          <div class="gs-spec-row"><dt>SMALLSTACK_WEBHOOKS_ENABLED</dt><dd>outbound delivery, inbound receivers and the webhooks dashboard</dd></div>
+        </dl>
+        <div class="gs-links">
+          <a href="{% url 'help:section_detail' 'smallstack' 'approvals' %}" class="gs-link">
+            <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
+            Approvals <span class="arrow">→</span>
+          </a>
+          <a href="{% url 'help:section_index' 'blog' %}" class="gs-link">
+            <svg viewBox="0 0 24 24"><path d="M14 17H4v2h10v-2zm6-8H4v2h16V9zM4 15h16v-2H4v2zM4 5v2h16V5H4z"/></svg>
+            Blog &amp; newsletter <span class="arrow">→</span>
+          </a>
+          <a href="{% url 'help:section_detail' 'smallstack' 'scheduler' %}" class="gs-link">
+            <svg viewBox="0 0 24 24"><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z"/></svg>
+            Scheduler <span class="arrow">→</span>
+          </a>
+          <a href="{% url 'help:section_detail' 'smallstack' 'webhooks' %}" class="gs-link">
+            <svg viewBox="0 0 24 24"><path d="M6.99 11L3 15l3.99 4v-3H14v-2H6.99v-3zM21 9l-3.99-4v3H10v2h7.01v3L21 9z"/></svg>
+            Webhooks <span class="arrow">→</span>
+          </a>
+        </div>
+      </div>
+    </article>
+
   </div>
 </section>
 
 <hr class="gs-rule">
 
-{# ── BUILD BRIDGE: one model → three surfaces ───────────────────── #}
+{# ── BUILD BRIDGE: one model → every surface ────────────────────── #}
 <section class="gs-section gs-fade d2">
   <div class="gs-build">
     <div>
       <div class="gs-section-label">Now build something real</div>
-      <h2 class="gs-display">One model. <em>Three surfaces.</em></h2>
+      <h2 class="gs-display">One model. <em>Every surface.</em></h2>
       <p>Once the basics are set, the payoff: declare a <span class="gs-inline-code">CRUDView</span> once and
         flip its opt-in flags. The same form, queryset and permission logic become a browsable HTML
-        admin, a REST endpoint, and an MCP tool — no duplication.</p>
+        admin, a REST endpoint, MCP tools, a search index, signed webhook events and a feed — and
+        the <span class="gs-inline-code">sc</span> CLI sees it too. No duplication.</p>
       <a href="{% url 'help:section_detail' 'smallstack' 'mcp-first-app' %}" class="gs-btn-link" style="padding-left: 0;">
         Walk through it in 10 minutes <span class="arrow">→</span>
       </a>
@@ -191,6 +230,21 @@ nav.<span class="fn">register</span>(
         <span class="gs-surface-tag">MCP</span>
         <p class="gs-surface-path">/mcp · tools/list</p>
         <p class="gs-surface-note">JSON-RPC + OAuth. Claude Desktop and Connectors UI connect with no setup.</p>
+      </div>
+      <div class="gs-surface">
+        <span class="gs-surface-tag">Search</span>
+        <p class="gs-surface-path">/search/ · search_all</p>
+        <p class="gs-surface-note">Ranked full-text results that respect each viewer's access tier; the same index as an MCP tool.</p>
+      </div>
+      <div class="gs-surface">
+        <span class="gs-surface-tag">Events</span>
+        <p class="gs-surface-path">webhooks · feeds</p>
+        <p class="gs-surface-note">Signed created / updated / deleted deliveries with replay, and RSS/Atom for the same rows.</p>
+      </div>
+      <div class="gs-surface">
+        <span class="gs-surface-tag">CLI</span>
+        <p class="gs-surface-path">sc ls · get · new</p>
+        <p class="gs-surface-note">Terminal CRUD with the same validation and audit trail as REST and MCP.</p>
       </div>
     </div>
   </div>
@@ -230,6 +284,38 @@ nav.<span class="fn">register</span>(
       <span class="gs-ref-name"><svg viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm0 18a8 8 0 1 1 8-8 8 8 0 0 1-8 8z"/></svg>MCP server</span>
       <p class="gs-ref-note">JSON-RPC + OAuth + PKCE, ready for Claude Desktop &amp; Connectors.</p>
     </a>
+    <a href="{% url 'help:section_detail' 'smallstack' 'search' %}" class="gs-ref-item">
+      <span class="gs-ref-name"><svg viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>Search</span>
+      <p class="gs-ref-note">FTS5 / Postgres ranked search, access tiers, the omnibar and SearchBuilder.</p>
+    </a>
+    <a href="{% url 'help:section_detail' 'smallstack' 'webhooks' %}" class="gs-ref-item">
+      <span class="gs-ref-name"><svg viewBox="0 0 24 24"><path d="M6.99 11L3 15l3.99 4v-3H14v-2H6.99v-3zM21 9l-3.99-4v3H10v2h7.01v3L21 9z"/></svg>Webhooks &amp; feeds</span>
+      <p class="gs-ref-note">Signed outbound events, inbound receivers, RSS/Atom publish and consume.</p>
+    </a>
+    <a href="{% url 'help:section_detail' 'smallstack' 'scheduler' %}" class="gs-ref-item">
+      <span class="gs-ref-name"><svg viewBox="0 0 24 24"><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z"/></svg>Scheduler</span>
+      <p class="gs-ref-note">Recurring @scheduled jobs on the DB-backed worker, with a themed UI.</p>
+    </a>
+    <a href="{% url 'help:section_detail' 'smallstack' 'approvals' %}" class="gs-ref-item">
+      <span class="gs-ref-name"><svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>Approvals</span>
+      <p class="gs-ref-note">Human-in-the-loop gates for your code and for AI agents, plus notifications.</p>
+    </a>
+    <a href="{% url 'help:section_detail' 'runbook' 'getting-started' %}" class="gs-ref-item">
+      <span class="gs-ref-name"><svg viewBox="0 0 24 24"><path d="M18 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM6 4h5v8l-2.5-1.5L6 12V4z"/></svg>Runbook</span>
+      <p class="gs-ref-note">Versioned markdown documents with slide and step views.</p>
+    </a>
+    <a href="{% url 'help:section_index' 'blog' %}" class="gs-ref-item">
+      <span class="gs-ref-name"><svg viewBox="0 0 24 24"><path d="M14 17H4v2h10v-2zm6-8H4v2h16V9zM4 15h16v-2H4v2zM4 5v2h16V5H4z"/></svg>Blog &amp; newsletter</span>
+      <p class="gs-ref-note">Per-user blogs, the writing studio, runbook publishing, feeds and sending.</p>
+    </a>
+    <a href="{% url 'help:section_detail' 'smallstack' 'notifications' %}" class="gs-ref-item">
+      <span class="gs-ref-name"><svg viewBox="0 0 24 24"><path d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.89 2 2 2zm6-6v-5c0-3.07-1.64-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.63 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z"/></svg>Notifications</span>
+      <p class="gs-ref-note">notify() with a topbar bell, unread badge and inbox for signed-in users.</p>
+    </a>
+    <a href="{% url 'help:section_detail' 'smallstack' 'cli-reference' %}" class="gs-ref-item">
+      <span class="gs-ref-name"><svg viewBox="0 0 24 24"><path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 14H4V8h16v10zm-9.6-6.4L7.6 14.4 6.2 13l1.4-1.4L6.2 10.2 7.6 8.8zM12 14h6v2h-6z"/></svg>CLI &amp; commands</span>
+      <p class="gs-ref-note">Every manage.py command, Make target and the sc CLI, with examples.</p>
+    </a>
     <a href="{% url 'help:section_detail' 'smallstack' 'extending-with-ai' %}" class="gs-ref-item">
       <span class="gs-ref-name"><svg viewBox="0 0 24 24"><path d="M12 2 4 6v6c0 5 3.4 8.5 8 10 4.6-1.5 8-5 8-10V6l-8-4z"/></svg>Extending with AI</span>
       <p class="gs-ref-note">Skill files that brief Claude Code on the conventions.</p>
@@ -258,7 +344,7 @@ nav.<span class="fn">register</span>(
           <span class="arrow">→</span>
         </a>
         <a href="{% url 'help:section_detail' 'smallstack' 'building-crud-pages' %}" class="gs-next-link">
-          <span class="ll"><strong>Build a CRUDView</strong><span>The class that produces HTML, REST, and MCP from one declaration.</span></span>
+          <span class="ll"><strong>Build a CRUDView</strong><span>The class that produces HTML, REST, MCP, search, webhooks and feeds from one declaration.</span></span>
           <span class="arrow">→</span>
         </a>
         <a href="{% url 'help:section_detail' 'smallstack' 'api-documentation' %}" class="gs-next-link">

@@ -7,7 +7,7 @@
 ![License MIT](https://img.shields.io/badge/license-MIT-brightgreen)
 ![Version 0.24.0](https://img.shields.io/badge/version-0.24.0-blue)
 
-**One small backend. Many roles.** A small-footprint Django foundation that drops into your stack and plays whatever role you need — often several at once. From a single model definition, SmallStack is an **admin app**, a **REST backend** for your React/Svelte/Solid frontend, an **MCP server** for AI agents, a fast **search engine**, an **integration hub** (webhooks, feeds, OpenAPI), and a **task runner**.
+**A platform to build apps on.** SmallStack is the layer under your application: the admin shell, auth, CRUD pages, REST, MCP, search, webhooks, feeds, a scheduler, human-in-the-loop approvals, notifications and publishing are already built, tested and themed — so your project starts at the business logic. From a single model definition it is an **admin app**, a **REST backend** for your React/Svelte/Solid frontend, an **MCP server** for AI agents, a fast **search engine**, an **integration hub** (webhooks, feeds, OpenAPI), a **task runner**, a **workflow engine** (approvals + notifications) and a **publishing platform** (runbooks, blogs, newsletters) — often several at once. The built-in apps register through the same seams your app does, so nothing is special-cased.
 
 SQLite by default (scales further than you'd think), no external services required — everything runs on a single machine or container.
 
@@ -62,6 +62,8 @@ SmallStack isn't one kind of app — it's a small backend that plays whatever ro
 | **Search engine** | Real full-text search — FTS5/BM25 on SQLite, `tsvector` + GIN on Postgres — ranked, with a Ctrl-K omnibar, an MCP tool, and custom variants (SearchBuilder). |
 | **Integration hub** | Signed webhooks (inbound + outbound), RSS/Atom publish + consume, and Swagger + ReDoc for every endpoint. The seam between your systems. |
 | **Task runner** | One-shot jobs plus recurring `@scheduled` work (cron/interval/once) on a DB-backed worker — no Redis or Celery to operate. |
+| **Workflow engine** | Human-in-the-loop approvals (`@approval_kind` — apps or AI agents file, a person decides, your code reacts) fanned out to in-app notifications and branded email. |
+| **Publishing platform** | Versioned runbook documents, per-user blogs with a writing studio and a public reading surface, feeds, and a durable double-opt-in newsletter sender. |
 
 *Not ideal for:* microservices (SmallStack is monolithic by design) or very high-traffic platforms (single-machine focused, >1000 req/s).
 
@@ -81,7 +83,10 @@ SmallStack isn't one kind of app — it's a small backend that plays whatever ro
 - **Background tasks & scheduler** — DB-backed queue (no Redis/Celery to operate) plus a `@scheduled` recurring-job scheduler with a themed UI, REST + MCP surfaces, and cron/interval/once cadences
 - **Human-in-the-loop approvals** — a generic approval gate: apps (or AI agents, via MCP) file a request, a human approves/rejects in a themed console, your code reacts via callback, signal, webhook, or polling
 - **In-app notifications** — a `notify()` service with a topbar bell, unread badge, and inbox — wired into approvals out of the box
-- **Activity & audit logs** — Request logging with auto-pruning and breakdown stats
+- **Runbook** — Versioned markdown documents with a split editor, slide and step views, templates and search
+- **Blog & newsletter** — Per-user blog channels (private / members / public), a compact writing studio at `/my/blogs/`, runbook-page publishing, RSS/Atom/JSON feeds and a resumable batched newsletter sender with one-click unsubscribe
+- **Datasets** — Expose a filtered queryset as typed rows/columns for dashboards, reports and charts (`@dataset`)
+- **Activity & audit logs** — Request logging with auto-pruning and breakdown stats; DB-backed log capture with a staff viewer
 - **Auth** — Custom User model, photo, timezone, theme preference, token management
 - **Health monitoring** — Uptime monitoring, status page, API/MCP health dashboards
 - **Docs & help system** — Bundled markdown docs with images, versioning, and search

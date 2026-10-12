@@ -4,9 +4,11 @@
 <div class="card">
     <div class="card-body" style="text-align: center; padding: 2.5rem 1.5rem 2rem;">
         <h1 style="margin: 0 0 0.5rem; font-size: 1.75rem;">About {{ brand.name }}</h1>
-        <p style="color: var(--body-quiet-color); max-width: 600px; margin: 0 auto; line-height: 1.6;">
-            A minimal Django stack for building and deploying admin-style apps.
-            Production-ready with SQLite, Docker, and zero-downtime Kamal deployment.
+        <p style="color: var(--body-quiet-color); max-width: 640px; margin: 0 auto; line-height: 1.6;">
+            A Django platform to build applications on. The admin shell, auth, CRUD pages,
+            REST, MCP, search, webhooks, feeds, a scheduler, approvals, notifications and
+            publishing are already built and themed, so your project starts at the business
+            logic. Production-ready with SQLite or Postgres, Docker, and zero-downtime Kamal deployment.
         </p>
     </div>
 </div>
@@ -15,7 +17,7 @@
 {% if slides %}
 <div class="card" style="margin-top: 24px;">
     <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
-        <h2 style="margin: 0;">What's Included</h2>
+        <h2 style="margin: 0;">What's included</h2>
         <a href="{% url 'help:slides' 'features' %}" style="font-size: 0.8rem; color: var(--body-quiet-color); text-decoration: none;">
             Open fullscreen &rarr;
         </a>
@@ -72,8 +74,17 @@
         <a href="{% url 'help:section_index' 'smallstack' %}" style="color: var(--link-fg); text-decoration: none; font-weight: 600;">
             Documentation &rarr;
         </a>
+        <a href="{% url 'help:section_detail' 'smallstack' 'building-crud-pages' %}" style="color: var(--link-fg); text-decoration: none; font-weight: 600;">
+            Build a CRUDView &rarr;
+        </a>
+        <a href="{% url 'help:section_detail' 'smallstack' 'approvals' %}" style="color: var(--link-fg); text-decoration: none; font-weight: 600;">
+            Approvals &rarr;
+        </a>
+        <a href="{% url 'help:section_index' 'blog' %}" style="color: var(--link-fg); text-decoration: none; font-weight: 600;">
+            Blog &amp; newsletter &rarr;
+        </a>
         <a href="{% url 'help:slides' 'activity-tracking' %}" style="color: var(--link-fg); text-decoration: none; font-weight: 600;">
-            Activity Tracking Demo &rarr;
+            Activity tracking demo &rarr;
         </a>
     </div>
 </div>
