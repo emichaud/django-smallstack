@@ -19,6 +19,7 @@ from typing import Any
 from urllib.parse import urlsplit
 
 from django.conf import settings
+from django.db import transaction
 from django.utils import timezone
 
 from .models import WebhookDelivery, WebhookEndpoint
@@ -154,14 +155,31 @@ def fan_out(event_type: str, payload: dict[str, Any], *, event_id: str | None = 
         for ep in endpoints:
             if not ep.matches(event_type):
                 continue
-            delivery = WebhookDelivery.objects.create(
-                endpoint=ep,
-                event_type=event_type,
-                payload=payload,
-                event_id=event_id,
-                status=WebhookDelivery.Status.PENDING,
-                max_attempts=max_attempts,
-            )
+            # Each delivery insert gets its own savepoint, so that a *database*
+            # error here cannot reach the caller's transaction.
+            #
+            # The bare `except` below is not sufficient on its own, and for a
+            # long time it was quietly untrue: this runs inside a post_save
+            # receiver, i.e. inside whatever atomic() block the caller opened.
+            # A failed INSERT marks that block `needs_rollback`, so swallowing
+            # the exception still loses the caller's own write when its atomic()
+            # exits — the save is broken, just silently. Measured: an
+            # unserializable payload value made `service.create_post` return a
+            # Post with a pk and leave no row in the database, with the studio
+            # reporting success. (Found by the integration harness, round 2 of
+            # the blog programme, 2026-10-12.)
+            #
+            # A savepoint confines the rollback to this insert, which is what
+            # "never let fan-out break a model save" has to mean to be true.
+            with transaction.atomic():
+                delivery = WebhookDelivery.objects.create(
+                    endpoint=ep,
+                    event_type=event_type,
+                    payload=payload,
+                    event_id=event_id,
+                    status=WebhookDelivery.Status.PENDING,
+                    max_attempts=max_attempts,
+                )
             _enqueue_delivery(delivery.pk)
             created += 1
     except Exception:  # noqa: BLE001 — never let fan-out break a model save

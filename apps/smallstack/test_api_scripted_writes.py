@@ -322,6 +322,45 @@ def test_serialize_renders_a_populated_filefield_as_its_url(alice):
     json.dumps(data)
 
 
+def test_serialize_output_is_json_primitive_not_merely_jsonresponse_safe():
+    """``serialize()`` must survive plain ``json.dumps``, not just JsonResponse.
+
+    JsonResponse encodes with DjangoJSONEncoder (UUID, Decimal, date all fine),
+    but apps/webhooks stores the same dict in a JSONField with no ``encoder=``,
+    i.e. plain ``json.dumps``. A UUIDField in a CRUDView's detail_fields
+    therefore serialized fine over REST and raised on the webhook write —
+    inside the caller's atomic() block, which rolled the caller's own INSERT
+    back while fan_out's bare except hid it. Round 2 of the blog programme:
+    ``service.create_post`` returned a Post with a pk and left no row.
+
+    A stub stands in for a model here on purpose: this is a contract about
+    ``serialize``'s output types, and it must hold for every app, not just the
+    one that happened to expose it.
+    """
+    import datetime
+    import uuid
+    from decimal import Decimal
+
+    class _Stub:
+        pk = 7
+        uid = uuid.UUID("12345678-1234-5678-1234-567812345678")
+        amount = Decimal("19.99")
+        span = datetime.timedelta(seconds=90)
+        when = datetime.datetime(2026, 10, 12, 3, 0, 0)
+        flag = True
+        note = "plain"
+
+    data = _serialize(_Stub(), ["uid", "amount", "span", "when", "flag", "note"])
+
+    json.dumps(data)  # the actual failure mode
+    assert data["uid"] == "12345678-1234-5678-1234-567812345678"
+    assert data["amount"] == "19.99", "Decimal must not become a float"
+    assert data["span"] == "0:01:30"
+    assert data["when"] == "2026-10-12T03:00:00"
+    assert data["flag"] is True
+    assert data["note"] == "plain"
+
+
 # ---------------------------------------------------------------------------
 # 3. api_expand_fields vs .only()
 # ---------------------------------------------------------------------------

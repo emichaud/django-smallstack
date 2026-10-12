@@ -702,12 +702,29 @@ def _serialize(
     extra_fields: list[str] | None = None,
     expand_fields: set[str] | None = None,
 ) -> dict:
-    """Serialize a model instance to a dict.
+    """Serialize a model instance to a dict of **JSON-primitive** values.
 
     When *expand_fields* is provided, FK fields in that set are serialized as
     ``{"id": pk, "name": str(related_obj)}`` instead of a bare integer PK.
     Nullable FKs still serialize as ``null``.
+
+    Every value must be something plain ``json.dumps`` accepts, not merely
+    something ``JsonResponse`` accepts. The two are different, and the gap was a
+    silent data-loss bug: ``JsonResponse`` encodes with ``DjangoJSONEncoder``
+    (which handles UUID, Decimal, date), while ``apps/webhooks`` stores the same
+    dict in a ``JSONField`` that has no ``encoder=`` and therefore uses plain
+    ``json.dumps``. So a ``UUIDField`` in a CRUDView's ``detail_fields``
+    serialized fine over REST and blew up on the webhook write — inside the
+    caller's ``atomic()`` block, which rolled the caller's INSERT back while
+    ``fan_out``'s bare ``except`` hid the cause. ``service.create_post`` returned
+    a Post with a pk and left no row in the database.
+
+    Keep this function's output JSON-primitive and both consumers are safe.
     """
+    import datetime
+    from decimal import Decimal
+    from uuid import UUID
+
     from django.db.models.fields.files import FieldFile
 
     data: dict = {"id": obj.pk}
@@ -735,6 +752,20 @@ def _serialize(
                 except (ValueError, NotImplementedError):
                     # No MEDIA_URL, or a storage backend without URL support.
                     val = val.name
+        elif isinstance(val, UUID):
+            # A UUIDField. DjangoJSONEncoder would stringify this for REST, so
+            # the wire format is unchanged — but plain json.dumps will not, and
+            # that is what the webhook JSONField uses. See the docstring.
+            val = str(val)
+        elif isinstance(val, Decimal):
+            # Same asymmetry: DjangoJSONEncoder emits a JSON string for Decimal.
+            # Match it rather than emitting a float, so money does not silently
+            # acquire binary rounding on its way out.
+            val = str(val)
+        elif isinstance(val, datetime.timedelta):
+            # DurationField. DjangoJSONEncoder uses an ISO-8601 duration; plain
+            # json.dumps refuses. str() is the documented Django repr.
+            val = str(val)
         elif hasattr(val, "isoformat"):
             val = val.isoformat()
         elif hasattr(val, "pk"):
