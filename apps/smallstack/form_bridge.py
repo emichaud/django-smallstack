@@ -30,6 +30,7 @@ payload and hand the dict to the form.
 
 from __future__ import annotations
 
+import inspect
 import json
 from typing import Any, Mapping
 
@@ -107,3 +108,67 @@ def merge_form_payload(
             data[key] = _native(value, base_fields.get(key))
 
     return data
+
+
+def build_form(form_class, *args, user: Any = None, **kwargs):
+    """Instantiate *form_class*, passing ``user=`` when the form accepts it.
+
+    ``CRUDView`` builds its HTML forms through ``get_form_kwargs``, which is the
+    documented seam a view uses to inject ``request.user`` so the form can scope
+    its own ``ModelChoiceField`` querysets (see ``apps/blog/forms.py``). The
+    scripted surfaces — REST, MCP, the ``sc`` CLI — do not go through a view and
+    historically constructed the form directly, with no user:
+
+        form = form_class(merge_form_payload(form_class, raw))   # no user=
+
+    For a form whose choices are scoped per user that is an **authorization
+    hole, not a cosmetic one**, because narrowing a ``ModelChoiceField``'s
+    queryset *is* the validation: the field validates the submitted pk against
+    its own queryset, so an unscoped queryset accepts any pk in the table. A
+    create has no object for ``check_object_permission`` to inspect, and
+    ``get_list_queryset`` only scopes reads — so on a create the form is the
+    only gate there is, and it was being built disarmed.
+
+    Measured consequence before this existed: any authenticated account could
+    ``POST /smallstack/api/blog/posts/`` with another user's ``blog`` id and
+    have the row committed into a blog it cannot even read — including a
+    private one — and the same through the generated MCP ``create_*`` tools.
+    Session auth is accepted on these surfaces and signup is on by default, so
+    the floor for that was a self-registered account holding no API token.
+
+    Forms that don't take ``user`` are constructed unchanged, so this is safe to
+    use at every scripted call site regardless of the form class. Introspection
+    is on the signature rather than a ``try/except TypeError``, because a
+    ``TypeError`` raised *inside* a form's own ``__init__`` would otherwise be
+    silently swallowed and retried without the user — reopening the hole for
+    exactly the forms that care about it.
+    """
+    if user is not None and _accepts_user(form_class):
+        kwargs["user"] = user
+    return form_class(*args, **kwargs)
+
+
+def _accepts_user(form_class) -> bool:
+    """Whether ``form_class.__init__`` takes a ``user`` keyword."""
+    cached = getattr(form_class, "_accepts_user_kwarg", None)
+    if cached is not None:
+        return bool(cached)
+    try:
+        params = inspect.signature(form_class.__init__).parameters
+    except (TypeError, ValueError):  # pragma: no cover - exotic callables
+        return False
+    # An explicit named `user` parameter only — deliberately NOT `**kwargs`.
+    # Most ModelForms declare `__init__(self, *args, **kwargs)` and forward
+    # straight to `ModelForm.__init__`, which has no `user` argument; treating
+    # a VAR_KEYWORD as consent would raise TypeError on every one of them.
+    accepts = any(
+        name == "user"
+        and p.kind
+        in (inspect.Parameter.POSITIONAL_OR_KEYWORD, inspect.Parameter.KEYWORD_ONLY)
+        for name, p in params.items()
+    )
+    try:
+        form_class._accepts_user_kwarg = accepts
+    except Exception:  # pragma: no cover - immutable class
+        pass
+    return accepts
