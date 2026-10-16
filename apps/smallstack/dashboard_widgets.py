@@ -1,5 +1,9 @@
 """Standalone dashboard widgets that aren't attached to Explorer models."""
 
+from __future__ import annotations
+
+from typing import Any
+
 from apps.smallstack.displays import DashboardWidget
 
 
@@ -12,7 +16,7 @@ class BackupsDashboardWidget(DashboardWidget):
     order = 40
     url_name = "smallstack:backups"
 
-    def get_data(self, model_class=None):
+    def get_data(self, model_class: type | None = None) -> dict[str, Any]:
         from apps.smallstack.models import BackupRecord
 
         latest = BackupRecord.objects.filter(status="success").first()
@@ -35,7 +39,7 @@ class HelpDashboardWidget(DashboardWidget):
     url_name = "help:section_index"
     url_kwargs = {"section": "smallstack"}
 
-    def get_data(self, model_class=None):
+    def get_data(self, model_class: type | None = None) -> dict[str, Any]:
         from apps.help.utils import get_all_sections
 
         sections = get_all_sections()

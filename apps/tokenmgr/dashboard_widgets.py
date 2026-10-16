@@ -6,6 +6,8 @@ single COUNT on APIToken filtered to the requester's scope.
 
 from __future__ import annotations
 
+from typing import Any
+
 from apps.smallstack.displays import DashboardWidget
 
 
@@ -19,7 +21,7 @@ class TokensDashboardWidget(DashboardWidget):
     order = 38  # between MCP (35) and Backups (40)
     url_name = "tokenmgr:tokens-list"
 
-    def get_data(self, model_class=None) -> dict:
+    def get_data(self, model_class: type | None = None) -> dict[str, Any]:
         from apps.smallstack.models import APIToken
 
         qs = APIToken.objects.all()
@@ -37,7 +39,7 @@ class TokensDashboardWidget(DashboardWidget):
             status = "operational"
         return {"headline": headline, "detail": detail, "status": status}
 
-    def get_api_extras(self, model_class=None) -> dict | None:
+    def get_api_extras(self, model_class: type | None = None) -> dict[str, Any] | None:
         from apps.smallstack.models import APIToken
 
         qs = APIToken.objects.all()

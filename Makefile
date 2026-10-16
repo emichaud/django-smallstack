@@ -105,6 +105,11 @@ lint-fix:
 typecheck:
 	uv run mypy
 
+# The strict pass over everything — shows what the lenient global config hides.
+# Use it to find the next app to add to the ratchet in pyproject.toml.
+typecheck-strict:
+	uv run mypy --check-untyped-defs --disallow-untyped-defs --disallow-incomplete-defs apps || true
+
 # Regenerate the machine-readable skill index from docs/skills/README.md.
 # Run after adding, renaming, or re-describing a skill file; `make lint` checks it's current.
 skills-index:

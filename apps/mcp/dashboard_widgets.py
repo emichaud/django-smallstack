@@ -16,6 +16,8 @@ Clicking the widget jumps to /smallstack/mcp/ (the Health page).
 
 from __future__ import annotations
 
+from typing import Any
+
 from apps.smallstack.displays import DashboardWidget
 
 
@@ -31,7 +33,7 @@ class MCPDashboardWidget(DashboardWidget):
     order = 35  # between Backups (40) and a future Activity widget
     url_name = "mcp_admin:health"
 
-    def get_data(self, model_class=None) -> dict:
+    def get_data(self, model_class: type | None = None) -> dict[str, Any]:
         from apps.mcp.server import TOOL_REGISTRY
 
         tool_count = len(TOOL_REGISTRY)
@@ -65,7 +67,7 @@ class MCPDashboardWidget(DashboardWidget):
             "status": status,
         }
 
-    def get_api_extras(self, model_class=None) -> dict | None:
+    def get_api_extras(self, model_class: type | None = None) -> dict[str, Any] | None:
         """Richer payload for API consumers (/api/dashboard/widgets/).
 
         The HTML widget renders the headline + detail only; everything

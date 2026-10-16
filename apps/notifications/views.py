@@ -7,6 +7,7 @@ notify non-staff users, and their inbox must work.
 from __future__ import annotations
 
 from django.contrib.auth.mixins import LoginRequiredMixin
+from django.db.models import QuerySet
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404, redirect
 from django.views.decorators.http import require_POST
@@ -24,8 +25,10 @@ class InboxView(LoginRequiredMixin, ListView):
     context_object_name = "notifications"
     paginate_by = 25
 
-    def get_queryset(self):
-        return Notification.objects.filter(recipient=self.request.user).select_related("actor")
+    def get_queryset(self) -> QuerySet[Notification]:
+        # recipient_id, not recipient: the request user is typed User | AnonymousUser
+        # and the view is login-gated, so the pk is always a real user's.
+        return Notification.objects.filter(recipient_id=self.request.user.pk).select_related("actor")
 
 
 def open_notification(request: HttpRequest, pk: int) -> HttpResponse:

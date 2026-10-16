@@ -101,7 +101,7 @@ class Command(BaseCommand):
     def _parser(self, verb: str) -> argparse.ArgumentParser:
         return argparse.ArgumentParser(prog=f"manage.py runbook {verb}")
 
-    def _resolve_actor(self, username: Optional[str]):
+    def _resolve_actor(self, username: Optional[str]) -> Any:
         if not username:
             return None
         user = get_user_model().objects.filter(username=username).first()

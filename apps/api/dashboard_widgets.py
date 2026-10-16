@@ -9,6 +9,8 @@ request (orphan files, threats over 24h once Phase 3 ships).
 
 from __future__ import annotations
 
+from typing import Any
+
 from apps.smallstack.displays import DashboardWidget
 
 
@@ -25,7 +27,7 @@ class APIDashboardWidget(DashboardWidget):
     order = 37  # one slot past MCP (35), before Backups (40)
     url_name = "api_admin:health"
 
-    def get_data(self, model_class=None) -> dict:
+    def get_data(self, model_class: type | None = None) -> dict[str, Any]:
         from apps.api.threats import count_high_severity_threats
         from apps.smallstack.api import _api_registry
 
@@ -54,7 +56,7 @@ class APIDashboardWidget(DashboardWidget):
 
         return {"headline": headline, "detail": detail, "status": status}
 
-    def get_api_extras(self, model_class=None) -> dict | None:
+    def get_api_extras(self, model_class: type | None = None) -> dict[str, Any] | None:
         """Richer payload for /api/dashboard/widgets/ consumers."""
         from apps.api.threats import count_high_severity_threats
         from apps.smallstack.api import _api_registry

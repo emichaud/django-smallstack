@@ -87,6 +87,28 @@ exclude = '(/migrations/|/tests/|test_[^/]*\.py$)'
 # green.
 files = ["apps"]
 
+# ── The typing ratchet ───────────────────────────────────────────────────────
+# The global block above is lenient so legacy debt (apps/smallstack, explorer,
+# usermanager…) doesn't flood the gate. The apps listed here are already fully
+# annotated, so for them the convention in CLAUDE.md ("annotate every
+# signature") is enforced by mypy, not by review: an unannotated function or
+# an unchecked body fails `make lint`. Add an app here the moment it reaches
+# zero under `make typecheck-strict`; never remove one.
+[[tool.mypy.overrides]]
+module = [
+    "apps.approvals.*",
+    "apps.blog.*",
+    "apps.datasets.*",
+    "apps.feeds.*",
+    "apps.notifications.*",
+    "apps.runbook.*",
+    "apps.scheduler.*",
+    "apps.webhooks.*",
+]
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+
 [tool.django-stubs]
 django_settings_module = "config.settings.test"
 

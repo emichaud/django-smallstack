@@ -12,6 +12,7 @@ import urllib.error
 import urllib.request
 
 from django.conf import settings
+from django.db.models import Model
 
 from .parser import ParsedItem, parse_feed
 from .sources import FeedSource, all_sources, get_source
@@ -45,7 +46,7 @@ def _default_map(item: ParsedItem, source: FeedSource) -> dict:
     }
 
 
-def _target_model(source: FeedSource):
+def _target_model(source: FeedSource) -> type[Model]:
     if source.model is not None:
         return source.model
     from .models import CollectedItem
@@ -53,7 +54,7 @@ def _target_model(source: FeedSource):
     return CollectedItem
 
 
-def _model_has_field(model, name: str) -> bool:
+def _model_has_field(model: type[Model], name: str) -> bool:
     try:
         model._meta.get_field(name)
         return True
@@ -105,7 +106,7 @@ def collect_source(name: str) -> dict:
             lookup["source"] = kwargs["source"]
         defaults = {k: v for k, v in kwargs.items() if k not in lookup}
         try:
-            _, was_created = model.objects.get_or_create(defaults=defaults, **lookup)
+            _, was_created = model._default_manager.get_or_create(defaults=defaults, **lookup)
             created += 1 if was_created else 0
             skipped += 0 if was_created else 1
         except Exception:

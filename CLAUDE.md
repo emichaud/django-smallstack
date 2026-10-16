@@ -108,6 +108,15 @@ Settings split in `config/settings/`:
   function is what opts its body into checking). `make lint` runs ruff, **mypy**,
   and the skill-index check; all three must be green before reporting work done,
   and the pre-commit hook enforces the same gate.
+  **The ratchet:** the apps listed under `[[tool.mypy.overrides]]` in
+  `pyproject.toml` (approvals, blog, datasets, feeds, notifications, runbook,
+  scheduler, webhooks) are fully annotated and checked strictly — an
+  unannotated function there fails lint. New apps start on that list. Run
+  `make typecheck-strict` to see what the lenient global config hides and to
+  find the next app to add; never remove one.
+  **Downstream:** a project built on SmallStack must carry the `[tool.mypy]`
+  block and run `uv run mypy` in its lint target, or its own code drifts
+  silently — clones from before v0.9 never had the gate.
 - **New skill file**: add a row to the `docs/skills/README.md` table and run
   `make skills-index` (that README is the source of truth; `index.json` is
   generated from it). `make lint` fails on an unregistered skill file — the

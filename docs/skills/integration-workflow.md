@@ -55,6 +55,28 @@ Common conflict areas and resolution strategies:
 | `docs/skills/README.md`, `docs/skills/index.json` | Take upstream (`git checkout --theirs`), then `make skills-index`. Keep *your* skill rows in `docs/skills/local.md`, which upstream never ships — see below |
 | `docs/skills/release-process.md` | Take upstream — it documents upstream's own release ritual, not yours. Keep your release doc under your own name and register it in `local.md` |
 
+### Keep the Typing Gate
+
+Upstream's `make lint` runs **mypy + django-stubs** (the `[tool.mypy]` block in `pyproject.toml`),
+and the apps listed under `[[tool.mypy.overrides]]` are checked strictly — an unannotated function
+there fails lint. A downstream has to *carry* that gate or its own code drifts silently: the global
+config is lenient on purpose (`check_untyped_defs = false`), so a function with no annotations is
+simply not checked until someone annotates it, at which point every accumulated error appears at
+once. That is not an upstream setting misbehaving; it is the absence of the gate.
+
+On every pull, check three things:
+
+```bash
+grep -n "tool.mypy" pyproject.toml          # the block + the overrides survived the merge
+grep -n "mypy" Makefile                     # `lint:` still runs `uv run mypy`
+uv run mypy                                 # green before you commit the merge
+```
+
+A clone from before v0.9 never had the gate at all. Add the `[tool.mypy]` block and the
+`uv run mypy` line to `lint:` from upstream, then run `make typecheck-strict` to see how far your
+own apps are from joining the ratchet — add each one to the overrides list the moment it reaches
+zero, and keep your new apps on that list from day one.
+
 ### Keep Your Own Skills Out of the Conflict Zone
 
 Upstream's skill index (`docs/skills/README.md` → generated `docs/skills/index.json`) is upstream-tracked, so

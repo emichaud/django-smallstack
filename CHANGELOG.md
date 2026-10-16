@@ -9,6 +9,25 @@ Breaking-change migration recipes live in [`UPGRADING.md`](UPGRADING.md).
 
 ## [Unreleased]
 
+### Changed
+- **A typing ratchet.** The global mypy config stays lenient (legacy debt in
+  `apps/smallstack`, `explorer` and `usermanager` would flood the gate), but
+  the apps that are already fully annotated — approvals, blog, datasets,
+  feeds, notifications, runbook, scheduler, webhooks — are now checked with
+  `disallow_untyped_defs`, `disallow_incomplete_defs` and
+  `check_untyped_defs` via `[[tool.mypy.overrides]]`, so an unannotated
+  function in any of them fails `make lint` instead of passing silently. The
+  remaining unannotated signatures in those apps were completed (feeds
+  parser/collector, approvals MCP helpers, webhooks views, datasets core,
+  notifications inbox, scheduler post-migrate hook, runbook command), as were
+  the six found in the 0.25 work (`form_bridge.build_form`, the profile Blogs
+  card, the blog dashboard widget) and every dashboard widget's `get_data` /
+  `get_api_extras`, which now match the base-class signature. New
+  `make typecheck-strict` shows what the lenient config hides and which app to
+  add next. `CLAUDE.md` documents the ratchet and that a downstream must carry
+  the mypy block and run it in lint — a clone from before v0.9 never had it.
+
+
 ## [0.25.1] - 2026-10-12
 
 ### Removed

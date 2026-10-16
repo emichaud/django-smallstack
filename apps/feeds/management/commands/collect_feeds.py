@@ -9,16 +9,18 @@ backfill or debug a source.
 
 from __future__ import annotations
 
-from django.core.management.base import BaseCommand
+from typing import Any
+
+from django.core.management.base import BaseCommand, CommandParser
 
 
 class Command(BaseCommand):
     help = "Fetch registered RSS/Atom feed sources and store new items."
 
-    def add_arguments(self, parser):
+    def add_arguments(self, parser: CommandParser) -> None:
         parser.add_argument("name", nargs="?", help="Only this source (default: all enabled).")
 
-    def handle(self, *args, **options):
+    def handle(self, *args: Any, **options: Any) -> None:
         from apps.feeds.collector import collect_all, collect_source
         from apps.feeds.sources import all_sources
 

@@ -15,10 +15,11 @@ Routes:
 from __future__ import annotations
 
 import csv
-from typing import overload
+from typing import Any, overload
 
 from django.conf import settings
 from django.http import Http404, HttpRequest, HttpResponse, JsonResponse
+from django.http.response import HttpResponseBase
 from django.utils.decorators import method_decorator
 from django.views import View
 from django.views.decorators.csrf import csrf_exempt
@@ -142,7 +143,7 @@ class _DatasetApiView(View):
 
     require_staff = True
 
-    def dispatch(self, request, *args, **kwargs):
+    def dispatch(self, request: HttpRequest, *args: Any, **kwargs: Any) -> HttpResponseBase:
         if not _enabled():
             raise Http404
         user, err = _authenticate_api_request(request)

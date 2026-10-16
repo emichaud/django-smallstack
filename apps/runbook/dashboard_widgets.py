@@ -6,6 +6,8 @@ project holds and links straight to the runbook dashboard.
 
 from __future__ import annotations
 
+from typing import Any
+
 from apps.smallstack.displays import DashboardWidget
 
 
@@ -24,7 +26,7 @@ class RunbookDashboardWidget(DashboardWidget):
     order = 32
     url_name = "runbook:dashboard"
 
-    def get_data(self, model_class=None) -> dict:
+    def get_data(self, model_class: type | None = None) -> dict[str, Any]:
         from .models import Document, Runbook
 
         n_runbooks = Runbook.objects.count()
@@ -43,7 +45,7 @@ class RunbookDashboardWidget(DashboardWidget):
             "status": "operational",
         }
 
-    def get_api_extras(self, model_class=None) -> dict:
+    def get_api_extras(self, model_class: type | None = None) -> dict[str, Any] | None:
         from .models import Document, Runbook, Section
 
         return {

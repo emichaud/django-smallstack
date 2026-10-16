@@ -33,7 +33,7 @@ _ROWS_LIMIT_MAX = 500
 _AGG_NAMES = ("count", "sum", "avg", "min", "max")
 
 
-def _agg_func(agg: str, measure: Optional[str]):
+def _agg_func(agg: str, measure: Optional[str]) -> Any:
     """Return the aggregate expression for ``agg`` over ``measure``.
 
     ``count`` (or a missing measure) counts rows; the others aggregate the
@@ -50,7 +50,7 @@ def _round_value(val: Any) -> Any:
     return round(val, 2) if isinstance(val, float) else val
 
 
-def _ratio_expr(spec: dict):
+def _ratio_expr(spec: dict[str, Any]) -> Any:
     """DB expression for a declared ratio: ``sum(num) / sum(denom)`` (×100 for
     percent). ``NullIf(denom, 0)`` makes an empty-denominator group evaluate to
     NULL → None, so the ratio is recomputed from summed parts, never averaged."""

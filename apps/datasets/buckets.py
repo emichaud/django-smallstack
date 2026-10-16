@@ -24,7 +24,7 @@ from __future__ import annotations
 
 from typing import Any, Optional
 
-from django.db.models import Count, Max, Q
+from django.db.models import Count, Max, Q, QuerySet
 
 # --- lifted verbatim from call_stats apps/reporter/query.py -----------------
 
@@ -68,7 +68,7 @@ def _bucket_cond(field: str, b: dict, dimension_values: list | None = None) -> Q
 AUTO_BUCKET_LIMIT = 12
 
 
-def _derive_buckets(scope_qs, dimension: dict) -> list[dict]:
+def _derive_buckets(scope_qs: QuerySet[Any], dimension: dict[str, Any]) -> list[dict[str, Any]]:
     """Materialize an AUTO categorical dimension ({field, auto: true | {limit,
     label_field}}) into concrete value buckets: one per distinct value of the
     field, ordered by row count (desc, then value for determinism), capped at

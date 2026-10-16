@@ -2,6 +2,10 @@
 Views for the profile app.
 """
 
+from __future__ import annotations
+
+from typing import Any
+
 from django.contrib import messages
 from django.contrib.auth import get_user_model
 from django.contrib.auth.mixins import LoginRequiredMixin
@@ -83,7 +87,7 @@ class PalettePreferenceView(LoginRequiredMixin, View):
         return HttpResponse(status=204)
 
 
-def _blogs_for_profile(viewer, profile_user) -> list:
+def _blogs_for_profile(viewer: Any, profile_user: Any) -> list[Any]:
     """Blogs to show on a profile: the ones `viewer` may read. The owner sees
     all of their own; everyone else sees what visibility admits. Soft
     dependency — a project that drops apps.blog loses only the card."""
@@ -130,7 +134,7 @@ class ProfileDetailView(DetailView):
         user = get_object_or_404(User, username=username)
         return get_object_or_404(UserProfile, user=user)
 
-    def get_context_data(self, **kwargs):
+    def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
         context = super().get_context_data(**kwargs)
         context["blogs"] = _blogs_for_profile(self.request.user, self.object.user)
         return context

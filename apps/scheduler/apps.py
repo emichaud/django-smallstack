@@ -11,6 +11,7 @@ the very migrate that creates them).
 from __future__ import annotations
 
 import logging
+from typing import Any
 
 from django.apps import AppConfig
 from django.conf import settings
@@ -19,7 +20,7 @@ from django.db.models.signals import post_migrate
 logger = logging.getLogger("smallstack.scheduler")
 
 
-def _sync_code_jobs_after_migrate(*args, **kwargs) -> None:
+def _sync_code_jobs_after_migrate(*args: Any, **kwargs: Any) -> None:
     """post_migrate handler: reconcile @scheduled declarations into the DB.
 
     Runs at migrate time (the deploy path), when the scheduler tables are

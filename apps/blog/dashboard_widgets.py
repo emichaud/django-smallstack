@@ -8,6 +8,8 @@ draining a queue, which nothing else on the dashboard would show.
 
 from __future__ import annotations
 
+from typing import Any
+
 from apps.smallstack.displays import DashboardWidget
 
 
@@ -21,7 +23,7 @@ class BlogDashboardWidget(DashboardWidget):
     order = 34  # after Runbook (32) and Search (33), before MCP (35)
     url_name = "blog/posts-list"  # the system manager; this dashboard is staff-only
 
-    def get_data(self, model_class=None) -> dict:
+    def get_data(self, model_class: type | None = None) -> dict[str, Any]:
         from django.db.models import Count, Q
         from django.utils import timezone
 
@@ -64,7 +66,7 @@ class BlogDashboardWidget(DashboardWidget):
 
         return {"headline": headline, "detail": detail, "status": status}
 
-    def get_api_extras(self, model_class=None) -> dict | None:
+    def get_api_extras(self, model_class: type | None = None) -> dict[str, Any] | None:
         from django.db.models import Count
 
         from .models import Blog, Issue, Post, Subscription

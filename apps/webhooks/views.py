@@ -38,7 +38,7 @@ class EventFilterWidget(forms.Widget):
 
     template_name = None  # rendered inline below
 
-    def value_from_datadict(self, data, files, name):
+    def value_from_datadict(self, data: Any, files: Any, name: str) -> Any:
         import json as _json
 
         # Scripted surfaces (REST/MCP/CLI) post the field directly by its own name — pass
@@ -56,7 +56,7 @@ class EventFilterWidget(forms.Widget):
                 patterns.append(p)
         return _json.dumps(patterns)
 
-    def render(self, name, value, attrs=None, renderer=None):
+    def render(self, name: str, value: Any, attrs: Any = None, renderer: Any = None) -> Any:
         import json as _json
 
         from django.utils.html import format_html, format_html_join
@@ -139,7 +139,7 @@ class EventFilterWidget(forms.Widget):
         )
 
 
-def _with_write_only_secret(base_form_class):
+def _with_write_only_secret(base_form_class: type[forms.ModelForm]) -> type[forms.ModelForm]:
     """Add a write-only ``secret`` field to a generated CRUD form.
 
     The secret must be *settable* (a provider hands you Stripe's ``whsec_…``;
@@ -149,7 +149,7 @@ def _with_write_only_secret(base_form_class):
     "auto-generate" on create, so the field is always safe to omit.
     """
 
-    class SecretForm(base_form_class):
+    class SecretForm(base_form_class):  # type: ignore[misc,valid-type]
         secret = forms.CharField(
             required=False,
             widget=forms.PasswordInput(
@@ -162,7 +162,7 @@ def _with_write_only_secret(base_form_class):
             ),
         )
 
-        def save(self, commit=True):
+        def save(self, commit: bool = True) -> Any:
             obj = super().save(commit=False)
             value = self.cleaned_data.get("secret")
             if value:
@@ -339,7 +339,7 @@ if "event_filter" in _EndpointForm.base_fields:
         "Pick the events to subscribe to, or add custom fnmatch patterns."
     )
 
-    def _clean_event_filter(self):
+    def _clean_event_filter(self: forms.BaseForm) -> Any:
         """Reject malformed patterns on every surface (HTML, REST, MCP, CLI all
         validate through this form). A typo is valid JSON, so without this it
         became a pattern that silently matches nothing — an endpoint that just
@@ -350,7 +350,7 @@ if "event_filter" in _EndpointForm.base_fields:
             raise forms.ValidationError(errors)
         return value
 
-    _EndpointForm.clean_event_filter = _clean_event_filter
+    _EndpointForm.clean_event_filter = _clean_event_filter  # type: ignore[attr-defined]
 WebhookEndpointCRUDView.form_class = _EndpointForm
 
 WebhookReceiverCRUDView.form_class = _with_write_only_secret(

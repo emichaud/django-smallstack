@@ -50,7 +50,7 @@ def parse_feed(content: bytes | str) -> list[ParsedItem]:
 # --- RSS 2.0 -------------------------------------------------------------
 
 
-def _rss_item(el) -> ParsedItem:
+def _rss_item(el: ET.Element) -> ParsedItem:
     title = _text(el, "title")
     link = _text(el, "link")
     guid = _text(el, "guid") or link or title
@@ -78,7 +78,7 @@ def _rss_item(el) -> ParsedItem:
 # --- Atom 1.0 ------------------------------------------------------------
 
 
-def _atom_entry(el) -> ParsedItem:
+def _atom_entry(el: ET.Element) -> ParsedItem:
     link = ""
     enclosures = []
     for lnk in el.findall(f"{ATOM}link"):
@@ -117,14 +117,14 @@ def _localname(tag: str) -> str:
     return tag.rsplit("}", 1)[-1].lower()
 
 
-def _text(parent, tag: str) -> str:
+def _text(parent: ET.Element, tag: str) -> str:
     child = parent.find(tag)
     if child is not None and child.text:
         return child.text.strip()
     return ""
 
 
-def _raw(el) -> dict[str, str]:
+def _raw(el: ET.Element) -> dict[str, str]:
     out: dict[str, str] = {}
     for child in el:
         if child.text and child.text.strip():

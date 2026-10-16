@@ -26,6 +26,7 @@ Registration is recorded AND performed so the MCP test suite's
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
 from typing import Any
 
 from asgiref.sync import sync_to_async
@@ -39,8 +40,11 @@ logger = logging.getLogger("smallstack.approvals")
 _SPECS: list[tuple] = []
 
 
-def _register(name: str, description: str, schema: dict, **opts: Any):
-    def decorator(fn):
+Handler = Callable[..., Any]
+
+
+def _register(name: str, description: str, schema: dict[str, Any], **opts: Any) -> Callable[[Handler], Handler]:
+    def decorator(fn: Handler) -> Handler:
         _SPECS.append((name, description, schema, opts, fn))
         tool(name, description, schema, **opts)(fn)
         return fn
@@ -150,7 +154,7 @@ async def request_approval_tool(args: dict[str, Any]) -> dict[str, Any]:
     if args.get("expires_in_minutes") is not None:
         expires_in = timedelta(minutes=int(args["expires_in_minutes"]))
 
-    def _file():
+    def _file() -> dict[str, Any]:
         kind_key = str(args["kind"])
         target, terr = resolve_target(args.get("target"))
         if terr:
@@ -210,7 +214,7 @@ async def decide_approval_tool(args: dict[str, Any]) -> dict[str, Any]:
 
     user = current_context().user
 
-    def _decide():
+    def _decide() -> dict[str, Any]:
         req = (
             permissions.viewable_requests(user, ApprovalRequest.objects.all())
             .filter(pk=int(args["id"]))

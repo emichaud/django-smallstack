@@ -4,6 +4,8 @@
 ``/feed/<slug>.atom`` → Atom 1.0
 """
 
+from __future__ import annotations
+
 from django.urls import path, register_converter
 
 from . import views
@@ -14,10 +16,10 @@ class FeedFormatConverter:
 
     regex = "rss|atom"
 
-    def to_python(self, value):
+    def to_python(self, value: str) -> str:
         return value
 
-    def to_url(self, value):
+    def to_url(self, value: str) -> str:
         return value
 
 

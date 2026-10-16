@@ -7,6 +7,8 @@ on MySQL) or if zero CRUDViews have opted in.
 
 from __future__ import annotations
 
+from typing import Any
+
 from apps.smallstack.displays import DashboardWidget
 
 
@@ -22,7 +24,7 @@ class SearchDashboardWidget(DashboardWidget):
     order = 33
     url_name = "search:page"
 
-    def get_data(self, model_class=None) -> dict:
+    def get_data(self, model_class: type | None = None) -> dict[str, Any]:
         from .backends import get_backend
         from .registry import view_count
 
@@ -52,7 +54,7 @@ class SearchDashboardWidget(DashboardWidget):
             "status": "operational",
         }
 
-    def get_api_extras(self, model_class=None) -> dict | None:
+    def get_api_extras(self, model_class: type | None = None) -> dict[str, Any] | None:
         from .backends import get_backend
         from .registry import all_views, view_count
 

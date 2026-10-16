@@ -32,14 +32,15 @@ from __future__ import annotations
 
 import inspect
 import json
-from typing import Any, Mapping
+from typing import Any, Mapping, TypeVar
 
 from django import forms
 from django.forms.models import model_to_dict
 from django.http import QueryDict
 
+F = TypeVar("F", bound=forms.BaseForm)
 
-def _native(value: Any, form_field=None) -> Any:
+def _native(value: Any, form_field: Any = None) -> Any:
     """Normalize one incoming value for bound-form consumption.
 
     JSONField-destined non-string values are JSON-encoded: empty containers
@@ -60,7 +61,7 @@ def _native(value: Any, form_field=None) -> Any:
 
 
 def merge_form_payload(
-    form_class,
+    form_class: type[Any],  # a ModelForm class; base_fields / _meta are metaclass-provided
     incoming: Mapping[str, Any],
     *,
     instance=None,
@@ -110,7 +111,7 @@ def merge_form_payload(
     return data
 
 
-def build_form(form_class, *args, user: Any = None, **kwargs):
+def build_form(form_class: type[F], *args: Any, user: Any = None, **kwargs: Any) -> F:
     """Instantiate *form_class*, passing ``user=`` when the form accepts it.
 
     ``CRUDView`` builds its HTML forms through ``get_form_kwargs``, which is the
@@ -148,7 +149,7 @@ def build_form(form_class, *args, user: Any = None, **kwargs):
     return form_class(*args, **kwargs)
 
 
-def _accepts_user(form_class) -> bool:
+def _accepts_user(form_class: type[Any]) -> bool:
     """Whether *form_class* takes a ``user`` keyword, anywhere in its MRO.
 
     Checking only ``form_class.__init__`` is not enough, and getting this wrong
