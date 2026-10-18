@@ -208,6 +208,129 @@
 .th-sort:focus:not(:focus-visible) { outline: none; }
 
 /* --------------------------------------------------------------------------
+   Column resize (table-resize.js)
+   --------------------------------------------------------------------------
+   Every data header carries a .col-resizer on its right edge. The handle is a
+   focusable role="separator": drag or arrow keys change the <th> width,
+   double-click / Enter fits the column to its content. The table uses
+   table-layout: fixed so header widths are the column widths. Once a user has
+   resized, the script pins every data column to px and sets a min-width on
+   the table so widening one column grows the table (the wrapper scrolls)
+   instead of silently squeezing its neighbours.
+   -------------------------------------------------------------------------- */
+.crud-table thead th[data-field] {
+    position: relative;
+}
+/* A resized table can be wider than the card. The wrapper must scroll it, not
+   hand its min-content width up to a flex/grid ancestor (which would widen the
+   whole page). `contain: inline-size` makes the wrapper's intrinsic width
+   independent of its contents, whatever the ancestors are. */
+.crud-table-wrap {
+    contain: inline-size;
+    max-width: 100%;
+}
+.col-resizer {
+    position: absolute;
+    top: 0;
+    right: -5px;
+    bottom: 0;
+    width: 10px;
+    cursor: col-resize;
+    touch-action: none;
+    user-select: none;
+    z-index: 1;
+    /* Inert until the script marks the table — no cursor hint for a handle that does nothing. */
+    display: none;
+}
+.crud-table.is-resizable .col-resizer {
+    display: block;
+}
+/* The visible part: a hairline that only shows on header hover, accent on the active handle. */
+.col-resizer::after {
+    content: "";
+    position: absolute;
+    top: 20%;
+    bottom: 20%;
+    left: 4px;
+    width: 2px;
+    border-radius: 1px;
+    background: transparent;
+    transition: background 0.12s;
+}
+.crud-table thead:hover .col-resizer::after {
+    background: color-mix(in srgb, var(--body-fg) 18%, transparent);
+}
+.col-resizer:hover::after,
+.col-resizer.is-dragging::after,
+.col-resizer:focus-visible::after {
+    background: var(--primary);
+    top: 0;
+    bottom: 0;
+}
+.col-resizer:focus:not(:focus-visible) { outline: none; }
+.crud-table.is-dragging,
+.crud-table.is-dragging * {
+    cursor: col-resize !important;
+    user-select: none;
+}
+/* Last data column's handle must not hang past the table edge when it is the final header. */
+.crud-table thead th[data-field]:last-child .col-resizer {
+    right: 0;
+    width: 6px;
+}
+.crud-table thead th[data-field]:last-child .col-resizer::after {
+    left: 2px;
+}
+
+/* Wrap mode — the "Wrap text" tool: cells wrap instead of clipping. */
+.crud-table.is-wrapping td {
+    white-space: normal;
+    overflow-wrap: anywhere;
+}
+.crud-table.is-wrapping td.crud-actions-cell {
+    white-space: nowrap;
+}
+
+/* Tools row under the table (un-hidden by the script). */
+.crud-table-tools {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.35rem 0.5rem 0;
+}
+.crud-table-tool {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3em;
+    padding: 3px 8px;
+    border: 1px solid transparent;
+    border-radius: var(--radius-sm, 4px);
+    background: transparent;
+    font: inherit;
+    font-size: 0.72rem;
+    color: var(--body-quiet-color);
+    cursor: pointer;
+    transition: color 0.15s, background 0.15s, border-color 0.15s;
+}
+.crud-table-tool:hover {
+    color: var(--body-fg);
+    background: color-mix(in srgb, var(--primary) 10%, var(--body-bg));
+}
+.crud-table-tool[aria-pressed="true"] {
+    color: var(--primary);
+    border-color: color-mix(in srgb, var(--primary) 30%, transparent);
+    background: color-mix(in srgb, var(--primary) 12%, var(--body-bg));
+}
+.crud-table-tool:focus:not(:focus-visible) { outline: none; }
+
+@media (max-width: 768px) {
+    /* Too fiddly for touch at phone width; the wrapper already scrolls horizontally. */
+    .crud-table.is-resizable .col-resizer { display: none; }
+    .crud-table-reset-widths { display: none; }
+}
+
+/* --------------------------------------------------------------------------
    django-tables2 Sort Indicators
    -------------------------------------------------------------------------- */
 

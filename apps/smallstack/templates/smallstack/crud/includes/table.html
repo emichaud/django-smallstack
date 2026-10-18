@@ -1,5 +1,13 @@
-<div style="overflow-x: auto;">
-<table class="crud-table">
+{% comment %}
+Column widths: the server emits a `width` on compact columns (booleans, dates,
+numbers — see _default_column_width) or on anything in `column_widths`; the
+rest share the free space. Users can then drag the `.col-resizer` handle in
+each header (table-resize.js) — widths persist in localStorage under
+`data-table-key`, re-apply after every htmx swap, and the "Reset columns" /
+"Wrap text" tools below the table are un-hidden by the script.
+{% endcomment %}
+<div class="crud-table-wrap" style="overflow-x: auto;">
+<table class="crud-table" data-table-key="{{ table_key }}">
 <thead>
 <tr>
 {% if enable_bulk %}
@@ -9,7 +17,7 @@
 {% endif %}
 {% for header in headers %}
     {% if header.sortable %}
-    <th scope="col" class="th-sortable" aria-sort="{% if header.direction == 'desc' %}descending{% elif header.direction == 'asc' %}ascending{% else %}none{% endif %}"{% if header.width %} style="width: {{ header.width }};"{% endif %}>
+    <th scope="col" class="th-sortable" data-field="{{ header.field_name }}" aria-sort="{% if header.direction == 'desc' %}descending{% elif header.direction == 'asc' %}ascending{% else %}none{% endif %}"{% if header.width %} style="width: {{ header.width }};"{% endif %}>
         <button type="button" class="th-sort"
             hx-get="?ordering={{ header.next_ordering }}"
             hx-target="#crud-list-content"
@@ -20,9 +28,13 @@
             <span>{{ header.label }}</span>
             <span aria-hidden="true" style="font-size: 0.65rem; display: inline-block; width: 0.65em;{% if not header.direction %} visibility: hidden;{% endif %}">{% if header.direction == "desc" %}&#9660;{% else %}&#9650;{% endif %}</span>
         </button>
+        {% include "smallstack/crud/includes/col_resizer.html" with label=header.label %}
     </th>
     {% else %}
-    <th scope="col"{% if header.width %} style="width: {{ header.width }};"{% endif %}>{{ header.label }}</th>
+    <th scope="col" data-field="{{ header.field_name }}"{% if header.width %} style="width: {{ header.width }};"{% endif %}>
+        {{ header.label }}
+        {% include "smallstack/crud/includes/col_resizer.html" with label=header.label %}
+    </th>
     {% endif %}
 {% endfor %}
 {% if show_actions %}
@@ -66,6 +78,16 @@
 {% endfor %}
 </tbody>
 </table>
+</div>
+<div class="crud-table-tools" hidden>
+    <button type="button" class="crud-table-tool crud-table-wrap-toggle" aria-pressed="false" title="Wrap long cell text onto multiple lines instead of clipping it">
+        <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor" aria-hidden="true"><path d="M4 5h16v2H4V5zm0 6h12a3 3 0 0 1 0 6h-2.17l1.59 1.59L14 20l-4-4 4-4 1.41 1.41L13.83 15H16a1 1 0 0 0 0-2H4v-2zm0 6h5v2H4v-2z"/></svg>
+        Wrap text
+    </button>
+    <button type="button" class="crud-table-tool crud-table-reset-widths" hidden title="Restore the default column widths">
+        <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor" aria-hidden="true"><path d="M12 5V2L7 6l5 4V7a5 5 0 1 1-5 5H5a7 7 0 1 0 7-7z"/></svg>
+        Reset columns
+    </button>
 </div>
 
 {% include "smallstack/crud/includes/field_preview_modal.html" %}

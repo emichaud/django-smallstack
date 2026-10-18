@@ -1,0 +1,10 @@
+{% comment %}
+Drag handle on the right edge of a CRUD table header. ARIA "window splitter"
+pattern: a focusable role="separator" that arrow keys move and Enter fits to
+content. table-resize.js wires the pointer + keyboard behaviour and keeps
+aria-valuenow current; without the script it is inert and invisible.
+{% endcomment %}
+<span class="col-resizer" role="separator" aria-orientation="vertical" tabindex="0"
+      aria-label="Resize {{ label }} column"
+      aria-valuemin="48"
+      title="Drag to resize, double-click to fit"></span>

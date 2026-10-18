@@ -9,6 +9,29 @@ Breaking-change migration recipes live in [`UPGRADING.md`](UPGRADING.md).
 
 ## [Unreleased]
 
+### Added
+- **Resizable CRUD table columns.** Every `{% crud_table %}` header now has
+  a drag handle (`table-resize.js`): drag to resize, double-click to fit the
+  column to its content, and — the handle is a focusable `role="separator"` —
+  ←/→ to nudge, Enter to fit, Home to collapse. Widths persist in
+  `localStorage` per table, keyed by `url_base` + the field list so a
+  changed `list_fields` never replays stale widths, and re-apply after every
+  htmx swap. Widening a column grows the table (the wrapper scrolls) instead
+  of squeezing its neighbours. Two tools render under the table: **Wrap
+  text** (cells wrap instead of clipping; persisted) and **Reset columns**.
+  Progressive enhancement — without the script the handles and tools are
+  hidden. Handles are hidden below 768px.
+
+### Changed
+- **Type-derived default column widths.** `.crud-table` is
+  `table-layout: fixed`, so every column the view did not size got an equal
+  share — a ✓/— boolean was as wide as an email column, and the email
+  clipped. `_build_sort_headers` now emits a pixel default for naturally
+  compact fields (booleans 110px, datetimes 170px, dates 120px, times 100px,
+  durations 110px, numbers 100px, `choices` CharFields 130px); free-text,
+  relation and pk columns stay unset and share the freed space. An explicit
+  `column_widths` entry always wins. Documented in `tables.md`.
+
 ## [0.25.2] - 2026-10-16
 
 ### Changed

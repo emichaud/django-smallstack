@@ -146,7 +146,53 @@ class WidgetCRUDView(CRUDView):
     column_widths = {"name": "20%", "description": "50%"}
 ```
 
-Fields not listed in `column_widths` share the remaining space equally.
+Fields not listed in `column_widths` get a **type-derived default** when the
+field is naturally compact, and otherwise share the remaining space equally:
+
+| Field type | Default width |
+|---|---|
+| `BooleanField` | 110px |
+| `DateTimeField` | 170px |
+| `DateField` | 120px |
+| `TimeField` | 100px |
+| `DurationField` | 110px |
+| Integer / `FloatField` / `DecimalField` | 100px |
+| `CharField` with `choices` (status badges, kinds) | 130px |
+| Everything else — free text, FKs, the pk, properties | unset (shares the free space) |
+
+This is what stops a ✓/— column being as wide as an email column. The
+defaults are pixels, not percentages, so they never sum past the table width
+however many columns there are. An explicit `column_widths` entry always
+wins, and `column_widths` remains the way to express *proportions* between
+free-text columns (`{"title": "40%", "summary": "60%"}`).
+
+### User-resizable columns
+
+Every `{% crud_table %}` header has a drag handle on its right edge
+(`table-resize.js`, loaded by `base.html`):
+
+- **Drag** the handle to resize; **double-click** it to fit the column to its
+  widest cell. The handle is a focusable `role="separator"`, so **←/→** nudge
+  the width (Shift for bigger steps), **Enter** fits, **Home** collapses to
+  the minimum.
+- Once a column has been resized, every data column is pinned to its current
+  pixel width and the table gets a matching `min-width`. Widening a column
+  therefore grows the table and the wrapper scrolls horizontally — neighbours
+  are never silently squeezed. When the table is narrower than its card the
+  browser distributes the slack proportionally, so it still fills the card.
+- Widths persist in `localStorage` per table, keyed by the view's `url_base`
+  **plus its field list** — change `list_fields` and stale widths are simply
+  ignored. They re-apply after every htmx swap (sort, search, filter, page).
+- Two tools render under the table: **Wrap text** (cells wrap instead of
+  clipping with an ellipsis; also persisted per table) and **Reset columns**
+  (appears only after a resize; restores the server-emitted widths).
+- Handles are hidden below 768px — the wrapper already scrolls at phone width.
+
+The script keys off `table.crud-table[data-table-key]` and `th[data-field]`,
+both emitted by the tag. A hand-written `<table class="crud-table">` without
+them is left alone. There is nothing to configure per view; to turn the
+feature off site-wide, drop the `<script>` from your base template — the
+handles are `display: none` without it.
 
 ## Matching the Built-in Theme
 

@@ -446,7 +446,7 @@ The User Manager demonstrates this — its edit form has three tabs (Account, Pr
 | `url_base` | str | model name | URL prefix (e.g., `"manage/widgets"`) |
 | `paginate_by` | int | None | Rows per page (falls back to `admin_class.list_per_page`) |
 | `mixins` | list | `[]` | View mixins applied to all views |
-| `column_widths` | dict | `None` | Custom column proportions, e.g. `{"name": "30%", "description": "50%"}` |
+| `column_widths` | dict | `None` | Custom column proportions, e.g. `{"name": "30%", "description": "50%"}`. Unlisted compact fields (booleans, dates, numbers, choice fields) get a type-derived pixel default; users can also drag any column header to resize (persisted per browser). See `tables.md` |
 | `ordering_fields` | list | `[]` | Fields allowed for column sorting (defaults to sortable list_fields) |
 | `form_class` | Form class | auto | Custom ModelForm (auto-generated if None) |
 | `actions` | list | all 5 | Which CRUD actions to generate |
