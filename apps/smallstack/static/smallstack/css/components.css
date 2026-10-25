@@ -205,6 +205,10 @@
     -webkit-appearance: none;
 }
 .th-sort:hover { color: var(--primary); }
+/* Numeric columns: the header label sits over the numbers it sorts. */
+.crud-table thead th.th-right .th-sort { justify-content: flex-end; text-align: right; }
+.crud-table thead th.th-right { text-align: right; }
+.crud-table td.num { text-align: right; font-variant-numeric: tabular-nums; }
 .th-sort:focus:not(:focus-visible) { outline: none; }
 
 /* --------------------------------------------------------------------------
@@ -3130,4 +3134,190 @@ a.dashboard-widget.widget-status-down        { border-left-color: var(--error-fg
 /* Suppress only the mouse-focus outline; keyboard focus keeps the global ring. */
 .link-underline-hover:focus:not(:focus-visible) {
     outline: none;
+}
+
+
+/* --------------------------------------------------------------------------
+   Activity module (apps/activity) — status pills, probe flags, histogram,
+   key/value facts. All palette-derived; no literals.
+   -------------------------------------------------------------------------- */
+.status-pill {
+    display: inline-block;
+    min-width: 2.6em;
+    padding: 1px 7px;
+    border-radius: 4px;
+    text-align: center;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    font-variant-numeric: tabular-nums;
+    line-height: 1.5;
+}
+.status-pill--ok { background: color-mix(in srgb, var(--success-fg) 14%, var(--card-bg)); color: var(--success-fg); }
+.status-pill--redirect { background: color-mix(in srgb, var(--body-fg) 10%, var(--card-bg)); color: var(--body-quiet-color); }
+.status-pill--warn { background: color-mix(in srgb, var(--warning-fg) 16%, var(--card-bg)); color: var(--warning-fg); }
+.status-pill--error { background: color-mix(in srgb, var(--error-fg) 16%, var(--card-bg)); color: var(--error-fg); }
+
+.probe-flag {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.3em;
+    height: 1.3em;
+    margin-left: 6px;
+    border-radius: 50%;
+    background: color-mix(in srgb, var(--warning-fg) 18%, var(--card-bg));
+    color: var(--warning-fg);
+    font-size: 0.7rem;
+    font-weight: 700;
+    vertical-align: middle;
+    cursor: help;
+}
+.reason-chip {
+    display: inline-block;
+    margin: 2px 4px 2px 0;
+    padding: 1px 8px;
+    border-radius: 10px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    background: color-mix(in srgb, var(--warning-fg) 14%, var(--card-bg));
+    color: var(--warning-fg);
+    white-space: nowrap;
+}
+.reason-chip--danger {
+    background: color-mix(in srgb, var(--error-fg) 14%, var(--card-bg));
+    color: var(--error-fg);
+}
+
+/* The warning area: a card with a severity stripe. */
+.activity-alert { border-left: 4px solid var(--warning-fg); }
+.activity-alert--danger { border-left-color: var(--error-fg); }
+.activity-alert--muted { border-left-color: var(--success-fg); }
+
+/* Traffic histogram: one bar per bucket, stacked by status class. */
+.activity-hist { display: flex; align-items: flex-end; gap: 2px; height: 72px; }
+.activity-hist-bar { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; justify-content: flex-end; height: 100%; }
+.activity-hist-stack { display: flex; flex-direction: column; border-radius: 2px; overflow: hidden; }
+.activity-hist-empty { height: 3px; border-radius: 2px; background: var(--card-border); }
+.activity-hist-seg--server { background: var(--error-fg); }
+.activity-hist-seg--client { background: var(--warning-fg); }
+.activity-hist-seg--redirect { background: color-mix(in srgb, var(--body-quiet-color) 60%, var(--card-bg)); }
+.activity-hist-seg--ok { background: var(--primary); opacity: 0.85; }
+.activity-hist-axis { display: flex; justify-content: space-between; margin-top: 6px; font-size: 0.72rem; color: var(--body-quiet-color); }
+/* Hover: the column lifts and a tooltip summarises the bucket (histogram.html wires it). */
+.activity-hist-wrap { position: relative; }
+.activity-hist-bar { border-radius: 3px; transition: background 0.1s; cursor: default; }
+.activity-hist-bar:hover, .activity-hist-bar.is-active { background: color-mix(in srgb, var(--primary) 12%, transparent); }
+.activity-hist-bar:hover .activity-hist-stack, .activity-hist-bar.is-active .activity-hist-stack { filter: brightness(1.25); }
+.activity-hist-tip {
+    /* Moved to <body> by the chart script and placed in viewport coordinates,
+       so no card/header stacking context can paint over it or clip it. */
+    position: fixed;
+    z-index: 1000;
+    min-width: 170px;
+    padding: 8px 10px;
+    border-radius: var(--radius-sm, 6px);
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.28);
+    font-size: 0.78rem;
+    line-height: 1.45;
+    color: var(--body-fg);
+    pointer-events: none;
+    transform: translate(-50%, -8px);
+    opacity: 0;
+    transition: opacity 0.08s;
+}
+.activity-hist-tip.is-visible { opacity: 1; }
+.activity-hist-tip .tip-when { color: var(--body-quiet-color); font-size: 0.72rem; white-space: nowrap; }
+.activity-hist-tip .tip-total { font-weight: 700; font-size: 0.92rem; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.activity-hist-tip .tip-share { color: var(--body-quiet-color); font-weight: 500; font-size: 0.72rem; }
+.activity-hist-tip .tip-rows { display: grid; grid-template-columns: auto 1fr auto; gap: 2px 8px; margin-top: 6px; align-items: center; font-variant-numeric: tabular-nums; }
+.activity-hist-tip .tip-dot { width: 8px; height: 8px; border-radius: 2px; }
+.activity-hist-tip .tip-n { text-align: right; font-weight: 600; }
+.activity-hist-tip .tip-empty { color: var(--body-quiet-color); }
+.activity-legend { display: inline-flex; gap: 12px; font-size: 0.72rem; color: var(--body-quiet-color); }
+.activity-legend span::before { content: ""; display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin-right: 5px; vertical-align: -1px; background: var(--primary); }
+.activity-legend .is-redirect::before { background: color-mix(in srgb, var(--body-quiet-color) 60%, var(--card-bg)); }
+.activity-legend .is-client::before { background: var(--warning-fg); }
+.activity-legend .is-server::before { background: var(--error-fg); }
+
+/* Key / value facts list (user + resource detail side panels). */
+.activity-kv { list-style: none; margin: 0; padding: 0; }
+.activity-kv li { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; padding: 6px 0; border-bottom: 1px solid var(--card-border); font-size: 0.85rem; }
+.activity-kv li:last-child { border-bottom: none; }
+.activity-kv .k { color: var(--body-quiet-color); flex: 0 0 auto; }
+.activity-kv .v { text-align: right; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.activity-mono { font-family: ui-monospace, "Cascadia Code", Menlo, Consolas, monospace; font-size: 0.85rem; }
+
+/* Header tools (the right side of page-header-bleed): ONE row — a compact
+   inline stat strip and the window picker — so the header stays one line
+   tall and the title does not get pushed down. Wraps below ~900px. */
+.page-header-tools {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 14px;
+    flex-wrap: wrap;
+    flex: 0 0 auto;
+}
+/* The title block yields first: it sizes to the available width instead of
+   to its longest line, so a slightly longer subtitle ("in the last 30 days"
+   vs "all time") wraps its own text rather than shoving the tools onto a
+   second row. Below tablet width the tools take a full row of their own. */
+.page-header-content:has(+ .page-header-tools) {
+    flex: 1 1 0;
+    min-width: 0;
+}
+@media (max-width: 900px) {
+    .page-header-tools {
+        flex-basis: 100%;
+        justify-content: flex-start;
+    }
+}
+.header-stats {
+    display: inline-flex;
+    align-items: center;
+    flex-wrap: wrap;
+    padding: 5px 12px;
+    background: color-mix(in srgb, var(--primary) 8%, var(--body-bg));
+    border: 1px solid color-mix(in srgb, var(--primary) 15%, var(--body-bg));
+    border-radius: var(--radius-sm, 6px);
+}
+.header-stat {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 5px;
+    white-space: nowrap;
+}
+.header-stat + .header-stat::before {
+    content: "";
+    align-self: center;
+    width: 1px;
+    height: 0.9em;
+    margin: 0 10px;
+    background: color-mix(in srgb, var(--body-fg) 18%, transparent);
+}
+.header-stat-value {
+    font-size: 0.95rem;
+    font-weight: 700;
+    line-height: 1.2;
+    color: var(--primary);
+    font-variant-numeric: tabular-nums;
+}
+.header-stat-value.is-success { color: var(--success-fg); }
+.header-stat-value.is-warning { color: var(--warning-fg); }
+.header-stat-value.is-error { color: var(--error-fg); }
+.header-stat-value.is-plain { color: var(--body-fg); }
+.header-stat-label {
+    font-size: 0.68rem;
+    color: var(--body-quiet-color);
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+
+.activity-grid { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: 24px; margin-bottom: 24px; }
+.activity-grid-even { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; margin-bottom: 24px; }
+@media (max-width: 900px) {
+    .activity-grid, .activity-grid-even { grid-template-columns: 1fr; }
 }

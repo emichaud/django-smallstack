@@ -1,52 +1,14 @@
-{% load theme_tags %}
+{% comment %}The signed-in request stream. Auto-refreshes on page 1 when unfiltered.{% endcomment %}
 <div id="user-activity-tab"
-     {% if page_obj.number == 1 %}
-     hx-get="{% url 'activity:users' %}?tab=activity"
+     {% if page_obj.number == 1 and not filters.active and not request.GET.ordering %}
+     hx-get="{{ request.get_full_path }}"
      hx-trigger="every 30s"
      hx-target="#tab-content"
      hx-swap="innerHTML"
      {% endif %}>
-    <div class="card">
-        <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
-            <h2>Recent Authenticated Requests</h2>
-            {% if page_obj.number == 1 %}
-            <span style="font-size: 0.8rem; color: var(--body-quiet-color);">Auto-refreshes every 30s</span>
-            {% endif %}
-        </div>
-        <div class="card-body" style="padding: 0; overflow-x: auto;">
-            {% if recent_user_activity %}
-            <table class="table-plain" style="width: 100%; border-collapse: collapse;">
-                <thead>
-                    <tr >
-                        <th style="text-align: left; padding: 10px 16px;">Time</th>
-                        <th style="text-align: left; padding: 10px 16px;">User</th>
-                        <th style="text-align: left; padding: 10px 16px;">Method</th>
-                        <th style="text-align: left; padding: 10px 16px;">Path</th>
-                        <th style="text-align: right; padding: 10px 16px;">Status</th>
-                        <th style="text-align: right; padding: 10px 16px;">Time (ms)</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for log in recent_user_activity %}
-                    <tr>
-                        <td style="padding: 10px 16px; white-space: nowrap; font-size: 0.85rem;">{% localtime_tooltip log.timestamp "M d g:i:s A T" %}</td>
-                        <td style="padding: 10px 16px;">{{ log.user.username }}</td>
-                        <td style="padding: 10px 16px;"><code>{{ log.method }}</code></td>
-                        <td style="padding: 10px 16px; font-family: monospace; font-size: 0.9rem;">{{ log.path|truncatechars:60 }}</td>
-                        <td style="text-align: right; padding: 10px 16px;">
-                            <span style="{% if log.status_code >= 500 %}color: var(--error-fg);{% elif log.status_code >= 400 %}color: var(--warning-fg);{% endif %}">
-                                {{ log.status_code }}
-                            </span>
-                        </td>
-                        <td style="text-align: right; padding: 10px 16px;">{{ log.response_time_ms }}</td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-            {% else %}
-            <p style="padding: 16px; color: var(--body-quiet-color);">No authenticated user requests recorded yet.</p>
-            {% endif %}
-        </div>
-        {% render_paginator page_obj %}
-    </div>
+    {% include "activity/includes/filter_bar.html" with tab="activity" hide_anon=True %}
+    {% include "activity/includes/request_table.html" with table_key="activity:user-stream" table_title="Signed-in requests" %}
+    {% if page_obj.number == 1 and not filters.active and not request.GET.ordering %}
+    <p style="font-size: 0.75rem; color: var(--body-quiet-color); margin: 8px 0 0;">Auto-refreshes every 30s</p>
+    {% endif %}
 </div>

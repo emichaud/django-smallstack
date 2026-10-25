@@ -1,0 +1,107 @@
+{% comment %}
+Traffic histogram. Context: `histogram` (services.Histogram), optional `title`.
+Bar height scales with the bucket total; segments are proportional (flex = count)
+so a mostly-OK bucket reads mostly accent with a thin error cap. Hovering a
+column lifts it and shows a tooltip: the bucket's time range, total, share of
+the window, and the per-status breakdown (the data rides on data-* attributes;
+the script below only positions and fills one tooltip element).
+{% endcomment %}
+<div class="card" style="margin-bottom: 24px;">
+    <div class="card-header" style="display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap;">
+        <h2 style="margin: 0;">{{ title|default:"Requests" }} &middot; {{ window.label|lower }}</h2>
+        <div class="activity-legend" aria-hidden="true">
+            <span>2xx</span><span class="is-redirect">3xx</span><span class="is-client">4xx</span><span class="is-server">5xx</span>
+            <span style="margin-left: 6px;">{{ histogram.bucket_label }} buckets</span>
+        </div>
+    </div>
+    <div class="card-body">
+        {% if histogram.total %}
+        <div class="activity-hist-wrap">
+            <div class="activity-hist" role="img" aria-label="{{ histogram.total }} requests {{ window.phrase }}, in {{ histogram.bucket_label }} buckets">
+                {% for b in histogram.buckets %}
+                <div class="activity-hist-bar"
+                     data-when="{% if histogram.sub_day %}{{ b.start|date:'M d, H:i' }} – {{ b.end|date:'H:i' }}{% elif histogram.multi_day %}{{ b.start|date:'M d' }} – {{ b.end|date:'M d' }}{% else %}{{ b.start|date:'D, M d' }}{% endif %}"
+                     data-total="{{ b.total }}" data-share="{{ b.share }}"
+                     data-ok="{{ b.ok }}" data-redirect="{{ b.redirect }}" data-client="{{ b.client_error }}" data-server="{{ b.server_error }}">
+                    {% if b.total %}
+                    <div class="activity-hist-stack" style="height: {% widthratio b.total histogram.max_total 68 %}px; min-height: 4px;">
+                        {% if b.server_error %}<div class="activity-hist-seg--server" style="flex: {{ b.server_error }};"></div>{% endif %}
+                        {% if b.client_error %}<div class="activity-hist-seg--client" style="flex: {{ b.client_error }};"></div>{% endif %}
+                        {% if b.redirect %}<div class="activity-hist-seg--redirect" style="flex: {{ b.redirect }};"></div>{% endif %}
+                        {% if b.ok %}<div class="activity-hist-seg--ok" style="flex: {{ b.ok }};"></div>{% endif %}
+                    </div>
+                    {% else %}
+                    <div class="activity-hist-empty"></div>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+            <div class="activity-hist-tip" role="tooltip" aria-hidden="true"></div>
+        </div>
+        <div class="activity-hist-axis">
+            <span>{{ histogram.start|date:"M d, H:i" }}</span>
+            <span>now</span>
+        </div>
+        {% else %}
+        <p style="margin: 0; color: var(--body-quiet-color); font-size: 0.85rem;">Nothing recorded {{ window.phrase }}.</p>
+        {% endif %}
+    </div>
+</div>
+<script>
+(function () {
+    document.querySelectorAll('.activity-hist-wrap').forEach(function (wrap) {
+        if (wrap.dataset.tipInit) { return; }
+        wrap.dataset.tipInit = '1';
+        var tip = wrap.querySelector('.activity-hist-tip');
+        document.body.appendChild(tip);  // escape the card's stacking context
+        var rows = [
+            ['ok', '2xx', 'activity-hist-seg--ok'],
+            ['redirect', '3xx', 'activity-hist-seg--redirect'],
+            ['client', '4xx', 'activity-hist-seg--client'],
+            ['server', '5xx', 'activity-hist-seg--server']
+        ];
+        function show(bar) {
+            var d = bar.dataset;
+            var total = parseInt(d.total, 10) || 0;
+            var html = '<div class="tip-when">' + d.when + '</div>';
+            if (total) {
+                html += '<div class="tip-total">' + total.toLocaleString() + ' request' + (total === 1 ? '' : 's')
+                      + ' <span class="tip-share">· ' + d.share + '% of window</span></div><div class="tip-rows">';
+                rows.forEach(function (r) {
+                    var n = parseInt(d[r[0]], 10) || 0;
+                    if (n) {
+                        html += '<span class="tip-dot ' + r[2] + '"></span><span>' + r[1] + '</span><span class="tip-n">' + n.toLocaleString() + '</span>';
+                    }
+                });
+                html += '</div>';
+            } else {
+                html += '<div class="tip-empty">No requests</div>';
+            }
+            tip.innerHTML = html;
+            tip.classList.add('is-visible');
+            tip.setAttribute('aria-hidden', 'false');
+            var br = bar.getBoundingClientRect();
+            var stack = bar.querySelector('.activity-hist-stack, .activity-hist-empty');
+            var topEdge = stack ? stack.getBoundingClientRect().top : br.top;
+            var half = tip.offsetWidth / 2;
+            // Centre on the column, clamped to the viewport; sit just above the bar.
+            var x = Math.max(half + 8, Math.min(window.innerWidth - half - 8, br.left + br.width / 2));
+            tip.style.left = x + 'px';
+            tip.style.top = (topEdge - 6) + 'px';
+            tip.style.transform = 'translate(-50%, -100%)';
+            bar.classList.add('is-active');
+        }
+        function hide(bar) {
+            tip.classList.remove('is-visible');
+            tip.setAttribute('aria-hidden', 'true');
+            if (bar) { bar.classList.remove('is-active'); }
+        }
+        var active = null;
+        wrap.querySelectorAll('.activity-hist-bar').forEach(function (bar) {
+            bar.addEventListener('mouseenter', function () { active = bar; show(bar); });
+            bar.addEventListener('mouseleave', function () { hide(bar); active = null; });
+        });
+        window.addEventListener('scroll', function () { if (active) { hide(active); active = null; } }, { passive: true });
+    });
+})();
+</script>

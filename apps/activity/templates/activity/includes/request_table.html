@@ -1,0 +1,58 @@
+{% load theme_tags crud_tags %}
+{% comment %}
+The one request-log table. Context:
+  rows        — RequestLog instances with .probe_reasons (services.annotate_probe_flags)
+  page_obj    — for the paginator
+  hx_target   — swap target for sort/page (default "#tab-content")
+  hide_user   — omit the User column (user detail page)
+  table_key   — data-table-key so columns are user-resizable (table-resize.js)
+Every cell that names something is a link into its drilldown: path → resource,
+user → user, IP → the request log filtered to that address.
+{% endcomment %}
+{% with tgt=hx_target|default:"#tab-content" %}
+<div class="card">
+    {% if table_title %}
+    <div class="card-header"><h2>{{ table_title }}{% if filters.active %} <span style="font-size: 0.75rem; font-weight: 500; color: var(--body-quiet-color);">filtered</span>{% endif %}</h2></div>
+    {% endif %}
+    <div class="card-body" style="padding: 0;">
+        {% if rows %}
+        <div class="crud-table-wrap" style="overflow-x: auto;">
+        <table class="crud-table" data-table-key="{{ table_key|default:'activity:requests' }}">
+            <thead>
+                <tr>
+                    {% sortable_th "timestamp" "Time" target=tgt width="150px" %}
+                    {% sortable_th "method" "Method" target=tgt width="84px" %}
+                    {% sortable_th "path" "Path" target=tgt %}
+                    {% sortable_th "status_code" "Status" target=tgt width="84px" %}
+                    {% if not hide_user %}{% sortable_th "user__username" "User" target=tgt width="130px" %}{% endif %}
+                    {% sortable_th "response_time_ms" "ms" target=tgt align="right" width="76px" %}
+                    {% sortable_th "ip_address" "IP" target=tgt width="140px" %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for log in rows %}
+                <tr>
+                    <td style="font-size: 0.82rem;" title="{{ log.timestamp }}">{% localtime_tooltip log.timestamp "M d g:i:s A" %}</td>
+                    <td><code style="font-weight: 600; font-size: 0.78rem;">{{ log.method }}</code></td>
+                    <td class="activity-mono" title="{{ log.path }}{% if log.route and log.route != log.path %} → {{ log.route }}{% endif %}">
+                        <a href="{% url 'activity:resource_detail' %}?r={{ log.resource_key|urlencode }}&window={{ window.key }}">{{ log.path }}</a>{% if log.probe_reasons %}<span class="probe-flag" title="{{ log.probe_reasons|join:', ' }}" aria-label="Flagged: {{ log.probe_reasons|join:', ' }}">!</span>{% endif %}
+                        {% if log.request_id %}<a href="{% url 'telemetry:logs' %}?request_id={{ log.request_id|urlencode }}" style="font-size: 0.72rem; margin-left: 6px; white-space: nowrap;" title="Log lines from this request">logs<span class="sr-only"> for request {{ log.request_id }}</span></a>{% endif %}
+                    </td>
+                    <td>{% include "activity/includes/status_badge.html" with code=log.status_code %}</td>
+                    {% if not hide_user %}
+                    <td style="font-size: 0.85rem;">{% if log.user_id %}<a href="{% url 'activity:user_detail' log.user_id %}?window={{ window.key }}">{{ log.user.username }}</a>{% else %}<span style="color: var(--body-quiet-color);">anon</span>{% endif %}</td>
+                    {% endif %}
+                    <td class="num"{% if log.response_time_ms >= 1000 %} style="color: var(--warning-fg); font-weight: 600;"{% endif %}>{{ log.response_time_ms }}</td>
+                    <td style="font-size: 0.82rem;">{% if log.ip_address %}<a href="{% url 'activity:requests' %}?tab=recent&window={{ window.key }}&ip={{ log.ip_address|urlencode }}" title="All requests from {{ log.ip_address }}">{{ log.ip_address }}</a>{% else %}&mdash;{% endif %}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        </div>
+        {% else %}
+        <p style="padding: 16px; color: var(--body-quiet-color);">{% if filters.active %}Nothing matches these filters {{ window.phrase }}.{% else %}Nothing recorded {{ window.phrase }}.{% endif %}</p>
+        {% endif %}
+    </div>
+    {% if page_obj %}{% render_paginator page_obj hx_target=tgt %}{% endif %}
+</div>
+{% endwith %}

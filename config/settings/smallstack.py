@@ -157,6 +157,15 @@ ACTIVITY_EXCLUDE_PATHS = [
     "/api/logger/",
 ]
 
+# Default time window for the activity pages (1h / 24h / 7d / 30d / all).
+ACTIVITY_DEFAULT_WINDOW = config("ACTIVITY_DEFAULT_WINDOW", default="7d")
+# Probe detection (apps/activity/services.py): extend the built-in path
+# signatures (case-insensitive regexes) and scanner user-agent substrings, or
+# exempt path prefixes your site legitimately serves.
+ACTIVITY_PROBE_PATTERNS_EXTRA: list[str] = []
+ACTIVITY_SCANNER_AGENTS_EXTRA: list[str] = []
+ACTIVITY_PROBE_IGNORE_PATHS: list[str] = []
+
 # ---------------------------------------------------------------------------
 # Telemetry — database-backed log capture
 # ---------------------------------------------------------------------------

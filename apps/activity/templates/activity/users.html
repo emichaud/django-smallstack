@@ -5,138 +5,37 @@
 
 {% block breadcrumbs %}{% endblock %}
 
-{% block extra_css %}
-<style>
-    /* Reset default striping */
-    .table-plain tr:nth-child(odd),
-    .table-plain tr:nth-child(even) {
-        background: transparent;
-    }
-    /* Alternating row colors (light first to contrast with header) */
-    .table-plain tbody tr:nth-child(odd) {
-        background-color: color-mix(in srgb, var(--primary) 4%, var(--body-bg)) !important;
-    }
-    .table-plain tbody tr:nth-child(even) {
-        background-color: color-mix(in srgb, var(--primary) 12%, var(--body-bg)) !important;
-    }
-    .table-plain tbody tr {
-        border: none !important;
-    }
-    .table-plain tbody td {
-        border: none !important;
-    }
-    .tab-bar {
-        margin-bottom: 24px;
-    }
-
-    /* Themed table headers for tab content */
-    #tab-content table thead tr {
-        background-color: color-mix(in srgb, var(--primary) 15%, var(--body-bg)) !important;
-        border: none !important;
-    }
-    #tab-content table thead th {
-        border: none !important;
-        background-color: transparent !important;
-        color: var(--body-quiet-color);
-        font-weight: 600;
-        font-size: 0.8rem;
-        text-transform: uppercase;
-        letter-spacing: 0.3px;
-    }
-</style>
-{% endblock %}
-
 {% block page_header %}
-<!-- Page Header -->
-<div class="page-header-bleed page-header-with-actions" style="display: flex; align-items: center; justify-content: space-between;">
+<div class="page-header-bleed page-header-with-actions" style="display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap;">
     <div class="page-header-content">
         <h1>User Activity</h1>
+        <p class="page-subtitle">{{ active_user_count }} of {{ user_count }} user{{ user_count|pluralize }} active {{ window.phrase }} &middot; {{ summary.total }} request{{ summary.total|pluralize }}, {{ summary.anonymous }} anonymous</p>
         <nav style="margin-top: 0.5rem; font-size: 0.8rem;">
             <a href="{% url 'website:home' %}" style="color: var(--body-quiet-color); text-decoration: none;">Home</a>
             <span style="color: var(--body-quiet-color); margin: 0 0.3rem;">/</span>
-            <a href="{% url 'activity:dashboard' %}" style="color: var(--body-quiet-color); text-decoration: none;">Activity</a>
+            <a href="{% url 'activity:dashboard' %}?window={{ window.key }}" style="color: var(--body-quiet-color); text-decoration: none;">Activity</a>
             <span style="color: var(--body-quiet-color); margin: 0 0.3rem;">/</span>
             <span style="color: var(--body-fg);">Users</span>
         </nav>
     </div>
-    <div style="display: flex; gap: 12px; align-items: stretch;">
-        <div style="text-align: center; padding: 8px 16px; background: color-mix(in srgb, var(--primary) 10%, var(--body-bg)); border-radius: var(--radius-sm, 6px);">
-            <div style="font-size: 1.5rem; font-weight: 700; color: var(--primary);">{{ user_count }}</div>
-            <div style="font-size: 0.7rem; color: var(--body-quiet-color); text-transform: uppercase; letter-spacing: 0.3px;">User{{ user_count|pluralize }}</div>
+    <div class="page-header-tools">
+        <div class="header-stats">
+            <div class="header-stat"><div class="header-stat-value">{{ user_count }}</div><div class="header-stat-label">User{{ user_count|pluralize }}</div></div>
+            <div class="header-stat"><div class="header-stat-value is-success">{{ active_user_count }}</div><div class="header-stat-label">Active</div></div>
+            <div class="header-stat"><div class="header-stat-value is-plain">{{ recent_signup_count }}</div><div class="header-stat-label">New · 30d</div></div>
+            <div class="header-stat"><div class="header-stat-value is-plain">{{ summary.anonymous }}</div><div class="header-stat-label">Anon</div></div>
         </div>
-        <div style="text-align: center; padding: 8px 16px; background: color-mix(in srgb, var(--primary) 10%, var(--body-bg)); border-radius: var(--radius-sm, 6px);">
-            <div style="font-size: 1.5rem; font-weight: 700; color: var(--success-fg);">{{ recent_signup_count }}</div>
-            <div style="font-size: 0.7rem; color: var(--body-quiet-color); text-transform: uppercase; letter-spacing: 0.3px;">New (30d)</div>
-        </div>
+        {% include "activity/includes/window_picker.html" %}
     </div>
 </div>
 {% endblock %}
 
 {% block content %}
-<!-- Theme Usage Bars -->
-{% if theme_bars %}
-<div class="card theme-usage-card" style="margin-bottom: 20px;">
-    <div class="card-header"><h2>Theme usage</h2></div>
-    <div class="card-body">
-        {% for bar in theme_bars %}
-        <div class="theme-usage-row">
-            <div class="theme-usage-meta">
-                <div class="theme-name">{{ bar.name }}</div>
-                <div class="theme-total">{{ bar.total }} user{{ bar.total|pluralize }}</div>
-            </div>
-            <div class="theme-bar" aria-label="{{ bar.name }}: {{ bar.dark }} dark, {{ bar.light }} light">
-                {% if bar.dark %}
-                <div class="theme-bar-segment is-dark" style="flex: {{ bar.dark }};">
-                    <span>{{ bar.dark }}</span>
-                </div>
-                {% endif %}
-                {% if bar.light %}
-                <div class="theme-bar-segment is-light" style="flex: {{ bar.light }};">
-                    <span>{{ bar.light }}</span>
-                </div>
-                {% endif %}
-            </div>
-        </div>
-        {% endfor %}
-    </div>
-</div>
-{% endif %}
+{% include "activity/includes/histogram.html" with title="Signed-in traffic" %}
 
-<!-- Tab Bar -->
-<div class="tab-bar">
-    <button class="tab-btn{% if active_tab == 'top_users' %} active{% endif %}"
-            hx-get="{% url 'activity:users' %}?tab=top_users"
-            hx-target="#tab-content"
-            hx-swap="innerHTML"
-            onclick="setActiveTab(this)">Top Users</button>
-    <button class="tab-btn{% if active_tab == 'activity' %} active{% endif %}"
-            hx-get="{% url 'activity:users' %}?tab=activity"
-            hx-target="#tab-content"
-            hx-swap="innerHTML"
-            onclick="setActiveTab(this)">Activity</button>
-    <button class="tab-btn{% if active_tab == 'signups' %} active{% endif %}"
-            hx-get="{% url 'activity:users' %}?tab=signups"
-            hx-target="#tab-content"
-            hx-swap="innerHTML"
-            onclick="setActiveTab(this)">Signups</button>
-    <button class="tab-btn{% if active_tab == 'inactive' %} active{% endif %}"
-            hx-get="{% url 'activity:users' %}?tab=inactive"
-            hx-target="#tab-content"
-            hx-swap="innerHTML"
-            onclick="setActiveTab(this)">Inactive</button>
-</div>
+{% include "activity/includes/tab_bar.html" %}
 
-<!-- Tab Content -->
 <div id="tab-content">
     {% include tab_partial %}
 </div>
-{% endblock %}
-
-{% block extra_js %}
-<script>
-function setActiveTab(btn) {
-    document.querySelectorAll('.tab-btn').forEach(function(b) { b.classList.remove('active'); });
-    btn.classList.add('active');
-}
-</script>
 {% endblock %}

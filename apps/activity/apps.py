@@ -10,7 +10,7 @@ class ActivityConfig(AppConfig):
     name = "apps.activity"
     verbose_name = "Activity Tracking"
 
-    def ready(self):
+    def ready(self) -> None:
         from apps.smallstack.navigation import nav
 
         nav.register(
@@ -21,3 +21,14 @@ class ActivityConfig(AppConfig):
             staff_required=True,
             order=10,
         )
+        for order, (label, url_name) in enumerate(
+            (("Requests", "activity:requests"), ("Users", "activity:users"), ("Resources", "activity:resources"))
+        ):
+            nav.register(
+                section="admin",
+                label=label,
+                url_name=url_name,
+                parent="Activity",
+                staff_required=True,
+                order=order,
+            )

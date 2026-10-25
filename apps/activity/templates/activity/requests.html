@@ -5,116 +5,42 @@
 
 {% block breadcrumbs %}{% endblock %}
 
-{% block extra_css %}
-<style>
-    /* Table styles for old-style partials (errors, by_method) */
-    .table-plain tr:nth-child(odd),
-    .table-plain tr:nth-child(even),
-    table:not(.crud-table) tbody tr:nth-child(odd),
-    table:not(.crud-table) tbody tr:nth-child(even) {
-        background: transparent;
-    }
-    .table-plain tbody tr:nth-child(odd),
-    table:not(.crud-table) tbody tr:nth-child(odd) {
-        background-color: color-mix(in srgb, var(--primary) 4%, var(--body-bg)) !important;
-    }
-    .table-plain tbody tr:nth-child(even),
-    table:not(.crud-table) tbody tr:nth-child(even) {
-        background-color: color-mix(in srgb, var(--primary) 12%, var(--body-bg)) !important;
-    }
-    .table-plain tbody tr,
-    table:not(.crud-table) tbody tr {
-        border: none !important;
-    }
-    .table-plain tbody td,
-    table:not(.crud-table) tbody td {
-        border: none !important;
-    }
-    .table-plain thead tr,
-    table:not(.crud-table) thead tr {
-        background-color: color-mix(in srgb, var(--primary) 15%, var(--body-bg)) !important;
-        border: none !important;
-    }
-    .table-plain thead th,
-    table:not(.crud-table) thead th {
-        border: none !important;
-        background-color: transparent !important;
-        color: var(--body-quiet-color) !important;
-        font-weight: 600;
-        font-size: 0.8rem !important;
-        text-transform: uppercase;
-        letter-spacing: 0.3px;
-    }
-    .tab-bar {
-        margin-bottom: 24px;
-    }
-</style>
-{% endblock %}
-
 {% block page_header %}
-<div class="page-header-bleed page-header-with-actions" style="display: flex; align-items: center; justify-content: space-between;">
+<div class="page-header-bleed page-header-with-actions" style="display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap;">
     <div class="page-header-content">
         <h1>Requests</h1>
+        <p class="page-subtitle">{{ summary.total }} request{{ summary.total|pluralize }} {{ window.phrase }} &middot; {{ summary.error_rate }}% errors &middot; avg {{ summary.avg_ms }} ms</p>
         <nav style="margin-top: 0.5rem; font-size: 0.8rem;">
             <a href="{% url 'website:home' %}" style="color: var(--body-quiet-color); text-decoration: none;">Home</a>
             <span style="color: var(--body-quiet-color); margin: 0 0.3rem;">/</span>
-            <a href="{% url 'activity:dashboard' %}" style="color: var(--body-quiet-color); text-decoration: none;">Activity</a>
+            <a href="{% url 'activity:dashboard' %}?window={{ window.key }}" style="color: var(--body-quiet-color); text-decoration: none;">Activity</a>
             <span style="color: var(--body-quiet-color); margin: 0 0.3rem;">/</span>
             <span style="color: var(--body-fg);">Requests</span>
         </nav>
     </div>
-    <div style="display: flex; gap: 12px; align-items: stretch;">
-        <div style="text-align: center; padding: 8px 16px; background: color-mix(in srgb, var(--primary) 10%, var(--body-bg)); border-radius: var(--radius-sm, 6px);">
-            <div style="font-size: 1.5rem; font-weight: 700; color: var(--primary);">{{ total_requests }}</div>
-            <div style="font-size: 0.7rem; color: var(--body-quiet-color); text-transform: uppercase; letter-spacing: 0.3px;">Total</div>
+    <div class="page-header-tools">
+        <div class="header-stats">
+            <div class="header-stat"><div class="header-stat-value">{{ summary.total }}</div><div class="header-stat-label">Total</div></div>
+            {% for group in status_groups %}
+            <div class="header-stat"><div class="header-stat-value {% if group.label == '2xx' %}is-success{% elif group.label == '4xx' %}is-warning{% elif group.label == '5xx' %}is-error{% else %}is-plain{% endif %}">{{ group.count }}</div><div class="header-stat-label">{{ group.label }}</div></div>
+            {% endfor %}
+            {% if probe_banner.any %}
+            <div class="header-stat"><div class="header-stat-value is-warning">{{ probe_banner.flagged_requests }}</div><div class="header-stat-label">Probes</div></div>
+            {% endif %}
         </div>
-        {% for group in status_groups %}
-        <div style="text-align: center; padding: 8px 16px; background: color-mix(in srgb, var(--primary) 10%, var(--body-bg)); border-radius: var(--radius-sm, 6px);">
-            <div style="font-size: 1.5rem; font-weight: 700; color: {% if group.label == '2xx' %}var(--success-fg){% elif group.label == '4xx' %}var(--warning-fg){% elif group.label == '5xx' %}var(--error-fg){% else %}var(--body-fg){% endif %};">{{ group.count }}</div>
-            <div style="font-size: 0.7rem; color: var(--body-quiet-color); text-transform: uppercase; letter-spacing: 0.3px;">{{ group.label }}</div>
-        </div>
-        {% endfor %}
+        {% include "activity/includes/window_picker.html" %}
     </div>
 </div>
 {% endblock %}
 
 {% block content %}
-<!-- Tab Bar -->
-<div class="tab-bar">
-    <button class="tab-btn{% if active_tab == 'recent' %} active{% endif %}"
-            hx-get="{% url 'activity:requests' %}?tab=recent"
-            hx-target="#tab-content"
-            hx-swap="innerHTML"
-            onclick="setActiveTab(this)">Recent</button>
-    <button class="tab-btn{% if active_tab == 'top_paths' %} active{% endif %}"
-            hx-get="{% url 'activity:requests' %}?tab=top_paths"
-            hx-target="#tab-content"
-            hx-swap="innerHTML"
-            onclick="setActiveTab(this)">Top Paths</button>
-    <button class="tab-btn{% if active_tab == 'errors' %} active{% endif %}"
-            hx-get="{% url 'activity:requests' %}?tab=errors"
-            hx-target="#tab-content"
-            hx-swap="innerHTML"
-            onclick="setActiveTab(this)">Errors</button>
-    <button class="tab-btn{% if active_tab == 'by_method' %} active{% endif %}"
-            hx-get="{% url 'activity:requests' %}?tab=by_method"
-            hx-target="#tab-content"
-            hx-swap="innerHTML"
-            onclick="setActiveTab(this)">By Method</button>
-</div>
+{% include "activity/includes/histogram.html" with title="Traffic" %}
 
-<!-- Tab Content -->
+{% include "activity/includes/probe_banner.html" with report=probe_banner show_quiet=True %}
+
+{% include "activity/includes/tab_bar.html" %}
+
 <div id="tab-content">
     {% include tab_partial %}
 </div>
-
-{% endblock %}
-
-{% block extra_js %}
-<script>
-function setActiveTab(btn) {
-    document.querySelectorAll('.tab-btn').forEach(function(b) { b.classList.remove('active'); });
-    btn.classList.add('active');
-}
-</script>
 {% endblock %}

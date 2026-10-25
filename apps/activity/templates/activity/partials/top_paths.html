@@ -1,32 +1,38 @@
 {% load theme_tags crud_tags %}
+{% comment %}Raw paths (exact, not grouped by route — that is the Resources page).{% endcomment %}
 <div class="card">
-    <div class="card-body" style="padding: 0; overflow-x: auto;">
+    <div class="card-header" style="display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap;">
+        <h2>Top paths &middot; {{ window.label|lower }}</h2>
+        <a href="{% url 'activity:resources' %}?window={{ window.key }}" class="btn-outline btn-sm" title="Grouped by URL pattern instead of exact path">By resource</a>
+    </div>
+    <div class="card-body" style="padding: 0;">
         {% if top_paths_list %}
-        <table class="crud-table">
-            <colgroup>
-                <col style="width: 60%;">
-                <col style="width: 20%;">
-                <col style="width: 20%;">
-            </colgroup>
+        <div class="crud-table-wrap" style="overflow-x: auto;">
+        <table class="crud-table" data-table-key="activity:top-paths">
             <thead>
                 <tr>
-                    {% sortable_th "path" "Path" target="#tab-content" %}
-                    {% sortable_th "hits" "Hits" target="#tab-content" %}
-                    {% sortable_th "avg_time" "Avg Time" target="#tab-content" %}
+                    {% sortable_th "path" "Path" %}
+                    {% sortable_th "hits" "Hits" align="right" width="96px" %}
+                    {% sortable_th "users" "Users" align="right" width="90px" %}
+                    {% sortable_th "errors" "Errors" align="right" width="90px" %}
+                    {% sortable_th "avg_time" "Avg ms" align="right" width="100px" %}
                 </tr>
             </thead>
             <tbody>
                 {% for row in top_paths_list %}
                 <tr>
-                    <td style="font-family: monospace; font-size: 0.9rem;" title="{{ row.path }}">{{ row.path }}</td>
-                    <td style="text-align: right;" title="{{ row.hits }}">{{ row.hits }}</td>
-                    <td style="text-align: right;" title="{{ row.avg_time|floatformat:0 }}ms">{{ row.avg_time|floatformat:0 }}ms</td>
+                    <td class="activity-mono" title="{{ row.path }}"><a href="{% url 'activity:requests' %}?tab=recent&window={{ window.key }}&path={{ row.path|urlencode }}" title="Every request to exactly this path">{{ row.path }}</a></td>
+                    <td class="num">{{ row.hits }}</td>
+                    <td class="num">{{ row.users }}</td>
+                    <td class="num"{% if row.errors %} style="color: var(--warning-fg);"{% endif %}>{{ row.errors }}</td>
+                    <td class="num">{{ row.avg_time|floatformat:0 }}</td>
                 </tr>
                 {% endfor %}
             </tbody>
         </table>
+        </div>
         {% else %}
-        <p style="padding: 16px; color: var(--body-quiet-color);">No path data recorded yet.</p>
+        <p style="padding: 16px; color: var(--body-quiet-color);">Nothing recorded {{ window.phrase }}.</p>
         {% endif %}
     </div>
     {% render_paginator page_obj %}

@@ -1,0 +1,37 @@
+{% load theme_tags crud_tags %}
+<div class="card">
+    <div class="card-header"><h2>Users &middot; {{ window.label|lower }}</h2></div>
+    <div class="card-body" style="padding: 0;">
+        {% if top_users %}
+        <div class="crud-table-wrap" style="overflow-x: auto;">
+        <table class="crud-table" data-table-key="activity:resource-users">
+            <thead>
+                <tr>
+                    {% sortable_th "user__username" "User" %}
+                    {% sortable_th "hits" "Hits" align="right" width="90px" %}
+                    {% sortable_th "errors" "Errors" align="right" width="90px" %}
+                    {% sortable_th "avg_ms" "Avg ms" align="right" width="100px" %}
+                    {% sortable_th "max_ms" "Max ms" align="right" width="100px" %}
+                    {% sortable_th "last_seen" "Last seen" width="190px" %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for u in top_users %}
+                <tr>
+                    <td><a href="{% url 'activity:user_detail' u.user__pk %}?window={{ window.key }}">{{ u.user__username }}</a></td>
+                    <td class="num">{{ u.hits }}</td>
+                    <td class="num"{% if u.errors %} style="color: var(--warning-fg);"{% endif %}>{{ u.errors }}</td>
+                    <td class="num">{{ u.avg_ms|floatformat:0 }}</td>
+                    <td class="num">{{ u.max_ms }}</td>
+                    <td style="font-size: 0.85rem;">{% localtime_tooltip u.last_seen "M d, Y g:i A" %}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        </div>
+        {% else %}
+        <p style="padding: 16px; color: var(--body-quiet-color);">Only anonymous traffic {{ window.phrase }}.</p>
+        {% endif %}
+    </div>
+    {% render_paginator page_obj %}
+</div>

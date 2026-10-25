@@ -1,0 +1,95 @@
+{% extends "smallstack/base.html" %}
+{% load theme_tags %}
+
+{% block title %}{{ resource }} · Activity{% endblock %}
+
+{% block breadcrumbs %}{% endblock %}
+
+{% block page_header %}
+<div class="page-header-bleed page-header-with-actions" style="display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap;">
+    <div class="page-header-content" style="min-width: 0;">
+        <h1 class="activity-mono" style="font-size: 1.35rem; word-break: break-all;">{{ resource }}</h1>
+        <p class="page-subtitle">{% if is_route %}URL pattern{% else %}<span class="reason-chip" style="margin: 0 4px 0 0;">unmatched path</span> nothing in the URLconf serves this{% endif %} &middot; {{ all_time_hits }} all-time hit{{ all_time_hits|pluralize }}</p>
+        <nav style="margin-top: 0.5rem; font-size: 0.8rem;">
+            <a href="{% url 'website:home' %}" style="color: var(--body-quiet-color); text-decoration: none;">Home</a>
+            <span style="color: var(--body-quiet-color); margin: 0 0.3rem;">/</span>
+            <a href="{% url 'activity:dashboard' %}?window={{ window.key }}" style="color: var(--body-quiet-color); text-decoration: none;">Activity</a>
+            <span style="color: var(--body-quiet-color); margin: 0 0.3rem;">/</span>
+            <a href="{% url 'activity:resources' %}?window={{ window.key }}" style="color: var(--body-quiet-color); text-decoration: none;">Resources</a>
+            <span style="color: var(--body-quiet-color); margin: 0 0.3rem;">/</span>
+            <span style="color: var(--body-fg);">{{ resource|truncatechars:40 }}</span>
+        </nav>
+    </div>
+    <div class="page-header-tools">
+        <div class="header-stats">
+            <div class="header-stat"><div class="header-stat-value">{{ summary.total }}</div><div class="header-stat-label">Requests</div></div>
+            <div class="header-stat"><div class="header-stat-value is-plain">{{ summary.users }}</div><div class="header-stat-label">Users</div></div>
+            <div class="header-stat"><div class="header-stat-value {% if summary.c5xx %}is-error{% elif summary.c4xx %}is-warning{% else %}is-success{% endif %}">{{ summary.error_rate }}%</div><div class="header-stat-label">Errors</div></div>
+            <div class="header-stat"><div class="header-stat-value is-plain">{{ summary.avg_ms }}</div><div class="header-stat-label">Avg ms</div></div>
+            <div class="header-stat"><div class="header-stat-value is-plain">{{ summary.max_ms }}</div><div class="header-stat-label">Max ms</div></div>
+        </div>
+        {% include "activity/includes/window_picker.html" %}
+    </div>
+</div>
+{% endblock %}
+
+{% block content %}
+{% include "activity/includes/histogram.html" with title="Requests" %}
+
+<div class="activity-grid">
+    <div class="card">
+        <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
+            <h2>Who uses it</h2>
+            <button type="button" class="btn-outline btn-sm" hx-get="{{ request.path }}?tab=users&window={{ window.key }}&{{ tab_extra_qs }}" hx-target="#tab-content" hx-swap="innerHTML swap:150ms" hx-push-url="true" onclick="document.getElementById('tab-content').scrollIntoView({behavior:'smooth'})">All users</button>
+        </div>
+        <div class="card-body" style="padding: 0;">
+            {% if top_users %}
+            <table class="table-plain" style="width: 100%; border-collapse: collapse;">
+                <thead>
+                    <tr>
+                        <th style="text-align: left; padding: 8px 16px;">User</th>
+                        <th style="text-align: right; padding: 8px 16px; width: 76px;">Hits</th>
+                        <th style="text-align: right; padding: 8px 16px; width: 76px;">Errors</th>
+                        <th style="text-align: right; padding: 8px 16px; width: 86px;">Avg ms</th>
+                        <th style="text-align: left; padding: 8px 16px; width: 150px;">Last</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for u in top_users %}
+                    <tr>
+                        <td style="padding: 8px 16px;"><a href="{% url 'activity:user_detail' u.user__pk %}?window={{ window.key }}">{{ u.user__username }}</a></td>
+                        <td style="text-align: right; padding: 8px 16px; font-variant-numeric: tabular-nums;">{{ u.hits }}</td>
+                        <td style="text-align: right; padding: 8px 16px; font-variant-numeric: tabular-nums;{% if u.errors %} color: var(--warning-fg);{% endif %}">{{ u.errors }}</td>
+                        <td style="text-align: right; padding: 8px 16px; font-variant-numeric: tabular-nums;">{{ u.avg_ms|floatformat:0 }}</td>
+                        <td style="padding: 8px 16px; font-size: 0.8rem; white-space: nowrap; color: var(--body-quiet-color);">{{ u.last_seen|timesince }} ago</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <p style="padding: 16px; color: var(--body-quiet-color);">{% if summary.total %}Only anonymous traffic {{ window.phrase }}.{% else %}Nothing recorded {{ window.phrase }}.{% endif %}</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header"><h2>Shape</h2></div>
+        <div class="card-body">
+            <ul class="activity-kv">
+                <li><span class="k">Status mix</span><span class="v" style="white-space: normal;">{% for s in status_mix %}{% include "activity/includes/status_badge.html" with code=s.status_code %}<span style="font-size: 0.72rem; color: var(--body-quiet-color); margin: 0 6px 0 3px;">{{ s.count }}</span>{% empty %}&mdash;{% endfor %}</span></li>
+                <li><span class="k">Methods</span><span class="v" style="white-space: normal;">{% for m in method_mix %}<code style="font-size: 0.75rem;">{{ m.method }}</code> <span style="font-size: 0.72rem; color: var(--body-quiet-color); margin-right: 6px;">{{ m.count }} · {{ m.avg_ms|floatformat:0 }} ms</span>{% empty %}&mdash;{% endfor %}</span></li>
+                <li><span class="k">Anonymous</span><span class="v">{{ summary.anonymous }} of {{ summary.total }}</span></li>
+                {% if is_route %}
+                <li><span class="k">Sample paths</span><span class="v activity-mono" style="white-space: normal; font-size: 0.75rem; text-align: right;">{% for p in sample_paths %}<a href="{% url 'activity:requests' %}?tab=recent&window={{ window.key }}&path={{ p.path|urlencode }}" title="{{ p.hits }} hits">{{ p.path|truncatechars:48 }}</a>{% if not forloop.last %}<br>{% endif %}{% endfor %}</span></li>
+                {% endif %}
+            </ul>
+        </div>
+    </div>
+</div>
+
+{% include "activity/includes/tab_bar.html" %}
+
+<div id="tab-content">
+    {% include tab_partial %}
+</div>
+{% endblock %}

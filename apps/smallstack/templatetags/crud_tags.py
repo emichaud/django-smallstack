@@ -308,12 +308,17 @@ def crud_table(context):
 
 
 @register.inclusion_tag("smallstack/crud/includes/sortable_th.html", takes_context=True)
-def sortable_th(context, field_name, label, target="#tab-content", include_selector=""):
+def sortable_th(context, field_name, label, target="#tab-content", include_selector="", align="", width=""):
     """Render a sortable <th> header for manual tables.
 
     Usage in templates:
         {% load crud_tags %}
         {% sortable_th "timestamp" "Time" target="#tab-content" %}
+        {% sortable_th "hits" "Hits" align="right" width="90px" %}
+
+    ``align="right"`` right-justifies the label to match a numeric column;
+    ``width`` sets the column width (the table is ``table-layout: fixed``,
+    so header widths are column widths).
 
     Reads ?ordering= from the current request to show sort direction.
     Clicking toggles asc ↔ desc (two-state).
@@ -338,11 +343,14 @@ def sortable_th(context, field_name, label, target="#tab-content", include_selec
 
     return {
         "label": label,
+        "field_name": field_name,
         "direction": direction,
         "next_ordering": next_ordering,
         "hx_target": target,
         "hx_include": include_selector,
         "query_string": params.urlencode(),
+        "align": align,
+        "width": width,
     }
 
 

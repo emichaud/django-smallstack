@@ -1,5 +1,7 @@
 """Management command to prune old activity log entries."""
 
+from typing import Any
+
 from django.conf import settings
 from django.core.management.base import BaseCommand
 
@@ -7,7 +9,7 @@ from django.core.management.base import BaseCommand
 class Command(BaseCommand):
     help = "Prune activity log to keep it within the configured max rows."
 
-    def handle(self, **options):
+    def handle(self, **options: Any) -> None:
         from apps.activity.models import RequestLog
 
         max_rows = getattr(settings, "ACTIVITY_MAX_ROWS", 5000)

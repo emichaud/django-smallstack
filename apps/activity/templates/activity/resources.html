@@ -1,0 +1,37 @@
+{% extends "smallstack/base.html" %}
+{% load theme_tags %}
+
+{% block title %}Resources · Activity{% endblock %}
+
+{% block breadcrumbs %}{% endblock %}
+
+{% block page_header %}
+<div class="page-header-bleed page-header-with-actions" style="display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap;">
+    <div class="page-header-content">
+        <h1>Resources</h1>
+        <p class="page-subtitle">What the traffic is for: one row per URL pattern, plus the paths nothing matched &middot; {{ window.label|lower }}</p>
+        <nav style="margin-top: 0.5rem; font-size: 0.8rem;">
+            <a href="{% url 'website:home' %}" style="color: var(--body-quiet-color); text-decoration: none;">Home</a>
+            <span style="color: var(--body-quiet-color); margin: 0 0.3rem;">/</span>
+            <a href="{% url 'activity:dashboard' %}?window={{ window.key }}" style="color: var(--body-quiet-color); text-decoration: none;">Activity</a>
+            <span style="color: var(--body-quiet-color); margin: 0 0.3rem;">/</span>
+            <span style="color: var(--body-fg);">Resources</span>
+        </nav>
+    </div>
+    <div class="page-header-tools">
+        <div class="header-stats">
+            <div class="header-stat"><div class="header-stat-value">{{ summary.total }}</div><div class="header-stat-label">Requests</div></div>
+            <div class="header-stat"><div class="header-stat-value is-plain">{{ route_count }}</div><div class="header-stat-label">Route{{ route_count|pluralize }}</div></div>
+            <div class="header-stat"><div class="header-stat-value {% if unmatched_count %}is-warning{% else %}is-plain{% endif %}">{{ unmatched_count }}</div><div class="header-stat-label">Unmatched</div></div>
+            <div class="header-stat"><div class="header-stat-value {% if summary.c5xx %}is-error{% elif summary.c4xx %}is-warning{% else %}is-success{% endif %}">{{ summary.error_rate }}%</div><div class="header-stat-label">Errors</div></div>
+        </div>
+        {% include "activity/includes/window_picker.html" %}
+    </div>
+</div>
+{% endblock %}
+
+{% block content %}
+<div id="tab-content">
+    {% include tab_partial %}
+</div>
+{% endblock %}

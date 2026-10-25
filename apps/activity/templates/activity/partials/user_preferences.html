@@ -1,0 +1,25 @@
+{% comment %}Theme × palette usage across profiles (preference analytics, not activity).{% endcomment %}
+<div class="card theme-usage-card">
+    <div class="card-header"><h2>Theme usage</h2></div>
+    <div class="card-body">
+        {% for bar in theme_bars %}
+        <div class="theme-usage-row">
+            <div class="theme-usage-meta">
+                <div class="theme-name">{{ bar.name }}</div>
+                <div class="theme-total">{{ bar.total }} user{{ bar.total|pluralize }}</div>
+            </div>
+            <div class="theme-bar" aria-label="{{ bar.name }}: {{ bar.dark }} dark, {{ bar.light }} light">
+                {% if bar.dark %}
+                <div class="theme-bar-segment is-dark" style="flex: {{ bar.dark }};"><span>{{ bar.dark }}</span></div>
+                {% endif %}
+                {% if bar.light %}
+                <div class="theme-bar-segment is-light" style="flex: {{ bar.light }};"><span>{{ bar.light }}</span></div>
+                {% endif %}
+            </div>
+        </div>
+        {% empty %}
+        <p style="margin: 0; color: var(--body-quiet-color);">No profiles yet.</p>
+        {% endfor %}
+        <p style="margin: 12px 0 0; font-size: 0.75rem; color: var(--body-quiet-color);">Dark segment first, light second. "System default" counts under Django.</p>
+    </div>
+</div>

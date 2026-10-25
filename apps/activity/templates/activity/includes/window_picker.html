@@ -1,0 +1,14 @@
+{% load theme_tags %}
+{% comment %}
+Time-window selector shared by every activity page. Full-page links (not htmx)
+so the header numbers, the tabs and the URL all change together; `page` is
+dropped so a window switch never lands on an out-of-range page.
+{% endcomment %}
+<nav class="filter-toggles" aria-label="Time window">
+    {% for w in windows %}
+    <a class="filter-toggle{% if w.key == window.key %} active{% endif %}"
+       href="{% querystring window=w.key page=None %}"
+       {% if w.key == window.key %}aria-current="true"{% endif %}
+       title="{{ w.label }}">{{ w.short }}</a>
+    {% endfor %}
+</nav>

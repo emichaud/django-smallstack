@@ -1,0 +1,26 @@
+{% comment %}
+htmx tab bar. Context: `tabs` (list of (key, label) from the view), `active_tab`,
+`window`, optional `tab_extra_qs` (e.g. "r=…" on a resource page). The Probes
+tab shows the flagged count from `probe_banner` when there is one. hx-push-url keeps the tab in the URL so
+reload and back/forward land on the same tab.
+{% endcomment %}
+<div class="tab-bar" role="tablist" style="margin-bottom: 20px;">
+    {% for key, label in tabs %}
+    <button type="button" role="tab" class="tab-btn{% if key == active_tab %} active{% endif %}"
+            aria-selected="{% if key == active_tab %}true{% else %}false{% endif %}"
+            hx-get="{{ request.path }}?tab={{ key }}&window={{ window.key }}{% if tab_extra_qs %}&{{ tab_extra_qs }}{% endif %}"
+            hx-target="#tab-content" hx-swap="innerHTML swap:150ms" hx-push-url="true"
+            onclick="ssActivateTab(this)">{{ label }}{% if key == "probes" and probe_banner.flagged_requests %} <span class="tab-count">{{ probe_banner.flagged_requests }}</span>{% endif %}</button>
+    {% endfor %}
+</div>
+<script>
+if (!window.ssActivateTab) {
+    window.ssActivateTab = function (btn) {
+        btn.closest('.tab-bar').querySelectorAll('.tab-btn').forEach(function (b) {
+            var on = b === btn;
+            b.classList.toggle('active', on);
+            b.setAttribute('aria-selected', on ? 'true' : 'false');
+        });
+    };
+}
+</script>

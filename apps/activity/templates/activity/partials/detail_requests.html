@@ -1,0 +1,5 @@
+{% comment %}Request tab body shared by the user and resource detail pages.{% endcomment %}
+<div id="detail-requests">
+    {% include "activity/includes/filter_bar.html" with tab=active_tab hide_anon=hide_user extra_name=filter_extra_name extra_value=filter_extra_value %}
+    {% include "activity/includes/request_table.html" %}
+</div>

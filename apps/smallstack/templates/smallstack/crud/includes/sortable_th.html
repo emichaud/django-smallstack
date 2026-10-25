@@ -1,4 +1,4 @@
-<th scope="col" class="th-sortable" aria-sort="{% if direction == 'desc' %}descending{% elif direction == 'asc' %}ascending{% else %}none{% endif %}">
+<th scope="col" class="th-sortable{% if align == "right" %} th-right{% endif %}" data-field="{{ field_name }}"{% if width %} style="width: {{ width }};"{% endif %} aria-sort="{% if direction == 'desc' %}descending{% elif direction == 'asc' %}ascending{% else %}none{% endif %}">
     <button type="button" class="th-sort"
         hx-get="?{{ query_string }}"
         hx-target="{{ hx_target }}"
@@ -9,4 +9,6 @@
         <span>{{ label }}</span>
         <span aria-hidden="true" style="font-size: 0.65rem; display: inline-block; width: 0.65em;{% if not direction %} visibility: hidden;{% endif %}">{% if direction == "desc" %}&#9660;{% else %}&#9650;{% endif %}</span>
     </button>
+    {% comment %}Inert unless the <table> carries data-table-key (table-resize.js).{% endcomment %}
+    {% include "smallstack/crud/includes/col_resizer.html" with label=label %}
 </th>

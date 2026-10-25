@@ -1,32 +1,40 @@
-{% load theme_tags %}
+{% load theme_tags crud_tags %}
 <div class="card">
     <div class="card-header">
-        <h2>Top Users by Requests</h2>
+        <h2>Top Users &middot; {{ window.label|lower }}</h2>
     </div>
-    <div class="card-body" style="padding: 0; overflow-x: auto;">
+    <div class="card-body" style="padding: 0;">
         {% if top_users %}
-        <table class="table-plain" style="width: 100%; border-collapse: collapse;">
+        <div class="crud-table-wrap" style="overflow-x: auto;">
+        <table class="crud-table" data-table-key="activity:top-users">
             <thead>
                 <tr>
-                    <th style="text-align: left; padding: 10px 16px;">User</th>
-                    <th style="text-align: right; padding: 10px 16px; ">Requests</th>
-                    <th style="text-align: right; padding: 10px 16px; ">Avg Time</th>
-                    <th style="text-align: left; padding: 10px 16px; ">Last Seen</th>
+                    {% sortable_th "user__username" "User" %}
+                    {% sortable_th "hits" "Requests" align="right" width="110px" %}
+                    {% sortable_th "errors" "Errors" align="right" width="90px" %}
+                    {% sortable_th "paths" "Paths" align="right" width="90px" %}
+                    {% sortable_th "avg_ms" "Avg ms" align="right" width="100px" %}
+                    {% sortable_th "max_ms" "Max ms" align="right" width="100px" %}
+                    {% sortable_th "last_seen" "Last seen" width="190px" %}
                 </tr>
             </thead>
             <tbody>
                 {% for entry in top_users %}
                 <tr>
-                    <td style="padding: 10px 16px;">{{ entry.user__username }}</td>
-                    <td style="text-align: right; padding: 10px 16px;">{{ entry.hits }}</td>
-                    <td style="text-align: right; padding: 10px 16px;">{{ entry.avg_time|floatformat:0 }}ms</td>
-                    <td style="padding: 10px 16px; font-size: 0.85rem;">{% if entry.last_seen %}{% localtime_tooltip entry.last_seen "M d, Y g:i A T" %}{% else %}&mdash;{% endif %}</td>
+                    <td><a href="{% url 'activity:user_detail' entry.user__pk %}?window={{ window.key }}" style="display: inline-flex; align-items: center; gap: 8px;"><span style="width: 22px; height: 22px; border-radius: 50%; background: var(--primary); color: var(--button-fg); display: inline-flex; align-items: center; justify-content: center; font-weight: 600; font-size: 0.65rem;">{{ entry.user__username|slice:":1"|upper }}</span>{{ entry.user__username }}</a></td>
+                    <td class="num">{{ entry.hits }}</td>
+                    <td class="num"{% if entry.errors %} style="color: var(--warning-fg);"{% endif %}>{{ entry.errors }}</td>
+                    <td class="num">{{ entry.paths }}</td>
+                    <td class="num">{{ entry.avg_ms|floatformat:0 }}</td>
+                    <td class="num">{{ entry.max_ms }}</td>
+                    <td style="font-size: 0.85rem;">{% if entry.last_seen %}{% localtime_tooltip entry.last_seen "M d, Y g:i A" %}{% else %}&mdash;{% endif %}</td>
                 </tr>
                 {% endfor %}
             </tbody>
         </table>
+        </div>
         {% else %}
-        <p style="padding: 16px; color: var(--body-quiet-color);">No authenticated user requests recorded yet.</p>
+        <p style="padding: 16px; color: var(--body-quiet-color);">No signed-in requests {{ window.phrase }}.</p>
         {% endif %}
     </div>
     {% render_paginator page_obj %}

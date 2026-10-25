@@ -1,0 +1,1 @@
+{% comment %}Context: `code` (an HTTP status). Tone from the class of the code.{% endcomment %}<span class="status-pill status-pill--{% if code >= 500 %}error{% elif code >= 400 %}warn{% elif code >= 300 %}redirect{% else %}ok{% endif %}">{{ code }}</span>

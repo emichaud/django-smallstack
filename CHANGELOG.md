@@ -10,6 +10,52 @@ Breaking-change migration recipes live in [`UPGRADING.md`](UPGRADING.md).
 ## [Unreleased]
 
 ### Added
+- **Activity drilldowns by user and by resource.** `/smallstack/activity/`
+  gained a per-user page (`users/<pk>/`: histogram, status mix, top
+  resources, addresses, clients, API tokens, and the user's requests /
+  resources / errors) and a Resources page (`resources/`, one row per URL
+  pattern plus unmatched paths) with a per-resource page (`resources/detail/
+  ?r=`: histogram, who uses it, status and method mix, sample paths, the
+  slowest requests). Every request row now links to its resource, its user,
+  its IP, and its telemetry log lines. `RequestLog.route` (new, backfilled by
+  migration) stores the matched URL pattern so `/things/1/` and `/things/2/`
+  roll up together.
+- **Probing & noise warning area.** The Requests page classifies the
+  window's traffic (`services.probe_report`): error responses to scanner
+  paths (`.php`, `/wp-admin`, `/.env`, `/.git`, traversal, dumps, consoles),
+  scanner user agents, and anonymous addresses that are mostly 404s across
+  many paths, mostly denied, or locked out by django-axes. A warning band
+  lists the addresses with their reasons and the most-probed paths; a Probes
+  tab lists every flagged request; flagged rows carry a `!` glyph
+  everywhere. A flagged address contributes only its error rows, never its
+  whole traffic. `ACTIVITY_PROBE_PATTERNS_EXTRA`,
+  `ACTIVITY_SCANNER_AGENTS_EXTRA` and `ACTIVITY_PROBE_IGNORE_PATHS` tune it.
+- **A time window on every activity page** (`?window=1h|24h|7d|30d|all`,
+  default `ACTIVITY_DEFAULT_WINDOW` = 7d), carried through tabs, filters,
+  sort and paging, and a traffic histogram on each page. Request tables have
+  a filter bar (status, method, path contains, IP, anonymous only, exact
+  path) and are resizable `crud-table`s. `{% sortable_th %}` now emits
+  `data-field` + the resize handle, so any hand-written `crud-table` with a
+  `data-table-key` is column-resizable.
+- Sidebar sub-items under Activity: Requests, Users, Resources.
+
+### Changed
+- The Users page leads with the per-user roll-up (hits, errors, paths,
+  latency, last seen, each linking to the user page); theme usage moved to a
+  Preferences tab. "Inactive" now means no logged request *and* no login in
+  the window, instead of no row ever (which the retention cap made
+  meaningless). Signups follow the window.
+- All activity tables use the standard `crud-table`; the page-local
+  primary-tinted zebra styles and the hard-coded `orange` status fallback
+  are gone. Status codes render as tinted pills.
+- `apps.activity` joins the strict-typing ratchet.
+
+### Fixed
+- The Activity dashboard showed "1 tracked requests" and a Requests card of
+  1: the theme-usage loop reused the name `total` and overwrote the request
+  count. Every headline number now comes from one aggregate.
+
+### Added
 - **Resizable CRUD table columns.** Every `{% crud_table %}` header now has
   a drag handle (`table-resize.js`): drag to resize, double-click to fit the
   column to its content, and — the handle is a focusable `role="separator"` —

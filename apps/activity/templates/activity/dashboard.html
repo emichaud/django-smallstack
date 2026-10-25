@@ -5,205 +5,112 @@
 
 {% block breadcrumbs %}{% endblock %}
 
-{% comment %}Table styles are in components.css{% endcomment %}
-
 {% block page_header %}
-<div class="page-header-bleed page-header-with-actions">
+<div class="page-header-bleed page-header-with-actions" style="display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap;">
     <div class="page-header-content">
         <h1>Activity</h1>
-        <p class="page-subtitle">Site overview &middot; {{ total_requests }} tracked requests &middot; {{ max_rows }}-row retention cap</p>
+        <p class="page-subtitle">{{ summary.total }} request{{ summary.total|pluralize }} {{ window.phrase }} &middot; {{ summary.users }} signed-in user{{ summary.users|pluralize }} &middot; {{ max_rows }}-row retention cap</p>
         <nav style="margin-top: 0.5rem; font-size: 0.8rem;">
             <a href="{% url 'website:home' %}" style="color: var(--body-quiet-color); text-decoration: none;">Home</a>
             <span style="color: var(--body-quiet-color); margin: 0 0.3rem;">/</span>
             <span style="color: var(--body-fg);">Activity</span>
         </nav>
     </div>
+    <div class="page-header-tools">
+        <div style="display: flex; gap: 0.5rem;">
+            <a href="{% url 'activity:requests' %}?window={{ window.key }}" class="btn-outline btn-sm">Requests</a>
+            <a href="{% url 'activity:users' %}?window={{ window.key }}" class="btn-outline btn-sm">Users</a>
+            <a href="{% url 'activity:resources' %}?window={{ window.key }}" class="btn-outline btn-sm">Resources</a>
+        </div>
+        {% include "activity/includes/window_picker.html" %}
+    </div>
 </div>
 {% endblock %}
 
 {% block content %}
-<!-- ── Top-level stats ({% templatetag openblock %} stat_card {% templatetag closeblock %} tag) ─────────────── -->
 <div class="stat-cards" style="margin-bottom: 24px;">
-    {% stat_card value=total_requests label="Requests" title="Recent Requests" detail_url="activity:stat_detail" detail_arg="requests" %}
-    {% stat_card value=avg_response_time label="Avg Response" unit="ms" %}
-    {% stat_card value=count_4xx label="4xx Errors" title="4xx Client Errors" detail_url="activity:stat_detail" detail_arg="4xx" state=count_4xx|yesno:"warning," %}
-    {% stat_card value=count_5xx label="5xx Errors" title="5xx Server Errors" detail_url="activity:stat_detail" detail_arg="5xx" state=count_5xx|yesno:"danger," %}
-    {% stat_card value=user_count label="Users" title="All Users" detail_url="activity:stat_detail" detail_arg="users" %}
-    {% stat_card value=recent_signup_count label="New · 30d" title="New Users (30 Days)" detail_url="activity:stat_detail" detail_arg="new_signups" %}
+    {% stat_card value=summary.total label="Requests" title="Recent requests" detail_url="activity:stat_detail" detail_arg="requests" %}
+    {% stat_card value=summary.avg_ms label="Avg response" unit="ms" %}
+    {% stat_card value=summary.c4xx label="4xx" title="Client errors" detail_url="activity:stat_detail" detail_arg="4xx" state=summary.c4xx|yesno:"warning," %}
+    {% stat_card value=summary.c5xx label="5xx" title="Server errors" detail_url="activity:stat_detail" detail_arg="5xx" state=summary.c5xx|yesno:"danger," %}
+    {% stat_card value=probes.flagged_requests label="Probes" title="Suspicious requests" detail_url="activity:stat_detail" detail_arg="probes" state=probes.flagged_requests|yesno:"warning,muted" %}
+    {% stat_card value=summary.users label="Active users" title="Active users" detail_url="activity:stat_detail" detail_arg="active_users" %}
+    {% stat_card value=recent_signup_count label="New · 30d" title="New users (30 days)" detail_url="activity:stat_detail" detail_arg="new_signups" %}
 </div>
 
-<!-- ── Two-column: Requests summary + Users summary ─────────────── -->
-<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 24px;">
+{% include "activity/includes/histogram.html" with title="Traffic" %}
 
-    <!-- Request Activity card -->
+{% include "activity/includes/probe_banner.html" with report=probes compact=True %}
+
+<div class="activity-grid">
     <div class="card">
         <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
-            <h2>Request Activity</h2>
-            <a href="{% url 'activity:requests' %}" class="btn-outline btn-sm">View All</a>
+            <h2>Top resources</h2>
+            <a href="{% url 'activity:resources' %}?window={{ window.key }}" class="btn-outline btn-sm">View all</a>
         </div>
         <div class="card-body" style="padding: 0;">
-            {% if top_paths %}
+            {% if top_resources %}
             <table class="table-plain" style="width: 100%; border-collapse: collapse;">
                 <thead>
                     <tr>
-                        <th style="text-align: left; padding: 8px 16px;">Top Paths</th>
-                        <th style="text-align: right; padding: 8px 16px;">Hits</th>
+                        <th style="text-align: left; padding: 8px 16px;">Resource</th>
+                        <th style="text-align: right; padding: 8px 16px; width: 80px;">Hits</th>
+                        <th style="text-align: right; padding: 8px 16px; width: 80px;">Users</th>
+                        <th style="text-align: right; padding: 8px 16px; width: 80px;">Errors</th>
+                        <th style="text-align: right; padding: 8px 16px; width: 90px;">Avg ms</th>
                     </tr>
                 </thead>
                 <tbody>
-                    {% for row in top_paths %}
+                    {% for row in top_resources %}
                     <tr>
-                        <td style="padding: 8px 16px; font-family: monospace; font-size: 0.85rem;">{{ row.path|truncatechars:40 }}</td>
-                        <td style="text-align: right; padding: 8px 16px;">{{ row.hits }}</td>
+                        <td class="activity-mono" style="padding: 8px 16px; max-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="{{ row.resource }}">
+                            <a href="{% url 'activity:resource_detail' %}?r={{ row.resource|urlencode }}&window={{ window.key }}">{{ row.resource }}</a>
+                            {% if not row.resolved %}<span class="reason-chip" style="background: color-mix(in srgb, var(--body-fg) 8%, var(--card-bg)); color: var(--body-quiet-color);" title="No URL pattern matches this path">unmatched</span>{% endif %}
+                        </td>
+                        <td style="text-align: right; padding: 8px 16px; font-variant-numeric: tabular-nums;">{{ row.hits }}</td>
+                        <td style="text-align: right; padding: 8px 16px; font-variant-numeric: tabular-nums;">{{ row.users }}</td>
+                        <td style="text-align: right; padding: 8px 16px; font-variant-numeric: tabular-nums;{% if row.server_errors %} color: var(--error-fg);{% elif row.errors %} color: var(--warning-fg);{% endif %}">{{ row.errors }}</td>
+                        <td style="text-align: right; padding: 8px 16px; font-variant-numeric: tabular-nums;">{{ row.avg_ms|floatformat:0 }}</td>
                     </tr>
                     {% endfor %}
                 </tbody>
             </table>
             {% else %}
-            <p style="padding: 16px; color: var(--body-quiet-color);">No requests recorded yet.</p>
-            {% endif %}
-
-            {% if status_groups %}
-            <div style="display: flex; gap: 8px; padding: 10px 16px;">
-                {% for group in status_groups %}
-                <div style="flex: 1; text-align: center; padding: 8px 4px; border-radius: var(--radius-sm); background-color: color-mix(in srgb, var(--primary) 8%, var(--body-bg));">
-                    <div style="font-weight: 700; font-size: 1.1rem; color: {% if group.label == '2xx' %}var(--success-fg){% elif group.label == '4xx' %}var(--warning-fg){% elif group.label == '5xx' %}var(--error-fg){% else %}var(--body-fg){% endif %};">{{ group.count }}</div>
-                    <div style="font-size: 0.75rem; color: {% if group.label == '2xx' %}var(--success-fg){% elif group.label == '4xx' %}var(--warning-fg){% elif group.label == '5xx' %}var(--error-fg){% else %}var(--body-fg){% endif %};">{{ group.label }}</div>
-                </div>
-                {% endfor %}
-            </div>
+            <p style="padding: 16px; color: var(--body-quiet-color);">Nothing recorded {{ window.phrase }}.</p>
             {% endif %}
         </div>
     </div>
 
-    <!-- Users card -->
     <div class="card" style="display: flex; flex-direction: column;">
         <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
-            <h2>Users</h2>
-            <a href="{% url 'activity:users' %}" class="btn-outline btn-sm">View All</a>
+            <h2>Most active users</h2>
+            <a href="{% url 'activity:users' %}?window={{ window.key }}" class="btn-outline btn-sm">View all</a>
         </div>
-        <div class="card-body" style="padding: 0; flex: 1; display: flex; flex-direction: column;">
+        <div class="card-body" style="flex: 1; padding: 10px 16px;">
+            {% for u in top_users %}
+            <a href="{% url 'activity:user_detail' u.user__pk %}?window={{ window.key }}" style="display: flex; justify-content: space-between; align-items: center; padding: 6px 0; text-decoration: none; color: inherit;">
+                <span style="display: flex; align-items: center; gap: 10px; min-width: 0;">
+                    <span style="width: 28px; height: 28px; border-radius: 50%; background: var(--primary); color: var(--button-fg); display: inline-flex; align-items: center; justify-content: center; font-weight: 600; font-size: 0.75rem; flex: 0 0 auto;">{{ u.user__username|slice:":1"|upper }}</span>
+                    <span style="font-size: 0.85rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ u.user__username }}</span>
+                </span>
+                <span style="font-size: 0.8rem; color: var(--body-quiet-color); white-space: nowrap;">{{ u.hits }} <span style="font-size: 0.7rem;">hits</span>{% if u.errors %} <span style="color: var(--warning-fg);">· {{ u.errors }} err</span>{% endif %}</span>
+            </a>
+            {% empty %}
+            <p style="margin: 6px 0; color: var(--body-quiet-color); font-size: 0.85rem;">No signed-in activity {{ window.phrase }}.</p>
+            {% endfor %}
             {% if top_theme_bar %}
-            <div class="theme-usage-card" style="padding: 12px 16px; border-bottom: none;">
-                <div style="font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--body-quiet-color); font-weight: 600; margin-bottom: 8px;">Top Theme</div>
-                <div class="theme-usage-row">
-                    <div class="theme-usage-meta">
-                        <div class="theme-name">{{ top_theme_bar.name }}</div>
-                        <div class="theme-total">{{ top_theme_bar.total }} user{{ top_theme_bar.total|pluralize }}</div>
-                    </div>
-                    <div class="theme-bar" aria-label="{{ top_theme_bar.name }}: {{ top_theme_bar.dark }} dark, {{ top_theme_bar.light }} light">
-                        {% if top_theme_bar.dark %}
-                        <div class="theme-bar-segment is-dark" style="flex: {{ top_theme_bar.dark }};">
-                            <span>{{ top_theme_bar.dark }}</span>
-                        </div>
-                        {% endif %}
-                        {% if top_theme_bar.light %}
-                        <div class="theme-bar-segment is-light" style="flex: {{ top_theme_bar.light }};">
-                            <span>{{ top_theme_bar.light }}</span>
-                        </div>
-                        {% endif %}
-                    </div>
-                </div>
-            </div>
-            {% endif %}
-
-            {% if top_users %}
-            <div style="padding: 10px 16px; flex: 1;">
-                <div style="font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--body-quiet-color); font-weight: 600; margin-bottom: 8px;">Most Active</div>
-                {% for u in top_users %}
-                <div style="display: flex; justify-content: space-between; align-items: center; padding: 5px 0;">
-                    <div style="display: flex; align-items: center; gap: 10px;">
-                        <div style="width: 28px; height: 28px; border-radius: 50%; background: var(--primary); color: var(--button-fg); display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 0.75rem;">{{ u.user__username|slice:":1"|upper }}</div>
-                        <span style="font-size: 0.85rem;">{{ u.user__username }}</span>
-                    </div>
-                    <span style="font-size: 0.8rem; color: var(--body-quiet-color);">{{ u.hits }} <span style="font-size: 0.7rem;">hits</span></span>
-                </div>
-                {% endfor %}
+            <div style="margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--card-border); font-size: 0.78rem; color: var(--body-quiet-color);">
+                Top theme: <strong style="color: var(--body-fg);">{{ top_theme_bar.name }}</strong> &middot; {{ top_theme_bar.dark }} dark / {{ top_theme_bar.light }} light
+                &middot; <a href="{% url 'activity:users' %}?tab=preferences">all preferences</a>
             </div>
             {% endif %}
         </div>
     </div>
-
 </div>
 
-<!-- ── Recent requests (quick glance) ───────────────────────────── -->
-{% if recent_requests %}
-<div class="card">
-    <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
-        <div style="display: flex; align-items: center; gap: 16px;">
-            <h2 style="margin: 0;">Latest Requests</h2>
-            <div class="filter-toggles" id="request-filter-tabs">
-                <button type="button" class="filter-toggle active" data-tab="all" onclick="showRequestTab('all')">All</button>
-                <button type="button" class="filter-toggle" data-tab="errors" onclick="showRequestTab('errors')">Errors</button>
-            </div>
-        </div>
-        <a href="{% url 'activity:requests' %}" class="btn-outline btn-sm">View All</a>
-    </div>
-    <div class="card-body" style="padding: 0; overflow-x: auto;">
-        <table class="table-plain" id="requests-all" style="width: 100%; border-collapse: collapse;">
-            <thead>
-                <tr>
-                    <th style="text-align: left; padding: 8px 16px;">Time</th>
-                    <th style="text-align: left; padding: 8px 16px;">Path</th>
-                    <th style="text-align: right; padding: 8px 16px;">Status</th>
-                    <th style="text-align: left; padding: 8px 16px;">User</th>
-                    <th style="text-align: right; padding: 8px 16px;">ms</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for log in recent_requests %}
-                <tr>
-                    <td style="padding: 8px 16px; white-space: nowrap; font-size: 0.8rem;">{% localtime_tooltip log.timestamp "M d g:i:s A T" %}</td>
-                    <td style="padding: 8px 16px; font-family: monospace; font-size: 0.85rem;">{{ log.path|truncatechars:50 }}</td>
-                    <td style="text-align: right; padding: 8px 16px;">
-                        <span style="{% if log.status_code >= 500 %}color: var(--error-fg);{% elif log.status_code >= 400 %}color: var(--message-warning-bg, orange);{% endif %}">{{ log.status_code }}</span>
-                    </td>
-                    <td style="padding: 8px 16px; font-size: 0.8rem;">{{ log.user.username|default:"—" }}</td>
-                    <td style="text-align: right; padding: 8px 16px; font-size: 0.85rem;">{{ log.response_time_ms }}</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-        <table class="table-plain" id="requests-errors" style="width: 100%; border-collapse: collapse; display: none;">
-            <thead>
-                <tr>
-                    <th style="text-align: left; padding: 8px 16px;">Time</th>
-                    <th style="text-align: left; padding: 8px 16px;">Path</th>
-                    <th style="text-align: right; padding: 8px 16px;">Status</th>
-                    <th style="text-align: left; padding: 8px 16px;">User</th>
-                    <th style="text-align: right; padding: 8px 16px;">ms</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for log in recent_errors %}
-                <tr>
-                    <td style="padding: 8px 16px; white-space: nowrap; font-size: 0.8rem;">{% localtime_tooltip log.timestamp "M d g:i:s A T" %}</td>
-                    <td style="padding: 8px 16px; font-family: monospace; font-size: 0.85rem;">{{ log.path|truncatechars:50 }}</td>
-                    <td style="text-align: right; padding: 8px 16px;">
-                        <span style="{% if log.status_code >= 500 %}color: var(--error-fg);{% elif log.status_code >= 400 %}color: var(--message-warning-bg, orange);{% elif log.status_code >= 300 %}color: var(--body-quiet-color);{% endif %}">{{ log.status_code }}</span>
-                    </td>
-                    <td style="padding: 8px 16px; font-size: 0.8rem;">{{ log.user.username|default:"—" }}</td>
-                    <td style="text-align: right; padding: 8px 16px; font-size: 0.85rem;">{{ log.response_time_ms }}</td>
-                </tr>
-                {% empty %}
-                <tr><td colspan="5" style="padding: 16px; color: var(--body-quiet-color); text-align: center;">No errors recorded.</td></tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+    <h2 style="margin: 0; font-size: 1rem;">Latest requests</h2>
+    <a href="{% url 'activity:requests' %}?window={{ window.key }}" class="btn-outline btn-sm">View all</a>
 </div>
-{% endif %}
-
-{% endblock %}
-
-{% block extra_js %}
-<script>
-function showRequestTab(tab) {
-    document.getElementById('requests-all').style.display = tab === 'all' ? '' : 'none';
-    document.getElementById('requests-errors').style.display = tab === 'errors' ? '' : 'none';
-    document.querySelectorAll('#request-filter-tabs button').forEach(function(btn) {
-        btn.classList.toggle('active', btn.dataset.tab === tab);
-    });
-}
-</script>
+{% include "activity/includes/request_table.html" with rows=recent_requests page_obj=None table_key="activity:dashboard" %}
 {% endblock %}

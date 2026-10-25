@@ -1,0 +1,37 @@
+{% load theme_tags crud_tags %}
+<div class="card">
+    <div class="card-header"><h2>Resources &middot; {{ window.label|lower }}</h2></div>
+    <div class="card-body" style="padding: 0;">
+        {% if resources %}
+        <div class="crud-table-wrap" style="overflow-x: auto;">
+        <table class="crud-table" data-table-key="activity:user-resources">
+            <thead>
+                <tr>
+                    {% sortable_th "resource" "Resource" %}
+                    {% sortable_th "hits" "Hits" align="right" width="90px" %}
+                    {% sortable_th "errors" "Errors" align="right" width="90px" %}
+                    {% sortable_th "avg_ms" "Avg ms" align="right" width="100px" %}
+                    {% sortable_th "max_ms" "Max ms" align="right" width="100px" %}
+                    {% sortable_th "last_seen" "Last" width="176px" %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in resources %}
+                <tr>
+                    <td class="activity-mono" title="{{ row.resource }}"><a href="{% url 'activity:resource_detail' %}?r={{ row.resource|urlencode }}&window={{ window.key }}">{{ row.resource }}</a>{% if not row.resolved %} <span class="reason-chip" style="background: color-mix(in srgb, var(--body-fg) 8%, var(--card-bg)); color: var(--body-quiet-color);">unmatched</span>{% endif %}</td>
+                    <td class="num">{{ row.hits }}</td>
+                    <td class="num"{% if row.server_errors %} style="color: var(--error-fg);"{% elif row.errors %} style="color: var(--warning-fg);"{% endif %}>{{ row.errors }}</td>
+                    <td class="num">{{ row.avg_ms|floatformat:0 }}</td>
+                    <td class="num">{{ row.max_ms }}</td>
+                    <td style="font-size: 0.82rem; color: var(--body-quiet-color);">{{ row.last_seen|timesince }} ago</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        </div>
+        {% else %}
+        <p style="padding: 16px; color: var(--body-quiet-color);">Nothing recorded {{ window.phrase }}.</p>
+        {% endif %}
+    </div>
+    {% render_paginator page_obj %}
+</div>

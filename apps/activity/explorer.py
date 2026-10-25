@@ -1,6 +1,7 @@
 """Explorer registration for activity models."""
 
 from datetime import timedelta
+from typing import Any, cast
 
 from django.utils import timezone
 
@@ -34,10 +35,11 @@ class ActivityDashboardWidget(DashboardWidget):
     order = 20
     url_name = "activity:dashboard"
 
-    def get_data(self, model_class=None):
+    def get_data(self, model_class: type | None = None) -> dict:
         now = timezone.now()
-        total = model_class.objects.count()
-        recent = model_class.objects.filter(timestamp__gte=now - timedelta(hours=24)).count()
+        manager = cast(Any, model_class or RequestLog).objects
+        total = manager.count()
+        recent = manager.filter(timestamp__gte=now - timedelta(hours=24)).count()
         return {
             "headline": f"{total:,} requests",
             "detail": f"{recent:,} in last 24h",

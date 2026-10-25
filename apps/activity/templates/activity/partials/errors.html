@@ -1,77 +1,17 @@
-{% load theme_tags %}
-<!-- Error Summary Cards -->
+{% comment %}Errors tab: one chip per status code seen in the window, then the filtered log.{% endcomment %}
 {% if error_counts %}
-<div style="margin-bottom: 20px;">
-    <div style="font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--body-quiet-color); font-weight: 600; margin-bottom: 8px;">Last 24 hours</div>
-    <div style="display: flex; gap: 12px; flex-wrap: wrap;">
-        <a class="card" style="min-width: 100px; cursor: pointer; text-decoration: none; color: inherit;{% if not active_status %} outline: 2px solid var(--primary);{% endif %}"
-           hx-get="{% url 'activity:requests' %}?tab=errors"
-           hx-target="#tab-content"
-           hx-swap="innerHTML">
-            <div class="card-body" style="text-align: center; padding: 12px 16px;">
-                <div style="font-size: 1.5rem; font-weight: 700;">{{ total_errors_count }}</div>
-                <div style="font-size: 0.85rem; font-weight: 600; color: var(--primary);">All</div>
-            </div>
-        </a>
+<div style="margin-bottom: 16px;">
+    <div style="font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--body-quiet-color); font-weight: 600; margin-bottom: 8px;">{{ window.label }} &middot; by status</div>
+    <div class="filter-toggles" style="flex-wrap: wrap;" role="group" aria-label="Status code">
+        <button type="button" class="filter-toggle{% if not active_status %} active{% endif %}"
+                hx-get="{{ request.path }}?tab=errors&window={{ window.key }}" hx-target="#tab-content" hx-swap="innerHTML swap:150ms" hx-push-url="true">All <span style="opacity: 0.7;">{{ total_errors_count }}</span></button>
         {% for err in error_counts %}
-        <a class="card" style="min-width: 100px; cursor: pointer; text-decoration: none; color: inherit;{% if active_status == err.status_code|stringformat:'d' %} outline: 2px solid var(--primary);{% endif %}"
-           hx-get="{% url 'activity:requests' %}?tab=errors&status={{ err.status_code }}"
-           hx-target="#tab-content"
-           hx-swap="innerHTML">
-            <div class="card-body" style="text-align: center; padding: 12px 16px;">
-                <div style="font-size: 1.5rem; font-weight: 700; color: {% if err.status_code >= 500 %}var(--error-fg){% elif err.status_code >= 400 %}var(--warning-fg){% else %}var(--body-fg){% endif %};">
-                    {{ err.count }}
-                </div>
-                <div style="font-size: 0.8rem; font-weight: 600; color: {% if err.status_code >= 500 %}var(--error-fg){% elif err.status_code >= 400 %}var(--warning-fg){% else %}var(--body-fg){% endif %};">
-                    {{ err.status_code }}
-                </div>
-            </div>
-        </a>
+        <button type="button" class="filter-toggle{% if active_status == err.status_code|stringformat:'d' %} active{% endif %}"
+                style="{% if err.status_code >= 500 %}color: var(--error-fg);{% endif %}"
+                hx-get="{{ request.path }}?tab=errors&window={{ window.key }}&status={{ err.status_code }}" hx-target="#tab-content" hx-swap="innerHTML swap:150ms" hx-push-url="true">{{ err.status_code }} <span style="opacity: 0.7;">{{ err.count }}</span></button>
         {% endfor %}
     </div>
 </div>
 {% endif %}
-
-<!-- Error Log Table -->
-<div class="card">
-    <div class="card-header">
-        <h2>Error Log{% if active_status %}: {{ active_status }}{% endif %}</h2>
-    </div>
-    <div class="card-body" style="padding: 0; overflow-x: auto;">
-        {% if recent_errors %}
-        <table class="table-plain" style="width: 100%; border-collapse: collapse;">
-            <thead>
-                <tr style="border-bottom: 1px solid var(--hairline-color);">
-                    <th style="text-align: left; padding: 10px 16px; color: var(--body-quiet-color); font-size: 0.85rem;">Time</th>
-                    <th style="text-align: right; padding: 10px 16px; color: var(--body-quiet-color); font-size: 0.85rem;">Status</th>
-                    <th style="text-align: left; padding: 10px 16px; color: var(--body-quiet-color); font-size: 0.85rem;">Method</th>
-                    <th style="text-align: left; padding: 10px 16px; color: var(--body-quiet-color); font-size: 0.85rem;">Path</th>
-                    <th style="text-align: left; padding: 10px 16px; color: var(--body-quiet-color); font-size: 0.85rem;">User</th>
-                    <th style="text-align: right; padding: 10px 16px; color: var(--body-quiet-color); font-size: 0.85rem;">Time (ms)</th>
-                    <th style="text-align: left; padding: 10px 16px; color: var(--body-quiet-color); font-size: 0.85rem;">IP</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for log in recent_errors %}
-                <tr>
-                    <td style="padding: 10px 16px; white-space: nowrap; font-size: 0.85rem;">{% localtime_tooltip log.timestamp "M d g:i:s A T" %}</td>
-                    <td style="text-align: right; padding: 10px 16px;">
-                        <span style="font-weight: 700; color: {% if log.status_code >= 500 %}var(--error-fg){% elif log.status_code >= 400 %}var(--warning-fg){% else %}var(--body-fg){% endif %};">
-                            {{ log.status_code }}
-                        </span>
-                    </td>
-                    <td style="padding: 10px 16px;"><code>{{ log.method }}</code></td>
-                    <td style="padding: 10px 16px; font-family: monospace; font-size: 0.9rem;">{{ log.path|truncatechars:60 }}</td>
-                    <td style="padding: 10px 16px; font-size: 0.85rem;">{{ log.user.username|default:"—" }}</td>
-                    <td style="text-align: right; padding: 10px 16px;">{{ log.response_time_ms }}</td>
-                    <td style="padding: 10px 16px; font-size: 0.85rem;">{{ log.ip_address|default:"—" }}</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-        {% else %}
-        <p style="padding: 16px; color: var(--body-quiet-color);">No errors recorded.</p>
-        {% endif %}
-    </div>
-    {% render_paginator page_obj %}
-</div>
+{% include "activity/includes/filter_bar.html" with tab="errors" %}
+{% include "activity/includes/request_table.html" with table_key="activity:errors" table_title="Errors" %}

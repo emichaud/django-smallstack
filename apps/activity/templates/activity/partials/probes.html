@@ -1,0 +1,37 @@
+{% comment %}
+Probes tab: the agents behind the flagged traffic, how the classifier
+decides, then every flagged request. The addresses + paths band is the
+page-level banner above the tabs.
+{% endcomment %}
+<div id="probes-tab">
+    {% if probe_report.top_agents %}
+    <div class="card" style="margin-bottom: 24px;">
+        <div class="card-header"><h2>Agents behind the flagged traffic</h2></div>
+        <div class="card-body" style="padding: 0;">
+            <table class="table-plain" style="width: 100%; border-collapse: collapse;">
+                <tbody>
+                    {% for a in probe_report.top_agents %}
+                    <tr>
+                        <td style="padding: 8px 16px; font-size: 0.8rem; max-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="{{ a.value }}">{{ a.value }}</td>
+                        <td style="padding: 8px 16px; text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap;">{{ a.count }}</td>
+                        <td style="padding: 8px 16px; text-align: right; font-size: 0.78rem; color: var(--body-quiet-color); white-space: nowrap;">{{ a.last_seen|timesince }} ago</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+
+    <details style="margin-bottom: 16px; font-size: 0.82rem; color: var(--body-quiet-color);">
+        <summary style="cursor: pointer;">How requests get flagged</summary>
+        <ul style="margin: 8px 0 0; padding-left: 1.2em; line-height: 1.6;">
+            <li><strong>Probe path</strong> &mdash; an error response to a path this site never serves and scanners always try (<code>.php</code>, <code>/wp-admin</code>, <code>/.env</code>, <code>/.git</code>, <code>phpmyadmin</code>, <code>cgi-bin</code>, traversal sequences, backup dumps, app-server consoles). Extend with <code>ACTIVITY_PROBE_PATTERNS_EXTRA</code>; exempt a prefix with <code>ACTIVITY_PROBE_IGNORE_PATHS</code>.</li>
+            <li><strong>Scanner agent</strong> &mdash; a user agent only scanners send (zgrab, masscan, nikto, sqlmap, nuclei, …). Extend with <code>ACTIVITY_SCANNER_AGENTS_EXTRA</code>. Generic tooling such as curl and python-requests is never flagged on its own.</li>
+            <li><strong>Behaviour of an anonymous address</strong> &mdash; at least half of its requests were 404s across many distinct paths; or a fifth or more were denied (401/403); or django-axes recorded repeated failed logins / a lockout. Only that address's error responses count as evidence &mdash; its ordinary traffic is never swept in.</li>
+        </ul>
+    </details>
+
+    {% include "activity/includes/filter_bar.html" with tab="probes" %}
+    {% include "activity/includes/request_table.html" with table_key="activity:probes" table_title="Flagged requests" %}
+</div>

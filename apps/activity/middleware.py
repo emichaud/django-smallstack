@@ -52,6 +52,7 @@ class ActivityMiddleware:
 
         RequestLog.objects.create(
             path=request.path[:2048],
+            route=self._route(request),
             method=request.method or "",
             status_code=response.status_code,
             user=user,
@@ -61,6 +62,14 @@ class ActivityMiddleware:
             ip_address=self._get_ip(request),
             user_agent=request.META.get("HTTP_USER_AGENT", "")[:4096],
         )
+
+    @staticmethod
+    def _route(request: HttpRequest) -> str:
+        """The matched URL pattern, "/"-prefixed, or "" when the URLconf had no match."""
+        match = getattr(request, "resolver_match", None)
+        if match is None:
+            return ""
+        return ("/" + (match.route or ""))[:255]
 
     def _get_ip(self, request: HttpRequest) -> str | None:
         from apps.smallstack.client_ip import get_client_ip

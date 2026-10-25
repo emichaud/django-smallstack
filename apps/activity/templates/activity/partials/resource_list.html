@@ -1,0 +1,70 @@
+{% load theme_tags crud_tags %}
+{% comment %}The Resources table with its own toolbar (kind + search) so a swap keeps the state.{% endcomment %}
+<div id="resource-list">
+    <form class="list-toolbar" style="margin-bottom: 16px;" method="get" action="{{ request.path }}"
+          hx-get="{{ request.path }}" hx-target="#tab-content" hx-swap="innerHTML swap:150ms"
+          hx-trigger="input changed delay:300ms, submit" hx-push-url="true" role="search" aria-label="Filter resources">
+        <input type="hidden" name="tab" value="list">
+        <input type="hidden" name="window" value="{{ window.key }}">
+        <div class="list-toolbar-search">
+            <svg class="list-toolbar-search-icon" viewBox="0 0 24 24" width="14" height="14" fill="currentColor" aria-hidden="true"><path d="M15.5 14h-.79l-.28-.27A6.47 6.47 0 0016 9.5 6.5 6.5 0 109.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
+            <input type="search" class="list-toolbar-search-input" name="q" value="{{ filters.q }}" placeholder="Resource contains…" autocomplete="off" aria-label="Resource contains">
+        </div>
+        <div class="list-toolbar-filters">
+            <label class="list-toolbar-filter{% if kind %} is-filtered{% endif %}">
+                <span class="list-toolbar-filter-label">Show</span>
+                <select name="kind" class="list-toolbar-filter-select">
+                    <option value="">Everything</option>
+                    <option value="routes"{% if kind == "routes" %} selected{% endif %}>Routes only</option>
+                    <option value="unmatched"{% if kind == "unmatched" %} selected{% endif %}>Unmatched paths only</option>
+                </select>
+            </label>
+        </div>
+        <div class="list-toolbar-spacer"></div>
+        {% if filters.q or kind %}
+        <a href="{{ request.path }}?window={{ window.key }}" class="list-toolbar-clear" hx-get="{{ request.path }}?tab=list&window={{ window.key }}" hx-target="#tab-content" hx-swap="innerHTML swap:150ms" hx-push-url="true">Clear</a>
+        {% endif %}
+        <span class="list-toolbar-count">
+            <span class="list-toolbar-count-value">{{ page_obj.total_count }}</span>
+            <span class="list-toolbar-count-label">Resource{{ page_obj.total_count|pluralize }}</span>
+        </span>
+    </form>
+
+    <div class="card">
+        <div class="card-body" style="padding: 0;">
+            {% if resources %}
+            <div class="crud-table-wrap" style="overflow-x: auto;">
+            <table class="crud-table" data-table-key="activity:resources">
+                <thead>
+                    <tr>
+                        {% sortable_th "resource" "Resource" %}
+                        {% sortable_th "hits" "Hits" align="right" width="96px" %}
+                        {% sortable_th "users" "Users" align="right" width="90px" %}
+                        {% sortable_th "errors" "Errors" align="right" width="90px" %}
+                        {% sortable_th "avg_ms" "Avg ms" align="right" width="100px" %}
+                        {% sortable_th "max_ms" "Max ms" align="right" width="100px" %}
+                        {% sortable_th "last_seen" "Last" width="176px" %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in resources %}
+                    <tr>
+                        <td class="activity-mono" title="{{ row.resource }}"><a href="{% url 'activity:resource_detail' %}?r={{ row.resource|urlencode }}&window={{ window.key }}">{{ row.resource }}</a>{% if not row.resolved %} <span class="reason-chip" style="background: color-mix(in srgb, var(--body-fg) 8%, var(--card-bg)); color: var(--body-quiet-color);" title="No URL pattern matches this path">unmatched</span>{% endif %}</td>
+                        <td class="num">{{ row.hits }}</td>
+                        <td class="num">{{ row.users }}</td>
+                        <td class="num"{% if row.server_errors %} style="color: var(--error-fg);"{% elif row.errors %} style="color: var(--warning-fg);"{% endif %}>{{ row.errors }}</td>
+                        <td class="num">{{ row.avg_ms|floatformat:0 }}</td>
+                        <td class="num"{% if row.max_ms >= 1000 %} style="color: var(--warning-fg);"{% endif %}>{{ row.max_ms }}</td>
+                        <td style="font-size: 0.82rem; color: var(--body-quiet-color); white-space: nowrap;">{{ row.last_seen|timesince }} ago</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            </div>
+            {% else %}
+            <p style="padding: 16px; color: var(--body-quiet-color);">{% if filters.q or kind %}Nothing matches {{ window.phrase }}.{% else %}Nothing recorded {{ window.phrase }}.{% endif %}</p>
+            {% endif %}
+        </div>
+        {% render_paginator page_obj %}
+    </div>
+</div>

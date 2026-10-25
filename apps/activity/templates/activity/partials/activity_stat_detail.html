@@ -1,27 +1,26 @@
 {% load theme_tags %}
+{% comment %}Body of the dashboard stat-card modal: a request table or a user table.{% endcomment %}
 {% if records %}
 <table style="width: 100%;">
     <thead>
         <tr>
-            <th>Time</th>
-            <th>Method</th>
+            <th style="width: 130px;">Time</th>
+            <th style="width: 70px;">Method</th>
             <th>Path</th>
-            <th>Status</th>
-            <th>User</th>
-            <th>ms</th>
+            <th style="width: 70px;">Status</th>
+            <th style="width: 110px;">User</th>
+            <th style="text-align: right; width: 60px;">ms</th>
         </tr>
     </thead>
     <tbody>
         {% for log in records %}
         <tr>
-            <td style="white-space: nowrap; font-size: 0.8rem;">{% localtime_tooltip log.timestamp "M d g:i:s A T" %}</td>
+            <td style="white-space: nowrap; font-size: 0.8rem;">{% localtime_tooltip log.timestamp "M d g:i:s A" %}</td>
             <td><code>{{ log.method }}</code></td>
-            <td style="font-family: monospace; font-size: 0.85rem;">{{ log.path|truncatechars:50 }}</td>
-            <td>
-                <span style="{% if log.status_code >= 500 %}color: var(--error-fg);{% elif log.status_code >= 400 %}color: var(--message-warning-bg, orange);{% endif %}">{{ log.status_code }}</span>
-            </td>
-            <td style="font-size: 0.8rem;">{{ log.user.username|default:"—" }}</td>
-            <td style="font-size: 0.85rem;">{{ log.response_time_ms }}</td>
+            <td class="activity-mono" title="{{ log.path }}"><a href="{% url 'activity:resource_detail' %}?r={{ log.resource_key|urlencode }}">{{ log.path|truncatechars:50 }}</a>{% if log.probe_reasons %}<span class="probe-flag" title="{{ log.probe_reasons|join:', ' }}">!</span>{% endif %}</td>
+            <td>{% include "activity/includes/status_badge.html" with code=log.status_code %}</td>
+            <td style="font-size: 0.8rem;">{% if log.user_id %}<a href="{% url 'activity:user_detail' log.user_id %}">{{ log.user.username }}</a>{% else %}<span style="color: var(--body-quiet-color);">anon</span>{% endif %}</td>
+            <td style="font-size: 0.85rem; text-align: right; font-variant-numeric: tabular-nums;">{{ log.response_time_ms }}</td>
         </tr>
         {% endfor %}
     </tbody>
@@ -31,16 +30,18 @@
     <thead>
         <tr>
             <th>Username</th>
-            <th>Date Joined</th>
+            <th>Date joined</th>
             <th>Staff</th>
+            <th></th>
         </tr>
     </thead>
     <tbody>
         {% for user in users %}
         <tr>
-            <td><a href="{% url 'manage/users-update' pk=user.pk %}">{{ user.username }}</a></td>
-            <td>{% localtime_tooltip user.date_joined "M d, Y g:i A T" %}</td>
+            <td><a href="{% url 'activity:user_detail' user.pk %}">{{ user.username }}</a></td>
+            <td>{% localtime_tooltip user.date_joined "M d, Y g:i A" %}</td>
             <td>{% if user.is_staff %}Yes{% else %}No{% endif %}</td>
+            <td style="text-align: right;"><a href="{% url 'manage/users-update' pk=user.pk %}" style="font-size: 0.8rem;">Edit</a></td>
         </tr>
         {% endfor %}
     </tbody>
