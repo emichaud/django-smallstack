@@ -9,7 +9,20 @@ Breaking-change migration recipes live in [`UPGRADING.md`](UPGRADING.md).
 
 ## [Unreleased]
 
+## [0.26.0] - 2026-10-25
+
 ### Added
+- **Resizable CRUD table columns.** Every `{% crud_table %}` header now has
+  a drag handle (`table-resize.js`): drag to resize, double-click to fit the
+  column to its content, and — the handle is a focusable `role="separator"` —
+  ←/→ to nudge, Enter to fit, Home to collapse. Widths persist in
+  `localStorage` per table, keyed by `url_base` + the field list so a
+  changed `list_fields` never replays stale widths, and re-apply after every
+  htmx swap. Widening a column grows the table (the wrapper scrolls) instead
+  of squeezing its neighbours. Two tools render under the table: **Wrap
+  text** (cells wrap instead of clipping; persisted) and **Reset columns**.
+  Progressive enhancement — without the script the handles and tools are
+  hidden. Handles are hidden below 768px.
 - **Activity drilldowns by user and by resource.** `/smallstack/activity/`
   gained a per-user page (`users/<pk>/`: histogram, status mix, top
   resources, addresses, clients, API tokens, and the user's requests /
@@ -40,6 +53,14 @@ Breaking-change migration recipes live in [`UPGRADING.md`](UPGRADING.md).
 - Sidebar sub-items under Activity: Requests, Users, Resources.
 
 ### Changed
+- **Type-derived default column widths.** `.crud-table` is
+  `table-layout: fixed`, so every column the view did not size got an equal
+  share — a ✓/— boolean was as wide as an email column, and the email
+  clipped. `_build_sort_headers` now emits a pixel default for naturally
+  compact fields (booleans 110px, datetimes 170px, dates 120px, times 100px,
+  durations 110px, numbers 100px, `choices` CharFields 130px); free-text,
+  relation and pk columns stay unset and share the freed space. An explicit
+  `column_widths` entry always wins. Documented in `tables.md`.
 - The Users page leads with the per-user roll-up (hits, errors, paths,
   latency, last seen, each linking to the user page); theme usage moved to a
   Preferences tab. "Inactive" now means no logged request *and* no login in
@@ -54,29 +75,6 @@ Breaking-change migration recipes live in [`UPGRADING.md`](UPGRADING.md).
 - The Activity dashboard showed "1 tracked requests" and a Requests card of
   1: the theme-usage loop reused the name `total` and overwrote the request
   count. Every headline number now comes from one aggregate.
-
-### Added
-- **Resizable CRUD table columns.** Every `{% crud_table %}` header now has
-  a drag handle (`table-resize.js`): drag to resize, double-click to fit the
-  column to its content, and — the handle is a focusable `role="separator"` —
-  ←/→ to nudge, Enter to fit, Home to collapse. Widths persist in
-  `localStorage` per table, keyed by `url_base` + the field list so a
-  changed `list_fields` never replays stale widths, and re-apply after every
-  htmx swap. Widening a column grows the table (the wrapper scrolls) instead
-  of squeezing its neighbours. Two tools render under the table: **Wrap
-  text** (cells wrap instead of clipping; persisted) and **Reset columns**.
-  Progressive enhancement — without the script the handles and tools are
-  hidden. Handles are hidden below 768px.
-
-### Changed
-- **Type-derived default column widths.** `.crud-table` is
-  `table-layout: fixed`, so every column the view did not size got an equal
-  share — a ✓/— boolean was as wide as an email column, and the email
-  clipped. `_build_sort_headers` now emits a pixel default for naturally
-  compact fields (booleans 110px, datetimes 170px, dates 120px, times 100px,
-  durations 110px, numbers 100px, `choices` CharFields 130px); free-text,
-  relation and pk columns stay unset and share the freed space. An explicit
-  `column_widths` entry always wins. Documented in `tables.md`.
 
 ## [0.25.2] - 2026-10-16
 
@@ -2408,7 +2406,8 @@ Condensed highlights of the v0.11 series (see git history for per-patch detail):
 See the git tag history (`git tag`) and `ai_cowork/audit_history/` for the full record of the
 v0.8–v0.10 API-server, modern-dark-theme, search, MCP, and Postgres eras.
 
-[Unreleased]: https://github.com/emichaud/django-smallstack/compare/v0.25.2...HEAD
+[Unreleased]: https://github.com/emichaud/django-smallstack/compare/v0.26.0...HEAD
+[0.26.0]: https://github.com/emichaud/django-smallstack/compare/v0.25.2...v0.26.0
 [0.25.2]: https://github.com/emichaud/django-smallstack/compare/v0.25.1...v0.25.2
 [0.25.1]: https://github.com/emichaud/django-smallstack/compare/v0.25.0...v0.25.1
 [0.25.0]: https://github.com/emichaud/django-smallstack/compare/v0.24.0...v0.25.0
