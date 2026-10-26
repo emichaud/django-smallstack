@@ -19,7 +19,7 @@ outside HTTP.
 from __future__ import annotations
 
 import inspect
-from typing import Any, Optional
+from typing import Any, Callable, Optional
 
 from django.db.models import Model, QuerySet
 from django.http import HttpRequest, QueryDict
@@ -31,6 +31,11 @@ _MEASURE_TYPES = {"integer", "float", "decimal"}
 _SERIES_LIMIT_MAX = 500
 _ROWS_LIMIT_MAX = 500
 _AGG_NAMES = ("count", "sum", "avg", "min", "max")
+
+#: The row key that carries the "view this object" URL (see Dataset.link_for).
+LINK_KEY = "url"
+
+_UNSET: Any = object()
 
 
 def _agg_func(agg: str, measure: Optional[str]) -> Any:
@@ -118,6 +123,7 @@ class Dataset:
     def __init__(self, dfn: DatasetDef) -> None:
         self.dfn = dfn
         self.key = dfn.key
+        self._link_resolver_cache: Any = _UNSET
 
     # -- queryset / model ----------------------------------------------------
 
@@ -149,11 +155,7 @@ class Dataset:
                 else:
                     resolved.append((col, _model_field_type(model, col)))
             return resolved
-        return [
-            (f.name, _model_field_type(model, f.name))
-            for f in model._meta.fields
-            if not f.primary_key
-        ]
+        return [(f.name, _model_field_type(model, f.name)) for f in model._meta.fields if not f.primary_key]
 
     def column_names(self) -> list[str]:
         return [name for name, _ in self.columns()]
@@ -175,6 +177,88 @@ class Dataset:
             fmt = entry[3] if len(entry) > 3 else "ratio"
             out[name] = {"num": num, "denom": denom, "fmt": fmt}
         return out
+
+    # -- row links ("where can I view this object?") --------------------------
+
+    def _link_resolver(self) -> Optional[Callable[[Any], Optional[str]]]:
+        """The per-object URL resolver, or None when rows carry no link.
+
+        Resolution order: the dataset's explicit ``link=`` (a callable, or a
+        route name reversed with ``pk=``), else the model's CRUDView detail
+        route (every explorer-registered model has one), else the model's
+        ``get_absolute_url()``. ``link=False`` opts out. Computed once per
+        Dataset instance; the only DB-free thing here is the lookup itself.
+        """
+        if self._link_resolver_cache is not _UNSET:
+            cached: Optional[Callable[[Any], Optional[str]]] = self._link_resolver_cache
+            return cached
+        self._link_resolver_cache = self._build_link_resolver()
+        return self._link_resolver_cache
+
+    def _build_link_resolver(self) -> Optional[Callable[[Any], Optional[str]]]:
+        from django.urls import NoReverseMatch, reverse
+
+        link = self.dfn.link
+        if link is False:
+            return None
+        if callable(link):
+            return link
+        if isinstance(link, str) and link:
+            route = link
+
+            def by_route(obj: Any) -> Optional[str]:
+                try:
+                    return reverse(route, kwargs={"pk": obj.pk})
+                except NoReverseMatch:
+                    return None
+
+            return by_route
+
+        model = self.model
+        try:
+            from apps.smallstack.crud import Action, CRUDView
+
+            crud = CRUDView._registry.get(model)
+        except Exception:  # noqa: BLE001 — datasets must work without the CRUD layer
+            crud = None
+        if crud is not None:
+            # Same fallback {% crud_table %} documents: no DETAIL ⇒ link the
+            # row to its edit page; neither ⇒ no link.
+            suffix = "detail" if Action.DETAIL in crud.actions else "update" if Action.UPDATE in crud.actions else None
+            if suffix is not None:
+                route_name = f"{crud._get_url_base()}-{suffix}"
+
+                def by_crud(obj: Any) -> Optional[str]:
+                    try:
+                        return crud._reverse(route_name, kwargs={"pk": obj.pk})
+                    except NoReverseMatch:
+                        return None
+
+                return by_crud
+
+        if callable(getattr(model, "get_absolute_url", None)):
+
+            def by_absolute(obj: Any) -> Optional[str]:
+                return obj.get_absolute_url() or None
+
+            return by_absolute
+        return None
+
+    def has_links(self) -> bool:
+        """True when ``rows()`` carries a ``url`` key. A dataset column that is
+        itself named ``url`` keeps its meaning — links are then not added."""
+        return LINK_KEY not in self.column_names() and self._link_resolver() is not None
+
+    def link_for(self, obj: Any) -> Optional[str]:
+        """The URL where *obj* (a row's model instance) can be viewed, or None.
+        Never raises — a link that can't be built is simply absent."""
+        resolver = self._link_resolver()
+        if resolver is None or obj is None:
+            return None
+        try:
+            return resolver(obj) or None
+        except Exception:  # noqa: BLE001 — a bad link must not break the row
+            return None
 
     # -- schema (may hit DB via _build_filter_meta's distinct-value probe) ----
 
@@ -231,6 +315,8 @@ class Dataset:
             "description": self.dfn.description,
             "columns": columns,
             "filters": filters,
+            # Rows carry a ``url`` key pointing at the object's page.
+            "links": self.has_links(),
         }
 
     # -- computed-column filter widgets --------------------------------------
@@ -304,11 +390,7 @@ class Dataset:
             qs = self._queryset()
             if qs.values(name).distinct().count() > self._COMPUTED_CHOICE_MAX:
                 return None
-            values = (
-                qs.values_list(name, flat=True)
-                .distinct()
-                .order_by(name)[: self._COMPUTED_CHOICE_MAX]
-            )
+            values = qs.values_list(name, flat=True).distinct().order_by(name)[: self._COMPUTED_CHOICE_MAX]
             choices = [("", "All")] + [(str(v), str(v)) for v in values if v is not None]
         except Exception:  # noqa: BLE001 — un-probeable expression: offer nothing
             return None
@@ -375,9 +457,7 @@ class Dataset:
             if parsed is not None:  # garbage ignored (absent-not-error)
                 qs = qs.filter(**{key: parsed})
 
-        pairs = "&".join(
-            f"{k}={v}" for k, v in flat_filters.items() if v not in (None, "")
-        )
+        pairs = "&".join(f"{k}={v}" for k, v in flat_filters.items() if v not in (None, ""))
         if pairs:
             filter_req = _fake_request(getattr(request, "user", None), pairs)
             qs = apply_filters(qs, filter_req, _ConfigAdapter(self))
@@ -503,9 +583,14 @@ class Dataset:
         # Only expand FK columns the schema actually knows about, so a bad
         # ``expand`` param can never raise inside ``serialize``.
         expand_fields = self.fk_column_names() & set(expand or [])
-        return [
-            serialize(obj, field_names, [], expand_fields) for obj in qs[page]
-        ]
+        with_links = self.has_links()
+        out: list[dict] = []
+        for obj in qs[page]:
+            row = serialize(obj, field_names, [], expand_fields)
+            if with_links:
+                row[LINK_KEY] = self.link_for(obj)
+            out.append(row)
+        return out
 
     @staticmethod
     def _project_dict_row(row: dict, field_names: list[str]) -> dict:
@@ -568,19 +653,11 @@ class Dataset:
         # Mirrors how ``rows()`` already tolerates unknown ordering/filter keys.
         valid = set(self.column_names())
         if dimension is not None and dimension not in valid:
-            raise ValueError(
-                f"unknown dimension {dimension!r}; valid: {sorted(valid)}"
-            )
+            raise ValueError(f"unknown dimension {dimension!r}; valid: {sorted(valid)}")
         if measure and not is_ratio and measure not in valid:
-            raise ValueError(
-                f"unknown measure {measure!r}; valid: {sorted(valid | set(declared))}"
-            )
+            raise ValueError(f"unknown measure {measure!r}; valid: {sorted(valid | set(declared))}")
 
-        value_expr = (
-            _ratio_expr(declared[measure])
-            if is_ratio and measure is not None
-            else _agg_func(agg, measure)
-        )
+        value_expr = _ratio_expr(declared[measure]) if is_ratio and measure is not None else _agg_func(agg, measure)
 
         qs = self._filtered_qs(request, filters)
 
@@ -641,9 +718,7 @@ class Dataset:
 
         field = dimension.get("field")
         if field not in set(self.column_names()):
-            raise ValueError(
-                f"unknown dimension field {field!r}; valid: {sorted(self.column_names())}"
-            )
+            raise ValueError(f"unknown dimension field {field!r}; valid: {sorted(self.column_names())}")
 
         buckets = resolve_buckets(self, dimension, request)
         if not buckets:
@@ -651,9 +726,7 @@ class Dataset:
         dvals = _dimension_values(buckets)
 
         qs = self._filtered_qs(request, filters)
-        anns = {
-            b["key"]: Count("id", filter=_bucket_cond(field, b, dvals)) for b in buckets
-        }
+        anns = {b["key"]: Count("id", filter=_bucket_cond(field, b, dvals)) for b in buckets}
         row = qs.aggregate(**anns)
         return [
             {
@@ -684,9 +757,7 @@ class Dataset:
         in the database, not in Python — the first-class path the "KPI tile"
         affordance needs (no GROUP BY).
         """
-        return self.series(
-            None, measure=measure, agg=agg, filters=filters, request=request
-        )[0]["value"]
+        return self.series(None, measure=measure, agg=agg, filters=filters, request=request)[0]["value"]
 
     def _fk_label_map(self, dimension: str, rows: list[dict]) -> dict:
         """Map FK pks in *rows* to the related object's ``str()``. ``{}`` if not an FK."""
@@ -715,9 +786,7 @@ class _ConfigAdapter:
         self._ds = ds
         self.model = ds.model
         self.ordering_fields = ds.column_names()
-        self.api_aggregate_fields = [
-            name for name, typ in ds.columns() if typ in _MEASURE_TYPES
-        ]
+        self.api_aggregate_fields = [name for name, typ in ds.columns() if typ in _MEASURE_TYPES]
 
     def _resolve_filter_fields(self) -> list[str]:
         return self._ds.filter_field_names()

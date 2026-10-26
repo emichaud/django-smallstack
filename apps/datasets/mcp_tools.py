@@ -234,7 +234,8 @@ def _build_query_tool(tool: Any, dfn: DatasetDef) -> None:
     desc = (
         f"Query the '{dfn.label}' dataset. {dfn.description} "
         "Returns typed rows, or a grouped [{label, value}] series when group_by is set. "
-        "Apply the filter args to reduce the rows."
+        "Apply the filter args to reduce the rows. "
+        "A row's 'url' (when present) is the page where that record can be viewed."
     ).strip()
     tool(
         _tool_name(dfn.key),

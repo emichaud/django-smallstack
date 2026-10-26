@@ -1,0 +1,31 @@
+<table class="table-plain ds-table">
+    <thead>
+        <tr>
+            <th scope="col">Dataset</th>
+            <th scope="col" class="ds-hide-sm" style="text-align: right;">Columns</th>
+            <th scope="col" class="ds-hide-sm" style="text-align: right;">Measures</th>
+            <th scope="col" class="ds-hide-sm">Surfaces</th>
+            <th scope="col"><span class="sr-only">Open</span></th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for d in rows %}
+        <tr>
+            <td>
+                <a href="{{ d.url }}" style="font-weight: 600;">{{ d.label }}</a>
+                <span class="ds-key" style="margin-left: 6px;">{{ d.key }}</span>
+                {% if d.description %}<div class="ds-desc">{{ d.description }}</div>{% endif %}
+            </td>
+            <td class="num ds-hide-sm">{{ d.columns }}</td>
+            <td class="num ds-hide-sm">{{ d.measures }}</td>
+            <td class="ds-hide-sm">
+                <span class="ds-pill{% if d.enable_api %} on{% endif %}">REST{% if not d.enable_api %} off{% endif %}</span>
+                <span class="ds-pill{% if d.enable_mcp %} on{% endif %}">MCP{% if not d.enable_mcp %} off{% endif %}</span>
+            </td>
+            <td style="text-align: right; white-space: nowrap;">
+                <a href="{{ d.url }}" class="btn-outline btn-sm" style="text-decoration: none;">Browse<span class="sr-only"> {{ d.label }}</span></a>
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>

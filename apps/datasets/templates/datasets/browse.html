@@ -1,0 +1,230 @@
+{% extends "smallstack/base.html" %}
+{% load theme_tags %}
+
+{% block title %}{{ schema.label }} · Datasets{% endblock %}
+{% block breadcrumbs %}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .ds-filters { display: flex; flex-wrap: wrap; gap: 8px 10px; align-items: flex-end; padding: 12px 14px; }
+    .ds-field { display: flex; flex-direction: column; gap: 3px; }
+    .ds-field > label { font-size: 0.68rem; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--body-quiet-color); }
+    .ds-field > span.ds-range { display: inline-flex; gap: 4px; align-items: center; }
+    .ds-filters input, .ds-filters select {
+        background: var(--input-bg); border: 1px solid var(--input-border); color: var(--body-fg);
+        border-radius: 6px; padding: 4px 8px; font-size: 0.78rem; width: auto; max-width: 13rem; margin: 0;
+    }
+    .ds-filters .ds-actions { display: flex; gap: 6px; align-items: center; margin-left: auto; }
+    .ds-filters .btn-outline, .ds-filters .btn-primary { white-space: nowrap; }
+
+    .ds-table { width: 100%; border-collapse: collapse; font-size: 0.8125rem; }
+    .ds-table th { padding: 8px 12px; white-space: nowrap; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--body-quiet-color); }
+    .ds-table td { padding: 6px 12px; vertical-align: top; max-width: 20rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .ds-table td.num, .ds-table th.num { text-align: right; font-variant-numeric: tabular-nums; }
+    .ds-table td.dt { white-space: nowrap; color: var(--body-quiet-color); }
+    .ds-null { color: var(--text-muted); }
+    /* Same trick as .crud-table-wrap: the wrapper scrolls a wide table instead of
+       handing its min-content width up to the page. */
+    .ds-wrap { overflow-x: auto; contain: inline-size; max-width: 100%; }
+    .ds-card { contain: inline-size; max-width: 100%; }
+
+    .ds-bar { height: 8px; border-radius: 4px; background: var(--primary); min-width: 2px; }
+    .ds-bar-cell { width: 40%; }
+    .ds-bar-track { background: var(--card-header-bg); border-radius: 4px; }
+
+    .ds-meta { color: var(--body-quiet-color); font-size: 0.78rem; }
+    .ds-key { font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace); font-size: 0.78rem; color: var(--body-quiet-color); }
+    .paginator { padding: 10px 14px; }
+</style>
+{% endblock %}
+
+{% block page_header %}
+<div class="page-header-bleed page-header-with-actions" style="display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap;">
+    <div class="page-header-content">
+        <h1>{{ schema.label }}</h1>
+        <p class="page-subtitle">{{ schema.description|default:"A read-only, filterable table." }}</p>
+        <nav style="margin-top: 0.5rem; font-size: 0.8rem;" aria-label="Breadcrumb">
+            <a href="{% url 'website:home' %}" style="color: var(--body-quiet-color); text-decoration: none;">Home</a>
+            <span style="color: var(--body-quiet-color); margin: 0 0.3rem;">/</span>
+            <a href="{% url 'datasets:browse-index' %}" style="color: var(--body-quiet-color); text-decoration: none;">Datasets</a>
+            <span style="color: var(--body-quiet-color); margin: 0 0.3rem;">/</span>
+            <span style="color: var(--body-fg);">{{ schema.label }}</span>
+        </nav>
+    </div>
+    <div class="action-cards">
+        {% if csv_url %}
+        <a href="{{ csv_url }}" class="action-card">
+            <div class="action-card-body">
+                <svg viewBox="0 0 24 24" class="action-card-icon" aria-hidden="true"><path fill="currentColor" d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
+                <div style="text-align: left;">
+                    <div class="action-card-title">Download CSV</div>
+                    <div class="action-card-subtitle">{% if has_filters %}Filtered rows{% else %}All rows{% endif %}</div>
+                </div>
+            </div>
+        </a>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block content %}
+
+<div class="card ds-card" style="margin-bottom: 16px;">
+    <form class="ds-filters" method="get" action="{% url 'datasets:browse' schema.key %}">
+        {% for w in widgets %}
+        <div class="ds-field">
+            <label for="f-{{ w.name }}">{{ w.label }}</label>
+            {% if w.type == "text" %}
+                <input id="f-{{ w.name }}" type="search" name="{{ w.name }}" value="{{ w.value }}" placeholder="contains…">
+            {% elif w.range %}
+                <span class="ds-range">
+                    <select id="f-{{ w.name }}" name="{{ w.name }}">
+                        {% for val, label in w.choices %}<option value="{{ val }}" {% if val == w.value %}selected{% endif %}>{{ label }}</option>{% endfor %}
+                    </select>
+                    <label for="f-{{ w.name }}-gte" class="sr-only">{{ w.label }} from</label>
+                    <input id="f-{{ w.name }}-gte" type="date" name="{{ w.name }}__gte" value="{{ w.gte }}" style="max-width: 9.5rem;">
+                    <span aria-hidden="true" style="color: var(--body-quiet-color);">–</span>
+                    <label for="f-{{ w.name }}-lt" class="sr-only">{{ w.label }} before</label>
+                    <input id="f-{{ w.name }}-lt" type="date" name="{{ w.name }}__lt" value="{{ w.lt }}" style="max-width: 9.5rem;">
+                </span>
+            {% else %}
+                <select id="f-{{ w.name }}" name="{{ w.name }}">
+                    {% for val, label in w.choices %}<option value="{{ val }}" {% if val == w.value %}selected{% endif %}>{{ label }}</option>{% endfor %}
+                </select>
+            {% endif %}
+        </div>
+        {% endfor %}
+        {% if group_by %}<input type="hidden" name="group_by" value="{{ group_by }}">{% endif %}
+        {% if measure %}<input type="hidden" name="measure" value="{{ measure }}">{% endif %}
+        {% if agg != "count" %}<input type="hidden" name="agg" value="{{ agg }}">{% endif %}
+        <div class="ds-actions">
+            <button type="submit" class="btn-primary btn-sm">Apply</button>
+            {% if has_filters %}
+            <a href="{% url 'datasets:browse' schema.key %}" class="btn-outline btn-sm" style="text-decoration: none;">Clear</a>
+            {% endif %}
+        </div>
+    </form>
+</div>
+
+{% if columns %}
+<div class="card ds-card" style="margin-bottom: 16px;">
+    <div class="card-header" style="display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;">
+        <h2>Roll-up</h2>
+        <form method="get" action="{% url 'datasets:browse' schema.key %}" style="display: flex; gap: 6px; align-items: center; flex-wrap: wrap;">
+            {% for name, value in filters.items %}<input type="hidden" name="{{ name }}" value="{{ value }}">{% endfor %}
+            <label for="r-group" class="sr-only">Group by</label>
+            <select id="r-group" name="group_by" class="ds-filters" style="background: var(--input-bg); border: 1px solid var(--input-border); color: var(--body-fg); border-radius: 6px; padding: 4px 8px; font-size: 0.78rem; width: auto; margin: 0;">
+                <option value="">Group by…</option>
+                {% for c in dimensions %}<option value="{{ c.name }}" {% if c.name == group_by %}selected{% endif %}>{{ c.label }}</option>{% endfor %}
+                {% if groupable_measures %}<optgroup label="Numeric">{% for c in groupable_measures %}<option value="{{ c.name }}" {% if c.name == group_by %}selected{% endif %}>{{ c.label }}</option>{% endfor %}</optgroup>{% endif %}
+            </select>
+            {% if measures %}
+            <label for="r-measure" class="sr-only">Measure</label>
+            <select id="r-measure" name="measure" style="background: var(--input-bg); border: 1px solid var(--input-border); color: var(--body-fg); border-radius: 6px; padding: 4px 8px; font-size: 0.78rem; width: auto; margin: 0;">
+                <option value="">Row count</option>
+                {% for c in measures %}<option value="{{ c.name }}" {% if c.name == measure %}selected{% endif %}>{{ c.label }}{% if c.computed %} (ratio){% endif %}</option>{% endfor %}
+            </select>
+            <label for="r-agg" class="sr-only">Aggregate</label>
+            <select id="r-agg" name="agg" style="background: var(--input-bg); border: 1px solid var(--input-border); color: var(--body-fg); border-radius: 6px; padding: 4px 8px; font-size: 0.78rem; width: auto; margin: 0;">
+                {% for val, label in agg_choices %}<option value="{{ val }}" {% if val == agg %}selected{% endif %}>{{ label }}</option>{% endfor %}
+            </select>
+            {% endif %}
+            <button type="submit" class="btn-outline btn-sm">Roll up</button>
+        </form>
+    </div>
+    {% if series_error %}
+    <div class="card-body" role="alert" style="color: var(--error-fg); font-size: 0.82rem;">{{ series_error }}</div>
+    {% elif group_by %}
+    <div class="card-body" style="padding: 0;">
+        {% if series %}
+        <table class="table-plain ds-table">
+            <thead>
+                <tr>
+                    <th scope="col" style="text-align: left;">{{ group_by_label }}</th>
+                    <th scope="col" class="num">{% if measure_is_ratio %}{{ measure_label }}{% elif measure %}{{ agg }} of {{ measure_label }}{% else %}Rows{% endif %}</th>
+                    <th scope="col" class="ds-bar-cell"><span class="sr-only">Relative size</span></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for s in series %}
+                <tr>
+                    <td>{{ s.label }}</td>
+                    <td class="num">{% if s.value is None %}<span class="ds-null">—</span>{% else %}{{ s.value }}{% endif %}</td>
+                    <td class="ds-bar-cell"><div class="ds-bar-track"><div class="ds-bar" style="width: {{ s.pct }}%;" aria-hidden="true"></div></div></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <p class="ds-meta" style="padding: 12px 14px; margin: 0;">No rows match the current filters.</p>
+        {% endif %}
+    </div>
+    {% endif %}
+</div>
+{% endif %}
+
+<div class="card ds-card">
+    <div class="card-header" style="display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap;">
+        <h2>Rows</h2>
+        <span class="ds-meta">
+            {% if page_obj.total_count %}Showing {{ page_obj.showing_start }}–{{ page_obj.showing_end }} of {{ page_obj.total_count }}{% else %}No rows{% endif %}
+            · <span class="ds-key">{{ schema.key }}</span>
+        </span>
+    </div>
+    <div class="card-body" style="padding: 0;">
+        <div class="ds-wrap">
+        <table class="table-plain ds-table">
+            <thead>
+                <tr>
+                    {% for h in headers %}
+                    <th scope="col"{% if h.type == "integer" or h.type == "float" or h.type == "decimal" %} class="num"{% endif %} style="text-align: {% if h.type == "integer" or h.type == "float" or h.type == "decimal" %}right{% else %}left{% endif %};">
+                        <a href="{% querystring ordering=h.next_ordering page=None %}"
+                           style="color: inherit; text-decoration: none; display: inline-flex; align-items: center; gap: 0.3rem;"
+                           {% if h.direction %}aria-sort="{% if h.direction == 'desc' %}descending{% else %}ascending{% endif %}"{% endif %}>
+                            {{ h.label }}
+                            <span aria-hidden="true" style="font-size: 0.65rem; width: 0.65em;{% if not h.direction %} visibility: hidden;{% endif %}">{% if h.direction == "desc" %}&#9660;{% else %}&#9650;{% endif %}</span>
+                        </a>
+                    </th>
+                    {% endfor %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in rows %}
+                <tr>
+                    {% for c in row.cells %}
+                    {% if forloop.first and row.url %}
+                        <td{% if c.type == "integer" or c.type == "float" or c.type == "decimal" %} class="num"{% elif c.type == "datetime" %} class="dt"{% endif %}><a href="{{ row.url }}" title="View this record">{% if c.value is None %}—{% elif c.type == "datetime" %}{% localtime_tooltip c.value %}{% elif c.type == "boolean" %}{% if c.value %}Yes{% else %}No{% endif %}{% else %}{{ c.value }}{% endif %}</a></td>
+                    {% elif c.value is None %}
+                        <td{% if c.type == "integer" or c.type == "float" or c.type == "decimal" %} class="num"{% endif %}><span class="ds-null">—</span></td>
+                    {% elif c.type == "datetime" %}
+                        <td class="dt">{% localtime_tooltip c.value %}</td>
+                    {% elif c.type == "boolean" %}
+                        <td>{% if c.value %}Yes{% else %}No{% endif %}</td>
+                    {% elif c.type == "integer" or c.type == "float" or c.type == "decimal" %}
+                        <td class="num">{{ c.value }}</td>
+                    {% else %}
+                        <td title="{{ c.value }}">{{ c.value }}</td>
+                    {% endif %}
+                    {% endfor %}
+                </tr>
+                {% empty %}
+                <tr><td colspan="{{ columns|length }}" class="ds-meta" style="padding: 16px 14px; white-space: normal;">No rows{% if has_filters %} match these filters{% endif %}.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        </div>
+        {% if page_obj.paginator.num_pages > 1 %}
+        <div class="paginator">
+            <span class="paginator-info">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+            <nav class="paginator-nav" aria-label="Pagination">
+                <a class="paginator-btn{% if not page_obj.has_previous %} disabled{% endif %}" {% if page_obj.has_previous %}href="{% querystring page=1 %}"{% endif %} aria-label="First page">&laquo;</a>
+                <a class="paginator-btn{% if not page_obj.has_previous %} disabled{% endif %}" {% if page_obj.has_previous %}href="{% querystring page=page_obj.previous_page_number %}"{% endif %} aria-label="Previous page">&lsaquo;</a>
+                <span class="paginator-current">{{ page_obj.number }}<span class="paginator-of">of</span>{{ page_obj.paginator.num_pages }}</span>
+                <a class="paginator-btn{% if not page_obj.has_next %} disabled{% endif %}" {% if page_obj.has_next %}href="{% querystring page=page_obj.next_page_number %}"{% endif %} aria-label="Next page">&rsaquo;</a>
+                <a class="paginator-btn{% if not page_obj.has_next %} disabled{% endif %}" {% if page_obj.has_next %}href="{% querystring page=page_obj.paginator.num_pages %}"{% endif %} aria-label="Last page">&raquo;</a>
+            </nav>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

@@ -247,6 +247,20 @@ SMALLSTACK_DATASETS_ENABLED = config("SMALLSTACK_DATASETS_ENABLED", default=True
 # Largest ?format=csv export (rows). Over it the endpoint returns 400 asking the
 # caller to filter or page — the export is built in memory.
 SMALLSTACK_DATASET_CSV_MAX_ROWS = config("SMALLSTACK_DATASET_CSV_MAX_ROWS", default=50_000, cast=int)
+# The bundled framework datasets — one lightweight, read-only ``smallstack_<thing>``
+# dataset per shipped module (requests, log records, heartbeats, scheduled job
+# runs, webhook deliveries, notifications, approvals, blog posts, …). They are
+# the browse/report seam downstream reporting tools build on. Default on; off
+# registers none of them (your own ``@dataset`` declarations are unaffected).
+SMALLSTACK_FRAMEWORK_DATASETS_ENABLED = config(
+    "SMALLSTACK_FRAMEWORK_DATASETS_ENABLED", default=True, cast=bool
+)
+# Also publish each bundled dataset as a ``query_dataset_smallstack_<thing>`` MCP
+# tool (staff tier). Default off — two dozen extra tools crowd an agent's tool
+# list; flip it on when an agent should query framework data directly.
+SMALLSTACK_FRAMEWORK_DATASETS_MCP = config(
+    "SMALLSTACK_FRAMEWORK_DATASETS_MCP", default=False, cast=bool
+)
 
 # ---------------------------------------------------------------------------
 # Login Rate Limiting (django-axes)

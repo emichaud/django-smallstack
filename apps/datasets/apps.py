@@ -30,6 +30,20 @@ class DatasetsConfig(AppConfig):
         if not getattr(settings, "SMALLSTACK_DATASETS_ENABLED", True):
             return
 
+        from apps.smallstack.navigation import nav
+
+        nav.register(
+            section="admin",
+            label="Datasets",
+            url_name="datasets:browse-index",
+            icon_svg=(
+                '<svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true">'
+                '<path d="M3 4h18v4H3zm0 6h18v4H3zm0 6h18v4H3z"/></svg>'
+            ),
+            staff_required=True,
+            active_prefix="/smallstack/datasets/browse/",
+        )
+
         # Register MCP tools for every opted-in dataset. No-op if apps.mcp isn't
         # installed, and skipped entirely when MCP is off site-wide.
         if getattr(settings, "SMALLSTACK_MCP_ENABLED", True):

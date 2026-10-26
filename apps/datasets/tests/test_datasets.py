@@ -91,7 +91,7 @@ def test_rows_returns_typed_dicts():
     _seed()
     rows = get_dataset("t_requestlog").rows(limit=100)
     assert len(rows) == 4
-    assert {"id", "method", "response_time_ms"} <= set(rows[0].keys())
+    assert {"id", "method", "response_time_ms", "url"} <= set(rows[0].keys())
 
 
 def test_rows_subfilter_reduces_count():

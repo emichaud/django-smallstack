@@ -53,6 +53,12 @@ class DatasetDef:
     enable_mcp: bool = False
     # MCP access tier for the generated tool. Secure default: staff-only.
     mcp_access: str = "staff"
+    # Where a row's object can be viewed. ``None`` (default) resolves
+    # generically — the model's CRUDView detail route, else its
+    # ``get_absolute_url()``; a callable ``(obj) -> str | None`` or a URL route
+    # name (reversed with ``pk=``) overrides that; ``False`` opts out. The
+    # resolved URL rides on every row as the ``url`` key (see Dataset.link_for).
+    link: Any = None
 
     def __post_init__(self) -> None:
         if not self.label:
@@ -96,6 +102,7 @@ def dataset(
     enable_api: bool = False,
     enable_mcp: bool = False,
     mcp_access: str = "staff",
+    link: Any = None,
 ) -> Callable[[Callable], Callable]:
     """Decorator: register a function returning a QuerySet as a named dataset.
 
@@ -114,6 +121,12 @@ def dataset(
     filter values are the ``filters=`` arg on ``rows()``/``series()``/``scalar()``.)
     The old ``filters=`` decorator kwarg is a deprecated alias — accepted with a
     ``DeprecationWarning`` — kept for ≥2 minor releases.
+
+    ``link=`` says where a row's object can be viewed. Left at ``None`` the
+    framework resolves it: the model's CRUDView detail page, else the model's
+    ``get_absolute_url()``. Pass a callable ``(obj) -> str | None``, or a URL
+    route name reversed with ``pk=<obj.pk>``, to override; ``link=False`` opts
+    out. The result is the ``url`` key on every row (rows, REST, MCP, CSV).
     """
     if filters is not None:
         import warnings
@@ -140,6 +153,7 @@ def dataset(
                 enable_api=enable_api,
                 enable_mcp=enable_mcp,
                 mcp_access=mcp_access,
+                link=link,
             )
         )
         return fn

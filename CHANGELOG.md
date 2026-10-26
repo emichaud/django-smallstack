@@ -9,6 +9,42 @@ Breaking-change migration recipes live in [`UPGRADING.md`](UPGRADING.md).
 
 ## [Unreleased]
 
+### Added
+- **Bundled framework datasets.** Every module that creates data now ships a
+  lightweight, read-only `@dataset` over it — 27 datasets keyed
+  `smallstack_<thing>` (requests, log records, heartbeats + the daily rollup,
+  task attempts, workers, scheduled jobs + runs, webhook endpoints /
+  deliveries / receivers / receipts, notifications, approval requests,
+  collected feed items, blog posts / subscriptions / issues / deliveries,
+  runbook documents + versions, users, profiles, API tokens, backups). They
+  are the browse/report seam downstream reporting tools build on:
+  `get_dataset("smallstack_…")` in-process, `/smallstack/datasets/smallstack_…/`
+  over REST (staff-gated, `?format=csv`). Declared through
+  `apps.datasets.framework.framework_dataset`, which enforces the reserved
+  prefix and an explicit column allow-list — credential hashes, secrets,
+  OAuth codes, payloads, bodies and task kwargs are never columns. Newsletter
+  issues declare `sent_pct` / `failed_pct` ratio measures (sum over sum, never
+  an average of percentages). New settings:
+  `SMALLSTACK_FRAMEWORK_DATASETS_ENABLED` (default on) and
+  `SMALLSTACK_FRAMEWORK_DATASETS_MCP` (default off — set it to also publish
+  each as a staff-tier `query_dataset_smallstack_<thing>` MCP tool). See the
+  "Bundled framework datasets" section of `docs/skills/datasets.md`.
+- **Dataset browser.** A staff page at `/smallstack/datasets/browse/`
+  ("Datasets" in the admin nav) lists every registered dataset and opens each
+  in a generic, schema-driven viewer: filter widgets from
+  `schema()["filters"]` (dropdowns, text, date presets + from/before range),
+  a sortable paged table from `schema()["columns"]`, a roll-up card (group by
+  any column, optional measure + aggregate, declared ratios included) and a
+  Download CSV card that deep-links the REST export with the active filters.
+  Hard-codes no model, so a downstream `@dataset` shows up with no wiring.
+- **Dataset row links.** Every dataset row now carries a `url` key — the
+  page where that record can be viewed — on `rows()`, REST, MCP and as the
+  CSV's last column; `schema()["links"]` advertises it and the browser
+  renders the first column as the link. Resolved generically from the model's
+  CRUDView page (detail, else edit) or `get_absolute_url()`; `@dataset(link=…)`
+  takes a callable or a route name to override, `link=False` opts out. A link
+  that can't be built is `null`, never an error.
+
 ## [0.26.0] - 2026-10-25
 
 ### Added

@@ -6,7 +6,7 @@
 
 ## The one-paragraph model
 
-Declare a dataset with `@dataset` over a queryset. The base derives everything a UI needs from `qs.model`: **column names, datatypes, a dimension/measure role, and ready-made filter widgets**. A visual builder then: lists datasets → reads one dataset's schema → offers field/filter pickers → asks for filtered `rows` or a grouped `series`. The builder is generic — it never hard-codes a model. Base ships **zero** datasets; you (or a downstream project) declare them.
+Declare a dataset with `@dataset` over a queryset. The base derives everything a UI needs from `qs.model`: **column names, datatypes, a dimension/measure role, and ready-made filter widgets**. A visual builder then: lists datasets → reads one dataset's schema → offers field/filter pickers → asks for filtered `rows` or a grouped `series`. The builder is generic — it never hard-codes a model. Base ships one read-only `smallstack_<thing>` dataset per framework module (see [Bundled framework datasets](#bundled-framework-datasets)); you declare your own domain datasets alongside them.
 
 ## Declare a dataset
 
@@ -282,6 +282,26 @@ honour. Two cases are therefore advertised as *nothing*:
 **Not offered is not the same as not supported** — the filter still applies in
 both cases when you pass the param. Render your own control if you want one. A `.values().annotate()` queryset yields plain dicts (no model instance), so `rows()` returns those annotated dicts projected onto your declared columns (any extra annotation keys are appended) — no FK `expand` applies to a values-queryset since it's already reduced to scalars.
 
+## Row links — where to view the object
+
+Every row from `rows()` (and so REST, MCP and the CSV's last column) carries a **`url`** key: the page where that record can be viewed, or `null`. `schema()["links"]` says whether a dataset provides it. The staff browser renders the first column as that link.
+
+Resolution needs no code for most datasets. In order:
+
+1. **`link=`** on the decorator — a callable `(obj) -> str | None`, or a URL route name reversed with `pk=<obj.pk>`.
+2. The model's **CRUDView** page: its detail route, else (as `{% crud_table %}` does) its edit route.
+3. The model's **`get_absolute_url()`**.
+
+`link=False` opts out. A dataset whose own column is named `url` keeps that column and gets no link key. A link that cannot be built (no route, a raising callable) is `null`, never an error.
+
+```python
+@dataset("open_tickets", link="tickets:detail")            # reverse("tickets:detail", pk=…)
+@dataset("log_lines", link=lambda r: f"/logs/?request_id={r.request_id}")
+@dataset("rollup", columns=[...], link=False)              # a .values() rollup has no object
+```
+
+The bundled datasets lean on the CRUDView fallback (every explorer-registered model has one), with three explicit links: log records open the logs page filtered to their request or trace id, capture windows open the logs page, notifications open the page they point at.
+
 ## Exposing to agents (MCP)
 
 Set `enable_mcp=True` and the dataset becomes a `query_dataset_<key>` tool: the agent passes filter args, gets rows — or passes `group_by` (+ optional `measure`/`agg`) for a `[{label, value}]` series, or `scalar=true` (+ `measure`/`agg`, no `group_by`) for a single KPI number. The filter args apply in **all three** modes (rows, series, scalar), so a grouped or aggregated answer respects the same filters. FK columns come back expanded (`{id, name}`) so the agent reads names, not pks. A site-level `list_datasets` tool lets the agent discover what's queryable. Secure default is `mcp_access="staff"`; widen deliberately. This is the same "declare once, surface everywhere" pattern as `enable_api`/`enable_mcp` on a CRUDView.
@@ -298,6 +318,46 @@ qs = ds.queryset(request, filters={"status": "unanswered"})   # → a plain Quer
 
 `queryset(request=None, filters=None)` returns the dataset's queryset with the standard filter pipeline applied and **nothing else** — no serialization, limit, ordering, or expand. Same filter contract as `rows()` (unknown keys ignored); per-user scoping via the dataset function's `request` arg happens inside. Guaranteed: `ds.queryset(r, f).count() == len(ds.rows(request=r, filters=f))` for the same filters (unlimited). This is the supported seam for a reporter/BI layer that treats datasets as its source of blessed, filterable scopes.
 
+## Bundled framework datasets
+
+Every framework module that creates data ships a lightweight, read-only dataset over it — the browse/report seam a downstream reporting tool builds on without re-deriving column lists or working out which fields are safe to show. They are declared in each app's `datasets.py` through `apps.datasets.framework.framework_dataset`, which applies three conventions:
+
+- **Namespaced keys** — every key is `smallstack_<thing>` (the registry is first-wins, so a bare `notifications` key would shadow yours; the prefix is reserved for the framework).
+- **Explicit column allow-lists** — rows project onto the declared columns, so credential hashes, webhook secrets, OAuth codes, raw payloads/bodies, post bodies and task kwargs are never columns.
+- **Uniform exposure** — REST is always on (staff-gated, `?format=csv` works); MCP tools follow `SMALLSTACK_FRAMEWORK_DATASETS_MCP` (default **off** — two dozen `query_dataset_*` tools crowd an agent's list). `SMALLSTACK_FRAMEWORK_DATASETS_ENABLED=False` registers none of them.
+
+| Module | Keys |
+|---|---|
+| Core (`apps/smallstack`) | `smallstack_api_tokens`, `smallstack_backups` |
+| User manager | `smallstack_users` |
+| Profile | `smallstack_user_profiles` |
+| Activity | `smallstack_requests` |
+| Telemetry | `smallstack_log_records`, `smallstack_log_capture_windows` |
+| Heartbeat | `smallstack_heartbeats`, `smallstack_heartbeat_daily`, `smallstack_maintenance_windows` |
+| Tasks | `smallstack_task_attempts`, `smallstack_worker_heartbeats` |
+| Scheduler | `smallstack_scheduled_jobs`, `smallstack_scheduled_job_runs` |
+| Webhooks | `smallstack_webhook_endpoints`, `smallstack_webhook_deliveries`, `smallstack_webhook_receivers`, `smallstack_webhook_receipts` |
+| Notifications | `smallstack_notifications` |
+| Approvals | `smallstack_approval_requests` |
+| Feeds | `smallstack_collected_items` |
+| Blog | `smallstack_blog_posts`, `smallstack_blog_subscriptions`, `smallstack_blog_issues` (declared `sent_pct` / `failed_pct`), `smallstack_blog_deliveries` |
+| Runbook | `smallstack_runbook_documents`, `smallstack_runbook_document_versions` |
+
+Not covered on purpose: `LoginCode` and `OAuthAuthorizationCode` (credential tables), blog `Subscriber` (email addresses — reach subscribers through `smallstack_blog_subscriptions` by FK), and the modules with no models of their own (api, explorer, help, search, tokenmgr, datasets). `framework_dataset_keys()` lists what is registered at runtime.
+
+**The staff browser** — `/smallstack/datasets/browse/` ("Datasets" in the admin nav) lists every registered dataset (project ones first, then the bundled set) and opens each at `browse/<key>/`: a filter bar built from `schema()["filters"]` (choice/boolean dropdowns, text boxes, date presets + a from/before range), a sortable, paged table built from `schema()["columns"]`, a one-dimension roll-up (group by any column, optional measure + aggregate, declared ratios included) via `series()`, and a **Download CSV** card that deep-links the REST export with the active filters (hidden when the dataset doesn't publish REST). It is the reference consumer of the schema contract: it hard-codes no model, so a downstream `@dataset` appears there with zero extra work. Views live in `apps/datasets/views.py`.
+
+A downstream reporting tool consumes them exactly like any dataset:
+
+```python
+from apps.datasets.core import get_dataset
+
+ds = get_dataset("smallstack_requests")
+ds.series("status_code", filters={"timestamp": "week"})        # status mix this week
+ds.scalar(measure="response_time_ms", agg="avg", filters={"route": "/api/"})
+get_dataset("smallstack_blog_issues").scalar(measure="sent_pct")  # sum/sum, never avg-of-pct
+```
+
 ## When to reach for a dataset vs. a CRUDView
 
 - **Dataset** — read-only, analytical: "a filtered table to slice, chart, or export." No edit/detail pages. Can join/annotate/aggregate; source is any queryset.
@@ -313,7 +373,7 @@ They compose: a dataset can return a queryset over the same model a CRUDView man
 - `series()`/`scalar()` validate `dimension`/`measure` against the dataset's columns: an unknown name raises `ValueError` in-process and returns a JSON **400** over REST (not a 500). `rows()` still silently ignores unknown ordering/filter/expand keys.
 - **CSV export**: the rows route honours `?format=csv` — same rows + filters, streamed as a `text/csv` attachment (`<key>.csv`) with the schema columns as the header (expanded FK cells render as the name). That's the "export screen" path; no extra config.
 - `filterable` defaults to **all columns**. Numeric columns filter by exact match; text columns with many distinct values fall back to substring (`icontains`); low-cardinality columns become dropdowns.
-- Base ships **no datasets** — the app is the seam only. Declare yours in an app's `datasets.py`.
+- The bundled `smallstack_*` datasets are governed by `SMALLSTACK_FRAMEWORK_DATASETS_ENABLED` (default on) and `SMALLSTACK_FRAMEWORK_DATASETS_MCP` (default off). Declare your own in an app's `datasets.py`; never reuse the `smallstack_` prefix.
 
 ## Anti-patterns
 
