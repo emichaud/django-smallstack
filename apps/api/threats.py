@@ -107,7 +107,7 @@ def detect_auth_failure_burst(*, window_hours: int = 1, threshold: int = 10) -> 
         ).order_by("-timestamp")
         first = log_qs.last()
         last = log_qs.first()
-        paths = list(log_qs.values_list("path", flat=True).distinct()[:3])
+        paths = list(log_qs.order_by().values_list("path", flat=True).distinct()[:3])
         signals.append(
             ThreatSignal(
                 severity="high",
@@ -156,7 +156,7 @@ def detect_path_scanning(
         ).order_by("-timestamp")
         first = log_qs.last()
         last = log_qs.first()
-        paths = list(log_qs.values_list("path", flat=True).distinct()[:3])
+        paths = list(log_qs.order_by().values_list("path", flat=True).distinct()[:3])
         signals.append(
             ThreatSignal(
                 severity="medium",
@@ -205,7 +205,7 @@ def detect_request_burst(
         ).order_by("-timestamp")
         first = log_qs.last()
         last = log_qs.first()
-        paths = list(log_qs.values_list("path", flat=True).distinct()[:3])
+        paths = list(log_qs.order_by().values_list("path", flat=True).distinct()[:3])
         signals.append(
             ThreatSignal(
                 severity="medium",
@@ -258,7 +258,7 @@ def detect_scanner_user_agents(*, window_hours: int = 24) -> list[ThreatSignal]:
         ).order_by("-timestamp")
         first = log_qs.last()
         last = log_qs.first()
-        paths = list(log_qs.values_list("path", flat=True).distinct()[:3])
+        paths = list(log_qs.order_by().values_list("path", flat=True).distinct()[:3])
         signals.append(
             ThreatSignal(
                 severity="medium",
@@ -303,7 +303,7 @@ def detect_revoked_token_use(*, window_hours: int = 24) -> list[ThreatSignal]:
         ).order_by("-timestamp")
         first = log_qs.last()
         last = log_qs.first()
-        paths = list(log_qs.values_list("path", flat=True).distinct()[:3])
+        paths = list(log_qs.order_by().values_list("path", flat=True).distinct()[:3])
         signals.append(
             ThreatSignal(
                 severity="low",

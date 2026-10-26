@@ -633,7 +633,9 @@ def repair_missed_retries(*, now: datetime | None = None) -> int:
         .exclude(exception_class_path__in=BOOKKEEPING_PATHS)
     )
     retryable_paths = [
-        path for path in recent.values_list("task_path", flat=True).distinct() if policy_for(path).attempts() > 1
+        path
+        for path in recent.order_by().values_list("task_path", flat=True).distinct()
+        if policy_for(path).attempts() > 1
     ]
     pinned = TaskAttempt.objects.filter(max_attempts__gt=1).values("result_id")
     candidates = (

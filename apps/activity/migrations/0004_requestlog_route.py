@@ -12,7 +12,13 @@ def backfill_routes(apps, schema_editor):
     from django.urls import Resolver404, resolve
 
     RequestLog = apps.get_model("activity", "RequestLog")
-    paths = RequestLog.objects.filter(route="").values_list("path", flat=True).distinct()
+    # .order_by() clears Meta.ordering ("-timestamp"). Without it Django adds the
+    # ordering column to the SELECT, so DISTINCT applies to (path, timestamp) and
+    # this loop runs once per ROW rather than once per distinct path — which is
+    # exactly what the docstring above promises it does not do.
+    paths = (
+        RequestLog.objects.filter(route="").order_by().values_list("path", flat=True).distinct()
+    )
     for path in paths:
         try:
             match = resolve(path)

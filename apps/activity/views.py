@@ -356,7 +356,12 @@ class UserActivityView(ActivityPageView):
             page = paginate_queryset(users, self.request, page_size=self.page_size)
             return {"recent_signups": page, "page_obj": page}
         if tab == "inactive":
-            seen = qs.filter(user__isnull=False).values_list("user__pk", flat=True).distinct()
+            seen = (
+                qs.filter(user__isnull=False)
+                .order_by()
+                .values_list("user__pk", flat=True)
+                .distinct()
+            )
             users = User.objects.exclude(pk__in=seen)
             if since is not None:
                 # Dormant = nothing logged in the window AND no login inside it either.

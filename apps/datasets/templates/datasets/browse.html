@@ -173,17 +173,27 @@
     </div>
     <div class="card-body" style="padding: 0;">
         <div class="ds-wrap">
-        <table class="table-plain ds-table">
+        {% comment %}
+        crud-table + data-table-key + th[data-field] is what table-resize.js keys
+        off (see apps/smallstack/docs/tables.md). A dataset's columns are
+        arbitrary and unknown in advance, so this is the table that benefits most
+        from being resizable — it was the one staff table that had not adopted the
+        pattern. The key carries the column list so stored widths are dropped when
+        the dataset's shape changes rather than misapplied.
+        {% endcomment %}
+        <table class="table-plain ds-table crud-table"
+               data-table-key="datasets/{{ dataset.key }}:{% for h in headers %}{{ h.key }}{% if not forloop.last %},{% endif %}{% endfor %}">
             <thead>
                 <tr>
                     {% for h in headers %}
-                    <th scope="col"{% if h.type == "integer" or h.type == "float" or h.type == "decimal" %} class="num"{% endif %} style="text-align: {% if h.type == "integer" or h.type == "float" or h.type == "decimal" %}right{% else %}left{% endif %};">
+                    <th scope="col" data-field="{{ h.key }}"{% if h.type == "integer" or h.type == "float" or h.type == "decimal" %} class="num"{% endif %} style="text-align: {% if h.type == "integer" or h.type == "float" or h.type == "decimal" %}right{% else %}left{% endif %};">
                         <a href="{% querystring ordering=h.next_ordering page=None %}"
                            style="color: inherit; text-decoration: none; display: inline-flex; align-items: center; gap: 0.3rem;"
                            {% if h.direction %}aria-sort="{% if h.direction == 'desc' %}descending{% else %}ascending{% endif %}"{% endif %}>
                             {{ h.label }}
                             <span aria-hidden="true" style="font-size: 0.65rem; width: 0.65em;{% if not h.direction %} visibility: hidden;{% endif %}">{% if h.direction == "desc" %}&#9660;{% else %}&#9650;{% endif %}</span>
                         </a>
+                        {% include "smallstack/crud/includes/col_resizer.html" with label=h.label %}
                     </th>
                     {% endfor %}
                 </tr>
