@@ -9,6 +9,8 @@ Breaking-change migration recipes live in [`UPGRADING.md`](UPGRADING.md).
 
 ## [Unreleased]
 
+## [0.27.0] - 2026-10-26
+
 ### Added
 - **Bundled framework datasets.** Every module that creates data now ships a
   lightweight, read-only `@dataset` over it — 27 datasets keyed
@@ -2442,7 +2444,8 @@ Condensed highlights of the v0.11 series (see git history for per-patch detail):
 See the git tag history (`git tag`) and `ai_cowork/audit_history/` for the full record of the
 v0.8–v0.10 API-server, modern-dark-theme, search, MCP, and Postgres eras.
 
-[Unreleased]: https://github.com/emichaud/django-smallstack/compare/v0.26.0...HEAD
+[Unreleased]: https://github.com/emichaud/django-smallstack/compare/v0.27.0...HEAD
+[0.27.0]: https://github.com/emichaud/django-smallstack/compare/v0.26.0...v0.27.0
 [0.26.0]: https://github.com/emichaud/django-smallstack/compare/v0.25.2...v0.26.0
 [0.25.2]: https://github.com/emichaud/django-smallstack/compare/v0.25.1...v0.25.2
 [0.25.1]: https://github.com/emichaud/django-smallstack/compare/v0.25.0...v0.25.1
