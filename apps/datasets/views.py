@@ -28,6 +28,8 @@ from .framework import is_framework_dataset
 from .registry import get_def
 
 PAGE_SIZE = 50
+#: Index page sizes (datasets per section); the first is the default.
+INDEX_PAGE_SIZES = (10, 25, 50, 100)
 SERIES_LIMIT = 50
 AGG_CHOICES = (("count", "Count"), ("sum", "Sum"), ("avg", "Average"), ("min", "Min"), ("max", "Max"))
 
@@ -35,11 +37,33 @@ AGG_CHOICES = (("count", "Count"), ("sum", "Sum"), ("avg", "Average"), ("min", "
 _PAGE_PARAMS = {"ordering", "page", "group_by", "measure", "agg"}
 
 
+def _pager(request: HttpRequest, page_obj: Page, param: str) -> dict[str, Any]:
+    """First/prev/next/last links for *page_obj* under query param *param*,
+    preserving every other query param. Built here because the
+    ``{% querystring %}`` tag takes literal keys, and the index pages two
+    lists on one URL (``fpage`` / ``ppage``)."""
+
+    def link(number: int) -> str:
+        params = request.GET.copy()
+        params[param] = str(number)
+        return "?" + params.urlencode()
+
+    paginator = page_obj.paginator
+    return {
+        "page_obj": page_obj,
+        "first": link(1) if page_obj.has_previous() else "",
+        "previous": link(page_obj.previous_page_number()) if page_obj.has_previous() else "",
+        "next": link(page_obj.next_page_number()) if page_obj.has_next() else "",
+        "last": link(paginator.num_pages) if page_obj.has_next() else "",
+    }
+
+
 class DatasetIndexView(StaffRequiredMixin, TemplateView):
     template_name = "datasets/index.html"
 
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
         context = super().get_context_data(**kwargs)
+        request = self.request
         framework: list[dict[str, Any]] = []
         project: list[dict[str, Any]] = []
         for entry in list_datasets():
@@ -64,14 +88,34 @@ class DatasetIndexView(StaffRequiredMixin, TemplateView):
             (framework if is_framework_dataset(entry["key"]) else project).append(row)
         framework.sort(key=lambda r: r["label"].lower())
         project.sort(key=lambda r: r["label"].lower())
+
+        per_page = _int_in(request.GET.get("per_page"), INDEX_PAGE_SIZES, INDEX_PAGE_SIZES[0])
+        framework_page = paginate_queryset(framework, request, page_size=per_page, page_param="fpage")
+        project_page = paginate_queryset(project, request, page_size=per_page, page_param="ppage")
+        # The per-page form must carry every param except the page numbers,
+        # which a new size invalidates.
+        keep = {k: v for k, v in request.GET.items() if k not in ("per_page", "fpage", "ppage")}
         context.update(
             {
                 "framework_datasets": framework,
                 "project_datasets": project,
+                "framework_pager": _pager(request, framework_page, "fpage"),
+                "project_pager": _pager(request, project_page, "ppage"),
+                "per_page": per_page,
+                "page_sizes": INDEX_PAGE_SIZES,
+                "keep_params": keep,
                 "total": len(framework) + len(project),
             }
         )
         return context
+
+
+def _int_in(raw: Any, allowed: tuple[int, ...], default: int) -> int:
+    try:
+        value = int(raw)
+    except (TypeError, ValueError):
+        return default
+    return value if value in allowed else default
 
 
 class DatasetBrowseView(StaffRequiredMixin, TemplateView):

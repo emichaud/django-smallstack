@@ -23,6 +23,15 @@
         margin-right: 4px; white-space: nowrap;
     }
     .ds-pill.on { border-color: var(--primary); color: var(--primary); }
+    .ds-card-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+    .ds-card-head h2 { margin: 0; }
+    .ds-count { color: var(--body-quiet-color); font-size: 0.8rem; font-weight: 400; margin-left: 8px; }
+    .ds-per-page { display: inline-flex; align-items: center; gap: 6px; font-size: 0.78rem; color: var(--body-quiet-color); }
+    .ds-per-page select {
+        background: var(--input-bg); border: 1px solid var(--input-border); color: var(--body-fg);
+        border-radius: 6px; padding: 3px 6px; font-size: 0.78rem; width: auto; margin: 0;
+    }
+    .paginator { padding: 10px 14px; }
     @media (max-width: 720px) { .ds-hide-sm { display: none; } }
 </style>
 {% endblock %}
@@ -46,20 +55,31 @@
 {% endblock %}
 
 {% block content %}
+<form method="get" class="ds-per-page" style="margin-bottom: 12px; justify-content: flex-end;">
+    {% for k, v in keep_params.items %}<input type="hidden" name="{{ k }}" value="{{ v }}">{% endfor %}
+    <label for="ds-per-page">Per page</label>
+    <select id="ds-per-page" name="per_page" onchange="this.form.submit()">
+        {% for n in page_sizes %}<option value="{{ n }}" {% if n == per_page %}selected{% endif %}>{{ n }}</option>{% endfor %}
+    </select>
+    <noscript><button type="submit" class="btn-outline btn-sm">Go</button></noscript>
+</form>
+
 {% if project_datasets %}
 <div class="card" style="margin-bottom: 16px;">
-    <div class="card-header"><h2>Project datasets</h2></div>
+    <div class="card-header ds-card-head"><h2>Project datasets<span class="ds-count">{{ project_datasets|length }}</span></h2></div>
     <div class="card-body" style="padding: 0;">
-        {% include "datasets/_index_table.html" with rows=project_datasets %}
+        {% include "datasets/_index_table.html" with rows=project_pager.page_obj.object_list %}
+        {% include "datasets/_index_pager.html" with pager=project_pager label="Project datasets" %}
     </div>
 </div>
 {% endif %}
 
 <div class="card">
-    <div class="card-header"><h2>Framework datasets</h2></div>
+    <div class="card-header ds-card-head"><h2>Framework datasets<span class="ds-count">{{ framework_datasets|length }}</span></h2></div>
     <div class="card-body" style="padding: 0;">
         {% if framework_datasets %}
-            {% include "datasets/_index_table.html" with rows=framework_datasets %}
+            {% include "datasets/_index_table.html" with rows=framework_pager.page_obj.object_list %}
+            {% include "datasets/_index_pager.html" with pager=framework_pager label="Framework datasets" %}
         {% else %}
             <p style="padding: 16px; color: var(--body-quiet-color); margin: 0;">
                 The bundled datasets are switched off (<code>SMALLSTACK_FRAMEWORK_DATASETS_ENABLED</code>).

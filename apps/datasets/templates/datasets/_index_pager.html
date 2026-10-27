@@ -1,0 +1,16 @@
+{% comment %}Pager for one index section. `pager` comes from views._pager (links
+already carry the section's own page param), `label` names the nav for AT.{% endcomment %}
+{% with page_obj=pager.page_obj %}
+{% if page_obj.paginator.num_pages > 1 %}
+<div class="paginator">
+    <span class="paginator-info">Showing {{ page_obj.showing_start }}&ndash;{{ page_obj.showing_end }} of {{ page_obj.total_count }}</span>
+    <nav class="paginator-nav" aria-label="{{ label }} pagination">
+        <a class="paginator-btn{% if not pager.first %} disabled{% endif %}" {% if pager.first %}href="{{ pager.first }}"{% endif %} aria-label="First page">&laquo;</a>
+        <a class="paginator-btn{% if not pager.previous %} disabled{% endif %}" {% if pager.previous %}href="{{ pager.previous }}"{% endif %} aria-label="Previous page">&lsaquo;</a>
+        <span class="paginator-current">{{ page_obj.number }}<span class="paginator-of">of</span>{{ page_obj.paginator.num_pages }}</span>
+        <a class="paginator-btn{% if not pager.next %} disabled{% endif %}" {% if pager.next %}href="{{ pager.next }}"{% endif %} aria-label="Next page">&rsaquo;</a>
+        <a class="paginator-btn{% if not pager.last %} disabled{% endif %}" {% if pager.last %}href="{{ pager.last }}"{% endif %} aria-label="Last page">&raquo;</a>
+    </nav>
+</div>
+{% endif %}
+{% endwith %}

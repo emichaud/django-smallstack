@@ -9,6 +9,11 @@ Breaking-change migration recipes live in [`UPGRADING.md`](UPGRADING.md).
 
 ## [Unreleased]
 
+### Changed
+- **Dataset browser index is paged.** Each section (Project / Framework)
+  pages independently (`ppage` / `fpage`) with a shared per-page selector
+  (10, 25, 50, 100; default 10) that preserves the other query params.
+
 ## [0.27.0] - 2026-10-26
 
 ### Added

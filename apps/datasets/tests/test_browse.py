@@ -56,8 +56,9 @@ def test_index_lists_framework_and_project_datasets(client, staff):
         assert resp.status_code == 200
         html = resp.content.decode()
         assert "Framework datasets" in html and "Project datasets" in html
-        assert "smallstack_requests" in html and "Project thing" in html
-        assert _browse("smallstack_requests") in html and _browse(key) in html
+        assert "smallstack_api_tokens" in html and "Project thing" in html  # page 1 of each section
+        assert _browse("smallstack_api_tokens") in html and _browse(key) in html
+        assert {d["key"] for d in resp.context["framework_datasets"]} >= {"smallstack_requests"}
     finally:
         unregister(key)
 
@@ -149,3 +150,21 @@ def test_browse_hides_csv_for_a_dataset_without_rest(client, staff):
 def test_nav_has_a_datasets_entry(client, staff):
     html = client.get(INDEX).content.decode()
     assert 'href="/smallstack/datasets/browse/"' in html
+
+
+def test_index_pages_each_section_with_a_selectable_size(client, staff):
+    from apps.datasets.views import INDEX_PAGE_SIZES
+
+    resp = client.get(INDEX)
+    fw = resp.context["framework_pager"]["page_obj"]
+    assert fw.paginator.per_page == INDEX_PAGE_SIZES[0] == 10
+    assert len(fw.object_list) == 10 and fw.paginator.num_pages >= 3
+    assert "fpage=2" in resp.content.decode()
+    # Page 2 of the framework section, other params preserved in its links.
+    resp = client.get(INDEX, {"fpage": 2, "per_page": 10})
+    fw = resp.context["framework_pager"]["page_obj"]
+    assert fw.number == 2 and "per_page=10" in resp.context["framework_pager"]["next"]
+    # A larger page size; a bogus one falls back to the default.
+    assert client.get(INDEX, {"per_page": 50}).context["per_page"] == 50
+    assert client.get(INDEX, {"per_page": 7}).context["per_page"] == 10
+    assert client.get(INDEX, {"per_page": "x", "fpage": "zz"}).status_code == 200
