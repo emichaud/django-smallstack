@@ -865,6 +865,13 @@ def _field_to_schema(name: str, form_field: forms.Field, model: type[Model]) -> 
         info["type"] = "fk"
         if form_field.queryset is not None:
             info["related_model"] = form_field.queryset.model.__name__
+    elif isinstance(form_field, forms.MultipleChoiceField):
+        # A subclass of ChoiceField, so it must be matched first. The wire value
+        # is a LIST of choice keys — advertised as such so a schema-strict
+        # client (MCP, OpenAPI codegen) sends an array, not one string.
+        info["type"] = "multichoice"
+        choices = cast("list[tuple[Any, Any]]", form_field.choices)
+        info["choices"] = [[v, str(label)] for v, label in choices if v != ""]
     elif isinstance(form_field, forms.TypedChoiceField) or isinstance(form_field, forms.ChoiceField):
         info["type"] = "choice"
         # .choices is a normalized list of pairs at runtime; the stub type is a

@@ -18,8 +18,20 @@ from .core import list_calendars
 from .models import SavedCalendarView
 
 
+class CalendarKeysField(forms.MultipleChoiceField):
+    """A multiple-choice field that also accepts one key or a comma-separated
+    string — what an agent typing into a chat is likely to send — and
+    normalises it to the list the choice validation expects."""
+
+    def to_python(self, value: Any) -> list[str]:
+        if isinstance(value, str):
+            value = [part.strip() for part in value.split(",") if part.strip()]
+        result: list[str] = super().to_python(value)
+        return result
+
+
 class SavedCalendarViewForm(forms.ModelForm):
-    datasets = forms.MultipleChoiceField(
+    datasets = CalendarKeysField(
         required=False,
         widget=forms.CheckboxSelectMultiple(attrs={"class": "calendar-view-choices"}),
         help_text="Pick the calendars this view shows together.",

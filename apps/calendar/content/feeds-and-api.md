@@ -81,3 +81,17 @@ Two tools let an agent read the calendar:
 The saved-view resource also publishes the generated `list_calendar_views`,
 `create_calendar_view`, `update_calendar_view` and `delete_calendar_view`
 tools. All follow the calling user's access.
+
+A saved view is plain data — a name and a list of calendar keys — so an agent
+can build one from a sentence like "save a view of token expiry and approval
+deadlines as my default":
+
+```json
+list_calendars → pick the keys
+create_calendar_view {"name": "Deadlines",
+                      "datasets": ["smallstack_api_tokens", "smallstack_approval_requests"],
+                      "is_default": true}
+```
+
+`datasets` accepts a JSON array, a comma-separated string, or a single key; a
+key the user may not see is rejected as "not a valid choice".

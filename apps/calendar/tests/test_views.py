@@ -362,3 +362,32 @@ def test_mcp_calendar_events_validates_window_and_limit(staff, seeded):
     finally:
         reset_context(token)
 
+
+def test_saved_view_schema_is_an_array_of_keys_everywhere(client, staff):
+    """An agent builds a saved view from text: a name plus a list of calendar
+    keys. Every schema that describes the field must say "array"."""
+    from apps.mcp.server import TOOL_HANDLERS, TOOL_REGISTRY, ToolContext, reset_context, set_context
+
+    prop = TOOL_REGISTRY["create_calendar_view"].input_schema["properties"]["datasets"]
+    assert prop["type"] == "array" and prop["items"]["type"] == "string"
+    assert MW in prop["items"]["enum"]
+    # REST OPTIONS and the OpenAPI document agree.
+    fields = client.options("/smallstack/api/calendar/views/").json()["fields"]
+    assert fields["datasets"]["type"] == "multichoice" and [MW, "Maintenance windows"] in fields["datasets"]["choices"]
+    spec = client.get("/api/schema/openapi.json").json()
+    schema = next(v for k, v in spec["components"]["schemas"].items() if "SavedCalendarView" in k)
+    assert schema["properties"]["datasets"]["type"] == "array"
+    assert MW in schema["properties"]["datasets"]["items"]["enum"]
+    # The tool accepts a list, a comma-separated string, or one bare key.
+    token = set_context(ToolContext(user=staff, token=None))
+    try:
+        create = TOOL_HANDLERS["create_calendar_view"]
+        assert create({"name": "list", "datasets": [MW, BK]})["datasets"] == [MW, BK]
+        assert create({"name": "csv", "datasets": f"{MW}, {BK}"})["datasets"] == [MW, BK]
+        assert create({"name": "one", "datasets": MW, "is_default": True})["datasets"] == [MW]
+        assert "error" in create({"name": "bad", "datasets": "nope"})
+    finally:
+        reset_context(token)
+    assert SavedCalendarView.objects.filter(owner=staff).count() == 3
+    assert SavedCalendarView.objects.get(name="one").is_default
+

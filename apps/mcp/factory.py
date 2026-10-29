@@ -157,6 +157,7 @@ _JSON_SCHEMA_TYPES: dict[str, Any] = {
     "datetime": "string",
     "time": "string",
     "choice": "string",
+    "multichoice": "array",
     "file": "string",
     "integer": "integer",
     "fk": "integer",
@@ -174,6 +175,12 @@ def _to_json_schema_prop(schema: dict[str, Any]) -> dict[str, Any]:
     prop: dict[str, Any] = {"type": _JSON_SCHEMA_TYPES.get(internal, "string")}
     if internal == "choice" and schema.get("choices"):
         prop["enum"] = [c[0] for c in schema["choices"]]
+    if internal == "multichoice":
+        items: dict[str, Any] = {"type": "string"}
+        if schema.get("choices"):
+            items["enum"] = [c[0] for c in schema["choices"]]
+        prop["items"] = items
+        prop["description"] = "A list of choice keys (any subset of the allowed values)."
     if internal == "fk" and schema.get("related_model"):
         prop["description"] = f"Primary key of the related {schema['related_model']}."
     if schema.get("max_length") is not None:

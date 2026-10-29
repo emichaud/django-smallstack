@@ -45,6 +45,11 @@ def _smallstack_type_to_openapi(field_schema: dict[str, Any]) -> dict[str, Any]:
         base["type"] = "string"
         base["enum"] = [c[0] for c in field_schema["choices"]]
 
+    if st == "multichoice":
+        base = {"type": "array", "items": {"type": "string"}}
+        if "choices" in field_schema:
+            base["items"]["enum"] = [c[0] for c in field_schema["choices"]]
+
     if st == "fk" and "related_model" in field_schema:
         base["description"] = f"FK → {field_schema['related_model']}"
 

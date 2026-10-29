@@ -9,6 +9,15 @@ Breaking-change migration recipes live in [`UPGRADING.md`](UPGRADING.md).
 
 ## [Unreleased]
 
+### Fixed
+- **`MultipleChoiceField` was advertised as a single string.** The REST
+  OPTIONS metadata, the OpenAPI document and the generated MCP tool schemas
+  described a multiple-choice form field as `choice` / `"type": "string"` with
+  an enum, so a schema-strict client (Claude Desktop validates tool inputs)
+  would send one value where the form requires a list. Such a field is now
+  `multichoice` → `{"type": "array", "items": {"type": "string", "enum": […]}}`
+  on all three surfaces. (Found via the calendar's saved views.)
+
 ### Added
 - **Calendar app** (`apps/calendar/`, label `smallstack_calendar`) — a user
   app beside Runbook and My blogs. A *calendar dataset* is an ordinary
