@@ -1,0 +1,29 @@
+{% comment %}
+Month grid component. Context:
+  weeks            — from core.build_month_grid (cells carry .url when the caller set it)
+  weekday_headers  — list of 7 (or 5) names
+  weekends         — bool; False renders five columns
+Events on a cell carry .series / .status / .all_day / .start / .start_date / .title.
+Rendered by {% calendar_month %} or included directly.
+{% endcomment %}
+<div class="calendar-weekdays{% if not weekends %} cal-cols-5{% endif %}">
+    {% for name in weekday_headers %}<div class="calendar-weekday">{{ name }}</div>{% endfor %}
+</div>
+<div class="calendar-grid cal-grid{% if not weekends %} cal-cols-5{% endif %}">
+    {% for week in weeks %}{% for cell in week %}
+    {% if cell %}
+    <a href="{{ cell.url }}" class="calendar-cell cal-cell{% if cell.is_today %} calendar-cell--today{% endif %}{% if cell.is_selected %} calendar-cell--selected{% endif %}{% if cell.is_weekend %} cal-cell--weekend{% endif %}"
+       aria-label="{{ cell.date|date:'l, F j' }}: {{ cell.total }} event{{ cell.total|pluralize }}">
+        <span class="calendar-cell-day">{{ cell.day }}</span>
+        {% for ev in cell.events %}
+        <span class="cal-chip cal-series-{{ ev.series }}{% if ev.status %} cal-chip--{{ ev.status }}{% endif %}{% if not ev.all_day %} cal-chip--timed{% endif %}" title="{{ ev.title }}{% if ev.calendar_label %} · {{ ev.calendar_label }}{% endif %}">
+            {% if not ev.all_day and ev.start_date == cell.date %}<span class="cal-chip-time">{{ ev.start|date:"g:i A" }}</span>{% endif %}<span class="cal-chip-label">{{ ev.title }}</span>
+        </span>
+        {% endfor %}
+        {% if cell.overflow %}<span class="calendar-more cal-more">+{{ cell.overflow }} more</span>{% endif %}
+    </a>
+    {% else %}
+    <div class="calendar-cell calendar-cell--blank"></div>
+    {% endif %}
+    {% endfor %}{% endfor %}
+</div>

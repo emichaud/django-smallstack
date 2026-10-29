@@ -172,6 +172,10 @@
 .cal-bcard-meta { font-size: 0.74rem; color: var(--body-quiet-color); margin-left: 4px; }
 .cal-col-empty { margin: 4px 0; font-size: 0.76rem; color: var(--text-muted); }
 
+/* RangeBoardDisplay inside a CRUDView list page: board + day column */
+.cal-display-board-layout { display: grid; grid-template-columns: minmax(0, 1fr) 280px; gap: 14px; align-items: start; }
+@media (max-width: 960px) { .cal-display-board-layout { grid-template-columns: 1fr; } }
+
 /* Responsive — last in the file so these win over the base rules above. */
 @media (max-width: 1280px) {
     .cal-layout { grid-template-columns: minmax(0, 1fr) 260px; }

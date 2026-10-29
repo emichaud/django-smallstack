@@ -63,10 +63,16 @@ class CalendarEvent:
     url: Optional[str]
     start_date: date
     end_date: date
+    # Presentation: the calendar's human label and its 1-based ``--series-N``
+    # colour index. Set by ``collect_events`` / ``assign_series``; defaults keep
+    # a hand-built event renderable.
+    calendar_label: str = ""
+    series: int = 1
 
     def as_dict(self) -> dict[str, Any]:
         return {
             "calendar": self.calendar,
+            "calendar_label": self.calendar_label,
             "id": self.id,
             "title": self.title,
             "subtitle": self.subtitle,
@@ -148,29 +154,10 @@ class CalendarDataset:
         request: HttpRequest | None = None,
         filters: Optional[dict] = None,
     ) -> QuerySet:
-        """Rows touching the half-open day range ``[lower, upper)``.
-
-        Ranged calendars match on overlap (``start < upper and end >= lower``);
-        point calendars on ``lower <= start < upper``. Bounds are coerced to
-        the type each column expects (aware midnight for datetimes, the plain
-        date for dates) — the same rule ``CalendarDisplay`` applies.
-        """
-        from apps.smallstack.displays import _day_boundary
-
+        """Rows touching the half-open day range ``[lower, upper)`` — see
+        :func:`window_filter` for the rule."""
         self.validate()
-        qs = self.dataset.queryset(request, filters)
-        start_dt = self._col_is_datetime(self.spec.start)
-        upper_bound = _day_boundary(upper, start_dt)
-        if self.spec.end:
-            end_dt = self._col_is_datetime(self.spec.end)
-            return qs.filter(
-                **{f"{self.spec.start}__lt": upper_bound},
-                **{f"{self.spec.end}__gte": _day_boundary(lower, end_dt)},
-            )
-        return qs.filter(
-            **{f"{self.spec.start}__gte": _day_boundary(lower, start_dt)},
-            **{f"{self.spec.start}__lt": upper_bound},
-        )
+        return window_filter(self.dataset.queryset(request, filters), self.spec.start, self.spec.end, lower, upper)
 
     def count(self, lower: date, upper: date, request: HttpRequest | None = None) -> int:
         return self.window_queryset(lower, upper, request).count()
@@ -185,40 +172,104 @@ class CalendarDataset:
         filters: Optional[dict] = None,
     ) -> list[CalendarEvent]:
         """Normalised events in ``[lower, upper)``, ordered by start."""
-        from apps.smallstack.displays import _resolve_field, _to_local_date
-
         qs = self.window_queryset(lower, upper, request, filters).order_by(self.spec.start, "pk")
         if limit is not None:
             qs = qs[: max(1, int(limit))]
-        out: list[CalendarEvent] = []
-        for obj in qs:
-            raw_start = _resolve_field(obj, self.spec.start)
-            start_date = _to_local_date(raw_start)
-            if start_date is None:
-                continue
-            raw_end = _resolve_field(obj, self.spec.end) if self.spec.end else None
-            end_date = _to_local_date(raw_end) if raw_end is not None else start_date
-            if end_date < start_date:
-                end_date = start_date
-            title = _resolve_field(obj, self.spec.title) if self.spec.title else None
-            subtitle = _resolve_field(obj, self.spec.subtitle) if self.spec.subtitle else None
-            status = _resolve_field(obj, self.spec.status) if self.spec.status else None
-            out.append(
-                CalendarEvent(
-                    calendar=self.key,
-                    id=obj.pk,
-                    title=str(title) if title not in (None, "") else str(obj),
-                    subtitle=str(subtitle) if subtitle not in (None, "") else "",
-                    start=_localised(raw_start),
-                    end=_localised(raw_end) if raw_end is not None else None,
-                    all_day=not isinstance(raw_start, datetime),
-                    status=status if status in STATUS_VALUES else None,
-                    url=self.dataset.link_for(obj),
-                    start_date=start_date,
-                    end_date=end_date,
-                )
+        return events_from_objects(
+            qs,
+            start=self.spec.start,
+            end=self.spec.end,
+            title=self.spec.title,
+            subtitle=self.spec.subtitle,
+            status=self.spec.status,
+            url_for=self.dataset.link_for,
+            calendar=self.key,
+            calendar_label=self.label,
+        )
+
+
+def window_filter(qs: QuerySet, start: str, end: Optional[str], lower: date, upper: date) -> QuerySet:
+    """Narrow ``qs`` to rows touching the half-open day range ``[lower, upper)``.
+
+    Ranged rows (an ``end`` column) match on overlap (``start < upper and
+    end >= lower``); point rows on ``lower <= start < upper``. Bounds are
+    coerced to the type each column expects (aware midnight for datetimes,
+    the plain date for dates) — the same rule ``CalendarDisplay`` applies.
+    Shared by :class:`CalendarDataset` and :class:`~apps.calendar.displays.RangeBoardDisplay`.
+    """
+    from apps.smallstack.displays import _day_boundary, _is_datetime_field
+
+    model = qs.model
+    upper_bound = _day_boundary(upper, _is_datetime_field(model, start))
+    if end:
+        return qs.filter(
+            **{f"{start}__lt": upper_bound},
+            **{f"{end}__gte": _day_boundary(lower, _is_datetime_field(model, end))},
+        )
+    return qs.filter(
+        **{f"{start}__gte": _day_boundary(lower, _is_datetime_field(model, start))},
+        **{f"{start}__lt": upper_bound},
+    )
+
+
+def events_from_objects(
+    objs: Any,
+    *,
+    start: str,
+    end: Optional[str] = None,
+    title: Any = None,
+    subtitle: Any = None,
+    status: Any = None,
+    url_for: Any = None,
+    calendar: str = "",
+    calendar_label: str = "",
+) -> list[CalendarEvent]:
+    """Normalise model instances into :class:`CalendarEvent` rows.
+
+    ``start``/``end`` are attribute names (or dotted paths); ``title``,
+    ``subtitle`` and ``status`` are resolvers (attribute, dotted path, or
+    callable); ``url_for(obj)`` supplies the link. This is the one place a
+    row becomes an event — the dataset path and the CRUDView display both go
+    through it, so a chip means the same thing everywhere.
+    """
+    from apps.smallstack.displays import _resolve_field, _to_local_date
+
+    out: list[CalendarEvent] = []
+    for obj in objs:
+        raw_start = _resolve_field(obj, start)
+        start_date = _to_local_date(raw_start)
+        if start_date is None:
+            continue
+        raw_end = _resolve_field(obj, end) if end else None
+        end_date = _to_local_date(raw_end) if raw_end is not None else start_date
+        if end_date < start_date:
+            end_date = start_date
+        title_v = _resolve_field(obj, title) if title else None
+        subtitle_v = _resolve_field(obj, subtitle) if subtitle else None
+        status_v = _resolve_field(obj, status) if status else None
+        url = None
+        if url_for is not None:
+            try:
+                url = url_for(obj) or None
+            except Exception:  # noqa: BLE001 — a bad link must not break the row
+                url = None
+        out.append(
+            CalendarEvent(
+                calendar=calendar,
+                id=obj.pk,
+                title=str(title_v) if title_v not in (None, "") else str(obj),
+                subtitle=str(subtitle_v) if subtitle_v not in (None, "") else "",
+                start=_localised(raw_start),
+                end=_localised(raw_end) if raw_end is not None else None,
+                all_day=not isinstance(raw_start, datetime),
+                status=status_v if status_v in STATUS_VALUES else None,
+                url=url,
+                start_date=start_date,
+                end_date=end_date,
+                calendar_label=calendar_label,
             )
-        return out
+        )
+    return out
 
 
 def _localised(value: Any) -> Any:
@@ -280,6 +331,12 @@ def visible_calendars(user: Any) -> list[CalendarDataset]:
 def assign_series(cals: list[CalendarDataset]) -> dict[str, int]:
     """Map each calendar key to a 1-based ``--series-N`` colour index."""
     return {c.key: (i % SERIES_COUNT) + 1 for i, c in enumerate(cals)}
+
+
+def colourise(events: list[CalendarEvent], series: dict[str, int]) -> None:
+    """Stamp each event's ``series`` from a key → index map (in place)."""
+    for ev in events:
+        ev.series = series.get(ev.calendar, 1)
 
 
 def list_calendars(user: Any = None) -> list[dict[str, Any]]:
@@ -499,23 +556,31 @@ def build_range_board(
     return columns
 
 
-def group_by_calendar(
-    events: list[CalendarEvent], labels: dict[str, str], series: dict[str, int]
-) -> list[dict[str, Any]]:
-    """Group a day's events by calendar, in series order, for the day column."""
+def group_by_calendar(events: list[CalendarEvent]) -> list[dict[str, Any]]:
+    """Group a day's events by calendar (series order, then label) for the
+    day column. Reads each event's own ``calendar_label`` / ``series``."""
     groups: dict[str, dict[str, Any]] = {}
     for ev in events:
         group = groups.setdefault(
             ev.calendar,
-            {
-                "key": ev.calendar,
-                "label": labels.get(ev.calendar, ev.calendar),
-                "series": series.get(ev.calendar, 1),
-                "events": [],
-            },
+            {"key": ev.calendar, "label": ev.calendar_label or ev.calendar, "series": ev.series, "events": []},
         )
         group["events"].append(ev)
     return sorted(groups.values(), key=lambda g: (g["series"], g["label"]))
+
+
+def day_url(request: HttpRequest | None, day: Optional[date], day_param: str = "day") -> str:
+    """The current URL with ``day_param`` set to ``day`` (or removed when
+    ``None``) — the link a grid cell / board heading uses to select a day.
+    Every other query parameter is preserved, so the page's state survives."""
+    if request is None:
+        return f"?{day_param}={day.isoformat()}" if day else "?"
+    params = request.GET.copy()
+    params.pop(day_param, None)
+    if day is not None:
+        params[day_param] = day.isoformat()
+    encoded = params.urlencode()
+    return request.path + ("?" + encoded if encoded else "")
 
 
 def access_label(level: str) -> str:

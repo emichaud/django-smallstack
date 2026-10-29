@@ -47,7 +47,16 @@ Breaking-change migration recipes live in [`UPGRADING.md`](UPGRADING.md).
   grouped by calendar with a monospace time gutter). A **Month | 30 | 60 | 90
   days** control swaps the grid for a day-range board — one column per week,
   an entry card per event — and a **Weekends** toggle hides Sat/Sun in both.
-  Saved views open from an A–Z dropdown,
+  Saved views open from an A–Z dropdown. **The renderers are reusable
+  components**: partials under `calendar/components/` wrapped in the
+  `{% calendar_month %}`, `{% calendar_board %}` and `{% calendar_day %}`
+  template tags (driven by `CalendarEvent` rows from `collect_events` or the
+  new `core.events_from_objects`), and `apps.calendar.displays.RangeBoardDisplay`
+  — a `ListDisplay` sibling of `CalendarDisplay` that gives any CRUDView a
+  Table ⇄ Calendar ⇄ Board toggle (adopted by the scheduler's run history and
+  the maintenance-window explorer). `CalendarEvent` gained `calendar_label`
+  (also on the events API) and `series`. The shared page renders through the
+  same partials,
   month navigation, every state a link. **Saved views** (`SavedCalendarView`:
   name + list of calendar keys, one default per owner) are a per-user CRUDView
   with REST (`/smallstack/api/calendar/views/`) and MCP; **Save this view**

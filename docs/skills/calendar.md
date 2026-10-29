@@ -139,6 +139,51 @@ tints the chip's left edge with the semantic vars and adds a dot in the panel.
 Grid CSS reuses the `.calendar-*` classes from `components.css`; the page's
 own rules are `.cal-*` in `apps/calendar/static/calendar/css/calendar.css`.
 
+## Reusing the components on another page
+
+The three renderers are partials under `templates/calendar/components/`
+(`month_grid.html`, `range_board.html`, `day_column.html`), driven only by
+`CalendarEvent` rows, and wrapped in template tags:
+
+```django
+{% load static calendar_tags %}
+<link rel="stylesheet" href="{% static 'calendar/css/calendar.css' %}">
+
+{% calendar_month events cursor selected_day=day weekends=False %}   {# the month of `cursor` #}
+{% calendar_board events lower upper selected_day=day %}              {# week columns for [lower, upper) #}
+{% calendar_day events day explicit=True %}                            {# one day, grouped by calendar #}
+```
+
+Build `events` however you like — `collect_events(cals, lower, upper, request)`
+for registered calendars, or `core.events_from_objects(qs, start=…, end=…,
+title=…, status=…, url_for=…, calendar_label=…)` for any queryset — then
+`colourise(events, assign_series(cals))` if you want per-calendar colours.
+Day selection is a link: cells and headings point at the **current URL with
+`?day=YYYY-MM-DD`** (`core.day_url`), so the host view reads `day` from its
+own query string and passes it back as `selected_day`. The shared page
+(`views.CalendarPageView`) renders through these same partials.
+
+**On a CRUDView** list page, add the board beside the month view with no
+template at all — `apps.calendar.displays.RangeBoardDisplay` is a `ListDisplay`
+sibling of `CalendarDisplay`:
+
+```python
+from apps.calendar.displays import RangeBoardDisplay
+
+displays = [
+    TableDisplay,
+    CalendarDisplay(date_field="scheduled_for", title_field="job_name", status_field="calendar_status"),
+    RangeBoardDisplay(date_field="scheduled_for", title_field="job_name",
+                      subtitle_field="message", status_field="calendar_status", days=30),
+]
+```
+
+The list page gains a Table ⇄ Calendar ⇄ Board toggle; the board reads
+`?display=board&range=30|60|90&from=&day=&weekends=0`, filters the queryset
+to the window with `core.window_filter`, and shows the day column beside the
+columns. Rows link to the detail page when the CRUDView has `Action.DETAIL`.
+Live examples: the scheduler's run history and the maintenance-window explorer.
+
 ## Saved views (`models.SavedCalendarView` + `views.SavedCalendarViewCRUDView`)
 
 `owner`, `name` (unique per owner), `datasets` (JSON list of keys),

@@ -31,6 +31,7 @@ from .core import (
     build_month_grid,
     build_range_board,
     collect_events,
+    colourise,
     events_on,
     group_by_calendar,
     month_bounds,
@@ -126,9 +127,7 @@ class CalendarPageView(LoginRequiredMixin, TemplateView):
 
         # -- events -----------------------------------------------------------
         events, counts, capped = collect_events(selected, lower, upper, request)
-        for ev in events:
-            ev.series = series.get(ev.calendar, 1)  # type: ignore[attr-defined]
-            ev.calendar_label = labels.get(ev.calendar, ev.calendar)  # type: ignore[attr-defined]
+        colourise(events, series)
         # The right column always shows a day: the one clicked, else today
         # when it is in the window. Only an explicit click outlines a cell.
         panel_day = selected_day if selected_day is not None else (today if lower <= today < upper else None)
@@ -266,7 +265,11 @@ class CalendarPageView(LoginRequiredMixin, TemplateView):
                 "panel_day_is_today": panel_day == today,
                 "selected_day_label": panel_day.strftime("%A, %B %-d") if panel_day else "",
                 "day_events": day_events,
-                "day_groups": group_by_calendar(day_events, labels, series),
+                "day_groups": group_by_calendar(day_events),
+                "day_hint": "Showing today. Click any day to see its events here."
+                if panel_day == today and selected_day is None
+                else "",
+                "day_empty_text": "Nothing on this day — pick a calendar first." if not selected_keys else "",
                 "close_day_url": link(day=None),
                 "saved_views": [
                     {

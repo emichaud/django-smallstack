@@ -1,0 +1,28 @@
+{% comment %}
+Day-range board component — one column per week. Context:
+  board — from core.build_range_board (each day carries .url when the caller set it)
+Rendered by {% calendar_board %} or included directly.
+{% endcomment %}
+<div class="cal-board" role="list">
+    {% for col in board %}
+    <section class="cal-col{% if col.is_current %} is-current{% endif %}" role="listitem" aria-label="Week of {{ col.start|date:'M j' }}">
+        <header class="cal-col-head">
+            <span class="cal-col-label">{{ col.label }}</span>
+            <span class="cal-col-count">{{ col.count }}</span>
+        </header>
+        <div class="cal-col-body">
+            {% for d in col.days %}
+            <a href="{{ d.url }}" class="cal-dayhead{% if d.is_today %} is-today{% endif %}{% if d.is_selected %} is-selected{% endif %}">{{ d.date|date:"D j"|upper }}{% if d.is_today %} <span class="cal-dayhead-today">· Today</span>{% endif %}</a>
+            {% for ev in d.events %}
+            <{% if ev.url %}a href="{{ ev.url }}"{% else %}div{% endif %} class="cal-bcard cal-series-{{ ev.series }}{% if ev.status %} cal-bcard--{{ ev.status }}{% endif %}" title="{{ ev.calendar_label }}">
+                <span class="cal-bcard-title">{{ ev.title }}</span>
+                <span class="cal-bcard-meta">{% if not ev.all_day and ev.start_date == d.date %}{{ ev.start|date:"g:i A" }}{% if ev.subtitle %} · {% endif %}{% endif %}{{ ev.subtitle }}</span>
+            </{% if ev.url %}a{% else %}div{% endif %}>
+            {% endfor %}
+            {% empty %}
+            <p class="cal-col-empty">Nothing scheduled.</p>
+            {% endfor %}
+        </div>
+    </section>
+    {% endfor %}
+</div>

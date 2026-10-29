@@ -244,7 +244,10 @@ def test_api_list_and_events(client, staff, seeded):
     body = resp.json()
     assert body["count"] == 3 and body["counts"] == {MW: 1, BK: 2} and body["calendars"] == [MW, BK]
     first = body["results"][0]
-    assert set(first) == {"calendar", "id", "title", "subtitle", "start", "end", "all_day", "status", "url"}
+    assert set(first) == {
+        "calendar", "calendar_label", "id", "title", "subtitle", "start", "end", "all_day", "status", "url"
+    }
+    assert first["calendar_label"] == "Backups"
     assert [r["title"] for r in body["results"]] == ["nightly.sqlite3", "DB upgrade", "failed"]
     assert body["results"][2]["status"] == "danger"
 
@@ -439,3 +442,63 @@ def test_day_column_groups_by_calendar_and_views_dropdown(client, staff, seeded)
     assert html.index(">Alpha<") < html.index(">Zeta<")  # alphabetical
     assert "month=2026-04" in [v["url"] for v in resp.context["saved_views"]][0]  # keeps the window
 
+
+
+
+def test_components_render_from_events_via_template_tags(client, staff, seeded):
+    """Another page can render the grid, the board and the day column from a
+    list of events in one tag each — no view context required."""
+    from datetime import date
+
+    from django.template import Context, Template
+    from django.test import RequestFactory
+
+    from apps.calendar.core import collect_events, get_calendar
+
+    cal = get_calendar(BK)
+    assert cal is not None
+    events, _, _ = collect_events([cal], date(2026, 4, 1), date(2026, 5, 1))
+    request = RequestFactory().get("/anywhere/", {"foo": "bar", "day": "2026-04-03"})
+    html = Template(
+        "{% load calendar_tags %}"
+        "{% calendar_month events cursor selected_day=day weekends=False %}"
+        "{% calendar_board events lower upper selected_day=day %}"
+        "{% calendar_day events day %}"
+    ).render(Context({
+        "request": request, "events": events, "cursor": date(2026, 4, 1),
+        "lower": date(2026, 4, 1), "upper": date(2026, 5, 1), "day": date(2026, 4, 3),
+    }))
+    assert html.count('class="calendar-weekday"') == 5                     # weekday-only grid
+    assert 'href="/anywhere/?foo=bar&amp;day=2026-04-20"' in html          # cell links keep the page's own params
+    assert 'class="cal-col-label">Mar 30–Apr 5' in html and "FRI 3" in html  # the board
+    assert "Friday, April 3" in html and 'cal-day-group-title">Backups' in html  # the day column
+    assert "nightly.sqlite3" in html
+
+
+def test_range_board_display_on_a_crudview(client, staff):
+    """The scheduler's run history grows a Board display with the same board."""
+    from datetime import timedelta
+
+    from apps.scheduler.models import ScheduledJob, ScheduledJobRun
+
+    job = ScheduledJob.objects.create(name="Nightly demo", task_path="apps.tasks.tasks.noop", schedule_type="interval",
+                                      interval_spec="1d")
+    first = _aware(2026, 4, 1, 9)
+    for offset, status in ((2, "success"), (3, "failed"), (39, "success")):  # Apr 3, Apr 4, May 10
+        ScheduledJobRun.objects.create(
+            job=job, status=status, scheduled_for=first + timedelta(days=offset), message="demo"
+        )
+    url = reverse("scheduler/runs-list")
+    resp = client.get(url, {"display": "board", "range": "30", "from": "2026-04-01", "day": "2026-04-04"})
+    assert resp.status_code == 200
+    html = resp.content.decode()
+    assert "Nightly demo" in html and 'class="cal-col-label">Mar 30–Apr 5' in html
+    assert "cal-bcard--danger" in html                                     # status_field tints the card
+    assert "Saturday, April 4" in html and 'cal-day-group-title">Scheduled job runs' in html
+    assert "1 Apr – 30 Apr 2026" in html
+    # Entries beyond the window are left out; 60 days pulls them in.
+    assert html.count("cal-bcard ") == 2
+    resp = client.get(url, {"display": "board", "range": "60", "from": "2026-04-01"})
+    assert resp.content.decode().count("cal-bcard ") == 3
+    # The display palette now offers table, calendar and board.
+    assert 'data-display="board"' in resp.content.decode()

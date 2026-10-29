@@ -2,6 +2,7 @@
 
 from django.contrib import admin
 
+from apps.calendar.displays import RangeBoardDisplay
 from apps.explorer.registry import explorer
 from apps.smallstack.displays import (
     CalendarDisplay,
@@ -102,6 +103,7 @@ setattr(
     [
         TableDisplay,
         CalendarDisplay(date_field="start", end_field="end", title_field="title"),
+        RangeBoardDisplay(date_field="start", end_field="end", title_field="title", subtitle_field="monitor_key"),
     ],
 )
 

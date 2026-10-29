@@ -1,0 +1,47 @@
+{% comment %}
+Day column component — one day's events grouped by calendar. Context:
+  panel_day            — the date shown (None → prompt to click a day)
+  selected_day_label   — "Thursday, October 1"
+  day_groups           — from core.group_by_calendar
+  day_events           — the flat list (for the count)
+  close_url            — optional; clears an explicit selection
+  explicit             — bool; was the day clicked (vs. defaulted to today)?
+  hint                 — optional footer text when the day was defaulted
+  empty_text           — optional text when the day has nothing
+Rendered by {% calendar_day %} or included directly.
+{% endcomment %}
+<div class="card cal-card cal-day-card">
+    <div class="card-header cal-card-header">
+        <h2>{% if panel_day %}{{ selected_day_label }}{% else %}Day{% endif %}</h2>
+        {% if panel_day %}
+        <span class="cal-side-actions">
+            <span class="cal-day-count">{{ day_events|length }}</span>
+            {% if explicit and close_url %}<a href="{{ close_url }}" class="cal-day-close" aria-label="Clear selected day">&times;</a>{% endif %}
+        </span>
+        {% endif %}
+    </div>
+    <div class="card-body cal-day-body">
+        {% if panel_day %}
+        {% for g in day_groups %}
+        <section class="cal-day-group cal-series-{{ g.series }}">
+            <h3 class="cal-day-group-title">{{ g.label }}</h3>
+            {% for ev in g.events %}
+            <div class="cal-day-row{% if ev.status %} cal-day-row--{{ ev.status }}{% endif %}">
+                <span class="cal-day-when">{% if ev.all_day %}{% if ev.end_date != ev.start_date %}{{ ev.start_date|date:"M j" }}–{{ ev.end_date|date:"j" }}{% else %}All day{% endif %}{% else %}{{ ev.start|date:"H:i" }}{% if ev.end %}–{{ ev.end|date:"H:i" }}{% endif %}{% endif %}</span>
+                <span class="cal-day-what">
+                    <span class="cal-day-title">{% if ev.url %}<a href="{{ ev.url }}">{{ ev.title }}</a>{% else %}{{ ev.title }}{% endif %}{% if ev.status %} <span class="cal-status cal-status--{{ ev.status }}" title="{{ ev.status }}"></span>{% endif %}</span>
+                    {% if ev.subtitle %}<span class="cal-day-sub">{{ ev.subtitle }}</span>{% endif %}
+                    {% if not ev.all_day and ev.end_date != ev.start_date %}<span class="cal-day-sub">{{ ev.start|date:"M j" }} → {{ ev.end|date:"M j" }}</span>{% endif %}
+                </span>
+            </div>
+            {% endfor %}
+        </section>
+        {% empty %}
+        <p class="cal-empty">{{ empty_text|default:"Nothing on this day." }}</p>
+        {% endfor %}
+        {% if hint %}<p class="cal-day-foot">{{ hint }}</p>{% endif %}
+        {% else %}
+        <p class="cal-empty">Click a day to see its events here.</p>
+        {% endif %}
+    </div>
+</div>

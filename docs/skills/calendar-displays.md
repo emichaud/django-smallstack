@@ -47,6 +47,14 @@ Include `end_field` to stretch an event across every day it spans:
 CalendarDisplay(date_field="start", end_field="end", title_field="title")
 ```
 
+## The board sibling — `RangeBoardDisplay`
+
+`apps.calendar.displays.RangeBoardDisplay` takes the same `date_field` /
+`end_field` / `title_field` / `status_field` (plus `subtitle_field` and
+`days=30`) and renders the next 30/60/90 days as week columns with an entry
+card per row and a day column beside it. List both and the page gets a Table
+⇄ Calendar ⇄ Board toggle. See `calendar.md`.
+
 ## Config reference
 
 | Kwarg | Required | Default | Purpose |
