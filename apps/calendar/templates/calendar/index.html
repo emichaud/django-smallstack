@@ -78,7 +78,7 @@
                     <span class="cal-pick-body">
                         <span class="cal-pick-label">{{ c.label }}</span>
                         <span class="cal-pick-meta">
-                            {% if c.selected %}{{ c.count }}{% if c.capped %}+{% endif %} in view{% else %}{% if c.ranged %}ranges{% else %}dates{% endif %}{% endif %}
+                            {% if c.selected %}{{ c.count }}{% if c.capped %}+{% endif %} in view{% elif c.ranged %}ranges{% elif c.provider %}events{% else %}dates{% endif %}
                         </span>
                     </span>
                 </a>
@@ -102,9 +102,12 @@
                 <a href="{{ r.url }}" class="cal-seg-btn{% if r.active %} is-active{% endif %}" {% if r.active %}aria-current="page"{% endif %}>{{ r.label }}</a>
                 {% endfor %}
             </nav>
-            <a href="{{ weekends_url }}" class="cal-check{% if weekends %} is-on{% endif %}" role="checkbox" aria-checked="{% if weekends %}true{% else %}false{% endif %}">
-                <span class="cal-check-box" aria-hidden="true">{% if weekends %}✓{% endif %}</span> Weekends
-            </a>
+            <span class="cal-toolbar-right">
+                {% if weekend_hidden %}<span class="cal-weekend-note" role="status">{{ weekend_hidden }} entr{{ weekend_hidden|pluralize:"y,ies" }} fall{{ weekend_hidden|pluralize:"s," }} at the weekend — turn on Weekends to see</span>{% endif %}
+                <a href="{{ weekends_url }}" class="cal-check{% if weekends %} is-on{% endif %}" role="checkbox" aria-checked="{% if weekends %}true{% else %}false{% endif %}">
+                    <span class="cal-check-box" aria-hidden="true">{% if weekends %}✓{% endif %}</span> Weekends
+                </a>
+            </span>
         </div>
 
         <div class="calendar-display cal-grid-card">

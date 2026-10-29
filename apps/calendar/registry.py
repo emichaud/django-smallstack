@@ -34,6 +34,16 @@ STATUS_VALUES = ("success", "warning", "danger")
 #: Attribute name, dotted path, or ``(obj) -> value`` callable.
 FieldRef = str | Callable[[Any], Any] | None
 
+#: A provider: ``(lower, upper, request) -> iterable of CalendarEvent`` for the
+#: half-open day window ``[lower, upper)``. The alternative to the column
+#: protocol for calendars whose dates are computed rather than stored — rule-
+#: generated holidays, milestones of a long-lived record, anything folded or
+#: filtered in Python. Build events with ``CalendarEvent.make(...)``.
+Provider = Callable[..., Any]
+
+#: Number of categorical colour tokens the theme defines (``--series-1`` …).
+SERIES_COUNT = 8
+
 # key -> CalendarSpec. First-wins (see register_calendar()).
 _calendar_registry: dict[str, "CalendarSpec"] = {}
 
@@ -50,46 +60,69 @@ class CalendarSpec:
     """
 
     key: str
-    start: str
+    start: Optional[str] = None
     end: Optional[str] = None
     title: FieldRef = None
     subtitle: FieldRef = None
     status: FieldRef = None
+    # Struck through on the board, kept rather than hidden — a cancelled window
+    # is still information. Resolver → truthy.
+    cancelled: FieldRef = None
+    # A small picture beside the row (a face, a logo): resolver → URL or "".
+    image: FieldRef = None
     access: str = ACCESS_STAFF
     # Optional overrides; ``None`` falls back to the dataset's label/description.
     label: Optional[str] = None
     description: Optional[str] = None
+    # Computed calendars: a provider replaces the column protocol entirely.
+    # ``spans`` says its events are ranges (for the picker's hint only).
+    provider: Optional[Provider] = None
+    spans: bool = False
+    # Pin this calendar to one of the theme's ``--series-N`` colours (1–8).
+    # Unpinned calendars take the remaining slots in list order.
+    color: Optional[int] = None
 
     def __post_init__(self) -> None:
         if self.access not in ACCESS_LEVELS:
             raise ValueError(f"calendar {self.key!r}: access must be one of {ACCESS_LEVELS}, got {self.access!r}")
-        if not self.start:
-            raise ValueError(f"calendar {self.key!r}: a start column is required")
+        if not self.start and self.provider is None:
+            raise ValueError(f"calendar {self.key!r}: a start column or a provider is required")
+        if self.start and self.provider is not None:
+            raise ValueError(f"calendar {self.key!r}: give a start column OR a provider, not both")
+        if self.color is not None and not (1 <= int(self.color) <= SERIES_COUNT):
+            raise ValueError(f"calendar {self.key!r}: color must be 1–{SERIES_COUNT}, got {self.color!r}")
 
     @property
     def ranged(self) -> bool:
-        return bool(self.end)
+        return bool(self.end) or self.spans
 
 
 def register_calendar(
     key: str,
     *,
-    start: str,
+    start: Optional[str] = None,
     end: Optional[str] = None,
     title: FieldRef = None,
     subtitle: FieldRef = None,
     status: FieldRef = None,
+    cancelled: FieldRef = None,
+    image: FieldRef = None,
     access: str = ACCESS_STAFF,
     label: Optional[str] = None,
     description: Optional[str] = None,
+    provider: Optional[Provider] = None,
+    spans: bool = False,
+    color: Optional[int] = None,
 ) -> CalendarSpec:
-    """Attach the calendar protocol to the dataset registered under ``key``.
+    """Attach the calendar protocol to ``key``.
 
-    Use this when the dataset is declared elsewhere (a bundled ``smallstack_*``
-    dataset, or one of your own you don't want to re-decorate). The spec is
-    validated against the dataset's columns lazily — at first use, through
-    :meth:`apps.calendar.core.CalendarDataset.validate` — because the dataset
-    may register after this call during autodiscovery. First-wins on key.
+    Two shapes. **Column-backed** — ``key`` is a registered dataset and
+    ``start`` (plus optional ``end``) name its date columns; the spec is
+    validated against the dataset's columns lazily, at first use, because the
+    dataset may register after this call during autodiscovery. **Provider-
+    backed** — ``provider(lower, upper, request)`` returns the events for a
+    window itself and no dataset is needed; ``label`` is then the calendar's
+    name (``key`` titled if omitted). First-wins on key.
     """
     spec = CalendarSpec(
         key=key,
@@ -98,9 +131,14 @@ def register_calendar(
         title=title,
         subtitle=subtitle,
         status=status,
+        cancelled=cancelled,
+        image=image,
         access=access,
         label=label,
         description=description,
+        provider=provider,
+        spans=spans,
+        color=color,
     )
     existing = _calendar_registry.get(key)
     if existing is not None:
@@ -118,7 +156,10 @@ def calendar_dataset(
     title: FieldRef = None,
     subtitle: FieldRef = None,
     status: FieldRef = None,
+    cancelled: FieldRef = None,
+    image: FieldRef = None,
     access: str = ACCESS_STAFF,
+    color: Optional[int] = None,
     **dataset_kwargs: Any,
 ) -> Callable[[Callable], Callable]:
     """Decorator: ``@dataset`` plus the calendar protocol, in one declaration.
@@ -147,7 +188,49 @@ def calendar_dataset(
             title=title,
             subtitle=subtitle,
             status=status,
+            cancelled=cancelled,
+            image=image,
             access=access,
+            color=color,
+        )
+        return fn
+
+    return decorator
+
+
+def calendar_provider(
+    key: str,
+    *,
+    label: str = "",
+    description: str = "",
+    access: str = ACCESS_STAFF,
+    spans: bool = False,
+    color: Optional[int] = None,
+) -> Callable[[Provider], Provider]:
+    """Decorator: a **computed** calendar — the function IS the source.
+
+    For dates that are derived rather than stored: holidays expanded from
+    recurrence rules, the start and end milestones of a long-lived record, a
+    rota folded onto the night it starts, a mirror of another system. The
+    function takes the half-open day window ``(lower, upper, request)`` and
+    returns an iterable of :class:`~apps.calendar.core.CalendarEvent` — build
+    them with ``CalendarEvent.make(...)``. No dataset, no model required::
+
+        @calendar_provider("company_holidays", label="Company holidays", access="authenticated")
+        def company_holidays(lower, upper, request):
+            for name, day in resolve_holidays(lower, upper):
+                yield CalendarEvent.make("company_holidays", f"{name}:{day}", name, day)
+    """
+
+    def decorator(fn: Provider) -> Provider:
+        register_calendar(
+            key,
+            provider=fn,
+            label=label or key.replace("_", " ").capitalize(),
+            description=description,
+            access=access,
+            spans=spans,
+            color=color,
         )
         return fn
 

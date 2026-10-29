@@ -281,7 +281,8 @@ def render_ics(events: list[CalendarEvent], labels: dict[str, str], request: Htt
         elif ev.end is not None:
             _, end = _ics_dt(ev.end, all_day=False)
             lines.append(f"DTEND:{end}")
-        lines.append(f"SUMMARY:{_ics_text(ev.title)}")
+        lines.append(f"SUMMARY:{_ics_text(('CANCELLED: ' if ev.cancelled else '') + ev.title)}")
+        lines.append("STATUS:CANCELLED" if ev.cancelled else "STATUS:CONFIRMED")
         desc = labels.get(ev.calendar, ev.calendar)
         if ev.subtitle:
             desc += "\n" + ev.subtitle

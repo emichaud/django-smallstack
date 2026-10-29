@@ -64,6 +64,41 @@ One spec per dataset key: a dataset has one time axis. To plot a second column
 of the same model (say, tickets by *created* date as well as by *due* date),
 declare a second dataset over the model and give that its own calendar.
 
+## Computed calendars — a provider
+
+When the dates aren't stored anywhere — holidays worked out from rules like
+"the last Monday in May", the first and last day of a long contract, a rota
+that belongs on the night it starts — write the function that produces them:
+
+```python
+from apps.calendar import calendar_provider
+from apps.calendar.core import CalendarEvent
+
+@calendar_provider("company_holidays", label="Company holidays", access="authenticated")
+def company_holidays(lower, upper, request):
+    for name, day in resolve_holidays(lower, upper):
+        yield CalendarEvent.make("company_holidays", f"{name}:{day}", name, day)
+```
+
+The function receives the day window being shown and yields events built with
+`CalendarEvent.make(calendar, id, title, start, end=None, ...)`. A date start
+makes an all-day event, a datetime a timed one. Keep `id` stable: it is what a
+subscribed calendar app uses to update an event rather than duplicate it.
+Optional keywords: `subtitle`, `status`, `url`, `cancelled` (shown struck
+through, still listed) and `image` (a small picture beside the row).
+
+A provider calendar appears everywhere a column calendar does — the page, saved
+views, the events API, the `.ics` feed and the MCP tools — and has no dataset
+behind it.
+
+## Colours and weekends
+
+Each calendar gets one of eight colours by position; pass `color=3` to pin
+one. Saturdays and Sundays show by default; a site whose desk isn't staffed at
+the weekend sets `SMALLSTACK_CALENDAR_WEEKENDS_DEFAULT = False` and every
+calendar opens as a work week, with a note beside the Weekends toggle counting
+anything that falls on the hidden days.
+
 ## Scoping per user
 
 A calendar with `access="authenticated"` appears for every signed-in user, so

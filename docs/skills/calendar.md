@@ -64,6 +64,31 @@ from apps.calendar import register_calendar
 register_calendar("smallstack_maintenance_windows", start="start", end="end", title="title")
 ```
 
+**Or compute the events yourself** — a **provider** replaces the column
+protocol for dates that are derived rather than stored (holidays from
+recurrence rules, the start/end milestones of a long-lived record, a rota
+folded onto the night it starts, a mirror of another system). No dataset, no
+model:
+
+```python
+from apps.calendar import calendar_provider
+from apps.calendar.core import CalendarEvent
+
+@calendar_provider("company_holidays", label="Company holidays", access="authenticated", color=5)
+def company_holidays(lower, upper, request):          # the half-open day window
+    for name, day in resolve_holidays(lower, upper):
+        yield CalendarEvent.make("company_holidays", f"{name}:{day}", name, day)
+    yield CalendarEvent.make("company_holidays", "offsite", "Offsite",
+                             start_dt, end_dt, subtitle="Grand Rapids", cancelled=True)
+```
+
+`CalendarEvent.make(calendar, id, title, start, end=None, *, subtitle, status,
+url, cancelled, image)` — a `date` start is all-day, a `datetime` is timed; `id`
+must be stable (it is the ICS UID). Core stamps the calendar key and label,
+drops anything outside the window, sorts and caps, so a provider may over-read.
+`register_calendar(key, provider=fn, …)` is the non-decorator form. A provider
+calendar has no `window_queryset()`; `count()` materialises its events.
+
 Both go in an app's `datasets.py` (autodiscovered with `views.py`). Rules:
 
 - **`start`/`end` are column names** of the dataset, typed `date`/`datetime`
@@ -76,6 +101,12 @@ Both go in an app's `datasets.py` (autodiscovered with `views.py`). Rules:
 - **A `DateField` start ⇒ all-day**; a `DateTimeField` ⇒ timed (localised to
   the active timezone). Ranged events are inclusive of every local day they
   touch, exactly as `CalendarDisplay` buckets them.
+- **`cancelled`** and **`image`** are optional resolvers: a cancelled event
+  stays on the board struck through (and goes out as `STATUS:CANCELLED` in the
+  ICS feed) because a cancelled window is still information; `image` is a URL
+  drawn as a small round face beside the row (a person, a logo).
+- **`color=N`** pins the calendar to one of the eight `--series-N` tokens;
+  unpinned calendars fill the remaining slots in list order (`assign_series`).
 - **`access`** is the visibility rule: `staff` (default; all bundled
   calendars) or `authenticated`. `core.can_view` → staff see everything,
   signed-in users see `authenticated` ones, anonymous nothing. A key the user
@@ -120,8 +151,15 @@ only, entries counted per day touched) anchored on `from=YYYY-MM-DD` (default
 today, arrows move by the range); `month=YYYY-MM` moves the grid;
 `day=YYYY-MM-DD` selects the day shown in the right-hand column (default today
 when in the window — `panel_day`; only an explicit `day` outlines a cell);
-`weekends=0` hides Sat/Sun (a five-column grid, weekend days dropped from the
-board; totals unchanged). The right column groups the day's events by calendar
+`weekends=0|1` hides or shows Sat/Sun (a five-column grid, weekend days
+dropped from the board; totals unchanged). The default is the
+`SMALLSTACK_CALENDAR_WEEKENDS_DEFAULT` setting, so a work-week site needs no
+parameter. Two honesty rules from the board's first user: entries that fall on
+hidden weekend days are **counted and announced** beside the toggle
+(`weekend_hidden` / `core.weekend_entries`), never dropped silently; and a week
+column with **no visible day in range** is dropped (a window opening on a Sunday
+with weekends hidden), while a week in range with nothing booked keeps its
+"Nothing scheduled" column — those are different statements. The right column groups the day's events by calendar
 (`core.group_by_calendar`, series order). Saved views are a `<select>` sorted
 A–Z whose options carry the current window. Precedence: explicit `ds`
 > `view` > the user's default view (only when there are **no** params) > none.
@@ -220,6 +258,7 @@ page's **Save this view** link.
 |---|---|---|
 | `SMALLSTACK_CALENDAR_ENABLED` | `True` | Off ⇒ no nav, no routes, no MCP tools, no widget. Specs still register; `core` keeps working in-process. |
 | `SMALLSTACK_CALENDAR_MAX_WINDOW_DAYS` | `366` | Widest window one events/ICS/MCP request may ask for. |
+| `SMALLSTACK_CALENDAR_WEEKENDS_DEFAULT` | `True` | Whether Sat/Sun show when a page says nothing — False for a work-week desk. |
 | `SMALLSTACK_FRAMEWORK_DATASETS_ENABLED` | `True` | Off ⇒ the eleven bundled calendars vanish with their datasets. |
 
 ## Bundled calendars
@@ -255,7 +294,8 @@ calendars with `calendar_dataset` and clean up with **both**
 
 1. **A callable `start`.** It cannot be filtered in the DB; the month window
    would mean a full scan. Declare an annotated column (`columns=[(name,
-   "datetime")]` on the dataset) and point `start` at it.
+   "datetime")]` on the dataset) and point `start` at it — or, if the dates
+   are genuinely computed, write a `@calendar_provider`.
 2. **Hard-coding per-calendar colours.** Use the `--series-N` tokens through
    `.cal-series-N`; they carry light/dark variants and stay palette-neutral.
 3. **Opening a bundled calendar to `authenticated`.** They plot operator data

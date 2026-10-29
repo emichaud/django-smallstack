@@ -68,7 +68,19 @@ Breaking-change migration recipes live in [`UPGRADING.md`](UPGRADING.md).
   the maintenance-window explorer, and the blog's posts and newsletter issues;
   `backward=True` for history-shaped models). `core.RangeWindow` reads the
   board's URL state for hand-rolled pages — the runbook's documents page gained
-  a Table | Board toggle this way. `CalendarEvent` gained `calendar_label`
+  a Table | Board toggle this way. **Provider-backed calendars**:
+  `@calendar_provider(key, …)` / `register_calendar(key, provider=fn)` make the
+  function the source — `fn(lower, upper, request)` yields
+  `CalendarEvent.make(...)` rows — for dates that are computed rather than
+  stored (rule-generated holidays, milestones, folded rotas); no dataset
+  needed, and every surface reads them the same way. `CalendarEvent` gained
+  `cancelled` (struck through on the board, `STATUS:CANCELLED` in ICS) and
+  `image` (a small face beside the row), both also resolvers on the column
+  protocol; `color=N` pins a calendar to a `--series-N` token. Hiding weekends
+  is now honest: entries on hidden days are counted and announced beside the
+  toggle, and a week column with no visible day in range is dropped. New
+  setting `SMALLSTACK_CALENDAR_WEEKENDS_DEFAULT` (default on) makes a
+  work-week desk the site default (`?weekends=1` shows them on demand). `CalendarEvent` gained `calendar_label`
   (also on the events API) and `series`. The shared page renders through the
   same partials,
   month navigation, every state a link. **Saved views** (`SavedCalendarView`:

@@ -17,6 +17,6 @@ import the decorator during autodiscovery.
 
 from __future__ import annotations
 
-from .registry import CalendarSpec, calendar_dataset, register_calendar  # noqa: F401
+from .registry import CalendarSpec, calendar_dataset, calendar_provider, register_calendar  # noqa: F401
 
-__all__ = ["CalendarSpec", "calendar_dataset", "register_calendar"]
+__all__ = ["CalendarSpec", "calendar_dataset", "calendar_provider", "register_calendar"]

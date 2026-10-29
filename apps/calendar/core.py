@@ -35,13 +35,14 @@ from .registry import (
     all_specs,
     get_spec,
 )
+from .registry import SERIES_COUNT as _SERIES_COUNT
 
 #: Rows pulled per calendar per window. A month of a busy log-like dataset is
 #: capped rather than materialised; the page shows the cap was hit.
 WINDOW_LIMIT = 2000
 
 #: Number of categorical colour tokens the theme defines (``--series-1`` …).
-SERIES_COUNT = 8
+SERIES_COUNT = _SERIES_COUNT
 
 _DATE_TYPES = ("date", "datetime")
 
@@ -68,6 +69,10 @@ class CalendarEvent:
     # a hand-built event renderable.
     calendar_label: str = ""
     series: int = 1
+    # Kept on the board, struck through: a cancelled window is still information.
+    cancelled: bool = False
+    # A small picture beside the row (a face, a logo); "" draws nothing.
+    image: str = ""
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -80,14 +85,67 @@ class CalendarEvent:
             "end": self.end.isoformat() if self.end is not None else None,
             "all_day": self.all_day,
             "status": self.status,
+            "cancelled": self.cancelled,
+            "image": self.image,
             "url": self.url,
         }
 
+    @classmethod
+    def make(
+        cls,
+        calendar: str,
+        id: Any,
+        title: str,
+        start: date | datetime,
+        end: date | datetime | None = None,
+        *,
+        subtitle: str = "",
+        status: Optional[str] = None,
+        url: Optional[str] = None,
+        cancelled: bool = False,
+        image: str = "",
+        calendar_label: str = "",
+    ) -> "CalendarEvent":
+        """Build an event from raw values — what a provider calls.
+
+        A ``date`` start makes an all-day event; a ``datetime`` makes a timed
+        one (localised to the active timezone). ``id`` must be stable for the
+        same underlying thing across renders — it becomes the ICS UID.
+        """
+        from apps.smallstack.displays import _to_local_date
+
+        start_date = _to_local_date(start)
+        end_date = _to_local_date(end) if end is not None else start_date
+        if end_date < start_date:
+            end_date = start_date
+        return cls(
+            calendar=calendar,
+            id=id,
+            title=str(title),
+            subtitle=str(subtitle or ""),
+            start=_localised(start),
+            end=_localised(end) if end is not None else None,
+            all_day=not isinstance(start, datetime),
+            status=status if status in STATUS_VALUES else None,
+            url=url or None,
+            start_date=start_date,
+            end_date=end_date,
+            calendar_label=calendar_label,
+            cancelled=bool(cancelled),
+            image=str(image or ""),
+        )
+
 
 class CalendarDataset:
-    """A dataset viewed through its calendar spec."""
+    """A calendar at runtime: a spec over a dataset's columns, or a provider.
 
-    def __init__(self, spec: CalendarSpec, dataset: Dataset) -> None:
+    ``dataset`` is ``None`` for a provider-backed calendar — there is no
+    queryset behind it, so :meth:`window_queryset` is unavailable and
+    :meth:`count` materialises the events. Everything downstream (the page,
+    the API, ICS, MCP) reads :meth:`events` and never notices the difference.
+    """
+
+    def __init__(self, spec: CalendarSpec, dataset: Optional[Dataset]) -> None:
         self.spec = spec
         self.dataset = dataset
         self.key = spec.key
@@ -96,12 +154,22 @@ class CalendarDataset:
     # -- metadata -----------------------------------------------------------
 
     @property
+    def is_provider(self) -> bool:
+        return self.spec.provider is not None
+
+    @property
     def label(self) -> str:
-        return self.spec.label or self.dataset.dfn.label
+        if self.spec.label:
+            return self.spec.label
+        if self.dataset is not None:
+            return self.dataset.dfn.label
+        return self.key.replace("_", " ").capitalize()
 
     @property
     def description(self) -> str:
-        return self.spec.description or self.dataset.dfn.description
+        if self.spec.description:
+            return self.spec.description
+        return self.dataset.dfn.description if self.dataset is not None else ""
 
     @property
     def ranged(self) -> bool:
@@ -116,6 +184,7 @@ class CalendarDataset:
             "start": self.spec.start,
             "end": self.spec.end,
             "ranged": self.ranged,
+            "provider": self.is_provider,
             "access": self.spec.access,
         }
 
@@ -123,9 +192,15 @@ class CalendarDataset:
 
     def validate(self) -> None:
         """Raise :class:`CalendarProtocolError` unless ``start``/``end`` are
-        date or datetime columns of the dataset. DB-free; cached per instance."""
+        date or datetime columns of the dataset. DB-free; cached per instance.
+        A provider-backed calendar has no columns to check."""
         if self._validated:
             return
+        if self.is_provider:
+            self._validated = True
+            return
+        if self.dataset is None:
+            raise CalendarProtocolError(f"calendar {self.key!r}: no dataset registered under that key")
         cols = dict(self.dataset.columns())
         for role, name in (("start", self.spec.start), ("end", self.spec.end)):
             if name is None:
@@ -142,9 +217,6 @@ class CalendarDataset:
                 )
         self._validated = True
 
-    def _col_is_datetime(self, name: str) -> bool:
-        return dict(self.dataset.columns()).get(name) == "datetime"
-
     # -- the window query -----------------------------------------------------
 
     def window_queryset(
@@ -155,11 +227,15 @@ class CalendarDataset:
         filters: Optional[dict] = None,
     ) -> QuerySet:
         """Rows touching the half-open day range ``[lower, upper)`` — see
-        :func:`window_filter` for the rule."""
+        :func:`window_filter` for the rule. Column-backed calendars only."""
         self.validate()
+        if self.dataset is None or not self.spec.start:
+            raise CalendarProtocolError(f"calendar {self.key!r} is provider-backed and has no queryset")
         return window_filter(self.dataset.queryset(request, filters), self.spec.start, self.spec.end, lower, upper)
 
     def count(self, lower: date, upper: date, request: HttpRequest | None = None) -> int:
+        if self.is_provider:
+            return len(self.events(lower, upper, request, limit=None))
         return self.window_queryset(lower, upper, request).count()
 
     def events(
@@ -172,7 +248,11 @@ class CalendarDataset:
         filters: Optional[dict] = None,
     ) -> list[CalendarEvent]:
         """Normalised events in ``[lower, upper)``, ordered by start."""
-        qs = self.window_queryset(lower, upper, request, filters).order_by(self.spec.start, "pk")
+        if self.is_provider:
+            return self._provider_events(lower, upper, request, limit)
+        qs = self.window_queryset(lower, upper, request, filters)  # raises unless column-backed
+        assert self.dataset is not None and self.spec.start
+        qs = qs.order_by(self.spec.start, "pk")
         if limit is not None:
             qs = qs[: max(1, int(limit))]
         return events_from_objects(
@@ -182,10 +262,36 @@ class CalendarDataset:
             title=self.spec.title,
             subtitle=self.spec.subtitle,
             status=self.spec.status,
+            cancelled=self.spec.cancelled,
+            image=self.spec.image,
             url_for=self.dataset.link_for,
             calendar=self.key,
             calendar_label=self.label,
         )
+
+    def _provider_events(
+        self, lower: date, upper: date, request: HttpRequest | None, limit: Optional[int]
+    ) -> list[CalendarEvent]:
+        """Run the provider and normalise what comes back: stamp the calendar
+        key and label, drop anything outside the window (a provider that
+        over-reads is tolerated, not trusted), sort, cap."""
+        assert self.spec.provider is not None
+        out: list[CalendarEvent] = []
+        for ev in self.spec.provider(lower, upper, request):
+            if not isinstance(ev, CalendarEvent):
+                raise CalendarProtocolError(
+                    f"calendar {self.key!r}: provider yielded {type(ev).__name__}, not CalendarEvent"
+                )
+            if ev.end_date < lower or ev.start_date >= upper:
+                continue
+            ev.calendar = self.key
+            if not ev.calendar_label:
+                ev.calendar_label = self.label
+            out.append(ev)
+        out.sort(key=_sort_key)
+        if limit is not None:
+            out = out[: max(1, int(limit))]
+        return out
 
 
 def window_filter(qs: QuerySet, start: str, end: Optional[str], lower: date, upper: date) -> QuerySet:
@@ -220,6 +326,8 @@ def events_from_objects(
     title: Any = None,
     subtitle: Any = None,
     status: Any = None,
+    cancelled: Any = None,
+    image: Any = None,
     url_for: Any = None,
     calendar: str = "",
     calendar_label: str = "",
@@ -227,10 +335,11 @@ def events_from_objects(
     """Normalise model instances into :class:`CalendarEvent` rows.
 
     ``start``/``end`` are attribute names (or dotted paths); ``title``,
-    ``subtitle`` and ``status`` are resolvers (attribute, dotted path, or
-    callable); ``url_for(obj)`` supplies the link. This is the one place a
-    row becomes an event — the dataset path and the CRUDView display both go
-    through it, so a chip means the same thing everywhere.
+    ``subtitle``, ``status``, ``cancelled`` and ``image`` are resolvers
+    (attribute, dotted path, or callable); ``url_for(obj)`` supplies the
+    link. This is the one place a row becomes an event — the dataset path and
+    the CRUDView display both go through it, so a chip means the same thing
+    everywhere.
     """
     from apps.smallstack.displays import _resolve_field, _to_local_date
 
@@ -247,6 +356,8 @@ def events_from_objects(
         title_v = _resolve_field(obj, title) if title else None
         subtitle_v = _resolve_field(obj, subtitle) if subtitle else None
         status_v = _resolve_field(obj, status) if status else None
+        cancelled_v = bool(_resolve_field(obj, cancelled)) if cancelled else False
+        image_v = _resolve_field(obj, image) if image else None
         url = None
         if url_for is not None:
             try:
@@ -267,6 +378,8 @@ def events_from_objects(
                 start_date=start_date,
                 end_date=end_date,
                 calendar_label=calendar_label,
+                cancelled=cancelled_v,
+                image=str(image_v) if image_v else "",
             )
         )
     return out
@@ -288,13 +401,18 @@ def _localised(value: Any) -> Any:
 
 
 def get_calendar(key: str) -> Optional[CalendarDataset]:
-    """The calendar dataset for ``key``, or None when either half is missing.
+    """The calendar for ``key``, or None.
 
-    A spec whose dataset never registered (the bundled set switched off, a
-    typo'd key) is simply absent — it never raises here.
+    A column-backed spec whose dataset never registered (the bundled set
+    switched off, a typo'd key) is simply absent — it never raises here. A
+    provider-backed spec needs no dataset.
     """
     spec = get_spec(key)
-    if spec is None or get_def(key) is None:
+    if spec is None:
+        return None
+    if spec.provider is not None:
+        return CalendarDataset(spec, get_dataset(key) if get_def(key) is not None else None)
+    if get_def(key) is None:
         return None
     ds = get_dataset(key)
     return CalendarDataset(spec, ds) if ds is not None else None
@@ -329,8 +447,29 @@ def visible_calendars(user: Any) -> list[CalendarDataset]:
 
 
 def assign_series(cals: list[CalendarDataset]) -> dict[str, int]:
-    """Map each calendar key to a 1-based ``--series-N`` colour index."""
-    return {c.key: (i % SERIES_COUNT) + 1 for i, c in enumerate(cals)}
+    """Map each calendar key to a 1-based ``--series-N`` colour index.
+
+    Pinned colours (``CalendarSpec.color``) win; the rest take the unused
+    slots in list order, wrapping once the eight tokens are spent. Two pins
+    on one slot share it — a pin is a request, never an error.
+    """
+    out: dict[str, int] = {}
+    taken: set[int] = set()
+    for c in cals:
+        if c.spec.color is not None:
+            out[c.key] = int(c.spec.color)
+            taken.add(int(c.spec.color))
+    free = [n for n in range(1, SERIES_COUNT + 1) if n not in taken]
+    i = 0
+    for c in cals:
+        if c.key in out:
+            continue
+        if free:
+            out[c.key] = free[i % len(free)]
+        else:
+            out[c.key] = (i % SERIES_COUNT) + 1
+        i += 1
+    return out
 
 
 def colourise(events: list[CalendarEvent], series: dict[str, int]) -> None:
@@ -476,6 +615,42 @@ def events_on(events: list[CalendarEvent], day: date) -> list[CalendarEvent]:
 RANGE_DAYS = (30, 60, 90)
 
 
+def weekends_default() -> bool:
+    """Whether Saturdays and Sundays show when a page says nothing — the
+    ``SMALLSTACK_CALENDAR_WEEKENDS_DEFAULT`` setting (default on). A desk that
+    isn't staffed at the weekend sets it off and gets a work-week everywhere."""
+    from django.conf import settings
+
+    return bool(getattr(settings, "SMALLSTACK_CALENDAR_WEEKENDS_DEFAULT", True))
+
+
+def parse_weekends(raw: Optional[str]) -> bool:
+    """``?weekends=`` → bool: ``0/false/off`` hides, ``1/true/on`` shows,
+    absent or blank means the site default."""
+    value = (raw or "").strip().lower()
+    if value in ("0", "false", "off", "no"):
+        return False
+    if value in ("1", "true", "on", "yes"):
+        return True
+    return weekends_default()
+
+
+def weekend_entries(events: list[CalendarEvent], lower: date, upper: date) -> int:
+    """How many day-entries in ``[lower, upper)`` fall on a Saturday or Sunday
+    — what hiding weekends would hide. The board says this number out loud
+    rather than dropping entries silently."""
+    last = upper - timedelta(days=1)
+    n = 0
+    for ev in events:
+        day = max(ev.start_date, lower)
+        stop = min(ev.end_date, last)
+        while day <= stop:
+            if day.weekday() >= 5:
+                n += 1
+            day += timedelta(days=1)
+    return n
+
+
 def parse_range(raw: str) -> Optional[int]:
     """``?range=30|60|90`` → the number of days, or None for the month grid."""
     try:
@@ -499,9 +674,12 @@ def build_range_board(
     events, with the events placed on every day they touch.
 
     Days without events are omitted — a sparse calendar reads as a short list,
-    not a wall of empty headings — but a week with nothing at all still gets
-    its column so the timeline keeps its shape. ``weekends=False`` drops
-    Saturday and Sunday entries (the events stay in the totals).
+    not a wall of empty headings — but a week in range with nothing booked
+    still gets its column ("Nothing scheduled" is a real statement). A week
+    with no *visible* day in range at all is dropped: with weekends hidden, a
+    window that opens on a Sunday would otherwise head an empty column that
+    is really just that Sunday. ``weekends=False`` drops Saturday and Sunday
+    entries (the events stay in the totals; see :func:`weekend_entries`).
     """
     by_day: dict[date, list[CalendarEvent]] = {}
     last = upper - timedelta(days=1)
@@ -521,8 +699,11 @@ def build_range_board(
         final = min(week_end, last)
         days: list[dict[str, Any]] = []
         count = 0
+        visible_days = 0
         d = first
         while d <= final:
+            if weekends or d.weekday() < 5:
+                visible_days += 1
             todays = by_day.get(d, [])
             if todays:
                 days.append(
@@ -536,6 +717,9 @@ def build_range_board(
                 )
                 count += len(todays)
             d += timedelta(days=1)
+        if visible_days == 0:
+            week_start += timedelta(days=7)
+            continue
         same_month = week_start.month == week_end.month
         label = (
             f"{week_start:%b} {week_start.day}–{week_end.day}"
@@ -638,7 +822,7 @@ class RangeWindow:
         get = getattr(request, "GET", {})
         chosen = parse_range(get.get(range_param, "")) or (days if days in RANGE_DAYS else RANGE_DAYS[0])
         anchor = parse_day(get.get(from_param, "")) or today
-        weekends = get.get(weekends_param, "1") not in ("0", "false", "off")
+        weekends = parse_weekends(get.get(weekends_param))
         win = cls(
             request=request,
             days=chosen,
@@ -713,7 +897,8 @@ class RangeWindow:
                 for n in RANGE_DAYS
             ],
             "weekends": self.weekends,
-            "weekends_url": self.url(**{self.weekends_param: "0" if self.weekends else None}),
+            "weekends_url": self.url(**{self.weekends_param: "0" if self.weekends else "1"}),
+            "weekend_hidden": 0 if self.weekends else weekend_entries(events, self.lower, self.upper),
             "period_label": period_label,
             "is_now": self.anchor == self.today,
             "prev_url": self.url(**{self.from_param: (self.anchor - step).isoformat(), self.day_param: None}),

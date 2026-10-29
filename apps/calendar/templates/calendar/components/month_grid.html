@@ -16,7 +16,7 @@ Rendered by {% calendar_month %} or included directly.
        aria-label="{{ cell.date|date:'l, F j' }}: {{ cell.total }} event{{ cell.total|pluralize }}">
         <span class="calendar-cell-day">{{ cell.day }}</span>
         {% for ev in cell.events %}
-        <span class="cal-chip cal-series-{{ ev.series }}{% if ev.status %} cal-chip--{{ ev.status }}{% endif %}{% if not ev.all_day %} cal-chip--timed{% endif %}" title="{{ ev.title }}{% if ev.calendar_label %} · {{ ev.calendar_label }}{% endif %}">
+        <span class="cal-chip cal-series-{{ ev.series }}{% if ev.status %} cal-chip--{{ ev.status }}{% endif %}{% if not ev.all_day %} cal-chip--timed{% endif %}{% if ev.cancelled %} cal-chip--cancelled{% endif %}" title="{{ ev.title }}{% if ev.cancelled %} (cancelled){% endif %}{% if ev.calendar_label %} · {{ ev.calendar_label }}{% endif %}">
             {% if not ev.all_day and ev.start_date == cell.date %}<span class="cal-chip-time">{{ ev.start|date:"g:i A" }}</span>{% endif %}<span class="cal-chip-label">{{ ev.title }}</span>
         </span>
         {% endfor %}

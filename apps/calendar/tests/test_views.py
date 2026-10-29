@@ -245,7 +245,8 @@ def test_api_list_and_events(client, staff, seeded):
     assert body["count"] == 3 and body["counts"] == {MW: 1, BK: 2} and body["calendars"] == [MW, BK]
     first = body["results"][0]
     assert set(first) == {
-        "calendar", "calendar_label", "id", "title", "subtitle", "start", "end", "all_day", "status", "url"
+        "calendar", "calendar_label", "id", "title", "subtitle", "start", "end", "all_day", "status",
+        "cancelled", "image", "url",
     }
     assert first["calendar_label"] == "Backups"
     assert [r["title"] for r in body["results"]] == ["nightly.sqlite3", "DB upgrade", "failed"]

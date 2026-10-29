@@ -605,6 +605,12 @@ SMALLSTACK_CALENDAR_ENABLED = config("SMALLSTACK_CALENDAR_ENABLED", default=True
 # Widest window (days) one events / ICS / MCP request may ask for. The page
 # always asks for one month; this bounds scripted callers.
 SMALLSTACK_CALENDAR_MAX_WINDOW_DAYS = config("SMALLSTACK_CALENDAR_MAX_WINDOW_DAYS", default=366, cast=int)
+# Whether Saturdays and Sundays show when a calendar page says nothing. A desk
+# that isn't staffed at the weekend sets this False and every calendar — the
+# shared page, the CRUDView boards, the template tags — opens as a work week;
+# ``?weekends=1`` still shows them on demand. Entries that fall on hidden days
+# are counted and announced next to the toggle, never dropped silently.
+SMALLSTACK_CALENDAR_WEEKENDS_DEFAULT = config("SMALLSTACK_CALENDAR_WEEKENDS_DEFAULT", default=True, cast=bool)
 
 # ---------------------------------------------------------------------------
 # Blog + newsletter (apps.blog)

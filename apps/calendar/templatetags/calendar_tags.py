@@ -32,6 +32,7 @@ from ..core import (
     day_url,
     events_on,
     group_by_calendar,
+    weekends_default,
 )
 
 register = template.Library()
@@ -47,12 +48,15 @@ def calendar_month(
     events: list[CalendarEvent],
     cursor: date,
     selected_day: Optional[date] = None,
-    weekends: bool = True,
+    weekends: Optional[bool] = None,
     max_per_day: int = 4,
     day_param: str = "day",
 ) -> dict[str, Any]:
-    """Render the month containing ``cursor`` with ``events`` on its cells."""
+    """Render the month containing ``cursor`` with ``events`` on its cells.
+    ``weekends`` defaults to the site setting."""
     today = timezone.localdate()
+    if weekends is None:
+        weekends = weekends_default()
     weeks = build_month_grid(cursor, events, today, selected_day, max_per_day=max_per_day)
     if not weekends:
         weeks = [([c for c in week if c is None or not c["is_weekend"]] + [None] * 5)[:5] for week in weeks]
@@ -73,11 +77,14 @@ def calendar_board(
     lower: date,
     upper: date,
     selected_day: Optional[date] = None,
-    weekends: bool = True,
+    weekends: Optional[bool] = None,
     day_param: str = "day",
 ) -> dict[str, Any]:
-    """Render ``[lower, upper)`` as week columns with an entry card per event."""
+    """Render ``[lower, upper)`` as week columns with an entry card per event.
+    ``weekends`` defaults to the site setting."""
     today = timezone.localdate()
+    if weekends is None:
+        weekends = weekends_default()
     board = build_range_board(lower, upper, events, today, weekends=weekends, selected_day=selected_day)
     request = _request(context)
     for col in board:

@@ -140,6 +140,19 @@
 .cal-check-box { width: 15px; height: 15px; border-radius: 3px; border: 1px solid var(--input-border); background: var(--input-bg); display: inline-flex; align-items: center; justify-content: center; font-size: 0.7rem; line-height: 1; color: var(--primary); }
 .cal-check.is-on .cal-check-box { border-color: var(--primary); }
 
+.cal-toolbar-right { display: inline-flex; align-items: center; gap: 12px; }
+.cal-weekend-note { font-size: 0.74rem; color: var(--body-quiet-color); }
+
+/* Cancelled entries stay on the board, struck through — still information. */
+.cal-chip--cancelled .cal-chip-label, .cal-bcard--cancelled .cal-bcard-title, .cal-day-row--cancelled .cal-day-title a,
+.cal-day-row--cancelled .cal-day-title { text-decoration: line-through; opacity: 0.7; }
+.cal-chip--cancelled, .cal-bcard--cancelled { border-left-style: dashed; }
+.cal-cancelled-tag { font-size: 0.66rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--body-quiet-color); text-decoration: none; opacity: 1; }
+
+/* A small picture beside an entry (a face, a logo). */
+.cal-face { width: 20px; height: 20px; border-radius: 50%; object-fit: cover; vertical-align: middle; margin-right: 6px; flex: none; }
+.cal-bcard .cal-face { float: left; margin-top: 1px; }
+
 /* Weekday-only month grid */
 .cal-cols-5 { grid-template-columns: repeat(5, 1fr) !important; }
 

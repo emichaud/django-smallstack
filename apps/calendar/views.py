@@ -38,8 +38,11 @@ from .core import (
     parse_day,
     parse_month,
     parse_range,
+    parse_weekends,
     resolve_keys,
     visible_calendars,
+    weekend_entries,
+    weekends_default,
 )
 from .forms import SavedCalendarViewForm
 from .models import SavedCalendarView
@@ -92,7 +95,7 @@ class CalendarPageView(LoginRequiredMixin, TemplateView):
 
         # -- the window: a month, or N days from an anchor ----------------------
         range_days = parse_range(request.GET.get("range", ""))
-        weekends = request.GET.get("weekends", "1") not in ("0", "false", "off")
+        weekends = parse_weekends(request.GET.get("weekends"))
         cursor = parse_month(request.GET.get("month", ""), today)
         anchor = parse_day(request.GET.get("from", "")) or today
         if range_days:
@@ -162,8 +165,8 @@ class CalendarPageView(LoginRequiredMixin, TemplateView):
                 m = cursor if month is None else month
                 if m.replace(day=1) != today.replace(day=1):
                     params.append(("month", m.strftime("%Y-%m")))
-            if not weekends_:
-                params.append(("weekends", "0"))
+            if weekends_ != weekends_default():
+                params.append(("weekends", "1" if weekends_ else "0"))
             if day is not None:
                 params.append(("day", day.isoformat()))
             return reverse("calendar_index") + ("?" + urlencode(params) if params else "")
@@ -215,6 +218,7 @@ class CalendarPageView(LoginRequiredMixin, TemplateView):
                     "count": counts.get(cal.key) if on else None,
                     "capped": cal.key in capped,
                     "ranged": cal.ranged,
+                    "provider": cal.is_provider,
                     "access": cal.spec.access,
                     "toggle_url": link(keys=toggled),
                 }
@@ -241,6 +245,7 @@ class CalendarPageView(LoginRequiredMixin, TemplateView):
                 ],
                 "weekends": weekends,
                 "weekends_url": link(weekends_=not weekends),
+                "weekend_hidden": 0 if weekends else weekend_entries(events, lower, upper),
                 "window_lower": lower,
                 "window_upper": upper,
                 "period_label": period_label,
@@ -309,8 +314,8 @@ def _view_url(
             params.append(("from", anchor.isoformat()))
     elif cursor != today.replace(day=1):
         params.append(("month", cursor.strftime("%Y-%m")))
-    if not weekends:
-        params.append(("weekends", "0"))
+    if weekends != weekends_default():
+        params.append(("weekends", "1" if weekends else "0"))
     return reverse("calendar_index") + "?" + urlencode(params)
 
 
