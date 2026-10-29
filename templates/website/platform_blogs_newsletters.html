@@ -1,0 +1,107 @@
+{% extends "website/base.html" %}
+{% load static %}
+
+{% block title %}Blogs & Newsletters — SmallStack{% endblock %}
+{% block breadcrumbs %}{% endblock %}
+
+{% block extra_css %}
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..700;1,9..144,300..700&family=Geist:wght@300..700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="{% static 'website/css/platform.css' %}">
+{% endblock %}
+
+{% block content %}
+<div class="pf">
+
+<section class="pf-hero">
+    <div class="pf-wrap">
+        <div class="pf-chapter">Platform / publishing</div>
+        <h1 class="pf-h1">Blogs and newsletters, <em>built in</em>.</h1>
+        <p class="pf-lede">
+            A blog is a channel: an owner, a slug, a visibility level. Posts are markdown. Any blog can also be a
+            newsletter with double opt-in and a durable sender. It is all in the framework, themed, with feeds,
+            a public read API and the same REST and MCP surface as everything else — so your project starts at
+            the writing.
+        </p>
+    </div>
+</section>
+
+<section class="pf-sec">
+    <div class="pf-wrap">
+        <h2 class="pf-h2">Two surfaces, <em>one</em> set of rules.</h2>
+        <p class="pf-sub">
+            Authors write in their own studio. Operators manage every blog from the admin console. Both call the same
+            service, so there is one idea of "publish", one slug rule, one rendered body.
+        </p>
+        <div class="pf-figures">
+            <figure class="pf-figure">
+                <img src="{% static 'website/img/blog-studio.png' %}" alt="The author's studio: their blogs, drafts and published posts" loading="lazy">
+                <figcaption><strong>The studio</strong> at <code class="pf-inline">/my/blogs/</code>. Any signed-in user can own a blog; drafts, scheduling and publishing happen here.</figcaption>
+            </figure>
+            <figure class="pf-figure">
+                <img src="{% static 'website/img/blog-public.png' %}" alt="The public blog index" loading="lazy">
+                <figcaption><strong>The public site</strong> at <code class="pf-inline">/blog/</code>. Themed, with per-blog pages, permalinks, tags, an archive and feeds — gated by one setting until you are ready.</figcaption>
+            </figure>
+        </div>
+        <div class="pf-steps">
+            <div class="pf-step"><div class="pf-step-num">1</div><h3>Visibility is a ladder</h3><p><strong>Private</strong> (owner and staff), <strong>members</strong> (anyone signed in), <strong>public</strong> (the internet). A post's own lifecycle sits on top: draft, scheduled, published, archived. Both gates apply.</p></div>
+            <div class="pf-step"><div class="pf-step-num">2</div><h3>Newsletter when you want it</h3><p>Turn it on per blog. Subscribers confirm by email (double opt-in), issues are snapshots of what was sent, and the sender resumes if the worker restarts. RFC 8058 one-click unsubscribe included.</p></div>
+            <div class="pf-step"><div class="pf-step-num">3</div><h3>Runbook pages publish too</h3><p>A versioned runbook document can be published into a blog and kept in sync — write operational docs once, publish the ones worth sharing.</p></div>
+        </div>
+    </div>
+</section>
+
+<section class="pf-sec pf-sec--quiet">
+    <div class="pf-wrap pf-wrap--tight">
+        <h2 class="pf-h2">Publish from <em>your own</em> code.</h2>
+        <p class="pf-sub">Every write goes through the service, which keeps slugs unique, renders the body and stamps the timestamps — from the studio, the console, REST, MCP, or a line in your own app.</p>
+<pre class="pf-code"><span class="k">from</span> apps.blog <span class="k">import</span> service
+
+post = service.create_post(
+    blog,
+    title=<span class="s">"October release notes"</span>,
+    body_markdown=<span class="s">"## What changed\n\n- Calendars…"</span>,
+    tags=[<span class="s">"release"</span>],
+    actor=request.user,
+)
+service.publish_post(post, actor=request.user)   <span class="c"># or at=&lt;datetime&gt; to schedule</span></pre>
+        <p class="pf-caption">Publishing is always an explicit act — nothing goes live because a row was saved.</p>
+
+        <div class="pf-cols">
+            <div>
+                <p class="pf-list-title">Reading, for anyone</p>
+                <ul class="pf-list">
+                    <li><code>/blog/</code>, <code>/blog/&lt;blog&gt;/</code>, <code>/blog/&lt;blog&gt;/&lt;post&gt;/</code></li>
+                    <li><code>/blog/&lt;blog&gt;/feed.rss</code> — <code>.atom</code> and <code>.json</code> too</li>
+                    <li><code>/blog/api/blogs/…</code> anonymous JSON read API for your own front end</li>
+                    <li><code>/feed/blog.rss</code> the site-wide river</li>
+                </ul>
+            </div>
+            <div>
+                <p class="pf-list-title">Writing, for your apps and agents</p>
+                <ul class="pf-list">
+                    <li><code>/smallstack/api/blog/posts/</code> REST, authenticated and owner-scoped</li>
+                    <li>MCP: <code>list_posts</code>, <code>create_post</code>, <code>update_post</code> — Claude can draft for you</li>
+                    <li>Webhooks on create and update, for Slack or a static-site rebuild</li>
+                    <li>Datasets: <code>smallstack_blog_posts</code>, <code>…_issues</code> with correct send-rate ratios</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="pf-cta">
+    <div class="pf-wrap">
+        <h2>A changelog, a company blog, <em>a letter</em>.</h2>
+        <p>All three are the same app with different settings. Ask a coding agent to set one up and it will reach for the built-in rather than new models.</p>
+        <div class="pf-btns">
+            <a href="{% url 'website:prompts' %}#publish" class="pf-btn pf-btn--solid">Prompt an agent to set one up</a>
+            <a href="https://github.com/emichaud/django-smallstack/blob/main/docs/skills/blog.md" class="pf-btn">Blog skill →</a>
+            <a href="{% url 'help:section_index' 'blog' %}" class="pf-btn">Blog help pages →</a>
+        </div>
+    </div>
+</section>
+
+</div>
+{% endblock %}

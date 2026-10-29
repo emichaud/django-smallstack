@@ -21,6 +21,15 @@
                 <a href="{% url 'website:getting_started' %}" class="topbar-nav-link{% if '/getting-started' in request.path %} active{% endif %}">Getting Started</a>
             </li>
             <li class="topbar-nav-item">
+                <a href="{% url 'website:platform_datasets_calendars' %}" class="topbar-nav-link{% if '/platform/datasets' in request.path %} active{% endif %}">Datasets &amp; Calendars</a>
+            </li>
+            <li class="topbar-nav-item">
+                <a href="{% url 'website:platform_blogs_newsletters' %}" class="topbar-nav-link{% if '/platform/blogs' in request.path %} active{% endif %}">Blogs</a>
+            </li>
+            <li class="topbar-nav-item">
+                <a href="{% url 'website:prompts' %}" class="topbar-nav-link{% if '/prompts' in request.path %} active{% endif %}">Prompts</a>
+            </li>
+            <li class="topbar-nav-item">
                 <a href="{% url 'website:search' %}" class="topbar-nav-link{% if request.path == '/search/' %} active{% endif %}">Search</a>
             </li>
         </ul>

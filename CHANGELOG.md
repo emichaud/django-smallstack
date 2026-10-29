@@ -71,6 +71,15 @@ Breaking-change migration recipes live in [`UPGRADING.md`](UPGRADING.md).
   Markdown alternate at `…/<slug>.md`, advertised with
   `<link rel="alternate" type="text/markdown">`. New setting
   `SMALLSTACK_LLMS_DESCRIPTION` for the one-line summary.
+- **Three pages on the starter site.** `/platform/datasets-calendars/` and
+  `/platform/blogs-newsletters/` explain, at a high level and with
+  screenshots, how datasets, calendars, blogs and newsletters work for the
+  bundled apps and are ready for a project's own apps (one code example each,
+  the REST / `.ics` / MCP surfaces, links to the help pages). `/prompts/`
+  carries the common task-oriented prompts for coding agents with a Copy
+  button each. The topbar links all three; Getting Started's "Keep going"
+  section links the two platform pages and its agent aside points at the
+  prompts. Screenshots live under `static/website/img/`.
 - **Help: "Prompting a coding agent."** A new Getting Started page
   (`/smallstack/help/smallstack/prompting-coding-agents/`) with copy-ready
   prompts for the common first tasks — a new app on SmallStack, the public

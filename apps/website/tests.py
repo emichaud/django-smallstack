@@ -94,6 +94,28 @@ class TestWebsiteViews:
         assert 'href="/smallstack/approvals/requests/"' not in content
         assert 'href="/smallstack/blog/posts/"' not in content
 
+    def test_prompts_page(self, client):
+        response = client.get("/prompts/")
+        assert response.status_code == 200
+        html = response.content.decode()
+        assert "Prompts that get the" in html and "data-copy" in html
+        assert "docs/skills/calendar.md" in html and "docs/skills/blog.md" in html
+        assert "/smallstack/help/smallstack/prompting-coding-agents/" in html
+
+    def test_platform_pages(self, client):
+        for path, needle in (
+            ("/platform/datasets-calendars/", "calendar_dataset"),
+            ("/platform/blogs-newsletters/", "service.publish_post"),
+        ):
+            response = client.get(path)
+            assert response.status_code == 200, path
+            assert needle in response.content.decode(), path
+
+    def test_getting_started_links_the_prompts_and_platform_pages(self, client):
+        html = client.get("/getting-started/").content.decode()
+        for path in ("/prompts/", "/platform/datasets-calendars/", "/platform/blogs-newsletters/"):
+            assert path in html, path
+
     def test_about_page(self, client):
         response = client.get("/about/")
         assert response.status_code == 200

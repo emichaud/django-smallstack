@@ -351,6 +351,14 @@ nav.<span class="fn">register</span>(
           <span class="ll"><strong>API documentation</strong><span>OpenAPI 3.0.3 + Swagger UI + ReDoc, auto-generated.</span></span>
           <span class="arrow">→</span>
         </a>
+        <a href="{% url 'website:platform_datasets_calendars' %}" class="gs-next-link">
+          <span class="ll"><strong>Datasets &amp; calendars</strong><span>One decorator makes a queryset browsable, chartable and exportable — add a date and it's on the shared calendar with an .ics feed.</span></span>
+          <span class="arrow">→</span>
+        </a>
+        <a href="{% url 'website:platform_blogs_newsletters' %}" class="gs-next-link">
+          <span class="ll"><strong>Blogs &amp; newsletters</strong><span>Built-in publishing: a visibility ladder, feeds, a public read API and double-opt-in email.</span></span>
+          <span class="arrow">→</span>
+        </a>
         <a href="{% url 'help:section_index' 'smallstack' %}" class="gs-next-link">
           <span class="ll"><strong>Full reference</strong><span>Every doc page, indexed by category.</span></span>
           <span class="arrow">→</span>
@@ -359,11 +367,18 @@ nav.<span class="fn">register</span>(
     </div>
 
     <aside>
-      <div class="gs-section-label">For AI agents</div>
+      <div class="gs-section-label">Working with a coding agent?</div>
       <p style="font-size: 0.95rem; line-height: 1.6; color: var(--body-quiet-color); margin: 0 0 1rem 0;">
-        Skill files in <span class="gs-inline-code">docs/skills/</span> brief Claude Code &amp; friends on
-        the conventions — so they pick the right pattern without reading the whole codebase.
+        <span class="gs-inline-code">AGENTS.md</span>, installable skills and a skill file per subsystem in
+        <span class="gs-inline-code">docs/skills/</span> brief Claude Code, Codex, Cursor &amp; friends on the
+        conventions. What they don't know is what <em>you</em> want — so start from a prompt that names the
+        skill to read, the built-in seam to use and the gate that counts as done. There is one for each common
+        first task: a new app on SmallStack, a model with pages + REST + MCP, a calendar, a scheduled job, a blog, a deploy.
       </p>
+      <a href="{% url 'website:prompts' %}" class="gs-btn-link" style="padding-left: 0;">
+        Common task prompts <span class="arrow">→</span>
+      </a>
+      <br>
       <a href="{% url 'help:section_detail' 'smallstack' 'extending-with-ai' %}" class="gs-btn-link" style="padding-left: 0;">
         Extending with AI <span class="arrow">→</span>
       </a>

@@ -1,0 +1,132 @@
+{% extends "website/base.html" %}
+{% load static %}
+
+{% block title %}Datasets & Calendars — SmallStack{% endblock %}
+{% block breadcrumbs %}{% endblock %}
+
+{% block extra_css %}
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..700;1,9..144,300..700&family=Geist:wght@300..700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="{% static 'website/css/platform.css' %}">
+{% endblock %}
+
+{% block content %}
+<div class="pf">
+
+<section class="pf-hero">
+    <div class="pf-wrap">
+        <div class="pf-chapter">Platform / data</div>
+        <h1 class="pf-h1">Datasets and calendars, <em>already wired</em> for your apps.</h1>
+        <p class="pf-lede">
+            Every SmallStack module that creates data ships a typed, filterable <strong>dataset</strong> over it,
+            and the ones with a date on them ship a <strong>calendar</strong>. Your own models join with one
+            declaration — and get the same browser, the same REST and MCP surface, and the same month grid.
+        </p>
+    </div>
+</section>
+
+<section class="pf-sec">
+    <div class="pf-wrap">
+        <h2 class="pf-h2">A dataset is a queryset with a <em>schema</em>.</h2>
+        <p class="pf-sub">
+            Declare a function that returns a queryset. The framework works out the columns, their types,
+            which are dimensions and which are measures, and the filter widgets — so a dashboard builder,
+            an export screen or an AI agent can work against any dataset without knowing the model behind it.
+        </p>
+        <div class="pf-steps">
+            <div class="pf-step"><div class="pf-step-num">1</div><h3>Declare it</h3><p>One <code>@dataset</code> over a queryset. Column lists, types and filter widgets are derived; computed columns and ratio measures are declared.</p></div>
+            <div class="pf-step"><div class="pf-step-num">2</div><h3>Browse it</h3><p>Every dataset appears in the staff browser: a filter bar built from the schema, a sortable table, a one-click roll-up and a CSV download.</p></div>
+            <div class="pf-step"><div class="pf-step-num">3</div><h3>Query it</h3><p>REST routes for rows, grouped series and single KPI numbers; an MCP tool per dataset so Claude can ask the same questions.</p></div>
+        </div>
+        <div class="pf-figures">
+            <figure class="pf-figure">
+                <img src="{% static 'website/img/datasets-index.png' %}" alt="The dataset browser index listing project and framework datasets" loading="lazy">
+                <figcaption><strong>The browser.</strong> Project datasets first, then the twenty-eight bundled ones — requests, log records, heartbeats, scheduled runs, webhook deliveries, approvals, posts, documents.</figcaption>
+            </figure>
+            <figure class="pf-figure">
+                <img src="{% static 'website/img/datasets-browse.png' %}" alt="One dataset in the browser: filters, a roll-up by status, and the rows table" loading="lazy">
+                <figcaption><strong>One dataset.</strong> Filters from the schema, a roll-up by any column, the rows, and a CSV link that carries the active filters.</figcaption>
+            </figure>
+        </div>
+    </div>
+</section>
+
+<section class="pf-sec pf-sec--quiet">
+    <div class="pf-wrap">
+        <h2 class="pf-h2">A calendar is a dataset with a <em>time axis</em>.</h2>
+        <p class="pf-sub">
+            Tell the framework which column is the start (and optionally the end) and the dataset becomes a
+            calendar: it joins the shared month grid, the 30/60/90-day board, the day column, saved views,
+            the events API, an iCalendar feed your phone can subscribe to, and the MCP tools.
+        </p>
+        <div class="pf-figures">
+            <figure class="pf-figure pf-figure--wide">
+                <img src="{% static 'website/img/calendar-month.png' %}" alt="The shared calendar: a picker of calendars, the month grid with six calendars on it, and the selected day's events" loading="lazy">
+                <figcaption><strong>Additive.</strong> Pick as many calendars as you like; each keeps its colour. Click a day for everything on it, grouped by calendar. Save the mix as a view.</figcaption>
+            </figure>
+            <figure class="pf-figure pf-figure--wide">
+                <img src="{% static 'website/img/calendar-board.png' %}" alt="The 30-day board: one column per week with an entry card per event" loading="lazy">
+                <figcaption><strong>Board.</strong> 30, 60 or 90 days as week columns — nothing truncated — with a weekends toggle that says what it is hiding.</figcaption>
+            </figure>
+        </div>
+    </div>
+</section>
+
+<section class="pf-sec">
+    <div class="pf-wrap pf-wrap--tight">
+        <h2 class="pf-h2">One declaration, <em>every</em> surface.</h2>
+        <p class="pf-sub">This is the whole thing for a ticket model. It gives you a browsable dataset, a calendar, REST, an <code class="pf-inline">.ics</code> feed and MCP tools.</p>
+<pre class="pf-code"><span class="c"># apps/tickets/datasets.py</span>
+<span class="k">from</span> apps.calendar <span class="k">import</span> calendar_dataset
+
+<span class="k">@calendar_dataset</span>(
+    <span class="s">"ticket_due_dates"</span>,
+    start=<span class="s">"due_at"</span>,              <span class="c"># the date column</span>
+    title=<span class="s">"subject"</span>,
+    status=<span class="s">"sla_status"</span>,          <span class="c"># green / amber / red</span>
+    access=<span class="s">"authenticated"</span>,      <span class="c"># every signed-in user, scoped below</span>
+    label=<span class="s">"Ticket due dates"</span>,
+    enable_api=<span class="k">True</span>, enable_mcp=<span class="k">True</span>,
+)
+<span class="k">def</span> ticket_due_dates(request):
+    <span class="k">return</span> Ticket.objects.filter(assignee=request.user, status=<span class="s">"open"</span>)</pre>
+        <p class="pf-caption">Dates computed rather than stored — holidays from rules, milestones, a rota — use <code class="pf-inline">@calendar_provider</code> instead and yield events from a function.</p>
+
+        <div class="pf-cols">
+            <div>
+                <p class="pf-list-title">You get, in the browser</p>
+                <ul class="pf-list">
+                    <li><code>/smallstack/datasets/browse/ticket_due_dates/</code></li>
+                    <li>A calendar in the picker on <code>/smallstack/calendar/</code></li>
+                    <li>Month grid, 30/60/90 board, day column, saved views</li>
+                    <li>A Table ⇄ Calendar ⇄ Board toggle on any CRUDView list page</li>
+                </ul>
+            </div>
+            <div>
+                <p class="pf-list-title">You get, for your apps</p>
+                <ul class="pf-list">
+                    <li><code>GET /smallstack/datasets/ticket_due_dates/</code> rows, <code>/series/</code>, <code>/scalar/</code>, <code>?format=csv</code></li>
+                    <li><code>GET /smallstack/calendar/api/events/?ds=…&amp;start=&amp;end=</code> normalised events</li>
+                    <li><code>GET /smallstack/calendar/api/events.ics</code> for Apple, Google or Outlook</li>
+                    <li>MCP: <code>query_dataset_ticket_due_dates</code>, <code>list_calendars</code>, <code>calendar_events</code></li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="pf-cta">
+    <div class="pf-wrap">
+        <h2>Ready to <em>use</em>, not to build.</h2>
+        <p>Eleven calendars and twenty-eight datasets come with the framework. Yours is one decorator away — and a coding agent knows the pattern.</p>
+        <div class="pf-btns">
+            <a href="{% url 'website:prompts' %}#capability" class="pf-btn pf-btn--solid">Prompt an agent to add one</a>
+            <a href="{% url 'help:section_index' 'calendar' %}" class="pf-btn">Calendar help pages →</a>
+            <a href="https://github.com/emichaud/django-smallstack/blob/main/docs/skills/datasets.md" class="pf-btn">Datasets skill →</a>
+        </div>
+    </div>
+</section>
+
+</div>
+{% endblock %}

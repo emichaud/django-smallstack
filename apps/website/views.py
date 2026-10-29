@@ -136,3 +136,24 @@ def starter_forms_view(request):
 def components_view(request):
     """Redirect to the components section in SmallStack docs."""
     return redirect(reverse("help:section_detail", kwargs={"section": "smallstack", "slug": "components"}))
+
+
+# ---------------------------------------------------------------------------
+# Platform pages — what the framework gives your app, and how to ask an agent
+# ---------------------------------------------------------------------------
+
+
+def platform_datasets_calendars_view(request: HttpRequest) -> HttpResponse:
+    """Datasets and calendars: how they work, ready for your own apps."""
+    return render(request, "website/platform_datasets_calendars.html")
+
+
+def platform_blogs_newsletters_view(request: HttpRequest) -> HttpResponse:
+    """Blogs and newsletters: the built-in publishing surface."""
+    return render(request, "website/platform_blogs_newsletters.html")
+
+
+def prompts_view(request: HttpRequest) -> HttpResponse:
+    """Copy-ready prompts for coding agents, by task."""
+    return render(request, "website/prompts.html")
+
