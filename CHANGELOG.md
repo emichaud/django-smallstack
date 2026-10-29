@@ -10,6 +10,18 @@ Breaking-change migration recipes live in [`UPGRADING.md`](UPGRADING.md).
 ## [Unreleased]
 
 ### Fixed
+- **ICS `UID`s were derived from the request host.** `/smallstack/calendar/api/events.ics`
+  built each `UID` from `request.get_host()`, so one event had a different
+  identity per host *or port* — the same row answered `…@localhost:8055` to one
+  caller and `…@localhost` to another. A subscribed client keys on `UID` to
+  recognise an event it already has (RFC 5545 §3.8.4.7), so the day the host
+  changes — dev → prod, a new domain, a proxy forwarding a different `Host` —
+  every event re-appears as new: duplicates accumulate and the originals stop
+  updating. The domain now comes from `SITE_DOMAIN` (then a URL-shaped
+  `SITE_URL`/`BASE_URL`, then the request as a last resort) with the port
+  stripped, so it is stable across environments. `{calendar}-{pk}` on the left
+  was always stable; only the right-hand side moved. (Found by the integration
+  harness.)
 - **`MultipleChoiceField` was advertised as a single string.** The REST
   OPTIONS metadata, the OpenAPI document and the generated MCP tool schemas
   described a multiple-choice form field as `choice` / `"type": "string"` with
