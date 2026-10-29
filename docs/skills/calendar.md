@@ -182,7 +182,24 @@ The list page gains a Table ⇄ Calendar ⇄ Board toggle; the board reads
 `?display=board&range=30|60|90&from=&day=&weekends=0`, filters the queryset
 to the window with `core.window_filter`, and shows the day column beside the
 columns. Rows link to the detail page when the CRUDView has `Action.DETAIL`.
-Live examples: the scheduler's run history and the maintenance-window explorer.
+`backward=True` ends the window today instead (the last N days — right for
+history such as newsletter sends). Live examples: the scheduler's run history,
+the maintenance-window explorer, and the blog's posts and issues.
+
+**On a hand-rolled page**, read the state with `core.RangeWindow.from_request`
+(same parameters, `backward=` for history), build events for `win.lower` →
+`win.upper`, and include the all-in-one component:
+
+```python
+win = RangeWindow.from_request(request, days=30, backward=True)
+rows = window_filter(qs, "updated_at", None, win.lower, win.upper)
+ctx = win.context(events_from_objects(rows, start="updated_at", title="title", url_for=lambda d: d.get_absolute_url()))
+```
+```django
+{% include "calendar/components/board.html" with count_label="documents updated" %}
+```
+
+The runbook's documents page does exactly this behind its Table | Board toggle.
 
 ## Saved views (`models.SavedCalendarView` + `views.SavedCalendarViewCRUDView`)
 

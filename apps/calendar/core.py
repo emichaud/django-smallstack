@@ -585,3 +585,145 @@ def day_url(request: HttpRequest | None, day: Optional[date], day_param: str = "
 
 def access_label(level: str) -> str:
     return "Staff" if level == ACCESS_STAFF else "Signed-in users"
+
+
+# ---------------------------------------------------------------------------
+# RangeWindow — the board's URL state, shared by every page that hosts one
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class RangeWindow:
+    """A day-range board's state, read from a request's query string.
+
+    ``range`` (30/60/90), ``from`` (the anchor date), ``day`` (the selected
+    day) and ``weekends`` are the parameters; names are configurable so a
+    page with its own ``from`` can rename them. ``backward=True`` anchors the
+    window to END today (the last N days — right for activity logs), the
+    default anchors it to START today (the next N days — right for schedules).
+
+    Build the events for ``[lower, upper)`` however you like, then
+    :meth:`context` returns everything ``calendar/components/board.html``
+    needs: the week columns, the day column, and the toolbar/navigation URLs
+    (each a copy of the current query string with one parameter changed).
+    """
+
+    request: Any
+    days: int
+    anchor: date
+    today: date
+    weekends: bool
+    selected_day: Optional[date]
+    backward: bool = False
+    range_param: str = "range"
+    from_param: str = "from"
+    day_param: str = "day"
+    weekends_param: str = "weekends"
+
+    @classmethod
+    def from_request(
+        cls,
+        request: Any,
+        *,
+        days: int = 30,
+        backward: bool = False,
+        range_param: str = "range",
+        from_param: str = "from",
+        day_param: str = "day",
+        weekends_param: str = "weekends",
+    ) -> "RangeWindow":
+        from django.utils import timezone
+
+        today = timezone.localdate()
+        get = getattr(request, "GET", {})
+        chosen = parse_range(get.get(range_param, "")) or (days if days in RANGE_DAYS else RANGE_DAYS[0])
+        anchor = parse_day(get.get(from_param, "")) or today
+        weekends = get.get(weekends_param, "1") not in ("0", "false", "off")
+        win = cls(
+            request=request,
+            days=chosen,
+            anchor=anchor,
+            today=today,
+            weekends=weekends,
+            selected_day=None,
+            backward=backward,
+            range_param=range_param,
+            from_param=from_param,
+            day_param=day_param,
+            weekends_param=weekends_param,
+        )
+        selected = parse_day(get.get(day_param, ""))
+        if selected is not None and win.lower <= selected < win.upper:
+            win.selected_day = selected
+        return win
+
+    @property
+    def lower(self) -> date:
+        return self.anchor - timedelta(days=self.days - 1) if self.backward else self.anchor
+
+    @property
+    def upper(self) -> date:
+        return self.anchor + timedelta(days=1) if self.backward else self.anchor + timedelta(days=self.days)
+
+    @property
+    def panel_day(self) -> Optional[date]:
+        if self.selected_day is not None:
+            return self.selected_day
+        return self.today if self.lower <= self.today < self.upper else None
+
+    def url(self, **changes: Any) -> str:
+        """The current URL with the given query parameters changed; a value
+        of ``None`` removes the parameter."""
+        params = self.request.GET.copy()
+        for key, value in changes.items():
+            params.pop(key, None)
+            if value is not None:
+                params[key] = str(value)
+        encoded = params.urlencode()
+        return self.request.path + ("?" + encoded if encoded else "")
+
+    def context(self, events: list[CalendarEvent]) -> dict[str, Any]:
+        """Template context for ``calendar/components/board.html``."""
+        board = build_range_board(
+            self.lower, self.upper, events, self.today, weekends=self.weekends, selected_day=self.selected_day
+        )
+        for col in board:
+            for d in col["days"]:
+                d["url"] = day_url(self.request, d["date"], self.day_param)
+        panel_day = self.panel_day
+        day_events = events_on(events, panel_day) if panel_day else []
+        last = self.upper - timedelta(days=1)
+        if self.lower.year == last.year:
+            period_label = f"{self.lower:%-d %b} – {last:%-d %b %Y}"
+        else:
+            period_label = f"{self.lower:%-d %b %Y} – {last:%-d %b %Y}"
+        step = timedelta(days=self.days)
+        return {
+            "board": board,
+            "board_weeks": len(board),
+            "event_count": len(events),
+            "range_days": self.days,
+            "range_choices": [
+                {
+                    "days": n,
+                    "label": f"{n} days",
+                    "url": self.url(**{self.range_param: n, self.from_param: None, self.day_param: None}),
+                    "active": n == self.days,
+                }
+                for n in RANGE_DAYS
+            ],
+            "weekends": self.weekends,
+            "weekends_url": self.url(**{self.weekends_param: "0" if self.weekends else None}),
+            "period_label": period_label,
+            "is_now": self.anchor == self.today,
+            "prev_url": self.url(**{self.from_param: (self.anchor - step).isoformat(), self.day_param: None}),
+            "next_url": self.url(**{self.from_param: (self.anchor + step).isoformat(), self.day_param: None}),
+            "today_url": self.url(**{self.from_param: None, self.day_param: None}),
+            "panel_day": panel_day,
+            "selected_day": self.selected_day,
+            "selected_day_label": panel_day.strftime("%A, %B %-d") if panel_day else "",
+            "day_groups": group_by_calendar(day_events),
+            "day_events": day_events,
+            "close_url": self.url(**{self.day_param: None}),
+        }
+

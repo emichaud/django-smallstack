@@ -526,7 +526,40 @@ class DocumentListView(LoginRequiredMixin, ListView):
         params.pop("page", None)
         params.pop("sort", None)
         context["filter_qs"] = params.urlencode()
+        context.update(self._board_context())
         return context
+
+    def _board_context(self) -> dict[str, Any]:
+        """``?view=board`` swaps the table for the calendar app's day-range
+        board — documents on the day they were last updated, the last 30/60/90
+        days ending today (``?range=``, ``?from=``, ``?day=``, ``?weekends=0``).
+        The same filters (search, section, type) apply to both shapes."""
+        from apps.calendar.core import RangeWindow, events_from_objects, window_filter
+
+        board_mode = self.request.GET.get("view") == "board"
+        toggle = self.request.GET.copy()
+        for key in ("page", "view", "range", "from", "day", "weekends"):
+            toggle.pop(key, None)
+        base = toggle.urlencode()
+        table_url = self.request.path + ("?" + base if base else "")
+        toggle["view"] = "board"
+        ctx: dict[str, Any] = {"board_mode": board_mode, "table_url": table_url, "board_url": "?" + toggle.urlencode()}
+        if not board_mode:
+            return ctx
+        win = RangeWindow.from_request(self.request, days=30, backward=True)
+        rows = window_filter(self.get_queryset(), "updated_at", None, win.lower, win.upper).order_by("updated_at", "pk")
+        events = events_from_objects(
+            rows,
+            start="updated_at",
+            title="title",
+            subtitle=lambda d: d.runbook.name if d.runbook_id else (d.section.runbook.name if d.section_id else ""),
+            url_for=lambda d: d.get_absolute_url(),
+            calendar="runbook_documents",
+            calendar_label="Documents",
+        )
+        ctx.update(win.context(events))
+        ctx["count_label"] = "documents updated"
+        return ctx
 
 
 class DocumentCreateView(LoginRequiredMixin, CreateView):

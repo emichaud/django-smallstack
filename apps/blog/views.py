@@ -31,8 +31,9 @@ from django.utils.html import format_html, strip_tags
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.http import require_POST
 
+from apps.calendar.displays import RangeBoardDisplay
 from apps.smallstack.crud import Action, CRUDView
-from apps.smallstack.displays import StatsAccessory
+from apps.smallstack.displays import CalendarDisplay, StatsAccessory, TableDisplay
 from apps.smallstack.mixins import StaffRequiredMixin
 
 from . import permissions, service
@@ -362,9 +363,41 @@ def search_hit_for_post(post: Post, variant: str = "default") -> dict[str, Any]:
     }
 
 
+_POST_TINTS: dict[str, str] = {Post.Status.PUBLISHED: "success", Post.Status.SCHEDULED: "warning"}
+_ISSUE_TINTS: dict[str, str] = {
+    Issue.Status.SENT: "success",
+    Issue.Status.FAILED: "danger",
+    Issue.Status.SENDING: "warning",
+}
+
+
+def _post_calendar_status(post: Post) -> str | None:
+    """Chip tint for the post calendars: live → green, scheduled → amber."""
+    return _POST_TINTS.get(post.status)
+
+
+def _issue_calendar_status(issue: Issue) -> str | None:
+    return _ISSUE_TINTS.get(issue.status)
+
+
+def _blog_name(obj: Any) -> str:
+    return obj.blog.name if obj.blog_id else ""
+
+
 class PostCRUDView(_OwnedCRUDView):
     model = Post
     form_class = PostForm
+    # Table ⇄ calendar ⇄ board: posts on their publish date.
+    displays = [
+        TableDisplay,
+        CalendarDisplay(date_field="published_at", title_field="title", status_field=_post_calendar_status),
+        RangeBoardDisplay(
+            date_field="published_at",
+            title_field="title",
+            subtitle_field=_blog_name,
+            status_field=_post_calendar_status,
+        ),
+    ]
     fields = [
         "blog", "title", "slug", "body_markdown", "excerpt",
         "cover_image", "cover_alt", "canonical_url", "is_featured", "allow_newsletter",
@@ -675,6 +708,19 @@ class SubscriberCRUDView(CRUDView):
 class IssueCRUDView(_OwnedCRUDView):
     model = Issue
     form_class = IssueForm
+    # Table ⇄ calendar ⇄ board: issues on the day their send began. Sends are
+    # history, so the board ends today (the last N days).
+    displays = [
+        TableDisplay,
+        CalendarDisplay(date_field="started_at", title_field="subject", status_field=_issue_calendar_status),
+        RangeBoardDisplay(
+            date_field="started_at",
+            title_field="subject",
+            subtitle_field=_blog_name,
+            status_field=_issue_calendar_status,
+            backward=True,
+        ),
+    ]
     fields = ["blog", "post", "subject", "preheader", "body_markdown"]
     list_fields = [
         "subject", "blog", "status", "recipient_count", "sent_count",

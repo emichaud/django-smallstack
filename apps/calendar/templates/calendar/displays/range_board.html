@@ -1,35 +1,4 @@
 {% load static %}
 {% comment %}RangeBoardDisplay — rendered inside a CRUDView list page's display area.{% endcomment %}
 <link rel="stylesheet" href="{% static 'calendar/css/calendar.css' %}">
-<div class="cal-display-board">
-    <div class="cal-toolbar">
-        <nav class="cal-seg" aria-label="Board range">
-            {% for r in range_choices %}
-            <a href="{{ r.url }}" class="cal-seg-btn{% if r.active %} is-active{% endif %}" {% if r.active %}aria-current="page"{% endif %}>{{ r.label }}</a>
-            {% endfor %}
-        </nav>
-        <a href="{{ weekends_url }}" class="cal-check{% if weekends %} is-on{% endif %}" role="checkbox" aria-checked="{% if weekends %}true{% else %}false{% endif %}">
-            <span class="cal-check-box" aria-hidden="true">{% if weekends %}✓{% endif %}</span> Weekends
-        </a>
-    </div>
-    <div class="cal-display-board-layout">
-        <div class="calendar-display cal-grid-card">
-            <div class="calendar-header">
-                <div class="calendar-nav">
-                    <a href="{{ prev_url }}" class="calendar-nav-btn" aria-label="Previous {{ range_days }} days">&lsaquo;</a>
-                    <h3 class="calendar-title">{{ period_label }}</h3>
-                    <a href="{{ next_url }}" class="calendar-nav-btn" aria-label="Next {{ range_days }} days">&rsaquo;</a>
-                    {% if not is_now %}<a href="{{ today_url }}" class="calendar-today-btn">Today</a>{% endif %}
-                </div>
-                <div class="calendar-count">
-                    <span class="calendar-count-value">{{ event_count }}</span>
-                    <span class="calendar-count-label">{{ object_verbose_name_plural }} across {{ board_weeks }} week{{ board_weeks|pluralize }}</span>
-                </div>
-            </div>
-            {% include "calendar/components/range_board.html" %}
-        </div>
-        <aside class="cal-right">
-            {% include "calendar/components/day_column.html" with explicit=selected_day hint="" %}
-        </aside>
-    </div>
-</div>
+{% include "calendar/components/board.html" %}

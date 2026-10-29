@@ -5,6 +5,7 @@
 
 {% block extra_css %}
 <link rel="stylesheet" href="{% runbook_css %}">
+<link rel="stylesheet" href="{% static 'calendar/css/calendar.css' %}">
 {% endblock %}
 
 {% block breadcrumbs %}{% endblock %}
@@ -21,6 +22,10 @@
         </nav>
     </div>
     <div class="page-header-actions">
+        <nav class="cal-seg" aria-label="Documents view">
+            <a href="{{ table_url }}" class="cal-seg-btn{% if not board_mode %} is-active{% endif %}" {% if not board_mode %}aria-current="page"{% endif %}>Table</a>
+            <a href="{{ board_url }}" class="cal-seg-btn{% if board_mode %} is-active{% endif %}" {% if board_mode %}aria-current="page"{% endif %}>Board</a>
+        </nav>
         <a href="{% url 'runbook:dashboard' %}" class="btn-secondary">Dashboard</a>
     </div>
 </div>
@@ -29,6 +34,7 @@
 {% block content %}
 <!-- Search bar, then Search / Clear, then the section filter -->
 <form method="get" class="rb-doclist-search">
+    {% if board_mode %}<input type="hidden" name="view" value="board">{% if range_days %}<input type="hidden" name="range" value="{{ range_days }}">{% endif %}{% endif %}
     <input type="search" name="q" value="{{ search_query }}" class="rb-doclist-input"
            placeholder="Search documents by title or content…" autofocus>
     <button type="submit" class="btn-primary">Search</button>
@@ -41,6 +47,9 @@
     </select>
 </form>
 
+{% if board_mode %}
+{% include "calendar/components/board.html" %}
+{% else %}
 <div class="card rb-doclist-card">
     <div class="card-body" style="padding: 0;">
         {% if documents %}
@@ -90,4 +99,5 @@
         {% endif %}
     </div>
 </div>
+{% endif %}
 {% endblock %}
