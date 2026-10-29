@@ -8,6 +8,35 @@ listed, no downstream migration is required.
 
 ---
 
+## v0.28.0 — `can_update` / `can_delete` now gate writes, not just buttons
+
+**Who is affected:** any CRUDView that overrides `can_update(obj, request)` or
+`can_delete(obj, request)` *and* relies on the default `check_object_permission`.
+If you never override those hooks, nothing changes.
+
+**What changed.** Those hooks used to decide only which buttons render on the
+detail and list pages; REST, MCP and the bulk views consulted them, but the
+HTML edit and delete views did not, so a CRUDView that implemented `can_update`
+and stopped there still accepted a non-owner's POST to `…/edit/`. The default
+`check_object_permission` now calls `enforce_write_hooks(obj, request)`, which
+raises `PermissionDenied` (403) on the edit and delete routes for any method,
+and on every non-GET request, unless the matching hook returns True.
+
+**Migration.**
+
+- If a hook returned False **only to hide a button** while the write was meant
+  to stay allowed, that write is now refused. Either let the hook return True
+  and hide the button in the template, or move the cosmetic rule out of the
+  hook — the hook's name always promised the stricter meaning.
+- If you override `check_object_permission` for a read-side rule (ownership,
+  tenancy) and want the new write gate too, call
+  `cls.enforce_write_hooks(obj, request)` at the end of your override. An override
+  that does not call it keeps the old behaviour.
+- The calendar's `EventCRUDView` is the upstream example: `can_update` says
+  "author or staff" and the framework default now enforces it on every surface.
+
+---
+
 ## v0.25.1 — `enable_rss` removed; feeds are a publishing surface
 
 **Who is affected:** any CRUDView that set `enable_rss = True`, any `rss_*`

@@ -9,6 +9,8 @@ Breaking-change migration recipes live in [`UPGRADING.md`](UPGRADING.md).
 
 ## [Unreleased]
 
+## [0.28.0] - 2026-10-28
+
 ### Security
 - **Pillow floor raised to 13.0.** 13.0.0 (2026-10-16) closes fifteen CVEs
   filed against the 12.x image decoders (CVE-2026-96638, -96640, -96778,
@@ -2598,7 +2600,8 @@ Condensed highlights of the v0.11 series (see git history for per-patch detail):
 See the git tag history (`git tag`) and `ai_cowork/audit_history/` for the full record of the
 v0.8–v0.10 API-server, modern-dark-theme, search, MCP, and Postgres eras.
 
-[Unreleased]: https://github.com/emichaud/django-smallstack/compare/v0.27.1...HEAD
+[Unreleased]: https://github.com/emichaud/django-smallstack/compare/v0.28.0...HEAD
+[0.28.0]: https://github.com/emichaud/django-smallstack/compare/v0.27.1...v0.28.0
 [0.27.1]: https://github.com/emichaud/django-smallstack/compare/v0.27.0...v0.27.1
 [0.27.0]: https://github.com/emichaud/django-smallstack/compare/v0.26.0...v0.27.0
 [0.26.0]: https://github.com/emichaud/django-smallstack/compare/v0.25.2...v0.26.0
