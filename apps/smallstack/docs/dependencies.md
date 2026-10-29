@@ -170,8 +170,12 @@ See [Building CRUD Pages](/help/smallstack/building-crud-pages/) for the full gu
 The standard Python imaging library, required for Django's `ImageField` and user profile photos.
 
 ```python
-"pillow>=10.0"
+"pillow>=13.0"
 ```
+
+The floor is a security floor: 13.0.0 closed fifteen CVEs filed against the 12.x
+decoders, and an `ImageField` upload is exactly the path they reach. Keep the
+floor at or above whatever the latest security release is when you resolve.
 
 Used by the profile app for handling avatar and cover photo uploads.
 

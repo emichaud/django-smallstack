@@ -9,6 +9,17 @@ Breaking-change migration recipes live in [`UPGRADING.md`](UPGRADING.md).
 
 ## [Unreleased]
 
+### Security
+- **Pillow floor raised to 13.0.** 13.0.0 (2026-10-16) closes fifteen CVEs
+  filed against the 12.x image decoders (CVE-2026-96638, -96640, -96778,
+  -112390/1/3/9, -112401/6, -112891/2/3/4, -112900, GHSA-78g4-xqwv-q3g8) —
+  the path an `ImageField` upload reaches. `pillow>=13.0` in `pyproject.toml`
+  so a downstream resolve can't land on a vulnerable version; the lockfile
+  moves to 13.0.0. SmallStack uses Pillow only through `ImageField`, so none
+  of 13.0's removed APIs apply. The lock refresh also takes the current
+  tooling patches (ruff 0.17.3, mypy 2.4.1, pytest 9.2) and croniter's
+  python-dateutil 3.0; the full suite passes on all of them.
+
 ### Fixed
 - **ICS `UID`s were derived from the request host.** `/smallstack/calendar/api/events.ics`
   built each `UID` from `request.get_host()`, so one event had a different
