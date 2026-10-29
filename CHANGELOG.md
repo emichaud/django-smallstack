@@ -42,6 +42,15 @@ Breaking-change migration recipes live in [`UPGRADING.md`](UPGRADING.md).
   on all three surfaces. (Found via the calendar's saved views.)
 
 ### Added
+- **Help: "Prompting a coding agent."** A new Getting Started page
+  (`/smallstack/help/smallstack/prompting-coding-agents/`) with copy-ready
+  prompts for the common first tasks — a new app on SmallStack, the public
+  site, an end-user app with tenancy, a model with pages + REST + MCP, a
+  calendar, a dataset, a scheduled job, an approval gate, a status monitor, a
+  webhook integration, a blog, a themed page, a deploy, an upstream update, a
+  diagnosis — each naming the skill files to read first, the built-in seams
+  to ask for by name, and the gate (`make lint`, `make test`, two-palette
+  screenshots) that counts as done. Linked from "Extending with AI".
 - **Calendar app** (`apps/calendar/`, label `smallstack_calendar`) — a user
   app beside Runbook and My blogs. A *calendar dataset* is an ordinary
   `@dataset` plus a small protocol: `start` (a date/datetime column), optional

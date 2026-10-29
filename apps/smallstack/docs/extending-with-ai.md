@@ -7,6 +7,8 @@ description: Using AI assistants to accelerate development
 
 {{ project_name }} was jointly developed with the help of **Claude**, an AI assistant by Anthropic. The project includes structured "skill files" in `docs/skills/` that teach AI agents how the codebase works — its patterns, conventions, and the right way to add features. When you ask an AI to build something, it reads the relevant skill and produces code that fits naturally into the existing project.
 
+> **Not sure what to type?** [Prompting a coding agent](/smallstack/help/smallstack/prompting-coding-agents/) has copy-ready prompts for the common first tasks — a new app on SmallStack, a model with pages + REST + MCP, a themed page, a scheduled job, a deploy — each naming the skill files to read and the gate that counts as done.
+
 ## AI Skills Reference
 
 Skills are markdown files in `docs/skills/`. An AI agent reads the relevant skill before making changes to that part of the codebase.

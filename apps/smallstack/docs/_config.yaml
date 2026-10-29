@@ -41,6 +41,12 @@ pages:
     icon: "rocket"
     category: "Getting Started"
 
+  - slug: prompting-coding-agents
+    title: "Prompting a coding agent"
+    description: "Copy-ready prompts for the common getting-started tasks — phrased so the agent uses what SmallStack already provides"
+    icon: "ai"
+    category: "Getting Started"
+
   - slug: tldr
     title: "TL;DR — Clone to Deploy"
     description: "The shortest path from zero to a running site"
