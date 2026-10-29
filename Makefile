@@ -25,7 +25,7 @@ help:
 	@echo "  make mcp-test     - End-to-end MCP smoke test (requires \`make run\` in another shell)"
 	@echo "  make api-test     - End-to-end REST API smoke test (requires \`make run\` in another shell)"
 	@echo "  make lint         - Run ruff + mypy + skill-index check (the full static gate)"
-	@echo "  make skills-index - Rebuild docs/skills/index.json from the README tables"
+	@echo "  make skills-index - Rebuild docs/skills/index.json + the Agent Skills tree (.agents/skills) from the README tables"
 	@echo "  make typecheck    - Run mypy alone (lint already includes it)"
 	@echo "  make install-hooks - Install the git pre-commit hook (ruff + mypy)"
 	@echo "  make screenshot-auth - Generate shot-scraper auth JSON"
@@ -110,7 +110,7 @@ typecheck:
 typecheck-strict:
 	uv run mypy --check-untyped-defs --disallow-untyped-defs --disallow-incomplete-defs apps || true
 
-# Regenerate the machine-readable skill index from docs/skills/README.md.
+# Regenerate the machine-readable skill index and the Agent Skills tree from docs/skills/README.md.
 # Run after adding, renaming, or re-describing a skill file; `make lint` checks it's current.
 skills-index:
 	uv run python manage.py skills_index

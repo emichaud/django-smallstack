@@ -35,7 +35,9 @@ backups/
 .vscode/
 *.swp
 *.swo
-.claude/
+# Claude Code's local state stays out; the generated project skills (make skills-index) go in.
+.claude/*
+!.claude/skills/
 
 
 # OS files

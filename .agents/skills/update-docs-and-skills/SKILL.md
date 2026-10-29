@@ -1,0 +1,223 @@
+---
+name: update-docs-and-skills
+description: "File group map for updating docs/skills after code changes"
+license: MIT
+metadata:
+  source: "docs/skills/update-docs-and-skills.md"
+  section: "Available Skills"
+  generated-by: "smallstack-skills-index"
+---
+
+> Generated from `docs/skills/update-docs-and-skills.md` by `make skills-index` — edit the source, not this file.
+
+# Skill: Update Docs & Skills Post Changes
+
+When the user says "update docs and skills" (or similar), this skill defines which files to check and update based on what area of SmallStack was changed. The goal: keep documentation accurate and complete after code changes, without missing files or duplicating content.
+
+## How It Works
+
+1. **Identify the change area** — What part of SmallStack was modified? (API, auth, theming, etc.)
+2. **Look up the file groups below** — Each area lists the docs and skills that reference it
+3. **Read each file** — Check if the change is already documented or needs to be added
+4. **Update or create** — Weave changes into existing docs where they fit. Create new docs only when a feature is genuinely new and doesn't belong in an existing page.
+5. **Register any new skill file** — add a row to the `docs/skills/README.md` table and run `make skills-index`. A file that exists but is registered nowhere is worse than a missing file: an agent consulting the index finds the *neighbouring* skill and follows it confidently. `make lint` fails if you skip this.
+
+## File Groups by Change Area
+
+### API System (`apps/smallstack/api.py`, `apps/smallstack/openapi.py`)
+
+| Type | File | What it covers |
+|------|------|----------------|
+| Skill | `docs/skills/api.md` | Full API reference: auth, CRUD, endpoints, config, serialization |
+| Skill | `docs/skills/api-discovery.md` | Schema endpoints, OpenAPI, OPTIONS metadata, Swagger/ReDoc |
+| Skill | `docs/skills/custom-api-endpoints.md` | `@api_view` decorator, non-CRUD endpoints |
+| Help | `apps/smallstack/docs/custom-api-endpoints.md` | User-facing custom endpoint guide |
+| Help | `apps/smallstack/docs/explorer-rest-api.md` | Explorer API (uses same auth/serialization layer) |
+| Config | `apps/smallstack/docs/_config.yaml` | Help page registry (add new pages here) |
+
+### Authentication & Tokens (`apps/smallstack/models.py` APIToken, `apps/smallstack/api.py` auth views)
+
+| Type | File | What it covers |
+|------|------|----------------|
+| Skill | `docs/skills/api.md` | Token types, access levels, auth endpoints |
+| Skill | `docs/skills/authentication.md` | User model, auth views, login/signup |
+| Help | `apps/smallstack/docs/authentication.md` | User-facing auth docs |
+
+### Activity Tracking & Observability (`apps/activity/`)
+
+| Type | File | What it covers |
+|------|------|----------------|
+| Skill | `docs/skills/activity-tracking.md` | RequestLog model, middleware, config |
+| Skill | `docs/skills/logging-audit.md` | Logging config, audit trail, LogEntry |
+| Help | `apps/smallstack/docs/activity-tracking.md` | User-facing activity tracking guide |
+| Help | `apps/smallstack/docs/logging-audit.md` | User-facing logging/audit guide |
+
+### Middleware (`apps/smallstack/middleware.py`)
+
+| Type | File | What it covers |
+|------|------|----------------|
+| Skill | `docs/skills/activity-tracking.md` | ActivityMiddleware docs |
+| Skill | `docs/skills/settings.md` | MIDDLEWARE list reference |
+| Skill | `docs/skills/timezones.md` | TimezoneMiddleware |
+
+### Navigation & Sidebar (`apps/smallstack/navigation.py`)
+
+| Type | File | What it covers |
+|------|------|----------------|
+| Skill | `docs/skills/navigation.md` | Nav registry, zones, sidebar/topbar |
+| Help | `apps/smallstack/docs/navigation.md` | User-facing nav docs (bundled SmallStack reference) |
+| Help | `apps/smallstack/docs/navigation.md` | Bundled nav reference |
+
+### Templates & Theming (`templates/`, `static/`)
+
+| Type | File | What it covers |
+|------|------|----------------|
+| Skill | `docs/skills/templates.md` | Template inheritance, blocks, includes |
+| Skill | `docs/skills/theming-system.md` | CSS vars, palettes, dark mode |
+| Skill | `docs/skills/admin-page-styling.md` | Definitive UI component reference |
+| Skill | `docs/skills/components.md` | UI component catalog |
+
+### CRUDView (`apps/smallstack/crud.py`, `apps/smallstack/views.py`)
+
+| Type | File | What it covers |
+|------|------|----------------|
+| Skill | `docs/skills/crud-views.md` | CRUDView class, actions, config, related tabs |
+| Skill | `docs/skills/django-apps.md` | Creating apps with CRUDView |
+| Skill | `docs/skills/api.md` | API integration via enable_api |
+| Help | `apps/smallstack/docs/building-crud-pages.md` | User-facing CRUD guide, related object tabs |
+
+### Explorer (`apps/smallstack/explorer.py`)
+
+| Type | File | What it covers |
+|------|------|----------------|
+| Skill | `docs/skills/explorer.md` | Explorer overview |
+| Help | `apps/smallstack/docs/explorer.md` | User-facing explorer guide |
+| Help | `apps/smallstack/docs/explorer-admin-api.md` | ModelAdmin attribute reference |
+| Help | `apps/smallstack/docs/explorer-rest-api.md` | Explorer REST API |
+| Help | `apps/smallstack/docs/explorer-composability.md` | Embedding explorer |
+
+### Card Displays (`apps/smallstack/displays.py` CardDisplay/AvatarCardDisplay, `templates/smallstack/crud/displays/cards*`)
+
+| Type | File | What it covers |
+|------|------|----------------|
+| Skill | `docs/skills/card-displays.md` | Card display protocol, variants, authoring new variants |
+| Skill | `docs/skills/crud-views.md` | Display protocol, references CardDisplay variants |
+| Skill | `docs/skills/explorer.md` | `explorer_displays` attribute and card examples |
+| Help | `apps/smallstack/docs/building-crud-pages.md` | User-facing CRUD guide with card examples |
+| Help | `apps/smallstack/docs/explorer-admin-api.md` | Admin attribute reference |
+| Help | `apps/smallstack/docs/explorer.md` | User-facing explorer guide with card examples |
+
+### Calendar Displays (`apps/smallstack/displays.py` CalendarDisplay, `templates/smallstack/crud/displays/calendar.html`)
+
+| Type | File | What it covers |
+|------|------|----------------|
+| Skill | `docs/skills/calendar-displays.md` | CalendarDisplay config, ranged events, month navigation, authoring date-based displays |
+| Skill | `docs/skills/card-displays.md` | Cross-references CalendarDisplay as a sibling list-display family |
+| Skill | `docs/skills/crud-views.md` | Display protocol, references CalendarDisplay |
+| Skill | `docs/skills/explorer.md` | `explorer_displays` attribute and calendar example |
+| Help | `apps/smallstack/docs/explorer.md` | User-facing explorer guide with calendar example |
+| Help | `apps/smallstack/docs/explorer-admin-api.md` | Admin attribute reference |
+| Help | `apps/explorer/content/index.md` | Bundled explorer overview |
+| Help | `apps/explorer/content/admin-api.md` | Bundled admin API reference |
+
+### Dashboard Widgets (`apps/smallstack/dashboard.py`, `apps/smallstack/displays.py` DashboardWidget, `apps/smallstack/dashboard_widgets.py`)
+
+| Type | File | What it covers |
+|------|------|----------------|
+| Skill | `docs/skills/dashboard-widgets.md` | DashboardWidget class, Explorer vs standalone registration, data layer, mixin, API |
+| Skill | `docs/skills/explorer.md` | `explorer_dashboard_widgets` attribute + Explorer widget toggle |
+| Skill | `docs/skills/api.md` | `/api/dashboard/widgets/` endpoint |
+| Help | `apps/smallstack/docs/dashboard-widgets.md` | User-facing guide |
+| Config | `apps/smallstack/docs/_config.yaml` | Registers the help page |
+
+### Settings & Configuration (`config/settings/`)
+
+| Type | File | What it covers |
+|------|------|----------------|
+| Skill | `docs/skills/settings.md` | All settings, env vars, feature flags |
+| Help | `apps/smallstack/docs/settings-configuration.md` | User-facing settings guide |
+
+### Background Tasks (`apps/tasks/`)
+
+| Type | File | What it covers |
+|------|------|----------------|
+| Skill | `docs/skills/background-tasks.md` | Task system, worker, queues |
+| Help | `apps/smallstack/docs/background-tasks.md` | User-facing tasks guide |
+
+### Approvals (`apps/approvals/`)
+
+| Type | File | What it covers |
+|------|------|----------------|
+| Skill | `docs/skills/approvals.md` | `@approval_kind`, filing, eligibility rules, fan-out, template namespaces, settings |
+| Skill | `docs/skills/notifications.md` | The in-app channel approvals fan out to |
+| Skill | `docs/skills/webhooks.md` | The `.updated` event decisions ride on |
+| Skill | `docs/skills/settings.md` | `SMALLSTACK_APPROVALS_*` flags |
+| Help | `apps/smallstack/docs/approvals.md` | User-facing approvals guide |
+| Config | `apps/smallstack/docs/_config.yaml` | Registers the help page |
+
+### Notifications (`apps/notifications/`)
+
+| Type | File | What it covers |
+|------|------|----------------|
+| Skill | `docs/skills/notifications.md` | `notify()` contract, bell/inbox, REST, retention |
+| Skill | `docs/skills/approvals.md` | The first producer (cross-reference) |
+| Skill | `docs/skills/settings.md` | `SMALLSTACK_NOTIFICATIONS_*` flags |
+| Help | `apps/smallstack/docs/notifications.md` | User-facing notifications guide |
+| Config | `apps/smallstack/docs/_config.yaml` | Registers the help page |
+
+### Deployment (Docker, Kamal)
+
+| Type | File | What it covers |
+|------|------|----------------|
+| Skill | `docs/skills/docker-deployment.md` | Docker setup |
+| Skill | `docs/skills/kamal-deployment.md` | Kamal deployment |
+| Help | `apps/smallstack/docs/docker-deployment.md` | User-facing Docker guide |
+| Help | `apps/smallstack/docs/kamal-deployment.md` | User-facing Kamal guide |
+
+### Help System (`apps/help/`)
+
+| Type | File | What it covers |
+|------|------|----------------|
+| Skill | `docs/skills/help-documentation.md` | Help system architecture, creating pages |
+| Help | `apps/smallstack/docs/help-system.md` | User-facing help system guide |
+
+## Cross-Cutting Updates
+
+Some changes affect multiple groups. Always check:
+
+- **`docs/skills/README.md`** — If you add a new skill file, add it to the table and usage list
+- **`apps/smallstack/docs/_config.yaml`** — If you add a new help page, register it here
+- **`CLAUDE.md`** (workspace root) — If architecture changes significantly
+
+## Decision: Update Existing vs Create New
+
+- **Update existing** when: the change extends or modifies a feature already documented
+- **Create new** when: the feature is genuinely new, has its own URL/config surface, and would make an existing doc too long or unfocused
+- **Both** when: a new feature needs its own page AND existing pages need cross-references to it
+
+## Checklist Template
+
+When updating docs after a change:
+
+```
+Change area: [e.g., API System]
+Files modified: [list code files changed]
+
+Skills to check:
+- [ ] docs/skills/api.md
+- [ ] docs/skills/api-discovery.md
+- [ ] ...
+
+Help docs to check:
+- [ ] apps/smallstack/docs/...
+- [ ] apps/help/content/...
+
+Config to check:
+- [ ] apps/smallstack/docs/_config.yaml (new pages)
+- [ ] docs/skills/README.md (new skills — a row here is what registers it)
+- [ ] `make skills-index` (regenerates docs/skills/index.json from that README)
+
+Actions taken:
+- [ ] Updated [file] — added [what]
+- [ ] Created [file] — new page for [what]
+```

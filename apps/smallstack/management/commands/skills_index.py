@@ -10,8 +10,9 @@ from apps.smallstack import skills_index
 
 class Command(BaseCommand):
     help = (
-        "Rebuild docs/skills/index.json from the tables in docs/skills/README.md. "
-        "With --check, report drift instead of writing (exit 1 if out of sync)."
+        "Rebuild docs/skills/index.json and the Agent Skills tree (.agents/skills/ + .claude/skills/ "
+        "links) from the tables in docs/skills/README.md. With --check, report drift instead of "
+        "writing (exit 1 if out of sync)."
     )
 
     def add_arguments(self, parser: ArgumentParser) -> None:
@@ -50,3 +51,11 @@ class Command(BaseCommand):
         path = skills_index.write_index(root)
         count = len(skills_index.build_index(root)["skills"])
         self.stdout.write(self.style.SUCCESS(f"Wrote {path} ({count} skills)."))
+        written = skills_index.write_agent_skills(root)
+        if written:
+            self.stdout.write(
+                self.style.SUCCESS(
+                    f"Wrote {skills_index.AGENT_SKILLS_SUBDIR}/ ({count} Agent Skills) "
+                    f"+ {skills_index.CLAUDE_SKILLS_SUBDIR}/ links."
+                )
+            )

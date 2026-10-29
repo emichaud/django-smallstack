@@ -91,7 +91,7 @@ def test_an_unregistered_skill_file_is_reported_with_its_fix(tmp_path) -> None: 
 
 
 def test_claude_md_skill_references_are_registered() -> None:
-    """Every ``docs/skills/...`` path CLAUDE.md names must exist and be in the index.
+    """Every ``docs/skills/...`` path CLAUDE.md / AGENTS.md names must exist and be in the index.
 
     This is the exact shape of the downstream report: CLAUDE.md pointed at a skill file
     that the index didn't know about.
@@ -101,20 +101,89 @@ def test_claude_md_skill_references_are_registered() -> None:
 
     from django.conf import settings
 
-    claude_md = Path(settings.BASE_DIR) / "CLAUDE.md"
-    if not claude_md.exists():
-        pytest.skip("no CLAUDE.md")
+    files = [Path(settings.BASE_DIR) / name for name in ("CLAUDE.md", "AGENTS.md")]
+    files = [f for f in files if f.exists()]
+    if not files:
+        pytest.skip("no CLAUDE.md / AGENTS.md")
 
+    text = "\n".join(f.read_text(encoding="utf-8") for f in files)
     referenced = {
-        ref
-        for ref in re.findall(r"docs/skills/([A-Za-z0-9_\-/]+\.md)", claude_md.read_text(encoding="utf-8"))
-        if ref != skills_index.README_NAME
+        ref for ref in re.findall(r"docs/skills/([A-Za-z0-9_\-/]+\.md)", text) if ref != skills_index.README_NAME
     }
     registered = {row.file for row in skills_index.parse_readme(SKILLS)}
     missing_on_disk = sorted(ref for ref in referenced if not (SKILLS / ref).exists())
     unregistered = sorted(referenced - registered)
 
-    assert not missing_on_disk, "CLAUDE.md points at missing skill files: " + ", ".join(missing_on_disk)
+    assert not missing_on_disk, "AGENTS.md/CLAUDE.md point at missing skill files: " + ", ".join(missing_on_disk)
     assert not unregistered, (
-        "CLAUDE.md points at skills missing from the index: " + ", ".join(unregistered)
+        "AGENTS.md/CLAUDE.md point at skills missing from the index: " + ", ".join(unregistered)
     )
+
+
+# -- Agent Skills (https://agentskills.io/specification) ------------------------
+
+
+_NAME_OK = __import__("re").compile(r"^[a-z0-9]+(-[a-z0-9]+)*$")
+
+
+def test_generated_skill_names_and_descriptions_are_spec_valid() -> None:
+    skills = skills_index.build_agent_skills(SKILLS)
+    assert skills, "no Agent Skills generated"
+    for name, files in skills.items():
+        assert 1 <= len(name) <= 64 and _NAME_OK.match(name), name
+        text = files[skills_index.SKILL_FILE]
+        assert text.startswith("---\nname: " + name + "\n"), name
+        desc = text.split("\ndescription: ", 1)[1].split("\n", 1)[0]
+        assert 2 < len(desc) <= 1026, (name, len(desc))  # quoted, ≤ 1024 inside
+        assert skills_index.GENERATED_BY in text
+
+
+def test_long_skills_are_split_into_references() -> None:
+    skills = skills_index.build_agent_skills(SKILLS)
+    long_ones = [n for n, f in skills.items() if any(k.startswith("references/") for k in f)]
+    assert long_ones, "expected at least one skill over MAX_INLINE_LINES"
+    for name in long_ones:
+        body = skills[name][skills_index.SKILL_FILE]
+        assert len(body.splitlines()) <= skills_index.MAX_INLINE_LINES
+        assert "references/" in body
+
+
+def test_agent_skills_tree_is_in_sync() -> None:
+    """``.agents/skills/`` and the ``.claude/skills/`` links are generated — they
+    must be what the current README produces. ``make skills-index`` fixes it."""
+    drift = skills_index.check(SKILLS)
+    assert not drift.stale_skills, "the Agent Skills tree is stale — run `make skills-index`"
+
+
+def test_skill_name_sanitises_awkward_file_names() -> None:
+    assert skills_index.skill_name("merge-0.12.0.md") == "merge-0-12-0"
+    assert skills_index.skill_name("mcp/verify-mcp.md") == "mcp-verify-mcp"
+    assert skills_index.skill_name("Weird__Name!.md") == "weird-name"
+
+
+def test_write_and_check_round_trip_in_a_fork(tmp_path) -> None:  # type: ignore[no-untyped-def]
+    project = tmp_path
+    root = project / "docs" / "skills"
+    root.mkdir(parents=True)
+    (root / skills_index.README_NAME).write_text(
+        "## Available Skills\n\n| File | Description |\n|---|---|\n| [one.md](one.md) | **First** skill |\n",
+        encoding="utf-8",
+    )
+    (root / "one.md").write_text("# One\n\nBody.\n", encoding="utf-8")
+    skills_index.write_index(root)
+    skills_index.write_agent_skills(root, project)
+    skill = project / skills_index.AGENT_SKILLS_SUBDIR / "one" / skills_index.SKILL_FILE
+    assert skill.is_file() and "description: \"First skill\"" in skill.read_text()
+    link = project / skills_index.CLAUDE_SKILLS_SUBDIR / "one"
+    assert link.is_symlink() and (link / skills_index.SKILL_FILE).is_file()
+    assert not skills_index.check(root, project).stale_skills
+    # Drop the row: the generated directory and link go; a hand-made one stays.
+    hand = project / skills_index.AGENT_SKILLS_SUBDIR / "mine"
+    hand.mkdir()
+    (hand / skills_index.SKILL_FILE).write_text("---\nname: mine\ndescription: hand made\n---\n")
+    (root / skills_index.README_NAME).write_text("## Available Skills\n\n| File | Description |\n|---|---|\n")
+    (root / "one.md").unlink()
+    skills_index.write_index(root)
+    skills_index.write_agent_skills(root, project)
+    assert not skill.exists() and not link.exists() and hand.is_dir()
+

@@ -14,6 +14,7 @@ from apps.heartbeat.views import (
     heartbeat_ping,
     status_json,
 )
+from apps.help.views import llms_full_txt, llms_txt
 from apps.mcp.urls import oauth_wellknown_urlpatterns
 from apps.smallstack.api import (
     api_auth_logout,
@@ -92,6 +93,10 @@ urlpatterns = [
     path("feed/", include("apps.feeds.urls")),
     # Utility routes
     path("health/", health_check, name="health_check"),
+    # Agent-readable documentation index (https://llmstxt.org): what the help
+    # system publishes, as Markdown links, plus the full concatenation.
+    path("llms.txt", llms_txt, name="llms_txt"),
+    path("llms-full.txt", llms_full_txt, name="llms_full_txt"),
     path(
         "robots.txt",
         RedirectView.as_view(url=f"{settings.STATIC_URL}robots.txt", permanent=True),

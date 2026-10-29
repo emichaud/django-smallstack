@@ -1,0 +1,161 @@
+---
+name: release-process
+description: "Versioning, release checklist, GitHub releases — the ritual for cutting a SmallStack release from this repo. A fork that cuts its own releases should keep its own release doc and read integration-workflow.md instead"
+license: MIT
+metadata:
+  source: "docs/skills/release-process.md"
+  section: "Available Skills"
+  generated-by: "smallstack-skills-index"
+  scope: "upstream-only"
+---
+
+> Generated from `docs/skills/release-process.md` by `make skills-index` — edit the source, not this file.
+
+# Skill: Release Process
+
+> **Scope: the `django-smallstack` upstream repo only.** This is how *SmallStack itself* is versioned and
+> published. If you're working in a project built on SmallStack, this file does not describe your release
+> process — follow your own project's release doc, and read
+> [`integration-workflow.md`](integration-workflow.md) (pull a new upstream version) and
+> [`downstream-release-migration.md`](downstream-release-migration.md) (migrate across releases) instead.
+
+How to version, release, and publish SmallStack.
+
+## Versioning
+
+SmallStack uses **Semantic Versioning** (semver): `MAJOR.MINOR.PATCH`
+
+| Level | When to Bump | Example |
+|-------|-------------|---------|
+| **PATCH** (0.7.0 → 0.7.1) | Bug fixes, doc updates, small improvements | Default for most releases |
+| **MINOR** (0.7.1 → 0.8.0) | New features, new commands, new apps | Backwards-compatible additions |
+| **MAJOR** (0.8.0 → 1.0.0) | Breaking changes, removed features | Changes that require downstream migration |
+
+### Version Locations
+
+| File | Field | Example |
+|------|-------|---------|
+| `pyproject.toml` | `version = "X.Y.Z"` | `version = "0.25.2"` |
+| `README.md` | the version badge | `![Version 0.25.2](…/badge/version-0.25.2-blue)` |
+| `CHANGELOG.md` | a new `## [X.Y.Z] - YYYY-MM-DD` section, plus the `[Unreleased]` and `[X.Y.Z]` link refs at the bottom | — |
+| `uv.lock` | the project's own `version` — refreshed by the `uv sync` below, not by hand | — |
+
+Then **`uv sync --extra dev`**. The bump leaves the installed distribution's metadata on the
+old version, and `smallstack.W001` fires on `manage.py check --deploy` until the package is
+reinstalled — a bare `uv sync` installs it but prunes the dev extras, so pass `--extra dev`.
+
+## Pre-Release Checklist
+
+Before any release, verify:
+
+```bash
+# 1. All tests pass
+make test
+
+# 2. Lint is clean
+make lint
+
+# 3. Coverage is acceptable (update badge if changed significantly)
+make coverage
+
+# 4. Dev server runs without errors
+make run
+```
+
+## Release Steps
+
+### 1. Ensure Main is Clean
+
+```bash
+git checkout main
+git status                          # Should be clean
+```
+
+If on a feature branch, merge first:
+
+```bash
+git checkout main
+git merge feature/my-feature
+git branch -d feature/my-feature
+```
+
+### 2. Bump Version
+
+Update the three version locations (see table above).
+
+### 3. Commit the Release
+
+```bash
+git add pyproject.toml apps/help/smallstack/_config.yaml README.md uv.lock
+git commit -m "v0.7.1: <release summary>"
+```
+
+Release commit messages follow the pattern: `vX.Y.Z: <1-2 sentence summary>`
+
+Examples:
+- `v0.7.1: Documentation improvements, Docker Compose V2, and test coverage integration`
+- `v0.8.0: Add activity tracking dashboard with auto-pruning and staff views`
+
+### 4. Push to GitHub
+
+```bash
+git push origin main
+```
+
+### 5. Create GitHub Release
+
+```bash
+gh release create v0.7.1 \
+  --title "v0.7.1" \
+  --notes "$(cat <<'EOF'
+## What's New
+
+- **Feature**: Brief description
+- **Fix**: Brief description
+- **Docs**: Brief description
+
+## Stats
+
+- X tests, Y% code coverage
+- All lint checks passing
+
+## Upgrade
+
+Pull the latest from upstream:
+\`\`\`bash
+git pull origin main
+make migrate
+\`\`\`
+EOF
+)"
+```
+
+## Post-Release: Downstream Integration
+
+After pushing a release, update downstream projects:
+
+```bash
+# In each project built on SmallStack
+cd ../<your-project>
+git pull upstream main              # Pull SmallStack updates
+# Resolve any merge conflicts
+make migrate                        # Run new migrations
+make test                           # Verify nothing broke
+git add -A && git commit -m "chore: Pull upstream SmallStack v0.7.1"
+git push origin main
+```
+
+For downstream projects with deployment:
+```bash
+kamal deploy                        # or docker compose up -d --build
+```
+
+See `docs/skills/integration-workflow.md` for detailed downstream integration steps.
+
+## Automation Opportunities
+
+Future improvements:
+- GitHub Actions CI to run tests + lint on every push
+- Automated coverage badge via Codecov or similar
+- Changelog generation from commit messages
+- Pre-release hooks to verify version consistency

@@ -4,6 +4,7 @@
   "generated": true,
   "source": "docs/skills/README.md (+ local.md for this project's own skills)",
   "regenerate": "make skills-index",
+  "agent_skills": ".agents/skills",
   "skills": [
     {
       "id": "from-zero-to-running",
@@ -101,6 +102,13 @@
         "migration"
       ],
       "use_when": "Before adding or tuning a color palette — the four wiring points and the color-science gotchas."
+    },
+    {
+      "id": "branding",
+      "file": "branding.md",
+      "name": "Branding",
+      "description": "Brand assets — the `BRAND_*` logo/icon/favicon settings, sizes and formats, where upstream defaults vs. a downstream's own files live",
+      "section": "Available Skills"
     },
     {
       "id": "add-gold-theme",

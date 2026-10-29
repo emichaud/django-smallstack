@@ -4,6 +4,8 @@
 {% block title %}{{ page.title }} - Help{% endblock %}
 
 {% block extra_css %}
+{% if current_section %}<link rel="alternate" type="text/markdown" href="{% url 'help:section_detail_md' current_section page.slug %}">{% else %}<link rel="alternate" type="text/markdown" href="{% url 'help:detail_md' page.slug %}">{% endif %}
+<link rel="describedby" href="{% url 'llms_txt' %}">
 <link rel="stylesheet" href="{% static 'smallstack/help/css/help.css' %}">
 {% endblock %}
 

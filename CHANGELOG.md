@@ -41,7 +41,36 @@ Breaking-change migration recipes live in [`UPGRADING.md`](UPGRADING.md).
   `multichoice` → `{"type": "array", "items": {"type": "string", "enum": […]}}`
   on all three surfaces. (Found via the calendar's saved views.)
 
+### Changed
+- **`check_object_permission` enforces `can_update` / `can_delete` by
+  default.** Those hooks used to decide only which buttons render — REST, MCP
+  and the bulk views consulted them, but the HTML edit and delete views did
+  not, so a CRUDView that implemented `can_update` and stopped there still
+  accepted a non-owner's POST to `…/edit/`. The default now refuses with 403
+  on the edit/delete routes (any method) and on every non-GET unless the
+  matching hook says yes; `enforce_write_hooks()` is the reusable body for
+  overrides that want to keep it. A CRUDView whose `can_update` returns
+  False purely to hide a button will now also block the write — which is
+  what the hook's name always promised.
+
 ### Added
+- **Agent discovery, three standards.** *(1)* `AGENTS.md` is now the
+  tool-neutral project instruction file (https://agents.md/ — read by Codex,
+  Cursor, Copilot, Gemini CLI and, since 2.1.277, Claude Code); `CLAUDE.md`
+  imports it with `@AGENTS.md` and keeps only Claude-specific notes. *(2)*
+  Every registered skill in `docs/skills/` is also generated as an **Agent
+  Skill** (https://agentskills.io/specification): `.agents/skills/<name>/
+  SKILL.md` with spec-valid frontmatter, long skills split into
+  `references/`, and `.claude/skills/<name>` symlinks for Claude Code (which
+  reads only that directory). `make skills-index` writes both; `--check` (and
+  so `make lint`) fails on drift. Hand-made skills in either directory are
+  left alone. The former loose `.claude/skills/branding.md` became a
+  registered `docs/skills/branding.md`. *(3)* **`/llms.txt`** and
+  **`/llms-full.txt`** (https://llmstxt.org) publish the help system as an
+  agent-readable index and a single concatenation; every help page now has a
+  Markdown alternate at `…/<slug>.md`, advertised with
+  `<link rel="alternate" type="text/markdown">`. New setting
+  `SMALLSTACK_LLMS_DESCRIPTION` for the one-line summary.
 - **Help: "Prompting a coding agent."** A new Getting Started page
   (`/smallstack/help/smallstack/prompting-coding-agents/`) with copy-ready
   prompts for the common first tasks — a new app on SmallStack, the public

@@ -363,6 +363,39 @@ def get_section_pages_grouped(section: str) -> list[dict]:
     return result
 
 
+def get_help_page_markdown(slug: str, section: str = "") -> dict | None:
+    """The page as Markdown — frontmatter stripped, variables substituted —
+    for the ``.md`` alternate every HTML help page advertises and for
+    ``llms-full.txt``. Same gating and lookup as :func:`get_help_page`."""
+    if section == SMALLSTACK_SECTION_SLUG and not is_smallstack_docs_enabled():
+        return None
+    section_dir = _get_section_dir(section)
+    if section_dir is None:
+        return None
+    file_path = section_dir / f"{slug}.md"
+    if not file_path.exists():
+        return None
+    raw = file_path.read_text(encoding="utf-8")
+    frontmatter: dict[str, Any] = {}
+    content = raw
+    if raw.startswith("---"):
+        parts = raw.split("---", 2)
+        if len(parts) >= 3:
+            frontmatter = yaml.safe_load(parts[1]) or {}
+            content = parts[2].strip()
+    content = substitute_variables(content, section)
+    title = frontmatter.get("title") or slug.replace("-", " ").title()
+    if not content.lstrip().startswith("# "):
+        content = f"# {title}\n\n{content}"
+    return {
+        "slug": slug,
+        "section": section,
+        "title": title,
+        "description": frontmatter.get("description", ""),
+        "markdown": content,
+    }
+
+
 def get_all_sections() -> list:
     """Get all sections with their metadata from user docs, app docs, and SmallStack."""
     config = get_config()

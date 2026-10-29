@@ -448,9 +448,11 @@ def _event_status(obj: Event) -> str | None:
 
 class EventCRUDView(CRUDView):
     """Hand-entered calendar entries. Any signed-in user may add one; an entry
-    is editable by its author and by staff; *private* entries are visible only
-    to their author and staff. REST + MCP come from the same class, so an
-    agent can file an entry too ("add a release on the 14th")."""
+    is editable by its author and by staff (``can_update`` — the framework's
+    default ``check_object_permission`` enforces it on every write surface);
+    *private* entries are visible only to their author and staff. REST + MCP
+    come from the same class, so an agent can file an entry too ("add a
+    release on the 14th")."""
 
     model = Event
     form_class = EventForm
@@ -517,23 +519,6 @@ class EventCRUDView(CRUDView):
     @classmethod
     def can_delete(cls, obj: Event, request: HttpRequest) -> bool:
         return cls.can_update(obj, request)
-
-    @classmethod
-    def check_object_permission(cls, obj: Event, request: HttpRequest) -> None:
-        """The write gate for every single-object surface. ``can_update`` is
-        a render-time hint (which buttons to draw); this is what refuses a
-        POST from someone who isn't the author or staff — on the HTML edit
-        and delete routes (whatever the method, so a non-author never sees a
-        populated form they can't submit), REST and the MCP tools alike."""
-        if request.method in ("GET", "HEAD", "OPTIONS") and request.path.rstrip("/").rsplit("/", 1)[-1] not in {
-            "edit",
-            "delete",
-        }:
-            return
-        if not cls.can_update(obj, request):
-            from django.core.exceptions import PermissionDenied
-
-            raise PermissionDenied("Only the author or staff can change this event.")
 
     @classmethod
     def _make_view(cls, base_class: Any) -> Any:

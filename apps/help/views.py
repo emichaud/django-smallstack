@@ -4,7 +4,7 @@ Views for the help/documentation app.
 Supports hierarchical documentation with sections (folders).
 """
 
-from django.http import Http404, HttpRequest, JsonResponse
+from django.http import Http404, HttpRequest, HttpResponse, JsonResponse
 from django.views.generic import TemplateView
 
 from .utils import (
@@ -205,3 +205,110 @@ def search_index_view(request: HttpRequest) -> JsonResponse:
     """Return JSON search index for client-side search."""
     index = build_search_index()
     return JsonResponse({"pages": index})
+
+
+# ---------------------------------------------------------------------------
+# Agent-readable surfaces: page.md alternates, /llms.txt, /llms-full.txt
+# ---------------------------------------------------------------------------
+
+
+def _markdown_response(page: dict | None) -> HttpResponse:
+    if page is None:
+        raise Http404("Help page not found")
+    return HttpResponse(page["markdown"] + "\n", content_type="text/markdown; charset=utf-8")
+
+
+def help_page_markdown(request: HttpRequest, slug: str, section: str = "") -> HttpResponse:
+    """``/smallstack/help/<section>/<slug>.md`` — the page as Markdown. What
+    the HTML page's ``<link rel="alternate" type="text/markdown">`` points at,
+    per the llms.txt convention."""
+    from .utils import get_help_page_markdown
+
+    return _markdown_response(get_help_page_markdown(slug, section))
+
+
+def _site_name() -> str:
+    from django.conf import settings
+
+    return str(getattr(settings, "BRAND_NAME", None) or getattr(settings, "SITE_NAME", None) or "SmallStack")
+
+
+def _site_blurb() -> str:
+    from django.conf import settings
+
+    return str(
+        getattr(settings, "SMALLSTACK_LLMS_DESCRIPTION", None)
+        or "A Django SmallStack site: an admin shell, REST API, MCP server, datasets, calendars, "
+        "scheduler, webhooks, approvals and publishing, built on one model declaration per feature. "
+        "The documentation below is served as Markdown."
+    )
+
+
+def _abs(request: HttpRequest, path: str) -> str:
+    return request.build_absolute_uri(path)
+
+
+def llms_txt(request: HttpRequest) -> HttpResponse:
+    """``/llms.txt`` (https://llmstxt.org): an H1, a blockquote summary, then
+    one H2 per help section whose entries link the Markdown version of each
+    page, and an Optional section for the machine surfaces."""
+    from django.urls import reverse
+
+    from .utils import get_all_sections
+
+    lines = [f"# {_site_name()}", "", f"> {_site_blurb()}", ""]
+    lines.append(
+        "Pages are listed per documentation section; every link is a Markdown rendering of the page. "
+        "The same pages are readable as HTML under the same path without the `.md` suffix."
+    )
+    lines.append("")
+    for section in get_all_sections():
+        pages = section.get("pages") or []
+        if not pages:
+            continue
+        lines.append(f"## {section['title']}")
+        lines.append("")
+        for page in pages:
+            slug = page["slug"]
+            if section["slug"]:
+                path = reverse("help:section_detail_md", kwargs={"section": section["slug"], "slug": slug})
+            else:
+                path = reverse("help:detail_md", kwargs={"slug": slug})
+            desc = (page.get("description") or "").strip()
+            lines.append(f"- [{page['title']}]({_abs(request, path)})" + (f": {desc}" if desc else ""))
+        lines.append("")
+    lines.append("## Optional")
+    lines.append("")
+    full = _abs(request, reverse("llms_full_txt"))
+    lines.append(f"- [Everything in one file]({full}): every page above, concatenated")
+    lines.append(f"- [OpenAPI schema]({_abs(request, '/api/schema/openapi.json')}): the REST API of this site")
+    lines.append(f"- [MCP endpoint]({_abs(request, '/mcp')}): JSON-RPC + OAuth for AI agents")
+    lines.append(f"- [Status]({_abs(request, '/status/')}): public uptime page")
+    return HttpResponse("\n".join(lines) + "\n", content_type="text/markdown; charset=utf-8")
+
+
+def llms_full_txt(request: HttpRequest) -> HttpResponse:
+    """``/llms-full.txt``: every help page's Markdown, concatenated, each under
+    its section and with a line naming its canonical URL."""
+    from django.urls import reverse
+
+    from .utils import get_all_sections, get_help_page_markdown
+
+    parts = [f"# {_site_name()}", "", f"> {_site_blurb()}", ""]
+    for section in get_all_sections():
+        for page in section.get("pages") or []:
+            md = get_help_page_markdown(page["slug"], section["slug"])
+            if md is None:
+                continue
+            if section["slug"]:
+                path = reverse("help:section_detail", kwargs={"section": section["slug"], "slug": page["slug"]})
+            else:
+                path = reverse("help:detail", kwargs={"slug": page["slug"]})
+            parts.append("---")
+            parts.append("")
+            parts.append(f"<!-- {section['title']} · {_abs(request, path)} -->")
+            parts.append("")
+            parts.append(md["markdown"].rstrip())
+            parts.append("")
+    return HttpResponse("\n".join(parts) + "\n", content_type="text/markdown; charset=utf-8")
+

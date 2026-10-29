@@ -93,6 +93,10 @@ PASSWORD_RESET_TIMEOUT = config("PASSWORD_RESET_TIMEOUT", default=86400, cast=in
 # SmallStack Help Documentation
 # Set to False to hide SmallStack reference docs from /help/
 SMALLSTACK_DOCS_ENABLED = config("SMALLSTACK_DOCS_ENABLED", default=True, cast=bool)
+# The one-line summary at the top of /llms.txt (https://llmstxt.org) — the
+# agent-readable index of this site's documentation. Blank uses a generic
+# SmallStack description; set it to say what THIS site is.
+SMALLSTACK_LLMS_DESCRIPTION = config("SMALLSTACK_LLMS_DESCRIPTION", default="")
 
 # SmallStack Color Palette
 # System-wide default palette. Users can override in their profile.

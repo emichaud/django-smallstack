@@ -1,0 +1,324 @@
+---
+name: settings
+description: "Split settings, environment variables, feature flags"
+license: MIT
+metadata:
+  source: "docs/skills/settings.md"
+  section: "Available Skills"
+  generated-by: "smallstack-skills-index"
+---
+
+> Generated from `docs/skills/settings.md` by `make skills-index` — edit the source, not this file.
+
+# Skill: Settings & Configuration
+
+This skill describes SmallStack's split settings structure, key configuration options, and environment variable usage.
+
+## Overview
+
+SmallStack uses a split settings pattern with separate files for base, development, and production. Settings are loaded from environment variables via `python-decouple`, with sensible defaults for development.
+
+## File Locations
+
+```
+config/settings/
+├── base.py           # Django infrastructure (INSTALLED_APPS, MIDDLEWARE, DATABASES, etc.)
+├── smallstack.py     # SmallStack-specific settings (BRAND_*, SMALLSTACK_*, SITE_*, ACTIVITY_*, etc.)
+├── development.py    # DEBUG=True, debug toolbar
+├── production.py     # Security headers, production database
+└── test.py           # Pytest-specific settings
+```
+
+`base.py` imports everything from `smallstack.py` via `from config.settings.smallstack import *`, so all settings are available transitively.
+
+## Settings Selection
+
+The active settings module is controlled by `DJANGO_SETTINGS_MODULE`:
+
+| Context | Value |
+|---------|-------|
+| Development (default) | `config.settings.development` |
+| Production / Docker | `config.settings.production` |
+| Tests | `config.settings.test` |
+
+Set via environment variable or in `manage.py` / `wsgi.py`.
+
+## Key Settings
+
+### Installed Apps (base.py)
+
+```python
+INSTALLED_APPS = [
+    # Custom apps (before django.contrib.admin for template overrides)
+    "apps.accounts",
+    "apps.smallstack",
+    "apps.profile",
+    "apps.help",
+    "apps.tasks",
+    "apps.activity",
+    "apps.heartbeat",
+    "apps.usermanager",
+    "apps.website",        # Project-specific pages
+    # Django built-in
+    "django.contrib.admin",
+    # ...
+    # Explorer must come after django.contrib.admin
+    "apps.explorer",
+    # Third-party
+    "django_extensions",
+    "django_tasks_db",
+    "django_tables2",
+    "axes",
+]
+```
+
+### Branding (smallstack.py)
+
+All branding is configurable via environment variables:
+
+```python
+BRAND_NAME = config("BRAND_NAME", default="SmallStack")
+BRAND_LOGO = config("BRAND_LOGO", default="smallstack/brand/django-smallstack-logo.svg")
+BRAND_LOGO_DARK = config("BRAND_LOGO_DARK", default="smallstack/brand/django-smallstack-logo-dark.svg")
+BRAND_LOGO_TEXT = config("BRAND_LOGO_TEXT", default="smallstack/brand/django-smallstack-text.svg")
+BRAND_ICON = config("BRAND_ICON", default="smallstack/brand/django-smallstack-icon.svg")
+BRAND_FAVICON = config("BRAND_FAVICON", default="smallstack/brand/django-smallstack-icon.ico")
+BRAND_SOCIAL_IMAGE = config("BRAND_SOCIAL_IMAGE", default="smallstack/brand/django-smallstack-social.png")
+BRAND_TAGLINE = config("BRAND_TAGLINE", default="A minimal Django starter stack")
+```
+
+Brand paths are relative to `STATIC_URL`. Override with your own assets in `static/brand/`.
+
+### Site Configuration (smallstack.py)
+
+```python
+SITE_NAME = config("SITE_NAME", default="SmallStack")
+SITE_DOMAIN = config("SITE_DOMAIN", default="localhost:8000")
+USE_HTTPS = config("USE_HTTPS", default=False, cast=bool)
+```
+
+### SmallStack Feature Flags (smallstack.py)
+
+```python
+# Color palette system default (users can override in profile)
+SMALLSTACK_COLOR_PALETTE = config("SMALLSTACK_COLOR_PALETTE", default="django")
+# Options: django, high-contrast, dark-blue, orange, purple
+
+# Show/hide bundled SmallStack reference docs in /help/
+SMALLSTACK_DOCS_ENABLED = config("SMALLSTACK_DOCS_ENABLED", default=True, cast=bool)
+
+# Show/hide Login/Sign Up in topbar
+SMALLSTACK_LOGIN_ENABLED = config("SMALLSTACK_LOGIN_ENABLED", default=True, cast=bool)
+
+# Show/hide Sign Up (also 404s the signup URL)
+SMALLSTACK_SIGNUP_ENABLED = config("SMALLSTACK_SIGNUP_ENABLED", default=True, cast=bool)
+
+# Completely remove the sidebar and hamburger toggle
+SMALLSTACK_SIDEBAR_ENABLED = config("SMALLSTACK_SIDEBAR_ENABLED", default=True, cast=bool)
+
+# Start with sidebar closed by default (users can still toggle open)
+SMALLSTACK_SIDEBAR_OPEN = config("SMALLSTACK_SIDEBAR_OPEN", default=True, cast=bool)  # deprecated
+
+# Default sidebar state: "open", "closed", or "disabled"
+# Supersedes SMALLSTACK_SIDEBAR_OPEN. Can be overridden per-page.
+SMALLSTACK_SIDEBAR_DEFAULT = config("SMALLSTACK_SIDEBAR_DEFAULT", default="open")
+
+# Show the unified topbar nav even when the sidebar is open
+SMALLSTACK_TOPBAR_NAV_ALWAYS = config("SMALLSTACK_TOPBAR_NAV_ALWAYS", default=True, cast=bool)
+```
+
+### Surface toggles — turn whole subsystems off (smallstack.py)
+
+Three master switches let you ship without a surface **without touching code** — set
+them in `.env` and restart. All default **on**.
+
+```python
+# Anonymous public status board (/status/, /status/json/, public maintenance pages)
+SMALLSTACK_PUBLIC_STATUS_ENABLED = config("SMALLSTACK_PUBLIC_STATUS_ENABLED", default=True, cast=bool)
+
+# The whole HTTP REST API (schema, Swagger/ReDoc, /api/auth/*, every CRUDView endpoint)
+SMALLSTACK_API_ENABLED = config("SMALLSTACK_API_ENABLED", default=True, cast=bool)
+
+# The whole MCP surface (/mcp JSON-RPC, OAuth, all tools, the MCP nav + status monitor)
+SMALLSTACK_MCP_ENABLED = config("SMALLSTACK_MCP_ENABLED", default=True, cast=bool)
+```
+
+| Flag | When `False` | Still works |
+|---|---|---|
+| `SMALLSTACK_PUBLIC_STATUS_ENABLED` | `/status/`, `/status/json/`, and the public scheduled-maintenance pages return **404**; the "Public page"/"JSON" links hide on the staff overview. | The staff status tooling under `/smallstack/status/` (overview, dashboard, SLA, per-monitor). |
+| `SMALLSTACK_API_ENABLED` | No `/api/*` routes (schema, Swagger, ReDoc, auth, dashboard); `enable_api = True` becomes a **no-op** (the API registry stays empty); the **API Health** nav + API status monitor disappear. | The `api_doctor` command and the `/smallstack/api/` admin pages (they just report an empty surface). |
+| `SMALLSTACK_MCP_ENABLED` | No `/mcp` endpoint, OAuth, or discovery routes; **no tools register** (`enable_mcp = True` and `@tool`/search tools are skipped); the **MCP** nav + dashboard widget + status monitor disappear. | The `/smallstack/mcp/` admin pages (they report zero tools), **and Search** — CRUDView discovery runs in the core (`SmallStackConfig.ready()`), not the MCP app, so the toggles are genuinely independent. |
+
+These are **deploy-time** flags — read once at startup (the URL gating is import-time),
+so change them in `.env` and restart; they aren't per-request toggles.
+
+### REST API Settings (smallstack.py)
+
+```python
+SMALLSTACK_API_PREFIX = config("SMALLSTACK_API_PREFIX", default="api/")
+SMALLSTACK_API_REGISTER_ENABLED = config("SMALLSTACK_API_REGISTER_ENABLED", default=False, cast=bool)
+SMALLSTACK_LOGIN_TOKEN_EXPIRY_HOURS = config("SMALLSTACK_LOGIN_TOKEN_EXPIRY_HOURS", default=24, cast=int)
+SMALLSTACK_LOGIN_TOKEN_MAX_HOURS = config("SMALLSTACK_LOGIN_TOKEN_MAX_HOURS", default=168, cast=int)
+# See "Surface toggles" above for SMALLSTACK_API_ENABLED (disables the whole API).
+```
+
+### SQLite Performance Tuning (base.py)
+
+```python
+SQLITE_OPTIONS = {
+    "transaction_mode": "IMMEDIATE",
+    "timeout": 5,
+    "init_command": (
+        "PRAGMA journal_mode=WAL;"
+        "PRAGMA synchronous=NORMAL;"
+        "PRAGMA temp_store=MEMORY;"
+        "PRAGMA mmap_size=134217728;"
+        "PRAGMA journal_size_limit=27103364;"
+        "PRAGMA cache_size=2000;"
+    ),
+}
+```
+
+Referenced by both `development.py` and `production.py` as `"OPTIONS": SQLITE_OPTIONS`. Prevents "database is locked" errors by enabling WAL mode and IMMEDIATE transactions. Do not use `ATOMIC_REQUESTS = True` with this configuration.
+
+### Activity Tracking (smallstack.py)
+
+```python
+ACTIVITY_MAX_ROWS = config("ACTIVITY_MAX_ROWS", default=10000, cast=int)
+ACTIVITY_PRUNE_INTERVAL = config("ACTIVITY_PRUNE_INTERVAL", default=100, cast=int)
+ACTIVITY_EXCLUDE_PATHS = ["/static/", "/media/", "/favicon.ico", "/health/", "/admin/jsi18n/", "/__debug__/"]
+```
+
+### Telemetry / Log Capture (smallstack.py)
+
+Writes log records to the database so a deployment is readable when its log stream isn't (container with no shell, managed platform swallowing stdout). See [`logging-audit.md`](logging-audit.md).
+
+```python
+TELEMETRY_LOG_CAPTURE_ENABLED = config("TELEMETRY_LOG_CAPTURE_ENABLED", default=True, cast=bool)
+TELEMETRY_LOG_LEVEL = config("TELEMETRY_LOG_LEVEL", default="WARNING")
+TELEMETRY_CAPTURE_LOGGERS = ["apps", "smallstack", "django.request"]
+TELEMETRY_MAX_CAPTURE_MINUTES = config("TELEMETRY_MAX_CAPTURE_MINUTES", default=120, cast=int)
+TELEMETRY_LOG_RETENTION_DAYS = config("TELEMETRY_LOG_RETENTION_DAYS", default=7, cast=int)
+TELEMETRY_LOG_MAX_ROWS = config("TELEMETRY_LOG_MAX_ROWS", default=20000, cast=int)
+TELEMETRY_LOG_QUEUE_SIZE = config("TELEMETRY_LOG_QUEUE_SIZE", default=1000, cast=int)
+```
+
+| Setting | Why you'd change it |
+|---|---|
+| `TELEMETRY_LOG_CAPTURE_ENABLED` | `false` removes the handler entirely — no queue, no thread, no rows |
+| `TELEMETRY_LOG_LEVEL` | Baseline captured level. WARNING keeps the table small; raise verbosity temporarily with `manage.py log_capture` instead of lowering this |
+| `TELEMETRY_CAPTURE_LOGGERS` | Loggers whose level is lowered during a capture window. **If DEBUG capture shows nothing new, your logger isn't in this list** — the logger gates before any handler is consulted |
+| `TELEMETRY_LOG_QUEUE_SIZE` | Raise when `log_capture status` reports `dropped > 0` |
+
+`TELEMETRY_LOG_CAPTURE_ENABLED` is read in both `development.py` and `production.py` to append the `db` handler to every logger — see the block after the `LOG_FILE` handling in each.
+
+### Background Tasks (base.py)
+
+```python
+TASKS = {
+    "default": {
+        "BACKEND": "django_tasks_db.DatabaseBackend",
+        "QUEUES": ["default", "email"],
+    }
+}
+```
+
+### Background Task Reliability (smallstack.py)
+
+```python
+# Worker heartbeat + lost-task reaper (SmallStack's db_worker)
+SMALLSTACK_TASKS_HEARTBEAT_ENABLED = True     # False => plain upstream worker, AND nothing reaps
+SMALLSTACK_TASKS_HEARTBEAT_SECONDS = 15       # beat interval; reaper every 4 beats (a fixed count)
+SMALLSTACK_TASKS_LOST_AFTER_SECONDS = 90      # silent this long => its RUNNING tasks fail (WorkerLost)
+SMALLSTACK_TASKS_ORPHAN_SECONDS = 86_400      # same, for workers with no heartbeat row
+```
+
+Two things worth knowing before you change the first two:
+
+- Turning `HEARTBEAT_ENABLED` off removes the only thing that *runs* the reaper,
+  not just the heartbeat — schedule `manage.py reap_tasks` if you disable it.
+- The reap period is `4 × HEARTBEAT_SECONDS`, so raising the beat interval makes
+  reaping proportionally less frequent. Keep `LOST_AFTER_SECONDS` several beats
+  wide (the shipped 90/15 is 6 beats); too tight and a couple of skipped beats
+  under load will reap live tasks.
+
+```python
+# Retries (@retry_policy in apps/tasks/reliability.py)
+SMALLSTACK_TASKS_DEFAULT_MAX_ATTEMPTS = 1     # attempts for undecorated tasks (1 = no retries)
+SMALLSTACK_TASKS_BACKOFF_SECONDS = 5          # UPPER BOUND of the first delay (actual: 2.5-5s), doubles per attempt
+SMALLSTACK_TASKS_BACKOFF_MAX_SECONDS = 600    # delay cap
+
+# A failed attempt that is being retried logs WARNING, not Django's stock
+# ERROR-with-traceback, so an absorbed transient failure doesn't page anyone.
+# A *final* failure still logs ERROR. False => Django's stock behaviour.
+SMALLSTACK_TASKS_SOFTEN_RETRYABLE_LOGS = True
+```
+
+See `docs/skills/background-tasks.md` → Reliability.
+
+### Inline Worker (env var, not a Django setting)
+
+`WORKER_INLINE` is a **deployment env var** checked in `docker-entrypoint.sh` (not in Django settings). It follows the same pattern as `BACKUP_CRON_ENABLED`.
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `WORKER_INLINE` | `true` | Run `db_worker` inside the web container. Set `false` when using a separate worker service/role. |
+
+### Email (smallstack.py)
+
+```python
+DEFAULT_FROM_EMAIL = config("DEFAULT_FROM_EMAIL", default="noreply@example.com")
+EMAIL_BACKEND = config("EMAIL_BACKEND", default="django.core.mail.backends.console.EmailBackend")
+```
+
+For production SMTP, set `EMAIL_BACKEND=django.core.mail.backends.smtp.SmtpBackend` and configure `EMAIL_HOST`, `EMAIL_PORT`, `EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD`.
+
+### Static Files (base.py)
+
+WhiteNoise serves static files in production with compression and caching:
+
+```python
+STORAGES = {
+    "staticfiles": {
+        "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
+    },
+}
+```
+
+## Environment Variables
+
+SmallStack uses `python-decouple` to read from `.env` files or environment variables. The pattern:
+
+```python
+from decouple import config
+SECRET_KEY = config("SECRET_KEY", default=secrets.token_urlsafe(50))  # auto-generated
+USE_HTTPS = config("USE_HTTPS", default=False, cast=bool)
+ACTIVITY_MAX_ROWS = config("ACTIVITY_MAX_ROWS", default=10000, cast=int)
+```
+
+### Adding New Settings
+
+1. Add SmallStack-specific settings (BRAND_*, SMALLSTACK_*, SITE_*, ACTIVITY_*, TELEMETRY_*, BACKUP_*, HEARTBEAT_*, AXES_*) to `config/settings/smallstack.py` using the `config()` pattern. Add Django infrastructure settings to `config/settings/base.py`.
+2. Document the default value
+3. Add to `.env.example` if one exists
+
+## Development vs Production
+
+### development.py additions
+- `DEBUG = True`
+- Django Debug Toolbar enabled
+- Console email backend
+
+### production.py additions
+- `DEBUG = False`
+- Security headers: HSTS, secure cookies, content type sniffing protection
+- `ALLOWED_HOSTS` from environment variable
+- Database path from `DATABASE_PATH` env var
+- JSON logging format
+
+## Best Practices
+
+1. **Use `config()` for all secrets** — Never hardcode secrets in settings files
+2. **Keep base.py for Django infrastructure** — SmallStack-specific settings go in smallstack.py, environment-specific overrides go in development.py/production.py
+3. **Custom apps before Django** — Ensures template overrides work correctly
+4. **Use feature flags** — `SMALLSTACK_*` settings let you toggle features without code changes

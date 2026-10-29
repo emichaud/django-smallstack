@@ -2051,8 +2051,36 @@ class CRUDView:
         Prefer :meth:`get_detail_queryset` when "not yours" should read as 404
         (existence is a secret). Use this hook when it should read as 403, or
         when the rule is not expressible as a queryset filter.
+
+        **The default enforces ``can_update`` / ``can_delete`` on write
+        surfaces.** Those two hooks used to decide only which buttons render:
+        REST, MCP and the bulk views consulted them, but the HTML edit and
+        delete views did not, so a CRUDView that implemented ``can_update``
+        and stopped there still accepted a non-owner's POST to ``…/edit/``.
+        Now a request on the edit or delete route (any method — a form you
+        cannot submit must not render either) or any non-GET method is
+        refused with 403 unless the matching hook says yes. Override this
+        method to replace the rule (call ``super()`` to keep it).
         """
-        return None
+        cls.enforce_write_hooks(obj, request)
+
+    @classmethod
+    def enforce_write_hooks(cls, obj, request) -> None:
+        """Raise 403 on a write surface the ``can_update`` / ``can_delete``
+        hooks refuse. The default body of :meth:`check_object_permission`;
+        split out so an override can keep it with one call."""
+        from django.core.exceptions import PermissionDenied
+
+        method = (getattr(request, "method", "GET") or "GET").upper()
+        tail = (getattr(request, "path", "") or "").rstrip("/").rsplit("/", 1)[-1]
+        if tail == "bulk":
+            return  # the bulk views check the hooks per object themselves
+        if tail == "delete" or method == "DELETE":
+            if not cls.can_delete(obj, request):
+                raise PermissionDenied("You may not delete this record.")
+        elif tail == "edit" or method in ("POST", "PUT", "PATCH"):
+            if not cls.can_update(obj, request):
+                raise PermissionDenied("You may not change this record.")
 
     @classmethod
     def on_form_valid(cls, request, form, obj, is_create=False):
