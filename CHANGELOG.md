@@ -31,7 +31,11 @@ Breaking-change migration recipes live in [`UPGRADING.md`](UPGRADING.md).
   links apply. `/smallstack/calendar/` merges any number of calendars onto one
   month grid — three columns: the additive picker (a stable colour per
   calendar from the new `--series-1…8` theme tokens, light + dark), the grid,
-  and the selected day's events (today by default; click a day to switch),
+  and the selected day's events (today by default; click a day to switch;
+  grouped by calendar with a monospace time gutter). A **Month | 30 | 60 | 90
+  days** control swaps the grid for a day-range board — one column per week,
+  an entry card per event — and a **Weekends** toggle hides Sat/Sun in both.
+  Saved views open from an A–Z dropdown,
   month navigation, every state a link. **Saved views** (`SavedCalendarView`:
   name + list of calendar keys, one default per owner) are a per-user CRUDView
   with REST (`/smallstack/api/calendar/views/`) and MCP; **Save this view**

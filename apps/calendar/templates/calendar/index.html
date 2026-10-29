@@ -1,7 +1,7 @@
 {% extends "smallstack/base.html" %}
 {% load static theme_tags %}
 
-{% block title %}Calendar · {{ month_label }}{% endblock %}
+{% block title %}Calendar · {{ period_label }}{% endblock %}
 {% block breadcrumbs %}{% endblock %}
 
 {% block extra_css %}
@@ -48,20 +48,6 @@
 <div class="cal-layout">
 
     <aside class="cal-side">
-        {% if saved_views %}
-        <div class="card cal-card">
-            <div class="card-header cal-card-header"><h2>My views</h2></div>
-            <div class="card-body cal-views">
-                {% for v in saved_views %}
-                <a href="{{ v.url }}" class="cal-view{% if v.active %} is-active{% endif %}" {% if v.active %}aria-current="true"{% endif %}>
-                    <span class="cal-view-name">{{ v.obj.name }}</span>
-                    <span class="cal-view-meta">{{ v.obj.keys|length }} cal{{ v.obj.keys|length|pluralize }}{% if v.obj.is_default %} · default{% endif %}</span>
-                </a>
-                {% endfor %}
-            </div>
-        </div>
-        {% endif %}
-
         <div class="card cal-card">
             <div class="card-header cal-card-header">
                 <h2>Calendars</h2>
@@ -73,6 +59,17 @@
                 </span>
                 {% endif %}
             </div>
+            {% if saved_views %}
+            <div class="cal-viewpick">
+                <label for="cal-view-select" class="sr-only">Saved view</label>
+                <select id="cal-view-select" class="cal-view-select" aria-label="Open a saved view">
+                    <option value="">{% if current_view %}{{ current_view.name }}{% else %}Open a saved view…{% endif %}</option>
+                    {% for v in saved_views %}{% if not v.active %}
+                    <option value="{{ v.url }}">{{ v.obj.name }}{% if v.obj.is_default %} (default){% endif %}</option>
+                    {% endif %}{% endfor %}
+                </select>
+            </div>
+            {% endif %}
             <div class="card-body cal-picker">
                 {% for c in picker %}
                 <a href="{{ c.toggle_url }}" class="cal-pick{% if c.selected %} is-on{% endif %} cal-series-{{ c.series }}"
@@ -81,7 +78,7 @@
                     <span class="cal-pick-body">
                         <span class="cal-pick-label">{{ c.label }}</span>
                         <span class="cal-pick-meta">
-                            {% if c.selected %}{{ c.count }}{% if c.capped %}+{% endif %} this month{% else %}{% if c.ranged %}ranges{% else %}dates{% endif %}{% endif %}
+                            {% if c.selected %}{{ c.count }}{% if c.capped %}+{% endif %} in view{% else %}{% if c.ranged %}ranges{% else %}dates{% endif %}{% endif %}
                         </span>
                     </span>
                 </a>
@@ -99,25 +96,60 @@
     </aside>
 
     <section class="cal-main">
+        <div class="cal-toolbar">
+            <nav class="cal-seg" aria-label="Calendar range">
+                {% for r in range_choices %}
+                <a href="{{ r.url }}" class="cal-seg-btn{% if r.active %} is-active{% endif %}" {% if r.active %}aria-current="page"{% endif %}>{{ r.label }}</a>
+                {% endfor %}
+            </nav>
+            <a href="{{ weekends_url }}" class="cal-check{% if weekends %} is-on{% endif %}" role="checkbox" aria-checked="{% if weekends %}true{% else %}false{% endif %}">
+                <span class="cal-check-box" aria-hidden="true">{% if weekends %}✓{% endif %}</span> Weekends
+            </a>
+        </div>
+
         <div class="calendar-display cal-grid-card">
             <div class="calendar-header">
                 <div class="calendar-nav">
-                    <a href="{{ prev_url }}" class="calendar-nav-btn" aria-label="Previous month">&lsaquo;</a>
-                    <h3 class="calendar-title">{{ month_label }}</h3>
-                    <a href="{{ next_url }}" class="calendar-nav-btn" aria-label="Next month">&rsaquo;</a>
-                    {% if not is_current_month %}<a href="{{ today_url }}" class="calendar-today-btn">Today</a>{% endif %}
+                    <a href="{{ prev_url }}" class="calendar-nav-btn" aria-label="Previous {% if range_days %}{{ range_days }} days{% else %}month{% endif %}">&lsaquo;</a>
+                    <h3 class="calendar-title">{{ period_label }}</h3>
+                    <a href="{{ next_url }}" class="calendar-nav-btn" aria-label="Next {% if range_days %}{{ range_days }} days{% else %}month{% endif %}">&rsaquo;</a>
+                    {% if not is_now %}<a href="{{ today_url }}" class="calendar-today-btn">Today</a>{% endif %}
                 </div>
                 <div class="calendar-count" title="{% if capped %}Capped: {{ capped|join:', ' }}{% endif %}">
                     <span class="calendar-count-value">{{ event_count }}{% if capped %}+{% endif %}</span>
-                    <span class="calendar-count-label">event{{ event_count|pluralize }} · {{ selected_count }} calendar{{ selected_count|pluralize }}</span>
+                    <span class="calendar-count-label">event{{ event_count|pluralize }}{% if range_days %} across {{ board_weeks }} week{{ board_weeks|pluralize }}{% endif %} · {{ selected_count }} calendar{{ selected_count|pluralize }}</span>
                 </div>
             </div>
 
-            <div class="calendar-weekdays">
+            {% if range_days %}
+            <div class="cal-board" role="list">
+                {% for col in board %}
+                <section class="cal-col{% if col.is_current %} is-current{% endif %}" role="listitem" aria-label="Week of {{ col.start|date:'M j' }}">
+                    <header class="cal-col-head">
+                        <span class="cal-col-label">{{ col.label }}</span>
+                        <span class="cal-col-count">{{ col.count }}</span>
+                    </header>
+                    <div class="cal-col-body">
+                        {% for d in col.days %}
+                        <a href="{{ d.url }}" class="cal-dayhead{% if d.is_today %} is-today{% endif %}{% if d.is_selected %} is-selected{% endif %}">{{ d.date|date:"D j"|upper }}{% if d.is_today %} <span class="cal-dayhead-today">· Today</span>{% endif %}</a>
+                        {% for ev in d.events %}
+                        <{% if ev.url %}a href="{{ ev.url }}"{% else %}div{% endif %} class="cal-bcard cal-series-{{ ev.series }}{% if ev.status %} cal-bcard--{{ ev.status }}{% endif %}" title="{{ ev.calendar_label }}">
+                            <span class="cal-bcard-title">{{ ev.title }}</span>
+                            <span class="cal-bcard-meta">{% if not ev.all_day and ev.start_date == d.date %}{{ ev.start|date:"g:i A" }}{% if ev.subtitle %} · {% endif %}{% endif %}{{ ev.subtitle }}</span>
+                        </{% if ev.url %}a{% else %}div{% endif %}>
+                        {% endfor %}
+                        {% empty %}
+                        <p class="cal-col-empty">Nothing scheduled.</p>
+                        {% endfor %}
+                    </div>
+                </section>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="calendar-weekdays{% if not weekends %} cal-cols-5{% endif %}">
                 {% for name in weekday_headers %}<div class="calendar-weekday">{{ name }}</div>{% endfor %}
             </div>
-
-            <div class="calendar-grid cal-grid">
+            <div class="calendar-grid cal-grid{% if not weekends %} cal-cols-5{% endif %}">
                 {% for week in weeks %}{% for cell in week %}
                 {% if cell %}
                 <a href="{{ cell.url }}" class="calendar-cell cal-cell{% if cell.is_today %} calendar-cell--today{% endif %}{% if cell.is_selected %} calendar-cell--selected{% endif %}{% if cell.is_weekend %} cal-cell--weekend{% endif %}"
@@ -135,6 +167,7 @@
                 {% endif %}
                 {% endfor %}{% endfor %}
             </div>
+            {% endif %}
         </div>
 
         {% if not selected_count and has_calendars %}
@@ -148,41 +181,45 @@
                 <h2>{% if panel_day %}{{ selected_day_label }}{% else %}Day{% endif %}</h2>
                 {% if panel_day %}
                 <span class="cal-side-actions">
-                    <span class="calendar-day-panel-count">{{ day_events|length }}</span>
+                    <span class="cal-day-count">{{ day_events|length }}</span>
                     {% if selected_day %}<a href="{{ close_day_url }}" class="cal-day-close" aria-label="Clear selected day">&times;</a>{% endif %}
                 </span>
                 {% endif %}
             </div>
-            <div class="card-body cal-day-events">
+            <div class="card-body cal-day-body">
                 {% if panel_day %}
-                {% for ev in day_events %}
-                <div class="cal-day-event cal-series-{{ ev.series }}">
-                    <span class="cal-swatch" aria-hidden="true"></span>
-                    <div class="cal-day-event-body">
-                        <div class="cal-day-event-title">
-                            {% if ev.url %}<a href="{{ ev.url }}">{{ ev.title }}</a>{% else %}{{ ev.title }}{% endif %}
-                            {% if ev.status %}<span class="cal-status cal-status--{{ ev.status }}" title="{{ ev.status }}"></span>{% endif %}
-                        </div>
-                        <div class="cal-day-event-meta">
-                            <span class="cal-day-event-cal">{{ ev.calendar_label }}</span>
-                            {% if ev.all_day %}
-                                {% if ev.end_date != ev.start_date %}<span>{{ ev.start_date|date:"M j" }} – {{ ev.end_date|date:"M j" }}</span>{% else %}<span>All day</span>{% endif %}
-                            {% else %}
-                                <span>{{ ev.start|date:"M j, g:i A" }}{% if ev.end %} – {{ ev.end|date:"M j, g:i A" }}{% endif %}</span>
-                            {% endif %}
-                            {% if ev.subtitle %}<span class="cal-day-event-sub">{{ ev.subtitle }}</span>{% endif %}
-                        </div>
+                {% for g in day_groups %}
+                <section class="cal-day-group cal-series-{{ g.series }}">
+                    <h3 class="cal-day-group-title">{{ g.label }}</h3>
+                    {% for ev in g.events %}
+                    <div class="cal-day-row{% if ev.status %} cal-day-row--{{ ev.status }}{% endif %}">
+                        <span class="cal-day-when">{% if ev.all_day %}{% if ev.end_date != ev.start_date %}{{ ev.start_date|date:"M j" }}–{{ ev.end_date|date:"j" }}{% else %}All day{% endif %}{% else %}{{ ev.start|date:"H:i" }}{% if ev.end %}–{{ ev.end|date:"H:i" }}{% endif %}{% endif %}</span>
+                        <span class="cal-day-what">
+                            <span class="cal-day-title">{% if ev.url %}<a href="{{ ev.url }}">{{ ev.title }}</a>{% else %}{{ ev.title }}{% endif %}{% if ev.status %} <span class="cal-status cal-status--{{ ev.status }}" title="{{ ev.status }}"></span>{% endif %}</span>
+                            {% if ev.subtitle %}<span class="cal-day-sub">{{ ev.subtitle }}</span>{% endif %}
+                            {% if not ev.all_day and ev.end_date != ev.start_date %}<span class="cal-day-sub">{{ ev.start|date:"M j" }} → {{ ev.end|date:"M j" }}</span>{% endif %}
+                        </span>
                     </div>
-                </div>
+                    {% endfor %}
+                </section>
                 {% empty %}
                 <p class="cal-empty">Nothing on this day{% if not selected_count %} — pick a calendar first{% endif %}.</p>
                 {% endfor %}
                 {% if panel_day_is_today and not selected_day %}<p class="cal-day-foot">Showing today. Click any day to see its events here.</p>{% endif %}
                 {% else %}
-                <p class="cal-empty">Click a day on the grid to see its events here.</p>
+                <p class="cal-empty">Click a day to see its events here.</p>
                 {% endif %}
             </div>
         </div>
     </aside>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  (function () {
+    var sel = document.getElementById('cal-view-select');
+    if (sel) sel.addEventListener('change', function () { if (this.value) window.location.assign(this.value); });
+  })();
+</script>
 {% endblock %}

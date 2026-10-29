@@ -31,6 +31,15 @@ selected calendar is how many of its events fall in the visible month.
 With nothing selected the grid is empty on purpose — the calendar does not
 guess what you want to see.
 
+## Month, or 30 / 60 / 90 days
+
+The control above the grid switches between the **month** grid and a
+**day-range board**. The board shows the next 30, 60 or 90 days as one column
+per week, each listing its days with an entry card per event — the shape a
+schedule reads best in when you care about *what's coming* rather than *which
+weekday*. The arrows move by a whole range; **Today** snaps back. The
+**Weekends** box hides Saturdays and Sundays in both shapes.
+
 ## The grid and the day panel
 
 Events sit on every day they touch; a maintenance window from Friday night to
@@ -49,8 +58,8 @@ travels with you.
 ## Saving a view
 
 Once you have a selection worth keeping, **Save this view** names it. Saved
-views appear in the **My views** card and under **Saved views**, where you can
-rename, re-pick or delete them. Mark one as the **default** and the calendar
+views sit in the dropdown at the top of the Calendars list (A–Z) and under
+**Saved views**, where you can rename, re-pick or delete them. Mark one as the **default** and the calendar
 opens with it whenever you visit with no view chosen.
 
 Views are yours alone. Another user with the same access can be sent the

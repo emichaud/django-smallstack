@@ -25,14 +25,18 @@ from django.views.generic import TemplateView
 from apps.smallstack.crud import Action, CRUDView, _CRUDCreateBase
 
 from .core import (
+    RANGE_DAYS,
     CalendarDataset,
     assign_series,
     build_month_grid,
+    build_range_board,
     collect_events,
     events_on,
+    group_by_calendar,
     month_bounds,
     parse_day,
     parse_month,
+    parse_range,
     resolve_keys,
     visible_calendars,
 )
@@ -64,6 +68,15 @@ def _owned_view(request: HttpRequest, raw: Optional[str]) -> Optional[SavedCalen
 
 
 class CalendarPageView(LoginRequiredMixin, TemplateView):
+    """The calendar page in two shapes — the month grid, or a day-range board
+    (30/60/90 days as week columns) — with the selected day's events beside it.
+
+    Query string: ``ds`` (repeatable) picks calendars; ``view=<pk>`` loads a
+    saved selection; ``range=30|60|90`` switches to the board, ``from=`` moves
+    its start (default today); ``month=YYYY-MM`` moves the grid; ``day=`` picks
+    the day shown on the right; ``weekends=0`` hides Saturdays and Sundays.
+    """
+
     template_name = "calendar/index.html"
 
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
@@ -74,13 +87,23 @@ class CalendarPageView(LoginRequiredMixin, TemplateView):
 
         cals = visible_calendars(user)
         series = assign_series(cals)
+        labels = {c.key: c.label for c in cals}
+
+        # -- the window: a month, or N days from an anchor ----------------------
+        range_days = parse_range(request.GET.get("range", ""))
+        weekends = request.GET.get("weekends", "1") not in ("0", "false", "off")
         cursor = parse_month(request.GET.get("month", ""), today)
-        lower, upper = month_bounds(cursor)
+        anchor = parse_day(request.GET.get("from", "")) or today
+        if range_days:
+            lower, upper = anchor, anchor + timedelta(days=range_days)
+        else:
+            lower, upper = month_bounds(cursor)
         selected_day = parse_day(request.GET.get("day", ""))
         if selected_day is not None and not (lower <= selected_day < upper):
             selected_day = None
 
-        views = list(SavedCalendarView.objects.filter(owner=user))
+        # -- which calendars --------------------------------------------------
+        views = list(SavedCalendarView.objects.filter(owner=user).order_by("name"))
         current_view = _owned_view(request, request.GET.get("view"))
         explicit = "ds" in request.GET
         if explicit:
@@ -88,30 +111,39 @@ class CalendarPageView(LoginRequiredMixin, TemplateView):
         elif current_view is not None:
             keys = current_view.keys
         elif "view" not in request.GET:
-            # No parameters at all → the user's default view, if any.
+            # No selection parameters at all → the user's default view, if any.
             current_view = next((v for v in views if v.is_default), None)
             keys = current_view.keys if current_view is not None else []
         else:
             keys = []
         selected, _rejected = resolve_keys(keys, user)
         selected_keys = [c.key for c in selected]
-        modified = current_view is not None and set(selected_keys) != set(k for k in current_view.keys if k in series)
+        modified = current_view is not None and set(selected_keys) != set(
+            k for k in current_view.keys if k in series
+        )
         if modified:
             current_view = None  # the links below carry ``ds`` explicitly instead
 
+        # -- events -----------------------------------------------------------
         events, counts, capped = collect_events(selected, lower, upper, request)
-        weeks = build_month_grid(cursor, events, today, selected_day, max_per_day=MAX_PER_DAY)
+        for ev in events:
+            ev.series = series.get(ev.calendar, 1)  # type: ignore[attr-defined]
+            ev.calendar_label = labels.get(ev.calendar, ev.calendar)  # type: ignore[attr-defined]
         # The right column always shows a day: the one clicked, else today
-        # when it is in the visible month. Only an explicit click outlines a cell.
+        # when it is in the window. Only an explicit click outlines a cell.
         panel_day = selected_day if selected_day is not None else (today if lower <= today < upper else None)
         day_events = events_on(events, panel_day) if panel_day else []
 
+        # -- link builder: every state is a URL ---------------------------------
         def link(
             *,
             keys: Optional[list[str]] = None,
             month: Optional[date] = None,
             day: Optional[date] = None,
             view: Optional[SavedCalendarView] = current_view,
+            range_: Optional[int] = range_days,
+            from_: Optional[date] = anchor,
+            weekends_: bool = weekends,
         ) -> str:
             params: list[tuple[str, str]] = []
             use_keys = selected_keys if keys is None else keys
@@ -123,12 +155,52 @@ class CalendarPageView(LoginRequiredMixin, TemplateView):
                 params.extend(("ds", k) for k in use_keys)
                 if not use_keys:
                     params.append(("ds", ""))
-            m = cursor if month is None else month
-            if m.replace(day=1) != today.replace(day=1):
-                params.append(("month", m.strftime("%Y-%m")))
+            if range_:
+                params.append(("range", str(range_)))
+                if from_ is not None and from_ != today:
+                    params.append(("from", from_.isoformat()))
+            else:
+                m = cursor if month is None else month
+                if m.replace(day=1) != today.replace(day=1):
+                    params.append(("month", m.strftime("%Y-%m")))
+            if not weekends_:
+                params.append(("weekends", "0"))
             if day is not None:
                 params.append(("day", day.isoformat()))
             return reverse("calendar_index") + ("?" + urlencode(params) if params else "")
+
+        # -- the grid or the board ---------------------------------------------
+        if range_days:
+            board = build_range_board(lower, upper, events, today, weekends=weekends, selected_day=selected_day)
+            for col in board:
+                for d in col["days"]:
+                    d["url"] = link(day=d["date"])
+            weeks: list[list[Optional[dict[str, Any]]]] = []
+            prev_url = link(from_=anchor - timedelta(days=range_days), day=None)
+            next_url = link(from_=anchor + timedelta(days=range_days), day=None)
+            today_url = link(from_=today, day=None)
+            last = upper - timedelta(days=1)
+            if lower.year == last.year:
+                period_label = f"{lower:%-d %b} – {last:%-d %b %Y}"
+            else:
+                period_label = f"{lower:%-d %b %Y} – {last:%-d %b %Y}"
+            is_now = anchor == today
+        else:
+            board = []
+            weeks = build_month_grid(cursor, events, today, selected_day, max_per_day=MAX_PER_DAY)
+            if not weekends:
+                weeks = [[c for c in week if c is None or not c["is_weekend"]][:5] for week in weeks]
+                weeks = [_trim_blank_week(week) for week in weeks]
+                weeks = [w for w in weeks if any(w)]
+            for week in weeks:
+                for cell in week:
+                    if cell:
+                        cell["url"] = link(day=cell["date"])
+            prev_url = link(month=(cursor - timedelta(days=1)).replace(day=1), day=None)
+            next_url = link(month=upper, day=None)
+            today_url = link(month=today, day=None)
+            period_label = cursor.strftime("%B %Y")
+            is_now = cursor == today.replace(day=1)
 
         picker = []
         for cal in cals:
@@ -149,30 +221,38 @@ class CalendarPageView(LoginRequiredMixin, TemplateView):
                 }
             )
 
-        prev_month = (cursor - timedelta(days=1)).replace(day=1)
-        next_month = upper
-        for week in weeks:
-            for cell in week:
-                if cell:
-                    cell["url"] = link(day=cell["date"])
-        for ev in events:
-            ev.series = series.get(ev.calendar, 1)  # type: ignore[attr-defined]
-        labels = {c.key: c.label for c in cals}
-        for ev in day_events:
-            ev.calendar_label = labels.get(ev.calendar, ev.calendar)  # type: ignore[attr-defined]
-
+        weekday_headers = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
         save_params = {"datasets": ",".join(selected_keys)} if selected_keys else {}
         context.update(
             {
                 "today": today,
                 "cursor": cursor,
-                "month_label": cursor.strftime("%B %Y"),
-                "is_current_month": cursor == today.replace(day=1),
-                "prev_url": link(month=prev_month, day=None),
-                "next_url": link(month=next_month, day=None),
-                "today_url": link(month=today, day=None),
-                "weekday_headers": ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
+                "range_days": range_days,
+                "range_choices": [
+                    {"days": None, "label": "Month", "url": link(range_=None, day=None), "active": range_days is None},
+                    *[
+                        {
+                            "days": n,
+                            "label": f"{n} days",
+                            "url": link(range_=n, from_=today, day=None),
+                            "active": range_days == n,
+                        }
+                        for n in RANGE_DAYS
+                    ],
+                ],
+                "weekends": weekends,
+                "weekends_url": link(weekends_=not weekends),
+                "window_lower": lower,
+                "window_upper": upper,
+                "period_label": period_label,
+                "is_now": is_now,
+                "prev_url": prev_url,
+                "next_url": next_url,
+                "today_url": today_url,
+                "weekday_headers": weekday_headers if weekends else weekday_headers[:5],
                 "weeks": weeks,
+                "board": board,
+                "board_weeks": len(board),
                 "picker": picker,
                 "selected": selected,
                 "selected_keys": selected_keys,
@@ -186,11 +266,12 @@ class CalendarPageView(LoginRequiredMixin, TemplateView):
                 "panel_day_is_today": panel_day == today,
                 "selected_day_label": panel_day.strftime("%A, %B %-d") if panel_day else "",
                 "day_events": day_events,
+                "day_groups": group_by_calendar(day_events, labels, series),
                 "close_day_url": link(day=None),
                 "saved_views": [
                     {
                         "obj": v,
-                        "url": v.get_absolute_url(),
+                        "url": _view_url(v, range_days, anchor, today, cursor, weekends),
                         "active": current_view is not None and v.pk == current_view.pk,
                     }
                     for v in views
@@ -207,6 +288,27 @@ class CalendarPageView(LoginRequiredMixin, TemplateView):
             }
         )
         return context
+
+
+def _trim_blank_week(week: list[Optional[dict[str, Any]]]) -> list[Optional[dict[str, Any]]]:
+    """Pad a weekday-only week back to five cells (leading blanks kept)."""
+    return (week + [None] * 5)[:5]
+
+
+def _view_url(
+    view: SavedCalendarView, range_days: Optional[int], anchor: date, today: date, cursor: date, weekends: bool
+) -> str:
+    """Open a saved view while keeping the current window and weekend setting."""
+    params: list[tuple[str, str]] = [("view", str(view.pk))]
+    if range_days:
+        params.append(("range", str(range_days)))
+        if anchor != today:
+            params.append(("from", anchor.isoformat()))
+    elif cursor != today.replace(day=1):
+        params.append(("month", cursor.strftime("%Y-%m")))
+    if not weekends:
+        params.append(("weekends", "0"))
+    return reverse("calendar_index") + "?" + urlencode(params)
 
 
 # ---------------------------------------------------------------------------

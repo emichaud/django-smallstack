@@ -415,5 +415,108 @@ def events_on(events: list[CalendarEvent], day: date) -> list[CalendarEvent]:
     return [ev for ev in events if ev.start_date <= day <= ev.end_date]
 
 
+#: Day-range board sizes offered beside the month grid.
+RANGE_DAYS = (30, 60, 90)
+
+
+def parse_range(raw: str) -> Optional[int]:
+    """``?range=30|60|90`` → the number of days, or None for the month grid."""
+    try:
+        value = int(raw or "")
+    except (TypeError, ValueError):
+        return None
+    return value if value in RANGE_DAYS else None
+
+
+def build_range_board(
+    lower: date,
+    upper: date,
+    events: list[CalendarEvent],
+    today: date,
+    *,
+    weekends: bool = True,
+    selected_day: Optional[date] = None,
+) -> list[dict[str, Any]]:
+    """The day-range board: one column per Monday-start week touching
+    ``[lower, upper)``, each listing the days (inside the window) that have
+    events, with the events placed on every day they touch.
+
+    Days without events are omitted — a sparse calendar reads as a short list,
+    not a wall of empty headings — but a week with nothing at all still gets
+    its column so the timeline keeps its shape. ``weekends=False`` drops
+    Saturday and Sunday entries (the events stay in the totals).
+    """
+    by_day: dict[date, list[CalendarEvent]] = {}
+    last = upper - timedelta(days=1)
+    for ev in events:
+        day = max(ev.start_date, lower)
+        stop = min(ev.end_date, last)
+        while day <= stop:
+            if weekends or day.weekday() < 5:
+                by_day.setdefault(day, []).append(ev)
+            day += timedelta(days=1)
+
+    columns: list[dict[str, Any]] = []
+    week_start = lower - timedelta(days=lower.weekday())
+    while week_start < upper:
+        week_end = week_start + timedelta(days=6)
+        first = max(week_start, lower)
+        final = min(week_end, last)
+        days: list[dict[str, Any]] = []
+        count = 0
+        d = first
+        while d <= final:
+            todays = by_day.get(d, [])
+            if todays:
+                days.append(
+                    {
+                        "date": d,
+                        "date_iso": d.isoformat(),
+                        "is_today": d == today,
+                        "is_selected": d == selected_day,
+                        "events": todays,
+                    }
+                )
+                count += len(todays)
+            d += timedelta(days=1)
+        same_month = week_start.month == week_end.month
+        label = (
+            f"{week_start:%b} {week_start.day}–{week_end.day}"
+            if same_month
+            else f"{week_start:%b} {week_start.day}–{week_end:%b} {week_end.day}"
+        )
+        columns.append(
+            {
+                "start": week_start,
+                "end": week_end,
+                "label": label,
+                "count": count,
+                "days": days,
+                "is_current": week_start <= today <= week_end,
+            }
+        )
+        week_start += timedelta(days=7)
+    return columns
+
+
+def group_by_calendar(
+    events: list[CalendarEvent], labels: dict[str, str], series: dict[str, int]
+) -> list[dict[str, Any]]:
+    """Group a day's events by calendar, in series order, for the day column."""
+    groups: dict[str, dict[str, Any]] = {}
+    for ev in events:
+        group = groups.setdefault(
+            ev.calendar,
+            {
+                "key": ev.calendar,
+                "label": labels.get(ev.calendar, ev.calendar),
+                "series": series.get(ev.calendar, 1),
+                "events": [],
+            },
+        )
+        group["events"].append(ev)
+    return sorted(groups.values(), key=lambda g: (g["series"], g["label"]))
+
+
 def access_label(level: str) -> str:
     return "Staff" if level == ACCESS_STAFF else "Signed-in users"

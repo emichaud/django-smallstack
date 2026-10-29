@@ -113,10 +113,17 @@ partial month.
 ## The page (`views.CalendarPageView`)
 
 Everything is in the query string, so every state is a link: `ds` (repeatable
-or comma-separated) picks calendars, `month=YYYY-MM`, `day=YYYY-MM-DD` selects
-the day shown in the right-hand column (which defaults to today when today is
-in the visible month — `panel_day` in the context; only an explicit `day`
-outlines a cell), `view=<pk>` loads a saved selection. Precedence: explicit `ds`
+or comma-separated) picks calendars; `view=<pk>` loads a saved selection;
+`range=30|60|90` switches from the month grid to the **day-range board**
+(`core.build_range_board`: one column per Monday-start week, days with events
+only, entries counted per day touched) anchored on `from=YYYY-MM-DD` (default
+today, arrows move by the range); `month=YYYY-MM` moves the grid;
+`day=YYYY-MM-DD` selects the day shown in the right-hand column (default today
+when in the window — `panel_day`; only an explicit `day` outlines a cell);
+`weekends=0` hides Sat/Sun (a five-column grid, weekend days dropped from the
+board; totals unchanged). The right column groups the day's events by calendar
+(`core.group_by_calendar`, series order). Saved views are a `<select>` sorted
+A–Z whose options carry the current window. Precedence: explicit `ds`
 > `view` > the user's default view (only when there are **no** params) > none.
 An explicit empty `ds=` means "none" and is emitted by the None link so the
 state round-trips. A `view` whose selection has been changed by `ds` is

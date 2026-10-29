@@ -21,6 +21,7 @@ from __future__ import annotations
 from datetime import date, datetime, timedelta
 from datetime import timezone as dt_timezone
 from typing import Any
+from urllib.parse import urlsplit
 
 from django.conf import settings
 from django.http import Http404, HttpRequest, HttpResponse, JsonResponse
@@ -221,9 +222,42 @@ def _ics_dt(value: date | datetime, *, all_day: bool) -> tuple[str, str]:
     return "", value.strftime("%Y%m%dT%H%M%SZ")
 
 
+def _uid_domain(request: HttpRequest | None) -> str:
+    """The right-hand side of every ``UID``. Stable across hosts, ports and envs.
+
+    RFC 5545 §3.8.4.7 wants a UID that is globally unique *and* persistent: it is
+    how a subscribed client recognises an event it already has. Deriving it from
+    ``request.get_host()`` makes it neither — the same row answered
+    ``…@localhost:8055`` to one caller and ``…@localhost`` to another, differing
+    only by the port. A feed is subscribed once and polled for months, so the
+    day the host changes (dev → prod, a new domain, a proxy forwarding a
+    different Host) every event re-appears as new: duplicates accumulate and the
+    originals stop updating, because nothing matches them any more.
+
+    ``SITE_DOMAIN`` is the configured identity of the deployment and does not
+    move when the request does — the same reasoning ``rss.md`` gives for feed
+    ``unique_id``s ("must survive a slug change and a database restore"). The
+    request host is kept only as a last resort, so a deployment that has not set
+    ``SITE_DOMAIN`` still emits something usable.
+    """
+    domain = str(getattr(settings, "SITE_DOMAIN", "") or "").strip()
+    if not domain:
+        for name in ("SITE_URL", "SMALLSTACK_SITE_URL", "BASE_URL"):
+            url = str(getattr(settings, name, "") or "").strip()
+            if url.startswith(("http://", "https://")):
+                domain = urlsplit(url).netloc
+                break
+    if not domain and request is not None:
+        domain = request.get_host()
+    # Strip the port: :8000 and :8055 are the same deployment, and a UID that
+    # changes when the port does is the bug this function exists to prevent.
+    domain = domain.split("/")[0].rsplit(":", 1)[0] if domain else ""
+    return domain or "smallstack"
+
+
 def render_ics(events: list[CalendarEvent], labels: dict[str, str], request: HttpRequest | None = None) -> str:
     brand = getattr(settings, "BRAND_NAME", "SmallStack")
-    host = request.get_host() if request is not None else "smallstack"
+    host = _uid_domain(request)
     stamp = timezone.now().astimezone(dt_timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     lines = [
         "BEGIN:VCALENDAR",

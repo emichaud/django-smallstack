@@ -126,7 +126,7 @@ def test_day_column_defaults_to_today_in_the_current_month(client, staff):
     # Another month has no "today" → the column asks for a click.
     resp = client.get(PAGE, {"ds": MW, "month": "2020-01"})
     assert resp.context["panel_day"] is None
-    assert "Click a day on the grid" in resp.content.decode()
+    assert "Click a day to see its events" in resp.content.decode()
 
 
 def test_non_staff_sees_only_authenticated_calendars(client, plain, seeded):
@@ -390,4 +390,52 @@ def test_saved_view_schema_is_an_array_of_keys_everywhere(client, staff):
         reset_context(token)
     assert SavedCalendarView.objects.filter(owner=staff).count() == 3
     assert SavedCalendarView.objects.get(name="one").is_default
+
+
+def test_range_board_modes(client, staff, seeded):
+    from django.utils import timezone
+
+    today = timezone.localdate()
+    # Anchored on today by default; ``from`` moves it; invalid range → month.
+    resp = client.get(PAGE, {"ds": [MW, BK], "range": "30"})
+    assert resp.context["range_days"] == 30 and resp.context["window_lower"] == today
+    assert resp.context["weeks"] == [] and resp.context["board"]
+    assert [c["active"] for c in resp.context["range_choices"]] == [False, True, False, False]
+    assert client.get(PAGE, {"ds": MW, "range": "45"}).context["range_days"] is None
+    resp = client.get(PAGE, {"ds": [MW, BK], "range": "30", "from": "2026-04-01"})
+    board = resp.context["board"]
+    assert resp.context["window_lower"].isoformat() == "2026-04-01" and len(board) == 5  # 30 days → 5 Monday weeks
+    assert board[0]["label"] == "Mar 30–Apr 5" and board[0]["count"] == 3  # window Apr 3+4, backup Apr 3
+    assert [d["date"].isoformat() for d in board[0]["days"]] == ["2026-04-03", "2026-04-04"]
+    assert resp.context["event_count"] == 3 and resp.context["period_label"] == "1 Apr – 30 Apr 2026"
+    # Navigation shifts by the range; the day links keep the range.
+    assert "from=2026-05-01" in resp.context["next_url"] and "from=2026-03-02" in resp.context["prev_url"]
+    assert "range=30" in board[0]["days"][0]["url"] and "day=2026-04-03" in board[0]["days"][0]["url"]
+    # 90 days spans 14 weeks.
+    assert len(client.get(PAGE, {"ds": MW, "range": "90", "from": "2026-04-01"}).context["board"]) == 14
+
+
+def test_weekends_toggle(client, staff, seeded):
+    resp = client.get(PAGE, {"ds": [MW, BK], "month": "2026-04", "weekends": "0"})
+    assert resp.context["weekends"] is False and resp.context["weekday_headers"] == ["Mon", "Tue", "Wed", "Thu", "Fri"]
+    assert all(len(w) == 5 for w in resp.context["weeks"])
+    assert not any(c and c["is_weekend"] for w in resp.context["weeks"] for c in w)
+    assert "weekends=0" in resp.context["next_url"] and "weekends=0" not in resp.context["weekends_url"]
+    # Saturday Apr 4 (the window's end day) drops off the board too; the count is unchanged.
+    resp = client.get(PAGE, {"ds": [MW, BK], "range": "30", "from": "2026-04-01", "weekends": "0"})
+    assert [d["date"].isoformat() for d in resp.context["board"][0]["days"]] == ["2026-04-03"]
+    assert resp.context["event_count"] == 3
+
+
+def test_day_column_groups_by_calendar_and_views_dropdown(client, staff, seeded):
+    SavedCalendarView.objects.create(owner=staff, name="Zeta", datasets=[MW])
+    SavedCalendarView.objects.create(owner=staff, name="Alpha", datasets=[BK])
+    resp = client.get(PAGE, {"ds": [MW, BK], "month": "2026-04", "day": "2026-04-03"})
+    groups = resp.context["day_groups"]
+    assert [g["label"] for g in groups] == ["Backups", "Maintenance windows"]  # series order
+    assert [len(g["events"]) for g in groups] == [1, 1]
+    html = resp.content.decode()
+    assert 'id="cal-view-select"' in html
+    assert html.index(">Alpha<") < html.index(">Zeta<")  # alphabetical
+    assert "month=2026-04" in [v["url"] for v in resp.context["saved_views"]][0]  # keeps the window
 
