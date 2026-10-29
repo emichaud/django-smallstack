@@ -183,8 +183,8 @@ The list page gains a Table ⇄ Calendar ⇄ Board toggle; the board reads
 to the window with `core.window_filter`, and shows the day column beside the
 columns. Rows link to the detail page when the CRUDView has `Action.DETAIL`.
 `backward=True` ends the window today instead (the last N days — right for
-history such as newsletter sends). Live examples: the scheduler's run history,
-the maintenance-window explorer, and the blog's posts and issues.
+history such as newsletter sends). Live examples: the scheduler's jobs and run
+history, the maintenance-window explorer, and the blog's posts and issues.
 
 **On a hand-rolled page**, read the state with `core.RangeWindow.from_request`
 (same parameters, `backward=` for history), build events for `win.lower` →

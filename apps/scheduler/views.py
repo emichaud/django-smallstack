@@ -193,14 +193,21 @@ class ScheduledJobCRUDView(CRUDView):
     # Custom control page: read-only definition + schedule/enabled overrides.
     form_displays = [ScheduledJobFormDisplay()]
 
-    # Table ⇄ calendar toggle in the display palette. The calendar plots each
-    # schedule on its next fire (next_run_at) and tints the chip by the last
-    # run's health (see ScheduledJob.calendar_status).
+    # Table ⇄ calendar ⇄ board toggle in the display palette. Both plot each
+    # schedule on its next fire (next_run_at) and tint the chip by the last
+    # run's health (see ScheduledJob.calendar_status); the board lists the
+    # next 30/60/90 days of fires as week columns, cadence as the subtitle.
     displays = [
         TableDisplay,
         CalendarDisplay(
             date_field="next_run_at",
             title_field="name",
+            status_field="calendar_status",
+        ),
+        RangeBoardDisplay(
+            date_field="next_run_at",
+            title_field="name",
+            subtitle_field="cadence_display",
             status_field="calendar_status",
         ),
     ]

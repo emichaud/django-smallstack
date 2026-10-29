@@ -53,7 +53,7 @@ Breaking-change migration recipes live in [`UPGRADING.md`](UPGRADING.md).
   template tags (driven by `CalendarEvent` rows from `collect_events` or the
   new `core.events_from_objects`), and `apps.calendar.displays.RangeBoardDisplay`
   — a `ListDisplay` sibling of `CalendarDisplay` that gives any CRUDView a
-  Table ⇄ Calendar ⇄ Board toggle (adopted by the scheduler's run history,
+  Table ⇄ Calendar ⇄ Board toggle (adopted by the scheduler's jobs and run history,
   the maintenance-window explorer, and the blog's posts and newsletter issues;
   `backward=True` for history-shaped models). `core.RangeWindow` reads the
   board's URL state for hand-rolled pages — the runbook's documents page gained

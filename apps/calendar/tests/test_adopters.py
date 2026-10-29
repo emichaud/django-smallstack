@@ -74,3 +74,20 @@ def test_runbook_documents_board(client, staff):
     resp = client.get(url, {"view": "board", "range": "30", "from": "2026-04-10", "q": "nomatch"})
     assert resp.context["event_count"] == 0
     assert 'name="view" value="board"' in resp.content.decode()
+
+
+def test_scheduler_jobs_board(client, staff):
+    from apps.scheduler.models import ScheduledJob
+
+    job = ScheduledJob.objects.create(
+        name="Board nightly", task_path="apps.tasks.tasks.noop", schedule_type="interval", interval_spec="1d",
+        next_run_at=_aware(2026, 4, 3, 2), last_status="failed",
+    )
+    assert job.calendar_status == "danger"
+    resp = client.get(reverse("scheduler/jobs-list"), {"display": "board", "range": "30", "from": "2026-04-01"})
+    assert resp.status_code == 200
+    html = resp.content.decode()
+    assert 'data-display="board"' in html
+    assert "Board nightly" in html and "cal-bcard--danger" in html
+    assert "every 1d" in html  # cadence_display as the subtitle
+
