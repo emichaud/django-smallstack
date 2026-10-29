@@ -239,6 +239,29 @@ ctx = win.context(events_from_objects(rows, start="updated_at", title="title", u
 
 The runbook's documents page does exactly this behind its Table | Board toggle.
 
+## The Events calendar (`models.Event` + `views.EventCRUDView`)
+
+The one bundled calendar a person types into. `Event` is all-day by default
+with optional `start_time`/`end_time`, an inclusive `end_date` for spans, a
+`category`, `location`, `url`, a `cancelled` flag and a two-step `visibility`
+(*members* = everyone signed in, the default; *private* = author and staff).
+`EventCRUDView` at `calendar/events/` is `LoginRequiredMixin` + `enable_api` +
+`enable_mcp` (so an agent can `create_event`); `datasets.visible_events(user)`
+is the one read scoper (list, detail, the calendar provider, the dataset);
+`can_update`/`can_delete` = author or staff — and **`check_object_permission`
+is what enforces it**: `can_update` only decides which buttons render, so a
+CRUDView that stops there still accepts a non-author's POST to `…/edit/`. The
+check raises `PermissionDenied` on the edit/delete routes (any method) and on
+every non-GET, which covers HTML, REST and the MCP tools at once; the form
+stamps `created_by`.
+
+It is registered **twice under one key**, `smallstack_events`: a
+`framework_dataset` (rows for the browser/reports) and a **provider** calendar
+(`datasets.events_provider`), because a date column plus optional time columns
+is two shapes in one table — the provider emits all-day or timed events as the
+row dictates. `access="authenticated"`, `spans=True`. The list page carries its
+own Table ⇄ Calendar ⇄ Board toggle via the displays.
+
 ## Saved views (`models.SavedCalendarView` + `views.SavedCalendarViewCRUDView`)
 
 `owner`, `name` (unique per owner), `datasets` (JSON list of keys),
@@ -278,6 +301,7 @@ Attached in each module's `datasets.py` via `register_calendar` (all staff):
 | Newsletter sends | `smallstack_blog_issues` | `started_at` |
 | Log capture windows | `smallstack_log_capture_windows` | `started_at`→`expires_at` |
 | User sign-ups | `smallstack_users` | `date_joined` |
+| **Events** (hand-entered) | `smallstack_events` | provider over `Event` rows; `access="authenticated"` |
 
 The app's own saved views are a bundled dataset too (`smallstack_calendar_views`).
 

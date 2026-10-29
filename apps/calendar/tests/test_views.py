@@ -139,7 +139,7 @@ def test_non_staff_sees_only_authenticated_calendars(client, plain, seeded):
 
         resp = client.get(PAGE, {"ds": [key, MW], "month": "2026-04"})
         assert resp.status_code == 200
-        assert {p["key"] for p in resp.context["picker"]} == {key}
+        assert {p["key"] for p in resp.context["picker"]} == {key, "smallstack_events"}
         assert resp.context["selected_keys"] == [key]  # the staff key was dropped
         assert resp.context["event_count"] == 1
     finally:
@@ -268,7 +268,8 @@ def test_api_list_and_events(client, staff, seeded):
 
 def test_api_view_param_and_non_staff_scope(client, plain, seeded):
     resp = client.get(API_LIST)
-    assert resp.status_code == 200 and resp.json()["results"] == []
+    assert resp.status_code == 200
+    assert [c["key"] for c in resp.json()["results"]] == ["smallstack_events"]  # the one open bundled calendar
     assert client.get(API_EVENTS, {"ds": MW}).status_code == 400  # unknown to a non-staff caller
     view = SavedCalendarView.objects.create(owner=plain, name="Empty", datasets=[])
     resp = client.get(API_EVENTS, {"view": view.pk, "start": "2026-04-01", "end": "2026-05-01"})
@@ -309,7 +310,7 @@ def test_mcp_tools_registered_and_scoped(staff, seeded):
         plain = User.objects.create_user(username="mcp-plain", password="pw-123456")
         reset_context(token)
         token = set_context(ToolContext(user=plain, token=None))
-        assert TOOL_HANDLERS["list_calendars"]({})["results"] == []
+        assert [c["key"] for c in TOOL_HANDLERS["list_calendars"]({})["results"]] == ["smallstack_events"]
         assert "error" in TOOL_HANDLERS["calendar_events"]({"calendars": [MW]})
     finally:
         reset_context(token)

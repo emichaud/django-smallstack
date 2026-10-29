@@ -23,6 +23,7 @@ from django.utils.html import format_html
 from django.views.generic import TemplateView
 
 from apps.smallstack.crud import Action, CRUDView, _CRUDCreateBase
+from apps.smallstack.displays import CalendarDisplay, TableDisplay
 
 from .core import (
     RANGE_DAYS,
@@ -44,8 +45,9 @@ from .core import (
     weekend_entries,
     weekends_default,
 )
-from .forms import SavedCalendarViewForm
-from .models import SavedCalendarView
+from .displays import RangeBoardDisplay
+from .forms import EventForm, SavedCalendarViewForm
+from .models import Event, SavedCalendarView
 
 #: Chips per day cell on the month grid; the day panel shows the rest.
 MAX_PER_DAY = 4
@@ -417,6 +419,138 @@ class SavedCalendarViewCRUDView(CRUDView):
         return view
 
 
+# ---------------------------------------------------------------------------
+# Events — the calendar a person types into (HTML + REST + MCP from one class)
+# ---------------------------------------------------------------------------
+
+
+def _event_when(value: Any, obj: Event) -> str:
+    """One cell for the dates: "Apr 3", "Apr 3 – Apr 5", "Apr 3, 09:00–10:30"."""
+    text = obj.start_date.strftime("%b %-d")
+    if obj.end_date and obj.end_date != obj.start_date:
+        text += f" – {obj.end_date:%b %-d}"
+    if not obj.all_day and obj.start_time:
+        text += f", {obj.start_time:%H:%M}"
+        if obj.end_time:
+            text += f"–{obj.end_time:%H:%M}"
+    return text
+
+
+def _cancelled_cell(value: Any, obj: Event) -> Any:
+    if not obj.cancelled:
+        return ""
+    return format_html('<span style="color: var(--body-quiet-color); font-weight: 600;">{}</span>', "Cancelled")
+
+
+def _event_status(obj: Event) -> str | None:
+    return None  # cancelled rides on the dedicated flag; nothing to tint
+
+
+class EventCRUDView(CRUDView):
+    """Hand-entered calendar entries. Any signed-in user may add one; an entry
+    is editable by its author and by staff; *private* entries are visible only
+    to their author and staff. REST + MCP come from the same class, so an
+    agent can file an entry too ("add a release on the 14th")."""
+
+    model = Event
+    form_class = EventForm
+    fields = [
+        "title",
+        "start_date",
+        "end_date",
+        "all_day",
+        "start_time",
+        "end_time",
+        "category",
+        "location",
+        "url",
+        "description",
+        "visibility",
+        "cancelled",
+    ]
+    list_fields = ["title", "start_date", "category", "visibility", "cancelled", "created_by"]
+    link_field = "title"
+    field_transforms = {"start_date": _event_when, "cancelled": _cancelled_cell}
+    column_widths = {"title": "34%", "start_date": "22%"}
+    url_base = "calendar/events"
+    paginate_by = 25
+    mixins = [LoginRequiredMixin]
+    bulk_actions: list = []
+    actions = [Action.LIST, Action.CREATE, Action.DETAIL, Action.UPDATE, Action.DELETE]
+    breadcrumb_parent = ("Calendar", "calendar_index")
+    ordering_fields = ["title", "start_date", "category", "visibility"]
+    filter_fields = ["category", "visibility", "cancelled"]
+    search_fields = ["title", "description", "location", "category"]
+    # Table ⇄ calendar ⇄ board on the entries themselves.
+    displays = [
+        TableDisplay,
+        CalendarDisplay(date_field="start_date", end_field="end_date", title_field="title"),
+        RangeBoardDisplay(
+            date_field="start_date", end_field="end_date", title_field="title", subtitle_field="category"
+        ),
+    ]
+
+    enable_api = True
+    api_extra_fields = ["created_by", "created_at", "updated_at"]
+    api_expand_fields = ["created_by"]
+
+    enable_mcp = True
+    mcp_singular = "event"
+    mcp_plural = "events"
+    mcp_description = (
+        "a hand-entered calendar entry on the shared Events calendar: title, start_date (and an "
+        "inclusive end_date for a span), all_day or start_time/end_time, category, location, url, "
+        "visibility (members = everyone signed in, private = author and staff) and a cancelled flag"
+    )
+
+    @classmethod
+    def get_list_queryset(cls, qs: Any, request: HttpRequest) -> Any:
+        from .datasets import visible_events
+
+        return visible_events(getattr(request, "user", None), qs).select_related("created_by")
+
+    @classmethod
+    def can_update(cls, obj: Event, request: HttpRequest) -> bool:
+        user = getattr(request, "user", None)
+        return bool(user and (getattr(user, "is_staff", False) or obj.created_by_id == getattr(user, "pk", None)))
+
+    @classmethod
+    def can_delete(cls, obj: Event, request: HttpRequest) -> bool:
+        return cls.can_update(obj, request)
+
+    @classmethod
+    def check_object_permission(cls, obj: Event, request: HttpRequest) -> None:
+        """The write gate for every single-object surface. ``can_update`` is
+        a render-time hint (which buttons to draw); this is what refuses a
+        POST from someone who isn't the author or staff — on the HTML edit
+        and delete routes (whatever the method, so a non-author never sees a
+        populated form they can't submit), REST and the MCP tools alike."""
+        if request.method in ("GET", "HEAD", "OPTIONS") and request.path.rstrip("/").rsplit("/", 1)[-1] not in {
+            "edit",
+            "delete",
+        }:
+            return
+        if not cls.can_update(obj, request):
+            from django.core.exceptions import PermissionDenied
+
+            raise PermissionDenied("Only the author or staff can change this event.")
+
+    @classmethod
+    def _make_view(cls, base_class: Any) -> Any:
+        """Hand the form the signed-in user so it can stamp ``created_by``."""
+        view = super()._make_view(base_class)
+        if hasattr(view, "get_form_kwargs"):
+            inherited_kwargs = view.get_form_kwargs
+
+            def get_form_kwargs(self: Any) -> dict:
+                kwargs = inherited_kwargs(self)
+                kwargs["user"] = getattr(self.request, "user", None)
+                return kwargs
+
+            view.get_form_kwargs = get_form_kwargs
+        return view
+
+
 def view_or_none(user: Any, raw: Any) -> Optional[SavedCalendarView]:
     """A saved view by pk if ``user`` owns it (shared by the API routes)."""
     try:
@@ -426,4 +560,11 @@ def view_or_none(user: Any, raw: Any) -> Optional[SavedCalendarView]:
     return SavedCalendarView.objects.filter(owner=user, pk=pk).first()
 
 
-__all__ = ["CalendarDataset", "CalendarPageView", "SavedCalendarViewCRUDView", "requested_keys", "view_or_none"]
+__all__ = [
+    "CalendarDataset",
+    "CalendarPageView",
+    "EventCRUDView",
+    "SavedCalendarViewCRUDView",
+    "requested_keys",
+    "view_or_none",
+]

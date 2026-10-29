@@ -78,8 +78,10 @@ def test_bundled_calendars_register_and_validate() -> None:
     missing = EXPECTED_BUNDLED - keys
     assert not missing, f"bundled calendars missing: {sorted(missing)}"
     for cal in iter_calendars():
-        cal.validate()  # every spec names real date/datetime columns
-        assert cal.spec.access == "staff"  # operator data is staff-only by default
+        cal.validate()  # every spec names real date/datetime columns (providers have none)
+        # Operator data is staff-only; the hand-entered Events calendar is the
+        # one bundled calendar open to every signed-in user.
+        assert cal.spec.access == ("authenticated" if cal.key == "smallstack_events" else "staff")
 
 
 def test_calendar_dataset_decorator_registers_both_halves() -> None:
@@ -160,12 +162,12 @@ def test_visibility_follows_access_level(staff, plain) -> None:
         staff_keys = {c.key for c in visible_calendars(staff)}
         plain_keys = {c.key for c in visible_calendars(plain)}
         assert key in staff_keys and "smallstack_maintenance_windows" in staff_keys
-        assert plain_keys == {key}  # bundled staff calendars are invisible
+        assert plain_keys == {key, "smallstack_events"}  # bundled staff calendars are invisible; Events is open
         assert visible_calendars(None) == []
         # A staff key requested by a non-staff user is "unknown", not "forbidden".
         ok, bad = resolve_keys(["smallstack_maintenance_windows", key, "nope"], plain)
         assert [c.key for c in ok] == [key] and bad == ["smallstack_maintenance_windows", "nope"]
-        assert {c["key"] for c in list_calendars(plain)} == {key}
+        assert {c["key"] for c in list_calendars(plain)} == {key, "smallstack_events"}
     finally:
         unregister(key)
         unregister_dataset(key)

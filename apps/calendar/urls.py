@@ -2,7 +2,8 @@
 
 No ``app_name``: this module hosts a CRUDView, whose internal reverses use
 bare route names (the blog / scheduler / webhooks precedent). The page and API
-routes are named ``calendar_*``; the saved-view CRUD is ``calendar/views-*``.
+routes are named ``calendar_*``; the saved-view CRUD is ``calendar/views-*`` and
+the Events calendar's CRUD is ``calendar/events-*``.
 """
 
 from __future__ import annotations
@@ -18,4 +19,5 @@ urlpatterns = [
     path("calendar/api/events.ics", api.CalendarICSView.as_view(), name="calendar_api_ics"),
     path("calendar/api/<str:key>/events/", api.CalendarDatasetEventsView.as_view(), name="calendar_api_dataset_events"),
     *views.SavedCalendarViewCRUDView.get_urls(),
+    *views.EventCRUDView.get_urls(),
 ]

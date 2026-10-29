@@ -65,6 +65,19 @@ opens with it whenever you visit with no view chosen.
 Views are yours alone. Another user with the same access can be sent the
 page's URL instead — every state of the page is a link.
 
+## The Events calendar — the one you type into
+
+Every other calendar here is derived from data the system already holds. The
+**Events** calendar is for the rest: a closure, a conference, a release, an
+onboarding week. **Add event** in the page header opens the form; all-day by
+default, with optional start and end times and an inclusive end date for a
+span. An entry is visible to everyone signed in unless you mark it *private*
+(then only you and staff see it), can be edited by its author or by staff, and
+can be marked **cancelled** to stay on the calendar struck through rather than
+disappearing. The entries page (`Calendar → Events`) lists them with its own
+Table ⇄ Calendar ⇄ Board toggle, and the same entries are available over REST
+and MCP, so an agent can file one for you.
+
 ## Who sees what
 
 Calendars have an access level. The bundled SmallStack calendars plot operator

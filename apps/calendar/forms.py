@@ -15,7 +15,7 @@ from typing import Any
 from django import forms
 
 from .core import list_calendars
-from .models import SavedCalendarView
+from .models import Event, SavedCalendarView
 
 
 class CalendarKeysField(forms.MultipleChoiceField):
@@ -70,3 +70,51 @@ class SavedCalendarViewForm(forms.ModelForm):
             obj.save()
             self.save_m2m()
         return obj
+
+
+class EventForm(forms.ModelForm):
+    """The Events calendar's entry form. ``created_by`` is stamped from the
+    request, never a form field — a field would let one user file an entry as
+    somebody else."""
+
+    class Meta:
+        model = Event
+        fields = [
+            "title",
+            "start_date",
+            "end_date",
+            "all_day",
+            "start_time",
+            "end_time",
+            "category",
+            "location",
+            "url",
+            "description",
+            "visibility",
+            "cancelled",
+        ]
+        widgets = {
+            "title": forms.TextInput(attrs={"class": "vTextField"}),
+            "start_date": forms.DateInput(attrs={"type": "date"}),
+            "end_date": forms.DateInput(attrs={"type": "date"}),
+            "start_time": forms.TimeInput(attrs={"type": "time"}, format="%H:%M"),
+            "end_time": forms.TimeInput(attrs={"type": "time"}, format="%H:%M"),
+            "category": forms.TextInput(attrs={"class": "vTextField"}),
+            "location": forms.TextInput(attrs={"class": "vTextField"}),
+            "url": forms.URLInput(attrs={"class": "vTextField"}),
+            "description": forms.Textarea(attrs={"rows": 4, "class": "vTextField"}),
+        }
+
+    def __init__(self, *args: Any, user: Any = None, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+        self.user = user
+
+    def save(self, commit: bool = True) -> Event:
+        obj = super().save(commit=False)
+        if obj.created_by_id is None and self.user is not None and getattr(self.user, "is_authenticated", False):
+            obj.created_by = self.user
+        if commit:
+            obj.save()
+            self.save_m2m()
+        return obj
+

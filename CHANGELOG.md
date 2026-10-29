@@ -80,7 +80,14 @@ Breaking-change migration recipes live in [`UPGRADING.md`](UPGRADING.md).
   is now honest: entries on hidden days are counted and announced beside the
   toggle, and a week column with no visible day in range is dropped. New
   setting `SMALLSTACK_CALENDAR_WEEKENDS_DEFAULT` (default on) makes a
-  work-week desk the site default (`?weekends=1` shows them on demand). `CalendarEvent` gained `calendar_label`
+  work-week desk the site default (`?weekends=1` shows them on demand).
+  **The Events calendar** — the one a person types into: an `Event` model
+  (all-day by default, optional times, inclusive end date, category, location,
+  url, cancelled flag, members/private visibility) with a login-scoped
+  CRUDView at `/smallstack/calendar/events/` (HTML + REST + MCP, so an agent
+  can file one), **Add event** on the calendar page, and registration under
+  one key `smallstack_events` as both a bundled dataset and a provider-backed
+  calendar open to every signed-in user. `CalendarEvent` gained `calendar_label`
   (also on the events API) and `series`. The shared page renders through the
   same partials,
   month navigation, every state a link. **Saved views** (`SavedCalendarView`:

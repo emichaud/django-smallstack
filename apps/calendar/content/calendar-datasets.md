@@ -132,3 +132,4 @@ staff-only and follow the bundled datasets' switches
 | Newsletter sends | `smallstack_blog_issues` | issues on the day their send began |
 | Log capture windows | `smallstack_log_capture_windows` | each window from open to expiry |
 | User sign-ups | `smallstack_users` | each account on the day it joined |
+| Events | `smallstack_events` | hand-entered entries (open to every signed-in user) |
