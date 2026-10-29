@@ -358,6 +358,17 @@ ds.scalar(measure="response_time_ms", agg="avg", filters={"route": "/api/"})
 get_dataset("smallstack_blog_issues").scalar(measure="sent_pct")  # sum/sum, never avg-of-pct
 ```
 
+## Calendar datasets — a dataset with a time axis
+
+A dataset whose rows belong on a date grid (due dates, expiries, windows, runs)
+can carry the **calendar protocol**: `@calendar_dataset(key, start="due_at",
+end=None, title="subject", status="sla_status", access="authenticated", …)` is
+`@dataset` plus the columns/resolvers the merged calendar at
+`/smallstack/calendar/` needs; `register_calendar(key, …)` attaches the same to
+a dataset declared elsewhere (how the bundled `smallstack_*` calendars are
+done). The calendar reads rows through `queryset()`, so scoping and `link=`
+apply unchanged. See [`calendar.md`](calendar.md).
+
 ## When to reach for a dataset vs. a CRUDView
 
 - **Dataset** — read-only, analytical: "a filtered table to slice, chart, or export." No edit/detail pages. Can join/annotate/aggregate; source is any queryset.

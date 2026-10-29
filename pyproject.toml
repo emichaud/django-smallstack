@@ -99,6 +99,7 @@ module = [
     "apps.activity.*",
     "apps.approvals.*",
     "apps.blog.*",
+    "apps.calendar.*",
     "apps.datasets.*",
     "apps.feeds.*",
     "apps.notifications.*",

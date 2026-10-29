@@ -90,3 +90,7 @@ if getattr(settings, "SMALLSTACK_BLOG_ENABLED", True):
     # Blog — the authoring console (bare names, "blog/" prefix). The public
     # reading surface is mounted separately at /blog/ in config/urls.py.
     urlpatterns += [path("", include("apps.blog.urls"))]
+
+if getattr(settings, "SMALLSTACK_CALENDAR_ENABLED", True):
+    # Calendar — the merged month grid + saved views + events API (bare names, "calendar/" prefix)
+    urlpatterns += [path("", include("apps.calendar.urls"))]

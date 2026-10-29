@@ -29,6 +29,7 @@ Rows marked **(upstream repo only)** describe the ritual for the `django-smallst
 | [add-gold-theme.md](add-gold-theme.md) | Worked example of adding one palette (Gold) end to end — read `modify-palettes.md` first; this is the concrete walk-through, not the canonical guide |
 | [search.md](search.md) | Add keyword search + MCP tool to a CRUDView (`enable_search = True`) — FTS5/PG-FTS backend dispatch, RAG via Claude Desktop |
 | [datasets.md](datasets.md) | **Build a dashboard/report/chart UI** — the `@dataset` primitive: a named queryset surfaced as typed rows/columns (`schema()` → dimension/measure + filter widgets), `rows()`/`series()`, opt-in REST + MCP. Read before building anything that inspects a dataset to render pickers/charts |
+| [calendar.md](calendar.md) | **Put anything with a date on a calendar** — the calendar protocol over `@dataset` (`@calendar_dataset` / `register_calendar`: start/end columns, title/status resolvers, access), the merged `/smallstack/calendar/` grid with saved views, the events + `.ics` API, MCP tools, and the eleven bundled calendars |
 | [django-apps.md](django-apps.md) | Creating apps, CRUDView management pages, title bar pattern |
 | [crud-views.md](crud-views.md) | **The CRUDView reference** — the declarative class behind list/create/detail/update/delete: actions, config attributes, display protocol, related tabs, `get_list_queryset` |
 | [explorer.md](explorer.md) | Model Explorer — the zero-code CRUD browser generated from existing `ModelAdmin` registrations; `explorer_displays`, dashboard widgets |
@@ -152,6 +153,7 @@ AI agents should read relevant skill files before making changes to the correspo
 - Before monitoring a subsystem's uptime/health (a `Service` + `Monitor`), exposing a health check on `/smallstack/status/`, or adding a status visualization → read `status-monitors.md`
 - Before configuring or building card-grid list displays → read `card-displays.md`
 - Before adding a month-grid calendar to a model → read `calendar-displays.md`
+- Before putting due dates / expiries / windows on the shared calendar, or saving a calendar view → read `calendar.md`
 - Before updating docs after code changes → read `update-docs-and-skills.md`
 - **Before designing any MCP feature** → read `mcp/build-mcp-solution.md` (decision tree + patterns)
 - Before exposing a CRUDView to AI clients → read `mcp/enable-mcp-for-a-model.md`

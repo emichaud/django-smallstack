@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from django.db.models import QuerySet
 
+from apps.calendar import register_calendar
 from apps.datasets.framework import framework_dataset
 
 from .models import ScheduledJob, ScheduledJobRun
@@ -64,3 +65,28 @@ def scheduled_jobs() -> QuerySet[ScheduledJob]:
 )
 def scheduled_job_runs() -> QuerySet[ScheduledJobRun]:
     return ScheduledJobRun.objects.select_related("job")
+
+
+# ---------------------------------------------------------------------------
+# Calendar protocol
+# ---------------------------------------------------------------------------
+
+register_calendar(
+    "smallstack_scheduled_jobs",
+    start="next_run_at",
+    title="name",
+    subtitle="cadence_display",
+    status="calendar_status",
+    label="Upcoming scheduled jobs",
+    description="Each enabled schedule on its next fire, tinted by the outcome of its last run.",
+)
+
+register_calendar(
+    "smallstack_scheduled_job_runs",
+    start="scheduled_for",
+    title="job_name",
+    subtitle="message",
+    status="calendar_status",
+    label="Scheduled job runs",
+    description="Every firing on the day it was due, tinted by outcome.",
+)

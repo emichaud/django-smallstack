@@ -17,6 +17,7 @@ When the user asks you to do any of these, read the matching skill file BEFORE w
 | Add a CRUDView (model → admin + REST + MCP) | `docs/skills/django-apps.md` + `apps/smallstack/docs/building-crud-pages.md` |
 | Add keyword search + an MCP search tool to a model | `docs/skills/search.md` |
 | Expose a filtered queryset as typed rows/columns for a dashboard/report/chart UI (`@dataset`) | `docs/skills/datasets.md` |
+| Put due dates / expiries / maintenance windows on the shared **calendar** (`@calendar_dataset`, saved views, `.ics`) | `docs/skills/calendar.md` |
 | Add stat cards / metric tiles + drill-down modals to a dashboard page | `docs/skills/dashboard-cards.md` |
 | Add a dashboard widget (the central `/smallstack/` dashboard) | `docs/skills/dashboard-widgets.md` |
 | Monitor a subsystem's uptime/health on `/smallstack/status/` (Service + Monitor, or a status chart) | `docs/skills/status-monitors.md` |
@@ -85,6 +86,7 @@ All custom apps in `apps/`, registered as `apps.<name>`:
 - `apps/usermanager/` — User CRUD at `/smallstack/manage/users/`
 - `apps/webhooks/` — Outbound event delivery (`enable_webhooks`) + inbound receivers (`@webhook_handler`) at `/smallstack/webhooks/`
 - `apps/blog/` — Blogs + newsletters (label: `smallstack_blog`); console at `/smallstack/blog/`, public reading at `/blog/`
+- `apps/calendar/` — Calendar (label: `smallstack_calendar`): datasets with a date axis merged on one grid at `/smallstack/calendar/`, saved views, events + `.ics` API
 - `apps/website/` — Project-specific pages — **edit freely** (the others are framework-provided)
 
 Settings split in `config/settings/`:

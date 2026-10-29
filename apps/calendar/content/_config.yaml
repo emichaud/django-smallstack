@@ -1,0 +1,17 @@
+title: "Calendar"
+description: "Datasets with a date axis, merged onto one month grid — saved views, feeds and the events API"
+slug: calendar
+
+pages:
+  - slug: index
+    title: "Calendar"
+    description: "What a calendar dataset is, picking calendars additively, saving a view, and the day panel"
+    icon: "calendar"
+  - slug: calendar-datasets
+    title: "Declaring calendar datasets"
+    description: "The protocol: start/end columns, titles, status tints, access levels, and the bundled calendars"
+    icon: "code"
+  - slug: feeds-and-api
+    title: "Feeds and the events API"
+    description: "Subscribe from a calendar app (.ics), the JSON events routes, saved-view REST and the MCP tools"
+    icon: "rss"

@@ -55,6 +55,18 @@
     --info-bg: #d9edf7;
     --info-fg: #31708f;
 
+    /* Categorical series — for things that must be told apart by colour (one
+       hue per calendar, chart line, legend entry). Tailwind -600 on light,
+       -400 on dark; never used for surfaces or state. */
+    --series-1: #0284c7;
+    --series-2: #7c3aed;
+    --series-3: #059669;
+    --series-4: #d97706;
+    --series-5: #e11d48;
+    --series-6: #0d9488;
+    --series-7: #ea580c;
+    --series-8: #db2777;
+
     /* Button colors — button-fg must contrast with --primary/--button-bg */
     --button-bg: #417690;
     --button-fg: #ffffff;
@@ -181,6 +193,15 @@
     --error-fg: #f08080;
     --info-bg: #264d4d;
     --info-fg: #8fd6d6;
+
+    --series-1: #38bdf8;
+    --series-2: #a78bfa;
+    --series-3: #34d399;
+    --series-4: #fbbf24;
+    --series-5: #fb7185;
+    --series-6: #2dd4bf;
+    --series-7: #fb923c;
+    --series-8: #f472b6;
 
     --button-bg: #44b78b;
     --button-fg: #000000;

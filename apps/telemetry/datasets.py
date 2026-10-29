@@ -8,6 +8,7 @@ from urllib.parse import urlencode
 from django.db.models import QuerySet
 from django.urls import reverse
 
+from apps.calendar import register_calendar
 from apps.datasets.framework import framework_dataset
 
 from .models import LogCaptureWindow, LogRecord
@@ -64,3 +65,18 @@ def log_records() -> QuerySet[LogRecord]:
 )
 def log_capture_windows() -> QuerySet[LogCaptureWindow]:
     return LogCaptureWindow.objects.all()
+
+
+# ---------------------------------------------------------------------------
+# Calendar protocol
+# ---------------------------------------------------------------------------
+
+register_calendar(
+    "smallstack_log_capture_windows",
+    start="started_at",
+    end="expires_at",
+    title=lambda w: f"{w.level} capture",
+    subtitle="note",
+    label="Log capture windows",
+    description="Time-boxed capture windows, spanning from when they opened to when they expire.",
+)

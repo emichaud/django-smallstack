@@ -63,6 +63,7 @@ INSTALLED_APPS = [
     "apps.approvals",  # Approvals: side-car human-approval gate (label: smallstack_approvals)
     "apps.feeds",  # Feeds: curated RSS/Atom publish (register_feed) + consume (collector)
     "apps.blog",  # Blog: markdown posts + per-blog feeds + newsletter (label: smallstack_blog)
+    "apps.calendar",  # Calendar: datasets with a date axis on one grid + saved views (label: smallstack_calendar)
     # (Approvals scenario demos are appended below, only when present.)
     # Django built-in apps
     "django.contrib.admin",

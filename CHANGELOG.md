@@ -9,6 +9,39 @@ Breaking-change migration recipes live in [`UPGRADING.md`](UPGRADING.md).
 
 ## [Unreleased]
 
+### Added
+- **Calendar app** (`apps/calendar/`, label `smallstack_calendar`) — a user
+  app beside Runbook and My blogs. A *calendar dataset* is an ordinary
+  `@dataset` plus a small protocol: `start` (a date/datetime column), optional
+  `end` for ranged events, per-row `title` / `subtitle` / `status` resolvers
+  and an `access` level (`staff` default, or `authenticated`). Declare one with
+  `@calendar_dataset(...)` (every `@dataset` keyword passes through) or attach
+  the protocol to an existing dataset with `register_calendar(key, ...)`. The
+  ladder is CRUDView → dataset → calendar dataset: nothing is copied, the
+  calendar reads rows through `Dataset.queryset()` so per-user scoping and row
+  links apply. `/smallstack/calendar/` merges any number of calendars onto one
+  month grid — three columns: the additive picker (a stable colour per
+  calendar from the new `--series-1…8` theme tokens, light + dark), the grid,
+  and the selected day's events (today by default; click a day to switch),
+  month navigation, every state a link. **Saved views** (`SavedCalendarView`:
+  name + list of calendar keys, one default per owner) are a per-user CRUDView
+  with REST (`/smallstack/api/calendar/views/`) and MCP; **Save this view**
+  prefills one from the current selection. Events API: `/smallstack/calendar/
+  api/` (calendars), `…/api/events/?ds=&start=&end=` (merged, normalised
+  `{calendar, id, title, subtitle, start, end, all_day, status, url}`),
+  `…/api/<key>/events/`, and `…/api/events.ics` — an iCalendar feed a desktop
+  or phone calendar subscribes to. MCP tools `list_calendars` and
+  `calendar_events`. Eleven **bundled calendars** are attached to the framework
+  datasets: maintenance windows (ranged), daily uptime (SLA-tinted), upcoming
+  scheduled jobs + job runs, API token expiry (amber ≤14 days, red past),
+  backups, approval deadlines, blog posts, newsletter sends, log capture
+  windows (ranged) and user sign-ups — all staff-only. Plus a
+  `smallstack_calendar_views` dataset, a dashboard widget, help pages at
+  `/smallstack/help/calendar/` and `docs/skills/calendar.md`. New settings:
+  `SMALLSTACK_CALENDAR_ENABLED` (default on; off ⇒ no nav, routes, tools or
+  widget) and `SMALLSTACK_CALENDAR_MAX_WINDOW_DAYS` (default 366 — the widest
+  window one events/ICS/MCP request may ask for).
+
 ## [0.27.1] - 2026-10-26
 
 ### Changed

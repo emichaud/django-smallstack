@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from django.db.models import QuerySet
 
+from apps.calendar import register_calendar
 from apps.datasets.framework import framework_dataset
 
 from .models import Heartbeat, HeartbeatDaily, MaintenanceWindow
@@ -57,3 +58,27 @@ def heartbeat_daily() -> QuerySet[HeartbeatDaily]:
 )
 def maintenance_windows() -> QuerySet[MaintenanceWindow]:
     return MaintenanceWindow.objects.all()
+
+
+# ---------------------------------------------------------------------------
+# Calendar protocol — the bundled calendars this module contributes
+# ---------------------------------------------------------------------------
+
+register_calendar(
+    "smallstack_maintenance_windows",
+    start="start",
+    end="end",
+    title="title",
+    subtitle="monitor_key",
+    label="Maintenance windows",
+    description="Declared maintenance windows, spanning every day they cover.",
+)
+
+register_calendar(
+    "smallstack_heartbeat_daily",
+    start="date",
+    title=lambda d: f"{d.monitor_key} · {float(d.uptime_pct):.2f}%",
+    status="sla_status",
+    label="Daily uptime",
+    description="One entry per monitor per day, tinted by how the day measured against the SLA.",
+)

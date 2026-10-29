@@ -148,6 +148,13 @@
       "use_when": "Before exposing a filtered queryset as typed rows/columns for a dashboard, report, or chart UI."
     },
     {
+      "id": "calendar",
+      "file": "calendar.md",
+      "name": "Calendar",
+      "description": "**Put anything with a date on a calendar** — the calendar protocol over `@dataset` (`@calendar_dataset` / `register_calendar`: start/end columns, title/status resolvers, access), the merged `/smallstack/calendar/` grid with saved views, the events + `.ics` API, MCP tools, and the eleven bundled calendars",
+      "section": "Available Skills"
+    },
+    {
       "id": "django-apps",
       "file": "django-apps.md",
       "name": "Django Apps & CRUDView",

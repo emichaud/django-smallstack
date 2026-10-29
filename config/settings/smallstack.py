@@ -594,6 +594,19 @@ SMALLSTACK_AUDIT_SYSTEM_USERNAME = config("SMALLSTACK_AUDIT_SYSTEM_USERNAME", de
 
 
 # ---------------------------------------------------------------------------
+# Calendar (apps.calendar) — datasets with a date axis on one month grid
+# ---------------------------------------------------------------------------
+# Master switch. Off ⇒ no nav item, no /smallstack/calendar/ routes (page, saved
+# views, events API, ICS), no MCP tools, no dashboard widget. The app stays
+# installed (migrations apply) so turning it back on never needs a schema change.
+# Calendar *specs* still register, so in-process ``apps.calendar.core`` keeps
+# working for your own code.
+SMALLSTACK_CALENDAR_ENABLED = config("SMALLSTACK_CALENDAR_ENABLED", default=True, cast=bool)
+# Widest window (days) one events / ICS / MCP request may ask for. The page
+# always asks for one month; this bounds scripted callers.
+SMALLSTACK_CALENDAR_MAX_WINDOW_DAYS = config("SMALLSTACK_CALENDAR_MAX_WINDOW_DAYS", default=366, cast=int)
+
+# ---------------------------------------------------------------------------
 # Blog + newsletter (apps.blog)
 # ---------------------------------------------------------------------------
 # Master switch. Off ⇒ no nav, no console routes, no public routes, no feeds,

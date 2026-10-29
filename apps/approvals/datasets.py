@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from django.db.models import QuerySet
 
+from apps.calendar import register_calendar
 from apps.datasets.framework import framework_dataset
 
 from .models import ApprovalRequest
@@ -32,3 +33,23 @@ from .models import ApprovalRequest
 )
 def approval_requests() -> QuerySet[ApprovalRequest]:
     return ApprovalRequest.objects.select_related("requested_by", "decided_by")
+
+
+# ---------------------------------------------------------------------------
+# Calendar protocol
+# ---------------------------------------------------------------------------
+
+register_calendar(
+    "smallstack_approval_requests",
+    start="expires_at",
+    title="title",
+    subtitle="kind",
+    status=lambda r: {
+        ApprovalRequest.Status.PENDING: "warning",
+        ApprovalRequest.Status.APPROVED: "success",
+        ApprovalRequest.Status.REJECTED: "danger",
+        ApprovalRequest.Status.EXPIRED: "danger",
+    }.get(r.status),
+    label="Approval deadlines",
+    description="Approval requests on the day they expire — amber while pending, green/red once decided.",
+)

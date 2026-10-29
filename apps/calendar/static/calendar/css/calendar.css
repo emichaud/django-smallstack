@@ -1,0 +1,137 @@
+/* Calendar page — the merged month grid and its picker.
+   Reuses the .calendar-* grid classes from components.css; everything here is
+   palette-driven (surfaces from --card-bg, series colours from --series-N). */
+
+/* Three columns — picker | month grid | the selected day. Below 1280px the
+   picker folds up into wrapped chips above the grid so the grid and the day
+   column stay side by side (the day column is the one that must stay on the
+   right); below 700px everything stacks. */
+.cal-layout {
+    display: grid;
+    grid-template-columns: 210px minmax(0, 1fr) 280px;
+    gap: 14px; align-items: start;
+}
+.cal-right { position: sticky; top: 16px; min-width: 0; }
+.cal-grid-card .calendar-title { white-space: nowrap; }
+.cal-day-card .card-header h2 { font-size: 0.88rem; }
+.cal-day-close, a.cal-day-close:link, a.cal-day-close:visited { color: var(--body-quiet-color); text-decoration: none; font-size: 1.1rem; line-height: 1; margin-left: 6px; }
+.cal-day-close:hover { color: var(--body-fg); }
+.cal-day-foot { margin: 8px 0 0; font-size: 0.72rem; color: var(--text-muted); }
+
+.cal-card { margin-bottom: 12px; }
+.cal-card-header { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.cal-card-header h2 { margin: 0; font-size: 0.82rem; }
+.cal-side-actions { font-size: 0.74rem; color: var(--body-quiet-color); }
+.cal-side-actions a:link, .cal-side-actions a:visited { color: var(--body-quiet-color); text-decoration: none; }
+.cal-side-actions a:hover { color: var(--primary); }
+.cal-side-foot { font-size: 0.76rem; color: var(--body-quiet-color); padding: 0 4px; }
+.cal-side-foot a:link, .cal-side-foot a:visited { color: var(--body-quiet-color); }
+.cal-side-foot a:hover { color: var(--primary); }
+.cal-empty { color: var(--body-quiet-color); font-size: 0.8rem; margin: 0; }
+.cal-empty code { font-size: 0.74rem; }
+
+/* Saved views */
+.cal-views { display: flex; flex-direction: column; gap: 4px; padding: 8px; }
+.cal-view, a.cal-view:link, a.cal-view:visited {
+    display: flex; flex-direction: column; gap: 1px; padding: 6px 10px; border-radius: 6px;
+    text-decoration: none; color: var(--body-fg); border: 1px solid transparent;
+}
+.cal-view:hover { background: color-mix(in srgb, var(--body-fg) 5%, var(--card-bg)); }
+.cal-view.is-active { border-color: var(--primary); background: color-mix(in srgb, var(--primary) 10%, var(--card-bg)); }
+.cal-view-name { font-size: 0.82rem; font-weight: 600; }
+.cal-view-meta { font-size: 0.7rem; color: var(--body-quiet-color); }
+
+/* Picker — additive toggles */
+.cal-picker { display: flex; flex-direction: column; gap: 4px; padding: 8px; }
+.cal-pick, a.cal-pick:link, a.cal-pick:visited {
+    display: flex; align-items: center; gap: 10px; padding: 6px 8px; border-radius: 6px;
+    text-decoration: none; color: var(--body-quiet-color); border: 1px solid transparent;
+    transition: background 0.12s, border-color 0.12s, color 0.12s;
+}
+.cal-pick:hover { background: color-mix(in srgb, var(--body-fg) 5%, var(--card-bg)); color: var(--body-fg); }
+.cal-pick:focus-visible { outline: 2px solid var(--primary); outline-offset: 1px; }
+.cal-pick.is-on, a.cal-pick.is-on:link, a.cal-pick.is-on:visited {
+    color: var(--body-fg);
+    background: color-mix(in srgb, var(--series) 12%, var(--card-bg));
+    border-color: color-mix(in srgb, var(--series) 45%, var(--card-border));
+}
+.cal-pick-body { display: flex; flex-direction: column; min-width: 0; }
+.cal-pick-label { font-size: 0.8rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cal-pick-meta { font-size: 0.68rem; color: var(--body-quiet-color); }
+
+.cal-swatch {
+    flex: none; width: 12px; height: 12px; border-radius: 3px;
+    background: var(--series); opacity: 0.35; transition: opacity 0.12s;
+}
+.cal-pick.is-on .cal-swatch, .cal-day-event .cal-swatch { opacity: 1; }
+
+/* Series colours — each calendar resolves --series to one of the theme's
+   categorical tokens; chips, swatches and day rows all read the one variable. */
+.cal-series-1 { --series: var(--series-1); }
+.cal-series-2 { --series: var(--series-2); }
+.cal-series-3 { --series: var(--series-3); }
+.cal-series-4 { --series: var(--series-4); }
+.cal-series-5 { --series: var(--series-5); }
+.cal-series-6 { --series: var(--series-6); }
+.cal-series-7 { --series: var(--series-7); }
+.cal-series-8 { --series: var(--series-8); }
+
+/* The grid: cells are links (tap a day → the day panel). */
+.cal-grid-card { margin-bottom: 12px; }
+.cal-grid { grid-auto-rows: minmax(96px, auto); }
+.cal-cell, a.cal-cell:link, a.cal-cell:visited { text-decoration: none; color: var(--body-fg); cursor: pointer; }
+.cal-cell:hover { background: color-mix(in srgb, var(--primary) 6%, var(--body-bg)); }
+.cal-cell:focus-visible { outline: 2px solid var(--primary); outline-offset: -2px; }
+.cal-cell--weekend .calendar-cell-day { color: var(--body-quiet-color); }
+
+.cal-chip {
+    display: flex; align-items: baseline; gap: 4px; min-width: 0;
+    padding: 1px 6px; border-radius: 4px; font-size: 0.7rem; line-height: 1.5;
+    background: color-mix(in srgb, var(--series) 20%, var(--card-bg));
+    border-left: 3px solid var(--series);
+    color: var(--body-fg);
+}
+.cal-chip-label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.cal-chip-time { flex: none; font-variant-numeric: tabular-nums; color: var(--body-quiet-color); font-size: 0.64rem; }
+.cal-chip--success { border-left-color: var(--success-fg); }
+.cal-chip--warning { border-left-color: var(--warning-fg); }
+.cal-chip--danger  { border-left-color: var(--error-fg); }
+.cal-more { padding-left: 6px; }
+.cal-hint { color: var(--body-quiet-color); font-size: 0.82rem; }
+
+/* Day column */
+.cal-day-events { display: flex; flex-direction: column; gap: 2px; padding: 6px 10px; max-height: calc(100vh - 160px); overflow-y: auto; }
+.cal-day-event { display: flex; align-items: flex-start; gap: 10px; padding: 6px 4px; border-bottom: 1px solid var(--hairline-color); }
+.cal-day-event:last-child { border-bottom: 0; }
+.cal-day-event .cal-swatch { margin-top: 4px; }
+.cal-day-event-body { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.cal-day-event-title { font-size: 0.86rem; font-weight: 600; display: flex; align-items: center; gap: 6px; }
+.cal-day-event-title a:link, .cal-day-event-title a:visited { color: var(--body-fg); text-decoration: none; }
+.cal-day-event-title a:hover { color: var(--primary); }
+.cal-day-event-meta { display: flex; flex-wrap: wrap; gap: 4px 10px; font-size: 0.74rem; color: var(--body-quiet-color); }
+.cal-day-event-cal { color: var(--series); font-weight: 600; }
+.cal-day-event-sub { color: var(--text-muted); }
+
+.cal-status { display: inline-block; width: 8px; height: 8px; border-radius: 50%; }
+.cal-status--success { background: var(--success-fg); }
+.cal-status--warning { background: var(--warning-fg); }
+.cal-status--danger  { background: var(--error-fg); }
+
+/* Responsive — last in the file so these win over the base rules above. */
+@media (max-width: 1280px) {
+    .cal-layout { grid-template-columns: minmax(0, 1fr) 260px; }
+    .cal-side { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 12px; align-items: start; }
+    .cal-side > .card { margin-bottom: 0; }
+    .cal-side > .card:has(.cal-views) { flex: 0 1 auto; }
+    .cal-side > .card:has(.cal-picker) { flex: 1 1 420px; }
+    .cal-side-foot { flex-basis: 100%; margin: 0; }
+    .cal-views, .cal-picker { flex-direction: row; flex-wrap: wrap; gap: 6px; }
+    .cal-view, .cal-pick { flex: 0 1 auto; padding: 4px 10px; }
+    .cal-pick { gap: 7px; }
+    .cal-pick-meta, .cal-view-meta { display: none; }
+    .cal-pick-label, .cal-view-name { font-size: 0.78rem; }
+}
+@media (max-width: 700px) {
+    .cal-layout { grid-template-columns: 1fr; }
+    .cal-right { position: static; }
+}

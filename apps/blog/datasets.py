@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from django.db.models import QuerySet
 
+from apps.calendar import register_calendar
 from apps.datasets.framework import framework_dataset
 
 from .models import Delivery, Issue, Post, Subscription
@@ -105,3 +106,28 @@ def blog_issues() -> QuerySet[Issue]:
 )
 def blog_deliveries() -> QuerySet[Delivery]:
     return Delivery.objects.select_related("issue", "subscriber")
+
+
+# ---------------------------------------------------------------------------
+# Calendar protocol
+# ---------------------------------------------------------------------------
+
+register_calendar(
+    "smallstack_blog_posts",
+    start="published_at",
+    title="title",
+    subtitle=lambda p: p.blog.name,
+    status=lambda p: {Post.Status.PUBLISHED: "success", Post.Status.SCHEDULED: "warning"}.get(p.status),
+    label="Blog posts",
+    description="Posts on their publish date, across every blog.",
+)
+
+register_calendar(
+    "smallstack_blog_issues",
+    start="started_at",
+    title="subject",
+    subtitle=lambda i: i.blog.name,
+    status=lambda i: {Issue.Status.SENT: "success", Issue.Status.FAILED: "danger"}.get(i.status),
+    label="Newsletter sends",
+    description="Newsletter issues on the day their send began, tinted by outcome.",
+)
