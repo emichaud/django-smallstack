@@ -9,6 +9,25 @@ Breaking-change migration recipes live in [`UPGRADING.md`](UPGRADING.md).
 
 ## [Unreleased]
 
+### Changed
+- **Selecting a day no longer scrolls the calendar back to the top.** A grid
+  cell, a board day heading and the day column's × were full page loads, so a
+  click after scrolling down landed you at the top of the page again. A small
+  script (`calendar/js/calendar.js`) now fetches the same URL and swaps in only
+  the grid/board and the day column (`data-cal-region="main"` / `"day"`), so
+  the scroll position stays put; the address bar follows, and the links still
+  work as plain navigation without script, with a modifier key, or if the
+  fetch fails. Applies to the shared page and to every `RangeBoardDisplay` /
+  `{% calendar_board %}` page (the runbook's board included); the day column is
+  `aria-live="polite"` so the change is announced.
+- **Calendar page: the picker is as tall as the calendar.** The Calendars
+  column now stretches to exactly the month grid's (or board's) height and the
+  list scrolls inside the card instead of running past the grid; the
+  Subscribe (.ics) / JSON links moved into the card as its footer so the two
+  bottom edges line up. A sparse 30/60/90 board gets a height floor near the
+  month grid's so Month ⇄ board no longer re-flows the page. Below 1280px the
+  picker still folds into a chip row above the grid.
+
 ## [0.28.0] - 2026-10-28
 
 ### Security

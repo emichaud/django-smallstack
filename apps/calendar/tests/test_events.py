@@ -148,3 +148,17 @@ def test_rest_and_mcp_create(client, staff):
         assert {r["title"] for r in listed["results"]} == {"Via REST", "Via MCP"}
     finally:
         reset_context(token)
+
+
+def test_day_selection_swaps_in_place(client, staff):
+    """The page and the board display mark the two swap regions and load the
+    script that fetches a day link and replaces only those regions."""
+    html = client.get(PAGE, {"ds": EVENTS_KEY, "month": "2026-04"}).content.decode()
+    assert 'data-cal-region="main"' in html and 'data-cal-region="day"' in html
+    assert "calendar/js/calendar.js" in html
+    # The fetched day URL is the same page, so the regions are there to swap.
+    html = client.get(PAGE, {"ds": EVENTS_KEY, "month": "2026-04", "day": "2026-04-10"}).content.decode()
+    assert html.count('data-cal-region="day"') == 1 and "April 10" in html
+    html = client.get(LIST, {"display": "board", "range": "30", "from": "2026-04-01"}).content.decode()
+    assert 'data-cal-region="main"' in html and 'data-cal-region="day"' in html
+    assert "calendar/js/calendar.js" in html

@@ -11,6 +11,13 @@
     grid-template-columns: 210px minmax(0, 1fr) 280px;
     gap: 14px; align-items: start;
 }
+/* The picker column is exactly as tall as the calendar beside it: the list
+   scrolls inside the card instead of running past the grid. `height: 0` +
+   `min-height: 100%` is the grid idiom for "fill the row, but never be the
+   thing that decides how tall the row is" — the month grid or board does. */
+.cal-side { align-self: stretch; height: 0; min-height: 100%; min-width: 0; display: flex; flex-direction: column; }
+.cal-side .cal-card { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; margin-bottom: 0; }
+.cal-side .cal-card-header, .cal-side .cal-viewpick, .cal-side .cal-side-foot { flex: none; }
 .cal-right { position: sticky; top: 16px; min-width: 0; }
 .cal-grid-card .calendar-title { white-space: nowrap; }
 .cal-day-card .card-header h2 { font-size: 0.88rem; }
@@ -24,7 +31,7 @@
 .cal-side-actions { font-size: 0.74rem; color: var(--body-quiet-color); }
 .cal-side-actions a:link, .cal-side-actions a:visited { color: var(--body-quiet-color); text-decoration: none; }
 .cal-side-actions a:hover { color: var(--primary); }
-.cal-side-foot { font-size: 0.76rem; color: var(--body-quiet-color); padding: 0 4px; }
+.cal-side-foot { margin: 0; padding: 8px 12px; font-size: 0.76rem; color: var(--body-quiet-color); border-top: 1px solid var(--card-border); }
 .cal-side-foot a:link, .cal-side-foot a:visited { color: var(--body-quiet-color); }
 .cal-side-foot a:hover { color: var(--primary); }
 .cal-empty { color: var(--body-quiet-color); font-size: 0.8rem; margin: 0; }
@@ -38,7 +45,7 @@
 }
 
 /* Picker — additive toggles */
-.cal-picker { display: flex; flex-direction: column; gap: 4px; padding: 8px; }
+.cal-picker { display: flex; flex-direction: column; gap: 4px; padding: 8px; flex: 1 1 auto; min-height: 0; overflow-y: auto; }
 .cal-pick, a.cal-pick:link, a.cal-pick:visited {
     display: flex; align-items: center; gap: 10px; padding: 6px 8px; border-radius: 6px;
     text-decoration: none; color: var(--body-quiet-color); border: 1px solid transparent;
@@ -74,6 +81,12 @@
 
 /* The grid: cells are links (tap a day → the day panel). */
 .cal-grid-card { margin-bottom: 12px; }
+/* On the shared page the column's bottom edge must be the grid's own, so the
+   picker beside it can match it exactly; the hint below carries the gap. */
+.cal-layout .cal-grid-card { margin-bottom: 0; }
+/* A sparse 30/60/90 board is only a few rows tall; a floor near the month grid's
+   height keeps Month ⇄ board from re-flowing the page and the picker beside it. */
+.cal-layout .cal-board { min-height: 520px; }
 .cal-grid { grid-auto-rows: minmax(96px, auto); }
 .cal-cell, a.cal-cell:link, a.cal-cell:visited { text-decoration: none; color: var(--body-fg); cursor: pointer; }
 .cal-cell:hover { background: color-mix(in srgb, var(--primary) 6%, var(--body-bg)); }
@@ -93,7 +106,7 @@
 .cal-chip--warning { border-left-color: var(--warning-fg); }
 .cal-chip--danger  { border-left-color: var(--error-fg); }
 .cal-more { padding-left: 6px; }
-.cal-hint { color: var(--body-quiet-color); font-size: 0.82rem; }
+.cal-hint { margin: 12px 0 0; color: var(--body-quiet-color); font-size: 0.82rem; }
 
 /* Day column — grouped by calendar, a monospace time gutter per row */
 .cal-day-body { padding: 4px 10px 10px; max-height: calc(100vh - 160px); overflow-y: auto; }
@@ -192,11 +205,9 @@
 /* Responsive — last in the file so these win over the base rules above. */
 @media (max-width: 1280px) {
     .cal-layout { grid-template-columns: minmax(0, 1fr) 260px; }
-    .cal-side { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 12px; align-items: start; }
-    .cal-side > .card { margin-bottom: 0; }
-    .cal-side > .card:has(.cal-picker) { flex: 1 1 420px; }
-    .cal-side-foot { flex-basis: 100%; margin: 0; }
-    .cal-picker { flex-direction: row; flex-wrap: wrap; gap: 6px; }
+    .cal-side { grid-column: 1 / -1; height: auto; min-height: 0; flex-direction: row; flex-wrap: wrap; gap: 12px; align-items: start; }
+    .cal-side .cal-card { display: block; flex: 1 1 420px; }
+    .cal-picker { flex-direction: row; flex-wrap: wrap; gap: 6px; overflow: visible; }
     .cal-pick { flex: 0 1 auto; padding: 4px 10px; }
     .cal-pick { gap: 7px; }
     .cal-pick-meta { display: none; }

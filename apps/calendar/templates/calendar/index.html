@@ -95,16 +95,15 @@
                 <p class="cal-empty">No calendar datasets are visible to you.{% if not request.user.is_staff %} The bundled calendars are staff-only; a project calendar declared with <code>access="authenticated"</code> appears here.{% endif %}</p>
                 {% endfor %}
             </div>
+            {% if ics_url %}
+            <p class="cal-side-foot">
+                <a href="{{ ics_url }}">Subscribe (.ics)</a> · <a href="{% url 'calendar_api_events' %}?{% for k in selected_keys %}ds={{ k }}{% if not forloop.last %}&amp;{% endif %}{% endfor %}">JSON</a>
+            </p>
+            {% endif %}
         </div>
-
-        {% if ics_url %}
-        <p class="cal-side-foot">
-            <a href="{{ ics_url }}">Subscribe (.ics)</a> · <a href="{% url 'calendar_api_events' %}?{% for k in selected_keys %}ds={{ k }}{% if not forloop.last %}&amp;{% endif %}{% endfor %}">JSON</a>
-        </p>
-        {% endif %}
     </aside>
 
-    <section class="cal-main">
+    <section class="cal-main" data-cal-region="main">
         <div class="cal-toolbar">
             <nav class="cal-seg" aria-label="Calendar range">
                 {% for r in range_choices %}
@@ -145,17 +144,12 @@
         {% endif %}
     </section>
 
-    <aside class="cal-right">
+    <aside class="cal-right" data-cal-region="day" aria-live="polite">
         {% include "calendar/components/day_column.html" with close_url=close_day_url explicit=selected_day hint=day_hint empty_text=day_empty_text %}
     </aside>
 </div>
 {% endblock %}
 
 {% block extra_js %}
-<script>
-  (function () {
-    var sel = document.getElementById('cal-view-select');
-    if (sel) sel.addEventListener('change', function () { if (this.value) window.location.assign(this.value); });
-  })();
-</script>
+<script src="{% static 'calendar/js/calendar.js' %}" defer></script>
 {% endblock %}
