@@ -546,7 +546,16 @@ ul.pagination li.active span {
     color: var(--body-fg);
 }
 
-[data-theme="dark"] :where(.content-wrapper) select {
+/* Native pickers (the calendar glyph + the popup it opens) follow the UA
+   color scheme, not our variables — without this they render a near-black
+   icon on a dark field and a white popup. Scoped to .content-wrapper so a
+   downstream's own form stack is untouched. */
+[data-theme="dark"] :where(.content-wrapper) select,
+[data-theme="dark"] :where(.content-wrapper) input[type="date"],
+[data-theme="dark"] :where(.content-wrapper) input[type="datetime-local"],
+[data-theme="dark"] :where(.content-wrapper) input[type="time"],
+[data-theme="dark"] :where(.content-wrapper) input[type="month"],
+[data-theme="dark"] :where(.content-wrapper) input[type="week"] {
     color-scheme: dark;
 }
 

@@ -9,6 +9,71 @@ Breaking-change migration recipes live in [`UPGRADING.md`](UPGRADING.md).
 
 ## [Unreleased]
 
+### Added
+- **Dashboards — metrics, grid dashboards and KPI reports (`apps/dashboards/`, label
+  `smallstack_dashboards`).** A framework layer over `@dataset` for numbers that
+  matter, built by hand or by an AI agent. A **Metric** is a stored filter tree
+  over a dataset plus an aggregate (count / distinct / sum / avg / min / max), a
+  format, thresholds (→ the stat-card states) and an optional `period_field` a
+  dashboard or report period narrows. One evaluation seam
+  (`apps.dashboards.metrics.evaluate`) feeds every surface. A **Dashboard** is a
+  12-column grid (gridstack.js 13, vendored, MIT) of lazily loaded htmx cells with a
+  period bar, optional auto-refresh and an edit mode (drag, resize, Add card, Remove,
+  Save). A **Report** is metrics × periods on screen and as CSV. Four card types ship:
+  `metric` (the exact `{% stat_card %}` markup), `metric_group` (top-N groups + Other,
+  each drilling into its rows), `widget` (any existing `/smallstack/` DashboardWidget)
+  and `text` (hardened markdown). `register_component_type()` is the seam for an app
+  on top (charts and so on); SmallStack itself ships no chart library. The **metric
+  builder** edits the AND/OR filter tree visually from the dataset schema, with a live
+  preview. `{% metric_card "key" %}` puts a saved metric on any page. All three models
+  are CRUDViews (HTML + REST + MCP). The custom MCP tools are `metric_preview` (dry run:
+  value, row count, every problem), `metric_value`, `list_dashboard_components`,
+  `dashboard_add_card`, `dashboard_remove_card`, `dashboard_snapshot` and
+  `report_values`, with matching JSON routes under `/smallstack/dashboards/api/`.
+  Ownership is personal or shared, and only staff share. A card shows its number only
+  to users the metric's dataset admits. `manage.py seed_dashboards` builds a demo.
+  Master switch `SMALLSTACK_DASHBOARDS_ENABLED` (default on). Skill:
+  `docs/skills/dashboards.md`.
+- **Dataset filter trees — nested AND/OR, stored, strict.** Every dataset read path
+  (`rows` / `count` / `series` / `scalar` / `queryset`) takes `filter_tree=`, REST takes
+  `?filter_tree=<json>`, and the `query_dataset_<key>` MCP tools take a `filter_tree`
+  object. Ops: `= != > >= < <= between in contains isnull period`, plus word aliases.
+  Unlike the tolerant flat filters, a tree **raises** `FilterTreeError` (REST 400),
+  listing every path-addressed problem, rather than dropping a condition. A dropped
+  condition on a stored KPI silently widens the number, the fail-open shape v0.21.11
+  fixed for computed columns. Ported from call_stats with that one deliberate change.
+  Also added: `ds.validate_filter_tree()`, `describe_filter_tree()` (the one-line
+  reading) and `and_trees()`.
+- **Relative periods** (`apps/datasets/dateranges.py`): `today`, `yesterday`, `wtd`,
+  `pwtd`, `mtd`, `pmtd`, `qtd`, `pqtr`, `ytd`, `prev_year`, `last_<N>`, `next_<N>`. They
+  resolve at query time, so a saved "Month to date" stays current, and date filters
+  advertise them in `schema()`.
+- **Dataset `schema()` additions**: each filter's `ops` and `column_type`, a date
+  filter's `periods`, the dataset's `aggs` and `capabilities` (`measure`, `dimension`,
+  `dimension2`, `date`; `apps/datasets/capabilities.py`). A `distinct` aggregation.
+- **`@dataset(access="staff"|"auth")`** (default `staff`) declares who may read a
+  dataset through in-app surfaces that evaluate it for a user (metrics, dashboards,
+  reports). `apps.datasets.registry.user_may_read()` checks it.
+- **`describe_dataset` MCP tool**: a dataset's `schema()` for an agent, gated by that
+  dataset's own `mcp_access`.
+
+### Fixed
+- `test_widget_reports_endpoint_count` asserted `"0" not in headline` and so failed
+  on any two-digit count ("20 endpoints"); it now checks the count is positive.
+- **Dataset browser: Apply and Roll up no longer undo each other.** The filter
+  bar and the roll-up controls were two forms, each carrying a hidden snapshot of
+  the other's state, so picking a new group-by and clicking Apply reverted the
+  roll-up, and editing a filter then clicking Roll up reverted the filter. They
+  are now one form (the roll-up controls attach with `form="ds-form"`), either
+  button submits the whole page state, the current sort survives a re-submit,
+  and Clear drops the filters but keeps the roll-up.
+- **Native date pickers were invisible on the dark theme.** The calendar glyph in
+  `<input type="date">` rendered near-black on the dark field and the popup it
+  opened was white. `components.css` now sets `color-scheme: dark` on date /
+  datetime-local / time / month / week inputs under `[data-theme="dark"]`, next to
+  the existing rule for `<select>`. The SLA and maintenance pages, which each
+  patched this locally, use the shared rule.
+
 ## [0.29.0] - 2026-10-31
 
 ### Fixed

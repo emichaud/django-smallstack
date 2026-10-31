@@ -149,6 +149,7 @@ class DatasetBrowseView(StaffRequiredMixin, TemplateView):
                 "schema": schema,
                 "columns": columns,
                 "headers": headers,
+                "ordering": ordering,
                 "widgets": self._widgets(schema, request),
                 "filters": filters,
                 "has_filters": bool(filters),

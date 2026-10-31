@@ -10,9 +10,11 @@
     .ds-field { display: flex; flex-direction: column; gap: 3px; }
     .ds-field > label { font-size: 0.68rem; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--body-quiet-color); }
     .ds-field > span.ds-range { display: inline-flex; gap: 4px; align-items: center; }
-    .ds-filters input, .ds-filters select {
+    .ds-rollup { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+    .ds-filters input, .ds-filters select, .ds-rollup select {
         background: var(--input-bg); border: 1px solid var(--input-border); color: var(--body-fg);
         border-radius: 6px; padding: 4px 8px; font-size: 0.78rem; width: auto; max-width: 13rem; margin: 0;
+        min-height: 0;
     }
     .ds-filters .ds-actions { display: flex; gap: 6px; align-items: center; margin-left: auto; }
     .ds-filters .btn-outline, .ds-filters .btn-primary { white-space: nowrap; }
@@ -70,7 +72,15 @@
 {% block content %}
 
 <div class="card ds-card" style="margin-bottom: 16px;">
-    <form class="ds-filters" method="get" action="{% url 'datasets:browse' schema.key %}">
+    {% comment %}
+    One form drives the whole page. The roll-up controls in the next card are
+    attached with form="ds-form", so Apply and Roll up submit the same state:
+    the filters as currently edited AND the group-by as currently picked. Two
+    forms that mirror each other through hidden inputs lose whichever side
+    the user changed last.
+    {% endcomment %}
+    <form id="ds-form" class="ds-filters" method="get" action="{% url 'datasets:browse' schema.key %}">
+        {% if ordering %}<input type="hidden" name="ordering" value="{{ ordering }}">{% endif %}
         {% for w in widgets %}
         <div class="ds-field">
             <label for="f-{{ w.name }}">{{ w.label }}</label>
@@ -94,13 +104,10 @@
             {% endif %}
         </div>
         {% endfor %}
-        {% if group_by %}<input type="hidden" name="group_by" value="{{ group_by }}">{% endif %}
-        {% if measure %}<input type="hidden" name="measure" value="{{ measure }}">{% endif %}
-        {% if agg != "count" %}<input type="hidden" name="agg" value="{{ agg }}">{% endif %}
         <div class="ds-actions">
             <button type="submit" class="btn-primary btn-sm">Apply</button>
             {% if has_filters %}
-            <a href="{% url 'datasets:browse' schema.key %}" class="btn-outline btn-sm" style="text-decoration: none;">Clear</a>
+            <a href="{% url 'datasets:browse' schema.key %}{% if group_by %}?group_by={{ group_by|urlencode }}{% if measure %}&amp;measure={{ measure|urlencode }}&amp;agg={{ agg|urlencode }}{% endif %}{% endif %}" class="btn-outline btn-sm" style="text-decoration: none;">Clear</a>
             {% endif %}
         </div>
     </form>
@@ -110,27 +117,26 @@
 <div class="card ds-card" style="margin-bottom: 16px;">
     <div class="card-header" style="display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;">
         <h2>Roll-up</h2>
-        <form method="get" action="{% url 'datasets:browse' schema.key %}" style="display: flex; gap: 6px; align-items: center; flex-wrap: wrap;">
-            {% for name, value in filters.items %}<input type="hidden" name="{{ name }}" value="{{ value }}">{% endfor %}
+        <div class="ds-rollup" role="group" aria-label="Roll-up">
             <label for="r-group" class="sr-only">Group by</label>
-            <select id="r-group" name="group_by" class="ds-filters" style="background: var(--input-bg); border: 1px solid var(--input-border); color: var(--body-fg); border-radius: 6px; padding: 4px 8px; font-size: 0.78rem; width: auto; margin: 0;">
+            <select id="r-group" name="group_by" form="ds-form">
                 <option value="">Group by…</option>
                 {% for c in dimensions %}<option value="{{ c.name }}" {% if c.name == group_by %}selected{% endif %}>{{ c.label }}</option>{% endfor %}
                 {% if groupable_measures %}<optgroup label="Numeric">{% for c in groupable_measures %}<option value="{{ c.name }}" {% if c.name == group_by %}selected{% endif %}>{{ c.label }}</option>{% endfor %}</optgroup>{% endif %}
             </select>
             {% if measures %}
             <label for="r-measure" class="sr-only">Measure</label>
-            <select id="r-measure" name="measure" style="background: var(--input-bg); border: 1px solid var(--input-border); color: var(--body-fg); border-radius: 6px; padding: 4px 8px; font-size: 0.78rem; width: auto; margin: 0;">
+            <select id="r-measure" name="measure" form="ds-form">
                 <option value="">Row count</option>
                 {% for c in measures %}<option value="{{ c.name }}" {% if c.name == measure %}selected{% endif %}>{{ c.label }}{% if c.computed %} (ratio){% endif %}</option>{% endfor %}
             </select>
             <label for="r-agg" class="sr-only">Aggregate</label>
-            <select id="r-agg" name="agg" style="background: var(--input-bg); border: 1px solid var(--input-border); color: var(--body-fg); border-radius: 6px; padding: 4px 8px; font-size: 0.78rem; width: auto; margin: 0;">
+            <select id="r-agg" name="agg" form="ds-form">
                 {% for val, label in agg_choices %}<option value="{{ val }}" {% if val == agg %}selected{% endif %}>{{ label }}</option>{% endfor %}
             </select>
             {% endif %}
-            <button type="submit" class="btn-outline btn-sm">Roll up</button>
-        </form>
+            <button type="submit" form="ds-form" class="btn-outline btn-sm">Roll up</button>
+        </div>
     </div>
     {% if series_error %}
     <div class="card-body" role="alert" style="color: var(--error-fg); font-size: 0.82rem;">{{ series_error }}</div>

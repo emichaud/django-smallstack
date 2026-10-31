@@ -102,6 +102,32 @@ def test_browse_applies_filters_ordering_and_csv_link(client, staff):
     )
 
 
+def test_browse_apply_and_rollup_share_one_form(client, staff):
+    """Apply and Roll up submit the same form, so neither drops the other's
+    live edits. Before, each form carried a hidden *snapshot* of the other's
+    state: pick a new group-by then click Apply and the roll-up reverted;
+    change a filter then click Roll up and the filter reverted."""
+    _seed()
+    resp = client.get(
+        _browse("smallstack_requests"),
+        {**SEEDED, "method": "GET", "group_by": "method", "ordering": "-status_code"},
+    )
+    html = resp.content.decode()
+    assert html.count('action="' + _browse("smallstack_requests") + '"') == 1
+    # The roll-up controls are attached to the one form, not hidden-copied.
+    assert 'name="group_by" form="ds-form"' in html
+    assert 'name="measure" form="ds-form"' in html
+    assert 'name="agg" form="ds-form"' in html
+    assert 'form="ds-form" class="btn-outline btn-sm">Roll up' in html
+    assert 'type="hidden" name="group_by"' not in html
+    assert 'type="hidden" name="method"' not in html
+    # The current sort survives a re-submit; the page number does not.
+    assert '<input type="hidden" name="ordering" value="-status_code">' in html
+    assert 'name="page"' not in html
+    # Clear drops the filters but keeps the roll-up.
+    assert f'href="{_browse("smallstack_requests")}?group_by=method"' in html
+
+
 def test_browse_rollup_groups_and_aggregates(client, staff):
     _seed()
     resp = client.get(_browse("smallstack_requests"), {**SEEDED, "group_by": "method"})
