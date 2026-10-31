@@ -9,6 +9,8 @@ Breaking-change migration recipes live in [`UPGRADING.md`](UPGRADING.md).
 
 ## [Unreleased]
 
+## [0.29.0] - 2026-10-31
+
 ### Fixed
 - **Subscribing to the `.ics` feed from a calendar app could not work.** The
   help page said to mint a token and give it to the app as a password, but
@@ -2657,7 +2659,8 @@ Condensed highlights of the v0.11 series (see git history for per-patch detail):
 See the git tag history (`git tag`) and `ai_cowork/audit_history/` for the full record of the
 v0.8–v0.10 API-server, modern-dark-theme, search, MCP, and Postgres eras.
 
-[Unreleased]: https://github.com/emichaud/django-smallstack/compare/v0.28.0...HEAD
+[Unreleased]: https://github.com/emichaud/django-smallstack/compare/v0.29.0...HEAD
+[0.29.0]: https://github.com/emichaud/django-smallstack/compare/v0.28.0...v0.29.0
 [0.28.0]: https://github.com/emichaud/django-smallstack/compare/v0.27.1...v0.28.0
 [0.27.1]: https://github.com/emichaud/django-smallstack/compare/v0.27.0...v0.27.1
 [0.27.0]: https://github.com/emichaud/django-smallstack/compare/v0.26.0...v0.27.0
