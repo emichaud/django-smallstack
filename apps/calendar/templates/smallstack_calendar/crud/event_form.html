@@ -1,0 +1,75 @@
+{% extends "smallstack/base.html" %}
+{% load static %}
+{% block title %}{% if object %}Edit {{ object.title }}{% else %}New event{% endif %}{% endblock %}
+{% block breadcrumbs %}{% endblock %}
+{% block extra_css %}{{ block.super }}
+<link rel="stylesheet" href="{% static 'calendar/css/calendar.css' %}">
+{% endblock %}
+{% block extra_js %}{{ block.super }}
+<script src="{% static 'calendar/js/calendar.js' %}" defer></script>
+{% endblock %}
+
+{% block page_header %}
+<div class="page-header-bleed page-header-with-actions" style="display: flex; align-items: flex-start; justify-content: space-between; gap: 16px;">
+    <div class="page-header-content">
+        <h1>{% if object %}Edit event{% else %}New event{% endif %}</h1>
+        <p class="page-subtitle">{% if object %}{{ object.title }}{% else %}A day on the shared calendar. Add times only when it is a meeting.{% endif %}</p>
+        <nav style="margin-top: 0.5rem; font-size: 0.8rem;" aria-label="Breadcrumb">
+            <a href="{% url 'website:home' %}" style="color: var(--body-quiet-color); text-decoration: none;">Home</a>
+            <span style="color: var(--body-quiet-color); margin: 0 0.3rem;">/</span>
+            <a href="{% url 'calendar_index' %}" style="color: var(--body-quiet-color); text-decoration: none;">Calendar</a>
+            <span style="color: var(--body-quiet-color); margin: 0 0.3rem;">/</span>
+            <a href="{{ list_view_url }}" style="color: var(--body-quiet-color); text-decoration: none;">Events</a>
+            <span style="color: var(--body-quiet-color); margin: 0 0.3rem;">/</span>
+            <span style="color: var(--body-fg);">{% if object %}Edit{% else %}New{% endif %}</span>
+        </nav>
+    </div>
+    {% if object %}
+    <div class="page-header-actions">
+        <a href="{{ object.get_absolute_url }}" class="btn-secondary">View event</a>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="cal-formpage">
+    <form method="post" class="cal-form">
+        {% csrf_token %}
+        {% for error in form.non_field_errors %}<p class="cal-error" role="alert">{{ error }}</p>{% endfor %}
+
+        <section class="cal-group" aria-labelledby="cal-group-what">
+            <h2 class="cal-group-title" id="cal-group-what">What</h2>
+            {% include "calendar/crud/_field.html" with field=form.title %}
+            {% include "calendar/crud/_field.html" with field=form.category help="Optional. A word people recognise: Closure, Release, Patching." %}
+            {% include "calendar/crud/_field.html" with field=form.description help="Shown on the entry's page." %}
+        </section>
+
+        <section class="cal-group" aria-labelledby="cal-group-when">
+            <h2 class="cal-group-title" id="cal-group-when">When</h2>
+            <div class="cal-row2">
+                {% include "calendar/crud/_field.html" with field=form.start_date label="First day" %}
+                {% include "calendar/crud/_field.html" with field=form.end_date label="Last day" help="Leave blank for a single day." %}
+            </div>
+            {% include "calendar/crud/_field.html" with field=form.all_day label="All day" %}
+            <div class="cal-row2 cal-times">
+                {% include "calendar/crud/_field.html" with field=form.start_time label="Starts" %}
+                {% include "calendar/crud/_field.html" with field=form.end_time label="Ends" %}
+            </div>
+        </section>
+
+        <section class="cal-group" aria-labelledby="cal-group-details">
+            <h2 class="cal-group-title" id="cal-group-details">Details</h2>
+            {% include "calendar/crud/_field.html" with field=form.location %}
+            {% include "calendar/crud/_field.html" with field=form.url label="Link" help="A page with more about it." %}
+            {% include "calendar/crud/_field.html" with field=form.visibility label="Who can see it" %}
+            {% include "calendar/crud/_field.html" with field=form.cancelled label="Cancelled" help="Stays on the calendar, struck through. That it was planned still matters." %}
+        </section>
+
+        <div class="cal-form-actions">
+            <button type="submit" class="btn-primary">{% if object %}Save changes{% else %}Add to calendar{% endif %}</button>
+            <a href="{% if object %}{{ object.get_absolute_url }}{% else %}{{ list_view_url }}{% endif %}" class="cal-cancel">Cancel</a>
+        </div>
+    </form>
+</div>
+{% endblock %}

@@ -2592,3 +2592,58 @@ def test_token_prefix_is_never_argparse_hostile():
         _raw, prefix, _hashed = APIToken._generate_raw_key()
         assert not prefix.startswith("-"), prefix
         assert len(prefix) == APIToken.PREFIX_LENGTH
+
+
+# ---------------------------------------------------------------------------
+# HTTP Basic carries an API token too (calendar apps, feed readers, curl -u)
+# ---------------------------------------------------------------------------
+
+
+class TestBasicAuthCarriesAToken:
+    """Clients that can only fill a username/password prompt send HTTP Basic.
+    The token rides in the password slot; the username is ignored. A user's
+    real password is never accepted — Basic is a transport for the token."""
+
+    @pytest.fixture
+    def user_and_key(self, db):
+        from apps.smallstack.models import APIToken
+
+        user = User.objects.create_user(username="basicuser", email="b@example.com", password="real-password-1")
+        _token, raw = APIToken.create_token(user=user, name="feed", access_level="auth")
+        return user, raw
+
+    @staticmethod
+    def _basic(username: str, password: str) -> str:
+        import base64
+
+        return "Basic " + base64.b64encode(f"{username}:{password}".encode()).decode()
+
+    def test_token_as_password_authenticates(self, client, user_and_key):
+        user, raw = user_and_key
+        resp = client.get("/api/auth/me/", HTTP_AUTHORIZATION=self._basic("anything", raw))
+        assert resp.status_code == 200, resp.content
+        assert resp.json()["username"] == "basicuser"
+
+    def test_token_as_username_with_empty_password_authenticates(self, client, user_and_key):
+        _user, raw = user_and_key
+        resp = client.get("/api/auth/me/", HTTP_AUTHORIZATION=self._basic(raw, ""))
+        assert resp.status_code == 200
+
+    def test_account_password_is_refused(self, client, user_and_key):
+        resp = client.get("/api/auth/me/", HTTP_AUTHORIZATION=self._basic("basicuser", "real-password-1"))
+        assert resp.status_code == 401
+        assert resp.json()["errors"]["__all__"][0] == "Invalid token"
+
+    def test_revoked_token_in_basic_says_revoked(self, client, user_and_key):
+        from apps.smallstack.models import APIToken
+
+        user, _raw = user_and_key
+        token, raw = APIToken.create_token(user=user, name="old", access_level="auth")
+        token.revoke()
+        resp = client.get("/api/auth/me/", HTTP_AUTHORIZATION=self._basic("x", raw))
+        assert resp.status_code == 401 and resp.json()["errors"]["__all__"][0] == "Token revoked"
+
+    def test_garbage_basic_is_a_plain_401_without_a_browser_challenge(self, client, db):
+        resp = client.get("/api/auth/me/", HTTP_AUTHORIZATION="Basic not*base64!")
+        assert resp.status_code == 401
+        assert "WWW-Authenticate" not in resp  # JSON routes never trigger the native login dialog

@@ -14,7 +14,7 @@ from typing import Any
 
 from django import forms
 
-from .core import list_calendars
+from .core import assign_series, iter_calendars, visible_calendars
 from .models import Event, SavedCalendarView
 
 
@@ -47,7 +47,15 @@ class SavedCalendarViewForm(forms.ModelForm):
         self.user = user
         field = self.fields["datasets"]
         assert isinstance(field, forms.MultipleChoiceField)
-        field.choices = [(c["key"], c["label"]) for c in list_calendars(user)]
+        cals = visible_calendars(user) if user is not None else list(iter_calendars())
+        series = assign_series(cals)
+        field.choices = [(c.key, c.label) for c in cals]
+        # For the HTML form: each choice with its description and the same
+        # series colour the calendar page gives that calendar.
+        self.calendar_choices = [
+            {"key": c.key, "label": c.label, "description": c.description, "series": series.get(c.key, 0)}
+            for c in cals
+        ]
         # An instance's stored keys arrive as a JSON list; the choice widget
         # wants exactly that, so no coercion — but ``initial`` from the create
         # page's ``?datasets=a,b`` prefill arrives as a string.

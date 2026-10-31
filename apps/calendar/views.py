@@ -22,8 +22,8 @@ from django.utils import timezone
 from django.utils.html import format_html
 from django.views.generic import TemplateView
 
-from apps.smallstack.crud import Action, CRUDView, _CRUDCreateBase
-from apps.smallstack.displays import CalendarDisplay, TableDisplay
+from apps.smallstack.crud import Action, CRUDView, _CRUDCreateBase, _CRUDUpdateBase
+from apps.smallstack.displays import CalendarDisplay
 
 from .core import (
     RANGE_DAYS,
@@ -45,7 +45,7 @@ from .core import (
     weekend_entries,
     weekends_default,
 )
-from .displays import RangeBoardDisplay
+from .displays import AgendaDisplay, RangeBoardDisplay, SavedViewsDisplay
 from .forms import EventForm, SavedCalendarViewForm
 from .models import Event, SavedCalendarView
 
@@ -368,6 +368,8 @@ class SavedCalendarViewCRUDView(CRUDView):
     breadcrumb_parent = ("Calendar", "calendar_index")
     ordering_fields = ["name", "updated_at"]
 
+    displays = [SavedViewsDisplay]
+
     enable_api = True
     api_extra_fields = ["owner", "created_at", "updated_at"]
     api_expand_fields = ["owner"]
@@ -394,9 +396,11 @@ class SavedCalendarViewCRUDView(CRUDView):
     @classmethod
     def _make_view(cls, base_class: Any) -> Any:
         """Hand the form the signed-in user (its choices are per-user), and let
-        the calendar page prefill a new view with ``?datasets=a,b``."""
+        the calendar page prefill a new view with ``?datasets=a,b``. Only the
+        create and edit views: the delete view is a ``FormMixin`` too, with a
+        bare ``Form`` that does not take ``user``."""
         view = super()._make_view(base_class)
-        if hasattr(view, "get_form_kwargs"):
+        if base_class in (_CRUDCreateBase, _CRUDUpdateBase):
             inherited_kwargs = view.get_form_kwargs
 
             def get_form_kwargs(self: Any) -> dict:
@@ -483,9 +487,9 @@ class EventCRUDView(CRUDView):
     ordering_fields = ["title", "start_date", "category", "visibility"]
     filter_fields = ["category", "visibility", "cancelled"]
     search_fields = ["title", "description", "location", "category"]
-    # Table ⇄ calendar ⇄ board on the entries themselves.
+    # Agenda ⇄ calendar ⇄ board on the entries themselves.
     displays = [
-        TableDisplay,
+        AgendaDisplay,
         CalendarDisplay(date_field="start_date", end_field="end_date", title_field="title"),
         RangeBoardDisplay(
             date_field="start_date", end_field="end_date", title_field="title", subtitle_field="category"
@@ -522,9 +526,11 @@ class EventCRUDView(CRUDView):
 
     @classmethod
     def _make_view(cls, base_class: Any) -> Any:
-        """Hand the form the signed-in user so it can stamp ``created_by``."""
+        """Hand the form the signed-in user so it can stamp ``created_by`` —
+        on the create and edit views only (the delete view's form is Django's
+        bare ``Form``)."""
         view = super()._make_view(base_class)
-        if hasattr(view, "get_form_kwargs"):
+        if base_class in (_CRUDCreateBase, _CRUDUpdateBase):
             inherited_kwargs = view.get_form_kwargs
 
             def get_form_kwargs(self: Any) -> dict:

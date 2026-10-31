@@ -1,0 +1,47 @@
+{% extends "smallstack/base.html" %}
+{% load static calendar_tags %}
+{% block title %}Delete {{ object.title }}{% endblock %}
+{% block breadcrumbs %}{% endblock %}
+{% block extra_css %}{{ block.super }}
+<link rel="stylesheet" href="{% static 'calendar/css/calendar.css' %}">
+{% endblock %}
+
+{% block page_header %}
+<div class="page-header-bleed">
+    <div class="page-header-content">
+        <h1>Delete event</h1>
+        <p class="page-subtitle">{{ object.title }}</p>
+        <nav style="margin-top: 0.5rem; font-size: 0.8rem;" aria-label="Breadcrumb">
+            <a href="{% url 'website:home' %}" style="color: var(--body-quiet-color); text-decoration: none;">Home</a>
+            <span style="color: var(--body-quiet-color); margin: 0 0.3rem;">/</span>
+            <a href="{% url 'calendar_index' %}" style="color: var(--body-quiet-color); text-decoration: none;">Calendar</a>
+            <span style="color: var(--body-quiet-color); margin: 0 0.3rem;">/</span>
+            <a href="{{ list_view_url }}" style="color: var(--body-quiet-color); text-decoration: none;">Events</a>
+            <span style="color: var(--body-quiet-color); margin: 0 0.3rem;">/</span>
+            <a href="{{ object.get_absolute_url }}" style="color: var(--body-quiet-color); text-decoration: none;">{{ object.title }}</a>
+            <span style="color: var(--body-quiet-color); margin: 0 0.3rem;">/</span>
+            <span style="color: var(--body-fg);">Delete</span>
+        </nav>
+    </div>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="cal-confirm">
+    <div class="card">
+        <div class="cal-entry-hero">
+            {% event_leaf object "lg" %}
+            <div class="cal-entry-head">
+                <h2 class="cal-entry-title">{{ object.title }}</h2>
+                <p class="cal-entry-when">{{ object.start_date|date:"l, F j, Y" }}{% if object.last_day != object.start_date %} to {{ object.last_day|date:"F j" }}{% endif %}</p>
+            </div>
+        </div>
+        <p class="cal-confirm-text">It comes off the calendar and the .ics feed. Anyone subscribed sees it go on their next refresh. If it was called off rather than a mistake, mark it cancelled instead so the plan stays on record.</p>
+        <form method="post" class="cal-confirm-actions">
+            {% csrf_token %}
+            <button type="submit" class="btn-danger">Delete event</button>
+            <a href="{{ object.get_absolute_url }}" class="cal-cancel">Keep it</a>
+        </form>
+    </div>
+</div>
+{% endblock %}

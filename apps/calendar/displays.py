@@ -20,13 +20,17 @@ builder the shared calendar page uses, so a chip means the same thing on both.
 
 from __future__ import annotations
 
+from datetime import date, time
 from typing import Any
 
 from django.http import HttpRequest
+from django.urls import reverse
+from django.utils import timezone
 
-from apps.smallstack.displays import CardDisplay, FieldRef, ListDisplay
+from apps.smallstack.displays import CardDisplay, FieldRef, ListDisplay, paginate_queryset
 
-from .core import RANGE_DAYS, RangeWindow, events_from_objects, window_filter
+from .core import RANGE_DAYS, RangeWindow, assign_series, events_from_objects, visible_calendars, window_filter
+from .models import Event
 
 
 class RangeBoardDisplay(ListDisplay):
@@ -92,3 +96,160 @@ class RangeBoardDisplay(ListDisplay):
             calendar_label=label,
         )
         return {**win.context(events), "count_label": label.lower()}
+
+
+# ---------------------------------------------------------------------------
+# The entries and saved-views pages — list displays that replace the generic
+# table. The one signature element is the tear-off calendar *leaf* (month over
+# a large day number); the date is an entry's identity, the rest is annotation.
+# ---------------------------------------------------------------------------
+
+
+def clock(value: time) -> str:
+    """``14:00`` → ``2:00 pm`` — how a person says a time out loud."""
+    return value.strftime("%-I:%M %p").replace("AM", "am").replace("PM", "pm")
+
+
+def event_leaf(obj: Event) -> dict[str, Any]:
+    """What the leaf shows for an entry: the start day, and the end of a span."""
+    last: date = obj.last_day
+    return {
+        "month": obj.start_date.strftime("%b"),
+        "day": obj.start_date.day,
+        "end": None if last == obj.start_date else last,
+        "same_month": (last.year, last.month) == (obj.start_date.year, obj.start_date.month),
+    }
+
+
+def event_when(obj: Event) -> str:
+    """The time part of an entry as one short phrase."""
+    if obj.all_day or not obj.start_time:
+        return "All day"
+    start = clock(obj.start_time)
+    if obj.end_time:
+        return f"{start} to {clock(obj.end_time)}"
+    return f"From {start}"
+
+
+def _author(obj: Event) -> str:
+    user = obj.created_by
+    if user is None:
+        return ""
+    return user.get_full_name() or user.get_username()
+
+
+class AgendaDisplay(ListDisplay):
+    """The Events list as an agenda: rows grouped by month, a leaf per entry.
+
+    Replaces :class:`~apps.smallstack.displays.TableDisplay` on the Events
+    CRUDView; the toolbar (search, filters, sort), pagination and the delete
+    modal are the list page's own and keep working. Grouping by month is
+    dropped when the viewer sorts by anything other than the date, so a
+    title-sorted list is not chopped into month fragments.
+    """
+
+    name = "agenda"
+    icon = (
+        '<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true">'
+        '<path d="M4 5h4v4H4zm6 1h10v2H10zM4 11h4v4H4zm6 1h10v2H10zM4 17h4v4H4zm6 1h10v2H10z"/></svg>'
+    )
+    template_name = "calendar/displays/agenda.html"
+    supports_bulk = False
+
+    def get_context(self, queryset: Any, crud_config: Any, request: HttpRequest) -> dict[str, Any]:
+        from apps.smallstack.crud import Action
+
+        page = paginate_queryset(queryset.select_related("created_by"), crud_config._resolve_paginate_by(), request)
+        items = page.pop("object_list", queryset)
+        base = crud_config._get_url_base()
+        has_detail = Action.DETAIL in crud_config.actions
+        today = timezone.localdate()
+        ordering = request.GET.get("ordering", "").strip().lstrip("-")
+        grouped = ordering in ("", "start_date")
+
+        rows: list[dict[str, Any]] = []
+        for obj in items:
+            rows.append(
+                {
+                    "obj": obj,
+                    "pk": obj.pk,
+                    "title": obj.title,
+                    "detail_url": reverse(f"{base}-detail", kwargs={"pk": obj.pk}) if has_detail else "",
+                    "edit_url": (
+                        reverse(f"{base}-update", kwargs={"pk": obj.pk})
+                        if Action.UPDATE in crud_config.actions and crud_config.can_update(obj, request)
+                        else ""
+                    ),
+                    "delete_url": (
+                        reverse(f"{base}-delete", kwargs={"pk": obj.pk})
+                        if Action.DELETE in crud_config.actions and crud_config.can_delete(obj, request)
+                        else ""
+                    ),
+                    "leaf": event_leaf(obj),
+                    "when": event_when(obj),
+                    "category": obj.category,
+                    "location": obj.location,
+                    "private": obj.visibility == Event.Visibility.PRIVATE,
+                    "cancelled": obj.cancelled,
+                    "author": _author(obj),
+                    "is_past": obj.last_day < today,
+                    "group": obj.start_date.strftime("%B %Y"),
+                }
+            )
+
+        groups: list[dict[str, Any]] = []
+        if grouped:
+            for row in rows:
+                if not groups or groups[-1]["label"] != row["group"]:
+                    groups.append({"label": row["group"], "rows": []})
+                groups[-1]["rows"].append(row)
+        else:
+            groups = [{"label": "", "rows": rows}]
+        return {"groups": groups, "rows": rows, "object_list": items, **page}
+
+
+class SavedViewsDisplay(ListDisplay):
+    """A person's saved views as rows: the name opens the calendar with that
+    mix, the calendars show as chips in the same series colours the calendar
+    page gives them, the default is marked."""
+
+    name = "views"
+    icon = (
+        '<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true">'
+        '<path d="M4 6h16v2H4zm0 5h16v2H4zm0 5h10v2H4z"/></svg>'
+    )
+    template_name = "calendar/displays/saved_views.html"
+    supports_bulk = False
+
+    def get_context(self, queryset: Any, crud_config: Any, request: HttpRequest) -> dict[str, Any]:
+        from apps.smallstack.crud import Action
+
+        page = paginate_queryset(queryset, crud_config._resolve_paginate_by(), request)
+        items = page.pop("object_list", queryset)
+        base = crud_config._get_url_base()
+        cals = visible_calendars(getattr(request, "user", None))
+        series = assign_series(cals)
+        labels = {c.key: c.label for c in cals}
+        rows: list[dict[str, Any]] = []
+        for obj in items:
+            rows.append(
+                {
+                    "obj": obj,
+                    "pk": obj.pk,
+                    "name": obj.name,
+                    "open_url": obj.get_absolute_url(),
+                    "edit_url": (
+                        reverse(f"{base}-update", kwargs={"pk": obj.pk}) if Action.UPDATE in crud_config.actions else ""
+                    ),
+                    "delete_url": (
+                        reverse(f"{base}-delete", kwargs={"pk": obj.pk}) if Action.DELETE in crud_config.actions else ""
+                    ),
+                    "calendars": [
+                        {"key": k, "label": labels.get(k, k), "series": series.get(k, 0), "known": k in labels}
+                        for k in obj.keys
+                    ],
+                    "is_default": obj.is_default,
+                    "updated_at": obj.updated_at,
+                }
+            )
+        return {"rows": rows, "object_list": items, **page}

@@ -1,0 +1,23 @@
+{% extends "smallstack/crud/object_list.html" %}
+{% comment %}The saved-views page: the framework list page with its own header; the body is the SavedViewsDisplay.{% endcomment %}
+{% block title %}Saved views{% endblock %}
+{% block page_header %}
+<div class="page-header-bleed page-header-with-actions" style="display: flex; align-items: flex-start; justify-content: space-between; gap: 16px;">
+    <div class="page-header-content">
+        <h1>Saved views</h1>
+        <p class="page-subtitle">A view is a named mix of calendars. Open one from the calendar's dropdown, or make it the one that loads first.</p>
+        <nav style="margin-top: 0.5rem; font-size: 0.8rem;" aria-label="Breadcrumb">
+            <a href="{% url 'website:home' %}" style="color: var(--body-quiet-color); text-decoration: none;">Home</a>
+            <span style="color: var(--body-quiet-color); margin: 0 0.3rem;">/</span>
+            <a href="{% url 'calendar_index' %}" style="color: var(--body-quiet-color); text-decoration: none;">Calendar</a>
+            <span style="color: var(--body-quiet-color); margin: 0 0.3rem;">/</span>
+            <span style="color: var(--body-fg);">Saved views</span>
+        </nav>
+    </div>
+    <div class="page-header-actions" style="display: flex; align-items: center; gap: 8px;">
+        {% if create_view_url %}
+        <a href="{{ create_view_url }}" class="btn-primary">New view</a>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

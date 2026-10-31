@@ -1,0 +1,73 @@
+{% extends "smallstack/base.html" %}
+{% load static calendar_tags %}
+{% block title %}{{ object.title }}{% endblock %}
+{% block breadcrumbs %}{% endblock %}
+{% block extra_css %}{{ block.super }}
+<link rel="stylesheet" href="{% static 'calendar/css/calendar.css' %}">
+{% endblock %}
+
+{% block page_header %}
+<div class="page-header-bleed page-header-with-actions" style="display: flex; align-items: flex-start; justify-content: space-between; gap: 16px;">
+    <div class="page-header-content">
+        <h1>Event</h1>
+        <p class="page-subtitle">On the shared Events calendar{% if object.created_by %}, added by {{ object.created_by.get_full_name|default:object.created_by.get_username }}{% endif %}.</p>
+        <nav style="margin-top: 0.5rem; font-size: 0.8rem;" aria-label="Breadcrumb">
+            <a href="{% url 'website:home' %}" style="color: var(--body-quiet-color); text-decoration: none;">Home</a>
+            <span style="color: var(--body-quiet-color); margin: 0 0.3rem;">/</span>
+            <a href="{% url 'calendar_index' %}" style="color: var(--body-quiet-color); text-decoration: none;">Calendar</a>
+            <span style="color: var(--body-quiet-color); margin: 0 0.3rem;">/</span>
+            <a href="{{ list_view_url }}" style="color: var(--body-quiet-color); text-decoration: none;">Events</a>
+            <span style="color: var(--body-quiet-color); margin: 0 0.3rem;">/</span>
+            <span style="color: var(--body-fg);">{{ object.title }}</span>
+        </nav>
+    </div>
+    <div class="page-header-actions" style="display: flex; align-items: center; gap: 8px;">
+        <a href="{% url 'calendar_index' %}?ds=smallstack_events&amp;month={{ object.start_date|date:'Y-m' }}&amp;day={{ object.start_date|date:'Y-m-d' }}" class="btn-outline">Show on calendar</a>
+        {% comment %}The server enforces author-or-staff on the edit and delete routes; this only decides whether to offer them.{% endcomment %}
+        {% if request.user.is_staff or object.created_by_id == request.user.pk %}
+        <a href="edit/" class="btn-primary">Edit</a>
+        <a href="delete/" class="btn-danger">Delete</a>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="cal-detail">
+    <article class="card cal-entry-card{% if object.cancelled %} is-cancelled{% endif %}">
+        <header class="cal-entry-hero">
+            {% event_leaf object "lg" %}
+            <div class="cal-entry-head">
+                <h2 class="cal-entry-title">{{ object.title }}</h2>
+                <p class="cal-entry-when">
+                    {{ object.start_date|date:"l, F j, Y" }}{% if object.last_day != object.start_date %} to {{ object.last_day|date:"l, F j, Y" }}{% endif %}
+                </p>
+                <p class="cal-entry-when">
+                    {% if object.all_day or not object.start_time %}All day{% else %}{{ object.start_time|clock }}{% if object.end_time %} to {{ object.end_time|clock }}{% endif %}{% endif %}
+                </p>
+                <div class="cal-entry-tags">
+                    {% if object.cancelled %}<span class="cal-tag cal-tag--off">Cancelled</span>{% endif %}
+                    {% if object.category %}<span class="cal-tag">{{ object.category }}</span>{% endif %}
+                    {% if object.visibility == "private" %}<span class="cal-tag">Only you and staff</span>{% endif %}
+                </div>
+            </div>
+        </header>
+
+        {% if object.location or object.url %}
+        <dl class="cal-facts">
+            {% if object.location %}<dt>Where</dt><dd>{{ object.location }}</dd>{% endif %}
+            {% if object.url %}<dt>Link</dt><dd><a href="{{ object.url }}" rel="noopener">{{ object.url }}</a></dd>{% endif %}
+        </dl>
+        {% endif %}
+
+        {% if object.description %}
+        <div class="cal-entry-desc">{{ object.description|linebreaks }}</div>
+        {% endif %}
+
+        <footer class="cal-entry-foot">
+            <span>{% if object.visibility == "private" %}Visible to you and staff{% else %}Visible to everyone signed in{% endif %}</span>
+            <span>Added {{ object.created_at|date:"M j, Y" }}{% if object.updated_at|date:"U" != object.created_at|date:"U" %}, updated {{ object.updated_at|date:"M j, Y" }}{% endif %}</span>
+        </footer>
+    </article>
+</div>
+{% endblock %}

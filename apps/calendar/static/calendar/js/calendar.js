@@ -56,6 +56,19 @@
             .then(function () { busy = false; });
     });
 
+    // The entry form: All day switches the time row off (disabled inputs are
+    // not submitted, so an all-day entry carries no stale times).
+    var allDay = document.getElementById('id_all_day');
+    var times = document.querySelector('.cal-times');
+    if (allDay && times) {
+        var syncTimes = function () {
+            times.classList.toggle('is-off', allDay.checked);
+            times.querySelectorAll('input').forEach(function (input) { input.disabled = allDay.checked; });
+        };
+        allDay.addEventListener('change', syncTimes);
+        syncTimes();
+    }
+
     var sel = document.getElementById('cal-view-select');
     if (sel) sel.addEventListener('change', function () { if (this.value) window.location.assign(this.value); });
 })();

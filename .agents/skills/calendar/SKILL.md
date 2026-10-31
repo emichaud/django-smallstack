@@ -228,6 +228,24 @@ displays = [
 ]
 ```
 
+### The Events and Saved views pages
+
+The calendar's own CRUD pages do not use the generic explorer table and
+form. `EventCRUDView.displays` starts with `AgendaDisplay` (rows grouped by
+month, a tear-off *leaf* per entry) beside `CalendarDisplay` and
+`RangeBoardDisplay`; `SavedCalendarViewCRUDView.displays` is
+`[SavedViewsDisplay]` (rows with the view's calendars as colour-swatched
+chips). The form, detail and delete templates live under
+`apps/calendar/templates/smallstack_calendar/crud/` — the per-app CRUD
+template seam (`{app_label}/crud/{model}_{suffix}.html`) — so a project
+overrides any one of them by shipping a file at the same path earlier in
+`TEMPLATES` / app order. The shared pieces are `calendar/crud/_leaf.html`
+(also the `{% event_leaf obj "lg" %}` tag), `calendar/crud/_field.html`
+and the `.cal-form` / `.cal-agenda` / `.cal-choices` rules in
+`calendar/css/calendar.css`. Follow the same pattern for a downstream
+calendar-shaped model: reuse `_leaf.html` and the `.cal-*` form classes
+rather than the explorer defaults.
+
 The list page gains a Table ⇄ Calendar ⇄ Board toggle; the board reads
 `?display=board&range=30|60|90&from=&day=&weekends=0`, filters the queryset
 to the window with `core.window_filter`, and shows the day column beside the

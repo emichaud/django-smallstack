@@ -9,7 +9,45 @@ Breaking-change migration recipes live in [`UPGRADING.md`](UPGRADING.md).
 
 ## [Unreleased]
 
+### Fixed
+- **Subscribing to the `.ics` feed from a calendar app could not work.** The
+  help page said to mint a token and give it to the app as a password, but
+  the API accepted a token only as a `Bearer` header, which Apple Calendar,
+  Google Calendar and Outlook cannot send — a real subscription got 401 and
+  only the signed-in browser download worked. `_authenticate_api_request` now
+  also reads **HTTP Basic** credentials, taking the API token as the password
+  (any username; a user's account password is still never accepted), so
+  `curl -u anything:<token>` and every API route work the same way. The
+  `.ics` route alone answers an unauthenticated request with a
+  `WWW-Authenticate: Basic` challenge so the app prompts; JSON routes do not,
+  which would make browsers pop a native login dialog. The help page now
+  gives the three steps.
+- **The calendar's delete pages crashed.** Both calendar CRUDViews handed the
+  signed-in user to every generated view's form, and Django's `DeleteView` is
+  a `FormMixin` with a bare `Form` that takes no `user`, so
+  `/smallstack/calendar/events/<pk>/delete/` and the saved-view equivalent
+  raised `TypeError`. The form kwarg now goes to the create and edit views
+  only; a test opens and submits both delete pages.
+
 ### Changed
+- **The calendar's entry and view pages have their own design.** Like Runbook
+  and My blogs, the Events and Saved views pages no longer use the generic
+  explorer table and form. The Events list is an **agenda** (`AgendaDisplay`,
+  beside the Calendar and Board displays): rows grouped by month, each led by a
+  tear-off *leaf* (month over a large day number, the end of a span under it),
+  with the time, category and location on one line and Cancelled / private
+  tags on the right; search, filters, sort and the delete modal are the list
+  page's own and still work. The entry form is narrow, labels above fields,
+  grouped **What / When / Details**, with first and last day side by side and
+  a time row that switches off while All day is ticked. The entry page leads
+  with the leaf and the long-form date, shows only the facts that are filled
+  in, and offers **Show on calendar**. Delete is a real page with the leaf and
+  a sentence on what deleting means (and when to mark cancelled instead).
+  Saved views list as rows with their calendars as chips in the same series
+  colours the calendar page uses (`SavedViewsDisplay`), and the view form
+  picks calendars from colour-swatched tiles. Templates live under
+  `apps/calendar/templates/smallstack_calendar/crud/` — the per-app CRUD
+  template seam — so a project can override any one of them.
 - **Selecting a day no longer scrolls the calendar back to the top.** A grid
   cell, a board day heading and the day column's × were full page loads, so a
   click after scrolling down landed you at the top of the page again. A small

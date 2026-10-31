@@ -41,9 +41,24 @@ GET /smallstack/calendar/api/events.ics?ds=<key>&ds=<key>
 GET /smallstack/calendar/api/events.ics?view=<saved view id>
 ```
 
-The feed is authenticated like the rest of the API — a session, or a Bearer
-token. Calendar applications cannot send a header, so mint a token and let the
-app ask for it as a password, or subscribe from a signed-in browser.
+The feed is authenticated like the rest of the API. Clicking the link in a
+signed-in browser downloads a one-off file. A calendar application has no
+session and cannot send a Bearer header, so the feed answers it with a
+standard username-and-password challenge and accepts your **API token as the
+password**:
+
+1. Mint a token at `/smallstack/tokens/` (any access level that can read the
+   calendars you selected; give it an expiry you are comfortable with).
+2. On the calendar page, select the calendars you want and copy the
+   **Subscribe (.ics)** link.
+3. In Apple Calendar, Google Calendar or Outlook, add a calendar *by URL* and
+   paste it. When the app asks for credentials, enter any username (your own
+   is fine) and the token as the password.
+
+The app re-fetches the feed on its own schedule, so new and changed entries
+appear without you doing anything. Revoking the token ends the subscription;
+the app simply stops getting updates. ``curl -u anything:<token> <url>``
+fetches the same feed from a script.
 
 ## The JSON routes
 

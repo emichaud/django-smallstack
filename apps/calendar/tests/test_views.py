@@ -504,3 +504,43 @@ def test_range_board_display_on_a_crudview(client, staff):
     assert resp.content.decode().count("cal-bcard ") == 3
     # The display palette now offers table, calendar and board.
     assert 'data-display="board"' in resp.content.decode()
+
+
+def test_saved_view_pages_use_the_calendar_templates(client, staff):
+    """The saved-views pages: rows with colour-swatched calendar chips, a
+    tile-picker form, and a delete page that renders (regression: the delete
+    view's Form used to be handed ``user``)."""
+    view = SavedCalendarView.objects.create(owner=staff, name="Ops week", datasets=[MW, BK, "gone"], is_default=True)
+    html = client.get(VIEWS_LIST).content.decode()
+    assert 'class="cal-views-row"' in html and ">Ops week<" in html and ">Default<" in html
+    assert "cal-chipcal cal-series-" in html and "Maintenance windows" in html
+    assert "cal-chipcal cal-series-0 is-unknown" in html  # a key the user can no longer see is marked
+    html = client.get(VIEWS_CREATE).content.decode()
+    assert 'class="cal-choice cal-series-' in html and f'value="{MW}"' in html and ">Create view<" in html
+    html = client.get(reverse("calendar/views-update", kwargs={"pk": view.pk})).content.decode()
+    assert f'value="{MW}" checked' in html and ">Save changes<" in html
+    url = reverse("calendar/views-delete", kwargs={"pk": view.pk})
+    assert ">Delete view<" in client.get(url).content.decode()
+    client.post(url)
+    assert not SavedCalendarView.objects.filter(pk=view.pk).exists()
+
+
+def test_ics_feed_subscribes_with_basic_auth(client, staff, seeded):
+    """What a calendar app does: fetch the URL, get a Basic challenge, retry
+    with any username and the API token as the password."""
+    import base64
+
+    from apps.smallstack.models import APIToken
+
+    client.logout()
+    resp = client.get(API_ICS, {"ds": MW})
+    assert resp.status_code == 401
+    assert resp["WWW-Authenticate"].startswith("Basic ")
+    _token, raw = APIToken.create_token(user=staff, name="phone", access_level="auth")
+    header = "Basic " + base64.b64encode(f"{staff.username}:{raw}".encode()).decode()
+    resp = client.get(API_ICS, {"ds": MW, "start": "2026-04-01", "end": "2026-05-01"}, HTTP_AUTHORIZATION=header)
+    assert resp.status_code == 200 and resp["Content-Type"].startswith("text/calendar")
+    assert "BEGIN:VEVENT" in resp.content.decode()
+    # The JSON routes accept the same credentials but never challenge.
+    assert client.get(API_LIST, HTTP_AUTHORIZATION=header).status_code == 200
+    assert "WWW-Authenticate" not in client.get(API_LIST)

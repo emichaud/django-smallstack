@@ -162,3 +162,38 @@ def test_day_selection_swaps_in_place(client, staff):
     html = client.get(LIST, {"display": "board", "range": "30", "from": "2026-04-01"}).content.decode()
     assert 'data-cal-region="main"' in html and 'data-cal-region="day"' in html
     assert "calendar/js/calendar.js" in html
+
+
+def test_entry_pages_use_the_calendar_templates(client, staff):
+    """The entries pages are the calendar's own: an agenda with a leaf per
+    entry, a grouped form, a leaf-led detail page, a real delete page."""
+    ev = Event.objects.create(title="Vendor visit", start_date=date(2026, 4, 3), end_date=date(2026, 4, 5),
+                              category="People", location="Boardroom", all_day=False, start_time=time(14),
+                              end_time=time(15, 30), created_by=staff)
+    html = client.get(LIST).content.decode()
+    assert 'class="cal-agenda-row' in html and 'class="cal-leaf' in html
+    assert "April 2026" in html and "2:00 pm to 3:30 pm" in html and ">Boardroom<" in html
+    assert 'data-display="agenda"' in html and "<table" not in html.split('id="crud-list-content"')[1]
+    # the form: labels above fields, grouped by question
+    html = client.get(CREATE).content.decode()
+    assert 'class="cal-form"' in html and ">What<" in html and ">When<" in html and ">Details<" in html
+    assert ">Add to calendar<" in html and "cal-times" in html
+    html = client.get(reverse("calendar/events-update", kwargs={"pk": ev.pk})).content.decode()
+    assert ">Save changes<" in html and 'value="Vendor visit"' in html
+    # the detail page leads with the leaf and the long date
+    html = client.get(reverse("calendar/events-detail", kwargs={"pk": ev.pk})).content.decode()
+    assert "cal-leaf--lg" in html and "Friday, April 3, 2026 to Sunday, April 5, 2026" in html
+    assert "2:00 pm to 3:30 pm" in html and ">Show on calendar<" in html and "ds=smallstack_events" in html
+    assert ">Where<" in html and ">Boardroom<" in html
+
+
+def test_delete_page_renders_and_deletes(client, staff):
+    """Regression: the delete view's bare Form used to be handed ``user`` and
+    crash with a TypeError; it now renders the confirmation and deletes."""
+    ev = Event.objects.create(title="Mistake", start_date=date(2026, 4, 3), created_by=staff)
+    url = reverse("calendar/events-delete", kwargs={"pk": ev.pk})
+    html = client.get(url).content.decode()
+    assert ">Delete event<" in html and ">Keep it<" in html and "Mistake" in html
+    resp = client.post(url)
+    assert resp.status_code in (302, 200)
+    assert not Event.objects.filter(pk=ev.pk).exists()

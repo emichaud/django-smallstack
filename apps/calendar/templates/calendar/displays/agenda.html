@@ -1,0 +1,50 @@
+{% load static theme_tags %}
+{% comment %}AgendaDisplay — the Events list: month groups, a leaf per entry.{% endcomment %}
+<link rel="stylesheet" href="{% static 'calendar/css/calendar.css' %}">
+{% if rows %}
+<div class="cal-agenda">
+{% for g in groups %}
+    {% if g.label %}<h2 class="cal-agenda-month">{{ g.label }}</h2>{% endif %}
+    <ol class="cal-agenda-list">
+    {% for r in g.rows %}
+        <li class="cal-agenda-row{% if r.cancelled %} is-cancelled{% endif %}{% if r.is_past %} is-past{% endif %}">
+            <{% if r.detail_url %}a href="{{ r.detail_url }}"{% else %}div{% endif %} class="cal-agenda-main">
+                {% include "calendar/crud/_leaf.html" with leaf=r.leaf cancelled=r.cancelled %}
+                <span class="cal-agenda-body">
+                    <span class="cal-agenda-title">{{ r.title }}</span>
+                    <span class="cal-agenda-meta">
+                        <span>{{ r.when }}</span>
+                        {% if r.category %}<span class="cal-tag">{{ r.category }}</span>{% endif %}
+                        {% if r.location %}<span>{{ r.location }}</span>{% endif %}
+                    </span>
+                </span>
+            </{% if r.detail_url %}a{% else %}div{% endif %}>
+            <span class="cal-agenda-side">
+                {% if r.cancelled %}<span class="cal-tag cal-tag--off">Cancelled</span>{% endif %}
+                {% if r.private %}<span class="cal-tag">Only you and staff</span>{% endif %}
+                {% if r.author %}<span>{{ r.author }}</span>{% endif %}
+            </span>
+            <span class="cal-agenda-actions">
+                {% if r.edit_url %}
+                <a href="{{ r.edit_url }}" class="cal-iconbtn" aria-label="Edit {{ r.title }}" title="Edit">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zm17.71-10.21a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
+                </a>
+                {% endif %}
+                {% if r.delete_url %}
+                <a href="{{ r.delete_url }}" class="cal-iconbtn cal-iconbtn--danger" aria-label="Delete {{ r.title }}" title="Delete"
+                   data-delete-url="{{ r.delete_url }}" onclick="event.preventDefault();crudDeleteModal(this,'{{ r.title|escapejs }}')">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 19a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
+                </a>
+                {% endif %}
+            </span>
+        </li>
+    {% endfor %}
+    </ol>
+{% endfor %}
+</div>
+{% else %}
+{% include "smallstack/crud/includes/empty_state.html" %}
+{% endif %}
+{% if is_paginated %}
+{% render_paginator page_obj "#crud-display-area" %}
+{% endif %}

@@ -1,0 +1,6 @@
+{% comment %}The tear-off leaf: month over the day number; the end of a span under it. `leaf` from displays.event_leaf.{% endcomment %}
+<span class="cal-leaf{% if size %} cal-leaf--{{ size }}{% endif %}{% if cancelled %} is-cancelled{% endif %}" aria-hidden="true">
+    <span class="cal-leaf-month">{{ leaf.month }}</span>
+    <span class="cal-leaf-day">{{ leaf.day }}</span>
+    {% if leaf.end %}<span class="cal-leaf-span">to {% if leaf.same_month %}{{ leaf.end.day }}{% else %}{{ leaf.end|date:"M j" }}{% endif %}</span>{% endif %}
+</span>

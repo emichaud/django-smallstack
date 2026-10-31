@@ -1,0 +1,11 @@
+{% comment %}One labelled form field. `field` required; optional `label`, `help` override the form's.{% endcomment %}
+<div class="cal-field{% if field.errors %} has-error{% endif %}">
+    {% if field.field.widget.input_type == "checkbox" %}
+    <label class="cal-check" for="{{ field.id_for_label }}">{{ field }} <span>{{ label|default:field.label }}</span></label>
+    {% else %}
+    <label class="cal-label" for="{{ field.id_for_label }}">{{ label|default:field.label }}{% if field.field.required %} <span class="cal-req" aria-hidden="true">*</span>{% endif %}</label>
+    {{ field }}
+    {% endif %}
+    {% if help %}<p class="cal-help">{{ help }}</p>{% elif field.help_text %}<p class="cal-help">{{ field.help_text }}</p>{% endif %}
+    {% for error in field.errors %}<p class="cal-error" role="alert">{{ error }}</p>{% endfor %}
+</div>

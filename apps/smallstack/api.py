@@ -337,21 +337,56 @@ def api_view(methods=None, require_auth=True, require_staff=False, require_auth_
     return decorator
 
 
+def _token_from_authorization(auth_header: str) -> str | None:
+    """The API token carried by an ``Authorization`` header, or ``None``.
+
+    Two schemes carry a token:
+
+    * ``Bearer <token>`` — scripts, agents, Swagger's Authorize button.
+    * ``Basic base64(<anything>:<token>)`` — what a calendar app, a feed
+      reader or ``curl -u`` sends when a URL asks for a username and password.
+      Those clients cannot set a custom header, so the API token goes in the
+      password slot and the username is ignored (a token is not a user's
+      password, and a user's password is never accepted here). A Basic header
+      with an empty password but a token-shaped username is also accepted,
+      for apps that insist on filling only one field.
+
+    Any other scheme, or an undecodable Basic value, is ``None`` — the caller
+    then falls through to session auth, exactly as before.
+    """
+    if auth_header.startswith("Bearer "):
+        return auth_header[7:].strip() or None
+    if auth_header.startswith("Basic "):
+        import base64
+        import binascii
+
+        try:
+            decoded = base64.b64decode(auth_header[6:].strip(), validate=True).decode("utf-8")
+        except (binascii.Error, UnicodeDecodeError, ValueError):
+            return None
+        username, sep, password = decoded.partition(":")
+        if sep and password.strip():
+            return password.strip()
+        return username.strip() or None
+    return None
+
+
 def _authenticate_api_request(
     request: HttpRequest,
 ) -> tuple[Any, JsonResponse | None]:
-    """Authenticate via Bearer token or existing session. API views only.
+    """Authenticate via an API token (``Bearer`` or ``Basic``) or the existing
+    session. API views only.
 
     The user slot is the swappable ``AUTH_USER_MODEL`` instance (``Any``) when
     the second element is ``None``; ``None`` otherwise.
     """
     auth_header = request.META.get("HTTP_AUTHORIZATION", "")
+    raw_key = _token_from_authorization(auth_header)
 
-    if auth_header.startswith("Bearer "):
+    if raw_key is not None or auth_header.startswith(("Bearer ", "Basic ")):
         from .models import APIToken
 
-        raw_key = auth_header[7:]
-        user, token = APIToken.authenticate(raw_key)
+        user, token = APIToken.authenticate(raw_key or "")
         if user is None:
             # Distinguish "credential was real but is now invalid" from
             # "credential is wrong" so CI logs and human debuggers see
@@ -376,7 +411,7 @@ def _authenticate_api_request(
         setattr(request, "_api_token_auth", True)
         return user, None
 
-    # No Bearer header — use existing session auth
+    # No token header — use existing session auth
     if request.user.is_authenticated:
         return request.user, None
 

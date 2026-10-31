@@ -116,3 +116,20 @@ def calendar_day(
         "hint": hint,
         "empty_text": empty_text,
     }
+
+
+@register.inclusion_tag("calendar/crud/_leaf.html")
+def event_leaf(obj: Any, size: str = "") -> dict[str, Any]:
+    """The tear-off leaf for an Event — month over the day number, the end of
+    a span underneath. ``size="lg"`` for the detail and delete pages."""
+    from ..displays import event_leaf as _leaf
+
+    return {"leaf": _leaf(obj), "cancelled": obj.cancelled, "size": size}
+
+
+@register.filter(name="clock")
+def clock_filter(value: Any) -> str:
+    """``14:00`` → ``2:00 pm`` (the agenda's spelling, not Django's "p.m.")."""
+    from ..displays import clock
+
+    return clock(value) if value else ""

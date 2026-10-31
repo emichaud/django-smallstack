@@ -1,0 +1,74 @@
+{% extends "smallstack/base.html" %}
+{% load static %}
+{% block title %}{% if object %}Edit {{ object.name }}{% else %}New view{% endif %}{% endblock %}
+{% block breadcrumbs %}{% endblock %}
+{% block extra_css %}{{ block.super }}
+<link rel="stylesheet" href="{% static 'calendar/css/calendar.css' %}">
+{% endblock %}
+
+{% block page_header %}
+<div class="page-header-bleed page-header-with-actions" style="display: flex; align-items: flex-start; justify-content: space-between; gap: 16px;">
+    <div class="page-header-content">
+        <h1>{% if object %}Edit view{% else %}New view{% endif %}</h1>
+        <p class="page-subtitle">{% if object %}{{ object.name }}{% else %}Name a mix of calendars so you can open it in one click.{% endif %}</p>
+        <nav style="margin-top: 0.5rem; font-size: 0.8rem;" aria-label="Breadcrumb">
+            <a href="{% url 'website:home' %}" style="color: var(--body-quiet-color); text-decoration: none;">Home</a>
+            <span style="color: var(--body-quiet-color); margin: 0 0.3rem;">/</span>
+            <a href="{% url 'calendar_index' %}" style="color: var(--body-quiet-color); text-decoration: none;">Calendar</a>
+            <span style="color: var(--body-quiet-color); margin: 0 0.3rem;">/</span>
+            <a href="{{ list_view_url }}" style="color: var(--body-quiet-color); text-decoration: none;">Saved views</a>
+            <span style="color: var(--body-quiet-color); margin: 0 0.3rem;">/</span>
+            <span style="color: var(--body-fg);">{% if object %}Edit{% else %}New{% endif %}</span>
+        </nav>
+    </div>
+    {% if object %}
+    <div class="page-header-actions">
+        <a href="{{ object.get_absolute_url }}" class="btn-secondary">Open on the calendar</a>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="cal-formpage cal-formpage--wide">
+    <form method="post" class="cal-form">
+        {% csrf_token %}
+        {% for error in form.non_field_errors %}<p class="cal-error" role="alert">{{ error }}</p>{% endfor %}
+
+        <section class="cal-group">
+            {% include "calendar/crud/_field.html" with field=form.name %}
+        </section>
+
+        <section class="cal-group" aria-labelledby="cal-group-cals">
+            <h2 class="cal-group-title" id="cal-group-cals">Calendars</h2>
+            <p class="cal-help" style="margin: -6px 0 12px;">Pick the ones this view shows together. Colours match the calendar page.</p>
+            {% with selected=form.datasets.value %}
+            <div class="cal-choices">
+                {% for c in form.calendar_choices %}
+                <label class="cal-choice cal-series-{{ c.series }}">
+                    <input type="checkbox" name="datasets" value="{{ c.key }}"{% if c.key in selected %} checked{% endif %}>
+                    <span class="cal-swatch" aria-hidden="true"></span>
+                    <span class="cal-choice-body">
+                        <span class="cal-choice-label">{{ c.label }}</span>
+                        {% if c.description %}<span class="cal-choice-meta">{{ c.description }}</span>{% endif %}
+                    </span>
+                </label>
+                {% empty %}
+                <p class="cal-help">No calendars are visible to you yet.</p>
+                {% endfor %}
+            </div>
+            {% endwith %}
+            {% for error in form.datasets.errors %}<p class="cal-error" role="alert">{{ error }}</p>{% endfor %}
+        </section>
+
+        <section class="cal-group">
+            {% include "calendar/crud/_field.html" with field=form.is_default label="Make this my default view" help="The calendar opens on it when nothing else is selected." %}
+        </section>
+
+        <div class="cal-form-actions">
+            <button type="submit" class="btn-primary">{% if object %}Save changes{% else %}Create view{% endif %}</button>
+            <a href="{{ list_view_url }}" class="cal-cancel">Cancel</a>
+        </div>
+    </form>
+</div>
+{% endblock %}

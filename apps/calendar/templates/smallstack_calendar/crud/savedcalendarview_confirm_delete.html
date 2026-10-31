@@ -1,0 +1,44 @@
+{% extends "smallstack/base.html" %}
+{% load static %}
+{% block title %}Delete {{ object.name }}{% endblock %}
+{% block breadcrumbs %}{% endblock %}
+{% block extra_css %}{{ block.super }}
+<link rel="stylesheet" href="{% static 'calendar/css/calendar.css' %}">
+{% endblock %}
+
+{% block page_header %}
+<div class="page-header-bleed">
+    <div class="page-header-content">
+        <h1>Delete view</h1>
+        <p class="page-subtitle">{{ object.name }}</p>
+        <nav style="margin-top: 0.5rem; font-size: 0.8rem;" aria-label="Breadcrumb">
+            <a href="{% url 'website:home' %}" style="color: var(--body-quiet-color); text-decoration: none;">Home</a>
+            <span style="color: var(--body-quiet-color); margin: 0 0.3rem;">/</span>
+            <a href="{% url 'calendar_index' %}" style="color: var(--body-quiet-color); text-decoration: none;">Calendar</a>
+            <span style="color: var(--body-quiet-color); margin: 0 0.3rem;">/</span>
+            <a href="{{ list_view_url }}" style="color: var(--body-quiet-color); text-decoration: none;">Saved views</a>
+            <span style="color: var(--body-quiet-color); margin: 0 0.3rem;">/</span>
+            <span style="color: var(--body-fg);">Delete</span>
+        </nav>
+    </div>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="cal-confirm">
+    <div class="card">
+        <div class="cal-entry-hero">
+            <div class="cal-entry-head">
+                <h2 class="cal-entry-title">{{ object.name }}</h2>
+                <p class="cal-entry-when">{{ object.keys|length }} calendar{{ object.keys|length|pluralize }}{% if object.is_default %}, your default view{% endif %}</p>
+            </div>
+        </div>
+        <p class="cal-confirm-text">The calendars themselves stay. Only this saved mix goes{% if object.is_default %}, and the calendar page stops opening on it{% endif %}.</p>
+        <form method="post" class="cal-confirm-actions">
+            {% csrf_token %}
+            <button type="submit" class="btn-danger">Delete view</button>
+            <a href="{{ list_view_url }}" class="cal-cancel">Keep it</a>
+        </form>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,47 @@
+{% load static theme_tags %}
+{% comment %}SavedViewsDisplay — a person's saved views as rows with calendar chips.{% endcomment %}
+<link rel="stylesheet" href="{% static 'calendar/css/calendar.css' %}">
+{% if rows %}
+<ol class="cal-views-list">
+{% for r in rows %}
+    <li class="cal-views-row">
+        <div class="cal-views-main">
+            <a href="{{ r.open_url }}" class="cal-views-name" title="Open this view on the calendar">{{ r.name }}</a>
+            {% if r.is_default %}<span class="cal-tag cal-tag--default">Default</span>{% endif %}
+            <div class="cal-views-cals">
+                {% for c in r.calendars %}
+                <span class="cal-chipcal cal-series-{{ c.series }}{% if not c.known %} is-unknown{% endif %}" {% if not c.known %}title="You can no longer see this calendar"{% endif %}><span class="cal-swatch" aria-hidden="true"></span>{{ c.label }}</span>
+                {% empty %}
+                <span class="cal-views-meta">No calendars yet</span>
+                {% endfor %}
+            </div>
+        </div>
+        <span class="cal-views-meta">Updated {{ r.updated_at|date:"M j" }}</span>
+        <span class="cal-agenda-actions">
+            {% if r.edit_url %}
+            <a href="{{ r.edit_url }}" class="cal-iconbtn" aria-label="Edit {{ r.name }}" title="Edit">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zm17.71-10.21a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
+            </a>
+            {% endif %}
+            {% if r.delete_url %}
+            <a href="{{ r.delete_url }}" class="cal-iconbtn cal-iconbtn--danger" aria-label="Delete {{ r.name }}" title="Delete"
+               data-delete-url="{{ r.delete_url }}" onclick="event.preventDefault();crudDeleteModal(this,'{{ r.name|escapejs }}')">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 19a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
+            </a>
+            {% endif %}
+        </span>
+    </li>
+{% endfor %}
+</ol>
+{% elif has_active_filters %}
+{% include "smallstack/crud/includes/empty_state.html" %}
+{% else %}
+<div class="cal-views-empty">
+    <p>No saved views yet.</p>
+    <p class="cal-help">On the <a href="{% url 'calendar_index' %}">calendar</a>, pick the calendars you want together and choose <strong>Save this view</strong>. It appears in the calendar's dropdown; one view can be your default.</p>
+    {% if create_view_url %}<a href="{{ create_view_url }}" class="btn-outline btn-sm">New view</a>{% endif %}
+</div>
+{% endif %}
+{% if is_paginated %}
+{% render_paginator page_obj "#crud-display-area" %}
+{% endif %}

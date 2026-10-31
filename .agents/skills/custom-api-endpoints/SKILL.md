@@ -16,7 +16,7 @@ SmallStack's REST API auto-generates CRUD endpoints from CRUDView configs. But n
 
 ## Overview
 
-`api_view` is a function decorator that wraps a plain Django view with the SmallStack API layer: CSRF exemption, method checking, Bearer/session authentication, JSON body parsing, and response wrapping. You write only the business logic; the decorator handles the rest.
+`api_view` is a function decorator that wraps a plain Django view with the SmallStack API layer: CSRF exemption, method checking, token (Bearer or Basic) / session authentication, JSON body parsing, and response wrapping. You write only the business logic; the decorator handles the rest.
 
 ## File Locations
 
@@ -44,7 +44,7 @@ from apps.smallstack.api import api_view, api_error
 | Parameter | Default | Description |
 |-----------|---------|-------------|
 | `methods` | `["GET"]` | Allowed HTTP methods |
-| `require_auth` | `True` | Require Bearer token or session auth (401 if missing) |
+| `require_auth` | `True` | Require an API token (`Bearer <token>`, or HTTP Basic with the token as the password) or session auth (401 if missing) |
 | `require_staff` | `False` | Require `is_staff=True` (403 if not) |
 | `require_auth_token` | `False` | Require auth-level manual token (403 if not) |
 
@@ -53,7 +53,7 @@ from apps.smallstack.api import api_view, api_error
 1. **`@csrf_exempt`** — applied automatically for API clients
 2. **Method checking** — wrong method returns 405
 3. **OPTIONS** — returns `{"methods": [...]}` with `Allow` header
-4. **Authentication** — Bearer token or session, returns 401 if missing
+4. **Authentication** — API token (Bearer, or Basic with the token as the password) or session, returns 401 if missing
 5. **Permission checks** — staff and auth-token checks, returns 403
 6. **JSON body parsing** — `request.json` is set to the parsed dict for POST/PUT/PATCH/DELETE, or `None` for GET/HEAD
 7. **Invalid JSON** — returns 400 with standard error envelope

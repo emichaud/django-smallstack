@@ -158,10 +158,26 @@ class CalendarDatasetEventsView(_CalendarApiView):
         )
 
 
+ICS_REALM = "SmallStack calendar: any username, your API token as the password"
+
+
 class CalendarICSView(_CalendarApiView):
     """The selected calendars as an iCalendar feed — what a desktop or phone
     calendar app subscribes to. Default window: last month through three
-    months ahead."""
+    months ahead.
+
+    A calendar app cannot send a Bearer header, so an unauthenticated request
+    is answered with a ``WWW-Authenticate: Basic`` challenge: the app prompts
+    for a username and password, and the API helper accepts the user's API
+    token as the password (any username). Only this route challenges — a JSON
+    route doing so would make browsers pop a native login dialog on a 401.
+    """
+
+    def dispatch(self, request: HttpRequest, *args: Any, **kwargs: Any) -> HttpResponseBase:
+        response = super().dispatch(request, *args, **kwargs)
+        if response.status_code == 401:
+            response["WWW-Authenticate"] = f'Basic realm="{ICS_REALM}"'
+        return response
 
     def get(self, request: HttpRequest) -> HttpResponse:
         user = request.api_user  # type: ignore[attr-defined]
