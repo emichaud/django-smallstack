@@ -15,6 +15,7 @@ from datetime import date, timedelta
 from typing import TYPE_CHECKING, Any, Optional, cast
 from urllib.parse import urlencode
 
+from django.conf import settings
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.http import HttpRequest, HttpResponse
 from django.urls import reverse
@@ -413,7 +414,7 @@ class SavedCalendarViewCRUDView(CRUDView):
     api_extra_fields = ["owner", "created_at", "updated_at"]
     api_expand_fields = ["owner"]
 
-    enable_mcp = True
+    enable_mcp = getattr(settings, "SMALLSTACK_CALENDAR_ENABLED", True)  # off: no routes, so no tools
     mcp_singular = "calendar_view"
     mcp_plural = "calendar_views"
     mcp_description = (
@@ -510,7 +511,7 @@ class EventCRUDView(CRUDView):
     api_extra_fields = ["created_by", "created_at", "updated_at"]
     api_expand_fields = ["created_by"]
 
-    enable_mcp = True
+    enable_mcp = getattr(settings, "SMALLSTACK_CALENDAR_ENABLED", True)  # off: no routes, so no tools
     mcp_singular = "event"
     mcp_plural = "events"
     mcp_description = (

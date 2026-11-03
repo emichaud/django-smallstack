@@ -10,6 +10,7 @@ Breaking-change migration recipes live in [`UPGRADING.md`](UPGRADING.md).
 ## [Unreleased]
 
 ### Fixed
+- **Switching off dashboards or the calendar left their MCP tools working**, writes included, though the routes were gone and the docs say "no MCP tools". The tools now follow the switch, and the Monday snapshot does too.
 - **CSV exports could run as formulas.** A report label or row value such as `=cmd|calc` reached the spreadsheet of whoever opened the download, in report, weeks, drill-down and dataset CSVs. Such cells now start with `'`; plain numbers are untouched.
 - **A weekly target scored against an all-time number.** A goal with its own period on a metric with no `period_field` was judged on the all-time value; it's now refused.
 - **A value a choices column can't hold reads as a clean zero** (`status = "failure"` where the value is `failed`), so a metric stayed green for ever. Saving and previewing now refuse it and list the valid values.

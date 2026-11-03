@@ -44,6 +44,7 @@ from __future__ import annotations
 import json
 from typing import TYPE_CHECKING, Any, Optional
 
+from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.exceptions import ValidationError
@@ -1050,7 +1051,9 @@ class _OwnedCRUD(CRUDView):
     actions = [Action.LIST, Action.CREATE, Action.UPDATE, Action.DELETE]
     breadcrumb_parent = ("Dashboards", "dashboards_index")
     enable_api = True
-    enable_mcp = True
+    # The switch un-mounts the routes; the tools come from this class, which is
+    # imported whatever the switch says.
+    enable_mcp = getattr(settings, "SMALLSTACK_DASHBOARDS_ENABLED", True)
     # Each has its own page rather than a CRUD detail, but an agent still has to
     # read one back: get_metric, get_dashboard, get_goal_list…
     mcp_actions = [Action.LIST, Action.DETAIL, Action.CREATE, Action.UPDATE, Action.DELETE]

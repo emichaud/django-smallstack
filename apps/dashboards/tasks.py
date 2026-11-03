@@ -8,6 +8,7 @@ same ``weeks.snapshot_last_week()`` as ``manage.py snapshot_goals``.
 
 from __future__ import annotations
 
+from django.conf import settings
 from django.tasks import task
 
 from apps.scheduler import scheduled
@@ -16,6 +17,10 @@ from apps.scheduler import scheduled
 @scheduled(cron="15 0 * * 1", name="Goal lists: save last week")
 @task()
 def snapshot_goal_lists() -> int:
+    # @scheduled registers at import, whatever the switch says.
+    if not getattr(settings, "SMALLSTACK_DASHBOARDS_ENABLED", True):
+        return 0
+
     from .weeks import snapshot_last_week
 
     return snapshot_last_week()

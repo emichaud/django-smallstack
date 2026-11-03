@@ -5,6 +5,7 @@ everything it builds. Found by a cold-start agent given only the tool list."""
 from __future__ import annotations
 
 import json
+import os
 
 import pytest
 from django.contrib.auth import get_user_model
@@ -396,3 +397,26 @@ def test_own_personal_metric_on_something_shared_is_explained(call):
         sections=[{"title": "S", "goals": [{"metric": "seam_mine", "target": {"op": "<=", "value": 1}}]}],
     )
     assert "share it first" in json.dumps(out)
+
+
+@pytest.mark.parametrize(
+    ("setting", "module", "probe"),
+    [
+        ("SMALLSTACK_CALENDAR_ENABLED", "apps/calendar/views.py", "create_event"),
+        ("SMALLSTACK_DASHBOARDS_ENABLED", "apps/dashboards/views.py", "create_metric"),
+    ],
+)
+def test_a_switched_off_feature_has_no_mcp_tools(setting, module, probe):
+    """The switch is read when the class is defined, so this takes a fresh process:
+    override_settings can't reach it. The URLconf and the tools must agree."""
+    import subprocess
+    import sys
+
+    code = (
+        "import django; django.setup();"
+        "from apps.mcp.server import TOOL_REGISTRY;"
+        f"print('LEAK' if {probe!r} in TOOL_REGISTRY else 'CLEAN')"
+    )
+    env = {**os.environ, setting: "False", "DJANGO_SETTINGS_MODULE": "config.settings.test"}
+    out = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, env=env, check=True)
+    assert out.stdout.strip().endswith("CLEAN"), out.stdout + out.stderr
