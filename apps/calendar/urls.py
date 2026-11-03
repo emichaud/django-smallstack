@@ -14,6 +14,8 @@ from . import api, views
 
 urlpatterns = [
     path("calendar/", views.CalendarPageView.as_view(), name="calendar_index"),
+    # The embed fragment — what {% calendar_card %} and the calendar dashboard card load.
+    path("calendar/embed/", views.CalendarEmbedView.as_view(), name="calendar_embed"),
     path("calendar/api/", api.CalendarListView.as_view(), name="calendar_api_list"),
     path("calendar/api/events/", api.CalendarEventsView.as_view(), name="calendar_api_events"),
     path("calendar/api/events.ics", api.CalendarICSView.as_view(), name="calendar_api_ics"),

@@ -1,0 +1,7 @@
+{% comment %}The "calendar" dashboard card: the embed fragment, rendered now (the cell itself already loads lazily), under the card's own title.{% endcomment %}
+{% if restricted %}<div class="dash-message"><strong>{{ label }}</strong>You don't have access to this card's calendars.</div>{% else %}
+<div class="cal-embed cal-embed--{{ embed.mode }} cal-embed--cell">
+    {% if label %}<h3 class="cal-embed-cell-title"><a href="{{ embed.page_url }}">{{ label }}</a></h3>{% endif %}
+    {{ embed.html }}
+</div>
+{% endif %}

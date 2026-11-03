@@ -1,0 +1,17 @@
+{% load static %}{% comment %}{% calendar_card %} — a calendar on any page: the shell (stylesheet, heading, the lazy body) around the fragment the embed endpoint renders. Nothing at all is emitted when the viewer may see none of the calendars.{% endcomment %}
+{% if embed %}
+<link rel="stylesheet" href="{% static 'calendar/css/calendar.css' %}">
+<section class="cal-embed cal-embed--{{ embed.mode }}" aria-labelledby="{{ heading_id }}">
+    {% if title %}
+    <header class="cal-embed-head">
+        <h2 id="{{ heading_id }}"><a href="{{ embed.page_url }}">{{ title }}</a></h2>
+        {% if subtitle %}<span class="cal-embed-sub">{{ subtitle }}</span>{% endif %}
+    </header>
+    {% else %}<h2 id="{{ heading_id }}" class="sr-only">{{ embed.label }}</h2>{% endif %}
+    {% if embed.html is not None %}{{ embed.html }}{% else %}
+    <div class="cal-embed-body" hx-get="{{ embed.url }}" hx-trigger="load" hx-swap="outerHTML">
+        <span class="cal-embed-loading">Loading…</span>
+    </div>
+    {% endif %}
+</section>
+{% endif %}

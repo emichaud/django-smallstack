@@ -10,6 +10,20 @@ Breaking-change migration recipes live in [`UPGRADING.md`](UPGRADING.md).
 ## [Unreleased]
 
 ### Added
+- **A calendar on any page — `{% calendar_card %}` and the `calendar` dashboard
+  card.** The calendar counterpart of `{% metric_card %}` / `{% dashboard %}`:
+  name the calendars (keys, a list or a `SavedCalendarView`) and pick `month`,
+  `board` or the new `upcoming` list; the tag resolves access, loads
+  `/smallstack/calendar/embed/` lazily (or renders it now with `lazy=False`) and
+  navigates in place — the fragment's wrapper is `hx-boost`ed, so month arrows,
+  day cells and the board's toolbar swap the fragment without touching the host
+  page's URL. A viewer who may see none of the calendars gets nothing, as with
+  `{% dashboard %}`. The calendar app registers a **`calendar` card type** with
+  the dashboards registry from its `ready()` (the worked example of a downstream
+  `register_component_type`), with `calendars` / `mode` / `days` / `limit`
+  options; restricted viewers get the restricted card. Service:
+  `apps.calendar.embed` (`calendar_embed`, `embed_context`, `build_upcoming`);
+  fourth component `calendar/components/upcoming.html`. Skill: `calendar.md`.
 - **Dashboards — metrics, grid dashboards and KPI reports (`apps/dashboards/`, label
   `smallstack_dashboards`).** A framework layer over `@dataset` for numbers that
   matter, built by hand or by an AI agent. A **Metric** is a stored filter tree
@@ -67,6 +81,10 @@ Breaking-change migration recipes live in [`UPGRADING.md`](UPGRADING.md).
   are now one form (the roll-up controls attach with `form="ds-form"`), either
   button submits the whole page state, the current sort survives a re-submit,
   and Clear drops the filters but keeps the roll-up.
+- **A timed calendar entry ending on a date (no end time) crashed the day column.**
+  `date` cannot be formatted with `H:i`; the page 500'd with that day selected.
+  `CalendarEvent.timed_end` now guards the end time in the day column and the
+  upcoming list.
 - **`/smallstack/blog/` 404'd.** The blog console is a set of CRUDViews under that
   prefix with no route for the prefix itself, yet every doc named it as the console
   path. It now redirects to the posts list, the way the webhooks and scheduler

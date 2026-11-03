@@ -1,0 +1,28 @@
+{% comment %}
+Upcoming list component — the next days' events, grouped by day, in the day
+column's row design. Context (from apps.calendar.embed.build_upcoming):
+  days        — [{date, label ("Today"/"Tomorrow"/weekday/"Mon 3 Nov"), is_today, events}]
+  shown, more — rows listed / rows past the limit
+  days_ahead  — the window length (for the empty text)
+  empty_text  — optional override for the empty state
+Rendered by the upcoming embed mode or included directly.
+{% endcomment %}
+<div class="cal-upcoming" role="list">
+    {% for d in days %}
+    <section class="cal-up-day{% if d.is_today %} is-today{% endif %}" role="listitem" aria-label="{{ d.date|date:'l, F j' }}">
+        <h3 class="cal-up-label">{{ d.label }} <span class="cal-up-date">{{ d.date|date:"j M" }}</span></h3>
+        {% for ev in d.events %}
+        <div class="cal-day-row cal-series-{{ ev.series }}{% if ev.status %} cal-day-row--{{ ev.status }}{% endif %}{% if ev.cancelled %} cal-day-row--cancelled{% endif %}">
+            <span class="cal-day-when">{% if ev.all_day %}{% if ev.end_date != ev.start_date %}{{ ev.start_date|date:"M j" }}–{{ ev.end_date|date:"j" }}{% else %}All day{% endif %}{% else %}{{ ev.start|date:"H:i" }}{% if ev.timed_end %}–{{ ev.end|date:"H:i" }}{% endif %}{% endif %}</span>
+            <span class="cal-day-what">
+                <span class="cal-day-title">{% if ev.image %}<img class="cal-face" src="{{ ev.image }}" alt="" loading="lazy">{% endif %}{% if ev.url %}<a href="{{ ev.url }}" hx-boost="false">{{ ev.title }}</a>{% else %}{{ ev.title }}{% endif %}{% if ev.cancelled %} <span class="cal-cancelled-tag">cancelled</span>{% endif %}{% if ev.status %} <span class="cal-status cal-status--{{ ev.status }}" title="{{ ev.status }}"></span>{% endif %}</span>
+                <span class="cal-day-sub">{% if ev.subtitle %}{{ ev.subtitle }} · {% endif %}{{ ev.calendar_label }}</span>
+            </span>
+        </div>
+        {% endfor %}
+    </section>
+    {% empty %}
+    <p class="cal-empty">{{ empty_text|default:"Nothing scheduled" }}{% if not empty_text %} in the next {{ days_ahead }} day{{ days_ahead|pluralize }}.{% endif %}</p>
+    {% endfor %}
+    {% if more %}<p class="cal-up-more">+{{ more }} more</p>{% endif %}
+</div>

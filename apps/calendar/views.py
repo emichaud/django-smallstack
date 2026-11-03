@@ -16,10 +16,11 @@ from typing import Any, Optional, cast
 from urllib.parse import urlencode
 
 from django.contrib.auth.mixins import LoginRequiredMixin
-from django.http import HttpRequest
+from django.http import HttpRequest, HttpResponse
 from django.urls import reverse
 from django.utils import timezone
 from django.utils.html import format_html
+from django.views import View
 from django.views.generic import TemplateView
 
 from apps.smallstack.crud import Action, CRUDView, _CRUDCreateBase, _CRUDUpdateBase
@@ -71,6 +72,23 @@ def _owned_view(request: HttpRequest, raw: Optional[str]) -> Optional[SavedCalen
     except (TypeError, ValueError):
         return None
     return SavedCalendarView.objects.filter(owner=cast(Any, request.user), pk=pk).first()
+
+
+class CalendarEmbedView(LoginRequiredMixin, View):
+    """One calendar embed's HTML fragment — what ``{% calendar_card %}`` loads
+    and what its own navigation links fetch (``hx-boost`` on the fragment's
+    wrapper swaps it in place). Query vocabulary in ``apps.calendar.embed``.
+
+    A key the viewer may not see is dropped like an unknown one; with none
+    left the fragment is an empty state, never a 404, so a lazy card settles
+    rather than hanging on "Loading…".
+    """
+
+    def get(self, request: HttpRequest) -> HttpResponse:
+        from .embed import render_fragment, requested_keys
+
+        cals, _rejected = resolve_keys(requested_keys(request.GET), request.user)
+        return HttpResponse(render_fragment(request, cals))
 
 
 class CalendarPageView(LoginRequiredMixin, TemplateView):

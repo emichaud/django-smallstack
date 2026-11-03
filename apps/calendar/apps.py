@@ -9,10 +9,13 @@ from django.conf import settings
 
 logger = logging.getLogger("smallstack.calendar")
 
+CALENDAR_ICON_PATH = (
+    "M19 3h-1V1h-2v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5"
+    "c0-1.1-.9-2-2-2zm0 16H5V8h14v11zM7 10h5v5H7z"
+)
 CALENDAR_ICON = (
     '<svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true">'
-    '<path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5'
-    'c0-1.1-.9-2-2-2zm0 16H5V8h14v11zM7 10h5v5H7z"/></svg>'
+    f'<path d="{CALENDAR_ICON_PATH}"/></svg>'
 )
 
 
@@ -58,6 +61,18 @@ class CalendarConfig(AppConfig):
             pass
         except Exception:  # noqa: BLE001
             logger.warning("calendar: dashboard widget registration failed", exc_info=True)
+
+        # A "calendar" card for the dashboards app, registered the way a
+        # downstream app registers its own card types (see dashboard_cards).
+        from django.apps import apps as django_apps
+
+        if django_apps.is_installed("apps.dashboards") and getattr(settings, "SMALLSTACK_DASHBOARDS_ENABLED", True):
+            try:
+                from .dashboard_cards import register as register_dashboard_card
+
+                register_dashboard_card()
+            except Exception:  # noqa: BLE001
+                logger.warning("calendar: dashboard card registration failed", exc_info=True)
 
         if getattr(settings, "SMALLSTACK_MCP_ENABLED", True):
             try:

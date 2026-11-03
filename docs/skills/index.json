@@ -159,7 +159,7 @@
       "id": "calendar",
       "file": "calendar.md",
       "name": "Calendar",
-      "description": "**Put anything with a date on a calendar** — the calendar protocol over `@dataset` (`@calendar_dataset` / `register_calendar`: start/end columns, title/status resolvers, access), the merged `/smallstack/calendar/` grid with saved views, the events + `.ics` API, MCP tools, and the eleven bundled calendars",
+      "description": "**Put anything with a date on a calendar** — the calendar protocol over `@dataset` (`@calendar_dataset` / `register_calendar`: start/end columns, title/status resolvers, access), the merged `/smallstack/calendar/` grid with saved views, the events + `.ics` API, MCP tools, the eleven bundled calendars, and **a calendar on any page** (`{% calendar_card %}`, the `calendar` dashboard card)",
       "section": "Available Skills"
     },
     {

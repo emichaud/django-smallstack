@@ -1,0 +1,44 @@
+{% comment %}
+The embed fragment — what /smallstack/calendar/embed/ returns. Context from
+apps.calendar.embed.embed_context. The wrapper boosts every link inside it
+(month arrows, day cells, the board's toolbar) so navigation swaps this
+fragment in place without touching the host page's URL; links that open a
+page (an event's own URL, "Open in Calendar") carry hx-boost="false".
+{% endcomment %}
+<div class="cal-embed-body" hx-boost="true" hx-target="this" hx-swap="outerHTML" hx-push-url="false" data-cal-embed="{{ mode }}">
+{% if not cals %}
+    <p class="cal-empty">No calendars you can see.</p>
+{% elif mode == "board" %}
+    {% include "calendar/components/board.html" %}
+{% elif mode == "upcoming" %}
+    <div class="cal-embed-nav">
+        <span class="cal-embed-period">{{ period_label }}</span>
+        <span class="calendar-count"><span class="calendar-count-value">{{ event_count }}{% if capped %}+{% endif %}</span> <span class="calendar-count-label">event{{ event_count|pluralize }}</span></span>
+    </div>
+    {% include "calendar/components/upcoming.html" %}
+{% else %}
+    <div class="calendar-display cal-grid-card cal-embed-grid">
+        <div class="calendar-header">
+            <div class="calendar-nav">
+                <a href="{{ prev_url }}" class="calendar-nav-btn" aria-label="Previous month">&lsaquo;</a>
+                <h3 class="calendar-title">{{ period_label }}</h3>
+                <a href="{{ next_url }}" class="calendar-nav-btn" aria-label="Next month">&rsaquo;</a>
+                {% if not is_now %}<a href="{{ today_url }}" class="calendar-today-btn">Today</a>{% endif %}
+            </div>
+            <div class="calendar-count" title="{% if capped %}Capped: {{ capped|join:', ' }}{% endif %}">
+                <span class="calendar-count-value">{{ event_count }}{% if capped %}+{% endif %}</span>
+                <span class="calendar-count-label">event{{ event_count|pluralize }}</span>
+            </div>
+        </div>
+        {% include "calendar/components/month_grid.html" %}
+    </div>
+    {% if panel_day %}
+    <div class="cal-embed-day">
+        {% include "calendar/components/day_column.html" with explicit=True hint="" %}
+    </div>
+    {% endif %}
+{% endif %}
+{% if cals %}
+    <p class="cal-embed-foot"><a href="{{ page_url }}" hx-boost="false">Open in Calendar</a></p>
+{% endif %}
+</div>

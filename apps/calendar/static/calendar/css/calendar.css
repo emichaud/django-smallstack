@@ -377,3 +377,44 @@
     .cal-agenda-side, .cal-views-meta { display: none; }
     .cal-entry-hero { gap: 14px; padding: 16px; }
 }
+
+/* Embeds — {% calendar_card %} on any page and the "calendar" dashboard card.
+   The fragment's own chrome; the grid, board, day column and rows are the
+   shared components above. */
+.cal-embed { min-width: 0; }
+.cal-embed-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin: 0 0 8px; }
+.cal-embed-head h2 { margin: 0; font-size: 1rem; }
+.cal-embed-head h2 a:link, .cal-embed-head h2 a:visited { color: var(--body-fg); text-decoration: none; }
+.cal-embed-head h2 a:hover { color: var(--primary); }
+.cal-embed-sub { color: var(--body-quiet-color); font-size: 0.8rem; }
+.cal-embed-body { min-width: 0; }
+.cal-embed-loading { display: block; padding: 16px; color: var(--body-quiet-color); font-size: 0.8rem; }
+.cal-embed-grid .calendar-cell { min-height: 3.6rem; }
+.cal-embed-grid .cal-chip { font-size: 0.66rem; }
+.cal-embed-day { margin-top: 10px; }
+.cal-embed-day .cal-day-body { max-height: 18rem; }
+.cal-embed-nav { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin: 0 0 6px; }
+.cal-embed-period { font-size: 0.78rem; font-weight: 600; color: var(--body-quiet-color); text-transform: uppercase; letter-spacing: 0.05em; }
+.cal-embed-foot { margin: 8px 0 0; font-size: 0.76rem; }
+.cal-embed-foot a:link, .cal-embed-foot a:visited { color: var(--body-quiet-color); text-decoration: none; }
+.cal-embed-foot a:hover { color: var(--primary); }
+/* The board inside an embed: columns scroll sideways rather than squeezing. */
+.cal-embed .cal-display-board-layout { grid-template-columns: minmax(0, 1fr); }
+.cal-embed .cal-board { overflow-x: auto; }
+
+/* Upcoming list */
+.cal-upcoming { display: flex; flex-direction: column; gap: 8px; }
+.cal-up-day { margin: 0; }
+.cal-up-label {
+    margin: 0 0 4px; font-size: 0.66rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+    color: var(--body-quiet-color); display: flex; align-items: baseline; gap: 8px;
+}
+.cal-up-day.is-today .cal-up-label { color: var(--primary); }
+.cal-up-date { font-weight: 500; letter-spacing: 0; text-transform: none; }
+.cal-up-more { margin: 0; font-size: 0.76rem; color: var(--body-quiet-color); }
+
+/* As a dashboard cell: fill the card and scroll inside it. */
+.dash-cell-body > .cal-embed--cell { flex: 1; min-height: 0; display: flex; flex-direction: column; padding: 10px 12px; overflow: auto; }
+.cal-embed-cell-title { margin: 0 0 6px; font-size: 0.8rem; font-weight: 700; color: var(--body-quiet-color); text-transform: uppercase; letter-spacing: 0.05em; }
+.cal-embed-cell-title a:link, .cal-embed-cell-title a:visited { color: inherit; text-decoration: none; }
+.cal-embed-cell-title a:hover { color: var(--primary); }

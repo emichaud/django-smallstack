@@ -1,6 +1,6 @@
 ---
 name: calendar
-description: "Put anything with a date on a calendar — the calendar protocol over @dataset (@calendar_dataset / register_calendar: start/end columns, title/status resolvers, access), the merged /smallstack/calendar/ grid with saved views, the events + .ics API, MCP tools, and the eleven bundled calendars"
+description: "Put anything with a date on a calendar — the calendar protocol over @dataset (@calendar_dataset / register_calendar: start/end columns, title/status resolvers, access), the merged /smallstack/calendar/ grid with saved views, the events + .ics API, MCP tools, the eleven bundled calendars, and a calendar on any page ({% calendar_card %}, the calendar dashboard card)"
 license: MIT
 metadata:
   source: "docs/skills/calendar.md"
@@ -189,11 +189,88 @@ tints the chip's left edge with the semantic vars and adds a dot in the panel.
 Grid CSS reuses the `.calendar-*` classes from `components.css`; the page's
 own rules are `.cal-*` in `apps/calendar/static/calendar/css/calendar.css`.
 
+## A calendar on any page — `{% calendar_card %}` and the dashboard card
+
+The one-line form, the calendar counterpart of `{% metric_card %}` /
+`{% dashboard %}` in `dashboards.md`. Name the calendars; the embed does the
+rest — access, events, colours, navigation:
+
+```django
+{% load calendar_tags %}
+{% calendar_card "ticket_due_dates" %}                                  {# this month, loaded lazily #}
+{% calendar_card "ticket_due_dates,smallstack_events" mode="upcoming" days=7 limit=5 title="Due soon" %}
+{% calendar_card view mode="board" lazy=False %}                        {# a SavedCalendarView, rendered now #}
+{% calendar_card "smallstack_events" title=False weekends=False month="2026-04" %}
+```
+
+| Arg | Meaning |
+|---|---|
+| `calendars` | a key, comma-separated keys, a list, or a `SavedCalendarView` |
+| `mode` | `month` (default: the grid, a clicked day listed beneath it), `board` (the 30/60/90-day board with its toolbar and day column), `upcoming` (the next `days` days as a compact list — the dashboard card's default) |
+| `title` | the heading; defaults to the calendar's label (or "N calendars"), `False` for screen-reader-only. It links to the page opened on the same calendars |
+| `lazy` | `True` (default) loads the fragment over htmx; `False` renders it now (email, tests, a page with no script) |
+| `days`, `limit` | the upcoming list's window and row cap; `days` also seeds the board (snapped to 30/60/90) |
+| `weekends`, `month` | seed the month grid (`month` is a date or `YYYY-MM`) |
+
+**How it works.** The tag resolves the keys for `request.user` with
+`core.resolve_keys` — a key the viewer may not see is dropped exactly like an
+unknown one, and with none left the tag **emits nothing**, so a page never
+reveals a calendar exists (the `{% dashboard %}` rule). Otherwise it renders
+`calendar/includes/embed.html`: the stylesheet, the heading, and a body that
+`hx-get`s **`/smallstack/calendar/embed/`** (`views.CalendarEmbedView`) with
+the state in its query string (`ds`, `mode`, `month`, `range`/`from`/`day`/
+`weekends`, `days`, `limit`). The fragment's wrapper carries
+`hx-boost="true" hx-target="this" hx-swap="outerHTML" hx-push-url="false"`,
+so every link inside it — month arrows, day cells, the board's range and
+weekend toggles, the day column's × — fetches the fragment and swaps it in
+place; **the host page's URL never changes**, and with no script the links
+still work (they are ordinary links to the fragment). Links that open a page
+(an event's own URL, "Open in Calendar") carry `hx-boost="false"`. Nothing
+inline: the CSP's `script-src` is `'self'`, and `test_embed.py` asserts no
+calendar template carries a handler or an inline block.
+
+**The service, for your own markup** (`apps/calendar/embed.py`):
+
+```python
+from apps.calendar.embed import calendar_embed, embed_context, build_upcoming
+
+embed = calendar_embed(request, "a,b", mode="upcoming", days=7, lazy=False)
+# None when the viewer may see none of them; else
+# {keys, cals, mode, url (the fragment URL), html (rendered, or None when lazy), page_url, label}
+```
+
+`embed_context(request, cals)` is what the fragment renders from (the
+request's query string is the state); `build_upcoming(events, lower, upper,
+today, limit)` groups any `CalendarEvent` list by day for
+`calendar/components/upcoming.html` — the fourth component, beside the grid,
+the board and the day column.
+
+**On a dashboard.** The calendar app registers a **`calendar` card type**
+with the dashboards registry from its `ready()` — the same
+`register_component_type` call a downstream app makes, so it doubles as the
+worked example (`apps/calendar/dashboard_cards.py`). Pick it in the dashboard
+editor or place it from an agent:
+
+```python
+{"type": "calendar", "x": 0, "y": 0, "w": 4, "h": 4, "title": "Due soon",
+ "options": {"calendars": "ticket_due_dates,smallstack_events", "mode": "upcoming", "days": 14, "limit": 8}}
+```
+
+Options are `calendars` (comma-separated keys — validated to exist when the
+layout is saved), `mode`, `days`, `limit`. The card renders the fragment
+eagerly inside the dashboard's own lazy cell and navigates in place like the
+tag; a viewer who may see none of its calendars gets the restricted card
+("You don't have access to this card's calendars"), one who may see some
+gets those. The card ignores the dashboard's period bar — a calendar has its
+own navigation — so `use_period` is moot for it. Its stylesheet rides on
+`media={"css": ["calendar/css/calendar.css"]}` through `{% component_media %}`.
+
 ## Reusing the components on another page
 
-The three renderers are partials under `templates/calendar/components/`
-(`month_grid.html`, `range_board.html`, `day_column.html`), driven only by
-`CalendarEvent` rows, and wrapped in template tags:
+When the tag's shapes don't fit, go one level down. The four renderers are
+partials under `templates/calendar/components/` (`month_grid.html`,
+`range_board.html`, `day_column.html`, `upcoming.html`), driven only by
+`CalendarEvent` rows, and the first three are wrapped in template tags:
 
 ```django
 {% load static calendar_tags %}
@@ -366,9 +443,13 @@ calendars with `calendar_dataset` and clean up with **both**
 |---|---|
 | `apps/calendar/registry.py` | `CalendarSpec`, `register_calendar`, `calendar_dataset` (stdlib-only imports) |
 | `apps/calendar/core.py` | `CalendarDataset`, `CalendarEvent`, access, windows, `build_month_grid` |
-| `apps/calendar/views.py` | the page + `SavedCalendarViewCRUDView` |
+| `apps/calendar/views.py` | the page, `CalendarEmbedView` (the fragment), `SavedCalendarViewCRUDView`, `EventCRUDView` |
+| `apps/calendar/embed.py` | `calendar_embed`, `embed_context`, `build_upcoming` — behind `{% calendar_card %}`, the fragment and the dashboard card |
+| `apps/calendar/dashboard_cards.py` | the `calendar` dashboard card type (the downstream-style `register_component_type` example) |
+| `apps/calendar/templatetags/calendar_tags.py` | `{% calendar_card %}`, `{% calendar_month %}`, `{% calendar_board %}`, `{% calendar_day %}`, `{% event_leaf %}` |
 | `apps/calendar/api.py` | list / events / per-calendar / `.ics` routes, `render_ics` |
 | `apps/calendar/mcp_tools.py` | `list_calendars`, `calendar_events` |
 | `apps/calendar/templates/calendar/index.html` · `static/calendar/css/calendar.css` | the page |
+| `apps/calendar/templates/calendar/includes/embed.html` · `embed_body.html` · `cells/calendar.html` | the embed shell, the fragment, the dashboard cell |
 | `apps/calendar/content/` | help pages at `/smallstack/help/calendar/` |
 | `apps/*/datasets.py` | the bundled `register_calendar` calls |

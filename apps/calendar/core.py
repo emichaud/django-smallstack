@@ -74,6 +74,13 @@ class CalendarEvent:
     # A small picture beside the row (a face, a logo); "" draws nothing.
     image: str = ""
 
+    @property
+    def timed_end(self) -> bool:
+        """Whether ``end`` carries a clock time. A timed entry may end on a
+        date with no time (an afternoon visit that runs into tomorrow), and
+        ``date`` can't be formatted with ``H:i`` — templates ask this first."""
+        return isinstance(self.end, datetime)
+
     def as_dict(self) -> dict[str, Any]:
         return {
             "calendar": self.calendar,
