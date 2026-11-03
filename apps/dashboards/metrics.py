@@ -43,6 +43,9 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger("smallstack.dashboards")
 
+#: What a rate says where a metric would show its rows.
+RATE_NO_ROWS = "A rate has no rows of its own. Open either of its two metrics to see theirs."
+
 #: Aggregations a metric may use (``count`` and ``distinct`` need no numeric measure).
 AGGS: list[tuple[str, str]] = [
     ("count", "Count rows"),
@@ -53,6 +56,16 @@ AGGS: list[tuple[str, str]] = [
     ("max", "Maximum"),
 ]
 AGGS_NEEDING_MEASURE = frozenset({"sum", "avg", "min", "max", "distinct"})
+#: How a hand-entered metric rolls up the entries in a period. "Latest" suits a
+#: reading (CSAT, headcount), "Sum" an amount (spend).
+MANUAL_AGGS: list[tuple[str, str]] = [
+    ("latest", "Latest value"),
+    ("sum", "Sum"),
+    ("avg", "Average"),
+    ("min", "Minimum"),
+    ("max", "Maximum"),
+]
+ALL_AGGS: list[tuple[str, str]] = [*AGGS, ("latest", "Latest value")]
 
 #: How the number reads.
 FORMATS: list[tuple[str, str]] = [
@@ -256,10 +269,33 @@ def resolve_dataset(metric: "Metric") -> Optional["Dataset"]:
     return get_dataset(metric.dataset)
 
 
+def rate_parts(metric: "Metric") -> tuple[Optional["Metric"], Optional["Metric"]]:
+    """A rate's ``(numerator, denominator)``; None for one that no longer exists."""
+    from .models import Metric
+
+    found = {m.key: m for m in Metric.objects.filter(key__in=[metric.numerator, metric.denominator])}
+    return found.get(metric.numerator), found.get(metric.denominator)
+
+
+def rate_value(numerator: Any, denominator: Any, fmt: str) -> Any:
+    """``numerator ÷ denominator``, ×100 for the percent format. None when either
+    has no value or the denominator is 0: nothing happened, so there's no rate."""
+    from apps.datasets.core import round_value
+
+    if not _is_number(numerator) or not _is_number(denominator) or not float(denominator):
+        return None
+    ratio = float(numerator) / float(denominator)
+    return round_value(ratio * 100 if fmt == "percent" else ratio)
+
+
 def may_read(metric: "Metric", user: Any) -> bool:
-    """Whether *user* may see *metric*'s number: its dataset's ``access`` tier."""
+    """Whether *user* may see *metric*'s number: its dataset's ``access`` tier.
+    A rate reveals both its parts, so it takes both to read one."""
     from apps.datasets.registry import get_def, user_may_read
 
+    if metric.is_rate:
+        parts = rate_parts(metric)
+        return all(p is not None and p.can_view(user) and may_read(p, user) for p in parts)
     dfn = get_def(metric.dataset)
     return dfn is not None and user_may_read(dfn, user)
 
@@ -288,22 +324,32 @@ def evaluate(
         period=applied,
         period_label=period_label(applied) if applied else "",
     )
+    if metric.is_rate:
+        return _evaluate_rate(metric, request, applied, extra_tree, result)
     ds = resolve_dataset(metric)
     if ds is None:
         result.error = f"Dataset “{metric.dataset}” is not available."
         return result
-    result.summary = describe_filter_tree(effective_tree(metric, applied, extra_tree), ds.column_labels())
+    result.summary = (
+        metric.filter_summary
+        if metric.is_manual
+        else describe_filter_tree(effective_tree(metric, applied, extra_tree), ds.column_labels())
+    )
     if not may_read(metric, getattr(request, "user", None)):
         result.restricted = True
         result.error = None
         return result
     try:
-        value = ds.scalar(
-            measure=metric.measure or None,
-            agg=metric.agg or "count",
-            filter_tree=effective_tree(metric, applied, extra_tree),
-            request=request,
-        )
+        tree = effective_tree(metric, applied, extra_tree)
+        if metric.is_manual:
+            value = _manual_value(metric, ds, request, tree)
+        else:
+            value = ds.scalar(
+                measure=metric.measure or None,
+                agg=metric.agg or "count",
+                filter_tree=tree,
+                request=request,
+            )
     except FilterTreeError as exc:
         result.error = "This metric's filter no longer applies to its dataset."
         result.problems = exc.problems
@@ -319,6 +365,78 @@ def evaluate(
     result.display = format_value(value, metric.format, metric.unit)
     result.state = state_for(value, metric.thresholds)
     return result
+
+
+def _evaluate_rate(
+    metric: "Metric", request: HttpRequest, period: Optional[str], extra_tree: Any, result: MetricResult
+) -> MetricResult:
+    """A rate over the same period on both sides. Anything that would divide two
+    unlike numbers (a part gone, one part ignoring the period) is an error, never
+    a figure: 5xx this week over all-time requests would look fine and be wrong."""
+    numerator, denominator = rate_parts(metric)
+    if numerator is None or denominator is None:
+        missing = metric.numerator if numerator is None else metric.denominator
+        result.error = f"This rate needs the metric “{missing}”, which no longer exists."
+        return result
+    result.summary = f"{numerator.name} ÷ {denominator.name}"
+    if extra_tree:
+        result.error = RATE_NO_ROWS
+        return result
+    if not may_read(metric, getattr(request, "user", None)):
+        result.restricted = True
+        return result
+    if bool(numerator.period_field) != bool(denominator.period_field):
+        result.error = "One side of this rate depends on time and the other doesn't, so they can't be compared."
+        return result
+    top, bottom = evaluate(numerator, request, period=period), evaluate(denominator, request, period=period)
+    if top.restricted or bottom.restricted:
+        result.restricted = True
+        return result
+    for part, outcome in ((numerator, top), (denominator, bottom)):
+        if outcome.error:
+            result.error = f"{part.name}: {outcome.error}"
+            result.problems = outcome.problems
+            return result
+    result.value = rate_value(top.value, bottom.value, metric.format)
+    result.display = format_value(result.value, metric.format, metric.unit)
+    result.state = state_for(result.value, metric.thresholds)
+    return result
+
+
+def _manual_value(metric: "Metric", ds: "Dataset", request: HttpRequest, tree: Any) -> Any:
+    """A hand-entered metric's value over *tree*. None when nothing was entered,
+    even for a sum: a week nobody filled in is unknown, not zero."""
+    from django.db.models import Avg, Max, Min, Sum
+
+    from apps.datasets.core import round_value
+
+    qs = ds.queryset(request, filter_tree=tree).order_by()
+    if metric.agg == "latest":
+        return round_value(qs.order_by("-date").values_list("value", flat=True).first())
+    expr = {"sum": Sum, "avg": Avg, "min": Min, "max": Max}[metric.agg]("value")
+    return round_value(qs.aggregate(v=expr)["v"])
+
+
+def manual_buckets(metric: "Metric", request: HttpRequest, tree: Any, start_of: Any) -> dict[date, Any]:
+    """A hand-entered metric's entries under *tree*, rolled up per bucket:
+    ``{start_of(day): value}``. Done here rather than by ``Dataset.series`` because
+    "latest" isn't a database aggregate, and a metric's entries are few."""
+    from apps.datasets.core import round_value
+
+    ds = resolve_dataset(metric)
+    if ds is None:
+        raise ValueError(f"dataset {metric.dataset!r} is not available")
+    buckets: dict[date, list[Decimal]] = {}
+    for day, value in ds.queryset(request, filter_tree=tree).order_by("date").values_list("date", "value"):
+        buckets.setdefault(start_of(day), []).append(value)
+    roll_up: Any = {
+        "latest": lambda v: v[-1],
+        "sum": sum,
+        "avg": lambda v: sum(v) / len(v),
+        "min": min,
+        "max": max,
+    }[metric.agg]
+    return {start: round_value(roll_up(values)) for start, values in buckets.items()}
 
 
 # -- grouped values (the metric_group card) ---------------------------------------
@@ -351,7 +469,7 @@ def group_values(
 
     ds = resolve_dataset(metric)
     if ds is None:
-        raise ValueError(f"dataset {metric.dataset!r} is not available")
+        raise ValueError(RATE_NO_ROWS if metric.is_rate else f"dataset {metric.dataset!r} is not available")
     if dimension not in set(ds.column_names()):
         raise ValueError(f"unknown dimension {dimension!r}")
     limit = max(1, min(int(limit or 5), MAX_GROUPS))
@@ -535,12 +653,12 @@ def drill_rows(
 
     ds = resolve_dataset(metric)
     if ds is None:
-        raise ValueError(f"dataset {metric.dataset!r} is not available")
+        raise ValueError(RATE_NO_ROWS if metric.is_rate else f"dataset {metric.dataset!r} is not available")
     tree = effective_tree(metric, period, extra_tree)
     columns = _drill_columns(ds, spec)
     if spec:
         limit = int(spec.get("limit") or limit)
-    sort = order or (spec or {}).get("sort") or ""
+    sort = order or (spec or {}).get("sort") or ("-date" if metric.is_manual else "")
     rows = ds.rows(
         filter_tree=tree,
         limit=limit,
@@ -576,14 +694,14 @@ def drill_csv(
     :data:`EXPORT_LIMIT` rows."""
     ds = resolve_dataset(metric)
     if ds is None:
-        raise ValueError(f"dataset {metric.dataset!r} is not available")
+        raise ValueError(RATE_NO_ROWS if metric.is_rate else f"dataset {metric.dataset!r} is not available")
     tree = effective_tree(metric, period, extra_tree)
     columns = _drill_columns(ds, spec)
     rows = ds.rows(
         filter_tree=tree,
         limit=EXPORT_LIMIT,
         request=request,
-        ordering=order or (spec or {}).get("sort") or "",
+        ordering=order or (spec or {}).get("sort") or ("-date" if metric.is_manual else ""),
         expand=sorted(ds.fk_column_names()),
     )
     types = dict(ds.columns())
@@ -615,6 +733,14 @@ _AGG_PHRASES = {
     "max": "Highest {measure} in",
 }
 
+_MANUAL_PHRASES = {
+    "latest": "Latest value",
+    "sum": "Total of the values",
+    "avg": "Average of the values",
+    "min": "Lowest of the values",
+    "max": "Highest of the values",
+}
+
 
 def metric_sentence(metric: "Metric", result: MetricResult) -> dict[str, str]:
     """The metric read as a sentence, in parts a template can weight:
@@ -623,6 +749,26 @@ def metric_sentence(metric: "Metric", result: MetricResult) -> dict[str, str]:
     the metric evaluated for the period being shown."""
     from .periods import period_phrase, plain_reading
 
+    if metric.is_rate or metric.is_manual:
+        when = period_phrase(result.period) if result.period else ("over all time" if metric.period_field else "")
+        if metric.is_rate:
+            top, bottom = rate_parts(metric)
+            return {
+                "lead": f"{top.name if top else metric.numerator} divided by",
+                "dataset": bottom.name if bottom else metric.denominator,
+                "where": "",
+                "every": "",
+                "when": when,
+                "full": result.summary,
+            }
+        return {
+            "lead": _MANUAL_PHRASES.get(metric.agg, "Value"),
+            "dataset": "entered by hand",
+            "where": "",
+            "every": "",
+            "when": when,
+            "full": result.summary,
+        }
     ds = resolve_dataset(metric)
     lead = _AGG_PHRASES.get(metric.agg, "{measure} of").format(measure=metric.measure_label or "values")
     base = plain_reading(metric.filter_summary)

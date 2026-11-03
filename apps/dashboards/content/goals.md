@@ -111,6 +111,9 @@ and **Save past weeks** fills in earlier ones.
 A week is saved using the access of the list's owner (or its creator, for a shared
 list). If you can't read a metric's data, you still won't see its saved values.
 
+A value entered by hand after a week was saved updates that saved week, so it's fine to type last
+week's numbers on Monday morning. The week keeps the target it was saved with.
+
 ## On a dashboard and in a playlist
 
 On a dashboard, choose **Edit layout → Add card → Goals**, pick the list, and

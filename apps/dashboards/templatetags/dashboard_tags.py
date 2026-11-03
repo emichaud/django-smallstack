@@ -238,14 +238,24 @@ def period_groups(selected: Any) -> list[dict[str, Any]]:
 def metric_choice_chips(kind: str, current: Any) -> list[dict[str, Any]]:
     """``agg`` / ``format`` choices as chips: ``{key, label, example, checked}``
     (a format's "Number — 9,481" splits into label + example)."""
-    from ..metrics import AGGS, FORMATS
+    from ..metrics import ALL_AGGS, FORMATS, MANUAL_AGGS
 
-    vocabulary = AGGS if kind == "agg" else FORMATS
+    vocabulary = ALL_AGGS if kind == "agg" else FORMATS
+    manual = {key for key, _label in MANUAL_AGGS}
     default = vocabulary[0][0]
     out = []
     for key, text in vocabulary:
         label, _sep, example = text.partition(" — ")
-        out.append({"key": key, "label": label, "example": example, "checked": key == (current or default)})
+        out.append(
+            {
+                "key": key,
+                "label": label,
+                "example": example,
+                "dataset_only": kind == "agg" and key not in manual,
+                "manual_only": key == "latest",
+                "checked": key == (current or default),
+            }
+        )
     return out
 
 

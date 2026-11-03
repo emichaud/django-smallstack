@@ -1,0 +1,63 @@
+{% comment %}A hand-entered metric's values: the form to add or correct one, then the values, newest first. Entering a date again replaces its value.{% endcomment %}
+<section class="md-rows" id="md-rows" aria-labelledby="md-rows-title">
+    <div class="md-section-head">
+        <h2 id="md-rows-title">Values</h2>
+        <p class="dash-muted">{{ entries_total }} value{{ entries_total|pluralize }} entered</p>
+    </div>
+    {% if can_edit %}
+    <form method="post" action="{% url 'dashboards_metric_entry_save' metric.key %}" class="card me-form">
+        {% csrf_token %}
+        <div class="me-field">
+            <label for="me-date">Date</label>
+            <input id="me-date" type="date" name="date" value="{{ entry_date|date:'Y-m-d' }}" max="{{ entry_max_date|date:'Y-m-d' }}" required>
+        </div>
+        <div class="me-field">
+            <label for="me-value">Value{% if metric.unit %} <span class="dash-muted">({{ metric.unit }})</span>{% endif %}</label>
+            <input id="me-value" type="text" inputmode="decimal" name="value" autocomplete="off" value="{{ editing_value }}" required>
+        </div>
+        <div class="me-field me-field--note">
+            <label for="me-note">Note <span class="dash-muted">(optional)</span></label>
+            <input id="me-note" type="text" name="note" maxlength="200" value="{{ editing.note|default:'' }}" placeholder="Where it came from">
+        </div>
+        <button type="submit" class="btn-primary btn-sm">{% if editing %}Save change{% else %}Save value{% endif %}</button>
+        {% if editing %}<a href="{{ metric.get_absolute_url }}" class="btn-outline btn-sm">Cancel</a>{% endif %}
+    </form>
+    {% endif %}
+    <div class="card">
+        {% if entries %}
+        <div class="md-table-wrap">
+            <table class="table-plain md-table me-table">
+                <thead><tr>
+                    <th scope="col">Date</th>
+                    <th scope="col" class="me-num">Value</th>
+                    <th scope="col">Note</th>
+                    <th scope="col">Entered by</th>
+                    {% if can_edit %}<th scope="col"><span class="sr-only">Actions</span></th>{% endif %}
+                </tr></thead>
+                <tbody>
+                {% for row in entries %}
+                <tr>
+                    <td>{{ row.entry.date|date:"M j, Y" }}</td>
+                    <td class="me-num">{{ row.display }}{% if metric.unit and metric.format != "currency" %} {{ metric.unit }}{% endif %}</td>
+                    <td>{{ row.entry.note }}</td>
+                    <td>{{ row.entry.entered_by|default:"" }}</td>
+                    {% if can_edit %}
+                    <td class="me-actions">
+                        <a href="?edit={{ row.entry.date|date:'Y-m-d' }}#me-value" class="md-link">Edit</a>
+                        <form method="post" action="{% url 'dashboards_metric_entry_delete' metric.key row.entry.date|date:'Y-m-d' %}" data-confirm="Remove the value for {{ row.entry.date|date:'M j, Y' }}?">
+                            {% csrf_token %}
+                            <button type="submit" class="me-remove" aria-label="Remove the value for {{ row.entry.date|date:'M j, Y' }}">Remove</button>
+                        </form>
+                    </td>
+                    {% endif %}
+                </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% if entries_more %}<p class="me-more"><a href="?entries=all#md-rows" class="md-link">Show {{ entries_more }} older value{{ entries_more|pluralize }}</a></p>{% endif %}
+        {% else %}
+        <p class="dash-message">No values yet.{% if can_edit %} Enter the first one above.{% endif %}</p>
+        {% endif %}
+    </div>
+</section>

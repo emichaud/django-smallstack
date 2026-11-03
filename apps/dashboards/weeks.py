@@ -34,6 +34,7 @@ import logging
 from datetime import date, datetime, timedelta
 from typing import TYPE_CHECKING, Any, Optional
 
+from django.db.models import Q
 from django.http import HttpRequest
 from django.utils import timezone
 
@@ -49,7 +50,17 @@ from .goals import (
     rule_text,
     summarize,
 )
-from .metrics import _is_number, display_unit, format_value, may_read, request_for, resolve_dataset
+from .metrics import (
+    _is_number,
+    display_unit,
+    format_value,
+    manual_buckets,
+    may_read,
+    rate_parts,
+    rate_value,
+    request_for,
+    resolve_dataset,
+)
 
 if TYPE_CHECKING:
     from _typeshed import SupportsWrite
@@ -150,6 +161,8 @@ def weekly_values(metric: "Metric", request: HttpRequest, first: date, count: in
             out["error"] = result.error or "This metric could not be evaluated."
         out["values"] = {w: result.value for w in weeks} if result.ok else {}
         return out
+    if metric.is_rate:
+        return _weekly_rate(metric, request, first, count, out)
     ds = resolve_dataset(metric)
     if ds is None:
         out["error"] = f"Dataset “{metric.dataset}” is not available."
@@ -164,6 +177,10 @@ def weekly_values(metric: "Metric", request: HttpRequest, first: date, count: in
         },
     )
     try:
+        if metric.is_manual:
+            by_week = manual_buckets(metric, request, span, week_of)
+            out["values"] = {w: by_week.get(w) for w in weeks}
+            return out
         rows = ds.series(
             metric.period_field,
             measure=metric.measure or None,
@@ -186,6 +203,23 @@ def weekly_values(metric: "Metric", request: HttpRequest, first: date, count: in
     by_start = {str(r["lo"])[:10]: r["value"] for r in rows}
     empty = 0 if (metric.agg or "count") in _ADDITIVE and metric.measure not in ds.declared_measures() else None
     out["values"] = {w: by_start.get(w.isoformat(), empty) for w in weeks}
+    return out
+
+
+def _weekly_rate(
+    metric: "Metric", request: HttpRequest, first: date, count: int, out: dict[str, Any]
+) -> dict[str, Any]:
+    """A rate week by week: its parts' weekly values, divided. Each week is worked
+    out from that week's two numbers, never by averaging rates."""
+    numerator, denominator = rate_parts(metric)
+    if numerator is None or denominator is None or bool(numerator.period_field) != bool(denominator.period_field):
+        out["error"] = "This rate's two metrics can't be compared."
+        return out
+    top, bottom = weekly_values(numerator, request, first, count), weekly_values(denominator, request, first, count)
+    out["restricted"] = top["restricted"] or bottom["restricted"]
+    out["error"] = top["error"] or bottom["error"]
+    if not out["restricted"] and not out["error"]:
+        out["values"] = {w: rate_value(v, bottom["values"].get(w), metric.format) for w, v in top["values"].items()}
     return out
 
 
@@ -265,6 +299,7 @@ def build_week(goal_list: "GoalList", request: HttpRequest, start: date) -> list
                 "component": goal.get("component", ""),
                 "metric_key": metric.key if metric is not None else "",
                 "dataset": metric.dataset if metric is not None else "",
+                "datasets": metric.read_datasets() if metric is not None else [],
                 "target": goal["target"],
                 "warn": goal.get("warn"),
                 "target_text": rule_text(goal["target"], src["fmt"], src["unit"]),
@@ -366,6 +401,53 @@ def backfill(goal_list: "GoalList", weeks: int, *, by: Any = None, replace: bool
 # -- reading weeks -----------------------------------------------------------------
 
 
+def refresh_saved_week(metric: "Metric", day: date) -> int:
+    """Bring saved weeks up to date after a hand-entered value for *day* changes.
+    The Monday snapshot is usually taken before anyone has typed last week's
+    numbers, so without this the meeting would show a blank for a value that's
+    there. A correction to the data, not a rewrite of history: each row keeps the
+    target it was saved with. Rates built on the metric follow. Returns how many
+    snapshots changed."""
+    from .models import GoalSnapshot, Metric
+
+    start = week_of(day)
+    affected = {
+        metric.key,
+        *Metric.objects.filter(source="rate")
+        .filter(Q(numerator=metric.key) | Q(denominator=metric.key))
+        .values_list("key", flat=True),
+    }
+    changed = 0
+    for snapshot in GoalSnapshot.objects.filter(week_start=start).select_related("goal_list"):
+        hit = [row for row in snapshot.rows if row.get("metric_key") in affected]
+        if not hit:
+            continue
+        request = request_for(snapshot_user(snapshot.goal_list))
+        metrics, cards = goal_lookups(snapshot.goal_list)
+        for row in hit:
+            source_metric = Metric.objects.filter(key=row["metric_key"]).first()
+            if source_metric is None:
+                continue
+            goal = {k: row.get(k) for k in ("target", "warn", "metric", "component")}
+            got = weekly_values(source_metric, request, start, 1)
+            cell = _cell(
+                goal,
+                got["values"].get(start),
+                goal_source(goal, metrics, cards),
+                error=got["error"],
+                restricted=got["restricted"],
+            )
+            row.update({k: cell[k] for k in ("value", "display", "unit", "status", "gap_text", "error")})
+        snapshot.rows = _json_safe(snapshot.rows)
+        summary = summarize(snapshot.rows)
+        snapshot.summary = {
+            k: summary[k] for k in ("total", "scored", "pass", "warn", "fail", "none", "pct", "headline")
+        }
+        snapshot.save(update_fields=["rows", "summary"])
+        changed += 1
+    return changed
+
+
 def _viewer_may_read(dataset: str, user: Any, cache: dict[str, bool]) -> bool:
     from apps.datasets.registry import get_def, user_may_read
 
@@ -383,7 +465,10 @@ def _masked(rows: list[dict[str, Any]], user: Any) -> list[dict[str, Any]]:
     for row in rows:
         row = {**row, "status_label": STATUS_LABELS.get(row.get("status", "none"), "No data")}
         row["state"] = STATUS_STATES.get(row.get("status", "none"), "muted")
-        if row.get("dataset") and not _viewer_may_read(row["dataset"], user, cache):
+        # "datasets" is every dataset behind the number (a rate has two parts and
+        # no dataset of its own); rows saved before it existed name just the one.
+        sources = row.get("datasets") or ([row["dataset"]] if row.get("dataset") else [])
+        if not all(_viewer_may_read(dataset, user, cache) for dataset in sources):
             row.update(value=None, display="—", status="none", status_label="No data", state="muted", gap_text="")
             row["error"], row["restricted"] = "You don't have access to this metric's data.", True
         out.append(row)
@@ -434,8 +519,8 @@ def _week_drill(row: dict[str, Any], start: date) -> Optional[dict[str, str]]:
     key = row.get("metric_key") or row.get("metric")
     if not key or row.get("error") or row.get("value") is None:
         return None
-    metric = Metric.objects.filter(key=key).only("key", "period_field").first()
-    if metric is None:
+    metric = Metric.objects.filter(key=key).only("key", "period_field", "source").first()
+    if metric is None or metric.is_rate:
         return None
     url = reverse("dashboards_metric_rows", kwargs={"key": metric.key})
     if metric.period_field and row.get("weekly", True):

@@ -17,8 +17,8 @@ from apps.datasets.core import get_dataset
 from apps.datasets.dateranges import is_period
 from apps.datasets.registry import get_def, user_may_read
 
-from .metrics import AGGS, FORMATS, effective_tree, evaluate, request_for
-from .models import Metric, Report
+from .metrics import ALL_AGGS, FORMATS, effective_tree, evaluate, request_for
+from .models import SOURCE_DATASET, SOURCE_RATE, SOURCES, Metric, Report
 from .periods import NO_PERIOD_FIELD_NOTE, period_problem
 from .reports import present_report, report_matrix
 
@@ -28,13 +28,20 @@ def unsaved_metric(user: Any, payload: dict[str, Any]) -> tuple[Optional[Metric]
     validation problem (``"field: message"``). The metric is None when its
     dataset is unknown to *user* — an unreadable dataset is reported as
     unknown, so a preview never confirms that it exists."""
+    source = str(payload.get("source") or SOURCE_DATASET)
+    if source not in {key for key, _label in SOURCES}:
+        return None, [f"source: use one of {[key for key, _label in SOURCES]}"]
     key = str(payload.get("dataset") or "")
     dfn = get_def(key)
-    if dfn is None or not user_may_read(dfn, user):
+    if source == SOURCE_DATASET and (dfn is None or not user_may_read(dfn, user)):
         return None, [f"unknown dataset {key!r} — list the datasets you may use first"]
     metric = Metric(
         key="preview",
         name=str(payload.get("name") or "Preview"),
+        source=source,
+        numerator=str(payload.get("numerator") or ""),
+        denominator=str(payload.get("denominator") or ""),
+        owner=user if payload.get("visibility") != "shared" and getattr(user, "pk", None) else None,
         dataset=key,
         filter_tree=payload.get("filter_tree") or {},
         agg=str(payload.get("agg") or "count"),
@@ -50,7 +57,13 @@ def unsaved_metric(user: Any, payload: dict[str, Any]) -> tuple[Optional[Metric]
     except ValidationError as exc:
         for field, messages in exc.message_dict.items():
             problems.extend(f"{field}: {m}" for m in messages)
-    for name, vocabulary in (("agg", AGGS), ("format", FORMATS)):
+    if source == SOURCE_RATE:
+        for side in (metric.numerator, metric.denominator):
+            part = Metric.objects.filter(key=side).first()
+            if side and (part is None or not part.can_view(user)):
+                # A key you can't open reads as unknown, as an unreadable dataset does.
+                problems.append(f"no metric {side!r} — list the metrics you may use first")
+    for name, vocabulary in (("agg", ALL_AGGS), ("format", FORMATS)):
         allowed = [c for c, _label in vocabulary]
         if getattr(metric, name) not in allowed:
             problems.append(f"{name}: use one of {allowed}")

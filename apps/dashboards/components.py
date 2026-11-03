@@ -550,6 +550,8 @@ def _dataset_columns(metric: "Metric") -> Optional[list[str]]:
 def _missing_caps(ct: ComponentType, metric: "Metric") -> list[str]:
     if not ct.requires:
         return []
+    if metric.is_rate or metric.is_manual:
+        return ["needs a metric over a dataset, to split it into groups"]
     from apps.datasets.capabilities import REASONS, capabilities, missing_for
     from apps.datasets.core import get_dataset
 

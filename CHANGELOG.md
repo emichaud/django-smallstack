@@ -9,6 +9,13 @@ Breaking-change migration recipes live in [`UPGRADING.md`](UPGRADING.md).
 
 ## [Unreleased]
 
+### Added
+- **Rates.** A metric's source can be *a rate*: one metric divided by another, read for the same period on both sides, in cards, goals, reports, weeks and trends. Each week or bucket divides its own two numbers. A zero or missing bottom shows no value, and parts that can't be compared show an error rather than a number.
+- **Metrics entered by hand.** A metric's source can be *entered by hand*: one value per date, typed on its page or set over REST (`dashboards/api/metrics/<key>/entries/`) or MCP (`metric_record_value`, `metric_delete_value`), rolled up by latest, sum, average, minimum or maximum. Nothing entered reads as no value, never 0. A value entered after a week was saved updates that saved week, keeping its target. The rows are scoped to people who can see the metric, so a shared one shows to non-staff.
+
+### Migrations
+- `smallstack_dashboards.0009_metric_sources` is additive. Existing metrics become source `dataset`.
+
 ### Fixed
 - **Switching off dashboards or the calendar left their MCP tools working**, writes included, though the routes were gone and the docs say "no MCP tools". The tools now follow the switch, and the Monday snapshot does too.
 - **CSV exports could run as formulas.** A report label or row value such as `=cmd|calc` reached the spreadsheet of whoever opened the download, in report, weeks, drill-down and dataset CSVs. Such cells now start with `'`; plain numbers are untouched.

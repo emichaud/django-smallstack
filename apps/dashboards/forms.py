@@ -17,7 +17,18 @@ from django import forms
 
 from apps.datasets.dateranges import RELATIVE_PERIODS, is_period
 
-from .models import Component, Dashboard, GoalList, Metric, Playlist, Report, metric_key_from_name
+from .models import (
+    MANUAL_DATASET,
+    SOURCE_DATASET,
+    SOURCE_RATE,
+    Component,
+    Dashboard,
+    GoalList,
+    Metric,
+    Playlist,
+    Report,
+    metric_key_from_name,
+)
 
 VISIBILITY_CHOICES = [("", "Keep as is"), ("personal", "Personal — only me"), ("shared", "Shared — everyone signed in")]
 
@@ -28,7 +39,9 @@ def readable_datasets(user: Any) -> list[tuple[str, str]]:
     """``[(key, label)]`` of the datasets *user* may build metrics on."""
     from apps.datasets.registry import all_defs, user_may_read
 
-    return sorted(((d.key, d.label) for d in all_defs() if user_may_read(d, user)), key=lambda kv: kv[1].lower())
+    # Hand-entered values are reached by a metric's source, not by building on them.
+    usable = (d for d in all_defs() if user_may_read(d, user) and d.key != MANUAL_DATASET)
+    return sorted(((d.key, d.label) for d in usable), key=lambda kv: kv[1].lower())
 
 
 class _OwnedForm(forms.ModelForm):
@@ -78,7 +91,13 @@ class MetricForm(_OwnedForm):
     # A CharField with a per-user Select widget, not a ChoiceField: the API
     # schema / OpenAPI are built without a user, and an empty choice list
     # there would be an invalid ``enum: []``. clean_dataset is the gate.
-    dataset = forms.CharField(max_length=100, help_text="The dataset this metric reads (a @dataset key).")
+    dataset = forms.CharField(
+        max_length=100, required=False, help_text="The dataset this metric reads (a @dataset key)."
+    )
+    numerator = forms.CharField(max_length=80, required=False, help_text="A rate's top: the metric being divided.")
+    denominator = forms.CharField(
+        max_length=80, required=False, help_text="A rate's bottom: the metric it's divided by."
+    )
 
     class Meta:
         model = Metric
@@ -86,7 +105,10 @@ class MetricForm(_OwnedForm):
             "name",
             "key",
             "description",
+            "source",
             "dataset",
+            "numerator",
+            "denominator",
             "filter_tree",
             "agg",
             "measure",
@@ -113,6 +135,14 @@ class MetricForm(_OwnedForm):
         if current and current not in dict(choices):
             choices.append((current, f"{current} (unavailable)"))
         self.fields["dataset"].widget = forms.Select(choices=[("", "— pick a dataset —"), *choices])
+        # Callers from before there were sources, and PATCHes, leave it out.
+        self.fields["source"].required = False
+        parts = [
+            (m.key, m.name)
+            for m in Metric.objects.visible_to(user).exclude(source=SOURCE_RATE).exclude(pk=self.instance.pk)
+        ]
+        self.fields["numerator"].widget = forms.Select(choices=[("", "— pick a metric —"), *parts])
+        self.fields["denominator"].widget = forms.Select(choices=[("", "— pick a metric —"), *parts])
         # An empty JSON container is a legitimate value (no filter / no rules).
         self.fields["filter_tree"].required = False
         self.fields["thresholds"].required = False
@@ -142,12 +172,17 @@ class MetricForm(_OwnedForm):
     def clean_thresholds(self) -> Any:
         return self.cleaned_data.get("thresholds") or []
 
+    def clean_source(self) -> str:
+        return self.cleaned_data.get("source") or self.instance.source or SOURCE_DATASET
+
     def clean_dataset(self) -> str:
         from apps.datasets.registry import get_def, user_may_read
 
+        if self.cleaned_data.get("source") != SOURCE_DATASET:
+            return ""  # the model sets it: normalise_source
         key = self.cleaned_data.get("dataset") or ""
         dfn = get_def(key)
-        if dfn is None or not user_may_read(dfn, self.user):
+        if dfn is None or key == MANUAL_DATASET or not user_may_read(dfn, self.user):
             raise forms.ValidationError("Pick a dataset you can read.")
         return key
 
@@ -543,7 +578,8 @@ def builder_payload(user: Any, owner_id: Any) -> dict[str, Any]:
                 "key": m.key,
                 "name": m.name,
                 "dataset": m.dataset,
-                "caps": caps[m.dataset],
+                # Hand-entered values and rates have dates but nothing to group by.
+                "caps": caps[m.dataset] if m.source == SOURCE_DATASET else ["date"],
                 "shared": m.owner_id is None,
                 "thresholds": m.thresholds or [],
                 "format": m.format,

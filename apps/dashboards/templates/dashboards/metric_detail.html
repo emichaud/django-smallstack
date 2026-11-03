@@ -36,7 +36,7 @@
         <p class="md-sentence">
             <span>{{ sentence.lead }}</span>
             <strong>{{ sentence.dataset }}</strong>{% if sentence.where %}
-            <span class="md-where">{{ sentence.where }}</span>{% else %}, <span class="md-where">every row</span>{% endif %}{% if sentence.when %},
+            <span class="md-where">{{ sentence.where }}</span>{% elif sentence.every %}, <span class="md-where">{{ sentence.every }}</span>{% endif %}{% if sentence.when %},
             <span class="md-when">{{ sentence.when }}</span>{% endif %}
         </p>
 
@@ -78,6 +78,27 @@
     </div>
 </section>
 
+{% if metric.is_manual %}
+{% include "dashboards/includes/metric_entries.html" %}
+{% elif metric.is_rate %}
+{# ── A rate has no rows: what it's made of instead ── #}
+<section class="md-rows" id="md-rows" aria-labelledby="md-rows-title">
+    <div class="md-section-head"><h2 id="md-rows-title">What it's made of</h2></div>
+    <div class="card">
+        <ul class="me-parts">
+            {% for part in parts %}
+            <li>
+                <span class="me-part-role">{% if part.metric.key == metric.numerator %}Top{% else %}Bottom{% endif %}</span>
+                <a href="{{ part.metric.get_absolute_url }}">{{ part.metric.name }}</a>
+                <span class="me-part-value">{% if part.result.restricted %}Restricted{% elif part.result.error %}Can't evaluate{% else %}{{ part.result.display }}{% if part.result.unit %} {{ part.result.unit }}{% endif %}{% endif %}</span>
+            </li>
+            {% empty %}
+            <li class="dash-muted">You can't open the metrics this rate is made from.</li>
+            {% endfor %}
+        </ul>
+    </div>
+</section>
+{% else %}
 {# ── The rows behind it ── #}
 <section class="md-rows" id="md-rows" aria-labelledby="md-rows-title">
     <div class="md-section-head">
@@ -112,15 +133,17 @@
         {% endif %}
     </div>
 </section>
+{% endif %}
 
 {# ── Where it lives, and how to use it ── #}
 <div class="md-foot">
     <section aria-labelledby="md-used-title">
         <h2 id="md-used-title">Where it's used</h2>
-        {% if usage.boards or usage.reports or usage.goal_lists %}
+        {% if usage.boards or usage.reports or usage.goal_lists or usage.rates %}
         <ul class="md-list">
             {% for b in usage.boards %}<li><a href="{{ b.obj.get_absolute_url }}">{{ b.obj.name }}</a> <span class="dash-muted">dashboard, {{ b.cards }} card{{ b.cards|pluralize }}</span></li>{% endfor %}
             {% for r in usage.reports %}<li><a href="{{ r.obj.get_absolute_url }}">{{ r.obj.name }}</a> <span class="dash-muted">report, {{ r.rows }} row{{ r.rows|pluralize }}</span></li>{% endfor %}
+            {% for rate in usage.rates %}<li><a href="{{ rate.get_absolute_url }}">{{ rate.name }}</a> <span class="dash-muted">rate</span></li>{% endfor %}
             {% for g in usage.goal_lists %}<li><a href="{{ g.obj.get_absolute_url }}">{{ g.obj.name }}</a> <span class="dash-muted">goals, {{ g.goals }} goal{{ g.goals|pluralize }}</span></li>{% endfor %}
         </ul>
         {% else %}
@@ -144,13 +167,23 @@
     <summary>The stored definition</summary>
     <div class="md-definition-body">
         <dl class="md-uses">
+            <dt>Source</dt><dd>{{ metric.get_source_display }}</dd>
+            {% if metric.is_rate %}
+            <dt>Top</dt><dd><code>{{ metric.numerator }}</code></dd>
+            <dt>Bottom</dt><dd><code>{{ metric.denominator }}</code></dd>
+            {% elif metric.is_manual %}
+            <dt>Rolled up by</dt><dd>{{ metric.get_agg_display }}</dd>
+            {% else %}
             <dt>Dataset</dt><dd><code>{{ metric.dataset }}</code></dd>
             <dt>Aggregation</dt><dd>{{ metric.get_agg_display }}{% if metric.measure %} of <code>{{ metric.measure }}</code>{% endif %}</dd>
             <dt>Period field</dt><dd>{% if metric.period_field %}<code>{{ metric.period_field }}</code>{% else %}none{% endif %}</dd>
+            {% endif %}
             <dt>Format</dt><dd>{{ metric.get_format_display }}</dd>
         </dl>
+        {% if metric.source == "dataset" %}
         <h3>Filter</h3>
         <pre class="dash-code">{{ filter_json }}</pre>
+        {% endif %}
         {% if metric.thresholds %}<h3>Colour rules</h3><pre class="dash-code">{{ thresholds_json }}</pre>{% endif %}
     </div>
 </details>

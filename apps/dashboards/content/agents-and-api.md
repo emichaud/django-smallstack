@@ -10,6 +10,11 @@ Everything in Dashboards can be built by an AI agent, through the MCP server
 exactly your account's rights: it sees the dashboards and datasets you can see
 and edits what you can edit.
 
+A metric's `source` is `dataset` (the default), `manual` or `rate`. For `manual`, set values with
+`metric_record_value {"key", "date", "value", "note"}` or `POST
+/smallstack/dashboards/api/metrics/<key>/entries/`. For `rate`, set `numerator` and `denominator`
+to metric keys.
+
 ## Asking an agent
 
 With the SmallStack connector added, ask in plain language:

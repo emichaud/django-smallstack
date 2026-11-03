@@ -30,7 +30,17 @@ from apps.datasets.core import GRAINS, grain_label, grain_next
 from apps.datasets.dateranges import period_label, relative_dates
 from apps.datasets.filter_tree import FilterTreeError
 
-from .metrics import display_unit, effective_tree, format_value, may_read, resolve_dataset, state_for
+from .metrics import (
+    display_unit,
+    effective_tree,
+    format_value,
+    manual_buckets,
+    may_read,
+    rate_parts,
+    rate_value,
+    resolve_dataset,
+    state_for,
+)
 from .periods import period_heading
 
 if TYPE_CHECKING:
@@ -70,6 +80,22 @@ def _bucket_start(d: date, grain: str) -> date:
     return d
 
 
+def _rate_rows(metric: "Metric", request: HttpRequest, period: Optional[str], grain: str) -> list[dict[str, Any]]:
+    """A rate's series: its two parts' buckets, divided bucket by bucket."""
+    numerator, denominator = rate_parts(metric)
+    if numerator is None or denominator is None:
+        raise ValueError("This rate's two metrics can't be compared.")
+    top, bottom = metric_trend(numerator, request, period, grain), metric_trend(denominator, request, period, grain)
+    for part in (top, bottom):
+        if part["restricted"] or part["error"]:
+            raise ValueError(part["error"] or "You don't have access to one of this rate's metrics.")
+    below = {p["lo"]: p["value"] for p in bottom["points"]}
+    return [
+        {"lo": p["lo"], "hi": p["hi"], "value": rate_value(p["value"], below.get(p["lo"]), metric.format)}
+        for p in top["points"]
+    ]
+
+
 def metric_trend(
     metric: "Metric", request: HttpRequest, period: Optional[str] = None, grain: Optional[str] = None
 ) -> dict[str, Any]:
@@ -95,7 +121,7 @@ def metric_trend(
         out["error"] = "This metric has no period field, so it has no trend."
         return out
     ds = resolve_dataset(metric)
-    if ds is None:
+    if ds is None and not metric.is_rate:
         out["error"] = f"Dataset “{metric.dataset}” is not available."
         return out
     if not may_read(metric, getattr(request, "user", None)):
@@ -106,15 +132,26 @@ def metric_trend(
     grain = grain if grain in GRAINS else default_grain(since, until)
     out["grain"] = grain
     try:
-        rows = ds.series(
-            metric.period_field,
-            measure=metric.measure or None,
-            agg=metric.agg or "count",
-            grain=grain,
-            limit=MAX_BUCKETS if since else ALL_TIME_BUCKETS,
-            filter_tree=effective_tree(metric, applied),
-            request=request,
-        )
+        if metric.is_rate:
+            rows = _rate_rows(metric, request, applied, grain)
+        elif metric.is_manual:
+            tree = effective_tree(metric, applied)
+            buckets = manual_buckets(metric, request, tree, lambda d: _bucket_start(d, grain))
+            rows = [
+                {"lo": s.isoformat(), "hi": grain_next(s, grain).isoformat(), "value": buckets[s]}
+                for s in sorted(buckets)
+            ]
+        else:
+            assert ds is not None  # only a rate gets past the check above without one
+            rows = ds.series(
+                metric.period_field,
+                measure=metric.measure or None,
+                agg=metric.agg or "count",
+                grain=grain,
+                limit=MAX_BUCKETS if since else ALL_TIME_BUCKETS,
+                filter_tree=effective_tree(metric, applied),
+                request=request,
+            )
     except FilterTreeError:
         out["error"] = "This metric's filter no longer applies to its dataset."
         return out
@@ -132,8 +169,13 @@ def metric_trend(
     else:
         starts = [date.fromisoformat(str(r["lo"])[:10]) for r in rows]
 
-    declared = ds.declared_measures()
-    empty_is_zero = (metric.agg or "count") in _ADDITIVE and metric.measure not in declared
+    # A hand-entered week nobody filled in is unknown, and a rate over nothing isn't 0.
+    empty_is_zero = (
+        ds is not None
+        and not metric.is_manual
+        and (metric.agg or "count") in _ADDITIVE
+        and metric.measure not in ds.declared_measures()
+    )
     now = timezone.localtime() if timezone.is_aware(timezone.now()) else datetime.now()
     today = now.date()
     for start in starts:

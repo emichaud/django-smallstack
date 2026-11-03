@@ -9,6 +9,34 @@ order: 2
 the **Preview** on the right shows the number, the matching row count and a
 plain-English reading of the filter as you go.
 
+## Three kinds of metric
+
+When you create a metric, choose where its number comes from:
+
+- **From a dataset.** Counted or added up from data the app already holds. The rest of this page
+  is about these.
+- **Entered by hand.** You type the values, for numbers from another tool, like CSAT or spend.
+- **A rate.** One metric divided by another, like server errors ÷ all requests.
+
+### Entering values by hand
+
+Save the metric, then enter values on its page: a date, a value and an optional note. Each date
+holds one value, so entering a date again replaces it. **Edit** and **Remove** are beside each
+value. Anyone who can edit the metric can enter values, and anyone who can see it sees them.
+
+The date decides which period and week a value counts in. **Aggregation** says how several values
+in one period combine: use **Latest value** for a reading like CSAT or headcount, and **Sum** for
+an amount like spend. A period with no values shows a dash, not zero.
+
+### Rates
+
+Pick a top number and what it's divided by. Both are read for the same period, and each week is
+worked out from that week's own two numbers. Choose the **Percent** format to show it as a
+percentage. If the bottom number is zero the rate shows a dash.
+
+Both metrics must depend on time, or neither. A rate's page shows the two numbers it's made from.
+If you delete one of them, the rate shows an error until you edit it.
+
 ## What it measures
 
 - **Name** — what people read on the card.

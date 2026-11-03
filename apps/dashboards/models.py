@@ -47,7 +47,7 @@ from django.db import models
 from django.urls import reverse
 from django.utils import timezone
 
-from .metrics import AGGS, AGGS_NEEDING_MEASURE, FORMATS, MetricResult, validate_thresholds
+from .metrics import AGGS_NEEDING_MEASURE, ALL_AGGS, FORMATS, MANUAL_AGGS, MetricResult, validate_thresholds
 
 
 class OwnedQuerySet(models.QuerySet):
@@ -160,6 +160,18 @@ def metric_key_from_name(name: str) -> str:
     return free_key(Metric, name, "metric")
 
 
+SOURCE_DATASET = "dataset"
+SOURCE_MANUAL = "manual"
+SOURCE_RATE = "rate"
+SOURCES = [
+    (SOURCE_DATASET, "From a dataset"),
+    (SOURCE_MANUAL, "Entered by hand"),
+    (SOURCE_RATE, "A rate"),
+]
+#: The dataset behind every hand-entered metric (see datasets.py).
+MANUAL_DATASET = "metric_entries"
+
+
 class Metric(OwnedModel):
     key = models.SlugField(
         max_length=80,
@@ -168,7 +180,21 @@ class Metric(OwnedModel):
     )
     name = models.CharField(max_length=120)
     description = models.TextField(blank=True, default="", help_text="What this number means and why it matters.")
-    dataset = models.CharField(max_length=100, help_text="The @dataset key this metric reads.")
+    source = models.CharField(
+        max_length=10,
+        choices=SOURCES,
+        default=SOURCE_DATASET,
+        help_text="Where the number comes from: a dataset, values entered by hand, or one metric divided by another.",
+    )
+    dataset = models.CharField(
+        max_length=100, blank=True, default="", help_text="The @dataset key this metric reads."
+    )
+    numerator = models.SlugField(
+        max_length=80, blank=True, default="", help_text="A rate's top: the key of the metric being divided."
+    )
+    denominator = models.SlugField(
+        max_length=80, blank=True, default="", help_text="A rate's bottom: the key of the metric it's divided by."
+    )
     filter_tree = models.JSONField(
         default=dict,
         blank=True,
@@ -177,7 +203,7 @@ class Metric(OwnedModel):
             '{"and": [{"field": "status", "op": "=", "value": "open"}]}. Empty = every row.'
         ),
     )
-    agg = models.CharField("aggregation", max_length=12, choices=AGGS, default="count")
+    agg = models.CharField("aggregation", max_length=12, choices=ALL_AGGS, default="count")
     measure = models.CharField(
         max_length=100, blank=True, default="", help_text="Column to aggregate (not needed for Count rows)."
     )
@@ -208,14 +234,95 @@ class Metric(OwnedModel):
     def get_absolute_url(self) -> str:
         return reverse("dashboards_metric_detail", kwargs={"key": self.key})
 
+    @property
+    def is_manual(self) -> bool:
+        return self.source == SOURCE_MANUAL
+
+    @property
+    def is_rate(self) -> bool:
+        return self.source == SOURCE_RATE
+
+    @property
+    def source_label(self) -> str:
+        """Where the number comes from, for a table's Source column."""
+        from apps.datasets.registry import get_def
+
+        if self.is_manual:
+            return "Entered by hand"
+        if self.is_rate:
+            return "Rate"
+        dfn = get_def(self.dataset)
+        return str(dfn.label) if dfn is not None else self.dataset
+
+    def read_datasets(self) -> list[str]:
+        """Every dataset this number comes from: what a viewer must be able to read."""
+        if not self.is_rate:
+            return [self.dataset] if self.dataset else []
+        parts = Metric.objects.filter(key__in=[self.numerator, self.denominator])
+        return sorted({p.dataset for p in parts if p.dataset})
+
+    def normalise_source(self) -> None:
+        """Set the fields a source decides, so the rest of the app reads a
+        hand-entered metric as an ordinary metric over the entries dataset, and a
+        rate as period-aware when its parts are. The filter is fixed to this
+        metric's own entries; an unsaved metric matches none rather than all."""
+        if self.is_manual:
+            self.dataset = MANUAL_DATASET
+            self.measure = "value"
+            self.period_field = "date"
+            self.filter_tree = {"field": "metric", "op": "=", "value": self.pk or 0}
+            if self.agg not in {key for key, _label in MANUAL_AGGS}:
+                self.agg = "latest"
+        elif self.is_rate:
+            self.dataset = ""
+            self.measure = ""
+            self.filter_tree = {}
+            self.agg = "count"
+            numerator = Metric.objects.filter(key=self.numerator).first()
+            self.period_field = numerator.period_field if numerator is not None else ""
+
+    def _clean_rate(self, errors: dict[str, list[str]]) -> None:
+        found: dict[str, Metric] = {}
+        for name, key in (("numerator", self.numerator), ("denominator", self.denominator)):
+            if not key:
+                errors.setdefault(name, []).append("Pick a metric.")
+                continue
+            part = Metric.objects.filter(key=key).first()
+            if part is None:
+                errors.setdefault(name, []).append(f"No metric with the key {key!r}.")
+            elif part.is_rate:
+                errors.setdefault(name, []).append("A rate can't be made from another rate. Pick a plain metric.")
+            elif not _visible_to_owner(part.owner_id, self.owner_id):
+                errors.setdefault(name, []).append(f"“{part.name}” is personal, so a shared rate can't use it.")
+            else:
+                found[name] = part
+        if self.numerator and self.numerator == self.denominator:
+            errors.setdefault("denominator", []).append("Pick a different metric: this would always read 1.")
+        if len(found) == 2 and bool(found["numerator"].period_field) != bool(found["denominator"].period_field):
+            errors.setdefault("denominator", []).append(
+                "One of these depends on time and the other doesn't, so they can't be compared for a period."
+            )
+
     def clean(self) -> None:
         from apps.datasets.core import get_dataset
 
         errors: dict[str, list[str]] = {}
+        self.normalise_source()
+        if self.is_rate:
+            self._clean_rate(errors)
+        if self.is_manual or self.is_rate:
+            threshold_problems = validate_thresholds(self.thresholds)
+            if threshold_problems:
+                errors.setdefault("thresholds", []).extend(threshold_problems)
+            if errors:
+                raise ValidationError(errors)
+            return
+        if self.agg == "latest":
+            errors.setdefault("agg", []).append("“Latest value” is for metrics entered by hand.")
+        if not self.dataset:
+            errors.setdefault("dataset", []).append("Pick a dataset.")
         ds = get_dataset(self.dataset) if self.dataset else None
         if ds is None:
-            # A blank dataset is the field's own error (required, or the form's
-            # choice check), not a second one about the name ''.
             if self.dataset:
                 errors.setdefault("dataset", []).append(f"No dataset named {self.dataset!r} is registered.")
         else:
@@ -245,6 +352,18 @@ class Metric(OwnedModel):
         if errors:
             raise ValidationError(errors)
 
+    def save(self, *args: Any, **kwargs: Any) -> None:
+        self.normalise_source()
+        super().save(*args, **kwargs)
+        if self.is_manual and self.filter_tree.get("value") != self.pk:
+            # The filter names this row, whose pk only now exists.
+            self.normalise_source()
+            type(self).objects.filter(pk=self.pk).update(filter_tree=self.filter_tree)
+        # A rate is period-aware when its parts are.
+        Metric.objects.filter(source=SOURCE_RATE, numerator=self.key).exclude(period_field=self.period_field).update(
+            period_field=self.period_field
+        )
+
     def evaluate(self, request: Any, *, period: str | None = None) -> MetricResult:
         from .metrics import evaluate
 
@@ -253,7 +372,7 @@ class Metric(OwnedModel):
     @property
     def measure_label(self) -> str:
         """The measure column's label in prose case ("response time"), or the
-        raw name when the dataset isn't available."""
+        raw name when the dataset isn't available. A rate has none."""
         from apps.datasets.core import get_dataset
 
         ds = get_dataset(self.dataset) if self.measure else None
@@ -265,8 +384,37 @@ class Metric(OwnedModel):
         from apps.datasets.core import get_dataset
         from apps.datasets.filter_tree import describe_filter_tree
 
+        if self.is_manual:
+            return "Entered by hand"
+        if self.is_rate:
+            names = dict(Metric.objects.filter(key__in=[self.numerator, self.denominator]).values_list("key", "name"))
+            return f"{names.get(self.numerator, self.numerator)} ÷ {names.get(self.denominator, self.denominator)}"
         ds = get_dataset(self.dataset)
         return describe_filter_tree(self.filter_tree, ds.column_labels() if ds else {})
+
+
+class MetricEntry(models.Model):
+    """One hand-entered value of a metric, for one date: CSAT from a survey tool,
+    spend from an invoice. The date decides which period and week it counts in."""
+
+    metric = models.ForeignKey(Metric, on_delete=models.CASCADE, related_name="entries")
+    date = models.DateField(help_text="The day this value is for.")
+    value = models.DecimalField(max_digits=20, decimal_places=4)
+    note = models.CharField(max_length=200, blank=True, default="", help_text="Where it came from, or what changed.")
+    entered_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name="+"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-date"]
+        verbose_name = "metric entry"
+        verbose_name_plural = "metric entries"
+        constraints = [models.UniqueConstraint(fields=["metric", "date"], name="metric_entry_one_per_day")]
+
+    def __str__(self) -> str:
+        return f"{self.metric} on {self.date:%Y-%m-%d}: {self.value}"
 
 
 #: ``Dashboard.system_key`` of the dashboard behind the ``/smallstack/`` page.
@@ -756,7 +904,14 @@ def metric_usage(metric: Metric, user: Any) -> dict[str, Any]:
         if n:
             goal_lists.append({"obj": g, "goals": n, "can_edit": g.can_edit(user)})
     components = [c for c in Component.objects.visible_to(user).filter(metric=metric.key).order_by("name")]
+    rates = list(
+        Metric.objects.visible_to(user)
+        .filter(source=SOURCE_RATE)
+        .filter(models.Q(numerator=metric.key) | models.Q(denominator=metric.key))
+        .order_by("name")
+    )
     return {
+        "rates": rates,
         "boards": boards,
         "reports": reports,
         "goal_lists": goal_lists,

@@ -330,8 +330,34 @@
     }
 
     // -- roll-up affordances ------------------------------------------------------
+    // A dataset metric, a hand-entered one and a rate ask for different things.
+    function syncSource() {
+        var source = val("source") || "dataset";
+        form.querySelectorAll("[data-for-source]").forEach(function (el) {
+            el.hidden = el.getAttribute("data-for-source").split(" ").indexOf(source) < 0;
+        });
+        if (source !== "rate") {
+            var agg = form.querySelector('[name="agg"]:checked');
+            var offered = agg && !agg.closest("[data-for-source]").hidden;
+            if (!offered) {
+                var first = form.querySelector('[name="agg"][value="' + (source === "manual" ? "latest" : "count") + '"]');
+                if (first) first.checked = true;
+            }
+        }
+        // Facts about rows and a dataset mean nothing for the other two.
+        ["mb-rows", "mf-fact-ds"].forEach(function (id) {
+            var fact = $(id);
+            if (fact) fact.closest("div").classList.toggle("mf-fact--off", source !== "dataset");
+        });
+        // Renumber, so a hidden step doesn't leave a gap.
+        var step = 0;
+        form.querySelectorAll(".mf-step").forEach(function (n) {
+            if (!n.closest("[data-for-source][hidden]")) n.textContent = String(++step);
+        });
+        syncMeasure();
+    }
     function syncMeasure() {
-        var needs = val("agg") !== "count";
+        var needs = val("agg") !== "count" && (val("source") || "dataset") === "dataset";
         var box = $("mb-field-measure");
         if (box) box.hidden = !needs;
         if (!needs) {
@@ -450,12 +476,23 @@
         var pf = input("period_field").value;
         var pfSel = $("mb-select-period_field");
         var pfLabel = pfSel && pfSel.selectedOptions[0] ? pfSel.selectedOptions[0].textContent : pf;
-        $("mf-fact-period").textContent = pf ? "narrows " + pfLabel.toLowerCase() : "not period-aware";
+        $("mf-fact-period").textContent = (val("source") === "rate") ? "follows its two metrics" : pf ? "narrows " + pfLabel.toLowerCase() : "not period-aware";
         var card = $("mb-card"), value = $("mb-card-value"), label = $("mb-card-label");
         var problems = $("mb-problems");
         label.textContent = input("name").value || "Preview";
-        if (!dataset) { value.textContent = "—"; return; }
+        var source = val("source") || "dataset";
+        if (source === "dataset" && !dataset) { value.textContent = "—"; return; }
+        if (source === "rate" && !(input("numerator").value && input("denominator").value)) { value.textContent = "—"; return; }
+        if (source === "manual") {
+            value.textContent = "—";
+            $("mf-fact-period").textContent = "narrows the value's date";
+            return;
+        }
         var payload = {
+            source: source,
+            numerator: input("numerator").value,
+            denominator: input("denominator").value,
+            visibility: val("visibility"),
             dataset: dataset,
             agg: val("agg"),
             measure: input("measure").value,
@@ -516,7 +553,8 @@
             var n = ev.target.name;
             if (n === "agg") syncMeasure();
             if (n === "format") syncUnit();
-            if (n === "agg" || n === "format" || n === "visibility") schedulePreview();
+            if (n === "source") syncSource();
+            if (n === "agg" || n === "format" || n === "visibility" || n === "source" || n === "numerator" || n === "denominator") schedulePreview();
         });
         // The key is made from the name on save (MetricForm); this previews it.
         var name = input("name"), keyPreview = $("mf-key-preview");
@@ -527,7 +565,7 @@
             }
             schedulePreview();
         });
-        syncMeasure();
+        syncSource();
         syncUnit();
         $("mb-preview-period").addEventListener("change", schedulePreview);
         $("mb-see-rows").addEventListener("click", seeRows);

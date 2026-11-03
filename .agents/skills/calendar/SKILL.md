@@ -369,6 +369,19 @@ is two shapes in one table — the provider emits all-day or timed events as the
 row dictates. `access="authenticated"`, `spans=True`. The list page carries its
 own Table ⇄ Calendar ⇄ Board toggle via the displays.
 
+### Repeating events
+
+A series is one `Event` row with `repeat` (`daily`, `weekdays`, `weekly`, `biweekly`, `monthly`,
+`monthly_weekday`, `yearly`), an optional `repeat_until`, and `skip_dates`. `events_provider`
+expands it per window through `recurrence.occurrence_starts`, so nothing is stored per date and an
+open-ended series costs nothing. Each occurrence's id is `<pk>-<yyyymmdd>`, which keeps its ICS UID
+stable, and its URL carries `?on=<date>`.
+
+Edits apply to the whole series. To move one date, skip it (`POST calendar/events/<pk>/skip/`, or
+`event_skip_date` over MCP) and add a separate event. Occurrences exist on the calendar surfaces
+only: the `smallstack_events` dataset, and the Events list with its calendar and board tabs, read
+the row, so a series counts once there and those tabs show its first date.
+
 ## Saved views (`models.SavedCalendarView` + `views.SavedCalendarViewCRUDView`)
 
 `owner`, `name` (unique per owner), `datasets` (JSON list of keys),

@@ -78,9 +78,11 @@ class MetricLibraryDisplay(ListDisplay):
                     "obj": m,
                     "url": m.get_absolute_url(),
                     "reading": plain_reading(m.filter_summary),
-                    "source": dfn.label if dfn is not None else f"{m.dataset} (unavailable)",
-                    "source_missing": dfn is None,
-                    "how": _HOW.get(m.agg, "{measure}").format(measure=measure or "values"),
+                    "source": m.source_label if (dfn is not None or m.is_rate) else f"{m.dataset} (unavailable)",
+                    "source_missing": dfn is None and not m.is_rate,
+                    "how": "One metric divided by another"
+                    if m.is_rate
+                    else _HOW.get(m.agg, "{measure}").format(measure=measure or "values"),
                     "period_aware": bool(m.period_field),
                     "used": _usage(on_boards.get(m.key, []), in_reports.get(m.key, [])),
                     "result": (result := evaluate(m, request, period=period)),

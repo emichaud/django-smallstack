@@ -363,7 +363,46 @@ def _metric_usage(args: dict[str, Any]) -> dict[str, Any]:
         "reports": places(usage["reports"], "rows"),
         "goal_lists": places(usage["goal_lists"], "goals"),
         "saved_cards": [c.key for c in usage["components"]],
+        "rates": [m.key for m in usage["rates"]],
     }
+
+
+def _record_value(args: dict[str, Any]) -> dict[str, Any]:
+    from .entries import parse_entry, record_entry
+    from .models import Metric
+
+    user = _user()
+    metric = Metric.objects.filter(key=str(args.get("key") or "")).first()
+    if metric is None or not metric.can_view(user):
+        return {"error": f"no metric {args.get('key')!r} — use list_metrics"}
+    if not metric.can_edit(user):
+        return {"error": f"you can't edit {metric.key!r}"}
+    if not metric.is_manual:
+        return {"error": f"{metric.key!r} isn't entered by hand (its source is {metric.source})"}
+    day, value, errors = parse_entry(args.get("date"), args.get("value"))
+    if errors or day is None or value is None:
+        return {"error": "; ".join(errors.values())}
+    entry = record_entry(metric, day, value, str(args.get("note") or ""), by=user)
+    return {"key": metric.key, "date": entry.date.isoformat(), "value": float(entry.value), "note": entry.note}
+
+
+def _delete_value(args: dict[str, Any]) -> dict[str, Any]:
+    from datetime import date
+
+    from .entries import delete_entry
+    from .models import Metric
+
+    user = _user()
+    metric = Metric.objects.filter(key=str(args.get("key") or "")).first()
+    if metric is None or not metric.can_view(user):
+        return {"error": f"no metric {args.get('key')!r} — use list_metrics"}
+    if not metric.can_edit(user):
+        return {"error": f"you can't edit {metric.key!r}"}
+    try:
+        day = date.fromisoformat(str(args.get("date") or ""))
+    except ValueError:
+        return {"error": "date must be YYYY-MM-DD"}
+    return {"key": metric.key, "date": day.isoformat(), "deleted": delete_entry(metric, day)}
 
 
 def _metric_rows(args: dict[str, Any]) -> dict[str, Any]:
@@ -483,9 +522,16 @@ def register_dashboard_tools() -> int:
             {
                 "type": obj,
                 "properties": {
+                    "source": {
+                        "type": "string",
+                        "enum": ["dataset", "manual", "rate"],
+                        "description": "Where the number comes from. Default dataset.",
+                    },
+                    "numerator": {"type": "string", "description": "A rate's top: a metric key."},
+                    "denominator": {"type": "string", "description": "A rate's bottom: a metric key."},
                     "dataset": {"type": "string", "description": "Dataset key (list_datasets)."},
                     "filter_tree": {"type": "object", "description": _FILTER_TREE_DOC},
-                    "agg": {"type": "string", "enum": ["count", "distinct", "sum", "avg", "min", "max"]},
+                    "agg": {"type": "string", "enum": ["count", "distinct", "sum", "avg", "min", "max", "latest"]},
                     "measure": {"type": "string", "description": "Column to aggregate (not for count)."},
                     "period_field": {"type": "string", "description": "Date column a period narrows."},
                     "period": {"type": "string", "description": "Evaluate for this period (mtd, last_30, …)."},
@@ -553,6 +599,36 @@ def register_dashboard_tools() -> int:
             },
             _metric_usage,
             False,
+        ),
+        (
+            "metric_record_value",
+            "Set a hand-entered metric's value for a date, replacing any earlier value for that date. A saved week "
+            "containing that date updates too, keeping its target. Only for a metric whose source is manual.",
+            {
+                "type": obj,
+                "properties": {
+                    "key": {"type": "string"},
+                    "date": {"type": "string", "description": "The day it's for, YYYY-MM-DD. Not in the future."},
+                    "value": {"type": "number"},
+                    "note": {"type": "string", "description": "Where it came from (optional, up to 200 characters)."},
+                },
+                "required": ["key", "date", "value"],
+                "additionalProperties": False,
+            },
+            _record_value,
+            True,
+        ),
+        (
+            "metric_delete_value",
+            "Remove a hand-entered metric's value for a date.",
+            {
+                "type": obj,
+                "properties": {"key": {"type": "string"}, "date": {"type": "string", "description": "YYYY-MM-DD."}},
+                "required": ["key", "date"],
+                "additionalProperties": False,
+            },
+            _delete_value,
+            True,
         ),
         (
             "metric_rows",

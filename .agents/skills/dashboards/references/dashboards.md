@@ -66,6 +66,31 @@ thing everywhere. Outside a view, `request_for(user)` builds a request.
   compiles gives `error` (+ `problems`) and **no value** — never the
   unfiltered count. A viewer the dataset doesn't admit gets `restricted`.
 
+### A metric's source — dataset, by hand, or a rate
+
+`Metric.source` says where the number comes from. Everything downstream goes through
+`metrics.evaluate`, `weeks.weekly_values` and `trends.metric_trend`, so cards, goals,
+reports and weeks need no special cases.
+
+| `source` | Fields you set | What the model sets |
+|---|---|---|
+| `dataset` (default) | `dataset`, `filter_tree`, `agg`, `measure`, `period_field` | |
+| `manual` | `agg`: `latest` (default), `sum`, `avg`, `min`, `max` | `dataset="metric_entries"`, `measure="value"`, `period_field="date"`, and a filter fixed to its own entries |
+| `rate` | `numerator`, `denominator` (metric keys) | blank `dataset`, and `period_field` copied from the numerator |
+
+**By hand.** One `MetricEntry` per metric per date. Write through `entries.record_entry` /
+`entries.delete_entry`, the one seam for the page, REST and MCP, because it also refreshes a
+saved week. `metric_entries` is an `access="auth"` dataset whose rows are scoped to the metrics
+the viewer can see. An empty period is `None`, never 0, even for `sum`.
+
+**Rates.** `format="percent"` multiplies by 100. The parts can't be rates themselves, must be
+different metrics, and must both be period-aware or both not. A rate reads as restricted unless
+the viewer can open both parts and read both datasets. It has no rows, so `drill_rows` raises and
+the rows modal links to the parts. Deleting a part leaves the rate showing an error, and
+`metric_usage(...)["rates"]` lists them first.
+
+A manual metric or a rate can't back a card that groups by a column (`requires={"dimension"}`).
+
 ## Access — who sees the number
 
 A dashboard being visible doesn't make its numbers visible. Each card checks
@@ -430,6 +455,11 @@ Snapshots are evaluated with `snapshot_user(goal_list)`: the owner, else `create
 Pages: `g/<slug>/weeks/` (`?week=`, `?view=grid`, `?format=csv`), `g/<slug>/weeks/<monday>/trends/` (modal fragment) and `POST g/<slug>/weeks/<monday>/snapshot/` (`fill=N` to backfill). Editors only.
 
 **Report targets.** A `Report.items` row may carry `target` / `warn` (goal rules). `report_matrix` then sets each cell's `status`, recolours the value from it, and sets `has_targets`. The page adds a Target column, the CSV adds Target, At risk and per-period status columns, and `report_values` adds `target` and per-value `status`.
+
+A hand-entered value changes the saved week it falls in (`weeks.refresh_saved_week`): the Monday
+schedule usually runs before anyone has typed last week's numbers. The row keeps the target it was
+saved with. Snapshot rows list every dataset behind the number in `datasets`, and `_masked` checks
+them all, because a rate has no dataset of its own.
 
 ## `{% dashboard %}` — show a dashboard on any page
 

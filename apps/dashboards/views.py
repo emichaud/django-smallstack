@@ -42,16 +42,18 @@ additionally needs the metric's dataset to admit the viewer
 from __future__ import annotations
 
 import json
+from datetime import date
 from typing import TYPE_CHECKING, Any, Optional
 
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
-from django.core.exceptions import ValidationError
+from django.core.exceptions import PermissionDenied, ValidationError
 from django.db.models import QuerySet
 from django.http import Http404, HttpRequest, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
+from django.utils import timezone
 from django.views import View
 from django.views.generic import DeleteView, TemplateView
 
@@ -66,6 +68,7 @@ from apps.smallstack.pagination import PAGE_SIZE_CHOICES
 from .boards import board_attention, board_cards, cell_value, render_cell, system_dashboard
 from .comparison import compare_with_previous
 from .components import available_widgets, describe_types, get_component_type
+from .datasets import visible_entries
 from .displays import (
     ComponentLibraryDisplay,
     DashboardLibraryDisplay,
@@ -74,6 +77,7 @@ from .displays import (
     PlaylistLibraryDisplay,
     ReportLibraryDisplay,
 )
+from .entries import delete_entry, parse_entry, record_entry
 from .forms import (
     AddGoalForm,
     ComponentForm,
@@ -86,11 +90,14 @@ from .forms import (
 )
 from .goals import add_goal, evaluate_goals, goal_order, goal_sort_links, sort_sections, suggest_target, summarize
 from .metrics import (
+    RATE_NO_ROWS,
     drill_csv,
     drill_rows,
     evaluate,
+    format_value,
     may_read,
     metric_sentence,
+    rate_parts,
     threshold_legend,
     validate_drilldown,
 )
@@ -383,7 +390,7 @@ class GoalsIndexView(LoginRequiredMixin, TemplateView):
         if metrics_order.lstrip("-") == "source":
             shown = sorted(
                 metric_qs,
-                key=lambda m: (str(labels.get(m.dataset, m.dataset)).lower(), m.name.lower()),
+                key=lambda m: (str(labels.get(m.dataset) or m.source_label).lower(), m.name.lower()),
                 reverse=metrics_order.startswith("-"),
             )[: self.LIVE_METRICS]
         else:
@@ -397,7 +404,7 @@ class GoalsIndexView(LoginRequiredMixin, TemplateView):
                     "metric": m,
                     "result": result,
                     "reading": plain_reading(m.filter_summary),
-                    "source": labels.get(m.dataset, m.dataset),
+                    "source": m.source_label if m.source != "dataset" else labels.get(m.dataset, m.dataset),
                     "comparison": compare_with_previous(m, request, period, result),
                     "all_time": bool(period) and not m.period_field,
                 }
@@ -671,6 +678,7 @@ class DashboardDigestView(LoginRequiredMixin, View):
 
 class MetricDetailView(LoginRequiredMixin, TemplateView):
     template_name = "dashboards/metric_detail.html"
+    ENTRIES_SHOWN = 26  # about half a year of weekly values
 
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
         context = super().get_context_data(**kwargs)
@@ -680,7 +688,7 @@ class MetricDetailView(LoginRequiredMixin, TemplateView):
         result = evaluate(metric, request, period=period)
         drill = None
         drill_error = None
-        if result.ok:
+        if result.ok and metric.source == "dataset":
             try:
                 # The same header sorting as the rows modal (?order=, validated).
                 order = MetricRowsView.drill_order(request, metric)
@@ -702,6 +710,7 @@ class MetricDetailView(LoginRequiredMixin, TemplateView):
                 "drill_error": drill_error,
                 "usage": metric_usage(metric, request.user),
                 "can_edit": metric.can_edit(request.user),
+                **self.source_context(metric, period),
                 "filter_json": json.dumps(metric.filter_tree, indent=2),
                 "thresholds_json": json.dumps(metric.thresholds, indent=2),
                 "api_url": request.build_absolute_uri(
@@ -710,6 +719,77 @@ class MetricDetailView(LoginRequiredMixin, TemplateView):
             }
         )
         return context
+
+
+    def source_context(self, metric: Metric, period: Optional[str]) -> dict[str, Any]:
+        """What a hand-entered metric's or a rate's page shows in place of rows."""
+        request = self.request
+        if metric.is_rate:
+            parts = [p for p in rate_parts(metric) if p is not None and p.can_view(request.user)]
+            return {"parts": [{"metric": p, "result": evaluate(p, request, period=period)} for p in parts]}
+        if not metric.is_manual:
+            return {}
+        entries = visible_entries(request.user).filter(metric=metric).select_related("entered_by")
+        total = entries.count()
+        # ?edit=<date> fills the form with that entry, to correct it.
+        edit_day = parse_day(request.GET.get("edit", ""))
+        editing = entries.filter(date=edit_day).first() if edit_day else None
+        limit = total if request.GET.get("entries") == "all" else self.ENTRIES_SHOWN
+        return {
+            "entries": [
+                {"entry": e, "display": format_value(e.value, metric.format, metric.unit)} for e in entries[:limit]
+            ],
+            "entries_total": total,
+            "entries_more": max(total - limit, 0),
+            "editing": editing,
+            # 5.5, as it was typed, not the column's 5.5000.
+            "editing_value": format(editing.value.normalize(), "f") if editing else "",
+            "entry_date": editing.date if editing else timezone.localdate(),
+            "entry_max_date": timezone.localdate(),
+        }
+
+
+class MetricEntrySaveView(LoginRequiredMixin, View):
+    """Save one value of a hand-entered metric, from its page. Same date = replace."""
+
+    def post(self, request: HttpRequest, key: str) -> HttpResponse:
+        metric = _editable_manual_metric(request, key)
+        day, value, errors = parse_entry(request.POST.get("date"), request.POST.get("value"))
+        if errors:
+            for message in errors.values():
+                messages.error(request, message)
+        elif day is not None and value is not None:
+            record_entry(metric, day, value, request.POST.get("note", "").strip(), by=request.user)
+            messages.success(request, f"Saved the value for {day:%b} {day.day}, {day.year}.")
+        return redirect(metric.get_absolute_url())
+
+
+class MetricEntryDeleteView(LoginRequiredMixin, View):
+    """Remove one value of a hand-entered metric."""
+
+    def post(self, request: HttpRequest, key: str, day: str) -> HttpResponse:
+        metric = _editable_manual_metric(request, key)
+        parsed = parse_day(day)
+        if parsed is None or not delete_entry(metric, parsed):
+            raise Http404("No value for that date.")
+        messages.success(request, f"Removed the value for {parsed:%b} {parsed.day}, {parsed.year}.")
+        return redirect(metric.get_absolute_url())
+
+
+def parse_day(raw: str) -> Optional[date]:
+    try:
+        return date.fromisoformat(raw)
+    except ValueError:
+        return None
+
+
+def _editable_manual_metric(request: HttpRequest, key: str) -> Metric:
+    metric = visible_or_404(Metric.objects.all(), request, key=key)
+    if not metric.is_manual:
+        raise Http404("This metric isn't entered by hand.")
+    if not metric.can_edit(request.user):
+        raise PermissionDenied
+    return metric
 
 
 def drill_context(
@@ -740,6 +820,10 @@ class MetricRowsView(LoginRequiredMixin, View):
         metric = visible_or_404(Metric.objects.all(), request, key=key)
         if not may_read(metric, request.user):
             raise Http404
+        if metric.is_rate and request.GET.get("format") != "csv":
+            # Cards open this modal whatever the metric: a rate points at its parts.
+            parts = [p for p in rate_parts(metric) if p is not None]
+            return render(request, "dashboards/partials/drill_rate.html", {"message": RATE_NO_ROWS, "parts": parts})
         narrow = None
         raw = request.GET.get("narrow")
         if raw:
@@ -1098,7 +1182,10 @@ class MetricCRUDView(_OwnedCRUD):
         "name",
         "key",
         "description",
+        "source",
         "dataset",
+        "numerator",
+        "denominator",
         "filter_tree",
         "agg",
         "measure",
@@ -1107,7 +1194,7 @@ class MetricCRUDView(_OwnedCRUD):
         "unit",
         "thresholds",
     ]
-    list_fields = ["name", "key", "dataset", "agg", "owner", "updated_at"]
+    list_fields = ["name", "key", "source", "dataset", "agg", "owner", "updated_at"]
     link_field = "name"
     field_transforms = {"owner": _owner_cell, "updated_at": "localtime"}
     url_base = "dashboards/metrics"
@@ -1120,8 +1207,12 @@ class MetricCRUDView(_OwnedCRUD):
     mcp_plural = "metrics"
     mcp_lookup_field = "key"
     mcp_description = (
-        "a metric: a named, stored filter over a dataset rolled up to one number (KPI). Fields: key (stable "
-        "slug), name, dataset (a dataset key — see list_datasets / describe_dataset), filter_tree (nested "
+        "a metric: one named number (KPI). source says where it comes from: dataset (default: a stored filter "
+        "over a dataset, rolled up), manual (values entered by hand with metric_record_value; agg is "
+        "latest|sum|avg|min|max and dataset, measure, filter_tree and period_field are set for you) or rate "
+        "(numerator and denominator are metric keys, divided over the same period; the percent format multiplies "
+        "by 100). Fields: key (stable slug), name, source, numerator, denominator, dataset (a dataset key — see "
+        "list_datasets / describe_dataset), filter_tree (nested "
         'AND/OR JSON: {"and": [{"field", "op", "value"}]}; ops: = != > >= < <= between in contains isnull '
         "period), agg (count|distinct|sum|avg|min|max), measure (column for non-count aggs), period_field "
         "(date column a dashboard period narrows), format (number|compact|decimal|percent|currency|duration), "
@@ -1152,6 +1243,7 @@ class MetricCRUDView(_OwnedCRUD):
             "reports": [x["obj"].name for x in usage["reports"] if x["can_edit"]],
             "goal_lists": [x["obj"].name for x in usage["goal_lists"] if x["can_edit"]],
             "saved_cards": [c.key for c in usage["components"] if c.can_edit(user)],
+            "rates_left_without_it": [m.key for m in usage["rates"]],
             "still_broken_in": [
                 x["obj"].name for x in usage["boards"] + usage["reports"] + usage["goal_lists"] if not x["can_edit"]
             ],

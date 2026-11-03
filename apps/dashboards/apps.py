@@ -41,7 +41,7 @@ class DashboardsConfig(AppConfig):
 
         # Imported for their side effects: the built-in card types register
         # themselves; signals delete a replaced or orphaned picture.
-        from . import components, signals  # noqa: F401
+        from . import components, datasets, signals  # noqa: F401
 
         try:
             from apps.smallstack.navigation import nav

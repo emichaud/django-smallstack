@@ -9,7 +9,7 @@
 <div class="page-header-bleed page-header-with-actions">
     <div class="page-header-content">
         <h1>{% if object %}Edit metric{% else %}New metric{% endif %}</h1>
-        <p class="page-subtitle">A saved filter over a dataset, rolled up to one number. The preview updates as you build it.</p>
+        <p class="page-subtitle">One number: from a dataset, typed in by hand, or one metric divided by another. The preview updates as you build it.</p>
         <nav style="margin-top: 0.5rem; font-size: 0.8rem;">
             <a href="{% url 'website:home' %}" style="color: var(--body-quiet-color); text-decoration: none;">Home</a>
             <span style="color: var(--body-quiet-color); margin: 0 0.3rem;">/</span>
@@ -57,7 +57,30 @@
                         {{ form.description }}
                         <p class="mb-help">What this number means and why it matters. It's shown on the metric's page.</p>
                     </div>
-                    <div class="mb-field{% if form.dataset.errors %} has-error{% endif %}" style="margin-bottom: 0;">
+                    <div class="mb-field">
+                        <span class="mf-label" id="mf-source-title">Where the number comes from</span>
+                        <div class="df-chips" role="radiogroup" aria-labelledby="mf-source-title" style="margin-top: 0;">
+                            {% for value, label in form.fields.source.choices %}<label class="df-chip"><input type="radio" class="sr-only" name="{{ form.source.html_name }}" value="{{ value }}"{% if value == form.source.value|default:"dataset" %} checked{% endif %}><span>{{ label }}</span></label>{% endfor %}
+                        </div>
+                        {% for e in form.source.errors %}<p class="crud-error">{{ e }}</p>{% endfor %}
+                    </div>
+                    <div class="mb-field" data-for-source="manual" style="margin-bottom: 0;" hidden>
+                        <p class="mb-help">You type in the values, one per date, on the metric's page after saving. Use it for numbers from another tool, like CSAT or spend.</p>
+                    </div>
+                    <div data-for-source="rate" hidden>
+                        <div class="mb-field{% if form.numerator.errors %} has-error{% endif %}">
+                            <label for="{{ form.numerator.id_for_label }}">Top number</label>
+                            {{ form.numerator }}
+                            {% for e in form.numerator.errors %}<p class="crud-error">{{ e }}</p>{% endfor %}
+                        </div>
+                        <div class="mb-field{% if form.denominator.errors %} has-error{% endif %}" style="margin-bottom: 0;">
+                            <label for="{{ form.denominator.id_for_label }}">Divided by</label>
+                            {{ form.denominator }}
+                            {% for e in form.denominator.errors %}<p class="crud-error">{{ e }}</p>{% endfor %}
+                            <p class="mb-help">Both are read for the same period. Choose the Percent format below to show it as a percentage.</p>
+                        </div>
+                    </div>
+                    <div class="mb-field{% if form.dataset.errors %} has-error{% endif %}" data-for-source="dataset" style="margin-bottom: 0;">
                         <label for="{{ form.dataset.id_for_label }}">Dataset<span class="required" aria-hidden="true">*</span></label>
                         {{ form.dataset }}
                         {% for e in form.dataset.errors %}<p class="crud-error">{{ e }}</p>{% endfor %}
@@ -67,7 +90,7 @@
             </div>
 
             {# ── 2. Filter ─────────────────────────────────────── #}
-            <div class="card mb-section">
+            <div class="card mb-section" data-for-source="dataset">
                 <div class="card-header"><h2><span class="mf-step">2</span>Which rows count</h2></div>
                 <div class="card-body">
                     <p class="mb-help" style="margin-top: 0;">Only rows matching these conditions are counted. Group conditions with ALL (and) or ANY (or). Leave it empty to count every row.</p>
@@ -82,20 +105,20 @@
             <div class="card mb-section">
                 <div class="card-header"><h2><span class="mf-step">3</span>Roll it up</h2></div>
                 <div class="card-body">
-                    <div class="mb-field" style="margin-bottom: 0.6rem;">
+                    <div class="mb-field" data-for-source="dataset manual" style="margin-bottom: 0.6rem;">
                         <span class="mf-label" id="mf-agg-title">Aggregation</span>
                         <div class="df-chips" role="radiogroup" aria-labelledby="mf-agg-title" style="margin-top: 0;">
                             {% metric_choice_chips "agg" form.agg.value as aggs %}
-                            {% for c in aggs %}<label class="df-chip"><input type="radio" class="sr-only" name="{{ form.agg.html_name }}" value="{{ c.key }}"{% if c.checked %} checked{% endif %}><span>{{ c.label }}</span></label>{% endfor %}
+                            {% for c in aggs %}<label class="df-chip"{% if c.dataset_only %} data-for-source="dataset"{% elif c.manual_only %} data-for-source="manual"{% endif %}><input type="radio" class="sr-only" name="{{ form.agg.html_name }}" value="{{ c.key }}"{% if c.checked %} checked{% endif %}><span>{{ c.label }}</span></label>{% endfor %}
                         </div>
                         {% for e in form.agg.errors %}<p class="crud-error">{{ e }}</p>{% endfor %}
                     </div>
-                    <div class="mb-field mf-measure{% if form.measure.errors %} has-error{% endif %}" id="mb-field-measure">
+                    <div class="mb-field mf-measure{% if form.measure.errors %} has-error{% endif %}" id="mb-field-measure" data-for-source="dataset">
                         <label for="{{ form.measure.id_for_label }}">Of column</label>
                         {{ form.measure }}
                         {% for e in form.measure.errors %}<p class="crud-error">{{ e }}</p>{% endfor %}
                     </div>
-                    <div class="mb-field{% if form.period_field.errors %} has-error{% endif %}">
+                    <div class="mb-field{% if form.period_field.errors %} has-error{% endif %}" data-for-source="dataset">
                         <label for="{{ form.period_field.id_for_label }}">Period field</label>
                         {{ form.period_field }}
                         {% for e in form.period_field.errors %}<p class="crud-error">{{ e }}</p>{% endfor %}

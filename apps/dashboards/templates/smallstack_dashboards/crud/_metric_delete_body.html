@@ -4,9 +4,12 @@
 
     <div class="dl-what">
         <p class="dl-name"><a href="{{ object.get_absolute_url }}">{{ object.name }}</a> <code>{{ object.key }}</code></p>
-        <p class="dl-reading">{{ object.get_agg_display }} in <strong>{{ source }}</strong>{% if reading != "All rows" %} where {{ reading }}{% endif %}.</p>
+        {% if object.source != "dataset" %}<p class="dl-reading">{{ object.filter_summary }}{% if object.is_manual %}. Its values are deleted with it{% endif %}.</p>{% else %}<p class="dl-reading">{{ object.get_agg_display }} in <strong>{{ source }}</strong>{% if reading != "All rows" %} where {{ reading }}{% endif %}.</p>{% endif %}
     </div>
 
+    {% if usage.rates %}
+    <p class="dl-reading">{{ usage.rates|length }} rate{{ usage.rates|pluralize }} use{{ usage.rates|pluralize:"s," }} it and will show an error until edited: {% for rate in usage.rates %}<a href="{{ rate.get_absolute_url }}">{{ rate.name }}</a>{% if not forloop.last %}, {% endif %}{% endfor %}.</p>
+    {% endif %}
     {% if usage.cards or usage.rows or usage.goals or usage.components %}
     <section class="dl-impact" aria-labelledby="dl-impact-title">
         <h2 id="dl-impact-title">

@@ -33,6 +33,12 @@ urlpatterns = [
     ),
     path("dashboards/m/<slug:key>/", views.MetricDetailView.as_view(), name="dashboards_metric_detail"),
     path("dashboards/m/<slug:key>/rows/", views.MetricRowsView.as_view(), name="dashboards_metric_rows"),
+    path("dashboards/m/<slug:key>/entries/", views.MetricEntrySaveView.as_view(), name="dashboards_metric_entry_save"),
+    path(
+        "dashboards/m/<slug:key>/entries/<str:day>/delete/",
+        views.MetricEntryDeleteView.as_view(),
+        name="dashboards_metric_entry_delete",
+    ),
     path("dashboards/preview-rows/", views.MetricPreviewRowsView.as_view(), name="dashboards_preview_rows"),
     path("dashboards/r/<slug:slug>/", views.ReportPageView.as_view(), name="dashboards_report"),
     path("dashboards/p/<slug:slug>/", views.PlaylistPlayerView.as_view(), name="dashboards_playlist"),
@@ -71,6 +77,11 @@ urlpatterns = [
         "dashboards/api/metrics/<slug:key>/value/",
         api.MetricValueApiView.as_view(),
         name="dashboards_api_metric_value",
+    ),
+    path(
+        "dashboards/api/metrics/<slug:key>/entries/",
+        api.MetricEntriesApiView.as_view(),
+        name="dashboards_api_metric_entries",
     ),
     path(
         "dashboards/api/metrics/<slug:key>/trend/",

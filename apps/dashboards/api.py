@@ -50,6 +50,8 @@ from apps.smallstack.api import authenticate_api_request
 from .boards import board_values, clear_picture, set_picture
 from .comparison import compare_with_previous
 from .components import components_payload
+from .datasets import visible_entries
+from .entries import parse_entry, record_entry
 from .forms import readable_datasets
 from .goals import goal_values
 from .metrics import drill_rows, evaluate, may_read
@@ -162,6 +164,42 @@ class MetricValueApiView(_ApiView):
         if period and not metric.period_field:
             out["note"] = NO_PERIOD_FIELD_NOTE
         return JsonResponse(out)
+
+
+class MetricEntriesApiView(_ApiView):
+    """A hand-entered metric's values: GET lists them, newest first; POST
+    ``{date, value, note?}`` sets one, replacing any earlier value for that date."""
+
+    def get(self, request: HttpRequest, key: str) -> JsonResponse:
+        metric = _visible(Metric, request.user, key=key)
+        entries = visible_entries(request.user).filter(metric=metric)[:500]
+        return JsonResponse(
+            {
+                "key": metric.key,
+                "entries": [{"date": e.date.isoformat(), "value": float(e.value), "note": e.note} for e in entries],
+            }
+        )
+
+    def post(self, request: HttpRequest, key: str) -> JsonResponse:
+        refused = _write_refused(request)
+        if refused:
+            return refused
+        metric = _visible(Metric, request.user, key=key)
+        if not metric.can_edit(request.user):
+            return JsonResponse({"error": "You can't edit this metric."}, status=403)
+        if not metric.is_manual:
+            return JsonResponse({"error": "This metric isn't entered by hand."}, status=400)
+        try:
+            payload = json.loads(request.body or b"{}")
+        except ValueError:
+            return JsonResponse({"error": "The body must be JSON."}, status=400)
+        if not isinstance(payload, dict):
+            return JsonResponse({"error": "The body must be a JSON object."}, status=400)
+        day, value, errors = parse_entry(payload.get("date"), payload.get("value"))
+        if errors or day is None or value is None:
+            return JsonResponse({"errors": errors}, status=400)
+        entry = record_entry(metric, day, value, str(payload.get("note") or ""), by=request.user)
+        return JsonResponse({"key": metric.key, "date": entry.date.isoformat(), "value": float(entry.value)})
 
 
 class MetricTrendApiView(_ApiView):
@@ -389,6 +427,8 @@ def register_openapi_paths() -> None:
         ("GET", "datasets/", "Datasets you may build on", []),
         ("GET", "datasets/{key}/schema/", "A dataset's columns, filter ops and periods", [key]),
         ("POST", "preview/", "Evaluate an unsaved metric (dry run)", []),
+        ("GET", "metrics/{key}/entries/", "A hand-entered metric's values", [key]),
+        ("POST", "metrics/{key}/entries/", "Set a hand-entered metric's value for a date", [key]),
         ("POST", "report-preview/", "Evaluate an unsaved report (dry run)", []),
         ("POST", "card-preview/", "Render an unsaved card (dry run)", []),
         ("GET", "metrics/{key}/value/", "A saved metric's value", [key, period]),
