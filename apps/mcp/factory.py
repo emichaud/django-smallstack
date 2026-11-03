@@ -287,18 +287,23 @@ def _build_list_tool(view_cls, *, base: str):
             qs = apply_ordering(qs, ordering, allowed)
 
         # Limit
-        limit = args.get("limit") or 50
+        limit = args.get("limit", 50)
         try:
-            limit = max(1, min(int(limit), 200))
+            limit = int(limit)
         except (TypeError, ValueError):
-            limit = 50
+            return _tool_error("invalid_argument", f"limit must be a whole number, not {limit!r}")
+        if limit < 1:
+            return _tool_error("invalid_argument", f"limit must be at least 1, not {limit}")
+        limit = min(limit, 200)
 
         fields = view_cls._get_list_fields()
         extra = getattr(view_cls, "api_extra_fields", [])
         expand = set(getattr(view_cls, "api_expand_fields", []) or [])
         rows = list(qs[:limit])
+        # count is this page; total is how many match, so a capped page says so.
         return {
             "count": len(rows),
+            "total": qs.count(),
             "limit": limit,
             "results": [serialize(obj, fields, extra, expand) for obj in rows],
         }

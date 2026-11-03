@@ -54,7 +54,7 @@ from django.urls import reverse
 from django.views import View
 from django.views.generic import DeleteView, TemplateView
 
-from apps.datasets.core import get_dataset
+from apps.datasets.core import SafeCsvWriter, get_dataset
 from apps.datasets.dateranges import RELATIVE_PERIODS
 from apps.datasets.filter_tree import FilterTreeError, describe_filter_tree
 from apps.datasets.registry import all_defs
@@ -842,15 +842,13 @@ class MetricRowsView(LoginRequiredMixin, View):
     ) -> HttpResponse:
         """The drill-down as CSV — the modal's columns, formats and sort, up to
         ``metrics.EXPORT_LIMIT`` rows."""
-        import csv
-
         try:
             headers, rows = drill_csv(metric, request, period=period, extra_tree=narrow, spec=spec, order=order)
         except (FilterTreeError, ValueError) as exc:
             return HttpResponse(str(exc), status=400)
         response = HttpResponse(content_type="text/csv")
         response["Content-Disposition"] = f'attachment; filename="{metric.key}-rows.csv"'
-        writer = csv.writer(response)
+        writer = SafeCsvWriter(response)
         writer.writerow(headers)
         writer.writerows(rows)
         return response
@@ -1121,7 +1119,7 @@ class MetricCRUDView(_OwnedCRUD):
     mcp_description = (
         "a metric: a named, stored filter over a dataset rolled up to one number (KPI). Fields: key (stable "
         "slug), name, dataset (a dataset key — see list_datasets / describe_dataset), filter_tree (nested "
-        'AND/OR JSON: {"and": [{"field", "op", "value"}]}; ops = != > >= < <= between in contains isnull '
+        'AND/OR JSON: {"and": [{"field", "op", "value"}]}; ops: = != > >= < <= between in contains isnull '
         "period), agg (count|distinct|sum|avg|min|max), measure (column for non-count aggs), period_field "
         "(date column a dashboard period narrows), format (number|compact|decimal|percent|currency|duration), "
         'unit, thresholds ([{"op": ">=", "value": 10, "state": "danger"}]), visibility (personal|shared). '
@@ -1147,6 +1145,9 @@ class MetricCRUDView(_OwnedCRUD):
         request.delete_effects = {
             "cards": request._dashboards_detached[0],
             "report_rows_and_goals": request._dashboards_detached[1],
+            "dashboards": [x["obj"].name for x in usage["boards"] if x["can_edit"]],
+            "reports": [x["obj"].name for x in usage["reports"] if x["can_edit"]],
+            "goal_lists": [x["obj"].name for x in usage["goal_lists"] if x["can_edit"]],
             "saved_cards": [c.key for c in usage["components"] if c.can_edit(user)],
             "still_broken_in": [
                 x["obj"].name for x in usage["boards"] + usage["reports"] + usage["goal_lists"] if not x["can_edit"]
@@ -1227,9 +1228,9 @@ class PlaylistCRUDView(_OwnedCRUD):
         'a playlist: items = slides in order: {"dashboard": "<slug>"} or {"goals": "<goal list slug>", '
         '"show"?: "now"|"week"|"weeks"} (the goals now, the week just ended, or week over week), each with '
         '"seconds"?: 5-3600, '
-        '"period"?: "<key>"|"all"}] (a bare slug is shorthand); seconds = default time on each; loop; '
+        '"period"?: "<key>"|"all" (a bare slug is a dashboard); seconds = default time on each; loop; '
         "auto_start = play as soon as it opens; visibility = personal|shared (a shared playlist holds only "
-        "shared dashboards). Open it at url; ?slide=N&play=1&seconds=N&loop=0&kiosk=1 control the player. "
+        "shared slides). Open it at url; ?slide=N&play=1&seconds=N&loop=0&kiosk=1 control the player. "
         "playlist_slides shows what a viewer gets"
     )
 
@@ -1296,7 +1297,7 @@ class GoalListCRUDView(_OwnedCRUD):
     mcp_description = (
         'a goal list: sections = [{"title": "Support", "goals": [goal, ...]}], each goal = {"metric": "<key>" '
         'or "component": "<single-stat card key>", "target": {"op": ">=", "value": 95}, "warn"?: {"op", '
-        '"value"} (the at-risk line), "label"?, "period"?: "<key>"|"all", "note"?}; ops = > >= < <= = != '
+        '"value"} (the at-risk line), "label"?, "period"?: "<key>"|"all", "note"?}; ops: > >= < <= = != '
         "between (value [low, high]). A goal is on target when its value meets target, at risk when it meets "
         "only warn, else missed. default_period = what goals without their own period are judged over (blank "
         "= all time); visibility = personal|shared. goal_list_values evaluates it; goal_list_add_goal appends one. "

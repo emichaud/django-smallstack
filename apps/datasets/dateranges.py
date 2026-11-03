@@ -45,7 +45,8 @@ RELATIVE_PERIODS: list[tuple[str, str]] = [
     ("next_30", "Next 30 days"),
 ]
 
-_PERIOD_LABELS = dict(RELATIVE_PERIODS)
+# Not offered in pickers: it exists so "last week" has a week to compare with.
+_PERIOD_LABELS = {**dict(RELATIVE_PERIODS), "ppwtd": "The week before last"}
 
 #: Ceiling for the generic ``last_<N>`` / ``next_<N>`` spellings (~27 years) —
 #: past it the date arithmetic overflows; nobody means it.
@@ -111,10 +112,12 @@ def relative_dates(key: str, today: Optional[date] = None) -> Optional[tuple[dat
     if key == "yesterday":
         return today - timedelta(days=1), today
 
-    if key in ("wtd", "pwtd"):
+    if key in ("wtd", "pwtd", "ppwtd"):
         week_start = today - timedelta(days=today.weekday())  # Monday
         if key == "wtd":
             return week_start, tomorrow
+        if key == "ppwtd":
+            return week_start - timedelta(days=14), week_start - timedelta(days=7)
         return week_start - timedelta(days=7), week_start
 
     month_start = today.replace(day=1)

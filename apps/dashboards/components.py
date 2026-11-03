@@ -322,6 +322,13 @@ def components_payload(user: Any) -> dict[str, Any]:
     return payload
 
 
+def personal_problem(key: Any, noun: str, owner_id: Any) -> str:
+    """Why a personal *noun* can't go here. A shared container refuses even your own."""
+    if owner_id is None:
+        return f"{key!r} is a personal {noun}, and only shared ones can go on something shared; share it first"
+    return f"{key!r} is another user's personal {noun}"
+
+
 def _column_option_problems(ct: ComponentType, metric: Any, options: dict[str, Any]) -> list[str]:
     """A ``column`` option names a column of the metric's dataset. Unchecked, a
     misspelt one saves happily and the card shows an error when it's drawn."""
@@ -370,7 +377,7 @@ def _expand_components(raw: list[Any], owner_id: Any, problems: list[str]) -> li
             problems.append(f"layout[{n}].component: no saved card {key!r}")
             out.append(None)
         elif not _visible_to_owner(comp.owner_id, owner_id):
-            problems.append(f"layout[{n}].component: {key!r} is another user's personal card")
+            problems.append(f"layout[{n}].component: {personal_problem(key, 'card', owner_id)}")
             out.append(None)
         else:
             placed = {k: v for k, v in cell.items() if k in _PLACEMENT_KEYS}
@@ -417,7 +424,8 @@ def normalize_layout(raw: Any, *, owner_id: Any = None) -> tuple[list[dict[str, 
             problems.append(f"{where}: unexpected key(s) {sorted(extra)}")
         ct = get_component_type(str(cell.get("type", "")))
         if ct is None:
-            problems.append(f"{where}.type: unknown component type {cell.get('type')!r}; use one of {sorted(_TYPES)}")
+            given = f"unknown component type {cell.get('type')!r}" if cell.get("type") else "a cell needs a type"
+            problems.append(f"{where}.type: {given}; use one of {sorted(_TYPES)}")
             continue
         c: dict[str, Any] = {"type": ct.key}
         if cell.get("component"):
@@ -452,6 +460,10 @@ def normalize_layout(raw: Any, *, owner_id: Any = None) -> tuple[list[dict[str, 
         if y is None or not 0 <= y <= 1000:
             problems.append(f"{where}.y: 0–1000")
         c.update({"x": x, "y": y, "w": w, "h": h})
+        # No position given: after the cards so far, rather than all on top of
+        # one another at 0,0.
+        if "x" not in cell and "y" not in cell and w is not None and h is not None:
+            c["x"], c["y"] = x, y = next_position(out, w)
 
         title = cell.get("title")
         if title not in (None, ""):
@@ -477,7 +489,7 @@ def normalize_layout(raw: Any, *, owner_id: Any = None) -> tuple[list[dict[str, 
             if metric is None:
                 problems.append(f"{where}.metric: no metric with key {key!r}")
             elif not _visible_to_owner(metric.owner_id, owner_id):
-                problems.append(f"{where}.metric: {key!r} is another user's personal metric")
+                problems.append(f"{where}.metric: {personal_problem(key, 'metric', owner_id)}")
             else:
                 c["metric"] = metric.key
                 missing = _missing_caps(ct, metric)
@@ -508,7 +520,24 @@ def normalize_layout(raw: Any, *, owner_id: Any = None) -> tuple[list[dict[str, 
         elif "style" in options or "thresholds" in options:
             problems.append(f"{where}.options: a {ct.label} card takes no style or thresholds")
         out.append(c)
+    problems.extend(_overlap_problems(out))
     return out, problems
+
+
+def _overlap_problems(cells: list[dict[str, Any]]) -> list[str]:
+    """Two cards on the same squares: one hides the other wherever the layout is
+    drawn as a grid (``{% dashboard %}``, a playlist). The editor can't make this;
+    a hand-written layout can."""
+    placed = [c for c in cells if None not in (c.get("x"), c.get("y"), c.get("w"), c.get("h"))]
+    return [
+        f"layout: {a['id']!r} and {b['id']!r} overlap; move one (x + w and y + h must not cross)"
+        for i, a in enumerate(placed)
+        for b in placed[i + 1 :]
+        if a["x"] < b["x"] + b["w"]
+        and b["x"] < a["x"] + a["w"]
+        and a["y"] < b["y"] + b["h"]
+        and b["y"] < a["y"] + a["h"]
+    ]
 
 
 def _dataset_columns(metric: "Metric") -> Optional[list[str]]:

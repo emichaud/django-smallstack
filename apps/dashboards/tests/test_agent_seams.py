@@ -293,3 +293,106 @@ def test_a_card_never_lands_on_a_tall_one_beside_it():
     layout = [{"x": 0, "y": 0, "w": 6, "h": 5}, {"x": 6, "y": 2, "w": 3, "h": 1}]
     assert next_position(layout, 3) == (9, 2)
     assert next_position(layout, 4) == (0, 5)
+
+
+def test_csv_cells_a_spreadsheet_would_run_are_neutralised():
+    from apps.datasets.core import csv_safe
+
+    assert csv_safe("=cmd|calc") == "'=cmd|calc"
+    assert csv_safe("@SUM(A1)") == "'@SUM(A1)"
+    assert csv_safe("-1+2") == "'-1+2"
+    assert csv_safe("-12.5") == "-12.5" and csv_safe(-3) == -3 and csv_safe("plain") == "plain"
+
+
+def test_a_report_csv_neutralises_its_labels(rest, metric, staff):
+    Report(name="R", slug="seam-csv", items=[{"metric": metric.key, "label": "=cmd|calc"}], periods=["mtd"]).save()
+    client = Client()
+    client.force_login(staff)
+    body = client.get("/smallstack/dashboards/r/seam-csv/?format=csv", SERVER_NAME="localhost").content.decode()
+    assert "'=cmd|calc" in body
+
+
+def test_a_period_on_a_metric_that_cant_have_one_is_refused(call):
+    Metric(key="seam_flat", name="Flat", dataset=DS).save()
+    GoalList(name="G", slug="seam-g", sections=[]).save()
+    is_error, out = call(
+        "goal_list_add_goal", goal_list="seam-g", metric="seam_flat", period="pwtd", target={"op": "<=", "value": 1}
+    )
+    assert is_error is True and "period" in json.dumps(out)
+
+
+def test_a_value_a_choices_column_cant_hold_is_refused(call):
+    _err, out = call(
+        "metric_preview",
+        dataset="smallstack_heartbeats",
+        filter_tree={"and": [{"field": "status", "op": "=", "value": "failure"}]},
+    )
+    assert out["ok"] is False and "failure" in out["problems"][0] and "fail" in out["problems"][0]
+    _err, ok = call(
+        "metric_preview",
+        dataset="smallstack_heartbeats",
+        filter_tree={"and": [{"field": "status", "op": "in", "value": ["fail", "ok"]}]},
+    )
+    assert ok["ok"] is True
+
+
+def test_last_week_compares_with_the_week_before(call, metric):
+    _err, out = call("metric_value", key=metric.key, period="pwtd")
+    # Only a difference in numbers can make this null: there's a week to compare with.
+    assert out["comparison"] is None or "the week before" in out["comparison"]["text"]
+    from apps.datasets.dateranges import is_period, relative_dates
+
+    assert is_period("ppwtd")
+    lo, hi = relative_dates("pwtd")
+    plo, phi = relative_dates("ppwtd")
+    assert phi == lo and (hi - lo) == (phi - plo)
+
+
+def test_cells_with_no_position_are_placed_and_overlaps_refused(staff):
+    from apps.dashboards.components import normalize_layout
+
+    note = {"type": "text", "options": {"markdown": "x"}, "w": 6, "h": 2}
+    placed, problems = normalize_layout([note, dict(note)], owner_id=None)
+    assert not problems and [(c["x"], c["y"]) for c in placed] == [(0, 0), (6, 0)]
+    a = {**note, "id": "a", "x": 0, "y": 0}
+    b = {**note, "id": "b", "x": 2, "y": 1}
+    _out, problems = normalize_layout([a, b], owner_id=None)
+    assert any("overlap" in p for p in problems)
+
+
+def test_list_tools_say_how_many_there_are_and_refuse_a_silly_limit(call, metric):
+    Metric(key="seam_two", name="Two", dataset=DS).save()
+    _err, out = call("list_metrics", limit=1)
+    assert out["count"] == 1 and out["total"] == 2
+    assert call("list_metrics", limit=0)[0] is True and call("list_metrics", limit=-1)[0] is True
+
+
+def test_rows_refuse_a_bad_limit_and_order(call, metric):
+    assert call("metric_rows", key=metric.key, limit=-1)[0] is True
+    assert call("metric_rows", key=metric.key, order="-nosuch")[0] is True
+
+
+def test_usage_can_be_read_before_a_delete_and_delete_names_it(call, metric):
+    Dashboard(name="Board", slug="seam-d", layout=[{"id": "c", "type": "metric", "metric": metric.key}]).save()
+    _err, usage = call("metric_usage", key=metric.key)
+    assert usage["dashboards"][0]["slug"] == "seam-d"
+    _err, out = call("delete_metric", key=metric.key)
+    assert out["also_removed"]["dashboards"] == ["Board"]
+
+
+def test_report_csv_over_rest_with_a_token(rest, metric):
+    Report(name="R", slug="seam-r", items=[{"metric": metric.key}], periods=["mtd"]).save()
+    resp = rest.get("/smallstack/dashboards/api/reports/seam-r/values/?format=csv")
+    assert resp.status_code == 200 and resp["Content-Type"] == "text/csv"
+
+
+def test_own_personal_metric_on_something_shared_is_explained(call):
+    Metric(key="seam_mine", name="Mine", dataset=DS, owner=User.objects.get(username="seam-staff")).save()
+    _err, out = call(
+        "create_goal_list",
+        name="G",
+        slug="seam-shared",
+        visibility="shared",
+        sections=[{"title": "S", "goals": [{"metric": "seam_mine", "target": {"op": "<=", "value": 1}}]}],
+    )
+    assert "share it first" in json.dumps(out)

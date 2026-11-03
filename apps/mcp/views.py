@@ -13,6 +13,7 @@ failure mode observed downstream — please don't "simplify" them away.
 
 from __future__ import annotations
 
+import difflib
 import inspect
 import json
 import logging
@@ -260,7 +261,9 @@ class McpHttpView(View):
                 tool_args = params.get("arguments") or {}
                 tdef = TOOL_REGISTRY.get(name)
                 if tdef is None:
-                    return _rpc_error(rpc_id, _RPC_METHOD_NOT_FOUND, f"Unknown tool: {name}")
+                    close = difflib.get_close_matches(str(name), TOOL_REGISTRY, n=3)
+                    hint = f"; did you mean {', '.join(close)}?" if close else "; tools/list has them all"
+                    return _rpc_error(rpc_id, _RPC_METHOD_NOT_FOUND, f"Unknown tool: {name}{hint}")
 
                 # Tool-level access check
                 deny = check_tool_access(token, tdef, mixins=None)

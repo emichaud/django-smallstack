@@ -18,6 +18,7 @@ outside HTTP.
 
 from __future__ import annotations
 
+import csv
 import inspect
 from typing import Any, Callable, Optional
 
@@ -53,6 +54,34 @@ def _agg_func(agg: str, measure: Optional[str]) -> Any:
     if agg in ("count", "distinct") or not measure:
         return Count("id")
     return {"sum": Sum, "avg": Avg, "min": Min, "max": Max}[agg](measure)
+
+
+def csv_safe(value: Any) -> Any:
+    """*value* for a CSV cell a spreadsheet will open: text a spreadsheet would
+    run as a formula (``=cmd|…``, ``@SUM(…)``) gets a leading ``'``. Cells hold
+    whatever people and requests wrote, and the person downloading isn't them.
+    Plain numbers, negatives included, stay numbers."""
+    if not isinstance(value, str) or value[:1] not in ("=", "+", "-", "@", "\t", "\r"):
+        return value
+    try:
+        float(value)
+    except ValueError:
+        return f"'{value}"
+    return value
+
+
+class SafeCsvWriter:
+    """``csv.writer`` with every cell through :func:`csv_safe`."""
+
+    def __init__(self, out: Any) -> None:
+        self._writer = csv.writer(out)
+
+    def writerow(self, row: Any) -> None:
+        self._writer.writerow([csv_safe(cell) for cell in row])
+
+    def writerows(self, rows: Any) -> None:
+        for row in rows:
+            self.writerow(row)
 
 
 def round_value(val: Any) -> Any:
@@ -293,7 +322,30 @@ class Dataset:
         from .filter_tree import validate_filter_tree
 
         types = self.filter_column_types()
-        return validate_filter_tree(filter_tree, columns=types, filterable=set(types))
+        problems = validate_filter_tree(filter_tree, columns=types, filterable=set(types))
+        return problems or self._choice_problems(filter_tree)
+
+    def _choice_problems(self, node: Any) -> list[str]:
+        """A leaf comparing a choices column with a value it can never hold. It
+        compiles, matches nothing and reads as a clean zero, so a metric on a
+        misremembered status stays green for ever."""
+        if isinstance(node, dict) and not node.get("field"):
+            return [p for child in node.values() for p in self._choice_problems(child)]
+        if isinstance(node, list):
+            return [p for child in node for p in self._choice_problems(child)]
+        if not isinstance(node, dict) or node.get("op") not in ("=", "!=", "in"):
+            return []
+        try:
+            choices = getattr(self.model._meta.get_field(node["field"]), "choices", None)
+        except Exception:  # noqa: BLE001 — a computed column has no model field
+            return []
+        if not choices:
+            return []
+        allowed = [str(key) for key, _label in choices]
+        raw = node.get("value")
+        values = raw if isinstance(raw, list) else [raw]
+        wrong = [v for v in values if str(v) not in allowed]
+        return [f"{node['field']}: {v!r} isn't one of its values ({', '.join(allowed)})" for v in wrong]
 
     # -- row links ("where can I view this object?") --------------------------
 

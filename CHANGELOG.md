@@ -10,6 +10,11 @@ Breaking-change migration recipes live in [`UPGRADING.md`](UPGRADING.md).
 ## [Unreleased]
 
 ### Fixed
+- **CSV exports could run as formulas.** A report label or row value such as `=cmd|calc` reached the spreadsheet of whoever opened the download, in report, weeks, drill-down and dataset CSVs. Such cells now start with `'`; plain numbers are untouched.
+- **A weekly target scored against an all-time number.** A goal with its own period on a metric with no `period_field` was judged on the all-time value; it's now refused.
+- **A value a choices column can't hold reads as a clean zero** (`status = "failure"` where the value is `failed`), so a metric stayed green for ever. Saving and previewing now refuse it and list the valid values.
+- **Overlapping cards saved happily, and cards with no position all landed at 0,0.** A cell with no position now goes after the cards so far, and an overlap is refused.
+- **A list tool's `count` looked like the total.** List tools now answer `total` too, and refuse a `limit` under 1.
 - **Agents get the number they asked for.** Over MCP and REST a misnamed period (`this_week`) returned the metric's *all-time* value with no warning; a bad period, grain or week is now refused with the valid names. A metric with no `period_field` says so in `note` rather than quietly ignoring the period.
 - **MCP: every successful `metric_value` and `metric_trend` was flagged `isError: true`**, because the dispatcher tested for an `error` key rather than a truthy one (those tools answer `"error": null`).
 - **MCP: `list_datasets` returned nothing and `describe_dataset` refused every bundled dataset** on a default install, while `metric_preview` and `create_metric` accepted them, so an agent had to guess names. Both now cover every dataset the caller may read; `query_tool` says whether it also has a query tool.
@@ -25,10 +30,11 @@ Breaking-change migration recipes live in [`UPGRADING.md`](UPGRADING.md).
 
 ### Changed
 - **The calendar opens on the Events calendar** when you've chosen nothing yet, so an entry you've just added is there. **None** still clears it, and a default saved view still wins.
-- **The period bar has This week and Last week**, for a weekly meeting.
+- **The period bar has This week and Last week**, for a weekly meeting, and **Last week now compares with the week before**: dashboards and goal lists opening on last week had no change column at all.
+- **The calendar's month and board chips show 24-hour times**, like its day panel, leaving room for the name.
 
 ### Added
-- **Agent read-back and the last few UI-only actions.** `get_metric`, `get_dashboard`, `get_report`, `get_goal_list`, `get_playlist` and `get_component`, taking `key`/`slug` or `id` (as do their update and delete tools, via a new `mcp_lookup_field` on `CRUDView`); `goal_list_save_week` + `POST dashboards/api/goals/<slug>/weeks/<week>/save/`; `metric_rows` + `GET dashboards/api/metrics/<key>/rows/`; `csv_url` on `report_values`; `visibility` on read-backs. The evaluation routes are in the OpenAPI schema, the REST detail `GET` is advertised, and their 404s are JSON.
+- **Agent read-back and the last few UI-only actions.** `get_metric`, `get_dashboard`, `get_report`, `get_goal_list`, `get_playlist` and `get_component`, taking `key`/`slug` or `id` (as do their update and delete tools, via a new `mcp_lookup_field` on `CRUDView`); `goal_list_save_week` + `POST dashboards/api/goals/<slug>/weeks/<week>/save/`; `metric_rows` + `GET dashboards/api/metrics/<key>/rows/`; `metric_usage` (a look before a delete); `csv_url` on `report_values` and `?format=csv` on its REST route; `visibility` on read-backs; "did you mean" on an unknown tool. The evaluation routes are in the OpenAPI schema, the REST detail `GET` is advertised, and their 404s are JSON.
 - **A calendar on any page — `{% calendar_card %}` and the `calendar` dashboard
   card.** The calendar counterpart of `{% metric_card %}` / `{% dashboard %}`:
   name the calendars (keys, a list or a `SavedCalendarView`) and pick `month`,

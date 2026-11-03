@@ -18,16 +18,16 @@ Find them under **Dashboards → Playlists**.
 3. Each slide shows for the playlist's **seconds on each dashboard**. To give
    one slide longer, type its own seconds next to it. You can also pin a
    slide to a period (say, *last 7 days*) for this playlist only.
+4. Choose whether it **loops** and whether it **plays when opened**.
 
 Clicking a column heading sorts the slides by that column. The rows are the order
 the slides play in, so sorting changes the play order. **Undo** puts the previous
 order back, and nothing changes until you save. Columns can be dragged wider or
 narrower.
-4. Choose whether it **loops** and whether it **plays when opened**.
 
-A personal playlist can hold your own dashboards and shared ones. A shared
-playlist can hold only shared dashboards. Anyone watching sees only the
-dashboards they're allowed to open; the others are skipped.
+A personal playlist can hold your own dashboards and goal lists, and shared ones. A
+shared playlist can hold only shared ones. Anyone watching sees only the slides
+they're allowed to open; the others are skipped.
 
 ## Playing it
 

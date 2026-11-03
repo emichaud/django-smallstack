@@ -30,13 +30,14 @@ views it later still only sees values from datasets they may read.
 
 from __future__ import annotations
 
-import csv
 import logging
 from datetime import date, datetime, timedelta
 from typing import TYPE_CHECKING, Any, Optional
 
 from django.http import HttpRequest
 from django.utils import timezone
+
+from apps.datasets.core import SafeCsvWriter
 
 from .goals import (
     STATUS_LABELS,
@@ -657,7 +658,10 @@ def weeks_payload(goal_list: "GoalList", grid: dict[str, Any]) -> dict[str, Any]
                 "label": r["label"],
                 "target_text": r.get("target_text", ""),
                 "weeks": [
-                    None if c.get("absent") else {k: c.get(k) for k in ("value", "display", "status", "error")}
+                    # target_text here is that week's, which a saved week keeps as it was.
+                    None
+                    if c.get("absent")
+                    else {k: c.get(k) for k in ("value", "display", "status", "error", "target_text")}
                     for c in r["cells"]
                 ],
             }
@@ -669,7 +673,7 @@ def weeks_payload(goal_list: "GoalList", grid: dict[str, Any]) -> dict[str, Any]
 def write_grid_csv(grid: dict[str, Any], out: "SupportsWrite[str]") -> None:
     """The grid as CSV — the spreadsheet, one row per goal: section, goal,
     target, then each week's value and status. Raw values, not formatted."""
-    writer = csv.writer(out)
+    writer = SafeCsvWriter(out)
     head = ["Section", "Goal", "Target"]
     for col in grid["columns"]:
         head += [f"Week of {col['start']:%Y-%m-%d}", f"Week of {col['start']:%Y-%m-%d} status"]

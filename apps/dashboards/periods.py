@@ -24,10 +24,12 @@ from django.http import HttpRequest
 from apps.datasets.dateranges import RELATIVE_PERIODS, is_period, period_label
 
 #: A period's natural predecessor — what a comparison measures it against.
-#: Rolling windows (``last_30``) and closed periods have none.
+#: Rolling windows (``last_30``) have none, nor do closed periods other than last
+#: week, the one a weekly meeting reads.
 PREVIOUS_PERIOD: dict[str, str] = {
     "today": "yesterday",
     "wtd": "pwtd",
+    "pwtd": "ppwtd",
     "mtd": "pmtd",
     "qtd": "pqtr",
     "ytd": "prev_year",
@@ -66,6 +68,7 @@ SHORT_PERIODS: list[tuple[str, str]] = [
 _PHRASES = {
     "wtd": "this week so far",
     "pwtd": "last week",
+    "ppwtd": "the week before",
     "mtd": "this month so far",
     "pmtd": "last month",
     "qtd": "this quarter so far",

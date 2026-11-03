@@ -51,9 +51,13 @@ password**:
    calendars you selected; give it an expiry you are comfortable with).
 2. On the calendar page, select the calendars you want and copy the
    **Subscribe (.ics)** link.
-3. In Apple Calendar, Google Calendar or Outlook, add a calendar *by URL* and
-   paste it. When the app asks for credentials, enter any username (your own
-   is fine) and the token as the password.
+3. In an app that accepts credentials for a subscribed calendar (Apple Calendar,
+   Thunderbird), add a calendar *by URL* and paste it. When it asks, enter any
+   username (your own is fine) and the token as the password.
+
+Google Calendar's *From URL* and Outlook on the web have no place for a password, so they
+can't subscribe to this feed directly. Download the file and import it instead, which
+copies the entries once.
 
 The app re-fetches the feed on its own schedule, so new and changed entries
 appear without you doing anything. Revoking the token ends the subscription;

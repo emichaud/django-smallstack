@@ -97,7 +97,7 @@
             </div>
             {% if ics_url %}
             <p class="cal-side-foot">
-                <a href="{{ ics_url }}">Subscribe (.ics)</a> · <a href="{% url 'calendar_api_events' %}?{% for k in selected_keys %}ds={{ k }}{% if not forloop.last %}&amp;{% endif %}{% endfor %}">JSON</a>
+                <a href="{% url 'calendar/events-list' %}">All events</a> · <a href="{{ ics_url }}">Subscribe (.ics)</a> · <a href="{% url 'calendar_api_events' %}?{% for k in selected_keys %}ds={{ k }}{% if not forloop.last %}&amp;{% endif %}{% endfor %}">JSON</a>
             </p>
             {% endif %}
         </div>

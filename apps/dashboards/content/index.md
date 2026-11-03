@@ -19,10 +19,28 @@ this week, average latency, pending approvals.
 | **Dashboard** | A grid of cards. Each card shows a metric (or a metric split by a column, a widget, a goal list, or a note). |
 | **Component** | A saved card design. It takes its number, format, unit and colour rules from its metric; change any of them on the card to override them there only. |
 
+## Getting a team started
+
+For a weekly operations meeting, from nothing:
+
+1. **Metrics.** Under **Goals → Metrics → New metric**, build the numbers you read each week. Set their
+   **Period field**, so they can be narrowed to a week, and choose **Shared** under *Who can see it*.
+2. **A goal list.** **Goals → Goal lists → New goal list**: choose **Shared** and judge it over
+   **Previous week**, then add sections and targets. See [Goals](/smallstack/help/dashboards/goals/).
+3. **A dashboard**, also shared, opening on the previous week, with those metrics, grouped cards and a
+   **Calendar** card for what's coming.
+4. **A playlist** under **Dashboards → Playlists**: the dashboard, then the goal list as *Goals now*,
+   *Last week* and *Week over week*.
+
+Weeks are saved every Monday; see *Saving weeks* in [Goals](/smallstack/help/dashboards/goals/). An agent can do all of this:
+see [Agents and the API](/smallstack/help/dashboards/agents-and-api/).
+
 ## The ladder: dataset → metric → card
 
 A **dataset** is a named, filterable table the project has declared
-(requests, tickets, health checks…). A **metric** stores *which rows* (a
+(requests, tickets, health checks…). SmallStack bundles its own (requests, heartbeats, job runs…);
+your own data becomes one with a few lines of code, which a developer can add from
+`docs/skills/datasets.md` (`@dataset`). A **metric** stores *which rows* (a
 filter) and *how to roll them up* (count, sum, average…). A **card** shows the
 metric's current value, coloured by its thresholds; click it to see the rows
 behind the number. Because the card re-runs the stored filter every time, it
@@ -30,8 +48,8 @@ is always current.
 
 ## Reading a dashboard
 
-- **Period** (top left) narrows every *period-aware* card to "Last week",
-  "Last 7 days", "Month to date", "Previous quarter" and so on. A card whose metric has no
+- **Period** (top left) narrows every *period-aware* card to "This week", "Last week", "7 days",
+  "This month" and so on (see *Periods*, below). A card whose metric has no
   date column ignores it, and so does a card pinned to all time.
 - **Click a number** to open the rows behind it. On a grouped card, each group
   opens its own rows.
@@ -44,16 +62,34 @@ is always current.
   and is being compared with a finished one. The change is grey on purpose: whether up is good
   depends on the metric.
 
+## Periods
+
+| On the page | In forms and the API | Means |
+|---|---|---|
+| Today / Yesterday | `today`, `yesterday` | that calendar day |
+| This week | Week to date, `wtd` | Monday up to now, so it's still running |
+| Last week | Previous week, `pwtd` | the last full week, Monday to Sunday |
+| This month, This quarter, This year | `mtd`, `qtd`, `ytd` | from the 1st up to now |
+| Last month, Last quarter, Last year | `pmtd`, `pqtr`, `prev_year` | the last full one |
+| 7 days, 30 days, 90 days | `last_7`, `last_30`, `last_90` | rolling, from that many days ago through today |
+| Next 7 days, Next 30 days | `next_7`, `next_30` | rolling, from today on |
+
+Periods still running are compared with **all** of the period before, so early in a week a number
+that only goes up looks low. For a meeting, read **Last week**, which compares with the week before.
+
 ## Editing a layout
 
 On a dashboard you can edit, click **Edit layout**:
 
 1. **Drag** cards to move them; drag a corner to resize. The grid is 12 columns wide.
 2. **Add card** → pick a type:
-   - **Metric** — one number.
-   - **Grouped metric** — the metric split by a column (requests by method, tickets by queue): the biggest groups as numbers, the rest folded into *Other*.
-   - **Dashboard widget** — any card from the main `/smallstack/` dashboard (staff).
-   - **Text** — a heading or a note, in markdown.
+   - **Saved card** — one you've built under **Components** (when you have any).
+   - **Single stat** — one number.
+   - **Grouped stat** — the metric split by a column (requests by method, tickets by queue): the biggest groups as numbers, the rest folded into *Other*.
+   - **Goals** — a goal list's summary and first goals.
+   - **Calendar** — upcoming entries, a month or a day-range board.
+   - **Info card** — any card from the main `/smallstack/` dashboard (staff).
+   - **Note** — a heading or a note, in markdown.
 3. **Remove** takes a card off (the metric itself stays).
 4. **Save layout**. **Cancel** throws the changes away.
 
@@ -105,8 +141,14 @@ owner edits them.
 A shared dashboard can hold only shared metrics, and a personal one can hold
 shared metrics and your own. It can't use someone else's personal metric.
 
+**Sharing a dashboard doesn't share its data.** Every dataset has its own access level, and all the
+ones SmallStack bundles are staff-only. So someone without staff access who opens a shared dashboard
+or goal list built on them sees *restricted* on each card, and "No numbers yet" on the goals. To give
+a whole team the numbers, make them staff, or have a developer declare a dataset of your own with
+`access="auth"`, which opens it to everyone signed in.
+
 ## A demo
 
 `uv run python manage.py seed_dashboards` creates a **Site health** dashboard
 and a **Monthly KPIs** report from the built-in datasets (requests, health
-checks, approvals). It's a good place to see each card type.
+checks, approvals). It shows the metric, grouped and note cards.

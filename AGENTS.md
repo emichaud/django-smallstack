@@ -1,6 +1,6 @@
 # AGENTS.md — SmallStack
 
-You're a coding agent working inside a Django SmallStack project. This file orients you to the codebase and tells you what to read **before** writing code. It is the tool-neutral [AGENTS.md](https://agents.md/) — Claude Code loads it through `CLAUDE.md`, Codex, Cursor, Copilot, Gemini CLI and friends read it directly; the per-topic skills under `docs/skills/` are also installed as Agent Skills in `.agents/skills/` (and `.claude/skills/`). The most common AI-built-page failure mode in this codebase is hard-coded colors that look fine on the default palette but break the other four; reading the linked skill files prevents it.
+You're a coding agent working inside a Django SmallStack project. This file orients you to the codebase and tells you what to read **before** writing code. It is the tool-neutral [AGENTS.md](https://agents.md/) — Claude Code loads it through `CLAUDE.md`, Codex, Cursor, Copilot, Gemini CLI and friends read it directly; the per-topic skills under `docs/skills/` are also installed as Agent Skills in `.agents/skills/` (and `.claude/skills/`). The most common AI-built-page failure mode in this codebase is hard-coded colors that look fine on the default palette but break on the others; reading the linked skill files prevents it.
 
 ## Read-first skills
 

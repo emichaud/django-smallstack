@@ -23,7 +23,7 @@ own per-user scoping and links apply.
 ## Picking calendars
 
 The list on the left is additive. Click a calendar to add it; click again to
-remove it. Each has its own colour, and the swatch stays the same colour
+remove it. Each has a colour of its own while few are on (with many, some share one), and the swatch stays the same colour
 whether or not it is selected, so a saved view looks the same every time you
 open it. **All** and **None** are there for the extremes. The count under a
 selected calendar is how many of its events fall in the visible month.
@@ -75,7 +75,7 @@ default, with optional start and end times and an inclusive end date for a
 span. An entry is visible to everyone signed in unless you mark it *private*
 (then only you and staff see it), can be edited by its author or by staff, and
 can be marked **cancelled** to stay on the calendar struck through rather than
-disappearing. The entries page (`Calendar → Events`) lists them with its own
+disappearing. The entries page (**All events**, under the calendars on the left, or `/smallstack/calendar/events/`) lists them with its own
 Table ⇄ Calendar ⇄ Board toggle, and the same entries are available over REST
 and MCP, so an agent can file one for you.
 

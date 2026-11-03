@@ -137,7 +137,7 @@ def test_bad_goals_are_refused(metrics, goal, problem):
 
 def test_a_shared_list_cant_carry_personal_metrics_and_only_one_number_cards_qualify(metrics, member):
     Metric(key="mine", name="Mine", dataset=DS, owner=member).save()
-    with pytest.raises(ValidationError, match="another user's personal metric"):
+    with pytest.raises(ValidationError, match="is a personal metric"):
         _list([{"title": "", "goals": [{"metric": "mine", "target": {"op": ">=", "value": 1}}]}])
     assert (
         _list([{"title": "", "goals": [{"metric": "mine", "target": {"op": ">=", "value": 1}}]}], owner=member).owner
@@ -495,7 +495,7 @@ def test_deleting_a_metric_takes_its_goals_and_a_deleted_card_hands_over_to_its_
 
 def test_my_dashboards_as_a_sortable_resizable_table(client, staff):
     for name, cells in (("bravo", 1), ("Alpha", 3), ("charlie", 0)):
-        layout = [{"type": "text", "options": {"markdown": "x"}, "x": 0, "y": i} for i in range(cells)]
+        layout = [{"type": "text", "options": {"markdown": "x"}, "x": 0, "y": i * 4} for i in range(cells)]
         d = Dashboard(name=name, slug=name.lower(), layout=layout, owner=staff)
         d.created_by = staff
         d.save()

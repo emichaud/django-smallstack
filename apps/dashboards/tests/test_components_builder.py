@@ -134,7 +134,7 @@ def test_a_placement_needs_a_card_the_dashboard_may_use(metric, staff):
     assert problems == ["layout[0].component: no saved card 'ghost'"]
     _card(name="Theirs", owner=staff)
     _, problems = normalize_layout([{"component": "theirs"}], owner_id=None)
-    assert "another user's personal card" in problems[0]
+    assert "a personal card" in problems[0]
 
 
 def test_editing_a_card_updates_every_dashboard_and_deleting_it_leaves_a_plain_card(metric):

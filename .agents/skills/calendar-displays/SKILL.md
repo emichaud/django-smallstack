@@ -27,7 +27,7 @@ If the model has no natural date field, use `TableDisplay` or `CardDisplay` inst
 
 ## Usage
 
-Add `CalendarDisplay(...)` to `explorer_displays` (or `crud_displays` on a `CRUDView`):
+Add `CalendarDisplay(...)` to `explorer_displays` (or `displays` on a `CRUDView`):
 
 ```python
 from apps.smallstack.displays import TableDisplay, CalendarDisplay
@@ -206,6 +206,6 @@ Unlike `CardDisplay`, you don't need `item_template` dispatch unless your layout
 ## Related skills
 
 - `card-displays.md` — sibling list display family (cards vs calendar)
-- `crud-views.md` — `ListDisplay` protocol, `crud_displays` attribute
+- `crud-views.md` — `ListDisplay` protocol, `displays` attribute
 - `explorer.md` — `explorer_displays` attribute on admin classes
 - `timezones.md` — how datetimes get converted to local time

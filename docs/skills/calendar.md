@@ -162,7 +162,7 @@ with weekends hidden), while a week in range with nothing booked keeps its
 "Nothing scheduled" column — those are different statements. The right column groups the day's events by calendar
 (`core.group_by_calendar`, series order). Saved views are a `<select>` sorted
 A–Z whose options carry the current window. Precedence: explicit `ds`
-> `view` > the user's default view (only when there are **no** params) > none.
+> `view` > the user's default view (only when there are **no** params) > the Events calendar.
 An explicit empty `ds=` means "none" and is emitted by the None link so the
 state round-trips. A `view` whose selection has been changed by `ds` is
 treated as modified (links carry `ds`, the view loses its highlight).

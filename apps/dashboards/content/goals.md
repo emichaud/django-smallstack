@@ -32,10 +32,14 @@ A rule is *at least*, *more than*, *at most*, *less than*, *exactly*, *not* or
 Goals with no number are left out of the count, so "6 of 8 on target" means six
 of the eight goals that have a number.
 
+A count of nothing is 0, so a goal on "failed jobs" reads as on target while no job has run at
+all. An average with no rows has no number, and reads as *no data*.
+
 ## Making a list
 
 1. Choose **New goal list**, give it a name, and choose the period the goals are
-   judged over.
+   judged over. For a team's list, choose **Shared** under *Who can see it*: it can
+   then only hold shared metrics and cards.
 2. Add a section (Reliability, Traffic…) and add goals to it.
 3. For each goal, pick the metric or card and set its target. A metric with colour
    rules fills these in for you when its rules include a success rule.
@@ -71,8 +75,9 @@ Only cards that boil down to one number can be goals. A grouped stat can't.
 
 Each goal shows its last six periods as small bars, each coloured by how that
 period did against the target. The period still running is outlined. The size
-of each period follows the list's: weeks when it's judged this week, quarters
-for this quarter, months otherwise. When the latest finished periods share a
+of each period follows the list's: days for today or yesterday, weeks for this or last
+week or 7 days, quarters for this or last quarter or 90 days, years for this or last year,
+months otherwise. When the latest finished periods share a
 status, the goal says so, for example *Missed 3 weeks running*.
 
 ## Week by week
@@ -94,9 +99,10 @@ icon in the Goal lists table.
     weeks before;
   - the run it's on, and its best and worst week.
 
-**Saving weeks.** Every Monday the week just ended is saved automatically, with
-each goal's value, status and the target it had. Changing a target later doesn't
-rewrite a saved week.
+**Saving weeks.** Every Monday the week just ended is saved automatically (this needs
+the scheduler and a background worker running), with each goal's value, status and the
+target it had. Changing a target later doesn't rewrite a saved week, unless you save
+that week again, which uses the targets of that moment.
 
 A week that hasn't been saved is worked out when you look at it, against today's
 targets. If you can edit the list, **Save this week** saves the week you're on,

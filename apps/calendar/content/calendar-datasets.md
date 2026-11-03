@@ -30,7 +30,8 @@ def ticket_due_dates(request):
 ```
 
 Every keyword `@dataset` accepts passes straight through (`label`,
-`description`, `columns`, `filterable`, `enable_api`, `enable_mcp`, `link` …).
+`description`, `columns`, `filterable`, `enable_api`, `enable_mcp`, `link` …), except
+`access`, which the calendar reads for itself.
 The calendar-specific ones are:
 
 | Keyword | Meaning |
@@ -115,8 +116,8 @@ calling user's request, so one filter covers every surface.
 
 ## The bundled calendars
 
-SmallStack attaches the protocol to eleven of its own datasets. All are
-staff-only and follow the bundled datasets' switches
+SmallStack attaches the protocol to its own datasets. All but Events are
+staff-only, and they follow the bundled datasets' switches
 (`SMALLSTACK_FRAMEWORK_DATASETS_ENABLED`).
 
 | Calendar | Dataset | Plots |

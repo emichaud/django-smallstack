@@ -16,12 +16,12 @@ evaluation seam's access rule); none renders HTML.
 
 from __future__ import annotations
 
-import csv
 from typing import TYPE_CHECKING, Any, Optional
 
 from django.http import HttpRequest
 from django.urls import reverse
 
+from apps.datasets.core import SafeCsvWriter
 from apps.datasets.dateranges import period_label
 
 from .comparison import delta
@@ -232,7 +232,7 @@ def report_sort_links(matrix: dict[str, Any], order: str) -> list[dict[str, Any]
 def write_report_csv(matrix: dict[str, Any], out: "SupportsWrite[str]") -> None:
     """Write a :func:`report_matrix` as CSV to *out* (an ``HttpResponse``
     works). Raw values, not formatted; problems are spelled out in the cell."""
-    writer = csv.writer(out)
+    writer = SafeCsvWriter(out)
     targets = bool(matrix.get("has_targets"))
     head = ["Metric", *(["Target", "At risk"] if targets else [])]
     for c in matrix["columns"]:

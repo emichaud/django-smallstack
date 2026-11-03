@@ -92,8 +92,8 @@ current setting.
 ```
 
 12-column grid (gridstack.js, vendored); `w` 1–12, `h` 1–12 rows of 70px;
-`x + w ≤ 12`. `id`, `w`, `h`, `x`, `y` may be omitted (filled from the type's
-default size). `use_period: false` pins a cell to all-time regardless of the
+`x + w ≤ 12`. `id`, `w`, `h`, `x`, `y` may be omitted (the size from the type's
+default; a cell with neither `x` nor `y` goes after the cards so far). Cells may not overlap. `use_period: false` pins a cell to all-time regardless of the
 period bar. Cells load lazily over htmx (`hx-trigger="load[, every Ns]"`), so
 one slow card doesn't block the page and `refresh_seconds` is free.
 
@@ -104,7 +104,9 @@ one slow card doesn't block the page and `refresh_seconds` is free.
 | `metric` | one stat card — the exact `{% stat_card %}` markup; click → the rows behind it | — |
 | `metric_group` | the metric split by a column: top N groups, biggest first, each drilling into its rows and showing its change from the previous period; an `Other` folds the tail for additive aggs (count/sum) only | `dimension` (req), `limit` 1–12, `other` |
 | `widget` | an existing `DashboardWidget` from `/smallstack/` (staff only) | `widget` (class path — `list_dashboard_components` lists them) |
-| `text` | markdown (rendered by the hardened `render_markdown`; raw HTML is escaped) | `markdown` |
+| `text` | markdown (rendered by the hardened `render_markdown`; raw HTML is escaped) | `markdown` (required) |
+| `goals` | a goal list's summary and first goals | `goal_list`, `limit`, `order` |
+| `calendar` | upcoming entries, a month or a board (registered by `apps/calendar`) | `calendars`, `mode`, `days`, `limit` |
 
 ### Card types — a small framework set, open to apps
 
@@ -486,7 +488,7 @@ leave the capability to agents.
 ## Building agentically (MCP + REST)
 
 The CRUD tools come from the CRUDViews (`list_metrics`, `create_metric`,
-`update_dashboard`, `create_report`, …; REST at `/smallstack/api/dashboards/{metrics,boards,reports}/`).
+`update_dashboard`, `create_report`, …; REST at `/smallstack/api/dashboards/{metrics,boards,reports,playlists,components,goals}/`).
 The evaluation tools are custom:
 
 | MCP tool | REST | Purpose |
@@ -500,7 +502,7 @@ The evaluation tools are custom:
 | `get_metric` `get_dashboard` `get_report` `get_goal_list` `get_playlist` `get_component` | `GET /smallstack/api/dashboards/<noun>/<id>/` | read one back in full. The tools also take `key` / `slug` in place of `id` (`mcp_lookup_field`), as do `update_*` and `delete_*` |
 | `goal_list_values` / `goal_list_weeks` | `GET dashboards/api/goals/<slug>/values/`, `…/weeks/` | a list judged; a list week over week |
 | `goal_list_save_week` | `POST dashboards/api/goals/<slug>/weeks/<week>/save/` | freeze a week (`fill` backfills, MCP only) |
-| `list_dashboard_components` | `GET dashboards/api/components/` | card types, options, default sizes, periods (+ widgets for staff: the `widget` type, "App card", places one published `DashboardWidget`) |
+| `list_dashboard_components` | `GET dashboards/api/components/` | card types, options, default sizes, periods (+ widgets for staff: the `widget` type, "Info card", places one published `DashboardWidget`) |
 | `dashboard_add_card` / `dashboard_remove_card` | (PATCH `layout`) | edit one card without rewriting the layout |
 | `dashboard_snapshot` | `GET dashboards/api/boards/<slug>/values/` | every card, evaluated — check your work |
 | `dashboard_set_picture` (base64, or `remove`) | `POST`/`DELETE dashboards/api/boards/<slug>/picture/` (multipart `image`, `alt`) | the dashboard's picture. The JSON CRUD can't carry a file, so `cover_image` is read-only there (its URL) and left out of the MCP write schema. A session caller sends `X-CSRFToken` |
@@ -529,7 +531,7 @@ whether it also has a `query_dataset_<key>` tool. REST 404s on these routes are 
 **Empty aggregates.** `count`/`distinct`/`sum` of no rows is 0; `avg`/`min`/`max` of no rows is `None`,
 which a card shows as "—" and a goal judges as `none` (a week with no traffic is not "0 ms, on target").
 
-**What a deletion takes:** `detach_metric` removes the metric's cells, report rows, goals, its saved
+**What a deletion takes** (`metric_usage` reads it first): in everything the caller can edit, `detach_metric` removes the metric's cells, report rows, goals, its saved
 cards and the goals on those cards, and `delete_metric` reports them in `also_removed`.
 
 ## Where the logic lives — build your own UI on these
@@ -556,7 +558,7 @@ surface importing another, or a private name imported from another app fails the
 
 - **This period against the one before** — `comparison.compare_with_previous(metric, request,
   period, result)` → `{dir, text, previous, unit}` or None. Only for periods with a natural
-  predecessor (`today`→`yesterday`, `wtd`→`pwtd`, `mtd`→`pmtd`, `qtd`→`pqtr`, `ytd`→`prev_year`;
+  predecessor (`today`→`yesterday`, `wtd`→`pwtd`, `pwtd`→`ppwtd`, `mtd`→`pmtd`, `qtd`→`pqtr`, `ytd`→`prev_year`;
   `periods.PREVIOUS_PERIOD`). A still-running period says **"vs all of last month"**
   (partial against complete), and the change is neutral grey, never good/bad. Used by the metric
   page, dashboard metric cells, the index and metrics-list period views, the rows modal (count
@@ -564,7 +566,7 @@ surface importing another, or a private name imported from another app fails the
   compare each group with the same group last period (`metrics.group_value_map`; "Other" is
   skipped — it isn't the same set), and their groups' threshold states count in the dashboard
   "needs attention" digest. The report page
-  compares its own first two columns with the same `_delta`.
+  compares its own first two columns with the same `comparison.delta`.
 - **Digests** (lazy, `hx-trigger="revealed"`): `dashboards/r/<slug>/digest/` (a report's
   up/down/unchanged between its first two columns) and `dashboards/d/<slug>/digest/` (a
   dashboard's metric cards by threshold state at the period it opens on — "1 needs attention").

@@ -93,7 +93,7 @@ def normalize_sections(raw: Any, *, owner_id: Any) -> tuple[list[dict[str, Any]]
     can't carry someone's personal metric to everyone."""
     from apps.datasets.dateranges import is_period
 
-    from .components import get_component_type
+    from .components import get_component_type, personal_problem
     from .models import Component, Metric, _visible_to_owner
 
     if raw in (None, ""):
@@ -172,7 +172,7 @@ def normalize_sections(raw: Any, *, owner_id: Any) -> tuple[list[dict[str, Any]]
                     problems.append(f"{where}.metric: no metric with key {metric_key!r}")
                     continue
                 if not _visible_to_owner(metric.owner_id, owner_id):
-                    problems.append(f"{where}.metric: {metric_key!r} is another user's personal metric")
+                    problems.append(f"{where}.metric: {personal_problem(metric_key, 'metric', owner_id)}")
                     continue
                 clean["metric"] = metric.key
             else:
@@ -185,7 +185,7 @@ def normalize_sections(raw: Any, *, owner_id: Any) -> tuple[list[dict[str, Any]]
                     problems.append(f"{where}.component: {card_key!r} isn't a one-number card (a single stat)")
                     continue
                 if not _visible_to_owner(card.owner_id, owner_id):
-                    problems.append(f"{where}.component: {card_key!r} is another user's personal card")
+                    problems.append(f"{where}.component: {personal_problem(card_key, 'card', owner_id)}")
                     continue
                 clean["component"] = card.key
             for key, limit in (("label", 120), ("note", MAX_NOTE)):
@@ -209,6 +209,15 @@ def normalize_sections(raw: Any, *, owner_id: Any) -> tuple[list[dict[str, Any]]
             if period not in (None, ""):
                 if not isinstance(period, str) or not (period == "all" or is_period(period)):
                     problems.append(f"{where}.period: {period!r} is not a known period")
+                    continue
+                # Judged with no way to narrow it, an all-time total would be
+                # scored against what the author meant as a weekly target.
+                source = metrics.get(metric_key) if metric_key else None
+                if period != "all" and source is not None and not source.period_field:
+                    problems.append(
+                        f"{where}.period: {source.key!r} has no period field, so it can't be judged over "
+                        f"{period}; give the metric a period_field or drop this period"
+                    )
                     continue
                 clean["period"] = period
             clean_goals.append(clean)

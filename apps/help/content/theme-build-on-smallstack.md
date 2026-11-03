@@ -158,7 +158,7 @@ For the full component reference, see the [Starter Page](/starter/) or individua
 
 ## Step 5: Pick a Color Palette
 
-SmallStack ships with 5 palettes. Set the default in `config/settings/smallstack.py`:
+SmallStack ships with 6 palettes. Set the default in `config/settings/smallstack.py`:
 
 ```python
 SMALLSTACK_COLOR_PALETTE = "django"          # default blue

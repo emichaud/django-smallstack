@@ -36,10 +36,11 @@ A well-behaved agent will:
 |---|---|
 | `list_datasets`, `describe_dataset` | what can be measured, and how it can be filtered |
 | `metric_preview` | evaluate an unsaved metric (dry run) |
-| `list_metrics`, `get_metric`, `create_metric`, `update_metric`, `delete_metric` | metric CRUD. Each of the CRUD families here has the same five verbs |
+| `list_metrics`, `get_metric`, `create_metric`, `update_metric`, `delete_metric` | metric CRUD. The CRUD families here share these verbs |
 | `metric_value` | a saved metric's value, optionally for a period, with the change from the previous period |
 | `metric_trend` | a saved metric per day, week or month across a period, which is what a chart draws |
 | `metric_rows` | the rows behind a number, to explain it |
+| `metric_usage` | where a metric is used, before you change or delete it |
 | `list_dashboard_components` | the card types and their options |
 | `card_preview`, `*_component` | try a card without saving; saved cards you can place by key |
 | `get_dashboard`, `create_dashboard`, `update_dashboard`, … | dashboard CRUD (the whole layout at once) |
@@ -58,8 +59,13 @@ take `key` in place of `id`; dashboards, reports, goal lists and playlists take 
 
 **Periods** are `today`, `yesterday`, `wtd` (this week so far), `pwtd` (last week), `mtd`, `pmtd`,
 `qtd`, `pqtr`, `ytd`, `prev_year`, `last_<N>`, `next_<N>` and `all`. A name that isn't one is refused,
-never answered with an all-time number. **A metric with no `period_field`** can't be narrowed, so
-it gives its all-time value and a `note` saying so.
+never answered with an all-time number (a stored `default_period` takes only the fixed names, not
+`all` or an arbitrary `last_14`). **A metric with no `period_field`** can't be narrowed, so it gives
+its all-time value and a `note` saying so, and a goal on one can't have its own period.
+
+**Counts.** A list tool's `count` is the page and `total` is how many match. Tool links are relative
+to the site. `dashboard_snapshot` gives metric cards' values, grouped cards' groups and notes' text;
+for a calendar card, ask `calendar_events`.
 
 ## REST
 
@@ -72,11 +78,12 @@ GET  /smallstack/dashboards/api/datasets/
 GET  /smallstack/dashboards/api/datasets/<key>/schema/
 POST /smallstack/dashboards/api/preview/            {"dataset": …, "filter_tree": {…}, "agg": …}
 POST /smallstack/dashboards/api/report-preview/     {"items": [{"metric": …}], "periods": ["mtd", "pmtd"]}
+POST /smallstack/dashboards/api/card-preview/       {"type": …, "metric": …, "options": {…}}
 GET  /smallstack/dashboards/api/metrics/<key>/value/?period=mtd
 GET  /smallstack/dashboards/api/metrics/<key>/trend/?period=&grain=
 GET  /smallstack/dashboards/api/metrics/<key>/rows/?period=&order=&limit=
 GET  /smallstack/dashboards/api/boards/<slug>/values/
-GET  /smallstack/dashboards/api/reports/<slug>/values/
+GET  /smallstack/dashboards/api/reports/<slug>/values/    (?format=csv for the file)
 GET  /smallstack/dashboards/api/goals/<slug>/values/?period=
 GET  /smallstack/dashboards/api/goals/<slug>/weeks/?week=&weeks=
 POST /smallstack/dashboards/api/goals/<slug>/weeks/<week>/save/
@@ -88,11 +95,11 @@ All of them are in the OpenAPI schema (`/api/schema/openapi.json`, browsable at 
 
 ## Safety
 
-- An agent can't share. Only a staff account's agent can mark something shared.
+- A non-staff account's agent can't share; only a staff account's can mark something shared.
 - A metric can only use datasets its user may read. A card on a shared
   dashboard shows *restricted* to anyone whose account can't read its data.
 - A bad filter is refused with a precise reason. It is never applied as
   "no filter". So is a misspelt argument, period or week.
-- `delete_metric` also removes the metric's cards, report rows, goals and saved cards,
-  and its answer lists them under `also_removed`. Read the metric's page first if that
-  matters: the delete isn't a dry run.
+- `delete_metric` also removes the metric's cards, report rows, goals and saved cards in
+  everything the account can edit, and lists them under `also_removed`. It isn't a dry
+  run: `metric_usage` says where a metric is used, first.

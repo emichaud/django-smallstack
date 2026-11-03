@@ -57,7 +57,7 @@ from .models import Dashboard, GoalList, Metric, Playlist, Report
 from .periods import NO_PERIOD_FIELD_NOTE, period_problem, requested_period
 from .playlists import playlist_payload
 from .previews import preview_card, preview_metric, preview_report
-from .reports import report_values
+from .reports import report_matrix, report_values, write_report_csv
 from .trends import metric_trend
 
 
@@ -328,8 +328,13 @@ class GoalWeekSaveApiView(_ApiView):
 
 
 class ReportValuesApiView(_ApiView):
-    def get(self, request: HttpRequest, slug: str) -> JsonResponse:
+    def get(self, request: HttpRequest, slug: str) -> HttpResponse:
         report = _visible(Report, request.user, slug=slug)
+        if request.GET.get("format") == "csv":
+            response = HttpResponse(content_type="text/csv")
+            response["Content-Disposition"] = f'attachment; filename="{report.slug}.csv"'
+            write_report_csv(report_matrix(report, request), response)
+            return response
         return JsonResponse(report_values(report, request))
 
 
@@ -400,7 +405,7 @@ def register_openapi_paths() -> None:
             [key, period, query("order", "A column, - for descending"), query("limit", "1-200, default 25")],
         ),
         ("GET", "boards/{slug}/values/", "Every card on a dashboard, evaluated", [slug, period]),
-        ("GET", "reports/{slug}/values/", "A report's matrix", [slug]),
+        ("GET", "reports/{slug}/values/", "A report's matrix", [slug, query("format", "csv for the CSV download")]),
         ("GET", "goals/{slug}/values/", "A goal list judged", [slug, period]),
         (
             "GET",

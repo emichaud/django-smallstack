@@ -343,6 +343,29 @@ def _goal_list_save_week(args: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _metric_usage(args: dict[str, Any]) -> dict[str, Any]:
+    from .models import Metric, metric_usage
+
+    user = _user()
+    metric = Metric.objects.filter(key=str(args.get("key") or "")).first()
+    if metric is None or not metric.can_view(user):
+        return {"error": f"no metric {args.get('key')!r} — use list_metrics"}
+    usage = metric_usage(metric, user)
+
+    def places(rows: list[dict[str, Any]], count: str) -> list[dict[str, Any]]:
+        return [
+            {"name": r["obj"].name, "slug": r["obj"].slug, count: r[count], "can_edit": r["can_edit"]} for r in rows
+        ]
+
+    return {
+        "key": metric.key,
+        "dashboards": places(usage["boards"], "cards"),
+        "reports": places(usage["reports"], "rows"),
+        "goal_lists": places(usage["goal_lists"], "goals"),
+        "saved_cards": [c.key for c in usage["components"]],
+    }
+
+
 def _metric_rows(args: dict[str, Any]) -> dict[str, Any]:
     from .metrics import drill_rows, may_read, request_for
     from .models import Metric
@@ -361,13 +384,22 @@ def _metric_rows(args: dict[str, Any]) -> dict[str, Any]:
     limit, problem = _integer(args.get("limit"), "limit")
     if problem:
         return problem
+    if limit is not None and limit < 1:
+        return {"error": f"limit must be at least 1, not {limit}"}
+    order = str(args.get("order") or "")
+    from apps.datasets.core import get_dataset
+
+    ds = get_dataset(metric.dataset)
+    columns = ds.column_names() if ds is not None else []
+    if order and order.lstrip("-") not in columns:
+        return {"error": f"unknown order {order!r} — a column of {metric.dataset}: {', '.join(columns)}"}
     try:
         return drill_rows(
             metric,
             request_for(user),
             period=None if period == "all" else period,
-            limit=max(1, min(limit or 25, 200)),
-            order=str(args.get("order") or ""),
+            limit=min(limit or 25, 200),
+            order=order,
         )
     except ValueError as exc:
         return {"error": str(exc)}
@@ -506,6 +538,20 @@ def register_dashboard_tools() -> int:
                 "additionalProperties": False,
             },
             _metric_trend,
+            False,
+        ),
+        (
+            "metric_usage",
+            "Where a saved metric is used: the dashboards, reports, goal lists and saved cards that would "
+            "change if it were edited or deleted. delete_metric removes the metric from all of them, so read "
+            "this first.",
+            {
+                "type": obj,
+                "properties": {"key": {"type": "string"}},
+                "required": ["key"],
+                "additionalProperties": False,
+            },
+            _metric_usage,
             False,
         ),
         (
@@ -729,7 +775,9 @@ def register_dashboard_tools() -> int:
         ),
         (
             "report_values",
-            "Evaluate a KPI report: one row per metric, one column per period.",
+            "Evaluate a KPI report: one row per metric, one column per period. url and csv_url are the report's "
+            "page and its CSV download, relative to the site, for a signed-in person to open. Over REST, "
+            "dashboards/api/reports/<slug>/values/?format=csv is the CSV with a token.",
             {
                 "type": obj,
                 "properties": {"report": {"type": "string", "description": "Report slug."}},

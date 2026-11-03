@@ -56,7 +56,7 @@ SmallStack isn't one kind of app — it's a small backend that plays whatever ro
 
 | Role | What it means |
 |------|---------------|
-| **Admin app** | Auth, profiles, five-palette light/dark, tables, modal editors, filters, breadcrumbs — the internal tool you'd build anyway. |
+| **Admin app** | Auth, profiles, six-palette light/dark, tables, modal editors, filters, breadcrumbs — the internal tool you'd build anyway. |
 | **Headless API backend** | REST with token auth and OpenAPI 3.0, plus bundled typed clients for React, Svelte, Solid & Streamlit (`clients/`). Point your SPA at it. |
 | **MCP server** | OAuth + JSON-RPC tools derived from your models — Claude Desktop and the Connectors UI work with no setup. |
 | **Search engine** | Real full-text search — FTS5/BM25 on SQLite, `tsvector` + GIN on Postgres — ranked, with a Ctrl-K omnibar, an MCP tool, and custom variants (SearchBuilder). |

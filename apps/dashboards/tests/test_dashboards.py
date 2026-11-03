@@ -373,7 +373,7 @@ def test_personal_dashboard_is_private(client, member, staff):
 def test_layout_save_endpoint(client, staff, member, board):
     client.force_login(staff)
     layout = [dict(c) for c in board.layout]
-    layout[0]["x"], layout[0]["w"] = 6, 6
+    layout[0]["x"], layout[0]["y"], layout[0]["w"] = 6, 50, 6
     resp = client.post(
         "/smallstack/dashboards/d/board/layout/", json.dumps({"layout": layout}), content_type="application/json"
     )

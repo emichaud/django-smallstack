@@ -18,7 +18,6 @@ Every read route also takes ``?filter_tree=<json>`` — the nested AND/OR filter
 
 from __future__ import annotations
 
-import csv
 from typing import Any, overload
 
 from django.conf import settings
@@ -30,7 +29,7 @@ from django.views.decorators.csrf import csrf_exempt
 
 from apps.smallstack.api import authenticate_api_request
 
-from .core import Dataset, get_dataset, list_datasets
+from .core import Dataset, SafeCsvWriter, get_dataset, list_datasets
 from .registry import get_def
 
 _RESERVED = {
@@ -155,7 +154,7 @@ def _rows_csv_response(ds: Dataset, key: str, rows: list[dict]) -> HttpResponse:
 
     response = HttpResponse(content_type="text/csv")
     response["Content-Disposition"] = f'attachment; filename="{key}.csv"'
-    writer = csv.writer(response)
+    writer = SafeCsvWriter(response)
     writer.writerow(header)
     for row in rows:
         writer.writerow([_csv_cell(row.get(col)) for col in header])
