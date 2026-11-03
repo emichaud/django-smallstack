@@ -951,6 +951,12 @@ def register_dashboard_tools() -> int:
                         'ops > >= < <= = != between ({"op": "between", "value": [lo, hi]}).',
                     },
                     "warn": {"type": obj, "description": "The at-risk line, same shape; optional."},
+                    "targets": {
+                        "type": obj,
+                        "description": "Targets for particular cadences, used by weeks and history: "
+                        '{"hourly": {"target": {"op": ">=", "value": 10}, "warn": {...}}}. Without one, weekly and '
+                        "averages, rates and readings use the main target; a count or sum isn't judged.",
+                    },
                     "period": {"type": "string", "description": "A period key or 'all'; blank = the list's."},
                     "note": {"type": "string", "description": "A short note shown under the goal (owner, context)."},
                 },

@@ -81,6 +81,12 @@
                     ["id", "metric", "component", "label", "target", "warn", "period", "note"].forEach(function (k) {
                         if (g[k] !== undefined && g[k] !== "" && g[k] !== null) out[k] = g[k];
                     });
+                    // A cadence with no target isn't set: an at-risk line alone means nothing.
+                    var own = {};
+                    Object.keys(g.targets || {}).forEach(function (c) {
+                        if (g.targets[c] && g.targets[c].target) own[c] = g.targets[c];
+                    });
+                    if (Object.keys(own).length) out.targets = own;
                     return out;
                 }) };
             }));
@@ -92,10 +98,12 @@
         }
 
         // -- one rule (target / at risk): an operator, a number, a second for "between"
-        function ruleEditor(goal, slot, label, optional, src) {
+        // *goal* holds the rule; *owner* is the goal it's named after, when that's another object.
+        function ruleEditor(goal, slot, label, optional, src, owner) {
             var rule = goal[slot] || null;
+            var title = goalName(owner || goal);
             var wrap = el("div", { "class": "glf-rule glf-rule--" + slot });
-            var op = el("select", { "class": "vTextField glf-op", "aria-label": label + " rule for " + goalName(goal) });
+            var op = el("select", { "class": "vTextField glf-op", "aria-label": label + " rule for " + title });
             if (optional) op.appendChild(el("option", { value: "" }, "None"));
             data.ops.forEach(function (o) {
                 var opt = el("option", { value: o[0] }, o[1]);
@@ -103,9 +111,9 @@
                 op.appendChild(opt);
             });
             if (!rule && !optional) op.value = ">=";
-            var a = el("input", { type: "number", step: "any", "class": "vTextField glf-num", "aria-label": label + " for " + goalName(goal) });
+            var a = el("input", { type: "number", step: "any", "class": "vTextField glf-num", "aria-label": label + " for " + title });
             var and = el("span", { "class": "glf-and" }, "and");
-            var b = el("input", { type: "number", step: "any", "class": "vTextField glf-num", "aria-label": label + " upper bound for " + goalName(goal) });
+            var b = el("input", { type: "number", step: "any", "class": "vTextField glf-num", "aria-label": label + " upper bound for " + title });
             var unit = el("span", { "class": "glf-unit" }, unitHint(src));
             if (rule) {
                 if (Array.isArray(rule.value)) { a.value = rule.value[0]; b.value = rule.value[1]; }
@@ -130,6 +138,34 @@
             return { node: wrap, sync: sync, op: op, a: a, b: b, unit: unit };
         }
 
+        // -- targets for particular cadences, tucked under the goal
+        var CADENCES = [["hourly", "Hourly"], ["daily", "Daily"], ["weekly", "Weekly"], ["monthly", "Monthly"], ["quarterly", "Quarterly"]];
+        function cadenceRow(si, gi, colspan) {
+            var goal = sections[si].goals[gi];
+            var src = sourceOf(goal);
+            var row = el("tr", { "class": "glf-cadence-row" });
+            var td = el("td", { colspan: String(colspan) });
+            var box2 = el("details", { "class": "glf-cadence" });
+            box2.open = !!goal._cadenceOpen;
+            box2.addEventListener("toggle", function () { goal._cadenceOpen = box2.open; });
+            var set = Object.keys(goal.targets || {}).filter(function (c) { return goal.targets[c] && goal.targets[c].target; }).length;
+            box2.appendChild(el("summary", {}, "Targets by cadence" + (set ? " (" + set + " set)" : "")));
+            box2.appendChild(el("p", { "class": "mb-help" }, src && src.scales
+                ? "This number grows with time, so a weekly target doesn't fit an hour. Left blank, weekly uses the main target and the others show the value without judging it."
+                : "This number reads the same at any length, so a blank uses the main target."));
+            var grid = el("div", { "class": "glf-cadence-grid" });
+            CADENCES.forEach(function (c) {
+                goal.targets = goal.targets || {};
+                var holder = goal.targets[c[0]] = goal.targets[c[0]] || {};
+                grid.appendChild(el("span", { "class": "glf-cadence-name" }, c[1]));
+                grid.appendChild(ruleEditor(holder, "target", c[1] + " target", true, src, goal).node);
+                grid.appendChild(ruleEditor(holder, "warn", c[1] + " at risk", true, src, goal).node);
+            });
+            box2.appendChild(grid);
+            td.appendChild(box2);
+            row.appendChild(td);
+            return row;
+        }
         function sourceSelect(goal) {
             var sel = el("select", { "class": "vTextField glf-source", "aria-label": "Metric or card" });
             sel.appendChild(el("option", { value: "" }, "Choose a metric or card…"));
@@ -363,7 +399,10 @@
             thead.appendChild(head);
             table.appendChild(thead);
             var body = el("tbody");
-            section.goals.forEach(function (_, gi) { body.appendChild(goalRow(si, gi)); });
+            section.goals.forEach(function (_, gi) {
+                body.appendChild(goalRow(si, gi));
+                body.appendChild(cadenceRow(si, gi, COLUMNS.length + 2));
+            });
             table.appendChild(body);
             var scroller = el("div", { "class": "glf-table-wrap" });
             scroller.appendChild(table);

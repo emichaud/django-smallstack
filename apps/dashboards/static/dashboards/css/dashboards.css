@@ -2651,3 +2651,13 @@ a.gw-week-link:hover { color: var(--link-color); text-decoration: underline; }
 .gh-captures { list-style: none; margin: 0 0 0.75rem; padding: 0; }
 .gh-captures li { display: flex; flex-wrap: wrap; gap: 0.5rem; padding: 0.15rem 0; }
 .gh-captures li[aria-current] a { font-weight: 700; }
+
+/* -- a goal's targets for particular cadences ------------------------------- */
+.glf-table tbody tr.glf-cadence-row td { border-top: 0; padding-top: 0; }
+.glf-cadence summary { cursor: pointer; font-size: 0.8rem; color: var(--body-quiet-color); }
+.glf-cadence .mb-help { margin: 0.4rem 0; }
+.glf-cadence-grid { display: grid; grid-template-columns: 5.5rem minmax(0, 14rem) minmax(0, 14rem); gap: 0.35rem 0.75rem; align-items: center; }
+.glf-cadence-name { font-size: 0.82rem; font-weight: 600; }
+@media (max-width: 640px) {
+    .glf-cadence-grid { grid-template-columns: minmax(0, 1fr); }
+}

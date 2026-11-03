@@ -9,10 +9,10 @@
         <li>On target: {{ summary.pass }}</li>
         <li>At risk: {{ summary.warn }}</li>
         <li>Missed: {{ summary.fail }}</li>
-        {% if summary.none %}<li>No number: {{ summary.none }}</li>{% endif %}
+        {% if summary.none %}<li>Not judged: {{ summary.none }}</li>{% endif %}
     </ul>
     {% else %}
-    <p class="doc-score">None of these goals has a number for this period.</p>
+    <p class="doc-score">None of these goals was judged for this period.</p>
     {% endif %}
     {% if attention %}
     <h2>Needs attention</h2>

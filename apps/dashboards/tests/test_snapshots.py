@@ -10,12 +10,14 @@ from zoneinfo import ZoneInfo
 
 import pytest
 from django.contrib.auth import get_user_model
+from django.core.exceptions import ValidationError
 from django.core.management import call_command
 from django.test import override_settings
 from django.urls import reverse
 from django.utils import timezone
 
 from apps.dashboards.entries import record_entry
+from apps.dashboards.goals import goal_at, scales_with_time
 from apps.dashboards.metrics import request_for
 from apps.dashboards.models import GoalList, Metric, Snapshot, SnapshotTracker
 from apps.dashboards.snapshots import (
@@ -177,7 +179,7 @@ class TestCapture:
     def test_a_capture_keeps_values_and_targets_as_they_were(self, staff, csat):
         g = make_list(csat, created_by=staff)
         record_entry(csat, timezone.localdate(), Decimal(80), by=staff)
-        snapshot = capture(g, current_period(DAILY), by=staff)
+        snapshot = capture(g, current_period(WEEKLY), by=staff)
         g.sections[0]["goals"][0]["target"] = {"op": ">=", "value": 99}
         g.save()
         assert snapshot.rows[0]["value"] == 80 and snapshot.rows[0]["status"] == "pass"
@@ -466,3 +468,152 @@ def test_the_migration_carries_saved_weeks_and_keeps_the_monday_save():
     assert moved.taken_at == taken and moved.rows == [{"id": "a", "value": 1}]
     assert moved.period_end - moved.period_start == timedelta(weeks=1)
     assert tracked_cadences(moved.subject) == [WEEKLY]
+
+
+class TestCadenceTargets:
+    RULE = {"op": ">=", "value": 10}
+
+    def goal_with(self, metric, **extra):
+        maker, _created = User.objects.get_or_create(username="sn-maker", defaults={"is_staff": True})
+        g = make_list(metric, created_by=maker, slug="judged")
+        g.sections[0]["goals"][0].update(extra)
+        g.save()
+        return GoalList.objects.get(pk=g.pk)
+
+    def counting(self):
+        m = Metric(key="tickets", name="Tickets", source="manual", agg="sum")
+        m.save()
+        return m
+
+    @pytest.mark.parametrize(
+        "agg, period_field, scales",
+        [
+            ("count", "timestamp", True),
+            ("sum", "timestamp", True),
+            ("avg", "timestamp", False),
+            ("max", "timestamp", False),
+            ("count", "", False),
+        ],
+    )
+    def test_what_grows_with_time(self, agg, period_field, scales):
+        m = Metric(key="m", name="M", dataset="smallstack_requests", agg=agg, period_field=period_field)
+        if agg != "count":
+            m.measure = "response_time_ms"
+        assert scales_with_time(m) is scales
+
+    def test_a_rate_and_a_latest_reading_dont_grow_with_time(self):
+        assert not scales_with_time(Metric(source="rate"))
+        assert not scales_with_time(Metric(source="manual", agg="latest", period_field="date"))
+        assert scales_with_time(Metric(source="manual", agg="sum", period_field="date", dataset="metric_entries"))
+
+    def test_which_rule_applies(self):
+        count = Metric(source="manual", agg="sum", period_field="date", dataset="metric_entries")
+        average = Metric(source="manual", agg="avg", period_field="date", dataset="metric_entries")
+        goal = {"target": {"op": ">=", "value": 1000}, "targets": {"hourly": {"target": self.RULE, "warn": self.RULE}}}
+        assert goal_at(goal, HOURLY, count)["target"] == self.RULE and goal_at(goal, HOURLY, count)["warn"] == self.RULE
+        assert goal_at(goal, WEEKLY, count)["target"]["value"] == 1000
+        assert goal_at(goal, DAILY, count)["target"] is None
+        assert goal_at(goal, DAILY, average)["target"]["value"] == 1000
+
+    def test_a_weekly_override_wins(self):
+        goal = {"target": {"op": ">=", "value": 1000}, "targets": {"weekly": {"target": self.RULE}}}
+        assert goal_at(goal, WEEKLY, None)["target"] == self.RULE
+
+    def test_validation_keeps_good_rows_and_refuses_bad_ones(self):
+        m = self.counting()
+        g = self.goal_with(m, targets={"daily": {"target": self.RULE, "warn": {"op": ">=", "value": 5}}})
+        assert g.goals()[0]["targets"]["daily"]["warn"]["value"] == 5
+        for bad in ({"fortnightly": {"target": self.RULE}}, {"daily": {"warn": self.RULE}}, {"daily": "x"}, "x"):
+            g.sections[0]["goals"][0]["targets"] = bad
+            with pytest.raises(ValidationError):
+                g.save()
+
+    def test_a_count_with_no_target_for_the_cadence_shows_its_value_unjudged(self, staff):
+        m = self.counting()
+        g = self.goal_with(m)
+        record_entry(m, timezone.localdate(), Decimal(3), by=staff)
+        row = capture(g, current_period(DAILY)).rows[0]
+        assert row["value"] == 3 and row["status"] == "none" and row["target"] is None and row["gap_text"] == ""
+        snapshot = capture(g, current_period(DAILY))
+        assert snapshot.summary["fail"] == 0 and snapshot.summary["scored"] == 0
+        cell = history_grid(g, request_for(staff), DAILY)["rows"][0]["cells"][0]
+        assert cell["status_label"] == "No target" and cell["display"] == "3"
+
+    def test_a_missing_value_with_no_target_still_says_no_data(self, staff):
+        m = self.counting()
+        g = self.goal_with(m)
+        capture(g, current_period(DAILY))
+        cell = history_grid(g, request_for(staff), DAILY)["rows"][0]["cells"][0]
+        assert cell["status_label"] != "No target"
+
+    def test_its_own_target_judges_the_capture(self, staff):
+        m = self.counting()
+        g = self.goal_with(m, targets={"daily": {"target": self.RULE}})
+        record_entry(m, timezone.localdate(), Decimal(30), by=staff)
+        row = capture(g, current_period(DAILY)).rows[0]
+        assert row["status"] == "pass" and row["target"] == self.RULE and row["target_text"] == "≥ 10"
+        assert history_grid(g, request_for(staff), DAILY)["rows"][0]["target_text"] == "≥ 10"
+        assert history_grid(g, request_for(staff), MONTHLY)["rows"][0]["target_text"] == ""
+
+    def test_a_late_value_keeps_the_cadence_target_it_was_captured_with(self, staff):
+        m = self.counting()
+        g = self.goal_with(m, targets={"daily": {"target": self.RULE}})
+        period = current_period(DAILY)
+        capture(g, period)
+        g.sections[0]["goals"][0]["targets"]["daily"]["target"]["value"] = 999
+        g.save()
+        record_entry(m, timezone.localdate(), Decimal(30), by=staff)
+        newest = captures_of(g, period)[0].rows[0]
+        assert newest["target"] == self.RULE and newest["status"] == "pass"
+
+    def test_a_late_value_on_an_unjudged_capture_stays_unjudged(self, staff):
+        m = self.counting()
+        g = self.goal_with(m)
+        period = current_period(DAILY)
+        capture(g, period)
+        record_entry(m, timezone.localdate(), Decimal(30), by=staff)
+        newest = captures_of(g, period)[0].rows[0]
+        assert newest["value"] == 30 and newest["status"] == "none"
+
+    def test_the_weekly_pages_use_a_weekly_override(self, staff):
+        from apps.dashboards.weeks import take_snapshot, this_week, week_grid, week_page
+
+        m = self.counting()
+        g = self.goal_with(m, targets={"weekly": {"target": self.RULE}})
+        week = this_week()
+        record_entry(m, timezone.localdate(), Decimal(30), by=staff)
+        request = request_for(staff)
+        assert week_page(g, request, week)["rows"][0]["status"] == "pass"
+        assert week_grid(g, request, week)["rows"][0]["target_text"] == "≥ 10"
+        assert take_snapshot(g, week).rows[0]["target"] == self.RULE
+
+    def test_the_meeting_view_keeps_the_main_target(self, staff):
+        from apps.dashboards.goals import evaluate_goals
+
+        m = self.counting()
+        g = self.goal_with(m, targets={"weekly": {"target": self.RULE}})
+        record_entry(m, timezone.localdate(), Decimal(30), by=staff)
+        assert evaluate_goals(g, request_for(staff))["rows"][0]["status"] == "fail"  # main target is >= 50
+
+    def test_pages_and_print_show_it(self, client, staff):
+        m = self.counting()
+        g = self.goal_with(m)
+        record_entry(m, timezone.localdate(), Decimal(3), by=staff)
+        snapshot = capture(g, current_period(DAILY))
+        client.force_login(staff)
+        url = reverse("dashboards_goal_history", kwargs={"slug": g.slug})
+        html = client.get(f"{url}?cadence=daily").content.decode()
+        assert "No target" in html
+        html = client.get(f"{url}?cadence=daily&at={current_period(DAILY).key}").content.decode()
+        assert "No target" in html and "No targets for this period" in html
+        html = client.get(
+            reverse("dashboards_goals_print", kwargs={"slug": g.slug}) + f"?snapshot={snapshot.pk}"
+        ).content.decode()
+        assert "No target" in html and "was judged for this period" in html
+
+    def test_the_editor_payload_says_what_scales(self, staff):
+        from apps.dashboards.forms import goal_editor_data
+
+        self.counting()
+        found = {m["key"]: m["scales"] for m in goal_editor_data(staff, None)["metrics"]}
+        assert found["tickets"] is True

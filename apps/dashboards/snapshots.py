@@ -25,7 +25,7 @@ from django.db.models import Model, Q
 from django.http import HttpRequest
 from django.utils import timezone
 
-from .goals import goal_lookups, goal_source, rule_text, summarize
+from .goals import goal_at, goal_lookups, goal_source, rule_text, summarize
 from .metrics import evaluate, may_read, rate_parts, rate_value, request_for
 from .weeks import _cell, _goal_rows, _json_safe, _masked, goal_row, week_label, week_short
 
@@ -224,9 +224,10 @@ def goal_list_rows(goal_list: "GoalList", request: HttpRequest, period: Period, 
     metrics, cards = goal_lookups(goal_list)
     seen: dict[str, dict[str, Any]] = {}
     rows = []
-    for title, goal in _goal_rows(goal_list):
-        src = goal_source(goal, metrics, cards)
+    for title, stored in _goal_rows(goal_list):
+        src = goal_source(stored, metrics, cards)
         metric = src["metric"]
+        goal = goal_at(stored, period.cadence, metric)
         if metric is None:
             cell = _cell(goal, None, src, error="Its metric or card no longer exists.")
         else:
@@ -481,7 +482,8 @@ def history_grid(obj: Any, request: HttpRequest, cadence: str, last: Optional[Pe
     seen: set[str] = set()
     for title, goal in _goal_rows(obj):
         src = goal_source(goal, metrics, cards)
-        order.append((goal["id"], title, src["label"], rule_text(goal["target"], src["fmt"], src["unit"])))
+        rule = goal_at(goal, cadence, src["metric"])["target"]
+        order.append((goal["id"], title, src["label"], rule_text(rule, src["fmt"], src["unit"])))
         seen.add(goal["id"])
     for rows_by_id in masked.values():
         for gid, row in rows_by_id.items():

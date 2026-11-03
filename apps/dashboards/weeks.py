@@ -43,6 +43,7 @@ from .goals import (
     STATUS_LABELS,
     STATUS_STATES,
     gap_text,
+    goal_at,
     goal_lookups,
     goal_source,
     judge,
@@ -221,18 +222,23 @@ def _weekly_rate(
     return out
 
 
+#: A value with nothing to judge it against, which isn't the same as no data.
+NO_TARGET = "No target"
+
+
 def _cell(
     goal: dict[str, Any], value: Any, src: dict[str, Any], *, error: str = "", restricted: bool = False
 ) -> dict[str, Any]:
-    status = judge(value, goal["target"], goal.get("warn")) if not (error or restricted) else "none"
+    target = goal.get("target")
+    status = judge(value, target, goal.get("warn")) if target and not (error or restricted) else "none"
     return {
         "value": float(value) if _is_number(value) and not isinstance(value, int) else value,
         "display": "—" if restricted or error or value is None else format_value(value, src["fmt"], src["unit"]),
         "unit": display_unit(src["fmt"], src["unit"]),
         "status": status,
-        "status_label": STATUS_LABELS[status],
+        "status_label": NO_TARGET if not target and value is not None else STATUS_LABELS[status],
         "state": STATUS_STATES[status],
-        "gap_text": gap_text(value, goal["target"], src["fmt"], src["unit"]) if status != "none" else "",
+        "gap_text": gap_text(value, target, src["fmt"], src["unit"]) if status != "none" and target else "",
         "error": "You don't have access to this metric's data." if restricted else error,
         "restricted": restricted,
     }
@@ -258,6 +264,7 @@ def live_cells(
     out: dict[str, dict[date, dict[str, Any]]] = {}
     weeks = [first + timedelta(weeks=i) for i in range(count)]
     for _title, goal in _goal_rows(goal_list):
+        goal = goal_at(goal, "weekly", None)
         src = goal_source(goal, metrics, cards)
         metric = src["metric"]
         if metric is None:
@@ -290,9 +297,9 @@ def goal_row(title: str, goal: dict[str, Any], src: dict[str, Any], cell: dict[s
         "metric_key": metric.key if metric is not None else "",
         "dataset": metric.dataset if metric is not None else "",
         "datasets": metric.read_datasets() if metric is not None else [],
-        "target": goal["target"],
+        "target": goal.get("target"),
         "warn": goal.get("warn"),
-        "target_text": rule_text(goal["target"], src["fmt"], src["unit"]),
+        "target_text": rule_text(goal.get("target"), src["fmt"], src["unit"]),
         "warn_text": rule_text(goal.get("warn"), src["fmt"], src["unit"]),
         "note": goal.get("note", ""),
         **{k: cell[k] for k in ("value", "display", "unit", "status", "gap_text", "error")},
@@ -305,8 +312,9 @@ def build_week(goal_list: "GoalList", request: HttpRequest, start: date) -> list
     metrics, cards = goal_lookups(goal_list)
     cells = live_cells(goal_list, request, start, 1)
     return [
-        goal_row(title, goal, src, cells[goal["id"]][start])
+        goal_row(title, weekly, src, cells[goal["id"]][start])
         for title, goal in _goal_rows(goal_list)
+        for weekly in [goal_at(goal, "weekly", None)]
         for src in [goal_source(goal, metrics, cards)]
     ]
 
@@ -407,7 +415,9 @@ def _masked(rows: list[dict[str, Any]], user: Any) -> list[dict[str, Any]]:
     cache: dict[str, bool] = {}
     out = []
     for row in rows:
-        row = {**row, "status_label": STATUS_LABELS.get(row.get("status", "none"), "No data")}
+        unjudged = not row.get("target") and row.get("value") is not None
+        label = NO_TARGET if unjudged else STATUS_LABELS.get(row.get("status", "none"), "No data")
+        row = {**row, "status_label": label}
         row["state"] = STATUS_STATES.get(row.get("status", "none"), "muted")
         # "datasets" is every dataset behind the number (a rate has two parts and
         # no dataset of its own); rows saved before it existed name just the one.
@@ -542,7 +552,12 @@ def _grid(goal_list: "GoalList", request: HttpRequest, first: date, count: int) 
     for title, goal in _goal_rows(goal_list):
         src = goal_source(goal, metrics, cards)
         order.append(
-            (goal["id"], title, src["label"], {"target_text": rule_text(goal["target"], src["fmt"], src["unit"])})
+            (
+                goal["id"],
+                title,
+                src["label"],
+                {"target_text": rule_text(goal_at(goal, "weekly", None)["target"], src["fmt"], src["unit"])},
+            )
         )
         seen.add(goal["id"])
     # Goals that were on the list in a week shown but have since gone.
@@ -816,7 +831,7 @@ def week_trends(goal_list: "GoalList", request: HttpRequest, focus: date) -> dic
                 if c.get("status") != status:
                     break
                 run += 1
-        better = _better(goals[row["id"]]["target"]) if row["id"] in goals else None
+        better = _better(goal_at(goals[row["id"]], "weekly", None)["target"]) if row["id"] in goals else None
         valued = [(c["week"], float(c["value"])) for c in cells[: at + 1] if _is_number(c.get("value"))]
         best = worst = None
         if better and len(valued) > 1:

@@ -47,11 +47,13 @@ MAX_SECTIONS = 20
 MAX_GOALS = 100
 MAX_NOTE = 280
 _SECTION_KEYS = {"title", "goals"}
-_GOAL_KEYS = {"id", "metric", "component", "label", "target", "warn", "period", "note"}
+_GOAL_KEYS = {"targets", "id", "metric", "component", "label", "target", "warn", "period", "note"}
 
 #: A goal's status → what it's called, and the theme state that colours it.
 STATUS_LABELS = {"pass": "On target", "warn": "At risk", "fail": "Missed", "none": "No data"}
 STATUS_STATES = {"pass": "success", "warn": "warning", "fail": "danger", "none": "muted"}
+#: The cadences a goal can have its own target for (``snapshots.py``).
+CADENCE_KEYS = ("hourly", "daily", "weekly", "monthly", "quarterly")
 _SYMBOLS = {">=": "≥", "<=": "≤", "!=": "≠", "=": "="}
 
 
@@ -205,6 +207,12 @@ def normalize_sections(raw: Any, *, owner_id: Any) -> tuple[list[dict[str, Any]]
             clean["target"] = {"op": goal["target"]["op"], "value": goal["target"]["value"]}
             if goal.get("warn") not in (None, "", {}):
                 clean["warn"] = {"op": goal["warn"]["op"], "value": goal["warn"]["value"]}
+            own_targets, target_errors = _clean_cadence_targets(goal.get("targets"), where)
+            if target_errors:
+                problems.extend(target_errors)
+                continue
+            if own_targets:
+                clean["targets"] = own_targets
             period = goal.get("period")
             if period not in (None, ""):
                 if not isinstance(period, str) or not (period == "all" or is_period(period)):
@@ -225,7 +233,61 @@ def normalize_sections(raw: Any, *, owner_id: Any) -> tuple[list[dict[str, Any]]
     return out, problems
 
 
+def _clean_cadence_targets(raw: Any, where: str) -> tuple[dict[str, Any], list[str]]:
+    """A goal's ``targets``: ``{"hourly": {"target": rule, "warn"?: rule}, …}``."""
+    if raw in (None, "", {}):
+        return {}, []
+    if not isinstance(raw, dict):
+        return {}, [f"{where}.targets: an object of cadence to its target"]
+    clean: dict[str, Any] = {}
+    problems: list[str] = []
+    for cadence, entry in raw.items():
+        at = f"{where}.targets.{cadence}"
+        if cadence not in CADENCE_KEYS:
+            problems.append(f"{at}: use one of {', '.join(CADENCE_KEYS)}")
+            continue
+        if not isinstance(entry, dict):
+            problems.append(f"{at}: an object with a target")
+            continue
+        problems += rule_problems(entry.get("target"), f"{at}.target")
+        has_warn = entry.get("warn") not in (None, "", {})
+        if has_warn:
+            problems += rule_problems(entry.get("warn"), f"{at}.warn")
+        if not problems:
+            clean[cadence] = {"target": {"op": entry["target"]["op"], "value": entry["target"]["value"]}}
+            if has_warn:
+                clean[cadence]["warn"] = {"op": entry["warn"]["op"], "value": entry["warn"]["value"]}
+    return clean, problems
+
+
 # -- judging ----------------------------------------------------------------------
+
+
+def scales_with_time(metric: Optional["Metric"]) -> bool:
+    """Whether a longer period makes *metric* bigger: a count or a sum does, so a
+    weekly target says nothing about one hour. An average, a rate, a latest reading
+    or a number that doesn't depend on time reads on the same scale at any length."""
+    if metric is None or not metric.period_field or metric.is_rate:
+        return False
+    if (metric.agg or "count") not in ("count", "distinct", "sum"):
+        return False
+    from apps.datasets.core import get_dataset
+
+    ds = get_dataset(metric.dataset)
+    return ds is None or metric.measure not in ds.declared_measures()
+
+
+def goal_at(goal: dict[str, Any], cadence: str, metric: Optional["Metric"]) -> dict[str, Any]:
+    """*goal* with the target that applies at *cadence*: its own for that cadence;
+    else the main one for a week (what it has always meant), or for a number on the
+    same scale at any length. Otherwise ``target`` is None: not judged, because
+    calling every hour "missed" against a weekly target would be false."""
+    own = (goal.get("targets") or {}).get(cadence)
+    if own:
+        return {**goal, "target": own["target"], "warn": own.get("warn")}
+    if cadence == "weekly" or not scales_with_time(metric):
+        return goal
+    return {**goal, "target": None, "warn": None}
 
 
 def _meets(value: Any, rule: Optional[dict[str, Any]]) -> bool:
@@ -524,7 +586,8 @@ def summarize(rows: list[dict[str, Any]]) -> dict[str, Any]:
     if not rows:
         headline = "No goals yet"
     elif not scored:
-        headline = "No numbers yet"
+        unjudged = any(r.get("value") is not None and r.get("status") == "none" for r in rows)
+        headline = "No targets for this period" if unjudged else "No numbers yet"
     else:
         headline = f"{counts['pass']} of {scored} on target"
     return {

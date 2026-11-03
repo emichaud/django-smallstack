@@ -15,10 +15,10 @@ rows in place (?order=, swapping `swap`), and every column resizes.
         <div class="gl-score">
             {% if summary.scored %}
             <p class="gl-headline"><span class="gl-big">{{ summary.pass }}</span> <span class="gl-of">of {{ summary.scored }}</span></p>
-            <p class="gl-caption">on target, {{ heading|lower }}{% if summary.none %}. {{ summary.none }} without a number.{% endif %}</p>
+            <p class="gl-caption">on target, {{ heading|lower }}{% if summary.none %}. {{ summary.none }} not judged.{% endif %}</p>
             {% else %}
             <p class="gl-headline gl-headline--quiet">{{ summary.headline }}</p>
-            <p class="gl-caption">{% if summary.total %}None of these goals has a number {{ heading|lower }}.{% else %}Add goals to see how they're doing.{% endif %}</p>
+            <p class="gl-caption">{% if summary.total %}None of these goals was judged {{ heading|lower }}.{% else %}Add goals to see how they're doing.{% endif %}</p>
             {% endif %}
         </div>
         {% if summary.total %}

@@ -94,7 +94,7 @@ now. Opening a period shows every capture of it. Tabs, headers and arrows swap #
                 {% if section.title %}<tr class="gw-section"><th scope="rowgroup" colspan="{{ grid.columns|length|add:1 }}">{{ section.title }}</th></tr>{% endif %}
                 {% for row in section.rows %}
                 <tr>
-                    <th scope="row" class="gw-goal"><span class="gw-goal-name">{{ row.label }}</span>{% if row.target_text %}<span class="gw-goal-target">{{ row.target_text }}</span>{% endif %}</th>
+                    <th scope="row" class="gw-goal"><span class="gw-goal-name">{{ row.label }}</span><span class="gw-goal-target">{% firstof row.target_text "No target" %}</span></th>
                     {% for cell in row.cells %}
                     <td class="gw-cell gl-st--{{ cell.status }}">
                         {% if cell.absent %}<span class="gl-quiet" aria-label="Not captured">·</span>

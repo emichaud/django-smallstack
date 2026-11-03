@@ -134,7 +134,23 @@ Choose a tab to see goals down and periods across. A blank means nothing was cap
 Saving again adds a capture rather than replacing the last, so you can see what the numbers said at
 each point. Pages show the newest.
 
-Two kinds of number are worth knowing about:
+### Targets at each rhythm
+
+A goal's main target fits a week. A count doesn't read the same over an hour, so "at least 1,000
+requests" would show every hour as missed. Under a goal in the editor, **Targets by cadence** sets
+a target and at-risk line for any rhythm. If you leave one blank:
+
+- **Weekly** uses the main target.
+- **A count or a total** shows its value marked **No target**, and isn't counted as on target or
+  missed.
+- **An average, a rate or a latest reading** uses the main target, because it reads the same at any
+  length.
+
+Captures keep the target they were judged against, so changing a target later doesn't change them.
+The meeting view uses the main target, whichever period you pick.
+
+### Numbers without a value
+
 
 - **One that doesn't depend on time**, like open tickets right now, is captured as it stands. This
   is the way to keep a history of a number like that. It can't be filled in for past periods.

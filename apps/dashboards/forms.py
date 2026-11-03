@@ -450,7 +450,7 @@ def goal_editor_data(user: Any, owner_id: Any) -> dict[str, Any]:
     from django.db.models import Q
 
     from .components import get_component_type
-    from .goals import suggest_target
+    from .goals import scales_with_time, suggest_target
 
     allowed = Q(owner__isnull=True) | Q(owner_id=owner_id) if owner_id else Q(owner__isnull=True)
     metrics = list(Metric.objects.visible_to(user).filter(allowed).order_by("name"))
@@ -468,6 +468,7 @@ def goal_editor_data(user: Any, owner_id: Any) -> dict[str, Any]:
                     "shared": c.owner_id is None,
                     "format": ((c.options or {}).get("style") or {}).get("format") or (m.format if m else "number"),
                     "unit": ((c.options or {}).get("style") or {}).get("unit") or (m.unit if m else ""),
+                    "scales": scales_with_time(m),
                 }
             )
     return {
@@ -479,6 +480,7 @@ def goal_editor_data(user: Any, owner_id: Any) -> dict[str, Any]:
                 "format": m.format,
                 "unit": m.unit,
                 "suggest": suggest_target(m),
+                "scales": scales_with_time(m),
             }
             for m in metrics
         ],

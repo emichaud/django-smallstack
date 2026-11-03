@@ -484,6 +484,13 @@ or `quarterly`, in the site's time zone, weeks starting Monday.
 Snapshot rows list every dataset behind the number in `datasets`, and `weeks._masked` checks them
 all, because a rate has no dataset of its own.
 
+**Targets per cadence.** A goal may carry `targets`: `{"hourly": {"target": rule, "warn"?: rule}}`.
+`goals.goal_at(goal, cadence, metric)` picks the rule: that cadence's own; else the main target for
+`weekly`, and for a number where `scales_with_time(metric)` is false (an average, a rate, a latest
+reading, a number with no period field); else `target` is `None`, and the cell keeps its value with
+status `none`, labelled **No target**. The main target also judges the meeting view, whatever its
+period. Rows store the rule they were judged against.
+
 **Another subject.** `Snapshot` and `SnapshotTracker` point at any model. To capture one, call
 `register_subject(Model, rows=fn, user=fn, ready=fn)` in `ready()`, where `rows(obj, request,
 period, past=)` returns dicts with a `status`, and add a `GenericRelation` so deleting the object

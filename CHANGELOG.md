@@ -17,6 +17,8 @@ Breaking-change migration recipes live in [`UPGRADING.md`](UPGRADING.md).
 
 - **Snapshots at any cadence.** A goal list can be captured hourly, daily, weekly, monthly or quarterly, any combination, from its new History page, REST (`goals/<slug>/tracking/`, `goals/<slug>/snapshots/`) or MCP (`goal_list_tracking`, `goal_list_capture`, `goal_list_history`). Each tracked period is captured once it ends. A period keeps every capture, the newest being what pages show, so saving again and late values add rather than overwrite. New lists track weekly (`SMALLSTACK_SNAPSHOT_DEFAULT_CADENCES`), and old hourly and daily captures are pruned (`SMALLSTACK_SNAPSHOT_KEEP_DAYS`). `register_subject` lets other models be captured.
 
+- **Targets per cadence.** A goal can have its own target for any cadence, under **Targets by cadence** in the goal editor or as `targets` in its JSON. Without one, weekly and any number on the same scale at every length (an average, a rate, a latest reading) use the main target. A count or sum isn't judged, because a weekly target says nothing about one hour: it shows its value marked **No target**. Captures keep the target they were judged against.
+
 ### Migrations
 - `smallstack_dashboards.0010_snapshot_engine` replaces `GoalSnapshot` with `Snapshot` and `SnapshotTracker`. Saved weeks carry over as weekly captures, and every existing list keeps a weekly tracker.
 - `smallstack_dashboards.0009_metric_sources` and `smallstack_calendar.0003_event_repeat` are additive. Existing metrics become source `dataset` and existing events don't repeat.
