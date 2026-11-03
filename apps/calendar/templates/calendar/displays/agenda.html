@@ -32,7 +32,7 @@
                 {% endif %}
                 {% if r.delete_url %}
                 <a href="{{ r.delete_url }}" class="cal-iconbtn cal-iconbtn--danger" aria-label="Delete {{ r.title }}" title="Delete"
-                   data-delete-url="{{ r.delete_url }}" onclick="event.preventDefault();crudDeleteModal(this,'{{ r.title|escapejs }}')">
+                   data-delete-url="{{ r.delete_url }}" data-ss-action="crudDeleteModal" data-ss-args='["$this", "{{ r.title|escapejs }}"]' data-ss-prevent>
                     <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 19a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
                 </a>
                 {% endif %}
@@ -45,6 +45,6 @@
 {% else %}
 {% include "smallstack/crud/includes/empty_state.html" %}
 {% endif %}
-{% if is_paginated %}
+{% if is_paginated or page_sizes and page_obj %}
 {% render_paginator page_obj "#crud-display-area" %}
 {% endif %}

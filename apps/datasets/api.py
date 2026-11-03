@@ -10,6 +10,10 @@ Routes:
     GET  /smallstack/datasets/<key>/schema/     → typed columns + filters
     GET  /smallstack/datasets/<key>/series/     → grouped [{label, value}]
     GET  /smallstack/datasets/<key>/            → filtered rows
+
+Every read route also takes ``?filter_tree=<json>`` — the nested AND/OR filter
+(see filter_tree.py), AND-ed with the flat filter params. A malformed tree is a
+400 naming each problem, never a silently wider result.
 """
 
 from __future__ import annotations
@@ -24,15 +28,42 @@ from django.utils.decorators import method_decorator
 from django.views import View
 from django.views.decorators.csrf import csrf_exempt
 
-from apps.smallstack.api import _authenticate_api_request
+from apps.smallstack.api import authenticate_api_request
 
 from .core import Dataset, get_dataset, list_datasets
 from .registry import get_def
 
 _RESERVED = {
-    "ordering", "limit", "offset", "format", "dimension", "measure", "agg", "expand",
-    "buckets", "auto", "auto_limit", "label_field", "bucket",
+    "ordering",
+    "limit",
+    "offset",
+    "format",
+    "dimension",
+    "measure",
+    "agg",
+    "expand",
+    "buckets",
+    "auto",
+    "auto_limit",
+    "label_field",
+    "bucket",
+    "filter_tree",
 }
+
+
+def _parse_filter_tree(request: HttpRequest) -> Any:
+    """``?filter_tree=<json>`` → the tree (``None`` when absent). Raises
+    ValueError on bad JSON (→ 400); the tree itself is validated by the
+    dataset when it compiles."""
+    import json
+
+    raw = request.GET.get("filter_tree", "").strip()
+    if not raw:
+        return None
+    try:
+        return json.loads(raw)
+    except (ValueError, TypeError) as exc:
+        raise ValueError(f"bad filter_tree JSON: {exc}") from exc
 
 
 @overload
@@ -135,7 +166,7 @@ def _rows_csv_response(ds: Dataset, key: str, rows: list[dict]) -> HttpResponse:
 class _DatasetApiView(View):
     """Base view: Bearer-or-session auth returning JSON 401/403 (never a 302).
 
-    Uses the same ``_authenticate_api_request`` path as ``/api/`` so a
+    Uses the same ``authenticate_api_request`` path as ``/api/`` so a
     cross-origin SPA sending an ``Authorization: Bearer`` header can reach the
     datasets surface. Staff-only by default (secure default for an admin-area
     data surface), enforced as a JSON 403.
@@ -146,7 +177,7 @@ class _DatasetApiView(View):
     def dispatch(self, request: HttpRequest, *args: Any, **kwargs: Any) -> HttpResponseBase:
         if not _enabled():
             raise Http404
-        user, err = _authenticate_api_request(request)
+        user, err = authenticate_api_request(request)
         if err:
             return err
         if self.require_staff and not user.is_staff:
@@ -187,6 +218,7 @@ class DatasetRowsView(_DatasetApiView):
         # rows to one bucket — the rows behind a clicked chart segment.
         bucket = request.GET.get("bucket") or None
         try:
+            filter_tree = _parse_filter_tree(request)
             dimension = _parse_dimension(request, request.GET.get("dimension", "").strip() or None)
             rows = ds.rows(
                 filters=filters,
@@ -197,6 +229,7 @@ class DatasetRowsView(_DatasetApiView):
                 dimension=dimension,
                 bucket=bucket,
                 request=request,
+                filter_tree=filter_tree,
             )
         except ValueError as exc:
             return JsonResponse({"error": str(exc)}, status=400)
@@ -220,7 +253,7 @@ class DatasetRowsView(_DatasetApiView):
                 "key": key,
                 "count": len(rows),
                 "total": ds.count(
-                    request=request, filters=filters, dimension=dimension, bucket=bucket
+                    request=request, filters=filters, dimension=dimension, bucket=bucket, filter_tree=filter_tree
                 ),
                 "offset": offset_echo,
                 "results": rows,
@@ -241,6 +274,7 @@ class DatasetSeriesView(_DatasetApiView):
             # ?buckets=<json> / ?auto=true turn the field into a bucketed
             # dimension; otherwise it's raw-value grouping.
             bucketed = _parse_dimension(request, field)
+            filter_tree = _parse_filter_tree(request)
             series = ds.series(
                 bucketed if bucketed is not None else field,
                 measure=(request.GET.get("measure") or None),
@@ -248,6 +282,7 @@ class DatasetSeriesView(_DatasetApiView):
                 limit=_int_param(request, "limit", 50),
                 filters=filters,
                 request=request,
+                filter_tree=filter_tree,
             )
         except ValueError as exc:
             return JsonResponse({"error": str(exc)}, status=400)
@@ -266,10 +301,8 @@ class DatasetScalarView(_DatasetApiView):
         filters = {k: v for k, v in request.GET.items() if k not in _RESERVED}
         try:
             value = ds.scalar(
-                measure=measure, agg=agg, filters=filters, request=request
+                measure=measure, agg=agg, filters=filters, request=request, filter_tree=_parse_filter_tree(request)
             )
         except ValueError as exc:
             return JsonResponse({"error": str(exc)}, status=400)
-        return JsonResponse(
-            {"key": key, "agg": agg, "measure": measure, "value": value}
-        )
+        return JsonResponse({"key": key, "agg": agg, "measure": measure, "value": value})

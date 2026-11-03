@@ -1,39 +1,12 @@
 {% extends "smallstack/base.html" %}
+{% load static %}
 {% load theme_tags %}
 
 {% block title %}Datasets{% endblock %}
 {% block breadcrumbs %}{% endblock %}
 
 {% block extra_css %}
-<style>
-    .ds-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
-    .ds-table th { text-align: left; padding: 10px 16px; white-space: nowrap; }
-    .ds-table td { padding: 10px 16px; vertical-align: top; }
-    .ds-table td.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
-    .ds-key {
-        font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
-        font-size: 0.78rem;
-        color: var(--body-quiet-color);
-    }
-    .ds-desc { color: var(--body-quiet-color); font-size: 0.8rem; margin-top: 2px; }
-    .ds-pill {
-        display: inline-block; padding: 1px 7px; border-radius: 999px;
-        font-size: 0.68rem; font-weight: 700; letter-spacing: 0.04em;
-        border: 1px solid var(--card-border); color: var(--body-quiet-color);
-        margin-right: 4px; white-space: nowrap;
-    }
-    .ds-pill.on { border-color: var(--primary); color: var(--primary); }
-    .ds-card-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
-    .ds-card-head h2 { margin: 0; }
-    .ds-count { color: var(--body-quiet-color); font-size: 0.8rem; font-weight: 400; margin-left: 8px; }
-    .ds-per-page { display: inline-flex; align-items: center; gap: 6px; font-size: 0.78rem; color: var(--body-quiet-color); }
-    .ds-per-page select {
-        background: var(--input-bg); border: 1px solid var(--input-border); color: var(--body-fg);
-        border-radius: 6px; padding: 3px 6px; font-size: 0.78rem; width: auto; margin: 0;
-    }
-    .paginator { padding: 10px 14px; }
-    @media (max-width: 720px) { .ds-hide-sm { display: none; } }
-</style>
+<link rel="stylesheet" href="{% static 'datasets/css/templates/index.css' %}">
 {% endblock %}
 
 {% block page_header %}
@@ -55,21 +28,14 @@
 {% endblock %}
 
 {% block content %}
-<form method="get" class="ds-per-page" style="margin-bottom: 12px; justify-content: flex-end;">
-    {% for k, v in keep_params.items %}<input type="hidden" name="{{ k }}" value="{{ v }}">{% endfor %}
-    <label for="ds-per-page">Per page</label>
-    <select id="ds-per-page" name="per_page" onchange="this.form.submit()">
-        {% for n in page_sizes %}<option value="{{ n }}" {% if n == per_page %}selected{% endif %}>{{ n }}</option>{% endfor %}
-    </select>
-    <noscript><button type="submit" class="btn-outline btn-sm">Go</button></noscript>
-</form>
-
+{% comment %}Both sections page in place with the framework pager. Each pages under its own param (ppage / fpage); the response is this whole page, so hx-select takes this block from it, and the address follows. One "Rows per page" sets both sections and starts both at page 1.{% endcomment %}
+<div id="ds-sections">
 {% if project_datasets %}
 <div class="card" style="margin-bottom: 16px;">
     <div class="card-header ds-card-head"><h2>Project datasets<span class="ds-count">{{ project_datasets|length }}</span></h2></div>
     <div class="card-body" style="padding: 0;">
-        {% include "datasets/_index_table.html" with rows=project_pager.page_obj.object_list %}
-        {% include "datasets/_index_pager.html" with pager=project_pager label="Project datasets" %}
+        {% include "datasets/_index_table.html" with rows=project_page.object_list %}
+        {% render_paginator project_page "#ds-sections" hx_swap="outerHTML" hx_select="#ds-sections" push_url=True page_param="ppage" reset="fpage" label="Project datasets pagination" %}
     </div>
 </div>
 {% endif %}
@@ -78,13 +44,14 @@
     <div class="card-header ds-card-head"><h2>Framework datasets<span class="ds-count">{{ framework_datasets|length }}</span></h2></div>
     <div class="card-body" style="padding: 0;">
         {% if framework_datasets %}
-            {% include "datasets/_index_table.html" with rows=framework_pager.page_obj.object_list %}
-            {% include "datasets/_index_pager.html" with pager=framework_pager label="Framework datasets" %}
+            {% include "datasets/_index_table.html" with rows=framework_page.object_list %}
+            {% render_paginator framework_page "#ds-sections" hx_swap="outerHTML" hx_select="#ds-sections" push_url=True page_param="fpage" reset="ppage" label="Framework datasets pagination" %}
         {% else %}
             <p style="padding: 16px; color: var(--body-quiet-color); margin: 0;">
                 The bundled datasets are switched off (<code>SMALLSTACK_FRAMEWORK_DATASETS_ENABLED</code>).
             </p>
         {% endif %}
     </div>
+</div>
 </div>
 {% endblock %}

@@ -99,7 +99,7 @@ class _NavItem:
         order: int = 0,
         parent: str | None = None,
         zone: str = "smallstack",
-        active_prefix: str | None = None,
+        active_prefix: str | tuple[str, ...] | None = None,
         active_exact: bool = False,
         visible: Any = None,
     ) -> None:
@@ -118,6 +118,8 @@ class _NavItem:
         # (e.g. "/smallstack/status/" so all status sub-pages highlight one item).
         # Include the trailing slash to avoid bleeding into siblings like
         # "/status-report/". Falls back to the item's own resolved URL when unset.
+        # A tuple lists several prefixes, for an area whose pages don't share
+        # one path (a list at /x/things/ and each thing at /x/t/<slug>/).
         self.active_prefix = active_prefix
         # Only an exact path match marks this item active — never a prefix.
         # For a section root this is the difference between "you are here" and
@@ -154,7 +156,7 @@ class NavRegistry:
         order: int = 0,
         parent: str | None = None,
         zone: str = "smallstack",
-        active_prefix: str | None = None,
+        active_prefix: str | tuple[str, ...] | None = None,
         active_exact: bool = False,
         visible: Any = None,
     ) -> None:
@@ -252,17 +254,22 @@ class NavRegistry:
         # Second pass: mark only the longest matching URL/prefix as active
         best_match = ""
         best_item = None
+        exact_hit = False
         for item_dict, url, _parent in resolved:
-            match = item_dict["active_match"]
-            if request.path == match:
-                best_match = match
-                best_item = item_dict
+            raw = item_dict["active_match"]
+            for match in raw if isinstance(raw, tuple) else (raw,):
+                if request.path == match:
+                    best_match = match
+                    best_item = item_dict
+                    exact_hit = True
+                    break
+                if item_dict["active_exact"]:
+                    continue
+                if match != "/" and request.path.startswith(match) and len(match) > len(best_match):
+                    best_match = match
+                    best_item = item_dict
+            if exact_hit:
                 break
-            if item_dict["active_exact"]:
-                continue
-            if match != "/" and request.path.startswith(match) and len(match) > len(best_match):
-                best_match = match
-                best_item = item_dict
         if best_item is not None:
             best_item["active"] = True
 

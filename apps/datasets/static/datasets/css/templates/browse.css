@@ -1,0 +1,33 @@
+/* Moved from apps/datasets/templates/datasets/browse.html (inline <style>). */
+.ds-filters { display: flex; flex-wrap: wrap; gap: 8px 10px; align-items: flex-end; padding: 12px 14px; }
+.ds-field { display: flex; flex-direction: column; gap: 3px; }
+.ds-field > label { font-size: 0.68rem; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--body-quiet-color); }
+.ds-field > span.ds-range { display: inline-flex; gap: 4px; align-items: center; }
+.ds-rollup { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.ds-filters input, .ds-filters select, .ds-rollup select {
+    background: var(--input-bg); border: 1px solid var(--input-border); color: var(--body-fg);
+    border-radius: 6px; padding: 4px 8px; font-size: 0.78rem; width: auto; max-width: 13rem; margin: 0;
+    min-height: 0;
+}
+.ds-filters .ds-actions { display: flex; gap: 6px; align-items: center; margin-left: auto; }
+.ds-filters .btn-outline, .ds-filters .btn-primary { white-space: nowrap; }
+
+.ds-table { width: 100%; border-collapse: collapse; font-size: 0.8125rem; }
+.ds-table th { padding: 8px 12px; white-space: nowrap; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--body-quiet-color); }
+.ds-table td { padding: 6px 12px; vertical-align: top; max-width: 20rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ds-table td.num, .ds-table th.num { text-align: right; font-variant-numeric: tabular-nums; }
+.ds-table td.dt { white-space: nowrap; color: var(--body-quiet-color); }
+.ds-null { color: var(--text-muted); }
+/* Same trick as .crud-table-wrap: the wrapper scrolls a wide table instead of
+   handing its min-content width up to the page. */
+.ds-wrap { overflow-x: auto; contain: inline-size; max-width: 100%; }
+.ds-card { contain: inline-size; max-width: 100%; }
+
+.ds-bar { height: 8px; border-radius: 4px; background: var(--primary); min-width: 2px; }
+.ds-bar-cell { width: 40%; }
+.ds-bar-track { background: var(--card-header-bg); border-radius: 4px; }
+
+.ds-meta { color: var(--body-quiet-color); font-size: 0.78rem; }
+.ds-key { font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace); font-size: 0.78rem; color: var(--body-quiet-color); }
+.paginator { padding: 10px 14px; }
+

@@ -147,31 +147,7 @@ def _is_write_surface(request: HttpRequest) -> bool:
     return request.path.rstrip("/").rsplit("/", 1)[-1] in {"edit", "delete"}
 
 
-class _ScopedFormMixin:
-    """Inject ``request.user`` into the form so it can scope its own choices.
-
-    ``CRUDView`` builds its form with no request context, which leaves a
-    generated ``ModelChoiceField`` listing every row in the table. For the
-    ``blog`` field that is a cross-tenant write, so the user has to reach the
-    form somehow; ``_make_view`` is the documented seam for exactly this.
-    """
-
-    @classmethod
-    def _make_view(cls, base_class: Any) -> Any:
-        view = super()._make_view(base_class)  # type: ignore[misc]
-        if hasattr(view, "get_form_kwargs"):
-            inherited = view.get_form_kwargs
-
-            def get_form_kwargs(self: Any) -> dict:
-                kwargs = inherited(self)
-                kwargs["user"] = getattr(self.request, "user", None)
-                return kwargs
-
-            view.get_form_kwargs = get_form_kwargs
-        return view
-
-
-class _OwnedCRUDView(_ScopedFormMixin, CRUDView):
+class _OwnedCRUDView(CRUDView):
     """Ownership scoping for every blog console view.
 
     Subclasses implement :meth:`scope`. ``get_detail_queryset`` inherits from

@@ -30,7 +30,7 @@ from django.contrib import messages
 from django.contrib.admin.models import LogEntry
 from django.core.exceptions import FieldDoesNotExist, ImproperlyConfigured, PermissionDenied
 from django.core.exceptions import ValidationError as DjangoValidationError
-from django.db import IntegrityError
+from django.db import IntegrityError, transaction
 from django.db.models import Model, ProtectedError, QuerySet, RestrictedError
 from django.http import Http404, HttpRequest, HttpResponse
 from django.shortcuts import redirect as _redirect
@@ -161,6 +161,33 @@ def _field_is_orderable(qs, field_path: str) -> bool:
     return True
 
 
+def _is_text_field(qs, field_path: str) -> bool:
+    """Whether ``field_path`` on ``qs`` holds text (a Char/Text/Slug/Email/URL
+    field, through FK hops, or a text-typed annotation) — what sorts
+    case-insensitively."""
+    from django.db.models import CharField, TextField
+
+    annotation = qs.query.annotations.get(field_path)
+    if annotation is not None:
+        try:
+            return isinstance(annotation.output_field, (CharField, TextField))
+        except Exception:  # noqa: BLE001 — an unresolvable output type sorts as before
+            return False
+    model = qs.model
+    field = None
+    for part in field_path.split("__"):
+        if model is None:
+            return False
+        try:
+            field = model._meta.pk if part == "pk" else model._meta.get_field(part)
+        except FieldDoesNotExist:
+            return False
+        model = getattr(field, "related_model", None)
+    # CharField covers SlugField, EmailField and URLField; choices fields sort by
+    # their stored value, which is what an admin list shows unless transformed.
+    return isinstance(field, (CharField, TextField)) and not getattr(field, "is_relation", False)
+
+
 def _apply_ordering_fields(qs, ordering: str, allowed: set[str]) -> QuerySet:
     """Apply comma-separated ordering fields to a queryset.
 
@@ -169,14 +196,26 @@ def _apply_ordering_fields(qs, ordering: str, allowed: set[str]) -> QuerySet:
     caller mistakenly listed in ``ordering_fields``), are silently ignored —
     matching the Django/DRF convention and keeping a bad sort from 500-ing.
 
-    This is the low-level helper used by both the HTML list view and the
-    REST API layer.
+    Text columns sort **case-insensitively** ("alpha" beside "Alpha", not after
+    "Zeta" as a byte-order sort puts it), with the raw value as a tie-break so
+    the order stays stable. Every list sorts through here: the HTML CRUD lists,
+    the REST API and MCP, and dataset rows (the browser, the drill-down modal).
     """
-    validated = []
+    from django.db.models import F
+    from django.db.models.functions import Lower
+
+    validated: list[Any] = []
     for part in ordering.split(","):
-        field = part.strip().lstrip("-")
-        if field in allowed and _field_is_orderable(qs, field):
-            validated.append(part.strip())
+        part = part.strip()
+        field = part.lstrip("-")
+        if not (field in allowed and _field_is_orderable(qs, field)):
+            continue
+        if _is_text_field(qs, field):
+            desc = part.startswith("-")
+            validated.append(Lower(field).desc() if desc else Lower(field).asc())
+            validated.append(F(field).desc() if desc else F(field).asc())
+        else:
+            validated.append(part)
     if validated:
         return qs.order_by(*validated)
     return qs
@@ -347,6 +386,7 @@ NON_FILTER_QUERY_PARAMS = frozenset(
     {
         "page",
         "page_size",
+        "per_page",
         "ordering",
         "display",
         "_notification",
@@ -683,6 +723,9 @@ class _CRUDListBase(_CRUDContextMixin, ListView):
         if display:
             display_ctx = display.get_context(qs, cfg, self.request)
             context.update(display_ctx)
+            if cfg.page_sizes:  # the pager's "Rows per page" (render_paginator reads these)
+                context["page_sizes"] = tuple(cfg.page_sizes)
+                context["per_page"] = cfg.page_size_for(self.request)
             context["display_template"] = display.template_name
             context["active_display"] = display.name
             all_displays = cfg._get_displays()
@@ -790,6 +833,19 @@ class _CRUDFormDisplayMixin:
     """Shared display protocol logic for create and update views."""
 
     _form_action = "form"  # Override in subclass: "create" or "edit"
+
+    def get_form_kwargs(self):
+        """Pass ``user=request.user`` to a form that accepts it — the same rule
+        REST, MCP and ``sc`` apply through ``form_bridge.build_form``, so a
+        form scoping its own choices per user (or stamping an owner) gets the
+        user on every surface without each CRUDView injecting it."""
+        from .form_bridge import _accepts_user
+
+        kwargs = super().get_form_kwargs()
+        user = getattr(self.request, "user", None)
+        if user is not None and _accepts_user(self.get_form_class()):
+            kwargs["user"] = user
+        return kwargs
 
     def _get_active_form_display(self):
         """Determine the active form display for this request."""
@@ -906,6 +962,13 @@ class _CRUDDeleteBase(_CRUDObjectPermissionMixin, _CRUDContextMixin, DeleteView)
 
     def get_success_url(self):
         return self.crud_config._reverse(f"{self.crud_config._get_url_base()}-list")
+
+    def form_valid(self, form):
+        # on_delete runs in the delete's transaction on every surface (here,
+        # REST, REST bulk, MCP) — a failed delete rolls its side effects back.
+        with transaction.atomic():
+            self.crud_config.on_delete(self.request, self.object)
+            return super().form_valid(form)
 
     def post(self, request, *args, **kwargs):
         try:
@@ -1110,7 +1173,9 @@ class _CRUDBulkActionView:
                         # the moment the delete succeeds, so this must not be
                         # read back off the object afterward.
                         object_repr = str(obj)[:200]
-                        obj.delete()
+                        with transaction.atomic():
+                            cfg.on_delete(request, obj)
+                            obj.delete()
                         deleted_ids.append(pk)
                         deleted_snapshots.append((pk, object_repr))
                     except (ProtectedError, RestrictedError) as e:
@@ -1270,16 +1335,9 @@ def _make_bulk_update_form_view(crud_config):
                     "</div>"
                 )
 
-            html_parts.append(
-                "<script>"
-                'document.querySelectorAll("#bulk-update-fields .bulk-field-toggle").forEach(function(cb) {'
-                '  cb.addEventListener("change", function() {'
-                '    var widget = this.closest("div").querySelector(".bulk-field-widget");'
-                '    widget.style.display = this.checked ? "block" : "none";'
-                "  });"
-                "});"
-                "</script>"
-            )
+            # The field toggles' behaviour lives in bulk_update_modal.js (a delegated
+            # listener). A <script> here never ran: the modal inserts this
+            # fragment with innerHTML, which doesn't execute scripts.
 
             return HttpResponse("".join(html_parts))
 
@@ -1502,6 +1560,17 @@ _REMOVED_RSS_ATTRS: tuple[str, ...] = (
 )
 
 
+#: Which action each generated view serves — what ``CRUDView.view_mixins``
+#: is keyed by. The field-preview and related-tab helpers take none.
+_BASE_ACTIONS: dict[type, Action] = {
+    _CRUDListBase: Action.LIST,
+    _CRUDCreateBase: Action.CREATE,
+    _CRUDDetailBase: Action.DETAIL,
+    _CRUDUpdateBase: Action.UPDATE,
+    _CRUDDeleteBase: Action.DELETE,
+}
+
+
 class CRUDView:
     """Configuration class that generates CRUD views and URL patterns.
 
@@ -1521,6 +1590,8 @@ class CRUDView:
         url_base:         URL prefix, e.g. "manage/users" (defaults to model_name)
         paginate_by:      Items per page (defaults to admin_class.list_per_page or None)
         mixins:           Auth mixins applied to all generated views
+        view_mixins:      {Action: [mixin, ...]} — ordinary Django view mixins
+                          added to one action's generated view (see below)
         actions:          Which CRUD actions to generate (default: all 5)
         breadcrumb_parent: Optional (label, url_name) for parent breadcrumb
 
@@ -1528,6 +1599,23 @@ class CRUDView:
         displays:         Available display classes (empty = legacy auto-detect)
         default_display:  Initial display (defaults to first in displays)
         detail_displays:  Display classes for detail view
+
+    Customising a generated view: put the override in a mixin and list it
+    under its action. It sits ahead of the generated base in the MRO, so
+    ``super()`` reaches the framework's behaviour::
+
+        class ReportDeleteMixin:
+            def get_context_data(self, **kwargs):
+                context = super().get_context_data(**kwargs)
+                context["columns"] = self.object.periods
+                return context
+
+        class ReportCRUDView(CRUDView):
+            view_mixins = {Action.DELETE: [ReportDeleteMixin]}
+
+    Prefer the classmethod hooks (``get_list_queryset``, ``can_update``,
+    ``on_form_valid``, ``on_delete``, ``row_actions``…) when one fits: those
+    apply to REST and MCP too, a view mixin only to the HTML view.
 
     Legacy:
         form_class:       Custom ModelForm (auto-generated if None)
@@ -1584,6 +1672,11 @@ class CRUDView:
     url_base: str | None = None
     namespace: str | None = None  # URL namespace for child ExplorerSite instances
     paginate_by = 25
+    # Opt-in "Rows per page" choice on the HTML list, e.g. PAGE_SIZE_CHOICES
+    # (apps.smallstack.pagination). When set, ``?per_page=`` picks one of these
+    # (anything else falls back to the first, which replaces paginate_by as the
+    # default) and the list's pager shows the control. Empty = paginate_by, fixed.
+    page_sizes: tuple[int, ...] = ()
     # Auth mixins wrapped around every generated view (HTML + REST). SECURE BY
     # DEFAULT: leave `mixins` unset (None) and the framework applies
     # LoginRequiredMixin. Set it explicitly to override entirely
@@ -1592,6 +1685,10 @@ class CRUDView:
     # `_resolved_mixins()`.
     mixins: list[Any] | None = None
     public = False  # opt into anonymous access (only when `mixins` is unset)
+    # Per-action view mixins, e.g. {Action.DELETE: [MyDeleteMixin]} — placed
+    # after the auth mixins and before the generated base, so they can
+    # override and super() into it. HTML views only (see the class docstring).
+    view_mixins: dict[Any, list[type]] = {}
     actions = [Action.LIST, Action.CREATE, Action.DETAIL, Action.UPDATE, Action.DELETE]
     breadcrumb_parent: Any = None  # Optional (label, url_name) for parent breadcrumb
 
@@ -1783,6 +1880,17 @@ class CRUDView:
         if cls.admin_class:
             return getattr(cls.admin_class, "list_per_page", None)
         return None
+
+    @classmethod
+    def page_size_for(cls, request: HttpRequest) -> int | None:
+        """The HTML list's page size for *request*: the ``?per_page=`` choice
+        when ``page_sizes`` is set, else ``paginate_by``. What list displays
+        paginate with (``crud_config.page_size_for(request)``)."""
+        if not cls.page_sizes:
+            return cls._resolve_paginate_by()
+        from .pagination import page_size_from
+
+        return page_size_from(request, tuple(cls.page_sizes))
 
     @classmethod
     def _get_displays(cls) -> list:
@@ -1980,6 +2088,17 @@ class CRUDView:
                     return [a for a in default_actions if not a.get("is_delete")]
                 return default_actions
 
+        A delete action may also carry ``confirm_modal`` (the modal's title):
+        TableDisplay then loads the view's own delete confirmation into the
+        global stat modal over htmx instead of the generic "Are you sure?"
+        box — so the view must answer an ``HX-Request`` GET with a fragment
+        (see apps/dashboards MetricCRUDView for a confirmation that lists
+        what deleting would break)::
+
+            for a in default_actions:
+                if a.get("is_delete"):
+                    a["confirm_modal"] = f"Delete {obj}?"
+
         Note: ``can_update`` / ``can_delete`` still gate the actual write
         when the action is invoked. ``row_actions`` is the *render-time*
         filter — using it alone leaves the action endpoint callable
@@ -2085,6 +2204,17 @@ class CRUDView:
     @classmethod
     def on_form_valid(cls, request, form, obj, is_create=False):
         """Hook called after successful create/update. Override for side effects."""
+        pass
+
+    @classmethod
+    def on_delete(cls, request, obj) -> None:
+        """Hook called just before ``obj.delete()`` on EVERY delete surface — the
+        HTML delete view, HTML bulk delete, the REST detail route, REST bulk
+        delete and the MCP ``delete_*`` tool — inside the same transaction, so if the delete fails
+        (a protected FK, say) whatever this hook did is rolled back. Override
+        to clean up what points at ``obj`` (apps/dashboards removes a deleted
+        metric's dashboard cards and report rows). Permissions are already
+        checked when it runs."""
         pass
 
     @classmethod
@@ -2277,7 +2407,9 @@ class CRUDView:
     def _make_view(cls, base_class):
         """Create a view class with mixins applied."""
         name = f"{cls.model.__name__}{base_class.__name__.lstrip('_')}"
-        bases = tuple(cls._resolved_mixins()) + (base_class,)
+        action = _BASE_ACTIONS.get(base_class)
+        extra = list(cls.view_mixins.get(action, [])) if action is not None else []
+        bases = tuple(cls._resolved_mixins()) + tuple(extra) + (base_class,)
         resolved_paginate_by = cls._resolve_paginate_by()
         # When displays are configured, the display handles pagination —
         # skip Django's built-in paginate_by.

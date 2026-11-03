@@ -57,10 +57,11 @@ preview_url_lazy = lazy(_preview_url, str)
 class _UserScopedForm(forms.ModelForm):
     """Base for console forms: accepts ``user=`` and scopes its own choices.
 
-    The ``user`` kwarg is injected by ``_ScopedFormMixin._make_view`` in
-    ``views.py``. ``user=None`` means no request context (a shell caller, a
-    schema introspection pass), and the choices are left alone — the service
-    layer is the authority in that case.
+    ``CRUDView`` passes ``user=`` to a form that accepts it, on the HTML views
+    and through ``form_bridge.build_form`` on REST, MCP and ``sc``.
+    ``user=None`` means no request context (a shell caller, a schema
+    introspection pass), and the choices are left alone — the service layer
+    is the authority in that case.
     """
 
     def __init__(self, *args: Any, user: Any = None, **kwargs: Any) -> None:

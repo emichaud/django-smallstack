@@ -161,6 +161,26 @@ def test_browse_pages_with_stable_ordering(client, staff):
     assert not _paths(first) & _paths(second)
 
 
+def test_browse_shows_15_rows_by_default_and_the_size_is_selectable(client, staff):
+    from apps.datasets.views import PAGE_SIZE, PAGE_SIZES
+
+    assert PAGE_SIZE == 15 and PAGE_SIZES[0] == 15
+    for i in range(30):
+        RequestLog.objects.create(path=f"/s/{i}", method="GET", status_code=200, response_time_ms=1, ip_address=IP)
+    first = client.get(_browse("smallstack_requests"), SEEDED)
+    assert len(first.context["rows"]) == 15 and first.context["page_obj"].paginator.num_pages == 2
+    html = first.content.decode()
+    assert 'name="per_page"' in html and '<option value="15" selected>' in html
+    # The size form keeps the filters but not the page: a new size starts at page 1.
+    assert 'name="ip_address"' in html and 'type="hidden" name="page"' not in html
+
+    wider = client.get(_browse("smallstack_requests"), {**SEEDED, "per_page": 25, "page": 2})
+    assert wider.context["per_page"] == 25 and len(wider.context["rows"]) == 5
+    assert client.get(_browse("smallstack_requests"), {**SEEDED, "per_page": 7}).context["per_page"] == 15
+    # per_page is the page's own parameter, never a dataset filter.
+    assert "per_page" not in wider.context["filters"]
+
+
 def test_browse_hides_csv_for_a_dataset_without_rest(client, staff):
     key = "t_browse_norest"
     try:
@@ -179,18 +199,34 @@ def test_nav_has_a_datasets_entry(client, staff):
 
 
 def test_index_pages_each_section_with_a_selectable_size(client, staff):
-    from apps.datasets.views import INDEX_PAGE_SIZES
+    from apps.datasets.views import INDEX_PAGE_SIZES, PAGE_SIZES
 
+    assert INDEX_PAGE_SIZES == PAGE_SIZES and PAGE_SIZES[0] == 15  # pages like the browse page
     resp = client.get(INDEX)
-    fw = resp.context["framework_pager"]["page_obj"]
-    assert fw.paginator.per_page == INDEX_PAGE_SIZES[0] == 10
-    assert len(fw.object_list) == 10 and fw.paginator.num_pages >= 3
-    assert "fpage=2" in resp.content.decode()
+    fw = resp.context["framework_page"]
+    assert fw.paginator.per_page == 15
+    assert len(fw.object_list) == 15 and fw.paginator.num_pages >= 2
+    html = resp.content.decode()
+    # The framework pager, paging in place under the section's own param.
+    assert 'id="ds-sections"' in html and 'aria-label="Framework datasets pagination"' in html
+    assert 'href="?fpage=2"' in html and 'hx-select="#ds-sections"' in html and 'hx-push-url="true"' in html
+    assert 'id="paginator-per-page-ds-sections-fpage"' in html and '<option value="15" selected>' in html
     # Page 2 of the framework section, other params preserved in its links.
-    resp = client.get(INDEX, {"fpage": 2, "per_page": 10})
-    fw = resp.context["framework_pager"]["page_obj"]
-    assert fw.number == 2 and "per_page=10" in resp.context["framework_pager"]["next"]
+    resp = client.get(INDEX, {"fpage": 2, "per_page": 15})
+    assert resp.context["framework_page"].number == 2
+    html = resp.content.decode()
+    assert 'href="?fpage=1&amp;per_page=15"' in html
+    # A new size starts every section again at page 1.
+    assert 'hx-get="/smallstack/datasets/browse/"' in html and 'type="hidden" name="fpage"' not in html
     # A larger page size; a bogus one falls back to the default.
     assert client.get(INDEX, {"per_page": 50}).context["per_page"] == 50
-    assert client.get(INDEX, {"per_page": 7}).context["per_page"] == 10
+    assert client.get(INDEX, {"per_page": 10}).context["per_page"] == 15
     assert client.get(INDEX, {"per_page": "x", "fpage": "zz"}).status_code == 200
+
+
+def test_browse_headers_sort_in_place_and_stay_resizable(client, staff):
+    html = client.get(_browse("smallstack_requests"), SEEDED).content.decode()
+    assert 'hx-select="#ds-rows" hx-target="#ds-rows" hx-swap="outerHTML" hx-push-url="true"' in html
+    assert "ordering=method" in html and 'class="col-resizer"' in html  # sort links + table-resize.js handles
+    sorted_html = client.get(_browse("smallstack_requests"), {**SEEDED, "ordering": "method"}).content.decode()
+    assert 'aria-sort="ascending"' in sorted_html and "ordering=-method" in sorted_html  # a second click flips it

@@ -16,6 +16,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+from django import forms
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.http import Http404, HttpRequest, QueryDict
 
@@ -217,6 +218,12 @@ def _build_form_input_schema(view_cls, *, include_pk: bool = False) -> dict[str,
             # user-scoped form in the create/update handlers below.
             form_instance = form_class()
             for fname, ffield in form_instance.fields.items():
+                if isinstance(ffield, forms.FileField):
+                    # A JSON-RPC argument can't carry a file, and the form reads
+                    # uploads from request.FILES only — a string sent here was
+                    # silently dropped. Leave it out; uploads go over REST
+                    # (multipart). The read side still returns the file's URL.
+                    continue
                 schema = field_to_schema(fname, ffield, view_cls.model)
                 props[fname] = _to_json_schema_prop(schema)
                 if schema.get("required") and not include_pk:
@@ -497,7 +504,11 @@ def _build_delete_tool(view_cls, *, singular: str):
             return _tool_error("not_permitted", "delete not permitted")
         pk = obj.pk
         log_write(ctx.user, obj, DELETION, "MCP")  # before delete — obj.pk needed
-        obj.delete()
+        from django.db import transaction
+
+        with transaction.atomic():
+            view_cls.on_delete(request, obj)
+            obj.delete()
         # Both spellings on the way out, so a caller that sent `pk` still finds it.
         return {"deleted": True, "id": pk, "pk": pk}
 

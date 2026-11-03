@@ -46,7 +46,7 @@ each header (table-resize.js) — widths persist in localStorage under
 {% for row in rows %}
 <tr{% if enable_bulk %} data-pk="{{ row.pk }}"{% endif %}>
     {% if enable_bulk %}
-    <td style="text-align: center;" onclick="event.stopPropagation();">
+    <td style="text-align: center;">
         <input type="checkbox" class="bulk-select-row" data-pk="{{ row.pk }}" style="cursor: pointer;">
     </td>
     {% endif %}
@@ -62,8 +62,13 @@ each header (table-resize.js) — widths persist in localStorage under
     {% if show_actions %}
     <td class="crud-actions-cell">
         {% for action in row.actions %}
-        {% if action.is_delete %}
-        <a href="{{ action.url }}" class="crud-action-delete" title="Delete" aria-label="Delete {{ row.obj_name }}" onclick="event.preventDefault();crudDeleteModal(this,'{{ row.obj_name }}')" data-delete-url="{{ action.url }}">
+        {% if action.is_delete and action.confirm_modal %}
+        {% comment %}Opt-in (row_actions sets confirm_modal): the view's own confirmation, loaded into the global modal over htmx.{% endcomment %}
+        <a href="{{ action.url }}" class="crud-action-delete" title="Delete" aria-label="Delete {{ row.obj_name }}" hx-get="{{ action.url }}" hx-target="#stat-modal-body" hx-swap="innerHTML" aria-haspopup="dialog" data-stat-modal="{{ action.confirm_modal }}">
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor" aria-hidden="true"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
+        </a>
+        {% elif action.is_delete %}
+        <a href="{{ action.url }}" class="crud-action-delete" title="Delete" aria-label="Delete {{ row.obj_name }}" data-ss-action="crudDeleteModal" data-ss-args='["$this", "{{ row.obj_name|escapejs }}"]' data-ss-prevent data-delete-url="{{ action.url }}">
             <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor" aria-hidden="true"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
         </a>
         {% else %}

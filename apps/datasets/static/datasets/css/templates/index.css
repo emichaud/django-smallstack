@@ -1,0 +1,23 @@
+/* Moved from apps/datasets/templates/datasets/index.html (inline <style>). */
+.ds-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+.ds-table th { text-align: left; padding: 10px 16px; white-space: nowrap; }
+.ds-table td { padding: 10px 16px; vertical-align: top; }
+.ds-table td.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.ds-key {
+    font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+    font-size: 0.78rem;
+    color: var(--body-quiet-color);
+}
+.ds-desc { color: var(--body-quiet-color); font-size: 0.8rem; margin-top: 2px; }
+.ds-pill {
+    display: inline-block; padding: 1px 7px; border-radius: 999px;
+    font-size: 0.68rem; font-weight: 700; letter-spacing: 0.04em;
+    border: 1px solid var(--card-border); color: var(--body-quiet-color);
+    margin-right: 4px; white-space: nowrap;
+}
+.ds-pill.on { border-color: var(--primary); color: var(--primary); }
+.ds-card-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.ds-card-head h2 { margin: 0; }
+.ds-count { color: var(--body-quiet-color); font-size: 0.8rem; font-weight: 400; margin-left: 8px; }
+.paginator { padding: 10px 14px; }
+@media (max-width: 720px) { .ds-hide-sm { display: none; } }

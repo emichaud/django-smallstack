@@ -5,6 +5,20 @@ from typing import Any
 from django.core.paginator import Page, Paginator
 from django.http import HttpRequest
 
+#: The "Rows per page" choices SmallStack's lists offer (``?per_page=``); the
+#: first is the default. ``CRUDView.page_sizes`` and the dataset browser use it.
+PAGE_SIZE_CHOICES: tuple[int, ...] = (15, 25, 50, 100)
+
+
+def page_size_from(request: HttpRequest, choices: tuple[int, ...], param: str = "per_page") -> int:
+    """The page size *request* asks for (``?per_page=``) when it is one of
+    *choices*; otherwise the first choice. Never trusts a free-form number."""
+    try:
+        value = int(request.GET.get(param, ""))
+    except (TypeError, ValueError):
+        return choices[0]
+    return value if value in choices else choices[0]
+
 
 def attach_display_helpers(page_obj: Page) -> Page:
     """Attach SmallStack's four list-pagination display attributes to a Page.

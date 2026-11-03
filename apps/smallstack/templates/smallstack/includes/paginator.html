@@ -1,43 +1,58 @@
-{% load theme_tags %}
-{% if page_obj.paginator.num_pages > 1 %}
+{% comment %}The framework pager (theme_tags.render_paginator builds every link, so one page can carry several lists, each with its own page parameter).{% endcomment %}
+{% if page_obj.paginator.num_pages > 1 or page_sizes and page_obj.paginator.count > page_sizes.0 %}
 <div class="paginator">
     <span class="paginator-info">
         Showing {{ page_obj.showing_start }}&ndash;{{ page_obj.showing_end }} of {{ page_obj.total_count }}
     </span>
-    <nav class="paginator-nav" aria-label="Pagination">
-        <a class="paginator-btn{% if not page_obj.has_previous %} disabled{% endif %}"
-           {% if page_obj.has_previous %}
-           href="{% querystring page=1 %}"
-           hx-get="{% querystring page=1 %}"
+    {% if page_sizes %}
+    {% comment %}Rows per page: htmx swaps the list in place (the select's own value rides along) and keeps the address; without JS, the form does the same with a reload. A new size starts at page 1.{% endcomment %}
+    <form method="get" class="paginator-size">
+        {% for k, v in keep_params %}<input type="hidden" name="{{ k }}" value="{{ v }}">{% endfor %}
+        <label for="{{ control_id }}">Rows per page</label>
+        <select id="{{ control_id }}" name="per_page"
+                hx-get="{{ size_url }}" hx-trigger="change"
+                hx-target="{{ hx_target }}" hx-swap="{{ hx_swap }}"{% if hx_select %} hx-select="{{ hx_select }}"{% endif %} hx-push-url="true">
+            {% for n in page_sizes %}<option value="{{ n }}"{% if n == per_page %} selected{% endif %}>{{ n }}</option>{% endfor %}
+        </select>
+        <noscript><button type="submit" class="btn-outline btn-sm">Go</button></noscript>
+    </form>
+    {% endif %}
+    {% if page_obj.paginator.num_pages > 1 %}
+    <nav class="paginator-nav" aria-label="{{ label }}">
+        <a class="paginator-btn{% if not first_url %} disabled{% endif %}"
+           {% if first_url %}
+           href="{{ first_url }}"
+           hx-get="{{ first_url }}"
            hx-target="{{ hx_target }}"
-           hx-swap="{{ hx_swap }}"
+           hx-swap="{{ hx_swap }}"{% if hx_select %} hx-select="{{ hx_select }}"{% endif %}{% if push_url %} hx-push-url="true"{% endif %}
            {% endif %}
            title="First page" aria-label="First page">&laquo;</a>
-        <a class="paginator-btn{% if not page_obj.has_previous %} disabled{% endif %}"
-           {% if page_obj.has_previous %}
-           href="{% querystring page=page_obj.previous_page_number %}"
-           hx-get="{% querystring page=page_obj.previous_page_number %}"
+        <a class="paginator-btn{% if not previous_url %} disabled{% endif %}"
+           {% if previous_url %}
+           href="{{ previous_url }}"
+           hx-get="{{ previous_url }}"
            hx-target="{{ hx_target }}"
-           hx-swap="{{ hx_swap }}"
+           hx-swap="{{ hx_swap }}"{% if hx_select %} hx-select="{{ hx_select }}"{% endif %}{% if push_url %} hx-push-url="true"{% endif %}
            {% endif %}
            title="Previous page" aria-label="Previous page">&lsaquo;</a>
         <span class="paginator-current">{{ page_obj.number }}<span class="paginator-of">of</span>{{ page_obj.paginator.num_pages }}</span>
-        <a class="paginator-btn{% if not page_obj.has_next %} disabled{% endif %}"
-           {% if page_obj.has_next %}
-           href="{% querystring page=page_obj.next_page_number %}"
-           hx-get="{% querystring page=page_obj.next_page_number %}"
+        <a class="paginator-btn{% if not next_url %} disabled{% endif %}"
+           {% if next_url %}
+           href="{{ next_url }}"
+           hx-get="{{ next_url }}"
            hx-target="{{ hx_target }}"
-           hx-swap="{{ hx_swap }}"
+           hx-swap="{{ hx_swap }}"{% if hx_select %} hx-select="{{ hx_select }}"{% endif %}{% if push_url %} hx-push-url="true"{% endif %}
            {% endif %}
            title="Next page" aria-label="Next page">&rsaquo;</a>
-        <a class="paginator-btn{% if not page_obj.has_next %} disabled{% endif %}"
-           {% if page_obj.has_next %}
-           href="{% querystring page=page_obj.paginator.num_pages %}"
-           hx-get="{% querystring page=page_obj.paginator.num_pages %}"
+        <a class="paginator-btn{% if not last_url %} disabled{% endif %}"
+           {% if last_url %}
+           href="{{ last_url }}"
+           hx-get="{{ last_url }}"
            hx-target="{{ hx_target }}"
-           hx-swap="{{ hx_swap }}"
+           hx-swap="{{ hx_swap }}"{% if hx_select %} hx-select="{{ hx_select }}"{% endif %}{% if push_url %} hx-push-url="true"{% endif %}
            {% endif %}
            title="Last page" aria-label="Last page">&raquo;</a>
     </nav>
+    {% endif %}
 </div>
 {% endif %}

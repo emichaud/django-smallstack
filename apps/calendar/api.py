@@ -1,6 +1,6 @@
 """REST surface for calendars under ``/smallstack/calendar/api/``.
 
-Bearer-or-session authenticated (the same ``_authenticate_api_request`` path
+Bearer-or-session authenticated (the same ``authenticate_api_request`` path
 ``/api/`` and the datasets routes use — JSON 401/403, never a login redirect)
 and open to any signed-in user; per-calendar access is enforced by
 ``core.resolve_keys`` so a non-staff caller never learns a staff calendar
@@ -31,7 +31,7 @@ from django.utils.decorators import method_decorator
 from django.views import View
 from django.views.decorators.csrf import csrf_exempt
 
-from apps.smallstack.api import _authenticate_api_request
+from apps.smallstack.api import authenticate_api_request
 
 from .core import (
     CalendarDataset,
@@ -99,7 +99,7 @@ class _CalendarApiView(View):
     def dispatch(self, request: HttpRequest, *args: Any, **kwargs: Any) -> HttpResponseBase:
         if not _enabled():
             raise Http404
-        user, err = _authenticate_api_request(request)
+        user, err = authenticate_api_request(request)
         if err:
             return err
         request.api_user = user  # type: ignore[attr-defined]

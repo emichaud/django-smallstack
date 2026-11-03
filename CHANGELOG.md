@@ -24,6 +24,53 @@ Breaking-change migration recipes live in [`UPGRADING.md`](UPGRADING.md).
   options; restricted viewers get the restricted card. Service:
   `apps.calendar.embed` (`calendar_embed`, `embed_context`, `build_upcoming`);
   fourth component `calendar/components/upcoming.html`. Skill: `calendar.md`.
+- **Tables sharing a resize key stay in step.** `table-resize.js` applies a resize or reset to every table on the page with the same `data-table-key`.
+- **Nav items can match several paths.** `nav.register(active_prefix=...)` takes a tuple, for an area whose pages don't share one path.
+- **The dataset browser sorts in place.** A header click swaps just the rows
+  card (with the address following), like its pager, instead of reloading the
+  page. Its columns were already resizable.
+    - **Carrying the design:** it travels on the rows URL (`?drill=`), validated
+      against the dataset, so it follows the card onto any page.
+    - **For app types:** set `drillable=True` and use `with_drill()` /
+      `drill_params()`.
+  - **Built-in labels:** Single stat, Grouped stat, Info card, Note.
+    `apps/website`'s Trend chart is the downstream example, under Charts.
+### Changed
+- **Name sorting is case-insensitive on every list.** Text columns now sort with
+  lowercase and capitals together ("alpha" beside "Alpha", not after "Zeta" as
+  a byte-order sort put it), with the raw value as a tie-break so the order stays
+  stable.
+  - **Where:** `crud._apply_ordering_fields`, the one place `?ordering=` becomes a
+    query, so it covers the HTML CRUD lists, the REST API and MCP, the dataset
+    browser, the drill-down modal and the metric page's rows.
+  - **Which columns:** Char, Text, Slug, Email and URL fields count as text,
+    including through foreign keys (`user__username`) and text-typed annotations.
+    Numbers, dates and foreign-key ids sort as before.
+- **The dataset browser and the datasets index page in place** with the
+  framework pager. `{% render_paginator %}` gains:
+  - `hx_select` and `push_url`, for pages that answer with full HTML;
+  - `page_param`, `reset` and `label`, so one page can carry several lists,
+    each paging under its own parameter (the index's `fpage` / `ppage`), with
+    one "Rows per page" that starts them all again at page 1.
+
+  The tag now builds its links in Python, and the datasets app's hand-built
+  pager (`_index_pager.html`, `views._pager`) is gone.
+
+### Added
+- **`CRUDView.page_sizes` — a "Rows per page" choice for any CRUD list.** Set
+  `page_sizes = PAGE_SIZE_CHOICES` (`apps.smallstack.pagination`: 15, 25, 50, 100)
+  and `?per_page=` picks one, defaulting to the first. The framework pager
+  (`{% render_paginator %}`) shows the control, swapping the list in place and
+  keeping the choice in the address; it stays visible even when everything
+  fits on one page. Custom displays paginate with
+  `crud_config.page_size_for(request)` (the built-in, dashboards and calendar
+  displays already do); unset, a list pages at `paginate_by` as before. Every
+  dashboards-app list uses it: dashboards, playlists, metrics and reports.
+- **The dataset browser and the datasets index show 15 rows a page by default**,
+  with a "Rows per page" choice (15 / 25 / 50 / 100, `?per_page=`) in the pager
+  that keeps the filters and starts again at page 1. On the index, it sits in
+  each section's pager (it was a "Per page" control above the sections,
+  defaulting to 10) and sets both sections.
 - **Dashboards — metrics, grid dashboards and KPI reports (`apps/dashboards/`, label
   `smallstack_dashboards`).** A framework layer over `@dataset` for numbers that
   matter, built by hand or by an AI agent. A **Metric** is a stored filter tree
@@ -68,10 +115,55 @@ Breaking-change migration recipes live in [`UPGRADING.md`](UPGRADING.md).
 - **`@dataset(access="staff"|"auth")`** (default `staff`) declares who may read a
   dataset through in-app surfaces that evaluate it for a user (metrics, dashboards,
   reports). `apps.datasets.registry.user_may_read()` checks it.
+- **`Dataset.series(..., grain=)`** is call_stats' time-grain grammar, lifted into SmallStack's
+  datasets: calendar buckets with Monday weeks and `lo`/`hi` bounds.
+- **Filter descriptions read ISO datetimes as local dates or times** ("Timestamp ≥ 2026-10-19").
+- **`CRUDView.view_mixins = {Action.DELETE: [MyMixin], …}`** is the supported way to customise one
+  generated HTML view. The mixins are ordinary Django mixins placed between the auth mixins and the
+  generated base, so they use `super()`. It replaces overriding `_make_view` and assigning functions
+  onto the class it returns. Dashboards and calendar have moved over; usermanager and tokenmgr still
+  use the old pattern, which keeps working.
+- **HTML create/edit forms get `user=`** whenever their `__init__` accepts it, the same rule REST,
+  MCP and `sc` already followed (`form_bridge.build_form`). Blog and calendar dropped their copies
+  of that injection.
+  *Upgrade note:* a downstream form that takes `user` now receives it on the HTML views without a
+  `_make_view` patch. An existing patch still works; it just becomes redundant.
+- **`apps.smallstack.api.authenticate_api_request`** is the public name for the Bearer-or-session
+  check that custom JSON views use. `_authenticate_api_request` remains as an alias.
+- **`Dataset` public helpers** for apps that group a dataset's queryset themselves:
+  `aggregate_expression(agg, measure)`, `column_label(name)`, `column_labels()`,
+  `value_labels(dimension, rows)` (previously the private `_fk_label_map`), and the module-level
+  `round_value`. `apps.smallstack.dashboard.widget_url` is the public name for `_resolve_url`.
+- **`CRUDView.on_delete(request, obj)`** is a hook called just before `obj.delete()` on every delete
+  surface: the HTML delete view, HTML bulk, REST, REST bulk and MCP `delete_*`. It runs inside the
+  delete's transaction, so a failed delete rolls back its side effects. The dashboards metrics CRUD
+  uses it to remove a deleted metric's cards and report rows, which means REST and MCP deletes no
+  longer leave "metric no longer exists" cards behind.
+- **`confirm_modal` on a CRUD delete action** (set from `row_actions`): TableDisplay loads the view's own
+  delete confirmation into the global stat modal over htmx instead of the generic "Are you sure?" box. The view
+  answers an `HX-Request` GET with a fragment. It's opt-in, so other tables are unchanged. The dashboards metrics
+  table uses it to show which dashboards and reports a delete would break.
 - **`describe_dataset` MCP tool**: a dataset's `schema()` for an agent, gated by that
   dataset's own `mcp_access`.
 
 ### Fixed
+- **Tests no longer leak CRUDView registrations into each other.**
+  - A CRUDView subclass registers itself for its model when defined. A
+    throwaway one a test made for `BackupRecord`, which has no real CRUDView,
+    stayed registered for the rest of the run.
+  - The backups dataset then linked rows through routes that don't exist, so
+    `apps/calendar`'s point-events test failed depending on which files ran
+    first.
+  - The root `conftest.py` now restores `CRUDView._registry` after every test,
+    after loading the URLconf once so real CRUDViews are never rolled back.
+    `test_crud_registry_isolation.py` pins it.
+- **MCP create/update tools no longer advertise file fields.** A JSON-RPC argument
+  can't carry a file and the form reads uploads only from `request.FILES`, so a
+  string sent for an `ImageField` was silently dropped. File fields are now left
+  out of the generated write schema; reads still return the file's URL.
+- Report columns now keep the order you chose. The grouped period chips submitted in group order,
+  which made "this month vs last month vs YTD" compare this month with the year.
+- The metric builder broke on a metric whose stored filter is a single condition, not a group.
 - `test_widget_reports_endpoint_count` asserted `"0" not in headline` and so failed
   on any two-digit count ("20 endpoints"); it now checks the count is positive.
 - **Dataset browser: Apply and Roll up no longer undo each other.** The filter

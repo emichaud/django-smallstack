@@ -12,7 +12,7 @@ testable without JavaScript.
 from __future__ import annotations
 
 from datetime import date, timedelta
-from typing import Any, Optional, cast
+from typing import TYPE_CHECKING, Any, Optional, cast
 from urllib.parse import urlencode
 
 from django.contrib.auth.mixins import LoginRequiredMixin
@@ -21,9 +21,9 @@ from django.urls import reverse
 from django.utils import timezone
 from django.utils.html import format_html
 from django.views import View
-from django.views.generic import TemplateView
+from django.views.generic import CreateView, TemplateView
 
-from apps.smallstack.crud import Action, CRUDView, _CRUDCreateBase, _CRUDUpdateBase
+from apps.smallstack.crud import Action, CRUDView
 from apps.smallstack.displays import CalendarDisplay
 
 from .core import (
@@ -142,9 +142,7 @@ class CalendarPageView(LoginRequiredMixin, TemplateView):
             keys = []
         selected, _rejected = resolve_keys(keys, user)
         selected_keys = [c.key for c in selected]
-        modified = current_view is not None and set(selected_keys) != set(
-            k for k in current_view.keys if k in series
-        )
+        modified = current_view is not None and set(selected_keys) != set(k for k in current_view.keys if k in series)
         if modified:
             current_view = None  # the links below carry ``ds`` explicitly instead
 
@@ -362,6 +360,25 @@ def _default_cell(value: Any, obj: SavedCalendarView) -> Any:
     return format_html('<span style="color: var(--primary); font-weight: 600;">{}</span>', "Default")
 
 
+if TYPE_CHECKING:
+    _CreateViewBase = CreateView
+else:
+    _CreateViewBase = object
+
+
+class SavedViewPrefillMixin(_CreateViewBase):
+    """The calendar page's "Save this view" opens the create form with
+    ``?datasets=a,b`` prefilled. (The form gets the signed-in user from the
+    framework, which passes ``user=`` to a form that accepts it.)"""
+
+    def get_initial(self) -> dict[str, Any]:
+        initial = dict(super().get_initial())
+        raw = self.request.GET.get("datasets")
+        if raw:
+            initial["datasets"] = raw
+        return initial
+
+
 class SavedCalendarViewCRUDView(CRUDView):
     """A user's saved calendar selections. Owner-scoped on every surface:
     the HTML list, the REST routes and the generated MCP tools all read
@@ -379,6 +396,7 @@ class SavedCalendarViewCRUDView(CRUDView):
     }
     column_widths = {"name": "26%", "is_default": "12%", "updated_at": "20%"}
     url_base = "calendar/views"
+    view_mixins = {Action.CREATE: [SavedViewPrefillMixin]}
     paginate_by = 25
     mixins = [LoginRequiredMixin]
     bulk_actions: list = []
@@ -410,35 +428,6 @@ class SavedCalendarViewCRUDView(CRUDView):
     @classmethod
     def row_link_url(cls, obj: SavedCalendarView, request: HttpRequest) -> str:
         return obj.get_absolute_url()
-
-    @classmethod
-    def _make_view(cls, base_class: Any) -> Any:
-        """Hand the form the signed-in user (its choices are per-user), and let
-        the calendar page prefill a new view with ``?datasets=a,b``. Only the
-        create and edit views: the delete view is a ``FormMixin`` too, with a
-        bare ``Form`` that does not take ``user``."""
-        view = super()._make_view(base_class)
-        if base_class in (_CRUDCreateBase, _CRUDUpdateBase):
-            inherited_kwargs = view.get_form_kwargs
-
-            def get_form_kwargs(self: Any) -> dict:
-                kwargs = inherited_kwargs(self)
-                kwargs["user"] = getattr(self.request, "user", None)
-                return kwargs
-
-            view.get_form_kwargs = get_form_kwargs
-        if base_class is _CRUDCreateBase:
-            inherited_initial = view.get_initial
-
-            def get_initial(self: Any) -> dict:
-                initial = dict(inherited_initial(self))
-                raw = self.request.GET.get("datasets")
-                if raw:
-                    initial["datasets"] = raw
-                return initial
-
-            view.get_initial = get_initial
-        return view
 
 
 # ---------------------------------------------------------------------------
@@ -541,23 +530,6 @@ class EventCRUDView(CRUDView):
     @classmethod
     def can_delete(cls, obj: Event, request: HttpRequest) -> bool:
         return cls.can_update(obj, request)
-
-    @classmethod
-    def _make_view(cls, base_class: Any) -> Any:
-        """Hand the form the signed-in user so it can stamp ``created_by`` —
-        on the create and edit views only (the delete view's form is Django's
-        bare ``Form``)."""
-        view = super()._make_view(base_class)
-        if base_class in (_CRUDCreateBase, _CRUDUpdateBase):
-            inherited_kwargs = view.get_form_kwargs
-
-            def get_form_kwargs(self: Any) -> dict:
-                kwargs = inherited_kwargs(self)
-                kwargs["user"] = getattr(self.request, "user", None)
-                return kwargs
-
-            view.get_form_kwargs = get_form_kwargs
-        return view
 
 
 def view_or_none(user: Any, raw: Any) -> Optional[SavedCalendarView]:

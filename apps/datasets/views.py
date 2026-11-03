@@ -20,42 +20,24 @@ from django.urls import reverse
 from django.views.generic import TemplateView
 
 from apps.smallstack.mixins import StaffRequiredMixin
-from apps.smallstack.pagination import paginate_queryset
+from apps.smallstack.pagination import PAGE_SIZE_CHOICES, paginate_queryset
 from apps.smallstack.sorting import build_sort_headers
 
 from .core import Dataset, get_dataset, list_datasets
 from .framework import is_framework_dataset
 from .registry import get_def
 
-PAGE_SIZE = 50
-#: Index page sizes (datasets per section); the first is the default.
-INDEX_PAGE_SIZES = (10, 25, 50, 100)
+#: Browse page sizes (rows per page, ``?per_page=``) — SmallStack's list
+#: choices, so this page pages like every CRUD list; the first is the default.
+PAGE_SIZES = PAGE_SIZE_CHOICES
+PAGE_SIZE = PAGE_SIZES[0]
+#: Index page sizes (datasets per section) — the browse page's, so both pages page alike.
+INDEX_PAGE_SIZES = PAGE_SIZES
 SERIES_LIMIT = 50
 AGG_CHOICES = (("count", "Count"), ("sum", "Sum"), ("avg", "Average"), ("min", "Min"), ("max", "Max"))
 
 #: Query params the browse page owns; everything else is a dataset filter.
-_PAGE_PARAMS = {"ordering", "page", "group_by", "measure", "agg"}
-
-
-def _pager(request: HttpRequest, page_obj: Page, param: str) -> dict[str, Any]:
-    """First/prev/next/last links for *page_obj* under query param *param*,
-    preserving every other query param. Built here because the
-    ``{% querystring %}`` tag takes literal keys, and the index pages two
-    lists on one URL (``fpage`` / ``ppage``)."""
-
-    def link(number: int) -> str:
-        params = request.GET.copy()
-        params[param] = str(number)
-        return "?" + params.urlencode()
-
-    paginator = page_obj.paginator
-    return {
-        "page_obj": page_obj,
-        "first": link(1) if page_obj.has_previous() else "",
-        "previous": link(page_obj.previous_page_number()) if page_obj.has_previous() else "",
-        "next": link(page_obj.next_page_number()) if page_obj.has_next() else "",
-        "last": link(paginator.num_pages) if page_obj.has_next() else "",
-    }
+_PAGE_PARAMS = {"ordering", "page", "per_page", "group_by", "measure", "agg"}
 
 
 class DatasetIndexView(StaffRequiredMixin, TemplateView):
@@ -92,18 +74,16 @@ class DatasetIndexView(StaffRequiredMixin, TemplateView):
         per_page = _int_in(request.GET.get("per_page"), INDEX_PAGE_SIZES, INDEX_PAGE_SIZES[0])
         framework_page = paginate_queryset(framework, request, page_size=per_page, page_param="fpage")
         project_page = paginate_queryset(project, request, page_size=per_page, page_param="ppage")
-        # The per-page form must carry every param except the page numbers,
-        # which a new size invalidates.
-        keep = {k: v for k, v in request.GET.items() if k not in ("per_page", "fpage", "ppage")}
+        # Both sections page in place with the framework pager, each under its
+        # own page param; one "Rows per page" sets both (see index.html).
         context.update(
             {
                 "framework_datasets": framework,
                 "project_datasets": project,
-                "framework_pager": _pager(request, framework_page, "fpage"),
-                "project_pager": _pager(request, project_page, "ppage"),
+                "framework_page": framework_page,
+                "project_page": project_page,
                 "per_page": per_page,
                 "page_sizes": INDEX_PAGE_SIZES,
-                "keep_params": keep,
                 "total": len(framework) + len(project),
             }
         )
@@ -135,7 +115,8 @@ class DatasetBrowseView(StaffRequiredMixin, TemplateView):
 
         filters = self._active_filters(request, ds, schema)
         ordering = request.GET.get("ordering", "").strip()
-        page_obj = self._page(request, ds, filters, ordering)
+        per_page = _int_in(request.GET.get("per_page"), PAGE_SIZES, PAGE_SIZE)
+        page_obj = self._page(request, ds, filters, ordering, per_page)
 
         rows = [{"url": ds.link_for(obj), "cells": self._cells(obj, columns)} for obj in page_obj.object_list]
         headers = build_sort_headers([(c["name"], c["label"]) for c in columns], ordering)
@@ -154,6 +135,8 @@ class DatasetBrowseView(StaffRequiredMixin, TemplateView):
                 "filters": filters,
                 "has_filters": bool(filters),
                 "page_obj": page_obj,
+                "per_page": per_page,
+                "page_sizes": PAGE_SIZES,
                 "rows": rows,
                 "has_links": ds.has_links(),
                 "csv_url": self._csv_url(key, dfn.enable_api, filters),
@@ -198,7 +181,7 @@ class DatasetBrowseView(StaffRequiredMixin, TemplateView):
     # -- rows ----------------------------------------------------------------
 
     @staticmethod
-    def _page(request: HttpRequest, ds: Dataset, filters: dict[str, str], ordering: str) -> Page:
+    def _page(request: HttpRequest, ds: Dataset, filters: dict[str, str], ordering: str, per_page: int) -> Page:
         from apps.smallstack.crud import _apply_ordering_fields
 
         qs: QuerySet = ds.queryset(request, filters)
@@ -206,7 +189,7 @@ class DatasetBrowseView(StaffRequiredMixin, TemplateView):
             qs = _apply_ordering_fields(qs, ordering, set(ds.column_names()))
         if not qs.ordered:
             qs = qs.order_by("-pk")  # stable paging for models with no Meta.ordering
-        return paginate_queryset(qs, request, page_size=PAGE_SIZE)
+        return paginate_queryset(qs, request, page_size=per_page)
 
     @staticmethod
     def _cells(obj: Any, columns: list[dict[str, Any]]) -> list[dict[str, Any]]:

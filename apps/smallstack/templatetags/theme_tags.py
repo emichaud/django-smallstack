@@ -12,6 +12,7 @@ from django import template
 from django.conf import settings
 from django.urls import NoReverseMatch, reverse
 from django.utils import dateformat
+from django.utils.text import slugify
 
 register = template.Library()
 logger = logging.getLogger("smallstack")
@@ -165,19 +166,62 @@ def querystring(context, **kwargs) -> str:
 
 
 @register.inclusion_tag("smallstack/includes/paginator.html", takes_context=True)
-def render_paginator(context, page_obj, hx_target="#tab-content", hx_swap="innerHTML swap:150ms"):
+def render_paginator(
+    context,
+    page_obj,
+    hx_target="#tab-content",
+    hx_swap="innerHTML swap:150ms",
+    hx_select="",
+    push_url=False,
+    page_param="page",
+    reset="",
+    label="Pagination",
+):
     """Render paginator controls for a Page object.
 
     Usage:
         {% render_paginator page_obj %}
         {% render_paginator page_obj hx_target="#my-div" %}
+
+    With ``page_sizes`` / ``per_page`` in the context (a CRUDView that sets
+    ``page_sizes`` puts them there) it adds a "Rows per page" choice; a new
+    size drops ``page_param`` and any params named in ``reset`` (space-
+    separated), so every list it resizes starts again at page 1.
+
+    A page that answers paging with its full HTML (not a fragment) passes
+    ``hx_select`` — the element to take from the response, usually the same as
+    ``hx_target`` with ``hx_swap="outerHTML"`` — and ``push_url=True`` so the
+    address follows: ``{% render_paginator page_obj "#rows" hx_swap="outerHTML"
+    hx_select="#rows" push_url=True %}`` (the dataset browser does). Several
+    lists on one page each page with their own ``page_param`` (the datasets
+    index: ``fpage`` / ``ppage``) and name their nav with ``label``.
     """
     request = context.get("request")
+
+    def link(number):
+        return querystring(context, **{page_param: number})
+
+    has_prev, has_next = page_obj.has_previous(), page_obj.has_next()
+    dropped = {page_param, "per_page", *reset.split()}
     return {
         "page_obj": page_obj,
         "request": request,
         "hx_target": hx_target,
         "hx_swap": hx_swap,
+        "hx_select": hx_select,
+        "push_url": push_url,
+        "label": label,
+        "control_id": f"paginator-per-page-{slugify(hx_target)}-{page_param}",
+        "first_url": link(1) if has_prev else "",
+        "previous_url": link(page_obj.previous_page_number()) if has_prev else "",
+        "next_url": link(page_obj.next_page_number()) if has_next else "",
+        "last_url": link(page_obj.paginator.num_pages) if has_next else "",
+        # "Rows per page" — set by a CRUDView with page_sizes (see crud.py).
+        "page_sizes": context.get("page_sizes") or (),
+        "per_page": context.get("per_page"),
+        # The path is spelled out: an empty hx-get would mean "this URL", page and all.
+        "size_url": (request.path if request else "") + querystring(context, **{k: None for k in dropped}),
+        "keep_params": [(k, v) for k, v in (request.GET.items() if request else []) if k not in dropped],
     }
 
 

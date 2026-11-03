@@ -544,3 +544,11 @@ def test_ics_feed_subscribes_with_basic_auth(client, staff, seeded):
     # The JSON routes accept the same credentials but never challenge.
     assert client.get(API_LIST, HTTP_AUTHORIZATION=header).status_code == 200
     assert "WWW-Authenticate" not in client.get(API_LIST)
+
+
+def test_new_saved_view_prefills_datasets_from_the_query(client, staff):
+    """The calendar page's "Save this view" opens the create form with
+    ?datasets= ticked (SavedViewPrefillMixin, via CRUDView.view_mixins)."""
+    html = client.get(reverse("calendar/views-create"), {"datasets": MW}).content.decode()
+    assert f'name="datasets" value="{MW}" checked' in html
+    assert f'name="datasets" value="{BK}" checked' not in html

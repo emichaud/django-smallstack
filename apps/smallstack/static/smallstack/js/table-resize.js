@@ -18,6 +18,8 @@
  *
  * Widths persist in localStorage per `data-table-key` (the view's url_base +
  * its field list, so a changed `list_fields` never replays stale widths).
+ * Tables on one page that share a key move together: resizing (or resetting)
+ * one applies to the rest, so a table split into sections stays aligned.
  * Everything re-initialises after an htmx swap — sort/search/filter/paginate
  * all replace the table — and is idempotent per table element.
  *
@@ -170,6 +172,17 @@
         syncResetButton(table);
     }
 
+    // Other tables on the page sharing this one's key — a page that splits one
+    // table into several (a goal list's sections) keeps their columns lined up.
+    function siblings(table) {
+        var key = table.getAttribute('data-table-key');
+        if (!key) return [];
+        return Array.prototype.filter.call(
+            document.querySelectorAll('table.crud-table[data-table-key]'),
+            function (other) { return other !== table && other.getAttribute('data-table-key') === key; }
+        );
+    }
+
     function persist(table) {
         var widths = {};
         dataHeaders(table).forEach(function (th) {
@@ -178,9 +191,11 @@
         saveWidths(table, widths);
         table.classList.add('is-resized');
         syncResetButton(table);
+        siblings(table).forEach(applySaved);
     }
 
-    function resetWidths(table) {
+    function resetWidths(table, alone) {
+        if (!alone) siblings(table).forEach(function (other) { resetWidths(other, true); });
         saveWidths(table, null);
         dataHeaders(table).forEach(function (th) {
             // Restore whatever the server emitted (column_widths / type default), else free.

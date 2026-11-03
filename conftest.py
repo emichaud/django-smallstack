@@ -15,6 +15,14 @@ without the restore any later test asserting "my app's tools are
 registered" passes or fails on file order alone — green in the default
 alphabetical run, red when a subset of suites is run in another order.
 
+And restores ``CRUDView._registry`` after every test (``_restore_crud_registry``):
+a CRUDView subclass registers itself for its model the moment it is defined
+(``__init_subclass__``, first wins), so a throwaway CRUDView a test defines for
+a model with no real one — ``BackupRecord`` — used to stay registered for the
+rest of the session. Datasets link rows through that registry, so every later
+backups row lost its link and the calendar's point-events test failed on file
+order alone.
+
 Any FK on these models MUST be db_constraint=False: flush for
 transaction=True tests doesn't truncate unmanaged tables, and Postgres
 refuses to TRUNCATE a table (accounts_user) that a real FK references —
@@ -51,3 +59,26 @@ def _restore_mcp_tool_registry():
 
     with isolated_tool_registry():
         yield
+
+
+@pytest.fixture(scope="session")
+def _crud_views_loaded():
+    """Import every real CRUDView before any test snapshots the registry, by
+    loading the URLconf (it imports every app's views). Otherwise a views
+    module first imported *during* a test would register its classes inside
+    that test's snapshot and be rolled back with the test's own."""
+    from django.urls import get_resolver
+
+    get_resolver().url_patterns  # noqa: B018 — the import side effect is the point
+
+
+@pytest.fixture(autouse=True)
+def _restore_crud_registry(_crud_views_loaded):
+    """Undo whatever a test registered in ``CRUDView._registry``."""
+    from apps.smallstack.crud import CRUDView
+
+    before = dict(CRUDView._registry)
+    yield
+    if CRUDView._registry != before:
+        CRUDView._registry.clear()
+        CRUDView._registry.update(before)

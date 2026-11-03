@@ -24,13 +24,14 @@ from typing import Any, Callable, Optional
 from django.db.models import Model, QuerySet
 from django.http import HttpRequest, QueryDict
 
+from .filter_tree import compile_filter_tree, is_empty, ops_for_type
 from .registry import DatasetDef, all_defs, get_def
 
 # Types the framework classifies as numeric → chartable "measures".
 _MEASURE_TYPES = {"integer", "float", "decimal"}
 _SERIES_LIMIT_MAX = 500
 _ROWS_LIMIT_MAX = 500
-_AGG_NAMES = ("count", "sum", "avg", "min", "max")
+_AGG_NAMES = ("count", "sum", "avg", "min", "max", "distinct")
 
 #: The row key that carries the "view this object" URL (see Dataset.link_for).
 LINK_KEY = "url"
@@ -41,18 +42,25 @@ _UNSET: Any = object()
 def _agg_func(agg: str, measure: Optional[str]) -> Any:
     """Return the aggregate expression for ``agg`` over ``measure``.
 
-    ``count`` (or a missing measure) counts rows; the others aggregate the
-    measure column. ``agg`` is assumed validated by the caller.
+    ``count`` (or a missing measure) counts rows; ``distinct`` counts distinct
+    values of the measure column; the others aggregate the measure column.
+    ``agg`` is assumed validated by the caller.
     """
     from django.db.models import Avg, Count, Max, Min, Sum
 
-    if agg == "count" or not measure:
+    if agg == "distinct" and measure:
+        return Count(measure, distinct=True)
+    if agg in ("count", "distinct") or not measure:
         return Count("id")
     return {"sum": Sum, "avg": Avg, "min": Min, "max": Max}[agg](measure)
 
 
-def _round_value(val: Any) -> Any:
+def round_value(val: Any) -> Any:
+    """An aggregate as shown: floats to 2 places, everything else as is."""
     return round(val, 2) if isinstance(val, float) else val
+
+
+_round_value = round_value  # the name the series code uses
 
 
 def _ratio_expr(spec: dict[str, Any]) -> Any:
@@ -117,6 +125,62 @@ def _series_label(value: Any) -> str:
     return str(value)
 
 
+# ── date-dimension time bucketing ────────────────────────────────────────────
+# Lifted verbatim from call_stats ``apps/datasets/core.py`` (like buckets.py):
+# one grain grammar for both consumers — extend it here, don't fork it.
+#
+# Grouping a date/datetime dimension by its raw value yields one group per
+# instant — never a trend. A `grain` truncates it to a calendar bucket (the
+# native Django Trunc* — exact, calendar-aligned) so a bar/line reads as a time
+# series. Only calendar units: an N-week bin isn't a calendar unit (it needs an
+# epoch anchor) and isn't offered.
+def _grain_truncs() -> dict[str, Any]:
+    from django.db.models.functions import TruncDay, TruncMonth, TruncQuarter, TruncWeek, TruncYear
+
+    return {
+        "day": TruncDay,
+        "week": TruncWeek,  # Django weeks start Monday
+        "month": TruncMonth,
+        "quarter": TruncQuarter,
+        "year": TruncYear,
+    }
+
+
+GRAINS: tuple[str, ...] = ("day", "week", "month", "quarter", "year")
+_MONTH_ABBR = ["", "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+
+
+def grain_next(start: Any, grain: str) -> Any:
+    """The exclusive upper bound of the bucket a truncated ``start`` opens — the
+    start of the NEXT period. Used to drill a bucket into ``[start, next)`` rows.
+    ``start`` is Trunc's output (day 1 for month/quarter/year), so calendar
+    month-advance keeps the day; day/week are fixed deltas."""
+    from datetime import timedelta
+
+    if grain == "day":
+        return start + timedelta(days=1)
+    if grain == "week":
+        return start + timedelta(days=7)
+    months = {"month": 1, "quarter": 3, "year": 12}[grain]
+    m0 = start.month - 1 + months
+    return start.replace(year=start.year + m0 // 12, month=m0 % 12 + 1)
+
+
+def grain_label(start: Any, grain: str) -> str:
+    """A readable axis label for a truncated period start (locale-free, so it's
+    stable server-side regardless of platform ``strftime`` quirks)."""
+    y, m, d = start.year, start.month, start.day
+    if grain == "year":
+        return str(y)
+    if grain == "quarter":
+        return f"Q{(m - 1) // 3 + 1} {y}"
+    if grain == "month":
+        return f"{_MONTH_ABBR[m]} {y}"
+    if grain == "week":
+        return f"Wk of {_MONTH_ABBR[m]} {d}, {y}"
+    return f"{_MONTH_ABBR[m]} {d}, {y}"  # day
+
+
 class Dataset:
     """Runtime wrapper around a registered ``DatasetDef``."""
 
@@ -177,6 +241,54 @@ class Dataset:
             fmt = entry[3] if len(entry) > 3 else "ratio"
             out[name] = {"num": num, "denom": denom, "fmt": fmt}
         return out
+
+    def aggregate_expression(self, agg: str, measure: Optional[str]) -> Any:
+        """The ORM aggregate for *agg* over *measure* — what :meth:`series`
+        annotates with. A declared ratio measure brings its own aggregation
+        (``sum(num) / sum(denom)``), so *agg* is ignored for it. For callers
+        that group a :meth:`queryset` themselves; validate *measure* first."""
+        declared = self.declared_measures()
+        if measure and measure in declared:
+            return _ratio_expr(declared[measure])
+        return _agg_func(agg or "count", measure or None)
+
+    def column_label(self, name: str) -> str:
+        """A column's human label (the model field's ``verbose_name``)."""
+        return _label_for(self.model, name)
+
+    def column_labels(self) -> dict[str, str]:
+        """``{column: label}`` for every column — cheap (no distinct-value
+        probes, unlike :meth:`schema`), so it's safe per request."""
+        try:
+            return {name: self.column_label(name) for name, _typ in self.columns()}
+        except Exception:  # noqa: BLE001 — labels are cosmetic
+            return {}
+
+    def filter_column_types(self) -> dict[str, str]:
+        """``{name: type}`` for every filterable name — the vocabulary a filter
+        tree may reference. A filterable name that isn't a declared column is
+        typed from the model (it filters but isn't displayed)."""
+        from apps.smallstack.api import _model_field_type
+
+        cols = dict(self.columns())
+        out: dict[str, str] = {}
+        for name in self.filter_field_names():
+            out[name] = cols.get(name) or _model_field_type(self.model, name)
+        return out
+
+    def compile_tree(self, filter_tree: Any) -> Any:
+        """Compile a stored filter tree against this dataset → ``Q`` or None.
+        Raises ``FilterTreeError`` (a ValueError → HTTP 400) on any problem —
+        a condition is never silently dropped (see filter_tree.py)."""
+        types = self.filter_column_types()
+        return compile_filter_tree(filter_tree, columns=types, filterable=set(types))
+
+    def validate_filter_tree(self, filter_tree: Any) -> list[str]:
+        """Every problem with *filter_tree* on this dataset (empty = valid)."""
+        from .filter_tree import validate_filter_tree
+
+        types = self.filter_column_types()
+        return validate_filter_tree(filter_tree, columns=types, filterable=set(types))
 
     # -- row links ("where can I view this object?") --------------------------
 
@@ -266,6 +378,9 @@ class Dataset:
         """Typed columns (dimension vs measure) + filter widget metadata."""
         from apps.smallstack.crud import _build_filter_meta
 
+        from .capabilities import capabilities
+        from .dateranges import RELATIVE_PERIODS
+
         model = self.model
         cols = self.columns()
         columns: list[dict[str, Any]] = [
@@ -308,16 +423,24 @@ class Dataset:
                 # picker alongside the preset dropdown.
                 if col_types.get(name) in date_types:
                     meta["range"] = True
+                    meta["periods"] = [{"key": k, "label": lbl} for k, lbl in RELATIVE_PERIODS]
+                # The filter-tree operators this column accepts (a builder's
+                # op dropdown) and its schema type (value coercion).
+                meta["column_type"] = col_types.get(name, "string")
+                meta["ops"] = ops_for_type(col_types.get(name, "string"))
                 filters.append(meta)
-        return {
+        out = {
             "key": self.key,
             "label": self.dfn.label,
             "description": self.dfn.description,
             "columns": columns,
             "filters": filters,
+            "aggs": list(_AGG_NAMES),
             # Rows carry a ``url`` key pointing at the object's page.
             "links": self.has_links(),
         }
+        out["capabilities"] = sorted(capabilities(out))
+        return out
 
     # -- computed-column filter widgets --------------------------------------
 
@@ -405,6 +528,8 @@ class Dataset:
         self,
         request: HttpRequest | None = None,
         filters: Optional[dict] = None,
+        *,
+        filter_tree: Any = None,
     ) -> QuerySet:
         """Public seam: the dataset's queryset with the standard filter pipeline
         applied — and nothing else (no serialization, limit, ordering, expand).
@@ -418,14 +543,16 @@ class Dataset:
             # → a plain QuerySet you own from here
 
         Guaranteed: ``queryset(r, f).count() == len(rows(request=r, filters=f))``
-        for the same filters (unlimited).
+        for the same filters (unlimited). ``filter_tree`` (a stored AND/OR
+        tree, see filter_tree.py) is AND-ed on top and raises on any problem.
         """
-        return self._filtered_qs(request, filters)
+        return self._filtered_qs(request, filters, filter_tree)
 
     def _filtered_qs(
         self,
         request: HttpRequest | None,
         filters: Optional[dict],
+        filter_tree: Any = None,
     ) -> QuerySet:
         """Source queryset with *filters* applied via the CRUD list pipeline.
 
@@ -441,10 +568,18 @@ class Dataset:
         links, and agent calls depend on. Richer semantics arrive only as NEW
         param spellings (e.g. ``created_at__gte``), never as nested structures
         replacing existing keys.
+
+        The nested AND/OR form is the separate ``filter_tree`` argument — the
+        stored shape — compiled strictly (``compile_tree``) and AND-ed with the
+        flat filters. Unlike an unknown flat key, a bad tree raises.
         """
         from apps.smallstack.crud import _apply_list_filters as apply_filters
 
         qs = self._queryset(request)
+        if not is_empty(filter_tree):
+            tree_q = self.compile_tree(filter_tree)
+            if tree_q is not None:
+                qs = qs.filter(tree_q)
         if not filters:
             return qs
 
@@ -496,12 +631,13 @@ class Dataset:
         filters: Optional[dict],
         dimension: Optional[dict] = None,
         bucket: Optional[str] = None,
+        filter_tree: Any = None,
     ) -> QuerySet:
         """Filtered queryset, optionally narrowed to one bucket of *dimension*
         (the drilldown). Re-applies the *same* ``_bucket_cond`` the bucketed
         series used, so ``count(bucket=K) == series bucket K``'s value by
         construction. Unknown field/bucket raise ValueError (→ 400)."""
-        qs = self._filtered_qs(request, filters)
+        qs = self._filtered_qs(request, filters, filter_tree)
         if dimension and bucket is not None:
             from .buckets import _bucket_cond, _dimension_values, bucket_by_key, resolve_buckets
 
@@ -522,11 +658,12 @@ class Dataset:
         *,
         dimension: Optional[dict] = None,
         bucket: Optional[str] = None,
+        filter_tree: Any = None,
     ) -> int:
         """Total rows matching *filters* (unpaged) — the companion to a paged
         ``rows()`` call so a table UI can show "showing 1–50 of N". Pass
         ``dimension``+``bucket`` for a bucket drilldown's total."""
-        return self._scoped_qs(request, filters, dimension, bucket).count()
+        return self._scoped_qs(request, filters, dimension, bucket, filter_tree).count()
 
     def rows(
         self,
@@ -539,6 +676,7 @@ class Dataset:
         dimension: Optional[dict] = None,
         bucket: Optional[str] = None,
         request: HttpRequest | None = None,
+        filter_tree: Any = None,
     ) -> list[dict]:
         """Filtered rows. ``limit=None`` returns the whole filtered set (used by
         CSV export); ``offset`` pages after ordering. Invalid values coerce to
@@ -552,7 +690,7 @@ class Dataset:
             _apply_ordering_fields as apply_ordering,
         )
 
-        qs = self._scoped_qs(request, filters, dimension, bucket)
+        qs = self._scoped_qs(request, filters, dimension, bucket, filter_tree)
 
         if ordering:
             qs = apply_ordering(qs, ordering, set(self.column_names()))
@@ -614,9 +752,11 @@ class Dataset:
         *,
         measure: Optional[str] = None,
         agg: str = "count",
+        grain: Optional[str] = None,
         limit: int = 50,
         filters: Optional[dict] = None,
         request: HttpRequest | None = None,
+        filter_tree: Any = None,
     ) -> list[dict]:
         """Grouped rollup → ``[{label, value}]`` for bar/pie.
 
@@ -627,7 +767,12 @@ class Dataset:
         ``dimension`` may be:
 
         - a **string** column name → group by its raw values (with ``measure``/
-          ``agg``, or a declared ratio measure);
+          ``agg``, or a declared ratio measure). When it names a date/datetime
+          column and ``grain`` (day/week/month/quarter/year) is given, group by
+          the calendar-truncated period instead — a trend series of the most
+          recent ``limit`` periods in chronological order, each row carrying
+          ``lo``/``hi`` ISO bounds so a bar drills into exactly that period's
+          ``[lo, hi)`` rows (the call_stats grammar);
         - a **dict** ``{"field": …, "buckets": […]}`` or ``{"field": …, "auto":
           …}`` → **bucketed** grouping (numeric bands / categorical / auto
           top-N + ``other``), returning ``[{key, label, value, lo, hi}]`` where
@@ -636,7 +781,7 @@ class Dataset:
         - ``None`` → a single ungrouped aggregate (the KPI/scalar path).
         """
         if isinstance(dimension, dict):
-            return self._bucketed_series(dimension, filters=filters, request=request)
+            return self._bucketed_series(dimension, filters=filters, request=request, filter_tree=filter_tree)
 
         if agg not in _AGG_NAMES:
             agg = "count"
@@ -657,9 +802,9 @@ class Dataset:
         if measure and not is_ratio and measure not in valid:
             raise ValueError(f"unknown measure {measure!r}; valid: {sorted(valid | set(declared))}")
 
-        value_expr = _ratio_expr(declared[measure]) if is_ratio and measure is not None else _agg_func(agg, measure)
+        value_expr = self.aggregate_expression(agg, measure)
 
-        qs = self._filtered_qs(request, filters)
+        qs = self._filtered_qs(request, filters, filter_tree)
 
         # KPI / scalar path — no GROUP BY, single aggregate over the filtered set.
         if dimension is None:
@@ -668,20 +813,46 @@ class Dataset:
                 value = 0  # count/sum of nothing is 0; an empty ratio stays None
             return [{"label": (measure if is_ratio else agg), "value": _round_value(value)}]
 
-        annotated = qs.values(dimension).annotate(_value=value_expr)
-        annotated = annotated.order_by(dimension)
-
         try:
             limit = max(1, min(int(limit or 50), _SERIES_LIMIT_MAX))
         except (TypeError, ValueError):
             limit = 50
+
+        # A date/datetime dimension with a `grain` → a time-truncated trend: the
+        # most recent `limit` periods (a long daily span shows recent history,
+        # not the oldest slice), returned chronologically.
+        if grain and dict(self.columns()).get(dimension) in ("date", "datetime"):
+            trunc = _grain_truncs().get(grain)
+            if trunc is None:
+                raise ValueError(f"unknown grain {grain!r}; valid: {list(GRAINS)}")
+            periods = (
+                qs.annotate(_period=trunc(dimension))
+                .values("_period")
+                .annotate(_value=value_expr)
+                .order_by("-_period")[:limit]
+            )
+            trend = [
+                {
+                    "label": grain_label(row["_period"], grain),
+                    "value": _round_value(row["_value"]),
+                    "lo": row["_period"].isoformat(),
+                    "hi": grain_next(row["_period"], grain).isoformat(),
+                }
+                for row in periods
+                if row["_period"] is not None
+            ]
+            trend.sort(key=lambda r: r["lo"])
+            return trend
+
+        annotated = qs.values(dimension).annotate(_value=value_expr)
+        annotated = annotated.order_by(dimension)
 
         rows = list(annotated[:limit])
 
         # When the dimension is an FK, its group-by values are bare pks — resolve
         # them to the related object's ``str()`` so charts read "Electrical",
         # not "2". Single extra query (pk→name map), not N.
-        label_map = self._fk_label_map(dimension, rows)
+        label_map = self.value_labels(dimension, rows)
 
         out = []
         for row in rows:
@@ -703,6 +874,7 @@ class Dataset:
         *,
         filters: Optional[dict] = None,
         request: HttpRequest | None = None,
+        filter_tree: Any = None,
     ) -> list[dict]:
         """Count-only bucketed rollup → ``[{key, label, value, lo, hi}]``.
 
@@ -725,7 +897,7 @@ class Dataset:
             return []
         dvals = _dimension_values(buckets)
 
-        qs = self._filtered_qs(request, filters)
+        qs = self._filtered_qs(request, filters, filter_tree)
         anns = {b["key"]: Count("id", filter=_bucket_cond(field, b, dvals)) for b in buckets}
         row = qs.aggregate(**anns)
         return [
@@ -748,6 +920,7 @@ class Dataset:
         agg: str = "count",
         filters: Optional[dict] = None,
         request: HttpRequest | None = None,
+        filter_tree: Any = None,
     ) -> Any:
         """One number for a KPI tile — an ungrouped ``qs.aggregate()``.
 
@@ -757,10 +930,13 @@ class Dataset:
         in the database, not in Python — the first-class path the "KPI tile"
         affordance needs (no GROUP BY).
         """
-        return self.series(None, measure=measure, agg=agg, filters=filters, request=request)[0]["value"]
+        return self.series(None, measure=measure, agg=agg, filters=filters, request=request, filter_tree=filter_tree)[
+            0
+        ]["value"]
 
-    def _fk_label_map(self, dimension: str, rows: list[dict]) -> dict:
-        """Map FK pks in *rows* to the related object's ``str()``. ``{}`` if not an FK."""
+    def value_labels(self, dimension: str, rows: list[dict]) -> dict:
+        """Map FK pks in *rows* to the related object's ``str()``. ``{}`` if
+        *dimension* isn't an FK. For labelling a grouped :meth:`queryset`."""
         if dimension not in self.fk_column_names():
             return {}
         try:

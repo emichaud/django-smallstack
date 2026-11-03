@@ -371,11 +371,13 @@ def _token_from_authorization(auth_header: str) -> str | None:
     return None
 
 
-def _authenticate_api_request(
+def authenticate_api_request(
     request: HttpRequest,
 ) -> tuple[Any, JsonResponse | None]:
     """Authenticate via an API token (``Bearer`` or ``Basic``) or the existing
-    session. API views only.
+    session. API views only — public for apps writing their own JSON views
+    (dashboards, calendar, datasets); returns ``(user, None)`` or ``(None,
+    401 response)``.
 
     The user slot is the swappable ``AUTH_USER_MODEL`` instance (``Any``) when
     the second element is ``None``; ``None`` otherwise.
@@ -421,6 +423,9 @@ def _authenticate_api_request(
 # ---------------------------------------------------------------------------
 # Permission checking
 # ---------------------------------------------------------------------------
+
+
+_authenticate_api_request = authenticate_api_request  # the name this module uses
 
 
 def _check_api_permissions(request, crud_config, method="GET"):
@@ -1111,7 +1116,11 @@ def _make_api_detail_view(crud_config):
             if not crud_config.can_delete(obj, request):
                 return _error("Permission denied", 403)
             log_write(request.user, obj, DELETION, "REST API")  # before delete
-            obj.delete()
+            from django.db import transaction
+
+            with transaction.atomic():
+                crud_config.on_delete(request, obj)
+                obj.delete()
             return HttpResponse(status=204)
 
         return _error("Method not allowed", 405)
@@ -1435,7 +1444,11 @@ def _make_api_bulk_delete_view(crud_config):
                 continue
             try:
                 log_write(request.user, obj, DELETION, "REST API (bulk)")  # before delete
-                obj.delete()
+                from django.db import transaction
+
+                with transaction.atomic():
+                    crud_config.on_delete(request, obj)
+                    obj.delete()
                 deleted_ids.append(pk)
             except (ProtectedError, RestrictedError) as e:
                 protected = getattr(e, "protected_objects", None) or getattr(e, "restricted_objects", set())

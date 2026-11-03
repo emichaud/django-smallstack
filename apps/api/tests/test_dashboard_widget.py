@@ -14,8 +14,9 @@ def test_widget_reports_endpoint_count():
     data = APIDashboardWidget().get_data()
     assert "endpoint" in data["headline"]
     if _api_registry:
-        # Headline mentions a positive count.
-        assert "0" not in data["headline"]
+        # Headline mentions a positive count. (Not `"0" not in headline` —
+        # that read "20 endpoints" as zero.)
+        assert int(data["headline"].split()[0]) > 0
 
 
 def test_widget_status_operational_when_clean():

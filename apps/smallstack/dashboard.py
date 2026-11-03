@@ -16,6 +16,7 @@ an API endpoint.
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
 from typing import TYPE_CHECKING, Any
 
 from django.urls import NoReverseMatch, reverse
@@ -24,6 +25,7 @@ from django.views.generic.base import ContextMixin
 
 if TYPE_CHECKING:
     from django.db.models import Model
+    from django.http import HttpResponse
 
     from apps.explorer.registry import ModelInfo
 
@@ -51,12 +53,37 @@ def get_standalone_widgets() -> list[DashboardWidget]:
 
 
 # ---------------------------------------------------------------------------
+# The /smallstack/ page
+# ---------------------------------------------------------------------------
+
+
+_page_view: Callable[..., HttpResponse] | None = None
+
+
+def set_dashboard_page(view: Callable[..., HttpResponse] | None) -> None:
+    """Hand the ``/smallstack/`` page to another app's view.
+
+    ``apps.dashboards`` registers one in ``ready()``: the page becomes an
+    editable grid dashboard whose widget cards are the widgets registered
+    here. Without it (the app removed or disabled) the page is the fixed
+    widget grid below. Either way the route stays staff-only and the widget
+    registry is the same — this only chooses who draws it."""
+    global _page_view
+    _page_view = view
+
+
+def get_dashboard_page() -> Callable[..., HttpResponse] | None:
+    return _page_view
+
+
+# ---------------------------------------------------------------------------
 # Data layer
 # ---------------------------------------------------------------------------
 
 
-def _resolve_url(widget: DashboardWidget, model_info: ModelInfo | None) -> str | None:
-    """Resolve a widget's target URL.
+def widget_url(widget: DashboardWidget, model_info: ModelInfo | None) -> str | None:
+    """Resolve a widget's target URL — public, for apps that show widgets
+    outside the /smallstack/ dashboard (apps/dashboards' widget card).
 
     Priority: widget.url_name > Explorer list URL (if model_info) > None.
     """
@@ -72,6 +99,9 @@ def _resolve_url(widget: DashboardWidget, model_info: ModelInfo | None) -> str |
         except NoReverseMatch:
             return None
     return None
+
+
+_resolve_url = widget_url  # the name this module's callers and tests use
 
 
 def get_widget_contexts(

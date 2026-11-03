@@ -159,7 +159,7 @@ class AgendaDisplay(ListDisplay):
     def get_context(self, queryset: Any, crud_config: Any, request: HttpRequest) -> dict[str, Any]:
         from apps.smallstack.crud import Action
 
-        page = paginate_queryset(queryset.select_related("created_by"), crud_config._resolve_paginate_by(), request)
+        page = paginate_queryset(queryset.select_related("created_by"), crud_config.page_size_for(request), request)
         items = page.pop("object_list", queryset)
         base = crud_config._get_url_base()
         has_detail = Action.DETAIL in crud_config.actions
@@ -224,7 +224,7 @@ class SavedViewsDisplay(ListDisplay):
     def get_context(self, queryset: Any, crud_config: Any, request: HttpRequest) -> dict[str, Any]:
         from apps.smallstack.crud import Action
 
-        page = paginate_queryset(queryset, crud_config._resolve_paginate_by(), request)
+        page = paginate_queryset(queryset, crud_config.page_size_for(request), request)
         items = page.pop("object_list", queryset)
         base = crud_config._get_url_base()
         cals = visible_calendars(getattr(request, "user", None))

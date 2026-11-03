@@ -3161,6 +3161,27 @@ a.button.button-secondary:hover {
     color: var(--body-quiet-color);
 }
 
+/* "Rows per page" (CRUDView.page_sizes / the dataset browser) */
+.paginator-size {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin: 0;
+    font-size: 0.78rem;
+    color: var(--body-quiet-color);
+}
+.paginator-size label { margin: 0; font-weight: 400; color: inherit; }
+.paginator-size select {
+    width: auto;
+    margin: 0;
+    padding: 3px 6px;
+    border: 1px solid var(--input-border);
+    border-radius: 6px;
+    background: var(--input-bg);
+    color: var(--body-fg);
+    font-size: 0.78rem;
+}
+
 .paginator-nav {
     display: inline-flex;
     align-items: center;

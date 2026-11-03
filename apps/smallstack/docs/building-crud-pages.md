@@ -301,41 +301,36 @@ The search bar lets users filter the table without a page reload. It requires th
 {% endif %}
 ```
 
-**The view override** — add to your CRUDView class:
+**The view override**: put it in a mixin and attach it to the list view with `view_mixins`.
 
 ```python
-@classmethod
-def _make_view(cls, base_class):
-    from apps.smallstack.crud import _CRUDListBase
+from django.db.models import Q
 
-    view_class = super()._make_view(base_class)
+from apps.smallstack.crud import Action, CRUDView
 
-    if base_class is _CRUDListBase:
-        def get_queryset(self):
-            qs = super(view_class, self).get_queryset()
-            q = self.request.GET.get("q", "").strip()
-            if q:
-                from django.db.models import Q
-                qs = qs.filter(
-                    Q(name__icontains=q) | Q(category__icontains=q)
-                )
-            return qs
 
-        def get_context_data(self, **kwargs):
-            context = super(view_class, self).get_context_data(**kwargs)
-            context["search_query"] = self.request.GET.get("q", "")
-            return context
+class WidgetListMixin:
+    def get_queryset(self):
+        qs = super().get_queryset()
+        q = self.request.GET.get("q", "").strip()
+        if q:
+            qs = qs.filter(Q(name__icontains=q) | Q(category__icontains=q))
+        return qs
 
-        def get_template_names(self):
-            if self.request.headers.get("HX-Request"):
-                return ["myfeature/_widget_table.html"]
-            return super(view_class, self).get_template_names()
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["search_query"] = self.request.GET.get("q", "")
+        return context
 
-        view_class.get_queryset = get_queryset
-        view_class.get_context_data = get_context_data
-        view_class.get_template_names = get_template_names
+    def get_template_names(self):
+        if self.request.headers.get("HX-Request"):
+            return ["myfeature/_widget_table.html"]
+        return super().get_template_names()
 
-    return view_class
+
+class WidgetCRUDView(CRUDView):
+    model = Widget
+    view_mixins = {Action.LIST: [WidgetListMixin]}
 ```
 
 **In the list template** — add the search bar and wrap the table:
@@ -374,7 +369,7 @@ Stat cards show aggregate counts above the table. They can be plain display or c
 <div class="card stat-card-clickable"
      hx-get="{% url 'myfeature:stat-detail' 'total' %}"
      hx-target="#stat-modal-body"
-     onclick="openStatModal('All Widgets')">
+     data-stat-modal="All Widgets">
     <div class="card-body" style="text-align: center; padding: 14px 8px;">
         <div style="font-size: 1.75rem; font-weight: 700;
              color: var(--primary);">{{ stats.total }}</div>
@@ -445,6 +440,7 @@ The User Manager demonstrates this — its edit form has three tabs (Account, Pr
 | `detail_fields` | list | `None` | Detail view fields (falls back to `admin_class.fields`/`fieldsets` or `fields`) |
 | `url_base` | str | model name | URL prefix (e.g., `"manage/widgets"`) |
 | `paginate_by` | int | None | Rows per page (falls back to `admin_class.list_per_page`) |
+| `page_sizes` | tuple[int] | `()` | Let people choose rows per page: `page_sizes = PAGE_SIZE_CHOICES` (15, 25, 50, 100 from `apps.smallstack.pagination`). The first is the default; the list's pager shows a "Rows per page" control and the choice stays in the address (`?per_page=`) |
 | `mixins` | list | `[]` | View mixins applied to all views |
 | `column_widths` | dict | `None` | Custom column proportions, e.g. `{"name": "30%", "description": "50%"}`. Unlisted compact fields (booleans, dates, numbers, choice fields) get a type-derived pixel default; users can also drag any column header to resize (persisted per browser). See `tables.md` |
 | `ordering_fields` | list | `[]` | Fields allowed for column sorting (defaults to sortable list_fields) |

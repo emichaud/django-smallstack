@@ -511,9 +511,15 @@
     // ============================================
     // Stat-card drill-down modal
     // ============================================
-    // The modal markup lives in base.html (included globally). Clickable stat
-    // cards built with {% stat_card %} call openStatModal() on click and let
-    // htmx swap the body. Exposed on window so inline onclick handlers reach it.
+    // The modal markup lives in base.html (included globally). Open it
+    // declaratively — no inline handler — and let htmx swap the body:
+    //
+    //   <button hx-get="/rows/" hx-target="#stat-modal-body" data-stat-modal="Title">
+    //   <button data-stat-modal-close>Keep it</button>
+    //
+    // A click on a [data-stat-modal] element opens the modal with that title
+    // (an <a> doesn't navigate); [data-stat-modal-close] and the backdrop close
+    // it. openStatModal / closeStatModal stay on window for script callers.
 
     var _statModalRelease = null;
     var _statModalTrigger = null;
@@ -548,8 +554,172 @@
     window.openStatModal = openStatModal;
     window.closeStatModal = closeStatModal;
 
+    document.addEventListener('click', function (e) {
+        var opener = e.target.closest && e.target.closest('[data-stat-modal]');
+        if (opener) {
+            if (opener.tagName === 'A') e.preventDefault();
+            openStatModal(opener.getAttribute('data-stat-modal'), opener);
+            return;
+        }
+        var closer = e.target.closest && e.target.closest('[data-stat-modal-close]');
+        if (closer || (e.target.id === 'stat-modal')) {  // the close button, or the backdrop
+            if (closer) e.preventDefault();
+            closeStatModal();
+        }
+    });
+
     document.addEventListener('keydown', function (e) {
         if (e.key === 'Escape') closeStatModal();
+    });
+
+    // ============================================
+    // Declarative behaviours — markup without inline handlers
+    // ============================================
+    // Templates describe behaviour with data- attributes; these delegated
+    // listeners carry it out. No onclick="…" anywhere: the CSP's script-src has
+    // no 'unsafe-inline', so the browser wouldn't run one.
+    //
+    //   <form data-confirm="Delete this?">           confirm before submitting
+    //   <a|button data-confirm="Really?">            confirm before following/clicking
+    //   <select data-autosubmit>                     submit its form on change
+    //   <button data-copy="element-id">              copy that element's value/text
+    //   <button data-copy-text="literal">            copy the literal text
+    //   <button data-scroll-to="#id">                smooth-scroll to an element
+    //   <button data-toggle-class="open"             toggle a class on the closest
+    //           data-toggle-on=".panel">               match (or on itself)
+    //   <button data-activate-in=".tab-bar">         mark itself .active among the
+    //                                                  [data-activate-in] buttons there
+    //   <div role="button" tabindex="0" data-keyclick>  Enter/Space click it
+    //   <button data-ss-action="openThing"              call a REGISTERED page action
+    //           data-ss-args='["x", "$this"]'>     ("$this" = the element,
+    //                                                   "$event" = the event)
+    //   <div data-ss-action="closeThing" data-ss-self>  …only when the click is
+    //                                                   on the element itself (a backdrop)
+    //   <a href="/x/delete/" data-ss-action="…" data-ss-prevent>  …and don't follow
+    //                                                   the link (it's the no-JS fallback)
+    //
+    // Page scripts register their actions (an allow-list — markup can only call
+    // what a script chose to expose), whenever they run:
+    //
+    //   window.SmallStack = window.SmallStack || {};
+    //   window.SmallStack.actions = Object.assign(window.SmallStack.actions || {}, { openThing: openThing });
+
+    window.SmallStack.actions = window.SmallStack.actions || {};
+    // Built-in: fill the stat modal from a hidden source element (content that's
+    // already on the page, no request) — with data-stat-modal on the same trigger.
+    window.SmallStack.actions.fillStatModalFrom = function (sourceId) {
+        var src = document.getElementById(sourceId);
+        var body = document.getElementById('stat-modal-body');
+        if (src && body) body.innerHTML = src.innerHTML;
+    };
+
+    function runAction(el, ev) {
+        var fn = window.SmallStack.actions[el.getAttribute('data-ss-action')];
+        if (typeof fn !== 'function') {
+            console.warn('SmallStack: no registered action "' + el.getAttribute('data-ss-action') + '"');
+            return;
+        }
+        var args = [];
+        var raw = el.getAttribute('data-ss-args');
+        if (raw) {
+            try { args = JSON.parse(raw); } catch (err) { console.warn('SmallStack: bad data-ss-args', raw); return; }
+        }
+        args = args.map(function (a) { return a === '$this' ? el : (a === '$event' ? ev : a); });
+        return fn.apply(el, args);
+    }
+
+    function copyToClipboard(btn, text) {
+        if (!navigator.clipboard) return;
+        navigator.clipboard.writeText(text).then(function () {
+            if (!btn.hasAttribute('data-copy-quiet')) {
+                var label = btn.getAttribute('aria-label');
+                if (!btn.querySelector('svg')) {
+                    var was = btn.textContent;
+                    btn.textContent = 'Copied!';
+                    setTimeout(function () { btn.textContent = was; }, 1500);
+                } else if (label !== null) {
+                    btn.setAttribute('aria-label', 'Copied');
+                    setTimeout(function () { btn.setAttribute('aria-label', label); }, 1500);
+                }
+            }
+        });
+    }
+
+    document.addEventListener('click', function (e) {
+        var t = e.target;
+        if (!t.closest) return;
+
+        var copyEl = t.closest('[data-copy], [data-copy-text]');
+        if (copyEl) {
+            var text = copyEl.getAttribute('data-copy-text');
+            if (text === null) {
+                var src = document.getElementById(copyEl.getAttribute('data-copy'));
+                text = src ? ('value' in src && src.value !== undefined ? src.value : src.innerText) : '';
+            }
+            copyToClipboard(copyEl, text);
+        }
+
+        var scrollEl = t.closest('[data-scroll-to]');
+        if (scrollEl) {
+            var dest = document.querySelector(scrollEl.getAttribute('data-scroll-to'));
+            if (dest) dest.scrollIntoView({ behavior: 'smooth' });
+        }
+
+        var toggleEl = t.closest('[data-toggle-class]');
+        if (toggleEl) {
+            var on = toggleEl.getAttribute('data-toggle-on');
+            var host = on ? toggleEl.closest(on) : toggleEl;
+            if (host) host.classList.toggle(toggleEl.getAttribute('data-toggle-class'));
+        }
+
+        var activateEl = t.closest('[data-activate-in]');
+        if (activateEl) {
+            var group = activateEl.closest(activateEl.getAttribute('data-activate-in'));
+            if (group) {
+                group.querySelectorAll('[data-activate-in]').forEach(function (b) { b.classList.remove('active'); });
+                activateEl.classList.add('active');
+            }
+        }
+
+        var actionEl = t.closest('[data-ss-action]');
+        if (actionEl && (actionEl.getAttribute('data-ss-on') || 'click') === 'click') {
+            if (actionEl.hasAttribute('data-ss-self') && t !== actionEl) return;
+            if (actionEl.hasAttribute('data-ss-prevent') || (actionEl.tagName === 'A' && actionEl.getAttribute('href') === '#')) e.preventDefault();
+            if (runAction(actionEl, e) === false) e.preventDefault();
+        }
+    });
+
+    // Capture phase: a "no" stops the click before htmx or any element listener sees it.
+    document.addEventListener('click', function (e) {
+        var confirmEl = e.target.closest && e.target.closest('a[data-confirm], button[data-confirm]');
+        if (confirmEl && !window.confirm(confirmEl.getAttribute('data-confirm'))) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+    }, true);
+
+    document.addEventListener('submit', function (e) {
+        var form = e.target;
+        if (form.hasAttribute && form.hasAttribute('data-confirm') && !window.confirm(form.getAttribute('data-confirm'))) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+    }, true);
+
+    document.addEventListener('change', function (e) {
+        var t = e.target;
+        if (t.hasAttribute && t.hasAttribute('data-autosubmit') && t.form) t.form.submit();
+        var actionEl = t.closest && t.closest('[data-ss-action][data-ss-on="change"]');
+        if (actionEl) runAction(actionEl, e);
+    });
+
+    document.addEventListener('keydown', function (e) {
+        if (e.key !== 'Enter' && e.key !== ' ') return;
+        var el = e.target.closest && e.target.closest('[data-keyclick]');
+        if (el && el === e.target) {
+            e.preventDefault();
+            el.click();
+        }
     });
 
     // ============================================

@@ -69,6 +69,7 @@ This generates:
 | `fields` | list | required | Fields for auto-generated forms |
 | `url_base` | str | model name | URL prefix (e.g., `"manage/widgets"`) |
 | `paginate_by` | int | None | Rows per page. When unset, HTML views are unpaginated; API endpoints fall back to 25 |
+| `page_sizes` | tuple[int] | `()` | Opt-in "Rows per page" choice on the HTML list: `page_sizes = PAGE_SIZE_CHOICES` (`apps.smallstack.pagination`, 15/25/50/100). `?per_page=` picks one (anything else → the first, which becomes the default); the framework pager shows the control. A custom display paginates with `crud_config.page_size_for(request)` |
 | `mixins` | list | `[]` | View mixins applied to all views |
 | `displays` | list | `[]` | List of display protocol classes for list view |
 | `detail_displays` | list | `[]` | List of display protocol classes for detail view |
@@ -254,30 +255,44 @@ def _get_template_names(cls, suffix):
 
 ## Overriding View Behavior
 
-Use `_make_view` to inject custom logic:
+First reach for a classmethod hook (`get_list_queryset`, `can_update`, `on_form_valid`,
+`on_delete`, `row_actions` — see **CRUDView Hooks** below): those apply to REST and MCP as
+well as the HTML page. When only one HTML view needs different behaviour, write an ordinary
+Django mixin and list it under its action in `view_mixins`:
 
 ```python
-@classmethod
-def _make_view(cls, base_class):
-    from apps.smallstack.crud import _CRUDListBase
+from apps.smallstack.crud import Action, CRUDView
 
-    view_class = super()._make_view(base_class)
 
-    if base_class is _CRUDListBase:
-        def get_queryset(self):
-            qs = super(view_class, self).get_queryset()
-            q = self.request.GET.get("q", "").strip()
-            if q:
-                from django.db.models import Q
-                qs = qs.filter(Q(name__icontains=q))
-            return qs
+class WidgetDeleteMixin:
+    """Show what deleting would break; answer htmx with a modal fragment."""
 
-        view_class.get_queryset = get_queryset
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["used_by"] = self.object.dependents.all()
+        return context
 
-    return view_class
+    def get_template_names(self):
+        if self.request.headers.get("HX-Request"):
+            return ["myfeature/widget_confirm_delete_modal.html"]
+        return super().get_template_names()
+
+
+class WidgetCRUDView(CRUDView):
+    model = Widget
+    view_mixins = {Action.DELETE: [WidgetDeleteMixin]}
 ```
 
-Available base classes: `_CRUDListBase`, `_CRUDCreateBase`, `_CRUDDetailBase`, `_CRUDUpdateBase`, `_CRUDDeleteBase`.
+The mixin sits after the auth mixins and before the generated base, so `super()` reaches the
+framework's behaviour. Keys are `Action.LIST`, `CREATE`, `DETAIL`, `UPDATE`, `DELETE`.
+
+**Don't** override `_make_view` and assign functions onto the class it returns. Older apps
+(usermanager, tokenmgr) still do. It works, but it isn't idiomatic Django, it breaks
+`super()`, and it hides the override from anyone reading the class.
+
+**The form gets the user for free:** the HTML create/edit views pass `user=request.user` to a
+form whose `__init__` accepts `user`, the same rule REST, MCP and `sc` follow
+(`form_bridge.build_form`). Don't inject it yourself.
 
 ## The Management Page Pattern
 
@@ -323,7 +338,7 @@ If your model name collides with Django's reserved context names (`user`, `reque
 
 ## CRUDView Hooks
 
-Classmethod hooks for injecting custom logic without `_make_view`:
+Classmethod hooks for injecting custom logic (they apply on every surface — HTML, REST, MCP):
 
 | Hook | Purpose |
 |------|---------|

@@ -22,8 +22,19 @@ from .registry import DatasetDef, all_defs
 logger = logging.getLogger("smallstack.datasets")
 
 _RESERVED = {
-    "ordering", "limit", "offset", "group_by", "scalar", "measure", "agg",
-    "buckets", "auto", "auto_limit", "label_field", "bucket",
+    "ordering",
+    "limit",
+    "offset",
+    "group_by",
+    "scalar",
+    "measure",
+    "agg",
+    "buckets",
+    "auto",
+    "auto_limit",
+    "label_field",
+    "bucket",
+    "filter_tree",
 }
 
 
@@ -86,6 +97,16 @@ def _input_schema(dfn: DatasetDef) -> dict[str, Any]:
         # usable (filter-less) tool rather than none.
         logger.exception("dataset %s: could not derive filter fields", dfn.key)
 
+    props["filter_tree"] = {
+        "type": "object",
+        "description": (
+            "Nested AND/OR filter, AND-ed with the flat filter args: "
+            '{"and": [{"field": "status", "op": "=", "value": "open"}, '
+            '{"or": [...]}, {"field": "created_at", "op": "period", "value": "mtd"}]}. '
+            "Ops: = != > >= < <= between(value,value2) in(list) contains isnull period. "
+            "Call describe_dataset for each field's ops and the period keys."
+        ),
+    }
     props["group_by"] = {
         "type": "string",
         "description": "Return a grouped series ([{label, value}]) by this dimension instead of rows.",
@@ -127,14 +148,12 @@ def _input_schema(dfn: DatasetDef) -> dict[str, Any]:
     measure_desc = "Numeric column to aggregate for a series/scalar (omit to count rows)."
     if declared_measures:
         measure_desc += (
-            " Declared ratio measures (computed sum/sum, agg ignored): "
-            + ", ".join(declared_measures)
-            + "."
+            " Declared ratio measures (computed sum/sum, agg ignored): " + ", ".join(declared_measures) + "."
         )
     props["measure"] = {"type": "string", "description": measure_desc}
     props["agg"] = {
         "type": "string",
-        "enum": ["count", "sum", "avg", "min", "max"],
+        "enum": ["count", "sum", "avg", "min", "max", "distinct"],
         "description": "Aggregation for the series/scalar (default count).",
     }
     props["ordering"] = {
@@ -172,10 +191,9 @@ def _build_query_tool(tool: Any, dfn: DatasetDef) -> None:
 
         # Non-reserved args are filters — applied identically across rows,
         # series and scalar so the same filter contract holds in every mode.
-        filters = {
-            k: v for k, v in args.items() if k not in _RESERVED and v not in (None, "")
-        }
+        filters = {k: v for k, v in args.items() if k not in _RESERVED and v not in (None, "")}
 
+        filter_tree = args.get("filter_tree") or None
         group_by = (args.get("group_by") or "").strip()
         # A bucketed dimension: group_by is the field, buckets/auto define the
         # bands → count-only [{key, label, value, lo, hi}].
@@ -189,6 +207,7 @@ def _build_query_tool(tool: Any, dfn: DatasetDef) -> None:
                     limit=args.get("limit") or 50,
                     filters=filters,
                     request=request,
+                    filter_tree=filter_tree,
                 )
             except ValueError as exc:
                 return {"error": str(exc)}
@@ -201,6 +220,7 @@ def _build_query_tool(tool: Any, dfn: DatasetDef) -> None:
                     agg=(args.get("agg") or "count"),
                     filters=filters,
                     request=request,
+                    filter_tree=filter_tree,
                 )
             except ValueError as exc:
                 return {"error": str(exc)}
@@ -226,6 +246,7 @@ def _build_query_tool(tool: Any, dfn: DatasetDef) -> None:
                 dimension=dimension if bucket else None,
                 bucket=bucket,
                 request=request,
+                filter_tree=filter_tree,
             )
         except ValueError as exc:
             return {"error": str(exc)}
@@ -306,7 +327,60 @@ def register_dataset_tools(only_def: DatasetDef | None = None) -> int:
     except Exception:
         logger.exception("Failed to register list_datasets MCP tool")
 
+    try:
+        tool(
+            "describe_dataset",
+            (
+                "Describe one dataset before querying it or building a metric on it: typed "
+                "columns (dimension vs measure), every filterable field with the filter_tree "
+                "ops it accepts (and the relative period keys for date fields), the "
+                "aggregations, and its capabilities. Input: {key}."
+            ),
+            {
+                "type": "object",
+                "properties": {"key": {"type": "string", "description": "A dataset key from list_datasets."}},
+                "required": ["key"],
+                "additionalProperties": False,
+            },
+            requires_access="readonly",
+        )(_describe_dataset_handler)
+        count += 1
+    except Exception:
+        logger.exception("Failed to register describe_dataset MCP tool")
+
     return count
+
+
+def caller_may_use(dfn: DatasetDef) -> bool:
+    """Whether the current MCP caller clears *dfn*'s ``mcp_access`` tier — the
+    same gate its ``query_dataset_<key>`` tool enforces. Site-level tools that
+    take a dataset key (describe_dataset, the dashboards metric tools) call
+    this so a key can't reach a dataset its own tool would refuse."""
+    from apps.mcp.auth import check_tool_access
+    from apps.mcp.server import ToolDef, current_context
+
+    ctx = current_context()
+    token = getattr(ctx, "token", None)
+    user = getattr(ctx, "user", None)
+    if token is not None:
+        probe = ToolDef(name=_tool_name(dfn.key), description="", input_schema={}, requires_access=dfn.mcp_access)
+        return check_tool_access(token, probe) is None
+    # In-process (no token): fall back to the user's live flags.
+    if dfn.mcp_access == "staff":
+        return bool(getattr(user, "is_staff", False))
+    return bool(getattr(user, "is_authenticated", False))
+
+
+def _describe_dataset_handler(args: dict) -> dict[str, Any]:
+    from .core import get_dataset
+    from .registry import get_def
+
+    key = str(args.get("key") or "")
+    dfn = get_def(key)
+    ds = get_dataset(key) if dfn is not None and dfn.enable_mcp and caller_may_use(dfn) else None
+    if ds is None:
+        return {"error": f"unknown dataset {key!r} — use list_datasets"}
+    return ds.schema()
 
 
 def _list_datasets_handler(args: dict) -> dict[str, Any]:
