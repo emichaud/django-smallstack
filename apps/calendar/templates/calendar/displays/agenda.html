@@ -14,6 +14,7 @@
                     <span class="cal-agenda-title">{{ r.title }}</span>
                     <span class="cal-agenda-meta">
                         <span>{{ r.when }}</span>
+                        {% if r.repeat %}<span>{{ r.repeat }}</span>{% endif %}
                         {% if r.category %}<span class="cal-tag">{{ r.category }}</span>{% endif %}
                         {% if r.location %}<span>{{ r.location }}</span>{% endif %}
                     </span>

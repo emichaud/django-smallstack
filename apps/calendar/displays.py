@@ -192,7 +192,8 @@ class AgendaDisplay(ListDisplay):
                     "private": obj.visibility == Event.Visibility.PRIVATE,
                     "cancelled": obj.cancelled,
                     "author": _author(obj),
-                    "is_past": obj.last_day < today,
+                    "is_past": obj.is_over(today),
+                    "repeat": obj.repeat_summary,
                     "group": obj.start_date.strftime("%B %Y"),
                 }
             )

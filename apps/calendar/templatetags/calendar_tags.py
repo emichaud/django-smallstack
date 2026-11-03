@@ -39,6 +39,7 @@ from ..core import (
     day_url,
     events_on,
     group_by_calendar,
+    parse_day,
     weekends_default,
 )
 
@@ -186,3 +187,13 @@ def clock_filter(value: Any) -> str:
     from ..displays import clock
 
     return clock(value) if value else ""
+
+
+@register.simple_tag
+def event_occurrence(event: Any, raw: Any) -> Optional[date]:
+    """The date in a repeating event's ``?on=`` when it really is one of its
+    dates, else None, so a page never talks about a date that isn't in the series."""
+    from ..recurrence import is_occurrence
+
+    day = parse_day(str(raw or ""))
+    return day if day is not None and is_occurrence(event, day) else None

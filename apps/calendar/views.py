@@ -16,8 +16,11 @@ from typing import TYPE_CHECKING, Any, Optional, cast
 from urllib.parse import urlencode
 
 from django.conf import settings
+from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
-from django.http import HttpRequest, HttpResponse
+from django.core.exceptions import PermissionDenied
+from django.http import Http404, HttpRequest, HttpResponse
+from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse
 from django.utils import timezone
 from django.utils.html import format_html
@@ -51,6 +54,7 @@ from .datasets import EVENTS_KEY
 from .displays import AgendaDisplay, RangeBoardDisplay, SavedViewsDisplay
 from .forms import EventForm, SavedCalendarViewForm
 from .models import Event, SavedCalendarView
+from .recurrence import is_occurrence
 
 #: Chips per day cell on the month grid; the day panel shows the rest.
 MAX_PER_DAY = 4
@@ -478,6 +482,8 @@ class EventCRUDView(CRUDView):
         "all_day",
         "start_time",
         "end_time",
+        "repeat",
+        "repeat_until",
         "category",
         "location",
         "url",
@@ -516,7 +522,9 @@ class EventCRUDView(CRUDView):
     mcp_plural = "events"
     mcp_description = (
         "a hand-entered calendar entry on the shared Events calendar: title, start_date (and an "
-        "inclusive end_date for a span), all_day or start_time/end_time, category, location, url, "
+        "inclusive end_date for a span), all_day or start_time/end_time, repeat (daily, weekdays, weekly, biweekly, "
+        "monthly, monthly_weekday or yearly; start_date sets the pattern) with an optional last date in repeat_until "
+        "(event_skip_date takes one date out), category, location, url, "
         "visibility (members = everyone signed in, private = author and staff) and a cancelled flag"
     )
 
@@ -534,6 +542,25 @@ class EventCRUDView(CRUDView):
     @classmethod
     def can_delete(cls, obj: Event, request: HttpRequest) -> bool:
         return cls.can_update(obj, request)
+
+
+class EventSkipView(LoginRequiredMixin, View):
+    """Take one date out of a repeating event, or put it back (``restore=1``)."""
+
+    def post(self, request: HttpRequest, pk: int) -> HttpResponse:
+        from .datasets import visible_events
+
+        event = get_object_or_404(visible_events(request.user), pk=pk)
+        if not EventCRUDView.can_update(event, request):
+            raise PermissionDenied
+        day = parse_day(request.POST.get("date", ""))
+        restore = request.POST.get("restore") == "1"
+        if day is None or not event.repeat or (not restore and not is_occurrence(event, day)):
+            raise Http404("That date isn't part of this series.")
+        event.set_skipped(day, not restore)
+        when = f"{day:%b} {day.day}, {day.year}"
+        messages.success(request, f"Put {when} back." if restore else f"Skipped {when}. Other dates are unchanged.")
+        return redirect(event.get_absolute_url())
 
 
 def view_or_none(user: Any, raw: Any) -> Optional[SavedCalendarView]:

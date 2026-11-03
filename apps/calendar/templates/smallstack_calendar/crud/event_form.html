@@ -56,6 +56,10 @@
                 {% include "calendar/crud/_field.html" with field=form.start_time label="Starts" %}
                 {% include "calendar/crud/_field.html" with field=form.end_time label="Ends" %}
             </div>
+            <div class="cal-row2">
+                {% include "calendar/crud/_field.html" with field=form.repeat label="Repeats" help="The first day sets the pattern." %}
+                {% include "calendar/crud/_field.html" with field=form.repeat_until label="Until" help="Leave blank for no end." %}
+            </div>
         </section>
 
         <section class="cal-group" aria-labelledby="cal-group-details">

@@ -20,6 +20,7 @@ urlpatterns = [
     path("calendar/api/events/", api.CalendarEventsView.as_view(), name="calendar_api_events"),
     path("calendar/api/events.ics", api.CalendarICSView.as_view(), name="calendar_api_ics"),
     path("calendar/api/<str:key>/events/", api.CalendarDatasetEventsView.as_view(), name="calendar_api_dataset_events"),
+    path("calendar/events/<int:pk>/skip/", views.EventSkipView.as_view(), name="calendar_event_skip"),
     *views.SavedCalendarViewCRUDView.get_urls(),
     *views.EventCRUDView.get_urls(),
 ]

@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
+from datetime import date
 from typing import Any
 
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models
 from django.urls import reverse
+
+from .recurrence import REPEAT_CHOICES, SHORTEST_GAP, describe
 
 
 class SavedCalendarView(models.Model):
@@ -102,6 +105,19 @@ class Event(models.Model):
     all_day = models.BooleanField(default=True)
     start_time = models.TimeField(null=True, blank=True)
     end_time = models.TimeField(null=True, blank=True)
+    repeat = models.CharField(
+        max_length=20,
+        blank=True,
+        default="",
+        choices=REPEAT_CHOICES,
+        help_text="Blank means it happens once. The first day and times set the pattern.",
+    )
+    repeat_until = models.DateField(
+        null=True, blank=True, help_text="The last date it may happen. Blank means no end."
+    )
+    skip_dates = models.JSONField(
+        default=list, blank=True, help_text="Dates this series doesn't happen, as YYYY-MM-DD."
+    )
     location = models.CharField(max_length=200, blank=True, default="")
     url = models.URLField(max_length=500, blank=True, default="", help_text="A page with more about it.")
     cancelled = models.BooleanField(
@@ -132,10 +148,48 @@ class Event(models.Model):
             raise ValidationError({"start_time": "A timed entry needs a start time (or tick All day)."})
         if self.start_time and self.end_time and self.end_time < self.start_time and not self.end_date:
             raise ValidationError({"end_time": "The end time cannot be before the start time."})
+        if not self.repeat:
+            self.repeat_until = None
+            self.skip_dates = []
+            return
+        if self.repeat_until and self.repeat_until < self.start_date:
+            raise ValidationError({"repeat_until": "The last repeat cannot be before the first day."})
+        if self.end_date and (self.end_date - self.start_date).days >= SHORTEST_GAP[self.repeat]:
+            raise ValidationError({"repeat": "Each one would run into the next. Shorten it or repeat less often."})
 
     @property
     def last_day(self) -> Any:
         return self.end_date or self.start_date
+
+    @property
+    def span_days(self) -> int:
+        return (self.end_date - self.start_date).days if self.end_date else 0
+
+    @property
+    def skipped(self) -> frozenset[date]:
+        return frozenset(date.fromisoformat(d) for d in self.skip_dates or [])
+
+    @property
+    def skipped_dates(self) -> list[date]:
+        return sorted(self.skipped)
+
+    @property
+    def repeat_summary(self) -> str:
+        """The rule in words, "" for a one-off."""
+        return describe(self) if self.repeat else ""
+
+    def is_over(self, today: date) -> bool:
+        """Whether its last occurrence has passed. A series with no end never is."""
+        if not self.repeat:
+            return bool(self.last_day < today)
+        return self.repeat_until is not None and self.repeat_until < today
+
+    def set_skipped(self, day: date, skipped: bool) -> None:
+        """Take one date out of the series, or put it back."""
+        dates = set(self.skipped)
+        dates.add(day) if skipped else dates.discard(day)
+        self.skip_dates = sorted(d.isoformat() for d in dates)
+        self.save(update_fields=["skip_dates", "updated_at"])
 
     def get_absolute_url(self) -> str:
         return reverse("calendar/events-detail", kwargs={"pk": self.pk})

@@ -3,7 +3,7 @@
 
 from __future__ import annotations
 
-from datetime import date, datetime, time
+from datetime import date, datetime, time, timedelta
 from typing import Any, Iterator
 
 from django.db.models import Q, QuerySet
@@ -14,6 +14,7 @@ from apps.datasets.framework import framework_dataset
 
 from .core import CalendarEvent
 from .models import Event, SavedCalendarView
+from .recurrence import occurrence_starts
 from .registry import register_calendar
 
 
@@ -47,7 +48,10 @@ def visible_events(user: Any, qs: QuerySet[Event] | None = None) -> QuerySet[Eve
 @framework_dataset(
     EVENTS_KEY,
     label="Events",
-    description="Hand-entered calendar entries: title, dates and times, category, visibility, who added them.",
+    description=(
+        "Hand-entered calendar entries: title, dates and times, how it repeats, category, visibility, who added "
+        "them. A repeating entry is one row here, however many dates it covers."
+    ),
     columns=[
         "title",
         "category",
@@ -56,6 +60,8 @@ def visible_events(user: Any, qs: QuerySet[Event] | None = None) -> QuerySet[Eve
         "all_day",
         "start_time",
         "end_time",
+        "repeat",
+        "repeat_until",
         "location",
         "cancelled",
         "visibility",
@@ -79,23 +85,30 @@ def events_provider(lower: date, upper: date, request: HttpRequest | None) -> It
     time. A provider rather than the column protocol because a date column
     plus optional time columns is two shapes in one table."""
     qs = visible_events(getattr(request, "user", None)).filter(start_date__lt=upper)
-    qs = qs.filter(Q(end_date__isnull=True, start_date__gte=lower) | Q(end_date__gte=lower))
+    # A series reaches past its own row's dates, so it's kept for the expansion to judge.
+    qs = qs.filter(Q(end_date__isnull=True, start_date__gte=lower) | Q(end_date__gte=lower) | ~Q(repeat=""))
     for row in qs.select_related("created_by").order_by("start_date", "start_time", "title"):
-        timed = not row.all_day and row.start_time is not None
-        start = _at(row.start_date, row.start_time if timed else None)
-        end_day = row.end_date or row.start_date
-        end = _at(end_day, row.end_time if timed and row.end_time else None) if (row.end_date or timed) else None
-        subtitle = " · ".join(p for p in (row.category, row.location) if p)
-        yield CalendarEvent.make(
-            EVENTS_KEY,
-            row.pk,
-            row.title,
-            start,
-            end,
-            subtitle=subtitle,
-            url=row.get_absolute_url(),
-            cancelled=row.cancelled,
+        if not row.repeat:
+            yield _occurrence(row, row.start_date, row.pk, row.get_absolute_url())
+            continue
+        days = occurrence_starts(
+            row.start_date, row.repeat, lower, upper, until=row.repeat_until, span_days=row.span_days, skip=row.skipped
         )
+        for day in days:
+            # Stable per date (it becomes the ICS UID), and the page knows which date you opened.
+            url = f"{row.get_absolute_url()}?on={day.isoformat()}"
+            yield _occurrence(row, day, f"{row.pk}-{day:%Y%m%d}", url)
+
+
+def _occurrence(row: Event, day: date, event_id: Any, url: str) -> CalendarEvent:
+    timed = not row.all_day and row.start_time is not None
+    start = _at(day, row.start_time if timed else None)
+    end_day = day + timedelta(days=row.span_days)
+    end = _at(end_day, row.end_time if timed and row.end_time else None) if (row.end_date or timed) else None
+    subtitle = " · ".join(p for p in (row.category, row.location) if p)
+    return CalendarEvent.make(
+        EVENTS_KEY, event_id, row.title, start, end, subtitle=subtitle, url=url, cancelled=row.cancelled
+    )
 
 
 register_calendar(

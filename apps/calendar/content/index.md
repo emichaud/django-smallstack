@@ -79,6 +79,18 @@ disappearing. The entries page (**All events**, under the calendars on the left,
 Table ⇄ Calendar ⇄ Board toggle, and the same entries are available over REST
 and MCP, so an agent can file one for you.
 
+### Repeating events
+
+Choose **Repeats** on an event: every day, weekday, week, 2 weeks, month or year, and optionally
+a last date under **Until**. For a month, choose the same date or the same weekday, like the 2nd
+Tuesday. The first day sets the pattern, and each date shows on the calendar and in subscribed
+calendars.
+
+Editing the event changes every date. To skip one, open it from the calendar and choose **Skip this
+date**. To move one, skip it and add a separate event. Skipped dates are listed on the event, where
+you can put them back. The Events list shows a series once, under its first date, and so do its
+calendar and board tabs. The main calendar shows every date.
+
 ## Who sees what
 
 Calendars have an access level. The bundled SmallStack calendars plot operator
