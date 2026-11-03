@@ -1,0 +1,27 @@
+{% load static %}<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{{ document_title }}</title>
+    <link rel="stylesheet" href="{% static 'smallstack/css/theme.css' %}">
+    <link rel="stylesheet" href="{% static 'dashboards/css/print.css' %}">
+    <script src="{% static 'dashboards/js/print.js' %}" defer></script>
+</head>
+<body class="doc{% if landscape %} doc--wide{% endif %}"{% if auto_print %} data-auto-print{% endif %}>
+{% comment %}Standalone rather than base.html: paper has no menus, and always reads dark on white whatever the palette. Status is a word, because a printer may have no colour.{% endcomment %}
+<nav class="doc-bar" aria-label="Document">
+    <a href="{{ back_url }}" class="doc-back">Back</a>
+    <button type="button" class="doc-print" id="doc-print">Print</button>
+</nav>
+<main class="doc-sheet">
+    <header class="doc-head">
+        <h1>{{ document_title }}</h1>
+        {% if document_description %}<p class="doc-description">{{ document_description }}</p>{% endif %}
+        {% block subhead %}{% endblock %}
+    </header>
+    {% block body %}{% endblock %}
+    <footer class="doc-foot">Printed {{ printed_at|date:"M j, Y" }} at {{ printed_at|date:"H:i" }}{% if request.user.get_full_name %} by {{ request.user.get_full_name }}{% elif request.user.username %} by {{ request.user.username }}{% endif %}</footer>
+</main>
+</body>
+</html>

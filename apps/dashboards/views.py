@@ -1438,6 +1438,79 @@ class GoalListPageView(LoginRequiredMixin, TemplateView):
         return context
 
 
+class GoalListPrintView(LoginRequiredMixin, TemplateView):
+    """``g/<slug>/print/`` — the list as a document for paper: the summary, what
+    needs attention, then each section's goals. ``?period=`` and ``?order=`` follow
+    the meeting view; ``?week=`` prints that week instead, saved values included.
+    ``?auto=1`` opens the print dialog on arrival."""
+
+    template_name = "dashboards/print/goal_list.html"
+
+    def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
+        from .weeks import parse_week, week_page
+
+        context = super().get_context_data(**kwargs)
+        request = self.request
+        goal_list = visible_or_404(GoalList.objects.all(), request, slug=kwargs["slug"])
+        week = parse_week(request.GET.get("week"))
+        order = goal_order(request.GET.get("order"))
+        if week is not None:
+            page = week_page(goal_list, request, week)
+            data = {k: page[k] for k in ("sections", "rows", "summary", "attention")}
+            back = f"{reverse('dashboards_goal_weeks', kwargs={'slug': goal_list.slug})}?week={week.isoformat()}"
+            when = f"Week of {page['label']}"
+        else:
+            period = requested_period(request, goal_list.default_period)
+            data = evaluate_goals(goal_list, request, period=period)
+            back = goal_list.get_absolute_url()
+            when = period_heading(period)
+        data["sections"] = sort_sections(data["sections"], order)
+        context.update(
+            {
+                "goal_list": goal_list,
+                "document_title": goal_list.name,
+                "document_description": goal_list.description,
+                "when": when,
+                "back_url": back,
+                "has_changes": any(r.get("comparison") for r in data["rows"]),
+                "printed_at": timezone.localtime(),
+                "auto_print": request.GET.get("auto") == "1",
+                **data,
+            }
+        )
+        return context
+
+
+class ReportPrintView(LoginRequiredMixin, TemplateView):
+    """``r/<slug>/print/`` — the report as a document for paper. ``?order=`` follows
+    the page; ``?auto=1`` opens the print dialog on arrival."""
+
+    template_name = "dashboards/print/report.html"
+    #: Past this many period columns the table needs a sideways page.
+    PORTRAIT_COLUMNS = 3
+
+    def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
+        context = super().get_context_data(**kwargs)
+        request = self.request
+        report = visible_or_404(Report.objects.all(), request, slug=kwargs["slug"])
+        matrix = report_matrix(report, request)
+        matrix = sort_report(matrix, report_order(request.GET.get("order"), matrix))
+        presented = present_report(matrix)
+        context.update(
+            {
+                "report": report,
+                "matrix": presented,
+                "document_title": report.name,
+                "document_description": report.description,
+                "back_url": report.get_absolute_url(),
+                "landscape": len(presented["columns"]) > self.PORTRAIT_COLUMNS,
+                "printed_at": timezone.localtime(),
+                "auto_print": request.GET.get("auto") == "1",
+            }
+        )
+        return context
+
+
 class GoalWeeksView(LoginRequiredMixin, TemplateView):
     """``g/<slug>/weeks/`` — a goal list week by week, the spreadsheet with a
     tab per week. ``?week=`` (any day of it, or ``2026-W45``) picks the week,

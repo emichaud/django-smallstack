@@ -1,0 +1,1 @@
+{% if result.restricted %}Restricted{% elif result.error %}Can't evaluate{% else %}{{ result.display }}{% if result.unit %} {{ result.unit }}{% endif %}{% if status and status != "none" %}<span class="doc-note doc-status doc-status--{{ status }}">{{ status_label }}</span>{% endif %}{% endif %}

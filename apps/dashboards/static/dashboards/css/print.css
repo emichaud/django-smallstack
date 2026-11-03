@@ -1,0 +1,48 @@
+/* The print document. Theme tokens under a forced light theme, so paper reads dark
+   on white whatever palette the person uses. Nothing depends on a background
+   printing or on colour: status is always a word. */
+.doc { margin: 0; background: var(--body-bg); color: var(--body-fg); font-size: 14px; line-height: 1.45; }
+.doc-bar { display: flex; justify-content: space-between; align-items: center; gap: 1rem; max-width: 52rem; margin: 0 auto; padding: 1rem 16px; }
+.doc--wide .doc-bar { max-width: 72rem; }
+.doc-back { color: var(--primary); }
+.doc-print { padding: 0.4rem 1.1rem; background: var(--primary); color: var(--button-fg, var(--body-bg)); border: 0; border-radius: 6px; font: inherit; font-weight: 600; cursor: pointer; }
+.doc-print:focus-visible, .doc-back:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.doc-sheet { max-width: 52rem; margin: 0 auto 3rem; padding: 2rem 16px; }
+.doc--wide .doc-sheet { max-width: 72rem; }
+.doc-head { margin-bottom: 1.25rem; padding-bottom: 0.75rem; border-bottom: 2px solid var(--body-fg); }
+.doc-head h1 { margin: 0; font-size: 1.6rem; }
+.doc-description, .doc-when { margin: 0.25rem 0 0; }
+.doc-when { font-weight: 600; }
+.doc-summary { margin-bottom: 1.5rem; }
+.doc-summary h2, .doc-section h2 { margin: 1.25rem 0 0.4rem; font-size: 1.05rem; }
+.doc-score { margin: 0; font-size: 1.15rem; }
+.doc-counts { display: flex; flex-wrap: wrap; gap: 0.25rem 1.25rem; list-style: none; margin: 0.25rem 0 0; padding: 0; }
+.doc-attention { margin: 0; padding-left: 1.1rem; }
+.doc-section-score { font-weight: 400; font-size: 0.9rem; }
+.doc-lede { margin: 0 0 1rem; }
+.doc-table { width: 100%; border-collapse: collapse; }
+.doc-table th, .doc-table td { padding: 0.35rem 0.5rem; border-bottom: 1px solid var(--card-border); text-align: left; vertical-align: top; }
+.doc-table thead th { border-bottom: 1.5px solid var(--body-fg); font-size: 0.85rem; }
+.doc-table tbody th { font-weight: 600; }
+.doc-table .doc-num { text-align: right; font-variant-numeric: tabular-nums; }
+.doc-note { display: block; font-weight: 400; font-size: 0.8rem; color: var(--body-quiet-color); }
+.doc-status { font-weight: 600; white-space: nowrap; }
+.doc-status--pass { color: var(--success-fg); }
+.doc-status--warn { color: var(--warning-fg); }
+.doc-status--fail { color: var(--error-fg); }
+.doc-foot { margin-top: 2rem; padding-top: 0.5rem; border-top: 1px solid var(--card-border); font-size: 0.8rem; color: var(--body-quiet-color); }
+
+@page { margin: 15mm; }
+@page wide { size: landscape; margin: 12mm; }
+
+@media print {
+    .doc { background: none; font-size: 11pt; }
+    .doc--wide .doc-sheet { page: wide; }
+    .doc-bar { display: none; }
+    .doc-sheet, .doc--wide .doc-sheet { max-width: none; margin: 0; padding: 0; }
+    .doc-table thead { display: table-header-group; }
+    .doc-table tr { break-inside: avoid; }
+    .doc-section h2, .doc-summary h2 { break-after: avoid; }
+    .doc-note, .doc-foot { color: inherit; }
+    .doc-back { display: none; }
+}

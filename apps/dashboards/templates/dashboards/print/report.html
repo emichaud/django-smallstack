@@ -1,0 +1,33 @@
+{% extends "dashboards/print/document.html" %}
+{% load dashboard_tags %}
+{% block body %}
+{% if matrix.rows %}
+<p class="doc-lede">{{ matrix.lede }}</p>
+<table class="doc-table">
+    <thead><tr>
+        <th scope="col">Metric</th>
+        {% if matrix.has_targets %}<th scope="col">Target</th>{% endif %}
+        {% for col in matrix.columns %}<th scope="col" class="doc-num">{{ col.heading }}</th>{% endfor %}
+    </tr></thead>
+    <tbody>
+    {% for row in matrix.rows %}
+    <tr>
+        <th scope="row">{{ row.label }}{% if row.metric %}<span class="doc-note">{{ row.reading }}</span>{% else %}<span class="doc-note">This metric no longer exists.</span>{% endif %}</th>
+        {% if matrix.has_targets %}<td>{{ row.target_text }}{% if row.warn_text %}<span class="doc-note">At risk {{ row.warn_text }}</span>{% endif %}</td>{% endif %}
+        {% if row.missing %}
+        <td class="doc-num" colspan="{{ matrix.columns|length }}">—</td>
+        {% elif row.span %}
+        <td class="doc-num" colspan="{{ matrix.columns|length }}">{% include "dashboards/print/report_value.html" with result=row.span status=row.cells.0.status status_label=row.cells.0.status_label %}<span class="doc-note">Same in every period.</span></td>
+        {% else %}
+        {% for cell in row.cells %}
+        <td class="doc-num">{% include "dashboards/print/report_value.html" with result=cell.result status=cell.status status_label=cell.status_label %}{% if forloop.first and row.delta %}<span class="doc-note">{{ row.delta.text }}</span>{% endif %}</td>
+        {% endfor %}
+        {% endif %}
+    </tr>
+    {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<p>This report has no rows yet.</p>
+{% endif %}
+{% endblock %}

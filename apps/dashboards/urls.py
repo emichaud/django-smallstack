@@ -47,9 +47,11 @@ urlpatterns = [
         views.PlaylistSlideView.as_view(),
         name="dashboards_playlist_slide",
     ),
+    path("dashboards/r/<slug:slug>/print/", views.ReportPrintView.as_view(), name="dashboards_report_print"),
     path("dashboards/r/<slug:slug>/digest/", views.ReportDigestView.as_view(), name="dashboards_report_digest"),
     path("dashboards/g/<slug:slug>/", views.GoalListPageView.as_view(), name="dashboards_goals"),
     path("dashboards/g/<slug:slug>/digest/", views.GoalListDigestView.as_view(), name="dashboards_goals_digest"),
+    path("dashboards/g/<slug:slug>/print/", views.GoalListPrintView.as_view(), name="dashboards_goals_print"),
     path("dashboards/g/<slug:slug>/weeks/", views.GoalWeeksView.as_view(), name="dashboards_goal_weeks"),
     path(
         "dashboards/g/<slug:slug>/weeks/<str:week>/trends/",

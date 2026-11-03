@@ -71,6 +71,13 @@ Only cards that boil down to one number can be goals. A grouped stat can't.
 - **Click a value** to see the rows behind it.
 - **Click a name under Needs attention** to jump to that goal.
 
+## Printing
+
+**Print** on a goal list opens a document of what's on screen, for the period you're looking at,
+and then your browser's print dialog. It has the summary, what needs attention and each section's
+goals, with no menus. Status is written out, so it reads fine in black and white. **Print** on the
+Weeks page prints that week.
+
 ## The trend
 
 Each goal shows its last six periods as small bars, each coloured by how that

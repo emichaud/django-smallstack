@@ -60,6 +60,7 @@ place; each week has a Trends button (the global modal).
     </p>
     <div class="gw-status-actions">
         <button type="button" class="btn-outline btn-sm" hx-get="{% url 'dashboards_goal_week_trends' goal_list.slug start|date:'Y-m-d' %}" hx-target="#stat-modal-body" hx-swap="innerHTML" data-stat-modal="Trends around the week of {{ week.label }}" aria-haspopup="dialog">Trends around this week</button>
+        <a href="{% url 'dashboards_goals_print' goal_list.slug %}?week={{ start|date:'Y-m-d' }}&amp;auto=1" class="btn-outline btn-sm" title="A document of this week for the printer">Print</a>
         {% if can_edit %}
         <form method="post" action="{% url 'dashboards_goal_week_snapshot' goal_list.slug start|date:'Y-m-d' %}">{% csrf_token %}<button type="submit" class="btn-outline btn-sm">{% if week.snapshot %}Save again{% else %}Save this week{% endif %}</button></form>
         {% endif %}

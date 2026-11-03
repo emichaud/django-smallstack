@@ -1,0 +1,56 @@
+{% extends "dashboards/print/document.html" %}
+{% block subhead %}<p class="doc-when">{{ when }}</p>{% endblock %}
+{% block body %}
+{% if rows %}
+<section class="doc-summary" aria-label="Summary">
+    {% if summary.scored %}
+    <p class="doc-score"><strong>{{ summary.pass }} of {{ summary.scored }}</strong> on target</p>
+    <ul class="doc-counts">
+        <li>On target: {{ summary.pass }}</li>
+        <li>At risk: {{ summary.warn }}</li>
+        <li>Missed: {{ summary.fail }}</li>
+        {% if summary.none %}<li>No number: {{ summary.none }}</li>{% endif %}
+    </ul>
+    {% else %}
+    <p class="doc-score">None of these goals has a number for this period.</p>
+    {% endif %}
+    {% if attention %}
+    <h2>Needs attention</h2>
+    <ul class="doc-attention">
+        {% for r in attention %}<li><span class="doc-status doc-status--{{ r.status }}">{{ r.status_label }}</span> {{ r.label }}: {{ r.display }}{% if r.unit %} {{ r.unit }}{% endif %}{% if r.target_text %} (target {{ r.target_text }}){% endif %}</li>{% endfor %}
+    </ul>
+    {% endif %}
+</section>
+{% for section in sections %}
+<section class="doc-section">
+    <h2>{{ section.title|default:"Goals" }}{% if section.rows %} <span class="doc-section-score">{{ section.summary.headline }}</span>{% endif %}</h2>
+    {% if section.rows %}
+    <table class="doc-table">
+        <thead><tr>
+            <th scope="col">Goal</th>
+            <th scope="col">Status</th>
+            <th scope="col" class="doc-num">Value</th>
+            <th scope="col">Target</th>
+            {% if has_changes %}<th scope="col">Change</th>{% endif %}
+        </tr></thead>
+        <tbody>
+        {% for r in section.rows %}
+        <tr>
+            <th scope="row">{{ r.label }}{% if r.note %}<span class="doc-note">{{ r.note }}</span>{% endif %}{% if r.own_period %}<span class="doc-note">{{ r.period_label }}</span>{% endif %}</th>
+            <td><span class="doc-status doc-status--{{ r.status }}">{{ r.status_label }}</span></td>
+            <td class="doc-num">{% if r.restricted %}Restricted{% elif r.error %}Can't evaluate{% else %}{{ r.display }}{% if r.unit %} {{ r.unit }}{% endif %}{% endif %}</td>
+            <td>{{ r.target_text }}{% if r.warn_text %}<span class="doc-note">At risk {{ r.warn_text }}</span>{% endif %}</td>
+            {% if has_changes %}<td>{{ r.comparison.text|default:"" }}</td>{% endif %}
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p class="doc-note">No goals in this section yet.</p>
+    {% endif %}
+</section>
+{% endfor %}
+{% else %}
+<p>This goal list has no goals yet.</p>
+{% endif %}
+{% endblock %}

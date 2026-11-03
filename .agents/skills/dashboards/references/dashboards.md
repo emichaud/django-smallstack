@@ -435,6 +435,14 @@ Playlists take `{"goals": "<slug>", "show"?: "week" | "weeks"}` items beside `{"
 - The bucket size comes from `trend_grain(period)`: week for wtd/pwtd/last_7, quarter, year, else month.
 - It costs one `metric_trend` series query per goal.
 
+### Printing
+
+`g/<slug>/print/` and `r/<slug>/print/` render `dashboards/print/*.html`, standalone pages rather
+than `base.html`: no menus, `data-theme="light"`, and status as a word so a black-and-white
+printer loses nothing. `?period=` and `?order=` follow the page, `?week=` prints one week with its
+saved values, and `?auto=1` opens the print dialog on arrival. A report with more than three
+period columns prints landscape (`ReportPrintView.PORTRAIT_COLUMNS`).
+
 ### Weeks and snapshots (`weeks.py`, `GoalSnapshot`)
 
 A week runs Monday to Sunday, local time. A goal's weekly value is its metric narrowed to `[monday, next monday)` on the period field. `weekly_values()` gets a run of weeks in one `Dataset.series(grain="week")` query per metric. A metric with no period field has the same value every week (`weekly: False`).

@@ -111,6 +111,9 @@ and the reports list shows each report's movement in one line ("▲ 2 up, ▼ 5 
 edit a report, the preview shows its real values as you build it. The first period you tick is
 the first column.
 
+**Print** on a report opens a document of it, then your browser's print dialog. A report with more
+than three period columns prints sideways.
+
 ## Deleting
 
 Deleting a metric shows which dashboard cards, report rows, goals and saved cards would break, and

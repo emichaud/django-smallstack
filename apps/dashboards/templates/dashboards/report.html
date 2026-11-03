@@ -21,6 +21,7 @@
     <div style="display: flex; gap: 0.5rem; align-items: center;">
         {% if report.is_shared %}<span class="dash-badge dash-badge--shared">Shared</span>{% else %}<span class="dash-badge">Personal, {{ report.owner }}</span>{% endif %}
         <a href="?{% if order %}order={{ order }}&amp;{% endif %}format=csv" class="btn-outline btn-sm" id="rp-csv" download>Download CSV</a>
+        {% if matrix.rows %}<a href="{% url 'dashboards_report_print' report.slug %}?{% if order %}order={{ order }}&amp;{% endif %}auto=1" class="btn-outline btn-sm" id="rp-print" title="A document of this report for the printer">Print</a>{% endif %}
         {% if can_edit %}<a href="{% url 'dashboards/reports-update' report.pk %}" class="btn-primary btn-sm">Edit report</a>{% endif %}
     </div>
 </div>
@@ -29,7 +30,7 @@
 {% block content %}
 <div id="rp-page">
 {% if matrix.rows %}
-{% if order %}<p class="rp-sorted"><a href="{{ request.path }}" hx-get="{{ request.path }}" hx-select="#rp-page" hx-select-oob="#rp-csv" hx-target="#rp-page" hx-swap="outerHTML" hx-push-url="true">Back to the report's order</a></p>{% endif %}
+{% if order %}<p class="rp-sorted"><a href="{{ request.path }}" hx-get="{{ request.path }}" hx-select="#rp-page" hx-select-oob="#rp-csv,#rp-print" hx-target="#rp-page" hx-swap="outerHTML" hx-push-url="true">Back to the report's order</a></p>{% endif %}
 <p class="rp-lede">{{ matrix.lede }}{% if matrix.partial %} The first column is still running, so each change compares part of this period with all of the last.{% elif matrix.compare %} Under each first value is its change from the next column.{% endif %}</p>
 
 <div class="card rp-card">
@@ -40,14 +41,14 @@
                 <tr>
                     {% with s=sort_links.0 %}
                     <th scope="col" class="rp-metric-col" aria-sort="{{ s.aria_sort }}" data-field="metric">
-                        <a class="dm-sort" href="?order={{ s.next }}" hx-get="?order={{ s.next }}" hx-select="#rp-page" hx-select-oob="#rp-csv" hx-target="#rp-page" hx-swap="outerHTML" hx-push-url="true" title="Sort by metric">Metric<span class="dm-sort-ind" aria-hidden="true">{% if s.aria_sort == "ascending" %}▲{% elif s.aria_sort == "descending" %}▼{% endif %}</span></a>
+                        <a class="dm-sort" href="?order={{ s.next }}" hx-get="?order={{ s.next }}" hx-select="#rp-page" hx-select-oob="#rp-csv,#rp-print" hx-target="#rp-page" hx-swap="outerHTML" hx-push-url="true" title="Sort by metric">Metric<span class="dm-sort-ind" aria-hidden="true">{% if s.aria_sort == "ascending" %}▲{% elif s.aria_sort == "descending" %}▼{% endif %}</span></a>
                         {% include "smallstack/crud/includes/col_resizer.html" with label="Metric" %}
                     </th>
                     {% endwith %}
                     {% if matrix.has_targets %}<th scope="col" class="rp-target-col" data-field="target"><span>Target</span>{% include "smallstack/crud/includes/col_resizer.html" with label="Target" %}</th>{% endif %}
                     {% for col in matrix.columns %}{% with s=sort_links|index:forloop.counter %}
                     <th scope="col" class="rp-num{% if forloop.first and matrix.compare %} rp-current{% endif %}" aria-sort="{{ s.aria_sort }}" data-field="{{ s.key }}">
-                        <a class="dm-sort" href="?order={{ s.next }}" hx-get="?order={{ s.next }}" hx-select="#rp-page" hx-select-oob="#rp-csv" hx-target="#rp-page" hx-swap="outerHTML" hx-push-url="true" title="Sort by {{ col.heading }}">{{ col.heading }}<span class="dm-sort-ind" aria-hidden="true">{% if s.aria_sort == "ascending" %}▲{% elif s.aria_sort == "descending" %}▼{% endif %}</span></a>
+                        <a class="dm-sort" href="?order={{ s.next }}" hx-get="?order={{ s.next }}" hx-select="#rp-page" hx-select-oob="#rp-csv,#rp-print" hx-target="#rp-page" hx-swap="outerHTML" hx-push-url="true" title="Sort by {{ col.heading }}">{{ col.heading }}<span class="dm-sort-ind" aria-hidden="true">{% if s.aria_sort == "ascending" %}▲{% elif s.aria_sort == "descending" %}▼{% endif %}</span></a>
                         {% include "smallstack/crud/includes/col_resizer.html" with label=col.heading %}
                     </th>
                     {% endwith %}{% endfor %}

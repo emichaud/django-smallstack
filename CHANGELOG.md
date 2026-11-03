@@ -12,6 +12,7 @@ Breaking-change migration recipes live in [`UPGRADING.md`](UPGRADING.md).
 ### Added
 - **Rates.** A metric's source can be *a rate*: one metric divided by another, read for the same period on both sides, in cards, goals, reports, weeks and trends. Each week or bucket divides its own two numbers. A zero or missing bottom shows no value, and parts that can't be compared show an error rather than a number.
 - **Metrics entered by hand.** A metric's source can be *entered by hand*: one value per date, typed on its page or set over REST (`dashboards/api/metrics/<key>/entries/`) or MCP (`metric_record_value`, `metric_delete_value`), rolled up by latest, sum, average, minimum or maximum. Nothing entered reads as no value, never 0. A value entered after a week was saved updates that saved week, keeping its target. The rows are scoped to people who can see the metric, so a shared one shows to non-staff.
+- **Printing.** Goal lists, single weeks and reports have a **Print** button that opens a clean document (`g/<slug>/print/`, `r/<slug>/print/`): dark on white whatever the palette, status in words, wide reports sideways.
 
 ### Migrations
 - `smallstack_dashboards.0009_metric_sources` is additive. Existing metrics become source `dataset`.

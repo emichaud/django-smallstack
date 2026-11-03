@@ -2630,4 +2630,5 @@ a.gw-week-link:hover { color: var(--link-color); text-decoration: underline; }
 .me-part-role { width: 4rem; color: var(--body-quiet-color); font-size: 0.85rem; }
 .me-part-value { margin-left: auto; font-weight: 600; font-variant-numeric: tabular-nums; }
 [data-for-source][hidden] { display: none !important; }
+.gl-print { margin-left: auto; }
 .mf-fact--off { display: none !important; }

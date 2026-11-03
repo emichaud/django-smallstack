@@ -57,6 +57,8 @@ chrome and sets everything larger, for the screen everyone is looking at.
         <noscript><button type="submit" class="btn-outline btn-sm">Go</button></noscript>
     </form>
     {% if own_periods %}<span class="gl-periods-note">Goals marked with a period keep it.</span>{% endif %}
+    {% comment %}Inside #gl-page so a period or sort swap keeps it on what's showing.{% endcomment %}
+    {% if rows and not present %}<a href="{% url 'dashboards_goals_print' goal_list.slug %}{% querystring auto=1 %}" class="btn-outline btn-sm gl-print" title="A document of this page for the printer">Print</a>{% endif %}
 </nav>
 
 {% if rows %}

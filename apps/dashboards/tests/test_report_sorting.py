@@ -84,7 +84,7 @@ def test_the_csv_follows_the_order_and_a_bad_order_is_ignored(client, staff, rep
     assert [r[0] for r in rows[1:]] == ["Gets", "Deletes", "Posts"]
     html = client.get(URL + "?order=-c0").content.decode()
     assert html.count('href="?order=-c0&amp;format=csv"') == 2  # the header button and the "Use it" link
-    assert 'hx-select-oob="#rp-csv"' in html  # an in-place sort refreshes the header button too
+    assert 'hx-select-oob="#rp-csv,#rp-print"' in html  # an in-place sort refreshes the header buttons too
     assert report_order("c9", {"columns": [{}]}) == "" and report_order("drop table", {"columns": []}) == ""
     assert _order(client.get(URL + "?order=nonsense").content.decode()) == ["Posts", "Gets", "Deletes"]
 
@@ -93,4 +93,4 @@ def test_the_table_resizes_and_sorts_in_place(client, staff, report):
     html = client.get(URL).content.decode()
     assert 'class="rp-table crud-table" data-table-key="report/kpis:metric,all"' in html
     assert html.count('class="col-resizer" role="separator"') == 2 and 'id="rp-page"' in html
-    assert 'hx-select="#rp-page" hx-select-oob="#rp-csv" hx-target="#rp-page"' in html
+    assert 'hx-select="#rp-page" hx-select-oob="#rp-csv,#rp-print" hx-target="#rp-page"' in html
