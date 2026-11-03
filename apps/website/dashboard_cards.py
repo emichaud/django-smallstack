@@ -24,6 +24,7 @@ through ``card_style(cell)`` and ``styled_value(...)``, and the template puts
 from __future__ import annotations
 
 import json
+from decimal import Decimal
 from typing import Any
 from urllib.parse import urlencode
 
@@ -32,6 +33,8 @@ from django.urls import reverse
 from apps.dashboards.components import (
     CellContext,
     ComponentType,
+    _validate_group,
+    build_metric_group,
     card_style,
     cell_title,
     drill_params,
@@ -39,6 +42,7 @@ from apps.dashboards.components import (
     styled_value,
 )
 from apps.dashboards.trends import metric_trend
+from apps.datasets.core import get_dataset
 
 KINDS = (("bars", "Bars"), ("line", "Line"))
 GRAIN_CHOICES = (
@@ -112,7 +116,108 @@ def build_trend(cell: dict[str, Any], ctx: CellContext) -> dict[str, Any]:
     return context
 
 
+def _group_options(default_limit: int) -> list[dict[str, Any]]:
+    return [
+        {"name": "dimension", "label": "Group by", "type": "column", "required": True},
+        {"name": "limit", "label": "Groups shown", "type": "integer", "default": default_limit, "min": 1, "max": 12},
+        {"name": "other", "label": "Fold the rest into “Other”", "type": "boolean", "default": True},
+    ]
+
+
+def _validated_groups(cell: dict[str, Any]) -> list[str]:
+    return _validate_group({**cell, "options": {"limit": 6, **(cell.get("options") or {})}})
+
+
+def build_pie(cell: dict[str, Any], ctx: CellContext) -> dict[str, Any]:
+    """Each group's share of the whole, as SVG. A circle of circumference 100 makes a
+    share its own dash length, so a slice is one stroked circle. Shares only mean
+    something for a count or a sum: averages don't add up to a whole, so those say
+    so rather than drawing a pie that looks right and isn't."""
+    context = build_metric_group({**cell, "options": {"limit": 6, **(cell.get("options") or {})}}, ctx)
+    if context.get("restricted") or context.get("error"):
+        return context
+    metric = ctx.metric
+    assert metric is not None
+    ds = get_dataset(metric.dataset)
+    declared = ds.declared_measures() if ds is not None else {}
+    if metric.agg not in ("count", "sum") or metric.measure in declared:
+        message = "A pie shows shares of a whole, so it needs a count or a sum. Ranked bars suit this metric."
+        return {**context, "groups": [], "error": message}
+    groups = [g for g in context["groups"] if isinstance(g["value"], (int, float, Decimal)) and g["value"] > 0]
+    whole = sum(float(g["value"]) for g in groups)
+    start = 0.0
+    slices = []
+    for i, g in enumerate(groups):
+        share = float(g["value"]) / whole * 100
+        # Stroke from 12 o'clock: an SVG circle's dash starts at 3 o'clock, 25 units on.
+        slices.append(
+            {
+                **g,
+                "share": f"{share:.2f}",
+                "rest": f"{100 - share:.2f}",
+                "offset": f"{25 - start:.2f}",
+                "percent": f"{share:.0f}%" if share >= 1 else "<1%",
+                "series": 0 if g.get("other") else i % 8 + 1,
+            }
+        )
+        start += share
+    return {**context, "groups": groups, "slices": slices}
+
+
+def build_ranked(cell: dict[str, Any], ctx: CellContext) -> dict[str, Any]:
+    """The groups as bars, largest first, each as long as its share of the largest.
+    Works for any aggregation, because it compares groups rather than adding them."""
+    context = build_metric_group({**cell, "options": {"limit": 6, **(cell.get("options") or {})}}, ctx)
+    if context.get("restricted") or context.get("error"):
+        return context
+    numbers = [abs(float(g["value"])) for g in context["groups"] if isinstance(g["value"], (int, float, Decimal))]
+    top = max(numbers, default=0) or 1
+    bars = [
+        {**g, "share": f"{abs(float(g['value'])) / top:.4f}" if isinstance(g["value"], (int, float, Decimal)) else "0"}
+        for g in context["groups"]
+    ]
+    return {**context, "bars": bars}
+
+
 def register() -> None:
+    register_component_type(
+        ComponentType(
+            key="pie",
+            label="Pie chart",
+            description="A count or total split by a column: each group's share of the whole. Each one opens its rows.",
+            group="Charts",
+            stylable=True,
+            drillable=True,
+            icon="M11 2v20a10 10 0 0 1 0-20zm2 0v9h9a10 10 0 0 0-9-9zm0 11v9a10 10 0 0 0 9-9h-9z",
+            media={"css": ["website/css/dashboard-cards.css"]},
+            template="website/cells/pie.html",
+            build=build_pie,
+            needs_metric=True,
+            default_size=(4, 3),
+            requires=frozenset({"dimension"}),
+            validate=_validated_groups,
+            options_schema=_group_options(6),
+        )
+    )
+    register_component_type(
+        ComponentType(
+            key="ranked",
+            label="Ranked bars",
+            description="A metric split by a column: its groups as bars, largest first. Each one opens its rows.",
+            group="Charts",
+            stylable=True,
+            drillable=True,
+            icon="M4 5h16v3H4V5zm0 5.5h11v3H4v-3zM4 16h7v3H4v-3z",
+            media={"css": ["website/css/dashboard-cards.css"]},
+            template="website/cells/ranked.html",
+            build=build_ranked,
+            needs_metric=True,
+            default_size=(4, 3),
+            requires=frozenset({"dimension"}),
+            validate=_validated_groups,
+            options_schema=_group_options(6),
+        )
+    )
     register_component_type(
         ComponentType(
             key="trend",

@@ -3,10 +3,14 @@
 ComponentLibraryDisplay — saved cards as a table: what each draws and where
 it's shown. Name, type, metric and updated sort (the CRUD list's ?ordering=,
 {% sortable_th %}); every column resizes with the framework's table-resize.js
-(crud-table + data-table-key + th[data-field]).
+(crud-table + data-table-key + th[data-field]). Hovering or focusing a row shows the
+card itself (component-list.js).
 {% endcomment %}
 <link rel="stylesheet" href="{% static 'dashboards/css/dashboards.css' %}">
+{% for path in card_styles %}<link rel="stylesheet" href="{% static path %}">{% endfor %}
+<script src="{% static 'dashboards/js/component-list.js' %}" defer></script>
 {% if rows %}
+<div class="cl-peek" id="cl-peek" hidden aria-hidden="true" inert></div>
 <div class="crud-table-wrap">
 <table class="crud-table cl-table" data-table-key="dashboards/components:name,type,metric,used,updated_at">
     <thead>
@@ -21,7 +25,7 @@ it's shown. Name, type, metric and updated sort (the CRUD list's ?ordering=,
     </thead>
     <tbody>
     {% for r in rows %}{% with c=r.obj %}
-        <tr>
+        <tr data-preview-url="{{ r.preview_url }}">
             <td class="cl-name-cell">
                 {% if r.edit_url %}<a href="{{ r.edit_url }}" class="cl-name">{{ c.name }}</a>{% else %}<span class="cl-name">{{ c.name }}</span>{% endif %}
                 {% if c.is_shared %}<span class="dash-badge dash-badge--shared">Shared</span>{% else %}<span class="dash-badge">Personal</span>{% endif %}

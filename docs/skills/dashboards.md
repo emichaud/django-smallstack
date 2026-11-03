@@ -124,6 +124,8 @@ one slow card doesn't block the page and `refresh_seconds` is free.
 
 ### Built-in card types
 
+The starter also ships three library-free charts in `apps/website/dashboard_cards.py`: `trend`, `pie` (count or sum only) and `ranked`.
+
 | `type` | Shows | Options |
 |---|---|---|
 | `metric` | one stat card — the exact `{% stat_card %}` markup; click → the rows behind it | — |
@@ -326,6 +328,10 @@ A **metric** is *what* number; a **component** is *how it's drawn*:
 - **Agents:** `create_component` / `update_component`, `card_preview` (a dry run), and
   `dashboard_add_card {component: key}`. REST: `/smallstack/api/dashboards/components/`
   and `POST dashboards/api/card-preview/`.
+
+`dashboards/card-preview/<pk>/` draws one saved card through `render_cell`, with the same access
+checks as a dashboard. The components list shows it on hover (`component-list.js`), and the gallery
+(`ComponentCardsDisplay`) loads one per card on `revealed`. Previews are `inert`.
 
 ## A metric over time — `trends.metric_trend`
 

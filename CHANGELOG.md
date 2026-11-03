@@ -19,6 +19,9 @@ Breaking-change migration recipes live in [`UPGRADING.md`](UPGRADING.md).
 
 - **Targets per cadence.** A goal can have its own target for any cadence, under **Targets by cadence** in the goal editor or as `targets` in its JSON. Without one, weekly and any number on the same scale at every length (an average, a rate, a latest reading) use the main target. A count or sum isn't judged, because a weekly target says nothing about one hour: it shows its value marked **No target**. Captures keep the target they were judged against.
 
+- **Two more charts, no library.** *Pie chart* (a count or total, each group's share of the whole) and *Ranked bars* (any metric's groups, largest first) join the trend chart in the component builder. Both are server-drawn SVG and CSS, and each group opens its rows. They live in `apps/website/dashboard_cards.py` beside the trend chart.
+- **The components page shows the components.** Hovering or focusing a row in the list shows the real card. The second view is now a gallery of live cards that load as they scroll into view, replacing the plain table.
+
 ### Migrations
 - `smallstack_dashboards.0010_snapshot_engine` replaces `GoalSnapshot` with `Snapshot` and `SnapshotTracker`. Saved weeks carry over as weekly captures, and every existing list keeps a weekly tracker.
 - `smallstack_dashboards.0009_metric_sources` and `smallstack_calendar.0003_event_repeat` are additive. Existing metrics become source `dataset` and existing events don't repeat.

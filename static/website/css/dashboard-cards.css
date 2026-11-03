@@ -80,3 +80,35 @@
 .trend.cs-align-end .trend-latest { margin-left: 0; margin-right: auto; }
 
 .trend-axis { display: flex; justify-content: space-between; font-size: 0.68rem; color: var(--body-quiet-color); }
+
+/* -- the pie and ranked-bars cards: plain SVG and CSS, no library ------------- */
+.pie, .ranked { display: flex; flex-direction: column; height: 100%; padding: 10px 12px 8px; gap: 6px; min-height: 0; }
+.pie-body { flex: 1; display: flex; align-items: center; gap: 0.75rem; min-height: 0; }
+.pie-chart { flex: 0 1 45%; max-width: 45%; max-height: 100%; aspect-ratio: 1; min-width: 0; }
+.pie-slice { fill: none; stroke-width: 7; stroke: var(--body-quiet-color); }
+.pie-legend { flex: 1; min-width: 0; list-style: none; margin: 0; padding: 0; overflow-y: auto; align-self: stretch; display: flex; flex-direction: column; justify-content: safe center; }
+.pie-legend li, .ranked-rows li { margin: 0; padding: 0; }
+.pie-key { display: flex; align-items: center; gap: 0.4rem; width: 100%; min-height: 0; line-height: 1.2; padding: 2px 4px; background: none; border: 0; border-radius: 4px; color: var(--body-fg); font: inherit; font-size: 0.78rem; cursor: pointer; text-align: left; }
+.pie-key:hover { background: var(--card-header-bg); }
+.pie-key:focus-visible, .ranked-row:focus-visible { outline: 2px solid var(--input-focus-border); outline-offset: 1px; }
+.pie-dot { flex: none; width: 0.6rem; height: 0.6rem; border-radius: 50%; background: var(--body-quiet-color); }
+.pie-name, .ranked-name { flex: 1; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.pie-percent { font-weight: 600; font-variant-numeric: tabular-nums; }
+.pie-slice--1 { stroke: var(--series-1); } .pie-dot--1 { background: var(--series-1); }
+.pie-slice--2 { stroke: var(--series-2); } .pie-dot--2 { background: var(--series-2); }
+.pie-slice--3 { stroke: var(--series-3); } .pie-dot--3 { background: var(--series-3); }
+.pie-slice--4 { stroke: var(--series-4); } .pie-dot--4 { background: var(--series-4); }
+.pie-slice--5 { stroke: var(--series-5); } .pie-dot--5 { background: var(--series-5); }
+.pie-slice--6 { stroke: var(--series-6); } .pie-dot--6 { background: var(--series-6); }
+.pie-slice--7 { stroke: var(--series-7); } .pie-dot--7 { background: var(--series-7); }
+.pie-slice--8 { stroke: var(--series-8); } .pie-dot--8 { background: var(--series-8); }
+.ranked-rows { flex: 1; min-height: 0; overflow-y: auto; list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; justify-content: safe space-around; gap: 1px; }
+.ranked-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 1px 0.5rem; width: 100%; min-height: 0; line-height: 1.15; padding: 1px 4px; background: none; border: 0; border-radius: 4px; color: var(--body-fg); font: inherit; font-size: 0.78rem; cursor: pointer; text-align: left; }
+.ranked-row:hover { background: var(--card-header-bg); }
+.ranked-value { font-weight: 600; font-variant-numeric: tabular-nums; }
+.ranked-track { grid-column: 1 / -1; height: 0.3rem; border-radius: 2px; background: var(--card-header-bg); overflow: hidden; }
+.ranked-bar { display: block; height: 100%; width: calc(var(--share) * 100%); background: var(--bar, var(--primary)); }
+.ranked-row--success { --bar: var(--success-fg); }
+.ranked-row--warning { --bar: var(--warning-fg); }
+.ranked-row--danger { --bar: var(--error-fg); }
+.ranked-row--other { --bar: var(--body-quiet-color); }

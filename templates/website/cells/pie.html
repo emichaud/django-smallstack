@@ -1,0 +1,31 @@
+{% comment %}The "pie" card (apps/website/dashboard_cards.py): plain SVG, no library. Each slice is a stroked circle whose dash is its share. The SVG is decorative: the legend beneath carries the numbers and opens each group's rows.{% endcomment %}
+<div class="pie {{ style.classes }}">
+    <div class="trend-head">
+        <span class="trend-label">{{ label }}</span>
+        {% if total and total.ok %}<span class="trend-latest">{{ total.display }}{% if total.unit %} <span class="trend-unit">{{ total.unit }}</span>{% endif %}</span>{% endif %}
+    </div>
+    {% if restricted %}
+    <p class="trend-note">You don't have access to this metric's data.</p>
+    {% elif error %}
+    <p class="trend-note">{{ error }}</p>
+    {% elif not slices %}
+    <p class="trend-note">Nothing to show.</p>
+    {% else %}
+    <div class="pie-body">
+        <svg class="pie-chart" viewBox="0 0 42 42" aria-hidden="true" focusable="false">
+            {% for s in slices %}<circle class="pie-slice pie-slice--{{ s.series }}" cx="21" cy="21" r="15.9155" pathLength="100" stroke-dasharray="{{ s.share }} {{ s.rest }}" stroke-dashoffset="{{ s.offset }}"/>{% endfor %}
+        </svg>
+        <ul class="pie-legend">
+            {% for s in slices %}
+            <li>
+                <button type="button" class="pie-key" hx-get="{{ s.drill_url }}" hx-target="#stat-modal-body" hx-swap="innerHTML" data-stat-modal="{{ label }}, {{ s.label }}" aria-haspopup="dialog" aria-label="{{ s.label }}: {{ s.display }}, {{ s.percent }}, show the rows">
+                    <span class="pie-dot pie-dot--{{ s.series }}" aria-hidden="true"></span>
+                    <span class="pie-name" title="{{ s.label }}">{{ s.label }}</span>
+                    <span class="pie-percent">{{ s.percent }}</span>
+                </button>
+            </li>
+            {% endfor %}
+        </ul>
+    </div>
+    {% endif %}
+</div>

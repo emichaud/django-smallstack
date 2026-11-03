@@ -31,6 +31,11 @@ urlpatterns = [
         views.DashboardCardValueView.as_view(),
         name="dashboards_board_card_value",
     ),
+    path(
+        "dashboards/card-preview/<int:pk>/",
+        views.ComponentPreviewView.as_view(),
+        name="dashboards_component_preview",
+    ),
     path("dashboards/m/<slug:key>/", views.MetricDetailView.as_view(), name="dashboards_metric_detail"),
     path("dashboards/m/<slug:key>/rows/", views.MetricRowsView.as_view(), name="dashboards_metric_rows"),
     path("dashboards/m/<slug:key>/entries/", views.MetricEntrySaveView.as_view(), name="dashboards_metric_entry_save"),

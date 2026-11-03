@@ -1,0 +1,26 @@
+{% comment %}The "ranked" card (apps/website/dashboard_cards.py): a metric's groups as bars, largest first, no library. Each row is a labelled button that opens its rows.{% endcomment %}
+<div class="ranked {{ style.classes }}">
+    <div class="trend-head">
+        <span class="trend-label">{{ label }}</span>
+        {% if total and total.ok %}<span class="trend-latest">{{ total.display }}{% if total.unit %} <span class="trend-unit">{{ total.unit }}</span>{% endif %}</span>{% endif %}
+    </div>
+    {% if restricted %}
+    <p class="trend-note">You don't have access to this metric's data.</p>
+    {% elif error %}
+    <p class="trend-note">{{ error }}</p>
+    {% elif not bars %}
+    <p class="trend-note">Nothing to show.</p>
+    {% else %}
+    <ol class="ranked-rows">
+        {% for b in bars %}
+        <li>
+            <button type="button" class="ranked-row{% if b.other %} ranked-row--other{% elif b.state %} ranked-row--{{ b.state }}{% endif %}" hx-get="{{ b.drill_url }}" hx-target="#stat-modal-body" hx-swap="innerHTML" data-stat-modal="{{ label }}, {{ b.label }}" aria-haspopup="dialog" aria-label="{{ b.label }}: {{ b.display }}, show the rows">
+                <span class="ranked-name" title="{{ b.label }}">{{ b.label }}</span>
+                <span class="ranked-value">{{ b.display }}</span>
+                <span class="ranked-track" aria-hidden="true"><span class="ranked-bar" style="--share: {{ b.share }};"></span></span>
+            </button>
+        </li>
+        {% endfor %}
+    </ol>
+    {% endif %}
+</div>

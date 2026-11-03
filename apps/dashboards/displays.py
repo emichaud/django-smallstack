@@ -282,7 +282,7 @@ class ComponentLibraryDisplay(ListDisplay):
     def get_context(self, queryset: Any, crud_config: Any, request: HttpRequest) -> dict[str, Any]:
         from apps.smallstack.crud import Action
 
-        from .components import get_component_type
+        from .components import component_media, get_component_type
         from .models import Dashboard, Metric
 
         page = paginate_queryset(queryset, crud_config.page_size_for(request), request)
@@ -305,6 +305,7 @@ class ComponentLibraryDisplay(ListDisplay):
                     "type_label": ct.label if ct else f"{c.type} (not registered)",
                     "icon": ct.icon if ct else "",
                     "group": ct.group if ct else "",
+                    "preview_url": reverse("dashboards_component_preview", kwargs={"pk": c.pk}),
                     "metric_name": names.get(c.metric, c.metric),
                     "used": used.get(c.key, 0),
                     "goal_url": f"{goal_add}?component={c.key}" if ct is not None and ct.single_value else "",
@@ -316,7 +317,20 @@ class ComponentLibraryDisplay(ListDisplay):
                     else "",
                 }
             )
-        return {"rows": rows, "object_list": items, **page}
+        # Card types bring their own styles. Styles only: this block is swapped in place,
+        # and a preview is inert, so scripts would re-run and do nothing.
+        return {"rows": rows, "object_list": items, "card_styles": component_media()["css"], **page}
+
+
+class ComponentCardsDisplay(ComponentLibraryDisplay):
+    """Saved cards as a gallery: each one drawn for real, loading as it scrolls into view."""
+
+    name = "cards"
+    icon = (
+        '<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true">'
+        '<path d="M3 3h8v8H3V3zm10 0h8v8h-8V3zM3 13h8v8H3v-8zm10 0h8v8h-8v-8z"/></svg>'
+    )
+    template_name = "dashboards/displays/component_cards.html"
 
 
 class GoalListLibraryDisplay(ListDisplay):

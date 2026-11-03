@@ -71,6 +71,7 @@ from .comparison import compare_with_previous
 from .components import available_widgets, describe_types, get_component_type
 from .datasets import visible_entries
 from .displays import (
+    ComponentCardsDisplay,
     ComponentLibraryDisplay,
     DashboardLibraryDisplay,
     GoalListLibraryDisplay,
@@ -1893,6 +1894,18 @@ class AddGoalView(LoginRequiredMixin, View):
         return self.render_form(request, form, source, obj, metric)
 
 
+class ComponentPreviewView(LoginRequiredMixin, View):
+    """One saved card, drawn exactly as a dashboard draws it — what the components
+    page shows on hover and in its gallery. Access is the same as on a dashboard: a
+    card over data you can't read says restricted."""
+
+    def get(self, request: HttpRequest, pk: int) -> HttpResponse:
+        card = visible_or_404(Component.objects.all(), request, pk=pk)
+        board = Dashboard(name="Preview", slug="preview", owner_id=card.owner_id)
+        html = render_cell(board, {**card.as_cell(), "id": f"preview-{card.pk}", "name": card.name}, request, None)
+        return render(request, "dashboards/partials/component_preview.html", {"card": card, "html": html})
+
+
 class ComponentCRUDView(_OwnedCRUD):
     """Saved cards — the component builder is this view's form page."""
 
@@ -1903,7 +1916,7 @@ class ComponentCRUDView(_OwnedCRUD):
     link_field = "name"
     field_transforms = {"owner": _owner_cell, "updated_at": "localtime"}
     url_base = "dashboards/components"
-    displays = [ComponentLibraryDisplay, TableDisplay]
+    displays = [ComponentLibraryDisplay, ComponentCardsDisplay]
     search_fields = ["name", "key", "description", "metric", "type"]
     ordering_fields = ["name", "type", "metric", "updated_at"]
     api_extra_fields = ["key", "visibility", "owner", "created_by", "created_at", "updated_at"]

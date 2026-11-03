@@ -2661,3 +2661,22 @@ a.gw-week-link:hover { color: var(--link-color); text-decoration: underline; }
 @media (max-width: 640px) {
     .glf-cadence-grid { grid-template-columns: minmax(0, 1fr); }
 }
+
+/* -- the components page: a card on hover, and the gallery ------------------- */
+.cl-peek { position: fixed; z-index: 1000; width: min(24rem, calc(100vw - 2rem)); height: 14rem; overflow: hidden; background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 8px; box-shadow: var(--shadow-lg, 0 8px 24px color-mix(in srgb, var(--body-fg) 18%, transparent)); pointer-events: none; }
+.cl-peek[hidden] { display: none; }
+.cc-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(19rem, 100%), 1fr)); gap: 1rem; list-style: none; margin: 0; padding: 0; }
+.cc-card { position: relative; display: flex; flex-direction: column; min-width: 0; background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 8px; overflow: hidden; }
+.cc-card:hover { border-color: var(--primary); }
+.cc-card:focus-within { border-color: var(--primary); }
+.cc-preview { height: 12rem; overflow: hidden; border-bottom: 1px solid var(--card-border); background: var(--card-bg); }
+.cc-drawn, .cc-drawn > .dash-cell-body { height: 100%; }
+.cc-ghost { display: flex; align-items: center; justify-content: center; height: 100%; color: var(--card-border); }
+.cc-ghost svg { width: 3rem; height: 3rem; fill: currentColor; }
+.cc-loading { display: flex; align-items: center; justify-content: center; height: 100%; color: var(--body-quiet-color); font-size: 0.85rem; }
+.cc-foot { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0.15rem 0.5rem; padding: 0.6rem 0.75rem; }
+.cc-title { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem; min-width: 0; }
+.cc-name { font-weight: 600; }
+a.cc-name::after { content: ""; position: absolute; inset: 0; }
+.cc-meta { grid-row: 2; margin: 0; color: var(--body-quiet-color); font-size: 0.8rem; }
+.cc-actions { grid-column: 2; grid-row: 1 / span 2; position: relative; z-index: 1; display: flex; align-items: center; gap: 0.15rem; }
