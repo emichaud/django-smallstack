@@ -272,6 +272,25 @@ class McpHttpView(View):
                 if handler is None:
                     return _rpc_error(rpc_id, _RPC_INTERNAL_ERROR, f"Tool {name} has no handler")
 
+                # The schema says additionalProperties: false, so hold callers to it.
+                # Dropping a misspelt argument and reporting success is the worst
+                # answer a model can get: it believes the edit landed.
+                schema = tdef.input_schema or {}
+                if isinstance(tool_args, dict) and schema.get("additionalProperties") is False:
+                    accepted = schema.get("properties") or {}
+                    unknown = sorted(k for k in tool_args if k not in accepted)
+                    if unknown:
+                        refusal = {
+                            "error": {
+                                "code": "invalid_argument",
+                                "message": f"unknown argument(s) {unknown}; this tool accepts {sorted(accepted)}",
+                            }
+                        }
+                        return _rpc_result(
+                            rpc_id,
+                            {"content": [{"type": "text", "text": json.dumps(refusal)}], "isError": True},
+                        )
+
                 tool_started = time.perf_counter()
                 try:
                     if inspect.iscoroutinefunction(handler):
@@ -308,8 +327,10 @@ class McpHttpView(View):
                 # isError:false made a refusal indistinguishable from success at
                 # the protocol level — a model checking isError would read
                 # "approval refused" as "approved". For an approvals gate that is
-                # the one failure you cannot have. (F-20.)
-                is_error = isinstance(result_value, dict) and "error" in result_value
+                # the one failure you cannot have. (F-20.) Truthy, not "in": a
+                # success that reports ``"error": null`` (metric_value's shape) is
+                # still a success.
+                is_error = isinstance(result_value, dict) and bool(result_value.get("error"))
                 logger.info(
                     "MCP TOOL tool=%s user_pk=%s duration_ms=%.2f result_len=%d is_error=%s",
                     name, getattr(user, "pk", None), duration, len(text), is_error,

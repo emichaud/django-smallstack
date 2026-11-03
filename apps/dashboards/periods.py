@@ -41,6 +41,8 @@ TO_DATE_PERIODS = frozenset({"today", "wtd", "mtd", "qtd", "ytd"})
 QUICK_PERIODS: list[tuple[str, str]] = [
     ("all", "All time"),
     ("today", "Today"),
+    ("wtd", "This week"),
+    ("pwtd", "Last week"),
     ("last_7", "7 days"),
     ("last_30", "30 days"),
     ("mtd", "This month"),
@@ -81,6 +83,21 @@ def requested_period(request: HttpRequest, default: str = "") -> Optional[str]:
     if raw in ("", "all"):
         return None
     return raw if is_period(raw) else (default or None)
+
+
+#: Said alongside a number when a period was asked for and can't apply.
+NO_PERIOD_FIELD_NOTE = "This metric has no period_field, so the period was ignored: this is its all-time value."
+
+
+def period_problem(raw: object) -> Optional[str]:
+    """Why *raw* can't be used as a period, or None when it can (``""`` / ``all``
+    mean no period). For callers who asked for a period by name and must hear
+    about a typo: REST and MCP. A page falls back quietly (:func:`requested_period`);
+    an agent reading a number can't see that it got all time instead of this week."""
+    if raw in (None, "", "all") or is_period(raw):
+        return None
+    keys = ", ".join(k for k, _label in RELATIVE_PERIODS)
+    return f"unknown period {raw!r} — use 'all', one of {keys}, or last_<N> / next_<N> days"
 
 
 def period_choices(extra: Optional[str] = None) -> list[tuple[str, str]]:

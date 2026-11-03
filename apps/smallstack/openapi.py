@@ -302,7 +302,8 @@ def _build_crud_paths(crud_config, list_url_name: str) -> dict[str, dict]:
         {"name": "id", "in": "path", "required": True, "schema": {"type": "integer"}},
     ]
 
-    if Action.DETAIL in actions:
+    # The REST detail route answers GET whenever it exists, HTML detail page or not.
+    if actions & {Action.DETAIL, Action.UPDATE, Action.DELETE}:
         detail_ops["get"] = {
             "tags": [tag],
             "summary": f"Get a {model_name}",

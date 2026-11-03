@@ -7,11 +7,11 @@
         <p class="dl-reading">{{ object.get_agg_display }} in <strong>{{ source }}</strong>{% if reading != "All rows" %} where {{ reading }}{% endif %}.</p>
     </div>
 
-    {% if usage.cards or usage.rows %}
+    {% if usage.cards or usage.rows or usage.goals or usage.components %}
     <section class="dl-impact" aria-labelledby="dl-impact-title">
         <h2 id="dl-impact-title">
             Deleting it breaks
-            {% if usage.cards %}{{ usage.cards }} card{{ usage.cards|pluralize }} on {{ usage.boards|length }} dashboard{{ usage.boards|length|pluralize }}{% endif %}{% if usage.cards and usage.rows %} and {% endif %}{% if usage.rows %}{{ usage.rows }} row{{ usage.rows|pluralize }} in {{ usage.reports|length }} report{{ usage.reports|length|pluralize }}{% endif %}{% if usage.goals %}{% if usage.cards or usage.rows %} and {% endif %}{{ usage.goals }} goal{{ usage.goals|pluralize }} in {{ usage.goal_lists|length }} goal list{{ usage.goal_lists|length|pluralize }}{% endif %}.
+            {% if usage.cards %}{{ usage.cards }} card{{ usage.cards|pluralize }} on {{ usage.boards|length }} dashboard{{ usage.boards|length|pluralize }}{% endif %}{% if usage.cards and usage.rows %} and {% endif %}{% if usage.rows %}{{ usage.rows }} row{{ usage.rows|pluralize }} in {{ usage.reports|length }} report{{ usage.reports|length|pluralize }}{% endif %}{% if usage.goals %}{% if usage.cards or usage.rows %} and {% endif %}{{ usage.goals }} goal{{ usage.goals|pluralize }} in {{ usage.goal_lists|length }} goal list{{ usage.goal_lists|length|pluralize }}{% endif %}{% if usage.components %}{% if usage.cards or usage.rows or usage.goals %} and {% endif %}{{ usage.components|length }} saved card{{ usage.components|length|pluralize }}{% endif %}.
         </h2>
         <ul class="dl-places">
             {% for b in usage.boards %}
@@ -28,18 +28,28 @@
                 {% if not r.can_edit %}<span class="dl-locked">you can't edit it</span>{% endif %}
             </li>
             {% endfor %}
+            {% for g in usage.goal_lists %}
+            <li>
+                <a href="{{ g.obj.get_absolute_url }}">{{ g.obj.name }}</a>
+                <span class="dash-muted">goal list, {{ g.goals }} goal{{ g.goals|pluralize }}</span>
+                {% if not g.can_edit %}<span class="dl-locked">you can't edit it</span>{% endif %}
+            </li>
+            {% endfor %}
+            {% for c in usage.components %}
+            <li>{{ c.name }} <span class="dash-muted">saved card</span></li>
+            {% endfor %}
         </ul>
         <label class="dl-detach">
             <input type="hidden" name="detach_choice" value="1">
             <input type="checkbox" name="detach" value="1" checked>
             <span>
-                <strong>Also remove its cards and report rows</strong>
+                <strong>Also remove its cards, report rows and goals</strong>
                 <span>Otherwise they stay and show “metric no longer exists”.{% if usage.locked %} Places you can't edit keep the broken card or row either way.{% endif %}</span>
             </span>
         </label>
     </section>
     {% else %}
-    <p class="dl-safe">Nothing uses this metric. No dashboard or report will change.</p>
+    <p class="dl-safe">Nothing uses this metric. No dashboard, report or goal list will change.</p>
     {% endif %}
 
     <div class="dl-actions">

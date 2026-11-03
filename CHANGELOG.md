@@ -10,9 +10,25 @@ Breaking-change migration recipes live in [`UPGRADING.md`](UPGRADING.md).
 ## [Unreleased]
 
 ### Fixed
+- **Agents get the number they asked for.** Over MCP and REST a misnamed period (`this_week`) returned the metric's *all-time* value with no warning; a bad period, grain or week is now refused with the valid names. A metric with no `period_field` says so in `note` rather than quietly ignoring the period.
+- **MCP: every successful `metric_value` and `metric_trend` was flagged `isError: true`**, because the dispatcher tested for an `error` key rather than a truthy one (those tools answer `"error": null`).
+- **MCP: `list_datasets` returned nothing and `describe_dataset` refused every bundled dataset** on a default install, while `metric_preview` and `create_metric` accepted them, so an agent had to guess names. Both now cover every dataset the caller may read; `query_tool` says whether it also has a query tool.
+- **MCP: unknown arguments were dropped and the call reported success**, so `update_goal_list {"id": 1, "goal": "g1", "target": …}` changed nothing and said it had. Tools now hold callers to their schema's `additionalProperties: false`. Schemas no longer list fields a model default fills as required.
+- **An average, minimum or maximum over no rows read 0**, so a quiet week's "average response under 250 ms" counted as on target. It now has no value: the card shows "—" and the goal is *no data*. Counts and sums of nothing are still 0.
+- **A metric's delete left its saved cards behind**, drawing a metric that no longer exists, along with any goals on them; they now go with it. The delete page said "Nothing uses this metric" for a metric used only by goals, and never listed goal lists; `delete_metric` now answers with `also_removed`.
+- **Events with a `start_time` were saved as all-day over REST and MCP**, hiding the time. A start time now makes an event timed.
+- **A repeated saved-calendar-view name was a 500** on the page, REST and MCP (an uncaught `IntegrityError`); it's now a field error. `dashboard_add_card {w: "abc"}` and `goal_list_weeks {weeks: "abc"}` are refusals rather than Python exceptions.
+- **A misspelt grouped-card column saved fine and only failed when drawn**; `card_preview` and every save now refuse it, and a note card needs its `markdown`.
+- **Dashboard stat cards drew a double border with the comparison line across it**: their cell rules had stopped matching when `.card-style` was added. Goal-board trend and change text wraps instead of being cut off.
+- **The bundled requests dataset can filter on `response_time_ms`** ("requests slower than 500 ms"), and generated labels read "IP address" and "API token".
 - **Help links work again.** About 130 links and URLs in the bundled docs still pointed at `/help/...`, which has returned 404 since SmallStack's routes moved under `/smallstack/`. They now use `/smallstack/help/...`, and a test keeps old-prefix links out of the bundled docs.
 
+### Changed
+- **The calendar opens on the Events calendar** when you've chosen nothing yet, so an entry you've just added is there. **None** still clears it, and a default saved view still wins.
+- **The period bar has This week and Last week**, for a weekly meeting.
+
 ### Added
+- **Agent read-back and the last few UI-only actions.** `get_metric`, `get_dashboard`, `get_report`, `get_goal_list`, `get_playlist` and `get_component`, taking `key`/`slug` or `id` (as do their update and delete tools, via a new `mcp_lookup_field` on `CRUDView`); `goal_list_save_week` + `POST dashboards/api/goals/<slug>/weeks/<week>/save/`; `metric_rows` + `GET dashboards/api/metrics/<key>/rows/`; `csv_url` on `report_values`; `visibility` on read-backs. The evaluation routes are in the OpenAPI schema, the REST detail `GET` is advertised, and their 404s are JSON.
 - **A calendar on any page — `{% calendar_card %}` and the `calendar` dashboard
   card.** The calendar counterpart of `{% metric_card %}` / `{% dashboard %}`:
   name the calendars (keys, a list or a `SavedCalendarView`) and pick `month`,

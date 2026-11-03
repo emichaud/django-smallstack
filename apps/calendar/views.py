@@ -46,6 +46,7 @@ from .core import (
     weekend_entries,
     weekends_default,
 )
+from .datasets import EVENTS_KEY
 from .displays import AgendaDisplay, RangeBoardDisplay, SavedViewsDisplay
 from .forms import EventForm, SavedCalendarViewForm
 from .models import Event, SavedCalendarView
@@ -137,7 +138,9 @@ class CalendarPageView(LoginRequiredMixin, TemplateView):
         elif "view" not in request.GET:
             # No selection parameters at all → the user's default view, if any.
             current_view = next((v for v in views if v.is_default), None)
-            keys = current_view.keys if current_view is not None else []
+            # Nobody's picked anything yet: open on the calendar people type into,
+            # so an entry you just added is there. "None" is an explicit ?ds=.
+            keys = current_view.keys if current_view is not None else [EVENTS_KEY]
         else:
             keys = []
         selected, _rejected = resolve_keys(keys, user)

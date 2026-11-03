@@ -78,6 +78,11 @@ urlpatterns = [
         name="dashboards_api_metric_trend",
     ),
     path(
+        "dashboards/api/metrics/<slug:key>/rows/",
+        api.MetricRowsApiView.as_view(),
+        name="dashboards_api_metric_rows",
+    ),
+    path(
         "dashboards/api/boards/<slug:slug>/values/",
         api.BoardValuesApiView.as_view(),
         name="dashboards_api_board_values",
@@ -101,6 +106,11 @@ urlpatterns = [
         "dashboards/api/goals/<slug:slug>/weeks/",
         api.GoalWeeksApiView.as_view(),
         name="dashboards_api_goal_weeks",
+    ),
+    path(
+        "dashboards/api/goals/<slug:slug>/weeks/<str:week>/save/",
+        api.GoalWeekSaveApiView.as_view(),
+        name="dashboards_api_goal_week_save",
     ),
     path(
         "dashboards/api/reports/<slug:slug>/values/",

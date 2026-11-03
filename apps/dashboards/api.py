@@ -10,12 +10,14 @@ row can't express:
     POST dashboards/api/preview/                    evaluate an UNSAVED metric (dry run)
     GET  dashboards/api/metrics/<key>/value/        evaluate a saved metric (?period=)
     GET  dashboards/api/metrics/<key>/trend/        the metric per bucket (?period=&grain=) — for charts
+    GET  dashboards/api/metrics/<key>/rows/         the rows behind the number (?period=&order=&limit=)
     GET  dashboards/api/boards/<slug>/values/       every card on a dashboard, evaluated
     POST dashboards/api/boards/<slug>/picture/      set the dashboard's picture (multipart: image, alt)
     DELETE dashboards/api/boards/<slug>/picture/    remove it
     GET  dashboards/api/reports/<slug>/values/      a report's matrix
     GET  dashboards/api/goals/<slug>/values/        a goal list judged: each goal's value, status, target (?period=)
     GET  dashboards/api/goals/<slug>/weeks/         the list week over week (?week=&weeks=), snapshots where saved
+    POST dashboards/api/goals/<slug>/weeks/<week>/save/  save that week's values and targets
     GET  dashboards/api/playlists/<slug>/slides/    a playlist as the caller sees it: slides, dwell, periods
     POST dashboards/api/report-preview/             evaluate an UNSAVED report
     POST dashboards/api/card-preview/               render an UNSAVED card (the component builder's preview)
@@ -42,6 +44,7 @@ from django.utils.decorators import method_decorator
 from django.views import View
 from django.views.decorators.csrf import csrf_exempt
 
+from apps.datasets.core import GRAINS
 from apps.smallstack.api import authenticate_api_request
 
 from .boards import board_values, clear_picture, set_picture
@@ -49,9 +52,9 @@ from .comparison import compare_with_previous
 from .components import components_payload
 from .forms import readable_datasets
 from .goals import goal_values
-from .metrics import evaluate
+from .metrics import drill_rows, evaluate, may_read
 from .models import Dashboard, GoalList, Metric, Playlist, Report
-from .periods import requested_period
+from .periods import NO_PERIOD_FIELD_NOTE, period_problem, requested_period
 from .playlists import playlist_payload
 from .previews import preview_card, preview_metric, preview_report
 from .reports import report_values
@@ -79,7 +82,12 @@ class _ApiView(View):
         if err:
             return err
         request.user = user
-        return super().dispatch(request, *args, **kwargs)
+        try:
+            return super().dispatch(request, *args, **kwargs)
+        except Http404:
+            # JSON like every other answer here, not the site's HTML page. Says
+            # the same for "isn't there" and "isn't yours" (see _visible).
+            return JsonResponse({"error": "not found"}, status=404)
 
 
 class ComponentsApiView(_ApiView):
@@ -133,25 +141,71 @@ def _visible(model: Any, user: Any, **lookup: Any) -> Any:
     return obj
 
 
+def _period_refused(request: HttpRequest) -> JsonResponse | None:
+    """A 400 for a ``?period=`` that isn't one. ``requested_period`` falls back
+    quietly, which suits a page; a client reading a number can't tell it got all
+    time instead of the week it asked for."""
+    problem = period_problem(request.GET.get("period"))
+    return JsonResponse({"error": problem}, status=400) if problem else None
+
+
 class MetricValueApiView(_ApiView):
     def get(self, request: HttpRequest, key: str) -> JsonResponse:
         metric = _visible(Metric, request.user, key=key)
+        refused = _period_refused(request)
+        if refused:
+            return refused
         period = requested_period(request)
         result = evaluate(metric, request, period=period)
         comparison = compare_with_previous(metric, request, period, result)
-        return JsonResponse({"key": metric.key, "name": metric.name, **result.as_dict(), "comparison": comparison})
+        out = {"key": metric.key, "name": metric.name, **result.as_dict(), "comparison": comparison}
+        if period and not metric.period_field:
+            out["note"] = NO_PERIOD_FIELD_NOTE
+        return JsonResponse(out)
 
 
 class MetricTrendApiView(_ApiView):
     def get(self, request: HttpRequest, key: str) -> JsonResponse:
         metric = _visible(Metric, request.user, key=key)
-        trend = metric_trend(metric, request, requested_period(request), request.GET.get("grain") or None)
+        refused = _period_refused(request)
+        if refused:
+            return refused
+        grain = request.GET.get("grain") or None
+        if grain and grain not in GRAINS:
+            return JsonResponse({"error": f"unknown grain {grain!r} — use one of {', '.join(GRAINS)}"}, status=400)
+        trend = metric_trend(metric, request, requested_period(request), grain)
         return JsonResponse({"key": metric.key, "name": metric.name, **trend})
+
+
+class MetricRowsApiView(_ApiView):
+    """The rows behind the number, as JSON (``m/<key>/rows/`` is the modal's HTML)."""
+
+    def get(self, request: HttpRequest, key: str) -> JsonResponse:
+        metric = _visible(Metric, request.user, key=key)
+        if not may_read(metric, request.user):
+            return JsonResponse({"error": "you don't have access to this metric's data"}, status=403)
+        refused = _period_refused(request)
+        if refused:
+            return refused
+        try:
+            limit = max(1, min(int(request.GET.get("limit") or 25), 200))
+        except ValueError:
+            return JsonResponse({"error": "limit must be a whole number"}, status=400)
+        try:
+            rows = drill_rows(
+                metric, request, period=requested_period(request), limit=limit, order=request.GET.get("order") or ""
+            )
+        except ValueError as exc:
+            return JsonResponse({"error": str(exc)}, status=400)
+        return JsonResponse(json.loads(json.dumps(rows, default=str)))
 
 
 class BoardValuesApiView(_ApiView):
     def get(self, request: HttpRequest, slug: str) -> JsonResponse:
         dashboard = _visible(Dashboard, request.user, slug=slug)
+        refused = _period_refused(request)
+        if refused:
+            return refused
         period = requested_period(request, dashboard.default_period)
         return JsonResponse(
             {
@@ -168,6 +222,17 @@ def _no_response(request: HttpRequest) -> HttpResponse:
     return HttpResponse()  # never called: only the check (process_view) runs
 
 
+def _write_refused(request: HttpRequest) -> JsonResponse | None:
+    token = getattr(request, "_api_token", None)
+    if token is not None:
+        if getattr(token, "access_level", "") == "readonly":
+            return JsonResponse({"error": "Token is read-only"}, status=403)
+        return None
+    if CsrfViewMiddleware(_no_response).process_view(request, _no_response, (), {}) is not None:
+        return JsonResponse({"error": "CSRF check failed — send the X-CSRFToken header"}, status=403)
+    return None
+
+
 class BoardPictureApiView(_ApiView):
     """The one write on these routes, because the generic CRUD endpoint takes
     JSON and a picture is a file. ``POST`` multipart (``image``, optional
@@ -178,18 +243,8 @@ class BoardPictureApiView(_ApiView):
     (send ``X-CSRFToken``, as the page's own fetches do). A read-only token is
     refused like on the CRUD routes."""
 
-    def _write_allowed(self, request: HttpRequest) -> JsonResponse | None:
-        token = getattr(request, "_api_token", None)
-        if token is not None:
-            if getattr(token, "access_level", "") == "readonly":
-                return JsonResponse({"error": "Token is read-only"}, status=403)
-            return None
-        if CsrfViewMiddleware(_no_response).process_view(request, _no_response, (), {}) is not None:
-            return JsonResponse({"error": "CSRF check failed — send the X-CSRFToken header"}, status=403)
-        return None
-
     def _editable(self, request: HttpRequest, slug: str) -> Dashboard | JsonResponse:
-        refused = self._write_allowed(request)
+        refused = _write_refused(request)
         if refused:
             return refused
         dashboard = _visible(Dashboard, request.user, slug=slug)
@@ -222,6 +277,9 @@ class PlaylistSlidesApiView(_ApiView):
 class GoalValuesApiView(_ApiView):
     def get(self, request: HttpRequest, slug: str) -> JsonResponse:
         goal_list = _visible(GoalList, request.user, slug=slug)
+        refused = _period_refused(request)
+        if refused:
+            return refused
         # No ?period= → the list's own; ?period=all → all time ("").
         period = (requested_period(request) or "") if "period" in request.GET else None
         return JsonResponse(goal_values(goal_list, request, period=period))
@@ -232,12 +290,41 @@ class GoalWeeksApiView(_ApiView):
         from .weeks import GRID_WEEKS, parse_week, this_week, week_grid, weeks_payload
 
         goal_list = _visible(GoalList, request.user, slug=slug)
+        if request.GET.get("week") and parse_week(request.GET["week"]) is None:
+            return JsonResponse(
+                {"error": f"unknown week {request.GET['week']!r} — use a date (2026-11-02) or an ISO week (2026-W45)"},
+                status=400,
+            )
         last = min(parse_week(request.GET.get("week")) or this_week(), this_week())
         try:
             count = max(1, min(int(request.GET.get("weeks") or GRID_WEEKS), 26))
         except ValueError:
-            count = GRID_WEEKS
+            return JsonResponse({"error": "weeks must be a whole number"}, status=400)
         return JsonResponse(weeks_payload(goal_list, week_grid(goal_list, request, last, count)))
+
+
+class GoalWeekSaveApiView(_ApiView):
+    """Save a week (``g/<slug>/weeks/<week>/snapshot/`` is the page's form). A
+    token write like the picture's: read-only tokens are refused, and a session
+    caller needs the CSRF header."""
+
+    def post(self, request: HttpRequest, slug: str, week: str) -> JsonResponse:
+        from .weeks import parse_week, take_snapshot
+
+        refused = _write_refused(request)
+        if refused:
+            return refused
+        goal_list = _visible(GoalList, request.user, slug=slug)
+        if not goal_list.can_edit(request.user):
+            return JsonResponse({"error": "you may not edit this goal list"}, status=403)
+        start = parse_week(week)
+        if start is None:
+            return JsonResponse({"error": f"unknown week {week!r} — use a date or an ISO week (2026-W45)"}, status=400)
+        try:
+            snapshot = take_snapshot(goal_list, start, by=request.user)
+        except ValueError as exc:
+            return JsonResponse({"error": str(exc)}, status=400)
+        return JsonResponse({"ok": True, "week": snapshot.week_start.isoformat(), "summary": snapshot.summary})
 
 
 class ReportValuesApiView(_ApiView):
@@ -268,3 +355,69 @@ class ReportPreviewApiView(_ApiView):
         if not isinstance(payload, dict):
             return JsonResponse({"error": "body must be a JSON object"}, status=400)
         return JsonResponse(json.loads(json.dumps(preview_report(request.user, payload, request=request), default=str)))
+
+
+_openapi_registered = False
+
+
+def register_openapi_paths() -> None:
+    """Put these routes in ``/api/schema/openapi.json`` beside the generated CRUD."""
+    global _openapi_registered
+    if _openapi_registered:
+        return
+    _openapi_registered = True
+
+    from apps.smallstack.api import register_api_path
+
+    def path_param(name: str) -> dict[str, Any]:
+        return {"name": name, "in": "path", "required": True, "schema": {"type": "string"}}
+
+    def query(name: str, description: str) -> dict[str, Any]:
+        schema = {"type": "string"}
+        return {"name": name, "in": "query", "required": False, "schema": schema, "description": description}
+
+    period = query("period", "A period key (mtd, pwtd, last_30…) or 'all'. An unknown one is a 400.")
+    key, slug = path_param("key"), path_param("slug")
+    body = {"required": True, "content": {"application/json": {"schema": {"type": "object"}}}}
+    routes: list[tuple[str, str, str, list[dict[str, Any]]]] = [
+        ("GET", "components/", "Card types, periods and style vocabulary", []),
+        ("GET", "datasets/", "Datasets you may build on", []),
+        ("GET", "datasets/{key}/schema/", "A dataset's columns, filter ops and periods", [key]),
+        ("POST", "preview/", "Evaluate an unsaved metric (dry run)", []),
+        ("POST", "report-preview/", "Evaluate an unsaved report (dry run)", []),
+        ("POST", "card-preview/", "Render an unsaved card (dry run)", []),
+        ("GET", "metrics/{key}/value/", "A saved metric's value", [key, period]),
+        (
+            "GET",
+            "metrics/{key}/trend/",
+            "A saved metric per bucket",
+            [key, period, query("grain", "day, week, month, quarter or year")],
+        ),
+        (
+            "GET",
+            "metrics/{key}/rows/",
+            "The rows behind a metric's number",
+            [key, period, query("order", "A column, - for descending"), query("limit", "1-200, default 25")],
+        ),
+        ("GET", "boards/{slug}/values/", "Every card on a dashboard, evaluated", [slug, period]),
+        ("GET", "reports/{slug}/values/", "A report's matrix", [slug]),
+        ("GET", "goals/{slug}/values/", "A goal list judged", [slug, period]),
+        (
+            "GET",
+            "goals/{slug}/weeks/",
+            "A goal list week over week",
+            [slug, query("week", "The last week: a date or 2026-W45"), query("weeks", "How many, 1-26")],
+        ),
+        ("POST", "goals/{slug}/weeks/{week}/save/", "Save a week's values and targets", [slug, path_param("week")]),
+        ("GET", "playlists/{slug}/slides/", "A playlist as the caller sees it", [slug]),
+    ]
+    for method, subpath, summary, parameters in routes:
+        register_api_path(
+            "dashboards_index",
+            subpath=f"api/{subpath}",
+            methods=[method],
+            summary=summary,
+            tags=["Dashboards"],
+            parameters=parameters,
+            request_body=body if subpath.endswith("preview/") else None,
+        )

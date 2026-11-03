@@ -26,7 +26,8 @@ A well-behaved agent will:
    many rows match and every problem, without saving anything. It repeats
    until the problems are gone and the number is plausible.
 3. **Save** with `create_metric`, then `create_dashboard`, then
-   `dashboard_add_card` per card.
+   `dashboard_add_card` per card. Personal is the default: a staff agent
+   passes `"visibility": "shared"` for the team's copy, on every piece.
 4. **Check** with `dashboard_snapshot`, which evaluates every card.
 
 ## The MCP tools
@@ -35,20 +36,36 @@ A well-behaved agent will:
 |---|---|
 | `list_datasets`, `describe_dataset` | what can be measured, and how it can be filtered |
 | `metric_preview` | evaluate an unsaved metric (dry run) |
-| `create_metric`, `update_metric`, `list_metrics`, … | metric CRUD |
+| `list_metrics`, `get_metric`, `create_metric`, `update_metric`, `delete_metric` | metric CRUD. Each of the CRUD families here has the same five verbs |
 | `metric_value` | a saved metric's value, optionally for a period, with the change from the previous period |
 | `metric_trend` | a saved metric per day, week or month across a period, which is what a chart draws |
+| `metric_rows` | the rows behind a number, to explain it |
 | `list_dashboard_components` | the card types and their options |
-| `create_dashboard`, `update_dashboard`, … | dashboard CRUD (the whole layout at once) |
+| `card_preview`, `*_component` | try a card without saving; saved cards you can place by key |
+| `get_dashboard`, `create_dashboard`, `update_dashboard`, … | dashboard CRUD (the whole layout at once) |
 | `dashboard_add_card`, `dashboard_remove_card` | one card at a time |
 | `dashboard_snapshot` | every card on a dashboard, evaluated |
-| `create_report`, `report_values`, … | KPI reports |
+| `create_goal_list`, `goal_list_add_goal` | goal lists and their targets. To change or remove a goal, read the list with `get_goal_list`, edit its `sections` and send them all to `update_goal_list` |
+| `goal_list_values`, `goal_list_weeks` | a list judged now; a list week over week |
+| `goal_list_save_week` | save a week as it stands (the schedule also does this each Monday) |
+| `create_report`, `report_values`, … | KPI reports; `report_values` gives the CSV's link too |
+| `create_playlist`, `playlist_slides` | slides for a meeting: dashboards and goal lists |
+| `list_calendars`, `calendar_events`, `create_event`, `create_calendar_view` | the calendar. Give an event a `start_time` and it's timed |
+| `query_dataset_<key>` | raw rows from a dataset, when the site publishes that tool. Bundled datasets don't by default (`SMALLSTACK_FRAMEWORK_DATASETS_MCP`); `list_datasets` says which do |
+
+Rows can be named as well as numbered: `get_metric`, `update_metric` and `delete_metric`
+take `key` in place of `id`; dashboards, reports, goal lists and playlists take `slug`.
+
+**Periods** are `today`, `yesterday`, `wtd` (this week so far), `pwtd` (last week), `mtd`, `pmtd`,
+`qtd`, `pqtr`, `ytd`, `prev_year`, `last_<N>`, `next_<N>` and `all`. A name that isn't one is refused,
+never answered with an all-time number. **A metric with no `period_field`** can't be narrowed, so
+it gives its all-time value and a `note` saying so.
 
 ## REST
 
 With a token (`Authorization: Bearer …`), the CRUD routes are
-`/smallstack/api/dashboards/metrics/`, `…/boards/` and `…/reports/`. These
-routes evaluate:
+`/smallstack/api/dashboards/metrics/`, `…/boards/`, `…/reports/`, `…/goals/`,
+`…/components/` and `…/playlists/`. These routes evaluate:
 
 ```
 GET  /smallstack/dashboards/api/datasets/
@@ -56,10 +73,18 @@ GET  /smallstack/dashboards/api/datasets/<key>/schema/
 POST /smallstack/dashboards/api/preview/            {"dataset": …, "filter_tree": {…}, "agg": …}
 POST /smallstack/dashboards/api/report-preview/     {"items": [{"metric": …}], "periods": ["mtd", "pmtd"]}
 GET  /smallstack/dashboards/api/metrics/<key>/value/?period=mtd
+GET  /smallstack/dashboards/api/metrics/<key>/trend/?period=&grain=
+GET  /smallstack/dashboards/api/metrics/<key>/rows/?period=&order=&limit=
 GET  /smallstack/dashboards/api/boards/<slug>/values/
 GET  /smallstack/dashboards/api/reports/<slug>/values/
+GET  /smallstack/dashboards/api/goals/<slug>/values/?period=
+GET  /smallstack/dashboards/api/goals/<slug>/weeks/?week=&weeks=
+POST /smallstack/dashboards/api/goals/<slug>/weeks/<week>/save/
+GET  /smallstack/dashboards/api/playlists/<slug>/slides/
 GET  /smallstack/dashboards/api/components/
 ```
+
+All of them are in the OpenAPI schema (`/api/schema/openapi.json`, browsable at `/api/docs/`).
 
 ## Safety
 
@@ -67,4 +92,7 @@ GET  /smallstack/dashboards/api/components/
 - A metric can only use datasets its user may read. A card on a shared
   dashboard shows *restricted* to anyone whose account can't read its data.
 - A bad filter is refused with a precise reason. It is never applied as
-  "no filter".
+  "no filter". So is a misspelt argument, period or week.
+- `delete_metric` also removes the metric's cards, report rows, goals and saved cards,
+  and its answer lists them under `also_removed`. Read the metric's page first if that
+  matters: the delete isn't a dry run.

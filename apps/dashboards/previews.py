@@ -19,6 +19,7 @@ from apps.datasets.registry import get_def, user_may_read
 
 from .metrics import AGGS, FORMATS, effective_tree, evaluate, request_for
 from .models import Metric, Report
+from .periods import NO_PERIOD_FIELD_NOTE, period_problem
 from .reports import present_report, report_matrix
 
 
@@ -62,12 +63,17 @@ def preview_metric(user: Any, payload: dict[str, Any], *, request: Optional[Http
     so a builder or an agent can fix them all in one round trip. *request*
     defaults to a synthetic one for *user* (MCP has no HTTP request)."""
     metric, problems = unsaved_metric(user, payload)
+    period = payload.get("period") or None
+    period_issue = period_problem(period)
+    if period_issue:
+        problems = [*problems, f"period: {period_issue}"]
     if metric is None or problems:
         return {"ok": False, "problems": problems}
     req = request if request is not None else request_for(user)
-    period = payload.get("period") or None
     result = evaluate(metric, req, period=str(period) if period else None)
     out: dict[str, Any] = {"ok": result.ok, "problems": result.problems, "result": result.as_dict()}
+    if period and period != "all" and not metric.period_field:
+        out["note"] = NO_PERIOD_FIELD_NOTE
     if result.ok:
         ds = get_dataset(metric.dataset)
         if ds is not None:

@@ -226,7 +226,9 @@ def _build_form_input_schema(view_cls, *, include_pk: bool = False) -> dict[str,
                     continue
                 schema = field_to_schema(fname, ffield, view_cls.model)
                 props[fname] = _to_json_schema_prop(schema)
-                if schema.get("required") and not include_pk:
+                # A model default fills an absent field on create (merge_form_payload),
+                # so the form's "required" doesn't bind the caller.
+                if schema.get("required") and not include_pk and not _has_model_default(view_cls.model, fname):
                     required.append(fname)
         except Exception:
             logger.exception("Failed to introspect form_class for %s", view_cls)
@@ -239,6 +241,11 @@ def _build_form_input_schema(view_cls, *, include_pk: bool = False) -> dict[str,
     }
     if include_pk:
         out["anyOf"] = [{"required": ["id"]}, {"required": ["pk"]}]
+        lookup = getattr(view_cls, "mcp_lookup_field", None)
+        if lookup:
+            # Without an id it names the row; with one it's a new value.
+            props.setdefault(lookup, {"type": "string", "description": f"The row's {lookup}, instead of id."})
+            out["anyOf"].append({"required": [lookup]})
     return out
 
 
@@ -344,17 +351,24 @@ _OBJECT_ID_SCHEMA = {
 }
 
 
-def _object_id_schema() -> dict[str, Any]:
+def _object_id_schema(view_cls=None) -> dict[str, Any]:
     """Input schema for a tool that addresses exactly one row.
 
     Both keys are declared and exactly one is required, expressed as ``anyOf``
     so ``additionalProperties: false`` still holds and a client that hedges by
-    sending both is not a schema violation.
+    sending both is not a schema violation. A view with ``mcp_lookup_field``
+    also takes its natural key, the name the other tools use for the row.
     """
+    props = dict(_OBJECT_ID_SCHEMA)
+    any_of = [{"required": ["id"]}, {"required": ["pk"]}]
+    lookup = getattr(view_cls, "mcp_lookup_field", None)
+    if lookup:
+        props[lookup] = {"type": "string", "description": f"The row's {lookup}, instead of id."}
+        any_of.append({"required": [lookup]})
     return {
         "type": "object",
-        "properties": dict(_OBJECT_ID_SCHEMA),
-        "anyOf": [{"required": ["id"]}, {"required": ["pk"]}],
+        "properties": props,
+        "anyOf": any_of,
         "additionalProperties": False,
     }
 
@@ -377,20 +391,33 @@ def _fetch_one(view_cls, args: dict[str, Any], request) -> Any:
     expresses ownership in the hook is protected over MCP too.
     """
     pk = _object_id(args)
-    if pk is None:
-        return _tool_error("invalid_argument", "id is required (alias: pk)")
+    lookup = getattr(view_cls, "mcp_lookup_field", None)
+    natural = args.get(lookup) if lookup and pk is None else None
+    if pk is None and natural in (None, ""):
+        hint = f"id or {lookup} is required" if lookup else "id is required (alias: pk)"
+        return _tool_error("invalid_argument", hint)
     qs = view_cls.get_detail_queryset(view_cls._get_queryset(), request)
+    named = f"{lookup}={natural!r}" if pk is None else f"id={pk}"
+    where: dict[str, Any] = {"pk": pk} if pk is not None else {str(lookup): natural}
     try:
-        obj = qs.get(pk=pk)
+        obj = qs.get(**where)
     except (view_cls.model.DoesNotExist, ValueError, TypeError, ValidationError):
-        return _tool_error("not_found", f"{view_cls.model.__name__} id={pk} not found")
+        return _tool_error("not_found", f"{view_cls.model.__name__} {named} not found")
     try:
         view_cls.check_object_permission(obj, request)
     except (PermissionDenied, Http404):
         # Existence-hiding: an agent that may not touch the row is told the same
         # thing as an agent naming a row that isn't there.
-        return _tool_error("not_found", f"{view_cls.model.__name__} id={pk} not found")
+        return _tool_error("not_found", f"{view_cls.model.__name__} {named} not found")
     return obj
+
+
+def _has_model_default(model, name: str) -> bool:
+    try:
+        field = model._meta.get_field(name)
+    except Exception:
+        return False
+    return field.has_default() and field.get_default() is not None
 
 
 def _build_get_tool(view_cls, *, singular: str):
@@ -407,7 +434,7 @@ def _build_get_tool(view_cls, *, singular: str):
         expand = set(getattr(view_cls, "api_expand_fields", []) or [])
         return serialize(obj, fields, extra, expand)
 
-    schema = _object_id_schema()
+    schema = _object_id_schema(view_cls)
     desc = _action_description(view_cls, Action.DETAIL)
     requires = "staff" if _has_staff_mixin(view_cls) else None
     return tool(name, desc, schema, requires_access=requires)(handler)
@@ -510,9 +537,15 @@ def _build_delete_tool(view_cls, *, singular: str):
             view_cls.on_delete(request, obj)
             obj.delete()
         # Both spellings on the way out, so a caller that sent `pk` still finds it.
-        return {"deleted": True, "id": pk, "pk": pk}
+        out = {"deleted": True, "id": pk, "pk": pk}
+        # What else went with it (an on_delete hook may set this), so a caller
+        # learns about cascaded changes from the answer, not from a later read.
+        effects = getattr(request, "delete_effects", None)
+        if effects:
+            out["also_removed"] = effects
+        return out
 
-    schema = _object_id_schema()
+    schema = _object_id_schema(view_cls)
     desc = _action_description(view_cls, Action.DELETE)
     requires = "staff" if _has_staff_mixin(view_cls) else None
     return tool(name, desc, schema, write=True, requires_access=requires)(handler)
@@ -558,7 +591,11 @@ def register_mcp_tools_from_crudview(view_cls) -> list[str]:
         # handler's ``__name__`` — they differ, which previously dropped the list
         # tool from this function's reported names even though it registered fine.
         registered.append(f"list_{base}")
-    if Action.DETAIL in view_cls.actions and Action.DETAIL in selected_set:
+    # An explicit mcp_actions may ask for get_<singular> on a view with no HTML
+    # detail page (its own page lives elsewhere); the REST detail GET has the
+    # same read contract and doesn't depend on that page either.
+    wants_get = Action.DETAIL in view_cls.actions or view_cls.mcp_actions is not None
+    if wants_get and Action.DETAIL in selected_set:
         _build_get_tool(view_cls, singular=singular)
         registered.append(f"get_{singular}")
     if Action.CREATE in view_cls.actions and Action.CREATE in selected_set:

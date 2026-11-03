@@ -23,7 +23,9 @@ class WidgetCRUDView(CRUDView):
     # ... existing config ...
     enable_mcp = True
     mcp_description = "One sentence telling the LLM what these records are and when to query them."
-    # mcp_actions = [Action.LIST, Action.DETAIL]   # optional — narrow below `actions`
+    # mcp_actions = [Action.LIST, Action.DETAIL]   # optional — narrow below `actions`; DETAIL also works
+    #                                              # on a view with no HTML detail page (apps/dashboards does this)
+    # mcp_lookup_field = "slug"                    # optional — get_/update_/delete_ also accept this instead of id
 ```
 
 That's the whole opt-in. The factory does the rest at app startup.

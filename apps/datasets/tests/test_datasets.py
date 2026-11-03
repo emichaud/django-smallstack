@@ -299,7 +299,8 @@ def test_mcp_tools_registered():
 
 
 def test_list_datasets_tool_returns_key():
-    out = _call_handler("list_datasets", {})
+    staff = User.objects.create_user("listds", password="x", is_staff=True)
+    out = _call_handler("list_datasets", {}, user=staff)
     keys = {d["key"] for d in out["results"]}
     assert "t_requestlog" in keys
 

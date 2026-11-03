@@ -1053,7 +1053,11 @@ class _OwnedCRUD(CRUDView):
     breadcrumb_parent = ("Dashboards", "dashboards_index")
     enable_api = True
     enable_mcp = True
-    api_extra_fields = ["owner", "created_by", "created_at", "updated_at"]
+    # Each has its own page rather than a CRUD detail, but an agent still has to
+    # read one back: get_metric, get_dashboard, get_goal_list…
+    mcp_actions = [Action.LIST, Action.DETAIL, Action.CREATE, Action.UPDATE, Action.DELETE]
+    mcp_lookup_field = "slug"
+    api_extra_fields = ["visibility", "owner", "created_by", "created_at", "updated_at"]
     api_expand_fields = ["owner", "created_by"]
 
     @classmethod
@@ -1113,6 +1117,7 @@ class MetricCRUDView(_OwnedCRUD):
     breadcrumb_parent = ("Goals", "goals_index")
     mcp_singular = "metric"
     mcp_plural = "metrics"
+    mcp_lookup_field = "key"
     mcp_description = (
         "a metric: a named, stored filter over a dataset rolled up to one number (KPI). Fields: key (stable "
         "slug), name, dataset (a dataset key — see list_datasets / describe_dataset), filter_tree (nested "
@@ -1136,7 +1141,17 @@ class MetricCRUDView(_OwnedCRUD):
         if post is not None and post.get("detach_choice") and post.get("detach") != "1":
             return
         user = getattr(request, "user", None)
+        usage = metric_usage(obj, user)
         request._dashboards_detached = detach_metric(obj, user)
+        # MCP's delete answers with this: it has no confirmation page.
+        request.delete_effects = {
+            "cards": request._dashboards_detached[0],
+            "report_rows_and_goals": request._dashboards_detached[1],
+            "saved_cards": [c.key for c in usage["components"] if c.can_edit(user)],
+            "still_broken_in": [
+                x["obj"].name for x in usage["boards"] + usage["reports"] + usage["goal_lists"] if not x["can_edit"]
+            ],
+        }
 
 
 class DashboardCRUDView(_OwnedCRUD):
@@ -1209,7 +1224,9 @@ class PlaylistCRUDView(_OwnedCRUD):
     mcp_singular = "playlist"
     mcp_plural = "playlists"
     mcp_description = (
-        'a dashboard playlist: items = dashboards in order [{"dashboard": "<slug>", "seconds"?: 5-3600, '
+        'a playlist: items = slides in order: {"dashboard": "<slug>"} or {"goals": "<goal list slug>", '
+        '"show"?: "now"|"week"|"weeks"} (the goals now, the week just ended, or week over week), each with '
+        '"seconds"?: 5-3600, '
         '"period"?: "<key>"|"all"}] (a bare slug is shorthand); seconds = default time on each; loop; '
         "auto_start = play as soon as it opens; visibility = personal|shared (a shared playlist holds only "
         "shared dashboards). Open it at url; ?slide=N&play=1&seconds=N&loop=0&kiosk=1 control the player. "
@@ -1282,7 +1299,9 @@ class GoalListCRUDView(_OwnedCRUD):
         '"value"} (the at-risk line), "label"?, "period"?: "<key>"|"all", "note"?}; ops = > >= < <= = != '
         "between (value [low, high]). A goal is on target when its value meets target, at risk when it meets "
         "only warn, else missed. default_period = what goals without their own period are judged over (blank "
-        "= all time); visibility = personal|shared. goal_list_values evaluates it; goal_list_add_goal appends one"
+        "= all time); visibility = personal|shared. goal_list_values evaluates it; goal_list_add_goal appends one. "
+        "To change or remove a goal: get_goal_list, edit sections, send them all to update_goal_list (goal ids "
+        "keep each goal's identity). goal_list_save_week keeps a week as it was"
     )
 
 
@@ -1553,9 +1572,10 @@ class ComponentCRUDView(_OwnedCRUD):
     displays = [ComponentLibraryDisplay, TableDisplay]
     search_fields = ["name", "key", "description", "metric", "type"]
     ordering_fields = ["name", "type", "metric", "updated_at"]
-    api_extra_fields = ["key", "owner", "created_by", "created_at", "updated_at"]
+    api_extra_fields = ["key", "visibility", "owner", "created_by", "created_at", "updated_at"]
     mcp_singular = "component"
     mcp_plural = "components"
+    mcp_lookup_field = "key"
     mcp_description = (
         "a saved dashboard card: type = a card type from list_dashboard_components (metric = single stat, "
         "metric_group = grouped stat with options.dimension, widget = info card, text = note, or an app's chart "

@@ -104,6 +104,11 @@ class OwnedModel(models.Model):
 
     objects = OwnedQuerySet.as_manager()
 
+    @property
+    def visibility(self) -> str:
+        """``shared`` or ``personal``, in the words the forms and tools take."""
+        return "personal" if self.owner_id else "shared"
+
     class Meta:
         abstract = True
 
@@ -209,7 +214,10 @@ class Metric(OwnedModel):
         errors: dict[str, list[str]] = {}
         ds = get_dataset(self.dataset) if self.dataset else None
         if ds is None:
-            errors.setdefault("dataset", []).append(f"No dataset named {self.dataset!r} is registered.")
+            # A blank dataset is the field's own error (required, or the form's
+            # choice check), not a second one about the name ''.
+            if self.dataset:
+                errors.setdefault("dataset", []).append(f"No dataset named {self.dataset!r} is registered.")
         else:
             col_types = dict(ds.columns())
             declared = ds.declared_measures()
@@ -747,10 +755,12 @@ def metric_usage(metric: Metric, user: Any) -> dict[str, Any]:
         n = sum(1 for goal in g.goals() if goal.get("metric") == metric.key)
         if n:
             goal_lists.append({"obj": g, "goals": n, "can_edit": g.can_edit(user)})
+    components = [c for c in Component.objects.visible_to(user).filter(metric=metric.key).order_by("name")]
     return {
         "boards": boards,
         "reports": reports,
         "goal_lists": goal_lists,
+        "components": components,
         "cards": sum(b["cards"] for b in boards),
         "rows": sum(r["rows"] for r in reports),
         "goals": sum(g["goals"] for g in goal_lists),
@@ -765,6 +775,10 @@ def detach_metric(metric: Metric, user: Any) -> tuple[int, int]:
     with the rows). Returns ``(cards_removed, rows_removed)``. Call inside the
     same transaction as the delete."""
     cards = rows = 0
+    # Its saved cards go too: a card with no metric can't be placed or drawn.
+    # Their goals are on the same number, so they leave with the metric's own.
+    saved_cards = Component.objects.editable_by(user).filter(metric=metric.key)
+    saved_keys = set(saved_cards.values_list("key", flat=True))
     for d in Dashboard.objects.editable_by(user):
         kept = [c for c in d.layout if not (isinstance(c, dict) and c.get("metric") == metric.key)]
         if len(kept) != len(d.layout):
@@ -780,11 +794,19 @@ def detach_metric(metric: Metric, user: Any) -> tuple[int, int]:
     for g in GoalList.objects.editable_by(user):
         before = len(g.goals())
         g.sections = [
-            {**sec, "goals": [x for x in sec.get("goals", []) if x.get("metric") != metric.key]}
+            {
+                **sec,
+                "goals": [
+                    x
+                    for x in sec.get("goals", [])
+                    if x.get("metric") != metric.key and x.get("component") not in saved_keys
+                ],
+            }
             for sec in g.sections
             if isinstance(sec, dict)
         ]
         if len(g.goals()) != before:
             rows += before - len(g.goals())
             g.save()
+    saved_cards.delete()
     return cards, rows

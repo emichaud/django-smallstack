@@ -7,6 +7,7 @@ generated from the CRUDViews. These add what CRUD can't:
 - ``metric_preview``   — dry-run an unsaved metric: value + row count + every problem
 - ``metric_value``     — evaluate a saved metric (optionally for a period)
 - ``metric_trend``     — a saved metric per day / week / month across a period (what a chart reads)
+- ``metric_rows``      — the rows behind a saved metric's number
 - ``dashboard_snapshot`` — every card on a dashboard, evaluated (check your work)
 - ``dashboard_add_card`` / ``dashboard_remove_card`` — edit one card, not the whole layout (or place a saved one)
 - ``card_preview``     — render an unsaved card (the component builder's dry run)
@@ -16,6 +17,7 @@ generated from the CRUDViews. These add what CRUD can't:
 - ``goal_list_values`` — a goal list judged: each goal's value, status (on target / at risk / missed), target
 - ``goal_list_add_goal`` — append one goal to a section of a goal list
 - ``goal_list_weeks``  — a goal list week over week (saved snapshots, or worked out)
+- ``goal_list_save_week`` — save a week's values and targets (or fill past weeks)
 
 The intended loop: ``list_datasets`` → ``describe_dataset`` → ``metric_preview``
 (until ``problems`` is empty and the number is plausible) → ``create_metric`` →
@@ -28,6 +30,7 @@ and each dataset's ``access`` tier apply exactly as on the pages.
 from __future__ import annotations
 
 import logging
+from datetime import timedelta
 from typing import Any
 
 logger = logging.getLogger("smallstack.dashboards")
@@ -42,7 +45,22 @@ def _user() -> Any:
 def _components(args: dict[str, Any]) -> dict[str, Any]:
     from .components import components_payload
 
-    return components_payload(_user())
+    payload = components_payload(_user())
+    # The palette's drawing assets are for the page's builder, not an agent.
+    for card_type in payload["types"]:
+        card_type.pop("icon", None)
+        card_type.pop("media", None)
+    return payload
+
+
+def _integer(value: Any, name: str) -> tuple[Any, Any]:
+    """``(int or None, error dict or None)`` for an optional integer argument."""
+    if value in (None, ""):
+        return None, None
+    try:
+        return int(value), None
+    except (TypeError, ValueError):
+        return None, {"error": f"{name} must be a whole number, not {value!r}"}
 
 
 def _preview(args: dict[str, Any]) -> dict[str, Any]:
@@ -60,11 +78,15 @@ def _metric_value(args: dict[str, Any]) -> dict[str, Any]:
     if metric is None or not metric.can_view(user):
         return {"error": f"no metric {args.get('key')!r} — use list_metrics"}
     from .comparison import compare_with_previous
+    from .periods import NO_PERIOD_FIELD_NOTE, period_problem
 
     period = str(args.get("period") or "") or None
+    problem = period_problem(period)
+    if problem:
+        return {"error": problem}
     req = request_for(user)
     result = evaluate(metric, req, period=period)
-    return {
+    out = {
         "key": metric.key,
         "name": metric.name,
         "url": metric.get_absolute_url(),
@@ -73,6 +95,9 @@ def _metric_value(args: dict[str, Any]) -> dict[str, Any]:
         # for all time or a rolling window — they have no defined predecessor).
         "comparison": compare_with_previous(metric, req, period, result),
     }
+    if period and period != "all" and not metric.period_field:
+        out["note"] = NO_PERIOD_FIELD_NOTE
+    return out
 
 
 def _metric_trend(args: dict[str, Any]) -> dict[str, Any]:
@@ -84,8 +109,19 @@ def _metric_trend(args: dict[str, Any]) -> dict[str, Any]:
     metric = Metric.objects.filter(key=str(args.get("key") or "")).first()
     if metric is None or not metric.can_view(user):
         return {"error": f"no metric {args.get('key')!r} — use list_metrics"}
+    from apps.datasets.core import GRAINS
+
+    from .periods import period_problem
+
     period = str(args.get("period") or "") or None
     grain = str(args.get("grain") or "") or None
+    problem = period_problem(period)
+    if problem:
+        return {"error": problem}
+    if grain and grain not in GRAINS:
+        return {"error": f"unknown grain {grain!r} — use one of {', '.join(GRAINS)}"}
+    if period == "all":
+        period = None
     trend = metric_trend(metric, request_for(user), period, grain)
     return {"key": metric.key, "name": metric.name, **trend}
 
@@ -100,17 +136,19 @@ def _dashboard(user: Any, slug: Any) -> Any:
 
 
 def _snapshot(args: dict[str, Any]) -> dict[str, Any]:
-    from apps.datasets.dateranges import is_period
-
     from .boards import board_values
     from .metrics import request_for
+    from .periods import period_problem
 
     user = _user()
     dashboard = _dashboard(user, args.get("dashboard"))
     if dashboard is None:
         return {"error": f"no dashboard {args.get('dashboard')!r} — use list_dashboards"}
     raw = args.get("period")
-    period = dashboard.default_period or None if raw is None else (raw if is_period(raw) else None)
+    problem = period_problem(raw)
+    if problem:
+        return {"error": problem}
+    period = dashboard.default_period or None if raw is None else (raw if raw not in ("", "all") else None)
     return {
         "slug": dashboard.slug,
         "name": dashboard.name,
@@ -138,15 +176,22 @@ def _add_card(args: dict[str, Any]) -> dict[str, Any]:
         component = Component.objects.filter(key=str(args["component"])).first()
         if component is None or not component.can_view(user):
             return {"error": f"no saved card {args.get('component')!r} — use list_components"}
+    if component is None and not args.get("type"):
+        return {"error": "give component (a saved card's key) or type (list_dashboard_components lists them)"}
     ct = get_component_type(component.type if component else str(args.get("type") or ""))
     if ct is None:
         return {"error": f"unknown type {args.get('type')!r} — use list_dashboard_components"}
-    w = int(args.get("w") or ct.default_size[0])
-    h = int(args.get("h") or ct.default_size[1])
+    sizes = {}
+    for name in ("w", "h", "x", "y"):
+        sizes[name], problem = _integer(args.get(name), name)
+        if problem:
+            return problem
+    w = sizes["w"] or ct.default_size[0]
+    h = sizes["h"] or ct.default_size[1]
     x, y = next_position(dashboard.layout, w)
     cell: dict[str, Any] = {
-        "x": args["x"] if args.get("x") is not None else x,
-        "y": args["y"] if args.get("y") is not None else y,
+        "x": sizes["x"] if sizes["x"] is not None else x,
+        "y": sizes["y"] if sizes["y"] is not None else y,
         "w": w,
         "h": h,
     }
@@ -257,8 +302,75 @@ def _goal_list_weeks(args: dict[str, Any]) -> dict[str, Any]:
     if goal_list is None or not goal_list.can_view(user):
         return {"error": f"no goal list {args.get('goal_list')!r} — use list_goal_lists"}
     last = parse_week(args.get("week")) or this_week()
-    count = max(1, min(int(args.get("weeks") or GRID_WEEKS), 26))
+    if args.get("week") and parse_week(args.get("week")) is None:
+        return {"error": f"unknown week {args['week']!r} — use a date (2026-11-02) or an ISO week (2026-W45)"}
+    weeks, problem = _integer(args.get("weeks"), "weeks")
+    if problem:
+        return problem
+    count = max(1, min(weeks or GRID_WEEKS, 26))
     return weeks_payload(goal_list, week_grid(goal_list, request_for(user), min(last, this_week()), count))
+
+
+def _goal_list_save_week(args: dict[str, Any]) -> dict[str, Any]:
+    from .models import GoalList, GoalSnapshot
+    from .weeks import backfill, parse_week, take_snapshot, this_week
+
+    user = _user()
+    goal_list = GoalList.objects.filter(slug=str(args.get("goal_list") or "")).first()
+    if goal_list is None or not goal_list.can_view(user):
+        return {"error": f"no goal list {args.get('goal_list')!r} — use list_goal_lists"}
+    if not goal_list.can_edit(user):
+        return {"error": "you can view this goal list but not edit it"}
+    fill, problem = _integer(args.get("fill"), "fill")
+    if problem:
+        return problem
+    if fill:
+        done = backfill(goal_list, fill, by=user)
+        total = GoalSnapshot.objects.filter(goal_list=goal_list).count()
+        return {"ok": True, "saved_weeks": done, "total_saved": total}
+    start = parse_week(args.get("week")) if args.get("week") else this_week() - timedelta(weeks=1)
+    if start is None:
+        return {"error": f"unknown week {args['week']!r} — use a date (2026-11-02) or an ISO week (2026-W45)"}
+    try:
+        snapshot = take_snapshot(goal_list, start, by=user)
+    except ValueError as exc:
+        return {"error": str(exc)}
+    return {
+        "ok": True,
+        "week": snapshot.week_start.isoformat(),
+        "summary": snapshot.summary,
+        "complete": snapshot.complete,
+    }
+
+
+def _metric_rows(args: dict[str, Any]) -> dict[str, Any]:
+    from .metrics import drill_rows, may_read, request_for
+    from .models import Metric
+    from .periods import period_problem
+
+    user = _user()
+    metric = Metric.objects.filter(key=str(args.get("key") or "")).first()
+    if metric is None or not metric.can_view(user):
+        return {"error": f"no metric {args.get('key')!r} — use list_metrics"}
+    if not may_read(metric, user):
+        return {"error": "you don't have access to this metric's data"}
+    period = str(args.get("period") or "") or None
+    problem = period_problem(period)
+    if problem:
+        return {"error": problem}
+    limit, problem = _integer(args.get("limit"), "limit")
+    if problem:
+        return problem
+    try:
+        return drill_rows(
+            metric,
+            request_for(user),
+            period=None if period == "all" else period,
+            limit=max(1, min(limit or 25, 200)),
+            order=str(args.get("order") or ""),
+        )
+    except ValueError as exc:
+        return {"error": str(exc)}
 
 
 def _goal_list_add_goal(args: dict[str, Any]) -> dict[str, Any]:
@@ -301,6 +413,8 @@ def _report_values(args: dict[str, Any]) -> dict[str, Any]:
         return {"error": f"no report {args.get('report')!r} — use list_reports"}
     out = report_values(report, request_for(user))
     out["url"] = report.get_absolute_url()
+    # The same table as a file, for a person with access: the page's Download CSV.
+    out["csv_url"] = f"{out['url']}?format=csv"
     return out
 
 
@@ -392,6 +506,25 @@ def register_dashboard_tools() -> int:
                 "additionalProperties": False,
             },
             _metric_trend,
+            False,
+        ),
+        (
+            "metric_rows",
+            "The rows behind a saved metric's number: {columns, rows, total}, where total equals a count "
+            "metric's value. Use it to explain a number (which paths, whose tickets). Optional period; order is "
+            "a column, '-' for descending; limit 1-200 (default 25).",
+            {
+                "type": obj,
+                "properties": {
+                    "key": {"type": "string"},
+                    "period": {"type": "string", "description": "A period key, e.g. pwtd, last_30, or 'all'."},
+                    "order": {"type": "string", "description": "A column, e.g. -timestamp."},
+                    "limit": {"type": "integer", "minimum": 1, "maximum": 200},
+                },
+                "required": ["key"],
+                "additionalProperties": False,
+            },
+            _metric_rows,
             False,
         ),
         (
@@ -545,6 +678,25 @@ def register_dashboard_tools() -> int:
             },
             _goal_list_weeks,
             False,
+        ),
+        (
+            "goal_list_save_week",
+            "Save a week of a goal list, keeping its values, statuses and targets as they are now, so later "
+            "target changes don't rewrite it (the page's Save this week). Default: the week just ended, which "
+            "the schedule also saves each Monday. fill: N saves the past N weeks that aren't saved yet instead. "
+            "Needs edit rights on the list.",
+            {
+                "type": obj,
+                "properties": {
+                    "goal_list": {"type": "string", "description": "Goal list slug."},
+                    "week": {"type": "string", "description": "Any day of the week (YYYY-MM-DD) or 2026-W45."},
+                    "fill": {"type": "integer", "description": "Save this many unsaved past weeks instead."},
+                },
+                "required": ["goal_list"],
+                "additionalProperties": False,
+            },
+            _goal_list_save_week,
+            True,
         ),
         (
             "goal_list_add_goal",

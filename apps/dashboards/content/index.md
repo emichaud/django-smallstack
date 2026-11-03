@@ -30,8 +30,8 @@ is always current.
 
 ## Reading a dashboard
 
-- **Period** (top left) narrows every *period-aware* card to "Last 7 days",
-  "Month to date", "Previous quarter" and so on. A card whose metric has no
+- **Period** (top left) narrows every *period-aware* card to "Last week",
+  "Last 7 days", "Month to date", "Previous quarter" and so on. A card whose metric has no
   date column ignores it, and so does a card pinned to all time.
 - **Click a number** to open the rows behind it. On a grouped card, each group
   opens its own rows.
@@ -77,8 +77,8 @@ the first column.
 
 ## Deleting
 
-Deleting a metric shows which dashboard cards and report rows would break, and removes them in
-the same step unless you untick the box. Deletes made by an agent or through the API always
+Deleting a metric shows which dashboard cards, report rows, goals and saved cards would break, and
+removes them in the same step unless you untick the box. Deletes made by an agent or through the API always
 remove them. Deleting a report or a dashboard leaves its metrics alone. The page offers a
 CSV or a copy of the layout first.
 

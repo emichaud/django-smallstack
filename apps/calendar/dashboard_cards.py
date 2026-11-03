@@ -94,7 +94,7 @@ def register() -> None:
                     "label": "Calendars",
                     "type": "text",
                     "required": True,
-                    "help": "Calendar keys, comma-separated — the keys /smallstack/calendar/api/ lists.",
+                    "help": "Calendar keys, comma-separated (list_calendars; REST: /smallstack/calendar/api/).",
                 },
                 {"name": "mode", "label": "Show", "type": "choice", "choices": MODE_CHOICES, "default": "upcoming"},
                 {

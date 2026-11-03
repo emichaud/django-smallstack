@@ -66,6 +66,17 @@ class SavedCalendarViewForm(forms.ModelForm):
     def clean_datasets(self) -> list[str]:
         return [str(k) for k in self.cleaned_data.get("datasets") or []]
 
+    def clean_name(self) -> str:
+        # The owner isn't a form field, so ModelForm's unique check skips
+        # (owner, name) and a repeat reached the database as an IntegrityError.
+        name = self.cleaned_data["name"]
+        owner = self.instance.owner if self.instance.owner_id else self.user
+        if getattr(owner, "pk", None) is not None:
+            clash = SavedCalendarView.objects.filter(owner=owner, name=name).exclude(pk=self.instance.pk)
+            if clash.exists():
+                raise forms.ValidationError(f"You already have a saved view called “{name}”.")
+        return name
+
     def save(self, commit: bool = True) -> SavedCalendarView:
         """Stamp the signed-in owner on a create. Done here, not in
         ``on_form_valid``, because that hook fires *after* the insert and the
@@ -116,6 +127,15 @@ class EventForm(forms.ModelForm):
     def __init__(self, *args: Any, user: Any = None, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
         self.user = user
+
+    def clean(self) -> dict[str, Any]:
+        cleaned = super().clean() or self.cleaned_data
+        # A start time means it's timed. The page disables the time inputs while
+        # All day is ticked, so this only decides for REST and MCP callers, whose
+        # all_day defaults to true: they'd get a meeting with its time hidden.
+        if cleaned.get("start_time"):
+            cleaned["all_day"] = False
+        return cleaned
 
     def save(self, commit: bool = True) -> Event:
         obj = super().save(commit=False)

@@ -496,6 +496,10 @@ The evaluation tools are custom:
 | — | `POST dashboards/api/report-preview/` | evaluate an unsaved report: `{items, periods}` → columns, rows, changes |
 | `metric_value` | `GET dashboards/api/metrics/<key>/value/?period=` | evaluate a saved metric (+ `comparison` with the previous period) |
 | `metric_trend` | `GET dashboards/api/metrics/<key>/trend/?period=&grain=` | the metric per bucket across a period — a chart's series |
+| `metric_rows` | `GET dashboards/api/metrics/<key>/rows/?period=&order=&limit=` | the rows behind the number, as JSON |
+| `get_metric` `get_dashboard` `get_report` `get_goal_list` `get_playlist` `get_component` | `GET /smallstack/api/dashboards/<noun>/<id>/` | read one back in full. The tools also take `key` / `slug` in place of `id` (`mcp_lookup_field`), as do `update_*` and `delete_*` |
+| `goal_list_values` / `goal_list_weeks` | `GET dashboards/api/goals/<slug>/values/`, `…/weeks/` | a list judged; a list week over week |
+| `goal_list_save_week` | `POST dashboards/api/goals/<slug>/weeks/<week>/save/` | freeze a week (`fill` backfills, MCP only) |
 | `list_dashboard_components` | `GET dashboards/api/components/` | card types, options, default sizes, periods (+ widgets for staff: the `widget` type, "App card", places one published `DashboardWidget`) |
 | `dashboard_add_card` / `dashboard_remove_card` | (PATCH `layout`) | edit one card without rewriting the layout |
 | `dashboard_snapshot` | `GET dashboards/api/boards/<slug>/values/` | every card, evaluated — check your work |
@@ -514,6 +518,19 @@ The evaluation tools are custom:
 
 Everything runs as the token's user: ownership and dataset access apply
 exactly as on the pages.
+
+**Refusals, not guesses.** REST and MCP refuse a period, grain or week that isn't one (a page falls
+back quietly via `requested_period`; a client can't see that it got all time). The MCP dispatcher
+holds every tool to its `additionalProperties: false`, so a misspelt argument is an error rather than
+a silent no-op. `isError` follows a truthy `error`, so `metric_value`'s `"error": null` is a success.
+`list_datasets` / `describe_dataset` cover every dataset the caller may read; `query_tool` says
+whether it also has a `query_dataset_<key>` tool. REST 404s on these routes are JSON.
+
+**Empty aggregates.** `count`/`distinct`/`sum` of no rows is 0; `avg`/`min`/`max` of no rows is `None`,
+which a card shows as "—" and a goal judges as `none` (a week with no traffic is not "0 ms, on target").
+
+**What a deletion takes:** `detach_metric` removes the metric's cells, report rows, goals, its saved
+cards and the goals on those cards, and `delete_metric` reports them in `also_removed`.
 
 ## Where the logic lives — build your own UI on these
 

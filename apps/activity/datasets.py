@@ -27,7 +27,18 @@ from .models import RequestLog
         "ip_address",
         "request_id",
     ],
-    filterable=["timestamp", "method", "path", "route", "status_code", "user", "api_token", "ip_address", "request_id"],
+    filterable=[
+        "timestamp",
+        "method",
+        "path",
+        "route",
+        "status_code",
+        "response_time_ms",
+        "user",
+        "api_token",
+        "ip_address",
+        "request_id",
+    ],
 )
 def requests() -> QuerySet[RequestLog]:
     return RequestLog.objects.select_related("user", "api_token")

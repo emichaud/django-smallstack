@@ -11,6 +11,7 @@ from django.contrib.auth import get_user_model
 from django.urls import reverse
 
 from apps.calendar import calendar_dataset
+from apps.calendar.datasets import EVENTS_KEY
 from apps.calendar.models import SavedCalendarView
 from apps.calendar.registry import unregister
 from apps.datasets.registry import unregister as unregister_dataset
@@ -73,11 +74,15 @@ def test_page_requires_login(client):
     assert resp.status_code == 302 and "login" in resp["Location"]
 
 
-def test_page_lists_calendars_and_starts_empty(client, staff):
+def test_page_lists_calendars_and_opens_on_events(client, staff):
+    """First visit shows the calendar people type into, so an entry just added is
+    there; "None" (an explicit empty selection) still clears the grid."""
     resp = client.get(PAGE)
     assert resp.status_code == 200
     keys = {p["key"] for p in resp.context["picker"]}
     assert {MW, BK} <= keys
+    assert resp.context["selected_keys"] == [EVENTS_KEY]
+    resp = client.get(PAGE, {"ds": ""})
     assert resp.context["selected_keys"] == [] and resp.context["event_count"] == 0
     assert "Nothing selected" in resp.content.decode()
 

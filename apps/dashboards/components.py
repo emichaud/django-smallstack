@@ -322,6 +322,22 @@ def components_payload(user: Any) -> dict[str, Any]:
     return payload
 
 
+def _column_option_problems(ct: ComponentType, metric: Any, options: dict[str, Any]) -> list[str]:
+    """A ``column`` option names a column of the metric's dataset. Unchecked, a
+    misspelt one saves happily and the card shows an error when it's drawn."""
+    from apps.datasets.core import get_dataset
+
+    ds = get_dataset(metric.dataset)
+    if ds is None:
+        return []
+    columns = [name for name, _type in ds.columns()]
+    return [
+        f"{spec['name']!r} must be a column of {metric.dataset} ({', '.join(columns)}); got {options[spec['name']]!r}"
+        for spec in ct.options_schema
+        if spec.get("type") == "column" and options.get(spec["name"]) and options[spec["name"]] not in columns
+    ]
+
+
 def _int(value: Any) -> Optional[int]:
     if isinstance(value, bool):
         return None
@@ -467,6 +483,7 @@ def normalize_layout(raw: Any, *, owner_id: Any = None) -> tuple[list[dict[str, 
                 missing = _missing_caps(ct, metric)
                 if missing:
                     problems.append(f"{where}: a {ct.label} card {', '.join(missing)}")
+                problems.extend(f"{where}.options: {p}" for p in _column_option_problems(ct, metric, options))
         elif cell.get("metric") not in (None, ""):
             problems.append(f"{where}.metric: a {ct.label} card takes no metric")
 
@@ -754,7 +771,10 @@ def widget_number(data: dict[str, Any]) -> Optional[float]:
 
 
 def _validate_text(cell: dict[str, Any]) -> list[str]:
-    md = (cell.get("options") or {}).get("markdown", "")
+    options = cell.get("options") or {}
+    if "markdown" not in options:
+        return ["'markdown' (the note's text) is required"]
+    md = options["markdown"]
     if not isinstance(md, str) or len(md) > 5000:
         return ["'markdown' must be text, at most 5000 characters"]
     return []

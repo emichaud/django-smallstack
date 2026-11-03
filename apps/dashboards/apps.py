@@ -109,6 +109,10 @@ class DashboardsConfig(AppConfig):
         except Exception:  # noqa: BLE001
             logger.warning("dashboards: taking over the /smallstack/ page failed", exc_info=True)
 
+        from .api import register_openapi_paths
+
+        register_openapi_paths()
+
         if getattr(settings, "SMALLSTACK_MCP_ENABLED", True):
             try:
                 from .mcp_tools import register_dashboard_tools

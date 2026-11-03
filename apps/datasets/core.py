@@ -107,14 +107,19 @@ def _fake_request(user: Any = None, query: str = "") -> HttpRequest:
     return req
 
 
+#: Words a generated label keeps in capitals: "Ip address" reads as a typo.
+_LABEL_ACRONYMS = {"api": "API", "id": "ID", "ip": "IP", "url": "URL", "uid": "UID", "uuid": "UUID", "http": "HTTP"}
+
+
 def _label_for(model: type[Model], name: str) -> str:
     try:
         # get_field may return a reverse relation (ForeignObjectRel) with no
         # verbose_name — getattr falls through to the humanized name for those.
         field = model._meta.get_field(name)
-        return str(getattr(field, "verbose_name", name)).capitalize()
+        label = str(getattr(field, "verbose_name", name)).capitalize()
     except Exception:
-        return name.replace("_", " ").capitalize()
+        label = name.replace("_", " ").capitalize()
+    return " ".join(_LABEL_ACRONYMS.get(word.lower(), word) for word in label.split(" "))
 
 
 def _series_label(value: Any) -> str:
@@ -809,8 +814,8 @@ class Dataset:
         # KPI / scalar path — no GROUP BY, single aggregate over the filtered set.
         if dimension is None:
             value = qs.aggregate(_value=value_expr)["_value"]
-            if value is None and not is_ratio:
-                value = 0  # count/sum of nothing is 0; an empty ratio stays None
+            if value is None and not is_ratio and agg in ("count", "distinct", "sum"):
+                value = 0  # count/sum of nothing is 0; avg/min/max/ratio of nothing has no value
             return [{"label": (measure if is_ratio else agg), "value": _round_value(value)}]
 
         try:

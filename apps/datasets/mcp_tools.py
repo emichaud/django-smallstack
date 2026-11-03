@@ -316,9 +316,11 @@ def register_dataset_tools(only_def: DatasetDef | None = None) -> int:
         tool(
             "list_datasets",
             (
-                "List the datasets available to query on this site — each is a named, "
-                "filterable table of rows and columns. Returns {key, label, description}. "
-                "Use a key with query_dataset_<key> to pull rows or a grouped series."
+                "List the datasets you may read on this site — each is a named, filterable "
+                "table of rows and columns, and what a metric is built on. Returns {key, label, "
+                "description, query_tool}. Use a key with describe_dataset and metric_preview; "
+                "query_tool names its query_dataset_<key> tool for pulling rows, or is null when "
+                "this site doesn't publish one (metrics still work)."
             ),
             {"type": "object", "properties": {}, "additionalProperties": False},
             requires_access="readonly",
@@ -377,26 +379,42 @@ def _describe_dataset_handler(args: dict) -> dict[str, Any]:
 
     key = str(args.get("key") or "")
     dfn = get_def(key)
-    ds = get_dataset(key) if dfn is not None and dfn.enable_mcp and caller_may_use(dfn) else None
+    ds = get_dataset(key) if dfn is not None and _caller_may_read(dfn) else None
     if ds is None:
         return {"error": f"unknown dataset {key!r} — use list_datasets"}
     return ds.schema()
 
 
 def _list_datasets_handler(args: dict) -> dict[str, Any]:
+    """Every dataset the caller may read — the rule ``metric_preview`` and
+    ``create_metric`` apply. ``enable_mcp`` decides whether a dataset gets its own
+    ``query_dataset_<key>`` tool, not whether an agent may know it exists: gating
+    this list on it hid all the bundled datasets from a metric-building agent
+    (their tools are off by default) while those tools went on accepting them."""
     from .core import list_datasets
+    from .registry import get_def
 
-    # MCP surface advertises only the MCP-exposed datasets.
-    items = [
-        {"key": d["key"], "label": d["label"], "description": d["description"]}
-        for d in list_datasets()
-        if _is_mcp(d["key"])
-    ]
+    items = []
+    for d in list_datasets():
+        dfn = get_def(d["key"])
+        if dfn is None or not _caller_may_read(dfn):
+            continue
+        queryable = dfn.enable_mcp and caller_may_use(dfn)
+        items.append(
+            {
+                "key": d["key"],
+                "label": d["label"],
+                "description": d["description"],
+                "query_tool": _tool_name(dfn.key) if queryable else None,
+            }
+        )
     return {"results": items}
 
 
-def _is_mcp(key: str) -> bool:
-    from .registry import get_def
+def _caller_may_read(dfn: DatasetDef) -> bool:
+    from apps.mcp.server import current_context
 
-    dfn = get_def(key)
-    return bool(dfn and getattr(dfn, "enable_mcp", False))
+    from .registry import user_may_read
+
+    user = getattr(current_context(), "user", None)
+    return user_may_read(dfn, user) or (dfn.enable_mcp and caller_may_use(dfn))

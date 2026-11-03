@@ -60,7 +60,8 @@ Only cards that boil down to one number can be goals. A grouped stat can't.
 
 ## In the meeting
 
-- **Change the period** with the links above the summary.
+- **Change the period** with the links above the summary. *Last week* is usually the one to
+  read: *This week* is still running, so a count that only goes up looks on target early on.
 - **Choose Present** to drop the site's menus and make everything larger, for a
   shared screen.
 - **Click a value** to see the rows behind it.

@@ -28,8 +28,9 @@ whether or not it is selected, so a saved view looks the same every time you
 open it. **All** and **None** are there for the extremes. The count under a
 selected calendar is how many of its events fall in the visible month.
 
-With nothing selected the grid is empty on purpose — the calendar does not
-guess what you want to see.
+The first time you open it the **Events** calendar is on, so anything you add
+shows up straight away. **None** clears the grid, and a saved view you've marked
+as the default opens instead.
 
 ## Month, or 30 / 60 / 90 days
 

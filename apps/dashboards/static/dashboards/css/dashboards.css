@@ -63,7 +63,9 @@
     font-size: 0.8rem;
 }
 /* A metric cell IS a stat card: let the card fill the cell. */
-.dash-cell-body > .stat-card {
+/* (.card-style is the wrapper card_style() puts around every metric card.) */
+.dash-cell-body > .stat-card,
+.dash-cell-body > .card-style > .stat-card {
     flex: 1;
     margin: 0;
     border: 0;
@@ -74,7 +76,8 @@
     justify-content: center;
     border-left: 3px solid transparent;
 }
-.dash-cell-body > .stat-card .stat-card-value { font-size: clamp(1.5rem, 3.2vw, 2.4rem); }
+.dash-cell-body > .stat-card .stat-card-value,
+.dash-cell-body > .card-style > .stat-card .stat-card-value { font-size: clamp(1.5rem, 3.2vw, 2.4rem); }
 .dash-cell-head {
     display: flex;
     align-items: center;
@@ -993,8 +996,10 @@ a.ix-metric-main:hover .ix-metric-name { text-decoration: underline; }
 
 /* Metric cells: the stat card, re-set for a wall — title first, then the
    number, no tracked caps. Scoped so {% stat_card %} elsewhere is untouched. */
-.dash-cell-body > .stat-card { padding: 0.85rem 1rem; justify-content: flex-start; gap: 0.35rem; }
-.dash-cell-body > .stat-card .stat-card-label {
+.dash-cell-body > .stat-card,
+.dash-cell-body > .card-style > .stat-card { padding: 0.85rem 1rem; justify-content: flex-start; gap: 0.35rem; }
+.dash-cell-body > .stat-card .stat-card-label,
+.dash-cell-body > .card-style > .stat-card .stat-card-label {
     order: -1;
     font-family: inherit;
     font-size: 0.85rem;
@@ -1003,7 +1008,8 @@ a.ix-metric-main:hover .ix-metric-name { text-decoration: underline; }
     letter-spacing: 0;
     color: var(--body-quiet-color);
 }
-.dash-cell-body > .stat-card .stat-card-value { margin-top: auto; font-size: clamp(1.8rem, 3.4vw, 2.6rem); letter-spacing: -0.02em; }
+.dash-cell-body > .stat-card .stat-card-value,
+.dash-cell-body > .card-style > .stat-card .stat-card-value { margin-top: auto; font-size: clamp(1.8rem, 3.4vw, 2.6rem); letter-spacing: -0.02em; }
 
 /* Grouped cells use the same title treatment. */
 .dash-cell-head {
@@ -1360,7 +1366,7 @@ td.rp-current .rp-drill { font-size: 1.35rem; font-weight: 700; letter-spacing: 
 
 /* ── dashboard metric cells: this period against the one before ──────── */
 .dash-compare {
-    margin: -0.55rem 0 0;
+    margin: 0;
     padding: 0 1rem 0.7rem calc(1rem + 3px);
     font-size: 0.74rem;
     color: var(--body-quiet-color);
@@ -2405,12 +2411,12 @@ td.rp-target > span { display: block; }
 .rf-suggest { padding: 0; border: 0; background: none; font: inherit; font-size: 0.76rem; color: var(--link-color); text-decoration: underline; cursor: pointer; }
 
 /* a goal's trend: its last few periods as bars, each in its status colour */
-.gl-col-trend { width: 9.5rem; }
+.gl-col-trend { width: 10.5rem; }
 .gl-spark-wrap { display: grid; gap: 0.2rem; }
 .gl-spark { list-style: none; margin: 0; padding: 0; display: flex; align-items: flex-end; gap: 3px; height: 1.8rem; }
 .gl-spark-bar { flex: 1; max-width: 0.9rem; height: var(--h); min-height: 3px; border-radius: 2px 2px 0 0; background: var(--gl-c); }
 .gl-spark-bar.is-partial { background: transparent; box-shadow: inset 0 0 0 1.5px var(--gl-c); }
-.gl-streak { font-size: 0.72rem; color: var(--body-quiet-color); white-space: nowrap; }
+.gl-streak { font-size: 0.72rem; line-height: 1.25; color: var(--body-quiet-color); }
 .gl-streak.gl-st--fail, .gl-streak.gl-st--warn { color: var(--gl-c); font-weight: 600; }
 
 /* ── weeks (weeks.py): a goal list week by week ─────────────────────────── */
@@ -2510,7 +2516,7 @@ a.gw-week-link:hover { color: var(--link-color); text-decoration: underline; }
 .gl-table th.gl-col-status { width: 8.5rem; }
 .gl-table th.gl-col-value { width: 9.5rem; }
 .gl-table th.gl-col-target { width: 13rem; }
-.gl-table th.gl-col-trend { width: 9.5rem; }
+.gl-table th.gl-col-trend { width: 10.5rem; }
 .gl-table th.gl-col-change { width: 12rem; }
 .gl-table thead .dm-sort { color: inherit; }
 .gl-table thead th.gl-num .dm-sort { justify-content: flex-end; }
