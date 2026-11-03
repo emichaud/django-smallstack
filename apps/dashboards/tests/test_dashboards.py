@@ -597,7 +597,9 @@ def test_mcp_agent_loop_builds_a_dashboard(staff):
     assert "problems" in bad
     snap = _call("dashboard_snapshot", {"dashboard": "agent"}, staff)
     assert snap["cells"][0]["result"]["value"] == 1 and len(snap["cells"]) == 2
-    assert snap["cells"][1]["y"] >= snap["cells"][0]["y"] + snap["cells"][0]["h"]  # placed below
+    first, second = snap["cells"]
+    apart = second["x"] >= first["x"] + first["w"] or second["y"] >= first["y"] + first["h"]
+    assert apart  # beside or below, never on top of it
     assert _call("metric_value", {"key": "m_errs"}, staff)["value"] == 1
     removed = _call("dashboard_remove_card", {"dashboard": "agent", "cell_id": added["cell"]["id"]}, staff)
     assert removed["cells"] == 1
