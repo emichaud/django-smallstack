@@ -1,0 +1,68 @@
+/* Moved from apps/heartbeat/templates/heartbeat/status_overview.html (inline <style>). */
+/* Status indicator: a glyph-bearing dot so state survives red/green color
+   blindness and small sizes (the glyph is a card-bg "cutout" on the color). */
+.svc-dot { display: inline-flex; align-items: center; justify-content: center; width: 17px; height: 17px; border-radius: 50%; flex: 0 0 auto; font-size: 0.64rem; font-weight: 700; line-height: 1; color: var(--card-bg); }
+.svc-dot.operational { background: var(--success-fg); }
+.svc-dot.degraded { background: var(--warning-fg); }
+.svc-dot.down { background: var(--error-fg); }
+.svc-dot.unknown { background: var(--body-quiet-color); }
+.svc-dot.maintenance { background: var(--primary); }
+/* Draw the eye to problems: tint + weight the monitor name when not OK. */
+.svc-monitor-name.state-down { color: var(--error-fg); font-weight: 600; }
+.svc-monitor-name.state-degraded { color: var(--warning-fg); }
+.svc-icon { color: var(--primary); display: inline-flex; align-items: center; }
+.svc-monitor-row { display: flex; align-items: center; gap: 12px; padding: 11px 0; border-top: 1px solid var(--card-border); }
+.svc-monitor-row:first-child { border-top: none; }
+.svc-monitor-meta { color: var(--body-quiet-color); font-size: 0.82rem; font-variant-numeric: tabular-nums; }
+a.svc-monitor-row { text-decoration: none; color: inherit; }
+a.svc-monitor-row:hover { background: color-mix(in srgb, var(--primary) 6%, transparent); }
+.svc-monitor-name { flex: 1; }
+a.svc-monitor-row:hover .svc-monitor-name { color: var(--primary); }
+.svc-chevron { color: var(--body-quiet-color); flex: 0 0 auto; width: 16px; text-align: center; transition: transform var(--transition-fast); }
+a.svc-monitor-row:hover .svc-chevron { color: var(--primary); transform: translateX(2px); }
+/* Fixed-width trailing columns so uptime · ms · arrow line up down the right edge. */
+.svc-monitor-stats { display: flex; align-items: center; gap: 16px; flex: 0 0 auto; }
+.svc-monitor-stats .stat-uptime { min-width: 100px; text-align: right; color: var(--body-quiet-color); font-size: 0.82rem; font-variant-numeric: tabular-nums; }
+.svc-monitor-stats .stat-ms { min-width: 56px; text-align: right; color: var(--body-quiet-color); font-size: 0.82rem; font-variant-numeric: tabular-nums; }
+.svc-monitor-tag { color: var(--body-quiet-color); font-size: 0.82rem; }
+/* Orphaned Site Monitor: muted, with the surface name struck back, plus Remove. */
+.svc-monitor-orphaned { opacity: 0.66; }
+.svc-monitor-orphaned .svc-monitor-name { color: var(--body-quiet-color); }
+/* The three overview tiers (Site / Site Monitors / External Monitors) —
+   each a single collapsed card with one row per surface. */
+.status-category-hint { color: var(--body-quiet-color); font-size: 0.85rem; margin: 0; }
+.svc-row-icon { color: var(--primary); display: inline-flex; align-items: center; flex: 0 0 auto; }
+.svc-row-icon svg { width: 17px; height: 17px; }
+
+/* Last-hour sparkline control lives in heartbeat/_hour_spark_css.html (included
+   once below); these rules are only its *placement* on this page. */
+.stat-spark { flex: 0 0 auto; display: flex; justify-content: flex-end; }
+.site-hero-spark { flex: 1 1 100%; display: flex; align-items: center; gap: 10px; margin-top: 2px; }
+.hour-spark-cap { font-size: 0.72rem; color: var(--body-quiet-color); white-space: nowrap; flex: 0 0 auto; }
+
+/* Site (core) card: hero uptime + core-service on/off indicators with drill-down. */
+.site-hero { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 2px 0 14px; border-bottom: 1px solid var(--card-border); margin-bottom: 6px; flex-wrap: wrap; }
+.site-hero-value { font-size: 1.7rem; font-weight: 700; color: var(--body-fg); font-variant-numeric: tabular-nums; }
+.site-hero-meta { color: var(--body-quiet-color); font-size: 0.85rem; margin-left: 8px; }
+.site-hero-actions { display: flex; gap: 8px; }
+.site-core-label { text-transform: uppercase; font-size: 0.72rem; letter-spacing: 0.04em; color: var(--body-quiet-color); margin: 10px 0 0; }
+details.site-core { border-top: 1px solid var(--card-border); }
+.site-core-summary { display: flex; align-items: center; gap: 12px; padding: 11px 0; list-style: none; cursor: default; }
+details.site-core.has-items > .site-core-summary { cursor: pointer; }
+details.site-core.has-items > .site-core-summary:hover .site-core-name { color: var(--primary); }
+.site-core-summary::-webkit-details-marker { display: none; }
+.site-core-name { flex: 1; }
+/* Fixed-width trailing columns so ON/OFF · summary · caret · arrow line up across rows. */
+.site-core-state { font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; padding: 2px 0; border-radius: 10px; flex: 0 0 auto; width: 42px; text-align: center; }
+.site-core-state.operational { color: var(--success-fg); background: color-mix(in srgb, var(--success-fg) 15%, transparent); }
+.site-core-state.down { color: var(--error-fg); background: color-mix(in srgb, var(--error-fg) 15%, transparent); }
+.site-core-summary > .svc-monitor-meta { flex: 0 0 auto; min-width: 96px; text-align: right; }
+.site-core-caret { color: var(--body-quiet-color); flex: 0 0 auto; width: 14px; text-align: center; transition: transform var(--transition-fast); }
+details.site-core[open] > .site-core-summary .site-core-caret { transform: rotate(90deg); }
+.site-core-link { color: var(--body-quiet-color); text-decoration: none; flex: 0 0 auto; width: 18px; text-align: center; }
+.site-core-link:link, .site-core-link:visited { color: var(--body-quiet-color); }
+.site-core-link:hover { color: var(--primary); }
+.site-core-items { padding: 0 0 12px 42px; display: flex; flex-direction: column; gap: 6px; }
+.site-core-item { display: flex; align-items: center; gap: 10px; font-size: 0.85rem; }
+.site-core-item a:link, .site-core-item a:visited { color: var(--primary); text-decoration: none; }
+.site-core-item a:hover { text-decoration: underline; }

@@ -579,6 +579,98 @@ def item_list(request):
 
 See [htmx-patterns.md](../skills/htmx-patterns.md) for the full reference including OOB messages and JS integration.
 
+## Behaviour without inline JavaScript
+
+**The CSP's `script-src` is `'self'` with no `'unsafe-inline'`.** The browser runs no inline
+`<script>` block and no `onclick="…"`; it logs the blocked line in the console instead.
+
+### Scripts are static files
+
+Put page JavaScript in the app's `static/`. SmallStack mirrors the template tree, so
+`apps/runbook/templates/runbook/dashboard.html` loads `runbook/js/templates/dashboard.js`. Load it
+with a plain `<script src="{% static '…' %}"></script>` where the block used to be. Without
+`defer`, it runs at the same point in parsing as the inline code did.
+
+**Server values ride on the script's own tag:**
+
+```django
+<script src="{% static 'myapp/js/templates/widget_form.js' %}"
+        data-save-url="{% url 'myapp:save' object.pk %}"
+        data-csrf-token="{{ csrf_token }}"></script>
+```
+```js
+var widgetFormConfig = document.currentScript.dataset;   // read once, at load
+fetch(widgetFormConfig.saveUrl, { headers: { 'X-CSRFToken': widgetFormConfig.csrfToken } });
+```
+
+- **Name the config after the file** (`widgetFormConfig`, not `config`). Two scripts on one page
+  share the global scope.
+- **Read `document.currentScript` at the top level**, not inside a later callback, because it's
+  only set while the script runs.
+- **Lists and objects go in a JSON data block:** `{{ rows|json_script:"widget-rows" }}`, or a
+  hand-rendered `<script type="application/json" id="…">` using `|escapejs` for values. Read it
+  with `JSON.parse(document.getElementById('widget-rows').textContent)`. The CSP doesn't block
+  non-executable types.
+- **Theme before first paint:** a new page shell loads `smallstack/js/theme-init.js` in `<head>`
+  (`data-palette="{{ color_palette }}" data-default-palette="django"`), not a copy of the snippet.
+
+`test_no_template_has_an_inline_script_block` fails on an inline executable block.
+
+### Page CSS is a static file too
+
+A page's own CSS goes in a stylesheet, not a `<style>` block: `apps/<app>/static/<app>/css/templates/<template>.css`,
+mirroring the template tree. Link it from `{% block extra_css %}` (or where the block was, for
+an include). `test_no_template_has_an_inline_style_block` enforces this; the only exceptions
+are `500.html`, which must render without static files, and the Swagger page. The CSP's
+`style-src` still allows inline `style="…"` attributes. Prefer the theme's classes and
+`var(--…)` tokens over long `style` attributes anyway (see `modern-dark-theme.md`).
+
+**A new app `static/` directory needs a dev-server restart:** Django's app static finder lists
+those directories at startup. `collectstatic` (production) always sees them.
+
+### Event handlers
+
+Never write `onclick="…"`, `onsubmit="…"` or any other inline handler. `make test` fails on
+one (`test_no_template_has_an_inline_event_handler`), and the CSP blocks it anyway. Declare the behaviour with a data- attribute instead;
+`smallstack/js/theme.js` (on every page) carries it out:
+
+| Instead of | Write |
+|---|---|
+| `onsubmit="return confirm('Delete it?')"` | `<form data-confirm="Delete it?">` (also on an `<a>` or `<button>`) |
+| `onchange="this.form.submit()"` | `<select data-autosubmit>` |
+| `onclick="openStatModal('Title', this)"` | `data-stat-modal="Title"` (with `hx-get` + `hx-target="#stat-modal-body"`) |
+| `onclick="closeStatModal()"` | `data-stat-modal-close` |
+| copy a value to the clipboard | `data-copy="element-id"` or `data-copy-text="literal"` |
+| `scrollIntoView` | `data-scroll-to="#id"` |
+| toggle a class on a container | `data-toggle-class="open" data-toggle-on=".panel"` |
+| make one tab/button `.active` | `data-activate-in=".tab-bar"` on each button |
+| Enter/Space on a `role="button"` div | `data-keyclick` |
+| `onclick="myFunction('x', this)"` | `data-ss-action="myFunction" data-ss-args='["x", "$this"]'` |
+
+**Page actions are an allow-list.** `data-ss-action` only calls a function a script registered:
+
+```html
+<button type="button" data-ss-action="openPanel" data-ss-args='["settings", "$this"]'>Settings</button>
+<script>
+function openPanel(name, button) { … }
+window.SmallStack = window.SmallStack || {};
+window.SmallStack.actions = Object.assign(window.SmallStack.actions || {}, { openPanel: window.openPanel });
+</script>
+```
+
+- **The arguments are a JSON array.** `"$this"` is the clicked element and `"$event"` is the
+  event.
+- **A template value inside the JSON gets `|escapejs`**, as in
+  `data-ss-args='["$this", "{{ obj.name|escapejs }}"]'`. Its `\uXXXX` output is valid JSON and
+  survives attribute decoding; autoescape's `&quot;` would break the JSON. A test checks this.
+- **Optional modifiers:**
+  - `data-ss-on="change"` runs the action on change instead of click.
+  - `data-ss-self` runs it only when the click is on the element itself (a modal backdrop).
+  - `data-ss-prevent` stops a link from navigating (keep a real `href` as the no-JS fallback).
+- **A test fails on any `data-ss-action` name that no script registers.**
+- **The `data-ss-` prefix is deliberate.** A project's own `data-action` (Stimulus, or the blog
+  studio's submit buttons) never collides with it.
+
 ## Best Practices
 
 1. **Always extend base.html** - Maintains consistent layout

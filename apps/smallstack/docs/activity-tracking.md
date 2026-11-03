@@ -226,7 +226,7 @@ The dashboard overview uses htmx to load detail data into a modal when stat card
 <div class="card stat-card-clickable"
      hx-get="{% url 'activity:stat_detail' 'requests' %}"
      hx-target="#stat-modal-body"
-     onclick="openStatModal('Recent Requests')">
+     data-stat-modal="Recent Requests">
 ```
 
 ## Performance Notes

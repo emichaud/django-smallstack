@@ -1,0 +1,933 @@
+/* Moved from templates/website/search.html (inline <style>). */
+/* ============================================================
+   Cinematic-editorial search. The page IS the search experience —
+   not a card-bordered form. Hairlines, generous whitespace, one
+   serif-italic display moment, mono annotations. Palette-aware
+   via CSS vars; no hard-coded hex literals.
+   ============================================================ */
+
+/* Suppress the standard content-wrapper max-width so the page can
+   breathe at its own scale. */
+.search-stage {
+  max-width: 980px;
+  margin: 0 auto;
+  padding: clamp(2rem, 6vw, 5rem) clamp(1rem, 4vw, 3rem) 6rem;
+}
+
+/* ── Header ─────────────────────────────────────────────────── */
+.search-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-family: var(--font-monospace, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: 0.72rem;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--body-quiet-color);
+  margin-bottom: 1.8rem;
+}
+.search-eyebrow .dot {
+  width: 6px; height: 6px; border-radius: 999px;
+  background: var(--primary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 25%, transparent);
+}
+
+.search-display {
+  font-family: ui-serif, "Iowan Old Style", Georgia, "Times New Roman", serif;
+  font-style: italic;
+  font-weight: 500;
+  font-size: clamp(2.4rem, 7vw, 4.8rem);
+  line-height: 1.02;
+  letter-spacing: -0.025em;
+  margin: 0;
+  color: var(--body-fg);
+}
+.search-display .accent {
+  color: var(--primary);
+  background: linear-gradient(to bottom,
+    transparent 0% 64%,
+    color-mix(in srgb, var(--primary) 22%, transparent) 64% 96%,
+    transparent 96% 100%);
+  padding: 0 0.06em;
+}
+
+.search-subhead {
+  margin: 1.4rem 0 2.6rem 0;
+  max-width: 38rem;
+  font-size: clamp(0.95rem, 1.2vw, 1.05rem);
+  color: color-mix(in srgb, var(--body-fg) 70%, transparent);
+  line-height: 1.6;
+}
+.search-subhead strong {
+  color: var(--body-fg);
+  font-weight: 600;
+}
+
+/* ── The Input — the focal interaction ─────────────────────── */
+.search-instrument {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1.4rem 0;
+  border-bottom: 2px solid var(--body-fg);
+  transition: border-color 0.18s;
+}
+.search-instrument:focus-within {
+  border-bottom-color: var(--primary);
+}
+.search-instrument:focus-within .search-icon {
+  color: var(--primary);
+}
+.search-instrument:focus-within .search-input-decor::after {
+  background: var(--primary);
+  box-shadow: 0 0 12px color-mix(in srgb, var(--primary) 50%, transparent);
+}
+.search-icon {
+  width: 28px;
+  height: 28px;
+  color: var(--body-quiet-color);
+  flex: 0 0 auto;
+  transition: color 0.18s;
+}
+.search-input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--body-fg);
+  font-family: ui-serif, "Iowan Old Style", Georgia, serif;
+  font-style: italic;
+  font-weight: 500;
+  font-size: clamp(1.4rem, 2.8vw, 2.1rem);
+  line-height: 1.2;
+  padding: 0;
+}
+.search-input::placeholder {
+  color: color-mix(in srgb, var(--body-fg) 30%, transparent);
+  font-style: italic;
+}
+/* Custom caret-like decoration that responds to focus */
+.search-input-decor {
+  position: relative;
+  width: 18px;
+  height: 28px;
+  flex: 0 0 auto;
+}
+.search-input-decor::after {
+  content: "";
+  position: absolute;
+  inset: 4px auto 4px auto;
+  width: 2px;
+  background: color-mix(in srgb, var(--body-fg) 30%, transparent);
+  transition: background 0.18s, box-shadow 0.18s;
+}
+.search-meta {
+  margin-top: 0.85rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-family: var(--font-monospace, ui-monospace, Menlo, monospace);
+  font-size: 0.7rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--body-quiet-color);
+}
+.search-meta .return-hint kbd {
+  padding: 2px 7px;
+  background: color-mix(in srgb, var(--body-fg) 6%, var(--card-bg));
+  border: 1px solid var(--card-border);
+  border-radius: 3px;
+  font-family: inherit;
+  font-size: 0.7rem;
+  color: var(--body-fg);
+}
+
+/* ── Sources accordion — Swagger-style collapsible registry ─── */
+/* Compact rows by default; expand for the API doc-style detail
+   pane. Secondary to the syntax poster, but rich for the curious. */
+.sources-panel {
+  margin-top: 4rem;
+  display: grid;
+  grid-template-columns: 1fr 2fr;
+  gap: 3rem;
+  align-items: start;
+}
+@media (max-width: 720px) {
+  .sources-panel { grid-template-columns: 1fr; gap: 1.5rem; }
+}
+.sources-label {
+  font-family: var(--font-monospace, ui-monospace, Menlo, monospace);
+  font-size: 0.7rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--body-quiet-color);
+  border-top: 1px solid var(--body-fg);
+  padding-top: 0.8rem;
+}
+.sources-label .sources-hint {
+  display: block;
+  margin-top: 0.4rem;
+  font-size: 0.65rem;
+  letter-spacing: 0.06em;
+  text-transform: none;
+  color: color-mix(in srgb, var(--body-quiet-color) 80%, transparent);
+  font-style: italic;
+  font-family: ui-serif, Georgia, serif;
+  line-height: 1.5;
+}
+.sources-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+/* Each source = a <details> behaving like a Swagger row. */
+.source-card {
+  background: color-mix(in srgb, var(--body-fg) 2%, var(--card-bg));
+  border: 1px solid color-mix(in srgb, var(--body-fg) 9%, transparent);
+  border-left: 3px solid var(--primary);
+  border-radius: 4px;
+  overflow: hidden;
+  transition: border-color 0.15s, background 0.15s;
+}
+.source-card[open] {
+  background: color-mix(in srgb, var(--body-fg) 4%, var(--card-bg));
+  border-color: color-mix(in srgb, var(--primary) 35%, transparent);
+}
+.source-card-empty {
+  border-left-color: color-mix(in srgb, var(--body-fg) 18%, transparent);
+}
+
+/* ── Collapsed bar (summary) — Swagger endpoint row ─────────── */
+.source-card-head {
+  list-style: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  padding: 0.7rem 0.9rem;
+  user-select: none;
+  transition: background 0.12s;
+}
+.source-card-head::-webkit-details-marker { display: none; }
+.source-card-head:hover {
+  background: color-mix(in srgb, var(--primary) 5%, transparent);
+}
+.source-card-chevron {
+  width: 14px;
+  height: 14px;
+  color: var(--body-quiet-color);
+  transition: transform 0.18s, color 0.15s;
+  flex: 0 0 auto;
+}
+.source-card[open] .source-card-chevron {
+  transform: rotate(90deg);
+  color: var(--primary);
+}
+.source-card-kind {
+  font-family: var(--font-monospace, ui-monospace, Menlo, monospace);
+  font-size: 0.62rem;
+  letter-spacing: 0.14em;
+  color: var(--primary);
+  font-weight: 700;
+  background: color-mix(in srgb, var(--primary) 10%, transparent);
+  padding: 3px 7px;
+  border-radius: 3px;
+  flex: 0 0 auto;
+}
+.source-card-empty .source-card-kind {
+  color: var(--body-quiet-color);
+  background: color-mix(in srgb, var(--body-fg) 8%, transparent);
+}
+.source-card-tool {
+  font-family: var(--font-monospace, ui-monospace, Menlo, monospace);
+  font-size: 0.78rem;
+  color: var(--body-fg);
+  font-weight: 500;
+  flex: 0 0 auto;
+}
+.source-card-title {
+  font-family: ui-serif, "Iowan Old Style", Georgia, serif;
+  font-style: italic;
+  font-size: 0.98rem;
+  font-weight: 500;
+  color: color-mix(in srgb, var(--body-fg) 75%, transparent);
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.source-card-count {
+  font-family: var(--font-monospace, ui-monospace, Menlo, monospace);
+  font-size: 0.68rem;
+  color: var(--body-quiet-color);
+  letter-spacing: 0.04em;
+  flex: 0 0 auto;
+}
+.source-card-jump {
+  font-family: var(--font-monospace, ui-monospace, Menlo, monospace);
+  font-size: 0.62rem;
+  letter-spacing: 0.1em;
+  color: var(--primary);
+  text-decoration: none;
+  text-transform: uppercase;
+  opacity: 0.7;
+  transition: opacity 0.15s;
+  flex: 0 0 auto;
+}
+.source-card-jump:hover { opacity: 1; }
+
+/* ── Expanded body — Swagger-style schema panel ─────────────── */
+.source-card-body {
+  padding: 0.2rem 1rem 1.1rem 1rem;
+  border-top: 1px solid color-mix(in srgb, var(--body-fg) 8%, transparent);
+  background: color-mix(in srgb, var(--body-fg) 1.5%, transparent);
+}
+.source-card-section {
+  margin-top: 1rem;
+}
+.source-card-section .section-label {
+  font-family: var(--font-monospace, ui-monospace, Menlo, monospace);
+  font-size: 0.58rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--body-quiet-color);
+  margin-bottom: 0.45rem;
+}
+.source-card-fields,
+.source-card-examples {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+.source-card-fields code {
+  font-family: var(--font-monospace, ui-monospace, Menlo, monospace);
+  font-size: 0.72rem;
+  color: var(--body-fg);
+  background: color-mix(in srgb, var(--body-fg) 7%, var(--card-bg));
+  padding: 2px 7px;
+  border-radius: 3px;
+  border: 1px solid color-mix(in srgb, var(--body-fg) 10%, transparent);
+}
+.source-card-fields code.is-display {
+  color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 8%, transparent);
+  border-color: color-mix(in srgb, var(--primary) 22%, transparent);
+}
+.source-card-fields code.is-subtitle {
+  color: color-mix(in srgb, var(--primary) 80%, var(--body-fg));
+  background: color-mix(in srgb, var(--primary) 5%, transparent);
+  border-color: color-mix(in srgb, var(--primary) 16%, transparent);
+}
+.source-fields-key {
+  display: flex;
+  gap: 1rem;
+  margin-top: 0.5rem;
+  font-family: var(--font-monospace, ui-monospace, Menlo, monospace);
+  font-size: 0.6rem;
+  letter-spacing: 0.06em;
+  color: var(--body-quiet-color);
+}
+.source-fields-key .swatch {
+  display: inline-block;
+  width: 8px; height: 8px;
+  margin-right: 0.35rem;
+  border-radius: 2px;
+  vertical-align: middle;
+  background: var(--primary);
+}
+.source-fields-key .swatch.muted {
+  background: color-mix(in srgb, var(--primary) 30%, transparent);
+}
+.source-signature {
+  font-family: var(--font-monospace, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: 0.78rem;
+  line-height: 1.6;
+  padding: 0.7rem 0.9rem;
+  background: color-mix(in srgb, var(--body-fg) 4%, var(--card-bg));
+  border: 1px solid color-mix(in srgb, var(--body-fg) 9%, transparent);
+  border-radius: 4px;
+  color: var(--body-fg);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.source-signature .sig-tool { color: var(--primary); font-weight: 600; }
+.source-signature .sig-arg-name { color: color-mix(in srgb, var(--primary) 70%, var(--body-fg)); }
+.source-signature .sig-type { color: var(--body-quiet-color); }
+.source-signature .sig-comment {
+  color: var(--body-quiet-color);
+  font-style: italic;
+}
+.source-endpoint {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.8rem;
+  background: color-mix(in srgb, var(--body-fg) 4%, var(--card-bg));
+  border: 1px solid color-mix(in srgb, var(--body-fg) 9%, transparent);
+  border-radius: 4px;
+  font-family: var(--font-monospace, ui-monospace, Menlo, monospace);
+  font-size: 0.74rem;
+  color: var(--body-fg);
+  text-decoration: none;
+  transition: border-color 0.15s, color 0.15s;
+}
+.source-endpoint:hover {
+  border-color: color-mix(in srgb, var(--primary) 50%, transparent);
+  color: var(--primary);
+}
+.source-endpoint .verb {
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 10%, transparent);
+  padding: 2px 6px;
+  border-radius: 3px;
+}
+.preview-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+.preview-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  padding: 0.4rem 0;
+  border-bottom: 1px dashed color-mix(in srgb, var(--body-fg) 7%, transparent);
+}
+.preview-row:last-child { border-bottom: none; }
+.preview-link {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  text-decoration: none;
+  color: var(--body-fg);
+  min-width: 0;
+  flex: 1;
+  transition: color 0.15s, padding-left 0.15s;
+}
+.preview-link:hover {
+  color: var(--primary);
+  padding-left: 0.2rem;
+}
+.preview-arrow {
+  color: var(--body-quiet-color);
+  font-family: ui-serif, Georgia, serif;
+  font-style: italic;
+  font-size: 1rem;
+  transition: color 0.15s;
+  flex: 0 0 auto;
+}
+.preview-link:hover .preview-arrow { color: var(--primary); }
+.preview-text {
+  font-family: ui-serif, "Iowan Old Style", Georgia, serif;
+  font-style: italic;
+  font-size: 0.92rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.preview-search {
+  color: var(--body-quiet-color);
+  flex: 0 0 auto;
+  padding: 4px 6px;
+  border-radius: 3px;
+  transition: background 0.15s, color 0.15s;
+  line-height: 0;
+}
+.preview-search:hover {
+  color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 10%, transparent);
+}
+
+/* ── Empty / opt-in hint card ───────────────────────────────── */
+.empty-hint {
+  margin: 0.8rem 0 0.7rem 0;
+  font-size: 0.88rem;
+  color: var(--body-quiet-color);
+  line-height: 1.6;
+}
+.empty-hint code,
+.empty-coda code {
+  font-family: var(--font-monospace, ui-monospace, Menlo, monospace);
+  font-size: 0.82em;
+  color: var(--body-fg);
+  background: color-mix(in srgb, var(--body-fg) 6%, var(--card-bg));
+  padding: 1px 5px;
+  border-radius: 3px;
+}
+.empty-snippet {
+  margin: 0.6rem 0;
+  padding: 0.85rem 1rem;
+  background: color-mix(in srgb, var(--body-fg) 5%, var(--card-bg));
+  border: 1px solid color-mix(in srgb, var(--body-fg) 10%, transparent);
+  border-radius: 5px;
+  overflow-x: auto;
+  font-family: var(--font-monospace, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: 0.78rem;
+  line-height: 1.55;
+  color: var(--body-fg);
+}
+.empty-snippet code {
+  background: none;
+  padding: 0;
+  color: inherit;
+  font-family: inherit;
+  font-size: inherit;
+}
+.empty-coda {
+  margin: 0.6rem 0 0 0;
+  font-size: 0.83rem;
+  color: var(--body-quiet-color);
+  line-height: 1.6;
+}
+.empty-coda a {
+  color: var(--primary);
+  text-decoration: none;
+  border-bottom: 1px solid color-mix(in srgb, var(--primary) 30%, transparent);
+}
+.empty-coda a:hover { border-bottom-color: var(--primary); }
+.example-pill {
+  font-family: var(--font-monospace, ui-monospace, Menlo, monospace);
+  font-size: 0.75rem;
+  color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 8%, transparent);
+  padding: 3px 9px;
+  border-radius: 999px;
+  text-decoration: none;
+  border: 1px solid color-mix(in srgb, var(--primary) 25%, transparent);
+  transition: background 0.15s, border-color 0.15s;
+}
+.example-pill:hover {
+  background: color-mix(in srgb, var(--primary) 18%, transparent);
+  border-color: var(--primary);
+}
+
+/* ── Empty state — syntax poster ────────────────────────────── */
+.syntax-poster {
+  margin-top: 4rem;
+  display: grid;
+  grid-template-columns: 1fr 2fr;
+  gap: 3rem;
+  align-items: start;
+}
+@media (max-width: 720px) {
+  .syntax-poster { grid-template-columns: 1fr; gap: 1.5rem; }
+}
+.syntax-poster-label {
+  font-family: var(--font-monospace, ui-monospace, Menlo, monospace);
+  font-size: 0.7rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--body-quiet-color);
+  border-top: 1px solid var(--body-fg);
+  padding-top: 0.8rem;
+}
+.syntax-table {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 1rem 2rem;
+  font-size: 0.95rem;
+}
+.syntax-table dt {
+  font-family: var(--font-monospace, ui-monospace, Menlo, monospace);
+  font-size: 0.85rem;
+  color: var(--body-fg);
+  padding: 0.35rem 0.75rem;
+  background: color-mix(in srgb, var(--body-fg) 6%, var(--card-bg));
+  border-radius: 4px;
+  width: fit-content;
+  line-height: 1.5;
+}
+.syntax-table dd {
+  margin: 0;
+  padding: 0.45rem 0;
+  color: color-mix(in srgb, var(--body-fg) 75%, transparent);
+  font-size: 0.92rem;
+}
+.syntax-table dd code {
+  font-family: var(--font-monospace, ui-monospace, Menlo, monospace);
+  color: var(--body-fg);
+  background: color-mix(in srgb, var(--body-fg) 8%, var(--card-bg));
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-size: 0.85em;
+}
+.syntax-coda {
+  margin-top: 2.5rem;
+  font-size: 0.85rem;
+  color: var(--body-quiet-color);
+  line-height: 1.7;
+}
+.syntax-coda kbd {
+  padding: 2px 7px;
+  background: color-mix(in srgb, var(--body-fg) 6%, var(--card-bg));
+  border: 1px solid var(--card-border);
+  border-radius: 3px;
+  font-family: var(--font-monospace, ui-monospace, Menlo, monospace);
+  font-size: 0.75rem;
+  color: var(--body-fg);
+}
+
+/* ── Results — editorial grouping ──────────────────────────── */
+.results-wrap {
+  margin-top: 3.5rem;
+}
+.results-summary {
+  font-family: ui-serif, "Iowan Old Style", Georgia, serif;
+  font-style: italic;
+  font-size: clamp(1.2rem, 1.8vw, 1.4rem);
+  line-height: 1.4;
+  color: var(--body-fg);
+  margin: 0 0 3rem 0;
+  padding-bottom: 1.4rem;
+  border-bottom: 1px solid color-mix(in srgb, var(--body-fg) 12%, transparent);
+}
+.results-summary .mono {
+  font-family: var(--font-monospace, ui-monospace, Menlo, monospace);
+  font-style: normal;
+  color: var(--primary);
+  font-weight: 600;
+  font-size: 0.9em;
+}
+
+.result-group {
+  margin-bottom: 3.5rem;
+}
+.result-group-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 0.5rem;
+  padding-bottom: 0.6rem;
+  border-bottom: 1px solid color-mix(in srgb, var(--body-fg) 18%, transparent);
+}
+.result-group-head .label {
+  font-family: var(--font-monospace, ui-monospace, Menlo, monospace);
+  font-size: 0.72rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--body-fg);
+  font-weight: 600;
+}
+.result-group-head .label .ordinal {
+  color: var(--primary);
+  margin-right: 0.6rem;
+  font-weight: 700;
+}
+.result-group-head .count {
+  font-family: var(--font-monospace, ui-monospace, Menlo, monospace);
+  font-size: 0.72rem;
+  letter-spacing: 0.12em;
+  color: var(--body-quiet-color);
+}
+.result-group-head .count .mono-num {
+  color: var(--body-fg);
+  font-weight: 600;
+}
+
+.result-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 1.5rem;
+  align-items: baseline;
+  padding: 1.1rem 0;
+  text-decoration: none;
+  color: var(--body-fg);
+  border-bottom: 1px solid color-mix(in srgb, var(--body-fg) 7%, transparent);
+  transition: padding 0.15s, color 0.15s;
+  position: relative;
+}
+.result-row:hover {
+  padding-left: 0.5rem;
+}
+.result-row:last-child {
+  border-bottom: none;
+}
+.result-row-text { min-width: 0; }
+.result-row-title {
+  font-family: ui-serif, "Iowan Old Style", Georgia, serif;
+  font-style: italic;
+  font-size: 1.25rem;
+  font-weight: 500;
+  color: var(--body-fg);
+  margin: 0 0 0.3rem 0;
+  line-height: 1.3;
+  transition: color 0.15s;
+}
+.result-row:hover .result-row-title {
+  color: var(--primary);
+}
+.result-row-snippet {
+  font-size: 0.92rem;
+  color: color-mix(in srgb, var(--body-fg) 65%, transparent);
+  line-height: 1.6;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+.result-row-snippet em {
+  font-style: normal;
+  color: var(--body-fg);
+  background: color-mix(in srgb, var(--primary) 18%, transparent);
+  padding: 0 2px;
+  border-radius: 2px;
+}
+.result-row-meta {
+  text-align: right;
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.3rem;
+  padding-top: 0.2rem;
+}
+.result-row-url {
+  font-family: var(--font-monospace, ui-monospace, Menlo, monospace);
+  font-size: 0.7rem;
+  letter-spacing: 0.04em;
+  color: var(--body-quiet-color);
+  max-width: 240px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.result-row-arrow {
+  font-family: ui-serif, Georgia, serif;
+  font-style: italic;
+  font-size: 1.1rem;
+  color: var(--body-quiet-color);
+  transition: color 0.15s, transform 0.18s;
+}
+.result-row:hover .result-row-arrow {
+  color: var(--primary);
+  transform: translateX(4px);
+}
+
+/* ── Article card — a SearchBuilder-shaped result ────────────
+   Rendered when a hit carries `extra.card == "article"` (the blog's
+   PostCRUDView.transform_hit). Same hairline rhythm as .result-row,
+   plus a cover thumbnail, a byline strip and tag chips. Palette-aware
+   via CSS vars only. */
+.result-card {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 1.5rem;
+  align-items: start;
+  padding: 1.3rem 0;
+  text-decoration: none;
+  color: var(--body-fg);
+  border-bottom: 1px solid color-mix(in srgb, var(--body-fg) 7%, transparent);
+  transition: padding 0.15s, color 0.15s;
+}
+/* Pin the colour on :link/:visited too — the demo card's href is "#", which
+   counts as visited and would otherwise pick up the global a:visited rule. */
+.result-card:link, .result-card:visited { color: var(--body-fg); }
+.result-card:hover { padding-left: 0.5rem; }
+.result-card:last-child { border-bottom: none; }
+.result-card-byline {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 0.35rem 0.6rem;
+  font-family: var(--font-monospace, ui-monospace, Menlo, monospace);
+  font-size: 0.7rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--body-quiet-color);
+  margin-bottom: 0.45rem;
+}
+.result-card-byline .blog { color: var(--primary); font-weight: 600; }
+.result-card-byline .sep { opacity: 0.5; }
+.result-card-byline .featured {
+  color: var(--warning-fg);
+  font-weight: 600;
+}
+.result-card-title {
+  font-family: ui-serif, "Iowan Old Style", Georgia, serif;
+  font-style: italic;
+  font-size: 1.35rem;
+  font-weight: 500;
+  line-height: 1.25;
+  margin: 0 0 0.35rem 0;
+  color: var(--body-fg);
+  transition: color 0.15s;
+}
+.result-card:hover .result-card-title { color: var(--primary); }
+.result-card-excerpt {
+  font-size: 0.92rem;
+  color: color-mix(in srgb, var(--body-fg) 65%, transparent);
+  line-height: 1.6;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  margin: 0;
+}
+.result-card-tags {
+  display: flex; flex-wrap: wrap; gap: 0.35rem;
+  margin-top: 0.6rem;
+}
+.result-card-tags span {
+  font-family: var(--font-monospace, ui-monospace, Menlo, monospace);
+  font-size: 0.68rem;
+  letter-spacing: 0.04em;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--body-fg) 16%, transparent);
+  color: var(--body-quiet-color);
+}
+.result-card-cover {
+  width: 148px; height: 96px;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--body-fg) 12%, transparent);
+  background: var(--card-bg);
+  flex: 0 0 auto;
+}
+.result-card-cover img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.result-card-cover.is-empty {
+  display: grid; place-items: center;
+  font-family: ui-serif, Georgia, serif;
+  font-style: italic;
+  font-size: 1.6rem;
+  color: color-mix(in srgb, var(--primary) 55%, transparent);
+  background: var(--accent-band-bg);
+}
+@media (max-width: 560px) {
+  .result-card { grid-template-columns: 1fr; }
+  .result-card-cover { width: 100%; height: 140px; }
+}
+
+/* ── "Shape a result" teaching panel ───────────────────────── */
+.shape-panel {
+  display: grid;
+  grid-template-columns: 180px 1fr;
+  gap: 2.5rem;
+  margin-top: 4rem;
+  padding-top: 2.5rem;
+  border-top: 1px solid color-mix(in srgb, var(--body-fg) 12%, transparent);
+}
+@media (max-width: 720px) { .shape-panel { grid-template-columns: 1fr; gap: 1.25rem; } }
+.shape-panel-label {
+  font-family: var(--font-monospace, ui-monospace, Menlo, monospace);
+  font-size: 0.72rem;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--body-quiet-color);
+  line-height: 1.6;
+}
+.shape-panel p {
+  margin: 0 0 1rem 0;
+  font-size: 0.95rem;
+  line-height: 1.65;
+  color: color-mix(in srgb, var(--body-fg) 80%, transparent);
+  max-width: 44rem;
+}
+.shape-panel pre {
+  font-family: var(--font-monospace, ui-monospace, Menlo, monospace);
+  font-size: 0.82rem;
+  line-height: 1.6;
+  padding: 1.1rem 1.25rem;
+  margin: 0 0 1rem 0;
+  border-radius: 10px;
+  background: var(--card-bg);
+  border: 1px solid color-mix(in srgb, var(--body-fg) 12%, transparent);
+  overflow-x: auto;
+  color: color-mix(in srgb, var(--body-fg) 85%, transparent);
+}
+.shape-panel pre .kw { color: var(--primary); font-weight: 600; }
+.shape-panel pre .st { color: var(--success-fg); }
+.shape-panel pre .cm { color: var(--body-quiet-color); }
+.shape-panel-demo {
+  margin-top: 0.5rem;
+  border-top: 1px solid color-mix(in srgb, var(--body-fg) 18%, transparent);
+}
+.shape-panel-demo .result-card { pointer-events: none; }
+.shape-panel-coda {
+  font-size: 0.85rem !important;
+  color: var(--body-quiet-color) !important;
+}
+
+/* ── Empty / no-results ────────────────────────────────────── */
+.no-results {
+  margin-top: 3rem;
+  padding: 4rem 0;
+  text-align: center;
+}
+.no-results-display {
+  font-family: ui-serif, Georgia, serif;
+  font-style: italic;
+  font-size: clamp(1.5rem, 2.5vw, 2rem);
+  color: color-mix(in srgb, var(--body-fg) 55%, transparent);
+  margin: 0 0 1rem 0;
+}
+.no-results-coda {
+  font-size: 0.95rem;
+  color: var(--body-quiet-color);
+  line-height: 1.7;
+  max-width: 30rem;
+  margin: 0 auto;
+}
+.no-results-coda code {
+  font-family: var(--font-monospace, ui-monospace, Menlo, monospace);
+  color: var(--body-fg);
+  background: color-mix(in srgb, var(--body-fg) 6%, var(--card-bg));
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-size: 0.85em;
+}
+.no-results-coda a {
+  color: var(--primary);
+  text-decoration: none;
+  border-bottom: 1px solid color-mix(in srgb, var(--primary) 30%, transparent);
+  transition: border-color 0.15s;
+}
+.no-results-coda a:hover {
+  border-bottom-color: var(--primary);
+}
+
+/* ── Page entrance — staggered fade ────────────────────────── */
+@keyframes searchFade {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
+}
+.search-fade { animation: searchFade 0.55s cubic-bezier(.2,.6,.2,1) both; }
+.search-fade.d1 { animation-delay: 0.06s; }
+.search-fade.d2 { animation-delay: 0.14s; }
+.search-fade.d3 { animation-delay: 0.22s; }
+.search-fade.d4 { animation-delay: 0.30s; }
+@media (prefers-reduced-motion: reduce) {
+  .search-fade, .search-fade.d1, .search-fade.d2, .search-fade.d3, .search-fade.d4 {
+    animation: none;
+  }
+}
+
+/* When ON the search page itself, suppress the topbar omnibar trigger
+   so there aren't two search inputs competing for attention. The
+   omnibar is for OTHER pages; here the page is the omnibar. */
+body.is-search-page .omnibar-trigger {
+  visibility: hidden;
+  pointer-events: none;
+}
+
+/* Subtle decorative cross-grid in the body — only visible on very
+   wide viewports. Adds an editorial atmosphere without competing. */
+.search-stage::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    linear-gradient(to right, color-mix(in srgb, var(--body-fg) 3%, transparent) 1px, transparent 1px),
+    linear-gradient(to bottom, color-mix(in srgb, var(--body-fg) 3%, transparent) 1px, transparent 1px);
+  background-size: 120px 120px;
+  opacity: 0.5;
+  z-index: -1;
+}

@@ -1,0 +1,61 @@
+/* Moved from apps/approvals/templates/smallstack_approvals/crud/approvalrequest_detail.html (inline <style>). */
+.apr-shell { display: flex; flex-direction: column; gap: 1rem; max-width: 900px; }
+.apr-strip {
+    display: flex; align-items: flex-start; justify-content: space-between; gap: 1.25rem;
+    padding: 1rem 1.25rem;
+    background: var(--card-bg); border: 1px solid var(--card-border);
+    border-left: 3px solid var(--warning-fg);
+    border-radius: var(--radius-md, 8px);
+}
+.apr-strip--approved { border-left-color: var(--success-fg); }
+.apr-strip--rejected, .apr-strip--expired { border-left-color: var(--error-fg); }
+.apr-strip--canceled { border-left-color: var(--body-quiet-color); }
+.apr-id { min-width: 0; display: flex; flex-direction: column; gap: 0.4rem; }
+.apr-titlerow { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; }
+.apr-name { margin: 0; font-size: 1.25rem; font-weight: 700; color: var(--body-fg); line-height: 1.2; }
+.apr-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; background: var(--warning-fg);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--warning-fg) 22%, transparent); }
+.apr-strip--approved .apr-dot { background: var(--success-fg); box-shadow: 0 0 0 3px color-mix(in srgb, var(--success-fg) 22%, transparent); }
+.apr-strip--rejected .apr-dot, .apr-strip--expired .apr-dot { background: var(--error-fg); box-shadow: 0 0 0 3px color-mix(in srgb, var(--error-fg) 22%, transparent); }
+.apr-strip--canceled .apr-dot { background: var(--body-quiet-color); box-shadow: none; }
+.apr-kind-badge {
+    padding: 2px 9px; border-radius: 999px;
+    font-size: 0.64rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase;
+    font-family: var(--font-monospace, ui-monospace, Menlo, monospace);
+    /* Text is --body-fg, not --primary: an accent-on-accent-tint recipe failed
+       WCAG AA (4.5:1) in 6 of 12 palette x theme combos — worst 3.16:1 on
+       orange/light, where the label washed into its own fill. The accent still
+       identifies the badge through the fill and border, which carry no text.
+       (F-47) */
+    color: var(--body-fg); background: color-mix(in srgb, var(--primary) 14%, var(--card-bg));
+    border: 1px solid color-mix(in srgb, var(--primary) 45%, transparent);
+}
+.apr-meta { display: flex; align-items: baseline; gap: 0.5rem; flex-wrap: wrap;
+    font-size: 0.8rem; color: var(--body-quiet-color); }
+.apr-sep { opacity: 0.6; }
+.apr-overdue { color: var(--error-fg); font-weight: 600; }
+.apr-desc { margin: 0; font-size: 0.85rem; color: var(--body-quiet-color); max-width: 62ch; }
+.apr-status-block { flex-shrink: 0; }
+.apr-status-label {
+    font-size: 0.78rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em;
+    color: var(--body-quiet-color);
+}
+.apr-decide-card { border-left: 3px solid var(--primary); }
+.apr-decide-form { display: flex; flex-direction: column; gap: 0.6rem; }
+.apr-note-label { font-size: 0.8rem; font-weight: 600; color: var(--body-fg); }
+.apr-decide-actions { display: flex; gap: 0.6rem; flex-wrap: wrap; }
+.apr-band {
+    padding: 0.75rem 1.1rem; border-radius: var(--radius-sm, 6px);
+    font-size: 0.9rem; color: var(--body-fg);
+    background: color-mix(in srgb, var(--body-fg) 5%, var(--body-bg));
+    border: 1px solid var(--card-border);
+}
+.apr-band--approved { border-left: 3px solid var(--success-fg); }
+.apr-band--rejected, .apr-band--expired { border-left: 3px solid var(--error-fg); }
+.apr-band--canceled, .apr-band--info { border-left: 3px solid var(--body-quiet-color); }
+.apr-band-note { display: block; margin-top: 0.3rem; color: var(--body-quiet-color); }
+.apr-cb-error { margin: 0.5rem 0 0; font-size: 0.75rem; overflow-x: auto; max-height: 240px;
+    font-family: var(--font-monospace, ui-monospace, Menlo, monospace); }
+.apr-linklike { background: none; border: none; padding: 0; color: var(--link-color);
+    cursor: pointer; font: inherit; text-decoration: underline; }
+@media (max-width: 700px) { .apr-strip { flex-direction: column; } }

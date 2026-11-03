@@ -1,0 +1,21 @@
+/* Moved from apps/heartbeat/templates/heartbeat/dashboard.html (inline <style>). */
+/* Sortable log-table headers (sortable_th tag) — hover handled by .th-sort. */
+.crud-table thead th .th-sort:hover { color: var(--primary); }
+.tab-bar {
+    margin-top: 12px;
+    margin-bottom: 0;
+}
+
+
+/* JSON display */
+.json-display {
+    background: color-mix(in srgb, var(--primary) 4%, var(--body-bg));
+    border-radius: 6px;
+    padding: 20px;
+    font-family: monospace;
+    font-size: 0.85rem;
+    line-height: 1.6;
+    white-space: pre;
+    overflow-x: auto;
+    color: var(--body-fg);
+}

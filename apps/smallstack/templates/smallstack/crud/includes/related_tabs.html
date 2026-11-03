@@ -6,8 +6,7 @@
                 hx-get="{{ tab.content_url }}"
                 hx-target="#related-tab-content"
                 hx-swap="innerHTML"
-                {% if forloop.first %}hx-trigger="load, click"{% endif %}
-                onclick="this.closest('.tab-bar').querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active')); this.classList.add('active')">
+                {% if forloop.first %}hx-trigger="load, click"{% endif %} data-activate-in=".tab-bar">
             {{ tab.verbose_name }}
             <span class="tab-count">{{ tab.count }}</span>
         </button>

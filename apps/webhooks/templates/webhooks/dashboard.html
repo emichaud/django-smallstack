@@ -77,7 +77,7 @@
       <h2>Recent deliveries</h2>
       {% if dead_total %}
       <form method="post" action="{% url 'webhooks_replay_dead' %}" style="margin: 0;"
-            onsubmit="return confirm('Replay all {{ dead_total }} dead delivery(ies)?');">
+            data-confirm="Replay all {{ dead_total }} dead delivery(ies)?">
         {% csrf_token %}
         <button type="submit" class="button button-secondary" style="font-size: 0.8rem;">
           Replay all dead ({{ dead_total }})

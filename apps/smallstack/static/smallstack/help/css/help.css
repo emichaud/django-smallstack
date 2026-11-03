@@ -863,3 +863,11 @@
         font-size: 1.1rem;
     }
 }
+
+/* The Focus button's hover (was inline onmouseover/onmouseout). !important
+   beats the button's inline base style; skipped while focus mode is on, where
+   toggleFocusMode() sets its own pressed look. */
+body:not(.help-focus-mode) #focus-toggle:hover {
+    background: color-mix(in srgb, var(--primary) 20%, var(--body-bg)) !important;
+    border-color: var(--primary) !important;
+}

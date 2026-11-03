@@ -1,3 +1,4 @@
+{% load static %}
 {% load theme_tags %}
 {% comment %}
 Shared status banners — included by the staff overview, the site-timeline
@@ -12,17 +13,7 @@ dashboard, and the public board. Two signals:
 Colors come from palette state variables (never hex), so the bands track every
 palette + light/dark.
 {% endcomment %}
-<style>
-    .status-banner { display: flex; align-items: center; gap: 12px; padding: 13px 16px; border-radius: 8px; margin-bottom: 16px; border: 1px solid; font-size: 0.9rem; line-height: 1.4; }
-    .status-banner-glyph { font-size: 1.15rem; font-weight: 700; flex: 0 0 auto; line-height: 1; }
-    .status-banner strong { font-weight: 650; }
-    .status-banner code { font-size: 0.82em; padding: 1px 5px; border-radius: 4px; background: color-mix(in srgb, var(--body-fg) 10%, transparent); }
-    .status-banner-success { color: var(--success-fg); border-color: color-mix(in srgb, var(--success-fg) 35%, transparent); background: color-mix(in srgb, var(--success-fg) 10%, var(--body-bg)); }
-    .status-banner-warning { color: var(--warning-fg); border-color: color-mix(in srgb, var(--warning-fg) 38%, transparent); background: color-mix(in srgb, var(--warning-fg) 11%, var(--body-bg)); }
-    .status-banner-error { color: var(--error-fg); border-color: color-mix(in srgb, var(--error-fg) 38%, transparent); background: color-mix(in srgb, var(--error-fg) 12%, var(--body-bg)); }
-    .status-banner-neutral { color: var(--body-quiet-color); border-color: var(--card-border); background: var(--card-bg); }
-    .status-banner-info { color: var(--primary); border-color: color-mix(in srgb, var(--primary) 38%, transparent); background: color-mix(in srgb, var(--primary) 10%, var(--body-bg)); }
-</style>
+<link rel="stylesheet" href="{% static 'heartbeat/css/templates/_status_banners.css' %}">
 
 {% if not is_public_view %}{% if runner_stale or runner_never_run %}
 <div class="status-banner status-banner-warning" role="alert">

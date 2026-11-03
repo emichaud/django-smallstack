@@ -56,7 +56,7 @@ Reads:
           <td style="padding: 8px 16px; text-align: right;">
             {% if token.is_active %}
               <form method="post" action="{% url 'tokenmgr:token-revoke' pk=token.pk %}" style="display: inline; margin: 0;"
-                    onsubmit="return confirm('Revoke {{ token.name|escapejs }}? Any client using this key will start getting 401s immediately.');">
+                    data-confirm="Revoke {{ token.name }}? Any client using this key will start getting 401s immediately.">
                 {% csrf_token %}
                 <button type="submit" style="
                   background: none; border: none; cursor: pointer;

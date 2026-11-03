@@ -1,0 +1,12 @@
+/* Moved from apps/heartbeat/templates/heartbeat/status_overview.html (inline <style>). */
+.am-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.55); display: none; align-items: flex-start; justify-content: center; z-index: 1000; overflow-y: auto; padding: 48px 16px; }
+.am-overlay.open { display: flex; }
+.am-panel { width: 100%; max-width: 680px; }
+.am-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+.am-head h2 { margin: 0; color: var(--body-fg); font-size: 1.15rem; }
+.am-close { background: none; border: none; font-size: 1.6rem; line-height: 1; cursor: pointer; color: var(--body-quiet-color); padding: 0 4px; }
+.am-close:hover { color: var(--body-fg); }
+.am-loading { padding: 36px; text-align: center; color: var(--body-quiet-color); }
+/* The fetched fragment supplies its own .card surface; drop its inner max-width cap. */
+.am-body .ep-form { max-width: none; }
+.am-body .page-header-bleed { display: none; }

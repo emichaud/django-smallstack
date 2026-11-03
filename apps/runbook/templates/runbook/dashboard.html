@@ -19,7 +19,7 @@
         </nav>
     </div>
     <div class="page-header-actions">
-        <button type="button" class="btn-primary" onclick="openFormModal('New Runbook', 'new-runbook-source')">New runbook</button>
+        <button type="button" class="btn-primary" data-ss-action="openFormModal" data-ss-args='["New Runbook", "new-runbook-source"]'>New runbook</button>
         {% if view == "list" %}
         <a href="{% url 'runbook:dashboard' %}" class="btn-secondary">Card view</a>
         {% else %}
@@ -29,7 +29,7 @@
         <button type="button" class="btn-secondary"
             data-download-url="{% url 'runbook:download_zip' %}"
             data-download-desc="all runbooks as a ZIP archive"
-            onclick="confirmDownload(this)">Download all</button>
+            data-ss-action="confirmDownload" data-ss-args='["$this"]'>Download all</button>
     </div>
 </div>
 {% endblock %}
@@ -41,7 +41,7 @@
          hx-get="{% url 'runbook:stat_detail' 'runbooks' %}"
          hx-target="#stat-modal-body"
          aria-haspopup="dialog" aria-label="Runbooks: {{ total_runbooks }} — show details"
-         onclick="openStatModal('All Runbooks', this)">
+         data-stat-modal="All Runbooks">
         <div class="stat-card-value">{{ total_runbooks }}</div>
         <div class="stat-card-label">Runbooks</div>
     </button>
@@ -49,7 +49,7 @@
          hx-get="{% url 'runbook:stat_detail' 'documents' %}"
          hx-target="#stat-modal-body"
          aria-haspopup="dialog" aria-label="Documents: {{ total_docs }} — show details"
-         onclick="openStatModal('All Documents', this)">
+         data-stat-modal="All Documents">
         <div class="stat-card-value">{{ total_docs }}</div>
         <div class="stat-card-label">Documents</div>
     </button>
@@ -57,7 +57,7 @@
          hx-get="{% url 'runbook:stat_detail' 'recent' %}"
          hx-target="#stat-modal-body"
          aria-haspopup="dialog" aria-label="Recent uploads, 7 days: {{ recent_uploads }} — show details"
-         onclick="openStatModal('Recent Uploads (7 Days)', this)">
+         data-stat-modal="Recent Uploads (7 Days)">
         <div class="stat-card-value">{{ recent_uploads }}</div>
         <div class="stat-card-label">Recent (7d)</div>
     </button>
@@ -65,7 +65,7 @@
          hx-get="{% url 'runbook:stat_detail' 'images' %}"
          hx-target="#stat-modal-body"
          aria-haspopup="dialog" aria-label="Documents with images: {{ total_images }} — show details"
-         onclick="openStatModal('Documents with Images', this)">
+         data-stat-modal="Documents with Images">
         <div class="stat-card-value">{{ total_images }}</div>
         <div class="stat-card-label">Images</div>
     </button>
@@ -141,7 +141,7 @@
 
 {% if not my_runbooks and not other_runbooks %}
 <div class="rb-section">
-    <p class="rb-empty">No runbooks yet. <a href="#" onclick="openFormModal('New Runbook', 'new-runbook-source'); return false;">Create your first runbook</a>.</p>
+    <p class="rb-empty">No runbooks yet. <a href="#" data-ss-action="openFormModal" data-ss-args='["New Runbook", "new-runbook-source"]'>Create your first runbook</a>.</p>
 </div>
 {% endif %}
 
@@ -218,17 +218,10 @@
             </div>
             <div class="crud-actions">
                 <button type="submit" class="btn-save">Create runbook</button>
-                <button type="button" class="btn-cancel" onclick="closeStatModal()">Cancel</button>
+                <button type="button" class="btn-cancel" data-stat-modal-close>Cancel</button>
             </div>
         </form>
     </div>
 </div>
-<script>
-// Inject a hidden source form into the shared modal (same pattern as New Page).
-function openFormModal(title, sourceId) {
-    openStatModal(title);
-    document.getElementById('stat-modal-body').innerHTML =
-        document.getElementById(sourceId).innerHTML;
-}
-</script>
+<script src="{% static 'runbook/js/templates/dashboard.js' %}"></script>
 {% endblock %}

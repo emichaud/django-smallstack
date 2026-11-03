@@ -1,0 +1,130 @@
+/* Moved from apps/heartbeat/templates/heartbeat/sla.html (inline <style>). */
+/* SLA status pills now use the shared .badge system (status_badge tag). */
+
+/* Form styling */
+.sla-config-form label {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--body-quiet-color);
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    display: block;
+    margin-bottom: 4px;
+}
+.sla-config-form .helptext {
+    font-size: 0.75rem;
+    color: var(--body-quiet-color);
+    margin-top: 2px;
+}
+.sla-config-form .form-row {
+    display: flex;
+    flex-direction: column;
+    border-bottom: none;
+    padding: 0;
+    overflow: visible;
+}
+.sla-config-form input[type="datetime-local"],
+.sla-config-form input[type="text"],
+.sla-config-form input[type="number"] {
+    width: 100%;
+    box-sizing: border-box;
+}
+
+/* Confirm modal — reuses crud-modal pattern */
+.crud-modal-overlay {
+    position: fixed; inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(2px);
+    z-index: 1000;
+    display: flex; align-items: center; justify-content: center;
+}
+.crud-modal {
+    background: var(--card-bg, var(--body-bg));
+    border: 1px solid color-mix(in srgb, var(--body-fg) 15%, var(--body-bg));
+    border-radius: var(--radius-md, 8px);
+    width: 90%; max-width: 420px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+}
+.crud-modal-header {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 1rem 1.25rem;
+    border-bottom: 1px solid color-mix(in srgb, var(--body-fg) 10%, var(--body-bg));
+}
+.crud-modal-header h3 { margin: 0; font-size: 1rem; }
+.crud-modal-close {
+    background: none; border: none; font-size: 1.4rem;
+    color: var(--body-quiet-color); cursor: pointer; line-height: 1;
+}
+.crud-modal-close:hover { color: var(--body-fg); }
+.crud-modal-body { padding: 1.25rem; }
+.crud-modal-body p { margin: 0; font-size: 0.9rem; color: var(--body-quiet-color); }
+.crud-modal-footer {
+    display: flex; gap: 0.75rem; justify-content: flex-end;
+    padding: 1rem 1.25rem;
+    border-top: 1px solid color-mix(in srgb, var(--body-fg) 10%, var(--body-bg));
+}
+.crud-modal-btn-confirm {
+    background: var(--primary); color: var(--button-fg);
+    border: none; padding: 0.5rem 1.25rem; border-radius: var(--radius-sm, 4px);
+    cursor: pointer; font-size: 0.85rem;
+}
+.crud-modal-btn-confirm:hover { opacity: 0.9; }
+.crud-modal-btn-cancel {
+    background: none; border: 1px solid color-mix(in srgb, var(--body-fg) 20%, var(--body-bg));
+    color: var(--body-fg); padding: 0.5rem 1.25rem; border-radius: var(--radius-sm, 4px);
+    cursor: pointer; font-size: 0.85rem;
+}
+.crud-modal-btn-cancel:hover {
+    background: color-mix(in srgb, var(--body-fg) 5%, var(--body-bg));
+}
+
+/* How It Works */
+.sla-how-it-works h4 {
+    font-size: 0.85rem;
+    font-weight: 600;
+    margin: 0 0 6px 0;
+    color: var(--body-fg);
+}
+.sla-how-it-works p,
+.sla-how-it-works li {
+    font-size: 0.82rem;
+    line-height: 1.5;
+    color: var(--body-quiet-color);
+    margin: 0 0 8px 0;
+}
+.sla-how-it-works ul {
+    margin: 0 0 12px 0;
+    padding-left: 18px;
+}
+.sla-how-it-works li { margin-bottom: 4px; }
+
+/* Daily summary + maintenance tables now use shared .table-plain
+   (neutral zebra striping) — local primary-tinted .daily-table styles
+   removed in the admin-apps consistency pass. */
+
+/* Tabbed SLA / How It Works card */
+.sla-tabs { display: flex; gap: 4px; padding: 0 10px; align-items: stretch; }
+.sla-tab { background: none; border: none; padding: 16px 16px 14px; font-size: 0.95rem; font-weight: 600;
+    color: var(--body-quiet-color); cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px;
+    transition: color var(--transition-fast), border-color var(--transition-fast); }
+.sla-tab:hover { color: var(--body-fg); }
+.sla-tab.active { color: var(--primary); border-bottom-color: var(--primary); }
+.sla-tab-panel[hidden] { display: none; }
+/* Make the SLA card a flex column that fills its grid row, so its height matches
+   the maintenance card exactly and the Save bar can sit at the card bottom. */
+.sla-tab-card { display: flex; flex-direction: column; }
+.sla-tab-card > .card-body { flex: 1 1 auto; display: flex; flex-direction: column; min-height: 0; }
+.sla-config-form:not([hidden]) { flex: 1 1 auto; display: flex; flex-direction: column; }
+.sla-config-form form { flex: 1 1 auto; display: flex; flex-direction: column; }
+.sla-save-bar { margin-top: auto; padding-top: 16px; }
+
+/* Compact maintenance table + icon actions */
+.maint-table { font-size: 0.8rem; }
+.maint-table th, .maint-table td { padding: 8px 10px; vertical-align: top; }
+.maint-table .maint-when { white-space: nowrap; color: var(--body-quiet-color); font-variant-numeric: tabular-nums; }
+.maint-actions { display: inline-flex; gap: 12px; align-items: center; }
+.maint-actions a, .maint-actions button { display: inline-flex; align-items: center; padding: 0; background: none; border: none; cursor: pointer; color: var(--primary); }
+.maint-actions a:hover { color: var(--primary); opacity: 0.8; text-decoration: none; }
+.maint-actions .maint-delete { color: var(--error-fg); }
+.maint-actions .maint-delete:hover { opacity: 0.8; }
+.maint-actions svg { width: 16px; height: 16px; }

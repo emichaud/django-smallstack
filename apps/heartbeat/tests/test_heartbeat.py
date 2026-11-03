@@ -2007,9 +2007,19 @@ class TestStandaloneStatusCssFallback:
         "name", ["public_status", "public_maintenance", "public_maintenance_calendar"]
     )
     def test_no_bare_body_quiet_color(self, client, db, name):
+        import re
+
+        from django.contrib.staticfiles import finders
+
         body = client.get(reverse(name)).content.decode()
-        assert "var(--body-quiet-color)" not in body  # bare = undefined off admin pages → invisible
-        assert "var(--body-quiet-color, " in body  # the fallback form is present
+        # The page's own CSS: inline, plus every stylesheet it links from its templates' static files.
+        css = body
+        for href in re.findall(r'href="/static/([^"]+/css/templates/[^"]+\.css)"', body):
+            found = finders.find(href)
+            assert found, href
+            css += open(found).read()
+        assert "var(--body-quiet-color)" not in css  # bare = undefined off admin pages → invisible
+        assert "var(--body-quiet-color, " in css  # the fallback form is present
 
 
 class TestIncrementalPruneSummaries:

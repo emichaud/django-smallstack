@@ -1,4 +1,5 @@
 {% extends "runbook/base.html" %}
+{% load static %}
 
 {% block title %}{% if object %}Edit {{ object.name }}{% else %}New Runbook{% endif %}{% endblock %}
 
@@ -6,32 +7,7 @@
 
 {% block extra_css %}
 {{ block.super }}
-<style>
-.rb-form-card { max-width: 620px; }
-.icon-picker { display: flex; align-items: center; gap: 12px; }
-.icon-picker-preview {
-    width: 46px; height: 46px; flex-shrink: 0;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 1.6rem; line-height: 1;
-    background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 10px;
-}
-.icon-input { max-width: 110px; text-align: center; }
-.icon-grid {
-    display: grid; grid-template-columns: repeat(auto-fill, minmax(42px, 1fr));
-    gap: 6px; margin-top: 12px;
-}
-.icon-choice {
-    height: 42px; font-size: 1.3rem; line-height: 1; cursor: pointer;
-    background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 8px;
-    transition: border-color .12s ease, background .12s ease, transform .06s ease;
-}
-.icon-choice:hover { border-color: var(--primary); }
-.icon-choice:active { transform: scale(0.94); }
-.icon-choice.selected {
-    border-color: var(--primary);
-    background: color-mix(in srgb, var(--primary) 18%, var(--card-bg));
-}
-</style>
+<link rel="stylesheet" href="{% static 'runbook/css/templates/runbook_form.css' %}">
 {% endblock %}
 
 {% block page_header %}
@@ -124,21 +100,6 @@
 
 {% block extra_js %}
 {{ block.super }}
-<script>
-(function () {
-    var input = document.getElementById("{{ form.icon.id_for_label }}");
-    var preview = document.getElementById("icon-preview");
-    if (!input || !preview) return;
-    var choices = document.querySelectorAll(".icon-choice");
-    function refresh(val) {
-        preview.textContent = val || "📘";
-        choices.forEach(function (b) { b.classList.toggle("selected", b.dataset.icon === val); });
-    }
-    choices.forEach(function (btn) {
-        btn.addEventListener("click", function () { input.value = btn.dataset.icon; refresh(btn.dataset.icon); });
-    });
-    input.addEventListener("input", function () { refresh(input.value); });
-    refresh(input.value);
-})();
-</script>
+<script src="{% static 'runbook/js/templates/runbook_form.js' %}"
+        data-icon-field-id="{{ form.icon.id_for_label }}"></script>
 {% endblock %}

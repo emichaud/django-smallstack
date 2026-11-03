@@ -1,0 +1,30 @@
+/* Moved from apps/smallstack/templates/smallstack/crud/displays/form_sectioned.html (inline <style>). */
+.sf-grid {
+    display: grid;
+    gap: 1.25rem;
+}
+.sf-grid-1 { grid-template-columns: 1fr; }
+.sf-grid-2 { grid-template-columns: 1fr 1fr; }
+@media (max-width: 768px) {
+    .sf-grid-2 { grid-template-columns: 1fr; }
+}
+.sf-section-full { grid-column: 1 / -1; }
+.sf-section {
+    background: var(--card-bg, var(--body-bg));
+    border: 1px solid color-mix(in srgb, var(--body-fg) 10%, var(--body-bg));
+    border-radius: var(--radius-md, 8px);
+    overflow: hidden;
+}
+.sf-section-header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1.25rem;
+    background: color-mix(in srgb, var(--body-fg) 4%, var(--body-bg));
+    border-bottom: 1px solid color-mix(in srgb, var(--body-fg) 8%, var(--body-bg));
+    font-weight: 600;
+    font-size: 0.85rem;
+    color: var(--body-fg);
+}
+.sf-section-header svg { opacity: 0.5; flex-shrink: 0; }
+.sf-section-body { padding: 1.25rem; }

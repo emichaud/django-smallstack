@@ -8,14 +8,7 @@
 
     {% comment %}Blocking theme/palette script, same as the admin base and the
     status page, so the public pages track the visitor's theme with no flash.{% endcomment %}
-    <script>
-    (function() {
-        var theme = localStorage.getItem('smallstack-theme') || 'dark';
-        document.documentElement.setAttribute('data-theme', theme);
-        var palette = localStorage.getItem('smallstack-palette') || '{{ color_palette }}' || 'purple';
-        document.documentElement.setAttribute('data-palette', palette);
-    })();
-    </script>
+    <script src="{% static 'smallstack/js/theme-init.js' %}" data-palette="{{ color_palette }}" data-default-palette="purple"></script>
 
     <link rel="icon" type="image/x-icon" href="{% static brand.favicon %}">
     <link rel="stylesheet" href="{% static 'smallstack/css/theme.css' %}">

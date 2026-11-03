@@ -586,7 +586,7 @@ class TestStatCardAccessibility:
         assert "aria-label=" in html
         assert "4XX Errors" in html and "976" in html
         # The trigger passes itself so focus can be restored on close.
-        assert "openStatModal(" in html and ", this)" in html
+        assert 'data-stat-modal="' in html and "onclick" not in html
         # No bare clickable <div> for the interactive card.
         assert "<div class=\"stat-card stat-card-clickable" not in html
 

@@ -208,3 +208,149 @@ class TestReleaseNotesCoverSettings:
             "these settings are named in no release note and no settings doc — an "
             "operator cannot find them:\n  " + "\n  ".join(missing)
         )
+
+
+# -- no inline JavaScript event handlers ---------------------------------------------------------
+#
+# Behaviour is declared with data- attributes (data-confirm, data-autosubmit,
+# data-stat-modal, data-ss-action="registeredName", …) and carried out by the
+# delegated listeners in smallstack/js/theme.js. The CSP's script-src has no
+# 'unsafe-inline', so an inline handler would be dead code in the browser.
+
+_INLINE_HANDLER = re.compile(r"""\son[a-z]+\s*=\s*["']""")
+
+
+def test_no_template_has_an_inline_event_handler():
+    offenders = []
+    for path in _project_templates():
+        text = path.read_text(errors="replace")
+        for match in _INLINE_HANDLER.finditer(text):
+            line = text[: match.start()].count("\n") + 1
+            snippet = text[match.start() : match.start() + 60].strip()
+            offenders.append(f"{path.relative_to(_REPO_ROOT)}:{line} — {snippet}")
+    assert not offenders, "inline event handlers (use a data- attribute; see theme.js):\n" + "\n".join(offenders)
+
+
+def test_every_data_action_is_registered_by_some_script():
+    """``data-ss-action="name"`` only runs a function a script registered on
+    ``SmallStack.actions`` — a typo or a forgotten registration would fail
+    silently in the browser, so check the names statically."""
+    used: dict[str, str] = {}
+    for path in _project_templates():
+        for name in re.findall(r'data-ss-action="([A-Za-z_]\w*)"', path.read_text(errors="replace")):
+            used.setdefault(name, str(path.relative_to(_REPO_ROOT)))
+    sources = [p for p in _project_templates()] + [
+        p for p in _REPO_ROOT.rglob("*.js") if not (_SKIP_DIRS & set(p.parts)) and not p.name.endswith(".min.js")
+    ]
+    registered: set[str] = set()
+    for path in sources:
+        text = path.read_text(errors="replace")
+        for block in re.findall(r"SmallStack\.actions\s*=\s*Object\.assign\([^;]*\{([^}]*)\}", text):
+            registered.update(re.findall(r"(\w+)\s*:", block))
+        registered.update(re.findall(r"SmallStack\.actions\.(\w+)\s*=", text))
+    missing = {name: where for name, where in used.items() if name not in registered}
+    assert used, "found no data-ss-action at all — the sweep is broken"
+    assert not missing, f"data-ss-action names no script registers: {missing}"
+
+
+def test_template_values_in_data_ss_args_survive_quotes():
+    """The convention for template values inside ``data-ss-args`` JSON:
+    ``|escapejs``. Its backslash-u output is valid JSON and survives HTML
+    attribute decoding — plain autoescape's ``&quot;`` decodes back to a raw
+    quote inside the attribute and breaks the JSON."""
+    import json
+    from html.parser import HTMLParser
+
+    from django.template import Context, Template
+
+    nasty = """O'Brien "the" <b>&amp;</b> </script>"""
+    html = Template("""<a data-ss-args='["$this", "{{ name|escapejs }}"]'>x</a>""").render(Context({"name": nasty}))
+
+    class Grab(HTMLParser):
+        value = ""
+
+        def handle_starttag(self, tag, attrs):
+            self.value = dict(attrs)["data-ss-args"]
+
+    parser = Grab()
+    parser.feed(html)
+    assert json.loads(parser.value) == ["$this", nasty]
+
+
+def test_every_template_value_in_data_ss_args_is_escapejs():
+    offenders = []
+    for path in _project_templates():
+        for args in re.findall(r"data-ss-args='([^']*)'", path.read_text(errors="replace")):
+            for value in re.findall(r"\{\{(.*?)\}\}", args):
+                if "escapejs" not in value:
+                    offenders.append(f"{path.relative_to(_REPO_ROOT)}: {{{{{value}}}}}")
+    assert not offenders, "add |escapejs to template values inside data-ss-args:\n" + "\n".join(offenders)
+
+
+# -- no inline <script> code ----------------------------------------------------------------------
+
+_NON_EXECUTABLE_TYPES = ("application/json", "application/ld+json", "text/template", "importmap")
+
+
+def test_no_template_has_an_inline_script_block():
+    """Every executable script is a static file. Server values reach it as
+    data- attributes on its own tag (``document.currentScript.dataset``) or as
+    a JSON data block (``json_script`` / ``<script type="application/json">``);
+    the CSP's script-src has no 'unsafe-inline', so an inline block is dead."""
+    offenders = []
+    for path in _project_templates():
+        text = path.read_text(errors="replace")
+        for match in re.finditer(r"<script\b([^>]*)>(.*?)</script>", text, re.S):
+            attrs, body = match.group(1), match.group(2)
+            if "src=" in attrs or any(t in attrs for t in _NON_EXECUTABLE_TYPES) or not body.strip():
+                continue
+            line = text[: match.start()].count("\n") + 1
+            offenders.append(f"{path.relative_to(_REPO_ROOT)}:{line}")
+    assert not offenders, "inline <script> blocks (move them to static/; see templates.md):\n" + "\n".join(offenders)
+
+
+def test_csp_script_src_allows_no_inline_script():
+    from django.conf import settings
+
+    script_src = settings.CONTENT_SECURITY_POLICY["DIRECTIVES"]["script-src"]
+    assert "'unsafe-inline'" not in script_src and "'unsafe-eval'" not in script_src
+
+
+def test_every_static_path_in_a_template_exists():
+    """Every literal ``{% static '…' %}`` a template references resolves through
+    the staticfiles finders — what collectstatic and the dev server use. A
+    moved script or stylesheet with a wrong path would otherwise 404 quietly
+    (the page still renders, just unstyled or inert)."""
+    from django.contrib.staticfiles import finders
+
+    missing = []
+    for path in _project_templates():
+        for ref in re.findall(r"""\{%\s*static\s+['"]([^'"]+)['"]\s*%\}""", path.read_text(errors="replace")):
+            if finders.find(ref) is None:
+                missing.append(f"{path.relative_to(_REPO_ROOT)}: {ref}")
+    assert not missing, "static files that don't exist:\n" + "\n".join(missing)
+
+
+# Inline <style> blocks kept on purpose: the 500 page must render when static files
+# can't be served, and the Swagger page's three lines need the brand logo's URL
+# (that page carries its own CSP for the Swagger UI bundle).
+_INLINE_STYLE_ALLOWED = {"templates/500.html", "apps/smallstack/templates/smallstack/api/swagger.html"}
+
+
+def test_no_template_has_an_inline_style_block():
+    """Page CSS lives in static/ (``<app>/css/templates/<template>.css`` for what
+    used to be a template's <style> block), so it's cached, linted and shared."""
+    offenders = []
+    for path in _project_templates():
+        rel = str(path.relative_to(_REPO_ROOT))
+        # Django templates only (a standalone .html document elsewhere in the repo is its own page)
+        if "templates" not in path.parts or rel in _INLINE_STYLE_ALLOWED:
+            continue
+        text = path.read_text(errors="replace")
+        comment_re = r"\{%\s*comment\s*%\}.*?\{%\s*endcomment\s*%\}"
+        comments = [(c.start(), c.end()) for c in re.finditer(comment_re, text, re.S)]
+        for match in re.finditer(r"<style\b[^>]*>", text):
+            if any(a <= match.start() < b for a, b in comments):
+                continue
+            offenders.append(f"{rel}:{text[: match.start()].count(chr(10)) + 1}")
+    assert not offenders, "inline <style> blocks (move them to static/; see templates.md):\n" + "\n".join(offenders)

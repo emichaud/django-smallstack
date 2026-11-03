@@ -31,7 +31,7 @@
                     </div>
                 </button>
             </form>
-            <form method="post" onsubmit="return confirm('Permanently delete {{ doc_count }} document(s) and all their versions?');">
+            <form method="post" data-confirm="Permanently delete {{ doc_count }} document(s) and all their versions?">
                 {% csrf_token %}
                 <input type="hidden" name="mode" value="cascade">
                 <button type="submit" class="btn-secondary" style="width: 100%; text-align: left; border-color: var(--error-fg, #b91c1c);">

@@ -5,6 +5,7 @@
    See docs/skills/admin-page-styling.md for the full reference.
    ────────────────────────────────────────────────────────────────────── {% endcomment %}
 {% extends "smallstack/base.html" %}
+{% load static %}
 {% load theme_tags %}
 
 {% block title %}Page Title{% endblock %}
@@ -37,7 +38,7 @@
         {# Low-emphasis link #}
         {# <a href="{% url 'help:section_index' 'myapp' %}" class="btn-outline">Docs</a> #}
         {# Delete trigger (opens modal) #}
-        {# <button type="button" class="btn-danger" data-delete-url="delete/" onclick="crudDeleteModal(this, '{{ object }}')">Delete</button> #}
+        {# <button type="button" class="btn-danger" data-delete-url="delete/" data-ss-action="crudDeleteModal" data-ss-args='["$this", "{{ object|escapejs }}"]'>Delete</button> #}
     </div>
 </div>
 {% endblock %}
@@ -62,7 +63,7 @@
                 </div>
             </div>
         </div>
-        <div class="action-card" onclick="doAction()">
+        <div class="action-card">
             <div class="action-card-body">
                 <svg class="action-card-icon" viewBox="0 0 24 24">
                     <path d="M5 4v2h14V4H5zm0 10h4v6h6v-6h4l-7-7-7 7z"/>
@@ -139,8 +140,8 @@
         <div style="display: flex; align-items: center; gap: 16px;">
             <h2>Latest Requests</h2>
             <div class="filter-toggles" id="my-filter-tabs">
-                <button type="button" class="filter-toggle active" data-tab="all" onclick="showFilterTab('all')">All</button>
-                <button type="button" class="filter-toggle" data-tab="errors" onclick="showFilterTab('errors')">Errors</button>
+                <button type="button" class="filter-toggle active" data-tab="all" data-ss-action="showFilterTab" data-ss-args='["all"]'>All</button>
+                <button type="button" class="filter-toggle" data-tab="errors" data-ss-action="showFilterTab" data-ss-args='["errors"]'>Errors</button>
             </div>
         </div>
         <a href="{% url 'app:list' %}" class="btn-outline btn-sm">View All</a>
@@ -155,10 +156,10 @@
 {# ── Tabs (full-width section switching) ────────────────────────────── #}
 {% comment %}
 <div class="tab-bar">
-    <button class="tab-btn active" onclick="switchTab(event, 'overview')">
+    <button class="tab-btn active" data-ss-action="switchTab" data-ss-args='["$event", "overview"]'>
         Overview <span class="tab-count">3</span>
     </button>
-    <button class="tab-btn" onclick="switchTab(event, 'config')">
+    <button class="tab-btn" data-ss-action="switchTab" data-ss-args='["$event", "config"]'>
         Config
     </button>
 </div>
@@ -206,24 +207,5 @@
 
 {% block extra_js %}
 {# ── JS helpers — uncomment what you need ───────────────────────────── #}
-<script>
-{# Tab switching (for .tab-bar / .tab-btn) #}
-function switchTab(e, tabId) {
-    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
-    e.currentTarget.classList.add('active');
-    document.getElementById('tab-' + tabId).classList.add('active');
-}
-
-{# Filter toggle switching (for .filter-toggles) #}
-function showFilterTab(tab) {
-    document.querySelectorAll('.filter-toggle').forEach(function(btn) {
-        btn.classList.toggle('active', btn.dataset.tab === tab);
-    });
-    {# Show/hide corresponding tables or panels by id="tab-{name}" #}
-    document.querySelectorAll('[id^="tab-"]').forEach(function(el) {
-        el.style.display = el.id === 'tab-' + tab ? '' : 'none';
-    });
-}
-</script>
+<script src="{% static 'smallstack/js/templates/starter.js' %}"></script>
 {% endblock %}

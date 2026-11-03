@@ -44,7 +44,7 @@
     <div class="card">
         <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
             <h2>Top resources</h2>
-            <button type="button" class="btn-outline btn-sm" hx-get="{{ request.path }}?tab=resources&window={{ window.key }}" hx-target="#tab-content" hx-swap="innerHTML swap:150ms" hx-push-url="true" onclick="document.getElementById('tab-content').scrollIntoView({behavior:'smooth'})">All resources</button>
+            <button type="button" class="btn-outline btn-sm" hx-get="{{ request.path }}?tab=resources&window={{ window.key }}" hx-target="#tab-content" hx-swap="innerHTML swap:150ms" hx-push-url="true" data-scroll-to="#tab-content">All resources</button>
         </div>
         <div class="card-body" style="padding: 0;">
             {% if top_resources %}

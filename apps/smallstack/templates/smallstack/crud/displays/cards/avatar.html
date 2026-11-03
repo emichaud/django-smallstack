@@ -3,7 +3,7 @@
     {% if enable_bulk %}data-pk="{{ card.pk }}"{% endif %}
 >
     {% if enable_bulk %}
-    <div class="card-grid-check" onclick="event.stopPropagation();">
+    <div class="card-grid-check">
         <input type="checkbox" class="bulk-select-row" data-pk="{{ card.pk }}">
     </div>
     {% endif %}

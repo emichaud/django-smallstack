@@ -38,7 +38,7 @@
         <a href="edit/" class="btn-primary">Edit</a>
         {% endif %}
         {% if action.value == "delete" %}
-        <button type="button" class="btn-danger" data-delete-url="delete/" onclick="crudDeleteModal(this, '{{ object }}')">Delete</button>
+        <button type="button" class="btn-danger" data-delete-url="delete/" data-ss-action="crudDeleteModal" data-ss-args='["$this", "{{ object|escapejs }}"]'>Delete</button>
         {% endif %}
         {% endfor %}
         {% endif %}
@@ -63,7 +63,7 @@
             <a href="edit/" class="btn-primary">Edit</a>
             {% endif %}
             {% if action.value == "delete" %}
-            <button type="button" class="btn-danger" data-delete-url="delete/" onclick="crudDeleteModal(this, '{{ object }}')">Delete</button>
+            <button type="button" class="btn-danger" data-delete-url="delete/" data-ss-action="crudDeleteModal" data-ss-args='["$this", "{{ object|escapejs }}"]'>Delete</button>
             {% endif %}
             {% endfor %}
             {% endif %}

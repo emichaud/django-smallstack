@@ -1,4 +1,5 @@
 {% extends "smallstack/base.html" %}
+{% load static %}
 {% load theme_tags %}
 {% comment %}
 Control page for one scheduled job. Replaces the generic object_form chrome
@@ -72,76 +73,5 @@ beats smallstack/crud/object_form.html. Theme-variable-only, palette-correct.
     {% endif %}
 </div>
 
-<style>
-.sje-shell { display: flex; flex-direction: column; gap: 1rem; }
-
-/* ── identity strip ─────────────────────────────────────────── */
-.sje-strip {
-    display: flex; align-items: flex-start; justify-content: space-between; gap: 1.25rem;
-    padding: 1rem 1.25rem;
-    background: var(--card-bg);
-    border: 1px solid var(--card-border);
-    border-left: 3px solid var(--primary);
-    border-radius: var(--radius-md, 8px);
-}
-.sje-id { min-width: 0; display: flex; flex-direction: column; gap: 0.4rem; }
-.sje-titlerow { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; }
-.sje-name { margin: 0; font-size: 1.25rem; font-weight: 700; color: var(--body-fg); line-height: 1.2; }
-.sje-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
-.sje-dot--on {
-    background: var(--success-fg);
-    box-shadow: 0 0 0 3px color-mix(in srgb, var(--success-fg) 25%, transparent);
-}
-.sje-dot--off {
-    background: var(--warning-fg);
-    box-shadow: 0 0 0 3px color-mix(in srgb, var(--warning-fg) 22%, transparent);
-}
-.sje-code-badge {
-    padding: 2px 9px; border-radius: 999px;
-    font-size: 0.64rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase;
-    color: var(--primary); background: color-mix(in srgb, var(--primary) 14%, var(--card-bg));
-    border: 1px solid color-mix(in srgb, var(--primary) 35%, transparent);
-}
-.sje-meta {
-    display: flex; align-items: baseline; gap: 0.5rem; flex-wrap: wrap;
-    font-size: 0.8rem; color: var(--body-quiet-color);
-}
-.sje-meta code {
-    font-family: var(--font-monospace, ui-monospace, Menlo, monospace);
-    font-size: 0.78rem; color: var(--body-fg);
-    background: color-mix(in srgb, var(--body-fg) 7%, var(--card-bg));
-    padding: 1px 6px; border-radius: 4px; word-break: break-all;
-}
-.sje-meta-sep { color: var(--body-quiet-color); opacity: 0.6; }
-.sje-status {
-    display: flex; align-items: baseline; gap: 0.5rem; flex-wrap: wrap;
-    font-family: var(--font-monospace, ui-monospace, Menlo, monospace);
-    font-size: 0.76rem; color: var(--body-quiet-color);
-}
-.sje-status-on { color: var(--success-fg); font-weight: 700; }
-.sje-status-off { color: var(--warning-fg); font-weight: 700; }
-.sje-desc { margin: 0; font-size: 0.82rem; color: var(--body-quiet-color); max-width: 60ch; }
-
-/* ── Run now: the page's primary action ─────────────────────── */
-.sje-runnow-form { display: flex; flex-direction: column; align-items: flex-end; gap: 0.35rem; flex-shrink: 0; }
-.sje-runnow,
-button.sje-runnow {
-    display: inline-flex; align-items: center; gap: 0.5rem;
-    padding: 0.6rem 1.3rem;
-    background: var(--primary); color: var(--btn-primary-fg, var(--button-fg));
-    border: none; border-radius: var(--radius-sm, 6px);
-    font-size: 0.9rem; font-weight: 700; font-family: inherit;
-    cursor: pointer; transition: background 0.15s;
-    box-shadow: var(--shadow-sm, 0 1px 2px rgba(0,0,0,0.2));
-}
-.sje-runnow:hover { background: var(--primary-hover); color: var(--btn-primary-fg, var(--button-fg)); }
-.sje-runnow:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
-.sje-runnow svg { flex-shrink: 0; }
-.sje-runnow-hint { font-size: 0.7rem; color: var(--body-quiet-color); }
-
-@media (max-width: 700px) {
-    .sje-strip { flex-direction: column; }
-    .sje-runnow-form { align-items: flex-start; }
-}
-</style>
+<link rel="stylesheet" href="{% static 'scheduler/css/templates/crud/scheduledjob_edit.css' %}">
 {% endblock %}

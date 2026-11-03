@@ -1,0 +1,28 @@
+/* Moved from apps/heartbeat/templates/heartbeat/crud/monitoredsurface_form.html (inline <style>). */
+.ep-form { max-width: 640px; }
+.ff { margin-bottom: 22px; }
+.ff-label { display: block; font-size: 0.82rem; font-weight: 600; color: var(--body-fg); margin-bottom: 7px; }
+.ff-label .req { color: var(--error-fg); margin-left: 2px; }
+.ff-help { font-size: 0.78rem; color: var(--body-quiet-color); margin: 6px 0 0; }
+.ff-err { font-size: 0.78rem; color: var(--error-fg); margin: 6px 0 0; }
+.ep-form input[type="text"], .ep-form select {
+    width: 100%; box-sizing: border-box; background: var(--card-bg); color: var(--body-fg);
+    border: 1px solid var(--card-border); border-radius: 8px; padding: 10px 12px; font-size: 0.92rem; }
+.ep-form input:focus, .ep-form select:focus { outline: none; border-color: var(--primary); }
+
+.ep-intro { font-size: 0.85rem; color: var(--body-quiet-color); margin: 0 0 22px; line-height: 1.5; }
+
+/* Toggle switch (boolean) — shared with the endpoint form. */
+.toggle { display: inline-flex; align-items: center; gap: 11px; cursor: pointer; }
+.toggle input { position: absolute; opacity: 0; pointer-events: none; }
+.toggle-track { width: 42px; height: 24px; border-radius: 999px; background: color-mix(in srgb, var(--body-quiet-color) 35%, var(--card-bg));
+    position: relative; flex: 0 0 auto; transition: background var(--transition-fast); }
+.toggle-thumb { position: absolute; top: 3px; left: 3px; width: 18px; height: 18px; border-radius: 50%; background: #fff;
+    transition: transform var(--transition-fast); box-shadow: 0 1px 3px rgba(0,0,0,0.3); }
+.toggle input:checked ~ .toggle-track { background: var(--primary); }
+.toggle input:checked ~ .toggle-track .toggle-thumb { transform: translateX(18px); }
+.toggle-text { font-size: 0.9rem; color: var(--body-fg); }
+
+.ep-actions { display: flex; gap: 12px; margin-top: 8px; }
+.ep-actions .btn-save { background: var(--primary); color: var(--button-fg); border: none; border-radius: 8px; padding: 11px 28px; font-weight: 600; cursor: pointer; }
+.ep-actions .btn-cancel { color: var(--body-quiet-color); text-decoration: none; padding: 11px 8px; display: inline-flex; align-items: center; }

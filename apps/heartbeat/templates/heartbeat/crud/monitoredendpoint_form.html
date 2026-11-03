@@ -1,4 +1,5 @@
 {% extends request.META.HTTP_X_REQUESTED_WITH|yesno:"smallstack/_form_modal_base.html,smallstack/base.html" %}
+{% load static %}
 {% load theme_tags %}
 
 {% block title %}{% if object %}Edit{% else %}Add{% endif %} monitor{% endblock %}
@@ -21,69 +22,7 @@
 </div>
 {% endif %}
 
-<style>
-    .ep-form { max-width: 640px; }
-    .ff { margin-bottom: 22px; }
-    .ff-label { display: block; font-size: 0.82rem; font-weight: 600; color: var(--body-fg); margin-bottom: 7px; }
-    .ff-label .req { color: var(--error-fg); margin-left: 2px; }
-    .ff-help { font-size: 0.78rem; color: var(--body-quiet-color); margin: 6px 0 0; }
-    .ff-err { font-size: 0.78rem; color: var(--error-fg); margin: 6px 0 0; }
-    .ep-form input[type="text"], .ep-form input[type="url"], .ep-form input[type="number"] {
-        width: 100%; box-sizing: border-box; background: var(--card-bg); color: var(--body-fg);
-        border: 1px solid var(--card-border); border-radius: 8px; padding: 10px 12px; font-size: 0.92rem; }
-    .ep-form input:focus { outline: none; border-color: var(--primary); }
-
-    /* Segmented button group (RadioSelect) */
-    .seg { display: inline-flex; flex-wrap: wrap; gap: 0; border: 1px solid var(--card-border); border-radius: 9px; overflow: hidden; }
-    .seg.seg-wide { display: flex; }
-    .seg-opt { position: relative; }
-    .seg-opt input { position: absolute; opacity: 0; pointer-events: none; }
-    .seg-opt > span { display: block; padding: 9px 16px; font-size: 0.88rem; font-weight: 600; color: var(--body-quiet-color);
-        cursor: pointer; border-left: 1px solid var(--card-border); white-space: nowrap; user-select: none; transition: background var(--transition-fast), color var(--transition-fast); }
-    .seg-opt:first-child > span { border-left: none; }
-    .seg-opt > span:hover { background: color-mix(in srgb, var(--primary) 8%, transparent); color: var(--body-fg); }
-    .seg-opt:has(input:checked) > span { background: var(--primary); color: var(--button-fg); }
-
-    /* Mode toggle (bigger, full width) */
-    .mode-seg { display: flex; margin-bottom: 26px; }
-    .mode-seg .seg-opt { flex: 1; text-align: center; }
-    .mode-seg .seg-opt > span { padding: 12px 16px; font-size: 0.95rem; }
-
-    /* Toggle switch (boolean) */
-    .toggle { display: inline-flex; align-items: center; gap: 11px; cursor: pointer; }
-    .toggle input { position: absolute; opacity: 0; pointer-events: none; }
-    .toggle-track { width: 42px; height: 24px; border-radius: 999px; background: color-mix(in srgb, var(--body-quiet-color) 35%, var(--card-bg));
-        position: relative; flex: 0 0 auto; transition: background var(--transition-fast); }
-    .toggle-thumb { position: absolute; top: 3px; left: 3px; width: 18px; height: 18px; border-radius: 50%; background: #fff;
-        transition: transform var(--transition-fast); box-shadow: 0 1px 3px rgba(0,0,0,0.3); }
-    .toggle input:checked ~ .toggle-track { background: var(--primary); }
-    .toggle input:checked ~ .toggle-track .toggle-thumb { transform: translateX(18px); }
-    .toggle-text { font-size: 0.9rem; color: var(--body-fg); }
-
-    /* Verify row */
-    .verify-row { display: flex; gap: 8px; align-items: stretch; }
-    .verify-row input { flex: 1; }
-    .verify-btn { flex: 0 0 auto; background: var(--card-bg); color: var(--body-fg); border: 1px solid var(--card-border);
-        border-radius: 8px; padding: 0 16px; font-size: 0.88rem; font-weight: 600; cursor: pointer; white-space: nowrap; }
-    .verify-btn:hover { border-color: var(--primary); color: var(--primary); }
-    #verify-result { margin-top: 8px; font-size: 0.82rem; min-height: 1.1em; }
-    .verify-ok, .verify-bad { display: inline-flex; align-items: center; gap: 7px; }
-    .verify-ok { color: var(--success-fg); }
-    .verify-bad { color: var(--warning-fg); }
-    .verify-glyph { font-weight: 700; }
-    .ep-preview { font-size: 0.8rem; color: var(--body-quiet-color); margin-top: 8px; }
-    .ep-preview code { background: color-mix(in srgb, var(--body-fg) 8%, transparent); padding: 1px 5px; border-radius: 4px; }
-
-    /* Mode-driven show/hide */
-    #ep-form[data-mode="smallstack"] .only-custom { display: none; }
-    #ep-form[data-mode="custom"] .only-smallstack { display: none; }
-    #ep-form[data-mode="custom"] .lbl-smallstack { display: none; }
-    #ep-form[data-mode="smallstack"] .lbl-custom { display: none; }
-
-    .ep-actions { display: flex; gap: 12px; margin-top: 8px; }
-    .ep-actions .btn-save { background: var(--primary); color: var(--button-fg); border: none; border-radius: 8px; padding: 11px 28px; font-weight: 600; cursor: pointer; }
-    .ep-actions .btn-cancel { color: var(--body-quiet-color); text-decoration: none; padding: 11px 8px; display: inline-flex; align-items: center; }
-</style>
+<link rel="stylesheet" href="{% static 'heartbeat/css/templates/crud/monitoredendpoint_form.css' %}">
 
 <div class="card">
     <div class="card-body">
@@ -166,38 +105,7 @@
     </div>
 </div>
 
-<script>
-(function () {
-    var form = document.getElementById('ep-form');
-    if (!form) return;
-    // Mode toggle → swap field groups.
-    form.querySelectorAll('input[name="mode"]').forEach(function (r) {
-        r.addEventListener('change', function () { form.setAttribute('data-mode', r.value); });
-    });
-    // Live "/health/" preview.
-    var urlInput = form.querySelector('#{{ form.url.id_for_label }}');
-    var preview = document.getElementById('health-preview');
-    function updatePreview() {
-        if (!urlInput || !preview) return;
-        var v = (urlInput.value || '').trim().replace(/\/+$/, '');
-        preview.textContent = v ? v + '/health/' : '<url>/health/';
-    }
-    if (urlInput) urlInput.addEventListener('input', updatePreview);
-    updatePreview();
-    // Verify button → probe /health/ (non-blocking).
-    var btn = document.getElementById('verify-btn');
-    var result = document.getElementById('verify-result');
-    if (btn) btn.addEventListener('click', function () {
-        var token = form.querySelector('[name=csrfmiddlewaretoken]').value;
-        result.innerHTML = '<span style="color:var(--body-quiet-color)">Checking…</span>';
-        fetch('{% url "heartbeat:verify_smallstack" %}', {
-            method: 'POST',
-            headers: { 'X-CSRFToken': token, 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: 'url=' + encodeURIComponent(urlInput.value || '')
-        }).then(function (r) { return r.text(); })
-          .then(function (html) { result.innerHTML = html; })
-          .catch(function () { result.innerHTML = '<span class="verify-bad">Verification request failed.</span>'; });
-    });
-})();
-</script>
+<script src="{% static 'heartbeat/js/templates/crud/monitoredendpoint_form.js' %}"
+        data-url-field-id="{{ form.url.id_for_label }}"
+        data-verify-smallstack-url="{% url "heartbeat:verify_smallstack" %}"></script>
 {% endblock %}

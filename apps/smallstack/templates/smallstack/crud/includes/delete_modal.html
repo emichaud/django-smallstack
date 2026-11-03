@@ -4,7 +4,7 @@
     <div class="crud-modal">
         <div class="crud-modal-header">
             <h3 id="crud-delete-title">Confirm Delete</h3>
-            <button type="button" class="crud-modal-close" onclick="crudDeleteModalClose()">&times;</button>
+            <button type="button" class="crud-modal-close" data-ss-action="crudDeleteModalClose">&times;</button>
         </div>
         <div class="crud-modal-body">
             <p>Are you sure you want to delete <strong id="crud-delete-name"></strong>?</p>
@@ -14,149 +14,15 @@
             <button type="button"
                 id="crud-delete-confirm"
                 class="crud-modal-btn-delete"
-                onclick="crudDeleteConfirm()">
+                data-ss-action="crudDeleteConfirm">
                 Delete
             </button>
-            <button type="button" class="crud-modal-btn-cancel" onclick="crudDeleteModalClose()">Cancel</button>
+            <button type="button" class="crud-modal-btn-cancel" data-ss-action="crudDeleteModalClose">Cancel</button>
         </div>
     </div>
 </div>
 
-<style>
-.crud-modal-overlay {
-    position: fixed; inset: 0;
-    background: rgba(0, 0, 0, 0.5);
-    backdrop-filter: blur(2px);
-    z-index: 1000;
-    display: flex; align-items: center; justify-content: center;
-}
-.crud-modal {
-    background: var(--card-bg, var(--body-bg));
-    border: 1px solid color-mix(in srgb, var(--body-fg) 15%, var(--body-bg));
-    border-radius: var(--radius-md, 8px);
-    width: 90%; max-width: 420px;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-}
-.crud-modal-header {
-    display: flex; justify-content: space-between; align-items: center;
-    padding: 1rem 1.25rem;
-    border-bottom: 1px solid color-mix(in srgb, var(--body-fg) 10%, var(--body-bg));
-}
-.crud-modal-header h3 {
-    margin: 0; font-size: 1rem;
-}
-.crud-modal-close {
-    background: none; border: none; font-size: 1.4rem;
-    color: var(--body-quiet-color); cursor: pointer; line-height: 1;
-}
-.crud-modal-close:hover { color: var(--body-fg); }
-.crud-modal-body {
-    padding: 1.25rem;
-}
-.crud-modal-body p { margin: 0; }
-.crud-modal-footer {
-    display: flex; gap: 0.75rem; justify-content: flex-end;
-    padding: 1rem 1.25rem;
-    border-top: 1px solid color-mix(in srgb, var(--body-fg) 10%, var(--body-bg));
-}
-.crud-modal-btn-delete {
-    background: var(--delete-button-bg, #dc3545); color: #fff;
-    border: none; padding: 0.5rem 1.25rem; border-radius: var(--radius-sm, 4px);
-    cursor: pointer; font-size: 0.85rem;
-}
-.crud-modal-btn-delete:hover { opacity: 0.9; }
-.crud-modal-btn-cancel {
-    background: none; border: 1px solid color-mix(in srgb, var(--body-fg) 20%, var(--body-bg));
-    color: var(--body-fg); padding: 0.5rem 1.25rem; border-radius: var(--radius-sm, 4px);
-    cursor: pointer; font-size: 0.85rem;
-}
-.crud-modal-btn-cancel:hover {
-    background: color-mix(in srgb, var(--body-fg) 5%, var(--body-bg));
-}
-</style>
+<link rel="stylesheet" href="{% static 'smallstack/css/templates/crud/includes/delete_modal.css' %}">
 
-<script>
-let _crudDeleteRow = null;
-let _crudDeleteUrl = null;
-
-function crudDeleteModal(el, name) {
-    var errorEl = document.getElementById('crud-delete-error');
-    var btn = document.getElementById('crud-delete-confirm');
-    var cancelBtn = document.querySelector('.crud-modal-btn-cancel');
-    document.getElementById('crud-delete-title').textContent = 'Confirm Delete';
-    document.getElementById('crud-delete-name').textContent = name;
-    errorEl.style.display = 'none';
-    errorEl.textContent = '';
-    btn.style.display = '';
-    btn.disabled = false;
-    btn.textContent = 'Delete';
-    cancelBtn.textContent = 'Cancel';
-    _crudDeleteUrl = el.getAttribute('data-delete-url');
-    _crudDeleteRow = el.closest('tr');
-    document.getElementById('crud-delete-modal').style.display = 'flex';
-}
-
-function crudDeleteModalClose() {
-    document.getElementById('crud-delete-modal').style.display = 'none';
-    _crudDeleteRow = null;
-    _crudDeleteUrl = null;
-}
-
-function crudDeleteConfirm() {
-    if (!_crudDeleteUrl) return;
-    var btn = document.getElementById('crud-delete-confirm');
-    btn.disabled = true;
-    btn.textContent = 'Deleting…';
-
-    fetch(_crudDeleteUrl, {
-        method: 'POST',
-        headers: {
-            'X-CSRFToken': '{{ csrf_token }}',
-            'X-Requested-With': 'XMLHttpRequest',
-        },
-        redirect: 'manual',
-    }).then(function(resp) {
-        if (resp.ok || resp.type === 'opaqueredirect') {
-            // Success — remove row or reload
-            if (_crudDeleteRow) {
-                _crudDeleteRow.style.transition = 'opacity 0.3s';
-                _crudDeleteRow.style.opacity = '0';
-                setTimeout(function() { _crudDeleteRow.remove(); }, 300);
-                crudDeleteModalClose();
-            } else {
-                var listUrl = document.querySelector('[data-list-url]');
-                window.location.href = listUrl
-                    ? listUrl.getAttribute('data-list-url')
-                    : window.location.pathname.replace(/[^/]+\/$/, '');
-            }
-        } else {
-            // Error — show message, hide delete button, change cancel to close
-            return resp.text().then(function(msg) {
-                var errorEl = document.getElementById('crud-delete-error');
-                document.getElementById('crud-delete-title').textContent = 'Cannot Delete';
-                errorEl.textContent = msg || 'Delete failed.';
-                errorEl.style.display = 'block';
-                btn.style.display = 'none';
-                document.querySelector('.crud-modal-btn-cancel').textContent = 'Close';
-            });
-        }
-    }).catch(function() {
-        var errorEl = document.getElementById('crud-delete-error');
-        errorEl.textContent = 'Network error — please try again.';
-        errorEl.style.display = 'block';
-    }).finally(function() {
-        btn.disabled = false;
-        btn.textContent = 'Delete';
-    });
-}
-
-// Close modal on overlay click
-document.addEventListener('click', function(e) {
-    if (e.target.id === 'crud-delete-modal') crudDeleteModalClose();
-});
-
-// Close on Escape
-document.addEventListener('keydown', function(e) {
-    if (e.key === 'Escape') crudDeleteModalClose();
-});
-</script>
+<script src="{% static 'smallstack/js/templates/crud/includes/delete_modal.js' %}"
+        data-csrf-token="{{ csrf_token }}"></script>

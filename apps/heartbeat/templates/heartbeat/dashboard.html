@@ -1,4 +1,5 @@
 {% extends "smallstack/base.html" %}
+{% load static %}
 {% load theme_tags %}
 
 {% block title %}Heartbeat Dashboard{% endblock %}
@@ -6,28 +7,7 @@
 {% block breadcrumbs %}{% endblock %}
 
 {% block extra_css %}
-<style>
-    /* Sortable log-table headers (sortable_th tag) — hover handled by .th-sort. */
-    .crud-table thead th .th-sort:hover { color: var(--primary); }
-    .tab-bar {
-        margin-top: 12px;
-        margin-bottom: 0;
-    }
-
-
-    /* JSON display */
-    .json-display {
-        background: color-mix(in srgb, var(--primary) 4%, var(--body-bg));
-        border-radius: 6px;
-        padding: 20px;
-        font-family: monospace;
-        font-size: 0.85rem;
-        line-height: 1.6;
-        white-space: pre;
-        overflow-x: auto;
-        color: var(--body-fg);
-    }
-</style>
+<link rel="stylesheet" href="{% static 'heartbeat/css/templates/dashboard.css' %}">
 {% endblock %}
 
 {% block page_header %}
@@ -70,9 +50,9 @@
 <div class="card">
     <div class="card-header" style="padding-bottom: 0;">
         <div class="view-bar">
-            <button class="view-btn{% if active_view == 'timelines' %} active{% endif %}" onclick="switchView('timelines', this)">Timelines</button>
-            <button class="view-btn{% if active_view == 'log' %} active{% endif %}" onclick="switchView('log', this)">Heartbeat Log</button>
-            <button class="view-btn{% if active_view == 'json' %} active{% endif %}" onclick="switchView('json', this)">JSON</button>
+            <button class="view-btn{% if active_view == 'timelines' %} active{% endif %}" data-ss-action="switchView" data-ss-args='["timelines", "$this"]'>Timelines</button>
+            <button class="view-btn{% if active_view == 'log' %} active{% endif %}" data-ss-action="switchView" data-ss-args='["log", "$this"]'>Heartbeat Log</button>
+            <button class="view-btn{% if active_view == 'json' %} active{% endif %}" data-ss-action="switchView" data-ss-args='["json", "$this"]'>JSON</button>
         </div>
     </div>
 
@@ -93,21 +73,21 @@
                             hx-get="{% url 'heartbeat:dashboard' %}?tab=all"
                             hx-target="#tab-content"
                             hx-swap="innerHTML"
-                            onclick="setActiveTab(this)">
+                            data-ss-action="setActiveTab" data-ss-args='["$this"]'>
                         All <span class="tab-count">{{ total_heartbeats }}</span>
                     </button>
                     <button class="tab-btn{% if active_tab == 'ok' %} active{% endif %}"
                             hx-get="{% url 'heartbeat:dashboard' %}?tab=ok"
                             hx-target="#tab-content"
                             hx-swap="innerHTML"
-                            onclick="setActiveTab(this)">
+                            data-ss-action="setActiveTab" data-ss-args='["$this"]'>
                         OK <span class="tab-count">{{ ok_count }}</span>
                     </button>
                     <button class="tab-btn{% if active_tab == 'fail' %} active{% endif %}"
                             hx-get="{% url 'heartbeat:dashboard' %}?tab=fail"
                             hx-target="#tab-content"
                             hx-swap="innerHTML"
-                            onclick="setActiveTab(this)">
+                            data-ss-action="setActiveTab" data-ss-args='["$this"]'>
                         Failures <span class="tab-count" {% if fail_count %}style="background: color-mix(in srgb, var(--error-fg) 15%, var(--card-bg)); color: var(--error-fg);"{% endif %}>{{ fail_count }}</span>
                     </button>
                 </div>
@@ -127,7 +107,7 @@
                 <div style="font-size: 0.8rem; color: var(--body-quiet-color);">
                     <code>GET {% url 'heartbeat:status_json' %}</code>
                 </div>
-                <button onclick="copyJson()" style="background: color-mix(in srgb, var(--primary) 20%, var(--body-bg)); color: var(--primary); padding: 0.4rem 0.8rem; border: none; border-radius: var(--radius-sm, 4px); cursor: pointer; font-size: 0.8rem;" id="copy-json-btn">Copy</button>
+                <button data-ss-action="copyJson" style="background: color-mix(in srgb, var(--primary) 20%, var(--body-bg)); color: var(--primary); padding: 0.4rem 0.8rem; border: none; border-radius: var(--radius-sm, 4px); cursor: pointer; font-size: 0.8rem;" id="copy-json-btn">Copy</button>
             </div>
             <div class="json-display" id="json-content">{{ status_json }}</div>
         </div>
@@ -136,23 +116,5 @@
 {% endblock %}
 
 {% block extra_js %}
-<script>
-function switchView(viewName, btn) {
-    document.querySelectorAll('.view-panel').forEach(function(p) { p.classList.remove('active'); });
-    document.querySelectorAll('.view-btn').forEach(function(b) { b.classList.remove('active'); });
-    document.getElementById('view-' + viewName).classList.add('active');
-    btn.classList.add('active');
-}
-function setActiveTab(btn) {
-    document.querySelectorAll('.tab-btn').forEach(function(b) { b.classList.remove('active'); });
-    btn.classList.add('active');
-}
-function copyJson() {
-    var text = document.getElementById('json-content').textContent;
-    navigator.clipboard.writeText(text);
-    var btn = document.getElementById('copy-json-btn');
-    btn.textContent = 'Copied!';
-    setTimeout(function() { btn.textContent = 'Copy'; }, 1500);
-}
-</script>
+<script src="{% static 'heartbeat/js/templates/dashboard.js' %}"></script>
 {% endblock %}

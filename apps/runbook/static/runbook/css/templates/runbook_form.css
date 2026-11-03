@@ -1,0 +1,25 @@
+/* Moved from apps/runbook/templates/runbook/runbook_form.html (inline <style>). */
+.rb-form-card { max-width: 620px; }
+.icon-picker { display: flex; align-items: center; gap: 12px; }
+.icon-picker-preview {
+    width: 46px; height: 46px; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.6rem; line-height: 1;
+    background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 10px;
+}
+.icon-input { max-width: 110px; text-align: center; }
+.icon-grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(42px, 1fr));
+    gap: 6px; margin-top: 12px;
+}
+.icon-choice {
+    height: 42px; font-size: 1.3rem; line-height: 1; cursor: pointer;
+    background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 8px;
+    transition: border-color .12s ease, background .12s ease, transform .06s ease;
+}
+.icon-choice:hover { border-color: var(--primary); }
+.icon-choice:active { transform: scale(0.94); }
+.icon-choice.selected {
+    border-color: var(--primary);
+    background: color-mix(in srgb, var(--primary) 18%, var(--card-bg));
+}

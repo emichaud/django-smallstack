@@ -1,0 +1,37 @@
+/* Moved from apps/approvals/templates/approvals/partials/request_card.html (inline <style>). */
+.approval-embed-card {
+    background: var(--card-bg); border: 1px solid var(--card-border);
+    border-left: 3px solid var(--warning-fg);
+    border-radius: var(--radius-md, 8px);
+    padding: 0.9rem 1.1rem; display: flex; flex-direction: column; gap: 0.6rem;
+}
+.approval-embed-card--approved { border-left-color: var(--success-fg); }
+.approval-embed-card--rejected, .approval-embed-card--expired { border-left-color: var(--error-fg); }
+.approval-embed-card--canceled { border-left-color: var(--body-quiet-color); }
+.approval-embed-head { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; }
+.approval-embed-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--warning-fg); flex-shrink: 0; }
+.approval-embed-card--approved .approval-embed-dot { background: var(--success-fg); }
+.approval-embed-card--rejected .approval-embed-dot, .approval-embed-card--expired .approval-embed-dot { background: var(--error-fg); }
+.approval-embed-card--canceled .approval-embed-dot { background: var(--body-quiet-color); }
+.approval-embed-title { font-weight: 700; color: var(--body-fg); }
+.approval-embed-status {
+    margin-left: auto; font-size: 0.72rem; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.05em; color: var(--body-quiet-color);
+}
+.approval-embed-desc { margin: 0; font-size: 0.85rem; color: var(--body-quiet-color); }
+.approval-embed-outcome { font-size: 0.85rem; color: var(--body-quiet-color); }
+.approval-context-card {
+    background: color-mix(in srgb, var(--body-fg) 4%, var(--card-bg));
+    border: 1px solid var(--card-border); border-radius: var(--radius-sm, 6px);
+    padding: 0.7rem 0.9rem; display: flex; flex-direction: column; gap: 0.4rem;
+}
+.approval-context-row { display: flex; gap: 0.6rem; font-size: 0.85rem; align-items: baseline; }
+.approval-context-label {
+    font-size: 0.68rem; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.05em; color: var(--body-quiet-color); min-width: 4rem;
+}
+.approval-context-json {
+    margin: 0; font-size: 0.78rem; overflow-x: auto;
+    font-family: var(--font-monospace, ui-monospace, Menlo, monospace);
+    color: var(--body-fg);
+}

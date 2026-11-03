@@ -225,13 +225,17 @@ CSRF_COOKIE_SAMESITE = "Lax"
 
 # Content Security Policy (django-csp)
 # Styles, fonts, and images allow "https:" so CDN frameworks (Bootstrap, Tailwind,
-# Google Fonts, etc.) work out of the box. Scripts stay restricted to 'self' — that's
-# where XSS risk lives. Tighten these in production if you don't use external resources,
-# or loosen script-src if you need third-party analytics/widgets.
+# Google Fonts, etc.) work out of the box. Scripts are restricted to 'self' with NO
+# 'unsafe-inline' — that's where XSS risk lives, and it's what makes an injected
+# <script> or onclick="…" inert. SmallStack's templates carry no inline script: behaviour
+# is data- attributes handled by static JS (docs/skills/templates.md), server values ride
+# on data- attributes or JSON data blocks. Keep your own templates that way, or this
+# policy blocks them (the browser console names the blocked line). Loosen script-src
+# only for a specific third-party origin you trust (analytics, widgets).
 CONTENT_SECURITY_POLICY = {
     "DIRECTIVES": {
         "default-src": ["'self'"],
-        "script-src": ["'self'", "'unsafe-inline'"],
+        "script-src": ["'self'"],
         "style-src": ["'self'", "'unsafe-inline'", "https:"],
         "img-src": ["'self'", "data:", "https:"],
         "font-src": ["'self'", "https:", "data:"],

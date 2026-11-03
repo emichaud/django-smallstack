@@ -61,9 +61,7 @@
     </div>
 </div>
 
-<script>
-    window.SLIDE_TITLES = [{% for slide in slides %}"{{ slide.title|escapejs }}"{% if not forloop.last %}, {% endif %}{% endfor %}];
-</script>
+<script type="application/json" id="slide-titles">[{% for slide in slides %}"{{ slide.title|escapejs }}"{% if not forloop.last %}, {% endif %}{% endfor %}]</script>
 {% endblock %}
 
 {% block extra_js %}

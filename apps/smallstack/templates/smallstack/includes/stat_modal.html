@@ -5,11 +5,11 @@ the {% stat_card %} tag (it wires hx-get / hx-target / openStatModal for you).
 The open/close JS lives in static/smallstack/js/theme.js. See
 docs/skills/dashboard-cards.md.
 {% endcomment %}
-<div id="stat-modal" class="stat-modal" role="dialog" aria-modal="true" aria-labelledby="stat-modal-title" onclick="if(event.target===this)closeStatModal()">
+<div id="stat-modal" class="stat-modal" role="dialog" aria-modal="true" aria-labelledby="stat-modal-title">
     <div class="card stat-modal-panel">
         <div class="card-header" style="display: flex; align-items: center; justify-content: space-between;">
             <h2 id="stat-modal-title">Details</h2>
-            <button type="button" onclick="closeStatModal()" aria-label="Close" style="background: none; border: none; font-size: 1.4rem; cursor: pointer; color: var(--body-quiet-color); line-height: 1; padding: 0 4px;"><span aria-hidden="true">&times;</span></button>
+            <button type="button" data-stat-modal-close aria-label="Close" style="background: none; border: none; font-size: 1.4rem; cursor: pointer; color: var(--body-quiet-color); line-height: 1; padding: 0 4px;"><span aria-hidden="true">&times;</span></button>
         </div>
         <div class="card-body" style="padding: 0;">
             <div id="stat-modal-body">

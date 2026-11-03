@@ -115,9 +115,73 @@ Breaking-change migration recipes live in [`UPGRADING.md`](UPGRADING.md).
 - **`@dataset(access="staff"|"auth")`** (default `staff`) declares who may read a
   dataset through in-app surfaces that evaluate it for a user (metrics, dashboards,
   reports). `apps.datasets.registry.user_may_read()` checks it.
+- **Template `<style>` blocks moved into stylesheets.** 53 blocks (about 7,200 lines across 52
+  templates) are now `<app>/css/templates/<template>.css`, linked where each block was so the
+  cascade order is unchanged.
+  - Identical blocks share a file. The 400/403/404 pages share `errors.css`.
+  - `500.html` keeps its CSS inline on purpose (it must render without static files), and so
+    does the Swagger page's brand-logo rule.
+  - Verified by pixel-diffing all 191 pages before and after: no visual change. The only
+    differences were live data, confirmed by a second identical run.
+  - New tests fail on a new inline `<style>` block, and on any `{% static %}` path a template
+    references that doesn't exist.
+  - `style="…"` attributes are unchanged, and `style-src` still allows them.
+- **The CSP's `script-src` drops `'unsafe-inline'`** (in settings, on the API docs pages and on
+  the MCP consent page). An injected `<script>` or `onerror=` no longer runs.
+  - All 65 inline `<script>` blocks moved into static files that mirror the template tree
+    (`<app>/js/templates/<template>.js`), loaded where each block was so timing is unchanged.
+  - Server values reach those scripts as `data-` attributes on their own tag
+    (`document.currentScript.dataset`); lists use JSON data blocks.
+  - The pre-paint theme snippet, copied into ten page shells, is now one
+    `smallstack/js/theme-init.js`. `window.SMALLSTACK` comes from `smallstack/js/config.js`.
+  - The bulk-update fragment's Python-built `<script>` became a delegated listener.
+  - Verified in a real browser with the policy enforced: 191 pages showed no CSP violations or
+    script errors, and an injected inline handler and inline script were blocked and reported.
+  - New tests fail on an inline executable `<script>` in any template, and on `'unsafe-inline'` or
+    `'unsafe-eval'` in `script-src`.
+  - Fixed along the way:
+    - **The bulk-update dialog's field checkboxes never revealed their inputs.** The fragment's
+      `<script>` was inserted with `innerHTML`, which doesn't execute scripts.
+    - **A deleted CRUD row faded out but was never removed,** and an error was logged, because the
+      modal cleared its row reference before the fade finished.
+  - *Upgrade note:* the browser now blocks inline `<script>` blocks and `on…=` handlers in your
+    own templates. Move them as described in `docs/skills/templates.md`. As a stopgap, add
+    `"'unsafe-inline'"` back to `CONTENT_SECURITY_POLICY["DIRECTIVES"]["script-src"]` in your
+    settings.
+- **No inline event handlers anywhere in the templates.** About 150 `onclick` / `onsubmit` /
+  `onchange` / `onkeydown` / `onmouseover` handlers in 55 templates are gone, covering CRUD
+  tables, delete and bulk modals, backups, heartbeat, runbook, help, telemetry, tokens, webhooks,
+  search, activity, calendar, blog and the starter pages. Behaviour is declared with data-
+  attributes and carried out by delegated listeners in `theme.js`:
+  - Generic behaviours: `data-confirm` (forms, links, buttons; checked in the capture phase so a
+    "no" stops htmx too), `data-autosubmit`, `data-copy` / `data-copy-text`, `data-scroll-to`,
+    `data-toggle-class`, `data-activate-in` and `data-keyclick`.
+  - Page functions: `data-ss-action="name"` plus `data-ss-args` (JSON, with `"$this"` and
+    `"$event"`). It calls only functions a script registered on `SmallStack.actions`, so markup
+    can't reach arbitrary globals. The `data-ss-` prefix avoids colliding with Stimulus-style
+    `data-action`.
+  - The focus button's hover moved from JavaScript into CSS. `event.stopPropagation()` handlers
+    that guarded nothing were removed; the bulk-select code listens for `change`, and links inside
+    `<summary>` navigate either way.
+  - `dashboard.js` dropped its own copy and auto-submit handlers in favour of these.
+  - New tests in `test_template_hygiene.py` fail on any inline handler, on a `data-ss-action` no
+    script registers, and on a template value in `data-ss-args` without `|escapejs`.
+  - Documented in `docs/skills/templates.md`.
+  - Fixed along the way: the starter page's demo "action card" called a `doAction()` that never
+    existed.
 - **`Dataset.series(..., grain=)`** is call_stats' time-grain grammar, lifted into SmallStack's
   datasets: calendar buckets with Monday weeks and `lo`/`hi` bounds.
 - **Filter descriptions read ISO datetimes as local dates or times** ("Timestamp ≥ 2026-10-19").
+- **Declarative stat modal**:
+  - Opening the global drill-down modal no longer needs inline JavaScript. `data-stat-modal="Title"`
+    on any element opens it with that title (an `<a>` doesn't navigate), and `data-stat-modal-close`
+    or the backdrop closes it. One delegated listener in `theme.js` handles both.
+  - `{% stat_card %}`, the modal's own close button and backdrop, and the CRUD table's
+    `confirm_modal` delete now use it. `openStatModal` / `closeStatModal` stay on `window`, so
+    existing inline callers keep working.
+  - This is a step toward dropping `'unsafe-inline'` from the CSP's `script-src`. The remaining
+    inline handlers are in runbook, the backups page, the explorer example and the generic CRUD
+    delete confirmation.
 - **`CRUDView.view_mixins = {Action.DELETE: [MyMixin], …}`** is the supported way to customise one
   generated HTML view. The mixins are ordinary Django mixins placed between the auth mixins and the
   generated base, so they use `super()`. It replaces overriding `_make_view` and assigning functions

@@ -1,4 +1,5 @@
 {% extends "smallstack/base.html" %}
+{% load static %}
 {% load theme_tags %}
 
 {% block title %}Search diagnostics · SmallStack{% endblock %}
@@ -140,7 +141,7 @@
   <div class="card">
     <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
       <span>Copyable report</span>
-      <button type="button" class="btn-outline btn-sm" onclick="ssCopyDiag(this)">Copy</button>
+      <button type="button" class="btn-outline btn-sm" data-ss-action="ssCopyDiag" data-ss-args='["$this"]'>Copy</button>
     </div>
     <div class="card-body" style="padding: 0;">
       <pre id="ss-diag-report" style="margin: 0; padding: 1rem; overflow-x: auto; font-size: 0.8rem; line-height: 1.5;">{{ report_text }}</pre>
@@ -149,14 +150,5 @@
 
 </div>
 
-<script>
-  function ssCopyDiag(btn) {
-    var text = document.getElementById("ss-diag-report").textContent;
-    navigator.clipboard.writeText(text).then(function () {
-      var original = btn.textContent;
-      btn.textContent = "Copied";
-      setTimeout(function () { btn.textContent = original; }, 1500);
-    });
-  }
-</script>
+<script src="{% static 'search/js/templates/diagnostics.js' %}"></script>
 {% endblock %}

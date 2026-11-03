@@ -1,14 +1,15 @@
+{% load static %}
 {% load theme_tags %}
 <!-- ── Tab navigation ─────────────────────────────────────────── -->
 <div class="tab-bar">
-    <button type="button" id="tab-activity" class="tab-btn active" onclick="switchBackupTab('activity')">
+    <button type="button" id="tab-activity" class="tab-btn active" data-ss-action="switchBackupTab" data-ss-args='["activity"]'>
         Backup Activity
     </button>
-    <button type="button" id="tab-files" class="tab-btn" onclick="switchBackupTab('files')">
+    <button type="button" id="tab-files" class="tab-btn" data-ss-action="switchBackupTab" data-ss-args='["files"]'>
         Files
         <span class="tab-count">{{ backup_files|length }}</span>
     </button>
-    <button type="button" id="tab-config" class="tab-btn" onclick="switchBackupTab('config')">
+    <button type="button" id="tab-config" class="tab-btn" data-ss-action="switchBackupTab" data-ss-args='["config"]'>
         Configuration
         <span style="display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: {% if email_is_console or not admins %}var(--error-fg){% else %}var(--success-fg){% endif %};"></span>
     </button>
@@ -74,7 +75,7 @@
 
         <!-- Admins Status -->
         {% if admins %}
-        <div class="config-status-card config-status-ok" style="cursor: pointer;" role="button" tabindex="0" aria-haspopup="dialog" aria-label="{{ admins|length }} admin{{ admins|length|pluralize }} receiving failure alerts — show details" onclick="openStatModal('Notify Admins', this);document.getElementById('stat-modal-body').innerHTML=document.getElementById('admins-table-source').innerHTML" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}">
+        <div class="config-status-card config-status-ok" style="cursor: pointer;" role="button" tabindex="0" aria-haspopup="dialog" aria-label="{{ admins|length }} admin{{ admins|length|pluralize }} receiving failure alerts — show details" data-stat-modal="Notify Admins" data-ss-action="fillStatModalFrom" data-ss-args='["admins-table-source"]' data-keyclick>
             <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor" aria-hidden="true">
                 <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
             </svg>
@@ -122,7 +123,7 @@
                         {% if is_sqlite %}
                         <tr>
                             <td class="config-label">Path</td>
-                            <td><code style="font-size: 0.8rem;">{{ db_path }}</code> <button type="button" onclick="navigator.clipboard.writeText('{{ db_path }}')" title="Copy path" class="config-copy-btn"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg></button></td>
+                            <td><code style="font-size: 0.8rem;">{{ db_path }}</code> <button type="button" data-copy-text="{{ db_path }}" title="Copy path" class="config-copy-btn"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg></button></td>
                         </tr>
                         <tr>
                             <td class="config-label">Size</td>
@@ -141,7 +142,7 @@
                     <tbody>
                         <tr>
                             <td class="config-label">Directory</td>
-                            <td><code style="font-size: 0.8rem;">{{ backup_dir }}</code> <button type="button" onclick="navigator.clipboard.writeText('{{ backup_dir }}')" title="Copy path" class="config-copy-btn"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg></button></td>
+                            <td><code style="font-size: 0.8rem;">{{ backup_dir }}</code> <button type="button" data-copy-text="{{ backup_dir }}" title="Copy path" class="config-copy-btn"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg></button></td>
                         </tr>
                         <tr>
                             <td class="config-label">Retention</td>
@@ -176,19 +177,4 @@
     </div>
 </div>
 
-<script>
-function switchBackupTab(tab) {
-    var tabs = ['activity', 'files', 'config'];
-    tabs.forEach(function(t) {
-        var panel = document.getElementById('panel-' + t);
-        var btn = document.getElementById('tab-' + t);
-        if (t === tab) {
-            panel.style.display = '';
-            btn.classList.add('active');
-        } else {
-            panel.style.display = 'none';
-            btn.classList.remove('active');
-        }
-    });
-}
-</script>
+<script src="{% static 'smallstack/js/templates/partials/backup_page_content.js' %}"></script>

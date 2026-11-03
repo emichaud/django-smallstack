@@ -225,6 +225,9 @@
     });
 
     window.__smallstackOmnibar = { open, close };
+    // The topbar search button opens it declaratively (data-ss-action="openOmnibar").
+    window.SmallStack = window.SmallStack || {};
+    window.SmallStack.actions = Object.assign(window.SmallStack.actions || {}, { openOmnibar: open });
   }
 
   function escapeHtml(s) {

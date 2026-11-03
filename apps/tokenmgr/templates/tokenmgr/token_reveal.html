@@ -47,7 +47,7 @@
         white-space: pre-wrap;
       ">{{ raw_key }}</pre>
       <button type="button" id="copy-btn" class="btn-outline"
-        onclick="(function(b){const t=document.getElementById('token-key').innerText;navigator.clipboard.writeText(t).then(()=>{b.textContent='Copied!';setTimeout(()=>b.textContent='Copy',1500)});})(this)"
+        data-copy="token-key"
         style="
           position: absolute; top: 8px; right: 8px;
           padding: 4px 10px;

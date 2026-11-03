@@ -40,7 +40,7 @@
            placeholder="Search documents by title or content…" autofocus>
     <button type="submit" class="btn-primary">Search</button>
     <a href="{% url 'runbook:document_list' %}" class="btn-secondary">Clear</a>
-    <select name="section" class="rb-doclist-select" onchange="this.form.submit()">
+    <select name="section" class="rb-doclist-select" data-autosubmit>
         <option value="">All sections</option>
         {% for sec in sections %}
         <option value="{{ sec.slug }}" {% if active_section == sec.slug %}selected{% endif %}>{{ sec.name }}</option>

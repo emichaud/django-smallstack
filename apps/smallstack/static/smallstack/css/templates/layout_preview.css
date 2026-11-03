@@ -1,0 +1,332 @@
+/* Moved from apps/smallstack/templates/smallstack/layout_preview.html (inline <style>). */
+.layout-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 1.25rem;
+}
+
+.layout-card {
+    position: relative;
+    background: var(--card-bg);
+    border: 2px solid var(--card-border);
+    border-radius: var(--radius-md, 8px);
+    padding: 0;
+    cursor: pointer;
+    transition: border-color 0.2s, box-shadow 0.2s, transform 0.15s;
+    overflow: hidden;
+}
+.layout-card:hover {
+    border-color: var(--primary);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.12);
+    transform: translateY(-2px);
+}
+.layout-card.active {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 25%, transparent);
+}
+.layout-card.active::after {
+    content: "Active";
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    background: var(--primary);
+    color: var(--button-fg);
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    padding: 3px 8px;
+    border-radius: 4px;
+    z-index: 1;
+}
+
+/* Mini layout diagram inside each card.
+   These represent the chrome of a real SmallStack page (topbar /
+   sidebar / content), so they use the SAME palette tokens the real
+   chrome uses — not raw --primary, which on saturated palettes
+   (orange) reads as a loud band that drowns out the page itself.
+   Result: each diagram looks like a tiny version of the actual UI
+   across every palette. */
+.layout-diagram {
+    background: var(--body-bg);
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-height: 120px;
+}
+.diagram-topbar {
+    height: 10px;
+    background: var(--header-bg);
+    border-radius: 2px;
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    padding: 0 4px;
+    border: 1px solid var(--card-border);
+}
+.diagram-topbar-nav {
+    display: flex;
+    gap: 2px;
+    margin-left: 8px;
+}
+.diagram-topbar-nav span {
+    width: 14px;
+    height: 4px;
+    background: color-mix(in srgb, var(--body-fg) 35%, transparent);
+    border-radius: 1px;
+}
+.diagram-body {
+    display: flex;
+    flex: 1;
+    gap: 4px;
+}
+.diagram-sidebar {
+    width: 28px;
+    background: var(--sidebar-bg);
+    border-radius: 2px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 3px 2px;
+    border: 1px solid var(--card-border);
+}
+.diagram-sidebar span {
+    height: 3px;
+    background: color-mix(in srgb, var(--body-fg) 20%, var(--sidebar-bg));
+    border-radius: 1px;
+}
+/* The first sidebar item represents the active row — single accent
+   hint, exactly like the real .nav-link.active treatment. */
+.diagram-sidebar span:first-child {
+    background: var(--primary);
+    opacity: 0.7;
+}
+.diagram-content {
+    flex: 1;
+    background: var(--content-bg);
+    border-radius: 2px;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    padding: 4px;
+}
+.diagram-content span {
+    height: 3px;
+    background: color-mix(in srgb, var(--body-fg) 15%, var(--content-bg));
+    border-radius: 1px;
+}
+.diagram-content span:first-child {
+    width: 60%;
+    height: 4px;
+    background: color-mix(in srgb, var(--body-fg) 25%, var(--content-bg));
+}
+
+.layout-info {
+    padding: 16px;
+}
+.layout-title {
+    font-size: 1rem;
+    font-weight: 600;
+    margin-bottom: 4px;
+}
+.layout-desc {
+    font-size: 0.85rem;
+    color: var(--body-quiet-color);
+    line-height: 1.4;
+}
+.layout-tags {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-top: 10px;
+}
+.layout-tag {
+    font-size: 0.7rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    padding: 2px 8px;
+    border-radius: 4px;
+    background: color-mix(in srgb, var(--primary) 10%, var(--body-bg));
+    color: var(--primary);
+}
+
+
+/* Page-level tabs */
+.page-tabs {
+    display: flex;
+    gap: 0;
+    border-bottom: 2px solid var(--card-border);
+    margin-bottom: 1.5rem;
+}
+.page-tabs button {
+    padding: 0.7rem 1.5rem;
+    border: none;
+    background: transparent;
+    color: var(--body-quiet-color);
+    font-size: 0.92rem;
+    font-weight: 500;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -2px;
+    transition: color 0.15s, border-color 0.15s;
+}
+.page-tabs button:hover { color: var(--body-fg); }
+.page-tabs button.active {
+    color: var(--primary);
+    border-bottom-color: var(--primary);
+}
+.page-tab-panel { display: none; }
+.page-tab-panel.active { display: block; }
+
+/* Docs reference section */
+.ref-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+    gap: 1.25rem;
+}
+.ref-card {
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: var(--radius-md, 8px);
+    overflow: hidden;
+}
+.ref-card-header {
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--card-border);
+    background: transparent;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+.ref-card-header h3 {
+    margin: 0;
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--body-fg);
+}
+.ref-card-header .ref-badge {
+    font-size: 0.68rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    padding: 2px 7px;
+    border-radius: 3px;
+    background: var(--primary);
+    color: var(--button-fg);
+    margin-left: auto;
+}
+.ref-card-body { padding: 18px; }
+
+/* Code blocks */
+.lp-code-wrap {
+    position: relative;
+    background: var(--card-bg) !important;
+    border: 1px solid var(--card-border) !important;
+    border-radius: 6px;
+    overflow: hidden;
+    margin-bottom: 12px;
+}
+.lp-code-wrap:last-child { margin-bottom: 0; }
+.lp-code-wrap pre {
+    margin: 0;
+    padding: 1rem 1.25rem;
+    overflow-x: auto;
+    font-size: 13px !important;
+    line-height: 1.7 !important;
+    color: var(--body-fg) !important;
+    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+    -webkit-font-smoothing: antialiased;
+}
+.lp-code-label {
+    display: block;
+    padding: 0.4rem 1.25rem;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--body-quiet-color);
+    border-bottom: 1px solid var(--card-border);
+    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+}
+.lp-copy-btn {
+    position: absolute;
+    top: 0.5rem;
+    right: 0.5rem;
+    padding: 0.3rem 0.65rem;
+    border: 1px solid var(--card-border);
+    border-radius: 4px;
+    background: color-mix(in srgb, var(--body-fg) 8%, var(--card-bg));
+    color: var(--body-fg);
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: color 0.15s, border-color 0.15s;
+}
+.lp-copy-btn:hover { color: var(--body-fg); border-color: var(--primary); }
+
+.ref-note {
+    font-size: 0.84rem;
+    color: var(--body-quiet-color);
+    line-height: 1.5;
+    margin-top: 10px;
+    padding: 8px 12px;
+    background: var(--card-bg);
+    border-left: 3px solid var(--primary);
+    border-radius: 0 4px 4px 0;
+}
+.ref-note code {
+    background: color-mix(in srgb, var(--body-fg) 5%, var(--card-bg));
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-size: 0.82rem;
+    color: var(--body-fg);
+    border: 1px solid var(--card-border);
+}
+
+.ref-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.84rem;
+    margin-bottom: 10px;
+    background: var(--card-bg) !important;
+    border-radius: 6px;
+    overflow: hidden;
+    border: 1px solid var(--card-border);
+}
+.ref-table tr,
+.ref-table tr:nth-child(odd),
+.ref-table tr:nth-child(even),
+.ref-table thead tr,
+.ref-table tbody tr {
+    background: transparent !important;
+}
+.ref-table th {
+    text-align: left;
+    padding: 8px 14px;
+    font-weight: 500;
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--body-quiet-color);
+    border-bottom: 1px solid var(--card-border);
+    background: transparent !important;
+}
+.ref-table td {
+    padding: 9px 14px;
+    border-bottom: 1px solid var(--hairline-color, var(--card-border));
+    color: var(--body-fg);
+    background: transparent !important;
+    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 0.82rem;
+}
+.ref-table tr:last-child td {
+    border-bottom: none;
+}
+.ref-table code {
+    background: color-mix(in srgb, var(--body-fg) 5%, var(--card-bg));
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-size: 0.82rem;
+    color: var(--body-fg);
+    border: 1px solid var(--card-border);
+}

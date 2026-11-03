@@ -61,7 +61,7 @@
                         <button type="button" class="btn-outline btn-sm"
                             data-download-url="{% url 'runbook:serve_version' ver.pk %}?download"
                             data-download-desc="&quot;{{ document.title }}&quot; v{{ ver.version }} ({{ ver.file_type }})"
-                            onclick="confirmDownload(this)">Download</button>
+                            data-ss-action="confirmDownload" data-ss-args='["$this"]'>Download</button>
                     </td>
                 </tr>
                 {% endfor %}

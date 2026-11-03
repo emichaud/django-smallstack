@@ -205,6 +205,7 @@ The biggest recurring mistakes when AI builds pages in this codebase. All of the
 4. **Manual table zebra striping with `--primary` tints** — accent leaks into every row, competes with data; use `.table-plain` and the striping happens automatically with neutral lift
 5. **Hand-rolling backup scripts / OpenAPI validators / token-mint scripts** — there's already a `manage.py` command for it (check `docs/skills/cli-tools.md`)
 6. **Importing `django.contrib.auth.models.User` directly** — always `settings.AUTH_USER_MODEL` or `get_user_model()`
+7. **Inline JavaScript**: a `<script>…</script>` block or `onclick="…"` in a template. The CSP's `script-src` is `'self'` with no `'unsafe-inline'`, so the browser silently refuses to run it. Put the script in `static/`, pass server values as `data-` attributes on its tag (`document.currentScript.dataset`) or with `json_script`, and use `data-confirm` / `data-ss-action` / `data-stat-modal` instead of handlers. The recipe is in `docs/skills/templates.md`.
 
 ## When you're stuck
 

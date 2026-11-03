@@ -5,7 +5,10 @@
     var total = slides.length;
     if (total === 0) return;
 
-    var titles = window.SLIDE_TITLES || [];
+    // The deck's titles: a JSON data block the page renders (<script type="application/json"
+    // id="slide-titles">), not an inline script — or window.SLIDE_TITLES from older pages.
+    var titlesEl = document.getElementById('slide-titles');
+    var titles = window.SLIDE_TITLES || (titlesEl ? JSON.parse(titlesEl.textContent) : []);
     var current = 0;
 
     var progressBar = document.getElementById("slides-progress-bar");

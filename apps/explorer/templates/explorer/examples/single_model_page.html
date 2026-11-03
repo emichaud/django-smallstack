@@ -1,4 +1,5 @@
 {% extends "smallstack/base.html" %}
+{% load static %}
 {% load theme_tags crud_tags %}
 
 {% block title %}{{ object_verbose_name_plural }} — Explorer{% endblock %}
@@ -6,123 +7,7 @@
 {% block breadcrumbs %}{% endblock %}
 
 {% block extra_css %}
-<style>
-    /* Tabs */
-    .example-tabs {
-        display: flex;
-        gap: 0;
-        border-bottom: none;
-        margin-bottom: 1.25rem;
-    }
-    .example-tabs button {
-        padding: 0.6rem 1.25rem;
-        border: none;
-        background: transparent;
-        color: var(--body-quiet-color);
-        font-size: 0.88rem;
-        font-weight: 500;
-        cursor: pointer;
-        border-bottom: 2px solid transparent;
-        transition: color 0.15s, border-color 0.15s;
-    }
-    .example-tabs button:hover {
-        color: var(--body-fg);
-    }
-    .example-tabs button.active {
-        color: var(--primary);
-        border-bottom-color: var(--primary);
-    }
-    .example-tab-panel { display: none; }
-    .example-tab-panel.active { display: block; }
-
-    /* Code blocks */
-    .example-code-section { margin-bottom: 2.25rem; }
-    .example-code-section h3 {
-        font-size: 1rem;
-        font-weight: 600;
-        margin: 0 0 0.4rem;
-        color: var(--body-fg);
-    }
-    .example-code-section p {
-        font-size: 0.88rem;
-        color: var(--body-quiet-color);
-        margin: 0 0 0.7rem;
-        line-height: 1.55;
-    }
-    .example-code-wrap {
-        position: relative;
-        background: #0a0a0a !important;
-        border: 1px solid #444 !important;
-        border-radius: 6px;
-        overflow: hidden;
-    }
-    [data-theme="light"] .example-code-wrap {
-        background: #f5f5f5 !important;
-        border-color: #d0d0d0 !important;
-    }
-    .example-code-wrap pre {
-        margin: 0;
-        padding: 1.5rem;
-        overflow-x: auto;
-        font-size: 16px !important;
-        line-height: 1.9 !important;
-        color: #fff !important;
-        font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
-        -webkit-font-smoothing: antialiased;
-    }
-    .example-code-wrap pre code {
-        font-size: 16px !important;
-        color: #fff !important;
-    }
-    [data-theme="light"] .example-code-wrap pre {
-        color: #1a1a1a !important;
-    }
-    [data-theme="light"] .example-code-wrap pre code {
-        color: #1a1a1a !important;
-    }
-    .example-code-label {
-        display: block;
-        padding: 0.5rem 1.5rem;
-        font-size: 13px;
-        font-weight: 500;
-        color: #888;
-        border-bottom: 1px solid #444;
-        font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
-    }
-    [data-theme="light"] .example-code-label {
-        color: #666;
-        border-bottom-color: #d0d0d0;
-    }
-    .example-copy-btn {
-        position: absolute;
-        top: 0.6rem;
-        right: 0.6rem;
-        padding: 0.35rem 0.75rem;
-        border: 1px solid #555;
-        border-radius: 6px;
-        background: #222;
-        color: #ccc;
-        font-size: 13px;
-        font-weight: 500;
-        cursor: pointer;
-        transition: color 0.15s, border-color 0.15s, background 0.15s;
-    }
-    .example-copy-btn:hover {
-        color: #fff;
-        border-color: #888;
-        background: #333;
-    }
-    [data-theme="light"] .example-copy-btn {
-        background: #e8e8e8;
-        border-color: #ccc;
-        color: #555;
-    }
-    [data-theme="light"] .example-copy-btn:hover {
-        background: #ddd;
-        border-color: #999;
-        color: #333;
-    }
-</style>
+<link rel="stylesheet" href="{% static 'explorer/css/templates/examples/single_model_page.css' %}">
 {% endblock %}
 
 {% block page_header %}
@@ -400,37 +285,5 @@ class HeartbeatAdmin(admin.ModelAdmin):
 {% endblock %}
 
 {% block extra_js %}
-<script>
-(function() {
-    // Tab switching
-    const tabs = document.getElementById('example-tabs');
-    const panels = document.querySelectorAll('.example-tab-panel');
-    tabs.addEventListener('click', function(e) {
-        const btn = e.target.closest('button[data-tab]');
-        if (!btn) return;
-        tabs.querySelectorAll('button').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        panels.forEach(p => p.classList.toggle('active', p.id === 'tab-' + btn.dataset.tab));
-    });
-
-    // Copy buttons
-    document.querySelectorAll('.example-copy-btn').forEach(btn => {
-        btn.addEventListener('click', function() {
-            const code = this.closest('.example-code-wrap').querySelector('code');
-            const text = code.textContent;
-            navigator.clipboard.writeText(text).then(() => {
-                const orig = this.textContent;
-                this.textContent = 'Copied!';
-                this.style.color = 'var(--primary)';
-                this.style.borderColor = 'var(--primary)';
-                setTimeout(() => {
-                    this.textContent = orig;
-                    this.style.color = '';
-                    this.style.borderColor = '';
-                }, 1500);
-            });
-        });
-    });
-})();
-</script>
+<script src="{% static 'explorer/js/templates/examples/single_model_page.js' %}"></script>
 {% endblock %}

@@ -1,21 +1,12 @@
+{% load static %}
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>500 Server Error</title>
-    <script>
-    (function() {
-        try {
-            var theme = localStorage.getItem('smallstack-theme') || 'dark';
-            document.documentElement.setAttribute('data-theme', theme);
-            var palette = localStorage.getItem('smallstack-palette');
-            if (palette && palette !== 'django') {
-                document.documentElement.setAttribute('data-palette', palette);
-            }
-        } catch(e) {}
-    })();
-    </script>
+    <script src="{% static 'smallstack/js/theme-init.js' %}"></script>
+    {# Kept inline on purpose: this page must render even when static files can't be served. #}
     <style>
         /* Error pages are intentionally standalone (so they render even
            if theme.css fails to load — especially important at 500). The

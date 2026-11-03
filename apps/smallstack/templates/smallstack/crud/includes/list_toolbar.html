@@ -1,3 +1,4 @@
+{% load static %}
 {% if show_toolbar %}
 <div class="list-toolbar{% if toolbar_filters|length > 3 %} has-overflow-filters{% endif %}" id="list-toolbar">
     {% if toolbar_search_fields %}
@@ -65,7 +66,7 @@
     {% if toolbar_filters|length > 3 %}
     <button type="button"
             class="list-toolbar-overflow-toggle"
-            onclick="this.closest('.list-toolbar').classList.toggle('show-overflow')">
+            data-toggle-class="show-overflow" data-toggle-on=".list-toolbar">
         + {{ toolbar_filters|length|add:"-3" }} Filter{{ toolbar_filters|length|add:"-3"|pluralize }}
     </button>
     {% endif %}
@@ -126,10 +127,7 @@
         {% endif %}
         {% endfor %}
     </div>
-    <script>
-    (function(){var p=document.querySelector('#list-toolbar .list-toolbar-overflow-panel');
-    if(p&&p.querySelector('.is-filtered'))p.closest('.list-toolbar').classList.add('show-overflow');})();
-    </script>
+    <script src="{% static 'smallstack/js/templates/crud/includes/list_toolbar.js' %}"></script>
     {% endif %}
 </div>
 {% endif %}

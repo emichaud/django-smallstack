@@ -165,7 +165,7 @@ def _add_csp_for_redirect(resp: HttpResponse, redirect_uri: str) -> HttpResponse
     # in step (the base-uri/object-src hardening was once lost here — audit H5).
     resp["Content-Security-Policy"] = (
         f"default-src 'self'; "
-        f"script-src 'self' 'unsafe-inline'; "
+        f"script-src 'self'; "
         f"style-src 'self' 'unsafe-inline' https:; "
         f"img-src 'self' data: https:; "
         f"font-src 'self' https: data:; "

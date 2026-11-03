@@ -52,7 +52,7 @@
 
 {% if object %}
 <div style="margin-top: 24px;">
-    <form method="post" action="{% url 'runbook:section_delete' object.pk %}" onsubmit="return confirm('Delete section &quot;{{ object.name }}&quot;?');">
+    <form method="post" action="{% url 'runbook:section_delete' object.pk %}" data-confirm="Delete section &quot;{{ object.name }}&quot;?">
         {% csrf_token %}
         <button type="submit" class="btn-danger">Delete Section</button>
     </form>

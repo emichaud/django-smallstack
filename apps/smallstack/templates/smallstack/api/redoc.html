@@ -6,9 +6,7 @@
     <title>API Reference | {{ brand.name }}</title>
     <link rel="icon" type="image/x-icon" href="{% load static %}{% static brand.favicon %}">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
-    <style>
-        body { margin: 0; }
-    </style>
+    <link rel="stylesheet" href="{% static 'smallstack/css/templates/api/redoc.css' %}">
 </head>
 <body>
     <redoc spec-url="{{ schema_url }}"

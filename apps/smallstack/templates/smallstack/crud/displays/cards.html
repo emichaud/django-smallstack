@@ -9,6 +9,6 @@
 {% include "smallstack/crud/includes/empty_state.html" %}
 {% endif %}
 
-{% if is_paginated %}
+{% if is_paginated or page_sizes and page_obj %}
 {% render_paginator page_obj "#crud-display-area" %}
 {% endif %}

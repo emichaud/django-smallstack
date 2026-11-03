@@ -1,0 +1,181 @@
+/* Moved from apps/scheduler/templates/scheduler/crud/form_scheduler.html (inline <style>). */
+/* ── layout ─────────────────────────────────────────────────── */
+.sjf { display: flex; flex-direction: column; gap: 1rem; }
+
+/* Two rails: cadence editor left, behavior + next-runs feedback right.
+   The rail holds exactly the short controls that wasted full-width rows in
+   the single-column layout, and keeps the fire-time preview visible while
+   the cadence is being edited. */
+.sjf-grid { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(16rem, 1fr); gap: 1rem; align-items: start; }
+.sjf-col-main, .sjf-col-rail { display: flex; flex-direction: column; gap: 1rem; min-width: 0; }
+@media (max-width: 940px) { .sjf-grid { grid-template-columns: 1fr; } }
+.sjf-actions { margin-top: 0.25rem; }
+.sjf-stack { display: flex; flex-direction: column; gap: 0.9rem; }
+.sjf-section {
+    background: var(--card-bg, var(--body-bg));
+    border: 1px solid var(--card-border, color-mix(in srgb, var(--body-fg) 10%, var(--body-bg)));
+    border-radius: var(--radius-md, 8px);
+    overflow: hidden;
+}
+.sjf-section-header {
+    display: flex; align-items: center; gap: 0.5rem;
+    padding: 0.7rem 1.1rem;
+    background: color-mix(in srgb, var(--body-fg) 4%, var(--body-bg));
+    border-bottom: 1px solid color-mix(in srgb, var(--body-fg) 8%, var(--body-bg));
+    font-weight: 600; font-size: 0.82rem; letter-spacing: 0.01em;
+    color: var(--body-fg);
+}
+.sjf-section-header svg { color: var(--primary); flex-shrink: 0; }
+/* ── schedule-override banner ───────────────────────────────── */
+.sjf-override-note {
+    display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;
+    padding: 0.6rem 0.9rem; border-radius: var(--radius-sm, 6px);
+    background: color-mix(in srgb, var(--warning-fg) 12%, var(--body-bg));
+    border: 1px solid color-mix(in srgb, var(--warning-fg) 35%, transparent);
+    color: var(--body-fg); font-size: 0.85rem;
+}
+.sjf-override-note > span { display: inline-flex; align-items: center; gap: 0.4rem; }
+.sjf-override-note svg { color: var(--warning-fg); }
+.sjf-reset-btn {
+    margin-left: auto; padding: 5px 12px; border-radius: var(--radius-sm, 5px);
+    border: 1px solid var(--card-border, color-mix(in srgb, var(--body-fg) 20%, var(--body-bg)));
+    background: var(--body-bg); color: var(--body-fg);
+    font-size: 0.8rem; font-weight: 600; font-family: inherit; cursor: pointer; transition: all 0.13s;
+}
+.sjf-reset-btn:hover { border-color: var(--primary); color: var(--primary); }
+.sjf-section-body { padding: 0.95rem; display: flex; flex-direction: column; gap: 0.85rem; }
+.sjf-span { grid-column: 1 / -1; }
+.sjf-field { display: flex; flex-direction: column; gap: 0.35rem; }
+.sjf-field .crud-label { font-size: 0.8rem; font-weight: 600; color: var(--body-fg); }
+.sjf-hidden-native { display: none; }
+.sjf-formerror { color: var(--error-fg); font-size: 0.85rem; }
+
+/* ── live summary ───────────────────────────────────────────── */
+.sjf-summary {
+    display: flex; align-items: center; gap: 0.6rem;
+    padding: 0.8rem 1rem;
+    border-radius: var(--radius-sm, 6px);
+    border: 1px solid color-mix(in srgb, var(--primary) 35%, transparent);
+    border-left: 3px solid var(--primary);
+    background: var(--accent-band-bg, color-mix(in srgb, var(--primary) 8%, var(--body-bg)));
+    color: var(--body-fg);
+    font-size: 0.95rem; font-weight: 500;
+}
+.sjf-summary svg { color: var(--primary); flex-shrink: 0; }
+#sjf-summary-text b { color: var(--primary); font-weight: 700; }
+
+/* ── segmented control (schedule type, cron freq) ───────────── */
+.sjf-seg {
+    display: inline-flex; flex-wrap: wrap; gap: 3px;
+    background: color-mix(in srgb, var(--body-fg) 6%, var(--body-bg));
+    border-radius: var(--radius-sm, 6px);
+    padding: 3px;
+}
+.sjf-seg-btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 8px 16px;
+    border: none; border-radius: var(--radius-sm, 5px);
+    background: transparent; color: var(--text-muted, var(--body-quiet-color));
+    font-size: 0.85rem; font-weight: 600; font-family: inherit;
+    cursor: pointer; transition: background 0.15s, color 0.15s;
+}
+.sjf-seg-btn:hover { color: var(--body-fg); background: color-mix(in srgb, var(--body-fg) 6%, var(--body-bg)); }
+.sjf-seg-btn.active { background: var(--primary); color: var(--button-fg); box-shadow: var(--shadow-sm, 0 1px 3px rgba(0,0,0,0.25)); }
+.sjf-seg-btn.active svg { color: var(--button-fg); }
+.sjf-seg-sm .sjf-seg-btn { padding: 6px 12px; font-size: 0.8rem; }
+
+/* ── builder box ────────────────────────────────────────────── */
+.sjf-builder {
+    display: flex; flex-direction: column; gap: 0.9rem;
+    padding: 0.95rem;
+    border: 1px dashed color-mix(in srgb, var(--body-fg) 16%, var(--body-bg));
+    border-radius: var(--radius-sm, 6px);
+    background: color-mix(in srgb, var(--body-fg) 2.5%, var(--body-bg));
+}
+.sjf-inline { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; }
+.sjf-lead { color: var(--body-quiet-color); font-size: 0.88rem; }
+.sjf-num { width: 5.5rem !important; text-align: center; }
+.sjf-time { width: 8.5rem !important; }
+
+/* ── chips (presets, day-of-week) ───────────────────────────── */
+.sjf-chips { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+.sjf-chip {
+    padding: 5px 12px;
+    border: 1px solid var(--card-border, color-mix(in srgb, var(--body-fg) 15%, var(--body-bg)));
+    border-radius: 999px;
+    background: transparent; color: var(--body-quiet-color);
+    font-size: 0.8rem; font-weight: 600; font-family: inherit;
+    cursor: pointer; transition: all 0.13s;
+}
+.sjf-chip:hover { color: var(--body-fg); border-color: var(--primary); }
+.sjf-chip.active {
+    background: color-mix(in srgb, var(--primary) 16%, var(--body-bg));
+    border-color: var(--primary); color: var(--primary);
+}
+
+/* ── cron controls ──────────────────────────────────────────── */
+.sjf-cron-controls { display: flex; flex-direction: column; gap: 0.75rem; }
+.sjf-cron-row { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; }
+.sjf-cron-row[hidden] { display: none; }
+.sjf-cron-raw-row { display: flex; flex-direction: column; gap: 0.35rem; }
+.sjf-cron-raw-row .sjf-cron-legend {
+    display: grid; grid-template-columns: repeat(5, 1fr);
+    max-width: 26rem; gap: 2px;
+    font-size: 0.62rem; letter-spacing: 0.04em; text-transform: uppercase;
+    color: var(--body-quiet-color); text-align: center;
+}
+.sjf-raw input { font-family: ui-monospace, "Cascadia Code", Menlo, monospace; max-width: 26rem; }
+.sjf-cron-legend span { padding: 1px 0; }
+
+/* ── toggle switch (enabled / allow_overlap) ────────────────── */
+.sjf-toggle-field { justify-content: flex-start; }
+.sjf-switch { display: inline-flex; align-items: center; gap: 0.6rem; cursor: pointer; user-select: none; }
+.sjf-switch input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.sjf-switch-track {
+    position: relative; width: 42px; height: 24px; flex-shrink: 0;
+    background: color-mix(in srgb, var(--body-fg) 38%, var(--body-bg));
+    border-radius: 999px; transition: background 0.18s;
+}
+.sjf-switch-thumb {
+    position: absolute; top: 3px; left: 3px; width: 18px; height: 18px;
+    background: #fff; border-radius: 50%; box-shadow: 0 1px 3px rgba(0,0,0,0.5);
+    transition: transform 0.18s;
+}
+.sjf-switch input:checked + .sjf-switch-track { background: var(--primary); }
+.sjf-switch input:checked + .sjf-switch-track .sjf-switch-thumb { transform: translateX(18px); }
+.sjf-switch input:focus-visible + .sjf-switch-track { outline: 2px solid var(--primary); outline-offset: 2px; }
+.sjf-switch-label { font-size: 0.88rem; font-weight: 600; color: var(--body-fg); }
+
+/* ── timezone + datetime helpers ────────────────────────────── */
+.sjf-tz select { max-width: 20rem; }
+.sjf-runat-row { display: flex; align-items: center; gap: 0.7rem; flex-wrap: wrap; }
+/* datetime inputs (run-at, anchor) never need full column width */
+.sjf .crud-date-wrapper { flex: 0 0 auto; width: 15rem; max-width: 100%; }
+
+/* ── next-5-runs preview ────────────────────────────────────── */
+.sjf-preview-wrap {
+    border: 1px solid var(--card-border, color-mix(in srgb, var(--body-fg) 12%, var(--body-bg)));
+    border-radius: var(--radius-sm, 6px); overflow: hidden;
+}
+.sjf-preview-head {
+    display: flex; align-items: center; gap: 0.45rem;
+    padding: 0.55rem 0.9rem;
+    background: color-mix(in srgb, var(--body-fg) 4%, var(--body-bg));
+    border-bottom: 1px solid color-mix(in srgb, var(--body-fg) 8%, var(--body-bg));
+    font-size: 0.72rem; font-weight: 700; letter-spacing: 0.05em;
+    text-transform: uppercase; color: var(--body-quiet-color);
+}
+.sjf-preview-head svg { color: var(--primary); }
+.sjf-preview-list { list-style: none; margin: 0; padding: 0.35rem 0.5rem; }
+.sjf-preview-item { display: flex; align-items: center; gap: 0.7rem; padding: 0.38rem 0.5rem; border-radius: var(--radius-sm, 5px); }
+.sjf-preview-item:hover { background: color-mix(in srgb, var(--body-fg) 4%, var(--body-bg)); }
+.sjf-preview-dot {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 20px; height: 20px; flex-shrink: 0; border-radius: 50%;
+    font-size: 0.7rem; font-weight: 700;
+    background: color-mix(in srgb, var(--primary) 16%, var(--body-bg)); color: var(--primary);
+}
+.sjf-preview-abs { color: var(--body-fg); font-size: 0.9rem; font-weight: 500; }
+.sjf-preview-rel { margin-left: auto; color: var(--body-quiet-color); font-size: 0.8rem; font-variant-numeric: tabular-nums; }
+.sjf-preview-empty { padding: 0.9rem; color: var(--body-quiet-color); font-size: 0.85rem; }
+#sjf-preview.htmx-request { opacity: 0.45; transition: opacity 0.15s; }

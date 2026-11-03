@@ -321,7 +321,7 @@ The list page follows the **manager title bar** pattern:
     <div class="card stat-card-clickable"
          hx-get="{% url 'myfeature:stat-detail' 'total' %}"
          hx-target="#stat-modal-body"
-         onclick="openStatModal('All Widgets')">
+         data-stat-modal="All Widgets">
         <div class="card-body" style="text-align: center; padding: 14px 8px;">
             <div style="font-size: 1.75rem; font-weight: 700; color: var(--primary);">{{ stats.total }}</div>
             <div style="color: var(--body-quiet-color); font-size: 0.8rem;">Total</div>
@@ -330,7 +330,7 @@ The list page follows the **manager title bar** pattern:
     <div class="card stat-card-clickable"
          hx-get="{% url 'myfeature:stat-detail' 'active' %}"
          hx-target="#stat-modal-body"
-         onclick="openStatModal('Active Widgets')">
+         data-stat-modal="Active Widgets">
         <div class="card-body" style="text-align: center; padding: 14px 8px;">
             <div style="font-size: 1.75rem; font-weight: 700; color: var(--success-fg);">{{ stats.active }}</div>
             <div style="color: var(--body-quiet-color); font-size: 0.8rem;">Active</div>
@@ -411,7 +411,7 @@ class WidgetsConfig(AppConfig):
                 '<path d="..."/></svg>'
             ),
             staff_required=True,          # hidden from non-staff
-            active_prefix="/manage/widgets/",   # drives the `active` class
+            active_prefix="/manage/widgets/",   # drives the `active` class (a tuple for several paths)
             order=50,                     # optional; lower sorts first
         )
 ```
@@ -499,7 +499,7 @@ Every management page uses this consistent title bar structure:
 <div class="card stat-card-clickable"
      hx-get="{% url 'app:stat-detail' 'key' %}"
      hx-target="#stat-modal-body"
-     onclick="openStatModal('Title')">
+     data-stat-modal="Title">
     <div class="card-body" style="text-align: center; padding: 14px 8px;">
         <div style="font-size: 1.75rem; font-weight: 700; color: var(--primary);">{{ value }}</div>
         <div style="color: var(--body-quiet-color); font-size: 0.8rem;">Label</div>
@@ -514,7 +514,7 @@ To enable clickable stat cards that pop up a detail modal:
 1. Include the modal template: `{% include "smallstack/includes/stat_modal.html" %}`
 2. Add `class="stat-card-clickable"` to the card
 3. Add `hx-get="url"` and `hx-target="#stat-modal-body"` for HTMX content loading
-4. Add `onclick="openStatModal('Title')"` to set the modal title
+4. Add `data-stat-modal="Title"` to open the modal with that title (no inline `onclick` — theme.js handles the click; `data-stat-modal-close` on a button closes it)
 5. Create a backend view that returns an HTML table fragment
 
 The modal is 80% page width with a fixed height (~12 rows), consistent across all pages.

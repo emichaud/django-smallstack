@@ -1,0 +1,24 @@
+/* Moved from apps/runbook/templates/runbook/includes/download_modal.html (inline <style>). */
+#download-modal .crud-modal-footer {
+    display: flex; gap: 0.75rem; justify-content: flex-end;
+    padding: 1rem 1.25rem;
+    border-top: 1px solid color-mix(in srgb, var(--body-fg) 10%, var(--body-bg));
+}
+#download-modal .crud-modal-btn-cancel {
+    background: none; border: 1px solid color-mix(in srgb, var(--body-fg) 20%, var(--body-bg));
+    color: var(--body-fg); padding: 0.5rem 1.25rem; border-radius: var(--radius-sm, 4px);
+    cursor: pointer; font-size: 0.85rem;
+}
+#download-modal .crud-modal-btn-cancel:hover {
+    background: color-mix(in srgb, var(--body-fg) 5%, var(--body-bg));
+}
+.crud-modal-btn-confirm,
+a.crud-modal-btn-confirm,
+a.crud-modal-btn-confirm:link,
+a.crud-modal-btn-confirm:visited {
+    background: var(--primary); color: var(--button-fg);
+    border: none; padding: 0.5rem 1.25rem; border-radius: var(--radius-sm, 4px);
+    cursor: pointer; font-size: 0.85rem; text-decoration: none;
+    display: inline-block; text-align: center;
+}
+a.crud-modal-btn-confirm:hover { opacity: 0.9; text-decoration: none; }

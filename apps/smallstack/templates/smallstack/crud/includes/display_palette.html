@@ -8,8 +8,7 @@
         hx-swap="innerHTML swap:150ms"
         hx-push-url="true"
         data-display="{{ display.name }}"
-        title="{{ display.name|title }}"
-        onclick="this.closest('.display-palette').querySelectorAll('.display-palette-btn').forEach(b => b.classList.remove('active')); this.classList.add('active');"
+        title="{{ display.name|title }}" data-activate-in=".display-palette"
     >
         {{ display.icon|safe }}
     </button>

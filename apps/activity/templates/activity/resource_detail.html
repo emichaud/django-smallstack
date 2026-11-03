@@ -40,7 +40,7 @@
     <div class="card">
         <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
             <h2>Who uses it</h2>
-            <button type="button" class="btn-outline btn-sm" hx-get="{{ request.path }}?tab=users&window={{ window.key }}&{{ tab_extra_qs }}" hx-target="#tab-content" hx-swap="innerHTML swap:150ms" hx-push-url="true" onclick="document.getElementById('tab-content').scrollIntoView({behavior:'smooth'})">All users</button>
+            <button type="button" class="btn-outline btn-sm" hx-get="{{ request.path }}?tab=users&window={{ window.key }}&{{ tab_extra_qs }}" hx-target="#tab-content" hx-swap="innerHTML swap:150ms" hx-push-url="true" data-scroll-to="#tab-content">All users</button>
         </div>
         <div class="card-body" style="padding: 0;">
             {% if top_users %}

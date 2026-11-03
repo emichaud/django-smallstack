@@ -24,7 +24,7 @@
   {% if object.is_active %}
   <div style="display: flex; gap: 12px; align-items: stretch;">
     <form method="post" action="{% url 'tokenmgr:token-revoke' pk=object.pk %}" style="margin: 0;"
-          onsubmit="return confirm('Revoke {{ object.name|escapejs }}? Any client using this key will start getting 401s immediately.');">
+          data-confirm="Revoke {{ object.name }}? Any client using this key will start getting 401s immediately.">
       {% csrf_token %}
       <button type="submit" class="action-card action-card-danger" style="padding: 0;">
         <div class="action-card-body">

@@ -1,4 +1,5 @@
 {% extends "blog/studio/base.html" %}
+{% load static %}
 {% load theme_tags %}
 {% block title %}{% if post %}{{ post.title }}{% else %}New post{% endif %}{% endblock %}
 {% block breadcrumbs %}{% breadcrumb "Home" "website:home" %}{% breadcrumb "My blogs" "myblogs:dashboard" %}{% breadcrumb blog.name "myblogs:blog_detail" blog.slug %}{% breadcrumb post.title|default:"New post" %}{% render_breadcrumbs %}{% endblock %}
@@ -97,66 +98,11 @@ implementation of "publish" (the service).
 
 {% if post %}
 <form method="post" action="{% url 'myblogs:post_delete' blog.slug post.pk %}" class="studio-danger"
-      onsubmit="return confirm('Delete “{{ post.title|escapejs }}”? This cannot be undone.');">
+      data-confirm="Delete “{{ post.title }}”? This cannot be undone.">
   {% csrf_token %}
   <button type="submit" class="studio-link studio-link--button studio-link--danger">Delete this post</button>
 </form>
 {% endif %}
 
-<script>
-(function () {
-  var form = document.getElementById('studio-editor');
-  var action = document.getElementById('studio-action');
-  if (!form || !action) { return; }
-  form.querySelectorAll('button[data-action]').forEach(function (b) {
-    b.addEventListener('click', function () { action.value = b.getAttribute('data-action'); });
-  });
-  document.addEventListener('keydown', function (e) {
-    if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 's') {
-      e.preventDefault(); action.value = 'save'; form.requestSubmit();
-    }
-  });
-  form.querySelectorAll('[data-picker-for]').forEach(function (b) {
-    b.addEventListener('click', function () {
-      var input = document.getElementById(b.getAttribute('data-picker-for'));
-      if (!input) { return; }
-      if (input.showPicker) { try { input.showPicker(); return; } catch (e) { /* fall through */ } }
-      input.focus(); input.click();
-    });
-  });
-  form.querySelectorAll('[data-cover-input]').forEach(function (box) {
-    var file = box.querySelector('[data-cover-file]');
-    var img = box.querySelector('[data-cover-preview]');
-    var frame = box.querySelector('.studio-cover-frame');
-    var name = box.querySelector('[data-cover-filename]');
-    var clear = box.querySelector('[data-cover-clear]');
-    var label = box.querySelector('[data-cover-pick-label]');
-    if (file) {
-      file.addEventListener('change', function () {
-        var f = file.files && file.files[0];
-        if (!f) { return; }
-        if (img.src && img.src.indexOf('blob:') === 0) { URL.revokeObjectURL(img.src); }
-        img.src = URL.createObjectURL(f);
-        frame.classList.remove('is-empty', 'is-removing');
-        if (clear) { clear.checked = false; }
-        if (name) { name.textContent = f.name; }
-        if (label) { label.textContent = 'Replace'; }
-      });
-    }
-    if (clear) {
-      clear.addEventListener('change', function () {
-        frame.classList.toggle('is-removing', clear.checked);
-      });
-    }
-  });
-  var body = form.querySelector('textarea[name="body_markdown"]');
-  var count = document.getElementById('studio-words');
-  if (body && count) {
-    var update = function () {
-      var t = body.value.trim(); count.textContent = t ? t.split(/\s+/).length : 0;
-    };
-    body.addEventListener('input', update); update();
-  }
-})();
-</script>
+<script src="{% static 'blog/js/templates/studio/post_form.js' %}"></script>
 {% endblock %}

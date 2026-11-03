@@ -1,4 +1,5 @@
 {% extends "smallstack/base.html" %}
+{% load static %}
 {% load theme_tags %}
 
 {% block title %}Logs{% endblock %}
@@ -6,155 +7,7 @@
 {% block breadcrumbs %}{% endblock %}
 
 {% block extra_css %}
-<style>
-    /* Density first: this page is read by scanning, so rows are tight and the
-       columns that carry identity (time, level, logger) are monospaced so they
-       align into readable vertical bands. */
-    .log-table {
-        width: 100%;
-        border-collapse: collapse;
-        font-size: 0.8125rem;
-    }
-    .log-table thead th {
-        text-align: left;
-        padding: 8px 10px;
-        font-size: 0.7rem;
-        font-weight: 600;
-        text-transform: uppercase;
-        letter-spacing: 0.05em;
-        color: var(--body-quiet-color);
-        white-space: nowrap;
-    }
-    .log-table tbody td {
-        padding: 5px 10px;
-        vertical-align: top;
-    }
-
-    /* The signature of this page: a severity rail down the left edge. Level is
-       the one attribute you scan for, and a colour band finds it without
-       reading. Costs 3px of width and no row height — unlike a badge, which
-       would push every row taller for information the rail already carries.
-
-       Drawn with an inset box-shadow, not a border: components.css sets
-       `border: none !important` on every td under .main-content, which beats
-       even an inline style. box-shadow also stays out of the layout, so the
-       rail can't shift the columns. */
-    .log-table tbody td:first-child {
-        box-shadow: inset 3px 0 0 0 var(--log-rail, transparent);
-        padding-left: 11px;
-    }
-
-    .log-time,
-    .log-logger {
-        font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
-        white-space: nowrap;
-    }
-    .log-time { color: var(--body-quiet-color); }
-    .log-logger { color: var(--body-quiet-color); max-width: 15rem; overflow: hidden; text-overflow: ellipsis; }
-
-    .log-level {
-        font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
-        font-weight: 700;
-        font-size: 0.7rem;
-        letter-spacing: 0.04em;
-        white-space: nowrap;
-        color: var(--log-rail, var(--body-fg));
-    }
-
-    .log-message {
-        font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
-        /* One line at rest — a wrapped message would break the scan rhythm.
-           The full text is in the expanded detail. */
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        max-width: 1px; /* forces the ellipsis inside a table layout */
-        width: 100%;
-    }
-    .log-exc {
-        color: var(--error-fg);
-        font-weight: 600;
-    }
-
-    /* Disclosure control — a real button so it is focusable and announces state. */
-    .log-expand {
-        background: none;
-        border: none;
-        padding: 0 2px;
-        cursor: pointer;
-        color: var(--body-quiet-color);
-        line-height: 1;
-        font-size: 0.7rem;
-    }
-    .log-expand:hover { color: var(--body-fg); }
-    .log-expand svg { transition: transform 120ms ease; display: block; }
-    .log-expand[aria-expanded="true"] svg { transform: rotate(90deg); }
-    @media (prefers-reduced-motion: reduce) {
-        .log-expand svg { transition: none; }
-    }
-
-    .log-detail-cell { padding: 0 !important; background: var(--card-header-bg); }
-
-    /* Filter bar */
-    .log-filters {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 8px;
-        align-items: center;
-        padding: 10px 12px;
-    }
-    .log-seg { display: inline-flex; border: 1px solid var(--card-border); border-radius: 6px; overflow: hidden; }
-    .log-seg a {
-        padding: 4px 10px;
-        font-size: 0.75rem;
-        text-decoration: none;
-        color: var(--body-quiet-color);
-        border-right: 1px solid var(--card-border);
-        white-space: nowrap;
-    }
-    .log-seg a:last-child { border-right: none; }
-    .log-seg a:hover { background: var(--sidebar-hover-bg); color: var(--body-fg); }
-    .log-seg a.active { background: var(--primary); color: var(--button-fg); font-weight: 600; }
-    .log-seg a .n { opacity: 0.65; margin-left: 4px; font-variant-numeric: tabular-nums; }
-
-    .log-filters input[type="search"],
-    .log-filters select {
-        background: var(--input-bg);
-        border: 1px solid var(--input-border);
-        color: var(--body-fg);
-        border-radius: 6px;
-        padding: 4px 8px;
-        font-size: 0.78rem;
-        /* Inputs default to width:100% in the base admin styles, which would
-           break each control onto its own line. The bar is one row by design. */
-        width: auto;
-        max-width: 14rem;
-        margin: 0;
-    }
-    .log-filters input[type="search"] {
-        flex: 1 1 12rem;
-        min-width: 10rem;
-        max-width: none;
-    }
-    .log-filters .btn-outline,
-    .log-filters .btn-primary { white-space: nowrap; }
-
-    .log-capture-pill {
-        display: inline-flex;
-        align-items: center;
-        gap: 6px;
-        padding: 4px 10px;
-        border-radius: 999px;
-        font-size: 0.72rem;
-        font-weight: 600;
-        white-space: nowrap;
-    }
-    .log-dot { width: 7px; height: 7px; border-radius: 50%; flex: none; }
-
-    @media (max-width: 720px) {
-        .log-hide-sm { display: none; }
-    }
-</style>
+<link rel="stylesheet" href="{% static 'telemetry/css/templates/logs.css' %}">
 {% endblock %}
 
 {% block page_header %}
@@ -234,7 +87,7 @@
         </div>
 
         <label for="log-logger" class="sr-only">Filter by logger</label>
-        <select id="log-logger" name="logger" onchange="this.form.submit()">
+        <select id="log-logger" name="logger" data-autosubmit>
             <option value="">All loggers</option>
             {% for name in logger_options %}
             <option value="{{ name }}" {% if name == filters.logger %}selected{% endif %}>{{ name }}</option>
@@ -242,7 +95,7 @@
         </select>
 
         <label for="log-range" class="sr-only">Time range</label>
-        <select id="log-range" name="range" onchange="this.form.submit()">
+        <select id="log-range" name="range" data-autosubmit>
             {% for option in time_ranges %}
             <option value="{{ option.value }}" {% if option.active %}selected{% endif %}>{{ option.label }}</option>
             {% endfor %}
@@ -296,13 +149,5 @@ behind in this template would lose its hx-trigger after the first refresh.{% end
 {% endblock %}
 
 {% block extra_js %}
-<script>
-function toggleLogDetail(button) {
-    var row = document.getElementById(button.getAttribute('aria-controls'));
-    if (!row) { return; }
-    var expanded = button.getAttribute('aria-expanded') === 'true';
-    button.setAttribute('aria-expanded', expanded ? 'false' : 'true');
-    row.hidden = expanded;
-}
-</script>
+<script src="{% static 'telemetry/js/templates/logs.js' %}"></script>
 {% endblock %}

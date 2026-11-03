@@ -1,0 +1,43 @@
+/* Moved from apps/heartbeat/templates/heartbeat/maintenance_form.html (inline <style>). */
+.maint-form label {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--body-quiet-color);
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    display: block;
+    margin-bottom: 4px;
+}
+.maint-form .helptext {
+    font-size: 0.75rem;
+    color: var(--body-quiet-color);
+    margin-top: 2px;
+}
+.maint-form .form-row {
+    display: flex;
+    flex-direction: column;
+    padding: 0;
+    overflow: visible;
+    margin-bottom: 16px;
+}
+.maint-form input[type="datetime-local"],
+.maint-form input[type="text"],
+.maint-form textarea {
+    width: 100%;
+    box-sizing: border-box;
+}
+.maint-form .errorlist {
+    color: var(--error-fg);
+    font-size: 0.8rem;
+    margin: 4px 0 0 0;
+    padding: 0;
+    list-style: none;
+}
+.maint-form .checkbox-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.maint-form .checkbox-row label {
+    margin-bottom: 0;
+}

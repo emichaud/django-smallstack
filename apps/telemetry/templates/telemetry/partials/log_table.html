@@ -31,7 +31,7 @@ outerHTML, so the polling attributes have to come back with each response.{% end
                                 class="log-expand"
                                 aria-expanded="false"
                                 aria-controls="log-detail-row-{{ log.pk }}"
-                                onclick="toggleLogDetail(this)"
+                                data-ss-action="toggleLogDetail" data-ss-args='["$this"]'
                                 hx-get="{% url 'telemetry:log_detail' log.pk %}"
                                 hx-target="#log-detail-{{ log.pk }}"
                                 hx-swap="innerHTML"

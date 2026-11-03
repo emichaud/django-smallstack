@@ -1,4 +1,5 @@
 {% extends "smallstack/base.html" %}
+{% load static %}
 {% load theme_tags %}
 
 {% block title %}Timezones{% endblock %}
@@ -6,84 +7,7 @@
 {% block breadcrumbs %}{% endblock %}
 
 {% block extra_css %}
-<style>
-/* ── Clocks row ──────────────────────────────────────────── */
-.tz-clocks {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 1rem;
-    margin-bottom: 1.5rem;
-}
-@media (max-width: 640px) {
-    .tz-clocks { grid-template-columns: 1fr; }
-}
-.tz-clock-card {
-    background: color-mix(in srgb, var(--body-fg) 5%, var(--body-bg));
-    border: 1px solid color-mix(in srgb, var(--body-fg) 10%, var(--body-bg));
-    border-radius: var(--radius-sm, 6px);
-    padding: 1.25rem;
-    text-align: center;
-}
-.tz-clock-label {
-    font-size: 0.7rem;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    color: var(--body-quiet-color);
-    margin-bottom: 0.35rem;
-}
-.tz-clock-time {
-    font-size: 2rem;
-    font-weight: 700;
-    color: var(--body-fg);
-    font-variant-numeric: tabular-nums;
-    line-height: 1.2;
-}
-.tz-clock-date {
-    font-size: 0.8rem;
-    color: var(--body-quiet-color);
-    margin-top: 0.15rem;
-}
-.tz-clock-tz {
-    font-size: 0.75rem;
-    color: var(--primary);
-    margin-top: 0.25rem;
-}
-
-/* ── Filter bar ──────────────────────────────────────────── */
-.tz-filters {
-    display: flex;
-    gap: 0.75rem;
-    margin-bottom: 0;
-    align-items: center;
-    flex-wrap: wrap;
-}
-.tz-filter-btn {
-    padding: 0.4rem 1rem;
-    font-size: 0.8rem;
-    border: 1px solid color-mix(in srgb, var(--body-fg) 20%, var(--body-bg));
-    border-radius: var(--radius-sm, 6px);
-    background: none;
-    color: var(--body-quiet-color);
-    cursor: pointer;
-    transition: all 0.15s;
-}
-.tz-filter-btn:hover {
-    border-color: var(--primary);
-    color: var(--body-fg);
-}
-.tz-filter-btn.active {
-    border-color: var(--primary);
-    color: var(--primary);
-    font-weight: 600;
-}
-.tz-filter-label {
-    font-size: 0.8rem;
-    text-transform: uppercase;
-    letter-spacing: 0.3px;
-    color: var(--body-quiet-color);
-    font-weight: 600;
-}
-</style>
+<link rel="stylesheet" href="{% static 'usermanager/css/templates/timezone_dashboard.css' %}">
 {% endblock %}
 
 {% block page_header %}
@@ -159,104 +83,6 @@
 {% include "usermanager/_tz_table.html" %}
 </div>
 
-<script>
-// Live clocks
-function ampm(date, tz) {
-    var opts = {hour: 'numeric', minute: '2-digit', hour12: true};
-    if (tz) opts.timeZone = tz;
-    return date.toLocaleTimeString('en-US', opts);
-}
-function tzAbbr(date, tz) {
-    // Get timezone abbreviation like "EDT", "CET", "UTC"
-    var opts = {timeZoneName: 'short'};
-    if (tz) opts.timeZone = tz;
-    var parts = date.toLocaleTimeString('en-US', opts).split(' ');
-    return parts[parts.length - 1]; // Last part is the abbreviation
-}
-function updateClocks() {
-    var now = new Date();
-    var dateOpts = {weekday: 'long', year: 'numeric', month: 'short', day: 'numeric'};
-
-    // Local clock
-    document.getElementById('clock-local').textContent = now.toLocaleTimeString('en-US', {hour12: false});
-    document.getElementById('clock-local-ampm').textContent = ampm(now) + ' ' + tzAbbr(now);
-    document.getElementById('clock-local-date').textContent = now.toLocaleDateString('en-US', dateOpts);
-    document.getElementById('clock-local-tz').textContent = Intl.DateTimeFormat().resolvedOptions().timeZone;
-
-    // UTC clock
-    document.getElementById('clock-utc').textContent = now.toLocaleTimeString('en-US', {hour12: false, timeZone: 'UTC'});
-    document.getElementById('clock-utc-ampm').textContent = ampm(now, 'UTC') + ' UTC';
-    document.getElementById('clock-utc-date').textContent = now.toLocaleDateString('en-US', Object.assign({timeZone: 'UTC'}, dateOpts));
-
-    // Server clock
-    var serverTz = '{{ server_tz_name }}';
-    try {
-        document.getElementById('clock-server').textContent = now.toLocaleTimeString('en-US', {hour12: false, timeZone: serverTz});
-        document.getElementById('clock-server-ampm').textContent = ampm(now, serverTz) + ' ' + tzAbbr(now, serverTz);
-        document.getElementById('clock-server-date').textContent = now.toLocaleDateString('en-US', Object.assign({timeZone: serverTz}, dateOpts));
-    } catch(e) {}
-}
-updateClocks();
-setInterval(updateClocks, 1000);
-
-// Filters — uses data attributes on table rows
-(function() {
-    // Stamp data attributes on table rows for filtering + live time updates
-    var rows = document.querySelectorAll('#tz-table-wrapper .crud-table tbody tr');
-    // Data matches table order (sorted by offset, then username in the view)
-    var sortedData = [
-        {% for row in sorted_rows %}
-        {workday: {{ row.is_workday|yesno:"true,false" }}, staff: {{ row.is_staff|yesno:"true,false" }}, region: "{{ row.region|slugify }}", tz: "{{ row.tz_name }}"},
-        {% endfor %}
-    ];
-
-    rows.forEach(function(row, i) {
-        if (sortedData[i]) {
-            row.dataset.workday = sortedData[i].workday;
-            row.dataset.staff = sortedData[i].staff;
-            row.dataset.region = sortedData[i].region;
-            row.dataset.tz = sortedData[i].tz;
-        }
-    });
-
-    // Live-update local time cells in the table
-    function updateTableTimes() {
-        var now = new Date();
-        rows.forEach(function(row) {
-            var tz = row.dataset.tz;
-            if (!tz) return;
-            // Find the "Local Time" cell (3rd column, index 2)
-            var cell = row.cells[2];
-            if (!cell) return;
-            try {
-                var timeStr = now.toLocaleTimeString('en-US', {
-                    hour: 'numeric', minute: '2-digit', hour12: true, timeZone: tz
-                });
-                var abbrStr = tzAbbr(now, tz);
-                cell.innerHTML = '<span style="font-weight:600;font-variant-numeric:tabular-nums;">' +
-                    timeStr + ' ' + abbrStr + '</span>';
-            } catch(e) {}
-        });
-    }
-    updateTableTimes();
-    setInterval(updateTableTimes, 1000);
-
-    document.querySelectorAll('.tz-filter-btn').forEach(function(btn) {
-        btn.addEventListener('click', function() {
-            document.querySelectorAll('.tz-filter-btn').forEach(function(b) { b.classList.remove('active'); });
-            this.classList.add('active');
-            var filter = this.dataset.filter;
-
-            rows.forEach(function(row) {
-                var show = true;
-                if (filter === 'working') show = row.dataset.workday === 'true';
-                else if (filter === 'off') show = row.dataset.workday === 'false';
-                else if (filter === 'staff') show = row.dataset.staff === 'true';
-                else if (filter.startsWith('region-')) show = row.dataset.region === filter.replace('region-', '');
-                row.style.display = show ? '' : 'none';
-            });
-        });
-    });
-})();
-</script>
+<script type="application/json" id="tz-rows">[{% for row in sorted_rows %}{"workday": {{ row.is_workday|yesno:"true,false" }}, "staff": {{ row.is_staff|yesno:"true,false" }}, "region": "{{ row.region|slugify }}", "tz": "{{ row.tz_name|escapejs }}"}{% if not forloop.last %}, {% endif %}{% endfor %}]</script>
+<script src="{% static 'usermanager/js/templates/timezone_dashboard.js' %}" data-server-tz="{{ server_tz_name }}"></script>
 {% endblock %}

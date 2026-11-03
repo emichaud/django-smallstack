@@ -1,0 +1,77 @@
+/* Moved from apps/usermanager/templates/usermanager/timezone_dashboard.html (inline <style>). */
+/* ── Clocks row ──────────────────────────────────────────── */
+.tz-clocks {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+@media (max-width: 640px) {
+    .tz-clocks { grid-template-columns: 1fr; }
+}
+.tz-clock-card {
+    background: color-mix(in srgb, var(--body-fg) 5%, var(--body-bg));
+    border: 1px solid color-mix(in srgb, var(--body-fg) 10%, var(--body-bg));
+    border-radius: var(--radius-sm, 6px);
+    padding: 1.25rem;
+    text-align: center;
+}
+.tz-clock-label {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--body-quiet-color);
+    margin-bottom: 0.35rem;
+}
+.tz-clock-time {
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--body-fg);
+    font-variant-numeric: tabular-nums;
+    line-height: 1.2;
+}
+.tz-clock-date {
+    font-size: 0.8rem;
+    color: var(--body-quiet-color);
+    margin-top: 0.15rem;
+}
+.tz-clock-tz {
+    font-size: 0.75rem;
+    color: var(--primary);
+    margin-top: 0.25rem;
+}
+
+/* ── Filter bar ──────────────────────────────────────────── */
+.tz-filters {
+    display: flex;
+    gap: 0.75rem;
+    margin-bottom: 0;
+    align-items: center;
+    flex-wrap: wrap;
+}
+.tz-filter-btn {
+    padding: 0.4rem 1rem;
+    font-size: 0.8rem;
+    border: 1px solid color-mix(in srgb, var(--body-fg) 20%, var(--body-bg));
+    border-radius: var(--radius-sm, 6px);
+    background: none;
+    color: var(--body-quiet-color);
+    cursor: pointer;
+    transition: all 0.15s;
+}
+.tz-filter-btn:hover {
+    border-color: var(--primary);
+    color: var(--body-fg);
+}
+.tz-filter-btn.active {
+    border-color: var(--primary);
+    color: var(--primary);
+    font-weight: 600;
+}
+.tz-filter-label {
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    color: var(--body-quiet-color);
+    font-weight: 600;
+}

@@ -110,7 +110,7 @@ Clickable with modal drilldown:
 <div class="stat-card stat-card-clickable"
      hx-get="{% url 'stat-detail' 'total' %}"
      hx-target="#stat-modal-body"
-     onclick="openStatModal('All Items')">
+     data-stat-modal="All Items">
     <div class="stat-card-value">{{ count }}</div>
     <div class="stat-card-label">Label</div>
 </div>

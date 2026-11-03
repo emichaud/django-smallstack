@@ -5,88 +5,7 @@
 
 {% block extra_css %}
 <link rel="stylesheet" href="{% runbook_css %}">
-<style>
-.toc-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    gap: 20px;
-}
-.toc-header h1 { margin: 0 0 0.25rem 0; }
-.toc-header .toc-meta {
-    color: var(--body-quiet-color);
-    font-size: 0.85rem;
-}
-.toc-category {
-    margin-bottom: 1.5rem;
-}
-.toc-category-title {
-    font-size: 0.75rem;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    color: var(--body-quiet-color);
-    border-bottom: 1px solid color-mix(in srgb, var(--primary) 20%, var(--body-bg));
-    padding-bottom: 0.4rem;
-    margin: 0 0 0.25rem 0;
-}
-.toc-list {
-    list-style: none !important;
-    margin: 0;
-    padding: 0;
-}
-.toc-list li {
-    list-style: none !important;
-}
-.toc-list li::before {
-    display: none !important;
-}
-.toc-item {
-    border-bottom: 1px solid color-mix(in srgb, var(--primary) 8%, var(--body-bg));
-}
-.toc-item:last-child {
-    border-bottom: none;
-}
-.toc-link {
-    display: block;
-    padding: 0.45rem 0.5rem;
-    text-decoration: none !important;
-    color: var(--body-fg);
-    transition: background 0.15s;
-    border-radius: 4px;
-}
-.toc-link:hover {
-    text-decoration: none !important;
-    background: color-mix(in srgb, var(--primary) 10%, var(--body-bg));
-}
-.toc-title {
-    font-weight: 600;
-    font-size: 0.85rem;
-    color: var(--primary);
-}
-.toc-desc {
-    display: block;
-    color: var(--body-quiet-color);
-    font-size: 0.78rem;
-    line-height: 1.3;
-    margin-top: 0.1rem;
-}
-.toc-badge {
-    font-size: 0.7rem;
-    margin-left: 0.4rem;
-    vertical-align: middle;
-}
-.toc-grid {
-    display: grid;
-    grid-template-columns: 1fr;
-    gap: 0 2.5rem;
-}
-@media (min-width: 768px) {
-    .toc-grid {
-        grid-template-columns: 1fr 1fr;
-    }
-}
-</style>
+<link rel="stylesheet" href="{% static 'runbook/css/templates/runbook_detail.css' %}">
 {% endblock %}
 
 {% block breadcrumbs %}{% endblock %}
@@ -121,19 +40,19 @@
             <a href="{% url 'runbook:runbook_read' runbook.slug %}" class="btn-primary">Read All</a>
             {% endif %}
             {% if can_edit %}
-            <button type="button" class="btn-secondary" onclick="openFormModal('New Page', 'new-page-source')">New Page</button>
-            <button type="button" class="btn-secondary" onclick="openFormModal('Upload Markdown', 'upload-source')">Upload</button>
-            <button type="button" class="btn-secondary" onclick="openFormModal('Add Section', 'add-section-source')">Add section</button>
+            <button type="button" class="btn-secondary" data-ss-action="openFormModal" data-ss-args='["New Page", "new-page-source"]'>New Page</button>
+            <button type="button" class="btn-secondary" data-ss-action="openFormModal" data-ss-args='["Upload Markdown", "upload-source"]'>Upload</button>
+            <button type="button" class="btn-secondary" data-ss-action="openFormModal" data-ss-args='["Add Section", "add-section-source"]'>Add section</button>
             {% endif %}
             <button type="button" class="btn-secondary"
                 data-download-url="{% url 'runbook:download_zip' %}?runbook={{ runbook.slug }}"
                 data-download-desc="&quot;{{ runbook.name }}&quot; runbook as a ZIP archive"
-                onclick="confirmDownload(this)">Download</button>
+                data-ss-action="confirmDownload" data-ss-args='["$this"]'>Download</button>
         </div>
         {% if can_edit %}
         <div class="rb-actions-row rb-actions-secondary">
             {% if not runbook.is_template %}
-            <button type="button" class="btn-outline" onclick="openFormModal('Make Template', 'make-template-source')">Make template</button>
+            <button type="button" class="btn-outline" data-ss-action="openFormModal" data-ss-args='["Make Template", "make-template-source"]'>Make template</button>
             {% endif %}
             <form method="post" action="{% url 'runbook:runbook_publish' runbook.slug %}" style="display: inline;">
                 {% csrf_token %}
@@ -142,7 +61,7 @@
                     {% if runbook.is_public %}🔒 Make Private{% else %}🌐 Publish{% endif %}
                 </button>
             </form>
-            <button type="button" class="btn-outline" onclick="openFormModal('Edit Runbook', 'edit-runbook-source')">Edit</button>
+            <button type="button" class="btn-outline" data-ss-action="openFormModal" data-ss-args='["Edit Runbook", "edit-runbook-source"]'>Edit</button>
         </div>
         {% endif %}
     </div>
@@ -255,7 +174,7 @@
             </div>
             <div class="crud-actions">
                 <button type="submit" class="btn-save">Create &amp; Edit</button>
-                <button type="button" class="btn-cancel" onclick="closeStatModal()">Cancel</button>
+                <button type="button" class="btn-cancel" data-stat-modal-close>Cancel</button>
             </div>
         </form>
     </div>
@@ -290,7 +209,7 @@
             </div>
             <div class="crud-actions">
                 <button type="submit" class="btn-save">Upload new version</button>
-                <button type="button" class="btn-cancel" onclick="closeStatModal()">Cancel</button>
+                <button type="button" class="btn-cancel" data-stat-modal-close>Cancel</button>
             </div>
         </form>
     </div>
@@ -321,7 +240,7 @@
             </div>
             <div class="crud-actions">
                 <button type="submit" class="btn-save">Add section</button>
-                <button type="button" class="btn-cancel" onclick="closeStatModal()">Cancel</button>
+                <button type="button" class="btn-cancel" data-stat-modal-close>Cancel</button>
             </div>
         </form>
     </div>
@@ -342,7 +261,7 @@
             </div>
             <div class="crud-actions">
                 <button type="submit" class="btn-save">Create Template</button>
-                <button type="button" class="btn-cancel" onclick="closeStatModal()">Cancel</button>
+                <button type="button" class="btn-cancel" data-stat-modal-close>Cancel</button>
             </div>
         </form>
     </div>
@@ -375,7 +294,7 @@
             </div>
             <div class="crud-actions">
                 <button type="submit" class="btn-save">Save</button>
-                <button type="button" class="btn-cancel" onclick="closeStatModal()">Cancel</button>
+                <button type="button" class="btn-cancel" data-stat-modal-close>Cancel</button>
             </div>
         </form>
         <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--card-border);">
@@ -384,12 +303,5 @@
     </div>
 </div>
 {% endif %}
-<script>
-// Inject a hidden source form into the shared modal (same pattern as the stat cards).
-function openFormModal(title, sourceId) {
-    openStatModal(title);
-    document.getElementById('stat-modal-body').innerHTML =
-        document.getElementById(sourceId).innerHTML;
-}
-</script>
+<script src="{% static 'runbook/js/templates/runbook_detail.js' %}"></script>
 {% endblock %}

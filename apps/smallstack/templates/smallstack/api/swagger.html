@@ -14,17 +14,7 @@
 <body>
     <div id="swagger-ui"></div>
     <script src="https://cdn.jsdelivr.net/npm/swagger-ui-dist@5/swagger-ui-bundle.js"></script>
-    <script>
-        SwaggerUIBundle({
-            url: "{{ schema_url }}",
-            dom_id: "#swagger-ui",
-            deepLinking: true,
-            presets: [
-                SwaggerUIBundle.presets.apis,
-                SwaggerUIBundle.SwaggerUIStandalonePreset,
-            ],
-            layout: "BaseLayout",
-        });
-    </script>
+    <script src="{% static 'smallstack/js/templates/api/swagger.js' %}"
+        data-schema-url="{{ schema_url }}"></script>
 </body>
 </html>
