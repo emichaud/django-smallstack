@@ -136,7 +136,7 @@ No extra configuration needed. These just work:
 
 ## What's next
 
-- [Make Commands](/help/smallstack/make-commands/) — all the shortcuts
-- [Customization Guide](/help/smallstack/customization/) — make it yours
-- [Kamal Deployment](/help/smallstack/kamal-deployment/) — detailed deploy guide
-- [About](/help/smallstack/about/) — everything that's included
+- [Make Commands](/smallstack/help/smallstack/make-commands/) — all the shortcuts
+- [Customization Guide](/smallstack/help/smallstack/customization/) — make it yours
+- [Kamal Deployment](/smallstack/help/smallstack/kamal-deployment/) — detailed deploy guide
+- [About](/smallstack/help/smallstack/about/) — everything that's included

@@ -121,7 +121,7 @@ SmallStack has three documentation tiers:
 | Location | Audience | When to Update |
 |----------|----------|----------------|
 | `README.md` | Everyone (GitHub visitors) | Feature additions, version bumps |
-| `apps/help/smallstack/` | Users (in-app `/help/`) | Feature guides, configuration docs |
+| `apps/help/smallstack/` | Users (in-app `/smallstack/help/`) | Feature guides, configuration docs |
 | `docs/skills/` | AI agents | Architecture, patterns, conventions |
 
 ### Adding Help Pages

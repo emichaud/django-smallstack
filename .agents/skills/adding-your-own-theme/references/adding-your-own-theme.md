@@ -19,7 +19,7 @@ Instead, you add your own theme **alongside** SmallStack's. Your new pages use y
 │  ├── Status / Heartbeat     (/status/)           │
 │  ├── Backups                (/backups/)           │
 │  ├── User Manager           (/manage/users/)     │
-│  ├── Help & Docs            (/help/)             │
+│  ├── Help & Docs            (/smallstack/help/)             │
 │  ├── Profile                (/profile/)          │
 │  └── Django Admin           (/admin/)            │
 └──────────────────────────────────────────────────┘
@@ -373,7 +373,7 @@ make run
 - `http://localhost:8005/status/` — Status/Heartbeat dashboard
 - `http://localhost:8005/backups/` — Backup manager
 - `http://localhost:8005/manage/users/` — User manager
-- `http://localhost:8005/help/` — Help & docs
+- `http://localhost:8005/smallstack/help/` — Help & docs
 - `http://localhost:8005/profile/` — Profile edit (theme/palette/timezone)
 
 **Verify dark mode persists across both themes:**
@@ -482,7 +482,7 @@ These are the URL names you can link to from your custom navbar or footer:
 | Status | `heartbeat:dashboard` | `/status/` | Staff only |
 | Backups | `smallstack:backups` | `/backups/` | Staff only |
 | User Manager | `manage/users-list` | `/manage/users/` | Staff only |
-| Help & Docs | `help:index` | `/help/` | All users |
+| Help & Docs | `help:index` | `/smallstack/help/` | All users |
 | Profile | `profile` | `/profile/` | Authenticated |
 | Django Admin | `admin:index` | `/admin/` | Staff only |
 

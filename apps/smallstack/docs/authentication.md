@@ -207,7 +207,7 @@ For the full API guide including endpoints, search, and export, see [Explorer RE
 
 ## Next Steps
 
-- [Email Authentication](/help/smallstack/email-auth/) — Configure SMTP, password reset, and email login
-- [Explorer REST API](/help/smallstack/explorer-rest-api/) — JSON API with token authentication
-- [Settings & Configuration](/help/smallstack/settings-configuration/) — How environment variables and feature flags work
-- [Customization Guide](/help/smallstack/customization/) — Make SmallStack your own
+- [Email Authentication](/smallstack/help/smallstack/email-auth/) — Configure SMTP, password reset, and email login
+- [Explorer REST API](/smallstack/help/smallstack/explorer-rest-api/) — JSON API with token authentication
+- [Settings & Configuration](/smallstack/help/smallstack/settings-configuration/) — How environment variables and feature flags work
+- [Customization Guide](/smallstack/help/smallstack/customization/) — Make SmallStack your own

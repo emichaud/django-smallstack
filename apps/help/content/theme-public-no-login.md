@@ -32,7 +32,7 @@ Create `templates/mytheme/base.html` with your own CSS framework. Three pieces a
 2. **`window.SMALLSTACK` config object** before `theme.js`
 3. **SmallStack's `theme.js`** script
 
-See [Adding Your Own Theme](/help/smallstack/adding-your-own-theme/) for the full template with all three pieces marked.
+See [Adding Your Own Theme](/smallstack/help/smallstack/adding-your-own-theme/) for the full template with all three pieces marked.
 
 A minimal example:
 
@@ -120,6 +120,6 @@ Or simply don't link at all. Staff knows the URL.
 
 ## Related
 
-- [Adding Your Own Theme](/help/smallstack/adding-your-own-theme/) — Full walkthrough with Bootstrap example
-- [Settings & Configuration](/help/smallstack/settings-configuration/) — All BRAND_* and SMALLSTACK_* settings
-- [Authentication](/help/smallstack/authentication/) — Signup control, login URLs
+- [Adding Your Own Theme](/smallstack/help/smallstack/adding-your-own-theme/) — Full walkthrough with Bootstrap example
+- [Settings & Configuration](/smallstack/help/smallstack/settings-configuration/) — All BRAND_* and SMALLSTACK_* settings
+- [Authentication](/smallstack/help/smallstack/authentication/) — Signup control, login URLs

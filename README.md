@@ -133,7 +133,7 @@ make setup    # uv sync + migrate + create dev superuser (admin/admin)
 make run      # dev server on port 8005
 ```
 
-Open http://localhost:8005, log in with `admin` / `admin`. The `/help/` section has the rest.
+Open http://localhost:8005, log in with `admin` / `admin`. The `/smallstack/help/` section has the rest.
 
 **Docker:** `cp .env.example .env && docker compose up -d` (port 8010).
 
@@ -166,7 +166,7 @@ make mcp-test      # MCP server smoke test
 
 **[www.smallstack.site](https://www.smallstack.site/)** tells the full story — the many roles, setup guides, palette details, CRUDView patterns, SearchBuilder examples, webhooks & feeds, MCP setup, and deployment recipes.
 
-Your local `/help/` section (available once running) mirrors the essentials.
+Your local `/smallstack/help/` section (available once running) mirrors the essentials.
 
 ---
 

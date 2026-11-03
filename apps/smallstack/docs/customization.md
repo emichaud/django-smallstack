@@ -190,13 +190,13 @@ Create the files:
 ```
 apps/help/content/
 ├── _config.yaml
-├── index.md           # /help/index/
-├── user-guide.md      # /help/user-guide/
+├── index.md           # /smallstack/help/index/
+├── user-guide.md      # /smallstack/help/user-guide/
 └── dev/
-    └── api.md         # /help/dev/api/
+    └── api.md         # /smallstack/help/dev/api/
 ```
 
-SmallStack docs automatically appear at `/help/smallstack/*` when enabled.
+SmallStack docs automatically appear at `/smallstack/help/smallstack/*` when enabled.
 
 ### Writing Documentation Pages
 
@@ -213,7 +213,7 @@ description: A brief description for navigation
 Your markdown content here. You can use:
 
 - **Variables**: {{ project_name }} renders from _config.yaml
-- **Links**: [Getting Started](/help/smallstack/getting-started/)
+- **Links**: [Getting Started](/smallstack/help/smallstack/getting-started/)
 - **Code blocks**: With syntax highlighting
 - **Tables**: Standard markdown tables
 ```
@@ -229,9 +229,9 @@ Your project documentation lives here.
 
 ## Quick Links
 
-- [User Guide](/help/user-guide/) - Learn how to use the app
-- [API Reference](/help/dev/api/) - Developer documentation
-- [SmallStack Docs](/help/smallstack/readme/) - Framework reference
+- [User Guide](/smallstack/help/user-guide/) - Learn how to use the app
+- [API Reference](/smallstack/help/dev/api/) - Developer documentation
+- [SmallStack Docs](/smallstack/help/smallstack/readme/) - Framework reference
 ```
 
 ## Customizing Branding
@@ -382,7 +382,7 @@ SMALLSTACK_COLOR_PALETTE = "purple"  # Options: django, light-blue, dark-blue, o
 
 Individual users can override the system palette from their **Profile Edit** page using the palette swatch selector. Their choice persists across sessions and overrides the system default.
 
-For full details on adding custom palettes, see [Theming & Customization](/help/smallstack/theming/#color-palettes).
+For full details on adding custom palettes, see [Theming & Customization](/smallstack/help/smallstack/theming/#color-palettes).
 
 ### Adding Topbar Navigation
 
@@ -398,7 +398,7 @@ SMALLSTACK_TOPBAR_NAV_ITEMS = [
 ]
 ```
 
-Pairs well with `SMALLSTACK_SIDEBAR_OPEN = False` or `SMALLSTACK_SIDEBAR_ENABLED = False` for a hero-style website layout. See [Topbar Navigation](/help/smallstack/topbar-navigation/) for submenus, conditional visibility, and the full item format.
+Pairs well with `SMALLSTACK_SIDEBAR_OPEN = False` or `SMALLSTACK_SIDEBAR_ENABLED = False` for a hero-style website layout. See [Topbar Navigation](/smallstack/help/smallstack/topbar-navigation/) for submenus, conditional visibility, and the full item format.
 
 ### Controlling Auth Visibility
 
@@ -410,7 +410,7 @@ SMALLSTACK_SIGNUP_ENABLED=False   # Hide Sign Up, 404 the signup URL
 SMALLSTACK_LOGIN_ENABLED=False    # Hide Login button too (admin still works)
 ```
 
-See [Authentication](/help/smallstack/authentication/) for all options.
+See [Authentication](/smallstack/help/smallstack/authentication/) for all options.
 
 > **Note:** With settings-based branding, most template files won't create merge conflicts on upstream pulls.
 
@@ -521,7 +521,7 @@ CSRF_TRUSTED_ORIGINS=https://myproject.com,https://www.myproject.com
 
 ## Next Steps
 
-- [Getting Started](/help/smallstack/getting-started/) - Quick setup guide
-- [Theming](/help/smallstack/theming/) - Customize colors and dark mode
-- [Adding Your Own Theme](/help/smallstack/adding-your-own-theme/) - Use Bootstrap, Tailwind, or any CSS framework alongside SmallStack
-- [Kamal Deployment](/help/smallstack/kamal-deployment/) - Deploy to production
+- [Getting Started](/smallstack/help/smallstack/getting-started/) - Quick setup guide
+- [Theming](/smallstack/help/smallstack/theming/) - Customize colors and dark mode
+- [Adding Your Own Theme](/smallstack/help/smallstack/adding-your-own-theme/) - Use Bootstrap, Tailwind, or any CSS framework alongside SmallStack
+- [Kamal Deployment](/smallstack/help/smallstack/kamal-deployment/) - Deploy to production

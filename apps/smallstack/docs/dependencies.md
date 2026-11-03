@@ -159,7 +159,7 @@ A declarative library for rendering HTML tables from Django querysets. SmallStac
 - `BooleanColumn` — checkmark/cross icons for boolean fields
 - `ActionsColumn` — edit/delete action buttons
 
-See [Building CRUD Pages](/help/smallstack/building-crud-pages/) for the full guide on using CRUDView with django-tables2.
+See [Building CRUD Pages](/smallstack/help/smallstack/building-crud-pages/) for the full guide on using CRUDView with django-tables2.
 
 **When to consider alternatives:** For simple tables that don't need sorting or pagination, plain Django templates work fine. For complex data grids with inline editing or real-time updates, consider a JavaScript solution like AG Grid.
 

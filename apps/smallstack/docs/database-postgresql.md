@@ -7,7 +7,7 @@ description: Scaling beyond SQLite with PostgreSQL
 
 When your application outgrows SQLite, **PostgreSQL** is the natural next step. It's the most popular database choice for Django applications in production, offering advanced features, better concurrency, and horizontal scaling options.
 
-> **See also:** [SQLite Database](/help/smallstack/database-sqlite/) for why SQLite is a great starting point.
+> **See also:** [SQLite Database](/smallstack/help/smallstack/database-sqlite/) for why SQLite is a great starting point.
 
 ## When to Choose PostgreSQL
 
@@ -243,7 +243,7 @@ uv run python manage.py rebuild_search_index --all    # backfill existing rows
 uv run python manage.py search_doctor                 # confirm backend = postgresql-fts
 ```
 
-See [Search](/help/smallstack/search/) for the full opt-in guide, including the
+See [Search](/smallstack/help/smallstack/search/) for the full opt-in guide, including the
 one cross-backend wrinkle (hyphenated query *fragments* match differently than
 on SQLite).
 

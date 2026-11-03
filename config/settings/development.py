@@ -28,7 +28,7 @@ ALLOWED_HOSTS = ["localhost", "127.0.0.1", "0.0.0.0"]
 
 # Database
 # SQLite is the default - simple, zero-config, perfect for development
-# See /help/database-sqlite/ for why SQLite works great in production too
+# See /smallstack/help/smallstack/database-sqlite/ for why SQLite works great in production too
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.sqlite3",
@@ -41,7 +41,7 @@ DATABASES = {
 # 1. Start PostgreSQL: docker run -d -p 5432:5432 -e POSTGRES_PASSWORD=postgres postgres:16-alpine
 # 2. Install driver: uv add psycopg[binary]
 # 3. Uncomment below and comment out SQLite config above
-# See /help/database-postgresql/ for full setup guide
+# See /smallstack/help/smallstack/database-postgresql/ for full setup guide
 #
 # DATABASES = {
 #     "default": {

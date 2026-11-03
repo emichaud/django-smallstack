@@ -55,10 +55,10 @@ apps/website/content/        # Site-specific content (not in help nav)
 Each app owns its own docs. The `apps/help/content/` directory holds only **project-level root docs** (welcome, getting started, theme scenarios). Feature-specific docs live with their owning app and are contributed via AppConfig attributes. Legal pages live in `apps/website/` since they're site-specific standalone pages, not part of the help navigation.
 
 **URLs:**
-- `/help/` - Documentation index (all sections)
-- `/help/index/` - Your welcome page
-- `/help/guides/user-guide/` - Your section pages
-- `/help/smallstack/getting-started/` - SmallStack docs
+- `/smallstack/help/` - Documentation index (all sections)
+- `/smallstack/help/index/` - Your welcome page
+- `/smallstack/help/guides/user-guide/` - Your section pages
+- `/smallstack/help/smallstack/getting-started/` - SmallStack docs
 
 ## Controlling SmallStack Docs
 
@@ -71,7 +71,7 @@ SMALLSTACK_DOCS_ENABLED = False
 
 When disabled:
 - SmallStack section disappears from navigation
-- `/help/smallstack/*` URLs return 404
+- `/smallstack/help/smallstack/*` URLs return 404
 - Search excludes SmallStack content
 
 ## Configuration
@@ -225,7 +225,7 @@ sections:
         icon: "document"
 ```
 
-URL: `/help/my-page/`
+URL: `/smallstack/help/my-page/`
 
 ### To a Section
 
@@ -243,7 +243,7 @@ sections:
         icon: "code"
 ```
 
-URL: `/help/dev/api/`
+URL: `/smallstack/help/dev/api/`
 
 ## Template Variables
 
@@ -305,7 +305,7 @@ def hello():
 
 ```markdown
 [External](https://example.com)
-[Internal](/help/smallstack/theming/)
+[Internal](/smallstack/help/smallstack/theming/)
 ```
 
 ### Blockquotes
@@ -378,7 +378,7 @@ Add these attributes to your app's `apps.py`:
 class MyAppConfig(AppConfig):
     name = "apps.myapp"
     help_content_dir = "docs"              # Directory relative to app path
-    help_section_slug = "myapp"            # URL slug: /help/myapp/
+    help_section_slug = "myapp"            # URL slug: /smallstack/help/myapp/
     help_section_title = "My App Docs"     # Display title
     help_slides_dir = "docs/slides"        # Optional: slide decks
 ```
@@ -439,7 +439,7 @@ class SmallStackConfig(AppConfig):
 
 ## Slide Viewer
 
-The help system also includes a slide presentation mode for focused walkthroughs. See [Using the Slide Viewer](/help/smallstack/slide-viewer/) for full documentation on creating and embedding slide decks.
+The help system also includes a slide presentation mode for focused walkthroughs. See [Using the Slide Viewer](/smallstack/help/smallstack/slide-viewer/) for full documentation on creating and embedding slide decks.
 
 ## Tips
 

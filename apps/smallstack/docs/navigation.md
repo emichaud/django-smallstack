@@ -106,8 +106,8 @@ nav.register(section="main", label="Results", url_name="website:results", parent
 
 The system marks exactly one item as active per page — the one with the longest matching URL:
 
-- **Exact match:** `/help/` highlights "Help"
-- **Prefix match:** `/help/smallstack/navigation/` highlights "Help" (longest match)
+- **Exact match:** `/smallstack/help/` highlights "Help"
+- **Prefix match:** `/smallstack/help/smallstack/navigation/` highlights "Help" (longest match)
 - **Child active:** When a child is active, the parent gets `has_active_child: True` and auto-opens
 
 ## Sidebar

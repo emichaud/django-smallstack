@@ -46,7 +46,7 @@ BRAND_NAME = "My Project"
 BRAND_LOGO_TEXT = "brand/my-logo-text.svg"  # Topbar (32px height)
 ```
 
-For complete branding documentation including logo specifications and asset creation, see the [Customization Guide](/help/smallstack/customization/#customizing-branding).
+For complete branding documentation including logo specifications and asset creation, see the [Customization Guide](/smallstack/help/smallstack/customization/#customizing-branding).
 
 ## Changing Colors
 
@@ -157,7 +157,7 @@ The effective palette is resolved in this order (first match wins):
 
 For authenticated users, the profile choice is synced to localStorage automatically, so these stay aligned. After changing the system default, anonymous users (or users without a profile override) may still see the old palette until their browser localStorage is cleared.
 
-The Profile Edit page also lets users set their **timezone**, which controls how dates and times are displayed throughout the site. See [Working with Timezones](/help/smallstack/timezones/) for details.
+The Profile Edit page also lets users set their **timezone**, which controls how dates and times are displayed throughout the site. See [Working with Timezones](/smallstack/help/smallstack/timezones/) for details.
 
 ### How It Works
 
@@ -340,7 +340,7 @@ Use `{% nav_active 'url_name' %}` to highlight the current page:
 
 ## Creating a Parallel Theme
 
-> **Step-by-step guide:** See [Adding Your Own Theme](/help/smallstack/adding-your-own-theme/) for a complete tutorial with code examples, including how to preserve access to SmallStack admin apps from your custom navbar.
+> **Step-by-step guide:** See [Adding Your Own Theme](/smallstack/help/smallstack/adding-your-own-theme/) for a complete tutorial with code examples, including how to preserve access to SmallStack admin apps from your custom navbar.
 
 SmallStack ships with a Django admin-based CSS theme, but you can add a second CSS framework (Bootstrap, Tailwind, Tabler, etc.) **alongside** the default without removing it. This lets you build new pages with the new framework while existing pages continue to work.
 
@@ -458,7 +458,7 @@ The Profile Edit page groups three user-level preferences that affect the entire
 
 All three follow the same pattern: system default → user override → persisted on profile. Theme and palette are applied via `data-theme` and `data-palette` attributes on `<html>`. Timezone is activated per-request by `TimezoneMiddleware`.
 
-When a user's timezone differs from the server timezone, dates display with a dotted underline and a hover tooltip showing the server time and UTC. See [Working with Timezones](/help/smallstack/timezones/) for the full architecture.
+When a user's timezone differs from the server timezone, dates display with a dotted underline and a hover tooltip showing the server time and UTC. See [Working with Timezones](/smallstack/help/smallstack/timezones/) for the full architecture.
 
 ## Best Practices
 

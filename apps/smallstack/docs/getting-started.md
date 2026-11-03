@@ -32,7 +32,7 @@ Welcome to **{{ project_name }}** v{{ version }}! This is a Django {{ django_ver
 
 ### Local Development
 
-SmallStack includes a `Makefile` with shortcuts for all common commands. See [Make Commands](/help/smallstack/make-commands/) for the full reference.
+SmallStack includes a `Makefile` with shortcuts for all common commands. See [Make Commands](/smallstack/help/smallstack/make-commands/) for the full reference.
 
 1. **Clone and enter the project:**
    ```bash
@@ -59,7 +59,7 @@ SmallStack includes a `Makefile` with shortcuts for all common commands. See [Ma
    TIME_ZONE=UTC                     # UTC
    ```
 
-   See [Working with Timezones](/help/smallstack/timezones/) for the full timezone architecture.
+   See [Working with Timezones](/smallstack/help/smallstack/timezones/) for the full timezone architecture.
 
 4. **Start the development server:**
    ```bash
@@ -123,7 +123,7 @@ SMALLSTACK_SIGNUP_ENABLED=False
 
 This hides the Sign Up button, removes the signup link from the login page, and returns 404 on `/accounts/signup/`. Login and admin still work normally.
 
-See [Authentication](/help/smallstack/authentication/) for all options including hiding the login UI entirely.
+See [Authentication](/smallstack/help/smallstack/authentication/) for all options including hiding the login UI entirely.
 
 ### 1. Customize Your Homepage
 
@@ -167,11 +167,11 @@ find templates/registration -name "*.html" -exec sed -i '' 's/SmallStack/MyApp/g
 ### 3. Set Up Your Documentation
 
 Edit `apps/help/content/index.md` to create your project's welcome page. You can:
-- Keep SmallStack docs as reference in `/help/smallstack/`
-- Add your own docs at `/help/your-page/`
+- Keep SmallStack docs as reference in `/smallstack/help/smallstack/`
+- Add your own docs at `/smallstack/help/your-page/`
 - Remove SmallStack docs entirely
 
-See the [Customization Guide](/help/smallstack/customization/) for detailed instructions.
+See the [Customization Guide](/smallstack/help/smallstack/customization/) for detailed instructions.
 
 ## Creating New Pages
 
@@ -255,7 +255,7 @@ cp .kamal/secrets.example .kamal/secrets
 # Edit with your values
 ```
 
-See [Kamal Deployment](/help/smallstack/kamal-deployment/) for full instructions.
+See [Kamal Deployment](/smallstack/help/smallstack/kamal-deployment/) for full instructions.
 
 ## Set Up Backups (Recommended for SQLite)
 
@@ -278,22 +278,22 @@ BACKUP_CRON_ENABLED=true
 
 This runs a daily backup at 2 AM and keeps the last 10 copies (configurable via `BACKUP_RETENTION`). Old backups are pruned automatically and clearly marked in the history — no alarming red warnings, just a clean record of what happened and when.
 
-For the full setup including off-server copies, failure notifications, and customizing the schedule, see [Database Backups](/help/smallstack/database-backups/).
+For the full setup including off-server copies, failure notifications, and customizing the schedule, see [Database Backups](/smallstack/help/smallstack/database-backups/).
 
 ## Next Steps
 
-- [Authentication](/help/smallstack/authentication/) - Control login, signup, and feature flags
-- [Database Backups](/help/smallstack/database-backups/) - Protect your data with automated backups
-- [Customization Guide](/help/smallstack/customization/) - Make SmallStack your own
+- [Authentication](/smallstack/help/smallstack/authentication/) - Control login, signup, and feature flags
+- [Database Backups](/smallstack/help/smallstack/database-backups/) - Protect your data with automated backups
+- [Customization Guide](/smallstack/help/smallstack/customization/) - Make SmallStack your own
 - [View the Starter Page](/starter/) - See all components in action
-- [Customize the theme](/help/smallstack/theming/) - Colors, dark mode, components
-- [Deploy with Kamal](/help/smallstack/kamal-deployment/) - Zero-downtime VPS deployment
-- [Explore the structure](/help/smallstack/project-structure/) - Understand the codebase
+- [Customize the theme](/smallstack/help/smallstack/theming/) - Colors, dark mode, components
+- [Deploy with Kamal](/smallstack/help/smallstack/kamal-deployment/) - Zero-downtime VPS deployment
+- [Explore the structure](/smallstack/help/smallstack/project-structure/) - Understand the codebase
 
 ## Getting Help
 
 If you run into issues:
 
-1. Check the [FAQ](/help/smallstack/faq/) for common questions
-2. Review the [project structure](/help/smallstack/project-structure/)
+1. Check the [FAQ](/smallstack/help/smallstack/faq/) for common questions
+2. Review the [project structure](/smallstack/help/smallstack/project-structure/)
 3. Open an issue on GitHub

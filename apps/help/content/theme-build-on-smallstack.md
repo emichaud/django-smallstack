@@ -24,7 +24,7 @@ In `config/settings/smallstack.py`:
 BRAND_NAME = "My App"
 ```
 
-This updates the sidebar, topbar, page titles, and footer everywhere. For logos, favicon, and other brand assets, see [Settings & Configuration](/help/smallstack/settings-configuration/).
+This updates the sidebar, topbar, page titles, and footer everywhere. For logos, favicon, and other brand assets, see [Settings & Configuration](/smallstack/help/smallstack/settings-configuration/).
 
 ## Step 2: Customize Your Homepage
 
@@ -154,7 +154,7 @@ All colors respond to dark mode and palette selection automatically:
 }
 ```
 
-For the full component reference, see the [Starter Page](/starter/) or individual guides: [Cards](/help/smallstack/cards/), [Buttons](/help/smallstack/buttons/), [Forms](/help/smallstack/forms/), [Grid Layout](/help/smallstack/grid-layout/).
+For the full component reference, see the [Starter Page](/starter/) or individual guides: [Cards](/smallstack/help/smallstack/cards/), [Buttons](/smallstack/help/smallstack/buttons/), [Forms](/smallstack/help/smallstack/forms/), [Grid Layout](/smallstack/help/smallstack/grid-layout/).
 
 ## Step 5: Pick a Color Palette
 
@@ -176,7 +176,7 @@ No extra CSS frameworks to install. No theme conflicts to manage. Everything use
 
 ## Related
 
-- [Getting Started](/help/getting-started/) — Full first-run walkthrough
-- [Theming & Customization](/help/smallstack/theming/) — CSS variables, dark mode, palettes in depth
-- [Components](/help/smallstack/components/) — Blank page template
-- [Building CRUD Pages](/help/smallstack/building-crud-pages/) — Management pages for your models
+- [Getting Started](/smallstack/help/getting-started/) — Full first-run walkthrough
+- [Theming & Customization](/smallstack/help/smallstack/theming/) — CSS variables, dark mode, palettes in depth
+- [Components](/smallstack/help/smallstack/components/) — Blank page template
+- [Building CRUD Pages](/smallstack/help/smallstack/building-crud-pages/) — Management pages for your models

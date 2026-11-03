@@ -9,6 +9,9 @@ Breaking-change migration recipes live in [`UPGRADING.md`](UPGRADING.md).
 
 ## [Unreleased]
 
+### Fixed
+- **Help links work again.** About 130 links and URLs in the bundled docs still pointed at `/help/...`, which has returned 404 since SmallStack's routes moved under `/smallstack/`. They now use `/smallstack/help/...`, and a test keeps old-prefix links out of the bundled docs.
+
 ### Added
 - **A calendar on any page — `{% calendar_card %}` and the `calendar` dashboard
   card.** The calendar counterpart of `{% metric_card %}` / `{% dashboard %}`:

@@ -20,7 +20,7 @@ class BlogConfig(AppConfig):
     label = "smallstack_blog"
     verbose_name = "Blog"
 
-    # Surfaces apps/blog/content/*.md in the help app at /help/blog/.
+    # Surfaces apps/blog/content/*.md in the help app at /smallstack/help/blog/.
     help_content_dir = "content"
     help_section_slug = "blog"
     help_section_title = "Blog"

@@ -7,7 +7,7 @@ description: Why SQLite is the perfect default for many Django projects
 
 {{ project_name }} uses **SQLite** as its default database—and that's a deliberate choice, not a compromise. For solo developers, small teams, and internal applications, SQLite is often the *best* database option, not just the easiest one.
 
-> **See also:** [PostgreSQL Database](/help/smallstack/database-postgresql/) for when you need to scale beyond SQLite.
+> **See also:** [PostgreSQL Database](/smallstack/help/smallstack/database-postgresql/) for when you need to scale beyond SQLite.
 
 ## Why SQLite?
 
@@ -106,7 +106,7 @@ make backup
 
 The backup tool uses Python's `sqlite3.Connection.backup()` API to create safe, non-blocking copies while your application continues serving requests. Combined with VPS-level snapshots and periodic downloads to your local machine, you get solid multi-layer data protection.
 
-**[Read the full Database Backups guide](/help/smallstack/database-backups/)** for setup instructions, scheduling, and backup strategy recommendations.
+**[Read the full Database Backups guide](/smallstack/help/smallstack/database-backups/)** for setup instructions, scheduling, and backup strategy recommendations.
 
 For manual or ad-hoc backups outside the built-in tool:
 
@@ -218,7 +218,7 @@ You'll know it's time to consider PostgreSQL when:
 
 Until then, SQLite serves admirably. And when you do need to migrate, the path is well-documented.
 
-**[Read the PostgreSQL Migration Guide](/help/smallstack/database-postgresql/)**
+**[Read the PostgreSQL Migration Guide](/smallstack/help/smallstack/database-postgresql/)**
 
 ## Quick Reference
 

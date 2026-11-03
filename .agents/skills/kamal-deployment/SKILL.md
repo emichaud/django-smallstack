@@ -396,7 +396,7 @@ Each app has its own `config/deploy.yml` pointing to the same VPS IP but with di
 
 ## Further Reading
 
-- SmallStack docs: `/help/smallstack/kamal-deployment/`
-- SmallStack docs: `/help/smallstack/make-commands/`
+- SmallStack docs: `/smallstack/help/smallstack/kamal-deployment/`
+- SmallStack docs: `/smallstack/help/smallstack/make-commands/`
 - Kamal official docs: https://kamal-deploy.org
 - Kamal GitHub: https://github.com/basecamp/kamal

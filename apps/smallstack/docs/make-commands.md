@@ -87,7 +87,7 @@ make migrate      # Apply it to the database
 | `make deploy` | Deploy to production via Kamal |
 | `make logs` | View production app logs |
 
-> **Note:** These commands require [Kamal](https://kamal-deploy.org/) to be installed and configured before use. Kamal is an optional deployment utility included with SmallStack — it is not required. See the [Kamal Deployment](/help/smallstack/kamal-deployment/) guide for setup instructions.
+> **Note:** These commands require [Kamal](https://kamal-deploy.org/) to be installed and configured before use. Kamal is an optional deployment utility included with SmallStack — it is not required. See the [Kamal Deployment](/smallstack/help/smallstack/kamal-deployment/) guide for setup instructions.
 
 A typical deploy workflow:
 

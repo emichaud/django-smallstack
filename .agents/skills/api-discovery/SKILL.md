@@ -181,7 +181,7 @@ SmallStack includes Swagger UI and ReDoc pages that consume the OpenAPI spec:
 
 Both load from CDN (`cdn.jsdelivr.net`) — no Python packages required. The views set a per-response CSP header to allow the CDN scripts. Templates are at `apps/smallstack/templates/smallstack/api/swagger.html` and `redoc.html`.
 
-See the help page at `/help/smallstack/api-documentation/` for theming options, CSP details, and troubleshooting.
+See the help page at `/smallstack/help/smallstack/api-documentation/` for theming options, CSP details, and troubleshooting.
 
 ## Comparison Table
 

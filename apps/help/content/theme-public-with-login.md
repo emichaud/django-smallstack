@@ -21,7 +21,7 @@ Admin tools:      SmallStack theme (via /smallstack/ link)
 
 Same as Scenario A — create `templates/mytheme/base.html` with your CSS framework and the three required SmallStack pieces (blocking theme script, `window.SMALLSTACK`, `theme.js`).
 
-See [Adding Your Own Theme](/help/smallstack/adding-your-own-theme/) for the full template.
+See [Adding Your Own Theme](/smallstack/help/smallstack/adding-your-own-theme/) for the full template.
 
 ## Step 2: Set Login Redirect to Your App
 
@@ -139,7 +139,7 @@ The transition is seamless — same session, same dark mode preference, same use
 
 ## Related
 
-- [Scenario A: Public Site, No User Login](/help/theme-public-no-login/) — Simpler version without user-facing auth
-- [Scenario C: Build on SmallStack's Theme](/help/theme-build-on-smallstack/) — Use SmallStack's theme directly
-- [Adding Your Own Theme](/help/smallstack/adding-your-own-theme/) — Full walkthrough with Bootstrap example
-- [Authentication](/help/smallstack/authentication/) — Signup control, login URLs, protecting views
+- [Scenario A: Public Site, No User Login](/smallstack/help/theme-public-no-login/) — Simpler version without user-facing auth
+- [Scenario C: Build on SmallStack's Theme](/smallstack/help/theme-build-on-smallstack/) — Use SmallStack's theme directly
+- [Adding Your Own Theme](/smallstack/help/smallstack/adding-your-own-theme/) — Full walkthrough with Bootstrap example
+- [Authentication](/smallstack/help/smallstack/authentication/) — Signup control, login URLs, protecting views

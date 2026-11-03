@@ -18,7 +18,7 @@ Quick links provide an icon-based navigation grid, useful for dashboards and lan
         </svg>
         <span>Settings</span>
     </a>
-    <a href="/help/" class="quick-link">
+    <a href="/smallstack/help/" class="quick-link">
         <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
             <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10..."/>
         </svg>

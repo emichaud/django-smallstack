@@ -979,7 +979,7 @@ See `docs/skills/help-documentation.md` for the full guide.
 | `/accounts/login/` | Login (alias) | Public |
 | `/status/` | Public status page | Public |
 | `/health/` | Health check (JSON) | Public |
-| `/help/` | Documentation | Public |
+| `/smallstack/help/` | Documentation | Public |
 | `/admin/` | Django admin | Superuser |
 
 ## Quick Reference: Common Commands

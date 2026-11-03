@@ -91,7 +91,7 @@ PASSWORD_RESET_TIMEOUT = config("PASSWORD_RESET_TIMEOUT", default=86400, cast=in
 # Feature Flags & UI
 # ---------------------------------------------------------------------------
 # SmallStack Help Documentation
-# Set to False to hide SmallStack reference docs from /help/
+# Set to False to hide SmallStack reference docs from /smallstack/help/
 SMALLSTACK_DOCS_ENABLED = config("SMALLSTACK_DOCS_ENABLED", default=True, cast=bool)
 # The one-line summary at the top of /llms.txt (https://llmstxt.org) — the
 # agent-readable index of this site's documentation. Blank uses a generic

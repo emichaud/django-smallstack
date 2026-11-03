@@ -11,7 +11,7 @@ Kamal is a deployment tool that makes it easy to deploy containerized applicatio
 
 For more information, visit the official documentation at **[kamal-deploy.org](https://kamal-deploy.org)**.
 
-> **See also:** [Deployment Overview](/help/smallstack/deployment/) for a comparison of deployment options.
+> **See also:** [Deployment Overview](/smallstack/help/smallstack/deployment/) for a comparison of deployment options.
 
 ## Why Kamal?
 
@@ -314,7 +314,7 @@ volumes:
 
 The container is ephemeral, but your data is not. When you deploy a new version, the old container is replaced, but the database file on the VPS filesystem remains untouched.
 
-> **Need PostgreSQL?** See [PostgreSQL Database](/help/smallstack/database-postgresql/) for migration instructions and Kamal accessory configuration.
+> **Need PostgreSQL?** See [PostgreSQL Database](/smallstack/help/smallstack/database-postgresql/) for migration instructions and Kamal accessory configuration.
 
 ## Common Commands
 
@@ -439,7 +439,7 @@ kamal app exec --role worker "python manage.py shell"
 
 When using the inline worker (default), worker output appears in the regular web container logs: `kamal app logs`.
 
-> **See also:** [Background Tasks](/help/smallstack/background-tasks/) for details on defining and enqueueing tasks.
+> **See also:** [Background Tasks](/smallstack/help/smallstack/background-tasks/) for details on defining and enqueueing tasks.
 
 ## Registry: Local by Default
 
@@ -655,11 +655,11 @@ Check ALLOWED_HOSTS includes the container hostname pattern or use `*` for inter
 | Release stuck lock | — | `kamal lock release` |
 | Check status | — | `kamal app details` |
 
-> **Tip:** `make deploy` and `make logs` are convenience shortcuts included in the Makefile. See [Make Commands](/help/smallstack/make-commands/) for the full list of available shortcuts.
+> **Tip:** `make deploy` and `make logs` are convenience shortcuts included in the Makefile. See [Make Commands](/smallstack/help/smallstack/make-commands/) for the full list of available shortcuts.
 
 ## Further Reading
 
 - [Kamal Documentation](https://kamal-deploy.org/docs/installation/)
 - [Kamal GitHub Repository](https://github.com/basecamp/kamal)
-- [Make Commands](/help/smallstack/make-commands/) — All available Makefile shortcuts
-- [Docker Deployment Guide](/help/smallstack/docker-deployment/) — Alternative deployment approach
+- [Make Commands](/smallstack/help/smallstack/make-commands/) — All available Makefile shortcuts
+- [Docker Deployment Guide](/smallstack/help/smallstack/docker-deployment/) — Alternative deployment approach

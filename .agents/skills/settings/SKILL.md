@@ -104,7 +104,7 @@ USE_HTTPS = config("USE_HTTPS", default=False, cast=bool)
 SMALLSTACK_COLOR_PALETTE = config("SMALLSTACK_COLOR_PALETTE", default="django")
 # Options: django, high-contrast, dark-blue, orange, purple
 
-# Show/hide bundled SmallStack reference docs in /help/
+# Show/hide bundled SmallStack reference docs in /smallstack/help/
 SMALLSTACK_DOCS_ENABLED = config("SMALLSTACK_DOCS_ENABLED", default=True, cast=bool)
 
 # Show/hide Login/Sign Up in topbar

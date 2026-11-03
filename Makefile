@@ -122,7 +122,7 @@ install-hooks:
 	@echo "Installed: core.hooksPath -> .githooks (pre-commit runs ruff + mypy)"
 
 # Kamal deployment (optional - requires Kamal to be installed and configured)
-# See /help/smallstack/kamal-deployment/ for setup guide
+# See /smallstack/help/smallstack/kamal-deployment/ for setup guide
 deploy:
 	kamal deploy
 

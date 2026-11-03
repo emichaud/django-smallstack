@@ -132,7 +132,7 @@ No extra configuration needed. These just work:
 
 ## What's Next
 
-- [Getting Started](/help/getting-started/) — The full walkthrough with more detail
+- [Getting Started](/smallstack/help/getting-started/) — The full walkthrough with more detail
 - [Make Commands](/smallstack/help/smallstack/make-commands/) — All the shortcuts
 - [Customization Guide](/smallstack/help/smallstack/customization/) — Make it yours
 - [Kamal Deployment](/smallstack/help/smallstack/kamal-deployment/) — Detailed deploy guide

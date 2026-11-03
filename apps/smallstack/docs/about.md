@@ -53,7 +53,7 @@ A complete user profile system with auto-creation on signup.
 - **Color palette** preference per user — persisted and applied on login
 - Extend with your own fields — it's a standard Django model
 
-> [Full documentation →](/help/smallstack/getting-started/)
+> [Full documentation →](/smallstack/help/smallstack/getting-started/)
 
 ---
 
@@ -63,14 +63,14 @@ Zero-config request logging with a staff-only dashboard.
 
 ![Activity dashboard](/static/smallstack/docs/images/about-activity.png)
 
-> **See it in action:** [Activity Tracking slide deck](/help/slides/activity-tracking/) — a quick walkthrough built with the slide viewer.
+> **See it in action:** [Activity Tracking slide deck](/smallstack/help/slides/activity-tracking/) — a quick walkthrough built with the slide viewer.
 
 - **Middleware-based** — captures every request automatically
 - **Staff dashboard** at `/activity/` with stat cards and filterable log table
 - **Live refresh** via htmx polling (no WebSockets)
 - **Auto-pruning** — configurable retention with background task cleanup
 
-> [Full documentation →](/help/smallstack/activity-tracking/)
+> [Full documentation →](/smallstack/help/smallstack/activity-tracking/)
 
 ---
 
@@ -87,7 +87,7 @@ Built-in SQLite backup system with a staff dashboard.
 - **Email alerts** — get notified when backups fail (configure ADMINS + SMTP)
 - **Configurable retention** — auto-prune old backups to save disk space
 
-> [Full documentation →](/help/smallstack/database-backups/)
+> [Full documentation →](/smallstack/help/smallstack/database-backups/)
 
 ---
 
@@ -106,7 +106,7 @@ A built-in heartbeat system with a public status page — no external services n
 
 For small and internal sites, this is all the monitoring you need. As you grow, use the JSON endpoint with external tools like UptimeRobot or Healthchecks.io for outside-in verification and alerting.
 
-> [Full documentation →](/help/smallstack/uptime-monitoring/)
+> [Full documentation →](/smallstack/help/smallstack/uptime-monitoring/)
 
 ---
 
@@ -123,7 +123,7 @@ Light and dark modes with selectable color palettes, all built on CSS custom pro
 - **CSS variables** for colors, spacing, shadows — change the look from one file
 - Inherits Django admin's responsive foundation
 
-> [Full documentation →](/help/smallstack/theming/)
+> [Full documentation →](/smallstack/help/smallstack/theming/)
 
 ---
 
@@ -136,7 +136,7 @@ Built on Django's battle-tested `contrib.auth` — no third-party auth packages.
 - **Password reset** flows using Django's built-in views and email
 - **Feature flags** — toggle app sections on and off
 
-> [Full documentation →](/help/smallstack/authentication/)
+> [Full documentation →](/smallstack/help/smallstack/authentication/)
 
 ---
 
@@ -152,7 +152,7 @@ Staff-only interface for managing user accounts, profiles, and timezones.
 - **Self-protection** — you can't accidentally delete your own account
 - **Built to extend** — a "just enough" foundation that downstream projects can customize without fighting the framework
 
-> [Full documentation →](/help/smallstack/user-manager/)
+> [Full documentation →](/smallstack/help/smallstack/user-manager/)
 
 ---
 
@@ -168,7 +168,7 @@ A declarative pattern for building model management pages — define one class, 
 - **Stat card drilldowns** — clickable dashboard cards that open detail modals
 - Inspired by [Neapolitan](https://github.com/carltongibson/neapolitan) by [Carlton Gibson](https://github.com/carltongibson)
 
-> [Full documentation →](/help/smallstack/building-crud-pages/)
+> [Full documentation →](/smallstack/help/smallstack/building-crud-pages/)
 
 ---
 
@@ -184,7 +184,7 @@ The documentation viewer you're reading right now — file-based, markdown-power
 - **FAQ mode** with collapsible sections
 - **Slide viewer** for focused presentations ([see below](#slide-viewer))
 
-> [Full documentation →](/help/smallstack/help-system/)
+> [Full documentation →](/smallstack/help/smallstack/help-system/)
 
 ---
 
@@ -197,7 +197,7 @@ Django 6's Tasks framework, pre-configured with a database backend.
 - Handles email sending, data processing, scheduled cleanup
 - **Kamal deployment** runs the worker as a separate service
 
-> [Full documentation →](/help/smallstack/background-tasks/)
+> [Full documentation →](/smallstack/help/smallstack/background-tasks/)
 
 ---
 
@@ -210,7 +210,7 @@ Production-ready container setup with zero-downtime deployment.
 - **Kamal deployment** — push to any VPS with `kamal deploy`
 - **SQLite in production** — works great for small-to-medium apps
 
-> [Full documentation →](/help/smallstack/docker-deployment/)
+> [Full documentation →](/smallstack/help/smallstack/docker-deployment/)
 
 ---
 
@@ -220,6 +220,6 @@ SmallStack includes a **slide presentation mode** for the help system. Create fo
 
 ![Slide viewer](/static/smallstack/docs/images/about-slides.png)
 
-[Try the Activity Tracking slide deck →](/help/slides/activity-tracking/)
+[Try the Activity Tracking slide deck →](/smallstack/help/slides/activity-tracking/)
 
-> **Learn how to create your own:** [Using the Help System → Slide Viewer](/help/smallstack/help-system/#slide-viewer)
+> **Learn how to create your own:** [Using the Help System → Slide Viewer](/smallstack/help/smallstack/help-system/#slide-viewer)

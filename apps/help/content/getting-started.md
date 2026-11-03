@@ -137,4 +137,4 @@ You've got the basics. Here are the natural next steps depending on what you're 
 | Understand the project layout | [Project Structure](/smallstack/help/smallstack/project-structure/) |
 | Add your own documentation | [Help System Guide](/smallstack/help/smallstack/help-system/) |
 
-And if you just want the shortest path from clone to live site, check out the [Quick Setup (TL;DR)](/help/quick-setup/).
+And if you just want the shortest path from clone to live site, check out the [Quick Setup (TL;DR)](/smallstack/help/quick-setup/).

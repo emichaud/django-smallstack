@@ -163,7 +163,7 @@ class UserCRUDView(CRUDView):
 
 This generates four URL patterns, four views, and wires up the form, pagination, and access control. The built-in `TableDisplay` handles sortable column headers, pagination, and themed styling automatically. The `_make_view` method is overridden to inject search filtering, profile form handling, and self-delete protection.
 
-See the [Building CRUD Pages](/help/smallstack/building-crud-pages/) guide for the full CRUDView pattern documentation.
+See the [Building CRUD Pages](/smallstack/help/smallstack/building-crud-pages/) guide for the full CRUDView pattern documentation.
 
 ## Access Control
 

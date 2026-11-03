@@ -51,7 +51,7 @@ uv run python manage.py db_worker
 
 In development (DEBUG=True), the worker auto-reloads when code changes. Keep it running in a separate terminal while developing.
 
-In production, the worker runs automatically inside the web container — no extra setup needed. For high-traffic sites that need independent scaling, you can run the worker as a separate container by setting `WORKER_INLINE=false`. See [Docker Deployment](/help/smallstack/docker-deployment/) for details.
+In production, the worker runs automatically inside the web container — no extra setup needed. For high-traffic sites that need independent scaling, you can run the worker as a separate container by setting `WORKER_INLINE=false`. See [Docker Deployment](/smallstack/help/smallstack/docker-deployment/) for details.
 
 ## Defining Tasks
 
@@ -457,7 +457,7 @@ servers:
 
 **Switch to separate** when worker load could starve web requests, you have heavy/long-running tasks, or you need independent scaling or monitoring.
 
-> **See also:** [Docker Deployment](/help/smallstack/docker-deployment/) and [Kamal Deployment](/help/smallstack/kamal-deployment/) for full deployment documentation.
+> **See also:** [Docker Deployment](/smallstack/help/smallstack/docker-deployment/) and [Kamal Deployment](/smallstack/help/smallstack/kamal-deployment/) for full deployment documentation.
 
 ## Troubleshooting
 

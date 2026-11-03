@@ -195,7 +195,7 @@ Example:
 | `/accounts/` | Auth URLs | login, logout, etc. |
 | `/accounts/signup/` | SignupView | signup |
 | `/profile/` | profile.urls | profile, profile_edit |
-| `/help/` | help.urls | help:index, help:detail |
+| `/smallstack/help/` | help.urls | help:index, help:detail |
 | `/health/` | health_check | health_check |
 | `/` | home_view | home |
 
@@ -211,8 +211,8 @@ Example:
 
 | Pattern | View | Name |
 |---------|------|------|
-| `/help/` | HelpIndexView | help:index |
-| `/help/<slug>/` | HelpDetailView | help:detail |
+| `/smallstack/help/` | HelpIndexView | help:index |
+| `/smallstack/help/<slug>/` | HelpDetailView | help:detail |
 
 ## Static Files
 

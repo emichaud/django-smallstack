@@ -7,7 +7,7 @@ description: Create focused presentations from markdown files
 
 The help system includes a **slide presentation mode** — a focused, one-slide-at-a-time viewer for walkthroughs, feature overviews, and onboarding decks. It uses the same YAML + markdown approach as the rest of the help system.
 
-> **Examples:** [Activity Tracking slide deck](/help/slides/activity-tracking/) | [Feature Overview on the About page](/about/)
+> **Examples:** [Activity Tracking slide deck](/smallstack/help/slides/activity-tracking/) | [Feature Overview on the About page](/about/)
 
 ## How It Works
 
@@ -25,7 +25,7 @@ apps/smallstack/docs/slides/
     └── ...
 ```
 
-**URL:** `/help/slides/<deck-slug>/`
+**URL:** `/smallstack/help/slides/<deck-slug>/`
 
 ## Creating a Slide Deck
 
@@ -95,7 +95,7 @@ Your **markdown** text here.
 </div>
 ````
 
-The two columns stack vertically on small screens. Images are automatically constrained to fit the column. See the [Feature Overview slides](/help/slides/features/) for working examples.
+The two columns stack vertically on small screens. Images are automatically constrained to fit the column. See the [Feature Overview slides](/smallstack/help/slides/features/) for working examples.
 
 ## Embedding in Pages
 
@@ -132,7 +132,7 @@ The help system discovers this automatically and uses it as the default slides s
 You can also use the `content_root` query parameter for one-off overrides:
 
 ```
-/help/slides/my-deck/?content_root=apps/website/slides
+/smallstack/help/slides/my-deck/?content_root=apps/website/slides
 ```
 
 The path is relative to `BASE_DIR`. Place a `_slides.yaml` and slide folders in that directory.

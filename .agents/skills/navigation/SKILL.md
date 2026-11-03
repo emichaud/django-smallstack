@@ -99,8 +99,8 @@ nav.register(section="main", label="Results", url_name="results", parent="Schedu
 ## Active State Detection
 
 Longest matching URL wins:
-- `/help/` highlights "Help"
-- `/help/smallstack/navigation/` also highlights "Help" (prefix match)
+- `/smallstack/help/` highlights "Help"
+- `/smallstack/help/smallstack/navigation/` also highlights "Help" (prefix match)
 - Active child sets `has_active_child: True` on parent
 
 ## Sidebar

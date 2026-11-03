@@ -22,7 +22,7 @@ You don't need to rewrite those pages. Instead, add your own theme **alongside**
 │  ├── Status / Heartbeat     (/status/)           │
 │  ├── Backups                (/backups/)           │
 │  ├── User Manager           (/manage/users/)     │
-│  ├── Help & Docs            (/help/)             │
+│  ├── Help & Docs            (/smallstack/help/)             │
 │  ├── Profile                (/profile/)          │
 │  └── Django Admin           (/admin/)            │
 └──────────────────────────────────────────────────┘
@@ -42,7 +42,7 @@ apps/website/
 
 **Best practice:** New pages go in `apps/website/`. New templates go in `templates/website/`. Your custom base template goes in `templates/mytheme/` (or whatever you name it). Website pages extend your custom base.
 
-For more on the conflict-free zones, see the [Customization Guide](/help/smallstack/customization/#conflict-free-zones).
+For more on the conflict-free zones, see the [Customization Guide](/smallstack/help/smallstack/customization/#conflict-free-zones).
 
 ## Step 1: Create the Theme Directory
 
@@ -189,7 +189,7 @@ There are three **required** pieces that must be present for dark mode, palettes
 | **`window.SMALLSTACK` object** | `theme.js` throws JavaScript errors, dark mode toggle and palette switching break |
 | **`theme.js`** | No dark mode toggle, no palette switching, no profile sync for authenticated users |
 
-For the full technical details on the persistence mechanism, see [Theming & Customization — Dark/Light Mode](/help/smallstack/theming/#darklight-mode).
+For the full technical details on the persistence mechanism, see [Theming & Customization — Dark/Light Mode](/smallstack/help/smallstack/theming/#darklight-mode).
 
 ## Step 3: Create Your Theme's CSS Override File
 
@@ -254,7 +254,7 @@ SmallStack sets `data-theme="dark"` or `data-theme="light"` on the `<html>` elem
 
 ```
 
-The key insight: use SmallStack's CSS variables (`var(--body-bg)`, `var(--card-bg)`, `var(--primary)`, etc.) instead of hardcoding colors. This way your theme automatically adapts to dark mode and palette changes. See [Theming & Customization — Available CSS Variables](/help/smallstack/theming/#available-css-variables) for the full list.
+The key insight: use SmallStack's CSS variables (`var(--body-bg)`, `var(--card-bg)`, `var(--primary)`, etc.) instead of hardcoding colors. This way your theme automatically adapts to dark mode and palette changes. See [Theming & Customization — Available CSS Variables](/smallstack/help/smallstack/theming/#available-css-variables) for the full list.
 
 ## Step 4: Create Your Navbar Partial
 
@@ -390,7 +390,7 @@ make run
 | `/status/` | Status/Heartbeat dashboard |
 | `/backups/` | Backup manager |
 | `/manage/users/` | User manager |
-| `/help/` | Help & documentation |
+| `/smallstack/help/` | Help & documentation |
 | `/profile/` | Profile edit (theme, palette, timezone) |
 
 **Verify dark mode persists across both themes:**
@@ -541,7 +541,7 @@ Put a single link in your footer that takes staff to the activity dashboard (whi
 | Status | `heartbeat:dashboard` | `/status/` | Staff |
 | Backups | `smallstack:backups` | `/backups/` | Staff |
 | User Manager | `manage/users-list` | `/manage/users/` | Staff |
-| Help & Docs | `help:index` | `/help/` | All users |
+| Help & Docs | `help:index` | `/smallstack/help/` | All users |
 | Profile | `profile` | `/profile/` | Authenticated |
 | Django Admin | `admin:index` | `/admin/` | Staff |
 
@@ -583,11 +583,11 @@ User visits /activity/         → apps/activity/urls.py
 
 **Don't reimplement dark mode.** If your purchased theme has its own dark mode JS, remove it. SmallStack's `theme.js` handles localStorage persistence, profile sync, and palette switching. Reimplementing breaks the persistence between themes.
 
-**Don't put custom pages in other apps.** Keep all your project pages in `apps/website/`. This is the designated project-specific app that won't conflict with upstream. See the [Customization Guide](/help/smallstack/customization/) for the full list of conflict-free zones.
+**Don't put custom pages in other apps.** Keep all your project pages in `apps/website/`. This is the designated project-specific app that won't conflict with upstream. See the [Customization Guide](/smallstack/help/smallstack/customization/) for the full list of conflict-free zones.
 
 ## Next Steps
 
-- [Theming & Customization](/help/smallstack/theming/) — CSS variables reference, palettes, dark mode internals
-- [Customization Guide](/help/smallstack/customization/) — Branding, documentation, conflict-free zones
-- [Components](/help/smallstack/components/) — SmallStack's built-in UI components
-- [Getting Started](/help/smallstack/getting-started/) — Initial project setup
+- [Theming & Customization](/smallstack/help/smallstack/theming/) — CSS variables reference, palettes, dark mode internals
+- [Customization Guide](/smallstack/help/smallstack/customization/) — Branding, documentation, conflict-free zones
+- [Components](/smallstack/help/smallstack/components/) — SmallStack's built-in UI components
+- [Getting Started](/smallstack/help/smallstack/getting-started/) — Initial project setup

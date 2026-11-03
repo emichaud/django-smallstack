@@ -389,7 +389,7 @@ See [`webhooks.md`](../../../docs/skills/webhooks.md).
 
 #### `sync_help_index`
 
-Sync the help-article search index from the filesystem markdown (the bundled `/help/` docs), so help content is findable in search. Run it after editing help articles. No-ops on a non-SQLite database or when there are zero articles.
+Sync the help-article search index from the filesystem markdown (the bundled `/smallstack/help/` docs), so help content is findable in search. Run it after editing help articles. No-ops on a non-SQLite database or when there are zero articles.
 
 ```bash
 uv run python manage.py sync_help_index

@@ -31,7 +31,7 @@ Instead, you add your own theme **alongside** SmallStack's. Your new pages use y
 │  ├── Status / Heartbeat     (/status/)           │
 │  ├── Backups                (/backups/)           │
 │  ├── User Manager           (/manage/users/)     │
-│  ├── Help & Docs            (/help/)             │
+│  ├── Help & Docs            (/smallstack/help/)             │
 │  ├── Profile                (/profile/)          │
 │  └── Django Admin           (/admin/)            │
 └──────────────────────────────────────────────────┘

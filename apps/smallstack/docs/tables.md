@@ -242,7 +242,7 @@ class ItemCRUDView(CRUDView):
 
 Column headers are automatically sortable for any field backed by a real model field. The `ordering_fields` attribute lets you restrict which columns are sortable.
 
-For the full walkthrough on setting up CRUD pages with tables, see [Building CRUD Pages](/smallstack/help/building-crud-pages/).
+For the full walkthrough on setting up CRUD pages with tables, see [Building CRUD Pages](/smallstack/help/smallstack/building-crud-pages/).
 
 ## Common Pitfalls
 

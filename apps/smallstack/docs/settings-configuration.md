@@ -259,7 +259,7 @@ SmallStack includes these feature flags out of the box:
 
 | Flag | Default | Purpose |
 |------|---------|---------|
-| `SMALLSTACK_DOCS_ENABLED` | `True` | Show/hide SmallStack reference docs from `/help/` |
+| `SMALLSTACK_DOCS_ENABLED` | `True` | Show/hide SmallStack reference docs from `/smallstack/help/` |
 | `SMALLSTACK_LOGIN_ENABLED` | `True` | Show/hide Login and Sign Up buttons in the topbar |
 | `SMALLSTACK_SIGNUP_ENABLED` | `True` | Show/hide Sign Up UI and 404 the signup URL |
 | `SMALLSTACK_SIDEBAR_ENABLED` | `True` | Show/hide the sidebar and hamburger toggle |
@@ -268,9 +268,9 @@ SmallStack includes these feature flags out of the box:
 | `SMALLSTACK_COLOR_PALETTE` | `"django"` | System default color palette (`django`, `light-blue`, `dark-blue`, `orange`, `purple`) |
 | `TIME_ZONE` | `America/New_York` | Server timezone for date display (any IANA timezone name) |
 
-All of these are defined in `config/settings/smallstack.py`. `SMALLSTACK_TOPBAR_NAV_ITEMS` is a Python list (not an env var) — configure it directly in your settings file. See [Topbar Navigation](/help/smallstack/topbar-navigation/) for the item format and examples.
+All of these are defined in `config/settings/smallstack.py`. `SMALLSTACK_TOPBAR_NAV_ITEMS` is a Python list (not an env var) — configure it directly in your settings file. See [Topbar Navigation](/smallstack/help/smallstack/topbar-navigation/) for the item format and examples.
 
-See [Authentication](/help/smallstack/authentication/) for details on the auth flags. See [Working with Timezones](/help/smallstack/timezones/) for the full timezone architecture.
+See [Authentication](/smallstack/help/smallstack/authentication/) for details on the auth flags. See [Working with Timezones](/smallstack/help/smallstack/timezones/) for the full timezone architecture.
 
 **Example: Debug Toolbar (env-gated dev tool)**
 
@@ -288,7 +288,7 @@ if config("DEBUG_TOOLBAR", default=False, cast=bool):
     MIDDLEWARE.insert(0, "debug_toolbar.middleware.DebugToolbarMiddleware")
 ```
 
-See the [Debug Toolbar](/help/smallstack/debug-toolbar/) page for full usage guide.
+See the [Django Debug Toolbar documentation](https://django-debug-toolbar.readthedocs.io/) for a full usage guide.
 
 ### Webhook Settings
 
@@ -316,7 +316,7 @@ foundation reshape; the rest are backward-compatible defaults.
 
 ### Approvals Settings
 
-The human-in-the-loop approval gate (`apps/approvals`). See [Approvals](/help/smallstack/approvals/)
+The human-in-the-loop approval gate (`apps/approvals`). See [Approvals](/smallstack/help/smallstack/approvals/)
 for the full feature.
 
 | Setting | Default | Purpose |
@@ -332,7 +332,7 @@ for the full feature.
 ### Notification Settings
 
 The in-app notification bell + inbox (`apps/notifications`). See
-[Notifications](/help/smallstack/notifications/).
+[Notifications](/smallstack/help/smallstack/notifications/).
 
 | Setting | Default | Purpose |
 |---------|---------|---------|

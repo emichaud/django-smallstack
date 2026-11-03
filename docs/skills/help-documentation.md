@@ -60,12 +60,12 @@ static/smallstack/help/
 
 | URL | View | Template | Purpose |
 |-----|------|----------|---------|
-| `/help/` | `HelpIndexView` | `help_index.html` | Main index — shows all sections as card groups |
-| `/help/<section>/` | `HelpSectionIndexView` | `help_section_index.html` | Section index — shows pages as categorized card grids |
-| `/help/<slug>/` | `HelpDetailView` | `help_detail.html` | Root-level page detail |
-| `/help/<section>/<slug>/` | `HelpSectionDetailView` | `help_detail.html` | Section page detail with sidebar |
-| `/help/search-index.json` | `search_index_view` | — | JSON for client-side search |
-| `/help/slides/<deck>/` | `SlideView` | `slides.html` | Slide deck presentation |
+| `/smallstack/help/` | `HelpIndexView` | `help_index.html` | Main index — shows all sections as card groups |
+| `/smallstack/help/<section>/` | `HelpSectionIndexView` | `help_section_index.html` | Section index — shows pages as categorized card grids |
+| `/smallstack/help/<slug>/` | `HelpDetailView` | `help_detail.html` | Root-level page detail |
+| `/smallstack/help/<section>/<slug>/` | `HelpSectionDetailView` | `help_detail.html` | Section page detail with sidebar |
+| `/smallstack/help/search-index.json` | `search_index_view` | — | JSON for client-side search |
+| `/smallstack/help/slides/<deck>/` | `SlideView` | `slides.html` | Slide deck presentation |
 
 ### View Context Variables
 
@@ -112,7 +112,7 @@ The app's `docs/` directory must contain a `_config.yaml` and `.md` files.
 > exist, work, and are linked from nowhere. Nothing errors and no test
 > catches it. `apps/blog/content/_config.yaml` is a minimal example;
 > `apps/runbook/content/` is currently missing one, which is why
-> `/help/runbook/` lists nothing despite shipping six pages.
+> `/smallstack/help/runbook/` lists nothing despite shipping six pages.
 
 ## Creating a New Help Page
 
@@ -142,7 +142,7 @@ Code blocks, tables, etc.
 
 **File naming:**
 - Use lowercase with hyphens: `my-new-page.md`
-- The filename (without `.md`) becomes the URL slug: `/help/my-new-page/`
+- The filename (without `.md`) becomes the URL slug: `/smallstack/help/my-new-page/`
 
 ### Step 2: Add to _config.yaml
 
@@ -333,15 +333,15 @@ In FAQ pages, each `## Heading` becomes a collapsible question, and the content 
 - **Lists:** Ordered and unordered
 - **Code:** Inline `` `code` `` and fenced blocks with syntax highlighting
 - **Tables:** GitHub-flavored markdown tables
-- **Links:** `[text](url)` - internal links use `/help/slug/`
+- **Links:** `[text](url)` - internal links use `/smallstack/help/slug/`
 - **Blockquotes:** `> quoted text`
 - **Images:** `![alt](url)`
 
 **Internal links example:**
 
 ```markdown
-See the [Docker Deployment](/help/smallstack/docker-deployment/) guide.
-Check the [FAQ](/help/smallstack/faq/) for common questions.
+See the [Docker Deployment](/smallstack/help/smallstack/docker-deployment/) guide.
+Check the [FAQ](/smallstack/help/smallstack/faq/) for common questions.
 ```
 
 ## Navigation Structure

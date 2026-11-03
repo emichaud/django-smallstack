@@ -99,11 +99,11 @@ Live template pages you can copy as a starting point:
 
 Browse the component pages in this section to see what's available:
 
-- [Cards](/help/smallstack/cards/) — content containers
-- [Buttons](/help/smallstack/buttons/) — actions and links
-- [Forms](/help/smallstack/forms/) — inputs, selects, file uploads
-- [Grid Layout](/help/smallstack/grid-layout/) — multi-column pages
-- [Messages](/help/smallstack/messages/) — notifications
-- [Quick Links](/help/smallstack/quick-links/) — icon navigation grids
-- [Navigation](/help/smallstack/navigation/) — sidebar, breadcrumbs, page headers
-- [Theme Bars](/help/smallstack/theme-bars/) — data visualization bars
+- [Cards](/smallstack/help/smallstack/cards/) — content containers
+- [Buttons](/smallstack/help/smallstack/buttons/) — actions and links
+- [Forms](/smallstack/help/smallstack/forms/) — inputs, selects, file uploads
+- [Grid Layout](/smallstack/help/smallstack/grid-layout/) — multi-column pages
+- [Messages](/smallstack/help/smallstack/messages/) — notifications
+- [Quick Links](/smallstack/help/smallstack/quick-links/) — icon navigation grids
+- [Navigation](/smallstack/help/smallstack/navigation/) — sidebar, breadcrumbs, page headers
+- [Theme Bars](/smallstack/help/smallstack/theme-bars/) — data visualization bars

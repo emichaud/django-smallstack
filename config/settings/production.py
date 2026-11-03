@@ -21,7 +21,7 @@ ALLOWED_HOSTS = config("ALLOWED_HOSTS", cast=Csv())
 # VPS backups automatically include your database - simple and effective
 # SQLITE_OPTIONS (from base.py) enables WAL mode, IMMEDIATE transactions,
 # and performance PRAGMAs to prevent "database is locked" errors
-# See /help/database-sqlite/ for more on why SQLite works great in production
+# See /smallstack/help/smallstack/database-sqlite/ for more on why SQLite works great in production
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.sqlite3",
@@ -33,7 +33,7 @@ DATABASES = {
 # PostgreSQL configuration (when you outgrow SQLite)
 # Set DATABASE_URL environment variable to enable PostgreSQL
 # Example: DATABASE_URL=postgres://user:pass@host:5432/dbname
-# See /help/database-postgresql/ for migration guide
+# See /smallstack/help/smallstack/database-postgresql/ for migration guide
 #
 # To use PostgreSQL:
 # 1. Install driver: uv add psycopg[binary]

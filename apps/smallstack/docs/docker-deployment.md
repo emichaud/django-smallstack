@@ -9,7 +9,7 @@ description: Local development and generic container hosting
 
 This guide walks you through deploying {{ project_name }} using Docker Compose. This approach works for local development and is compatible with virtually any container hosting service.
 
-> **See also:** [Deployment Overview](/help/smallstack/deployment/) for a comparison of deployment options, or [Kamal Deployment](/help/smallstack/kamal-deployment/) for zero-downtime VPS deployments.
+> **See also:** [Deployment Overview](/smallstack/help/smallstack/deployment/) for a comparison of deployment options, or [Kamal Deployment](/smallstack/help/smallstack/kamal-deployment/) for zero-downtime VPS deployments.
 
 ## Prerequisites
 
@@ -172,7 +172,7 @@ services:
     restart: unless-stopped
 ```
 
-> **See also:** [Background Tasks](/help/smallstack/background-tasks/) for trade-offs between inline and separate worker modes.
+> **See also:** [Background Tasks](/smallstack/help/smallstack/background-tasks/) for trade-offs between inline and separate worker modes.
 
 ## Data Persistence
 
@@ -191,7 +191,7 @@ docker volume ls
 
 > **Warning:** `docker compose down -v` deletes all data!
 
-> **Need PostgreSQL?** See [PostgreSQL Database](/help/smallstack/database-postgresql/) for Docker Compose configuration with PostgreSQL.
+> **Need PostgreSQL?** See [PostgreSQL Database](/smallstack/help/smallstack/database-postgresql/) for Docker Compose configuration with PostgreSQL.
 
 ## Changing the Port
 

@@ -7,7 +7,7 @@ description: Protect your data from day one with built-in SQLite backup tooling
 
 Your database is the most important thing in your application. {{ project_name }} ships with a complete backup system so you can protect your data from day one — scheduled backups, a staff dashboard for manual control, and one-click downloads to get a copy on your local machine.
 
-> **See also:** [SQLite Database](/help/smallstack/database-sqlite/) for how {{ project_name }} configures and persists SQLite, and [PostgreSQL Database](/help/smallstack/database-postgresql/) for when you need to scale beyond SQLite.
+> **See also:** [SQLite Database](/smallstack/help/smallstack/database-sqlite/) for how {{ project_name }} configures and persists SQLite, and [PostgreSQL Database](/smallstack/help/smallstack/database-postgresql/) for when you need to scale beyond SQLite.
 
 ## Why SQLite Backups Are Simple
 
@@ -60,7 +60,7 @@ The default view shows:
 - **Stat cards** — six cards showing recent backups (24h), successful, failed, pruned, average duration, and total size on disk. Click a stat card to see the matching backup records in a detail modal.
 - **Backup history table** — paginated list of all backups with clickable IDs, timestamps, file sizes, status badges, and trigger source. Pruned backups show a muted badge; missing files show a red warning icon.
 
-All dates display in your timezone (set on the Profile Edit page, or the server default). When your timezone differs from the server's, dates show a dotted underline — hover to see the server time and UTC. See [Working with Timezones](/help/smallstack/timezones/) for details.
+All dates display in your timezone (set on the Profile Edit page, or the server default). When your timezone differs from the server's, dates show a dotted underline — hover to see the server time and UTC. See [Working with Timezones](/smallstack/help/smallstack/timezones/) for details.
 
 ### Backup Detail Page
 
@@ -264,7 +264,7 @@ In development, `EMAIL_BACKEND` defaults to the console backend, so emails print
 EMAIL_BACKEND=django.core.mail.backends.smtp.EmailBackend
 ```
 
-See the [Email & Password Reset](/help/smallstack/email-auth/) docs for full SMTP setup instructions.
+See the [Email & Password Reset](/smallstack/help/smallstack/email-auth/) docs for full SMTP setup instructions.
 
 If `ADMINS` is empty or email is not configured, backup failures are still recorded in the backup history — they just won't trigger a notification.
 
@@ -297,7 +297,7 @@ At that point, consider a **managed database service** from DigitalOcean, AWS, G
 
 But for where most projects start — a small site, an internal tool, a side project, a club website — SQLite with {{ project_name }}'s backup system has you covered.
 
-**[Read the PostgreSQL Migration Guide](/help/smallstack/database-postgresql/)**
+**[Read the PostgreSQL Migration Guide](/smallstack/help/smallstack/database-postgresql/)**
 
 ## What's Not Included
 

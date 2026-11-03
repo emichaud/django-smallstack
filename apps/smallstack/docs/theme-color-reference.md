@@ -289,5 +289,5 @@ Django serves static files from the `staticfiles/` directory. Without `collectst
 
 ## Related Docs
 
-- [Theming & Customization](/help/smallstack/theming/) — How the theme system works, palettes, dark mode toggle
-- [Adding Your Own Theme](/help/smallstack/adding-your-own-theme/) — Using a separate CSS framework alongside SmallStack
+- [Theming & Customization](/smallstack/help/smallstack/theming/) — How the theme system works, palettes, dark mode toggle
+- [Adding Your Own Theme](/smallstack/help/smallstack/adding-your-own-theme/) — Using a separate CSS framework alongside SmallStack

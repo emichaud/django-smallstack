@@ -46,7 +46,7 @@ Built-in documentation with markdown support, table of contents, search, and eas
 Beautiful light and dark modes with six color palettes and CSS custom properties. Customize colors, shadows, and spacing from a single file. User preferences are saved.
 
 ### Docker & SQLite
-Production-ready Docker (multi-service compose, health checks, background worker) with SQLite stored outside the container — reliable data storage that backs up with your VPS, no database service fees. [Upgrade to PostgreSQL](/help/smallstack/database-postgresql/) when you need it.
+Production-ready Docker (multi-service compose, health checks, background worker) with SQLite stored outside the container — reliable data storage that backs up with your VPS, no database service fees. [Upgrade to PostgreSQL](/smallstack/help/smallstack/database-postgresql/) when you need it.
 
 ## Built on Django Best Practices
 
@@ -183,7 +183,7 @@ uv run python manage.py db_worker
 
 ## Documentation
 
-Once running, visit `/help/` for comprehensive documentation including:
+Once running, visit `/smallstack/help/` for comprehensive documentation including:
 
 - Getting Started guide
 - Theming customization
