@@ -55,6 +55,8 @@ QUICK_PERIODS: list[tuple[str, str]] = [
 SHORT_PERIODS: list[tuple[str, str]] = [
     ("all", "All time"),
     ("today", "Today"),
+    ("wtd", "This week"),
+    ("pwtd", "Last week"),
     ("last_7", "7 days"),
     ("last_30", "30 days"),
     ("mtd", "This month"),

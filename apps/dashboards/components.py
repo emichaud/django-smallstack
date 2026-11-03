@@ -535,12 +535,21 @@ def _missing_caps(ct: ComponentType, metric: "Metric") -> list[str]:
 
 
 def next_position(layout: list[dict[str, Any]], w: int) -> tuple[int, int]:
-    """Where a new ``w``-wide card goes: the end of the lowest row."""
-    bottom = 0
-    for c in layout:
-        if isinstance(c, dict):
-            bottom = max(bottom, (_int(c.get("y")) or 0) + (_int(c.get("h")) or 1))
-    return 0, bottom
+    """Where a new ``w``-wide card goes: the end of the lowest row, or a new row
+    below everything when it won't fit there. Four 3-wide cards make one row."""
+    cells = [
+        (_int(c.get("x")) or 0, _int(c.get("y")) or 0, _int(c.get("w")) or 1, _int(c.get("h")) or 1)
+        for c in layout
+        if isinstance(c, dict)
+    ]
+    if not cells:
+        return 0, 0
+    top = max(y for _x, y, _w, _h in cells)
+    # Anything still occupying that row, including a taller card from above it.
+    right = max(x + cw for x, y, cw, ch in cells if y <= top < y + ch)
+    if right + w <= GRID_COLUMNS:
+        return right, top
+    return 0, max(y + ch for _x, y, _w, ch in cells)
 
 
 # -- built-in types ---------------------------------------------------------------

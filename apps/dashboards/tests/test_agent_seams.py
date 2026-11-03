@@ -277,3 +277,19 @@ def test_duplicate_saved_view_name_is_a_validation_error(call, staff):
     is_error, out = call("create_calendar_view", name="Ops", datasets=[])
     assert is_error is True and "already" in json.dumps(out)
     assert SavedCalendarView.objects.filter(owner=staff).count() == 1
+
+
+def test_cards_added_one_by_one_fill_the_row(call, metric):
+    Dashboard(name="D", slug="seam-d").save()
+    for _ in range(5):
+        call("dashboard_add_card", dashboard="seam-d", type="metric", metric=metric.key, w=3, h=2)
+    positions = [(c["x"], c["y"]) for c in Dashboard.objects.get(slug="seam-d").layout]
+    assert positions == [(0, 0), (3, 0), (6, 0), (9, 0), (0, 2)]
+
+
+def test_a_card_never_lands_on_a_tall_one_beside_it():
+    from apps.dashboards.components import next_position
+
+    layout = [{"x": 0, "y": 0, "w": 6, "h": 5}, {"x": 6, "y": 2, "w": 3, "h": 1}]
+    assert next_position(layout, 3) == (9, 2)
+    assert next_position(layout, 4) == (0, 5)

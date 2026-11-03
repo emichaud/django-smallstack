@@ -16,7 +16,7 @@ Rendered by {% calendar_board %} or included directly.
             {% for ev in d.events %}
             <{% if ev.url %}a href="{{ ev.url }}" hx-boost="false"{% else %}div{% endif %} class="cal-bcard cal-series-{{ ev.series }}{% if ev.status %} cal-bcard--{{ ev.status }}{% endif %}{% if ev.cancelled %} cal-bcard--cancelled{% endif %}" title="{{ ev.calendar_label }}{% if ev.cancelled %} · cancelled{% endif %}">
                 {% if ev.image %}<img class="cal-face" src="{{ ev.image }}" alt="" loading="lazy">{% endif %}<span class="cal-bcard-title">{{ ev.title }}</span>
-                <span class="cal-bcard-meta">{% if not ev.all_day and ev.start_date == d.date %}{{ ev.start|date:"g:i A" }}{% if ev.subtitle %} · {% endif %}{% endif %}{{ ev.subtitle }}</span>
+                <span class="cal-bcard-meta">{% if not ev.all_day and ev.start_date == d.date %}{{ ev.start|date:"H:i" }}{% if ev.subtitle %} · {% endif %}{% endif %}{{ ev.subtitle }}</span>
             </{% if ev.url %}a{% else %}div{% endif %}>
             {% endfor %}
             {% empty %}

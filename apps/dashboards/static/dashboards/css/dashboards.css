@@ -2517,6 +2517,8 @@ a.gw-week-link:hover { color: var(--link-color); text-decoration: underline; }
 .gl-table th.gl-col-value { width: 9.5rem; }
 .gl-table th.gl-col-target { width: 13rem; }
 .gl-table th.gl-col-trend { width: 10.5rem; }
+/* Words in a meeting's table wrap; they don't get cut to "…vs all of last w". */
+.gl-table.crud-table td.gl-trend, .gl-table.crud-table td.gl-change { white-space: normal; overflow: visible; text-overflow: clip; }
 .gl-table th.gl-col-change { width: 12rem; }
 .gl-table thead .dm-sort { color: inherit; }
 .gl-table thead th.gl-num .dm-sort { justify-content: flex-end; }

@@ -545,7 +545,8 @@ def register_dashboard_tools() -> int:
         ),
         (
             "dashboard_add_card",
-            "Append one card to a dashboard (placed below the existing cards unless x/y are given). Either "
+            "Append one card to a dashboard (at the end of the last row, or below it when it doesn't fit, unless "
+            "x/y are given). Either "
             "component = a saved card's key (list_components; its design stays in step when the card is edited), "
             "or an inline card: type from list_dashboard_components; metric = a metric key for metric/metric_group; "
             'options per type (metric_group: {"dimension": "<column>", "limit": 5}; text: {"markdown": "..."}; '
