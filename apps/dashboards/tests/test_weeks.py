@@ -17,7 +17,7 @@ from django.utils import timezone
 
 from apps.activity.models import RequestLog
 from apps.dashboards.goals import evaluate_goals, trend_grain
-from apps.dashboards.models import GoalList, GoalSnapshot, Metric, Report
+from apps.dashboards.models import GoalList, Metric, Report, Snapshot
 from apps.dashboards.reports import report_matrix, report_values, write_report_csv
 from apps.dashboards.weeks import (
     parse_week,
@@ -226,7 +226,7 @@ def test_the_weeks_pages(client, goal_list, staff):
     modal = client.get(f"/smallstack/dashboards/g/weekly/weeks/{last:%Y-%m-%d}/trends/", HTTP_HX_REQUEST="true")
     assert 'class="gwt"' in modal.content.decode()
     client.post(f"/smallstack/dashboards/g/weekly/weeks/{this_week():%Y-%m-%d}/snapshot/", {"fill": "3"})
-    assert GoalSnapshot.objects.filter(goal_list=goal_list).count() == 3  # last week already saved
+    assert goal_list.snapshots.count() == 3  # last week already saved
 
 
 def test_only_editors_save_weeks(client, goal_list):
@@ -248,17 +248,17 @@ def test_a_saved_value_stays_hidden_from_a_viewer_who_cannot_read_its_dataset(go
 
 def test_the_monday_schedule_and_the_command(goal_list):
     assert snapshot_last_week() == 1
-    assert GoalSnapshot.objects.get().week_start == this_week() - timedelta(weeks=1)
+    assert Snapshot.objects.get().week_start == this_week() - timedelta(weeks=1)
     call_command("snapshot_goals", "--list", "weekly", "--fill", "3", stdout=io.StringIO())
-    assert GoalSnapshot.objects.count() == 3
-    from apps.dashboards.tasks import snapshot_goal_lists
+    assert Snapshot.objects.count() == 3
+    from apps.dashboards.tasks import capture_snapshots
     from apps.scheduler.decorators import _SCHEDULE_REGISTRY
 
     assert any(
-        spec.name == "Goal lists: save last week" and spec.cron_expression == "15 0 * * 1"
+        spec.name == "Snapshots: capture what's due" and spec.cron_expression == "5 * * * *"
         for spec in _SCHEDULE_REGISTRY
     )
-    assert snapshot_goal_lists is not None
+    assert capture_snapshots is not None
 
 
 def test_agents_read_weeks(client, goal_list, staff):
@@ -275,7 +275,7 @@ def test_agents_read_weeks(client, goal_list, staff):
 def test_deleting_a_list_deletes_its_weeks(goal_list, staff):
     take_snapshot(goal_list, this_week() - timedelta(weeks=1), by=staff)
     GoalList.objects.get().delete()
-    assert not GoalSnapshot.objects.exists()
+    assert not Snapshot.objects.exists()
 
 
 # -- the weekly view in playlists ------------------------------------------------------

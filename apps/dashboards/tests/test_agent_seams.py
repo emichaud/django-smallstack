@@ -15,7 +15,7 @@ from apps.activity.models import RequestLog
 from apps.calendar.models import Event, SavedCalendarView
 from apps.dashboards.goals import judge
 from apps.dashboards.metrics import evaluate, request_for
-from apps.dashboards.models import Component, Dashboard, GoalList, GoalSnapshot, Metric, Report
+from apps.dashboards.models import Component, Dashboard, GoalList, Metric, Report, Snapshot
 from apps.smallstack.models import APIToken
 
 pytestmark = pytest.mark.django_db
@@ -238,9 +238,9 @@ def test_a_week_can_be_saved_over_mcp_and_rest(call, rest, metric):
     goals = [{"title": "S", "goals": [{"metric": metric.key, "target": {"op": "<=", "value": 1}}]}]
     GoalList(name="G", slug="seam-g", sections=goals).save()
     is_error, out = call("goal_list_save_week", goal_list="seam-g")
-    assert is_error is False and out["ok"] and GoalSnapshot.objects.count() == 1
+    assert is_error is False and out["ok"] and Snapshot.objects.count() == 1
     resp = rest.post("/smallstack/dashboards/api/goals/seam-g/weeks/2026-W40/save/")
-    assert resp.status_code == 200 and GoalSnapshot.objects.count() == 2
+    assert resp.status_code == 200 and Snapshot.objects.count() == 2
 
 
 def test_a_readonly_token_cannot_save_a_week_over_rest(staff, metric):
@@ -248,7 +248,7 @@ def test_a_readonly_token_cannot_save_a_week_over_rest(staff, metric):
     _obj, raw = APIToken.create_token(user=staff, name="ro", access_level="readonly")
     client = Client(headers={"authorization": f"Bearer {raw}"})
     assert client.post("/smallstack/dashboards/api/goals/seam-g/weeks/2026-W40/save/").status_code == 403
-    assert GoalSnapshot.objects.count() == 0
+    assert Snapshot.objects.count() == 0
 
 
 def test_rows_behind_a_number_reconcile_with_it(call, metric):

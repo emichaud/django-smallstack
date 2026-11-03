@@ -40,6 +40,8 @@ import uuid
 from typing import Any
 
 from django.conf import settings
+from django.contrib.contenttypes.fields import GenericForeignKey, GenericRelation
+from django.contrib.contenttypes.models import ContentType
 from django.core.exceptions import ValidationError
 from django.core.files import File
 from django.core.validators import FileExtensionValidator, MaxValueValidator, MinValueValidator
@@ -718,6 +720,10 @@ class GoalList(OwnedModel):
         help_text="Period the goals are judged over (mtd, last_30, …), unless a goal sets its own. Blank = all time.",
     )
 
+    # Deleting a list takes its captures and trackers with it.
+    snapshots = GenericRelation("Snapshot", content_type_field="subject_type", object_id_field="subject_id")
+    trackers = GenericRelation("SnapshotTracker", content_type_field="subject_type", object_id_field="subject_id")
+
     class Meta:
         ordering = ["name"]
         verbose_name = "goal list"
@@ -756,41 +762,87 @@ class GoalList(OwnedModel):
         return {g["component"] for g in self.goals() if isinstance(g.get("component"), str)}
 
 
-class GoalSnapshot(models.Model):
-    """A goal list's values for one week (Monday to Sunday), kept as they were:
-    each goal's value, status and the target it was judged against that week,
-    so later edits to targets or metrics don't rewrite history — the
-    spreadsheet tab, one per week. Taken by the Monday schedule for the week
-    just ended, or on demand (``weeks.take_snapshot``)."""
+SNAPSHOT_CADENCES = [
+    ("hourly", "Hourly"),
+    ("daily", "Daily"),
+    ("weekly", "Weekly"),
+    ("monthly", "Monthly"),
+    ("quarterly", "Quarterly"),
+]
 
-    goal_list = models.ForeignKey(GoalList, on_delete=models.CASCADE, related_name="snapshots")
-    week_start = models.DateField(help_text="The Monday the week starts on.")
+
+class Snapshot(models.Model):
+    """One capture of a subject's values for one period, kept as it was: each goal's
+    value, status and the target it was judged against, so later edits to targets or
+    metrics don't rewrite history. A period can have several captures; the newest is
+    what pages show. Made by ``snapshots.capture``."""
+
+    subject_type = models.ForeignKey(ContentType, on_delete=models.CASCADE, related_name="+")
+    subject_id = models.PositiveBigIntegerField()
+    subject = GenericForeignKey("subject_type", "subject_id")
+    cadence = models.CharField(max_length=10, choices=SNAPSHOT_CADENCES)
+    period_start = models.DateTimeField(help_text="When the period starts.")
+    period_end = models.DateTimeField(help_text="When the next period starts.")
     rows = models.JSONField(
         default=list,
         blank=True,
-        help_text="Each goal that week: id, section, label, metric/component, dataset, value, display, unit, "
+        help_text="Each goal in the period: id, section, label, metric/component, datasets, value, display, unit, "
         "status, target, warn, target_text, warn_text, note, error.",
     )
     summary = models.JSONField(default=dict, blank=True)
-    complete = models.BooleanField(default=False, help_text="Taken after the week ended (not part-way through).")
-    taken_at = models.DateTimeField(auto_now=True)
+    complete = models.BooleanField(default=False, help_text="Taken after the period ended (not part-way through).")
+    taken_at = models.DateTimeField(auto_now_add=True)
     taken_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         null=True,
         blank=True,
         on_delete=models.SET_NULL,
         related_name="+",
-        help_text="Who took it; blank = the weekly schedule.",
+        help_text="Who took it; blank = the schedule.",
+    )
+    reason = models.CharField(
+        max_length=60, blank=True, default="", help_text="Why this capture was added, if not by hand or schedule."
     )
 
     class Meta:
-        ordering = ["-week_start"]
-        verbose_name = "goal snapshot"
-        verbose_name_plural = "goal snapshots"
-        constraints = [models.UniqueConstraint(fields=["goal_list", "week_start"], name="goal_snapshot_one_per_week")]
+        ordering = ["-period_start", "-taken_at", "-pk"]
+        verbose_name = "snapshot"
+        verbose_name_plural = "snapshots"
+        indexes = [models.Index(fields=["subject_type", "subject_id", "cadence", "period_start"])]
 
     def __str__(self) -> str:
-        return f"{self.goal_list} — week of {self.week_start:%Y-%m-%d}"
+        return f"{self.subject}: {self.cadence} from {self.period_start:%Y-%m-%d %H:%M}"
+
+    @property
+    def week_start(self) -> Any:
+        """The local date the period starts: a weekly capture's Monday."""
+        return timezone.localtime(self.period_start).date()
+
+
+class SnapshotTracker(models.Model):
+    """One cadence turned on for one subject: the hourly job captures each of its
+    periods once it has ended. See ``snapshots.set_tracking``."""
+
+    subject_type = models.ForeignKey(ContentType, on_delete=models.CASCADE, related_name="+")
+    subject_id = models.PositiveBigIntegerField()
+    subject = GenericForeignKey("subject_type", "subject_id")
+    cadence = models.CharField(max_length=10, choices=SNAPSHOT_CADENCES)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name="+"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "snapshot tracker"
+        verbose_name_plural = "snapshot trackers"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["subject_type", "subject_id", "cadence"], name="snapshot_tracker_one_per_cadence"
+            )
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.subject}: {self.cadence}"
 
 
 class Report(OwnedModel):

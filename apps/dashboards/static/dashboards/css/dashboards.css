@@ -2632,3 +2632,22 @@ a.gw-week-link:hover { color: var(--link-color); text-decoration: underline; }
 [data-for-source][hidden] { display: none !important; }
 .gl-print { margin-left: auto; }
 .mf-fact--off { display: none !important; }
+
+/* -- a goal list's history: what's tracked, and every capture ---------------- */
+.gh-tracking { padding: 1rem 1.25rem; margin-bottom: 1rem; }
+.gh-tracking h2 { margin: 0 0 0.5rem; font-size: 1rem; }
+.gh-tracking-form { display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem 1.25rem; }
+.gh-tracking-form fieldset { display: flex; flex-wrap: wrap; gap: 0.5rem 1.25rem; margin: 0; padding: 0; border: 0; }
+.gh-check { display: inline-flex; align-items: center; gap: 0.35rem; cursor: pointer; }
+.gh-note { margin: 0.5rem 0 0; color: var(--body-quiet-color); font-size: 0.85rem; }
+.gh-nav { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+.gh-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem 1.5rem; margin-top: 0.75rem; }
+.gh-fill { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; flex: 1 1 24rem; }
+.gh-fill label { display: inline; margin: 0; font-weight: 400; }
+.gh-fill select { width: auto; min-width: 8rem; }
+.gh-fill .mb-help { flex-basis: 100%; margin: 0; }
+.gh-period { margin-top: 1.5rem; scroll-margin-top: 5rem; }
+.gh-period h2 { margin: 0 0 0.5rem; font-size: 1.05rem; }
+.gh-captures { list-style: none; margin: 0 0 0.75rem; padding: 0; }
+.gh-captures li { display: flex; flex-wrap: wrap; gap: 0.5rem; padding: 0.15rem 0; }
+.gh-captures li[aria-current] a { font-weight: 700; }

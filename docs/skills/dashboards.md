@@ -80,7 +80,7 @@ reports and weeks need no special cases.
 
 **By hand.** One `MetricEntry` per metric per date. Write through `entries.record_entry` /
 `entries.delete_entry`, the one seam for the page, REST and MCP, because it also refreshes a
-saved week. `metric_entries` is an `access="auth"` dataset whose rows are scoped to the metrics
+saved period. `metric_entries` is an `access="auth"` dataset whose rows are scoped to the metrics
 the viewer can see. An empty period is `None`, never 0, even for `sum`.
 
 **Rates.** `format="percent"` multiplies by 100. The parts can't be rates themselves, must be
@@ -443,16 +443,16 @@ printer loses nothing. `?period=` and `?order=` follow the page, `?week=` prints
 saved values, and `?auto=1` opens the print dialog on arrival. A report with more than three
 period columns prints landscape (`ReportPrintView.PORTRAIT_COLUMNS`).
 
-### Weeks and snapshots (`weeks.py`, `GoalSnapshot`)
+### Weeks and snapshots (`weeks.py`)
 
 A week runs Monday to Sunday, local time. A goal's weekly value is its metric narrowed to `[monday, next monday)` on the period field. `weekly_values()` gets a run of weeks in one `Dataset.series(grain="week")` query per metric. A metric with no period field has the same value every week (`weekly: False`).
 
-`GoalSnapshot(goal_list, week_start, rows, summary, complete, taken_by)` freezes a week. Each row stores the value, status, target and target text, so later target edits don't rewrite history. One snapshot per list per week.
+A weekly `Snapshot` (see the engine below; rows, summary, complete, taken_by) freezes a week. Each row stores the value, status, target and target text, so later target edits don't rewrite history. One snapshot per list per week.
 
 | Function | What it's for |
 |---|---|
 | `take_snapshot(goal_list, monday, by=)` / `backfill(goal_list, n)` | save a week / fill past weeks |
-| `snapshot_last_week()` | `tasks.snapshot_goal_lists`, `@scheduled(cron="15 0 * * 1")`; also `manage.py snapshot_goals [--list] [--week] [--fill N [--replace]]` |
+| `snapshot_last_week()` | `manage.py snapshot_goals` (the schedule is `tasks.capture_snapshots`), not `@scheduled(cron="15 0 * * 1")`; also `manage.py snapshot_goals [--list] [--week] [--fill N [--replace]]` |
 | `week_page(goal_list, request, monday)` | one week: the snapshot, else live; `change` vs the week before; rows drill to the week's rows (`?narrow=`) |
 | `week_grid(goal_list, request, last, count)` + `write_grid_csv` | goals × weeks; saved weeks as they were, the rest live. `grid_order` / `sort_grid` / `grid_sort_links` sort it (`?order=goal` or `w<monday>`, `-` for descending); the page's table resizes, with `data-field` keyed by position |
 | `week_trends(goal_list, request, monday)` | the weeks around one week: bars, vs previous, vs the average before, streak, best/worst. `trends_order` / `sort_trends` / `trends_sort_links` sort it (`?order=goal`, `value`, `change`, `average`, `run`) |
@@ -464,10 +464,36 @@ Pages: `g/<slug>/weeks/` (`?week=`, `?view=grid`, `?format=csv`), `g/<slug>/week
 
 **Report targets.** A `Report.items` row may carry `target` / `warn` (goal rules). `report_matrix` then sets each cell's `status`, recolours the value from it, and sets `has_targets`. The page adds a Target column, the CSV adds Target, At risk and per-period status columns, and `report_values` adds `target` and per-value `status`.
 
-A hand-entered value changes the saved week it falls in (`weeks.refresh_saved_week`): the Monday
-schedule usually runs before anyone has typed last week's numbers. The row keeps the target it was
-saved with. Snapshot rows list every dataset behind the number in `datasets`, and `_masked` checks
-them all, because a rate has no dataset of its own.
+### The snapshot engine (`snapshots.py`, `Snapshot`, `SnapshotTracker`)
+
+The weekly tools above are one cadence of a general engine: `hourly`, `daily`, `weekly`, `monthly`
+or `quarterly`, in the site's time zone, weeks starting Monday.
+
+| Call | What it does |
+|---|---|
+| `period_at(cadence, moment)`, `current_period`, `last_closed`, `Period.shifted(n)` | the period arithmetic. Hours are real time, so clock changes neither repeat nor skip one |
+| `window_value(metric, request, period, past=)` | a metric for one period, rates included. A date-only column has no hourly value, and with `past` a number that doesn't depend on time has none: an error, never a wrong figure |
+| `capture(obj, period, by=, reason=, past=)` | adds a capture. Never overwrites |
+| `latest_captures`, `captures_of` | the newest per period (what pages show), or every capture of one |
+| `set_tracking(obj, cadences)`, `tracked_cadences(obj)` | which cadences run. Turning one off keeps its captures |
+| `capture_due()`, `prune()` | the hourly job, `tasks.capture_snapshots` (`@scheduled(cron="5 * * * *")`). It captures each tracker's latest ended period if it has none, so it's safe to re-run and catches up within a period |
+| `fill(obj, cadence, n)` | capture past periods with none, against today's targets |
+| `recapture_for_value(metric, day)` | a hand-entered value changed: adds a capture to each period holding that day, keeping its targets. Not hourly |
+| `history_grid`, `history_payload` | goals × periods from captures only. A period with none is blank, never worked out now |
+
+Snapshot rows list every dataset behind the number in `datasets`, and `weeks._masked` checks them
+all, because a rate has no dataset of its own.
+
+**Another subject.** `Snapshot` and `SnapshotTracker` point at any model. To capture one, call
+`register_subject(Model, rows=fn, user=fn, ready=fn)` in `ready()`, where `rows(obj, request,
+period, past=)` returns dicts with a `status`, and add a `GenericRelation` so deleting the object
+takes its captures. `history_grid` and the History page read goal rows, so a new kind of subject
+needs its own reading.
+
+**Settings.** `SMALLSTACK_SNAPSHOT_DEFAULT_CADENCES` (default `["weekly"]`, `[]` for fully opt-in)
+and `SMALLSTACK_SNAPSHOT_KEEP_DAYS` (default hourly 90, daily 730; other cadences are kept for good).
+
+Pages: `g/<slug>/history/` (`?cadence=`, `?last=`, `?at=`, `?capture=`, `?format=csv`).
 
 ## `{% dashboard %}` — show a dashboard on any page
 

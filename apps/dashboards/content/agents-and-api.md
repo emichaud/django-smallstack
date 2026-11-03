@@ -15,6 +15,9 @@ A metric's `source` is `dataset` (the default), `manual` or `rate`. For `manual`
 /smallstack/dashboards/api/metrics/<key>/entries/`. For `rate`, set `numerator` and `denominator`
 to metric keys.
 
+To track a goal list over time, set its cadences with `goal_list_tracking`, read them back with
+`goal_list_history`, and capture on demand with `goal_list_capture`.
+
 ## Asking an agent
 
 With the SmallStack connector added, ask in plain language:

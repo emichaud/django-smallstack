@@ -10,7 +10,7 @@ from django.db import transaction
 from django.utils import timezone
 
 from .models import Metric, MetricEntry
-from .weeks import refresh_saved_week
+from .snapshots import recapture_for_value
 
 #: What the value column can hold (DecimalField(max_digits=20, decimal_places=4)).
 _LIMIT = Decimal(10) ** 16
@@ -52,14 +52,14 @@ def record_entry(metric: Metric, day: date, value: Decimal, note: str = "", *, b
             date=day,
             defaults={"value": value.quantize(Decimal("0.0001")), "note": note[:200], "entered_by": by},
         )
-        refresh_saved_week(metric, day)
+        recapture_for_value(metric, day, by=by)
     return entry
 
 
-def delete_entry(metric: Metric, day: date) -> bool:
+def delete_entry(metric: Metric, day: date, *, by: Any = None) -> bool:
     """Remove *metric*'s value for *day*. Whether there was one."""
     with transaction.atomic():
         deleted, _detail = MetricEntry.objects.filter(metric=metric, date=day).delete()
         if deleted:
-            refresh_saved_week(metric, day)
+            recapture_for_value(metric, day, by=by)
     return bool(deleted)

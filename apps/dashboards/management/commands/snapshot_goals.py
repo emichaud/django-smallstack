@@ -13,6 +13,9 @@ class Command(BaseCommand):
     help = "Save goal lists' weekly snapshots (the week just ended, unless told otherwise)."
 
     def add_arguments(self, parser: CommandParser) -> None:
+        parser.add_argument(
+            "--due", action="store_true", help="Capture every tracked period that's due, as the hourly job does."
+        )
         parser.add_argument("--list", dest="slug", default="", help="Only this goal list (slug).")
         parser.add_argument("--week", default="", help="The week to save: any day of it, or 2026-W45.")
         parser.add_argument("--fill", type=int, default=0, help="Save the past N weeks that have no snapshot.")
@@ -29,6 +32,11 @@ class Command(BaseCommand):
             week_label,
         )
 
+        if options["due"]:
+            from apps.dashboards.snapshots import capture_due
+
+            self.stdout.write(f"Took {capture_due()} capture(s).")
+            return
         lists = list(GoalList.objects.filter(slug=options["slug"])) if options["slug"] else None
         if options["slug"] and not lists:
             raise CommandError(f"No goal list {options['slug']!r}.")

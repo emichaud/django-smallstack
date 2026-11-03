@@ -28,6 +28,7 @@ place; each week has a Trends button (the global modal).
     </div>
     <div style="display: flex; gap: 0.5rem; align-items: center;">
         <a href="{{ goal_list.get_absolute_url }}" class="btn-outline btn-sm">Meeting view</a>
+        <a href="{% url 'dashboards_goal_history' goal_list.slug %}?cadence=weekly" class="btn-outline btn-sm">History</a>
         <a href="?view=grid&amp;week={{ start|date:'Y-m-d' }}{% if order %}&amp;order={{ order }}{% endif %}&amp;format=csv" class="btn-outline btn-sm" id="gw-csv" download>Download CSV</a>
     </div>
 </div>
@@ -55,7 +56,7 @@ place; each week has a Trends button (the global modal).
 <div class="gw-status">
     <p class="gw-status-text">
         {% if week.snapshot %}<span class="gw-saved">Saved</span> {{ week.snapshot.taken_at|date:"M j, Y, H:i" }}{% if week.snapshot.taken_by %} by {{ week.snapshot.taken_by }}{% else %} automatically{% endif %}{% if not week.snapshot.complete %}, part-way through the week{% endif %}. These are the values and targets as they were then.
-        {% elif week.state == "current" %}This week so far, worked out now. It's saved automatically next Monday.
+        {% elif week.state == "current" %}This week so far, worked out now.{% if weekly_tracked %} It's saved automatically next Monday.{% endif %}
         {% else %}Not saved: worked out now against today's targets.{% endif %}
     </p>
     <div class="gw-status-actions">

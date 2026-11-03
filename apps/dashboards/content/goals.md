@@ -118,8 +118,31 @@ and **Save past weeks** fills in earlier ones.
 A week is saved using the access of the list's owner (or its creator, for a shared
 list). If you can't read a metric's data, you still won't see its saved values.
 
-A value entered by hand after a week was saved updates that saved week, so it's fine to type last
-week's numbers on Monday morning. The week keeps the target it was saved with.
+A value entered by hand after a week was saved adds a new capture of that week, so it's fine to type
+last week's numbers on Monday morning. It keeps the target the week was saved with, and the earlier
+capture stays on the History page.
+
+## History: tracking at other rhythms
+
+**History** on a goal list shows what's captured and lets you choose what to track: **hourly**,
+**daily**, **weekly**, **monthly** or **quarterly**, in any combination. Each tracked period is
+captured automatically once it ends. New lists track weekly. Turning a rhythm off keeps what it
+captured.
+
+Choose a tab to see goals down and periods across. A blank means nothing was captured then.
+**Open** shows one period and every capture of it, newest first, with who or what took each.
+Saving again adds a capture rather than replacing the last, so you can see what the numbers said at
+each point. Pages show the newest.
+
+Two kinds of number are worth knowing about:
+
+- **One that doesn't depend on time**, like open tickets right now, is captured as it stands. This
+  is the way to keep a history of a number like that. It can't be filled in for past periods.
+- **One with only dates**, like a value entered by hand, has no hourly value. Its hourly cell shows
+  a warning mark rather than the whole day's number.
+
+Hourly and daily captures are deleted after 90 days and 2 years. Weekly, monthly and quarterly ones
+are kept.
 
 ## On a dashboard and in a playlist
 

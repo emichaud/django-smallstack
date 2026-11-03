@@ -42,6 +42,11 @@ class DashboardsConfig(AppConfig):
         # Imported for their side effects: the built-in card types register
         # themselves; signals delete a replaced or orphaned picture.
         from . import components, datasets, signals  # noqa: F401
+        from .models import GoalList
+        from .snapshots import goal_list_rows, register_subject
+        from .weeks import snapshot_user
+
+        register_subject(GoalList, rows=goal_list_rows, user=snapshot_user, ready=lambda g: bool(g.goals()))
 
         try:
             from apps.smallstack.navigation import nav

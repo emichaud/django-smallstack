@@ -52,6 +52,13 @@ urlpatterns = [
     path("dashboards/g/<slug:slug>/", views.GoalListPageView.as_view(), name="dashboards_goals"),
     path("dashboards/g/<slug:slug>/digest/", views.GoalListDigestView.as_view(), name="dashboards_goals_digest"),
     path("dashboards/g/<slug:slug>/print/", views.GoalListPrintView.as_view(), name="dashboards_goals_print"),
+    path("dashboards/g/<slug:slug>/history/", views.GoalHistoryView.as_view(), name="dashboards_goal_history"),
+    path(
+        "dashboards/g/<slug:slug>/history/tracking/",
+        views.GoalTrackingView.as_view(),
+        name="dashboards_goal_tracking",
+    ),
+    path("dashboards/g/<slug:slug>/history/capture/", views.GoalCaptureView.as_view(), name="dashboards_goal_capture"),
     path("dashboards/g/<slug:slug>/weeks/", views.GoalWeeksView.as_view(), name="dashboards_goal_weeks"),
     path(
         "dashboards/g/<slug:slug>/weeks/<str:week>/trends/",
@@ -114,6 +121,16 @@ urlpatterns = [
         "dashboards/api/goals/<slug:slug>/values/",
         api.GoalValuesApiView.as_view(),
         name="dashboards_api_goal_values",
+    ),
+    path(
+        "dashboards/api/goals/<slug:slug>/snapshots/",
+        api.GoalSnapshotsApiView.as_view(),
+        name="dashboards_api_goal_snapshots",
+    ),
+    path(
+        "dashboards/api/goals/<slug:slug>/tracking/",
+        api.GoalTrackingApiView.as_view(),
+        name="dashboards_api_goal_tracking",
     ),
     path(
         "dashboards/api/goals/<slug:slug>/weeks/",

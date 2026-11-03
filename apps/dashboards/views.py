@@ -49,9 +49,10 @@ from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.exceptions import PermissionDenied, ValidationError
-from django.db.models import QuerySet
+from django.db.models import Count, QuerySet
 from django.http import Http404, HttpRequest, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.template.defaultfilters import pluralize
 from django.urls import reverse
 from django.utils import timezone
 from django.views import View
@@ -103,6 +104,7 @@ from .metrics import (
 )
 from .models import (
     ADMIN_HOME_KEY,
+    SNAPSHOT_CADENCES,
     Component,
     Dashboard,
     GoalList,
@@ -1447,14 +1449,29 @@ class GoalListPrintView(LoginRequiredMixin, TemplateView):
     template_name = "dashboards/print/goal_list.html"
 
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
-        from .weeks import parse_week, week_page
+        from .snapshots import Period
+        from .weeks import _masked, _sections, parse_week, week_page
 
         context = super().get_context_data(**kwargs)
         request = self.request
         goal_list = visible_or_404(GoalList.objects.all(), request, slug=kwargs["slug"])
         week = parse_week(request.GET.get("week"))
         order = goal_order(request.GET.get("order"))
-        if week is not None:
+        wanted = request.GET.get("snapshot", "")
+        capture = goal_list.snapshots.filter(pk=wanted).first() if wanted.isdigit() else None
+        if capture is not None:
+            rows = _masked(capture.rows, request.user)
+            captured = Period(capture.cadence, capture.period_start, capture.period_end)
+            data: dict[str, Any] = {
+                "sections": _sections(rows),
+                "rows": rows,
+                "summary": summarize(rows),
+                "attention": [r for r in rows if r["status"] in ("fail", "warn")],
+            }
+            back = reverse("dashboards_goal_history", kwargs={"slug": goal_list.slug})
+            back += f"?cadence={capture.cadence}&at={captured.key}"
+            when = f"{captured.label}, as captured {capture.taken_at:%b} {capture.taken_at.day}"
+        elif week is not None:
             page = week_page(goal_list, request, week)
             data = {k: page[k] for k in ("sections", "rows", "summary", "attention")}
             back = f"{reverse('dashboards_goal_weeks', kwargs={'slug': goal_list.slug})}?week={week.isoformat()}"
@@ -1555,7 +1572,12 @@ class GoalWeeksView(LoginRequiredMixin, TemplateView):
                 "start": start,
                 "choices": week_choices(goal_list, start),
                 "can_edit": goal_list.can_edit(request.user),
-                "snapshot_count": goal_list.snapshots.count(),
+                "weekly_tracked": goal_list.trackers.filter(cadence="weekly").exists(),
+                "snapshot_count": goal_list.snapshots.filter(cadence="weekly")
+                .order_by()
+                .values("period_start")
+                .distinct()
+                .count(),
             }
         )
         if view == "grid":
@@ -1573,6 +1595,149 @@ class GoalWeeksView(LoginRequiredMixin, TemplateView):
             week["sections"] = sort_sections(week["sections"], order)
             context.update(week=week, order=order, sort_links=goal_sort_links(order), swap="#gw-page")
         return context
+
+
+SNAPSHOT_NOUNS = {"hourly": "hour", "daily": "day", "weekly": "week", "monthly": "month", "quarterly": "quarter"}
+
+
+class GoalHistoryView(LoginRequiredMixin, TemplateView):
+    """``g/<slug>/history/`` — the list's captures. Which cadences are tracked (editors
+    change them here), then goals down and periods across for one cadence
+    (``?cadence=``, ``?last=`` the newest column, ``?format=csv``). ``?at=<period>`` opens
+    one period with every capture of it, ``&capture=<id>`` picks an earlier one."""
+
+    template_name = "dashboards/goal_history.html"
+
+    @staticmethod
+    def cadence_from(request: HttpRequest, goal_list: GoalList) -> str:
+        from .snapshots import DAILY, tracked_cadences
+
+        asked = request.GET.get("cadence", "")
+        if asked in dict(SNAPSHOT_CADENCES):
+            return asked
+        tracked = tracked_cadences(goal_list)
+        return tracked[0] if tracked else DAILY
+
+    def get(self, request: HttpRequest, *args: Any, **kwargs: Any) -> HttpResponse:
+        if request.GET.get("format") == "csv":
+            from .snapshots import history_grid, parse_period
+            from .weeks import grid_order, sort_grid, write_grid_csv
+
+            goal_list = visible_or_404(GoalList.objects.all(), request, slug=kwargs["slug"])
+            cadence = self.cadence_from(request, goal_list)
+            grid = history_grid(goal_list, request, cadence, parse_period(cadence, request.GET.get("last")))
+            grid = sort_grid(grid, grid_order(request.GET.get("order"), grid))
+            response = HttpResponse(content_type="text/csv; charset=utf-8")
+            response["Content-Disposition"] = f'attachment; filename="{goal_list.slug}-{cadence}.csv"'
+            write_grid_csv(grid, response)
+            return response
+        return super().get(request, *args, **kwargs)
+
+    def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
+        from .snapshots import GRID_PERIODS, MAX_FILL, captures_of, history_grid, parse_period, tracked_cadences
+        from .weeks import _masked, _sections, grid_order, grid_sort_links, sort_grid
+
+        context = super().get_context_data(**kwargs)
+        request = self.request
+        goal_list = visible_or_404(GoalList.objects.all(), request, slug=kwargs["slug"])
+        cadence = self.cadence_from(request, goal_list)
+        tracked = tracked_cadences(goal_list)
+        grid = history_grid(goal_list, request, cadence, parse_period(cadence, request.GET.get("last")))
+        order = grid_order(request.GET.get("order"), grid)
+        links = grid_sort_links(grid, order)
+        for column in grid["columns"]:
+            column["sort"] = links[f"w{column['start'].isoformat()}"]
+        counts = {
+            row["cadence"]: row["n"]
+            for row in goal_list.snapshots.order_by().values("cadence").annotate(n=Count("pk"))
+        }
+        context.update(
+            {
+                "goal_list": goal_list,
+                "cadence": cadence,
+                "cadence_noun": SNAPSHOT_NOUNS[cadence],
+                "tabs": [
+                    {"key": k, "label": label, "tracked": k in tracked, "count": counts.get(k, 0)}
+                    for k, label in SNAPSHOT_CADENCES
+                ],
+                "tracked": tracked,
+                "grid": sort_grid(grid, order),
+                "order": order,
+                "sort_links": links,
+                "grid_size": GRID_PERIODS[cadence],
+                "fill_choices": [n for n in (4, 8, 12, 24, 48) if n <= MAX_FILL[cadence]],
+                "can_edit": goal_list.can_edit(request.user),
+            }
+        )
+        period = parse_period(cadence, request.GET.get("at"))
+        if period is not None:
+            captures = captures_of(goal_list, period)
+            chosen = next((c for c in captures if str(c.pk) == request.GET.get("capture")), None)
+            chosen = chosen or (captures[0] if captures else None)
+            rows = []
+            if chosen is not None:
+                rows = [
+                    r | {"comparison": None, "drill": None}
+                    for r in _masked(chosen.rows, request.user)
+                ]
+            summary = summarize(rows)
+            context.update(
+                {
+                    "period": period,
+                    "captures": captures,
+                    "chosen": chosen,
+                    "detail_rows": rows,
+                    "detail_sections": _sections(rows),
+                    "detail_summary": summary,
+                    "detail_attention": [r for r in rows if r["status"] in ("fail", "warn")],
+                }
+            )
+        return context
+
+
+class GoalTrackingView(LoginRequiredMixin, View):
+    """POST ``cadence=`` (repeated): exactly the cadences this list tracks. Editors only."""
+
+    def post(self, request: HttpRequest, slug: str) -> HttpResponse:
+        from .snapshots import set_tracking
+
+        goal_list = visible_or_404(GoalList.objects.all(), request, slug=slug)
+        if not goal_list.can_edit(request.user):
+            raise PermissionDenied
+        try:
+            tracked = set_tracking(goal_list, request.POST.getlist("cadence"), by=request.user)
+        except ValueError as exc:
+            messages.error(request, str(exc))
+        else:
+            words = ", ".join(tracked) if tracked else "nothing"
+            messages.success(request, f"Now tracking: {words}. What's already captured stays.")
+        return redirect(reverse("dashboards_goal_history", kwargs={"slug": slug}))
+
+
+class GoalCaptureView(LoginRequiredMixin, View):
+    """POST ``cadence=``: capture the current period now. With ``fill=<n>``, capture
+    the past *n* periods that have none. Editors only."""
+
+    def post(self, request: HttpRequest, slug: str) -> HttpResponse:
+        from .snapshots import capture, current_period, fill
+
+        goal_list = visible_or_404(GoalList.objects.all(), request, slug=slug)
+        if not goal_list.can_edit(request.user):
+            raise PermissionDenied
+        cadence = request.POST.get("cadence", "")
+        if cadence not in dict(SNAPSHOT_CADENCES):
+            raise Http404("Unknown cadence.")
+        if request.POST.get("fill"):
+            try:
+                done = fill(goal_list, cadence, int(request.POST["fill"]), by=request.user)
+            except ValueError:
+                raise Http404("Not a number of periods.") from None
+            messages.success(request, f"Captured {done} past {SNAPSHOT_NOUNS[cadence]}{pluralize(done)}.")
+        else:
+            period = current_period(cadence)
+            capture(goal_list, period, by=request.user)
+            messages.success(request, f"Captured {period.label} so far.")
+        return redirect(f"{reverse('dashboards_goal_history', kwargs={'slug': slug})}?cadence={cadence}")
 
 
 class GoalWeekTrendsView(LoginRequiredMixin, View):

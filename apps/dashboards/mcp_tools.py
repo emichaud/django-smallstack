@@ -35,6 +35,8 @@ from typing import Any
 
 logger = logging.getLogger("smallstack.dashboards")
 
+_CADENCES = ["hourly", "daily", "weekly", "monthly", "quarterly"]
+
 
 def _user() -> Any:
     from apps.mcp.server import current_context
@@ -312,7 +314,7 @@ def _goal_list_weeks(args: dict[str, Any]) -> dict[str, Any]:
 
 
 def _goal_list_save_week(args: dict[str, Any]) -> dict[str, Any]:
-    from .models import GoalList, GoalSnapshot
+    from .models import GoalList
     from .weeks import backfill, parse_week, take_snapshot, this_week
 
     user = _user()
@@ -326,7 +328,7 @@ def _goal_list_save_week(args: dict[str, Any]) -> dict[str, Any]:
         return problem
     if fill:
         done = backfill(goal_list, fill, by=user)
-        total = GoalSnapshot.objects.filter(goal_list=goal_list).count()
+        total = goal_list.snapshots.filter(cadence="weekly").order_by().values("period_start").distinct().count()
         return {"ok": True, "saved_weeks": done, "total_saved": total}
     start = parse_week(args.get("week")) if args.get("week") else this_week() - timedelta(weeks=1)
     if start is None:
@@ -341,6 +343,65 @@ def _goal_list_save_week(args: dict[str, Any]) -> dict[str, Any]:
         "summary": snapshot.summary,
         "complete": snapshot.complete,
     }
+
+
+def _goal_list_for(args: dict[str, Any], *, edit: bool = False) -> tuple[Any, Any]:
+    """``(goal list, None)``, or ``(None, an error answer)``."""
+    from .models import GoalList
+
+    user = _user()
+    goal_list = GoalList.objects.filter(slug=str(args.get("goal_list") or "")).first()
+    if goal_list is None or not goal_list.can_view(user):
+        return None, {"error": f"no goal list {args.get('goal_list')!r} — use list_goal_lists"}
+    if edit and not goal_list.can_edit(user):
+        return None, {"error": "you can view this goal list but not edit it"}
+    return goal_list, None
+
+
+def _goal_list_tracking(args: dict[str, Any]) -> dict[str, Any]:
+    from .snapshots import set_tracking, tracked_cadences
+
+    wanted = args.get("cadences")
+    goal_list, problem = _goal_list_for(args, edit=wanted is not None)
+    if problem:
+        return problem
+    if wanted is None:
+        return {"goal_list": goal_list.slug, "tracked": tracked_cadences(goal_list)}
+    try:
+        return {"goal_list": goal_list.slug, "tracked": set_tracking(goal_list, wanted, by=_user())}
+    except (ValueError, TypeError) as exc:
+        return {"error": str(exc)}
+
+
+def _goal_list_capture(args: dict[str, Any]) -> dict[str, Any]:
+    from .snapshots import capture, current_period, fill
+
+    goal_list, problem = _goal_list_for(args, edit=True)
+    if problem:
+        return problem
+    count, bad = _integer(args.get("fill"), "fill")
+    if bad:
+        return bad
+    try:
+        if count:
+            return {"ok": True, "captured": fill(goal_list, str(args.get("cadence")), count, by=_user())}
+        snapshot = capture(goal_list, current_period(str(args.get("cadence"))), by=_user())
+    except (ValueError, KeyError) as exc:
+        return {"error": str(exc) if isinstance(exc, ValueError) else f"unknown cadence {args.get('cadence')!r}"}
+    return {"ok": True, "period": snapshot.period_start.isoformat(), "summary": snapshot.summary}
+
+
+def _goal_list_history(args: dict[str, Any]) -> dict[str, Any]:
+    from .metrics import request_for
+    from .snapshots import history_grid, history_payload
+
+    goal_list, problem = _goal_list_for(args)
+    if problem:
+        return problem
+    try:
+        return history_payload(goal_list, history_grid(goal_list, request_for(_user()), str(args.get("cadence"))))
+    except (ValueError, KeyError):
+        return {"error": f"unknown cadence {args.get('cadence')!r} — hourly, daily, weekly, monthly or quarterly"}
 
 
 def _metric_usage(args: dict[str, Any]) -> dict[str, Any]:
@@ -598,6 +659,56 @@ def register_dashboard_tools() -> int:
                 "additionalProperties": False,
             },
             _metric_usage,
+            False,
+        ),
+        (
+            "goal_list_tracking",
+            "Read which cadences a goal list is captured on, or set them with cadences (any of hourly, daily, "
+            "weekly, monthly, quarterly). Each tracked period is captured once it ends. Turning one off keeps "
+            "what it captured.",
+            {
+                "type": obj,
+                "properties": {
+                    "goal_list": {"type": "string"},
+                    "cadences": {"type": "array", "items": {"type": "string", "enum": _CADENCES}},
+                },
+                "required": ["goal_list"],
+                "additionalProperties": False,
+            },
+            _goal_list_tracking,
+            True,
+        ),
+        (
+            "goal_list_capture",
+            "Capture a goal list for the current period of a cadence, adding to any earlier captures. With fill, "
+            "capture that many past periods that have none, against today's targets.",
+            {
+                "type": obj,
+                "properties": {
+                    "goal_list": {"type": "string"},
+                    "cadence": {"type": "string", "enum": _CADENCES},
+                    "fill": {"type": "integer", "minimum": 1},
+                },
+                "required": ["goal_list", "cadence"],
+                "additionalProperties": False,
+            },
+            _goal_list_capture,
+            True,
+        ),
+        (
+            "goal_list_history",
+            "A goal list's captured values for one cadence: goals down, recent periods across. Only what was "
+            "captured: a period with none is null, never worked out now.",
+            {
+                "type": obj,
+                "properties": {
+                    "goal_list": {"type": "string"},
+                    "cadence": {"type": "string", "enum": _CADENCES},
+                },
+                "required": ["goal_list", "cadence"],
+                "additionalProperties": False,
+            },
+            _goal_list_history,
             False,
         ),
         (

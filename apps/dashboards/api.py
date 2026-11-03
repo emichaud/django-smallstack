@@ -365,6 +365,69 @@ class GoalWeekSaveApiView(_ApiView):
         return JsonResponse({"ok": True, "week": snapshot.week_start.isoformat(), "summary": snapshot.summary})
 
 
+class GoalSnapshotsApiView(_ApiView):
+    """GET ``?cadence=``: the list's captures, goals down and periods across. POST
+    ``{cadence, fill?}``: capture the current period, or fill in the past *fill*."""
+
+    def get(self, request: HttpRequest, slug: str) -> JsonResponse:
+        from .snapshots import history_grid, history_payload, tracked_cadences
+
+        goal_list = _visible(GoalList, request.user, slug=slug)
+        tracked = tracked_cadences(goal_list)
+        cadence = request.GET.get("cadence") or (tracked[0] if tracked else "weekly")
+        try:
+            grid = history_grid(goal_list, request, cadence)
+        except (KeyError, ValueError):
+            return JsonResponse({"error": f"unknown cadence {cadence!r}"}, status=400)
+        return JsonResponse(history_payload(goal_list, grid))
+
+    def post(self, request: HttpRequest, slug: str) -> JsonResponse:
+        from .snapshots import capture, current_period, fill
+
+        refused = _write_refused(request)
+        if refused:
+            return refused
+        goal_list = _visible(GoalList, request.user, slug=slug)
+        if not goal_list.can_edit(request.user):
+            return JsonResponse({"error": "you may not edit this goal list"}, status=403)
+        try:
+            payload = json.loads(request.body or b"{}")
+            cadence = str(payload.get("cadence") or "")
+            if payload.get("fill"):
+                done = fill(goal_list, cadence, int(payload["fill"]), by=request.user)
+                return JsonResponse({"ok": True, "captured": done})
+            snapshot = capture(goal_list, current_period(cadence), by=request.user)
+        except (ValueError, KeyError, TypeError, AttributeError) as exc:
+            return JsonResponse({"error": f"send a cadence: {exc}"}, status=400)
+        return JsonResponse({"ok": True, "period": snapshot.period_start.isoformat(), "summary": snapshot.summary})
+
+
+class GoalTrackingApiView(_ApiView):
+    """GET: the cadences this list tracks. POST ``{cadences: [...]}``: track exactly those."""
+
+    def get(self, request: HttpRequest, slug: str) -> JsonResponse:
+        from .snapshots import tracked_cadences
+
+        return JsonResponse({"tracked": tracked_cadences(_visible(GoalList, request.user, slug=slug))})
+
+    def post(self, request: HttpRequest, slug: str) -> JsonResponse:
+        from .snapshots import set_tracking
+
+        refused = _write_refused(request)
+        if refused:
+            return refused
+        goal_list = _visible(GoalList, request.user, slug=slug)
+        if not goal_list.can_edit(request.user):
+            return JsonResponse({"error": "you may not edit this goal list"}, status=403)
+        try:
+            cadences = json.loads(request.body or b"{}")["cadences"]
+            if not isinstance(cadences, list):
+                raise ValueError("cadences must be a list")
+            return JsonResponse({"tracked": set_tracking(goal_list, cadences, by=request.user)})
+        except (ValueError, KeyError, TypeError) as exc:
+            return JsonResponse({"error": f"send {{\"cadences\": [...]}}: {exc}"}, status=400)
+
+
 class ReportValuesApiView(_ApiView):
     def get(self, request: HttpRequest, slug: str) -> HttpResponse:
         report = _visible(Report, request.user, slug=slug)
@@ -427,6 +490,15 @@ def register_openapi_paths() -> None:
         ("GET", "datasets/", "Datasets you may build on", []),
         ("GET", "datasets/{key}/schema/", "A dataset's columns, filter ops and periods", [key]),
         ("POST", "preview/", "Evaluate an unsaved metric (dry run)", []),
+        (
+            "GET",
+            "goals/{slug}/snapshots/",
+            "A goal list's captures for one cadence",
+            [slug, query("cadence", "hourly, daily, weekly, monthly or quarterly.")],
+        ),
+        ("POST", "goals/{slug}/snapshots/", "Capture the current period, or fill in past ones", [slug]),
+        ("GET", "goals/{slug}/tracking/", "The cadences a goal list tracks", [slug]),
+        ("POST", "goals/{slug}/tracking/", "Set the cadences a goal list tracks", [slug]),
         ("GET", "metrics/{key}/entries/", "A hand-entered metric's values", [key]),
         ("POST", "metrics/{key}/entries/", "Set a hand-entered metric's value for a date", [key]),
         ("POST", "report-preview/", "Evaluate an unsaved report (dry run)", []),

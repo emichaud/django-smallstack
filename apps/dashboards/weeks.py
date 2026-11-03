@@ -5,7 +5,7 @@ metric narrowed to that week's dates (``[Monday, next Monday)`` on the
 metric's period field), judged against the goal's target. A metric without a
 period field has one value whatever the week, so it's marked ``weekly: False``.
 
-A **snapshot** (``GoalSnapshot``) keeps a week as it was: every goal's value,
+A **snapshot** (``snapshots.py``, the weekly cadence) keeps a week as it was: every goal's value,
 status and the target it was judged against then. The Monday schedule
 (``tasks.snapshot_goal_lists``) snapshots the week just ended for every list;
 anyone who can edit a list can take or retake one, or fill in past weeks.
@@ -34,7 +34,6 @@ import logging
 from datetime import date, datetime, timedelta
 from typing import TYPE_CHECKING, Any, Optional
 
-from django.db.models import Q
 from django.http import HttpRequest
 from django.utils import timezone
 
@@ -58,14 +57,13 @@ from .metrics import (
     may_read,
     rate_parts,
     rate_value,
-    request_for,
     resolve_dataset,
 )
 
 if TYPE_CHECKING:
     from _typeshed import SupportsWrite
 
-    from .models import GoalList, GoalSnapshot, Metric
+    from .models import GoalList, Metric, Snapshot
 
 logger = logging.getLogger("smallstack.dashboards")
 
@@ -278,38 +276,39 @@ def live_cells(
     return out
 
 
+def goal_row(title: str, goal: dict[str, Any], src: dict[str, Any], cell: dict[str, Any]) -> dict[str, Any]:
+    """One goal for one period, exactly what a capture stores: ``{id, section, label,
+    metric, component, datasets, value, display, unit, status, target, warn,
+    target_text, warn_text, gap_text, note, error, weekly}``."""
+    metric = src["metric"]
+    return {
+        "id": goal["id"],
+        "section": title,
+        "label": src["label"],
+        "metric": goal.get("metric", ""),
+        "component": goal.get("component", ""),
+        "metric_key": metric.key if metric is not None else "",
+        "dataset": metric.dataset if metric is not None else "",
+        "datasets": metric.read_datasets() if metric is not None else [],
+        "target": goal["target"],
+        "warn": goal.get("warn"),
+        "target_text": rule_text(goal["target"], src["fmt"], src["unit"]),
+        "warn_text": rule_text(goal.get("warn"), src["fmt"], src["unit"]),
+        "note": goal.get("note", ""),
+        **{k: cell[k] for k in ("value", "display", "unit", "status", "gap_text", "error")},
+        "weekly": cell.get("weekly", True),
+    }
+
+
 def build_week(goal_list: "GoalList", request: HttpRequest, start: date) -> list[dict[str, Any]]:
-    """The list's rows for the week from *start*, worked out now — exactly
-    what a snapshot stores: ``[{id, section, label, metric, component,
-    dataset, value, display, unit, status, target, warn, target_text,
-    warn_text, gap_text, note, error, weekly}]``."""
+    """The list's rows for the week from *start*, worked out now (:func:`goal_row`)."""
     metrics, cards = goal_lookups(goal_list)
     cells = live_cells(goal_list, request, start, 1)
-    rows = []
-    for title, goal in _goal_rows(goal_list):
-        src = goal_source(goal, metrics, cards)
-        cell = cells[goal["id"]][start]
-        metric = src["metric"]
-        rows.append(
-            {
-                "id": goal["id"],
-                "section": title,
-                "label": src["label"],
-                "metric": goal.get("metric", ""),
-                "component": goal.get("component", ""),
-                "metric_key": metric.key if metric is not None else "",
-                "dataset": metric.dataset if metric is not None else "",
-                "datasets": metric.read_datasets() if metric is not None else [],
-                "target": goal["target"],
-                "warn": goal.get("warn"),
-                "target_text": rule_text(goal["target"], src["fmt"], src["unit"]),
-                "warn_text": rule_text(goal.get("warn"), src["fmt"], src["unit"]),
-                "note": goal.get("note", ""),
-                **{k: cell[k] for k in ("value", "display", "unit", "status", "gap_text", "error")},
-                "weekly": cell.get("weekly", True),
-            }
-        )
-    return rows
+    return [
+        goal_row(title, goal, src, cells[goal["id"]][start])
+        for title, goal in _goal_rows(goal_list)
+        for src in [goal_source(goal, metrics, cards)]
+    ]
 
 
 def _json_safe(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -339,28 +338,29 @@ def snapshot_user(goal_list: "GoalList") -> Any:
     return user
 
 
-def take_snapshot(goal_list: "GoalList", start: date, *, by: Any = None) -> "GoalSnapshot":
-    """Save the week from *start* (worked out now) as *goal_list*'s snapshot
-    for that week, replacing any earlier one. *by* is who asked (``None`` =
-    the schedule). Refuses a week that hasn't started."""
-    from .models import GoalSnapshot
+def _week_period(start: date) -> Any:
+    from .snapshots import WEEKLY, _midnight, period_at
 
-    start = week_of(start)
-    if week_state(start) == "future":
+    return period_at(WEEKLY, _midnight(week_of(start)))
+
+
+def weekly_captures(goal_list: "GoalList", weeks: list[date]) -> dict[date, "Snapshot"]:
+    """``{monday: its newest weekly capture}``, for the weeks that have one."""
+    from .snapshots import WEEKLY, latest_captures
+
+    found = latest_captures(goal_list, WEEKLY, [_week_period(w) for w in weeks])
+    return {s.week_start: s for s in found.values()}
+
+
+def take_snapshot(goal_list: "GoalList", start: date, *, by: Any = None) -> "Snapshot":
+    """Add a capture of the week from *start* (``snapshots.capture``). *by* is who
+    asked (``None`` = the schedule). Refuses a week that hasn't started."""
+    from .snapshots import capture
+
+    period = _week_period(start)
+    if period.state == "future":
         raise ValueError("That week hasn't started yet.")
-    rows = _json_safe(build_week(goal_list, request_for(snapshot_user(goal_list)), start))
-    summary = summarize(rows)
-    snapshot, _created = GoalSnapshot.objects.update_or_create(
-        goal_list=goal_list,
-        week_start=start,
-        defaults={
-            "rows": rows,
-            "summary": {k: summary[k] for k in ("total", "scored", "pass", "warn", "fail", "none", "pct", "headline")},
-            "complete": week_state(start) == "past",
-            "taken_by": by,
-        },
-    )
-    return snapshot
+    return capture(goal_list, period, by=by)
 
 
 def snapshot_last_week(*, lists: Optional[list["GoalList"]] = None) -> int:
@@ -382,70 +382,14 @@ def snapshot_last_week(*, lists: Optional[list["GoalList"]] = None) -> int:
 
 
 def backfill(goal_list: "GoalList", weeks: int, *, by: Any = None, replace: bool = False) -> int:
-    """Snapshot the *weeks* past weeks (most recent first) that don't have
-    one yet (or all of them with *replace*), judged against today's targets.
-    Returns how many were taken."""
-    from .models import GoalSnapshot
+    """Capture the *weeks* past weeks (most recent first) that don't have one yet (or
+    all of them with *replace*), judged against today's targets. Returns how many."""
+    from .snapshots import WEEKLY, fill
 
-    weeks = max(1, min(int(weeks), MAX_BACKFILL))
-    have = set(GoalSnapshot.objects.filter(goal_list=goal_list).values_list("week_start", flat=True))
-    done = 0
-    for i in range(1, weeks + 1):
-        start = this_week() - timedelta(weeks=i)
-        if replace or start not in have:
-            take_snapshot(goal_list, start, by=by)
-            done += 1
-    return done
+    return fill(goal_list, WEEKLY, weeks, by=by, replace_existing=replace)
 
 
 # -- reading weeks -----------------------------------------------------------------
-
-
-def refresh_saved_week(metric: "Metric", day: date) -> int:
-    """Bring saved weeks up to date after a hand-entered value for *day* changes.
-    The Monday snapshot is usually taken before anyone has typed last week's
-    numbers, so without this the meeting would show a blank for a value that's
-    there. A correction to the data, not a rewrite of history: each row keeps the
-    target it was saved with. Rates built on the metric follow. Returns how many
-    snapshots changed."""
-    from .models import GoalSnapshot, Metric
-
-    start = week_of(day)
-    affected = {
-        metric.key,
-        *Metric.objects.filter(source="rate")
-        .filter(Q(numerator=metric.key) | Q(denominator=metric.key))
-        .values_list("key", flat=True),
-    }
-    changed = 0
-    for snapshot in GoalSnapshot.objects.filter(week_start=start).select_related("goal_list"):
-        hit = [row for row in snapshot.rows if row.get("metric_key") in affected]
-        if not hit:
-            continue
-        request = request_for(snapshot_user(snapshot.goal_list))
-        metrics, cards = goal_lookups(snapshot.goal_list)
-        for row in hit:
-            source_metric = Metric.objects.filter(key=row["metric_key"]).first()
-            if source_metric is None:
-                continue
-            goal = {k: row.get(k) for k in ("target", "warn", "metric", "component")}
-            got = weekly_values(source_metric, request, start, 1)
-            cell = _cell(
-                goal,
-                got["values"].get(start),
-                goal_source(goal, metrics, cards),
-                error=got["error"],
-                restricted=got["restricted"],
-            )
-            row.update({k: cell[k] for k in ("value", "display", "unit", "status", "gap_text", "error")})
-        snapshot.rows = _json_safe(snapshot.rows)
-        summary = summarize(snapshot.rows)
-        snapshot.summary = {
-            k: summary[k] for k in ("total", "scored", "pass", "warn", "fail", "none", "pct", "headline")
-        }
-        snapshot.save(update_fields=["rows", "summary"])
-        changed += 1
-    return changed
 
 
 def _viewer_may_read(dataset: str, user: Any, cache: dict[str, bool]) -> bool:
@@ -496,7 +440,7 @@ def _sections(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
 
 def _week_rows(
-    goal_list: "GoalList", request: HttpRequest, start: date, snapshot: Optional["GoalSnapshot"]
+    goal_list: "GoalList", request: HttpRequest, start: date, snapshot: Optional["Snapshot"]
 ) -> list[dict[str, Any]]:
     if snapshot is not None:
         return _masked(snapshot.rows, request.user)
@@ -539,13 +483,8 @@ def week_page(goal_list: "GoalList", request: HttpRequest, start: date) -> dict[
     sections, rows, summary, attention, prev, next, weeks}`` — the snapshot
     if there is one (``live`` False), else worked out now. Each row carries
     ``change`` from the week before (that week's snapshot or live value)."""
-    from .models import GoalSnapshot
-
     start = week_of(start)
-    snaps = {
-        s.week_start: s
-        for s in GoalSnapshot.objects.filter(goal_list=goal_list, week_start__in=[start, start - timedelta(weeks=1)])
-    }
+    snaps = weekly_captures(goal_list, [start, start - timedelta(weeks=1)])
     snapshot = snaps.get(start)
     rows = _week_rows(goal_list, request, start, snapshot)
     before = {
@@ -578,9 +517,10 @@ def week_page(goal_list: "GoalList", request: HttpRequest, start: date) -> dict[
 def week_choices(goal_list: "GoalList", around: date, count: int = 26) -> list[dict[str, Any]]:
     """The weeks a picker offers: the *count* weeks up to this one, newest
     first, each flagged when it has a snapshot."""
-    from .models import GoalSnapshot
-
-    have = set(GoalSnapshot.objects.filter(goal_list=goal_list).values_list("week_start", flat=True))
+    have = {
+        timezone.localtime(start).date()
+        for start in goal_list.snapshots.filter(cadence="weekly").order_by().values_list("period_start", flat=True)
+    }
     newest = this_week()
     weeks = [newest - timedelta(weeks=i) for i in range(count)]
     if around not in weeks:
@@ -592,10 +532,8 @@ def week_choices(goal_list: "GoalList", around: date, count: int = 26) -> list[d
 
 
 def _grid(goal_list: "GoalList", request: HttpRequest, first: date, count: int) -> dict[str, Any]:
-    from .models import GoalSnapshot
-
     weeks = [first + timedelta(weeks=i) for i in range(count)]
-    snaps = {s.week_start: s for s in GoalSnapshot.objects.filter(goal_list=goal_list, week_start__in=weeks)}
+    snaps = weekly_captures(goal_list, weeks)
     live = live_cells(goal_list, request, first, count) if len(snaps) < count else {}
     snap_rows = {w: {r["id"]: r for r in _masked(s.rows, request.user)} for w, s in snaps.items()}
     metrics, cards = goal_lookups(goal_list)

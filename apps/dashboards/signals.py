@@ -189,3 +189,12 @@ def keep_goals_on_the_cards_metric(sender: type[Component], instance: Component,
                     changed = True
         if changed:
             GoalList.objects.filter(pk=goal_list.pk).update(sections=sections)
+
+
+@receiver(post_save, sender=GoalList)
+def start_default_tracking(sender: type[GoalList], instance: GoalList, created: bool, raw: bool, **kwargs: Any) -> None:
+    """A new list tracks ``SMALLSTACK_SNAPSHOT_DEFAULT_CADENCES`` until someone changes it."""
+    if created and not raw:
+        from .snapshots import default_cadences, set_tracking
+
+        set_tracking(instance, default_cadences(), by=instance.created_by)

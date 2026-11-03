@@ -1,0 +1,155 @@
+{% extends "smallstack/base.html" %}
+{% load static theme_tags %}
+{% comment %}
+GoalHistoryView: which cadences this list tracks, then its captures for one cadence,
+goals down and periods across. A period with no capture is blank, never worked out
+now. Opening a period shows every capture of it. Tabs, headers and arrows swap #gh-page.
+{% endcomment %}
+
+{% block title %}{{ goal_list.name }}, history{% endblock %}
+{% block breadcrumbs %}{% endblock %}
+{% block extra_css %}<link rel="stylesheet" href="{% static 'dashboards/css/dashboards.css' %}">{% endblock %}
+
+{% block page_header %}
+<div class="page-header-bleed page-header-with-actions">
+    <div class="page-header-content">
+        <h1>{{ goal_list.name }}, history</h1>
+        <p class="page-subtitle">Values captured over time, kept as they were. Track any of these on their own schedule.</p>
+        <nav style="margin-top: 0.5rem; font-size: 0.8rem;" aria-label="Breadcrumb">
+            <a href="{% url 'website:home' %}" style="color: var(--body-quiet-color); text-decoration: none;">Home</a>
+            <span style="color: var(--body-quiet-color); margin: 0 0.3rem;">/</span>
+            <a href="{% url 'goals_index' %}" style="color: var(--body-quiet-color); text-decoration: none;">Goals</a>
+            <span style="color: var(--body-quiet-color); margin: 0 0.3rem;">/</span>
+            <a href="{{ goal_list.get_absolute_url }}" style="color: var(--body-quiet-color); text-decoration: none;">{{ goal_list.name }}</a>
+            <span style="color: var(--body-quiet-color); margin: 0 0.3rem;">/</span>
+            <span style="color: var(--body-fg);">History</span>
+        </nav>
+    </div>
+    <div style="display: flex; gap: 0.5rem; align-items: center;">
+        <a href="{{ goal_list.get_absolute_url }}" class="btn-outline btn-sm">Meeting view</a>
+        <a href="{% url 'dashboards_goal_weeks' goal_list.slug %}" class="btn-outline btn-sm">Weeks</a>
+    </div>
+</div>
+{% endblock %}
+
+{% block content %}
+{% url 'dashboards_goal_history' goal_list.slug as base %}
+<div id="gh-page">
+<section class="card gh-tracking" aria-labelledby="gh-tracking-title">
+    <h2 id="gh-tracking-title">What's tracked</h2>
+    {% if can_edit %}
+    <form method="post" action="{% url 'dashboards_goal_tracking' goal_list.slug %}" class="gh-tracking-form">
+        {% csrf_token %}
+        <fieldset>
+            <legend class="sr-only">Capture this list</legend>
+            {% for tab in tabs %}<label class="gh-check"><input type="checkbox" name="cadence" value="{{ tab.key }}"{% if tab.tracked %} checked{% endif %}> {{ tab.label }}</label>{% endfor %}
+        </fieldset>
+        <button type="submit" class="btn-outline btn-sm">Save tracking</button>
+    </form>
+    {% else %}
+    <p>{% if tracked %}Captured {{ tracked|join:", " }}.{% else %}Nothing is tracked.{% endif %}</p>
+    {% endif %}
+    <p class="gh-note">Each tracked period is captured automatically once it ends. Turning one off keeps what it captured.</p>
+</section>
+
+<div class="gw-toolbar">
+    <nav class="ix-view" aria-label="Cadence">
+        {% for tab in tabs %}<a href="{{ base }}?cadence={{ tab.key }}" class="ix-view-btn"{% if tab.key == cadence %} aria-current="true"{% endif %} hx-get="{{ base }}?cadence={{ tab.key }}" hx-select="#gh-page" hx-target="#gh-page" hx-swap="outerHTML" hx-push-url="true"><span>{{ tab.label }}</span></a>{% endfor %}
+    </nav>
+    <div class="gh-nav">
+        <a href="{{ base }}?cadence={{ cadence }}&amp;last={{ grid.prev.key }}" class="btn-outline btn-sm" aria-label="Earlier {{ cadence_noun }}s" hx-get="{{ base }}?cadence={{ cadence }}&amp;last={{ grid.prev.key }}" hx-select="#gh-page" hx-target="#gh-page" hx-swap="outerHTML" hx-push-url="true">Earlier</a>
+        {% if grid.next %}<a href="{{ base }}?cadence={{ cadence }}&amp;last={{ grid.next.key }}" class="btn-outline btn-sm" aria-label="Later {{ cadence_noun }}s" hx-get="{{ base }}?cadence={{ cadence }}&amp;last={{ grid.next.key }}" hx-select="#gh-page" hx-target="#gh-page" hx-swap="outerHTML" hx-push-url="true">Later</a>{% endif %}
+        <a href="{{ base }}?cadence={{ cadence }}{% if request.GET.last %}&amp;last={{ request.GET.last }}{% endif %}{% if order %}&amp;order={{ order }}{% endif %}&amp;format=csv" class="btn-outline btn-sm" download>Download CSV</a>
+    </div>
+</div>
+
+{% if not goal_list.goals %}
+{% include "smallstack/includes/empty_state.html" with title="No goals yet" body="Add goals to the list to capture them." %}
+{% else %}
+{% if order %}<p class="rp-sorted"><a href="{{ base }}?cadence={{ cadence }}" hx-get="{{ base }}?cadence={{ cadence }}" hx-select="#gh-page" hx-target="#gh-page" hx-swap="outerHTML" hx-push-url="true">Back to the list's own order</a></p>{% endif %}
+<div class="card gw-grid-card">
+    <div class="gw-grid-scroll">
+        <table class="gw-grid crud-table" data-table-key="dashboards/goal-history/{{ cadence }}:goal{% for col in grid.columns %},p{{ forloop.counter }}{% endfor %}">
+            <thead>
+                <tr>
+                    {% with s=sort_links.goal %}
+                    <th scope="col" class="gw-goal-col" data-field="goal" aria-sort="{{ s.aria_sort }}">
+                        <a class="dm-sort" href="{{ base }}?cadence={{ cadence }}{% if request.GET.last %}&amp;last={{ request.GET.last }}{% endif %}&amp;order={{ s.next }}" hx-get="{{ base }}?cadence={{ cadence }}{% if request.GET.last %}&amp;last={{ request.GET.last }}{% endif %}&amp;order={{ s.next }}" hx-select="#gh-page" hx-target="#gh-page" hx-swap="outerHTML" hx-push-url="true">Goal</a>
+                        {% include "smallstack/crud/includes/col_resizer.html" with label="Goal" %}
+                    </th>
+                    {% endwith %}
+                    {% for col in grid.columns %}{% with s=col.sort %}
+                    <th scope="col" class="gw-week-col{% if col.key == period.key %} is-chosen{% endif %}" data-field="p{{ forloop.counter }}" aria-sort="{{ s.aria_sort }}">
+                        <a class="dm-sort gw-week-sort" href="{{ base }}?cadence={{ cadence }}{% if request.GET.last %}&amp;last={{ request.GET.last }}{% endif %}&amp;order={{ s.next }}" hx-get="{{ base }}?cadence={{ cadence }}{% if request.GET.last %}&amp;last={{ request.GET.last }}{% endif %}&amp;order={{ s.next }}" hx-select="#gh-page" hx-target="#gh-page" hx-swap="outerHTML" hx-push-url="true" title="{{ col.label }}">{{ col.short }}</a>
+                        {% if col.snapshot %}<span class="gw-week-score">{% if col.scored %}{{ col.pass }} of {{ col.scored }}{% else %}Captured{% endif %}</span>
+                        <span class="gw-week-actions"><a href="{{ base }}?cadence={{ cadence }}&amp;at={{ col.key }}#gh-period" class="gw-open" aria-label="Open {{ col.label }}">Open</a></span>
+                        {% elif col.state == "current" %}<span class="gw-week-meta">So far</span>{% endif %}
+                        {% include "smallstack/crud/includes/col_resizer.html" with label=col.short %}
+                    </th>
+                    {% endwith %}{% endfor %}
+                </tr>
+            </thead>
+            {% for section in grid.sections %}
+            <tbody>
+                {% if section.title %}<tr class="gw-section"><th scope="rowgroup" colspan="{{ grid.columns|length|add:1 }}">{{ section.title }}</th></tr>{% endif %}
+                {% for row in section.rows %}
+                <tr>
+                    <th scope="row" class="gw-goal"><span class="gw-goal-name">{{ row.label }}</span>{% if row.target_text %}<span class="gw-goal-target">{{ row.target_text }}</span>{% endif %}</th>
+                    {% for cell in row.cells %}
+                    <td class="gw-cell gl-st--{{ cell.status }}">
+                        {% if cell.absent %}<span class="gl-quiet" aria-label="Not captured">·</span>
+                        {% elif cell.restricted %}<span class="gl-quiet" title="{{ cell.error }}">Restricted</span>
+                        {% elif cell.error %}<span class="gl-error" title="{{ cell.error }}" aria-label="{{ cell.error }}">!</span>
+                        {% else %}{% include "dashboards/partials/goal_status.html" with status=cell.status %}<span class="sr-only">{{ cell.status_label }}: </span><span class="gw-value">{{ cell.display }}</span>{% endif %}
+                    </td>
+                    {% endfor %}
+                </tr>
+                {% endfor %}
+            </tbody>
+            {% endfor %}
+        </table>
+    </div>
+</div>
+
+{% if can_edit %}
+<div class="gh-actions">
+    <form method="post" action="{% url 'dashboards_goal_capture' goal_list.slug %}">
+        {% csrf_token %}
+        <input type="hidden" name="cadence" value="{{ cadence }}">
+        <button type="submit" class="btn-outline btn-sm">Capture this {{ cadence_noun }} so far</button>
+    </form>
+    <form method="post" action="{% url 'dashboards_goal_capture' goal_list.slug %}" class="gh-fill">
+        {% csrf_token %}
+        <input type="hidden" name="cadence" value="{{ cadence }}">
+        <label for="gh-fill-n">Fill in past {{ cadence_noun }}s with no capture:</label>
+        <select name="fill" id="gh-fill-n" class="vTextField">{% for n in fill_choices %}<option value="{{ n }}">The last {{ n }}</option>{% endfor %}</select>
+        <button type="submit" class="btn-outline btn-sm">Fill in</button>
+        <span class="mb-help">Judged against today's targets. A number that doesn't depend on time can't be filled in.</span>
+    </form>
+</div>
+{% endif %}
+
+{% if period %}
+<section class="gh-period" id="gh-period" aria-labelledby="gh-period-title">
+    <h2 id="gh-period-title">{{ period.label }}</h2>
+    {% if captures %}
+    <ol class="gh-captures" aria-label="Captures of this period, newest first">
+        {% for c in captures %}
+        <li{% if c.pk == chosen.pk %} aria-current="true"{% endif %}>
+            <a href="{{ base }}?cadence={{ cadence }}&amp;at={{ period.key }}&amp;capture={{ c.pk }}#gh-period">{{ c.taken_at|date:"M j, Y, H:i" }}</a>
+            <span class="dash-muted">{% if c.reason %}{{ c.reason }}{% elif c.taken_by %}by {{ c.taken_by }}{% else %}automatically{% endif %}{% if not c.complete %}, part-way through{% endif %}</span>
+        </li>
+        {% endfor %}
+    </ol>
+    <p><a href="{% url 'dashboards_goals_print' goal_list.slug %}?snapshot={{ chosen.pk }}&amp;auto=1" class="btn-outline btn-sm">Print this capture</a></p>
+    {% if detail_rows %}{% include "dashboards/includes/goals_board.html" with sections=detail_sections summary=detail_summary attention=detail_attention rows=detail_rows has_changes=False has_trends=False heading="in this capture" sort_links=None %}{% endif %}
+    {% else %}
+    <p class="dash-muted">No captures of this {{ cadence_noun }}.</p>
+    {% endif %}
+</section>
+{% endif %}
+{% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}<script src="{% static 'dashboards/js/dashboard.js' %}" defer></script>{% endblock %}

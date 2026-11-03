@@ -13,7 +13,7 @@ from django.utils import timezone
 
 from apps.dashboards.entries import delete_entry, parse_entry, record_entry
 from apps.dashboards.metrics import drill_rows, evaluate, request_for
-from apps.dashboards.models import GoalList, GoalSnapshot, Metric, MetricEntry, metric_usage
+from apps.dashboards.models import GoalList, Metric, MetricEntry, metric_usage
 from apps.dashboards.trends import metric_trend
 from apps.dashboards.weeks import _masked, take_snapshot, week_of, weekly_values
 
@@ -48,6 +48,12 @@ def rate(top, bottom, key="the_rate", fmt="percent", owner=None):
 
 def monday(weeks_ago):
     return week_of(timezone.localdate()) - timedelta(weeks=weeks_ago)
+
+
+def week_page_snapshot(g, week):
+    from apps.dashboards.weeks import weekly_captures
+
+    return weekly_captures(g, [week])[week]
 
 
 def goal_list(*metrics, **extra):
@@ -282,21 +288,27 @@ class TestRate:
 
 
 class TestSavedWeeks:
-    def test_a_value_entered_after_the_snapshot_reaches_it(self, staff):
-        """The schedule saves last week on Monday at 00:15, before anyone has typed its numbers."""
+    @staticmethod
+    def newest(g, week):
+        return week_page_snapshot(g, week)
+
+    def test_a_value_entered_after_the_snapshot_adds_a_capture(self, staff):
+        """The schedule saves last week before anyone has typed its numbers."""
         m = manual()
         g = goal_list(m, created_by=staff)
         week = monday(1)
-        snapshot = take_snapshot(g, week)
-        assert snapshot.rows[0]["value"] is None and snapshot.summary["pass"] == 0
+        first = take_snapshot(g, week)
+        assert first.rows[0]["value"] is None and first.summary["pass"] == 0
 
         record_entry(m, week + timedelta(days=1), Decimal(80), by=staff)
-        snapshot = GoalSnapshot.objects.get(pk=snapshot.pk)
-        assert snapshot.rows[0]["value"] == 80 and snapshot.rows[0]["status"] == "pass"
-        assert snapshot.summary["pass"] == 1
+        newest = self.newest(g, week)
+        assert newest.pk != first.pk and newest.reason == "A value changed" and newest.taken_by == staff
+        assert newest.rows[0]["value"] == 80 and newest.rows[0]["status"] == "pass" and newest.summary["pass"] == 1
+        first.refresh_from_db()
+        assert first.rows[0]["value"] is None  # the earlier capture is untouched
 
         delete_entry(m, week + timedelta(days=1))
-        assert GoalSnapshot.objects.get(pk=snapshot.pk).rows[0]["value"] is None
+        assert self.newest(g, week).rows[0]["value"] is None
 
     def test_it_keeps_the_target_the_week_was_saved_with(self, staff):
         m = manual()
@@ -306,7 +318,7 @@ class TestSavedWeeks:
         g.sections[0]["goals"][0]["target"] = {"op": ">=", "value": 90}
         g.save()
         record_entry(m, week, Decimal(80), by=staff)
-        row = GoalSnapshot.objects.get(goal_list=g, week_start=week).rows[0]
+        row = self.newest(g, week).rows[0]
         assert row["target"] == {"op": ">=", "value": 50} and row["status"] == "pass"
 
     def test_other_weeks_are_left_alone(self, staff):
@@ -314,7 +326,7 @@ class TestSavedWeeks:
         g = goal_list(m, created_by=staff)
         take_snapshot(g, monday(2))
         record_entry(m, monday(1), Decimal(80), by=staff)
-        assert GoalSnapshot.objects.get(goal_list=g, week_start=monday(2)).rows[0]["value"] is None
+        assert g.snapshots.count() == 1 and self.newest(g, monday(2)).rows[0]["value"] is None
 
     def test_a_rate_on_the_metric_follows(self, staff):
         top, bottom = manual(key="top", agg="sum"), manual(key="bottom", agg="sum")
@@ -324,7 +336,7 @@ class TestSavedWeeks:
         take_snapshot(g, week)
         record_entry(bottom, week, Decimal(10), by=staff)
         record_entry(top, week, Decimal(6), by=staff)
-        assert GoalSnapshot.objects.get(goal_list=g, week_start=week).rows[0]["value"] == 60
+        assert self.newest(g, week).rows[0]["value"] == 60
 
     def test_a_saved_rate_over_staff_data_stays_hidden_from_non_staff(self, staff, member):
         """A rate has no dataset of its own, so masking on row["dataset"] alone would show it."""
