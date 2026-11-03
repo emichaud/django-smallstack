@@ -12,10 +12,16 @@ would be swallowed by ``posts/<pk>/``.
 from __future__ import annotations
 
 from django.urls import path
+from django.views.generic import RedirectView
 
 from . import views
 
 urlpatterns = [
+    # The console's front door. The prefix itself had no route, so the
+    # documented /smallstack/blog/ 404'd while every page under it worked;
+    # land on the posts list like the webhooks and scheduler consoles land
+    # on theirs.
+    path("blog/", RedirectView.as_view(pattern_name="blog/posts-list"), name="blog_console"),
     # Markdown preview for the editor (htmx). Before the splat.
     path("blog/posts/preview/", views.post_preview, name="blog_post_preview"),
     # Lifecycle actions — POST only, ownership-checked, service-backed.

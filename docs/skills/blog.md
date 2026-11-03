@@ -10,7 +10,7 @@ published into a blog and optionally kept in sync.
 
 ```
 /my/blogs/               the author's studio login-gated, owner-scoped (namespace `myblogs`)
-/smallstack/blog/        system blog manager login-gated, ownership-scoped CRUDViews
+/smallstack/blog/        system blog manager login-gated, ownership-scoped CRUDViews (lands on posts/; also blogs/, tags/, subscribers/, issues/)
 /blog/                   public reading      anonymous (gated by a setting)
 /blog/<blog>/<post>/     permalink
 /blog/<blog>/feed.rss    per-blog feed       .atom and .json too

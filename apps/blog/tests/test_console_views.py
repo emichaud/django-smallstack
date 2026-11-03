@@ -48,6 +48,15 @@ def test_anonymous_is_redirected_to_login(client, path):
     assert "/login" in response.url
 
 
+def test_console_root_lands_on_the_posts_list(client, owner):
+    """``/smallstack/blog/`` is the documented console path; it must not 404."""
+    client.force_login(owner)
+    response = client.get(f"{CONSOLE}/")
+    assert response.status_code == 302
+    assert response.url == f"{CONSOLE}/posts/"
+    assert client.get(response.url).status_code == 200
+
+
 def test_anonymous_cannot_post_an_action(client, draft):
     response = client.post(f"{CONSOLE}/posts/{draft.pk}/publish/")
     assert response.status_code == 302

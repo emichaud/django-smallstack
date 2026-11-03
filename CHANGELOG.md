@@ -67,6 +67,10 @@ Breaking-change migration recipes live in [`UPGRADING.md`](UPGRADING.md).
   are now one form (the roll-up controls attach with `form="ds-form"`), either
   button submits the whole page state, the current sort survives a re-submit,
   and Clear drops the filters but keeps the roll-up.
+- **`/smallstack/blog/` 404'd.** The blog console is a set of CRUDViews under that
+  prefix with no route for the prefix itself, yet every doc named it as the console
+  path. It now redirects to the posts list, the way the webhooks and scheduler
+  consoles land on theirs.
 - **Native date pickers were invisible on the dark theme.** The calendar glyph in
   `<input type="date">` rendered near-black on the dark field and the popup it
   opened was white. `components.css` now sets `color-scheme: dark` on date /
