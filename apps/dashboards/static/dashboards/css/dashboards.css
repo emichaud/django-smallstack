@@ -2603,3 +2603,4 @@ a.gw-week-link:hover { color: var(--link-color); text-decoration: underline; }
 .plf-table td:first-child, .plf-table td.plf-tools-cell { overflow: visible; text-overflow: clip; }
 .plf-table .plf-item .vTextField { box-sizing: border-box; width: 100%; min-width: 0; margin: 0; }
 .plf-table td > .plf-item-seconds { width: calc(100% - 1rem); }
+.gx-name-plain { font-weight: 600; font-size: 0.92rem; }

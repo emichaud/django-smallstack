@@ -115,3 +115,18 @@ def test_the_overview_tables_sort_on_their_own_and_resize(client, staff):
     # Cards leaves the list view: an empty querystring must not mean "this URL".
     assert 'href="/smallstack/dashboards/" class="ix-view-btn"' in page("boards=list")
     assert page("dash=bogus&playlists=bogus&components=bogus")
+
+
+def test_the_overview_only_links_cards_you_can_open(client, staff):
+    """Staff see someone's personal card, but its page is a builder they can't use."""
+    from apps.dashboards.models import Component, Metric
+
+    other = get_user_model().objects.create_user("ix-other", password="x")
+    Metric(key="ix_p", name="Theirs", dataset="smallstack_requests", owner=other).save()
+    card = Component(name="Their card", type="metric", metric="ix_p", owner=other)
+    card.save()
+    Component(name="Shared note", type="text", options={"markdown": "x"}).save()
+    html = client.get(INDEX).content.decode()
+    assert f'href="{card.get_absolute_url()}"' not in html and 'class="gx-name-plain">Their card<' in html
+    assert 'class="gx-name">Shared note<' in html
+    assert client.get(card.get_absolute_url()).status_code == 403  # why it isn't a link

@@ -192,7 +192,7 @@
             <tbody>
             {% for row in components %}{% with c=row.component %}
                 <tr>
-                    <td class="gx-name-cell"><a href="{{ row.url }}" class="gx-name">{{ c.name }}</a>{% if not c.is_shared %} <span class="dash-badge">Personal</span>{% endif %}</td>
+                    <td class="gx-name-cell">{% if row.url %}<a href="{{ row.url }}" class="gx-name">{{ c.name }}</a>{% else %}<span class="gx-name-plain">{{ c.name }}</span>{% endif %}{% if not c.is_shared %} <span class="dash-badge">Personal</span>{% endif %}</td>
                     <td><span class="cl-type"><span class="cl-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="{{ row.icon|default:'M4 4h16v16H4z' }}"/></svg></span>{{ row.type_label }}</span></td>
                     <td>{% if row.metric_name %}{{ row.metric_name }}{% else %}<span class="dash-muted">No metric</span>{% endif %}</td>
                     <td class="gx-num"><time datetime="{{ c.updated_at|date:'c' }}">{{ c.updated_at|date:"M j" }}</time></td>

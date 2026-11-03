@@ -271,7 +271,7 @@ class DashboardIndexView(LoginRequiredMixin, TemplateView):
                 "playlists": [self.playlist_row(p, user) for p in playlists],
                 "playlist_count": playlist_qs.count(),
                 "playlists_sort": playlists_links,
-                "components": [self.component_row(c, metric_names) for c in components],
+                "components": [self.component_row(c, metric_names, user) for c in components],
                 "component_count": component_qs.count(),
                 "components_sort": components_links,
                 # The first-run steps start from a metric, wherever they're made.
@@ -282,11 +282,12 @@ class DashboardIndexView(LoginRequiredMixin, TemplateView):
         return context
 
     @staticmethod
-    def component_row(card: Component, metric_names: dict[str, str]) -> dict[str, Any]:
+    def component_row(card: Component, metric_names: dict[str, str], user: Any) -> dict[str, Any]:
         ct = get_component_type(card.type)
         return {
             "component": card,
-            "url": card.get_absolute_url(),
+            # A card's page is its builder; staff can see someone's personal card but not edit it.
+            "url": card.get_absolute_url() if card.can_edit(user) else "",
             "type_label": ct.label if ct else card.type,
             "icon": ct.icon if ct else "",
             "metric_name": metric_names.get(card.metric, card.metric),
