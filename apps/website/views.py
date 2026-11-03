@@ -12,6 +12,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from django.contrib.auth.decorators import login_required
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import redirect, render
 from django.urls import reverse
@@ -131,6 +132,18 @@ def starter_basic_view(request):
 def starter_forms_view(request):
     """Forms starter showing date pickers, alignment, and input patterns."""
     return render(request, "starter/forms.html")
+
+
+@login_required
+def starter_dashboard_view(request: HttpRequest) -> HttpResponse:
+    """A page of your own that shows a saved dashboard and metric cards — the
+    ``{% dashboard %}`` and ``{% metric_card %}`` tags over SmallStack's
+    dashboards. Renders the seeded demo if it exists (``seed_dashboards``)."""
+    from apps.dashboards.models import Dashboard, Metric
+
+    board = Dashboard.objects.visible_to(request.user).order_by("name").first()
+    metrics = list(Metric.objects.visible_to(request.user).exclude(period_field="").order_by("name")[:3])
+    return render(request, "starter/dashboard.html", {"board": board, "metrics": metrics})
 
 
 def components_view(request):

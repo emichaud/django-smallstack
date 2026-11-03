@@ -1,0 +1,160 @@
+{% extends "smallstack/base.html" %}
+{% load static theme_tags %}
+
+{% block title %}{{ metric.name }}{% endblock %}
+{% block breadcrumbs %}{% endblock %}
+{% block extra_css %}<link rel="stylesheet" href="{% static 'dashboards/css/dashboards.css' %}">{% endblock %}
+
+{% block page_header %}
+<div class="page-header-bleed page-header-with-actions">
+    <div class="page-header-content">
+        <h1>{{ metric.name }}</h1>
+        {% if metric.description %}<p class="page-subtitle">{{ metric.description }}</p>{% endif %}
+        <nav style="margin-top: 0.5rem; font-size: 0.8rem;">
+            <a href="{% url 'website:home' %}" style="color: var(--body-quiet-color); text-decoration: none;">Home</a>
+            <span style="color: var(--body-quiet-color); margin: 0 0.3rem;">/</span>
+            <a href="{% url 'goals_index' %}" style="color: var(--body-quiet-color); text-decoration: none;">Goals</a>
+            <span style="color: var(--body-quiet-color); margin: 0 0.3rem;">/</span>
+            <a href="{% url 'dashboards/metrics-list' %}" style="color: var(--body-quiet-color); text-decoration: none;">Metrics</a>
+            <span style="color: var(--body-quiet-color); margin: 0 0.3rem;">/</span>
+            <span style="color: var(--body-fg);">{{ metric.name }}</span>
+        </nav>
+    </div>
+    <div style="display: flex; gap: 0.5rem; align-items: center;">
+        {% if metric.is_shared %}<span class="dash-badge dash-badge--shared">Shared</span>{% else %}<span class="dash-badge">Personal, {{ metric.owner }}</span>{% endif %}
+        {% url 'dashboards_goal_add' as goal_add %}<a href="{{ goal_add }}?metric={{ metric.key }}" class="btn-outline btn-sm" hx-get="{{ goal_add }}?metric={{ metric.key }}" hx-target="#stat-modal-body" hx-swap="innerHTML" data-stat-modal="Add {{ metric.name }} to goals" aria-haspopup="dialog">Add to goals</a>
+        {% if can_edit %}<a href="{% url 'dashboards/metrics-update' metric.pk %}" class="btn-primary btn-sm">Edit metric</a>{% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block content %}
+<div id="md-page">
+{# ── The definition, read as a sentence, beside the number it produces ── #}
+<section class="md-hero{% if result.ok and result.state %} md-hero--{{ result.state }}{% endif %}" aria-labelledby="md-value">
+    <div class="md-def">
+        <p class="md-sentence">
+            <span>{{ sentence.lead }}</span>
+            <strong>{{ sentence.dataset }}</strong>{% if sentence.where %}
+            <span class="md-where">{{ sentence.where }}</span>{% else %}, <span class="md-where">every row</span>{% endif %}{% if sentence.when %},
+            <span class="md-when">{{ sentence.when }}</span>{% endif %}
+        </p>
+
+        {% if metric.period_field %}
+        <nav class="md-periods" aria-label="Period">
+            {% for p in quick_periods %}<a href="{% querystring period=p.key %}" class="md-period" hx-get="{% querystring period=p.key %}" hx-select="#md-page" hx-target="#md-page" hx-swap="outerHTML" hx-push-url="true"{% if p.current %} aria-current="true"{% endif %}>{{ p.label }}</a>{% endfor %}
+            <form method="get" class="md-more" hx-get="" hx-trigger="change" hx-select="#md-page" hx-target="#md-page" hx-swap="outerHTML" hx-push-url="true">
+                {% if request.GET.order %}<input type="hidden" name="order" value="{{ request.GET.order }}">{% endif %}
+                <label class="sr-only" for="md-more-period">Other periods</label>
+                <select id="md-more-period" name="period"{% if period_more_current %} class="is-current"{% endif %}>
+                    <option value="">More ▾</option>
+                    {% for key, label in more_periods %}<option value="{{ key }}"{% if key == period %} selected{% endif %}>{{ label }}</option>{% endfor %}
+                </select>
+                <noscript><button type="submit" class="btn-outline btn-sm">Go</button></noscript>
+            </form>
+        </nav>
+        {% else %}
+        <p class="md-note">This number doesn't depend on time. Give the metric a period field to compare periods.</p>
+        {% endif %}
+    </div>
+
+    <div class="md-readout">
+        {% if result.restricted %}
+        <p class="md-value md-value--quiet" id="md-value">—</p>
+        <p class="md-caption">You don't have access to this metric's data.</p>
+        {% elif result.error %}
+        <p class="md-value md-value--quiet" id="md-value">—</p>
+        <p class="md-caption md-caption--error">{{ result.error }}</p>
+        {% for p in result.problems %}<p class="md-caption md-caption--error"><code>{{ p }}</code></p>{% endfor %}
+        {% else %}
+        <p class="md-value" id="md-value">{{ result.display }}{% if result.unit %}<span class="md-unit">{{ result.unit }}</span>{% endif %}</p>
+        {% if comparison %}<p class="md-compare"><span aria-hidden="true">{% if comparison.dir == "up" %}▲{% elif comparison.dir == "down" %}▼{% else %}={% endif %}</span> {% if comparison.dir == "up" %}<span class="sr-only">Up </span>{% elif comparison.dir == "down" %}<span class="sr-only">Down </span>{% endif %}{{ comparison.text }} <span class="md-compare-prev">({{ comparison.previous }}{% if comparison.unit %} {{ comparison.unit }}{% endif %})</span></p>{% endif %}
+        {% if rules %}
+        <ul class="md-rules" aria-label="Colour rules, first match wins">
+            {% for r in rules %}<li class="md-rule md-rule--{{ r.state }}"><span class="md-dot" aria-hidden="true"></span>{{ r.text }} is {{ r.state }}</li>{% endfor %}
+        </ul>
+        {% endif %}
+        {% endif %}
+    </div>
+</section>
+
+{# ── The rows behind it ── #}
+<section class="md-rows" id="md-rows" aria-labelledby="md-rows-title">
+    <div class="md-section-head">
+        <h2 id="md-rows-title">Rows behind the number</h2>
+        {% if drill %}<p class="dash-muted">{{ drill_total }} row{{ drill.total|pluralize }}{% if drill.total > drill.rows|length %}, first {{ drill.rows|length }} shown{% endif %}</p>{% endif %}
+        {% if request.user.is_staff and result.ok %}<a href="{% url 'datasets:browse' metric.dataset %}" class="md-link">Browse the whole dataset</a>{% endif %}
+    </div>
+    <div class="card">
+        {% if result.restricted %}
+        <p class="dash-message">You don't have access to this metric's data.</p>
+        {% elif result.error %}
+        <p class="dash-message dash-message--error">Fix the filter to see its rows.</p>
+        {% elif drill_error %}
+        <p class="dash-message dash-message--error">{{ drill_error }}</p>
+        {% elif drill.rows %}
+        <div class="md-table-wrap">
+            {% comment %}Headers sort on the server and swap the page block in place, like the period links — so those links pick up the new order too; columns resize with the framework's table-resize.js (crud-table + data-table-key + th[data-field] + col_resizer).{% endcomment %}
+            <table class="table-plain md-table crud-table" data-table-key="metric/{{ metric.key }}:{% for c in drill.columns %}{{ c.name }}{% if not forloop.last %},{% endif %}{% endfor %}">
+                <thead><tr>{% for c in drill.columns %}<th scope="col" aria-sort="{{ c.aria_sort|default:'none' }}" data-field="{{ c.name }}">
+                    <a class="dm-sort" href="{{ c.sort_url }}" hx-get="{{ c.sort_url }}" hx-select="#md-page" hx-target="#md-page" hx-swap="outerHTML" hx-push-url="true" title="Sort by {{ c.label }}">{{ c.label }}<span class="dm-sort-ind" aria-hidden="true">{% if c.aria_sort == "ascending" %}▲{% elif c.aria_sort == "descending" %}▼{% endif %}</span></a>
+                    {% include "smallstack/crud/includes/col_resizer.html" with label=c.label %}
+                </th>{% endfor %}<th scope="col" class="md-open-col"><span class="sr-only">Open</span></th></tr></thead>
+                <tbody>
+                {% for row in drill.rows %}
+                <tr>{% for v in row.cells %}<td title="{{ v }}">{{ v }}</td>{% endfor %}<td class="md-open">{% if row.url %}<a href="{{ row.url }}" aria-label="Open this record">Open</a>{% endif %}</td></tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <p class="dash-message">No rows match{% if result.period_label %} in {{ result.period_label|lower }}{% endif %}.</p>
+        {% endif %}
+    </div>
+</section>
+
+{# ── Where it lives, and how to use it ── #}
+<div class="md-foot">
+    <section aria-labelledby="md-used-title">
+        <h2 id="md-used-title">Where it's used</h2>
+        {% if usage.boards or usage.reports or usage.goal_lists %}
+        <ul class="md-list">
+            {% for b in usage.boards %}<li><a href="{{ b.obj.get_absolute_url }}">{{ b.obj.name }}</a> <span class="dash-muted">dashboard, {{ b.cards }} card{{ b.cards|pluralize }}</span></li>{% endfor %}
+            {% for r in usage.reports %}<li><a href="{{ r.obj.get_absolute_url }}">{{ r.obj.name }}</a> <span class="dash-muted">report, {{ r.rows }} row{{ r.rows|pluralize }}</span></li>{% endfor %}
+            {% for g in usage.goal_lists %}<li><a href="{{ g.obj.get_absolute_url }}">{{ g.obj.name }}</a> <span class="dash-muted">goals, {{ g.goals }} goal{{ g.goals|pluralize }}</span></li>{% endfor %}
+        </ul>
+        {% else %}
+        <p class="dash-muted">Not on a dashboard or report yet. Open a dashboard, choose Edit layout, then Add card.</p>
+        {% endif %}
+    </section>
+    <section aria-labelledby="md-use-title">
+        <h2 id="md-use-title">Use it</h2>
+        <dl class="md-uses">
+            <dt>In a template</dt>
+            <dd><code>{% templatetag openblock %} metric_card "{{ metric.key }}" {% templatetag closeblock %}</code></dd>
+            <dt>Over REST</dt>
+            <dd><code>GET {{ api_url }}?period=mtd</code></dd>
+            <dt>From an agent</dt>
+            <dd><code>metric_value {"key": "{{ metric.key }}"}</code></dd>
+        </dl>
+    </section>
+</div>
+
+<details class="md-definition">
+    <summary>The stored definition</summary>
+    <div class="md-definition-body">
+        <dl class="md-uses">
+            <dt>Dataset</dt><dd><code>{{ metric.dataset }}</code></dd>
+            <dt>Aggregation</dt><dd>{{ metric.get_agg_display }}{% if metric.measure %} of <code>{{ metric.measure }}</code>{% endif %}</dd>
+            <dt>Period field</dt><dd>{% if metric.period_field %}<code>{{ metric.period_field }}</code>{% else %}none{% endif %}</dd>
+            <dt>Format</dt><dd>{{ metric.get_format_display }}</dd>
+        </dl>
+        <h3>Filter</h3>
+        <pre class="dash-code">{{ filter_json }}</pre>
+        {% if metric.thresholds %}<h3>Colour rules</h3><pre class="dash-code">{{ thresholds_json }}</pre>{% endif %}
+    </div>
+</details>
+</div>
+{% endblock %}
+
+{% block extra_js %}<script src="{% static 'dashboards/js/dashboard.js' %}" defer></script>{% endblock %}

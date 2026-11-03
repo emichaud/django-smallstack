@@ -1,0 +1,6 @@
+{% comment %}One sortable header of the trends table: `key` (weeks.TREND_SORTS), `label`, `num` to right-align. The link reloads the modal's body sorted; without htmx it opens the trends page sorted.{% endcomment %}
+{% load dashboard_tags %}
+{% with s=sort_links|index_key:key %}<th scope="col" data-field="{{ key }}" aria-sort="{{ s.aria_sort }}"{% if num %} class="gl-num"{% endif %}>
+    <a class="dm-sort" href="{{ trends_url }}?order={{ s.next }}" hx-get="{{ trends_url }}?order={{ s.next }}" hx-target="#stat-modal-body" hx-swap="innerHTML" title="Sort by {{ label|lower }}">{{ label }}<span class="dm-sort-ind" aria-hidden="true">{% if s.aria_sort == "ascending" %}▲{% elif s.aria_sort == "descending" %}▼{% endif %}</span></a>
+    {% include "smallstack/crud/includes/col_resizer.html" with label=label %}
+</th>{% endwith %}

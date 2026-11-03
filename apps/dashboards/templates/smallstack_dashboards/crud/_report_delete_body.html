@@ -1,0 +1,29 @@
+{% comment %}The report delete confirmation — shared by the page and the list's modal (modal=True).{% endcomment %}
+<form method="POST" action="{{ request.path }}" class="dl{% if modal %} dl--modal{% endif %}">
+    {% csrf_token %}
+
+    <div class="dl-what">
+        <p class="dl-name"><a href="{{ object.get_absolute_url }}">{{ object.name }}</a></p>
+        {% if object.description %}<p class="dl-reading">{{ object.description }}</p>{% endif %}
+    </div>
+
+    {# What the report was: its shape, as a miniature table #}
+    <div class="dl-shape" aria-label="What this report compares">
+        <table>
+            <thead><tr><th scope="col">{{ metric_names|length }} metric{{ metric_names|length|pluralize }}</th>{% for c in columns %}<th scope="col">{{ c }}</th>{% endfor %}</tr></thead>
+            <tbody>
+            {% for name in metric_names|slice:":6" %}<tr><th scope="row">{{ name }}</th>{% for c in columns %}<td aria-hidden="true"></td>{% endfor %}</tr>{% endfor %}
+            {% if metric_names|length > 6 %}<tr><th scope="row" class="dash-muted">and {{ metric_names|length|add:"-6" }} more</th>{% for c in columns %}<td aria-hidden="true"></td>{% endfor %}</tr>{% endif %}
+            </tbody>
+        </table>
+    </div>
+
+    <p class="dl-safe">Its metrics stay. Only this comparison table goes away, and no dashboard changes.</p>
+
+    <p class="dl-keep-copy">Want the numbers? <a href="{{ object.get_absolute_url }}?format=csv" download>Download a CSV first</a>.</p>
+
+    <div class="dl-actions">
+        <button type="submit" class="btn-danger">Delete {{ object.name }}</button>
+        {% if modal %}<button type="button" class="btn-outline" data-stat-modal-close>Keep it</button>{% else %}<a href="{{ object.get_absolute_url }}" class="btn-outline">Keep it</a>{% endif %}
+    </div>
+</form>

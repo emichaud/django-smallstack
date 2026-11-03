@@ -22,6 +22,7 @@ urlpatterns = [
     path("starter/", views.starter_view, name="starter"),
     path("starter/basic/", views.starter_basic_view, name="starter_basic"),
     path("starter/forms/", views.starter_forms_view, name="starter_forms"),
+    path("starter/dashboard/", views.starter_dashboard_view, name="starter_dashboard"),
     path("components/", views.components_view, name="components"),
     path("search/", views.search_view, name="search"),
 ]

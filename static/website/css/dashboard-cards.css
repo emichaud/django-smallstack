@@ -1,0 +1,82 @@
+/* This project's dashboard card types (apps/website/dashboard_cards.py).
+   Theme tokens only — the card reads right on every palette, light and dark. */
+
+.trend { display: flex; flex-direction: column; height: 100%; padding: 10px 12px 8px; gap: 6px; }
+.trend-head { display: flex; align-items: baseline; gap: 0.6rem; min-width: 0; }
+.trend-label { font-size: 0.8rem; font-weight: 600; color: var(--body-fg); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.trend-latest { margin-left: auto; font-size: 0.95rem; font-weight: 700; color: var(--body-fg); white-space: nowrap; font-feature-settings: "tnum"; }
+.trend-unit, .trend-when { font-size: 0.72rem; font-weight: 400; color: var(--body-quiet-color); }
+.trend-note { margin: auto; font-size: 0.8rem; color: var(--body-quiet-color); text-align: center; }
+
+.trend-plot { position: relative; flex: 1; min-height: 40px; }
+.trend-cols { position: absolute; inset: 0; display: flex; align-items: stretch; gap: 3px; }
+.trend-col {
+    flex: 1; min-width: 0; display: flex; align-items: flex-end;
+    padding: 0; border: 0; background: none; cursor: pointer; border-radius: 3px;
+}
+.trend-col:hover { background: var(--card-header-bg); }
+.trend-col:focus-visible { outline: 2px solid var(--input-focus-border); outline-offset: 1px; }
+/* --bar is the series colour: the accent, a bucket's threshold state, or the
+   card's chosen colour (cs-color-…). Bars, dots and the hatching all read it. */
+.trend { --bar: var(--primary); --line: var(--primary); }
+.trend-col--success { --bar: var(--success-fg); }
+.trend-col--warning { --bar: var(--warning-fg); }
+.trend-col--danger { --bar: var(--error-fg); }
+.trend-col--muted { --bar: var(--body-quiet-color); }
+.trend-bar {
+    width: 100%; height: calc(var(--share) * 90% + 2px);
+    background: var(--bar); border-radius: 3px 3px 0 0; opacity: 0.85;
+}
+.trend-col:hover .trend-bar { opacity: 1; }
+/* The bucket still running (this week, today): hatched, so a short bar reads as "so far". */
+.trend-col--partial .trend-bar {
+    background: repeating-linear-gradient(135deg, var(--bar) 0 3px, transparent 3px 6px);
+    box-shadow: inset 0 0 0 1px var(--bar);
+}
+
+.trend-plot--line .trend-bar { display: none; }
+.trend-col { position: relative; }
+.trend-dot {
+    position: absolute; left: 50%; bottom: calc(var(--share) * 90% - 3px);
+    width: 7px; height: 7px; margin-left: -3.5px; border-radius: 50%;
+    background: var(--bar); box-shadow: 0 0 0 2px var(--card-bg);
+}
+.trend-line { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.trend-line polyline { fill: none; stroke: var(--line); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+
+/* The shared card styling (components.CARD_STYLE → cs-… on .trend). */
+.trend.cs-size-s .trend-latest { font-size: 0.82rem; }
+.trend.cs-size-l .trend-latest { font-size: 1.3rem; }
+.trend.cs-size-xl .trend-latest { font-size: 1.75rem; }
+.trend-latest--success { color: var(--success-fg); }
+.trend-latest--warning { color: var(--warning-fg); }
+.trend-latest--danger { color: var(--error-fg); }
+.trend-latest--muted { color: var(--body-quiet-color); }
+/* A chosen colour paints the whole series and the headline; "state" keeps per-bucket colours. */
+.trend.cs-color-accent { --line: var(--primary); }
+.trend.cs-color-accent .trend-col, .trend.cs-color-accent .trend-latest { --bar: var(--primary); color: var(--primary); }
+.trend.cs-color-plain { --line: var(--body-fg); }
+.trend.cs-color-plain .trend-col { --bar: var(--body-fg); }
+.trend.cs-color-plain .trend-latest { color: var(--body-fg); }
+.trend.cs-color-success { --line: var(--success-fg); }
+.trend.cs-color-success .trend-col { --bar: var(--success-fg); }
+.trend.cs-color-success .trend-latest { color: var(--success-fg); }
+.trend.cs-color-warning { --line: var(--warning-fg); }
+.trend.cs-color-warning .trend-col { --bar: var(--warning-fg); }
+.trend.cs-color-warning .trend-latest { color: var(--warning-fg); }
+.trend.cs-color-danger { --line: var(--error-fg); }
+.trend.cs-color-danger .trend-col { --bar: var(--error-fg); }
+.trend.cs-color-danger .trend-latest { color: var(--error-fg); }
+.trend.cs-color-muted { --line: var(--body-quiet-color); }
+.trend.cs-color-muted .trend-col { --bar: var(--body-quiet-color); }
+.trend.cs-color-muted .trend-latest { color: var(--body-quiet-color); }
+.trend.cs-title-s .trend-label { font-size: 0.7rem; }
+.trend.cs-title-l .trend-label { font-size: 0.98rem; }
+.trend.cs-title-color-quiet .trend-label { color: var(--body-quiet-color); }
+.trend.cs-title-color-accent .trend-label { color: var(--primary); }
+.trend.cs-align-center .trend-head { flex-direction: column; align-items: center; gap: 0.1rem; }
+.trend.cs-align-center .trend-latest { margin-left: 0; }
+.trend.cs-align-end .trend-head { flex-direction: row-reverse; }
+.trend.cs-align-end .trend-latest { margin-left: 0; margin-right: auto; }
+
+.trend-axis { display: flex; justify-content: space-between; font-size: 0.68rem; color: var(--body-quiet-color); }

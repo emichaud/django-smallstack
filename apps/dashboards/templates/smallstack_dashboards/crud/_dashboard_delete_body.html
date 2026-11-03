@@ -1,0 +1,38 @@
+{% comment %}The dashboard delete confirmation — shared by the page and the list's modal (modal=True).{% endcomment %}{% load static dashboard_tags %}
+<form method="POST" action="{{ request.path }}" class="dl{% if modal %} dl--modal{% endif %}">
+    {% csrf_token %}
+
+    <div class="dl-what">
+        <p class="dl-name"><a href="{{ object.get_absolute_url }}">{{ object.name }}</a>{% if object.is_shared %} <span class="dash-badge dash-badge--shared">Shared</span>{% endif %}</p>
+        {% if object.description %}<p class="dl-reading">{{ object.description }}</p>{% endif %}
+    </div>
+
+    {% layout_preview object.layout as lp %}
+    {% if lp.cells %}
+    <div class="dl-board" aria-label="The dashboard's layout">
+        <div class="df-mini" style="grid-template-rows: repeat({{ lp.rows }}, 16px);">
+            {% for c in lp.cells %}<div class="df-mini-cell df-mini-cell--{{ c.type }}" style="{{ c.style }}" title="{{ c.type_label }}: {{ c.label }}"><span>{{ c.label }}</span></div>{% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <p class="dl-safe">
+        {% if card_count %}Its {{ card_count }} card{{ card_count|pluralize }} go{{ card_count|pluralize:"es," }} with it{% if metric_count %}; the {{ metric_count }} metric{{ metric_count|pluralize }} behind them stay{{ metric_count|pluralize:"s," }} and keep working on other dashboards and reports{% endif %}.{% else %}It has no cards, so nothing else changes.{% endif %}
+        {% if object.is_shared %} Everyone who opens it loses it too.{% endif %}
+    </p>
+    {% if note_count %}<p class="dl-warn">{{ note_count }} note{{ note_count|pluralize }} written on this dashboard will be lost. Copy {% if note_count == 1 %}it{% else %}them{% endif %} from the layout below if you need {% if note_count == 1 %}it{% else %}them{% endif %}.</p>{% endif %}
+
+    {% if card_count %}
+    <details class="dl-copy">
+        <summary>Keep a copy of the layout</summary>
+        <p class="dash-muted">Paste this into a new dashboard's settings (Advanced) or give it to an agent to rebuild the dashboard.</p>
+        <textarea class="vTextField dash-json" rows="8" readonly id="dl-layout" aria-label="Layout JSON">{{ layout_json }}</textarea>
+        <button type="button" class="mb-icon-btn" data-copy="dl-layout">Copy to clipboard</button>
+    </details>
+    {% endif %}
+
+    <div class="dl-actions">
+        <button type="submit" class="btn-danger">Delete {{ object.name }}</button>
+        {% if modal %}<button type="button" class="btn-outline" data-stat-modal-close>Keep it</button>{% else %}<a href="{{ object.get_absolute_url }}" class="btn-outline">Keep it</a>{% endif %}
+    </div>
+</form>

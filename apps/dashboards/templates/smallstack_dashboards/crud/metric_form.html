@@ -1,0 +1,213 @@
+{% extends "smallstack/base.html" %}
+{% load static %}
+
+{% block title %}{% if object %}Edit {{ object.name }}{% else %}New metric{% endif %}{% endblock %}
+{% block breadcrumbs %}{% endblock %}
+{% block extra_css %}<link rel="stylesheet" href="{% static 'dashboards/css/dashboards.css' %}">{% endblock %}
+
+{% block page_header %}
+<div class="page-header-bleed page-header-with-actions">
+    <div class="page-header-content">
+        <h1>{% if object %}Edit metric{% else %}New metric{% endif %}</h1>
+        <p class="page-subtitle">A saved filter over a dataset, rolled up to one number. The preview updates as you build it.</p>
+        <nav style="margin-top: 0.5rem; font-size: 0.8rem;">
+            <a href="{% url 'website:home' %}" style="color: var(--body-quiet-color); text-decoration: none;">Home</a>
+            <span style="color: var(--body-quiet-color); margin: 0 0.3rem;">/</span>
+            <a href="{% url 'goals_index' %}" style="color: var(--body-quiet-color); text-decoration: none;">Goals</a>
+            <span style="color: var(--body-quiet-color); margin: 0 0.3rem;">/</span>
+            <a href="{% url 'dashboards/metrics-list' %}" style="color: var(--body-quiet-color); text-decoration: none;">Metrics</a>
+            <span style="color: var(--body-quiet-color); margin: 0 0.3rem;">/</span>
+            <span style="color: var(--body-fg);">{% if object %}{{ object.name }}{% else %}New{% endif %}</span>
+        </nav>
+    </div>
+    {% if object %}{% url 'dashboards_goal_add' as goal_add %}<div style="display: flex; gap: 0.5rem;">
+        <a href="{{ goal_add }}?metric={{ object.key }}" class="btn-outline btn-sm" hx-get="{{ goal_add }}?metric={{ object.key }}" hx-target="#stat-modal-body" hx-swap="innerHTML" data-stat-modal="Add {{ object.name }} to goals" aria-haspopup="dialog">Add to goals</a>
+        <a href="{{ object.get_absolute_url }}" class="btn-outline btn-sm">View metric</a>
+    </div>{% endif %}
+</div>
+{% endblock %}
+
+{% block content %}
+{% load dashboard_tags %}{% relative_periods as periods %}
+{% previous_periods as prev_periods %}{{ prev_periods|json_script:"mb-previous-periods" }}
+<form method="POST" class="crud-form" id="mb-form" novalidate data-creating="{% if object %}0{% else %}1{% endif %}"
+      data-schema-url="{% url 'dashboards_api_dataset_schema' 'DATASET' %}"
+      data-preview-url="{% url 'dashboards_api_preview' %}" data-preview-rows-url="{% url 'dashboards_preview_rows' %}">
+    {% csrf_token %}
+    {% if form.non_field_errors %}<div class="crud-form-errors" role="alert">{% for e in form.non_field_errors %}<p class="crud-error">{{ e }}</p>{% endfor %}</div>{% endif %}
+    <div class="mb-grid">
+        <div>
+            {# ── 1. What it measures ───────────────────────────── #}
+            <div class="card mb-section">
+                <div class="card-header"><h2><span class="mf-step">1</span>What it measures</h2></div>
+                <div class="card-body">
+                    <div class="mb-field{% if form.name.errors %} has-error{% endif %}">
+                        <label for="{{ form.name.id_for_label }}">Name<span class="required" aria-hidden="true">*</span></label>
+                        {{ form.name }}
+                        {% for e in form.name.errors %}<p class="crud-error">{{ e }}</p>{% endfor %}
+                    </div>
+                    {% comment %}No key input: it's made from the name when the metric is created, and permanent after (MetricForm.clean_key). Agents can still send one.{% endcomment %}
+                    <p class="mf-key">
+                        {% if object %}Key <code>{{ object.key }}</code>. It never changes, so templates can use <code>{% templatetag openblock %} metric_card "{{ object.key }}" {% templatetag closeblock %}</code>.
+                        {% else %}Key <code id="mf-key-preview">{{ form.key.value|default:"—" }}</code>, made from the name. Dashboards, reports and templates refer to the metric by it, so it stays the same if you rename the metric.{% endif %}
+                    </p>
+                    {% for e in form.key.errors %}<p class="crud-error">{{ e }}</p>{% endfor %}
+                    <div class="mb-field{% if form.description.errors %} has-error{% endif %}">
+                        <label for="{{ form.description.id_for_label }}">Description <span class="dash-muted">(optional)</span></label>
+                        {{ form.description }}
+                        <p class="mb-help">What this number means and why it matters. It's shown on the metric's page.</p>
+                    </div>
+                    <div class="mb-field{% if form.dataset.errors %} has-error{% endif %}" style="margin-bottom: 0;">
+                        <label for="{{ form.dataset.id_for_label }}">Dataset<span class="required" aria-hidden="true">*</span></label>
+                        {{ form.dataset }}
+                        {% for e in form.dataset.errors %}<p class="crud-error">{{ e }}</p>{% endfor %}
+                        <div class="mf-ds-info" id="mb-ds-info" hidden></div>
+                    </div>
+                </div>
+            </div>
+
+            {# ── 2. Filter ─────────────────────────────────────── #}
+            <div class="card mb-section">
+                <div class="card-header"><h2><span class="mf-step">2</span>Which rows count</h2></div>
+                <div class="card-body">
+                    <p class="mb-help" style="margin-top: 0;">Only rows matching these conditions are counted. Group conditions with ALL (and) or ANY (or). Leave it empty to count every row.</p>
+                    <div id="mb-tree" aria-live="polite"><p class="mb-help">Pick a dataset to start filtering.</p></div>
+                    <p class="mf-reads" id="mb-tree-summary"></p>
+                    {% for e in form.filter_tree.errors %}<p class="crud-error">{{ e }}</p>{% endfor %}
+                    {{ form.filter_tree.as_hidden }}
+                </div>
+            </div>
+
+            {# ── 3. Roll-up ────────────────────────────────────── #}
+            <div class="card mb-section">
+                <div class="card-header"><h2><span class="mf-step">3</span>Roll it up</h2></div>
+                <div class="card-body">
+                    <div class="mb-field" style="margin-bottom: 0.6rem;">
+                        <span class="mf-label" id="mf-agg-title">Aggregation</span>
+                        <div class="df-chips" role="radiogroup" aria-labelledby="mf-agg-title" style="margin-top: 0;">
+                            {% metric_choice_chips "agg" form.agg.value as aggs %}
+                            {% for c in aggs %}<label class="df-chip"><input type="radio" class="sr-only" name="{{ form.agg.html_name }}" value="{{ c.key }}"{% if c.checked %} checked{% endif %}><span>{{ c.label }}</span></label>{% endfor %}
+                        </div>
+                        {% for e in form.agg.errors %}<p class="crud-error">{{ e }}</p>{% endfor %}
+                    </div>
+                    <div class="mb-field mf-measure{% if form.measure.errors %} has-error{% endif %}" id="mb-field-measure">
+                        <label for="{{ form.measure.id_for_label }}">Of column</label>
+                        {{ form.measure }}
+                        {% for e in form.measure.errors %}<p class="crud-error">{{ e }}</p>{% endfor %}
+                    </div>
+                    <div class="mb-field{% if form.period_field.errors %} has-error{% endif %}">
+                        <label for="{{ form.period_field.id_for_label }}">Period field</label>
+                        {{ form.period_field }}
+                        {% for e in form.period_field.errors %}<p class="crud-error">{{ e }}</p>{% endfor %}
+                        <p class="mb-help">The date column a dashboard's or report's period narrows. Leave it blank for a number that doesn't depend on time.</p>
+                    </div>
+                    <div class="mb-field" style="margin-bottom: 0.6rem;">
+                        <span class="mf-label" id="mf-format-title">Format</span>
+                        <div class="mf-formats" role="radiogroup" aria-labelledby="mf-format-title">
+                            {% metric_choice_chips "format" form.format.value as formats %}
+                            {% for c in formats %}<label class="mf-format"><input type="radio" class="sr-only" name="{{ form.format.html_name }}" value="{{ c.key }}"{% if c.checked %} checked{% endif %}><span><strong>{{ c.example }}</strong><small>{{ c.label }}</small></span></label>{% endfor %}
+                        </div>
+                        {% for e in form.format.errors %}<p class="crud-error">{{ e }}</p>{% endfor %}
+                    </div>
+                    <div class="mb-field{% if form.unit.errors %} has-error{% endif %}" style="margin-bottom: 0; max-width: 16rem;">
+                        <label for="{{ form.unit.id_for_label }}" id="mf-unit-label">Unit <span class="dash-muted">(optional)</span></label>
+                        {{ form.unit }}
+                        {% for e in form.unit.errors %}<p class="crud-error">{{ e }}</p>{% endfor %}
+                        <p class="mb-help" id="mf-unit-help">Shown small after the number, e.g. ms or tickets.</p>
+                    </div>
+                </div>
+            </div>
+
+            {# ── 4. Thresholds ─────────────────────────────────── #}
+            <div class="card mb-section">
+                <div class="card-header"><h2><span class="mf-step">4</span>Colour it <span class="dash-muted" style="font-weight: 400; font-size: 0.85rem;">(optional)</span></h2></div>
+                <div class="card-body">
+                    <p class="mb-help" style="margin-top: 0;">Rules colour the card by its value. They're checked in order and the first match wins.</p>
+                    <div id="mb-thresholds"></div>
+                    <button type="button" class="mb-icon-btn" id="mb-threshold-add">+ Add rule</button>
+                    {% for e in form.thresholds.errors %}<p class="crud-error">{{ e }}</p>{% endfor %}
+                    {{ form.thresholds.as_hidden }}
+                </div>
+            </div>
+
+            {# ── Sharing ───────────────────────────────────────── #}
+            <div class="card mb-section">
+                <div class="card-header"><h2 id="mf-vis-title">Who can see it</h2></div>
+                <div class="card-body">
+                    {% with current=form.visibility.value|default:"personal" %}
+                    <div class="df-choice-cards" role="radiogroup" aria-labelledby="mf-vis-title">
+                        <label class="df-choice">
+                            <input type="radio" class="sr-only" name="{{ form.visibility.html_name }}" value="personal"{% if current == "personal" %} checked{% endif %}>
+                            <span class="df-choice-body">
+                                <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor" aria-hidden="true"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
+                                <span class="df-choice-title">Personal</span>
+                                <span class="df-choice-text">Only you can use it on your dashboards and reports.</span>
+                            </span>
+                        </label>
+                        <label class="df-choice{% if not request.user.is_staff %} df-choice--disabled{% endif %}">
+                            <input type="radio" class="sr-only" name="{{ form.visibility.html_name }}" value="shared"{% if current == "shared" %} checked{% endif %}{% if not request.user.is_staff %} disabled{% endif %}>
+                            <span class="df-choice-body">
+                                <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor" aria-hidden="true"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg>
+                                <span class="df-choice-title">Shared</span>
+                                <span class="df-choice-text">{% if request.user.is_staff %}Anyone can put it on a shared dashboard or report; staff edit it.{% else %}Only staff can share a metric.{% endif %}</span>
+                            </span>
+                        </label>
+                    </div>
+                    {% endwith %}
+                    {% for e in form.visibility.errors %}<p class="crud-error">{{ e }}</p>{% endfor %}
+                    <p class="mb-help" style="margin-bottom: 0;">Sharing the metric doesn't share its data: viewers who can't read the dataset see the card as <em>restricted</em>.</p>
+                </div>
+            </div>
+
+            {% metric_usage_for request.user object as usage %}
+            {% if usage.cards or usage.rows or usage.goals %}
+            <div class="mf-usage" role="note">
+                <p><strong>Saving changes it everywhere it's used:</strong>
+                {% if usage.cards %}{{ usage.cards }} card{{ usage.cards|pluralize }} on {{ usage.boards|length }} dashboard{{ usage.boards|length|pluralize }}{% endif %}{% if usage.cards and usage.rows %} and {% endif %}{% if usage.rows %}{{ usage.rows }} row{{ usage.rows|pluralize }} in {{ usage.reports|length }} report{{ usage.reports|length|pluralize }}{% endif %}{% if usage.goals %}{% if usage.cards or usage.rows %} and {% endif %}{{ usage.goals }} goal{{ usage.goals|pluralize }} in {{ usage.goal_lists|length }} goal list{{ usage.goal_lists|length|pluralize }}{% endif %}.</p>
+                <p class="mf-usage-list">{% for b in usage.boards %}<a href="{{ b.obj.get_absolute_url }}">{{ b.obj.name }}</a>{% if not forloop.last or usage.reports or usage.goal_lists %}, {% endif %}{% endfor %}{% for r in usage.reports %}<a href="{{ r.obj.get_absolute_url }}">{{ r.obj.name }}</a>{% if not forloop.last or usage.goal_lists %}, {% endif %}{% endfor %}{% for g in usage.goal_lists %}<a href="{{ g.obj.get_absolute_url }}">{{ g.obj.name }}</a>{% if not forloop.last %}, {% endif %}{% endfor %}</p>
+            </div>
+            {% endif %}
+            <div style="display: flex; gap: 0.5rem; margin-bottom: 2rem;">
+                <button type="submit" class="btn-primary">{% if object %}Save metric{% else %}Create metric{% endif %}</button>
+                <a href="{% if object %}{{ object.get_absolute_url }}{% else %}{% url 'dashboards_index' %}{% endif %}" class="btn-outline">Cancel</a>
+            </div>
+        </div>
+
+        {# ── Live preview ─────────────────────────────────────── #}
+        <aside class="mb-preview" aria-label="Preview">
+            <div class="card">
+                <div class="card-header"><h2>Preview</h2></div>
+                <div class="card-body">
+                    <div class="stat-card mf-card" id="mb-card">
+                        <div class="stat-card-value" id="mb-card-value">—</div>
+                        <div class="stat-card-label" id="mb-card-label">Preview</div>
+                        <div class="mf-compare" id="mb-compare" hidden></div>
+                    </div>
+                    <div class="df-periods mf-preview-periods" aria-label="Preview period">
+                        <div class="df-period-row">
+                            <span class="df-period-group">Period</span>
+                            <select id="mb-preview-period" class="vTextField" aria-label="Preview period">
+                                <option value="" data-heading="All time">All time</option>
+                                {% period_groups "" as pgroups %}
+                                {% for g in pgroups %}<optgroup label="{{ g.label }}">{% for c in g.chips %}<option value="{{ c.key }}" data-heading="{{ c.heading }}">{{ c.heading }}</option>{% endfor %}</optgroup>{% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                    <dl class="mf-facts">
+                        <div><dt>Rows</dt><dd><span id="mb-rows">—</span> <button type="button" class="dash-text-btn" id="mb-see-rows" hidden aria-haspopup="dialog">See them</button></dd></div>
+                        <div><dt>Dataset</dt><dd id="mf-fact-ds">—</dd></div>
+                        <div><dt>Period</dt><dd id="mf-fact-period">not period-aware</dd></div>
+                    </dl>
+                    <div class="mf-reads-box">
+                        <span class="df-period-group">Reads as</span>
+                        <p id="mb-summary">All rows</p>
+                    </div>
+                    <ul class="mb-problems" id="mb-problems" hidden></ul>
+                </div>
+            </div>
+        </aside>
+    </div>
+</form>
+{% endblock %}
+
+{% block extra_js %}<script src="{% static 'dashboards/js/metric-builder.js' %}" defer></script>{% endblock %}

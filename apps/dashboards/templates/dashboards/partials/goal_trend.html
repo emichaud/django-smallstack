@@ -1,0 +1,7 @@
+{% comment %}A goal's last few periods (goals.goal_trend): one bar each, its height the value, its colour and shape the status against the target; the period still running is outlined. The list reads every bar for a screen reader.{% endcomment %}
+<div class="gl-spark-wrap">
+    <ol class="gl-spark" aria-label="{{ label }}, last {{ trend.points|length }} {{ trend.grain }}s">
+        {% for p in trend.points %}<li class="gl-spark-bar gl-st--{{ p.status }}{% if p.partial %} is-partial{% endif %}" style="--h: {{ p.height }}%;" title="{{ p.label }}: {{ p.display }}, {{ p.status_label|lower }}{% if p.partial %} so far{% endif %}"><span class="sr-only">{{ p.label }}: {{ p.display }}, {{ p.status_label|lower }}{% if p.partial %} so far{% endif %}</span></li>{% endfor %}
+    </ol>
+    {% if trend.streak %}<span class="gl-streak gl-st--{{ trend.streak_status }}">{{ trend.streak }}</span>{% endif %}
+</div>

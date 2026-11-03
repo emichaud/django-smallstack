@@ -94,3 +94,7 @@ if getattr(settings, "SMALLSTACK_BLOG_ENABLED", True):
 if getattr(settings, "SMALLSTACK_CALENDAR_ENABLED", True):
     # Calendar — the merged month grid + saved views + events API (bare names, "calendar/" prefix)
     urlpatterns += [path("", include("apps.calendar.urls"))]
+
+if getattr(settings, "SMALLSTACK_DASHBOARDS_ENABLED", True):
+    # Dashboards — metrics, grid dashboards and KPI reports (bare names, "dashboards/" prefix)
+    urlpatterns += [path("", include("apps.dashboards.urls"))]

@@ -1,0 +1,48 @@
+{% load static %}
+{% comment %}
+The playlist player — playlists.player_context() is its context; the playlist
+page and {% playlist %} both include it, and static/dashboards/js/playlist.js
+drives every one on a page. Without JavaScript it still works: prev, next and
+the steps are links to ?slide=N, and the current slide is rendered here.
+{% endcomment %}
+{% if slides %}
+<link rel="stylesheet" href="{% static 'dashboards/css/dashboards.css' %}">
+<script src="{% static 'dashboards/js/playlist.js' %}" defer></script>
+<section class="pl-player{% if not options.play %} is-paused{% endif %}" data-playlist="{{ playlist.slug }}"
+         data-slide-url="{{ slide_url }}" data-count="{{ slides|length }}" data-start="{{ options.start }}"
+         data-play="{{ options.play|yesno:'1,0' }}" data-loop="{{ options.loop|yesno:'1,0' }}"{% if options.seconds %} data-seconds="{{ options.seconds }}"{% endif %}{% if sync_url %} data-sync-url data-keys="page"{% endif %}
+         aria-roledescription="carousel" aria-label="{{ playlist.name }}" tabindex="-1">
+    <div class="pl-bar">
+        <div class="pl-controls">
+            <a class="pl-btn" data-pl="prev" href="{{ link_base }}?slide={{ prev_position }}{{ link_keep }}" aria-label="Previous dashboard" title="Previous (←)">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6h2v12H6zm3.5 6 8.5 6V6z"/></svg>
+            </a>
+            <button type="button" class="pl-btn pl-btn--play" data-pl="toggle" aria-pressed="{{ options.play|yesno:'true,false' }}" title="Play or pause (space)"{% if slides|length < 2 %} disabled{% endif %}>
+                <svg class="pl-icon-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>
+                <svg class="pl-icon-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+                <span class="sr-only" data-pl-toggle-label>{% if options.play %}Pause{% else %}Play{% endif %}</span>
+            </button>
+            <a class="pl-btn" data-pl="next" href="{{ link_base }}?slide={{ next_position }}{{ link_keep }}" aria-label="Next dashboard" title="Next (→)">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>
+            </a>
+        </div>
+        <p class="pl-now" aria-live="polite">
+            <span class="pl-pos"><b data-pl-pos>{{ current.position }}</b> of {{ slides|length }}</span>
+            <a data-pl-name href="{{ current.url }}">{{ current.name }}</a>
+        </p>
+        <ol class="pl-steps" aria-label="Dashboards in this playlist">
+            {% for s in slides %}<li><a href="{{ link_base }}?slide={{ s.position }}{{ link_keep }}" class="pl-step{% if s.position == current.position %} is-current{% elif s.position < current.position %} is-done{% endif %}" data-pl-step="{{ forloop.counter0 }}" data-seconds="{{ s.seconds }}" data-name="{{ s.name }}" data-url="{{ s.url }}" title="{{ s.name }}"{% if s.position == current.position %} aria-current="step"{% endif %}><span class="sr-only">{{ s.position }}. {{ s.name }}</span><span class="pl-step-fill" aria-hidden="true"></span></a></li>{% endfor %}
+        </ol>
+        <button type="button" class="pl-btn" data-pl="fullscreen" aria-label="Full screen" title="Full screen (f)">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/></svg>
+        </button>
+    </div>
+    <div class="pl-stage" data-pl-stage>
+        {% include "dashboards/partials/playlist_slide.html" with slide=current embed=embed %}
+    </div>
+</section>
+{% elif playlist %}
+<div class="pl-empty dash-muted">
+    {% if skipped %}None of the dashboards in <strong>{{ playlist.name }}</strong> are open to you.{% else %}<strong>{{ playlist.name }}</strong> has no dashboards yet.{% endif %}
+</div>
+{% endif %}

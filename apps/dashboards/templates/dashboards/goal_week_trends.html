@@ -1,0 +1,14 @@
+{% extends "smallstack/base.html" %}
+{% load static %}
+{% block title %}{{ goal_list.name }}, trends around {{ trends.label }}{% endblock %}
+{% block breadcrumbs %}{% endblock %}
+{% block extra_css %}<link rel="stylesheet" href="{% static 'dashboards/css/dashboards.css' %}">{% endblock %}
+{% block page_header %}
+<div class="page-header-bleed">
+    <div class="page-header-content">
+        <h1>Trends around the week of {{ trends.label }}</h1>
+        <p class="page-subtitle"><a href="{% url 'dashboards_goal_weeks' goal_list.slug %}?week={{ trends.focus|date:'Y-m-d' }}">Back to {{ goal_list.name }}, week by week</a></p>
+    </div>
+</div>
+{% endblock %}
+{% block content %}<div class="card"><div class="card-body">{% include "dashboards/partials/goal_week_trends.html" %}</div></div>{% endblock %}

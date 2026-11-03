@@ -1,0 +1,5 @@
+{% comment %}AddGoalView's answer over htmx: the goal went in; where to see it.{% endcomment %}
+<div class="gla" id="gla" role="status">
+    <p class="gla-done">{% include "dashboards/partials/goal_status.html" with status="pass" %}Added <strong>{{ obj.name }}</strong> to {{ goal_list.name }}.</p>
+    <p><a href="{{ goal_list.get_absolute_url }}" class="btn-primary btn-sm">Open {{ goal_list.name }}</a> <a href="{% url 'dashboards/goals-update' goal_list.pk %}" class="btn-outline btn-sm">Arrange goals</a></p>
+</div>

@@ -1,0 +1,56 @@
+{% comment %}
+The week-over-week grid (weeks.week_grid → `grid`): goals down, weeks across,
+each value in its status colour and shape; each week's header opens the week on
+its own and has a Trends button. The weeks page and a playlist slide include
+it; `base` is the weeks page, `start` the chosen week. With `sort_links` (the
+page, not a slide) headers sort on the server (?order=, swapping #gw-page) and
+columns resize (table-resize.js; widths keyed by position, so they hold as you
+move between weeks).
+{% endcomment %}
+{% if sort_links and order %}<p class="rp-sorted"><a href="{{ base }}?view=grid&amp;week={{ start|date:'Y-m-d' }}" hx-get="{{ base }}?view=grid&amp;week={{ start|date:'Y-m-d' }}" hx-select="#gw-page" hx-target="#gw-page" hx-swap="outerHTML" hx-push-url="true">Back to the list's order</a></p>{% endif %}
+<div class="card gw-grid-card">
+    <div class="gw-grid-scroll">
+        <table class="gw-grid{% if sort_links %} crud-table{% endif %}"{% if sort_links %} data-table-key="dashboards/goal-weeks:goal{% for col in grid.columns %},w{{ forloop.counter }}{% endfor %}"{% endif %}>
+            <thead>
+                <tr>
+                    {% with s=sort_links.goal %}
+                    <th scope="col" class="gw-goal-col" data-field="goal"{% if s %} aria-sort="{{ s.aria_sort }}"{% endif %}>
+                        {% if s %}<a class="dm-sort" href="{{ base }}?view=grid&amp;week={{ start|date:'Y-m-d' }}&amp;order={{ s.next }}" hx-get="{{ base }}?view=grid&amp;week={{ start|date:'Y-m-d' }}&amp;order={{ s.next }}" hx-select="#gw-page" hx-target="#gw-page" hx-swap="outerHTML" hx-push-url="true" title="Sort by goal">Goal<span class="dm-sort-ind" aria-hidden="true">{% if s.aria_sort == "ascending" %}▲{% elif s.aria_sort == "descending" %}▼{% endif %}</span></a>
+                        {% include "smallstack/crud/includes/col_resizer.html" with label="Goal" %}{% else %}Goal{% endif %}
+                    </th>
+                    {% endwith %}
+                    {% for col in grid.columns %}{% with s=col.sort %}
+                    <th scope="col" class="gw-week-col{% if col.start == start %} is-chosen{% endif %}" data-field="w{{ forloop.counter }}"{% if s %} aria-sort="{{ s.aria_sort }}"{% endif %}>
+                        {% if s %}<a class="dm-sort gw-week-sort" href="{{ base }}?view=grid&amp;week={{ start|date:'Y-m-d' }}&amp;order={{ s.next }}" hx-get="{{ base }}?view=grid&amp;week={{ start|date:'Y-m-d' }}&amp;order={{ s.next }}" hx-select="#gw-page" hx-target="#gw-page" hx-swap="outerHTML" hx-push-url="true" title="Sort by the week of {{ col.label }}">{{ col.short }}<span class="dm-sort-ind" aria-hidden="true">{% if s.aria_sort == "ascending" %}▲{% elif s.aria_sort == "descending" %}▼{% endif %}</span></a>{% else %}<span class="gw-week-sort">{{ col.short }}</span>{% endif %}
+                        <span class="gw-week-meta">{% if col.snapshot %}<span class="gw-saved" title="Saved {{ col.snapshot.taken_at|date:'M j, H:i' }}">Saved</span>{% elif col.state == "current" %}So far{% else %}Not saved{% endif %}</span>
+                        {% if col.scored %}<span class="gw-week-score">{{ col.pass }} of {{ col.scored }} on target</span>{% endif %}
+                        <span class="gw-week-actions">
+                            <a href="{{ base }}?week={{ col.start|date:'Y-m-d' }}" class="gw-open" aria-label="Open the week of {{ col.label }}">Open</a>
+                            <button type="button" class="gw-trends-btn" hx-get="{% url 'dashboards_goal_week_trends' goal_list.slug col.start|date:'Y-m-d' %}" hx-target="#stat-modal-body" hx-swap="innerHTML" data-stat-modal="Trends around the week of {{ col.label }}" aria-haspopup="dialog" aria-label="Trends around the week of {{ col.label }}">Trends</button>
+                        </span>
+                        {% if s %}{% include "smallstack/crud/includes/col_resizer.html" with label=col.short %}{% endif %}
+                    </th>
+                    {% endwith %}{% endfor %}
+                </tr>
+            </thead>
+            {% for section in grid.sections %}
+            <tbody>
+                {% if section.title %}<tr class="gw-section"><th scope="rowgroup" colspan="{{ grid.columns|length|add:1 }}">{{ section.title }}</th></tr>{% endif %}
+                {% for row in section.rows %}
+                <tr>
+                    <th scope="row" class="gw-goal"><span class="gw-goal-name">{{ row.label }}</span>{% if order and row.section %}<span class="gw-goal-target">{{ row.section }}</span>{% endif %}{% if row.target_text %}<span class="gw-goal-target">Target {{ row.target_text }}</span>{% endif %}</th>
+                    {% for cell in row.cells %}
+                    <td class="gw-cell gl-st--{{ cell.status }}{% if cell.week == start %} is-chosen{% endif %}">
+                        {% if cell.absent %}<span class="gl-quiet" aria-label="Not on the list that week">·</span>
+                        {% elif cell.restricted %}<span class="gl-quiet" title="{{ cell.error }}">Restricted</span>
+                        {% elif cell.error %}<span class="gl-error" title="{{ cell.error }}">!</span>
+                        {% else %}{% include "dashboards/partials/goal_status.html" with status=cell.status %}<span class="sr-only">{{ cell.status_label }}: </span><span class="gw-value">{{ cell.display }}</span>{% endif %}
+                    </td>
+                    {% endfor %}
+                </tr>
+                {% endfor %}
+            </tbody>
+            {% endfor %}
+        </table>
+    </div>
+</div>

@@ -1,0 +1,153 @@
+{% extends "smallstack/base.html" %}
+{% load static dashboard_tags %}
+
+{% block title %}{% if object %}{{ object.name }} — settings{% else %}New playlist{% endif %}{% endblock %}
+{% block breadcrumbs %}{% endblock %}
+{% block extra_css %}<link rel="stylesheet" href="{% static 'dashboards/css/dashboards.css' %}">{% endblock %}
+
+{% block page_header %}
+<div class="page-header-bleed page-header-with-actions">
+    <div class="page-header-content">
+        <h1>{% if object %}Playlist settings{% else %}New playlist{% endif %}</h1>
+        <p class="page-subtitle">Dashboards and goal lists shown one after another. Page through them like slides, or let them rotate on a timer.</p>
+        <nav style="margin-top: 0.5rem; font-size: 0.8rem;" aria-label="Breadcrumb">
+            <a href="{% url 'website:home' %}" style="color: var(--body-quiet-color); text-decoration: none;">Home</a>
+            <span style="color: var(--body-quiet-color); margin: 0 0.3rem;">/</span>
+            <a href="{% url 'dashboards/playlists-list' %}" style="color: var(--body-quiet-color); text-decoration: none;">Playlists</a>
+            <span style="color: var(--body-quiet-color); margin: 0 0.3rem;">/</span>
+            {% if object %}<a href="{{ object.get_absolute_url }}" style="color: var(--body-quiet-color); text-decoration: none;">{{ object.name }}</a>
+            <span style="color: var(--body-quiet-color); margin: 0 0.3rem;">/</span>
+            <span style="color: var(--body-fg);">Settings</span>{% else %}<span style="color: var(--body-fg);">New</span>{% endif %}
+        </nav>
+    </div>
+    {% if object %}<div><a href="{{ object.get_absolute_url }}" class="btn-outline btn-sm">Open playlist</a></div>{% endif %}
+</div>
+{% endblock %}
+
+{% block content %}
+{% playlist_editor_data request.user as editor %}
+{{ editor|json_script:"plf-data" }}
+<form method="POST" class="crud-form" id="plf-form" novalidate data-creating="{% if object %}0{% else %}1{% endif %}">
+    {% csrf_token %}
+    {% if form.non_field_errors %}<div class="crud-form-errors" role="alert">{% for e in form.non_field_errors %}<p class="crud-error">{{ e }}</p>{% endfor %}</div>{% endif %}
+    <div class="mb-grid">
+        <div>
+            <div class="card mb-section">
+                <div class="card-header"><h2>Name</h2></div>
+                <div class="card-body">
+                    <div class="mb-field{% if form.name.errors %} has-error{% endif %}">
+                        <label for="{{ form.name.id_for_label }}">Name<span class="required" aria-hidden="true">*</span></label>
+                        {{ form.name }}
+                        {% for e in form.name.errors %}<p class="crud-error">{{ e }}</p>{% endfor %}
+                    </div>
+                    <div class="mb-field{% if form.slug.errors %} has-error{% endif %}">
+                        <label for="{{ form.slug.id_for_label }}">Address<span class="required" aria-hidden="true">*</span></label>
+                        <div class="df-slug">
+                            <span class="df-slug-prefix">/smallstack/dashboards/p/</span>
+                            {{ form.slug }}
+                            <span class="df-slug-prefix">/</span>
+                        </div>
+                        {% for e in form.slug.errors %}<p class="crud-error">{{ e }}</p>{% endfor %}
+                        <p class="mb-help">{% if object %}Changing it breaks links to this playlist, including any wall screen pointed at it.{% else %}Filled in from the name.{% endif %}</p>
+                    </div>
+                    <div class="mb-field" style="margin-bottom: 0;">
+                        <label for="{{ form.description.id_for_label }}">Description <span class="dash-muted">(optional)</span></label>
+                        {{ form.description }}
+                    </div>
+                </div>
+            </div>
+
+            <div class="card mb-section">
+                <div class="card-header"><h2 id="plf-items-title">Slides, in order</h2></div>
+                <div class="card-body">
+                    {% comment %}Header clicks reorder the slides themselves (playlist-form.js): this order is the play order, so the note says so and offers Undo. Columns resize with table-resize.js.{% endcomment %}
+                    <p class="plf-sorted" id="plf-sorted" role="status" hidden><span id="plf-sorted-text"></span> <button type="button" class="plf-undo" id="plf-undo">Undo</button></p>
+                    <div class="plf-table-wrap" id="plf-table-wrap">
+                        <table class="crud-table plf-table" aria-labelledby="plf-items-title" data-table-key="dashboards/playlist-form:name,seconds,period">
+                            <thead>
+                                <tr>
+                                    <th scope="col" class="plf-n-col">#</th>
+                                    <th scope="col" data-field="name" aria-sort="none"><button type="button" class="plf-sort" data-sort="name">Slide<span class="dm-sort-ind" aria-hidden="true"></span></button>{% include "smallstack/crud/includes/col_resizer.html" with label="Slide" %}</th>
+                                    <th scope="col" data-field="seconds" class="plf-seconds-col" aria-sort="none"><button type="button" class="plf-sort" data-sort="seconds">Seconds<span class="dm-sort-ind" aria-hidden="true"></span></button>{% include "smallstack/crud/includes/col_resizer.html" with label="Seconds" %}</th>
+                                    <th scope="col" data-field="period" class="plf-period-col" aria-sort="none"><button type="button" class="plf-sort" data-sort="period">Period<span class="dm-sort-ind" aria-hidden="true"></span></button>{% include "smallstack/crud/includes/col_resizer.html" with label="Period" %}</th>
+                                    <th scope="col" class="plf-tools-col"><span class="sr-only">Move or remove</span></th>
+                                </tr>
+                            </thead>
+                            <tbody id="plf-items"></tbody>
+                        </table>
+                    </div>
+                    <p class="mb-help plf-empty" id="plf-empty">Nothing yet. Add a dashboard or a goal list below.</p>
+                    <div class="plf-add">
+                        <label class="sr-only" for="plf-add-select">Dashboard or goal list to add</label>
+                        <select id="plf-add-select" class="vTextField"></select>
+                        <button type="button" class="btn-outline btn-sm" id="plf-add">Add</button>
+                    </div>
+                    <p class="mb-help" id="plf-shared-note" hidden>A shared playlist can only hold shared dashboards and goal lists.</p>
+                    {% for e in form.items.errors %}<p class="crud-error">{{ e }}</p>{% endfor %}
+                    {{ form.items.as_hidden }}
+                </div>
+            </div>
+
+            <div class="card mb-section">
+                <div class="card-header"><h2>Playing</h2></div>
+                <div class="card-body">
+                    <div class="mb-field{% if form.seconds.errors %} has-error{% endif %}">
+                        <label for="{{ form.seconds.id_for_label }}">Seconds on each dashboard</label>
+                        <div class="df-chips" id="plf-seconds-presets" role="group" aria-label="Presets">
+                            <button type="button" class="df-chip-btn" data-seconds="15">15 s</button>
+                            <button type="button" class="df-chip-btn" data-seconds="30">30 s</button>
+                            <button type="button" class="df-chip-btn" data-seconds="60">1 min</button>
+                            <button type="button" class="df-chip-btn" data-seconds="120">2 min</button>
+                            <button type="button" class="df-chip-btn" data-seconds="300">5 min</button>
+                        </div>
+                        <div style="margin-top: 0.6rem; max-width: 10rem;">{{ form.seconds }}</div>
+                        {% for e in form.seconds.errors %}<p class="crud-error">{{ e }}</p>{% endfor %}
+                        <p class="mb-help">5 to 3600. A dashboard in the list can set its own.</p>
+                    </div>
+                    <label class="plf-check">{{ form.loop }} <span><strong>Loop.</strong> After the last dashboard, start again from the first.</span></label>
+                    <label class="plf-check">{{ form.auto_start }} <span><strong>Play when opened.</strong> Otherwise it opens paused and you page through by hand.</span></label>
+                </div>
+            </div>
+
+            <div class="card mb-section">
+                <div class="card-header"><h2>Who can see it</h2></div>
+                <div class="card-body">
+                    {% with current=form.visibility.value|default:"personal" %}
+                    <label class="plf-check"><input type="radio" name="{{ form.visibility.html_name }}" value="personal"{% if current == "personal" %} checked{% endif %}> <span><strong>Personal.</strong> Only you can open and edit it.</span></label>
+                    <label class="plf-check"><input type="radio" name="{{ form.visibility.html_name }}" value="shared"{% if current == "shared" %} checked{% endif %}{% if not request.user.is_staff %} disabled{% endif %}> <span><strong>Shared.</strong> {% if request.user.is_staff %}Everyone signed in can open it; staff edit it.{% else %}Only staff can share a playlist.{% endif %}</span></label>
+                    {% endwith %}
+                    {% for e in form.visibility.errors %}<p class="crud-error">{{ e }}</p>{% endfor %}
+                    <p class="mb-help" style="margin-bottom: 0;">Viewers only see the dashboards they can open; the rest are skipped.</p>
+                </div>
+            </div>
+
+            <div style="display: flex; gap: 0.5rem; margin-bottom: 2rem;">
+                <button type="submit" class="btn-primary">{% if object %}Save playlist{% else %}Create playlist{% endif %}</button>
+                <a href="{% if object %}{{ object.get_absolute_url }}{% else %}{% url 'dashboards/playlists-list' %}{% endif %}" class="btn-outline">Cancel</a>
+            </div>
+        </div>
+
+        <aside class="mb-preview" aria-label="Summary">
+            <div class="card">
+                <div class="card-header"><h2>Summary</h2></div>
+                <div class="card-body">
+                    <p class="plf-total" id="plf-total" aria-live="polite"></p>
+                    <h3 class="plf-h3">Links that control it</h3>
+                    <p class="mb-help" style="margin-top: 0;">Add these to the playlist's address. Bookmark one, or point a wall screen at it.</p>
+                    <dl class="plf-links">
+                        <dt><code>?play=1</code></dt><dd>Start playing. <code>?play=0</code> opens paused.</dd>
+                        <dt><code>?slide=3</code></dt><dd>Open on the third dashboard.</dd>
+                        <dt><code>?seconds=20</code></dt><dd>20 seconds on each, this time.</dd>
+                        <dt><code>?loop=0</code></dt><dd>Stop at the last dashboard.</dd>
+                        <dt><code>?kiosk=1</code></dt><dd>No menus, for a wall screen.</dd>
+                    </dl>
+                    {% if object %}<p class="mb-help">For a wall screen: <a href="{{ object.get_absolute_url }}?kiosk=1&amp;play=1">{{ object.get_absolute_url }}?kiosk=1&amp;play=1</a></p>{% endif %}
+                    <p class="mb-help" style="margin-bottom: 0;">While it plays: ← and → page, space pauses, f goes full screen.</p>
+                </div>
+            </div>
+        </aside>
+    </div>
+</form>
+{% endblock %}
+
+{% block extra_js %}<script src="{% static 'dashboards/js/playlist-form.js' %}" defer></script>{% endblock %}

@@ -1,0 +1,6 @@
+<div class="mb-field{% if field.errors %} has-error{% endif %}" id="mb-field-{{ field.name }}">
+    <label for="{{ field.id_for_label }}">{{ field.label }}{% if field.field.required %}<span class="required" aria-hidden="true">*</span>{% endif %}</label>
+    {{ field }}
+    {% for e in field.errors %}<p class="crud-error">{{ e }}</p>{% endfor %}
+    {% if field.help_text %}<p class="mb-help">{{ field.help_text }}</p>{% endif %}
+</div>

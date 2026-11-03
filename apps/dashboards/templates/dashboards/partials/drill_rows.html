@@ -1,0 +1,48 @@
+{% comment %}
+The rows behind a metric card, swapped into the global stat modal. Scoped
+under .dm so the modal's accent-tinted table defaults (the primary-striped
+rows the theme guide warns against) don't apply here.
+{% endcomment %}{% load static %}
+<link rel="stylesheet" href="{% static 'dashboards/css/dashboards.css' %}">
+{% if modal_title %}<span id="stat-modal-title" hx-swap-oob="innerHTML">{{ modal_title }}</span>{% endif %}
+<div class="dm">
+    <div class="dm-summary">
+        <p class="dm-reading">
+            <strong>{{ total }} row{{ drill.total|pluralize }}</strong> in {{ source }}{% if reading != "All rows" %} where {{ reading }}{% endif %}{% if when %}, {{ when }}{% endif %}.
+        </p>
+        {% if comparison %}<p class="dm-compare"><span aria-hidden="true">{% if comparison.dir == "up" %}▲{% elif comparison.dir == "down" %}▼{% else %}={% endif %}</span> {% if comparison.dir == "up" %}<span class="sr-only">Up </span>{% elif comparison.dir == "down" %}<span class="sr-only">Down </span>{% endif %}{{ comparison.text }} ({{ comparison.previous }})</p>{% endif %}
+        {% if narrowed %}<p class="dm-narrow">Narrowed to <span>{{ narrowed }}</span></p>{% endif %}
+        {% if period_links %}
+        <nav class="md-periods dm-periods" aria-label="Period">
+            {% for p in period_links %}<a href="{{ p.url }}" class="md-period" hx-get="{{ p.url }}" hx-target="#stat-modal-body" hx-swap="innerHTML"{% if p.current %} aria-current="true"{% endif %}>{{ p.label }}</a>{% endfor %}
+        </nav>
+        {% endif %}
+    </div>
+    {% if drill.rows %}
+    <div class="dm-scroll">
+        {% comment %}Headers sort on the server (the rows shown are only the first of all that match); an unsaved metric's post it again with the order (metric-builder.js). Resizing is the framework's table-resize.js (crud-table + data-table-key + th[data-field] + col_resizer), widths remembered per card.{% endcomment %}
+        <table class="dm-table crud-table" data-table-key="drill/{{ metric.key }}:{% for c in drill.columns %}{{ c.name }}{% if not forloop.last %},{% endif %}{% endfor %}">
+            <thead><tr>{% for c in drill.columns %}<th scope="col" aria-sort="{{ c.aria_sort|default:'none' }}" data-field="{{ c.name }}">
+                {% if unsaved %}<button type="button" class="dm-sort dm-sort--btn" data-preview-order="{{ c.sort_next }}" title="Sort by {{ c.label }}">{{ c.label }}<span class="dm-sort-ind" aria-hidden="true">{% if c.aria_sort == "ascending" %}▲{% elif c.aria_sort == "descending" %}▼{% endif %}</span></button>
+                {% else %}<a class="dm-sort" href="{{ c.sort_url }}" hx-get="{{ c.sort_url }}" hx-target="#stat-modal-body" hx-swap="innerHTML" title="Sort by {{ c.label }}">{{ c.label }}<span class="dm-sort-ind" aria-hidden="true">{% if c.aria_sort == "ascending" %}▲{% elif c.aria_sort == "descending" %}▼{% endif %}</span></a>{% endif %}
+                {% include "smallstack/crud/includes/col_resizer.html" with label=c.label %}
+            </th>{% endfor %}<th scope="col" class="dm-open-col"><span class="sr-only">Open</span></th></tr></thead>
+            <tbody>
+            {% for row in drill.rows %}
+                <tr>{% for v in row.cells %}<td title="{{ v }}">{{ v }}</td>{% endfor %}<td class="dm-open">{% if row.url %}<a href="{{ row.url }}" aria-label="Open this record">Open</a>{% endif %}</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <p class="dm-empty">No rows match{% if when %} {{ when }}{% endif %}.</p>
+    {% endif %}
+    <div class="dm-foot">
+        <span>{% if drill.total > drill.rows|length %}First {{ drill.rows|length }} shown.{% endif %}</span>
+        <span class="dm-links">
+            {% if export_url and drill.total %}<a href="{{ export_url }}" download>Download CSV{% if drill.total > drill.rows|length %} ({% if drill.total > 10000 %}first 10,000{% else %}all {{ total }}{% endif %}){% endif %}</a>{% endif %}
+            {% if browse_url %}<a href="{{ browse_url }}">Browse the dataset</a>{% endif %}
+            {% if not unsaved %}<a href="{{ metric.get_absolute_url }}">Open the metric</a>{% endif %}
+        </span>
+    </div>
+</div>

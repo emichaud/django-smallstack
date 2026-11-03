@@ -1,0 +1,69 @@
+{% load static theme_tags dashboard_tags crud_tags %}
+{% comment %}DashboardLibraryDisplay — each dashboard with its picture, what it holds, how it opens and whether it needs attention.{% endcomment %}
+<link rel="stylesheet" href="{% static 'dashboards/css/dashboards.css' %}">
+<script src="{% static 'dashboards/js/dashboard.js' %}" defer></script>
+{% if rows %}
+{% comment %}A crud-table: Name and Updated sort (the CRUD list's ?ordering=); every column resizes with table-resize.js.{% endcomment %}
+<div class="crud-table-wrap">
+<table class="crud-table lib-table bl-table" data-table-key="dashboards/boards:picture,name,cards,health,updated_at">
+    <thead>
+        <tr>
+            <th scope="col" data-field="picture" class="bl-pic-col"><span class="sr-only">Picture</span>{% include "smallstack/crud/includes/col_resizer.html" with label="Picture" %}</th>
+            {% sortable_th "name" "Name" target="#crud-list-content" %}
+            <th scope="col" data-field="cards" class="bl-cards-col"><span>Cards</span>{% include "smallstack/crud/includes/col_resizer.html" with label="Cards" %}</th>
+            <th scope="col" data-field="health" class="bl-health-col"><span>Health</span>{% include "smallstack/crud/includes/col_resizer.html" with label="Health" %}</th>
+            {% sortable_th "updated_at" "Updated" target="#crud-list-content" align="right" %}
+            <th scope="col" class="lib-actions-col"><span class="sr-only">Actions</span></th>
+        </tr>
+    </thead>
+    <tbody>
+    {% for r in rows %}{% with d=r.obj %}
+        <tr>
+            <td class="bl-pic-cell">
+                <a href="{{ r.url }}" class="bl-shape" tabindex="-1" aria-hidden="true">
+                    {% include "dashboards/includes/board_picture.html" with d=d %}
+                </a>
+            </td>
+            <td class="lib-name-cell">
+                <a href="{{ r.url }}" class="lib-name">{{ d.name }}</a>
+                {% if d.is_shared %}<span class="dash-badge dash-badge--shared">Shared</span>{% else %}<span class="dash-badge">Personal</span>{% endif %}
+                <span class="lib-sub" title="{{ d.description }}">{% if d.description %}{{ d.description }}{% else %}{{ r.count }} card{{ r.count|pluralize }}{% endif %}</span>
+                {% if r.broken %}<span class="lib-sub rp-bad">{{ r.broken }} card{{ r.broken|pluralize }} can't show: {% if r.broken == 1 %}its metric or type is{% else %}their metrics or types are{% endif %} gone.</span>{% endif %}
+            </td>
+            <td class="lib-wrap-cell">
+                <span>{% if r.count %}{{ r.kinds|capfirst }}{% else %}No cards yet{% endif %}</span>
+                <span class="lib-sub">Opens on {{ r.opens }}{% if d.refresh_seconds %}, refreshes every {{ d.refresh_seconds }}s{% endif %}</span>
+            </td>
+            <td class="lib-wrap-cell">{% if r.count %}<span class="rl-digest" hx-get="{{ r.digest_url }}" hx-trigger="revealed" hx-swap="innerHTML" aria-live="polite"><span class="rl-moves-when">Checking…</span></span>{% else %}<span class="dash-muted">—</span>{% endif %}</td>
+            <td class="num"><time datetime="{{ d.updated_at|date:'c' }}">{{ d.updated_at|date:"M j" }}</time></td>
+            <td class="lib-actions">
+                {% if r.edit_url %}
+                <a href="{{ r.edit_url }}" class="ml-iconbtn" aria-label="Settings for {{ d.name }}" title="Settings">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zm17.71-10.21a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
+                </a>
+                {% endif %}
+                {% if r.delete_url %}
+                {% comment %}Opens the delete confirmation (what goes, a copy of the layout) in the global modal; without JS, the same confirmation as a page.{% endcomment %}
+                <a href="{{ r.delete_url }}" class="ml-iconbtn ml-iconbtn--danger" aria-label="Delete {{ d.name }}" title="Delete"
+                   hx-get="{{ r.delete_url }}" hx-target="#stat-modal-body" hx-swap="innerHTML" aria-haspopup="dialog"
+                   data-stat-modal="Delete {{ d.name }}?">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 19a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
+                </a>
+                {% endif %}
+            </td>
+        </tr>
+    {% endwith %}{% endfor %}
+    </tbody>
+</table>
+</div>
+{% elif has_active_filters %}
+{% include "smallstack/crud/includes/empty_state.html" %}
+{% else %}
+<div class="ml-empty">
+    <p><strong>No dashboards yet.</strong> A dashboard is a grid of metric cards with a period selector. Make one, then add cards from it with Edit layout.</p>
+    {% if create_view_url %}<a href="{{ create_view_url }}" class="btn-primary btn-sm">New dashboard</a>{% endif %}
+</div>
+{% endif %}
+{% if is_paginated or page_sizes and page_obj %}
+{% render_paginator page_obj "#crud-display-area" %}
+{% endif %}

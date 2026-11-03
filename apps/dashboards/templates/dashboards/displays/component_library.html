@@ -1,0 +1,67 @@
+{% load static theme_tags crud_tags %}
+{% comment %}
+ComponentLibraryDisplay — saved cards as a table: what each draws and where
+it's shown. Name, type, metric and updated sort (the CRUD list's ?ordering=,
+{% sortable_th %}); every column resizes with the framework's table-resize.js
+(crud-table + data-table-key + th[data-field]).
+{% endcomment %}
+<link rel="stylesheet" href="{% static 'dashboards/css/dashboards.css' %}">
+{% if rows %}
+<div class="crud-table-wrap">
+<table class="crud-table cl-table" data-table-key="dashboards/components:name,type,metric,used,updated_at">
+    <thead>
+        <tr>
+            {% sortable_th "name" "Name" target="#crud-list-content" %}
+            {% sortable_th "type" "Design" target="#crud-list-content" %}
+            {% sortable_th "metric" "Metric" target="#crud-list-content" %}
+            <th scope="col" data-field="used" class="cl-used-col"><span>Placed on</span>{% include "smallstack/crud/includes/col_resizer.html" with label="Placed on" %}</th>
+            {% sortable_th "updated_at" "Updated" target="#crud-list-content" align="right" %}
+            <th scope="col" class="cl-actions-col"><span class="sr-only">Actions</span></th>
+        </tr>
+    </thead>
+    <tbody>
+    {% for r in rows %}{% with c=r.obj %}
+        <tr>
+            <td class="cl-name-cell">
+                {% if r.edit_url %}<a href="{{ r.edit_url }}" class="cl-name">{{ c.name }}</a>{% else %}<span class="cl-name">{{ c.name }}</span>{% endif %}
+                {% if c.is_shared %}<span class="dash-badge dash-badge--shared">Shared</span>{% else %}<span class="dash-badge">Personal</span>{% endif %}
+                {% if c.description %}<span class="cl-desc" title="{{ c.description }}">{{ c.description }}</span>{% endif %}
+            </td>
+            <td><span class="cl-type"><span class="cl-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="{{ r.icon|default:'M4 4h16v16H4z' }}"/></svg></span>{{ r.type_label }}</span></td>
+            <td>{% if r.metric_name %}{{ r.metric_name }}{% else %}<span class="dash-muted">No metric</span>{% endif %}</td>
+            <td class="cl-used-cell">{% if r.used %}{{ r.used }} dashboard{{ r.used|pluralize }}{% else %}<span class="dash-muted">Not placed yet</span>{% endif %}</td>
+            <td class="num"><time datetime="{{ c.updated_at|date:'c' }}">{{ c.updated_at|date:"M j" }}</time></td>
+            <td class="cl-actions">
+                {% if r.goal_url %}
+                <a href="{{ r.goal_url }}" class="ml-iconbtn" aria-label="Add {{ c.name }} to goals" title="Add to goals"
+                   hx-get="{{ r.goal_url }}" hx-target="#stat-modal-body" hx-swap="innerHTML" aria-haspopup="dialog" data-stat-modal="Add {{ c.name }} to goals">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm0 18a8 8 0 1 1 0-16 8 8 0 0 1 0 16zm0-14a6 6 0 1 0 0 12 6 6 0 0 0 0-12zm0 10a4 4 0 1 1 0-8 4 4 0 0 1 0 8zm0-6a2 2 0 1 0 0 4 2 2 0 0 0 0-4z"/></svg>
+                </a>
+                {% endif %}
+                {% if r.edit_url %}
+                <a href="{{ r.edit_url }}" class="ml-iconbtn" aria-label="Edit {{ c.name }} in the builder" title="Edit">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zm17.71-10.21a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
+                </a>
+                {% endif %}
+                {% if r.delete_url %}
+                <a href="{{ r.delete_url }}" class="ml-iconbtn ml-iconbtn--danger" aria-label="Delete {{ c.name }}" title="Delete">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 19a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
+                </a>
+                {% endif %}
+            </td>
+        </tr>
+    {% endwith %}{% endfor %}
+    </tbody>
+</table>
+</div>
+{% elif has_active_filters %}
+{% include "smallstack/crud/includes/empty_state.html" %}
+{% else %}
+<div class="ml-empty">
+    <p><strong>No saved cards yet.</strong> A card is a design — a single stat, a grouped stat, an info card, or a chart an app adds — drawing one metric. Build it once and place it on any number of dashboards.</p>
+    {% if create_view_url %}<a href="{{ create_view_url }}" class="btn-primary btn-sm">Build a card</a>{% endif %}
+</div>
+{% endif %}
+{% if is_paginated or page_sizes and page_obj %}
+{% render_paginator page_obj "#crud-display-area" %}
+{% endif %}

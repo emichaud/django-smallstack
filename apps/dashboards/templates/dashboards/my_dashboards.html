@@ -1,0 +1,115 @@
+{% extends "smallstack/base.html" %}
+{% load static theme_tags %}
+
+{% block title %}My dashboards{% endblock %}
+{% block breadcrumbs %}{% endblock %}
+{% block extra_css %}<link rel="stylesheet" href="{% static 'dashboards/css/dashboards.css' %}">{% endblock %}
+
+{% block page_header %}
+<div class="page-header-bleed page-header-with-actions">
+    <div class="page-header-content">
+        <h1>My dashboards</h1>
+        <p class="page-subtitle">{% if boards %}The {{ boards|length }} dashboard{{ boards|length|pluralize }} you made{% if not ordering %}, most recently changed first{% endif %}.{% else %}Dashboards you make for yourself show up here.{% endif %}</p>
+        <nav style="margin-top: 0.5rem; font-size: 0.8rem;" aria-label="Breadcrumb">
+            <a href="{% url 'website:home' %}" style="color: var(--body-quiet-color); text-decoration: none;">Home</a>
+            <span style="color: var(--body-quiet-color); margin: 0 0.3rem;">/</span>
+            <a href="{% url 'dashboards_index' %}" style="color: var(--body-quiet-color); text-decoration: none;">Dashboards</a>
+            <span style="color: var(--body-quiet-color); margin: 0 0.3rem;">/</span>
+            <span style="color: var(--body-fg);">Mine</span>
+        </nav>
+    </div>
+    <div style="display: flex; gap: 0.5rem; align-items: center;">
+        <a href="{% url 'dashboards_index' %}" class="btn-outline btn-sm">All dashboards</a>
+        <a href="{% url 'dashboards/boards-create' %}" class="btn-primary btn-sm">New dashboard</a>
+    </div>
+</div>
+{% endblock %}
+
+{% block content %}
+<div id="my-page">
+{% if boards %}
+<div class="my-toolbar">
+    <nav class="ix-view" aria-label="Show dashboards as">
+        <a href="{{ request.path }}{% querystring view=None %}" class="ix-view-btn"{% if view == "cards" %} aria-current="true"{% endif %} hx-get="{{ request.path }}{% querystring view=None %}" hx-select="#my-page" hx-target="#my-page" hx-swap="outerHTML" hx-push-url="true">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3h8v8H3V3zm10 0h8v8h-8V3zM3 13h8v8H3v-8zm10 0h8v8h-8v-8z"/></svg><span>Cards</span></a>
+        <a href="{% querystring view='table' %}" class="ix-view-btn"{% if view == "table" %} aria-current="true"{% endif %} hx-get="{% querystring view='table' %}" hx-select="#my-page" hx-target="#my-page" hx-swap="outerHTML" hx-push-url="true">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 5h18v2H3V5zm0 6h18v2H3v-2zm0 6h18v2H3v-2z"/></svg><span>Table</span></a>
+    </nav>
+</div>
+{% endif %}
+{% if boards and view == "table" %}
+{% comment %}Headers sort on the server (?ordering=) and swap #my-page in place; columns resize with the framework's table-resize.js (crud-table + data-table-key + th[data-field] + col_resizer).{% endcomment %}
+<div class="crud-table-wrap">
+<table class="crud-table lib-table bl-table my-table" data-table-key="dashboards/mine:picture,name,cards,opens,health,updated_at">
+    <thead>
+        <tr>
+            <th scope="col" data-field="picture" class="bl-pic-col"><span class="sr-only">Picture</span>{% include "smallstack/crud/includes/col_resizer.html" with label="Picture" %}</th>
+            {% with s=sort_links.name %}<th scope="col" data-field="name" aria-sort="{{ s.aria_sort }}"><a class="dm-sort" href="{{ s.url }}" hx-get="{{ s.url }}" hx-select="#my-page" hx-target="#my-page" hx-swap="outerHTML" hx-push-url="true" title="Sort by name">Name<span class="dm-sort-ind" aria-hidden="true">{% if s.aria_sort == "ascending" %}▲{% elif s.aria_sort == "descending" %}▼{% endif %}</span></a>{% include "smallstack/crud/includes/col_resizer.html" with label="Name" %}</th>{% endwith %}
+            {% with s=sort_links.cards %}<th scope="col" data-field="cards" class="my-cards-col th-right" aria-sort="{{ s.aria_sort }}"><a class="dm-sort" href="{{ s.url }}" hx-get="{{ s.url }}" hx-select="#my-page" hx-target="#my-page" hx-swap="outerHTML" hx-push-url="true" title="Sort by cards">Cards<span class="dm-sort-ind" aria-hidden="true">{% if s.aria_sort == "ascending" %}▲{% elif s.aria_sort == "descending" %}▼{% endif %}</span></a>{% include "smallstack/crud/includes/col_resizer.html" with label="Cards" %}</th>{% endwith %}
+            <th scope="col" data-field="opens" class="my-opens-col"><span>Opens on</span>{% include "smallstack/crud/includes/col_resizer.html" with label="Opens on" %}</th>
+            <th scope="col" data-field="health" class="bl-health-col"><span>Health</span>{% include "smallstack/crud/includes/col_resizer.html" with label="Health" %}</th>
+            {% with s=sort_links.updated_at %}<th scope="col" data-field="updated_at" class="th-right" aria-sort="{{ s.aria_sort }}"><a class="dm-sort" href="{{ s.url }}" hx-get="{{ s.url }}" hx-select="#my-page" hx-target="#my-page" hx-swap="outerHTML" hx-push-url="true" title="Sort by updated">Updated<span class="dm-sort-ind" aria-hidden="true">{% if s.aria_sort == "ascending" %}▲{% elif s.aria_sort == "descending" %}▼{% endif %}</span></a>{% include "smallstack/crud/includes/col_resizer.html" with label="Updated" %}</th>{% endwith %}
+            <th scope="col" class="lib-actions-col"><span class="sr-only">Actions</span></th>
+        </tr>
+    </thead>
+    <tbody>
+    {% for row in boards %}{% with d=row.dashboard %}
+        <tr>
+            <td class="bl-pic-cell"><a href="{{ d.get_absolute_url }}" class="bl-shape" tabindex="-1" aria-hidden="true">{% include "dashboards/includes/board_picture.html" with d=d %}</a></td>
+            <td class="lib-name-cell">
+                <a href="{{ d.get_absolute_url }}" class="lib-name">{{ d.name }}</a>
+                {% if d.is_shared %}<span class="dash-badge dash-badge--shared">Shared</span>{% endif %}
+                {% if d.description %}<span class="lib-sub" title="{{ d.description }}">{{ d.description }}</span>{% endif %}
+            </td>
+            <td class="num">{{ row.cards }}</td>
+            <td class="lib-wrap-cell"><span>{{ row.opens|capfirst }}</span>{% if d.refresh_seconds %}<span class="lib-sub">Refreshes every {{ d.refresh_seconds }}s</span>{% endif %}</td>
+            <td class="lib-wrap-cell">{% if row.cards %}<span class="rl-digest" hx-get="{{ row.digest_url }}" hx-trigger="revealed" hx-swap="innerHTML" aria-live="polite"><span class="rl-moves-when">Checking…</span></span>{% else %}<span class="dash-muted">—</span>{% endif %}</td>
+            <td class="num"><time datetime="{{ d.updated_at|date:'c' }}">{{ d.updated_at|date:"M j" }}</time></td>
+            <td class="lib-actions">
+                {% if row.edit_url %}
+                <a href="{{ row.edit_url }}" class="ml-iconbtn" aria-label="Settings for {{ d.name }}" title="Settings">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zm17.71-10.21a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
+                </a>
+                {% endif %}
+            </td>
+        </tr>
+    {% endwith %}{% endfor %}
+    </tbody>
+</table>
+</div>
+{% elif boards %}
+<ul class="my-boards">
+    {% for row in boards %}{% with d=row.dashboard %}
+    <li class="my-board">
+        <a href="{{ d.get_absolute_url }}" class="my-board-picture" tabindex="-1" aria-hidden="true">
+            {% include "dashboards/includes/board_picture.html" with d=d %}
+        </a>
+        <div class="my-board-body">
+            <h2 class="my-board-name"><a href="{{ d.get_absolute_url }}">{{ d.name }}</a>{% if d.is_shared %} <span class="dash-badge dash-badge--shared">Shared</span>{% endif %}</h2>
+            {% if d.description %}<p class="my-board-desc">{{ d.description }}</p>{% endif %}
+            <p class="my-board-meta">{{ row.cards }} card{{ row.cards|pluralize }}, opens on {{ row.opens }}{% if d.refresh_seconds %}, refreshes every {{ d.refresh_seconds }}s{% endif %}</p>
+            {% if row.cards %}<p class="rl-digest my-board-digest" hx-get="{{ row.digest_url }}" hx-trigger="revealed" hx-swap="innerHTML" aria-live="polite"><span class="rl-moves-when">Checking…</span></p>{% endif %}
+        </div>
+        <div class="my-board-foot">
+            <span class="dash-muted">Updated <time datetime="{{ d.updated_at|date:'c' }}">{{ d.updated_at|date:"M j" }}</time></span>
+            {% if row.edit_url %}<a href="{{ row.edit_url }}" class="md-link" aria-label="Settings for {{ d.name }}">Settings</a>{% endif %}
+        </div>
+    </li>
+    {% endwith %}{% endfor %}
+    <li class="my-board my-board--new">
+        <a href="{% url 'dashboards/boards-create' %}">
+            <span class="ix-plus" aria-hidden="true">+</span>
+            <span>New dashboard</span>
+        </a>
+    </li>
+</ul>
+{% else %}
+<section class="ix-start" aria-labelledby="my-empty-title">
+    <h2 id="my-empty-title">Make a dashboard of your own</h2>
+    <p>A personal dashboard is yours to arrange: pick the metrics you follow, give it a picture, and come back to it here. Only you can edit it.</p>
+    <p><a href="{% url 'dashboards/boards-create' %}" class="btn-primary btn-sm">New dashboard</a></p>
+    {% if shared_count %}<p class="dash-muted">{{ shared_count }} dashboard{{ shared_count|pluralize }} shared by others {{ shared_count|pluralize:"is,are" }} on the <a href="{% url 'dashboards_index' %}">Dashboards</a> page.</p>{% endif %}
+</section>
+{% endif %}
+</div>
+{% endblock %}

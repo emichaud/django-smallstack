@@ -1,0 +1,43 @@
+{% comment %}
+The trend button on a week (GoalWeekTrendsView, weeks.week_trends): the weeks
+around it, per goal. A bar per week in its status colour (the chosen week
+marked, this week outlined), the week's value against the week before and the
+average of the weeks before, the run it's on, and its best and worst week.
+Headers sort on the server (?order=), reloading the modal's body in place;
+columns resize (table-resize.js re-initialises after the swap).
+{% endcomment %}
+<div class="gwt">
+    <div class="gwt-weeks" role="list" aria-label="On target each week">
+        {% for col in trends.columns %}<span role="listitem" class="gwt-week{% if forloop.counter0 == trends.focus_index %} is-focus{% endif %}"><span class="gwt-week-name">{{ col.short }}</span><span class="gwt-week-score">{% if col.scored %}{{ col.pass }}/{{ col.scored }}{% else %}—{% endif %}</span>{% if col.snapshot %}<span class="sr-only">, saved</span>{% endif %}</span>{% endfor %}
+    </div>
+    <p class="gwt-lede">Goals on target each week, {{ trends.before }} before the week of {{ trends.label }} and the weeks since. Saved weeks are as they were; the rest are worked out now.</p>
+    <div class="gwt-scroll">
+    {% if order %}<p class="rp-sorted"><a href="{{ trends_url }}" hx-get="{{ trends_url }}" hx-target="#stat-modal-body" hx-swap="innerHTML">Back to the list's order</a></p>{% endif %}
+    <table class="gwt-table crud-table" data-table-key="dashboards/goal-week-trends:goal,weeks,value,change,average,run">
+        <thead><tr>
+            {% include "dashboards/partials/goal_week_trends_th.html" with key="goal" label="Goal" %}
+            <th scope="col" data-field="weeks" class="gwt-weeks-col"><span>Weeks</span>{% include "smallstack/crud/includes/col_resizer.html" with label="Weeks" %}</th>
+            {% include "dashboards/partials/goal_week_trends_th.html" with key="value" label="This week" num=True %}
+            {% include "dashboards/partials/goal_week_trends_th.html" with key="change" label="Against the week before" %}
+            {% include "dashboards/partials/goal_week_trends_th.html" with key="average" label="Against the average before" %}
+            {% include "dashboards/partials/goal_week_trends_th.html" with key="run" label="Run" %}
+        </tr></thead>
+        <tbody>
+        {% for r in trends.rows %}
+            <tr class="gl-st--{{ r.cell.status|default:'none' }}">
+                <th scope="row"><span class="gwt-name">{{ r.label }}</span>{% if r.target_text %}<span class="gwt-target">Target {{ r.target_text }}</span>{% endif %}</th>
+                <td>
+                    <ol class="gl-spark gwt-spark" aria-label="{{ r.label }}, week by week">
+                        {% for p in r.points %}<li class="gl-spark-bar gl-st--{{ p.status }}{% if p.partial %} is-partial{% endif %}{% if p.focus %} is-focus{% endif %}" style="--h: {{ p.height }}%;" title="Week of {{ p.short }}: {{ p.display }}, {{ p.status_label|lower }}"><span class="sr-only">Week of {{ p.short }}{% if p.focus %} (this week){% endif %}: {{ p.display }}, {{ p.status_label|lower }}</span></li>{% endfor %}
+                    </ol>
+                </td>
+                <td class="gl-num"><span class="gwt-value">{% if r.cell.absent %}—{% else %}{{ r.cell.display|default:"—" }}{% endif %}</span></td>
+                <td>{% if r.change %}<span class="gl-delta"><span aria-hidden="true">{% if r.change.dir == "up" %}▲{% elif r.change.dir == "down" %}▼{% else %}={% endif %}</span> {{ r.change.text }}</span>{% else %}<span class="gl-quiet">—</span>{% endif %}</td>
+                <td>{% if r.vs_average %}<span class="gl-delta"><span aria-hidden="true">{% if r.vs_average.dir == "up" %}▲{% elif r.vs_average.dir == "down" %}▼{% else %}={% endif %}</span> {{ r.vs_average.text }}</span>{% else %}<span class="gl-quiet">—</span>{% endif %}</td>
+                <td>{% if r.streak %}<span class="gl-streak gl-st--{{ r.streak_status }}">{{ r.streak }}</span>{% endif %}{% if r.best %}<span class="gwt-best">Best {{ r.best }}, worst {{ r.worst }}</span>{% endif %}{% if not r.streak and not r.best %}<span class="gl-quiet">—</span>{% endif %}</td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    </div>
+</div>

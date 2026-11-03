@@ -1,0 +1,6 @@
+{% comment %}
+A dashboard's picture, or its generated cover (initials over a chart motif)
+when it has none. Include with d=<Dashboard>; the caller's wrapper sets the size.
+{% endcomment %}
+{% if d.cover_image %}<img class="board-picture" src="{{ d.cover_image.url }}" alt="{{ d.cover_alt }}" loading="lazy">
+{% else %}{% include "dashboards/includes/board_cover.html" with d=d %}{% endif %}

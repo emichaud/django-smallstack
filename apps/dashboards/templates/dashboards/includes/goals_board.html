@@ -1,0 +1,99 @@
+{% comment %}
+A goal list judged (goals.evaluate_goals / goals_embed): the summary — how many
+are on target, the bar, what needs attention — then each section's goals read
+down, value against target. The goal list's page and a playlist slide both
+include it. `heading` is the period in words; `slide` drops the anchors; the Change column
+shows only when some goal has a period to compare with; the Trend column (the
+goal's last few periods against its target) only when some goal has one. With
+`sort_links` (a page, never a slide) Goal, Status and Value sort each section's
+rows in place (?order=, swapping `swap`), and every column resizes.
+{% endcomment %}
+{% load theme_tags %}
+<div class="gl-board">
+    {% if sort_links and order and not slide %}<p class="rp-sorted gl-sorted"><a href="{% querystring order=None %}" hx-get="{% querystring order=None %}" hx-select="{{ swap }}" hx-target="{{ swap }}" hx-swap="outerHTML" hx-push-url="true">Back to the list's order</a></p>{% endif %}
+    <section class="gl-summary" aria-label="Summary">
+        <div class="gl-score">
+            {% if summary.scored %}
+            <p class="gl-headline"><span class="gl-big">{{ summary.pass }}</span> <span class="gl-of">of {{ summary.scored }}</span></p>
+            <p class="gl-caption">on target, {{ heading|lower }}{% if summary.none %}. {{ summary.none }} without a number.{% endif %}</p>
+            {% else %}
+            <p class="gl-headline gl-headline--quiet">{{ summary.headline }}</p>
+            <p class="gl-caption">{% if summary.total %}None of these goals has a number {{ heading|lower }}.{% else %}Add goals to see how they're doing.{% endif %}</p>
+            {% endif %}
+        </div>
+        {% if summary.total %}
+        <div class="gl-spread">
+            {% include "dashboards/partials/goal_bar.html" with summary=summary %}
+            <ul class="gl-legend">
+                {% for seg in summary.segments %}<li class="gl-legend-item gl-st--{{ seg.status }}">{% include "dashboards/partials/goal_status.html" with status=seg.status %}<b>{{ seg.count }}</b> {{ seg.label|lower }}</li>{% endfor %}
+            </ul>
+        </div>
+        <div class="gl-attention">
+            <h2 class="gl-attention-title">Needs attention</h2>
+            {% if attention %}
+            <ul class="gl-attention-list">
+                {% for r in attention %}<li class="gl-st--{{ r.status }}">{% include "dashboards/partials/goal_status.html" with status=r.status %}<span class="sr-only">{{ r.status_label }}: </span>{% if slide %}<span class="gl-attention-name">{{ r.label }}</span>{% else %}<a class="gl-attention-name" href="#goal-{{ r.id }}">{{ r.label }}</a>{% endif %}<span class="gl-attention-gap">{% if r.gap_text %}{{ r.gap_text }}{% else %}{{ r.display }}{% if r.unit %} {{ r.unit }}{% endif %}{% endif %}</span></li>{% endfor %}
+            </ul>
+            {% elif summary.scored %}
+            <p class="gl-quiet">Nothing. Every goal with a number is on target.</p>
+            {% else %}
+            <p class="gl-quiet">Nothing to judge yet.</p>
+            {% endif %}
+        </div>
+        {% endif %}
+    </section>
+
+    {% for section in sections %}
+    <section class="gl-section" aria-labelledby="gl-sec-{{ goal_list.slug }}-{{ forloop.counter }}">
+        <header class="gl-section-head">
+            <h2 id="gl-sec-{{ goal_list.slug }}-{{ forloop.counter }}">{{ section.title|default:"Goals" }}</h2>
+            {% if section.rows %}
+            <span class="gl-section-score">{{ section.summary.headline }}</span>
+            {% include "dashboards/partials/goal_bar.html" with summary=section.summary small=True %}
+            {% endif %}
+        </header>
+        {% if section.rows %}
+        <div class="gl-table-wrap">
+        <table class="gl-table{% if sort_links and not slide %} crud-table{% endif %}"{% if sort_links and not slide %} data-table-key="dashboards/goals-board:goal,status,value,target{% if has_trends %},trend{% endif %}{% if has_changes %},change{% endif %}"{% endif %}>
+            <thead>
+                <tr>
+                    {% include "dashboards/partials/goals_board_th.html" with key="goal" label="Goal" cls="gl-col-goal" %}
+                    {% include "dashboards/partials/goals_board_th.html" with key="status" label="Status" cls="gl-col-status" %}
+                    {% include "dashboards/partials/goals_board_th.html" with key="value" label="Value" cls="gl-col-value gl-num" %}
+                    {% include "dashboards/partials/goals_board_th.html" with key="target" label="Target" cls="gl-col-target" fixed=True %}
+                    {% if has_trends %}{% include "dashboards/partials/goals_board_th.html" with key="trend" label="Trend" cls="gl-col-trend" fixed=True %}{% endif %}
+                    {% if has_changes %}{% include "dashboards/partials/goals_board_th.html" with key="change" label="Change" cls="gl-col-change" fixed=True %}{% endif %}
+                </tr>
+            </thead>
+            <tbody>
+            {% for r in section.rows %}
+                <tr class="gl-row gl-st--{{ r.status }}"{% if not slide %} id="goal-{{ r.id }}"{% endif %}>
+                    <th scope="row" class="gl-goal">
+                        <span class="gl-name">{% if r.url and not slide %}<a href="{{ r.url }}">{{ r.label }}</a>{% else %}{{ r.label }}{% endif %}</span>
+                        {% if r.note %}<span class="gl-note">{{ r.note }}</span>{% endif %}
+                        {% if r.own_period %}<span class="gl-when">{{ r.period_label }}</span>{% endif %}
+                    </th>
+                    <td class="gl-status"><span class="gl-pill">{% include "dashboards/partials/goal_status.html" with status=r.status %}{{ r.status_label }}</span></td>
+                    <td class="gl-num gl-value">
+                        {% if r.error %}<span class="gl-error" title="{{ r.error }}">{% if r.restricted %}Restricted{% else %}Can't evaluate{% endif %}</span>
+                        {% elif r.drill %}<button type="button" class="gl-figure" hx-get="{{ r.drill.url }}" hx-target="#stat-modal-body" hx-swap="innerHTML" data-stat-modal="{{ r.drill.title }}" aria-haspopup="dialog" aria-label="{{ r.label }}: {{ r.display }}{% if r.unit %} {{ r.unit }}{% endif %}, show the rows">{{ r.display }}{% if r.unit %}<span class="gl-unit">{{ r.unit }}</span>{% endif %}</button>
+                        {% else %}<span class="gl-figure">{{ r.display }}</span>{% endif %}
+                    </td>
+                    <td class="gl-target">
+                        <span>{{ r.target_text }}</span>
+                        {% if r.warn_text %}<span class="gl-target-warn">At risk {{ r.warn_text }}</span>{% endif %}
+                        {% if r.gap_text %}<span class="gl-gap">{{ r.gap_text }}</span>{% endif %}
+                    </td>
+                    {% if has_trends %}<td class="gl-trend">{% if r.trend %}{% include "dashboards/partials/goal_trend.html" with trend=r.trend label=r.label %}{% else %}<span class="gl-quiet" aria-label="No trend">—</span>{% endif %}</td>{% endif %}
+                    {% if has_changes %}<td class="gl-change">{% if r.comparison %}<span class="gl-delta gl-delta--{{ r.comparison.dir }}"><span aria-hidden="true">{% if r.comparison.dir == "up" %}▲{% elif r.comparison.dir == "down" %}▼{% else %}={% endif %}</span> {% if r.comparison.dir == "up" %}<span class="sr-only">Up </span>{% elif r.comparison.dir == "down" %}<span class="sr-only">Down </span>{% endif %}{{ r.comparison.text }}</span>{% else %}<span class="gl-quiet" aria-label="No comparison">—</span>{% endif %}</td>{% endif %}
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+        </div>
+        {% else %}
+        <p class="gl-quiet gl-section-empty">No goals in this section yet.</p>
+        {% endif %}
+    </section>
+    {% endfor %}
+</div>

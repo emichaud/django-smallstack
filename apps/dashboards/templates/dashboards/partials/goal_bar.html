@@ -1,0 +1,2 @@
+{% comment %}The share of goals in each status, as one bar (goals.summarize → `summary`). The label reads the counts; the segments are decoration.{% endcomment %}
+<span class="gl-bar{% if small %} gl-bar--small{% endif %}" role="img" aria-label="{% for seg in summary.segments %}{{ seg.count }} {{ seg.label|lower }}{% if not forloop.last %}, {% endif %}{% empty %}No goals{% endfor %}">{% for seg in summary.segments %}<span class="gl-seg gl-seg--{{ seg.status }}" style="flex-grow: {{ seg.count }};"></span>{% endfor %}</span>

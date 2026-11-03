@@ -1,0 +1,49 @@
+{% comment %}The metric delete confirmation — shared by the page and the list's modal (modal=True).{% endcomment %}
+<form method="POST" action="{{ request.path }}" class="dl{% if modal %} dl--modal{% endif %}">
+    {% csrf_token %}
+
+    <div class="dl-what">
+        <p class="dl-name"><a href="{{ object.get_absolute_url }}">{{ object.name }}</a> <code>{{ object.key }}</code></p>
+        <p class="dl-reading">{{ object.get_agg_display }} in <strong>{{ source }}</strong>{% if reading != "All rows" %} where {{ reading }}{% endif %}.</p>
+    </div>
+
+    {% if usage.cards or usage.rows %}
+    <section class="dl-impact" aria-labelledby="dl-impact-title">
+        <h2 id="dl-impact-title">
+            Deleting it breaks
+            {% if usage.cards %}{{ usage.cards }} card{{ usage.cards|pluralize }} on {{ usage.boards|length }} dashboard{{ usage.boards|length|pluralize }}{% endif %}{% if usage.cards and usage.rows %} and {% endif %}{% if usage.rows %}{{ usage.rows }} row{{ usage.rows|pluralize }} in {{ usage.reports|length }} report{{ usage.reports|length|pluralize }}{% endif %}{% if usage.goals %}{% if usage.cards or usage.rows %} and {% endif %}{{ usage.goals }} goal{{ usage.goals|pluralize }} in {{ usage.goal_lists|length }} goal list{{ usage.goal_lists|length|pluralize }}{% endif %}.
+        </h2>
+        <ul class="dl-places">
+            {% for b in usage.boards %}
+            <li>
+                <a href="{{ b.obj.get_absolute_url }}">{{ b.obj.name }}</a>
+                <span class="dash-muted">dashboard, {{ b.cards }} card{{ b.cards|pluralize }}</span>
+                {% if not b.can_edit %}<span class="dl-locked">you can't edit it</span>{% endif %}
+            </li>
+            {% endfor %}
+            {% for r in usage.reports %}
+            <li>
+                <a href="{{ r.obj.get_absolute_url }}">{{ r.obj.name }}</a>
+                <span class="dash-muted">report, {{ r.rows }} row{{ r.rows|pluralize }}</span>
+                {% if not r.can_edit %}<span class="dl-locked">you can't edit it</span>{% endif %}
+            </li>
+            {% endfor %}
+        </ul>
+        <label class="dl-detach">
+            <input type="hidden" name="detach_choice" value="1">
+            <input type="checkbox" name="detach" value="1" checked>
+            <span>
+                <strong>Also remove its cards and report rows</strong>
+                <span>Otherwise they stay and show “metric no longer exists”.{% if usage.locked %} Places you can't edit keep the broken card or row either way.{% endif %}</span>
+            </span>
+        </label>
+    </section>
+    {% else %}
+    <p class="dl-safe">Nothing uses this metric. No dashboard or report will change.</p>
+    {% endif %}
+
+    <div class="dl-actions">
+        <button type="submit" class="btn-danger">Delete {{ object.name }}</button>
+        {% if modal %}<button type="button" class="btn-outline" data-stat-modal-close>Keep it</button>{% else %}<a href="{{ object.get_absolute_url }}" class="btn-outline">Keep it</a>{% endif %}
+    </div>
+</form>

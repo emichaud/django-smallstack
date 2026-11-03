@@ -1,0 +1,41 @@
+{% extends "smallstack/base.html" %}
+{% load static %}
+{% comment %}
+PlaylistPlayerView: a playlist, playing. ?kiosk=1 drops the site's chrome
+(topbar, sidebar, header) for a wall screen; the player bar stays.
+{% endcomment %}
+
+{% block title %}{{ playlist.name }}{% endblock %}
+{% block body_class %}{% if options.kiosk %}pl-kiosk{% endif %}{% endblock %}
+{% block sidebar_state %}{% if options.kiosk %}disabled{% else %}{{ block.super }}{% endif %}{% endblock %}
+{% block topbar %}{% if not options.kiosk %}{{ block.super }}{% endif %}{% endblock %}
+{% block breadcrumbs %}{% endblock %}
+{% block extra_css %}<link rel="stylesheet" href="{% static 'dashboards/css/dashboards.css' %}">{% endblock %}
+
+{% block page_header %}{% if not options.kiosk %}
+<div class="page-header-bleed page-header-with-actions">
+    <div class="page-header-content">
+        <h1>{{ playlist.name }}</h1>
+        <p class="page-subtitle">{% if playlist.description %}{{ playlist.description }}{% else %}{{ slides|length }} slide{{ slides|length|pluralize }}, {{ playlist.seconds }} seconds each unless set.{% endif %}</p>
+        <nav style="margin-top: 0.5rem; font-size: 0.8rem;" aria-label="Breadcrumb">
+            <a href="{% url 'website:home' %}" style="color: var(--body-quiet-color); text-decoration: none;">Home</a>
+            <span style="color: var(--body-quiet-color); margin: 0 0.3rem;">/</span>
+            <a href="{% url 'dashboards_index' %}" style="color: var(--body-quiet-color); text-decoration: none;">Dashboards</a>
+            <span style="color: var(--body-quiet-color); margin: 0 0.3rem;">/</span>
+            <a href="{% url 'dashboards/playlists-list' %}" style="color: var(--body-quiet-color); text-decoration: none;">Playlists</a>
+            <span style="color: var(--body-quiet-color); margin: 0 0.3rem;">/</span>
+            <span style="color: var(--body-fg);">{{ playlist.name }}</span>
+        </nav>
+    </div>
+    <div style="display: flex; gap: 0.5rem; align-items: center;">
+        {% if slides %}<a href="?kiosk=1&amp;play=1" class="btn-outline btn-sm" title="Without the site's menus, playing — for a wall screen">Wall screen</a>{% endif %}
+        {% if can_edit %}<a href="{% url 'dashboards/playlists-update' playlist.pk %}" class="btn-outline btn-sm">Settings</a>{% endif %}
+    </div>
+</div>
+{% endif %}{% endblock %}
+
+{% block content %}
+{% if skipped and slides %}<p class="dash-muted pl-skipped">{{ skipped }} slide{{ skipped|pluralize }} in this playlist {{ skipped|pluralize:"isn't,aren't" }} open to you, so {{ skipped|pluralize:"it's,they're" }} skipped.</p>{% endif %}
+{% include "dashboards/includes/playlist_player.html" %}
+{% if options.kiosk %}<p class="pl-kiosk-exit"><a href="?slide={{ options.start|add:1 }}">Exit wall screen</a></p>{% endif %}
+{% endblock %}

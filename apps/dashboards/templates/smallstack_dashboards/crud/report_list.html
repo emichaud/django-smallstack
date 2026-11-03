@@ -1,0 +1,21 @@
+{% extends "smallstack/crud/object_list.html" %}
+{% block title %}Reports{% endblock %}
+{% block page_header %}
+<div class="page-header-bleed page-header-with-actions" style="display: flex; align-items: flex-start; justify-content: space-between;">
+    <div class="page-header-content">
+        <h1>Reports</h1>
+        <p class="page-subtitle">Metrics side by side across periods, on screen and as CSV.</p>
+        <nav style="margin-top: 0.5rem; font-size: 0.8rem;">
+            <a href="{% url 'website:home' %}" style="color: var(--body-quiet-color); text-decoration: none;">Home</a>
+            <span style="color: var(--body-quiet-color); margin: 0 0.3rem;">/</span>
+            <a href="{% url 'goals_index' %}" style="color: var(--body-quiet-color); text-decoration: none;">Goals</a>
+            <span style="color: var(--body-quiet-color); margin: 0 0.3rem;">/</span>
+            <span style="color: var(--body-fg);">Reports</span>
+        </nav>
+    </div>
+    <div class="page-header-actions" style="display: flex; align-items: center; gap: 8px;">
+        {% if available_displays|length > 1 %}{% include "smallstack/crud/includes/display_palette.html" %}{% endif %}
+        {% if create_view_url %}<a href="{{ create_view_url }}" class="btn-primary btn-sm">New report</a>{% endif %}
+    </div>
+</div>
+{% endblock %}

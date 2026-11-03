@@ -15,9 +15,11 @@ Two widget sources feed one collector:
 1. **Explorer widgets** — `ModelAdmin` classes declare `explorer_dashboard_widgets = [MyWidget()]`. The Explorer registry discovers them automatically (same pattern as `explorer_displays`, `explorer_list_accessories`).
 2. **Standalone widgets** — apps without an Explorer model register via `dashboard.register(widget)` in `AppConfig.ready()`.
 
-The data layer (`get_widget_contexts()`) collects from both, sorts by `order`, and returns rich context dicts. Three consumers:
+The data layer (`get_widget_contexts()`) collects from both, sorts by `order`, and returns rich context dicts. Consumers:
 
-- **Default view** — `SmallStackDashboardView` renders `smallstack/dashboard.html`
+- **The `/smallstack/` page** — with `apps.dashboards` installed (the default) it is a **grid dashboard**: the system `Dashboard` row `system_key="smallstack"`, one `widget` card per published widget. Staff drag, resize and remove cards (**Edit layout**), and can add metric, trend and note cards next to them. See [The `/smallstack/` page is a dashboard](#the-smallstack-page-is-a-dashboard) below
+- **Fallback view** — without `apps.dashboards`, `SmallStackDashboardView` renders the fixed grid `smallstack/dashboard.html`
+- **Any dashboard** — the `widget` card type ("App card" in Add card) places one widget on any dashboard (staff only)
 - **Mixin** — `DashboardWidgetsMixin` adds `widgets` to any template context
 - **API** — `GET /api/dashboard/widgets/` serves widget data as JSON
 
@@ -268,6 +270,35 @@ The serializer merges `get_api_extras()` output into `data`.
 The Explorer group/app index pages (`/smallstack/explorer/?by=group&group=X`) detect widgets scoped to the active filter and surface a **Models | Widgets** toggle. The search bar filters both views (search models on the models tab, search widgets on the widgets tab).
 
 Implementation is in `apps/explorer/views.py` (`ExplorerIndexView.get_context_data`) and `apps/explorer/templates/explorer/index.html`. The stat strip always shows Models/Records; adds a Widgets card when widgets exist.
+
+## The `/smallstack/` page is a dashboard
+
+`apps.dashboards` takes the page over in its `ready()` through the core seam
+`apps.smallstack.dashboard.set_dashboard_page(view)`. `SmallStackDashboardView`
+keeps the route and the staff check; it hands drawing to that view, and draws the
+fixed grid when none is set. Publishing a widget is unchanged:
+
+- **First visit:** `boards.system_dashboard("smallstack", …)` creates a shared,
+  **staff-only** dashboard holding every widget with `on_dashboard=True`, in
+  `order`, 3 columns × 2 rows each (`span=2` → 6 columns), four across.
+- **Every visit:** `boards.sync_widgets(board)` places each **newly published**
+  widget once, below the existing cards, and records its key in
+  `Dashboard.offered_widgets`. A card staff **remove stays removed**; Add card →
+  App card brings it back.
+- **A widget whose app is disabled** (no longer registered) leaves both the layout
+  and `offered_widgets`, so it **returns when the app does**, matching the old
+  page, where it simply vanished.
+- **`on_dashboard=False`** widgets are never placed automatically, but they can
+  still be added by hand.
+- **The period bar** appears only once a card reads a period (a metric or trend
+  card). Widget cards ignore it.
+- **The system dashboard can't be deleted or made personal**, on any surface. It
+  is an ordinary `Dashboard` otherwise: `update_dashboard`, `dashboard_add_card`
+  and the REST CRUD edit it like any other.
+
+A downstream page can do the same with its own key:
+`system_dashboard("ops_home", name="Ops")` returns a dashboard to render with
+`dashboards/dashboard.html`, or embed with `{% dashboard %}`.
 
 ## Custom Dashboard Pages
 

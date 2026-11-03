@@ -1,0 +1,25 @@
+title: "Dashboards"
+description: "Metrics (saved filters over datasets), grid dashboards and KPI reports — built by hand or by an AI agent"
+slug: dashboards
+
+pages:
+  - slug: index
+    title: "Dashboards"
+    description: "Metrics, dashboards and reports: what each is, editing a layout, the period bar, sharing"
+    icon: "dashboard"
+  - slug: building-metrics
+    title: "Building a metric"
+    description: "The metric builder: datasets, AND/OR filters, periods, aggregations, thresholds, and the stored JSON"
+    icon: "code"
+  - slug: goals
+    title: "Goals"
+    description: "Key numbers against their targets, in sections: on target, at risk or missed, for reading down in a meeting"
+    icon: "flag"
+  - slug: playlists
+    title: "Playlists"
+    description: "Dashboards in a sequence: page through them like slides, or rotate them on a wall screen"
+    icon: "play"
+  - slug: agents-and-api
+    title: "Agents and the API"
+    description: "Have an AI agent build dashboards over MCP or REST — the tools, the loop, and the access rules"
+    icon: "api"

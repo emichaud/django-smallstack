@@ -1,0 +1,108 @@
+{% extends "smallstack/base.html" %}
+{% load static dashboard_tags %}
+
+{% block title %}{% if object %}{{ object.name }}, edit goals{% else %}New goal list{% endif %}{% endblock %}
+{% block breadcrumbs %}{% endblock %}
+{% block extra_css %}<link rel="stylesheet" href="{% static 'dashboards/css/dashboards.css' %}">{% endblock %}
+
+{% block page_header %}
+<div class="page-header-bleed page-header-with-actions">
+    <div class="page-header-content">
+        <h1>{% if object %}Edit goals{% else %}New goal list{% endif %}</h1>
+        <p class="page-subtitle">Your key numbers and the targets they should reach, in sections, in the order you'll read them.</p>
+        <nav style="margin-top: 0.5rem; font-size: 0.8rem;" aria-label="Breadcrumb">
+            <a href="{% url 'website:home' %}" style="color: var(--body-quiet-color); text-decoration: none;">Home</a>
+            <span style="color: var(--body-quiet-color); margin: 0 0.3rem;">/</span>
+            <a href="{% url 'goals_index' %}" style="color: var(--body-quiet-color); text-decoration: none;">Goals</a>
+            <span style="color: var(--body-quiet-color); margin: 0 0.3rem;">/</span>
+            <a href="{% url 'dashboards/goals-list' %}" style="color: var(--body-quiet-color); text-decoration: none;">Goal lists</a>
+            <span style="color: var(--body-quiet-color); margin: 0 0.3rem;">/</span>
+            {% if object %}<a href="{{ object.get_absolute_url }}" style="color: var(--body-quiet-color); text-decoration: none;">{{ object.name }}</a>
+            <span style="color: var(--body-quiet-color); margin: 0 0.3rem;">/</span>
+            <span style="color: var(--body-fg);">Edit</span>{% else %}<span style="color: var(--body-fg);">New</span>{% endif %}
+        </nav>
+    </div>
+    {% if object %}<div><a href="{{ object.get_absolute_url }}" class="btn-outline btn-sm">Open goal list</a></div>{% endif %}
+</div>
+{% endblock %}
+
+{% block content %}
+{% goal_editor_data request.user object as editor %}
+{{ editor|json_script:"glf-data" }}
+<form method="POST" class="crud-form" id="glf-form" novalidate data-creating="{% if object %}0{% else %}1{% endif %}">
+    {% csrf_token %}
+    {% if form.non_field_errors %}<div class="crud-form-errors" role="alert">{% for e in form.non_field_errors %}<p class="crud-error">{{ e }}</p>{% endfor %}</div>{% endif %}
+    <div class="mb-grid">
+        <div>
+            <div class="card mb-section">
+                <div class="card-header"><h2>Name</h2></div>
+                <div class="card-body">
+                    <div class="mb-field{% if form.name.errors %} has-error{% endif %}">
+                        <label for="{{ form.name.id_for_label }}">Name<span class="required" aria-hidden="true">*</span></label>
+                        {{ form.name }}
+                        {% for e in form.name.errors %}<p class="crud-error">{{ e }}</p>{% endfor %}
+                    </div>
+                    <div class="mb-field{% if form.slug.errors %} has-error{% endif %}">
+                        <label for="{{ form.slug.id_for_label }}">Address<span class="required" aria-hidden="true">*</span></label>
+                        <div class="df-slug">
+                            <span class="df-slug-prefix">/smallstack/dashboards/g/</span>
+                            {{ form.slug }}
+                            <span class="df-slug-prefix">/</span>
+                        </div>
+                        {% for e in form.slug.errors %}<p class="crud-error">{{ e }}</p>{% endfor %}
+                        <p class="mb-help">{% if object %}Changing it breaks links to this goal list.{% else %}Filled in from the name.{% endif %}</p>
+                    </div>
+                    <div class="mb-field">
+                        <label for="{{ form.description.id_for_label }}">Description <span class="dash-muted">(optional)</span></label>
+                        {{ form.description }}
+                    </div>
+                    <div class="mb-field" style="margin-bottom: 0;">
+                        <label for="{{ form.default_period.id_for_label }}">Judge the goals over</label>
+                        {{ form.default_period }}
+                        {% for e in form.default_period.errors %}<p class="crud-error">{{ e }}</p>{% endfor %}
+                        <p class="mb-help">The period the page opens on. A goal can keep its own, and the page can switch to another.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <aside class="mb-preview" aria-label="Who can see it">
+            <div class="card">
+                <div class="card-header"><h2>Who can see it</h2></div>
+                <div class="card-body">
+                    {% with current=form.visibility.value|default:"personal" %}
+                    <label class="plf-check"><input type="radio" name="{{ form.visibility.html_name }}" value="personal"{% if current == "personal" %} checked{% endif %}> <span><strong>Personal.</strong> Only you can open and edit it.</span></label>
+                    <label class="plf-check"><input type="radio" name="{{ form.visibility.html_name }}" value="shared"{% if current == "shared" %} checked{% endif %}{% if not request.user.is_staff %} disabled{% endif %}> <span><strong>Shared.</strong> {% if request.user.is_staff %}The team's list: everyone signed in can open it; staff edit it.{% else %}Only staff can share a goal list.{% endif %}</span></label>
+                    {% endwith %}
+                    {% for e in form.visibility.errors %}<p class="crud-error">{{ e }}</p>{% endfor %}
+                    <p class="mb-help" style="margin-bottom: 0;">A shared list can only hold shared metrics and cards.</p>
+                </div>
+            </div>
+        </aside>
+    </div>
+
+    <div class="card mb-section glf-card">
+        <div class="card-header glf-card-head">
+            <h2 id="glf-title">Goals</h2>
+            <p class="glf-total" id="glf-total" aria-live="polite"></p>
+        </div>
+        <div class="card-body">
+            <p class="mb-help glf-lede">Each goal is a number and the target it should reach. It's <strong>on target</strong> when it meets the target, <strong>at risk</strong> when it only meets the at-risk line, and <strong>missed</strong> otherwise. Drag the handle, or use ↑ and ↓, to move a goal, including into another section. Click a column heading to sort that section; you can undo it, and nothing changes until you save.</p>
+            {% if form.sections.errors %}<div class="crud-form-errors" role="alert">{% for e in form.sections.errors %}<p class="crud-error">{{ e }}</p>{% endfor %}</div>{% endif %}
+            <div class="glf-sections" id="glf-sections" aria-labelledby="glf-title"></div>
+            <p class="mb-help glf-empty" id="glf-empty">No goals yet. Add a section, then add goals to it.</p>
+            <div class="glf-add-section">
+                <button type="button" class="btn-outline btn-sm" id="glf-add-section">Add section</button>
+                <span class="mb-help" id="glf-shared-note" hidden>A shared list offers only shared metrics and cards.</span>
+            </div>
+            {{ form.sections }}
+        </div>
+    </div>
+
+    <div style="display: flex; gap: 0.5rem; margin-bottom: 2rem;">
+        <button type="submit" class="btn-primary">{% if object %}Save goals{% else %}Create goal list{% endif %}</button>
+        <a href="{% if object %}{{ object.get_absolute_url }}{% else %}{% url 'dashboards/goals-list' %}{% endif %}" class="btn-outline">Cancel</a>
+    </div>
+</form>
+{% endblock %}
+
+{% block extra_js %}<script src="{% static 'dashboards/js/goal-list-form.js' %}" defer></script>{% endblock %}

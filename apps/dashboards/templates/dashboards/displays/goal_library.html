@@ -1,0 +1,72 @@
+{% load static theme_tags crud_tags %}
+{% comment %}
+GoalListLibraryDisplay — goal lists as a table: what each holds, how it's
+doing (a summary line loaded per row as it scrolls into view), the period it
+judges over. Name, period and updated sort (the CRUD list's ?ordering=);
+every column resizes with table-resize.js.
+{% endcomment %}
+<link rel="stylesheet" href="{% static 'dashboards/css/dashboards.css' %}">
+{% if rows %}
+<div class="crud-table-wrap">
+<table class="crud-table lib-table gll-table" data-table-key="dashboards/goals:name,goals,status,default_period,updated_at">
+    <thead>
+        <tr>
+            {% sortable_th "name" "Name" target="#crud-list-content" %}
+            <th scope="col" data-field="goals" class="gll-goals-col"><span>Goals</span>{% include "smallstack/crud/includes/col_resizer.html" with label="Goals" %}</th>
+            <th scope="col" data-field="status" class="gll-status-col"><span>Right now</span>{% include "smallstack/crud/includes/col_resizer.html" with label="Right now" %}</th>
+            {% sortable_th "default_period" "Judged over" target="#crud-list-content" %}
+            {% sortable_th "updated_at" "Updated" target="#crud-list-content" align="right" %}
+            <th scope="col" class="lib-actions-col"><span class="sr-only">Actions</span></th>
+        </tr>
+    </thead>
+    <tbody>
+    {% for r in rows %}{% with g=r.obj %}
+        <tr>
+            <td class="lib-name-cell">
+                <a href="{{ r.url }}" class="lib-name">{{ g.name }}</a>
+                {% if g.is_shared %}<span class="dash-badge dash-badge--shared">Shared</span>{% else %}<span class="dash-badge">Personal</span>{% endif %}
+                {% if g.description %}<span class="lib-sub" title="{{ g.description }}">{{ g.description }}</span>{% endif %}
+            </td>
+            <td class="lib-wrap-cell">
+                <span>{{ r.count }} goal{{ r.count|pluralize }}{% if r.sections > 1 %} in {{ r.sections }} sections{% endif %}</span>
+                {% if r.titles %}<span class="lib-sub" title="{{ r.titles|join:', ' }}">{{ r.titles|join:", " }}</span>{% endif %}
+            </td>
+            <td class="lib-wrap-cell">{% if r.count %}<span hx-get="{{ r.digest_url }}" hx-trigger="revealed" hx-swap="innerHTML" aria-live="polite"><span class="rl-moves-when">Checking…</span></span>{% else %}<span class="dash-muted">—</span>{% endif %}</td>
+            <td>{{ r.judged }}</td>
+            <td class="num"><time datetime="{{ g.updated_at|date:'c' }}">{{ g.updated_at|date:"M j" }}</time></td>
+            <td class="lib-actions">
+                {% if r.count %}
+                <a href="{{ r.weeks_url }}" class="ml-iconbtn" aria-label="{{ g.name }}, week by week" title="Weeks">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 4h-1V2h-2v2H8V2H6v2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2zm0 16H5V9h14v11zM7 11h4v4H7z"/></svg>
+                </a>
+                <a href="{{ r.url }}?present=1" class="ml-iconbtn" aria-label="Present {{ g.name }}" title="Present">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 3H3a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h7v2H8v2h8v-2h-2v-2h7a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2zm0 13H3V5h18v11z"/></svg>
+                </a>
+                {% endif %}
+                {% if r.edit_url %}
+                <a href="{{ r.edit_url }}" class="ml-iconbtn" aria-label="Edit {{ g.name }}" title="Edit goals">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zm17.71-10.21a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
+                </a>
+                {% endif %}
+                {% if r.delete_url %}
+                <a href="{{ r.delete_url }}" class="ml-iconbtn ml-iconbtn--danger" aria-label="Delete {{ g.name }}" title="Delete">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 19a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
+                </a>
+                {% endif %}
+            </td>
+        </tr>
+    {% endwith %}{% endfor %}
+    </tbody>
+</table>
+</div>
+{% elif has_active_filters %}
+{% include "smallstack/crud/includes/empty_state.html" %}
+{% else %}
+<div class="ml-empty">
+    <p><strong>No goal lists yet.</strong> A goal list puts your key numbers against their targets, in sections, so a meeting can read down it: on target, at risk, missed.</p>
+    {% if create_view_url %}<a href="{{ create_view_url }}" class="btn-primary btn-sm">New goal list</a>{% endif %}
+</div>
+{% endif %}
+{% if is_paginated or page_sizes and page_obj %}
+{% render_paginator page_obj "#crud-display-area" %}
+{% endif %}

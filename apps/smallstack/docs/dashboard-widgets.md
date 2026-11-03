@@ -4,6 +4,8 @@
 
 The SmallStack dashboard at `/smallstack/` is a grid of at-a-glance cards. Each card is a **widget** — a small piece of Python that returns a headline, a detail line, and a link. You can add your own without editing base code.
 
+The page is a regular [dashboard](/smallstack/help/dashboards/). Staff can choose **Edit layout** to drag, resize and remove cards, or to add metric and note cards beside them. A widget your app publishes shows up on it automatically the first time; if someone removes the card, it stays removed until they add it back with **Add card → App card**. The same card can go on any other dashboard too.
+
 ## Two Ways to Add a Widget
 
 ### 1. Attach to an Explorer model

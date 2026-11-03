@@ -1,0 +1,8 @@
+{% comment %}An info card: the /smallstack/ widget card, inside the card's style hooks (card_style → cs-…). A card with its own colour rules carries its state as cs-state-….{% endcomment %}
+{% if error %}
+<div class="dash-message dash-message--error"><strong>Widget unavailable</strong>{{ error }}</div>
+{% else %}
+<div class="{{ style.classes|default:'card-style' }} cs-widget{% if state %} cs-state-{{ state }}{% endif %}">
+{% include "smallstack/widgets/card.html" %}
+</div>
+{% endif %}

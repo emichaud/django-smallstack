@@ -18,6 +18,7 @@ When the user asks you to do any of these, read the matching skill file BEFORE w
 | Add keyword search + an MCP search tool to a model | `docs/skills/search.md` |
 | Expose a filtered queryset as typed rows/columns for a dashboard/report/chart UI (`@dataset`) | `docs/skills/datasets.md` |
 | Put due dates / expiries / maintenance windows on the shared **calendar** (`@calendar_dataset`, saved views, `.ics`), or drop a calendar onto **your own page or a dashboard** (`{% calendar_card %}`, the `calendar` card) | `docs/skills/calendar.md` |
+| Build a **KPI**, a grid **dashboard**, a **KPI report** or a **goal list** over datasets — stored filter trees → values (or have an agent build one via MCP/REST) | `docs/skills/dashboards.md` |
 | Add stat cards / metric tiles + drill-down modals to a dashboard page | `docs/skills/dashboard-cards.md` |
 | Add a dashboard widget (the central `/smallstack/` dashboard) | `docs/skills/dashboard-widgets.md` |
 | Monitor a subsystem's uptime/health on `/smallstack/status/` (Service + Monitor, or a status chart) | `docs/skills/status-monitors.md` |
@@ -87,6 +88,7 @@ All custom apps in `apps/`, registered as `apps.<name>`:
 - `apps/webhooks/` — Outbound event delivery (`enable_webhooks`) + inbound receivers (`@webhook_handler`) at `/smallstack/webhooks/`
 - `apps/blog/` — Blogs + newsletters (label: `smallstack_blog`); console at `/smallstack/blog/` (lands on the posts list), public reading at `/blog/`
 - `apps/calendar/` — Calendar (label: `smallstack_calendar`): datasets with a date axis merged on one grid at `/smallstack/calendar/`, saved views, events + `.ics` API; `{% calendar_card %}` + a `calendar` dashboard card put one on any page
+- `apps/dashboards/` — Dashboards (label: `smallstack_dashboards`): Metrics (stored filter trees over datasets → KPI values), grid dashboards, KPI reports, goal lists (targets judged on target / at risk / missed, with a meeting view) at `/smallstack/dashboards/`; `{% metric_card %}`; MCP agent tools
 - `apps/website/` — Project-specific pages — **edit freely** (the others are framework-provided)
 
 Settings split in `config/settings/`:

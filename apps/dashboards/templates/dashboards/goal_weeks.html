@@ -1,0 +1,84 @@
+{% extends "smallstack/base.html" %}
+{% load static theme_tags %}
+{% comment %}
+GoalWeeksView — a goal list week by week. One week at a time (its snapshot,
+or worked out now), or goals down and weeks across (?view=grid, the
+spreadsheet; ?format=csv downloads it). Arrows and the picker swap #gw-page in
+place; each week has a Trends button (the global modal).
+{% endcomment %}
+
+{% block title %}{{ goal_list.name }}, weeks{% endblock %}
+{% block breadcrumbs %}{% endblock %}
+{% block extra_css %}<link rel="stylesheet" href="{% static 'dashboards/css/dashboards.css' %}">{% endblock %}
+
+{% block page_header %}
+<div class="page-header-bleed page-header-with-actions">
+    <div class="page-header-content">
+        <h1>{{ goal_list.name }}, week by week</h1>
+        <p class="page-subtitle">Each week's values against their targets, kept as they were once the week is saved.</p>
+        <nav style="margin-top: 0.5rem; font-size: 0.8rem;" aria-label="Breadcrumb">
+            <a href="{% url 'website:home' %}" style="color: var(--body-quiet-color); text-decoration: none;">Home</a>
+            <span style="color: var(--body-quiet-color); margin: 0 0.3rem;">/</span>
+            <a href="{% url 'goals_index' %}" style="color: var(--body-quiet-color); text-decoration: none;">Goals</a>
+            <span style="color: var(--body-quiet-color); margin: 0 0.3rem;">/</span>
+            <a href="{{ goal_list.get_absolute_url }}" style="color: var(--body-quiet-color); text-decoration: none;">{{ goal_list.name }}</a>
+            <span style="color: var(--body-quiet-color); margin: 0 0.3rem;">/</span>
+            <span style="color: var(--body-fg);">Weeks</span>
+        </nav>
+    </div>
+    <div style="display: flex; gap: 0.5rem; align-items: center;">
+        <a href="{{ goal_list.get_absolute_url }}" class="btn-outline btn-sm">Meeting view</a>
+        <a href="?view=grid&amp;week={{ start|date:'Y-m-d' }}{% if order %}&amp;order={{ order }}{% endif %}&amp;format=csv" class="btn-outline btn-sm" id="gw-csv" download>Download CSV</a>
+    </div>
+</div>
+{% endblock %}
+
+{% block content %}
+{% url 'dashboards_goal_weeks' goal_list.slug as base %}
+<div id="gw-page">
+<div class="gw-toolbar">
+    <nav class="ix-view" aria-label="Show">
+        <a href="{{ base }}?week={{ start|date:'Y-m-d' }}" class="ix-view-btn"{% if view == "week" %} aria-current="true"{% endif %} hx-get="{{ base }}?week={{ start|date:'Y-m-d' }}" hx-select="#gw-page" hx-target="#gw-page" hx-swap="outerHTML" hx-push-url="true"><span>One week</span></a>
+        <a href="{{ base }}?view=grid&amp;week={{ start|date:'Y-m-d' }}" class="ix-view-btn"{% if view == "grid" %} aria-current="true"{% endif %} hx-get="{{ base }}?view=grid&amp;week={{ start|date:'Y-m-d' }}" hx-select="#gw-page" hx-target="#gw-page" hx-swap="outerHTML" hx-push-url="true"><span>Week over week</span></a>
+    </nav>
+    {% if view == "grid" %}{% with prev=grid.prev next=grid.next %}{% include "dashboards/partials/goal_week_nav.html" %}{% endwith %}{% else %}{% with prev=week.prev next=week.next %}{% include "dashboards/partials/goal_week_nav.html" %}{% endwith %}{% endif %}
+</div>
+
+{% if not goal_list.goals %}
+{% include "smallstack/includes/empty_state.html" with title="No goals yet" body="Add goals to the list to see them week by week." %}
+{% elif view == "grid" %}
+{# ── Week over week: goals down, weeks across ── #}
+{% include "dashboards/partials/goal_week_grid.html" %}
+<p class="dash-muted gw-note">Saved weeks show the values and targets as they were. Other weeks are worked out now against today's targets. Click a week to open it on its own.</p>
+{% else %}
+{# ── One week ── #}
+<div class="gw-status">
+    <p class="gw-status-text">
+        {% if week.snapshot %}<span class="gw-saved">Saved</span> {{ week.snapshot.taken_at|date:"M j, Y, H:i" }}{% if week.snapshot.taken_by %} by {{ week.snapshot.taken_by }}{% else %} automatically{% endif %}{% if not week.snapshot.complete %}, part-way through the week{% endif %}. These are the values and targets as they were then.
+        {% elif week.state == "current" %}This week so far, worked out now. It's saved automatically next Monday.
+        {% else %}Not saved: worked out now against today's targets.{% endif %}
+    </p>
+    <div class="gw-status-actions">
+        <button type="button" class="btn-outline btn-sm" hx-get="{% url 'dashboards_goal_week_trends' goal_list.slug start|date:'Y-m-d' %}" hx-target="#stat-modal-body" hx-swap="innerHTML" data-stat-modal="Trends around the week of {{ week.label }}" aria-haspopup="dialog">Trends around this week</button>
+        {% if can_edit %}
+        <form method="post" action="{% url 'dashboards_goal_week_snapshot' goal_list.slug start|date:'Y-m-d' %}">{% csrf_token %}<button type="submit" class="btn-outline btn-sm">{% if week.snapshot %}Save again{% else %}Save this week{% endif %}</button></form>
+        {% endif %}
+    </div>
+</div>
+{% if week.rows %}
+{% include "dashboards/includes/goals_board.html" with sections=week.sections summary=week.summary attention=week.attention has_changes=week.has_changes has_trends=False heading=week.heading %}
+{% endif %}
+{% if can_edit %}
+<form method="post" action="{% url 'dashboards_goal_week_snapshot' goal_list.slug start|date:'Y-m-d' %}" class="gw-fill">
+    {% csrf_token %}
+    <label for="gw-fill-n">Save past weeks that have no snapshot yet:</label>
+    <select name="fill" id="gw-fill-n" class="vTextField"><option value="4">The last 4</option><option value="8" selected>The last 8</option><option value="13">The last 13</option><option value="26">The last 26</option></select>
+    <button type="submit" class="btn-outline btn-sm">Save them</button>
+    <span class="mb-help">They're judged against today's targets. {{ snapshot_count }} week{{ snapshot_count|pluralize }} saved so far.</span>
+</form>
+{% endif %}
+{% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}<script src="{% static 'dashboards/js/dashboard.js' %}" defer></script>{% endblock %}

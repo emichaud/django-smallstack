@@ -1,0 +1,16 @@
+{% extends "smallstack/base.html" %}
+{% load static %}
+{% block title %}Add {{ obj.name }} to goals{% endblock %}
+{% block breadcrumbs %}{% endblock %}
+{% block extra_css %}<link rel="stylesheet" href="{% static 'dashboards/css/dashboards.css' %}">{% endblock %}
+{% block page_header %}
+<div class="page-header-bleed">
+    <div class="page-header-content">
+        <h1>Add to goals</h1>
+        <p class="page-subtitle">Put {{ obj.name }} on a goal list, with the number it should reach.</p>
+    </div>
+</div>
+{% endblock %}
+{% block content %}
+<div class="card gla-page"><div class="card-body">{% include "dashboards/partials/goal_add_form.html" %}</div></div>
+{% endblock %}

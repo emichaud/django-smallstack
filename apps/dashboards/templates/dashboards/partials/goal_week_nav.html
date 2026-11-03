@@ -1,0 +1,18 @@
+{% comment %}Moving between weeks: previous / the week (a picker; ● marks a saved week) / next / this week. Swaps #gw-page in place.{% endcomment %}
+<nav class="gw-nav" aria-label="Week">
+    <a href="{{ base }}?week={{ prev|date:'Y-m-d' }}{% if view == 'grid' %}&amp;view=grid{% if order %}&amp;order={{ order }}{% endif %}{% endif %}" class="pl-btn" hx-get="{{ base }}?week={{ prev|date:'Y-m-d' }}{% if view == 'grid' %}&amp;view=grid{% if order %}&amp;order={{ order }}{% endif %}{% endif %}" hx-select="#gw-page" hx-target="#gw-page" hx-swap="outerHTML" hx-push-url="true" aria-label="Previous week" title="Previous week">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15.4 7.4 14 6l-6 6 6 6 1.4-1.4L10.8 12z"/></svg>
+    </a>
+    <form method="get" action="{{ base }}" class="gw-pick" hx-get="{{ base }}" hx-trigger="change" hx-select="#gw-page" hx-target="#gw-page" hx-swap="outerHTML" hx-push-url="true">
+        {% if view == "grid" %}<input type="hidden" name="view" value="grid">{% if order %}<input type="hidden" name="order" value="{{ order }}">{% endif %}{% endif %}
+        <label class="sr-only" for="gw-week">Week</label>
+        <select id="gw-week" name="week" class="vTextField">
+            {% for c in choices %}<option value="{{ c.start|date:'Y-m-d' }}"{% if c.current %} selected{% endif %}>{% if c.snapshot %}● {% endif %}{% if view == "grid" %}Up to the week of {% else %}Week of {% endif %}{{ c.label }}{% if c.this_week %} (this week){% endif %}</option>{% endfor %}
+        </select>
+        <noscript><button type="submit" class="btn-outline btn-sm">Go</button></noscript>
+    </form>
+    {% if next %}<a href="{{ base }}?week={{ next|date:'Y-m-d' }}{% if view == 'grid' %}&amp;view=grid{% if order %}&amp;order={{ order }}{% endif %}{% endif %}" class="pl-btn" hx-get="{{ base }}?week={{ next|date:'Y-m-d' }}{% if view == 'grid' %}&amp;view=grid{% if order %}&amp;order={{ order }}{% endif %}{% endif %}" hx-select="#gw-page" hx-target="#gw-page" hx-swap="outerHTML" hx-push-url="true" aria-label="Next week" title="Next week">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8.6 16.6 10 18l6-6-6-6-1.4 1.4 4.6 4.6z"/></svg>
+    </a>{% else %}<span class="pl-btn is-disabled" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M8.6 16.6 10 18l6-6-6-6-1.4 1.4 4.6 4.6z"/></svg></span>{% endif %}
+    {% if next %}<a href="{{ base }}{% if view == 'grid' %}?view=grid{% endif %}" class="md-link gw-now" hx-get="{{ base }}{% if view == 'grid' %}?view=grid{% endif %}" hx-select="#gw-page" hx-target="#gw-page" hx-swap="outerHTML" hx-push-url="true">This week</a>{% endif %}
+</nav>

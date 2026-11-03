@@ -1,0 +1,146 @@
+{% extends "smallstack/base.html" %}
+{% load static dashboard_tags %}
+
+{% block title %}{{ dashboard.name }}{% endblock %}
+{% block breadcrumbs %}{% endblock %}
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'dashboards/vendor/gridstack/gridstack.min.css' %}">
+<link rel="stylesheet" href="{% static 'dashboards/css/dashboards.css' %}">
+{% component_media %}
+{% endblock %}
+
+{% block page_header %}
+<div class="page-header-bleed page-header-with-actions">
+    <div class="page-header-content">
+        <div class="dash-title">
+            <span class="dash-title-picture">{% include "dashboards/includes/board_picture.html" with d=dashboard %}</span>
+            <h1>{{ dashboard.name }}</h1>
+        </div>
+        {% if dashboard.description %}<p class="page-subtitle">{{ dashboard.description }}</p>{% endif %}
+        <nav style="margin-top: 0.5rem; font-size: 0.8rem;">
+            <a href="{% url 'website:home' %}" style="color: var(--body-quiet-color); text-decoration: none;">Home</a>
+            <span style="color: var(--body-quiet-color); margin: 0 0.3rem;">/</span>
+            <a href="{% url 'dashboards_index' %}" style="color: var(--body-quiet-color); text-decoration: none;">Dashboards</a>
+            <span style="color: var(--body-quiet-color); margin: 0 0.3rem;">/</span>
+            <span style="color: var(--body-fg);">{{ dashboard.name }}</span>
+        </nav>
+    </div>
+    <div style="display: flex; gap: 0.5rem; align-items: center;">
+        {% if dashboard.is_shared %}<span class="dash-badge dash-badge--shared">Shared</span>{% else %}<span class="dash-badge">Personal · {{ dashboard.owner }}</span>{% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block content %}
+<div id="dash-page" data-layout-url="{% url 'dashboards_layout' dashboard.slug %}" data-schema-url="{% url 'dashboards_api_dataset_schema' 'DATASET' %}">
+    {% csrf_token %}
+    <div class="dash-toolbar">
+        {% if has_period_cells %}{# no card reads a period (widgets, notes): no period bar #}
+        <nav class="md-periods dash-view-only" aria-label="Period">
+            {% for p in quick_periods %}<a href="?period={{ p.key }}" class="md-period"{% if p.current %} aria-current="true"{% endif %}>{{ p.label }}</a>{% endfor %}
+            <form method="get" class="md-more">
+                <label class="sr-only" for="dash-period-select">Other periods</label>
+                <select id="dash-period-select" name="period"{% if period_more_current %} class="is-current"{% endif %}>
+                    <option value="">More ▾</option>
+                    {% for key, label in more_periods %}<option value="{{ key }}"{% if key == period %} selected{% endif %}>{{ label }}</option>{% endfor %}
+                </select>
+                <noscript><button type="submit" class="btn-outline btn-sm">Go</button></noscript>
+            </form>
+        </nav>
+        {% endif %}
+        <span class="dash-spacer"></span>
+        <span class="dash-fresh dash-view-only">
+            <span id="dash-updated" aria-live="polite">Updated just now</span>{% if dashboard.refresh_seconds %}, refreshes every {{ dashboard.refresh_seconds }}s{% endif %}
+            <button type="button" class="dash-text-btn" id="dash-refresh">Refresh</button>
+        </span>
+        {% if can_edit %}
+        <span class="dash-view-only">
+            <a href="{% url 'dashboards/boards-update' dashboard.pk %}" class="btn-outline btn-sm">Settings</a>
+            <button type="button" class="btn-primary btn-sm" id="dash-edit">Edit layout</button>
+        </span>
+        {% endif %}
+    </div>
+    {% if can_edit %}
+    <div class="dash-edit-band" role="region" aria-label="Arranging cards">
+        <p><strong>Arranging cards.</strong> Drag a card to move it, drag its corner to resize. Changes apply when you save.</p>
+        <span class="dash-edit-bar">
+            <button type="button" class="btn-outline btn-sm" id="dash-add">Add card</button>
+            <button type="button" class="btn-outline btn-sm" id="dash-cancel">Cancel</button>
+            <button type="button" class="btn-primary btn-sm" id="dash-save">Save layout</button>
+        </span>
+    </div>
+    {% endif %}
+
+    <div class="dash-errors" id="dash-errors" role="alert"></div>
+
+    {% if cells %}
+    <div class="grid-stack" id="dash-grid">
+        {% for cell in cells %}
+        <div class="grid-stack-item" gs-id="{{ cell.id }}" gs-x="{{ cell.x }}" gs-y="{{ cell.y }}" gs-w="{{ cell.w }}" gs-h="{{ cell.h }}">
+            <div class="grid-stack-item-content">
+                <div class="dash-cell dash-cell--{{ cell.type }}" data-cell-id="{{ cell.id }}">
+                    {% if can_edit %}<div class="dash-cell-tools"><button type="button" data-remove="{{ cell.id }}" aria-label="Remove this {{ cell.type_label }} card">Remove</button></div>{% endif %}
+                    <div class="dash-cell-body" hx-get="{% url 'dashboards_cell' dashboard.slug cell.id %}?period={{ period }}" hx-trigger="load, dash-refresh{% if dashboard.refresh_seconds %}, every {{ dashboard.refresh_seconds }}s{% endif %}" hx-swap="innerHTML">
+                        <span class="dash-cell-loading">Loading…</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="grid-stack" id="dash-grid"></div>
+    {% if can_edit %}
+    {% include "smallstack/includes/empty_state.html" with title="This dashboard is empty" body="Click <strong>Edit layout</strong>, then <strong>Add card</strong> to place a metric. Cards can be dragged and resized." %}
+    {% else %}
+    {% include "smallstack/includes/empty_state.html" with title="This dashboard is empty" body="Its owner hasn't added any cards yet." %}
+    {% endif %}
+    {% endif %}
+</div>
+
+{% if can_edit %}
+{{ editor|json_script:"dash-editor-data" }}
+<dialog class="dash-dialog" id="dash-add-dialog" aria-labelledby="dash-add-title">
+    <form method="dialog" id="dash-add-form">
+        <h2 id="dash-add-title">Add a card</h2>
+        <label>Type
+            <select name="type" class="vTextField" id="dash-add-type"></select>
+        </label>
+        <label data-for="component">Saved card
+            <select name="component" class="vTextField" id="dash-add-component"></select>
+        </label>
+        <p class="dash-hint" data-for="component">Built in the <a href="{% url 'dashboards/components-list' %}">component builder</a>. Editing it there updates it here too.</p>
+        <p class="dash-hint" id="dash-add-type-help"></p>
+        <label data-for="metric">Metric
+            <select name="metric" class="vTextField" id="dash-add-metric"></select>
+        </label>
+        <p class="dash-hint" data-for="metric">Don't see it? <a href="{% url 'dashboards/metrics-create' %}">Build a metric</a> first.</p>
+        <label data-for="dimension">Group by
+            <select name="dimension" class="vTextField" id="dash-add-dimension"></select>
+        </label>
+        <label data-for="limit">Groups shown
+            <input type="number" name="limit" min="1" max="12" value="5" class="vTextField">
+        </label>
+        <label data-for="widget">Widget
+            <select name="widget" class="vTextField" id="dash-add-widget"></select>
+        </label>
+        <label data-for="markdown">Markdown
+            <textarea name="markdown" rows="4" class="vTextField"></textarea>
+        </label>
+        <div id="dash-add-options"></div>
+        <label>Title <span class="dash-hint">(optional; defaults to the metric's name)</span>
+            <input type="text" name="title" maxlength="120" class="vTextField">
+        </label>
+        <div class="dash-dialog-actions">
+            <button type="button" class="btn-outline btn-sm" id="dash-add-cancel">Cancel</button>
+            <button type="submit" class="btn-primary btn-sm" value="add">Add card</button>
+        </div>
+    </form>
+</dialog>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'dashboards/vendor/gridstack/gridstack-all.min.js' %}" defer></script>
+<script src="{% static 'dashboards/js/dashboard.js' %}" defer></script>
+{% endblock %}

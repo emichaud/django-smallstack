@@ -1,0 +1,19 @@
+{% comment %}One playlist slide (PlaylistSlideView, and the player's first slide): a dashboard laid out as {% dashboard %} lays it out, or a goal list: judged now, last week, or week over week.{% endcomment %}
+<div class="pl-slide" data-position="{{ slide.position }}">
+    {% if slide.kind == "goals" %}
+    {% load static %}<link rel="stylesheet" href="{% static 'dashboards/css/dashboards.css' %}">
+    <section class="gl-slide" aria-label="{{ slide.name }}">
+        {% if embed.show == "week" %}{% with w=embed.week %}
+        <p class="gl-slide-when">Week of {{ w.label }}{% if w.snapshot %}, <span class="gw-saved">Saved</span>{% else %}, worked out now{% endif %}</p>
+        {% include "dashboards/includes/goals_board.html" with goal_list=embed.goal_list sections=w.sections summary=w.summary attention=w.attention heading=w.heading has_changes=w.has_changes has_trends=False slide=True %}
+        {% endwith %}{% elif embed.show == "weeks" %}
+        {% url 'dashboards_goal_weeks' embed.goal_list.slug as base %}
+        {% include "dashboards/partials/goal_week_grid.html" with goal_list=embed.goal_list grid=embed.grid start=embed.grid.last base=base %}
+        {% else %}
+        {% include "dashboards/includes/goals_board.html" with goal_list=embed.goal_list sections=embed.sections summary=embed.summary attention=embed.attention heading=embed.heading has_changes=embed.has_changes has_trends=embed.has_trends slide=True %}
+        {% endif %}
+    </section>
+    {% else %}
+    {% include "dashboards/includes/embed.html" with embed=embed title=False %}
+    {% endif %}
+</div>

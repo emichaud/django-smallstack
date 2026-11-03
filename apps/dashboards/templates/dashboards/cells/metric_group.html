@@ -1,0 +1,24 @@
+<div class="{{ style.classes|default:'card-style' }} cs-group">
+<div class="dash-cell-head">
+    <a href="{{ metric.get_absolute_url }}" class="dash-cell-title">{{ label }}{% if not period and cell.use_period is False and metric.period_field %} (all time){% endif %}</a>
+    <span class="dash-spacer"></span>
+    {% if total and total.ok %}<span class="dash-cell-total">{{ total.display }}{% if total.unit %} {{ total.unit }}{% endif %} total</span>{% endif %}
+</div>
+{% if restricted %}
+<div class="dash-message"><strong>Restricted</strong>You don't have access to this metric's data.</div>
+{% elif error %}
+<div class="dash-message dash-message--error"><strong>Can't show this card</strong>{{ error }}</div>
+{% elif not groups %}
+<div class="dash-message">Nothing matches.</div>
+{% else %}
+<div class="dash-groups">
+    {% for g in groups %}
+    <button type="button" class="dash-group{% if g.other %} dash-group--other{% elif g.state %} dash-group--{{ g.state }}{% endif %}" hx-get="{{ g.drill_url }}" hx-target="#stat-modal-body" hx-swap="innerHTML" data-stat-modal="{{ label }} — {{ g.label }}" aria-haspopup="dialog" aria-label="{{ g.label }}: {{ g.display }}{% if g.change %}, {{ g.change.text }}{% endif %}, show the rows">
+        <span class="dash-group-value">{{ g.display }}</span>
+        <span class="dash-group-label" title="{{ g.label }}">{{ g.label }}</span>
+        {% if g.change %}<span class="dash-group-change" title="{{ g.change.text }}"><span aria-hidden="true">{% if g.change.dir == "up" %}▲{% elif g.change.dir == "down" %}▼{% else %}={% endif %}</span> {{ g.change.short }}</span>{% endif %}
+    </button>
+    {% endfor %}
+</div>
+{% endif %}
+</div>

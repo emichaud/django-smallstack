@@ -1,0 +1,80 @@
+{% load static theme_tags crud_tags %}
+{% comment %}MetricLibraryDisplay — each metric with its filter in words, its source, where it's used and its live value.{% endcomment %}
+<link rel="stylesheet" href="{% static 'dashboards/css/dashboards.css' %}">
+<script src="{% static 'dashboards/js/dashboard.js' %}" defer></script>
+{% url "dashboards_goal_add" as goal_add %}{% if rows %}
+<nav class="md-periods ml-periods" aria-label="Period for the values">
+    <span class="ml-periods-label">Values for {{ period_heading }}</span>
+    {% for p in period_links %}<a href="{{ p.url }}" class="md-period" hx-get="{{ p.url }}" hx-target="#crud-list-content" hx-swap="innerHTML" hx-push-url="true"{% if p.current %} aria-current="true"{% endif %}>{{ p.label }}</a>{% endfor %}
+</nav>
+{% comment %}A crud-table: Name, Data and Updated sort (the CRUD list's ?ordering=, kept by the period links and vice versa); every column resizes with table-resize.js. Values are live, so they don't sort.{% endcomment %}
+<div class="crud-table-wrap">
+<table class="crud-table lib-table ml-table" data-table-key="dashboards/metrics:name,dataset,used,value,updated_at">
+    <thead>
+        <tr>
+            {% sortable_th "name" "Name" target="#crud-list-content" %}
+            {% sortable_th "dataset" "Data" target="#crud-list-content" %}
+            <th scope="col" data-field="used" class="ml-used-col"><span>Used in</span>{% include "smallstack/crud/includes/col_resizer.html" with label="Used in" %}</th>
+            <th scope="col" data-field="value" class="ml-value-col th-right"><span>Value</span>{% include "smallstack/crud/includes/col_resizer.html" with label="Value" %}</th>
+            {% sortable_th "updated_at" "Updated" target="#crud-list-content" align="right" %}
+            <th scope="col" class="lib-actions-col"><span class="sr-only">Actions</span></th>
+        </tr>
+    </thead>
+    <tbody>
+    {% for r in rows %}{% with m=r.obj res=r.result %}
+        <tr>
+            <td class="lib-name-cell">
+                <a href="{{ r.url }}" class="lib-name">{{ m.name }}</a>
+                {% if not m.is_shared %}<span class="dash-badge">Personal</span>{% endif %}
+                <span class="lib-sub" title="{{ r.reading }}">{{ r.reading }}</span>
+            </td>
+            <td class="lib-wrap-cell">
+                <span class="{% if r.source_missing %}rp-bad{% endif %}">{{ r.source }}</span>
+                <span class="lib-sub">{{ r.how }}{% if r.period_aware %}, by period{% endif %}</span>
+            </td>
+            <td class="lib-wrap-cell">{% if r.used.text %}<span title="{{ r.used.names }}">{{ r.used.text }}</span>{% else %}<span class="ml-unused">Not used yet</span>{% endif %}</td>
+            <td class="num ml-value">
+                {% if res.restricted %}<span class="rp-quiet">Restricted</span>
+                {% elif res.error %}<span class="rp-bad" title="{{ res.error }}">Can't evaluate</span>
+                {% else %}<span class="rp-value{% if res.state %} rp-value--{{ res.state }}{% endif %}">{{ res.display }}{% if res.unit %}<span class="rp-unit">{{ res.unit }}</span>{% endif %}</span>
+                {% if r.all_time %}<span class="ix-compare" title="This metric has no period field">all time</span>
+                {% elif r.comparison %}<span class="ix-compare"><span aria-hidden="true">{% if r.comparison.dir == "up" %}▲{% elif r.comparison.dir == "down" %}▼{% else %}={% endif %}</span> {% if r.comparison.dir == "up" %}<span class="sr-only">Up </span>{% elif r.comparison.dir == "down" %}<span class="sr-only">Down </span>{% endif %}{{ r.comparison.text }}</span>{% endif %}
+                {% endif %}
+            </td>
+            <td class="num"><time datetime="{{ m.updated_at|date:'c' }}">{{ m.updated_at|date:"M j" }}</time></td>
+            <td class="lib-actions">
+                <a href="{{ goal_add }}?metric={{ m.key }}" class="ml-iconbtn" aria-label="Add {{ m.name }} to goals" title="Add to goals"
+                   hx-get="{{ goal_add }}?metric={{ m.key }}" hx-target="#stat-modal-body" hx-swap="innerHTML" aria-haspopup="dialog" data-stat-modal="Add {{ m.name }} to goals">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm0 18a8 8 0 1 1 0-16 8 8 0 0 1 0 16zm0-14a6 6 0 1 0 0 12 6 6 0 0 0 0-12zm0 10a4 4 0 1 1 0-8 4 4 0 0 1 0 8zm0-6a2 2 0 1 0 0 4 2 2 0 0 0 0-4z"/></svg>
+                </a>
+                {% if r.edit_url %}
+                <a href="{{ r.edit_url }}" class="ml-iconbtn" aria-label="Edit {{ m.name }}" title="Edit">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zm17.71-10.21a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
+                </a>
+                {% endif %}
+                {% if r.delete_url %}
+                {% comment %}Opens the delete confirmation (which dashboards and reports would break) in the global modal; without JS, the same confirmation as a page.{% endcomment %}
+                <a href="{{ r.delete_url }}" class="ml-iconbtn ml-iconbtn--danger" aria-label="Delete {{ m.name }}" title="Delete"
+                   hx-get="{{ r.delete_url }}" hx-target="#stat-modal-body" hx-swap="innerHTML" aria-haspopup="dialog"
+                   data-stat-modal="Delete {{ m.name }}?">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 19a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
+                </a>
+                {% endif %}
+            </td>
+        </tr>
+    {% endwith %}{% endfor %}
+    </tbody>
+</table>
+</div>
+<p class="ml-foot">Values are computed live for {{ period_heading }}. Open a metric for its rows and every period.</p>
+{% elif has_active_filters %}
+{% include "smallstack/crud/includes/empty_state.html" %}
+{% else %}
+<div class="ml-empty">
+    <p><strong>No metrics yet.</strong> A metric is a saved filter over a dataset, rolled up to one number, such as open tickets, errors this week or average latency.</p>
+    {% if create_view_url %}<a href="{{ create_view_url }}" class="btn-primary btn-sm">New metric</a>{% endif %}
+</div>
+{% endif %}
+{% if is_paginated or page_sizes and page_obj %}
+{% render_paginator page_obj "#crud-display-area" %}
+{% endif %}

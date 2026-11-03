@@ -1,0 +1,5 @@
+{% comment %}One header of a goal list's section table: `key`, `label`, `cls`. On a page (`sort_links`, not a slide) it resizes, and sorts unless `fixed`; the sort link keeps the period and swaps `swap` in place.{% endcomment %}
+{% load theme_tags dashboard_tags %}{% with s=sort_links|index_key:key %}<th scope="col" class="{{ cls }}" data-field="{{ key }}"{% if s and not fixed and not slide %} aria-sort="{{ s.aria_sort }}"{% endif %}>
+    {% if s and not fixed and not slide %}<a class="dm-sort" href="{% querystring order=s.next %}" hx-get="{% querystring order=s.next %}" hx-select="{{ swap }}" hx-target="{{ swap }}" hx-swap="outerHTML" hx-push-url="true" title="Sort by {{ label|lower }}">{{ label }}<span class="dm-sort-ind" aria-hidden="true">{% if s.aria_sort == "ascending" %}▲{% elif s.aria_sort == "descending" %}▼{% endif %}</span></a>{% else %}{{ label }}{% endif %}
+    {% if sort_links and not slide %}{% include "smallstack/crud/includes/col_resizer.html" with label=label %}{% endif %}
+</th>{% endwith %}

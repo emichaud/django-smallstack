@@ -677,3 +677,13 @@ SMALLSTACK_BLOG_CONFIRM_MAX_AGE_DAYS = config(
     "SMALLSTACK_BLOG_CONFIRM_MAX_AGE_DAYS", default=7, cast=int
 )
 
+
+
+# ---------------------------------------------------------------------------
+# Dashboards (apps.dashboards) — metrics, grid dashboards and KPI reports
+# ---------------------------------------------------------------------------
+# Master switch. Off ⇒ no nav item, no /smallstack/dashboards/ routes (pages,
+# CRUD, JSON API), no MCP tools. The app stays installed (migrations apply) so
+# turning it back on never needs a schema change; in-process
+# ``apps.dashboards.metrics.evaluate`` and the {% metric_card %} tag keep working.
+SMALLSTACK_DASHBOARDS_ENABLED = config("SMALLSTACK_DASHBOARDS_ENABLED", default=True, cast=bool)

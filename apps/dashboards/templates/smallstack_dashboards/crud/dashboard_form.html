@@ -1,0 +1,208 @@
+{% extends "smallstack/base.html" %}
+{% load static dashboard_tags %}
+
+{% block title %}{% if object %}{{ object.name }} — settings{% else %}New dashboard{% endif %}{% endblock %}
+{% block breadcrumbs %}{% endblock %}
+{% block extra_css %}<link rel="stylesheet" href="{% static 'dashboards/css/dashboards.css' %}">{% endblock %}
+
+{% block page_header %}
+<div class="page-header-bleed page-header-with-actions">
+    <div class="page-header-content">
+        <h1>{% if object %}Dashboard settings{% else %}New dashboard{% endif %}</h1>
+        <p class="page-subtitle">{% if object %}Name, picture, default period, refresh and sharing. Cards are arranged on the dashboard itself.{% else %}Name it and pick how it opens. You'll add cards on the dashboard next.{% endif %}</p>
+        <nav style="margin-top: 0.5rem; font-size: 0.8rem;">
+            <a href="{% url 'website:home' %}" style="color: var(--body-quiet-color); text-decoration: none;">Home</a>
+            <span style="color: var(--body-quiet-color); margin: 0 0.3rem;">/</span>
+            <a href="{% url 'dashboards_index' %}" style="color: var(--body-quiet-color); text-decoration: none;">Dashboards</a>
+            <span style="color: var(--body-quiet-color); margin: 0 0.3rem;">/</span>
+            {% if object %}<a href="{{ object.get_absolute_url }}" style="color: var(--body-quiet-color); text-decoration: none;">{{ object.name }}</a>
+            <span style="color: var(--body-quiet-color); margin: 0 0.3rem;">/</span>
+            <span style="color: var(--body-fg);">Settings</span>{% else %}<span style="color: var(--body-fg);">New</span>{% endif %}
+        </nav>
+    </div>
+    {% if object %}<div><a href="{{ object.get_absolute_url }}" class="btn-outline btn-sm">Open dashboard</a></div>{% endif %}
+</div>
+{% endblock %}
+
+{% block content %}
+<form method="POST" class="crud-form" id="df-form" enctype="multipart/form-data" novalidate data-creating="{% if object %}0{% else %}1{% endif %}"{% if object %} data-values-url="{% url 'dashboards_api_board_values' object.slug %}" data-rows-url="{% url 'dashboards_metric_rows' 'METRIC' %}"{% endif %}>
+    {% csrf_token %}
+    {% if form.non_field_errors %}<div class="crud-form-errors" role="alert">{% for e in form.non_field_errors %}<p class="crud-error">{{ e }}</p>{% endfor %}</div>{% endif %}
+    <div class="mb-grid">
+        <div>
+            {# ── Identity ──────────────────────────────────────── #}
+            <div class="card mb-section">
+                <div class="card-header"><h2>Name</h2></div>
+                <div class="card-body">
+                    <div class="mb-field{% if form.name.errors %} has-error{% endif %}">
+                        <label for="{{ form.name.id_for_label }}">Name<span class="required" aria-hidden="true">*</span></label>
+                        {{ form.name }}
+                        {% for e in form.name.errors %}<p class="crud-error">{{ e }}</p>{% endfor %}
+                    </div>
+                    <div class="mb-field{% if form.slug.errors %} has-error{% endif %}">
+                        <label for="{{ form.slug.id_for_label }}">Address<span class="required" aria-hidden="true">*</span></label>
+                        <div class="df-slug">
+                            <span class="df-slug-prefix">/smallstack/dashboards/d/</span>
+                            {{ form.slug }}
+                            <span class="df-slug-prefix">/</span>
+                        </div>
+                        {% for e in form.slug.errors %}<p class="crud-error">{{ e }}</p>{% endfor %}
+                        <p class="mb-help">{% if object %}Changing it breaks bookmarks and links to this dashboard.{% else %}Filled in from the name — letters, digits and hyphens.{% endif %}</p>
+                    </div>
+                    <div class="mb-field{% if form.description.errors %} has-error{% endif %}" style="margin-bottom: 0;">
+                        <label for="{{ form.description.id_for_label }}">Description <span class="dash-muted">(optional)</span></label>
+                        {{ form.description }}
+                        <p class="mb-help">Shown under the title. One sentence on what this dashboard is for.</p>
+                    </div>
+                </div>
+            </div>
+
+            {# ── Picture ───────────────────────────────────────── #}
+            <div class="card mb-section">
+                <div class="card-header"><h2>Picture <span class="dash-muted">(optional)</span></h2></div>
+                <div class="card-body">
+                    <p class="mb-help" style="margin-top: 0;">Shown on the dashboard's card in your lists and beside its title, so you can spot it at a glance. PNG, JPEG, GIF or WebP, up to 5MB.</p>
+                    <div class="mb-field{% if form.cover_image.errors %} has-error{% endif %}">
+                        {{ form.cover_image }}
+                        {% for e in form.cover_image.errors %}<p class="crud-error">{{ e }}</p>{% endfor %}
+                    </div>
+                    <div class="mb-field{% if form.cover_alt.errors %} has-error{% endif %}" style="margin-bottom: 0;">
+                        <label for="{{ form.cover_alt.id_for_label }}">Description <span class="dash-muted">(optional)</span></label>
+                        {{ form.cover_alt }}
+                        {% for e in form.cover_alt.errors %}<p class="crud-error">{{ e }}</p>{% endfor %}
+                        <p class="mb-help">What the picture shows, read aloud by screen readers. Leave it blank if the picture is only decoration.</p>
+                    </div>
+                </div>
+            </div>
+
+            {# ── Default period ─────────────────────────────────── #}
+            <div class="card mb-section">
+                <div class="card-header"><h2 id="df-period-title">Opens with</h2></div>
+                <div class="card-body">
+                    <p class="mb-help" style="margin-top: 0;">The period shown first. Viewers can still change it. It only narrows period-aware cards.</p>
+                    {% with current=form.default_period.value|default:"" %}
+                    {% period_groups current as groups %}
+                    <div class="df-periods" role="radiogroup" aria-labelledby="df-period-title">
+                        <div class="df-period-row">
+                            <span class="df-period-group">Any</span>
+                            <label class="df-chip"><input type="radio" class="sr-only" name="{{ form.default_period.html_name }}" value="" data-heading="All time"{% if not current %} checked{% endif %}><span>All time</span></label>
+                        </div>
+                        {% for g in groups %}
+                        <div class="df-period-row">
+                            <span class="df-period-group">{{ g.label }}</span>
+                            {% for c in g.chips %}<label class="df-chip" title="{{ c.title }}"><input type="radio" class="sr-only" name="{{ form.default_period.html_name }}" value="{{ c.key }}" aria-label="{{ c.title }}" data-heading="{{ c.heading }}"{% if c.checked %} checked{% endif %}><span>{{ c.label }}</span></label>{% endfor %}
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% endwith %}
+                    {% for e in form.default_period.errors %}<p class="crud-error">{{ e }}</p>{% endfor %}
+                </div>
+            </div>
+
+            {# ── Refresh ───────────────────────────────────────── #}
+            <div class="card mb-section">
+                <div class="card-header"><h2>Auto-refresh</h2></div>
+                <div class="card-body">
+                    <p class="mb-help" style="margin-top: 0;">Re-fetch every card on a timer — handy for a dashboard left open on a wall screen.</p>
+                    <div class="df-chips" id="df-refresh-presets" role="group" aria-label="Refresh presets">
+                        <button type="button" class="df-chip-btn" data-seconds="">Off</button>
+                        <button type="button" class="df-chip-btn" data-seconds="30">30 s</button>
+                        <button type="button" class="df-chip-btn" data-seconds="60">1 min</button>
+                        <button type="button" class="df-chip-btn" data-seconds="300">5 min</button>
+                        <button type="button" class="df-chip-btn" data-seconds="900">15 min</button>
+                    </div>
+                    <div class="mb-field df-refresh-custom{% if form.refresh_seconds.errors %} has-error{% endif %}" style="margin: 0.75rem 0 0;">
+                        <label for="{{ form.refresh_seconds.id_for_label }}">Every (seconds)</label>
+                        {{ form.refresh_seconds }}
+                        {% for e in form.refresh_seconds.errors %}<p class="crud-error">{{ e }}</p>{% endfor %}
+                        <p class="mb-help">At least 15. Blank turns it off.</p>
+                    </div>
+                </div>
+            </div>
+
+            {# ── Sharing ───────────────────────────────────────── #}
+            <div class="card mb-section">
+                <div class="card-header"><h2 id="df-vis-title">Who can see it</h2></div>
+                <div class="card-body">
+                    {% if object.system_key %}
+                    <input type="hidden" name="{{ form.visibility.html_name }}" value="shared">
+                    <p class="mb-help" style="margin: 0;">Staff only. This dashboard is the <a href="{{ object.get_absolute_url }}">{{ object.get_absolute_url }}</a> page, so it stays shared and can't be deleted. Cards for widgets that apps publish are added to it automatically; remove one and it stays removed.</p>
+                    {% else %}
+                    {% with current=form.visibility.value|default:"personal" %}
+                    <div class="df-choice-cards" role="radiogroup" aria-labelledby="df-vis-title">
+                        <label class="df-choice">
+                            <input type="radio" class="sr-only" name="{{ form.visibility.html_name }}" value="personal"{% if current == "personal" %} checked{% endif %}>
+                            <span class="df-choice-body">
+                                <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor" aria-hidden="true"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
+                                <span class="df-choice-title">Personal</span>
+                                <span class="df-choice-text">Only you can open and edit it. Staff can open it to help.</span>
+                            </span>
+                        </label>
+                        <label class="df-choice{% if not request.user.is_staff %} df-choice--disabled{% endif %}">
+                            <input type="radio" class="sr-only" name="{{ form.visibility.html_name }}" value="shared"{% if current == "shared" %} checked{% endif %}{% if not request.user.is_staff %} disabled{% endif %}>
+                            <span class="df-choice-body">
+                                <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor" aria-hidden="true"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg>
+                                <span class="df-choice-title">Shared</span>
+                                <span class="df-choice-text">{% if request.user.is_staff %}Everyone signed in can open it; staff edit it.{% else %}Only staff can share a dashboard.{% endif %}</span>
+                            </span>
+                        </label>
+                    </div>
+                    {% endwith %}
+                    {% for e in form.visibility.errors %}<p class="crud-error">{{ e }}</p>{% endfor %}
+                    <p class="mb-help" style="margin-bottom: 0;">Cards still respect each metric's data access: a viewer who can't read a dataset sees that card as <em>restricted</em>.</p>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div style="display: flex; gap: 0.5rem; margin-bottom: 2rem;">
+                <button type="submit" class="btn-primary">{% if object %}Save settings{% else %}Create dashboard{% endif %}</button>
+                <a href="{% if object %}{{ object.get_absolute_url }}{% else %}{% url 'dashboards_index' %}{% endif %}" class="btn-outline">Cancel</a>
+            </div>
+
+            {% if object %}{% board_card_table object as cards %}
+            {% include "dashboards/partials/board_cards.html" with dashboard=object %}
+            {% endif %}
+        </div>
+
+        {# ── Live summary ─────────────────────────────────────── #}
+        <aside class="mb-preview" aria-label="Preview">
+            <div class="card">
+                <div class="card-header"><h2>Preview</h2></div>
+                <div class="card-body">
+                    <div class="dash-tile df-tile">
+                        <img class="df-tile-cover" id="df-prev-cover" alt=""{% if form.instance.cover_image %} src="{{ form.instance.cover_image.url }}"{% else %} hidden{% endif %}>
+                        <div class="dash-tile-title" id="df-prev-name">{{ form.name.value|default:"Untitled dashboard" }}</div>
+                        <div class="dash-tile-meta" id="df-prev-desc">{{ form.description.value|default:"" }}</div>
+                        <div class="df-tile-badges">
+                            <span class="dash-badge" id="df-prev-vis"></span>
+                            <span class="dash-badge" id="df-prev-period"></span>
+                            <span class="dash-badge" id="df-prev-refresh" hidden></span>
+                        </div>
+                    </div>
+
+                    {% layout_preview form.instance.layout as lp %}
+                    {% if object %}<p class="df-digest" id="df-digest" hidden></p>{% endif %}
+                    <div class="df-mini-head">
+                        <span>Layout</span>
+                        <span class="dash-muted">{{ lp.cells|length }} card{{ lp.cells|length|pluralize }}</span>
+                    </div>
+                    {% if lp.cells %}
+                    <div class="df-mini df-mini--live" style="grid-template-rows: repeat({{ lp.rows }}, 18px);" aria-label="Miniature of the dashboard layout">
+                        {% for c in lp.cells %}<div class="df-mini-cell df-mini-cell--{{ c.type }}" style="{{ c.style }}" title="{{ c.type_label }}: {{ c.label }}" data-cell-id="{{ c.id }}" data-label="{{ c.label }}"{% if c.metric and object %} data-metric="{{ c.metric }}" role="button" tabindex="0" aria-haspopup="dialog" aria-label="{{ c.label }}: show the rows"{% endif %}><span>{{ c.label }}</span><b class="df-mini-value" aria-live="polite"></b></div>{% endfor %}
+                    </div>
+                    <p class="mb-help" id="df-mini-status">{% if object %}Values as the dashboard opens: {% endif %}</p>
+                    {% if object %}<a href="{{ object.get_absolute_url }}" class="btn-outline btn-sm" style="margin-top: 0.75rem; display: inline-block;">Arrange cards on the dashboard</a>{% endif %}
+                    {% else %}
+                    <div class="df-mini-empty">
+                        <svg viewBox="0 0 24 24" width="28" height="28" fill="currentColor" aria-hidden="true"><path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"/></svg>
+                        <span>{% if object %}No cards yet. Open the dashboard and click <strong>Edit layout</strong>.{% else %}After you create it, add cards from the dashboard with <strong>Edit layout → Add card</strong>.{% endif %}</span>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </aside>
+    </div>
+</form>
+{% endblock %}
+
+{% block extra_js %}<script src="{% static 'dashboards/js/dashboard-form.js' %}" defer></script>{% endblock %}

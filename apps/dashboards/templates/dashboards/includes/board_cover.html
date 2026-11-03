@@ -1,0 +1,25 @@
+{% load dashboard_tags %}
+{% comment %}
+A dashboard's generated cover (no picture uploaded): its initials over a chart
+motif on the accent band. Include with d=<Dashboard>; the wrapper sets the size.
+Theme tokens only, so it is right on every palette.
+{% endcomment %}
+{% board_cover d as cv %}
+<span class="board-cover board-cover--{{ cv.motif }}">
+    <svg class="board-cover-motif" viewBox="0 0 160 90" preserveAspectRatio="xMaxYMid meet" aria-hidden="true" focusable="false">
+        {% if cv.motif == "bars" %}
+        <line x1="74" y1="78.5" x2="154" y2="78.5" class="bc-rule"/>
+        {% for b in cv.bars %}<rect x="{{ b.x }}" y="{{ b.y }}" width="8" height="{{ b.h }}" rx="1.5" class="bc-fill{% if forloop.last %} bc-strong{% endif %}"/>{% endfor %}
+        {% elif cv.motif == "line" %}
+        <polygon points="{{ cv.area }}" class="bc-area"/>
+        <polyline points="{{ cv.points }}" class="bc-line"/>
+        <circle cx="{{ cv.last.x }}" cy="{{ cv.last.y }}" r="3.5" class="bc-strong"/>
+        {% elif cv.motif == "ring" %}
+        <circle cx="118" cy="45" r="24" class="bc-track"/>
+        <circle cx="118" cy="45" r="24" class="bc-arc" stroke-dasharray="{{ cv.dash }}" transform="rotate(-90 118 45)"/>
+        {% else %}
+        {% for t in cv.tiles %}<rect x="{{ t.x }}" y="{{ t.y }}" width="14" height="14" rx="3" class="{% if t.strong %}bc-strong{% else %}bc-fill{% endif %}"/>{% endfor %}
+        {% endif %}
+    </svg>
+    <span class="board-cover-mono" aria-hidden="true">{{ cv.monogram }}</span>
+</span>

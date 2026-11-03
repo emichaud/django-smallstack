@@ -1,0 +1,38 @@
+{% extends "smallstack/base.html" %}
+{% load static theme_tags dashboard_tags %}
+
+{% block title %}Dashboard Starter{% endblock %}
+
+{% block breadcrumbs %}
+{% breadcrumb "Home" "website:home" %}
+{% breadcrumb "Starter" "starter" %}
+{% breadcrumb "Dashboard" %}
+{% render_breadcrumbs %}
+{% endblock %}
+
+{% block content %}
+<h1>Dashboard starter</h1>
+<p class="page-subtitle" style="max-width: 70ch;">A page of your own showing saved metrics and a saved dashboard. The numbers, cards and drill-downs are the same ones the Dashboards section shows, and the same ones agents read over MCP.</p>
+
+{% if metrics %}
+<h2 style="font-size: 1.05rem; margin: 1.5rem 0 0.6rem;">Metric cards</h2>
+<div class="stat-cards">
+    {% for m in metrics %}{% metric_card m.key period="mtd" %}{% endfor %}
+</div>
+<pre class="dash-code" style="margin-top: 0.6rem;">{% templatetag openblock %} load dashboard_tags {% templatetag closeblock %}
+{% for m in metrics %}{% templatetag openblock %} metric_card "{{ m.key }}" period="mtd" {% templatetag closeblock %}
+{% endfor %}</pre>
+{% endif %}
+
+<h2 style="font-size: 1.05rem; margin: 1.5rem 0 0.6rem;">A dashboard</h2>
+{% if board %}
+{% dashboard board %}
+<pre class="dash-code">{% templatetag openblock %} dashboard "{{ board.slug }}" {% templatetag closeblock %}
+{% templatetag openblock %} dashboard "{{ board.slug }}" period="ytd" title=False {% templatetag closeblock %}</pre>
+{% else %}
+<p class="dash-muted">No dashboard to show yet. Run <code>uv run python manage.py seed_dashboards</code> for the demo, or <a href="{% url 'dashboards/boards-create' %}">make one</a>.</p>
+{% endif %}
+
+<h2 style="font-size: 1.05rem; margin: 1.5rem 0 0.6rem;">Your own card types</h2>
+<p style="max-width: 70ch;">The <strong>Trend chart</strong> card in the dashboards' Add card dialog comes from this project, not SmallStack: <code>apps/website/dashboard_cards.py</code> registers it with <code>register_component_type</code>. Copy that file to add a chart, a table or a gauge. Its data comes from <code>metric_trend</code>, which is also available at <code>GET /smallstack/dashboards/api/metrics/&lt;key&gt;/trend/</code>.</p>
+{% endblock %}

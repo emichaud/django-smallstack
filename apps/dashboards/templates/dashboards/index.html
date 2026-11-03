@@ -1,0 +1,214 @@
+{% extends "smallstack/base.html" %}
+{% load static dashboard_tags theme_tags %}
+
+{% block title %}Dashboards{% endblock %}
+{% block breadcrumbs %}{% endblock %}
+{% block extra_css %}<link rel="stylesheet" href="{% static 'dashboards/css/dashboards.css' %}">{% endblock %}
+
+{% block page_header %}
+<div class="page-header-bleed page-header-with-actions">
+    <div class="page-header-content">
+        <h1>Dashboards</h1>
+        <p class="page-subtitle">Grids of cards, the saved card designs they're built from, and playlists that rotate them. Metrics, goals and reports are under <a href="{% url 'goals_index' %}">Goals</a>.</p>
+        <nav style="margin-top: 0.5rem; font-size: 0.8rem;">
+            <a href="{% url 'website:home' %}" style="color: var(--body-quiet-color); text-decoration: none;">Home</a>
+            <span style="color: var(--body-quiet-color); margin: 0 0.3rem;">/</span>
+            <span style="color: var(--body-fg);">Dashboards</span>
+        </nav>
+    </div>
+    <div style="display: flex; gap: 0.5rem; align-items: center;">
+        <a href="{% url 'help:section_index' 'dashboards' %}" class="btn-tint btn-sm">Docs</a>
+        {% if can_build %}<a href="{% url 'dashboards/components-create' %}" class="btn-outline btn-sm">Build a card</a>{% endif %}
+        <a href="{% url 'dashboards/boards-create' %}" class="btn-primary btn-sm">New dashboard</a>
+    </div>
+</div>
+{% endblock %}
+
+{% block content %}
+<div id="dx-page">
+{% if not dashboard_count and not metric_count and not playlist_count %}
+{# ── First run: the real order of work ── #}
+<section class="ix-start" aria-labelledby="ix-start-title">
+    <h2 id="ix-start-title">Build your first dashboard</h2>
+    <ol class="ix-steps">
+        <li>
+            <strong>Save a metric.</strong>
+            <span>Pick a dataset, filter it, and choose how to count it: open tickets, errors this week, average latency.</span>
+            {% if can_build %}<a href="{% url 'dashboards/metrics-create' %}" class="btn-primary btn-sm">New metric</a>{% else %}<span class="dash-muted">No datasets are open to your account yet.</span>{% endif %}
+        </li>
+        <li>
+            <strong>Make a dashboard.</strong>
+            <span>Give it a name and the period it should open with.</span>
+            <a href="{% url 'dashboards/boards-create' %}" class="btn-outline btn-sm">New dashboard</a>
+        </li>
+        <li>
+            <strong>Add cards.</strong>
+            <span>On the dashboard, choose Edit layout, then Add card, and drag cards into place.</span>
+        </li>
+    </ol>
+    <p class="dash-muted">An AI agent can do all three over MCP or the REST API. <a href="/smallstack/help/dashboards/agents-and-api/">How agents build dashboards</a>.</p>
+</section>
+{% else %}
+
+{# ── Dashboards: the most recently changed, as cards or a list ── #}
+<section class="ix-section" id="ix-dash-section" aria-labelledby="ix-dash-title">
+    <div class="md-section-head">
+        <h2 id="ix-dash-title">Dashboards</h2>
+        <p class="dash-muted">{{ dashboard_count }}{% if dashboard_count > dashboards|length %}, {% if dash_default %}{{ dashboards|length }} most recently changed{% else %}first {{ dashboards|length }} shown{% endif %}{% endif %}</p>
+        {% if dashboards %}
+        {% if boards_view == "cards" %}
+        <form method="get" action="{{ request.path }}" class="dx-sort" hx-get="{{ request.path }}" hx-trigger="change" hx-select="#dx-page" hx-target="#dx-page" hx-swap="outerHTML" hx-push-url="true">
+            {% for key, value in dash_keep %}<input type="hidden" name="{{ key }}" value="{{ value }}">{% endfor %}
+            <label for="dx-sort">Sort</label>
+            <select id="dx-sort" name="dash" class="vTextField">
+                {% for value, label in dash_choices %}<option value="{{ value }}"{% if value == dash_order %} selected{% endif %}>{{ label }}</option>{% endfor %}
+            </select>
+            <noscript><button type="submit" class="btn-outline btn-sm">Go</button></noscript>
+        </form>
+        {% endif %}
+        <nav class="ix-view" aria-label="Show dashboards as">
+            <a href="{{ request.path }}{% querystring boards=None %}" class="ix-view-btn"{% if boards_view == "cards" %} aria-current="true"{% endif %} hx-get="{{ request.path }}{% querystring boards=None %}" hx-select="#dx-page" hx-target="#dx-page" hx-swap="outerHTML" hx-push-url="true">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3h8v8H3V3zm10 0h8v8h-8V3zM3 13h8v8H3v-8zm10 0h8v8h-8v-8z"/></svg><span>Cards</span></a>
+            <a href="{% querystring boards='list' %}" class="ix-view-btn"{% if boards_view == "list" %} aria-current="true"{% endif %} hx-get="{% querystring boards='list' %}" hx-select="#dx-page" hx-target="#dx-page" hx-swap="outerHTML" hx-push-url="true">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 5h18v2H3V5zm0 6h18v2H3v-2zm0 6h18v2H3v-2z"/></svg><span>List</span></a>
+        </nav>
+        {% endif %}
+        {% if dashboard_count > dashboards|length %}<a href="{% url 'dashboards/boards-list' %}" class="md-link">All {{ dashboard_count }} dashboards</a>{% endif %}
+    </div>
+    {% if not dashboards %}
+    <p class="dash-muted">No dashboards yet. <a href="{% url 'dashboards/boards-create' %}">Make one</a> and add your metrics to it.</p>
+    {% elif boards_view == "list" %}
+    <div class="card gx-card">
+        <div class="gx-scroll">
+        <table class="crud-table gx-table dx-boards" data-table-key="dashboards/overview-boards:picture,name,cards,opens,updated_at">
+            <thead><tr>
+                <th scope="col" data-field="picture"><span class="sr-only">Picture</span>{% include "smallstack/crud/includes/col_resizer.html" with label="Picture" %}</th>
+                {% include "dashboards/partials/sort_th.html" with s=dash_sort.name field="name" label="Name" swap="#dx-page" %}
+                {% include "dashboards/partials/sort_th.html" with s=dash_sort.cards field="cards" label="Cards" swap="#dx-page" cls="gx-num" %}
+                {% include "dashboards/partials/sort_th.html" with s=dash_sort.opens field="opens" label="Opens on" swap="#dx-page" %}
+                {% include "dashboards/partials/sort_th.html" with s=dash_sort.updated_at field="updated_at" label="Updated" swap="#dx-page" cls="gx-num" %}
+            </tr></thead>
+            <tbody>
+            {% for row in dashboards %}{% with d=row.dashboard %}
+            {% layout_preview d.layout as lp %}
+                <tr>
+                    <td><a href="{{ d.get_absolute_url }}" class="ix-board-list-pic" tabindex="-1" aria-hidden="true">{% include "dashboards/includes/board_picture.html" with d=d %}</a></td>
+                    <td class="gx-name-cell">
+                        <a href="{{ d.get_absolute_url }}" class="gx-name">{{ d.name }}</a>
+                        {% if d.is_shared %}<span class="dash-badge dash-badge--shared">Shared</span>{% else %}<span class="dash-badge">Personal</span>{% endif %}
+                        {% if d.description %}<span class="gx-sub" title="{{ d.description }}">{{ d.description }}</span>{% endif %}
+                    </td>
+                    <td class="gx-num">{{ lp.cells|length }}</td>
+                    <td>{% if row.opens %}{{ row.opens }}{% else %}All time{% endif %}</td>
+                    <td class="gx-num"><time datetime="{{ d.updated_at|date:'c' }}">{{ d.updated_at|date:"M j" }}</time></td>
+                </tr>
+            {% endwith %}{% endfor %}
+            </tbody>
+        </table>
+        </div>
+    </div>
+    {% else %}
+    <div class="ix-boards">
+        {% for row in dashboards %}{% with d=row.dashboard %}
+        <a class="ix-board" href="{{ d.get_absolute_url }}">
+            {% layout_preview d.layout as lp %}
+            <span class="ix-board-shape" aria-hidden="true">
+                {% include "dashboards/includes/board_picture.html" with d=d %}
+            </span>
+            <span class="ix-board-name">{{ d.name }}</span>
+            {% if d.description %}<span class="ix-board-desc">{{ d.description }}</span>{% endif %}
+            <span class="ix-board-meta">
+                {% if d.is_shared %}<span class="dash-badge dash-badge--shared">Shared</span>{% else %}<span class="dash-badge">Personal</span>{% endif %}
+                <span>{{ lp.cells|length }} card{{ lp.cells|length|pluralize }}</span>
+                {% if row.opens %}<span>Opens on {{ row.opens|lower }}</span>{% endif %}
+                {% if d.refresh_seconds %}<span>Refreshes</span>{% endif %}
+            </span>
+        </a>
+        {% endwith %}{% endfor %}
+        <a class="ix-board ix-board--new" href="{% url 'dashboards/boards-create' %}">
+            <span class="ix-plus" aria-hidden="true">+</span>
+            <span class="ix-board-name">New dashboard</span>
+        </a>
+    </div>
+    {% endif %}
+</section>
+
+{# ── Playlists: dashboards in sequence ── #}
+<section class="ix-section" id="ix-playlist-section" aria-labelledby="ix-playlist-title">
+    <div class="md-section-head">
+        <h2 id="ix-playlist-title">Playlists</h2>
+        <p class="dash-muted">{{ playlist_count }}</p>
+        {% if playlist_count > playlists|length %}<a href="{% url 'dashboards/playlists-list' %}" class="md-link">All {{ playlist_count }} playlists</a>{% endif %}
+        <a href="{% url 'dashboards/playlists-create' %}" class="md-link">New playlist</a>
+    </div>
+    {% if playlists %}
+    <div class="card gx-card">
+        <div class="gx-scroll">
+        <table class="crud-table gx-table dx-playlists" data-table-key="dashboards/overview-playlists:slides,name,round,updated_at">
+            <thead><tr>
+                <th scope="col" data-field="slides"><span>Slides</span>{% include "smallstack/crud/includes/col_resizer.html" with label="Slides" %}</th>
+                {% include "dashboards/partials/sort_th.html" with s=playlists_sort.name field="name" label="Name" swap="#dx-page" %}
+                {% include "dashboards/partials/sort_th.html" with s=playlists_sort.round field="round" label="Round" swap="#dx-page" %}
+                {% include "dashboards/partials/sort_th.html" with s=playlists_sort.updated_at field="updated_at" label="Updated" swap="#dx-page" cls="gx-num" %}
+                <th scope="col" class="gx-actions-col"><span class="sr-only">Play</span></th>
+            </tr></thead>
+            <tbody>
+            {% for row in playlists %}{% with p=row.playlist %}
+                <tr>
+                    <td><a href="{{ p.get_absolute_url }}" class="ix-pl-strip" tabindex="-1" aria-hidden="true">{% for s in row.strip %}{% include "dashboards/includes/slide_frame.html" with s=s %}{% empty %}<span class="pll-frame pll-frame--empty">Empty</span>{% endfor %}</a></td>
+                    <td class="gx-name-cell"><a href="{{ p.get_absolute_url }}" class="gx-name">{{ p.name }}</a>{% if not p.is_shared %} <span class="dash-badge">Personal</span>{% endif %}{% if p.description %}<span class="gx-sub" title="{{ p.description }}">{{ p.description }}</span>{% endif %}</td>
+                    <td>{% if row.count %}{{ row.count }} slide{{ row.count|pluralize }}, about {{ row.round }} a round{% if p.loop %}, loops{% endif %}{% else %}No dashboards you can open yet{% endif %}</td>
+                    <td class="gx-num"><time datetime="{{ p.updated_at|date:'c' }}">{{ p.updated_at|date:"M j" }}</time></td>
+                    <td class="gx-actions">{% if row.count %}<a href="{{ p.get_absolute_url }}?play=1" class="ix-play" aria-label="Play {{ p.name }}">Play</a>{% endif %}</td>
+                </tr>
+            {% endwith %}{% endfor %}
+            </tbody>
+        </table>
+        </div>
+    </div>
+    {% else %}
+    <p class="dash-muted">No playlists yet. A playlist shows dashboards one after another: page through them like slides, or rotate them on a wall screen.</p>
+    {% endif %}
+</section>
+
+{# ── Components: saved card designs ── #}
+<section class="ix-section" id="ix-comp-section" aria-labelledby="ix-comp-title">
+    <div class="md-section-head">
+        <h2 id="ix-comp-title">Components</h2>
+        <p class="dash-muted">{{ component_count }}</p>
+        {% if component_count > components|length %}<a href="{% url 'dashboards/components-list' %}" class="md-link">All {{ component_count }} cards</a>{% endif %}
+        <a href="{% url 'dashboards/components-create' %}" class="md-link">Build a card</a>
+    </div>
+    {% if components %}
+    <div class="card gx-card">
+        <div class="gx-scroll">
+        <table class="crud-table gx-table dx-components" data-table-key="dashboards/overview-components:name,type,metric,updated_at">
+            <thead><tr>
+                {% include "dashboards/partials/sort_th.html" with s=components_sort.name field="name" label="Name" swap="#dx-page" %}
+                {% include "dashboards/partials/sort_th.html" with s=components_sort.type field="type" label="Design" swap="#dx-page" %}
+                {% include "dashboards/partials/sort_th.html" with s=components_sort.metric field="metric" label="Metric" swap="#dx-page" %}
+                {% include "dashboards/partials/sort_th.html" with s=components_sort.updated_at field="updated_at" label="Updated" swap="#dx-page" cls="gx-num" %}
+            </tr></thead>
+            <tbody>
+            {% for row in components %}{% with c=row.component %}
+                <tr>
+                    <td class="gx-name-cell"><a href="{{ row.url }}" class="gx-name">{{ c.name }}</a>{% if not c.is_shared %} <span class="dash-badge">Personal</span>{% endif %}</td>
+                    <td><span class="cl-type"><span class="cl-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="{{ row.icon|default:'M4 4h16v16H4z' }}"/></svg></span>{{ row.type_label }}</span></td>
+                    <td>{% if row.metric_name %}{{ row.metric_name }}{% else %}<span class="dash-muted">No metric</span>{% endif %}</td>
+                    <td class="gx-num"><time datetime="{{ c.updated_at|date:'c' }}">{{ c.updated_at|date:"M j" }}</time></td>
+                </tr>
+            {% endwith %}{% endfor %}
+            </tbody>
+        </table>
+        </div>
+    </div>
+    {% else %}
+    <p class="dash-muted">No saved cards yet. A card is a design for a metric: a single stat, a grouped stat, a chart. Its number, format and colours come from the metric unless you change them. <a href="{% url 'dashboards/components-create' %}">Build one</a>.</p>
+    {% endif %}
+</section>
+
+{% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}<script src="{% static 'dashboards/js/dashboard.js' %}" defer></script>{% endblock %}

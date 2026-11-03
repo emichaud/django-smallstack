@@ -1,0 +1,3 @@
+{% comment %}The report delete confirmation as a fragment for the global stat modal (htmx).{% endcomment %}{% load static %}
+<link rel="stylesheet" href="{% static 'dashboards/css/dashboards.css' %}">
+{% include "smallstack_dashboards/crud/_report_delete_body.html" with modal=True %}

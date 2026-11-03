@@ -1,0 +1,45 @@
+{% comment %}
+The cards on a dashboard, as a table (boards.board_cards) — the settings page.
+Headers re-sort it from its own endpoint, swapping only #df-cards, so a form
+with unsaved edits is untouched; sorting never moves a card on the dashboard.
+Each value loads as its row scrolls into view, unless sorting by value already
+worked them out. Columns resize with table-resize.js.
+{% endcomment %}
+<section class="card mb-section" id="df-cards" aria-labelledby="df-cards-title">
+    <div class="card-header df-cards-head">
+        <h2 id="df-cards-title">Cards on this dashboard</h2>
+        {% if cards.rows %}<p class="dash-muted">{{ cards.rows|length }} card{{ cards.rows|length|pluralize }}, values for {{ cards.heading }}</p>{% endif %}
+    </div>
+    <div class="card-body">
+    {% if cards.rows %}
+    {% if cards.order %}<p class="rp-sorted"><button type="button" class="plf-undo" hx-get="{{ cards.base_url }}" hx-target="#df-cards" hx-swap="outerHTML">Back to reading order</button></p>{% endif %}
+    <div class="df-cards-wrap">
+        <table class="crud-table df-cards-table" data-table-key="dashboards/board-cards:name,design,metric,size,value">
+            <thead>
+                <tr>
+                    <th scope="col" data-field="name" aria-sort="{{ cards.links.name.aria_sort }}"><button type="button" class="plf-sort" hx-get="{{ cards.links.name.url }}" hx-target="#df-cards" hx-swap="outerHTML" title="Sort by card">Card<span class="dm-sort-ind" aria-hidden="true">{% if cards.links.name.aria_sort == "ascending" %}▲{% elif cards.links.name.aria_sort == "descending" %}▼{% endif %}</span></button>{% include "smallstack/crud/includes/col_resizer.html" with label="Card" %}</th>
+                    <th scope="col" data-field="design" class="df-design-col" aria-sort="{{ cards.links.design.aria_sort }}"><button type="button" class="plf-sort" hx-get="{{ cards.links.design.url }}" hx-target="#df-cards" hx-swap="outerHTML" title="Sort by design">Design<span class="dm-sort-ind" aria-hidden="true">{% if cards.links.design.aria_sort == "ascending" %}▲{% elif cards.links.design.aria_sort == "descending" %}▼{% endif %}</span></button>{% include "smallstack/crud/includes/col_resizer.html" with label="Design" %}</th>
+                    <th scope="col" data-field="metric" class="df-metric-col" aria-sort="{{ cards.links.metric.aria_sort }}"><button type="button" class="plf-sort" hx-get="{{ cards.links.metric.url }}" hx-target="#df-cards" hx-swap="outerHTML" title="Sort by metric">Metric<span class="dm-sort-ind" aria-hidden="true">{% if cards.links.metric.aria_sort == "ascending" %}▲{% elif cards.links.metric.aria_sort == "descending" %}▼{% endif %}</span></button>{% include "smallstack/crud/includes/col_resizer.html" with label="Metric" %}</th>
+                    <th scope="col" data-field="size" class="df-size-col" aria-sort="{{ cards.links.size.aria_sort }}"><button type="button" class="plf-sort" hx-get="{{ cards.links.size.url }}" hx-target="#df-cards" hx-swap="outerHTML" title="Sort by size">Size<span class="dm-sort-ind" aria-hidden="true">{% if cards.links.size.aria_sort == "ascending" %}▲{% elif cards.links.size.aria_sort == "descending" %}▼{% endif %}</span></button>{% include "smallstack/crud/includes/col_resizer.html" with label="Size" %}</th>
+                    <th scope="col" data-field="value" class="df-value-col" aria-sort="{{ cards.links.value.aria_sort }}"><button type="button" class="plf-sort" hx-get="{{ cards.links.value.url }}" hx-target="#df-cards" hx-swap="outerHTML" title="Sort by value">Value<span class="dm-sort-ind" aria-hidden="true">{% if cards.links.value.aria_sort == "ascending" %}▲{% elif cards.links.value.aria_sort == "descending" %}▼{% endif %}</span></button>{% include "smallstack/crud/includes/col_resizer.html" with label="Value" %}</th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for row in cards.rows %}
+                <tr>
+                    <td class="df-card-name" title="{{ row.name }}">{{ row.name }}</td>
+                    <td><span class="cl-type"><span class="cl-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="{{ row.icon|default:'M4 4h16v16H4z' }}"/></svg></span>{{ row.design }}</span></td>
+                    <td>{% if row.metric_url %}<a href="{{ row.metric_url }}">{{ row.metric }}</a>{% elif row.needs_metric %}<span class="rp-bad" title="{{ row.metric_key }}">Missing</span>{% else %}<span class="dash-muted">—</span>{% endif %}</td>
+                    <td class="df-size">{{ row.size }}</td>
+                    <td class="df-value">{% if row.value %}{% include "dashboards/partials/board_card_value.html" with value=row.value %}{% else %}<span hx-get="{{ row.value_url }}" hx-trigger="revealed" hx-swap="innerHTML" aria-live="polite"><span class="rl-moves-when">Checking…</span></span>{% endif %}</td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    <p class="mb-help df-cards-note">Sorting only changes this table. To move a card, open the dashboard and choose <a href="{{ dashboard.get_absolute_url }}">Edit layout</a>.</p>
+    {% else %}
+    <p class="dash-muted" style="margin: 0;">No cards yet. Open <a href="{{ dashboard.get_absolute_url }}">the dashboard</a> and choose <strong>Edit layout</strong>.</p>
+    {% endif %}
+    </div>
+</section>

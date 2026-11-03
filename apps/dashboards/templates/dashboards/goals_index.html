@@ -1,0 +1,193 @@
+{% extends "smallstack/base.html" %}
+{% load static dashboard_tags theme_tags %}
+{% comment %}GoalsIndexView — the Goals area: goal lists (how each is doing), the metrics behind them with live values, and the reports that compare them over periods. Each section is a crud-table with its own sort (views.section_sort). Sorts and period links swap #gx-page, so every link keeps the others' sorts; columns resize with table-resize.js.{% endcomment %}
+
+{% block title %}Goals{% endblock %}
+{% block breadcrumbs %}{% endblock %}
+{% block extra_css %}<link rel="stylesheet" href="{% static 'dashboards/css/dashboards.css' %}">{% endblock %}
+
+{% block page_header %}
+<div class="page-header-bleed page-header-with-actions">
+    <div class="page-header-content">
+        <h1>Goals</h1>
+        <p class="page-subtitle">Your key numbers: the metrics that define them, the targets they should reach, and reports that compare them over time.</p>
+        <nav style="margin-top: 0.5rem; font-size: 0.8rem;" aria-label="Breadcrumb">
+            <a href="{% url 'website:home' %}" style="color: var(--body-quiet-color); text-decoration: none;">Home</a>
+            <span style="color: var(--body-quiet-color); margin: 0 0.3rem;">/</span>
+            <span style="color: var(--body-fg);">Goals</span>
+        </nav>
+    </div>
+    <div style="display: flex; gap: 0.5rem; align-items: center;">
+        <a href="/smallstack/help/dashboards/goals/" class="btn-tint btn-sm">Docs</a>
+        {% if can_build %}<a href="{% url 'dashboards/metrics-create' %}" class="btn-outline btn-sm">New metric</a>{% endif %}
+        <a href="{% url 'dashboards/reports-create' %}" class="btn-outline btn-sm">New report</a>
+        <a href="{% url 'dashboards/goals-create' %}" class="btn-primary btn-sm">New goal list</a>
+    </div>
+</div>
+{% endblock %}
+
+{% block content %}
+<div id="gx-page">
+{% if not metric_count and not goal_list_count and not report_count %}
+<section class="ix-start" aria-labelledby="gx-start-title">
+    <h2 id="gx-start-title">Set your first goals</h2>
+    <ol class="ix-steps">
+        <li>
+            <strong>Save a metric.</strong>
+            <span>Pick a dataset, filter it, and choose how to count it: open tickets, errors this week, average latency.</span>
+            {% if can_build %}<a href="{% url 'dashboards/metrics-create' %}" class="btn-primary btn-sm">New metric</a>{% else %}<span class="dash-muted">No datasets are open to your account yet.</span>{% endif %}
+        </li>
+        <li>
+            <strong>Make a goal list.</strong>
+            <span>Give it sections, and give each metric the number it should reach.</span>
+            <a href="{% url 'dashboards/goals-create' %}" class="btn-outline btn-sm">New goal list</a>
+        </li>
+        <li>
+            <strong>Read it down in your meeting.</strong>
+            <span>On target, at risk or missed, with what needs attention at the top.</span>
+        </li>
+    </ol>
+</section>
+{% else %}
+{# ── Goals: key numbers against their targets ── #}
+<section class="ix-section" id="ix-goals-section" aria-labelledby="ix-goals-title">
+    <div class="md-section-head">
+        <h2 id="ix-goals-title">Goal lists</h2>
+        <p class="dash-muted">{{ goal_list_count }}</p>
+        {% if goal_list_count > goal_lists|length %}<a href="{% url 'dashboards/goals-list' %}" class="md-link">All {{ goal_list_count }} goal lists</a>{% endif %}
+        <a href="{% url 'dashboards/goals-create' %}" class="md-link">New goal list</a>
+    </div>
+    {% if goal_lists %}
+    <div class="card gx-card">
+        <div class="gx-scroll">
+        <table class="crud-table gx-table gx-goals" data-table-key="goals/overview-lists:name,goals,now,updated_at">
+            <thead><tr>
+                {% include "dashboards/partials/sort_th.html" with s=lists_sort.name field="name" label="Name" swap="#gx-page" %}
+                {% include "dashboards/partials/sort_th.html" with s=lists_sort.goals field="goals" label="Goals" swap="#gx-page" cls="gx-num" %}
+                <th scope="col" data-field="now"><span>Right now</span>{% include "smallstack/crud/includes/col_resizer.html" with label="Right now" %}</th>
+                {% include "dashboards/partials/sort_th.html" with s=lists_sort.updated_at field="updated_at" label="Updated" swap="#gx-page" cls="gx-num" %}
+                <th scope="col" class="gx-actions-col"><span class="sr-only">Open</span></th>
+            </tr></thead>
+            <tbody>
+            {% for row in goal_lists %}{% with g=row.goal_list %}
+                <tr>
+                    <td class="gx-name-cell">
+                        <a href="{{ g.get_absolute_url }}" class="gx-name">{{ g.name }}</a>{% if not g.is_shared %} <span class="dash-badge">Personal</span>{% endif %}
+                        {% if g.description %}<span class="gx-sub" title="{{ g.description }}">{{ g.description }}</span>{% endif %}
+                    </td>
+                    <td class="gx-num">{{ row.count }}</td>
+                    <td>{% if row.count %}<span hx-get="{{ row.digest_url }}" hx-trigger="revealed" hx-swap="innerHTML" aria-live="polite"><span class="rl-moves-when">Checking…</span></span>{% else %}<span class="dash-muted">No goals yet</span>{% endif %}</td>
+                    <td class="gx-num"><time datetime="{{ g.updated_at|date:'c' }}">{{ g.updated_at|date:"M j" }}</time></td>
+                    <td class="gx-actions">{% if row.count %}<a href="{% url 'dashboards_goal_weeks' g.slug %}" class="ix-play" aria-label="{{ g.name }}, week by week">Weeks</a> <a href="{{ g.get_absolute_url }}?present=1" class="ix-play" aria-label="Present {{ g.name }}">Present</a>{% endif %}</td>
+                </tr>
+            {% endwith %}{% endfor %}
+            </tbody>
+        </table>
+        </div>
+    </div>
+    {% else %}
+    <p class="dash-muted">No goal lists yet. A goal list puts your key numbers against their targets, in sections, for reading down in a meeting. <a href="{% url 'dashboards/goals-create' %}">Make one</a>.</p>
+    {% endif %}
+</section>
+
+{# ── Metrics: the library, with what each one says right now ── #}
+<section class="ix-section" id="ix-metric-section" aria-labelledby="ix-metric-title">
+    <div class="md-section-head">
+        <h2 id="ix-metric-title">Metrics</h2>
+        <p class="dash-muted">{{ metric_count }} saved, values for {{ period_heading }}</p>
+        {% if metric_rows|length > 6 %}
+        <label class="ix-filter">
+            <span class="sr-only">Filter metrics</span>
+            <input type="search" class="vTextField" placeholder="Filter metrics" data-filter-list="ix-metrics" autocomplete="off">
+        </label>
+        {% endif %}
+        <a href="{% url 'dashboards/metrics-list' %}" class="md-link">Manage all metrics</a>
+    </div>
+    {% if metric_rows %}
+    <nav class="md-periods ix-periods" aria-label="Period for the metric values">
+        {% for p in index_periods %}<a href="{% querystring period=p.key %}" class="md-period" hx-get="{% querystring period=p.key %}" hx-select="#gx-page" hx-target="#gx-page" hx-swap="outerHTML" hx-push-url="true"{% if p.current %} aria-current="true"{% endif %}>{{ p.label }}</a>{% endfor %}
+    </nav>
+    <div class="card gx-card">
+        <div class="gx-scroll">
+        <table class="crud-table gx-table gx-metrics" data-table-key="goals/overview-metrics:name,source,value">
+            <thead><tr>
+                {% include "dashboards/partials/sort_th.html" with s=metrics_sort.name field="name" label="Metric" swap="#gx-page" %}
+                {% include "dashboards/partials/sort_th.html" with s=metrics_sort.source field="source" label="Source" swap="#gx-page" %}
+                {% include "dashboards/partials/sort_th.html" with s=metrics_sort.value field="value" label="Value" swap="#gx-page" cls="gx-num" %}
+            </tr></thead>
+            <tbody id="ix-metrics">
+            {% for row in metric_rows %}{% with m=row.metric r=row.result %}
+                <tr data-filter-text="{{ m.name|lower }} {{ m.key }} {{ m.dataset }} {{ row.reading|lower }}">
+                    <td class="gx-name-cell">
+                        <a href="{{ m.get_absolute_url }}" class="gx-name">{{ m.name }}</a>
+                        <span class="gx-sub" title="{{ row.reading }}">{{ row.reading }}</span>
+                    </td>
+                    <td><span class="ix-metric-source">{{ row.source }}{% if not m.is_shared %}<span class="dash-badge">Personal</span>{% endif %}</span></td>
+                    <td class="gx-num ix-metric-value">
+                        {% if r.restricted %}<span class="rp-quiet">Restricted</span>
+                        {% elif r.error %}<span class="rp-bad" title="{{ r.error }}">Can't evaluate</span>
+                        {% else %}<span class="rp-value{% if r.state %} rp-value--{{ r.state }}{% endif %}">{{ r.display }}{% if r.unit %}<span class="rp-unit">{{ r.unit }}</span>{% endif %}</span>
+                        {% if row.all_time %}<span class="ix-compare" title="This metric has no period field">all time</span>
+                        {% elif row.comparison %}<span class="ix-compare"><span aria-hidden="true">{% if row.comparison.dir == "up" %}▲{% elif row.comparison.dir == "down" %}▼{% else %}={% endif %}</span> {% if row.comparison.dir == "up" %}<span class="sr-only">Up </span>{% elif row.comparison.dir == "down" %}<span class="sr-only">Down </span>{% endif %}{{ row.comparison.text }}</span>{% endif %}
+                        {% endif %}
+                    </td>
+                </tr>
+            {% endwith %}{% endfor %}
+            </tbody>
+        </table>
+        </div>
+        <p class="ix-filter-empty dash-muted" id="ix-metrics-empty" hidden>No metric matches that filter.</p>
+    </div>
+    {% if metric_count > metric_rows|length %}<p class="dash-muted ix-more">Showing {{ metric_rows|length }} of {{ metric_count }}. <a href="{% url 'dashboards/metrics-list' %}">See them all</a>.</p>{% endif %}
+    {% else %}
+    <p class="dash-muted">No metrics yet.{% if can_build %} <a href="{% url 'dashboards/metrics-create' %}">Save your first one</a>.{% endif %}</p>
+    {% endif %}
+</section>
+
+{# ── Reports ── #}
+<section class="ix-section" id="ix-report-section" aria-labelledby="ix-report-title">
+    <div class="md-section-head">
+        <h2 id="ix-report-title">Reports</h2>
+        <p class="dash-muted">{{ report_count }}</p>
+        {% if report_count > reports|length %}<a href="{% url 'dashboards/reports-list' %}" class="md-link">All {{ report_count }} reports</a>{% endif %}
+        <a href="{% url 'dashboards/reports-create' %}" class="md-link">New report</a>
+    </div>
+    {% if reports %}
+    <div class="card gx-card">
+        <div class="gx-scroll">
+        <table class="crud-table gx-table gx-reports" data-table-key="goals/overview-reports:name,movement,updated_at">
+            <thead><tr>
+                {% include "dashboards/partials/sort_th.html" with s=reports_sort.name field="name" label="Report" swap="#gx-page" %}
+                {% include "dashboards/partials/sort_th.html" with s=reports_sort.movement field="movement" label="Movement" swap="#gx-page" %}
+                {% include "dashboards/partials/sort_th.html" with s=reports_sort.updated_at field="updated_at" label="Updated" swap="#gx-page" cls="gx-num" %}
+                <th scope="col" class="gx-actions-col"><span class="sr-only">Download</span></th>
+            </tr></thead>
+            <tbody>
+            {% for row in reports %}{% with r=row.report %}
+                <tr>
+                    <td class="gx-name-cell">
+                        <a href="{{ r.get_absolute_url }}" class="gx-name">{{ r.name }}</a>{% if not r.is_shared %} <span class="dash-badge">Personal</span>{% endif %}
+                        <span class="gx-sub">{{ r.items|length }} metric{{ r.items|length|pluralize }}{% if row.columns %}, compared across {{ row.columns }}{% else %}, all time{% endif %}</span>
+                    </td>
+                    <td>
+                        {% if r.periods|length < 2 %}<span class="rl-moves-when">Nothing to compare</span>
+                        {% elif row.sorted_by_movement %}<div class="rl-digest">{% if row.movement %}{% include "dashboards/partials/report_digest.html" with counts=row.movement.counts compared=row.movement.compared first=row.movement.first against=row.movement.against %}{% else %}<span class="rl-moves-when">Nothing to compare yet</span>{% endif %}</div>
+                        {% else %}<div class="rl-digest" hx-get="{{ row.digest_url }}" hx-trigger="revealed" hx-swap="innerHTML" aria-live="polite"><span class="rl-moves-when">Comparing…</span></div>{% endif %}
+                    </td>
+                    <td class="gx-num"><time datetime="{{ r.updated_at|date:'c' }}">{{ r.updated_at|date:"M j" }}</time></td>
+                    <td class="gx-actions"><a href="{{ r.get_absolute_url }}?format=csv" class="ix-csv" download aria-label="Download {{ r.name }} as CSV">CSV</a></td>
+                </tr>
+            {% endwith %}{% endfor %}
+            </tbody>
+        </table>
+        </div>
+    </div>
+    {% else %}
+    <p class="dash-muted">No reports yet. A report puts metrics side by side across periods, such as this month against last month, and downloads as CSV.</p>
+    {% endif %}
+</section>
+{% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}<script src="{% static 'dashboards/js/dashboard.js' %}" defer></script>{% endblock %}

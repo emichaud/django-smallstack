@@ -1,0 +1,91 @@
+{% extends "smallstack/base.html" %}
+{% load static theme_tags %}
+{% comment %}
+GoalListPageView — the meeting view. ?period= judges the goals over another
+period (period links swap #gl-page in place); ?present=1 drops the site's
+chrome and sets everything larger, for the screen everyone is looking at.
+{% endcomment %}
+
+{% block title %}{{ goal_list.name }}{% endblock %}
+{% block body_class %}{% if present %}gl-present{% endif %}{% endblock %}
+{% block sidebar_state %}{% if present %}disabled{% else %}{{ block.super }}{% endif %}{% endblock %}
+{% block topbar %}{% if not present %}{{ block.super }}{% endif %}{% endblock %}
+{% block breadcrumbs %}{% endblock %}
+{% block extra_css %}<link rel="stylesheet" href="{% static 'dashboards/css/dashboards.css' %}">{% endblock %}
+
+{% block page_header %}{% if not present %}
+<div class="page-header-bleed page-header-with-actions">
+    <div class="page-header-content">
+        <h1>{{ goal_list.name }}</h1>
+        {% if goal_list.description %}<p class="page-subtitle">{{ goal_list.description }}</p>{% endif %}
+        <nav style="margin-top: 0.5rem; font-size: 0.8rem;" aria-label="Breadcrumb">
+            <a href="{% url 'website:home' %}" style="color: var(--body-quiet-color); text-decoration: none;">Home</a>
+            <span style="color: var(--body-quiet-color); margin: 0 0.3rem;">/</span>
+            <a href="{% url 'goals_index' %}" style="color: var(--body-quiet-color); text-decoration: none;">Goals</a>
+            <span style="color: var(--body-quiet-color); margin: 0 0.3rem;">/</span>
+            <a href="{% url 'dashboards/goals-list' %}" style="color: var(--body-quiet-color); text-decoration: none;">Goal lists</a>
+            <span style="color: var(--body-quiet-color); margin: 0 0.3rem;">/</span>
+            <span style="color: var(--body-fg);">{{ goal_list.name }}</span>
+        </nav>
+    </div>
+    <div style="display: flex; gap: 0.5rem; align-items: center;">
+        {% if goal_list.is_shared %}<span class="dash-badge dash-badge--shared">Shared</span>{% else %}<span class="dash-badge">Personal, {{ goal_list.owner }}</span>{% endif %}
+        <a href="{% url 'dashboards_goal_weeks' goal_list.slug %}" class="btn-outline btn-sm" title="Each week's values, saved as they were">Weeks</a>
+        {% if rows %}<a href="{% querystring present=1 %}" class="btn-outline btn-sm" title="Without the site's menus, larger, for a shared screen">Present</a>{% endif %}
+        {% if can_edit %}<a href="{% url 'dashboards/goals-update' goal_list.pk %}" class="btn-primary btn-sm">Edit goals</a>{% endif %}
+    </div>
+</div>
+{% endif %}{% endblock %}
+
+{% block content %}
+<div id="gl-page">
+{% if present %}
+<header class="gl-present-head">
+    <h1>{{ goal_list.name }}</h1>
+    <a href="{{ request.path }}{% querystring present=None %}" class="gl-present-exit">Exit presenting</a>
+</header>
+{% endif %}
+<nav class="md-periods gl-periods" aria-label="Judge the goals over">
+    {% for p in quick_periods %}<a href="{% querystring period=p.key %}" class="md-period" hx-get="{% querystring period=p.key %}" hx-select="#gl-page" hx-target="#gl-page" hx-swap="outerHTML" hx-push-url="true"{% if p.current %} aria-current="true"{% endif %}>{{ p.label }}</a>{% endfor %}
+    <form method="get" class="md-more" hx-get="" hx-trigger="change" hx-select="#gl-page" hx-target="#gl-page" hx-swap="outerHTML" hx-push-url="true">
+        {% if present %}<input type="hidden" name="present" value="1">{% endif %}
+        <label class="sr-only" for="gl-more-period">Other periods</label>
+        <select id="gl-more-period" name="period"{% if period_more_current %} class="is-current"{% endif %}>
+            <option value="">More ▾</option>
+            {% for key, label in more_periods %}<option value="{{ key }}"{% if key == period %} selected{% endif %}>{{ label }}</option>{% endfor %}
+        </select>
+        <noscript><button type="submit" class="btn-outline btn-sm">Go</button></noscript>
+    </form>
+    {% if own_periods %}<span class="gl-periods-note">Goals marked with a period keep it.</span>{% endif %}
+</nav>
+
+{% if rows %}
+{% include "dashboards/includes/goals_board.html" %}
+{% else %}
+{% include "smallstack/includes/empty_state.html" with title="No goals yet" body="A goal is a metric and the number it should reach. Add goals in sections, then read them down in your meeting." %}
+{% if can_edit %}<p style="text-align: center;"><a href="{% url 'dashboards/goals-update' goal_list.pk %}" class="btn-primary">Add goals</a></p>{% endif %}
+{% endif %}
+
+{% if not present and rows %}
+<div class="md-foot">
+    <section aria-labelledby="gl-read-title">
+        <h2 id="gl-read-title">Reading it</h2>
+        <p class="dash-muted">A goal is on target when its value meets the target, at risk when it only meets the at-risk line, and missed otherwise. The change is against the period before, where there is one; whether up is good depends on the goal. Click a value for the rows behind it.</p>
+    </section>
+    <section aria-labelledby="gl-use-title">
+        <h2 id="gl-use-title">Use it</h2>
+        <dl class="md-uses">
+            <dt>On a dashboard</dt>
+            <dd>Add a <strong>Goals</strong> card and pick this list.</dd>
+            <dt>Over REST</dt>
+            <dd><code>GET {{ api_url }}</code></dd>
+            <dt>From an agent</dt>
+            <dd><code>goal_list_values {"goal_list": "{{ goal_list.slug }}"}</code></dd>
+        </dl>
+    </section>
+</div>
+{% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}<script src="{% static 'dashboards/js/dashboard.js' %}" defer></script>{% endblock %}

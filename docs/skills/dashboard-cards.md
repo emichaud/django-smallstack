@@ -23,6 +23,12 @@ or the modal include by hand.
 The drill-down modal is already in `base.html` — there is **nothing to include**.
 A clickable card's endpoint returns a stat list (see below).
 
+> **A reusable KPI?** If the number should also appear on a dashboard, in a
+> report, or be readable by an agent, store it as a **Metric** and render it
+> with `{% metric_card "key" %}` (same card, same modal) — see
+> [`dashboards.md`](dashboards.md). `{% stat_card %}` stays right for a value
+> computed in the view for one page.
+
 ## The `{% stat_card %}` tag
 
 `apps/smallstack/templatetags/theme_tags.py`. Three modes, picked by argument:
@@ -124,6 +130,21 @@ That's the whole pattern. See `apps/usermanager/views.py` (`user_stat_detail`),
 `apps/tokenmgr/views.py` (`token_stat_detail`), and `apps/mcp/admin_views.py`
 (`MCPAdminStatDetailView`) for live examples.
 
+## Other things that open the modal
+
+Something that isn't a stat card (a table value, a group, a delete icon) opens the same modal
+declaratively, with no inline JavaScript:
+
+```django
+<button type="button" hx-get="{{ rows_url }}" hx-target="#stat-modal-body" hx-swap="innerHTML"
+        data-stat-modal="Requests, this month" aria-haspopup="dialog">1,204</button>
+<button type="button" data-stat-modal-close>Keep it</button>
+```
+
+`theme.js` opens the modal with the `data-stat-modal` title (an `<a>` doesn't navigate), and
+`data-stat-modal-close` or the backdrop closes it. Use `window.openStatModal(title, trigger)`
+only from your own script.
+
 ## Anti-patterns
 
 ❌ **Hand-writing the card markup + htmx wiring.** It drifts: someone forgets
@@ -133,7 +154,7 @@ That's the whole pattern. See `apps/usermanager/views.py` (`user_stat_detail`),
 <!-- ❌ don't -->
 <div class="stat-card stat-card-clickable" style="cursor: pointer;"
      hx-get="{% url 'app:stat_detail' 'x' %}" hx-target="#stat-modal-body"
-     onclick="openStatModal('X')">
+     onclick="openStatModal('X')">   <!-- and an inline handler, which the CSP wants gone -->
   <div class="stat-card-value">{{ n }}</div><div class="stat-card-label">X</div>
 </div>
 ```

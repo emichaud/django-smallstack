@@ -1,0 +1,71 @@
+{% load static theme_tags crud_tags %}
+{% comment %}ReportLibraryDisplay — each report as what it compares, across which periods.{% endcomment %}
+<link rel="stylesheet" href="{% static 'dashboards/css/dashboards.css' %}">
+<script src="{% static 'dashboards/js/dashboard.js' %}" defer></script>
+{% if rows %}
+{% comment %}A crud-table: Name, Movement and Updated sort (the CRUD list's ?ordering=; movement is sorted by the display, evaluating every report); every column resizes with table-resize.js.{% endcomment %}
+<div class="crud-table-wrap">
+<table class="crud-table lib-table rl-table" data-table-key="dashboards/reports:name,columns,movement,updated_at">
+    <thead>
+        <tr>
+            {% sortable_th "name" "Name" target="#crud-list-content" %}
+            <th scope="col" data-field="columns" class="rl-columns-col"><span>Columns</span>{% include "smallstack/crud/includes/col_resizer.html" with label="Columns" %}</th>
+            {% sortable_th "movement" "Movement" target="#crud-list-content" %}
+            {% sortable_th "updated_at" "Updated" target="#crud-list-content" align="right" %}
+            <th scope="col" class="lib-actions-col rl-actions-col"><span class="sr-only">Actions</span></th>
+        </tr>
+    </thead>
+    <tbody>
+    {% for r in rows %}{% with rep=r.obj %}
+        <tr>
+            <td class="lib-name-cell">
+                <a href="{{ r.url }}" class="lib-name">{{ rep.name }}</a>
+                {% if not rep.is_shared %}<span class="dash-badge">Personal</span>{% endif %}
+                <span class="lib-sub" title="{{ r.metric_names|join:', ' }}">{{ rep.items|length }} metric{{ rep.items|length|pluralize }}{% if r.metric_names %}: {{ r.metric_names|join:", " }}{% endif %}</span>
+                {% if r.missing %}<span class="lib-sub rp-bad">{{ r.missing }} row{{ r.missing|pluralize }} point{{ r.missing|pluralize:"s," }} at a deleted metric. Edit the report to fix it.</span>{% endif %}
+            </td>
+            <td class="lib-wrap-cell">
+                <div class="rl-columns" aria-label="Columns">
+                    {% for c in r.columns %}<span class="rl-col{% if forloop.first and r.columns|length > 1 %} rl-col--current{% endif %}">{{ c }}</span>{% endfor %}
+                </div>
+            </td>
+            <td class="lib-wrap-cell rl-movement-cell">
+                {% if r.columns|length < 2 %}<span class="rl-moves-when">One column: nothing to compare</span>
+                {% elif r.sorted_by_movement %}<div class="rl-digest">{% if r.movement %}{% include "dashboards/partials/report_digest.html" with counts=r.movement.counts compared=r.movement.compared first=r.movement.first against=r.movement.against %}{% else %}<span class="rl-moves-when">Nothing to compare yet</span>{% endif %}</div>
+                {% else %}<div class="rl-digest" hx-get="{{ r.digest_url }}" hx-trigger="revealed" hx-swap="innerHTML" aria-live="polite"><span class="rl-moves-when">Comparing…</span></div>{% endif %}
+            </td>
+            <td class="num"><time datetime="{{ rep.updated_at|date:'c' }}">{{ rep.updated_at|date:"M j" }}</time></td>
+            <td class="lib-actions">
+                <a href="{{ r.url }}?format=csv" class="ml-iconbtn" aria-label="Download {{ rep.name }} as CSV" title="Download CSV" download>
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 20h14v-2H5v2zM19 9h-4V3H9v6H5l7 7 7-7z"/></svg>
+                </a>
+                {% if r.edit_url %}
+                <a href="{{ r.edit_url }}" class="ml-iconbtn" aria-label="Edit {{ rep.name }}" title="Edit">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zm17.71-10.21a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
+                </a>
+                {% endif %}
+                {% if r.delete_url %}
+                {% comment %}Opens the delete confirmation (with its last-CSV offer) in the global modal; without JS, the same confirmation as a page.{% endcomment %}
+                <a href="{{ r.delete_url }}" class="ml-iconbtn ml-iconbtn--danger" aria-label="Delete {{ rep.name }}" title="Delete"
+                   hx-get="{{ r.delete_url }}" hx-target="#stat-modal-body" hx-swap="innerHTML" aria-haspopup="dialog"
+                   data-stat-modal="Delete {{ rep.name }}?">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 19a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
+                </a>
+                {% endif %}
+            </td>
+        </tr>
+    {% endwith %}{% endfor %}
+    </tbody>
+</table>
+</div>
+{% elif has_active_filters %}
+{% include "smallstack/crud/includes/empty_state.html" %}
+{% else %}
+<div class="ml-empty">
+    <p><strong>No reports yet.</strong> A report puts metrics side by side across periods, such as this month against last month and the year so far, and downloads as CSV.</p>
+    {% if create_view_url %}<a href="{{ create_view_url }}" class="btn-primary btn-sm">New report</a>{% endif %}
+</div>
+{% endif %}
+{% if is_paginated or page_sizes and page_obj %}
+{% render_paginator page_obj "#crud-display-area" %}
+{% endif %}

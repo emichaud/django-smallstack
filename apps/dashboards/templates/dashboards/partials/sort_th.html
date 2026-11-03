@@ -1,0 +1,5 @@
+{% comment %}A sortable, resizable header for a table that swaps its own section: `s` ({url, aria_sort}, views.section_sort), `field`, `label`, `swap` (the section's selector), `cls`.{% endcomment %}
+<th scope="col" data-field="{{ field }}"{% if cls %} class="{{ cls }}"{% endif %} aria-sort="{{ s.aria_sort }}">
+    <a class="dm-sort" href="{{ s.url }}" hx-get="{{ s.url }}" hx-select="{{ swap }}" hx-target="{{ swap }}" hx-swap="outerHTML" hx-push-url="true" title="Sort by {{ label|lower }}">{{ label }}<span class="dm-sort-ind" aria-hidden="true">{% if s.aria_sort == "ascending" %}▲{% elif s.aria_sort == "descending" %}▼{% endif %}</span></a>
+    {% include "smallstack/crud/includes/col_resizer.html" with label=label %}
+</th>

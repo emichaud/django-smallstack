@@ -1,0 +1,34 @@
+{% load static %}{% comment %}The "trend" card (apps/website/dashboard_cards.py): a metric per bucket as bars or a line. Each bucket is a labelled button that opens its rows; a visually hidden table carries the series for screen readers. style.classes are the shared card-styling hooks (cs-…), styled in dashboard-cards.css; each bucket's state comes from the card's rules, else the metric's.{% endcomment %}
+<div class="trend {{ style.classes }}">
+    <div class="trend-head">
+        <span class="trend-label">{{ label }}</span>
+        {% if latest %}<span class="trend-latest{% if latest.state %} trend-latest--{{ latest.state }}{% endif %}">{{ latest.display }}{% if unit %} <span class="trend-unit">{{ unit }}</span>{% endif %} <span class="trend-when">{{ latest.label }}{% if latest.partial %}, so far{% endif %}</span></span>{% endif %}
+    </div>
+    {% if trend.restricted %}
+    <p class="trend-note">You don't have access to this metric's data.</p>
+    {% elif trend.error %}
+    <p class="trend-note">{{ trend.error }}</p>
+    {% elif not points %}
+    <p class="trend-note">No rows in {{ trend.heading|lower }}.</p>
+    {% else %}
+    <div class="trend-plot trend-plot--{{ kind }}">
+        {% if kind == "line" %}<svg class="trend-line" aria-hidden="true" viewBox="0 0 100 40" preserveAspectRatio="none" focusable="false"><polyline points="{{ line }}" vector-effect="non-scaling-stroke"/></svg>{% endif %}
+        <div class="trend-cols">
+            {% for p in points %}
+            <button type="button" class="trend-col{% if p.partial %} trend-col--partial{% endif %}{% if p.state %} trend-col--{{ p.state }}{% endif %}" style="--share: {{ p.share|default:'0' }};"
+                    aria-haspopup="dialog" aria-label="{{ p.label }}: {{ p.display }}{% if p.partial %} so far{% endif %}, show the rows" hx-get="{{ p.rows_url }}" hx-target="#stat-modal-body" hx-swap="innerHTML" data-stat-modal="{{ p.title }}" title="{{ p.label }}: {{ p.display }}{% if p.partial %} (so far){% endif %}">
+                {% if p.share is not None %}<span class="trend-bar"></span>{% if kind == "line" %}<span class="trend-dot"></span>{% endif %}{% endif %}
+            </button>
+            {% endfor %}
+        </div>
+    </div>
+    <div class="trend-axis" aria-hidden="true"><span>{{ first_label }}</span><span>{{ last_label }}</span></div>
+    <table class="sr-only">
+        <caption>{{ label }}, {{ trend.heading|lower }}, by {{ trend.grain }}</caption>
+        <thead><tr><th scope="col">Period</th><th scope="col">Value</th></tr></thead>
+        <tbody>
+        {% for p in points %}<tr><th scope="row">{{ p.label }}{% if p.partial %} (so far){% endif %}</th><td>{{ p.display }}</td></tr>{% endfor %}
+        </tbody>
+    </table>
+    {% endif %}
+</div>

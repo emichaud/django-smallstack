@@ -5,7 +5,7 @@
    data-group="{{ ctx.group|default:'' }}">
     <div class="widget-header">
         <div class="widget-icon">{{ ctx.icon_safe }}</div>
-        <span class="widget-title">{{ ctx.widget.title }}</span>
+        <span class="widget-title">{{ ctx.title|default:ctx.widget.title }}</span>
     </div>
     <div class="widget-headline">{{ ctx.data.headline }}</div>
     <div class="widget-detail">{{ ctx.data.detail }}</div>

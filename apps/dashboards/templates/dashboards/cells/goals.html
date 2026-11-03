@@ -1,0 +1,28 @@
+{% comment %}The goals card (components.build_goals): how many are on target, then the first goals, each value against its target.{% endcomment %}
+<div class="gl-card">
+<div class="dash-cell-head">
+    {% if goal_list %}<a href="{{ url }}" class="dash-cell-title">{{ label }}</a>{% else %}<span class="dash-cell-title">{{ label }}</span>{% endif %}
+    <span class="dash-spacer"></span>
+    {% if summary and summary.total %}<span class="dash-cell-total">{{ summary.headline }}</span>{% endif %}
+</div>
+{% if restricted %}
+<div class="dash-message"><strong>Restricted</strong>You can't open this goal list.</div>
+{% elif error %}
+<div class="dash-message dash-message--error"><strong>Can't show this card</strong>{{ error }}</div>
+{% elif not rows %}
+<div class="dash-message">No goals in this list yet.</div>
+{% else %}
+{% include "dashboards/partials/goal_bar.html" with summary=summary small=True %}
+<ul class="gl-card-rows">
+    {% for r in rows %}
+    <li class="gl-card-row gl-st--{{ r.status }}">
+        {% include "dashboards/partials/goal_status.html" with status=r.status %}<span class="sr-only">{{ r.status_label }}: </span>
+        <span class="gl-card-name" title="{{ r.label }}">{{ r.label }}</span>
+        {% if r.drill %}<button type="button" class="gl-card-value" hx-get="{{ r.drill.url }}" hx-target="#stat-modal-body" hx-swap="innerHTML" data-stat-modal="{{ r.drill.title }}" aria-haspopup="dialog" aria-label="{{ r.label }}: {{ r.display }}{% if r.unit %} {{ r.unit }}{% endif %}, target {{ r.target_text }}, show the rows">{{ r.display }}{% if r.unit %}<span class="gl-unit">{{ r.unit }}</span>{% endif %}</button>{% else %}<span class="gl-card-value" title="{{ r.error }}">{{ r.display }}</span>{% endif %}
+        <span class="gl-card-target">{{ r.target_text }}</span>
+    </li>
+    {% endfor %}
+</ul>
+{% if more %}<a href="{{ url }}" class="gl-card-more">{{ more }} more goal{{ more|pluralize }}</a>{% endif %}
+{% endif %}
+</div>

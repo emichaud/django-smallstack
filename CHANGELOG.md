@@ -24,8 +24,151 @@ Breaking-change migration recipes live in [`UPGRADING.md`](UPGRADING.md).
   options; restricted viewers get the restricted card. Service:
   `apps.calendar.embed` (`calendar_embed`, `embed_context`, `build_upcoming`);
   fourth component `calendar/components/upcoming.html`. Skill: `calendar.md`.
+- **Goals (`GoalList`, migration `0007`).** Key numbers against their targets, in
+  titled sections, for reading down in an operations meeting. A goal is a metric or
+  a single stat card plus a target rule and an optional at-risk line, judged on
+  target, at risk or missed. Lists are shared or personal.
+  - **Meeting view:** `/smallstack/dashboards/g/<slug>/` opens with a summary (the
+    count, a bar, what needs attention), then each section's values, targets, distance
+    from target and change. `?period=` switches the period; `?present=1` drops the
+    site's chrome.
+  - **Editor:** sections and goals, moved by drag or ↑/↓, including across sections.
+  - **Add to goals:** a dialog on the metric page, form and list, and on single stat
+    cards in the components list and builder. Targets are prefilled from colour rules.
+  - **Elsewhere:** a `goals` dashboard card (up to 10 goals, optionally misses first),
+    goal lists as playlist slides (`{"goals": slug}`), a Goals section on the index, and
+    `ComponentType.single_value` so an app's own one-number card can be a goal.
+  - **Agents:** CRUD tools and REST, `goal_list_values`, `goal_list_add_goal`, and
+    `GET dashboards/api/goals/<slug>/values/`.
+- **Goal lists week by week (`GoalSnapshot`, migration `0008`).** The spreadsheet with a tab per week.
+  - **One week** (`g/<slug>/weeks/`): move with arrows or a picker; each goal shows its change from the week before.
+  - **Week over week:** goals down, eight weeks across, with a CSV download.
+    - **Sorting:** by goal, or by any week's value (`?order=goal`, `?order=-w2026-10-26`). Moving between weeks keeps the sort while that week is on screen, and "Back to the list's order" restores the sections. The CSV follows the sort.
+    - **Resizing:** columns resize, and the widths hold as you move between weeks.
+  - **Trends modal sorting:** sort by goal, this week's value, change against the week before, change against the average before, or run length (longest first). It sorts in place, offers "Back to the list's order", and its columns resize.
+  - **Trends:** a button on any week shows the weeks around it per goal: bars, change against the week before and against the average before, streak, best and worst week.
+  - **Saving:** every Monday the week just ended is saved with its values and targets as they were (`tasks.snapshot_goal_lists`; `manage.py snapshot_goals`). Editors can save the current week or fill in past weeks.
+  - **Agents:** `goal_list_weeks` (MCP) and `GET dashboards/api/goals/<slug>/weeks/`.
+  - **In playlists:** a goal-list slide can show its goals now, last week, or week over week (`{"goals": slug, "show": "week" | "weeks"}`).
+- **The goal list meeting view and the one-week view sort and resize.**
+  - **Sorting:** Goal (A to Z), Status (missed first) and Value sort each section's rows in place, so the sections stay in the order you set (`?order=`). The sort survives a period change, and "Back to the list's order" undoes it.
+  - **Resizing:** every column resizes, and the sections' tables keep their columns aligned. A widened table scrolls inside its card.
+  - **Unchanged:** slides and dashboard cards stay static.
 - **Tables sharing a resize key stay in step.** `table-resize.js` applies a resize or reset to every table on the page with the same `data-table-key`.
+- **Fixed:** on narrow screens the meeting view hid the Trend column instead of Change.
+- **Trends on goal lists.** Each goal shows its last six periods (weeks, months or quarters, following the list's period), each judged against the target, with a streak such as "Missed 3 weeks running". The trend also appears in `goal_list_values`.
+- **The component builder's drill-down columns are a sortable, resizable table.** Sorting by column, heading or format reorders the columns the drill-down and its CSV show, with a note, Undo and nothing changed until Save. Colour rules stay unsorted because the first match wins.
+- **Fixed: the metric form's "See them" rows sort and resize.** The headers had no address for an unsaved metric, so clicking one loaded the form page into the modal. They now sort by posting the unsaved metric again with an `order`, and the columns resize. Filters and colour rules stay as they are: a filter is a nested tree, and colour rules are first-match, so their order is their meaning.
+- **The dashboard form lists its cards.** A "Cards on this dashboard" table shows each card's name, design, metric, size and value, sortable and resizable. Values load as rows scroll into view; sorting by value works them all out. Sorting swaps only the table, so unsaved form edits are safe, and it never moves a card. A card whose metric is gone says so.
+- **The report form's rows are a sortable, resizable table.** Each row now shows Metric (with its label), Target and At risk. Sorting reorders the report's rows, with a note, Undo and nothing changed until Save; moving, adding or removing a row clears the sort.
+- **The goal list form's sections are sortable, resizable tables.** Each goal is now a row: Goal, Target, At risk, Period. Sorting reorders that section's goals, because the rows are the reading order; a note says so and offers Undo, nothing changes until Save, and moving, adding or removing a goal clears the sort. Resizing a column applies to every section.
+- **The playlist form's slides are a sortable, resizable table.** Sorting by slide, seconds or period reorders the slides themselves, because the rows are the play order. A note says so and offers Undo, nothing changes until Save, and moving a row by hand clears the sort.
+- **The Dashboards overview's sections are sortable, resizable tables.** The List view sorts dashboards by name, cards, opens on and updated (`?dash=`), and the Cards view has a Sort select. Playlists sort by name, round length and updated (`?playlists=`), and components by name, design, metric and updated (`?components=`). Each table sorts on its own. Sorting by anything other than name or updated loads that section's rows, only when asked.
+- **Fixed:** the Dashboards overview's Cards button did nothing from the List view when no other options were in the URL.
+- **The Goals overview's sections are sortable, resizable tables.** Goal lists sort by name, goals and updated (`?lists=`), metrics by name, source and value (`?metrics=`), and reports by name, movement and updated (`?reports=`). Each table sorts on its own, and the sorts and the period survive one another. A metric's value sorts the metrics shown (up to 24).
+- **Fixed:** the metrics filter box stopped working after a period change swapped it in place.
+- **Fixed:** at phone width, the Goals overview's header buttons and the weekly grid made the page scroll sideways.
+- **The reports list sorts by movement.** The movement summary ("▲ 2 up, ▼ 5 down") has its own Movement column. `?ordering=movement` puts the most fallen reports first and `-movement` the most risen; reports with nothing to compare go last. Sorting by movement evaluates every report and then pages the result (`reports.sort_by_movement`). Otherwise each row still loads as it scrolls into view.
+- **Targets on reports.** A report row can take a target and an at-risk line. Its values are then coloured on target, at risk or missed, a Target column appears, the CSV gains status columns, and REST/MCP values carry each status. The editor sets a target per row, or starts from the metric's colour rules.
+- **The component builder asks for a card's required choice instead of reporting it as an error.** An info card with no widget picked says "Choose a widget to see the card." The validation message no longer lists every widget key.
+- **Goals is its own area of the sidebar.**
+  - **Goals:** Overview, Goal lists, Metrics, Reports. The overview at `/smallstack/goals/` shows goal lists with live summaries, metrics with live values, and reports.
+  - **Dashboards:** Overview, My dashboards, Components, Playlists. Its overview now shows dashboards, playlists and saved cards.
+  - URLs are unchanged. Breadcrumbs for metrics, reports and goal lists now read "Goals".
 - **Nav items can match several paths.** `nav.register(active_prefix=...)` takes a tuple, for an area whose pages don't share one path.
+- **The component builder shows what a card takes from its metric.** It shows the format, unit and colour rules, marks anything the card overrides, and offers "Use the metric's" to reset it. Settings left alone follow later edits to the metric.
+- **My dashboards as a table.** A Cards/Table switch (`?view=table`); the table's
+  headers sort and its columns resize.
+- **Saved cards and a component builder (`Component`, migration `0006`).** A metric
+  is *what* number; a component is *how it's drawn*: a card type, its metric and the
+  type's options. The key is made from the name.
+  - **Builder:** `/smallstack/dashboards/components/new/` (Dashboards → Components)
+    lays out a palette of every registered card type, grouped. Designs the chosen
+    metric's data can't support are dimmed, with the reason. Each type's form is
+    drawn from its `options_schema`, with a live preview rendered by the same
+    `render_cell` a dashboard uses.
+  - **Placement:** dashboards place a card with `{"component": key}` (the editor's
+    Add card → Saved card). Every placement follows the card's edits; deleting the
+    card leaves the copies as ordinary cards.
+  - **Agents:** `create_component`, `card_preview`,
+    `dashboard_add_card {component}`, and `POST dashboards/api/card-preview/`.
+  - **The extension seam for charts:** `ComponentType` gains `group` (palette
+    section), `icon` and `media` (JS/CSS a card needs). `{% component_media %}`
+    loads `media` once on every page that shows cards. `cell_title(cell)` is the
+    title helper for card types.
+  - **Thresholds and styling on cards.** Single stats, grouped stats, and any app type
+    that sets `stylable=True` take:
+    - `options.thresholds`: the card's own colour rules, replacing the metric's
+      (`[]` = none);
+    - `options.style`: number format, unit, number size and colour, title size and
+      colour, and alignment, from a fixed vocabulary of theme tokens
+      (`components.CARD_STYLE`, no literal colours).
+
+    The builder's **Style it** step edits both, with a live preview. Helpers for
+    app types: `card_style(cell)`, `styled_value(...)`, and the `cs-…` CSS hooks.
+    `apps/website`'s Trend chart opts in as the reference:
+    - each bucket is coloured by the card's rules (else the metric's), and line
+      charts get a dot per bucket;
+    - a chosen colour paints the series and the headline;
+    - the format and unit apply to every bucket and the headline;
+    - success and muted states now colour bars too.
+  - **Info cards take colour rules and styling** (size, colour, title, alignment).
+    - Rules compare the widget's numeric `value`, else the headline's first number,
+      and replace the app's status colour.
+    - A placement's title now shows on the card: `smallstack/widgets/card.html`
+      reads an optional `ctx.title`.
+  - **Drill-downs.**
+    - **Design:** a `drillable` card (Single stat, Grouped stat, Trend chart) can
+      choose what its rows modal shows: up to 12 columns, each with a heading and a
+      format (number, compact, decimal, percent, currency, duration, date,
+      datetime, yes/no), a sort, and how many rows. The builder's **Drill-down** step
+      edits it; tap the number in the preview to try it.
+    - **Export:** every rows modal has **Download CSV**, with the same columns, up
+      to 10,000 rows.
+    - **Sorting:** clicking a column header re-sorts the rows on the server
+      (`?order=`; the modal shows only the first rows of all that match). A
+      second click flips the direction, dates and numbers start newest or largest
+      first, and the CSV follows the chosen order.
+    - **Resizing:** columns can be dragged wider or narrower, resized from the
+      keyboard, or double-clicked to fit, through the framework's
+      `table-resize.js`, as CRUD and dataset tables use it. Widths are remembered
+      per card.
+- **The metric page's "Rows behind the number" table sorts and resizes.**
+  - **Sorting:** the drill-down's header sorting (`?order=`, newest or largest
+    first for dates and numbers, a second click flips it), swapping the page in
+    place. Changing the period keeps the sort.
+  - **Resizing:** columns resize through the framework's `table-resize.js`, with
+    widths remembered per metric.
+- **The metrics, dashboards and reports lists are sortable, resizable tables.**
+  Their library views keep what they showed (a metric's filter in words, data
+  source, use and live value; a dashboard's picture, cards and health; a report's
+  columns and movement), as `crud-table`s.
+  - **Sorting:** Name and Updated sort on all three, and metrics also by Data
+    (`?ordering=`, `{% sortable_th %}`). The metrics period bar and the sort keep
+    each other.
+  - **Resizing:** every column resizes with `table-resize.js`.
+  - The old row-list CSS is gone.
+- **The components list is a sortable, resizable table.**
+  - **Sorting:** Name, Design (type), Metric and Updated sort through the CRUD
+    list's `?ordering=` (`metric` joins `ordering_fields`).
+  - **Resizing:** every column resizes with `table-resize.js`.
+  - **Placed on** shows how many dashboards use each card.
+  - A card you can't edit shows its name as text, not a dead link.
+- **The playlists list is a sortable, resizable table.** Its library view keeps the
+  dashboard strip and Play, but as a `crud-table`.
+  - **Sorting:** Name, Each (seconds per dashboard) and Updated sort through the
+    CRUD list's `?ordering=` (`{% sortable_th %}`; `seconds` joins
+    `ordering_fields`).
+  - **Resizing:** every column resizes with `table-resize.js`.
+- **The report table sorts and resizes.**
+  - **Sorting:** clicking Metric sorts A–Z and clicking a period column sorts
+    largest first; a second click flips it. Rows without a number (a deleted
+    metric, restricted, an error) stay last.
+  - **How:** server-side (`?order=metric` / `-c0` …;
+    `reports.report_order` / `sort_report`), swapped in place, with a "Back to
+    the report's order" link. Both CSV links follow the order.
+  - **Resizing:** columns resize through the framework's `table-resize.js`, and
+    the readings still wrap.
 - **The dataset browser sorts in place.** A header click swaps just the rows
   card (with the address following), like its pager, instead of reloading the
   page. Its columns were already resizable.
@@ -35,7 +178,16 @@ Breaking-change migration recipes live in [`UPGRADING.md`](UPGRADING.md).
       `drill_params()`.
   - **Built-in labels:** Single stat, Grouped stat, Info card, Note.
     `apps/website`'s Trend chart is the downstream example, under Charts.
+- **The dashboards overview stays fast as things grow.** Each section shows the most
+  recently changed few (8 dashboards, 6 playlists, 8 reports, 24 live metrics),
+  with an "All N" link to the paged list. Counts use `count()`, so the page runs
+  the same queries at 10 dashboards or 10,000. Dashboards switch between Cards
+  and a denser List (`?boards=list`), and the period links keep that choice.
+
 ### Changed
+- **Playlist slides carry a `kind`** (`dashboard` or `goals`) in `playlist_slides` and
+  the REST/MCP payloads. A goal slide's `dashboard` is `None`, so code reading
+  `slide["dashboard"]` needs to check `kind`. Playlist lists now count "slides".
 - **Name sorting is case-insensitive on every list.** Text columns now sort with
   lowercase and capitals together ("alpha" beside "Alpha", not after "Zeta" as
   a byte-order sort put it), with the raw value as a tie-break so the order stays
@@ -46,6 +198,19 @@ Breaking-change migration recipes live in [`UPGRADING.md`](UPGRADING.md).
   - **Which columns:** Char, Text, Slug, Email and URL fields count as text,
     including through foreign keys (`user__username`) and text-typed annotations.
     Numbers, dates and foreign-key ids sort as before.
+- **The dashboards forms no longer ask people to write JSON or a key.**
+  - **Metric key:** made from the name on create (`open_urgent_tickets`, then
+    `_2` if taken) and shown read-only. It can't change afterwards: REST/MCP
+    explain with a 400 instead of quietly breaking the dashboards, reports and
+    templates that use it. Agents can still choose a key on create.
+  - **The "edit as JSON" boxes are gone** from the metric, report and playlist
+    forms; their visual editors write hidden fields. A filter an agent wrote
+    with conditions the builder can't show (NOT) is kept as-is, with a "Start
+    over" option.
+  - **Dashboard settings** no longer show or post the layout (cards are
+    arranged on the dashboard), so a save can't overwrite a layout changed
+    meanwhile.
+  - REST and MCP still read and write all of it.
 - **The dataset browser and the datasets index page in place** with the
   framework pager. `{% render_paginator %}` gains:
   - `hx_select` and `push_url`, for pages that answer with full HTML;
@@ -57,6 +222,30 @@ Breaking-change migration recipes live in [`UPGRADING.md`](UPGRADING.md).
   pager (`_index_pager.html`, `views._pager`) is gone.
 
 ### Added
+- **Dashboard playlists.** A `Playlist` (migration `0005`) shows dashboards in
+  sequence: paged by hand like slides, or rotated on a timer for a wall screen.
+  - **Items** are JSON an agent writes in one call:
+    `[{"dashboard": slug, "seconds"?, "period"?}]`. A shared playlist holds only
+    shared dashboards.
+  - **Viewers** see only the dashboards they may open. A renamed or deleted
+    dashboard is followed.
+  - **The player** has previous, play/pause and next, one step per dashboard
+    (which fills as its time runs), full screen, and keyboard shortcuts. It pauses
+    on its own when the tab is hidden or someone clicks into a card. It fetches
+    the next slide ahead, and works without JavaScript.
+  - **Links control it:** `?slide=N&play=1|0&seconds=N&loop=1|0&kiosk=1`, and
+    the address follows the current slide.
+  - **Components** for downstream apps: `playlists.py` (`playlist_slides`,
+    `player_options`, `player_context`, `playlist_payload`), the player include
+    plus `playlist.js`, and `{% playlist "slug" play=True %}`.
+  - **SmallStack pages** built on them: `/smallstack/dashboards/playlists/`
+    (list, and a form with an ordered dashboard editor) and
+    `/smallstack/dashboards/p/<slug>/`.
+  - **Agents:** CRUD over REST/MCP, `GET dashboards/api/playlists/<slug>/slides/`
+    and the `playlist_slides` tool.
+- **Dashboards has a submenu** in the sidebar and topbar: Overview, My dashboards,
+  Metrics, Playlists. The dashboards index has a Playlists section (each one's
+  dashboards, how long a round takes, Play).
 - **`CRUDView.page_sizes` — a "Rows per page" choice for any CRUD list.** Set
   `page_sizes = PAGE_SIZE_CHOICES` (`apps.smallstack.pagination`: 15, 25, 50, 100)
   and `?per_page=` picks one, defaulting to the first. The framework pager
@@ -71,6 +260,44 @@ Breaking-change migration recipes live in [`UPGRADING.md`](UPGRADING.md).
   that keeps the filters and starts again at page 1. On the index, it sits in
   each section's pager (it was a "Per page" control above the sections,
   defaulting to 10) and sets both sections.
+- **The dashboard page header shows its cover** (the photo or the generated one)
+  at 16:9 beside the title.
+- **The `/smallstack/` page is now an editable dashboard.** With `apps.dashboards`
+  installed, it is the shared, staff-only system dashboard
+  (`Dashboard.system_key="smallstack"`, migration `0003`). Staff can drag, resize
+  and remove the cards, and add metric, trend and note cards next to them.
+  Publishing cards is unchanged: `dashboard.register(...)` and
+  `explorer_dashboard_widgets` still feed it.
+  - `boards.sync_widgets` places each newly published widget once, sized by its
+    `span`, and records it in `offered_widgets`, so a card someone removes stays
+    removed.
+  - A widget whose app is disabled leaves the page and returns with the app.
+  - The system dashboard can't be deleted or made personal.
+  - The core seam is `apps.smallstack.dashboard.set_dashboard_page(view)`. Without
+    `apps.dashboards`, the page is the old fixed widget grid.
+  - `boards.system_dashboard(key, …)` lets a downstream page pin its own dashboard
+    the same way.
+  - A dashboard's period bar now shows only when one of its cards reads a period.
+  - The `widget` card type is labelled "App card".
+- **A dashboard can have a picture, and there's a My dashboards page.**
+  `Dashboard.cover_image` / `cover_alt` (migration `0002`) are set on the settings
+  page (thumbnail with Replace / Remove, previewed before upload) and show on the
+  index, the dashboards list and beside the dashboard's title. A dashboard without
+  one gets a generated cover instead of the old layout miniature: its initials
+  over a chart motif (bars, line, ring or tiles; `{% board_cover %}`, stable per
+  slug), drawn in theme colours so it fits every palette. Uploads get a server-chosen name under
+  `dashboards/covers/`, are checked as images (≤ 5MB), and a replaced, cleared or
+  deleted dashboard's file is removed after the commit. Agents set it through
+  `POST /smallstack/dashboards/api/boards/<slug>/picture/` (multipart; CSRF-checked
+  for a session caller) or the `dashboard_set_picture` MCP tool (base64).
+  **My dashboards** (`/smallstack/dashboards/mine/`, in the sidebar and the user
+  menu) lists your
+  dashboards, newest change first, each with its "needs attention" line: the
+  personal ones you own and the shared ones you made. Metrics, dashboards and
+  reports now record `created_by` (migration `0004`; personal rows are backfilled
+  from their owner), set on every surface that creates one and returned by REST
+  and MCP. Unlike `owner` it survives sharing. `OwnedQuerySet.mine(user)` is the
+  query behind the page; `owned_by(user)` is personal rows only.
 - **Dashboards — metrics, grid dashboards and KPI reports (`apps/dashboards/`, label
   `smallstack_dashboards`).** A framework layer over `@dataset` for numbers that
   matter, built by hand or by an AI agent. A **Metric** is a stored filter tree
@@ -115,6 +342,27 @@ Breaking-change migration recipes live in [`UPGRADING.md`](UPGRADING.md).
 - **`@dataset(access="staff"|"auth")`** (default `staff`) declares who may read a
   dataset through in-app surfaces that evaluate it for a user (metrics, dashboards,
   reports). `apps.datasets.registry.user_may_read()` checks it.
+- **Dashboards UI round**:
+  - **Every page redesigned** on the theme tokens: index, dashboard, metric, report, the three
+    forms, the three lists, the delete pages and modals, and the rows modal.
+  - **One shared previous-period comparison** (`compare_with_previous`, "vs all of last month"
+    for a still-running period) on metric pages, dashboard cards, period-aware lists, the rows
+    modal, and `metric_value`/REST.
+  - **Lazy digests:** a report's up/down movement, and a dashboard's cards needing attention.
+  - **Every value drills into its rows**, including an unsaved metric's
+    (`POST dashboards/preview-rows/`).
+  - **Live report preview** (`POST dashboards/api/report-preview/`).
+  - **Metric delete impact** with same-transaction cleanup of cards and report rows.
+- **Changing the period no longer reloads the page.** On the dashboards index, the metrics list,
+  a metric's page and a dashboard, choosing a period used to reload everything: the page blanked,
+  scrolled (the index jumped to an anchor), and a dashboard's cards all collapsed to "Loading…"
+  and regrew.
+  - Now only what depends on the period refreshes, via htmx with `hx-push-url`, so the URL updates
+    and Back works.
+  - On a dashboard, each card keeps its current value until the new one arrives, and auto-refresh
+    continues on the new period.
+  - Focus returns to the newly selected period. The links keep real `href`s as the no-JS fallback.
+  - Measured in a browser: the period bar doesn't move during the switch on any of the four pages.
 - **Template `<style>` blocks moved into stylesheets.** 53 blocks (about 7,200 lines across 52
   templates) are now `<app>/css/templates/<template>.css`, linked where each block was so the
   cascade order is unchanged.
@@ -169,8 +417,30 @@ Breaking-change migration recipes live in [`UPGRADING.md`](UPGRADING.md).
   - Documented in `docs/skills/templates.md`.
   - Fixed along the way: the starter page's demo "action card" called a `doAction()` that never
     existed.
+- **`{% dashboard "slug" %}`** shows a saved dashboard on any page (`period=`, `title=False`,
+  `lazy=False`):
+  - The cards, cell endpoint, access checks and drill-down modal are the dashboard page's own.
+  - The layout is plain CSS grid, and the cards stack in reading order on a phone.
+  - It renders nothing for a viewer who may not open the dashboard.
+  - `boards.board_embed()` gives the same structure to a page that wants its own markup.
+  - `/starter/dashboard/` is a working example.
+- **`trends.metric_trend`**: a metric per day, week, month, quarter or year across a period, as
+  the series any chart reads. It's also available at `GET dashboards/api/metrics/<key>/trend/` and
+  as the `metric_trend` MCP tool.
+  - Every bucket is present: empty ones read 0 for count/sum and are gaps for averages.
+  - The running bucket is flagged `partial`.
+  - Each point carries the `[lo, hi)` filter for its rows.
 - **`Dataset.series(..., grain=)`** is call_stats' time-grain grammar, lifted into SmallStack's
   datasets: calendar buckets with Monday weeks and `lo`/`hi` bounds.
+- **A reference chart card, registered by the project, not by SmallStack.** `apps/website/dashboard_cards.py`
+  adds a "Trend chart" card through `register_component_type`.
+  - It draws bars or a line in theme tokens; each bucket is a labelled button that opens its rows,
+    and screen readers get a table.
+  - SmallStack's built-in card types stay stat and roll-up cards. Delete the line in
+    `WebsiteConfig.ready()` to ship without the chart card.
+- **The "Add card" dialog renders any registered type's `options_schema`** (choice, integer/number,
+  text, boolean). Before this, a downstream type could be placed over MCP or REST but not from the
+  dialog.
 - **Filter descriptions read ISO datetimes as local dates or times** ("Timestamp ≥ 2026-10-19").
 - **Declarative stat modal**:
   - Opening the global drill-down modal no longer needs inline JavaScript. `data-stat-modal="Title"`
@@ -182,6 +452,11 @@ Breaking-change migration recipes live in [`UPGRADING.md`](UPGRADING.md).
   - This is a step toward dropping `'unsafe-inline'` from the CSP's `script-src`. The remaining
     inline handlers are in runbook, the backups page, the explorer example and the generic CRUD
     delete confirmation.
+- **Dashboards templates carry no inline JavaScript and no hand-numbered `?v=` cache busting.**
+  `{% static %}` already emits content-hashed names in production
+  (`CompressedManifestStaticFilesStorage`). The metrics list's period-carry script moved into
+  `dashboards/js/dashboard.js`, which now attaches its document listeners once even when htmx
+  re-executes it. `tests/test_layering.py` checks every dashboards template for both.
 - **`CRUDView.view_mixins = {Action.DELETE: [MyMixin], …}`** is the supported way to customise one
   generated HTML view. The mixins are ordinary Django mixins placed between the auth mixins and the
   generated base, so they use `super()`. It replaces overriding `_make_view` and assigning functions
@@ -194,6 +469,15 @@ Breaking-change migration recipes live in [`UPGRADING.md`](UPGRADING.md).
   `_make_view` patch. An existing patch still works; it just becomes redundant.
 - **`apps.smallstack.api.authenticate_api_request`** is the public name for the Bearer-or-session
   check that custom JSON views use. `_authenticate_api_request` remains as an alias.
+- **Dashboards service layer**:
+  - The logic behind the pages has moved out of `views.py` into building-block modules: `periods`,
+    `comparison`, `reports`, `boards` and `previews`, with metric wording added to `metrics`.
+  - Pages, REST, MCP, template tags and list displays now all call those modules, and none of them
+    imports another. Before this, MCP imported its logic from the REST module, and REST, the
+    template tags and the displays imported from the views.
+  - `tests/test_layering.py` enforces the import direction.
+  - The unsaved-metric rows route moved from the CSRF-exempt API to a session route that requires
+    a CSRF token: it is now `POST dashboards/preview-rows/`.
 - **`Dataset` public helpers** for apps that group a dataset's queryset themselves:
   `aggregate_expression(agg, measure)`, `column_label(name)`, `column_labels()`,
   `value_labels(dimension, rows)` (previously the private `_fk_label_map`), and the module-level
@@ -203,6 +487,8 @@ Breaking-change migration recipes live in [`UPGRADING.md`](UPGRADING.md).
   delete's transaction, so a failed delete rolls back its side effects. The dashboards metrics CRUD
   uses it to remove a deleted metric's cards and report rows, which means REST and MCP deletes no
   longer leave "metric no longer exists" cards behind.
+- **Grouped dashboard cards** show each group's change from the previous period, and their groups'
+  threshold states count in the "needs attention" digests.
 - **`confirm_modal` on a CRUD delete action** (set from `row_actions`): TableDisplay loads the view's own
   delete confirmation into the global stat modal over htmx instead of the generic "Are you sure?" box. The view
   answers an `HX-Request` GET with a fragment. It's opt-in, so other tables are unchanged. The dashboards metrics

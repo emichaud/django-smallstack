@@ -1,0 +1,72 @@
+{% load static theme_tags crud_tags %}
+{% comment %}
+PlaylistLibraryDisplay — playlists as a table: a strip of each one's
+dashboards, how it plays, Play. Name, seconds and updated sort (the CRUD
+list's ?ordering=, {% sortable_th %}); every column resizes with the
+framework's table-resize.js (crud-table + data-table-key + th[data-field]).
+{% endcomment %}
+<link rel="stylesheet" href="{% static 'dashboards/css/dashboards.css' %}">
+{% if rows %}
+<div class="crud-table-wrap pll-wrap">
+<table class="crud-table pll-table" data-table-key="dashboards/playlists:dashboards,name,round,seconds,updated_at">
+    <thead>
+        <tr>
+            <th scope="col" data-field="dashboards" class="pll-strip-col"><span>Dashboards</span>{% include "smallstack/crud/includes/col_resizer.html" with label="Dashboards" %}</th>
+            {% sortable_th "name" "Name" target="#crud-list-content" %}
+            <th scope="col" data-field="round" class="pll-round-col"><span>Round</span>{% include "smallstack/crud/includes/col_resizer.html" with label="Round" %}</th>
+            {% sortable_th "seconds" "Each" target="#crud-list-content" align="right" %}
+            {% sortable_th "updated_at" "Updated" target="#crud-list-content" align="right" %}
+            <th scope="col" class="pll-actions-col"><span class="sr-only">Actions</span></th>
+        </tr>
+    </thead>
+    <tbody>
+    {% for r in rows %}{% with p=r.obj %}
+        <tr>
+            <td class="pll-strip-cell">
+                <a href="{{ r.url }}" class="pll-strip" tabindex="-1" aria-hidden="true">
+                    {% for s in r.strip %}{% include "dashboards/includes/slide_frame.html" with s=s %}{% empty %}<span class="pll-frame pll-frame--empty">Empty</span>{% endfor %}
+                    {% if r.more %}<span class="pll-more">+{{ r.more }}</span>{% endif %}
+                </a>
+            </td>
+            <td class="pll-name-cell">
+                <a href="{{ r.url }}" class="pll-name">{{ p.name }}</a>
+                {% if p.is_shared %}<span class="dash-badge dash-badge--shared">Shared</span>{% else %}<span class="dash-badge">Personal</span>{% endif %}
+                <span class="pll-desc" title="{% for s in r.slides %}{{ s.name }}{% if not forloop.last %}, {% endif %}{% endfor %}">{% if p.description %}{{ p.description }}{% else %}{% for s in r.slides|slice:":3" %}{{ s.name }}{% if not forloop.last %}, {% endif %}{% endfor %}{% if r.slides|length > 3 %} and {{ r.slides|length|add:"-3" }} more{% endif %}{% endif %}</span>
+                {% if r.hidden %}<span class="pll-desc dash-muted">{{ r.hidden }} slide{{ r.hidden|pluralize }} you can't open {{ r.hidden|pluralize:"is,are" }} skipped.</span>{% endif %}
+            </td>
+            <td class="pll-round-cell">{{ r.slides|length }} slide{{ r.slides|length|pluralize }}, about {{ r.minutes }} min{% if p.loop %}, loops{% endif %}{% if p.auto_start %}, plays on open{% endif %}</td>
+            <td class="num">{{ p.seconds }}s</td>
+            <td class="num"><time datetime="{{ p.updated_at|date:'c' }}">{{ p.updated_at|date:"M j" }}</time></td>
+            <td class="pll-actions">
+                {% if r.slides %}
+                <a href="{{ r.url }}?play=1" class="ml-iconbtn" aria-label="Play {{ p.name }}" title="Play">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>
+                </a>
+                {% endif %}
+                {% if r.edit_url %}
+                <a href="{{ r.edit_url }}" class="ml-iconbtn" aria-label="Settings for {{ p.name }}" title="Settings">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zm17.71-10.21a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
+                </a>
+                {% endif %}
+                {% if r.delete_url %}
+                <a href="{{ r.delete_url }}" class="ml-iconbtn ml-iconbtn--danger" aria-label="Delete {{ p.name }}" title="Delete">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 19a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
+                </a>
+                {% endif %}
+            </td>
+        </tr>
+    {% endwith %}{% endfor %}
+    </tbody>
+</table>
+</div>
+{% elif has_active_filters %}
+{% include "smallstack/crud/includes/empty_state.html" %}
+{% else %}
+<div class="ml-empty">
+    <p><strong>No playlists yet.</strong> A playlist shows dashboards one after another. Page through them like slides, or let them rotate on a timer on a wall screen.</p>
+    {% if create_view_url %}<a href="{{ create_view_url }}" class="btn-primary btn-sm">New playlist</a>{% endif %}
+</div>
+{% endif %}
+{% if is_paginated or page_sizes and page_obj %}
+{% render_paginator page_obj "#crud-display-area" %}
+{% endif %}

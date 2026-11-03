@@ -1,0 +1,25 @@
+{% extends "dashboards/dashboard.html" %}
+{% comment %}
+/smallstack/ (AdminHomeView): the system dashboard of published widgets, with
+the old page's header. Everything below the header is dashboard.html.
+{% endcomment %}
+
+{% block title %}Dashboard{% endblock %}
+
+{% block page_header %}
+<div class="page-header-bleed page-header-with-actions">
+    <div class="page-header-content">
+        <h1>Dashboard</h1>
+        <p class="page-subtitle">{{ dashboard.description|default:"System overview at a glance" }}</p>
+        <nav style="margin-top: 0.5rem; font-size: 0.8rem;" aria-label="Breadcrumb">
+            <a href="{% url 'website:home' %}" style="color: var(--body-quiet-color); text-decoration: none;">Home</a>
+            <span style="color: var(--body-quiet-color); margin: 0 0.3rem;">/</span>
+            <span style="color: var(--body-fg);">Dashboard</span>
+        </nav>
+    </div>
+    <div style="display: flex; gap: 0.5rem; align-items: center;">
+        <a href="{% url 'dashboards_index' %}" class="btn-outline btn-sm">All dashboards</a>
+        <a href="{% url 'help:section_index' 'smallstack' %}" class="btn-tint btn-sm">Docs</a>
+    </div>
+</div>
+{% endblock %}

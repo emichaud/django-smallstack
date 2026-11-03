@@ -1,0 +1,2 @@
+{% comment %}GoalListDigestView: a goal list's summary in one line, for a row in a list.{% endcomment %}
+<span class="gl-digest">{% include "dashboards/partials/goal_bar.html" with summary=summary small=True %}<span class="gl-digest-text">{{ summary.headline }}{% if summary.fail %}, {{ summary.fail }} missed{% endif %}{% if summary.warn %}, {{ summary.warn }} at risk{% endif %}</span></span>

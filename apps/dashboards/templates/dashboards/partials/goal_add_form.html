@@ -1,0 +1,75 @@
+{% comment %}
+The "Add to goals" form (AddGoalView) — the global modal's body over htmx,
+the page's content without. The target is prefilled from the metric's colour
+rules; between shows a second number (data-gl-between, goal-add.js).
+{% endcomment %}
+{% load static %}
+<div class="gla" id="gla">
+<script src="{% static 'dashboards/js/goal-add.js' %}" defer></script>
+{% if not lists %}
+<p>You don't have a goal list you can add to yet.</p>
+<p><a href="{% url 'dashboards/goals-create' %}" class="btn-primary btn-sm">New goal list</a></p>
+{% else %}
+<form method="post" action="{% url 'dashboards_goal_add' %}" class="gla-form" hx-post="{% url 'dashboards_goal_add' %}" hx-target="#gla" hx-swap="outerHTML">
+    {% csrf_token %}
+    <input type="hidden" name="{{ source }}" value="{{ obj.key }}">
+    <p class="gla-lede"><strong>{{ obj.name }}</strong>{% if current.ok %} is {{ current.display }}{% if current.unit %} {{ current.unit }}{% endif %} over all time{% endif %}. Set the number it should reach.</p>
+    {% if form.non_field_errors %}<div class="crud-form-errors" role="alert">{% for e in form.non_field_errors %}<p class="crud-error">{{ e }}</p>{% endfor %}</div>{% endif %}
+    <div class="gla-grid">
+        <div class="mb-field">
+            <label for="{{ form.goal_list.id_for_label }}">Goal list</label>
+            <select name="{{ form.goal_list.html_name }}" id="{{ form.goal_list.id_for_label }}" class="vTextField" data-gl-sections="gla-sections">
+                {% for g in lists %}<option value="{{ g.slug }}" data-sections="{{ g.sections|join:'|' }}"{% if form.goal_list.value == g.slug %} selected{% endif %}>{{ g.name }}{% if not g.shared %} (personal){% endif %}</option>{% endfor %}
+            </select>
+            {% for e in form.goal_list.errors %}<p class="crud-error">{{ e }}</p>{% endfor %}
+        </div>
+        <div class="mb-field">
+            <label for="{{ form.section.id_for_label }}">Section</label>
+            <input type="text" name="{{ form.section.html_name }}" id="{{ form.section.id_for_label }}" class="vTextField" list="gla-sections" value="{{ form.section.value|default:'' }}" placeholder="Pick one or type a new one" autocomplete="off">
+            {% for e in form.section.errors %}<p class="crud-error">{{ e }}</p>{% endfor %}
+            <datalist id="gla-sections">{% for g in lists %}{% if forloop.first %}{% for t in g.sections %}{% if t %}<option value="{{ t }}">{% endif %}{% endfor %}{% endif %}{% endfor %}</datalist>
+        </div>
+    </div>
+    <fieldset class="gla-rule" data-gl-between>
+        <legend>On target when the value is</legend>
+        <div class="gla-rule-row">
+            <label class="sr-only" for="{{ form.op.id_for_label }}">Target rule</label>{{ form.op }}
+            <label class="sr-only" for="{{ form.value.id_for_label }}">Target</label><input type="number" step="any" name="value" id="{{ form.value.id_for_label }}" class="vTextField" value="{{ form.value.value|default_if_none:'' }}" required>
+            <span class="gla-and" data-gl-second hidden>and</span>
+            <label class="sr-only" for="{{ form.value2.id_for_label }}">Upper target</label><input type="number" step="any" name="value2" id="{{ form.value2.id_for_label }}" class="vTextField" value="{{ form.value2.value|default_if_none:'' }}" data-gl-second hidden>
+        </div>
+        {% for e in form.value.errors %}<p class="crud-error">{{ e }}</p>{% endfor %}{% for e in form.value2.errors %}<p class="crud-error">{{ e }}</p>{% endfor %}
+    </fieldset>
+    <fieldset class="gla-rule" data-gl-between>
+        <legend>At risk when it's <span class="dash-muted">(optional)</span></legend>
+        <div class="gla-rule-row">
+            <label class="sr-only" for="{{ form.warn_op.id_for_label }}">At-risk rule</label>{{ form.warn_op }}
+            <label class="sr-only" for="{{ form.warn_value.id_for_label }}">At-risk line</label><input type="number" step="any" name="warn_value" id="{{ form.warn_value.id_for_label }}" class="vTextField" value="{{ form.warn_value.value|default_if_none:'' }}">
+            <span class="gla-and" data-gl-second hidden>and</span>
+            <label class="sr-only" for="{{ form.warn_value2.id_for_label }}">Upper at-risk line</label><input type="number" step="any" name="warn_value2" id="{{ form.warn_value2.id_for_label }}" class="vTextField" value="{{ form.warn_value2.value|default_if_none:'' }}" data-gl-second hidden>
+        </div>
+        {% for e in form.warn_value.errors %}<p class="crud-error">{{ e }}</p>{% endfor %}{% for e in form.warn_value2.errors %}<p class="crud-error">{{ e }}</p>{% endfor %}
+        <p class="mb-help">Missed is everything else. {% if metric.thresholds %}Filled in from the metric's colour rules.{% endif %}</p>
+    </fieldset>
+    <details class="gla-more"{% if form.label.value or form.note.value or form.period.value %} open{% endif %}>
+        <summary>Label, period and note</summary>
+        <div class="gla-grid">
+            <div class="mb-field">
+                <label for="{{ form.label.id_for_label }}">Label</label>
+                <input type="text" name="label" id="{{ form.label.id_for_label }}" class="vTextField" value="{{ form.label.value|default:'' }}" placeholder="{{ obj.name }}" maxlength="120">
+            </div>
+            <div class="mb-field">
+                <label for="{{ form.period.id_for_label }}">Period</label>{{ form.period }}
+            </div>
+        </div>
+        <div class="mb-field">
+            <label for="{{ form.note.id_for_label }}">Note</label>
+            <textarea name="note" id="{{ form.note.id_for_label }}" class="vTextField" rows="2" maxlength="280" placeholder="Who owns it, or why the target is what it is">{{ form.note.value|default:'' }}</textarea>
+        </div>
+    </details>
+    <div class="gla-actions">
+        <button type="submit" class="btn-primary btn-sm">Add to goals</button>
+    </div>
+</form>
+{% endif %}
+</div>

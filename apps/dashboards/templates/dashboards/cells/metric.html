@@ -1,0 +1,6 @@
+{% comment %}A metric cell — exactly the {% stat_card %} markup (same template, same global drill-down modal) via metric_card_context, inside the card's style hooks (components.card_style → cs-… classes).{% endcomment %}
+<div class="{{ style.classes|default:'card-style' }}">
+{% include "smallstack/includes/stat_card.html" with value=card.value label=card.label title=card.title href=card.href mode=card.mode state=card.state unit=card.unit %}
+{% if comparison %}<p class="dash-compare"><span aria-hidden="true">{% if comparison.dir == "up" %}▲{% elif comparison.dir == "down" %}▼{% else %}={% endif %}</span> {% if comparison.dir == "up" %}<span class="sr-only">Up </span>{% elif comparison.dir == "down" %}<span class="sr-only">Down </span>{% endif %}{{ comparison.text }} <span class="dash-compare-prev">({{ comparison.previous }}{% if comparison.unit %} {{ comparison.unit }}{% endif %})</span></p>{% endif %}
+{% if result.error %}<p class="dash-message dash-message--error" style="margin: 0; padding: 0 1rem 0.6rem; text-align: left;">{{ result.error }}</p>{% elif result.restricted %}<p class="dash-message" style="margin: 0; padding: 0 1rem 0.6rem; text-align: left;">You don't have access to this metric's data.</p>{% endif %}
+</div>

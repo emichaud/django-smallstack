@@ -1,0 +1,25 @@
+{% comment %}
+DashboardForm's picture input (forms.CoverInput). Replaces ClearableFileInput's
+"Currently: <url> / Clear / Change" with a thumbnail. The field names are the
+same (the clear checkbox is still <name>-clear), so only the person sees a
+difference. dashboard-form.js previews a chosen file before upload.
+{% endcomment %}
+<div class="df-cover" data-cover-input>
+    <div class="df-cover-frame{% if not widget.is_initial %} is-empty{% endif %}">
+        <img class="df-cover-img" {% if widget.is_initial %}src="{{ widget.value.url }}"{% endif %} alt="" data-cover-preview>
+        <span class="df-cover-empty" data-cover-empty>No picture yet</span>
+    </div>
+    <div class="df-cover-actions">
+        <label class="btn-outline btn-sm df-cover-pick">
+            <span data-cover-pick-label>{% if widget.is_initial %}Replace{% else %}Choose an image{% endif %}</span>
+            <input type="{{ widget.type }}" name="{{ widget.name }}"{% include "django/forms/widgets/attrs.html" %} class="sr-only" data-cover-file>
+        </label>
+        {% if widget.is_initial and not widget.required %}
+        <label class="df-cover-remove">
+            <input type="checkbox" name="{{ widget.checkbox_name }}" id="{{ widget.checkbox_id }}" data-cover-clear>
+            <span>Remove</span>
+        </label>
+        {% endif %}
+        <span class="df-cover-filename dash-muted" data-cover-filename aria-live="polite"></span>
+    </div>
+</div>

@@ -64,7 +64,18 @@ def test_api_extras_never_include_an_address(blog, confirmed_sub, subscriber):
 
 
 def test_it_renders_on_the_dashboard_for_staff(client, staff, blog, post):
+    """/smallstack/ is a dashboard whose cards load lazily, one request per
+    card: the tile is placed on it, and its card renders the live count."""
+    from apps.dashboards.models import ADMIN_HOME_KEY, Dashboard
+
     client.force_login(staff)
-    body = client.get("/smallstack/").content.decode()
+    assert client.get("/smallstack/").status_code == 200
+    board = Dashboard.objects.get(system_key=ADMIN_HOME_KEY)
+    cell = next(
+        c
+        for c in board.layout
+        if c["type"] == "widget" and c["options"]["widget"].endswith(".BlogDashboardWidget")
+    )
+    body = client.get(f"/smallstack/dashboards/d/{board.slug}/cells/{cell['id']}/").content.decode()
     assert "1 live post" in body
     assert 'href="/smallstack/blog/posts/"' in body

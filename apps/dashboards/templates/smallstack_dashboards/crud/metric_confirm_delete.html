@@ -1,0 +1,28 @@
+{% extends "smallstack/base.html" %}
+{% load static %}
+
+{% block title %}Delete {{ object.name }}{% endblock %}
+{% block breadcrumbs %}{% endblock %}
+{% block extra_css %}<link rel="stylesheet" href="{% static 'dashboards/css/dashboards.css' %}">{% endblock %}
+
+{% block page_header %}
+<div class="page-header-bleed page-header-with-actions">
+    <div class="page-header-content">
+        <h1>Delete {{ object.name }}?</h1>
+        <p class="page-subtitle">This can't be undone.</p>
+        <nav style="margin-top: 0.5rem; font-size: 0.8rem;">
+            <a href="{% url 'website:home' %}" style="color: var(--body-quiet-color); text-decoration: none;">Home</a>
+            <span style="color: var(--body-quiet-color); margin: 0 0.3rem;">/</span>
+            <a href="{% url 'goals_index' %}" style="color: var(--body-quiet-color); text-decoration: none;">Goals</a>
+            <span style="color: var(--body-quiet-color); margin: 0 0.3rem;">/</span>
+            <a href="{{ object.get_absolute_url }}" style="color: var(--body-quiet-color); text-decoration: none;">{{ object.name }}</a>
+            <span style="color: var(--body-quiet-color); margin: 0 0.3rem;">/</span>
+            <span style="color: var(--body-fg);">Delete</span>
+        </nav>
+    </div>
+</div>
+{% endblock %}
+
+{% block content %}
+{% include "smallstack_dashboards/crud/_metric_delete_body.html" %}
+{% endblock %}

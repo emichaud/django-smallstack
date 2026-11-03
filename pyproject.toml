@@ -106,6 +106,7 @@ module = [
     "apps.approvals.*",
     "apps.blog.*",
     "apps.calendar.*",
+    "apps.dashboards.*",
     "apps.datasets.*",
     "apps.feeds.*",
     "apps.notifications.*",

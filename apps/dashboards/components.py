@@ -1,0 +1,952 @@
+"""Dashboard components — the card types a dashboard cell can be.
+
+A cell is a plain dict stored in ``Dashboard.layout``::
+
+    {"id": "c1", "type": "metric", "metric": "open_tickets",
+     "x": 0, "y": 0, "w": 3, "h": 2, "title": "Open", "options": {}}
+
+and its ``type`` names a :class:`ComponentType` registered here. A type says
+how to **validate** a cell (so a bad cell is refused when the dashboard is
+saved, by any surface) and how to **build** the template context that renders
+it. SmallStack ships five:
+
+==================  ===========================================================
+``metric``          one stat card from a Metric — value, state, drill-down
+``metric_group``    a Metric split by a dimension: the top N groups as numbers
+``widget``          an existing ``DashboardWidget`` (the /smallstack/ cards)
+``text``            a markdown note between cards
+``goals``           the first goals of a GoalList, each against its target
+==================  ===========================================================
+
+**Extending it** — an app on top of SmallStack registers its own type from
+its ``AppConfig.ready()`` (a chart, a table, a gauge…)::
+
+    from apps.dashboards.components import ComponentType, register_component_type
+
+    register_component_type(ComponentType(
+        key="sparkline", label="Sparkline", description="Daily trend of a metric",
+        template="myapp/cells/sparkline.html", needs_metric=True,
+        default_size=(4, 2), build=build_sparkline, validate=validate_sparkline,
+    ))
+
+``build(cell, ctx)`` returns the template context; ``validate(cell)`` returns a
+list of problems. The cell endpoint renders the template inside the shared card
+chrome, so a new type gets lazy loading, auto-refresh, the period bar, layout
+editing, REST/MCP authoring and access checks for free.
+"""
+
+from __future__ import annotations
+
+import logging
+import re
+from dataclasses import dataclass, field
+from typing import TYPE_CHECKING, Any, Callable, Optional
+
+from django.http import HttpRequest
+from django.urls import NoReverseMatch, reverse
+
+from .comparison import compare_groups, compare_with_previous
+from .metrics import DRILL_FORMATS, MAX_DRILL_COLUMNS, MAX_DRILL_ROWS, STATES, THRESHOLD_OPS, evaluate
+from .periods import period_heading
+
+if TYPE_CHECKING:
+    from .models import Dashboard, Metric
+
+logger = logging.getLogger("smallstack.dashboards")
+
+GRID_COLUMNS = 12
+MAX_ROWS = 12  # a cell's height cap, in grid rows
+MAX_CELLS = 60
+_CELL_KEYS = {"id", "type", "x", "y", "w", "h", "metric", "title", "options", "use_period", "component", "name"}
+#: What a placement of a saved component may set itself; the rest comes from the component.
+_PLACEMENT_KEYS = {"id", "x", "y", "w", "h", "title", "use_period"}
+
+
+#: The shared card styling (``options.style``) a ``stylable`` card type
+#: honours, as the builder and agents see it. Colours are the theme's named
+#: states and accent, never literals, so a styled card is right on every palette.
+CARD_STYLE: list[dict[str, Any]] = [
+    {"name": "format", "label": "Number format", "default": "",
+     "choices": [["", "The metric's"], ["number", "Number — 9,481"], ["compact", "Compact — 9.5K"],
+                 ["decimal", "Decimal — 9,481.24"], ["percent", "Percent — 94.2%"],
+                 ["currency", "Currency — $9,481.00"], ["duration", "Duration — 2m 19s"]]},
+    {"name": "unit", "label": "Unit", "default": "", "max": 20, "help": "Blank = the metric's unit."},
+    {"name": "size", "label": "Number size", "default": "m",
+     "choices": [["s", "Small"], ["m", "Medium"], ["l", "Large"], ["xl", "Extra large"]]},
+    {"name": "color", "label": "Number colour", "default": "state",
+     "choices": [["state", "From the thresholds"], ["accent", "Accent"], ["plain", "Plain"],
+                 ["success", "Success"], ["warning", "Warning"], ["danger", "Danger"], ["muted", "Quiet"]]},
+    {"name": "title_size", "label": "Title size", "default": "m",
+     "choices": [["s", "Small"], ["m", "Medium"], ["l", "Large"]]},
+    {"name": "title_color", "label": "Title colour", "default": "quiet",
+     "choices": [["quiet", "Quiet"], ["plain", "Plain"], ["accent", "Accent"]]},
+    {"name": "align", "label": "Alignment", "default": "start",
+     "choices": [["start", "Left"], ["center", "Centre"], ["end", "Right"]]},
+]
+_STYLE = {spec["name"]: spec for spec in CARD_STYLE}
+
+
+def validate_card_style(options: dict[str, Any], allowed: tuple[str, ...] = ()) -> list[str]:
+    """Problems with a stylable card's ``style`` and ``thresholds`` options.
+    *allowed* narrows the settings a type takes (``ComponentType.style_settings``)."""
+    from .metrics import validate_thresholds
+
+    problems: list[str] = []
+    style = options.get("style", {})
+    if not isinstance(style, dict):
+        return ["'style' must be an object"]
+    names = set(allowed or _STYLE)
+    for key, value in style.items():
+        spec = _STYLE.get(key)
+        if spec is not None and value in ("", None):
+            continue  # blank = the default
+        if spec is None or key not in names:
+            problems.append(f"style: unknown setting {key!r}; use {sorted(names)}")
+        elif "choices" in spec and value not in [c[0] for c in spec["choices"]]:
+            problems.append(f"style.{key}: one of {[c[0] for c in spec['choices']]}")
+        elif "max" in spec and (not isinstance(value, str) or len(value) > spec["max"]):
+            problems.append(f"style.{key}: text, at most {spec['max']} characters")
+    if "thresholds" in options:
+        problems.extend(f"thresholds: {p}" for p in validate_thresholds(options["thresholds"]))
+    return problems
+
+
+def card_style(cell: dict[str, Any]) -> dict[str, Any]:
+    """A stylable card's resolved styling: every :data:`CARD_STYLE` setting
+    (defaults filled in), its own ``thresholds`` (``None`` = the metric's), and
+    ``classes`` — the ``cs-…`` CSS hooks the card's template puts on its root."""
+    opts = cell.get("options") or {}
+    raw_style = opts.get("style")
+    raw: dict[str, Any] = raw_style if isinstance(raw_style, dict) else {}
+    style = {spec["name"]: raw.get(spec["name"]) or spec["default"] for spec in CARD_STYLE}
+    style["thresholds"] = opts["thresholds"] if isinstance(opts.get("thresholds"), list) else None
+    style["classes"] = " ".join(
+        [
+            "card-style",
+            f"cs-size-{style['size']}",
+            f"cs-color-{style['color']}",
+            f"cs-title-{style['title_size']}",
+            f"cs-title-color-{style['title_color']}",
+            f"cs-align-{style['align']}",
+        ]
+    )
+    return style
+
+
+def styled_value(value: Any, metric: "Metric", style: dict[str, Any], state: Optional[str]) -> dict[str, Any]:
+    """``{display, unit, state}`` for *value* under a card's style: its format
+    and unit when set, else the metric's; its own thresholds when it has them,
+    else the *state* the metric's rules already gave."""
+    from .metrics import display_unit, format_value, state_for
+
+    fmt = style.get("format") or metric.format
+    unit = style.get("unit") or metric.unit
+    return {
+        "display": format_value(value, fmt, unit),
+        "unit": display_unit(fmt, unit),
+        "state": state_for(value, style["thresholds"]) if style.get("thresholds") is not None else state,
+    }
+
+
+def drill_params(cell: dict[str, Any]) -> dict[str, str]:
+    """The query parameter that carries a card's drill-down design to the rows
+    view (``{"drill": "<json>"}``), or ``{}``. A drillable card adds it to every
+    rows URL it renders, so the modal shows that card's columns wherever the
+    card is drawn — a dashboard, an embed, a playlist, the builder's preview."""
+    import json
+
+    spec = (cell.get("options") or {}).get("drilldown")
+    return {"drill": json.dumps(spec, separators=(",", ":"))} if isinstance(spec, dict) and spec else {}
+
+
+def with_drill(url: str, cell: dict[str, Any]) -> str:
+    """*url* (a rows URL) with the card's :func:`drill_params` appended."""
+    from urllib.parse import urlencode
+
+    params = drill_params(cell)
+    if not url or not params:
+        return url
+    return f"{url}{'&' if '?' in url else '?'}{urlencode(params)}"
+
+
+def cell_title(cell: dict[str, Any]) -> str:
+    """A card's own title: the placement's ``title``, else the saved
+    component's name (``name``), else "" — a card type falls back to its
+    metric's or widget's name: ``cell_title(cell) or metric.name``."""
+    return str(cell.get("title") or cell.get("name") or "")
+_ID_RE = re.compile(r"^[A-Za-z0-9_-]{1,40}$")
+
+
+@dataclass
+class CellContext:
+    """What a component's ``build`` receives besides the cell itself."""
+
+    request: HttpRequest
+    dashboard: Optional["Dashboard"] = None
+    metric: Optional["Metric"] = None
+    period: Optional[str] = None
+
+
+@dataclass(frozen=True)
+class ComponentType:
+    key: str
+    label: str
+    template: str
+    build: Callable[[dict[str, Any], CellContext], dict[str, Any]]
+    description: str = ""
+    needs_metric: bool = False
+    default_size: tuple[int, int] = (3, 2)
+    #: Dataset capabilities the bound metric's dataset must have (``apps.datasets.capabilities``).
+    requires: frozenset[str] = field(default_factory=frozenset)
+    #: Extra validation of the cell (beyond the shared shape checks) → problems.
+    validate: Optional[Callable[[dict[str, Any]], list[str]]] = None
+    #: Who may see the card at all (beyond dashboard visibility). ``None`` = anyone who can view the dashboard.
+    visible_to: Optional[Callable[[Any], bool]] = None
+    #: Option fields a builder offers: ``[{name, label, type, default?, choices?, min?, max?, help?, required?}]``.
+    #: ``type``: choice | integer | number | text | boolean | column (a column of the
+    #: metric's dataset) | widget (a published DashboardWidget) | markdown.
+    options_schema: list[dict[str, Any]] = field(default_factory=list)
+    #: Where the component builder's palette files it: "Stats", "Info", "Charts", …
+    group: str = "Other"
+    #: The palette tile's icon: an SVG ``<path d>`` on a 24×24 grid (trusted).
+    icon: str = ""
+    #: Static files the card needs on any page that shows it, e.g.
+    #: ``{"js": ["myapp/vendor/echarts.min.js", "myapp/js/cards.js"], "css": [...]}``
+    #: (paths for ``{% static %}``). Dashboard, builder, embed and playlist pages
+    #: load each once (``{% component_media %}``). A card's script must mount on
+    #: what htmx swaps in — listen for ``htmx:afterSettle``.
+    media: dict[str, list[str]] = field(default_factory=dict)
+    #: Honours the shared card styling and the card's own threshold rules
+    #: (``options.style`` / ``options.thresholds``, see :data:`CARD_STYLE`). A
+    #: type that sets this reads :func:`card_style` and :func:`styled_value`.
+    stylable: bool = False
+    #: Which :data:`CARD_STYLE` settings apply; empty = all. A card whose
+    #: headline is text (an info card) has no number format or unit.
+    style_settings: tuple[str, ...] = ()
+    #: Its numbers open rows, so it takes a drill-down design
+    #: (``options.drilldown``: columns, formats, sort, rows; see
+    #: ``metrics.validate_drilldown``). Its build appends :func:`drill_params`
+    #: to every rows URL it renders.
+    drillable: bool = False
+    #: Boils down to one number — its metric's value — so a saved card of this
+    #: type can be a goal (``goals.py``); the goal takes the card's metric,
+    #: number format and unit.
+    single_value: bool = False
+
+
+_TYPES: dict[str, ComponentType] = {}
+
+
+def register_component_type(ct: ComponentType) -> None:
+    """Register (or replace — re-import safe) a component type."""
+    _TYPES[ct.key] = ct
+
+
+def get_component_type(key: str) -> Optional[ComponentType]:
+    return _TYPES.get(key)
+
+
+def component_types() -> list[ComponentType]:
+    return list(_TYPES.values())
+
+
+def _resolved_options(schema: list[dict[str, Any]], user: Any) -> list[dict[str, Any]]:
+    """*schema* with any callable ``choices`` (``choices(user) -> [[value,
+    label]]``) resolved for *user* — options whose values are the viewer's own
+    rows, like the goals card's goal list. No user, no choices."""
+    out = []
+    for spec in schema:
+        if callable(spec.get("choices")):
+            spec = {**spec, "choices": spec["choices"](user) if user is not None else []}
+        out.append(spec)
+    return out
+
+
+def describe_types(user: Any = None) -> list[dict[str, Any]]:
+    """The registry as JSON — what an agent or the "Add card" picker reads.
+    *user* fills in options whose choices depend on who's asking."""
+    return [
+        {
+            "type": ct.key,
+            "label": ct.label,
+            "description": ct.description,
+            "needs_metric": ct.needs_metric,
+            "default_size": {"w": ct.default_size[0], "h": ct.default_size[1]},
+            "requires": sorted(ct.requires),
+            "options": _resolved_options(ct.options_schema, user),
+            "group": ct.group,
+            "icon": ct.icon,
+            "media": {k: list(v) for k, v in ct.media.items()},
+            "staff_only": ct.visible_to is _staff_only,
+            "stylable": ct.stylable,
+            "style_settings": list(ct.style_settings) or [spec["name"] for spec in CARD_STYLE],
+            "drillable": ct.drillable,
+            "single_value": ct.single_value,
+        }
+        for ct in component_types()
+    ]
+
+
+def component_media() -> dict[str, list[str]]:
+    """Every registered card type's static files, de-duplicated, in
+    registration order — what ``{% component_media %}`` writes out."""
+    out: dict[str, list[str]] = {"css": [], "js": []}
+    for ct in component_types():
+        for kind in ("css", "js"):
+            for path in ct.media.get(kind, []):
+                if path not in out[kind]:
+                    out[kind].append(path)
+    return out
+
+
+# -- layout validation ------------------------------------------------------------
+
+
+def components_payload(user: Any) -> dict[str, Any]:
+    """What a builder (a person's editor or an agent) may put on a dashboard:
+    the card types, the periods, the grid, and — for staff — the admin widgets."""
+    from apps.datasets.dateranges import RELATIVE_PERIODS
+
+    payload: dict[str, Any] = {
+        "types": describe_types(user),
+        "periods": [{"key": k, "label": lbl} for k, lbl in RELATIVE_PERIODS],
+        "grid": {"columns": GRID_COLUMNS, "max_rows_per_cell": MAX_ROWS},
+        # What a stylable card's options.style / options.thresholds may hold.
+        "style": CARD_STYLE,
+        "thresholds": {"ops": list(THRESHOLD_OPS), "states": list(STATES)},
+        # What a drillable card's options.drilldown may hold.
+        "drilldown": {"formats": DRILL_FORMATS, "max_columns": MAX_DRILL_COLUMNS, "max_rows": MAX_DRILL_ROWS},
+    }
+    if getattr(user, "is_staff", False):
+        payload["widgets"] = [{"key": k, "title": w.title} for k, w, _i in available_widgets()]
+    return payload
+
+
+def _int(value: Any) -> Optional[int]:
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, int):
+        return value
+    if isinstance(value, str) and value.strip().lstrip("-").isdigit():
+        return int(value.strip())
+    return None
+
+
+def _expand_components(raw: list[Any], owner_id: Any, problems: list[str]) -> list[Any]:
+    """Replace each ``{"component": key, …}`` placement with the saved
+    component's definition (type, metric, options, name) plus the placement's
+    own ``id``/position/``title``/``use_period``. A missing component, or
+    someone else's personal one, becomes ``None`` and a problem."""
+    from .models import Component, _visible_to_owner
+
+    wanted = {c["component"] for c in raw if isinstance(c, dict) and isinstance(c.get("component"), str)}
+    if not wanted:
+        return raw
+    found = {x.key: x for x in Component.objects.filter(key__in=wanted)}
+    out: list[Any] = []
+    for n, cell in enumerate(raw):
+        if not (isinstance(cell, dict) and cell.get("component")):
+            out.append(cell)
+            continue
+        key = cell["component"]
+        comp = found.get(key) if isinstance(key, str) else None
+        if comp is None:
+            problems.append(f"layout[{n}].component: no saved card {key!r}")
+            out.append(None)
+        elif not _visible_to_owner(comp.owner_id, owner_id):
+            problems.append(f"layout[{n}].component: {key!r} is another user's personal card")
+            out.append(None)
+        else:
+            placed = {k: v for k, v in cell.items() if k in _PLACEMENT_KEYS}
+            out.append({**comp.as_cell(), **placed, "component": comp.key, "name": comp.name})
+    return out
+
+
+def normalize_layout(raw: Any, *, owner_id: Any = None) -> tuple[list[dict[str, Any]], list[str]]:
+    """Validate a dashboard layout → ``(normalised cells, problems)``.
+
+    Fills in what an author may omit (``id``, size from the type's default,
+    ``x``/``y`` = 0) and checks everything else: known type, grid bounds,
+    unique ids, a metric that exists and that the dashboard's owner may use,
+    the type's own rules. Problems are path-addressed (``layout[2].metric``).
+    A ``{"component": key}`` cell takes its type, metric and options from that
+    saved component (:func:`_expand_components`).
+    """
+    from .models import Metric, _visible_to_owner
+
+    if raw in (None, ""):
+        return [], []
+    if not isinstance(raw, list):
+        return [], ["layout must be a list of cells"]
+    if len(raw) > MAX_CELLS:
+        return [], [f"at most {MAX_CELLS} cells"]
+
+    problems: list[str] = []
+    raw = _expand_components(raw, owner_id, problems)
+
+    keys = {c.get("metric") for c in raw if isinstance(c, dict) and isinstance(c.get("metric"), str)}
+    metrics = {m.key: m for m in Metric.objects.filter(key__in=keys)} if keys else {}
+
+    out: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for n, cell in enumerate(raw):
+        where = f"layout[{n}]"
+        if cell is None:
+            continue  # a component that couldn't be placed (already reported)
+        if not isinstance(cell, dict):
+            problems.append(f"{where}: expected an object")
+            continue
+        extra = set(cell) - _CELL_KEYS
+        if extra:
+            problems.append(f"{where}: unexpected key(s) {sorted(extra)}")
+        ct = get_component_type(str(cell.get("type", "")))
+        if ct is None:
+            problems.append(f"{where}.type: unknown component type {cell.get('type')!r}; use one of {sorted(_TYPES)}")
+            continue
+        c: dict[str, Any] = {"type": ct.key}
+        if cell.get("component"):
+            c["component"] = cell["component"]
+            c["name"] = cell.get("name", "")
+
+        cid = cell.get("id")
+        if cid in (None, ""):
+            i = n + 1
+            while f"c{i}" in seen or any(isinstance(o, dict) and o.get("id") == f"c{i}" for o in raw):
+                i += 1
+            cid = f"c{i}"
+        if not isinstance(cid, str) or not _ID_RE.match(cid):
+            problems.append(f"{where}.id: letters, digits, - and _ only (max 40)")
+            continue
+        if cid in seen:
+            problems.append(f"{where}.id: duplicate id {cid!r}")
+            continue
+        seen.add(cid)
+        c["id"] = cid
+
+        w = _int(cell.get("w", ct.default_size[0]))
+        h = _int(cell.get("h", ct.default_size[1]))
+        x = _int(cell.get("x", 0))
+        y = _int(cell.get("y", 0))
+        if w is None or not 1 <= w <= GRID_COLUMNS:
+            problems.append(f"{where}.w: 1–{GRID_COLUMNS}")
+        if h is None or not 1 <= h <= MAX_ROWS:
+            problems.append(f"{where}.h: 1–{MAX_ROWS}")
+        if x is None or x < 0 or (w is not None and x + w > GRID_COLUMNS):
+            problems.append(f"{where}.x: the cell must fit in {GRID_COLUMNS} columns (x + w ≤ {GRID_COLUMNS})")
+        if y is None or not 0 <= y <= 1000:
+            problems.append(f"{where}.y: 0–1000")
+        c.update({"x": x, "y": y, "w": w, "h": h})
+
+        title = cell.get("title")
+        if title not in (None, ""):
+            if not isinstance(title, str) or len(title) > 120:
+                problems.append(f"{where}.title: text, at most 120 characters")
+            else:
+                c["title"] = title
+        if "use_period" in cell:
+            if not isinstance(cell["use_period"], bool):
+                problems.append(f"{where}.use_period: true or false")
+            elif cell["use_period"] is False:
+                c["use_period"] = False
+
+        options = cell.get("options") or {}
+        if not isinstance(options, dict):
+            problems.append(f"{where}.options: expected an object")
+            options = {}
+        c["options"] = options
+
+        if ct.needs_metric:
+            key = cell.get("metric")
+            metric = metrics.get(key) if isinstance(key, str) else None
+            if metric is None:
+                problems.append(f"{where}.metric: no metric with key {key!r}")
+            elif not _visible_to_owner(metric.owner_id, owner_id):
+                problems.append(f"{where}.metric: {key!r} is another user's personal metric")
+            else:
+                c["metric"] = metric.key
+                missing = _missing_caps(ct, metric)
+                if missing:
+                    problems.append(f"{where}: a {ct.label} card {', '.join(missing)}")
+        elif cell.get("metric") not in (None, ""):
+            problems.append(f"{where}.metric: a {ct.label} card takes no metric")
+
+        if ct.validate is not None:
+            problems.extend(f"{where}.options: {p}" for p in ct.validate(c))
+        if ct.drillable:
+            if "drilldown" in options:
+                from .metrics import validate_drilldown
+
+                metric_obj = metrics.get(c.get("metric", ""))
+                names = _dataset_columns(metric_obj) if metric_obj is not None else None
+                problems.extend(f"{where}.options.{p}" for p in validate_drilldown(options["drilldown"], names))
+        elif "drilldown" in options:
+            problems.append(f"{where}.options: a {ct.label} card has no drill-down")
+        if ct.stylable:
+            problems.extend(f"{where}.options.{p}" for p in validate_card_style(options, ct.style_settings))
+            style = options.get("style")
+            if isinstance(style, dict):  # drop blanks: "" means "the default"
+                options["style"] = {k: v for k, v in style.items() if v not in ("", None)}
+                if not options["style"]:
+                    del options["style"]
+        elif "style" in options or "thresholds" in options:
+            problems.append(f"{where}.options: a {ct.label} card takes no style or thresholds")
+        out.append(c)
+    return out, problems
+
+
+def _dataset_columns(metric: "Metric") -> Optional[list[str]]:
+    from apps.datasets.core import get_dataset
+
+    ds = get_dataset(metric.dataset)
+    return ds.column_names() if ds is not None else None
+
+
+def _missing_caps(ct: ComponentType, metric: "Metric") -> list[str]:
+    if not ct.requires:
+        return []
+    from apps.datasets.capabilities import REASONS, capabilities, missing_for
+    from apps.datasets.core import get_dataset
+
+    ds = get_dataset(metric.dataset)
+    if ds is None:
+        return ["needs an available dataset"]
+    try:
+        caps = capabilities(ds.schema())
+    except Exception:  # noqa: BLE001
+        return []
+    return [REASONS.get(m, m) for m in sorted(missing_for(ct.requires, caps))]
+
+
+def next_position(layout: list[dict[str, Any]], w: int) -> tuple[int, int]:
+    """Where a new ``w``-wide card goes: the end of the lowest row."""
+    bottom = 0
+    for c in layout:
+        if isinstance(c, dict):
+            bottom = max(bottom, (_int(c.get("y")) or 0) + (_int(c.get("h")) or 1))
+    return 0, bottom
+
+
+# -- built-in types ---------------------------------------------------------------
+
+
+def _metric_url(name: str, metric: "Metric", ctx: CellContext, **params: Any) -> str:
+    from urllib.parse import urlencode
+
+    from django.urls import reverse
+
+    query = {k: v for k, v in params.items() if v not in (None, "")}
+    if ctx.period:
+        query["period"] = ctx.period
+    url = reverse(name, kwargs={"key": metric.key})
+    return f"{url}?{urlencode(query)}" if query else url
+
+
+def metric_card_context(
+    metric: "Metric",
+    request: HttpRequest,
+    *,
+    period: Optional[str] = None,
+    label: Optional[str] = None,
+    period_in_label: bool = True,
+) -> dict[str, Any]:
+    """The framework ``stat_card.html`` context for *metric* — what
+    ``{% metric_card %}`` and the dashboard ``metric`` cell both render, so a
+    hand-placed card and a dashboard card are one component. A dashboard passes
+    ``period_in_label=False``: its period bar already says the period."""
+    result = evaluate(metric, request, period=period)
+    title = label or metric.name
+    href = None
+    if result.ok:
+        try:
+            href = reverse("dashboards_metric_rows", kwargs={"key": metric.key})
+            if result.period:
+                href += f"?period={result.period}"
+        except NoReverseMatch:  # dashboards routes switched off
+            href = None
+    caption = title
+    if result.period_label and period_in_label:
+        caption = f"{title} · {result.period_label}"
+    return {
+        "value": "—" if result.restricted else (result.display if result.ok else "!"),
+        "label": caption,
+        "title": f"{title}, {period_heading(result.period).lower()}" if result.period else title,
+        "href": href,
+        "mode": "modal" if href else None,
+        "state": "muted" if not result.ok else result.state,
+        "unit": result.unit if result.ok else "",
+        "result": result,
+        "metric": metric,
+    }
+
+
+def build_metric(cell: dict[str, Any], ctx: CellContext) -> dict[str, Any]:
+    """A ``metric`` cell: :func:`metric_card_context` plus its change from the
+    previous period."""
+    metric = ctx.metric
+    assert metric is not None
+    label = cell_title(cell) or metric.name
+    if cell.get("use_period") is False and metric.period_field:
+        label = f"{label} (all time)"  # pinned: the only card that differs from the period bar
+    card = metric_card_context(metric, ctx.request, period=ctx.period, label=label, period_in_label=False)
+    comparison = compare_with_previous(metric, ctx.request, ctx.period, card["result"])
+    style = card_style(cell)
+    result = card["result"]
+    if result.ok:
+        shown = styled_value(result.value, metric, style, result.state)
+        card.update(value=shown["display"], unit=shown["unit"], state=shown["state"])
+    card["href"] = with_drill(card.get("href") or "", cell) or card.get("href")
+    return {"card": card, "metric": metric, "result": result, "comparison": comparison, "style": style}
+
+
+def _validate_group(cell: dict[str, Any]) -> list[str]:
+    opts = cell.get("options") or {}
+    problems = []
+    if not isinstance(opts.get("dimension"), str) or not opts.get("dimension"):
+        problems.append("'dimension' (the column to group by) is required")
+    limit = opts.get("limit", 5)
+    if _int(limit) is None or not 1 <= (_int(limit) or 0) <= 12:
+        problems.append("'limit' must be 1–12")
+    if "other" in opts and not isinstance(opts["other"], bool):
+        problems.append("'other' must be true or false")
+    return problems
+
+
+def build_metric_group(cell: dict[str, Any], ctx: CellContext) -> dict[str, Any]:
+    import json
+
+    from apps.datasets.filter_tree import FilterTreeError, and_trees
+
+    from .metrics import group_leaf, group_values, may_read
+
+    metric = ctx.metric
+    assert metric is not None
+    opts = cell.get("options") or {}
+    dimension = str(opts.get("dimension") or "")
+    style = card_style(cell)
+    base = {"metric": metric, "label": cell_title(cell) or metric.name, "dimension": dimension, "style": style}
+    if not may_read(metric, getattr(ctx.request, "user", None)):
+        return {**base, "restricted": True, "groups": []}
+    try:
+        groups = group_values(
+            metric,
+            ctx.request,
+            dimension,
+            limit=_int(opts.get("limit", 5)) or 5,
+            other=opts.get("other", True) is not False,
+            period=ctx.period,
+        )
+    except (FilterTreeError, ValueError) as exc:
+        return {**base, "error": str(exc), "groups": []}
+    except Exception:  # noqa: BLE001
+        logger.exception("metric_group %s: failed", metric.key)
+        return {**base, "error": "This card could not be evaluated.", "groups": []}
+    for g in groups:
+        if g.get("other"):
+            # The complement of the kept groups. ``NOT IN`` keeps NULLs, so a
+            # kept "—" (NULL) group is excluded explicitly.
+            kept = [v for v in g["exclude"] if v is not None]
+            leaf = and_trees(
+                {"not": {"field": dimension, "op": "in", "value": kept}} if kept else None,
+                {"field": dimension, "op": "isnull", "value": False} if None in g["exclude"] else None,
+            )
+        else:
+            leaf = group_leaf(dimension, g["raw"])
+        g["drill_url"] = _metric_url(
+            "dashboards_metric_rows", metric, ctx, narrow=json.dumps(leaf, default=str), **drill_params(cell)
+        )
+        shown = styled_value(g["value"], metric, style, g.get("state"))
+        g["display"] = shown["display"]
+        if not g.get("other"):  # "Other" is a remainder, never coloured
+            g["state"] = shown["state"]
+    total = evaluate(metric, ctx.request, period=ctx.period)
+    if total.ok:
+        shown = styled_value(total.value, metric, style, total.state)
+        total.display, total.unit = shown["display"], shown["unit"]
+    compare_groups(groups, metric, ctx.request, ctx.period, dimension)
+    return {**base, "groups": groups, "total": total}
+
+
+def _widget_key(widget: Any) -> str:
+    cls = type(widget)
+    return f"{cls.__module__}.{cls.__qualname__}"
+
+
+def available_widgets() -> list[tuple[str, Any, Any]]:
+    """``[(key, widget, model_info|None)]`` for every registered DashboardWidget."""
+    from apps.smallstack.dashboard import get_standalone_widgets
+
+    out: list[tuple[str, Any, Any]] = []
+    try:
+        from apps.explorer.registry import explorer
+
+        for widget, info in explorer.get_dashboard_widgets():
+            out.append((f"{_widget_key(widget)}:{info.app_label}.{info.model_name}", widget, info))
+    except Exception:  # noqa: BLE001 — the explorer is optional
+        pass
+    for widget in get_standalone_widgets():
+        out.append((_widget_key(widget), widget, None))
+    return out
+
+
+def _validate_widget(cell: dict[str, Any]) -> list[str]:
+    key = (cell.get("options") or {}).get("widget")
+    if not key:
+        return ["pick a widget ('widget': a key from list_dashboard_components)"]
+    if key not in [k for k, _w, _i in available_widgets()]:
+        return [f"no published widget {key!r}; list_dashboard_components lists them"]
+    return []
+
+
+def build_widget(cell: dict[str, Any], ctx: CellContext) -> dict[str, Any]:
+    from django.utils.safestring import mark_safe
+
+    from apps.smallstack.dashboard import widget_url
+
+    key = (cell.get("options") or {}).get("widget")
+    for wkey, widget, info in available_widgets():
+        if wkey != key:
+            continue
+        try:
+            data = widget.get_data(model_class=info.model_class) if info is not None else widget.get_data()
+        except Exception:  # noqa: BLE001
+            logger.warning("dashboard widget %s failed", wkey, exc_info=True)
+            return {"error": "This widget failed to load."}
+        style = card_style(cell)
+        state = None
+        if style["thresholds"] is not None:
+            # The card's own rules replace the widget's status colouring.
+            from .metrics import state_for
+
+            state = state_for(widget_number(data), style["thresholds"])
+            data = {**data, "status": _WIDGET_STATUS.get(state or "", "")}
+        label = cell_title(cell) or widget.title
+        return {
+            "ctx": {
+                "widget": widget,
+                "title": label,
+                "data": data,
+                "url": widget_url(widget, info),
+                "icon_safe": mark_safe(widget.icon),
+                "group": getattr(info, "group", widget.group),
+                "app_label": getattr(info, "app_label", None),
+            },
+            "label": label,
+            "style": style,
+            "state": state,
+        }
+    return {"error": "This widget is no longer registered."}
+
+
+#: A threshold state as a widget status (the info card's own colouring).
+_WIDGET_STATUS = {"success": "operational", "warning": "degraded", "danger": "down"}
+_NUMBER_RE = re.compile(r"-?\d[\d,]*(?:\.\d+)?")
+
+
+def widget_number(data: dict[str, Any]) -> Optional[float]:
+    """The number an info card's colour rules compare: the widget's numeric
+    ``value`` when its ``get_data()`` returns one (do, for exact rules), else
+    the first number in its headline ("46,849 requests" → 46849)."""
+    value = data.get("value")
+    if isinstance(value, (int, float)) and not isinstance(value, bool):
+        return float(value)
+    match = _NUMBER_RE.search(str(data.get("headline") or ""))
+    return float(match.group().replace(",", "")) if match else None
+
+
+def _validate_text(cell: dict[str, Any]) -> list[str]:
+    md = (cell.get("options") or {}).get("markdown", "")
+    if not isinstance(md, str) or len(md) > 5000:
+        return ["'markdown' must be text, at most 5000 characters"]
+    return []
+
+
+def build_text(cell: dict[str, Any], ctx: CellContext) -> dict[str, Any]:
+    from django.utils.safestring import mark_safe
+
+    from apps.smallstack.transforms import render_markdown
+
+    md = str((cell.get("options") or {}).get("markdown") or "")
+    return {"html": mark_safe(render_markdown(md, toc=False)["html"]), "label": cell_title(cell)}
+
+
+#: The most goals a goals card shows; the goal list's page has the rest.
+MAX_CARD_GOALS = 10
+
+
+def _goal_list_choices(user: Any) -> list[list[str]]:
+    from .models import GoalList
+
+    return [[g.slug, g.name] for g in GoalList.objects.visible_to(user).order_by("name")]
+
+
+def _validate_goals(cell: dict[str, Any]) -> list[str]:
+    from .models import GoalList
+
+    opts = cell.get("options") or {}
+    problems = []
+    slug = opts.get("goal_list")
+    if not isinstance(slug, str) or not GoalList.objects.filter(slug=slug).exists():
+        problems.append(f"'goal_list' must be a goal list's slug (got {slug!r})")
+    limit = _int(opts.get("limit", 5))
+    if limit is None or not 1 <= limit <= MAX_CARD_GOALS:
+        problems.append(f"'limit' must be 1–{MAX_CARD_GOALS}")
+    if opts.get("order", "list") not in ("list", "attention"):
+        problems.append("'order' must be 'list' or 'attention'")
+    return problems
+
+
+def build_goals(cell: dict[str, Any], ctx: CellContext) -> dict[str, Any]:
+    """A goals card: the list's first goals (or its misses first), each value
+    against its target, and how many of them are on target. Judged over the
+    dashboard's period, unless a goal pins its own; a viewer who can't open
+    the goal list is told so, never shown its goals."""
+    from .goals import evaluate_goals
+    from .models import GoalList
+
+    opts = cell.get("options") or {}
+    goal_list = GoalList.objects.filter(slug=opts.get("goal_list") or "").first()
+    if goal_list is None:
+        return {"error": "This goal list no longer exists."}
+    label = cell_title(cell) or goal_list.name
+    if not goal_list.can_view(getattr(ctx.request, "user", None)):
+        return {"label": label, "restricted": True}
+    limit = _int(opts.get("limit", 5)) or 5
+    attention_first = opts.get("order") == "attention"
+    # Every goal is judged, so the headline counts the whole list, not the few shown.
+    data = evaluate_goals(goal_list, ctx.request, period=ctx.period, compare=False)
+    rows = data["rows"]
+    if attention_first:
+        rank = {"fail": 0, "warn": 1, "none": 2, "pass": 3}
+        rows = sorted(rows, key=lambda r: rank[r["status"]])
+    return {
+        "label": label,
+        "goal_list": goal_list,
+        "rows": rows[:limit],
+        "summary": data["summary"],
+        "more": max(len(rows) - limit, 0),
+        "url": goal_list.get_absolute_url() + (f"?period={ctx.period}" if ctx.period else ""),
+    }
+
+
+def _staff_only(user: Any) -> bool:
+    return bool(getattr(user, "is_staff", False))
+
+
+def register_builtins() -> None:
+    register_component_type(
+        ComponentType(
+            key="metric",
+            label="Single stat",
+            stylable=True,
+            drillable=True,
+            single_value=True,
+            description="One number from a metric — value, threshold state, click for the rows behind it.",
+            group="Stats",
+            icon="M4 18h3V8H4v10zm6.5 0h3V4h-3v14zM17 18h3v-6h-3v6z",
+            template="dashboards/cells/metric.html",
+            build=build_metric,
+            needs_metric=True,
+            default_size=(3, 2),
+        )
+    )
+    register_component_type(
+        ComponentType(
+            key="metric_group",
+            label="Grouped stat",
+            stylable=True,
+            drillable=True,
+            description="A metric split by a column: the top groups as numbers, each drilling into its rows.",
+            group="Stats",
+            icon="M3 5h8v6H3V5zm10 0h8v6h-8V5zM3 13h5v6H3v-6zm7 0h4v6h-4v-6zm6 0h5v6h-5v-6z",
+            template="dashboards/cells/metric_group.html",
+            build=build_metric_group,
+            needs_metric=True,
+            default_size=(6, 2),
+            requires=frozenset({"dimension"}),
+            validate=_validate_group,
+            options_schema=[
+                {"name": "dimension", "label": "Group by", "type": "column", "required": True},
+                {"name": "limit", "label": "Groups shown", "type": "integer", "default": 5, "min": 1, "max": 12},
+                {"name": "other", "label": "Fold the rest into “Other”", "type": "boolean", "default": True},
+            ],
+        )
+    )
+    register_component_type(
+        ComponentType(
+            key="widget",
+            label="Info card",
+            # Its headline is text, so no number format or unit; its colour
+            # rules read the widget's numeric "value", else the headline's first number.
+            stylable=True,
+            style_settings=("size", "color", "title_size", "title_color", "align"),
+            description="A status card an app publishes, like the ones on the SmallStack dashboard (staff only).",
+            group="Info",
+            icon=(
+                "M11 7h2v2h-2V7zm0 4h2v6h-2v-6zm1-9C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z"
+                "m0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z"
+            ),
+            template="dashboards/cells/widget.html",
+            build=build_widget,
+            default_size=(3, 2),
+            validate=_validate_widget,
+            visible_to=_staff_only,
+            options_schema=[{"name": "widget", "label": "Widget", "type": "widget", "required": True}],
+        )
+    )
+    register_component_type(
+        ComponentType(
+            key="text",
+            label="Note",
+            description="A markdown note — a heading, an explanation, a link.",
+            group="Info",
+            icon="M5 4v3h5.5v12h3V7H19V4H5z",
+            template="dashboards/cells/text.html",
+            build=build_text,
+            default_size=(4, 2),
+            validate=_validate_text,
+            options_schema=[{"name": "markdown", "label": "Markdown", "type": "markdown", "required": True}],
+        )
+    )
+    register_component_type(
+        ComponentType(
+            key="goals",
+            label="Goals",
+            description="The first goals of a goal list — each value against its target, and how many are on target.",
+            group="Stats",
+            icon=(
+                "M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm0 18a8 8 0 1 1 0-16 8 8 0 0 1 0 16zm0-14a6 6 0 1 0 0 12"
+                " 6 6 0 0 0 0-12zm0 10a4 4 0 1 1 0-8 4 4 0 0 1 0 8zm0-6a2 2 0 1 0 0 4 2 2 0 0 0 0-4z"
+            ),
+            template="dashboards/cells/goals.html",
+            build=build_goals,
+            default_size=(4, 4),
+            validate=_validate_goals,
+            options_schema=[
+                {
+                    "name": "goal_list",
+                    "label": "Goal list",
+                    "type": "choice",
+                    "required": True,
+                    "choices": _goal_list_choices,
+                },
+                {
+                    "name": "limit",
+                    "label": "Goals shown",
+                    "type": "integer",
+                    "default": 5,
+                    "min": 1,
+                    "max": MAX_CARD_GOALS,
+                },
+                {
+                    "name": "order",
+                    "label": "Order",
+                    "type": "choice",
+                    "default": "list",
+                    "choices": [["list", "As listed"], ["attention", "Missed and at risk first"]],
+                },
+            ],
+        )
+    )
+
+
+register_builtins()

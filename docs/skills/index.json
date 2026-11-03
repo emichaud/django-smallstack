@@ -156,6 +156,13 @@
       "use_when": "Before exposing a filtered queryset as typed rows/columns for a dashboard, report, or chart UI."
     },
     {
+      "id": "dashboards",
+      "file": "dashboards.md",
+      "name": "Dashboards",
+      "description": "**KPIs, dashboards and KPI reports over datasets** — the `Metric` (a stored filter tree + aggregate → one value, thresholds, period-aware), grid dashboards (gridstack, lazy htmx cells, period bar, `register_component_type` for your own card types), reports (metrics × periods, CSV), `{% metric_card %}`, and the agent loop (`metric_preview` → `create_metric` → `dashboard_add_card` → `dashboard_snapshot`)",
+      "section": "Available Skills"
+    },
+    {
       "id": "calendar",
       "file": "calendar.md",
       "name": "Calendar",
