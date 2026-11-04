@@ -386,7 +386,9 @@ def _goal_list_capture(args: dict[str, Any]) -> dict[str, Any]:
         return {"error": "fill is how many past periods to capture: 1 or more. Leave it out for the current period."}
     try:
         if count:
-            return {"ok": True, "captured": fill(goal_list, str(args.get("cadence")), count, by=_user())}
+            replace = bool(args.get("replace"))
+            done = fill(goal_list, str(args.get("cadence")), count, by=_user(), replace_existing=replace)
+            return {"ok": True, "captured": done}
         snapshot = capture(goal_list, current_period(str(args.get("cadence"))), by=_user())
     except (ValueError, KeyError) as exc:
         return {"error": str(exc) if isinstance(exc, ValueError) else f"unknown cadence {args.get('cadence')!r}"}
@@ -693,6 +695,11 @@ def register_dashboard_tools() -> int:
                     "goal_list": {"type": "string"},
                     "cadence": {"type": "string", "enum": _CADENCES},
                     "fill": {"type": "integer", "minimum": 1},
+                    "replace": {
+                        "type": "boolean",
+                        "description": "With fill: add a new capture to periods that already have one, judged against "
+                        "today's targets. Use it after fixing a target. Earlier captures stay.",
+                    },
                 },
                 "required": ["goal_list", "cadence"],
                 "additionalProperties": False,

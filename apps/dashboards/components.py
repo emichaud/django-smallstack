@@ -482,6 +482,7 @@ def normalize_layout(raw: Any, *, owner_id: Any = None) -> tuple[list[dict[str, 
             problems.append(f"{where}.options: expected an object")
             options = {}
         c["options"] = options
+        problems.extend(f"{where}.options: {p}" for p in _unknown_option_problems(ct, options))
 
         if ct.needs_metric:
             key = cell.get("metric")
@@ -547,11 +548,28 @@ def _dataset_columns(metric: "Metric") -> Optional[list[str]]:
     return ds.column_names() if ds is not None else None
 
 
+def _unknown_option_problems(ct: ComponentType, options: dict[str, Any]) -> list[str]:
+    """An option the card doesn't read would be saved and do nothing."""
+    known = {spec["name"] for spec in ct.options_schema}
+    # Whether these fit this card has its own, clearer refusals.
+    unknown = sorted(set(options) - known - {"style", "thresholds", "drilldown"})
+    if not unknown:
+        return []
+    takes = ", ".join(sorted(known)) or "none"
+    hint = ""
+    if "period" in unknown:
+        hint = " A card follows its dashboard's period; use_period: false fixes it to all time."
+    return [f"{', '.join(map(repr, unknown))}: a {ct.label} card doesn't read this (it takes: {takes}).{hint}"]
+
+
 def _missing_caps(ct: ComponentType, metric: "Metric") -> list[str]:
     if not ct.requires:
         return []
     if metric.is_rate or metric.is_manual:
-        return ["needs a metric over a dataset, to split it into groups"]
+        # Neither has rows of its own to split into groups, but both have a value per period.
+        if ct.requires - {"date"}:
+            return ["needs a metric over a dataset, to split it into groups"]
+        return [] if metric.period_field else ["needs a metric that changes over time"]
     from apps.datasets.capabilities import REASONS, capabilities, missing_for
     from apps.datasets.core import get_dataset
 

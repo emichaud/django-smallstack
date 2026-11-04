@@ -23,6 +23,8 @@ from __future__ import annotations
 
 from typing import Any, Optional
 
+from django.conf import settings
+
 from . import permissions, service
 from .models import Blog, Post
 
@@ -316,5 +318,7 @@ else:
             _actor(), post=args.get("post"), force=bool(args.get("force", True))
         ))
 
-    # Register at import time so the tools are present at startup.
-    register_blog_tools()
+    # Register at import time so the tools are present at startup. The switch takes the
+    # routes away; this module is imported whatever it says.
+    if getattr(settings, "SMALLSTACK_BLOG_ENABLED", True):
+        register_blog_tools()

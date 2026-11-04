@@ -20,7 +20,7 @@ from django.urls import reverse
 from django.utils import timezone
 
 from apps.dashboards import snapshots
-from apps.dashboards.models import GoalList, Metric, Snapshot
+from apps.dashboards.models import Dashboard, GoalList, Metric, Snapshot
 from apps.dashboards.snapshots import capture, capture_due, captures_of, current_period, fill, set_tracking
 from apps.dashboards.templatetags.dashboard_tags import change_in_words
 from apps.dashboards.weeks import take_snapshot
@@ -220,6 +220,57 @@ class TestTools:
         other = Metric.objects.create(key="r2_other", name="O", dataset=DS, agg="count", period_field="timestamp")
         got = call("metric_preview", source="rate", numerator=other.key, denominator=timed.key)
         assert "unknown argument" not in json.dumps(got) and "required" not in json.dumps(got)
+
+
+class TestCards:
+    @pytest.fixture
+    def rate(self, timed):
+        other = Metric.objects.create(key="r2_bad", name="Bad", dataset=DS, agg="count", period_field="timestamp")
+        return Metric.objects.create(
+            key="r2_rate", name="Rate", source="rate", numerator=other.key, denominator=timed.key, format="percent"
+        )
+
+    @pytest.fixture
+    def board(self, call):
+        call("create_dashboard", name="R2 board", slug="r2-board", layout=[])
+        return "r2-board"
+
+    def test_a_trend_chart_takes_a_rate_or_a_hand_entered_metric(self, call, board, rate):
+        manual = Metric.objects.create(key="r2_manual", name="By hand", source="manual")
+        for metric in (rate, manual):
+            got = call("dashboard_add_card", dashboard=board, type="trend", metric=metric.key)
+            assert "error" not in got, got
+        assert "error" not in call("dashboard_snapshot", dashboard=board)
+
+    @pytest.mark.parametrize("card", ["pie", "ranked", "metric_group"])
+    def test_a_grouped_card_still_says_why_not(self, call, board, rate, card):
+        got = call("dashboard_add_card", dashboard=board, type=card, metric=rate.key, options={"dimension": "path"})
+        assert "split it into groups" in json.dumps(got)
+
+    def test_a_rate_that_doesnt_change_over_time_has_no_trend(self, call, board, undated):
+        other = Metric.objects.create(key="r2_all2", name="All 2", dataset=DS, agg="count")
+        parts = {"numerator": other.key, "denominator": undated.key}
+        flat = Metric.objects.create(key="r2_flat", name="Flat", source="rate", **parts)
+        got = call("dashboard_add_card", dashboard=board, type="trend", metric=flat.key)
+        assert "changes over time" in json.dumps(got)
+
+    def test_an_option_the_card_doesnt_read_is_refused(self, call, board, timed):
+        got = call("dashboard_add_card", dashboard=board, type="metric", metric=timed.key, options={"period": "pmtd"})
+        assert "doesn't read this" in json.dumps(got) and "use_period" in json.dumps(got)
+        assert not Dashboard.objects.get(slug=board).layout
+
+    def test_a_card_keeps_its_styling(self, call, board, timed):
+        options = {"style": {"size": "l"}, "thresholds": [{"op": ">=", "value": 1, "state": "danger"}]}
+        got = call("dashboard_add_card", dashboard=board, type="metric", metric=timed.key, options=options)
+        assert "error" not in got
+
+
+class TestRejudging:
+    def test_fill_with_replace_judges_saved_periods_again(self, call, goal_list, staff):
+        assert call("goal_list_capture", goal_list="r2", cadence="weekly", fill=2)["captured"] == 2
+        assert call("goal_list_capture", goal_list="r2", cadence="weekly", fill=2)["captured"] == 0
+        assert call("goal_list_capture", goal_list="r2", cadence="weekly", fill=2, replace=True)["captured"] == 2
+        assert Snapshot.objects.filter(cadence="weekly").count() == 4  # earlier captures stay
 
 
 class TestReversingTheMigration:
