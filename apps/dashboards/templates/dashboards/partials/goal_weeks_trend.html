@@ -1,0 +1,63 @@
+{% comment %}
+The Trends button on a grid row (GoalWeeksTrendView, weeks.goal_weeks_trend): one goal
+over the weeks up to the one shown. A bar per week in its status colour with
+the value above it (this week outlined, the last week marked), the figures
+for the last week, then every week in a table, newest first. Saved weeks are
+marked; the rest are worked out now.
+{% endcomment %}
+<div class="gwt gt">
+    <p class="gwt-lede gt-lede">
+        {% if trend.section %}{{ trend.section }} · {% endif %}{% if trend.target_text %}Target {{ trend.target_text }} · {% endif %}{{ trend.weeks }} weeks, {{ trend.span }}.
+        {% if trend.scored %}On target {{ trend.on_target }} of {{ trend.scored }} week{{ trend.scored|pluralize }}.{% endif %}
+        Saved weeks are as they were; the rest are worked out now.
+    </p>
+
+    <ol class="gt-chart" aria-label="{{ trend.label }}, week by week">
+        {% for p in trend.points %}
+        <li class="gt-col gl-st--{{ p.status }}{% if p.focus %} is-focus{% endif %}">
+            <span class="gt-val" aria-hidden="true">{% if p.absent %}·{% else %}{{ p.display }}{% endif %}</span>
+            <span class="gt-bar{% if p.partial %} is-partial{% endif %}" style="--h: {{ p.height }}%;" aria-hidden="true"></span>
+            <span class="gt-week" aria-hidden="true">{{ p.short }}</span>
+            <span class="sr-only">Week of {{ p.label }}: {% if p.absent %}not on the list{% else %}{{ p.display }}, {{ p.status_label|lower }}{% endif %}</span>
+        </li>
+        {% endfor %}
+    </ol>
+
+    <dl class="gt-stats">
+        <div class="gl-st--{{ trend.cell.status|default:'none' }}">
+            <dt>Week of {{ trend.focus_short }}</dt>
+            <dd><span class="gwt-value">{% if trend.cell.absent %}—{% else %}{{ trend.cell.display|default:"—" }}{% endif %}</span></dd>
+        </div>
+        <div>
+            <dt>Against the week before</dt>
+            <dd>{% if trend.change %}<span class="gl-delta"><span aria-hidden="true">{% if trend.change.dir == "up" %}▲{% elif trend.change.dir == "down" %}▼{% else %}={% endif %}</span> {{ trend.change.text }}</span>{% else %}<span class="gl-quiet">—</span>{% endif %}</dd>
+        </div>
+        <div>
+            <dt>Against the average before</dt>
+            <dd>{% if trend.vs_average %}<span class="gl-delta"><span aria-hidden="true">{% if trend.vs_average.dir == "up" %}▲{% elif trend.vs_average.dir == "down" %}▼{% else %}={% endif %}</span> {{ trend.vs_average.text }}</span>{% else %}<span class="gl-quiet">—</span>{% endif %}</dd>
+        </div>
+        <div>
+            <dt>Run</dt>
+            <dd>{% if trend.streak %}<span class="gl-streak gl-st--{{ trend.streak_status }}">{{ trend.streak }}</span>{% else %}<span class="gl-quiet">—</span>{% endif %}</dd>
+        </div>
+        {% if trend.best %}
+        <div>
+            <dt>Best and worst week</dt>
+            <dd>{{ trend.best }}, {{ trend.worst }}</dd>
+        </div>
+        {% endif %}
+    </dl>
+
+    <table class="gt-table">
+        <thead><tr><th scope="col">Week</th><th scope="col" class="gl-num">Value</th><th scope="col">Against the week before</th></tr></thead>
+        <tbody>
+        {% for p in trend.points reversed %}
+            <tr class="gl-st--{{ p.status }}">
+                <th scope="row">{{ p.label }}{% if p.saved %} <span class="gw-saved">Saved</span>{% elif p.partial %} <span class="gl-quiet">so far</span>{% endif %}</th>
+                <td class="gl-num">{% if p.absent %}<span class="gl-quiet" aria-label="Not on the list that week">·</span>{% else %}{% include "dashboards/partials/goal_status.html" with status=p.status %}<span class="sr-only">{{ p.status_label }}: </span><span class="gwt-value">{{ p.display }}</span>{% endif %}</td>
+                <td>{% if p.change %}<span class="gl-delta"><span aria-hidden="true">{% if p.change.dir == "up" %}▲{% elif p.change.dir == "down" %}▼{% else %}={% endif %}</span> {{ p.change.text }}</span>{% else %}<span class="gl-quiet">—</span>{% endif %}</td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>

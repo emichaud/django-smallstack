@@ -2453,18 +2453,50 @@ a.gw-week-link:hover { color: var(--link-color); text-decoration: underline; }
 .plf-item-show { display: block; width: auto; margin-top: 0.3rem; height: 1.8rem !important; font-weight: 400; }
 .gl-slide-when { margin: 0 0 0.75rem; font-size: 0.85rem; color: var(--body-quiet-color); }
 
-/* the weekly grid: sortable headers, resizable columns */
+/* the weekly grid: sortable headers, resizable columns. Everything in a
+   column shares one left edge: the week, its line of status, Open · Trends,
+   and the cells' shape + value beneath. */
 .gw-grid.crud-table { table-layout: fixed; }
 .gw-grid .gw-goal-col { width: 16rem; position: sticky; }
-.gw-grid .gw-week-col { width: 7.5rem; position: relative; }
-.gw-grid thead th .dm-sort { justify-content: flex-end; }
-.gw-grid thead th.gw-goal-col .dm-sort { justify-content: flex-start; }
-.gw-week-sort { font-weight: 650; }
-.gw-week-actions { display: flex; justify-content: flex-end; align-items: center; gap: 0.4rem; margin-top: 0.3rem; }
+.gw-grid .gw-week-col { width: 9.5rem; position: relative; }
+.gw-grid.crud-table thead th { padding: 0.5rem 0.75rem 0.45rem; text-transform: none; letter-spacing: 0; }
+.gw-grid.crud-table tbody td, .gw-grid.crud-table tbody th.gw-goal { padding: 0.35rem 0.75rem; }
+.gw-grid.crud-table .gw-section th { padding: 0.5rem 0.75rem 0.2rem; }
+.gw-grid thead th .dm-sort { justify-content: flex-start; }
+.gw-week-sort { font-weight: 650; font-size: 0.85rem; }
+.gw-week-actions { display: flex; justify-content: flex-start; align-items: center; gap: 0.5rem; margin-top: 0.25rem; }
 .gw-week-actions .gw-trends-btn { margin-top: 0; }
 .gw-open, a.gw-open:link, a.gw-open:visited { font-size: 0.7rem; font-weight: 500; color: var(--link-color); }
 .gw-grid td.gw-cell, .gw-grid .gw-goal { overflow: hidden; text-overflow: ellipsis; }
 .gw-grid thead .gw-week-meta, .gw-grid thead .gw-week-score, .gw-grid thead .gw-open, .gw-grid thead .gw-trends-btn { text-transform: none; letter-spacing: 0; }
+.gw-week-score { display: inline; }
+/* the goal cell: name and target at the left, the row's Trends button at the right */
+.gw-goal-in { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; min-width: 0; }
+.gw-goal-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.gw-row-trends { flex: none; opacity: 0.75; }
+.gw-grid tr:hover .gw-row-trends, .gw-row-trends:focus-visible { opacity: 1; }
+
+/* one goal, week by week (the row's Trends modal) */
+.gt-lede { margin-top: 0; }
+.gt-chart { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(2.6rem, 1fr); gap: 4px; align-items: end; margin: 0 0 1rem; padding: 0; list-style: none; }
+.gt-col { display: grid; grid-template-rows: auto 6rem auto; justify-items: center; align-items: end; min-width: 0; }
+.gt-val { font-size: 0.7rem; font-weight: 650; color: var(--gl-c); font-feature-settings: "tnum"; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.gt-bar { display: block; width: 70%; max-width: 1.6rem; height: var(--h); min-height: 3px; border-radius: 3px 3px 0 0; background: var(--gl-c); }
+.gt-bar.is-partial { background: transparent; box-shadow: inset 0 0 0 1.5px var(--gl-c); }
+.gt-col.is-focus .gt-bar { box-shadow: 0 0 0 2px var(--card-bg), 0 0 0 3.5px var(--primary); }
+.gt-col.is-focus .gt-week { color: var(--primary); font-weight: 650; }
+.gt-week { margin-top: 0.3rem; font-size: 0.68rem; color: var(--body-quiet-color); white-space: nowrap; }
+.gt-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr)); gap: 0.6rem 1rem; margin: 0 0 1rem; padding: 0.7rem 0.9rem; border-radius: 8px; background: color-mix(in srgb, var(--body-fg) 4%, var(--card-bg)); }
+.gt-stats dt { font-size: 0.7rem; font-weight: 600; color: var(--text-muted); }
+.gt-stats dd { margin: 0.1rem 0 0; font-size: 0.85rem; }
+.gt-stats .gwt-value { font-size: 1.1rem; }
+.gt-table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+.gt-table th, .gt-table td { padding: 0.35rem 0.6rem; text-align: left; vertical-align: middle; border-top: 1px solid color-mix(in srgb, var(--body-fg) 7%, transparent); }
+.gt-table thead th { border-top: 0; font-size: 0.72rem; font-weight: 600; color: var(--text-muted); }
+.gt-table tbody th { font-weight: 500; }
+.gt-table .gl-num { text-align: right; white-space: nowrap; }
+.gt-table .gl-icon { margin-right: 0.3rem; font-size: 0.8rem; }
+.gt-table .gl-delta { white-space: nowrap; }
 
 /* the trends table: sortable headers, resizable columns */
 .gwt-table.crud-table { table-layout: fixed; }

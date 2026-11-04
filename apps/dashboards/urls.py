@@ -71,6 +71,11 @@ urlpatterns = [
         name="dashboards_goal_week_trends",
     ),
     path(
+        "dashboards/g/<slug:slug>/goals/<str:goal_id>/trends/",
+        views.GoalWeeksTrendView.as_view(),
+        name="dashboards_goal_weeks_trend",
+    ),
+    path(
         "dashboards/g/<slug:slug>/weeks/<str:week>/snapshot/",
         views.GoalWeekSnapshotView.as_view(),
         name="dashboards_goal_week_snapshot",

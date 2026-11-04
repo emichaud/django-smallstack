@@ -72,6 +72,8 @@ logger = logging.getLogger("smallstack.dashboards")
 GRID_WEEKS = 8
 TREND_BEFORE = 4
 TREND_AFTER = 4
+#: The row's Trends button: one goal over this many weeks.
+GOAL_TREND_WEEKS = 13
 #: The most past weeks one "fill in" request snapshots.
 MAX_BACKFILL = 26
 _ADDITIVE = frozenset({"count", "distinct", "sum"})
@@ -110,9 +112,8 @@ def parse_week(raw: Any) -> Optional[date]:
         return None
 
 
-def week_label(start: date) -> str:
+def span_label(start: date, end: date) -> str:
     """ "Nov 3 – 9, 2026", "Oct 27 – Nov 2, 2026", "Dec 29, 2025 – Jan 4, 2026"."""
-    end = start + timedelta(days=6)
     if start.year != end.year:
         return f"{_MONTHS[start.month - 1]} {start.day}, {start.year} – {_MONTHS[end.month - 1]} {end.day}, {end.year}"
     if start.month != end.month:
@@ -120,9 +121,23 @@ def week_label(start: date) -> str:
     return f"{_MONTHS[start.month - 1]} {start.day} – {end.day}, {end.year}"
 
 
+def week_label(start: date) -> str:
+    """ "Nov 3 – 9, 2026", "Oct 27 – Nov 2, 2026", "Dec 29, 2025 – Jan 4, 2026"."""
+    return span_label(start, start + timedelta(days=6))
+
+
 def week_short(start: date) -> str:
     """ "Nov 3" — a column heading."""
     return f"{_MONTHS[start.month - 1]} {start.day}"
+
+
+def week_range(start: date) -> str:
+    """ "Nov 3–9", "Oct 27 – Nov 2" — the grid's column heading: both ends of
+    the week, no year (the picker carries that)."""
+    end = start + timedelta(days=6)
+    if start.month != end.month:
+        return f"{_MONTHS[start.month - 1]} {start.day} – {_MONTHS[end.month - 1]} {end.day}"
+    return f"{_MONTHS[start.month - 1]} {start.day}–{end.day}"
 
 
 def iso_week(start: date) -> str:
@@ -586,6 +601,7 @@ def _grid(goal_list: "GoalList", request: HttpRequest, first: date, count: int) 
             {
                 "start": w,
                 "short": week_short(w),
+                "range": week_range(w),
                 "label": week_label(w),
                 "iso": iso_week(w),
                 "state": week_state(w),
@@ -801,69 +817,107 @@ def week_trends(goal_list: "GoalList", request: HttpRequest, focus: date) -> dic
     grid = _grid(goal_list, request, first, count)
     at = grid["weeks"].index(focus)
     goals = {g["id"]: g for _t, g in _goal_rows(goal_list)}
-    out_rows = []
-    for row in grid["rows"]:
-        cells = row["cells"]
-        numbers = [abs(float(c["value"])) for c in cells if _is_number(c.get("value"))]
-        top = max(numbers) if numbers else 0
-        points = [
-            {
-                "week": c["week"],
-                "short": week_short(c["week"]),
-                "display": c.get("display") or "—",
-                "status": c.get("status", "none"),
-                "status_label": STATUS_LABELS[c.get("status", "none")],
-                "height": max(8, round(abs(float(c["value"])) * 100 / top))
-                if top and _is_number(c.get("value"))
-                else 8,
-                "focus": i == at,
-                "partial": week_state(c["week"]) == "current",
-            }
-            for i, c in enumerate(cells)
-        ]
-        now = cells[at].get("value")
-        before = [c.get("value") for c in cells[:at] if _is_number(c.get("value"))]
-        average = sum(float(v) for v in before) / len(before) if before else None
-        status = cells[at].get("status", "none")
-        run = 0
-        if status in ("pass", "warn", "fail"):
-            for c in reversed(cells[: at + 1]):
-                if c.get("status") != status:
-                    break
-                run += 1
-        better = _better(goal_at(goals[row["id"]], "weekly", None)["target"]) if row["id"] in goals else None
-        valued = [(c["week"], float(c["value"])) for c in cells[: at + 1] if _is_number(c.get("value"))]
-        best = worst = None
-        if better and len(valued) > 1:
-            ranked = sorted(valued, key=lambda wv: wv[1], reverse=better == "up")
-            best, worst = week_short(ranked[0][0]), week_short(ranked[-1][0])
-        out_rows.append(
-            {
-                "id": row["id"],
-                "section": row["section"],
-                "label": row["label"],
-                "target_text": row.get("target_text", ""),
-                "points": points,
-                "cell": cells[at],
-                "change": _change(now, cells[at - 1].get("value")) if at > 0 else None,
-                "vs_average": _change(now, average, "the average before") if average is not None else None,
-                "average": average,
-                "streak": f"{STATUS_LABELS[status]} {run} week{'s' if run != 1 else ''} running" if run >= 2 else "",
-                # Numbers the sortable headers order by (None sorts last).
-                "value": float(now) if _is_number(now) else None,
-                "change_pct": _pct(now, cells[at - 1].get("value")) if at > 0 else None,
-                "average_pct": _pct(now, average),
-                "run": run,
-                "streak_status": status if run >= 2 else "",
-                "best": best,
-                "worst": worst,
-            }
-        )
     return {
         "focus": focus,
         "label": week_label(focus),
         "columns": grid["columns"],
         "focus_index": at,
-        "rows": out_rows,
+        "rows": [_trend_row(row, at, goals.get(row["id"])) for row in grid["rows"]],
         "before": TREND_BEFORE,
     }
+
+
+def _trend_row(row: dict[str, Any], at: int, goal: Optional[dict[str, Any]]) -> dict[str, Any]:
+    """One grid row read at week *at*: a point per week (bar height against
+    the row's largest value), that week's cell, its change against the week
+    before and against the average of the weeks before, the run it's on and,
+    when the goal says which way is better, its best and worst week so far."""
+    cells = row["cells"]
+    numbers = [abs(float(c["value"])) for c in cells if _is_number(c.get("value"))]
+    top = max(numbers) if numbers else 0
+    points = [
+        {
+            "week": c["week"],
+            "short": week_short(c["week"]),
+            "label": week_label(c["week"]),
+            "display": c.get("display") or "—",
+            "status": c.get("status", "none"),
+            "status_label": STATUS_LABELS[c.get("status", "none")],
+            "height": max(8, round(abs(float(c["value"])) * 100 / top)) if top and _is_number(c.get("value")) else 8,
+            "focus": i == at,
+            "partial": week_state(c["week"]) == "current",
+            "absent": bool(c.get("absent")),
+            "change": _change(c.get("value"), cells[i - 1].get("value")) if i > 0 else None,
+        }
+        for i, c in enumerate(cells)
+    ]
+    now = cells[at].get("value")
+    before = [c.get("value") for c in cells[:at] if _is_number(c.get("value"))]
+    average = sum(float(v) for v in before) / len(before) if before else None
+    status = cells[at].get("status", "none")
+    run = 0
+    if status in ("pass", "warn", "fail"):
+        for c in reversed(cells[: at + 1]):
+            if c.get("status") != status:
+                break
+            run += 1
+    better = _better(goal_at(goal, "weekly", None)["target"]) if goal is not None else None
+    valued = [(c["week"], float(c["value"])) for c in cells[: at + 1] if _is_number(c.get("value"))]
+    best = worst = None
+    if better and len(valued) > 1:
+        ranked = sorted(valued, key=lambda wv: wv[1], reverse=better == "up")
+        best, worst = week_short(ranked[0][0]), week_short(ranked[-1][0])
+    return {
+        "id": row["id"],
+        "section": row["section"],
+        "label": row["label"],
+        "target_text": row.get("target_text", ""),
+        "points": points,
+        "cell": cells[at],
+        "change": _change(now, cells[at - 1].get("value")) if at > 0 else None,
+        "vs_average": _change(now, average, "the average before") if average is not None else None,
+        "average": average,
+        "streak": f"{STATUS_LABELS[status]} {run} week{'s' if run != 1 else ''} running" if run >= 2 else "",
+        # Numbers the sortable headers order by (None sorts last).
+        "value": float(now) if _is_number(now) else None,
+        "change_pct": _pct(now, cells[at - 1].get("value")) if at > 0 else None,
+        "average_pct": _pct(now, average),
+        "run": run,
+        "streak_status": status if run >= 2 else "",
+        "best": best,
+        "worst": worst,
+    }
+
+
+def goal_weeks_trend(
+    goal_list: "GoalList", request: HttpRequest, goal_id: str, last: date, count: int = GOAL_TREND_WEEKS
+) -> Optional[dict[str, Any]]:
+    """The Trends button on a grid row: one goal over *count* weeks ending
+    with *last* — its :func:`_trend_row` read at the last week, plus the
+    span those weeks cover, which of them were saved, and how many it was on
+    target. ``None`` when no goal with that id is on the list or in a saved
+    week shown."""
+    last = week_of(min(last, this_week()))
+    first = last - timedelta(weeks=count - 1)
+    grid = _grid(goal_list, request, first, count)
+    row = next((r for r in grid["rows"] if r["id"] == goal_id), None)
+    if row is None:
+        return None
+    goal = next((g for _t, g in _goal_rows(goal_list) if g.get("id") == goal_id), None)
+    out = _trend_row(row, count - 1, goal)
+    saved = {col["start"] for col in grid["columns"] if col["snapshot"]}
+    for point in out["points"]:
+        point["saved"] = point["week"] in saved
+    scored = [c for c in row["cells"] if not c.get("absent") and c.get("status") != "none"]
+    out.update(
+        {
+            "first": first,
+            "last": last,
+            "focus_short": week_short(last),
+            "weeks": count,
+            "span": span_label(first, last + timedelta(days=6)),
+            "on_target": sum(1 for c in scored if c["status"] == "pass"),
+            "scored": len(scored),
+        }
+    )
+    return out

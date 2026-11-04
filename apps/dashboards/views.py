@@ -1855,6 +1855,29 @@ class GoalWeekTrendsView(LoginRequiredMixin, View):
         )
 
 
+class GoalWeeksTrendView(LoginRequiredMixin, View):
+    """The Trends button on a grid row: one goal over the weeks up to
+    ``?week=`` (this week without), a bar per week with its value, the
+    change against the week before and the average before, the run, and
+    each week in a table. The global modal's body over htmx; a page of its
+    own without."""
+
+    def get(self, request: HttpRequest, slug: str, goal_id: str) -> HttpResponse:
+        from .weeks import goal_weeks_trend, parse_week, this_week
+
+        goal_list = visible_or_404(GoalList.objects.all(), request, slug=slug)
+        last = parse_week(request.GET.get("week")) or this_week()
+        trend = goal_weeks_trend(goal_list, request, goal_id, last)
+        if trend is None:
+            raise Http404
+        template = (
+            "dashboards/partials/goal_weeks_trend.html"
+            if request.headers.get("HX-Request")
+            else "dashboards/goal_weeks_trend.html"
+        )
+        return render(request, template, {"goal_list": goal_list, "trend": trend})
+
+
 class GoalWeekSnapshotView(LoginRequiredMixin, View):
     """POST: take (or retake) the week's snapshot — or, with ``fill=<n>``,
     snapshot the past *n* weeks that don't have one. Needs edit rights on

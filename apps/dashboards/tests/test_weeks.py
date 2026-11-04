@@ -222,7 +222,8 @@ def test_the_weeks_pages(client, goal_list, staff):
     html = client.get(f"/smallstack/dashboards/g/weekly/weeks/?week={last:%Y-%m-%d}").content.decode()
     assert "Saved" in html and f"by {staff}" in html and "Save again" in html
     grid = client.get("/smallstack/dashboards/g/weekly/weeks/?view=grid").content.decode()
-    assert 'class="gw-grid crud-table"' in grid and "Trends" in grid and "1 of 1 on target" in grid
+    assert 'class="gw-grid crud-table"' in grid and "Trends" in grid
+    assert 'title="1 of 1 goals on target">1/1<' in grid
     modal = client.get(f"/smallstack/dashboards/g/weekly/weeks/{last:%Y-%m-%d}/trends/", HTTP_HX_REQUEST="true")
     assert 'class="gwt"' in modal.content.decode()
     client.post(f"/smallstack/dashboards/g/weekly/weeks/{this_week():%Y-%m-%d}/snapshot/", {"fill": "3"})
@@ -449,3 +450,54 @@ def test_the_report_form_lays_rows_out_as_a_sortable_resizable_table(client, sta
     assert 'data-table-key="dashboards/report-form:metric,target,warn"' in html
     assert html.count('class="col-resizer"') == 3 and html.count('class="plf-sort"') == 3
     assert '<tbody id="rf-rows"></tbody>' in html and 'id="rf-undo"' in html
+
+
+# -- one goal, week by week (the row's Trends button) ------------------------------------
+
+
+def test_week_range_names_both_ends_of_the_week():
+    from datetime import date
+
+    from apps.dashboards.weeks import week_range
+
+    assert week_range(date(2026, 11, 2)) == "Nov 2–8"
+    assert week_range(date(2026, 10, 26)) == "Oct 26 – Nov 1"
+
+
+def test_one_goal_over_the_weeks(rf, goal_list):
+    from apps.dashboards.weeks import GOAL_TREND_WEEKS, goal_weeks_trend
+
+    gid = goal_list.sections[0]["goals"][0]["id"]
+    trend = goal_weeks_trend(goal_list, rf, gid, this_week())
+    assert trend is not None and len(trend["points"]) == GOAL_TREND_WEEKS and trend["weeks"] == GOAL_TREND_WEEKS
+    assert [p["display"] for p in trend["points"][-4:]] == ["2", "6", "4", "1"]
+    assert trend["points"][-1]["focus"] and trend["points"][-1]["partial"]
+    assert trend["points"][-1]["change"]["dir"] == "down" and trend["points"][0]["change"] is None
+    assert trend["cell"]["display"] == "1" and trend["change"]["dir"] == "down"
+    # A count is 0 in a week with no rows, so every week is judged.
+    assert trend["on_target"] == 2 and trend["scored"] == 13 and trend["label"] == "Requests"
+    assert trend["span"].endswith(f", {this_week().year}") and not any(p["saved"] for p in trend["points"])
+    # Read at an earlier week, the run is judged there and later weeks aren't shown.
+    earlier = goal_weeks_trend(goal_list, rf, gid, this_week() - timedelta(weeks=1))
+    assert earlier is not None and earlier["points"][-1]["display"] == "4"
+    assert earlier["streak"] == "On target 2 weeks running"
+    assert goal_weeks_trend(goal_list, rf, "nope", this_week()) is None
+
+
+def test_the_row_trends_modal(client, goal_list, staff):
+    last = this_week() - timedelta(weeks=1)
+    gid = goal_list.sections[0]["goals"][0]["id"]
+    take_snapshot(goal_list, last, by=staff)
+    grid = client.get(f"/smallstack/dashboards/g/weekly/weeks/?view=grid&week={last:%Y-%m-%d}").content.decode()
+    url = f"/smallstack/dashboards/g/weekly/goals/{gid}/trends/?week={last:%Y-%m-%d}"
+    assert f'class="gw-trends-btn gw-row-trends" hx-get="{url}"' in grid
+    assert 'data-stat-modal="Requests, week by week"' in grid
+    modal = client.get(url, HTTP_HX_REQUEST="true")
+    html = modal.content.decode()
+    assert modal.status_code == 200 and 'class="gwt gt"' in html
+    assert 'class="gt-chart"' in html and html.count('class="gt-col') == 13
+    assert "Saved</span>" in html and "On target" in html
+    assert "<html" not in html  # the modal body only
+    page = client.get(url).content.decode()
+    assert "<html" in page and "Back to Weekly, week over week" in page
+    assert client.get("/smallstack/dashboards/g/weekly/goals/nope/trends/").status_code == 404

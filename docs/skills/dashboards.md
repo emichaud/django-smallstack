@@ -471,7 +471,7 @@ A weekly `Snapshot` (see the engine below; rows, summary, complete, taken_by) fr
 
 Snapshots are evaluated with `snapshot_user(goal_list)`: the owner, else `created_by`, else the first active superuser. When shown, a saved value is masked for viewers who can't read its dataset; the row stores `dataset` for that check.
 
-Pages: `g/<slug>/weeks/` (`?week=`, `?view=grid`, `?format=csv`), `g/<slug>/weeks/<monday>/trends/` (modal fragment) and `POST g/<slug>/weeks/<monday>/snapshot/` (`fill=N` to backfill). Editors only.
+Pages: `g/<slug>/weeks/` (`?week=`, `?view=grid`, `?format=csv`), `g/<slug>/weeks/<monday>/trends/` (every goal around one week, a modal fragment), `g/<slug>/goals/<goal id>/trends/?week=` (one goal over the 13 weeks up to that one, `goal_weeks_trend`; the Trends button on a grid row) and `POST g/<slug>/weeks/<monday>/snapshot/` (`fill=N` to backfill). Editors only.
 
 **Report targets.** A `Report.items` row may carry `target` / `warn` (goal rules). `report_matrix` then sets each cell's `status`, recolours the value from it, and sets `has_targets`. The page adds a Target column, the CSV adds Target, At risk and per-period status columns, and `report_values` adds `target` and per-value `status`.
 

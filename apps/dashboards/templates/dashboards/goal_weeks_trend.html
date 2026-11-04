@@ -1,0 +1,14 @@
+{% extends "smallstack/base.html" %}
+{% load static %}
+{% block title %}{{ trend.label }}, week by week{% endblock %}
+{% block breadcrumbs %}{% endblock %}
+{% block extra_css %}<link rel="stylesheet" href="{% static 'dashboards/css/dashboards.css' %}">{% endblock %}
+{% block page_header %}
+<div class="page-header-bleed">
+    <div class="page-header-content">
+        <h1>{{ trend.label }}, week by week</h1>
+        <p class="page-subtitle"><a href="{% url 'dashboards_goal_weeks' goal_list.slug %}?view=grid&amp;week={{ trend.last|date:'Y-m-d' }}">Back to {{ goal_list.name }}, week over week</a></p>
+    </div>
+</div>
+{% endblock %}
+{% block content %}<div class="card"><div class="card-body">{% include "dashboards/partials/goal_weeks_trend.html" %}</div></div>{% endblock %}
