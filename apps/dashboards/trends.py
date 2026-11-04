@@ -21,6 +21,7 @@ The series is honest about time:
 from __future__ import annotations
 
 from datetime import date, datetime, timedelta
+from decimal import Decimal
 from typing import TYPE_CHECKING, Any, Optional
 
 from django.http import HttpRequest
@@ -182,6 +183,8 @@ def metric_trend(
         row = by_start.get(start.isoformat())
         end = grain_next(start, grain)
         value = row["value"] if row else (0 if empty_is_zero else None)
+        # A number for a chart and for JSON: over MCP a Decimal arrives as a string.
+        value = float(value) if isinstance(value, Decimal) else value
         lo = row["lo"] if row else start.isoformat()
         hi = row["hi"] if row else end.isoformat()
         out["points"].append(

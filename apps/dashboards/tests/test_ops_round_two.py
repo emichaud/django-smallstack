@@ -265,6 +265,19 @@ class TestCards:
         assert "error" not in got
 
 
+class TestHandEnteredTrend:
+    def test_its_points_are_numbers_so_a_chart_can_draw_them(self, call, staff, web):
+        Metric.objects.create(key="r2_csat", name="CSAT", source="manual")
+        day = timezone.localdate() - timedelta(days=1)
+        assert "error" not in call("metric_record_value", key="r2_csat", date=day.isoformat(), value=88)
+        got = call("metric_trend", key="r2_csat", period="last_7", grain="day")
+        assert 88.0 in [p["value"] for p in got["points"]]
+        call("create_dashboard", name="T", slug="r2-t", layout=[])
+        call("dashboard_add_card", dashboard="r2-t", type="trend", metric="r2_csat")
+        html = call("card_preview", type="trend", metric="r2_csat", period="last_7", options={"grain": "day"})
+        assert "88" in json.dumps(html)
+
+
 class TestRejudging:
     def test_fill_with_replace_judges_saved_periods_again(self, call, goal_list, staff):
         assert call("goal_list_capture", goal_list="r2", cadence="weekly", fill=2)["captured"] == 2

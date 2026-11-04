@@ -40,6 +40,7 @@ Breaking-change migration recipes live in [`UPGRADING.md`](UPGRADING.md).
 - **Moving a series left skips on dates it no longer has**, listed with a *Put back* that did nothing. They're dropped on save. A weekday series can no longer start on a weekend.
 - **`SMALLSTACK_BLOG_ENABLED=False` left the blog's MCP tools registered.** They follow the switch, like dashboards and the calendar.
 - **A trend chart refused a rate or a hand-entered metric**, saying it needed "to split it into groups", though neither a trend nor `metric_trend` does. Both now draw. Pie, ranked and grouped cards still refuse them, for that reason.
+- **A trend's points could be Decimals**, which `metric_trend` sent as strings and the chart didn't draw: any hand-entered metric, or a sum over a decimal column. They're numbers now.
 - **A card option nothing reads was saved and did nothing**: `dashboard_add_card {"options": {"period": "pmtd"}}` answered `ok` and the card, titled "last month", showed the dashboard's period. It's refused, naming what the card takes.
 - **`metric_delete_value` on a metric that isn't entered by hand answered `deleted: false`**; it's refused, like `metric_record_value`.
 - **Switching off dashboards or the calendar left their MCP tools working**, writes included, though the routes were gone and the docs say "no MCP tools". The tools now follow the switch, and the snapshot job does too.
