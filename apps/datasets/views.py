@@ -23,7 +23,7 @@ from urllib.parse import urlencode
 from django.core.paginator import Page
 from django.db.models import QuerySet
 from django.http import Http404, HttpRequest
-from django.urls import reverse
+from django.urls import NoReverseMatch, reverse
 from django.views.generic import TemplateView
 
 from apps.smallstack.mixins import StaffRequiredMixin
@@ -31,9 +31,17 @@ from apps.smallstack.pagination import PAGE_SIZE_CHOICES, paginate_queryset
 from apps.smallstack.sorting import build_sort_headers
 
 from .core import Dataset, get_dataset, list_datasets
-from .filter_tree import describe_filter_tree, is_empty
+from .filter_tree import and_trees, describe_filter_tree, is_empty
 from .framework import is_framework_dataset
 from .registry import get_def
+
+#: The quick date presets (``_computed_filter_meta`` / the CRUD list pipeline)
+#: as the relative periods a filter tree takes, for "Save as metric".
+_PRESET_PERIODS = {"today": "today", "yesterday": "yesterday", "week": "last_7", "month": "mtd", "year": "ytd"}
+#: Card types a grouped roll-up can be kept as, in the order offered. Pie
+#: takes a count or sum only (a share of an average means nothing).
+_ROLLUP_CARDS = (("metric_group", "Grouped stat"), ("ranked", "Ranked bars"), ("pie", "Pie chart"))
+_ADDITIVE_AGGS = frozenset({"count", "sum"})
 
 #: Browse page sizes (rows per page, ``?per_page=``) — SmallStack's list
 #: choices, so this page pages like every CRUD list; the first is the default.
@@ -158,7 +166,93 @@ class DatasetBrowseView(StaffRequiredMixin, TemplateView):
                 **self._rollup(request, ds, schema, declared, filters, tree, skip=bool(tree_error)),
             }
         )
+        context.update(self._keep_links(ds, schema, filters, tree, context, blocked=bool(tree_error)))
         return context
+
+    # -- keep it: save the filtered rows as a metric, the roll-up as a card ----
+
+    @classmethod
+    def _keep_links(
+        cls,
+        ds: Dataset,
+        schema: dict[str, Any],
+        filters: dict[str, str],
+        tree: Any,
+        rollup: dict[str, Any],
+        *,
+        blocked: bool,
+    ) -> dict[str, Any]:
+        """Links into the dashboards app that carry what's on screen: **Save as
+        metric** (the dataset, every condition as one filter tree, the roll-up's
+        aggregate) and, for a grouped roll-up, **keep as a card** (the same
+        metric, then a grouped card by the group-by column). Nothing when the
+        dashboards app isn't installed, the tree can't be applied, or the quick
+        filters can't be said as a tree (then it says why rather than offering
+        a metric that's wider than the table)."""
+        from django.apps import apps as django_apps
+
+        out: dict[str, Any] = {"metric_url": "", "card_links": [], "keep_problem": ""}
+        if blocked or not django_apps.is_installed("apps.dashboards"):
+            return out
+        try:
+            create_url = reverse("dashboards/metrics-create")
+        except NoReverseMatch:
+            return out
+        combined = and_trees(cls._tree_from_quick_filters(schema, filters), tree)
+        if not is_empty(combined):
+            problems = ds.validate_filter_tree(combined)
+            if problems:
+                out["keep_problem"] = "The quick filters can't be kept as a metric: " + "; ".join(problems)
+                return out
+        measure = rollup.get("measure") or ""
+        params: dict[str, str] = {"dataset": ds.key}
+        if not is_empty(combined):
+            params["filter_tree"] = json.dumps(combined, separators=(",", ":"))
+        # The roll-up's aggregate only means something over a measure; without
+        # one the table (and so the metric) counts rows, as the roll-up does.
+        params["agg"] = (rollup.get("agg") or "count") if measure else "count"
+        if measure:
+            params["measure"] = measure
+        out["metric_url"] = create_url + "?" + urlencode(params)
+        group_by = rollup.get("group_by") or ""
+        if group_by:
+            from apps.dashboards.components import get_component_type
+
+            for type_key, label in _ROLLUP_CARDS:
+                if get_component_type(type_key) is None:
+                    continue
+                if type_key == "pie" and params["agg"] not in _ADDITIVE_AGGS:
+                    continue
+                card = {**params, "then": "card", "card_type": type_key, "dimension": group_by}
+                out["card_links"].append({"label": label, "url": create_url + "?" + urlencode(card)})
+        return out
+
+    @staticmethod
+    def _tree_from_quick_filters(schema: dict[str, Any], filters: dict[str, str]) -> Any:
+        """The quick filters as filter-tree leaves, so a metric keeps *every*
+        condition the table had: a text box is ``contains``, a choice ``=``, a
+        date preset a relative ``period``, and ``<col>__gte`` / ``__lt`` the
+        bounds. Mirrors how the flat filters apply (core._filtered_qs)."""
+        meta = {w["name"]: w for w in schema.get("filters", [])}
+        # An explicit bound on a column drops that column's preset (as the flat
+        # filters apply it: explicit wins), so the tree says the same thing.
+        ranged = {n.partition("__")[0] for n in filters if n.partition("__")[2] in ("gte", "lt")}
+        leaves: list[dict[str, Any]] = []
+        for name, raw in filters.items():
+            base, sep, lookup = name.partition("__")
+            if sep and lookup in ("gte", "lt"):
+                leaves.append({"field": base, "op": ">=" if lookup == "gte" else "<", "value": raw})
+                continue
+            w = meta.get(name)
+            if w is None or name in ranged:
+                continue
+            if w.get("type") == "text":
+                leaves.append({"field": name, "op": "contains", "value": raw})
+            elif w.get("is_date") or w.get("range"):
+                leaves.append({"field": name, "op": "period", "value": _PRESET_PERIODS.get(raw, raw)})
+            else:
+                leaves.append({"field": name, "op": "=", "value": raw})
+        return {"and": leaves} if len(leaves) > 1 else (leaves[0] if leaves else {})
 
     # -- filters -------------------------------------------------------------
 

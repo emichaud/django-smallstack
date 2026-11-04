@@ -41,3 +41,8 @@
 .ds-tree-error { margin: 6px 0; font-size: 0.82rem; color: var(--error-fg); }
 .ds-tree-reading { margin: 6px 0 0; }
 
+/* Keep it: "Save as metric" in the rows header, "keep this roll-up as a card" under the roll-up. */
+.ds-keep { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; padding: 8px 14px; border-top: 1px solid var(--card-border); }
+.ds-keep .ds-keep-note { flex-basis: 100%; font-size: 0.72rem; }
+.ds-keep-problem { color: var(--warning-fg); font-size: 0.78rem; cursor: help; }
+

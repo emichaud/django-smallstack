@@ -35,6 +35,11 @@
       data-preview-url="{% url 'dashboards_api_preview' %}" data-preview-rows-url="{% url 'dashboards_preview_rows' %}">
     {% csrf_token %}
     {% if form.non_field_errors %}<div class="crud-form-errors" role="alert">{% for e in form.non_field_errors %}<p class="crud-error">{{ e }}</p>{% endfor %}</div>{% endif %}
+    {% if then_card %}
+    {% comment %}The hand-off from the dataset browser's roll-up: these ride along with the save, and MetricCreateMixin then opens the component builder on this metric.{% endcomment %}
+    <input type="hidden" name="then" value="card"><input type="hidden" name="card_type" value="{{ then_card.type }}"><input type="hidden" name="dimension" value="{{ then_card.dimension }}">
+    <p class="mf-then" role="status">Save this metric, then build a <strong>{{ then_card.label }}</strong> card from it{% if then_card.dimension %}, grouped by <strong>{{ then_card.dimension_label }}</strong>{% endif %}. The card draws the metric, so both stay in step.</p>
+    {% endif %}
     <div class="mb-grid">
         <div>
             {# ── 1. What it measures ───────────────────────────── #}

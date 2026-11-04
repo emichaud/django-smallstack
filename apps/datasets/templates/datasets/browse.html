@@ -124,6 +124,14 @@
             <button type="submit" form="ds-form" class="btn-outline btn-sm">Roll up</button>
         </div>
     </div>
+    {% if group_by and card_links and not series_error %}
+    {% comment %}A grouped roll-up is what a grouped card draws: the links save the filtered table as a metric first, then open the component builder on that card (MetricCreateMixin's then=card).{% endcomment %}
+    <div class="ds-keep" role="group" aria-label="Keep this roll-up as a card">
+        <span class="ds-meta">Keep this roll-up as a card:</span>
+        {% for c in card_links %}<a href="{{ c.url }}" class="btn-outline btn-sm">{{ c.label }}</a>{% endfor %}
+        <span class="ds-meta ds-keep-note">Saves the filtered rows as a metric first, then builds the card from it.</span>
+    </div>
+    {% endif %}
     {% if series_error %}
     <div class="card-body" role="alert" style="color: var(--error-fg); font-size: 0.82rem;">{{ series_error }}</div>
     {% elif group_by %}
@@ -158,9 +166,10 @@
 <div class="card ds-card" id="ds-rows">
     <div class="card-header" style="display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap;">
         <h2>Rows</h2>
-        <span class="ds-meta">
-            {% if page_obj.total_count %}Showing {{ page_obj.showing_start }}–{{ page_obj.showing_end }} of {{ page_obj.total_count }}{% else %}No rows{% endif %}
-            · <span class="ds-key">{{ schema.key }}</span>
+        <span class="ds-meta" style="display: inline-flex; align-items: center; gap: 0.6rem; flex-wrap: wrap;">
+            <span>{% if page_obj.total_count %}Showing {{ page_obj.showing_start }}–{{ page_obj.showing_end }} of {{ page_obj.total_count }}{% else %}No rows{% endif %}
+            · <span class="ds-key">{{ schema.key }}</span></span>
+            {% if metric_url %}<a href="{{ metric_url }}" class="btn-outline btn-sm" title="Keep these rows as one number: a metric over this dataset with every condition above">Save as metric</a>{% elif keep_problem %}<span class="ds-keep-problem" title="{{ keep_problem }}">Can't save as a metric</span>{% endif %}
         </span>
     </div>
     <div class="card-body" style="padding: 0;">

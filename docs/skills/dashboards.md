@@ -316,6 +316,11 @@ A **metric** is *what* number; a **component** is *how it's drawn*:
 ```
 
 - **The key** is made from the name (`requests_by_method`) and is permanent.
+- **Opening a builder filled in:** the metric form takes `metrics/new/?dataset=<key>&filter_tree=<json>&agg=&measure=`
+  (what the dataset browser's **Save as metric** sends; anything that doesn't apply is left out), and the component
+  builder takes `components/new/?metric=<key>&type=<card type>&dimension=<column>` (the metric page's **Make a card**).
+  With `then=card&card_type=&dimension=` the metric form continues to the component builder after saving, so a
+  grouped roll-up becomes a card through a real, named metric rather than a hidden one.
 - **Validation:** a component is checked exactly as a one-cell layout is: a known type,
   a metric the owner may use, and the type's own rules.
 - **Placement:** a dashboard places it with `{"component": key}` (plus position,

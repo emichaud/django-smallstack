@@ -288,6 +288,8 @@ a.dash-tile:hover, a.dash-tile:focus-visible {
 .mb-field > label { font-size: 0.82rem; color: var(--body-quiet-color); font-weight: 500; }
 .mb-field .crud-error { margin: 0; }
 .mb-help { font-size: 0.75rem; color: var(--text-muted); margin: 0; }
+/* "Save this metric, then build a card": the hand-off notice above the metric form. */
+.mf-then { margin: 0 0 0.9rem; padding: 0.55rem 0.85rem; border: 1px solid var(--card-border); border-left: 3px solid var(--primary); border-radius: 6px; background: var(--accent-band-bg); font-size: 0.82rem; }
 /* The filter tree (ALL/ANY groups, conditions) is the shared editor's: datasets/css/filter-tree.css. */
 .mb-icon-btn {
     border: 1px solid var(--card-border);

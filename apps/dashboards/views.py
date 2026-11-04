@@ -44,6 +44,7 @@ from __future__ import annotations
 import json
 from datetime import date
 from typing import TYPE_CHECKING, Any, Optional
+from urllib.parse import urlencode
 
 from django.conf import settings
 from django.contrib import messages
@@ -1178,6 +1179,87 @@ def _owner_cell(value: Any, obj: OwnedModel) -> str:
     return "Shared" if obj.owner_id is None else str(obj.owner)
 
 
+class MetricCreateMixin:
+    """The metric form opened from the dataset browser ("Save as metric"):
+    ``?dataset=&filter_tree=&agg=&measure=`` prefill the form, so the metric
+    is the filtered table reduced to one number. With ``then=card`` (plus
+    ``card_type`` and ``dimension``) the hand-off continues after saving to
+    the component builder, prefilled with the new metric — a grouped roll-up
+    becomes a grouped card, through a real, named metric rather than a hidden
+    one, so the KPI, the card, a goal and the history all share it."""
+
+    request: HttpRequest
+    object: Metric
+
+    def get_initial(self) -> dict[str, Any]:
+        from apps.datasets.registry import get_def, user_may_read
+
+        from .metrics import AGGS
+
+        initial: dict[str, Any] = super().get_initial()  # type: ignore[misc]
+        g = self.request.GET
+        key = g.get("dataset", "").strip()
+        dfn = get_def(key) if key else None
+        if dfn is None or not user_may_read(dfn, self.request.user):
+            return initial
+        ds = get_dataset(key)
+        if ds is None:
+            return initial
+        initial.update({"source": "dataset", "dataset": key})
+        tree: Any = None
+        try:
+            tree = json.loads(g.get("filter_tree", "") or "null")
+        except ValueError:
+            tree = None
+        if isinstance(tree, dict) and tree and not ds.validate_filter_tree(tree):
+            initial["filter_tree"] = tree
+        agg = g.get("agg", "").strip()
+        if agg in dict(AGGS):
+            initial["agg"] = agg
+        measure = g.get("measure", "").strip()
+        if measure and measure in set(ds.column_names()):
+            initial["measure"] = measure
+        name = g.get("name", "").strip()
+        if not name:
+            labels = {c["name"]: c["label"] for c in ds.schema()["columns"]}
+            kept = initial.get("filter_tree")
+            reading = describe_filter_tree(kept, labels) if kept else ""
+            name = f"{dfn.label}: {reading}" if reading and len(dfn.label) + len(reading) + 2 <= 120 else dfn.label
+        initial["name"] = name[:120]
+        return initial
+
+    def then_card(self) -> Optional[dict[str, str]]:
+        """The card to build after saving, from the query (first visit) or the
+        posted hidden fields (the save), or None."""
+        src = self.request.POST if self.request.method == "POST" else self.request.GET
+        if src.get("then") != "card":
+            return None
+        ct = get_component_type(src.get("card_type", "").strip())
+        if ct is None:
+            return None
+        dimension = src.get("dimension", "").strip()
+        # Its label for the notice, when the dataset is known; the key rides along as is.
+        ds = get_dataset(src.get("dataset", "").strip()) if dimension else None
+        label = dimension
+        if ds is not None:
+            label = next((c["label"] for c in ds.schema()["columns"] if c["name"] == dimension), dimension)
+        return {"type": ct.key, "label": ct.label, "dimension": dimension, "dimension_label": label}
+
+    def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
+        context: dict[str, Any] = super().get_context_data(**kwargs)  # type: ignore[misc]
+        context["then_card"] = self.then_card()
+        return context
+
+    def get_success_url(self) -> str:
+        then = self.then_card()
+        if then is None:
+            return str(super().get_success_url())  # type: ignore[misc]
+        params = {"metric": self.object.key, "type": then["type"]}
+        if then["dimension"]:
+            params["dimension"] = then["dimension"]
+        return reverse("dashboards/components-create") + "?" + urlencode(params)
+
+
 class MetricCRUDView(_OwnedCRUD):
     model = Metric
     form_class = MetricForm
@@ -1201,7 +1283,7 @@ class MetricCRUDView(_OwnedCRUD):
     link_field = "name"
     field_transforms = {"owner": _owner_cell, "updated_at": "localtime"}
     url_base = "dashboards/metrics"
-    view_mixins = {Action.DELETE: [MetricDeleteMixin]}
+    view_mixins = {Action.CREATE: [MetricCreateMixin], Action.DELETE: [MetricDeleteMixin]}
     displays = [MetricLibraryDisplay, TableDisplay]
     search_fields = ["name", "key", "description", "dataset"]
     ordering_fields = ["name", "key", "dataset", "updated_at"]
@@ -1906,6 +1988,39 @@ class ComponentPreviewView(LoginRequiredMixin, View):
         return render(request, "dashboards/partials/component_preview.html", {"card": card, "html": html})
 
 
+class ComponentCreateMixin:
+    """The component builder opened for a metric (``?metric=<key>``, from the
+    metric's page or the "Save as metric" hand-off): the metric, the card
+    type (``?type=``) and the group-by column (``?dimension=``, for the
+    grouped types) arrive filled in, so the builder opens on the card the
+    person asked for, not on an empty palette."""
+
+    request: HttpRequest
+
+    def get_initial(self) -> dict[str, Any]:
+        initial: dict[str, Any] = super().get_initial()  # type: ignore[misc]
+        g = self.request.GET
+        key = g.get("metric", "").strip()
+        metric = Metric.objects.filter(key=key).first() if key else None
+        if metric is None or not metric.can_view(self.request.user):
+            return initial
+        initial["metric"] = metric.key
+        ct = get_component_type(g.get("type", "").strip())
+        if ct is not None:
+            initial["type"] = ct.key
+        # A group-by column only for a type that groups, and only a real column.
+        dimension = g.get("dimension", "").strip()
+        takes_dimension = ct is not None and any(o.get("name") == "dimension" for o in ct.options_schema)
+        ds = get_dataset(metric.dataset) if dimension and takes_dimension and metric.dataset else None
+        column = next((c for c in ds.schema()["columns"] if c["name"] == dimension), None) if ds is not None else None
+        if column is None:
+            initial["name"] = metric.name[:120]
+            return initial
+        initial["options"] = {"dimension": dimension}
+        initial["name"] = f"{metric.name} by {column['label']}"[:120]
+        return initial
+
+
 class ComponentCRUDView(_OwnedCRUD):
     """Saved cards — the component builder is this view's form page."""
 
@@ -1916,6 +2031,7 @@ class ComponentCRUDView(_OwnedCRUD):
     link_field = "name"
     field_transforms = {"owner": _owner_cell, "updated_at": "localtime"}
     url_base = "dashboards/components"
+    view_mixins = {Action.CREATE: [ComponentCreateMixin]}
     displays = [ComponentLibraryDisplay, ComponentCardsDisplay]
     search_fields = ["name", "key", "description", "metric", "type"]
     ordering_fields = ["name", "type", "metric", "updated_at"]

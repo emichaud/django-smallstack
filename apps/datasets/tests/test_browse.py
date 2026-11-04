@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+
 import pytest
 from django.contrib.auth import get_user_model
 from django.urls import reverse
@@ -298,3 +300,76 @@ def test_browse_mounts_the_shared_filter_tree_editor(client, staff):
     assert html.index("datasets/js/filter-tree.js") < html.index("datasets/js/browse.js")
     assert '<input type="hidden" name="filter_tree" value="">' in html
     assert "More conditions" in html
+
+
+# -- Keep it: Save as metric, keep the roll-up as a card -----------------------
+
+
+def _query(url: str) -> dict:
+    from urllib.parse import parse_qs, urlsplit
+
+    return {k: v[0] for k, v in parse_qs(urlsplit(url).query).items()}
+
+
+def test_browse_save_as_metric_carries_every_condition_and_the_rollup(client, staff):
+    import json
+
+    _seed()
+    tree = {"field": "response_time_ms", "op": ">", "value": 11}
+    resp = client.get(
+        _browse("smallstack_requests"),
+        {
+            **SEEDED,
+            "method": "POST",
+            "path": "/b",
+            "timestamp": "month",
+            "filter_tree": json.dumps(tree),
+            "group_by": "status_code",
+            "measure": "response_time_ms",
+            "agg": "avg",
+        },
+    )
+    assert resp.status_code == 200
+    q = _query(resp.context["metric_url"])
+    assert resp.context["metric_url"].startswith(reverse("dashboards/metrics-create"))
+    assert q["dataset"] == "smallstack_requests" and q["agg"] == "avg" and q["measure"] == "response_time_ms"
+    kept = json.loads(q["filter_tree"])
+    leaves = {(leaf["field"], leaf["op"]): leaf["value"] for leaf in kept["and"]}
+    # The quick filters become leaves (choice =, text contains, date preset → period) AND the tree.
+    assert leaves[("ip_address", "=")] == IP
+    assert leaves[("method", "=")] == "POST"
+    # (Few distinct paths in a test database make Path a dropdown, so it's "=" there, "contains" as a text box.)
+    assert leaves.get(("path", "contains"), leaves.get(("path", "="))) == "/b"
+    assert leaves[("timestamp", "period")] == "mtd"
+    assert leaves[("response_time_ms", ">")] == 11
+    # A grouped roll-up offers the grouped cards; an average has no pie.
+    labels = [c["label"] for c in resp.context["card_links"]]
+    assert labels == ["Grouped stat", "Ranked bars"]
+    cq = _query(resp.context["card_links"][0]["url"])
+    assert cq["then"] == "card" and cq["card_type"] == "metric_group" and cq["dimension"] == "status_code"
+    assert cq["filter_tree"] == q["filter_tree"] and cq["agg"] == "avg"
+    html = resp.content.decode()
+    assert "Save as metric" in html and "Keep this roll-up as a card" in html
+
+
+def test_browse_save_as_metric_counts_rows_without_a_measure_and_offers_pie(client, staff):
+    _seed()
+    resp = client.get(_browse("smallstack_requests"), {**SEEDED, "group_by": "method", "agg": "avg"})
+    q = _query(resp.context["metric_url"])
+    assert q["agg"] == "count" and "measure" not in q
+    assert [c["label"] for c in resp.context["card_links"]] == ["Grouped stat", "Ranked bars", "Pie chart"]
+    # No filters at all: a metric over the whole dataset, no tree.
+    resp = client.get(_browse("smallstack_requests"))
+    q = _query(resp.context["metric_url"])
+    assert q == {"dataset": "smallstack_requests", "agg": "count"}
+    assert resp.context["card_links"] == []
+    # An explicit date bound drops that column's preset, as the table applies it.
+    resp = client.get(_browse("smallstack_requests"), {"timestamp": "month", "timestamp__gte": "2026-01-01"})
+    kept = json.loads(_query(resp.context["metric_url"])["filter_tree"])
+    assert kept == {"field": "timestamp", "op": ">=", "value": "2026-01-01"}
+
+
+def test_browse_offers_no_metric_when_the_tree_cannot_be_applied(client, staff):
+    resp = client.get(_browse("smallstack_requests"), {"filter_tree": '{"field": "nope", "op": "=", "value": 1}'})
+    assert resp.context["metric_url"] == "" and resp.context["card_links"] == []
+    assert "Save as metric" not in resp.content.decode()
