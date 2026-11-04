@@ -687,6 +687,7 @@ class Delivery(models.Model):
 
     class Meta:
         ordering = ["pk"]
+        verbose_name_plural = "deliveries"
         constraints = [
             # THE no-double-send guarantee, and what makes queue_issue
             # re-runnable via bulk_create(ignore_conflicts=True).

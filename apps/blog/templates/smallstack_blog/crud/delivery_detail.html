@@ -1,0 +1,101 @@
+{% extends "smallstack/crud/object_detail.html" %}
+{% load static tz theme_tags %}
+
+{% comment %}
+One line of the send ledger, read as a receipt: the outcome in a sentence, the
+three moments of a send in order, the error in full when there is one, then
+the facts. Replaces the framework field table rather than adding to it — the
+table showed the same eight columns as the list and answered nothing the list
+hadn't. `story` comes from DeliveryCRUDView._make_view.
+{% endcomment %}
+
+{% block title %}{{ object.email }}: {{ object.issue.subject }}{% endblock %}
+
+{% block breadcrumbs %}
+{% breadcrumb "Home" "website:home" %}
+{% breadcrumb "Deliveries" "blog/deliveries-list" %}
+{% breadcrumb object.email %}
+{% render_breadcrumbs %}
+{% endblock %}
+
+{% block extra_css %}{{ block.super }}
+<link rel="stylesheet" href="{% static 'blog/blog.css' %}">
+{% endblock %}
+
+{% block page_header %}
+<div class="page-header-bleed page-header-with-actions">
+    <div class="page-header-content">
+        <h1 class="dl-address">{{ object.email }}</h1>
+        <p class="page-subtitle">
+            A copy of <a href="{% url 'blog/issues-detail' object.issue_id %}">“{{ object.issue.subject }}”</a>
+            from {{ object.issue.blog }}
+        </p>
+    </div>
+    <div class="page-header-actions dl-actions">
+        <a href="{% url 'blog/deliveries-list' %}?issue={{ object.issue_id }}" class="btn-outline btn-sm">Every copy of this issue</a>
+        {% if object.subscriber_id and user.is_staff %}
+        <a href="{% url 'blog/subscribers-detail' object.subscriber_id %}" class="btn-outline btn-sm">Subscriber record</a>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block content %}
+<section class="card dl-card" aria-labelledby="dl-status">
+    <div class="dl-outcome dl-outcome--{{ story.tone }}">
+        <h2 id="dl-status" class="dl-status">{{ object.get_status_display }}</h2>
+        <p class="dl-summary">{{ story.summary }}</p>
+    </div>
+
+    <ol class="dl-steps" aria-label="The send, step by step">
+        {% for step in story.steps %}
+        <li class="dl-step dl-step--{{ step.state }}"{% if step.state == "current" %} aria-current="step"{% endif %}>
+            <span class="dl-step-mark" aria-hidden="true"></span>
+            <span class="dl-step-label">{{ step.label }}</span>
+            {% if step.when %}
+            <time class="dl-step-when" datetime="{{ step.when|date:'c' }}">{{ step.when|localtime|date:"M j, Y" }}<span>{{ step.when|localtime|time:"g:i a" }}</span></time>
+            {% else %}
+            <span class="dl-step-when dl-step-when--note">{{ step.note }}</span>
+            {% endif %}
+        </li>
+        {% endfor %}
+    </ol>
+
+    {% if object.last_error %}
+    <div class="dl-error">
+        <h3>Last error</h3>
+        <pre>{{ object.last_error }}</pre>
+        <p class="dl-error-note">Written on the most recent attempt. A later success clears it.</p>
+    </div>
+    {% endif %}
+
+    <dl class="dl-facts">
+        <div class="dl-fact">
+            <dt>Address</dt>
+            <dd>{{ object.email }}</dd>
+        </div>
+        <div class="dl-fact">
+            <dt>Subscriber</dt>
+            <dd>
+                {% if object.subscriber %}
+                    {% if user.is_staff %}<a href="{% url 'blog/subscribers-detail' object.subscriber_id %}">{{ object.subscriber.name|default:object.subscriber.email }}</a>{% else %}{{ object.subscriber.name|default:object.subscriber.email }}{% endif %}
+                {% else %}
+                    <span class="dl-quiet">Record removed. The address above is the copy kept for the audit trail.</span>
+                {% endif %}
+            </dd>
+        </div>
+        <div class="dl-fact">
+            <dt>Issue</dt>
+            <dd><a href="{% url 'blog/issues-detail' object.issue_id %}">{{ object.issue.subject }}</a></dd>
+        </div>
+        <div class="dl-fact">
+            <dt>Blog</dt>
+            <dd><a href="{% url 'blog/blogs-detail' object.issue.blog_id %}">{{ object.issue.blog }}</a></dd>
+        </div>
+        <div class="dl-fact">
+            <dt>Attempts</dt>
+            <dd>{{ object.attempts }} <span class="dl-quiet">of up to {{ story.max_attempts }}</span></dd>
+        </div>
+    </dl>
+</section>
+{% endblock %}

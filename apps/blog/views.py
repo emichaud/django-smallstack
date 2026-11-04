@@ -775,6 +775,90 @@ class IssueCRUDView(_OwnedCRUDView):
             obj.save(update_fields=["created_by"])
 
 
+def _delivery_story(delivery: Delivery) -> dict[str, Any]:
+    """What the detail page says about one delivery, in words.
+
+    The row stores five states, three timestamps and a counter. The person
+    opening it wants one sentence — did this reader get the issue, and if not,
+    why not — and the three moments of a send laid out in order. Worked out
+    here, beside the pipeline that writes the row, so the reading of "a failed
+    row with attempts to spare was a hard rejection" can't drift from
+    ``service._send_one``.
+    """
+    limits = service._send_settings()
+    max_attempts = limits["max_attempts"]
+    status = delivery.status
+    attempts = delivery.attempts
+    tries = "on the first attempt" if attempts == 1 else f"after {attempts} attempts"
+
+    if status == Delivery.Status.SENT:
+        tone, summary = "success", f"The mail server accepted this copy {tries}."
+    elif status == Delivery.Status.CLAIMED:
+        tone = "warning"
+        summary = (
+            "A worker is sending it now. A claim left open for more than "
+            f"{limits['claim_timeout']} minutes goes back to the queue."
+        )
+    elif status == Delivery.Status.FAILED:
+        tone = "error"
+        if attempts < max_attempts:
+            summary = (
+                "The mail server rejected the address outright. "
+                "The address is suppressed, so it won't be tried again."
+            )
+        else:
+            summary = f"Gave up {tries}, each one a temporary error. The last one is below."
+    elif status == Delivery.Status.SKIPPED:
+        tone = "quiet"
+        summary = (
+            "Not sent. The reader unsubscribed, or the send was stopped, "
+            "before this copy's turn came."
+        )
+    elif attempts:
+        tone = "quiet"
+        summary = (
+            f"Back in the queue: {attempts} of {max_attempts} attempts hit a temporary error. "
+            "The next send tick tries again."
+        )
+    else:
+        tone, summary = "quiet", "Waiting in the queue for the next send tick."
+
+    claimed_state = "todo"
+    if status == Delivery.Status.CLAIMED:
+        claimed_state = "current"
+    elif delivery.claimed_at or status in (Delivery.Status.SENT, Delivery.Status.FAILED):
+        claimed_state = "done"
+
+    outcome = {"label": "Sent", "when": delivery.sent_at, "state": "todo", "note": "Not yet"}
+    if status == Delivery.Status.SENT:
+        outcome["state"] = "done"
+    elif status == Delivery.Status.FAILED:
+        outcome.update(label="Failed", state="error", note=tries.capitalize())
+    elif status == Delivery.Status.SKIPPED:
+        outcome.update(label="Skipped", state="done", note="Never attempted")
+
+    return {
+        "tone": tone,
+        "summary": summary,
+        "max_attempts": max_attempts,
+        "steps": [
+            {
+                "label": "Queued",
+                "when": delivery.issue.queued_at,
+                "state": "done" if delivery.issue.queued_at else "todo",
+                "note": "With the issue",
+            },
+            {
+                "label": "Claimed",
+                "when": delivery.claimed_at,
+                "state": claimed_state,
+                "note": "Waiting for a worker" if claimed_state == "todo" else "By a worker",
+            },
+            outcome,
+        ],
+    }
+
+
 class DeliveryCRUDView(_OwnedCRUDView):
     """The per-recipient send ledger. Read-only — the pipeline owns these rows."""
 
@@ -810,6 +894,22 @@ class DeliveryCRUDView(_OwnedCRUDView):
     @staticmethod
     def scope(qs: Any, user: Any) -> Any:
         return permissions.owned_deliveries(user, qs).select_related("issue", "issue__blog")
+
+    @classmethod
+    def _make_view(cls, base_class: Any) -> Any:
+        """Give the detail page its story: the outcome in words and the steps."""
+        view = super()._make_view(base_class)
+        inherited = view.get_context_data
+
+        def get_context_data(self: Any, **kwargs: Any) -> dict:
+            context = inherited(self, **kwargs)
+            obj = context.get("object")
+            if isinstance(obj, Delivery):
+                context["story"] = _delivery_story(obj)
+            return context
+
+        view.get_context_data = get_context_data
+        return view
 
 
 # ---------------------------------------------------------------------------

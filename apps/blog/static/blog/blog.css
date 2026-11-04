@@ -206,6 +206,220 @@ textarea.blog-markdown-input {
     font-weight: 600;
 }
 
+/* ---------------------------------------------------------------------------
+ * Delivery page — one line of the send ledger, read as a receipt.
+ *
+ * The outcome word is the only loud thing on the page; the steps, the error
+ * and the facts are set quietly under it. Tone comes from the semantic
+ * state tokens, progress from --primary, so every palette reads the same.
+ * ------------------------------------------------------------------------- */
+
+.dl-address {
+    overflow-wrap: anywhere;
+    letter-spacing: -0.01em;
+}
+
+.dl-actions { flex-wrap: wrap; }
+
+.dl-card { padding: 0; }
+
+.dl-outcome {
+    padding: 22px 24px 20px;
+    border-left: 4px solid var(--body-quiet-color);
+}
+
+.dl-outcome--success { border-left-color: var(--success-fg); }
+.dl-outcome--warning { border-left-color: var(--warning-fg); }
+.dl-outcome--error   { border-left-color: var(--error-fg); }
+
+.dl-status {
+    margin: 0;
+    font-size: 1.9rem;
+    font-weight: 650;
+    line-height: 1.1;
+    color: var(--body-fg);
+}
+
+.dl-outcome--success .dl-status { color: var(--success-fg); }
+.dl-outcome--warning .dl-status { color: var(--warning-fg); }
+.dl-outcome--error   .dl-status { color: var(--error-fg); }
+
+.dl-summary {
+    margin: 8px 0 0;
+    max-width: 62ch;
+    font-size: 1rem;
+    line-height: 1.55;
+    color: var(--body-fg);
+}
+
+/* The three moments, left to right, joined by a line that is solid as far as
+ * the send got. `:has(+ …)` colours each segment by the step it leads to. */
+.dl-steps {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0 16px;
+    margin: 0;
+    padding: 18px 24px 22px;
+    list-style: none;
+    border-top: 1px solid var(--card-border);
+}
+
+.dl-step {
+    position: relative;
+    min-width: 0;
+    padding-top: 22px;
+}
+
+.dl-step::before {
+    content: "";
+    position: absolute;
+    top: 6px;
+    left: 18px;
+    right: -16px;
+    height: 2px;
+    background: var(--card-border);
+}
+
+.dl-step:last-child::before { display: none; }
+
+.dl-step:has(+ .dl-step--done)::before,
+.dl-step:has(+ .dl-step--current)::before,
+.dl-step:has(+ .dl-step--error)::before {
+    background: var(--primary);
+}
+
+.dl-step-mark {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    border: 2px solid var(--card-border);
+    background: var(--card-bg);
+}
+
+.dl-step--done .dl-step-mark {
+    border-color: var(--primary);
+    background: var(--primary);
+}
+
+.dl-step--current .dl-step-mark {
+    border-color: var(--warning-fg);
+    box-shadow: 0 0 0 4px var(--warning-bg);
+}
+
+.dl-step--error .dl-step-mark {
+    border-color: var(--error-fg);
+    background: var(--error-fg);
+}
+
+.dl-step-label {
+    display: block;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--body-fg);
+}
+
+.dl-step--todo .dl-step-label { color: var(--body-quiet-color); }
+
+.dl-step-when {
+    display: block;
+    margin-top: 2px;
+    font-size: 0.85rem;
+    color: var(--body-fg);
+}
+
+.dl-step-when span {
+    display: block;
+    color: var(--body-quiet-color);
+}
+
+.dl-step-when--note {
+    color: var(--body-quiet-color);
+    font-style: italic;
+}
+
+@media (max-width: 640px) {
+    .dl-steps {
+        grid-template-columns: 1fr;
+        gap: 14px 0;
+    }
+
+    .dl-step { padding: 0 0 0 26px; }
+
+    .dl-step::before {
+        top: 16px;
+        bottom: -16px;
+        left: 6px;
+        right: auto;
+        width: 2px;
+        height: auto;
+    }
+}
+
+.dl-error {
+    padding: 18px 24px 20px;
+    border-top: 1px solid var(--card-border);
+}
+
+.dl-error h3 {
+    margin: 0 0 8px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--error-fg);
+}
+
+.dl-error pre {
+    margin: 0;
+    padding: 12px 14px;
+    overflow-x: auto;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 0.82rem;
+    line-height: 1.5;
+    color: var(--body-fg);
+    background: var(--card-header-bg);
+    border: 1px solid var(--card-border);
+    border-left: 3px solid var(--error-fg);
+    border-radius: 4px;
+}
+
+.dl-error-note {
+    margin: 8px 0 0;
+    font-size: 0.8rem;
+    color: var(--body-quiet-color);
+}
+
+.dl-facts {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 16px 24px;
+    margin: 0;
+    padding: 18px 24px 22px;
+    border-top: 1px solid var(--card-border);
+}
+
+.dl-fact { min-width: 0; }
+
+.dl-fact dt {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--body-quiet-color);
+}
+
+.dl-fact dd {
+    margin: 3px 0 0;
+    font-size: 0.92rem;
+    color: var(--body-fg);
+    overflow-wrap: anywhere;
+}
+
+.dl-fact a { color: var(--link-color); }
+
+.dl-quiet { color: var(--body-quiet-color); }
+
 @media (prefers-reduced-motion: reduce) {
     .blog-editor-btn { transition: none; }
 }
