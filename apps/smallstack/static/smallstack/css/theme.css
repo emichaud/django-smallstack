@@ -3148,18 +3148,27 @@ a.button.button-secondary:hover {
    Paginator
    ============================================ */
 
+/* Two rows: the page size at the left edge and "Showing x–y of n" at the
+ * right on one line, the page controls centred beneath. A pager with no size
+ * control still keeps the count at the right. */
 .paginator {
-    display: flex;
-    flex-direction: column;
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    grid-template-areas: "size . info" "nav nav nav";
     align-items: center;
-    gap: 6px;
+    gap: 10px 12px;
     padding: 1rem 0 0;
     font-size: 0.85rem;
 }
 
 .paginator-info {
+    grid-area: info;
+    justify-self: end;
     color: var(--body-quiet-color);
 }
+
+.paginator-size { grid-area: size; justify-self: start; }
+.paginator-nav { grid-area: nav; justify-self: center; }
 
 /* "Rows per page" (CRUDView.page_sizes / the dataset browser) */
 .paginator-size {
