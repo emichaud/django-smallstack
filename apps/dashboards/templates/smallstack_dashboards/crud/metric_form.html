@@ -3,7 +3,7 @@
 
 {% block title %}{% if object %}Edit {{ object.name }}{% else %}New metric{% endif %}{% endblock %}
 {% block breadcrumbs %}{% endblock %}
-{% block extra_css %}<link rel="stylesheet" href="{% static 'dashboards/css/dashboards.css' %}">{% endblock %}
+{% block extra_css %}<link rel="stylesheet" href="{% static 'dashboards/css/dashboards.css' %}"><link rel="stylesheet" href="{% static 'datasets/css/filter-tree.css' %}">{% endblock %}
 
 {% block page_header %}
 <div class="page-header-bleed page-header-with-actions">
@@ -94,7 +94,8 @@
                 <div class="card-header"><h2><span class="mf-step">2</span>Which rows count</h2></div>
                 <div class="card-body">
                     <p class="mb-help" style="margin-top: 0;">Only rows matching these conditions are counted. Group conditions with ALL (and) or ANY (or). Leave it empty to count every row.</p>
-                    <div id="mb-tree" aria-live="polite"><p class="mb-help">Pick a dataset to start filtering.</p></div>
+                    {% comment %}The shared filter-tree editor (datasets/js/filter-tree.js) draws here and writes the hidden filter_tree field.{% endcomment %}
+                    <div id="mb-tree" aria-live="polite"><p class="ft-help">Pick a dataset to start filtering.</p></div>
                     <p class="mf-reads" id="mb-tree-summary"></p>
                     {% for e in form.filter_tree.errors %}<p class="crud-error">{{ e }}</p>{% endfor %}
                     {{ form.filter_tree.as_hidden }}
@@ -233,4 +234,4 @@
 </form>
 {% endblock %}
 
-{% block extra_js %}<script src="{% static 'dashboards/js/metric-builder.js' %}" defer></script>{% endblock %}
+{% block extra_js %}<script src="{% static 'datasets/js/filter-tree.js' %}" defer></script><script src="{% static 'dashboards/js/metric-builder.js' %}" defer></script>{% endblock %}

@@ -161,6 +161,32 @@ problems); `describe_filter_tree(tree, labels)` gives the one-line reading
 ("Status = open AND (Priority in high, urgent OR Age > 30) AND Created: Month
 to date"); `and_trees(...)` combines trees without nesting.
 
+**The editor.** One visual editor draws a tree for people, shared by every
+page that filters a dataset: `datasets/js/filter-tree.js` +
+`datasets/css/filter-tree.css` (the metric builder mounts it; so does the
+dataset browser). Give it a mount element, the hidden input the form posts,
+and the dataset's `schema()`:
+
+```html
+<div id="my-tree"></div>
+<input type="hidden" name="filter_tree" value="{{ tree_json }}">
+<script src="{% static 'datasets/js/filter-tree.js' %}" defer></script>
+```
+
+```js
+var editor = SmallStackFilterTree.create({
+    mount: document.getElementById("my-tree"),
+    input: form.querySelector('[name="filter_tree"]'),
+    onChange: function (tree) { /* re-run a preview */ },
+});
+editor.setSchema(schema);   // from the schema endpoint or a json_script
+```
+
+It builds its field list from `schema()["filters"]` (so `ops`, `choices` and
+`periods` drive the controls), writes the JSON back on every edit, and keeps a
+tree it can't draw (a `not`, written over the API) as it is, offering to
+start over. Theme tokens only, no inline JS, so it is CSP-clean.
+
 ### Bucketed grouping (bands, categories, top-N + Other)
 
 **Time grains.** On a date/datetime dimension, `grain=` (`day`/`week`/`month`/`quarter`/`year`)

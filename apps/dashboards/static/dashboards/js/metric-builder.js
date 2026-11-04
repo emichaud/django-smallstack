@@ -6,11 +6,16 @@
  * write into them, plus a live preview through dashboards/api/preview/ — the
  * same evaluate() the saved metric will use. The JSON itself isn't shown:
  * people use the builder; agents write the JSON over REST/MCP.
+ *
+ * The filter tree itself is drawn by the shared editor in
+ * datasets/js/filter-tree.js (SmallStackFilterTree), which the dataset browser
+ * uses too; this file owns what is metric-only: the dataset picker, measure
+ * and period field, thresholds, and the preview.
  */
 (function () {
     "use strict";
 
-    var form, schema = null, fields = {}, tree, thresholds = [];
+    var form, schema = null, treeEditor = null, thresholds = [];
 
     function $(id) { return document.getElementById(id); }
     function el(tag, attrs, text) {
@@ -38,219 +43,10 @@
         var el = input(name);
         return el && el.type !== "radio" ? el.value : "";
     }
+    // The operator words the tree editor uses, so a threshold reads the same way.
+    function opLabel(o) { return window.SmallStackFilterTree.OP_LABELS[o] || o; }
 
-    var OP_LABELS = {
-        "=": "is", "!=": "is not", ">": ">", ">=": "≥", "<": "<", "<=": "≤",
-        between: "between", "in": "is any of", contains: "contains", isnull: "is empty?", period: "in period",
-    };
     var STATES = ["danger", "warning", "success", "muted"];
-
-    // -- the tree model: {kind:"group", joiner, children} | {kind:"leaf", field, op, value, value2}
-    function fromJSON(node) {
-        if (!node || (typeof node === "object" && !Object.keys(node).length)) return group("and", []);
-        if (node.and || node.or) {
-            var j = node.and ? "and" : "or";
-            return group(j, (node[j] || []).map(fromJSON));
-        }
-        if (node.not) throw new Error("not");
-        return { kind: "leaf", field: node.field || "", op: node.op || "=", value: node.value, value2: node.value2 };
-    }
-    function group(joiner, children) { return { kind: "group", joiner: joiner, children: children }; }
-    function toJSON(node, top) {
-        if (node.kind === "leaf") {
-            if (!node.field) return null;  // a condition still being picked
-            var out = { field: node.field, op: node.op };
-            if (node.op !== "isnull" || node.value === false) out.value = node.value;
-            if (node.op === "isnull") out.value = node.value !== false;
-            if (node.op === "between") out.value2 = node.value2;
-            return out;
-        }
-        var kids = node.children.map(function (c) { return toJSON(c, false); }).filter(Boolean);
-        if (!kids.length) return top ? {} : null;
-        if (kids.length === 1 && top) return kids[0];
-        var o = {};
-        o[node.joiner] = kids;
-        return o;
-    }
-
-    function writeTree() {
-        var ta = input("filter_tree");
-        if (!ta) return;
-        var json = toJSON(tree, true);
-        ta.value = JSON.stringify(json, null, 2);
-        schedulePreview();
-    }
-
-    function readTree() {
-        var ta = input("filter_tree");
-        var raw = (ta && ta.value.trim()) || "{}";
-        try {
-            tree = fromJSON(JSON.parse(raw));
-            // A single stored condition is a leaf at the root; the builder
-            // always edits a group, so wrap it (toJSON unwraps it again).
-            if (tree.kind !== "group") tree = group("and", [tree]);
-            return true;
-        } catch (e) {
-            tree = null;
-            return false;
-        }
-    }
-
-    // -- value coercion for the JSON (numbers stay numbers) ------------------
-    function coerce(f, raw) {
-        if (raw === "" || raw == null) return "";
-        var t = f && f.column_type;
-        if (t === "integer" || t === "float" || t === "decimal") {
-            var n = Number(raw);
-            return isNaN(n) ? raw : n;
-        }
-        if (t === "boolean") return raw === "true";
-        if (t === "fk" && /^\d+$/.test(String(raw))) return parseInt(raw, 10);
-        return raw;
-    }
-
-    function valueControl(f, op, value, onChange) {
-        var t = f ? f.column_type : "string";
-        if (op === "isnull") {
-            var s = el("select", { class: "vTextField", "aria-label": "Empty or not" });
-            opt(s, "true", "is empty", value !== false);
-            opt(s, "false", "is not empty", value === false);
-            s.addEventListener("change", function () { onChange(s.value === "true"); });
-            return s;
-        }
-        if (op === "period") {
-            var p = el("select", { class: "vTextField", "aria-label": "Period" });
-            (f && f.periods || []).forEach(function (pp) { opt(p, pp.key, pp.label, pp.key === value); });
-            if (!value && p.options.length) onChange(p.options[0].value, true);
-            p.addEventListener("change", function () { onChange(p.value); });
-            return p;
-        }
-        var choices = (f && f.choices || []).filter(function (c) { return c[0] !== ""; });
-        if (t === "boolean" || (choices.length && (op === "=" || op === "!=") && !(f && f.is_date))) {
-            var c = el("select", { class: "vTextField", "aria-label": "Value" });
-            if (t === "boolean" && !choices.length) choices = [["true", "Yes"], ["false", "No"]];
-            opt(c, "", "— pick —", value === "" || value == null);
-            choices.forEach(function (ch) { opt(c, ch[0], ch[1], String(value) === String(ch[0])); });
-            c.addEventListener("change", function () { onChange(coerce(f, c.value)); });
-            return c;
-        }
-        if (op === "in") {
-            var i = el("input", { type: "text", class: "vTextField", placeholder: "a, b, c", "aria-label": "Values, comma separated" });
-            i.value = Array.isArray(value) ? value.join(", ") : (value || "");
-            i.addEventListener("input", function () {
-                onChange(i.value.split(",").map(function (v) { return coerce(f, v.trim()); }).filter(function (v) { return v !== ""; }));
-            });
-            return i;
-        }
-        var type = (t === "date") ? "date" : (t === "datetime") ? "datetime-local"
-            : (t === "integer" || t === "float" || t === "decimal") ? "number" : "text";
-        var x = el("input", { type: type, class: "vTextField", "aria-label": "Value" });
-        if (type === "number") x.step = "any";
-        x.value = value == null ? "" : value;
-        x.addEventListener("input", function () { onChange(coerce(f, x.value)); });
-        return x;
-    }
-
-    function renderLeaf(node, parent) {
-        var row = el("div", { class: "mb-leaf" });
-        var fsel = el("select", { class: "vTextField", "aria-label": "Field" });
-        opt(fsel, "", "— field —", !node.field);
-        Object.keys(fields).forEach(function (name) { opt(fsel, name, fields[name].label || name, name === node.field); });
-        if (node.field && !fields[node.field]) opt(fsel, node.field, node.field + " (unknown)", true);
-        var f = fields[node.field];
-        var osel = el("select", { class: "vTextField", "aria-label": "Operator" });
-        (f ? f.ops : ["="]).forEach(function (o) { opt(osel, o, OP_LABELS[o] || o, o === node.op); });
-        if (f && f.ops.indexOf(node.op) < 0) { node.op = f.ops[0]; }
-        var values = el("div", { class: "mb-values" });
-        values.appendChild(valueControl(f, node.op, node.value, function (v, silent) { node.value = v; if (!silent) writeTree(); }));
-        if (node.op === "between") {
-            values.appendChild(valueControl(f, "between", node.value2, function (v) { node.value2 = v; writeTree(); }));
-        }
-        var rm = el("button", { type: "button", class: "mb-icon-btn mb-danger", "aria-label": "Remove condition" }, "✕");
-        rm.addEventListener("click", function () {
-            parent.children.splice(parent.children.indexOf(node), 1);
-            render(); writeTree();
-        });
-        fsel.addEventListener("change", function () {
-            node.field = fsel.value; node.value = ""; node.value2 = undefined;
-            var nf = fields[node.field];
-            node.op = nf ? nf.ops[0] : "=";
-            render(); writeTree();
-        });
-        osel.addEventListener("change", function () {
-            node.op = osel.value;
-            if (node.op === "in") node.value = node.value === "" || node.value == null ? [] : [node.value];
-            else if (Array.isArray(node.value)) node.value = node.value[0] || "";
-            if (node.op === "isnull") node.value = true;
-            render(); writeTree();
-        });
-        row.appendChild(fsel); row.appendChild(osel); row.appendChild(values); row.appendChild(rm);
-        return row;
-    }
-
-    function renderGroup(node, parent) {
-        var box = el("div", { class: "mb-tree-group" });
-        var head = el("div", { class: "mb-tree-head" });
-        head.appendChild(el("span", {}, "Match"));
-        var joiner = el("span", { class: "mb-joiner", role: "group", "aria-label": "Match all or any" });
-        [["and", "ALL"], ["or", "ANY"]].forEach(function (j) {
-            var b = el("button", { type: "button", "aria-pressed": String(node.joiner === j[0]) }, j[1]);
-            b.addEventListener("click", function () { node.joiner = j[0]; render(); writeTree(); });
-            joiner.appendChild(b);
-        });
-        head.appendChild(joiner);
-        head.appendChild(el("span", {}, "of these"));
-        head.appendChild(el("span", { class: "dash-spacer" }));
-        var addLeaf = el("button", { type: "button", class: "mb-icon-btn" }, "+ condition");
-        addLeaf.addEventListener("click", function () {
-            node.children.push({ kind: "leaf", field: "", op: "=", value: "" });
-            render();
-        });
-        var addGroup = el("button", { type: "button", class: "mb-icon-btn" }, "+ group");
-        addGroup.addEventListener("click", function () {
-            node.children.push(group(node.joiner === "and" ? "or" : "and", [{ kind: "leaf", field: "", op: "=", value: "" }]));
-            render();
-        });
-        head.appendChild(addLeaf); head.appendChild(addGroup);
-        if (parent) {
-            var rm = el("button", { type: "button", class: "mb-icon-btn mb-danger", "aria-label": "Remove group" }, "✕");
-            rm.addEventListener("click", function () {
-                parent.children.splice(parent.children.indexOf(node), 1);
-                render(); writeTree();
-            });
-            head.appendChild(rm);
-        }
-        box.appendChild(head);
-        if (!node.children.length && !parent) {
-            box.appendChild(el("p", { class: "mb-help" }, "No conditions: every row counts."));
-        }
-        node.children.forEach(function (child) {
-            box.appendChild(child.kind === "group" ? renderGroup(child, node) : renderLeaf(child, node));
-        });
-        return box;
-    }
-
-    function render() {
-        var mount = $("mb-tree");
-        mount.textContent = "";
-        if (!schema) { mount.appendChild(el("p", { class: "mb-help" }, "Pick a dataset to start filtering.")); return; }
-        if (!tree) {
-            // Written through the API or by an agent (NOT has no builder control).
-            // It still works and is saved unchanged; Start over replaces it.
-            mount.appendChild(el("p", { class: "mb-help" },
-                "This filter was written through the API and uses conditions the builder can't show, such as NOT. " +
-                "It still works, and saving keeps it as it is."));
-            var reset = el("button", { type: "button", class: "mb-icon-btn" }, "Start over with an empty filter");
-            reset.addEventListener("click", function () {
-                tree = group("and", []);
-                writeTree();
-                render();
-            });
-            mount.appendChild(reset);
-            return;
-        }
-        mount.appendChild(renderGroup(tree, null));
-    }
 
     // -- measure / period field as selects over the hidden inputs --------------
     function selectFor(name, options, emptyLabel) {
@@ -269,10 +65,6 @@
     }
 
     function applySchema() {
-        fields = {};
-        (schema.filters || []).forEach(function (f) {
-            fields[f.name] = f;
-        });
         var cols = schema.columns || [];
         var measures = cols.filter(function (c) { return c.role === "measure"; }).map(function (c) { return [c.name, c.label + (c.computed ? " (ratio)" : "")]; });
         var others = cols.filter(function (c) { return c.role !== "measure"; }).map(function (c) { return [c.name, c.label]; });
@@ -280,18 +72,21 @@
         var dates = (schema.filters || []).filter(function (f) { return f.column_type === "date" || f.column_type === "datetime"; })
             .map(function (f) { return [f.name, f.label || f.name]; });
         selectFor("period_field", dates, "— not period-aware —");
-        if (!readTree()) tree = null;
-        render();
+        treeEditor.setSchema(schema);
     }
 
     function loadSchema() {
         var key = input("dataset").value;
         schema = null;
-        if (!key) { render(); renderDatasetInfo(); return; }
+        if (!key) { treeEditor.setSchema(null); renderDatasetInfo(); return; }
         var url = form.getAttribute("data-schema-url").replace("DATASET", encodeURIComponent(key));
         fetch(url, { credentials: "same-origin" })
             .then(function (r) { return r.ok ? r.json() : null; })
-            .then(function (s) { schema = s; if (s) applySchema(); else render(); renderDatasetInfo(); syncMeasure(); schedulePreview(); });
+            .then(function (s) {
+                schema = s;
+                if (s) applySchema(); else treeEditor.setSchema(null);
+                renderDatasetInfo(); syncMeasure(); schedulePreview();
+            });
     }
 
     // -- thresholds -----------------------------------------------------------
@@ -309,7 +104,7 @@
         thresholds.forEach(function (rule, i) {
             var row = el("div", { class: "mb-threshold mb-threshold--" + (rule.state || "warning") });
             var op = el("select", { class: "vTextField", "aria-label": "Comparison" });
-            [">", ">=", "<", "<=", "=", "!=", "between"].forEach(function (o) { opt(op, o, OP_LABELS[o] || o, o === rule.op); });
+            [">", ">=", "<", "<=", "=", "!=", "between"].forEach(function (o) { opt(op, o, opLabel(o), o === rule.op); });
             var val = el("input", { type: "text", class: "vTextField", "aria-label": "Value", placeholder: rule.op === "between" ? "low, high" : "value" });
             val.value = Array.isArray(rule.value) ? rule.value.join(", ") : (rule.value == null ? "" : rule.value);
             var st = el("select", { class: "vTextField", "aria-label": "State" });
@@ -539,7 +334,12 @@
     document.addEventListener("DOMContentLoaded", function () {
         form = $("mb-form");
         if (!form) return;
-        readTree();
+        treeEditor = window.SmallStackFilterTree.create({
+            mount: $("mb-tree"),
+            input: input("filter_tree"),
+            onChange: schedulePreview,
+            placeholder: "Pick a dataset to start filtering.",
+        });
         readThresholds();
         renderThresholds();
         input("dataset").addEventListener("change", function () {
@@ -560,7 +360,7 @@
         var name = input("name"), keyPreview = $("mf-key-preview");
         name.addEventListener("input", function () {
             if (keyPreview) {
-                keyPreview.textContent = name.value.toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g, "")
+                keyPreview.textContent = name.value.toLowerCase().normalize("NFKD").replace(/[̀-ͯ]/g, "")
                     .replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "").slice(0, 56) || "—";
             }
             schedulePreview();

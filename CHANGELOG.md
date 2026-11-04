@@ -47,6 +47,7 @@ Breaking-change migration recipes live in [`UPGRADING.md`](UPGRADING.md).
 - **Help links work again.** About 130 links and URLs in the bundled docs still pointed at `/help/...`, which has returned 404 since SmallStack's routes moved under `/smallstack/`. They now use `/smallstack/help/...`, and a test keeps old-prefix links out of the bundled docs.
 
 ### Changed
+- **One filter editor.** The ALL/ANY filter-tree editor moved out of the metric builder into a shared script, `datasets/js/filter-tree.js` (+ `filter-tree.css`), so any page that filters a dataset can mount it (`SmallStackFilterTree.create`). The metric form behaves as before.
 - **The calendar opens on the Events calendar** when you've chosen nothing yet, so an entry you've just added is there. **None** still clears it, and a default saved view still wins.
 - **The period bar has This week and Last week**, for a weekly meeting, and **Last week now compares with the week before**: dashboards and goal lists opening on last week had no change column at all.
 - **The calendar's month and board chips show 24-hour times**, like its day panel, leaving room for the name.
