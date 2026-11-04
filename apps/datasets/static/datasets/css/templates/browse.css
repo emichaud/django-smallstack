@@ -29,7 +29,24 @@
 
 .ds-meta { color: var(--body-quiet-color); font-size: 0.78rem; }
 .ds-key { font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace); font-size: 0.78rem; color: var(--body-quiet-color); }
-.paginator { padding: 10px 14px; }
+/* The pager under the rows: page size at the left edge, "Showing x–y of n" at
+ * the right, the page controls centred on the line below. */
+.ds-card .paginator {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    grid-template-areas: "size . info" "nav nav nav";
+    align-items: center;
+    gap: 10px 12px;
+    padding: 10px 14px;
+}
+.ds-card .paginator-size { grid-area: size; justify-self: start; }
+.ds-card .paginator-info { grid-area: info; justify-self: end; }
+.ds-card .paginator-nav { grid-area: nav; justify-self: center; }
+
+/* The header keeps the CSV card at the top right: the text column shrinks and
+ * wraps before the card is pushed down. It still drops below on a phone. */
+.ds-header .page-header-content { flex: 1 1 24rem; min-width: 0; }
+.ds-header .action-cards { flex: 0 0 auto; }
 
 /* More conditions: the shared filter-tree editor inside the filter form. */
 .ds-more { flex-basis: 100%; border-top: 1px solid var(--card-border); padding-top: 8px; margin-top: 2px; }
