@@ -10,7 +10,7 @@ from django.core.exceptions import ValidationError
 from django.db import models
 from django.urls import reverse
 
-from .recurrence import REPEAT_CHOICES, SHORTEST_GAP, describe
+from .recurrence import REPEAT_CHOICES, SHORTEST_GAP, WEEKDAYS, describe, is_occurrence
 
 
 class SavedCalendarView(models.Model):
@@ -155,7 +155,21 @@ class Event(models.Model):
         if self.repeat_until and self.repeat_until < self.start_date:
             raise ValidationError({"repeat_until": "The last repeat cannot be before the first day."})
         if self.end_date and (self.end_date - self.start_date).days >= SHORTEST_GAP[self.repeat]:
-            raise ValidationError({"repeat": "Each one would run into the next. Shorten it or repeat less often."})
+            raise ValidationError(
+                {
+                    "end_date": (
+                        "On a repeating event, the last day is how long each one lasts, so each would run into "
+                        "the next. Use Until to say when the series ends."
+                    )
+                }
+            )
+        if self.repeat == WEEKDAYS and self.start_date.weekday() >= 5:
+            raise ValidationError({"start_date": "A weekday series has to start on a weekday."})
+        # Moving or shortening a series can leave a skip on a date it no longer has.
+        self.skip_dates = [d for d in self.skip_dates or [] if self._has_date(date.fromisoformat(d))]
+
+    def _has_date(self, day: date) -> bool:
+        return is_occurrence(self, day, ignore_skips=True)
 
     @property
     def last_day(self) -> Any:

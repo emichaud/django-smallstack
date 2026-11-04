@@ -27,7 +27,20 @@ Breaking-change migration recipes live in [`UPGRADING.md`](UPGRADING.md).
 - `smallstack_dashboards.0009_metric_sources` and `smallstack_calendar.0003_event_repeat` are additive. Existing metrics become source `dataset` and existing events don't repeat.
 
 ### Fixed
-- **Switching off dashboards or the calendar left their MCP tools working**, writes included, though the routes were gone and the docs say "no MCP tools". The tools now follow the switch, and the Monday snapshot does too.
+- **Reversing `0010_snapshot_engine` said OK and emptied the history.** It now refuses while there are captures to lose.
+- **A capture saved part-way through a period stopped the real one.** Click *Capture this week so far* on Wednesday and the job never saved that week when it ended, so Wednesday's numbers stood for the whole week. It now saves the finished period on top, and *Fill in* treats a part-way capture as missing too.
+- **`goal_list_add_goal` dropped `targets` and answered `ok: true`.** They're now kept, and bad ones refused, as `create_goal_list` does.
+- **An at-risk line pointing the wrong way was accepted**, so 3.4% against "under 1%, at risk above 0.5%" read as *At risk*. It must now point the same way as the target and be easier to meet.
+- **Goal lists answered with Python reprs** (`"snapshots": "<…GenericRelatedObjectManager object at 0x…>"`) over REST and MCP. A relation manager is left out of any CRUD response.
+- **History's CSV called every column "Week of …"**, hours and months included, and marked a value with no target as "No data".
+- **Saving an old week stored today's value** for a number that doesn't depend on time, where filling the same week in refused. Both now give no value.
+- **`goal_list_capture {fill: 0}` captured the current period.** It's refused, on REST too.
+- **Printed goal lists lost a change's direction** ("20% vs the week before"). They now say Up or Down.
+- **Skipping a date that's already skipped said it "isn't a date of this series", and restoring one that wasn't skipped reported success.** Each now says what's true, and `event_skip_date` takes the `<id>-<yyyymmdd>` that `calendar_events` gives.
+- **Moving a series left skips on dates it no longer has**, listed with a *Put back* that did nothing. They're dropped on save. A weekday series can no longer start on a weekend.
+- **`SMALLSTACK_BLOG_ENABLED=False` left the blog's MCP tools registered.** They follow the switch, like dashboards and the calendar.
+- **`metric_delete_value` on a metric that isn't entered by hand answered `deleted: false`**; it's refused, like `metric_record_value`.
+- **Switching off dashboards or the calendar left their MCP tools working**, writes included, though the routes were gone and the docs say "no MCP tools". The tools now follow the switch, and the snapshot job does too.
 - **CSV exports could run as formulas.** A report label or row value such as `=cmd|calc` reached the spreadsheet of whoever opened the download, in report, weeks, drill-down and dataset CSVs. Such cells now start with `'`; plain numbers are untouched.
 - **A weekly target scored against an all-time number.** A goal with its own period on a metric with no `period_field` was judged on the all-time value; it's now refused.
 - **A value a choices column can't hold reads as a clean zero** (`status = "failure"` where the value is `failed`), so a metric stayed green for ever. Saving and previewing now refuse it and list the valid values.
@@ -47,6 +60,7 @@ Breaking-change migration recipes live in [`UPGRADING.md`](UPGRADING.md).
 - **Help links work again.** About 130 links and URLs in the bundled docs still pointed at `/help/...`, which has returned 404 since SmallStack's routes moved under `/smallstack/`. They now use `/smallstack/help/...`, and a test keeps old-prefix links out of the bundled docs.
 
 ### Changed
+- **Clearer words.** A metric's *Period field* is **Date to count by**, and its empty choice says the number won't change over time. A repeating event's *Last day* says it's how long each one lasts, and *Repeats* starts on **Doesn't repeat**. On History, a number that can't exist at that length shows **n/a** rather than a red mark, and filling nothing says so. MCP descriptions now cover per-cadence `targets`, percent targets, `fill`'s limits and what `dashboard_snapshot` leaves out.
 - **The calendar opens on the Events calendar** when you've chosen nothing yet, so an entry you've just added is there. **None** still clears it, and a default saved view still wins.
 - **The period bar has This week and Last week**, for a weekly meeting, and **Last week now compares with the week before**: dashboards and goal lists opening on last week had no change column at all.
 - **The calendar's month and board chips show 24-hour times**, like its day panel, leaving room for the name.

@@ -53,13 +53,16 @@ A well-behaved agent will:
 | `card_preview`, `*_component` | try a card without saving; saved cards you can place by key |
 | `get_dashboard`, `create_dashboard`, `update_dashboard`, … | dashboard CRUD (the whole layout at once) |
 | `dashboard_add_card`, `dashboard_remove_card` | one card at a time |
-| `dashboard_snapshot` | every card on a dashboard, evaluated |
+| `dashboard_snapshot` | every card on a dashboard with its live value. Nothing is stored, and a chart or calendar card has no one number |
 | `create_goal_list`, `goal_list_add_goal` | goal lists and their targets. To change or remove a goal, read the list with `get_goal_list`, edit its `sections` and send them all to `update_goal_list` |
 | `goal_list_values`, `goal_list_weeks` | a list judged now; a list week over week |
-| `goal_list_save_week` | save a week as it stands (the schedule also does this each Monday) |
+| `goal_list_save_week` | save one named week as it stands (a list tracking weeks is also saved each Monday) |
+| `goal_list_tracking`, `goal_list_capture`, `goal_list_history` | the cadences a list is captured on; capture the current period or fill past ones; read captures back |
+| `metric_record_value`, `metric_delete_value` | a hand-entered metric's value for a date |
 | `create_report`, `report_values`, … | KPI reports; `report_values` gives the CSV's link too |
 | `create_playlist`, `playlist_slides` | slides for a meeting: dashboards and goal lists |
-| `list_calendars`, `calendar_events`, `create_event`, `create_calendar_view` | the calendar. Give an event a `start_time` and it's timed |
+| `list_calendars`, `calendar_events`, `create_event`, `create_calendar_view` | the calendar. Give an event a `start_time` and it's timed, and a `repeat` and it's a series |
+| `event_skip_date` | take one date out of a series, or put it back |
 | `query_dataset_<key>` | raw rows from a dataset, when the site publishes that tool. Bundled datasets don't by default (`SMALLSTACK_FRAMEWORK_DATASETS_MCP`); `list_datasets` says which do |
 
 Rows can be named as well as numbered: `get_metric`, `update_metric` and `delete_metric`
@@ -95,6 +98,12 @@ GET  /smallstack/dashboards/api/reports/<slug>/values/    (?format=csv for the f
 GET  /smallstack/dashboards/api/goals/<slug>/values/?period=
 GET  /smallstack/dashboards/api/goals/<slug>/weeks/?week=&weeks=
 POST /smallstack/dashboards/api/goals/<slug>/weeks/<week>/save/
+GET  /smallstack/dashboards/api/goals/<slug>/tracking/
+POST /smallstack/dashboards/api/goals/<slug>/tracking/    {"cadences": ["weekly", "monthly"]}
+GET  /smallstack/dashboards/api/goals/<slug>/snapshots/?cadence=weekly
+POST /smallstack/dashboards/api/goals/<slug>/snapshots/   {"cadence": "weekly", "fill": 4}
+GET  /smallstack/dashboards/api/metrics/<key>/entries/
+POST /smallstack/dashboards/api/metrics/<key>/entries/    {"date": …, "value": …, "note": …}
 GET  /smallstack/dashboards/api/playlists/<slug>/slides/
 GET  /smallstack/dashboards/api/components/
 ```
@@ -109,5 +118,6 @@ All of them are in the OpenAPI schema (`/api/schema/openapi.json`, browsable at 
 - A bad filter is refused with a precise reason. It is never applied as
   "no filter". So is a misspelt argument, period or week.
 - `delete_metric` also removes the metric's cards, report rows, goals and saved cards in
-  everything the account can edit, and lists them under `also_removed`. It isn't a dry
-  run: `metric_usage` says where a metric is used, first.
+  everything the account can edit, and lists them under `also_removed`, with any rates it
+  leaves showing an error under `also_removed.rates_left_without_it`. It isn't a dry run:
+  `metric_usage` says where a metric is used, first.

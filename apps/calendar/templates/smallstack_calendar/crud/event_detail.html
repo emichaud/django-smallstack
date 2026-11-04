@@ -98,7 +98,7 @@
                 </ul>
             </div>
             {% endif %}
-            <p class="cal-series-note">Editing this event changes every date. To move one date, skip it and add a separate event.</p>
+            <p class="cal-series-note">Editing this event changes every date. To move one date, skip it and add a separate event.{% if not occurrence %} To skip a date, open it from the calendar.{% endif %}</p>
         </div>
         {% endif %}
 

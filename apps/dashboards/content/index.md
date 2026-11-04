@@ -13,7 +13,7 @@ this week, average latency, pending approvals.
 
 | | What it is |
 |---|---|
-| **Metric** | A saved filter over a dataset, rolled up to one number — "requests that answered 5xx", counted. The reusable unit: one metric can sit on many dashboards, reports and goal lists. |
+| **Metric** | One named number: counted from a dataset ("requests that answered 5xx"), entered by hand, or one metric divided by another. See [Building metrics](/smallstack/help/dashboards/building-metrics/). The reusable unit: one metric can sit on many dashboards, reports and goal lists. |
 | **Goal list** | Metrics against their targets, in sections: on target, at risk or missed. See [Goals](/smallstack/help/dashboards/goals/). |
 | **Report** | A table of metrics across periods — this month vs last month vs the year so far — that can be downloaded as CSV. |
 | **Dashboard** | A grid of cards. Each card shows a metric (or a metric split by a column, a widget, a goal list, or a note). |
@@ -23,8 +23,10 @@ this week, average latency, pending approvals.
 
 For a weekly operations meeting, from nothing:
 
-1. **Metrics.** Under **Goals → Metrics → New metric**, build the numbers you read each week. Set their
-   **Period field**, so they can be narrowed to a week, and choose **Shared** under *Who can see it*.
+1. **Metrics.** Under **Goals → Metrics → New metric**, build the numbers you read each week, and
+   choose **Shared** under *Who can see it*. Counted from a dataset, set **Date to count by**, so it can
+   be narrowed to a week. A number from outside can be **entered by hand**, and a percentage is a
+   **rate**: see [Building metrics](/smallstack/help/dashboards/building-metrics/).
 2. **A goal list.** **Goals → Goal lists → New goal list**: choose **Shared** and judge it over
    **Previous week**, then add sections and targets. See [Goals](/smallstack/help/dashboards/goals/).
 3. **A dashboard**, also shared, opening on the previous week, with those metrics, grouped cards and a
@@ -32,8 +34,13 @@ For a weekly operations meeting, from nothing:
 4. **A playlist** under **Dashboards → Playlists**: the dashboard, then the goal list as *Goals now*,
    *Last week* and *Week over week*.
 
-Weeks are saved every Monday; see *Saving weeks* in [Goals](/smallstack/help/dashboards/goals/). An agent can do all of this:
-see [Agents and the API](/smallstack/help/dashboards/agents-and-api/).
+Put the meeting itself on the calendar as a [repeating event](/smallstack/help/calendar/), and use
+**Print** on the goal list for a paper copy. Last week's hand-entered numbers can be typed on Monday
+morning: the saved week picks them up.
+
+While a list tracks weeks (new ones do), the week just ended is saved early each Monday; see *Saving
+weeks* in [Goals](/smallstack/help/dashboards/goals/). An agent can do all of this: see
+[Agents and the API](/smallstack/help/dashboards/agents-and-api/).
 
 ## The ladder: dataset → metric → card
 
@@ -86,6 +93,8 @@ On a dashboard you can edit, click **Edit layout**:
    - **Saved card** — one you've built under **Components** (when you have any).
    - **Single stat** — one number.
    - **Grouped stat** — the metric split by a column (requests by method, tickets by queue): the biggest groups as numbers, the rest folded into *Other*.
+   - **Pie chart** — each group's share of a whole, so it takes a count or a total.
+   - **Ranked bars** — any metric's groups, largest first.
    - **Goals** — a goal list's summary and first goals.
    - **Calendar** — upcoming entries, a month or a day-range board.
    - **Info card** — any card from the main `/smallstack/` dashboard (staff).
@@ -145,7 +154,8 @@ A shared dashboard can hold only shared metrics, and a personal one can hold
 shared metrics and your own. It can't use someone else's personal metric.
 
 **Sharing a dashboard doesn't share its data.** Every dataset has its own access level, and all the
-ones SmallStack bundles are staff-only. So someone without staff access who opens a shared dashboard
+ones SmallStack bundles are staff-only, except that a hand-entered metric shows to anyone who can see
+the metric. So someone without staff access who opens a shared dashboard
 or goal list built on them sees *restricted* on each card, and "No numbers yet" on the goals. To give
 a whole team the numbers, make them staff, or have a developer declare a dataset of your own with
 `access="auth"`, which opens it to everyone signed in.

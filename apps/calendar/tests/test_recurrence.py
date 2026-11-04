@@ -165,7 +165,7 @@ class TestSeries:
         "kw, field",
         [
             ({"repeat_until": date(2025, 1, 1)}, "repeat_until"),
-            ({"end_date": date(2026, 1, 12)}, "repeat"),  # 8 days long, repeating weekly
+            ({"end_date": date(2026, 1, 12)}, "end_date"),  # 8 days long, repeating weekly
         ],
     )
     def test_bad_rules_are_refused(self, author, kw, field):
@@ -257,3 +257,54 @@ class TestSeries:
         other = User.objects.create_user("rc-other", password="x")
         with mock.patch("apps.mcp.server.current_context", return_value=SimpleNamespace(user=other)):
             assert "author or staff" in _skip_date_handler({"id": e.pk, "date": "2026-01-12"})["error"]
+
+
+@pytest.mark.django_db
+class TestObviousSeries:
+    @pytest.fixture
+    def author(self):
+        return User.objects.create_user("rc-obvious", password="x")
+
+    def event(self, author, **kw):
+        fields = {"title": "Standup", "start_date": date(2026, 11, 3), "repeat": "weekly", "created_by": author, **kw}
+        event = Event(**fields)
+        event.full_clean()
+        event.save()
+        return event
+
+    def test_a_weekday_series_starts_on_a_weekday(self, author):
+        with pytest.raises(ValidationError) as err:
+            self.event(author, start_date=date(2026, 11, 7), repeat="weekdays")
+        assert "start_date" in err.value.message_dict
+
+    def test_moving_a_series_drops_a_skip_it_no_longer_has(self, author):
+        event = self.event(author)
+        event.set_skipped(date(2026, 11, 24), True)
+        event.start_date = date(2026, 11, 4)
+        event.full_clean()
+        assert event.skip_dates == []
+
+    def test_a_skip_it_still_has_stays(self, author):
+        event = self.event(author)
+        event.set_skipped(date(2026, 11, 24), True)
+        event.title = "Renamed"
+        event.full_clean()
+        assert event.skip_dates == ["2026-11-24"]
+
+    def test_the_form_offers_doesnt_repeat(self):
+        from apps.calendar.forms import EventForm
+
+        assert list(EventForm().fields["repeat"].choices)[0] == ("", "Doesn't repeat")
+
+    def test_each_refusal_says_why(self, author):
+        from apps.calendar.recurrence import skip_problem
+
+        event = self.event(author)
+        assert skip_problem(event, date(2026, 11, 10), False) == ""
+        assert "isn't a date" in skip_problem(event, date(2026, 11, 11), False)
+        assert "isn't skipped" in skip_problem(event, date(2026, 11, 10), True)
+        event.set_skipped(date(2026, 11, 10), True)
+        assert "already skipped" in skip_problem(event, date(2026, 11, 10), False)
+        assert skip_problem(event, date(2026, 11, 10), True) == ""
+        once = self.event(author, repeat="", start_date=date(2026, 12, 1))
+        assert "doesn't repeat" in skip_problem(once, date(2026, 12, 1), False)

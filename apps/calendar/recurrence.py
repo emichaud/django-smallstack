@@ -103,8 +103,9 @@ def occurrence_starts(
     yield from ()
 
 
-def is_occurrence(event: Any, day: date) -> bool:
-    """Whether a series really has an occurrence starting on *day* (a skipped date doesn't)."""
+def is_occurrence(event: Any, day: date, *, ignore_skips: bool = False) -> bool:
+    """Whether a series really has an occurrence starting on *day*. A skipped date
+    doesn't, unless *ignore_skips*."""
     if not event.repeat:
         return False
     return (
@@ -115,10 +116,21 @@ def is_occurrence(event: Any, day: date) -> bool:
             day,
             day + timedelta(days=1),
             until=event.repeat_until,
-            skip=event.skipped,
+            skip=frozenset() if ignore_skips else event.skipped,
         )
         and day >= event.start_date
     )
+
+
+def skip_problem(event: Any, day: date, restore: bool) -> str:
+    """Why this date can't be skipped or put back, or "" when it can."""
+    if not event.repeat:
+        return "This event doesn't repeat, so it has no dates to skip. Delete it or mark it cancelled."
+    if restore:
+        return "" if day in event.skipped else f"{day.isoformat()} isn't skipped, so there's nothing to put back."
+    if day in event.skipped:
+        return f"{day.isoformat()} is already skipped."
+    return "" if is_occurrence(event, day) else f"{day.isoformat()} isn't a date of this series."
 
 
 def describe(event: Any) -> str:

@@ -16,6 +16,7 @@ from django import forms
 
 from .core import assign_series, iter_calendars, visible_calendars
 from .models import Event, SavedCalendarView
+from .recurrence import REPEAT_CHOICES
 
 
 class CalendarKeysField(forms.MultipleChoiceField):
@@ -130,6 +131,9 @@ class EventForm(forms.ModelForm):
     def __init__(self, *args: Any, user: Any = None, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
         self.user = user
+        repeat = self.fields["repeat"]
+        assert isinstance(repeat, forms.ChoiceField)
+        repeat.choices = [("", "Doesn't repeat"), *REPEAT_CHOICES]
 
     def clean(self) -> dict[str, Any]:
         cleaned = super().clean() or self.cleaned_data

@@ -84,7 +84,9 @@ and MCP, so an agent can file one for you.
 Choose **Repeats** on an event: every day, weekday, week, 2 weeks, month or year, and optionally
 a last date under **Until**. For a month, choose the same date or the same weekday, like the 2nd
 Tuesday. The first day sets the pattern, and each date shows on the calendar and in subscribed
-calendars.
+calendars. The 31st falls on the last day of a shorter month, and a 5th weekday becomes the last one.
+**Last day** is how long each one lasts, so leave it blank for a one-day event; **Until** is when the
+series ends.
 
 Editing the event changes every date. To skip one, open it from the calendar and choose **Skip this
 date**. To move one, skip it and add a separate event. Skipped dates are listed on the event, where

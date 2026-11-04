@@ -91,7 +91,8 @@ may not see is rejected as "not a valid choice".
 
 ## MCP
 
-Two tools let an agent read the calendar:
+These let an agent read the calendar, and the generated `*_event` and `*_calendar_view` tools write
+to it. `event_skip_date` takes one date out of a series, or puts it back:
 
 - `list_calendars` — the calendars the token's user may see.
 - `calendar_events` — `{calendars: [...], start, end, limit}` → the merged

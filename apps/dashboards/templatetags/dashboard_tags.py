@@ -72,6 +72,17 @@ def dashboard(
     return {"embed": board_embed(obj, request, period=chosen, lazy=lazy), "title": title, "request": request}
 
 
+@register.filter
+def change_in_words(change: Any) -> str:
+    """A comparison with its direction as a word, for paper: the arrow beside it on
+    screen doesn't print. "20% vs the week before" alone could be either way."""
+    if not change:
+        return ""
+    text = str(change.get("text") or "")
+    word = {"up": "Up", "down": "Down"}.get(change.get("dir", ""))
+    return f"{word} {text}" if word and not text.startswith(word) else text
+
+
 @register.simple_tag
 def relative_periods() -> list[tuple[str, str]]:
     """The period vocabulary, for a template's own period picker:

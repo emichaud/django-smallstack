@@ -49,7 +49,7 @@ from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.exceptions import PermissionDenied, ValidationError
-from django.db.models import Count, QuerySet
+from django.db.models import QuerySet
 from django.http import Http404, HttpRequest, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.template.defaultfilters import pluralize
@@ -1212,13 +1212,16 @@ class MetricCRUDView(_OwnedCRUD):
     mcp_description = (
         "a metric: one named number (KPI). source says where it comes from: dataset (default: a stored filter "
         "over a dataset, rolled up), manual (values entered by hand with metric_record_value; agg is "
-        "latest|sum|avg|min|max and dataset, measure, filter_tree and period_field are set for you) or rate "
-        "(numerator and denominator are metric keys, divided over the same period; the percent format multiplies "
-        "by 100). Fields: key (stable slug), name, source, numerator, denominator, dataset (a dataset key — see "
+        "latest|sum|avg|min|max, anything else reads as latest, and dataset, measure, filter_tree and period_field "
+        "are set for you) or rate (numerator and denominator are metric keys, divided over the same period; the "
+        "percent format multiplies by 100, so a goal's target on it is in percent: 2% is 2). Fields: key (stable "
+        "slug), name, source, numerator, denominator, "
+        "dataset (a dataset key — see "
         "list_datasets / describe_dataset), filter_tree (nested "
         'AND/OR JSON: {"and": [{"field", "op", "value"}]}; ops: = != > >= < <= between in contains isnull '
         "period), agg (count|distinct|sum|avg|min|max), measure (column for non-count aggs), period_field "
-        "(date column a dashboard period narrows), format (number|compact|decimal|percent|currency|duration), "
+        "(date column a dashboard period narrows), format (number|compact|decimal|percent|currency|duration: "
+        "duration reads the value as seconds), "
         'unit, thresholds ([{"op": ">=", "value": 10, "state": "danger"}]), visibility (personal|shared). '
         "Dry-run with metric_preview before creating"
     )
@@ -1395,9 +1398,15 @@ class GoalListCRUDView(_OwnedCRUD):
     mcp_description = (
         'a goal list: sections = [{"title": "Support", "goals": [goal, ...]}], each goal = {"metric": "<key>" '
         'or "component": "<single-stat card key>", "target": {"op": ">=", "value": 95}, "warn"?: {"op", '
-        '"value"} (the at-risk line), "label"?, "period"?: "<key>"|"all", "note"?}; ops: > >= < <= = != '
+        '"value"} (the at-risk line, an easier target pointing the same way: "under 1, at risk up to 2" is target '
+        '< 1, warn < 2), "targets"?: {"hourly": {"target": rule, "warn"?: rule}} (its own target at a cadence), '
+        '"label"?, "period"?: "<key>"|"all", "note"?}; ops: > >= < <= = != '
         "between (value [low, high]). A goal is on target when its value meets target, at risk when it meets "
-        "only warn, else missed. default_period = what goals without their own period are judged over (blank "
+        "only warn, else missed. Captures and the Weeks and History pages judge against targets for their "
+        "cadence; without one, weekly and any number on the same scale at every length (an average, a rate, a "
+        "latest reading) use target, and a count or sum isn't judged. default_period = what goals without their "
+        "own period are judged "
+        "over (blank "
         "= all time); visibility = personal|shared. goal_list_values evaluates it; goal_list_add_goal appends one. "
         "To change or remove a goal: get_goal_list, edit sections, send them all to update_goal_list (goal ids "
         "keep each goal's identity). goal_list_save_week keeps a week as it was"
@@ -1635,7 +1644,7 @@ class GoalHistoryView(LoginRequiredMixin, TemplateView):
         return super().get(request, *args, **kwargs)
 
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
-        from .snapshots import GRID_PERIODS, MAX_FILL, captures_of, history_grid, parse_period, tracked_cadences
+        from .snapshots import MAX_FILL, captures_of, history_grid, parse_period, tracked_cadences
         from .weeks import _masked, _sections, grid_order, grid_sort_links, sort_grid
 
         context = super().get_context_data(**kwargs)
@@ -1648,24 +1657,19 @@ class GoalHistoryView(LoginRequiredMixin, TemplateView):
         links = grid_sort_links(grid, order)
         for column in grid["columns"]:
             column["sort"] = links[f"w{column['start'].isoformat()}"]
-        counts = {
-            row["cadence"]: row["n"]
-            for row in goal_list.snapshots.order_by().values("cadence").annotate(n=Count("pk"))
-        }
         context.update(
             {
                 "goal_list": goal_list,
                 "cadence": cadence,
                 "cadence_noun": SNAPSHOT_NOUNS[cadence],
                 "tabs": [
-                    {"key": k, "label": label, "tracked": k in tracked, "count": counts.get(k, 0)}
+                    {"key": k, "label": label, "tracked": k in tracked}
                     for k, label in SNAPSHOT_CADENCES
                 ],
                 "tracked": tracked,
                 "grid": sort_grid(grid, order),
                 "order": order,
                 "sort_links": links,
-                "grid_size": GRID_PERIODS[cadence],
                 "fill_choices": [n for n in (4, 8, 12, 24, 48) if n <= MAX_FILL[cadence]],
                 "can_edit": goal_list.can_edit(request.user),
             }
@@ -1733,7 +1737,11 @@ class GoalCaptureView(LoginRequiredMixin, View):
                 done = fill(goal_list, cadence, int(request.POST["fill"]), by=request.user)
             except ValueError:
                 raise Http404("Not a number of periods.") from None
-            messages.success(request, f"Captured {done} past {SNAPSHOT_NOUNS[cadence]}{pluralize(done)}.")
+            noun = SNAPSHOT_NOUNS[cadence]
+            if done:
+                messages.success(request, f"Captured {done} past {noun}{pluralize(done)}.")
+            else:
+                messages.info(request, f"Those {noun}s already have captures.")
         else:
             period = current_period(cadence)
             capture(goal_list, period, by=request.user)

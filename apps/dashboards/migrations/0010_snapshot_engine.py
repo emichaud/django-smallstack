@@ -3,6 +3,14 @@
 import django.db.models.deletion
 from django.conf import settings
 from django.db import migrations, models
+from django.db.migrations.exceptions import IrreversibleError
+
+
+def refuse_to_lose_captures(apps, schema_editor):
+    """Going back would drop the captures, and the old table can only hold some of them."""
+    held = apps.get_model("smallstack_dashboards", "Snapshot").objects.count()
+    if held:
+        raise IrreversibleError(f"Reversing this would delete {held} captures. Back up and remove them first.")
 
 
 def carry_weeks_over(apps, schema_editor):
@@ -111,7 +119,7 @@ class Migration(migrations.Migration):
             model_name='snapshottracker',
             constraint=models.UniqueConstraint(fields=('subject_type', 'subject_id', 'cadence'), name='snapshot_tracker_one_per_cadence'),
         ),
-        migrations.RunPython(carry_weeks_over, migrations.RunPython.noop),
+        migrations.RunPython(carry_weeks_over, refuse_to_lose_captures),
         migrations.RemoveConstraint(
             model_name='goalsnapshot',
             name='goal_snapshot_one_per_week',

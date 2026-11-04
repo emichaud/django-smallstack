@@ -75,8 +75,8 @@ Only cards that boil down to one number can be goals. A grouped stat can't.
 
 **Print** on a goal list opens a document of what's on screen, for the period you're looking at,
 and then your browser's print dialog. It has the summary, what needs attention and each section's
-goals, with no menus. Status is written out, so it reads fine in black and white. **Print** on the
-Weeks page prints that week.
+goals, with no menus. Status is written out, so it reads fine in black and white. **Print** on a
+single week prints that week.
 
 ## The trend
 
@@ -106,14 +106,16 @@ icon in the Goal lists table.
     weeks before;
   - the run it's on, and its best and worst week.
 
-**Saving weeks.** Every Monday the week just ended is saved automatically (this needs
-the scheduler and a background worker running), with each goal's value, status and the
-target it had. Changing a target later doesn't rewrite a saved week, unless you save
+**Saving weeks.** While a list tracks weeks, which new lists do, the week just ended is saved
+automatically early on Monday, with each goal's value, status and the target it had. This
+needs [the scheduler](/smallstack/help/smallstack/scheduler/) and a background worker (`manage.py db_worker`)
+running. Changing a target later doesn't rewrite a saved week, unless you save
 that week again, which uses the targets of that moment.
 
 A week that hasn't been saved is worked out when you look at it, against today's
-targets. If you can edit the list, **Save this week** saves the week you're on,
-and **Save past weeks** fills in earlier ones.
+targets. If you can edit the list, **Save this week** saves the week you're on, and
+**Save them**, under *Save past weeks that have no snapshot yet*, fills in earlier ones.
+Saving part-way through a week doesn't stop that week being saved again when it ends.
 
 A week is saved using the access of the list's owner (or its creator, for a shared
 list). If you can't read a metric's data, you still won't see its saved values.
@@ -132,7 +134,9 @@ captured.
 Choose a tab to see goals down and periods across. A blank means nothing was captured then.
 **Open** shows one period and every capture of it, newest first, with who or what took each.
 Saving again adds a capture rather than replacing the last, so you can see what the numbers said at
-each point. Pages show the newest.
+each point. Pages show the newest. **Capture this week so far** saves the period you're in, marked as
+part-way through; the capture when it ends still happens. **Fill in** saves earlier periods with no
+finished capture, and **Print this capture** prints one.
 
 ### Targets at each rhythm
 
@@ -149,13 +153,14 @@ a target and at-risk line for any rhythm. If you leave one blank:
 Captures keep the target they were judged against, so changing a target later doesn't change them.
 The meeting view uses the main target, whichever period you pick.
 
-### Numbers without a value
+### Numbers that don't fit a period
 
+Not every number can be read at every rhythm. Where one can't, its cell shows **n/a**.
 
 - **One that doesn't depend on time**, like open tickets right now, is captured as it stands. This
   is the way to keep a history of a number like that. It can't be filled in for past periods.
-- **One with only dates**, like a value entered by hand, has no hourly value. Its hourly cell shows
-  a warning mark rather than the whole day's number.
+- **One with only dates**, like a value entered by hand, has no hourly value, rather than showing the
+  whole day's number against each hour.
 
 Hourly and daily captures are deleted after 90 days and 2 years. Weekly, monthly and quarterly ones
 are kept.

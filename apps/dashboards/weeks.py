@@ -6,8 +6,8 @@ metric's period field), judged against the goal's target. A metric without a
 period field has one value whatever the week, so it's marked ``weekly: False``.
 
 A **snapshot** (``snapshots.py``, the weekly cadence) keeps a week as it was: every goal's value,
-status and the target it was judged against then. The Monday schedule
-(``tasks.snapshot_goal_lists``) snapshots the week just ended for every list;
+status and the target it was judged against then. The hourly job (``snapshots.capture_due``)
+saves the week just ended for every list tracking weeks;
 anyone who can edit a list can take or retake one, or fill in past weeks.
 Showing a week prefers its snapshot and otherwise works it out live, so the
 current week, and weeks before snapshots started, still have numbers.
@@ -73,7 +73,6 @@ GRID_WEEKS = 8
 TREND_BEFORE = 4
 TREND_AFTER = 4
 #: The most past weeks one "fill in" request snapshots.
-MAX_BACKFILL = 26
 _ADDITIVE = frozenset({"count", "distinct", "sum"})
 _MONTHS = ("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
 
@@ -362,13 +361,15 @@ def weekly_captures(goal_list: "GoalList", weeks: list[date]) -> dict[date, "Sna
 
 def take_snapshot(goal_list: "GoalList", start: date, *, by: Any = None) -> "Snapshot":
     """Add a capture of the week from *start* (``snapshots.capture``). *by* is who
-    asked (``None`` = the schedule). Refuses a week that hasn't started."""
-    from .snapshots import capture
+    asked (``None`` = the schedule). Refuses a week that hasn't started. A number that
+    doesn't depend on time has no value for an old week, rather than today's: the same
+    answer filling that week in gives."""
+    from .snapshots import capture, last_closed
 
     period = _week_period(start)
     if period.state == "future":
         raise ValueError("That week hasn't started yet.")
-    return capture(goal_list, period, by=by)
+    return capture(goal_list, period, by=by, past=period.start < last_closed(period.cadence).start)
 
 
 def snapshot_last_week(*, lists: Optional[list["GoalList"]] = None) -> int:
@@ -710,11 +711,13 @@ def weeks_payload(goal_list: "GoalList", grid: dict[str, Any]) -> dict[str, Any]
 
 def write_grid_csv(grid: dict[str, Any], out: "SupportsWrite[str]") -> None:
     """The grid as CSV — the spreadsheet, one row per goal: section, goal,
-    target, then each week's value and status. Raw values, not formatted."""
+    target, then each period's value and status. Raw values, not formatted."""
     writer = SafeCsvWriter(out)
     head = ["Section", "Goal", "Target"]
     for col in grid["columns"]:
-        head += [f"Week of {col['start']:%Y-%m-%d}", f"Week of {col['start']:%Y-%m-%d} status"]
+        # A history grid names its own periods: an hour or a month isn't a "week of".
+        name = col["label"] if "cadence" in grid else f"Week of {col['start']:%Y-%m-%d}"
+        head += [name, f"{name} status"]
     writer.writerow(head)
     for row in grid["rows"]:
         line: list[Any] = [row["section"], row["label"], row.get("target_text", "")]
@@ -728,7 +731,7 @@ def write_grid_csv(grid: dict[str, Any], out: "SupportsWrite[str]") -> None:
             else:
                 line += [
                     cell.get("value") if cell.get("value") is not None else "",
-                    STATUS_LABELS[cell.get("status", "none")],
+                    cell.get("status_label") or STATUS_LABELS[cell.get("status", "none")],
                 ]
         writer.writerow(line)
 
