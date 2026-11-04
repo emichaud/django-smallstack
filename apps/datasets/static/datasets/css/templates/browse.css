@@ -31,3 +31,13 @@
 .ds-key { font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace); font-size: 0.78rem; color: var(--body-quiet-color); }
 .paginator { padding: 10px 14px; }
 
+/* More conditions: the shared filter-tree editor inside the filter form. */
+.ds-more { flex-basis: 100%; border-top: 1px solid var(--card-border); padding-top: 8px; margin-top: 2px; }
+.ds-more > summary { cursor: pointer; font-size: 0.78rem; font-weight: 600; color: var(--body-quiet-color); }
+.ds-more > summary:hover, .ds-more > summary:focus-visible { color: var(--primary); }
+.ds-more-on { display: inline-block; margin-left: 0.4rem; padding: 0 0.45rem; border-radius: 999px; background: var(--primary); color: var(--button-fg); font-size: 0.68rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; }
+.ds-more-help { margin: 6px 0 2px; }
+.ds-more .vTextField { width: 100%; max-width: none; }
+.ds-tree-error { margin: 6px 0; font-size: 0.82rem; color: var(--error-fg); }
+.ds-tree-reading { margin: 6px 0 0; }
+

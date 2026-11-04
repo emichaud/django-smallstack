@@ -230,3 +230,71 @@ def test_browse_headers_sort_in_place_and_stay_resizable(client, staff):
     assert "ordering=method" in html and 'class="col-resizer"' in html  # sort links + table-resize.js handles
     sorted_html = client.get(_browse("smallstack_requests"), {**SEEDED, "ordering": "method"}).content.decode()
     assert 'aria-sort="ascending"' in sorted_html and "ordering=-method" in sorted_html  # a second click flips it
+
+
+# -- More conditions: the filter tree -----------------------------------------
+
+
+def _tree(**params):
+    import json
+
+    return json.dumps(params.pop("tree")), params
+
+
+def test_browse_filter_tree_narrows_rows_rollup_and_csv(client, staff):
+    _seed()
+    tree = {
+        "or": [
+            {"field": "method", "op": "=", "value": "POST"},
+            {"field": "response_time_ms", "op": ">", "value": 11},
+        ]
+    }
+    tree_json, _ = _tree(tree=tree)
+    resp = client.get(_browse("smallstack_requests"), {**SEEDED, "filter_tree": tree_json})
+    assert resp.status_code == 200
+    assert _paths(resp) == {"/b", "/a/2"}
+    assert resp.context["has_filters"] and resp.context["tree_error"] == ""
+    assert resp.context["tree_reading"] == "Method = POST OR Response time ms > 11"
+    html = resp.content.decode()
+    assert "Reads as:" in html and 'id="ds-tree"' in html and 'id="ds-schema"' in html
+    # The CSV deep link carries the tree to REST, which takes the same parameter.
+    assert "filter_tree=" in resp.context["csv_url"] and "format=csv" in resp.context["csv_url"]
+    # The quick filters and the tree AND together; the roll-up sees both.
+    resp = client.get(
+        _browse("smallstack_requests"), {**SEEDED, "filter_tree": tree_json, "method": "GET", "group_by": "method"}
+    )
+    assert _paths(resp) == {"/a/2"}
+    assert {s["label"]: s["value"] for s in resp.context["series"]} == {"GET": 1}
+    # An empty tree is no filter at all.
+    resp = client.get(_browse("smallstack_requests"), {**SEEDED, "filter_tree": "{}"})
+    assert len(_paths(resp)) == 4 and not resp.context["tree_json"]
+
+
+def test_browse_bad_filter_tree_shows_no_rows_not_all_of_them(client, staff):
+    """A condition that can't be applied must never widen the result (the
+    fail-open shape): the page says why and shows nothing, in the table, the
+    roll-up and the CSV link alike."""
+    _seed()
+    bad = {"and": [{"field": "method", "op": "=", "value": "GET"}, {"field": "nope", "op": "=", "value": 1}]}
+    tree_json, _ = _tree(tree=bad)
+    resp = client.get(_browse("smallstack_requests"), {**SEEDED, "filter_tree": tree_json, "group_by": "method"})
+    assert resp.status_code == 200
+    assert "nope" in resp.context["tree_error"]
+    assert resp.context["rows"] == [] and resp.context["page_obj"].total_count == 0
+    assert resp.context["series"] == [] and resp.context["csv_url"] == ""
+    assert resp.context["tree_json"]  # kept in the editor so it can be fixed
+    html = resp.content.decode()
+    assert "can't be applied" in html and "No rows shown" in html
+    # Malformed JSON is the same story.
+    resp = client.get(_browse("smallstack_requests"), {**SEEDED, "filter_tree": "{not json"})
+    assert resp.status_code == 200 and "JSON" in resp.context["tree_error"] and resp.context["rows"] == []
+
+
+def test_browse_mounts_the_shared_filter_tree_editor(client, staff):
+    resp = client.get(_browse("smallstack_requests"))
+    html = resp.content.decode()
+    assert "datasets/css/filter-tree.css" in html
+    assert "datasets/js/filter-tree.js" in html and "datasets/js/browse.js" in html
+    assert html.index("datasets/js/filter-tree.js") < html.index("datasets/js/browse.js")
+    assert '<input type="hidden" name="filter_tree" value="">' in html
+    assert "More conditions" in html

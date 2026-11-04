@@ -7,6 +7,7 @@
 
 {% block extra_css %}
 <link rel="stylesheet" href="{% static 'datasets/css/templates/browse.css' %}">
+<link rel="stylesheet" href="{% static 'datasets/css/filter-tree.css' %}">
 {% endblock %}
 
 {% block page_header %}
@@ -79,8 +80,24 @@
             <a href="{% url 'datasets:browse' schema.key %}{% if group_by %}?group_by={{ group_by|urlencode }}{% if measure %}&amp;measure={{ measure|urlencode }}&amp;agg={{ agg|urlencode }}{% endif %}{% endif %}" class="btn-outline btn-sm" style="text-decoration: none;">Clear</a>
             {% endif %}
         </div>
+        {% comment %}
+        More conditions: the shared filter-tree editor (datasets/js/filter-tree.js,
+        mounted by browse.js) over the same schema the quick filters come from.
+        It writes the hidden filter_tree input, AND-ed with the quick filters;
+        the dataset's schema() is on the page as json_script. Open when a tree
+        is set, so what narrows the rows is never hidden.
+        {% endcomment %}
+        <details class="ds-more"{% if tree_json or tree_error %} open{% endif %}>
+            <summary>More conditions{% if tree_reading %} <span class="ds-more-on">on</span>{% endif %}</summary>
+            <p class="ds-meta ds-more-help">Any column, any operator, grouped with ALL (and) or ANY (or). Added to the quick filters above. Apply runs them.</p>
+            {% if tree_error %}<p class="ds-tree-error" role="alert">{{ tree_error }} Fix or remove the condition and apply again.</p>{% endif %}
+            <div id="ds-tree" aria-live="polite"><p class="ft-help">Loading the conditions…</p></div>
+            <input type="hidden" name="filter_tree" value="{{ tree_json }}">
+            {% if tree_reading %}<p class="ds-meta ds-tree-reading">Reads as: {{ tree_reading }}</p>{% endif %}
+        </details>
     </form>
 </div>
+{{ schema|json_script:"ds-schema" }}
 
 {% if columns %}
 <div class="card ds-card" style="margin-bottom: 16px;">
@@ -195,7 +212,7 @@
                     {% endfor %}
                 </tr>
                 {% empty %}
-                <tr><td colspan="{{ columns|length }}" class="ds-meta" style="padding: 16px 14px; white-space: normal;">No rows{% if has_filters %} match these filters{% endif %}.</td></tr>
+                <tr><td colspan="{{ columns|length }}" class="ds-meta" style="padding: 16px 14px; white-space: normal;">{% if tree_error %}No rows shown: the conditions under More conditions can't be applied.{% else %}No rows{% if has_filters %} match these filters{% endif %}.{% endif %}</td></tr>
                 {% endfor %}
             </tbody>
         </table>
@@ -205,3 +222,5 @@
     </div>
 </div>
 {% endblock %}
+
+{% block extra_js %}<script src="{% static 'datasets/js/filter-tree.js' %}" defer></script><script src="{% static 'datasets/js/browse.js' %}" defer></script>{% endblock %}

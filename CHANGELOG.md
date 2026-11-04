@@ -21,6 +21,7 @@ Breaking-change migration recipes live in [`UPGRADING.md`](UPGRADING.md).
 
 - **Two more charts, no library.** *Pie chart* (a count or total, each group's share of the whole) and *Ranked bars* (any metric's groups, largest first) join the trend chart in the component builder. Both are server-drawn SVG and CSS, and each group opens its rows. They live in `apps/website/dashboard_cards.py` beside the trend chart.
 - **The components page shows the components.** Hovering or focusing a row in the list shows the real card. The second view is now a gallery of live cards that load as they scroll into view, replacing the plain table.
+- **More conditions on the dataset browser.** Under the quick filters, the same ALL/ANY condition editor the metric builder uses: any column, any operator, nested groups. It travels in the address as `?filter_tree=<json>` (what REST takes), narrows the rows, the roll-up and the CSV, and reads back in words. A condition that can't be applied shows its problem and no rows, never the unfiltered set.
 
 ### Migrations
 - `smallstack_dashboards.0010_snapshot_engine` replaces `GoalSnapshot` with `Snapshot` and `SnapshotTracker`. Saved weeks carry over as weekly captures, and every existing list keeps a weekly tracker.

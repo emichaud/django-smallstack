@@ -6,10 +6,17 @@ registered dataset; the browse page builds its filter bar from
 ``queryset()`` and offers a one-dimension roll-up via ``series()``. It never
 hard-codes a model or a column — the same page serves the bundled
 ``smallstack_*`` datasets and whatever a downstream project declares.
+
+Besides the flat quick filters, the page takes ``?filter_tree=<json>`` — the
+same nested AND/OR tree REST takes and a metric stores — drawn by the shared
+editor (datasets/js/filter-tree.js) under **More conditions** and AND-ed with
+the quick filters. A tree that can't be applied shows its problem and **no
+rows**, never the unfiltered set (a dropped condition is the fail-open shape).
 """
 
 from __future__ import annotations
 
+import json
 from typing import Any
 from urllib.parse import urlencode
 
@@ -24,6 +31,7 @@ from apps.smallstack.pagination import PAGE_SIZE_CHOICES, paginate_queryset
 from apps.smallstack.sorting import build_sort_headers
 
 from .core import Dataset, get_dataset, list_datasets
+from .filter_tree import describe_filter_tree, is_empty
 from .framework import is_framework_dataset
 from .registry import get_def
 
@@ -37,7 +45,7 @@ SERIES_LIMIT = 50
 AGG_CHOICES = (("count", "Count"), ("sum", "Sum"), ("avg", "Average"), ("min", "Min"), ("max", "Max"))
 
 #: Query params the browse page owns; everything else is a dataset filter.
-_PAGE_PARAMS = {"ordering", "page", "per_page", "group_by", "measure", "agg"}
+_PAGE_PARAMS = {"ordering", "page", "per_page", "group_by", "measure", "agg", "filter_tree"}
 
 
 class DatasetIndexView(StaffRequiredMixin, TemplateView):
@@ -114,14 +122,16 @@ class DatasetBrowseView(StaffRequiredMixin, TemplateView):
         declared = [c for c in schema["columns"] if c.get("computed")]
 
         filters = self._active_filters(request, ds, schema)
+        tree, tree_error = self._tree(request, ds)
         ordering = request.GET.get("ordering", "").strip()
         per_page = _int_in(request.GET.get("per_page"), PAGE_SIZES, PAGE_SIZE)
-        page_obj = self._page(request, ds, filters, ordering, per_page)
+        page_obj = self._page(request, ds, filters, tree, ordering, per_page, none=bool(tree_error))
 
         rows = [{"url": ds.link_for(obj), "cells": self._cells(obj, columns)} for obj in page_obj.object_list]
         headers = build_sort_headers([(c["name"], c["label"]) for c in columns], ordering)
         for header, col in zip(headers, columns):
             header["type"] = col["type"]
+        labels = {c["name"]: c["label"] for c in schema["columns"]}
 
         context.update(
             {
@@ -133,20 +143,44 @@ class DatasetBrowseView(StaffRequiredMixin, TemplateView):
                 "ordering": ordering,
                 "widgets": self._widgets(schema, request),
                 "filters": filters,
-                "has_filters": bool(filters),
+                "has_filters": bool(filters) or tree is not None or bool(tree_error),
+                # The tree as the hidden input carries it (compact JSON) and as words.
+                "tree_json": json.dumps(tree, separators=(",", ":")) if tree is not None else "",
+                "tree_error": tree_error,
+                "tree_reading": describe_filter_tree(tree, labels) if tree is not None and not tree_error else "",
                 "page_obj": page_obj,
                 "per_page": per_page,
                 "page_sizes": PAGE_SIZES,
                 "rows": rows,
                 "has_links": ds.has_links(),
-                "csv_url": self._csv_url(key, dfn.enable_api, filters),
+                "csv_url": "" if tree_error else self._csv_url(key, dfn.enable_api, filters, tree),
                 "is_framework": is_framework_dataset(key),
-                **self._rollup(request, ds, schema, declared, filters),
+                **self._rollup(request, ds, schema, declared, filters, tree, skip=bool(tree_error)),
             }
         )
         return context
 
     # -- filters -------------------------------------------------------------
+
+    @staticmethod
+    def _tree(request: HttpRequest, ds: Dataset) -> tuple[Any, str]:
+        """``?filter_tree=<json>`` → ``(tree, problem)``. ``(None, "")`` when
+        absent or empty. A tree with a problem comes back as ``(tree, why)``
+        so the page can keep it in the editor for fixing while applying
+        nothing — the caller shows no rows, not all of them."""
+        raw = request.GET.get("filter_tree", "").strip()
+        if not raw:
+            return None, ""
+        try:
+            tree = json.loads(raw)
+        except ValueError as exc:
+            return None, f"The conditions aren't valid JSON: {exc}"
+        if is_empty(tree):
+            return None, ""
+        problems = ds.validate_filter_tree(tree)
+        if problems:
+            return tree, "These conditions can't be applied: " + "; ".join(problems)
+        return tree, ""
 
     @staticmethod
     def _active_filters(request: HttpRequest, ds: Dataset, schema: dict[str, Any]) -> dict[str, str]:
@@ -181,10 +215,23 @@ class DatasetBrowseView(StaffRequiredMixin, TemplateView):
     # -- rows ----------------------------------------------------------------
 
     @staticmethod
-    def _page(request: HttpRequest, ds: Dataset, filters: dict[str, str], ordering: str, per_page: int) -> Page:
+    def _page(
+        request: HttpRequest,
+        ds: Dataset,
+        filters: dict[str, str],
+        tree: Any,
+        ordering: str,
+        per_page: int,
+        *,
+        none: bool = False,
+    ) -> Page:
         from apps.smallstack.crud import _apply_ordering_fields
 
-        qs: QuerySet = ds.queryset(request, filters)
+        # A tree that can't be applied isn't compiled at all (it would raise); the
+        # page shows nothing for it rather than everything.
+        qs: QuerySet = ds.queryset(request, filters, filter_tree=None if none else tree)
+        if none:
+            qs = qs.none()
         if ordering:
             qs = _apply_ordering_fields(qs, ordering, set(ds.column_names()))
         if not qs.ordered:
@@ -211,6 +258,9 @@ class DatasetBrowseView(StaffRequiredMixin, TemplateView):
         schema: dict[str, Any],
         declared: list[dict[str, Any]],
         filters: dict[str, str],
+        tree: Any = None,
+        *,
+        skip: bool = False,
     ) -> dict[str, Any]:
         dimensions = [c for c in schema["columns"] if c["role"] == "dimension"]
         measures = [c for c in schema["columns"] if c["role"] == "measure"]
@@ -230,7 +280,9 @@ class DatasetBrowseView(StaffRequiredMixin, TemplateView):
             agg = "count"
         series: list[dict[str, Any]] = []
         series_error = ""
-        if group_by in valid_dims:
+        if group_by in valid_dims and skip:
+            pass  # the tree can't be applied: no roll-up either, rather than one over every row
+        elif group_by in valid_dims:
             try:
                 series = ds.series(
                     group_by,
@@ -239,6 +291,7 @@ class DatasetBrowseView(StaffRequiredMixin, TemplateView):
                     limit=SERIES_LIMIT,
                     filters=filters,
                     request=request,
+                    filter_tree=tree,
                 )
             except ValueError as exc:
                 series_error = str(exc)
@@ -268,8 +321,10 @@ class DatasetBrowseView(StaffRequiredMixin, TemplateView):
     # -- export --------------------------------------------------------------
 
     @staticmethod
-    def _csv_url(key: str, enable_api: bool, filters: dict[str, str]) -> str:
+    def _csv_url(key: str, enable_api: bool, filters: dict[str, str], tree: Any = None) -> str:
         if not enable_api:
             return ""
         params = {**filters, "format": "csv"}
+        if tree is not None:
+            params["filter_tree"] = json.dumps(tree, separators=(",", ":"))
         return reverse("datasets:rows", kwargs={"key": key}) + "?" + urlencode(params)
