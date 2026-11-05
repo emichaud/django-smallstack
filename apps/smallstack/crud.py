@@ -287,8 +287,8 @@ def _filter_annotated_column(qs, field_name: str, annotation, value: str) -> Que
             return qs.filter(**{prefix: today})
         if value == "yesterday":
             return qs.filter(**{prefix: today - timedelta(days=1)})
-        if value == "week":
-            return qs.filter(**{f"{prefix}__gte": today - timedelta(days=7)})
+        if value == "week":  # the 7 days ending today — the same days as the period "last_7"
+            return qs.filter(**{f"{prefix}__gte": today - timedelta(days=6), f"{prefix}__lte": today})
         if value == "month":
             return qs.filter(**{f"{prefix}__month": today.month, f"{prefix}__year": today.year})
         if value == "year":
@@ -358,8 +358,8 @@ def _apply_list_filters(qs, request: HttpRequest, crud_config) -> QuerySet:
                 qs = qs.filter(**{lookup_prefix: today})
             elif value == "yesterday":
                 qs = qs.filter(**{lookup_prefix: today - timedelta(days=1)})
-            elif value == "week":
-                qs = qs.filter(**{f"{lookup_prefix}__gte": today - timedelta(days=7)})
+            elif value == "week":  # the 7 days ending today — the same days as the period "last_7"
+                qs = qs.filter(**{f"{lookup_prefix}__gte": today - timedelta(days=6), f"{lookup_prefix}__lte": today})
             elif value == "month":
                 qs = qs.filter(**{f"{lookup_prefix}__month": today.month, f"{lookup_prefix}__year": today.year})
             elif value == "year":

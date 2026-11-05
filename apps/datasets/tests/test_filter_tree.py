@@ -367,3 +367,9 @@ def test_mcp_describe_dataset_respects_staff_tier():
         from apps.datasets.registry import unregister
 
         unregister("t_tree_staff_only")
+
+
+def test_the_whole_month_and_year_periods_run_past_today():
+    assert relative_dates("this_month", date(2026, 5, 14)) == (date(2026, 5, 1), date(2026, 6, 1))
+    assert relative_dates("this_month", date(2026, 12, 14)) == (date(2026, 12, 1), date(2027, 1, 1))
+    assert relative_dates("this_year", date(2026, 5, 14)) == (date(2026, 1, 1), date(2027, 1, 1))

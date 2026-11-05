@@ -340,7 +340,7 @@ def test_browse_save_as_metric_carries_every_condition_and_the_rollup(client, st
     assert leaves[("method", "=")] == "POST"
     # (Few distinct paths in a test database make Path a dropdown, so it's "=" there, "contains" as a text box.)
     assert leaves.get(("path", "contains"), leaves.get(("path", "="))) == "/b"
-    assert leaves[("timestamp", "period")] == "mtd"
+    assert leaves[("timestamp", "period")] == "this_month"
     assert leaves[("response_time_ms", ">")] == 11
     # A grouped roll-up offers the grouped cards; an average has no pie.
     labels = [c["label"] for c in resp.context["card_links"]]
@@ -391,3 +391,57 @@ def test_browse_filters_apply_as_they_change(client, staff):
     assert "row" in live and 'data-stat-modal="Make a metric"' in live and 'hx-target="#stat-modal-body"' in live
     # Apply is only for a browser without scripts; the card links open the same modal.
     assert "<noscript><button" in html and 'data-stat-modal="Grouped stat card: first, the metric"' in html
+
+
+def test_the_quick_date_presets_and_the_periods_cover_the_same_days(client, staff):
+    """A metric made from the browser counts what the browser showed: each
+    preset ("Past 7 days", "This month"…) and the period it becomes draw
+    the same boundary, to the day."""
+    from datetime import timedelta
+
+    from django.utils import timezone
+
+    today = timezone.localdate()
+    noon = timezone.make_aware(timezone.datetime(today.year, today.month, today.day, 12))
+    stamps = {
+        "today": noon,
+        "six_ago": noon - timedelta(days=6),
+        "seven_ago": noon - timedelta(days=7),
+        "month_start": noon.replace(day=1),
+        "month_end": (noon.replace(day=1) + timedelta(days=32)).replace(day=1) - timedelta(days=1),
+        "year_end": noon.replace(month=12, day=31),
+        "last_year": noon.replace(year=today.year - 1, month=12, day=31),
+    }
+    for path, when in stamps.items():
+        log = RequestLog.objects.create(
+            path=f"/{path}", method="GET", status_code=200, response_time_ms=1, ip_address=IP
+        )
+        RequestLog.objects.filter(pk=log.pk).update(timestamp=when)
+
+    def counts(preset: str) -> tuple[int, int, str]:
+        shown = client.get(_browse("smallstack_requests"), {**SEEDED, "timestamp": preset})
+        leaf = json.loads(_query(shown.context["metric_url"])["filter_tree"])
+        period = next(x for x in leaf["and"] if x["field"] == "timestamp")["value"]
+        tree = {
+            "and": [
+                {"field": "ip_address", "op": "=", "value": IP},
+                {"field": "timestamp", "op": "period", "value": period},
+            ]
+        }
+        kept = client.get(_browse("smallstack_requests"), {"filter_tree": json.dumps(tree)})
+        return shown.context["page_obj"].total_count, kept.context["page_obj"].total_count, period
+
+    week = counts("week")
+    assert week[2] == "last_7" and week[0] == week[1]
+    # Past 7 days is the 7 days ending today: six days ago is in, seven is out.
+    shown = client.get(_browse("smallstack_requests"), {**SEEDED, "timestamp": "week"})
+    assert "/six_ago" in _paths(shown) and "/seven_ago" not in _paths(shown)
+    month = counts("month")
+    assert month[2] == "this_month" and month[0] == month[1]
+    year = counts("year")
+    assert year[2] == "this_year" and year[0] == year[1]
+    # The whole month and the whole year: days still to come count, last year doesn't.
+    shown = client.get(_browse("smallstack_requests"), {**SEEDED, "timestamp": "year"})
+    assert "/year_end" in _paths(shown) and "/last_year" not in _paths(shown)
+    for preset in ("today", "yesterday"):
+        assert counts(preset)[0] == counts(preset)[1]

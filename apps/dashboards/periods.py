@@ -31,8 +31,10 @@ PREVIOUS_PERIOD: dict[str, str] = {
     "wtd": "pwtd",
     "pwtd": "ppwtd",
     "mtd": "pmtd",
+    "this_month": "pmtd",
     "qtd": "pqtr",
     "ytd": "prev_year",
+    "this_year": "prev_year",
 }
 
 #: Periods that run only to today, so they are partial against a whole period.
@@ -70,10 +72,12 @@ _PHRASES = {
     "pwtd": "last week",
     "ppwtd": "the week before",
     "mtd": "this month so far",
+    "this_month": "this month",
     "pmtd": "last month",
     "qtd": "this quarter so far",
     "pqtr": "last quarter",
     "ytd": "this year so far",
+    "this_year": "this year",
     "prev_year": "last year",
 }
 

@@ -33,10 +33,12 @@ RELATIVE_PERIODS: list[tuple[str, str]] = [
     ("wtd", "Week to date"),
     ("pwtd", "Previous week"),
     ("mtd", "Month to date"),
+    ("this_month", "This month, whole"),
     ("pmtd", "Previous month"),
     ("qtd", "Quarter to date"),
     ("pqtr", "Previous quarter"),
     ("ytd", "Year to date"),
+    ("this_year", "This year, whole"),
     ("prev_year", "Previous year"),
     ("last_7", "Last 7 days"),
     ("last_30", "Last 30 days"),
@@ -123,6 +125,8 @@ def relative_dates(key: str, today: Optional[date] = None) -> Optional[tuple[dat
     month_start = today.replace(day=1)
     if key == "mtd":
         return month_start, tomorrow
+    if key == "this_month":  # the whole calendar month, days to come included
+        return month_start, _shift_month(month_start, 1)
     if key == "pmtd":
         return _shift_month(month_start, -1), month_start
 
@@ -135,6 +139,8 @@ def relative_dates(key: str, today: Optional[date] = None) -> Optional[tuple[dat
     year_start = date(today.year, 1, 1)
     if key == "ytd":
         return year_start, tomorrow
+    if key == "this_year":  # the whole calendar year
+        return year_start, date(today.year + 1, 1, 1)
     if key == "prev_year":
         return date(today.year - 1, 1, 1), year_start
     return None

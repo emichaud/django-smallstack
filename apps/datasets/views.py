@@ -37,7 +37,16 @@ from .registry import get_def
 
 #: The quick date presets (``_computed_filter_meta`` / the CRUD list pipeline)
 #: as the relative periods a filter tree takes, for "Save as metric".
-_PRESET_PERIODS = {"today": "today", "yesterday": "yesterday", "week": "last_7", "month": "mtd", "year": "ytd"}
+#: The quick date presets as the periods that cover exactly the same days
+#: (the CRUD pipeline applies the presets; filter_tree the periods), so a
+#: metric made from the browser counts what the browser showed.
+_PRESET_PERIODS = {
+    "today": "today",
+    "yesterday": "yesterday",
+    "week": "last_7",
+    "month": "this_month",
+    "year": "this_year",
+}
 #: Card types a grouped roll-up can be kept as, in the order offered. Pie
 #: takes a count or sum only (a share of an average means nothing).
 _ROLLUP_CARDS = (("metric_group", "Grouped stat"), ("ranked", "Ranked bars"), ("pie", "Pie chart"))
