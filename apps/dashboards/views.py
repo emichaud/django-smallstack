@@ -1321,8 +1321,35 @@ class MetricCreateMixin:
     request: HttpRequest
     object: Metric
 
+    #: What a duplicate carries over: everything that defines the number, and
+    #: the labels. Not the key (made from the new name), the owner (the
+    #: person's) or the dates.
+    COPIED = (
+        "description",
+        "source",
+        "dataset",
+        "numerator",
+        "denominator",
+        "filter_tree",
+        "agg",
+        "measure",
+        "period_field",
+        "format",
+        "unit",
+        "thresholds",
+        "tags",
+    )
+
     def get_initial(self) -> dict[str, Any]:
         initial: dict[str, Any] = super().get_initial()  # type: ignore[misc]
+        # Duplicate: the form opened with another metric's settings, nothing
+        # saved until Save — ``?from=<key>``, any metric the person can see.
+        original = Metric.objects.filter(key=self.request.GET.get("from", "").strip()).first()
+        if original is not None and original.can_view(self.request.user):
+            initial.update({field: getattr(original, field) for field in self.COPIED})
+            initial["name"] = f"{original.name} (copy)"[:120]
+            initial["visibility"] = "personal"
+            return initial
         initial.update(browse_prefill(self.request.GET, self.request.user))
         return initial
 
@@ -2277,6 +2304,15 @@ class ComponentCreateMixin:
     def get_initial(self) -> dict[str, Any]:
         initial: dict[str, Any] = super().get_initial()  # type: ignore[misc]
         g = self.request.GET
+        # Duplicate: the builder opened with another card's settings, nothing
+        # saved until Save — ``?from=<key>``, any card the person can see.
+        original = Component.objects.filter(key=g.get("from", "").strip()).first()
+        if original is not None and original.can_view(self.request.user):
+            for field in ("description", "type", "metric", "options", "tags"):
+                initial[field] = getattr(original, field)
+            initial["name"] = f"{original.name} (copy)"[:120]
+            initial["visibility"] = "personal"
+            return initial
         key = g.get("metric", "").strip()
         metric = Metric.objects.filter(key=key).first() if key else None
         if metric is None or not metric.can_view(self.request.user):

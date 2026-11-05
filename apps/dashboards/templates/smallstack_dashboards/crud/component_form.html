@@ -30,6 +30,7 @@ number of dashboards; an edit reaches all of them.
     {% if object %}
     <div style="display: flex; gap: 0.5rem; align-items: center;">
         {% include "dashboards/partials/archive_button.html" with kind="component" obj=object %}
+        <a href="{% url 'dashboards/components-create' %}?from={{ object.key }}" class="btn-outline btn-sm" title="Open the builder with this card's settings; nothing is saved until you save">Duplicate</a>
         {% if object|single_value %}{% url 'dashboards_goal_add' as goal_add %}<a href="{{ goal_add }}?component={{ object.key }}" class="btn-outline btn-sm" hx-get="{{ goal_add }}?component={{ object.key }}" hx-target="#stat-modal-body" hx-swap="innerHTML" data-stat-modal="Add {{ object.name }} to goals" aria-haspopup="dialog">Add to goals</a>{% endif %}
     </div>
     {% endif %}
