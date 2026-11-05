@@ -94,7 +94,7 @@
 <section class="ix-section" id="ix-metric-section" aria-labelledby="ix-metric-title">
     <div class="md-section-head">
         <h2 id="ix-metric-title">Metrics</h2>
-        <p class="dash-muted">{{ metric_count }} saved, values for {{ period_heading }}</p>
+        <p class="dash-muted">{% if unused_only %}{{ metric_count }} used nowhere, values for {{ period_heading }}. <a href="{{ metrics_sort.unused.url }}" hx-get="{{ metrics_sort.unused.url }}" hx-select="#gx-page" hx-target="#gx-page" hx-swap="outerHTML" hx-push-url="true">Show every metric</a>{% else %}{{ metric_count }} saved, values for {{ period_heading }}{% if unused_count %}. <a href="{{ metrics_sort.unused.url }}" hx-get="{{ metrics_sort.unused.url }}" hx-select="#gx-page" hx-target="#gx-page" hx-swap="outerHTML" hx-push-url="true" class="ix-unused-link">{{ unused_count }} used nowhere</a>{% endif %}{% endif %}</p>
         {% if metric_rows|length > 6 %}
         <label class="ix-filter">
             <span class="sr-only">Filter metrics</span>
@@ -109,10 +109,11 @@
     </nav>
     <div class="card gx-card">
         <div class="gx-scroll">
-        <table class="crud-table gx-table gx-metrics" data-table-key="goals/overview-metrics:name,source,value">
+        <table class="crud-table gx-table gx-metrics" data-table-key="goals/overview-metrics:name,source,used,value">
             <thead><tr>
                 {% include "dashboards/partials/sort_th.html" with s=metrics_sort.name field="name" label="Metric" swap="#gx-page" %}
                 {% include "dashboards/partials/sort_th.html" with s=metrics_sort.source field="source" label="Source" swap="#gx-page" %}
+                {% include "dashboards/partials/sort_th.html" with s=metrics_sort.used field="used" label="Used in" swap="#gx-page" %}
                 {% include "dashboards/partials/sort_th.html" with s=metrics_sort.value field="value" label="Value" swap="#gx-page" cls="gx-num" %}
             </tr></thead>
             <tbody id="ix-metrics">
@@ -123,6 +124,7 @@
                         <span class="gx-sub" title="{{ row.reading }}">{{ row.reading }}</span>
                     </td>
                     <td><span class="ix-metric-source">{{ row.source }}{% if not m.is_shared %}<span class="dash-badge">Personal</span>{% endif %}</span></td>
+                    <td class="ix-used-cell">{% if row.used_in %}<span class="ix-used" title="{{ row.used_in }}">{{ row.used_in }}</span>{% else %}<span class="ix-unused">Not used</span>{% endif %}</td>
                     <td class="gx-num ix-metric-value">
                         {% if r.restricted %}<span class="rp-quiet">Restricted</span>
                         {% elif r.error %}<span class="rp-bad" title="{{ r.error }}">Can't evaluate</span>

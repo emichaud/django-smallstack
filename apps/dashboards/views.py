@@ -341,6 +341,22 @@ def section_sort(
     return order, links
 
 
+def usage_words(usage: Optional[dict[str, int]]) -> str:
+    """One metric's :func:`usage_index` row as words — "2 boards, 1 report,
+    1 goal list" — or "" when it's drawn nowhere."""
+    if not usage:
+        return ""
+    nouns = (
+        ("boards", "board"),
+        ("reports", "report"),
+        ("goal_lists", "goal list"),
+        ("components", "card"),
+        ("rates", "rate"),
+    )
+    parts = [f"{usage[key]} {noun}{'s' if usage[key] != 1 else ''}" for key, noun in nouns if usage.get(key)]
+    return ", ".join(parts)
+
+
 class GoalsIndexView(LoginRequiredMixin, TemplateView):
     """``/smallstack/goals/`` — the Goals overview: goal lists (each one's
     summary loaded as it scrolls into view), the metrics behind them with what
@@ -386,10 +402,18 @@ class GoalsIndexView(LoginRequiredMixin, TemplateView):
             lists = list(apply_ordering(goal_qs, lists_order, {"name", "updated_at"})[: self.GOAL_LISTS])
 
         # -- metrics
+        from .models import usage_index
+
         metrics_order, metrics_links = section_sort(
-            request, "metrics", ("name", "source", "value"), "name", largest_first=("value",)
+            request, "metrics", ("name", "source", "value", "used"), "name", largest_first=("value", "used")
         )
         metric_qs = Metric.objects.visible_to(user).select_related("owner")
+        # Where each metric is drawn, once for the whole list; ?unused=1 keeps
+        # only the ones drawn nowhere — the pile to clear.
+        usage = usage_index(user)
+        unused_only = request.GET.get("unused") == "1"
+        if unused_only:
+            metric_qs = metric_qs.exclude(key__in=list(usage))
         metric_count = metric_qs.count()
         if metrics_order.lstrip("-") == "source":
             shown = sorted(
@@ -411,6 +435,8 @@ class GoalsIndexView(LoginRequiredMixin, TemplateView):
                     "source": m.source_label if m.source != "dataset" else labels.get(m.dataset, m.dataset),
                     "comparison": compare_with_previous(m, request, period, result),
                     "all_time": bool(period) and not m.period_field,
+                    "usage": usage.get(m.key),
+                    "used_in": usage_words(usage.get(m.key)),
                 }
             )
         if metrics_order.lstrip("-") == "value":
@@ -418,6 +444,14 @@ class GoalsIndexView(LoginRequiredMixin, TemplateView):
             rest = [r for r in rows if not (r["result"].ok and is_number(r["result"].value))]
             numeric.sort(key=lambda r: float(r["result"].value), reverse=metrics_order.startswith("-"))
             rows = numeric + rest
+        elif metrics_order.lstrip("-") == "used":
+            rows.sort(key=lambda r: (r["usage"] or {}).get("total", 0), reverse=metrics_order.startswith("-"))
+        unused_params = request.GET.copy()
+        if unused_only:
+            unused_params.pop("unused", None)
+        else:
+            unused_params["unused"] = "1"
+        metrics_links["unused"] = {"url": f"?{unused_params.urlencode()}", "aria_sort": "none"}
 
         # -- reports
         reports_order, reports_links = section_sort(
@@ -437,6 +471,12 @@ class GoalsIndexView(LoginRequiredMixin, TemplateView):
             {
                 "metric_rows": rows,
                 "metric_count": metric_count,
+                "unused_only": unused_only,
+                "unused_count": (
+                    metric_count
+                    if unused_only
+                    else Metric.objects.visible_to(user).exclude(key__in=list(usage)).count()
+                ),
                 "period": period or "all",
                 "period_heading": period_heading(period).lower(),
                 "index_periods": [
@@ -1368,6 +1408,7 @@ class MetricQuickView(LoginRequiredMixin, View):
         self, request: HttpRequest, values: dict[str, Any], params: Any, *, preview: bool = True
     ) -> dict[str, Any]:
         from .metrics import AGGS, FORMATS
+        from .models import same_metrics
         from .previews import preview_metric
 
         ds = get_dataset(values["dataset"])
@@ -1376,6 +1417,11 @@ class MetricQuickView(LoginRequiredMixin, View):
         labels = {c["name"]: c["label"] for c in schema["columns"]}
         tree = values.get("filter_tree") or {}
         then = card_handoff(params)
+        # What's already there: a metric that reads these rows this way (a
+        # twin), and the others on this dataset — said before another is saved.
+        twins = same_metrics(request.user, values["dataset"], tree, values.get("agg", ""), values.get("measure", ""))
+        on_dataset = Metric.objects.visible_to(request.user).filter(source="dataset", dataset=values["dataset"])
+        on_dataset = on_dataset.exclude(pk__in=[m.pk for m in twins]).order_by("name")
         # The same hand-off, for the full form and for "make another".
         carried = ("dataset", "filter_tree", "agg", "measure", "then", "card_type", "dimension")
         handoff = {k: params.get(k, "") for k in carried}
@@ -1394,6 +1440,9 @@ class MetricQuickView(LoginRequiredMixin, View):
             "again_url": reverse("dashboards_metric_quick") + "?" + urlencode(handoff),
             "full_url": reverse("dashboards/metrics-create") + "?" + urlencode(handoff),
             "can_share": getattr(request.user, "is_staff", False),
+            "twins": twins,
+            "on_dataset": list(on_dataset[:3]),
+            "on_dataset_count": on_dataset.count(),
             "preview": (
                 preview_metric(request.user, {**values, "name": values.get("name") or "Preview"}, request=request)
                 if preview

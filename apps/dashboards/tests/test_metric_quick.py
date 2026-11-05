@@ -126,3 +126,37 @@ def test_only_someone_who_can_read_the_dataset_gets_the_form(client):
     client.force_login(plain)
     resp = client.get(QUICK, {"dataset": "smallstack_requests"})
     assert resp.status_code == 404
+
+
+def test_the_form_says_when_the_metric_already_exists(client, staff):
+    Metric.objects.create(name="Client errors", key="client_errors", dataset="smallstack_requests", filter_tree=TREE)
+    Metric.objects.create(name="All requests", key="all_requests", dataset="smallstack_requests")
+    # The same rows counted the same way: a twin, named, with the way to it.
+    resp = client.get(QUICK, {"dataset": "smallstack_requests", "filter_tree": json.dumps(TREE), "agg": "count"})
+    html = resp.content.decode()
+    assert [m.key for m in resp.context["twins"]] == ["client_errors"]
+    assert "You already have this number as" in html and 'href="/smallstack/dashboards/m/client_errors/"' in html
+    assert "Save metric" in html  # still allowed — a different name, period or format may be wanted
+    # Different rows, or a different number of the same rows: no twin; the others on the dataset are named.
+    resp = client.get(
+        QUICK,
+        {"dataset": "smallstack_requests", "filter_tree": json.dumps(TREE), "agg": "distinct", "measure": "method"},
+    )
+    assert resp.context["twins"] == [] and resp.context["on_dataset_count"] == 2
+    assert "2 other metrics read" in resp.content.decode()
+    resp = client.get(QUICK, {"dataset": "smallstack_requests"})
+    assert [m.key for m in resp.context["twins"]] == ["all_requests"]
+    # Twins are the metrics the person can see: staff see someone else's personal one too.
+    other = User.objects.create_user(username="other", password="pw-123456")
+    Metric.objects.create(name="Theirs", key="theirs", dataset="smallstack_requests", filter_tree=TREE, owner=other)
+    resp = client.get(QUICK, {"dataset": "smallstack_requests", "filter_tree": json.dumps(TREE)})
+    assert [m.key for m in resp.context["twins"]] == ["client_errors", "theirs"]
+    assert "Client errors</a> and <a" in resp.content.decode()
+    # A quick filter carries "500" as text where the editor stored 500: the same condition, so a twin.
+    Metric.objects.create(
+        name="Server errors", key="server_errors", dataset="smallstack_requests",
+        filter_tree={"field": "status_code", "op": ">=", "value": 500},
+    )
+    typed = {"field": "status_code", "op": ">=", "value": "500"}
+    resp = client.get(QUICK, {"dataset": "smallstack_requests", "filter_tree": json.dumps(typed)})
+    assert [m.key for m in resp.context["twins"]] == ["server_errors"]

@@ -43,6 +43,12 @@ another metric can be made from the same rows without leaving the page.
         {% if preview.result.error %}<p class="mq-hero-sub mq-problem">{{ preview.result.error }}</p>{% endif %}
         {% endif %}
         {% if then %}<p class="mq-hero-sub">Then a <strong>{{ then.label }}</strong> card is built from it{% if then.dimension %}, grouped by <strong>{{ then.dimension_label }}</strong>{% endif %}.</p>{% endif %}
+        {% comment %}Said before another one is saved: a metric that already reads these rows this way, and the rest on this dataset.{% endcomment %}
+        {% if twins %}
+        <p class="mq-twin" role="status">You already have this number as {% for m in twins %}{% if not forloop.first %}{% if forloop.last %} and {% else %}, {% endif %}{% endif %}<a href="{{ m.get_absolute_url }}">{{ m.name }}</a>{% endfor %}. Open it instead, or save another with a different name.</p>
+        {% elif on_dataset_count %}
+        <p class="mq-hero-sub">{{ on_dataset_count }} other metric{{ on_dataset_count|pluralize }} read{{ on_dataset_count|pluralize:"s," }} {{ dataset_label }}: {% for m in on_dataset %}{% if not forloop.first %}, {% endif %}<a href="{{ m.get_absolute_url }}">{{ m.name }}</a>{% endfor %}{% if on_dataset_count > 3 %}, …{% endif %}.</p>
+        {% endif %}
     </div>
 
     <div class="mq-fields">

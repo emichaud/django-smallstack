@@ -603,9 +603,13 @@ def test_the_goals_overview_tables_sort_on_their_own_and_resize(client, staff, m
         return client.get(f"/smallstack/goals/?{query}").content.decode()
 
     html = page()
-    for key in ("lists:name,goals,now,updated_at", "metrics:name,source,value", "reports:name,movement,updated_at"):
+    for key in (
+        "lists:name,goals,now,updated_at",
+        "metrics:name,source,used,value",
+        "reports:name,movement,updated_at",
+    ):
         assert f'data-table-key="goals/overview-{key}"' in html, key
-    assert html.count('class="col-resizer"') == 10
+    assert html.count('class="col-resizer"') == 11
     assert html.count('hx-select="#gx-page"') >= 9  # every sort swaps the body, so all links stay current
 
     def between(text: str, start: str, end: str) -> str:

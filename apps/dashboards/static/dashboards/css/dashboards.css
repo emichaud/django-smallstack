@@ -2575,6 +2575,13 @@ a.gw-week-link:hover { color: var(--link-color); text-decoration: underline; }
 .gx-goals th[data-field="now"] { width: 18rem; }
 .gx-goals th[data-field="updated_at"], .gx-reports th[data-field="updated_at"] { width: 7rem; }
 .gx-metrics th[data-field="source"] { width: 12rem; }
+.gx-metrics th[data-field="used"] { width: 13rem; }
+/* where a metric is drawn — and, in the warning tone, that it's drawn nowhere */
+.ix-used { display: block; font-size: 0.78rem; color: var(--body-quiet-color); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ix-unused { display: inline-block; padding: 0 0.45rem; border-radius: 4px; font-size: 0.72rem; font-weight: 600; color: var(--warning-fg); background: color-mix(in srgb, var(--warning-fg) 14%, var(--card-bg)); }
+.ix-unused-link, a.ix-unused-link:link, a.ix-unused-link:visited { color: var(--warning-fg); }
+/* the metric modal: a twin already reads these rows this way */
+.mq-twin { margin: 0.6rem 0 0; padding: 0.5rem 0.75rem; max-width: 62ch; border-radius: 6px; font-size: 0.82rem; line-height: 1.45; color: var(--body-fg); background: color-mix(in srgb, var(--warning-fg) 14%, var(--card-bg)); border-left: 3px solid var(--warning-fg); }
 .gx-metrics th[data-field="value"] { width: 15rem; }
 .gx-reports th[data-field="movement"] { width: 20rem; }
 .gx-reports .gx-actions-col { width: 5rem; }

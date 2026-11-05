@@ -975,6 +975,77 @@ def metric_usage(metric: Metric, user: Any) -> dict[str, Any]:
     }
 
 
+def usage_index(user: Any) -> dict[str, dict[str, int]]:
+    """Where every metric is used, as *user* can see it, in one pass: per
+    metric key ``{boards, reports, goal_lists, components, rates, total}``
+    (the number of boards, reports, goal lists, saved cards and rates that
+    draw it). A key that's used nowhere isn't in the index. For a list of
+    metrics, where :func:`metric_usage` per row would scan every board once
+    per metric."""
+    counts: dict[str, dict[str, int]] = {}
+
+    def hit(key: Any, where: str) -> None:
+        if not isinstance(key, str) or not key:
+            return
+        row = counts.setdefault(key, {"boards": 0, "reports": 0, "goal_lists": 0, "components": 0, "rates": 0})
+        row[where] += 1
+
+    for d in Dashboard.objects.visible_to(user).only("layout", "owner_id", "created_by_id"):
+        for key in {c.get("metric") for c in d.layout if isinstance(c, dict)}:
+            hit(key, "boards")
+    for r in Report.objects.visible_to(user).only("items", "owner_id", "created_by_id"):
+        for key in set(r.metric_keys()):
+            hit(key, "reports")
+    for g in GoalList.objects.visible_to(user).only("sections", "owner_id", "created_by_id"):
+        for key in {goal.get("metric") for goal in g.goals()}:
+            hit(key, "goal_lists")
+    for key in Component.objects.visible_to(user).exclude(metric="").values_list("metric", flat=True):
+        hit(key, "components")
+    for num, den in (
+        Metric.objects.visible_to(user).filter(source=SOURCE_RATE).values_list("numerator", "denominator")
+    ):
+        for key in {num, den}:
+            hit(key, "rates")
+    for row in counts.values():
+        row["total"] = sum(row.values())
+    return counts
+
+
+def same_metrics(user: Any, dataset: str, filter_tree: Any, agg: str, measure: str) -> list[Metric]:
+    """The metrics *user* can see that read *dataset* the same way — the same
+    conditions, the same aggregate over the same column — so a builder can
+    say "you already have this" before another one is saved. The format,
+    period column and name may differ; those don't change what's counted."""
+    wanted = _canonical_tree(filter_tree or {})
+    return [
+        m
+        for m in Metric.objects.visible_to(user).filter(
+            source=SOURCE_DATASET, dataset=dataset, agg=agg or "count", measure=measure or ""
+        )
+        if _canonical_tree(m.filter_tree or {}) == wanted
+    ]
+
+
+def _canonical_tree(tree: Any) -> Any:
+    """*tree* with every number as a float, whether it was stored as a number
+    or typed as text ("500" from a quick filter, 500 from the editor), so two
+    trees that apply the same way compare equal."""
+    if isinstance(tree, dict):
+        return {k: _canonical_tree(v) for k, v in sorted(tree.items())}
+    if isinstance(tree, list):
+        return [_canonical_tree(v) for v in tree]
+    if isinstance(tree, bool):
+        return tree
+    if isinstance(tree, (int, float)):
+        return float(tree)
+    if isinstance(tree, str):
+        try:
+            return float(tree)
+        except ValueError:
+            return tree
+    return tree
+
+
 def detach_metric(metric: Metric, user: Any) -> tuple[int, int]:
     """Remove *metric*'s cards and report rows from every dashboard and report
     *user* may edit — so deleting it leaves no "metric no longer exists"

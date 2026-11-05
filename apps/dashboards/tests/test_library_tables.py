@@ -57,3 +57,33 @@ def test_metrics_sort_by_their_data_and_the_period_bar_keeps_it(client, staff, r
     assert "ordering=dataset&amp;period=today" in html  # a period link keeps the sort
     sorted_by_period = client.get(url + "?period=today").content.decode()
     assert "period=today" in sorted_by_period.split('data-field="name"', 1)[1].split("</th>", 1)[0]  # and vice versa
+
+
+def test_the_overview_says_where_each_metric_is_used(client, staff):
+    from apps.dashboards.models import GoalList, usage_index
+
+    for key in ("drawn", "listed", "idle"):
+        Metric(key=key, name=key.title(), dataset="smallstack_requests").save()
+    Dashboard(
+        name="Board",
+        slug="board",
+        layout=[{"type": "metric", "metric": "drawn"}, {"type": "metric", "metric": "drawn"}],
+    ).save()
+    Report(name="Rep", slug="rep", items=[{"metric": "drawn"}, {"metric": "listed"}]).save()
+    goals = [{"metric": "drawn", "target": {"op": ">=", "value": 1}}]
+    GoalList(name="Goals", slug="goals", sections=[{"title": "", "goals": goals}]).save()
+    index = usage_index(staff)
+    assert index["drawn"] == {"boards": 1, "reports": 1, "goal_lists": 1, "components": 0, "rates": 0, "total": 3}
+    assert index["listed"]["total"] == 1 and "idle" not in index
+    resp = client.get("/smallstack/goals/")
+    html = resp.content.decode()
+    rows = {r["metric"].key: r for r in resp.context["metric_rows"]}
+    assert rows["drawn"]["used_in"] == "1 board, 1 report, 1 goal list"
+    assert rows["listed"]["used_in"] == "1 report" and rows["idle"]["used_in"] == ""
+    assert '<span class="ix-unused">Not used</span>' in html and "1 used nowhere" in html
+    # Most used first, then only the unused.
+    resp = client.get("/smallstack/goals/?metrics=-used")
+    assert [r["metric"].key for r in resp.context["metric_rows"]][:2] == ["drawn", "listed"]
+    resp = client.get("/smallstack/goals/?unused=1")
+    assert [r["metric"].key for r in resp.context["metric_rows"]] == ["idle"]
+    assert "1 used nowhere, values for" in resp.content.decode() and "Show every metric" in resp.content.decode()
