@@ -53,6 +53,9 @@
             <span id="dash-updated" aria-live="polite">Updated just now</span>{% if dashboard.refresh_seconds %}, refreshes every {{ dashboard.refresh_seconds }}s{% endif %}
             <button type="button" class="dash-text-btn" id="dash-refresh">Refresh</button>
         </span>
+        <span class="dash-view-only">
+            <a href="{% url 'dashboards/boards-create' %}?from={{ dashboard.slug }}" class="btn-outline btn-sm" title="Open the form with this dashboard's layout; nothing is saved until you save">Duplicate</a>
+        </span>
         {% if can_edit %}
         <span class="dash-view-only">
             {% include "dashboards/partials/archive_button.html" with kind="dashboard" obj=dashboard %}

@@ -29,6 +29,7 @@ PlaylistPlayerView: a playlist, playing. ?kiosk=1 drops the site's chrome
     </div>
     <div style="display: flex; gap: 0.5rem; align-items: center;">
         {% if slides %}<a href="?kiosk=1&amp;play=1" class="btn-outline btn-sm" title="Without the site's menus, playing — for a wall screen">Wall screen</a>{% endif %}
+        <a href="{% url 'dashboards/playlists-create' %}?from={{ playlist.slug }}" class="btn-outline btn-sm" title="Open the form with this playlist's settings; nothing is saved until you save">Duplicate</a>
         {% if can_edit %}{% include "dashboards/partials/archive_button.html" with kind="playlist" obj=playlist %}<a href="{% url 'dashboards/playlists-update' playlist.pk %}" class="btn-outline btn-sm">Settings</a>{% elif playlist.is_archived %}<span class="dash-archived">Archived</span>{% endif %}
     </div>
 </div>

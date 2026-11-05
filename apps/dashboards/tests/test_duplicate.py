@@ -106,3 +106,42 @@ def test_someone_who_cannot_see_the_original_gets_the_plain_form(client):
     resp = client.get(reverse("dashboards/metrics-create"), {"from": "private"})
     if resp.status_code == 200:
         assert "dataset" not in resp.context["form"].initial
+
+
+@pytest.mark.parametrize(
+    "model, url_base, page_name, carried",
+    [
+        (
+            "Dashboard",
+            "boards",
+            "dashboards_dashboard",
+            {"layout": [{"type": "metric", "metric": "m"}], "refresh_seconds": 60},
+        ),
+        ("Report", "reports", "dashboards_report", {"items": [{"metric": "m"}], "periods": ["mtd", "pmtd"]}),
+        ("Playlist", "playlists", "dashboards_playlist", {"items": [], "seconds": 20, "loop": False}),
+        (
+            "GoalList",
+            "goals",
+            "dashboards_goals",
+            {"sections": [{"title": "S", "goals": [{"metric": "m", "target": {"op": ">=", "value": 1}}]}]},
+        ),
+    ],
+)
+def test_the_slug_keyed_types_duplicate_the_same_way(client, staff, model, url_base, page_name, carried):
+    from apps.dashboards import models as m
+
+    Metric(key="m", name="M", dataset=DS).save()
+    cls = getattr(m, model)
+    original = cls(name="Original", slug="original", tags="ops", **carried)
+    original.save()
+    create = reverse(f"dashboards/{url_base}-create")
+    page = client.get(reverse(page_name, args=["original"])).content.decode()
+    assert f'href="{create}?from=original"' in page and ">Duplicate<" in page
+    initial = client.get(create, {"from": "original"}).context["form"].initial
+    assert initial["name"] == "Original (copy)" and initial["slug"] == "original-copy" and initial["tags"] == "ops"
+    # Compared with the saved row: a goal list's sections are normalised on save (ids added).
+    assert initial["visibility"] == "personal" and all(initial[k] == getattr(original, k) for k in carried)
+    # A second duplicate gets the next free slug.
+    cls(name="Original (copy)", slug="original-copy", **carried).save()
+    assert client.get(create, {"from": "original"}).context["form"].initial["slug"] == "original-copy-2"
+    assert "slug" not in client.get(create, {"from": "nope"}).context["form"].initial

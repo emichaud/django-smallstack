@@ -22,6 +22,7 @@
         {% if report.is_shared %}<span class="dash-badge dash-badge--shared">Shared</span>{% else %}<span class="dash-badge">Personal, {{ report.owner }}</span>{% endif %}
         <a href="?{% if order %}order={{ order }}&amp;{% endif %}format=csv" class="btn-outline btn-sm" id="rp-csv" download>Download CSV</a>
         {% if matrix.rows %}<a href="{% url 'dashboards_report_print' report.slug %}?{% if order %}order={{ order }}&amp;{% endif %}auto=1" class="btn-outline btn-sm" id="rp-print" title="A document of this report for the printer">Print</a>{% endif %}
+        <a href="{% url 'dashboards/reports-create' %}?from={{ report.slug }}" class="btn-outline btn-sm" title="Open the form with this report's settings; nothing is saved until you save">Duplicate</a>
         {% if can_edit %}{% include "dashboards/partials/archive_button.html" with kind="report" obj=report %}<a href="{% url 'dashboards/reports-update' report.pk %}" class="btn-primary btn-sm">Edit report</a>{% elif report.is_archived %}<span class="dash-archived">Archived</span>{% endif %}
     </div>
 </div>

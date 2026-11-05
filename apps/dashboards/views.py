@@ -1576,6 +1576,61 @@ class MetricCRUDView(_OwnedCRUD):
         }
 
 
+def _free_slug(model: type[Any], name: str) -> str:
+    """A slug for a duplicate — the name slugified, ``-2``, ``-3``… until it's
+    free — so the copy's address never collides with the original's."""
+    from django.utils.text import slugify
+
+    base = slugify(name)[:72] or "copy"
+    slug, n = base, 1
+    while model.objects.filter(slug=slug).exists():
+        n += 1
+        slug = f"{base}-{n}"
+    return slug
+
+
+class _DuplicateMixin:
+    """Duplicate for the slug-keyed types: ``?from=<slug>`` opens the create
+    form with the original's settings — its defining fields and tags, the
+    name "(copy)", a free slug, visibility personal — and nothing is saved
+    until Save. Subclasses name the model and the fields carried over."""
+
+    request: HttpRequest
+    duplicate_model: type[Any]
+    duplicate_fields: tuple[str, ...]
+
+    def get_initial(self) -> dict[str, Any]:
+        initial: dict[str, Any] = super().get_initial()  # type: ignore[misc]
+        slug = self.request.GET.get("from", "").strip()
+        original = self.duplicate_model.objects.filter(slug=slug).first() if slug else None
+        if original is None or not original.can_view(self.request.user):
+            return initial
+        initial.update({field: getattr(original, field) for field in self.duplicate_fields})
+        name = f"{original.name} (copy)"[:120]
+        initial.update(name=name, slug=_free_slug(self.duplicate_model, name), visibility="personal")
+        return initial
+
+
+class DashboardDuplicateMixin(_DuplicateMixin):
+    duplicate_model = Dashboard
+    duplicate_fields = ("description", "default_period", "refresh_seconds", "layout", "tags")
+
+
+class ReportDuplicateMixin(_DuplicateMixin):
+    duplicate_model = Report
+    duplicate_fields = ("description", "items", "periods", "tags")
+
+
+class PlaylistDuplicateMixin(_DuplicateMixin):
+    duplicate_model = Playlist
+    duplicate_fields = ("description", "items", "seconds", "loop", "auto_start", "tags")
+
+
+class GoalListDuplicateMixin(_DuplicateMixin):
+    duplicate_model = GoalList
+    duplicate_fields = ("description", "default_period", "sections", "tags")
+
+
 class DashboardCRUDView(_OwnedCRUD):
     model = Dashboard
     form_class = DashboardForm
@@ -1594,7 +1649,7 @@ class DashboardCRUDView(_OwnedCRUD):
     link_field = "name"
     field_transforms = {"owner": _owner_cell, "updated_at": "localtime"}
     url_base = "dashboards/boards"
-    view_mixins = {Action.DELETE: [DashboardDeleteMixin]}
+    view_mixins = {Action.CREATE: [DashboardDuplicateMixin], Action.DELETE: [DashboardDeleteMixin]}
     displays = [DashboardLibraryDisplay, TableDisplay]
     search_fields = ["name", "slug", "description", "tags"]
     ordering_fields = ["name", "slug", "updated_at"]
@@ -1618,7 +1673,7 @@ class ReportCRUDView(_OwnedCRUD):
     link_field = "name"
     field_transforms = {"owner": _owner_cell, "updated_at": "localtime"}
     url_base = "dashboards/reports"
-    view_mixins = {Action.DELETE: [ReportDeleteMixin]}
+    view_mixins = {Action.CREATE: [ReportDuplicateMixin], Action.DELETE: [ReportDeleteMixin]}
     displays = [ReportLibraryDisplay, TableDisplay]
     search_fields = ["name", "slug", "description", "tags"]
     ordering_fields = ["name", "slug", "updated_at"]
@@ -1635,6 +1690,7 @@ class ReportCRUDView(_OwnedCRUD):
 class PlaylistCRUDView(_OwnedCRUD):
     model = Playlist
     form_class = PlaylistForm
+    view_mixins = {Action.CREATE: [PlaylistDuplicateMixin]}
     fields = ["name", "slug", "description", "items", "seconds", "loop", "auto_start", "tags"]
     list_fields = ["name", "slug", "seconds", "owner", "updated_at"]
     link_field = "name"
@@ -1709,7 +1765,10 @@ class GoalListCRUDView(_OwnedCRUD):
     link_field = "name"
     field_transforms = {"owner": _owner_cell, "updated_at": "localtime"}
     url_base = "dashboards/goals"
-    view_mixins = {Action.CREATE: [_GoalListSavedMixin], Action.UPDATE: [_GoalListSavedMixin]}
+    view_mixins = {
+        Action.CREATE: [GoalListDuplicateMixin, _GoalListSavedMixin],
+        Action.UPDATE: [_GoalListSavedMixin],
+    }
     displays = [GoalListLibraryDisplay, TableDisplay]
     search_fields = ["name", "slug", "description", "tags"]
     ordering_fields = ["name", "slug", "default_period", "updated_at"]
