@@ -1179,71 +1179,96 @@ def _owner_cell(value: Any, obj: OwnedModel) -> str:
     return "Shared" if obj.owner_id is None else str(obj.owner)
 
 
+def browse_prefill(params: Any, user: Any) -> dict[str, Any]:
+    """What the dataset browser hands over — ``dataset``, ``filter_tree``,
+    ``agg``, ``measure`` and maybe a ``name`` — checked and kept as a metric
+    form's values: the dataset must be one *user* can read, the tree one it
+    can apply, the aggregate and measure ones it has. Anything else is left
+    out, never an error. Without a name, the dataset's label and the tree
+    read as words. Empty when the dataset isn't usable."""
+    from apps.datasets.registry import get_def, user_may_read
+
+    from .metrics import AGGS
+
+    initial: dict[str, Any] = {}
+    key = params.get("dataset", "").strip()
+    dfn = get_def(key) if key else None
+    if dfn is None or not user_may_read(dfn, user):
+        return initial
+    ds = get_dataset(key)
+    if ds is None:
+        return initial
+    initial.update({"source": "dataset", "dataset": key})
+    tree: Any = None
+    try:
+        tree = json.loads(params.get("filter_tree", "") or "null")
+    except ValueError:
+        tree = None
+    if isinstance(tree, dict) and tree and not ds.validate_filter_tree(tree):
+        initial["filter_tree"] = tree
+    agg = params.get("agg", "").strip()
+    if agg in dict(AGGS):
+        initial["agg"] = agg
+    measure = params.get("measure", "").strip()
+    if measure and measure in set(ds.column_names()):
+        initial["measure"] = measure
+    name = params.get("name", "").strip()
+    if not name:
+        labels = {c["name"]: c["label"] for c in ds.schema()["columns"]}
+        kept = initial.get("filter_tree")
+        reading = describe_filter_tree(kept, labels) if kept else ""
+        name = f"{dfn.label}: {reading}" if reading and len(dfn.label) + len(reading) + 2 <= 120 else dfn.label
+    initial["name"] = name[:120]
+    return initial
+
+
+def card_handoff(params: Any) -> Optional[dict[str, str]]:
+    """``then=card`` with a registered ``card_type`` (and maybe a
+    ``dimension``): the card to build once the metric is saved, or None."""
+    if params.get("then") != "card":
+        return None
+    ct = get_component_type(params.get("card_type", "").strip())
+    if ct is None:
+        return None
+    dimension = params.get("dimension", "").strip()
+    # Its label for the notice, when the dataset is known; the key rides along as is.
+    ds = get_dataset(params.get("dataset", "").strip()) if dimension else None
+    label = dimension
+    if ds is not None:
+        label = next((c["label"] for c in ds.schema()["columns"] if c["name"] == dimension), dimension)
+    return {"type": ct.key, "label": ct.label, "dimension": dimension, "dimension_label": label}
+
+
+def card_builder_url(metric: Metric, then: dict[str, str]) -> str:
+    """The component builder opened on *metric* for the card *then* names."""
+    params = {"metric": metric.key, "type": then["type"]}
+    if then["dimension"]:
+        params["dimension"] = then["dimension"]
+    return reverse("dashboards/components-create") + "?" + urlencode(params)
+
+
 class MetricCreateMixin:
-    """The metric form opened from the dataset browser ("Save as metric"):
-    ``?dataset=&filter_tree=&agg=&measure=`` prefill the form, so the metric
-    is the filtered table reduced to one number. With ``then=card`` (plus
-    ``card_type`` and ``dimension``) the hand-off continues after saving to
-    the component builder, prefilled with the new metric — a grouped roll-up
-    becomes a grouped card, through a real, named metric rather than a hidden
-    one, so the KPI, the card, a goal and the history all share it."""
+    """The full metric form opened from the dataset browser ("Open the full
+    form"): ``?dataset=&filter_tree=&agg=&measure=`` prefill it
+    (:func:`browse_prefill`), so the metric is the filtered table reduced to
+    one number. With ``then=card`` (plus ``card_type`` and ``dimension``) the
+    hand-off continues after saving to the component builder, prefilled with
+    the new metric — a grouped roll-up becomes a grouped card, through a
+    real, named metric rather than a hidden one, so the KPI, the card, a
+    goal and the history all share it."""
 
     request: HttpRequest
     object: Metric
 
     def get_initial(self) -> dict[str, Any]:
-        from apps.datasets.registry import get_def, user_may_read
-
-        from .metrics import AGGS
-
         initial: dict[str, Any] = super().get_initial()  # type: ignore[misc]
-        g = self.request.GET
-        key = g.get("dataset", "").strip()
-        dfn = get_def(key) if key else None
-        if dfn is None or not user_may_read(dfn, self.request.user):
-            return initial
-        ds = get_dataset(key)
-        if ds is None:
-            return initial
-        initial.update({"source": "dataset", "dataset": key})
-        tree: Any = None
-        try:
-            tree = json.loads(g.get("filter_tree", "") or "null")
-        except ValueError:
-            tree = None
-        if isinstance(tree, dict) and tree and not ds.validate_filter_tree(tree):
-            initial["filter_tree"] = tree
-        agg = g.get("agg", "").strip()
-        if agg in dict(AGGS):
-            initial["agg"] = agg
-        measure = g.get("measure", "").strip()
-        if measure and measure in set(ds.column_names()):
-            initial["measure"] = measure
-        name = g.get("name", "").strip()
-        if not name:
-            labels = {c["name"]: c["label"] for c in ds.schema()["columns"]}
-            kept = initial.get("filter_tree")
-            reading = describe_filter_tree(kept, labels) if kept else ""
-            name = f"{dfn.label}: {reading}" if reading and len(dfn.label) + len(reading) + 2 <= 120 else dfn.label
-        initial["name"] = name[:120]
+        initial.update(browse_prefill(self.request.GET, self.request.user))
         return initial
 
     def then_card(self) -> Optional[dict[str, str]]:
         """The card to build after saving, from the query (first visit) or the
         posted hidden fields (the save), or None."""
-        src = self.request.POST if self.request.method == "POST" else self.request.GET
-        if src.get("then") != "card":
-            return None
-        ct = get_component_type(src.get("card_type", "").strip())
-        if ct is None:
-            return None
-        dimension = src.get("dimension", "").strip()
-        # Its label for the notice, when the dataset is known; the key rides along as is.
-        ds = get_dataset(src.get("dataset", "").strip()) if dimension else None
-        label = dimension
-        if ds is not None:
-            label = next((c["label"] for c in ds.schema()["columns"] if c["name"] == dimension), dimension)
-        return {"type": ct.key, "label": ct.label, "dimension": dimension, "dimension_label": label}
+        return card_handoff(self.request.POST if self.request.method == "POST" else self.request.GET)
 
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
         context: dict[str, Any] = super().get_context_data(**kwargs)  # type: ignore[misc]
@@ -1254,10 +1279,128 @@ class MetricCreateMixin:
         then = self.then_card()
         if then is None:
             return str(super().get_success_url())  # type: ignore[misc]
-        params = {"metric": self.object.key, "type": then["type"]}
-        if then["dimension"]:
-            params["dimension"] = then["dimension"]
-        return reverse("dashboards/components-create") + "?" + urlencode(params)
+        return card_builder_url(self.object, then)
+
+
+class MetricQuickView(LoginRequiredMixin, View):
+    """**Make a metric** on the dataset browser: the metric form as the global
+    modal's body, so several metrics can be made from one filtered table
+    without leaving it. GET draws the form from the browser's hand-off
+    (:func:`browse_prefill`) beside the value it would produce; the form
+    re-draws itself on change (hx-get) so the value is always of what's
+    picked. POST saves through ``MetricForm`` — the same validation, key and
+    owner rules as the full form — then draws what to do next: open it, make
+    a card, add it to goals, make another. ``then=card`` (the roll-up's card
+    links) leads to the component builder on the new metric."""
+
+    template_name = "dashboards/partials/metric_quick.html"
+    #: What the form carries that the browser's hand-off doesn't.
+    OWN_FIELDS = ("period_field", "format", "visibility")
+
+    def get(self, request: HttpRequest) -> HttpResponse:
+        values = self.values(request.GET, request.user)
+        if not values:
+            raise Http404
+        return render(request, self.template_name, self.context(request, values, request.GET))
+
+    def post(self, request: HttpRequest) -> HttpResponse:
+        from .forms import MetricForm
+
+        values = self.values(request.POST, request.user)
+        if not values:
+            raise Http404
+        data = {
+            **{k: v for k, v in values.items() if k != "filter_tree"},
+            "filter_tree": json.dumps(values.get("filter_tree") or {}),
+            "thresholds": "[]",
+            "unit": "",
+            "description": "",
+            "name": request.POST.get("name", "").strip(),
+        }
+        form = MetricForm(data=data, user=request.user)
+        if not form.is_valid():
+            context = self.context(request, {**values, "name": data["name"]}, request.POST)
+            # "__all__" can't be read in a template (a leading underscore); the form's own errors go under "all".
+            context["errors"] = {
+                ("all" if field == "__all__" else field): [str(e) for e in errs] for field, errs in form.errors.items()
+            }
+            return render(request, self.template_name, context, status=422)
+        metric = form.save()
+        context = self.context(request, values, request.POST, preview=False)
+        then = context["then"]
+        context.update(
+            saved=metric,
+            saved_result=evaluate(metric, request, period=None),
+            card_url=card_builder_url(metric, then) if then else "",
+            make_card_url=reverse("dashboards/components-create") + "?" + urlencode({"metric": metric.key}),
+        )
+        return render(request, self.template_name, context)
+
+    @classmethod
+    def values(cls, params: Any, user: Any) -> dict[str, Any]:
+        """The form's values from *params*: the browser's hand-off, checked,
+        plus the period column (a date column of the dataset, else the first
+        one — a period is what makes weeks and goals work), the format and
+        the visibility (shared for staff, who build for everyone; the browser
+        is theirs)."""
+        from .metrics import FORMATS
+
+        values = browse_prefill(params, user)
+        if not values:
+            return values
+        ds = get_dataset(values["dataset"])
+        assert ds is not None
+        dates = [f["name"] for f in ds.schema().get("filters", []) if f.get("is_date")]
+        period_field = params.get("period_field", "").strip()
+        if "period_field" in params:
+            values["period_field"] = period_field if period_field in dates else ""
+        else:
+            values["period_field"] = dates[0] if dates else ""
+        fmt = params.get("format", "").strip()
+        values["format"] = fmt if fmt in dict(FORMATS) else "number"
+        visibility = params.get("visibility", "").strip()
+        if visibility not in ("shared", "personal"):
+            visibility = "shared" if getattr(user, "is_staff", False) else "personal"
+        values["visibility"] = visibility
+        return values
+
+    def context(
+        self, request: HttpRequest, values: dict[str, Any], params: Any, *, preview: bool = True
+    ) -> dict[str, Any]:
+        from .metrics import AGGS, FORMATS
+        from .previews import preview_metric
+
+        ds = get_dataset(values["dataset"])
+        assert ds is not None
+        schema = ds.schema()
+        labels = {c["name"]: c["label"] for c in schema["columns"]}
+        tree = values.get("filter_tree") or {}
+        then = card_handoff(params)
+        # The same hand-off, for the full form and for "make another".
+        carried = ("dataset", "filter_tree", "agg", "measure", "then", "card_type", "dimension")
+        handoff = {k: params.get(k, "") for k in carried}
+        handoff = {k: v for k, v in handoff.items() if v}
+        return {
+            "values": values,
+            "tree_json": json.dumps(tree, separators=(",", ":")) if tree else "",
+            "reading": describe_filter_tree(tree, labels) if tree else "",
+            "dataset_label": schema.get("label") or values["dataset"],
+            "aggs": AGGS,
+            "formats": FORMATS,
+            "measures": [c for c in schema["columns"] if c["role"] == "measure"],
+            "date_columns": [f for f in schema.get("filters", []) if f.get("is_date")],
+            "then": then,
+            "quick_url": reverse("dashboards_metric_quick"),
+            "again_url": reverse("dashboards_metric_quick") + "?" + urlencode(handoff),
+            "full_url": reverse("dashboards/metrics-create") + "?" + urlencode(handoff),
+            "can_share": getattr(request.user, "is_staff", False),
+            "preview": (
+                preview_metric(request.user, {**values, "name": values.get("name") or "Preview"}, request=request)
+                if preview
+                else None
+            ),
+            "errors": {},
+        }
 
 
 class MetricCRUDView(_OwnedCRUD):

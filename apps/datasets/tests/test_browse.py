@@ -331,7 +331,7 @@ def test_browse_save_as_metric_carries_every_condition_and_the_rollup(client, st
     )
     assert resp.status_code == 200
     q = _query(resp.context["metric_url"])
-    assert resp.context["metric_url"].startswith(reverse("dashboards/metrics-create"))
+    assert resp.context["metric_url"].startswith(reverse("dashboards_metric_quick"))
     assert q["dataset"] == "smallstack_requests" and q["agg"] == "avg" and q["measure"] == "response_time_ms"
     kept = json.loads(q["filter_tree"])
     leaves = {(leaf["field"], leaf["op"]): leaf["value"] for leaf in kept["and"]}
@@ -349,7 +349,7 @@ def test_browse_save_as_metric_carries_every_condition_and_the_rollup(client, st
     assert cq["then"] == "card" and cq["card_type"] == "metric_group" and cq["dimension"] == "status_code"
     assert cq["filter_tree"] == q["filter_tree"] and cq["agg"] == "avg"
     html = resp.content.decode()
-    assert "Save as metric" in html and "Keep this roll-up as a card" in html
+    assert "Make a metric" in html and "Keep this roll-up as a card" in html
 
 
 def test_browse_save_as_metric_counts_rows_without_a_measure_and_offers_pie(client, staff):
@@ -372,4 +372,18 @@ def test_browse_save_as_metric_counts_rows_without_a_measure_and_offers_pie(clie
 def test_browse_offers_no_metric_when_the_tree_cannot_be_applied(client, staff):
     resp = client.get(_browse("smallstack_requests"), {"filter_tree": '{"field": "nope", "op": "=", "value": 1}'})
     assert resp.context["metric_url"] == "" and resp.context["card_links"] == []
-    assert "Save as metric" not in resp.content.decode()
+    assert "Make a metric" not in resp.content.decode()
+
+
+def test_browse_filters_apply_as_they_change(client, staff):
+    _seed()
+    html = client.get(_browse("smallstack_requests"), {**SEEDED, "group_by": "method"}).content.decode()
+    # The form hx-gets the page as it changes, taking the rows card and swapping in the rest.
+    assert 'hx-trigger="submit, change, ds-change"' in html
+    assert 'hx-select-oob="#ds-rollup,#ds-live,#ds-csv"' in html and 'hx-push-url="true"' in html
+    assert 'id="ds-rollup"' in html and 'id="ds-live"' in html and 'id="ds-csv"' in html
+    # The live count and the way to keep the rows sit together at the filters' right edge.
+    live = html.split('id="ds-live"')[1].split("</div>")[0]
+    assert "row" in live and 'data-stat-modal="Make a metric"' in live and 'hx-target="#stat-modal-body"' in live
+    # Apply is only for a browser without scripts; the card links open the same modal.
+    assert "<noscript><button" in html and 'data-stat-modal="Grouped stat card: first, the metric"' in html

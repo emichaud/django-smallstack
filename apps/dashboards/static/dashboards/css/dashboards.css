@@ -290,6 +290,36 @@ a.dash-tile:hover, a.dash-tile:focus-visible {
 .mb-help { font-size: 0.75rem; color: var(--text-muted); margin: 0; }
 /* "Save this metric, then build a card": the hand-off notice above the metric form. */
 .mf-then { margin: 0 0 0.9rem; padding: 0.55rem 0.85rem; border: 1px solid var(--card-border); border-left: 3px solid var(--primary); border-radius: 6px; background: var(--accent-band-bg); font-size: 0.82rem; }
+
+/* ── Make a metric: the dataset browser's modal (metric_quick.html) ─────── */
+.mq { padding: 1rem 1.25rem 1.1rem; font-size: 0.88rem; }
+.mq-from { margin: 0 0 0.9rem; color: var(--body-quiet-color); }
+.mq-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(11rem, 15rem); gap: 1rem 1.5rem; align-items: start; }
+@media (max-width: 720px) { .mq-grid { grid-template-columns: 1fr; } }
+.mq-fields { display: grid; gap: 0.8rem; min-width: 0; }
+.mq-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr)); gap: 0.8rem; }
+.mq-field { display: grid; gap: 0.25rem; align-content: start; min-width: 0; margin: 0; padding: 0; border: 0; }
+.mq-field > label, .mq-field > legend { margin: 0; padding: 0; font-size: 0.72rem; font-weight: 600; color: var(--body-quiet-color); }
+.mq-field .vTextField { width: 100%; margin: 0; }
+.mq-who { display: flex; flex-wrap: wrap; gap: 0.3rem 1.2rem; align-items: center; }
+.mq-who > legend { flex-basis: 100%; }
+.mq-radio { display: inline-flex; align-items: center; gap: 0.35rem; margin: 0; font-weight: 400; }
+.mq-help { margin: 0; font-size: 0.74rem; color: var(--text-muted); }
+.mq-error { margin: 0; font-size: 0.78rem; color: var(--error-fg); }
+.mq-field.has-error .vTextField { border-color: var(--error-fg); }
+.mq-preview { padding: 0.9rem 1rem; border-radius: 8px; background: var(--accent-band-bg); border: 1px solid var(--card-border); }
+.mq-value { margin: 0; font-size: 1.9rem; font-weight: 700; line-height: 1.1; color: var(--body-fg); font-feature-settings: "tnum"; overflow-wrap: anywhere; }
+.mq-value--none { color: var(--text-muted); }
+.mq-unit { font-size: 0.9rem; font-weight: 500; color: var(--body-quiet-color); }
+.mq-problem { margin: 0.3rem 0 0; font-size: 0.76rem; color: var(--warning-fg); }
+.mq-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; margin-top: 1rem; }
+.mq-full { margin-left: auto; font-size: 0.78rem; }
+.mq-refresh { display: none; }
+.mq-saved-lede { margin: 0; font-size: 1rem; }
+.mq-key { margin-left: 0.3rem; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 0.78rem; color: var(--body-quiet-color); }
+.mq-saved-value { margin: 0.4rem 0 0; font-size: 1.9rem; font-weight: 700; line-height: 1.1; font-feature-settings: "tnum"; }
+.mq-saved .mq-help { margin-top: 0.4rem; font-size: 0.82rem; }
+.mq-next { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 1rem; }
 /* The filter tree (ALL/ANY groups, conditions) is the shared editor's: datasets/css/filter-tree.css. */
 .mb-icon-btn {
     border: 1px solid var(--card-border);

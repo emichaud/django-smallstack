@@ -45,6 +45,7 @@ urlpatterns = [
         name="dashboards_metric_entry_delete",
     ),
     path("dashboards/preview-rows/", views.MetricPreviewRowsView.as_view(), name="dashboards_preview_rows"),
+    path("dashboards/metrics/quick/", views.MetricQuickView.as_view(), name="dashboards_metric_quick"),
     path("dashboards/r/<slug:slug>/", views.ReportPageView.as_view(), name="dashboards_report"),
     path("dashboards/p/<slug:slug>/", views.PlaylistPlayerView.as_view(), name="dashboards_playlist"),
     path(

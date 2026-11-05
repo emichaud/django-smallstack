@@ -49,6 +49,7 @@ Breaking-change migration recipes live in [`UPGRADING.md`](UPGRADING.md).
 - **Help links work again.** About 130 links and URLs in the bundled docs still pointed at `/help/...`, which has returned 404 since SmallStack's routes moved under `/smallstack/`. They now use `/smallstack/help/...`, and a test keeps old-prefix links out of the bundled docs.
 
 ### Added
+- **The dataset browser filters as you go, and makes metrics in place.** Filters apply as they change, with the row count at the right edge of the filter bar; Apply remains for a browser without scripts. **Make a metric** beside the count opens a modal with the filtered rows fixed: name it, say how the rows become a number, pick the period column, the format and who sees it, watch the value as you choose, save, then open it, make a card, or make another from the same rows. The roll-up's keep-as-card links go through the same modal and end on the component builder. The full metric page is a link away, prefilled. `dashboards/metrics/quick/` (`MetricQuickView`).
 - **One goal, week by week.** Every row of the week-over-week grid has a Trends button: a bar per week with its value over the 13 weeks up to the one shown, the last week's figure against the week before and the average before, the run it's on, and each week in a table. The same at `g/<slug>/goals/<goal id>/trends/?week=` as a page.
 
 ### Changed

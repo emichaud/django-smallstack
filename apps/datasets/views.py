@@ -182,20 +182,21 @@ class DatasetBrowseView(StaffRequiredMixin, TemplateView):
         *,
         blocked: bool,
     ) -> dict[str, Any]:
-        """Links into the dashboards app that carry what's on screen: **Save as
+        """Links into the dashboards app that carry what's on screen: **Make a
         metric** (the dataset, every condition as one filter tree, the roll-up's
-        aggregate) and, for a grouped roll-up, **keep as a card** (the same
-        metric, then a grouped card by the group-by column). Nothing when the
-        dashboards app isn't installed, the tree can't be applied, or the quick
-        filters can't be said as a tree (then it says why rather than offering
-        a metric that's wider than the table)."""
+        aggregate — the modal form, ``dashboards_metric_quick``) and, for a
+        grouped roll-up, **keep as a card** (the same metric, then a grouped
+        card by the group-by column). Nothing when the dashboards app isn't
+        installed, the tree can't be applied, or the quick filters can't be
+        said as a tree (then it says why rather than offering a metric that's
+        wider than the table)."""
         from django.apps import apps as django_apps
 
         out: dict[str, Any] = {"metric_url": "", "card_links": [], "keep_problem": ""}
         if blocked or not django_apps.is_installed("apps.dashboards"):
             return out
         try:
-            create_url = reverse("dashboards/metrics-create")
+            create_url = reverse("dashboards_metric_quick")
         except NoReverseMatch:
             return out
         combined = and_trees(cls._tree_from_quick_filters(schema, filters), tree)

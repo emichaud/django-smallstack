@@ -8,6 +8,8 @@
 {% block extra_css %}
 <link rel="stylesheet" href="{% static 'datasets/css/templates/browse.css' %}">
 <link rel="stylesheet" href="{% static 'datasets/css/filter-tree.css' %}">
+{% comment %}The Make-a-metric modal is drawn by the dashboards app; its styles ride along (a missing file is a harmless 404 when that app is off).{% endcomment %}
+<link rel="stylesheet" href="{% static 'dashboards/css/dashboards.css' %}">
 {% endblock %}
 
 {% block page_header %}
@@ -23,7 +25,7 @@
             <span style="color: var(--body-fg);">{{ schema.label }}</span>
         </nav>
     </div>
-    <div class="action-cards">
+    <div class="action-cards" id="ds-csv">
         {% if csv_url %}
         <a href="{{ csv_url }}" class="action-card">
             <div class="action-card-body">
@@ -49,7 +51,18 @@
     forms that mirror each other through hidden inputs lose whichever side
     the user changed last.
     {% endcomment %}
-    <form id="ds-form" class="ds-filters" method="get" action="{% url 'datasets:browse' schema.key %}">
+    {% comment %}
+    The filters apply as they change: the form hx-gets the page and takes the
+    rows card from it, with the roll-up, the live count and the CSV link
+    swapped in alongside (hx-select-oob), so the form itself — and the tree
+    editor's state — stays put. browse.js raises ds-change for what doesn't
+    bubble here: the tree editor, typing in a search box, and the roll-up
+    selects (attached with form=, outside the element). Without JS, Apply.
+    {% endcomment %}
+    <form id="ds-form" class="ds-filters" method="get" action="{% url 'datasets:browse' schema.key %}"
+          hx-get="{% url 'datasets:browse' schema.key %}" hx-trigger="submit, change, ds-change"
+          hx-target="#ds-rows" hx-select="#ds-rows" hx-swap="outerHTML" hx-select-oob="#ds-rollup,#ds-live,#ds-csv"
+          hx-push-url="true" hx-indicator="#ds-live" hx-sync="this:replace" hx-disinherit="*">
         {% if ordering %}<input type="hidden" name="ordering" value="{{ ordering }}">{% endif %}
         {% for w in widgets %}
         <div class="ds-field">
@@ -74,11 +87,15 @@
             {% endif %}
         </div>
         {% endfor %}
-        <div class="ds-actions">
-            <button type="submit" class="btn-primary btn-sm">Apply</button>
+        {% comment %}The right edge: how many rows the filters leave, and the way to keep them as a metric (the dashboards modal). Swapped in with every change.{% endcomment %}
+        <div class="ds-actions" id="ds-live" role="status">
+            <span class="ds-count"{% if tree_error %} hidden{% endif %}>{% if page_obj.total_count %}<strong>{{ page_obj.total_count }}</strong> row{{ page_obj.total_count|pluralize }}{% else %}No rows{% endif %}</span>
+            <span class="ds-count-wait" aria-hidden="true">Counting…</span>
+            {% if metric_url %}<button type="button" class="btn-outline btn-sm ds-keep-btn" hx-get="{{ metric_url }}" hx-target="#stat-modal-body" hx-swap="innerHTML" data-stat-modal="Make a metric" aria-haspopup="dialog" title="Keep these rows as one number: a metric over this dataset with every condition here">Make a metric</button>{% elif keep_problem %}<span class="ds-keep-problem" title="{{ keep_problem }}">Can't make a metric</span>{% endif %}
             {% if has_filters %}
             <a href="{% url 'datasets:browse' schema.key %}{% if group_by %}?group_by={{ group_by|urlencode }}{% if measure %}&amp;measure={{ measure|urlencode }}&amp;agg={{ agg|urlencode }}{% endif %}{% endif %}" class="btn-outline btn-sm" style="text-decoration: none;">Clear</a>
             {% endif %}
+            <noscript><button type="submit" class="btn-primary btn-sm">Apply</button></noscript>
         </div>
         {% comment %}
         More conditions: the shared filter-tree editor (datasets/js/filter-tree.js,
@@ -100,7 +117,7 @@
 {{ schema|json_script:"ds-schema" }}
 
 {% if columns %}
-<div class="card ds-card" style="margin-bottom: 16px;">
+<div class="card ds-card" style="margin-bottom: 16px;" id="ds-rollup">
     <div class="card-header" style="display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;">
         <h2>Roll-up</h2>
         <div class="ds-rollup" role="group" aria-label="Roll-up">
@@ -121,14 +138,14 @@
                 {% for val, label in agg_choices %}<option value="{{ val }}" {% if val == agg %}selected{% endif %}>{{ label }}</option>{% endfor %}
             </select>
             {% endif %}
-            <button type="submit" form="ds-form" class="btn-outline btn-sm">Roll up</button>
+            <noscript><button type="submit" form="ds-form" class="btn-outline btn-sm">Roll up</button></noscript>
         </div>
     </div>
     {% if group_by and card_links and not series_error %}
-    {% comment %}A grouped roll-up is what a grouped card draws: the links save the filtered table as a metric first, then open the component builder on that card (MetricCreateMixin's then=card).{% endcomment %}
+    {% comment %}A grouped roll-up is what a grouped card draws: each link opens the metric modal on the filtered table, and after the save leads to the component builder on that card (then=card).{% endcomment %}
     <div class="ds-keep" role="group" aria-label="Keep this roll-up as a card">
         <span class="ds-meta">Keep this roll-up as a card:</span>
-        {% for c in card_links %}<a href="{{ c.url }}" class="btn-outline btn-sm ds-keep-btn">{{ c.label }}</a>{% endfor %}
+        {% for c in card_links %}<a href="{{ c.url }}" class="btn-outline btn-sm ds-keep-btn" hx-get="{{ c.url }}" hx-target="#stat-modal-body" hx-swap="innerHTML" data-stat-modal="{{ c.label }} card: first, the metric" aria-haspopup="dialog">{{ c.label }}</a>{% endfor %}
         <span class="ds-meta ds-keep-note">Saves the filtered rows as a metric first, then builds the card from it.</span>
     </div>
     {% endif %}
@@ -169,7 +186,6 @@
         <span class="ds-meta" style="display: inline-flex; align-items: center; gap: 0.6rem; flex-wrap: wrap;">
             <span>{% if page_obj.total_count %}Showing {{ page_obj.showing_start }}–{{ page_obj.showing_end }} of {{ page_obj.total_count }}{% else %}No rows{% endif %}
             · <span class="ds-key">{{ schema.key }}</span></span>
-            {% if metric_url %}<a href="{{ metric_url }}" class="btn-outline btn-sm ds-keep-btn" title="Keep these rows as one number: a metric over this dataset with every condition above">Save as metric</a>{% elif keep_problem %}<span class="ds-keep-problem" title="{{ keep_problem }}">Can't save as a metric</span>{% endif %}
         </span>
     </div>
     <div class="card-body" style="padding: 0;">
