@@ -198,7 +198,8 @@ class DashboardIndexView(LoginRequiredMixin, TemplateView):
             "-updated_at",
             largest_first=("cards", "updated_at"),
         )
-        board_qs = Dashboard.objects.visible_to(user).select_related("owner")
+        tag = request.GET.get("tag", "").strip()
+        board_qs = Dashboard.objects.visible_to(user).active().tagged(tag).select_related("owner")
         dash_key, dash_desc = dash_order.lstrip("-"), dash_order.startswith("-")
         if dash_key == "cards":
             boards = sorted(board_qs, key=lambda d: (len(d.layout), d.name.lower()), reverse=dash_desc)[:board_limit]
@@ -215,7 +216,7 @@ class DashboardIndexView(LoginRequiredMixin, TemplateView):
         playlists_order, playlists_links = section_sort(
             request, "playlists", ("name", "round", "updated_at"), "-updated_at", largest_first=("round", "updated_at")
         )
-        playlist_qs = Playlist.objects.visible_to(user)
+        playlist_qs = Playlist.objects.visible_to(user).active().tagged(tag)
         if playlists_order.lstrip("-") == "round":
             # How long a round takes depends on the slides this viewer can open.
             timed = [(p, sum(sl["seconds"] for sl in playlist_slides(p, user))) for p in playlist_qs]
@@ -234,7 +235,7 @@ class DashboardIndexView(LoginRequiredMixin, TemplateView):
             "-updated_at",
             largest_first=("updated_at",),
         )
-        component_qs = Component.objects.visible_to(user)
+        component_qs = Component.objects.visible_to(user).active().tagged(tag)
         comp_key, comp_desc = components_order.lstrip("-"), components_order.startswith("-")
         metric_names: dict[str, str] = {}
         if comp_key == "type":
@@ -287,7 +288,11 @@ class DashboardIndexView(LoginRequiredMixin, TemplateView):
                 "component_count": component_qs.count(),
                 "components_sort": components_links,
                 # The first-run steps start from a metric, wherever they're made.
-                "metric_count": Metric.objects.visible_to(user).count(),
+                "metric_count": Metric.objects.visible_to(user).active().count(),
+                "tag": tag,
+                "archived_count": sum(
+                    m.objects.visible_to(user).archived().count() for m in (Dashboard, Playlist, Component)
+                ),
                 "can_build": bool(readable_datasets(user)),
             }
         )
@@ -394,7 +399,8 @@ class GoalsIndexView(LoginRequiredMixin, TemplateView):
         lists_order, lists_links = section_sort(
             request, "lists", ("name", "goals", "updated_at"), "-updated_at", largest_first=("goals", "updated_at")
         )
-        goal_qs = GoalList.objects.visible_to(user)
+        tag = request.GET.get("tag", "").strip()
+        goal_qs = GoalList.objects.visible_to(user).active().tagged(tag)
         goal_count = goal_qs.count()
         if lists_order.lstrip("-") == "goals":
             lists = sorted(goal_qs, key=lambda g: (len(g.goals()), g.name.lower()), reverse=lists_order.startswith("-"))
@@ -407,7 +413,7 @@ class GoalsIndexView(LoginRequiredMixin, TemplateView):
         metrics_order, metrics_links = section_sort(
             request, "metrics", ("name", "source", "value", "used"), "name", largest_first=("value", "used")
         )
-        metric_qs = Metric.objects.visible_to(user).select_related("owner")
+        metric_qs = Metric.objects.visible_to(user).active().tagged(tag).select_related("owner")
         # Where each metric is drawn, once for the whole list; ?unused=1 keeps
         # only the ones drawn nowhere — the pile to clear.
         usage = usage_index(user)
@@ -457,7 +463,7 @@ class GoalsIndexView(LoginRequiredMixin, TemplateView):
         reports_order, reports_links = section_sort(
             request, "reports", ("name", "movement", "updated_at"), "-updated_at", largest_first=("updated_at",)
         )
-        report_qs = Report.objects.visible_to(user).select_related("owner")
+        report_qs = Report.objects.visible_to(user).active().tagged(tag).select_related("owner")
         report_count = report_qs.count()
         movements: dict[int, Any] = {}
         if reports_order.lstrip("-") == "movement":
@@ -472,10 +478,14 @@ class GoalsIndexView(LoginRequiredMixin, TemplateView):
                 "metric_rows": rows,
                 "metric_count": metric_count,
                 "unused_only": unused_only,
+                "tag": tag,
+                "archived_count": sum(
+                    m.objects.visible_to(user).archived().count() for m in (GoalList, Metric, Report)
+                ),
                 "unused_count": (
                     metric_count
                     if unused_only
-                    else Metric.objects.visible_to(user).exclude(key__in=list(usage)).count()
+                    else Metric.objects.visible_to(user).active().tagged(tag).exclude(key__in=list(usage)).count()
                 ),
                 "period": period or "all",
                 "period_heading": period_heading(period).lower(),
@@ -533,7 +543,7 @@ class MyDashboardsView(LoginRequiredMixin, TemplateView):
         field = ordering.lstrip("-")
         if field not in self.SORTS:
             ordering, field = "", ""
-        qs: QuerySet = Dashboard.objects.mine(user).visible_to(user).order_by("-updated_at", "name")
+        qs: QuerySet = Dashboard.objects.mine(user).visible_to(user).active().order_by("-updated_at", "name")
         if field in ("name", "updated_at"):
             qs = apply_ordering(qs, ordering, {"name", "updated_at"})
         boards = list(qs)
@@ -610,14 +620,14 @@ class DashboardPageView(LoginRequiredMixin, TemplateView):
     def editor(dashboard: Dashboard, user: Any) -> dict[str, Any]:
         """What edit mode offers: the layout, the card types, the metrics this
         dashboard may show (shared ones, plus its owner's), and staff widgets."""
-        metrics = Metric.objects.visible_to(user)
+        metrics = Metric.objects.visible_to(user).active()
         if dashboard.owner_id is None:
             metrics = metrics.filter(owner__isnull=True)
         else:
             metrics = metrics.filter(owner__isnull=True) | metrics.filter(owner_id=dashboard.owner_id)
-        cards = Component.objects.visible_to(user).filter(owner__isnull=True)
+        cards = Component.objects.visible_to(user).active().filter(owner__isnull=True)
         if dashboard.owner_id is not None:
-            cards = cards | Component.objects.filter(owner_id=dashboard.owner_id)
+            cards = cards | Component.objects.active().filter(owner_id=dashboard.owner_id)
         return {
             "layout": dashboard.layout,
             "types": describe_types(user),
@@ -1191,6 +1201,17 @@ class _OwnedCRUD(CRUDView):
 
     @classmethod
     def get_list_queryset(cls, qs: Any, request: HttpRequest) -> Any:
+        """What the person may open — the active rows, or with ``?archived=1``
+        only the archived ones (the way back to something put away)."""
+        qs = qs.visible_to(getattr(request, "user", None)).select_related("owner")
+        archived = request.GET.get("archived") == "1" if hasattr(request, "GET") else False
+        return qs.archived() if archived else qs.active()
+
+    @classmethod
+    def get_detail_queryset(cls, qs: Any, request: HttpRequest) -> Any:
+        """One row by its key: archived or not. Archiving takes a row out of
+        lists and pickers, never away from a card that draws it, a link that
+        reaches it, or the page where it's restored."""
         return qs.visible_to(getattr(request, "user", None)).select_related("owner")
 
     @classmethod
@@ -1470,6 +1491,7 @@ class MetricCRUDView(_OwnedCRUD):
         "format",
         "unit",
         "thresholds",
+        "tags",
     ]
     list_fields = ["name", "key", "source", "dataset", "agg", "owner", "updated_at"]
     link_field = "name"
@@ -1477,7 +1499,7 @@ class MetricCRUDView(_OwnedCRUD):
     url_base = "dashboards/metrics"
     view_mixins = {Action.CREATE: [MetricCreateMixin], Action.DELETE: [MetricDeleteMixin]}
     displays = [MetricLibraryDisplay, TableDisplay]
-    search_fields = ["name", "key", "description", "dataset"]
+    search_fields = ["name", "key", "description", "dataset", "tags"]
     ordering_fields = ["name", "key", "dataset", "updated_at"]
     breadcrumb_parent = ("Goals", "goals_index")
     mcp_singular = "metric"
@@ -1539,6 +1561,7 @@ class DashboardCRUDView(_OwnedCRUD):
         "default_period",
         "refresh_seconds",
         "layout",
+        "tags",
     ]
     list_fields = ["name", "slug", "default_period", "owner", "updated_at"]
     link_field = "name"
@@ -1546,7 +1569,7 @@ class DashboardCRUDView(_OwnedCRUD):
     url_base = "dashboards/boards"
     view_mixins = {Action.DELETE: [DashboardDeleteMixin]}
     displays = [DashboardLibraryDisplay, TableDisplay]
-    search_fields = ["name", "slug", "description"]
+    search_fields = ["name", "slug", "description", "tags"]
     ordering_fields = ["name", "slug", "updated_at"]
     mcp_singular = "dashboard"
     mcp_plural = "dashboards"
@@ -1563,14 +1586,14 @@ class DashboardCRUDView(_OwnedCRUD):
 class ReportCRUDView(_OwnedCRUD):
     model = Report
     form_class = ReportForm
-    fields = ["name", "slug", "description", "items", "periods"]
+    fields = ["name", "slug", "description", "items", "periods", "tags"]
     list_fields = ["name", "slug", "periods", "owner", "updated_at"]
     link_field = "name"
     field_transforms = {"owner": _owner_cell, "updated_at": "localtime"}
     url_base = "dashboards/reports"
     view_mixins = {Action.DELETE: [ReportDeleteMixin]}
     displays = [ReportLibraryDisplay, TableDisplay]
-    search_fields = ["name", "slug", "description"]
+    search_fields = ["name", "slug", "description", "tags"]
     ordering_fields = ["name", "slug", "updated_at"]
     breadcrumb_parent = ("Goals", "goals_index")
     mcp_singular = "report"
@@ -1585,13 +1608,13 @@ class ReportCRUDView(_OwnedCRUD):
 class PlaylistCRUDView(_OwnedCRUD):
     model = Playlist
     form_class = PlaylistForm
-    fields = ["name", "slug", "description", "items", "seconds", "loop", "auto_start"]
+    fields = ["name", "slug", "description", "items", "seconds", "loop", "auto_start", "tags"]
     list_fields = ["name", "slug", "seconds", "owner", "updated_at"]
     link_field = "name"
     field_transforms = {"owner": _owner_cell, "updated_at": "localtime"}
     url_base = "dashboards/playlists"
     displays = [PlaylistLibraryDisplay, TableDisplay]
-    search_fields = ["name", "slug", "description"]
+    search_fields = ["name", "slug", "description", "tags"]
     ordering_fields = ["name", "slug", "seconds", "updated_at"]
     breadcrumb_parent = ("Dashboards", "dashboards_index")
     mcp_singular = "playlist"
@@ -1654,14 +1677,14 @@ class GoalListCRUDView(_OwnedCRUD):
 
     model = GoalList
     form_class = GoalListForm
-    fields = ["name", "slug", "description", "default_period", "sections"]
+    fields = ["name", "slug", "description", "default_period", "sections", "tags"]
     list_fields = ["name", "slug", "default_period", "owner", "updated_at"]
     link_field = "name"
     field_transforms = {"owner": _owner_cell, "updated_at": "localtime"}
     url_base = "dashboards/goals"
     view_mixins = {Action.CREATE: [_GoalListSavedMixin], Action.UPDATE: [_GoalListSavedMixin]}
     displays = [GoalListLibraryDisplay, TableDisplay]
-    search_fields = ["name", "slug", "description"]
+    search_fields = ["name", "slug", "description", "tags"]
     ordering_fields = ["name", "slug", "default_period", "updated_at"]
     breadcrumb_parent = ("Goals", "goals_index")
     mcp_singular = "goal_list"
@@ -2070,6 +2093,45 @@ class GoalWeeksTrendView(LoginRequiredMixin, View):
         return render(request, template, {"goal_list": goal_list, "trend": trend})
 
 
+#: What the archive button can put away, by the word in its URL.
+ARCHIVABLE: dict[str, type[OwnedModel]] = {
+    "metric": Metric,
+    "dashboard": Dashboard,
+    "component": Component,
+    "playlist": Playlist,
+    "report": Report,
+    "goals": GoalList,
+}
+
+
+class ArchiveToggleView(LoginRequiredMixin, View):
+    """POST ``archive/<kind>/<pk>/``: archive the row, or with ``restore=1``
+    bring it back. Editors only. An archived row leaves every list and
+    picker but is still drawn wherever it's referred to, so nothing breaks
+    and nothing is lost. Back to ``next`` (on this site) or the row's page."""
+
+    def post(self, request: HttpRequest, kind: str, pk: int) -> HttpResponse:
+        from django.utils.http import url_has_allowed_host_and_scheme
+
+        model = ARCHIVABLE.get(kind)
+        if model is None:
+            raise Http404
+        obj = get_object_or_404(model, pk=pk)
+        if not obj.can_edit(request.user):
+            raise Http404
+        restore = request.POST.get("restore") == "1"
+        obj.set_archived(not restore)
+        name = getattr(obj, "name", str(obj))
+        messages.success(request, f"Restored {name}." if restore else f"Archived {name}. It stays wherever it's used.")
+        back = request.POST.get("next", "")
+        safe = url_has_allowed_host_and_scheme(
+            back, allowed_hosts={request.get_host()}, require_https=request.is_secure()
+        )
+        if not safe:
+            back = obj.get_absolute_url() if hasattr(obj, "get_absolute_url") else reverse("dashboards_index")
+        return redirect(back)
+
+
 class GoalWeekSnapshotView(LoginRequiredMixin, View):
     """POST: take (or retake) the week's snapshot — or, with ``fill=<n>``,
     snapshot the past *n* weeks that don't have one. Needs edit rights on
@@ -2241,14 +2303,14 @@ class ComponentCRUDView(_OwnedCRUD):
 
     model = Component
     form_class = ComponentForm
-    fields = ["name", "description", "type", "metric", "options"]
+    fields = ["name", "description", "type", "metric", "options", "tags"]
     list_fields = ["name", "type", "metric", "owner", "updated_at"]
     link_field = "name"
     field_transforms = {"owner": _owner_cell, "updated_at": "localtime"}
     url_base = "dashboards/components"
     view_mixins = {Action.CREATE: [ComponentCreateMixin]}
     displays = [ComponentLibraryDisplay, ComponentCardsDisplay]
-    search_fields = ["name", "key", "description", "metric", "type"]
+    search_fields = ["name", "key", "description", "metric", "type", "tags"]
     ordering_fields = ["name", "type", "metric", "updated_at"]
     api_extra_fields = ["key", "visibility", "owner", "created_by", "created_at", "updated_at"]
     mcp_singular = "component"

@@ -25,6 +25,7 @@
 {% endblock %}
 
 {% block content %}
+{% include "dashboards/partials/tag_filter.html" %}
 <div id="dx-page">
 {% if not dashboard_count and not metric_count and not playlist_count %}
 {# ── First run: the real order of work ── #}
@@ -96,6 +97,7 @@
                     <td class="gx-name-cell">
                         <a href="{{ d.get_absolute_url }}" class="gx-name">{{ d.name }}</a>
                         {% if d.is_shared %}<span class="dash-badge dash-badge--shared">Shared</span>{% else %}<span class="dash-badge">Personal</span>{% endif %}
+                        {% include "dashboards/partials/tags.html" with obj=d base=request.path %}
                         {% if d.description %}<span class="gx-sub" title="{{ d.description }}">{{ d.description }}</span>{% endif %}
                     </td>
                     <td class="gx-num">{{ lp.cells|length }}</td>
@@ -156,7 +158,7 @@
             {% for row in playlists %}{% with p=row.playlist %}
                 <tr>
                     <td><a href="{{ p.get_absolute_url }}" class="ix-pl-strip" tabindex="-1" aria-hidden="true">{% for s in row.strip %}{% include "dashboards/includes/slide_frame.html" with s=s %}{% empty %}<span class="pll-frame pll-frame--empty">Empty</span>{% endfor %}</a></td>
-                    <td class="gx-name-cell"><a href="{{ p.get_absolute_url }}" class="gx-name">{{ p.name }}</a>{% if not p.is_shared %} <span class="dash-badge">Personal</span>{% endif %}{% if p.description %}<span class="gx-sub" title="{{ p.description }}">{{ p.description }}</span>{% endif %}</td>
+                    <td class="gx-name-cell"><a href="{{ p.get_absolute_url }}" class="gx-name">{{ p.name }}</a>{% if not p.is_shared %} <span class="dash-badge">Personal</span>{% endif %} {% include "dashboards/partials/tags.html" with obj=p base=request.path %}{% if p.description %}<span class="gx-sub" title="{{ p.description }}">{{ p.description }}</span>{% endif %}</td>
                     <td>{% if row.count %}{{ row.count }} slide{{ row.count|pluralize }}, about {{ row.round }} a round{% if p.loop %}, loops{% endif %}{% else %}No dashboards you can open yet{% endif %}</td>
                     <td class="gx-num"><time datetime="{{ p.updated_at|date:'c' }}">{{ p.updated_at|date:"M j" }}</time></td>
                     <td class="gx-actions">{% if row.count %}<a href="{{ p.get_absolute_url }}?play=1" class="ix-play" aria-label="Play {{ p.name }}">Play</a>{% endif %}</td>
@@ -192,7 +194,7 @@
             <tbody>
             {% for row in components %}{% with c=row.component %}
                 <tr>
-                    <td class="gx-name-cell">{% if row.url %}<a href="{{ row.url }}" class="gx-name">{{ c.name }}</a>{% else %}<span class="gx-name-plain">{{ c.name }}</span>{% endif %}{% if not c.is_shared %} <span class="dash-badge">Personal</span>{% endif %}</td>
+                    <td class="gx-name-cell">{% if row.url %}<a href="{{ row.url }}" class="gx-name">{{ c.name }}</a>{% else %}<span class="gx-name-plain">{{ c.name }}</span>{% endif %}{% if not c.is_shared %} <span class="dash-badge">Personal</span>{% endif %} {% include "dashboards/partials/tags.html" with obj=c base=request.path %}</td>
                     <td><span class="cl-type"><span class="cl-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="{{ row.icon|default:'M4 4h16v16H4z' }}"/></svg></span>{{ row.type_label }}</span></td>
                     <td>{% if row.metric_name %}{{ row.metric_name }}{% else %}<span class="dash-muted">No metric</span>{% endif %}</td>
                     <td class="gx-num"><time datetime="{{ c.updated_at|date:'c' }}">{{ c.updated_at|date:"M j" }}</time></td>

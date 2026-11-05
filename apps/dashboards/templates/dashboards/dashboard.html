@@ -55,6 +55,7 @@
         </span>
         {% if can_edit %}
         <span class="dash-view-only">
+            {% include "dashboards/partials/archive_button.html" with kind="dashboard" obj=dashboard %}
             <a href="{% url 'dashboards/boards-update' dashboard.pk %}" class="btn-outline btn-sm">Settings</a>
             <button type="button" class="btn-primary btn-sm" id="dash-edit">Edit layout</button>
         </span>

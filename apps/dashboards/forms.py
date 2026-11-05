@@ -63,6 +63,15 @@ class _OwnedForm(forms.ModelForm):
             self.initial.setdefault("visibility", "shared" if instance.owner_id is None else "personal")
         if not getattr(user, "is_staff", False):
             self.fields["visibility"].help_text = "Only staff can share."
+        if "tags" in self.fields:
+            self.fields["tags"].widget = forms.TextInput(
+                attrs={"class": "vTextField", "placeholder": "ops, weekly review", "autocomplete": "off"}
+            )
+
+    def clean_tags(self) -> str:
+        from .models import join_tags, split_tags
+
+        return join_tags(split_tags(self.cleaned_data.get("tags")))
 
     def clean(self) -> dict[str, Any]:
         cleaned = super().clean()
@@ -116,6 +125,7 @@ class MetricForm(_OwnedForm):
             "format",
             "unit",
             "thresholds",
+            "tags",
         ]
         widgets = {
             "name": forms.TextInput(attrs={"class": "vTextField"}),
@@ -139,7 +149,7 @@ class MetricForm(_OwnedForm):
         self.fields["source"].required = False
         parts = [
             (m.key, m.name)
-            for m in Metric.objects.visible_to(user).exclude(source=SOURCE_RATE).exclude(pk=self.instance.pk)
+            for m in Metric.objects.visible_to(user).active().exclude(source=SOURCE_RATE).exclude(pk=self.instance.pk)
         ]
         self.fields["numerator"].widget = forms.Select(choices=[("", "— pick a metric —"), *parts])
         self.fields["denominator"].widget = forms.Select(choices=[("", "— pick a metric —"), *parts])
@@ -209,6 +219,7 @@ class DashboardForm(_OwnedForm):
             "default_period",
             "refresh_seconds",
             "layout",
+            "tags",
         ]
         widgets = {
             "name": forms.TextInput(attrs={"class": "vTextField"}),
@@ -283,7 +294,7 @@ class ReportForm(_OwnedForm):
 
     class Meta:
         model = Report
-        fields = ["name", "slug", "description", "items", "periods"]
+        fields = ["name", "slug", "description", "items", "periods", "tags"]
         widgets = {
             "name": forms.TextInput(attrs={"class": "vTextField"}),
             "slug": forms.TextInput(attrs={"class": "vTextField", "spellcheck": "false"}),
@@ -306,7 +317,7 @@ class ReportForm(_OwnedForm):
 class PlaylistForm(_OwnedForm):
     class Meta:
         model = Playlist
-        fields = ["name", "slug", "description", "items", "seconds", "loop", "auto_start"]
+        fields = ["name", "slug", "description", "items", "seconds", "loop", "auto_start", "tags"]
         widgets = {
             "name": forms.TextInput(attrs={"class": "vTextField"}),
             "slug": forms.TextInput(attrs={"class": "vTextField", "spellcheck": "false"}),
@@ -331,7 +342,7 @@ class GoalListForm(_OwnedForm):
 
     class Meta:
         model = GoalList
-        fields = ["name", "slug", "description", "default_period", "sections"]
+        fields = ["name", "slug", "description", "default_period", "sections", "tags"]
         widgets = {
             "name": forms.TextInput(attrs={"class": "vTextField"}),
             "slug": forms.TextInput(attrs={"class": "vTextField", "spellcheck": "false"}),
@@ -453,10 +464,10 @@ def goal_editor_data(user: Any, owner_id: Any) -> dict[str, Any]:
     from .goals import scales_with_time, suggest_target
 
     allowed = Q(owner__isnull=True) | Q(owner_id=owner_id) if owner_id else Q(owner__isnull=True)
-    metrics = list(Metric.objects.visible_to(user).filter(allowed).order_by("name"))
+    metrics = list(Metric.objects.visible_to(user).active().filter(allowed).order_by("name"))
     by_key = {m.key: m for m in metrics}
     cards = []
-    for c in Component.objects.visible_to(user).filter(allowed).order_by("name"):
+    for c in Component.objects.visible_to(user).active().filter(allowed).order_by("name"):
         ct = get_component_type(c.type)
         if ct is not None and ct.single_value:
             m = by_key.get(c.metric)
@@ -496,7 +507,7 @@ def playlist_dashboard_choices(user: Any) -> list[dict[str, Any]]:
     shared playlist (``normalize_items`` enforces the same rule)."""
     return [
         {"slug": d.slug, "name": d.name, "shared": d.owner_id is None, "mine": d.owner_id == getattr(user, "pk", None)}
-        for d in Dashboard.objects.visible_to(user).order_by("name")
+        for d in Dashboard.objects.visible_to(user).active().order_by("name")
         if d.owner_id is None or d.owner_id == getattr(user, "pk", None)
     ]
 
@@ -506,7 +517,7 @@ def playlist_goal_choices(user: Any) -> list[dict[str, Any]]:
     :func:`playlist_dashboard_choices`."""
     return [
         {"slug": g.slug, "name": g.name, "shared": g.owner_id is None, "mine": g.owner_id == getattr(user, "pk", None)}
-        for g in GoalList.objects.visible_to(user).order_by("name")
+        for g in GoalList.objects.visible_to(user).active().order_by("name")
         if g.owner_id is None or g.owner_id == getattr(user, "pk", None)
     ]
 
@@ -518,7 +529,7 @@ class ComponentForm(_OwnedForm):
 
     class Meta:
         model = Component
-        fields = ["name", "description", "type", "metric", "options"]
+        fields = ["name", "description", "type", "metric", "options", "tags"]
         widgets = {
             "name": forms.TextInput(attrs={"class": "vTextField"}),
             "description": forms.Textarea(attrs={"rows": 2, "class": "vTextField"}),
@@ -565,7 +576,7 @@ def builder_payload(user: Any, owner_id: Any) -> dict[str, Any]:
     from django.db.models import Q
 
     allowed = Q(owner__isnull=True) | Q(owner_id=owner_id) if owner_id else Q(owner__isnull=True)
-    metrics = Metric.objects.visible_to(user).filter(allowed)
+    metrics = Metric.objects.visible_to(user).active().filter(allowed)
     caps: dict[str, list[str]] = {}
     out = []
     for m in metrics.order_by("name"):

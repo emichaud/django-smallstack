@@ -1,0 +1,7 @@
+{% comment %}At the top of an overview: the tag it's narrowed to (?tag=), with the way to clear it; and how many rows are archived, with the way to them. Both overviews include it.{% endcomment %}
+{% if tag or archived_count %}
+<p class="ix-tag-filter" role="status">
+    {% if tag %}Showing what's tagged <span class="dash-tag is-current">{{ tag }}</span> <a href="?" class="ix-tag-clear">Show everything</a>{% endif %}
+    {% if archived_count %}<span class="ix-archived-note">{% if tag %}· {% endif %}{{ archived_count }} archived: {% if request.resolver_match.url_name == "goals_index" %}<a href="{% url 'dashboards/metrics-list' %}?archived=1">metrics</a>, <a href="{% url 'dashboards/goals-list' %}?archived=1">goal lists</a>, <a href="{% url 'dashboards/reports-list' %}?archived=1">reports</a>{% else %}<a href="{% url 'dashboards/boards-list' %}?archived=1">dashboards</a>, <a href="{% url 'dashboards/playlists-list' %}?archived=1">playlists</a>, <a href="{% url 'dashboards/components-list' %}?archived=1">cards</a>{% endif %}</span>{% endif %}
+</p>
+{% endif %}

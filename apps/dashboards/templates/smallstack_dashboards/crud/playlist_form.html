@@ -54,6 +54,12 @@
                         <label for="{{ form.description.id_for_label }}">Description <span class="dash-muted">(optional)</span></label>
                         {{ form.description }}
                     </div>
+                    <div class="mb-field{% if form.tags.errors %} has-error{% endif %}">
+                        <label for="{{ form.tags.id_for_label }}">Tags <span class="dash-muted">(optional)</span></label>
+                        {{ form.tags }}
+                        {% for e in form.tags.errors %}<p class="crud-error">{{ e }}</p>{% endfor %}
+                        <p class="mb-help">Labels, comma-separated — ops, weekly review. The overviews narrow to one.</p>
+                    </div>
                 </div>
             </div>
 

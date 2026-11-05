@@ -61,10 +61,10 @@ class MetricLibraryDisplay(ListDisplay):
 
         on_boards: dict[str, list[str]] = {}
         in_reports: dict[str, list[str]] = {}
-        for d in Dashboard.objects.visible_to(user):
+        for d in Dashboard.objects.visible_to(user).active():
             for key in d.metric_keys():
                 on_boards.setdefault(key, []).append(d.name)
-        for r in Report.objects.visible_to(user):
+        for r in Report.objects.visible_to(user).active():
             for key in set(r.metric_keys()):
                 in_reports.setdefault(key, []).append(r.name)
 

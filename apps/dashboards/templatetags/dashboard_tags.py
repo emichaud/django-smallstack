@@ -452,7 +452,7 @@ def component_builder_data(user: Any, component: Any) -> dict[str, Any]:
     data["palette"] = [{"group": g, "types": groups[g]} for g in order]
     used = []
     if getattr(component, "pk", None):
-        for board in Dashboard.objects.visible_to(user).order_by("name"):
+        for board in Dashboard.objects.visible_to(user).active().order_by("name"):
             if any(isinstance(c, dict) and c.get("component") == component.key for c in board.layout or []):
                 used.append({"name": board.name, "url": board.get_absolute_url()})
     data["used_on"] = used

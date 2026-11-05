@@ -82,6 +82,41 @@ class OwnedQuerySet(models.QuerySet):
             return self.filter(models.Q(owner__isnull=True) | models.Q(owner=user))
         return self.filter(owner=user)
 
+    def active(self) -> "OwnedQuerySet":
+        """Not archived: what lists and pickers show. Anything that *refers*
+        to a row (a card drawing a metric) reads it whether archived or not."""
+        return self.filter(archived_at__isnull=True)
+
+    def archived(self) -> "OwnedQuerySet":
+        return self.filter(archived_at__isnull=False)
+
+    def tagged(self, tag: str) -> "OwnedQuerySet":
+        """Rows carrying *tag* — the whole tag, any case; "ops" doesn't match
+        "devops"."""
+        import re
+
+        tag = tag.strip()
+        if not tag:
+            return self
+        return self.filter(tags__iregex=r"(^|,\s*)" + re.escape(tag) + r"(\s*,|$)")
+
+
+def split_tags(text: Any) -> list[str]:
+    """``"Ops, weekly review, ops"`` → ``["Ops", "weekly review"]``: trimmed,
+    empties dropped, repeats (any case) dropped after the first."""
+    seen: set[str] = set()
+    out: list[str] = []
+    for raw in str(text or "").split(","):
+        tag = " ".join(raw.split())
+        if tag and tag.lower() not in seen:
+            seen.add(tag.lower())
+            out.append(tag)
+    return out
+
+
+def join_tags(tags: list[str]) -> str:
+    return ", ".join(tags)
+
 
 class OwnedModel(models.Model):
     owner = models.ForeignKey(
@@ -103,6 +138,18 @@ class OwnedModel(models.Model):
     )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    tags = models.CharField(
+        max_length=200,
+        blank=True,
+        default="",
+        help_text="Labels, comma-separated — ops, weekly review. The overviews filter by one.",
+    )
+    archived_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        editable=False,
+        help_text="Set when archived: out of lists and pickers, still drawn wherever it's referred to.",
+    )
 
     objects = OwnedQuerySet.as_manager()
 
@@ -110,6 +157,19 @@ class OwnedModel(models.Model):
     def visibility(self) -> str:
         """``shared`` or ``personal``, in the words the forms and tools take."""
         return "personal" if self.owner_id else "shared"
+
+    @property
+    def tag_list(self) -> list[str]:
+        return split_tags(self.tags)
+
+    @property
+    def is_archived(self) -> bool:
+        return self.archived_at is not None
+
+    def set_archived(self, archived: bool) -> None:
+        """Archive or restore, saving only that column."""
+        self.archived_at = timezone.now() if archived else None
+        self.save(update_fields=["archived_at"])
 
     class Meta:
         abstract = True
@@ -941,23 +1001,26 @@ def metric_usage(metric: Metric, user: Any) -> dict[str, Any]:
     ``locked`` counts the places the user can't edit (they'd keep a broken
     card or row if the metric is deleted)."""
     boards = []
-    for d in Dashboard.objects.visible_to(user).order_by("name"):
+    for d in Dashboard.objects.visible_to(user).active().order_by("name"):
         n = sum(1 for c in d.layout if isinstance(c, dict) and c.get("metric") == metric.key)
         if n:
             boards.append({"obj": d, "cards": n, "can_edit": d.can_edit(user)})
     reports = []
-    for r in Report.objects.visible_to(user).order_by("name"):
+    for r in Report.objects.visible_to(user).active().order_by("name"):
         n = r.metric_keys().count(metric.key)
         if n:
             reports.append({"obj": r, "rows": n, "can_edit": r.can_edit(user)})
     goal_lists = []
-    for g in GoalList.objects.visible_to(user).order_by("name"):
+    for g in GoalList.objects.visible_to(user).active().order_by("name"):
         n = sum(1 for goal in g.goals() if goal.get("metric") == metric.key)
         if n:
             goal_lists.append({"obj": g, "goals": n, "can_edit": g.can_edit(user)})
-    components = [c for c in Component.objects.visible_to(user).filter(metric=metric.key).order_by("name")]
+    components = [
+        c for c in Component.objects.visible_to(user).active().filter(metric=metric.key).order_by("name")
+    ]
     rates = list(
         Metric.objects.visible_to(user)
+        .active()
         .filter(source=SOURCE_RATE)
         .filter(models.Q(numerator=metric.key) | models.Q(denominator=metric.key))
         .order_by("name")
@@ -990,19 +1053,23 @@ def usage_index(user: Any) -> dict[str, dict[str, int]]:
         row = counts.setdefault(key, {"boards": 0, "reports": 0, "goal_lists": 0, "components": 0, "rates": 0})
         row[where] += 1
 
-    for d in Dashboard.objects.visible_to(user).only("layout", "owner_id", "created_by_id"):
+    # An archived board or report doesn't count: archiving it frees its metrics.
+    for d in Dashboard.objects.visible_to(user).active().only("layout", "owner_id", "created_by_id"):
         for key in {c.get("metric") for c in d.layout if isinstance(c, dict)}:
             hit(key, "boards")
-    for r in Report.objects.visible_to(user).only("items", "owner_id", "created_by_id"):
+    for r in Report.objects.visible_to(user).active().only("items", "owner_id", "created_by_id"):
         for key in set(r.metric_keys()):
             hit(key, "reports")
-    for g in GoalList.objects.visible_to(user).only("sections", "owner_id", "created_by_id"):
+    for g in GoalList.objects.visible_to(user).active().only("sections", "owner_id", "created_by_id"):
         for key in {goal.get("metric") for goal in g.goals()}:
             hit(key, "goal_lists")
-    for key in Component.objects.visible_to(user).exclude(metric="").values_list("metric", flat=True):
+    for key in Component.objects.visible_to(user).active().exclude(metric="").values_list("metric", flat=True):
         hit(key, "components")
     for num, den in (
-        Metric.objects.visible_to(user).filter(source=SOURCE_RATE).values_list("numerator", "denominator")
+        Metric.objects.visible_to(user)
+        .active()
+        .filter(source=SOURCE_RATE)
+        .values_list("numerator", "denominator")
     ):
         for key in {num, den}:
             hit(key, "rates")
@@ -1019,9 +1086,9 @@ def same_metrics(user: Any, dataset: str, filter_tree: Any, agg: str, measure: s
     wanted = _canonical_tree(filter_tree or {})
     return [
         m
-        for m in Metric.objects.visible_to(user).filter(
-            source=SOURCE_DATASET, dataset=dataset, agg=agg or "count", measure=measure or ""
-        )
+        for m in Metric.objects.visible_to(user)
+        .active()
+        .filter(source=SOURCE_DATASET, dataset=dataset, agg=agg or "count", measure=measure or "")
         if _canonical_tree(m.filter_tree or {}) == wanted
     ]
 

@@ -33,6 +33,24 @@
     background: color-mix(in srgb, var(--primary) 15%, var(--card-bg));
     color: var(--primary);
 }
+/* tags: a row's labels as chips, each a link narrowing the overview to it */
+.dash-tag, a.dash-tag:link, a.dash-tag:visited {
+    display: inline-block; margin: 0 0.15rem 0 0; padding: 1px 7px; border-radius: 999px;
+    font-size: 0.68rem; font-weight: 500; line-height: 1.4; text-decoration: none;
+    color: var(--body-quiet-color); background: var(--card-bg); border: 1px solid var(--card-border);
+}
+a.dash-tag:hover, a.dash-tag:focus-visible, .dash-tag.is-current { color: var(--primary); border-color: var(--primary); background: var(--accent-band-bg); }
+.dash-archived {
+    display: inline-block; padding: 1px 7px; border-radius: 4px; font-size: 0.68rem; font-weight: 650; letter-spacing: 0.02em;
+    color: var(--body-quiet-color); background: color-mix(in srgb, var(--body-fg) 10%, var(--card-bg));
+}
+.ix-tag-filter { display: flex; flex-wrap: wrap; align-items: center; gap: 0.3rem 0.5rem; margin: 0 0 1rem; font-size: 0.85rem; color: var(--body-quiet-color); }
+.ix-tag-filter .dash-tag { font-size: 0.78rem; }
+.ix-archived-note a { color: var(--link-color); }
+.dash-archive-form { display: inline; margin: 0; }
+/* a <button> doesn't inherit the page font; match the links beside it */
+.dash-archive-form .btn-outline { font-family: inherit; font-size: 0.85rem; line-height: 1.5; padding: 7px 14px; }
+.page-header-with-actions .dash-archived { align-self: center; }
 
 /* ── grid + cells ────────────────────────────────────────────────────── */
 .grid-stack { min-height: 120px; }

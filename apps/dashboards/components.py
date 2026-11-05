@@ -836,7 +836,7 @@ MAX_CARD_GOALS = 10
 def _goal_list_choices(user: Any) -> list[list[str]]:
     from .models import GoalList
 
-    return [[g.slug, g.name] for g in GoalList.objects.visible_to(user).order_by("name")]
+    return [[g.slug, g.name] for g in GoalList.objects.visible_to(user).active().order_by("name")]
 
 
 def _validate_goals(cell: dict[str, Any]) -> list[str]:

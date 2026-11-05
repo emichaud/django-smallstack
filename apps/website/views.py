@@ -141,8 +141,8 @@ def starter_dashboard_view(request: HttpRequest) -> HttpResponse:
     dashboards. Renders the seeded demo if it exists (``seed_dashboards``)."""
     from apps.dashboards.models import Dashboard, Metric
 
-    board = Dashboard.objects.visible_to(request.user).order_by("name").first()
-    metrics = list(Metric.objects.visible_to(request.user).exclude(period_field="").order_by("name")[:3])
+    board = Dashboard.objects.visible_to(request.user).active().order_by("name").first()
+    metrics = list(Metric.objects.visible_to(request.user).active().exclude(period_field="").order_by("name")[:3])
     return render(request, "starter/dashboard.html", {"board": board, "metrics": metrics})
 
 

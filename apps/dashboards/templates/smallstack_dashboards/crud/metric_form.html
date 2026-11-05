@@ -62,6 +62,12 @@
                         {{ form.description }}
                         <p class="mb-help">What this number means and why it matters. It's shown on the metric's page.</p>
                     </div>
+                    <div class="mb-field{% if form.tags.errors %} has-error{% endif %}">
+                        <label for="{{ form.tags.id_for_label }}">Tags <span class="dash-muted">(optional)</span></label>
+                        {{ form.tags }}
+                        {% for e in form.tags.errors %}<p class="crud-error">{{ e }}</p>{% endfor %}
+                        <p class="mb-help">Labels, comma-separated — ops, weekly review. The overviews narrow to one.</p>
+                    </div>
                     <div class="mb-field">
                         <span class="mf-label" id="mf-source-title">Where the number comes from</span>
                         <div class="df-chips" role="radiogroup" aria-labelledby="mf-source-title" style="margin-top: 0;">

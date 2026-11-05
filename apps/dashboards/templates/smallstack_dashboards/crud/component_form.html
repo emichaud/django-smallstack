@@ -159,6 +159,12 @@ number of dashboards; an edit reaches all of them.
                         <label for="{{ form.description.id_for_label }}">Description <span class="dash-muted">(optional)</span></label>
                         {{ form.description }}
                     </div>
+                    <div class="mb-field{% if form.tags.errors %} has-error{% endif %}">
+                        <label for="{{ form.tags.id_for_label }}">Tags <span class="dash-muted">(optional)</span></label>
+                        {{ form.tags }}
+                        {% for e in form.tags.errors %}<p class="crud-error">{{ e }}</p>{% endfor %}
+                        <p class="mb-help">Labels, comma-separated — ops, weekly review. The overviews narrow to one.</p>
+                    </div>
                     {% with current=form.visibility.value|default:"personal" %}
                     <label class="plf-check"><input type="radio" name="{{ form.visibility.html_name }}" value="personal"{% if current == "personal" %} checked{% endif %}> <span><strong>Personal.</strong> Only you can place and edit it.</span></label>
                     <label class="plf-check"><input type="radio" name="{{ form.visibility.html_name }}" value="shared"{% if current == "shared" %} checked{% endif %}{% if not request.user.is_staff %} disabled{% endif %}> <span><strong>Shared.</strong> {% if request.user.is_staff %}Anyone can place it on a dashboard; staff edit it. It can only draw shared metrics.{% else %}Only staff can share a card.{% endif %}</span></label>

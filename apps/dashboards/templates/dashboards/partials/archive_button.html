@@ -1,0 +1,14 @@
+{% comment %}Archive or restore an owned row (ArchiveToggleView): `kind` (metric, dashboard, component, playlist, report, goals) and `obj`. Shown to editors beside the page's other actions; an archived row is marked first so the page says what it is.{% endcomment %}
+{% if obj.is_archived %}<span class="dash-archived" title="Out of lists and pickers; still drawn wherever it's used">Archived</span>{% endif %}
+{% if obj.pk %}
+<form method="post" action="{% url 'dashboards_archive' kind obj.pk %}" class="dash-archive-form">
+    {% csrf_token %}
+    <input type="hidden" name="next" value="{{ request.get_full_path }}">
+    {% if obj.is_archived %}
+    <input type="hidden" name="restore" value="1">
+    <button type="submit" class="btn-outline btn-sm">Restore</button>
+    {% else %}
+    <button type="submit" class="btn-outline btn-sm" title="Take it out of lists and pickers. Anything that uses it keeps working, and it can be restored.">Archive</button>
+    {% endif %}
+</form>
+{% endif %}
