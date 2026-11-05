@@ -10,12 +10,18 @@
     min-height: 0;
 }
 .ds-filters .ds-actions { display: flex; gap: 8px; align-items: center; margin-left: auto; }
-/* The live count at the right edge; "Counting…" shows while a request is out. */
-.ds-count { font-size: 0.82rem; color: var(--body-quiet-color); white-space: nowrap; }
-.ds-count strong { color: var(--body-fg); font-feature-settings: "tnum"; }
-.ds-count-wait { display: none; font-size: 0.78rem; color: var(--text-muted); white-space: nowrap; }
+/* The live count at the right edge, read like a stat: the number large and
+ * bold with "rows" beside it, and what to do with the rows beneath. "…
+ * counting" shows while a request is out. */
+.ds-filters .ds-live { flex-direction: column; align-items: flex-end; gap: 6px; align-self: stretch; justify-content: flex-end; padding-left: 16px; }
+.ds-count { display: flex; align-items: baseline; gap: 0.4rem; margin: 0; white-space: nowrap; }
+.ds-count-n { font-size: 2rem; font-weight: 750; line-height: 1; letter-spacing: -0.02em; color: var(--body-fg); font-feature-settings: "tnum"; }
+.ds-count-label { font-size: 0.82rem; font-weight: 500; color: var(--body-quiet-color); }
+.ds-count-wait { display: none; }
+.ds-count-wait .ds-count-n { color: var(--text-muted); }
 #ds-live.htmx-request .ds-count { display: none; }
-#ds-live.htmx-request .ds-count-wait { display: inline; }
+#ds-live.htmx-request .ds-count-wait { display: flex; }
+.ds-live-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; }
 .ds-filters .btn-outline, .ds-filters .btn-primary { white-space: nowrap; }
 
 .ds-table { width: 100%; border-collapse: collapse; font-size: 0.8125rem; }
