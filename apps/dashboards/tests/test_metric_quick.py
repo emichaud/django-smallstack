@@ -42,7 +42,7 @@ def test_the_form_draws_from_the_handoff_with_the_number_it_would_make(client, s
     html = resp.content.decode()
     assert "<html" not in html  # the modal's body only
     assert 'value="Requests: Method = POST AND Status code ≥ 400"' in html
-    assert "the rows where Method = POST AND Status code ≥ 400" in html
+    assert "of <strong>Requests</strong> where Method = POST AND Status code ≥ 400" in html
     # The first date column is the period column, so weeks and goals work from the start.
     assert '<option value="timestamp" selected>' in html
     # Staff build for everyone: shared by default, with "only me" a click away.
@@ -79,7 +79,7 @@ def test_saving_makes_the_metric_and_offers_what_next(client, staff):
     assert metric.filter_tree == TREE and metric.period_field == "timestamp" and metric.format == "compact"
     assert metric.owner is None and metric.created_by == staff
     html = resp.content.decode()
-    assert "Saved <strong>Client errors</strong>" in html and "Everyone signed in can see it." in html
+    assert "Saved as <strong>Client errors</strong>" in html and "Everyone signed in can see it." in html
     assert metric.get_absolute_url() in html
     assert "Make another from these rows" in html and 'hx-get="' + QUICK in html
     assert _query(resp.context["make_card_url"]) == {"metric": "client_errors"}
@@ -111,7 +111,7 @@ def test_then_card_leads_to_the_component_builder(client, staff):
         "dimension": "method",
     }
     html = client.get(QUICK, params).content.decode()
-    assert "build a <strong>Grouped stat</strong> card from it, grouped by <strong>Method</strong>" in html
+    assert "a <strong>Grouped stat</strong> card is built from it, grouped by <strong>Method</strong>" in html
     assert 'name="card_type" value="metric_group"' in html
     resp = client.post(QUICK, {**params, "name": "By method", "visibility": "shared"})
     assert resp.status_code == 200

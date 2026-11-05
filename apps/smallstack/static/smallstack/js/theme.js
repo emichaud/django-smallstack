@@ -533,6 +533,12 @@
         if (!modal) return;
         _statModalTrigger = trigger || document.activeElement;
         if (titleEl) titleEl.textContent = title;
+        // data-stat-modal-size="narrow" on the opener: a panel sized for a
+        // form rather than a table (width to a comfortable measure, height
+        // to its content).
+        var panel = modal.querySelector('.stat-modal-panel');
+        var size = trigger && trigger.getAttribute ? trigger.getAttribute('data-stat-modal-size') : null;
+        if (panel) panel.classList.toggle('is-narrow', size === 'narrow');
         modal.classList.add('open');
         _statModalRelease = window.SmallStack.trapFocus(
             modal.querySelector('.stat-modal-panel') || modal

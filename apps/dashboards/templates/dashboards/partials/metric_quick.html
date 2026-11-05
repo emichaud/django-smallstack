@@ -1,23 +1,25 @@
 {% comment %}
 Make a metric from the dataset browser (MetricQuickView), as the global
-modal's body. The filtered table it came from is fixed (the conditions read
-back as words); the person names it, picks how the rows become one number,
-the period column, the format and who sees it. The number it would make is
-drawn beside the form and redrawn on every change (the form hx-gets itself).
-After a save, what to do next — so another metric can be made from the same
-rows without leaving the page.
+modal's body (opened narrow: data-stat-modal-size="narrow"). The number comes
+first — what the filtered rows make, redrawn as the choices change — with the
+rows it comes from read as a sentence beneath it. Then one calm column: the
+name, how the rows become a number, the period column, the format, who sees
+it. After a save, the same shape with the saved number and what to do next, so
+another metric can be made from the same rows without leaving the page.
 {% endcomment %}
 {% if saved %}
 <div class="mq mq-saved" role="status">
-    <p class="mq-saved-lede">Saved <strong>{{ saved.name }}</strong> <span class="mq-key">{{ saved.key }}</span></p>
-    <p class="mq-saved-value">{{ saved_result.display }}{% if saved_result.unit %} <span class="mq-unit">{{ saved_result.unit }}</span>{% endif %}{% if saved_result.error %} <span class="mq-problem">{{ saved_result.error }}</span>{% endif %}</p>
-    <p class="mq-help">{% if saved.owner_id %}Only you can see it.{% else %}Everyone signed in can see it.{% endif %}{% if reading %} It counts the rows where {{ reading }}.{% endif %}</p>
+    <div class="mq-hero mq-hero--saved">
+        <p class="mq-value">{{ saved_result.display }}{% if saved_result.unit %} <span class="mq-unit">{{ saved_result.unit }}</span>{% endif %}</p>
+        <p class="mq-hero-line">Saved as <strong>{{ saved.name }}</strong> <span class="mq-key">{{ saved.key }}</span></p>
+        <p class="mq-hero-sub">{% if saved.owner_id %}Only you can see it.{% else %}Everyone signed in can see it.{% endif %}{% if reading %} It reads the rows of {{ dataset_label }} where {{ reading }}.{% else %} It reads every row of {{ dataset_label }}.{% endif %}{% if saved_result.error %} {{ saved_result.error }}{% endif %}</p>
+    </div>
     <div class="mq-next">
         {% if card_url %}<a href="{{ card_url }}" class="btn-primary btn-sm">Build the {{ then.label }} card</a>{% endif %}
         <a href="{{ saved.get_absolute_url }}" class="btn-outline btn-sm">Open the metric</a>
         {% if not card_url %}<a href="{{ make_card_url }}" class="btn-outline btn-sm">Make a card</a>{% endif %}
         <button type="button" class="btn-outline btn-sm" hx-get="{{ again_url }}" hx-target="#stat-modal-body" hx-swap="innerHTML">Make another from these rows</button>
-        <button type="button" class="btn-outline btn-sm" data-stat-modal-close>Done</button>
+        <button type="button" class="btn-outline btn-sm mq-done" data-stat-modal-close>Done</button>
     </div>
 </div>
 {% else %}
@@ -30,66 +32,63 @@ rows without leaving the page.
     <input type="hidden" name="filter_tree" value="{{ tree_json }}">
     {% if then %}<input type="hidden" name="then" value="card"><input type="hidden" name="card_type" value="{{ then.type }}"><input type="hidden" name="dimension" value="{{ then.dimension }}">{% endif %}
 
-    <p class="mq-from">From <strong>{{ dataset_label }}</strong>{% if reading %}, the rows where {{ reading }}{% else %}, every row{% endif %}.</p>
-    {% if then %}<p class="mf-then" role="status">Save it, then build a <strong>{{ then.label }}</strong> card from it{% if then.dimension %}, grouped by <strong>{{ then.dimension_label }}</strong>{% endif %}.</p>{% endif %}
+    <div class="mq-hero{% if not preview.ok %} mq-hero--none{% endif %}" aria-live="polite" aria-label="The number this metric would make">
+        {% if preview.ok %}
+        <p class="mq-value">{{ preview.result.display }}{% if preview.result.unit %} <span class="mq-unit">{{ preview.result.unit }}</span>{% endif %}</p>
+        <p class="mq-hero-line">All time{% if preview.row_count is not None %}, from {{ preview.row_count }} row{{ preview.row_count|pluralize }} of <strong>{{ dataset_label }}</strong>{% else %} on <strong>{{ dataset_label }}</strong>{% endif %}{% if reading %} where {{ reading }}{% endif %}.</p>
+        {% else %}
+        <p class="mq-value">—</p>
+        <p class="mq-hero-line">The rows of <strong>{{ dataset_label }}</strong>{% if reading %} where {{ reading }}{% endif %}.</p>
+        {% for p in preview.problems %}<p class="mq-hero-sub mq-problem">{{ p }}</p>{% endfor %}
+        {% if preview.result.error %}<p class="mq-hero-sub mq-problem">{{ preview.result.error }}</p>{% endif %}
+        {% endif %}
+        {% if then %}<p class="mq-hero-sub">Then a <strong>{{ then.label }}</strong> card is built from it{% if then.dimension %}, grouped by <strong>{{ then.dimension_label }}</strong>{% endif %}.</p>{% endif %}
+    </div>
 
-    <div class="mq-grid">
-        <div class="mq-fields">
-            <div class="mq-field{% if errors.name or errors.key %} has-error{% endif %}">
-                <label for="mq-name">Name</label>
-                <input id="mq-name" type="text" name="name" value="{{ values.name }}" class="vTextField" maxlength="120" required autofocus>
-                {% for e in errors.name %}<p class="mq-error">{{ e }}</p>{% endfor %}{% for e in errors.key %}<p class="mq-error">{{ e }}</p>{% endfor %}
-            </div>
-            <div class="mq-row">
-                <div class="mq-field{% if errors.agg %} has-error{% endif %}">
-                    <label for="mq-agg">The rows become</label>
-                    <select id="mq-agg" name="agg" class="vTextField">{% for val, label in aggs %}<option value="{{ val }}"{% if val == values.agg|default:"count" %} selected{% endif %}>{{ label }}</option>{% endfor %}</select>
-                    {% for e in errors.agg %}<p class="mq-error">{{ e }}</p>{% endfor %}
-                </div>
-                <div class="mq-field{% if errors.measure %} has-error{% endif %}">
-                    <label for="mq-measure">Of column</label>
-                    <select id="mq-measure" name="measure" class="vTextField">
-                        <option value="">— none, count rows —</option>
-                        {% for c in measures %}<option value="{{ c.name }}"{% if c.name == values.measure %} selected{% endif %}>{{ c.label }}</option>{% endfor %}
-                    </select>
-                    {% for e in errors.measure %}<p class="mq-error">{{ e }}</p>{% endfor %}
-                </div>
-            </div>
-            <div class="mq-row">
-                <div class="mq-field{% if errors.period_field %} has-error{% endif %}">
-                    <label for="mq-period">Period column</label>
-                    <select id="mq-period" name="period_field" class="vTextField">
-                        <option value="">— none: all time only —</option>
-                        {% for c in date_columns %}<option value="{{ c.name }}"{% if c.name == values.period_field %} selected{% endif %}>{{ c.label }}</option>{% endfor %}
-                    </select>
-                    <p class="mq-help">Lets the number be read for a week or a month, on goals and week by week.</p>
-                    {% for e in errors.period_field %}<p class="mq-error">{{ e }}</p>{% endfor %}
-                </div>
-                <div class="mq-field{% if errors.format %} has-error{% endif %}">
-                    <label for="mq-format">Reads as</label>
-                    <select id="mq-format" name="format" class="vTextField">{% for val, label in formats %}<option value="{{ val }}"{% if val == values.format %} selected{% endif %}>{{ label }}</option>{% endfor %}</select>
-                    {% for e in errors.format %}<p class="mq-error">{{ e }}</p>{% endfor %}
-                </div>
-            </div>
-            <fieldset class="mq-field mq-who{% if errors.visibility %} has-error{% endif %}">
-                <legend>Who sees it</legend>
-                <label class="mq-radio"><input type="radio" name="visibility" value="shared"{% if values.visibility == "shared" %} checked{% endif %}{% if not can_share %} disabled{% endif %}> Everyone signed in</label>
-                <label class="mq-radio"><input type="radio" name="visibility" value="personal"{% if values.visibility == "personal" %} checked{% endif %}> Only me</label>
-                {% for e in errors.visibility %}<p class="mq-error">{{ e }}</p>{% endfor %}
-            </fieldset>
-            {% for e in errors.all %}<p class="mq-error" role="alert">{{ e }}</p>{% endfor %}
+    <div class="mq-fields">
+        <div class="mq-field{% if errors.name or errors.key %} has-error{% endif %}">
+            <label for="mq-name">Name</label>
+            <input id="mq-name" type="text" name="name" value="{{ values.name }}" class="vTextField" maxlength="120" required autofocus>
+            {% for e in errors.name %}<p class="mq-error">{{ e }}</p>{% endfor %}{% for e in errors.key %}<p class="mq-error">{{ e }}</p>{% endfor %}
         </div>
-
-        <aside class="mq-preview" aria-live="polite" aria-label="The number this metric would make">
-            {% if preview.ok %}
-            <p class="mq-value">{{ preview.result.display }}{% if preview.result.unit %} <span class="mq-unit">{{ preview.result.unit }}</span>{% endif %}</p>
-            <p class="mq-help">All time{% if preview.row_count is not None %}, from {{ preview.row_count }} row{{ preview.row_count|pluralize }}{% endif %}.</p>
-            {% elif preview %}
-            <p class="mq-value mq-value--none">—</p>
-            {% for p in preview.problems %}<p class="mq-problem">{{ p }}</p>{% endfor %}
-            {% if preview.result.error %}<p class="mq-problem">{{ preview.result.error }}</p>{% endif %}
-            {% endif %}
-        </aside>
+        <div class="mq-row">
+            <div class="mq-field{% if errors.agg %} has-error{% endif %}">
+                <label for="mq-agg">The rows become</label>
+                <select id="mq-agg" name="agg" class="vTextField">{% for val, label in aggs %}<option value="{{ val }}"{% if val == values.agg|default:"count" %} selected{% endif %}>{{ label }}</option>{% endfor %}</select>
+                {% for e in errors.agg %}<p class="mq-error">{{ e }}</p>{% endfor %}
+            </div>
+            <div class="mq-field{% if errors.measure %} has-error{% endif %}">
+                <label for="mq-measure">Of column</label>
+                <select id="mq-measure" name="measure" class="vTextField">
+                    <option value="">— none, count rows —</option>
+                    {% for c in measures %}<option value="{{ c.name }}"{% if c.name == values.measure %} selected{% endif %}>{{ c.label }}</option>{% endfor %}
+                </select>
+                {% for e in errors.measure %}<p class="mq-error">{{ e }}</p>{% endfor %}
+            </div>
+        </div>
+        <div class="mq-row">
+            <div class="mq-field{% if errors.period_field %} has-error{% endif %}">
+                <label for="mq-period">Period column</label>
+                <select id="mq-period" name="period_field" class="vTextField">
+                    <option value="">— none: all time only —</option>
+                    {% for c in date_columns %}<option value="{{ c.name }}"{% if c.name == values.period_field %} selected{% endif %}>{{ c.label }}</option>{% endfor %}
+                </select>
+                {% for e in errors.period_field %}<p class="mq-error">{{ e }}</p>{% endfor %}
+            </div>
+            <div class="mq-field{% if errors.format %} has-error{% endif %}">
+                <label for="mq-format">Reads as</label>
+                <select id="mq-format" name="format" class="vTextField">{% for val, label in formats %}<option value="{{ val }}"{% if val == values.format %} selected{% endif %}>{{ label }}</option>{% endfor %}</select>
+                {% for e in errors.format %}<p class="mq-error">{{ e }}</p>{% endfor %}
+            </div>
+        </div>
+        <p class="mq-help">A period column lets the number be read for a week or a month, on goals and week by week.</p>
+        <fieldset class="mq-field mq-who{% if errors.visibility %} has-error{% endif %}">
+            <legend>Who sees it</legend>
+            <label class="mq-radio"><input type="radio" name="visibility" value="shared"{% if values.visibility == "shared" %} checked{% endif %}{% if not can_share %} disabled{% endif %}> Everyone signed in</label>
+            <label class="mq-radio"><input type="radio" name="visibility" value="personal"{% if values.visibility == "personal" %} checked{% endif %}> Only me</label>
+            {% for e in errors.visibility %}<p class="mq-error">{{ e }}</p>{% endfor %}
+        </fieldset>
+        {% for e in errors.all %}<p class="mq-error" role="alert">{{ e }}</p>{% endfor %}
     </div>
 
     <div class="mq-actions">

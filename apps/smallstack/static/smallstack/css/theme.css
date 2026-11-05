@@ -3438,6 +3438,14 @@ a.paginator-btn:hover {
     flex: 1;
 }
 
+/* A panel sized for a form (the opener's data-stat-modal-size="narrow"):
+   a comfortable measure wide, as tall as its content. */
+.stat-modal-panel.is-narrow {
+    width: min(40rem, 94vw);
+    height: auto;
+    max-height: min(88vh, 60rem);
+}
+
 .stat-modal-panel table {
     width: 100%;
     border-collapse: collapse;

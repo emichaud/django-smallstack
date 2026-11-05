@@ -95,7 +95,7 @@
             </p>
             <p class="ds-count ds-count-wait" aria-hidden="true"><span class="ds-count-n">…</span><span class="ds-count-label">counting</span></p>
             <div class="ds-live-actions">
-                {% if metric_url %}<button type="button" class="btn-outline btn-sm ds-keep-btn" hx-get="{{ metric_url }}" hx-target="#stat-modal-body" hx-swap="innerHTML" data-stat-modal="Make a metric" aria-haspopup="dialog" title="Keep these rows as one number: a metric over this dataset with every condition here">Make a metric</button>{% elif keep_problem %}<span class="ds-keep-problem" title="{{ keep_problem }}">Can't make a metric</span>{% endif %}
+                {% if metric_url %}<button type="button" class="btn-outline btn-sm ds-keep-btn" hx-get="{{ metric_url }}" hx-target="#stat-modal-body" hx-swap="innerHTML" data-stat-modal="Make a metric" data-stat-modal-size="narrow" aria-haspopup="dialog" title="Keep these rows as one number: a metric over this dataset with every condition here">Make a metric</button>{% elif keep_problem %}<span class="ds-keep-problem" title="{{ keep_problem }}">Can't make a metric</span>{% endif %}
                 {% if has_filters %}
                 <a href="{% url 'datasets:browse' schema.key %}{% if group_by %}?group_by={{ group_by|urlencode }}{% if measure %}&amp;measure={{ measure|urlencode }}&amp;agg={{ agg|urlencode }}{% endif %}{% endif %}" class="btn-outline btn-sm" style="text-decoration: none;">Clear</a>
                 {% endif %}
@@ -156,7 +156,7 @@
         {% comment %}Each tile sketches its own card type from the roll-up on screen (views._sketch), so the choice is a preview, not a name.{% endcomment %}
         <div class="ds-keep-tiles">
             {% for c in card_links %}
-            <a href="{{ c.url }}" class="ds-tile" hx-get="{{ c.url }}" hx-target="#stat-modal-body" hx-swap="innerHTML" data-stat-modal="{{ c.label }} card: first, the metric" aria-haspopup="dialog">
+            <a href="{{ c.url }}" class="ds-tile" hx-get="{{ c.url }}" hx-target="#stat-modal-body" hx-swap="innerHTML" data-stat-modal="{{ c.label }} card: first, the metric" data-stat-modal-size="narrow" aria-haspopup="dialog">
                 <span class="ds-tile-art" aria-hidden="true">
                     {% if c.type == "metric_group" %}
                     <span class="ds-art-total">{{ sketch.total }}</span>
