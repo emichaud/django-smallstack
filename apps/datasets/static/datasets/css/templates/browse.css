@@ -77,7 +77,39 @@ a.ds-keep-btn:hover,
 .ds-tree-reading { margin: 6px 0 0; }
 
 /* Keep it: "Save as metric" in the rows header, "keep this roll-up as a card" under the roll-up. */
-.ds-keep { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; padding: 8px 14px; border-top: 1px solid var(--card-border); }
-.ds-keep .ds-keep-note { flex-basis: 100%; font-size: 0.72rem; }
+/* Keep this roll-up as a card: the lede and note at the left, and a tile per
+ * card type at the right, each sketching its card from the roll-up on screen. */
+.ds-keep { display: flex; align-items: center; justify-content: space-between; gap: 10px 24px; flex-wrap: wrap; padding: 10px 14px; border-top: 1px solid var(--card-border); }
+.ds-keep-text { min-width: 0; flex: 1 1 16rem; }
+.ds-keep-lede { margin: 0; font-size: 0.85rem; font-weight: 600; color: var(--body-fg); }
+.ds-keep .ds-keep-note { margin: 2px 0 0; font-size: 0.74rem; }
+.ds-keep-tiles { display: flex; flex-wrap: wrap; gap: 8px; }
+.ds-tile, a.ds-tile:link, a.ds-tile:visited {
+    display: grid; gap: 5px; width: 8.25rem; padding: 6px 6px 7px;
+    border: 1px solid var(--card-border); border-radius: 8px; background: var(--card-bg);
+    color: var(--body-fg); text-decoration: none; cursor: pointer;
+}
+a.ds-tile:hover, .ds-tile:focus-visible { border-color: var(--primary); background: var(--accent-band-bg); }
+.ds-tile:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.ds-tile-label { font-size: 0.74rem; font-weight: 600; text-align: center; color: var(--body-fg); }
+.ds-tile-art {
+    display: flex; align-items: center; justify-content: center; gap: 6px; height: 3rem; padding: 4px 7px;
+    border-radius: 5px; background: color-mix(in srgb, var(--body-fg) 5%, var(--card-bg)); overflow: hidden;
+}
+/* a grouped stat: the total, and the two largest groups beside it */
+.ds-art-total { font-size: 1.35rem; font-weight: 750; line-height: 1; letter-spacing: -0.02em; color: var(--primary); font-feature-settings: "tnum"; }
+.ds-art-groups { display: grid; gap: 2px; min-width: 0; }
+.ds-art-group { display: flex; justify-content: space-between; gap: 6px; font-size: 0.58rem; line-height: 1.1; min-width: 0; }
+.ds-art-group-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--body-quiet-color); max-width: 3.6rem; }
+.ds-art-group-value { font-weight: 650; font-feature-settings: "tnum"; }
+/* ranked bars: largest first */
+.ds-art-bars { display: grid; gap: 3px; width: 100%; align-self: center; }
+.ds-art-bar { display: block; height: 5px; border-radius: 3px; background: var(--primary); }
+.ds-art-bar:nth-child(2) { opacity: 0.72; }
+.ds-art-bar:nth-child(3) { opacity: 0.5; }
+.ds-art-bar:nth-child(4) { opacity: 0.32; }
+/* a pie: the shares, drawn by the view as a conic gradient of accent strengths */
+.ds-art-pie { display: block; width: 2.3rem; height: 2.3rem; border-radius: 50%; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--body-fg) 12%, transparent); }
+@media (prefers-reduced-motion: no-preference) { .ds-tile { transition: border-color 120ms ease, background-color 120ms ease; } }
 .ds-keep-problem { color: var(--warning-fg); font-size: 0.78rem; cursor: help; }
 

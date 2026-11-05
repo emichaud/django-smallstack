@@ -149,9 +149,28 @@
     {% if group_by and card_links and not series_error %}
     {% comment %}A grouped roll-up is what a grouped card draws: each link opens the metric modal on the filtered table, and after the save leads to the component builder on that card (then=card).{% endcomment %}
     <div class="ds-keep" role="group" aria-label="Keep this roll-up as a card">
-        <span class="ds-meta">Keep this roll-up as a card:</span>
-        {% for c in card_links %}<a href="{{ c.url }}" class="btn-outline btn-sm ds-keep-btn" hx-get="{{ c.url }}" hx-target="#stat-modal-body" hx-swap="innerHTML" data-stat-modal="{{ c.label }} card: first, the metric" aria-haspopup="dialog">{{ c.label }}</a>{% endfor %}
-        <span class="ds-meta ds-keep-note">Saves the filtered rows as a metric first, then builds the card from it.</span>
+        <div class="ds-keep-text">
+            <p class="ds-keep-lede">Keep this roll-up as a card</p>
+            <p class="ds-meta ds-keep-note">Saves the filtered rows as a metric first, then builds the card from it.</p>
+        </div>
+        {% comment %}Each tile sketches its own card type from the roll-up on screen (views._sketch), so the choice is a preview, not a name.{% endcomment %}
+        <div class="ds-keep-tiles">
+            {% for c in card_links %}
+            <a href="{{ c.url }}" class="ds-tile" hx-get="{{ c.url }}" hx-target="#stat-modal-body" hx-swap="innerHTML" data-stat-modal="{{ c.label }} card: first, the metric" aria-haspopup="dialog">
+                <span class="ds-tile-art" aria-hidden="true">
+                    {% if c.type == "metric_group" %}
+                    <span class="ds-art-total">{{ sketch.total }}</span>
+                    <span class="ds-art-groups">{% for g in sketch.groups %}<span class="ds-art-group"><span class="ds-art-group-label">{{ g.label }}</span><span class="ds-art-group-value">{{ g.value }}</span></span>{% endfor %}</span>
+                    {% elif c.type == "ranked" %}
+                    <span class="ds-art-bars">{% for b in sketch.bars %}<span class="ds-art-bar" style="width: {{ b.pct }}%;"></span>{% endfor %}</span>
+                    {% elif c.type == "pie" %}
+                    <span class="ds-art-pie" style="background: {{ sketch.pie }};"></span>
+                    {% endif %}
+                </span>
+                <span class="ds-tile-label">{{ c.label }}</span>
+            </a>
+            {% endfor %}
+        </div>
     </div>
     {% endif %}
     {% if series_error %}

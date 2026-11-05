@@ -225,8 +225,45 @@ class DatasetBrowseView(StaffRequiredMixin, TemplateView):
                 if type_key == "pie" and params["agg"] not in _ADDITIVE_AGGS:
                     continue
                 card = {**params, "then": "card", "card_type": type_key, "dimension": group_by}
-                out["card_links"].append({"label": label, "url": create_url + "?" + urlencode(card)})
+                out["card_links"].append({"type": type_key, "label": label, "url": create_url + "?" + urlencode(card)})
+        if out["card_links"]:
+            out["sketch"] = cls._sketch(rollup.get("series") or [])
         return out
+
+    @staticmethod
+    def _sketch(series: list[dict[str, Any]]) -> dict[str, Any]:
+        """The roll-up on screen drawn small, one way per card type, so each
+        keep-as-card choice shows what it would make: the total with its
+        largest groups (a grouped stat), bars largest first (ranked bars), and
+        the shares as a conic gradient (a pie), the accent fading from the
+        largest slice down. Theme tokens only, so it holds on every palette."""
+        valued = sorted(
+            ((str(s["label"]), float(s["value"])) for s in series if s.get("value") is not None),
+            key=lambda lv: lv[1],
+            reverse=True,
+        )
+        total = sum(v for _, v in valued)
+        peak = valued[0][1] if valued else 0.0
+
+        def _num(v: float) -> str:
+            return f"{int(v):,}" if float(v).is_integer() else f"{v:,.2f}"
+
+        strengths = (90, 62, 42, 28, 18, 12)
+        stops: list[str] = []
+        at = 0.0
+        for i, (_label, v) in enumerate(valued[: len(strengths)]):
+            share = 100 * v / total if total else 0.0
+            tint = f"color-mix(in srgb, var(--primary) {strengths[i]}%, var(--card-bg))"
+            stops.append(f"{tint} {at:.1f}% {at + share:.1f}%")
+            at += share
+        if at < 99.95:
+            stops.append(f"color-mix(in srgb, var(--body-fg) 10%, var(--card-bg)) {at:.1f}% 100%")
+        return {
+            "total": _num(total),
+            "groups": [{"label": label, "value": _num(v)} for label, v in valued[:2]],
+            "bars": [{"label": label, "pct": round(100 * v / peak) if peak else 0} for label, v in valued[:4]],
+            "pie": "conic-gradient(" + ", ".join(stops) + ")" if stops else "",
+        }
 
     @staticmethod
     def _tree_from_quick_filters(schema: dict[str, Any], filters: dict[str, str]) -> Any:

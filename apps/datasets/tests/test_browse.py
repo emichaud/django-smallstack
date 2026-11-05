@@ -350,6 +350,10 @@ def test_browse_save_as_metric_carries_every_condition_and_the_rollup(client, st
     assert cq["filter_tree"] == q["filter_tree"] and cq["agg"] == "avg"
     html = resp.content.decode()
     assert "Make a metric" in html and "Keep this roll-up as a card" in html
+    # Each choice sketches its card from the roll-up: the total with its groups, bars; no pie for an average.
+    assert html.count('class="ds-tile"') == 2 and 'class="ds-art-total"' in html and 'class="ds-art-bar"' in html
+    sketch = resp.context["sketch"]
+    assert sketch["bars"][0]["pct"] == 100 and sketch["pie"].startswith("conic-gradient(") and "#" not in sketch["pie"]
 
 
 def test_browse_save_as_metric_counts_rows_without_a_measure_and_offers_pie(client, staff):
