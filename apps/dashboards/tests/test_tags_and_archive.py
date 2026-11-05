@@ -125,3 +125,21 @@ def test_only_an_editor_archives(client):
     assert client.post(reverse("dashboards_archive", args=["nope", m.pk])).status_code == 404
     m.refresh_from_db()
     assert not m.is_archived
+
+
+def test_a_card_is_archived_from_its_builder(client, staff):
+    from apps.dashboards.models import Component
+
+    Metric(key="m", name="M", dataset=DS).save()
+    card = Component(name="Card", key="card", type="metric", metric="m")
+    card.save()
+    page = reverse("dashboards/components-update", args=[card.pk])
+    html = client.get(page).content.decode()
+    assert f'action="/smallstack/dashboards/archive/component/{card.pk}/"' in html and ">Archive<" in html
+    resp = client.post(reverse("dashboards_archive", args=["component", card.pk]), {"next": page})
+    assert resp.status_code == 302 and resp.url == page
+    card.refresh_from_db()
+    assert card.is_archived
+    html = client.get(page).content.decode()
+    assert ">Restore<" in html and 'class="dash-archived"' in html
+    assert "Card" not in client.get("/smallstack/dashboards/").content.decode().split('id="dx-component-section"')[-1]
