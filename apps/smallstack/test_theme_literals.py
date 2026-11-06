@@ -47,3 +47,22 @@ def _literals(path: Path) -> list[str]:
 def test_app_stylesheet_has_no_hex_literals(sheet):
     found = _literals(ROOT / sheet)
     assert not found, "hard-coded colours bypass the palette system:\n  " + "\n  ".join(found)
+
+
+def test_the_topbar_mark_names_no_colour_of_its_own():
+    """The four-square mark in the top bar is filled by ``.brand-mark`` from
+    ``--brand-mark``. Drawn with green fills of its own, it stayed green on
+    every palette. Read from this app's files, so a project that ships its own
+    top bar or its own mark isn't being checked."""
+    includes = ROOT / "apps/smallstack/templates/smallstack/includes"
+    assert 'includes/brand_mark.html" %}' in (includes / "topbar.html").read_text()
+    mark = (includes / "brand_mark.html").read_text().split('<svg class="brand-mark"', 1)[1].split("</svg>", 1)[0]
+    assert mark.count("<rect") == 4 and "fill=" not in mark and not HEX.search(mark)
+    theme = (ROOT / "apps/smallstack/static/smallstack/css/theme.css").read_text()
+    assert ".brand-mark rect { fill: var(--brand-mark); }" in theme
+    # A light theme's bar is the accent itself, so the mark takes the bar's text
+    # colour there; on a dark theme's near-black bar it is the accent.
+    light, dark = theme.split('[data-theme="dark"] {', 1)
+    assert "--brand-mark: var(--header-fg);" in light.split("}", 1)[0]
+    assert "--brand-mark: var(--primary);" in dark.split("}", 1)[0]
+

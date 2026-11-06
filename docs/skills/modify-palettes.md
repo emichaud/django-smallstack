@@ -140,6 +140,19 @@ class PalettePreferenceView(View):
 
 This guards the AJAX endpoint that fires when a user clicks a swatch in the user menu — without the id in this set, the swap silently fails.
 
+### Step 5 — the logo files (optional)
+
+In the app the stock logo follows a new palette by itself: the mark and wordmark are drawn
+from `--primary` and `--header-fg` (`.brand-mark`, `.brand-word` in `theme.css`). The same logo
+also ships as files for use outside the app. Write the new palette's set:
+
+```bash
+uv run python manage.py brand_logos     # → static/smallstack/brand/palettes/logo-<id>-{dark,light}.svg, icon-…
+```
+
+It reads the palette's `--primary` from its light and dark blocks in `palettes.css`, so run it
+again after retuning an accent.
+
 ## Test it
 
 1. `uv run python manage.py runserver` — **if a server is already running, restart it** and hard-refresh the browser. The autoreloader watches `.py` files but not `palettes.yaml`, and browsers cache `palettes.css`. (Also make sure you're running the branch that has your changes — a palette that "won't show up" is usually a stale server or the wrong branch, not a code bug.)

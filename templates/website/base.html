@@ -8,7 +8,7 @@
 <header class="topbar">
     <div class="topbar-left">
         <a href="{% url 'website:home' %}" class="site-logo">
-            <img src="{% static brand.logo_text %}" alt="{{ brand.name }}" class="logo-img">
+            {% include "smallstack/includes/brand_wordmark.html" %}
         </a>
     </div>
 

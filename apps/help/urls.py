@@ -13,6 +13,7 @@ from .views import (
     HelpSectionIndexView,
     HelpSectionTocView,
     SlideView,
+    help_bubble,
     help_page_markdown,
     search_index_view,
 )
@@ -28,6 +29,9 @@ urlpatterns = [
     path("<slug:section>/<slug:slug>.md", help_page_markdown, name="section_detail_md"),
     path("<slug:slug>.md", help_page_markdown, name="detail_md"),
     path("<slug:section>/toc/", HelpSectionTocView.as_view(), name="section_toc"),
+    # A page as a modal fragment, for {% help_bubble %} (e.g., /smallstack/help/dashboards/component/bubble/)
+    path("<slug:section>/<slug:slug>/bubble/", help_bubble, name="section_bubble"),
+    path("<slug:slug>/bubble/", help_bubble, name="bubble"),
     # Section pages (e.g., /smallstack/help/smallstack/getting-started/)
     path("<slug:section>/<slug:slug>/", HelpSectionDetailView.as_view(), name="section_detail"),
     # Section index (e.g., /smallstack/help/smallstack/) - must come after section_detail

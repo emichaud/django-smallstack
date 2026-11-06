@@ -1,0 +1,24 @@
+{% comment %}
+A help page inside the global stat modal (views.help_bubble). The footer's
+related pages open in place, renaming the modal; the full page is one link away.
+Its prose is styled by .help-bubble-body in theme.css (a modal's measure, not
+the help pages' own help.css).
+{% endcomment %}
+<span id="stat-modal-title" hx-swap-oob="innerHTML">{{ page.title }}</span>
+<div class="help-bubble-page">
+    <article class="help-bubble-body">
+        {{ page.content|safe }}
+    </article>
+    <footer class="help-bubble-foot">
+        {% if page.related %}
+        <nav class="help-bubble-related" aria-label="Related help">
+            <span class="help-bubble-foot-label">Related</span>
+            {% for other in page.related %}<a href="{{ other.url }}" class="help-bubble-chip" hx-get="{{ other.bubble_url }}" hx-target="#stat-modal-body" hx-swap="innerHTML show:top">{{ other.title }}</a>{% endfor %}
+        </nav>
+        {% endif %}
+        <p class="help-bubble-more">
+            {% if page.guide %}<a href="{{ page.guide.url }}">The full guide: {{ page.guide.title }}</a>{% endif %}
+            {% if page_url %}<a href="{{ page_url }}">Open this page in Help</a>{% endif %}
+        </p>
+    </footer>
+</div>

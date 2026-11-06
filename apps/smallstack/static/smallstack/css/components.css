@@ -546,11 +546,13 @@ ul.pagination li.active span {
     color: var(--body-fg);
 }
 
-/* Native pickers (the calendar glyph + the popup it opens) follow the UA
-   color scheme, not our variables — without this they render a near-black
-   icon on a dark field and a white popup. Scoped to .content-wrapper so a
-   downstream's own form stack is untouched. */
+/* Native pickers (the calendar glyph + the popup it opens, a number field's
+   spin buttons) follow the UA color scheme, not our variables — without this
+   they render a near-black icon on a dark field, a white popup, and white
+   spin buttons. Scoped to .content-wrapper so a downstream's own form stack
+   is untouched. */
 [data-theme="dark"] :where(.content-wrapper) select,
+[data-theme="dark"] :where(.content-wrapper) input[type="number"],
 [data-theme="dark"] :where(.content-wrapper) input[type="date"],
 [data-theme="dark"] :where(.content-wrapper) input[type="datetime-local"],
 [data-theme="dark"] :where(.content-wrapper) input[type="time"],
@@ -563,6 +565,80 @@ ul.pagination li.active span {
     background: var(--card-bg);
     color: var(--body-fg);
 }
+
+/* Number stepper (theme.js wraps every number input): − and + buttons the
+   theme draws, big enough to hit, in place of the browser's own few-pixel spin
+   buttons. The wrapper stands where the input stood, at the width theme.js
+   gives it, and the buttons follow the room: side by side at 10rem and wider,
+   a slim stacked pair (+ over −) below that. */
+.num-stepper {
+    display: inline-flex;
+    align-items: stretch;
+    box-sizing: border-box;
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    vertical-align: middle;
+    container-type: inline-size;
+}
+.num-stepper > input[type="number"] {
+    flex: 1 1 0;
+    width: auto;
+    min-width: 0;
+    margin: 0;
+    border-top-right-radius: 0;
+    border-bottom-right-radius: 0;
+    -moz-appearance: textfield;
+    appearance: textfield;
+}
+.num-stepper > input[type="number"]::-webkit-inner-spin-button,
+.num-stepper > input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+.num-stepper-btns { display: flex; flex: none; }
+.num-stepper-btn {
+    flex: none;
+    width: 2.6rem;
+    min-height: 0;
+    padding: 0;
+    border: 1px solid var(--input-border);
+    border-left: 0;
+    border-radius: 0;
+    background: var(--input-bg);
+    color: var(--body-fg);
+    font-size: 1.2rem;
+    line-height: 1;
+    cursor: pointer;
+}
+/* beside a field on a themed page, whose border and fill are these mixes */
+:where(.content-wrapper) .num-stepper-btn {
+    border-color: color-mix(in srgb, var(--body-fg) 20%, var(--body-bg));
+    background: color-mix(in srgb, var(--body-fg) 5%, var(--body-bg));
+}
+.num-stepper-btn:last-child { border-radius: 0 var(--radius-sm, 6px) var(--radius-sm, 6px) 0; }
+.num-stepper-btn:hover:not(:disabled) {
+    color: var(--primary);
+    background: color-mix(in srgb, var(--primary) 14%, var(--body-bg));
+}
+.num-stepper-btn:disabled { opacity: 0.35; cursor: default; }
+/* the stacked pair: a narrow fixed-width field (theme.js marks it), or any
+   field with less than 10rem to itself. The same rules, twice. */
+.num-stepper--compact > input[type="number"] { padding-left: 0.5rem; padding-right: 0.3rem; }
+.num-stepper--compact .num-stepper-btns { flex-direction: column-reverse; width: 1.7rem; }
+.num-stepper--compact .num-stepper-btn { flex: 1 1 0; width: auto; font-size: 0.85rem; }
+.num-stepper--compact .num-stepper-btn:first-child { border-top: 0; border-radius: 0 0 var(--radius-sm, 6px) 0; }
+.num-stepper--compact .num-stepper-btn:last-child { border-radius: 0 var(--radius-sm, 6px) 0 0; }
+@container (max-width: 9.99rem) {
+    .num-stepper > input[type="number"] { padding-left: 0.5rem; padding-right: 0.3rem; }
+    .num-stepper-btns { flex-direction: column-reverse; width: 1.7rem; }
+    .num-stepper-btn { flex: 1 1 0; width: auto; font-size: 0.85rem; }
+    .num-stepper-btn:first-child { border-top: 0; border-radius: 0 0 var(--radius-sm, 6px) 0; }
+    .num-stepper-btn:last-child { border-radius: 0 var(--radius-sm, 6px) 0 0; }
+}
+/* the field hidden or switched off: its buttons go with it */
+.num-stepper:has(> input[hidden]),
+.num-stepper:has(> input[style*="display: none"]) { display: none; }
+.num-stepper:has(> input:disabled) .num-stepper-btn,
+.num-stepper:has(> input:read-only) .num-stepper-btn { opacity: 0.35; pointer-events: none; }
+@media print { .num-stepper-btns { display: none; } }
 
 
 /* --------------------------------------------------------------------------

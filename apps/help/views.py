@@ -5,14 +5,17 @@ Supports hierarchical documentation with sections (folders).
 """
 
 from django.http import Http404, HttpRequest, HttpResponse, JsonResponse
+from django.shortcuts import redirect, render
 from django.views.generic import TemplateView
 
 from .utils import (
     SMALLSTACK_SECTION_SLUG,
+    _resolve_help_url,
     build_search_index,
     get_all_sections,
     get_config,
     get_deck_slides,
+    get_help_bubble,
     get_help_page,
     get_section_pages,
     get_section_pages_grouped,
@@ -210,6 +213,19 @@ def search_index_view(request: HttpRequest) -> JsonResponse:
 # ---------------------------------------------------------------------------
 # Agent-readable surfaces: page.md alternates, /llms.txt, /llms-full.txt
 # ---------------------------------------------------------------------------
+
+
+def help_bubble(request: HttpRequest, slug: str, section: str = "") -> HttpResponse:
+    """A help page as the fragment a help bubble opens in the page's modal
+    (``{% help_bubble %}`` → ``#stat-modal-body``). Opened any other way, a bare
+    fragment is no use to anyone, so the address goes to the full page."""
+    page = get_help_bubble(slug, section)
+    if page is None:
+        raise Http404("Help page not found")
+    page_url = _resolve_help_url(slug, section)
+    if not request.headers.get("HX-Request") and page_url:
+        return redirect(page_url)
+    return render(request, "help/help_bubble.html", {"page": page, "page_url": page_url})
 
 
 def _markdown_response(page: dict | None) -> HttpResponse:

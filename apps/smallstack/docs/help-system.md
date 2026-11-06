@@ -437,6 +437,35 @@ class SmallStackConfig(AppConfig):
     help_slides_dir = "docs/slides"
 ```
 
+## Help Bubbles
+
+A help bubble is a small "?" beside a page's title. It opens one help page in a
+window over the page, so someone can read what a feature is without leaving
+what they were doing.
+
+```django
+{% load help_tags %}
+<div class="title-with-help"><h1>Components</h1>{% help_bubble "dashboards" "component" %}</div>
+```
+
+The two arguments are the section and the page's slug; give one argument for a
+root page. The page is an ordinary help page, so write it once and it serves
+both places.
+
+Two optional frontmatter keys shape the bottom of the window:
+
+```markdown
+---
+title: What is a component?
+related: [metric, dashboard]
+guide: index
+---
+```
+
+`related` lists other pages of the same section, shown as chips that open in
+place. `guide` names the longer page to read next. Keep a bubble's page to a
+page or a page and a half. The Dashboards and Goals pages use them throughout.
+
 ## Slide Viewer
 
 The help system also includes a slide presentation mode for focused walkthroughs. See [Using the Slide Viewer](/smallstack/help/smallstack/slide-viewer/) for full documentation on creating and embedding slide decks.

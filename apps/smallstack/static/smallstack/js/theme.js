@@ -509,6 +509,151 @@
     }
 
     // ============================================
+    // Number stepper: − / + buttons on every number field
+    // ============================================
+    // A browser's own spin buttons are a few pixels wide and drawn in its
+    // colours, not the theme's. Every <input type="number"> on the page is
+    // wrapped with two theme-drawn buttons instead: as it loads, and whenever
+    // one is added later (htmx, a script building a row). Nothing to add in
+    // markup. data-no-stepper on the input, or on any element around it, leaves
+    // the field alone.
+    //
+    // The wrapper takes the input's place in the layout, so it's given the
+    // input's own width (fitStepper, below): a % or calc() width as written, a
+    // fixed one in px. The buttons then follow the room there is (a container
+    // query in components.css): − and + side by side, each the height of the
+    // field, when the wrapper is 10rem or wider; a slim stacked pair, + over −,
+    // when it's narrower. A narrow fixed-width field keeps its width for the
+    // value and gets the stacked pair beside it (num-stepper--compact).
+    //
+    // The buttons step by the input's own step, min and max and fire `input`
+    // and `change`, so existing listeners hear them. An empty field starts
+    // from its placeholder when that's a number (the default it stands for).
+    // Like the native ones they are a mouse and touch convenience, outside the
+    // tab order and the accessibility tree: the field's arrow keys still step it.
+    // window.SmallStack.numberStepper(input) wraps one by hand and returns the
+    // wrapper; it's safe to call twice.
+    var STEPPER_ROOM = 10;   // rem: a field at least this wide holds the − / + pair (the CSS says the same)
+
+    // The input's width as the stylesheet computes it ("100%", "calc(100% - 14px)",
+    // "105px", "auto") where the browser can say; else what getComputedStyle
+    // gives, which is a used px value once the field is rendered.
+    function stepperWidth(input, cs) {
+        try {
+            if (input.computedStyleMap) return String(input.computedStyleMap().get('width'));
+        } catch (e) { /* fall through */ }
+        return cs.width;
+    }
+
+    function fitStepper(wrap, input, parent) {
+        var cs = window.getComputedStyle(input);
+        var pcs = window.getComputedStyle(parent);
+        var width = stepperWidth(input, cs);
+        var fluid = width.indexOf('%') >= 0;
+        if (!fluid && !input.computedStyleMap && input.offsetWidth) {
+            var room = parent.clientWidth - parseFloat(pcs.paddingLeft) - parseFloat(pcs.paddingRight);
+            if (room > 0 && input.offsetWidth >= room * 0.9) { fluid = true; width = '100%'; }
+        }
+        // Stand where the input stood: its margins, and its part in a flex row or a grid.
+        var sides = [cs.marginTop, cs.marginRight, cs.marginBottom, cs.marginLeft];
+        if (sides.some(function (m) { return parseFloat(m); })) wrap.style.margin = sides.join(' ');
+        var grows = false;
+        if (pcs.display.indexOf('flex') >= 0) {
+            grows = parseFloat(cs.flexGrow) > 0;
+            wrap.style.flex = cs.flexGrow + ' ' + cs.flexShrink + ' ' + (grows ? cs.flexBasis : 'auto');
+        }
+        var area = [cs.gridRowStart, cs.gridColumnStart, cs.gridRowEnd, cs.gridColumnEnd];
+        if (area.some(function (a) { return a && a !== 'auto'; })) wrap.style.gridArea = area.join(' / ');
+
+        var px = parseFloat(width) || input.offsetWidth;  // "auto": what it measures, if it's drawn
+        var rem = parseFloat(window.getComputedStyle(document.documentElement).fontSize) || 16;
+        if (grows) wrap.style.width = 'auto';
+        else if (fluid || !px) wrap.style.width = fluid ? width : '100%';
+        else if (px >= STEPPER_ROOM * rem) wrap.style.width = px + 'px';
+        else {
+            // Too narrow to give anything up: the value keeps its width, the pair goes beside it.
+            wrap.classList.add('num-stepper--compact');
+            wrap.style.width = 'calc(' + px + 'px + 1.7rem)';
+        }
+    }
+
+    window.SmallStack.numberStepper = function (input) {
+        if (!input || input.type !== 'number') return input;
+        var parent = input.parentNode;
+        if (parent && parent.classList && parent.classList.contains('num-stepper')) return parent;
+        var wrap = document.createElement('span');
+        wrap.className = 'num-stepper';
+        if (parent && input.isConnected) fitStepper(wrap, input, parent);
+        if (parent) parent.insertBefore(wrap, input);
+        wrap.appendChild(input);
+        var buttons = document.createElement('span');
+        buttons.className = 'num-stepper-btns';
+        wrap.appendChild(buttons);
+
+        function limit(name) { return input[name] === '' ? null : Number(input[name]); }
+        function sync() {
+            var value = input.value === '' ? null : Number(input.value);
+            var min = limit('min'), max = limit('max');
+            down.disabled = value !== null && min !== null && value <= min;
+            up.disabled = value !== null && max !== null && value >= max;
+        }
+        function step(direction) {
+            if (input.disabled || input.readOnly) return;
+            if (input.value === '' && input.placeholder !== '' && !isNaN(Number(input.placeholder))) {
+                input.value = input.placeholder;
+            }
+            try {
+                if (direction > 0) input.stepUp(); else input.stepDown();
+            } catch (e) {  // step="any" has no step to take: move by one
+                var next = (Number(input.value) || 0) + direction;
+                var min = limit('min'), max = limit('max');
+                if (min !== null) next = Math.max(min, next);
+                if (max !== null) next = Math.min(max, next);
+                input.value = String(next);
+            }
+            input.dispatchEvent(new Event('input', { bubbles: true }));
+            input.dispatchEvent(new Event('change', { bubbles: true }));
+            sync();
+            input.focus();
+        }
+        function button(text, direction) {
+            var btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'num-stepper-btn';
+            btn.tabIndex = -1;
+            btn.setAttribute('aria-hidden', 'true');
+            btn.textContent = text;
+            btn.addEventListener('click', function () { step(direction); });
+            buttons.appendChild(btn);
+            return btn;
+        }
+        var down = button('−', -1), up = button('+', 1);
+        input.addEventListener('input', sync);
+        input.addEventListener('change', sync);
+        sync();
+        return wrap;
+    };
+
+    function stepNumbersIn(root) {
+        if (!root || root.nodeType !== 1) return;
+        var found = root.matches('input[type="number"]') ? [root] : root.querySelectorAll('input[type="number"]');
+        for (var i = 0; i < found.length; i++) {
+            if (!found[i].closest('.num-stepper, [data-no-stepper]')) window.SmallStack.numberStepper(found[i]);
+        }
+    }
+
+    function initSteppers() {
+        stepNumbersIn(document.body);
+        if (!window.MutationObserver) return;
+        new MutationObserver(function (records) {
+            for (var i = 0; i < records.length; i++) {
+                if (records[i].type === 'attributes') { stepNumbersIn(records[i].target); continue; }
+                for (var j = 0; j < records[i].addedNodes.length; j++) stepNumbersIn(records[i].addedNodes[j]);
+            }
+        }).observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['type'] });
+    }
+
+    // ============================================
     // Stat-card drill-down modal
     // ============================================
     // The modal markup lives in base.html (included globally). Open it
@@ -533,12 +678,16 @@
         if (!modal) return;
         _statModalTrigger = trigger || document.activeElement;
         if (titleEl) titleEl.textContent = title;
-        // data-stat-modal-size="narrow" on the opener: a panel sized for a
+        // data-stat-modal-size on the opener: "narrow" is a panel sized for a
         // form rather than a table (width to a comfortable measure, height
-        // to its content).
+        // to its content); "reading" is one for a page of prose (a help
+        // bubble): a reading measure wide, most of the window tall.
         var panel = modal.querySelector('.stat-modal-panel');
         var size = trigger && trigger.getAttribute ? trigger.getAttribute('data-stat-modal-size') : null;
-        if (panel) panel.classList.toggle('is-narrow', size === 'narrow');
+        if (panel) {
+            panel.classList.toggle('is-narrow', size === 'narrow');
+            panel.classList.toggle('is-reading', size === 'reading');
+        }
         modal.classList.add('open');
         _statModalRelease = window.SmallStack.trapFocus(
             modal.querySelector('.stat-modal-panel') || modal
@@ -740,6 +889,7 @@
         initAppsMenu();
         initTopbarNav();
         initMessages();
+        initSteppers();
 
         // Re-initialize message dismissal after htmx swaps new content
         document.addEventListener('htmx:afterSettle', function() {

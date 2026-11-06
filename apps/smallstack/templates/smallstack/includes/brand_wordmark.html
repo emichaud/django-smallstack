@@ -1,0 +1,6 @@
+{% load static %}{% comment %}
+The name in the top bar. The stock wordmark is live text in the theme's colours
+(.brand-word, theme.css): the second word in the palette's accent on a dark
+theme, both in the bar's text colour on a light one, where the bar is the
+accent. A project with its own BRAND_LOGO_TEXT gets its image.
+{% endcomment %}{% if brand.wordmark_themed %}<span class="brand-word"><span class="brand-word-main">Django</span> <span class="brand-word-accent">SmallStack</span></span>{% else %}<img src="{% static brand.logo_text %}" alt="{{ brand.name }}" class="logo-img">{% endif %}

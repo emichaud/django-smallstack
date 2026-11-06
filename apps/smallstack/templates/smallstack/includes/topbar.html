@@ -5,18 +5,13 @@
         {% block sidebar_toggle %}
         {% if smallstack_sidebar_enabled %}
         <button class="sidebar-toggle" id="sidebar-toggle" type="button" aria-label="Toggle sidebar">
-            <svg aria-hidden="true" viewBox="0 0 48 48" width="24" height="24">
-                <rect x="4" y="4" width="18" height="18" rx="3" fill="#0C4B33"/>
-                <rect x="26" y="4" width="18" height="18" rx="3" fill="#1A6B4A"/>
-                <rect x="4" y="26" width="18" height="18" rx="3" fill="#2BA977"/>
-                <rect x="26" y="26" width="18" height="18" rx="3" fill="#4FD1A5"/>
-            </svg>
+            {% include "smallstack/includes/brand_mark.html" %}
         </button>
         {% endif %}
         {% endblock %}
         <!-- Site logo (text only) -->
         <a href="{% url 'website:home' %}" class="site-logo">
-            <img src="{% static brand.logo_text %}" alt="{{ brand.name }}" class="logo-img">
+            {% include "smallstack/includes/brand_wordmark.html" %}
         </a>
     </div>
 

@@ -15,8 +15,7 @@
 <body class="auth-page">
     <main id="main-content" class="auth-container">
         <div class="auth-brand">
-            <img src="{% static brand.logo %}" alt="{{ brand.name }}" class="auth-logo auth-logo-light">
-            <img src="{% static brand.logo_dark %}" alt="{{ brand.name }}" class="auth-logo auth-logo-dark">
+            {% include "smallstack/includes/brand_lockup.html" %}
         </div>
         <div class="auth-card">
             {% block auth_content %}{% endblock %}

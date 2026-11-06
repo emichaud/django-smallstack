@@ -1,0 +1,5 @@
+{% comment %}
+The {% help_bubble %} button: opens a help page in the global stat modal
+(help:section_bubble → #stat-modal-body), sized for reading. An <a>, so
+without JavaScript it goes to the full page.
+{% endcomment %}{% if page %}<a href="{{ page_url }}" class="help-bubble{% if label %} help-bubble--labelled{% endif %}" hx-get="{{ bubble_url }}" hx-target="#stat-modal-body" hx-swap="innerHTML show:top" data-stat-modal="{{ page.title }}" data-stat-modal-size="reading" aria-haspopup="dialog"{% if not label %} aria-label="Help: {{ page.title }}"{% endif %} title="Help: {{ page.title }}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm1 17h-2v-2h2v2zm2.07-7.75-.9.92C13.45 12.9 13 13.5 13 15h-2v-.5c0-1.1.45-2.1 1.17-2.83l1.24-1.26A2 2 0 1 0 10 9H8a4 4 0 1 1 7.07 2.25z"/></svg>{% if label %}<span>{{ label }}</span>{% endif %}</a>{% endif %}

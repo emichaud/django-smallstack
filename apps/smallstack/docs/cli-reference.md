@@ -414,6 +414,19 @@ uv run python manage.py skills_index            # regenerate (same as `make skil
 uv run python manage.py skills_index --check    # CI/lint mode
 ```
 
+#### `brand_logos`
+
+Write the SmallStack logo as SVG files, one set for each palette, into
+`apps/smallstack/static/smallstack/brand/palettes/`: `logo-<palette>-{dark,light}.svg` (mark and name)
+and `icon-<palette>-{dark,light}.svg` (the mark alone). Colours come from each palette's `--primary` in
+`palettes.css`; the palette list comes from `palettes.yaml`. Run it after adding or retuning a palette.
+Inside the app the stock logo needs no files: it is drawn live from the theme.
+
+```bash
+uv run python manage.py brand_logos            # write them
+uv run python manage.py brand_logos --check    # exit 1 if any is out of date
+```
+
 ### Visual / dev tooling
 
 #### `screenshot_auth`

@@ -1,0 +1,5 @@
+{% comment %}
+The SmallStack mark: four squares, faintest to full. It names no colour;
+.brand-mark (theme.css) fills it from --brand-mark, so it follows the palette
+and the theme. `size` is its side in px (24 unless given).
+{% endcomment %}<svg class="brand-mark" aria-hidden="true" viewBox="0 0 48 48" width="{{ size|default:24 }}" height="{{ size|default:24 }}"><rect x="4" y="4" width="18" height="18" rx="3"/><rect x="26" y="4" width="18" height="18" rx="3"/><rect x="4" y="26" width="18" height="18" rx="3"/><rect x="26" y="26" width="18" height="18" rx="3"/></svg>

@@ -48,6 +48,36 @@ BRAND_LOGO_TEXT = "brand/my-logo-text.svg"  # Topbar (32px height)
 
 For complete branding documentation including logo specifications and asset creation, see the [Customization Guide](/smallstack/help/smallstack/customization/#customizing-branding).
 
+## The Logo Follows the Palette
+
+The stock SmallStack logo is drawn from the theme, so it changes with the palette and with
+dark or light mode: the four-square mark and the word *SmallStack* take the palette's accent.
+You see it in the top bar and on the sign-in pages. Switch palette from the user menu and the
+logo changes with everything else.
+
+A project that sets its own `BRAND_LOGO_TEXT` (or `BRAND_LOGO` and `BRAND_LOGO_DARK`) keeps its
+own image, in its own colours.
+
+For anywhere outside the app (a README, a slide, an email) the same logo ships as files, one set
+for each palette, in `static/smallstack/brand/palettes/`:
+
+<table>
+<thead><tr><th scope="col">Palette</th><th scope="col">On a dark background</th><th scope="col">On a light background</th></tr></thead>
+<tbody>
+<tr><th scope="row">Django</th><td style="background:#0d1117;padding:10px 14px;"><img src="/static/smallstack/brand/palettes/logo-django-dark.svg" alt="Django logo for a dark background" height="34"></td><td style="background:#ffffff;padding:10px 14px;"><img src="/static/smallstack/brand/palettes/logo-django-light.svg" alt="Django logo for a light background" height="34"></td></tr>
+<tr><th scope="row">Blue</th><td style="background:#0d1117;padding:10px 14px;"><img src="/static/smallstack/brand/palettes/logo-dark-blue-dark.svg" alt="Blue logo for a dark background" height="34"></td><td style="background:#ffffff;padding:10px 14px;"><img src="/static/smallstack/brand/palettes/logo-dark-blue-light.svg" alt="Blue logo for a light background" height="34"></td></tr>
+<tr><th scope="row">Purple</th><td style="background:#0d1117;padding:10px 14px;"><img src="/static/smallstack/brand/palettes/logo-purple-dark.svg" alt="Purple logo for a dark background" height="34"></td><td style="background:#ffffff;padding:10px 14px;"><img src="/static/smallstack/brand/palettes/logo-purple-light.svg" alt="Purple logo for a light background" height="34"></td></tr>
+<tr><th scope="row">Orange</th><td style="background:#0d1117;padding:10px 14px;"><img src="/static/smallstack/brand/palettes/logo-orange-dark.svg" alt="Orange logo for a dark background" height="34"></td><td style="background:#ffffff;padding:10px 14px;"><img src="/static/smallstack/brand/palettes/logo-orange-light.svg" alt="Orange logo for a light background" height="34"></td></tr>
+<tr><th scope="row">Contrast</th><td style="background:#0d1117;padding:10px 14px;"><img src="/static/smallstack/brand/palettes/logo-high-contrast-dark.svg" alt="Contrast logo for a dark background" height="34"></td><td style="background:#ffffff;padding:10px 14px;"><img src="/static/smallstack/brand/palettes/logo-high-contrast-light.svg" alt="Contrast logo for a light background" height="34"></td></tr>
+<tr><th scope="row">Gold</th><td style="background:#0d1117;padding:10px 14px;"><img src="/static/smallstack/brand/palettes/logo-gold-dark.svg" alt="Gold logo for a dark background" height="34"></td><td style="background:#ffffff;padding:10px 14px;"><img src="/static/smallstack/brand/palettes/logo-gold-light.svg" alt="Gold logo for a light background" height="34"></td></tr>
+</tbody>
+</table>
+
+Each palette has four files: `logo-<palette>-dark.svg` and `logo-<palette>-light.svg` (the mark
+and the name), and `icon-<palette>-dark.svg` and `icon-<palette>-light.svg` (the mark alone).
+After adding or retuning a palette, `uv run python manage.py brand_logos` writes them again from
+the palette's colours.
+
 ## Changing Colors
 
 All colors are defined as CSS custom properties in `static/smallstack/css/theme.css`. To customize:

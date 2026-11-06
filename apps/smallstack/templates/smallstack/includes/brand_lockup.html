@@ -1,0 +1,7 @@
+{% load static %}{% comment %}
+The full logo on a page of its own (sign in, sign up): the mark and the name.
+The stock logo is drawn live, on the page's background, so it's the palette's
+accent in both themes (.brand-on-page). A project with its own BRAND_LOGO /
+BRAND_LOGO_DARK gets its two images, swapped by theme, as before.
+{% endcomment %}{% if brand.logo_themed %}<span class="brand-lockup brand-on-page">{% include "smallstack/includes/brand_mark.html" with size=44 %}<span class="brand-word"><span class="brand-word-main">Django</span> <span class="brand-word-accent">SmallStack</span></span></span>{% else %}<img src="{% static brand.logo %}" alt="{{ brand.name }}" class="auth-logo auth-logo-light">
+<img src="{% static brand.logo_dark %}" alt="{{ brand.name }}" class="auth-logo auth-logo-dark">{% endif %}

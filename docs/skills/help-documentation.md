@@ -88,6 +88,7 @@ static/smallstack/help/
 | `get_section_pages_grouped(section)` | `list[dict]` | Grouped page list — used for section index and sidebar |
 | `get_section_config(section)` | `dict` | Raw YAML config for a section |
 | `get_help_page(slug, section)` | `dict \| None` | Load and render a single page |
+| `get_help_bubble(slug, section)` | `dict \| None` | The same page as a modal fragment: no title, no heading anchors, plus its `related` / `guide` footer |
 | `get_all_sections()` | `list[dict]` | All sections with metadata |
 | `build_search_index()` | `list[dict]` | Full-text search index |
 
@@ -113,6 +114,43 @@ The app's `docs/` directory must contain a `_config.yaml` and `.md` files.
 > catches it. `apps/blog/content/_config.yaml` is a minimal example;
 > `apps/runbook/content/` is currently missing one, which is why
 > `/smallstack/help/runbook/` lists nothing despite shipping six pages.
+
+## Help bubbles — a help page beside the thing it explains
+
+A feature with more than one moving part gets a small "?" next to its page
+title. It opens a help page in the global stat modal, without leaving the page:
+
+```django
+{% load help_tags %}
+<div class="title-with-help"><h1>Components</h1>{% help_bubble "dashboards" "component" %}</div>
+```
+
+- **`{% help_bubble "section" "slug" %}`** (one argument = a root page;
+  `label="…"` adds visible text). It draws an `<a>` to the full page that htmx
+  turns into a modal open (`hx-target="#stat-modal-body"`,
+  `data-stat-modal-size="reading"`), so it works without JavaScript too. A
+  page that doesn't exist draws nothing and logs a warning.
+- **The page is an ordinary help page**: a markdown file in the section,
+  listed in `_config.yaml`. The bubble and the full page are one source.
+- **The fragment** is `help:section_bubble` (`<section>/<slug>/bubble/`,
+  `views.help_bubble`). It drops the leading `# Title` (the modal's header
+  has it) and renders without heading ids, which could clash with the host
+  page's. Opened without htmx, it redirects to the full page.
+- **Two optional frontmatter keys fill the modal's footer**, both naming
+  pages of the same section: `related: [metric, dashboard]` (chips that open
+  in place, so the modal becomes a small viewer) and `guide: goals` (the
+  longer page to read next). Slugs that don't resolve are left out.
+- **`.title-with-help`** (theme.css) puts a heading and its bubble on one
+  line. The bubble sits outside the `<h1>`, so the heading's text stays the
+  page's name.
+
+**Writing one.** Keep it to a page to a page and a half (roughly 400–750
+words): what the thing is, what it represents, how it's set up, how to use it,
+and a short "good to know". Plain words, no code unless the reader will type
+it. One bubble per page; pages about the same thing open the same one.
+`apps/dashboards/content/` is the worked example: its "In short" category
+(`how-it-fits`, `dataset`, `metric`, `component`, …) is the bubble set, and
+`apps/dashboards/tests/test_help_bubbles.py` shows how to keep one honest.
 
 ## Creating a New Help Page
 

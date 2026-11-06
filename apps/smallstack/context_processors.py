@@ -167,6 +167,13 @@ def _get_sidebar_state(request: HttpRequest) -> tuple[str, bool]:
     return default, False
 
 
+#: The logo files SmallStack ships. While a project still points at these, the
+#: logo is drawn from the theme instead of loaded as a fixed-colour image.
+STOCK_LOGO = "smallstack/brand/django-smallstack-logo.svg"
+STOCK_LOGO_DARK = "smallstack/brand/django-smallstack-logo-dark.svg"
+STOCK_LOGO_TEXT = "smallstack/brand/django-smallstack-text.svg"
+
+
 def branding(request: HttpRequest) -> dict[str, Any]:
     """
     Add branding configuration to template context.
@@ -228,9 +235,15 @@ def branding(request: HttpRequest) -> dict[str, Any]:
         "system_color_palette": system_palette,
         "brand": {
             "name": getattr(settings, "BRAND_NAME", "SmallStack"),
-            "logo": getattr(settings, "BRAND_LOGO", "smallstack/brand/django-smallstack-logo.svg"),
-            "logo_dark": getattr(settings, "BRAND_LOGO_DARK", "smallstack/brand/django-smallstack-logo-dark.svg"),
-            "logo_text": getattr(settings, "BRAND_LOGO_TEXT", "smallstack/brand/django-smallstack-text.svg"),
+            "logo": getattr(settings, "BRAND_LOGO", STOCK_LOGO),
+            "logo_dark": getattr(settings, "BRAND_LOGO_DARK", STOCK_LOGO_DARK),
+            "logo_text": getattr(settings, "BRAND_LOGO_TEXT", STOCK_LOGO_TEXT),
+            # The stock SmallStack logo is drawn live, in the palette's colours
+            # (includes/brand_wordmark.html, brand_lockup.html). A project that
+            # names its own logo files gets those files, exactly as before.
+            "wordmark_themed": getattr(settings, "BRAND_LOGO_TEXT", STOCK_LOGO_TEXT) == STOCK_LOGO_TEXT,
+            "logo_themed": getattr(settings, "BRAND_LOGO", STOCK_LOGO) == STOCK_LOGO
+            and getattr(settings, "BRAND_LOGO_DARK", STOCK_LOGO_DARK) == STOCK_LOGO_DARK,
             "icon": getattr(settings, "BRAND_ICON", "smallstack/brand/django-smallstack-icon.svg"),
             "favicon": getattr(settings, "BRAND_FAVICON", "smallstack/brand/django-smallstack-icon.ico"),
             "social_image": getattr(settings, "BRAND_SOCIAL_IMAGE", "smallstack/brand/django-smallstack-social.png"),

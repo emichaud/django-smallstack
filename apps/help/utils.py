@@ -150,9 +150,13 @@ def substitute_variables(content: str, section: str = "", extra_vars: dict | Non
     return re.sub(r"\{\{\s*(\w+)\s*\}\}", replace_var, content)
 
 
-def render_markdown(content: str) -> dict:
+def render_markdown(content: str, anchors: bool = True) -> dict:
     """
     Render markdown content to HTML with table of contents.
+
+    ``anchors=False`` leaves out the table of contents and the heading ids and
+    permalinks that go with it — for a page shown inside another page (a help
+    bubble's modal), where those ids could clash with the host page's own.
 
     Returns a dict with:
         - html: The rendered HTML content
@@ -168,22 +172,16 @@ def render_markdown(content: str) -> dict:
     ``apps.smallstack.transforms.harden_markdown_renderer`` (as the runbook
     renderer does for its untrusted documents).
     """
-    md = markdown.Markdown(
-        extensions=[
-            "fenced_code",
-            "tables",
-            "toc",
-            "attr_list",
-            "md_in_html",
-        ],
-        extension_configs={
-            "toc": {
-                "permalink": True,
-                "permalink_class": "header-link",
-                "title": "Link to this section",
-            },
-        },
-    )
+    extensions = ["fenced_code", "tables", "attr_list", "md_in_html"]
+    extension_configs: dict[str, Any] = {}
+    if anchors:
+        extensions.insert(2, "toc")
+        extension_configs["toc"] = {
+            "permalink": True,
+            "permalink_class": "header-link",
+            "title": "Link to this section",
+        }
+    md = markdown.Markdown(extensions=extensions, extension_configs=extension_configs)
     rendered_html = md.convert(content)
     return {
         "html": rendered_html,
@@ -393,6 +391,48 @@ def get_help_page_markdown(slug: str, section: str = "") -> dict | None:
         "title": title,
         "description": frontmatter.get("description", ""),
         "markdown": content,
+        "meta": frontmatter,
+    }
+
+
+def get_help_bubble(slug: str, section: str = "") -> dict | None:
+    """A help page as a help bubble shows it: in the modal, beside the page it
+    explains (``{% help_bubble %}``). The leading ``# Title`` is dropped, since
+    the modal's header carries it, and the HTML has no heading anchors.
+
+    Two optional frontmatter keys shape the fragment's footer, both naming
+    pages of the same section: ``related`` (a list of slugs: more bubbles,
+    opened in place) and ``guide`` (one slug: the longer page to read next).
+    Slugs that don't resolve are left out. Returns None if the page doesn't exist.
+    """
+    page = get_help_page_markdown(slug, section)
+    if page is None:
+        return None
+    body = page["markdown"].lstrip()
+    if body.startswith("# "):
+        body = body.split("\n", 1)[1] if "\n" in body else ""
+    meta = page["meta"]
+
+    def named(other: Any) -> dict | None:
+        found = get_help_page_markdown(str(other), section) if other else None
+        if found is None:
+            return None
+        return {
+            "slug": found["slug"],
+            "title": found["title"],
+            "url": _resolve_help_url(found["slug"], section),
+            "bubble_url": _resolve_bubble_url(found["slug"], section),
+        }
+
+    related = [n for n in (named(o) for o in meta.get("related") or []) if n]
+    return {
+        "slug": slug,
+        "section": section,
+        "title": page["title"],
+        "description": page["description"],
+        "content": render_markdown(body, anchors=False)["html"],
+        "related": related,
+        "guide": named(meta.get("guide")),
     }
 
 
@@ -575,6 +615,18 @@ def build_search_index() -> tuple:
 def clear_search_index_cache() -> None:
     """Drop the memoized help search index (call after docs change on disk)."""
     build_search_index.cache_clear()
+
+
+def _resolve_bubble_url(slug: str, section: str) -> str:
+    """Reverse the modal-fragment URL for a help page (``views.help_bubble``)."""
+    from django.urls import NoReverseMatch, reverse
+
+    try:
+        if section:
+            return reverse("help:section_bubble", kwargs={"section": section, "slug": slug})
+        return reverse("help:bubble", kwargs={"slug": slug})
+    except NoReverseMatch:
+        return ""
 
 
 def _resolve_help_url(slug: str, section: str) -> str:
