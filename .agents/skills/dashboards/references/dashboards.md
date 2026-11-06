@@ -30,7 +30,28 @@ model is the one rule — views, REST and MCP never re-derive it. Every model
 calls `full_clean()` in `save()`, so a bad filter, a cell pointing at a
 missing metric, or a malformed threshold is refused on **every** surface.
 
+**Addresses.** Dashboards, reports, playlists and goal lists are addressed by `slug`
+(`…/d/<slug>/`, `{% dashboard "slug" %}`, playlist items, the MCP lookup field). Nobody types
+one: `forms._OwnedForm` makes it from the name on create (`models.free_slug`: `site-health`,
+then `site-health-2`; a name with nothing sluggable takes the model's word, `dashboard`), the
+way a metric or card gets its `key`. A create that sends a `slug` (an agent, REST) keeps it. On
+an existing row the slug never follows the name, and `clean_slug` lets only staff change it; a
+non-staff attempt is a validation error, not a silent no-op. The forms show the address
+read-only (`partials/address_field.html`) with **Change the address** for staff; `signals.py`
+carries a changed slug into playlists and Goals cards.
+
 **Keeping the pile small.** Every owned row (metrics, dashboards, cards, playlists, reports, goal lists) carries `tags` (one text field, comma-separated; `tag_list`, `split_tags`, `OwnedQuerySet.tagged(tag)` matches a whole tag, any case) and `archived_at` (`is_archived`, `set_archived(bool)`, `OwnedQuerySet.active()` / `.archived()`). The rule: **lists and pickers show active rows; references keep working.** Overviews, CRUD lists (`?archived=1` shows the archived ones instead), REST/MCP lists, the board editor's metric and card pickers, the goal-add picker and the rate's numerator/denominator pickers all go through `.active()`; a card drawing an archived metric, a report row, a goal, `get_detail_queryset` and the REST/MCP `get_*` by key do not. `usage_index` ignores archived boards, reports and goal lists, so archiving a board frees its metrics. Archive or restore from the page's header (`POST dashboards/archive/<kind>/<pk>/`, editors only, `kind` in `metric dashboard component playlist report goals`). Both overviews narrow to one tag with `?tag=` (chips on every row link there) and say how many rows are archived. **Duplicate** (every page's header, a card's builder) is the create form opened with `?from=<key or slug>`: the original's defining fields and tags prefilled, the name "(copy)", visibility personal, nothing saved until Save; a metric's or card's key comes from its name, a slug-keyed type gets the next free slug (`_free_slug`), and the original is untouched. `MetricCreateMixin.COPIED` and each `*DuplicateMixin.duplicate_fields` say what's carried over. Over REST or MCP a duplicate is a get followed by a create.
+
+**Finding by tag.** `models.tag_cloud(*querysets, current=)` is the tags in use with their row
+counts (any case counted together, the 30 most used, the current one always kept). The
+overviews and My dashboards put it in `tags`; every CRUD list gets it from the
+`displays.TagBar` list accessory. One partial draws it, `partials/tag_filter.html`: chips that
+set `?tag=` on the current address (other parameters kept, `page` dropped) and **Show
+everything**. `_OwnedCRUD.get_list_queryset` applies `?tag=` (so REST lists take it too), the
+overviews' "All N …" links carry it, and each list display shows a row's tags
+(`partials/tags.html`). The overviews are samples and never page
+(`DashboardIndexView.DASHBOARD_CARDS` = 8, `DASHBOARD_ROWS` = 20, `PLAYLISTS` = `COMPONENTS` =
+6); the lists and `…/mine/` page at `PAGE_SIZE_CHOICES` (15 first).
 
 ## A metric
 
@@ -183,8 +204,13 @@ register_component_type(ComponentType(
 ))
 ```
 
-**Option field types:** `choice`, `integer`/`number`, `text`, `boolean`, `column` (a
+**Option field types:** `choice`, `multichoice` (several of the choices, as a tick-list;
+stored as one comma-separated string), `integer`/`number`, `text`, `boolean`, `column` (a
 column of the metric's dataset), `widget` (a published info card) and `markdown`.
+`choices` is `[[value, label]]`, or a callable `choices(user)` returning that when the
+values are rows the person can see (the Goals card's goal list, the Calendar card's
+calendars). Never ask someone to type a key: if an option names something that exists,
+give it `choices`.
 
 **What a registered type gets, with no other changes:**
 - a tile in the **component builder** palette, with its form drawn from
@@ -283,14 +309,30 @@ Tapping a number opens its rows in the stat modal, with **Download CSV**. A card
     `col_resizer.html`). Drag, use the arrow keys, or double-click to fit; widths
     are remembered per card.
 
+**In the builder** (the **Drill-down** step, `component-builder.js`):
+- "Choose the columns" opens a dialog (`#cb-drill-dialog`, a native `<dialog>` outside the
+  form) that starts from the default six. Every column of the metric's dataset is listed
+  once: ticked ones on top in the order they appear, each with a heading and a format;
+  the rest below, with a filter once there are eight or more.
+- Order by dragging a row's grip or with its ↑ ↓ buttons. **All**, **First six** and
+  **None** set the ticks in one go; 12 is still the most.
+- Beside the list are the rows that design opens, redrawn as it changes: the JSON rows
+  route with `?drill=<json>&limit=25`. Selecting one of its headings sets the design's
+  `sort`.
+- **Done** keeps the design; **Cancel** or Escape puts back what was there. The form then
+  shows it in short (the columns as numbered chips, the sort, the row limit). Unticking
+  "Choose the columns" goes back to the default, and ticking it again on the same page
+  brings the design back.
+
 **How a card carries it:**
 - Every rows URL a drillable card renders gets `?drill=<json>`
   (`components.drill_params(cell)` / `with_drill(url, cell)`).
 - So the modal follows the card everywhere: a dashboard, an embed, a playlist, the
   builder's preview.
-- `MetricRowsView` validates the design against the dataset. A design can only pick,
-  label, format and sort columns of rows the viewer may already read, and a bad one is
-  a 400.
+- `MetricRowsView` validates the design against the dataset
+  (`metrics.requested_drilldown`). A design can only pick, label, format and sort
+  columns of rows the viewer may already read, and a bad one is a 400. The JSON rows
+  route (`dashboards/api/metrics/<key>/rows/`) takes the same `?drill=`.
 - `?format=csv` on the same URL is the export.
 
 **Your own type:** set `drillable=True` and pass every rows URL your template renders
@@ -337,8 +379,9 @@ A **metric** is *what* number; a **component** is *how it's drawn*:
   and `POST dashboards/api/card-preview/`.
 
 `dashboards/card-preview/<pk>/` draws one saved card through `render_cell`, with the same access
-checks as a dashboard. The components list shows it on hover (`component-list.js`), and the gallery
-(`ComponentCardsDisplay`) loads one per card on `revealed`. Previews are `inert`.
+checks as a dashboard. The components page opens on the gallery (`ComponentCardsDisplay`, its
+`default_display`), which loads one per card on `revealed`; the table (`?display=library`) shows it on
+hover (`component-list.js`). Both page like every other list here. Previews are `inert`.
 
 ## A metric over time — `trends.metric_trend`
 
@@ -582,7 +625,7 @@ The evaluation tools are custom:
 | — | `POST dashboards/api/report-preview/` | evaluate an unsaved report: `{items, periods}` → columns, rows, changes |
 | `metric_value` | `GET dashboards/api/metrics/<key>/value/?period=` | evaluate a saved metric (+ `comparison` with the previous period) |
 | `metric_trend` | `GET dashboards/api/metrics/<key>/trend/?period=&grain=` | the metric per bucket across a period — a chart's series |
-| `metric_rows` | `GET dashboards/api/metrics/<key>/rows/?period=&order=&limit=` | the rows behind the number, as JSON |
+| `metric_rows` | `GET dashboards/api/metrics/<key>/rows/?period=&order=&limit=` (REST also takes `&drill=<json>`, a card's drill-down design) | the rows behind the number, as JSON |
 | `get_metric` `get_dashboard` `get_report` `get_goal_list` `get_playlist` `get_component` | `GET /smallstack/api/dashboards/<noun>/<id>/` | read one back in full. The tools also take `key` / `slug` in place of `id` (`mcp_lookup_field`), as do `update_*` and `delete_*` |
 | `goal_list_values` / `goal_list_weeks` | `GET dashboards/api/goals/<slug>/values/`, `…/weeks/` | a list judged; a list week over week |
 | `goal_list_save_week` | `POST dashboards/api/goals/<slug>/weeks/<week>/save/` | freeze a week (`fill` backfills, MCP only) |
@@ -675,7 +718,9 @@ surface importing another, or a private name imported from another app fails the
 | `/smallstack/dashboards/` | the **Dashboards** overview: dashboards (cards with a Sort select, or `?boards=list`, a table), playlists, saved cards. Each is a resizable table with its own sort (`?dash=`, `?playlists=`, `?components=`; `views.section_sort`) |
 | `/smallstack/goals/` | the **Goals** overview: goal lists (live summaries), metrics (live values, `?period=` + comparisons), reports. Each is a resizable table with its own sort (`?lists=`, `?metrics=`, `?reports=`; `views.section_sort`) |
 | `…/mine/` | **My dashboards**: the personal ones you own plus the shared ones you made (`Dashboard.objects.mine(user)`, which reads `created_by`; `owner` is blank once a row is shared). Newest change first, each with its "needs attention" line. In the sidebar beside Dashboards |
-| `…/d/<slug>/` | a dashboard — period bar, **Edit layout** (drag/resize, Add card, Remove, Save) |
+| `…/d/<slug>/` | a dashboard — controls in the page header, the period bar above the cards, each card's ⋯ menu, **Edit layout** (drag/resize, Add card, Remove, Save) |
+| `…/d/<slug>/cards/<id>/edit/` | **Edit card**: the component builder for one card, as a fragment for the dashboard's dialog (`DashboardCardEditView`) |
+| `…/d/<slug>/cards/<id>/copy/` (POST, `metric=1`) | **Make a unique copy** / **Give it its own metric**: one card becomes the dashboard's own (`DashboardCardCopyView` → `boards.make_card_unique`) |
 | `…/d/<slug>/cards/` (`?order=`), `…/cards/<id>/value/` | the settings page's cards table and one row's lazy value (`boards.board_cards`, `boards.cell_value`). It swaps only itself, so a form with unsaved edits is safe; sorting never moves a card |
 | `…/m/<key>/` | a metric — value, filter reading + JSON, the rows, where it's used |
 | `…/metrics/new/`, `…/metrics/<pk>/edit/` | the **metric builder**: AND/OR filter tree from the schema, measure/period pickers, threshold rules, live preview |
@@ -689,6 +734,86 @@ surface importing another, or a private name imported from another app fails the
 
 `manage.py seed_dashboards` builds a shared demo (8 metrics over the bundled
 datasets, a "Site health" dashboard, a "Monthly KPIs" report).
+
+## The dashboard page — controls, card menus, Edit card
+
+The page (`dashboard.html`) is three separable pieces, so the cards can be drawn
+anywhere without the rest:
+
+- **The cards** are the grid in `#dash-page`. `{% dashboard %}` draws the same cards
+  from its own template (`includes/embed.html`, plain CSS grid): no controls, no
+  menus, nothing to edit. Changing the page never changes an embed.
+- **The controls** are `includes/dashboard_controls.html` (Updated / Refresh,
+  Duplicate, Archive, Settings, Edit layout), included in the **page header**.
+  `dashboard.js` finds each by id, so a page of your own can include them wherever
+  its header is. Only the period bar stays above the cards, because it changes what
+  they show. All of them carry `.dash-view-only` and step aside while arranging
+  (`body.dash-editing-page`).
+- **Each card's menu** is the ⋯ button in the cell (`.dash-cell-more`,
+  `data-cell-menu`) and one `#dash-card-menu` for the page, positioned at the card
+  that opened it (a cell clips what's inside it). The view gives each cell
+  `label`, `edit_url` and `metric_url`; the button carries the URLs and the menu
+  shows the entries that have one. Edit, Move or resize and Remove are only
+  rendered for someone who can edit the dashboard.
+
+**Edit card** (`DashboardCardEditView`, `d/<slug>/cards/<id>/edit/`) is the
+component builder in a `<dialog>`. The builder's form is one partial,
+`includes/component_builder.html`, drawn in three modes (`cb_mode`):
+
+| `cb_mode` | Where | Saves |
+|---|---|---|
+| `page` | the builder's own page | a `Component` (the CRUD form) |
+| `placed` | the dialog, for a cell that names a saved card | that `Component`, for someone who may edit it; `signals.py` refreshes every dashboard showing it |
+| `cell` | the dialog, for a card of this dashboard only | type, metric, options and title back into this dashboard's layout, validated by `Dashboard.clean` |
+
+`dashboard.js` fetches the fragment, calls
+`SmallStackDashboards.startComponentBuilder()` (the builder's script starts on
+demand as well as on its page), and posts the form: `{"ok": true}` reloads the
+page, a `422` is the form again with what was wrong. In the dialog the preview
+is `inert`, because a tap on its number would open the rows modal underneath.
+Remove from the menu saves the layout without that cell; the card's place and
+size are never touched by an edit.
+
+**A card other dashboards show** (`cell.linked`: the cell names a saved card that
+`boards.placement_counts` finds on more than one dashboard) is marked for editors:
+`.dash-cell--linked` on the cell and a `.dash-cell-linked` tab with the count.
+Its menu offers **Make a unique copy**, which posts to `…/copy/`:
+
+- `boards.make_card_unique(dashboard, cell_id, user, copy_metric=)` drops the
+  cell's `component` reference (the cell already carries the design; the card's
+  name becomes its title), so later edits to the saved card no longer reach it.
+- With `copy_metric` it also copies the metric (`METRIC_COPIED` fields, named
+  `"<metric> (<dashboard>)"`, owned like the dashboard) and points the card at
+  the copy. A hand-entered metric is never copied: its values belong to it.
+- One transaction: a layout or metric that won't save leaves nothing behind.
+
+A card that was never a saved one gets **Give it its own metric** (the same call,
+metric only). Together they are how a duplicated dashboard gets numbers of its
+own. The menu's **Edit the metric** (`metric_edit_url`, when the viewer may edit
+it) leads to the copy's filter.
+
+## Help on every page
+
+Every page here carries a help bubble beside its title (`{% help_bubble
+"dashboards" "<slug>" %}`, see help-documentation.md), opening one of the "In
+short" pages in `apps/dashboards/content/`:
+
+| Page(s) | Opens |
+|---|---|
+| the two overviews | `how-it-fits`: dataset → metric → component → dashboards, goal lists, reports |
+| metrics list, a metric, the metric builder | `metric` |
+| components list, the component builder | `component` |
+| dashboards list, a dashboard, its settings, My dashboards, `/smallstack/` | `dashboard` |
+| goal lists, a goal list, its editor, Add to goals | `goal-list` |
+| Weeks, Trends, History | `history` |
+| reports list, a report, its editor | `report` |
+| playlists list, a playlist, its settings | `playlist` |
+| the Datasets browser (`apps/datasets`) | `dataset` |
+
+A new page gets a bubble, and a new kind of thing gets a page of its own.
+`tests/test_help_bubbles.py` checks that every bubble opens a page that
+exists, that every "In short" page is opened from somewhere, and that each
+stays a page to a page and a half.
 
 ## Anti-patterns
 

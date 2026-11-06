@@ -125,13 +125,25 @@ class TestThePage:
 
     def test_the_list_rows_carry_their_preview(self, client, staff, card):
         client.force_login(staff)
-        html = client.get(reverse("dashboards/components-list")).content.decode()
+        html = client.get(reverse("dashboards/components-list"), {"display": "library"}).content.decode()
         assert f'data-preview-url="{reverse("dashboards_component_preview", kwargs={"pk": card.pk})}"' in html
         assert "component-list.js" in html and 'id="cl-peek"' in html
 
     def test_the_gallery_loads_each_card_lazily_and_inert(self, client, staff, card):
         client.force_login(staff)
-        html = client.get(reverse("dashboards/components-list"), {"display": "cards"}).content.decode()
+        html = client.get(reverse("dashboards/components-list")).content.decode()  # the gallery is the default
         assert 'class="cc-grid"' in html and 'hx-trigger="revealed"' in html and " inert " in html
         assert "ranked-bar" not in html  # nothing evaluated up front
         assert "website/css/dashboard-cards.css" in html
+
+    def test_the_gallery_pages_like_the_table(self, client, staff, card):
+        for i in range(16):
+            Component(name=f"Paged {i:02d}", type="ranked", metric="reqs", options={"dimension": "method"}).save()
+        client.force_login(staff)
+        url = reverse("dashboards/components-list")
+        html = client.get(url).content.decode()
+        assert html.count('<li class="cc-card">') == 15 and "Showing 1&ndash;15 of 17" in html
+        assert 'hx-target="#crud-display-area"' in html and '<option value="15" selected>' in html
+        assert client.get(url, {"page": 2}).content.decode().count('<li class="cc-card">') == 2
+        wide = client.get(url, {"per_page": 25}).content.decode()
+        assert wide.count('<li class="cc-card">') == 17 and 'name="per_page"' in wide  # one page, control kept

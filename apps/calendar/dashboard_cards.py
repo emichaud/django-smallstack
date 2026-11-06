@@ -2,9 +2,10 @@
 dashboard, registered with the dashboards app's component registry from this
 app's ``ready()`` the way a downstream app registers its own card types.
 
-Options: ``calendars`` (comma-separated keys), ``mode`` (upcoming / month /
-board), ``days`` and ``limit``. The viewer's access is applied per calendar
-at render time; a viewer who may see none of them gets the restricted card.
+Options: ``calendars`` (comma-separated keys; a builder offers the ones its
+user may see as a tick-list), ``mode`` (upcoming / month / board), ``days``
+and ``limit``. The viewer's access is applied per calendar at render time; a
+viewer who may see none of them gets the restricted card.
 """
 
 from __future__ import annotations
@@ -18,6 +19,14 @@ from .embed import MAX_UPCOMING_DAYS, MAX_UPCOMING_LIMIT, MODES, UPCOMING_DAYS, 
 logger = logging.getLogger("smallstack.calendar")
 
 MODE_CHOICES = [["upcoming", "Upcoming list"], ["month", "Month grid"], ["board", "Day-range board"]]
+
+
+def calendar_choices(user: Any) -> list[list[str]]:
+    """``[[key, label]]`` for the calendars *user* may see: what a builder
+    offers under Calendars, and what an agent reads the keys from."""
+    from .core import list_calendars
+
+    return [[c["key"], c["label"]] for c in list_calendars(user)]
 
 
 def validate_calendar_card(cell: dict[str, Any]) -> list[str]:
@@ -92,9 +101,10 @@ def register() -> None:
                 {
                     "name": "calendars",
                     "label": "Calendars",
-                    "type": "text",
+                    "type": "multichoice",
                     "required": True,
-                    "help": "Calendar keys, comma-separated (list_calendars; REST: /smallstack/calendar/api/).",
+                    "choices": calendar_choices,
+                    "help": "Tick each calendar the card draws. Someone viewing it sees only the ones they may open.",
                 },
                 {"name": "mode", "label": "Show", "type": "choice", "choices": MODE_CHOICES, "default": "upcoming"},
                 {

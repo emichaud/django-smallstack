@@ -4,25 +4,15 @@
 (function () {
     "use strict";
 
-    function slugify(text) {
-        return text.toLowerCase().normalize("NFKD").replace(/[̀-ͯ]/g, "")
-            .replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 80);
-    }
     function q(form, name) { return form.querySelector('[name="' + name + '"]'); }
 
     document.addEventListener("DOMContentLoaded", function () {
         var form = document.getElementById("df-form");
         if (!form) return;
-        var name = q(form, "name"), slug = q(form, "slug"), desc = q(form, "description");
+        var name = q(form, "name"), desc = q(form, "description");
         var refresh = q(form, "refresh_seconds"), layout = q(form, "layout");
 
-        // Slug follows the name on a new dashboard until it's edited by hand.
-        var slugTouched = form.getAttribute("data-creating") !== "1" || !!slug.value;
-        slug.addEventListener("input", function () { slugTouched = true; });
-        name.addEventListener("input", function () {
-            if (!slugTouched) slug.value = slugify(name.value);
-            render();
-        });
+        name.addEventListener("input", render);
         desc.addEventListener("input", render);
 
         // Refresh presets drive the number input (and mirror it back).

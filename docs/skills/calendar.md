@@ -245,7 +245,11 @@ editor or place it from an agent:
 ```
 
 Options are `calendars` (comma-separated keys — validated to exist when the
-layout is saved), `mode`, `days`, `limit`. The card renders the fragment
+layout is saved), `mode`, `days`, `limit`. In the component builder and a
+dashboard's **Add card** dialog, `calendars` is a tick-list of the calendars
+the person may see (`dashboard_cards.calendar_choices`, a `multichoice`
+option), so nobody types a key; an agent reads the same keys and labels from
+`list_dashboard_components`. The card renders the fragment
 eagerly inside the dashboard's own lazy cell and navigates in place like the
 tag; a viewer who may see none of its calendars gets the restricted card
 ("You don't have access to this card's calendars"), one who may see some

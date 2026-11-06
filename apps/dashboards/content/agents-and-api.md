@@ -64,6 +64,9 @@ A well-behaved agent will:
 
 Rows can be named as well as numbered: `get_metric`, `update_metric` and `delete_metric`
 take `key` in place of `id`; dashboards, reports, goal lists and playlists take `slug`.
+A `slug` is optional when creating one: leave it out and it's made from the name (`site-health`,
+then `site-health-2`), and the answer says what it is. An existing one's slug doesn't change
+with its name, and only staff may change it.
 
 **Periods** are `today`, `yesterday`, `wtd` (this week so far), `pwtd` (last week), `mtd`, `pmtd`,
 `qtd`, `pqtr`, `ytd`, `prev_year`, `last_<N>`, `next_<N>` and `all`. A name that isn't one is refused,

@@ -1,5 +1,6 @@
 {% extends "smallstack/base.html" %}
 {% load static theme_tags %}
+{% load help_tags %}
 {% comment %}
 GoalHistoryView: which cadences this list tracks, then its captures for one cadence,
 goals down and periods across. A period with no capture is blank, never worked out
@@ -13,7 +14,7 @@ now. Opening a period shows every capture of it. Tabs, headers and arrows swap #
 {% block page_header %}
 <div class="page-header-bleed page-header-with-actions">
     <div class="page-header-content">
-        <h1>{{ goal_list.name }}, history</h1>
+        <div class="title-with-help"><h1>{{ goal_list.name }}, history</h1>{% help_bubble "dashboards" "history" %}</div>
         <p class="page-subtitle">Values captured over time, kept as they were. Track any of these on their own schedule.</p>
         <nav style="margin-top: 0.5rem; font-size: 0.8rem;" aria-label="Breadcrumb">
             <a href="{% url 'website:home' %}" style="color: var(--body-quiet-color); text-decoration: none;">Home</a>

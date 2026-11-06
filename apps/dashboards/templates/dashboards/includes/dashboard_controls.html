@@ -1,0 +1,21 @@
+{% comment %}
+A dashboard page's controls: how fresh its cards are, and what this viewer may do
+with the dashboard. They sit in the page header (dashboard.html, admin_home.html),
+apart from the cards, so the cards can be drawn anywhere ({% dashboard %}) without
+them. dashboard.js finds each by id, wherever it is on the page. All of them step
+aside while the cards are being arranged (.dash-view-only).
+{% endcomment %}
+<span class="dash-fresh dash-view-only">
+    <span id="dash-updated" aria-live="polite">Updated just now</span>{% if dashboard.refresh_seconds %}, refreshes every {{ dashboard.refresh_seconds }}s{% endif %}
+    <button type="button" class="dash-text-btn" id="dash-refresh">Refresh</button>
+</span>
+<span class="dash-view-only">
+    <a href="{% url 'dashboards/boards-create' %}?from={{ dashboard.slug }}" class="btn-outline btn-sm" title="Open the form with this dashboard's layout; nothing is saved until you save">Duplicate</a>
+</span>
+{% if can_edit %}
+<span class="dash-view-only">
+    {% include "dashboards/partials/archive_button.html" with kind="dashboard" obj=dashboard %}
+    <a href="{% url 'dashboards/boards-update' dashboard.pk %}" class="btn-outline btn-sm">Settings</a>
+    <button type="button" class="btn-primary btn-sm" id="dash-edit">Edit layout</button>
+</span>
+{% endif %}

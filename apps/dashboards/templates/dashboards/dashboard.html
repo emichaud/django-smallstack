@@ -1,5 +1,6 @@
 {% extends "smallstack/base.html" %}
 {% load static dashboard_tags %}
+{% load help_tags %}
 
 {% block title %}{{ dashboard.name }}{% endblock %}
 {% block breadcrumbs %}{% endblock %}
@@ -15,6 +16,7 @@
         <div class="dash-title">
             <span class="dash-title-picture">{% include "dashboards/includes/board_picture.html" with d=dashboard %}</span>
             <h1>{{ dashboard.name }}</h1>
+            {% help_bubble "dashboards" "dashboard" %}
         </div>
         {% if dashboard.description %}<p class="page-subtitle">{{ dashboard.description }}</p>{% endif %}
         <nav style="margin-top: 0.5rem; font-size: 0.8rem;">
@@ -25,8 +27,9 @@
             <span style="color: var(--body-fg);">{{ dashboard.name }}</span>
         </nav>
     </div>
-    <div style="display: flex; gap: 0.5rem; align-items: center;">
+    <div class="dash-header-actions">
         {% if dashboard.is_shared %}<span class="dash-badge dash-badge--shared">Shared</span>{% else %}<span class="dash-badge">Personal · {{ dashboard.owner }}</span>{% endif %}
+        {% include "dashboards/includes/dashboard_controls.html" %}
     </div>
 </div>
 {% endblock %}
@@ -34,8 +37,9 @@
 {% block content %}
 <div id="dash-page" data-layout-url="{% url 'dashboards_layout' dashboard.slug %}" data-schema-url="{% url 'dashboards_api_dataset_schema' 'DATASET' %}">
     {% csrf_token %}
+    {% comment %}Above the cards: only the period they're read over. The dashboard's other controls are in the page header (includes/dashboard_controls.html).{% endcomment %}
+    {% if has_period_cells %}{# no card reads a period (widgets, notes): no period bar #}
     <div class="dash-toolbar">
-        {% if has_period_cells %}{# no card reads a period (widgets, notes): no period bar #}
         <nav class="md-periods dash-view-only" aria-label="Period">
             {% for p in quick_periods %}<a href="?period={{ p.key }}" class="md-period"{% if p.current %} aria-current="true"{% endif %}>{{ p.label }}</a>{% endfor %}
             <form method="get" class="md-more">
@@ -47,23 +51,8 @@
                 <noscript><button type="submit" class="btn-outline btn-sm">Go</button></noscript>
             </form>
         </nav>
-        {% endif %}
-        <span class="dash-spacer"></span>
-        <span class="dash-fresh dash-view-only">
-            <span id="dash-updated" aria-live="polite">Updated just now</span>{% if dashboard.refresh_seconds %}, refreshes every {{ dashboard.refresh_seconds }}s{% endif %}
-            <button type="button" class="dash-text-btn" id="dash-refresh">Refresh</button>
-        </span>
-        <span class="dash-view-only">
-            <a href="{% url 'dashboards/boards-create' %}?from={{ dashboard.slug }}" class="btn-outline btn-sm" title="Open the form with this dashboard's layout; nothing is saved until you save">Duplicate</a>
-        </span>
-        {% if can_edit %}
-        <span class="dash-view-only">
-            {% include "dashboards/partials/archive_button.html" with kind="dashboard" obj=dashboard %}
-            <a href="{% url 'dashboards/boards-update' dashboard.pk %}" class="btn-outline btn-sm">Settings</a>
-            <button type="button" class="btn-primary btn-sm" id="dash-edit">Edit layout</button>
-        </span>
-        {% endif %}
     </div>
+    {% endif %}
     {% if can_edit %}
     <div class="dash-edit-band" role="region" aria-label="Arranging cards">
         <p><strong>Arranging cards.</strong> Drag a card to move it, drag its corner to resize. Changes apply when you save.</p>
@@ -82,7 +71,11 @@
         {% for cell in cells %}
         <div class="grid-stack-item" gs-id="{{ cell.id }}" gs-x="{{ cell.x }}" gs-y="{{ cell.y }}" gs-w="{{ cell.w }}" gs-h="{{ cell.h }}">
             <div class="grid-stack-item-content">
-                <div class="dash-cell dash-cell--{{ cell.type }}" data-cell-id="{{ cell.id }}">
+                <div class="dash-cell dash-cell--{{ cell.type }}{% if cell.linked %} dash-cell--linked{% endif %}" data-cell-id="{{ cell.id }}">
+                    {% comment %}The card's menu: one #dash-card-menu for the page, opened at this button (dashboard.js). What it offers depends on the links this button carries.{% endcomment %}
+                    <button type="button" class="dash-cell-more" data-cell-menu="{{ cell.id }}" aria-haspopup="menu" aria-expanded="false" aria-label="Actions for {{ cell.label }}"{% if cell.edit_url %} data-edit-url="{{ cell.edit_url }}"{% endif %}{% if cell.metric_url %} data-metric-url="{{ cell.metric_url }}"{% endif %}{% if cell.metric_edit_url %} data-metric-edit-url="{{ cell.metric_edit_url }}"{% endif %}{% if cell.copy_url %} data-copy-url="{{ cell.copy_url }}"{% if cell.metric_copyable %} data-metric-name="{{ cell.metric_name }}"{% endif %}{% endif %}{% if cell.linked %} data-saved-name="{{ cell.saved_name }}" data-saved-count="{{ cell.saved_count }}"{% endif %}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 10a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm6 0a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm6 0a2 2 0 1 0 0 4 2 2 0 0 0 0-4z"/></svg></button>
+                    {% comment %}A saved card other dashboards show too, marked for whoever can change it here: an edit reaches all of them. Its menu can make this one a unique copy.{% endcomment %}
+                    {% if cell.linked %}<span class="dash-cell-linked" title="A saved card, “{{ cell.saved_name }}”, shown on {{ cell.saved_count }} dashboards. Editing it changes all of them. Its ⋯ menu can make this one a unique copy."><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.9 12a3.1 3.1 0 0 1 3.1-3.1h4V7H7a5 5 0 0 0 0 10h4v-1.9H7A3.1 3.1 0 0 1 3.9 12zM8 13h8v-2H8v2zm9-6h-4v1.9h4a3.1 3.1 0 0 1 0 6.2h-4V17h4a5 5 0 0 0 0-10z"/></svg>{{ cell.saved_count }}<span class="sr-only"> dashboards show this saved card</span></span>{% endif %}
                     {% if can_edit %}<div class="dash-cell-tools"><button type="button" data-remove="{{ cell.id }}" aria-label="Remove this {{ cell.type_label }} card">Remove</button></div>{% endif %}
                     <div class="dash-cell-body" hx-get="{% url 'dashboards_cell' dashboard.slug cell.id %}?period={{ period }}" hx-trigger="load, dash-refresh{% if dashboard.refresh_seconds %}, every {{ dashboard.refresh_seconds }}s{% endif %}" hx-swap="innerHTML">
                         <span class="dash-cell-loading">Loading…</span>
@@ -102,7 +95,41 @@
     {% endif %}
 </div>
 
+{% comment %}Every card's menu. Entries that need a link the card doesn't carry (its editor, its metric) are hidden as it opens.{% endcomment %}
+<div class="dash-menu" id="dash-card-menu" role="menu" aria-label="Card actions" hidden>
+    {% if can_edit %}
+    <p class="dash-menu-note" data-card-note hidden></p>
+    <button type="button" role="menuitem" data-card-action="edit">Edit card</button>
+    <button type="button" role="menuitem" data-card-action="unique">Make a unique copy</button>
+    <button type="button" role="menuitem" data-card-action="own-metric">Give it its own metric</button>
+    <button type="button" role="menuitem" data-card-action="arrange">Move or resize</button>
+    {% endif %}
+    <a role="menuitem" data-card-action="metric" href="#">Open the metric</a>
+    {% if can_edit %}<a role="menuitem" data-card-action="metric-edit" href="#">Edit the metric</a>{% endif %}
+    <button type="button" role="menuitem" data-card-action="refresh">Refresh this card</button>
+    {% if can_edit %}
+    <button type="button" role="menuitem" class="dash-menu-danger" data-card-action="remove">Remove from dashboard</button>
+    {% comment %}One question at a time, in place of the entries: what the action does, an option where it has one, and the way back.{% endcomment %}
+    <div class="dash-menu-confirm" data-card-confirm hidden>
+        <p data-card-confirm-text></p>
+        <label class="dash-menu-check" data-card-confirm-option hidden><input type="checkbox" checked> <span></span></label>
+        <span>
+            <button type="button" role="menuitem" class="btn-outline btn-sm" data-card-action="keep">Cancel</button>
+            <button type="button" role="menuitem" class="btn-primary btn-sm" data-card-action="yes">Remove</button>
+        </span>
+    </div>
+    {% endif %}
+</div>
+
 {% if can_edit %}
+{% comment %}Edit card: the component builder, loaded for one card (DashboardCardEditView) and saved without leaving the dashboard.{% endcomment %}
+<dialog class="dash-card-dialog" id="dash-card-dialog" aria-labelledby="dash-card-dialog-title">
+    <div class="dash-card-dialog-head">
+        <h2 id="dash-card-dialog-title">Edit card</h2>
+        <button type="button" class="plf-tool" id="dash-card-dialog-x" aria-label="Close without saving">✕</button>
+    </div>
+    <div class="dash-card-dialog-body" id="dash-card-dialog-body"></div>
+</dialog>
 {{ editor|json_script:"dash-editor-data" }}
 <dialog class="dash-dialog" id="dash-add-dialog" aria-labelledby="dash-add-title">
     <form method="dialog" id="dash-add-form">
@@ -147,4 +174,5 @@
 {% block extra_js %}
 <script src="{% static 'dashboards/vendor/gridstack/gridstack-all.min.js' %}" defer></script>
 <script src="{% static 'dashboards/js/dashboard.js' %}" defer></script>
+{% if can_edit %}<script src="{% static 'dashboards/js/component-builder.js' %}" defer></script>{% endif %}
 {% endblock %}

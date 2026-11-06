@@ -7,7 +7,8 @@
  * the chosen metric's data can't support, and keeps a live preview rendered
  * by dashboards/api/card-preview/, the same render_cell a dashboard uses.
  *
- * Option field types: choice | integer | number | text | boolean | column
+ * Option field types: choice | multichoice (a tick-list of the choices, kept
+ * as one comma-separated string) | integer | number | text | boolean | column
  * (a column of the metric's dataset) | widget (a published info card) |
  * markdown. A `stylable` type also gets "Style it": the shared settings in
  * data.style (components.CARD_STYLE) → options.style, and its own colour rules
@@ -25,7 +26,7 @@
         return node;
     }
 
-    document.addEventListener("DOMContentLoaded", function () {
+    function start() {
         var form = document.getElementById("cb-form");
         if (!form) return;
         var data = JSON.parse(document.getElementById("cb-data").textContent);
@@ -54,7 +55,8 @@
             return r ? types[r.value] : null;
         }
         function shared() {
-            var v = form.querySelector('[name="visibility"]:checked');
+            // The card's own choice, or (a card of one dashboard) that dashboard's, as a hidden field.
+            var v = form.querySelector('[name="visibility"]:checked, input[type="hidden"][name="visibility"]');
             return !!v && v.value === "shared";
         }
         function writeOptions() { optionsInput.value = JSON.stringify(options); }
@@ -104,6 +106,44 @@
             }).catch(function () { done([]); });
         }
 
+        // Several of the choices, ticked: the value is their keys, comma-separated,
+        // in the order the choices come. A key already saved that isn't offered
+        // (a calendar this person can't see) stays, shown by its key, until unticked.
+        function multichoice(spec, id) {
+            var chosen = String(options[spec.name] == null ? "" : options[spec.name]).split(",")
+                .map(function (k) { return k.trim(); }).filter(Boolean);
+            var offered = (spec.choices || []).map(function (c) { return Array.isArray(c) ? c : [c, c]; });
+            var known = offered.map(function (c) { return String(c[0]); });
+            var rows = offered.map(function (c) { return [String(c[0]), c[1], false]; });
+            chosen.forEach(function (k) { if (known.indexOf(k) < 0) rows.push([k, k, true]); });
+            var wrap = el("fieldset", { class: "mb-field cb-multi", id: id });
+            wrap.appendChild(el("legend", {}, spec.label));
+            var list = el("div", { class: "cb-multi-list" });
+            var boxes = [];
+            var sync = function () {
+                var keys = boxes.filter(function (b) { return b.checked; }).map(function (b) { return b.value; });
+                if (keys.length) options[spec.name] = keys.join(",");
+                else delete options[spec.name];
+                writeOptions();
+                schedulePreview();
+            };
+            rows.forEach(function (r, n) {
+                var box = el("input", { type: "checkbox", id: id + "-" + n, value: r[0] });
+                box.checked = chosen.indexOf(r[0]) >= 0;
+                box.addEventListener("change", sync);
+                boxes.push(box);
+                var row = el("label", { class: "cb-multi-item", for: id + "-" + n });
+                row.appendChild(box);
+                row.appendChild(el("span", {}, r[1]));
+                if (r[2]) row.appendChild(el("span", { class: "cb-multi-note" }, "not one you can see"));
+                list.appendChild(row);
+            });
+            if (!rows.length) list.appendChild(el("p", { class: "mb-help" }, "There's nothing to choose from yet."));
+            wrap.appendChild(list);
+            if (spec.help) wrap.appendChild(el("p", { class: "mb-help" }, spec.help));
+            return wrap;
+        }
+
         function renderOptions() {
             var t = currentType();
             optionsBox.textContent = "";
@@ -120,6 +160,10 @@
                 var label = el("label", { for: id }, spec.label);
                 var input;
                 var value = options[spec.name] != null ? options[spec.name] : spec.default;
+                if (spec.type === "multichoice") {
+                    optionsBox.appendChild(multichoice(spec, id));
+                    return;
+                }
                 if (spec.type === "choice" || spec.type === "column" || spec.type === "widget") {
                     input = el("select", { id: id, class: "vTextField" });
                     var fill = function (pairs) {
@@ -351,17 +395,41 @@
         }
 
         // -- Drill-down: the columns the rows modal (and its CSV) shows --------
+        // The design is options.drilldown ({columns, sort, limit}); absent = the
+        // data's first columns, as stored. It's made in a dialog: every column
+        // of the metric's dataset in one list (ticked ones on top, in the order
+        // they appear) beside the rows that design opens, redrawn as it changes
+        // (dashboards/api/metrics/<key>/rows/?drill=). The form shows it in
+        // short. Cancel or Escape puts back what was there when it opened.
         var drillCard = document.getElementById("cb-drill-card");
         var drillStep = document.getElementById("cb-drill-step");
         var drillOwn = document.getElementById("cb-drill-own");
         var drillBox = document.getElementById("cb-drill");
-        var drillCols = document.getElementById("cb-drill-cols");
-        var drillAddField = document.getElementById("cb-drill-add-field");
+        var drillChips = document.getElementById("cb-drill-chips");
+        var drillNote = document.getElementById("cb-drill-note");
+        var drillDialog = document.getElementById("cb-drill-dialog");
+        var drillShown = document.getElementById("cbd-shown");
+        var drillHidden = document.getElementById("cbd-hidden");
+        var drillFind = document.getElementById("cbd-find");
+        var drillPreview = document.getElementById("cbd-preview");
+        var drillFoot = document.getElementById("cbd-foot");
         var drillSort = document.getElementById("cb-drill-sort");
         var drillDir = document.getElementById("cb-drill-dir");
         var drillLimit = document.getElementById("cb-drill-limit");
-        var FORMATS = (data.drilldown && data.drilldown.formats) || [["", "As stored"]];
+        var drillAll = document.getElementById("cbd-all");
+        var drillNone = document.getElementById("cbd-none");
+        var DRILL = data.drilldown || {};
+        var FORMATS = DRILL.formats || [["", "As stored"]];
+        var MAX_COLS = DRILL.max_columns || 12;
+        var DEFAULT_COLS = DRILL.default_columns || 6;
+        var DEFAULT_ROWS = DRILL.default_rows || 50;
+        var MAX_ROWS = DRILL.max_rows || 500;
+        var SAMPLE_ROWS = 25;               // rows the dialog draws, whatever the design opens with
+        var NEWEST_FIRST = ["date", "datetime", "integer", "float", "decimal"];
         var fullSchema = {};
+        var drillColumns = [], drillByName = {};   // the dataset's columns, once loaded
+        var drillStash = null;                     // a design unticked on this page: ticking again brings it back
+        var drillBefore = null, drillStashBefore = null, drillKept = false;   // what Cancel restores
 
         function allColumns(done) {
             var m = metrics[metricSel.value];
@@ -382,137 +450,352 @@
             writeOptions();
             schedulePreview();
         }
-        // -- sorting: these rows ARE the order the columns appear in, so a sort
-        // rewrites it (until Save; Undo restores it).
-        var drillByName = {}, drillBefore = null, drillSortKey = "", drillSortDir = "";
-        var drillSortButtons = Array.prototype.slice.call(document.querySelectorAll("[data-drill-sort]"));
-        var DRILL_WORDS = { column: "column", heading: "heading", format: "format" };
-        function drillSortValue(col, key) {
-            var c = drillByName[col.field] || { label: col.field };
-            if (key === "column") return String(c.label).toLowerCase();
-            if (key === "heading") return String(col.label || c.label).toLowerCase();
-            var hit = FORMATS.filter(function (f) { return f[0] === (col.format || ""); })[0];
-            return col.format && hit ? String(hit[1]).toLowerCase() : null;  // "as stored" goes last
+        function columnLabel(name) { return (drillByName[name] || {}).label || name; }
+        function formatName(value) {
+            var hit = FORMATS.filter(function (f) { return f[0] === value; })[0];
+            return hit ? String(hit[1]).split(" — ")[0] : value;
         }
-        function paintDrillSort() {
-            drillSortButtons.forEach(function (b) {
-                var on = b.getAttribute("data-drill-sort") === drillSortKey;
-                b.closest("th").setAttribute("aria-sort", on ? (drillSortDir === "asc" ? "ascending" : "descending") : "none");
-                b.querySelector(".dm-sort-ind").textContent = on ? (drillSortDir === "asc" ? "▲" : "▼") : "";
-            });
-            document.getElementById("cb-drill-sorted").hidden = !drillBefore;
-            if (drillBefore) {
-                document.getElementById("cb-drill-sorted-text").textContent = "Sorted by " + DRILL_WORDS[drillSortKey] + ". This is now the order the columns appear in the drill-down and its CSV; save to keep it.";
-            }
+        function sortWords(sort) {
+            var name = sort.replace(/^-/, ""), down = sort.charAt(0) === "-";
+            var type = (drillByName[name] || {}).type;
+            var how = type === "date" || type === "datetime" ? (down ? "newest first" : "oldest first")
+                : NEWEST_FIRST.indexOf(type) >= 0 ? (down ? "largest first" : "smallest first")
+                : (down ? "Z to A" : "A to Z");
+            return "Sorted by " + columnLabel(name) + ", " + how + ".";
         }
-        function clearDrillSort() { drillBefore = null; drillSortKey = ""; drillSortDir = ""; paintDrillSort(); }
-        drillSortButtons.forEach(function (b) {
-            b.addEventListener("click", function () {
-                var key = b.getAttribute("data-drill-sort");
-                var d = options.drilldown;
-                if (!drillBefore) drillBefore = d.columns.slice();
-                drillSortDir = drillSortKey === key && drillSortDir === "asc" ? "desc" : "asc";
-                drillSortKey = key;
-                var sign = drillSortDir === "asc" ? 1 : -1;
-                d.columns.sort(function (x, y) {
-                    var a = drillSortValue(x, key), c = drillSortValue(y, key);
-                    if (a === null || c === null) return a === c ? 0 : (a === null ? 1 : -1);
-                    return a < c ? -sign : (a > c ? sign : 0);
-                });
-                writeDrill(); renderDrill();
-                b.focus();
+        // The design in short, in the form.
+        function paintSummary() {
+            var d = options.drilldown;
+            drillChips.textContent = "";
+            d.columns.forEach(function (col) {
+                var chip = el("li", { class: "cbd-chip" + (drillByName[col.field] ? "" : " cbd-chip--missing") }, col.label || columnLabel(col.field));
+                if (col.format) chip.appendChild(el("span", { class: "cbd-chip-format" }, formatName(col.format)));
+                drillChips.appendChild(chip);
             });
-        });
-        document.getElementById("cb-drill-undo").addEventListener("click", function () {
-            options.drilldown.columns = drillBefore;
-            clearDrillSort();
-            writeDrill(); renderDrill();
-            if (drillSortButtons[0]) drillSortButtons[0].focus();
-        });
+            drillChips.hidden = !d.columns.length;
+            drillNote.textContent = (d.columns.length ? "" : "Nothing is ticked, so it shows the data's first six columns. ")
+                + (d.sort ? sortWords(d.sort) : "In the data's own order.")
+                + " Opens with up to " + (d.limit || DEFAULT_ROWS) + " rows.";
+        }
         function renderDrill() {
             var own = !!options.drilldown;
             drillOwn.checked = own;
             drillBox.hidden = !own;
-            if (!own) return;
             allColumns(function (cols) {
-                var byName = {};
-                cols.forEach(function (c) { byName[c.name] = c; });
+                drillColumns = cols;
+                drillByName = {};
+                cols.forEach(function (c) { drillByName[c.name] = c; });
                 var d = options.drilldown;
-                d.columns = d.columns || [];
-                drillByName = byName;
-                drillCols.textContent = "";
-                document.getElementById("cb-drill-wrap").hidden = !d.columns.length;
-                paintDrillSort();
-                d.columns.forEach(function (col, n) {
-                    var c = byName[col.field] || { name: col.field, label: col.field };
-                    var row = el("tr", { class: "plf-item" });
-                    var cell = function (node, cls) {
-                        var td = el("td", cls ? { class: cls } : {});
-                        td.appendChild(node);
-                        row.appendChild(td);
-                    };
-                    cell(el("span", { class: "plf-item-n" }, String(n + 1)));
-                    cell(el("span", { class: "plf-item-name", title: c.name }, c.label));
-                    var lab = el("input", { class: "vTextField", type: "text", maxlength: "60", placeholder: c.label, "aria-label": "Heading for " + c.label });
-                    lab.value = col.label || "";
-                    lab.addEventListener("input", function () { if (lab.value) col.label = lab.value; else delete col.label; writeDrill(); });
-                    var fmt = el("select", { class: "vTextField", "aria-label": "Format for " + c.label });
-                    FORMATS.forEach(function (f) { var o = el("option", { value: f[0] }, f[1]); if ((col.format || "") === f[0]) o.selected = true; fmt.appendChild(o); });
-                    fmt.addEventListener("change", function () { if (fmt.value) col.format = fmt.value; else delete col.format; writeDrill(); });
-                    var tools = el("span", { class: "plf-item-tools" });
-                    [["up", "Move up", "↑"], ["down", "Move down", "↓"], ["remove", "Remove", "✕"]].forEach(function (b) {
-                        var btn = el("button", { type: "button", class: "plf-tool", "aria-label": b[1] + ": " + c.label }, b[2]);
-                        if ((b[0] === "up" && n === 0) || (b[0] === "down" && n === d.columns.length - 1)) btn.disabled = true;
-                        btn.addEventListener("click", function () {
-                            clearDrillSort();
-                            if (b[0] === "remove") d.columns.splice(n, 1);
-                            else { var to = b[0] === "up" ? n - 1 : n + 1; d.columns.splice(to, 0, d.columns.splice(n, 1)[0]); }
-                            writeDrill(); renderDrill();
-                        });
-                        tools.appendChild(btn);
-                    });
-                    cell(lab);
-                    cell(fmt);
-                    cell(tools, "plf-tools-cell");
-                    drillCols.appendChild(row);
-                });
-                var used = d.columns.map(function (x) { return x.field; });
-                drillAddField.textContent = "";
-                drillAddField.appendChild(el("option", { value: "" }, "Choose a column…"));
-                cols.forEach(function (c) { if (used.indexOf(c.name) < 0) drillAddField.appendChild(el("option", { value: c.name }, c.label)); });
-                drillSort.textContent = "";
-                drillSort.appendChild(el("option", { value: "" }, "The data's own order"));
-                cols.forEach(function (c) { drillSort.appendChild(el("option", { value: c.name }, c.label)); });
-                var sort = d.sort || "";
-                drillSort.value = sort.replace(/^-/, "");
-                drillDir.value = sort.charAt(0) === "-" || !sort ? "-" : "";
-                drillDir.disabled = !drillSort.value;
-                drillLimit.value = d.limit || "";
+                if (!d) return;
+                // REST and agents may write a bare field name for {field: name}.
+                d.columns = (d.columns || []).map(function (c) { return typeof c === "string" ? { field: c } : c; });
+                paintSummary();
+                if (drillDialog.open) paintDialog();
             });
         }
-        drillOwn.addEventListener("change", function () {
-            clearDrillSort();
-            if (drillOwn.checked) options.drilldown = { columns: [] };
-            else delete options.drilldown;
-            writeDrill(); renderDrill();
+
+        // -- the dialog: one row per column -------------------------------------
+        function focusIn(field, role) {
+            var rows = drillDialog.querySelectorAll(".cbd-row");
+            for (var i = 0; i < rows.length; i++) {
+                if (rows[i].getAttribute("data-field") !== field) continue;
+                var node = rows[i].querySelector('[data-role="' + role + '"]');
+                if (!node || node.disabled) node = rows[i].querySelector("button:not(:disabled), input:not(:disabled)");
+                if (node) node.focus();
+                return;
+            }
+        }
+        function moveColumn(from, to) {
+            var d = options.drilldown;
+            if (to < 0 || to >= d.columns.length || to === from) return;
+            d.columns.splice(to, 0, d.columns.splice(from, 1)[0]);
+            writeDrill(); paintDialog();
+        }
+        var dragFrom = -1;
+        function clearDrop() {
+            drillShown.querySelectorAll(".is-drop-before, .is-drop-after").forEach(function (n) { n.classList.remove("is-drop-before", "is-drop-after"); });
+        }
+        function shownRow(col, n, count) {
+            var c = drillByName[col.field];
+            var label = c ? c.label : col.field;
+            var id = "cbd-col-" + n;
+            var row = el("li", { class: "cbd-row cbd-row--on" + (c ? "" : " cbd-row--missing"), "data-field": col.field });
+            var grip = el("span", { class: "cbd-grip", "aria-hidden": "true", title: "Drag to reorder" }, "⠿");
+            var tick = el("input", { type: "checkbox", id: id, "data-role": "tick" });
+            tick.checked = true;
+            var name = el("label", { class: "cbd-name", for: id, title: label + " (" + col.field + ")" });
+            name.appendChild(el("span", { class: "cbd-label" }, label));
+            name.appendChild(el("span", { class: "cbd-kind" }, c ? c.type : "not in this data"));
+            var heading = el("input", { class: "vTextField", type: "text", maxlength: "60", placeholder: label, "aria-label": "Heading for " + label, "data-role": "heading" });
+            heading.value = col.label || "";
+            var format = el("select", { class: "vTextField", "aria-label": "Format for " + label, "data-role": "format" });
+            FORMATS.forEach(function (f) { var o = el("option", { value: f[0] }, f[1]); if ((col.format || "") === f[0]) o.selected = true; format.appendChild(o); });
+            var tools = el("span", { class: "plf-item-tools" });
+            [["up", "Move up", "↑", -1], ["down", "Move down", "↓", 1]].forEach(function (b) {
+                var btn = el("button", { type: "button", class: "plf-tool", "aria-label": b[1] + ": " + label, "data-role": b[0] }, b[2]);
+                btn.disabled = n + b[3] < 0 || n + b[3] >= count;
+                btn.addEventListener("click", function () { moveColumn(n, n + b[3]); focusIn(col.field, b[0]); });
+                tools.appendChild(btn);
+            });
+            tick.addEventListener("change", function () {
+                options.drilldown.columns.splice(n, 1);
+                writeDrill(); paintDialog(); focusIn(col.field, "tick");
+            });
+            heading.addEventListener("input", function () {
+                if (heading.value) col.label = heading.value; else delete col.label;
+                writeDrill(); scheduleRows();
+            });
+            format.addEventListener("change", function () {
+                if (format.value) col.format = format.value; else delete col.format;
+                writeDrill(); loadRows();
+            });
+            // Dragging starts from the grip only, so text in the heading can still be selected.
+            grip.addEventListener("mousedown", function () { row.setAttribute("draggable", "true"); });
+            grip.addEventListener("mouseup", function () { row.removeAttribute("draggable"); });
+            row.addEventListener("dragstart", function (ev) {
+                dragFrom = n;
+                ev.dataTransfer.effectAllowed = "move";
+                ev.dataTransfer.setData("text/plain", col.field);
+                row.classList.add("is-dragging");
+            });
+            row.addEventListener("dragend", function () {
+                dragFrom = -1;
+                row.removeAttribute("draggable");
+                row.classList.remove("is-dragging");
+                clearDrop();
+            });
+            row.addEventListener("dragover", function (ev) {
+                if (dragFrom < 0) return;
+                ev.preventDefault();
+                var box = row.getBoundingClientRect();
+                clearDrop();
+                row.classList.add(ev.clientY > box.top + box.height / 2 ? "is-drop-after" : "is-drop-before");
+            });
+            row.addEventListener("drop", function (ev) {
+                if (dragFrom < 0) return;
+                ev.preventDefault();
+                var to = n + (row.classList.contains("is-drop-after") ? 1 : 0);
+                if (dragFrom < to) to -= 1;
+                var from = dragFrom;
+                dragFrom = -1;
+                moveColumn(from, to);
+                focusIn(options.drilldown.columns[to].field, "tick");
+            });
+            [grip, tick, name, heading, format, tools].forEach(function (node) { row.appendChild(node); });
+            return row;
+        }
+        function hiddenRow(c, n, full) {
+            var id = "cbd-rest-" + n;
+            var row = el("li", { class: "cbd-row", "data-field": c.name });
+            var tick = el("input", { type: "checkbox", id: id, "data-role": "tick" });
+            tick.disabled = full;
+            var name = el("label", { class: "cbd-name", for: id, title: c.label + " (" + c.name + ")" });
+            name.appendChild(el("span", { class: "cbd-label" }, c.label));
+            name.appendChild(el("span", { class: "cbd-kind" }, c.type));
+            tick.addEventListener("change", function () {
+                options.drilldown.columns.push({ field: c.name });
+                writeDrill(); paintDialog(); focusIn(c.name, "tick");
+            });
+            [el("span", { class: "cbd-grip", "aria-hidden": "true" }), tick, name].forEach(function (node) { row.appendChild(node); });
+            return row;
+        }
+        function paintSortControls() {
+            var d = options.drilldown;
+            var sort = d.sort || "";
+            drillSort.textContent = "";
+            drillSort.appendChild(el("option", { value: "" }, "The data's own order"));
+            drillColumns.forEach(function (c) { drillSort.appendChild(el("option", { value: c.name }, c.label)); });
+            drillSort.value = sort.replace(/^-/, "");
+            drillDir.value = sort.charAt(0) === "-" || !sort ? "-" : "";
+            drillDir.disabled = !drillSort.value;
+            drillLimit.value = d.limit || "";
+            drillLimit.placeholder = String(DEFAULT_ROWS);
+        }
+        function paintDialog() {
+            var d = options.drilldown;
+            var used = d.columns.map(function (c) { return c.field; });
+            var full = used.length >= MAX_COLS;
+            var rest = drillColumns.filter(function (c) { return used.indexOf(c.name) < 0; });
+            var query = drillFind.value.trim().toLowerCase();
+            var found = rest.filter(function (c) {
+                return !query || String(c.label).toLowerCase().indexOf(query) >= 0 || c.name.toLowerCase().indexOf(query) >= 0;
+            });
+            document.getElementById("cbd-count").textContent = used.length + " of " + (used.length + rest.length) + " shown";
+            drillShown.textContent = "";
+            d.columns.forEach(function (col, n) { drillShown.appendChild(shownRow(col, n, d.columns.length)); });
+            document.getElementById("cbd-empty").hidden = !!used.length;
+            drillHidden.textContent = "";
+            found.forEach(function (c, n) { drillHidden.appendChild(hiddenRow(c, n, full)); });
+            document.getElementById("cbd-rest").hidden = !rest.length;
+            document.getElementById("cbd-find-wrap").hidden = rest.length < 8;
+            document.getElementById("cbd-nomatch").hidden = !!found.length || !rest.length;
+            var fullNote = document.getElementById("cbd-full");
+            fullNote.hidden = !full || !rest.length;
+            fullNote.textContent = "A drill-down shows " + MAX_COLS + " columns at most. Untick one to add another.";
+            drillAll.hidden = drillColumns.length > MAX_COLS;
+            drillAll.disabled = !rest.length;
+            drillNone.disabled = !used.length;
+            paintSortControls();
+            loadRows();
+        }
+        function existing(name) {
+            return options.drilldown.columns.filter(function (c) { return c.field === name; })[0] || { field: name };
+        }
+        drillAll.addEventListener("click", function () {
+            var d = options.drilldown;
+            var used = d.columns.map(function (c) { return c.field; });
+            drillColumns.forEach(function (c) { if (used.indexOf(c.name) < 0 && d.columns.length < MAX_COLS) d.columns.push({ field: c.name }); });
+            writeDrill(); paintDialog();
+            (drillAll.disabled ? drillNone : drillAll).focus();
         });
-        document.getElementById("cb-drill-add").addEventListener("click", function () {
-            if (!drillAddField.value) { drillAddField.focus(); return; }
-            clearDrillSort();
-            options.drilldown.columns.push({ field: drillAddField.value });
-            writeDrill(); renderDrill();
+        document.getElementById("cbd-six").addEventListener("click", function () {
+            options.drilldown.columns = drillColumns.slice(0, DEFAULT_COLS).map(function (c) { return existing(c.name); });
+            writeDrill(); paintDialog();
         });
+        drillNone.addEventListener("click", function () {
+            options.drilldown.columns = [];
+            writeDrill(); paintDialog();
+            document.getElementById("cbd-six").focus();
+        });
+        drillFind.addEventListener("input", function () { paintDialog(); });
         function syncSort() {
             drillDir.disabled = !drillSort.value;
             options.drilldown.sort = drillSort.value ? drillDir.value + drillSort.value : "";
-            writeDrill();
+            writeDrill(); loadRows();
         }
         drillSort.addEventListener("change", syncSort);
         drillDir.addEventListener("change", syncSort);
         drillLimit.addEventListener("input", function () {
             var v = parseInt(drillLimit.value, 10);
-            options.drilldown.limit = v >= 1 && v <= 500 ? v : 0;
-            writeDrill();
+            options.drilldown.limit = v >= 1 && v <= MAX_ROWS ? v : 0;
+            writeDrill(); paintRowsFoot();
+        });
+
+        // -- the rows the design opens -------------------------------------------
+        var rowsTimer = null, rowsSeq = 0, rowsOut = null, headFocus = "";
+        function scheduleRows() {
+            clearTimeout(rowsTimer);
+            rowsTimer = setTimeout(loadRows, 300);
+        }
+        function rowsMessage(text) {
+            rowsOut = null;
+            drillPreview.replaceChildren(el("p", { class: "cbd-hint" }, text));
+            drillFoot.textContent = "";
+        }
+        function loadRows() {
+            clearTimeout(rowsTimer);
+            var m = metrics[metricSel.value], d = options.drilldown;
+            if (!m || !d) return;
+            var spec = { columns: d.columns };
+            if (d.sort) spec.sort = d.sort;
+            var url = form.getAttribute("data-rows-url").replace("KEY", encodeURIComponent(m.key))
+                + "?limit=" + SAMPLE_ROWS + "&drill=" + encodeURIComponent(JSON.stringify(spec));
+            if (periodSel.value && periodSel.value !== "all") url += "&period=" + encodeURIComponent(periodSel.value);
+            var mine = ++rowsSeq;
+            fetch(url, { credentials: "same-origin" }).then(function (r) { return r.json(); }).then(function (out) {
+                if (mine !== rowsSeq) return;
+                if (out.error || !out.columns) { rowsMessage(out.error || "The rows couldn't be loaded."); return; }
+                paintRows(out);
+            }).catch(function () {
+                if (mine === rowsSeq) rowsMessage("The rows couldn't be loaded.");
+            });
+        }
+        function headerSort(c) {
+            var d = options.drilldown, current = d.sort || "";
+            d.sort = current === c.name ? "-" + c.name
+                : current === "-" + c.name ? c.name
+                : (NEWEST_FIRST.indexOf(c.type) >= 0 ? "-" : "") + c.name;
+            headFocus = c.name;
+            writeDrill(); paintSortControls(); loadRows();
+        }
+        function paintRowsFoot() {
+            if (!rowsOut) return;
+            var total = rowsOut.total, shown = rowsOut.rows.length;
+            var opens = Math.min(total, (options.drilldown && options.drilldown.limit) || DEFAULT_ROWS);
+            drillFoot.textContent = !total ? ""
+                : (shown < total ? "First " + shown + " of " + total.toLocaleString() + " rows." : total === 1 ? "The only row." : "All " + total + " rows.")
+                + (opens > shown ? " The drill-down opens with " + opens.toLocaleString() + "." : "");
+        }
+        function paintRows(out) {
+            rowsOut = out;
+            if (!out.rows.length) {
+                drillPreview.replaceChildren(el("p", { class: "cbd-hint" }, "No rows match right now, so there's nothing to show here. The design still applies when there are."));
+                drillFoot.textContent = "";
+                return;
+            }
+            var table = el("table", { class: "cbd-table" });
+            var head = el("tr");
+            var refocus = null;
+            out.columns.forEach(function (c) {
+                var state = out.sort === c.name ? "ascending" : out.sort === "-" + c.name ? "descending" : "none";
+                var th = el("th", { scope: "col", "aria-sort": state });
+                var btn = el("button", { type: "button", class: "dm-sort dm-sort--btn", title: "Sort the rows by " + c.label }, c.label);
+                btn.appendChild(el("span", { class: "dm-sort-ind", "aria-hidden": "true" }, state === "ascending" ? "▲" : state === "descending" ? "▼" : ""));
+                btn.addEventListener("click", function () { headerSort(c); });
+                if (headFocus === c.name) refocus = btn;
+                th.appendChild(btn);
+                head.appendChild(th);
+            });
+            var thead = el("thead");
+            thead.appendChild(head);
+            table.appendChild(thead);
+            var body = el("tbody");
+            out.rows.forEach(function (r) {
+                var tr = el("tr");
+                r.cells.forEach(function (v) {
+                    var text = v === null || v === undefined ? "" : String(v);
+                    tr.appendChild(el("td", { title: text }, text));
+                });
+                body.appendChild(tr);
+            });
+            table.appendChild(body);
+            drillPreview.replaceChildren(table);
+            if (refocus) refocus.focus();
+            headFocus = "";
+            paintRowsFoot();
+        }
+
+        // -- opening and closing -------------------------------------------------
+        function openDrill(before, stash) {
+            drillBefore = before;
+            drillStashBefore = stash;
+            drillKept = false;
+            drillFind.value = "";
+            rowsMessage("Loading the rows…");
+            paintDialog();
+            drillDialog.showModal();
+            var first = drillDialog.querySelector(".cbd-row input[type=checkbox]:not(:disabled)");
+            if (first) first.focus();
+        }
+        drillOwn.addEventListener("change", function () {
+            if (!drillOwn.checked) {
+                drillStash = options.drilldown || null;
+                delete options.drilldown;
+                writeDrill(); renderDrill();
+                return;
+            }
+            allColumns(function (cols) {
+                var stash = drillStash;
+                // Start from what it shows now, so choosing is adjusting.
+                options.drilldown = stash || { columns: cols.slice(0, DEFAULT_COLS).map(function (c) { return { field: c.name }; }) };
+                drillStash = null;
+                writeDrill(); renderDrill();
+                openDrill(null, stash);
+            });
+        });
+        document.getElementById("cb-drill-edit").addEventListener("click", function () {
+            openDrill(JSON.stringify(options.drilldown), drillStash);
+        });
+        document.getElementById("cb-drill-done").addEventListener("click", function () { drillKept = true; drillDialog.close(); });
+        document.getElementById("cb-drill-cancel").addEventListener("click", function () { drillDialog.close(); });
+        document.getElementById("cb-drill-x").addEventListener("click", function () { drillDialog.close(); });
+        drillDialog.addEventListener("close", function () {
+            if (!drillKept) {
+                if (drillBefore === null) { delete options.drilldown; drillStash = drillStashBefore; }
+                else options.drilldown = JSON.parse(drillBefore);
+                writeDrill();
+            }
+            renderDrill();
         });
 
         // -- the live preview ---------------------------------------------------
@@ -540,7 +823,8 @@
                 return spec.required && (options[spec.name] === undefined || options[spec.name] === "" || options[spec.name] === null);
             })[0];
             if (missing) {
-                preview.replaceChildren(el("p", { class: "mb-help" }, "Choose a " + missing.label.toLowerCase() + " to see the card."));
+                var what = (missing.type === "multichoice" ? "" : "a ") + missing.label.toLowerCase();
+                preview.replaceChildren(el("p", { class: "mb-help" }, "Choose " + what + " to see the card."));
                 problemsEl.textContent = "";
                 return;
             }
@@ -589,5 +873,12 @@
 
         filterMetrics();
         onType();
-    });
+    }
+
+    // The builder runs on its own page, and inside a dashboard's Edit card
+    // dialog, where its form arrives later: dashboard.js calls this then.
+    window.SmallStackDashboards = window.SmallStackDashboards || {};
+    window.SmallStackDashboards.startComponentBuilder = start;
+    if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", start);
+    else start();
 })();

@@ -1,5 +1,6 @@
 {% extends "smallstack/base.html" %}
 {% load static dashboard_tags theme_tags %}
+{% load help_tags %}
 
 {% block title %}Dashboards{% endblock %}
 {% block breadcrumbs %}{% endblock %}
@@ -8,7 +9,7 @@
 {% block page_header %}
 <div class="page-header-bleed page-header-with-actions">
     <div class="page-header-content">
-        <h1>Dashboards</h1>
+        <div class="title-with-help"><h1>Dashboards</h1>{% help_bubble "dashboards" "how-it-fits" %}</div>
         <p class="page-subtitle">Grids of cards, the saved card designs they're built from, and playlists that rotate them. Metrics, goals and reports are under <a href="{% url 'goals_index' %}">Goals</a>.</p>
         <nav style="margin-top: 0.5rem; font-size: 0.8rem;">
             <a href="{% url 'website:home' %}" style="color: var(--body-quiet-color); text-decoration: none;">Home</a>
@@ -25,7 +26,7 @@
 {% endblock %}
 
 {% block content %}
-{% include "dashboards/partials/tag_filter.html" %}
+{% include "dashboards/partials/tag_filter.html" with tag_hint=dashboard_count|add:playlist_count|add:component_count %}
 <div id="dx-page">
 {% if not dashboard_count and not metric_count and not playlist_count %}
 {# ── First run: the real order of work ── #}
@@ -74,7 +75,7 @@
                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 5h18v2H3V5zm0 6h18v2H3v-2zm0 6h18v2H3v-2z"/></svg><span>List</span></a>
         </nav>
         {% endif %}
-        {% if dashboard_count > dashboards|length %}<a href="{% url 'dashboards/boards-list' %}" class="md-link">All {{ dashboard_count }} dashboards</a>{% endif %}
+        {% if dashboard_count > dashboards|length %}<a href="{% url 'dashboards/boards-list' %}{% if tag %}?tag={{ tag|urlencode }}{% endif %}" class="md-link">All {{ dashboard_count }} dashboards</a>{% endif %}
     </div>
     {% if not dashboards %}
     <p class="dash-muted">No dashboards yet. <a href="{% url 'dashboards/boards-create' %}">Make one</a> and add your metrics to it.</p>
@@ -140,7 +141,7 @@
     <div class="md-section-head">
         <h2 id="ix-playlist-title">Playlists</h2>
         <p class="dash-muted">{{ playlist_count }}</p>
-        {% if playlist_count > playlists|length %}<a href="{% url 'dashboards/playlists-list' %}" class="md-link">All {{ playlist_count }} playlists</a>{% endif %}
+        {% if playlist_count > playlists|length %}<a href="{% url 'dashboards/playlists-list' %}{% if tag %}?tag={{ tag|urlencode }}{% endif %}" class="md-link">All {{ playlist_count }} playlists</a>{% endif %}
         <a href="{% url 'dashboards/playlists-create' %}" class="md-link">New playlist</a>
     </div>
     {% if playlists %}
@@ -178,7 +179,7 @@
     <div class="md-section-head">
         <h2 id="ix-comp-title">Components</h2>
         <p class="dash-muted">{{ component_count }}</p>
-        {% if component_count > components|length %}<a href="{% url 'dashboards/components-list' %}" class="md-link">All {{ component_count }} cards</a>{% endif %}
+        {% if component_count > components|length %}<a href="{% url 'dashboards/components-list' %}{% if tag %}?tag={{ tag|urlencode }}{% endif %}" class="md-link">All {{ component_count }} cards</a>{% endif %}
         <a href="{% url 'dashboards/components-create' %}" class="md-link">Build a card</a>
     </div>
     {% if components %}

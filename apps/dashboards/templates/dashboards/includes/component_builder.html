@@ -1,0 +1,246 @@
+{% load static dashboard_tags %}
+{% comment %}
+The component builder itself: the palette, what the card shows, its style, its
+drill-down, its name, and the live preview. Two places draw it:
+
+- the builder's page (ComponentCRUDView's form, component_form.html): cb_mode="page";
+- the dashboard's Edit card dialog (DashboardCardEditView, loaded into the page by
+  dashboard.js, which then calls SmallStackDashboards.startComponentBuilder()):
+  cb_mode="placed" for a saved card, edited for every dashboard showing it, or
+  cb_mode="cell" for a card that belongs to that dashboard alone (a title, no
+  description, tags or sharing of its own). cb_action is where the form posts.
+
+In the dialog the preview is inert: a tap on its number would open the rows
+modal underneath.
+{% endcomment %}
+{% component_builder_data request.user form.instance as builder %}
+{{ builder|json_script:"cb-data" }}
+<form method="POST" class="crud-form{% if cb_mode != "page" %} cb-in-dialog{% endif %}" id="cb-form" novalidate{% if cb_action %} action="{{ cb_action }}"{% endif %}
+      data-preview-url="{% url 'dashboards_api_card_preview' %}"
+      data-schema-url="{% url 'dashboards_api_dataset_schema' 'DATASET' %}"
+      data-rows-url="{% url 'dashboards_api_metric_rows' 'KEY' %}">
+    {% csrf_token %}
+    {% if form.non_field_errors %}<div class="crud-form-errors" role="alert">{% for e in form.non_field_errors %}<p class="crud-error">{{ e }}</p>{% endfor %}</div>{% endif %}
+    {% if cell_errors %}<div class="crud-form-errors" role="alert">{% for e in cell_errors %}<p class="crud-error">{{ e }}</p>{% endfor %}</div>{% endif %}
+    {{ form.options }}
+    <div class="mb-grid">
+        <div>
+            {# ── 1. Design ──────────────────────────────────────── #}
+            <div class="card mb-section">
+                <div class="card-header"><h2 id="cb-design-title"><span class="mf-step">1</span>Pick a design</h2></div>
+                <div class="card-body">
+                    {% with current=form.type.value|default:"metric" %}
+                    <div class="cb-palette" role="radiogroup" aria-labelledby="cb-design-title">
+                        {% for section in builder.palette %}
+                        <div class="cb-group">
+                            <h3 class="cb-group-name">{{ section.group }}</h3>
+                            <div class="cb-tiles">
+                                {% for t in section.types %}
+                                <label class="cb-tile" data-type="{{ t.type }}">
+                                    <input type="radio" class="sr-only" name="{{ form.type.html_name }}" value="{{ t.type }}"{% if t.type == current %} checked{% endif %}>
+                                    <span class="cb-tile-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="{{ t.icon|default:'M4 4h16v16H4z' }}"/></svg></span>
+                                    <span class="cb-tile-label">{{ t.label }}</span>
+                                    <span class="cb-tile-desc">{{ t.description }}</span>
+                                    <span class="cb-tile-why" data-why></span>
+                                </label>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% endwith %}
+                    {% for e in form.type.errors %}<p class="crud-error">{{ e }}</p>{% endfor %}
+                    <p class="mb-help" style="margin-bottom: 0;">Designs your metric's data can't support are dimmed, with the reason. Apps can add designs of their own, such as charts.</p>
+                </div>
+            </div>
+
+            {# ── 2. What it shows ───────────────────────────────── #}
+            <div class="card mb-section">
+                <div class="card-header"><h2><span class="mf-step">2</span>What it shows</h2></div>
+                <div class="card-body">
+                    <div class="mb-field{% if form.metric.errors %} has-error{% endif %}" id="cb-metric-field">
+                        <label for="cb-metric">Metric</label>
+                        <select id="cb-metric" name="{{ form.metric.html_name }}" class="vTextField">
+                            <option value="">Choose a metric…</option>
+                            {% for m in builder.metrics %}<option value="{{ m.key }}" data-shared="{{ m.shared|yesno:'1,0' }}"{% if m.key == form.metric.value %} selected{% endif %}>{{ m.name }}</option>{% endfor %}
+                        </select>
+                        {% for e in form.metric.errors %}<p class="crud-error">{{ e }}</p>{% endfor %}
+                        <p class="mb-help">{% if builder.metrics %}The number the card draws. <a href="{% url 'dashboards/metrics-create' %}">Build a new metric</a>.{% else %}No metrics yet. <a href="{% url 'dashboards/metrics-create' %}">Build one first</a>.{% endif %}</p>
+                    </div>
+                    <div id="cb-options" class="cb-options"></div>
+                    <p class="mb-help" id="cb-no-options" hidden style="margin: 0;">This design has nothing else to set.</p>
+                    {% for e in form.options.errors %}<p class="crud-error">{{ e }}</p>{% endfor %}
+                </div>
+            </div>
+
+            {# ── 3. Style (stylable types only) ─────────────────── #}
+            <div class="card mb-section" id="cb-style-card" hidden>
+                <div class="card-header"><h2><span class="mf-step">3</span>Style it <span class="dash-muted" style="font-weight: 400; font-size: 0.85rem;">(optional)</span></h2></div>
+                <div class="card-body">
+                    <p class="cb-inherit" id="cb-inherit" hidden></p>
+                    <div class="cb-style" id="cb-style"></div>
+                    <h3 class="plf-h3" style="margin-top: 1rem;">Colour rules</h3>
+                    <label class="plf-check" style="margin-top: 0;"><input type="checkbox" id="cb-own-rules"> <span><strong>Override the metric's colour rules for this card.</strong> <span id="cb-rules-fallback"></span></span></label>
+                    <div id="cb-rules" class="cb-rules" hidden>
+                        <div id="cb-rule-rows"></div>
+                        <button type="button" class="mb-icon-btn" id="cb-rule-add">+ Add rule</button>
+                        <p class="mb-help" style="margin-bottom: 0;">Checked in order; the first match colours the number. "From the thresholds" under Number colour uses these.</p>
+                    </div>
+                </div>
+            </div>
+
+            {# ── Drill-down (drillable types only) ──────────────── #}
+            <div class="card mb-section" id="cb-drill-card" hidden>
+                <div class="card-header"><h2><span class="mf-step" id="cb-drill-step">4</span>Drill-down <span class="dash-muted" style="font-weight: 400; font-size: 0.85rem;">(optional)</span></h2></div>
+                <div class="card-body">
+                    <p class="mb-help" style="margin-top: 0;">What opens when someone taps a number: the rows behind it. Its <strong>Download CSV</strong> uses the same columns.{% if cb_mode == "page" %} Tap the number in the preview to try it.{% endif %}</p>
+                    <label class="plf-check"><input type="checkbox" id="cb-drill-own" aria-haspopup="dialog"> <span><strong>Choose the columns.</strong> Otherwise it shows the data's first six columns, as stored.</span></label>
+                    {% comment %}The design in short. It's made in the dialog below the form (cb-drill-dialog): every column in one list, beside the rows it opens.{% endcomment %}
+                    <div id="cb-drill" class="cbd-summary" hidden>
+                        <ol class="cbd-chips" id="cb-drill-chips" aria-label="Drill-down columns, in order"></ol>
+                        <p class="mb-help" id="cb-drill-note"></p>
+                        <button type="button" class="btn-outline btn-sm" id="cb-drill-edit" aria-haspopup="dialog">Edit columns</button>
+                    </div>
+                </div>
+            </div>
+
+            {# ── Name ─────────────────────────────────────────────── #}
+            <div class="card mb-section">
+                <div class="card-header"><h2><span class="mf-step" id="cb-name-step">4</span>{% if cb_mode == "cell" %}Title it{% else %}Name it{% endif %}</h2></div>
+                <div class="card-body">
+                    {% if cb_mode == "cell" %}
+                    {% comment %}A card of this dashboard only: a title, and the dashboard's own visibility (which decides the metrics it may draw).{% endcomment %}
+                    <div class="mb-field">
+                        <label for="{{ form.name.id_for_label }}">Title <span class="dash-muted">(optional)</span></label>
+                        {{ form.name }}
+                        <p class="mb-help">Shown on the card. Leave it blank to use the metric's name.</p>
+                    </div>
+                    <input type="hidden" name="visibility" value="{{ cb_visibility }}">
+                    {% else %}
+                    <div class="mb-field{% if form.name.errors %} has-error{% endif %}">
+                        <label for="{{ form.name.id_for_label }}">Name<span class="required" aria-hidden="true">*</span></label>
+                        {{ form.name }}
+                        {% for e in form.name.errors %}<p class="crud-error">{{ e }}</p>{% endfor %}
+                        <p class="mb-help">The card's title on every dashboard. A dashboard can give it its own title.</p>
+                    </div>
+                    <div class="mb-field">
+                        <label for="{{ form.description.id_for_label }}">Description <span class="dash-muted">(optional)</span></label>
+                        {{ form.description }}
+                    </div>
+                    <div class="mb-field{% if form.tags.errors %} has-error{% endif %}">
+                        <label for="{{ form.tags.id_for_label }}">Tags <span class="dash-muted">(optional)</span></label>
+                        {{ form.tags }}
+                        {% for e in form.tags.errors %}<p class="crud-error">{{ e }}</p>{% endfor %}
+                        <p class="mb-help">Labels, comma-separated — ops, weekly review. The overviews narrow to one.</p>
+                    </div>
+                    {% with current=form.visibility.value|default:"personal" %}
+                    <label class="plf-check"><input type="radio" name="{{ form.visibility.html_name }}" value="personal"{% if current == "personal" %} checked{% endif %}> <span><strong>Personal.</strong> Only you can place and edit it.</span></label>
+                    <label class="plf-check"><input type="radio" name="{{ form.visibility.html_name }}" value="shared"{% if current == "shared" %} checked{% endif %}{% if not request.user.is_staff %} disabled{% endif %}> <span><strong>Shared.</strong> {% if request.user.is_staff %}Anyone can place it on a dashboard; staff edit it. It can only draw shared metrics.{% else %}Only staff can share a card.{% endif %}</span></label>
+                    {% endwith %}
+                    {% for e in form.visibility.errors %}<p class="crud-error">{{ e }}</p>{% endfor %}
+                    {% endif %}
+                </div>
+            </div>
+
+            {% if cb_mode == "page" %}
+            <div style="display: flex; gap: 0.5rem; margin-bottom: 2rem;">
+                <button type="submit" class="btn-primary">Save card</button>
+                <a href="{% url 'dashboards/components-list' %}" class="btn-outline">Cancel</a>
+            </div>
+            {% else %}
+            <div class="cb-dialog-actions">
+                <button type="submit" class="btn-primary">Save</button>
+                <button type="button" class="btn-outline" data-card-cancel>Cancel</button>
+                {% if cb_mode == "placed" %}<span class="mb-help">A saved card: saving changes it on every dashboard that shows it.</span>{% else %}<span class="mb-help">This card belongs to this dashboard only.</span>{% endif %}
+            </div>
+            {% endif %}
+        </div>
+
+        {# ── Live preview ─────────────────────────────────────────── #}
+        <aside class="mb-preview" aria-label="Preview">
+            <div class="card">
+                <div class="card-header cb-preview-head">
+                    <h2>Preview</h2>
+                    <label class="sr-only" for="cb-period">Period for the preview</label>
+                    <select id="cb-period" class="vTextField cb-period">
+                        <option value="all">All time</option>
+                        {% for p in builder.periods %}<option value="{{ p.key }}">{{ p.label }}</option>{% endfor %}
+                    </select>
+                </div>
+                <div class="card-body">
+                    <div class="cb-frame" id="cb-frame"{% if cb_mode != "page" %} inert{% endif %}>
+                        <div class="dash-cell" id="cb-preview" aria-live="polite"><p class="mb-help">Pick a design and a metric to see the card.</p></div>
+                    </div>
+                    <ul class="cb-problems" id="cb-problems" role="alert"></ul>
+                    {% if builder.used_on %}
+                    <h3 class="plf-h3" style="margin-top: 1rem;">On {{ builder.used_on|length }} dashboard{{ builder.used_on|length|pluralize }}</h3>
+                    <ul class="cb-used">{% for d in builder.used_on %}<li><a href="{{ d.url }}">{{ d.name }}</a></li>{% endfor %}</ul>
+                    <p class="mb-help" style="margin-bottom: 0;">Saving updates the card on each of them.</p>
+                    {% elif object %}
+                    <p class="mb-help" style="margin-bottom: 0;">Not on a dashboard yet. Open one, choose <strong>Edit layout → Add card → Saved card</strong>.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </aside>
+    </div>
+</form>
+
+{% comment %}
+The drill-down designer (component-builder.js). Outside the form, so Enter in
+one of its fields never saves the card. Every column of the metric's data is
+listed once: ticked ones on top, in the order they appear. The rows beside
+them are the real ones, redrawn as the design changes. Cancel (or Escape)
+puts back what was there when it opened.
+{% endcomment %}
+<dialog class="cbd" id="cb-drill-dialog" aria-labelledby="cb-drill-title">
+    <div class="cbd-head">
+        <div>
+            <h2 id="cb-drill-title">Drill-down columns</h2>
+            <p class="cbd-sub">Tick the columns to show, drag them into order, and change a heading or format where it helps.</p>
+        </div>
+        <button type="button" class="plf-tool" id="cb-drill-x" aria-label="Close without keeping changes">✕</button>
+    </div>
+    <div class="cbd-body">
+        <section class="cbd-pick" aria-labelledby="cbd-pick-title">
+            <div class="cbd-bar">
+                <h3 id="cbd-pick-title">Columns <span class="cbd-count" id="cbd-count" aria-live="polite"></span></h3>
+                <span class="cbd-quick">
+                    <button type="button" class="plf-undo" id="cbd-all">All</button>
+                    <button type="button" class="plf-undo" id="cbd-six">First six</button>
+                    <button type="button" class="plf-undo" id="cbd-none">None</button>
+                </span>
+            </div>
+            <ul class="cbd-list" id="cbd-shown" aria-label="Shown, in this order"></ul>
+            <p class="cbd-hint" id="cbd-empty" hidden>Nothing is ticked, so the drill-down shows the data's first six columns.</p>
+            <div id="cbd-rest" hidden>
+                <div class="cbd-bar cbd-bar--rest">
+                    <h4 id="cbd-rest-title">Not shown</h4>
+                    <span id="cbd-find-wrap" hidden>
+                        <label class="sr-only" for="cbd-find">Find a column to add</label>
+                        <input type="search" id="cbd-find" class="vTextField cbd-find" placeholder="Find a column…" autocomplete="off">
+                    </span>
+                </div>
+                <ul class="cbd-list" id="cbd-hidden" aria-labelledby="cbd-rest-title"></ul>
+                <p class="cbd-hint" id="cbd-nomatch" hidden>No column matches.</p>
+                <p class="cbd-hint" id="cbd-full" hidden></p>
+            </div>
+            <div class="cb-drill-opts">
+                <div class="mb-field"><label for="cb-drill-sort">Sort rows by</label><select id="cb-drill-sort" class="vTextField"></select></div>
+                <div class="mb-field"><label for="cb-drill-dir">Order</label><select id="cb-drill-dir" class="vTextField"><option value="-">Newest / largest first</option><option value="">Oldest / smallest first</option></select></div>
+                <div class="mb-field"><label for="cb-drill-limit">Rows shown</label><input type="number" id="cb-drill-limit" class="vTextField" min="1" max="500" placeholder="50"></div>
+            </div>
+        </section>
+        <section class="cbd-rows" aria-labelledby="cbd-rows-title">
+            <div class="cbd-bar">
+                <h3 id="cbd-rows-title">What a tap opens</h3>
+                <span class="cbd-count">Select a heading to sort by it</span>
+            </div>
+            <div class="cbd-scroll" id="cbd-preview"><p class="cbd-hint">Loading the rows…</p></div>
+            <p class="cbd-foot" id="cbd-foot" role="status"></p>
+        </section>
+    </div>
+    <div class="cbd-actions">
+        <button type="button" class="btn-outline btn-sm" id="cb-drill-cancel">Cancel</button>
+        <button type="button" class="btn-primary btn-sm" id="cb-drill-done">Done</button>
+    </div>
+</dialog>

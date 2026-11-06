@@ -1,9 +1,10 @@
 {% extends "smallstack/crud/object_list.html" %}
+{% load help_tags %}
 {% block title %}Reports{% endblock %}
 {% block page_header %}
 <div class="page-header-bleed page-header-with-actions" style="display: flex; align-items: flex-start; justify-content: space-between;">
     <div class="page-header-content">
-        <h1>Reports</h1>
+        <div class="title-with-help"><h1>Reports</h1>{% help_bubble "dashboards" "report" %}</div>
         <p class="page-subtitle">Metrics side by side across periods, on screen and as CSV.</p>
         <nav style="margin-top: 0.5rem; font-size: 0.8rem;">
             <a href="{% url 'website:home' %}" style="color: var(--body-quiet-color); text-decoration: none;">Home</a>

@@ -26,6 +26,7 @@
             <td class="lib-name-cell">
                 <a href="{{ r.url }}" class="lib-name">{{ m.name }}</a>
                 {% if not m.is_shared %}<span class="dash-badge">Personal</span>{% endif %}
+                {% include "dashboards/partials/tags.html" with obj=m base=request.path tag=request.GET.tag %}
                 <span class="lib-sub" title="{{ r.reading }}">{{ r.reading }}</span>
             </td>
             <td class="lib-wrap-cell">

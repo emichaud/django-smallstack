@@ -1,5 +1,6 @@
 {% extends "smallstack/base.html" %}
 {% load static dashboard_tags %}
+{% load help_tags %}
 
 {% block title %}{% if object %}{{ object.name }} — settings{% else %}New dashboard{% endif %}{% endblock %}
 {% block breadcrumbs %}{% endblock %}
@@ -8,7 +9,7 @@
 {% block page_header %}
 <div class="page-header-bleed page-header-with-actions">
     <div class="page-header-content">
-        <h1>{% if object %}Dashboard settings{% else %}New dashboard{% endif %}</h1>
+        <div class="title-with-help"><h1>{% if object %}Dashboard settings{% else %}New dashboard{% endif %}</h1>{% help_bubble "dashboards" "dashboard" %}</div>
         <p class="page-subtitle">{% if object %}Name, picture, default period, refresh and sharing. Cards are arranged on the dashboard itself.{% else %}Name it and pick how it opens. You'll add cards on the dashboard next.{% endif %}</p>
         <nav style="margin-top: 0.5rem; font-size: 0.8rem;">
             <a href="{% url 'website:home' %}" style="color: var(--body-quiet-color); text-decoration: none;">Home</a>
@@ -39,16 +40,7 @@
                         {{ form.name }}
                         {% for e in form.name.errors %}<p class="crud-error">{{ e }}</p>{% endfor %}
                     </div>
-                    <div class="mb-field{% if form.slug.errors %} has-error{% endif %}">
-                        <label for="{{ form.slug.id_for_label }}">Address<span class="required" aria-hidden="true">*</span></label>
-                        <div class="df-slug">
-                            <span class="df-slug-prefix">/smallstack/dashboards/d/</span>
-                            {{ form.slug }}
-                            <span class="df-slug-prefix">/</span>
-                        </div>
-                        {% for e in form.slug.errors %}<p class="crud-error">{{ e }}</p>{% endfor %}
-                        <p class="mb-help">{% if object %}Changing it breaks bookmarks and links to this dashboard.{% else %}Filled in from the name — letters, digits and hyphens.{% endif %}</p>
-                    </div>
+                    {% include "dashboards/partials/address_field.html" with prefix="/smallstack/dashboards/d/" noun="dashboard" breaks="and any page that embeds it" %}
                     <div class="mb-field{% if form.description.errors %} has-error{% endif %}" style="margin-bottom: 0;">
                         <label for="{{ form.description.id_for_label }}">Description <span class="dash-muted">(optional)</span></label>
                         {{ form.description }}

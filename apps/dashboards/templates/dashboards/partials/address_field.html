@@ -1,0 +1,29 @@
+{% comment %}
+Where a dashboard, report, playlist or goal list lives: `prefix` (its URL up to
+the slug) and `noun`. Nobody types an address: it's made from the name when the
+thing is created (forms._OwnedForm.clean) and stays put when it's renamed. So a
+new one shows nothing here, an existing one shows its address, and staff can
+change it on purpose, with what that breaks.
+{% endcomment %}
+{% if object %}
+<div class="mb-field df-address{% if form.slug.errors %} has-error{% endif %}">
+    <span class="df-address-label">Address</span>
+    <code class="df-address-url">{{ prefix }}{{ object.slug }}/</code>
+    {% if request.user.is_staff %}
+    <details class="df-address-change"{% if form.slug.errors %} open{% endif %}>
+        <summary>Change the address</summary>
+        <label class="sr-only" for="{{ form.slug.id_for_label }}">Address</label>
+        <div class="df-slug">
+            <span class="df-slug-prefix">{{ prefix }}</span>
+            {{ form.slug }}
+            <span class="df-slug-prefix">/</span>
+        </div>
+        {% for e in form.slug.errors %}<p class="crud-error">{{ e }}</p>{% endfor %}
+        <p class="mb-help">Letters, digits and hyphens. Changing it breaks bookmarks and links to this {{ noun }}{% if breaks %}, {{ breaks }}{% endif %}. Renaming the {{ noun }} doesn't change its address.</p>
+    </details>
+    {% else %}
+    {% for e in form.slug.errors %}<p class="crud-error">{{ e }}</p>{% endfor %}
+    <p class="mb-help">Made from the name when this {{ noun }} was created. It stays the same if you rename it, so links keep working.</p>
+    {% endif %}
+</div>
+{% endif %}

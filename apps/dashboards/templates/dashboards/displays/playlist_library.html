@@ -31,6 +31,7 @@ framework's table-resize.js (crud-table + data-table-key + th[data-field]).
             <td class="pll-name-cell">
                 <a href="{{ r.url }}" class="pll-name">{{ p.name }}</a>
                 {% if p.is_shared %}<span class="dash-badge dash-badge--shared">Shared</span>{% else %}<span class="dash-badge">Personal</span>{% endif %}
+                {% include "dashboards/partials/tags.html" with obj=p base=request.path tag=request.GET.tag %}
                 <span class="pll-desc" title="{% for s in r.slides %}{{ s.name }}{% if not forloop.last %}, {% endif %}{% endfor %}">{% if p.description %}{{ p.description }}{% else %}{% for s in r.slides|slice:":3" %}{{ s.name }}{% if not forloop.last %}, {% endif %}{% endfor %}{% if r.slides|length > 3 %} and {{ r.slides|length|add:"-3" }} more{% endif %}{% endif %}</span>
                 {% if r.hidden %}<span class="pll-desc dash-muted">{{ r.hidden }} slide{{ r.hidden|pluralize }} you can't open {{ r.hidden|pluralize:"is,are" }} skipped.</span>{% endif %}
             </td>

@@ -1,7 +1,23 @@
-{% comment %}At the top of an overview: the tag it's narrowed to (?tag=), with the way to clear it; and how many rows are archived, with the way to them. Both overviews include it.{% endcomment %}
-{% if tag or archived_count %}
-<p class="ix-tag-filter" role="status">
-    {% if tag %}Showing what's tagged <span class="dash-tag is-current">{{ tag }}</span> <a href="?" class="ix-tag-clear">Show everything</a>{% endif %}
-    {% if archived_count %}<span class="ix-archived-note">{% if tag %}· {% endif %}{{ archived_count }} archived: {% if request.resolver_match.url_name == "goals_index" %}<a href="{% url 'dashboards/metrics-list' %}?archived=1">metrics</a>, <a href="{% url 'dashboards/goals-list' %}?archived=1">goal lists</a>, <a href="{% url 'dashboards/reports-list' %}?archived=1">reports</a>{% else %}<a href="{% url 'dashboards/boards-list' %}?archived=1">dashboards</a>, <a href="{% url 'dashboards/playlists-list' %}?archived=1">playlists</a>, <a href="{% url 'dashboards/components-list' %}?archived=1">cards</a>{% endif %}</span>{% endif %}
-</p>
+{% comment %}
+Above an overview or a list: every tag its rows carry, as chips that narrow the
+page to one (?tag=), with how many rows each has; "Show everything" clears it.
+`tags` is models.tag_cloud (the overviews and My dashboards pass it; the lists
+get it from displays.TagBar), `tag` the one the page is narrowed to. On an
+overview, `archived_count` adds the way to what's been archived. With rows but
+no tags yet (`tag_hint`), the bar says how to get some, so the filter isn't a
+secret until the first tag exists.
+{% endcomment %}
+{% if tags or tag or archived_count or tag_hint %}
+<div class="ix-tag-filter">
+    {% if tags or tag %}
+    <nav class="ix-tags" aria-label="Narrow to a tag">
+        <span class="ix-tags-label">Tags</span>
+        <a href="{{ request.path }}{% querystring tag=None page=None %}" class="dash-tag ix-tag-all{% if not tag %} is-current{% endif %}"{% if not tag %} aria-current="true"{% endif %}>Show everything</a>
+        {% for t in tags %}<a href="{{ request.path }}{% querystring tag=t.name page=None %}" class="dash-tag{% if t.current %} is-current{% endif %}"{% if t.current %} aria-current="true"{% endif %}>{{ t.name }}<span class="dash-tag-count">{{ t.count }}</span></a>{% endfor %}
+    </nav>
+    {% elif tag_hint %}
+    <p class="ix-tags ix-tags--none"><span class="ix-tags-label">Tags</span><span>None yet. Add tags in the settings of anything here (<em>ops</em>, <em>weekly review</em>) to group things, then narrow this page to one.</span></p>
+    {% endif %}
+    {% if archived_count %}<span class="ix-archived-note">{{ archived_count }} archived: {% if request.resolver_match.url_name == "goals_index" %}<a href="{% url 'dashboards/metrics-list' %}?archived=1">metrics</a>, <a href="{% url 'dashboards/goals-list' %}?archived=1">goal lists</a>, <a href="{% url 'dashboards/reports-list' %}?archived=1">reports</a>{% else %}<a href="{% url 'dashboards/boards-list' %}?archived=1">dashboards</a>, <a href="{% url 'dashboards/playlists-list' %}?archived=1">playlists</a>, <a href="{% url 'dashboards/components-list' %}?archived=1">cards</a>{% endif %}</span>{% endif %}
+</div>
 {% endif %}

@@ -27,6 +27,7 @@
             <td class="lib-name-cell">
                 <a href="{{ r.url }}" class="lib-name">{{ d.name }}</a>
                 {% if d.is_shared %}<span class="dash-badge dash-badge--shared">Shared</span>{% else %}<span class="dash-badge">Personal</span>{% endif %}
+                {% include "dashboards/partials/tags.html" with obj=d base=request.path tag=request.GET.tag %}
                 <span class="lib-sub" title="{{ d.description }}">{% if d.description %}{{ d.description }}{% else %}{{ r.count }} card{{ r.count|pluralize }}{% endif %}</span>
                 {% if r.broken %}<span class="lib-sub rp-bad">{{ r.broken }} card{{ r.broken|pluralize }} can't show: {% if r.broken == 1 %}its metric or type is{% else %}their metrics or types are{% endif %} gone.</span>{% endif %}
             </td>

@@ -10,7 +10,7 @@ row can't express:
     POST dashboards/api/preview/                    evaluate an UNSAVED metric (dry run)
     GET  dashboards/api/metrics/<key>/value/        evaluate a saved metric (?period=)
     GET  dashboards/api/metrics/<key>/trend/        the metric per bucket (?period=&grain=) — for charts
-    GET  dashboards/api/metrics/<key>/rows/         the rows behind the number (?period=&order=&limit=)
+    GET  dashboards/api/metrics/<key>/rows/         the rows behind the number (?period=&order=&limit=&drill=)
     GET  dashboards/api/boards/<slug>/values/       every card on a dashboard, evaluated
     POST dashboards/api/boards/<slug>/picture/      set the dashboard's picture (multipart: image, alt)
     DELETE dashboards/api/boards/<slug>/picture/    remove it
@@ -54,7 +54,7 @@ from .datasets import visible_entries
 from .entries import parse_entry, record_entry
 from .forms import readable_datasets
 from .goals import goal_values
-from .metrics import drill_rows, evaluate, may_read
+from .metrics import drill_rows, evaluate, may_read, requested_drilldown
 from .models import Dashboard, GoalList, Metric, Playlist, Report
 from .periods import NO_PERIOD_FIELD_NOTE, period_problem, requested_period
 from .playlists import playlist_payload
@@ -216,7 +216,10 @@ class MetricTrendApiView(_ApiView):
 
 
 class MetricRowsApiView(_ApiView):
-    """The rows behind the number, as JSON (``m/<key>/rows/`` is the modal's HTML)."""
+    """The rows behind the number, as JSON (``m/<key>/rows/`` is the modal's
+    HTML). ``?drill=<json>`` is a card's drill-down design — its columns,
+    headings, formats and sort (and its own row limit, when it sets one) —
+    which is how the component builder shows the rows a design opens."""
 
     def get(self, request: HttpRequest, key: str) -> JsonResponse:
         metric = _visible(Metric, request.user, key=key)
@@ -229,9 +232,17 @@ class MetricRowsApiView(_ApiView):
             limit = max(1, min(int(request.GET.get("limit") or 25), 200))
         except ValueError:
             return JsonResponse({"error": "limit must be a whole number"}, status=400)
+        spec, problem = requested_drilldown(request.GET.get("drill"), metric)
+        if problem:
+            return JsonResponse({"error": problem}, status=400)
         try:
             rows = drill_rows(
-                metric, request, period=requested_period(request), limit=limit, order=request.GET.get("order") or ""
+                metric,
+                request,
+                period=requested_period(request),
+                limit=limit,
+                spec=spec,
+                order=request.GET.get("order") or "",
             )
         except ValueError as exc:
             return JsonResponse({"error": str(exc)}, status=400)

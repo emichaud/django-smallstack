@@ -2,24 +2,80 @@ title: "Dashboards"
 description: "Metrics (saved filters over datasets), grid dashboards and KPI reports — built by hand or by an AI agent"
 slug: dashboards
 
+# "In short" pages are the ones a page's help bubble opens ({% help_bubble %}):
+# one idea each, about a page long. The guides go further.
+categories:
+  - "In short"
+  - "Guides"
+
 pages:
+  - slug: how-it-fits
+    title: "How it all fits together"
+    description: "The pieces in the order they build on each other: dataset, metric, component, then dashboards, goal lists and reports"
+    icon: "dashboard"
+    category: "In short"
+  - slug: dataset
+    title: "What is a dataset?"
+    description: "A named, filterable table of data: the layer between a data source and everything built on it"
+    icon: "code"
+    category: "In short"
+  - slug: metric
+    title: "What is a metric?"
+    description: "A saved filter over a dataset, rolled up to one number: the reusable unit behind every card, goal and report row"
+    icon: "code"
+    category: "In short"
+  - slug: component
+    title: "What is a component?"
+    description: "A saved card: one design drawing one metric, built once and placed on any number of dashboards"
+    icon: "dashboard"
+    category: "In short"
+  - slug: dashboard
+    title: "What is a dashboard?"
+    description: "A grid of cards over your metrics: reading one, building one, and who can see it"
+    icon: "dashboard"
+    category: "In short"
+  - slug: goal-list
+    title: "What is a goal list?"
+    description: "Key numbers against their targets, read down in a meeting: on target, at risk or missed"
+    icon: "flag"
+    category: "In short"
+  - slug: report
+    title: "What is a report?"
+    description: "A table of metrics across periods that sorts, drills into its rows, prints and downloads"
+    icon: "code"
+    category: "In short"
+  - slug: playlist
+    title: "What is a playlist?"
+    description: "Dashboards and goal lists one after another: paged through in a meeting, or rotating on a wall screen"
+    icon: "play"
+    category: "In short"
+  - slug: history
+    title: "Weeks, captures and history"
+    description: "How a goal list keeps its numbers as they stood when a week, day or month ended"
+    icon: "flag"
+    category: "In short"
   - slug: index
     title: "Dashboards"
     description: "Metrics, dashboards and reports: what each is, editing a layout, the period bar, sharing"
     icon: "dashboard"
+    category: "Guides"
   - slug: building-metrics
     title: "Building a metric"
     description: "The metric builder: datasets, AND/OR filters, periods, aggregations, thresholds, and the stored JSON"
     icon: "code"
+    category: "Guides"
   - slug: goals
     title: "Goals"
     description: "Key numbers against their targets, in sections: on target, at risk or missed, for reading down in a meeting"
     icon: "flag"
+    category: "Guides"
   - slug: playlists
     title: "Playlists"
     description: "Dashboards in a sequence: page through them like slides, or rotate them on a wall screen"
     icon: "play"
+    category: "Guides"
   - slug: agents-and-api
     title: "Agents and the API"
     description: "Have an AI agent build dashboards over MCP or REST — the tools, the loop, and the access rules"
     icon: "api"
+    category: "Guides"

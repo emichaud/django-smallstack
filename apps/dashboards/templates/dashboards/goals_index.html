@@ -1,5 +1,6 @@
 {% extends "smallstack/base.html" %}
 {% load static dashboard_tags theme_tags %}
+{% load help_tags %}
 {% comment %}GoalsIndexView — the Goals area: goal lists (how each is doing), the metrics behind them with live values, and the reports that compare them over periods. Each section is a crud-table with its own sort (views.section_sort). Sorts and period links swap #gx-page, so every link keeps the others' sorts; columns resize with table-resize.js.{% endcomment %}
 
 {% block title %}Goals{% endblock %}
@@ -9,7 +10,7 @@
 {% block page_header %}
 <div class="page-header-bleed page-header-with-actions">
     <div class="page-header-content">
-        <h1>Goals</h1>
+        <div class="title-with-help"><h1>Goals</h1>{% help_bubble "dashboards" "how-it-fits" %}</div>
         <p class="page-subtitle">Your key numbers: the metrics that define them, the targets they should reach, and reports that compare them over time.</p>
         <nav style="margin-top: 0.5rem; font-size: 0.8rem;" aria-label="Breadcrumb">
             <a href="{% url 'website:home' %}" style="color: var(--body-quiet-color); text-decoration: none;">Home</a>
@@ -27,7 +28,7 @@
 {% endblock %}
 
 {% block content %}
-{% include "dashboards/partials/tag_filter.html" %}
+{% include "dashboards/partials/tag_filter.html" with tag_hint=goal_list_count|add:metric_count|add:report_count %}
 <div id="gx-page">
 {% if not metric_count and not goal_list_count and not report_count %}
 <section class="ix-start" aria-labelledby="gx-start-title">
@@ -55,7 +56,7 @@
     <div class="md-section-head">
         <h2 id="ix-goals-title">Goal lists</h2>
         <p class="dash-muted">{{ goal_list_count }}</p>
-        {% if goal_list_count > goal_lists|length %}<a href="{% url 'dashboards/goals-list' %}" class="md-link">All {{ goal_list_count }} goal lists</a>{% endif %}
+        {% if goal_list_count > goal_lists|length %}<a href="{% url 'dashboards/goals-list' %}{% if tag %}?tag={{ tag|urlencode }}{% endif %}" class="md-link">All {{ goal_list_count }} goal lists</a>{% endif %}
         <a href="{% url 'dashboards/goals-create' %}" class="md-link">New goal list</a>
     </div>
     {% if goal_lists %}
@@ -102,7 +103,7 @@
             <input type="search" class="vTextField" placeholder="Filter metrics" data-filter-list="ix-metrics" autocomplete="off">
         </label>
         {% endif %}
-        <a href="{% url 'dashboards/metrics-list' %}" class="md-link">Manage all metrics</a>
+        <a href="{% url 'dashboards/metrics-list' %}{% if tag %}?tag={{ tag|urlencode }}{% endif %}" class="md-link">Manage all metrics</a>
     </div>
     {% if metric_rows %}
     <nav class="md-periods ix-periods" aria-label="Period for the metric values">
@@ -152,7 +153,7 @@
     <div class="md-section-head">
         <h2 id="ix-report-title">Reports</h2>
         <p class="dash-muted">{{ report_count }}</p>
-        {% if report_count > reports|length %}<a href="{% url 'dashboards/reports-list' %}" class="md-link">All {{ report_count }} reports</a>{% endif %}
+        {% if report_count > reports|length %}<a href="{% url 'dashboards/reports-list' %}{% if tag %}?tag={{ tag|urlencode }}{% endif %}" class="md-link">All {{ report_count }} reports</a>{% endif %}
         <a href="{% url 'dashboards/reports-create' %}" class="md-link">New report</a>
     </div>
     {% if reports %}

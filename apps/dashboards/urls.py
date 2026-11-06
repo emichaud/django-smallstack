@@ -27,6 +27,16 @@ urlpatterns = [
     path("dashboards/d/<slug:slug>/digest/", views.DashboardDigestView.as_view(), name="dashboards_digest"),
     path("dashboards/d/<slug:slug>/cards/", views.DashboardCardsView.as_view(), name="dashboards_board_cards"),
     path(
+        "dashboards/d/<slug:slug>/cards/<str:cell_id>/edit/",
+        views.DashboardCardEditView.as_view(),
+        name="dashboards_card_edit",
+    ),
+    path(
+        "dashboards/d/<slug:slug>/cards/<str:cell_id>/copy/",
+        views.DashboardCardCopyView.as_view(),
+        name="dashboards_card_copy",
+    ),
+    path(
         "dashboards/d/<slug:slug>/cards/<str:cell_id>/value/",
         views.DashboardCardValueView.as_view(),
         name="dashboards_board_card_value",

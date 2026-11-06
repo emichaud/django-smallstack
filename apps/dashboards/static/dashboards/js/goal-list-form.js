@@ -11,10 +11,6 @@
 (function () {
     "use strict";
 
-    function slugify(text) {
-        return text.toLowerCase().normalize("NFKD").replace(/[̀-ͯ]/g, "")
-            .replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 80);
-    }
     function el(tag, attrs, text) {
         var node = document.createElement(tag);
         Object.keys(attrs || {}).forEach(function (k) {
@@ -46,8 +42,6 @@
         var empty = document.getElementById("glf-empty");
         var total = document.getElementById("glf-total");
         var sharedNote = document.getElementById("glf-shared-note");
-        var name = form.querySelector('[name="name"]');
-        var slug = form.querySelector('[name="slug"]');
         var metrics = {}, cards = {};
         data.metrics.forEach(function (m) { metrics[m.key] = m; });
         data.cards.forEach(function (c) { cards[c.key] = c; });
@@ -497,10 +491,6 @@
             titles[titles.length - 1].focus();
         });
         form.addEventListener("change", function (ev) { if (ev.target.name === "visibility") render(); });
-
-        var slugTouched = form.getAttribute("data-creating") !== "1" || !!slug.value;
-        slug.addEventListener("input", function () { slugTouched = true; });
-        name.addEventListener("input", function () { if (!slugTouched) slug.value = slugify(name.value); });
 
         if (!sections.length && form.getAttribute("data-creating") === "1") sections.push({ title: "", goals: [] });
         render();

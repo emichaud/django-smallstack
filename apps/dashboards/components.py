@@ -46,7 +46,16 @@ from django.http import HttpRequest
 from django.urls import NoReverseMatch, reverse
 
 from .comparison import compare_groups, compare_with_previous
-from .metrics import DRILL_FORMATS, MAX_DRILL_COLUMNS, MAX_DRILL_ROWS, STATES, THRESHOLD_OPS, evaluate
+from .metrics import (
+    DRILL_COLUMNS,
+    DRILL_FORMATS,
+    DRILL_LIMIT,
+    MAX_DRILL_COLUMNS,
+    MAX_DRILL_ROWS,
+    STATES,
+    THRESHOLD_OPS,
+    evaluate,
+)
 from .periods import period_heading
 
 if TYPE_CHECKING:
@@ -203,8 +212,10 @@ class ComponentType:
     #: Who may see the card at all (beyond dashboard visibility). ``None`` = anyone who can view the dashboard.
     visible_to: Optional[Callable[[Any], bool]] = None
     #: Option fields a builder offers: ``[{name, label, type, default?, choices?, min?, max?, help?, required?}]``.
-    #: ``type``: choice | integer | number | text | boolean | column (a column of the
-    #: metric's dataset) | widget (a published DashboardWidget) | markdown.
+    #: ``type``: choice | multichoice (several of ``choices``, as a tick-list; stored
+    #: as one comma-separated string) | integer | number | text | boolean | column (a
+    #: column of the metric's dataset) | widget (a published DashboardWidget) | markdown.
+    #: ``choices`` is ``[[value, label]]``, or ``choices(user)`` returning that.
     options_schema: list[dict[str, Any]] = field(default_factory=list)
     #: Where the component builder's palette files it: "Stats", "Info", "Charts", …
     group: str = "Other"
@@ -314,8 +325,15 @@ def components_payload(user: Any) -> dict[str, Any]:
         # What a stylable card's options.style / options.thresholds may hold.
         "style": CARD_STYLE,
         "thresholds": {"ops": list(THRESHOLD_OPS), "states": list(STATES)},
-        # What a drillable card's options.drilldown may hold.
-        "drilldown": {"formats": DRILL_FORMATS, "max_columns": MAX_DRILL_COLUMNS, "max_rows": MAX_DRILL_ROWS},
+        # What a drillable card's options.drilldown may hold, and what it
+        # falls back to without one (the builder starts a design from those).
+        "drilldown": {
+            "formats": DRILL_FORMATS,
+            "max_columns": MAX_DRILL_COLUMNS,
+            "max_rows": MAX_DRILL_ROWS,
+            "default_columns": DRILL_COLUMNS,
+            "default_rows": DRILL_LIMIT,
+        },
     }
     if getattr(user, "is_staff", False):
         payload["widgets"] = [{"key": k, "title": w.title} for k, w, _i in available_widgets()]

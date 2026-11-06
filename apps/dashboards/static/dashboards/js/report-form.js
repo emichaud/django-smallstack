@@ -3,7 +3,7 @@
  * colour its values on target / at risk / missed). The rows are a table: its
  * headers sort them, which changes the report's row order (with Undo), and its
  * columns resize. Plus
- * period quick-picks, slug-from-name and a live shape preview. The JSON field
+ * period quick-picks and a live shape preview. The JSON field
  * stays the source of truth (what REST/MCP/agents write), so the page still
  * works without JS. */
 (function () {
@@ -21,11 +21,6 @@
         if (text != null) n.textContent = text;
         return n;
     }
-    function slugify(t) {
-        return t.toLowerCase().normalize("NFKD").replace(/[̀-ͯ]/g, "")
-            .replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 80);
-    }
-
     function readItems() {
         try {
             var parsed = JSON.parse(q("items").value || "[]");
@@ -391,10 +386,8 @@
             renderRows(); writeItems();
         });
 
-        var slug = q("slug"), name = q("name");
-        var touched = form.getAttribute("data-creating") !== "1" || !!slug.value;
-        slug.addEventListener("input", function () { touched = true; });
-        name.addEventListener("input", function () { if (!touched) slug.value = slugify(name.value); preview(); });
+        var name = q("name");
+        name.addEventListener("input", preview);
         q("description").addEventListener("input", preview);
         form.addEventListener("change", function (ev) {
             if (ev.target.name === "periods") { syncOrderFromChips(); renderOrder(); }

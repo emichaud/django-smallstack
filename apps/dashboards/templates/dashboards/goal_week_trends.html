@@ -1,12 +1,13 @@
 {% extends "smallstack/base.html" %}
 {% load static %}
+{% load help_tags %}
 {% block title %}{{ goal_list.name }}, trends around {{ trends.label }}{% endblock %}
 {% block breadcrumbs %}{% endblock %}
 {% block extra_css %}<link rel="stylesheet" href="{% static 'dashboards/css/dashboards.css' %}">{% endblock %}
 {% block page_header %}
 <div class="page-header-bleed">
     <div class="page-header-content">
-        <h1>Trends around the week of {{ trends.label }}</h1>
+        <div class="title-with-help"><h1>Trends around the week of {{ trends.label }}</h1>{% help_bubble "dashboards" "history" %}</div>
         <p class="page-subtitle"><a href="{% url 'dashboards_goal_weeks' goal_list.slug %}?week={{ trends.focus|date:'Y-m-d' }}">Back to {{ goal_list.name }}, week by week</a></p>
     </div>
 </div>

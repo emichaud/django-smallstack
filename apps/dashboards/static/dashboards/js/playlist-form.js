@@ -6,10 +6,6 @@
 (function () {
     "use strict";
 
-    function slugify(text) {
-        return text.toLowerCase().normalize("NFKD").replace(/[̀-ͯ]/g, "")
-            .replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 80);
-    }
     function el(tag, attrs, text) {
         var node = document.createElement(tag);
         Object.keys(attrs || {}).forEach(function (k) { node.setAttribute(k, attrs[k]); });
@@ -37,8 +33,6 @@
         var sortedNote = document.getElementById("plf-sorted");
         var sortedText = document.getElementById("plf-sorted-text");
         var sortButtons = Array.prototype.slice.call(document.querySelectorAll(".plf-sort"));
-        var name = form.querySelector('[name="name"]');
-        var slug = form.querySelector('[name="slug"]');
 
         var items = [];
         try { items = JSON.parse(field.value || "[]"); } catch (e) { items = []; }
@@ -228,10 +222,6 @@
         });
         seconds.addEventListener("input", render);
         form.addEventListener("change", function (ev) { if (ev.target.name === "visibility") fillPicker(); });
-
-        var slugTouched = form.getAttribute("data-creating") !== "1" || !!slug.value;
-        slug.addEventListener("input", function () { slugTouched = true; });
-        name.addEventListener("input", function () { if (!slugTouched) slug.value = slugify(name.value); });
 
         write();
         render();

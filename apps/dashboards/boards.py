@@ -15,6 +15,7 @@ may not read renders or reports as restricted, never as a number.
 
 from __future__ import annotations
 
+import copy
 import json
 import logging
 from typing import Any, Optional
@@ -30,7 +31,7 @@ from apps.datasets.filter_tree import FilterTreeError
 from .components import CellContext, cell_title, get_component_type
 from .forms import DashboardPictureForm
 from .metrics import evaluate, group_values, may_read
-from .models import Dashboard, Metric
+from .models import Dashboard, Metric, metric_key_from_name
 from .periods import period_heading
 
 logger = logging.getLogger("smallstack.dashboards")
@@ -482,3 +483,91 @@ def board_cards(dashboard: Dashboard, request: HttpRequest, order: str = "") -> 
         "base_url": base,
         "heading": period_heading(dashboard.default_period or None).lower(),
     }
+
+
+# -- a card of its own: unlinking a placed saved card, copying a card's metric --------
+
+#: What a copy of a metric carries over: everything that defines the number, and
+#: the labels. Not the key (made from the new name), the owner or the dates.
+METRIC_COPIED = (
+    "description",
+    "source",
+    "dataset",
+    "numerator",
+    "denominator",
+    "filter_tree",
+    "agg",
+    "measure",
+    "period_field",
+    "format",
+    "unit",
+    "thresholds",
+    "tags",
+)
+
+
+def placement_counts(keys: set[str]) -> dict[str, int]:
+    """How many dashboards show each saved card in *keys*. A dashboard that
+    places one twice counts once: the question is "who else changes with it"."""
+    counts: dict[str, int] = {}
+    if not keys:
+        return counts
+    for layout in Dashboard.objects.values_list("layout", flat=True):
+        placed = {str(c["component"]) for c in layout or [] if isinstance(c, dict) and c.get("component")}
+        for key in placed & keys:
+            counts[key] = counts.get(key, 0) + 1
+    return counts
+
+
+def copyable_metric(key: Any, user: Any) -> Optional[Metric]:
+    """The metric a card could be given its own copy of: one *user* may see,
+    and not one entered by hand, whose values are typed against that metric
+    and wouldn't come along."""
+    metric = Metric.objects.filter(key=key).first() if isinstance(key, str) and key else None
+    if metric is None or metric.is_manual or not metric.can_view(user):
+        return None
+    return metric
+
+
+def make_card_unique(dashboard: Dashboard, cell_id: str, user: Any, *, copy_metric: bool = False) -> dict[str, str]:
+    """Make one card this dashboard's own, where it sits.
+
+    A cell that places a saved card stops following it: it keeps the design it
+    was showing (the cell already carries a copy) under the card's name, and
+    the saved card and every other dashboard are left as they were. With
+    *copy_metric* the card's metric is copied too (``"<name> (<dashboard>)"``,
+    owned like the dashboard) and the card draws the copy, so its filter can
+    change here alone. That part also suits a card that was never a saved one,
+    on a duplicated dashboard still sharing its metrics with the original.
+
+    Its place, size and options don't change. Returns ``{"metric": key}`` (the
+    new metric's key, or ""). Raises ``LookupError`` for a card that isn't
+    there, and ``ValidationError`` when the layout or the metric won't save;
+    nothing is kept then."""
+    from django.db import transaction
+
+    cell = dashboard.cell(cell_id)
+    if cell is None:
+        raise LookupError(cell_id)
+    fresh = copy.deepcopy(cell)
+    if fresh.pop("component", None):
+        name = fresh.pop("name", "")
+        if name and not fresh.get("title"):
+            fresh["title"] = name
+    created: Optional[Metric] = None
+    with transaction.atomic():
+        original = copyable_metric(fresh.get("metric"), user) if copy_metric else None
+        if original is not None:
+            name = f"{original.name} ({dashboard.name})"[:120]
+            created = Metric(
+                key=metric_key_from_name(name),
+                name=name,
+                owner_id=dashboard.owner_id,
+                created_by=user,
+                **{field: copy.deepcopy(getattr(original, field)) for field in METRIC_COPIED},
+            )
+            created.save()
+            fresh["metric"] = created.key
+        dashboard.layout = [fresh if c.get("id") == cell_id else c for c in dashboard.layout]
+        dashboard.save()
+    return {"metric": created.key if created is not None else ""}

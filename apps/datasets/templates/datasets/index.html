@@ -1,5 +1,6 @@
 {% extends "smallstack/base.html" %}
 {% load static %}
+{% load help_tags %}
 {% load theme_tags %}
 
 {% block title %}Datasets{% endblock %}
@@ -12,7 +13,7 @@
 {% block page_header %}
 <div class="page-header-bleed page-header-with-actions" style="display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap;">
     <div class="page-header-content">
-        <h1>Datasets</h1>
+        <div class="title-with-help"><h1>Datasets</h1>{% help_bubble "dashboards" "dataset" %}</div>
         <p class="page-subtitle">{{ total }} registered dataset{{ total|pluralize }} — read-only, filterable tables for browsing and reporting.</p>
         <nav style="margin-top: 0.5rem; font-size: 0.8rem;" aria-label="Breadcrumb">
             <a href="{% url 'website:home' %}" style="color: var(--body-quiet-color); text-decoration: none;">Home</a>

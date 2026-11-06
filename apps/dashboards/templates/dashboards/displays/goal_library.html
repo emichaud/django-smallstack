@@ -25,6 +25,7 @@ every column resizes with table-resize.js.
             <td class="lib-name-cell">
                 <a href="{{ r.url }}" class="lib-name">{{ g.name }}</a>
                 {% if g.is_shared %}<span class="dash-badge dash-badge--shared">Shared</span>{% else %}<span class="dash-badge">Personal</span>{% endif %}
+                {% include "dashboards/partials/tags.html" with obj=g base=request.path tag=request.GET.tag %}
                 {% if g.description %}<span class="lib-sub" title="{{ g.description }}">{{ g.description }}</span>{% endif %}
             </td>
             <td class="lib-wrap-cell">

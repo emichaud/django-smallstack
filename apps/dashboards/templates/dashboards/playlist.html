@@ -1,5 +1,6 @@
 {% extends "smallstack/base.html" %}
 {% load static %}
+{% load help_tags %}
 {% comment %}
 PlaylistPlayerView: a playlist, playing. ?kiosk=1 drops the site's chrome
 (topbar, sidebar, header) for a wall screen; the player bar stays.
@@ -15,7 +16,7 @@ PlaylistPlayerView: a playlist, playing. ?kiosk=1 drops the site's chrome
 {% block page_header %}{% if not options.kiosk %}
 <div class="page-header-bleed page-header-with-actions">
     <div class="page-header-content">
-        <h1>{{ playlist.name }}</h1>
+        <div class="title-with-help"><h1>{{ playlist.name }}</h1>{% help_bubble "dashboards" "playlist" %}</div>
         <p class="page-subtitle">{% if playlist.description %}{{ playlist.description }}{% else %}{{ slides|length }} slide{{ slides|length|pluralize }}, {{ playlist.seconds }} seconds each unless set.{% endif %}</p>
         <nav style="margin-top: 0.5rem; font-size: 0.8rem;" aria-label="Breadcrumb">
             <a href="{% url 'website:home' %}" style="color: var(--body-quiet-color); text-decoration: none;">Home</a>

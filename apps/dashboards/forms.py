@@ -27,6 +27,7 @@ from .models import (
     Metric,
     Playlist,
     Report,
+    free_slug,
     metric_key_from_name,
 )
 
@@ -67,6 +68,26 @@ class _OwnedForm(forms.ModelForm):
             self.fields["tags"].widget = forms.TextInput(
                 attrs={"class": "vTextField", "placeholder": "ops, weekly review", "autocomplete": "off"}
             )
+        if "slug" in self.fields:
+            # An address is made from the name (clean): nobody has to type one.
+            self.fields["slug"].required = False
+
+    def clean_slug(self) -> str:
+        """The address of a dashboard, report, playlist or goal list.
+
+        New: whatever was sent (an agent or the API may name one), or blank to
+        have ``clean`` make it from the name. Existing: it stays put — renaming
+        never moves a page, so links, embeds and playlists keep working — and
+        only staff may change it on purpose."""
+        slug = (self.cleaned_data.get("slug") or "").strip()
+        instance = self.instance
+        if instance.pk is None:
+            return slug
+        if not slug or slug == instance.slug:
+            return str(instance.slug)
+        if not getattr(self.user, "is_staff", False):
+            raise forms.ValidationError("Only staff can change an address. It stays the same when the name changes.")
+        return slug
 
     def clean_tags(self) -> str:
         from .models import join_tags, split_tags
@@ -79,6 +100,9 @@ class _OwnedForm(forms.ModelForm):
         user = self.user
         choice = cleaned.get("visibility") or ""
         instance = self.instance
+        if "slug" in self.fields and instance.pk is None and not cleaned.get("slug") and "slug" not in self.errors:
+            # Made from the name, like a metric's key: site-health, then site-health-2.
+            cleaned["slug"] = free_slug(type(instance), cleaned.get("name") or "")
         if user is None or not getattr(user, "is_authenticated", False):
             raise forms.ValidationError("Sign in to save this.")
         if instance.pk is None:

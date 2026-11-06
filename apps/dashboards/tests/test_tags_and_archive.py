@@ -66,7 +66,9 @@ def test_the_overviews_show_chips_and_narrow_to_a_tag(client, staff):
     html = resp.content.decode()
     assert [r["metric"].key for r in resp.context["metric_rows"]] == ["m1"]
     assert "Ops review" in html and "Money" not in html.split('id="ix-report-section"')[1]
-    assert "Showing what's tagged" in html and "Show everything" in html
+    # The bar marks the tag the page is narrowed to, and offers the way back.
+    assert 'class="dash-tag is-current" aria-current="true">ops<span class="dash-tag-count">2</span>' in html
+    assert 'class="dash-tag ix-tag-all"' in html and ">Show everything</a>" in html
     resp = client.get("/smallstack/dashboards/?tag=finance")
     assert resp.status_code == 200 and "Ops board" not in resp.content.decode().split('id="dx-board-section"')[-1]
     resp = client.get("/smallstack/dashboards/?tag=ops")

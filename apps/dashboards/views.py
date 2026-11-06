@@ -42,6 +42,7 @@ additionally needs the metric's dataset to admit the viewer
 from __future__ import annotations
 
 import json
+import re
 from datetime import date
 from typing import TYPE_CHECKING, Any, Optional
 from urllib.parse import urlencode
@@ -65,9 +66,18 @@ from apps.datasets.filter_tree import FilterTreeError, describe_filter_tree
 from apps.datasets.registry import all_defs
 from apps.smallstack.crud import Action, CRUDView
 from apps.smallstack.displays import TableDisplay
-from apps.smallstack.pagination import PAGE_SIZE_CHOICES
+from apps.smallstack.pagination import PAGE_SIZE_CHOICES, page_size_from, paginate_queryset
 
-from .boards import board_attention, board_cards, cell_value, render_cell, system_dashboard
+from .boards import (
+    METRIC_COPIED,
+    board_attention,
+    board_cards,
+    cell_value,
+    make_card_unique,
+    placement_counts,
+    render_cell,
+    system_dashboard,
+)
 from .comparison import compare_with_previous
 from .components import available_widgets, describe_types, get_component_type
 from .datasets import visible_entries
@@ -79,6 +89,7 @@ from .displays import (
     MetricLibraryDisplay,
     PlaylistLibraryDisplay,
     ReportLibraryDisplay,
+    TagBar,
 )
 from .entries import delete_entry, parse_entry, record_entry
 from .forms import (
@@ -101,8 +112,8 @@ from .metrics import (
     may_read,
     metric_sentence,
     rate_parts,
+    requested_drilldown,
     threshold_legend,
-    validate_drilldown,
 )
 from .models import (
     ADMIN_HOME_KEY,
@@ -114,7 +125,9 @@ from .models import (
     OwnedModel,
     Playlist,
     Report,
+    free_slug,
     metric_usage,
+    tag_cloud,
 )
 from .periods import (
     QUICK_PERIODS,
@@ -290,6 +303,9 @@ class DashboardIndexView(LoginRequiredMixin, TemplateView):
                 # The first-run steps start from a metric, wherever they're made.
                 "metric_count": Metric.objects.visible_to(user).active().count(),
                 "tag": tag,
+                "tags": tag_cloud(
+                    *(m.objects.visible_to(user).active() for m in (Dashboard, Playlist, Component)), current=tag
+                ),
                 "archived_count": sum(
                     m.objects.visible_to(user).archived().count() for m in (Dashboard, Playlist, Component)
                 ),
@@ -479,6 +495,9 @@ class GoalsIndexView(LoginRequiredMixin, TemplateView):
                 "metric_count": metric_count,
                 "unused_only": unused_only,
                 "tag": tag,
+                "tags": tag_cloud(
+                    *(m.objects.visible_to(user).active() for m in (GoalList, Metric, Report)), current=tag
+                ),
                 "archived_count": sum(
                     m.objects.visible_to(user).archived().count() for m in (GoalList, Metric, Report)
                 ),
@@ -543,12 +562,28 @@ class MyDashboardsView(LoginRequiredMixin, TemplateView):
         field = ordering.lstrip("-")
         if field not in self.SORTS:
             ordering, field = "", ""
-        qs: QuerySet = Dashboard.objects.mine(user).visible_to(user).active().order_by("-updated_at", "name")
+        tag = request.GET.get("tag", "").strip()
+        mine = Dashboard.objects.mine(user).visible_to(user).active()
+        qs: QuerySet = mine.tagged(tag).order_by("-updated_at", "name")
         if field in ("name", "updated_at"):
             qs = apply_ordering(qs, ordering, {"name", "updated_at"})
-        boards = list(qs)
+        rows: Any = qs
         if field == "cards":
-            boards.sort(key=lambda d: (len(d.layout), d.name.lower()), reverse=ordering.startswith("-"))
+            # Not a column: this sort reads them all, then pages what it sorted.
+            rows = sorted(qs, key=lambda d: (len(d.layout), d.name.lower()), reverse=ordering.startswith("-"))
+        per_page = page_size_from(request, PAGE_SIZE_CHOICES)
+        page = paginate_queryset(rows, request, page_size=per_page)
+        boards = list(page.object_list)
+        context.update(
+            {
+                "page_obj": page,
+                "page_sizes": PAGE_SIZE_CHOICES,
+                "per_page": per_page,
+                "board_count": page.paginator.count,
+                "tag": tag,
+                "tags": tag_cloud(mine, current=tag),
+            }
+        )
         context["boards"] = [
             {
                 "dashboard": d,
@@ -573,6 +608,7 @@ class MyDashboardsView(LoginRequiredMixin, TemplateView):
         out = {}
         for name in self.SORTS:
             params = request.GET.copy()
+            params.pop("page", None)  # a new order starts at its first page
             if ordering == name:
                 params["ordering"], aria = f"-{name}", "ascending"
             elif ordering == f"-{name}":
@@ -597,10 +633,53 @@ class DashboardPageView(LoginRequiredMixin, TemplateView):
         dashboard = self.get_dashboard()
         period = requested_period(request, dashboard.default_period)
         can_edit = dashboard.can_edit(user)
+        # What each card's menu needs, for someone who can edit the dashboard:
+        # the saved card a cell places (and how many dashboards show it), and
+        # the metric it draws. A viewer's menu needs neither.
+        placed = {c.get("component") for c in dashboard.layout if c.get("component")}
+        saved_cards = {c.key: c for c in Component.objects.filter(key__in=placed)} if can_edit and placed else {}
+        shown_on = placement_counts(set(saved_cards))
+        metrics = {m.key: m for m in Metric.objects.filter(key__in=dashboard.metric_keys())} if can_edit else {}
         cells = []
         for cell in dashboard.layout:
             ct = get_component_type(str(cell.get("type", "")))
-            cells.append({**cell, "type_label": ct.label if ct else cell.get("type")})
+            type_label = ct.label if ct else cell.get("type")
+            where = {"slug": dashboard.slug, "cell_id": cell.get("id", "")}
+            saved = cell.get("component")
+            card = saved_cards.get(saved)
+            metric = metrics.get(cell.get("metric"))
+            # Other dashboards change when this card does: worth marking, and worth a way out.
+            linked = card is not None and shown_on.get(card.key, 0) > 1
+            own_metric = metric is not None and not metric.is_manual and metric.can_view(user)
+            cells.append(
+                {
+                    **cell,
+                    "type_label": type_label,
+                    # What the card's menu calls it, and where its entries lead.
+                    "label": cell.get("title") or cell.get("name") or type_label,
+                    # A saved card is edited where it's placed only by someone who may
+                    # edit the card itself; any other card belongs to this dashboard.
+                    "edit_url": reverse("dashboards_card_edit", kwargs=where)
+                    if can_edit and cell.get("id") and (not saved or (card is not None and card.can_edit(user)))
+                    else "",
+                    "metric_url": reverse("dashboards_metric_detail", kwargs={"key": cell["metric"]})
+                    if isinstance(cell.get("metric"), str) and cell.get("metric")
+                    else "",
+                    "metric_edit_url": reverse("dashboards/metrics-update", kwargs={"pk": metric.pk})
+                    if metric is not None and metric.can_edit(user)
+                    else "",
+                    "metric_name": metric.name if metric is not None else "",
+                    "metric_copyable": own_metric,
+                    "linked": linked,
+                    "saved_name": card.name if card is not None else "",
+                    "saved_count": shown_on.get(card.key, 0) if card is not None else 0,
+                    # "Make a unique copy" for a card other dashboards show too; "Give it
+                    # its own metric" for a card of this dashboard that shares its number.
+                    "copy_url": reverse("dashboards_card_copy", kwargs=where)
+                    if can_edit and cell.get("id") and (linked or (not saved and own_metric))
+                    else "",
+                }
+            )
         context.update(
             {
                 "dashboard": dashboard,
@@ -695,6 +774,137 @@ class DashboardLayoutView(LoginRequiredMixin, View):
         except ValidationError as exc:
             return JsonResponse({"errors": exc.message_dict.get("layout", exc.messages)}, status=400)
         return JsonResponse({"ok": True, "layout": dashboard.layout})
+
+
+class DashboardCardEditView(LoginRequiredMixin, View):
+    """Edit one card where it sits: the component builder, in a dialog on the
+    dashboard page (the card menu's "Edit card"; ``dashboard.js`` loads this
+    fragment and posts its form back).
+
+    Two kinds of card, one builder (``includes/component_builder.html``):
+
+    - **a saved card** (the cell names a ``Component``): the component itself is
+      edited, by someone who may edit it, and ``signals.py`` refreshes every
+      dashboard showing it — the same save as the builder's own page;
+    - **a card of this dashboard only**: its type, metric, options and title
+      are written back into this dashboard's layout, which
+      ``Dashboard.clean`` validates as it does a whole layout.
+
+    A saved GET is the fragment; a POST that saves answers ``{"ok": true}`` and
+    one that doesn't answers the fragment again, with what was wrong (422)."""
+
+    template_name = "dashboards/partials/card_edit.html"
+
+    def _card(self, request: HttpRequest, slug: str, cell_id: str) -> tuple[Dashboard, dict[str, Any], Any]:
+        dashboard = visible_or_404(Dashboard.objects.all(), request, slug=slug)
+        if not dashboard.can_edit(request.user):
+            raise PermissionDenied
+        cell = dashboard.cell(cell_id)
+        if cell is None:
+            raise Http404("This dashboard has no such card.")
+        saved = Component.objects.filter(key=cell.get("component") or "").first() if cell.get("component") else None
+        if saved is not None and not saved.can_edit(request.user):
+            raise PermissionDenied
+        return dashboard, cell, saved
+
+    def _render(
+        self, request: HttpRequest, dashboard: Dashboard, cell: dict[str, Any], saved: Any, form: Any, status: int = 200
+    ) -> HttpResponse:
+        context = {
+            "dashboard": dashboard,
+            "form": form,
+            "object": saved,
+            "cb_mode": "placed" if saved is not None else "cell",
+            "cb_action": reverse("dashboards_card_edit", kwargs={"slug": dashboard.slug, "cell_id": cell["id"]}),
+            "cb_visibility": "shared" if dashboard.is_shared else "personal",
+            "cell_errors": getattr(form, "cell_errors", []),
+        }
+        return render(request, self.template_name, context, status=status)
+
+    @staticmethod
+    def _cell_form(request: HttpRequest, dashboard: Dashboard, values: dict[str, Any]) -> Any:
+        """The builder's form for a card that isn't a Component: never saved,
+        only drawn, so it carries the cell's values as its initial ones."""
+        return ComponentForm(instance=Component(owner_id=dashboard.owner_id), initial=values, user=request.user)
+
+    def get(self, request: HttpRequest, slug: str, cell_id: str) -> HttpResponse:
+        dashboard, cell, saved = self._card(request, slug, cell_id)
+        if saved is not None:
+            form = ComponentForm(instance=saved, user=request.user)
+        else:
+            values = {
+                "name": cell.get("title", ""),
+                "type": cell.get("type", ""),
+                "metric": cell.get("metric", ""),
+                "options": cell.get("options") or {},
+            }
+            form = self._cell_form(request, dashboard, values)
+        return self._render(request, dashboard, cell, saved, form)
+
+    def post(self, request: HttpRequest, slug: str, cell_id: str) -> HttpResponse:
+        dashboard, cell, saved = self._card(request, slug, cell_id)
+        if saved is not None:
+            form = ComponentForm(request.POST, instance=saved, user=request.user)
+            if form.is_valid():
+                form.save()
+                return JsonResponse({"ok": True})
+            return self._render(request, dashboard, cell, saved, form, status=422)
+
+        posted = request.POST
+        kind = posted.get("type", "").strip()
+        metric = posted.get("metric", "").strip()
+        title = posted.get("name", "").strip()[:120]
+        try:
+            options = json.loads(posted.get("options") or "{}")
+        except ValueError:
+            options = None
+        ct = get_component_type(kind)
+        problems: list[str] = []
+        if ct is None or (ct.visible_to is not None and not ct.visible_to(request.user)):
+            problems.append("Pick a card type you can use.")
+        if not isinstance(options, dict):
+            problems.append("The card's options didn't arrive as they should. Reload the page and try again.")
+            options = {}
+        # The card keeps its place and size; everything it draws comes from the form.
+        fresh: dict[str, Any] = {k: cell[k] for k in ("id", "x", "y", "w", "h") if k in cell}
+        fresh.update({"type": kind, "options": options})
+        if metric and ct is not None and ct.needs_metric:
+            fresh["metric"] = metric
+        if title:
+            fresh["title"] = title
+        if not problems:
+            before = dashboard.layout
+            dashboard.layout = [fresh if c.get("id") == cell_id else c for c in before]
+            try:
+                dashboard.save()
+            except ValidationError as exc:
+                dashboard.layout = before
+                found = exc.message_dict.get("layout", exc.messages) if hasattr(exc, "message_dict") else exc.messages
+                # "layout[2].options: …" names a position the person never saw.
+                problems = [re.sub(r"^layout\[\d+\]\.?:?\s*", "", str(m)) for m in found]
+            else:
+                return JsonResponse({"ok": True})
+        form = self._cell_form(request, dashboard, {"name": title, "type": kind, "metric": metric, "options": options})
+        form.cell_errors = problems
+        return self._render(request, dashboard, cell, None, form, status=422)
+
+
+class DashboardCardCopyView(LoginRequiredMixin, View):
+    """The card menu's "Make a unique copy" and "Give it its own metric": one
+    card becomes this dashboard's own, where it sits (``boards.make_card_unique``).
+    ``metric=1`` copies the metric it draws as well."""
+
+    def post(self, request: HttpRequest, slug: str, cell_id: str) -> JsonResponse:
+        dashboard = visible_or_404(Dashboard.objects.all(), request, slug=slug)
+        if not dashboard.can_edit(request.user):
+            return JsonResponse({"errors": ["You may not edit this dashboard."]}, status=403)
+        try:
+            made = make_card_unique(dashboard, cell_id, request.user, copy_metric=request.POST.get("metric") == "1")
+        except LookupError:
+            return JsonResponse({"errors": ["This dashboard has no such card."]}, status=404)
+        except ValidationError as exc:
+            return JsonResponse({"errors": exc.messages}, status=400)
+        return JsonResponse({"ok": True, **made})
 
 
 class DashboardCardsView(LoginRequiredMixin, View):
@@ -918,20 +1128,9 @@ class MetricRowsView(LoginRequiredMixin, View):
 
     @staticmethod
     def drill_spec(request: HttpRequest, metric: Metric) -> tuple[Optional[dict[str, Any]], str]:
-        """The card's drill-down design from ``?drill=<json>`` (what
-        ``components.drill_params`` adds), validated against the metric's
-        dataset — ``(spec or None, problem)``. It can only pick, label, format
-        and sort columns of rows this viewer may already read."""
-        raw = request.GET.get("drill")
-        if not raw:
-            return None, ""
-        try:
-            spec = json.loads(raw)
-        except ValueError:
-            return None, "Bad drill-down design."
-        ds = get_dataset(metric.dataset)
-        problems = validate_drilldown(spec, ds.column_names() if ds is not None else None)
-        return (None, "; ".join(problems)) if problems else (spec, "")
+        """The card's drill-down design from ``?drill=<json>``
+        (``metrics.requested_drilldown``) — ``(spec or None, problem)``."""
+        return requested_drilldown(request.GET.get("drill"), metric)
 
     @staticmethod
     def drill_order(request: HttpRequest, metric: Metric) -> str:
@@ -1185,6 +1384,8 @@ class _OwnedCRUD(CRUDView):
     # "Rows per page" on every list here (15 by default), as on the datasets pages.
     page_sizes = PAGE_SIZE_CHOICES
     displays = [TableDisplay]
+    # The tags the rows carry, above the list; one narrows it (?tag=).
+    list_accessories = [TagBar()]
     bulk_actions: list = []
     actions = [Action.LIST, Action.CREATE, Action.UPDATE, Action.DELETE]
     breadcrumb_parent = ("Dashboards", "dashboards_index")
@@ -1204,8 +1405,9 @@ class _OwnedCRUD(CRUDView):
         """What the person may open — the active rows, or with ``?archived=1``
         only the archived ones (the way back to something put away)."""
         qs = qs.visible_to(getattr(request, "user", None)).select_related("owner")
-        archived = request.GET.get("archived") == "1" if hasattr(request, "GET") else False
-        return qs.archived() if archived else qs.active()
+        params = request.GET if hasattr(request, "GET") else {}
+        qs = qs.tagged(str(params.get("tag") or ""))  # ?tag=ops: the whole tag, as on the overviews
+        return qs.archived() if params.get("archived") == "1" else qs.active()
 
     @classmethod
     def get_detail_queryset(cls, qs: Any, request: HttpRequest) -> Any:
@@ -1324,21 +1526,7 @@ class MetricCreateMixin:
     #: What a duplicate carries over: everything that defines the number, and
     #: the labels. Not the key (made from the new name), the owner (the
     #: person's) or the dates.
-    COPIED = (
-        "description",
-        "source",
-        "dataset",
-        "numerator",
-        "denominator",
-        "filter_tree",
-        "agg",
-        "measure",
-        "period_field",
-        "format",
-        "unit",
-        "thresholds",
-        "tags",
-    )
+    COPIED = METRIC_COPIED
 
     def get_initial(self) -> dict[str, Any]:
         initial: dict[str, Any] = super().get_initial()  # type: ignore[misc]
@@ -1579,14 +1767,7 @@ class MetricCRUDView(_OwnedCRUD):
 def _free_slug(model: type[Any], name: str) -> str:
     """A slug for a duplicate — the name slugified, ``-2``, ``-3``… until it's
     free — so the copy's address never collides with the original's."""
-    from django.utils.text import slugify
-
-    base = slugify(name)[:72] or "copy"
-    slug, n = base, 1
-    while model.objects.filter(slug=slug).exists():
-        n += 1
-        slug = f"{base}-{n}"
-    return slug
+    return free_slug(model, name)
 
 
 class _DuplicateMixin:
@@ -2405,6 +2586,7 @@ class ComponentCRUDView(_OwnedCRUD):
     url_base = "dashboards/components"
     view_mixins = {Action.CREATE: [ComponentCreateMixin]}
     displays = [ComponentLibraryDisplay, ComponentCardsDisplay]
+    default_display = ComponentCardsDisplay  # the gallery first; the table is ?display=library
     search_fields = ["name", "key", "description", "metric", "type", "tags"]
     ordering_fields = ["name", "type", "metric", "updated_at"]
     api_extra_fields = ["key", "visibility", "owner", "created_by", "created_at", "updated_at"]

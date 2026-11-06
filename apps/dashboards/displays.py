@@ -7,7 +7,7 @@ from typing import Any
 from django.http import HttpRequest
 from django.urls import reverse
 
-from apps.smallstack.displays import ListDisplay, paginate_queryset
+from apps.smallstack.displays import ListAccessory, ListDisplay, paginate_queryset
 
 _HOW = {
     "count": "Counts rows",
@@ -17,6 +17,23 @@ _HOW = {
     "min": "Lowest {measure}",
     "max": "Highest {measure}",
 }
+
+
+class TagBar(ListAccessory):
+    """Above a list: the tags its rows carry, each narrowing the list to it
+    (``?tag=``, read by ``_OwnedCRUD.get_list_queryset``). Counted over every
+    row the person may see, whatever the list is narrowed to, so the other
+    tags stay one click away."""
+
+    template_name = "dashboards/partials/tag_filter.html"
+
+    def get_context(self, queryset: Any, crud_config: Any, request: HttpRequest) -> dict[str, Any]:
+        from .models import tag_cloud
+
+        rows = crud_config.model.objects.visible_to(getattr(request, "user", None))
+        rows = rows.archived() if request.GET.get("archived") == "1" else rows.active()
+        tag = request.GET.get("tag", "").strip()
+        return {"tags": tag_cloud(rows, current=tag), "tag": tag, "tag_hint": rows.exists()}
 
 
 class MetricLibraryDisplay(ListDisplay):

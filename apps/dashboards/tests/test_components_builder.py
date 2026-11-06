@@ -233,7 +233,7 @@ def test_the_dashboard_editor_offers_saved_cards(client, staff, metric):
 def test_the_components_list(client, staff, metric):
     card = _card()
     Dashboard(name="Ops", slug="ops", layout=[{"component": card.key}]).save()
-    html = client.get("/smallstack/dashboards/components/").content.decode()
+    html = client.get("/smallstack/dashboards/components/?display=library").content.decode()
     assert "Requests by method" in html and "1 dashboard<" in html and "Grouped stat" in html
 
 
@@ -241,12 +241,12 @@ def test_the_components_list_is_a_sortable_resizable_table(client, staff, metric
     _card(name="Bravo", type="metric", options={})
     _card(name="Alpha", type="text", metric="", options={"markdown": "hi"})
     _card(name="Charlie")  # a grouped stat
-    html = client.get("/smallstack/dashboards/components/").content.decode()
+    html = client.get("/smallstack/dashboards/components/?display=library").content.decode()
     assert 'class="crud-table cl-table" data-table-key="dashboards/components:' in html
     assert html.count('class="col-resizer"') == 5 and 'hx-target="#crud-list-content"' in html
 
     def order(query: str) -> list[str]:
-        page = client.get(f"/smallstack/dashboards/components/?{query}").content.decode()
+        page = client.get(f"/smallstack/dashboards/components/?display=library&{query}").content.decode()
         return sorted(("Alpha", "Bravo", "Charlie"), key=lambda n: page.index(f'class="cl-name">{n}<'))
 
     assert order("ordering=name") == ["Alpha", "Bravo", "Charlie"]
@@ -255,9 +255,18 @@ def test_the_components_list_is_a_sortable_resizable_table(client, staff, metric
     assert order("ordering=-metric")[-1] == "Alpha"  # the note has no metric
 
 
-def test_the_builder_lays_drilldown_columns_out_as_a_sortable_resizable_table(client, staff, metric):
+def test_the_builder_designs_a_drilldown_in_a_dialog_beside_its_rows(client, staff, metric):
     html = client.get("/smallstack/dashboards/components/new/").content.decode()
-    assert 'data-table-key="dashboards/card-drill:column,heading,format"' in html
-    assert html.count("data-drill-sort=") == 3 and '<tbody id="cb-drill-cols"></tbody>' in html
-    # Sorting rewrites the column order, so the way back is on the page.
-    assert 'id="cb-drill-undo"' in html
+    # Every column in one list (ticked ones on top), not added one at a time.
+    assert 'id="cb-drill-add"' not in html and 'id="cb-drill-add-field"' not in html
+    form, dialog = html.split('<dialog class="cbd" id="cb-drill-dialog"', 1)
+    dialog = dialog.split("</dialog>", 1)[0]
+    assert "</form>" in form  # outside the form: Enter in a heading never saves the card
+    assert 'aria-labelledby="cb-drill-title"' in dialog and 'id="cb-drill-title"' in dialog
+    for part in ("cbd-shown", "cbd-hidden", "cbd-find", "cbd-preview", "cb-drill-sort", "cb-drill-limit"):
+        assert f'id="{part}"' in dialog, part
+    assert 'id="cb-drill-cancel"' in dialog and 'id="cb-drill-done"' in dialog
+    # The form keeps the design in short, and the way back into the dialog.
+    assert 'id="cb-drill-chips"' in form and 'id="cb-drill-edit"' in form
+    # The rows beside the list are the real ones: the JSON rows route, given the design.
+    assert 'data-rows-url="/smallstack/dashboards/api/metrics/KEY/rows/"' in form

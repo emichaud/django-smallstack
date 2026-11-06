@@ -1,4 +1,5 @@
-/* Dashboards — the grid, edit mode and the "Add card" dialog.
+/* Dashboards — the grid, edit mode, the "Add card" dialog, each card's menu
+ * and the "Edit card" dialog.
  *
  * View mode: gridstack positions the cells (static grid); each cell's body
  * loads itself over htmx (hx-trigger="load[, every Ns]"), so this file has
@@ -8,6 +9,15 @@
  * copy of the layout; Save posts the WHOLE layout to d/<slug>/layout/, where
  * Dashboard.clean() validates it (one write, client state authoritative), and
  * reloads so every cell re-renders from the saved state.
+ *
+ * A card's menu (the ⋯ at its corner) works without edit mode: Edit card opens
+ * the component builder for that one card in a dialog (d/<slug>/cards/<id>/edit/)
+ * and reloads when it saves; Remove saves the layout without the card; Make a
+ * unique copy (d/<slug>/cards/<id>/copy/) makes a placed saved card this
+ * dashboard's own, where it sits.
+ *
+ * The page's controls (Refresh, Edit layout…) live in the page header, outside
+ * #dash-page; everything here finds them by id.
  */
 (function () {
     "use strict";
@@ -54,6 +64,9 @@
             columnOpts: { breakpoints: [{ w: 700, c: 1 }] },
         }, gridEl);
     }
+
+    // What a card's menu may ask of the editor (set by initEditor, for someone who can edit).
+    var editorApi = null;
 
     function initEditor(grid) {
         var dataEl = document.getElementById("dash-editor-data");
@@ -104,6 +117,12 @@
                 return false;
             }).catch(function () { showErrors(["Network error — try again."]); return false; });
         }
+
+        editorApi = {
+            arrange: function () { setEditing(true); },
+            // Straight from the menu: the layout as saved, minus this card.
+            removeNow: function (id) { removed[id] = true; return save(null); },
+        };
 
         var editBtn = document.getElementById("dash-edit");
         if (editBtn) editBtn.addEventListener("click", function () { setEditing(true); });
@@ -180,13 +199,44 @@
 
         // The built-in types have hand-built fields above; any other type (one an
         // app registered) gets its fields from its options_schema:
-        // [{name, label, type: choice|integer|number|text|boolean, choices?, default?, min?, max?, help?}].
+        // [{name, label, type: choice|multichoice|integer|number|text|boolean, choices?, default?, min?, max?, help?}].
         var BUILTIN = { metric: 1, metric_group: 1, widget: 1, text: 1, __component: 1 };
         var optionsBox = document.getElementById("dash-add-options");
         function renderOptions(t) {
             optionsBox.textContent = "";
             if (BUILTIN[t.type]) return;
             (t.options || []).forEach(function (spec) {
+                if (spec.type === "multichoice") {
+                    // A tick-list; readOptions joins the ticked values with commas.
+                    var group = document.createElement("fieldset");
+                    group.className = "dash-multi";
+                    var legend = document.createElement("legend");
+                    legend.textContent = spec.label;
+                    group.appendChild(legend);
+                    var list = document.createElement("div");
+                    list.className = "dash-multi-list";
+                    group.appendChild(list);
+                    (spec.choices || []).forEach(function (c) {
+                        var pair = Array.isArray(c) ? c : [c, c];
+                        var item = document.createElement("label");
+                        item.className = "dash-multi-item";
+                        var box = document.createElement("input");
+                        box.type = "checkbox";
+                        box.value = pair[0];
+                        box.dataset.multi = spec.name;
+                        item.appendChild(box);
+                        item.appendChild(document.createTextNode(" " + pair[1]));
+                        list.appendChild(item);
+                    });
+                    optionsBox.appendChild(group);
+                    if (spec.help) {
+                        var note = document.createElement("p");
+                        note.className = "dash-hint";
+                        note.textContent = spec.help;
+                        optionsBox.appendChild(note);
+                    }
+                    return;
+                }
                 var label = document.createElement("label");
                 var input;
                 if (spec.type === "choice") {
@@ -227,6 +277,11 @@
                 else if (kind === "number" || kind === "integer") { if (input.value !== "") cell.options[name] = Number(input.value); }
                 else if (input.value !== "") cell.options[name] = input.value;
             });
+            var ticked = {};
+            optionsBox.querySelectorAll("[data-multi]:checked").forEach(function (box) {
+                (ticked[box.dataset.multi] = ticked[box.dataset.multi] || []).push(box.value);
+            });
+            Object.keys(ticked).forEach(function (name) { cell.options[name] = ticked[name].join(","); });
         }
 
         function syncType() {
@@ -280,6 +335,256 @@
             readOptions(cell);
             dialog.close();
             save(cell);
+        });
+    }
+
+    // -- Edit card: the component builder, for one card, in a dialog ---------
+    // The fragment is the builder's own form (includes/component_builder.html);
+    // component-builder.js starts on it as it does on its page. A save answers
+    // JSON and the page reloads; a refusal answers the form again (422).
+    function cardEditor() {
+        var dialog = document.getElementById("dash-card-dialog");
+        var body = document.getElementById("dash-card-dialog-body");
+        if (!dialog || !body) return null;
+
+        function note(text) {
+            var p = document.createElement("p");
+            p.className = "dash-card-dialog-note";
+            p.textContent = text;
+            body.replaceChildren(p);
+        }
+        function mount(html) {
+            body.innerHTML = html;  // our own template, from our own server
+            body.scrollTop = 0;
+            var start = window.SmallStackDashboards && window.SmallStackDashboards.startComponentBuilder;
+            if (start) start();
+            var form = body.querySelector("#cb-form");
+            if (!form) return;
+            body.querySelectorAll("[data-card-cancel]").forEach(function (b) {
+                b.addEventListener("click", function () { dialog.close(); });
+            });
+            form.addEventListener("submit", function (ev) {
+                ev.preventDefault();
+                var saveBtn = form.querySelector('[type="submit"]');
+                if (saveBtn) saveBtn.disabled = true;
+                fetch(form.action, {
+                    method: "POST",
+                    body: new FormData(form),
+                    credentials: "same-origin",
+                    headers: { "X-Requested-With": "XMLHttpRequest" },
+                }).then(function (resp) {
+                    var json = (resp.headers.get("Content-Type") || "").indexOf("json") >= 0;
+                    if (resp.ok && json) { window.location.reload(); return null; }
+                    if (resp.status === 422) return resp.text().then(mount);
+                    throw new Error("not saved");
+                }).catch(function () {
+                    if (saveBtn) saveBtn.disabled = false;
+                    var line = form.querySelector(".cb-dialog-failed") || document.createElement("p");
+                    line.className = "crud-error cb-dialog-failed";
+                    line.setAttribute("role", "alert");
+                    line.textContent = "The card wasn't saved. Check your connection and try again.";
+                    var actions = form.querySelector(".cb-dialog-actions");
+                    if (actions) actions.appendChild(line);
+                });
+            });
+        }
+
+        document.getElementById("dash-card-dialog-x").addEventListener("click", function () { dialog.close(); });
+        // Closed: the builder goes, so its ids are free for the next card.
+        dialog.addEventListener("close", function () { body.replaceChildren(); });
+
+        return function open(url) {
+            note("Loading the card…");
+            dialog.showModal();
+            fetch(url, { credentials: "same-origin", headers: { "X-Requested-With": "XMLHttpRequest" } })
+                .then(function (resp) {
+                    if (!resp.ok) throw new Error("not found");
+                    return resp.text();
+                })
+                .then(mount)
+                .catch(function () { note("This card couldn't be opened for editing."); });
+        };
+    }
+
+    // -- a card's menu (the ⋯ at its corner) --------------------------------
+    // One menu for the page, moved to the card that opened it: a card clips
+    // what's drawn inside it, and a menu is often taller than a card. Entries
+    // are shown by what the opening button carries (data-edit-url,
+    // data-metric-url, data-copy-url…); the rest by who's looking (the template
+    // leaves out what a viewer can't do). An action that changes the dashboard
+    // asks first, in the menu itself.
+    function cardMenu(openEditor) {
+        var page = document.getElementById("dash-page");
+        var menu = document.getElementById("dash-card-menu");
+        if (!page || !menu) return;
+        var opener = null;
+        var pending = null;   // what the question on screen does when answered yes
+        var confirm = menu.querySelector("[data-card-confirm]");
+        var note = menu.querySelector("[data-card-note]");
+
+        function entry(name) { return menu.querySelector('[data-card-action="' + name + '"]'); }
+        function show(name, on) { var n = entry(name); if (n) n.hidden = !on; }
+        function attr(name) { return opener.getAttribute(name) || ""; }
+        function link(name, url) {
+            var a = entry(name);
+            if (!a) return;
+            a.hidden = !url;
+            a.setAttribute("href", url || "#");
+        }
+        function entries() {
+            return Array.prototype.filter.call(menu.querySelectorAll('[role="menuitem"]'), function (n) {
+                return n.offsetParent !== null;
+            });
+        }
+        function place() {
+            var r = opener.getBoundingClientRect();
+            var w = menu.offsetWidth, h = menu.offsetHeight;
+            var left = Math.min(Math.max(8, r.right - w), window.innerWidth - w - 8);
+            var top = r.bottom + 4;
+            if (top + h > window.innerHeight - 8) top = Math.max(8, r.top - h - 4);
+            menu.style.left = left + "px";
+            menu.style.top = top + "px";
+        }
+        function settle() {
+            pending = null;
+            menu.classList.remove("is-asking");
+            if (confirm) confirm.hidden = true;
+        }
+        function close(refocus) {
+            if (menu.hidden) return;
+            menu.hidden = true;
+            settle();
+            var was = opener;
+            opener = null;
+            if (was) {
+                was.setAttribute("aria-expanded", "false");
+                if (refocus) was.focus();
+            }
+        }
+        function open(btn) {
+            close(false);
+            opener = btn;
+            var linked = !!attr("data-saved-name"), copy = !!attr("data-copy-url");
+            show("edit", !!attr("data-edit-url"));
+            link("metric", attr("data-metric-url"));
+            link("metric-edit", attr("data-metric-edit-url"));
+            // A saved card other dashboards show can be made this one's own; a card
+            // that is already this dashboard's can be given a metric of its own.
+            show("unique", copy && linked);
+            show("own-metric", copy && !linked);
+            if (note) {
+                note.hidden = !linked;
+                note.textContent = linked ? "A saved card, on " + attr("data-saved-count") + " dashboards" : "";
+            }
+            menu.hidden = false;
+            btn.setAttribute("aria-expanded", "true");
+            place();
+            var first = entries()[0];
+            if (first) first.focus();
+        }
+        // Ask before changing the dashboard: {text, option?, yes, run(optionTicked)}.
+        function ask(question, back) {
+            pending = { run: question.run, back: back };
+            menu.querySelector("[data-card-confirm-text]").textContent = question.text;
+            var option = menu.querySelector("[data-card-confirm-option]");
+            option.hidden = !question.option;
+            option.querySelector("span").textContent = question.option || "";
+            option.querySelector("input").checked = true;
+            entry("yes").textContent = question.yes;
+            menu.classList.add("is-asking");
+            confirm.hidden = false;
+            place();
+            entry("keep").focus();
+        }
+        function quoted(text) { return "“" + text + "”"; }
+        function copyCard(url, withMetric) {
+            var body = new URLSearchParams();
+            if (withMetric) body.set("metric", "1");
+            fetch(url, {
+                method: "POST",
+                body: body,
+                credentials: "same-origin",
+                headers: { "X-CSRFToken": csrf(), "X-Requested-With": "XMLHttpRequest" },
+            }).then(function (resp) {
+                return resp.json().then(function (data) { return { ok: resp.ok, data: data }; });
+            }).then(function (r) {
+                if (r.ok) window.location.reload();
+                else showErrors(r.data.errors || ["The card wasn't copied."]);
+            }).catch(function () { showErrors(["Network error — try again."]); });
+        }
+
+        page.addEventListener("click", function (ev) {
+            var btn = ev.target.closest("[data-cell-menu]");
+            if (!btn) return;
+            if (opener === btn) close(true); else open(btn);
+        });
+        document.addEventListener("click", function (ev) {
+            if (menu.hidden || menu.contains(ev.target) || ev.target.closest("[data-cell-menu]")) return;
+            close(false);
+        });
+        window.addEventListener("resize", function () { close(false); });
+        window.addEventListener("scroll", function () { close(false); }, true);
+
+        menu.addEventListener("keydown", function (ev) {
+            var list = entries(), at = list.indexOf(document.activeElement);
+            if (ev.key === "Escape") { ev.preventDefault(); close(true); }
+            else if (ev.key === "Tab" && !pending) close(false);  // a question keeps its checkbox reachable
+            else if (ev.key === "ArrowDown") { ev.preventDefault(); list[(at + 1) % list.length].focus(); }
+            else if (ev.key === "ArrowUp") { ev.preventDefault(); list[(at - 1 + list.length) % list.length].focus(); }
+            else if (ev.key === "Home") { ev.preventDefault(); list[0].focus(); }
+            else if (ev.key === "End") { ev.preventDefault(); list[list.length - 1].focus(); }
+        });
+
+        menu.addEventListener("click", function (ev) {
+            var item = ev.target.closest("[data-card-action]");
+            if (!item || !opener) return;
+            var action = item.getAttribute("data-card-action");
+            var id = attr("data-cell-menu");
+            var copyUrl = attr("data-copy-url"), metricName = attr("data-metric-name");
+            if (action === "edit") {
+                var url = attr("data-edit-url");
+                close(false);
+                if (openEditor && url) openEditor(url);
+            } else if (action === "arrange") {
+                close(false);
+                if (editorApi) editorApi.arrange();
+            } else if (action === "refresh") {
+                var body = page.querySelector('.dash-cell[data-cell-id="' + CSS.escape(id) + '"] .dash-cell-body');
+                close(true);
+                if (body && window.htmx) window.htmx.trigger(body, "dash-refresh");
+            } else if (action === "metric" || action === "metric-edit") {
+                close(false);  // the link goes on to the metric
+            } else if (action === "remove") {
+                ask({
+                    text: "Remove this card? Its metric stays.",
+                    yes: "Remove",
+                    run: function () { if (editorApi) editorApi.removeNow(id); },
+                }, "remove");
+            } else if (action === "unique") {
+                ask({
+                    text: quoted(attr("data-saved-name")) + " is a saved card on " + attr("data-saved-count")
+                        + " dashboards. This one becomes this dashboard's own copy. The saved card and the other dashboards don't change.",
+                    option: metricName ? "Copy its metric too (" + quoted(metricName) + "), so its filter can change here alone." : "",
+                    yes: "Make the copy",
+                    run: function (withMetric) { copyCard(copyUrl, !!metricName && withMetric); },
+                }, "unique");
+            } else if (action === "own-metric") {
+                ask({
+                    text: "Copies " + quoted(metricName) + " for this dashboard and points this card at the copy, so its filter can change here alone. The original metric doesn't change.",
+                    yes: "Copy the metric",
+                    run: function () { copyCard(copyUrl, true); },
+                }, "own-metric");
+            } else if (action === "keep") {
+                var back = pending && pending.back;
+                settle();
+                place();
+                if (back && entry(back)) entry(back).focus();
+            } else if (action === "yes") {
+                var run = pending && pending.run;
+                var ticked = menu.querySelector("[data-card-confirm-option] input").checked;
+                close(false);
+                if (run) run(ticked);
+            }
         });
     }
 
@@ -413,5 +718,6 @@
         periodInPlace();
         var grid = initGrid();
         initEditor(grid);
+        cardMenu(cardEditor());
     });
 })();

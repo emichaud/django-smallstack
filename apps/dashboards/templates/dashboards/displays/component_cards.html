@@ -1,4 +1,4 @@
-{% load static %}
+{% load static theme_tags %}
 {% comment %}
 ComponentCardsDisplay: saved cards as a gallery. Each preview is the real card
 (ComponentPreviewView), loaded as it scrolls into view. Previews are inert, so a
@@ -17,6 +17,7 @@ number inside one doesn't open its rows; the card's name goes to the builder.
             <div class="cc-title">
                 {% if r.edit_url %}<a href="{{ r.edit_url }}" class="cc-name">{{ c.name }}</a>{% else %}<span class="cc-name">{{ c.name }}</span>{% endif %}
                 {% if c.is_shared %}<span class="dash-badge dash-badge--shared">Shared</span>{% else %}<span class="dash-badge">Personal</span>{% endif %}
+                {% include "dashboards/partials/tags.html" with obj=c base=request.path tag=request.GET.tag %}
             </div>
             <p class="cc-meta">{{ r.type_label }}{% if r.metric_name %}, {{ r.metric_name }}{% endif %}. {% if r.used %}On {{ r.used }} dashboard{{ r.used|pluralize }}{% else %}Not placed yet{% endif %}.</p>
             <div class="cc-actions">
@@ -32,4 +33,7 @@ number inside one doesn't open its rows; the card's name goes to the builder.
 {% include "smallstack/crud/includes/empty_state.html" %}
 {% else %}
 {% include "smallstack/includes/empty_state.html" with title="No components yet" body="A component is a card you save once and place on any dashboard." %}
+{% endif %}
+{% if is_paginated or page_sizes and page_obj %}
+{% render_paginator page_obj "#crud-display-area" %}
 {% endif %}

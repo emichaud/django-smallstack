@@ -29,6 +29,7 @@ card itself (component-list.js).
             <td class="cl-name-cell">
                 {% if r.edit_url %}<a href="{{ r.edit_url }}" class="cl-name">{{ c.name }}</a>{% else %}<span class="cl-name">{{ c.name }}</span>{% endif %}
                 {% if c.is_shared %}<span class="dash-badge dash-badge--shared">Shared</span>{% else %}<span class="dash-badge">Personal</span>{% endif %}
+                {% include "dashboards/partials/tags.html" with obj=c base=request.path tag=request.GET.tag %}
                 {% if c.description %}<span class="cl-desc" title="{{ c.description }}">{{ c.description }}</span>{% endif %}
             </td>
             <td><span class="cl-type"><span class="cl-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="{{ r.icon|default:'M4 4h16v16H4z' }}"/></svg></span>{{ r.type_label }}</span></td>

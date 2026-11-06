@@ -1,5 +1,6 @@
 {% extends "smallstack/base.html" %}
 {% load static theme_tags %}
+{% load help_tags %}
 {% comment %}
 GoalWeeksView — a goal list week by week. One week at a time (its snapshot,
 or worked out now), or goals down and weeks across (?view=grid, the
@@ -14,7 +15,7 @@ place; each week has a Trends button (the global modal).
 {% block page_header %}
 <div class="page-header-bleed page-header-with-actions">
     <div class="page-header-content">
-        <h1>{{ goal_list.name }}, week by week</h1>
+        <div class="title-with-help"><h1>{{ goal_list.name }}, week by week</h1>{% help_bubble "dashboards" "history" %}</div>
         <p class="page-subtitle">Each week's values against their targets, kept as they were once the week is saved.</p>
         <nav style="margin-top: 0.5rem; font-size: 0.8rem;" aria-label="Breadcrumb">
             <a href="{% url 'website:home' %}" style="color: var(--body-quiet-color); text-decoration: none;">Home</a>

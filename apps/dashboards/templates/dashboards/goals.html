@@ -1,5 +1,6 @@
 {% extends "smallstack/base.html" %}
 {% load static theme_tags %}
+{% load help_tags %}
 {% comment %}
 GoalListPageView — the meeting view. ?period= judges the goals over another
 period (period links swap #gl-page in place); ?present=1 drops the site's
@@ -16,7 +17,7 @@ chrome and sets everything larger, for the screen everyone is looking at.
 {% block page_header %}{% if not present %}
 <div class="page-header-bleed page-header-with-actions">
     <div class="page-header-content">
-        <h1>{{ goal_list.name }}</h1>
+        <div class="title-with-help"><h1>{{ goal_list.name }}</h1>{% help_bubble "dashboards" "goal-list" %}</div>
         {% if goal_list.description %}<p class="page-subtitle">{{ goal_list.description }}</p>{% endif %}
         <nav style="margin-top: 0.5rem; font-size: 0.8rem;" aria-label="Breadcrumb">
             <a href="{% url 'website:home' %}" style="color: var(--body-quiet-color); text-decoration: none;">Home</a>

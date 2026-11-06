@@ -55,8 +55,8 @@ is always current.
   opens its own rows.
 - A card that says **restricted** draws on data your account can't read. The
   dashboard is shared with you; that card's data isn't.
-- A dashboard with **Refreshes every N s** re-fetches its cards on its own; **Refresh** reloads
-  them now.
+- A dashboard with **Refreshes every N s** re-fetches its cards on its own; **Refresh**, in the
+  page's header beside **Duplicate**, **Settings** and **Edit layout**, reloads them now.
 - On **Today** or **This week / month / quarter / year**, each card shows its change from the
   period before, e.g. *▼ 35% vs all of last month*. "All of" means this period is still running
   and is being compared with a finished one. The change is grey on purpose: whether up is good
@@ -76,6 +76,43 @@ is always current.
 
 Periods still running are compared with **all** of the period before, so early in a week a number
 that only goes up looks low. For a meeting, read **Last week**, which compares with the week before.
+
+## A card's menu
+
+Point at a card and a **⋯** appears at its corner (on a touch screen it's always there).
+What it offers depends on the card and on you:
+
+- **Edit card** opens the card's builder in a window over the dashboard: its design, metric,
+  options, style and drill-down, with a live preview. **Save** and you're back on the dashboard.
+  A card that belongs to this dashboard only changes here. A **saved card** (one from
+  **Components**) changes on every dashboard that shows it, and the window says so. You see
+  Edit on a saved card only if you may edit that card.
+- **Make a unique copy** is on a saved card that other dashboards show too. The card stays
+  where it is, looking as it did, but stops following the saved card: it becomes this
+  dashboard's own. Tick **Copy its metric too** (it's ticked to start with) and the card gets
+  its own copy of the metric as well, named after the dashboard, so you can change its filter
+  here without changing the number anywhere else. The saved card and the other dashboards are
+  left as they were.
+- **Give it its own metric** is on a card that already belongs to this dashboard: it copies
+  the metric the same way, without changing the card.
+- **Move or resize** starts arranging the cards (the same as **Edit layout**).
+- **Open the metric** goes to the page of the number the card draws. **Edit the metric** goes
+  straight to its filter, when it's yours to change.
+- **Refresh this card** reloads just that one.
+- **Remove from dashboard** asks first, then takes the card off. Its metric stays, and so does
+  a saved card under Components.
+
+Someone who can open a dashboard but not edit it sees only Open the metric and Refresh.
+
+**A card other dashboards show too is marked**, for anyone who can edit the dashboard: a small
+tab on its bottom edge with a link and the number of dashboards showing it. Editing that card
+changes all of them.
+
+**A new dashboard from an old one.** Open the old one and choose **Duplicate**, then on the copy:
+remove the cards you don't want, choose **Make a unique copy** (or **Give it its own metric**)
+on each one that should show different numbers, and use **Edit the metric** to change each
+filter. The original dashboard and its numbers don't change. A number entered by hand isn't
+copied, because its values are typed against that one metric.
 
 ## Editing a layout
 
@@ -113,6 +150,43 @@ the first column.
 
 **Print** on a report opens a document of it, then your browser's print dialog. A report with more
 than three period columns prints sideways.
+
+## Finding things
+
+The two overviews, **Dashboards** and **Goals**, each show a short sample of what's there, most
+recently changed first, and each section sorts on its own:
+
+| On the Dashboards overview | Shown | The rest |
+|---|---|---|
+| Dashboards | 8 as cards, or 20 as a list | **All N dashboards** |
+| Playlists | 6 | **All N playlists** |
+| Saved cards | 6 | **All N cards** |
+
+An overview never pages. Past those numbers, the link beside each section opens its full list,
+which shows 15 to a page with a **Rows per page** choice (15, 25, 50 or 100). The pager appears
+once there are more than 15. **My dashboards** pages the same way.
+
+**Tags** are how you group things. Add them to anything in its settings (*ops*, *weekly
+review*), and every overview and list shows a **Tags** bar across the top with each tag in use
+and how many things carry it. Choose one to narrow the page to it; **Show everything** clears
+it. Before anything is tagged, the bar says how to add the first one. The tag follows you from
+an overview into a full list. A row's own tags are chips too. A
+tag matches whole: *ops* doesn't find *devops*. The search box on a list also looks in tags,
+and there it matches part of a word.
+
+## Addresses
+
+Every dashboard, report, playlist and goal list has an address, such as
+`/smallstack/dashboards/d/site-health/`. You don't type it. It's made from the name when you
+create the thing: *Site health* becomes `site-health`, and a second one with the same name
+becomes `site-health-2`.
+
+**Renaming doesn't change the address**, so bookmarks, links, pages that embed a dashboard and
+wall screens pointed at a playlist keep working. A thing's settings page shows its address.
+
+Staff can change an address on purpose, under **Change the address** in its settings. Playlists
+and Goals cards that show it follow the change; links and bookmarks to the old address stop
+working. Metrics and saved cards have a permanent key instead, also made from the name.
 
 ## Deleting
 

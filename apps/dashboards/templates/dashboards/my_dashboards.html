@@ -1,5 +1,6 @@
 {% extends "smallstack/base.html" %}
 {% load static theme_tags %}
+{% load help_tags %}
 
 {% block title %}My dashboards{% endblock %}
 {% block breadcrumbs %}{% endblock %}
@@ -8,8 +9,8 @@
 {% block page_header %}
 <div class="page-header-bleed page-header-with-actions">
     <div class="page-header-content">
-        <h1>My dashboards</h1>
-        <p class="page-subtitle">{% if boards %}The {{ boards|length }} dashboard{{ boards|length|pluralize }} you made{% if not ordering %}, most recently changed first{% endif %}.{% else %}Dashboards you make for yourself show up here.{% endif %}</p>
+        <div class="title-with-help"><h1>My dashboards</h1>{% help_bubble "dashboards" "dashboard" %}</div>
+        <p class="page-subtitle">{% if boards %}The {{ board_count }} dashboard{{ board_count|pluralize }} you made{% if tag %} tagged {{ tag }}{% endif %}{% if not ordering %}, most recently changed first{% endif %}.{% else %}Dashboards you make for yourself show up here.{% endif %}</p>
         <nav style="margin-top: 0.5rem; font-size: 0.8rem;" aria-label="Breadcrumb">
             <a href="{% url 'website:home' %}" style="color: var(--body-quiet-color); text-decoration: none;">Home</a>
             <span style="color: var(--body-quiet-color); margin: 0 0.3rem;">/</span>
@@ -27,6 +28,7 @@
 
 {% block content %}
 <div id="my-page">
+{% include "dashboards/partials/tag_filter.html" with tag_hint=boards %}
 {% if boards %}
 <div class="my-toolbar">
     <nav class="ix-view" aria-label="Show dashboards as">
@@ -59,6 +61,7 @@
             <td class="lib-name-cell">
                 <a href="{{ d.get_absolute_url }}" class="lib-name">{{ d.name }}</a>
                 {% if d.is_shared %}<span class="dash-badge dash-badge--shared">Shared</span>{% endif %}
+                {% include "dashboards/partials/tags.html" with obj=d base=request.path %}
                 {% if d.description %}<span class="lib-sub" title="{{ d.description }}">{{ d.description }}</span>{% endif %}
             </td>
             <td class="num">{{ row.cards }}</td>
@@ -87,6 +90,7 @@
         <div class="my-board-body">
             <h2 class="my-board-name"><a href="{{ d.get_absolute_url }}">{{ d.name }}</a>{% if d.is_shared %} <span class="dash-badge dash-badge--shared">Shared</span>{% endif %}</h2>
             {% if d.description %}<p class="my-board-desc">{{ d.description }}</p>{% endif %}
+            {% if d.tag_list %}<p class="my-board-tags">{% include "dashboards/partials/tags.html" with obj=d base=request.path %}</p>{% endif %}
             <p class="my-board-meta">{{ row.cards }} card{{ row.cards|pluralize }}, opens on {{ row.opens }}{% if d.refresh_seconds %}, refreshes every {{ d.refresh_seconds }}s{% endif %}</p>
             {% if row.cards %}<p class="rl-digest my-board-digest" hx-get="{{ row.digest_url }}" hx-trigger="revealed" hx-swap="innerHTML" aria-live="polite"><span class="rl-moves-when">Checking…</span></p>{% endif %}
         </div>
@@ -111,5 +115,7 @@
     {% if shared_count %}<p class="dash-muted">{{ shared_count }} dashboard{{ shared_count|pluralize }} shared by others {{ shared_count|pluralize:"is,are" }} on the <a href="{% url 'dashboards_index' %}">Dashboards</a> page.</p>{% endif %}
 </section>
 {% endif %}
+{% comment %}Pages like every list here (15, with a Rows per page choice); a page swaps #my-page in place and the address follows.{% endcomment %}
+{% if boards %}{% render_paginator page_obj "#my-page" hx_swap="outerHTML" hx_select="#my-page" push_url=True %}{% endif %}
 </div>
 {% endblock %}

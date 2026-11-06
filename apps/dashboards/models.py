@@ -101,6 +101,26 @@ class OwnedQuerySet(models.QuerySet):
         return self.filter(tags__iregex=r"(^|,\s*)" + re.escape(tag) + r"(\s*,|$)")
 
 
+def tag_cloud(*querysets: Any, current: str = "", limit: int = 30) -> list[dict[str, Any]]:
+    """The tags in use across *querysets*, for a row of chips that narrow a
+    page: ``[{name, count, current}]``, A to Z. ``count`` is how many rows
+    carry the tag, any case counted together. With more than *limit* tags the
+    most used are kept; *current* (the tag the page is narrowed to) is always
+    there, even when nothing carries it any more."""
+    counts: dict[str, list[Any]] = {}
+    for qs in querysets:
+        for text in qs.exclude(tags="").values_list("tags", flat=True):
+            for tag in split_tags(text):
+                slot = counts.setdefault(tag.lower(), [tag, 0])
+                slot[1] += 1
+    wanted = current.strip().lower()
+    kept = sorted(counts.values(), key=lambda slot: (-slot[1], slot[0].lower()))[:limit]
+    if wanted and not any(slot[0].lower() == wanted for slot in kept):
+        kept.append(counts.get(wanted, [current.strip(), 0]))
+    kept.sort(key=lambda slot: slot[0].lower())
+    return [{"name": name, "count": count, "current": name.lower() == wanted} for name, count in kept]
+
+
 def split_tags(text: Any) -> list[str]:
     """``"Ops, weekly review, ops"`` → ``["Ops", "weekly review"]``: trimmed,
     empties dropped, repeats (any case) dropped after the first."""
@@ -214,6 +234,21 @@ def free_key(model: type[models.Model], name: str, fallback: str) -> str:
         key = f"{base}_{n}"
         n += 1
     return key
+
+
+def free_slug(model: type[models.Model], name: str) -> str:
+    """An address (``slug``) made from *name* that *model* doesn't use yet:
+    ``"Site health"`` → ``site-health``, then ``site-health-2``. A name with
+    nothing a slug can keep (``"!!!"``, or one in another script) takes the
+    model's own word: ``dashboard``, ``goal-list``."""
+    from django.utils.text import slugify
+
+    base = slugify(name)[:72] or slugify(str(model._meta.verbose_name)) or "page"
+    slug, n = base, 1
+    while model._default_manager.filter(slug=slug).exists():
+        n += 1
+        slug = f"{base}-{n}"
+    return slug
 
 
 def metric_key_from_name(name: str) -> str:

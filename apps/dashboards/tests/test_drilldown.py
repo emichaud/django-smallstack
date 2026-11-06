@@ -86,6 +86,23 @@ def test_drill_rows_follow_the_design(staff, metric):
     assert len(drill["rows"][0]["cells"][2]) == 10 and drill["total"] == 3  # a date; the total is all rows
 
 
+def test_the_json_rows_follow_a_design_too(client, staff, metric):
+    """What the builder's dialog draws: the rows a design opens, before it's saved."""
+    url = "/smallstack/dashboards/api/metrics/dd_req/rows/"
+    plain = client.get(url).json()
+    assert len(plain["columns"]) == 6 and plain["total"] == 3  # no design: the first six columns
+    out = client.get(url, {"drill": json.dumps(SPEC)}).json()
+    assert [c["label"] for c in out["columns"]] == ["Path", "Status", "Timestamp"]
+    assert [r["cells"][0] for r in out["rows"]] == ["/b", "/c"] and out["sort"] == "-response_time_ms"
+    assert len(out["rows"][0]["cells"][2]) == 10 and out["total"] == 3  # formatted; the total is all rows
+    # Without a limit of its own, a design takes the route's (the dialog asks for a sample).
+    sample = client.get(url, {"drill": json.dumps({"columns": ["path"]}), "limit": 1}).json()
+    assert len(sample["rows"]) == 1 and [c["name"] for c in sample["columns"]] == ["path"]
+    bad = client.get(url, {"drill": json.dumps({"columns": ["nope"]})})
+    assert bad.status_code == 400 and "no column 'nope'" in bad.json()["error"]
+    assert client.get(url, {"drill": "{not json"}).status_code == 400
+
+
 # -- where it's set, and how a card carries it ----------------------------------------
 
 
@@ -195,6 +212,8 @@ def test_the_builder_knows_what_each_type_takes(client, staff, metric):
     assert types["widget"]["style_settings"] == ["size", "color", "title_size", "title_color", "align"]
     assert "format" in types["metric"]["style_settings"]
     assert ["date", "Date — 2026-11-02"] in data["drilldown"]["formats"]
+    # Ticking "Choose the columns" starts from what the drill-down shows without a design.
+    assert data["drilldown"]["default_columns"] == 6 and data["drilldown"]["default_rows"] == 50
     assert 'id="cb-drill-card"' in html
 
 

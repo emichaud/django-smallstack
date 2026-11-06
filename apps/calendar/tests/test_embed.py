@@ -251,6 +251,18 @@ def test_calendar_card_is_a_registered_dashboard_card_type(dashboards):
     assert ct.validate({**bad, "options": {"calendars": EV, "mode": "month", "days": 14, "limit": 8}}) == []
 
 
+def test_calendar_card_offers_the_calendars_you_may_see_rather_than_a_box_to_type_keys(dashboards, staff, member):
+    def calendars(user):
+        described = {t["type"]: t for t in dashboards.describe_types(user)}["calendar"]
+        option = described["options"][0]
+        assert option["name"] == "calendars" and option["type"] == "multichoice" and option["required"]
+        return dict(option["choices"])
+
+    assert calendars(staff)[EV] == "Events" and MW in calendars(staff)
+    assert EV in calendars(member) and MW not in calendars(member)  # staff-only: not offered
+    assert calendars(None) == {}  # nobody asking, nothing listed
+
+
 def test_calendar_card_renders_through_the_registry(dashboards, staff, member, soon):
     from apps.dashboards.boards import render_cell
     from apps.dashboards.components import normalize_layout

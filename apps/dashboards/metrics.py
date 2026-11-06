@@ -25,6 +25,7 @@ dataset the viewer may not read yields a result with ``error`` /
 
 from __future__ import annotations
 
+import json
 import logging
 from dataclasses import dataclass, field
 from datetime import date, datetime
@@ -600,6 +601,22 @@ def validate_drilldown(spec: Any, column_names: Optional[list[str]]) -> list[str
     if isinstance(limit, bool) or not isinstance(limit, int) or not 1 <= limit <= MAX_DRILL_ROWS:
         problems.append(f"drilldown.limit: 1–{MAX_DRILL_ROWS} rows")
     return problems
+
+
+def requested_drilldown(raw: Any, metric: "Metric") -> tuple[Optional[dict[str, Any]], str]:
+    """A card's drill-down design as a rows URL carries it (``?drill=<json>``,
+    what ``components.drill_params`` adds), validated against the metric's
+    dataset — ``(spec or None, problem)``. It can only pick, label, format and
+    sort columns of rows the viewer may already read."""
+    if not raw:
+        return None, ""
+    try:
+        spec = json.loads(raw)
+    except ValueError:
+        return None, "Bad drill-down design."
+    ds = resolve_dataset(metric)
+    problems = validate_drilldown(spec, ds.column_names() if ds is not None else None)
+    return (None, "; ".join(problems)) if problems else (spec, "")
 
 
 def format_cell(value: Any, fmt: str, column_type: str = "") -> Any:

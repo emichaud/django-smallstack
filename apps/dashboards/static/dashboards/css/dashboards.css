@@ -39,13 +39,24 @@
     font-size: 0.68rem; font-weight: 500; line-height: 1.4; text-decoration: none;
     color: var(--body-quiet-color); background: var(--card-bg); border: 1px solid var(--card-border);
 }
-a.dash-tag:hover, a.dash-tag:focus-visible, .dash-tag.is-current { color: var(--primary); border-color: var(--primary); background: var(--accent-band-bg); }
+/* :link/:visited on the current one too, or the rule above (more specific on a link) wins */
+a.dash-tag:hover, a.dash-tag:focus-visible, .dash-tag.is-current,
+a.dash-tag.is-current:link, a.dash-tag.is-current:visited { color: var(--primary); border-color: var(--primary); background: var(--accent-band-bg); }
 .dash-archived {
     display: inline-block; padding: 1px 7px; border-radius: 4px; font-size: 0.68rem; font-weight: 650; letter-spacing: 0.02em;
     color: var(--body-quiet-color); background: color-mix(in srgb, var(--body-fg) 10%, var(--card-bg));
 }
 .ix-tag-filter { display: flex; flex-wrap: wrap; align-items: center; gap: 0.3rem 0.5rem; margin: 0 0 1rem; font-size: 0.85rem; color: var(--body-quiet-color); }
-.ix-tag-filter .dash-tag { font-size: 0.78rem; }
+.ix-tag-filter .dash-tag, .ix-tag-filter a.dash-tag:link, .ix-tag-filter a.dash-tag:visited { font-size: 0.78rem; padding: 2px 9px; }
+/* the tag bar: every tag in use, each with how many rows carry it */
+.ix-tags { display: flex; flex-wrap: wrap; align-items: center; gap: 0.3rem 0.35rem; min-width: 0; }
+.ix-tags-label { margin-right: 0.25rem; font-size: 0.72rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); }
+.ix-tags--none { margin: 0; font-size: 0.8rem; color: var(--text-muted); }
+.dash-tag-count { margin-left: 0.35rem; font-size: 0.9em; opacity: 0.65; font-feature-settings: "tnum"; }
+.ix-tag-filter .ix-archived-note { margin-left: auto; }
+/* in a gallery card the whole card is a link: its tags sit above that */
+.cc-title .dash-tag { position: relative; z-index: 1; }
+.my-board-tags { margin: 0.3rem 0 0; }
 .ix-archived-note a { color: var(--link-color); }
 .dash-archive-form { display: inline; margin: 0; }
 /* a <button> doesn't inherit the page font; match the links beside it */
@@ -172,6 +183,143 @@ a.dash-tag:hover, a.dash-tag:focus-visible, .dash-tag.is-current { color: var(--
 }
 .dash-message strong { display: block; color: var(--body-fg); margin-bottom: 0.2rem; font-size: 0.85rem; }
 .dash-message--error strong { color: var(--error-fg); }
+
+/* ── the page's controls, in its header; each card's menu ─────────────── */
+.dash-header-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 0.5rem; }
+/* the ⋯ at a card's corner: there as the card is pointed at or focused, and always on a touch screen */
+.dash-cell-more {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    z-index: 3;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.75rem;
+    height: 1.75rem;
+    padding: 0;
+    border: 1px solid var(--card-border);
+    border-radius: 6px;
+    background: var(--card-bg);
+    color: var(--body-quiet-color);
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity 0.12s;
+}
+.dash-cell-more svg { width: 1.15rem; height: 1.15rem; fill: currentColor; }
+.dash-cell:hover .dash-cell-more,
+.dash-cell:focus-within .dash-cell-more,
+.dash-cell-more[aria-expanded="true"] { opacity: 1; }
+.dash-cell-more:hover,
+.dash-cell-more:focus-visible,
+.dash-cell-more[aria-expanded="true"] { color: var(--primary); border-color: var(--primary); }
+@media (hover: none) { .dash-cell-more { opacity: 1; } }
+.dash-editing .dash-cell-more { display: none; }
+/* one menu for the page, placed at the card that opened it (dashboard.js) */
+.dash-menu {
+    position: fixed;
+    z-index: 1001;
+    min-width: 13rem;
+    max-width: calc(100vw - 16px);
+    padding: 0.3rem;
+    border: 1px solid var(--card-border);
+    border-radius: 8px;
+    background: var(--card-bg);
+    box-shadow: var(--shadow-lg, 0 8px 24px color-mix(in srgb, var(--body-fg) 18%, transparent));
+}
+/* over the entries' own display: an entry this card doesn't have is hidden as the menu opens */
+.dash-menu[hidden], .dash-menu [hidden] { display: none !important; }
+.dash-menu > [role="menuitem"],
+.dash-menu > a[role="menuitem"]:link,
+.dash-menu > a[role="menuitem"]:visited {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    box-sizing: border-box;
+    padding: 0.45rem 0.65rem;
+    border: 0;
+    border-radius: 6px;
+    background: none;
+    color: var(--body-fg);
+    font: inherit;
+    font-size: 0.86rem;
+    text-align: left;
+    text-decoration: none;
+    cursor: pointer;
+}
+.dash-menu > [role="menuitem"]:hover,
+.dash-menu > [role="menuitem"]:focus-visible { background: color-mix(in srgb, var(--body-fg) 8%, var(--card-bg)); }
+.dash-menu > .dash-menu-danger:hover,
+.dash-menu > .dash-menu-danger:focus-visible { color: var(--error-fg); }
+.dash-menu-note { margin: 0; padding: 0.35rem 0.65rem 0.4rem; font-size: 0.75rem; color: var(--primary); border-bottom: 1px solid var(--card-border); }
+/* a question takes the entries' place until it's answered */
+.dash-menu.is-asking { width: 19rem; }
+.dash-menu.is-asking > [role="menuitem"], .dash-menu.is-asking > .dash-menu-note { display: none !important; }
+.dash-menu-confirm { display: grid; gap: 0.6rem; padding: 0.55rem 0.65rem 0.45rem; font-size: 0.84rem; line-height: 1.45; }
+.dash-menu-confirm p { margin: 0; color: var(--body-fg); }
+.dash-menu-confirm > span { display: flex; justify-content: flex-end; gap: 0.4rem; }
+.dash-menu-check { display: flex; align-items: flex-start; gap: 0.5rem; font-weight: 400; color: var(--body-fg); cursor: pointer; }
+.dash-menu-check input { flex: none; margin: 0.2rem 0 0; }
+
+/* a saved card that other dashboards show too, marked for whoever can change it
+   here: a tab on its bottom edge with how many, and that edge in the accent */
+.dash-cell--linked { border-bottom-color: color-mix(in srgb, var(--primary) 55%, var(--card-border)); }
+.dash-cell-linked {
+    position: absolute;
+    right: 10px;
+    bottom: 0;
+    z-index: 2;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.2rem;
+    padding: 1px 0.4rem 0;
+    border: 1px solid color-mix(in srgb, var(--primary) 55%, var(--card-border));
+    border-bottom: 0;
+    border-radius: 6px 6px 0 0;
+    background: var(--card-bg);
+    color: var(--primary);
+    font-size: 0.68rem;
+    font-weight: 650;
+    line-height: 1.35;
+    font-feature-settings: "tnum";
+    cursor: help;
+}
+.dash-cell-linked svg { width: 0.85rem; height: 0.85rem; fill: currentColor; }
+
+/* Edit card: the component builder in a dialog over the dashboard */
+.dash-card-dialog {
+    margin: auto;
+    padding: 0;
+    width: min(84rem, calc(100vw - 32px));
+    height: calc(100vh - 32px);
+    max-height: none;
+    overflow: hidden;
+    border: 1px solid var(--card-border);
+    border-radius: 12px;
+    background: var(--body-bg);
+    color: var(--body-fg);
+}
+.dash-card-dialog[open] { display: flex; flex-direction: column; }
+.dash-card-dialog::backdrop { background: color-mix(in srgb, var(--body-bg) 70%, transparent); }
+.dash-card-dialog-head { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 0.8rem 1.25rem; border-bottom: 1px solid var(--card-border); background: var(--card-bg); }
+.dash-card-dialog-head h2 { margin: 0; font-size: 1.05rem; }
+.dash-card-dialog-body { flex: 1; min-height: 0; overflow: auto; padding: 1.1rem 1.25rem 0; }
+.dash-card-dialog-note { margin: 2rem 0; text-align: center; color: var(--body-quiet-color); }
+.cb-in-dialog .mb-preview { top: 0; }
+.cb-dialog-actions {
+    position: sticky;
+    bottom: 0;
+    z-index: 2;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.75rem 0 1rem;
+    border-top: 1px solid var(--card-border);
+    background: var(--body-bg);
+}
+.cb-dialog-actions .mb-help, .cb-dialog-actions .crud-error { margin: 0; }
+.cb-dialog-actions .cb-dialog-failed { flex-basis: 100%; }
 
 /* ── edit mode ───────────────────────────────────────────────────────── */
 .dash-editing .dash-cell {
@@ -1792,7 +1940,7 @@ body.pl-kiosk .content-wrapper { max-width: none; padding: 1rem 1.25rem; }
 .plf-table td { padding: 0.4rem 0.6rem; vertical-align: middle; }
 .plf-table tbody tr + tr td { border-top: 1px solid color-mix(in srgb, var(--body-fg) 7%, transparent); }
 .plf-n-col { width: 2.6rem; }
-.plf-seconds-col { width: 7.5rem; }
+.plf-seconds-col { width: 9rem; }  /* the field, its stepper and the unit */
 .plf-period-col { width: 12rem; }
 .plf-tools-col { width: 8.5rem; }
 .plf-tools-cell { text-align: right; white-space: nowrap; }
@@ -1932,7 +2080,9 @@ a.ix-view-btn:visited {
 .cl-table th[data-field="metric"] { width: 12rem; }
 .cl-table .cl-used-col { width: 9rem; }
 .cl-table th[data-field="updated_at"] { width: 6.5rem; }
-.cl-table .cl-actions-col { width: 5.5rem; }
+/* room for three icon buttons (goal, edit, delete), so a row with all three
+   keeps edit and delete in line with the rows that have two */
+.cl-table .cl-actions-col { width: 8.5rem; }
 .cl-table tbody td { vertical-align: middle; }
 .cl-table td.cl-name-cell { white-space: normal; }
 .cl-table .cl-name, .cl-table a.cl-name:link, .cl-table a.cl-name:visited { font-weight: 650; margin-right: 0.35rem; }
@@ -2024,8 +2174,103 @@ a.ix-view-btn:visited {
 .card-style.cs-align-end .dashboard-widget { text-align: right; }
 .card-style.cs-align-end .dashboard-widget .widget-header { justify-content: flex-end; }
 
-/* the builder's Drill-down step */
-.cb-drill-opts { display: grid; grid-template-columns: repeat(auto-fill, minmax(10rem, 1fr)); gap: 0 0.9rem; margin-top: 0.9rem; }
+/* an option that takes several of its choices (multichoice): a tick-list, in
+   the builder and in the dashboard's Add card dialog */
+.cb-multi, .dash-multi { min-width: 0; margin: 0 0 0.9rem; padding: 0; border: 0; }
+.cb-multi legend, .dash-multi legend { padding: 0; margin-bottom: 0.3rem; font-size: 0.82rem; font-weight: 500; color: var(--body-quiet-color); }
+.cb-multi-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr)); gap: 0 1rem; padding: 0.35rem 0.75rem; border: 1px solid var(--card-border); border-radius: 8px; }
+.cb-multi-item, .dash-dialog label.dash-multi-item { display: flex; align-items: center; gap: 0.5rem; padding: 0.3rem 0; font-size: 0.88rem; color: var(--body-fg); cursor: pointer; }
+.cb-multi-item input, .dash-multi-item input { flex: none; margin: 0; }
+.cb-multi-note { font-size: 0.72rem; color: var(--text-muted); }
+.cb-multi .mb-help { margin-top: 0.4rem; }
+.dash-multi { margin-bottom: 0; }
+.dash-multi-list { max-height: 11.5rem; overflow-y: auto; padding: 0.3rem 0.75rem; border: 1px solid var(--card-border); border-radius: 8px; }
+
+/* the builder's Drill-down step: the design in short (its columns as chips, in
+   order), made in the dialog below */
+.cb-drill-opts { display: grid; grid-template-columns: repeat(auto-fill, minmax(9rem, 1fr)); gap: 0 0.9rem; margin-top: 0.9rem; }
+.cbd-summary { margin-left: 1.7rem; }
+.cbd-summary .mb-help { margin: 0 0 0.7rem; }
+.cbd-chips { display: flex; flex-wrap: wrap; gap: 0.35rem; margin: 0 0 0.5rem; padding: 0; list-style: none; counter-reset: cbd-chip; }
+.cbd-chips[hidden] { display: none; }
+.cbd-chip { counter-increment: cbd-chip; display: inline-flex; align-items: baseline; gap: 0.4rem; padding: 0.2rem 0.55rem; font-size: 0.82rem; border: 1px solid var(--card-border); border-radius: 6px; background: var(--card-header-bg); }
+.cbd-chip::before { content: counter(cbd-chip); font-size: 0.7rem; color: var(--text-muted); font-feature-settings: "tnum"; }
+.cbd-chip-format { font-size: 0.72rem; color: var(--body-quiet-color); }
+.cbd-chip--missing { color: var(--error-fg); }
+
+/* the drill-down designer: every column in one list, beside the rows it opens */
+.cbd {
+    margin: auto;
+    padding: 0;
+    width: min(78rem, calc(100vw - 32px));
+    height: min(52rem, calc(100vh - 32px));
+    max-height: none;
+    overflow: hidden;
+    border: 1px solid var(--card-border);
+    border-radius: 12px;
+    background: var(--card-bg);
+    color: var(--body-fg);
+}
+.cbd[open] { display: flex; flex-direction: column; }
+.cbd::backdrop { background: color-mix(in srgb, var(--body-bg) 70%, transparent); }
+.cbd [hidden] { display: none !important; }
+.cbd-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; padding: 1rem 1.25rem 0.85rem; border-bottom: 1px solid var(--card-border); }
+.cbd-head h2 { margin: 0; font-size: 1.05rem; }
+.cbd-sub { margin: 0.2rem 0 0; font-size: 0.84rem; color: var(--body-quiet-color); }
+.cbd-body { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 40rem) minmax(0, 1fr); }
+.cbd-pick, .cbd-rows { min-width: 0; min-height: 0; overflow: auto; padding: 0.9rem 1.25rem 1rem; }
+.cbd-pick { border-right: 1px solid var(--card-border); }
+.cbd-rows { display: flex; flex-direction: column; background: var(--body-bg); }
+.cbd-bar { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 0.3rem 0.75rem; margin: 0 0 0.5rem; }
+.cbd-bar h3, .cbd-bar h4 { margin: 0; font-size: 0.86rem; color: var(--body-fg); }
+.cbd-bar--rest { align-items: center; margin-top: 1rem; }
+.cbd-bar--rest h4 { font-size: 0.72rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); }
+.cbd-count { margin-left: 0.4rem; font-size: 0.78rem; font-weight: 400; color: var(--text-muted); font-feature-settings: "tnum"; }
+.cbd-quick { display: inline-flex; gap: 0.9rem; font-size: 0.8rem; }
+.cbd-quick .plf-undo:disabled { color: var(--text-muted); text-decoration: none; cursor: default; }
+.cbd-find { box-sizing: border-box; width: 12rem; height: 1.9rem; margin: 0; padding: 0 0.5rem; font-size: 0.8rem; }
+.cbd-list { margin: 0; padding: 0; list-style: none; border: 1px solid var(--card-border); border-radius: 8px; }
+.cbd-list:empty { display: none; }
+.cbd-row { position: relative; display: grid; grid-template-columns: 0.9rem 1rem minmax(0, 1fr); align-items: center; gap: 0.5rem; min-height: 2.3rem; padding: 0.15rem 0.6rem; font-size: 0.85rem; }
+.cbd-row + .cbd-row { border-top: 1px solid color-mix(in srgb, var(--body-fg) 7%, transparent); }
+.cbd-row--on { grid-template-columns: 0.9rem 1rem minmax(7rem, 1fr) minmax(0, 9rem) minmax(0, 8.5rem) auto; background: var(--card-header-bg); }
+.cbd-row input[type="checkbox"] { margin: 0; }
+.cbd-row .vTextField { box-sizing: border-box; width: 100%; min-width: 0; height: 1.9rem; margin: 0; padding: 0 0.45rem; font-size: 0.8rem; }
+.cbd-name { display: flex; align-items: baseline; gap: 0.45rem; min-width: 0; padding: 0.3rem 0; cursor: pointer; }
+.cbd-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cbd-row--on .cbd-name { font-weight: 600; }
+.cbd-kind { flex: none; font-size: 0.7rem; font-weight: 400; color: var(--text-muted); }
+.cbd-row--missing .cbd-name, .cbd-row--missing .cbd-kind { color: var(--error-fg); }
+.cbd-row input:disabled + .cbd-name { color: var(--text-muted); cursor: default; }
+.cbd-grip { color: var(--text-muted); font-size: 0.9rem; line-height: 1; text-align: center; user-select: none; }
+.cbd-row--on .cbd-grip { cursor: grab; }
+.cbd-row--on .cbd-grip:hover { color: var(--body-fg); }
+.cbd-row.is-dragging { opacity: 0.45; }
+.cbd-row.is-drop-before::after, .cbd-row.is-drop-after::after { content: ""; position: absolute; left: 0; right: 0; height: 2px; background: var(--primary); pointer-events: none; }
+.cbd-row.is-drop-before::after { top: -1px; }
+.cbd-row.is-drop-after::after { bottom: -1px; }
+.cbd-hint { margin: 0.5rem 0 0; font-size: 0.82rem; color: var(--body-quiet-color); }
+.cbd-scroll { flex: 1; min-height: 8rem; overflow: auto; border: 1px solid var(--card-border); border-radius: 8px; background: var(--card-bg); }
+.cbd-scroll > .cbd-hint { margin: 0; padding: 1.5rem 1rem; text-align: center; }
+.cbd-table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+.cbd-table thead th { position: sticky; top: 0; z-index: 1; padding: 0.5rem 0.75rem; text-align: left; font-size: 0.72rem; font-weight: 600; white-space: nowrap; color: var(--text-muted); background: var(--card-header-bg); box-shadow: inset 0 -1px 0 var(--card-border); }
+.cbd-table tbody td { max-width: 18rem; padding: 0.4rem 0.75rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cbd-table tbody tr + tr td { border-top: 1px solid color-mix(in srgb, var(--body-fg) 7%, transparent); }
+.cbd-foot { min-height: 1.2rem; margin: 0.5rem 0 0; font-size: 0.78rem; color: var(--text-muted); font-feature-settings: "tnum"; }
+.cbd-actions { display: flex; justify-content: flex-end; gap: 0.5rem; padding: 0.75rem 1.25rem; border-top: 1px solid var(--card-border); }
+@media (max-width: 900px) {
+    .cbd { height: auto; max-height: calc(100vh - 32px); }
+    .cbd-body { display: block; overflow: auto; }
+    .cbd-pick, .cbd-rows { overflow: visible; }
+    .cbd-pick { border-right: 0; border-bottom: 1px solid var(--card-border); }
+    .cbd-scroll { max-height: 20rem; }
+}
+@media (max-width: 560px) {
+    .cbd-row--on { grid-template-columns: 0.9rem 1rem minmax(0, 1fr) auto; }
+    .cbd-row--on [data-role="heading"] { grid-column: 3; grid-row: 2; }
+    .cbd-row--on [data-role="format"] { grid-column: 4; grid-row: 2; width: 8rem; }
+    .cbd-row--on { padding-bottom: 0.4rem; }
+}
 
 /* drill-down headers: sort links (resizing is the framework's table-resize.js) */
 .stat-modal-panel .dm-table thead th[data-field] { position: relative; }
@@ -2067,6 +2312,7 @@ th[aria-sort="ascending"] .dm-sort, th[aria-sort="descending"] .dm-sort { color:
 .lib-table td.lib-actions { text-align: right; white-space: nowrap; overflow: visible; }
 .lib-table th[data-field="updated_at"] { width: 6.5rem; }
 .ml-table th[data-field="dataset"] { width: 14rem; }
+.ml-table .lib-actions-col { width: 8.5rem; } /* goal, edit, delete */
 .ml-table .ml-used-col { width: 11rem; }
 .ml-table .ml-value-col { width: 11rem; }
 .ml-table td.ml-value { white-space: normal; font-feature-settings: "tnum", "lnum"; }
@@ -2659,11 +2905,11 @@ a.gw-week-link:hover { color: var(--link-color); text-decoration: underline; }
 /* the picture field's hidden file input stays inside its label, not out past the page edge */
 .df-cover-pick { position: relative; overflow: hidden; }
 
-/* the builder's drill-down columns: a table like the playlist form's */
-.cb-drill-col-format { width: 12rem; }
+/* form tables like the playlist form's: tool cells never clip, fields fill their cell */
 .plf-table td:first-child, .plf-table td.plf-tools-cell { overflow: visible; text-overflow: clip; }
 .plf-table .plf-item .vTextField { box-sizing: border-box; width: 100%; min-width: 0; margin: 0; }
-.plf-table td > .plf-item-seconds { width: calc(100% - 1rem); }
+/* out-specifies the fill-the-cell rule above, so the unit after the field has room */
+.plf-table .plf-item td > .vTextField.plf-item-seconds { width: calc(100% - 1rem); }
 .gx-name-plain { font-weight: 600; font-size: 0.92rem; }
 
 /* -- a hand-entered metric's values, and what a rate is made of ------------- */
@@ -2733,3 +2979,11 @@ a.gw-week-link:hover { color: var(--link-color); text-decoration: underline; }
 a.cc-name::after { content: ""; position: absolute; inset: 0; }
 .cc-meta { grid-row: 2; margin: 0; color: var(--body-quiet-color); font-size: 0.8rem; }
 .cc-actions { grid-column: 2; grid-row: 1 / span 2; position: relative; z-index: 1; display: flex; align-items: center; gap: 0.15rem; }
+
+/* a page's address in its settings: shown, not asked for (partials/address_field.html) */
+.df-address { gap: 0.35rem; }
+.df-address-label { font-size: 0.82rem; font-weight: 500; color: var(--body-quiet-color); }
+.df-address-url { justify-self: start; padding: 0.3rem 0.55rem; border: 1px solid var(--card-border); border-radius: 6px; background: var(--card-header-bg); font-size: 0.85rem; overflow-wrap: anywhere; }
+.df-address-change > summary { width: fit-content; font-size: 0.8rem; color: var(--link-color); cursor: pointer; }
+.df-address-change[open] > summary { margin-bottom: 0.45rem; }
+.df-address-change .mb-help { margin-top: 0.35rem; }
