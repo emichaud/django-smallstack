@@ -12,6 +12,7 @@ from apps.activity.models import RequestLog
 from apps.dashboards.boards import render_cell
 from apps.dashboards.metrics import request_for
 from apps.dashboards.models import Component, Dashboard, Metric
+from apps.dashboards.tests.support import own
 
 pytestmark = pytest.mark.django_db
 User = get_user_model()
@@ -33,7 +34,8 @@ def requests_metric():
 
 
 def draw(kind, metric, user, **options):
-    cell = {"id": "c", "type": kind, "metric": metric.key, "options": {"dimension": "method", **options}}
+    # A chart filters a dataset of its own: the metric's definition, as the card's.
+    cell = {"id": "c", "type": kind, **own(metric.key), "options": {"dimension": "method", **options}}
     return render_cell(Dashboard(name="B", slug="b"), cell, request_for(user), None)
 
 
@@ -42,7 +44,7 @@ def test_a_pie_shows_each_groups_share(staff, requests_metric):
     assert "<svg" in html and "60%" in html and "30%" in html and "10%" in html
     assert html.count('pathLength="100"') == 3
     assert 'stroke-dasharray="60.00 40.00"' in html
-    assert "dashboards/m/reqs/rows/" in html  # each group opens its rows
+    assert "dashboards/preview-rows/?narrow=" in html  # each group opens its rows (an unsaved board: the preview route)
 
 
 def test_slices_add_up_and_start_where_the_last_ended(staff, requests_metric):
@@ -92,13 +94,13 @@ def test_a_card_cant_save_without_a_column(requests_metric):
     from django.core.exceptions import ValidationError
 
     with pytest.raises(ValidationError):
-        Component(name="Bad", type="pie", metric="reqs", options={}).save()
+        Component(name="Bad", type="pie", **own("reqs"), options={}).save()
 
 
 class TestThePage:
     @pytest.fixture
     def card(self, requests_metric):
-        c = Component(name="By method", type="ranked", metric="reqs", options={"dimension": "method"})
+        c = Component(name="By method", type="ranked", **own("reqs"), options={"dimension": "method"})
         c.save()
         return c
 
@@ -138,7 +140,7 @@ class TestThePage:
 
     def test_the_gallery_pages_like_the_table(self, client, staff, card):
         for i in range(16):
-            Component(name=f"Paged {i:02d}", type="ranked", metric="reqs", options={"dimension": "method"}).save()
+            Component(name=f"Paged {i:02d}", type="ranked", **own("reqs"), options={"dimension": "method"}).save()
         client.force_login(staff)
         url = reverse("dashboards/components-list")
         html = client.get(url).content.decode()

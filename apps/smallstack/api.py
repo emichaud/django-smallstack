@@ -655,7 +655,10 @@ def _build_filter_fields_spec(model, filter_fields: list[str]) -> dict[str, list
     """Convert a flat filter_fields list to a dict with smart lookups.
 
     Date and DateTime fields automatically get range lookups (gte, lte, gt, lt)
-    in addition to exact match. Other fields keep exact match only.
+    in addition to exact match. Other fields keep exact match only. A name
+    that is not a model field is left out: only the CRUDView's own
+    ``apply_filter`` can serve it (``?dashboard=`` on the components list),
+    and the FilterSet would refuse a Meta.fields entry it can't resolve.
     """
     from django.db import models as django_models
 
@@ -664,15 +667,15 @@ def _build_filter_fields_spec(model, filter_fields: list[str]) -> dict[str, list
     for name in filter_fields:
         try:
             field = model._meta.get_field(name)
-            if isinstance(field, (django_models.DateField, django_models.DateTimeField)):
-                spec[name] = _DATE_LOOKUPS
-                has_dates = True
-            else:
-                spec[name] = ["exact"]
         except Exception:
+            continue
+        if isinstance(field, (django_models.DateField, django_models.DateTimeField)):
+            spec[name] = _DATE_LOOKUPS
+            has_dates = True
+        else:
             spec[name] = ["exact"]
     # Only return dict if we found date fields; otherwise keep list for simplicity
-    return spec if has_dates else filter_fields
+    return spec if has_dates else list(spec)
 
 
 # ---------------------------------------------------------------------------

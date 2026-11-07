@@ -35,9 +35,10 @@ conditions on the columns, joined by AND and OR:
 
 The rows a filter leaves are a **filtered result**: the answer to one
 question. A dataset can have any number of these, one for each situation you
-want to watch (errors, slow requests, sign-ups this month). Each one, saved,
-becomes a **metric**, and a metric is what cards, goals and reports are
-built from.
+want to watch (errors, slow requests, sign-ups this month). Rolled up to one
+number and saved, a filtered result is a **metric**, for goals and reports.
+Kept as rows, it is what a **chart** or a **split** draws: a card that filters
+the dataset itself. Both kinds can sit side by side over the same dataset.
 
 Columns come in two kinds, and it helps to know which is which:
 
@@ -63,7 +64,8 @@ browser is what sits on top of one.
 - **Browse it.** Staff can open **Datasets** (under Admin) to see every
   dataset, page through its rows, search them and add filters.
 - **Turn a filter into a metric.** On a dataset's page, set the filters you
-  want and choose **Make a metric**. The conditions carry over.
+  want and choose **Make a metric**. The conditions carry over, and from there
+  a card or a chart can start from the same filter.
 - **Or start from the metric.** **Goals → Metrics → New metric** asks which
   dataset to read, then lets you build the filter there, with a live preview
   of the number.

@@ -249,6 +249,48 @@ class MetricRowsApiView(_ApiView):
         return JsonResponse(json.loads(json.dumps(rows, default=str)))
 
 
+class PreviewRowsApiView(_ApiView):
+    """The same rows for an UNSAVED source (``POST dashboards/api/preview-rows/``):
+    a card's own definition (``dataset``, ``filter_tree``, ``agg``, ``measure``,
+    ``period_field``) plus ``period``, ``limit``, ``drill`` and ``order`` in the
+    body. The component builder's drill-down designer reads a card that filters
+    a dataset itself through this."""
+
+    def post(self, request: HttpRequest) -> JsonResponse:
+        from .previews import unsaved_metric
+
+        try:
+            payload = json.loads(request.body or b"{}")
+        except ValueError:
+            payload = None
+        if not isinstance(payload, dict):
+            return JsonResponse({"error": "body must be a JSON object"}, status=400)
+        metric, problems = unsaved_metric(request.user, payload)
+        if metric is None or problems:
+            return JsonResponse({"error": "; ".join(problems)}, status=400)
+        period = str(payload.get("period") or "") or None
+        problem = period_problem(period)
+        if problem:
+            return JsonResponse({"error": problem}, status=400)
+        try:
+            limit = max(1, min(int(payload.get("limit") or 25), 200))
+        except (TypeError, ValueError):
+            return JsonResponse({"error": "limit must be a whole number"}, status=400)
+        raw_drill = payload.get("drill")
+        spec, problem = requested_drilldown(
+            raw_drill if isinstance(raw_drill, str) or raw_drill is None else json.dumps(raw_drill), metric
+        )
+        if problem:
+            return JsonResponse({"error": problem}, status=400)
+        try:
+            rows = drill_rows(
+                metric, request, period=period, limit=limit, spec=spec, order=str(payload.get("order") or "")
+            )
+        except ValueError as exc:
+            return JsonResponse({"error": str(exc)}, status=400)
+        return JsonResponse(json.loads(json.dumps(rows, default=str)))
+
+
 class BoardValuesApiView(_ApiView):
     def get(self, request: HttpRequest, slug: str) -> JsonResponse:
         dashboard = _visible(Dashboard, request.user, slug=slug)

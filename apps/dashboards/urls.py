@@ -37,6 +37,11 @@ urlpatterns = [
         name="dashboards_card_copy",
     ),
     path(
+        "dashboards/d/<slug:slug>/cards/<str:cell_id>/rows/",
+        views.CellRowsView.as_view(),
+        name="dashboards_cell_rows",
+    ),
+    path(
         "dashboards/d/<slug:slug>/cards/<str:cell_id>/value/",
         views.DashboardCardValueView.as_view(),
         name="dashboards_board_card_value",
@@ -104,6 +109,7 @@ urlpatterns = [
     path("dashboards/api/preview/", api.PreviewApiView.as_view(), name="dashboards_api_preview"),
     path("dashboards/api/report-preview/", api.ReportPreviewApiView.as_view(), name="dashboards_api_report_preview"),
     path("dashboards/api/card-preview/", api.CardPreviewApiView.as_view(), name="dashboards_api_card_preview"),
+    path("dashboards/api/preview-rows/", api.PreviewRowsApiView.as_view(), name="dashboards_api_preview_rows"),
     path(
         "dashboards/api/metrics/<slug:key>/value/",
         api.MetricValueApiView.as_view(),

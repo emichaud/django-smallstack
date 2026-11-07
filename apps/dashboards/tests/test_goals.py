@@ -21,6 +21,7 @@ from apps.dashboards.components import describe_types
 from apps.dashboards.goals import evaluate_goals, gap_text, judge, normalize_sections, rule_text, suggest_target
 from apps.dashboards.models import Component, Dashboard, GoalList, Metric, Playlist, Report, detach_metric
 from apps.dashboards.playlists import playlist_slides
+from apps.dashboards.tests.support import own
 
 pytestmark = pytest.mark.django_db
 
@@ -143,11 +144,17 @@ def test_a_shared_list_cant_carry_personal_metrics_and_only_one_number_cards_qua
         _list([{"title": "", "goals": [{"metric": "mine", "target": {"op": ">=", "value": 1}}]}], owner=member).owner
         == member
     )
-    Component(name="By method", type="metric_group", metric="gl_count", options={"dimension": "method"}).save()
+    Component(name="By method", type="metric_group", **own("gl_count"), options={"dimension": "method"}).save()
     _s, problems = normalize_sections(
         [{"title": "", "goals": [{"component": "by_method", "target": {"op": ">=", "value": 1}}]}], owner_id=None
     )
     assert "isn't a one-number card" in problems[0]
+    # One number, but filtered by the card itself: a goal judges a metric, so it's saved as one first.
+    Component(name="Own stat", type="metric", **own("gl_count"), options={}).save()
+    _s, problems = normalize_sections(
+        [{"title": "", "goals": [{"component": "own_stat", "target": {"op": ">=", "value": 1}}]}], owner_id=None
+    )
+    assert "filters a dataset of its own" in problems[0] and "save its filter as a metric first" in problems[0]
 
 
 # -- judging ---------------------------------------------------------------------

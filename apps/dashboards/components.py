@@ -11,8 +11,8 @@ saved, by any surface) and how to **build** the template context that renders
 it. SmallStack ships five:
 
 ==================  ===========================================================
-``metric``          one stat card from a Metric — value, state, drill-down
-``metric_group``    a Metric split by a dimension: the top N groups as numbers
+``metric``          one stat card — a Metric, or the card's own filter — value, state, drill-down
+``metric_group``    the card's own filtered rows split by a dimension: the top N groups as numbers
 ``widget``          an existing ``DashboardWidget`` (the /smallstack/ cards)
 ``text``            a markdown note between cards
 ``goals``           the first goals of a GoalList, each against its target
@@ -66,7 +66,11 @@ logger = logging.getLogger("smallstack.dashboards")
 GRID_COLUMNS = 12
 MAX_ROWS = 12  # a cell's height cap, in grid rows
 MAX_CELLS = 60
-_CELL_KEYS = {"id", "type", "x", "y", "w", "h", "metric", "title", "options", "use_period", "component", "name"}
+#: A card's own data source: the definition a metric holds, kept on the card.
+SOURCE_KEYS = ("dataset", "filter_tree", "agg", "measure", "period_field")
+_CELL_KEYS = {
+    "id", "type", "x", "y", "w", "h", "metric", "title", "options", "use_period", "component", "name", *SOURCE_KEYS
+}
 #: What a placement of a saved component may set itself; the rest comes from the component.
 _PLACEMENT_KEYS = {"id", "x", "y", "w", "h", "title", "use_period"}
 
@@ -188,12 +192,19 @@ _ID_RE = re.compile(r"^[A-Za-z0-9_-]{1,40}$")
 
 @dataclass
 class CellContext:
-    """What a component's ``build`` receives besides the cell itself."""
+    """What a component's ``build`` receives besides the cell itself.
+
+    ``metric`` is the card's source as a ``Metric``: the saved one it names, or
+    an unsaved one built from the card's own dataset definition
+    (:func:`cell_source`), so a build evaluates either the same way.
+    ``rows_url`` is where the rows behind the card open (a build adds its
+    narrowing and the card's drill-down design); blank when they can't."""
 
     request: HttpRequest
     dashboard: Optional["Dashboard"] = None
     metric: Optional["Metric"] = None
     period: Optional[str] = None
+    rows_url: str = ""
 
 
 @dataclass(frozen=True)
@@ -203,9 +214,10 @@ class ComponentType:
     template: str
     build: Callable[[dict[str, Any], CellContext], dict[str, Any]]
     description: str = ""
+    #: Draws data: a dataset the card filters itself, or (``single_value``) a metric.
     needs_metric: bool = False
     default_size: tuple[int, int] = (3, 2)
-    #: Dataset capabilities the bound metric's dataset must have (``apps.datasets.capabilities``).
+    #: Dataset capabilities the card's source must have (``apps.datasets.capabilities``).
     requires: frozenset[str] = field(default_factory=frozenset)
     #: Extra validation of the cell (beyond the shared shape checks) → problems.
     validate: Optional[Callable[[dict[str, Any]], list[str]]] = None
@@ -239,9 +251,10 @@ class ComponentType:
     #: ``metrics.validate_drilldown``). Its build appends :func:`drill_params`
     #: to every rows URL it renders.
     drillable: bool = False
-    #: Boils down to one number — its metric's value — so a saved card of this
-    #: type can be a goal (``goals.py``); the goal takes the card's metric,
-    #: number format and unit.
+    #: Boils down to one number, so it may draw a saved metric (the only
+    #: designs that may: a metric is one value, a chart needs the rows), and a
+    #: saved card of this type over a metric can be a goal (``goals.py``); the
+    #: goal takes the card's metric, number format and unit.
     single_value: bool = False
 
 
@@ -413,7 +426,7 @@ def normalize_layout(raw: Any, *, owner_id: Any = None) -> tuple[list[dict[str, 
     A ``{"component": key}`` cell takes its type, metric and options from that
     saved component (:func:`_expand_components`).
     """
-    from .models import Metric, _visible_to_owner
+    from .models import SOURCE_DATASET, Metric, _visible_to_owner
 
     if raw in (None, ""):
         return [], []
@@ -501,21 +514,48 @@ def normalize_layout(raw: Any, *, owner_id: Any = None) -> tuple[list[dict[str, 
             options = {}
         c["options"] = options
 
+        source: Optional["Metric"] = None
         if ct.needs_metric:
             key = cell.get("metric")
-            metric = metrics.get(key) if isinstance(key, str) else None
-            if metric is None:
-                problems.append(f"{where}.metric: no metric with key {key!r}")
-            elif not _visible_to_owner(metric.owner_id, owner_id):
-                problems.append(f"{where}.metric: {personal_problem(key, 'metric', owner_id)}")
+            if key not in (None, ""):
+                # A metric is one number: only a single-value design may draw one.
+                # A chart needs the rows, so it filters a dataset of its own — unless
+                # the metric has no dataset to filter (entered by hand, or a rate):
+                # its values are the only rows there are, so a chart draws it as is.
+                metric = metrics.get(key) if isinstance(key, str) else None
+                if not ct.single_value and (metric is None or metric.source == SOURCE_DATASET):
+                    problems.append(
+                        f"{where}.metric: a {ct.label} card filters a dataset of its own "
+                        f"(give it {', '.join(SOURCE_KEYS)}); a metric suits a design that shows one number"
+                    )
+                elif metric is None:
+                    problems.append(f"{where}.metric: no metric with key {key!r}")
+                elif not _visible_to_owner(metric.owner_id, owner_id):
+                    problems.append(f"{where}.metric: {personal_problem(key, 'metric', owner_id)}")
+                else:
+                    c["metric"] = metric.key
+                    source = metric
+            elif cell.get("dataset"):
+                source, source_problems = _source_problems(cell)
+                problems.extend(f"{where}.{p}" for p in source_problems)
+                if source is not None:
+                    c["dataset"] = source.dataset
+                    c["filter_tree"] = source.filter_tree
+                    c["agg"] = source.agg
+                    c["measure"] = source.measure
+                    c["period_field"] = source.period_field
             else:
-                c["metric"] = metric.key
-                missing = _missing_caps(ct, metric)
+                either = " or a metric (metric)" if ct.single_value else ""
+                problems.append(f"{where}: a {ct.label} card needs a source: a dataset to filter (dataset){either}")
+            if source is not None:
+                missing = _missing_caps(ct, source)
                 if missing:
                     problems.append(f"{where}: a {ct.label} card {', '.join(missing)}")
-                problems.extend(f"{where}.options: {p}" for p in _column_option_problems(ct, metric, options))
-        elif cell.get("metric") not in (None, ""):
-            problems.append(f"{where}.metric: a {ct.label} card takes no metric")
+                problems.extend(f"{where}.options: {p}" for p in _column_option_problems(ct, source, options))
+        else:
+            for name in ("metric", *SOURCE_KEYS):
+                if cell.get(name) not in (None, "", {}):
+                    problems.append(f"{where}.{name}: a {ct.label} card draws no data, so it takes no {name}")
 
         if ct.validate is not None:
             problems.extend(f"{where}.options: {p}" for p in ct.validate(c))
@@ -523,8 +563,7 @@ def normalize_layout(raw: Any, *, owner_id: Any = None) -> tuple[list[dict[str, 
             if "drilldown" in options:
                 from .metrics import validate_drilldown
 
-                metric_obj = metrics.get(c.get("metric", ""))
-                names = _dataset_columns(metric_obj) if metric_obj is not None else None
+                names = _dataset_columns(source) if source is not None else None
                 problems.extend(f"{where}.options.{p}" for p in validate_drilldown(options["drilldown"], names))
         elif "drilldown" in options:
             problems.append(f"{where}.options: a {ct.label} card has no drill-down")
@@ -565,12 +604,91 @@ def _dataset_columns(metric: "Metric") -> Optional[list[str]]:
     return ds.column_names() if ds is not None else None
 
 
+def inline_source(cell: dict[str, Any], *, name: str = "") -> Optional["Metric"]:
+    """The card's own dataset definition as an UNSAVED ``Metric`` (no pk, no
+    key): what every build, trend and drill-down evaluates, so a card that
+    filters a dataset itself and a card over a saved metric are drawn by one
+    code path. Its format, unit and colour rules are the card's own
+    (``options.style``, ``options.thresholds``). None without a dataset."""
+    from apps.datasets.registry import get_def
+
+    from .models import SOURCE_DATASET, Metric
+
+    if not cell.get("dataset"):
+        return None
+    if not name and not cell_title(cell):
+        dfn = get_def(str(cell["dataset"]))  # untitled: named after its data, as a metric's card is after the metric
+        name = str(getattr(dfn, "label", "") or "") if dfn is not None else ""
+    options: dict[str, Any] = cell.get("options") or {}
+    raw_style = options.get("style")
+    style: dict[str, Any] = raw_style if isinstance(raw_style, dict) else {}
+    thresholds = options.get("thresholds")
+    return Metric(
+        name=name or cell_title(cell) or "Card",
+        source=SOURCE_DATASET,
+        dataset=str(cell["dataset"]),
+        filter_tree=cell.get("filter_tree") or {},
+        agg=str(cell.get("agg") or "count"),
+        measure=str(cell.get("measure") or ""),
+        period_field=str(cell.get("period_field") or ""),
+        format=str(style.get("format") or "number"),
+        unit=str(style.get("unit") or ""),
+        thresholds=thresholds if isinstance(thresholds, list) else [],
+    )
+
+
+def cell_source(cell: dict[str, Any], *, metrics: Optional[dict[str, "Metric"]] = None) -> Optional["Metric"]:
+    """Where a cell's numbers come from, as a ``Metric``: the saved metric it
+    names (looked up in *metrics* when given, else fetched), or its own
+    dataset definition (:func:`inline_source`). None when it has neither or
+    its metric no longer exists."""
+    from .models import Metric
+
+    key = cell.get("metric")
+    if isinstance(key, str) and key:
+        return metrics.get(key) if metrics is not None else Metric.objects.filter(key=key).first()
+    return inline_source(cell)
+
+
+def is_inline(metric: Optional["Metric"]) -> bool:
+    """A source built from a card's own definition (never saved, so it has no page)."""
+    return metric is not None and metric.pk is None
+
+
+def _source_problems(cell: dict[str, Any]) -> tuple[Optional["Metric"], list[str]]:
+    """The card's own definition, checked as a metric is (dataset known,
+    filter valid, measure and period column real) → ``(source, problems)``."""
+    from django.core.exceptions import ValidationError
+
+    if not isinstance(cell.get("filter_tree", {}), dict):
+        return None, ["filter_tree: expected an object"]
+    source = inline_source(cell)
+    if source is None:
+        return None, ["dataset: pick a dataset"]
+    try:
+        source.clean()
+    except ValidationError as exc:
+        return None, [f"{f}: {m}" for f, messages in exc.message_dict.items() for m in messages]
+    return source, []
+
+
+#: Why a card read over time can't draw a metric with no period field. The
+#: dataset may well have a date column; the metric has to say which one it is
+#: read over, and that lives on the metric's form, not the card's.
+NO_PERIOD_FIELD = "needs a period field (the date column it is read over): set one in the metric's settings"
+NO_PERIOD_COLUMN = "needs a period column: the date column it is read over"
+
+
 def _missing_caps(ct: ComponentType, metric: "Metric") -> list[str]:
     if not ct.requires:
         return []
+    from apps.datasets.capabilities import DATE, REASONS, capabilities, missing_for
+
     if metric.is_rate or metric.is_manual:
+        if ct.requires == {DATE}:
+            return [] if metric.period_field else [NO_PERIOD_FIELD]
         return ["needs a metric over a dataset, to split it into groups"]
-    from apps.datasets.capabilities import REASONS, capabilities, missing_for
+    no_period = NO_PERIOD_COLUMN if is_inline(metric) else NO_PERIOD_FIELD
     from apps.datasets.core import get_dataset
 
     ds = get_dataset(metric.dataset)
@@ -580,7 +698,11 @@ def _missing_caps(ct: ComponentType, metric: "Metric") -> list[str]:
         caps = capabilities(ds.schema())
     except Exception:  # noqa: BLE001
         return []
-    return [REASONS.get(m, m) for m in sorted(missing_for(ct.requires, caps))]
+    out = [REASONS.get(m, m) for m in sorted(missing_for(ct.requires, caps))]
+    # A date column the metric doesn't read over is no use to a chart over time.
+    if DATE in ct.requires and DATE in caps and not metric.period_field:
+        out.append(no_period)
+    return out
 
 
 def next_position(layout: list[dict[str, Any]], w: int) -> tuple[int, int]:
@@ -604,16 +726,37 @@ def next_position(layout: list[dict[str, Any]], w: int) -> tuple[int, int]:
 # -- built-in types ---------------------------------------------------------------
 
 
-def _metric_url(name: str, metric: "Metric", ctx: CellContext, **params: Any) -> str:
+def rows_url(ctx: CellContext, **params: Any) -> str:
+    """Where this card's rows open (``ctx.rows_url``) with *params* — a
+    ``narrow`` tree, the drill-down design — and the card's period. "" when
+    the card has nowhere to open them. A build uses this for every rows link
+    it draws, so a card over a metric and a card with a source of its own
+    open their rows the same way."""
     from urllib.parse import urlencode
 
-    from django.urls import reverse
-
+    if not ctx.rows_url:
+        return ""
     query = {k: v for k, v in params.items() if v not in (None, "")}
     if ctx.period:
         query["period"] = ctx.period
-    url = reverse(name, kwargs={"key": metric.key})
-    return f"{url}?{urlencode(query)}" if query else url
+    return f"{ctx.rows_url}?{urlencode(query)}" if query else ctx.rows_url
+
+
+def source_rows_url(dashboard: Optional["Dashboard"], cell: dict[str, Any], source: Optional["Metric"]) -> str:
+    """The rows behind *cell*: a metric's own rows route; a card's own source
+    reads them by its place on the dashboard; a card not saved anywhere yet
+    (the builder's preview) through the preview-rows route, to which the
+    builder posts the definition itself."""
+    if source is None:
+        return ""
+    try:
+        if not is_inline(source):
+            return reverse("dashboards_metric_rows", kwargs={"key": source.key})
+        if dashboard is not None and dashboard.pk and cell.get("id"):
+            return reverse("dashboards_cell_rows", kwargs={"slug": dashboard.slug, "cell_id": str(cell["id"])})
+        return reverse("dashboards_preview_rows")
+    except NoReverseMatch:  # dashboards routes switched off
+        return ""
 
 
 def metric_card_context(
@@ -623,18 +766,20 @@ def metric_card_context(
     period: Optional[str] = None,
     label: Optional[str] = None,
     period_in_label: bool = True,
+    rows: Optional[str] = None,
 ) -> dict[str, Any]:
     """The framework ``stat_card.html`` context for *metric* — what
     ``{% metric_card %}`` and the dashboard ``metric`` cell both render, so a
     hand-placed card and a dashboard card are one component. A dashboard passes
-    ``period_in_label=False``: its period bar already says the period."""
+    ``period_in_label=False``: its period bar already says the period. *rows*
+    is where the number opens its rows; by default the metric's rows route."""
     result = evaluate(metric, request, period=period)
     title = label or metric.name
     href = None
     if result.ok:
         try:
-            href = reverse("dashboards_metric_rows", kwargs={"key": metric.key})
-            if result.period:
+            href = rows if rows is not None else reverse("dashboards_metric_rows", kwargs={"key": metric.key})
+            if href and result.period:
                 href += f"?period={result.period}"
         except NoReverseMatch:  # dashboards routes switched off
             href = None
@@ -662,7 +807,9 @@ def build_metric(cell: dict[str, Any], ctx: CellContext) -> dict[str, Any]:
     label = cell_title(cell) or metric.name
     if cell.get("use_period") is False and metric.period_field:
         label = f"{label} (all time)"  # pinned: the only card that differs from the period bar
-    card = metric_card_context(metric, ctx.request, period=ctx.period, label=label, period_in_label=False)
+    card = metric_card_context(
+        metric, ctx.request, period=ctx.period, label=label, period_in_label=False, rows=ctx.rows_url
+    )
     comparison = compare_with_previous(metric, ctx.request, ctx.period, card["result"])
     style = card_style(cell)
     result = card["result"]
@@ -713,7 +860,7 @@ def build_metric_group(cell: dict[str, Any], ctx: CellContext) -> dict[str, Any]
     except (FilterTreeError, ValueError) as exc:
         return {**base, "error": str(exc), "groups": []}
     except Exception:  # noqa: BLE001
-        logger.exception("metric_group %s: failed", metric.key)
+        logger.exception("metric_group %s: failed", metric.key or cell.get("id"))
         return {**base, "error": "This card could not be evaluated.", "groups": []}
     for g in groups:
         if g.get("other"):
@@ -726,9 +873,7 @@ def build_metric_group(cell: dict[str, Any], ctx: CellContext) -> dict[str, Any]
             )
         else:
             leaf = group_leaf(dimension, g["raw"])
-        g["drill_url"] = _metric_url(
-            "dashboards_metric_rows", metric, ctx, narrow=json.dumps(leaf, default=str), **drill_params(cell)
-        )
+        g["drill_url"] = rows_url(ctx, narrow=json.dumps(leaf, default=str), **drill_params(cell))
         shown = styled_value(g["value"], metric, style, g.get("state"))
         g["display"] = shown["display"]
         if not g.get("other"):  # "Other" is a remainder, never coloured
@@ -918,7 +1063,7 @@ def register_builtins() -> None:
             stylable=True,
             drillable=True,
             single_value=True,
-            description="One number from a metric — value, threshold state, click for the rows behind it.",
+            description="One number, a saved metric or a filter of your own, coloured by its rules; click for rows.",
             group="Stats",
             icon="M4 18h3V8H4v10zm6.5 0h3V4h-3v14zM17 18h3v-6h-3v6z",
             template="dashboards/cells/metric.html",
@@ -933,7 +1078,7 @@ def register_builtins() -> None:
             label="Grouped stat",
             stylable=True,
             drillable=True,
-            description="A metric split by a column: the top groups as numbers, each drilling into its rows.",
+            description="Filtered rows split by a column: the top groups as numbers, each drilling into its rows.",
             group="Stats",
             icon="M3 5h8v6H3V5zm10 0h8v6h-8V5zM3 13h5v6H3v-6zm7 0h4v6h-4v-6zm6 0h5v6h-5v-6z",
             template="dashboards/cells/metric_group.html",

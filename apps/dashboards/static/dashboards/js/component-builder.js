@@ -1,20 +1,36 @@
 /* Component builder — the form for a saved card (ComponentCRUDView).
  *
- * The real inputs are the palette's `type` radios, the `metric` select and a
- * hidden `options` JSON field (what REST/MCP and agents write directly). This
- * file draws each type's options from its options_schema — so a type an app
- * registers (a chart) gets a form with no builder changes — dims the designs
- * the chosen metric's data can't support, and keeps a live preview rendered
- * by dashboards/api/card-preview/, the same render_cell a dashboard uses.
+ * The real inputs are the palette's `type` radios, the source fields and a
+ * hidden `options` JSON field (what REST/MCP and agents write directly). A
+ * card that draws data has one of two sources:
+ *
+ *   - a dataset it filters here: `dataset`, the hidden `filter_tree` (drawn by
+ *     datasets/js/filter-tree.js, the metric form's editor), `agg`, `measure`
+ *     and `period_field` — any design;
+ *   - a saved metric: the `metric` select — only the designs that show one
+ *     number (`single_value`), since a metric is a filtered result rolled up to
+ *     one value and a chart needs the rows.
+ *
+ * The `cb_source` radios are the switch between them; picking a chart while
+ * on a metric switches to a dataset with that metric's filter copied in.
+ * This file draws each type's options from its options_schema — so a type an
+ * app registers (a chart) gets a form with no builder changes — dims the
+ * designs the source can't support, drops column options and drill-down
+ * columns that aren't in a newly chosen dataset (saying which), and keeps a
+ * live preview rendered by dashboards/api/card-preview/, the same render_cell
+ * a dashboard uses. A card with its own source has no rows route until it's
+ * placed, so the preview's rows are posted to dashboards/preview-rows/ with
+ * the definition.
  *
  * Option field types: choice | multichoice (a tick-list of the choices, kept
  * as one comma-separated string) | integer | number | text | boolean | column
- * (a column of the metric's dataset) | widget (a published info card) |
+ * (a column of the source's dataset) | widget (a published info card) |
  * markdown. A `stylable` type also gets "Style it": the shared settings in
  * data.style (components.CARD_STYLE) → options.style, and its own colour rules
- * → options.thresholds (absent = the metric's rules). A card inherits its
- * metric's number format, unit and colour rules: the style section says what
- * it's taking from the metric, marks a setting that overrides it, and resets it.
+ * → options.thresholds. A card over a metric inherits its number format, unit
+ * and colour rules: the style section says what it's taking from the metric,
+ * marks a setting that overrides it, and resets it. A card with its own source
+ * formats itself.
  */
 (function () {
     "use strict";
@@ -35,8 +51,22 @@
         data.types.forEach(function (t) { types[t.type] = t; });
         var metrics = {};
         data.metrics.forEach(function (m) { metrics[m.key] = m; });
+        var datasets = {};
+        (data.datasets || []).forEach(function (d) { datasets[d.key] = d; });
         var metricSel = document.getElementById("cb-metric");
-        var metricField = document.getElementById("cb-metric-field");
+        var sourceCard = document.getElementById("cb-source-card");
+        var sourceDataset = document.getElementById("cb-source-dataset");
+        var sourceMetric = document.getElementById("cb-source-metric");
+        var datasetSel = document.getElementById("cb-dataset");
+        var aggSel = document.getElementById("cb-agg");
+        var measureInput = document.getElementById("cb-measure");
+        var measureSel = document.getElementById("cb-measure-select");
+        var measureField = document.getElementById("cb-measure-field");
+        var periodFieldInput = document.getElementById("cb-period-field");
+        var periodFieldSel = document.getElementById("cb-period-select");
+        var treeInput = form.querySelector('[name="filter_tree"]');
+        var clearedNote = document.getElementById("cb-cleared");
+        var switchedNote = document.getElementById("cb-source-switched");
         var optionsBox = document.getElementById("cb-options");
         var noOptions = document.getElementById("cb-no-options");
         var optionsInput = form.querySelector('[name="options"]');
@@ -60,14 +90,72 @@
             return !!v && v.value === "shared";
         }
         function writeOptions() { optionsInput.value = JSON.stringify(options); }
+        function postHeaders() {
+            var token = form.querySelector("[name=csrfmiddlewaretoken]");
+            return { "Content-Type": "application/json", "X-CSRFToken": token ? token.value : "" };
+        }
 
-        // -- the palette: dim what the metric's data can't draw ---------------
+        // -- the source: a dataset filtered here, or a saved metric ---------------
+        function sourceMode() {
+            var r = form.querySelector('input[name="cb_source"]:checked');
+            return r ? r.value : "dataset";
+        }
+        function setSourceMode(mode) {
+            var r = form.querySelector('input[name="cb_source"][value="' + mode + '"]');
+            if (r) r.checked = true;
+        }
+        // The chosen source in one shape, whichever kind it is: what the palette,
+        // the options, the style section and the preview read.
+        //   {dataset, caps, no_period, inline, key?, name, format, unit, thresholds, edit_url?}
+        function currentSource() {
+            if (sourceMode() === "metric") return metrics[metricSel.value] || null;
+            var d = datasets[datasetSel.value];
+            if (!d) return null;
+            var hasDate = d.caps.indexOf("date") >= 0;
+            var pf = periodFieldInput.value;
+            return {
+                dataset: d.key, name: d.label, inline: true,
+                caps: pf ? d.caps : d.caps.filter(function (c) { return c !== "date"; }),
+                no_period: hasDate && !pf,
+                format: (options.style || {}).format || "number", unit: (options.style || {}).unit || "", thresholds: options.thresholds || [],
+            };
+        }
+        // What the form posts for the source: the fields of one kind, the other blank.
+        function sourceBody() {
+            if (sourceMode() === "metric") return { metric: metricSel.value };
+            var tree = {};
+            try { tree = JSON.parse(treeInput.value || "{}") || {}; } catch (e) { tree = {}; }
+            return { dataset: datasetSel.value, filter_tree: tree, agg: aggSel.value || "count", measure: measureInput.value, period_field: periodFieldInput.value };
+        }
+
+        // -- the palette: dim what the source can't draw ---------------------------
         function whyNot(t) {
-            if (!t.needs_metric || !t.requires.length) return "";
-            var m = metrics[metricSel.value];
-            if (!m) return "";
-            var missing = t.requires.filter(function (r) { return m.caps.indexOf(r) < 0; });
-            return missing.length ? "This metric's data " + missing.map(function (r) { return NEEDS[r] || "needs " + r; }).join(" and ") + "." : "";
+            if (!t.needs_metric) return "";
+            var src = currentSource();
+            // A metric over a dataset: a chart filters that dataset itself. One with no
+            // dataset (entered by hand, a rate) is drawn as it is.
+            if (sourceMode() === "metric" && !t.single_value && src && src.definition) return "Filters a dataset of its own. Pick it and the metric's filter is copied in.";
+            if (!src || !t.requires.length) return "";
+            var missing = t.requires.filter(function (r) { return src.caps.indexOf(r) < 0; });
+            if (!missing.length) return "";
+            // The data has dates; the source doesn't say which column it's read over.
+            if (src.no_period && missing.indexOf("date") >= 0) {
+                return src.inline ? "Needs a period column: the date column it is read over." : "This metric has no period field, so it can't be read over time.";
+            }
+            return "This data " + missing.map(function (r) { return NEEDS[r] || "needs " + r; }).join(" and ") + ".";
+        }
+        // Under the metric picker: where the period field is set, since it isn't here.
+        function syncPeriodNote() {
+            var note = document.getElementById("cb-metric-period");
+            if (!note) return;
+            var t = currentType(), m = sourceMode() === "metric" ? metrics[metricSel.value] : null;
+            var show = !!t && t.needs_metric && t.requires.indexOf("date") >= 0 && !!m && !!m.no_period;
+            note.hidden = !show;
+            if (!show) return;
+            var link = document.getElementById("cb-metric-period-link"), owner = document.getElementById("cb-metric-period-owner");
+            link.hidden = !m.edit_url;
+            owner.hidden = !!m.edit_url;
+            if (m.edit_url) link.href = m.edit_url;
         }
         function paintPalette() {
             form.querySelectorAll(".cb-tile").forEach(function (tile) {
@@ -90,20 +178,169 @@
             if (metricSel.selectedOptions[0] && metricSel.selectedOptions[0].disabled) metricSel.value = "";
         }
 
-        // -- options, from the type's options_schema --------------------------
+        // -- the dataset branch: the filter editor, the roll-up, the period column --
+        var treeEditor = null;
+        var schemas = {};        // dataset key → schema(), once loaded
+        var schemaSeq = 0;
+        function schemaFor(key, done) {
+            if (!key) { done(null); return; }
+            if (schemas[key]) { done(schemas[key]); return; }
+            var url = form.getAttribute("data-schema-url").replace("DATASET", encodeURIComponent(key));
+            fetch(url, { credentials: "same-origin" }).then(function (r) { return r.ok ? r.json() : null; }).then(function (schema) {
+                if (schema) schemas[key] = schema;
+                done(schema);
+            }).catch(function () { done(null); });
+        }
+        function fillSelect(sel, pairs, current, emptyLabel) {
+            sel.textContent = "";
+            sel.appendChild(el("option", { value: "" }, emptyLabel));
+            var known = false;
+            pairs.forEach(function (pair) {
+                var o = el("option", { value: pair[0] }, pair[1]);
+                if (pair[0] === current) { o.selected = true; known = true; }
+                sel.appendChild(o);
+            });
+            if (current && !known) { var o = el("option", { value: current }, current + " (not in this data)"); o.selected = true; sel.appendChild(o); }
+        }
+        function syncMeasure() {
+            var needs = ["sum", "avg", "min", "max", "distinct"].indexOf(aggSel.value) >= 0;
+            measureField.hidden = !needs;
+            if (!needs) { measureInput.value = ""; measureSel.value = ""; }
+        }
+        // Draw the roll-up and period controls for the chosen dataset's columns.
+        function applySchema(schema) {
+            var cols = (schema && schema.columns) || [];
+            var measures = cols.filter(function (c) { return c.role === "measure"; }).map(function (c) { return [c.name, c.label + (c.computed ? " (ratio)" : "")]; });
+            var others = cols.filter(function (c) { return c.role !== "measure"; }).map(function (c) { return [c.name, c.label]; });
+            fillSelect(measureSel, measures.concat(others), measureInput.value, "Choose a column…");
+            var dates = ((schema && schema.filters) || []).filter(function (f) { return f.column_type === "date" || f.column_type === "datetime"; })
+                .map(function (f) { return [f.name, f.label || f.name]; });
+            fillSelect(periodFieldSel, dates, periodFieldInput.value, "— none: the card ignores the period —");
+            if (treeEditor) treeEditor.setSchema(schema);
+            syncMeasure();
+        }
+        function loadDataset(done) {
+            var key = datasetSel.value;
+            var mine = ++schemaSeq;
+            schemaFor(key, function (schema) {
+                if (mine !== schemaSeq) return;
+                applySchema(schema);
+                if (done) done(schema);
+            });
+        }
+
+        // -- options that name a column: drop what isn't in the data any more --
+        // A card's Group by, Of column and drill-down columns are columns of its
+        // source's dataset. Change the dataset (or the metric, to one over another
+        // dataset) and some of them stop existing: the server would refuse the
+        // save, so clear them here and say which went.
+        var lastDataset = null;
+        function reconcileColumns(schema) {
+            var key = schema ? datasetKey() : "";
+            if (lastDataset === key) return;
+            var first = lastDataset === null;
+            lastDataset = key;
+            if (first || !schema) return;
+            stash = {};   // another design's settings named the old dataset's columns
+            var names = (schema.columns || []).map(function (c) { return c.name; });
+            var t = currentType(), gone = [];
+            (t && t.options || []).forEach(function (spec) {
+                if (spec.type === "column" && options[spec.name] && names.indexOf(options[spec.name]) < 0) {
+                    gone.push(spec.label.toLowerCase());
+                    delete options[spec.name];
+                }
+            });
+            var d = options.drilldown;
+            if (d) {
+                var kept = (d.columns || []).filter(function (c) { return names.indexOf(typeof c === "string" ? c : c.field) >= 0; });
+                var dropped = (d.columns || []).length - kept.length;
+                if (dropped) gone.push(dropped + " drill-down column" + (dropped === 1 ? "" : "s"));
+                d.columns = kept;
+                if (d.sort && names.indexOf(String(d.sort).replace(/^-/, "")) < 0) { delete d.sort; gone.push("the drill-down sort"); }
+                if (!kept.length) { delete options.drilldown; drillStash = null; }
+            }
+            Object.keys(schemaCache).forEach(function (k) { delete schemaCache[k]; });
+            writeOptions();
+            var label = (datasets[key] || {}).label || key;
+            clearedNote.hidden = !gone.length;
+            clearedNote.textContent = gone.length ? "Cleared " + gone.join(", ") + ": not in " + label + ". Choose again below." : "";
+        }
+        function datasetKey() {
+            var src = currentSource();
+            return src ? src.dataset : "";
+        }
+        // Columns of the source's dataset for a "column" option (dimensions only).
         function columnsFor(done) {
-            var m = metrics[metricSel.value];
-            if (!m) { done([]); return; }
-            if (schemaCache[m.dataset]) { done(schemaCache[m.dataset]); return; }
-            var url = form.getAttribute("data-schema-url").replace("DATASET", encodeURIComponent(m.dataset));
-            fetch(url, { credentials: "same-origin" }).then(function (r) { return r.json(); }).then(function (schema) {
-                var cols = (schema.columns || []).filter(function (c) {
+            var key = datasetKey();
+            if (!key) { done([]); return; }
+            if (schemaCache[key]) { done(schemaCache[key]); return; }
+            schemaFor(key, function (schema) {
+                var cols = ((schema && schema.columns) || []).filter(function (c) {
                     var isDate = c.type === "date" || c.type === "datetime";
                     return c.role === "dimension" && !c.computed && !isDate;
                 }).map(function (c) { return [c.name, c.label]; });
-                schemaCache[m.dataset] = cols;
+                schemaCache[key] = cols;
                 done(cols);
-            }).catch(function () { done([]); });
+            });
+        }
+
+        // -- start from a metric's filter: copy its definition into this card ----
+        function copyDefinition(m, note) {
+            var def = m.definition;
+            if (!def) return;
+            datasetSel.value = def.dataset;
+            treeInput.value = JSON.stringify(def.filter_tree || {});
+            aggSel.value = def.agg || "count";
+            measureInput.value = def.measure || "";
+            periodFieldInput.value = def.period_field || "";
+            // Its format, unit and colour rules, where this card hasn't set its own.
+            var style = Object.assign({}, options.style || {});
+            if (!style.format && m.format && m.format !== "number") style.format = m.format;
+            if (!style.unit && m.unit) style.unit = m.unit;
+            if (Object.keys(style).length) options.style = style;
+            if (!options.thresholds && m.thresholds && m.thresholds.length) options.thresholds = JSON.parse(JSON.stringify(m.thresholds));
+            writeOptions();
+            switchedNote.hidden = false;
+            switchedNote.textContent = note;
+            onSourceChange();
+        }
+        var startSel = document.getElementById("cb-start-metric");
+        var startBtn = document.getElementById("cb-start-copy");
+        if (startSel && startBtn) {
+            startSel.addEventListener("change", function () { startBtn.disabled = !startSel.value; });
+            startBtn.addEventListener("click", function () {
+                var m = metrics[startSel.value];
+                if (m) copyDefinition(m, "Started from “" + m.name + "”. The filter is this card's own now: changing it here changes nothing else.");
+            });
+        }
+
+        function syncSourceMode() {
+            var t = currentType();
+            var draws = !!(t && t.needs_metric);
+            sourceCard.hidden = !draws;
+            var mode = sourceMode();
+            sourceDataset.hidden = mode !== "dataset";
+            sourceMetric.hidden = mode !== "metric";
+            // One source: the other kind's field is blank, so the form never posts both.
+            if (mode === "dataset") metricSel.value = "";
+            else datasetSel.value = "";
+            metricSel.disabled = mode !== "metric";
+            datasetSel.disabled = mode !== "dataset";
+        }
+        function onSourceChange() {
+            syncSourceMode();
+            if (sourceMode() === "dataset") {
+                loadDataset(function (schema) {
+                    reconcileColumns(schema);
+                    renderOptions(); syncStyleCard(); paintPalette(); syncPeriodNote(); schedulePreview();
+                });
+                return;
+            }
+            var m = metrics[metricSel.value];
+            schemaFor(m ? m.dataset : "", function (schema) {
+                reconcileColumns(schema);
+                renderOptions(); syncStyleCard(); paintPalette(); syncPeriodNote(); schedulePreview();
+            });
         }
 
         // Several of the choices, ticked: the value is their keys, comma-separated,
@@ -144,16 +381,36 @@
             return wrap;
         }
 
+        // What another design was set to, kept while this one is tried: a trend's
+        // buckets survive a look at the pie, and come back when the trend does.
+        // By option name, so a column the designs share (the group-by) carries
+        // straight across. Never saved: only `options` goes with the form.
+        var stash = {};
+        function stashed(spec) {
+            var v = stash[spec.name];
+            if (v == null) return null;
+            if (spec.type === "choice") {   // another design's "kind" may mean other choices
+                var ok = (spec.choices || []).some(function (c) { return String(Array.isArray(c) ? c[0] : c) === String(v); });
+                return ok ? v : null;
+            }
+            return v;
+        }
         function renderOptions() {
             var t = currentType();
             optionsBox.textContent = "";
             if (!t) return;
-            // Drop options another type left behind.
+            // Set aside what this design doesn't take, and bring back what it does.
             var names = (t.options || []).map(function (s) { return s.name; });
             if (t.stylable) names.push("style", "thresholds");   // the shared styling (Style it)
             if (t.drillable) names.push("drilldown");            // Drill-down
-            Object.keys(options).forEach(function (k) { if (names.indexOf(k) < 0) delete options[k]; });
-            noOptions.hidden = !!(t.options || []).length || !!t.needs_metric;
+            Object.keys(options).forEach(function (k) { if (names.indexOf(k) < 0) { stash[k] = options[k]; delete options[k]; } });
+            (t.options || []).forEach(function (spec) {
+                if (options[spec.name] == null && stashed(spec) != null) options[spec.name] = stashed(spec);
+            });
+            ["style", "thresholds", "drilldown"].forEach(function (k) {
+                if (names.indexOf(k) >= 0 && options[k] == null && stash[k] != null) options[k] = stash[k];
+            });
+            noOptions.hidden = !!(t.options || []).length;
             (t.options || []).forEach(function (spec) {
                 var id = "cb-opt-" + spec.name;
                 var wrap = el("div", { class: "mb-field" });
@@ -243,11 +500,15 @@
             return hit ? hit[1].split(" — ")[0] : key;
         }
         var inheritNote = document.getElementById("cb-inherit");
-        function renderInherit() {
-            var m = metrics[metricSel.value];
+        // The metric a card over one inherits from; null for a card with its own source.
+        function inheritedMetric() {
             var t = currentType();
+            return t && t.needs_metric && sourceMode() === "metric" ? metrics[metricSel.value] || null : null;
+        }
+        function renderInherit() {
+            var m = inheritedMetric();
             inheritNote.textContent = "";
-            inheritNote.hidden = !(m && t && t.needs_metric);
+            inheritNote.hidden = !m;
             if (inheritNote.hidden) return;
             inheritNote.appendChild(el("strong", {}, "From " + m.name + ": "));
             var parts = ["format: " + formatLabel(m.format || "number"), m.unit ? "unit: " + m.unit : "no unit",
@@ -259,12 +520,12 @@
             renderInherit();
             var current = options.style || {};
             var t = currentType();
-            var m = metrics[metricSel.value];
+            var m = inheritedMetric();
             var allowed = (t && t.style_settings) || STYLE.map(function (x) { return x.name; });
             STYLE.forEach(function (spec) {
                 if (allowed.indexOf(spec.name) < 0) return;   // e.g. an info card has no number format
                 var id = "cb-style-" + spec.name;
-                var inherited = INHERITED[spec.name] && m && t && t.needs_metric;
+                var inherited = INHERITED[spec.name] && !!m;
                 var overridden = inherited && current[spec.name];
                 var wrap = el("div", { class: "mb-field" + (overridden ? " cb-overridden" : "") });
                 wrap.appendChild(el("label", { for: id }, spec.label));
@@ -322,13 +583,16 @@
                 return r.op + " " + v + " → " + r.state;
             }).join(", ");
         }
+        var rulesTitle = document.getElementById("cb-rules-title");
         function renderRules() {
-            var m = metrics[metricSel.value];
+            var m = inheritedMetric();
             var t = currentType();
             // An info card has no metric: without its own rules it keeps the app's status colour.
+            rulesTitle.textContent = m ? "Override the metric's colour rules for this card." : "Colour rules for this card.";
             rulesFallback.textContent = t && !t.needs_metric
                 ? "Otherwise it keeps the colour its app gives it. Rules compare the card's number."
-                : "Otherwise it uses the metric's: " + describeRules(m && m.thresholds) + ". They stay in step with the metric until you override them.";
+                : m ? "Otherwise it uses the metric's: " + describeRules(m.thresholds) + ". They stay in step with the metric until you override them."
+                : "Without rules the number keeps the card's colour. Rules compare the card's number.";
             var own = Array.isArray(options.thresholds);
             ownRules.checked = own;
             rulesBox.hidden = !own;
@@ -366,7 +630,7 @@
         }
         ownRules.addEventListener("change", function () {
             if (ownRules.checked) {
-                var m = metrics[metricSel.value];
+                var m = inheritedMetric();
                 // Start from the metric's rules, so "own" means "adjusted", not "blank".
                 options.thresholds = JSON.parse(JSON.stringify((m && m.thresholds) || []));
             } else {
@@ -385,11 +649,13 @@
             var drill = !!(t && t.drillable && t.needs_metric);
             styleCard.hidden = !on;
             drillCard.hidden = !drill;
-            var step = 3;
-            if (on) step += 1;
-            drillStep.textContent = String(step);
-            if (drill) step += 1;
-            nameStep.textContent = String(step);
+            // Steps count up over the cards shown: source (data cards only), design, what it shows, style, drill-down, name.
+            var step = t && t.needs_metric ? 2 : 1;
+            document.getElementById("cb-design-step").textContent = String(step);
+            document.getElementById("cb-options-step").textContent = String(++step);
+            if (on) document.getElementById("cb-style-step").textContent = String(++step);
+            if (drill) drillStep.textContent = String(++step);
+            nameStep.textContent = String(++step);
             if (on) { renderStyle(); renderRules(); }
             if (drill) renderDrill();
         }
@@ -432,14 +698,13 @@
         var drillBefore = null, drillStashBefore = null, drillKept = false;   // what Cancel restores
 
         function allColumns(done) {
-            var m = metrics[metricSel.value];
-            if (!m) { done([]); return; }
-            if (fullSchema[m.dataset]) { done(fullSchema[m.dataset]); return; }
-            var url = form.getAttribute("data-schema-url").replace("DATASET", encodeURIComponent(m.dataset));
-            fetch(url, { credentials: "same-origin" }).then(function (r) { return r.json(); }).then(function (schema) {
-                fullSchema[m.dataset] = (schema.columns || []).filter(function (c) { return !c.computed; });
-                done(fullSchema[m.dataset]);
-            }).catch(function () { done([]); });
+            var key = datasetKey();
+            if (!key) { done([]); return; }
+            if (fullSchema[key]) { done(fullSchema[key]); return; }
+            schemaFor(key, function (schema) {
+                fullSchema[key] = ((schema && schema.columns) || []).filter(function (c) { return !c.computed; });
+                done(fullSchema[key]);
+            });
         }
         function writeDrill() {
             var d = options.drilldown;
@@ -684,15 +949,26 @@
         }
         function loadRows() {
             clearTimeout(rowsTimer);
-            var m = metrics[metricSel.value], d = options.drilldown;
-            if (!m || !d) return;
+            var src = currentSource(), d = options.drilldown;
+            if (!src || !d) return;
             var spec = { columns: d.columns };
             if (d.sort) spec.sort = d.sort;
-            var url = form.getAttribute("data-rows-url").replace("KEY", encodeURIComponent(m.key))
-                + "?limit=" + SAMPLE_ROWS + "&drill=" + encodeURIComponent(JSON.stringify(spec));
-            if (periodSel.value && periodSel.value !== "all") url += "&period=" + encodeURIComponent(periodSel.value);
+            var period = periodSel.value && periodSel.value !== "all" ? periodSel.value : "";
             var mine = ++rowsSeq;
-            fetch(url, { credentials: "same-origin" }).then(function (r) { return r.json(); }).then(function (out) {
+            var request;
+            if (src.inline) {
+                // No rows route until the card is placed: post the definition.
+                var body = Object.assign(sourceBody(), { limit: SAMPLE_ROWS, drill: spec, period: period });
+                request = fetch(form.getAttribute("data-api-preview-rows-url"), {
+                    method: "POST", credentials: "same-origin", headers: postHeaders(), body: JSON.stringify(body),
+                });
+            } else {
+                var url = form.getAttribute("data-rows-url").replace("KEY", encodeURIComponent(src.key))
+                    + "?limit=" + SAMPLE_ROWS + "&drill=" + encodeURIComponent(JSON.stringify(spec));
+                if (period) url += "&period=" + encodeURIComponent(period);
+                request = fetch(url, { credentials: "same-origin" });
+            }
+            request.then(function (r) { return r.json(); }).then(function (out) {
                 if (mine !== rowsSeq) return;
                 if (out.error || !out.columns) { rowsMessage(out.error || "The rows couldn't be loaded."); return; }
                 paintRows(out);
@@ -813,8 +1089,8 @@
             var t = currentType();
             sizeFrame(t);
             if (!t) return;
-            if (t.needs_metric && !metricSel.value) {
-                preview.replaceChildren(el("p", { class: "mb-help" }, "Choose a metric to see the card."));
+            if (t.needs_metric && !currentSource()) {
+                preview.replaceChildren(el("p", { class: "mb-help" }, sourceMode() === "metric" ? "Choose a metric to see the card." : "Choose a dataset to see the card."));
                 problemsEl.textContent = "";
                 return;
             }
@@ -830,11 +1106,11 @@
             }
             var mine = ++seq;
             var body = { type: t.type, options: options, name: nameInput.value, period: periodSel.value, visibility: shared() ? "shared" : "personal" };
-            if (t.needs_metric) body.metric = metricSel.value;
+            if (t.needs_metric) Object.assign(body, sourceBody());
             fetch(form.getAttribute("data-preview-url"), {
                 method: "POST",
                 credentials: "same-origin",
-                headers: { "Content-Type": "application/json" },
+                headers: postHeaders(),
                 body: JSON.stringify(body),
             }).then(function (r) { return r.json(); }).then(function (out) {
                 if (mine !== seq) return;
@@ -853,24 +1129,93 @@
             });
         }
 
+        // A card with its own source isn't placed anywhere yet, so its preview
+        // links its rows to the preview-rows route: open them by posting the
+        // definition with the link's query (a group's narrowing, the drill-down
+        // design, the period), and sort the same way from the modal's headers.
+        var previewRowsUrl = form.getAttribute("data-preview-rows-url");
+        var modalBody = document.getElementById("stat-modal-body");
+        function postRows(query, order) {
+            var params = {};
+            new URLSearchParams(query).forEach(function (v, k) { params[k] = v; });
+            var body = Object.assign(sourceBody(), { period: params.period || "", drill: params.drill || "", order: order || "" });
+            if (params.narrow) { try { body.narrow = JSON.parse(params.narrow); } catch (e) { body.narrow = null; } }
+            if (modalBody) modalBody.innerHTML = '<p style="padding: 24px; text-align: center; color: var(--body-quiet-color);">Loading…</p>';
+            fetch(previewRowsUrl, {
+                method: "POST", credentials: "same-origin", headers: postHeaders(), body: JSON.stringify(body),
+            }).then(function (r) { return r.text(); }).then(function (html) {
+                if (!modalBody) return;
+                modalBody.innerHTML = html;
+                modalBody.setAttribute("data-cb-rows-query", query);
+                if (window.htmx) window.htmx.process(modalBody);
+            }).catch(function () { if (modalBody) modalBody.textContent = "The rows couldn't be loaded."; });
+        }
+        preview.addEventListener("click", function (ev) {
+            var link = ev.target.closest && ev.target.closest("[hx-get]");
+            if (!link || !preview.contains(link) || !previewRowsUrl) return;
+            var url = link.getAttribute("hx-get") || "";
+            if (url.split("?")[0] !== previewRowsUrl) return;
+            ev.preventDefault();
+            ev.stopPropagation();
+            if (window.openStatModal) window.openStatModal(link.getAttribute("data-stat-modal") || nameInput.value || "Rows", link);
+            postRows(url.split("?")[1] || "", "");
+        }, true);
+        document.addEventListener("click", function (ev) {
+            var b = ev.target.closest && ev.target.closest("#stat-modal-body [data-preview-order]");
+            if (!b || !modalBody || !modalBody.hasAttribute("data-cb-rows-query")) return;
+            postRows(modalBody.getAttribute("data-cb-rows-query"), b.getAttribute("data-preview-order"));
+        });
+
         // -- wiring -------------------------------------------------------------
         function onType() {
             var t = currentType();
-            metricField.hidden = !(t && t.needs_metric);
-            renderOptions();
-            syncStyleCard();
-            paintPalette();
-            schedulePreview();
+            // A chart picked while on a metric: the card filters the dataset itself
+            // from here, starting from that metric's filter.
+            if (t && t.needs_metric && !t.single_value && sourceMode() === "metric") {
+                var m = metrics[metricSel.value];
+                if (!m || m.definition) {
+                    setSourceMode("dataset");
+                    if (m) {
+                        copyDefinition(m, "A " + t.label.toLowerCase() + " filters a dataset of its own, so this card started from “" + m.name + "”. Its filter is its own now.");
+                        return;
+                    }
+                    switchedNote.hidden = false;
+                    switchedNote.textContent = "A " + t.label.toLowerCase() + " filters a dataset of its own: pick the dataset here.";
+                }
+            }
+            onSourceChange();
         }
         form.addEventListener("change", function (ev) {
             var n = ev.target.name;
             if (n === "type") onType();
-            else if (n === "metric") { renderOptions(); syncStyleCard(); paintPalette(); schedulePreview(); }
+            else if (n === "cb_source") { switchedNote.hidden = true; onSourceChange(); }
+            else if (n === "metric" || n === "dataset") onSourceChange();
+            else if (n === "agg") { syncMeasure(); schedulePreview(); }
             else if (n === "visibility") { filterMetrics(); schedulePreview(); }
         });
+        datasetSel.addEventListener("change", function () {
+            // Another table: its filter, roll-up column and period column no longer apply.
+            treeInput.value = "{}";
+            measureInput.value = "";
+            periodFieldInput.value = "";
+        });
+        measureSel.addEventListener("change", function () { measureInput.value = measureSel.value; schedulePreview(); });
+        periodFieldSel.addEventListener("change", function () { periodFieldInput.value = periodFieldSel.value; paintPalette(); schedulePreview(); });
         nameInput.addEventListener("input", schedulePreview);
         periodSel.addEventListener("change", schedulePreview);
+        form.addEventListener("submit", function () { syncSourceMode(); metricSel.disabled = false; datasetSel.disabled = false; });
 
+        if (window.SmallStackFilterTree) {
+            treeEditor = window.SmallStackFilterTree.create({
+                mount: document.getElementById("cb-tree"),
+                input: treeInput,
+                onChange: schedulePreview,
+                placeholder: "Pick a dataset to start filtering. No filter means every row.",
+            });
+        }
+        // The card's saved source decides where the switch starts: a metric when
+        // it names one, else a dataset (the default for a new card).
+        setSourceMode(metricSel.value && !datasetSel.value ? "metric" : "dataset");
         filterMetrics();
         onType();
     }

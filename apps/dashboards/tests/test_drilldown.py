@@ -16,6 +16,7 @@ from apps.dashboards.boards import render_cell
 from apps.dashboards.components import drill_params, normalize_layout, widget_number
 from apps.dashboards.metrics import drill_rows, format_cell, request_for, validate_drilldown
 from apps.dashboards.models import Dashboard, Metric
+from apps.dashboards.tests.support import own
 
 pytestmark = pytest.mark.django_db
 
@@ -124,8 +125,8 @@ def test_every_rows_link_a_card_draws_carries_its_design(staff, metric):
     request = request_for(staff)
     for cell in (
         {"type": "metric", "metric": "dd_req", "options": {"drilldown": SPEC}},
-        {"type": "metric_group", "metric": "dd_req", "options": {"dimension": "method", "drilldown": SPEC}},
-        {"type": "trend", "metric": "dd_req", "options": {"drilldown": SPEC}},
+        {"type": "metric_group", **own("dd_req"), "options": {"dimension": "method", "drilldown": SPEC}},
+        {"type": "trend", **own("dd_req"), "options": {"drilldown": SPEC}},
     ):
         layout, problems = normalize_layout([cell])
         assert problems == [], problems

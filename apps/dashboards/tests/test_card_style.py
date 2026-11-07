@@ -18,6 +18,7 @@ from apps.dashboards.boards import render_cell
 from apps.dashboards.components import CARD_STYLE, card_style, normalize_layout, validate_card_style
 from apps.dashboards.metrics import request_for
 from apps.dashboards.models import Component, Dashboard, Metric
+from apps.dashboards.tests.support import own
 
 pytestmark = pytest.mark.django_db
 
@@ -100,7 +101,7 @@ def test_a_grouped_stat_colours_each_group_by_the_cards_rules(staff, metric):
         staff,
         {
             "type": "metric_group",
-            "metric": "cs_req",
+            **own("cs_req"),
             "options": {
                 "dimension": "method",
                 "thresholds": [{"op": ">=", "value": 3, "state": "warning"}],

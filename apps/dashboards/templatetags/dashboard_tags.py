@@ -394,11 +394,12 @@ def playlist_editor_data(user: Any) -> dict[str, Any]:
 
 @register.filter
 def single_value(component: Any) -> bool:
-    """Whether a saved card boils down to one number, so it can be a goal."""
+    """Whether a saved card is one number over a metric, so it can be a goal.
+    A card that filters a dataset of its own isn't: save it as a metric first."""
     from ..components import get_component_type
 
     ct = get_component_type(str(getattr(component, "type", "") or ""))
-    return bool(ct is not None and ct.single_value)
+    return bool(ct is not None and ct.single_value and getattr(component, "metric", ""))
 
 
 @register.simple_tag

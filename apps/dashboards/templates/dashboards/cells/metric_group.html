@@ -1,6 +1,6 @@
 <div class="{{ style.classes|default:'card-style' }} cs-group">
 <div class="dash-cell-head">
-    <a href="{{ metric.get_absolute_url }}" class="dash-cell-title">{{ label }}{% if not period and cell.use_period is False and metric.period_field %} (all time){% endif %}</a>
+    {% if metric.pk %}<a href="{{ metric.get_absolute_url }}" class="dash-cell-title">{% else %}<span class="dash-cell-title">{% endif %}{{ label }}{% if not period and cell.use_period is False and metric.period_field %} (all time){% endif %}{% if metric.pk %}</a>{% else %}</span>{% endif %}
     <span class="dash-spacer"></span>
     {% if total and total.ok %}<span class="dash-cell-total">{{ total.display }}{% if total.unit %} {{ total.unit }}{% endif %} total</span>{% endif %}
 </div>

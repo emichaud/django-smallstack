@@ -21,9 +21,9 @@ rows the theme guide warns against) don't apply here.
     {% if drill.rows %}
     <div class="dm-scroll">
         {% comment %}Headers sort on the server (the rows shown are only the first of all that match); an unsaved metric's post it again with the order (metric-builder.js). Resizing is the framework's table-resize.js (crud-table + data-table-key + th[data-field] + col_resizer), widths remembered per card.{% endcomment %}
-        <table class="dm-table crud-table" data-table-key="drill/{{ metric.key }}:{% for c in drill.columns %}{{ c.name }}{% if not forloop.last %},{% endif %}{% endfor %}">
+        <table class="dm-table crud-table" data-table-key="drill/{{ metric.key|default:"card" }}:{% for c in drill.columns %}{{ c.name }}{% if not forloop.last %},{% endif %}{% endfor %}">
             <thead><tr>{% for c in drill.columns %}<th scope="col" aria-sort="{{ c.aria_sort|default:'none' }}" data-field="{{ c.name }}">
-                {% if unsaved %}<button type="button" class="dm-sort dm-sort--btn" data-preview-order="{{ c.sort_next }}" title="Sort by {{ c.label }}">{{ c.label }}<span class="dm-sort-ind" aria-hidden="true">{% if c.aria_sort == "ascending" %}▲{% elif c.aria_sort == "descending" %}▼{% endif %}</span></button>
+                {% if unsaved and not sortable %}<button type="button" class="dm-sort dm-sort--btn" data-preview-order="{{ c.sort_next }}" title="Sort by {{ c.label }}">{{ c.label }}<span class="dm-sort-ind" aria-hidden="true">{% if c.aria_sort == "ascending" %}▲{% elif c.aria_sort == "descending" %}▼{% endif %}</span></button>
                 {% else %}<a class="dm-sort" href="{{ c.sort_url }}" hx-get="{{ c.sort_url }}" hx-target="#stat-modal-body" hx-swap="innerHTML" title="Sort by {{ c.label }}">{{ c.label }}<span class="dm-sort-ind" aria-hidden="true">{% if c.aria_sort == "ascending" %}▲{% elif c.aria_sort == "descending" %}▼{% endif %}</span></a>{% endif %}
                 {% include "smallstack/crud/includes/col_resizer.html" with label=c.label %}
             </th>{% endfor %}<th scope="col" class="dm-open-col"><span class="sr-only">Open</span></th></tr></thead>

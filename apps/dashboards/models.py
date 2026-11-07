@@ -665,8 +665,18 @@ class Dashboard(OwnedModel):
 
 
 class Component(OwnedModel):
-    """A saved card: ``type`` (a registered component type), ``metric`` (a
-    metric key, for the types that draw one) and the type's ``options``.
+    """A saved card: ``type`` (a registered component type), where its numbers
+    come from, and the type's ``options``.
+
+    A card that draws data has one of two sources. **A dataset it filters
+    itself** (``dataset`` + ``filter_tree`` + ``agg``/``measure`` +
+    ``period_field``, the same definition a metric holds) suits every design:
+    a stat, a split, a chart. **A metric** (``metric``) suits only the designs
+    that show one number (``ComponentType.single_value``): a metric is a
+    filtered result rolled up to one value, for goals and thresholds, and a
+    chart needs the rows behind it, so it filters a dataset of its own. The
+    source's format, unit and colour rules come from ``options.style`` and
+    ``options.thresholds``, or from the metric.
 
     Validated as a one-cell layout, so a component is exactly what a dashboard
     cell would accept. Dashboards place it with ``{"component": key}``;
@@ -681,7 +691,28 @@ class Component(OwnedModel):
     description = models.TextField(blank=True, default="")
     type = models.CharField(max_length=40, help_text="A registered component type (list_dashboard_components).")
     metric = models.CharField(
-        max_length=80, blank=True, default="", help_text="The metric key, for types that draw one."
+        max_length=80,
+        blank=True,
+        default="",
+        help_text="The metric key, for a design that shows one number. Otherwise the card filters a dataset.",
+    )
+    dataset = models.CharField(
+        max_length=100, blank=True, default="", help_text="The @dataset key the card filters, when it draws no metric."
+    )
+    filter_tree = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text="The card's own filter over its dataset (a metric's shape). Empty = all rows.",
+    )
+    agg = models.CharField("aggregation", max_length=12, choices=ALL_AGGS, default="count", blank=True)
+    measure = models.CharField(
+        max_length=100, blank=True, default="", help_text="Column to aggregate (not needed for Count rows)."
+    )
+    period_field = models.CharField(
+        max_length=100,
+        blank=True,
+        default="",
+        help_text="Date column the dashboard's period narrows and a chart buckets by. Blank = the period never applies",
     )
     options = models.JSONField(default=dict, blank=True, help_text="The type's options (its options_schema).")
 
@@ -702,15 +733,28 @@ class Component(OwnedModel):
             self.key = free_key(Component, self.name, "card")
         super().save(*args, **kwargs)
 
+    @property
+    def source_label(self) -> str:
+        """"Requests (metric)" or "Requests (dataset)", for lists."""
+        if self.metric:
+            return f"{self.metric} (metric)"
+        return f"{self.dataset} (dataset)" if self.dataset else ""
+
     def as_cell(self) -> dict[str, Any]:
         """The component as a dashboard cell, ready for ``normalize_layout``."""
         cell: dict[str, Any] = {"type": self.type, "options": self.options or {}}
         if self.metric:
             cell["metric"] = self.metric
+        elif self.dataset:
+            cell["dataset"] = self.dataset
+            cell["filter_tree"] = self.filter_tree or {}
+            cell["agg"] = self.agg or "count"
+            cell["measure"] = self.measure
+            cell["period_field"] = self.period_field
         return cell
 
     def clean(self) -> None:
-        from .components import get_component_type, normalize_layout
+        from .components import SOURCE_KEYS, get_component_type, normalize_layout
 
         if not self.key and self.name:
             self.key = free_key(Component, self.name, "card")
@@ -719,15 +763,24 @@ class Component(OwnedModel):
             raise ValidationError({"type": [f"{self.type!r} is not a registered component type."]})
         if not ct.needs_metric:
             self.metric = ""
+            self.dataset = ""
+        if self.metric:  # one source: a metric, or a dataset of its own
+            self.dataset, self.filter_tree, self.measure, self.period_field = "", {}, "", ""
         cell = {**self.as_cell(), "id": "c", "x": 0, "y": 0, "w": ct.default_size[0], "h": ct.default_size[1]}
         normalized, problems = normalize_layout([cell], owner_id=self.owner_id)
         if problems:
             errors: dict[str, list[str]] = {}
             for problem in problems:
-                field = "metric" if ".metric" in problem else "type" if ".type" in problem else "options"
+                field = "options"
+                for name in ("metric", "type", *SOURCE_KEYS):
+                    if f".{name}" in problem:
+                        field = name
+                        break
                 errors.setdefault(field, []).append(problem.replace("layout[0]", "card").replace("card: ", ""))
             raise ValidationError(errors)
         self.options = normalized[0].get("options", {})
+        if not self.dataset:
+            self.filter_tree, self.agg, self.measure, self.period_field = {}, "count", "", ""
 
 
 class Playlist(OwnedModel):

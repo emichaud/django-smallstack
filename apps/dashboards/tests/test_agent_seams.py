@@ -16,6 +16,7 @@ from apps.calendar.models import Event, SavedCalendarView
 from apps.dashboards.goals import judge
 from apps.dashboards.metrics import evaluate, request_for
 from apps.dashboards.models import Component, Dashboard, GoalList, Metric, Report, Snapshot
+from apps.dashboards.tests.support import own
 from apps.smallstack.models import APIToken
 
 pytestmark = pytest.mark.django_db
@@ -224,9 +225,27 @@ def test_a_goal_on_a_saved_card_leaves_with_its_metric(call, metric):
 
 
 def test_a_misspelt_card_column_is_refused_on_save_and_in_preview(call, metric):
-    is_error, out = call("card_preview", type="metric_group", metric=metric.key, options={"dimension": "nope"})
+    source = own(metric.key)  # a split filters a dataset of its own
+    is_error, out = call("card_preview", type="metric_group", **source, options={"dimension": "nope"})
     assert out["problems"] and "nope" in out["problems"][0]
-    assert call("create_component", name="X", type="metric_group", metric=metric.key, options={"dimension": "nope"})[0]
+    assert call("create_component", name="X", type="metric_group", **source, options={"dimension": "nope"})[0]
+
+
+def test_an_agent_gives_a_chart_its_own_source_and_a_stat_a_metric(call, metric):
+    """The rule over MCP: a metric goes on a single stat only; a split or a
+    chart carries dataset + filter_tree + agg/measure/period_field, and
+    card_preview says so when an agent sends the one the other way round."""
+    is_error, out = call("card_preview", type="metric_group", metric=metric.key, options={"dimension": "method"})
+    assert out["problems"] and "filters a dataset of its own" in out["problems"][0]
+    is_error, out = call("card_preview", type="metric", **own(metric.key), name="Own")
+    assert not out["problems"] and "Own" in out["html"]
+    split = {"type": "metric_group", **own(metric.key), "options": {"dimension": "method"}}
+    is_error, out = call("create_component", name="Split", **split)
+    assert not is_error and Component.objects.get(key="split").dataset == metric.dataset
+    Dashboard(name="Agent", slug="seam-agent", layout=[]).save()
+    is_error, out = call("dashboard_add_card", dashboard="seam-agent", **split)
+    assert not is_error, out
+    assert Dashboard.objects.get(slug="seam-agent").layout[0]["dataset"] == metric.dataset
 
 
 def test_a_note_needs_its_text(call):

@@ -8,9 +8,9 @@ guide: building-metrics
 # What is a metric?
 
 A metric is one number with a definition: *open urgent tickets*, *server
-errors*, *average response time*. It is the reusable unit of Dashboards and
-Goals. Build it once and it can sit on any number of dashboards, goal lists
-and reports.
+errors*, *average response time*. It is the thing you track: build it once and
+it can sit on any number of dashboards, goal lists and reports, with a target
+to judge it by.
 
 ## What it represents
 
@@ -38,8 +38,9 @@ data.
 3. Build the **filter**: conditions joined by ALL or ANY, with nested groups.
 4. Choose the **aggregation**, and the measure column if it needs one.
 5. Set the **period field**: the date column that a dashboard's or report's
-   period narrows. Leave it blank for a number that doesn't depend on time,
-   like *pending approvals*.
+   period narrows, and that a trend chart buckets by. Leave it blank for a
+   number that doesn't depend on time, like *pending approvals*; such a metric
+   can't be drawn over time.
 6. Choose a **format** (number, compact, percent, currency, duration) and a
    **unit**.
 7. Add **colour rules** if you want them: *10 or more is danger, 5 or more is
@@ -55,7 +56,9 @@ divided by another, such as errors ÷ requests.
 ## How to use it
 
 - **On a dashboard:** add a card and pick the metric, or build a
-  **component** from it first to control how it looks.
+  **component** from it first to control how it looks. A metric goes on the
+  designs that show one number; a split or a chart filters a dataset of its
+  own, and can start from the metric's filter.
 - **In a goal list:** give it a target. **Add to goals** is on the metric's
   page and in the metrics list.
 - **In a report:** add it as a row to compare it across periods.
@@ -67,8 +70,9 @@ divided by another, such as errors ÷ requests.
 
 - **Editing a metric changes it everywhere.** The form lists where it's used
   before you save.
-- **A card takes its format, unit and colour rules from its metric**, unless
-  the card overrides them.
+- **A card over a metric takes its format, unit and colour rules from it**,
+  unless the card overrides them. A card that copied the metric's filter is on
+  its own from then on: editing the metric doesn't reach it.
 - **Deleting** shows what would break (cards, report rows, goals) and removes
   them in the same step unless you say otherwise.
 - **Personal or shared.** A shared dashboard, report or goal list can only use

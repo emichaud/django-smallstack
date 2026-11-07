@@ -7,6 +7,7 @@
 {% block extra_css %}
 <link rel="stylesheet" href="{% static 'dashboards/vendor/gridstack/gridstack.min.css' %}">
 <link rel="stylesheet" href="{% static 'dashboards/css/dashboards.css' %}">
+{% if can_edit %}<link rel="stylesheet" href="{% static 'datasets/css/filter-tree.css' %}">{% endif %}
 {% component_media %}
 {% endblock %}
 
@@ -142,6 +143,8 @@
         </label>
         <p class="dash-hint" data-for="component">Built in the <a href="{% url 'dashboards/components-list' %}">component builder</a>. Editing it there updates it here too.</p>
         <p class="dash-hint" id="dash-add-type-help"></p>
+        {% comment %}The designs that filter a dataset of their own (a split, the charts) aren't quick picks: dashboard.js names them here.{% endcomment %}
+        <p class="dash-hint" id="dash-add-builder" hidden>A <span data-designs></span> filters a dataset of its own: build one in the <a href="{% url 'dashboards/components-create' %}">component builder</a> and add it as a saved card, or add any card and choose <strong>Edit card</strong> from its menu.</p>
         <label data-for="metric">Metric
             <select name="metric" class="vTextField" id="dash-add-metric"></select>
         </label>
@@ -159,7 +162,7 @@
             <textarea name="markdown" rows="4" class="vTextField"></textarea>
         </label>
         <div id="dash-add-options"></div>
-        <label>Title <span class="dash-hint">(optional; defaults to the metric's name)</span>
+        <label>Title <span class="dash-hint">(optional; a metric's card takes the metric's name)</span>
             <input type="text" name="title" maxlength="120" class="vTextField">
         </label>
         <div class="dash-dialog-actions">
@@ -174,5 +177,5 @@
 {% block extra_js %}
 <script src="{% static 'dashboards/vendor/gridstack/gridstack-all.min.js' %}" defer></script>
 <script src="{% static 'dashboards/js/dashboard.js' %}" defer></script>
-{% if can_edit %}<script src="{% static 'dashboards/js/component-builder.js' %}" defer></script>{% endif %}
+{% if can_edit %}<script src="{% static 'datasets/js/filter-tree.js' %}" defer></script><script src="{% static 'dashboards/js/component-builder.js' %}" defer></script>{% endif %}
 {% endblock %}

@@ -9,6 +9,7 @@ from django.contrib.auth import get_user_model
 from django.urls import reverse
 
 from apps.dashboards.models import Component, Metric
+from apps.dashboards.tests.support import own, own_post
 
 pytestmark = pytest.mark.django_db
 
@@ -78,7 +79,7 @@ def test_a_card_duplicates_from_its_builder(client, staff):
         name="M by method",
         key="m_by_method",
         type="metric_group",
-        metric="m",
+        **own("m"),
         options={"dimension": "method"},
         tags="ops",
     )
@@ -88,11 +89,12 @@ def test_a_card_duplicates_from_its_builder(client, staff):
     resp = client.get(reverse("dashboards/components-create"), {"from": "m_by_method"})
     initial = resp.context["form"].initial
     assert initial["name"] == "M by method (copy)" and initial["type"] == "metric_group"
-    assert initial["metric"] == "m" and initial["options"] == {"dimension": "method"} and initial["tags"] == "ops"
+    assert initial["dataset"] == DS and initial["metric"] == ""  # its own source comes along
+    assert initial["options"] == {"dimension": "method"} and initial["tags"] == "ops"
     assert initial["visibility"] == "personal"
     resp = client.post(
         reverse("dashboards/components-create"),
-        {"name": "M by path", "type": "metric_group", "metric": "m", "options": '{"dimension": "path"}', "tags": "ops"},
+        {"name": "M by path", "type": "metric_group", **own_post("m"), "options": '{"dimension": "path"}', "tags": "x"},
     )
     assert resp.status_code == 302
     copy = Component.objects.get(key="m_by_path")

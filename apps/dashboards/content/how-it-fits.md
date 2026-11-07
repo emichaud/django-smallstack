@@ -15,8 +15,8 @@ you know the stack, every page under these two menus is one of its layers.
 | Piece | What it is |
 |---|---|
 | **Dataset** | A named table of data the app can read: requests, tickets, health checks. |
-| **Metric** | A saved filter over a dataset, rolled up to one number. |
-| **Component** | A saved card design that draws a metric: a number, a split, a chart. |
+| **Metric** | A filtered dataset rolled up to one number: the thing you track and judge. |
+| **Component** | A saved card: a dataset filtered for it (a number, a split, a chart), or a metric for a single number. |
 | **Dashboard** | A grid of cards, for looking at numbers together. |
 | **Goal list** | Metrics against their targets, for a regular review. |
 | **Report** | Metrics down the side, periods across the top. |
@@ -37,9 +37,17 @@ is high* OR *age is over 30 days*). The rows a filter leaves are the answer to
 one question. One dataset can carry many filters, one for each situation you
 care about.
 
-Save a filter together with a way to roll it up (count the rows, total a
-column, average it) and you have a **metric**. Everything above this point is
-a way of showing, judging or comparing metrics.
+A filtered result goes one of two ways:
+
+- **Rolled up to one number** (count the rows, total a column, average it)
+  and saved on its own, it is a **metric**: something to track, give a target
+  and colour rules, and judge in a goal list.
+- **Kept as rows** and drawn, it is a **chart** or a **split**: a card that
+  filters the dataset itself and shows the groups or the buckets. A card can
+  roll its own filter up to a single number too.
+
+A dataset can carry any number of filtered results, some single numbers and
+some lists, side by side.
 
 ## Stored as text, so it stays live
 
@@ -55,9 +63,9 @@ follow:
 
 ## What you do with a metric
 
-- **Show it.** A component draws it, and a dashboard collects components into
-  one view: some for information, some you track closely. A playlist rotates
-  dashboards on a wall screen.
+- **Show it.** A single-stat card draws it, and a dashboard collects cards
+  into one view: metrics you track closely beside charts that filter their
+  data themselves. A playlist rotates dashboards on a wall screen.
 - **Judge it.** A goal list gives each metric a target and says whether it is
   on target, at risk or missed. This is the KPI review: the page a team reads
   down in its weekly meeting.

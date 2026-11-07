@@ -68,6 +68,32 @@ def default_grain(since: Optional[date], until: Optional[date]) -> str:
     return "quarter"
 
 
+def data_span(metric: "Metric", request: HttpRequest, tree: Any) -> tuple[Optional[date], Optional[date]]:
+    """The first and last dates the metric's filtered rows carry, for "all
+    time", which has no span of its own to fit buckets to: a week of data
+    reads by day, three years by quarter. ``(None, None)`` when there are no
+    rows or the question can't be asked (a rate, a hand-entered metric, a
+    filter that no longer applies — the series call reports that)."""
+    from django.db.models import Max, Min
+
+    ds = resolve_dataset(metric)
+    if ds is None or metric.is_rate or metric.is_manual or not metric.period_field:
+        return None, None
+    try:
+        bounds = ds.queryset(request, filter_tree=tree).aggregate(
+            lo=Min(metric.period_field), hi=Max(metric.period_field)
+        )
+    except Exception:  # noqa: BLE001 — a bad filter or column: the series says why
+        return None, None
+
+    def day(value: Any) -> Optional[date]:
+        if isinstance(value, datetime):
+            return (timezone.localtime(value) if timezone.is_aware(value) else value).date()
+        return value if isinstance(value, date) else None
+
+    return day(bounds.get("lo")), day(bounds.get("hi"))
+
+
 def _bucket_start(d: date, grain: str) -> date:
     if grain == "week":
         return d - timedelta(days=d.weekday())
@@ -103,7 +129,8 @@ def metric_trend(
     :data:`ALL_TIME_BUCKETS` buckets with data). Returns ``{ok, error,
     restricted, period, heading, grain, unit, points: [{label, lo, hi, value,
     display, state, partial, narrow}]}``. *grain* defaults to
-    :func:`default_grain` for the period's span. Never raises for a bad
+    :func:`default_grain` for the period's span — over all time, for the span
+    of the data itself (:func:`data_span`). Never raises for a bad
     metric — ``error`` says why there's no series."""
     applied = period if (period and relative_dates(period)) else None
     out: dict[str, Any] = {
@@ -118,7 +145,10 @@ def metric_trend(
         "points": [],
     }
     if not metric.period_field:
-        out["error"] = "This metric has no period field, so it has no trend."
+        out["error"] = (
+            "This metric has no period field, so it can't be read over time. "
+            "Set one in the metric's settings: the date column it is read over."
+        )
         return out
     ds = resolve_dataset(metric)
     if ds is None and not metric.is_rate:
@@ -129,7 +159,12 @@ def metric_trend(
         return out
     span = relative_dates(applied) if applied else None
     since, until = span if span else (None, None)
-    grain = grain if grain in GRAINS else default_grain(since, until)
+    if grain not in GRAINS:
+        grain = (
+            default_grain(since, until)
+            if span
+            else default_grain(*data_span(metric, request, effective_tree(metric, None)))
+        )
     out["grain"] = grain
     try:
         if metric.is_rate:

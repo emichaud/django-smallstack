@@ -1,0 +1,13 @@
+{% comment %}
+Above the components list when it's narrowed to one dashboard (?dashboard=):
+which one, how many of its cards are saved cards, and the way back to it. A
+dashboard's other cards (a metric placed directly, a note) aren't components,
+so they aren't here. `scope` comes from displays.ComponentLibraryDisplay.
+{% endcomment %}
+{% if scope %}
+<p class="cc-scope">
+    <span>{% if scope.count %}The {{ scope.count }} saved card{{ scope.count|pluralize }} on{% else %}No saved cards on{% endif %} <a href="{{ scope.url }}"><strong>{{ scope.name }}</strong></a>.</span>
+    <span class="cc-scope-note">{% if scope.count %}Editing one here changes it on that dashboard and on any other showing it.{% else %}Cards placed directly (a metric, a note) aren't saved cards; <strong>Edit card</strong> on the dashboard saves one.{% endif %}</span>
+    <a href="{{ request.path }}{% querystring dashboard=None page=None %}" class="cc-scope-all">All components</a>
+</p>
+{% endif %}

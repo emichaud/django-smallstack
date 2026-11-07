@@ -28,6 +28,7 @@ from apps.dashboards.components import (
 )
 from apps.dashboards.metrics import evaluate, format_value, request_for, state_for, validate_thresholds
 from apps.dashboards.models import Dashboard, Metric, Report
+from apps.dashboards.tests.support import own
 from apps.datasets.registry import dataset
 
 pytestmark = pytest.mark.django_db
@@ -244,7 +245,9 @@ def test_layout_normalises_and_validates(staff):
             {"type": "text", "metric": "m_l", "options": {"markdown": "x"}},
             {"id": "a", "type": "text", "options": {"markdown": "x"}},
             {"id": "a", "type": "text", "options": {"markdown": "y"}},
-            {"type": "metric_group", "metric": "m_l", "options": {}},
+            {"type": "metric_group", **own("m_l"), "options": {}},
+            {"type": "metric_group", "metric": "m_l", "options": {"dimension": "level"}},
+            {"type": "metric_group", "dataset": "nope", "options": {"dimension": "level"}},
         ]
     )
     text = " | ".join(problems)
@@ -254,6 +257,9 @@ def test_layout_normalises_and_validates(staff):
     assert "takes no metric" in text
     assert "duplicate id 'a'" in text
     assert "'dimension'" in text
+    # A split or a chart filters a dataset of its own: a metric is refused there, and its dataset is checked.
+    assert "a Grouped stat card filters a dataset of its own" in text
+    assert "No dataset named 'nope'" in text
 
 
 def test_dashboard_save_is_the_gate():
@@ -320,7 +326,7 @@ def board(staff):
         slug="board",
         layout=[
             {"id": "a", "type": "metric", "metric": "m_req"},
-            {"id": "b", "type": "metric_group", "metric": "m_req", "options": {"dimension": "method", "limit": 2}},
+            {"id": "b", "type": "metric_group", **own("m_req"), "options": {"dimension": "method", "limit": 2}},
             {"id": "c", "type": "text", "options": {"markdown": "# Hello\n\n<script>x</script>"}},
             {"id": "d", "type": "metric", "metric": "m_req_auth"},
         ],
@@ -866,13 +872,14 @@ def test_metric_delete_page_shows_impact_and_can_detach(client, staff, board):
     m = Metric.objects.get(key="m_req")
     client.force_login(staff)
     html = client.get(f"/smallstack/dashboards/metrics/{m.pk}/delete/").content.decode()
-    assert "Deleting it breaks" in html and "2 cards on 1 dashboard and 1 row in 1 report" in html
+    assert "Deleting it breaks" in html and "1 card on 1 dashboard and 1 row in 1 report" in html
     assert 'name="detach" value="1" checked' in html and "Delete Requests" in html
     assert "in <strong>Dash log</strong>" in html
     resp = client.post(f"/smallstack/dashboards/metrics/{m.pk}/delete/", {"detach": "1"})
     assert resp.status_code == 302 and not Metric.objects.filter(key="m_req").exists()
     board.refresh_from_db()
-    assert all(c.get("metric") != "m_req" for c in board.layout) and len(board.layout) == 2
+    # Card "a" went with the metric; the grouped card, with a source of its own, stays.
+    assert all(c.get("metric") != "m_req" for c in board.layout) and len(board.layout) == 3
     assert Report.objects.get(slug="del-rep").metric_keys() == ["m_req_auth"]
 
 
@@ -928,7 +935,7 @@ def test_metric_delete_modal_fragment_from_the_list(client, staff, board):
     )
     frag = client.get(f"/smallstack/dashboards/metrics/{m.pk}/delete/", HTTP_HX_REQUEST="true").content.decode()
     assert "<html" not in frag and "dl--modal" in frag and "data-stat-modal-close" in frag
-    assert "2 cards on 1 dashboard" in frag and f'action="/smallstack/dashboards/metrics/{m.pk}/delete/"' in frag
+    assert "1 card on 1 dashboard" in frag and f'action="/smallstack/dashboards/metrics/{m.pk}/delete/"' in frag
     resp = client.post(f"/smallstack/dashboards/metrics/{m.pk}/delete/", {"detach": "1"})
     assert resp.status_code == 302 and not Metric.objects.filter(pk=m.pk).exists()
 
@@ -1064,7 +1071,7 @@ def test_metric_form_preview_wording_and_usage_note(client, staff, board):
     html = client.get(f"/smallstack/dashboards/metrics/{m.pk}/edit/").content.decode()
     assert '<optgroup label="This">' in html and 'data-heading="This month so far">This month so far</option>' in html
     assert '"mtd": ["pmtd", "last month"]' in html  # what the preview compares with
-    assert "Saving changes it everywhere it" in html and "2 cards on 1 dashboard" in html
+    assert "Saving changes it everywhere it" in html and "1 card on 1 dashboard" in html
     new = client.get("/smallstack/dashboards/metrics/new/").content.decode()
     assert "Saving changes it everywhere" not in new
 
@@ -1073,7 +1080,7 @@ def test_metric_page_compares_with_the_previous_period(client, staff, board):
     client.force_login(staff)
     html = client.get("/smallstack/dashboards/m/m_req/", {"period": "mtd"}).content.decode()
     assert "Up from 0 in all of last month" in html  # 5 this month, 0 last month
-    assert "dashboard, 2 cards" in html  # usage with counts
+    assert "dashboard, 1 card" in html  # usage with counts: the grouped card has a source of its own
     plain = client.get("/smallstack/dashboards/m/m_req/", {"period": "last_30"}).content.decode()
     assert "md-compare" not in plain  # a rolling window has no defined predecessor
 
@@ -1304,11 +1311,16 @@ def test_grouped_cards_compare_groups_with_the_previous_period(client, staff, bo
 
 def test_dashboard_digest_counts_grouped_card_states(client, staff, board):
     Metric.objects.filter(key="m_req").update(thresholds=[{"op": ">=", "value": 3, "state": "danger"}])
+    # The grouped card filters the dataset itself, so its colour rules are its own.
+    for cell in board.layout:
+        if cell["id"] == "b":
+            cell["options"]["thresholds"] = [{"op": ">=", "value": 3, "state": "danger"}]
+    board.save()
     client.force_login(staff)
     frag = client.get("/smallstack/dashboards/d/board/digest/").content.decode()
     # Card "a" (5 requests) and the grouped card's GET group (3) are both in danger.
     assert "2 need attention" in frag and "metric_group" not in frag
-    assert "Requests: GET" in frag  # a group is named by its card and its label
+    assert "Dash log: GET" in frag  # a group is named by its card (untitled: its dataset) and its label
 
 
 def test_preview_rows_requires_a_csrf_token(staff):

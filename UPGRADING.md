@@ -8,6 +8,47 @@ listed, no downstream migration is required.
 
 ---
 
+## Unreleased — a chart filters a dataset of its own; a metric goes on a single stat
+
+**Who is affected:** any project with dashboard cards, and any app that
+registers a `ComponentType` of its own (a chart) or writes cards over REST or
+MCP.
+
+**What changed.** A card that draws data has one of two sources. **A dataset
+it filters itself:** `dataset` + `filter_tree` + `agg`/`measure` +
+`period_field`, the definition a metric holds, kept on the card (new
+`Component` fields, and the same keys on a dashboard cell). **A saved
+metric:** `metric`, now only on a design whose `single_value` is true (the
+single stat): a metric is a filtered result rolled up to one number, for
+goals and thresholds, and a chart needs the rows. A metric with no dataset to
+filter (entered by hand, a rate) may still be charted as it is. Saving a
+grouped stat, a pie, ranked bars or a trend over a dataset metric is refused
+on every surface, with the fields to give it instead.
+
+`smallstack_dashboards.0012_card_sources` copies each metric's definition into
+every chart and grouped card that was bound to one (saved cards and dashboard
+cells), with the metric's format, unit and colour rules as the card's own
+`options.style` / `options.thresholds` where the card had none. **Those cards
+keep drawing the same thing, and no longer follow later edits to the metric.**
+Deleting the metric no longer removes them.
+
+**Migration.**
+
+- A custom card type's `build` already received `ctx.metric`; it now receives
+  the card's source as a `Metric` either way (an unsaved one for a card's own
+  source, `components.is_inline`). Nothing to change for evaluation.
+- Any rows link a `build` draws must come from `components.rows_url(ctx, …)`
+  (or `ctx.rows_url`), not `reverse("dashboards_metric_rows", key=…)`: a
+  card's own source has no metric page, so its rows open by its place on the
+  dashboard (`d/<slug>/cards/<cell_id>/rows/`) or, unsaved, through
+  `dashboards/preview-rows/`.
+- Agents and REST clients that create charts or grouped cards send `dataset`,
+  `filter_tree`, `agg`, `measure` and `period_field` instead of `metric`
+  (`card_preview` says so). Reading a dashboard's values, a card with its own
+  source answers `dataset` where it answered `metric`.
+- **Add to goals** needs a single stat over a metric; a stat with its own
+  filter is saved as a metric first.
+
 ## v0.28.0 — `can_update` / `can_delete` now gate writes, not just buttons
 
 **Who is affected:** any CRUDView that overrides `can_update(obj, request)` or

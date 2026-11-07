@@ -28,7 +28,15 @@ from django.utils.safestring import SafeString, mark_safe
 
 from apps.datasets.filter_tree import FilterTreeError
 
-from .components import CellContext, cell_title, get_component_type
+from .components import (
+    CellContext,
+    cell_source,
+    cell_title,
+    get_component_type,
+    inline_source,
+    is_inline,
+    source_rows_url,
+)
 from .forms import DashboardPictureForm
 from .metrics import evaluate, group_values, may_read
 from .models import Dashboard, Metric, metric_key_from_name
@@ -60,19 +68,24 @@ def render_cell(dashboard: Dashboard, cell: dict[str, Any], request: HttpRequest
         return render_to_string("dashboards/cells/restricted.html", {**base, "label": cell_title(cell) or ct.label})
     metric = None
     if ct.needs_metric:
-        metric = Metric.objects.filter(key=cell.get("metric")).first()
+        metric = cell_source(cell)
         if metric is None:
-            return render_to_string(
-                "dashboards/cells/error.html",
-                {**base, "message": f"Metric “{cell.get('metric')}” no longer exists."},
-                request=request,
-            )
+            gone = "This card has no source."
+            if cell.get("metric"):
+                gone = f"Metric “{cell.get('metric')}” no longer exists."
+            return render_to_string("dashboards/cells/error.html", {**base, "message": gone}, request=request)
         if not may_read(metric, user):
             return render_to_string(
                 "dashboards/cells/restricted.html", {**base, "label": cell_title(cell) or metric.name}
             )
     period = cell_period(cell, period)
-    ctx = CellContext(request=request, dashboard=dashboard, metric=metric, period=period)
+    ctx = CellContext(
+        request=request,
+        dashboard=dashboard,
+        metric=metric,
+        period=period,
+        rows_url=source_rows_url(dashboard, cell, metric),
+    )
     try:
         context = ct.build(cell, ctx)
     except Exception:  # noqa: BLE001 — a component's bug must not take the page down
@@ -103,12 +116,14 @@ def board_values(dashboard: Dashboard, request: HttpRequest, period: Optional[st
     for cell in dashboard.layout:
         entry: dict[str, Any] = {k: cell.get(k) for k in ("id", "type", "metric", "title", "x", "y", "w", "h")}
         ct = get_component_type(str(cell.get("type", "")))
-        metric = Metric.objects.filter(key=cell.get("metric")).first() if cell.get("metric") else None
+        metric = cell_source(cell)
+        if metric is not None and is_inline(metric):
+            entry["dataset"] = metric.dataset
         when = cell_period(cell, period)
         if ct is None:
             entry["error"] = "unknown component type"
         elif ct.needs_metric and metric is None:
-            entry["error"] = "metric no longer exists"
+            entry["error"] = "metric no longer exists" if cell.get("metric") else "no source"
         elif metric is not None and cell.get("type") == "metric":
             entry["result"] = evaluate(metric, request, period=when).as_dict()
         elif metric is not None and cell.get("type") == "metric_group":
@@ -152,7 +167,7 @@ def board_attention(dashboard: Dashboard, request: HttpRequest, period: Optional
     for cell in dashboard.layout:
         if not isinstance(cell, dict) or cell.get("type") not in ("metric", "metric_group"):
             continue
-        metric = metrics.get(str(cell.get("metric")))
+        metric = cell_source(cell, metrics=metrics)
         if metric is None or not may_read(metric, request.user):
             continue
         when = cell_period(cell, period)
@@ -375,9 +390,9 @@ def cell_value(dashboard: Dashboard, cell: dict[str, Any], request: HttpRequest)
         return out
     try:
         if ct.needs_metric:
-            metric = Metric.objects.filter(key=cell.get("metric")).first()
+            metric = cell_source(cell)
             if metric is None:
-                out["problem"] = "Its metric no longer exists"
+                out["problem"] = "Its metric no longer exists" if cell.get("metric") else "It has no source"
             elif not may_read(metric, user):
                 out["restricted"] = True
             else:
@@ -433,6 +448,7 @@ def board_cards(dashboard: Dashboard, request: HttpRequest, order: str = "") -> 
         ct = get_component_type(str(cell.get("type", "")))
         metric = metrics.get(str(cell.get("metric") or ""))
         name = cell_title(cell) or (metric.name if metric else "") or (ct.label if ct else str(cell.get("type")))
+        own = inline_source(cell) if metric is None else None
         rows.append(
             {
                 "id": cell.get("id"),
@@ -443,6 +459,8 @@ def board_cards(dashboard: Dashboard, request: HttpRequest, order: str = "") -> 
                 "metric": metric.name if metric else "",
                 "metric_key": str(cell.get("metric") or ""),
                 "metric_url": metric.get_absolute_url() if metric else "",
+                # A card with a source of its own: the dataset it filters, in a word.
+                "dataset": own.dataset if own is not None else "",
                 "needs_metric": bool(ct and ct.needs_metric),
                 "size": f"{cell.get('w', 1)} × {cell.get('h', 1)}",
                 "area": int(cell.get("w", 1)) * int(cell.get("h", 1)),

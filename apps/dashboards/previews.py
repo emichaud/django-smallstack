@@ -139,18 +139,21 @@ def preview_report(user: Any, payload: dict[str, Any], *, request: Optional[Http
 
 def preview_card(user: Any, payload: dict[str, Any], request: HttpRequest) -> dict[str, Any]:
     """Render an UNSAVED card — the component builder's live preview, and a
-    dry run for agents: ``{type, metric?, options?, name?, period?, visibility?}``
+    dry run for agents: ``{type, metric? | dataset + filter_tree + agg/measure/
+    period_field, options?, name?, period?, visibility?}``
     → ``{"html", "problems"}``. Validated exactly as a dashboard cell is, and
     drawn by the same ``render_cell`` a dashboard uses, so the preview is the
     card. ``visibility="shared"`` checks it as a shared card would be."""
     from .boards import render_cell
-    from .components import normalize_layout
+    from .components import SOURCE_KEYS, normalize_layout
     from .models import Dashboard
 
     owner_id = None if payload.get("visibility") == "shared" else getattr(user, "pk", None)
     cell: dict[str, Any] = {"id": "preview", "type": payload.get("type"), "options": payload.get("options") or {}}
     if payload.get("metric"):
         cell["metric"] = payload["metric"]
+    elif payload.get("dataset"):
+        cell.update({k: payload.get(k) for k in SOURCE_KEYS if payload.get(k) not in (None, "")})
     layout, problems = normalize_layout([cell], owner_id=owner_id)
     if problems:
         return {"html": "", "problems": [p.replace("layout[0]", "card").replace("card: ", "") for p in problems]}

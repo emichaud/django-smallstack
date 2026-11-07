@@ -15,6 +15,7 @@ aside while the cards are being arranged (.dash-view-only).
 {% if can_edit %}
 <span class="dash-view-only">
     {% include "dashboards/partials/archive_button.html" with kind="dashboard" obj=dashboard %}
+    <a href="{% url 'dashboards/components-list' %}?dashboard={{ dashboard.slug }}" class="btn-outline btn-sm" title="This dashboard's saved cards in the component library, each editable">Cards</a>
     <a href="{% url 'dashboards/boards-update' dashboard.pk %}" class="btn-outline btn-sm">Settings</a>
     <button type="button" class="btn-primary btn-sm" id="dash-edit">Edit layout</button>
 </span>

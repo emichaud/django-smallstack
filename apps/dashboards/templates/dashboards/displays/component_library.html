@@ -9,6 +9,7 @@ card itself (component-list.js).
 <link rel="stylesheet" href="{% static 'dashboards/css/dashboards.css' %}">
 {% for path in card_styles %}<link rel="stylesheet" href="{% static path %}">{% endfor %}
 <script src="{% static 'dashboards/js/component-list.js' %}" defer></script>
+{% include "dashboards/partials/component_scope.html" %}
 {% if rows %}
 <div class="cl-peek" id="cl-peek" hidden aria-hidden="true" inert></div>
 <div class="crud-table-wrap">
@@ -17,7 +18,7 @@ card itself (component-list.js).
         <tr>
             {% sortable_th "name" "Name" target="#crud-list-content" %}
             {% sortable_th "type" "Design" target="#crud-list-content" %}
-            {% sortable_th "metric" "Metric" target="#crud-list-content" %}
+            {% sortable_th "metric" "Source" target="#crud-list-content" %}
             <th scope="col" data-field="used" class="cl-used-col"><span>Placed on</span>{% include "smallstack/crud/includes/col_resizer.html" with label="Placed on" %}</th>
             {% sortable_th "updated_at" "Updated" target="#crud-list-content" align="right" %}
             <th scope="col" class="cl-actions-col"><span class="sr-only">Actions</span></th>
@@ -33,7 +34,7 @@ card itself (component-list.js).
                 {% if c.description %}<span class="cl-desc" title="{{ c.description }}">{{ c.description }}</span>{% endif %}
             </td>
             <td><span class="cl-type"><span class="cl-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="{{ r.icon|default:'M4 4h16v16H4z' }}"/></svg></span>{{ r.type_label }}</span></td>
-            <td>{% if r.metric_name %}{{ r.metric_name }}{% else %}<span class="dash-muted">No metric</span>{% endif %}</td>
+            <td>{% if r.metric_name %}{{ r.metric_name }} <span class="dash-muted">(metric)</span>{% elif r.source_name %}{{ r.source_name }} <span class="dash-muted">(filtered here)</span>{% else %}<span class="dash-muted">No data</span>{% endif %}</td>
             <td class="cl-used-cell">{% if r.used %}{{ r.used }} dashboard{{ r.used|pluralize }}{% else %}<span class="dash-muted">Not placed yet</span>{% endif %}</td>
             <td class="num"><time datetime="{{ c.updated_at|date:'c' }}">{{ c.updated_at|date:"M j" }}</time></td>
             <td class="cl-actions">
@@ -59,11 +60,12 @@ card itself (component-list.js).
     </tbody>
 </table>
 </div>
+{% elif scope %}{# the scope line above says there are none #}
 {% elif has_active_filters %}
 {% include "smallstack/crud/includes/empty_state.html" %}
 {% else %}
 <div class="ml-empty">
-    <p><strong>No saved cards yet.</strong> A card is a design — a single stat, a grouped stat, an info card, or a chart an app adds — drawing one metric. Build it once and place it on any number of dashboards.</p>
+    <p><strong>No saved cards yet.</strong> A card is a design — a single stat, a grouped stat, an info card, or a chart an app adds — over a dataset it filters itself, or over a saved metric for a single number. Build it once and place it on any number of dashboards.</p>
     {% if create_view_url %}<a href="{{ create_view_url }}" class="btn-primary btn-sm">Build a card</a>{% endif %}
 </div>
 {% endif %}

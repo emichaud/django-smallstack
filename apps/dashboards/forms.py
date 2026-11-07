@@ -14,9 +14,11 @@ from __future__ import annotations
 from typing import Any, cast
 
 from django import forms
+from django.urls import reverse
 
 from apps.datasets.dateranges import RELATIVE_PERIODS, is_period
 
+from .metrics import ALL_AGGS
 from .models import (
     MANUAL_DATASET,
     SOURCE_DATASET,
@@ -493,7 +495,7 @@ def goal_editor_data(user: Any, owner_id: Any) -> dict[str, Any]:
     cards = []
     for c in Component.objects.visible_to(user).active().filter(allowed).order_by("name"):
         ct = get_component_type(c.type)
-        if ct is not None and ct.single_value:
+        if ct is not None and ct.single_value and c.metric:
             m = by_key.get(c.metric)
             cards.append(
                 {
@@ -549,15 +551,26 @@ def playlist_goal_choices(user: Any) -> list[dict[str, Any]]:
 class ComponentForm(_OwnedForm):
     """A saved card. The key is made from the name (``Component.clean``);
     ``options`` is the type's options as JSON — the builder writes it, agents
-    send it."""
+    send it. The source is a metric (``metric``) or the card's own
+    (``dataset`` + ``filter_tree`` + ``agg``/``measure`` + ``period_field``):
+    the builder draws the dataset picker, the filter editor and the roll-up
+    over these fields, as the metric form does (component-builder.js)."""
 
     class Meta:
         model = Component
-        fields = ["name", "description", "type", "metric", "options", "tags"]
+        fields = [
+            "name", "description", "type", "metric", "dataset", "filter_tree", "agg", "measure", "period_field",
+            "options", "tags",
+        ]
         widgets = {
             "name": forms.TextInput(attrs={"class": "vTextField"}),
             "description": forms.Textarea(attrs={"rows": 2, "class": "vTextField"}),
             "options": forms.HiddenInput(),
+            "filter_tree": forms.HiddenInput(),
+            "dataset": forms.Select(attrs={"class": "vTextField", "id": "cb-dataset"}),
+            "agg": forms.Select(attrs={"class": "vTextField", "id": "cb-agg"}),
+            "measure": forms.HiddenInput(attrs={"id": "cb-measure"}),
+            "period_field": forms.HiddenInput(attrs={"id": "cb-period-field"}),
         }
 
     def __init__(self, *args: Any, user: Any = None, **kwargs: Any) -> None:
@@ -569,8 +582,24 @@ class ComponentForm(_OwnedForm):
         if current and current not in dict(types):
             types.append((current, f"{current} (unavailable)"))
         self.fields["type"].widget = forms.Select(choices=types)
-        self.fields["metric"].required = False
-        self.fields["options"].required = False
+        for name in ("metric", "options", "dataset", "filter_tree", "agg", "measure", "period_field"):
+            self.fields[name].required = False
+        datasets = readable_datasets(user)
+        current_ds = self.instance.dataset or (self.initial.get("dataset") or "")
+        if current_ds and current_ds not in dict(datasets):
+            datasets.append((current_ds, f"{current_ds} (unavailable)"))
+        self.fields["dataset"].widget.choices = [("", "Choose a dataset…"), *datasets]
+        self.fields["agg"].widget.choices = [(k, label) for k, label in ALL_AGGS if k != "latest"]
+
+    def clean_filter_tree(self) -> Any:
+        tree = self.cleaned_data.get("filter_tree")
+        return tree if isinstance(tree, dict) else {}
+
+    def clean_dataset(self) -> str:
+        key = self.cleaned_data.get("dataset") or ""
+        if key and key not in dict(readable_datasets(self.user)):
+            raise forms.ValidationError("Pick a dataset you can read.")
+        return key
 
     def clean_type(self) -> str:
         from .components import get_component_type
@@ -587,9 +616,11 @@ class ComponentForm(_OwnedForm):
 
 def builder_payload(user: Any, owner_id: Any) -> dict[str, Any]:
     """What the component builder offers *user*: the card types (with the
-    dataset capabilities each needs), the metrics a card owned by *owner_id*
-    may draw (shared ones and the owner's) with their datasets' capabilities,
-    and — for staff — the published widgets."""
+    dataset capabilities each needs), the datasets *user* may filter (with
+    their capabilities), the metrics a card owned by *owner_id* may draw
+    (shared ones and the owner's) with their datasets' capabilities and their
+    definitions (a chart can start from a metric's filter), and — for staff —
+    the published widgets."""
     from apps.datasets.capabilities import REASONS, capabilities
     from apps.datasets.core import get_dataset
 
@@ -599,30 +630,64 @@ def builder_payload(user: Any, owner_id: Any) -> dict[str, Any]:
     payload["types"] = [t for t in payload["types"] if not t.get("staff_only") or getattr(user, "is_staff", False)]
     from django.db.models import Q
 
+    caps: dict[str, list[str]] = {}
+
+    def caps_of(key: str) -> list[str]:
+        if key not in caps:
+            ds = get_dataset(key)
+            try:
+                caps[key] = sorted(capabilities(ds.schema())) if ds is not None else []
+            except Exception:  # noqa: BLE001 — a broken dataset greys its cards out, it doesn't break the page
+                caps[key] = []
+        return caps[key]
+
+    payload["datasets"] = [
+        {"key": key, "label": label, "caps": caps_of(key), "access": _dataset_access(key)}
+        for key, label in readable_datasets(user)
+    ]
     allowed = Q(owner__isnull=True) | Q(owner_id=owner_id) if owner_id else Q(owner__isnull=True)
     metrics = Metric.objects.visible_to(user).active().filter(allowed)
-    caps: dict[str, list[str]] = {}
     out = []
     for m in metrics.order_by("name"):
-        if m.dataset not in caps:
-            ds = get_dataset(m.dataset)
-            try:
-                caps[m.dataset] = sorted(capabilities(ds.schema())) if ds is not None else []
-            except Exception:  # noqa: BLE001 — a broken dataset greys its cards out, it doesn't break the page
-                caps[m.dataset] = []
+        caps_of(m.dataset)
+        # Hand-entered values and rates have dates but nothing to group by. A
+        # date column is only any use to a chart over time when the metric is
+        # read over it: the period field, set on the metric's form.
+        dataset_caps = caps[m.dataset] if m.source == SOURCE_DATASET else ["date"]
         out.append(
             {
                 "key": m.key,
                 "name": m.name,
                 "dataset": m.dataset,
-                # Hand-entered values and rates have dates but nothing to group by.
-                "caps": caps[m.dataset] if m.source == SOURCE_DATASET else ["date"],
+                "caps": dataset_caps if m.period_field else [c for c in dataset_caps if c != "date"],
+                "no_period": "date" in dataset_caps and not m.period_field,
+                "edit_url": reverse("dashboards/metrics-update", kwargs={"pk": m.pk}) if m.can_edit(user) else "",
                 "shared": m.owner_id is None,
                 "thresholds": m.thresholds or [],
                 "format": m.format,
                 "unit": m.unit,
+                # Its definition, for a card that starts from this metric's filter
+                # and goes on to filter the dataset itself (a chart).
+                "definition": {
+                    "dataset": m.dataset,
+                    "filter_tree": m.filter_tree or {},
+                    "agg": m.agg,
+                    "measure": m.measure,
+                    "period_field": m.period_field,
+                }
+                if m.source == SOURCE_DATASET
+                else None,
             }
         )
     payload["metrics"] = out
     payload["reasons"] = dict(REASONS)  # why a design is dimmed: "needs a date column"
+    payload["aggs"] = [[k, label] for k, label in ALL_AGGS if k != "latest"]
     return payload
+
+
+def _dataset_access(key: str) -> str:
+    """"staff" or "auth": who may read the dataset, for the picker's note."""
+    from apps.datasets.registry import get_def
+
+    dfn = get_def(key)
+    return str(getattr(dfn, "access", "") or "") if dfn is not None else ""

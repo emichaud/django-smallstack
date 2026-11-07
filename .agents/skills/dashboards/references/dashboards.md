@@ -131,13 +131,30 @@ current setting.
 [
   {"id": "intro", "type": "text", "x": 0, "y": 0, "w": 12, "h": 1, "options": {"markdown": "**Support desk**"}},
   {"id": "open",  "type": "metric", "metric": "open_urgent", "x": 0, "y": 1, "w": 3, "h": 2},
-  {"id": "byq",   "type": "metric_group", "metric": "open_tickets", "x": 3, "y": 1, "w": 6, "h": 2,
+  {"id": "byq",   "type": "metric_group", "x": 3, "y": 1, "w": 6, "h": 2,
+   "dataset": "tickets", "filter_tree": {"field": "status", "op": "=", "value": "open"}, "agg": "count", "period_field": "created_at",
    "options": {"dimension": "queue", "limit": 5, "other": true}},
   {"id": "users", "type": "widget", "x": 9, "y": 1, "w": 3, "h": 2,
    "options": {"widget": "apps.api.dashboard_widgets.APIDashboardWidget"}},
   {"id": "mtd",   "type": "metric", "metric": "open_urgent", "use_period": false, "x": 0, "y": 3, "w": 3, "h": 2}
 ]
 ```
+
+**Where a card's numbers come from.** A card that draws data has one of two
+sources, and `normalize_layout` holds every surface (page, REST, MCP) to the
+rule. **A dataset it filters itself:** `dataset` + `filter_tree` + `agg` /
+`measure` + `period_field`, the definition a metric holds, kept on the card
+(`components.SOURCE_KEYS`); any design. **A saved metric:** `metric` = its key;
+only a design whose `single_value` is true (the single stat), because a metric
+is a filtered result rolled up to one number and a chart needs the rows. One
+exception: a metric with no dataset to filter (entered by hand, a rate) may be
+charted as it is. A card with its own source formats itself through
+`options.style` (`format`, `unit`) and `options.thresholds`; a card over a
+metric inherits those from the metric. A chart that started life over a metric
+(before v0.30) was given a copy of the metric's definition by the migration and
+no longer follows edits to the metric. `components.cell_source(cell)` resolves
+either kind to a `Metric` (an unsaved one for a card's own source, `is_inline`),
+so `evaluate`, `metric_trend`, `group_values` and the drill-down take both.
 
 12-column grid (gridstack.js, vendored); `w` 1–12, `h` 1–12 rows of 70px;
 `x + w ≤ 12`. `id`, `w`, `h`, `x`, `y` may be omitted (the size from the type's
@@ -151,8 +168,8 @@ The starter also ships three library-free charts in `apps/website/dashboard_card
 
 | `type` | Shows | Options |
 |---|---|---|
-| `metric` | one stat card — the exact `{% stat_card %}` markup; click → the rows behind it | — |
-| `metric_group` | the metric split by a column: top N groups, biggest first, each drilling into its rows and showing its change from the previous period; an `Other` folds the tail for additive aggs (count/sum) only | `dimension` (req), `limit` 1–12, `other` |
+| `metric` | one stat card — the exact `{% stat_card %}` markup; click → the rows behind it. Over a saved metric (`metric`) or the card's own filter | — |
+| `metric_group` | the card's filtered rows split by a column: top N groups, biggest first, each drilling into its rows and showing its change from the previous period; an `Other` folds the tail for additive aggs (count/sum) only | `dimension` (req), `limit` 1–12, `other` |
 | `widget` | an existing `DashboardWidget` from `/smallstack/` (staff only) | `widget` (class path — `list_dashboard_components` lists them) |
 | `text` | markdown (rendered by the hardened `render_markdown`; raw HTML is escaped) | `markdown` (required) |
 | `goals` | a goal list's summary and first goals | `goal_list`, `limit`, `order` |
@@ -162,8 +179,8 @@ The starter also ships three library-free charts in `apps/website/dashboard_card
 
 | Type | Label | Palette group | Draws |
 |---|---|---|---|
-| `metric` | Single stat | Stats | one metric's value, threshold state, drill-down |
-| `metric_group` | Grouped stat | Stats | a metric split by `options.dimension`: top N (+ "Other"), each value drillable |
+| `metric` | Single stat | Stats | one number (a saved metric, or the card's own filter), threshold state, drill-down; `single_value=True` |
+| `metric_group` | Grouped stat | Stats | the card's own filtered rows split by `options.dimension`: top N (+ "Other"), each value drillable |
 | `widget` | Info card | Info | a published `DashboardWidget` (the `/smallstack/` cards; staff only) |
 | `text` | Note | Info | markdown |
 
@@ -184,15 +201,19 @@ SmallStack, because SmallStack's built-in cards stay stats and info cards:
 from apps.dashboards.components import ComponentType, cell_title, register_component_type
 from apps.dashboards.trends import metric_trend
 
-def build_trend(cell, ctx):                # ctx: CellContext(request, dashboard, metric, period)
+def build_trend(cell, ctx):                # ctx: CellContext(request, dashboard, metric, period, rows_url)
+    # ctx.metric is the card's source as a Metric: the saved one it names, or an unsaved one
+    # built from the card's own dataset + filter (cell_source). Evaluate it either way.
     trend = metric_trend(ctx.metric, ctx.request, ctx.period, cell["options"].get("grain"))
+    # Rows links go through rows_url(ctx, narrow=…, **drill_params(cell)): a card's own
+    # source has no metric page, so its rows open by its place on the dashboard.
     return {"label": cell_title(cell) or ctx.metric.name, "trend": trend}   # cell_title: placement or saved-card name
 
 register_component_type(ComponentType(
     key="trend", label="Trend chart", description="A metric over time",
     template="myapp/cells/trend.html", build=build_trend,
-    needs_metric=True, default_size=(6, 3),
-    requires=frozenset({"date"}),          # dataset capabilities; the builder dims the tile otherwise
+    needs_metric=True, default_size=(6, 3),  # draws data: a dataset the card filters (or, with single_value=True, a metric)
+    requires=frozenset({"date"}),          # dataset capabilities; the builder dims the tile otherwise ("date" also wants a period_field)
     validate=validate_trend,               # cell -> [problems]; runs on every save, every surface
     group="Charts",                        # the builder palette section
     icon="M3.5 18.5l6-6 4 4L22 6.92…",     # a 24x24 SVG path for the palette tile
@@ -206,7 +227,8 @@ register_component_type(ComponentType(
 
 **Option field types:** `choice`, `multichoice` (several of the choices, as a tick-list;
 stored as one comma-separated string), `integer`/`number`, `text`, `boolean`, `column` (a
-column of the metric's dataset), `widget` (a published info card) and `markdown`.
+column of the source's dataset; the builder clears it, saying so, when the dataset changes),
+`widget` (a published info card) and `markdown`.
 `choices` is `[[value, label]]`, or a callable `choices(user)` returning that when the
 values are rows the person can see (the Goals card's goal list, the Calendar card's
 calendars). Never ask someone to type a key: if an option names something that exists,
@@ -352,12 +374,25 @@ URLs did not move.
 
 ## Saved cards — `Component` and the component builder
 
-A **metric** is *what* number; a **component** is *how it's drawn*:
+A **metric** is *what* number; a **component** is *a filtered result and how it's drawn*:
 
 ```json
-{"name": "Requests by method", "type": "metric_group", "metric": "requests",
+{"name": "Requests by method", "type": "metric_group",
+ "dataset": "smallstack_requests", "filter_tree": {}, "agg": "count", "period_field": "timestamp",
  "options": {"dimension": "method", "limit": 5}, "visibility": "shared"}
+{"name": "Requests", "type": "metric", "metric": "requests", "options": {}}
 ```
+
+The builder's first step is the source: **a dataset, filtered here** (the dataset picker,
+the metric form's filter editor, the roll-up and the period column, over `ComponentForm`'s
+`dataset`/`filter_tree`/`agg`/`measure`/`period_field` fields; **Start from a metric's
+filter** copies a metric's definition in) or **a saved metric**. Picking a chart while on
+a metric switches to its dataset with the filter copied. Changing the dataset drops the
+column options and drill-down columns that aren't in the new one and names them
+(`cb-cleared`). An unsaved card's rows (the preview, the drill-down designer) are read by
+posting the definition: `dashboards/preview-rows/` (the modal fragment, with `narrow`,
+`drill`, `order`) and `dashboards/api/preview-rows/` (JSON). A placed card's own rows:
+`d/<slug>/cards/<cell_id>/rows/`.
 
 - **The key** is made from the name (`requests_by_method`) and is permanent.
 - **Opening a builder filled in:** the metric form takes `metrics/new/?dataset=<key>&filter_tree=<json>&agg=&measure=`
@@ -366,7 +401,9 @@ A **metric** is *what* number; a **component** is *how it's drawn*:
   With `then=card&card_type=&dimension=` the metric form continues to the component builder after saving, so a
   grouped roll-up becomes a card through a real, named metric rather than a hidden one.
 - **Validation:** a component is checked exactly as a one-cell layout is: a known type,
-  a metric the owner may use, and the type's own rules.
+  a source (its own, checked as a metric is; or a metric the owner may use, on a
+  single-value design), and the type's own rules. **Add to goals** needs a single stat
+  over a metric: a goal judges a metric, so a stat with its own filter is saved as one first.
 - **Placement:** a dashboard places it with `{"component": key}` (plus position,
   `title`, `use_period`). `normalize_layout` copies the design into the cell, so every
   consumer still reads a self-contained cell.
@@ -381,7 +418,12 @@ A **metric** is *what* number; a **component** is *how it's drawn*:
 `dashboards/card-preview/<pk>/` draws one saved card through `render_cell`, with the same access
 checks as a dashboard. The components page opens on the gallery (`ComponentCardsDisplay`, its
 `default_display`), which loads one per card on `revealed`; the table (`?display=library`) shows it on
-hover (`component-list.js`). Both page like every other list here. Previews are `inert`.
+hover (`component-list.js`). Both page like every other list here (15 a page, "Rows per page"),
+search by name/key/description/source, and narrow by tag and by three filters of the view's own
+(`ComponentCRUDView.filter_fields` + `apply_filter`, on the page and the REST list alike):
+`?dashboard=<slug>` (the cards a dashboard's layout names — its **Cards** button opens this),
+`?dataset=<key>` (cards over it, their own filter or their metric's) and `?type=<design>`.
+Previews are `inert`.
 
 ## A metric over time — `trends.metric_trend`
 
@@ -397,7 +439,8 @@ weeks, `[lo, hi)` bounds.
 - **Each point carries `narrow`**, the `[lo, hi)` filter for `m/<key>/rows/?narrow=`, so a bar
   opens exactly its rows. The rows modal drops its period links for a time-narrowed drill.
 - **The default grain fits the span:** days up to a month, weeks up to four months, months up to
-  two years. No period means the last 12 buckets with data.
+  two years, then quarters. No period means the last 12 buckets with data, the grain fitted to
+  the span of the data itself (`data_span`): a week of rows reads by day, three years by quarter.
 - **It needs a metric with a `period_field`.** Without one, `error` says so.
 
 ## Playlists — dashboards in a sequence (`playlists.py`)

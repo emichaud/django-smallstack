@@ -6,6 +6,7 @@ number inside one doesn't open its rows; the card's name goes to the builder.
 {% endcomment %}
 <link rel="stylesheet" href="{% static 'dashboards/css/dashboards.css' %}">
 {% for path in card_styles %}<link rel="stylesheet" href="{% static path %}">{% endfor %}
+{% include "dashboards/partials/component_scope.html" %}
 {% if rows %}
 <ul class="cc-grid">
     {% for r in rows %}{% with c=r.obj %}
@@ -29,6 +30,7 @@ number inside one doesn't open its rows; the card's name goes to the builder.
     </li>
     {% endwith %}{% endfor %}
 </ul>
+{% elif scope %}{# the scope line above says there are none #}
 {% elif has_active_filters %}
 {% include "smallstack/crud/includes/empty_state.html" %}
 {% else %}

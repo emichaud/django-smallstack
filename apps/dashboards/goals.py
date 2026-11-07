@@ -186,6 +186,12 @@ def normalize_sections(raw: Any, *, owner_id: Any) -> tuple[list[dict[str, Any]]
                 if ct is None or not ct.single_value:
                     problems.append(f"{where}.component: {card_key!r} isn't a one-number card (a single stat)")
                     continue
+                if not card.metric:
+                    problems.append(
+                        f"{where}.component: {card_key!r} filters a dataset of its own; a goal judges a metric, "
+                        "so save its filter as a metric first"
+                    )
+                    continue
                 if not _visible_to_owner(card.owner_id, owner_id):
                     problems.append(f"{where}.component: {personal_problem(card_key, 'card', owner_id)}")
                     continue

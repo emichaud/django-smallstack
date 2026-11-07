@@ -10,7 +10,7 @@
 <div class="page-header-bleed page-header-with-actions">
     <div class="page-header-content">
         <div class="title-with-help"><h1>{% if object %}Edit metric{% else %}New metric{% endif %}</h1>{% help_bubble "dashboards" "metric" %}</div>
-        <p class="page-subtitle">One number: from a dataset, typed in by hand, or one metric divided by another. The preview updates as you build it.</p>
+        <p class="page-subtitle">One number to track: a filtered dataset rolled up to a single value, typed in by hand, or one metric divided by another. Give it a target in a goal list, colour rules for a KPI, and a place on any dashboard. The preview updates as you build it.</p>
         <nav style="margin-top: 0.5rem; font-size: 0.8rem;">
             <a href="{% url 'website:home' %}" style="color: var(--body-quiet-color); text-decoration: none;">Home</a>
             <span style="color: var(--body-quiet-color); margin: 0 0.3rem;">/</span>
@@ -135,7 +135,7 @@
                         <label for="{{ form.period_field.id_for_label }}">Period field</label>
                         {{ form.period_field }}
                         {% for e in form.period_field.errors %}<p class="crud-error">{{ e }}</p>{% endfor %}
-                        <p class="mb-help">The date column a dashboard's or report's period narrows. Leave it blank for a number that doesn't depend on time.</p>
+                        <p class="mb-help">The date column a dashboard's or report's period narrows, and that a trend chart buckets by. Leave it blank for a number that doesn't depend on time.</p>
                     </div>
                     <div class="mb-field" style="margin-bottom: 0.6rem;">
                         <span class="mf-label" id="mf-format-title">Format</span>

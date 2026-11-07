@@ -26,7 +26,7 @@ pages:
     category: "In short"
   - slug: component
     title: "What is a component?"
-    description: "A saved card: one design drawing one metric, built once and placed on any number of dashboards"
+    description: "A saved card: a dataset filtered for it, or a metric for a single number, drawn by one design, built once and placed on any number of dashboards"
     icon: "dashboard"
     category: "In short"
   - slug: dashboard

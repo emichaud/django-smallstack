@@ -163,7 +163,7 @@ def _snapshot(args: dict[str, Any]) -> dict[str, Any]:
 def _add_card(args: dict[str, Any]) -> dict[str, Any]:
     from django.core.exceptions import ValidationError
 
-    from .components import get_component_type, next_position
+    from .components import SOURCE_KEYS, get_component_type, next_position
 
     user = _user()
     dashboard = _dashboard(user, args.get("dashboard"))
@@ -202,7 +202,7 @@ def _add_card(args: dict[str, Any]) -> dict[str, Any]:
         placed_keys: tuple[str, ...] = ("title", "id")
     else:
         cell["type"] = ct.key
-        placed_keys = ("metric", "title", "options", "id")
+        placed_keys = ("metric", *SOURCE_KEYS, "title", "options", "id")
     for key in placed_keys:
         if args.get(key) not in (None, ""):
             cell[key] = args[key]
@@ -781,9 +781,13 @@ def register_dashboard_tools() -> int:
             "Append one card to a dashboard (at the end of the last row, or below it when it doesn't fit, unless "
             "x/y are given). Either "
             "component = a saved card's key (list_components; its design stays in step when the card is edited), "
-            "or an inline card: type from list_dashboard_components; metric = a metric key for metric/metric_group; "
+            "or an inline card: type from list_dashboard_components, plus its source. A card that draws data "
+            "filters a dataset of its own: dataset (list_datasets) + filter_tree (metric_preview's shape) + "
+            "agg/measure + period_field (the date column the period narrows and a chart buckets by). The one-number "
+            "design (type metric) may instead draw a saved metric: metric = its key. "
             'options per type (metric_group: {"dimension": "<column>", "limit": 5}; text: {"markdown": "..."}; '
-            'widget: {"widget": "<key>"}).',
+            'widget: {"widget": "<key>"}); a card with its own source formats itself through options.style '
+            "({format, unit}) and options.thresholds.",
             {
                 "type": obj,
                 "properties": {
@@ -793,7 +797,12 @@ def register_dashboard_tools() -> int:
                         "description": "A saved card's key, instead of type/metric/options.",
                     },
                     "type": {"type": "string"},
-                    "metric": {"type": "string"},
+                    "metric": {"type": "string", "description": "A saved metric's key: for type metric only."},
+                    "dataset": {"type": "string", "description": "The card's own source: a dataset key."},
+                    "filter_tree": {"type": "object", "description": "The card's own filter over its dataset."},
+                    "agg": {"type": "string", "description": "count | count_distinct | sum | avg | min | max."},
+                    "measure": {"type": "string", "description": "The column agg reads (not for count)."},
+                    "period_field": {"type": "string", "description": "The date column the period narrows."},
                     "title": {"type": "string"},
                     "options": {"type": "object"},
                     "w": {"type": "integer", "minimum": 1, "maximum": 12},
@@ -842,14 +851,20 @@ def register_dashboard_tools() -> int:
         ),
         (
             "card_preview",
-            "Render an UNSAVED card (dry run): {type, metric?, options?, name?, period?, visibility?} → "
-            "{html, problems}. Validated exactly as a dashboard cell; iterate until problems is empty, then "
-            "create_component with the same fields to save it.",
+            "Render an UNSAVED card (dry run): {type, its source (dataset + filter_tree + agg/measure/period_field, "
+            "or metric for a single stat), options?, name?, period?, visibility?} → {html, problems}. Validated "
+            "exactly as a dashboard cell; iterate until problems is empty, then create_component with the same "
+            "fields to save it.",
             {
                 "type": obj,
                 "properties": {
                     "type": {"type": "string"},
                     "metric": {"type": "string"},
+                    "dataset": {"type": "string"},
+                    "filter_tree": {"type": "object"},
+                    "agg": {"type": "string"},
+                    "measure": {"type": "string"},
+                    "period_field": {"type": "string"},
                     "options": {"type": "object"},
                     "name": {"type": "string"},
                     "period": {"type": "string"},

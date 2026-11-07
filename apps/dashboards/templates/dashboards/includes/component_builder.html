@@ -18,16 +18,95 @@ modal underneath.
 <form method="POST" class="crud-form{% if cb_mode != "page" %} cb-in-dialog{% endif %}" id="cb-form" novalidate{% if cb_action %} action="{{ cb_action }}"{% endif %}
       data-preview-url="{% url 'dashboards_api_card_preview' %}"
       data-schema-url="{% url 'dashboards_api_dataset_schema' 'DATASET' %}"
-      data-rows-url="{% url 'dashboards_api_metric_rows' 'KEY' %}">
+      data-rows-url="{% url 'dashboards_api_metric_rows' 'KEY' %}"
+      data-preview-rows-url="{% url 'dashboards_preview_rows' %}"
+      data-api-preview-rows-url="{% url 'dashboards_api_preview_rows' %}">
     {% csrf_token %}
     {% if form.non_field_errors %}<div class="crud-form-errors" role="alert">{% for e in form.non_field_errors %}<p class="crud-error">{{ e }}</p>{% endfor %}</div>{% endif %}
     {% if cell_errors %}<div class="crud-form-errors" role="alert">{% for e in cell_errors %}<p class="crud-error">{{ e }}</p>{% endfor %}</div>{% endif %}
     {{ form.options }}
+    {{ form.filter_tree }}
+    {{ form.measure }}
+    {{ form.period_field }}
     <div class="mb-grid">
         <div>
-            {# ── 1. Design ──────────────────────────────────────── #}
+            {# ── 1. Source ──────────────────────────────────────── #}
+            {% comment %}
+            A card that draws data filters a dataset of its own (any design) or draws a saved
+            metric (the one-number designs only). The dataset branch is the metric form's own
+            controls — the filter editor, the roll-up, the period column — over this card's
+            fields; cb_source is the builder's switch, not a field. Designs that draw nothing
+            (a note, an info card) hide the step.
+            {% endcomment %}
+            <div class="card mb-section" id="cb-source-card">
+                <div class="card-header"><h2 id="cb-source-title"><span class="mf-step">1</span>Where the numbers come from</h2></div>
+                <div class="card-body">
+                    <div class="cb-source-pick" role="radiogroup" aria-labelledby="cb-source-title">
+                        <label class="plf-check"><input type="radio" name="cb_source" value="dataset"> <span><strong>A dataset, filtered here.</strong> Any design: one number, a split, a chart. The filter belongs to this card.</span></label>
+                        <label class="plf-check"><input type="radio" name="cb_source" value="metric"> <span><strong>A saved metric.</strong> One number, as the metric defines it. Its format and colour rules come along, and the card can be a goal.</span></label>
+                    </div>
+                    <p class="mb-help cb-source-switched" id="cb-source-switched" hidden role="status"></p>
+
+                    <div id="cb-source-dataset" hidden>
+                        <div class="mb-field{% if form.dataset.errors %} has-error{% endif %}">
+                            <label for="cb-dataset">Dataset</label>
+                            {{ form.dataset }}
+                            {% for e in form.dataset.errors %}<p class="crud-error">{{ e }}</p>{% endfor %}
+                            <p class="mb-help" id="cb-dataset-help">{% if builder.datasets %}The table the card reads. Staff-only datasets show <em>restricted</em> to anyone else.{% else %}No dataset you can read is registered.{% endif %}</p>
+                        </div>
+                        {% if builder.metrics %}
+                        <div class="cb-start-from">
+                            <label for="cb-start-metric">Start from a metric's filter</label>
+                            <select id="cb-start-metric" class="vTextField"><option value="">Choose a metric…</option>{% for m in builder.metrics %}{% if m.definition %}<option value="{{ m.key }}">{{ m.name }}</option>{% endif %}{% endfor %}</select>
+                            <button type="button" class="btn-outline btn-sm" id="cb-start-copy" disabled>Copy its filter</button>
+                        </div>
+                        {% endif %}
+                        <div class="mb-field{% if form.filter_tree.errors %} has-error{% endif %}">
+                            <span class="mf-label">Filter</span>
+                            <div id="cb-tree"></div>
+                            {% for e in form.filter_tree.errors %}<p class="crud-error">{{ e }}</p>{% endfor %}
+                        </div>
+                        <div class="cb-rollup">
+                            <div class="mb-field{% if form.agg.errors %} has-error{% endif %}">
+                                <label for="cb-agg">Roll up as</label>
+                                {{ form.agg }}
+                                {% for e in form.agg.errors %}<p class="crud-error">{{ e }}</p>{% endfor %}
+                            </div>
+                            <div class="mb-field{% if form.measure.errors %} has-error{% endif %}" id="cb-measure-field">
+                                <label for="cb-measure-select">Of column</label>
+                                <select id="cb-measure-select" class="vTextField"></select>
+                                {% for e in form.measure.errors %}<p class="crud-error">{{ e }}</p>{% endfor %}
+                            </div>
+                            <div class="mb-field{% if form.period_field.errors %} has-error{% endif %}">
+                                <label for="cb-period-select">Period column</label>
+                                <select id="cb-period-select" class="vTextField"></select>
+                                {% for e in form.period_field.errors %}<p class="crud-error">{{ e }}</p>{% endfor %}
+                                <p class="mb-help">The date column the dashboard's period narrows, and a chart buckets by. Blank: the card ignores the period.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="cb-source-metric" hidden>
+                        <div class="mb-field{% if form.metric.errors %} has-error{% endif %}" id="cb-metric-field">
+                            <label for="cb-metric">Metric</label>
+                            <select id="cb-metric" name="{{ form.metric.html_name }}" class="vTextField">
+                                <option value="">Choose a metric…</option>
+                                {% for m in builder.metrics %}<option value="{{ m.key }}" data-shared="{{ m.shared|yesno:'1,0' }}"{% if m.key == form.metric.value %} selected{% endif %}>{{ m.name }}</option>{% endfor %}
+                            </select>
+                            {% for e in form.metric.errors %}<p class="crud-error">{{ e }}</p>{% endfor %}
+                            {% comment %}Shown when a design read over time (a trend chart) has a metric with no period field: that's set on the metric, not the card.{% endcomment %}
+                            <p class="crud-error" id="cb-metric-period" hidden>This metric has no period field, so it can't be read over time. <a id="cb-metric-period-link" href="">Set one in the metric's settings</a><span id="cb-metric-period-owner">Its owner can set one in the metric's settings</span>: the date column it is read over.</p>
+                            <p class="mb-help">{% if builder.metrics %}The number the card draws. <a href="{% url 'dashboards/metrics-create' %}">Build a new metric</a>.{% else %}No metrics yet. <a href="{% url 'dashboards/metrics-create' %}">Build one first</a>.{% endif %}</p>
+                        </div>
+                    </div>
+                    {% comment %}Options and drill-down columns that aren't in the data any more, dropped when the source changes.{% endcomment %}
+                    <p class="mb-help cb-cleared" id="cb-cleared" hidden role="status"></p>
+                </div>
+            </div>
+
+            {# ── 2. Design ──────────────────────────────────────── #}
             <div class="card mb-section">
-                <div class="card-header"><h2 id="cb-design-title"><span class="mf-step">1</span>Pick a design</h2></div>
+                <div class="card-header"><h2 id="cb-design-title"><span class="mf-step" id="cb-design-step">2</span>Pick a design</h2></div>
                 <div class="card-body">
                     {% with current=form.type.value|default:"metric" %}
                     <div class="cb-palette" role="radiogroup" aria-labelledby="cb-design-title">
@@ -50,23 +129,14 @@ modal underneath.
                     </div>
                     {% endwith %}
                     {% for e in form.type.errors %}<p class="crud-error">{{ e }}</p>{% endfor %}
-                    <p class="mb-help" style="margin-bottom: 0;">Designs your metric's data can't support are dimmed, with the reason. Apps can add designs of their own, such as charts.</p>
+                    <p class="mb-help" style="margin-bottom: 0;">Designs the source can't support are dimmed, with the reason. A saved metric suits the designs that show one number; a chart filters a dataset of its own. Apps can add designs, such as charts.</p>
                 </div>
             </div>
 
-            {# ── 2. What it shows ───────────────────────────────── #}
-            <div class="card mb-section">
-                <div class="card-header"><h2><span class="mf-step">2</span>What it shows</h2></div>
+            {# ── 3. What it shows ───────────────────────────────── #}
+            <div class="card mb-section" id="cb-options-card">
+                <div class="card-header"><h2><span class="mf-step" id="cb-options-step">3</span>What it shows</h2></div>
                 <div class="card-body">
-                    <div class="mb-field{% if form.metric.errors %} has-error{% endif %}" id="cb-metric-field">
-                        <label for="cb-metric">Metric</label>
-                        <select id="cb-metric" name="{{ form.metric.html_name }}" class="vTextField">
-                            <option value="">Choose a metric…</option>
-                            {% for m in builder.metrics %}<option value="{{ m.key }}" data-shared="{{ m.shared|yesno:'1,0' }}"{% if m.key == form.metric.value %} selected{% endif %}>{{ m.name }}</option>{% endfor %}
-                        </select>
-                        {% for e in form.metric.errors %}<p class="crud-error">{{ e }}</p>{% endfor %}
-                        <p class="mb-help">{% if builder.metrics %}The number the card draws. <a href="{% url 'dashboards/metrics-create' %}">Build a new metric</a>.{% else %}No metrics yet. <a href="{% url 'dashboards/metrics-create' %}">Build one first</a>.{% endif %}</p>
-                    </div>
                     <div id="cb-options" class="cb-options"></div>
                     <p class="mb-help" id="cb-no-options" hidden style="margin: 0;">This design has nothing else to set.</p>
                     {% for e in form.options.errors %}<p class="crud-error">{{ e }}</p>{% endfor %}
@@ -75,12 +145,12 @@ modal underneath.
 
             {# ── 3. Style (stylable types only) ─────────────────── #}
             <div class="card mb-section" id="cb-style-card" hidden>
-                <div class="card-header"><h2><span class="mf-step">3</span>Style it <span class="dash-muted" style="font-weight: 400; font-size: 0.85rem;">(optional)</span></h2></div>
+                <div class="card-header"><h2><span class="mf-step" id="cb-style-step">4</span>Style it <span class="dash-muted" style="font-weight: 400; font-size: 0.85rem;">(optional)</span></h2></div>
                 <div class="card-body">
                     <p class="cb-inherit" id="cb-inherit" hidden></p>
                     <div class="cb-style" id="cb-style"></div>
                     <h3 class="plf-h3" style="margin-top: 1rem;">Colour rules</h3>
-                    <label class="plf-check" style="margin-top: 0;"><input type="checkbox" id="cb-own-rules"> <span><strong>Override the metric's colour rules for this card.</strong> <span id="cb-rules-fallback"></span></span></label>
+                    <label class="plf-check" style="margin-top: 0;"><input type="checkbox" id="cb-own-rules"> <span><strong id="cb-rules-title">Colour rules for this card.</strong> <span id="cb-rules-fallback"></span></span></label>
                     <div id="cb-rules" class="cb-rules" hidden>
                         <div id="cb-rule-rows"></div>
                         <button type="button" class="mb-icon-btn" id="cb-rule-add">+ Add rule</button>
@@ -91,7 +161,7 @@ modal underneath.
 
             {# ── Drill-down (drillable types only) ──────────────── #}
             <div class="card mb-section" id="cb-drill-card" hidden>
-                <div class="card-header"><h2><span class="mf-step" id="cb-drill-step">4</span>Drill-down <span class="dash-muted" style="font-weight: 400; font-size: 0.85rem;">(optional)</span></h2></div>
+                <div class="card-header"><h2><span class="mf-step" id="cb-drill-step">5</span>Drill-down <span class="dash-muted" style="font-weight: 400; font-size: 0.85rem;">(optional)</span></h2></div>
                 <div class="card-body">
                     <p class="mb-help" style="margin-top: 0;">What opens when someone taps a number: the rows behind it. Its <strong>Download CSV</strong> uses the same columns.{% if cb_mode == "page" %} Tap the number in the preview to try it.{% endif %}</p>
                     <label class="plf-check"><input type="checkbox" id="cb-drill-own" aria-haspopup="dialog"> <span><strong>Choose the columns.</strong> Otherwise it shows the data's first six columns, as stored.</span></label>
@@ -106,14 +176,14 @@ modal underneath.
 
             {# ── Name ─────────────────────────────────────────────── #}
             <div class="card mb-section">
-                <div class="card-header"><h2><span class="mf-step" id="cb-name-step">4</span>{% if cb_mode == "cell" %}Title it{% else %}Name it{% endif %}</h2></div>
+                <div class="card-header"><h2><span class="mf-step" id="cb-name-step">5</span>{% if cb_mode == "cell" %}Title it{% else %}Name it{% endif %}</h2></div>
                 <div class="card-body">
                     {% if cb_mode == "cell" %}
                     {% comment %}A card of this dashboard only: a title, and the dashboard's own visibility (which decides the metrics it may draw).{% endcomment %}
                     <div class="mb-field">
                         <label for="{{ form.name.id_for_label }}">Title <span class="dash-muted">(optional)</span></label>
                         {{ form.name }}
-                        <p class="mb-help">Shown on the card. Leave it blank to use the metric's name.</p>
+                        <p class="mb-help">Shown on the card. Leave it blank to use the metric's name, or the dataset's.</p>
                     </div>
                     <input type="hidden" name="visibility" value="{{ cb_visibility }}">
                     {% else %}
@@ -169,7 +239,7 @@ modal underneath.
                 </div>
                 <div class="card-body">
                     <div class="cb-frame" id="cb-frame"{% if cb_mode != "page" %} inert{% endif %}>
-                        <div class="dash-cell" id="cb-preview" aria-live="polite"><p class="mb-help">Pick a design and a metric to see the card.</p></div>
+                        <div class="dash-cell" id="cb-preview" aria-live="polite"><p class="mb-help">Pick a source and a design to see the card.</p></div>
                     </div>
                     <ul class="cb-problems" id="cb-problems" role="alert"></ul>
                     {% if builder.used_on %}

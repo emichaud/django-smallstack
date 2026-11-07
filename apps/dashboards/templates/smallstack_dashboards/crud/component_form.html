@@ -2,22 +2,23 @@
 {% load static dashboard_tags %}
 {% load help_tags %}
 {% comment %}
-The component builder (ComponentCRUDView's form): pick a card design from the
-palette — every registered component type, grouped; an app's chart types
-appear here on their own — point it at a metric, set the type's options, watch
-the live preview (the same render_cell a dashboard uses), save. Placed on any
+The component builder (ComponentCRUDView's form): say where the numbers come
+from (a dataset filtered here, or a saved metric for a single number), pick a
+card design from the palette — every registered component type, grouped; an
+app's chart types appear here on their own — set the type's options, watch the
+live preview (the same render_cell a dashboard uses), save. Placed on any
 number of dashboards; an edit reaches all of them.
 {% endcomment %}
 
 {% block title %}{% if object %}{{ object.name }} — card{% else %}Component builder{% endif %}{% endblock %}
 {% block breadcrumbs %}{% endblock %}
-{% block extra_css %}<link rel="stylesheet" href="{% static 'dashboards/css/dashboards.css' %}">{% component_media %}{% endblock %}
+{% block extra_css %}<link rel="stylesheet" href="{% static 'dashboards/css/dashboards.css' %}"><link rel="stylesheet" href="{% static 'datasets/css/filter-tree.css' %}">{% component_media %}{% endblock %}
 
 {% block page_header %}
 <div class="page-header-bleed page-header-with-actions">
     <div class="page-header-content">
         <div class="title-with-help"><h1>{% if object %}Edit card{% else %}Component builder{% endif %}</h1>{% help_bubble "dashboards" "component" %}</div>
-        <p class="page-subtitle">Pick a design, point it at a metric, and save it as a card you can place on any dashboard.</p>
+        <p class="page-subtitle">Filter a dataset, or take a saved metric for a single number; pick a design; save it as a card you can place on any dashboard.</p>
         <nav style="margin-top: 0.5rem; font-size: 0.8rem;" aria-label="Breadcrumb">
             <a href="{% url 'website:home' %}" style="color: var(--body-quiet-color); text-decoration: none;">Home</a>
             <span style="color: var(--body-quiet-color); margin: 0 0.3rem;">/</span>
@@ -42,4 +43,4 @@ number of dashboards; an edit reaches all of them.
 {% include "dashboards/includes/component_builder.html" with cb_mode="page" %}
 {% endblock %}
 
-{% block extra_js %}<script src="{% static 'dashboards/js/component-builder.js' %}" defer></script>{% endblock %}
+{% block extra_js %}<script src="{% static 'datasets/js/filter-tree.js' %}" defer></script><script src="{% static 'dashboards/js/component-builder.js' %}" defer></script>{% endblock %}

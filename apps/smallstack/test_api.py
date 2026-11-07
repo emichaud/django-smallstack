@@ -546,12 +546,12 @@ class TestBuildFilterFieldsSpec:
         assert spec["status"] == ["exact"]
         assert spec["timestamp"] == ["exact", "gte", "lte", "gt", "lt"]
 
-    def test_unknown_field_gets_exact(self):
-        """Non-existent field name defaults to exact."""
-        spec = _build_filter_fields_spec(Heartbeat, ["nonexistent", "timestamp"])
-        assert isinstance(spec, dict)
-        assert spec["nonexistent"] == ["exact"]
-        assert spec["timestamp"] == ["exact", "gte", "lte", "gt", "lt"]
+    def test_a_name_that_is_not_a_column_is_left_to_apply_filter(self):
+        """A filter the view serves itself (``apply_filter``) names no column;
+        handing it to the FilterSet's Meta.fields would be refused."""
+        spec = _build_filter_fields_spec(Heartbeat, ["dashboard", "timestamp"])
+        assert spec == {"timestamp": ["exact", "gte", "lte", "gt", "lt"]}
+        assert _build_filter_fields_spec(Heartbeat, ["dashboard", "monitor_key"]) == ["monitor_key"]
 
     def test_empty_list_returns_empty(self):
         """Empty filter_fields returns empty list."""

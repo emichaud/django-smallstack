@@ -58,8 +58,9 @@ def test_series_grain_groups_by_calendar_bucket(history):
     days = ds.series("timestamp", grain="day")
     assert [r["value"] for r in days] == [1, 3, 2]  # chronological, empty days absent
     assert all(r["lo"] < r["hi"] for r in days)
+    # A bucket is one calendar day, which is 23 or 25 hours when the clocks change.
     first = datetime.fromisoformat(days[0]["lo"])
-    assert datetime.fromisoformat(days[0]["hi"]) - first == timedelta(days=1)
+    assert datetime.fromisoformat(days[0]["hi"]).date() - first.date() == timedelta(days=1)
     assert days[-1]["label"].startswith(timezone.localtime().strftime("%b"))
 
 
@@ -108,6 +109,20 @@ def test_default_grain_fits_the_span():
     assert default_grain(d, d + timedelta(days=365)) == "month"
     assert default_grain(d, d + timedelta(days=1000)) == "quarter"
     assert default_grain(None, None) == "month"
+
+
+def test_all_time_fits_its_buckets_to_the_data(staff, history):
+    """No period has no span to fit, so the trend fits the data's: a week of
+    rows reads by day (3 buckets with data, not one month bar); a chosen grain
+    still wins; a metric whose filter matches nothing keeps the month default."""
+    m = _metric(key="m_all", period_field="timestamp")
+    t = metric_trend(m, request_for(staff))
+    assert t["ok"] and t["grain"] == "day" and [p["value"] for p in t["points"]] == [1, 3, 2]
+    assert metric_trend(m, request_for(staff), grain="week")["grain"] == "week"
+    _at(400, 1)
+    assert metric_trend(m, request_for(staff))["grain"] == "month"  # a year and change of data
+    m.filter_tree = {"field": "method", "op": "eq", "value": "DELETE"}
+    assert metric_trend(m, request_for(staff))["grain"] == "month"
 
 
 def test_trend_over_rest_and_mcp(client, staff, history):

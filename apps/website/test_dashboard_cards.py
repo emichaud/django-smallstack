@@ -10,6 +10,7 @@ from django.core.exceptions import ValidationError
 from apps.activity.models import RequestLog
 from apps.dashboards.components import describe_types, get_component_type
 from apps.dashboards.models import Dashboard, Metric
+from apps.dashboards.tests.support import own
 from apps.datasets.registry import dataset
 
 pytestmark = pytest.mark.django_db
@@ -39,11 +40,14 @@ def metric():
 
 
 def _board(cell_options: dict) -> Dashboard:
+    # A chart filters a dataset of its own: the metric's definition, as the card's.
     d = Dashboard(
         name="Trends",
         slug="wc-trends",
         default_period="last_7",
-        layout=[{"id": "t", "type": "trend", "metric": "wc_req", "w": 6, "h": 3, "options": cell_options}],
+        layout=[
+            {"id": "t", "type": "trend", **own("wc_req"), "title": "Requests", "w": 6, "h": 3, "options": cell_options}
+        ],
     )
     d.save()
     return d
@@ -61,7 +65,7 @@ def test_trend_card_renders_bars_that_open_their_rows(client, staff, metric):
     html = client.get("/smallstack/dashboards/d/wc-trends/cells/t/").content.decode()
     assert html.count('<button type="button" class="trend-col') == 7  # last 7 days, one button per day
     assert "trend-col--partial" in html and 'data-stat-modal="Requests, ' in html
-    assert "/smallstack/dashboards/m/wc_req/rows/?narrow=" in html
+    assert "/smallstack/dashboards/d/wc-trends/cards/t/rows/?narrow=" in html  # its own rows, by its place
     assert "<caption>Requests, last 7 days, by day</caption>" in html  # the screen-reader table
 
 
@@ -78,10 +82,32 @@ def test_trend_cell_is_validated_on_save(metric):
         _board({"grain": "hourly"})
 
 
-def test_trend_card_explains_a_metric_without_a_period_field(client, staff, metric):
+def test_trend_card_needs_a_period_column(client, staff, metric):
+    """A trend buckets its rows by the card's period column (the date column it
+    is read over): without one the save is refused, saying so, and a card that
+    already exists says the same rather than drawing nothing."""
     Metric.objects.filter(key="wc_req").update(period_field="")
-    _board({})
-    assert "no period field" in client.get("/smallstack/dashboards/d/wc-trends/cells/t/").content.decode()
+    with pytest.raises(ValidationError, match="needs a period column: the date column it is read over"):
+        _board({})
+    Metric.objects.filter(key="wc_req").update(period_field="timestamp")
+    board = _board({})
+    board.layout[0]["period_field"] = ""
+    Dashboard.objects.filter(pk=board.pk).update(layout=board.layout)
+    html = client.get("/smallstack/dashboards/d/wc-trends/cells/t/").content.decode()
+    assert "no period field, so it can&#x27;t be read over time" in html
+
+
+def test_trend_card_draws_a_hand_entered_metric_as_it_is(client, staff, metric):
+    """A chart filters a dataset of its own — except over a metric with no
+    dataset to filter (entered by hand, a rate), whose values are the only rows
+    there are. Over a metric read from a dataset it's refused."""
+    Metric.objects.create(key="wc_manual", name="Signups", source="manual", period_field="date")
+    board = _board({})
+    board.layout[0] = {"id": "t", "type": "trend", "metric": "wc_manual", "w": 6, "h": 3, "options": {}}
+    board.full_clean()
+    board.layout[0]["metric"] = "wc_req"
+    with pytest.raises(ValidationError, match="filters a dataset of its own"):
+        board.full_clean()
 
 
 def test_dashboard_starter_page_embeds_a_dashboard(client, staff, metric):

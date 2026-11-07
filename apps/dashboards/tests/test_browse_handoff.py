@@ -12,6 +12,7 @@ from django.contrib.auth import get_user_model
 from django.urls import reverse
 
 from apps.dashboards.models import Component, Metric
+from apps.dashboards.tests.support import own_post
 
 pytestmark = pytest.mark.django_db
 
@@ -141,19 +142,22 @@ def test_component_builder_prefills_from_a_metric(client, staff):
     resp = client.get(CARD, {"metric": "errors", "type": "metric_group", "dimension": "method"})
     assert resp.status_code == 200
     initial = resp.context["form"].initial
-    assert initial["metric"] == "errors" and initial["type"] == "metric_group"
+    # A split filters a dataset of its own: it starts from the metric's definition, not the metric.
+    assert "metric" not in initial and initial["type"] == "metric_group"
+    assert initial["dataset"] == "smallstack_requests" and initial["filter_tree"] == {} and initial["agg"] == "count"
     assert initial["options"] == {"dimension": "method"}
     assert initial["name"] == "Errors by Method"
     html = resp.content.decode()
     assert 'value="metric_group" checked' in html
     assert "&quot;dimension&quot;: &quot;method&quot;" in html  # the hidden options JSON the builder reads
-    # A single-stat card takes no dimension; an unknown column is dropped; the name follows.
+    # A single-stat card draws the metric itself, takes no dimension; an unknown column is dropped; the name follows.
     resp = client.get(CARD, {"metric": "errors", "type": "metric", "dimension": "method"})
     initial = resp.context["form"].initial
-    assert initial["type"] == "metric" and "options" not in initial and initial["name"] == "Errors"
+    assert initial["type"] == "metric" and initial["metric"] == "errors"
+    assert "options" not in initial and initial["name"] == "Errors"
     resp = client.get(CARD, {"metric": "errors", "type": "pie", "dimension": "nope"})
     initial = resp.context["form"].initial
-    assert "options" not in initial and initial["name"] == "Errors"
+    assert initial["options"] == {} and initial["name"] == "Errors" and initial["dataset"] == "smallstack_requests"
     # A metric the person can't see (someone else's personal one; staff see all) is not prefilled.
     other = User.objects.create_user(username="other", password="pw-123456")
     Metric.objects.create(name="Mine", key="mine", dataset="smallstack_requests", agg="count", owner=other)
@@ -162,14 +166,14 @@ def test_component_builder_prefills_from_a_metric(client, staff):
     if resp.status_code == 200:
         assert "metric" not in resp.context["form"].initial
     client.force_login(staff)
-    # And the whole thing saves as a card drawing the metric.
+    # And the whole thing saves as a card with the metric's filter as its own.
     resp = client.post(
         CARD,
-        {"name": "Errors by method", "type": "metric_group", "metric": "errors", "options": '{"dimension": "method"}'},
+        {"name": "Errors by method", "type": "metric_group", **own_post("errors"), "options": '{"dimension":"method"}'},
     )
     assert resp.status_code == 302
     card = Component.objects.get(key="errors_by_method")
-    assert card.metric == "errors" and card.options["dimension"] == "method"
+    assert card.metric == "" and card.dataset == "smallstack_requests" and card.options["dimension"] == "method"
 
 
 def test_metric_page_links_to_the_card_builder(client, staff):

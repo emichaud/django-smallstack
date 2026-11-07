@@ -17,6 +17,7 @@ from django.template import Context, Template
 
 from apps.dashboards.components import cell_title, component_media, describe_types, normalize_layout
 from apps.dashboards.models import Component, Dashboard, Metric
+from apps.dashboards.tests.support import own, own_post
 
 pytestmark = pytest.mark.django_db
 
@@ -39,11 +40,13 @@ def metric():
 
 
 def _card(**kw) -> Component:
+    # A split filters a dataset of its own; a card given a metric (or a dataset) keeps that.
+    source = {} if "metric" in kw or "dataset" in kw else own("cb_requests")
     c = Component(
         **{
             "name": "Requests by method",
             "type": "metric_group",
-            "metric": "cb_requests",
+            **source,
             "options": {"dimension": "method"},
             **kw,
         }
@@ -101,7 +104,7 @@ def test_a_card_gets_a_key_from_its_name_and_is_checked_like_a_cell(metric):
     with pytest.raises(ValidationError, match="type"):
         _card(name="x", type="sparkle")
     with pytest.raises(ValidationError, match="no metric"):
-        _card(name="y", metric="ghost")
+        _card(name="y", type="metric", metric="ghost")
     with pytest.raises(ValidationError, match="dimension"):
         _card(name="z", options={})
     assert _card(name="Note", type="text", metric="cb_requests", options={"markdown": "hi"}).metric == ""
@@ -122,7 +125,7 @@ def test_a_placement_takes_its_design_from_the_card(metric):
     layout, problems = normalize_layout([{"component": card.key, "w": 6}])
     assert problems == []
     cell = layout[0]
-    assert (cell["type"], cell["metric"], cell["options"]["dimension"]) == ("metric_group", "cb_requests", "method")
+    assert (cell["type"], cell["dataset"], cell["options"]["dimension"]) == ("metric_group", DS, "method")
     assert cell["component"] == card.key and cell_title(cell) == "Requests by method"
     # A placement may retitle it, but not redesign it.
     layout, _ = normalize_layout([{"component": card.key, "title": "By method", "type": "metric", "metric": "x"}])
@@ -164,9 +167,28 @@ def test_the_builder_page(client, staff, metric):
     assert {"key": "cb_requests", "name": "Requests", "dataset": DS, "shared": True}.items() <= data["metrics"][
         0
     ].items()
-    assert "date" in data["metrics"][0]["caps"] and data["reasons"]["date"] == "needs a date column"
+    assert data["reasons"]["date"] == "needs a date column"
+    assert data["metrics"][0]["edit_url"].endswith("/edit/")  # staff may edit a shared metric
     assert '<input type="hidden" name="options"' in html and "dash-json" not in html
     assert 'value="trend"' in html  # an app's chart type is in the palette with no builder changes
+
+
+def test_the_builder_says_where_a_period_field_is_set(client, staff, metric):
+    """A metric with no period field can't be drawn over time, however many date
+    columns its dataset has. The builder dims the trend chart for it and the page
+    carries the note that points at the metric's form, since the card has no
+    such field."""
+
+    def payload():
+        html = client.get("/smallstack/dashboards/components/new/").content.decode()
+        return html, json.loads(html.split('id="cb-data" type="application/json">', 1)[1].split("</script>", 1)[0])
+
+    html, data = payload()  # the fixture's metric has no period field
+    assert "date" not in data["metrics"][0]["caps"] and data["metrics"][0]["no_period"] is True
+    assert 'id="cb-metric-period" hidden' in html and "Set one in the metric's settings" in html
+    Metric.objects.filter(key="cb_requests").update(period_field="timestamp")
+    html, data = payload()
+    assert "date" in data["metrics"][0]["caps"] and data["metrics"][0]["no_period"] is False
 
 
 def test_the_builder_saves_a_card(client, staff, metric):
@@ -176,7 +198,7 @@ def test_the_builder_saves_a_card(client, staff, metric):
             "name": "Requests by method",
             "description": "",
             "type": "metric_group",
-            "metric": "cb_requests",
+            **own_post("cb_requests"),
             "options": json.dumps({"dimension": "method", "limit": 4}),
             "visibility": "shared",
         },
@@ -184,20 +206,85 @@ def test_the_builder_saves_a_card(client, staff, metric):
     assert response.status_code == 302, response.content.decode()[:1500]
     card = Component.objects.get()
     assert (card.key, card.options["limit"], card.created_by) == ("requests_by_method", 4, staff)
+    assert (card.metric, card.dataset, card.agg) == ("", DS, "count")
+
+
+def test_a_split_or_a_chart_filters_a_dataset_of_its_own(client, staff, metric):
+    """The rule: a metric is one number, so only a single-value design may draw
+    one; a grouped stat or a chart carries its own dataset and filter. The
+    builder refuses the other way round, saying so, and a card's own source is
+    checked as a metric is (the dataset must exist, the columns be real)."""
+    bad = client.post(
+        "/smallstack/dashboards/components/new/",
+        {"name": "By method", "type": "metric_group", "metric": "cb_requests", "options": '{"dimension": "method"}'},
+    ).content.decode()
+    assert "a Grouped stat card filters a dataset of its own" in bad
+    bad = client.post(
+        "/smallstack/dashboards/components/new/",
+        {"name": "By method", "type": "metric_group", "dataset": DS, "agg": "sum", "measure": "nope", "options": "{}"},
+    ).content.decode()
+    assert "not a column of this dataset" in bad
+    # A single stat may draw a metric, or a dataset of its own; it can't have both.
+    with_both = Component(name="Both", type="metric", metric="cb_requests", **own("cb_requests"))
+    with_both.save()
+    assert with_both.metric == "cb_requests" and with_both.dataset == ""
+    own_stat = Component(name="Mine", type="metric", **own("cb_requests"), options={"style": {"unit": "req"}})
+    own_stat.save()
+    assert own_stat.as_cell()["dataset"] == DS and "metric" not in own_stat.as_cell()
+    with pytest.raises(ValidationError, match="needs a source"):
+        Component(name="Nothing", type="metric").save()
+    # A note draws nothing: a saved card drops either, a layout refuses it.
+    assert Component(name="Note", type="text", dataset=DS, options={"markdown": "x"}).as_cell().get("dataset") == DS
+    _, problems = normalize_layout([{"type": "text", "dataset": DS, "options": {"markdown": "x"}}])
+    assert any("draws no data, so it takes no dataset" in p for p in problems)
+
+
+def test_a_card_with_its_own_source_draws_and_opens_its_rows(client, staff, metric):
+    """Placed on a dashboard, a card with its own source renders through the
+    same build as one over a metric, formats itself from its style, and opens
+    its rows by its place on the dashboard (it has no metric page)."""
+    board = Dashboard(
+        name="Own",
+        slug="own",
+        layout=[
+            {"id": "s", "type": "metric", **own("cb_requests"), "options": {"style": {"unit": "req"}}, "title": "Hits"},
+            {"id": "g", "type": "metric_group", **own("cb_requests"), "options": {"dimension": "method"}},
+        ],
+    )
+    board.save()
+    stat = client.get("/smallstack/dashboards/d/own/cells/s/").content.decode()
+    assert "Hits" in stat and "req" in stat and "/smallstack/dashboards/d/own/cards/s/rows/" in stat
+    group = client.get("/smallstack/dashboards/d/own/cells/g/").content.decode()
+    rows_url = "/smallstack/dashboards/d/own/cards/g/rows/"
+    assert f"{rows_url}?narrow=" in group and 'class="dash-cell-title">Requests<' in group
+    rows = client.get(rows_url, {"narrow": '{"field": "method", "op": "=", "value": "GET"}'})
+    html = rows.content.decode()
+    assert rows.status_code == 200 and "Narrowed to" in html and "Open the metric" not in html
+    assert client.get(rows_url, {"format": "csv"})["Content-Disposition"].endswith('"card-rows.csv"')
+    assert client.get("/smallstack/dashboards/d/own/cards/nope/rows/").status_code == 404
+    values = client.get("/smallstack/dashboards/api/boards/own/values/").json()["cells"]
+    assert values[0]["dataset"] == DS and values[0]["result"]["display"]
 
 
 def test_the_preview_renders_the_card_and_explains_problems(client, staff, metric):
     ok = client.post(
         "/smallstack/dashboards/api/card-preview/",
         data=json.dumps(
-            {"type": "metric_group", "metric": "cb_requests", "options": {"dimension": "method"}, "name": "By method"}
+            {"type": "metric_group", **own("cb_requests"), "options": {"dimension": "method"}, "name": "By method"}
         ),
         content_type="application/json",
     ).json()
     assert ok["problems"] == [] and "By method" in ok["html"]
+    # Its rows open through the preview route: the builder posts the definition.
+    stat = client.post(
+        "/smallstack/dashboards/api/card-preview/",
+        data=json.dumps({"type": "metric", **own("cb_requests"), "name": "Hits"}),
+        content_type="application/json",
+    ).json()
+    assert "/smallstack/dashboards/preview-rows/" in stat["html"]
     bad = client.post(
         "/smallstack/dashboards/api/card-preview/",
-        data=json.dumps({"type": "metric_group", "metric": "cb_requests"}),
+        data=json.dumps({"type": "metric_group", **own("cb_requests")}),
         content_type="application/json",
     ).json()
     assert bad["html"] == "" and any("dimension" in p for p in bad["problems"])
@@ -237,6 +324,58 @@ def test_the_components_list(client, staff, metric):
     assert "Requests by method" in html and "1 dashboard<" in html and "Grouped stat" in html
 
 
+def test_the_components_list_narrows_by_dashboard_dataset_and_design(client, staff, metric):
+    """A library of hundreds is found by where its numbers come from and where
+    it's shown: a dataset (the card's own, or its metric's), a design, a
+    dashboard — three dropdowns of the page's own, and the same params on REST."""
+    by_method = _card(name="By method")
+    stat = _card(name="Requests stat", type="metric", metric=metric.key, options={})
+    Metric(key="cb_logs", name="Log lines", dataset="smallstack_log_records").save()
+    logs = _card(name="Log lines", type="metric", metric="cb_logs", options={})
+    Dashboard(
+        name="Ops", slug="ops", layout=[{"component": by_method.key}, {"type": "metric", "metric": metric.key}]
+    ).save()
+    Dashboard(name="Quiet", slug="quiet", layout=[]).save()
+    url = "/smallstack/dashboards/components/?display=library"
+
+    html = " ".join(client.get(url).content.decode().split())
+    assert (
+        '<select name="dashboard"' in html and '<option value="ops"> Ops <' in html and '<option value="quiet"' in html
+    )
+    assert '<select name="dataset"' in html and "> Requests </option>" in html and "> Log records </option>" in html
+    assert '<select name="type"' in html and "> Grouped stat </option>" in html and "> Single stat </option>" in html
+    assert "> Trend chart </option>" not in html  # a design none of the cards use isn't offered
+
+    def names(query: str) -> set[str]:
+        page = client.get(f"{url}&{query}").content.decode()
+        return {n for n in ("By method", "Requests stat", "Log lines") if f'class="cl-name">{n}<' in page}
+
+    assert names("dashboard=ops") == {"By method"}  # the metric placed directly isn't a saved card
+    assert names("dashboard=quiet") == set() and names("dashboard=nope") == set()
+    assert names("dataset=smallstack_requests") == {"By method", "Requests stat"}  # its own, or its metric's
+    assert names("dataset=smallstack_log_records") == {"Log lines"}
+    assert names("type=metric") == {"Requests stat", "Log lines"}
+    assert names("type=metric&dataset=smallstack_requests") == {"Requests stat"}
+
+    page = client.get(f"{url}&dashboard=ops").content.decode()
+    assert "The 1 saved card on" in page and 'href="/smallstack/dashboards/d/ops/"' in page and "All components" in page
+    page = client.get(f"{url}&dashboard=quiet").content.decode()
+    assert "No saved cards on" in page and "No components" not in page
+    assert (
+        'href="/smallstack/dashboards/components/?dashboard=ops"'
+        in client.get("/smallstack/dashboards/d/ops/").content.decode()
+    )
+
+    # REST: the same three params.
+    rows = client.get("/smallstack/api/dashboards/components/?dashboard=ops").json()["results"]
+    assert [r["name"] for r in rows] == ["By method"]
+    rows = client.get("/smallstack/api/dashboards/components/?dataset=smallstack_requests&type=metric").json()[
+        "results"
+    ]
+    assert [r["name"] for r in rows] == ["Requests stat"]
+    assert stat.pk and logs.pk
+
+
 def test_the_components_list_is_a_sortable_resizable_table(client, staff, metric):
     _card(name="Bravo", type="metric", options={})
     _card(name="Alpha", type="text", metric="", options={"markdown": "hi"})
@@ -252,7 +391,8 @@ def test_the_components_list_is_a_sortable_resizable_table(client, staff, metric
     assert order("ordering=name") == ["Alpha", "Bravo", "Charlie"]
     assert order("ordering=-name") == ["Charlie", "Bravo", "Alpha"]
     assert order("ordering=type") == ["Bravo", "Charlie", "Alpha"]  # metric, metric_group, text
-    assert order("ordering=-metric")[-1] == "Alpha"  # the note has no metric
+    assert order("ordering=-metric")[0] == "Bravo"  # the only card over a metric
+    assert 'Requests <span class="dash-muted">(filtered here)</span>' in html  # Charlie's source: its dataset
 
 
 def test_the_builder_designs_a_drilldown_in_a_dialog_beside_its_rows(client, staff, metric):

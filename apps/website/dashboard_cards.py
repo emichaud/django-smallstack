@@ -26,9 +26,6 @@ from __future__ import annotations
 import json
 from decimal import Decimal
 from typing import Any
-from urllib.parse import urlencode
-
-from django.urls import reverse
 
 from apps.dashboards.components import (
     CellContext,
@@ -39,6 +36,7 @@ from apps.dashboards.components import (
     cell_title,
     drill_params,
     register_component_type,
+    rows_url,
     styled_value,
 )
 from apps.dashboards.trends import metric_trend
@@ -86,9 +84,7 @@ def build_trend(cell: dict[str, Any], ctx: CellContext) -> dict[str, Any]:
         return context
     values = [p["value"] for p in trend["points"] if isinstance(p["value"], (int, float))]
     top = max(values, default=0) or 1
-    rows_url = reverse("dashboards_metric_rows", kwargs={"key": metric.key})
     n = len(trend["points"])
-    drill = drill_params(cell)
     line = []
     for i, p in enumerate(trend["points"]):
         value = p["value"]
@@ -102,7 +98,7 @@ def build_trend(cell: dict[str, Any], ctx: CellContext) -> dict[str, Any]:
                 "state": shown.get("state", p.get("state")),
                 "share": f"{share:.4f}" if share is not None else None,
                 # The bucket's rows, shown with the card's drill-down design (if it has one).
-                "rows_url": f"{rows_url}?{urlencode({'narrow': json.dumps(p['narrow'], default=str), **drill})}",
+                "rows_url": rows_url(ctx, narrow=json.dumps(p["narrow"], default=str), **drill_params(cell)),
                 "title": f"{label}, {p['label']}",
             }
         )
@@ -203,7 +199,7 @@ def register() -> None:
         ComponentType(
             key="ranked",
             label="Ranked bars",
-            description="A metric split by a column: its groups as bars, largest first. Each one opens its rows.",
+            description="Filtered rows split by a column: the groups as bars, largest first. Each one opens its rows.",
             group="Charts",
             stylable=True,
             drillable=True,
@@ -222,7 +218,7 @@ def register() -> None:
         ComponentType(
             key="trend",
             label="Trend chart",
-            description="A metric over time — bars or a line per day, week or month. Each bucket opens its rows.",
+            description="Filtered rows over time — bars or a line per day, week or month. Each bucket opens its rows.",
             group="Charts",
             stylable=True,  # takes the shared card styling and its own colour rules
             drillable=True,  # its buckets open rows: it takes a drill-down design
@@ -245,7 +241,8 @@ def register() -> None:
                     "type": "choice",
                     "choices": list(GRAIN_CHOICES),
                     "default": "",
-                    "help": "The metric needs a period field; the dashboard's period sets the span.",
+                    "help": "Buckets by the card's period column. Fit: days for a month, weeks for a season, months "
+                    "for a year or two, quarters beyond; over all time, fitted to the span of the data.",
                 },
             ],
         )

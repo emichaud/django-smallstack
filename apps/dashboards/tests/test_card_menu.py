@@ -12,6 +12,7 @@ from django.test import RequestFactory
 from django.urls import reverse
 
 from apps.dashboards.models import Component, Dashboard, Metric
+from apps.dashboards.tests.support import own_post
 
 pytestmark = pytest.mark.django_db
 
@@ -28,9 +29,10 @@ def staff(client):
 
 @pytest.fixture
 def board(staff):
-    """A shared dashboard: a card of its own (c1), a placed saved card (c2), a note (c3)."""
+    """A shared dashboard: a card of its own (c1), a placed saved card over the
+    metric (c2: a single stat, the design that may draw one), a note (c3)."""
     Metric(key="cm_requests", name="Requests", dataset=DS).save()
-    card = Component(name="By method", type="metric_group", metric="cm_requests", options={"dimension": "method"})
+    card = Component(name="By method", type="metric", metric="cm_requests", options={})
     card.save()
     d = Dashboard(
         name="Ops",
@@ -121,12 +123,13 @@ def test_a_card_of_the_dashboard_opens_in_the_builder_with_a_title_only(client, 
 
 def test_saving_it_rewrites_that_card_in_the_layout_and_nothing_else(client, staff, board):
     options = json.dumps({"dimension": "method"})
-    posted = {"type": "metric_group", "metric": "cm_requests", "options": options, "name": "Split"}
+    posted = {"type": "metric_group", **own_post("cm_requests"), "options": options, "name": "Split"}
     response = client.post(_edit_url("c1"), posted)
     assert response.status_code == 200 and response.json() == {"ok": True}
     board.refresh_from_db()
     c1, c2, c3 = board.layout
-    assert (c1["type"], c1["metric"], c1["title"]) == ("metric_group", "cm_requests", "Split")
+    assert (c1["type"], c1["dataset"], c1["title"]) == ("metric_group", DS, "Split")
+    assert "metric" not in c1 and c1["agg"] == "count"  # the split's source is its own
     assert c1["options"]["dimension"] == "method"
     assert (c1["id"], c1["x"], c1["w"], c1["h"]) == ("c1", 0, 3, 2)  # it keeps its place and size
     assert c2["component"] == "by_method" and c3["options"] == {"markdown": "hello"}
@@ -138,7 +141,7 @@ def test_saving_it_rewrites_that_card_in_the_layout_and_nothing_else(client, sta
 
 
 def test_a_card_the_layout_wouldnt_take_comes_back_with_what_was_wrong(client, staff, board):
-    posted = {"type": "metric_group", "metric": "cm_requests", "options": "{}", "name": "Split"}
+    posted = {"type": "metric_group", **own_post("cm_requests"), "options": "{}", "name": "Split"}
     response = client.post(_edit_url("c1"), posted)
     html = response.content.decode()
     assert response.status_code == 422 and "(the column to group by) is required" in html
@@ -156,7 +159,7 @@ def test_a_saved_card_opens_as_itself_and_saving_reaches_every_dashboard(client,
     posted = {
         "name": "By verb",
         "type": "metric_group",
-        "metric": "cm_requests",
+        **own_post("cm_requests"),
         "options": json.dumps({"dimension": "method", "limit": 3}),
         "visibility": "shared",
         "description": "",
@@ -165,6 +168,7 @@ def test_a_saved_card_opens_as_itself_and_saving_reaches_every_dashboard(client,
     assert client.post(_edit_url("c2"), posted).json() == {"ok": True}
     card = Component.objects.get(key="by_method")
     assert card.name == "By verb" and card.options["limit"] == 3
+    assert (card.type, card.metric, card.dataset) == ("metric_group", "", DS)  # now a split, with its own source
     for slug, at in (("cm-ops", 1), ("cm-second", 0)):
         cell = Dashboard.objects.get(slug=slug).layout[at]
         assert cell["name"] == "By verb" and cell["options"]["limit"] == 3
@@ -220,15 +224,15 @@ def test_a_unique_copy_keeps_the_design_and_stops_following_the_saved_card(clien
     board.refresh_from_db()
     cell = board.layout[1]
     assert "component" not in cell and "name" not in cell
-    assert (cell["type"], cell["metric"], cell["title"]) == ("metric_group", "cm_requests", "By method")
-    assert (cell["id"], cell["x"], cell["w"]) == ("c2", 3, 5) and cell["options"]["dimension"] == "method"
+    assert (cell["type"], cell["metric"], cell["title"]) == ("metric", "cm_requests", "By method")
+    assert (cell["id"], cell["x"], cell["w"]) == ("c2", 3, 5)
     # The saved card goes on, for the dashboard still showing it, and this one no longer listens.
     card = Component.objects.get(key="by_method")
-    card.options = {"dimension": "method", "limit": 2}
+    card.options = {"style": {"unit": "req"}}
     card.save()
     board.refresh_from_db()
-    assert "limit" not in board.layout[1]["options"]
-    assert Dashboard.objects.get(slug="cm-second").layout[0]["options"]["limit"] == 2
+    assert "style" not in board.layout[1]["options"]
+    assert Dashboard.objects.get(slug="cm-second").layout[0]["options"]["style"]["unit"] == "req"
     html = client.get("/smallstack/dashboards/d/cm-ops/").content.decode()
     assert "dash-cell-linked" not in html and f'data-edit-url="{_edit_url("c2")}"' in html
 

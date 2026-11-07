@@ -220,7 +220,7 @@ class DashboardLibraryDisplay(ListDisplay):
             broken = 0
             for c in cells:
                 ct = get_component_type(str(c.get("type", "")))
-                if ct is None or (ct.needs_metric and c.get("metric") not in known):
+                if ct is None or (ct.needs_metric and not c.get("dataset") and c.get("metric") not in known):
                     broken += 1
                 label = "note" if c.get("type") == "text" else (ct.label if ct else "unknown card").lower()
                 kinds[label] = kinds.get(label, 0) + 1
@@ -287,6 +287,13 @@ class PlaylistLibraryDisplay(ListDisplay):
         return {"rows": rows, "object_list": items, **page}
 
 
+def _dataset_label(key: str) -> str:
+    from apps.datasets.registry import get_def
+
+    dfn = get_def(key)
+    return str(getattr(dfn, "label", "") or key) if dfn is not None else key
+
+
 class ComponentLibraryDisplay(ListDisplay):
     """Saved cards: what each draws (type and metric), and how many
     dashboards show it — an edit reaches all of them."""
@@ -324,8 +331,11 @@ class ComponentLibraryDisplay(ListDisplay):
                     "group": ct.group if ct else "",
                     "preview_url": reverse("dashboards_component_preview", kwargs={"pk": c.pk}),
                     "metric_name": names.get(c.metric, c.metric),
+                    "source_name": _dataset_label(c.dataset) if c.dataset else "",
                     "used": used.get(c.key, 0),
-                    "goal_url": f"{goal_add}?component={c.key}" if ct is not None and ct.single_value else "",
+                    "goal_url": f"{goal_add}?component={c.key}"
+                    if ct is not None and ct.single_value and c.metric  # a goal judges a metric
+                    else "",
                     "edit_url": reverse(f"{base}-update", kwargs={"pk": c.pk})
                     if Action.UPDATE in crud_config.actions and crud_config.can_update(c, request)
                     else "",
@@ -334,9 +344,19 @@ class ComponentLibraryDisplay(ListDisplay):
                     else "",
                 }
             )
+        # Narrowed to a dashboard (?dashboard=): say so above the cards, with the
+        # way to the dashboard itself — this is where its cards are edited.
+        slug = request.GET.get("dashboard", "")
+        board = Dashboard.objects.visible_to(getattr(request, "user", None)).filter(slug=slug).first() if slug else None
+        paginator = page.get("paginator")
+        scope = (
+            {"name": board.name, "url": board.get_absolute_url(), "count": paginator.count if paginator else len(items)}
+            if board is not None
+            else None
+        )
         # Card types bring their own styles. Styles only: this block is swapped in place,
         # and a preview is inert, so scripts would re-run and do nothing.
-        return {"rows": rows, "object_list": items, "card_styles": component_media()["css"], **page}
+        return {"rows": rows, "object_list": items, "card_styles": component_media()["css"], "scope": scope, **page}
 
 
 class ComponentCardsDisplay(ComponentLibraryDisplay):

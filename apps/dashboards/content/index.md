@@ -16,8 +16,8 @@ this week, average latency, pending approvals.
 | **Metric** | A saved filter over a dataset, rolled up to one number — "requests that answered 5xx", counted. The reusable unit: one metric can sit on many dashboards, reports and goal lists. |
 | **Goal list** | Metrics against their targets, in sections: on target, at risk or missed. See [Goals](/smallstack/help/dashboards/goals/). |
 | **Report** | A table of metrics across periods — this month vs last month vs the year so far — that can be downloaded as CSV. |
-| **Dashboard** | A grid of cards. Each card shows a metric (or a metric split by a column, a widget, a goal list, or a note). |
-| **Component** | A saved card design. It takes its number, format, unit and colour rules from its metric; change any of them on the card to override them there only. |
+| **Dashboard** | A grid of cards: a metric as a number, a dataset filtered for the card and split or charted, a widget, a goal list, a note. |
+| **Component** | A saved card: a dataset filtered for it (any design), or a saved metric for a single number, which lends the card its format, unit and colour rules until the card overrides them. |
 
 ## Getting a team started
 
@@ -121,8 +121,8 @@ On a dashboard you can edit, click **Edit layout**:
 1. **Drag** cards to move them; drag a corner to resize. The grid is 12 columns wide.
 2. **Add card** → pick a type:
    - **Saved card** — one you've built under **Components** (when you have any).
-   - **Single stat** — one number.
-   - **Grouped stat** — the metric split by a column (requests by method, tickets by queue): the biggest groups as numbers, the rest folded into *Other*.
+   - **Single stat** — one number, from a saved metric.
+   - A grouped stat or a chart (requests by method, latency over time) filters a dataset of its own, so it's built under **Components** and placed as a saved card, or added here and opened with **Edit card**.
    - **Goals** — a goal list's summary and first goals.
    - **Calendar** — upcoming entries, a month or a day-range board.
    - **Info card** — any card from the main `/smallstack/` dashboard (staff).

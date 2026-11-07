@@ -51,7 +51,7 @@ from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.exceptions import PermissionDenied, ValidationError
-from django.db.models import Count, QuerySet
+from django.db.models import Count, Q, QuerySet
 from django.http import Http404, HttpRequest, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.template.defaultfilters import pluralize
@@ -79,7 +79,15 @@ from .boards import (
     system_dashboard,
 )
 from .comparison import compare_with_previous
-from .components import available_widgets, describe_types, get_component_type
+from .components import (
+    SOURCE_KEYS,
+    available_widgets,
+    component_types,
+    describe_types,
+    get_component_type,
+    inline_source,
+    is_inline,
+)
 from .datasets import visible_entries
 from .displays import (
     ComponentCardsDisplay,
@@ -118,6 +126,7 @@ from .metrics import (
 from .models import (
     ADMIN_HOME_KEY,
     SNAPSHOT_CADENCES,
+    SOURCE_DATASET,
     Component,
     Dashboard,
     GoalList,
@@ -688,7 +697,7 @@ class DashboardPageView(LoginRequiredMixin, TemplateView):
                 "period_choices": period_choices(period),
                 **period_nav(period),
                 "can_edit": can_edit,
-                "has_period_cells": any(c.get("metric") for c in dashboard.layout),
+                "has_period_cells": any(c.get("metric") or c.get("dataset") for c in dashboard.layout),
             }
         )
         if can_edit:
@@ -837,6 +846,7 @@ class DashboardCardEditView(LoginRequiredMixin, View):
                 "type": cell.get("type", ""),
                 "metric": cell.get("metric", ""),
                 "options": cell.get("options") or {},
+                **{k: cell.get(k, {} if k == "filter_tree" else "") for k in SOURCE_KEYS},
             }
             form = self._cell_form(request, dashboard, values)
         return self._render(request, dashboard, cell, saved, form)
@@ -868,8 +878,27 @@ class DashboardCardEditView(LoginRequiredMixin, View):
         # The card keeps its place and size; everything it draws comes from the form.
         fresh: dict[str, Any] = {k: cell[k] for k in ("id", "x", "y", "w", "h") if k in cell}
         fresh.update({"type": kind, "options": options})
-        if metric and ct is not None and ct.needs_metric:
-            fresh["metric"] = metric
+        if ct is not None and ct.needs_metric:
+            if metric:
+                fresh["metric"] = metric
+            elif posted.get("dataset", "").strip():
+                # The card's own source, as the builder's form posts it (ComponentForm's fields).
+                try:
+                    tree = json.loads(posted.get("filter_tree") or "{}")
+                except ValueError:
+                    tree = None
+                if not isinstance(tree, dict):
+                    problems.append("The card's filter didn't arrive as it should. Reload the page and try again.")
+                    tree = {}
+                fresh.update(
+                    {
+                        "dataset": posted["dataset"].strip(),
+                        "filter_tree": tree,
+                        "agg": posted.get("agg", "count").strip() or "count",
+                        "measure": posted.get("measure", "").strip(),
+                        "period_field": posted.get("period_field", "").strip(),
+                    }
+                )
         if title:
             fresh["title"] = title
         if not problems:
@@ -1082,6 +1111,11 @@ class MetricRowsView(LoginRequiredMixin, View):
 
     def get(self, request: HttpRequest, key: str) -> HttpResponse:
         metric = visible_or_404(Metric.objects.all(), request, key=key)
+        return self.rows(request, metric)
+
+    def rows(self, request: HttpRequest, metric: Metric) -> HttpResponse:
+        """The fragment (or CSV) for *metric*: a saved one, or a card's own
+        source (:class:`CellRowsView`), which has no page of its own."""
         if not may_read(metric, request.user):
             raise Http404
         if metric.is_rate and request.GET.get("format") != "csv":
@@ -1107,7 +1141,7 @@ class MetricRowsView(LoginRequiredMixin, View):
         except (FilterTreeError, ValueError) as exc:
             return render(request, "dashboards/partials/drill_error.html", {"message": str(exc)}, status=400)
         self.sort_links(request, drill)
-        context = drill_context(request, metric, drill, period, narrow)
+        context = {**drill_context(request, metric, drill, period, narrow), "unsaved": is_inline(metric)}
         export = request.GET.copy()
         export.pop("retitle", None)
         export["format"] = "csv"
@@ -1122,6 +1156,7 @@ class MetricRowsView(LoginRequiredMixin, View):
                 "browse_url": reverse("datasets:browse", kwargs={"key": metric.dataset})
                 if getattr(request.user, "is_staff", False) and get_dataset(metric.dataset) is not None
                 else "",
+                "sortable": True,  # a card's own rows sort by link like a metric's: the source is on the server
             }
         )
         return render(request, "dashboards/partials/drill_rows.html", context)
@@ -1185,7 +1220,7 @@ class MetricRowsView(LoginRequiredMixin, View):
         except (FilterTreeError, ValueError) as exc:
             return HttpResponse(str(exc), status=400)
         response = HttpResponse(content_type="text/csv")
-        response["Content-Disposition"] = f'attachment; filename="{metric.key}-rows.csv"'
+        response["Content-Disposition"] = f'attachment; filename="{metric.key or "card"}-rows.csv"'
         writer = SafeCsvWriter(response)
         writer.writerow(headers)
         writer.writerows(rows)
@@ -1196,7 +1231,7 @@ class MetricRowsView(LoginRequiredMixin, View):
         Empty for a metric without a period field — there's nothing to switch."""
         if not metric.period_field:
             return []
-        base = reverse("dashboards_metric_rows", kwargs={"key": metric.key})
+        base = request.path  # a metric's rows, or a card's own
         params = request.GET.copy()
         params["retitle"] = "1"
         choices = list(SHORT_PERIODS)
@@ -1216,6 +1251,21 @@ class MetricRowsView(LoginRequiredMixin, View):
         if metric.agg != "count" or narrow:
             return None
         return compare_with_previous(metric, request, period, evaluate(metric, request, period=period))
+
+
+class CellRowsView(MetricRowsView):
+    """The rows behind a dashboard card that filters a dataset of its own
+    (``d/<slug>/cards/<cell_id>/rows/``): the same fragment, CSV, sorting and
+    period links as a saved metric's, over the card's definition. A card over a
+    metric opens the metric's rows instead."""
+
+    def get(self, request: HttpRequest, slug: str, cell_id: str) -> HttpResponse:  # type: ignore[override]
+        dashboard = visible_or_404(Dashboard.objects.all(), request, slug=slug)
+        cell = next((c for c in dashboard.layout if isinstance(c, dict) and c.get("id") == cell_id), None)
+        source = inline_source(cell) if cell is not None else None
+        if source is None:
+            raise Http404
+        return self.rows(request, source)
 
 
 def _narrows_time(narrow: Any, metric: Metric) -> bool:
@@ -1238,17 +1288,26 @@ class MetricPreviewRowsView(LoginRequiredMixin, View):
         if not isinstance(payload, dict):
             return HttpResponse("Body must be a JSON object.", status=400)
         raw_order = payload.pop("order", "")
+        # A card's preview opens a group's or a bucket's rows with the card's
+        # drill-down design (component-builder.js posts the card's definition).
+        narrow = payload.pop("narrow", None)
+        raw_drill = payload.pop("drill", None)
         metric, problems = unsaved_metric(request.user, payload)
         if metric is None or problems:
             return render(request, "dashboards/partials/drill_error.html", {"message": "; ".join(problems)}, status=400)
         period = str(payload.get("period") or "") or None
+        spec, problem = requested_drilldown(
+            raw_drill if isinstance(raw_drill, str) or raw_drill is None else json.dumps(raw_drill), metric
+        )
+        if problem:
+            return render(request, "dashboards/partials/drill_error.html", {"message": problem}, status=400)
         try:
             order = MetricRowsView.valid_order(raw_order, metric)
-            drill = drill_rows(metric, request, period=period, order=order)
+            drill = drill_rows(metric, request, period=period, extra_tree=narrow or None, spec=spec, order=order)
             MetricRowsView.sort_links(request, drill)
         except (FilterTreeError, ValueError) as exc:
             return render(request, "dashboards/partials/drill_error.html", {"message": str(exc)}, status=400)
-        context = {**drill_context(request, metric, drill, period), "unsaved": True}
+        context = {**drill_context(request, metric, drill, period, narrow or None), "unsaved": True}
         return render(request, "dashboards/partials/drill_rows.html", context)
 
 
@@ -2461,8 +2520,8 @@ class AddGoalView(LoginRequiredMixin, View):
         if params.get("component"):
             card = visible_or_404(Component.objects.all(), request, key=params["component"])
             ct = get_component_type(card.type)
-            if ct is None or not ct.single_value:
-                raise Http404
+            if ct is None or not ct.single_value or not card.metric:
+                raise Http404  # a card with a source of its own is saved as a metric first
             metric = get_object_or_404(Metric, key=card.metric)
             return "component", card, metric
         metric = visible_or_404(Metric.objects.all(), request, key=params.get("metric") or "")
@@ -2548,7 +2607,7 @@ class ComponentCreateMixin:
         # saved until Save — ``?from=<key>``, any card the person can see.
         original = Component.objects.filter(key=g.get("from", "").strip()).first()
         if original is not None and original.can_view(self.request.user):
-            for field in ("description", "type", "metric", "options", "tags"):
+            for field in ("description", "type", "metric", *SOURCE_KEYS, "options", "tags"):
                 initial[field] = getattr(original, field)
             initial["name"] = f"{original.name} (copy)"[:120]
             initial["visibility"] = "personal"
@@ -2557,10 +2616,20 @@ class ComponentCreateMixin:
         metric = Metric.objects.filter(key=key).first() if key else None
         if metric is None or not metric.can_view(self.request.user):
             return initial
-        initial["metric"] = metric.key
         ct = get_component_type(g.get("type", "").strip())
         if ct is not None:
             initial["type"] = ct.key
+        if ct is not None and not ct.single_value and metric.source == SOURCE_DATASET:
+            # A split or a chart filters a dataset of its own: it starts from the
+            # metric's filter, format and rules, and goes its own way from there.
+            initial.update({k: getattr(metric, k) for k in SOURCE_KEYS})
+            style = {k: v for k, v in (("format", metric.format), ("unit", metric.unit)) if v and v != "number"}
+            options: dict[str, Any] = {"style": style} if style else {}
+            if metric.thresholds:
+                options["thresholds"] = metric.thresholds
+            initial["options"] = options
+        else:
+            initial["metric"] = metric.key
         # A group-by column only for a type that groups, and only a real column.
         dimension = g.get("dimension", "").strip()
         takes_dimension = ct is not None and any(o.get("name") == "dimension" for o in ct.options_schema)
@@ -2569,9 +2638,59 @@ class ComponentCreateMixin:
         if column is None:
             initial["name"] = metric.name[:120]
             return initial
-        initial["options"] = {"dimension": dimension}
+        initial["options"] = {**(initial.get("options") or {}), "dimension": dimension}
         initial["name"] = f"{metric.name} by {column['label']}"[:120]
         return initial
+
+
+class ComponentListMixin:
+    """The components list's own filter bar: the generic one offers a model
+    column's raw values, but a card is found by *where its numbers come from*
+    and *where it's shown* — the dataset (its own, or its metric's), the
+    design, and the dashboard it's placed on (not a column at all: a dashboard
+    names its cards in its layout). Each offers only what the person's cards
+    use, labelled, so a library of hundreds narrows in a click or two."""
+
+    request: HttpRequest
+    crud_config: Any
+
+    def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
+        context: dict[str, Any] = super().get_context_data(**kwargs)  # type: ignore[misc]
+        if context.get("show_toolbar"):
+            context["toolbar_filters"] = component_filters(self.request, self.crud_config)
+            context["toolbar_has_active_filter"] = any(f["current_value"] for f in context["toolbar_filters"])
+        return context
+
+
+def component_filters(request: HttpRequest, cfg: Any) -> list[dict[str, Any]]:
+    """The three dropdowns (``list_toolbar.html``'s choice shape), with the
+    current ``?dashboard=``/``?dataset=``/``?type=`` selected."""
+    from apps.datasets.registry import get_def
+
+    cards = cfg.get_list_queryset(cfg._get_queryset(), request)
+    user = getattr(request, "user", None)
+    boards = Dashboard.objects.visible_to(user).active().order_by("name").values_list("slug", "name")
+    via_metric = Metric.objects.filter(key__in=cards.exclude(metric="").values_list("metric", flat=True))
+    datasets = set(cards.exclude(dataset="").values_list("dataset", flat=True)) | set(
+        via_metric.exclude(dataset="").values_list("dataset", flat=True)
+    )
+
+    def label(key: str) -> str:
+        dfn = get_def(key)
+        return str(getattr(dfn, "label", "") or key) if dfn is not None else key
+
+    present = set(cards.values_list("type", flat=True).distinct())
+    designs = [(t.key, t.label) for t in component_types() if t.key in present]
+    dataset_choices = sorted(((k, label(k)) for k in datasets), key=lambda p: p[1].lower())
+    filters = [
+        ("dashboard", "Dashboard", [("", "All")] + [(slug, name) for slug, name in boards]),
+        ("dataset", "Dataset", [("", "All")] + dataset_choices),
+        ("type", "Design", [("", "All")] + designs),
+    ]
+    return [
+        {"name": name, "label": text, "type": "choice", "choices": choices, "current_value": request.GET.get(name, "")}
+        for name, text, choices in filters
+    ]
 
 
 class ComponentCRUDView(_OwnedCRUD):
@@ -2579,16 +2698,20 @@ class ComponentCRUDView(_OwnedCRUD):
 
     model = Component
     form_class = ComponentForm
-    fields = ["name", "description", "type", "metric", "options", "tags"]
-    list_fields = ["name", "type", "metric", "owner", "updated_at"]
+    fields = ["name", "description", "type", "metric", *SOURCE_KEYS, "options", "tags"]
+    list_fields = ["name", "type", "metric", "dataset", "owner", "updated_at"]
     link_field = "name"
     field_transforms = {"owner": _owner_cell, "updated_at": "localtime"}
     url_base = "dashboards/components"
-    view_mixins = {Action.CREATE: [ComponentCreateMixin]}
+    view_mixins = {Action.CREATE: [ComponentCreateMixin], Action.LIST: [ComponentListMixin]}
+    # ?dashboard=<slug> (the cards a dashboard shows), ?dataset=<key> (cards
+    # over it, their own filter or their metric's), ?type=<design>. The first
+    # two are served by apply_filter below, on the page and the REST list alike.
+    filter_fields = ["dashboard", "dataset", "type"]
     displays = [ComponentLibraryDisplay, ComponentCardsDisplay]
     default_display = ComponentCardsDisplay  # the gallery first; the table is ?display=library
-    search_fields = ["name", "key", "description", "metric", "type", "tags"]
-    ordering_fields = ["name", "type", "metric", "updated_at"]
+    search_fields = ["name", "key", "description", "metric", "dataset", "type", "tags"]
+    ordering_fields = ["name", "type", "metric", "dataset", "updated_at"]
     api_extra_fields = ["key", "visibility", "owner", "created_by", "created_at", "updated_at"]
     mcp_singular = "component"
     mcp_plural = "components"
@@ -2596,10 +2719,28 @@ class ComponentCRUDView(_OwnedCRUD):
     mcp_description = (
         "a saved dashboard card: type = a card type from list_dashboard_components (metric = single stat, "
         "metric_group = grouped stat with options.dimension, widget = info card, text = note, or an app's chart "
-        "type), metric = a metric key for the types that draw one, options = the type's options. The key is made "
-        "from the name. Place it on a dashboard with dashboard_add_card {component: key}; editing it updates "
-        "every dashboard showing it. card_preview renders one unsaved"
+        "type), options = the type's options, and its source. A card that draws data filters a dataset of its own: "
+        "dataset + filter_tree (metric_preview's shape) + agg/measure + period_field (the date column the period "
+        "narrows and a chart buckets by), formatted by options.style {format, unit} and options.thresholds. The "
+        "single-stat type may instead draw a saved metric (metric = its key), which is what makes it a goal. The "
+        "key is made from the name. Place it on a dashboard with dashboard_add_card {component: key}; editing it "
+        "updates every dashboard showing it. card_preview renders one unsaved"
     )
+
+    @classmethod
+    def apply_filter(cls, qs: Any, field_name: str, value: str, request: HttpRequest) -> Any:
+        if field_name == "dashboard":
+            # The cards the dashboard names in its layout; a dashboard the
+            # person can't open narrows to nothing rather than to everything.
+            board = Dashboard.objects.visible_to(getattr(request, "user", None)).filter(slug=value).first()
+            if board is None:
+                return qs.none()
+            keys = {c.get("component") for c in board.layout or [] if isinstance(c, dict) and c.get("component")}
+            return qs.filter(key__in=keys)
+        if field_name == "dataset":
+            over = Metric.objects.filter(dataset=value).values_list("key", flat=True)
+            return qs.filter(Q(dataset=value) | Q(metric__in=over))
+        return NotImplemented
 
     @classmethod
     def row_link_url(cls, obj: Any, request: HttpRequest) -> str:

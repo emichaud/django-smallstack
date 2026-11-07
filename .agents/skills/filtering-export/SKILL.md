@@ -106,6 +106,32 @@ class WidgetCRUDView(CRUDView):
     filter_class = WidgetFilter  # Use custom FilterSet instead of auto-generated
 ```
 
+### A filter of your own: `apply_filter`
+
+When a filter's meaning isn't a stored column — a value the page reasons about
+but the row doesn't carry, or no column at all — name it in `filter_fields` and
+serve it yourself. The hook runs first on the HTML list, the REST list and the
+generated MCP `list_*` tool, so `?dashboard=` means one thing on every surface;
+return `NotImplemented` to leave an entry to the default.
+
+```python
+class ComponentCRUDView(CRUDView):
+    filter_fields = ["dashboard", "dataset", "type"]  # "dashboard" is not a column
+
+    @classmethod
+    def apply_filter(cls, qs, field_name, value, request):
+        if field_name == "dashboard":  # the cards a dashboard's layout names
+            board = Dashboard.objects.visible_to(request.user).filter(slug=value).first()
+            return qs.filter(key__in=keys_in(board)) if board else qs.none()
+        return NotImplemented
+```
+
+A name that isn't a model field gets no dropdown from the generic toolbar (it
+can't know the choices); build the `toolbar_filters` entries in a LIST
+`view_mixins` `get_context_data` (`apps/dashboards/views.py`,
+`ComponentListMixin`, is the worked example). An unknown value should narrow
+to nothing, never to everything.
+
 ### Dependencies
 
 Filtering requires `django-filter`:

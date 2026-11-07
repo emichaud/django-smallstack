@@ -82,9 +82,15 @@
             document.body.classList.toggle("dash-editing-page", on);
         }
 
+        // Each card's place from its own node, not grid.save(): that strips a
+        // width or height of 1 as "the default", and the server then fills in
+        // the design's default size, so a note squeezed to one row posted as
+        // two and "overlapped" the card below it.
         function positions() {
             var pos = {};
-            grid.save(false).forEach(function (n) { pos[n.id] = n; });
+            grid.engine.nodes.forEach(function (n) {
+                if (n.id) pos[n.id] = { x: n.x || 0, y: n.y || 0, w: n.w || 1, h: n.h || 1 };
+            });
             return pos;
         }
 
@@ -171,11 +177,22 @@
             option(typeSel, "__component", "Saved card");
             savedCards.forEach(function (c) { if (compSel) option(compSel, c.key, c.name); });
         }
+        // A split or a chart filters a dataset of its own, which takes the
+        // builder: those designs are placed as saved cards (or any card here,
+        // then Edit card). The quick picks are a metric's number and the
+        // designs that draw no data.
+        var builderOnly = [];
         (editor.types || []).forEach(function (t) {
             if (t.type === "widget" && !(editor.widgets || []).length) return;
+            if (t.needs_metric && !t.single_value) { builderOnly.push(t.label.toLowerCase()); return; }
             types[t.type] = t;
             option(typeSel, t.type, t.label);
         });
+        var builderNote = document.getElementById("dash-add-builder");
+        if (builderNote) {
+            builderNote.hidden = !builderOnly.length;
+            builderNote.querySelector("[data-designs]").textContent = builderOnly.join(", ");
+        }
         (editor.metrics || []).forEach(function (m) { option(metricSel, m.key, m.name + "  (" + m.key + ")"); });
         (editor.widgets || []).forEach(function (w) { option(widgetSel, w.key, w.title); });
 
