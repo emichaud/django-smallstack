@@ -164,7 +164,13 @@ one slow card doesn't block the page and `refresh_seconds` is free.
 
 ### Built-in card types
 
-The starter also ships three library-free charts in `apps/website/dashboard_cards.py`: `trend`, `pie` (count or sum only) and `ranked`.
+The starter also ships six library-free designs in `apps/website/dashboard_cards.py`: `trend`,
+`pie` (count or sum only), `ranked`, `bars` (columns or horizontal bars, largest first or by
+name: `direction`, `order`), `gauge` (one number on a half dial between `min` and `max`, the
+colour rules drawn as bands; `single_value`, so it takes a metric and the Add card dialog
+offers it) and `table` (the filtered rows themselves, `rows` a page, sorted by their headers
+and paged in place through the cell's own URL — `?order=` / `?page=` — with `totals` sums
+for number columns; its columns are its drill-down design, see below).
 
 | `type` | Shows | Options |
 |---|---|---|
@@ -172,6 +178,7 @@ The starter also ships three library-free charts in `apps/website/dashboard_card
 | `metric_group` | the card's filtered rows split by a column: top N groups, biggest first, each drilling into its rows and showing its change from the previous period; an `Other` folds the tail for additive aggs (count/sum) only | `dimension` (req), `limit` 1–12, `other` |
 | `widget` | an existing `DashboardWidget` from `/smallstack/` (staff only) | `widget` (class path — `list_dashboard_components` lists them) |
 | `text` | markdown (rendered by the hardened `render_markdown`; raw HTML is escaped) | `markdown` (required) |
+| `menu` | links in the card's order — a way around, on the dashboard; across, down, or (`auto`) by the card's shape (a container query) | `items` (required: `[{label, url, new_window?}]`; a page of this site `/…`, `#…`, http(s) or `mailto:`, never a scheme that runs), `layout` auto/horizontal/vertical |
 | `goals` | a goal list's summary and first goals | `goal_list`, `limit`, `order` |
 | `calendar` | upcoming entries, a month or a board (registered by `apps/calendar`) | `calendars`, `mode`, `days`, `limit` |
 
@@ -183,6 +190,7 @@ The starter also ships three library-free charts in `apps/website/dashboard_card
 | `metric_group` | Grouped stat | Stats | the card's own filtered rows split by `options.dimension`: top N (+ "Other"), each value drillable |
 | `widget` | Info card | Info | a published `DashboardWidget` (the `/smallstack/` cards; staff only) |
 | `text` | Note | Info | markdown |
+| `menu` | Menu | Info | links in order (`options.items`), across or down; the builder's row editor is the `links` option type |
 
 Charts belong to apps. The grouped stat on the sample dashboard is `metric_group`:
 `build_metric_group` calls `metrics.group_values(metric, dimension, limit)`, which runs
@@ -360,8 +368,17 @@ Tapping a number opens its rows in the stat modal, with **Download CSV**. A card
 **Your own type:** set `drillable=True` and pass every rows URL your template renders
 through `with_drill(url, cell)` (or add `**drill_params(cell)` to its query), as the
 Trend chart does. The builder's **Drill-down** step appears for it automatically. The
-pieces for other surfaces: `metrics.drill_rows(..., spec=)`, `drill_csv` and
-`format_cell`.
+pieces for other surfaces: `metrics.drill_rows(..., spec=, order=, limit=, offset=)`,
+`drill_csv` and `format_cell`.
+
+**A type that draws the rows itself** (the starter's `table`) sets `shows_rows=True` as
+well: its drill-down design *is* its columns, so the builder calls that step **Columns**
+(not optional), hides the design's row limit (that applies to the window **All rows**
+opens) and words the summary as pages. Its `build` reads the design from
+`options.drilldown`, drops `limit` and calls `drill_rows` with its own `limit`/`offset`;
+header and page links are the cell's own URL (`request.path`) with `?order=`/`?page=`,
+swapped in place with `hx-target="closest .dash-cell-body"`, and only where the cell
+has one (`ctx.dashboard.pk`; the builder's preview has none).
 
 ## Navigation — two areas
 

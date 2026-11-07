@@ -156,3 +156,87 @@ def test_trend_line_marks_each_bucket_and_a_chosen_colour_paints_the_series(clie
 def test_trend_style_is_validated_like_any_stylable_card(metric):
     with pytest.raises(ValidationError, match="style"):
         _board({"style": {"color": "#00ff00"}})
+
+
+# -- the bar chart, the gauge and the table -------------------------------------------
+
+
+def _cell_board(cell: dict) -> Dashboard:
+    d = Dashboard(name="Cards", slug="wc-cards", default_period="last_7", layout=[{"id": "c", "w": 6, "h": 4, **cell}])
+    d.save()
+    return d
+
+
+def _cell(client, query: str = "") -> str:
+    return client.get(f"/smallstack/dashboards/d/wc-cards/cells/c/{query}").content.decode()
+
+
+def test_the_three_designs_are_registered_with_their_rules():
+    bars, gauge, table = (get_component_type(k) for k in ("bars", "gauge", "table"))
+    assert bars is not None and bars.requires == frozenset({"dimension"}) and bars.group == "Charts"
+    assert gauge is not None and gauge.single_value and gauge.stylable and gauge.drillable
+    assert table is not None and table.shows_rows and table.drillable and not table.single_value
+    described = {t["type"]: t for t in describe_types()}
+    assert [o["name"] for o in described["table"]["options"]] == ["rows", "totals"]
+    assert described["table"]["shows_rows"] and not described["trend"]["shows_rows"]
+
+
+def test_bar_chart_draws_columns_or_bars_by_size_or_by_name(client, staff, metric):
+    RequestLog.objects.create(path="/y", method="POST", status_code=201, response_time_ms=5)
+    _cell_board({"type": "bars", **own("wc_req"), "options": {"dimension": "method"}})
+    html = _cell(client)
+    assert 'class="bars bars--vertical' in html and html.count('class="bars-item') == 2
+    assert html.index('title="GET: 3"') < html.index('title="POST: 1"')  # largest first
+    assert 'style="--share: 1.0000;"' in html and 'style="--share: 0.3333;"' in html
+    assert "d/wc-cards/cards/c/rows/?narrow=" in html  # each bar opens its rows
+    d = Dashboard.objects.get(slug="wc-cards")
+    d.layout[0]["options"].update(direction="horizontal", order="label")
+    d.save()
+    html = _cell(client)  # (each GET here is itself logged, so GET's count grows; POST's doesn't)
+    assert 'class="bars bars--horizontal' in html and html.index('title="GET: ') < html.index('title="POST: 1"')
+    with pytest.raises(ValidationError, match="direction"):
+        _cell_board({"type": "bars", **own("wc_req"), "options": {"dimension": "method", "direction": "diagonal"}})
+
+
+def test_gauge_puts_the_value_on_a_dial_with_the_rules_as_bands(client, staff, metric):
+    rules = [{"op": ">=", "value": 2, "state": "warning"}, {"op": "between", "value": [0, 1], "state": "success"}]
+    _cell_board({"type": "gauge", "metric": "wc_req", "options": {"min": 0, "max": 4, "thresholds": rules}})
+    html = _cell(client)
+    assert 'class="gauge-dial gauge-dial--warning"' in html  # 3 of 0–4, ≥ 2 is a warning
+    assert 'class="gauge-fill" d="M10 50 A40 40 0 0 1 90 50" pathLength="100" stroke-dasharray="75.00 100"' in html
+    assert 'gauge-band--warning" d=' in html and 'stroke-dasharray="50.00 100" stroke-dashoffset="-50.00"' in html
+    assert 'gauge-band--success" d=' in html and 'stroke-dasharray="25.00 100" stroke-dashoffset="-0.00"' in html
+    assert ">0<" in html and ">4<" in html and '<span class="gauge-value">3' in html
+    assert 'hx-get="/smallstack/dashboards/m/wc_req/rows/?period=last_7"' in html  # taps open the metric's rows
+    with pytest.raises(ValidationError, match="above"):
+        _cell_board({"type": "gauge", "metric": "wc_req", "options": {"min": 5, "max": 4}})
+
+
+def test_table_shows_the_rows_in_its_columns_sorted_and_paged_with_totals(client, staff, metric):
+    for n in range(4):
+        RequestLog.objects.create(path=f"/p{n}", method="POST", status_code=201 + n, response_time_ms=5)
+    columns = [{"field": "method", "label": "Verb"}, {"field": "status_code"}]
+    # The card's own filter: the POSTs (the GETs this test makes are logged too).
+    posts = {"field": "method", "op": "eq", "value": "POST"}
+    _cell_board(
+        {
+            "type": "table",
+            **{**own("wc_req"), "filter_tree": posts},
+            "options": {"rows": 3, "totals": True, "drilldown": {"columns": columns, "sort": "-status_code"}},
+        }
+    )
+    html = _cell(client)
+    assert ">Verb<" in html and html.count("<tr>") == 1 + 3 + 1  # head, a page of 3, totals
+    assert "1–3 of 4" in html and 'aria-label="Next page"' in html and 'class="tbl-off" aria-hidden="true">‹' in html
+    assert 'data-table-key="card/c:method,status_code"' in html and 'class="col-resizer"' in html
+    assert '<tfoot><tr><td class="tbl-totals-label">Total</td><td class="tbl-num">810</td>' in html  # 201+…+204
+    assert html.index(">204<") < html.index(">203<") < html.index(">202<")  # the design's sort
+    assert 'hx-target="closest .dash-cell-body"' in html and "?order=status_code" in html  # headers sort in place
+    assert "d/wc-cards/cards/c/rows/?drill=" in html  # All rows: the same columns, in the window
+    page = _cell(client, "?page=2&order=status_code")
+    assert "4–4 of 4" in page and ">204<" in page and 'aria-label="Previous page"' in page
+    assert _cell(client, "?page=9").count("<tr>") == 1 + 1 + 1  # past the end: the last page
+    with pytest.raises(ValidationError, match="rows"):
+        _cell_board({"type": "table", **own("wc_req"), "options": {"rows": 0}})
+    with pytest.raises(ValidationError, match="no column"):
+        _cell_board({"type": "table", **own("wc_req"), "options": {"drilldown": {"columns": ["ghost"]}}})

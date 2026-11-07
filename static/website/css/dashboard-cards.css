@@ -112,3 +112,102 @@
 .ranked-row--warning { --bar: var(--warning-fg); }
 .ranked-row--danger { --bar: var(--error-fg); }
 .ranked-row--other { --bar: var(--body-quiet-color); }
+
+/* -- the bar chart: columns with names under them, or bars with names beside them ---- */
+.bars { display: flex; flex-direction: column; height: 100%; padding: 10px 12px 8px; gap: 6px; min-height: 0; --bar: var(--primary); }
+.bars-plot { flex: 1; min-height: 0; list-style: none; margin: 0; padding: 0; display: flex; gap: 4px; }
+.bars-item { display: flex; min-width: 0; min-height: 0; }
+.bars-item--success { --bar: var(--success-fg); }
+.bars-item--warning { --bar: var(--warning-fg); }
+.bars-item--danger { --bar: var(--error-fg); }
+.bars-item--other, .bars-item--muted { --bar: var(--body-quiet-color); }
+.bars-bar { display: flex; min-width: 0; min-height: 0; padding: 0; border: 0; background: none; border-radius: 3px; cursor: pointer; color: var(--body-fg); font: inherit; }
+.bars-bar:hover { background: var(--card-header-bg); }
+.bars-bar:focus-visible { outline: 2px solid var(--input-focus-border); outline-offset: 1px; }
+.bars-fill { display: block; background: var(--bar); border-radius: 3px; opacity: 0.85; }
+.bars-bar:hover .bars-fill { opacity: 1; }
+.bars-value { font-size: 0.7rem; font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.bars-name { font-size: 0.7rem; color: var(--body-quiet-color); overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+/* columns: each item a column, the bar grows up from the name */
+.bars--vertical .bars-plot { flex-direction: row; align-items: stretch; }
+.bars--vertical .bars-item { flex: 1; flex-direction: column; }
+.bars--vertical .bars-bar { flex: 1; flex-direction: column; justify-content: flex-end; align-items: center; width: 100%; gap: 2px; }
+.bars--vertical .bars-fill { order: 2; width: 70%; height: calc(var(--share) * 85%); min-height: 2px; }
+.bars--vertical .bars-value { order: 1; }
+.bars--vertical .bars-name { text-align: center; padding-top: 2px; }
+/* bars: each item a row, the name first, the bar grows right with its value at its end */
+.bars--horizontal .bars-plot { flex-direction: column; justify-content: safe space-around; overflow-y: auto; }
+.bars--horizontal .bars-item { flex: 1; flex-direction: row-reverse; align-items: center; gap: 0.5rem; max-height: 1.6rem; }
+.bars--horizontal .bars-bar { flex: 1; align-items: center; gap: 0.4rem; height: 100%; }
+.bars--horizontal .bars-fill { width: calc(var(--share) * 100%); min-width: 2px; height: 70%; }
+.bars--horizontal .bars-name { flex: 0 0 5.5rem; width: 5.5rem; text-align: right; }
+.bars.cs-color-accent { --bar: var(--primary); } .bars.cs-color-accent .bars-item { --bar: var(--primary); }
+.bars.cs-color-plain .bars-item { --bar: var(--body-fg); }
+.bars.cs-color-success .bars-item { --bar: var(--success-fg); }
+.bars.cs-color-warning .bars-item { --bar: var(--warning-fg); }
+.bars.cs-color-danger .bars-item { --bar: var(--error-fg); }
+.bars.cs-color-muted .bars-item { --bar: var(--body-quiet-color); }
+
+/* -- the gauge: a stat on a half dial ------------------------------------------- */
+.gauge { display: flex; flex-direction: column; height: 100%; padding: 10px 12px 6px; min-height: 0; --bar: var(--primary); }
+.gauge-label { flex: none; }
+.gauge-dial { position: relative; flex: 1; min-height: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; width: 100%; padding: 0; border: 0; background: none; border-radius: 6px; color: var(--body-fg); font: inherit; }
+button.gauge-dial { cursor: pointer; }
+button.gauge-dial:hover { background: var(--card-header-bg); }
+button.gauge-dial:focus-visible { outline: 2px solid var(--input-focus-border); outline-offset: 1px; }
+.gauge-dial svg { flex: 1; min-height: 0; width: 100%; max-height: 100%; overflow: visible; }
+.gauge-track { fill: none; stroke: var(--card-header-bg); stroke-width: 9; stroke-linecap: round; }
+.gauge-band { fill: none; stroke-width: 9; opacity: 0.35; }
+.gauge-band--success { stroke: var(--success-fg); }
+.gauge-band--warning { stroke: var(--warning-fg); }
+.gauge-band--danger { stroke: var(--error-fg); }
+.gauge-band--muted { stroke: var(--body-quiet-color); }
+.gauge-fill { fill: none; stroke: var(--bar); stroke-width: 9; stroke-linecap: round; }
+.gauge-needle { stroke: var(--body-fg); stroke-width: 1.8; stroke-linecap: round; }
+.gauge-hub { fill: var(--body-fg); }
+.gauge-end { font-size: 6px; fill: var(--body-quiet-color); font-family: inherit; }
+.gauge-value { margin-top: -0.35rem; font-size: 1.1rem; font-weight: 700; font-feature-settings: "tnum"; color: var(--bar); white-space: nowrap; }
+.gauge-dial--success { --bar: var(--success-fg); }
+.gauge-dial--warning { --bar: var(--warning-fg); }
+.gauge-dial--danger { --bar: var(--error-fg); }
+.gauge-dial--muted { --bar: var(--body-quiet-color); }
+.gauge.cs-color-accent .gauge-dial { --bar: var(--primary); }
+.gauge.cs-color-plain .gauge-dial { --bar: var(--body-fg); }
+.gauge.cs-color-success .gauge-dial { --bar: var(--success-fg); }
+.gauge.cs-color-warning .gauge-dial { --bar: var(--warning-fg); }
+.gauge.cs-color-danger .gauge-dial { --bar: var(--error-fg); }
+.gauge.cs-color-muted .gauge-dial { --bar: var(--body-quiet-color); }
+.gauge.cs-size-s .gauge-value { font-size: 0.9rem; }
+.gauge.cs-size-l .gauge-value { font-size: 1.4rem; }
+.gauge.cs-size-xl .gauge-value { font-size: 1.8rem; }
+.gauge.cs-title-s .gauge-label { font-size: 0.7rem; }
+.gauge.cs-title-l .gauge-label { font-size: 0.98rem; }
+.gauge.cs-title-color-quiet .gauge-label { color: var(--body-quiet-color); }
+.gauge.cs-title-color-accent .gauge-label { color: var(--primary); }
+.gauge.cs-align-center .gauge-label { text-align: center; }
+.gauge.cs-align-end .gauge-label { text-align: right; }
+
+/* -- the table: the rows themselves, paged ---------------------------------------- */
+.tbl { display: flex; flex-direction: column; height: 100%; padding: 10px 0 0; gap: 4px; min-height: 0; }
+.tbl .trend-head { padding: 0 12px; }
+.tbl-count { margin-left: auto; font-size: 0.72rem; color: var(--body-quiet-color); white-space: nowrap; font-feature-settings: "tnum"; }
+.tbl-scroll { flex: 1; min-height: 0; overflow: auto; contain: inline-size; }
+/* Columns keep their natural width; a narrow card scrolls sideways rather than crushing
+   them. `.tbl .tbl-table` outranks the framework's .crud-table rules (fixed layout, upper-case
+   headers), which the resize handles don't need. */
+.tbl .tbl-table { table-layout: auto; width: max-content; min-width: 100%; border-collapse: collapse; font-size: 0.78rem; }
+.tbl .tbl-table thead tr { background: var(--card-header-bg); }
+.tbl .tbl-table thead th { position: sticky; top: 0; z-index: 1; background: var(--card-header-bg); text-align: left; font-weight: 600; font-size: 0.72rem; text-transform: none; letter-spacing: 0; padding: 4px 10px; white-space: nowrap; border-bottom: 1px solid var(--card-border) !important; }
+.tbl .tbl-table th.tbl-num, .tbl .tbl-table th.tbl-num .dm-sort, .tbl .tbl-table td.tbl-num { text-align: right; }
+.tbl .tbl-table tbody tr { background: var(--card-bg); }
+.tbl .tbl-table tbody td { padding: 3px 10px; max-width: 16rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-feature-settings: "tnum"; border: 0; }
+.tbl .tbl-table tbody tr + tr td { border-top: 1px solid color-mix(in srgb, var(--body-fg) 7%, transparent); }
+.tbl .tbl-table tbody tr:hover td { background: color-mix(in srgb, var(--body-fg) 4%, var(--card-bg)); }
+.tbl .tbl-table tfoot td { padding: 4px 10px; border-top: 1px solid var(--card-border); font-weight: 600; font-feature-settings: "tnum"; white-space: nowrap; position: sticky; bottom: 0; background: var(--card-header-bg); }
+.tbl-totals-label { color: var(--body-quiet-color); font-weight: 500; }
+.tbl-open, a.tbl-open:link, a.tbl-open:visited { color: var(--body-fg); text-decoration: none; border-bottom: 1px dotted var(--body-quiet-color); }
+.tbl-open:hover { color: var(--primary); }
+.tbl-foot { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; padding: 3px 12px 6px; border-top: 1px solid var(--card-border); font-size: 0.72rem; color: var(--body-quiet-color); font-feature-settings: "tnum"; }
+.tbl-links { display: inline-flex; align-items: center; gap: 0.6rem; }
+.tbl-links a { font-size: 0.8rem; }
+.tbl-off { opacity: 0.4; font-size: 0.8rem; }

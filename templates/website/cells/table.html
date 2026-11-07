@@ -1,0 +1,36 @@
+{% comment %}The "table" card (apps/website/dashboard_cards.py): the filtered rows a page at a time, in the card's columns. Headers sort and the footer pages by reloading this cell with ?order= / ?page= (its own URL; the preview can't, so there they're plain). Resizing is the framework's table-resize.js (crud-table + data-table-key + th[data-field] + col_resizer).{% endcomment %}
+<div class="tbl">
+    <div class="trend-head">
+        <span class="trend-label">{{ label }}</span>
+        {% if total %}<span class="tbl-count">{{ total }} row{{ total|pluralize }}</span>{% endif %}
+    </div>
+    {% if restricted %}
+    <p class="trend-note">You don't have access to this card's data.</p>
+    {% elif error %}
+    <p class="trend-note">{{ error }}</p>
+    {% elif not rows %}
+    <p class="trend-note">No rows match.</p>
+    {% else %}
+    <div class="tbl-scroll">
+        <table class="tbl-table crud-table" data-table-key="card/{{ cell_id }}:{% for c in columns %}{{ c.name }}{% if not forloop.last %},{% endif %}{% endfor %}">
+            <thead><tr>{% for c in columns %}<th scope="col" aria-sort="{{ c.aria_sort|default:'none' }}" data-field="{{ c.name }}"{% if c.num %} class="tbl-num"{% endif %}>
+                {% if c.sort_url %}<a class="dm-sort" href="{{ c.sort_url }}" hx-get="{{ c.sort_url }}" hx-target="closest .dash-cell-body" hx-swap="innerHTML" title="Sort by {{ c.label }}">{{ c.label }}<span class="dm-sort-ind" aria-hidden="true">{% if c.aria_sort == "ascending" %}▲{% elif c.aria_sort == "descending" %}▼{% endif %}</span></a>{% else %}<span class="dm-sort">{{ c.label }}<span class="dm-sort-ind" aria-hidden="true">{% if c.aria_sort == "ascending" %}▲{% elif c.aria_sort == "descending" %}▼{% endif %}</span></span>{% endif %}
+                {% include "smallstack/crud/includes/col_resizer.html" with label=c.label %}
+            </th>{% endfor %}</tr></thead>
+            <tbody>
+            {% for row in rows %}
+                <tr>{% for cell in row.cells %}<td title="{{ cell.v }}"{% if cell.num %} class="tbl-num"{% endif %}>{% if forloop.first and row.url %}<a href="{{ row.url }}" class="tbl-open">{{ cell.v }}</a>{% else %}{{ cell.v }}{% endif %}</td>{% endfor %}</tr>
+            {% endfor %}
+            </tbody>
+            {% if totals %}<tfoot><tr>{% for cell in totals %}<td{% if cell.num %} class="tbl-num"{% elif forloop.first %} class="tbl-totals-label"{% endif %}>{% if forloop.first and not cell.v %}Total{% else %}{{ cell.v }}{% endif %}</td>{% endfor %}</tr></tfoot>{% endif %}
+        </table>
+    </div>
+    <div class="tbl-foot">
+        <span class="tbl-pages">{% if pages > 1 %}{{ first }}–{{ last }} of {{ total }}{% endif %}</span>
+        <span class="tbl-links">
+            {% if pages > 1 %}{% if prev_url %}<a href="{{ prev_url }}" hx-get="{{ prev_url }}" hx-target="closest .dash-cell-body" hx-swap="innerHTML" aria-label="Previous page">‹</a>{% else %}<span class="tbl-off" aria-hidden="true">‹</span>{% endif %}{% if next_url %}<a href="{{ next_url }}" hx-get="{{ next_url }}" hx-target="closest .dash-cell-body" hx-swap="innerHTML" aria-label="Next page">›</a>{% else %}<span class="tbl-off" aria-hidden="true">›</span>{% endif %}{% endif %}
+            {% if all_url %}<a href="{{ all_url }}" hx-get="{{ all_url }}" hx-target="#stat-modal-body" hx-swap="innerHTML" data-stat-modal="{{ label }}" aria-haspopup="dialog">All rows</a>{% endif %}
+        </span>
+    </div>
+    {% endif %}
+</div>

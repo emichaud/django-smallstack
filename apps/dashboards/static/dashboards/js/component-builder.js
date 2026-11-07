@@ -381,6 +381,79 @@
             return wrap;
         }
 
+        // A "links" option (the menu card): rows of label, address and new-window,
+        // in the order they'll show; stored as [{label, url, new_window}].
+        function linksEditor(spec, id) {
+            var wrap = el("div", { class: "mb-field cb-links" });
+            wrap.appendChild(el("span", { class: "cb-links-label", id: id + "-label" }, spec.label));
+            var list = el("ol", { class: "cb-links-rows", "aria-labelledby": id + "-label" });
+            var items = Array.isArray(options[spec.name]) ? options[spec.name].map(function (i) { return Object.assign({}, i); }) : [];
+            var focusAfter = null;
+            var sync = function () {
+                options[spec.name] = items.map(function (i) {
+                    var out = { label: i.label || "", url: i.url || "" };
+                    if (i.new_window) out.new_window = true;
+                    return out;
+                });
+                writeOptions();
+                schedulePreview();
+            };
+            var paint = function () {
+                list.textContent = "";
+                items.forEach(function (item, n) {
+                    var row = el("li", { class: "cb-links-row" });
+                    var label = el("input", { type: "text", class: "vTextField", placeholder: "Words", maxlength: "60", "aria-label": "Link " + (n + 1) + " words" });
+                    label.value = item.label || "";
+                    label.addEventListener("input", function () { item.label = label.value; sync(); });
+                    var url = el("input", { type: "text", class: "vTextField", placeholder: "/page or https://…", "aria-label": "Link " + (n + 1) + " address" });
+                    url.value = item.url || "";
+                    url.addEventListener("input", function () { item.url = url.value; sync(); });
+                    var win = el("label", { class: "plf-check cb-links-win", title: "Open in a new window" });
+                    var box = el("input", { type: "checkbox", "aria-label": "Link " + (n + 1) + " opens a new window" });
+                    box.checked = !!item.new_window;
+                    box.addEventListener("change", function () { item.new_window = box.checked; sync(); });
+                    win.appendChild(box);
+                    win.appendChild(el("span", {}, "New window"));
+                    var tools = el("span", { class: "cb-links-tools" });
+                    [["↑", "Move up", -1], ["↓", "Move down", 1]].forEach(function (b) {
+                        var btn = el("button", { type: "button", class: "plf-tool", "aria-label": b[1] + " link " + (n + 1) }, b[0]);
+                        btn.disabled = n + b[2] < 0 || n + b[2] >= items.length;
+                        btn.addEventListener("click", function () {
+                            items.splice(n + b[2], 0, items.splice(n, 1)[0]);
+                            focusAfter = [n + b[2], b[2] < 0 ? "up" : "down"];
+                            sync(); paint();
+                        });
+                        tools.appendChild(btn);
+                    });
+                    var rm = el("button", { type: "button", class: "plf-tool", "aria-label": "Remove link " + (n + 1) }, "✕");
+                    rm.addEventListener("click", function () { items.splice(n, 1); sync(); paint(); });
+                    tools.appendChild(rm);
+                    [label, url, win, tools].forEach(function (x) { row.appendChild(x); });
+                    row.setAttribute("data-row", String(n));
+                    list.appendChild(row);
+                });
+                if (!items.length) list.appendChild(el("li", { class: "mb-help" }, "No links yet."));
+                if (focusAfter) {
+                    var btns = list.querySelectorAll('[data-row="' + focusAfter[0] + '"] .plf-tool');
+                    var target = btns[focusAfter[1] === "up" ? 0 : 1];
+                    if (target && !target.disabled) target.focus(); else if (btns[0]) btns[0].focus();
+                    focusAfter = null;
+                }
+            };
+            var add = el("button", { type: "button", class: "btn-outline btn-sm" }, "Add a link");
+            add.addEventListener("click", function () {
+                items.push({ label: "", url: "", new_window: false });
+                sync(); paint();
+                var last = list.querySelector('[data-row="' + (items.length - 1) + '"] input');
+                if (last) last.focus();
+            });
+            paint();
+            wrap.appendChild(list);
+            wrap.appendChild(add);
+            if (spec.help) wrap.appendChild(el("p", { class: "mb-help" }, spec.help));
+            return wrap;
+        }
+
         // What another design was set to, kept while this one is tried: a trend's
         // buckets survive a look at the pie, and come back when the trend does.
         // By option name, so a column the designs share (the group-by) carries
@@ -419,6 +492,10 @@
                 var value = options[spec.name] != null ? options[spec.name] : spec.default;
                 if (spec.type === "multichoice") {
                     optionsBox.appendChild(multichoice(spec, id));
+                    return;
+                }
+                if (spec.type === "links") {
+                    optionsBox.appendChild(linksEditor(spec, id));
                     return;
                 }
                 if (spec.type === "choice" || spec.type === "column" || spec.type === "widget") {
@@ -649,6 +726,14 @@
             var drill = !!(t && t.drillable && t.needs_metric);
             styleCard.hidden = !on;
             drillCard.hidden = !drill;
+            // A table's drill-down design is its own columns: the step says so.
+            var rowsCard = !!(t && t.shows_rows);
+            document.getElementById("cb-drill-heading").textContent = rowsCard ? "Columns" : "Drill-down";
+            document.getElementById("cb-drill-optional").hidden = rowsCard;
+            var drillHelp = document.getElementById("cb-drill-help");
+            drillHelp.innerHTML = drillHelp.getAttribute(rowsCard ? "data-rows" : "data-drill");  // our own template text
+            document.getElementById("cb-drill-title").textContent = rowsCard ? "Table columns" : "Drill-down columns";
+            document.getElementById("cb-drill-limit-field").hidden = rowsCard;
             // Steps count up over the cards shown: source (data cards only), design, what it shows, style, drill-down, name.
             var step = t && t.needs_metric ? 2 : 1;
             document.getElementById("cb-design-step").textContent = String(step);
@@ -738,9 +823,10 @@
                 drillChips.appendChild(chip);
             });
             drillChips.hidden = !d.columns.length;
+            var t = currentType();
             drillNote.textContent = (d.columns.length ? "" : "Nothing is ticked, so it shows the data's first six columns. ")
                 + (d.sort ? sortWords(d.sort) : "In the data's own order.")
-                + " Opens with up to " + (d.limit || DEFAULT_ROWS) + " rows.";
+                + (t && t.shows_rows ? " " + (options.rows || 10) + " rows a page." : " Opens with up to " + (d.limit || DEFAULT_ROWS) + " rows.");
         }
         function renderDrill() {
             var own = !!options.drilldown;
@@ -1096,11 +1182,13 @@
             }
             // A required choice not made yet is a next step, not a problem: say what to pick.
             var missing = (t.options || []).filter(function (spec) {
-                return spec.required && (options[spec.name] === undefined || options[spec.name] === "" || options[spec.name] === null);
+                var v = options[spec.name];
+                return spec.required && (v === undefined || v === "" || v === null || (Array.isArray(v) && !v.length));
             })[0];
             if (missing) {
                 var what = (missing.type === "multichoice" ? "" : "a ") + missing.label.toLowerCase();
-                preview.replaceChildren(el("p", { class: "mb-help" }, "Choose " + what + " to see the card."));
+                if (missing.type === "links") what = "a link";
+                preview.replaceChildren(el("p", { class: "mb-help" }, (missing.type === "links" ? "Add " : "Choose ") + what + " to see the card."));
                 problemsEl.textContent = "";
                 return;
             }

@@ -659,13 +659,15 @@ def drill_rows(
     limit: int = DRILL_LIMIT,
     spec: Optional[dict[str, Any]] = None,
     order: str = "",
+    offset: int = 0,
 ) -> dict[str, Any]:
     """The rows behind a metric's number: ``{columns, rows, total}``. Same
     effective filter as :func:`evaluate`, so ``total`` equals a count metric's
     value. *spec* is a card's drill-down design (:func:`validate_drilldown`):
     its columns, formats, sort and row limit; without one, the dataset's first
     columns as stored. *order* (a column, ``-`` for descending — a clicked
-    header) overrides the design's sort. Raises like ``Dataset.rows`` does."""
+    header) overrides the design's sort; *offset* skips rows after ordering (a
+    card that pages). Raises like ``Dataset.rows`` does."""
     from apps.datasets.core import LINK_KEY
 
     ds = resolve_dataset(metric)
@@ -679,6 +681,7 @@ def drill_rows(
     rows = ds.rows(
         filter_tree=tree,
         limit=limit,
+        offset=offset,
         request=request,
         ordering=sort,
         expand=sorted(ds.fk_column_names()),

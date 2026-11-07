@@ -1,0 +1,26 @@
+{% comment %}The "bars" card (apps/website/dashboard_cards.py): the groups as columns (names under them) or bars (names beside them), no library. Each is a labelled button that opens its rows.{% endcomment %}
+<div class="bars bars--{{ direction }} {{ style.classes }}">
+    <div class="trend-head">
+        <span class="trend-label">{{ label }}</span>
+        {% if total and total.ok %}<span class="trend-latest">{{ total.display }}{% if total.unit %} <span class="trend-unit">{{ total.unit }}</span>{% endif %}</span>{% endif %}
+    </div>
+    {% if restricted %}
+    <p class="trend-note">You don't have access to this metric's data.</p>
+    {% elif error %}
+    <p class="trend-note">{{ error }}</p>
+    {% elif not bars %}
+    <p class="trend-note">Nothing to show.</p>
+    {% else %}
+    <ol class="bars-plot">
+        {% for b in bars %}
+        <li class="bars-item{% if b.other %} bars-item--other{% elif b.state %} bars-item--{{ b.state }}{% endif %}" style="--share: {{ b.share }};">
+            <button type="button" class="bars-bar" hx-get="{{ b.drill_url }}" hx-target="#stat-modal-body" hx-swap="innerHTML" data-stat-modal="{{ label }}, {{ b.label }}" aria-haspopup="dialog" aria-label="{{ b.label }}: {{ b.display }}, show the rows" title="{{ b.label }}: {{ b.display }}">
+                <span class="bars-fill" aria-hidden="true"></span>
+                <span class="bars-value">{{ b.display }}</span>
+            </button>
+            <span class="bars-name" title="{{ b.label }}">{{ b.label }}</span>
+        </li>
+        {% endfor %}
+    </ol>
+    {% endif %}
+</div>

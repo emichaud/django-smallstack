@@ -410,3 +410,42 @@ def test_the_builder_designs_a_drilldown_in_a_dialog_beside_its_rows(client, sta
     assert 'id="cb-drill-chips"' in form and 'id="cb-drill-edit"' in form
     # The rows beside the list are the real ones: the JSON rows route, given the design.
     assert 'data-rows-url="/smallstack/dashboards/api/metrics/KEY/rows/"' in form
+
+
+def test_a_menu_card_is_links_in_order_across_or_down(client, staff):
+    """A way around, on the dashboard: links as given, a new window where
+    asked, nothing that runs; the layout by choice or by the card's shape."""
+    items = [
+        {"label": "Runbook", "url": "/smallstack/runbook/"},
+        {"label": "Status", "url": "https://status.example.com", "new_window": True},
+        {"label": "Top", "url": "#top"},
+    ]
+    cell = {"id": "m", "type": "menu", "title": "Go to", "w": 3, "h": 3, "options": {"items": items}}
+    Dashboard(name="Nav", slug="nav", layout=[cell]).save()
+    html = client.get("/smallstack/dashboards/d/nav/cells/m/").content.decode()
+    assert 'class="nav-card nav-card--auto" aria-label="Go to"' in html and html.count("<li>") == 3
+    assert html.index(">Runbook<") < html.index(">Status<") < html.index(">Top<")
+    assert '<a href="https://status.example.com" target="_blank" rel="noopener">' in html
+    assert "opens in a new window" in html
+    assert '<a href="/smallstack/runbook/"><span>Runbook</span></a>' in html  # the site's own page: plain
+    d = Dashboard.objects.get(slug="nav")
+    d.layout[0]["options"]["layout"] = "horizontal"
+    d.save()
+    html = client.get("/smallstack/dashboards/d/nav/cells/m/").content.decode()
+    assert 'class="nav-card nav-card--horizontal"' in html
+    for bad, reason in (
+        ([], "required"),
+        ([{"label": "x", "url": "javascript:alert(1)"}], "url must be"),
+        ([{"label": "x", "url": "//evil.example.com"}], "url must be"),
+        ([{"label": "", "url": "/a"}], "label"),
+        ([{"label": "x", "url": "/a", "new_window": "yes"}], "new_window"),
+        ([{"label": "x", "url": "/a", "icon": "star"}], "unknown key"),
+    ):
+        with pytest.raises(ValidationError, match=reason):
+            Dashboard(name="Bad", slug="bad", layout=[{"type": "menu", "options": {"items": bad}}]).full_clean()
+    with pytest.raises(ValidationError, match="layout"):
+        bad_layout = {"type": "menu", "options": {"items": items, "layout": "diagonal"}}
+        Dashboard(name="Bad", slug="bad", layout=[bad_layout]).full_clean()
+    # A menu draws no data, so it takes no source — and the builder knows the links option.
+    described = next(t for t in describe_types() if t["type"] == "menu")
+    assert not described["needs_metric"] and [o["type"] for o in described["options"]] == ["links", "choice"]

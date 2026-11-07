@@ -161,9 +161,10 @@ modal underneath.
 
             {# ── Drill-down (drillable types only) ──────────────── #}
             <div class="card mb-section" id="cb-drill-card" hidden>
-                <div class="card-header"><h2><span class="mf-step" id="cb-drill-step">5</span>Drill-down <span class="dash-muted" style="font-weight: 400; font-size: 0.85rem;">(optional)</span></h2></div>
+                {% comment %}For a design that draws rows itself (shows_rows: a table) this step is its Columns; component-builder.js swaps the words.{% endcomment %}
+                <div class="card-header"><h2><span class="mf-step" id="cb-drill-step">5</span><span id="cb-drill-heading">Drill-down</span> <span class="dash-muted" id="cb-drill-optional" style="font-weight: 400; font-size: 0.85rem;">(optional)</span></h2></div>
                 <div class="card-body">
-                    <p class="mb-help" style="margin-top: 0;">What opens when someone taps a number: the rows behind it. Its <strong>Download CSV</strong> uses the same columns.{% if cb_mode == "page" %} Tap the number in the preview to try it.{% endif %}</p>
+                    <p class="mb-help" style="margin-top: 0;" id="cb-drill-help" data-drill="What opens when someone taps a number: the rows behind it. Its <strong>Download CSV</strong> uses the same columns.{% if cb_mode == "page" %} Tap the number in the preview to try it.{% endif %}" data-rows="What the table shows: which columns, in what order, with which headings and formats, and how its rows sort. <strong>All rows</strong> on the card opens them in a window with the same columns and a <strong>Download CSV</strong>.">What opens when someone taps a number: the rows behind it. Its <strong>Download CSV</strong> uses the same columns.{% if cb_mode == "page" %} Tap the number in the preview to try it.{% endif %}</p>
                     <label class="plf-check"><input type="checkbox" id="cb-drill-own" aria-haspopup="dialog"> <span><strong>Choose the columns.</strong> Otherwise it shows the data's first six columns, as stored.</span></label>
                     {% comment %}The design in short. It's made in the dialog below the form (cb-drill-dialog): every column in one list, beside the rows it opens.{% endcomment %}
                     <div id="cb-drill" class="cbd-summary" hidden>
@@ -297,7 +298,7 @@ puts back what was there when it opened.
             <div class="cb-drill-opts">
                 <div class="mb-field"><label for="cb-drill-sort">Sort rows by</label><select id="cb-drill-sort" class="vTextField"></select></div>
                 <div class="mb-field"><label for="cb-drill-dir">Order</label><select id="cb-drill-dir" class="vTextField"><option value="-">Newest / largest first</option><option value="">Oldest / smallest first</option></select></div>
-                <div class="mb-field"><label for="cb-drill-limit">Rows shown</label><input type="number" id="cb-drill-limit" class="vTextField" min="1" max="500" placeholder="50"></div>
+                <div class="mb-field" id="cb-drill-limit-field"><label for="cb-drill-limit">Rows shown</label><input type="number" id="cb-drill-limit" class="vTextField" min="1" max="500" placeholder="50"></div>
             </div>
         </section>
         <section class="cbd-rows" aria-labelledby="cbd-rows-title">

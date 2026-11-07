@@ -1,0 +1,9 @@
+{% comment %}A menu cell: links in the card's order. Across or down by choice, or (auto) by the card's shape — dashboards.css reads the card's size with a container query. A link elsewhere or in a new window opens with rel="noopener".{% endcomment %}
+<nav class="nav-card nav-card--{{ layout }}"{% if label %} aria-label="{{ label }}"{% else %} aria-label="Links"{% endif %}>
+    {% if label %}<h3 class="nav-card-title">{{ label }}</h3>{% endif %}
+    <ul class="nav-card-links">
+        {% for i in items %}
+        <li><a href="{{ i.url }}"{% if i.new_window %} target="_blank" rel="noopener"{% elif i.external %} rel="noopener"{% endif %}><span>{{ i.label }}</span>{% if i.new_window %}<svg class="nav-card-ext" viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3h7v7h-2V6.4l-9.3 9.3-1.4-1.4L17.6 5H14V3zM5 5h6v2H7v10h10v-4h2v6H5V5z"/></svg><span class="sr-only"> (opens in a new window)</span>{% endif %}</a></li>
+        {% endfor %}
+    </ul>
+</nav>

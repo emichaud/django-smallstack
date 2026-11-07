@@ -226,7 +226,8 @@ class ComponentType:
     #: Option fields a builder offers: ``[{name, label, type, default?, choices?, min?, max?, help?, required?}]``.
     #: ``type``: choice | multichoice (several of ``choices``, as a tick-list; stored
     #: as one comma-separated string) | integer | number | text | boolean | column (a
-    #: column of the metric's dataset) | widget (a published DashboardWidget) | markdown.
+    #: column of the metric's dataset) | widget (a published DashboardWidget) | markdown |
+    #: links (a list of ``{label, url, new_window}``, the builder's row editor).
     #: ``choices`` is ``[[value, label]]``, or ``choices(user)`` returning that.
     options_schema: list[dict[str, Any]] = field(default_factory=list)
     #: Where the component builder's palette files it: "Stats", "Info", "Charts", …
@@ -251,6 +252,10 @@ class ComponentType:
     #: ``metrics.validate_drilldown``). Its build appends :func:`drill_params`
     #: to every rows URL it renders.
     drillable: bool = False
+    #: Draws the rows itself (a table), so its drill-down design is its own
+    #: columns: the builder calls that step "Columns", and the design's row
+    #: limit applies to the window its rows open in, not to the card.
+    shows_rows: bool = False
     #: Boils down to one number, so it may draw a saved metric (the only
     #: designs that may: a metric is one value, a chart needs the rows), and a
     #: saved card of this type over a metric can be a goal (``goals.py``); the
@@ -305,6 +310,7 @@ def describe_types(user: Any = None) -> list[dict[str, Any]]:
             "stylable": ct.stylable,
             "style_settings": list(ct.style_settings) or [spec["name"] for spec in CARD_STYLE],
             "drillable": ct.drillable,
+            "shows_rows": ct.shows_rows,
             "single_value": ct.single_value,
         }
         for ct in component_types()
@@ -992,6 +998,72 @@ def build_text(cell: dict[str, Any], ctx: CellContext) -> dict[str, Any]:
     return {"html": mark_safe(render_markdown(md, toc=False)["html"]), "label": cell_title(cell)}
 
 
+#: The most links a menu card holds.
+MAX_MENU_LINKS = 30
+MENU_LAYOUTS = (("auto", "Fit the card"), ("horizontal", "Across"), ("vertical", "Down"))
+
+
+def menu_url_problem(url: Any) -> str:
+    """Why *url* can't be a menu link ("" when it can): a page of this site
+    (``/…``, ``#…``), an http(s) address, or mail. Nothing that runs."""
+    if not isinstance(url, str) or not url.strip():
+        return "needs a url"
+    value = url.strip()
+    lowered = value.lower()
+    if lowered.startswith(("/", "#")) and not lowered.startswith("//"):
+        return ""
+    if lowered.startswith(("http://", "https://", "mailto:")):
+        return ""
+    return "url must be a page of this site (/…), an http(s) address or mailto:"
+
+
+def _validate_menu(cell: dict[str, Any]) -> list[str]:
+    opts = cell.get("options") or {}
+    items = opts.get("items")
+    problems = []
+    if not isinstance(items, list) or not items:
+        return ["'items' (the links) is required: [{label, url, new_window?}]"]
+    if len(items) > MAX_MENU_LINKS:
+        problems.append(f"'items': at most {MAX_MENU_LINKS} links")
+    for n, item in enumerate(items[:MAX_MENU_LINKS]):
+        where = f"items[{n}]"
+        if not isinstance(item, dict):
+            problems.append(f"{where}: needs {{label, url}}")
+            continue
+        label = item.get("label")
+        if not isinstance(label, str) or not label.strip() or len(label) > 60:
+            problems.append(f"{where}.label: text, 1–60 characters")
+        url_problem = menu_url_problem(item.get("url"))
+        if url_problem:
+            problems.append(f"{where}.url: {url_problem}")
+        if "new_window" in item and not isinstance(item["new_window"], bool):
+            problems.append(f"{where}.new_window: true or false")
+        unknown = sorted(set(item) - {"label", "url", "new_window"})
+        if unknown:
+            problems.append(f"{where}: unknown key(s) {unknown}")
+    if opts.get("layout", "auto") not in dict(MENU_LAYOUTS):
+        problems.append(f"'layout' must be one of {[k for k, _ in MENU_LAYOUTS]}")
+    return problems
+
+
+def build_menu(cell: dict[str, Any], ctx: CellContext) -> dict[str, Any]:
+    """The links as given, in order. A link to another site or a new window
+    opens with ``rel="noopener"``; the layout class is the chosen one, or
+    ``auto`` for the stylesheet to fit the card's shape (container query)."""
+    opts = cell.get("options") or {}
+    items = [
+        {
+            "label": str(i.get("label", "")).strip(),
+            "url": str(i.get("url", "")).strip(),
+            "new_window": bool(i.get("new_window")),
+            "external": str(i.get("url", "")).strip().lower().startswith(("http://", "https://")),
+        }
+        for i in (opts.get("items") or [])
+        if isinstance(i, dict)
+    ]
+    return {"items": items, "label": cell_title(cell), "layout": opts.get("layout") or "auto"}
+
+
 #: The most goals a goals card shows; the goal list's page has the rest.
 MAX_CARD_GOALS = 10
 
@@ -1128,6 +1200,37 @@ def register_builtins() -> None:
             default_size=(4, 2),
             validate=_validate_text,
             options_schema=[{"name": "markdown", "label": "Markdown", "type": "markdown", "required": True}],
+        )
+    )
+    register_component_type(
+        ComponentType(
+            key="menu",
+            label="Menu",
+            description="Links in your order, across or down: a way around, on the dashboard.",
+            group="Info",
+            icon="M4 6h16v2H4V6zm0 5h16v2H4v-2zm0 5h16v2H4v-2z",
+            template="dashboards/cells/menu.html",
+            build=build_menu,
+            default_size=(3, 3),
+            validate=_validate_menu,
+            options_schema=[
+                {
+                    "name": "items",
+                    "label": "Links",
+                    "type": "links",
+                    "required": True,
+                    "help": "Each link: its words, where it goes (a page of this site, /…, or an address), "
+                    "and whether it opens a new window.",
+                },
+                {
+                    "name": "layout",
+                    "label": "Lay out",
+                    "type": "choice",
+                    "choices": [list(c) for c in MENU_LAYOUTS],
+                    "default": "auto",
+                    "help": "Fit the card: across when it's wide, down when it's tall.",
+                },
+            ],
         )
     )
     register_component_type(

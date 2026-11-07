@@ -266,6 +266,11 @@
                     input = document.createElement("input");
                     input.type = "checkbox";
                     input.checked = !!spec.default;
+                } else if (spec.type === "links") {
+                    // One link a line: "Words | /where | new" (the builder has the row editor).
+                    input = document.createElement("textarea");
+                    input.rows = 4;
+                    input.placeholder = "Runbook | /smallstack/runbook/\nStatus | https://status.example.com | new";
                 } else {
                     input = document.createElement("input");
                     input.type = (spec.type === "number" || spec.type === "integer") ? "number" : "text";
@@ -279,10 +284,10 @@
                 if (spec.type === "boolean") { label.appendChild(input); label.appendChild(document.createTextNode(" " + spec.label)); }
                 else { label.appendChild(document.createTextNode(spec.label)); label.appendChild(input); }
                 optionsBox.appendChild(label);
-                if (spec.help) {
+                if (spec.help || spec.type === "links") {
                     var help = document.createElement("p");
                     help.className = "dash-hint";
-                    help.textContent = spec.help;
+                    help.textContent = (spec.help || "") + (spec.type === "links" ? " One a line: words | address | new (for a new window)." : "");
                     optionsBox.appendChild(help);
                 }
             });
@@ -291,6 +296,15 @@
             optionsBox.querySelectorAll("[name^='opt:']").forEach(function (input) {
                 var name = input.name.slice(4), kind = input.dataset.optType;
                 if (kind === "boolean") cell.options[name] = input.checked;
+                else if (kind === "links") {
+                    cell.options[name] = input.value.split("\n").map(function (line) {
+                        var parts = line.split("|").map(function (p) { return p.trim(); });
+                        if (!parts[0] && !parts[1]) return null;
+                        var item = { label: parts[0] || parts[1] || "", url: parts[1] || "" };
+                        if (/^new/i.test(parts[2] || "")) item.new_window = true;
+                        return item;
+                    }).filter(Boolean);
+                }
                 else if (kind === "number" || kind === "integer") { if (input.value !== "") cell.options[name] = Number(input.value); }
                 else if (input.value !== "") cell.options[name] = input.value;
             });
