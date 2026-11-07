@@ -228,7 +228,10 @@ class ComponentType:
     #: as one comma-separated string) | integer | number | text | boolean | column (a
     #: column of the metric's dataset) | widget (a published DashboardWidget) | markdown |
     #: links (a list of ``{label, url, new_window}``, the builder's row editor).
-    #: ``choices`` is ``[[value, label]]``, or ``choices(user)`` returning that.
+    #: ``choices`` is ``[[value, label]]``, or ``choices(user)`` returning that. A
+    #: choice may add ``widget``: ``"segmented"`` (pills in a row; an alignment
+    #: gets icons) or ``"swatches"`` (colour dots — each value a theme token the
+    #: stylesheet names, ``.cb-swatch--<option>-<value>``), drawn by cards.js.
     options_schema: list[dict[str, Any]] = field(default_factory=list)
     #: Where the component builder's palette files it: "Stats", "Info", "Charts", …
     group: str = "Other"
@@ -748,15 +751,19 @@ def rows_url(ctx: CellContext, **params: Any) -> str:
     return f"{ctx.rows_url}?{urlencode(query)}" if query else ctx.rows_url
 
 
-def source_rows_url(dashboard: Optional["Dashboard"], cell: dict[str, Any], source: Optional["Metric"]) -> str:
+def source_rows_url(
+    dashboard: Optional["Dashboard"], cell: dict[str, Any], source: Optional["Metric"], user: Any = None
+) -> str:
     """The rows behind *cell*: a metric's own rows route; a card's own source
-    reads them by its place on the dashboard; a card not saved anywhere yet
-    (the builder's preview) through the preview-rows route, to which the
-    builder posts the definition itself."""
+    reads them by its place on the dashboard — as does a card over a metric
+    *user* may not open themselves (a dashboard shared with them), so access
+    follows the dashboard; a card not saved anywhere yet (the builder's
+    preview) through the preview-rows route, to which the builder posts the
+    definition itself."""
     if source is None:
         return ""
     try:
-        if not is_inline(source):
+        if not is_inline(source) and (user is None or source.can_view(user)):
             return reverse("dashboards_metric_rows", kwargs={"key": source.key})
         if dashboard is not None and dashboard.pk and cell.get("id"):
             return reverse("dashboards_cell_rows", kwargs={"slug": dashboard.slug, "cell_id": str(cell["id"])})
@@ -979,6 +986,23 @@ def widget_number(data: dict[str, Any]) -> Optional[float]:
     return float(match.group().replace(",", "")) if match else None
 
 
+#: How a note looks: each a choice of theme tokens, never a literal colour, so
+#: the note reads right on every palette. "" = the default (the card's own).
+TEXT_LOOKS: dict[str, list[list[str]]] = {
+    "size": [["s", "Small"], ["m", "Medium"], ["l", "Large"], ["xl", "Extra large"]],
+    "align": [["start", "Left"], ["center", "Centre"], ["end", "Right"]],
+    "color": [
+        ["plain", "Plain"], ["quiet", "Quiet"], ["accent", "Accent"],
+        ["success", "Success"], ["warning", "Warning"], ["danger", "Danger"],
+    ],
+    "background": [
+        ["", "None"], ["band", "Accent tint"], ["raised", "Raised"],
+        ["success", "Success"], ["warning", "Warning"], ["danger", "Danger"], ["info", "Info"],
+    ],
+}
+_TEXT_DEFAULTS = {"size": "m", "align": "start", "color": "plain", "background": ""}
+
+
 def _validate_text(cell: dict[str, Any]) -> list[str]:
     options = cell.get("options") or {}
     if "markdown" not in options:
@@ -986,7 +1010,12 @@ def _validate_text(cell: dict[str, Any]) -> list[str]:
     md = options["markdown"]
     if not isinstance(md, str) or len(md) > 5000:
         return ["'markdown' must be text, at most 5000 characters"]
-    return []
+    problems = []
+    for name, choices in TEXT_LOOKS.items():
+        value = options.get(name, _TEXT_DEFAULTS[name])
+        if value not in (c[0] for c in choices):
+            problems.append(f"'{name}' must be one of {[c[0] for c in choices if c[0]]}")
+    return problems
 
 
 def build_text(cell: dict[str, Any], ctx: CellContext) -> dict[str, Any]:
@@ -994,8 +1023,11 @@ def build_text(cell: dict[str, Any], ctx: CellContext) -> dict[str, Any]:
 
     from apps.smallstack.transforms import render_markdown
 
-    md = str((cell.get("options") or {}).get("markdown") or "")
-    return {"html": mark_safe(render_markdown(md, toc=False)["html"]), "label": cell_title(cell)}
+    opts = cell.get("options") or {}
+    md = str(opts.get("markdown") or "")
+    looks = {name: opts.get(name) or _TEXT_DEFAULTS[name] for name in TEXT_LOOKS}
+    classes = " ".join(f"tx-{name}-{value}" for name, value in looks.items() if value)
+    return {"html": mark_safe(render_markdown(md, toc=False)["html"]), "label": cell_title(cell), "classes": classes}
 
 
 #: The most links a menu card holds.
@@ -1199,7 +1231,42 @@ def register_builtins() -> None:
             build=build_text,
             default_size=(4, 2),
             validate=_validate_text,
-            options_schema=[{"name": "markdown", "label": "Markdown", "type": "markdown", "required": True}],
+            options_schema=[
+                {"name": "markdown", "label": "Markdown", "type": "markdown", "required": True},
+                # widget: how the builder draws the choice (cards.js): pills, or colour swatches.
+                {
+                    "name": "size",
+                    "label": "Size",
+                    "type": "choice",
+                    "choices": [["s", "S"], ["m", "M"], ["l", "L"], ["xl", "XL"]],
+                    "default": "m",
+                    "widget": "segmented",
+                },
+                {
+                    "name": "align",
+                    "label": "Align",
+                    "type": "choice",
+                    "choices": TEXT_LOOKS["align"],
+                    "default": "start",
+                    "widget": "segmented",
+                },
+                {
+                    "name": "color",
+                    "label": "Text colour",
+                    "type": "choice",
+                    "choices": TEXT_LOOKS["color"],
+                    "default": "plain",
+                    "widget": "swatches",
+                },
+                {
+                    "name": "background",
+                    "label": "Background",
+                    "type": "choice",
+                    "choices": TEXT_LOOKS["background"],
+                    "default": "",
+                    "widget": "swatches",
+                },
+            ],
         )
     )
     register_component_type(

@@ -795,6 +795,11 @@ def _serialize(
                 except (ValueError, NotImplementedError):
                     # No MEDIA_URL, or a storage backend without URL support.
                     val = val.name
+        elif hasattr(val, "model") and hasattr(val, "values_list") and not isinstance(val, (list, tuple)):
+            # A many-to-many (a related manager): the related rows' primary keys.
+            # The manager itself isn't JSON, and a CRUDView whose detail fields are
+            # the model's own hit it as soon as the model gained an M2M.
+            val = list(val.values_list("pk", flat=True))
         elif isinstance(val, UUID):
             # A UUIDField. DjangoJSONEncoder would stringify this for REST, so
             # the wire format is unchanged — but plain json.dumps will not, and

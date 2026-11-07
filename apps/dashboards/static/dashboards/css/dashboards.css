@@ -170,7 +170,27 @@ a.dash-tag.is-current:link, a.dash-tag.is-current:visited { color: var(--primary
 }
 
 /* text + widget + messages */
-.dash-text { padding: 0.75rem 1rem; font-size: 0.9rem; line-height: 1.5; }
+.dash-text { padding: 0.75rem 1rem; font-size: 0.9rem; line-height: 1.5; height: 100%; box-sizing: border-box; }
+/* a note's look (cells/text.html, components.TEXT_LOOKS): theme tokens only */
+.dash-text.tx-size-s { font-size: 0.8rem; }
+.dash-text.tx-size-l { font-size: 1.05rem; }
+.dash-text.tx-size-xl { font-size: 1.3rem; }
+.dash-text.tx-size-l h1, .dash-text.tx-size-l h2, .dash-text.tx-size-l h3 { font-size: 1.25rem; }
+.dash-text.tx-size-xl h1, .dash-text.tx-size-xl h2, .dash-text.tx-size-xl h3 { font-size: 1.6rem; }
+.dash-text.tx-align-center { text-align: center; }
+.dash-text.tx-align-end { text-align: right; }
+.dash-text.tx-color-quiet { color: var(--body-quiet-color); }
+.dash-text.tx-color-accent { color: var(--primary); }
+.dash-text.tx-color-success { color: var(--success-fg); }
+.dash-text.tx-color-warning { color: var(--warning-fg); }
+.dash-text.tx-color-danger { color: var(--error-fg); }
+/* the accent tint the rows modal's chips use: --accent-band-bg is the card surface on some palettes, invisible inside a card */
+.dash-text.tx-background-band { background: color-mix(in srgb, var(--primary) 12%, var(--card-bg)); }
+.dash-text.tx-background-raised { background: var(--card-header-bg); }
+.dash-text.tx-background-success { background: var(--success-bg); }
+.dash-text.tx-background-warning { background: var(--warning-bg); }
+.dash-text.tx-background-danger { background: var(--error-bg); }
+.dash-text.tx-background-info { background: var(--info-bg); }
 /* The menu card (cells/menu.html): links across or down. "auto" reads the card's shape:
    a container query on the card itself, so resizing the card re-lays the links. */
 .nav-card { display: flex; flex-direction: column; height: 100%; padding: 0.5rem 0.75rem; gap: 0.25rem; min-height: 0; container-type: size; }
@@ -1785,6 +1805,31 @@ a.ix-board:hover .board-cover .bc-fill,
     border-top: 1px solid var(--card-border);
     font-size: 0.78rem;
 }
+/* Shared with you (my_dashboards.html): other people's dashboards this person may open */
+.my-shared { margin-top: 2rem; padding-top: 1.25rem; border-top: 1px solid var(--card-border); }
+.my-shared-list { list-style: none; margin: 0.5rem 0 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(18rem, 100%), 1fr)); gap: 0.75rem; }
+.my-shared-item { display: flex; align-items: center; gap: 0.75rem; min-width: 0; padding: 0.5rem 0.65rem; border: 1px solid var(--card-border); border-radius: 8px; background: var(--card-bg); }
+.my-shared-item:hover { border-color: var(--primary); }
+.my-shared-pic { flex: none; width: 3.4rem; height: 2.4rem; overflow: hidden; border-radius: 5px; background: var(--card-header-bg); }
+.my-shared-body { display: flex; flex-direction: column; min-width: 0; gap: 0.1rem; }
+.my-shared-name, a.my-shared-name:link, a.my-shared-name:visited { font-weight: 600; color: var(--body-fg); text-decoration: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.my-shared-name:hover { color: var(--primary); }
+.my-shared-meta { font-size: 0.78rem; color: var(--body-quiet-color); }
+
+/* the Share dialog (partials/share_dialog.html) */
+.shd { display: flex; flex-direction: column; gap: 0.75rem; padding: 0.25rem 0; }
+.shd-lede { margin: 0; font-size: 0.9rem; color: var(--body-quiet-color); }
+.shd-lede strong { color: var(--body-fg); }
+.shd-everyone { padding: 0.6rem 0.75rem; border: 1px solid var(--card-border); border-radius: 8px; background: var(--card-header-bg); }
+.shd-h3 { margin: 0.25rem 0 0; font-size: 0.85rem; font-weight: 600; color: var(--body-quiet-color); }
+.shd-people { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.3rem; }
+.shd-people li { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; padding: 0.35rem 0.6rem; border: 1px solid var(--card-border); border-radius: 6px; }
+.shd-people form { margin: 0; }
+.shd-person { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.shd-search { display: block; }
+.shd-matches:empty { display: none; }
+.shd-link { margin: 0.25rem 0 0; font-size: 0.8rem; display: flex; gap: 0.5rem; align-items: baseline; flex-wrap: wrap; }
+.shd-link code { overflow-wrap: anywhere; }
 .my-board--new { border-style: dashed; background: transparent; }
 .my-board--new a,
 .my-board--new a:link,
@@ -2079,7 +2124,50 @@ a.ix-view-btn:visited {
 .cb-tile.is-unavailable .cb-tile-label,
 .cb-tile.is-unavailable .cb-tile-desc,
 .cb-tile.is-unavailable .cb-tile-icon { opacity: 0.45; }
-.cb-options .mb-field:last-child { margin-bottom: 0; }
+/* The options step: small settings (a choice, a number, a tick) sit side by side; a
+   text box, a tick-list or the links editor takes the whole row (cb-opt--wide). */
+.cb-options { display: grid; gap: 0.6rem 1.1rem; align-items: start; }
+.cb-options .mb-field { margin-bottom: 0; }
+.cb-options .cb-opt--wide { grid-column: 1 / -1; }
+.cb-options .mb-help { margin: 0; font-size: 0.76rem; }
+.cb-options textarea.cb-markdown { height: 6.5rem; min-height: 4rem; resize: vertical; }
+.cb-options { grid-template-columns: repeat(auto-fit, minmax(9rem, max-content)); }
+.cb-options .mb-field:has(> select, > input[type=number], > input[type=text]) { min-width: 11rem; }
+.cb-opt-label, .dash-opt-label { display: block; font-size: 0.82rem; color: var(--body-quiet-color); font-weight: 500; }
+
+/* -- choice widgets (cards.js choiceWidget): pills, and colour swatches ---------- */
+.cb-seg { display: inline-flex; align-items: stretch; border: 1px solid var(--card-border); border-radius: 6px; overflow: hidden; background: var(--card-bg); }
+.cb-seg-item { display: inline-flex; align-items: center; justify-content: center; min-width: 2.2rem; padding: 0.35rem 0.6rem; font-size: 0.82rem; font-weight: 500; color: var(--body-quiet-color); cursor: pointer; user-select: none; }
+.cb-seg-item + input + .cb-seg-item, .cb-seg-item:not(:first-of-type) { border-left: 1px solid var(--card-border); }
+.cb-seg-item svg { width: 1rem; height: 1rem; fill: currentColor; }
+.cb-seg-item:hover { color: var(--body-fg); background: var(--card-header-bg); }
+.cb-choice-radio:checked + .cb-seg-item { color: var(--primary); background: color-mix(in srgb, var(--primary) 16%, var(--card-bg)); }
+.cb-choice-radio:focus-visible + .cb-seg-item { outline: 2px solid var(--input-focus-border); outline-offset: -2px; }
+.cb-swatches { display: inline-flex; flex-wrap: nowrap; align-items: center; gap: 0.4rem; padding: 0.3rem 0; }
+.cb-swatch { display: inline-block; width: 1.35rem; height: 1.35rem; border-radius: 50%; border: 1px solid var(--card-border); cursor: pointer; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--body-fg) 10%, transparent); }
+.cb-swatch:hover { transform: scale(1.1); }
+.cb-choice-radio:checked + .cb-swatch { box-shadow: 0 0 0 2px var(--card-bg), 0 0 0 4px var(--primary); }
+.cb-choice-radio:focus-visible + .cb-swatch { outline: 2px solid var(--input-focus-border); outline-offset: 3px; }
+/* the note's text colours */
+.cb-swatch--color-plain { background: var(--body-fg); }
+.cb-swatch--color-quiet { background: var(--body-quiet-color); }
+.cb-swatch--color-accent { background: var(--primary); }
+.cb-swatch--color-success { background: var(--success-fg); }
+.cb-swatch--color-warning { background: var(--warning-fg); }
+.cb-swatch--color-danger { background: var(--error-fg); }
+/* the note's backgrounds; "none" is a slashed empty dot */
+.cb-swatch--background-none { background: linear-gradient(135deg, transparent 46%, var(--error-fg) 46%, var(--error-fg) 54%, transparent 54%); border-style: dashed; }
+.cb-swatch--background-band { background: color-mix(in srgb, var(--primary) 12%, var(--card-bg)); }
+.cb-swatch--background-raised { background: var(--card-header-bg); }
+.cb-swatch--background-success { background: var(--success-bg); }
+.cb-swatch--background-warning { background: var(--warning-bg); }
+.cb-swatch--background-danger { background: var(--error-bg); }
+.cb-swatch--background-info { background: var(--info-bg); }
+/* the dashboard's Add card dialog draws the same */
+#dash-add-options { display: grid; grid-template-columns: repeat(auto-fit, minmax(9rem, max-content)); gap: 0.5rem 1.1rem; align-items: start; }
+#dash-add-options > label, #dash-add-options > fieldset, #dash-add-options > .dash-hint { grid-column: 1 / -1; }
+.dash-opt-field { display: grid; gap: 0.25rem; margin-bottom: 0.3rem; }
+.cb-options .mb-field:has(> .plf-check) { align-self: end; padding-bottom: 0.65rem; }  /* a tick sits level with the fields beside it */
 .cb-preview-head { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
 .cb-period { width: auto; height: 1.9rem; padding: 0 0.4rem; font-size: 0.78rem; }
 /* The frame is a dashboard cell at the type's default size: 70px rows, 12px gaps. */

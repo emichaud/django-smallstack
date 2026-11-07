@@ -84,7 +84,7 @@ def render_cell(dashboard: Dashboard, cell: dict[str, Any], request: HttpRequest
         dashboard=dashboard,
         metric=metric,
         period=period,
-        rows_url=source_rows_url(dashboard, cell, metric),
+        rows_url=source_rows_url(dashboard, cell, metric, user),
     )
     try:
         context = ct.build(cell, ctx)
@@ -252,6 +252,83 @@ def clear_picture(dashboard: Dashboard) -> dict[str, Any]:
     dashboard.cover_alt = ""
     dashboard.save()
     return picture_payload(dashboard)
+
+
+# -- sharing a personal dashboard --------------------------------------------
+
+
+def share_payload(dashboard: Dashboard) -> dict[str, Any]:
+    """Who a dashboard is shared with, as the share dialog and the
+    ``dashboard_share`` tool report it."""
+    people = list(dashboard.shared_with.order_by("username")) if dashboard.pk else []
+    return {
+        "ok": True,
+        "everyone": bool(dashboard.shared_with_everyone),
+        "people": [{"username": u.get_username(), "name": u.get_full_name() or u.get_username()} for u in people],
+        "audience": dashboard.audience(),
+    }
+
+
+def set_sharing(
+    dashboard: Dashboard,
+    *,
+    actor: Any,
+    everyone: Optional[bool] = None,
+    add: Any = (),
+    remove: Any = (),
+) -> dict[str, Any]:
+    """Share a personal dashboard, or stop: *everyone* (everyone who can sign
+    in), *add* / *remove* people (users, pks or usernames). The owner keeps
+    editing it; the people added get a notification with the link. An
+    ownerless dashboard is everyone's already, so there's nothing to set."""
+    from django.contrib.auth import get_user_model
+
+    if dashboard.owner_id is None:
+        return {"error": "this dashboard is shared with everyone already (it has no owner)"}
+    User = get_user_model()
+
+    def people(raw: Any) -> list[Any]:
+        found = []
+        for item in raw or ():
+            if isinstance(item, User):
+                found.append(item)
+                continue
+            lookup = {"pk": item} if isinstance(item, int) or str(item).isdigit() else {"username": str(item)}
+            user = User.objects.filter(is_active=True, **lookup).first()
+            if user is not None:
+                found.append(user)
+        return [u for u in found if u.pk != dashboard.owner_id]
+
+    if everyone is not None and bool(everyone) != dashboard.shared_with_everyone:
+        dashboard.shared_with_everyone = bool(everyone)
+        dashboard.save(update_fields=["shared_with_everyone", "updated_at"])
+    added = [u for u in people(add) if not dashboard.shared_with.filter(pk=u.pk).exists()]
+    if added:
+        dashboard.shared_with.add(*added)
+        _notify_shared(dashboard, added, actor)
+    gone = people(remove)
+    if gone:
+        dashboard.shared_with.remove(*gone)
+    return {**share_payload(dashboard), "added": [u.get_username() for u in added]}
+
+
+def _notify_shared(dashboard: Dashboard, users: list[Any], actor: Any) -> None:
+    """A bell for each person just given the dashboard. Best-effort."""
+    try:
+        from apps.notifications.services import notify
+
+        who = actor.get_full_name() or actor.get_username() if actor is not None else "Someone"
+        notify(
+            users,
+            title=f"{who} shared a dashboard with you: {dashboard.name}",
+            message=dashboard.description or "Open it from Dashboards, under Shared with you.",
+            url=dashboard.get_absolute_url(),
+            kind="dashboards.shared",
+            actor=actor,
+            subject_key=f"dashboard:{dashboard.slug}",
+        )
+    except Exception:  # noqa: BLE001 — a bell is a courtesy, never a reason sharing fails
+        logger.exception("dashboards: share notification failed for %s", dashboard.slug)
 
 
 def picture_payload(dashboard: Dashboard) -> dict[str, Any]:

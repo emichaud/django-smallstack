@@ -435,6 +435,21 @@ def component_media() -> Any:
     return format_html("{}\n{}", css, js)
 
 
+@register.simple_tag(takes_context=True)
+def dash_audience(context: Any, dashboard: Any) -> str:
+    """Who may open *dashboard*, for its badge, from the viewer's side:
+    "Personal", "Shared", "Shared with everyone", "Shared with 3 people",
+    "Shared by alice" (it was shared with the viewer); someone else's personal
+    dashboard a staff member is looking at says whose."""
+    request = context.get("request")
+    user = getattr(request, "user", None)
+    text = str(dashboard.audience(user))
+    someone_elses = dashboard.owner_id and user is not None and dashboard.owner_id != getattr(user, "pk", None)
+    if someone_elses and not text.startswith("Shared by"):
+        text = f"{text} · {dashboard.owner}"
+    return text
+
+
 #: The component builder's palette sections, in order; any other group follows.
 PALETTE_ORDER = ("Stats", "Info", "Charts")
 

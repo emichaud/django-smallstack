@@ -11,6 +11,7 @@ generated from the CRUDViews. These add what CRUD can't:
 - ``dashboard_snapshot`` — every card on a dashboard, evaluated (check your work)
 - ``dashboard_add_card`` / ``dashboard_remove_card`` — edit one card, not the whole layout (or place a saved one)
 - ``card_preview``     — render an unsaved card (the component builder's dry run)
+- ``dashboard_share`` — who may open a personal dashboard: everyone, or people by username
 - ``dashboard_set_picture`` — the dashboard's picture, sent as base64 (or removed)
 - ``report_values``    — a report's matrix
 - ``playlist_slides``  — a playlist as the caller sees it (the CRUD tools create and edit one)
@@ -231,6 +232,34 @@ def _remove_card(args: dict[str, Any]) -> dict[str, Any]:
     dashboard.layout = [c for c in dashboard.layout if c.get("id") != cell_id]
     dashboard.save()
     return {"ok": True, "cells": len(dashboard.layout)}
+
+
+def _share(args: dict[str, Any]) -> dict[str, Any]:
+    from .boards import set_sharing, share_payload
+
+    user = _user()
+    dashboard = _dashboard(user, args.get("dashboard"))
+    if dashboard is None:
+        return {"error": f"no dashboard {args.get('dashboard')!r} — use list_dashboards"}
+    if not dashboard.can_edit(user):
+        return {"error": "you may not edit this dashboard"}
+    if dashboard.owner_id is None:
+        return {**share_payload(dashboard), "note": "an ownerless dashboard is everyone's already; nothing to set"}
+    everyone = args.get("everyone")
+    add, remove = args.get("add") or [], args.get("remove") or []
+    if everyone is None and not add and not remove:
+        return share_payload(dashboard)  # just asking
+    if not isinstance(add, list) or not isinstance(remove, list):
+        return {"error": "add and remove are lists of usernames"}
+    from django.contrib.auth import get_user_model
+
+    User = get_user_model()
+    known = {u.get_username() for u in User.objects.filter(is_active=True, username__in=[*add, *remove])}
+    unknown = sorted(set(map(str, [*add, *remove])) - known)
+    out = set_sharing(dashboard, actor=user, everyone=everyone, add=add, remove=remove)
+    if unknown:
+        out["unknown"] = unknown
+    return out
 
 
 def _set_picture(args: dict[str, Any]) -> dict[str, Any]:
@@ -827,6 +856,27 @@ def register_dashboard_tools() -> int:
                 "additionalProperties": False,
             },
             _remove_card,
+            True,
+        ),
+        (
+            "dashboard_share",
+            "Who may open a personal dashboard (its owner still edits it). With no change requested, reports "
+            "the current sharing: everyone (true = everyone who can sign in) and people (usernames). Set "
+            "everyone, or add / remove people by username; each person added gets a notification with the link. "
+            "A viewer reads the dashboard's cards as the owner sees them, except data their own access doesn't "
+            "reach. An ownerless (shared) dashboard is everyone's already.",
+            {
+                "type": obj,
+                "properties": {
+                    "dashboard": {"type": "string", "description": "Dashboard slug."},
+                    "everyone": {"type": "boolean"},
+                    "add": {"type": "array", "items": {"type": "string"}, "description": "Usernames to share with."},
+                    "remove": {"type": "array", "items": {"type": "string"}},
+                },
+                "required": ["dashboard"],
+                "additionalProperties": False,
+            },
+            _share,
             True,
         ),
         (

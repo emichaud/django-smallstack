@@ -74,12 +74,16 @@ and **Remove** takes it off.
 ## Good to know
 
 - **Personal or shared.** A personal dashboard is yours. A shared one opens
-  for everyone signed in, and staff edit it. Only staff can share.
+  for everyone signed in, and staff edit it. Only staff can make those.
+- **Share your own.** **Share** on a personal dashboard lets everyone who can
+  sign in open it, or people you name (each gets a notification). You still
+  edit it; they read its cards as you do, and find it under **Shared with
+  you** on My dashboards.
 - **Sharing a dashboard doesn't share its data.** Each dataset has its own
   access rule, so the same dashboard can show numbers to one person and
   *restricted* to another.
 - **A shared dashboard holds only shared metrics and cards.** A personal one
   can hold shared ones and your own.
-- **My dashboards** lists the ones you made. The **Dashboards** overview
-  shows every one you can open.
+- **My dashboards** lists the ones you made, and the ones shared with you.
+  The **Dashboards** overview shows every one you can open.
 - Deleting a dashboard leaves its metrics and saved cards alone.

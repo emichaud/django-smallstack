@@ -76,16 +76,18 @@ from .boards import (
     make_card_unique,
     placement_counts,
     render_cell,
+    set_sharing,
+    share_payload,
     system_dashboard,
 )
 from .comparison import compare_with_previous
 from .components import (
     SOURCE_KEYS,
     available_widgets,
+    cell_source,
     component_types,
     describe_types,
     get_component_type,
-    inline_source,
     is_inline,
 )
 from .datasets import visible_entries
@@ -609,6 +611,11 @@ class MyDashboardsView(LoginRequiredMixin, TemplateView):
         context["shared_count"] = (
             Dashboard.objects.visible_to(user).filter(owner__isnull=True).exclude(created_by=user).count()
         )
+        # Other people's personal dashboards shared with this person: a strip of
+        # their own, since "my dashboards" shouldn't mean someone else's.
+        context["shared_with_me"] = list(
+            Dashboard.objects.shared_with_me(user).active().select_related("owner").order_by("-updated_at", "name")[:24]
+        )
         return context
 
     def sort_links(self, request: HttpRequest, ordering: str) -> dict[str, dict[str, str]]:
@@ -672,7 +679,7 @@ class DashboardPageView(LoginRequiredMixin, TemplateView):
                     if can_edit and cell.get("id") and (not saved or (card is not None and card.can_edit(user)))
                     else "",
                     "metric_url": reverse("dashboards_metric_detail", kwargs={"key": cell["metric"]})
-                    if isinstance(cell.get("metric"), str) and cell.get("metric")
+                    if metric is not None and metric.can_view(user)
                     else "",
                     "metric_edit_url": reverse("dashboards/metrics-update", kwargs={"pk": metric.pk})
                     if metric is not None and metric.can_edit(user)
@@ -916,6 +923,64 @@ class DashboardCardEditView(LoginRequiredMixin, View):
         form = self._cell_form(request, dashboard, {"name": title, "type": kind, "metric": metric, "options": options})
         form.cell_errors = problems
         return self._render(request, dashboard, cell, None, form, status=422)
+
+
+class DashboardShareView(LoginRequiredMixin, View):
+    """Share a personal dashboard with everyone who can sign in, or with
+    people by name — the dialog in the stat modal (the header's **Share**).
+    Each change posts back and redraws the dialog; ``?q=`` finds people."""
+
+    template_name = "dashboards/partials/share_dialog.html"
+    MATCHES = 8
+
+    def dashboard(self, request: HttpRequest, slug: str) -> Dashboard:
+        dashboard = visible_or_404(Dashboard.objects.all(), request, slug=slug)
+        if not dashboard.can_edit(request.user) or dashboard.owner_id is None:
+            raise PermissionDenied("Only a personal dashboard's owner shares it.")
+        return dashboard
+
+    def get(self, request: HttpRequest, slug: str) -> HttpResponse:
+        dashboard = self.dashboard(request, slug)
+        if not request.headers.get("HX-Request"):
+            return redirect(dashboard.get_absolute_url())
+        return self.render(request, dashboard)
+
+    def post(self, request: HttpRequest, slug: str) -> HttpResponse:
+        dashboard = self.dashboard(request, slug)
+        everyone = None
+        if "everyone_sent" in request.POST:
+            everyone = request.POST.get("everyone") in ("1", "on", "true")
+        add = [u for u in request.POST.getlist("add") if u]
+        remove = [u for u in request.POST.getlist("remove") if u]
+        set_sharing(dashboard, actor=request.user, everyone=everyone, add=add, remove=remove)
+        if not request.headers.get("HX-Request"):
+            return redirect(dashboard.get_absolute_url())
+        return self.render(request, dashboard)
+
+    def render(self, request: HttpRequest, dashboard: Dashboard) -> HttpResponse:
+        from django.contrib.auth import get_user_model
+
+        q = (request.POST.get("q") or request.GET.get("q") or "").strip()  # an Add keeps the search
+        matches: list[Any] = []
+        if q:
+            User = get_user_model()
+            found = (
+                User.objects.filter(is_active=True)
+                .exclude(pk=dashboard.owner_id or 0)
+                .exclude(pk__in=dashboard.shared_with.values("pk"))
+                .filter(Q(username__icontains=q) | Q(first_name__icontains=q) | Q(last_name__icontains=q))
+                .order_by("username")[: self.MATCHES]
+            )
+            matches = [{"username": u.get_username(), "name": u.get_full_name() or u.get_username()} for u in found]
+        context = {
+            "dashboard": dashboard,
+            "share": share_payload(dashboard),
+            "q": q,
+            "matches": matches,
+            "share_url": reverse("dashboards_share", kwargs={"slug": dashboard.slug}),
+            "link": request.build_absolute_uri(dashboard.get_absolute_url()),
+        }
+        return render(request, self.template_name, context)
 
 
 class DashboardCardCopyView(LoginRequiredMixin, View):
@@ -1254,15 +1319,17 @@ class MetricRowsView(LoginRequiredMixin, View):
 
 
 class CellRowsView(MetricRowsView):
-    """The rows behind a dashboard card that filters a dataset of its own
-    (``d/<slug>/cards/<cell_id>/rows/``): the same fragment, CSV, sorting and
-    period links as a saved metric's, over the card's definition. A card over a
-    metric opens the metric's rows instead."""
+    """The rows behind a dashboard card by its place (``d/<slug>/cards/<cell_id>/rows/``):
+    the same fragment, CSV, sorting and period links as a saved metric's, over
+    the card's own definition — or over its metric, for a viewer the dashboard
+    was shared with who may not open that metric themselves. Access is the
+    dashboard's: whoever may open it may read its cards' rows (the dataset's
+    own access tier still applies, in ``rows``)."""
 
     def get(self, request: HttpRequest, slug: str, cell_id: str) -> HttpResponse:  # type: ignore[override]
         dashboard = visible_or_404(Dashboard.objects.all(), request, slug=slug)
         cell = next((c for c in dashboard.layout if isinstance(c, dict) and c.get("id") == cell_id), None)
-        source = inline_source(cell) if cell is not None else None
+        source = cell_source(cell) if cell is not None else None
         if source is None:
             raise Http404
         return self.rows(request, source)
@@ -1889,6 +1956,7 @@ class DashboardCRUDView(_OwnedCRUD):
     link_field = "name"
     field_transforms = {"owner": _owner_cell, "updated_at": "localtime"}
     url_base = "dashboards/boards"
+    api_extra_fields = [*_OwnedCRUD.api_extra_fields, "sharing"]  # who a personal dashboard is shared with
     view_mixins = {Action.CREATE: [DashboardDuplicateMixin], Action.DELETE: [DashboardDeleteMixin]}
     displays = [DashboardLibraryDisplay, TableDisplay]
     search_fields = ["name", "slug", "description", "tags"]

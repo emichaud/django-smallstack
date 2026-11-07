@@ -1,5 +1,5 @@
 {% extends "smallstack/base.html" %}
-{% load static theme_tags %}
+{% load static theme_tags dashboard_tags %}
 {% load help_tags %}
 
 {% block title %}My dashboards{% endblock %}
@@ -60,7 +60,7 @@
             <td class="bl-pic-cell"><a href="{{ d.get_absolute_url }}" class="bl-shape" tabindex="-1" aria-hidden="true">{% include "dashboards/includes/board_picture.html" with d=d %}</a></td>
             <td class="lib-name-cell">
                 <a href="{{ d.get_absolute_url }}" class="lib-name">{{ d.name }}</a>
-                {% if d.is_shared %}<span class="dash-badge dash-badge--shared">Shared</span>{% endif %}
+                {% if d.is_shared or d.is_shared_out %}<span class="dash-badge dash-badge--shared">{% dash_audience d %}</span>{% endif %}
                 {% include "dashboards/partials/tags.html" with obj=d base=request.path %}
                 {% if d.description %}<span class="lib-sub" title="{{ d.description }}">{{ d.description }}</span>{% endif %}
             </td>
@@ -88,7 +88,7 @@
             {% include "dashboards/includes/board_picture.html" with d=d %}
         </a>
         <div class="my-board-body">
-            <h2 class="my-board-name"><a href="{{ d.get_absolute_url }}">{{ d.name }}</a>{% if d.is_shared %} <span class="dash-badge dash-badge--shared">Shared</span>{% endif %}</h2>
+            <h2 class="my-board-name"><a href="{{ d.get_absolute_url }}">{{ d.name }}</a>{% if d.is_shared or d.is_shared_out %} <span class="dash-badge dash-badge--shared">{% dash_audience d %}</span>{% endif %}</h2>
             {% if d.description %}<p class="my-board-desc">{{ d.description }}</p>{% endif %}
             {% if d.tag_list %}<p class="my-board-tags">{% include "dashboards/partials/tags.html" with obj=d base=request.path %}</p>{% endif %}
             <p class="my-board-meta">{{ row.cards }} card{{ row.cards|pluralize }}, opens on {{ row.opens }}{% if d.refresh_seconds %}, refreshes every {{ d.refresh_seconds }}s{% endif %}</p>
@@ -117,5 +117,22 @@
 {% endif %}
 {% comment %}Pages like every list here (15, with a Rows per page choice); a page swaps #my-page in place and the address follows.{% endcomment %}
 {% if boards %}{% render_paginator page_obj "#my-page" hx_swap="outerHTML" hx_select="#my-page" push_url=True %}{% endif %}
+{% if shared_with_me %}
+<section class="my-shared" aria-labelledby="my-shared-title">
+    <h2 id="my-shared-title" class="plf-h3">Shared with you</h2>
+    <p class="mb-help">Other people's dashboards you may open. Their owners edit them.</p>
+    <ul class="my-shared-list">
+        {% for d in shared_with_me %}
+        <li class="my-shared-item">
+            <a href="{{ d.get_absolute_url }}" class="my-shared-pic" tabindex="-1" aria-hidden="true">{% include "dashboards/includes/board_picture.html" with d=d %}</a>
+            <span class="my-shared-body">
+                <a href="{{ d.get_absolute_url }}" class="my-shared-name">{{ d.name }}</a>
+                <span class="my-shared-meta">{{ d.owner.get_full_name|default:d.owner }}{% if d.shared_with_everyone %} · with everyone{% endif %} · {{ d.layout|length }} card{{ d.layout|length|pluralize }}</span>
+            </span>
+        </li>
+        {% endfor %}
+    </ul>
+</section>
+{% endif %}
 </div>
 {% endblock %}

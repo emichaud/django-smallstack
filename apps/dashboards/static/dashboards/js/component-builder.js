@@ -503,15 +503,35 @@
                         columns: columnsFor,
                         source: currentSource,
                     });
-                    if (node) optionsBox.appendChild(node);
+                    if (node) { node.classList.add("cb-opt--wide"); optionsBox.appendChild(node); }
                     return;
                 }
                 if (spec.type === "multichoice") {
-                    optionsBox.appendChild(multichoice(spec, id));
+                    var ticks = multichoice(spec, id);
+                    ticks.classList.add("cb-opt--wide");
+                    optionsBox.appendChild(ticks);
                     return;
                 }
                 if (spec.type === "links") {
-                    optionsBox.appendChild(linksEditor(spec, id));
+                    var links = linksEditor(spec, id);
+                    links.classList.add("cb-opt--wide");
+                    optionsBox.appendChild(links);
+                    return;
+                }
+                // A choice drawn as pills or swatches (cards.js), not a select.
+                var picker = spec.type === "choice" && window.SmallStackDashboards && window.SmallStackDashboards.choiceWidget
+                    ? window.SmallStackDashboards.choiceWidget(spec, value, function (v) {
+                        if (v === "") delete options[spec.name]; else options[spec.name] = v;
+                        writeOptions(); schedulePreview();
+                    }, id)
+                    : null;
+                if (picker) {
+                    if (value != null && value !== "" && options[spec.name] == null) options[spec.name] = value;
+                    wrap.appendChild(el("span", { class: "cb-opt-label", id: id + "-label" }, spec.label));
+                    picker.setAttribute("aria-labelledby", id + "-label");
+                    wrap.appendChild(picker);
+                    if (spec.help) wrap.appendChild(el("p", { class: "mb-help" }, spec.help));
+                    optionsBox.appendChild(wrap);
                     return;
                 }
                 if (spec.type === "choice" || spec.type === "column" || spec.type === "widget") {
@@ -534,7 +554,7 @@
                     input = el("input", { id: id, type: "checkbox" });
                     input.checked = !!value;
                 } else if (spec.type === "markdown") {
-                    input = el("textarea", { id: id, rows: "5", class: "vTextField" });
+                    input = el("textarea", { id: id, rows: "5", class: "vTextField cb-markdown" });
                     input.value = value || "";
                 } else {
                     input = el("input", { id: id, class: "vTextField", type: (spec.type === "number" || spec.type === "integer") ? "number" : "text" });
@@ -564,6 +584,7 @@
                     wrap.appendChild(input);
                 }
                 if (spec.help) wrap.appendChild(el("p", { class: "mb-help" }, spec.help));
+                if (spec.type === "markdown" || spec.type === "text") wrap.classList.add("cb-opt--wide");
                 optionsBox.appendChild(wrap);
                 if (spec.type === "boolean" && options[spec.name] == null) { options[spec.name] = !!value; }
                 if ((spec.type === "integer" || spec.type === "number") && options[spec.name] == null && value != null) {

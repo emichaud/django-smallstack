@@ -177,7 +177,11 @@ Each entry: `{"name", "label", "type", "default"?, "required"?, "choices"?, "min
 | *anything else* | your own editor (see *Scripts*); the Add card dialog falls back to a text field | as your editor `set`s it — give the type a `validate` |
 
 `choices` is `[[value, label], …]` or a callable `choices(user)` returning that (options
-whose values are the viewer's own rows). `required` makes the builder's preview say
+whose values are the viewer's own rows). A `choice` may add `"widget": "segmented"` (pills
+in a row; an option named `align` gets alignment icons) or `"widget": "swatches"` (colour
+dots: give each value a rule `.cb-swatch--<option>-<value> { background: var(--…) }` in
+your stylesheet). Small settings sit side by side in the builder; a markdown or text box,
+a tick-list or a links editor takes the whole row. `required` makes the builder's preview say
 "Choose a … to see the card" until it's set; it is **not** enforced on save — require
 the option in `validate` (`'dimension' (the column to group by) is required`). `default` fills
 the editor and is what `describe_types` tells an agent; the build should still apply it

@@ -29,7 +29,7 @@
         </nav>
     </div>
     <div class="dash-header-actions">
-        {% if dashboard.is_shared %}<span class="dash-badge dash-badge--shared">Shared</span>{% else %}<span class="dash-badge">Personal · {{ dashboard.owner }}</span>{% endif %}
+        <span class="dash-badge{% if dashboard.is_shared or dashboard.is_shared_out %} dash-badge--shared{% endif %}"><span id="dash-audience">{% dash_audience dashboard %}</span></span>
         {% include "dashboards/includes/dashboard_controls.html" %}
     </div>
 </div>

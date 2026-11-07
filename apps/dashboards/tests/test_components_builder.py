@@ -470,3 +470,21 @@ def test_a_menu_card_is_links_in_order_across_or_down(client, staff):
     # A menu draws no data, so it takes no source — and the builder knows the links option.
     described = next(t for t in describe_types() if t["type"] == "menu")
     assert not described["needs_metric"] and [o["type"] for o in described["options"]] == ["links", "choice"]
+
+
+def test_a_note_has_a_look_of_its_own(client, staff):
+    """Size, alignment, text colour and a background, all as theme tokens; the
+    background is off unless asked for."""
+    Dashboard(name="N", slug="n", layout=[{"id": "t", "type": "text", "options": {"markdown": "**Hi**"}}]).save()
+    html = client.get("/smallstack/dashboards/d/n/cells/t/").content.decode()
+    assert 'class="dash-text tx-size-m tx-align-start tx-color-plain"' in html and "tx-background" not in html
+    d = Dashboard.objects.get(slug="n")
+    d.layout[0]["options"].update(size="xl", align="center", color="accent", background="band")
+    d.save()
+    html = client.get("/smallstack/dashboards/d/n/cells/t/").content.decode()
+    assert 'class="dash-text tx-size-xl tx-align-center tx-color-accent tx-background-band"' in html
+    for bad in ({"size": "huge"}, {"color": "#ff0000"}, {"background": "red"}, {"align": "justify"}):
+        with pytest.raises(ValidationError, match=next(iter(bad))):
+            Dashboard(name="B", slug="b", layout=[{"type": "text", "options": {"markdown": "x", **bad}}]).full_clean()
+    described = next(t for t in describe_types() if t["type"] == "text")
+    assert [o["name"] for o in described["options"]] == ["markdown", "size", "align", "color", "background"]

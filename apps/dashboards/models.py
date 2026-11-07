@@ -520,12 +520,37 @@ ADMIN_HOME_KEY = "smallstack"
 
 class DashboardQuerySet(OwnedQuerySet):
     def visible_to(self, user: Any) -> "DashboardQuerySet":
-        """As for any owned row, except a system dashboard (``system_key``)
-        is staff-only: it shows the widgets apps publish for operators."""
-        qs = super().visible_to(user)
-        if not getattr(user, "is_staff", False):
-            qs = qs.filter(system_key="")
-        return qs  # type: ignore[return-value]
+        """As for any owned row, plus the personal dashboards shared with
+        *user* (with everyone, or with them by name), except that a system
+        dashboard (``system_key``) is staff-only: it shows the widgets apps
+        publish for operators."""
+        if user is None or not getattr(user, "is_authenticated", False):
+            return self.none()
+        if getattr(user, "is_staff", False):
+            return self.all()
+        return self.filter(
+            models.Q(owner__isnull=True)
+            | models.Q(owner=user)
+            | models.Q(shared_with_everyone=True)
+            | models.Q(pk__in=self._shared_by_name(user)),
+            system_key="",
+        )
+
+    def shared_with_me(self, user: Any) -> "DashboardQuerySet":
+        """Other people's personal dashboards *user* may open because they
+        were shared: with everyone, or with them by name. Never their own,
+        never the ownerless shared ones (those are everyone's already)."""
+        if user is None or not getattr(user, "is_authenticated", False):
+            return self.none()
+        return self.filter(
+            models.Q(shared_with_everyone=True) | models.Q(pk__in=self._shared_by_name(user)),
+            owner__isnull=False,
+            system_key="",
+        ).exclude(owner=user)
+
+    def _shared_by_name(self, user: Any) -> Any:
+        through = self.model.shared_with.through  # type: ignore[attr-defined]  # Dashboard's M2M
+        return through.objects.filter(user=user).values("dashboard_id")
 
 
 COVER_EXTENSIONS: tuple[str, ...] = ("png", "jpg", "jpeg", "gif", "webp")
@@ -604,6 +629,18 @@ class Dashboard(OwnedModel):
         editable=False,
         help_text="Widget keys sync_widgets has placed once, so a card someone removes stays removed.",
     )
+    # Sharing a personal dashboard: the owner keeps editing it; others open it.
+    # (An ownerless dashboard is everyone's already, and staff-edited.)
+    shared_with_everyone = models.BooleanField(
+        default=False,
+        help_text="Everyone who can sign in may open this personal dashboard. Its owner still edits it.",
+    )
+    shared_with = models.ManyToManyField(
+        settings.AUTH_USER_MODEL,
+        blank=True,
+        related_name="+",
+        help_text="The people this personal dashboard is shared with by name: they open it, its owner edits it.",
+    )
 
     objects = DashboardQuerySet.as_manager()  # type: ignore[misc]  # narrows OwnedModel.objects
 
@@ -630,7 +667,49 @@ class Dashboard(OwnedModel):
     def can_view(self, user: Any) -> bool:
         if self.system_key and not getattr(user, "is_staff", False):
             return False
-        return super().can_view(user)
+        if super().can_view(user):
+            return True
+        return self.shared_with_user(user)
+
+    def shared_with_user(self, user: Any) -> bool:
+        """Whether *user* may open this personal dashboard because it was
+        shared with them (with everyone, or by name) — not because it's theirs."""
+        if self.owner_id is None or user is None or not getattr(user, "is_authenticated", False):
+            return False
+        if self.owner_id == user.pk:
+            return False
+        if self.shared_with_everyone:
+            return True
+        return bool(self.pk) and self.shared_with.filter(pk=user.pk).exists()
+
+    @property
+    def sharing(self) -> dict[str, Any]:
+        """``{everyone, people}`` — who a personal dashboard is shared with,
+        as REST reads it (``dashboard_share`` sets it)."""
+        people = list(self.shared_with.order_by("username").values_list("username", flat=True)) if self.pk else []
+        return {"everyone": bool(self.shared_with_everyone), "people": people}
+
+    @property
+    def is_shared_out(self) -> bool:
+        """A personal dashboard its owner has shared, with everyone or with anyone."""
+        if self.owner_id is None:
+            return False
+        return self.shared_with_everyone or (bool(self.pk) and self.shared_with.exists())
+
+    def audience(self, user: Any = None) -> str:
+        """Who may open it, in a few words for a badge: "Personal", "Shared"
+        (ownerless), "Shared with everyone", "Shared with 3 people"; for
+        someone it was shared with, "Shared by <owner>"."""
+        if self.owner_id is None:
+            return "Shared"
+        if user is not None and self.shared_with_user(user):
+            return f"Shared by {self.owner}"
+        if self.shared_with_everyone:
+            return "Shared with everyone"
+        count = self.shared_with.count() if self.pk else 0
+        if count:
+            return f"Shared with {count} {'person' if count == 1 else 'people'}"
+        return "Personal"
 
     @property
     def is_system(self) -> bool:

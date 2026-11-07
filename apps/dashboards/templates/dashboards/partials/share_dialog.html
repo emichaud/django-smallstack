@@ -1,0 +1,54 @@
+{% comment %}
+The Share dialog (DashboardShareView), in the stat modal: who may open a
+personal dashboard. Each change posts back and this block is redrawn; the
+search box reloads only its matches. The header's audience badge is swapped
+out of band so it reads right when the dialog closes.
+{% endcomment %}
+<div class="shd" id="share-dialog">
+    <span id="dash-audience" hx-swap-oob="innerHTML">{{ share.audience }}</span>
+    <p class="shd-lede">Whoever you share <strong>{{ dashboard.name }}</strong> with can open it and read its cards. You still edit it; a card over data they can't see stays hidden from them.</p>
+
+    <form method="post" action="{{ share_url }}" class="shd-everyone" hx-post="{{ share_url }}" hx-trigger="change" hx-target="#share-dialog" hx-swap="outerHTML">
+        {% csrf_token %}
+        <input type="hidden" name="everyone_sent" value="1">
+        <label class="plf-check"><input type="checkbox" name="everyone" value="1"{% if share.everyone %} checked{% endif %}> <span><strong>Everyone who can sign in.</strong> It appears under <em>Shared with you</em> on their Dashboards page.</span></label>
+        <noscript><button type="submit" class="btn-outline btn-sm">Apply</button></noscript>
+    </form>
+
+    <h3 class="shd-h3">People</h3>
+    {% if share.people %}
+    <ul class="shd-people" aria-label="Shared with">
+        {% for p in share.people %}
+        <li>
+            <span class="shd-person"><strong>{{ p.name }}</strong>{% if p.name != p.username %} <span class="dash-muted">{{ p.username }}</span>{% endif %}</span>
+            <form method="post" action="{{ share_url }}" hx-post="{{ share_url }}" hx-target="#share-dialog" hx-swap="outerHTML">{% csrf_token %}<button type="submit" name="remove" value="{{ p.username }}" class="plf-tool" aria-label="Stop sharing with {{ p.name }}" title="Remove">✕</button></form>
+        </li>
+        {% endfor %}
+    </ul>
+    {% else %}
+    <p class="mb-help">Not shared with anyone by name yet.</p>
+    {% endif %}
+
+    <label class="shd-search">
+        <span class="sr-only">Find people to share with</span>
+        <input type="search" name="q" value="{{ q }}" placeholder="Add a person by name…" autocomplete="off" class="vTextField" hx-get="{{ share_url }}" hx-trigger="input changed delay:250ms, search" hx-target="#share-matches" hx-select="#share-matches" hx-swap="outerHTML">
+    </label>
+    <div id="share-matches" class="shd-matches" aria-live="polite">
+        {% if q %}
+        {% if matches %}
+        <ul class="shd-people">
+            {% for p in matches %}
+            <li>
+                <span class="shd-person"><strong>{{ p.name }}</strong>{% if p.name != p.username %} <span class="dash-muted">{{ p.username }}</span>{% endif %}</span>
+                <form method="post" action="{{ share_url }}" hx-post="{{ share_url }}" hx-target="#share-dialog" hx-swap="outerHTML">{% csrf_token %}<input type="hidden" name="q" value="{{ q }}"><button type="submit" name="add" value="{{ p.username }}" class="btn-outline btn-sm">Add</button></form>
+            </li>
+            {% endfor %}
+        </ul>
+        {% else %}
+        <p class="mb-help">Nobody matches “{{ q }}”.</p>
+        {% endif %}
+        {% endif %}
+    </div>
+
+    <p class="shd-link"><span class="dash-muted">Link</span> <code>{{ link }}</code></p>
+</div>

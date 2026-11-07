@@ -217,14 +217,19 @@
         // The built-in types have hand-built fields above; any other type (one an
         // app registered) gets its fields from its options_schema:
         // [{name, label, type: choice|multichoice|integer|number|text|boolean, choices?, default?, min?, max?, help?}].
+        // The dialog's own fields for the framework types' first options (the
+        // metric, the group-by, the widget, the note's markdown); any other
+        // option a type has is drawn from its schema like an app type's.
         var BUILTIN = { metric: 1, metric_group: 1, widget: 1, text: 1, __component: 1 };
+        var OWN_FIELDS = { metric: 1, dimension: 1, limit: 1, widget: 1, markdown: 1 };
         var optionsBox = document.getElementById("dash-add-options");
         var customValues = {};   // what a project's own option editors set (readOptions adds them)
         function renderOptions(t) {
             optionsBox.textContent = "";
             customValues = {};
-            if (BUILTIN[t.type]) return;
+            if (t.type === "__component") return;
             (t.options || []).forEach(function (spec) {
+                if (BUILTIN[t.type] && OWN_FIELDS[spec.name]) return;
                 var custom = (window.SmallStackDashboards && window.SmallStackDashboards.optionEditors || {})[spec.type];
                 if (custom) {
                     var node = custom({
@@ -263,6 +268,27 @@
                         note.className = "dash-hint";
                         note.textContent = spec.help;
                         optionsBox.appendChild(note);
+                    }
+                    return;
+                }
+                var picker = spec.type === "choice" && window.SmallStackDashboards && window.SmallStackDashboards.choiceWidget
+                    ? window.SmallStackDashboards.choiceWidget(spec, spec.default, function () {}, "dash-opt-" + spec.name)
+                    : null;
+                if (picker) {   // pills or swatches: radios named opt:<name>, read like any input
+                    picker.querySelectorAll("input").forEach(function (r) { r.name = "opt:" + spec.name; r.dataset.optType = "choice"; });
+                    var field = document.createElement("div");
+                    field.className = "dash-opt-field";
+                    var caption = document.createElement("span");
+                    caption.className = "dash-opt-label";
+                    caption.textContent = spec.label;
+                    field.appendChild(caption);
+                    field.appendChild(picker);
+                    optionsBox.appendChild(field);
+                    if (spec.help) {
+                        var hint = document.createElement("p");
+                        hint.className = "dash-hint";
+                        hint.textContent = spec.help;
+                        optionsBox.appendChild(hint);
                     }
                     return;
                 }
@@ -307,6 +333,7 @@
         function readOptions(cell) {
             optionsBox.querySelectorAll("[name^='opt:']").forEach(function (input) {
                 var name = input.name.slice(4), kind = input.dataset.optType;
+                if (input.type === "radio") { if (input.checked && input.value !== "") cell.options[name] = input.value; return; }
                 if (kind === "boolean") cell.options[name] = input.checked;
                 else if (kind === "links") {
                     cell.options[name] = input.value.split("\n").map(function (line) {

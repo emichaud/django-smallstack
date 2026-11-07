@@ -97,7 +97,7 @@
                     <td><a href="{{ d.get_absolute_url }}" class="ix-board-list-pic" tabindex="-1" aria-hidden="true">{% include "dashboards/includes/board_picture.html" with d=d %}</a></td>
                     <td class="gx-name-cell">
                         <a href="{{ d.get_absolute_url }}" class="gx-name">{{ d.name }}</a>
-                        {% if d.is_shared %}<span class="dash-badge dash-badge--shared">Shared</span>{% else %}<span class="dash-badge">Personal</span>{% endif %}
+                        <span class="dash-badge{% if d.is_shared or d.is_shared_out %} dash-badge--shared{% endif %}">{% dash_audience d %}</span>
                         {% include "dashboards/partials/tags.html" with obj=d base=request.path %}
                         {% if d.description %}<span class="gx-sub" title="{{ d.description }}">{{ d.description }}</span>{% endif %}
                     </td>
@@ -121,7 +121,7 @@
             <span class="ix-board-name">{{ d.name }}</span>
             {% if d.description %}<span class="ix-board-desc">{{ d.description }}</span>{% endif %}
             <span class="ix-board-meta">
-                {% if d.is_shared %}<span class="dash-badge dash-badge--shared">Shared</span>{% else %}<span class="dash-badge">Personal</span>{% endif %}
+                <span class="dash-badge{% if d.is_shared or d.is_shared_out %} dash-badge--shared{% endif %}">{% dash_audience d %}</span>
                 <span>{{ lp.cells|length }} card{{ lp.cells|length|pluralize }}</span>
                 {% if row.opens %}<span>Opens on {{ row.opens|lower }}</span>{% endif %}
                 {% if d.refresh_seconds %}<span>Refreshes</span>{% endif %}

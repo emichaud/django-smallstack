@@ -3,8 +3,10 @@ A dashboard page's controls: how fresh its cards are, and what this viewer may d
 with the dashboard. They sit in the page header (dashboard.html, admin_home.html),
 apart from the cards, so the cards can be drawn anywhere ({% dashboard %}) without
 them. dashboard.js finds each by id, wherever it is on the page. All of them step
-aside while the cards are being arranged (.dash-view-only).
-{% endcomment %}
+aside while the cards are being arranged (.dash-view-only). Share (the owner of a
+personal dashboard) opens the share dialog in the stat modal; it swaps the
+audience badge out of band.
+{% endcomment %}{% load dashboard_tags %}
 <span class="dash-fresh dash-view-only">
     <span id="dash-updated" aria-live="polite">Updated just now</span>{% if dashboard.refresh_seconds %}, refreshes every {{ dashboard.refresh_seconds }}s{% endif %}
     <button type="button" class="dash-text-btn" id="dash-refresh">Refresh</button>
@@ -14,6 +16,7 @@ aside while the cards are being arranged (.dash-view-only).
 </span>
 {% if can_edit %}
 <span class="dash-view-only">
+    {% if dashboard.owner_id %}<button type="button" class="btn-outline btn-sm" id="dash-share" hx-get="{% url 'dashboards_share' dashboard.slug %}" hx-target="#stat-modal-body" hx-swap="innerHTML" data-stat-modal="Share {{ dashboard.name }}" aria-haspopup="dialog" title="Let everyone, or people by name, open this dashboard">Share</button>{% endif %}
     {% include "dashboards/partials/archive_button.html" with kind="dashboard" obj=dashboard %}
     <a href="{% url 'dashboards/components-list' %}?dashboard={{ dashboard.slug }}" class="btn-outline btn-sm" title="This dashboard's saved cards in the component library, each editable">Cards</a>
     <a href="{% url 'dashboards/boards-update' dashboard.pk %}" class="btn-outline btn-sm">Settings</a>

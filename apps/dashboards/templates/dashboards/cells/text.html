@@ -1,1 +1,2 @@
-<div class="dash-text">{% if label %}<h3>{{ label }}</h3>{% endif %}{{ html }}</div>
+{% comment %}A note cell: markdown, with its look as tx-… classes (components.TEXT_LOOKS: size, alignment, text colour, background), all theme tokens (dashboards.css).{% endcomment %}
+<div class="dash-text {{ classes }}">{% if label %}<h3>{{ label }}</h3>{% endif %}{{ html }}</div>

@@ -41,6 +41,7 @@ urlpatterns = [
         views.CellRowsView.as_view(),
         name="dashboards_cell_rows",
     ),
+    path("dashboards/d/<slug:slug>/share/", views.DashboardShareView.as_view(), name="dashboards_share"),
     path(
         "dashboards/d/<slug:slug>/cards/<str:cell_id>/value/",
         views.DashboardCardValueView.as_view(),

@@ -122,8 +122,25 @@ default `staff`) against the viewer: a member opening a shared dashboard sees
 "restricted" on a staff-dataset card, and the drill-down 404s. Forms
 (HTML/REST/MCP) only offer — and only accept — datasets the user may read, so
 a non-staff user can't build a metric over a staff dataset. Only staff may
-share (`visibility: "shared"`); omitting `visibility` on an edit keeps the
-current setting.
+make an ownerless shared row (`visibility: "shared"`, everyone's, staff-edited);
+omitting `visibility` on an edit keeps the current setting.
+
+**A personal dashboard its owner shares.** `Dashboard.shared_with_everyone` and
+`Dashboard.shared_with` (people by name) let others *open* a personal dashboard
+while its owner keeps editing it (`can_edit` unchanged; `can_view` and
+`visible_to` widen; `shared_with_me(user)` lists them for "Shared with you").
+The header's **Share** opens `d/<slug>/share/` (the dialog, in the stat modal:
+everyone on/off, find and add people, remove); `boards.set_sharing(dashboard,
+actor=, everyone=, add=, remove=)` is the service (a `notify()` bell with the link
+for each person added), `dashboard.sharing` is what REST reads, and the
+`dashboard_share` MCP tool reports or sets it. A viewer reads the cards as the
+owner does: a card over the owner's personal metric still draws, and its rows
+open by the card's place (`d/<slug>/cards/<id>/rows/`, access = the dashboard's)
+rather than the metric's own route they couldn't open; the card menu offers
+"Open the metric" only to who may. The dataset access tier still applies to
+the viewer, so a staff-only dataset stays "restricted" for a member.
+`dashboard.audience(user)` / `{% dash_audience d %}` word the badge: Personal,
+Shared with everyone, Shared with 3 people, Shared by alice.
 
 ## A dashboard layout
 
@@ -722,6 +739,7 @@ The evaluation tools are custom:
 | `list_dashboard_components` | `GET dashboards/api/components/` | card types, options, default sizes, periods (+ widgets for staff: the `widget` type, "Info card", places one published `DashboardWidget`) |
 | `dashboard_add_card` / `dashboard_remove_card` | (PATCH `layout`) | edit one card without rewriting the layout |
 | `dashboard_snapshot` | `GET dashboards/api/boards/<slug>/values/` | every card, evaluated — check your work |
+| `dashboard_share` (`everyone`, `add`/`remove` usernames; nothing = report) | `GET dashboards/api/boards/<pk>/` reads `sharing` | who may open a personal dashboard; its owner still edits it |
 | `dashboard_set_picture` (base64, or `remove`) | `POST`/`DELETE dashboards/api/boards/<slug>/picture/` (multipart `image`, `alt`) | the dashboard's picture. The JSON CRUD can't carry a file, so `cover_image` is read-only there (its URL) and left out of the MCP write schema. A session caller sends `X-CSRFToken` |
 | `report_values` | `GET dashboards/api/reports/<slug>/values/` | a report's matrix |
 | `playlist_slides` | `GET dashboards/api/playlists/<slug>/slides/` | a playlist as the caller sees it (create/edit with `create_playlist` / `update_playlist`) |
