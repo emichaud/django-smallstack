@@ -19,6 +19,7 @@ When the user asks you to do any of these, read the matching skill file BEFORE w
 | Expose a filtered queryset as typed rows/columns for a dashboard/report/chart UI (`@dataset`) | `docs/skills/datasets.md` |
 | Put due dates / expiries / maintenance windows on the shared **calendar** (`@calendar_dataset`, saved views, `.ics`), or drop a calendar onto **your own page or a dashboard** (`{% calendar_card %}`, the `calendar` card) | `docs/skills/calendar.md` |
 | Build a **KPI**, a grid **dashboard**, a **KPI report** or a **goal list** over datasets — stored filter trees → values (or have an agent build one via MCP/REST) | `docs/skills/dashboards.md` |
+| **Publish a dashboard card type** of your own — a chart over a JS library, a gauge, a table, a navigation card (`register_component_type`) | `docs/skills/card-types.md` |
 | Add stat cards / metric tiles + drill-down modals to a dashboard page | `docs/skills/dashboard-cards.md` |
 | Add a dashboard widget (the central `/smallstack/` dashboard) | `docs/skills/dashboard-widgets.md` |
 | Monitor a subsystem's uptime/health on `/smallstack/status/` (Service + Monitor, or a status chart) | `docs/skills/status-monitors.md` |

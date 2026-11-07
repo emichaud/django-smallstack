@@ -7,7 +7,6 @@ it's shown. Name, type, metric and updated sort (the CRUD list's ?ordering=,
 card itself (component-list.js).
 {% endcomment %}
 <link rel="stylesheet" href="{% static 'dashboards/css/dashboards.css' %}">
-{% for path in card_styles %}<link rel="stylesheet" href="{% static path %}">{% endfor %}
 <script src="{% static 'dashboards/js/component-list.js' %}" defer></script>
 {% include "dashboards/partials/component_scope.html" %}
 {% if rows %}

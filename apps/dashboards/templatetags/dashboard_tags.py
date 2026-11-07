@@ -417,10 +417,12 @@ def goal_editor_data(user: Any, goal_list: Any = None) -> dict[str, Any]:
 @register.simple_tag
 def component_media() -> Any:
     """``{% component_media %}`` — the ``<link>``/``<script>`` tags every
-    registered card type declares (``ComponentType.media``), each once. Put it
-    on any page that shows cards; the dashboard page, ``{% dashboard %}``,
-    the playlist player and the component builder do. Scripts are ``defer``,
-    so a card's script mounts on load and again on ``htmx:afterSettle``."""
+    registered card type declares (``ComponentType.media``), each once, after
+    ``dashboards/js/cards.js``, which fires ``dashboards:card-drawn`` wherever a
+    card's HTML lands and holds the option-editor registry. Put it on any page
+    that shows cards; the dashboard page, ``{% dashboard %}``, the playlist
+    player, the components page and the component builder do. Scripts are
+    ``defer``, in order, so a type's script can register before the builder runs."""
     from django.templatetags.static import static
     from django.utils.html import format_html, format_html_join
 
@@ -428,7 +430,8 @@ def component_media() -> Any:
 
     files = media()
     css = format_html_join("\n", '<link rel="stylesheet" href="{}">', ((static(p),) for p in files["css"]))
-    js = format_html_join("\n", '<script src="{}" defer></script>', ((static(p),) for p in files["js"]))
+    scripts = ["dashboards/js/cards.js", *files["js"]]
+    js = format_html_join("\n", '<script src="{}" defer></script>', ((static(p),) for p in scripts))
     return format_html("{}\n{}", css, js)
 
 

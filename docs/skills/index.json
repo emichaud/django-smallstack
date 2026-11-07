@@ -163,6 +163,13 @@
       "section": "Available Skills"
     },
     {
+      "id": "card-types",
+      "file": "card-types.md",
+      "name": "Card Types",
+      "description": "**Publish a dashboard card type** — the extension API: `register_component_type(ComponentType(...))` from `ready()`, every field, what `build` gets (`CellContext`) and the data helpers, rows links, `options_schema` types and your own editors, `validate` vs the shared checks, `media` + the `dashboards:card-drawn` event, what agents see, how to test. Read before adding a chart, gauge, table or any card design",
+      "section": "Available Skills"
+    },
+    {
       "id": "calendar",
       "file": "calendar.md",
       "name": "Calendar",

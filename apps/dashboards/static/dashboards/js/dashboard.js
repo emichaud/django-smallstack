@@ -219,10 +219,22 @@
         // [{name, label, type: choice|multichoice|integer|number|text|boolean, choices?, default?, min?, max?, help?}].
         var BUILTIN = { metric: 1, metric_group: 1, widget: 1, text: 1, __component: 1 };
         var optionsBox = document.getElementById("dash-add-options");
+        var customValues = {};   // what a project's own option editors set (readOptions adds them)
         function renderOptions(t) {
             optionsBox.textContent = "";
+            customValues = {};
             if (BUILTIN[t.type]) return;
             (t.options || []).forEach(function (spec) {
+                var custom = (window.SmallStackDashboards && window.SmallStackDashboards.optionEditors || {})[spec.type];
+                if (custom) {
+                    var node = custom({
+                        spec: spec,
+                        value: spec.default,
+                        set: function (v) { if (v == null || v === "") delete customValues[spec.name]; else customValues[spec.name] = v; },
+                    });
+                    if (node) optionsBox.appendChild(node);
+                    return;
+                }
                 if (spec.type === "multichoice") {
                     // A tick-list; readOptions joins the ticked values with commas.
                     var group = document.createElement("fieldset");
@@ -313,6 +325,7 @@
                 (ticked[box.dataset.multi] = ticked[box.dataset.multi] || []).push(box.value);
             });
             Object.keys(ticked).forEach(function (name) { cell.options[name] = ticked[name].join(","); });
+            Object.keys(customValues).forEach(function (name) { cell.options[name] = customValues[name]; });
         }
 
         function syncType() {

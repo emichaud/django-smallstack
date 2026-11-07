@@ -200,6 +200,10 @@ exactly its rows.
 
 ### Adding your own card type (the extension seam)
 
+The full contract — every `ComponentType` field, `CellContext`, the data helpers,
+`options_schema` types and your own editors, `validate`, `media` and the
+`dashboards:card-drawn` event, testing — is `card-types.md`. The short form:
+
 **The working reference is `apps/website/dashboard_cards.py`**, a "Trend chart"
 registered from `WebsiteConfig.ready()`. It lives in the project's app, not in
 SmallStack, because SmallStack's built-in cards stay stats and info cards:
@@ -250,22 +254,48 @@ give it `choices`.
 - layout validation, the period bar, lazy loading, refresh and access checks;
 - REST/MCP authoring, `card_preview` and `dashboard_snapshot`.
 
-**A chart library** goes in `media`. `{% component_media %}` writes each file once on
-every page that can show cards: dashboards, the builder, `{% dashboard %}` embeds and
-playlists. Cards arrive over htmx, so the card's script must mount on load **and** on
-`htmx:afterSettle`:
+**A chart library** goes in `media` (vendored into your app's `static/`: the CSP's
+`script-src` is `'self'`; add a CDN origin to `CONTENT_SECURITY_POLICY` only if you must).
+`{% component_media %}` writes each file once, `defer`, in order, on every page that can
+show cards: dashboards, `{% dashboard %}` embeds, playlists, the components page (gallery
+and the table's hover peek), the builder and the Edit card dialog. Ahead of them it writes
+`dashboards/js/cards.js`, which fires **`dashboards:card-drawn`** on the element that now
+holds a card's HTML, however it got there (an htmx cell, an eager embed, the builder's
+preview, the gallery), once per card and never for a cell still loading. Mount on that:
 
 ```js
 function mountCharts(root) { root.querySelectorAll("[data-echart]:not([data-mounted])").forEach(mountOne); }
-document.addEventListener("DOMContentLoaded", function () { mountCharts(document); });
-document.addEventListener("htmx:afterSettle", function (e) { mountCharts(e.target); });
+document.addEventListener("dashboards:card-drawn", function (e) { mountCharts(e.target); });
 ```
 
-Pass the series to the script as JSON in the card's template (`{{ series|json_script }}`),
-built in `build` from `metric_trend` or `group_values`. `build` may raise; the cell then
-renders an error card instead of taking the page down. This is how call_stats' reporter
-sits on top: each ECharts kind becomes a registered type, its spec options become
-`options_schema`, and its data comes from metrics.
+(Read the palette's colours at mount time — `getComputedStyle(root).getPropertyValue("--series-1")`,
+`--primary` — so the chart follows the theme.) Pass the series to the script as JSON in the
+card's template (`{{ series|json_script }}`), built in `build` from `metric_trend`,
+`group_values` or `drill_rows`. `build` may raise; the cell then renders an error card
+instead of taking the page down. This is how call_stats' reporter sits on top: each
+ECharts kind becomes a registered type, its spec options become `options_schema`, and
+its data comes from metrics.
+
+**Your own option editor.** The builder draws an `options_schema` entry by its `type`
+(choice, multichoice, integer, number, text, boolean, column, widget, markdown, links).
+A type of your own — a series palette, an axis spec — gets its own editor: register it in
+a `media` script, which runs before the builder:
+
+```js
+window.SmallStackDashboards = window.SmallStackDashboards || {};
+(window.SmallStackDashboards.optionEditors = window.SmallStackDashboards.optionEditors || {}).axis =
+    function (api) {   // {spec, value, set(value), columns(done), source()}
+        var box = document.createElement("div");  /* …inputs… */
+        box.addEventListener("input", function () { api.set(readAxis(box)); });
+        return box;   // appended to the "What it shows" step
+    };
+```
+
+`set(value)` stores the option (`null`/`""` removes it) and redraws the preview; `columns`
+and `source` are the builder's own helpers (the source's dataset columns; `{dataset, caps,
+…}`). The same registry serves a dashboard's Add card dialog (there `api` has `spec`,
+`value` = the default, and `set`). The value is stored as given, so give the type a
+`validate` on the server: the builder's editor is a convenience, the server is the check.
 
 ### Styling and a card's own colour rules (`stylable` types)
 

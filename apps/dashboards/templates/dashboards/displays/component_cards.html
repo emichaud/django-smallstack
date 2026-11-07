@@ -5,7 +5,6 @@ ComponentCardsDisplay: saved cards as a gallery. Each preview is the real card
 number inside one doesn't open its rows; the card's name goes to the builder.
 {% endcomment %}
 <link rel="stylesheet" href="{% static 'dashboards/css/dashboards.css' %}">
-{% for path in card_styles %}<link rel="stylesheet" href="{% static path %}">{% endfor %}
 {% include "dashboards/partials/component_scope.html" %}
 {% if rows %}
 <ul class="cc-grid">

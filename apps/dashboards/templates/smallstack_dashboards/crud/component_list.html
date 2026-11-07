@@ -1,6 +1,8 @@
 {% extends "smallstack/crud/object_list.html" %}
-{% load help_tags %}
+{% load help_tags dashboard_tags %}
 {% block title %}Components{% endblock %}
+{% comment %}Every card type's files, once, in the head: the gallery and the table's hover peek draw real cards, scripted ones included (cards.js fires dashboards:card-drawn as each arrives).{% endcomment %}
+{% block extra_css %}{{ block.super }}{% component_media %}{% endblock %}
 {% block page_header %}
 <div class="page-header-bleed page-header-with-actions" style="display: flex; align-items: flex-start; justify-content: space-between;">
     <div class="page-header-content">

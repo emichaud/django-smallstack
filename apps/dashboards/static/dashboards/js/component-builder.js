@@ -490,6 +490,22 @@
                 var label = el("label", { for: id }, spec.label);
                 var input;
                 var value = options[spec.name] != null ? options[spec.name] : spec.default;
+                // A project's own editor for its own option type (cards.js: optionEditors).
+                var custom = (window.SmallStackDashboards && window.SmallStackDashboards.optionEditors || {})[spec.type];
+                if (custom) {
+                    var node = custom({
+                        spec: spec,
+                        value: options[spec.name],
+                        set: function (v) {
+                            if (v == null || v === "") delete options[spec.name]; else options[spec.name] = v;
+                            writeOptions(); schedulePreview();
+                        },
+                        columns: columnsFor,
+                        source: currentSource,
+                    });
+                    if (node) optionsBox.appendChild(node);
+                    return;
+                }
                 if (spec.type === "multichoice") {
                     optionsBox.appendChild(multichoice(spec, id));
                     return;
@@ -1209,6 +1225,8 @@
                     holder.innerHTML = out.html;
                     preview.replaceChildren(holder);
                     if (window.htmx) window.htmx.process(holder);
+                    // Not an htmx swap, so say so ourselves: a scripted card mounts here too (cards.js).
+                    if (window.SmallStackDashboards && window.SmallStackDashboards.cardDrawn) window.SmallStackDashboards.cardDrawn(preview);
                 } else if ((out.problems || []).length) {
                     preview.replaceChildren(el("p", { class: "mb-help" }, "Fix the problems below to see the card."));
                 }

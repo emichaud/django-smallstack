@@ -91,8 +91,29 @@ def test_component_media_loads_each_file_once():
         html = Template("{% load dashboard_tags %}{% component_media %}").render(Context({}))
         assert '<script src="/static/vendor/echarts.min.js" defer></script>' in html
         assert html.count("dashboard-cards.css") == 1
+        # cards.js first: it fires dashboards:card-drawn and holds the option-editor
+        # registry, so a type's own script can register before the builder runs.
+        assert html.index('src="/static/dashboards/js/cards.js" defer') < html.index("echarts.min.js")
     finally:
         _TYPES.pop("t_echart", None)
+
+
+def test_every_surface_that_shows_cards_loads_their_files(client, staff, metric):
+    """A scripted card mounts where its HTML lands: the components page (gallery
+    and table) now loads card files in its head like a dashboard does, rather
+    than styles alone in the swapped block."""
+    _card()
+    for url in (
+        "/smallstack/dashboards/components/",
+        "/smallstack/dashboards/components/?display=library",
+        "/smallstack/dashboards/components/new/",
+    ):
+        html = client.get(url).content.decode()
+        assert html.count('src="/static/dashboards/js/cards.js"') == 1, url
+        link = '<link rel="stylesheet" href="/static/website/css/dashboard-cards.css">'
+        assert html.count(link) == 1, url  # the app's chart styles, once
+    swapped = client.get("/smallstack/dashboards/components/", HTTP_HX_REQUEST="true").content.decode()
+    assert "cards.js" not in swapped  # the in-place swap brings no scripts
 
 
 # -- the saved card ------------------------------------------------------------------

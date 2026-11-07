@@ -31,6 +31,7 @@ Rows marked **(upstream repo only)** describe the ritual for the `django-smallst
 | [search.md](search.md) | Add keyword search + MCP tool to a CRUDView (`enable_search = True`) — FTS5/PG-FTS backend dispatch, RAG via Claude Desktop |
 | [datasets.md](datasets.md) | **Build a dashboard/report/chart UI** — the `@dataset` primitive: a named queryset surfaced as typed rows/columns (`schema()` → dimension/measure + filter widgets), `rows()`/`series()`, opt-in REST + MCP. Read before building anything that inspects a dataset to render pickers/charts |
 | [dashboards.md](dashboards.md) | **KPIs, dashboards and KPI reports over datasets** — the `Metric` (a stored filter tree + aggregate → one value, thresholds, period-aware), grid dashboards (gridstack, lazy htmx cells, period bar, `register_component_type` for your own card types), reports (metrics × periods, CSV), `{% metric_card %}`, and the agent loop (`metric_preview` → `create_metric` → `dashboard_add_card` → `dashboard_snapshot`) |
+| [card-types.md](card-types.md) | **Publish a dashboard card type** — the extension API: `register_component_type(ComponentType(...))` from `ready()`, every field, what `build` gets (`CellContext`) and the data helpers, rows links, `options_schema` types and your own editors, `validate` vs the shared checks, `media` + the `dashboards:card-drawn` event, what agents see, how to test. Read before adding a chart, gauge, table or any card design |
 | [calendar.md](calendar.md) | **Put anything with a date on a calendar** — the calendar protocol over `@dataset` (`@calendar_dataset` / `register_calendar`: start/end columns, title/status resolvers, access), the merged `/smallstack/calendar/` grid with saved views, the events + `.ics` API, MCP tools, the eleven bundled calendars, and **a calendar on any page** (`{% calendar_card %}`, the `calendar` dashboard card) |
 | [django-apps.md](django-apps.md) | Creating apps, CRUDView management pages, title bar pattern |
 | [crud-views.md](crud-views.md) | **The CRUDView reference** — the declarative class behind list/create/detail/update/delete: actions, config attributes, display protocol, related tabs, `get_list_queryset` |
@@ -151,6 +152,7 @@ AI agents should read relevant skill files before making changes to the correspo
 - Before building custom (non-CRUD) API endpoints → read `custom-api-endpoints.md`
 - Before debugging an API setup, an empty Swagger, or a "weird traffic" report → read `api-doctor.md`
 - Before building a KPI, a dashboard, a metrics report, or letting an agent build one → read `dashboards.md`
+- Before publishing a card type of your own (a chart over a library, a gauge, a table, a navigation card) → read `card-types.md`
 - Before adding stat cards / metric tiles + drill-down modals to a dashboard page → read `dashboard-cards.md`
 - Before adding dashboard widgets (the `/smallstack/` central dashboard data protocol) → read `dashboard-widgets.md`
 - Before monitoring a subsystem's uptime/health (a `Service` + `Monitor`), exposing a health check on `/smallstack/status/`, or adding a status visualization → read `status-monitors.md`

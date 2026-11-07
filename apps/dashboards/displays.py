@@ -306,7 +306,7 @@ class ComponentLibraryDisplay(ListDisplay):
     def get_context(self, queryset: Any, crud_config: Any, request: HttpRequest) -> dict[str, Any]:
         from apps.smallstack.crud import Action
 
-        from .components import component_media, get_component_type
+        from .components import get_component_type
         from .models import Dashboard, Metric
 
         page = paginate_queryset(queryset, crud_config.page_size_for(request), request)
@@ -354,9 +354,9 @@ class ComponentLibraryDisplay(ListDisplay):
             if board is not None
             else None
         )
-        # Card types bring their own styles. Styles only: this block is swapped in place,
-        # and a preview is inert, so scripts would re-run and do nothing.
-        return {"rows": rows, "object_list": items, "card_styles": component_media()["css"], "scope": scope, **page}
+        # Card types' own files are in the page's head (component_list.html, {% component_media %}),
+        # not here: this block is swapped in place, and a script written here would run again.
+        return {"rows": rows, "object_list": items, "scope": scope, **page}
 
 
 class ComponentCardsDisplay(ComponentLibraryDisplay):
