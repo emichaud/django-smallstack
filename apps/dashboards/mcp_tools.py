@@ -273,7 +273,10 @@ def _share(args: dict[str, Any]) -> dict[str, Any]:
     unknown = sorted(set(map(str, [*add, *remove])) - known)
     out = set_sharing(dashboard, actor=user, everyone=everyone, add=add, remove=remove)
     if unknown:
+        # ok: true with nobody added read as done; say what happened.
         out["unknown"] = unknown
+        missed = f"no active user named {', '.join(map(repr, unknown))} (usernames are case-sensitive)"
+        out["warning"] = f"{out['warning']}; {missed}" if out.get("warning") else missed
     return out
 
 

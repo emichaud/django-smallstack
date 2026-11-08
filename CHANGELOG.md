@@ -127,6 +127,9 @@ Breaking-change migration recipes live in [`UPGRADING.md`](UPGRADING.md).
 - **A dashboard changing hands brought back the sharing a past owner chose.**
 - **A gauge's ceiling or floor of 0 was read as unset.**
 - **`this_month` / `this_year` were compared against all of last month without saying so.**
+- **An all-time trend drew only its last 12 buckets**, labelled all time: a fortnight by day lost its first two days, ten weeks of data showed 12 bars. All time fits its grain to the data's span, so it now gets the same 400-bucket cap as any period.
+- **`dashboard_snapshot` gave a gauge no number**, though it is a one-number design; every single-value card now carries its `result`.
+- **`dashboard_share` with a username that doesn't exist answered `ok: true`** with only an `unknown` list; it also says so in `warning` (usernames are case-sensitive).
 - **The OpenAPI spec said nothing about a dashboard's `layout`** (`"layout": {}`). Every CRUD field's form help text is now its `description`, and the layout's names the cell keys, the three kinds of source, that a write replaces the whole list, and where the card types are listed.
 - **Sharing a dashboard with someone who can't read its cards answered `ok: true`**, and the person saw only dashes (the data was staff-only, or a rate over it). `dashboard_share` now answers `cant_read` (`{username: [card titles]}`) and a `warning` for each person added.
 - **A menu link to `/\host` drew as a page of this site.** A browser reads the backslash as a slash, so it went off-site with no external marker. It's refused.

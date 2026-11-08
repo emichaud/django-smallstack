@@ -139,7 +139,8 @@ def board_values(dashboard: Dashboard, request: HttpRequest, period: Optional[st
             entry["error"] = "unknown component type"
         elif ct.needs_metric and metric is None:
             entry["error"] = "metric no longer exists" if cell.get("metric") else "no source"
-        elif metric is not None and cell.get("type") == "metric":
+        elif metric is not None and (cell.get("type") == "metric" or ct.single_value):
+            # Any one-number design (a gauge too) has its number to check.
             entry["result"] = evaluate(metric, request, period=when).as_dict()
         elif metric is not None and cell.get("type") == "metric_group":
             if not may_read(metric, request.user):

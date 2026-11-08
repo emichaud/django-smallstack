@@ -47,8 +47,6 @@ from .periods import period_heading
 if TYPE_CHECKING:
     from .models import Metric
 
-#: Buckets shown for "all time", which has no start to count from.
-ALL_TIME_BUCKETS = 12
 #: The most buckets one trend returns (a year of days fits).
 MAX_BUCKETS = 400
 _ADDITIVE = frozenset({"count", "distinct", "sum"})
@@ -126,8 +124,8 @@ def _rate_rows(metric: "Metric", request: HttpRequest, period: Optional[str], gr
 def metric_trend(
     metric: "Metric", request: HttpRequest, period: Optional[str] = None, grain: Optional[str] = None
 ) -> dict[str, Any]:
-    """*metric* per bucket across *period* (None = the last
-    :data:`ALL_TIME_BUCKETS` buckets with data). Returns ``{ok, error,
+    """*metric* per bucket across *period* (None = all time, up to the last
+    :data:`MAX_BUCKETS` buckets with data). Returns ``{ok, error,
     restricted, period, heading, grain, unit, points: [{label, lo, hi, value,
     display, state, partial, narrow}]}``. *grain* defaults to
     :func:`default_grain` for the period's span — over all time, for the span
@@ -184,7 +182,9 @@ def metric_trend(
                 measure=metric.measure or None,
                 agg=metric.agg or "count",
                 grain=grain,
-                limit=MAX_BUCKETS if since else ALL_TIME_BUCKETS,
+                # All time fits its grain to the data's span, so it gets the same cap:
+                # a fixed 12 drew 12 of a fortnight's days, labelled all time.
+                limit=MAX_BUCKETS,
                 filter_tree=effective_tree(metric, applied),
                 request=request,
             )

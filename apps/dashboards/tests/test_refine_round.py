@@ -113,3 +113,36 @@ def test_openapi_says_what_a_layout_is(client):
     props = client.get(reverse("api-openapi-schema")).json()["components"]["schemas"]["Dashboard"]["properties"]
     assert "12-column grid" in props["layout"]["description"]
     assert "replaces the whole list" in props["layout"]["description"]
+
+
+def test_an_all_time_trend_by_day_draws_every_day_not_the_last_twelve(rf, staff):
+    # A cold-start agent's "last two weeks" chart showed 12 days, labelled all time.
+    from datetime import timedelta
+
+    from django.utils import timezone
+
+    from apps.activity.models import RequestLog
+    from apps.dashboards.trends import metric_trend
+
+    now = timezone.now()
+    for d in range(14):
+        row = RequestLog.objects.create(path=f"/t/{d}", method="GET", status_code=200, response_time_ms=1)
+        RequestLog.objects.filter(pk=row.pk).update(timestamp=now - timedelta(days=d))
+    metric = Metric(key="rr_days", name="Days", dataset=DS_AUTH, period_field="timestamp")
+    request = rf.get("/")
+    request.user = staff
+    got = metric_trend(metric, request, None, "day")
+    assert got["ok"], got
+    assert len(got["points"]) == 14
+
+
+def test_a_snapshot_gives_a_gauge_its_number(board, staff):
+    board.layout = [{"id": "g", "type": "gauge", "metric": "rr_req", "options": {"min": 0, "max": 100}}]
+    board.save()
+    got = _call("dashboard_snapshot", {"dashboard": board.slug}, staff)
+    assert got["cells"][0]["result"]["value"] is not None
+
+
+def test_sharing_with_nobody_by_that_name_says_so(board, staff):
+    got = _call("dashboard_share", {"dashboard": board.slug, "add": ["ghost_zz"]}, staff)
+    assert got["unknown"] == ["ghost_zz"] and "no active user named 'ghost_zz'" in got["warning"]
