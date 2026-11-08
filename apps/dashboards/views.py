@@ -962,11 +962,18 @@ class DashboardShareView(LoginRequiredMixin, View):
         matches: list[Any] = []
         if q:
             User = get_user_model()
+            # Staff search by any part of a name. Anyone else finds a person by
+            # their exact username: a letter-by-letter search listed every
+            # account, staff included, to any member with a dashboard.
+            if request.user.is_staff:
+                who = Q(username__icontains=q) | Q(first_name__icontains=q) | Q(last_name__icontains=q)
+            else:
+                who = Q(username__iexact=q)
             found = (
                 User.objects.filter(is_active=True)
                 .exclude(pk=dashboard.owner_id or 0)
                 .exclude(pk__in=dashboard.shared_with.values("pk"))
-                .filter(Q(username__icontains=q) | Q(first_name__icontains=q) | Q(last_name__icontains=q))
+                .filter(who)
                 .order_by("username")[: self.MATCHES]
             )
             matches = [{"username": u.get_username(), "name": u.get_full_name() or u.get_username()} for u in found]

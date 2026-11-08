@@ -355,9 +355,21 @@ def unreadable_cards(dashboard: Dashboard, user: Any) -> list[str]:
 
 
 def _notify_shared(dashboard: Dashboard, users: list[Any], actor: Any) -> None:
-    """A bell for each person just given the dashboard. Best-effort."""
+    """A bell for each person just given the dashboard, the first time only:
+    removing and adding someone again sent the sender's text again, with no
+    limit. Best-effort."""
     try:
+        from apps.notifications.models import Notification
         from apps.notifications.services import notify
+
+        told = set(
+            Notification.objects.filter(
+                kind="dashboards.shared", subject_key=f"dashboard:{dashboard.slug}", recipient__in=users
+            ).values_list("recipient_id", flat=True)
+        )
+        users = [u for u in users if u.pk not in told]
+        if not users:
+            return
 
         who = actor.get_full_name() or actor.get_username() if actor is not None else "Someone"
         notify(

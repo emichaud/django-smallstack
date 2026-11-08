@@ -31,7 +31,7 @@ out of band so it reads right when the dialog closes.
 
     <label class="shd-search">
         <span class="sr-only">Find people to share with</span>
-        <input type="search" name="q" value="{{ q }}" placeholder="Add a person by name…" autocomplete="off" class="vTextField" hx-get="{{ share_url }}" hx-trigger="input changed delay:250ms, search" hx-target="#share-matches" hx-select="#share-matches" hx-swap="outerHTML">
+        <input type="search" name="q" value="{{ q }}" placeholder="{% if request.user.is_staff %}Add a person by name…{% else %}Add a person by their exact username…{% endif %}" autocomplete="off" class="vTextField" hx-get="{{ share_url }}" hx-trigger="input changed delay:250ms, search" hx-target="#share-matches" hx-select="#share-matches" hx-swap="outerHTML">
     </label>
     <div id="share-matches" class="shd-matches" aria-live="polite">
         {% if q %}
@@ -45,7 +45,7 @@ out of band so it reads right when the dialog closes.
             {% endfor %}
         </ul>
         {% else %}
-        <p class="mb-help">Nobody matches “{{ q }}”.</p>
+        <p class="mb-help">{% if request.user.is_staff %}Nobody matches “{{ q }}”.{% else %}No one has the username “{{ q }}”.{% endif %}</p>
         {% endif %}
         {% endif %}
     </div>

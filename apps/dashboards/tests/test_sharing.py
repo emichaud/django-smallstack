@@ -92,7 +92,9 @@ def test_the_share_dialog(client, board, alice, bob, carol):
     assert 'id="share-dialog"' in html and 'name="everyone"' in html and "Not shared with anyone by name yet" in html
     assert 'id="dash-audience" hx-swap-oob="innerHTML">Personal<' in html  # the header badge follows
 
-    found = client.get(f"{url}?q=bo", HTTP_HX_REQUEST="true").content.decode()
+    # A member finds people by exact username only (any case); part of a name lists no one.
+    assert 'value="bob"' not in client.get(f"{url}?q=bo", HTTP_HX_REQUEST="true").content.decode()
+    found = client.get(f"{url}?q=Bob", HTTP_HX_REQUEST="true").content.decode()
     assert 'name="add" value="bob"' in found and "carol" not in found
     html = client.post(url, {"add": "bob", "q": "bo"}, HTTP_HX_REQUEST="true").content.decode()
     assert 'name="remove" value="bob"' in html and "Shared with 1 person<" in html
@@ -196,3 +198,20 @@ def test_sharing_with_someone_who_cant_read_the_data_says_so(alice, bob):
     assert out["cant_read"] == {"bob": ["Staff only"]}
     assert "bob can't read 1 of the cards (Staff only)" in out["warning"]
     assert "cant_read" not in set_sharing(d, actor=alice, add=["bob"])  # nobody new added
+
+
+def test_staff_search_the_share_dialog_by_any_part_of_a_name(client, alice, bob):
+    alice.is_staff = True
+    alice.save()
+    d = Dashboard(name="Staff board", slug="staff-board", owner=alice, layout=[])
+    d.save()
+    client.force_login(alice)
+    found = client.get("/smallstack/dashboards/d/staff-board/share/?q=bo", HTTP_HX_REQUEST="true").content.decode()
+    assert 'name="add" value="bob"' in found
+
+
+def test_a_person_is_told_once_however_often_they_are_added(board, alice, bob):
+    set_sharing(board, actor=alice, add=["bob"])
+    set_sharing(board, actor=alice, remove=["bob"])
+    set_sharing(board, actor=alice, add=["bob"])
+    assert Notification.objects.filter(recipient=bob, kind="dashboards.shared").count() == 1
