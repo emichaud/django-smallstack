@@ -274,7 +274,12 @@ class DashboardForm(_OwnedForm):
         self.fields[
             "layout"
         ].help_text = (
-            "Usually edited on the dashboard itself (Edit layout). The JSON is here for agents and power users."
+            "Usually edited on the dashboard itself (Edit layout). The JSON is here for agents and power users: "
+            'a list of cells on a 12-column grid, {"id", "type", "x", "y", "w", "h", "title"?, "options"?, '
+            '"use_period"?} plus one source: dataset + filter_tree + agg/measure + period_field (the card '
+            "filters a dataset of its own), metric (a saved metric's key, single-value designs), or component "
+            "(a saved card's key). A write replaces the whole list. Types and their options: "
+            "GET /smallstack/dashboards/api/components/."
         )
 
     def clean_default_period(self) -> str:

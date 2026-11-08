@@ -103,3 +103,13 @@ def test_a_menu_link_that_leaves_the_site_isnt_a_page_of_it(url):
     # A browser reads "/\evil.example" as "//evil.example": off-site, drawn as local.
     assert menu_url_problem(url)
     assert menu_url_problem("/smallstack/") == ""
+
+
+def test_openapi_says_what_a_layout_is(client):
+    # A REST-only agent found `"layout": {}` and had to learn the cell shape
+    # from existing boards; a form field's help text is now its description.
+    from django.urls import reverse
+
+    props = client.get(reverse("api-openapi-schema")).json()["components"]["schemas"]["Dashboard"]["properties"]
+    assert "12-column grid" in props["layout"]["description"]
+    assert "replaces the whole list" in props["layout"]["description"]

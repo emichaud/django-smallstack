@@ -80,6 +80,9 @@ def _build_crud_schema(crud_config) -> dict:
             prop["minimum"] = field_info["min_value"]
         if field_info.get("max_value") is not None:
             prop["maximum"] = field_info["max_value"]
+        if form_field.help_text and "description" not in prop:
+            # The form's own help: for a JSON field it is the only word on its shape.
+            prop["description"] = str(form_field.help_text)
         properties[name] = prop
         if field_info.get("required"):
             required.append(name)
