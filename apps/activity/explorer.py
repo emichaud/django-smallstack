@@ -16,9 +16,9 @@ setattr(
     RequestLogAdmin,
     "explorer_column_widths",
     {
-        "timestamp": "22%",
-        "method": "10%",
-        "status_code": "10%",
+        "timestamp": "240px",  # the local date and time in full
+        "method": "100px",
+        "status_code": "110px",
     },
 )
 

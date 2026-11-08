@@ -58,7 +58,7 @@ from apps.datasets.filter_tree import FilterTreeError
 
 KINDS = (("bars", "Bars"), ("line", "Line"))
 GRAIN_CHOICES = (
-    ("", "Fit the period"),
+    ("", "Fit"),
     ("day", "Days"),
     ("week", "Weeks"),
     ("month", "Months"),
@@ -471,8 +471,16 @@ def register() -> None:
                     "type": "choice",
                     "choices": list(DIRECTIONS),
                     "default": "vertical",
+                    "widget": "segmented",
                 },
-                {"name": "order", "label": "Order", "type": "choice", "choices": list(ORDERS), "default": "value"},
+                {
+                    "name": "order",
+                    "label": "Order",
+                    "type": "choice",
+                    "choices": list(ORDERS),
+                    "default": "value",
+                    "widget": "segmented",
+                },
             ],
         )
     )
@@ -585,13 +593,21 @@ def register() -> None:
             requires=frozenset({"date"}),
             validate=validate_trend,
             options_schema=[
-                {"name": "kind", "label": "Chart", "type": "choice", "choices": list(KINDS), "default": "bars"},
+                {
+                    "name": "kind",
+                    "label": "Chart",
+                    "type": "choice",
+                    "choices": list(KINDS),
+                    "default": "bars",
+                    "widget": "segmented",
+                },
                 {
                     "name": "grain",
                     "label": "Buckets",
                     "type": "choice",
                     "choices": list(GRAIN_CHOICES),
                     "default": "",
+                    "widget": "segmented",
                     "help": "Buckets by the card's period column. Fit: days for a month, weeks for a season, months "
                     "for a year or two, quarters beyond; over all time, fitted to the span of the data.",
                 },

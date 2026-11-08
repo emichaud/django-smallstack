@@ -240,7 +240,7 @@ class ScheduledJobRunCRUDView(CRUDView):
     list_fields = ["job", "status", "scheduled_for", "message"]
     link_field = "scheduled_for"
     field_transforms = {"status": _run_status_badge, "scheduled_for": _compact_dt}
-    column_widths = {"job": "24%", "status": "13%", "scheduled_for": "20%"}
+    column_widths = {"job": "300px", "status": "120px", "scheduled_for": "240px"}  # px: the message takes the rest
     url_base = "scheduler/runs"
     paginate_by = 30
     mixins = [StaffRequiredMixin]

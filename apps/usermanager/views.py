@@ -61,6 +61,8 @@ class UserCRUDView(CRUDView):
     # List rendering — TableDisplay + per-row action filter (was UserTable
     # + UserActionsColumn pre-v0.12, when django-tables2 was still around).
     list_fields = ["username", "email", "name", "timezone", "is_staff", "is_active"]
+    # An address is the longest thing on a row; the username (the link) needs less.
+    column_widths = {"username": "180px", "email": "280px", "timezone": "170px"}
     link_field = "username"   # clickable username → goes to update view
     field_transforms = {
         "first_name": "preview",

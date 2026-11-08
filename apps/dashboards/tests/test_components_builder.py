@@ -488,3 +488,34 @@ def test_a_note_has_a_look_of_its_own(client, staff):
             Dashboard(name="B", slug="b", layout=[{"type": "text", "options": {"markdown": "x", **bad}}]).full_clean()
     described = next(t for t in describe_types() if t["type"] == "text")
     assert [o["name"] for o in described["options"]] == ["markdown", "size", "align", "color", "background"]
+
+
+def test_the_palette_opens_full_for_a_new_card_and_compact_for_an_existing_one(client, staff, metric):
+    """Full (each design with its description) when choosing; compact (a chip
+    each, the description on hover) when editing, where the page is long
+    enough already. The switch is on the page either way."""
+    new = client.get("/smallstack/dashboards/components/new/").content.decode()
+    assert 'id="cb-palette"' in new and 'data-default-view="full"' in new and 'id="cb-palette-mini"' in new
+    card = _card()
+    edit = client.get(f"/smallstack/dashboards/components/{card.pk}/edit/").content.decode()
+    assert 'data-default-view="mini"' in edit
+    assert 'class="cb-tile" data-type="pie" title="A count or total split by a column' in edit  # the chip's tooltip
+    board = Dashboard(name="D", slug="d", layout=[{"id": "c1", "type": "text", "options": {"markdown": "x"}}])
+    board.save()
+    dialog = client.get("/smallstack/dashboards/d/d/cards/c1/edit/", HTTP_HX_REQUEST="true").content.decode()
+    assert 'data-default-view="mini"' in dialog  # editing in the dialog, too
+
+
+def test_a_notes_colour_and_size_hold_on_the_dashboard(client, staff):
+    """The dashboard draws a note flat and quiet by default; a colour the note
+    chose must still win there, as it does in the builder's preview (the
+    cell's wrapper class used to outrank it)."""
+    Dashboard(
+        name="N2", slug="n2",
+        layout=[{"id": "t", "type": "text", "options": {"markdown": "## Hi", "size": "xl", "color": "success"}}],
+    ).save()
+    html = client.get("/smallstack/dashboards/d/n2/cells/t/").content.decode()
+    assert 'class="dash-text tx-size-xl tx-align-start tx-color-success"' in html and "<h2>Hi</h2>" in html
+    css = open("apps/dashboards/static/dashboards/css/dashboards.css").read()
+    assert ".dash-cell--text .dash-text { padding: 0.4rem 0.25rem; }" in css  # no colour on the wrapper rule any more
+    assert ".dash-text.tx-color-success { color: var(--success-fg); }" in css

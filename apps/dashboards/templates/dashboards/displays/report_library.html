@@ -20,7 +20,7 @@
         <tr>
             <td class="lib-name-cell">
                 <a href="{{ r.url }}" class="lib-name">{{ rep.name }}</a>
-                {% if not rep.is_shared %}<span class="dash-badge">Personal</span>{% endif %}
+                {% if not rep.is_shared %}{% include "dashboards/partials/personal_badge.html" with obj=rep %}{% endif %}
                 {% include "dashboards/partials/tags.html" with obj=rep base=request.path tag=request.GET.tag %}
                 <span class="lib-sub" title="{{ r.metric_names|join:', ' }}">{{ rep.items|length }} metric{{ rep.items|length|pluralize }}{% if r.metric_names %}: {{ r.metric_names|join:", " }}{% endif %}</span>
                 {% if r.missing %}<span class="lib-sub rp-bad">{{ r.missing }} row{{ r.missing|pluralize }} point{{ r.missing|pluralize:"s," }} at a deleted metric. Edit the report to fix it.</span>{% endif %}

@@ -61,10 +61,8 @@ class LogEntryAdmin(admin.ModelAdmin):
     # Explorer overrides: drop change_message + object_repr, widen the timestamp.
     explorer_list_fields = ("action_time", "user", "content_type", "action_flag")
     explorer_column_widths = {
-        "action_time": "25%",
-        "user": "25%",
-        "content_type": "25%",
-        "action_flag": "25%",
+        "action_time": "240px",  # the local date and time in full
+        "action_flag": "120px",
     }
     readonly_fields = [
         "action_time",

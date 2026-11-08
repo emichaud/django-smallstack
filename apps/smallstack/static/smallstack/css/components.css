@@ -58,6 +58,7 @@
 /* Fixed layout: column widths determined by header row only, immune to content changes */
 .crud-table {
     table-layout: fixed;
+    min-width: var(--table-min, 0);  /* crud_tags._table_min_width: scroll before a column collapses */
 }
 
 .crud-table td {

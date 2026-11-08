@@ -152,3 +152,23 @@ def test_sharing_over_mcp_and_rest(client, board, alice, bob, carol):
     client.force_login(carol)
     data = client.get(f"/smallstack/api/dashboards/boards/{board.pk}/").json()
     assert data["sharing"] == {"everyone": True, "people": ["bob"]}
+
+
+def test_the_table_view_offers_edit_and_delete_only_where_the_row_allows(client, alice, bob):
+    """Staff see every personal row but change only their own; the table's
+    icons agree with what the edit route accepts (the library view already did)."""
+    from apps.dashboards.models import Playlist
+
+    staff = User.objects.create_user("sstaff", password="x", is_staff=True)
+    Playlist(name="Alice's", slug="alices", owner=alice).save()
+    Playlist(name="Everyone's", slug="everyones").save()
+    client.force_login(staff)
+    html = client.get("/smallstack/dashboards/playlists/?display=table").content.decode()
+    mine = Playlist.objects.get(slug="alices").pk
+    ours = Playlist.objects.get(slug="everyones").pk
+    assert f"/smallstack/dashboards/playlists/{ours}/edit/" in html  # the ownerless one: staff edit it
+    assert f"/smallstack/dashboards/playlists/{mine}/edit/" not in html  # Alice's: no icon, as no permission
+    assert f"/smallstack/dashboards/playlists/{mine}/delete/" not in html
+    library = client.get("/smallstack/dashboards/playlists/?display=library").content.decode()
+    assert "Personal · alice" in library and f"/playlists/{mine}/edit/" not in library  # whose, and no icon
+    assert client.get(f"/smallstack/dashboards/playlists/{mine}/edit/").status_code == 403  # what the icon led to

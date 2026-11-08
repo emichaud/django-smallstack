@@ -82,7 +82,7 @@ def _get_field_label(model, field_name: str) -> str:
 _COMPACT_WIDTHS: tuple[tuple[tuple[type, ...], str], ...] = (
     ((models.BooleanField,), "110px"),
     # DateTimeField before DateField — it is a subclass.
-    ((models.DateTimeField,), "170px"),
+    ((models.DateTimeField,), "240px"),  # the local "Oct 28, 2026 8:00 PM EDT" plus 16px padding a side
     ((models.DateField,), "120px"),
     ((models.TimeField,), "100px"),
     ((models.DurationField,), "110px"),
@@ -122,15 +122,47 @@ def _ns_reverse(url_name: str, namespace: str | None = None, **kwargs) -> str:
     return reverse(url_name, **kwargs)
 
 
+#: The narrowest an unsized (or %-sized) column may get before the table scrolls
+#: sideways instead: with `table-layout: fixed`, columns with a px width are paid
+#: first and the rest split what's left — on a crowded table that was nothing
+#: (a 1px "Blog" column on the posts list).
+MIN_FREE_COLUMN_PX = 140
+
+
+def _table_min_width(headers: list[dict[str, Any]], show_actions: bool, enable_bulk: bool) -> int:
+    """The table's minimum width in px: every px-sized column at its size, every
+    other at :data:`MIN_FREE_COLUMN_PX`, plus the checkbox and actions columns.
+    The wrapper scrolls past it; the browser shares any slack as before."""
+    total = 40 if enable_bulk else 0
+    total += 120 if show_actions else 0
+    for h in headers:
+        width = str(h.get("width") or "")
+        px = width[:-2] if width.endswith("px") else ""
+        total += int(float(px)) if px.replace(".", "", 1).isdigit() else MIN_FREE_COLUMN_PX
+    return total
+
+
+#: The link column's share of the table when nothing says otherwise: the name
+#: is what a row is found by, and with `table-layout: fixed` an unsized column
+#: gets an equal slice, which left "Failed health che…" beside roomy short columns.
+LINK_COLUMN_WIDTH = "240px"  # px, not %: a % column out-bids the unsized ones for the slack
+
+
 def _build_sort_headers(
-    list_fields: list[str], model, request, column_widths: dict | None = None,
+    list_fields: list[str],
+    model,
+    request,
+    column_widths: dict | None = None,
+    link_field: str | None = None,
+    column_labels: dict | None = None,
 ) -> list[dict[str, Any]]:
     """Build header metadata with sort state for each column.
 
     Returns a list of dicts with keys: label, field_name, sortable,
     direction (asc/desc/None), next_ordering (the ?ordering= value to toggle to),
     width (optional CSS width: an explicit `column_widths` entry wins, else a
-    type-derived default for compact fields — see `_default_column_width`).
+    type-derived default for compact fields — see `_default_column_width` —
+    else, for the `link_field`, :data:`LINK_COLUMN_WIDTH`).
     """
     current_ordering = request.GET.get("ordering", "").strip() if request else ""
     current_field = current_ordering.lstrip("-")
@@ -145,7 +177,10 @@ def _build_sort_headers(
 
     headers = []
     for field_name in list_fields:
-        label = _get_field_label(model, field_name) if model else field_name.replace("_", " ").capitalize()
+        if column_labels and field_name in column_labels:
+            label = str(column_labels[field_name])
+        else:
+            label = _get_field_label(model, field_name) if model else field_name.replace("_", " ").capitalize()
         sortable = field_name in model_field_names
 
         direction = None
@@ -171,6 +206,8 @@ def _build_sort_headers(
             default_width = _default_column_width(model, field_name)
             if default_width:
                 header["width"] = default_width
+            elif field_name == link_field and len(list_fields) > 2:
+                header["width"] = LINK_COLUMN_WIDTH
         headers.append(header)
     return headers
 
@@ -200,7 +237,10 @@ def crud_table(context):
     # Build sortable headers
     crud_config = context.get("crud_config")
     column_widths = getattr(crud_config, "column_widths", None) if crud_config else None
-    headers = _build_sort_headers(list_fields, model, request, column_widths=column_widths)
+    column_labels = getattr(crud_config, "column_labels", None) if crud_config else None
+    headers = _build_sort_headers(
+        list_fields, model, request, column_widths=column_widths, link_field=link_field, column_labels=column_labels
+    )
 
     has_detail = Action.DETAIL in crud_actions
     has_update = Action.UPDATE in crud_actions
@@ -258,15 +298,26 @@ def crud_table(context):
             if custom_link is not None:
                 detail_url = custom_link
 
+        # Only the actions this row allows: the edit and delete routes refuse
+        # (403) a row the view's can_update / can_delete hooks say no to, so a
+        # table that drew the icons anyway sent people to a door that won't open.
+        def allowed(hook: str) -> bool:
+            if crud_config is None:
+                return True
+            try:
+                return bool(getattr(crud_config, hook)(obj, request))
+            except Exception:  # pragma: no cover — defensive: a hook that raises hides the action
+                return False
+
         actions = []
-        if has_update:
+        if has_update and allowed("can_update"):
             actions.append(
                 {
                     "url": _ns_reverse(f"{url_base}-update", url_namespace, kwargs={"pk": obj.pk}),
                     "label": "Edit",
                 }
             )
-        if has_delete:
+        if has_delete and allowed("can_delete"):
             actions.append(
                 {
                     "url": _ns_reverse(f"{url_base}-delete", url_namespace, kwargs={"pk": obj.pk}),
@@ -300,6 +351,7 @@ def crud_table(context):
         "rows": rows,
         "show_actions": show_actions,
         "enable_bulk": enable_bulk,
+        "table_min_width": _table_min_width(headers, show_actions, enable_bulk),
         # localStorage key for user-resized column widths (table-resize.js).
         # The field list is part of the key so a reordered/changed list_fields
         # never replays stale widths onto the wrong columns.

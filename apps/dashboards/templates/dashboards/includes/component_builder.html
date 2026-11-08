@@ -106,16 +106,23 @@ modal underneath.
 
             {# ── 2. Design ──────────────────────────────────────── #}
             <div class="card mb-section">
-                <div class="card-header"><h2 id="cb-design-title"><span class="mf-step" id="cb-design-step">2</span>Pick a design</h2></div>
+                {% comment %}The palette has two views: full (each design with its description) and compact (a chip each, the description on hover). A new card starts full, an existing one compact; the switch remembers a choice (component-builder.js).{% endcomment %}
+                <div class="card-header cb-design-head">
+                    <h2 id="cb-design-title"><span class="mf-step" id="cb-design-step">2</span>Pick a design</h2>
+                    <div class="cb-seg cb-palette-view" role="radiogroup" aria-label="How the designs are shown">
+                        <input type="radio" class="sr-only cb-choice-radio" name="cb_palette_view" value="full" id="cb-palette-full"><label for="cb-palette-full" class="cb-seg-item" title="Each design with what it draws">Full</label>
+                        <input type="radio" class="sr-only cb-choice-radio" name="cb_palette_view" value="mini" id="cb-palette-mini"><label for="cb-palette-mini" class="cb-seg-item" title="A chip each; hover for what it draws">Compact</label>
+                    </div>
+                </div>
                 <div class="card-body">
                     {% with current=form.type.value|default:"metric" %}
-                    <div class="cb-palette" role="radiogroup" aria-labelledby="cb-design-title">
+                    <div class="cb-palette" id="cb-palette" role="radiogroup" aria-labelledby="cb-design-title" data-default-view="{% if object or cb_mode != "page" %}mini{% else %}full{% endif %}" data-palette-mode="{% if object or cb_mode != "page" %}edit{% else %}new{% endif %}">
                         {% for section in builder.palette %}
                         <div class="cb-group">
                             <h3 class="cb-group-name">{{ section.group }}</h3>
                             <div class="cb-tiles">
                                 {% for t in section.types %}
-                                <label class="cb-tile" data-type="{{ t.type }}">
+                                <label class="cb-tile" data-type="{{ t.type }}" title="{{ t.description }}">
                                     <input type="radio" class="sr-only" name="{{ form.type.html_name }}" value="{{ t.type }}"{% if t.type == current %} checked{% endif %}>
                                     <span class="cb-tile-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="{{ t.icon|default:'M4 4h16v16H4z' }}"/></svg></span>
                                     <span class="cb-tile-label">{{ t.label }}</span>
@@ -129,7 +136,7 @@ modal underneath.
                     </div>
                     {% endwith %}
                     {% for e in form.type.errors %}<p class="crud-error">{{ e }}</p>{% endfor %}
-                    <p class="mb-help" style="margin-bottom: 0;">Designs the source can't support are dimmed, with the reason. A saved metric suits the designs that show one number; a chart filters a dataset of its own. Apps can add designs, such as charts.</p>
+                    <p class="mb-help" style="margin-bottom: 0;">Designs the source can't support are dimmed, with the reason (hover, in the compact view). A saved metric suits the designs that show one number; a chart filters a dataset of its own. Apps can add designs, such as charts.</p>
                 </div>
             </div>
 

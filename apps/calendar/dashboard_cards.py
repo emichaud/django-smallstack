@@ -18,7 +18,7 @@ from .embed import MAX_UPCOMING_DAYS, MAX_UPCOMING_LIMIT, MODES, UPCOMING_DAYS, 
 
 logger = logging.getLogger("smallstack.calendar")
 
-MODE_CHOICES = [["upcoming", "Upcoming list"], ["month", "Month grid"], ["board", "Day-range board"]]
+MODE_CHOICES = [["upcoming", "Upcoming"], ["month", "Month"], ["board", "Board"]]
 
 
 def calendar_choices(user: Any) -> list[list[str]]:
@@ -96,6 +96,9 @@ def register() -> None:
             template="calendar/cells/calendar.html",
             build=build_calendar_card,
             default_size=(4, 4),
+            # Its days can narrow other cards (options.publish): a day click sends
+            # that day on a "date" field, which a listener maps to its own date column.
+            publishes=True,
             validate=validate_calendar_card,
             options_schema=[
                 {
@@ -106,7 +109,15 @@ def register() -> None:
                     "choices": calendar_choices,
                     "help": "Tick each calendar the card draws. Someone viewing it sees only the ones they may open.",
                 },
-                {"name": "mode", "label": "Show", "type": "choice", "choices": MODE_CHOICES, "default": "upcoming"},
+                {
+                    "name": "mode",
+                    "label": "Show",
+                    "type": "choice",
+                    "choices": MODE_CHOICES,
+                    "default": "upcoming",
+                    "widget": "segmented",
+                    "help": "A list of what's coming, a month grid, or a day-range board.",
+                },
                 {
                     "name": "days",
                     "label": "Days ahead",

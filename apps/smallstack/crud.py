@@ -1791,6 +1791,7 @@ class CRUDView:
     preview_fields: list[str] = []  # Deprecated — use field_transforms
     field_transforms: dict[str, Any] = {}  # {field_name: "transform_name" | ("name", {opts}) | callable}
     column_widths: dict[str, str] | None = None  # Optional {field_name: "30%"} for custom column proportions
+    column_labels: dict[str, str] | None = None  # Optional {field_name: "Updated"}: a shorter table header
 
     # -- Config resolution: admin_class → legacy attrs → defaults --
 

@@ -12,7 +12,7 @@
     {% if embed.cells %}
     <div class="dash-embed-grid">
         {% for cell in embed.cells %}
-        <div class="dash-cell dash-cell--{{ cell.type }} dash-embed-cell" style="--x: {{ cell.x|add:1 }}; --y: {{ cell.y|add:1 }}; --w: {{ cell.w }}; --h: {{ cell.h }};">
+        <div class="dash-cell dash-cell--{{ cell.type }} dash-embed-cell" style="--x: {{ cell.x|add:1 }}; --y: {{ cell.y|add:1 }}; --w: {{ cell.w }}; --h: {{ cell.h }};"{% include "dashboards/partials/cell_links.html" with url=cell.url %}>
             {% if cell.html is not None %}
             <div class="dash-cell-body">{{ cell.html }}</div>
             {% else %}

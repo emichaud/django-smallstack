@@ -74,7 +74,7 @@
             {% for row in goal_lists %}{% with g=row.goal_list %}
                 <tr>
                     <td class="gx-name-cell">
-                        <a href="{{ g.get_absolute_url }}" class="gx-name">{{ g.name }}</a>{% if not g.is_shared %} <span class="dash-badge">Personal</span>{% endif %} {% include "dashboards/partials/tags.html" with obj=g base=request.path %}
+                        <a href="{{ g.get_absolute_url }}" class="gx-name">{{ g.name }}</a>{% if not g.is_shared %} {% include "dashboards/partials/personal_badge.html" with obj=g %}{% endif %} {% include "dashboards/partials/tags.html" with obj=g base=request.path %}
                         {% if g.description %}<span class="gx-sub" title="{{ g.description }}">{{ g.description }}</span>{% endif %}
                     </td>
                     <td class="gx-num">{{ row.count }}</td>
@@ -125,7 +125,7 @@
                         <a href="{{ m.get_absolute_url }}" class="gx-name">{{ m.name }}</a> {% include "dashboards/partials/tags.html" with obj=m base=request.path %}
                         <span class="gx-sub" title="{{ row.reading }}">{{ row.reading }}</span>
                     </td>
-                    <td><span class="ix-metric-source">{{ row.source }}{% if not m.is_shared %}<span class="dash-badge">Personal</span>{% endif %}</span></td>
+                    <td><span class="ix-metric-source">{{ row.source }}{% if not m.is_shared %}{% include "dashboards/partials/personal_badge.html" with obj=m %}{% endif %}</span></td>
                     <td class="ix-used-cell">{% if row.used_in %}<span class="ix-used" title="{{ row.used_in }}">{{ row.used_in }}</span>{% else %}<span class="ix-unused">Not used</span>{% endif %}</td>
                     <td class="gx-num ix-metric-value">
                         {% if r.restricted %}<span class="rp-quiet">Restricted</span>
@@ -170,7 +170,7 @@
             {% for row in reports %}{% with r=row.report %}
                 <tr>
                     <td class="gx-name-cell">
-                        <a href="{{ r.get_absolute_url }}" class="gx-name">{{ r.name }}</a>{% if not r.is_shared %} <span class="dash-badge">Personal</span>{% endif %} {% include "dashboards/partials/tags.html" with obj=r base=request.path %}
+                        <a href="{{ r.get_absolute_url }}" class="gx-name">{{ r.name }}</a>{% if not r.is_shared %} {% include "dashboards/partials/personal_badge.html" with obj=r %}{% endif %} {% include "dashboards/partials/tags.html" with obj=r base=request.path %}
                         <span class="gx-sub">{{ r.items|length }} metric{{ r.items|length|pluralize }}{% if row.columns %}, compared across {{ row.columns }}{% else %}, all time{% endif %}</span>
                     </td>
                     <td>

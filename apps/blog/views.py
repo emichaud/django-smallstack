@@ -395,7 +395,8 @@ class PostCRUDView(_OwnedCRUDView):
     ordering_fields = ["title", "status", "published_at", "updated_at"]
     search_fields = ["title", "excerpt", "body_markdown"]
     export_formats = ["csv", "json"]
-    column_widths = {"title": "34%", "status": "11%"}
+    # px, not %: a % column out-bids the unsized one (blog) for the slack.
+    column_widths = {"title": "260px", "status": "110px"}
     field_transforms = {
         "status": _post_status_badge,
         "body_markdown": "preview",

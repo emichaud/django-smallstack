@@ -24,7 +24,7 @@ class AccessLogExplorerAdmin(admin.ModelAdmin):
         "attempt_time": ("localtime", {"fmt": "M d, Y g:i A"}),
     }
     explorer_column_widths = {
-        "attempt_time": "22%",
+        "attempt_time": "210px",  # "Nov 07, 2026 9:15 PM" with padding
     }
 
 

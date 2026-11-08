@@ -68,7 +68,7 @@ setattr(HeartbeatAdmin, "explorer_list_fields", ("monitor_key", "timestamp", "st
 setattr(
     HeartbeatAdmin,
     "explorer_column_widths",
-    {"monitor_key": "20%", "timestamp": "45%", "status": "35%"},
+    {"monitor_key": "220px", "timestamp": "240px", "status": "140px"},
 )
 setattr(HeartbeatAdmin, "explorer_dashboard_widgets", [StatusDashboardWidget()])
 
@@ -81,9 +81,7 @@ setattr(
     HeartbeatEpochAdmin,
     "explorer_column_widths",
     {
-        "started_at": "30%",
-        "service_target": "35%",
-        "service_minimum": "35%",
+        "started_at": "240px",  # the local date and time in full
     },
 )
 

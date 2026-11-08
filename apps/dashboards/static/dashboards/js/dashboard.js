@@ -262,13 +262,13 @@
                         item.appendChild(document.createTextNode(" " + pair[1]));
                         list.appendChild(item);
                     });
-                    optionsBox.appendChild(group);
                     if (spec.help) {
                         var note = document.createElement("p");
                         note.className = "dash-hint";
                         note.textContent = spec.help;
-                        optionsBox.appendChild(note);
+                        group.appendChild(note);
                     }
+                    optionsBox.appendChild(group);
                     return;
                 }
                 var picker = spec.type === "choice" && window.SmallStackDashboards && window.SmallStackDashboards.choiceWidget
@@ -283,13 +283,13 @@
                     caption.textContent = spec.label;
                     field.appendChild(caption);
                     field.appendChild(picker);
-                    optionsBox.appendChild(field);
                     if (spec.help) {
                         var hint = document.createElement("p");
                         hint.className = "dash-hint";
                         hint.textContent = spec.help;
-                        optionsBox.appendChild(hint);
+                        field.appendChild(hint);
                     }
+                    optionsBox.appendChild(field);
                     return;
                 }
                 var label = document.createElement("label");
@@ -321,13 +321,17 @@
                 input.dataset.optType = spec.type || "text";
                 if (spec.type === "boolean") { label.appendChild(input); label.appendChild(document.createTextNode(" " + spec.label)); }
                 else { label.appendChild(document.createTextNode(spec.label)); label.appendChild(input); }
-                optionsBox.appendChild(label);
+                // The hint sits inside the field, so a small field keeps its hint beside it in the flow.
+                var field2 = document.createElement("div");
+                field2.className = "dash-opt-field" + ((spec.type === "markdown" || spec.type === "links" || spec.type === "text") ? " dash-opt-field--wide" : "");
+                field2.appendChild(label);
                 if (spec.help || spec.type === "links") {
                     var help = document.createElement("p");
                     help.className = "dash-hint";
                     help.textContent = (spec.help || "") + (spec.type === "links" ? " One a line: words | address | new (for a new window)." : "");
-                    optionsBox.appendChild(help);
+                    field2.appendChild(help);
                 }
+                optionsBox.appendChild(field2);
             });
         }
         function readOptions(cell) {

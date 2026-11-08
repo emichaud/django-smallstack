@@ -163,6 +163,8 @@
                 var why = t ? whyNot(t) : "";
                 tile.classList.toggle("is-unavailable", !!why);
                 tile.querySelector("[data-why]").textContent = why;
+                // The compact view has no room for the reason: the tooltip carries it.
+                tile.title = (t ? t.description : "") + (why ? " — " + why : "");
             });
         }
 
@@ -476,6 +478,8 @@
             var names = (t.options || []).map(function (s) { return s.name; });
             if (t.stylable) names.push("style", "thresholds");   // the shared styling (Style it)
             if (t.drillable) names.push("drilldown");            // Drill-down
+            if (t.needs_metric) names.push("publish", "listen");  // Linked cards
+            else if (t.publishes) names.push("publish");
             Object.keys(options).forEach(function (k) { if (names.indexOf(k) < 0) { stash[k] = options[k]; delete options[k]; } });
             (t.options || []).forEach(function (spec) {
                 if (options[spec.name] == null && stashed(spec) != null) options[spec.name] = stashed(spec);
@@ -591,7 +595,74 @@
                     options[spec.name] = value;
                 }
             });
+            renderLinks(t);
             writeOptions();
+        }
+
+        // -- Linked cards: a click here narrows another card, or this one listens --
+        // options.publish = "<channel>"; options.listen = {channel, map?: {their: mine}}.
+        // Checked on save (components.link_problems); the page's bus is cards.js.
+        var CHANNEL_HELP = "A name both cards use: lower-case letters, digits, - or _.";
+        function renderLinks(t) {
+            if (!t || !(t.needs_metric || t.publishes)) return;
+            var box = el("div", { class: "cb-opt--wide cb-links-block" });
+            box.appendChild(el("span", { class: "cb-opt-label" }, "Linked cards (optional)"));
+            var row = el("div", { class: "cb-links-grid" });
+            var field = function (labelText, input, help) {
+                var f = el("div", { class: "mb-field" });
+                f.appendChild(el("label", { for: input.id }, labelText));
+                f.appendChild(input);
+                if (help) f.appendChild(el("p", { class: "mb-help" }, help));
+                row.appendChild(f);
+                return f;
+            };
+            var clean = function (v) { return v.trim().toLowerCase().replace(/[^a-z0-9_-]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 40); };
+            if (t.publishes && !t.shows_rows) {
+                var pub = el("input", { id: "cb-link-publish", type: "text", class: "vTextField", placeholder: "e.g. day", maxlength: "40" });
+                pub.value = options.publish || "";
+                pub.addEventListener("change", function () {
+                    var v = clean(pub.value);
+                    pub.value = v;
+                    if (v) options.publish = v; else delete options.publish;
+                    writeOptions();
+                });
+                field("Send clicks to", pub, t.needs_metric
+                    ? "A click on a group, bar or bucket narrows the cards listening here, instead of opening its rows."
+                    : "A click on a day narrows the cards listening here to that day: their own date column, unless they say otherwise.");
+            }
+            if (!t.needs_metric) { box.appendChild(row); optionsBox.appendChild(box); return; }   // sends only; nothing of its own to narrow
+            var listen = options.listen || {};
+            var mapping = listen.map || {};
+            var theirs = Object.keys(mapping)[0] || "";
+            var lis = el("input", { id: "cb-link-listen", type: "text", class: "vTextField", placeholder: "e.g. day", maxlength: "40" });
+            lis.value = listen.channel || "";
+            var from = el("input", { id: "cb-link-from", type: "text", class: "vTextField", placeholder: "their column", maxlength: "60" });
+            from.value = theirs;
+            var to = el("select", { id: "cb-link-to", class: "vTextField" });
+            var sync = function () {
+                var ch = clean(lis.value);
+                lis.value = ch;
+                if (!ch) { delete options.listen; writeOptions(); return; }
+                var next = { channel: ch };
+                if (from.value.trim() && to.value) { next.map = {}; next.map[from.value.trim()] = to.value; }
+                options.listen = next;
+                writeOptions();
+            };
+            [lis, from, to].forEach(function (x) { x.addEventListener("change", sync); });
+            field("Listen to", lis, CHANNEL_HELP + " This card shows only what the other card's click selects.");
+            var mapField = field("Match their column", from, "Only when the cards read different data: the column the other card filters (a calendar sends date)…");
+            mapField.appendChild(el("label", { for: "cb-link-to", class: "cb-link-to-label" }, "…to this card's column"));
+            mapField.appendChild(to);
+            allColumns(function (cols) {
+                to.appendChild(el("option", { value: "" }, "The same name"));
+                cols.forEach(function (c) {
+                    var o = el("option", { value: c.name }, c.label || c.name);
+                    if (mapping[theirs] === c.name) o.selected = true;
+                    to.appendChild(o);
+                });
+            });
+            box.appendChild(row);
+            optionsBox.appendChild(box);
         }
 
         // -- Style it: the shared card styling (components.CARD_STYLE) ----------
@@ -642,6 +713,23 @@
                 var inherited = INHERITED[spec.name] && !!m;
                 var overridden = inherited && current[spec.name];
                 var wrap = el("div", { class: "mb-field" + (overridden ? " cb-overridden" : "") });
+                // Pills or swatches (cards.js) for a setting that asks for them.
+                var picker = window.SmallStackDashboards && window.SmallStackDashboards.choiceWidget
+                    ? window.SmallStackDashboards.choiceWidget(spec, current[spec.name] || spec.default, function (v) {
+                        var style = Object.assign({}, options.style || {});
+                        if (v === "" || v === spec.default) delete style[spec.name]; else style[spec.name] = v;
+                        if (Object.keys(style).length) options.style = style; else delete options.style;
+                        writeOptions(); schedulePreview();
+                    }, id)
+                    : null;
+                if (picker) {
+                    wrap.appendChild(el("span", { class: "cb-opt-label", id: id + "-label" }, spec.label));
+                    picker.setAttribute("aria-labelledby", id + "-label");
+                    wrap.appendChild(picker);
+                    styleBox.appendChild(wrap);
+                    return;
+                }
+                wrap.classList.add("cb-opt--wide-ish");
                 wrap.appendChild(el("label", { for: id }, spec.label));
                 var input;
                 if (spec.choices) {
@@ -721,19 +809,29 @@
                 lo.value = between ? rule.value[0] : (rule.value != null ? rule.value : "");
                 hi.value = between ? rule.value[1] : "";
                 hi.hidden = rule.op !== "between";
-                var st = el("select", { class: "vTextField", "aria-label": "Rule " + (i + 1) + " colour" });
-                STATES.forEach(function (o) { var x = el("option", { value: o }, o); if (o === rule.state) x.selected = true; st.appendChild(x); });
+                // The colour as swatches (cards.js), a select where that isn't there.
+                var state = rule.state;
+                var st = window.SmallStackDashboards && window.SmallStackDashboards.choiceWidget
+                    ? window.SmallStackDashboards.choiceWidget(
+                        { name: "state", label: "Rule " + (i + 1) + " colour", widget: "swatches", choices: STATES.map(function (o) { return [o, o]; }) },
+                        state, function (v) { state = v; sync(); }, "cb-rule-" + i + "-state")
+                    : null;
+                if (!st) {
+                    st = el("select", { class: "vTextField", "aria-label": "Rule " + (i + 1) + " colour" });
+                    STATES.forEach(function (o) { var x = el("option", { value: o }, o); if (o === rule.state) x.selected = true; st.appendChild(x); });
+                    st.addEventListener("change", function () { state = st.value; });
+                }
                 var rm = el("button", { type: "button", class: "plf-tool", "aria-label": "Remove rule " + (i + 1) }, "✕");
                 var sync = function () {
                     rule.op = op.value;
-                    rule.state = st.value;
+                    rule.state = state;
                     hi.hidden = op.value !== "between";
                     var a = lo.value === "" ? 0 : Number(lo.value), b = hi.value === "" ? a : Number(hi.value);
                     rule.value = op.value === "between" ? [a, b] : a;
                     writeOptions();
                     schedulePreview();
                 };
-                [op, lo, hi, st].forEach(function (x) { x.addEventListener("change", sync); x.addEventListener("input", sync); });
+                [op, lo, hi].forEach(function (x) { x.addEventListener("change", sync); x.addEventListener("input", sync); });
                 rm.addEventListener("click", function () {
                     options.thresholds.splice(i, 1);
                     writeOptions(); renderRules(); schedulePreview();
@@ -1340,6 +1438,30 @@
                 placeholder: "Pick a dataset to start filtering. No filter means every row.",
             });
         }
+        // The palette's view: full for a new card, compact for one being edited,
+        // unless this person chose otherwise for that situation before (kept in
+        // localStorage per situation, so Full while choosing a design doesn't
+        // make every edit page long).
+        var palette = document.getElementById("cb-palette");
+        if (palette) {
+            var VIEW_KEY = "ss_cb_palette_view:" + (palette.getAttribute("data-palette-mode") || "new");
+            var paletteView = function (view) {
+                palette.classList.toggle("cb-palette--mini", view === "mini");
+                var radio = document.getElementById("cb-palette-" + (view === "mini" ? "mini" : "full"));
+                if (radio) radio.checked = true;
+            };
+            var chosen = null;
+            try { chosen = window.localStorage.getItem(VIEW_KEY); } catch (e) { chosen = null; }
+            paletteView(chosen === "mini" || chosen === "full" ? chosen : palette.getAttribute("data-default-view"));
+            form.querySelectorAll('input[name="cb_palette_view"]').forEach(function (r) {
+                r.addEventListener("change", function () {
+                    if (!r.checked) return;
+                    paletteView(r.value);
+                    try { window.localStorage.setItem(VIEW_KEY, r.value); } catch (e) { /* private mode: this visit only */ }
+                });
+            });
+        }
+
         // The card's saved source decides where the switch starts: a metric when
         // it names one, else a dataset (the default for a new card).
         setSourceMode(metricSel.value && !datasetSel.value ? "metric" : "dataset");

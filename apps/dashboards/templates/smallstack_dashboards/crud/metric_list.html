@@ -1,6 +1,8 @@
 {% extends "smallstack/crud/object_list.html" %}
-{% load help_tags %}
+{% load help_tags static %}
 {% block title %}Metrics{% endblock %}
+{% comment %}The dashboards stylesheet on both views: the library partial and the tags bar are styled by it, and the generic table view has no partial of its own to bring it.{% endcomment %}
+{% block extra_css %}{{ block.super }}<link rel="stylesheet" href="{% static 'dashboards/css/dashboards.css' %}">{% endblock %}
 {% block page_header %}
 <div class="page-header-bleed page-header-with-actions" style="display: flex; align-items: flex-start; justify-content: space-between;">
     <div class="page-header-content">

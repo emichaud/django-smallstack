@@ -84,16 +84,16 @@ CARD_STYLE: list[dict[str, Any]] = [
                  ["decimal", "Decimal — 9,481.24"], ["percent", "Percent — 94.2%"],
                  ["currency", "Currency — $9,481.00"], ["duration", "Duration — 2m 19s"]]},
     {"name": "unit", "label": "Unit", "default": "", "max": 20, "help": "Blank = the metric's unit."},
-    {"name": "size", "label": "Number size", "default": "m",
-     "choices": [["s", "Small"], ["m", "Medium"], ["l", "Large"], ["xl", "Extra large"]]},
-    {"name": "color", "label": "Number colour", "default": "state",
+    {"name": "size", "label": "Number size", "default": "m", "widget": "segmented",
+     "choices": [["s", "S"], ["m", "M"], ["l", "L"], ["xl", "XL"]]},
+    {"name": "color", "label": "Number colour", "default": "state", "widget": "swatches",
      "choices": [["state", "From the thresholds"], ["accent", "Accent"], ["plain", "Plain"],
                  ["success", "Success"], ["warning", "Warning"], ["danger", "Danger"], ["muted", "Quiet"]]},
-    {"name": "title_size", "label": "Title size", "default": "m",
-     "choices": [["s", "Small"], ["m", "Medium"], ["l", "Large"]]},
-    {"name": "title_color", "label": "Title colour", "default": "quiet",
+    {"name": "title_size", "label": "Title size", "default": "m", "widget": "segmented",
+     "choices": [["s", "S"], ["m", "M"], ["l", "L"]]},
+    {"name": "title_color", "label": "Title colour", "default": "quiet", "widget": "swatches",
      "choices": [["quiet", "Quiet"], ["plain", "Plain"], ["accent", "Accent"]]},
-    {"name": "align", "label": "Alignment", "default": "start",
+    {"name": "align", "label": "Alignment", "default": "start", "widget": "segmented",
      "choices": [["start", "Left"], ["center", "Centre"], ["end", "Right"]]},
 ]
 _STYLE = {spec["name"]: spec for spec in CARD_STYLE}
@@ -205,6 +205,11 @@ class CellContext:
     metric: Optional["Metric"] = None
     period: Optional[str] = None
     rows_url: str = ""
+    #: The slice a linked card sent this one (``options.listen``), already
+    #: mapped to this card's columns and AND-ed into ``metric``'s filter; every
+    #: rows link the build draws carries it too (:func:`rows_url`). None = not
+    #: narrowed. Only ever narrows: see :func:`listened_narrow`.
+    narrow: Any = None
 
 
 @dataclass(frozen=True)
@@ -259,6 +264,11 @@ class ComponentType:
     #: columns: the builder calls that step "Columns", and the design's row
     #: limit applies to the window its rows open in, not to the card.
     shows_rows: bool = False
+    #: Its clicks can narrow other cards (``options.publish``) though it draws no
+    #: data of its own: a calendar's days. A clicked element sends its
+    #: ``data-day`` as a one-day range on the field ``date`` (cards.js), which a
+    #: listening card maps to its own date column — its period column by default.
+    publishes: bool = False
     #: Boils down to one number, so it may draw a saved metric (the only
     #: designs that may: a metric is one value, a chart needs the rows), and a
     #: saved card of this type over a metric can be a goal (``goals.py``); the
@@ -314,6 +324,7 @@ def describe_types(user: Any = None) -> list[dict[str, Any]]:
             "style_settings": list(ct.style_settings) or [spec["name"] for spec in CARD_STYLE],
             "drillable": ct.drillable,
             "shows_rows": ct.shows_rows,
+            "publishes": ct.publishes or (ct.needs_metric and ct.drillable),
             "single_value": ct.single_value,
         }
         for ct in component_types()
@@ -568,6 +579,7 @@ def normalize_layout(raw: Any, *, owner_id: Any = None) -> tuple[list[dict[str, 
 
         if ct.validate is not None:
             problems.extend(f"{where}.options: {p}" for p in ct.validate(c))
+        problems.extend(f"{where}.options.{p}" for p in link_problems(ct, options, source))
         if ct.drillable:
             if "drilldown" in options:
                 from .metrics import validate_drilldown
@@ -604,6 +616,112 @@ def _overlap_problems(cells: list[dict[str, Any]]) -> list[str]:
         and a["y"] < b["y"] + b["h"]
         and b["y"] < a["y"] + a["h"]
     ]
+
+
+# -- linked cards: a click on one narrows another ------------------------------
+#
+# A card with ``options.publish: "<channel>"`` sends what's clicked in it (a
+# group, a bucket, a day: the ``narrow`` filter its rows link already carries)
+# to that channel instead of opening the rows window. A card with
+# ``options.listen: {"channel": …, "map"?: {"their_column": "my_column"}}``
+# redraws narrowed to whatever arrives. The bus is in the page (cards.js); the
+# server only ever narrows: the slice is AND-ed onto the card's own filter,
+# mapped and checked against the card's own dataset, so it can't widen what the
+# card shows or reach a column the card's data doesn't have.
+
+CHANNEL_RE = re.compile(r"^[a-z0-9][a-z0-9_-]{0,39}$")
+
+
+def link_problems(ct: ComponentType, options: dict[str, Any], source: Optional["Metric"]) -> list[str]:
+    """Problems with a card's ``publish`` / ``listen`` options."""
+    problems: list[str] = []
+    publish, listen = options.get("publish"), options.get("listen")
+    if publish in (None, "") and listen in (None, "", {}):
+        return problems
+    if not ct.needs_metric and not ct.publishes:
+        return [f"a {ct.label} card draws no data, so it can't publish or listen"]
+    if not ct.needs_metric and listen not in (None, "", {}):
+        problems.append(f"listen: a {ct.label} card draws no data, so there's nothing to narrow")
+    if publish not in (None, ""):
+        if not isinstance(publish, str) or not CHANNEL_RE.match(publish):
+            problems.append("publish: a channel name — lower-case letters, digits, - or _, up to 40")
+        elif not (ct.publishes or ct.drillable):
+            problems.append(f"publish: a {ct.label} card has nothing to click")
+    if listen not in (None, "", {}):
+        if not isinstance(listen, dict) or not isinstance(listen.get("channel"), str):
+            return [*problems, 'listen: {"channel": "<name>", "map"?: {"their_column": "my_column"}}']
+        if not CHANNEL_RE.match(listen["channel"]):
+            problems.append("listen.channel: lower-case letters, digits, - or _, up to 40")
+        if listen["channel"] == publish:
+            problems.append("listen.channel: a card can't listen to the channel it publishes to")
+        unknown = sorted(set(listen) - {"channel", "map"})
+        if unknown:
+            problems.append(f"listen: unknown key(s) {unknown}")
+        mapping = listen.get("map", {})
+        pairs = mapping.items() if isinstance(mapping, dict) else ()
+        well_formed = isinstance(mapping, dict) and all(isinstance(k, str) and isinstance(v, str) for k, v in pairs)
+        if not well_formed:
+            problems.append('listen.map: {"their_column": "my_column"}')
+        elif source is not None:
+            columns = _dataset_columns(source)
+            if columns is not None:
+                problems.extend(
+                    f"listen.map: {theirs!r} → {mine!r}: this card's data has no column {mine!r}"
+                    for theirs, mine in mapping.items()
+                    if mine not in columns
+                )
+    return problems
+
+
+def _rename_fields(tree: Any, mapping: dict[str, str]) -> Any:
+    if isinstance(tree, list):
+        return [_rename_fields(t, mapping) for t in tree]
+    if not isinstance(tree, dict):
+        return tree
+    out = {k: _rename_fields(v, mapping) for k, v in tree.items()}
+    if isinstance(out.get("field"), str):
+        out["field"] = mapping.get(out["field"], out["field"])
+    return out
+
+
+def listened_narrow(cell: dict[str, Any], raw: str, source: Optional["Metric"]) -> tuple[Any, str]:
+    """The slice a listening card was sent (``?narrow=<json>``), mapped to its
+    columns and checked against its dataset: ``(tree or None, problem)``. A
+    card that doesn't listen, or a slice that names a column its data doesn't
+    have, is refused with a reason — never quietly dropped, which would show
+    the whole set under a heading that says it's narrowed."""
+    import json
+
+    from apps.datasets.core import get_dataset
+    from apps.datasets.filter_tree import tree_fields
+
+    listen = (cell.get("options") or {}).get("listen")
+    if not raw:
+        return None, ""
+    if not isinstance(listen, dict) or source is None:
+        return None, "This card doesn't listen to other cards."
+    try:
+        tree = json.loads(raw)
+    except ValueError:
+        return None, "The slice sent to this card isn't readable."
+    ds = get_dataset(source.dataset) if source.dataset else None
+    if ds is None or source.is_rate or source.is_manual:
+        return None, "This card's data can't be narrowed by another card."
+    mapping = dict(listen.get("map") or {})
+    # A calendar's day arrives on "date": unless the card maps it, or its data has a
+    # column of that name, it means the card's period column (the date it's read over).
+    if "date" not in mapping and "date" not in ds.column_names() and source.period_field:
+        mapping["date"] = source.period_field
+    tree = _rename_fields(tree, mapping)
+    problems = ds.validate_filter_tree(tree)
+    if problems:
+        if "date" in tree_fields(tree):
+            return None, (
+                "A day was sent to this card, but it has no period column to read it over. "
+                "Give it one, or match the sender's date to one of its date columns."
+            )
+        return None, "The card that was clicked filters a column this card's data doesn't have: " + "; ".join(problems)
+    return tree, ""
 
 
 def _dataset_columns(metric: "Metric") -> Optional[list[str]]:
@@ -746,6 +864,15 @@ def rows_url(ctx: CellContext, **params: Any) -> str:
     if not ctx.rows_url:
         return ""
     query = {k: v for k, v in params.items() if v not in (None, "")}
+    if ctx.narrow:
+        # The slice this card is listening to narrows its rows too, and a
+        # publishing card's clicks send it on (chaining: day, then method).
+        import json
+
+        from apps.datasets.filter_tree import and_trees
+
+        own = json.loads(query["narrow"]) if query.get("narrow") else None
+        query["narrow"] = json.dumps(and_trees(ctx.narrow, own), default=str)
     if ctx.period:
         query["period"] = ctx.period
     return f"{ctx.rows_url}?{urlencode(query)}" if query else ctx.rows_url
@@ -829,7 +956,10 @@ def build_metric(cell: dict[str, Any], ctx: CellContext) -> dict[str, Any]:
     if result.ok:
         shown = styled_value(result.value, metric, style, result.state)
         card.update(value=shown["display"], unit=shown["unit"], state=shown["state"])
-    card["href"] = with_drill(card.get("href") or "", cell) or card.get("href")
+    if card.get("href"):
+        # Through rows_url, like every other card: it adds the period, the
+        # drill-down design and a slice this card is listening to.
+        card["href"] = rows_url(ctx, **drill_params(cell))
     return {"card": card, "metric": metric, "result": result, "comparison": comparison, "style": style}
 
 
@@ -1295,6 +1425,7 @@ def register_builtins() -> None:
                     "type": "choice",
                     "choices": [list(c) for c in MENU_LAYOUTS],
                     "default": "auto",
+                    "widget": "segmented",
                     "help": "Fit the card: across when it's wide, down when it's tall.",
                 },
             ],
@@ -1336,6 +1467,7 @@ def register_builtins() -> None:
                     "type": "choice",
                     "default": "list",
                     "choices": [["list", "As listed"], ["attention", "Missed and at risk first"]],
+                    "widget": "segmented",
                 },
             ],
         )

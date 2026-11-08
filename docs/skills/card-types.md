@@ -77,6 +77,7 @@ access-checked, and drawn in previews, embeds and playlists.
 | `stylable` | bool | Honours the shared card styling (`options.style`: format, unit, size, colour, title size/colour, alignment) and the card's own colour rules (`options.thresholds`). Read them with `card_style(cell)` / `styled_value(...)`. The builder shows a **Style it** step. |
 | `style_settings` | tuple[str, …] | Which styling settings apply; empty = all. A card whose headline is text has no number format or unit. |
 | `drillable` | bool | Its numbers open rows, so it takes a drill-down design (`options.drilldown`: columns, headings, formats, sort, limit). The builder shows a **Drill-down** step; the build must pass every rows URL through `rows_url(ctx, **drill_params(cell))` or `with_drill(url, cell)`. |
+| `publishes` | bool | Its clicks can narrow other cards (`options.publish`) though it draws no data itself: the calendar. An element with `data-day="YYYY-MM-DD"` (and `data-day-label`) sends that day on the field `date`; a listener maps it to its own date column, its period column by default. |
 | `shows_rows` | bool | Draws the rows itself (the table), so the drill-down design **is** its columns: the builder calls the step **Columns**, hides the design's row limit (it applies to the window *All rows* opens) and words the summary as pages. |
 
 ## What `build` gets and returns
@@ -92,6 +93,7 @@ class CellContext:
     period: str | None              # the dashboard's period, already narrowed to the cell
                                     #   (use_period: false → None)
     rows_url: str                   # where this card's rows open; "" when they can't
+    narrow: Any                     # the slice a linked card sent (already in metric), or None
 ```
 
 `ctx.metric` is the one thing to know: whether the card names a saved metric or
@@ -127,6 +129,17 @@ numbers REST and MCP return.
 | The rows | `metrics.drill_rows(metric, request, period=, extra_tree=, spec=, order=, limit=, offset=) → {columns, rows, total, sort}`; `metrics.format_cell(value, fmt, column_type)` |
 | Anything else | `metrics.resolve_dataset(metric).series(...)` / `.rows(...)` / `.queryset(request, filter_tree=metrics.effective_tree(metric, period))` — the dataset's own API, with the card's filter and period applied |
 | Formatting | `styled_value(value, metric, card_style(cell), state) → {display, unit, state}` (the card's format, unit and rules, else the metric's); `metrics.format_value(value, fmt, unit)`; `metrics.state_for(value, thresholds)` |
+
+## Linked cards (publish / listen)
+
+Any data card can be linked to others on its dashboard (`options.publish`,
+`options.listen`; `dashboards.md` → *Linked cards*). Your type takes part
+without code of its own as long as it follows the two rules below: its
+clickable things are rows links from `rows_url(ctx, narrow=…)` (cards.js reads
+the `narrow` off the clicked element's `hx-get` or `href`), and its numbers
+come from `ctx.metric`, which is already narrowed when the card is listening.
+`ctx.narrow` holds the slice itself, for a card that wants to say what it's
+showing. Mark the type `drillable` to be offered *Send clicks to*.
 
 ## Rows links (the drill-down modal)
 

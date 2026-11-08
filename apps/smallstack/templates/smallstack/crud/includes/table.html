@@ -7,7 +7,8 @@ each header (table-resize.js) — widths persist in localStorage under
 "Wrap text" tools below the table are un-hidden by the script.
 {% endcomment %}
 <div class="crud-table-wrap" style="overflow-x: auto;">
-<table class="crud-table" data-table-key="{{ table_key }}">
+{% comment %}--table-min (crud_tags._table_min_width): below it the wrapper scrolls rather than crushing a column. A custom property, so table-resize.js's own inline min-width (set on a resize, cleared on Reset) layers over it.{% endcomment %}
+<table class="crud-table" data-table-key="{{ table_key }}"{% if table_min_width %} style="--table-min: {{ table_min_width }}px;"{% endif %}>
 <thead>
 <tr>
 {% if enable_bulk %}

@@ -1,0 +1,5 @@
+{% comment %}
+The "Personal" badge on a list row or a page header. Someone else's personal
+row (a staff member sees every row) says whose, and why there's no edit:
+only its owner changes a personal row. `obj` is any OwnedModel.
+{% endcomment %}{% if obj.owner_id == request.user.pk %}<span class="dash-badge">Personal</span>{% else %}<span class="dash-badge" title="Only {{ obj.owner }} can change it">Personal · {{ obj.owner }}</span>{% endif %}

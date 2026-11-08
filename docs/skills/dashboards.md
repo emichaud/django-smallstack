@@ -249,7 +249,7 @@ register_component_type(ComponentType(
     media={"js": ["myapp/vendor/echarts.min.js", "myapp/js/charts.js"]},   # loaded once per page
     options_schema=[                       # the builder AND the Add card dialog render these
         {"name": "kind", "label": "Chart", "type": "choice", "choices": [["bars", "Bars"], ["line", "Line"]]},
-        {"name": "grain", "label": "Buckets", "type": "choice", "choices": [["", "Fit the period"], ["week", "Weeks"]]},
+        {"name": "grain", "label": "Buckets", "type": "choice", "choices": [["", "Fit"], ["week", "Weeks"]]},
     ],
 ))
 ```
@@ -359,6 +359,53 @@ colour rules compare the widget's numeric `value` when its `get_data()` returns 
 (return it, for exact rules), else the first number in the headline. A matching rule
 replaces the app's status colour (success → operational, warning → degraded,
 danger → down).
+
+### Linked cards — a click on one narrows another
+
+Two cards on a dashboard (or an embed, or a playlist slide) connect through a
+named channel. A card with `options.publish: "<channel>"` sends what's clicked
+in it, instead of opening the rows window; a card with
+`options.listen: {"channel": "<name>", "map"?: {"their_column": "my_column"}}`
+redraws narrowed to whatever arrives, with a "Showing POST ✕" chip that clears it.
+
+```json
+[{"id": "by", "type": "pie", "dataset": "requests", "agg": "count", "options": {"dimension": "method", "publish": "verb"}},
+ {"id": "n", "type": "metric", "dataset": "requests", "agg": "count", "options": {"listen": {"channel": "verb"}}},
+ {"id": "t", "type": "table", "dataset": "requests", "agg": "count", "options": {"listen": {"channel": "verb"}}}]
+```
+
+- **What travels is an address, not rows:** the `narrow` filter tree the clicked
+  group, bar, bucket or day already carries in its rows link. The bus is in the
+  page (`cards.js`: publish, subscribe, the last value for a card that loads late,
+  an identical re-send dropped).
+- **The server only ever narrows.** A listener redraws from its own URL with
+  `?narrow=<tree>`; `components.listened_narrow` maps it (`listen.map`), checks
+  it against the card's dataset and ANDs it onto a copy of the card's source,
+  so every number, group, bucket and row link is narrowed alike, and the card's
+  own filter, period and the viewer's access all still apply. A slice naming a
+  column the card's data doesn't have, or sent to a card that doesn't listen,
+  is refused with a reason, never dropped (which would show the whole set under
+  a heading that says it's narrowed).
+- **Chaining:** a card that listens and publishes sends its slice on ANDed with
+  its own click (`rows_url` merges `ctx.narrow`): pie → ranked bars → table is
+  *POST*, then *POST · 204*.
+- **A calendar card sends days.** With `options.publish`, a click on a day (the
+  month grid, the board's day heads, the upcoming list's days, keyboard too)
+  sends that day as `[day, next day)` on the field `date` instead of opening the
+  calendar page; events inside a day still open their own links. A listening
+  card reads `date` as its own period column unless its `listen.map` names
+  another (`{"date": "created_at"}`); with neither, it says it has no column to
+  read a day over. Any card type with no data of its own can send clicks the
+  same way: `ComponentType(publishes=True)` and a `data-day="YYYY-MM-DD"` (plus
+  `data-day-label`) on what's clickable.
+- **Checked on save** (`components.link_problems`): channel names are
+  `[a-z0-9_-]`, up to 40; a drillable card or a `publishes` type (the calendar)
+  publishes; a data-free card never listens; a card can't listen to the channel it publishes to; `map` targets
+  must be columns of the card's own data. The builder's **What it shows** step
+  has a *Linked cards* block for both.
+- **Your own card type** publishes and listens for free if its clickable things
+  are rows links built with `rows_url(ctx, narrow=…)`, and its numbers come
+  from `ctx.metric` (already narrowed). `ctx.narrow` is the slice, if you need it.
 
 ### Drill-downs — what opens when a number is tapped (`drillable` types)
 

@@ -94,6 +94,8 @@ This generates:
 | `filter_fields` | list | `[]` | Fields for query-param filtering (API only) |
 | `filter_class` | FilterSet | None | Custom FilterSet class (API only) |
 | `export_formats` | list | `[]` | Export formats, e.g. `["csv", "json"]` (API only) |
+| `column_widths` | dict | None | `{field: "140px" \| "20%" \| "auto"}` for the table view. Unset: compact types (dates, numbers, booleans, choices) get a px default, the `link_field` 240px, the rest share what's left, never below 140px: the table gets a minimum width and its wrapper scrolls rather than crush a column. Prefer px; with `table-layout: fixed` a % column out-bids the unsized ones for the slack |
+| `column_labels` | dict | None | `{field: "Updated"}`: a table header shorter than the field's verbose name |
 | `breadcrumb_parent` | tuple | None | `(label, url_name)` for parent breadcrumb |
 | `related_tabs` | `list\|None\|False` | `None` | Related object tabs on detail page. `None`=auto-discover, list=explicit, `False`=disabled |
 | `related_tabs_exclude` | list | `[]` | Accessor names to exclude from auto-discovery |

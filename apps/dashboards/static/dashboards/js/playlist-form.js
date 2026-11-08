@@ -59,18 +59,46 @@
                 var row = el("tr", { "class": "plf-item" + (d ? "" : " plf-item--missing") });
                 var label = el("span", { "class": "plf-item-name" }, d ? d.name : itemSlug(item) + " (not available)");
                 if (item.goals) label.appendChild(el("span", { "class": "dash-badge plf-kind" }, "Goals"));
-                var sec = el("input", {
-                    type: "number", min: "5", max: "3600", "class": "vTextField plf-item-seconds",
-                    placeholder: seconds.value || "30", "aria-label": "Seconds on " + (d ? d.name : itemSlug(item)),
-                });
-                if (item.seconds) sec.value = item.seconds;
-                sec.addEventListener("input", function () {
-                    var v = parseInt(sec.value, 10);
-                    if (v) item.seconds = v; else delete item.seconds;
-                    write(); summary();
-                });
+                // Seconds: the default (a pill saying what it is) until the slide gets a
+                // time of its own — then − / value / + with a way back to the default.
+                var who = d ? d.name : itemSlug(item);
+                var sec = el("span", { "class": "plf-secs" });
+                var paintSecs = function () {
+                    sec.replaceChildren();
+                    var dwell = parseInt(seconds.value, 10) || 30;
+                    if (!item.seconds) {
+                        var pill = el("button", { type: "button", "class": "plf-secs-default", title: "The playlist's default. Click to give this slide its own time.", "aria-label": "Seconds on " + who + ": the default, " + dwell + ". Set its own" });
+                        pill.appendChild(el("span", { "class": "plf-secs-default-word" }, "Default"));
+                        pill.appendChild(el("span", { "class": "plf-secs-default-n" }, dwell + " s"));
+                        pill.addEventListener("click", function () { item.seconds = dwell; write(); paintSecs(); summary(); sec.querySelector("input").focus(); });
+                        sec.appendChild(pill);
+                        return;
+                    }
+                    var input = el("input", { type: "number", min: "5", max: "3600", "class": "vTextField plf-item-seconds", "data-no-stepper": "", "aria-label": "Seconds on " + who });
+                    input.value = item.seconds;
+                    var step = function (delta) {
+                        var v = Math.min(3600, Math.max(5, (parseInt(input.value, 10) || dwell) + delta));
+                        input.value = v; item.seconds = v; write(); summary();
+                    };
+                    var minus = el("button", { type: "button", "class": "plf-secs-btn", "aria-label": "Less time on " + who }, "−");
+                    var plus = el("button", { type: "button", "class": "plf-secs-btn", "aria-label": "More time on " + who }, "+");
+                    minus.addEventListener("click", function () { step(-5); });
+                    plus.addEventListener("click", function () { step(5); });
+                    input.addEventListener("input", function () {
+                        var v = parseInt(input.value, 10);
+                        if (v) item.seconds = v;
+                        write(); summary();
+                    });
+                    input.addEventListener("change", function () {
+                        if (!parseInt(input.value, 10)) { delete item.seconds; write(); paintSecs(); summary(); }
+                    });
+                    var back = el("button", { type: "button", "class": "plf-tool plf-secs-back", title: "Back to the default (" + dwell + " s)", "aria-label": "Use the default time on " + who }, "↺");
+                    back.addEventListener("click", function () { delete item.seconds; write(); paintSecs(); summary(); sec.querySelector("button").focus(); });
+                    [minus, input, plus, back].forEach(function (x) { sec.appendChild(x); });
+                };
+                paintSecs();
                 var per = el("select", { "class": "vTextField plf-item-period", "aria-label": "Period for " + (d ? d.name : itemSlug(item)) });
-                per.appendChild(el("option", { value: "" }, "Its own period"));
+                per.appendChild(el("option", { value: "" }, "Dashboard's own"));
                 data.periods.forEach(function (p) {
                     var o = el("option", { value: p[0] }, p[1]);
                     if (item.period === p[0]) o.selected = true;
@@ -111,7 +139,7 @@
                 };
                 cell(el("span", { "class": "plf-item-n" }, String(n + 1)));
                 cell(label);
-                cell(sec).appendChild(el("span", { "class": "plf-item-unit", "aria-hidden": "true" }, "s"));
+                cell(sec);   // the column header says "Seconds": no unit after each field
                 cell(per);
                 cell(tools, "plf-tools-cell");
                 list.appendChild(row);
@@ -206,6 +234,8 @@
                 ? items.length + " slide" + (items.length === 1 ? "" : "s") + ", about " + fmt(Math.round(sum)) + " a round."
                 : "Add dashboards or goal lists to see how long a round takes.";
             presets.forEach(function (b) { b.setAttribute("aria-pressed", String(b.getAttribute("data-seconds") === seconds.value)); });
+            // A slide on the default shows the number it takes, as the default changes.
+            form.querySelectorAll(".plf-secs-default-n").forEach(function (n) { n.textContent = (parseInt(seconds.value, 10) || 30) + " s"; });
         }
 
         document.getElementById("plf-add").addEventListener("click", function () {

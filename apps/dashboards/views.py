@@ -765,7 +765,8 @@ class DashboardCellView(LoginRequiredMixin, View):
         if cell is None:
             raise Http404
         period = requested_period(request, dashboard.default_period)
-        return HttpResponse(render_cell(dashboard, cell, request, period))
+        # ?narrow=: the slice a linked card sent this one (options.listen; cards.js).
+        return HttpResponse(render_cell(dashboard, cell, request, period, narrow=request.GET.get("narrow", "")))
 
 
 class DashboardLayoutView(LoginRequiredMixin, View):
@@ -1835,6 +1836,17 @@ class MetricCRUDView(_OwnedCRUD):
         "tags",
     ]
     list_fields = ["name", "key", "source", "dataset", "agg", "owner", "updated_at"]
+    column_labels = {"agg": "Roll-up", "updated_at": "Updated"}
+    # Eight columns: the short ones sized so none collapses to "dem…"; the name
+    # (the link) gets the framework's default; the table scrolls past its minimum.
+    column_widths = {
+        "key": "150px",
+        "source": "125px",
+        "dataset": "160px",
+        "agg": "100px",
+        "owner": "80px",
+        "updated_at": "240px",
+    }
     link_field = "name"
     field_transforms = {"owner": _owner_cell, "updated_at": "localtime"}
     url_base = "dashboards/metrics"
@@ -1953,6 +1965,8 @@ class DashboardCRUDView(_OwnedCRUD):
         "tags",
     ]
     list_fields = ["name", "slug", "default_period", "owner", "updated_at"]
+    column_labels = {"default_period": "Opens with", "updated_at": "Updated"}
+    column_widths = {"default_period": "130px", "owner": "140px"}
     link_field = "name"
     field_transforms = {"owner": _owner_cell, "updated_at": "localtime"}
     url_base = "dashboards/boards"
@@ -1978,6 +1992,8 @@ class ReportCRUDView(_OwnedCRUD):
     form_class = ReportForm
     fields = ["name", "slug", "description", "items", "periods", "tags"]
     list_fields = ["name", "slug", "periods", "owner", "updated_at"]
+    column_labels = {"updated_at": "Updated"}
+    column_widths = {"owner": "140px"}
     link_field = "name"
     field_transforms = {"owner": _owner_cell, "updated_at": "localtime"}
     url_base = "dashboards/reports"
@@ -2001,6 +2017,8 @@ class PlaylistCRUDView(_OwnedCRUD):
     view_mixins = {Action.CREATE: [PlaylistDuplicateMixin]}
     fields = ["name", "slug", "description", "items", "seconds", "loop", "auto_start", "tags"]
     list_fields = ["name", "slug", "seconds", "owner", "updated_at"]
+    column_labels = {"seconds": "Seconds", "updated_at": "Updated"}
+    column_widths = {"seconds": "120px", "owner": "140px"}
     link_field = "name"
     field_transforms = {"owner": _owner_cell, "updated_at": "localtime"}
     url_base = "dashboards/playlists"
@@ -2070,6 +2088,8 @@ class GoalListCRUDView(_OwnedCRUD):
     form_class = GoalListForm
     fields = ["name", "slug", "description", "default_period", "sections", "tags"]
     list_fields = ["name", "slug", "default_period", "owner", "updated_at"]
+    column_labels = {"default_period": "Opens with", "updated_at": "Updated"}
+    column_widths = {"default_period": "130px", "owner": "140px"}
     link_field = "name"
     field_transforms = {"owner": _owner_cell, "updated_at": "localtime"}
     url_base = "dashboards/goals"

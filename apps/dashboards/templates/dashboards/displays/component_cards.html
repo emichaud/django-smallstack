@@ -16,7 +16,7 @@ number inside one doesn't open its rows; the card's name goes to the builder.
         <div class="cc-foot">
             <div class="cc-title">
                 {% if r.edit_url %}<a href="{{ r.edit_url }}" class="cc-name">{{ c.name }}</a>{% else %}<span class="cc-name">{{ c.name }}</span>{% endif %}
-                {% if c.is_shared %}<span class="dash-badge dash-badge--shared">Shared</span>{% else %}<span class="dash-badge">Personal</span>{% endif %}
+                {% if c.is_shared %}<span class="dash-badge dash-badge--shared">Shared</span>{% else %}{% include "dashboards/partials/personal_badge.html" with obj=c %}{% endif %}
                 {% include "dashboards/partials/tags.html" with obj=c base=request.path tag=request.GET.tag %}
             </div>
             <p class="cc-meta">{{ r.type_label }}{% if r.metric_name %}, {{ r.metric_name }}{% endif %}. {% if r.used %}On {{ r.used }} dashboard{{ r.used|pluralize }}{% else %}Not placed yet{% endif %}.</p>

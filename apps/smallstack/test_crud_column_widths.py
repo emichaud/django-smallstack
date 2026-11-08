@@ -40,7 +40,7 @@ def _widths(fields, model=APIToken, column_widths=None):
 def test_compact_types_get_a_pixel_default():
     widths = _widths(["is_active", "created_at", "request_count", "token_type"])
     assert widths["is_active"] == "110px"  # BooleanField
-    assert widths["created_at"] == "170px"  # DateTimeField
+    assert widths["created_at"] == "240px"  # DateTimeField: the local "Oct 28, 2026 8:00 PM EDT" with padding
     assert widths["request_count"] == "100px"  # PositiveIntegerField
     assert widths["token_type"] == "130px"  # CharField with choices
 
@@ -68,7 +68,7 @@ def test_explicit_column_widths_win_over_defaults():
 
 def test_datetime_is_matched_before_its_date_superclass():
     # DateTimeField subclasses DateField — order in the lookup table matters.
-    assert _default_column_width(User, "date_joined") == "170px"
+    assert _default_column_width(User, "date_joined") == "240px"
     assert _default_column_width(User, "is_staff") == "110px"
     assert _default_column_width(User, "email") is None
 
@@ -97,9 +97,11 @@ def test_user_list_renders_resize_contract(staff_client):
         assert f'data-field="{field}"' in html
     assert html.count('class="col-resizer"') == 6
     assert 'role="separator"' in html
-    # The booleans got the compact default; email (free text) did not.
+    # The booleans got the compact default; the view sizes the address itself;
+    # the table gets a floor, so a column it leaves unsized can't collapse.
     assert 'data-field="is_staff" aria-sort="none" style="width: 110px;"' in html
-    assert 'data-field="email" aria-sort="none">' in html
+    assert 'data-field="email" aria-sort="none" style="width: 280px;"' in html
+    assert 'style="--table-min: ' in html
     # Tools row ships hidden — the script reveals it (progressive enhancement).
     assert '<div class="crud-table-tools" hidden>' in html
     assert "crud-table-wrap-toggle" in html
@@ -109,3 +111,29 @@ def test_user_list_renders_resize_contract(staff_client):
 def test_base_template_loads_the_resize_script(staff_client):
     resp = staff_client.get(reverse("manage/users-list"))
     assert "smallstack/js/table-resize.js" in resp.content.decode()
+
+
+def test_the_link_column_gets_a_share_of_its_own():
+    """A table's name column is what a row is found by; unsized, it got the same
+    slice as every other free column and truncated beside roomy short ones."""
+    from apps.smallstack.templatetags.crud_tags import LINK_COLUMN_WIDTH, _build_sort_headers
+
+    headers = _build_sort_headers(["name", "slug", "owner", "updated_at"], None, None, link_field="name")
+    widths = {h["field_name"]: h.get("width") for h in headers}
+    assert widths["name"] == LINK_COLUMN_WIDTH and widths["slug"] is None
+    # An explicit column_widths entry still wins; a two-column table needs no share.
+    headers = _build_sort_headers(["name", "slug"], None, None, column_widths={"name": "40%"}, link_field="name")
+    assert headers[0]["width"] == "40%"
+    assert _build_sort_headers(["name", "slug"], None, None, link_field="name")[0].get("width") is None
+
+
+
+def test_a_crowded_table_scrolls_rather_than_crushing_a_column():
+    """px columns are paid first in a fixed-layout table; the unsized ones split
+    the rest, which on a crowded table was nothing. The table's minimum width
+    gives each of them a floor; the wrapper scrolls past it."""
+    from apps.smallstack.templatetags.crud_tags import MIN_FREE_COLUMN_PX, _table_min_width
+
+    headers = [{"width": "30%"}, {}, {"width": "130px"}, {"width": "240px"}, {"width": "240px"}]
+    assert _table_min_width(headers, show_actions=True, enable_bulk=False) == 2 * MIN_FREE_COLUMN_PX + 130 + 480 + 120
+    assert _table_min_width([{}], show_actions=False, enable_bulk=True) == 40 + MIN_FREE_COLUMN_PX

@@ -12,7 +12,7 @@ Rendered by {% calendar_month %} or included directly.
 <div class="calendar-grid cal-grid{% if not weekends %} cal-cols-5{% endif %}">
     {% for week in weeks %}{% for cell in week %}
     {% if cell %}
-    <a href="{{ cell.url }}" class="calendar-cell cal-cell{% if cell.is_today %} calendar-cell--today{% endif %}{% if cell.is_selected %} calendar-cell--selected{% endif %}{% if cell.is_weekend %} cal-cell--weekend{% endif %}"
+    <a href="{{ cell.url }}" class="calendar-cell cal-cell{% if cell.is_today %} calendar-cell--today{% endif %}{% if cell.is_selected %} calendar-cell--selected{% endif %}{% if cell.is_weekend %} cal-cell--weekend{% endif %}" data-day="{{ cell.date|date:'Y-m-d' }}" data-day-label="{{ cell.date|date:'D j M' }}"
        aria-label="{{ cell.date|date:'l, F j' }}: {{ cell.total }} event{{ cell.total|pluralize }}">
         <span class="calendar-cell-day">{{ cell.day }}</span>
         {% for ev in cell.events %}

@@ -32,43 +32,42 @@
     <div class="mb-grid">
         <div>
             {# ── Identity ──────────────────────────────────────── #}
+            {# ── Name and picture: one card, the picture beside the words ──────── #}
             <div class="card mb-section">
                 <div class="card-header"><h2>Name</h2></div>
-                <div class="card-body">
-                    <div class="mb-field{% if form.name.errors %} has-error{% endif %}">
-                        <label for="{{ form.name.id_for_label }}">Name<span class="required" aria-hidden="true">*</span></label>
-                        {{ form.name }}
-                        {% for e in form.name.errors %}<p class="crud-error">{{ e }}</p>{% endfor %}
+                <div class="card-body df-identity">
+                    <div class="df-identity-words">
+                        <div class="mb-field{% if form.name.errors %} has-error{% endif %}">
+                            <label for="{{ form.name.id_for_label }}">Name<span class="required" aria-hidden="true">*</span></label>
+                            {{ form.name }}
+                            {% for e in form.name.errors %}<p class="crud-error">{{ e }}</p>{% endfor %}
+                        </div>
+                        {% include "dashboards/partials/address_field.html" with prefix="/smallstack/dashboards/d/" noun="dashboard" breaks="and any page that embeds it" %}
+                        <div class="mb-field{% if form.description.errors %} has-error{% endif %}">
+                            <label for="{{ form.description.id_for_label }}">Description <span class="dash-muted">(optional)</span></label>
+                            {{ form.description }}
+                            <p class="mb-help">Shown under the title. One sentence on what this dashboard is for.</p>
+                        </div>
+                        <div class="mb-field{% if form.tags.errors %} has-error{% endif %}" style="margin-bottom: 0;">
+                            <label for="{{ form.tags.id_for_label }}">Tags <span class="dash-muted">(optional)</span></label>
+                            {{ form.tags }}
+                            {% for e in form.tags.errors %}<p class="crud-error">{{ e }}</p>{% endfor %}
+                            <p class="mb-help">Labels, comma-separated — ops, weekly review. The overviews narrow to one.</p>
+                        </div>
                     </div>
-                    {% include "dashboards/partials/address_field.html" with prefix="/smallstack/dashboards/d/" noun="dashboard" breaks="and any page that embeds it" %}
-                    <div class="mb-field{% if form.description.errors %} has-error{% endif %}" style="margin-bottom: 0;">
-                        <label for="{{ form.description.id_for_label }}">Description <span class="dash-muted">(optional)</span></label>
-                        {{ form.description }}
-                        <p class="mb-help">Shown under the title. One sentence on what this dashboard is for.</p>
-                    </div>
-                    <div class="mb-field{% if form.tags.errors %} has-error{% endif %}">
-                        <label for="{{ form.tags.id_for_label }}">Tags <span class="dash-muted">(optional)</span></label>
-                        {{ form.tags }}
-                        {% for e in form.tags.errors %}<p class="crud-error">{{ e }}</p>{% endfor %}
-                        <p class="mb-help">Labels, comma-separated — ops, weekly review. The overviews narrow to one.</p>
-                    </div>
-                </div>
-            </div>
-
-            {# ── Picture ───────────────────────────────────────── #}
-            <div class="card mb-section">
-                <div class="card-header"><h2>Picture <span class="dash-muted">(optional)</span></h2></div>
-                <div class="card-body">
-                    <p class="mb-help" style="margin-top: 0;">Shown on the dashboard's card in your lists and beside its title, so you can spot it at a glance. PNG, JPEG, GIF or WebP, up to 5MB.</p>
-                    <div class="mb-field{% if form.cover_image.errors %} has-error{% endif %}">
-                        {{ form.cover_image }}
-                        {% for e in form.cover_image.errors %}<p class="crud-error">{{ e }}</p>{% endfor %}
-                    </div>
-                    <div class="mb-field{% if form.cover_alt.errors %} has-error{% endif %}" style="margin-bottom: 0;">
-                        <label for="{{ form.cover_alt.id_for_label }}">Description <span class="dash-muted">(optional)</span></label>
-                        {{ form.cover_alt }}
-                        {% for e in form.cover_alt.errors %}<p class="crud-error">{{ e }}</p>{% endfor %}
-                        <p class="mb-help">What the picture shows, read aloud by screen readers. Leave it blank if the picture is only decoration.</p>
+                    <div class="df-identity-picture">
+                        <div class="mb-field{% if form.cover_image.errors %} has-error{% endif %}">
+                            <span class="mf-label">Picture <span class="dash-muted">(optional)</span></span>
+                            {{ form.cover_image }}
+                            {% for e in form.cover_image.errors %}<p class="crud-error">{{ e }}</p>{% endfor %}
+                            <p class="mb-help">On the dashboard's card in lists and beside its title. PNG, JPEG, GIF or WebP, up to 5MB.</p>
+                        </div>
+                        <div class="mb-field{% if form.cover_alt.errors %} has-error{% endif %}" style="margin-bottom: 0;">
+                            <label for="{{ form.cover_alt.id_for_label }}">What it shows <span class="dash-muted">(optional)</span></label>
+                            {{ form.cover_alt }}
+                            {% for e in form.cover_alt.errors %}<p class="crud-error">{{ e }}</p>{% endfor %}
+                            <p class="mb-help">Read aloud by screen readers. Blank if it's only decoration.</p>
+                        </div>
                     </div>
                 </div>
             </div>

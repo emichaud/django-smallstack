@@ -5,11 +5,13 @@ column's row design. Context (from apps.calendar.embed.build_upcoming):
   shown, more — rows listed / rows past the limit
   days_ahead  — the window length (for the empty text)
   empty_text  — optional override for the empty state
-Rendered by the upcoming embed mode or included directly.
+Rendered by the upcoming embed mode or included directly. Each day carries
+data-day / data-day-label: in a dashboard card that sends its clicks to other
+cards (options.publish), a day click narrows them to that day (cards.js).
 {% endcomment %}
 <div class="cal-upcoming" role="list">
     {% for d in days %}
-    <section class="cal-up-day{% if d.is_today %} is-today{% endif %}" role="listitem" aria-label="{{ d.date|date:'l, F j' }}">
+    <section class="cal-up-day{% if d.is_today %} is-today{% endif %}" role="listitem" aria-label="{{ d.date|date:'l, F j' }}" data-day="{{ d.date|date:'Y-m-d' }}" data-day-label="{{ d.date|date:'D j M' }}">
         <h3 class="cal-up-label">{{ d.label }} <span class="cal-up-date">{{ d.date|date:"j M" }}</span></h3>
         {% for ev in d.events %}
         <div class="cal-day-row cal-series-{{ ev.series }}{% if ev.status %} cal-day-row--{{ ev.status }}{% endif %}{% if ev.cancelled %} cal-day-row--cancelled{% endif %}">

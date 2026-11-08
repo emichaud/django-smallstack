@@ -56,6 +56,27 @@
             </div>
 
             <div class="card mb-section">
+                <div class="card-header"><h2>Playing <span class="dash-muted" style="font-weight: 400; font-size: 0.85rem;">(the defaults for the show)</span></h2></div>
+                <div class="card-body">
+                    <div class="mb-field{% if form.seconds.errors %} has-error{% endif %}">
+                        <label for="{{ form.seconds.id_for_label }}">Seconds on each slide</label>
+                        <div class="df-chips" id="plf-seconds-presets" role="group" aria-label="Presets">
+                            <button type="button" class="df-chip-btn" data-seconds="15">15 s</button>
+                            <button type="button" class="df-chip-btn" data-seconds="30">30 s</button>
+                            <button type="button" class="df-chip-btn" data-seconds="60">1 min</button>
+                            <button type="button" class="df-chip-btn" data-seconds="120">2 min</button>
+                            <button type="button" class="df-chip-btn" data-seconds="300">5 min</button>
+                        </div>
+                        <div style="margin-top: 0.6rem; max-width: 10rem;">{{ form.seconds }}</div>
+                        {% for e in form.seconds.errors %}<p class="crud-error">{{ e }}</p>{% endfor %}
+                        <p class="mb-help">5 to 3600. Every slide takes this unless it sets a time of its own, below.</p>
+                    </div>
+                    <label class="plf-check">{{ form.loop }} <span><strong>Loop.</strong> After the last dashboard, start again from the first.</span></label>
+                    <label class="plf-check">{{ form.auto_start }} <span><strong>Play when opened.</strong> Otherwise it opens paused and you page through by hand.</span></label>
+                </div>
+            </div>
+
+            <div class="card mb-section">
                 <div class="card-header"><h2 id="plf-items-title">Slides, in order</h2></div>
                 <div class="card-body">
                     {% comment %}Header clicks reorder the slides themselves (playlist-form.js): this order is the play order, so the note says so and offers Undo. Columns resize with table-resize.js.{% endcomment %}
@@ -66,7 +87,7 @@
                                 <tr>
                                     <th scope="col" class="plf-n-col">#</th>
                                     <th scope="col" data-field="name" aria-sort="none"><button type="button" class="plf-sort" data-sort="name">Slide<span class="dm-sort-ind" aria-hidden="true"></span></button>{% include "smallstack/crud/includes/col_resizer.html" with label="Slide" %}</th>
-                                    <th scope="col" data-field="seconds" class="plf-seconds-col" aria-sort="none"><button type="button" class="plf-sort" data-sort="seconds">Seconds<span class="dm-sort-ind" aria-hidden="true"></span></button>{% include "smallstack/crud/includes/col_resizer.html" with label="Seconds" %}</th>
+                                    <th scope="col" data-field="seconds" class="plf-seconds-col" aria-sort="none"><button type="button" class="plf-sort" data-sort="seconds" title="The default from Playing, above, or this slide's own time.">Seconds<span class="dm-sort-ind" aria-hidden="true"></span></button>{% include "smallstack/crud/includes/col_resizer.html" with label="Seconds" %}</th>
                                     <th scope="col" data-field="period" class="plf-period-col" aria-sort="none"><button type="button" class="plf-sort" data-sort="period">Period<span class="dm-sort-ind" aria-hidden="true"></span></button>{% include "smallstack/crud/includes/col_resizer.html" with label="Period" %}</th>
                                     <th scope="col" class="plf-tools-col"><span class="sr-only">Move or remove</span></th>
                                 </tr>
@@ -75,6 +96,7 @@
                         </table>
                     </div>
                     <p class="mb-help plf-empty" id="plf-empty">Nothing yet. Add a dashboard or a goal list below.</p>
+                    <p class="mb-help" id="plf-timing-note">Each slide takes the defaults above unless it sets its own: click <strong>Default</strong> to give a slide its own seconds, <strong>↺</strong> to go back; pick a <strong>Period</strong> to override the dashboard's own.</p>
                     <div class="plf-add">
                         <label class="sr-only" for="plf-add-select">Dashboard or goal list to add</label>
                         <select id="plf-add-select" class="vTextField"></select>
@@ -83,27 +105,6 @@
                     <p class="mb-help" id="plf-shared-note" hidden>A shared playlist can only hold shared dashboards and goal lists.</p>
                     {% for e in form.items.errors %}<p class="crud-error">{{ e }}</p>{% endfor %}
                     {{ form.items.as_hidden }}
-                </div>
-            </div>
-
-            <div class="card mb-section">
-                <div class="card-header"><h2>Playing</h2></div>
-                <div class="card-body">
-                    <div class="mb-field{% if form.seconds.errors %} has-error{% endif %}">
-                        <label for="{{ form.seconds.id_for_label }}">Seconds on each dashboard</label>
-                        <div class="df-chips" id="plf-seconds-presets" role="group" aria-label="Presets">
-                            <button type="button" class="df-chip-btn" data-seconds="15">15 s</button>
-                            <button type="button" class="df-chip-btn" data-seconds="30">30 s</button>
-                            <button type="button" class="df-chip-btn" data-seconds="60">1 min</button>
-                            <button type="button" class="df-chip-btn" data-seconds="120">2 min</button>
-                            <button type="button" class="df-chip-btn" data-seconds="300">5 min</button>
-                        </div>
-                        <div style="margin-top: 0.6rem; max-width: 10rem;">{{ form.seconds }}</div>
-                        {% for e in form.seconds.errors %}<p class="crud-error">{{ e }}</p>{% endfor %}
-                        <p class="mb-help">5 to 3600. A dashboard in the list can set its own.</p>
-                    </div>
-                    <label class="plf-check">{{ form.loop }} <span><strong>Loop.</strong> After the last dashboard, start again from the first.</span></label>
-                    <label class="plf-check">{{ form.auto_start }} <span><strong>Play when opened.</strong> Otherwise it opens paused and you page through by hand.</span></label>
                 </div>
             </div>
 

@@ -45,5 +45,7 @@ class MaintenanceWindowAdmin(admin.ModelAdmin):
 @admin.register(MonitoredEndpoint)
 class MonitoredEndpointAdmin(admin.ModelAdmin):
     list_display = ("name", "service", "url", "method", "expected_status", "enabled", "public")
+    # The address is the long one; the name (the link) and the rest are short.
+    explorer_column_widths = {"name": "180px", "url": "320px", "method": "90px"}
     list_filter = ("service", "enabled", "public", "method")
     search_fields = ("name", "slug", "url")

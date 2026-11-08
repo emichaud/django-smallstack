@@ -329,10 +329,14 @@ a.dash-tag.is-current:link, a.dash-tag.is-current:visited { color: var(--primary
 .dash-card-dialog {
     margin: auto;
     padding: 0;
-    width: min(84rem, calc(100vw - 32px));
-    height: calc(100vh - 32px);
-    max-height: none;
+    width: min(84rem, calc(100% - 32px));
+    /* The viewport's real height, not 100vh: in Safari 100vh counts the toolbar, so the
+       dialog stood taller than the window, centred, its head cut off above with no way to
+       scroll it back. A modal dialog's containing block is the viewport, so % is right. */
+    height: calc(100% - 32px);
+    max-height: calc(100% - 32px);
     overflow: hidden;
+    overscroll-behavior: contain;
     border: 1px solid var(--card-border);
     border-radius: 12px;
     background: var(--body-bg);
@@ -342,7 +346,7 @@ a.dash-tag.is-current:link, a.dash-tag.is-current:visited { color: var(--primary
 .dash-card-dialog::backdrop { background: color-mix(in srgb, var(--body-bg) 70%, transparent); }
 .dash-card-dialog-head { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 0.8rem 1.25rem; border-bottom: 1px solid var(--card-border); background: var(--card-bg); }
 .dash-card-dialog-head h2 { margin: 0; font-size: 1.05rem; }
-.dash-card-dialog-body { flex: 1; min-height: 0; overflow: auto; padding: 1.1rem 1.25rem 0; }
+.dash-card-dialog-body { flex: 1; min-height: 0; overflow: auto; overscroll-behavior: contain; padding: 1.1rem 1.25rem 0; }
 .dash-card-dialog-note { margin: 2rem 0; text-align: center; color: var(--body-quiet-color); }
 .cb-in-dialog .mb-preview { top: 0; }
 .cb-dialog-actions {
@@ -409,7 +413,7 @@ a.dash-tag.is-current:link, a.dash-tag.is-current:visited { color: var(--primary
 /* add-card dialog */
 .dash-dialog {
     margin: auto;
-    max-height: calc(100vh - 32px);
+    max-height: calc(100% - 32px);
     overflow: auto;
     border: 1px solid var(--card-border);
     border-radius: 12px;
@@ -1108,7 +1112,7 @@ a.ix-board--new:link, a.ix-board--new:visited {
 .ix-metric-name { font-weight: 600; font-size: 0.92rem; color: var(--link-color); }
 a.ix-metric-main:hover .ix-metric-name { text-decoration: underline; }
 .ix-metric-reading { font-size: 0.78rem; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.ix-metric-source { display: flex; align-items: center; gap: 0.4rem; min-width: 0; font-size: 0.78rem; color: var(--body-quiet-color); overflow: hidden; white-space: nowrap; }
+.ix-metric-source { display: flex; flex-wrap: wrap; align-items: center; gap: 0.2rem 0.4rem; min-width: 0; font-size: 0.78rem; color: var(--body-quiet-color); }  /* the owner badge wraps under a long dataset name rather than being cut */
 .ix-metric-value { text-align: right; white-space: nowrap; font-feature-settings: "tnum", "lnum"; }
 .ix-metric-value .rp-value { font-size: 1.15rem; font-weight: 650; }
 .ix-csv, a.ix-csv:link, a.ix-csv:visited { font-size: 0.8rem; color: var(--link-color); }
@@ -1228,8 +1232,13 @@ a.dash-cell-title:hover { color: var(--body-fg); text-decoration: underline; }
 
 /* Text cells are notes on the page, not boxes. */
 .dash-cell--text { background: transparent; border-color: transparent; }
-.dash-cell--text .dash-text { padding: 0.4rem 0.25rem; color: var(--body-quiet-color); }
-.dash-cell--text .dash-text strong { color: var(--body-fg); }
+/* On a dashboard a note sits flat on the page, quiet by default — "Plain" and the other
+   text colours the note chose still win (cells/text.html's tx-color-…, below). */
+.dash-cell--text .dash-text { padding: 0.4rem 0.25rem; }
+.dash-cell--text .dash-text.tx-color-plain:not(.tx-background-band):not(.tx-background-raised):not(.tx-background-success):not(.tx-background-warning):not(.tx-background-danger):not(.tx-background-info) { color: var(--body-quiet-color); }
+.dash-cell--text .dash-text.tx-color-plain strong, .dash-cell--text .dash-text.tx-color-plain h1, .dash-cell--text .dash-text.tx-color-plain h2, .dash-cell--text .dash-text.tx-color-plain h3 { color: var(--body-fg); }
+/* a note with a background keeps its card shape on the dashboard */
+.dash-cell--text:has(.dash-text[class*="tx-background-"]) .dash-text { padding: 0.75rem 1rem; border-radius: 8px; }
 .dash-editing .dash-cell--text { border-color: color-mix(in srgb, var(--primary) 45%, var(--card-border)); }
 /* The "More…" period select reads as one more period link. */
 .md-more select {
@@ -1715,6 +1724,13 @@ a.ix-board:hover .board-cover .bc-fill,
 }
 @media (max-width: 600px) { .dash-title-picture { width: 4.5rem; } }
 
+/* the dashboard settings' first card: the words, and the picture beside them on the right */
+.df-identity { display: flex; flex-wrap: wrap; gap: 1rem 1.5rem; align-items: flex-start; }
+.df-identity-words { flex: 1 1 22rem; min-width: 0; }
+.df-identity-picture { flex: 0 1 16rem; min-width: 13rem; }
+.df-identity-picture .df-cover-frame { max-width: none; }
+.df-identity-picture .mf-label { display: block; margin-bottom: 0.3rem; font-size: 0.82rem; font-weight: 500; color: var(--body-quiet-color); }
+
 /* the settings form's picture input (forms.CoverInput) */
 .df-cover-frame {
     position: relative;
@@ -2004,11 +2020,20 @@ body.pl-kiosk .content-wrapper { max-width: none; padding: 1rem 1.25rem; }
 .plf-table td { padding: 0.4rem 0.6rem; vertical-align: middle; }
 .plf-table tbody tr + tr td { border-top: 1px solid color-mix(in srgb, var(--body-fg) 7%, transparent); }
 .plf-n-col { width: 2.6rem; }
-.plf-seconds-col { width: 9rem; }  /* the field, its stepper and the unit */
-.plf-period-col { width: 12rem; }
-.plf-tools-col { width: 8.5rem; }
+.plf-seconds-col { width: 14rem; }  /* the default pill, or − value + and the way back */
+.plf-period-col { width: 11.5rem; }
+.plf-tools-col { width: 7.5rem; }
 .plf-tools-cell { text-align: right; white-space: nowrap; }
-.plf-table td > .plf-item-seconds { display: inline-block; width: calc(100% - 1rem); }
+/* a slide's seconds: the default as a pill, or − value + and a way back (playlist-form.js) */
+.plf-secs { display: inline-flex; align-items: center; gap: 0.25rem; white-space: nowrap; }
+.plf-secs-default { display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.3rem 0.7rem; border: 1px dashed var(--card-border); border-radius: 999px; background: none; color: var(--body-quiet-color); font: inherit; font-size: 0.8rem; cursor: pointer; }
+.plf-secs-default:hover { border-color: var(--primary); color: var(--body-fg); }
+.plf-secs-default-n { font-weight: 600; font-feature-settings: "tnum"; color: var(--body-fg); }
+.plf-secs-btn { flex: none; width: 2.5rem; height: 2.4rem; padding: 0; border: 1px solid var(--input-border); border-radius: 6px; background: var(--input-bg); color: var(--body-fg); font-size: 1.3rem; line-height: 1; cursor: pointer; }
+.plf-secs-btn:hover { color: var(--primary); background: color-mix(in srgb, var(--primary) 14%, var(--body-bg)); }
+.plf-table .plf-item-seconds { flex: none; width: 3.6rem; height: 2.4rem; padding: 0 0.3rem; text-align: center; font-feature-settings: "tnum"; -moz-appearance: textfield; appearance: textfield; }  /* three digits */
+.plf-table .plf-item-seconds::-webkit-inner-spin-button, .plf-table .plf-item-seconds::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+.plf-secs-back { flex: none; width: 2.2rem; height: 2.4rem; margin-left: 0.15rem; font-size: 1.05rem; }
 .plf-table td > .plf-item-period { width: 100%; }
 .plf-sort { display: inline-flex; align-items: center; gap: 0.25rem; padding: 0; border: 0; background: none; font: inherit; color: inherit; cursor: pointer; }
 .plf-sort:hover { color: var(--primary); }
@@ -2020,7 +2045,6 @@ body.pl-kiosk .content-wrapper { max-width: none; padding: 1rem 1.25rem; }
 .plf-item-n { font-size: 0.75rem; color: var(--text-muted); font-feature-settings: "tnum"; text-align: right; }
 .plf-item-name { display: block; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .plf-item .vTextField { height: 2rem; padding: 0 0.5rem; font-size: 0.82rem; }
-.plf-item-unit { font-size: 0.75rem; color: var(--text-muted); }
 .plf-item-tools { display: inline-flex; gap: 2px; }
 .plf-tool {
     width: 1.8rem;
@@ -2087,6 +2111,21 @@ a.ix-view-btn:visited {
 
 /* ── the component builder (component_form.html + component-builder.js) ── */
 .cb-palette { display: grid; gap: 1rem; }
+.cb-design-head { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+.cb-design-head h2 { margin: 0; }
+.cb-palette-view .cb-seg-item { padding: 0.2rem 0.55rem; font-size: 0.76rem; }
+/* the compact view: a group is one line, each design a chip; the description is its tooltip */
+.cb-palette--mini { gap: 0.4rem; }
+.cb-palette--mini .cb-group { display: flex; align-items: center; flex-wrap: wrap; gap: 0.35rem 0.5rem; }
+.cb-palette--mini .cb-group-name { margin: 0 0.35rem 0 0; min-width: 3.5rem; }
+.cb-palette--mini .cb-tiles { display: contents; }
+.cb-palette--mini .cb-tile { display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.3rem 0.6rem 0.3rem 0.45rem; border-radius: 999px; }
+.cb-palette--mini .cb-tile-icon { width: 1.3rem; height: 1.3rem; border-radius: 50%; }
+.cb-palette--mini .cb-tile-icon svg { width: 0.85rem; height: 0.85rem; }
+.cb-palette--mini .cb-tile-label { font-size: 0.8rem; font-weight: 600; }
+.cb-palette--mini .cb-tile-desc { display: none; }
+.cb-palette--mini .cb-tile-why { display: none; }
+.cb-palette--mini .cb-tile.is-unavailable { opacity: 0.55; }
 .cb-group-name { margin: 0 0 0.45rem; font-size: 0.8rem; font-weight: 600; color: var(--body-quiet-color); }
 .cb-tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(13rem, 1fr)); gap: 8px; }
 .cb-tile {
@@ -2126,14 +2165,33 @@ a.ix-view-btn:visited {
 .cb-tile.is-unavailable .cb-tile-icon { opacity: 0.45; }
 /* The options step: small settings (a choice, a number, a tick) sit side by side; a
    text box, a tick-list or the links editor takes the whole row (cb-opt--wide). */
-.cb-options { display: grid; gap: 0.6rem 1.1rem; align-items: start; }
-.cb-options .mb-field { margin-bottom: 0; }
-.cb-options .cb-opt--wide { grid-column: 1 / -1; }
-.cb-options .mb-help { margin: 0; font-size: 0.76rem; }
+/* The options and Style steps: each setting as wide as its control, flowing left to right
+   and wrapping; a wide control (a text box, a tick-list, the links editor) takes a row. */
+.cb-options, .cb-style { display: flex; flex-wrap: wrap; gap: 0.7rem 1.1rem; align-items: flex-start; }
+.cb-options .mb-field, .cb-style .mb-field { margin-bottom: 0; flex: 0 1 auto; max-width: 100%; }
+.cb-options .cb-opt--wide { flex: 1 1 100%; }
+.cb-options .mb-help { margin: 0; font-size: 0.76rem; max-width: 15rem; }
+.cb-options .cb-opt--wide .mb-help { max-width: none; }
+.cb-options .mb-field:has(> input[type=number]) { max-width: 13rem; }
 .cb-options textarea.cb-markdown { height: 6.5rem; min-height: 4rem; resize: vertical; }
-.cb-options { grid-template-columns: repeat(auto-fit, minmax(9rem, max-content)); }
-.cb-options .mb-field:has(> select, > input[type=number], > input[type=text]) { min-width: 11rem; }
+.cb-options .mb-field:has(> select, > input[type=number], > input[type=text]) { min-width: 11rem; flex-grow: 1; max-width: 22rem; }
 .cb-opt-label, .dash-opt-label { display: block; font-size: 0.82rem; color: var(--body-quiet-color); font-weight: 500; }
+
+/* the Style step: the same grid as the options step; format and unit get room to read */
+.cb-style .cb-opt--wide-ish { min-width: 13rem; flex-grow: 1; max-width: 22rem; }
+.cb-style .mb-help, .cb-style .cb-override { margin: 0; font-size: 0.76rem; }
+/* the number colour "from the thresholds": the three states in one dot */
+.cb-swatch--color-state { background: conic-gradient(var(--success-fg) 0 33%, var(--warning-fg) 33% 66%, var(--error-fg) 66% 100%); }
+.cb-swatch--color-muted { background: var(--body-quiet-color); }
+.cb-swatch--title_color-quiet { background: var(--body-quiet-color); }
+.cb-swatch--title_color-plain { background: var(--body-fg); }
+.cb-swatch--title_color-accent { background: var(--primary); }
+/* a colour rule's state */
+.cb-swatch--state-success { background: var(--success-fg); }
+.cb-swatch--state-warning { background: var(--warning-fg); }
+.cb-swatch--state-danger { background: var(--error-fg); }
+.cb-swatch--state-muted { background: var(--body-quiet-color); }
+.cb-rule .cb-swatches { padding: 0; }
 
 /* -- choice widgets (cards.js choiceWidget): pills, and colour swatches ---------- */
 .cb-seg { display: inline-flex; align-items: stretch; border: 1px solid var(--card-border); border-radius: 6px; overflow: hidden; background: var(--card-bg); }
@@ -2164,9 +2222,13 @@ a.ix-view-btn:visited {
 .cb-swatch--background-danger { background: var(--error-bg); }
 .cb-swatch--background-info { background: var(--info-bg); }
 /* the dashboard's Add card dialog draws the same */
-#dash-add-options { display: grid; grid-template-columns: repeat(auto-fit, minmax(9rem, max-content)); gap: 0.5rem 1.1rem; align-items: start; }
-#dash-add-options > label, #dash-add-options > fieldset, #dash-add-options > .dash-hint { grid-column: 1 / -1; }
-.dash-opt-field { display: grid; gap: 0.25rem; margin-bottom: 0.3rem; }
+#dash-add-options { display: flex; flex-wrap: wrap; gap: 0.5rem 1.1rem; align-items: flex-start; }
+#dash-add-options > fieldset, #dash-add-options > .dash-opt-field--wide { flex: 1 1 100%; }
+#dash-add-options .dash-opt-field:has(input[type=number]) { max-width: 11rem; }
+#dash-add-options .dash-hint { max-width: 15rem; }
+#dash-add-options > fieldset .dash-hint, #dash-add-options .dash-opt-field--wide .dash-hint { max-width: none; }
+.dash-opt-field { display: grid; gap: 0.25rem; margin-bottom: 0.3rem; flex: 0 1 auto; max-width: 100%; }
+.dash-opt-field > label { margin: 0; }
 .cb-options .mb-field:has(> .plf-check) { align-self: end; padding-bottom: 0.65rem; }  /* a tick sits level with the fields beside it */
 .cb-preview-head { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
 .cb-period { width: auto; height: 1.9rem; padding: 0 0.4rem; font-size: 0.78rem; }
@@ -2184,7 +2246,7 @@ a.ix-view-btn:visited {
    headers and resizable columns come from the framework */
 .cl-table { width: 100%; }
 .cl-table th[data-field="type"] { width: 11rem; }
-.cl-table th[data-field="metric"] { width: 12rem; }
+.cl-table th[data-field="metric"] { width: 15rem; }  /* "Log Errors MTD (metric)" in full */
 .cl-table .cl-used-col { width: 9rem; }
 .cl-table th[data-field="updated_at"] { width: 6.5rem; }
 /* room for three icon buttons (goal, edit, delete), so a row with all three
@@ -2252,9 +2314,7 @@ a.ix-view-btn:visited {
 .card-style.cs-align-center .dash-group { text-align: center; align-items: center; }
 .card-style.cs-align-end .dash-group { text-align: right; align-items: flex-end; }
 
-/* the builder's Style it step */
-.cb-style { display: grid; grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr)); gap: 0 0.9rem; }
-.cb-style .mb-field { margin-bottom: 0.7rem; }
+/* the builder's Style it step: its grid is with the other choice widgets, above */
 .cb-rule { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem; margin-bottom: 0.4rem; }
 .cb-rule .vTextField { width: auto; height: 2rem; padding: 0 0.45rem; font-size: 0.82rem; }
 .cb-rule input.vTextField { width: 6.5rem; }
@@ -2309,9 +2369,9 @@ a.ix-view-btn:visited {
 .cbd {
     margin: auto;
     padding: 0;
-    width: min(78rem, calc(100vw - 32px));
-    height: min(52rem, calc(100vh - 32px));
-    max-height: none;
+    width: min(78rem, calc(100% - 32px));
+    height: min(52rem, calc(100% - 32px));  /* %, not vh: the viewport as it is (see .dash-card-dialog) */
+    max-height: calc(100% - 32px);
     overflow: hidden;
     border: 1px solid var(--card-border);
     border-radius: 12px;
@@ -2366,7 +2426,7 @@ a.ix-view-btn:visited {
 .cbd-foot { min-height: 1.2rem; margin: 0.5rem 0 0; font-size: 0.78rem; color: var(--text-muted); font-feature-settings: "tnum"; }
 .cbd-actions { display: flex; justify-content: flex-end; gap: 0.5rem; padding: 0.75rem 1.25rem; border-top: 1px solid var(--card-border); }
 @media (max-width: 900px) {
-    .cbd { height: auto; max-height: calc(100vh - 32px); }
+    .cbd { height: auto; max-height: calc(100% - 32px); }
     .cbd-body { display: block; overflow: auto; }
     .cbd-pick, .cbd-rows { overflow: visible; }
     .cbd-pick { border-right: 0; border-bottom: 1px solid var(--card-border); }
@@ -2638,6 +2698,7 @@ span.gl-card-value { cursor: default; }
 /* the goal lists list (GoalListLibraryDisplay) */
 .gll-table { width: 100%; }
 .gll-table .gll-goals-col { width: 14rem; }
+.gll-table th[data-field="default_period"] { width: 9.5rem; white-space: nowrap; }
 .gll-table .gll-status-col { width: 17rem; }
 .gll-table th[data-field="default_period"] { width: 9rem; }
 .gll-table th[data-field="updated_at"] { width: 6.5rem; }
@@ -2756,8 +2817,10 @@ span.gl-card-value { cursor: default; }
 .cb-start-from { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; margin: -0.3rem 0 0.9rem; font-size: 0.82rem; color: var(--body-quiet-color); }
 .cb-start-from label { margin: 0; font-weight: 500; }
 .cb-start-from select { width: auto; min-width: 12rem; flex: 1 1 12rem; max-width: 24rem; }
-.cb-rollup { display: grid; grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr)); gap: 0 1rem; }
-.cb-rollup .mb-field:last-child { grid-column: 1 / -1; }
+/* the roll-up, its column and the period column on one row */
+.cb-rollup { display: flex; flex-wrap: wrap; gap: 0.5rem 1rem; align-items: flex-start; }
+.cb-rollup .mb-field { flex: 1 1 11rem; max-width: 20rem; margin-bottom: 0.5rem; }
+.cb-rollup .mb-help { max-width: none; }
 #cb-tree { margin-top: 0.3rem; }
 .ix-components > li { grid-template-columns: auto minmax(0, 1fr) auto; }
 
@@ -3028,8 +3091,9 @@ a.gw-week-link:hover { color: var(--link-color); text-decoration: underline; }
 /* form tables like the playlist form's: tool cells never clip, fields fill their cell */
 .plf-table td:first-child, .plf-table td.plf-tools-cell { overflow: visible; text-overflow: clip; }
 .plf-table .plf-item .vTextField { box-sizing: border-box; width: 100%; min-width: 0; margin: 0; }
-/* out-specifies the fill-the-cell rule above, so the unit after the field has room */
-.plf-table .plf-item td > .vTextField.plf-item-seconds { width: calc(100% - 1rem); }
+/* out-specifies the fill-the-cell rule above: a slide's seconds is three digits wide, between its − and + */
+.plf-table .plf-item .plf-secs > .vTextField.plf-item-seconds { width: 3.6rem; }
+.plf-table td:has(> .plf-secs) { overflow: visible; }
 .gx-name-plain { font-weight: 600; font-size: 0.92rem; }
 
 /* -- a hand-entered metric's values, and what a rate is made of ------------- */
@@ -3099,6 +3163,24 @@ a.gw-week-link:hover { color: var(--link-color); text-decoration: underline; }
 a.cc-name::after { content: ""; position: absolute; inset: 0; }
 .cc-meta { grid-row: 2; margin: 0; color: var(--body-quiet-color); font-size: 0.8rem; }
 .cc-actions { grid-column: 2; grid-row: 1 / span 2; position: relative; z-index: 1; display: flex; align-items: center; gap: 0.15rem; }
+/* linked cards (cards.js): what a listening card is narrowed to, and what was sent */
+.dash-slice { display: flex; align-items: center; gap: 0.4rem; margin: 0.35rem 0.5rem 0; padding: 0.15rem 0.25rem 0.15rem 0.6rem; border-radius: 999px; background: color-mix(in srgb, var(--primary) 14%, var(--card-bg)); color: var(--body-fg); font-size: 0.74rem; width: fit-content; max-width: calc(100% - 3.5rem); }
+.dash-slice-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dash-slice-clear { flex: none; width: 1.3rem; height: 1.3rem; padding: 0; border: 0; border-radius: 50%; background: none; color: var(--body-quiet-color); cursor: pointer; font-size: 0.8rem; line-height: 1; }
+.dash-slice-clear:hover { color: var(--body-fg); background: var(--card-header-bg); }
+.dash-cell[data-publish] .is-sent { outline: 2px solid var(--primary); outline-offset: -2px; border-radius: 4px; }
+.dash-cell[data-publish] [data-day] { cursor: pointer; }
+.dash-cell[data-publish] [data-day][role=button]:hover { background: var(--card-header-bg); border-radius: 6px; }
+.dash-cell[data-publish] [data-day]:focus-visible { outline: 2px solid var(--input-focus-border); outline-offset: -2px; }
+.dash-cell:has(> .dash-slice) { display: flex; flex-direction: column; }
+.dash-cell:has(> .dash-slice) > .dash-cell-body { flex: 1; min-height: 0; }
+
+/* the builder's Linked cards block (component-builder.js renderLinks) */
+.cb-links-block { flex: 1 1 100%; padding-top: 0.6rem; border-top: 1px dashed var(--card-border); }
+.cb-links-grid { display: flex; flex-wrap: wrap; gap: 0.6rem 1.1rem; margin-top: 0.35rem; }
+.cb-links-grid .mb-field { flex: 1 1 12rem; max-width: 18rem; margin-bottom: 0; }
+.cb-link-to-label { margin-top: 0.35rem; font-size: 0.82rem; color: var(--body-quiet-color); }
+
 /* the builder's links editor (a "links" option: the menu card) */
 .cb-links-label { display: block; margin-bottom: 0.35rem; font-weight: 500; }
 .cb-links-rows { list-style: none; margin: 0 0 0.5rem; padding: 0; display: flex; flex-direction: column; gap: 0.4rem; }

@@ -105,7 +105,8 @@ class ApprovalRequestCRUDView(CRUDView):
         "created_at": _compact_dt,
         "expires_at": _compact_dt,
     }
-    column_widths = {"title": "30%", "kind": "16%", "status": "11%"}
+    # px, not %: a % column out-bids the unsized one (requested_by) for the slack.
+    column_widths = {"title": "230px", "kind": "140px", "status": "110px", "requested_by": "150px"}
     url_base = "approvals/requests"
     paginate_by = 25
     mixins = [LoginRequiredMixin]

@@ -26,7 +26,7 @@ from django.template.loader import render_to_string
 from django.urls import reverse
 from django.utils.safestring import SafeString, mark_safe
 
-from apps.datasets.filter_tree import FilterTreeError
+from apps.datasets.filter_tree import FilterTreeError, and_trees
 
 from .components import (
     CellContext,
@@ -35,6 +35,7 @@ from .components import (
     get_component_type,
     inline_source,
     is_inline,
+    listened_narrow,
     source_rows_url,
 )
 from .forms import DashboardPictureForm
@@ -51,7 +52,9 @@ def cell_period(cell: dict[str, Any], period: Optional[str]) -> Optional[str]:
     return period if cell.get("use_period", True) is not False else None
 
 
-def render_cell(dashboard: Dashboard, cell: dict[str, Any], request: HttpRequest, period: Optional[str]) -> str:
+def render_cell(
+    dashboard: Dashboard, cell: dict[str, Any], request: HttpRequest, period: Optional[str], narrow: str = ""
+) -> str:
     """One cell's inner HTML. Never raises for a broken cell — an unknown
     type, a deleted metric or a failing build renders an error card instead,
     so one bad cell can't take the dashboard down."""
@@ -79,12 +82,24 @@ def render_cell(dashboard: Dashboard, cell: dict[str, Any], request: HttpRequest
                 "dashboards/cells/restricted.html", {**base, "label": cell_title(cell) or metric.name}
             )
     period = cell_period(cell, period)
+    # A slice another card sent this one (options.listen): checked against its
+    # data, then AND-ed onto a copy of its source, so every number, group, bucket
+    # and row it draws is narrowed alike; refused with a reason, never dropped.
+    sliced = None
+    if narrow:
+        sliced, problem = listened_narrow(cell, narrow, metric)
+        if problem:
+            return render_to_string("dashboards/cells/error.html", {**base, "message": problem}, request=request)
+        if metric is not None and sliced:
+            metric = copy.copy(metric)
+            metric.filter_tree = and_trees(metric.filter_tree, sliced)
     ctx = CellContext(
         request=request,
         dashboard=dashboard,
         metric=metric,
         period=period,
         rows_url=source_rows_url(dashboard, cell, metric, user),
+        narrow=sliced,
     )
     try:
         context = ct.build(cell, ctx)
@@ -224,6 +239,7 @@ def board_embed(
                 "h": int(cell.get("h", 2)),
                 "url": f"{url}?period={period or 'all'}",
                 "html": html,
+                "options": cell.get("options") or {},  # publish / listen: linked cards (cards.js)
             }
         )
     return {
