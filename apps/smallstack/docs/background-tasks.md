@@ -25,7 +25,7 @@ With background tasks, the response is immediate:
 
 ```python
 # Good: Email sends in background
-from apps.accounts.tasks import send_welcome_email
+from apps.tasks.tasks import send_welcome_email
 
 def signup_view(request):
     user = create_user(request.POST)
@@ -94,7 +94,7 @@ def my_task(context, data):
 Call `.enqueue()` to add a task to the queue:
 
 ```python
-from apps.accounts.tasks import send_email_task
+from apps.tasks.tasks import send_email_task
 
 # Enqueue with arguments
 result = send_email_task.enqueue(
@@ -107,16 +107,24 @@ result = send_email_task.enqueue(
 print(f"Task queued: {result.id}")
 ```
 
-### Async Support
+### From async code
 
-For async views, use `aenqueue()`:
+SmallStack serves requests over WSGI and ships no async views, so `enqueue()`
+above is the call to use everywhere in a stock project: views, signals,
+management commands, MCP tools.
+
+Django also provides `aenqueue()`, the awaitable form, for code that is
+already running inside an event loop, such as an async view you add under ASGI.
+Calling the plain `enqueue()` there raises `SynchronousOnlyOperation`, because
+the database backend writes a row.
 
 ```python
-result = await send_email_task.aenqueue(
-    recipient="user@example.com",
-    subject="Hello",
-    message="Async message."
-)
+async def my_async_view(request):
+    result = await send_email_task.aenqueue(
+        recipient="user@example.com",
+        subject="Hello",
+        message="Queued from async code.",
+    )
 ```
 
 ## Checking Task Status
@@ -124,7 +132,7 @@ result = await send_email_task.aenqueue(
 Retrieve and check task results:
 
 ```python
-from apps.accounts.tasks import process_data_task
+from apps.tasks.tasks import process_data_task
 
 # Enqueue the task
 result = process_data_task.enqueue(data={"items": [1, 2, 3]})
@@ -158,7 +166,7 @@ if result.status == "SUCCESSFUL":
 Send emails in the background:
 
 ```python
-from apps.accounts.tasks import send_email_task
+from apps.tasks.tasks import send_email_task
 
 result = send_email_task.enqueue(
     recipient="user@example.com",
@@ -172,7 +180,7 @@ result = send_email_task.enqueue(
 Send a welcome email to a user by ID:
 
 ```python
-from apps.accounts.tasks import send_welcome_email
+from apps.tasks.tasks import send_welcome_email
 
 # After creating a user
 send_welcome_email.enqueue(user_id=user.id)
@@ -183,7 +191,7 @@ send_welcome_email.enqueue(user_id=user.id)
 Example of data processing in background:
 
 ```python
-from apps.accounts.tasks import process_data_task
+from apps.tasks.tasks import process_data_task
 
 result = process_data_task.enqueue(
     data={"items": [1, 2, 3, 4, 5]},
