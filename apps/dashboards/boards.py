@@ -325,7 +325,32 @@ def set_sharing(
     gone = people(remove)
     if gone:
         dashboard.shared_with.remove(*gone)
-    return {**share_payload(dashboard), "added": [u.get_username() for u in added]}
+    out = {**share_payload(dashboard), "added": [u.get_username() for u in added]}
+    # Shared "so she can look at it", a person may still read none of it: the
+    # data is staff-only, or a metric is the owner's own. Say so now, rather
+    # than leave the viewer to find dashes.
+    blind = {u.get_username(): names for u in added if (names := unreadable_cards(dashboard, u))}
+    if blind:
+        out["cant_read"] = blind
+        out["warning"] = "; ".join(
+            f"{who} can't read {len(names)} of the cards ({', '.join(names)}): they show as restricted"
+            for who, names in blind.items()
+        )
+    return out
+
+
+def unreadable_cards(dashboard: Dashboard, user: Any) -> list[str]:
+    """The titles of *dashboard*'s cards *user* won't see a number on: a
+    dataset beyond their access (what ``evaluate`` marks restricted), or the
+    owner's own hand-entered metric, whose entries only its owner reads."""
+    names = []
+    for cell in dashboard.layout or []:
+        metric = cell_source(cell)
+        if metric is None:
+            continue
+        if not may_read(metric, user) or (metric.is_manual and not metric.can_view(user)):
+            names.append(str(cell_title(cell) or metric.name))
+    return names
 
 
 def _notify_shared(dashboard: Dashboard, users: list[Any], actor: Any) -> None:

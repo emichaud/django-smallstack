@@ -172,3 +172,27 @@ def test_the_table_view_offers_edit_and_delete_only_where_the_row_allows(client,
     library = client.get("/smallstack/dashboards/playlists/?display=library").content.decode()
     assert "Personal · alice" in library and f"/playlists/{mine}/edit/" not in library  # whose, and no icon
     assert client.get(f"/smallstack/dashboards/playlists/{mine}/edit/").status_code == 403  # what the icon led to
+
+
+def test_sharing_with_someone_who_cant_read_the_data_says_so(alice, bob):
+    # An agent shared a dashboard "so she can look at it" and got ok:true; the
+    # person then saw only dashes. The reply now names the cards they can't read.
+    from apps.dashboards.tests.test_dashboards import DS_STAFF
+
+    _seed()
+    Metric(key="sh_staff", name="Staff only", dataset=DS_STAFF, owner=alice).save()
+    Metric(key="sh_open", name="Open", dataset=DS_AUTH, owner=alice).save()
+    d = Dashboard(
+        name="Mixed",
+        slug="mixed",
+        owner=alice,
+        layout=[
+            {"id": "a", "type": "metric", "metric": "sh_staff", "x": 0, "w": 3},
+            {"id": "b", "type": "metric", "metric": "sh_open", "x": 3, "w": 3},
+        ],
+    )
+    d.save()
+    out = set_sharing(d, actor=alice, add=["bob"])
+    assert out["cant_read"] == {"bob": ["Staff only"]}
+    assert "bob can't read 1 of the cards (Staff only)" in out["warning"]
+    assert "cant_read" not in set_sharing(d, actor=alice, add=["bob"])  # nobody new added
