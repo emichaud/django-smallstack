@@ -42,7 +42,8 @@ class Command(BaseCommand):
                 self.stdout.write(self.style.WARNING(line) + (f" — {detail}" if detail else ""))
         self.stdout.write(
             self.style.SUCCESS(
-                f"{report.count('created')} created, {report.count('updated')} updated, "
+                f"{report.count('created')} created, {report.count('adopted')} adopted, "
+                f"{report.count('updated')} updated, "
                 f"{report.count('current')} already current: dashboard /smallstack/dashboards/d/site-health/, "
                 "report /smallstack/dashboards/r/monthly-kpis/"
             )
