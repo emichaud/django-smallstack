@@ -37,8 +37,10 @@ PREVIOUS_PERIOD: dict[str, str] = {
     "this_year": "prev_year",
 }
 
-#: Periods that run only to today, so they are partial against a whole period.
-TO_DATE_PERIODS = frozenset({"today", "wtd", "mtd", "qtd", "ytd"})
+#: Periods with days still to come, so they are partial against a whole
+#: period. ``this_month``/``this_year`` reach past today, but those days are
+#: empty: an early month read as a collapse against all of last month.
+TO_DATE_PERIODS = frozenset({"today", "wtd", "mtd", "qtd", "ytd", "this_month", "this_year"})
 
 #: The periods a metric or dashboard page offers as one-click links; the rest
 #: of ``RELATIVE_PERIODS`` sit in a "More" select.

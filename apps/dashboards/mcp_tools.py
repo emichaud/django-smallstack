@@ -53,6 +53,17 @@ def _components(args: dict[str, Any]) -> dict[str, Any]:
     for card_type in payload["types"]:
         card_type.pop("icon", None)
         card_type.pop("media", None)
+    # Options every data card takes beside its own: an agent found these only
+    # by sending bad values until the validator named them.
+    payload["shared_options"] = {
+        "publish": 'A channel name ("method"): a click on this card (types with publishes: true) narrows '
+        "every card listening to that channel.",
+        "listen": '{"channel": "<name>", "map"?: {"<their column>": "<my column>"}}: narrow this card to '
+        "what's clicked on the channel; map only when the columns are named differently.",
+        "style": '{"format": "number|compact|decimal|percent|currency|duration", "unit": "ms"} for a card '
+        "with its own source.",
+        "thresholds": "Colour rules for a card with its own source, as a metric's thresholds.",
+    }
     return payload
 
 
@@ -831,7 +842,9 @@ def register_dashboard_tools() -> int:
             "design (type metric) may instead draw a saved metric: metric = its key. "
             'options per type (metric_group: {"dimension": "<column>", "limit": 5}; text: {"markdown": "..."}; '
             'widget: {"widget": "<key>"}); a card with its own source formats itself through options.style '
-            "({format, unit}) and options.thresholds.",
+            "({format, unit}) and options.thresholds. Link cards so a click on one narrows others: "
+            'options.publish: "<channel>" on the clicked card, options.listen: {"channel": "<channel>"} on the '
+            "others (list_dashboard_components: shared_options). An option the type doesn't take is refused.",
             {
                 "type": obj,
                 "properties": {
@@ -844,7 +857,10 @@ def register_dashboard_tools() -> int:
                     "metric": {"type": "string", "description": "A saved metric's key: for type metric only."},
                     "dataset": {"type": "string", "description": "The card's own source: a dataset key."},
                     "filter_tree": {"type": "object", "description": "The card's own filter over its dataset."},
-                    "agg": {"type": "string", "description": "count | count_distinct | sum | avg | min | max."},
+                    "agg": {
+                        "type": "string",
+                        "description": "count | distinct | sum | avg | min | max (all but count need a measure).",
+                    },
                     "measure": {"type": "string", "description": "The column agg reads (not for count)."},
                     "period_field": {"type": "string", "description": "The date column the period narrows."},
                     "title": {"type": "string"},

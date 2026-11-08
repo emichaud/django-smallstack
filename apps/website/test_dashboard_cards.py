@@ -240,3 +240,11 @@ def test_table_shows_the_rows_in_its_columns_sorted_and_paged_with_totals(client
         _cell_board({"type": "table", **own("wc_req"), "options": {"rows": 0}})
     with pytest.raises(ValidationError, match="no column"):
         _cell_board({"type": "table", **own("wc_req"), "options": {"drilldown": {"columns": ["ghost"]}}})
+
+
+def test_gauge_takes_a_ceiling_of_zero(client, staff, metric):
+    # `max or 100` turned a ceiling of 0 into 100: a dial from -10 to 0 drew to 100.
+    client.force_login(staff)
+    _cell_board({"type": "gauge", "metric": "wc_req", "options": {"min": -10, "max": 0}})
+    html = _cell(client)
+    assert ">-10<" in html and ">0<" in html and ">100<" not in html

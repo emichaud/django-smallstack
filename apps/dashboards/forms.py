@@ -281,7 +281,11 @@ class DashboardForm(_OwnedForm):
         return self.cleaned_data.get("default_period") or ""
 
     def clean_layout(self) -> Any:
-        return self.cleaned_data.get("layout") or []
+        layout = self.cleaned_data.get("layout")
+        if layout is None and self.data.get("layout") in (None, "null") and self.instance.layout:
+            # PATCH {"layout": null} answered 200 and removed every card.
+            raise forms.ValidationError("layout: null would remove every card; send [] to empty the dashboard.")
+        return layout or []
 
     def clean(self) -> dict[str, Any]:
         cleaned = super().clean()

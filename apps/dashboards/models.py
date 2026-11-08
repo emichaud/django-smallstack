@@ -254,9 +254,18 @@ class OwnedModel(models.Model):
 
     def save(self, *args: Any, **kwargs: Any) -> None:
         # The one gate: an invalid row never reaches the table, whichever
-        # surface wrote it (form, REST, MCP, shell, seed command).
-        self.full_clean()
+        # surface wrote it (form, REST, MCP, shell, seed command). Archiving or
+        # sharing writes only bookkeeping columns, so it isn't refused (a 500)
+        # because the row stopped validating since: say a metric it draws went
+        # personal. The next real edit still has to fix that.
+        update_fields = kwargs.get("update_fields")
+        if update_fields is None or not set(update_fields) <= BOOKKEEPING_FIELDS:
+            self.full_clean()
         super().save(*args, **kwargs)
+
+
+#: Columns a save may write without validating the whole row (OwnedModel.save).
+BOOKKEEPING_FIELDS = frozenset({"archived_at", "shared_with_everyone", "updated_at"})
 
 
 def _visible_to_owner(metric_owner_id: Any, container_owner_id: Any) -> bool:
@@ -716,6 +725,17 @@ class Dashboard(OwnedModel):
 
     def __str__(self) -> str:
         return self.name
+
+    def save(self, *args: Any, **kwargs: Any) -> None:
+        # Sharing is the owner's choice: a dashboard changing hands (made
+        # shared, or taken personal by someone) starts unshared, rather than
+        # bringing back a list a past owner chose.
+        new_hands = bool(self.pk) and type(self).objects.filter(pk=self.pk).exclude(owner_id=self.owner_id).exists()
+        if new_hands:
+            self.shared_with_everyone = False
+        super().save(*args, **kwargs)
+        if new_hands:
+            self.shared_with.clear()
 
     def get_absolute_url(self) -> str:
         if self.system_key == ADMIN_HOME_KEY:

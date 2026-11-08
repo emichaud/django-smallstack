@@ -261,7 +261,9 @@ def build_gauge(cell: dict[str, Any], ctx: CellContext) -> dict[str, Any]:
     metric = ctx.metric
     assert metric is not None
     opts = cell.get("options") or {}
-    lo, hi = _number(opts.get("min", 0)) or 0.0, _number(opts.get("max", 100)) or 100.0
+    # `or` would turn a floor or ceiling of 0 into the default: a dial from -100 to 0 drew to 100.
+    lo, hi = _number(opts.get("min", 0)), _number(opts.get("max", 100))
+    lo, hi = (0.0 if lo is None else lo), (100.0 if hi is None else hi)
     label = cell_title(cell) or metric.name
     card = metric_card_context(
         metric, ctx.request, period=ctx.period, label=label, period_in_label=False, rows=ctx.rows_url

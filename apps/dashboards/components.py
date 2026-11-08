@@ -456,6 +456,9 @@ def normalize_layout(raw: Any, *, owner_id: Any = None) -> tuple[list[dict[str, 
         return [], [f"at most {MAX_CELLS} cells"]
 
     problems: list[str] = []
+    # A null sent in the list (not one _expand_components leaves for a card it
+    # couldn't place) was dropped without a word, and the card with it.
+    problems.extend(f"layout[{n}]: expected an object, not null" for n, cell in enumerate(raw) if cell is None)
     raw = _expand_components(raw, owner_id, problems)
 
     keys = {c.get("metric") for c in raw if isinstance(c, dict) and isinstance(c.get("metric"), str)}
@@ -793,6 +796,12 @@ def _source_problems(cell: dict[str, Any]) -> tuple[Optional["Metric"], list[str
     source = inline_source(cell)
     if source is None:
         return None, ["dataset: pick a dataset"]
+    from .metrics import AGGS
+
+    # clean() doesn't check choices (full_clean does), so "median" was saved
+    # and drew the row count, and "count_distinct" a card that can't evaluate.
+    if source.agg not in {key for key, _label in AGGS}:
+        return None, [f"agg: use one of {[key for key, _label in AGGS]} (not {source.agg!r})"]
     try:
         source.clean()
     except ValidationError as exc:
