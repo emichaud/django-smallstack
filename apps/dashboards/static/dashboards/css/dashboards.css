@@ -230,7 +230,8 @@ a.dash-tag.is-current:link, a.dash-tag.is-current:visited { color: var(--primary
 /* ── the page's controls, in its header; each card's menu ─────────────── */
 /* Its basis keeps the controls to a column of their own, wrapping, so the
    dashboard's name has the room it needs instead of breaking over two lines. */
-.dash-header-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 0.5rem; flex: 0 1 30rem; }
+.dash-header-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 0.5rem; flex: 0 1 34rem; }
+.dash-header-actions .dash-view-only { justify-content: flex-end; } /* a group that wraps keeps to the right edge too */
 /* the ⋯ at a card's corner: there as the card is pointed at or focused, and always on a touch screen */
 .dash-cell-more {
     position: absolute;
@@ -418,7 +419,10 @@ a.dash-tag.is-current:link, a.dash-tag.is-current:visited { color: var(--primary
 .dash-view-only { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; }
 /* On a phone the header's controls wrap under the title from its left edge,
    instead of one row as wide as all of them pushing the page sideways. */
-@media (max-width: 640px) { .dash-header-actions { justify-content: flex-start; } }
+/* Stacked under the title (theme.css turns the header into a column at 768px),
+   where a flex-basis would be a height: size to the controls instead. */
+@media (max-width: 768px) { .dash-header-actions { flex-basis: auto; } }
+@media (max-width: 640px) { .dash-header-actions, .dash-header-actions .dash-view-only { justify-content: flex-start; } }
 .dash-editing-page .dash-view-only { display: none; }
 .dash-errors {
     display: none;
