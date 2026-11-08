@@ -1,0 +1,11 @@
+{% comment %}The playlist delete confirmation — the page and the modal (modal=True).{% endcomment %}
+<form method="POST" action="{{ request.path }}" class="dl{% if modal %} dl--modal{% endif %}">
+    {% csrf_token %}
+    {% include "dashboards/partials/confirm_head.html" %}
+    <p class="dl-safe">Only the sequence goes: its {{ slide_count }} slide{{ slide_count|pluralize }} and their timings. The dashboards and goal lists it plays stay as they are.{% if object.is_shared %} A wall screen showing it stops at its next refresh.{% endif %}</p>
+    <p class="dl-keep-copy">Only want it out of the way? <strong>Archive</strong> it instead: it can be restored.</p>
+    <div class="dl-actions">
+        <button type="submit" class="btn-danger">Delete {{ object.name }}</button>
+        {% if modal %}<button type="button" class="btn-outline" data-stat-modal-close>Keep it</button>{% else %}<a href="{{ object.get_absolute_url }}" class="btn-outline">Keep it</a>{% endif %}
+    </div>
+</form>

@@ -1,0 +1,3 @@
+{% comment %}A confirmation here (delete, archive, duplicate) as a fragment for the global stat modal (htmx): `body_template` is the kind's body, drawn with modal=True.{% endcomment %}{% load static %}
+<link rel="stylesheet" href="{% static 'dashboards/css/dashboards.css' %}">
+{% include body_template with modal=True %}

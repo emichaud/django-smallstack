@@ -39,7 +39,12 @@ def test_a_metric_duplicates_into_a_prefilled_form_and_saves_as_its_own_row(clie
     )
     original.save()
     page = client.get(original.get_absolute_url()).content.decode()
-    assert f'href="{reverse("dashboards/metrics-create")}?from=server_errors"' in page and ">Duplicate<" in page
+    confirm = reverse("dashboards_duplicate", args=["metric", original.pk])
+    assert f'hx-get="{confirm}"' in page and ">Duplicate<" in page
+    # The confirmation says what the copy will be, then opens the form.
+    note = client.get(confirm, HTTP_HX_REQUEST="true").content.decode()
+    assert f'href="{reverse("dashboards/metrics-create")}?from=server_errors"' in note
+    assert "Server errors (copy)" in note and "starts personal" in note and "<html" not in note
     resp = client.get(reverse("dashboards/metrics-create"), {"from": "server_errors"})
     assert resp.status_code == 200
     initial = resp.context["form"].initial
@@ -85,7 +90,10 @@ def test_a_card_duplicates_from_its_builder(client, staff):
     )
     card.save()
     page = client.get(reverse("dashboards/components-update", args=[card.pk])).content.decode()
-    assert f'href="{reverse("dashboards/components-create")}?from=m_by_method"' in page and ">Duplicate<" in page
+    confirm = reverse("dashboards_duplicate", args=["component", card.pk])
+    assert f'hx-get="{confirm}"' in page and ">Duplicate<" in page
+    note = client.get(confirm).content.decode()  # without htmx: a page of its own
+    assert f'href="{reverse("dashboards/components-create")}?from=m_by_method"' in note and "<html" in note
     resp = client.get(reverse("dashboards/components-create"), {"from": "m_by_method"})
     initial = resp.context["form"].initial
     assert initial["name"] == "M by method (copy)" and initial["type"] == "metric_group"
@@ -138,7 +146,10 @@ def test_the_slug_keyed_types_duplicate_the_same_way(client, staff, model, url_b
     original.save()
     create = reverse(f"dashboards/{url_base}-create")
     page = client.get(reverse(page_name, args=["original"])).content.decode()
-    assert f'href="{create}?from=original"' in page and ">Duplicate<" in page
+    kind = {"Dashboard": "dashboard", "Report": "report", "Playlist": "playlist", "GoalList": "goals"}[model]
+    confirm = reverse("dashboards_duplicate", args=[kind, original.pk])
+    assert f'hx-get="{confirm}"' in page and ">Duplicate<" in page
+    assert f'href="{create}?from=original"' in client.get(confirm, HTTP_HX_REQUEST="true").content.decode()
     initial = client.get(create, {"from": "original"}).context["form"].initial
     assert initial["name"] == "Original (copy)" and initial["slug"] == "original-copy" and initial["tags"] == "ops"
     # Compared with the saved row: a goal list's sections are normalised on save (ids added).

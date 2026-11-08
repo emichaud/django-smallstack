@@ -50,7 +50,7 @@ every column resizes with table-resize.js.
                 </a>
                 {% endif %}
                 {% if r.delete_url %}
-                <a href="{{ r.delete_url }}" class="ml-iconbtn ml-iconbtn--danger" aria-label="Delete {{ g.name }}" title="Delete">
+                <a href="{{ r.delete_url }}" class="ml-iconbtn ml-iconbtn--danger" aria-label="Delete {{ g.name }}" title="Delete" hx-get="{{ r.delete_url }}" hx-target="#stat-modal-body" hx-swap="innerHTML" aria-haspopup="dialog" data-stat-modal="Delete {{ g.name }}?">
                     <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 19a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
                 </a>
                 {% endif %}

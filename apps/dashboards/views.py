@@ -100,6 +100,7 @@ from .displays import (
     PlaylistLibraryDisplay,
     ReportLibraryDisplay,
     TagBar,
+    archived_links,
 )
 from .entries import delete_entry, parse_entry, record_entry
 from .forms import (
@@ -317,9 +318,7 @@ class DashboardIndexView(LoginRequiredMixin, TemplateView):
                 "tags": tag_cloud(
                     *(m.objects.visible_to(user).active() for m in (Dashboard, Playlist, Component)), current=tag
                 ),
-                "archived_count": sum(
-                    m.objects.visible_to(user).archived().count() for m in (Dashboard, Playlist, Component)
-                ),
+                "archived": archived_links(user, Dashboard, Playlist, Component),
                 "can_build": bool(readable_datasets(user)),
             }
         )
@@ -509,9 +508,7 @@ class GoalsIndexView(LoginRequiredMixin, TemplateView):
                 "tags": tag_cloud(
                     *(m.objects.visible_to(user).active() for m in (GoalList, Metric, Report)), current=tag
                 ),
-                "archived_count": sum(
-                    m.objects.visible_to(user).archived().count() for m in (GoalList, Metric, Report)
-                ),
+                "archived": archived_links(user, GoalList, Metric, Report),
                 "unused_count": (
                     metric_count
                     if unused_only
@@ -1503,6 +1500,54 @@ class ReportDeleteMixin(_DeleteInModalMixin):
         return context
 
 
+class _ConfirmDeleteMixin(_DeleteInModalMixin):
+    """A delete confirmation from one shared page and modal wrapper
+    (``owned_confirm_*.html``) around this kind's body (``body_template``),
+    told what still uses the row (:func:`where_used`)."""
+
+    modal_template_name = "smallstack_dashboards/crud/owned_confirm_modal.html"
+    body_template = ""
+    kind = ""
+
+    def get_template_names(self) -> list[str]:
+        if self.request.headers.get("HX-Request"):
+            return [self.modal_template_name]
+        return ["smallstack_dashboards/crud/owned_confirm_page.html"]
+
+    def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
+        context = super().get_context_data(**kwargs)
+        context.update(confirm_context(self.kind, self.object, self.request.user, "Delete"))
+        context["body_template"] = self.body_template
+        return context
+
+
+class ComponentDeleteMixin(_ConfirmDeleteMixin):
+    body_template = "smallstack_dashboards/crud/_component_delete_body.html"
+    kind = "component"
+
+
+class PlaylistDeleteMixin(_ConfirmDeleteMixin):
+    body_template = "smallstack_dashboards/crud/_playlist_delete_body.html"
+    kind = "playlist"
+
+    def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
+        context = super().get_context_data(**kwargs)
+        context["slide_count"] = len([i for i in self.object.items or [] if isinstance(i, dict)])
+        return context
+
+
+class GoalListDeleteMixin(_ConfirmDeleteMixin):
+    body_template = "smallstack_dashboards/crud/_goallist_delete_body.html"
+    kind = "goals"
+
+    def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
+        context = super().get_context_data(**kwargs)
+        sections = self.object.sections if isinstance(self.object.sections, list) else []
+        context["goal_count"] = sum(len(sec.get("goals") or []) for sec in sections if isinstance(sec, dict))
+        context["capture_count"] = self.object.snapshots.count()
+        return context
+
+
 class _OwnedCRUD(CRUDView):
     """Shared rules: list what you may view, edit what you may edit; forms
     stamp the owner (see forms.py)."""
@@ -1664,6 +1709,12 @@ class MetricCreateMixin:
             initial.update({field: getattr(original, field) for field in self.COPIED})
             initial["name"] = f"{original.name} (copy)"[:120]
             initial["visibility"] = "personal"
+            # From the dataset browser (started from this metric, conditions maybe
+            # changed since): the rows as they are there, over the copy.
+            if self.request.GET.get("dataset") == original.dataset:
+                handed = browse_prefill(self.request.GET, self.request.user)
+                initial["filter_tree"] = handed.get("filter_tree") or {}
+                initial.update({k: handed[k] for k in ("agg", "measure") if k in handed})
             return initial
         initial.update(browse_prefill(self.request.GET, self.request.user))
         return initial
@@ -1694,7 +1745,9 @@ class MetricQuickView(LoginRequiredMixin, View):
     picked. POST saves through ``MetricForm`` — the same validation, key and
     owner rules as the full form — then draws what to do next: open it, make
     a card, add it to goals, make another. ``then=card`` (the roll-up's card
-    links) leads to the component builder on the new metric."""
+    links) leads to the component builder on the new metric. ``from=<key>``
+    (the browser started from a saved metric) makes it a copy: the source's
+    thresholds, unit, description and tags come along on save."""
 
     template_name = "dashboards/partials/metric_quick.html"
     #: What the form carries that the browser's hand-off doesn't.
@@ -1712,14 +1765,17 @@ class MetricQuickView(LoginRequiredMixin, View):
         values = self.values(request.POST, request.user)
         if not values:
             raise Http404
+        source = values.get("source_metric")
         data = {
-            **{k: v for k, v in values.items() if k != "filter_tree"},
+            **{k: v for k, v in values.items() if k not in ("filter_tree", "from", "source_metric")},
             "filter_tree": json.dumps(values.get("filter_tree") or {}),
-            "thresholds": "[]",
-            "unit": "",
-            "description": "",
+            "thresholds": json.dumps(source.thresholds or []) if source else "[]",
+            "unit": source.unit if source else "",
+            "description": source.description if source else "",
             "name": request.POST.get("name", "").strip(),
         }
+        if source is not None:
+            data["tags"] = source.tags
         form = MetricForm(data=data, user=request.user)
         if not form.is_valid():
             context = self.context(request, {**values, "name": data["name"]}, request.POST)
@@ -1765,6 +1821,12 @@ class MetricQuickView(LoginRequiredMixin, View):
         if visibility not in ("shared", "personal"):
             visibility = "shared" if getattr(user, "is_staff", False) else "personal"
         values["visibility"] = visibility
+        # A copy of a saved metric on the same dataset, which the person can see.
+        key = params.get("from", "").strip()
+        source = Metric.objects.filter(key=key, dataset=values["dataset"]).first() if key else None
+        if source is not None and source.can_view(user):
+            values["from"] = key
+            values["source_metric"] = source
         return values
 
     def context(
@@ -1780,13 +1842,15 @@ class MetricQuickView(LoginRequiredMixin, View):
         labels = {c["name"]: c["label"] for c in schema["columns"]}
         tree = values.get("filter_tree") or {}
         then = card_handoff(params)
+        # The metric's own fields, without the copy's source (not a form value).
+        plain = {k: v for k, v in values.items() if k not in ("source_metric", "from")}
         # What's already there: a metric that reads these rows this way (a
         # twin), and the others on this dataset — said before another is saved.
         twins = same_metrics(request.user, values["dataset"], tree, values.get("agg", ""), values.get("measure", ""))
         on_dataset = Metric.objects.visible_to(request.user).filter(source="dataset", dataset=values["dataset"])
         on_dataset = on_dataset.exclude(pk__in=[m.pk for m in twins]).order_by("name")
         # The same hand-off, for the full form and for "make another".
-        carried = ("dataset", "filter_tree", "agg", "measure", "then", "card_type", "dimension")
+        carried = ("dataset", "filter_tree", "agg", "measure", "then", "card_type", "dimension", "from")
         handoff = {k: params.get(k, "") for k in carried}
         handoff = {k: v for k, v in handoff.items() if v}
         return {
@@ -1803,11 +1867,12 @@ class MetricQuickView(LoginRequiredMixin, View):
             "again_url": reverse("dashboards_metric_quick") + "?" + urlencode(handoff),
             "full_url": reverse("dashboards/metrics-create") + "?" + urlencode(handoff),
             "can_share": getattr(request.user, "is_staff", False),
+            "copy_of": values.get("source_metric"),
             "twins": twins,
             "on_dataset": list(on_dataset[:3]),
             "on_dataset_count": on_dataset.count(),
             "preview": (
-                preview_metric(request.user, {**values, "name": values.get("name") or "Preview"}, request=request)
+                preview_metric(request.user, {**plain, "name": plain.get("name") or "Preview"}, request=request)
                 if preview
                 else None
             ),
@@ -2014,7 +2079,7 @@ class ReportCRUDView(_OwnedCRUD):
 class PlaylistCRUDView(_OwnedCRUD):
     model = Playlist
     form_class = PlaylistForm
-    view_mixins = {Action.CREATE: [PlaylistDuplicateMixin]}
+    view_mixins = {Action.CREATE: [PlaylistDuplicateMixin], Action.DELETE: [PlaylistDeleteMixin]}
     fields = ["name", "slug", "description", "items", "seconds", "loop", "auto_start", "tags"]
     list_fields = ["name", "slug", "seconds", "owner", "updated_at"]
     column_labels = {"seconds": "Seconds", "updated_at": "Updated"}
@@ -2096,6 +2161,7 @@ class GoalListCRUDView(_OwnedCRUD):
     view_mixins = {
         Action.CREATE: [GoalListDuplicateMixin, _GoalListSavedMixin],
         Action.UPDATE: [_GoalListSavedMixin],
+        Action.DELETE: [GoalListDeleteMixin],
     }
     displays = [GoalListLibraryDisplay, TableDisplay]
     search_fields = ["name", "slug", "description", "tags"]
@@ -2518,32 +2584,151 @@ ARCHIVABLE: dict[str, type[OwnedModel]] = {
 }
 
 
+#: Each owned kind in a confirmation: the word for it, its overview (the page
+#: crumb) and the create form a Duplicate opens with ``?from=<key or slug>``.
+CONFIRM_KINDS: dict[str, dict[str, str]] = {
+    "metric": {"word": "metric", "section": "Goals", "home": "goals_index", "create": "dashboards/metrics-create"},
+    "dashboard": {
+        "word": "dashboard",
+        "section": "Dashboards",
+        "home": "dashboards_index",
+        "create": "dashboards/boards-create",
+    },
+    "component": {
+        "word": "card",
+        "section": "Dashboards",
+        "home": "dashboards_index",
+        "create": "dashboards/components-create",
+    },
+    "playlist": {
+        "word": "playlist",
+        "section": "Dashboards",
+        "home": "dashboards_index",
+        "create": "dashboards/playlists-create",
+    },
+    "report": {"word": "report", "section": "Goals", "home": "goals_index", "create": "dashboards/reports-create"},
+    "goals": {"word": "goal list", "section": "Goals", "home": "goals_index", "create": "dashboards/goals-create"},
+}
+
+
+def where_used(kind: str, obj: Any, user: Any) -> list[str]:
+    """The names of what the person can see that still uses *obj*: what an
+    archive keeps working and a delete would change."""
+    from .signals import _shows_goal_list
+
+    boards = Dashboard.objects.visible_to(user).active()
+    if kind == "metric":
+        usage = metric_usage(obj, user)
+        return [x["obj"].name for x in usage["boards"] + usage["reports"] + usage["goal_lists"]] + [
+            c.name for c in usage["components"]
+        ]
+    if kind == "component":
+        names = [d.name for d in boards if any(isinstance(c, dict) and c.get("component") == obj.key for c in d.layout)]
+        return names + [
+            g.name
+            for g in GoalList.objects.visible_to(user).active()
+            if any(
+                isinstance(goal, dict) and goal.get("component") == obj.key
+                for sec in g.sections
+                if isinstance(sec, dict)
+                for goal in sec.get("goals") or []
+            )
+        ]
+    playlists = Playlist.objects.visible_to(user).active()
+    if kind == "goals":
+        names = [d.name for d in boards if any(_shows_goal_list(c, obj.slug) for c in d.layout)]
+        return names + [p.name for p in playlists if _plays(p, "goals", obj.slug)]
+    if kind == "dashboard":
+        return [p.name for p in playlists if _plays(p, "dashboard", obj.slug)]
+    return []
+
+
+def _plays(playlist: Playlist, kind: str, slug: str) -> bool:
+    return any(isinstance(i, dict) and i.get(kind) == slug for i in playlist.items or [])
+
+
+def confirm_context(kind: str, obj: Any, user: Any, action: str) -> dict[str, Any]:
+    """What every confirmation page and modal here reads: the kind in words,
+    the crumb, and what still uses the row."""
+    info = CONFIRM_KINDS[kind]
+    return {
+        "kind": kind,
+        "word": info["word"],
+        "section": info["section"],
+        "section_url": reverse(info["home"]),
+        "action": action,
+        "used_in": where_used(kind, obj, user),
+        "object": obj,
+    }
+
+
+def _confirm_render(request: HttpRequest, body: str, context: dict[str, Any]) -> HttpResponse:
+    """A confirmation in the global modal (htmx), or as a page of its own."""
+    context["body_template"] = body
+    page = "smallstack_dashboards/crud/owned_confirm_modal.html"
+    if not request.headers.get("HX-Request"):
+        page = "smallstack_dashboards/crud/owned_confirm_page.html"
+    return render(request, page, context)
+
+
+def _safe_next(request: HttpRequest, raw: str, obj: Any) -> str:
+    from django.utils.http import url_has_allowed_host_and_scheme
+
+    hosts = {request.get_host()}
+    if raw and url_has_allowed_host_and_scheme(raw, allowed_hosts=hosts, require_https=request.is_secure()):
+        return raw
+    return obj.get_absolute_url() if hasattr(obj, "get_absolute_url") else reverse("dashboards_index")
+
+
 class ArchiveToggleView(LoginRequiredMixin, View):
-    """POST ``archive/<kind>/<pk>/``: archive the row, or with ``restore=1``
-    bring it back. Editors only. An archived row leaves every list and
-    picker but is still drawn wherever it's referred to, so nothing breaks
-    and nothing is lost. Back to ``next`` (on this site) or the row's page."""
+    """GET ``archive/<kind>/<pk>/``: the confirmation, saying what archiving
+    means (the modal over htmx, else a page). POST: archive the row, or with
+    ``restore=1`` bring it back. Editors only. An archived row leaves every
+    list and picker but is still drawn wherever it's referred to, so nothing
+    breaks and nothing is lost. Back to ``next`` (on this site) or the row's page."""
 
-    def post(self, request: HttpRequest, kind: str, pk: int) -> HttpResponse:
-        from django.utils.http import url_has_allowed_host_and_scheme
-
+    def _editable(self, request: HttpRequest, kind: str, pk: int) -> Any:
         model = ARCHIVABLE.get(kind)
         if model is None:
             raise Http404
         obj = get_object_or_404(model, pk=pk)
         if not obj.can_edit(request.user):
             raise Http404
+        return obj
+
+    def get(self, request: HttpRequest, kind: str, pk: int) -> HttpResponse:
+        obj = self._editable(request, kind, pk)
+        context = confirm_context(kind, obj, request.user, "Archive")
+        context["next"] = _safe_next(request, request.GET.get("next", ""), obj)
+        return _confirm_render(request, "dashboards/partials/archive_confirm.html", context)
+
+    def post(self, request: HttpRequest, kind: str, pk: int) -> HttpResponse:
+        obj = self._editable(request, kind, pk)
         restore = request.POST.get("restore") == "1"
         obj.set_archived(not restore)
         name = getattr(obj, "name", str(obj))
         messages.success(request, f"Restored {name}." if restore else f"Archived {name}. It stays wherever it's used.")
-        back = request.POST.get("next", "")
-        safe = url_has_allowed_host_and_scheme(
-            back, allowed_hosts={request.get_host()}, require_https=request.is_secure()
-        )
-        if not safe:
-            back = obj.get_absolute_url() if hasattr(obj, "get_absolute_url") else reverse("dashboards_index")
-        return redirect(back)
+        return redirect(_safe_next(request, request.POST.get("next", ""), obj))
+
+
+class DuplicateConfirmView(LoginRequiredMixin, View):
+    """GET ``duplicate/<kind>/<pk>/``: what a Duplicate does, before the form
+    opens (the modal over htmx, else a page). Anyone who can see the row may
+    duplicate it; the confirmation's button opens the create form with
+    ``?from=``, and nothing is saved until that form is."""
+
+    def get(self, request: HttpRequest, kind: str, pk: int) -> HttpResponse:
+        model = ARCHIVABLE.get(kind)
+        if model is None:
+            raise Http404
+        obj: Any = get_object_or_404(model, pk=pk)
+        if not obj.can_view(request.user):
+            raise Http404
+        context = confirm_context(kind, obj, request.user, "Duplicate")
+        handle = obj.key if kind in ("metric", "component") else obj.slug
+        context["form_url"] = f"{reverse(CONFIRM_KINDS[kind]['create'])}?{urlencode({'from': handle})}"
+        context["copy_name"] = f"{obj.name} (copy)"[:120]
+        return _confirm_render(request, "dashboards/partials/duplicate_confirm.html", context)
 
 
 class GoalWeekSnapshotView(LoginRequiredMixin, View):
@@ -2791,7 +2976,11 @@ class ComponentCRUDView(_OwnedCRUD):
     link_field = "name"
     field_transforms = {"owner": _owner_cell, "updated_at": "localtime"}
     url_base = "dashboards/components"
-    view_mixins = {Action.CREATE: [ComponentCreateMixin], Action.LIST: [ComponentListMixin]}
+    view_mixins = {
+        Action.CREATE: [ComponentCreateMixin],
+        Action.LIST: [ComponentListMixin],
+        Action.DELETE: [ComponentDeleteMixin],
+    }
     # ?dashboard=<slug> (the cards a dashboard shows), ?dataset=<key> (cards
     # over it, their own filter or their metric's), ?type=<design>. The first
     # two are served by apply_filter below, on the page and the REST list alike.

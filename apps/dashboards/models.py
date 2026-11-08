@@ -223,6 +223,22 @@ def _visible_to_owner(metric_owner_id: Any, container_owner_id: Any) -> bool:
     return metric_owner_id is None or metric_owner_id == container_owner_id
 
 
+#: The group whose members may change an address, besides superusers.
+ADDRESS_ADMIN_GROUP = "admin"
+
+
+def can_change_address(user: Any) -> bool:
+    """Whether *user* may change the address (slug) of an existing dashboard,
+    report, playlist or goal list: a superuser, or a member of the ``admin``
+    group. Moving a page breaks every bookmark, embed and playlist pointing at
+    it, so it's an administrator's call; everyone else sees the address read-only."""
+    if not getattr(user, "is_authenticated", False):
+        return False
+    if getattr(user, "is_superuser", False):
+        return True
+    return bool(user.groups.filter(name=ADDRESS_ADMIN_GROUP).exists())
+
+
 def free_key(model: type[models.Model], name: str, fallback: str) -> str:
     """A ``key`` made from *name* that *model* doesn't use yet:
     ``"Open tickets"`` → ``open_tickets``, then ``open_tickets_2``."""

@@ -2,12 +2,14 @@
 Above an overview or a list: every tag its rows carry, as chips that narrow the
 page to one (?tag=), with how many rows each has; "Show everything" clears it.
 `tags` is models.tag_cloud (the overviews and My dashboards pass it; the lists
-get it from displays.TagBar), `tag` the one the page is narrowed to. On an
-overview, `archived_count` adds the way to what's been archived. With rows but
+get it from displays.TagBar), `tag` the one the page is narrowed to. The way to
+what's been archived: on an overview, `archived` (displays.archived_links: "2
+metrics", each a link to that list's archived rows); on a list, "Show archived
+(N)" (`list_archived_count`), or "Back to the list" while `showing_archived`. With rows but
 no tags yet (`tag_hint`), the bar says how to get some, so the filter isn't a
 secret until the first tag exists.
 {% endcomment %}
-{% if tags or tag or archived_count or tag_hint %}
+{% if tags or tag or archived or tag_hint or list_archived_count or showing_archived %}
 <div class="ix-tag-filter">
     {% if tags or tag %}
     <nav class="ix-tags" aria-label="Narrow to a tag">
@@ -18,6 +20,8 @@ secret until the first tag exists.
     {% elif tag_hint %}
     <p class="ix-tags ix-tags--none"><span class="ix-tags-label">Tags</span><span>None yet. Add tags in the settings of anything here (<em>ops</em>, <em>weekly review</em>) to group things, then narrow this page to one.</span></p>
     {% endif %}
-    {% if archived_count %}<span class="ix-archived-note">{{ archived_count }} archived: {% if request.resolver_match.url_name == "goals_index" %}<a href="{% url 'dashboards/metrics-list' %}?archived=1">metrics</a>, <a href="{% url 'dashboards/goals-list' %}?archived=1">goal lists</a>, <a href="{% url 'dashboards/reports-list' %}?archived=1">reports</a>{% else %}<a href="{% url 'dashboards/boards-list' %}?archived=1">dashboards</a>, <a href="{% url 'dashboards/playlists-list' %}?archived=1">playlists</a>, <a href="{% url 'dashboards/components-list' %}?archived=1">cards</a>{% endif %}</span>{% endif %}
+    {% if archived %}<span class="ix-archived-note">Archived: {% for a in archived %}<a href="{{ a.url }}">{{ a.text }}</a>{% if not forloop.last %}, {% endif %}{% endfor %}</span>
+    {% elif showing_archived %}<span class="ix-archived-note"><span class="dash-archived">Archived</span> Showing what's been archived. Open one to restore it. <a href="{{ request.path }}{% querystring archived=None page=None %}">Back to the list</a></span>
+    {% elif list_archived_count %}<span class="ix-archived-note"><a href="{{ request.path }}{% querystring archived=1 page=None %}">Show archived ({{ list_archived_count }})</a></span>{% endif %}
 </div>
 {% endif %}

@@ -1,14 +1,24 @@
 """Addresses (``slug``) of dashboards, reports, playlists and goal lists: made
 from the name, never asked for, stable when the name changes, and changed on
-purpose only by staff."""
+purpose only by an administrator (a superuser, or the ``admin`` group); everyone
+else, staff included, sees it read-only."""
 
 from __future__ import annotations
 
 import pytest
 from django.contrib.auth import get_user_model
+from django.contrib.auth.models import Group
 
 from apps.dashboards.forms import DashboardForm
-from apps.dashboards.models import Dashboard, GoalList, Playlist, Report, free_slug
+from apps.dashboards.models import (
+    ADDRESS_ADMIN_GROUP,
+    Dashboard,
+    GoalList,
+    Playlist,
+    Report,
+    can_change_address,
+    free_slug,
+)
 
 pytestmark = pytest.mark.django_db
 
@@ -25,6 +35,13 @@ PAGES = [
 @pytest.fixture
 def staff(client):
     user = User.objects.create_user("ad-staff", password="x", is_staff=True)
+    client.force_login(user)
+    return user
+
+
+@pytest.fixture
+def admin(client):
+    user = User.objects.create_user("ad-admin", password="x", is_staff=True, is_superuser=True)
     client.force_login(user)
     return user
 
@@ -78,7 +95,7 @@ def test_renaming_keeps_the_address(client, staff, base, model, extra):
     assert (obj.name, obj.slug) == ("A new name", "first-name")
 
 
-def test_the_settings_page_shows_the_address_and_only_staff_can_change_it(client, member):
+def test_the_settings_page_shows_the_address_read_only_to_a_member(client, member):
     mine = Dashboard(name="Mine", slug="mine", owner=member, created_by=member)
     mine.save()
     url = f"/smallstack/dashboards/boards/{mine.pk}/edit/"
@@ -87,12 +104,32 @@ def test_the_settings_page_shows_the_address_and_only_staff_can_change_it(client
     assert 'name="slug"' not in html and "Change the address" not in html and "stays the same if you rename it" in html
     # Posting one anyway is refused, not ignored.
     response = client.post(url, {"name": "Mine", "slug": "theirs", "visibility": "personal"})
-    assert response.status_code == 200 and "Only staff can change an address" in response.content.decode()
+    assert response.status_code == 200 and "Only an administrator can change an address" in response.content.decode()
     mine.refresh_from_db()
     assert mine.slug == "mine"
 
 
-def test_staff_can_change_an_address_on_purpose(client, staff):
+def test_staff_who_are_not_administrators_see_it_read_only(client, staff):
+    shared = Dashboard(name="Ops", slug="ops")
+    shared.save()
+    url = f"/smallstack/dashboards/boards/{shared.pk}/edit/"
+    html = client.get(url).content.decode()
+    assert "/smallstack/dashboards/d/ops/</code>" in html and "Only an administrator can change it" in html
+    assert 'name="slug"' not in html and "Change the address" not in html
+    response = client.post(url, {"name": "Ops", "slug": "operations", "visibility": "shared"})
+    assert response.status_code == 200 and "Only an administrator can change an address" in response.content.decode()
+    shared.refresh_from_db()
+    assert shared.slug == "ops"
+
+
+def test_who_counts_as_an_administrator(staff):
+    assert not can_change_address(staff) and not can_change_address(None)
+    staff.groups.add(Group.objects.create(name=ADDRESS_ADMIN_GROUP))
+    assert can_change_address(User.objects.get(pk=staff.pk))
+    assert can_change_address(User(username="root", is_superuser=True))
+
+
+def test_an_administrator_can_change_an_address_on_purpose(client, admin):
     shared = Dashboard(name="Ops", slug="ops")
     shared.save()
     url = f"/smallstack/dashboards/boards/{shared.pk}/edit/"

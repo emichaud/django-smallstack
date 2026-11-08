@@ -1,0 +1,13 @@
+{% comment %}Duplicate confirmation (DuplicateConfirmView), in the modal or as a page: what the copy will be before the create form opens.{% endcomment %}
+<div class="dl{% if modal %} dl--modal{% endif %}">
+    {% include "dashboards/partials/confirm_head.html" %}
+    <p class="dl-safe">This opens the form for a new {{ word }} filled in from this one, named <strong>{{ copy_name }}</strong>. The copy starts personal, so only you see it until you share it. Nothing is saved until you press Save, and {{ object.name }} doesn't change.</p>
+    {% if kind == "dashboard" %}<p class="dl-keep-copy">The copy's cards show the same saved cards and metrics as this dashboard. To give one card numbers of its own, use <strong>Make a unique copy</strong> in that card's ⋯ menu.</p>
+    {% elif kind == "component" %}<p class="dl-keep-copy">The copy is a new saved card. Dashboards showing this card keep showing this one, not the copy.</p>
+    {% elif kind == "metric" %}<p class="dl-keep-copy">The copy is a new metric with its own key. Cards, reports and goals using this one keep using this one.</p>
+    {% elif kind == "playlist" or kind == "goals" or kind == "report" %}<p class="dl-keep-copy">The copy uses the same {% if kind == "playlist" %}dashboards and goal lists{% else %}metrics{% endif %}; nothing is copied underneath it.</p>{% endif %}
+    <div class="dl-actions">
+        <a href="{{ form_url }}" class="btn-primary">Open the copy's form</a>
+        {% if modal %}<button type="button" class="btn-outline" data-stat-modal-close>Cancel</button>{% else %}<a href="{{ object.get_absolute_url }}" class="btn-outline">Cancel</a>{% endif %}
+    </div>
+</div>

@@ -34,7 +34,7 @@ chrome and sets everything larger, for the screen everyone is looking at.
         <a href="{% url 'dashboards_goal_weeks' goal_list.slug %}" class="btn-outline btn-sm" title="Each week's values, saved as they were">Weeks</a>
         <a href="{% url 'dashboards_goal_history' goal_list.slug %}" class="btn-outline btn-sm" title="What's tracked hourly, daily, weekly, monthly or quarterly, and every capture">History</a>
         {% if rows %}<a href="{% querystring present=1 %}" class="btn-outline btn-sm" title="Without the site's menus, larger, for a shared screen">Present</a>{% endif %}
-        <a href="{% url 'dashboards/goals-create' %}?from={{ goal_list.slug }}" class="btn-outline btn-sm" title="Open the form with this list's goals; nothing is saved until you save">Duplicate</a>
+        <a href="{% url 'dashboards_duplicate' 'goals' goal_list.pk %}" class="btn-outline btn-sm" hx-get="{% url 'dashboards_duplicate' 'goals' goal_list.pk %}" hx-target="#stat-modal-body" hx-swap="innerHTML" data-stat-modal="Duplicate {{ goal_list.name }}?" aria-haspopup="dialog" title="Make a copy of this goal list: see what the copy will be, then open its form">Duplicate</a>
         {% if can_edit %}{% include "dashboards/partials/archive_button.html" with kind="goals" obj=goal_list %}<a href="{% url 'dashboards/goals-update' goal_list.pk %}" class="btn-primary btn-sm">Edit goals</a>{% elif goal_list.is_archived %}<span class="dash-archived">Archived</span>{% endif %}
     </div>
 </div>
@@ -93,4 +93,4 @@ chrome and sets everything larger, for the screen everyone is looking at.
 </div>
 {% endblock %}
 
-{% block extra_js %}<script src="{% static 'dashboards/js/dashboard.js' %}" defer></script>{% endblock %}
+{% block extra_js %}<script src="{% static 'dashboards/js/dashboard.js' %}" defer></script><script src="{% static 'dashboards/js/about-info.js' %}" defer></script>{% endblock %}

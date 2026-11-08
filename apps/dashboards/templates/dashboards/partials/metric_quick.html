@@ -30,6 +30,7 @@ another metric can be made from the same rows without leaving the page.
     <span class="mq-refresh" hx-get="{{ quick_url }}" hx-trigger="change[target.name !== 'name'] from:closest form" hx-include="closest form" hx-params="not csrfmiddlewaretoken" hx-target="#stat-modal-body" hx-swap="innerHTML" hx-sync="closest form:abort" aria-hidden="true"></span>
     <input type="hidden" name="dataset" value="{{ values.dataset }}">
     <input type="hidden" name="filter_tree" value="{{ tree_json }}">
+    {% if copy_of %}<input type="hidden" name="from" value="{{ copy_of.key }}">{% endif %}
     {% if then %}<input type="hidden" name="then" value="card"><input type="hidden" name="card_type" value="{{ then.type }}"><input type="hidden" name="dimension" value="{{ then.dimension }}">{% endif %}
 
     <div class="mq-hero{% if not preview.ok %} mq-hero--none{% endif %}" aria-live="polite" aria-label="The number this metric would make">
@@ -42,6 +43,7 @@ another metric can be made from the same rows without leaving the page.
         {% for p in preview.problems %}<p class="mq-hero-sub mq-problem">{{ p }}</p>{% endfor %}
         {% if preview.result.error %}<p class="mq-hero-sub mq-problem">{{ preview.result.error }}</p>{% endif %}
         {% endif %}
+        {% if copy_of %}<p class="mq-hero-sub">A copy of <a href="{{ copy_of.get_absolute_url }}">{{ copy_of.name }}</a>: its thresholds, unit, description and tags come too. {{ copy_of.name }} doesn't change.</p>{% endif %}
         {% if then %}<p class="mq-hero-sub">Then a <strong>{{ then.label }}</strong> card is built from it{% if then.dimension %}, grouped by <strong>{{ then.dimension_label }}</strong>{% endif %}.</p>{% endif %}
         {% comment %}Said before another one is saved: a metric that already reads these rows this way, and the rest on this dataset.{% endcomment %}
         {% if twins %}

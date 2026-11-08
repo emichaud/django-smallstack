@@ -18,6 +18,15 @@
 
     var PAUSE = 400;
 
+    // "Start from a metric": picking one loads its conditions and roll-up (the
+    // option's data-url); the blank option starts over.
+    document.addEventListener("change", function (e) {
+        var select = e.target;
+        if (!select || !select.matches || !select.matches("[data-ds-start-select]")) return;
+        var option = select.options[select.selectedIndex];
+        if (option && option.dataset.url) window.location.assign(option.dataset.url);
+    });
+
     document.addEventListener("DOMContentLoaded", function () {
         var form = document.getElementById("ds-form");
         var mount = document.getElementById("ds-tree");

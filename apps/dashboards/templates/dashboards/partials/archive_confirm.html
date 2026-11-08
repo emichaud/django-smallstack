@@ -1,0 +1,13 @@
+{% comment %}Archive confirmation (ArchiveToggleView.get), in the modal or as a page: what archiving means, and what keeps working.{% endcomment %}
+<form method="post" action="{% url 'dashboards_archive' kind object.pk %}" class="dl{% if modal %} dl--modal{% endif %}">
+    {% csrf_token %}
+    <input type="hidden" name="next" value="{{ next }}">
+    {% include "dashboards/partials/confirm_head.html" with used_label="Still used by" %}
+    <p class="dl-safe">Archiving puts this {{ word }} away. It isn't deleted. It leaves the {{ word }} list{% if kind == "metric" or kind == "component" %} and the pickers you choose from when building{% endif %}, so the lists stay short.
+        {% if used_in %}Everything above keeps showing it exactly as now.{% else %}Nothing uses it, so nothing else changes.{% endif %}</p>
+    <p class="dl-keep-copy">To bring it back, open its list, choose <strong>Show archived</strong>, open it and press <strong>Restore</strong>.</p>
+    <div class="dl-actions">
+        <button type="submit" class="btn-primary">Archive {{ object.name }}</button>
+        {% if modal %}<button type="button" class="btn-outline" data-stat-modal-close>Cancel</button>{% else %}<a href="{{ next }}" class="btn-outline">Cancel</a>{% endif %}
+    </div>
+</form>

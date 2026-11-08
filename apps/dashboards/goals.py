@@ -380,8 +380,16 @@ def _source(goal: dict[str, Any], metrics: dict[str, "Metric"], cards: dict[str,
     return metrics.get(goal.get("metric") or ""), None
 
 
+def source_description(metric: Optional["Metric"], card: Optional["Component"]) -> str:
+    """What a goal's number means, in its author's words: the card's description,
+    else its metric's ("" when neither has one)."""
+    if card is not None and card.description:
+        return card.description
+    return metric.description if metric is not None else ""
+
+
 def goal_source(goal: dict[str, Any], metrics: dict[str, "Metric"], cards: dict[str, "Component"]) -> dict[str, Any]:
-    """What a goal draws: ``{metric, card, label, fmt, unit}`` — a card goal
+    """What a goal draws: ``{metric, card, label, description, fmt, unit}`` — a card goal
     takes the card's metric, name, number format and unit (``metric`` is
     ``None`` when it's gone)."""
     from .components import card_style
@@ -396,6 +404,7 @@ def goal_source(goal: dict[str, Any], metrics: dict[str, "Metric"], cards: dict[
         "metric": metric,
         "card": card,
         "label": label or goal.get("metric") or goal.get("component") or "",
+        "description": source_description(metric, card),
         "fmt": fmt,
         "unit": unit,
     }
@@ -433,6 +442,7 @@ def evaluate_goal(
         "goal": goal,
         "label": goal.get("label") or (card.name if card is not None else (metric.name if metric else "")),
         "note": goal.get("note", ""),
+        "description": source_description(metric, card),
         "source": "component" if goal.get("component") else "metric",
         "key": goal.get("component") or goal.get("metric") or "",
         "status": "none",

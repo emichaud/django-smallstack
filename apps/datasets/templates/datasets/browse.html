@@ -44,6 +44,30 @@
 
 {% block content %}
 
+{% comment %}
+Start from a saved metric (DatasetBrowseView._saved_metrics): the metrics already
+made on this dataset; picking one loads its conditions and roll-up (?metric=<key>,
+kept in the form below as the filters change). Make a metric is then a copy of it.
+browse.js follows the pick (the option's data-url); without JS, Load sends
+?metric=<key> alone, which the view redirects to the same address. Drawn only
+when there are some.
+{% endcomment %}
+{% if saved_metrics %}
+<form class="ds-start" method="get" action="{% url 'datasets:browse' schema.key %}" data-ds-start>
+    <label for="ds-start-metric">Start from a metric</label>
+    <select id="ds-start-metric" name="metric" data-ds-start-select>
+        <option value="" data-url="{% url 'datasets:browse' schema.key %}">{% if loaded_metric %}None: start over{% else %}Pick one of {{ saved_metrics|length }}…{% endif %}</option>
+        {% for m in saved_metrics %}<option value="{{ m.key }}" data-url="{{ m.url }}"{% if m.current %} selected{% endif %}>{{ m.name }}</option>{% endfor %}
+    </select>
+    <noscript><button type="submit" class="btn-outline btn-sm">Load</button></noscript>
+    {% if loaded_metric %}
+    <p class="ds-start-note" role="status">Showing <a href="{{ loaded_metric.get_absolute_url }}">{{ loaded_metric.name }}</a>'s conditions{% if loaded_metric.measure %} and roll-up{% endif %}. Change them if you like: <strong>Make a metric</strong> saves a copy, and {{ loaded_metric.name }} itself doesn't change.</p>
+    {% else %}
+    <p class="ds-start-note">Load one's conditions to read its rows, or to make a copy with changes.</p>
+    {% endif %}
+</form>
+{% endif %}
+
 <div class="card ds-card" style="margin-bottom: 16px;">
     {% comment %}
     One form drives the whole page. The roll-up controls in the next card are
@@ -65,6 +89,7 @@
           hx-target="#ds-rows" hx-select="#ds-rows" hx-swap="outerHTML" hx-select-oob="#ds-rollup,#ds-live,#ds-csv"
           hx-push-url="true" hx-indicator="#ds-live" hx-sync="this:replace" hx-disinherit="*">
         {% if ordering %}<input type="hidden" name="ordering" value="{{ ordering }}">{% endif %}
+        {% if loaded_metric %}<input type="hidden" name="metric" value="{{ loaded_metric.key }}">{% endif %}
         {% for w in widgets %}
         <div class="ds-field">
             <label for="f-{{ w.name }}">{{ w.label }}</label>
@@ -96,7 +121,7 @@
             </p>
             <p class="ds-count ds-count-wait" aria-hidden="true"><span class="ds-count-n">…</span><span class="ds-count-label">counting</span></p>
             <div class="ds-live-actions">
-                {% if metric_url %}<button type="button" class="btn-outline btn-sm ds-keep-btn" hx-get="{{ metric_url }}" hx-target="#stat-modal-body" hx-swap="innerHTML" data-stat-modal="Make a metric" data-stat-modal-size="narrow" aria-haspopup="dialog" title="Keep these rows as one number: a metric over this dataset with every condition here">Make a metric</button>{% elif keep_problem %}<span class="ds-keep-problem" title="{{ keep_problem }}">Can't make a metric</span>{% endif %}
+                {% if metric_url %}<button type="button" class="btn-outline btn-sm ds-keep-btn" hx-get="{{ metric_url }}" hx-target="#stat-modal-body" hx-swap="innerHTML" data-stat-modal="{% if loaded_metric %}Make a copy of {{ loaded_metric.name }}{% else %}Make a metric{% endif %}" data-stat-modal-size="narrow" aria-haspopup="dialog" title="{% if loaded_metric %}Save these conditions as a new metric: a copy of {{ loaded_metric.name }}, which doesn't change{% else %}Keep these rows as one number: a metric over this dataset with every condition here{% endif %}">Make a metric</button>{% elif keep_problem %}<span class="ds-keep-problem" title="{{ keep_problem }}">Can't make a metric</span>{% endif %}
                 {% if has_filters %}
                 <a href="{% url 'datasets:browse' schema.key %}{% if group_by %}?group_by={{ group_by|urlencode }}{% if measure %}&amp;measure={{ measure|urlencode }}&amp;agg={{ agg|urlencode }}{% endif %}{% endif %}" class="btn-outline btn-sm" style="text-decoration: none;">Clear</a>
                 {% endif %}

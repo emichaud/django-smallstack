@@ -184,7 +184,7 @@ becomes `site-health-2`.
 **Renaming doesn't change the address**, so bookmarks, links, pages that embed a dashboard and
 wall screens pointed at a playlist keep working. A thing's settings page shows its address.
 
-Staff can change an address on purpose, under **Change the address** in its settings. Playlists
+An administrator (a superuser, or a member of the `admin` group) can change an address on purpose, under **Change the address** in its settings. Playlists
 and Goals cards that show it follow the change; links and bookmarks to the old address stop
 working. Metrics and saved cards have a permanent key instead, also made from the name.
 

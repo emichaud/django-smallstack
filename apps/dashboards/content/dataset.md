@@ -66,6 +66,9 @@ browser is what sits on top of one.
 - **Turn a filter into a metric.** On a dataset's page, set the filters you
   want and choose **Make a metric**. The conditions carry over, and from there
   a card or a chart can start from the same filter.
+- **Copy one you already have.** **Start from a metric**, above the filters,
+  loads a saved metric's conditions. Change them, then **Make a metric** saves
+  a copy and leaves the original alone.
 - **Or start from the metric.** **Goals → Metrics → New metric** asks which
   dataset to read, then lets you build the filter there, with a live preview
   of the number.

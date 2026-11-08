@@ -113,3 +113,10 @@ a.ds-tile:hover, .ds-tile:focus-visible { border-color: var(--primary); backgrou
 @media (prefers-reduced-motion: no-preference) { .ds-tile { transition: border-color 120ms ease, background-color 120ms ease; } }
 .ds-keep-problem { color: var(--warning-fg); font-size: 0.78rem; cursor: help; }
 
+
+/* "Start from a metric": the saved metrics on this dataset, above the filters. */
+.ds-start { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 0.75rem; margin: 0 0 12px; }
+.ds-start label { font-size: 0.72rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); }
+.ds-start select { width: auto; flex: 0 1 22rem; min-width: 12rem; max-width: 100%; }
+.ds-start-note { flex: 1 1 18rem; margin: 0; font-size: 0.85rem; color: var(--body-quiet-color); }
+.ds-start-note a { color: var(--link-color); }

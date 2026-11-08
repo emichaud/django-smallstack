@@ -8,7 +8,7 @@
         {% include "dashboards/includes/goals_board.html" with goal_list=embed.goal_list sections=w.sections summary=w.summary attention=w.attention heading=w.heading has_changes=w.has_changes has_trends=False slide=True %}
         {% endwith %}{% elif embed.show == "weeks" %}
         {% url 'dashboards_goal_weeks' embed.goal_list.slug as base %}
-        {% include "dashboards/partials/goal_week_grid.html" with goal_list=embed.goal_list grid=embed.grid start=embed.grid.last base=base %}
+        {% include "dashboards/partials/goal_week_grid.html" with goal_list=embed.goal_list grid=embed.grid start=embed.grid.last base=base slide=True %}
         {% else %}
         {% include "dashboards/includes/goals_board.html" with goal_list=embed.goal_list sections=embed.sections summary=embed.summary attention=embed.attention heading=embed.heading has_changes=embed.has_changes has_trends=embed.has_trends slide=True %}
         {% endif %}

@@ -80,15 +80,19 @@ class _OwnedForm(forms.ModelForm):
         New: whatever was sent (an agent or the API may name one), or blank to
         have ``clean`` make it from the name. Existing: it stays put — renaming
         never moves a page, so links, embeds and playlists keep working — and
-        only staff may change it on purpose."""
+        only an administrator may change it on purpose (:func:`can_change_address`)."""
+        from .models import can_change_address
+
         slug = (self.cleaned_data.get("slug") or "").strip()
         instance = self.instance
         if instance.pk is None:
             return slug
         if not slug or slug == instance.slug:
             return str(instance.slug)
-        if not getattr(self.user, "is_staff", False):
-            raise forms.ValidationError("Only staff can change an address. It stays the same when the name changes.")
+        if not can_change_address(self.user):
+            raise forms.ValidationError(
+                "Only an administrator can change an address. It stays the same when the name changes."
+            )
         return slug
 
     def clean_tags(self) -> str:

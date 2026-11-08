@@ -63,6 +63,9 @@ urlpatterns = [
     path("dashboards/preview-rows/", views.MetricPreviewRowsView.as_view(), name="dashboards_preview_rows"),
     path("dashboards/metrics/quick/", views.MetricQuickView.as_view(), name="dashboards_metric_quick"),
     path("dashboards/archive/<str:kind>/<int:pk>/", views.ArchiveToggleView.as_view(), name="dashboards_archive"),
+    path(
+        "dashboards/duplicate/<str:kind>/<int:pk>/", views.DuplicateConfirmView.as_view(), name="dashboards_duplicate"
+    ),
     path("dashboards/r/<slug:slug>/", views.ReportPageView.as_view(), name="dashboards_report"),
     path("dashboards/p/<slug:slug>/", views.PlaylistPlayerView.as_view(), name="dashboards_playlist"),
     path(

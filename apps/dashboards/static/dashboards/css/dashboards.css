@@ -3218,3 +3218,32 @@ a.cc-name::after { content: ""; position: absolute; inset: 0; }
 .df-address-change > summary { width: fit-content; font-size: 0.8rem; color: var(--link-color); cursor: pointer; }
 .df-address-change[open] > summary { margin-bottom: 0.45rem; }
 .df-address-change .mb-help { margin-top: 0.35rem; }
+
+/* ---- What a metric means: hovering a name with data-about shows it (about-info.js) ---- */
+.about-tip {
+    position: fixed;
+    z-index: 1100;
+    max-width: min(22rem, calc(100vw - 1rem));
+    padding: 0.5rem 0.7rem;
+    border: 1px solid var(--card-border);
+    border-radius: 6px;
+    background: var(--card-bg);
+    color: var(--body-fg);
+    box-shadow: var(--shadow-lg, 0 8px 24px color-mix(in srgb, var(--body-fg) 18%, transparent));
+    font-size: 0.82rem;
+    font-weight: 400;
+    line-height: 1.45;
+    white-space: pre-line;
+    pointer-events: none;
+}
+/* Only the name itself shows it, not the empty cell beside a block-level name. */
+.gl-name[data-about], .gw-goal-name[data-about] { width: fit-content; max-width: 100%; }
+
+/* A confirmation's "Still used by / Placed on / Shown on" list (partials/confirm_head.html). */
+.dl-used { margin: -0.75rem 0 1.25rem; }
+.dl-used-label { margin: 0 0 0.35rem; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); }
+.dl-used-list { display: flex; flex-wrap: wrap; gap: 0.3rem; margin: 0; padding: 0; list-style: none; }
+.dl-used-list > li { padding: 0.15rem 0.55rem; border: 1px solid var(--card-border); border-radius: 999px; font-size: 0.82rem; }
+/* The global modal draws list items as bullets; these are chips. */
+.dl .dl-used-list { padding-left: 0 !important; }
+.dl .dl-used-list > li { display: inline-block; list-style: none !important; margin: 0; }

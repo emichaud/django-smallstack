@@ -19,21 +19,54 @@ _HOW = {
 }
 
 
+#: Each owned kind: the word for one, for several, and the list it's in.
+_KINDS = {
+    "Dashboard": ("dashboard", "dashboards", "dashboards/boards-list"),
+    "Playlist": ("playlist", "playlists", "dashboards/playlists-list"),
+    "Component": ("card", "cards", "dashboards/components-list"),
+    "GoalList": ("goal list", "goal lists", "dashboards/goals-list"),
+    "Metric": ("metric", "metrics", "dashboards/metrics-list"),
+    "Report": ("report", "reports", "dashboards/reports-list"),
+}
+
+
+def archived_links(user: Any, *models: Any) -> list[dict[str, str]]:
+    """What an overview says has been archived: ``[{text, url}]``, "2 metrics"
+    linking to that list's archived rows, for each kind with any (none: [])."""
+    out = []
+    for model in models:
+        count = model.objects.visible_to(user).archived().count()
+        if count:
+            one, many, url_name = _KINDS[model.__name__]
+            out.append({"text": f"{count} {one if count == 1 else many}", "url": f"{reverse(url_name)}?archived=1"})
+    return out
+
+
 class TagBar(ListAccessory):
     """Above a list: the tags its rows carry, each narrowing the list to it
     (``?tag=``, read by ``_OwnedCRUD.get_list_queryset``). Counted over every
     row the person may see, whatever the list is narrowed to, so the other
-    tags stay one click away."""
+    tags stay one click away. It's also the way between the list and what's
+    been archived from it (``?archived=1``): "Show archived (N)" when there's
+    any, "Back to the list" while showing them."""
 
     template_name = "dashboards/partials/tag_filter.html"
 
     def get_context(self, queryset: Any, crud_config: Any, request: HttpRequest) -> dict[str, Any]:
         from .models import tag_cloud
 
-        rows = crud_config.model.objects.visible_to(getattr(request, "user", None))
-        rows = rows.archived() if request.GET.get("archived") == "1" else rows.active()
+        every = crud_config.model.objects.visible_to(getattr(request, "user", None))
+        showing_archived = request.GET.get("archived") == "1"
+        rows = every.archived() if showing_archived else every.active()
         tag = request.GET.get("tag", "").strip()
-        return {"tags": tag_cloud(rows, current=tag), "tag": tag, "tag_hint": rows.exists()}
+        return {
+            "tags": tag_cloud(rows, current=tag),
+            "tag": tag,
+            # How to add a first tag belongs on the list, not among what's been put away.
+            "tag_hint": not showing_archived and rows.exists(),
+            "showing_archived": showing_archived,
+            "list_archived_count": 0 if showing_archived else every.archived().count(),
+        }
 
 
 class MetricLibraryDisplay(ListDisplay):

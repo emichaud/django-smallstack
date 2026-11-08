@@ -69,7 +69,7 @@ rows in place (?order=, swapping `swap`), and every column resizes.
             {% for r in section.rows %}
                 <tr class="gl-row gl-st--{{ r.status }}"{% if not slide %} id="goal-{{ r.id }}"{% endif %}>
                     <th scope="row" class="gl-goal">
-                        <span class="gl-name">{% if r.url and not slide %}<a href="{{ r.url }}">{{ r.label }}</a>{% else %}{{ r.label }}{% endif %}</span>
+                        <span class="gl-name"{% if r.description and not slide %} data-about="{{ r.description }}"{% endif %}>{% if r.url and not slide %}<a href="{{ r.url }}">{{ r.label }}</a>{% else %}{{ r.label }}{% endif %}</span>
                         {% if r.note %}<span class="gl-note">{{ r.note }}</span>{% endif %}
                         {% if r.own_period %}<span class="gl-when">{{ r.period_label }}</span>{% endif %}
                     </th>

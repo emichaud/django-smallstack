@@ -1,0 +1,12 @@
+{% comment %}The goal list delete confirmation — the page and the modal (modal=True).{% endcomment %}
+<form method="POST" action="{{ request.path }}" class="dl{% if modal %} dl--modal{% endif %}">
+    {% csrf_token %}
+    {% include "dashboards/partials/confirm_head.html" with used_label="Shown on" %}
+    <p class="dl-safe">Its {{ goal_count }} goal{{ goal_count|pluralize }} and targets go with it{% if used_in %}, its goals cards come off the dashboards above and it leaves those playlists{% endif %}. The metrics it judges stay.</p>
+    {% if capture_count %}<p class="dl-warn">Its {{ capture_count }} saved capture{{ capture_count|pluralize }} (the week-by-week history) will be deleted too.</p>{% endif %}
+    <p class="dl-keep-copy">Only want it out of the way? <strong>Archive</strong> it instead: the history is kept and it can be restored.</p>
+    <div class="dl-actions">
+        <button type="submit" class="btn-danger">Delete {{ object.name }}</button>
+        {% if modal %}<button type="button" class="btn-outline" data-stat-modal-close>Keep it</button>{% else %}<a href="{{ object.get_absolute_url }}" class="btn-outline">Keep it</a>{% endif %}
+    </div>
+</form>

@@ -1,4 +1,5 @@
-"""Seed a working demo: metrics over the bundled framework datasets, a "Site
+"""Seed a working demo: metrics over the bundled framework datasets (and a rate
+made from two of them), a "Site
 health" dashboard and a "Monthly KPIs" report — every one shared.
 
 Idempotent: rows are upserted by key/slug, so re-running refreshes them
@@ -15,7 +16,7 @@ from django.core.management.base import BaseCommand, CommandParser
 
 from apps.datasets.core import get_dataset
 
-from ...models import Dashboard, Metric, Report
+from ...models import SOURCE_RATE, Dashboard, Metric, Report
 
 METRICS: list[dict[str, Any]] = [
     {
@@ -111,6 +112,34 @@ METRICS: list[dict[str, Any]] = [
     },
 ]
 
+#: Rates divide two of the metrics above, so they're seeded after them, and only
+#: when both parts were.
+RATES: list[dict[str, Any]] = [
+    {
+        "key": "demo_server_error_rate",
+        "name": "Server error rate",
+        "description": "The share of requests that answered 5xx: server errors ÷ requests, over the same period.",
+        "numerator": "demo_server_errors",
+        "denominator": "demo_requests",
+        "format": "percent",
+        "thresholds": [
+            {"op": ">", "value": 1, "state": "danger"},
+            {"op": ">", "value": 0.5, "state": "warning"},
+            {"op": "<=", "value": 0.5, "state": "success"},
+        ],
+    },
+]
+
+#: A grouped card filters a dataset of its own (a metric suits a one-number card):
+#: the same definition as demo_requests.
+REQUESTS_SOURCE: dict[str, Any] = {
+    "dataset": "smallstack_requests",
+    "filter_tree": {},
+    "agg": "count",
+    "measure": "",
+    "period_field": "timestamp",
+}
+
 LAYOUT: list[dict[str, Any]] = [
     {
         "id": "intro",
@@ -133,24 +162,24 @@ LAYOUT: list[dict[str, Any]] = [
     {
         "id": "by_method",
         "type": "metric_group",
-        "metric": "demo_requests",
+        **REQUESTS_SOURCE,
         "title": "Requests by method",
         "x": 0,
         "y": 3,
         "w": 6,
         "h": 2,
-        "options": {"dimension": "method", "limit": 5, "other": True},
+        "options": {"dimension": "method", "limit": 5, "other": True, "style": {"format": "compact"}},
     },
     {
         "id": "by_status",
         "type": "metric_group",
-        "metric": "demo_requests",
+        **REQUESTS_SOURCE,
         "title": "Requests by status",
         "x": 6,
         "y": 3,
         "w": 6,
         "h": 2,
-        "options": {"dimension": "status_code", "limit": 6, "other": True},
+        "options": {"dimension": "status_code", "limit": 6, "other": True, "style": {"format": "compact"}},
     },
     {"id": "api", "type": "metric", "metric": "demo_api_traffic", "x": 0, "y": 5, "w": 4, "h": 2},
     {"id": "checks", "type": "metric", "metric": "demo_failed_checks", "x": 4, "y": 5, "w": 4, "h": 2},
@@ -191,6 +220,18 @@ class Command(BaseCommand):
             metric = Metric.objects.filter(key=spec["key"]).first() or Metric(key=spec["key"])
             for k, v in defaults.items():
                 setattr(metric, k, v)
+            metric.save()
+            created_keys.append(metric.key)
+
+        for spec in RATES:
+            if spec["numerator"] not in created_keys or spec["denominator"] not in created_keys:
+                self.stdout.write(self.style.WARNING(f"skip {spec['key']}: one of its metrics wasn't seeded"))
+                continue
+            metric = Metric.objects.filter(key=spec["key"]).first() or Metric(key=spec["key"])
+            for k, v in spec.items():
+                setattr(metric, k, v)
+            metric.source = SOURCE_RATE
+            metric.owner = None
             metric.save()
             created_keys.append(metric.key)
 

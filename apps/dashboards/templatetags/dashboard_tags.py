@@ -476,3 +476,12 @@ def component_builder_data(user: Any, component: Any) -> dict[str, Any]:
                 used.append({"name": board.name, "url": board.get_absolute_url()})
     data["used_on"] = used
     return data
+
+
+@register.filter
+def can_change_address(user: Any) -> bool:
+    """``{% if request.user|can_change_address %}``: may this person change an
+    existing page's address (``models.can_change_address``)."""
+    from ..models import can_change_address as allowed
+
+    return allowed(user)

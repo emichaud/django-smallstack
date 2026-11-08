@@ -516,7 +516,12 @@ def week_page(goal_list: "GoalList", request: HttpRequest, start: date) -> dict[
         r["id"]: r.get("value")
         for r in _week_rows(goal_list, request, start - timedelta(weeks=1), snaps.get(start - timedelta(weeks=1)))
     }
+    # What each goal means is read from the list now, never from a capture: a
+    # description is wording, not a measurement, and the newest is the clearest.
+    metrics, cards = goal_lookups(goal_list)
+    about = {goal["id"]: goal_source(goal, metrics, cards)["description"] for _title, goal in _goal_rows(goal_list)}
     for row in rows:
+        row["description"] = about.get(row["id"], "")
         row["change"] = _change(row.get("value"), before.get(row["id"])) if row.get("weekly", True) else None
         row["comparison"] = row["change"]  # the name goals_board.html reads
         row["drill"] = _week_drill(row, start)
@@ -571,7 +576,10 @@ def _grid(goal_list: "GoalList", request: HttpRequest, first: date, count: int) 
                 goal["id"],
                 title,
                 src["label"],
-                {"target_text": rule_text(goal_at(goal, "weekly", None)["target"], src["fmt"], src["unit"])},
+                {
+                    "target_text": rule_text(goal_at(goal, "weekly", None)["target"], src["fmt"], src["unit"]),
+                    "description": src["description"],
+                },
             )
         )
         seen.add(goal["id"])

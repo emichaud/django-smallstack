@@ -2,6 +2,7 @@
 {% comment %}MetricLibraryDisplay — each metric with its filter in words, its source, where it's used and its live value.{% endcomment %}
 <link rel="stylesheet" href="{% static 'dashboards/css/dashboards.css' %}">
 <script src="{% static 'dashboards/js/dashboard.js' %}" defer></script>
+<script src="{% static 'dashboards/js/about-info.js' %}" defer></script>
 {% url "dashboards_goal_add" as goal_add %}{% if rows %}
 <nav class="md-periods ml-periods" aria-label="Period for the values">
     <span class="ml-periods-label">Values for {{ period_heading }}</span>
@@ -24,7 +25,7 @@
     {% for r in rows %}{% with m=r.obj res=r.result %}
         <tr>
             <td class="lib-name-cell">
-                <a href="{{ r.url }}" class="lib-name">{{ m.name }}</a>
+                <a href="{{ r.url }}" class="lib-name"{% if m.description %} data-about="{{ m.description }}"{% endif %}>{{ m.name }}</a>
                 {% if not m.is_shared %}{% include "dashboards/partials/personal_badge.html" with obj=m %}{% endif %}
                 {% include "dashboards/partials/tags.html" with obj=m base=request.path tag=request.GET.tag %}
                 <span class="lib-sub" title="{{ r.reading }}">{{ r.reading }}</span>

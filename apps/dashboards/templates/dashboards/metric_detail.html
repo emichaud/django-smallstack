@@ -24,7 +24,7 @@
     <div style="display: flex; gap: 0.5rem; align-items: center;">
         {% if metric.is_shared %}<span class="dash-badge dash-badge--shared">Shared</span>{% else %}<span class="dash-badge">Personal, {{ metric.owner }}</span>{% endif %}
         <a href="{% url 'dashboards/components-create' %}?metric={{ metric.key }}" class="btn-outline btn-sm" title="Build a card that draws this metric">Make a card</a>
-        <a href="{% url 'dashboards/metrics-create' %}?from={{ metric.key }}" class="btn-outline btn-sm" title="Open the form with this metric's settings; nothing is saved until you save">Duplicate</a>
+        <a href="{% url 'dashboards_duplicate' 'metric' metric.pk %}" class="btn-outline btn-sm" hx-get="{% url 'dashboards_duplicate' 'metric' metric.pk %}" hx-target="#stat-modal-body" hx-swap="innerHTML" data-stat-modal="Duplicate {{ metric.name }}?" aria-haspopup="dialog" title="Make a copy of this metric: see what the copy will be, then open its form">Duplicate</a>
         {% url 'dashboards_goal_add' as goal_add %}<a href="{{ goal_add }}?metric={{ metric.key }}" class="btn-outline btn-sm" hx-get="{{ goal_add }}?metric={{ metric.key }}" hx-target="#stat-modal-body" hx-swap="innerHTML" data-stat-modal="Add {{ metric.name }} to goals" aria-haspopup="dialog">Add to goals</a>
         {% if can_edit %}{% include "dashboards/partials/archive_button.html" with kind="metric" obj=metric %}<a href="{% url 'dashboards/metrics-update' metric.pk %}" class="btn-primary btn-sm">Edit metric</a>{% elif metric.is_archived %}<span class="dash-archived">Archived</span>{% endif %}
     </div>

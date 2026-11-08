@@ -12,7 +12,7 @@ audience badge out of band.
     <button type="button" class="dash-text-btn" id="dash-refresh">Refresh</button>
 </span>
 <span class="dash-view-only">
-    <a href="{% url 'dashboards/boards-create' %}?from={{ dashboard.slug }}" class="btn-outline btn-sm" title="Open the form with this dashboard's layout; nothing is saved until you save">Duplicate</a>
+    <a href="{% url 'dashboards_duplicate' 'dashboard' dashboard.pk %}" class="btn-outline btn-sm" hx-get="{% url 'dashboards_duplicate' 'dashboard' dashboard.pk %}" hx-target="#stat-modal-body" hx-swap="innerHTML" data-stat-modal="Duplicate {{ dashboard.name }}?" aria-haspopup="dialog" title="Make a copy of this dashboard: see what the copy will be, then open its form">Duplicate</a>
 </span>
 {% if can_edit %}
 <span class="dash-view-only">

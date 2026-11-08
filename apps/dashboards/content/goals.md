@@ -173,7 +173,7 @@ work as usual. See [Playlists](/smallstack/help/dashboards/playlists/).
 
 ## Renaming and deleting
 
-- Renaming a list keeps its address, so links to it go on working. If staff change the
+- Renaming a list keeps its address, so links to it go on working. If an administrator changes the
   address itself (in the list's settings), playlists and Goals cards that show it follow,
   but any link or bookmark you saved to the old address stops working.
 - Deleting a list removes it from playlists and dashboards.

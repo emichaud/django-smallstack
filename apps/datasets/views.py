@@ -22,7 +22,8 @@ from urllib.parse import urlencode
 
 from django.core.paginator import Page
 from django.db.models import QuerySet
-from django.http import Http404, HttpRequest
+from django.http import Http404, HttpRequest, HttpResponse
+from django.shortcuts import redirect
 from django.urls import NoReverseMatch, reverse
 from django.views.generic import TemplateView
 
@@ -62,7 +63,7 @@ SERIES_LIMIT = 50
 AGG_CHOICES = (("count", "Count"), ("sum", "Sum"), ("avg", "Average"), ("min", "Min"), ("max", "Max"))
 
 #: Query params the browse page owns; everything else is a dataset filter.
-_PAGE_PARAMS = {"ordering", "page", "per_page", "group_by", "measure", "agg", "filter_tree"}
+_PAGE_PARAMS = {"ordering", "page", "per_page", "group_by", "measure", "agg", "filter_tree", "metric"}
 
 
 class DatasetIndexView(StaffRequiredMixin, TemplateView):
@@ -126,6 +127,17 @@ def _int_in(raw: Any, allowed: tuple[int, ...], default: int) -> int:
 class DatasetBrowseView(StaffRequiredMixin, TemplateView):
     template_name = "datasets/browse.html"
 
+    def get(self, request: HttpRequest, *args: Any, **kwargs: Any) -> HttpResponse:
+        # "Start from a metric" without JavaScript sends ?metric=<key> alone:
+        # load it, as the picked option's address does.
+        if set(request.GET) == {"metric"}:
+            ds = get_dataset(kwargs["key"])
+            if ds is not None:
+                for m in self._saved_metrics(request, ds)["saved_metrics"]:
+                    if m["current"] and m["url"] != request.get_full_path():
+                        return redirect(m["url"])
+        return super().get(request, *args, **kwargs)
+
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
         context = super().get_context_data(**kwargs)
         key: str = kwargs["key"]
@@ -176,7 +188,50 @@ class DatasetBrowseView(StaffRequiredMixin, TemplateView):
             }
         )
         context.update(self._keep_links(ds, schema, filters, tree, context, blocked=bool(tree_error)))
+        context.update(self._saved_metrics(request, ds))
+        loaded = context["loaded_metric"]
+        if loaded is not None and context["metric_url"]:
+            # Started from a saved metric: Make a metric is a copy of it, with
+            # whatever the conditions are now (MetricQuickView reads from=).
+            copy = {
+                "from": loaded.key,
+                "name": f"{loaded.name} (copy)"[:120],
+                "period_field": loaded.period_field,
+                "format": loaded.format,
+            }
+            context["metric_url"] += "&" + urlencode(copy)
         return context
+
+    @staticmethod
+    def _saved_metrics(request: HttpRequest, ds: Dataset) -> dict[str, Any]:
+        """The metrics already made on this dataset, to start from: each with the
+        browse address that loads its conditions (``filter_tree``) and roll-up
+        (``agg``/``measure``), marked by ``?metric=<key>``. ``loaded_metric`` is
+        the one the page was started from (it stays in the form as the filters
+        change). Nothing without the dashboards app."""
+        from django.apps import apps as django_apps
+
+        out: dict[str, Any] = {"saved_metrics": [], "loaded_metric": None}
+        if not django_apps.is_installed("apps.dashboards"):
+            return out
+        from apps.dashboards.models import Metric
+
+        wanted = request.GET.get("metric", "").strip()
+        base = reverse("datasets:browse", args=[ds.key])
+        rows = Metric.objects.visible_to(request.user).active().filter(source="dataset", dataset=ds.key)
+        for metric in rows.order_by("name"):
+            params = {"metric": metric.key}
+            if not is_empty(metric.filter_tree):
+                params["filter_tree"] = json.dumps(metric.filter_tree, separators=(",", ":"))
+            if metric.measure:
+                params.update(measure=metric.measure, agg=metric.agg)
+            current = metric.key == wanted
+            out["saved_metrics"].append(
+                {"key": metric.key, "name": metric.name, "url": f"{base}?{urlencode(params)}", "current": current}
+            )
+            if current:
+                out["loaded_metric"] = metric
+        return out
 
     # -- keep it: save the filtered rows as a metric, the roll-up as a card ----
 

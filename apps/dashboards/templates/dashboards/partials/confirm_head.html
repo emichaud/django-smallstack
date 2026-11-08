@@ -1,0 +1,11 @@
+{% comment %}The top of a confirmation (owned_confirm_*): the row's name, its description, and — given `used_in` and `used_label` — what still uses it.{% endcomment %}
+<div class="dl-what">
+    <p class="dl-name"><a href="{{ object.get_absolute_url }}">{{ object.name }}</a>{% if object.is_shared %} <span class="dash-badge dash-badge--shared">Shared</span>{% endif %}</p>
+    {% if object.description %}<p class="dl-reading">{{ object.description }}</p>{% endif %}
+</div>
+{% if used_in and used_label %}
+<div class="dl-used">
+    <p class="dl-used-label">{{ used_label }}</p>
+    <ul class="dl-used-list">{% for name in used_in|slice:":8" %}<li>{{ name }}</li>{% endfor %}{% if used_in|length > 8 %}<li class="dash-muted">and {{ used_in|length|add:"-8" }} more</li>{% endif %}</ul>
+</div>
+{% endif %}

@@ -122,7 +122,7 @@
             {% for row in metric_rows %}{% with m=row.metric r=row.result %}
                 <tr data-filter-text="{{ m.name|lower }} {{ m.key }} {{ m.dataset }} {{ row.reading|lower }}">
                     <td class="gx-name-cell">
-                        <a href="{{ m.get_absolute_url }}" class="gx-name">{{ m.name }}</a> {% include "dashboards/partials/tags.html" with obj=m base=request.path %}
+                        <a href="{{ m.get_absolute_url }}" class="gx-name"{% if m.description %} data-about="{{ m.description }}"{% endif %}>{{ m.name }}</a> {% include "dashboards/partials/tags.html" with obj=m base=request.path %}
                         <span class="gx-sub" title="{{ row.reading }}">{{ row.reading }}</span>
                     </td>
                     <td><span class="ix-metric-source">{{ row.source }}{% if not m.is_shared %}{% include "dashboards/partials/personal_badge.html" with obj=m %}{% endif %}</span></td>
@@ -194,4 +194,4 @@
 </div>
 {% endblock %}
 
-{% block extra_js %}<script src="{% static 'dashboards/js/dashboard.js' %}" defer></script>{% endblock %}
+{% block extra_js %}<script src="{% static 'dashboards/js/dashboard.js' %}" defer></script><script src="{% static 'dashboards/js/about-info.js' %}" defer></script>{% endblock %}

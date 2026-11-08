@@ -1,0 +1,11 @@
+{% comment %}The saved card delete confirmation — the page and the modal (modal=True).{% endcomment %}
+<form method="POST" action="{{ request.path }}" class="dl{% if modal %} dl--modal{% endif %}">
+    {% csrf_token %}
+    {% include "dashboards/partials/confirm_head.html" with used_label="Placed on" %}
+    <p class="dl-safe">{% if used_in %}Each dashboard above keeps the card, as a card of its own: it looks the same, but editing it there no longer changes the others. A goal on this card keeps going on its metric.{% else %}No dashboard shows it, so nothing else changes.{% endif %}{% if object.metric %} Its metric stays.{% endif %}</p>
+    <p class="dl-keep-copy">Only want it out of the way? <strong>Archive</strong> it instead: nothing changes and it can be restored.</p>
+    <div class="dl-actions">
+        <button type="submit" class="btn-danger">Delete {{ object.name }}</button>
+        {% if modal %}<button type="button" class="btn-outline" data-stat-modal-close>Keep it</button>{% else %}<a href="{{ object.get_absolute_url }}" class="btn-outline">Keep it</a>{% endif %}
+    </div>
+</form>

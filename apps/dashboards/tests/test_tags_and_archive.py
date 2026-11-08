@@ -84,7 +84,7 @@ def test_archiving_hides_from_lists_and_pickers_but_not_from_what_uses_it(client
     GoalList(name="Goals", slug="goals", sections=[{"title": "", "goals": goals}]).save()
     page = m.get_absolute_url()
     html = client.get(page).content.decode()
-    assert 'action="/smallstack/dashboards/archive/metric/' in html and ">Archive<" in html
+    assert f'href="/smallstack/dashboards/archive/metric/{m.pk}/?next=' in html and ">Archive<" in html
     # Archive it.
     resp = client.post(reverse("dashboards_archive", args=["metric", m.pk]), {"next": page})
     assert resp.status_code == 302 and resp.url == page
@@ -92,10 +92,16 @@ def test_archiving_hides_from_lists_and_pickers_but_not_from_what_uses_it(client
     assert m.is_archived
     # Gone from the overview, the CRUD list and the REST list; still at its own page and by key.
     assert m not in [r["metric"] for r in client.get("/smallstack/goals/").context["metric_rows"]]
-    assert "1 archived" in client.get("/smallstack/goals/").content.decode()
+    overview = client.get("/smallstack/goals/").content.decode()
+    # The overview names the kind and links only it: no empty goal-list or report lists.
+    assert 'Archived: <a href="/smallstack/dashboards/metrics/?archived=1">1 metric</a></span>' in overview
     listing = client.get(reverse("dashboards/metrics-list")).content.decode()
     assert "Kept" not in listing
-    assert "Kept" in client.get(reverse("dashboards/metrics-list") + "?archived=1").content.decode()
+    # The list itself says there's more, and the way back from there.
+    assert "?archived=1" in listing and "Show archived (1)" in listing
+    archived = client.get(reverse("dashboards/metrics-list") + "?archived=1").content.decode()
+    assert "Kept" in archived and "Back to the list" in archived and "Show archived" not in archived
+    assert "Show archived" not in client.get(reverse("dashboards/reports-list")).content.decode()
     html = client.get(page).content.decode()
     assert resp.status_code == 302 and 'class="dash-archived"' in html and ">Restore<" in html
     assert client.get(reverse("dashboards/metrics-update", args=[m.pk])).status_code == 200
@@ -111,7 +117,9 @@ def test_archiving_hides_from_lists_and_pickers_but_not_from_what_uses_it(client
     client.post(reverse("dashboards_archive", args=["dashboard", board.pk]))
     assert usage_index(staff).get("kept", {}).get("boards", 0) == 0
     # Restore.
-    resp = client.post(reverse("dashboards_archive", args=["metric", m.pk]), {"restore": "1", "next": "https://evil.example/x"})
+    resp = client.post(
+        reverse("dashboards_archive", args=["metric", m.pk]), {"restore": "1", "next": "https://evil.example/x"}
+    )
     assert resp.status_code == 302 and resp.url == page  # an off-site next is ignored
     m.refresh_from_db()
     assert not m.is_archived
@@ -137,7 +145,7 @@ def test_a_card_is_archived_from_its_builder(client, staff):
     card.save()
     page = reverse("dashboards/components-update", args=[card.pk])
     html = client.get(page).content.decode()
-    assert f'action="/smallstack/dashboards/archive/component/{card.pk}/"' in html and ">Archive<" in html
+    assert f'hx-get="/smallstack/dashboards/archive/component/{card.pk}/?next=' in html and ">Archive<" in html
     resp = client.post(reverse("dashboards_archive", args=["component", card.pk]), {"next": page})
     assert resp.status_code == 302 and resp.url == page
     card.refresh_from_db()
