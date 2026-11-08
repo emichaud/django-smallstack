@@ -812,9 +812,10 @@ exactly as on the pages.
 - **A `layout` write replaces the whole list.** `PATCH …/boards/<id>/ {"layout": [...]}` keeps only
   the cells sent, so send every cell (read the board first, change it, send it all back). To change
   one card, use `dashboard_add_card` / `dashboard_remove_card`. `{"layout": null}` is refused.
-- **REST and MCP have no archive.** `archived_at` is read-only, and there is no archive route in
-  the API or tool. Archive from the row's page (its **Archive** button; `POST
-  dashboards/archive/<kind>/<pk>/` is that page's session-and-CSRF form, not an API).
+- **Archive with `"archived": true`** (`false` restores) on any metric, card, dashboard, report,
+  playlist or goal list: `PATCH …/boards/<id>/ {"archived": true}` or the `update_*` MCP tool. An
+  archived row leaves lists and pickers and is still drawn wherever it's used; `archived_at` reads
+  when. Leaving `archived` out keeps the row as it is.
 - **`DELETE` removes the row for good**: it isn't an archive, nothing lists it afterwards, and
   its slug or key is free again.
 - **Changing a `slug` breaks the old address.** There is no redirect: links, bookmarks and

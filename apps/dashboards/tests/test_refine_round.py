@@ -146,3 +146,33 @@ def test_a_snapshot_gives_a_gauge_its_number(board, staff):
 def test_sharing_with_nobody_by_that_name_says_so(board, staff):
     got = _call("dashboard_share", {"dashboard": board.slug, "add": ["ghost_zz"]}, staff)
     assert got["unknown"] == ["ghost_zz"] and "no active user named 'ghost_zz'" in got["warning"]
+
+
+def test_rest_archives_and_restores_a_dashboard(client, board, staff):
+    # An agent asked to archive had no way to: archived_at was ignored, DELETE destroys.
+    import json
+
+    client.force_login(staff)
+    url = f"/smallstack/api/dashboards/boards/{board.pk}/"
+    r = client.patch(url, json.dumps({"archived": True}), content_type="application/json")
+    assert r.status_code == 200, r.content
+    board.refresh_from_db()
+    assert board.is_archived and len(board.layout) == 1  # nothing else changed
+    client.patch(url, json.dumps({"name": "Renamed"}), content_type="application/json")
+    board.refresh_from_db()
+    assert board.is_archived  # left out: kept as it is
+    client.patch(url, json.dumps({"archived": False}), content_type="application/json")
+    board.refresh_from_db()
+    assert not board.is_archived
+
+
+def test_saving_an_archived_dashboards_settings_page_keeps_it_archived(client, board, staff):
+    board.set_archived(True)
+    client.force_login(staff)
+    url = f"/smallstack/dashboards/boards/{board.pk}/edit/"
+    assert client.get(url).status_code == 200
+    # The page posts no "archived" (it has its own Archive button), or an empty one.
+    r = client.post(url, {"name": board.name, "slug": board.slug, "visibility": "personal", "archived": ""})
+    assert r.status_code in (200, 302)
+    board.refresh_from_db()
+    assert board.is_archived

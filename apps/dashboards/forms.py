@@ -15,6 +15,7 @@ from typing import Any, cast
 
 from django import forms
 from django.urls import reverse
+from django.utils import timezone
 
 from apps.datasets.dateranges import RELATIVE_PERIODS, is_period
 
@@ -54,6 +55,15 @@ class _OwnedForm(forms.ModelForm):
     the owner the row will actually have)."""
 
     visibility = forms.ChoiceField(choices=VISIBILITY_CHOICES, required=False)
+    # REST and MCP had no way to archive (archived_at is read-only and was
+    # silently ignored; DELETE removes the row for good). Hidden on the HTML
+    # forms, which have their own Archive button; absent or empty changes nothing.
+    archived = forms.NullBooleanField(
+        required=False,
+        widget=forms.HiddenInput,
+        help_text="true archives it (out of lists and pickers, still drawn wherever it's used); false restores it. "
+        "Leave it out to keep it as it is.",
+    )
 
     def __init__(self, *args: Any, user: Any = None, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
@@ -123,6 +133,9 @@ class _OwnedForm(forms.ModelForm):
             if instance.pk is None or instance.owner_id is None:
                 instance.owner = user  # a new row, or staff taking a shared one personal
             # an existing personal row keeps its owner (only that owner can edit it)
+        archived = cleaned.get("archived")
+        if archived is not None and archived != instance.is_archived:
+            instance.archived_at = timezone.now() if archived else None
         return cleaned
 
 
