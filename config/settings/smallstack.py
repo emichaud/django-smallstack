@@ -111,6 +111,14 @@ SMALLSTACK_SIGNUP_ENABLED = config("SMALLSTACK_SIGNUP_ENABLED", default=True, ca
 # Passwordless ("email me a code") login. When True the login page offers a
 # code-based sign-in: enter email -> 6-digit code emailed -> enter code -> in.
 SMALLSTACK_PASSWORDLESS_LOGIN = config("SMALLSTACK_PASSWORDLESS_LOGIN", default=False, cast=bool)
+# Send invites and sign-in codes in the request instead of on the ``email``
+# queue. Unset (or empty) follows DEBUG; set it True on a deployment with no
+# worker draining that queue (apps/accounts/emails.py:account_emails_inline).
+SMALLSTACK_ACCOUNTS_EMAILS_INLINE = config(
+    "SMALLSTACK_ACCOUNTS_EMAILS_INLINE",
+    default="",
+    cast=lambda v: None if str(v).strip() == "" else str(v).strip().lower() in ("1", "true", "yes", "on"),
+)
 # Validity window for a passwordless sign-in code, in seconds (default 10 min).
 SMALLSTACK_LOGIN_CODE_TTL = config("SMALLSTACK_LOGIN_CODE_TTL", default=600, cast=int)
 # Most passwordless codes one account can be sent per hour (each allows 5 guesses).

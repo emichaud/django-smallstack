@@ -277,3 +277,35 @@ class TestQueuedAccountEmails:
         User.objects.create_user("q5", email="q5@acme.com", password="pw")
         client.post(reverse("accounts:passwordless_login"), {"action": "request", "email": "q5@acme.com"})
         assert len(mail.outbox) == 1
+
+
+def _setting_in_fresh_process(env_extra: dict[str, str], expr: str) -> str:
+    """Evaluate ``expr`` after settings load in a new process with ``env_extra``:
+    an env var only reaches settings at import, which override_settings can't show."""
+    import os
+    import subprocess
+    import sys
+
+    code = f"import django; django.setup(); from django.conf import settings; print(repr({expr}))"
+    env = {**os.environ, **env_extra, "DJANGO_SETTINGS_MODULE": "config.settings.test"}
+    out = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, env=env, check=True)
+    return out.stdout.strip().splitlines()[-1]
+
+
+@pytest.mark.parametrize(("raw", "expected"), [("True", "True"), ("false", "False"), ("", "None")])
+def test_emails_inline_is_read_from_the_environment(raw, expected):
+    # UPGRADING tells a deployment with no email worker to set this env var;
+    # it used to be read only from settings, so the env var did nothing.
+    assert _setting_in_fresh_process(
+        {"SMALLSTACK_ACCOUNTS_EMAILS_INLINE": raw}, "settings.SMALLSTACK_ACCOUNTS_EMAILS_INLINE"
+    ) == expected
+
+
+def test_an_empty_email_timeout_is_the_default_not_a_crash():
+    from config.settings._email import build_mailers  # noqa: F401  (imported in the child)
+
+    got = _setting_in_fresh_process(
+        {"EMAIL_BACKEND": "django.core.mail.backends.smtp.EmailBackend", "EMAIL_TIMEOUT": ""},
+        "__import__('config.settings._email', fromlist=['x']).build_mailers()['default']['OPTIONS'].get('timeout')",
+    )
+    assert got == "10"
