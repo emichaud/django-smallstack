@@ -49,7 +49,7 @@
             <h2 class="cal-group-title" id="cal-group-when">When</h2>
             <div class="cal-row2">
                 {% include "calendar/crud/_field.html" with field=form.start_date label="First day" %}
-                {% include "calendar/crud/_field.html" with field=form.end_date label="Last day" help="Leave blank for a single day." %}
+                {% include "calendar/crud/_field.html" with field=form.end_date label="Last day" help="Leave blank for a single day. On a repeating event, this is how long each one lasts." %}
             </div>
             {% include "calendar/crud/_field.html" with field=form.all_day label="All day" %}
             <div class="cal-row2 cal-times">
@@ -58,7 +58,7 @@
             </div>
             <div class="cal-row2">
                 {% include "calendar/crud/_field.html" with field=form.repeat label="Repeats" help="The first day sets the pattern." %}
-                {% include "calendar/crud/_field.html" with field=form.repeat_until label="Until" help="Leave blank for no end." %}
+                {% include "calendar/crud/_field.html" with field=form.repeat_until label="Until" help="When the series ends. Leave blank for no end." %}
             </div>
         </section>
 

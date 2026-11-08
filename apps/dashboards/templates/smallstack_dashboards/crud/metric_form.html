@@ -125,6 +125,7 @@
                             {% for c in aggs %}<label class="df-chip"{% if c.dataset_only %} data-for-source="dataset"{% elif c.manual_only %} data-for-source="manual"{% endif %}><input type="radio" class="sr-only" name="{{ form.agg.html_name }}" value="{{ c.key }}"{% if c.checked %} checked{% endif %}><span>{{ c.label }}</span></label>{% endfor %}
                         </div>
                         {% for e in form.agg.errors %}<p class="crud-error">{{ e }}</p>{% endfor %}
+                        <p class="mb-help" data-for-source="manual">How several values in one period combine: <strong>Latest value</strong> for a reading like CSAT, <strong>Sum</strong> for an amount like spend.</p>
                     </div>
                     <div class="mb-field mf-measure{% if form.measure.errors %} has-error{% endif %}" id="mb-field-measure" data-for-source="dataset">
                         <label for="{{ form.measure.id_for_label }}">Of column</label>
@@ -132,10 +133,10 @@
                         {% for e in form.measure.errors %}<p class="crud-error">{{ e }}</p>{% endfor %}
                     </div>
                     <div class="mb-field{% if form.period_field.errors %} has-error{% endif %}" data-for-source="dataset">
-                        <label for="{{ form.period_field.id_for_label }}">Period field</label>
+                        <label for="{{ form.period_field.id_for_label }}">Date to count by</label>
                         {{ form.period_field }}
                         {% for e in form.period_field.errors %}<p class="crud-error">{{ e }}</p>{% endfor %}
-                        <p class="mb-help">The date column a dashboard's or report's period narrows, and that a trend chart buckets by. Leave it blank for a number that doesn't depend on time.</p>
+                        <p class="mb-help">Which date puts a row in a week or month. Without one, the number stays the same whatever period you pick, every week reads alike, and past weeks can't be filled in.</p>
                     </div>
                     <div class="mb-field" style="margin-bottom: 0.6rem;">
                         <span class="mf-label" id="mf-format-title">Format</span>
@@ -232,7 +233,7 @@
                     <dl class="mf-facts">
                         <div><dt>Rows</dt><dd><span id="mb-rows">—</span> <button type="button" class="dash-text-btn" id="mb-see-rows" hidden aria-haspopup="dialog">See them</button></dd></div>
                         <div><dt>Dataset</dt><dd id="mf-fact-ds">—</dd></div>
-                        <div><dt>Period</dt><dd id="mf-fact-period">not period-aware</dd></div>
+                        <div><dt>Period</dt><dd id="mf-fact-period">doesn't change over time</dd></div>
                     </dl>
                     <div class="mf-reads-box">
                         <span class="df-period-group">Reads as</span>

@@ -411,9 +411,13 @@ def _goal_list_capture(args: dict[str, Any]) -> dict[str, Any]:
     count, bad = _integer(args.get("fill"), "fill")
     if bad:
         return bad
+    if args.get("fill") is not None and count < 1:
+        return {"error": "fill is how many past periods to capture: 1 or more. Leave it out for the current period."}
     try:
         if count:
-            return {"ok": True, "captured": fill(goal_list, str(args.get("cadence")), count, by=_user())}
+            replace = bool(args.get("replace"))
+            done = fill(goal_list, str(args.get("cadence")), count, by=_user(), replace_existing=replace)
+            return {"ok": True, "captured": done}
         snapshot = capture(goal_list, current_period(str(args.get("cadence"))), by=_user())
     except (ValueError, KeyError) as exc:
         return {"error": str(exc) if isinstance(exc, ValueError) else f"unknown cadence {args.get('cadence')!r}"}
@@ -488,6 +492,8 @@ def _delete_value(args: dict[str, Any]) -> dict[str, Any]:
         return {"error": f"no metric {args.get('key')!r} — use list_metrics"}
     if not metric.can_edit(user):
         return {"error": f"you can't edit {metric.key!r}"}
+    if not metric.is_manual:
+        return {"error": f"{metric.key!r} isn't entered by hand (its source is {metric.source})"}
     try:
         day = date.fromisoformat(str(args.get("date") or ""))
     except ValueError:
@@ -546,7 +552,7 @@ def _goal_list_add_goal(args: dict[str, Any]) -> dict[str, Any]:
         return {"error": f"no goal list {args.get('goal_list')!r} — use list_goal_lists"}
     if not goal_list.can_edit(user):
         return {"error": "you can view this goal list but not edit it"}
-    keys = ("metric", "component", "label", "target", "warn", "period", "note")
+    keys = ("metric", "component", "label", "target", "warn", "targets", "period", "note")
     goal: dict[str, Any] = {k: args[k] for k in keys if k in args}
     try:
         stored = add_goal(goal_list, goal, str(args.get("section") or ""))
@@ -637,7 +643,6 @@ def register_dashboard_tools() -> int:
                         "States: success, warning, danger, muted.",
                     },
                 },
-                "required": ["dataset"],
                 "additionalProperties": False,
             },
             _preview,
@@ -694,7 +699,7 @@ def register_dashboard_tools() -> int:
             "goal_list_tracking",
             "Read which cadences a goal list is captured on, or set them with cadences (any of hourly, daily, "
             "weekly, monthly, quarterly). Each tracked period is captured once it ends. Turning one off keeps "
-            "what it captured.",
+            "what it captured. Needs write access even to read; goal_list_history also answers tracked.",
             {
                 "type": obj,
                 "properties": {
@@ -710,13 +715,20 @@ def register_dashboard_tools() -> int:
         (
             "goal_list_capture",
             "Capture a goal list for the current period of a cadence, adding to any earlier captures. With fill, "
-            "capture that many past periods that have none, against today's targets.",
+            "capture that many past periods that have no finished capture, against today's targets, up to 48 "
+            "hours, 60 days, 26 weeks, 24 months or 12 quarters. The same store as goal_list_save_week, which "
+            "saves one named week; goal_list_weeks and goal_list_history read it back.",
             {
                 "type": obj,
                 "properties": {
                     "goal_list": {"type": "string"},
                     "cadence": {"type": "string", "enum": _CADENCES},
                     "fill": {"type": "integer", "minimum": 1},
+                    "replace": {
+                        "type": "boolean",
+                        "description": "With fill: add a new capture to periods that already have one, judged against "
+                        "today's targets. Use it after fixing a target. Earlier captures stay.",
+                    },
                 },
                 "required": ["goal_list", "cadence"],
                 "additionalProperties": False,
@@ -742,8 +754,9 @@ def register_dashboard_tools() -> int:
         ),
         (
             "metric_record_value",
-            "Set a hand-entered metric's value for a date, replacing any earlier value for that date. A saved week "
-            "containing that date updates too, keeping its target. Only for a metric whose source is manual.",
+            "Set a hand-entered metric's value for a date, replacing any earlier value and note for that date. "
+            "Adds a new capture of each saved day, week, month or quarter holding that date, keeping its target. "
+            "Only for a metric whose source is manual.",
             {
                 "type": obj,
                 "properties": {
@@ -760,7 +773,8 @@ def register_dashboard_tools() -> int:
         ),
         (
             "metric_delete_value",
-            "Remove a hand-entered metric's value for a date.",
+            "Remove a hand-entered metric's value for a date. deleted says whether there was one. Only for a "
+            "metric whose source is manual.",
             {
                 "type": obj,
                 "properties": {"key": {"type": "string"}, "date": {"type": "string", "description": "YYYY-MM-DD."}},
@@ -791,8 +805,9 @@ def register_dashboard_tools() -> int:
         ),
         (
             "dashboard_snapshot",
-            "Every card on a dashboard, evaluated — use it to check a dashboard you built. Optional period "
-            "(default: the dashboard's own).",
+            "Every card on a dashboard with its live value, to check a dashboard you built; nothing is stored. "
+            "A chart or calendar card has no one number, so it lists with none: card_preview draws it, and "
+            "calendar_events gives the dates. Optional period (default: the dashboard's own).",
             {
                 "type": obj,
                 "properties": {

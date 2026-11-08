@@ -32,7 +32,7 @@ live under `/smallstack/dashboards/`.
 
 | Model | What it is | Key fields |
 |---|---|---|
-| **Metric** | A named, stored filter over a dataset rolled up to one value — the KPI. The reusable unit. | `key` (stable slug), `dataset`, `filter_tree`, `agg`, `measure`, `period_field`, `format`, `unit`, `thresholds` |
+| **Metric** | A named number, the KPI and the reusable unit: a stored filter over a dataset rolled up to one value (`source="dataset"`), values entered by hand (`manual`, `MetricEntry`) or one metric divided by another (`rate`). | `key` (stable slug), `source`, `dataset`, `numerator`, `denominator`, `filter_tree`, `agg`, `measure`, `period_field`, `format`, `unit`, `thresholds` |
 | **Dashboard** | A grid of cards. | `slug`, `layout` (list of cells), `default_period`, `refresh_seconds` |
 | **Report** | Metrics × periods as a table (+ CSV). | `slug`, `items` (`[{metric, label?}]`), `periods` (`["mtd", "pmtd", "ytd"]`) |
 

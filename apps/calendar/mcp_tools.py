@@ -30,11 +30,12 @@ def _skip_date_handler(args: dict[str, Any]) -> dict[str, Any]:
     from apps.mcp.server import current_context
 
     from .datasets import visible_events
-    from .recurrence import is_occurrence
+    from .recurrence import skip_problem
 
     user = getattr(current_context(), "user", None)
     try:
-        event = visible_events(user).filter(pk=int(args.get("id") or 0)).first()
+        # calendar_events names a repeating date "<id>-<yyyymmdd>": take that too.
+        event = visible_events(user).filter(pk=int(str(args.get("id") or 0).split("-")[0])).first()
     except (TypeError, ValueError):
         event = None
     if event is None:
@@ -46,8 +47,9 @@ def _skip_date_handler(args: dict[str, Any]) -> dict[str, Any]:
     except ValueError:
         return {"error": "date must be YYYY-MM-DD"}
     restore = bool(args.get("restore"))
-    if not event.repeat or (not restore and not is_occurrence(event, day)):
-        return {"error": f"{day.isoformat()} isn't a date of this series"}
+    problem = skip_problem(event, day, restore)
+    if problem:
+        return {"error": problem}
     event.set_skipped(day, not restore)
     return {"id": event.pk, "skip_dates": event.skip_dates}
 
@@ -183,7 +185,10 @@ def register_calendar_tools() -> int:
             {
                 "type": "object",
                 "properties": {
-                    "id": {"type": "integer", "description": "The event's id."},
+                    "id": {
+                        "type": ["integer", "string"],
+                        "description": "The event's id, or the '<id>-<yyyymmdd>' calendar_events gives for a date.",
+                    },
                     "date": {"type": "string", "description": "The date, YYYY-MM-DD."},
                     "restore": {"type": "boolean", "description": "Put a skipped date back."},
                 },

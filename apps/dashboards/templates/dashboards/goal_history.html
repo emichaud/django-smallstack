@@ -100,6 +100,7 @@ now. Opening a period shows every capture of it. Tabs, headers and arrows swap #
                     <td class="gw-cell gl-st--{{ cell.status }}">
                         {% if cell.absent %}<span class="gl-quiet" aria-label="Not captured">·</span>
                         {% elif cell.restricted %}<span class="gl-quiet" title="{{ cell.error }}">Restricted</span>
+                        {% elif cell.not_applicable %}<span class="gl-quiet" title="{{ cell.error }}" aria-label="{{ cell.error }}">n/a</span>
                         {% elif cell.error %}<span class="gl-error" title="{{ cell.error }}" aria-label="{{ cell.error }}">!</span>
                         {% else %}{% include "dashboards/partials/goal_status.html" with status=cell.status %}<span class="sr-only">{{ cell.status_label }}: </span><span class="gw-value">{{ cell.display }}</span>{% endif %}
                     </td>
@@ -111,6 +112,8 @@ now. Opening a period shows every capture of it. Tabs, headers and arrows swap #
         </table>
     </div>
 </div>
+
+{% if grid.has_not_applicable %}<p class="gh-note">n/a: this number can't be worked out for that {{ cadence_noun }}. It only has dates, or it doesn't change over time. Hover for which.</p>{% endif %}
 
 {% if can_edit %}
 <div class="gh-actions">

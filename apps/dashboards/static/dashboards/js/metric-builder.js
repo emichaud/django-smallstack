@@ -71,7 +71,7 @@
         selectFor("measure", measures.concat(others), "— none (count rows) —");
         var dates = (schema.filters || []).filter(function (f) { return f.column_type === "date" || f.column_type === "datetime"; })
             .map(function (f) { return [f.name, f.label || f.name]; });
-        selectFor("period_field", dates, "— not period-aware —");
+        selectFor("period_field", dates, "None: this number doesn't change over time");
         treeEditor.setSchema(schema);
     }
 
@@ -144,6 +144,8 @@
             var fact = $(id);
             if (fact) fact.closest("div").classList.toggle("mf-fact--off", source !== "dataset");
         });
+        // "All rows" isn't true of a value typed in, and a rate says itself once it has two metrics.
+        $("mb-summary").closest(".mf-reads-box").hidden = source !== "dataset";
         // Renumber, so a hidden step doesn't leave a gap.
         var step = 0;
         form.querySelectorAll(".mf-step").forEach(function (n) {
@@ -271,7 +273,7 @@
         var pf = input("period_field").value;
         var pfSel = $("mb-select-period_field");
         var pfLabel = pfSel && pfSel.selectedOptions[0] ? pfSel.selectedOptions[0].textContent : pf;
-        $("mf-fact-period").textContent = (val("source") === "rate") ? "follows its two metrics" : pf ? "narrows " + pfLabel.toLowerCase() : "not period-aware";
+        $("mf-fact-period").textContent = (val("source") === "rate") ? "follows its two metrics" : pf ? "counted by " + pfLabel.toLowerCase() : "doesn't change over time";
         var card = $("mb-card"), value = $("mb-card-value"), label = $("mb-card-label");
         var problems = $("mb-problems");
         label.textContent = input("name").value || "Preview";
@@ -280,7 +282,7 @@
         if (source === "rate" && !(input("numerator").value && input("denominator").value)) { value.textContent = "—"; return; }
         if (source === "manual") {
             value.textContent = "—";
-            $("mf-fact-period").textContent = "narrows the value's date";
+            $("mf-fact-period").textContent = "by each value's date";
             return;
         }
         var payload = {

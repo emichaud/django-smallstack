@@ -533,6 +533,7 @@ def normalize_layout(raw: Any, *, owner_id: Any = None) -> tuple[list[dict[str, 
             problems.append(f"{where}.options: expected an object")
             options = {}
         c["options"] = options
+        problems.extend(f"{where}.options: {p}" for p in _unknown_option_problems(ct, options))
 
         source: Optional["Metric"] = None
         if ct.needs_metric:
@@ -804,6 +805,18 @@ def _source_problems(cell: dict[str, Any]) -> tuple[Optional["Metric"], list[str
 #: read over, and that lives on the metric's form, not the card's.
 NO_PERIOD_FIELD = "needs a period field (the date column it is read over): set one in the metric's settings"
 NO_PERIOD_COLUMN = "needs a period column: the date column it is read over"
+def _unknown_option_problems(ct: ComponentType, options: dict[str, Any]) -> list[str]:
+    """An option the card doesn't read would be saved and do nothing."""
+    known = {spec["name"] for spec in ct.options_schema}
+    # Whether these fit this card has its own, clearer refusals.
+    unknown = sorted(set(options) - known - {"style", "thresholds", "drilldown", "publish", "listen"})
+    if not unknown:
+        return []
+    takes = ", ".join(sorted(known)) or "none"
+    hint = ""
+    if "period" in unknown:
+        hint = " A card follows its dashboard's period; use_period: false fixes it to all time."
+    return [f"{', '.join(map(repr, unknown))}: a {ct.label} card doesn't read this (it takes: {takes}).{hint}"]
 
 
 def _missing_caps(ct: ComponentType, metric: "Metric") -> list[str]:

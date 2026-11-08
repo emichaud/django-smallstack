@@ -207,6 +207,8 @@ def normalize_sections(raw: Any, *, owner_id: Any) -> tuple[list[dict[str, Any]]
             rule_errors = rule_problems(goal.get("target"), f"{where}.target")
             if goal.get("warn") not in (None, "", {}):
                 rule_errors += rule_problems(goal.get("warn"), f"{where}.warn")
+                if not rule_errors:
+                    rule_errors += _warn_problems(goal["target"], goal["warn"], f"{where}.warn")
             if rule_errors:
                 problems.extend(rule_errors)
                 continue
@@ -237,6 +239,26 @@ def normalize_sections(raw: Any, *, owner_id: Any) -> tuple[list[dict[str, Any]]
             clean_goals.append(clean)
         out.append({"title": title, "goals": clean_goals})
     return out, problems
+
+
+def _warn_problems(target: dict[str, Any], warn: dict[str, Any], where: str) -> list[str]:
+    """The at-risk line is an easier target: a value that misses the target but meets
+    this reads at risk. Pointing the other way, or harder than the target, it scores
+    a bad number better than a good one, so it's refused."""
+    up, down = {">", ">="}, {"<", "<="}
+    aims = target.get("op"), warn.get("op")
+    if not all(op in up | down for op in aims) or not (_is_number(target["value"]) and _is_number(warn["value"])):
+        return []
+    same_way = (aims[0] in up) == (aims[1] in up)
+    aim, line = float(target["value"]), float(warn["value"])
+    easier = line <= aim if aims[0] in up else line >= aim
+    if same_way and easier:
+        return []
+    example = "target < 1 with at-risk < 2" if aims[0] in down else "target >= 90 with at-risk >= 85"
+    return [
+        f"{where}: the at-risk line is an easier target, reached when the real one is missed. It has to point "
+        f"the same way as the target and be easier to meet, like {example}"
+    ]
 
 
 def _clean_cadence_targets(raw: Any, where: str) -> tuple[dict[str, Any], list[str]]:

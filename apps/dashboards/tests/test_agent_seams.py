@@ -423,6 +423,8 @@ def test_own_personal_metric_on_something_shared_is_explained(call):
     [
         ("SMALLSTACK_CALENDAR_ENABLED", "apps/calendar/views.py", "create_event"),
         ("SMALLSTACK_DASHBOARDS_ENABLED", "apps/dashboards/views.py", "create_metric"),
+        ("SMALLSTACK_BLOG_ENABLED", "apps/blog/views.py", "create_blog"),
+        ("SMALLSTACK_BLOG_ENABLED", "apps/blog/mcp_tools.py", "blog_draft_post"),
     ],
 )
 def test_a_switched_off_feature_has_no_mcp_tools(setting, module, probe):

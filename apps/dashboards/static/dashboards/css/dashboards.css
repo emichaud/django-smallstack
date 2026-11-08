@@ -1215,6 +1215,7 @@ a.ix-metric-main:hover .ix-metric-name { text-decoration: underline; }
 
 /* Metric cells: the stat card, re-set for a wall — title first, then the
    number, no tracked caps. Scoped so {% stat_card %} elsewhere is untouched. */
+.dash-cell-body:has(> .stat-card, > .card-style > .stat-card) { container-type: inline-size; }
 .dash-cell-body > .stat-card,
 .dash-cell-body > .card-style > .stat-card { padding: 0.85rem 1rem; justify-content: flex-start; gap: 0.35rem; }
 .dash-cell-body > .stat-card .stat-card-label,
@@ -1228,7 +1229,13 @@ a.ix-metric-main:hover .ix-metric-name { text-decoration: underline; }
     color: var(--body-quiet-color);
 }
 .dash-cell-body > .stat-card .stat-card-value,
-.dash-cell-body > .card-style > .stat-card .stat-card-value { margin-top: auto; font-size: clamp(1.8rem, 3.4vw, 2.6rem); letter-spacing: -0.02em; }
+.dash-cell-body > .card-style > .stat-card .stat-card-value {
+    margin-top: auto;
+    font-size: clamp(1.8rem, 3.4vw, 2.6rem);
+    /* By the card's width, not the window's: "$4,250.00" was cut off in a narrow card on a wide screen. */
+    font-size: clamp(1.2rem, 15cqw, 2.6rem);
+    letter-spacing: -0.02em;
+}
 
 /* Grouped cells use the same title treatment. */
 .dash-cell-head {
@@ -1595,9 +1602,6 @@ td.rp-current .rp-drill { font-size: 1.35rem; font-weight: 700; letter-spacing: 
     font-size: 0.74rem;
     color: var(--body-quiet-color);
     font-feature-settings: "tnum";
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
 }
 .dash-compare-prev { color: var(--text-muted); }
 
@@ -2881,6 +2885,9 @@ td.rp-target > span { display: block; }
 
 /* ── weeks (weeks.py): a goal list week by week ─────────────────────────── */
 .gw-toolbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.75rem 1.5rem; margin-bottom: 1rem; }
+/* These tabs are words with no icon: the phone rule that hides a label would leave them blank. */
+.gw-toolbar .ix-view { flex-wrap: wrap; }
+.gw-toolbar .ix-view-btn span { display: inline; }
 .gw-nav { display: flex; align-items: center; gap: 0.4rem; }
 .gw-nav .pl-btn.is-disabled { opacity: 0.35; }
 .gw-pick select { width: auto; min-width: 16rem; height: 2.2rem; font-size: 0.88rem; font-weight: 600; }

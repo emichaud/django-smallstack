@@ -45,6 +45,9 @@ GRID_PERIODS = {HOURLY: 24, DAILY: 14, WEEKLY: 8, MONTHLY: 12, QUARTERLY: 8}
 MAX_FILL = {HOURLY: 48, DAILY: 60, WEEKLY: 26, MONTHLY: 24, QUARTERLY: 12}
 _CADENCE_NOUNS = {HOURLY: "hour", DAILY: "day", WEEKLY: "week", MONTHLY: "month", QUARTERLY: "quarter"}
 SUMMARY_KEYS = ("total", "scored", "pass", "warn", "fail", "none", "pct", "headline")
+#: Not faults: the number simply doesn't exist at this length. The grid shows them quietly.
+NO_HOURLY_VALUE = "This metric only has dates, so it has no value for one hour."
+NO_PAST_VALUE = "This number doesn't depend on time, so it can't be worked out for a past period."
 
 
 # -- periods ------------------------------------------------------------------------
@@ -200,14 +203,14 @@ def window_value(metric: "Metric", request: HttpRequest, period: Period, *, past
         return out
     if not metric.period_field:
         if past:
-            out["error"] = "This number doesn't depend on time, so it can't be worked out for a past period."
+            out["error"] = NO_PAST_VALUE
             return out
         result = evaluate(metric, request)
     else:
         hourly = period.cadence == HOURLY
         ds = get_dataset(metric.dataset)
         if hourly and ds is not None and ds.filter_column_types().get(metric.period_field) == "date":
-            out["error"] = "This metric only has dates, so it has no value for one hour."
+            out["error"] = NO_HOURLY_VALUE
             return out
         result = evaluate(metric, request, extra_tree=_span(metric, period, hourly))
     out["restricted"] = result.restricted
@@ -231,7 +234,9 @@ def goal_list_rows(goal_list: "GoalList", request: HttpRequest, period: Period, 
         if metric is None:
             cell = _cell(goal, None, src, error="Its metric or card no longer exists.")
         else:
-            got = seen.setdefault(metric.key, window_value(metric, request, period, past=past))
+            if metric.key not in seen:
+                seen[metric.key] = window_value(metric, request, period, past=past)
+            got = seen[metric.key]
             cell = {
                 **_cell(goal, got["value"], src, error=got["error"], restricted=got["restricted"]),
                 "weekly": got["weekly"],
@@ -324,13 +329,14 @@ def captures_of(obj: Any, period: Period) -> list["Snapshot"]:
 
 
 def fill(obj: Any, cadence: str, count: int, *, by: Any = None, replace_existing: bool = False) -> int:
-    """Capture the past *count* periods with no capture yet (all of them with
-    *replace_existing*), against today's targets. Returns how many."""
+    """Capture the past *count* periods with no finished capture yet (all of them
+    with *replace_existing*), against today's targets. One saved part-way through
+    doesn't count: it isn't that period's number. Returns how many."""
     periods = [last_closed(cadence).shifted(-i) for i in range(max(1, min(int(count), MAX_FILL[cadence])))]
     have = latest_captures(obj, cadence, periods)
     done = 0
     for period in periods:
-        if replace_existing or period.start not in have:
+        if replace_existing or period.start not in have or not have[period.start].complete:
             capture(obj, period, by=by, past=True, reason="Filled in afterwards")
             done += 1
     return done
@@ -428,8 +434,9 @@ def default_cadences() -> list[str]:
 
 def capture_due() -> int:
     """The hourly job: for each tracker, capture the latest ended period if it has no
-    capture yet. Safe to run any number of times. One subject's failure doesn't stop
-    the rest. Returns how many captures it took."""
+    finished capture yet. One saved by hand part-way through doesn't count, or Tuesday's
+    numbers would stand for the whole week. Safe to run any number of times. One
+    subject's failure doesn't stop the rest. Returns how many captures it took."""
     from .models import Snapshot, SnapshotTracker
 
     done = 0
@@ -442,7 +449,10 @@ def capture_due() -> int:
             handler = _subject(subject)
             if handler.user(subject) is None or not handler.ready(subject):
                 continue
-            if _for_subject(Snapshot, subject).filter(cadence=tracker.cadence, period_start=period.start).exists():
+            finished = _for_subject(Snapshot, subject).filter(
+                cadence=tracker.cadence, period_start=period.start, complete=True
+            )
+            if finished.exists():
                 continue
             capture(subject, period)
             done += 1
@@ -495,6 +505,8 @@ def history_grid(obj: Any, request: HttpRequest, cadence: str, last: Optional[Pe
         cells: list[dict[str, Any]] = []
         for period in periods:
             cell = masked.get(period.start, {}).get(gid)
+            if cell and cell.get("error") in (NO_HOURLY_VALUE, NO_PAST_VALUE):
+                cell = {**cell, "not_applicable": True}
             cells.append(cell if cell else {"status": "none", "display": "", "absent": True})
         rows.append({"id": gid, "section": title, "label": label, "target_text": target_text, "cells": cells})
     columns = []
@@ -520,6 +532,7 @@ def history_grid(obj: Any, request: HttpRequest, cadence: str, last: Optional[Pe
         sections[-1]["rows"].append(row)
     following = newest.shifted(count)
     return {
+        "has_not_applicable": any(c.get("not_applicable") for r in rows for c in r["cells"]),
         "cadence": cadence,
         "periods": periods,
         "columns": columns,

@@ -1,4 +1,5 @@
 {% extends "dashboards/print/document.html" %}
+{% load dashboard_tags %}
 {% block subhead %}<p class="doc-when">{{ when }}</p>{% endblock %}
 {% block body %}
 {% if rows %}
@@ -40,7 +41,7 @@
             <td><span class="doc-status doc-status--{{ r.status }}">{{ r.status_label }}</span></td>
             <td class="doc-num">{% if r.restricted %}Restricted{% elif r.error %}Can't evaluate{% else %}{{ r.display }}{% if r.unit %} {{ r.unit }}{% endif %}{% endif %}</td>
             <td>{{ r.target_text }}{% if r.warn_text %}<span class="doc-note">At risk {{ r.warn_text }}</span>{% endif %}</td>
-            {% if has_changes %}<td>{{ r.comparison.text|default:"" }}</td>{% endif %}
+            {% if has_changes %}<td>{{ r.comparison|change_in_words }}</td>{% endif %}
         </tr>
         {% endfor %}
         </tbody>

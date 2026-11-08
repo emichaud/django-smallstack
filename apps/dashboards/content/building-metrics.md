@@ -32,7 +32,8 @@ an amount like spend. A period with no values shows a dash, not zero.
 
 Pick a top number and what it's divided by. Both are read for the same period, and each week is
 worked out from that week's own two numbers. Choose the **Percent** format to show it as a
-percentage. If the bottom number is zero the rate shows a dash.
+percentage, and set a goal's target in the form it shows: with Percent, 2% is 2. If the bottom
+number is zero the rate shows a dash. Build the two metrics first; a rate can't use another rate.
 
 Both metrics must depend on time, or neither. A rate's page shows the two numbers it's made from.
 If you delete one of them, the rate shows an error until you edit it.

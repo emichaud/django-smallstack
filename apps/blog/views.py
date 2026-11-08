@@ -20,6 +20,7 @@ from __future__ import annotations
 
 from typing import Any, cast
 
+from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
@@ -252,7 +253,8 @@ class BlogCRUDView(_OwnedCRUDView):
     api_extra_fields = ["owner", "created_at", "updated_at"]
     api_expand_fields = ["owner"]
 
-    enable_mcp = True
+    # The switch un-mounts the routes; the tools come from this class, whatever it says.
+    enable_mcp = getattr(settings, "SMALLSTACK_BLOG_ENABLED", True)
     mcp_singular = "blog"
     mcp_plural = "blogs"
     mcp_description = (
@@ -453,7 +455,8 @@ class PostCRUDView(_OwnedCRUDView):
     ]
     api_expand_fields = ["blog", "author"]
 
-    enable_mcp = True
+    # The switch un-mounts the routes; the tools come from this class, whatever it says.
+    enable_mcp = getattr(settings, "SMALLSTACK_BLOG_ENABLED", True)
     mcp_singular = "blog_post"
     mcp_plural = "blog_posts"
     mcp_description = (
@@ -730,7 +733,8 @@ class IssueCRUDView(_OwnedCRUDView):
     ]
     api_expand_fields = ["blog", "post"]
 
-    enable_mcp = True
+    # The switch un-mounts the routes; the tools come from this class, whatever it says.
+    enable_mcp = getattr(settings, "SMALLSTACK_BLOG_ENABLED", True)
     mcp_singular = "newsletter_issue"
     mcp_plural = "newsletter_issues"
     mcp_description = (

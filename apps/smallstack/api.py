@@ -768,12 +768,17 @@ def _serialize(
     from decimal import Decimal
     from uuid import UUID
 
+    from django.db.models import Manager
     from django.db.models.fields.files import FieldFile
 
     data: dict = {"id": obj.pk}
     all_fields = list(fields) + list(extra_fields or [])
     for f in all_fields:
         val: Any = getattr(obj, f, None)
+        if isinstance(val, Manager):
+            # A reverse or generic relation that ended up in the default fields.
+            # It has no value to give, and str() on it is a Python repr.
+            continue
         if isinstance(val, FieldFile):
             # A File/ImageField is not JSON-serializable, and JsonResponse has no
             # `default=` fallback — so any CRUDView carrying one in `fields` or

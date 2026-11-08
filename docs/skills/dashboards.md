@@ -20,7 +20,7 @@ live under `/smallstack/dashboards/`.
 
 | Model | What it is | Key fields |
 |---|---|---|
-| **Metric** | A named, stored filter over a dataset rolled up to one value — the KPI. The reusable unit. | `key` (stable slug), `dataset`, `filter_tree`, `agg`, `measure`, `period_field`, `format`, `unit`, `thresholds` |
+| **Metric** | A named number, the KPI and the reusable unit: a stored filter over a dataset rolled up to one value (`source="dataset"`), values entered by hand (`manual`, `MetricEntry`) or one metric divided by another (`rate`). | `key` (stable slug), `source`, `dataset`, `numerator`, `denominator`, `filter_tree`, `agg`, `measure`, `period_field`, `format`, `unit`, `thresholds` |
 | **Dashboard** | A grid of cards. | `slug`, `layout` (list of cells), `default_period`, `refresh_seconds` |
 | **Report** | Metrics × periods as a table (+ CSV). | `slug`, `items` (`[{metric, label?}]`), `periods` (`["mtd", "pmtd", "ytd"]`) |
 
@@ -694,12 +694,12 @@ period columns prints landscape (`ReportPrintView.PORTRAIT_COLUMNS`).
 
 A week runs Monday to Sunday, local time. A goal's weekly value is its metric narrowed to `[monday, next monday)` on the period field. `weekly_values()` gets a run of weeks in one `Dataset.series(grain="week")` query per metric. A metric with no period field has the same value every week (`weekly: False`).
 
-A weekly `Snapshot` (see the engine below; rows, summary, complete, taken_by) freezes a week. Each row stores the value, status, target and target text, so later target edits don't rewrite history. One snapshot per list per week.
+A weekly `Snapshot` (see the engine below; rows, summary, complete, taken_by) freezes a week. Each row stores the value, status, target and target text, so later target edits don't rewrite history. A week can have several captures, and pages show the newest.
 
 | Function | What it's for |
 |---|---|
 | `take_snapshot(goal_list, monday, by=)` / `backfill(goal_list, n)` | save a week / fill past weeks |
-| `snapshot_last_week()` | save the week just ended for every list: what `manage.py snapshot_goals` runs (`[--list] [--week] [--fill N [--replace]]`). The automatic captures come from the snapshot engine's hourly `tasks.capture_snapshots` (below) |
+| `snapshot_last_week()` | `manage.py snapshot_goals`: adds a capture of last week for every list, tracked or not. `--due` does what the hourly job (`tasks.capture_snapshots`) does. Also `[--list] [--week] [--fill N [--replace]]` |
 | `week_page(goal_list, request, monday)` | one week: the snapshot, else live; `change` vs the week before; rows drill to the week's rows (`?narrow=`) |
 | `week_grid(goal_list, request, last, count)` + `write_grid_csv` | goals × weeks; saved weeks as they were, the rest live. `grid_order` / `sort_grid` / `grid_sort_links` sort it (`?order=goal` or `w<monday>`, `-` for descending); the page's table resizes, with `data-field` keyed by position |
 | `week_trends(goal_list, request, monday)` | the weeks around one week: bars, vs previous, vs the average before, streak, best/worst. `trends_order` / `sort_trends` / `trends_sort_links` sort it (`?order=goal`, `value`, `change`, `average`, `run`) |
@@ -856,10 +856,14 @@ The evaluation tools are custom:
 | `get_metric` `get_dashboard` `get_report` `get_goal_list` `get_playlist` `get_component` | `GET /smallstack/api/dashboards/<noun>/<id>/` | read one back in full. The tools also take `key` / `slug` in place of `id` (`mcp_lookup_field`), as do `update_*` and `delete_*` |
 | `goal_list_values` / `goal_list_weeks` | `GET dashboards/api/goals/<slug>/values/`, `…/weeks/` | a list judged; a list week over week |
 | `goal_list_save_week` | `POST dashboards/api/goals/<slug>/weeks/<week>/save/` | freeze a week (`fill` backfills, MCP only) |
+| `goal_list_tracking` | `GET`/`POST dashboards/api/goals/<slug>/tracking/` | the cadences a list is captured on |
+| `goal_list_capture` | `POST dashboards/api/goals/<slug>/snapshots/` | capture the current period, or `fill` past ones |
+| `goal_list_history` | `GET dashboards/api/goals/<slug>/snapshots/?cadence=` | captures only: goals × periods |
+| `metric_record_value` / `metric_delete_value` | `GET`/`POST dashboards/api/metrics/<key>/entries/` (removing one is MCP or the page) | a hand-entered metric's value for a date |
 | `list_dashboard_components` | `GET dashboards/api/components/` | card types, options, default sizes, periods (+ widgets for staff: the `widget` type, "Info card", places one published `DashboardWidget`) |
 | `dashboard_add_card` / `dashboard_remove_card` | (PATCH `layout`) | edit one card without rewriting the layout |
-| `dashboard_snapshot` | `GET dashboards/api/boards/<slug>/values/` | every card, evaluated — check your work |
 | `dashboard_share` (`everyone`, `add`/`remove` usernames; nothing = report) | `GET /smallstack/api/dashboards/boards/<pk>/` reads `sharing` | who may open a personal dashboard; its owner still edits it |
+| `dashboard_snapshot` | `GET dashboards/api/boards/<slug>/values/` | every card with its live value, to check your work. Stores nothing; a chart or calendar card has no one number (`card_preview` draws it) |
 | `dashboard_set_picture` (base64, or `remove`) | `POST`/`DELETE dashboards/api/boards/<slug>/picture/` (multipart `image`, `alt`) | the dashboard's picture. The JSON CRUD can't carry a file, so `cover_image` is read-only there (its URL) and left out of the MCP write schema. A session caller sends `X-CSRFToken` |
 | `report_values` | `GET dashboards/api/reports/<slug>/values/` | a report's matrix |
 | `playlist_slides` | `GET dashboards/api/playlists/<slug>/slides/` | a playlist as the caller sees it (create/edit with `create_playlist` / `update_playlist`) |

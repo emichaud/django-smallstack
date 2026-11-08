@@ -446,7 +446,9 @@ class GoalSnapshotsApiView(_ApiView):
         try:
             payload = json.loads(request.body or b"{}")
             cadence = str(payload.get("cadence") or "")
-            if payload.get("fill"):
+            if payload.get("fill") is not None:
+                if int(payload["fill"]) < 1:
+                    return JsonResponse({"error": "fill is how many past periods to capture: 1 or more."}, status=400)
                 done = fill(goal_list, cadence, int(payload["fill"]), by=request.user)
                 return JsonResponse({"ok": True, "captured": done})
             snapshot = capture(goal_list, current_period(cadence), by=request.user)

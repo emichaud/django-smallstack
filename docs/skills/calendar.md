@@ -35,7 +35,7 @@ One spec per dataset — a dataset has one time axis. Two columns of one model
 /smallstack/calendar/api/events/            merged events  ?ds=&ds=&start=&end=
 /smallstack/calendar/api/events.ics         the same window as an iCalendar feed
 /smallstack/calendar/api/<key>/events/      one calendar
-MCP: list_calendars, calendar_events, + the generated *_calendar_view tools
+MCP: list_calendars, calendar_events, event_skip_date, + the generated *_event and *_calendar_view tools
 ```
 
 ## Declare one

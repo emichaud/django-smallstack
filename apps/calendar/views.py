@@ -54,7 +54,7 @@ from .datasets import EVENTS_KEY
 from .displays import AgendaDisplay, RangeBoardDisplay, SavedViewsDisplay
 from .forms import EventForm, SavedCalendarViewForm
 from .models import Event, SavedCalendarView
-from .recurrence import is_occurrence
+from .recurrence import skip_problem
 
 #: Chips per day cell on the month grid; the day panel shows the rest.
 MAX_PER_DAY = 4
@@ -555,7 +555,7 @@ class EventSkipView(LoginRequiredMixin, View):
             raise PermissionDenied
         day = parse_day(request.POST.get("date", ""))
         restore = request.POST.get("restore") == "1"
-        if day is None or not event.repeat or (not restore and not is_occurrence(event, day)):
+        if day is None or skip_problem(event, day, restore):
             raise Http404("That date isn't part of this series.")
         event.set_skipped(day, not restore)
         when = f"{day:%b} {day.day}, {day.year}"
