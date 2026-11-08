@@ -9,7 +9,6 @@ the same question.
 
 from __future__ import annotations
 
-import asyncio
 import json
 import logging
 from io import StringIO
@@ -22,14 +21,7 @@ from django.utils import timezone
 from apps.telemetry import queries
 from apps.telemetry.models import LogRecord
 
-# transaction=True because the MCP handlers are async and reach the ORM through
-# sync_to_async — i.e. from a different thread. Inside pytest-django's default
-# wrapping transaction that other thread can't see (or lock) the rows, and
-# SQLite raises "database table is locked". Committing for real is the accepted
-# accommodation for threaded DB access, and it also means these tests exercise
-# the same cross-thread path a real ASGI dispatch takes rather than a
-# same-thread shortcut.
-pytestmark = pytest.mark.django_db(transaction=True)
+pytestmark = pytest.mark.django_db
 
 
 def make_record(**kwargs):
@@ -60,7 +52,7 @@ def run_tool(name: str, args: dict, *, user=None):
 
     token = set_context(ToolContext(user=_StaffStub() if user is None else user, token=None))
     try:
-        return asyncio.run(TOOL_HANDLERS[name](args))
+        return TOOL_HANDLERS[name](args)
     finally:
         reset_context(token)
 

@@ -10,10 +10,7 @@ mirroring test_help_search.py.
 
 from __future__ import annotations
 
-import asyncio
-
 import pytest
-from asgiref.sync import async_to_sync
 from django.contrib.auth import get_user_model
 from django.db import connection
 
@@ -50,10 +47,7 @@ def _call_handler(name, args, *, user=None):
     """Invoke an MCP tool handler with a given calling user."""
     token = set_context(ToolContext(user=user, token=None))
     try:
-        handler = TOOL_HANDLERS[name]
-        if asyncio.iscoroutinefunction(handler):
-            return async_to_sync(lambda: handler(args))()
-        return handler(args)
+        return TOOL_HANDLERS[name](args)
     finally:
         reset_context(token)
 

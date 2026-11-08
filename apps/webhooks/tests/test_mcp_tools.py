@@ -1,12 +1,11 @@
 """The custom webhook MCP tools (test_webhook / replay_delivery / summary_deliveries).
 
-Tools are async and call sync_to_async wrappers; we drive the sync inner functions
-directly (the async wrappers are trivial pass-throughs), plus one async smoke test.
+We drive the inner functions directly (the tool entry points are trivial
+pass-throughs that unpack args), plus one entry-point smoke test.
 """
 
 from __future__ import annotations
 
-import asyncio
 from unittest import mock
 
 import pytest
@@ -65,7 +64,7 @@ def test_replay_clones(no_real_enqueue):
     assert replay.payload == {"x": 1}
 
 
-def test_async_wrapper_runs(no_real_enqueue):
-    """The async tool entry point resolves through sync_to_async."""
-    out = asyncio.run(mcp_tools.summary_deliveries({}))
+def test_tool_entry_point_runs(no_real_enqueue):
+    """The registered tool entry point returns the summary directly."""
+    out = mcp_tools.summary_deliveries({})
     assert "deliveries" in out

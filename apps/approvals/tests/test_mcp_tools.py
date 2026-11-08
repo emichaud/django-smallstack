@@ -1,20 +1,13 @@
-"""The MCP tools — registration gating and transport agreement with services.
-
-transaction=True for the same reason as telemetry's MCP tests: the handlers
-are async and reach the ORM via sync_to_async (another thread), which can't
-see rows inside pytest-django's default wrapping transaction on SQLite.
-"""
+"""The MCP tools — registration gating and transport agreement with services."""
 
 from __future__ import annotations
-
-import asyncio
 
 import pytest
 
 from apps.approvals import services
 from apps.approvals.models import ApprovalRequest
 
-pytestmark = pytest.mark.django_db(transaction=True)
+pytestmark = pytest.mark.django_db
 
 
 def run_tool(name: str, args: dict, *, user):
@@ -23,7 +16,7 @@ def run_tool(name: str, args: dict, *, user):
 
     token = set_context(ToolContext(user=user, token=None))
     try:
-        return asyncio.run(TOOL_HANDLERS[name](args))
+        return TOOL_HANDLERS[name](args)
     finally:
         reset_context(token)
 

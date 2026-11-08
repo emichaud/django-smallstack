@@ -11,7 +11,7 @@ import logging
 from contextlib import contextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass, field
-from typing import Any, Awaitable, Callable, Iterator, Optional
+from typing import Any, Awaitable, Callable, Iterator, Optional, Union
 
 logger = logging.getLogger("smallstack.mcp.server")
 
@@ -55,7 +55,11 @@ class ToolDef:
 
 # Module-level registries — populated by @tool, read by views.py + factory.
 TOOL_REGISTRY: dict[str, ToolDef] = {}
-TOOL_HANDLERS: dict[str, Callable[[dict[str, Any]], Awaitable[Any]]] = {}
+# A handler is a plain ``def`` (the norm: every bundled tool) or an ``async def``.
+# views.py runs a coroutine handler through ``async_to_sync`` so its
+# ``sync_to_async`` ORM work still lands on the request's thread + connection.
+ToolHandler = Callable[[dict[str, Any]], Union[Any, Awaitable[Any]]]
+TOOL_HANDLERS: dict[str, ToolHandler] = {}
 
 
 def tool(
@@ -67,19 +71,24 @@ def tool(
     requires_access: str | None = None,
     visible_to: Callable[[Any], bool] | None = None,
 ) -> Callable[[Callable], Callable]:
-    """Register an async tool callback with the MCP server.
+    """Register a tool callback with the MCP server.
 
     Usage:
         @tool("today", "Return today's local date and weekday.")
-        async def today(args: dict) -> dict:
+        def today(args: dict) -> dict:
             ctx = current_context()
             return {"date": ..., "user": ctx.user.username}
+
+    Write handlers as a plain ``def`` and call the ORM directly. The endpoint
+    is served by a WSGI thread that blocks on the result either way, so
+    ``async def`` buys no concurrency; it is still accepted (dispatched via
+    ``async_to_sync``) for a tool that genuinely awaits external I/O.
 
     Idempotent: registering the same name twice logs a warning and keeps
     the first registration (so the factory can be re-run safely).
     """
 
-    def decorator(fn: Callable[[dict[str, Any]], Awaitable[Any]]) -> Callable:
+    def decorator(fn: ToolHandler) -> Callable:
         if name in TOOL_REGISTRY:
             logger.warning("MCP tool %r already registered — skipping duplicate", name)
             return fn

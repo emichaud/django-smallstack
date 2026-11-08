@@ -12,13 +12,11 @@ from __future__ import annotations
 
 from typing import Any
 
-from asgiref.sync import sync_to_async
-
 from apps.mcp.server import tool
 
 
-async def summary_deliveries(args: dict[str, Any]) -> dict[str, Any]:
-    return await sync_to_async(_summary)()
+def summary_deliveries(args: dict[str, Any]) -> dict[str, Any]:
+    return _summary()
 
 
 def _summary() -> dict[str, Any]:
@@ -38,8 +36,8 @@ def _summary() -> dict[str, Any]:
     }
 
 
-async def test_webhook(args: dict[str, Any]) -> dict[str, Any]:
-    return await sync_to_async(_test_webhook)(args["endpoint_id"])
+def test_webhook(args: dict[str, Any]) -> dict[str, Any]:
+    return _test_webhook(args["endpoint_id"])
 
 
 def _test_webhook(endpoint_id: int) -> dict[str, Any]:
@@ -73,8 +71,8 @@ def _test_webhook(endpoint_id: int) -> dict[str, Any]:
     return result
 
 
-async def replay_delivery(args: dict[str, Any]) -> dict[str, Any]:
-    return await sync_to_async(_replay)(args["delivery_id"])
+def replay_delivery(args: dict[str, Any]) -> dict[str, Any]:
+    return _replay(args["delivery_id"])
 
 
 def _replay(delivery_id: int) -> dict[str, Any]:
@@ -95,10 +93,8 @@ def _replay(delivery_id: int) -> dict[str, Any]:
     return result
 
 
-async def replay_dead_deliveries(args: dict[str, Any]) -> dict[str, Any]:
-    return await sync_to_async(_replay_dead)(
-        args.get("endpoint_id"), args.get("limit", 100)
-    )
+def replay_dead_deliveries(args: dict[str, Any]) -> dict[str, Any]:
+    return _replay_dead(args.get("endpoint_id"), args.get("limit", 100))
 
 
 def _replay_dead(endpoint_id: int | None, limit: int) -> dict[str, Any]:

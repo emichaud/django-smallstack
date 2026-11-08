@@ -1,6 +1,5 @@
 """Multi-tenant access via CRUDView.get_list_queryset."""
 
-import inspect
 
 import pytest
 from django import forms
@@ -28,11 +27,7 @@ def _wipe(clean_registry):
 def _call(name, args, user, token):
     ctx_tok = set_context(ToolContext(user=user, token=token))
     try:
-        handler = TOOL_HANDLERS[name]
-        if inspect.iscoroutinefunction(handler):
-            import asyncio
-            return asyncio.run(handler(args))
-        return handler(args)
+        return TOOL_HANDLERS[name](args)
     finally:
         reset_context(ctx_tok)
 

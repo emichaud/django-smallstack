@@ -34,9 +34,11 @@ MCP_TOOL_MODULES = ["apps.mcp_tools.summary"]
 
 `AppConfig.ready()` imports each entry at startup, the `@tool` decorator self-registers.
 
-## Sync or async — either works
+## Sync by default
 
-The dispatcher inspects the handler. Use plain `def` for ORM-heavy tools (sync ORM is fine). Use `async def` when calling external HTTP services with `httpx.AsyncClient`.
+Write a plain `def` and call the ORM directly. Every bundled tool does. `/mcp` is served by a WSGI thread that waits for your handler to finish, so `async def` buys no concurrency: the request costs the same thread either way.
+
+`async def` is still accepted, for a tool that genuinely awaits external I/O. The dispatcher runs it through `async_to_sync`, so wrap any ORM call in `sync_to_async` (keep the default `thread_sensitive=True`) and it lands on the request's own thread and connection. Never drive a handler with `asyncio.run` — in a test or anywhere else — because that sends the ORM work to a shared background thread outside the request's transaction. `test_async_dispatch_thread.py` pins this.
 
 ## Write tools
 

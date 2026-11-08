@@ -77,9 +77,11 @@ def manage_users(args):
 
 Order: `readonly` < `staff` < `auth`. A token below the required level gets 403.
 
-## Sync or async — pick whichever fits
+## Sync by default
 
-Sync `def` is fine for ORM-heavy work (the dispatcher detects and runs sync handlers directly). Use `async def` only when calling external HTTP / IO.
+Write a plain `def` and call the ORM directly. Every bundled tool does. `/mcp` is served by a WSGI thread that waits for your handler to finish, so `async def` buys no concurrency: the request costs the same thread either way.
+
+`async def` is still accepted, for a tool that genuinely awaits external I/O. The dispatcher runs it through `async_to_sync`, so wrap any ORM call in `sync_to_async` (keep the default `thread_sensitive=True`) and it lands on the request's own thread and connection. Never drive a handler with `asyncio.run` — in a test or anywhere else — because that sends the ORM work to a shared background thread outside the request's transaction. `test_async_dispatch_thread.py` pins this.
 
 ## Don't
 

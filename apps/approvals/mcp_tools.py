@@ -29,8 +29,6 @@ import logging
 from collections.abc import Callable
 from typing import Any
 
-from asgiref.sync import sync_to_async
-
 from apps.mcp.server import current_context, tool
 
 from .resolvers import resolve_assignees, resolve_target
@@ -144,7 +142,7 @@ def _serialize(req: Any) -> dict[str, Any]:
     },
     write=True,
 )
-async def request_approval_tool(args: dict[str, Any]) -> dict[str, Any]:
+def request_approval_tool(args: dict[str, Any]) -> dict[str, Any]:
     from datetime import timedelta
 
     from . import services
@@ -183,7 +181,7 @@ async def request_approval_tool(args: dict[str, Any]) -> dict[str, Any]:
             return _err("disabled", str(exc))
         return _serialize(req)
 
-    return await sync_to_async(_file)()
+    return _file()
 
 
 @_register(
@@ -208,7 +206,7 @@ async def request_approval_tool(args: dict[str, Any]) -> dict[str, Any]:
     },
     write=True,
 )
-async def decide_approval_tool(args: dict[str, Any]) -> dict[str, Any]:
+def decide_approval_tool(args: dict[str, Any]) -> dict[str, Any]:
     from . import permissions, services
     from .models import ApprovalRequest
 
@@ -240,4 +238,4 @@ async def decide_approval_tool(args: dict[str, Any]) -> dict[str, Any]:
             return _err("disabled", str(exc))
         return _serialize(req)
 
-    return await sync_to_async(_decide)()
+    return _decide()

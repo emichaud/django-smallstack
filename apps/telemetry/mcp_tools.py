@@ -2,7 +2,7 @@
 
 Auto-discovered by ``apps.mcp``. These are the same operations as
 ``/api/logger/`` and ``manage.py log_capture``, over a third transport — and
-deliberately the same *code*: every handler is a thin async wrapper around
+deliberately the same *code*: every handler is a thin wrapper around
 ``queries.py``. A filter that means one thing over HTTP and another to an agent
 would be worse than not shipping the tools at all.
 
@@ -41,8 +41,6 @@ So, matching REST exactly:
 from __future__ import annotations
 
 import logging
-
-from asgiref.sync import sync_to_async
 
 from apps.mcp.server import current_context, tool
 
@@ -141,13 +139,13 @@ def _error(exc: queries.TelemetryQueryError) -> dict:
     },
     visible_to=_staff_only,
 )
-async def logs_search(args: dict) -> dict:
+def logs_search(args: dict) -> dict:
     denied = _require_staff_user()
     if denied:
         return denied
     try:
         queries.reject_unknown(args.keys(), queries.FILTER_NAMES, kind="argument")
-        return await sync_to_async(queries.search_records)(**args)
+        return queries.search_records(**args)
     except queries.TelemetryQueryError as exc:
         return _error(exc)
 
@@ -166,13 +164,13 @@ async def logs_search(args: dict) -> dict:
     },
     visible_to=_staff_only,
 )
-async def logs_get(args: dict) -> dict:
+def logs_get(args: dict) -> dict:
     denied = _require_staff_user()
     if denied:
         return denied
     try:
         queries.reject_unknown(args.keys(), ("id",), kind="argument")
-        record = await sync_to_async(queries.get_record)(args.get("id"))
+        record = queries.get_record(args.get("id"))
     except queries.TelemetryQueryError as exc:
         return _error(exc)
     return record or {"error": f"No log record with id {args.get('id')!r}"}
@@ -192,7 +190,7 @@ async def logs_get(args: dict) -> dict:
     {"type": "object", "properties": {}, "additionalProperties": False},
     visible_to=_staff_only,
 )
-async def logs_status(args: dict) -> dict:
+def logs_status(args: dict) -> dict:
     denied = _require_staff_user()
     if denied:
         return denied
@@ -208,7 +206,7 @@ async def logs_status(args: dict) -> dict:
             "top_loggers": queries.logger_counts(20)["loggers"],
         }
 
-    return await sync_to_async(_gather)()
+    return _gather()
 
 
 # --- write -----------------------------------------------------------------
@@ -238,14 +236,14 @@ async def logs_status(args: dict) -> dict:
     write=True,
     visible_to=_staff_only,
 )
-async def logs_capture_start(args: dict) -> dict:
+def logs_capture_start(args: dict) -> dict:
     denied = _require_staff_user()
     if denied:
         return denied
     try:
         queries.reject_unknown(args.keys(), ("level", "minutes", "note"), kind="argument")
         ctx = current_context()
-        return await sync_to_async(queries.open_capture)(
+        return queries.open_capture(
             level=args.get("level", "DEBUG"),
             minutes=args.get("minutes", 15),
             note=args.get("note", ""),
@@ -266,13 +264,13 @@ async def logs_capture_start(args: dict) -> dict:
     write=True,
     visible_to=_staff_only,
 )
-async def logs_capture_stop(args: dict) -> dict:
+def logs_capture_stop(args: dict) -> dict:
     denied = _require_staff_user()
     if denied:
         return denied
     try:
         queries.reject_unknown(args.keys(), (), kind="argument")
         ctx = current_context()
-        return await sync_to_async(queries.close_capture)(actor=getattr(ctx, "user", None))
+        return queries.close_capture(actor=getattr(ctx, "user", None))
     except queries.TelemetryQueryError as exc:
         return _error(exc)

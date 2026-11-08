@@ -17,10 +17,7 @@ out STAFF-tier hits before returning.
 
 from __future__ import annotations
 
-import asyncio
-
 import pytest
-from asgiref.sync import async_to_sync
 from django.contrib.auth import get_user_model
 
 from apps.mcp.server import TOOL_HANDLERS, ToolContext, reset_context, set_context
@@ -47,19 +44,11 @@ def _ensure_search_tools_registered():
     register_search_tools()
 
 
-def _call_async(coro):
-    """Run an async MCP handler from a sync test."""
-    return async_to_sync(lambda: coro)()
-
-
 def _call_handler(name, args, *, user, token=None):
     """Invoke an MCP tool handler with the given calling user."""
     ctx = set_context(ToolContext(user=user, token=token))
     try:
-        handler = TOOL_HANDLERS[name]
-        if asyncio.iscoroutinefunction(handler):
-            return async_to_sync(handler)(args)
-        return handler(args)
+        return TOOL_HANDLERS[name](args)
     finally:
         reset_context(ctx)
 
