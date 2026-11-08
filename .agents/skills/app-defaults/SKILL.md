@@ -141,6 +141,11 @@ entirely. The command still works.
 
 ## Testing your defaults
 
+The test settings turn the after-migrate sync off
+(`SMALLSTACK_DASHBOARD_DEFAULTS_SYNC = False` in `config/settings/test.py`), so
+every test starts with no app-shipped rows; the framework's own tests count
+rows and would fail on yours. A test that wants your defaults syncs them:
+
 ```python
 from apps.dashboards.defaults import sync_defaults
 

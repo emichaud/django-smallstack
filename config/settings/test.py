@@ -87,3 +87,9 @@ TASKS = {
         "QUEUES": ["default", "email", "webhooks"],
     }
 }
+
+# The test database starts empty of app-shipped dashboards: an app's defaults,
+# seeded by the after-migrate sync, otherwise sat in every test and broke the
+# framework's own counts. A test that wants them calls
+# apps.dashboards.defaults.sync_defaults(["<app>"]) (docs/skills/app-defaults.md).
+SMALLSTACK_DASHBOARD_DEFAULTS_SYNC = False

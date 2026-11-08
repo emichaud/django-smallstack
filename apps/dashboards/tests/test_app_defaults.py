@@ -73,9 +73,10 @@ def bundle(**overrides) -> Defaults:
 
 @pytest.fixture(autouse=True)
 def registry():
-    """Each test registers what it needs; the real registry comes back after."""
+    """Each test registers what it needs, and sees nothing else: a project's own
+    apps register bundles too. The real registry comes back after."""
     saved = dict(d._REGISTRY)
-    d._REGISTRY.pop(APP, None)
+    d._REGISTRY.clear()
     yield
     d._REGISTRY.clear()
     d._REGISTRY.update(saved)
@@ -213,9 +214,16 @@ def test_defaults_of_an_app_turned_off_are_parked_and_come_back(monkeypatch):
     assert not m.is_archived and not m.provided_parked
 
 
-def test_the_sync_runs_after_migrate_and_by_command():
+def test_the_sync_is_off_in_test_settings_so_shipped_defaults_dont_leak_into_tests():
+    from django.conf import settings as live
+
+    assert live.SMALLSTACK_DASHBOARD_DEFAULTS_SYNC is False
+
+
+def test_the_sync_runs_after_migrate_and_by_command(settings):
     from apps.dashboards.apps import _sync_defaults_after_migrate
 
+    settings.SMALLSTACK_DASHBOARD_DEFAULTS_SYNC = True  # off in test settings
     register_defaults(bundle())
     _sync_defaults_after_migrate(django_apps.get_app_config("auth"))  # another app's signal: nothing
     assert not Metric.objects.filter(provided_by=APP).exists()

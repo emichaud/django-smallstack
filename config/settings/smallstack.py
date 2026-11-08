@@ -708,6 +708,10 @@ SMALLSTACK_BLOG_CONFIRM_MAX_AGE_DAYS = config(
 # turning it back on never needs a schema change; in-process
 # ``apps.dashboards.metrics.evaluate`` and the {% metric_card %} tag keep working.
 SMALLSTACK_DASHBOARDS_ENABLED = config("SMALLSTACK_DASHBOARDS_ENABLED", default=True, cast=bool)
+# Create and update the metrics, dashboards and goal lists apps ship
+# (dashboard_defaults.py) after every migrate. Off: only `manage.py
+# dashboard_defaults` does it. Off in test settings. docs/skills/app-defaults.md.
+SMALLSTACK_DASHBOARD_DEFAULTS_SYNC = config("SMALLSTACK_DASHBOARD_DEFAULTS_SYNC", default=True, cast=bool)
 # What a new goal list tracks until someone changes it on its History page: any of
 # hourly, daily, weekly, monthly, quarterly. Empty makes tracking entirely opt-in.
 SMALLSTACK_SNAPSHOT_DEFAULT_CADENCES = ["weekly"]
