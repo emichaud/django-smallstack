@@ -10,6 +10,7 @@ from __future__ import annotations
 import logging
 import urllib.error
 import urllib.request
+from concurrent.futures import ThreadPoolExecutor, wait
 
 from django.conf import settings
 from django.db.models import Model
@@ -62,35 +63,32 @@ def _model_has_field(model: type[Model], name: str) -> bool:
         return False
 
 
-def collect_source(name: str) -> dict:
-    """Poll one source. Returns ``{name, fetched, created, skipped, error}``."""
-    source = get_source(name)
-    if source is None:
-        return {"name": name, "error": "unknown source", "fetched": 0, "created": 0, "skipped": 0}
-    if not source.enabled:
-        return {"name": name, "error": "disabled", "fetched": 0, "created": 0, "skipped": 0}
+def _download(source: FeedSource) -> list[ParsedItem]:
+    """Fetch and parse one source. Network and CPU only, no ORM, so it is safe
+    on a worker thread; ``collect_all`` runs several at once."""
+    return parse_feed(_fetch(source.url, source.request_headers()))
 
-    try:
-        content = _fetch(source.url, source.request_headers())
-        items = parse_feed(content)
-    except urllib.error.HTTPError as exc:
+
+def _failure(name: str, source: FeedSource, exc: BaseException) -> dict:
+    """The result row for a fetch or parse that raised."""
+    if isinstance(exc, urllib.error.HTTPError) and exc.code in (401, 403):
         # A gated feed answers 401 (or 403) — point the operator at the fix
         # rather than surfacing the raw urllib message.
-        if exc.code in (401, 403):
-            logger.warning("Feed %s (%s) requires auth (HTTP %s)", name, source.url, exc.code)
-            return {
-                "name": name,
-                "error": f"auth required (HTTP {exc.code}) — set token=/headers= on the source",
-                "fetched": 0,
-                "created": 0,
-                "skipped": 0,
-            }
-        logger.exception("Feed fetch/parse failed for %s (%s)", name, source.url)
-        return {"name": name, "error": str(exc), "fetched": 0, "created": 0, "skipped": 0}
-    except Exception as exc:
-        logger.exception("Feed fetch/parse failed for %s (%s)", name, source.url)
-        return {"name": name, "error": str(exc), "fetched": 0, "created": 0, "skipped": 0}
+        logger.warning("Feed %s (%s) requires auth (HTTP %s)", name, source.url, exc.code)
+        return {
+            "name": name,
+            "error": f"auth required (HTTP {exc.code}) — set token=/headers= on the source",
+            "fetched": 0,
+            "created": 0,
+            "skipped": 0,
+        }
+    logger.error("Feed fetch/parse failed for %s (%s)", name, source.url, exc_info=exc)
+    return {"name": name, "error": str(exc), "fetched": 0, "created": 0, "skipped": 0}
 
+
+def _ingest(source: FeedSource, items: list[ParsedItem]) -> dict:
+    """Upsert parsed items into the source's model. Calling thread only."""
+    name = source.name
     model = _target_model(source)
     created = skipped = 0
     for item in items:
@@ -116,16 +114,67 @@ def collect_source(name: str) -> dict:
     return {"name": name, "fetched": len(items), "created": created, "skipped": skipped, "error": None}
 
 
+def collect_source(name: str) -> dict:
+    """Poll one source. Returns ``{name, fetched, created, skipped, error}``."""
+    source = get_source(name)
+    if source is None:
+        return {"name": name, "error": "unknown source", "fetched": 0, "created": 0, "skipped": 0}
+    if not source.enabled:
+        return {"name": name, "error": "disabled", "fetched": 0, "created": 0, "skipped": 0}
+    try:
+        items = _download(source)
+    except Exception as exc:
+        return _failure(name, source, exc)
+    return _ingest(source, items)
+
+
+# A whole run gives up on a fetch still going after this long (DNS can hang
+# past urllib's own timeout), so one stuck source can't hold the task worker.
+_RUN_DEADLINE = 3 * _TIMEOUT
+
+
+def _pool_size() -> int:
+    return max(1, int(getattr(settings, "SMALLSTACK_FEEDS_MAX_CONCURRENT_FETCHES", 6)))
+
+
 def collect_all() -> list[dict]:
     """Poll every enabled source. One source's failure never aborts the rest.
+
+    Sources are fetched in parallel on a small thread pool, so a run with N slow
+    feeds costs about one timeout rather than N. Every database write stays on
+    the calling thread. Results come back in registry order.
 
     No-ops (returns ``[]``) when the ``SMALLSTACK_FEEDS_ENABLED`` master switch
     is off, so a disabled feeds surface never reaches out over the network.
     """
     if not getattr(settings, "SMALLSTACK_FEEDS_ENABLED", True):
         return []
-    results = []
-    for source in all_sources():
-        if source.enabled:
-            results.append(collect_source(source.name))
-    return results
+    enabled = [source for source in all_sources() if source.enabled]
+    if len(enabled) <= 1 or _pool_size() <= 1:
+        return [collect_source(source.name) for source in enabled]
+
+    pool = ThreadPoolExecutor(max_workers=min(_pool_size(), len(enabled)), thread_name_prefix="feed-fetch")
+    try:
+        futures = {source.name: pool.submit(_download, source) for source in enabled}
+        wait(futures.values(), timeout=_RUN_DEADLINE)
+        results = []
+        for source in enabled:
+            future = futures[source.name]
+            if not future.done():
+                logger.warning("Feed %s (%s) still fetching after %ss; skipped", source.name, source.url, _RUN_DEADLINE)
+                results.append(
+                    {
+                        "name": source.name,
+                        "error": f"fetch still running after the {_RUN_DEADLINE}s run deadline",
+                        "fetched": 0,
+                        "created": 0,
+                        "skipped": 0,
+                    }
+                )
+            elif (exc := future.exception()) is not None:
+                results.append(_failure(source.name, source, exc))
+            else:
+                results.append(_ingest(source, future.result()))
+        return results
+    finally:
+        pool.shutdown(wait=False, cancel_futures=True)

@@ -45,6 +45,7 @@ Breaking-change migration recipes live in [`UPGRADING.md`](UPGRADING.md).
 
 ### Changed
 - **Webhooks get a queue and a worker of their own.** Outbound deliveries run on a `webhooks` task queue (`SMALLSTACK_WEBHOOK_QUEUE`, used when `TASKS` lists it, `default` otherwise), and the container starts a worker for it (`WORKER_WEBHOOKS`, default 1, `0` for none). A fan-out to slow or dead endpoints no longer holds up sign-in emails and scheduled jobs on the shared worker. See UPGRADING.
+- **Feed collection fetches sources in parallel** (`SMALLSTACK_FEEDS_MAX_CONCURRENT_FETCHES`, default 6), so several slow feeds cost about one timeout. Writes stay on the calling thread; a fetch still going after 60 seconds is reported for that source and skipped.
 - **Invite and sign-in-code emails no longer wait on the mail server inside the request.** They go out from the `email` task queue (inline under `DEBUG`, or with `SMALLSTACK_ACCOUNTS_EMAILS_INLINE=True`). The queued task holds only IDs: the worker mints the sign-in code (`LoginCode.rekey`) or invite token as it sends, so no credential is stored in the task table. Production needs a worker on `email`; see UPGRADING.
 - **SMTP gives up after 10 seconds by default** (`EMAIL_TIMEOUT`, `0` for none). Unset used to mean no timeout, so a hung mail server held a web thread until gunicorn killed it, or held the task worker, and everything queued behind it, indefinitely.
 

@@ -138,3 +138,108 @@ def test_gated_feed_without_auth_reports_auth_required(monkeypatch):
     result = collect_source("gated")
     assert result["fetched"] == 0 and result["created"] == 0
     assert "auth required" in result["error"] and "401" in result["error"]
+
+
+# ── collect_all fetches in parallel; writes stay on the calling thread ──────
+def test_collect_all_fetches_sources_at_the_same_time(monkeypatch, settings):
+    """A barrier proves overlap: serial fetches would break it and record errors."""
+    import threading
+
+    settings.SMALLSTACK_FEEDS_MAX_CONCURRENT_FETCHES = 6
+    barrier = threading.Barrier(3, timeout=5)
+
+    def meet(url, headers=None):
+        barrier.wait()
+        return SAMPLE
+
+    monkeypatch.setattr(collector, "_fetch", meet)
+    for name in ("p1", "p2", "p3"):
+        register_feed_source(name, f"https://e/{name}.rss")
+    results = collect_all()
+    assert [r["name"] for r in results] == ["p1", "p2", "p3"]  # registry order kept
+    assert all(r["error"] is None and r["created"] == 2 for r in results)
+
+
+def test_pool_of_one_fetches_one_after_another(monkeypatch, settings):
+    import threading
+
+    settings.SMALLSTACK_FEEDS_MAX_CONCURRENT_FETCHES = 1
+    barrier = threading.Barrier(2, timeout=0.2)
+
+    def meet(url, headers=None):
+        barrier.wait()
+        return SAMPLE
+
+    monkeypatch.setattr(collector, "_fetch", meet)
+    register_feed_source("s_a", "https://e/a.rss")
+    register_feed_source("s_b", "https://e/b.rss")
+    assert all(r["error"] is not None for r in collect_all())  # nobody to meet
+
+
+def test_pooled_writes_happen_on_the_calling_thread(monkeypatch, _fake_fetch):
+    import threading
+
+    from django.db.models.signals import post_save
+
+    caller = threading.get_ident()
+    writers: set[int] = set()
+
+    def on_save(sender, **kwargs):
+        writers.add(threading.get_ident())
+
+    register_feed_source("w1", "https://e/1.rss")
+    register_feed_source("w2", "https://e/2.rss")
+    post_save.connect(on_save, sender=CollectedItem)
+    try:
+        collect_all()
+    finally:
+        post_save.disconnect(on_save, sender=CollectedItem)
+    assert writers == {caller}
+    assert CollectedItem.objects.count() == 4
+
+
+def test_pooled_failures_stay_per_source(monkeypatch):
+    import io
+    import urllib.error
+
+    def fetch(url, headers=None):
+        if "gated" in url:
+            raise urllib.error.HTTPError(url, 401, "Unauthorized", {}, io.BytesIO())
+        if "broken" in url:
+            raise OSError("connection reset")
+        return SAMPLE
+
+    monkeypatch.setattr(collector, "_fetch", fetch)
+    register_feed_source("ok", "https://e/ok.rss")
+    register_feed_source("gated", "https://e/gated.rss")
+    register_feed_source("broken", "https://e/broken.rss")
+    by_name = {r["name"]: r for r in collect_all()}
+    assert by_name["ok"]["created"] == 2 and by_name["ok"]["error"] is None
+    assert "auth required" in by_name["gated"]["error"]
+    assert by_name["broken"]["error"] == "connection reset"
+
+
+def test_fetch_past_the_run_deadline_is_skipped(monkeypatch):
+    import threading
+    import time
+
+    release = threading.Event()
+
+    def fetch(url, headers=None):
+        if "slow" in url:
+            release.wait(10)
+        return SAMPLE
+
+    monkeypatch.setattr(collector, "_fetch", fetch)
+    monkeypatch.setattr(collector, "_RUN_DEADLINE", 0.5)
+    register_feed_source("slow", "https://e/slow.rss")
+    register_feed_source("fast", "https://e/fast.rss")
+    started = time.monotonic()
+    try:
+        by_name = {r["name"]: r for r in collect_all()}
+    finally:
+        release.set()
+    assert time.monotonic() - started < 5  # abandoned, not waited on
+    assert by_name["fast"]["created"] == 2
+    assert "deadline" in by_name["slow"]["error"]
+    assert not CollectedItem.objects.filter(source="slow").exists()

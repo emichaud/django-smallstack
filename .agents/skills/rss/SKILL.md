@@ -235,6 +235,13 @@ and on a schedule — the `@scheduled` `poll_feed_sources` job (every 15 min by
 default) shows up in the scheduler UI, where ops can pause/retune the cadence
 without a redeploy. Collection is idempotent: re-polling never duplicates.
 
+`collect_all()` fetches sources in parallel (`SMALLSTACK_FEEDS_MAX_CONCURRENT_FETCHES`,
+default 6; `1` fetches one after another), so several slow feeds cost about one
+timeout, not one each. Parsing happens on the fetch thread; every write stays on
+the calling thread. A fetch still running after 60 seconds is reported as an
+error for that source and the rest of the run carries on. A custom `map=` runs on
+the calling thread, so it may use the ORM.
+
 The parser handles **RSS 2.0 + Atom 1.0** with zero dependencies. Need exotic
 formats (RSS 1.0/RDF, Media RSS)? Swap in `feedparser` behind the same
 `parse_feed`/`ParsedItem` seam.

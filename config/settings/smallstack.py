@@ -451,6 +451,8 @@ SMALLSTACK_WEBHOOKS_ENABLED = config("SMALLSTACK_WEBHOOKS_ENABLED", default=True
 # Feeds: publish curated RSS/Atom feeds (register_feed) and consume external feeds
 # into a model (the collector). Off ⇒ /feed/ 404s and the collector no-ops.
 SMALLSTACK_FEEDS_ENABLED = config("SMALLSTACK_FEEDS_ENABLED", default=True, cast=bool)
+# Feed sources fetched at once per collection run (1 = one after another).
+SMALLSTACK_FEEDS_MAX_CONCURRENT_FETCHES = config("SMALLSTACK_FEEDS_MAX_CONCURRENT_FETCHES", default=6, cast=int)
 
 # Independent toggles for each direction (both gated by the master switch above).
 SMALLSTACK_WEBHOOKS_OUTBOUND = config("SMALLSTACK_WEBHOOKS_OUTBOUND", default=True, cast=bool)
