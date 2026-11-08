@@ -8,7 +8,7 @@ listed, no downstream migration is required.
 
 ---
 
-## Unreleased — webhooks get a queue and a worker of their own
+## v0.30.0 — webhooks get a queue and a worker of their own
 
 **Who is affected:** deployments using the bundled `docker-entrypoint.sh`, and
 projects that override `TASKS`.
@@ -29,7 +29,7 @@ container, roughly 60 to 80 MB.
   webhooks. To isolate them there, see the commented examples in
   `config/deploy.yml` and `docker-compose.yml`.
 
-## Unreleased — invite and sign-in-code emails are queued; SMTP times out
+## v0.30.0 — invite and sign-in-code emails are queued; SMTP times out
 
 **Who is affected:** production deployments that send staff invites or use
 passwordless sign-in (`SMALLSTACK_PASSWORDLESS_LOGIN`) and run **no task
@@ -51,7 +51,7 @@ seconds; unset used to mean no timeout at all.
   `send_login_code_email(request, user, code)` still sends immediately; the
   passwordless view now calls `send_login_code(request, login_code)` instead.
 
-## Unreleased — a chart filters a dataset of its own; a metric goes on a single stat
+## v0.30.0 — a chart filters a dataset of its own; a metric goes on a single stat
 
 **Who is affected:** any project with dashboard cards, and any app that
 registers a `ComponentType` of its own (a chart) or writes cards over REST or
@@ -92,7 +92,7 @@ Deleting the metric no longer removes them.
 - **Add to goals** needs a single stat over a metric; a stat with its own
   filter is saved as a metric first.
 
-## Unreleased — only administrators change an address
+## v0.30.0 — only administrators change an address
 
 **Who is affected:** staff (or their API tokens and agents) who change a dashboard's, report's,
 playlist's or goal list's `slug`.

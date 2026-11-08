@@ -9,6 +9,8 @@ Breaking-change migration recipes live in [`UPGRADING.md`](UPGRADING.md).
 
 ## [Unreleased]
 
+## [0.30.0] - 2026-11-08
+
 ### Added
 - **Every Dashboards and Goals piece on your own pages.** New template tags beside `{% dashboard %}`, `{% metric_card %}` and `{% playlist %}`: `{% goal_list %}` (a goal list judged), `{% card %}` (one saved card) and `{% report %}` (a report's table). Data tags hand a page the engine's results to draw its own way: `{% metric_value %}`, `{% metric_series %}`, `{% goal_values %}`, `{% report_values %}` and `{% dashboard_values %}`, with `{% dashboards_assets %}` for the stylesheet and scripts. All check access as the pages do. The starter page (`/starter/dashboard/`) shows each. The report page's table is now a shared include (`dashboards/includes/report_table.html`).
 - **Apps ship their own dashboard defaults.** An app declares metrics, saved cards, dashboards, reports, goal lists and playlists in a `dashboard_defaults.py` (`register_defaults(Defaults(...))`). They're created after every migrate, shared and marked **From <app>**. People edit them in place: the app updates a default only while nobody has changed it, a changed one offers **Reset to default**, a deleted one stays deleted, and an app's defaults are archived while it's turned off. `manage.py dashboard_defaults` (`--dry-run`, `--app`, `--restore`, `--adopt`) runs the same sync. `seed_dashboards` is now the framework's own bundle and no longer overwrites edits to the demo. Migration `smallstack_dashboards.0014_app_defaults` adds the provenance fields (additive). See `docs/skills/app-defaults.md`.
@@ -3350,7 +3352,8 @@ Condensed highlights of the v0.11 series (see git history for per-patch detail):
 See the git tag history (`git tag`) and `ai_cowork/audit_history/` for the full record of the
 v0.8–v0.10 API-server, modern-dark-theme, search, MCP, and Postgres eras.
 
-[Unreleased]: https://github.com/emichaud/django-smallstack/compare/v0.29.0...HEAD
+[Unreleased]: https://github.com/emichaud/django-smallstack/compare/v0.30.0...HEAD
+[0.30.0]: https://github.com/emichaud/django-smallstack/compare/v0.29.0...v0.30.0
 [0.29.0]: https://github.com/emichaud/django-smallstack/compare/v0.28.0...v0.29.0
 [0.28.0]: https://github.com/emichaud/django-smallstack/compare/v0.27.1...v0.28.0
 [0.27.1]: https://github.com/emichaud/django-smallstack/compare/v0.27.0...v0.27.1
