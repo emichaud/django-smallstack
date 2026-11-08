@@ -246,6 +246,20 @@ a.dash-tag.is-current:link, a.dash-tag.is-current:visited { color: var(--primary
     transition: opacity 0.12s;
 }
 .dash-cell-more svg { width: 1.15rem; height: 1.15rem; fill: currentColor; }
+/* Room for the ⋯ button: each card's top row stops short of the corner it sits in,
+   so a heading, a total or an event count is never under it. Card types of your
+   own: give your top row the class .dash-cell-toprow, or pad it the same way. */
+.dash-cell .dash-cell-toprow,
+.dash-cell .trend-head,
+.dash-cell .dash-cell-head,
+.dash-cell .cal-embed-nav,
+.dash-cell .calendar-header,
+.dash-cell .cal-embed-cell-title,
+.dash-cell .gauge-label,
+.dash-cell .nav-card-title,
+.dash-cell .stat-card-label,
+.dash-cell .widget-header,
+.dash-cell .dash-text > :first-child { padding-right: 2.5rem; box-sizing: border-box; }  /* the button: 1.75rem wide, 6px in */
 .dash-cell:hover .dash-cell-more,
 .dash-cell:focus-within .dash-cell-more,
 .dash-cell-more[aria-expanded="true"] { opacity: 1; }
@@ -2229,6 +2243,9 @@ a.ix-view-btn:visited {
 #dash-add-options > fieldset .dash-hint, #dash-add-options .dash-opt-field--wide .dash-hint { max-width: none; }
 .dash-opt-field { display: grid; gap: 0.25rem; margin-bottom: 0.3rem; flex: 0 1 auto; max-width: 100%; }
 .dash-opt-field > label { margin: 0; }
+.dash-link-fields { flex: 1 1 100%; }
+.dash-link-row { display: flex; flex-wrap: wrap; gap: 0.5rem 1.1rem; }
+.dash-link-row .dash-opt-field { flex: 1 1 12rem; }
 .cb-options .mb-field:has(> .plf-check) { align-self: end; padding-bottom: 0.65rem; }  /* a tick sits level with the fields beside it */
 .cb-preview-head { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
 .cb-period { width: auto; height: 1.9rem; padding: 0 0.4rem; font-size: 0.78rem; }

@@ -333,6 +333,52 @@
                 }
                 optionsBox.appendChild(field2);
             });
+            renderLinkFields(t);
+        }
+
+        // Linked cards (the builder's block, in short): a card that can send its
+        // clicks gets "Send clicks to"; a card that draws data gets "Listen to".
+        // Channel names are cleaned as typed; the server checks them on save
+        // (components.link_problems). A column mapping is the builder's job.
+        function linkField(id, labelText, hint) {
+            var field = document.createElement("div");
+            field.className = "dash-opt-field";
+            var label = document.createElement("label");
+            label.textContent = labelText;
+            var input = document.createElement("input");
+            input.type = "text";
+            input.id = id;
+            input.className = "vTextField";
+            input.maxLength = 40;
+            input.placeholder = "e.g. day";
+            input.addEventListener("change", function () {
+                input.value = input.value.trim().toLowerCase().replace(/[^a-z0-9_-]+/g, "-").replace(/^-+|-+$/g, "");
+            });
+            label.appendChild(input);
+            field.appendChild(label);
+            var p = document.createElement("p");
+            p.className = "dash-hint";
+            p.textContent = hint;
+            field.appendChild(p);
+            return field;
+        }
+        function renderLinkFields(t) {
+            if (!t || t.type === "__component" || !(t.publishes || t.needs_metric)) return;
+            var group = document.createElement("fieldset");
+            group.className = "dash-multi dash-link-fields";
+            var legend = document.createElement("legend");
+            legend.textContent = "Linked cards (optional)";
+            group.appendChild(legend);
+            var row = document.createElement("div");
+            row.className = "dash-link-row";
+            if (t.publishes && !t.needs_metric) {   // the calendar; charts link in the builder
+                row.appendChild(linkField("dash-add-publish", "Send clicks to", "A click on a day narrows the cards listening here to that day."));
+            }
+            if (t.needs_metric) {
+                row.appendChild(linkField("dash-add-listen", "Listen to", "Show only what a click on that channel selects. To match a different column, use Edit card."));
+            }
+            group.appendChild(row);
+            optionsBox.appendChild(group);
         }
         function readOptions(cell) {
             optionsBox.querySelectorAll("[name^='opt:']").forEach(function (input) {
@@ -356,6 +402,9 @@
                 (ticked[box.dataset.multi] = ticked[box.dataset.multi] || []).push(box.value);
             });
             Object.keys(ticked).forEach(function (name) { cell.options[name] = ticked[name].join(","); });
+            var pub = document.getElementById("dash-add-publish"), lis = document.getElementById("dash-add-listen");
+            if (pub && pub.value.trim()) cell.options.publish = pub.value.trim();
+            if (lis && lis.value.trim()) cell.options.listen = { channel: lis.value.trim() };
             Object.keys(customValues).forEach(function (name) { cell.options[name] = customValues[name]; });
         }
 

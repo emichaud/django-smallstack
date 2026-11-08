@@ -229,6 +229,9 @@ MCP call and the builder's preview, so one message reaches every surface.
   `data-` attributes read by a static script; data goes to it with `{{ x|json_script }}`.
 - A `stylable` card puts `{{ style.classes }}` on its root (`cs-size-l`, `cs-color-state`,
   `cs-align-center`, …) and styles them; `dashboard-cards.css` shows the set for the trend.
+- Leave the top-right corner to the card's ⋯ menu button (1.75rem, 6px in): give
+  your top row the class `dash-cell-toprow`, or pad it `2.5rem` on the right, so a
+  heading or a total never sits under it.
 - Fill the cell: the root is `height: 100%` inside the grid item; the dashboard's period
   is already applied, so don't repeat it in the card unless the card ignores it.
 - Say the data-level outcomes in the card, quietly: *You don't have access to this
