@@ -45,9 +45,12 @@ def signup_view(request):
 {{ project_name }} uses the **DatabaseBackend** which stores tasks in SQLite/PostgreSQL. To process tasks, run the worker:
 
 ```bash
-# Start the background worker
-uv run python manage.py db_worker
+# Start the background worker, on every queue (default, email, webhooks)
+uv run python manage.py db_worker --queue-name "*"
 ```
+
+A bare `db_worker` takes only the `default` queue: invites and sign-in codes
+(`email`) and webhook deliveries (`webhooks`) would wait for a worker that never comes.
 
 In development (DEBUG=True), the worker auto-reloads when code changes. Keep it running in a separate terminal while developing.
 
@@ -152,14 +155,14 @@ if result.status == "SUCCESSFUL":
 
 | Status | Meaning |
 |--------|---------|
-| `PENDING` | Task is queued, waiting for a worker |
+| `READY` | Task is queued, waiting for a worker |
 | `RUNNING` | Worker is currently executing the task |
 | `SUCCESSFUL` | Task completed without errors |
 | `FAILED` | Task raised an exception |
 
 ## Built-in Example Tasks
 
-{{ project_name }} includes example tasks in `apps/smallstack/tasks.py`:
+{{ project_name }} includes example tasks in `apps/tasks/tasks.py`:
 
 ### send_email_task
 
@@ -350,10 +353,10 @@ Separate queues allow different workers to handle different task types:
 # Worker for all queues (recommended)
 uv run python manage.py db_worker --queue-name "*"
 
-# Worker for specific queues (comma-separated)
-uv run python manage.py db_worker --queue-name "default,email"
+# Worker for specific queues (comma-separated): name every queue some worker must drain
+uv run python manage.py db_worker --queue-name "default,email,webhooks"
 
-# Worker for default queue only
+# Worker for the default queue only (email and webhooks then need workers of their own)
 uv run python manage.py db_worker
 ```
 

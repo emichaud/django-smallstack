@@ -163,8 +163,11 @@ send_html_email_task.enqueue(
 ### Development
 
 ```bash
-uv run python manage.py db_worker
+uv run python manage.py db_worker --queue-name "*"
 ```
+
+`"*"` drains every queue. A bare `db_worker` takes only `default`, so invites and
+sign-in codes (`email`) and webhook deliveries (`webhooks`) would sit queued.
 
 Or with a specific queue:
 

@@ -8,6 +8,7 @@ collect_feeds`` (same core). Idempotent: items are deduped on the source's
 from __future__ import annotations
 
 import logging
+import random
 import urllib.error
 import urllib.request
 from concurrent.futures import ThreadPoolExecutor, wait
@@ -155,17 +156,33 @@ def collect_all() -> list[dict]:
 
     pool = ThreadPoolExecutor(max_workers=min(_pool_size(), len(enabled)), thread_name_prefix="feed-fetch")
     try:
-        futures = {source.name: pool.submit(_download, source) for source in enabled}
+        # A different order each run, so a deadline that cuts the queue short
+        # doesn't starve the same sources every time.
+        order = random.sample(enabled, len(enabled))
+        futures = {source.name: pool.submit(_download, source) for source in order}
         wait(futures.values(), timeout=_RUN_DEADLINE)
         results = []
         for source in enabled:
             future = futures[source.name]
             if not future.done():
-                logger.warning("Feed %s (%s) still fetching after %ss; skipped", source.name, source.url, _RUN_DEADLINE)
+                # cancel() succeeds only for a fetch that never started (queued
+                # behind slow ones): say so, rather than "still running".
+                started = not future.cancel()
+                logger.warning(
+                    "Feed %s (%s) %s after %ss; skipped",
+                    source.name,
+                    source.url,
+                    "still fetching" if started else "not reached",
+                    _RUN_DEADLINE,
+                )
                 results.append(
                     {
                         "name": source.name,
-                        "error": f"fetch still running after the {_RUN_DEADLINE}s run deadline",
+                        "error": (
+                            f"fetch still running after the {_RUN_DEADLINE}s run deadline"
+                            if started
+                            else f"not fetched: the {_RUN_DEADLINE}s run deadline came first"
+                        ),
                         "fetched": 0,
                         "created": 0,
                         "skipped": 0,

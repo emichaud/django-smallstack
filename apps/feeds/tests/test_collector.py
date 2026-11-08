@@ -243,3 +243,28 @@ def test_fetch_past_the_run_deadline_is_skipped(monkeypatch):
     assert by_name["fast"]["created"] == 2
     assert "deadline" in by_name["slow"]["error"]
     assert not CollectedItem.objects.filter(source="slow").exists()
+
+
+def test_a_source_never_fetched_says_so(monkeypatch, settings):
+    import threading
+
+    release = threading.Event()
+
+    def fetch(url, headers=None):
+        if "slow" in url:
+            release.wait(10)
+        return SAMPLE
+
+    settings.SMALLSTACK_FEEDS_MAX_CONCURRENT_FETCHES = 2
+    monkeypatch.setattr(collector, "_fetch", fetch)
+    monkeypatch.setattr(collector, "_RUN_DEADLINE", 0.5)
+    monkeypatch.setattr(collector.random, "sample", lambda seq, k: list(seq))  # registry order
+    register_feed_source("slow1", "https://e/slow1.rss")
+    register_feed_source("slow2", "https://e/slow2.rss")
+    register_feed_source("tail", "https://e/tail.rss")
+    try:
+        by_name = {r["name"]: r for r in collect_all()}
+    finally:
+        release.set()
+    assert "still running" in by_name["slow1"]["error"]
+    assert by_name["tail"]["error"].startswith("not fetched")

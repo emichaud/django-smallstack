@@ -6,6 +6,7 @@ one ``Heartbeat`` per monitor per minute; ``run_heartbeat_check()`` is a
 back-compat shim for just the built-in "site" monitor.
 """
 
+import random
 import time
 from concurrent.futures import Future, ThreadPoolExecutor, wait
 from datetime import datetime, timedelta
@@ -127,8 +128,11 @@ def run_all_monitors() -> dict[str, dict[str, Any]]:
     # Zero or one pooled monitor isn't worth a pool; it runs inline below.
     if len(pooled) > 1 and _pool_size() > 1:
         pool = ThreadPoolExecutor(max_workers=min(_pool_size(), len(pooled)), thread_name_prefix="heartbeat-check")
-        futures = {pool.submit(_probe, m): m for m in pooled}
+        # Submitted in a different order each run, so the ones a deadline leaves
+        # unreached aren't the same every minute.
+        futures = {pool.submit(_probe, m): m for m in random.sample(pooled, len(pooled))}
     pooled_ids = {id(m) for m in futures.values()}  # empty unless the pool started
+    not_reached: set[int] = set()
 
     try:
         # The ORM-backed monitors run here while the pool waits on the network.
@@ -141,6 +145,11 @@ def run_all_monitors() -> dict[str, dict[str, Any]]:
             for future, monitor in futures.items():
                 if future in done:
                     probes[id(monitor)] = future.result()  # _probe never raises
+                elif future.cancel():
+                    # Never started: queued behind slow checks. No data isn't
+                    # "down", so nothing is recorded (a fail beat here was a
+                    # false outage, on the same endpoints every run).
+                    not_reached.add(id(monitor))
                 else:
                     probes[id(monitor)] = (
                         "fail",
@@ -153,6 +162,16 @@ def run_all_monitors() -> dict[str, dict[str, Any]]:
 
     results: dict[str, dict[str, Any]] = {}
     for monitor in active:
+        if id(monitor) in not_reached:
+            results[monitor.key] = {
+                "monitor": monitor.key,
+                "status": "skipped",
+                "response_time_ms": 0,
+                "maintenance": False,
+                "created": False,
+                "note": f"not reached before the {_run_deadline():g}s run deadline; nothing recorded",
+            }
+            continue
         try:
             results[monitor.key] = _record(monitor, minute, probes[id(monitor)])
         except Exception as e:  # noqa: BLE001 — even a recording failure can't stop the rest

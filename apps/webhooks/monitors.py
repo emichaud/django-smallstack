@@ -1,8 +1,9 @@
 """Webhooks status monitor — are deliveries getting through?
 
-Two failure signals, mirroring the scheduler monitor's shape: a backlog of
-overdue retries (the delivery tick isn't firing / is wedged) trips DOWN, and a
-high recent-failure ratio (with a minimum sample) also trips DOWN.
+Three failure signals, mirroring the scheduler monitor's shape: a backlog of
+overdue retries (the delivery tick isn't firing / is wedged), deliveries never
+attempted (no worker on the ``webhooks`` queue), and a high recent-failure
+ratio (with a minimum sample) each trip DOWN.
 """
 
 from __future__ import annotations
@@ -57,6 +58,19 @@ class WebhooksMonitor(Monitor):
         ).count()
         if overdue:
             return CheckResult.down(note=f"{overdue} retry(ies) overdue — delivery tick not firing?")
+
+        # Never attempted, well past the grace: nothing is draining the
+        # ``webhooks`` queue (a worker started with only default,email). These
+        # never reach RETRYING or DEAD, so the checks above can't see them.
+        unclaimed = WebhookDelivery.objects.filter(
+            status=WebhookDelivery.Status.PENDING,
+            attempt=0,
+            created_at__lt=now - timedelta(seconds=self._grace()),
+        ).count()
+        if unclaimed:
+            return CheckResult.down(
+                note=f"{unclaimed} delivery(ies) never attempted — is a worker draining the webhooks queue?"
+            )
 
         recent = WebhookDelivery.objects.filter(created_at__gte=now - timedelta(hours=1))
         total = recent.count()

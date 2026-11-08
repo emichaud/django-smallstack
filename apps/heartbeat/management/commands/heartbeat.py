@@ -69,6 +69,8 @@ class Command(BaseCommand):
                 suffix = "" if result.get("created") else " (updated)"
                 maint_tag = " [maintenance]" if result.get("maintenance") else ""
                 self.stdout.write(f"{key}: OK ({result['response_time_ms']}ms){suffix}{maint_tag}")
+            elif result["status"] == "skipped":
+                self.stdout.write(f"{key}: SKIPPED — {result.get('note')}")
             else:
                 self.stderr.write(f"{key}: FAIL — {result.get('note')}")
 

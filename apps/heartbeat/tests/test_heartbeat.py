@@ -598,6 +598,34 @@ class TestConcurrentRun:
         assert "deadline" in res["hangs"]["note"]
         assert Heartbeat.objects.get(monitor_key="hangs").status == "fail"
 
+    def test_a_check_never_started_records_nothing_rather_than_a_fail(self, db, monkeypatch, settings):
+        # Queued behind two hanging checks on a pool of two, "quick" never ran:
+        # recording it as a fail was a false outage on a healthy endpoint.
+        import threading
+
+        from apps.heartbeat import services
+        from apps.smallstack import monitors as registry
+        from apps.smallstack.monitors import CheckResult
+
+        settings.HEARTBEAT_RUN_DEADLINE_SECONDS = 1
+        settings.HEARTBEAT_MAX_CONCURRENT_CHECKS = 2
+        release = threading.Event()
+
+        def hang():
+            release.wait(10)
+            return CheckResult.up()
+
+        mons = [self._pooled("hang_a", hang), self._pooled("hang_b", hang), self._pooled("queued", CheckResult.up)]
+        monkeypatch.setattr(registry, "get_monitors", lambda service=None: mons)
+        monkeypatch.setattr(services.random, "sample", lambda seq, k: list(seq))  # submit in registry order
+        try:
+            res = run_all_monitors()
+        finally:
+            release.set()
+        assert res["hang_a"]["status"] == "fail"
+        assert res["queued"]["status"] == "skipped"
+        assert not Heartbeat.objects.filter(monitor_key="queued").exists()
+
     def test_db_monitors_and_all_recording_stay_on_the_calling_thread(self, db, monkeypatch):
         import threading
 

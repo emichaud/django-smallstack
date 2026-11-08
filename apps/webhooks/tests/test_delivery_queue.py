@@ -103,3 +103,22 @@ class TestRealWorkerRouting:
             self._worker(queue_name="*")
         delivery.refresh_from_db()
         assert delivery.status == "success"
+
+
+@pytest.mark.django_db
+def test_monitor_goes_down_when_deliveries_sit_unattempted():
+    # A worker started with only "default,email" leaves deliveries PENDING at
+    # attempt 0 forever; they never retry or die, so the monitor said UP.
+    from datetime import timedelta
+
+    from django.utils import timezone
+
+    from apps.webhooks.monitors import WebhooksMonitor
+
+    ep = WebhookEndpoint.objects.create(name="e", target_url="http://127.0.0.1:9/hook")
+    fresh = WebhookDelivery.objects.create(endpoint=ep, event_type="t.ping", payload={})
+    assert WebhooksMonitor().check().ok  # just queued: within the grace
+    WebhookDelivery.objects.filter(pk=fresh.pk).update(created_at=timezone.now() - timedelta(hours=1))
+    result = WebhooksMonitor().check()
+    assert not result.ok
+    assert "never attempted" in result.note

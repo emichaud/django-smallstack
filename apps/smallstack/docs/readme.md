@@ -178,7 +178,7 @@ uv run ruff format .
 For development with background tasks:
 
 ```bash
-uv run python manage.py db_worker
+uv run python manage.py db_worker --queue-name "*"   # every queue: default, email, webhooks
 ```
 
 ## Documentation
