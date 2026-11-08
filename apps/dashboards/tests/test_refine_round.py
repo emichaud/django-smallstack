@@ -94,3 +94,12 @@ def test_a_dashboard_keeping_its_owner_keeps_its_sharing(board):
 def test_the_component_list_names_the_options_every_card_shares(staff):
     got = _call("list_dashboard_components", {}, staff)
     assert {"publish", "listen", "style", "thresholds"} <= set(got["shared_options"])
+
+
+@pytest.mark.parametrize("url", ["/\\evil.example", "//evil.example"])
+def test_a_menu_link_that_leaves_the_site_isnt_a_page_of_it(url):
+    from apps.dashboards.components import menu_url_problem
+
+    # A browser reads "/\evil.example" as "//evil.example": off-site, drawn as local.
+    assert menu_url_problem(url)
+    assert menu_url_problem("/smallstack/") == ""

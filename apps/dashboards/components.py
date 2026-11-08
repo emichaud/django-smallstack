@@ -1194,7 +1194,8 @@ def menu_url_problem(url: Any) -> str:
         return "needs a url"
     value = url.strip()
     lowered = value.lower()
-    if lowered.startswith(("/", "#")) and not lowered.startswith("//"):
+    # "//host" and "/\\host" (a browser reads the backslash as a slash) leave the site.
+    if lowered.startswith(("/", "#")) and not lowered.startswith(("//", "/\\")):
         return ""
     if lowered.startswith(("http://", "https://", "mailto:")):
         return ""
