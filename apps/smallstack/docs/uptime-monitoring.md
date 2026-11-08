@@ -110,9 +110,13 @@ When heartbeat records are pruned (after the retention period), they are first a
 # config/settings/smallstack.py
 HEARTBEAT_RETENTION_DAYS = 7       # How long to keep individual records (default: 7)
 HEARTBEAT_EXPECTED_INTERVAL = 60   # Seconds between checks (default: 60)
+HEARTBEAT_MAX_CONCURRENT_CHECKS = 8   # Endpoint checks probed in parallel (1 = one at a time)
+HEARTBEAT_RUN_DEADLINE_SECONDS = 50   # A check still running this long into the run counts as down
 ```
 
-Both can be set via environment variables.
+All of these can be set via environment variables. Endpoint checks run in
+parallel, so several slow or unreachable URLs cost the run one timeout rather
+than one each.
 
 ## Running Locally
 

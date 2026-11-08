@@ -218,6 +218,14 @@ BACKUP_DOWNLOAD_ENABLED = config("BACKUP_DOWNLOAD_ENABLED", default=True, cast=b
 # ---------------------------------------------------------------------------
 HEARTBEAT_RETENTION_DAYS = config("HEARTBEAT_RETENTION_DAYS", default=7, cast=int)
 HEARTBEAT_EXPECTED_INTERVAL = config("HEARTBEAT_EXPECTED_INTERVAL", default=60, cast=int)
+# The per-minute run probes network-bound monitors (MonitoredEndpoint HTTP
+# checks) on a thread pool of at most this many threads, so N slow endpoints
+# cost one timeout, not N. 1 runs them one after another, as before.
+HEARTBEAT_MAX_CONCURRENT_CHECKS = config("HEARTBEAT_MAX_CONCURRENT_CHECKS", default=8, cast=int)
+# A pooled probe still running this many seconds into the run is recorded as a
+# fail and abandoned. Keep it under a minute (the run's cadence) and under
+# gunicorn's 120s timeout — the run is a request to /heartbeat/ping/.
+HEARTBEAT_RUN_DEADLINE_SECONDS = config("HEARTBEAT_RUN_DEADLINE_SECONDS", default=50, cast=int)
 # A monitor younger than this shows a "warming up" pill instead of a not-yet-
 # representative uptime % on the status overview / public board.
 HEARTBEAT_WARMUP_MINUTES = config("HEARTBEAT_WARMUP_MINUTES", default=60, cast=int)

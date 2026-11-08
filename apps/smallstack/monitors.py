@@ -94,6 +94,12 @@ class Monitor:
     # "heartbeat:monitor_detail" with detail_url_kwargs={"monitor_key": key}.
     detail_url_name: str | None = None
     detail_url_kwargs: dict | None = None
+    # True when check() waits on the network and touches NO ORM — an outbound
+    # HTTP probe, say. The per-minute runner then runs it on a worker thread
+    # alongside the others, so N slow endpoints cost one timeout, not N. Leave
+    # it False for anything that queries the database: a worker thread would
+    # open its own connection, outside the run's transaction.
+    concurrent_check: bool = False
 
     def __init__(self, **overrides: Any) -> None:
         for name, value in overrides.items():

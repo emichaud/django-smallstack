@@ -514,6 +514,142 @@ class TestRunner:
         assert Heartbeat.objects.filter(monitor_key="all_bad", status="fail").exists()
 
 
+class TestConcurrentRun:
+    """run_all_monitors probes network-bound monitors in parallel, DB work stays put.
+
+    Concurrency is proven with a barrier, not a stopwatch: each pooled check
+    waits for all the others to arrive, so a serial runner breaks the barrier
+    and records fails instead of passing slowly.
+    """
+
+    @staticmethod
+    def _pooled(key: str, check):
+        from apps.smallstack.monitors import Monitor
+
+        class Pooled(Monitor):
+            concurrent_check = True
+
+            def check(self):
+                return check()
+
+        return Pooled(key=key, service="s")
+
+    def test_pooled_checks_run_at_the_same_time(self, db, monkeypatch, settings):
+        import threading
+
+        from apps.smallstack import monitors as registry
+        from apps.smallstack.monitors import CheckResult
+
+        settings.HEARTBEAT_MAX_CONCURRENT_CHECKS = 8
+        barrier = threading.Barrier(3, timeout=5)
+
+        def meet():
+            barrier.wait()
+            return CheckResult.up()
+
+        mons = [self._pooled(f"par_{i}", meet) for i in range(3)]
+        monkeypatch.setattr(registry, "get_monitors", lambda service=None: mons)
+        res = run_all_monitors()
+        assert [r["status"] for r in res.values()] == ["ok", "ok", "ok"]
+        assert list(res) == ["par_0", "par_1", "par_2"]  # registry order kept
+
+    def test_pool_of_one_runs_them_serially(self, db, monkeypatch, settings):
+        import threading
+
+        from apps.smallstack import monitors as registry
+        from apps.smallstack.monitors import CheckResult
+
+        settings.HEARTBEAT_MAX_CONCURRENT_CHECKS = 1
+        barrier = threading.Barrier(2, timeout=0.2)
+
+        def meet():
+            barrier.wait()
+            return CheckResult.up()
+
+        mons = [self._pooled(f"ser_{i}", meet) for i in range(2)]
+        monkeypatch.setattr(registry, "get_monitors", lambda service=None: mons)
+        res = run_all_monitors()
+        assert {r["status"] for r in res.values()} == {"fail"}  # nobody to meet
+
+    def test_probe_past_the_deadline_is_a_fail_and_the_rest_still_record(self, db, monkeypatch, settings):
+        import threading
+        import time as _time
+
+        from apps.smallstack import monitors as registry
+        from apps.smallstack.monitors import CheckResult
+
+        settings.HEARTBEAT_RUN_DEADLINE_SECONDS = 1
+        release = threading.Event()
+
+        def hang():
+            release.wait(10)
+            return CheckResult.up()
+
+        mons = [self._pooled("hangs", hang), self._pooled("quick", CheckResult.up)]
+        monkeypatch.setattr(registry, "get_monitors", lambda service=None: mons)
+        started = _time.monotonic()
+        try:
+            res = run_all_monitors()
+        finally:
+            release.set()
+        assert _time.monotonic() - started < 5  # abandoned, not waited on
+        assert res["quick"]["status"] == "ok"
+        assert res["hangs"]["status"] == "fail"
+        assert "deadline" in res["hangs"]["note"]
+        assert Heartbeat.objects.get(monitor_key="hangs").status == "fail"
+
+    def test_db_monitors_and_all_recording_stay_on_the_calling_thread(self, db, monkeypatch):
+        import threading
+
+        from django.db.models.signals import post_save
+
+        from apps.smallstack import monitors as registry
+        from apps.smallstack.monitors import CheckResult, Monitor
+
+        caller = threading.get_ident()
+        seen: dict[str, int] = {}
+
+        class DbBacked(Monitor):
+            key = "db_backed"
+            service = "s"
+
+            def check(self):
+                seen["check"] = threading.get_ident()
+                return CheckResult.up()
+
+        writers: set[int] = set()
+
+        def on_save(sender, **kwargs):
+            writers.add(threading.get_ident())
+
+        mons = [DbBacked(), self._pooled("net_a", CheckResult.up), self._pooled("net_b", CheckResult.up)]
+        monkeypatch.setattr(registry, "get_monitors", lambda service=None: mons)
+        post_save.connect(on_save, sender=Heartbeat)
+        try:
+            run_all_monitors()
+        finally:
+            post_save.disconnect(on_save, sender=Heartbeat)
+        assert seen["check"] == caller
+        assert writers == {caller}
+        assert Heartbeat.objects.filter(monitor_key__in=["db_backed", "net_a", "net_b"]).count() == 3
+
+    def test_one_run_stamps_every_beat_with_the_same_minute(self, db, monkeypatch):
+        from apps.smallstack import monitors as registry
+        from apps.smallstack.monitors import CheckResult
+
+        mons = [self._pooled(f"min_{i}", CheckResult.up) for i in range(3)]
+        monkeypatch.setattr(registry, "get_monitors", lambda service=None: mons)
+        run_all_monitors()
+        stamps = set(Heartbeat.objects.filter(monitor_key__startswith="min_").values_list("timestamp", flat=True))
+        assert len(stamps) == 1
+
+    def test_endpoint_monitor_opts_in_and_builtins_do_not(self):
+        from apps.heartbeat.monitors import EndpointMonitor, SiteMonitor
+
+        assert EndpointMonitor.concurrent_check is True
+        assert SiteMonitor.concurrent_check is False
+
+
 class TestMonitoredEndpoint:
     """The user-created endpoint model + its dynamic monitor source."""
 

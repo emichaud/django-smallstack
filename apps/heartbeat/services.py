@@ -6,7 +6,9 @@ one ``Heartbeat`` per monitor per minute; ``run_heartbeat_check()`` is a
 back-compat shim for just the built-in "site" monitor.
 """
 
-from datetime import timedelta
+import time
+from concurrent.futures import Future, ThreadPoolExecutor, wait
+from datetime import datetime, timedelta
 from typing import Any
 
 from django.conf import settings
@@ -18,24 +20,25 @@ from apps.smallstack.monitors import Monitor
 from .models import Heartbeat, HeartbeatDaily, HeartbeatEpoch, MaintenanceWindow
 
 
-def run_monitor_check(monitor: Monitor) -> dict[str, Any]:
-    """Run one monitor's cheap ``check()`` and record a Heartbeat row.
+def _probe(monitor: Monitor) -> tuple[str, int, str]:
+    """Run ``monitor.check()`` and reduce it to ``(status, response_ms, note)``.
 
-    A monitor that raises is recorded as a failure (its exception as the note),
-    so one broken probe can't crash the per-minute run. Returns
-    {"monitor": str, "status": "ok"|"fail", "response_time_ms": int,
-     "maintenance": bool, "created": bool, "note": str|None}.
+    Never raises: a monitor that raises is a "fail" with its exception as the
+    note. Touches no ORM itself, so it is safe on a worker thread whenever the
+    monitor's own ``check()`` is (see ``Monitor.concurrent_check``).
     """
-    minute = now().replace(second=0, microsecond=0)
-    in_maintenance = MaintenanceWindow.is_in_maintenance(minute, monitor.key)
     try:
         result = monitor.check()
         status = "ok" if result.ok else "fail"
-        response_ms = int(result.response_time_ms or 0)
-        note = (result.note or "")[:255]
+        return status, int(result.response_time_ms or 0), (result.note or "")[:255]
     except Exception as e:  # noqa: BLE001 — any failure is a "down" beat
-        status, response_ms, note = "fail", 0, str(e)[:255]
+        return "fail", 0, str(e)[:255]
 
+
+def _record(monitor: Monitor, minute: datetime, probe: tuple[str, int, str]) -> dict[str, Any]:
+    """Write one Heartbeat row for ``probe`` at ``minute``. Calling thread only."""
+    status, response_ms, note = probe
+    in_maintenance = MaintenanceWindow.is_in_maintenance(minute, monitor.key)
     _, created = Heartbeat.objects.update_or_create(
         monitor_key=monitor.key,
         timestamp=minute,
@@ -57,32 +60,103 @@ def run_monitor_check(monitor: Monitor) -> dict[str, Any]:
     }
 
 
+def _recording_failed(monitor: Monitor, exc: Exception) -> dict[str, Any]:
+    return {
+        "monitor": monitor.key,
+        "status": "fail",
+        "response_time_ms": 0,
+        "maintenance": False,
+        "created": False,
+        "note": str(exc)[:255],
+    }
+
+
+def _current_minute() -> datetime:
+    return now().replace(second=0, microsecond=0)
+
+
+def run_monitor_check(monitor: Monitor) -> dict[str, Any]:
+    """Run one monitor's cheap ``check()`` and record a Heartbeat row.
+
+    A monitor that raises is recorded as a failure (its exception as the note),
+    so one broken probe can't crash the per-minute run. Returns
+    {"monitor": str, "status": "ok"|"fail", "response_time_ms": int,
+     "maintenance": bool, "created": bool, "note": str|None}.
+    """
+    return _record(monitor, _current_minute(), _probe(monitor))
+
+
+def _pool_size() -> int:
+    return max(1, int(getattr(settings, "HEARTBEAT_MAX_CONCURRENT_CHECKS", 8)))
+
+
+def _run_deadline() -> float:
+    return max(1.0, float(getattr(settings, "HEARTBEAT_RUN_DEADLINE_SECONDS", 50)))
+
+
 def run_all_monitors() -> dict[str, dict[str, Any]]:
     """Run every registered monitor, recording one Heartbeat each.
 
-    Failures are isolated — a slow or raising monitor cannot block the others.
-    Returns a ``{monitor_key: result}`` map.
+    Failures are isolated in both senses. A raising monitor is a "fail" beat
+    that can't stop the rest. A *slow* one can't hold up the others either:
+    monitors that set ``concurrent_check`` (outbound HTTP probes) run on a
+    bounded thread pool while the database-backed monitors run here, so a run
+    with N unreachable endpoints costs one timeout instead of N. Every probe
+    still unfinished at ``HEARTBEAT_RUN_DEADLINE_SECONDS`` is recorded as a
+    fail, which keeps the run inside its minute and well inside gunicorn's
+    request timeout; the straggling thread is abandoned, not waited on.
+
+    All database work — the maintenance lookup and the Heartbeat write — stays
+    on the calling thread, on its connection. Every beat in one run is stamped
+    with the minute the run *started*, so a slow run can't straddle two
+    minutes. Returns a ``{monitor_key: result}`` map in registry order.
     """
     from apps.smallstack import monitors
 
-    results: dict[str, dict] = {}
-    for monitor in monitors.get_monitors():
-        # Orphaned Site Monitors (their surface was deregistered) are a config
-        # change, not an outage — skip recording so they neither log fail beats nor
-        # dent their SLA. The overview surfaces them muted with a "Remove" prompt.
-        if getattr(monitor, "orphaned", False):
-            continue
+    started = time.monotonic()
+    minute = _current_minute()
+    # Orphaned Site Monitors (their surface was deregistered) are a config
+    # change, not an outage — skip recording so they neither log fail beats nor
+    # dent their SLA. The overview surfaces them muted with a "Remove" prompt.
+    active = [m for m in monitors.get_monitors() if not getattr(m, "orphaned", False)]
+    pooled = [m for m in active if getattr(m, "concurrent_check", False)]
+
+    probes: dict[int, tuple[str, int, str]] = {}
+    pool: ThreadPoolExecutor | None = None
+    futures: dict[Future[tuple[str, int, str]], Monitor] = {}
+    # Zero or one pooled monitor isn't worth a pool; it runs inline below.
+    if len(pooled) > 1 and _pool_size() > 1:
+        pool = ThreadPoolExecutor(max_workers=min(_pool_size(), len(pooled)), thread_name_prefix="heartbeat-check")
+        futures = {pool.submit(_probe, m): m for m in pooled}
+    pooled_ids = {id(m) for m in futures.values()}  # empty unless the pool started
+
+    try:
+        # The ORM-backed monitors run here while the pool waits on the network.
+        for monitor in active:
+            if id(monitor) not in pooled_ids:
+                probes[id(monitor)] = _probe(monitor)
+        if futures:
+            remaining = max(0.0, _run_deadline() - (time.monotonic() - started))
+            done, _ = wait(futures, timeout=remaining)
+            for future, monitor in futures.items():
+                if future in done:
+                    probes[id(monitor)] = future.result()  # _probe never raises
+                else:
+                    probes[id(monitor)] = (
+                        "fail",
+                        0,
+                        f"check still running after the {_run_deadline():g}s run deadline",
+                    )
+    finally:
+        if pool is not None:
+            pool.shutdown(wait=False, cancel_futures=True)
+
+    results: dict[str, dict[str, Any]] = {}
+    for monitor in active:
         try:
-            results[monitor.key] = run_monitor_check(monitor)
+            results[monitor.key] = _record(monitor, minute, probes[id(monitor)])
         except Exception as e:  # noqa: BLE001 — even a recording failure can't stop the rest
-            results[monitor.key] = {
-                "monitor": monitor.key,
-                "status": "fail",
-                "response_time_ms": 0,
-                "maintenance": False,
-                "created": False,
-                "note": str(e)[:255],
-            }
+            results[monitor.key] = _recording_failed(monitor, e)
     return results
 
 

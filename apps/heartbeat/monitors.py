@@ -170,6 +170,10 @@ def check_http_endpoint(url: str, method: str, expected_status: int, timeout: in
 class EndpointMonitor(Monitor):
     """Wraps a :class:`~apps.heartbeat.models.MonitoredEndpoint` row as a monitor."""
 
+    # check() is one outbound HTTP request over fields already loaded from the
+    # row — no ORM — so the runner may run it on a worker thread.
+    concurrent_check = True
+
     def __init__(self, endpoint: MonitoredEndpoint) -> None:
         self.endpoint = endpoint
         self.key = endpoint.monitor_key

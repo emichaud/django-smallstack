@@ -139,6 +139,21 @@ A monitor whose `check()` *raises* is recorded as a failure automatically (the
 exception becomes the note) — the runner isolates it so one broken probe can't
 crash the per-minute run or block the others.
 
+### `concurrent_check` — for a probe that waits on the network
+
+Set `concurrent_check = True` on a monitor whose `check()` makes an outbound
+request and **touches no ORM**. The runner then runs it on a bounded thread pool
+(`HEARTBEAT_MAX_CONCURRENT_CHECKS`, default 8) while the database-backed monitors
+run on the calling thread, so ten unreachable endpoints cost one timeout, not
+ten. A pooled probe still running at `HEARTBEAT_RUN_DEADLINE_SECONDS` (default
+50) is recorded as a fail and abandoned, which keeps the run inside its minute.
+`EndpointMonitor` sets it; nothing else bundled does.
+
+Leave it `False` (the default) for anything that queries the database. A worker
+thread opens its own connection outside the run's transaction — on SQLite that
+contends for the one writer, and on Postgres it's an extra connection per thread.
+The runner keeps every Heartbeat write on the calling thread regardless.
+
 ## The cheap-check rule (the #1 thing to get right)
 
 `check()` runs **every minute for every monitor**. Keep it sub-millisecond:
@@ -258,10 +273,12 @@ https://… by asking Claude"). Writes auto-gate to staff (the API/MCP factory
 honours the `StaffRequiredMixin`); `MonitoredEndpoint.clean()` is the SSRF /
 service-validation backstop for programmatic callers, same as the form.
 
-> ⚠️ Endpoint checks make a real **synchronous** HTTP request inside the
-> per-minute run, and internal URLs are allowed (it's staff-gated). For many
-> external endpoints or untrusted users, move the checks off the ping (db_worker)
-> and add an SSRF allowlist in `check_http_endpoint` (`apps/heartbeat/monitors.py`).
+> ⚠️ Endpoint checks make a real HTTP request inside the per-minute run (on the
+> runner's thread pool — see `concurrent_check` above), and internal URLs are
+> allowed (it's staff-gated). Past roughly `HEARTBEAT_MAX_CONCURRENT_CHECKS` slow
+> endpoints the pool queues, so for many external endpoints raise it or move the
+> checks off the ping (db_worker). For untrusted users, add an SSRF allowlist in
+> `check_http_endpoint` (`apps/heartbeat/monitors.py`).
 
 ## Site Monitors — watch an *exposed surface* (no code)
 
