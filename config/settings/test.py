@@ -84,6 +84,6 @@ AXES_ENABLED = False
 TASKS = {
     "default": {
         "BACKEND": "django.tasks.backends.immediate.ImmediateBackend",
-        "QUEUES": ["default", "email"],
+        "QUEUES": ["default", "email", "webhooks"],
     }
 }

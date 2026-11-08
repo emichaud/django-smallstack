@@ -263,6 +263,7 @@ See `docs/skills/background-tasks.md` → Reliability.
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `WORKER_INLINE` | `true` | Run `db_worker` inside the web container. Set `false` when using a separate worker service/role. |
+| `WORKER_WEBHOOKS` | `1` | Extra inline workers for the outbound `webhooks` queue only; the main worker then skips that queue. Each is one more Python process. `0` runs everything on one worker. |
 
 ### Email (smallstack.py)
 

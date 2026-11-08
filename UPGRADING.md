@@ -8,6 +8,27 @@ listed, no downstream migration is required.
 
 ---
 
+## Unreleased — webhooks get a queue and a worker of their own
+
+**Who is affected:** deployments using the bundled `docker-entrypoint.sh`, and
+projects that override `TASKS`.
+
+**What changed.** Outbound webhook deliveries run on a new `webhooks` task
+queue when `TASKS` lists it (the bundled `base.py` does). The entrypoint now
+starts one extra inline worker for that queue (`WORKER_WEBHOOKS`, default 1),
+and the main worker skips it. That is one more Python process in the web
+container, roughly 60 to 80 MB.
+
+**Migration.**
+
+- Your own `TASKS` setting without `webhooks`: nothing breaks, deliveries stay
+  on `default`. Add `"webhooks"` to `QUEUES` to get the isolation.
+- Tight on memory: set `WORKER_WEBHOOKS=0` to run everything on one worker,
+  as before.
+- A separate worker role or container with `--queue-name "*"` still delivers
+  webhooks. To isolate them there, see the commented examples in
+  `config/deploy.yml` and `docker-compose.yml`.
+
 ## Unreleased — invite and sign-in-code emails are queued; SMTP times out
 
 **Who is affected:** production deployments that send staff invites or use

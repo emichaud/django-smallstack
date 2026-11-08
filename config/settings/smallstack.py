@@ -462,6 +462,9 @@ SMALLSTACK_WEBHOOK_MAX_ATTEMPTS = config("SMALLSTACK_WEBHOOK_MAX_ATTEMPTS", defa
 
 # Per-request HTTP timeout (seconds) when POSTing an outbound webhook.
 SMALLSTACK_WEBHOOK_TIMEOUT = config("SMALLSTACK_WEBHOOK_TIMEOUT", default=10, cast=int)
+# Task queue for outbound deliveries. Used only when TASKS lists it (else they
+# run on "default"); the container gives it a worker of its own (WORKER_WEBHOOKS).
+SMALLSTACK_WEBHOOK_QUEUE = config("SMALLSTACK_WEBHOOK_QUEUE", default="webhooks")
 
 # Consecutive delivery failures before an endpoint auto-disables itself (a proxy
 # for "this URL is dead"). 0 ⇒ never auto-disable.

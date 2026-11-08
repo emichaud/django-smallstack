@@ -47,18 +47,42 @@ supercronic -passthrough-logs /app/scripts/smallstack-cron &
 # an operator nothing. "web" is accurate here — this worker runs inside the web
 # container. Override with SMALLSTACK_WORKER_ID when you run several (per host,
 # per queue); a separate worker container sets its own on its command line.
+#
+# WORKER_WEBHOOKS (default 1) adds that many workers for the outbound webhook
+# queue alone, and the main worker skips it. Each delivery can wait up to
+# SMALLSTACK_WEBHOOK_TIMEOUT on a slow endpoint, so a fan-out or a retry burst
+# on a shared worker held up sign-in emails and scheduled jobs behind it. Each
+# extra worker is one more Python process (roughly 60-80 MB). WORKER_WEBHOOKS=0
+# runs everything on the one worker, as before.
+run_inline_worker() {
+    local label="$1"
+    shift
+    while true; do
+        python manage.py db_worker "$@" --worker-id "$label"
+        echo "Inline worker $label exited (code $?), restarting in 5s..."
+        sleep 5
+    done
+}
+
 if [ "${WORKER_INLINE:-true}" = "true" ]; then
-    echo "Starting inline db_worker..."
-    (
-        while true; do
-            python manage.py db_worker --queue-name "*" \
-                --worker-id "${SMALLSTACK_WORKER_ID:-web}"
-            echo "Inline worker exited (code $?), restarting in 5s..."
-            sleep 5
+    WORKER_LABEL="${SMALLSTACK_WORKER_ID:-web}"
+    WEBHOOK_QUEUE="${SMALLSTACK_WEBHOOK_QUEUE:-webhooks}"
+    WEBHOOK_WORKERS="${WORKER_WEBHOOKS:-1}"
+    WORKER_PIDS=""
+    if [ "$WEBHOOK_WORKERS" -gt 0 ]; then
+        echo "Starting inline db_worker (all queues but $WEBHOOK_QUEUE) + $WEBHOOK_WORKERS for $WEBHOOK_QUEUE..."
+        run_inline_worker "$WORKER_LABEL" --queue-name "*" --exclude-queues "$WEBHOOK_QUEUE" &
+        WORKER_PIDS="$!"
+        for i in $(seq 1 "$WEBHOOK_WORKERS"); do
+            run_inline_worker "$WORKER_LABEL-webhooks-$i" --queue-name "$WEBHOOK_QUEUE" &
+            WORKER_PIDS="$WORKER_PIDS $!"
         done
-    ) &
-    WORKER_PID=$!
-    trap "kill $WORKER_PID 2>/dev/null; wait $WORKER_PID 2>/dev/null" EXIT
+    else
+        echo "Starting inline db_worker..."
+        run_inline_worker "$WORKER_LABEL" --queue-name "*" &
+        WORKER_PIDS="$!"
+    fi
+    trap "kill $WORKER_PIDS 2>/dev/null; wait $WORKER_PIDS 2>/dev/null" EXIT
 fi
 
 echo "Starting application..."

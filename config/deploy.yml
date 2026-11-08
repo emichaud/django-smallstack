@@ -28,6 +28,15 @@ servers:
   #   hosts:
   #     - 123.45.67.89  # Same VPS as web
   #   cmd: python manage.py db_worker --queue-name "*" --worker-id worker
+  #   # Optional: give outbound webhooks their own role so slow endpoints can't
+  #   # delay email. Then use --queue-name "*" --exclude-queues webhooks above.
+  # webhook-worker:
+  #   hosts:
+  #     - 123.45.67.89
+  #   cmd: python manage.py db_worker --queue-name webhooks --worker-id webhooks
+  #   proxy: false
+  #   options:
+  #     health-cmd: "true"
   #   proxy: false
   #   options:
   #     health-cmd: "true"

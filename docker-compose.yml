@@ -35,6 +35,8 @@ services:
   # worker:
   #   build: .
   #   command: python manage.py db_worker --queue-name "*"
+  #   # To keep slow webhook endpoints from delaying email, run a second worker
+  #   # with --queue-name webhooks and give this one --exclude-queues webhooks.
   #   environment:
   #     - DJANGO_SETTINGS_MODULE=config.settings.production
   #     - ALLOWED_HOSTS=localhost,127.0.0.1

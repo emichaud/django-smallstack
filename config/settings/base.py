@@ -89,7 +89,9 @@ INSTALLED_APPS = [
 TASKS = {
     "default": {
         "BACKEND": "django_tasks_db.DatabaseBackend",
-        "QUEUES": ["default", "email"],
+        # "webhooks" carries outbound deliveries so their own worker can drain
+        # them (docker-entrypoint.sh starts one); see webhooks.services.delivery_queue.
+        "QUEUES": ["default", "email", "webhooks"],
     }
 }
 

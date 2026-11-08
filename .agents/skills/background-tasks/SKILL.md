@@ -51,10 +51,13 @@ In `config/settings/base.py`:
 TASKS = {
     "default": {
         "BACKEND": "django_tasks_db.DatabaseBackend",
-        "QUEUES": ["default", "email"],
+        "QUEUES": ["default", "email", "webhooks"],
     }
 }
 ```
+
+`webhooks` carries outbound webhook deliveries only. A project whose `TASKS`
+leaves it out keeps working: deliveries fall back to `default`.
 
 ## Defining Tasks
 
@@ -193,6 +196,13 @@ replace the production worker — that's wired into the container entrypoint bel
 By default, the web container runs `db_worker` inline — no separate worker service needed. The entrypoint script launches `db_worker` as a background process with a restart loop and cleans it up via a signal trap on container stop.
 
 This is controlled by the `WORKER_INLINE` env var, which defaults to `true`.
+
+The entrypoint also starts `WORKER_WEBHOOKS` (default `1`) workers for the
+`webhooks` queue alone, and the main worker skips that queue. A delivery can wait
+up to `SMALLSTACK_WEBHOOK_TIMEOUT` on a slow endpoint, so on a shared worker a
+fan-out or retry burst held up sign-in emails and scheduled jobs behind it.
+Raise it for more delivery throughput; `0` runs everything on the one worker.
+Each worker is one more Python process, which matters on a 1 GB VPS.
 
 ### Separate Worker (Scaling Up)
 

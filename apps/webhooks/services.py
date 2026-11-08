@@ -187,13 +187,35 @@ def fan_out(event_type: str, payload: dict[str, Any], *, event_id: str | None = 
     return created
 
 
+def delivery_queue() -> str:
+    """The task queue outbound deliveries run on.
+
+    ``SMALLSTACK_WEBHOOK_QUEUE`` (default ``"webhooks"``) when the task backend
+    accepts it, else ``"default"``. A queue of their own lets a separate worker
+    drain them, so a fan-out to slow or dead endpoints (each up to
+    ``SMALLSTACK_WEBHOOK_TIMEOUT``) can't hold up sign-in emails or scheduled
+    jobs. The fallback matters downstream: a project whose own ``TASKS`` setting
+    predates the queue would otherwise get ``InvalidTask`` on every enqueue.
+    """
+    from django.tasks import task_backends
+
+    from .tasks import deliver_webhook
+
+    name = str(getattr(settings, "SMALLSTACK_WEBHOOK_QUEUE", "webhooks") or "default")
+    try:
+        queues = task_backends[deliver_webhook.backend].queues
+    except Exception:  # noqa: BLE001 — no usable backend: let enqueue report it
+        return "default"
+    return name if not queues or name in queues else "default"
+
+
 def _enqueue_delivery(delivery_id: int) -> None:
     """Enqueue the delivery task (best-effort — a broker hiccup leaves the row
     PENDING for the tick to pick up)."""
     try:
         from .tasks import deliver_webhook
 
-        deliver_webhook.enqueue(delivery_id)
+        deliver_webhook.using(queue_name=delivery_queue()).enqueue(delivery_id)
     except Exception:  # noqa: BLE001
         logger.warning("webhooks: could not enqueue delivery %s", delivery_id, exc_info=True)
 

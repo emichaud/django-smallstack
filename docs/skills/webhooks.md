@@ -124,11 +124,15 @@ reuses the original `event_id` so a consumer dedupes — F-023).
 
 > **Delivery ordering / head-of-line (F-024).** Deliveries are **at-least-once** with a
 > stable `X-SmallStack-Delivery` per attempt and a stable `X-SmallStack-Event-Id` per event
-> (survives replay). One `db_worker` processes deliveries **serially**, so a slow/timing-out
-> endpoint delays other pending deliveries behind it (up to `SMALLSTACK_WEBHOOK_TIMEOUT`
-> each). The timeout bounds the stall; for high throughput run multiple workers or a
-> dedicated queue. Ordering across retries is **not** guaranteed — consumers must be
-> idempotent (dedupe on `event_id`).
+> (survives replay). Deliveries run on their own `webhooks` task queue
+> (`SMALLSTACK_WEBHOOK_QUEUE`; `default` when `TASKS` doesn't list it), and the container
+> gives that queue its own worker (`WORKER_WEBHOOKS`, default 1), so a slow endpoint never
+> delays sign-in emails or scheduled jobs. Within the queue each worker is still **serial**:
+> a timing-out endpoint delays the deliveries behind it (up to `SMALLSTACK_WEBHOOK_TIMEOUT`
+> each). For more throughput raise `WORKER_WEBHOOKS`, or run more
+> `db_worker --queue-name webhooks` processes; they claim rows safely side by side.
+> Ordering across retries is **not** guaranteed — consumers must be idempotent (dedupe on
+> `event_id`).
 
 ## Inbound — 2 steps
 
