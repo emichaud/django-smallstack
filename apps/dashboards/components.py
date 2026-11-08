@@ -559,6 +559,11 @@ def normalize_layout(raw: Any, *, owner_id: Any = None) -> tuple[list[dict[str, 
                 else:
                     c["metric"] = metric.key
                     source = metric
+            elif cell.get("dataset") and not _owner_may_read(str(cell["dataset"]), owner_id):
+                # Worded as for a dataset that doesn't exist, as the builder does:
+                # the column list in the usual error showed a member a staff-only
+                # dataset's columns (the card saved, then drew "no access").
+                problems.append(f"{where}.dataset: No dataset named {cell['dataset']!r} is registered.")
             elif cell.get("dataset"):
                 source, source_problems = _source_problems(cell)
                 problems.extend(f"{where}.{p}" for p in source_problems)
@@ -784,6 +789,21 @@ def cell_source(cell: dict[str, Any], *, metrics: Optional[dict[str, "Metric"]] 
 def is_inline(metric: Optional["Metric"]) -> bool:
     """A source built from a card's own definition (never saved, so it has no page)."""
     return metric is not None and metric.pk is None
+
+
+def _owner_may_read(dataset: str, owner_id: Any) -> bool:
+    """Whether a personal dashboard's owner (the only one who edits it) may
+    read *dataset*. An ownerless one is edited by staff, who read everything;
+    an unknown dataset is left to the usual check to report."""
+    if owner_id is None:
+        return True
+    from django.contrib.auth import get_user_model
+
+    from apps.datasets.registry import get_def, user_may_read
+
+    dfn = get_def(dataset)
+    owner = get_user_model().objects.filter(pk=owner_id).first()
+    return dfn is None or owner is None or user_may_read(dfn, owner)
 
 
 def _source_problems(cell: dict[str, Any]) -> tuple[Optional["Metric"], list[str]]:

@@ -191,3 +191,15 @@ def test_rest_names_the_keys_a_write_didnt_take(client, board, staff):
     url = f"/smallstack/api/dashboards/boards/{board.pk}/"
     r = client.patch(url, json.dumps({"name": "M"}), content_type="application/json")
     assert "ignored" not in r.json()
+
+
+def test_a_members_card_over_a_staff_only_dataset_doesnt_list_its_columns():
+    from apps.dashboards.tests.test_dashboards import DS_STAFF
+
+    member = User.objects.create_user("rr_member", password="x")
+    cell = {"type": "bars", "dataset": DS_STAFF, "agg": "count", "options": {"dimension": "zzz"}}
+    _cells, problems = normalize_layout([cell], owner_id=member.pk)
+    assert problems == [f"layout[0].dataset: No dataset named {DS_STAFF!r} is registered."]
+    staff = User.objects.create_user("rr_staff2", password="x", is_staff=True)
+    _cells, problems = normalize_layout([{**cell, "options": {"dimension": "method"}}], owner_id=staff.pk)
+    assert problems == []
