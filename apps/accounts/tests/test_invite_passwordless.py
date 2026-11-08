@@ -166,3 +166,114 @@ class TestEmailLogin:
     def test_wrong_password_fails(self, client):
         User.objects.create_user("jane3", email="jane3@acme.com", password="Secret!123")
         assert not client.login(username="jane3@acme.com", password="nope")
+
+
+# ── Queued delivery: secrets never ride the task queue ───────────────────────
+class _Captured:
+    """Stands in for a Task: records what would have been stored as its args."""
+
+    def __init__(self):
+        self.calls = []
+
+    def enqueue(self, *args, **kwargs):
+        self.calls.append((args, kwargs))
+
+
+@pytest.fixture
+def queued(monkeypatch, settings):
+    """Force the queued path and capture each account task's arguments."""
+    from apps.accounts import tasks
+
+    settings.SMALLSTACK_ACCOUNTS_EMAILS_INLINE = False
+    captured = {"invite": _Captured(), "code": _Captured()}
+    monkeypatch.setattr(tasks, "send_invite_email_task", captured["invite"])
+    monkeypatch.setattr(tasks, "send_login_code_task", captured["code"])
+    return captured
+
+
+class TestQueuedAccountEmails:
+    def test_login_code_args_carry_no_code_and_the_worker_send_logs_in(self, client, settings, queued):
+        from apps.accounts.emails import send_login_code_now
+        from apps.accounts.models import LoginCode
+
+        settings.SMALLSTACK_PASSWORDLESS_LOGIN = True
+        user = User.objects.create_user("q1", email="q1@acme.com", password="pw")
+        client.post(reverse("accounts:passwordless_login"), {"action": "request", "email": "q1@acme.com"})
+
+        assert len(mail.outbox) == 0  # queued, not sent in the request
+        (args, kwargs), = queued["code"].calls
+        lc = LoginCode.objects.get(user=user)
+        assert args == (lc.pk, "http://testserver") and kwargs == {}
+
+        assert send_login_code_now(*args) == 1  # what the worker runs
+        code = re.search(r"\b(\d{6})\b", mail.outbox[0].subject).group(1)
+        assert str(code) not in repr(args)
+        resp = client.post(reverse("accounts:passwordless_login"), {"action": "verify", "code": code})
+        assert resp.status_code == 302
+
+    def test_throttle_counts_a_queued_code_before_it_is_sent(self, client, settings, queued):
+        settings.SMALLSTACK_PASSWORDLESS_LOGIN = True
+        User.objects.create_user("q2", email="q2@acme.com", password="pw")
+        for _ in range(2):
+            client.post(reverse("accounts:passwordless_login"), {"action": "request", "email": "q2@acme.com"})
+        assert len(queued["code"].calls) == 1  # the 60s resend throttle saw the first row
+
+    def test_invite_args_carry_no_token_and_the_worker_link_works(self, client, staff, queued):
+        from apps.accounts.emails import send_invite_now
+
+        client.force_login(staff)
+        client.post(reverse("accounts:invite"), {"email": "qi@acme.com"})
+        user = User.objects.get(email="qi@acme.com")
+
+        assert len(mail.outbox) == 0
+        (args, _), = queued["invite"].calls
+        assert args[0] == user.pk and args[2] == "http://testserver"
+        assert default_token_generator.make_token(user) not in repr(args)
+
+        assert send_invite_now(*args) == 1
+        link = _accept_url(user)
+        assert "http://testserver" + link in mail.outbox[0].body
+        assert client.get(link).status_code == 200
+
+    def test_spent_code_sends_nothing(self):
+        from apps.accounts.emails import send_login_code_now
+        from apps.accounts.models import LoginCode
+
+        user = User.objects.create_user("q3", email="q3@acme.com", password="pw")
+        lc, _ = LoginCode.issue(user)
+        LoginCode.objects.filter(pk=lc.pk).update(consumed=True)
+        assert send_login_code_now(lc.pk, "http://testserver") == 0
+        assert len(mail.outbox) == 0
+
+    def test_inline_setting_sends_in_the_request(self, client, settings, queued):
+        settings.SMALLSTACK_PASSWORDLESS_LOGIN = True
+        settings.SMALLSTACK_ACCOUNTS_EMAILS_INLINE = True
+        User.objects.create_user("q4", email="q4@acme.com", password="pw")
+        client.post(reverse("accounts:passwordless_login"), {"action": "request", "email": "q4@acme.com"})
+        assert queued["code"].calls == []
+        assert len(mail.outbox) == 1
+
+    def test_unset_inline_follows_debug(self, settings):
+        from apps.accounts.emails import account_emails_inline
+
+        settings.SMALLSTACK_ACCOUNTS_EMAILS_INLINE = None
+        settings.DEBUG = True
+        assert account_emails_inline() is True
+        settings.DEBUG = False
+        assert account_emails_inline() is False
+
+    def test_no_queue_falls_back_to_sending_inline(self, client, settings, monkeypatch):
+        from apps.accounts import tasks
+
+        class Broken:
+            name = "broken"
+
+            def enqueue(self, *a, **k):
+                raise RuntimeError("no task backend")
+
+        settings.SMALLSTACK_PASSWORDLESS_LOGIN = True
+        settings.SMALLSTACK_ACCOUNTS_EMAILS_INLINE = False
+        monkeypatch.setattr(tasks, "send_login_code_task", Broken())
+        User.objects.create_user("q5", email="q5@acme.com", password="pw")
+        client.post(reverse("accounts:passwordless_login"), {"action": "request", "email": "q5@acme.com"})
+        assert len(mail.outbox) == 1

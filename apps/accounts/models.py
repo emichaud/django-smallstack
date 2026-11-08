@@ -127,5 +127,21 @@ class LoginCode(models.Model):
             and self.expires_at > timezone.now()
         )
 
+    def rekey(self, *, length: int = 6) -> str | None:
+        """Give this live code a fresh secret and return it, or None if it's spent.
+
+        The sender calls this right before mailing, so the raw code exists only
+        in the process that sends it — never in a task's stored arguments. The
+        row itself is created in the request (``issue``) so the resend throttle
+        and hourly cap still count it the moment it's asked for.
+        """
+        from .emails import generate_numeric_code
+
+        code = generate_numeric_code(length)
+        updated = type(self).objects.filter(
+            pk=self.pk, consumed=False, expires_at__gt=timezone.now()
+        ).update(code_hash=make_password(code))
+        return code if updated else None
+
     def check_code(self, raw: str) -> bool:
         return check_password(raw, self.code_hash)

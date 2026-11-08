@@ -10,10 +10,16 @@ re-branding the whole mail surface is a one-setting change.
 
 from __future__ import annotations
 
+import logging
+from collections.abc import Callable
+from typing import Any
+
 from django.conf import settings
 from django.core.mail import EmailMultiAlternatives
 from django.template.loader import render_to_string
 from django.utils.crypto import get_random_string
+
+logger = logging.getLogger(__name__)
 
 _LOCAL_HOSTS = {"localhost", "127.0.0.1", "0.0.0.0", "::1", ""}  # noqa: S104
 
@@ -174,3 +180,114 @@ def unique_username_from_email(email: str) -> str:
 def generate_numeric_code(length: int = 6) -> str:
     """A numeric one-time code (zero-padded, no ambiguous leading-zero loss)."""
     return get_random_string(length, allowed_chars="0123456789")
+
+
+# ---------------------------------------------------------------------------
+# Account emails off the request path
+# ---------------------------------------------------------------------------
+# Invites and sign-in codes are queued on the ``email`` task queue so a slow
+# SMTP server costs a worker, not a web thread a user is waiting on. Their task
+# arguments carry IDs and a site URL only: the sender mints the secret (the
+# invite's password-set token, the sign-in code) itself, so no credential is
+# ever written to the task table in plaintext.
+
+
+def account_emails_inline() -> bool:
+    """Send account emails in the request instead of queueing them.
+
+    Defaults to ``DEBUG`` so ``make run`` delivers with no worker running;
+    production queues, and needs a worker draining the ``email`` queue (the
+    inline ``db_worker`` the container starts does). Set
+    ``SMALLSTACK_ACCOUNTS_EMAILS_INLINE`` to force either way.
+    """
+    configured = getattr(settings, "SMALLSTACK_ACCOUNTS_EMAILS_INLINE", None)
+    if configured is None:
+        return bool(getattr(settings, "DEBUG", False))
+    return bool(configured)
+
+
+def deliver_account_email(task: Any, send_now: Callable[..., int], *args: Any) -> None:
+    """Queue ``task`` with ``args``, or call ``send_now(*args)`` when inline.
+
+    Also sends inline when there is no queue to enqueue on at all. An inline
+    send raises on failure, as it always did, so a DEBUG run shows the error.
+    """
+    if account_emails_inline():
+        send_now(*args)
+        return
+    try:
+        task.enqueue(*args)
+    except Exception:  # noqa: BLE001 — no usable queue ⇒ send in-process
+        logger.warning("accounts: could not queue %s; sending inline", getattr(task, "name", task), exc_info=True)
+        send_now(*args)
+
+
+def _site_name() -> str:
+    return getattr(settings, "SITE_NAME", getattr(settings, "BRAND_NAME", "SmallStack"))
+
+
+def _site_context(site_url: str) -> dict[str, Any]:
+    return {"site_url": site_url} if site_url else {}
+
+
+def send_invite_now(user_id: int, inviter: str, site_url: str) -> int:
+    """Mint ``user_id``'s invite link and send it. Returns the sent count."""
+    from django.contrib.auth import get_user_model
+    from django.contrib.auth.tokens import default_token_generator
+    from django.urls import reverse
+    from django.utils.encoding import force_bytes
+    from django.utils.http import urlsafe_base64_encode
+
+    user = get_user_model().objects.filter(pk=user_id).first()
+    if user is None or not user.email:
+        return 0
+    uid = urlsafe_base64_encode(force_bytes(user.pk))
+    token = default_token_generator.make_token(user)
+    path = reverse("accounts:invite_accept", kwargs={"uidb64": uid, "token": token})
+    base = (site_url or site_base_url()).rstrip("/")
+    return send_branded_email(
+        subject=f"You're invited to {_site_name()}",
+        template="email/invite.html",
+        context={
+            "user": user,
+            "accept_url": base + path,
+            "inviter": inviter or "",
+            "preheader": f"You've been invited to {_site_name()}. Set your password to get started.",
+            **_site_context(site_url),
+        },
+        to=user.email,
+    )
+
+
+def send_login_code_message(user: Any, code: str, site_url: str = "") -> int:
+    """Render and send the sign-in-code email for an already-known ``code``."""
+    return send_branded_email(
+        subject=f"Your {_site_name()} sign-in code: {code}",
+        template="email/login_code.html",
+        context={
+            "user": user,
+            "code": code,
+            "ttl_minutes": max(1, getattr(settings, "SMALLSTACK_LOGIN_CODE_TTL", 600) // 60),
+            "preheader": f"Your {_site_name()} sign-in code is {code}.",
+            **_site_context(site_url),
+        },
+        to=user.email,
+    )
+
+
+def send_login_code_now(login_code_id: int, site_url: str) -> int:
+    """Re-key a live LoginCode and email the fresh code. Returns the sent count.
+
+    A spent, expired or missing code sends nothing. A retry after an ambiguous
+    SMTP failure re-keys again, so at worst the user gets two emails and the
+    newer code is the one that works.
+    """
+    from .models import LoginCode
+
+    lc = LoginCode.objects.select_related("user").filter(pk=login_code_id).first()
+    if lc is None or not lc.user.email:
+        return 0
+    code = lc.rekey()
+    if code is None:
+        return 0
+    return send_login_code_message(lc.user, code, site_url)

@@ -147,6 +147,12 @@ Passwordless ("email me a code") sign-in is a third, off-by-default flag:
 - `SMALLSTACK_LOGIN_CODE_TTL` (default `600`, i.e. 10 minutes) — how long one
   emailed code stays valid. Each code allows 5 guesses.
 
+Sign-in codes and staff invites are sent from the `email` task queue (inline
+when `DEBUG`, or when `SMALLSTACK_ACCOUNTS_EMAILS_INLINE = True`), so production
+needs a worker draining that queue — the container's inline `db_worker` does.
+The queued task carries only IDs: the worker mints the code (`LoginCode.rekey`)
+or the invite token when it sends, so no credential is stored in the task table.
+
 Flags are exposed to templates via context processor (`smallstack_login_enabled`, `smallstack_signup_enabled`).
 
 The signup view checks the flag in `dispatch()`:

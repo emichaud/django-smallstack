@@ -12,16 +12,22 @@ from django.contrib.auth.tokens import default_token_generator
 from django.db.models import F
 from django.http import Http404
 from django.shortcuts import redirect, render
-from django.urls import reverse, reverse_lazy
+from django.urls import reverse_lazy
 from django.utils import timezone
-from django.utils.encoding import force_bytes, force_str
-from django.utils.http import urlsafe_base64_decode, urlsafe_base64_encode
+from django.utils.encoding import force_str
+from django.utils.http import urlsafe_base64_decode
 from django.views import View
 from django.views.generic import CreateView, FormView
 
 from apps.smallstack.mixins import StaffRequiredMixin
 
-from .emails import send_branded_email, unique_username_from_email
+from .emails import (
+    deliver_account_email,
+    send_invite_now,
+    send_login_code_message,
+    send_login_code_now,
+    unique_username_from_email,
+)
 from .forms import InviteUserForm, SignupForm, StyledSetPasswordForm
 from .models import LoginCode
 
@@ -57,24 +63,21 @@ class SignupView(CreateView):
 # ---------------------------------------------------------------------------
 # Invite by email
 # ---------------------------------------------------------------------------
+def _request_site_url(request) -> str:
+    """The absolute base URL the request arrived on, for links in queued mail."""
+    return request.build_absolute_uri("/").rstrip("/")
+
+
 def send_invite_email(request, user, inviter=None):
-    """Email ``user`` a one-click link to set their password and finish joining."""
-    uid = urlsafe_base64_encode(force_bytes(user.pk))
-    token = default_token_generator.make_token(user)
-    accept_url = request.build_absolute_uri(
-        reverse("accounts:invite_accept", kwargs={"uidb64": uid, "token": token})
-    )
-    send_branded_email(
-        subject=f"You're invited to {_site_name()}",
-        template="email/invite.html",
-        context={
-            "user": user,
-            "accept_url": accept_url,
-            "inviter": inviter or "",
-            "preheader": f"You've been invited to {_site_name()}. Set your password to get started.",
-        },
-        to=user.email,
-        request=request,
+    """Email ``user`` a one-click link to set their password and finish joining.
+
+    Queued on the ``email`` queue (inline under DEBUG). The link's token is
+    minted by the sender, never passed through the queue.
+    """
+    from .tasks import send_invite_email_task
+
+    deliver_account_email(
+        send_invite_email_task, send_invite_now, user.pk, str(inviter or ""), _request_site_url(request)
     )
 
 
@@ -176,18 +179,19 @@ class AcceptInviteView(View):
 # Passwordless ("email me a code") login
 # ---------------------------------------------------------------------------
 def send_login_code_email(request, user, code):
-    send_branded_email(
-        subject=f"Your {_site_name()} sign-in code: {code}",
-        template="email/login_code.html",
-        context={
-            "user": user,
-            "code": code,
-            "ttl_minutes": max(1, getattr(django_settings, "SMALLSTACK_LOGIN_CODE_TTL", 600) // 60),
-            "preheader": f"Your {_site_name()} sign-in code is {code}.",
-        },
-        to=user.email,
-        request=request,
-    )
+    """Send a known ``code`` to ``user`` right now, in the request.
+
+    Kept for callers that mint their own code. The passwordless view queues
+    instead (``send_login_code``), so the raw code never reaches the task table.
+    """
+    send_login_code_message(user, code, _request_site_url(request))
+
+
+def send_login_code(request, login_code):
+    """Queue the sign-in email for ``login_code`` (inline under DEBUG)."""
+    from .tasks import send_login_code_task
+
+    deliver_account_email(send_login_code_task, send_login_code_now, login_code.pk, _request_site_url(request))
 
 
 class PasswordlessLoginView(View):
@@ -237,8 +241,8 @@ class PasswordlessLoginView(View):
                 hourly_cap = int(getattr(django_settings, "SMALLSTACK_LOGIN_CODES_PER_HOUR", 5))
                 issued_last_hour = user.login_codes.filter(created_at__gte=now - timedelta(hours=1)).count()
                 if not recent and issued_last_hour < hourly_cap:
-                    _, code = LoginCode.issue(user)
-                    send_login_code_email(request, user, code)
+                    login_code, _ = LoginCode.issue(user)
+                    send_login_code(request, login_code)
             request.session["pwl_email"] = email
             return self._render(
                 request,

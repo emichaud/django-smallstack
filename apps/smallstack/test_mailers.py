@@ -42,3 +42,16 @@ def test_send_mail_emits_no_removed_in_django70_warning(recwarn):
     assert len(mail.outbox) == 1
     removed = [w for w in recwarn.list if type(w.message).__name__.startswith("RemovedInDjango")]
     assert not removed, [str(w.message) for w in removed]
+
+
+def test_smtp_mailer_times_out_by_default(monkeypatch):
+    """No EMAIL_TIMEOUT must still mean a bounded socket, never "wait forever"."""
+    monkeypatch.setenv("EMAIL_BACKEND", SMTP_BACKEND)
+    monkeypatch.delenv("EMAIL_TIMEOUT", raising=False)
+    assert build_mailers(SMTP_BACKEND)["default"]["OPTIONS"]["timeout"] == 10
+
+
+def test_smtp_mailer_timeout_zero_turns_it_off(monkeypatch):
+    monkeypatch.setenv("EMAIL_BACKEND", SMTP_BACKEND)
+    monkeypatch.setenv("EMAIL_TIMEOUT", "0")
+    assert "timeout" not in build_mailers(SMTP_BACKEND)["default"]["OPTIONS"]

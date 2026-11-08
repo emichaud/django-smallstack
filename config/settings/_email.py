@@ -43,9 +43,13 @@ def build_mailers(default_backend: str = CONSOLE_BACKEND) -> dict[str, dict[str,
             "use_tls": config("EMAIL_USE_TLS", default=False, cast=bool),
             "use_ssl": config("EMAIL_USE_SSL", default=False, cast=bool),
         }
-        timeout = config("EMAIL_TIMEOUT", default="")
-        if timeout != "":
-            options["timeout"] = int(timeout)
+        # Seconds before a stalled SMTP connect/read gives up. Without one the
+        # socket waits forever: a hung mail server held a web thread until
+        # gunicorn killed the worker, and held the task worker (which serves
+        # every queue) indefinitely. 0 restores "no timeout".
+        timeout = config("EMAIL_TIMEOUT", default=10, cast=int)
+        if timeout > 0:
+            options["timeout"] = timeout
     elif backend.endswith("filebased.EmailBackend"):
         options = {"file_path": config("EMAIL_FILE_PATH", default="")}
 

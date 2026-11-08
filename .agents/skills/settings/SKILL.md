@@ -273,6 +273,11 @@ EMAIL_BACKEND = config("EMAIL_BACKEND", default="django.core.mail.backends.conso
 
 For production SMTP, set `EMAIL_BACKEND=django.core.mail.backends.smtp.SmtpBackend` and configure `EMAIL_HOST`, `EMAIL_PORT`, `EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD`.
 
+| Env var / setting | Default | Purpose |
+|---|---|---|
+| `EMAIL_TIMEOUT` | `10` | Seconds before a stalled SMTP connection gives up. `0` means no timeout, which lets a hung mail server hold a web thread or the task worker indefinitely. |
+| `SMALLSTACK_ACCOUNTS_EMAILS_INLINE` | unset (follows `DEBUG`) | Invite and sign-in-code emails are queued on the `email` task queue and need a worker. `True` sends them in the request instead; `False` always queues. |
+
 ### Static Files (base.py)
 
 WhiteNoise serves static files in production with compression and caching:

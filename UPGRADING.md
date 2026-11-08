@@ -8,6 +8,28 @@ listed, no downstream migration is required.
 
 ---
 
+## Unreleased — invite and sign-in-code emails are queued; SMTP times out
+
+**Who is affected:** production deployments that send staff invites or use
+passwordless sign-in (`SMALLSTACK_PASSWORDLESS_LOGIN`) and run **no task
+worker** — `WORKER_INLINE=false` with no separate worker role.
+
+**What changed.** These two emails used to be sent inside the request, so a
+slow mail server held a web thread while the user waited. They are now queued
+on the `email` task queue, like the welcome, runbook and approval emails. With
+no worker they are never sent. Separately, `EMAIL_TIMEOUT` now defaults to 10
+seconds; unset used to mean no timeout at all.
+
+**Migration.**
+
+- Run a worker that drains `email` (the default container already does), or
+  set `SMALLSTACK_ACCOUNTS_EMAILS_INLINE=True` to keep sending in the request.
+- If your mail server legitimately needs longer than 10 seconds, set
+  `EMAIL_TIMEOUT`; `0` restores the old no-timeout behaviour.
+- `send_invite_email(request, user, inviter)` keeps its signature.
+  `send_login_code_email(request, user, code)` still sends immediately; the
+  passwordless view now calls `send_login_code(request, login_code)` instead.
+
 ## Unreleased — a chart filters a dataset of its own; a metric goes on a single stat
 
 **Who is affected:** any project with dashboard cards, and any app that
