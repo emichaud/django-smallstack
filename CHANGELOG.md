@@ -127,6 +127,7 @@ Breaking-change migration recipes live in [`UPGRADING.md`](UPGRADING.md).
 - **A dashboard changing hands brought back the sharing a past owner chose.**
 - **A gauge's ceiling or floor of 0 was read as unset.**
 - **`this_month` / `this_year` were compared against all of last month without saying so.**
+- **The OpenAPI spec said nothing about a dashboard's `layout`** (`"layout": {}`). Every CRUD field's form help text is now its `description`, and the layout's names the cell keys, the three kinds of source, that a write replaces the whole list, and where the card types are listed.
 - **Sharing a dashboard with someone who can't read its cards answered `ok: true`**, and the person saw only dashes (the data was staff-only, or a rate over it). `dashboard_share` now answers `cant_read` (`{username: [card titles]}`) and a `warning` for each person added.
 - **A menu link to `/\host` drew as a page of this site.** A browser reads the backslash as a slash, so it went off-site with no external marker. It's refused.
 - **An app that ships default dashboards turned the framework's tests red** (29 failures for one `dashboard_defaults.py`): the after-migrate sync seeded every app's defaults into the test database. Test settings turn the sync off, and `SMALLSTACK_DASHBOARD_DEFAULTS_SYNC` is declared in `config/settings/smallstack.py`, settable from the environment.
