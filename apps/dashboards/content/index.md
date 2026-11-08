@@ -81,6 +81,7 @@ is always current.
 | Last week | Previous week, `pwtd` | the last full week, Monday to Sunday |
 | This month, This quarter, This year | `mtd`, `qtd`, `ytd` | from the 1st up to now |
 | Last month, Last quarter, Last year | `pmtd`, `pqtr`, `prev_year` | the last full one |
+| This month, whole / This year, whole | `this_month`, `this_year` | the whole calendar month or year, including days still to come |
 | 7 days, 30 days, 90 days | `last_7`, `last_30`, `last_90` | rolling, from that many days ago through today |
 | Next 7 days, Next 30 days | `next_7`, `next_30` | rolling, from today on |
 

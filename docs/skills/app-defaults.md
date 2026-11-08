@@ -60,9 +60,11 @@ these fields:
 
 - **Fields you leave out** take the model's default, so dropping a field from a later
   version clears it.
-- **Order doesn't matter.** Rows are applied metrics first (rates after plain
-  metrics), then cards, dashboards, reports, goal lists and playlists, so a row can
-  name anything declared before it, in this bundle or another app's.
+- **Order within a bundle doesn't matter.** Rows are applied metrics first (rates
+  after plain metrics), then cards, dashboards, reports, goal lists and playlists.
+  Bundles apply in `INSTALLED_APPS` order, so a row may name another app's default
+  only when that app is listed first (otherwise the first migrate reports an `error`
+  and the next one fixes it).
 - **Give goals an `id`.** A goal's history is kept by its id, so a stable one keeps
   the history attached when the list is updated.
 - **Validation is the usual one.** Every row goes through the model's `full_clean()`,

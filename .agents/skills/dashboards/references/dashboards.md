@@ -10,7 +10,12 @@ live under `/smallstack/dashboards/`.
 > lower-level [`dashboard-cards.md`](dashboard-cards.md) `{% stat_card %}` is
 > still right.
 
-## The model — three nouns, all JSON an agent can write
+**Start here.** Building one over MCP/REST → *Building agentically (MCP + REST)* (the five-step
+loop and the tool table). Adding a card design → [`card-types.md`](card-types.md). Shipping
+defaults with an app → [`app-defaults.md`](app-defaults.md). Using the pieces on your own page →
+*On your own pages*.
+
+## The model — six owned kinds, all JSON an agent can write
 
 ```
 @dataset ──(filter_tree + agg)──▶ Metric ──▶ Dashboard cell   (grid, period bar, refresh)
@@ -23,8 +28,11 @@ live under `/smallstack/dashboards/`.
 | **Metric** | A named number, the KPI and the reusable unit: a stored filter over a dataset rolled up to one value (`source="dataset"`), values entered by hand (`manual`, `MetricEntry`) or one metric divided by another (`rate`). | `key` (stable slug), `source`, `dataset`, `numerator`, `denominator`, `filter_tree`, `agg`, `measure`, `period_field`, `format`, `unit`, `thresholds` |
 | **Dashboard** | A grid of cards. | `slug`, `layout` (list of cells), `default_period`, `refresh_seconds` |
 | **Report** | Metrics × periods as a table (+ CSV). | `slug`, `items` (`[{metric, label?}]`), `periods` (`["mtd", "pmtd", "ytd"]`) |
+| **Component** | A saved card: a design and its source, placed on dashboards with `{"component": key}`. | `key`, `type`, a source (`dataset` + `filter_tree` + `agg`/`measure` + `period_field`, or `metric`), `options` |
+| **GoalList** | Goals judged against targets, in titled sections. | `slug`, `sections` (`[{title, goals: [{metric or component, target, warn?}]}]`), `default_period` |
+| **Playlist** | Dashboards shown one after another. | `slug`, `items` (`[{dashboard, seconds?, period?}]`), `seconds` |
 
-All three: `owner` blank = **shared** (staff edit, every signed-in user views);
+All six: `owner` blank = **shared** (staff edit, every signed-in user views);
 set = **personal** (owner edits, staff view). `can_view` / `can_edit` on the
 model is the one rule — views, REST and MCP never re-derive it. Every model
 calls `full_clean()` in `save()`, so a bad filter, a cell pointing at a
@@ -107,7 +115,7 @@ Metric(
 ```
 
 **Evaluate** with the one seam — `apps.dashboards.metrics.evaluate(metric, request, period=None)`
-→ `MetricResult(value, display, unit, state, error, restricted, summary, period_label, problems)`.
+→ `MetricResult(value, display, unit, state, error, restricted, summary, period, period_label, problems)`.
 Cards, cells, reports, REST and MCP all call it, so a number means the same
 thing everywhere. Outside a view, `request_for(user)` builds a request.
 
@@ -170,7 +178,9 @@ owner does: a card over the owner's personal metric still draws, and its rows
 open by the card's place (`d/<slug>/cards/<id>/rows/`, access = the dashboard's)
 rather than the metric's own route they couldn't open; the card menu offers
 "Open the metric" only to who may. The dataset access tier still applies to
-the viewer, so a staff-only dataset stays "restricted" for a member.
+the viewer, so a staff-only dataset stays "restricted" for a member; `set_sharing`
+(and `dashboard_share`) says so when it adds such a person: its reply carries `cant_read`
+(`{username: [card titles]}`) and a `warning` sentence.
 `dashboard.audience(user)` / `{% dash_audience d %}` word the badge: Personal,
 Shared with everyone, Shared with 3 people, Shared by alice.
 
@@ -179,7 +189,7 @@ Shared with everyone, Shared with 3 people, Shared by alice.
 ```json
 [
   {"id": "intro", "type": "text", "x": 0, "y": 0, "w": 12, "h": 1, "options": {"markdown": "**Support desk**"}},
-  {"id": "open",  "type": "metric", "metric": "open_urgent", "x": 0, "y": 1, "w": 3, "h": 2},
+  {"id": "open",  "type": "metric", "metric": "open_urgent", "title": "Urgent, open", "x": 0, "y": 1, "w": 3, "h": 2},
   {"id": "byq",   "type": "metric_group", "x": 3, "y": 1, "w": 6, "h": 2,
    "dataset": "tickets", "filter_tree": {"field": "status", "op": "=", "value": "open"}, "agg": "count", "period_field": "created_at",
    "options": {"dimension": "queue", "limit": 5, "other": true}},
@@ -194,7 +204,7 @@ sources, and `normalize_layout` holds every surface (page, REST, MCP) to the
 rule. **A dataset it filters itself:** `dataset` + `filter_tree` + `agg` /
 `measure` + `period_field`, the definition a metric holds, kept on the card
 (`components.SOURCE_KEYS`); any design. **A saved metric:** `metric` = its key;
-only a design whose `single_value` is true (the single stat), because a metric
+only a design whose `single_value` is true (the single stat, the gauge), because a metric
 is a filtered result rolled up to one number and a chart needs the rows. One
 exception: a metric with no dataset to filter (entered by hand, a rate) may be
 charted as it is. A card with its own source formats itself through
@@ -205,147 +215,62 @@ no longer follows edits to the metric. `components.cell_source(cell)` resolves
 either kind to a `Metric` (an unsaved one for a card's own source, `is_inline`),
 so `evaluate`, `metric_trend`, `group_values` and the drill-down take both.
 
+**A cell's `title`** (optional, text up to 120 characters) is the heading that card shows on this
+dashboard; left out, the card is headed by its metric's or saved card's name (`cell_title`).
+
 12-column grid (gridstack.js, vendored); `w` 1–12, `h` 1–12 rows of 70px;
 `x + w ≤ 12`. `id`, `w`, `h`, `x`, `y` may be omitted (the size from the type's
 default; a cell with neither `x` nor `y` goes after the cards so far). Cells may not overlap. `use_period: false` pins a cell to all-time regardless of the
 period bar. Cells load lazily over htmx (`hx-trigger="load[, every Ns]"`), so
 one slow card doesn't block the page and `refresh_seconds` is free.
 
-### Built-in card types
+### Card types
 
-The starter also ships six library-free designs in `apps/website/dashboard_cards.py`: `trend`,
-`pie` (count or sum only), `ranked`, `bars` (columns or horizontal bars, largest first or by
-name: `direction`, `order`), `gauge` (one number on a half dial between `min` and `max`, the
-colour rules drawn as bands; `single_value`, so it takes a metric and the Add card dialog
-offers it) and `table` (the filtered rows themselves, `rows` a page, sorted by their headers
-and paged in place through the cell's own URL — `?order=` / `?page=` — with `totals` sums
-for number columns; its columns are its drill-down design, see below).
+The framework's own types, then the six library-free designs the starter registers in
+`apps/website/dashboard_cards.py` (palette group in brackets):
 
-| `type` | Shows | Options |
-|---|---|---|
-| `metric` | one stat card — the exact `{% stat_card %}` markup; click → the rows behind it. Over a saved metric (`metric`) or the card's own filter | — |
-| `metric_group` | the card's filtered rows split by a column: top N groups, biggest first, each drilling into its rows and showing its change from the previous period; an `Other` folds the tail for additive aggs (count/sum) only | `dimension` (req), `limit` 1–12, `other` |
-| `widget` | an existing `DashboardWidget` from `/smallstack/` (staff only) | `widget` (class path — `list_dashboard_components` lists them) |
-| `text` | markdown (rendered by the hardened `render_markdown`; raw HTML is escaped) | `markdown` (required) |
-| `menu` | links in the card's order — a way around, on the dashboard; across, down, or (`auto`) by the card's shape (a container query) | `items` (required: `[{label, url, new_window?}]`; a page of this site `/…`, `#…`, http(s) or `mailto:`, never a scheme that runs), `layout` auto/horizontal/vertical |
-| `goals` | a goal list's summary and first goals | `goal_list`, `limit`, `order` |
-| `calendar` | upcoming entries, a month or a board (registered by `apps/calendar`) | `calendars`, `mode`, `days`, `limit` |
-
-### Card types — a small framework set, open to apps
-
-| Type | Label | Palette group | Draws |
+| `type` | Label | Shows | Options |
 |---|---|---|---|
-| `metric` | Single stat | Stats | one number (a saved metric, or the card's own filter), threshold state, drill-down; `single_value=True` |
-| `metric_group` | Grouped stat | Stats | the card's own filtered rows split by `options.dimension`: top N (+ "Other"), each value drillable |
-| `widget` | Info card | Info | a published `DashboardWidget` (the `/smallstack/` cards; staff only) |
-| `text` | Note | Info | markdown |
-| `menu` | Menu | Info | links in order (`options.items`), across or down; the builder's row editor is the `links` option type |
+| `metric` | Single stat (Stats) | one stat card — the exact `{% stat_card %}` markup; click → the rows behind it. Over a saved metric (`metric`) or the card's own filter; `single_value` | — |
+| `metric_group` | Grouped stat (Stats) | the card's filtered rows split by a column: top N groups, biggest first, each drilling into its rows and showing its change from the previous period; an `Other` folds the tail for additive aggs (count/sum) only | `dimension` (req), `limit` 1–12, `other` |
+| `widget` | Info card (Info) | an existing `DashboardWidget` from `/smallstack/` (staff only) | `widget` (class path — `list_dashboard_components` lists them) |
+| `text` | Note (Info) | markdown (rendered by the hardened `render_markdown`; raw HTML is escaped) | `markdown` (required) |
+| `menu` | Menu (Info) | links in the card's order — a way around, on the dashboard; across, down, or (`auto`) by the card's shape (a container query) | `items` (required: `[{label, url, new_window?}]`; a page of this site `/…`, `#…`, http(s) or `mailto:`, never a scheme that runs), `layout` auto/horizontal/vertical |
+| `goals` | Goals (Stats) | a goal list's summary and first goals | `goal_list`, `limit`, `order` |
+| `calendar` | Calendar (Info) | upcoming entries, a month or a board (registered by `apps/calendar`) | `calendars`, `mode`, `days`, `limit` |
+| `trend` | Trend chart (Charts) | the source over time, as bars or a line | `kind` bars/line, `grain` ""(fit)/day/week/month/quarter |
+| `pie` | Pie chart (Charts) | each group's share of the whole (count or sum only) | `dimension` (req), `limit` 1–12 (default 6), `other` |
+| `ranked` | Ranked bars (Charts) | groups as bars, largest first | `dimension` (req), `limit` 1–12 (default 6), `other` |
+| `bars` | Bar chart (Charts) | groups as columns or horizontal bars | `dimension` (req), `limit` (default 8), `other`, `direction` vertical/horizontal, `order` value/label |
+| `gauge` | Gauge (Stats) | one number on a half dial, the colour rules drawn as bands; `single_value`, so it takes a metric and the Add card dialog offers it | `min` (default 0), `max` (default 100) |
+| `table` | Table (Charts) | the filtered rows themselves, sorted by their headers and paged in place through the cell's own URL (`?order=` / `?page=`); its columns are its drill-down design, see below | `rows` a page (default 10), `totals` sums for number columns |
 
-Charts belong to apps. The grouped stat on the sample dashboard is `metric_group`:
-`build_metric_group` calls `metrics.group_values(metric, dimension, limit)`, which runs
+Every data card also takes the shared options `list_dashboard_components` names in
+`shared_options`: `publish` / `listen` (linked cards), and `style` / `thresholds` on a
+`stylable` type. An option a type doesn't take is refused.
+
+Charts belong to apps; SmallStack's own cards stay stats and info cards. The grouped stat
+on the sample dashboard is `metric_group`: `build_metric_group` calls
+`metrics.group_values(metric, request, dimension, limit=…, other=…, period=…)`, which runs
 the metric's filter and aggregate grouped by the column, keeps the top `limit`, and
 folds the rest into "Other". Each value carries a `narrow` filter, so clicking it opens
 exactly its rows.
 
 ### Adding your own card type (the extension seam)
 
-The full contract — every `ComponentType` field, `CellContext`, the data helpers,
-`options_schema` types and your own editors, `validate`, `media` and the
-`dashboards:card-drawn` event, testing — is `card-types.md`. The short form:
-
-**The working reference is `apps/website/dashboard_cards.py`**, a "Trend chart"
-registered from `WebsiteConfig.ready()`. It lives in the project's app, not in
-SmallStack, because SmallStack's built-in cards stay stats and info cards:
-
-```python
-# myapp/apps.py  ready()
-from apps.dashboards.components import ComponentType, cell_title, register_component_type
-from apps.dashboards.trends import metric_trend
-
-def build_trend(cell, ctx):                # ctx: CellContext(request, dashboard, metric, period, rows_url, narrow)
-    # ctx.metric is the card's source as a Metric: the saved one it names, or an unsaved one
-    # built from the card's own dataset + filter (cell_source). Evaluate it either way.
-    trend = metric_trend(ctx.metric, ctx.request, ctx.period, cell["options"].get("grain"))
-    # Rows links go through rows_url(ctx, narrow=…, **drill_params(cell)): a card's own
-    # source has no metric page, so its rows open by its place on the dashboard.
-    return {"label": cell_title(cell) or ctx.metric.name, "trend": trend}   # cell_title: placement or saved-card name
-
-register_component_type(ComponentType(
-    key="trend", label="Trend chart", description="A metric over time",
-    template="myapp/cells/trend.html", build=build_trend,
-    needs_metric=True, default_size=(6, 3),  # draws data: a dataset the card filters (or, with single_value=True, a metric)
-    requires=frozenset({"date"}),          # dataset capabilities; the builder dims the tile otherwise ("date" also wants a period_field)
-    validate=validate_trend,               # cell -> [problems]; runs on every save, every surface
-    group="Charts",                        # the builder palette section
-    icon="M3.5 18.5l6-6 4 4L22 6.92…",     # a 24x24 SVG path for the palette tile
-    media={"js": ["myapp/vendor/echarts.min.js", "myapp/js/charts.js"]},   # loaded once per page
-    options_schema=[                       # the builder AND the Add card dialog render these
-        {"name": "kind", "label": "Chart", "type": "choice", "choices": [["bars", "Bars"], ["line", "Line"]]},
-        {"name": "grain", "label": "Buckets", "type": "choice", "choices": [["", "Fit"], ["week", "Weeks"]]},
-    ],
-))
-```
-
-**Option field types:** `choice` (add `"widget": "segmented"` or `"swatches"` for a compact
-picker), `multichoice` (several of the choices, as a tick-list; stored as one comma-separated
-string), `integer`/`number`, `text`, `boolean`, `column` (a column of the source's dataset;
-the builder clears it, saying so, when the dataset changes), `widget` (a published info
-card), `markdown` and `links` (the Menu card's rows of label + address).
-`choices` is `[[value, label]]`, or a callable `choices(user)` returning that when the
-values are rows the person can see (the Goals card's goal list, the Calendar card's
-calendars). Never ask someone to type a key: if an option names something that exists,
-give it `choices`.
+**The contract is [`card-types.md`](card-types.md)**: every `ComponentType` field,
+`CellContext`, the data helpers, `options_schema` types and your own option editors,
+`validate`, `media` (a chart library) and the `dashboards:card-drawn` event, and testing.
+**The working reference is `apps/website/dashboard_cards.py`**: the six designs above,
+registered from `WebsiteConfig.ready()`; the trend is the one to copy for a chart.
 
 **What a registered type gets, with no other changes:**
 - a tile in the **component builder** palette, with its form drawn from
   `options_schema`, the live preview, and dimming with a reason when the chosen
-  metric's data lacks `requires`;
+  source's data lacks `requires`;
 - the dashboard editor's Add card list;
 - layout validation, the period bar, lazy loading, refresh and access checks;
 - REST/MCP authoring, `card_preview` and `dashboard_snapshot`.
-
-**A chart library** goes in `media` (vendored into your app's `static/`: the CSP's
-`script-src` is `'self'`; add a CDN origin to `CONTENT_SECURITY_POLICY` only if you must).
-`{% component_media %}` writes each file once, `defer`, in order, on every page that can
-show cards: dashboards, `{% dashboard %}` embeds, playlists, the components page (gallery
-and the table's hover peek), the builder and the Edit card dialog. Ahead of them it writes
-`dashboards/js/cards.js`, which fires **`dashboards:card-drawn`** on the element that now
-holds a card's HTML, however it got there (an htmx cell, an eager embed, the builder's
-preview, the gallery), once per card and never for a cell still loading. Mount on that:
-
-```js
-function mountCharts(root) { root.querySelectorAll("[data-echart]:not([data-mounted])").forEach(mountOne); }
-document.addEventListener("dashboards:card-drawn", function (e) { mountCharts(e.target); });
-```
-
-(Read the palette's colours at mount time — `getComputedStyle(root).getPropertyValue("--series-1")`,
-`--primary` — so the chart follows the theme.) Pass the series to the script as JSON in the
-card's template (`{{ series|json_script }}`), built in `build` from `metric_trend`,
-`group_values` or `drill_rows`. `build` may raise; the cell then renders an error card
-instead of taking the page down. A whole charting library fits this way: each chart
-kind becomes a registered type, its settings become `options_schema`, and its data
-comes from metrics.
-
-**Your own option editor.** The builder draws an `options_schema` entry by its `type`
-(choice, multichoice, integer, number, text, boolean, column, widget, markdown, links).
-A type of your own — a series palette, an axis spec — gets its own editor: register it in
-a `media` script, which runs before the builder:
-
-```js
-window.SmallStackDashboards = window.SmallStackDashboards || {};
-(window.SmallStackDashboards.optionEditors = window.SmallStackDashboards.optionEditors || {}).axis =
-    function (api) {   // {spec, value, set(value), columns(done), source()}
-        var box = document.createElement("div");  /* …inputs… */
-        box.addEventListener("input", function () { api.set(readAxis(box)); });
-        return box;   // appended to the "What it shows" step
-    };
-```
-
-`set(value)` stores the option (`null`/`""` removes it) and redraws the preview; `columns`
-and `source` are the builder's own helpers (the source's dataset columns; `{dataset, caps,
-…}`). The same registry serves a dashboard's Add card dialog (there `api` has `spec`,
-`value` = the default, and `set`). The value is stored as given, so give the type a
-`validate` on the server: the builder's editor is a convenience, the server is the check.
 
 ### Styling and a card's own colour rules (`stylable` types)
 
@@ -374,8 +299,8 @@ and any app type that opts in) can also set:
 - **No literal colours:** colours are theme tokens, never hex, so a styled card works on
   every palette. `normalize_layout` refuses anything else, and a non-stylable type
   given `style` or `thresholds` is an error.
-- **The builder** shows these under **Style it**, with "Give this card its own rules"
-  (it starts from the metric's rules).
+- **The builder** shows these under **Style it**, with **Override the metric's colour rules for this card**
+  (or **Colour rules for this card** when there's no metric); it starts from the metric's rules.
 
 **Making your own type stylable** works the way `apps/website`'s Trend chart does it, so
 copy that. Set `stylable=True`. In `build`, call
@@ -403,9 +328,9 @@ in it, instead of opening the rows window; a card with
 redraws narrowed to whatever arrives, with a "Showing POST ✕" chip that clears it.
 
 ```json
-[{"id": "by", "type": "pie", "dataset": "requests", "agg": "count", "options": {"dimension": "method", "publish": "verb"}},
- {"id": "n", "type": "metric", "dataset": "requests", "agg": "count", "options": {"listen": {"channel": "verb"}}},
- {"id": "t", "type": "table", "dataset": "requests", "agg": "count", "options": {"listen": {"channel": "verb"}}}]
+[{"id": "by", "type": "pie", "dataset": "smallstack_requests", "agg": "count", "options": {"dimension": "method", "publish": "verb"}},
+ {"id": "n", "type": "metric", "dataset": "smallstack_requests", "agg": "count", "options": {"listen": {"channel": "verb"}}},
+ {"id": "t", "type": "table", "dataset": "smallstack_requests", "agg": "count", "options": {"listen": {"channel": "verb"}}}]
 ```
 
 - **What travels is an address, not rows:** the `narrow` filter tree the clicked
@@ -433,8 +358,8 @@ redraws narrowed to whatever arrives, with a "Showing POST ✕" chip that clears
   same way: `ComponentType(publishes=True)` and a `data-day="YYYY-MM-DD"` (plus
   `data-day-label`) on what's clickable.
 - **Checked on save** (`components.link_problems`): channel names are
-  `[a-z0-9_-]`, up to 40; a drillable card or a `publishes` type (the calendar)
-  publishes; a data-free card never listens; a card can't listen to the channel it publishes to; `map` targets
+  `[a-z0-9_-]`, up to 40; only a drillable card or a `publishes` type (the calendar)
+  may publish; a data-free card never listens; a card can't listen to the channel it publishes to; `map` targets
   must be columns of the card's own data. The builder's **What it shows** step
   has a *Linked cards* block for both.
 - **Your own card type** publishes and listens for free if its clickable things
@@ -526,7 +451,7 @@ A **metric** is *what* number; a **component** is *a filtered result and how it'
 {"name": "Requests by method", "type": "metric_group",
  "dataset": "smallstack_requests", "filter_tree": {}, "agg": "count", "period_field": "timestamp",
  "options": {"dimension": "method", "limit": 5}, "visibility": "shared"}
-{"name": "Requests", "type": "metric", "metric": "requests", "options": {}}
+{"name": "Requests", "type": "metric", "metric": "demo_requests", "options": {}}
 ```
 
 The builder's first step is the source: **a dataset, filtered here** (the dataset picker,
@@ -862,6 +787,9 @@ The evaluation tools are custom:
 | `metric_record_value` / `metric_delete_value` | `GET`/`POST dashboards/api/metrics/<key>/entries/` (removing one is MCP or the page) | a hand-entered metric's value for a date |
 | `list_dashboard_components` | `GET dashboards/api/components/` | card types, options, default sizes, periods (+ widgets for staff: the `widget` type, "Info card", places one published `DashboardWidget`) |
 | `dashboard_add_card` / `dashboard_remove_card` | (PATCH `layout`) | edit one card without rewriting the layout |
+| `card_preview` | `POST dashboards/api/card-preview/` | dry-run an unsaved card: draw it and list every problem |
+| `metric_usage` | — | where a metric is used, before an edit or delete |
+| `goal_list_add_goal` | — | append one goal to a section of a goal list |
 | `dashboard_share` (`everyone`, `add`/`remove` usernames; nothing = report) | `GET /smallstack/api/dashboards/boards/<pk>/` reads `sharing` | who may open a personal dashboard; its owner still edits it |
 | `dashboard_snapshot` | `GET dashboards/api/boards/<slug>/values/` | every card with its live value, to check your work. Stores nothing; a chart or calendar card has no one number (`card_preview` draws it) |
 | `dashboard_set_picture` (base64, or `remove`) | `POST`/`DELETE dashboards/api/boards/<slug>/picture/` (multipart `image`, `alt`) | the dashboard's picture. The JSON CRUD can't carry a file, so `cover_image` is read-only there (its URL) and left out of the MCP write schema. A session caller sends `X-CSRFToken` |
@@ -874,11 +802,24 @@ The evaluation tools are custom:
 2. `metric_preview {dataset, filter_tree, agg, measure, period_field}` — iterate
    until `problems` is empty **and** `row_count`/`value` are plausible.
 3. `create_metric` with the same fields (+ `key`, `name`, `visibility`).
-4. `create_dashboard {name, slug}` → `dashboard_add_card` per card.
+4. `create_dashboard {name}` (the slug is made from the name and returned) → `dashboard_add_card` per card.
 5. `dashboard_snapshot {dashboard}` — confirm no cell has an `error`.
 
 Everything runs as the token's user: ownership and dataset access apply
 exactly as on the pages.
+
+**Writing over REST: what replaces, what's final.**
+- **A `layout` write replaces the whole list.** `PATCH …/boards/<id>/ {"layout": [...]}` keeps only
+  the cells sent, so send every cell (read the board first, change it, send it all back). To change
+  one card, use `dashboard_add_card` / `dashboard_remove_card`. `{"layout": null}` is refused.
+- **REST and MCP have no archive.** `archived_at` is read-only, and there is no archive route in
+  the API or tool. Archive from the row's page (its **Archive** button; `POST
+  dashboards/archive/<kind>/<pk>/` is that page's session-and-CSRF form, not an API).
+- **`DELETE` removes the row for good**: it isn't an archive, nothing lists it afterwards, and
+  its slug or key is free again.
+- **Changing a `slug` breaks the old address.** There is no redirect: links, bookmarks and
+  `{% dashboard %}` embeds by the old slug 404 (playlists and Goals cards are carried over by
+  `signals.py`). Only an administrator may change one (see *Addresses*).
 
 **Refusals, not guesses.** REST and MCP refuse a period, grain or week that isn't one (a page falls
 back quietly via `requested_period`; a client can't see that it got all time). The MCP dispatcher
@@ -917,8 +858,8 @@ surface importing another, or a private name imported from another app fails the
 
 - **This period against the one before** — `comparison.compare_with_previous(metric, request,
   period, result)` → `{dir, text, previous, unit}` or None. Only for periods with a natural
-  predecessor (`today`→`yesterday`, `wtd`→`pwtd`, `pwtd`→`ppwtd`, `mtd`→`pmtd`, `qtd`→`pqtr`, `ytd`→`prev_year`;
-  `periods.PREVIOUS_PERIOD`). A still-running period says **"vs all of last month"**
+  predecessor (`today`→`yesterday`, `wtd`→`pwtd`, `pwtd`→`ppwtd`, `mtd`→`pmtd`, `qtd`→`pqtr`, `ytd`→`prev_year`,
+  `this_month`→`pmtd`, `this_year`→`prev_year`; `periods.PREVIOUS_PERIOD`). A still-running period says **"vs all of last month"**
   (partial against complete), and the change is neutral grey, never good/bad. Used by the metric
   page, dashboard metric cells, the index and metrics-list period views, the rows modal (count
   metrics only), `metric_value` (MCP) and `dashboards/api/metrics/<key>/value/`. Grouped cards
@@ -968,8 +909,10 @@ surface importing another, or a private name imported from another app fails the
 `manage.py seed_dashboards` builds a shared demo (8 metrics over the bundled
 datasets, a "Server error rate" rate made from two of them, a "Site health"
 dashboard, a "Monthly KPIs" report). It's the framework's own defaults bundle
-(`dashboard_defaults.py`, `auto=False`): **an app ships its own metrics, cards,
-dashboards and goal lists the same way**, kept in step without overwriting
+(`dashboard_defaults.py`, `auto=False`), and it installs **only that demo**. An app
+ships its own metrics, cards, dashboards and goal lists in the same format, but those
+are applied by `migrate` (after every migrate) or `manage.py dashboard_defaults
+[--app <label>]`, never by `seed_dashboards`; they're kept in step without overwriting
 people's edits. See [`app-defaults.md`](app-defaults.md).
 
 ## The dashboard page — controls, card menus, Edit card
@@ -1082,3 +1025,7 @@ from the list as it is now, never from a capture. Playlist slides leave it out.
 - `SMALLSTACK_DASHBOARDS_ENABLED` (default on). Off ⇒ no nav, no routes, no MCP
   tools; the app stays installed (migrations apply) and `evaluate()` /
   `{% metric_card %}` keep working in-process (cards render without a drill link).
+- `SMALLSTACK_DASHBOARD_DEFAULTS_SYNC` (default on, off in test settings): apply apps'
+  `dashboard_defaults.py` after every migrate ([`app-defaults.md`](app-defaults.md)).
+- `SMALLSTACK_SNAPSHOT_DEFAULT_CADENCES` (`["weekly"]`), `SMALLSTACK_SNAPSHOT_KEEP_DAYS`
+  (`{"hourly": 90, "daily": 730}`): see *The snapshot engine*.

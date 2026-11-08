@@ -92,6 +92,18 @@ Deleting the metric no longer removes them.
 - **Add to goals** needs a single stat over a metric; a stat with its own
   filter is saved as a metric first.
 
+## Unreleased — only administrators change an address
+
+**Who is affected:** staff (or their API tokens and agents) who change a dashboard's, report's,
+playlist's or goal list's `slug`.
+
+**What changed:** only a superuser or a member of the `admin` group may change an existing
+address. Anyone else's change is refused on every surface (the settings page, REST and MCP) with a
+validation error. Plain staff used to be able to.
+
+**Migration:** add those people to an `admin` group, or have a superuser make the change. A
+changed address doesn't redirect, so links and embeds by the old slug stop working either way.
+
 ## v0.28.0 — `can_update` / `can_delete` now gate writes, not just buttons
 
 **Who is affected:** any CRUDView that overrides `can_update(obj, request)` or

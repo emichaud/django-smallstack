@@ -46,7 +46,7 @@ A well-behaved agent will:
 | `metric_preview` | evaluate an unsaved metric (dry run) |
 | `list_metrics`, `get_metric`, `create_metric`, `update_metric`, `delete_metric` | metric CRUD. The CRUD families here share these verbs |
 | `metric_value` | a saved metric's value, optionally for a period, with the change from the previous period |
-| `metric_trend` | a saved metric per day, week or month across a period, which is what a chart draws |
+| `metric_trend` | a saved metric per day, week, month, quarter or year across a period, which is what a chart draws |
 | `metric_rows` | the rows behind a number, to explain it |
 | `metric_usage` | where a metric is used, before you change or delete it |
 | `list_dashboard_components` | the card types and their options |
@@ -69,10 +69,13 @@ Rows can be named as well as numbered: `get_metric`, `update_metric` and `delete
 take `key` in place of `id`; dashboards, reports, goal lists and playlists take `slug`.
 A `slug` is optional when creating one: leave it out and it's made from the name (`site-health`,
 then `site-health-2`), and the answer says what it is. An existing one's slug doesn't change
-with its name, and only staff may change it.
+with its name. Only an administrator (a superuser, or a member of the `admin` group) may change it;
+anyone else's change, over REST and MCP too, is refused. A changed slug breaks the old address: there
+is no redirect, so bookmarks, embeds and playlists that used it stop working.
 
 **Periods** are `today`, `yesterday`, `wtd` (this week so far), `pwtd` (last week), `mtd`, `pmtd`,
-`qtd`, `pqtr`, `ytd`, `prev_year`, `last_<N>`, `next_<N>` and `all`. A name that isn't one is refused,
+`qtd`, `pqtr`, `ytd`, `prev_year`, `this_month` and `this_year` (the whole month or year, days to come
+included), `last_<N>`, `next_<N>` and `all`. A name that isn't one is refused,
 never answered with an all-time number (a stored `default_period` takes only the fixed names, not
 `all` or an arbitrary `last_14`). **A metric with no `period_field`** can't be narrowed, so it gives
 its all-time value and a `note` saying so, and a goal on one can't have its own period.

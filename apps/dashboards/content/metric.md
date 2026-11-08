@@ -43,7 +43,7 @@ data.
    period narrows, and that a trend chart buckets by. Leave it blank for a
    number that doesn't depend on time, like *pending approvals*; such a metric
    can't be drawn over time.
-6. Choose a **format** (number, compact, percent, currency, duration) and a
+6. Choose a **format** (number, compact, decimal, percent, currency, duration) and a
    **unit**.
 7. Add **colour rules** if you want them: *10 or more is danger, 5 or more is
    warning*. The first rule that matches colours the number.

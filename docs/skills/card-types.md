@@ -6,8 +6,9 @@ registration gives the type every surface the built-in cards have; the project
 never edits `apps/dashboards`. The worked reference is
 `apps/website/dashboard_cards.py` (bar chart, gauge, table, pie, ranked bars, trend
 chart) with its templates under `templates/website/cells/` and
-`static/website/css/dashboard-cards.css`; the framework's own types (stat, grouped
-stat, note, menu, widget, calendar, goals) are registered the same way in
+`static/website/css/dashboard-cards.css`; the framework's own types (`metric` single
+stat, `metric_group` grouped stat, `text` note, `menu`, `widget` info card, `calendar`, `goals`)
+are registered the same way in
 `apps/dashboards/components.py` and `apps/calendar`.
 
 Read `dashboards.md` first for what a metric, a card's source, a dashboard and the
@@ -67,12 +68,12 @@ access-checked, and drawn in previews, embeds and playlists.
 | `template` | str | The cell's template. Rendered with `build`'s dict plus `cell`, `dashboard`, `request`, `period`. |
 | `build` | `(cell, ctx) -> dict` | The template context. May raise: the cell renders an error card and the page stands. |
 | `needs_metric` | bool | The card **draws data**, so it needs a source: a dataset the card filters itself (`dataset`, `filter_tree`, `agg`, `measure`, `period_field`) or, for a `single_value` type, a saved `metric`. `False` = no source allowed (a note, a menu). The name is historical. |
-| `single_value` | bool | Boils down to one number. Only such a type may draw a saved metric (a chart needs the rows, so it filters a dataset of its own), it is offered in the dashboard's Add card, and a saved card of it over a metric can be a goal. |
+| `single_value` | bool | Boils down to one number. Only such a type may draw a saved dataset metric. A chart needs the rows, so it filters a dataset of its own, except over a metric with no dataset to filter (entered by hand, a rate), which a design that doesn't split it into groups (the trend) may draw as it is. It is offered in the dashboard's Add card, and a saved card of it over a metric can be a goal. |
 | `requires` | frozenset[str] | Dataset capabilities the source must have, from `apps.datasets.capabilities`: `"measure"` (a numeric column), `"dimension"` (a column to group by), `"dimension2"`, `"date"` (a period column). The builder dims the tile with the reason; a save is refused. A trend chart requires `date`; a split requires `dimension`. |
 | `default_size` | (w, h) | Grid units on a 12-column grid, used when a cell omits `w`/`h`. |
 | `options_schema` | list[dict] | What the builder, the Add card dialog and `validate` know about `options`. See below. |
 | `validate` | `(cell) -> list[str]` | The type's own rules on top of the shared checks. Return problems as sentences; the caller prefixes the path (`layout[2].options: …`). |
-| `visible_to` | `(user) -> bool` | Who may see the card at all, beyond dashboard visibility; `None` = anyone who can open the dashboard. The info card passes a staff check (`lambda u: u.is_staff`); `describe_types` reports the framework's own as `staff_only`. |
+| `visible_to` | `(user) -> bool` | Who may see the card at all, beyond dashboard visibility; `None` = anyone who can open the dashboard. The info card passes a staff check (`lambda u: u.is_staff`); `describe_types` reports the framework's own as `staff_only`. A project's own `visible_to` is enforced but not reported as `staff_only` (only the framework's private check is). |
 | `media` | `{"js": [...], "css": [...]}` | Static paths the card needs on any page that shows it. See *Scripts*. |
 | `stylable` | bool | Honours the shared card styling (`options.style`: format, unit, size, colour, title size/colour, alignment) and the card's own colour rules (`options.thresholds`). Read them with `card_style(cell)` / `styled_value(...)`. The builder shows a **Style it** step. |
 | `style_settings` | tuple[str, …] | Which styling settings apply; empty = all. A card whose headline is text has no number format or unit. |
@@ -197,8 +198,8 @@ in the new one, and says so.
 
 Done for you, for every type, before `validate` runs: the cell's shape (known keys,
 `options` an object, grid bounds, unique ids, no overlap), the source rule (a data card
-has a dataset of its own or — `single_value` only — a metric that exists and the owner
-may use; a data-free type takes no source), `requires` against the dataset's
+has a dataset of its own or a metric that exists and the owner may use — a dataset metric on a
+`single_value` type only, a hand-entered or rate one on any type whose `requires` it meets; a data-free type takes no source), `requires` against the dataset's
 capabilities, `column` options against the dataset, `style`/`thresholds` for a
 `stylable` type (and refused for one that isn't), `drilldown` for a `drillable` type
 (and refused otherwise).
@@ -295,8 +296,9 @@ the editor is a convenience, `validate` is the check.
 
 `describe_types()` (the `list_dashboard_components` MCP tool, and the data the builder
 and Add card read) lists each type as `{type, label, description, needs_metric,
-single_value, requires, options, group, icon, media, stylable, style_settings,
-drillable, shows_rows, staff_only}` with `choices(user)` resolved for the caller. An
+single_value, requires, options, default_size, group, icon, media, stylable, style_settings,
+drillable, shows_rows, publishes, staff_only}` (`publishes` is true for any drillable data card
+as well; the MCP tool drops `icon` and `media` and adds `shared_options`) with `choices(user)` resolved for the caller. An
 agent then places one with `dashboard_add_card {type, dataset, filter_tree, …, options}`
 or `{type, metric, options}`, saves one as a component with `create_component`, or
 dry-runs it with `card_preview` (`POST dashboards/api/card-preview/`), all through the

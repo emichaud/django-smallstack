@@ -313,7 +313,7 @@ running. Test worker death with `--no-reload`.
 
 Everything above fails *silently* when misconfigured — the symptom is an absence
 (no heartbeat, no reaper), which surfaces only when a worker dies. So
-`manage.py check` reports three degraded configurations. All are warnings, and
+`manage.py check` reports five degraded configurations. All are warnings, and
 none fires on shipped defaults:
 
 | ID | Fires when | Why it matters |

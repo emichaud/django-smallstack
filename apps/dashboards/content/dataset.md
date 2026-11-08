@@ -53,7 +53,9 @@ Datasets are declared in code, by a developer, in a few lines (`@dataset` in
 an app's `datasets.py`). Nothing is copied: the dataset reads the source
 directly, so its rows are always the current ones. SmallStack ships about
 thirty of its own, covering requests, logs, health checks, scheduled jobs,
-webhooks, approvals and more. All of those are **staff-only**. A dataset
+webhooks, approvals and more. All of those are **staff-only**, except `metric_entries` (the values typed
+into hand-entered metrics), which is open to everyone signed in but shows
+each person only the metrics they can see. A dataset
 declared with `access="auth"` is open to everyone signed in.
 
 You don't create or edit a dataset in the browser. What you make in the

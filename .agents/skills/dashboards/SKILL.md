@@ -22,7 +22,12 @@ live under `/smallstack/dashboards/`.
 > lower-level [`dashboard-cards.md`](dashboard-cards.md) `{% stat_card %}` is
 > still right.
 
-## The model — three nouns, all JSON an agent can write
+**Start here.** Building one over MCP/REST → *Building agentically (MCP + REST)* (the five-step
+loop and the tool table). Adding a card design → [`card-types.md`](card-types.md). Shipping
+defaults with an app → [`app-defaults.md`](app-defaults.md). Using the pieces on your own page →
+*On your own pages*.
+
+## The model — six owned kinds, all JSON an agent can write
 
 ```
 @dataset ──(filter_tree + agg)──▶ Metric ──▶ Dashboard cell   (grid, period bar, refresh)
@@ -35,8 +40,11 @@ live under `/smallstack/dashboards/`.
 | **Metric** | A named number, the KPI and the reusable unit: a stored filter over a dataset rolled up to one value (`source="dataset"`), values entered by hand (`manual`, `MetricEntry`) or one metric divided by another (`rate`). | `key` (stable slug), `source`, `dataset`, `numerator`, `denominator`, `filter_tree`, `agg`, `measure`, `period_field`, `format`, `unit`, `thresholds` |
 | **Dashboard** | A grid of cards. | `slug`, `layout` (list of cells), `default_period`, `refresh_seconds` |
 | **Report** | Metrics × periods as a table (+ CSV). | `slug`, `items` (`[{metric, label?}]`), `periods` (`["mtd", "pmtd", "ytd"]`) |
+| **Component** | A saved card: a design and its source, placed on dashboards with `{"component": key}`. | `key`, `type`, a source (`dataset` + `filter_tree` + `agg`/`measure` + `period_field`, or `metric`), `options` |
+| **GoalList** | Goals judged against targets, in titled sections. | `slug`, `sections` (`[{title, goals: [{metric or component, target, warn?}]}]`), `default_period` |
+| **Playlist** | Dashboards shown one after another. | `slug`, `items` (`[{dashboard, seconds?, period?}]`), `seconds` |
 
-All three: `owner` blank = **shared** (staff edit, every signed-in user views);
+All six: `owner` blank = **shared** (staff edit, every signed-in user views);
 set = **personal** (owner edits, staff view). `can_view` / `can_edit` on the
 model is the one rule — views, REST and MCP never re-derive it. Every model
 calls `full_clean()` in `save()`, so a bad filter, a cell pointing at a

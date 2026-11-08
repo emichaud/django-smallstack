@@ -6,7 +6,9 @@ generated from the CRUDViews. These add what CRUD can't:
 - ``list_dashboard_components`` — the card types, their options, the periods
 - ``metric_preview``   — dry-run an unsaved metric: value + row count + every problem
 - ``metric_value``     — evaluate a saved metric (optionally for a period)
-- ``metric_trend``     — a saved metric per day / week / month across a period (what a chart reads)
+- ``metric_trend``     — a saved metric per day / week / month / quarter / year across a period (what a chart reads)
+- ``metric_usage``     — where a metric is used, before an edit or delete
+- ``metric_record_value`` / ``metric_delete_value`` — a hand-entered metric's values
 - ``metric_rows``      — the rows behind a saved metric's number
 - ``dashboard_snapshot`` — every card on a dashboard, evaluated (check your work)
 - ``dashboard_add_card`` / ``dashboard_remove_card`` — edit one card, not the whole layout (or place a saved one)
@@ -19,6 +21,8 @@ generated from the CRUDViews. These add what CRUD can't:
 - ``goal_list_add_goal`` — append one goal to a section of a goal list
 - ``goal_list_weeks``  — a goal list week over week (saved snapshots, or worked out)
 - ``goal_list_save_week`` — save a week's values and targets (or fill past weeks)
+- ``goal_list_tracking`` / ``goal_list_capture`` / ``goal_list_history`` — which cadences are captured,
+  capture now (or fill past periods), read the captures
 
 The intended loop: ``list_datasets`` → ``describe_dataset`` → ``metric_preview``
 (until ``problems`` is empty and the number is plausible) → ``create_metric`` →
@@ -838,8 +842,10 @@ def register_dashboard_tools() -> int:
             "component = a saved card's key (list_components; its design stays in step when the card is edited), "
             "or an inline card: type from list_dashboard_components, plus its source. A card that draws data "
             "filters a dataset of its own: dataset (list_datasets) + filter_tree (metric_preview's shape) + "
-            "agg/measure + period_field (the date column the period narrows and a chart buckets by). The one-number "
-            "design (type metric) may instead draw a saved metric: metric = its key. "
+            "agg/measure + period_field (the date column the period narrows and a chart buckets by). A single-value "
+            "design (single_value: true in list_dashboard_components: metric, gauge) may instead draw a saved "
+            "metric: metric = its key; a design that doesn't split into groups (trend) may draw a hand-entered or "
+            "rate metric. "
             'options per type (metric_group: {"dimension": "<column>", "limit": 5}; text: {"markdown": "..."}; '
             'widget: {"widget": "<key>"}); a card with its own source formats itself through options.style '
             "({format, unit}) and options.thresholds. Link cards so a click on one narrows others: "
@@ -854,7 +860,7 @@ def register_dashboard_tools() -> int:
                         "description": "A saved card's key, instead of type/metric/options.",
                     },
                     "type": {"type": "string"},
-                    "metric": {"type": "string", "description": "A saved metric's key: for type metric only."},
+                    "metric": {"type": "string", "description": "A saved metric's key: single-value designs only."},
                     "dataset": {"type": "string", "description": "The card's own source: a dataset key."},
                     "filter_tree": {"type": "object", "description": "The card's own filter over its dataset."},
                     "agg": {
@@ -895,7 +901,8 @@ def register_dashboard_tools() -> int:
             "the current sharing: everyone (true = everyone who can sign in) and people (usernames). Set "
             "everyone, or add / remove people by username; each person added gets a notification with the link. "
             "A viewer reads the dashboard's cards as the owner sees them, except data their own access doesn't "
-            "reach. An ownerless (shared) dashboard is everyone's already.",
+            "reach: the reply's cant_read ({username: [card titles]}) and warning name cards a person added can't "
+            "read. An ownerless (shared) dashboard is everyone's already.",
             {
                 "type": obj,
                 "properties": {

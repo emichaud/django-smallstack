@@ -35,7 +35,7 @@ component can sit on many dashboards; edit it and all update.
 | **Single stat** | One number, coloured by its rules: a metric, or your own filter. |
 | **Grouped stat** | The rows split by a column: the biggest groups as numbers. |
 | **Pie, Ranked bars, Bar chart** | The same split: shares of a whole, ranked bars, or columns and bars by size or name. |
-| **Trend chart** | The filtered rows over time, by day, week or month. |
+| **Trend chart** | The filtered rows over time, by day, week, month or quarter. |
 | **Gauge** | One number on a dial, its colour rules as bands. |
 | **Table** | The filtered rows, a page at a time: your columns, sortable, with totals. |
 | **Goals** | A goal list's first goals and how many are on target. |

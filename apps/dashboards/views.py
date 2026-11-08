@@ -2048,9 +2048,12 @@ class DashboardCRUDView(_OwnedCRUD):
     mcp_plural = "dashboards"
     mcp_description = (
         "a dashboard: a grid of cards. layout is a list of cells on a 12-column grid — "
-        '{"id", "type", "x", "y", "w", "h", "metric"?, "title"?, "options"?, "use_period"?}; types from '
-        "list_dashboard_components (metric, metric_group with options.dimension, widget, text with "
-        "options.markdown). default_period = a period key or blank; visibility = personal|shared. "
+        '{"id", "type", "x", "y", "w", "h", "title"?, "options"?, "use_period"?} plus one source: a dataset '
+        "the card filters itself (dataset + filter_tree + agg/measure + period_field, any design), metric = a "
+        "saved metric's key (single-value designs only: metric, gauge; a hand-entered or rate metric also on a "
+        "design that doesn't split into groups, e.g. trend), or component = a saved card's key. Types from "
+        "list_dashboard_components (metric_group needs options.dimension, text options.markdown, widget "
+        "options.widget). default_period = a period key or blank; visibility = personal|shared. "
         "cover_image is the dashboard's picture: read-only here (its URL), uploaded as multipart over REST. "
         "dashboard_add_card appends one card without rewriting the layout"
     )
