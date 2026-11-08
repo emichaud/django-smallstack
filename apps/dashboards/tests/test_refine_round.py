@@ -176,3 +176,18 @@ def test_saving_an_archived_dashboards_settings_page_keeps_it_archived(client, b
     assert r.status_code in (200, 302)
     board.refresh_from_db()
     assert board.is_archived
+
+
+def test_rest_names_the_keys_a_write_didnt_take(client, board, staff):
+    import json
+
+    client.force_login(staff)
+    r = client.patch(
+        f"/smallstack/api/dashboards/boards/{board.pk}/",
+        json.dumps({"name": "N", "archived_at": "2026-01-01T00:00:00Z", "ownr": 3}),
+        content_type="application/json",
+    )
+    assert r.status_code == 200 and r.json()["ignored"] == ["archived_at", "ownr"]
+    url = f"/smallstack/api/dashboards/boards/{board.pk}/"
+    r = client.patch(url, json.dumps({"name": "M"}), content_type="application/json")
+    assert "ignored" not in r.json()

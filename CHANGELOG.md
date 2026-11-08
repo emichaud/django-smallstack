@@ -127,6 +127,7 @@ Breaking-change migration recipes live in [`UPGRADING.md`](UPGRADING.md).
 - **A dashboard changing hands brought back the sharing a past owner chose.**
 - **A gauge's ceiling or floor of 0 was read as unset.**
 - **`this_month` / `this_year` were compared against all of last month without saying so.**
+- **A REST write dropped keys it doesn't take without a word** (`archived_at`, a misspelt field): the 200 read as "all applied". A create or update now lists them as `ignored`, only when there are some.
 - **REST and MCP couldn't archive.** `archived_at` was read-only and silently ignored, and `DELETE` destroys; an agent asked to archive did one or the other. Every owned kind (metric, card, dashboard, report, playlist, goal list) now takes `"archived": true` / `false` on update.
 - **The share dialog listed every account to any member** a letter at a time, staff included. Staff still search by any part of a name; anyone else finds a person by exact username. A person added, removed and added again is notified once.
 - **An all-time trend drew only its last 12 buckets**, labelled all time: a fortnight by day lost its first two days, ten weeks of data showed 12 bars. All time fits its grain to the data's span, so it now gets the same 400-bucket cap as any period.

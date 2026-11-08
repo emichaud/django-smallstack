@@ -1289,6 +1289,17 @@ def _api_list(request, crud_config):
     return JsonResponse({**page_meta, "results": results, **agg_extra})
 
 
+def _with_ignored(payload: dict, raw: Any, form) -> dict:
+    """Name the body keys this write didn't take (read-only, unknown, misspelt)
+    as ``ignored``, so a 200 isn't read as "everything I sent was applied":
+    ``{"archived_at": …}`` or ``{"ownr": 3}`` used to vanish without a word."""
+    if isinstance(raw, dict):
+        ignored = sorted(k for k in raw if k not in form.fields and k != "id")
+        if ignored:
+            return {**payload, "ignored": ignored}
+    return payload
+
+
 def _api_create(request, crud_config):
     """Handle POST on list endpoint: create a new object."""
     from .form_bridge import build_form, merge_form_payload
@@ -1316,7 +1327,7 @@ def _api_create(request, crud_config):
         expand_fields = _resolve_expand_fields(request, crud_config)
         fields = crud_config._get_detail_fields() or crud_config.fields
         return JsonResponse(
-            _serialize(obj, fields, crud_config.api_extra_fields, expand_fields),
+            _with_ignored(_serialize(obj, fields, crud_config.api_extra_fields, expand_fields), raw, form),
             status=201,
         )
     return JsonResponse({"errors": form.errors}, status=400)
@@ -1354,7 +1365,9 @@ def _api_update(request, obj, crud_config):
         log_write(request.user, obj, CHANGE, "REST API")
         expand_fields = _resolve_expand_fields(request, crud_config)
         fields = crud_config._get_detail_fields() or crud_config.fields
-        return JsonResponse(_serialize(obj, fields, crud_config.api_extra_fields, expand_fields))
+        return JsonResponse(
+            _with_ignored(_serialize(obj, fields, crud_config.api_extra_fields, expand_fields), raw, form)
+        )
     return JsonResponse({"errors": form.errors}, status=400)
 
 
