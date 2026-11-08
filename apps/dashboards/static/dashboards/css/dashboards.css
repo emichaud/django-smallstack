@@ -60,7 +60,11 @@ a.dash-tag.is-current:link, a.dash-tag.is-current:visited { color: var(--primary
 .ix-archived-note a { color: var(--link-color); }
 .dash-archive-form { display: inline; margin: 0; }
 /* a <button> doesn't inherit the page font; match the links beside it */
-.dash-archive-form .btn-outline { font-family: inherit; font-size: 0.85rem; line-height: 1.5; padding: 7px 14px; }
+/* A <button> drawn as .btn-outline .btn-sm, sized as the <a> ones beside it (Share was smaller than Archive and Cards) */
+.dash-archive-form .btn-outline,
+.dash-header-actions button.btn-outline,
+.dash-header-actions button.btn-primary { font-family: inherit; font-size: 0.85rem; line-height: 1.5; padding: 7px 14px; }
+.dash-header-actions button.btn-primary { border: 1px solid transparent; } /* the outline buttons beside it have a 1px border */
 .page-header-with-actions .dash-archived { align-self: center; }
 
 /* ── grid + cells ────────────────────────────────────────────────────── */
@@ -224,7 +228,9 @@ a.dash-tag.is-current:link, a.dash-tag.is-current:visited { color: var(--primary
 .dash-message--error strong { color: var(--error-fg); }
 
 /* ── the page's controls, in its header; each card's menu ─────────────── */
-.dash-header-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 0.5rem; }
+/* Its basis keeps the controls to a column of their own, wrapping, so the
+   dashboard's name has the room it needs instead of breaking over two lines. */
+.dash-header-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 0.5rem; flex: 0 1 30rem; }
 /* the ⋯ at a card's corner: there as the card is pointed at or focused, and always on a touch screen */
 .dash-cell-more {
     position: absolute;
