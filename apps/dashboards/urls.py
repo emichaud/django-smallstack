@@ -66,6 +66,11 @@ urlpatterns = [
     path(
         "dashboards/duplicate/<str:kind>/<int:pk>/", views.DuplicateConfirmView.as_view(), name="dashboards_duplicate"
     ),
+    path(
+        "dashboards/defaults/reset/<str:kind>/<int:pk>/",
+        views.DefaultResetView.as_view(),
+        name="dashboards_default_reset",
+    ),
     path("dashboards/r/<slug:slug>/", views.ReportPageView.as_view(), name="dashboards_report"),
     path("dashboards/p/<slug:slug>/", views.PlaylistPlayerView.as_view(), name="dashboards_playlist"),
     path(

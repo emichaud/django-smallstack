@@ -99,3 +99,16 @@ project calendar can be opened to every signed-in user; such a calendar should
 scope its rows per user, which the dataset's `request` argument makes a
 one-liner. A user never sees a calendar they may not open, in the picker or
 through the API.
+
+## On a dashboard
+
+A **Calendar** card puts one or more calendars on a dashboard: the upcoming
+entries, a month, or a 30/60/90-day board. Add it with **Edit layout → Add
+card → Calendar** and tick the calendars it shows. Each viewer sees only the
+calendars they may open.
+
+A calendar card can also drive other cards. Give **Send clicks to** a name (in
+the Add card dialog, or under **Linked cards** in **Edit card**); a card whose
+**Listen to** is that name then narrows to whichever day you click, e.g. the
+requests made that day. Click the
+✕ on the narrowed card to go back.

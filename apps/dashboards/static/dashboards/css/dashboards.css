@@ -3247,3 +3247,10 @@ a.cc-name::after { content: ""; position: absolute; inset: 0; }
 /* The global modal draws list items as bullets; these are chips. */
 .dl .dl-used-list { padding-left: 0 !important; }
 .dl .dl-used-list > li { display: inline-block; list-style: none !important; margin: 0; }
+
+/* A row an app ships as a default (partials/default_badge.html). */
+.dash-default-badge { align-self: center; padding: 0.15rem 0.55rem; border: 1px solid var(--card-border); border-radius: 999px; font-size: 0.75rem; color: var(--body-quiet-color); white-space: nowrap; }
+
+/* {% card %}: one saved card on its own, outside a dashboard's grid. */
+.dash-embed-card { display: flex; flex-direction: column; }
+.dash-embed-card > .dash-cell-body { flex: 1; }

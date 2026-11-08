@@ -125,3 +125,32 @@ class DashboardsConfig(AppConfig):
                 register_dashboard_tools()
             except Exception:  # noqa: BLE001
                 logger.exception("dashboards: MCP tool registration failed")
+
+        # Defaults apps ship (their dashboard_defaults.py, like datasets.py), kept
+        # in step after every migrate (defaults.sync_defaults).
+        from django.db.models.signals import post_migrate
+        from django.utils.module_loading import autodiscover_modules
+
+        autodiscover_modules("dashboard_defaults")
+        post_migrate.connect(_sync_defaults_after_migrate, dispatch_uid="dashboards_sync_defaults")
+
+
+def _sync_defaults_after_migrate(sender: Any, **kwargs: Any) -> None:
+    """Once per migrate (the dashboards app's own signal, when every table
+    exists): create and update the defaults apps ship. Off with
+    ``SMALLSTACK_DASHBOARD_DEFAULTS_SYNC = False``; never fails a migrate."""
+    if getattr(sender, "label", "") != "smallstack_dashboards":
+        return
+    if not getattr(settings, "SMALLSTACK_DASHBOARD_DEFAULTS_SYNC", True):
+        return
+    from .defaults import sync_defaults
+
+    try:
+        report = sync_defaults()
+    except Exception:  # noqa: BLE001
+        logger.exception("dashboards: syncing the app defaults failed")
+        return
+    for app, kind, key, outcome, detail in report.lines:
+        if outcome in ("created", "updated", "parked", "restored", "error", "conflict"):
+            log = logger.warning if outcome in ("error", "conflict") else logger.info
+            log("dashboard default %s %s:%s:%s %s", outcome, app, kind, key, detail)

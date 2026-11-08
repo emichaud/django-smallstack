@@ -56,7 +56,10 @@ is always current.
 - A card that says **restricted** draws on data your account can't read. The
   dashboard is shared with you; that card's data isn't.
 - A dashboard with **Refreshes every N s** re-fetches its cards on its own; **Refresh**, in the
-  page's header beside **Duplicate**, **Settings** and **Edit layout**, reloads them now.
+  page's header, reloads them now.
+- **Linked cards.** Some dashboards connect their cards: clicking a slice, bar or calendar day
+  in one card narrows another to it instead of opening rows. The narrowed card says so,
+  e.g. *Showing POST ✕*; the ✕ puts it back.
 - On **Today** or **This week / month / quarter / year**, each card shows its change from the
   period before, e.g. *▼ 35% vs all of last month*. "All of" means this period is still running
   and is being compared with a finished one. The change is grey on purpose: whether up is good
@@ -122,15 +125,17 @@ On a dashboard you can edit, click **Edit layout**:
 2. **Add card** → pick a type:
    - **Saved card** — one you've built under **Components** (when you have any).
    - **Single stat** — one number, from a saved metric.
+   - **Gauge** — one number on a half dial, coloured by its rules.
    - A grouped stat or a chart (requests by method, latency over time) filters a dataset of its own, so it's built under **Components** and placed as a saved card, or added here and opened with **Edit card**.
    - **Goals** — a goal list's summary and first goals.
    - **Calendar** — upcoming entries, a month or a day-range board.
    - **Info card** — any card from the main `/smallstack/` dashboard (staff).
-   - **Note** — a heading or a note, in markdown.
+   - **Note** — a heading or a note, in markdown, with its own text colour, size and alignment.
+   - **Menu** — a row or column of links, to other dashboards or anywhere.
 3. **Remove** takes a card off (the metric itself stays).
 4. **Save layout**. **Cancel** throws the changes away.
 
-**Settings** edits the name, the default period and auto-refresh. It also lists every card with its design, metric, size and current value. Sorting that table only changes the table; a card's place on the dashboard doesn't move.
+**Settings** edits the name, picture, tags, the default period and auto-refresh. It also lists every card with its design, metric, size and current value. Sorting that table only changes the table; a card's place on the dashboard doesn't move.
 
 ## Reports
 
@@ -174,6 +179,12 @@ an overview into a full list. A row's own tags are chips too. A
 tag matches whole: *ops* doesn't find *devops*. The search box on a list also looks in tags,
 and there it matches part of a word.
 
+**Hover over a metric or goal name** in a list to see its description, if it has one.
+
+**Archived things** are out of the lists and pickers but not gone (see *Archiving*, below). A
+list with some shows **Show archived (N)** beside its tags; the overviews say what's archived,
+e.g. *Archived: 2 metrics, 1 report*, each a link.
+
 ## Addresses
 
 Every dashboard, report, playlist and goal list has an address, such as
@@ -188,25 +199,42 @@ An administrator (a superuser, or a member of the `admin` group) can change an a
 and Goals cards that show it follow the change; links and bookmarks to the old address stop
 working. Metrics and saved cards have a permanent key instead, also made from the name.
 
-## Deleting
+## Archiving, deleting and duplicating
 
-Deleting a metric shows which dashboard cards, report rows, goals and saved cards would break, and
-removes them in the same step unless you untick the box. Deletes made by an agent or through the API always
-remove them. Deleting a report or a dashboard leaves its metrics alone. The page offers a
-CSV or a copy of the layout first.
+Each of these asks first and says what it will do.
+
+- **Archive** puts something away without breaking anything. It leaves the lists and pickers,
+  but every dashboard, report and goal using it keeps showing it. To bring it back, choose
+  **Show archived** on its list, open it and press **Restore**. When in doubt, archive.
+- **Delete** can't be undone, so the confirmation says what goes and what stays:
+  - A **metric**: the dashboard cards, report rows, goals and saved cards that use it. They're
+    removed in the same step unless you untick the box. (Deletes by an agent or the API always
+    remove them.)
+  - A **saved card**: each dashboard showing it keeps it as a card of its own.
+  - A **goal list**: its goals and its saved week-by-week history.
+  - A **report**, **dashboard** or **playlist**: only itself; the metrics and dashboards it
+    uses stay. A report offers a last CSV, a dashboard a copy of its layout.
+- **Duplicate** opens the form for a copy, named "… (copy)", filled in from the original.
+  The copy starts personal and nothing is saved until you press Save.
 
 ## On your own pages
 
-Any page in your project can show a dashboard or a single metric:
+Any page in your project can show what these pages show:
 
 ```django
 {% load dashboard_tags %}
 {% dashboard "site-health" %}
 {% metric_card "open_tickets" period="mtd" %}
+{% goal_list "weekly-ops" %}
+{% card "requests_by_method" %}
+{% report "monthly-kpis" %}
 ```
 
-The cards, numbers and drill-downs are the same ones these pages show. People who can't open the
-dashboard see nothing. The **Dashboard** starter page has a working example.
+Or take the numbers and draw them your own way: `{% metric_value "open_tickets" as m %}` gives
+the value, its colour state and its change; `{% goal_values "weekly-ops" as g %}` the verdicts.
+
+The cards, numbers and drill-downs are the same ones these pages show. People who can't open
+something see nothing. The **Dashboard** starter page has a working example of each.
 
 ## Sharing
 
@@ -218,6 +246,10 @@ owner edits them.
 A shared dashboard can hold only shared metrics, and a personal one can hold
 shared metrics and your own. It can't use someone else's personal metric.
 
+**Sharing a personal dashboard.** Its owner can let others open it without giving it away:
+**Share** in its header turns on *everyone* or adds people by name (each gets a notification).
+They can view it; only the owner edits it. The badge says who it's shared with.
+
 **Sharing a dashboard doesn't share its data.** Every dataset has its own access level, and all the
 ones SmallStack bundles are staff-only. So someone without staff access who opens a shared dashboard
 or goal list built on them sees *restricted* on each card, and "No numbers yet" on the goals. To give
@@ -228,4 +260,5 @@ a whole team the numbers, make them staff, or have a developer declare a dataset
 
 `uv run python manage.py seed_dashboards` creates a **Site health** dashboard
 and a **Monthly KPIs** report from the built-in datasets (requests, health
-checks, approvals). It shows the metric, grouped and note cards.
+checks, approvals), plus a **Server error rate** metric: one metric divided by
+another. It shows the metric, grouped and note cards.

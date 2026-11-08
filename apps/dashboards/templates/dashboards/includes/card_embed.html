@@ -1,0 +1,8 @@
+{% load static dashboard_tags %}{% comment %}{% card %}: one saved card on any page, drawn as a dashboard draws it, at its type's height (or `height`).{% endcomment %}
+{% if card %}
+<link rel="stylesheet" href="{% static 'dashboards/css/dashboards.css' %}">
+{% component_media %}
+<div class="dash-cell dash-cell--{{ card.type }} dash-embed-card" style="min-height: {{ height }}px;" aria-label="{{ card.name }}" role="group">
+    <div class="dash-cell-body">{{ html }}</div>
+</div>
+{% endif %}

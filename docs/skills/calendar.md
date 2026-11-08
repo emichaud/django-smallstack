@@ -257,6 +257,15 @@ gets those. The card ignores the dashboard's period bar — a calendar has its
 own navigation — so `use_period` is moot for it. Its stylesheet rides on
 `media={"css": ["calendar/css/calendar.css"]}` through `{% component_media %}`.
 
+**Linked to other cards.** With `"publish": "<channel>"` in its options, a click on
+a day (the month grid's cells, the board's day heads, the upcoming list's days;
+keyboard too) narrows the cards listening on that channel to that day instead of
+opening the calendar page; events inside a day still open their own links. The
+day travels on the field `date`, which a listener reads as its own period column
+(or the column its `listen.map` names). The type declares `publishes=True` and the
+templates mark days with `data-day` / `data-day-label`. See *Linked cards* in
+`dashboards.md`.
+
 ## Reusing the components on another page
 
 When the tag's shapes don't fit, go one level down. The four renderers are

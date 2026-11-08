@@ -1,0 +1,10 @@
+{% comment %}
+A row an app ships as a default (defaults.py): "From <app>", "· customised" when
+someone changed it, and Reset to default when it differs from what the app ships
+now (changed here, or a newer definition the sync couldn't apply over a change).
+Reset confirms in the modal first. `kind` and `obj` as for archive_button.html.
+{% endcomment %}{% load dashboard_tags %}{% default_info obj as d %}{% if d %}
+<span class="dash-default-badge" title="{{ d.app_name }} ships this as a default. Edits are kept: the app updates it only while nobody has changed it.">From {{ d.app_name }}{% if d.customised %} · customised{% endif %}{% if not d.shipped %} · no longer shipped{% endif %}</span>
+{% if d.shipped and d.customised or d.shipped and d.newer %}{% url 'dashboards_default_reset' kind obj.pk as reset_url %}
+<a href="{{ reset_url }}?next={{ request.get_full_path|urlencode }}" class="btn-outline btn-sm" hx-get="{{ reset_url }}?next={{ request.get_full_path|urlencode }}" hx-target="#stat-modal-body" hx-swap="innerHTML" data-stat-modal="Reset {{ obj.name }} to its default?" aria-haspopup="dialog" title="Put it back as {{ d.app_name }} ships it now">Reset to default</a>
+{% endif %}{% endif %}

@@ -43,7 +43,36 @@ validation error, not a silent no-op. The forms show the address read-only
 administrators only; `signals.py`
 carries a changed slug into playlists and Goals cards.
 
-**Keeping the pile small.** Every owned row (metrics, dashboards, cards, playlists, reports, goal lists) carries `tags` (one text field, comma-separated; `tag_list`, `split_tags`, `OwnedQuerySet.tagged(tag)` matches a whole tag, any case) and `archived_at` (`is_archived`, `set_archived(bool)`, `OwnedQuerySet.active()` / `.archived()`). The rule: **lists and pickers show active rows; references keep working.** Overviews, CRUD lists (`?archived=1` shows the archived ones instead), REST/MCP lists, the board editor's metric and card pickers, the goal-add picker and the rate's numerator/denominator pickers all go through `.active()`; a card drawing an archived metric, a report row, a goal, `get_detail_queryset` and the REST/MCP `get_*` by key do not. `usage_index` ignores archived boards, reports and goal lists, so archiving a board frees its metrics. Archive or restore from the page's header (`POST dashboards/archive/<kind>/<pk>/`, editors only, `kind` in `metric dashboard component playlist report goals`). **Archive, Delete and Duplicate each confirm first** in the global stat modal (htmx), or as a page without JavaScript: `GET dashboards/archive/<kind>/<pk>/` says what archiving means and what still uses the row; each kind's delete view (`_DeleteInModalMixin`; cards, playlists and goal lists through `_ConfirmDeleteMixin`) says what goes and what stays; `GET dashboards/duplicate/<kind>/<pk>/` (`DuplicateConfirmView`, anyone who can see the row) says what the copy will be, and its button opens the create form with `?from=`. The shared wrappers are `smallstack_dashboards/crud/owned_confirm_{modal,page}.html` around a body template; `views.where_used(kind, obj, user)` lists what still uses a row. Restore stays one click. Both overviews narrow to one tag with `?tag=` (chips on every row link there) and name what's archived by kind, each linking to that list's archived rows ("Archived: 2 metrics, 1 report", `displays.archived_links`); each list's tags bar (`displays.TagBar`) offers **Show archived (N)**, and **Back to the list** while showing them. **Duplicate** (every page's header, a card's builder) is the create form opened with `?from=<key or slug>`: the original's defining fields and tags prefilled, the name "(copy)", visibility personal, nothing saved until Save; a metric's or card's key comes from its name, a slug-keyed type gets the next free slug (`_free_slug`), and the original is untouched. `MetricCreateMixin.COPIED` and each `*DuplicateMixin.duplicate_fields` say what's carried over. Over REST or MCP a duplicate is a get followed by a create.
+**Keeping the pile small: tags and archive.** Every owned row (metrics, dashboards, cards,
+playlists, reports, goal lists) has `tags` and `archived_at`.
+
+- **Tags** are one comma-separated text field (`tag_list`, `split_tags`;
+  `OwnedQuerySet.tagged(tag)` matches a whole tag, any case).
+- **Archive** puts a row away without breaking anything. The rule: *lists and pickers show
+  active rows; references keep working.* Overviews, CRUD lists, REST/MCP lists and every
+  picker go through `.active()`; a card drawing an archived metric, a report row, a goal,
+  `get_detail_queryset` and REST/MCP `get_*` don't. `usage_index` ignores archived boards,
+  reports and goal lists, so archiving a board frees its metrics.
+- **Archiving and restoring:** `POST dashboards/archive/<kind>/<pk>/` (editors only; `kind`
+  is `metric`, `dashboard`, `component`, `playlist`, `report` or `goals`; `restore=1` brings
+  it back). Restore is one click.
+- **Finding archived rows:** each list's tags bar (`displays.TagBar`) offers **Show archived
+  (N)** (`?archived=1`) and **Back to the list**; the overviews name what's archived by kind,
+  each a link ("Archived: 2 metrics, 1 report", `displays.archived_links`).
+- **Confirmations.** Archive, Delete and Duplicate each ask first, in the global stat modal
+  (htmx), or as a page without JavaScript, and say what the action means:
+  - `GET dashboards/archive/<kind>/<pk>/`: what archiving means and what still uses the row;
+  - each kind's delete view (`_DeleteInModalMixin`; cards, playlists and goal lists through
+    `_ConfirmDeleteMixin`): what goes and what stays;
+  - `GET dashboards/duplicate/<kind>/<pk>/` (`DuplicateConfirmView`, anyone who can see the
+    row): what the copy will be; its button opens the create form.
+
+  The shared wrappers are `smallstack_dashboards/crud/owned_confirm_{modal,page}.html` around
+  a body template; `views.where_used(kind, obj, user)` lists what still uses a row.
+- **Duplicate** is the create form opened with `?from=<key or slug>`: the original's defining
+  fields and tags, the name "… (copy)", visibility personal, nothing saved until Save. The
+  original is untouched. `MetricCreateMixin.COPIED` and each `*DuplicateMixin.duplicate_fields`
+  say what's carried over. Over REST or MCP a duplicate is a get followed by a create.
 
 **Finding by tag.** `models.tag_cloud(*querysets, current=)` is the tags in use with their row
 counts (any case counted together, the 30 most used, the current one always kept). The
@@ -84,8 +113,8 @@ thing everywhere. Outside a view, `request_for(user)` builds a request.
 
 - **period**: when a period key is given *and* the metric has a `period_field`,
   a `{"field": period_field, "op": "period", "value": period}` leaf is AND-ed
-  on. A metric with no `period_field` is unaffected (a report shows it once,
-  marked n/a in the other columns, rather than repeating one number).
+  on. A metric with no `period_field` is unaffected (a report shows its one
+  value once, across every period column, noted "Same in every period").
 - **thresholds** → `state` ∈ `success | warning | danger | muted` — the
   stat-card states, so the colour comes from the theme on every palette.
 - **failure is explicit**: an unknown dataset or a filter that no longer
@@ -233,7 +262,7 @@ SmallStack, because SmallStack's built-in cards stay stats and info cards:
 from apps.dashboards.components import ComponentType, cell_title, register_component_type
 from apps.dashboards.trends import metric_trend
 
-def build_trend(cell, ctx):                # ctx: CellContext(request, dashboard, metric, period, rows_url)
+def build_trend(cell, ctx):                # ctx: CellContext(request, dashboard, metric, period, rows_url, narrow)
     # ctx.metric is the card's source as a Metric: the saved one it names, or an unsaved one
     # built from the card's own dataset + filter (cell_source). Evaluate it either way.
     trend = metric_trend(ctx.metric, ctx.request, ctx.period, cell["options"].get("grain"))
@@ -257,10 +286,11 @@ register_component_type(ComponentType(
 ))
 ```
 
-**Option field types:** `choice`, `multichoice` (several of the choices, as a tick-list;
-stored as one comma-separated string), `integer`/`number`, `text`, `boolean`, `column` (a
-column of the source's dataset; the builder clears it, saying so, when the dataset changes),
-`widget` (a published info card) and `markdown`.
+**Option field types:** `choice` (add `"widget": "segmented"` or `"swatches"` for a compact
+picker), `multichoice` (several of the choices, as a tick-list; stored as one comma-separated
+string), `integer`/`number`, `text`, `boolean`, `column` (a column of the source's dataset;
+the builder clears it, saying so, when the dataset changes), `widget` (a published info
+card), `markdown` and `links` (the Menu card's rows of label + address).
 `choices` is `[[value, label]]`, or a callable `choices(user)` returning that when the
 values are rows the person can see (the Goals card's goal list, the Calendar card's
 calendars). Never ask someone to type a key: if an option names something that exists,
@@ -292,9 +322,9 @@ document.addEventListener("dashboards:card-drawn", function (e) { mountCharts(e.
 `--primary` — so the chart follows the theme.) Pass the series to the script as JSON in the
 card's template (`{{ series|json_script }}`), built in `build` from `metric_trend`,
 `group_values` or `drill_rows`. `build` may raise; the cell then renders an error card
-instead of taking the page down. This is how call_stats' reporter sits on top: each
-ECharts kind becomes a registered type, its spec options become `options_schema`, and
-its data comes from metrics.
+instead of taking the page down. A whole charting library fits this way: each chart
+kind becomes a registered type, its settings become `options_schema`, and its data
+comes from metrics.
 
 **Your own option editor.** The builder draws an `options_schema` entry by its `type`
 (choice, multichoice, integer, number, text, boolean, column, widget, markdown, links).
@@ -320,7 +350,8 @@ and `source` are the builder's own helpers (the source's dataset columns; `{data
 ### Styling and a card's own colour rules (`stylable` types)
 
 A metric's `thresholds` colour it everywhere it appears. A card of a `stylable` type
-(Single stat, Grouped stat, and any app type that opts in) can also set:
+(Single stat, Grouped stat, Info card, the starter's Trend, Bars, Gauge, Pie and Ranked,
+and any app type that opts in) can also set:
 
 ```json
 "options": {
@@ -413,7 +444,8 @@ redraws narrowed to whatever arrives, with a "Showing POST ✕" chip that clears
 ### Drill-downs — what opens when a number is tapped (`drillable` types)
 
 Tapping a number opens its rows in the stat modal, with **Download CSV**. A card of a
-`drillable` type (Single stat, Grouped stat, Trend chart) can design that modal:
+`drillable` type (Single stat, Grouped stat, and the starter's Trend, Bars, Gauge, Pie,
+Ranked and Table) can design that modal:
 
 ```json
 "options": {"drilldown": {
@@ -510,7 +542,8 @@ posting the definition: `dashboards/preview-rows/` (the modal fragment, with `na
 
 - **The key** is made from the name (`requests_by_method`) and is permanent.
 - **Opening a builder filled in:** the metric form takes `metrics/new/?dataset=<key>&filter_tree=<json>&agg=&measure=`
-  (what the dataset browser's **Save as metric** sends; anything that doesn't apply is left out), and the component
+  (what the dataset browser's **Make a metric** modal links to as "Open the full form instead"; anything that doesn't
+  apply is left out), and the component
   builder takes `components/new/?metric=<key>&type=<card type>&dimension=<column>` (the metric page's **Make a card**).
   With `then=card&card_type=&dimension=` the metric form continues to the component builder after saving, so a
   grouped roll-up becomes a card through a real, named metric rather than a hidden one.
@@ -543,9 +576,8 @@ Previews are `inert`.
 
 `metric_trend(metric, request, period=None, grain=None)` returns the metric's own filter and
 aggregation per calendar bucket. Over REST it's `GET dashboards/api/metrics/<key>/trend/?period=&grain=`,
-and over MCP it's the `metric_trend` tool. Built on `Dataset.series(dimension, grain=…)`, the
-call_stats grain grammar ported to SmallStack's datasets: day/week/month/quarter/year, Monday
-weeks, `[lo, hi)` bounds.
+and over MCP it's the `metric_trend` tool. Built on `Dataset.series(dimension, grain=…)`:
+day/week/month/quarter/year buckets, weeks starting Monday, `[lo, hi)` bounds.
 
 - **Every bucket of the period is present.** An empty one reads 0 for count/distinct/sum and
   `None` (a gap) for avg/min/max/ratio.
@@ -645,7 +677,9 @@ Playlists take `{"goals": "<slug>", "show"?: "week" | "weeks"}` items beside `{"
 **Trend.** `evaluate_goals(..., trend=True)` (used by the meeting view, slides and `goal_values`) adds `row["trend"]`, built by `goal_trend()`:
 - `points`: the last `TREND_POINTS` (6) buckets, each judged against the target.
 - `streak`: e.g. "Missed 3 weeks running".
-- The bucket size comes from `trend_grain(period)`: week for wtd/pwtd/last_7, quarter, year, else month.
+- The bucket size comes from `trend_grain(period)`: a day for today/yesterday, a week for
+  this week/last week/7 days, a quarter for the quarterly periods, a year for the yearly ones,
+  otherwise a month (all time too).
 - It costs one `metric_trend` series query per goal.
 
 ### Printing
@@ -665,7 +699,7 @@ A weekly `Snapshot` (see the engine below; rows, summary, complete, taken_by) fr
 | Function | What it's for |
 |---|---|
 | `take_snapshot(goal_list, monday, by=)` / `backfill(goal_list, n)` | save a week / fill past weeks |
-| `snapshot_last_week()` | `manage.py snapshot_goals` (the schedule is `tasks.capture_snapshots`), not `@scheduled(cron="15 0 * * 1")`; also `manage.py snapshot_goals [--list] [--week] [--fill N [--replace]]` |
+| `snapshot_last_week()` | save the week just ended for every list: what `manage.py snapshot_goals` runs (`[--list] [--week] [--fill N [--replace]]`). The automatic captures come from the snapshot engine's hourly `tasks.capture_snapshots` (below) |
 | `week_page(goal_list, request, monday)` | one week: the snapshot, else live; `change` vs the week before; rows drill to the week's rows (`?narrow=`) |
 | `week_grid(goal_list, request, last, count)` + `write_grid_csv` | goals × weeks; saved weeks as they were, the rest live. `grid_order` / `sort_grid` / `grid_sort_links` sort it (`?order=goal` or `w<monday>`, `-` for descending); the page's table resizes, with `data-field` keyed by position |
 | `week_trends(goal_list, request, monday)` | the weeks around one week: bars, vs previous, vs the average before, streak, best/worst. `trends_order` / `sort_trends` / `trends_sort_links` sort it (`?order=goal`, `value`, `change`, `average`, `run`) |
@@ -715,7 +749,7 @@ and `SMALLSTACK_SNAPSHOT_KEEP_DAYS` (default hourly 90, daily 730; other cadence
 
 Pages: `g/<slug>/history/` (`?cadence=`, `?last=`, `?at=`, `?capture=`, `?format=csv`).
 
-## `{% dashboard %}` — show a dashboard on any page
+## On your own pages — `{% dashboard %}` and the rest
 
 ```django
 {% load dashboard_tags %}
@@ -733,7 +767,43 @@ Pages: `g/<slug>/history/` (`?cadence=`, `?last=`, `?at=`, `?capture=`, `?format
 - **Building your own markup:** `boards.board_embed(dashboard, request, period=, lazy=)` returns
   the same structure for a page that wants different markup.
 
-`/starter/dashboard/` (`templates/starter/dashboard.html`) is a working page using both tags.
+### The rest of the pieces, and the data behind them
+
+Every piece the Dashboards and Goals pages draw can go on a page of your own, with the
+same access checks (nothing is rendered for something the viewer may not open) and the
+same drill-down modal. `{% load dashboard_tags %}`:
+
+| Tag | Draws |
+|---|---|
+| `{% dashboard "slug" period= title= lazy= %}` | a dashboard's cards (above) |
+| `{% metric_card "key" period= label= %}` | one metric as a stat card (below) |
+| `{% goal_list "slug" period= title= %}` | a goal list judged: summary, sections, status, value, target, trend; names show their description on hover |
+| `{% card "key" period= height= %}` | one saved card, drawn as a dashboard draws it (a card over a saved metric drills; one with its own filter drills only on a dashboard) |
+| `{% report "slug" title= %}` | a report's table, without the page's sorting |
+| `{% playlist "slug" … %}` | a playlist, playing (see Playlists) |
+| `{% calendar_card … %}` | a calendar (`calendar.md`) |
+
+`period` is a period key, `"all"` for all time, or omitted for the thing's own.
+
+**Data tags, for markup of your own.** Same engine, same access rules; `None` for
+something the viewer may not open:
+
+| Tag | Gives |
+|---|---|
+| `{% metric_value "key" period= as m %}` | `{metric, result, comparison}`: `m.result` is the `MetricResult` (`display`, `value`, `unit`, `state`, `restricted`, `error`), `m.comparison` `{dir, text}` or None |
+| `{% metric_series "key" period= grain= as t %}` | `trends.metric_trend`: `t.points` `[{label, value, display, partial, narrow}]` |
+| `{% goal_values "slug" period= as g %}` | `goals.goals_embed`: `summary`, `attention`, `sections`, `rows` (each with `label`, `description`, `status`, `status_label`, `display`, `target_text`, `gap_text`, `trend`) |
+| `{% report_values "slug" as r %}` | `reports.present_report`: `columns`, `rows` (`cells`, `delta`, `span`), `lede` |
+| `{% dashboard_values "slug" period= as b %}` | `boards.board_values`: every card evaluated |
+
+`{% dashboards_assets %}` writes the stylesheet and scripts such markup needs
+(`dashboards.css`, every card type's media, the `data-about` hover script); the
+whole-piece tags bring their own. Use the classes the pages use (`.rp-value
+.rp-value--<state>`, `.ix-compare`, `.gl-pill`) and theme variables, never colours of
+your own.
+
+`/starter/dashboard/` (`templates/starter/dashboard.html`) is a working page using every
+tag, and drawing the same numbers in markup of its own with the data tags.
 
 ## The `{% metric_card %}` tag
 
@@ -789,7 +859,7 @@ The evaluation tools are custom:
 | `list_dashboard_components` | `GET dashboards/api/components/` | card types, options, default sizes, periods (+ widgets for staff: the `widget` type, "Info card", places one published `DashboardWidget`) |
 | `dashboard_add_card` / `dashboard_remove_card` | (PATCH `layout`) | edit one card without rewriting the layout |
 | `dashboard_snapshot` | `GET dashboards/api/boards/<slug>/values/` | every card, evaluated — check your work |
-| `dashboard_share` (`everyone`, `add`/`remove` usernames; nothing = report) | `GET dashboards/api/boards/<pk>/` reads `sharing` | who may open a personal dashboard; its owner still edits it |
+| `dashboard_share` (`everyone`, `add`/`remove` usernames; nothing = report) | `GET /smallstack/api/dashboards/boards/<pk>/` reads `sharing` | who may open a personal dashboard; its owner still edits it |
 | `dashboard_set_picture` (base64, or `remove`) | `POST`/`DELETE dashboards/api/boards/<slug>/picture/` (multipart `image`, `alt`) | the dashboard's picture. The JSON CRUD can't carry a file, so `cover_image` is read-only there (its URL) and left out of the MCP write schema. A session caller sends `X-CSRFToken` |
 | `report_values` | `GET dashboards/api/reports/<slug>/values/` | a report's matrix |
 | `playlist_slides` | `GET dashboards/api/playlists/<slug>/slides/` | a playlist as the caller sees it (create/edit with `create_playlist` / `update_playlist`) |
@@ -864,8 +934,9 @@ surface importing another, or a private name imported from another app fails the
   (`models.detach_metric`) on **every** delete surface — HTML, bulk, REST, MCP — inside the
   delete's transaction; the page's checkbox is the only opt-out (its form sends
   `detach_choice`, so an unticked box keeps them). `on_delete(request, obj)` is a framework
-  CRUDView hook any app can override. Report/dashboard deletes show what goes and offer a
-  last CSV / the layout JSON. List views load these into the stat modal; table views do too via
+  CRUDView hook any app can override. Every other kind's delete says what goes and what
+  stays too: a report offers a last CSV, a dashboard its layout JSON, a card the dashboards
+  it's placed on, a goal list its saved weekly history (see **Confirmations** above). List views load these into the stat modal; table views do too via
   the framework's opt-in `confirm_modal` on a CRUD delete action (set in `row_actions`).
 
 ## Pages
@@ -892,7 +963,10 @@ surface importing another, or a private name imported from another app fails the
 
 `manage.py seed_dashboards` builds a shared demo (8 metrics over the bundled
 datasets, a "Server error rate" rate made from two of them, a "Site health"
-dashboard, a "Monthly KPIs" report).
+dashboard, a "Monthly KPIs" report). It's the framework's own defaults bundle
+(`dashboard_defaults.py`, `auto=False`): **an app ships its own metrics, cards,
+dashboards and goal lists the same way**, kept in step without overwriting
+people's edits. See [`app-defaults.md`](app-defaults.md).
 
 ## The dashboard page — controls, card menus, Edit card
 
@@ -903,7 +977,8 @@ anywhere without the rest:
   from its own template (`includes/embed.html`, plain CSS grid): no controls, no
   menus, nothing to edit. Changing the page never changes an embed.
 - **The controls** are `includes/dashboard_controls.html` (Updated / Refresh,
-  Duplicate, Archive, Settings, Edit layout), included in the **page header**.
+  Duplicate, and for editors Share, Archive, Cards, Settings and Edit layout),
+  included in the **page header**.
   `dashboard.js` finds each by id, so a page of your own can include them wherever
   its header is. Only the period bar stays above the cards, because it changes what
   they show. All of them carry `.dash-view-only` and step aside while arranging

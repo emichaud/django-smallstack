@@ -33,7 +33,9 @@ data.
 **Goals → Metrics → New metric** opens the builder. From top to bottom:
 
 1. **Name** it. A permanent **key** is made from the name; dashboards and
-   agents refer to the metric by that key, so renaming is safe.
+   agents refer to the metric by that key, so renaming is safe. A
+   **description** says what it counts; it shows when someone hovers the
+   metric's name in a list.
 2. Pick the **dataset**.
 3. Build the **filter**: conditions joined by ALL or ANY, with nested groups.
 4. Choose the **aggregation**, and the measure column if it needs one.
@@ -48,6 +50,10 @@ data.
 
 The preview shows the value and how many rows match as you go, and **See
 them** opens those rows before you save.
+
+You can also start on a dataset's page: filter its rows and choose **Make a
+metric**. **Start from a metric** there loads one you have, to copy with
+changes.
 
 Two other kinds skip the filter. A metric **entered by hand** holds values
 you type, for numbers that live in another tool. A **rate** is one metric

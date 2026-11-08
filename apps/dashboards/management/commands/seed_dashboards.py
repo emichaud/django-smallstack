@@ -1,9 +1,11 @@
-"""Seed a working demo: metrics over the bundled framework datasets (and a rate
-made from two of them), a "Site
-health" dashboard and a "Monthly KPIs" report — every one shared.
+"""Seed a working demo: the framework's own defaults (``dashboard_defaults.DEMO``),
+metrics over the bundled datasets and a rate made from two of them, a "Site
+health" dashboard and a "Monthly KPIs" report, every one shared.
 
-Idempotent: rows are upserted by key/slug, so re-running refreshes them
-without duplicating. ``--reset`` deletes the demo rows first.
+Re-running is safe: it creates what's missing and updates what nobody has
+changed since, the way every app's defaults sync (``defaults.sync_defaults``).
+``--reset`` deletes the demo rows first, and so puts back any you deleted;
+``--adopt`` takes over demo rows seeded before defaults existed.
 
     uv run python manage.py seed_dashboards
 """
@@ -14,186 +16,9 @@ from typing import Any
 
 from django.core.management.base import BaseCommand, CommandParser
 
-from apps.datasets.core import get_dataset
-
-from ...models import SOURCE_RATE, Dashboard, Metric, Report
-
-METRICS: list[dict[str, Any]] = [
-    {
-        "key": "demo_requests",
-        "name": "Requests",
-        "description": "Every logged HTTP request.",
-        "dataset": "smallstack_requests",
-        "period_field": "timestamp",
-        "format": "compact",
-    },
-    {
-        "key": "demo_server_errors",
-        "name": "Server errors",
-        "description": "Requests that answered 5xx.",
-        "dataset": "smallstack_requests",
-        "filter_tree": {"field": "status_code", "op": ">=", "value": 500},
-        "period_field": "timestamp",
-        "thresholds": [{"op": ">", "value": 0, "state": "danger"}, {"op": "=", "value": 0, "state": "success"}],
-    },
-    {
-        "key": "demo_client_errors",
-        "name": "Client errors (4xx)",
-        "description": "Requests that answered 4xx — excluding 404s, which are mostly scanners.",
-        "dataset": "smallstack_requests",
-        "filter_tree": {
-            "and": [
-                {"field": "status_code", "op": "between", "value": 400, "value2": 499},
-                {"field": "status_code", "op": "!=", "value": 404},
-            ]
-        },
-        "period_field": "timestamp",
-        "thresholds": [{"op": ">=", "value": 50, "state": "warning"}],
-    },
-    {
-        "key": "demo_avg_latency",
-        "name": "Average latency",
-        "description": "Mean response time of successful requests.",
-        "dataset": "smallstack_requests",
-        "filter_tree": {"field": "status_code", "op": "<", "value": 400},
-        "agg": "avg",
-        "measure": "response_time_ms",
-        "period_field": "timestamp",
-        "format": "number",
-        "unit": "ms",
-        "thresholds": [
-            {"op": ">=", "value": 800, "state": "danger"},
-            {"op": ">=", "value": 300, "state": "warning"},
-            {"op": "<", "value": 300, "state": "success"},
-        ],
-    },
-    {
-        "key": "demo_writes",
-        "name": "Write requests",
-        "description": "POST, PUT, PATCH and DELETE requests.",
-        "dataset": "smallstack_requests",
-        "filter_tree": {"field": "method", "op": "in", "value": ["POST", "PUT", "PATCH", "DELETE"]},
-        "period_field": "timestamp",
-    },
-    {
-        "key": "demo_api_traffic",
-        "name": "API & MCP traffic",
-        "description": "Requests to the REST API or the MCP endpoint.",
-        "dataset": "smallstack_requests",
-        "filter_tree": {
-            "or": [
-                {"field": "path", "op": "contains", "value": "/api/"},
-                {"field": "path", "op": "contains", "value": "/mcp"},
-            ]
-        },
-        "period_field": "timestamp",
-    },
-    {
-        "key": "demo_failed_checks",
-        "name": "Failed health checks",
-        "description": "Heartbeat checks that came back down, outside maintenance windows.",
-        "dataset": "smallstack_heartbeats",
-        "filter_tree": {
-            "and": [
-                {"field": "status", "op": "=", "value": "fail"},
-                {"field": "maintenance", "op": "=", "value": False},
-            ]
-        },
-        "period_field": "timestamp",
-        "thresholds": [{"op": ">", "value": 0, "state": "danger"}, {"op": "=", "value": 0, "state": "success"}],
-    },
-    {
-        "key": "demo_pending_approvals",
-        "name": "Pending approvals",
-        "description": "Approval requests waiting on a human.",
-        "dataset": "smallstack_approval_requests",
-        "filter_tree": {"field": "status", "op": "=", "value": "pending"},
-        "thresholds": [{"op": ">=", "value": 5, "state": "warning"}],
-    },
-]
-
-#: Rates divide two of the metrics above, so they're seeded after them, and only
-#: when both parts were.
-RATES: list[dict[str, Any]] = [
-    {
-        "key": "demo_server_error_rate",
-        "name": "Server error rate",
-        "description": "The share of requests that answered 5xx: server errors ÷ requests, over the same period.",
-        "numerator": "demo_server_errors",
-        "denominator": "demo_requests",
-        "format": "percent",
-        "thresholds": [
-            {"op": ">", "value": 1, "state": "danger"},
-            {"op": ">", "value": 0.5, "state": "warning"},
-            {"op": "<=", "value": 0.5, "state": "success"},
-        ],
-    },
-]
-
-#: A grouped card filters a dataset of its own (a metric suits a one-number card):
-#: the same definition as demo_requests.
-REQUESTS_SOURCE: dict[str, Any] = {
-    "dataset": "smallstack_requests",
-    "filter_tree": {},
-    "agg": "count",
-    "measure": "",
-    "period_field": "timestamp",
-}
-
-LAYOUT: list[dict[str, Any]] = [
-    {
-        "id": "intro",
-        "type": "text",
-        "x": 0,
-        "y": 0,
-        "w": 12,
-        "h": 1,
-        "options": {
-            "markdown": (
-                "**Site health** — every card is a saved metric. "
-                "Change the period above; click a number to see its rows."
-            )
-        },
-    },
-    {"id": "requests", "type": "metric", "metric": "demo_requests", "x": 0, "y": 1, "w": 3, "h": 2},
-    {"id": "errors5xx", "type": "metric", "metric": "demo_server_errors", "x": 3, "y": 1, "w": 3, "h": 2},
-    {"id": "errors4xx", "type": "metric", "metric": "demo_client_errors", "x": 6, "y": 1, "w": 3, "h": 2},
-    {"id": "latency", "type": "metric", "metric": "demo_avg_latency", "x": 9, "y": 1, "w": 3, "h": 2},
-    {
-        "id": "by_method",
-        "type": "metric_group",
-        **REQUESTS_SOURCE,
-        "title": "Requests by method",
-        "x": 0,
-        "y": 3,
-        "w": 6,
-        "h": 2,
-        "options": {"dimension": "method", "limit": 5, "other": True, "style": {"format": "compact"}},
-    },
-    {
-        "id": "by_status",
-        "type": "metric_group",
-        **REQUESTS_SOURCE,
-        "title": "Requests by status",
-        "x": 6,
-        "y": 3,
-        "w": 6,
-        "h": 2,
-        "options": {"dimension": "status_code", "limit": 6, "other": True, "style": {"format": "compact"}},
-    },
-    {"id": "api", "type": "metric", "metric": "demo_api_traffic", "x": 0, "y": 5, "w": 4, "h": 2},
-    {"id": "checks", "type": "metric", "metric": "demo_failed_checks", "x": 4, "y": 5, "w": 4, "h": 2},
-    {
-        "id": "approvals",
-        "type": "metric",
-        "metric": "demo_pending_approvals",
-        "x": 8,
-        "y": 5,
-        "w": 4,
-        "h": 2,
-        "use_period": False,
-    },
-]
+from ...dashboard_defaults import DEMO
+from ...defaults import KIND_BY_NAME, sync_defaults
+from ...models import Dashboard, Metric, Report
 
 
 class Command(BaseCommand):
@@ -201,60 +26,24 @@ class Command(BaseCommand):
 
     def add_arguments(self, parser: CommandParser) -> None:
         parser.add_argument("--reset", action="store_true", help="Delete the demo rows first.")
+        parser.add_argument(
+            "--adopt", action="store_true", help="Take over demo rows seeded before defaults existed (overwrites them)."
+        )
 
     def handle(self, *args: Any, **options: Any) -> None:
         if options["reset"]:
-            Dashboard.objects.filter(slug="site-health").delete()
-            Report.objects.filter(slug="monthly-kpis").delete()
-            Metric.objects.filter(key__startswith="demo_").delete()
-
-        created_keys: list[str] = []
-        for spec in METRICS:
-            if get_dataset(spec["dataset"]) is None:
-                self.stdout.write(self.style.WARNING(f"skip {spec['key']}: dataset {spec['dataset']} not registered"))
-                continue
-            defaults = {k: v for k, v in spec.items() if k != "key"}
-            defaults.setdefault("filter_tree", {})
-            defaults.setdefault("thresholds", [])
-            defaults["owner"] = None
-            metric = Metric.objects.filter(key=spec["key"]).first() or Metric(key=spec["key"])
-            for k, v in defaults.items():
-                setattr(metric, k, v)
-            metric.save()
-            created_keys.append(metric.key)
-
-        for spec in RATES:
-            if spec["numerator"] not in created_keys or spec["denominator"] not in created_keys:
-                self.stdout.write(self.style.WARNING(f"skip {spec['key']}: one of its metrics wasn't seeded"))
-                continue
-            metric = Metric.objects.filter(key=spec["key"]).first() or Metric(key=spec["key"])
-            for k, v in spec.items():
-                setattr(metric, k, v)
-            metric.source = SOURCE_RATE
-            metric.owner = None
-            metric.save()
-            created_keys.append(metric.key)
-
-        layout = [c for c in LAYOUT if not c.get("metric") or c["metric"] in created_keys]
-        dashboard = Dashboard.objects.filter(slug="site-health").first() or Dashboard(slug="site-health")
-        dashboard.name = "Site health"
-        dashboard.description = "Traffic, errors, latency and health checks, built from saved metrics."
-        dashboard.default_period = "last_7"
-        dashboard.layout = layout
-        dashboard.owner = None
-        dashboard.save()
-
-        report = Report.objects.filter(slug="monthly-kpis").first() or Report(slug="monthly-kpis")
-        report.name = "Monthly KPIs"
-        report.description = "This month against last month and the year so far."
-        report.items = [{"metric": k} for k in created_keys]
-        report.periods = ["mtd", "pmtd", "ytd"]
-        report.owner = None
-        report.save()
-
+            Dashboard.objects.filter(slug__in=[d["slug"] for d in DEMO.dashboards]).delete()
+            Report.objects.filter(slug__in=[r["slug"] for r in DEMO.reports]).delete()
+            Metric.objects.filter(key__in=[m["key"] for m in DEMO.metrics]).delete()
+        report = sync_defaults([DEMO.app], restore=options["reset"], adopt=options["adopt"])
+        for app, kind, key, outcome, detail in report.lines:
+            if outcome in ("error", "conflict", "customised"):
+                line = f"{KIND_BY_NAME[kind].name} {key}: {outcome}"
+                self.stdout.write(self.style.WARNING(line) + (f" — {detail}" if detail else ""))
         self.stdout.write(
             self.style.SUCCESS(
-                f"{len(created_keys)} metrics, dashboard {dashboard.get_absolute_url()}, "
-                f"report {report.get_absolute_url()}"
+                f"{report.count('created')} created, {report.count('updated')} updated, "
+                f"{report.count('current')} already current: dashboard /smallstack/dashboards/d/site-health/, "
+                "report /smallstack/dashboards/r/monthly-kpis/"
             )
         )

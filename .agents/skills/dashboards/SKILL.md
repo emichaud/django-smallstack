@@ -55,7 +55,36 @@ validation error, not a silent no-op. The forms show the address read-only
 administrators only; `signals.py`
 carries a changed slug into playlists and Goals cards.
 
-**Keeping the pile small.** Every owned row (metrics, dashboards, cards, playlists, reports, goal lists) carries `tags` (one text field, comma-separated; `tag_list`, `split_tags`, `OwnedQuerySet.tagged(tag)` matches a whole tag, any case) and `archived_at` (`is_archived`, `set_archived(bool)`, `OwnedQuerySet.active()` / `.archived()`). The rule: **lists and pickers show active rows; references keep working.** Overviews, CRUD lists (`?archived=1` shows the archived ones instead), REST/MCP lists, the board editor's metric and card pickers, the goal-add picker and the rate's numerator/denominator pickers all go through `.active()`; a card drawing an archived metric, a report row, a goal, `get_detail_queryset` and the REST/MCP `get_*` by key do not. `usage_index` ignores archived boards, reports and goal lists, so archiving a board frees its metrics. Archive or restore from the page's header (`POST dashboards/archive/<kind>/<pk>/`, editors only, `kind` in `metric dashboard component playlist report goals`). **Archive, Delete and Duplicate each confirm first** in the global stat modal (htmx), or as a page without JavaScript: `GET dashboards/archive/<kind>/<pk>/` says what archiving means and what still uses the row; each kind's delete view (`_DeleteInModalMixin`; cards, playlists and goal lists through `_ConfirmDeleteMixin`) says what goes and what stays; `GET dashboards/duplicate/<kind>/<pk>/` (`DuplicateConfirmView`, anyone who can see the row) says what the copy will be, and its button opens the create form with `?from=`. The shared wrappers are `smallstack_dashboards/crud/owned_confirm_{modal,page}.html` around a body template; `views.where_used(kind, obj, user)` lists what still uses a row. Restore stays one click. Both overviews narrow to one tag with `?tag=` (chips on every row link there) and name what's archived by kind, each linking to that list's archived rows ("Archived: 2 metrics, 1 report", `displays.archived_links`); each list's tags bar (`displays.TagBar`) offers **Show archived (N)**, and **Back to the list** while showing them. **Duplicate** (every page's header, a card's builder) is the create form opened with `?from=<key or slug>`: the original's defining fields and tags prefilled, the name "(copy)", visibility personal, nothing saved until Save; a metric's or card's key comes from its name, a slug-keyed type gets the next free slug (`_free_slug`), and the original is untouched. `MetricCreateMixin.COPIED` and each `*DuplicateMixin.duplicate_fields` say what's carried over. Over REST or MCP a duplicate is a get followed by a create.
+**Keeping the pile small: tags and archive.** Every owned row (metrics, dashboards, cards,
+playlists, reports, goal lists) has `tags` and `archived_at`.
+
+- **Tags** are one comma-separated text field (`tag_list`, `split_tags`;
+  `OwnedQuerySet.tagged(tag)` matches a whole tag, any case).
+- **Archive** puts a row away without breaking anything. The rule: *lists and pickers show
+  active rows; references keep working.* Overviews, CRUD lists, REST/MCP lists and every
+  picker go through `.active()`; a card drawing an archived metric, a report row, a goal,
+  `get_detail_queryset` and REST/MCP `get_*` don't. `usage_index` ignores archived boards,
+  reports and goal lists, so archiving a board frees its metrics.
+- **Archiving and restoring:** `POST dashboards/archive/<kind>/<pk>/` (editors only; `kind`
+  is `metric`, `dashboard`, `component`, `playlist`, `report` or `goals`; `restore=1` brings
+  it back). Restore is one click.
+- **Finding archived rows:** each list's tags bar (`displays.TagBar`) offers **Show archived
+  (N)** (`?archived=1`) and **Back to the list**; the overviews name what's archived by kind,
+  each a link ("Archived: 2 metrics, 1 report", `displays.archived_links`).
+- **Confirmations.** Archive, Delete and Duplicate each ask first, in the global stat modal
+  (htmx), or as a page without JavaScript, and say what the action means:
+  - `GET dashboards/archive/<kind>/<pk>/`: what archiving means and what still uses the row;
+  - each kind's delete view (`_DeleteInModalMixin`; cards, playlists and goal lists through
+    `_ConfirmDeleteMixin`): what goes and what stays;
+  - `GET dashboards/duplicate/<kind>/<pk>/` (`DuplicateConfirmView`, anyone who can see the
+    row): what the copy will be; its button opens the create form.
+
+  The shared wrappers are `smallstack_dashboards/crud/owned_confirm_{modal,page}.html` around
+  a body template; `views.where_used(kind, obj, user)` lists what still uses a row.
+- **Duplicate** is the create form opened with `?from=<key or slug>`: the original's defining
+  fields and tags, the name "… (copy)", visibility personal, nothing saved until Save. The
+  original is untouched. `MetricCreateMixin.COPIED` and each `*DuplicateMixin.duplicate_fields`
+  say what's carried over. Over REST or MCP a duplicate is a get followed by a create.
 
 **Finding by tag.** `models.tag_cloud(*querysets, current=)` is the tags in use with their row
 counts (any case counted together, the 30 most used, the current one always kept). The

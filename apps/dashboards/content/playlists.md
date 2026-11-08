@@ -13,12 +13,14 @@ Find them under **Dashboards → Playlists**.
 ## Making one
 
 1. Choose **New playlist** and give it a name.
-2. Under **Slides, in order**, pick a dashboard or goal list and choose **Add**.
+2. Under **Playing**, set the show's defaults: the **seconds on each slide**,
+   whether it **loops** and whether it **plays when opened**.
+3. Under **Slides, in order**, pick a dashboard or goal list and choose **Add**.
    Repeat for each one. Use ↑ and ↓ to reorder, and ✕ to remove.
-3. Each slide shows for the playlist's **seconds on each dashboard**. To give
-   one slide longer, type its own seconds next to it. You can also pin a
-   slide to a period (say, *last 7 days*) for this playlist only.
-4. Choose whether it **loops** and whether it **plays when opened**.
+4. Each slide shows for the default seconds and says **Default**. Click that to
+   give one slide its own time (− and + adjust it); **↺** puts it back on the
+   default. You can also pin a slide to a period (say, *last 7 days*) for this
+   playlist only.
 
 Clicking a column heading sorts the slides by that column. The rows are the order
 the slides play in, so sorting changes the play order. **Undo** puts the previous

@@ -136,14 +136,24 @@ def starter_forms_view(request):
 
 @login_required
 def starter_dashboard_view(request: HttpRequest) -> HttpResponse:
-    """A page of your own that shows a saved dashboard and metric cards — the
-    ``{% dashboard %}`` and ``{% metric_card %}`` tags over SmallStack's
-    dashboards. Renders the seeded demo if it exists (``seed_dashboards``)."""
-    from apps.dashboards.models import Dashboard, Metric
+    """A page of your own built on SmallStack's dashboards: every template tag
+    (``{% metric_card %}``, ``{% dashboard %}``, ``{% goal_list %}``, ``{% card %}``,
+    ``{% report %}``) and the data tags a page uses to draw its own markup. Shows
+    the first of each the viewer can open; ``seed_dashboards`` makes a demo."""
+    from apps.dashboards.models import Component, Dashboard, GoalList, Metric, Report
 
-    board = Dashboard.objects.visible_to(request.user).active().order_by("name").first()
+    def first(model: Any) -> Any:
+        return model.objects.visible_to(request.user).active().order_by("name").first()
+
     metrics = list(Metric.objects.visible_to(request.user).active().exclude(period_field="").order_by("name")[:3])
-    return render(request, "starter/dashboard.html", {"board": board, "metrics": metrics})
+    context = {
+        "board": first(Dashboard),
+        "metrics": metrics,
+        "goal_list": first(GoalList),
+        "card": first(Component),
+        "report": first(Report),
+    }
+    return render(request, "starter/dashboard.html", context)
 
 
 def components_view(request):

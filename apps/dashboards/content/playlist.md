@@ -26,14 +26,15 @@ dashboards, and a playlist decides what a room sees and for how long.
 **Dashboards → Playlists → New playlist**:
 
 1. **Name it.**
-2. Under **Slides, in order**, pick a dashboard or a goal list and choose
+2. Under **Playing**, set the defaults for the show: the **seconds on each
+   slide**, whether it **loops** and whether it **plays when opened**.
+3. Under **Slides, in order**, pick a dashboard or a goal list and choose
    **Add**. Repeat for each one. Reorder with ↑ and ↓.
-3. Set the **seconds on each slide**. Any slide can have its own time, and
-   can be pinned to its own period (say, *last 7 days*) for this playlist
-   only.
-4. For a goal list, choose what the slide shows: **Goals now**, **Last week**
+4. Each slide says **Default** while it uses the show's seconds. Click it to
+   give that slide its own time; **↺** puts it back. A slide can also be
+   pinned to its own period (say, *last 7 days*) for this playlist only.
+5. For a goal list, choose what the slide shows: **Goals now**, **Last week**
    (the week just ended, as it was saved) or **Week over week**.
-5. Choose whether it **loops** and whether it **plays when opened**.
 
 ## How to use it
 

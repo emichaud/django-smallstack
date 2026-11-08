@@ -170,6 +170,43 @@ class OwnedModel(models.Model):
         editable=False,
         help_text="Set when archived: out of lists and pickers, still drawn wherever it's referred to.",
     )
+    # A default an app ships (defaults.py): which app, its name for it there, the
+    # fingerprints of the declaration and of the row as last applied. The row is
+    # edited in place like any other; a sync updates it only while it still
+    # matches what was applied.
+    provided_by = models.CharField(
+        max_length=100,
+        blank=True,
+        default="",
+        editable=False,
+        help_text="The app that ships this row as a default (blank = made here).",
+    )
+    provided_key = models.CharField(
+        max_length=100,
+        blank=True,
+        default="",
+        editable=False,
+        help_text="The default's key or slug as the app declares it.",
+    )
+    provided_spec = models.CharField(
+        max_length=64,
+        blank=True,
+        default="",
+        editable=False,
+        help_text="Fingerprint of the app's declaration last applied; a new one means the app changed its default.",
+    )
+    provided_hash = models.CharField(
+        max_length=64,
+        blank=True,
+        default="",
+        editable=False,
+        help_text="Fingerprint of the row as last applied; a different one now means someone changed it.",
+    )
+    provided_parked = models.BooleanField(
+        default=False,
+        editable=False,
+        help_text="Archived by the defaults sync because its app is turned off; restored when it's back.",
+    )
 
     objects = OwnedQuerySet.as_manager()
 
@@ -209,6 +246,11 @@ class OwnedModel(models.Model):
     @property
     def is_shared(self) -> bool:
         return self.owner_id is None
+
+    @property
+    def is_default(self) -> bool:
+        """Shipped by an app (``provided_by``), not made here."""
+        return bool(self.provided_by)
 
     def save(self, *args: Any, **kwargs: Any) -> None:
         # The one gate: an invalid row never reaches the table, whichever
@@ -1338,3 +1380,19 @@ def detach_metric(metric: Metric, user: Any) -> tuple[int, int]:
             g.save()
     saved_cards.delete()
     return cards, rows
+
+
+class RemovedDefault(models.Model):
+    """A default someone deleted: the sync never brings it back (unless asked
+    to, ``manage.py dashboard_defaults --restore``)."""
+
+    app = models.CharField(max_length=100)
+    kind = models.CharField(max_length=20)
+    key = models.CharField(max_length=100)
+    removed_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=["app", "kind", "key"], name="removed_default_unique")]
+
+    def __str__(self) -> str:
+        return f"{self.app}:{self.kind}:{self.key}"

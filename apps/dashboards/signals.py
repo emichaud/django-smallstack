@@ -24,7 +24,7 @@ from django.db import transaction
 from django.db.models.signals import post_delete, post_save, pre_save
 from django.dispatch import receiver
 
-from .models import Component, Dashboard, GoalList, Playlist
+from .models import Component, Dashboard, GoalList, Metric, Playlist, Report
 
 logger = logging.getLogger("smallstack.dashboards")
 
@@ -198,3 +198,15 @@ def start_default_tracking(sender: type[GoalList], instance: GoalList, created: 
         from .snapshots import default_cadences, set_tracking
 
         set_tracking(instance, default_cadences(), by=instance.created_by)
+
+
+def remember_removed_default(sender: Any, instance: Any, **kwargs: Any) -> None:
+    """A default an app ships was deleted: the defaults sync leaves it deleted."""
+    if getattr(instance, "provided_by", ""):
+        from .defaults import remember_removed
+
+        remember_removed(instance)
+
+
+for _model in (Metric, Component, Dashboard, Report, GoalList, Playlist):
+    post_delete.connect(remember_removed_default, sender=_model, dispatch_uid=f"remember_removed_{_model.__name__}")

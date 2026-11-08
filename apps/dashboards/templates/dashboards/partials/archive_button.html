@@ -1,4 +1,5 @@
-{% comment %}Archive or restore an owned row (ArchiveToggleView): `kind` (metric, dashboard, component, playlist, report, goals) and `obj`. Shown to editors beside the page's other actions; an archived row is marked first so the page says what it is. Archive opens its confirmation (what archiving means) in the modal, or as a page without JavaScript; Restore is one click, since it only undoes.{% endcomment %}
+{% comment %}Archive or restore an owned row (ArchiveToggleView): `kind` (metric, dashboard, component, playlist, report, goals) and `obj`. Shown to editors beside the page's other actions; an archived row is marked first so the page says what it is. Archive opens its confirmation (what archiving means) in the modal, or as a page without JavaScript; Restore is one click, since it only undoes. A default an app ships also shows where it came from and, when changed, Reset to default (default_badge.html).{% endcomment %}
+{% include "dashboards/partials/default_badge.html" %}
 {% if obj.is_archived %}<span class="dash-archived" title="Out of lists and pickers; still drawn wherever it's used">Archived</span>{% endif %}
 {% if obj.pk %}{% url 'dashboards_archive' kind obj.pk as archive_url %}
 {% if obj.is_archived %}

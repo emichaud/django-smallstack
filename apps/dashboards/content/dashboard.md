@@ -43,8 +43,8 @@ opens on and whether it refreshes by itself. Then, on the dashboard, choose
 **Edit layout**:
 
 1. **Add card** and pick a type: a **Saved card** from Components, or a
-   Single stat, Grouped stat, Goals, Calendar, Info card or Note made on the
-   spot.
+   Single stat, Gauge, Goals, Calendar, Menu, Info card or Note made on the
+   spot. Charts and grouped stats are built under Components.
 2. **Drag** cards to move them, and drag a corner to resize. The grid is
    twelve columns wide.
 3. **Remove** takes a card off. Its metric stays.

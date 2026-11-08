@@ -64,8 +64,9 @@ metric's page, in the metrics list, and on single stat cards.
 - **Open what slipped.** Click a name under *Needs attention* to jump to that
   goal, and click its value to see the rows behind it.
 - **See the direction.** Each goal shows its last six periods as small bars,
-  coloured by how each did, and says when it's on a run: *Missed 3 weeks
-  running*.
+  coloured by how each did; the outlined one is the period still running.
+  It says when the finished ones are on a run: *Missed 3 weeks running*.
+- **Check what a goal means.** Hover its name to see its metric's description.
 - **Look back.** **Weeks** shows any past week as it was, and week over week
   in a grid. **History** does the same at other rhythms.
 - **Take it with you.** **Print** makes a document of what's on screen.

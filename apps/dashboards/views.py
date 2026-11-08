@@ -1569,7 +1569,8 @@ class _OwnedCRUD(CRUDView):
     # read one back: get_metric, get_dashboard, get_goal_list…
     mcp_actions = [Action.LIST, Action.DETAIL, Action.CREATE, Action.UPDATE, Action.DELETE]
     mcp_lookup_field = "slug"
-    api_extra_fields = ["visibility", "owner", "created_by", "created_at", "updated_at"]
+    # provided_by: the app that ships the row as a default (blank = made here).
+    api_extra_fields = ["visibility", "owner", "created_by", "created_at", "updated_at", "provided_by"]
     api_expand_fields = ["owner", "created_by"]
 
     @classmethod
@@ -2711,6 +2712,39 @@ class ArchiveToggleView(LoginRequiredMixin, View):
         return redirect(_safe_next(request, request.POST.get("next", ""), obj))
 
 
+class DefaultResetView(ArchiveToggleView):
+    """``defaults/reset/<kind>/<pk>/``: put a default an app ships back as the
+    app ships it now (``defaults.reset_default``). GET is the confirmation (the
+    modal over htmx, else a page); POST resets. Editors only, like archiving."""
+
+    def get(self, request: HttpRequest, kind: str, pk: int) -> HttpResponse:
+        from .defaults import default_state
+
+        obj = self._editable(request, kind, pk)
+        state = default_state(obj)
+        if state is None or not state["shipped"]:
+            raise Http404
+        context = confirm_context(kind, obj, request.user, "Reset")
+        context.update(state=state, next=_safe_next(request, request.GET.get("next", ""), obj))
+        return _confirm_render(request, "dashboards/partials/reset_confirm.html", context)
+
+    def post(self, request: HttpRequest, kind: str, pk: int) -> HttpResponse:
+        from django.core.exceptions import ValidationError
+
+        from .defaults import reset_default
+
+        obj = self._editable(request, kind, pk)
+        try:
+            reset_default(obj)
+        except LookupError:
+            raise Http404 from None
+        except ValidationError as exc:
+            messages.error(request, f"{obj.name} couldn't be reset: {' '.join(exc.messages)}")
+        else:
+            messages.success(request, f"{obj.name} is back to its default.")
+        return redirect(_safe_next(request, request.POST.get("next", ""), obj))
+
+
 class DuplicateConfirmView(LoginRequiredMixin, View):
     """GET ``duplicate/<kind>/<pk>/``: what a Duplicate does, before the form
     opens (the modal over htmx, else a page). Anyone who can see the row may
@@ -2989,7 +3023,7 @@ class ComponentCRUDView(_OwnedCRUD):
     default_display = ComponentCardsDisplay  # the gallery first; the table is ?display=library
     search_fields = ["name", "key", "description", "metric", "dataset", "type", "tags"]
     ordering_fields = ["name", "type", "metric", "dataset", "updated_at"]
-    api_extra_fields = ["key", "visibility", "owner", "created_by", "created_at", "updated_at"]
+    api_extra_fields = ["key", "visibility", "owner", "created_by", "created_at", "updated_at", "provided_by"]
     mcp_singular = "component"
     mcp_plural = "components"
     mcp_lookup_field = "key"

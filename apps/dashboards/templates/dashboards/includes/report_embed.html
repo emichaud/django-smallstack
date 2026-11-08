@@ -1,0 +1,13 @@
+{% load static %}{% comment %}{% report %}: a report's table on any page (report_table.html, without the page's sorting).{% endcomment %}
+{% if report %}
+<link rel="stylesheet" href="{% static 'dashboards/css/dashboards.css' %}">
+<section class="dash-embed rp-embed" aria-labelledby="rp-embed-{{ report.slug }}">
+    {% if title %}
+    <header class="dash-embed-head">
+        <h2 id="rp-embed-{{ report.slug }}"><a href="{{ report.get_absolute_url }}">{{ report.name }}</a></h2>
+        {% if matrix.lede %}<span class="dash-embed-when">{{ matrix.lede }}</span>{% endif %}
+    </header>
+    {% else %}<h2 id="rp-embed-{{ report.slug }}" class="sr-only">{{ report.name }}</h2>{% endif %}
+    {% if matrix.rows %}{% include "dashboards/includes/report_table.html" %}{% else %}<p class="dash-muted">This report has no rows yet.</p>{% endif %}
+</section>
+{% endif %}

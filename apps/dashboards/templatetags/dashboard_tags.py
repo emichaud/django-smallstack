@@ -485,3 +485,200 @@ def can_change_address(user: Any) -> bool:
     from ..models import can_change_address as allowed
 
     return allowed(user)
+
+
+@register.simple_tag
+def default_info(obj: Any) -> Optional[dict[str, Any]]:
+    """``{% default_info obj as d %}``: for a row an app ships, who ships it and
+    whether it was changed or has a newer definition (``defaults.default_state``);
+    ``None`` for a row made here."""
+    from ..defaults import default_state
+
+    return default_state(obj)
+
+
+# -- on any page: the rest of the pieces, and the data behind them ----------------
+#
+# {% dashboard %}, {% metric_card %} and {% playlist %} above draw whole pieces.
+# These add the goal list, one saved card and a report, plus data tags
+# ({% metric_value … as m %}) for a page that draws its own markup over the same
+# engine. Every one checks access the way the pages do and renders nothing (or
+# gives None) for something the viewer may not open, so a page never reveals
+# it exists.
+
+
+def _viewer(context: Any) -> tuple[Any, Any]:
+    request = context.get("request")
+    user = getattr(request, "user", None)
+    if request is None or not getattr(user, "is_authenticated", False):
+        return None, None
+    return request, user
+
+
+def _visible(model: Any, value: Any, user: Any, field: str = "slug") -> Any:
+    obj = value if isinstance(value, model) else model.objects.filter(**{field: str(value)}).first()
+    return obj if obj is not None and obj.can_view(user) else None
+
+
+def _period(period: Optional[str]) -> Optional[str]:
+    """A tag's ``period``: ``None`` = the thing's own, ``"all"`` = all time."""
+    return "" if period == "all" else (period or None)
+
+
+@register.simple_tag
+def dashboards_assets() -> Any:
+    """``{% dashboards_assets %}`` — the stylesheet and scripts a page needs to
+    draw its own markup with the dashboards' classes: ``dashboards.css``, every
+    card type's media (``{% component_media %}``) and the hover descriptions
+    (``data-about``). The whole-piece tags bring their own; a page that uses only
+    the data tags adds this once."""
+    from django.templatetags.static import static
+    from django.utils.html import format_html
+
+    return format_html(
+        '<link rel="stylesheet" href="{}">\n{}\n<script src="{}" defer></script>',
+        static("dashboards/css/dashboards.css"),
+        component_media(),
+        static("dashboards/js/about-info.js"),
+    )
+
+
+@register.inclusion_tag("dashboards/includes/goal_list_embed.html", takes_context=True)
+def goal_list(context: Any, goal_list: Any, period: Optional[str] = None, title: bool = True) -> dict[str, Any]:
+    """``{% goal_list "weekly-ops" %}`` — a goal list judged, on any page: the
+    summary, then each section's goals with status, value, target and trend, every
+    value drilling into its rows. *goal_list* is a slug or a ``GoalList``;
+    ``period`` overrides its own (``"all"`` = all time); ``title=False`` drops the
+    heading."""
+    from ..goals import goals_embed
+    from ..models import GoalList
+
+    request, user = _viewer(context)
+    obj = _visible(GoalList, goal_list, user) if user else None
+    if obj is None:
+        return {"embed": None}
+    return {"embed": goals_embed(obj, request, period=_period(period)), "title": title, "request": request}
+
+
+@register.inclusion_tag("dashboards/includes/card_embed.html", takes_context=True)
+def card(context: Any, card: Any, period: Optional[str] = None, height: Optional[int] = None) -> dict[str, Any]:
+    """``{% card "requests_by_method" %}`` — one saved card (a component), drawn
+    as a dashboard draws it, on any page. ``period`` narrows a period-aware card
+    (``"all"`` = all time; default: all time); ``height`` in pixels (default: the
+    type's own height). A card over a saved metric opens its rows on a tap; one
+    with its own filter opens them only on a dashboard."""
+    from ..boards import render_cell
+    from ..components import get_component_type
+    from ..models import Component, Dashboard
+
+    request, user = _viewer(context)
+    obj = _visible(Component, card, user, field="key") if user else None
+    if obj is None:
+        return {"card": None}
+    board = Dashboard(name=obj.name, slug="card", owner_id=obj.owner_id)
+    cell = {**obj.as_cell(), "id": f"card-{obj.pk}", "name": obj.name}
+    ct = get_component_type(obj.type)
+    rows = ct.default_size[1] if ct is not None else 2
+    return {
+        "card": obj,
+        "html": render_cell(board, cell, request, _period(period) or None),
+        "height": height or rows * 70,
+    }
+
+
+@register.inclusion_tag("dashboards/includes/report_embed.html", takes_context=True)
+def report(context: Any, report: Any, title: bool = True) -> dict[str, Any]:
+    """``{% report "monthly-kpis" %}`` — a report's table on any page: its metrics
+    against its periods, the change between the first two columns, every value
+    drilling into its rows."""
+    from ..models import Report
+    from ..reports import present_report, report_matrix
+
+    request, user = _viewer(context)
+    obj = _visible(Report, report, user) if user else None
+    if obj is None:
+        return {"report": None}
+    return {"report": obj, "matrix": present_report(report_matrix(obj, request)), "title": title, "request": request}
+
+
+@register.simple_tag(takes_context=True)
+def metric_value(context: Any, key: str, period: Optional[str] = None) -> Optional[dict[str, Any]]:
+    """``{% metric_value "open_tickets" period="mtd" as m %}`` — a metric
+    evaluated, for markup of your own: ``{metric, result, comparison}``.
+    ``m.result`` is the ``MetricResult`` every surface reads (``display``,
+    ``value``, ``unit``, ``state``, ``restricted``, ``error``, ``period_label``);
+    ``m.comparison`` the change from the period before (``{dir, text}``) or None."""
+    from ..comparison import compare_with_previous
+    from ..metrics import evaluate
+    from ..models import Metric
+
+    request, user = _viewer(context)
+    metric = _visible(Metric, key, user, field="key") if user else None
+    if metric is None:
+        return None
+    chosen = _period(period)
+    result = evaluate(metric, request, period=chosen)
+    return {"metric": metric, "result": result, "comparison": compare_with_previous(metric, request, chosen, result)}
+
+
+@register.simple_tag(takes_context=True)
+def metric_series(
+    context: Any, key: str, period: Optional[str] = None, grain: Optional[str] = None
+) -> Optional[dict[str, Any]]:
+    """``{% metric_series "requests" period="last_30" grain="day" as t %}`` — a
+    metric per calendar bucket (``trends.metric_trend``): ``{ok, points: [{label,
+    value, display, partial, narrow}], grain, error}``, what the Trend chart draws."""
+    from ..models import Metric
+    from ..trends import metric_trend
+
+    request, user = _viewer(context)
+    metric = _visible(Metric, key, user, field="key") if user else None
+    if metric is None:
+        return None
+    return {"metric": metric, **metric_trend(metric, request, _period(period), grain)}
+
+
+@register.simple_tag(takes_context=True)
+def goal_values(context: Any, goal_list: Any, period: Optional[str] = None) -> Optional[dict[str, Any]]:
+    """``{% goal_values "weekly-ops" as g %}`` — a goal list judged, as data:
+    ``{goal_list, heading, summary, attention, sections: [{title, rows,
+    summary}], rows}``. Each row has ``label``, ``description``, ``status``
+    (pass / warn / fail / none), ``status_label``, ``display``, ``unit``,
+    ``target_text``, ``gap_text`` and ``trend``."""
+    from ..goals import goals_embed
+    from ..models import GoalList
+
+    request, user = _viewer(context)
+    obj = _visible(GoalList, goal_list, user) if user else None
+    return goals_embed(obj, request, period=_period(period)) if obj is not None else None
+
+
+@register.simple_tag(takes_context=True)
+def report_values(context: Any, report: Any) -> Optional[dict[str, Any]]:
+    """``{% report_values "monthly-kpis" as r %}`` — a report as data:
+    ``{report, columns: [{key, heading}], rows: [{label, metric, cells: [{result,
+    status}], delta, span}], lede, compare, partial}``."""
+    from ..models import Report
+    from ..reports import present_report, report_matrix
+
+    request, user = _viewer(context)
+    obj = _visible(Report, report, user) if user else None
+    if obj is None:
+        return None
+    return {"report": obj, **present_report(report_matrix(obj, request))}
+
+
+@register.simple_tag(takes_context=True)
+def dashboard_values(context: Any, dashboard: Any, period: Optional[str] = None) -> Optional[dict[str, Any]]:
+    """``{% dashboard_values "site-health" as b %}`` — every card on a dashboard,
+    evaluated: ``{dashboard, period, cells: [{id, type, title, x, y, w, h, result |
+    groups | markdown | restricted | error}]}`` (``boards.board_values``)."""
+    from ..boards import board_values
+    from ..models import Dashboard
+
+    request, user = _viewer(context)
+    obj = _visible(Dashboard, dashboard, user) if user else None
+    if obj is None:
+        return None
+    chosen = (obj.default_period or None) if period is None else _period(period)
+    return {"dashboard": obj, "period": chosen, "cells": board_values(obj, request, chosen)}

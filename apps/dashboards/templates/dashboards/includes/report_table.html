@@ -1,0 +1,61 @@
+{% load dashboard_tags %}{% comment %}
+A report's table (reports.present_report): one row per metric, one column per
+period, each value drilling into its rows. The report page passes `sortable`
+(headers sort on the server, ?order=, swapping #rp-page; the CSV follows) and
+`sort_links`; {% report %} on any page passes neither. Columns resize with the
+framework's table-resize.js.
+{% endcomment %}
+<div class="card rp-card">
+    <div class="rp-scroll">
+        <table class="rp-table crud-table" data-table-key="report/{{ report.slug }}:metric{% if matrix.has_targets %},target{% endif %}{% for col in matrix.columns %},{{ col.key|default:'all' }}{% endfor %}">
+            <thead>
+                <tr>
+                    {% with s=sort_links.0 %}
+                    <th scope="col" class="rp-metric-col"{% if sortable %} aria-sort="{{ s.aria_sort }}"{% endif %} data-field="metric">
+                        {% if sortable %}<a class="dm-sort" href="?order={{ s.next }}" hx-get="?order={{ s.next }}" hx-select="#rp-page" hx-select-oob="#rp-csv,#rp-print" hx-target="#rp-page" hx-swap="outerHTML" hx-push-url="true" title="Sort by metric">Metric<span class="dm-sort-ind" aria-hidden="true">{% if s.aria_sort == "ascending" %}▲{% elif s.aria_sort == "descending" %}▼{% endif %}</span></a>{% else %}<span>Metric</span>{% endif %}
+                        {% include "smallstack/crud/includes/col_resizer.html" with label="Metric" %}
+                    </th>
+                    {% endwith %}
+                    {% if matrix.has_targets %}<th scope="col" class="rp-target-col" data-field="target"><span>Target</span>{% include "smallstack/crud/includes/col_resizer.html" with label="Target" %}</th>{% endif %}
+                    {% for col in matrix.columns %}{% with s=sort_links|index:forloop.counter %}
+                    <th scope="col" class="rp-num{% if forloop.first and matrix.compare %} rp-current{% endif %}"{% if sortable %} aria-sort="{{ s.aria_sort }}"{% endif %} data-field="c{{ forloop.counter0 }}">
+                        {% if sortable %}<a class="dm-sort" href="?order={{ s.next }}" hx-get="?order={{ s.next }}" hx-select="#rp-page" hx-select-oob="#rp-csv,#rp-print" hx-target="#rp-page" hx-swap="outerHTML" hx-push-url="true" title="Sort by {{ col.heading }}">{{ col.heading }}<span class="dm-sort-ind" aria-hidden="true">{% if s.aria_sort == "ascending" %}▲{% elif s.aria_sort == "descending" %}▼{% endif %}</span></a>{% else %}<span>{{ col.heading }}</span>{% endif %}
+                        {% include "smallstack/crud/includes/col_resizer.html" with label=col.heading %}
+                    </th>
+                    {% endwith %}{% endfor %}
+                </tr>
+            </thead>
+            <tbody>
+            {% for row in matrix.rows %}
+            <tr>
+                <th scope="row" class="rp-metric">
+                    {% if row.metric %}
+                    <a href="{{ row.metric.get_absolute_url }}">{{ row.label }}</a>
+                    <span class="rp-reading">{{ row.reading }}</span>
+                    {% else %}
+                    <span>{{ row.label }}</span>
+                    <span class="rp-reading rp-bad">This metric no longer exists. Edit the report to remove it.</span>
+                    {% endif %}
+                </th>
+                {% if matrix.has_targets %}<td class="rp-target">{% if row.target_text %}<span>{{ row.target_text }}</span>{% if row.warn_text %}<span class="rp-target-warn">At risk {{ row.warn_text }}</span>{% endif %}{% else %}<span class="rp-quiet">—</span>{% endif %}</td>{% endif %}
+                {% if row.missing %}
+                <td class="rp-num rp-quiet" colspan="{{ matrix.columns|length }}">—</td>
+                {% elif row.span %}
+                <td class="rp-num rp-span" colspan="{{ matrix.columns|length }}">
+                    {% include "dashboards/partials/report_value.html" with result=row.span drill=row.span_drill status=row.cells.0.status status_label=row.cells.0.status_label %}
+                    <span class="rp-note">Same in every period. This metric doesn't depend on time.</span>
+                </td>
+                {% else %}
+                {% for cell in row.cells %}{% with drill=row.drills|index:forloop.counter0 %}
+                <td class="rp-num{% if forloop.first and matrix.compare %} rp-current{% endif %}">
+                    {% include "dashboards/partials/report_value.html" with result=cell.result drill=drill status=cell.status status_label=cell.status_label %}
+                    {% if forloop.first and row.delta %}<span class="rp-delta rp-delta--{{ row.delta.dir }}"><span aria-hidden="true">{% if row.delta.dir == "up" %}▲{% elif row.delta.dir == "down" %}▼{% else %}={% endif %}</span> {% if row.delta.dir == "up" %}<span class="sr-only">Up </span>{% elif row.delta.dir == "down" %}<span class="sr-only">Down </span>{% endif %}{{ row.delta.text }}</span>{% endif %}
+                </td>
+                {% endwith %}{% endfor %}
+                {% endif %}
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>

@@ -60,14 +60,16 @@ preview beside it.
 2. **Pick a design.** A chart picked while on a metric switches to that
    metric's dataset with its filter copied in; it's the card's own from there.
 3. **Say what it shows:** what the design needs, such as the split column.
+   **Linked cards** here make a click on this card narrow another card on
+   the dashboard, or this card narrow to another's clicks.
 4. **Style it** (optional): size, number format, unit, colours. A card over a
    metric starts with the metric's.
 5. **Drill-down** (optional): the columns a tap opens, ticked and ordered
    beside the rows they'll show. A table's are its own **Columns**.
 6. **Name it**, tag it, and choose **Personal** or **Shared**.
 
-Changing the dataset clears options that named a column of the old one (the
-group-by, the drill-down columns); the builder says which.
+Changing the dataset clears options that named a column of the old one; the
+builder says which.
 
 ## How to use it
 
@@ -92,4 +94,3 @@ group-by, the drill-down columns); the builder says which.
 - **A shared card draws only a shared metric.** Only staff can share.
 - **Deleting a saved card doesn't empty dashboards:** each placement becomes
   an ordinary card.
-- A card is stored as text, so an agent can build one for you.

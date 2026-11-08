@@ -1,0 +1,12 @@
+{% comment %}Reset to default confirmation (DefaultResetView.get), in the modal or as a page: what resetting replaces.{% endcomment %}
+<form method="post" action="{% url 'dashboards_default_reset' kind object.pk %}" class="dl{% if modal %} dl--modal{% endif %}">
+    {% csrf_token %}
+    <input type="hidden" name="next" value="{{ next }}">
+    {% include "dashboards/partials/confirm_head.html" with used_label="Used by" %}
+    <p class="dl-safe">This puts the {{ word }} back exactly as {{ state.app_name }} ships it now.{% if state.customised %} The changes made here (to its name, description, definition and tags) are replaced.{% endif %}{% if state.newer %} It also takes the app's newer definition.{% endif %} Who can see it, its archive state and where it's used don't change.</p>
+    <p class="dl-keep-copy">Want to keep your version too? <strong>Duplicate</strong> it first.</p>
+    <div class="dl-actions">
+        <button type="submit" class="btn-primary">Reset {{ object.name }}</button>
+        {% if modal %}<button type="button" class="btn-outline" data-stat-modal-close>Cancel</button>{% else %}<a href="{{ next }}" class="btn-outline">Cancel</a>{% endif %}
+    </div>
+</form>

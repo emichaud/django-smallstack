@@ -1,0 +1,14 @@
+{% load static %}{% comment %}{% goal_list %}: a goal list judged, on any page. The meeting view's board (goals_board.html) without its sorting; names show their description on hover, values drill into their rows in the global modal.{% endcomment %}
+{% if embed %}{% with g=embed.goal_list %}
+<link rel="stylesheet" href="{% static 'dashboards/css/dashboards.css' %}">
+<script src="{% static 'dashboards/js/about-info.js' %}" defer></script>
+<section class="dash-embed gl-embed" aria-labelledby="gl-embed-{{ g.slug }}">
+    {% if title %}
+    <header class="dash-embed-head">
+        <h2 id="gl-embed-{{ g.slug }}"><a href="{{ g.get_absolute_url }}">{{ g.name }}</a></h2>
+        <span class="dash-embed-when">{{ embed.heading }}</span>
+    </header>
+    {% else %}<h2 id="gl-embed-{{ g.slug }}" class="sr-only">{{ g.name }}</h2>{% endif %}
+    {% include "dashboards/includes/goals_board.html" with goal_list=g sections=embed.sections summary=embed.summary attention=embed.attention heading=embed.heading has_changes=embed.has_changes has_trends=embed.has_trends sort_links=None %}
+</section>
+{% endwith %}{% endif %}

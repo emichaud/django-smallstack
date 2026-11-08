@@ -170,6 +170,13 @@
       "section": "Available Skills"
     },
     {
+      "id": "app-defaults",
+      "file": "app-defaults.md",
+      "name": "App Defaults",
+      "description": "**Ship dashboard defaults with your app** — metrics, saved cards, dashboards, reports, goal lists and playlists declared in `dashboard_defaults.py` (`register_defaults(Defaults(...))`), created and kept in step after every migrate; edited in place, never overwritten once changed (provenance + fingerprints), Reset to default, deleted ones stay deleted, `manage.py dashboard_defaults`",
+      "section": "Available Skills"
+    },
+    {
       "id": "calendar",
       "file": "calendar.md",
       "name": "Calendar",
