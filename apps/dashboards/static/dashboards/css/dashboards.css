@@ -409,7 +409,10 @@ a.dash-tag.is-current:link, a.dash-tag.is-current:visited { color: var(--primary
 }
 .dash-edit-bar { display: none; align-items: center; gap: 0.5rem; }
 .dash-editing-page .dash-edit-bar { display: inline-flex; }
-.dash-view-only { display: inline-flex; align-items: center; gap: 0.5rem; }
+.dash-view-only { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; }
+/* On a phone the header's controls wrap under the title from its left edge,
+   instead of one row as wide as all of them pushing the page sideways. */
+@media (max-width: 640px) { .dash-header-actions { justify-content: flex-start; } }
 .dash-editing-page .dash-view-only { display: none; }
 .dash-errors {
     display: none;
@@ -2515,6 +2518,14 @@ th[aria-sort="ascending"] .dm-sort, th[aria-sort="descending"] .dm-sort { color:
     .ml-table .ml-used-col, .ml-table td:nth-child(3),
     .bl-table .bl-pic-col, .bl-table .bl-pic-cell, .bl-table .bl-health-col, .bl-table td:nth-child(4),
     .rl-table .rl-columns-col, .rl-table td:nth-child(2) { display: none; }
+}
+/* On a phone the fixed widths above add up to more than the screen, and a
+   fixed layout pays them first: the name, the one unsized column, got 0px.
+   Size by content there instead; the wrapper scrolls what doesn't fit. */
+@media (max-width: 640px) {
+    .lib-table.crud-table { table-layout: auto; }
+    .lib-table td.lib-name-cell { min-width: 9rem; }
+    .lib-table .lib-sub { white-space: normal; }
 }
 
 /* ── goals (goals.py) ─────────────────────────────────────────────────────

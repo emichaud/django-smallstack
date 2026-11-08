@@ -17,7 +17,7 @@ user → user, IP → the request log filtered to that address.
     <div class="card-body" style="padding: 0;">
         {% if rows %}
         <div class="crud-table-wrap" style="overflow-x: auto;">
-        <table class="crud-table" data-table-key="{{ table_key|default:'activity:requests' }}">
+        <table class="crud-table" data-table-key="{{ table_key|default:'activity:requests' }}" style="--table-min: 804px;">{# the sized columns + 140px for Path: scroll before it collapses #}
             <thead>
                 <tr>
                     {% sortable_th "timestamp" "Time" target=tgt width="150px" %}

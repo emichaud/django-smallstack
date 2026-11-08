@@ -233,6 +233,7 @@
 .crud-table-wrap {
     contain: inline-size;
     max-width: 100%;
+    overflow-x: auto;  /* every wrapper, not only the generic table's inline style */
 }
 .col-resizer {
     position: absolute;
@@ -1704,6 +1705,7 @@ a.btn-secondary:visited {
 
 .action-cards {
     display: flex;
+    flex-wrap: wrap;  /* two cards side by side are wider than a phone */
     gap: 12px;
     align-items: stretch;
 }

@@ -450,3 +450,9 @@
 .omnibar-fullpage:hover .arrow {
     transform: translateX(3px);
 }
+
+/* On a phone the trigger is its icon: the hint and the shortcut don't fit the bar. */
+@media (max-width: 560px) {
+  .omnibar-trigger .omnibar-hint,
+  .omnibar-trigger .omnibar-kbd { display: none; }
+}

@@ -2661,6 +2661,15 @@ a.button.button-secondary:hover {
     }
 }
 
+/* A phone has no room for the wordmark beside the controls: the mark stays
+   (it opens the sidebar, which links home) and the bar no longer scrolls sideways.
+   Without a sidebar there is no mark, so the name stays. */
+@media (max-width: 560px) {
+    .sidebar-toggle ~ .site-logo .brand-word {
+        display: none;
+    }
+}
+
 @media (max-width: 480px) {
     .topbar {
         padding: 0 12px;
