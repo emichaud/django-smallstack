@@ -127,6 +127,8 @@ Breaking-change migration recipes live in [`UPGRADING.md`](UPGRADING.md).
 - **A dashboard changing hands brought back the sharing a past owner chose.**
 - **A gauge's ceiling or floor of 0 was read as unset.**
 - **`this_month` / `this_year` were compared against all of last month without saying so.**
+- **Duplicating a dashboard shared with you failed on save** when it drew the owner's personal metrics, though Duplicate was offered. In the copy, such a card filters that metric's dataset itself (same filter, roll-up, format and colour rules); one over a hand-entered or rate metric is left out, and the form says how many of each.
+- **Another person's hand-entered metric read "—"** on a dashboard shared with you, as if nothing had been entered. It reads *restricted*, like other data you can't see.
 - **A member's card over a staff-only dataset listed that dataset's columns** in the refusal, and with a valid column it saved, then drew "no access". It is refused like a dataset that doesn't exist, as the builder already did. A member's dashboard holding such a card must drop it at its next edit (it never showed a number).
 - **A REST write dropped keys it doesn't take without a word** (`archived_at`, a misspelt field): the 200 read as "all applied". A create or update now lists them as `ignored`, only when there are some.
 - **REST and MCP couldn't archive.** `archived_at` was read-only and silently ignored, and `DELETE` destroys; an agent asked to archive did one or the other. Every owned kind (metric, card, dashboard, report, playlist, goal list) now takes `"archived": true` / `false` on update.

@@ -297,6 +297,10 @@ def may_read(metric: "Metric", user: Any) -> bool:
     if metric.is_rate:
         parts = rate_parts(metric)
         return all(p is not None and p.can_view(user) and may_read(p, user) for p in parts)
+    if metric.is_manual and metric.pk is not None and not metric.can_view(user):
+        # Its entries are scoped to the metrics a person can see, so another
+        # user's hand-entered metric read "—", as if nothing were entered.
+        return False
     dfn = get_def(metric.dataset)
     return dfn is not None and user_may_read(dfn, user)
 

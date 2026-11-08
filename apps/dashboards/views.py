@@ -2010,6 +2010,57 @@ class DashboardDuplicateMixin(_DuplicateMixin):
     duplicate_model = Dashboard
     duplicate_fields = ("description", "default_period", "refresh_seconds", "layout", "tags")
 
+    def get_initial(self) -> dict[str, Any]:
+        initial = super().get_initial()
+        if initial.get("layout"):
+            initial["layout"], changed, dropped = _layout_for(self.request.user, initial["layout"])
+            if changed or dropped:
+                said = []
+                if changed:
+                    said.append(f"{changed} card(s) over someone else's personal metric now filter its data themselves")
+                if dropped:
+                    said.append(f"{dropped} card(s) over a metric you can't use were left out")
+                messages.info(self.request, "; ".join(said) + ".")
+        return initial
+
+
+def _layout_for(user: Any, layout: list[Any]) -> tuple[list[Any], int, int]:
+    """A copy of *layout* that *user* can save as their own: a card over
+    another user's personal metric (which a copy may not place) filters that
+    metric's dataset itself, or is left out when the metric has no dataset
+    to filter (entered by hand, a rate). The Duplicate dialog offered a copy
+    that then failed on save. Returns ``(layout, changed, dropped)``."""
+    keys = {c.get("metric") for c in layout if isinstance(c, dict) and isinstance(c.get("metric"), str)}
+    theirs = {
+        m.key: m
+        for m in Metric.objects.filter(key__in=keys).exclude(owner_id=None).exclude(owner_id=getattr(user, "pk", None))
+    }
+    out, changed, dropped = [], 0, 0
+    for cell in layout:
+        metric = theirs.get(str(cell.get("metric") or "")) if isinstance(cell, dict) else None
+        if metric is None:
+            out.append(cell)
+        elif metric.is_manual or metric.is_rate:
+            dropped += 1
+        else:
+            options = dict(cell.get("options") or {})
+            options.setdefault("style", {"format": metric.format, "unit": metric.unit})
+            if metric.thresholds:
+                options.setdefault("thresholds", metric.thresholds)
+            own = {k: v for k, v in cell.items() if k != "metric"}
+            own.update(
+                dataset=metric.dataset,
+                filter_tree=metric.filter_tree or {},
+                agg=metric.agg or "count",
+                measure=metric.measure,
+                period_field=metric.period_field,
+                options=options,
+                title=cell.get("title") or metric.name,
+            )
+            out.append(own)
+            changed += 1
+    return out, changed, dropped
+
 
 class ReportDuplicateMixin(_DuplicateMixin):
     duplicate_model = Report

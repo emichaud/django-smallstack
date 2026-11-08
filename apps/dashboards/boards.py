@@ -349,7 +349,7 @@ def unreadable_cards(dashboard: Dashboard, user: Any) -> list[str]:
         metric = cell_source(cell)
         if metric is None:
             continue
-        if not may_read(metric, user) or (metric.is_manual and not metric.can_view(user)):
+        if not may_read(metric, user):
             names.append(str(cell_title(cell) or metric.name))
     return names
 

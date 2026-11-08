@@ -203,3 +203,37 @@ def test_a_members_card_over_a_staff_only_dataset_doesnt_list_its_columns():
     staff = User.objects.create_user("rr_staff2", password="x", is_staff=True)
     _cells, problems = normalize_layout([{**cell, "options": {"dimension": "method"}}], owner_id=staff.pk)
     assert problems == []
+
+
+def test_a_copy_of_someone_elses_dashboard_can_be_saved():
+    # Duplicate was offered on a dashboard shared with you, then failed on save:
+    # "is another user's personal metric".
+    from apps.dashboards.views import _layout_for
+
+    _seed()
+    alice = User.objects.create_user("rr_alice", password="x")
+    bob = User.objects.create_user("rr_bob", password="x")
+    Metric(key="rr_a_req", name="Alice reqs", dataset=DS_AUTH, owner=alice, period_field="timestamp").save()
+    Metric(key="rr_a_hand", name="Alice hand", source="manual", owner=alice).save()
+    layout = [
+        {"id": "a", "type": "metric", "metric": "rr_a_req", "x": 0, "w": 3},
+        {"id": "b", "type": "metric", "metric": "rr_a_hand", "x": 3, "w": 3},
+        {"id": "c", "type": "text", "options": {"markdown": "hi"}, "x": 6, "w": 3},
+    ]
+    _cells, problems = normalize_layout(layout, owner_id=bob.pk)
+    assert problems  # as it was: refused
+    copied, changed, dropped = _layout_for(bob, layout)
+    assert (changed, dropped) == (1, 1)
+    assert copied[0]["dataset"] == DS_AUTH and copied[0]["title"] == "Alice reqs" and "metric" not in copied[0]
+    _cells, problems = normalize_layout(copied, owner_id=bob.pk)
+    assert problems == []
+
+
+def test_another_users_hand_entered_metric_reads_restricted_not_empty():
+    from apps.dashboards.metrics import may_read
+
+    alice = User.objects.create_user("rr_alice2", password="x")
+    bob = User.objects.create_user("rr_bob2", password="x")
+    hand = Metric(key="rr_hand2", name="Hand", source="manual", owner=alice)
+    hand.save()
+    assert may_read(hand, alice) and not may_read(hand, bob)
