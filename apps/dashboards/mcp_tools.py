@@ -173,7 +173,15 @@ def _snapshot(args: dict[str, Any]) -> dict[str, Any]:
         "url": dashboard.get_absolute_url(),
         "period": period,
         "cells": board_values(dashboard, request_for(user), period),
+        **_link_warnings(dashboard.layout),
     }
+
+
+def _link_warnings(layout: Any) -> dict[str, Any]:
+    from .components import link_warnings
+
+    found = link_warnings(layout)
+    return {"warnings": found} if found else {}
 
 
 def _add_card(args: dict[str, Any]) -> dict[str, Any]:
@@ -231,7 +239,13 @@ def _add_card(args: dict[str, Any]) -> dict[str, Any]:
     except ValidationError as exc:
         return {"error": "the card was not added", "problems": exc.message_dict.get("layout", exc.messages)}
     added = next(c for c in dashboard.layout if c.get("id") not in before)
-    return {"ok": True, "cell": added, "url": dashboard.get_absolute_url(), "cells": len(dashboard.layout)}
+    return {
+        "ok": True,
+        "cell": added,
+        "url": dashboard.get_absolute_url(),
+        "cells": len(dashboard.layout),
+        **_link_warnings(dashboard.layout),
+    }
 
 
 def _remove_card(args: dict[str, Any]) -> dict[str, Any]:
@@ -853,7 +867,8 @@ def register_dashboard_tools() -> int:
             'widget: {"widget": "<key>"}); a card with its own source formats itself through options.style '
             "({format, unit}) and options.thresholds. Link cards so a click on one narrows others: "
             'options.publish: "<channel>" on the clicked card, options.listen: {"channel": "<channel>"} on the '
-            "others (list_dashboard_components: shared_options). An option the type doesn't take is refused.",
+            "others (list_dashboard_components: shared_options). An option the type doesn't take is refused; a "
+            "channel with only one end comes back in warnings.",
             {
                 "type": obj,
                 "properties": {

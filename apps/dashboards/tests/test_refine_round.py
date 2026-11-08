@@ -237,3 +237,33 @@ def test_another_users_hand_entered_metric_reads_restricted_not_empty():
     hand = Metric(key="rr_hand2", name="Hand", source="manual", owner=alice)
     hand.save()
     assert may_read(hand, alice) and not may_read(hand, bob)
+
+
+def test_groups_of_a_choices_column_read_its_labels():
+    # A pie by priority read "high", not "High"; a heartbeat's "fail", not "Fail".
+    from apps.datasets.core import get_dataset
+
+    ds = get_dataset("smallstack_heartbeats")
+    assert ds.value_labels("status", [{"status": "fail"}]) == {"ok": "OK", "fail": "Fail"}
+    assert ds.value_labels("monitor_key", [{"monitor_key": "site"}]) == {}  # a plain column
+
+
+def test_a_link_channel_with_one_end_is_said(board, staff):
+    # A typo in a channel name was accepted and the click silently did nothing.
+    from apps.dashboards.components import link_warnings
+
+    _seed()
+    src = {"dataset": DS_AUTH, "agg": "count", "period_field": "timestamp"}
+    pie = {"id": "p", "type": "pie", **src, "options": {"dimension": "method", "publish": "m"}, "x": 0, "w": 4}
+    listen = {"dimension": "path", "listen": {"channel": "n"}}
+    bars = {"id": "b", "type": "bars", **src, "options": listen, "x": 4, "w": 4}
+    assert link_warnings([pie, bars]) == ["p publishes to 'm', which no card listens to",
+                                          "b listens to 'n', which no card publishes to"]
+    bars["options"]["listen"]["channel"] = "m"
+    assert link_warnings([pie, bars]) == []
+    board.layout = [pie]
+    board.save()
+    got = _call("dashboard_add_card", {"dashboard": board.slug, "type": "bars", **src,
+                                       "options": {"dimension": "path", "listen": {"channel": "typo"}}}, staff)
+    assert got["ok"] and any("'typo', which no card publishes to" in w for w in got["warnings"])
+    assert "warnings" in _call("dashboard_snapshot", {"dashboard": board.slug}, staff)

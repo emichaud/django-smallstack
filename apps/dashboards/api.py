@@ -49,7 +49,7 @@ from apps.smallstack.api import authenticate_api_request
 
 from .boards import board_values, clear_picture, set_picture
 from .comparison import compare_with_previous
-from .components import components_payload
+from .components import components_payload, link_warnings
 from .datasets import visible_entries
 from .entries import parse_entry, record_entry
 from .forms import readable_datasets
@@ -305,6 +305,7 @@ class BoardValuesApiView(_ApiView):
                 "period": period,
                 "url": dashboard.get_absolute_url(),
                 "cells": board_values(dashboard, request, period),
+                **({"warnings": warnings} if (warnings := link_warnings(dashboard.layout)) else {}),
             }
         )
 

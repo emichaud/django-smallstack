@@ -641,6 +641,30 @@ def _overlap_problems(cells: list[dict[str, Any]]) -> list[str]:
 CHANNEL_RE = re.compile(r"^[a-z0-9][a-z0-9_-]{0,39}$")
 
 
+def link_warnings(layout: Any) -> list[str]:
+    """Channels with one end on this dashboard: a card publishing to a channel
+    no card listens to, or listening to one no card publishes. Saved as is (a
+    layout is built a card at a time), but said: a typo in a channel name
+    otherwise breaks the click with no sign."""
+    published: dict[str, list[str]] = {}
+    heard: dict[str, list[str]] = {}
+    for cell in layout or []:
+        if not isinstance(cell, dict):
+            continue
+        options = cell.get("options") or {}
+        name = str(cell.get("title") or cell.get("id") or "a card")
+        if isinstance(options.get("publish"), str) and options["publish"]:
+            published.setdefault(options["publish"], []).append(name)
+        listen = options.get("listen")
+        if isinstance(listen, dict) and isinstance(listen.get("channel"), str):
+            heard.setdefault(listen["channel"], []).append(name)
+    out = [f"{', '.join(who)} publishes to {ch!r}, which no card listens to" for ch, who in published.items()
+           if ch not in heard]
+    out += [f"{', '.join(who)} listens to {ch!r}, which no card publishes to" for ch, who in heard.items()
+            if ch not in published]
+    return out
+
+
 def link_problems(ct: ComponentType, options: dict[str, Any], source: Optional["Metric"]) -> list[str]:
     """Problems with a card's ``publish`` / ``listen`` options."""
     problems: list[str] = []

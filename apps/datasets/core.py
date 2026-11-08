@@ -992,10 +992,15 @@ class Dataset:
         ]["value"]
 
     def value_labels(self, dimension: str, rows: list[dict]) -> dict:
-        """Map FK pks in *rows* to the related object's ``str()``. ``{}`` if
-        *dimension* isn't an FK. For labelling a grouped :meth:`queryset`."""
+        """Map FK pks in *rows* to the related object's ``str()``, or a choices
+        column's stored values to their labels ("high" → "High"). ``{}`` for any
+        other column. For labelling a grouped :meth:`queryset`."""
         if dimension not in self.fk_column_names():
-            return {}
+            try:
+                choices = getattr(self.model._meta.get_field(dimension), "flatchoices", None)
+            except Exception:  # an annotated or computed column: no model field
+                return {}
+            return {key: str(label) for key, label in choices} if choices else {}
         try:
             field = self.model._meta.get_field(dimension)
             related = field.related_model

@@ -327,6 +327,8 @@ in it, instead of opening the rows window; a card with
 `options.listen: {"channel": "<name>", "map"?: {"their_column": "my_column"}}`
 redraws narrowed to whatever arrives, with a "Showing POST ✕" chip that clears it.
 
+A channel with only one end on the dashboard (published and never heard, or heard and never published) is saved, and named in `warnings` on `dashboard_add_card`, `dashboard_snapshot` and `GET dashboards/api/boards/<slug>/values/`: a typo in a channel name otherwise breaks the click with no sign.
+
 ```json
 [{"id": "by", "type": "pie", "dataset": "smallstack_requests", "agg": "count", "options": {"dimension": "method", "publish": "verb"}},
  {"id": "n", "type": "metric", "dataset": "smallstack_requests", "agg": "count", "options": {"listen": {"channel": "verb"}}},
