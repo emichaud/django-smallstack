@@ -398,7 +398,7 @@ def test_the_components_list_narrows_by_dashboard_dataset_and_design(client, sta
 
 
 def test_the_components_list_is_a_sortable_resizable_table(client, staff, metric):
-    _card(name="Bravo", type="metric", options={})
+    _card(name="Bravo", type="metric", metric="cb_requests", options={})  # a single stat over the saved metric
     _card(name="Alpha", type="text", metric="", options={"markdown": "hi"})
     _card(name="Charlie")  # a grouped stat
     html = client.get("/smallstack/dashboards/components/?display=library").content.decode()

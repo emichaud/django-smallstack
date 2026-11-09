@@ -9,7 +9,41 @@ Breaking-change migration recipes live in [`UPGRADING.md`](UPGRADING.md).
 
 ## [Unreleased]
 
+## [0.30.1] - 2026-11-09
+
+### Upgrading from 0.30
+- **A dataset filter value that won't parse is now refused** (a ValueError, a 400 over REST) instead of ignored. That covers `<col>__gte=2026-13-45`, an unknown `__period`, or a non-number on a numeric column. It used to return every row.
+- **The entrypoint's worker restart loop is fixed.** Take the change if your project carries its own `docker-entrypoint.sh`.
+- **SmallStack's demo pages moved to a deletable `apps/showcase`,** the error pages became app defaults in `apps/smallstack/templates/`, and `README.md` became a short page that SmallStack rarely changes. Expect one round of conflicts on the files you rewrote, and keep yours. See `UPGRADING.md`.
+- **Carrying call_stats' extensions to `apps/datasets/core.py`?** `cells()`, `series(sort=)`, `median`, `@dataset(units=)` and the extra flat lookups are upstream now, so drop your copies. For `day_entries()`/`day_counts()`, see "Calendar datasets" in `docs/skills/datasets.md`. `has_detail`, `_fk_label_map` and the `previous` period key still answer, with a `DeprecationWarning` on the first two.
+
+### Added
+- **Datasets: two dimensions, ranked series, medians, units and more filter spellings** (from call_stats). `Dataset.cells(x, y)` (REST `<key>/cells/`, MCP `group_by2`) returns a complete x × y grid for a heatmap, with 0 or None where a combination has no rows. It refuses an axis of more than 30 values rather than cutting it. `series(sort={"by": "value", "dir": "desc"})` (REST/MCP `sort=-value`) ranks before `limit` applies, so it's a top N; a time grain keeps its most recent periods. `agg="median"` is computed in the database, grouped or not: `percentile_cont` on Postgres, an aggregate registered on SQLite connections. `@dataset(units={...})` puts a `unit` on each schema column (else a guess from `*_seconds` / `*_minutes`). Flat filters gain `__gt`/`__lte` and numeric comparisons, `__ne`, `__icontains` and `__period=<key>`. Each schema filter lists its `lookups`, and `filter_problems()` reports bad values without querying. See `docs/skills/datasets.md`.
+- **Keys and names from before the call_stats port still answer:** the `previous` period (now `yesterday`), `Dataset.has_detail` (now `has_links()`) and `_fk_label_map` (now `value_labels()`), the last two with a `DeprecationWarning`. `dateranges.py` lists how each period's meaning changed in the port.
+- **`manage.py template_hygiene`** lists the inline `<script>` blocks, `on…=` handlers and `<style>` blocks in your templates, by file and line (`--summary`, `--framework`, `--check`). Use it to size the move off inline scripts. See `docs/skills/templates.md`, which now also covers the nonce route (django-csp's `NONCE` plus `nonce="{{ request.csp_nonce }}"`) as a step between the stopgap and static files.
+
+### Changed
+- **SmallStack's demo pages are their own app, `apps/showcase`, so a project deletes them once instead of merging them every release.** That's about, getting started, prompts, both platform pages, the starter pages, `/components/` and the public search. Their URLs are unchanged, and their names are now `showcase:…`. `apps/website/` keeps the home page, the public `base.html` and the chart card types. The public topbar and the home page reverse showcase URLs quietly (`{% url … as x %}`), so they work with the app deleted. The starter pages' "Starter" breadcrumb now links (it named a route that never existed).
+- **The 400/403/404/500 pages are defaults in `apps/smallstack/templates/`.** A project's own `templates/404.html` overrides one, and upstream no longer ships files at those paths.
+- **`README.md` is short and carries nothing that changes per release.** SmallStack's full description, with the version badge, is `docs/smallstack.md`.
+
+### Fixed
+- **The inline worker came back after a crash only if it exited cleanly.** `docker-entrypoint.sh` runs under `set -e`, so a `db_worker` that exited non-zero (a database restart, say) ended the restart loop, and the container kept serving with no worker. The loop now catches the exit code and restarts. *Upgrade note:* if your project carries its own entrypoint, take this change.
+- **The `'unsafe-inline'` stopgap from 0.30.0 failed four framework tests.** The template sweeps now follow the policy in force. With `'unsafe-inline'` in `script-src`, only SmallStack's own templates are checked for inline scripts and handlers, and `test_csp_script_src_allows_no_inline_script` skips, naming how many of yours remain. The `<style>` sweep checks SmallStack's own templates only, since `style-src` allows inline styles. The rules moved to `apps/smallstack/template_hygiene.py`.
+- **Framework tests assumed where a project mounts datasets and dashboards.** The datasets tests and the case-insensitive ordering test reverse their URLs instead of using literal `/smallstack/datasets/…` paths, and the Datasets nav entry's highlight follows the mount.
+- **Tests that failed on Postgres or behind a downstream's first-request hook.** Two dashboards tests compared a filter tree as a JSON string (jsonb reorders keys), the case-insensitive ordering test expected SQLite's tie order for "Alpha" and "alpha", and the dashboards query-count test counted the first request after setup. The components-list sort test asserted on a three-way tie, which Postgres broke either way.
+- **A dataset bound that didn't parse was dropped, returning more rows than the filters said.** `?created_at__gte=2026-13-45` used to filter nothing. It's now a 400, and the dataset browser shows "These filters can't be applied" with no rows.
+- **`UPGRADING.md` had no section for 0.30.0's CSP change or the new dashboards app,** and two 0.30.0 settings (`HEARTBEAT_MAX_CONCURRENT_CHECKS`, `HEARTBEAT_RUN_DEADLINE_SECONDS`) were in no release note. Each release entry now opens with an "Upgrading from" block, and `downstream-release-migration.md` no longer describes v0.11 as the current release.
+
 ## [0.30.0] - 2026-11-08
+
+### Upgrading from 0.29
+- **The CSP blocks inline scripts.** `script-src` drops `'unsafe-inline'`, so inline `<script>` blocks and `on…=` handlers in your own templates stop running.
+- **`apps.dashboards` is a new app in `INSTALLED_APPS`:** a nav item, MCP tools, 14 migrations, and shipped defaults synced after migrate (`SMALLSTACK_DASHBOARDS_ENABLED`, `SMALLSTACK_DASHBOARD_DEFAULTS_SYNC`).
+- **Webhooks get their own queue and worker** (`webhooks` in `TASKS`, `WORKER_WEBHOOKS`, `SMALLSTACK_WEBHOOK_QUEUE`).
+- **Invite and sign-in-code emails are queued** (`SMALLSTACK_ACCOUNTS_EMAILS_INLINE`), and `EMAIL_TIMEOUT` defaults to 10 seconds.
+- **New tuning settings:** `HEARTBEAT_MAX_CONCURRENT_CHECKS`, `HEARTBEAT_RUN_DEADLINE_SECONDS`, `SMALLSTACK_FEEDS_MAX_CONCURRENT_FETCHES`.
+- Each has a section in `UPGRADING.md` under v0.30.0, starting with "at a glance".
 
 ### Added
 - **Every Dashboards and Goals piece on your own pages.** New template tags beside `{% dashboard %}`, `{% metric_card %}` and `{% playlist %}`: `{% goal_list %}` (a goal list judged), `{% card %}` (one saved card) and `{% report %}` (a report's table). Data tags hand a page the engine's results to draw its own way: `{% metric_value %}`, `{% metric_series %}`, `{% goal_values %}`, `{% report_values %}` and `{% dashboard_values %}`, with `{% dashboards_assets %}` for the stylesheet and scripts. All check access as the pages do. The starter page (`/starter/dashboard/`) shows each. The report page's table is now a shared include (`dashboards/includes/report_table.html`).
@@ -3352,7 +3386,8 @@ Condensed highlights of the v0.11 series (see git history for per-patch detail):
 See the git tag history (`git tag`) and `ai_cowork/audit_history/` for the full record of the
 v0.8–v0.10 API-server, modern-dark-theme, search, MCP, and Postgres eras.
 
-[Unreleased]: https://github.com/emichaud/django-smallstack/compare/v0.30.0...HEAD
+[Unreleased]: https://github.com/emichaud/django-smallstack/compare/v0.30.1...HEAD
+[0.30.1]: https://github.com/emichaud/django-smallstack/compare/v0.30.0...v0.30.1
 [0.30.0]: https://github.com/emichaud/django-smallstack/compare/v0.29.0...v0.30.0
 [0.29.0]: https://github.com/emichaud/django-smallstack/compare/v0.28.0...v0.29.0
 [0.28.0]: https://github.com/emichaud/django-smallstack/compare/v0.27.1...v0.28.0

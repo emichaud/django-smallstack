@@ -5,6 +5,7 @@ from __future__ import annotations
 from django.urls import path
 
 from .api import (
+    DatasetCellsView,
     DatasetListView,
     DatasetRowsView,
     DatasetScalarView,
@@ -24,5 +25,6 @@ urlpatterns = [
     path("<str:key>/schema/", DatasetSchemaView.as_view(), name="schema"),
     path("<str:key>/series/", DatasetSeriesView.as_view(), name="series"),
     path("<str:key>/scalar/", DatasetScalarView.as_view(), name="scalar"),
+    path("<str:key>/cells/", DatasetCellsView.as_view(), name="cells"),
     path("<str:key>/", DatasetRowsView.as_view(), name="rows"),
 ]

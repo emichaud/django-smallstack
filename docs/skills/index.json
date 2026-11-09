@@ -855,7 +855,7 @@
       "id": "downstream-release-migration",
       "file": "downstream-release-migration.md",
       "name": "Downstream Release Migration",
-      "description": "Migrating a fork onto a new release — additive vs breaking changes, the false-test-result + removed-symbol traps, this release's actions",
+      "description": "Migrating a fork onto a new release — additive vs breaking changes, the false-test-result + removed-symbol traps, finding what each crossed version changes",
       "section": "Available Skills",
       "scope": "fork-facing"
     },

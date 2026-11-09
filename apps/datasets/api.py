@@ -8,7 +8,9 @@ broader-audience surface builds its own view over ``core.get_dataset``.
 Routes:
     GET  /smallstack/datasets/                  → list (api-exposed datasets)
     GET  /smallstack/datasets/<key>/schema/     → typed columns + filters
-    GET  /smallstack/datasets/<key>/series/     → grouped [{label, value}]
+    GET  /smallstack/datasets/<key>/series/     → grouped [{label, value}] (?sort=-value: a top N)
+    GET  /smallstack/datasets/<key>/scalar/     → one aggregate {value}
+    GET  /smallstack/datasets/<key>/cells/      → an x × y grid (?dimension=&dimension2=)
     GET  /smallstack/datasets/<key>/            → filtered rows
 
 Every read route also takes ``?filter_tree=<json>`` — the nested AND/OR filter
@@ -38,6 +40,8 @@ _RESERVED = {
     "offset",
     "format",
     "dimension",
+    "dimension2",
+    "sort",
     "measure",
     "agg",
     "expand",
@@ -80,6 +84,19 @@ def _int_param(request: HttpRequest, name: str, default: int | None) -> int | No
         return int(raw)
     except (TypeError, ValueError):
         return default
+
+
+def _parse_sort(request: HttpRequest) -> dict | None:
+    """``?sort=value`` / ``-value`` / ``category`` / ``-category`` → the
+    ``series(sort=…)`` dict (a leading ``-`` is descending). None when absent;
+    ValueError on anything else (→ 400)."""
+    raw = request.GET.get("sort", "").strip()
+    if not raw:
+        return None
+    by = raw.lstrip("-")
+    if by not in ("category", "value"):
+        raise ValueError(f"unknown sort {raw!r}; use category, -category, value or -value")
+    return {"by": by, "dir": "desc" if raw.startswith("-") else "asc"}
 
 
 def _parse_dimension(request: HttpRequest, field: str | None) -> dict | None:
@@ -278,6 +295,7 @@ class DatasetSeriesView(_DatasetApiView):
                 bucketed if bucketed is not None else field,
                 measure=(request.GET.get("measure") or None),
                 agg=request.GET.get("agg", "count"),
+                sort=_parse_sort(request),
                 limit=_int_param(request, "limit", 50),
                 filters=filters,
                 request=request,
@@ -286,6 +304,32 @@ class DatasetSeriesView(_DatasetApiView):
         except ValueError as exc:
             return JsonResponse({"error": str(exc)}, status=400)
         return JsonResponse({"key": key, "dimension": field, "series": series})
+
+
+class DatasetCellsView(_DatasetApiView):
+    """Heatmap / punch card: ``?dimension=x&dimension2=y`` → a complete grid of
+    ``[{x, x_label, y, y_label, value}]`` (see ``Dataset.cells``)."""
+
+    def get(self, request: HttpRequest, key: str) -> JsonResponse:
+        ds = _require_api_dataset(key)
+        x = request.GET.get("dimension", "").strip()
+        y = request.GET.get("dimension2", "").strip()
+        filters = {k: v for k, v in request.GET.items() if k not in _RESERVED}
+        try:
+            if not x or not y:
+                raise ValueError("cells needs dimension and dimension2")
+            cells = ds.cells(
+                x,
+                y,
+                measure=(request.GET.get("measure") or None),
+                agg=request.GET.get("agg", "count"),
+                filters=filters,
+                request=request,
+                filter_tree=_parse_filter_tree(request),
+            )
+        except ValueError as exc:
+            return JsonResponse({"error": str(exc)}, status=400)
+        return JsonResponse({"key": key, "dimension": x, "dimension2": y, "cells": cells})
 
 
 class DatasetScalarView(_DatasetApiView):

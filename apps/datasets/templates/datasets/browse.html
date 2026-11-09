@@ -115,8 +115,9 @@ when there are some.
         {% endfor %}
         {% comment %}The right edge: how many rows the filters leave, and the way to keep them as a metric (the dashboards modal). Swapped in with every change.{% endcomment %}
         <div class="ds-actions ds-live" id="ds-live" role="status">
-            <p class="ds-count"{% if tree_error %} hidden{% endif %}>
-                <span class="ds-count-n">{% if tree_error %}—{% else %}{{ page_obj.total_count|default:0|floatformat:"0g" }}{% endif %}</span>
+            {% if filter_error %}<p class="ds-tree-error" role="alert">{{ filter_error }} Fix or clear it and apply again.</p>{% endif %}
+            <p class="ds-count"{% if blocked %} hidden{% endif %}>
+                <span class="ds-count-n">{% if blocked %}—{% else %}{{ page_obj.total_count|default:0|floatformat:"0g" }}{% endif %}</span>
                 <span class="ds-count-label">row{{ page_obj.total_count|pluralize }}{% if has_filters %} match{% endif %}</span>
             </p>
             <p class="ds-count ds-count-wait" aria-hidden="true"><span class="ds-count-n">…</span><span class="ds-count-label">counting</span></p>
@@ -287,7 +288,7 @@ when there are some.
                     {% endfor %}
                 </tr>
                 {% empty %}
-                <tr><td colspan="{{ columns|length }}" class="ds-meta" style="padding: 16px 14px; white-space: normal;">{% if tree_error %}No rows shown: the conditions under More conditions can't be applied.{% else %}No rows{% if has_filters %} match these filters{% endif %}.{% endif %}</td></tr>
+                <tr><td colspan="{{ columns|length }}" class="ds-meta" style="padding: 16px 14px; white-space: normal;">{% if filter_error %}No rows shown: a filter above can't be applied.{% elif tree_error %}No rows shown: the conditions under More conditions can't be applied.{% else %}No rows{% if has_filters %} match these filters{% endif %}.{% endif %}</td></tr>
                 {% endfor %}
             </tbody>
         </table>

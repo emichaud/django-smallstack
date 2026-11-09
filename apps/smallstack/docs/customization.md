@@ -39,24 +39,25 @@ The `apps/website/` app is your project's home. Customize it freely without worr
 
 ### How It Works
 
-SmallStack uses a **thin wrapper + include pattern** to prevent merge conflicts:
+Your pages and SmallStack's are kept in different places, so pulling upstream doesn't conflict
+with what you've written:
 
 ```
+apps/
+├── website/               # YOURS: the home view and urls, your own pages, chart card types
+└── showcase/              # SmallStack's demo pages (about, getting started, starter, search…): delete it
 templates/
 ├── website/
-│   ├── home.html          # Thin wrapper (YOU OWN THIS)
-│   └── about.html         # Thin wrapper (YOU OWN THIS)
-├── starter.html           # Thin wrapper (YOU OWN THIS)
-└── smallstack/
-    └── pages/             # SmallStack marketing content (UPSTREAM)
-        ├── home_content.html
-        ├── about_content.html
-        ├── starter_content.html
-        ├── starter_css.html
-        └── starter_js.html
+│   ├── base.html          # The public site's base (YOURS)
+│   └── home.html          # Thin wrapper → smallstack/pages/home_content.html (YOURS)
+└── 404.html               # Optional: YOUR error page (the defaults are in apps/smallstack/templates/)
 ```
 
-The wrapper templates use `{% include %}` to pull in SmallStack's default marketing content. When you're ready to customize, **replace the wrapper's content block with your own markup** — the SmallStack marketing fragments stay untouched, so upstream updates never conflict with your pages.
+`home.html` uses `{% include %}` to pull in SmallStack's default home content. When you're ready
+to customize, **replace the include with your own markup**: the fragment in
+`smallstack/pages/` stays untouched, so upstream updates never conflict with your page. The error
+pages work the same way from the other side: SmallStack's 400/403/404/500 are app templates, and
+a `templates/404.html` of your own takes precedence without upstream ever touching it.
 
 ### Edit the Homepage
 
@@ -99,7 +100,12 @@ Replace the `{% include %}` with your own content:
 {% endblock %}
 ```
 
-Do the same for `templates/website/about.html` and `templates/starter.html` when you're ready.
+SmallStack's other public pages (about, getting started, prompts, the two platform pages, the
+starter pages, the public search) live in **`apps/showcase/`**, which isn't yours to edit: delete it
+when you don't want them. That's three steps: the `apps/showcase/` directory, `"apps.showcase"` in
+`INSTALLED_APPS` and its `include()` in `config/urls.py`. Nothing outside it links to it
+unguarded (the public topbar and the home page reverse its URLs with `{% url … as x %}`, so the
+links just go).
 
 **Tip:** Use `{% block breadcrumbs %}{% endblock %}` to hide breadcrumbs on landing pages.
 
@@ -448,19 +454,19 @@ When merging upstream, you may see conflicts in:
 | `templates/registration/*.html` | Keep your branding |
 | `config/deploy.yml` | Keep your deployment config |
 
-**Note:** `templates/website/home.html`, `about.html`, and `templates/starter.html` are thin wrappers. Once you've replaced the `{% include %}` with your own content, upstream changes to SmallStack's marketing pages land in `templates/smallstack/pages/` — a directory you don't touch — so no conflicts.
+**Note:** `templates/website/home.html` is a thin wrapper. Once you've replaced the `{% include %}` with your own content, upstream changes to SmallStack's home content land in `smallstack/pages/`, which you don't touch, so no conflicts. SmallStack's demo pages are in `apps/showcase/`: delete it, or take upstream's version on a merge.
 
 ### Conflict-Free Zones
 
 These areas are designed for customization and won't conflict:
 
 - `apps/website/` - Your project pages and views
-- `templates/website/` - Your page templates (thin wrappers you replace)
-- `templates/starter.html` - Starter page wrapper (replace with your own)
+- `templates/website/` - Your page templates
+- `templates/400.html` … `500.html` - Your own error pages, if you want them (they override SmallStack's)
 - `apps/help/content/` - Your documentation (entire folder is yours)
 - `.kamal/secrets` - Your secrets (gitignored)
 
-SmallStack's marketing content lives in `templates/smallstack/pages/` and updates automatically from upstream without touching your customized wrappers.
+SmallStack's home content lives in `smallstack/pages/` and its demo pages in `apps/showcase/`; both update from upstream without touching your pages.
 
 ## Kamal Deployment Configuration
 
@@ -502,8 +508,9 @@ CSRF_TRUSTED_ORIGINS=https://myproject.com,https://www.myproject.com
 
 | What to Customize | Where |
 |------------------|-------|
-| Homepage & pages | `templates/website/home.html`, `about.html` — replace the `{% include %}` with your own content |
-| Starter page | `templates/starter.html` — same pattern |
+| Homepage & pages | `templates/website/home.html` — replace the `{% include %}` with your own content; add pages in `apps/website/` |
+| Error pages | `templates/404.html` (etc.) — yours override SmallStack's defaults |
+| SmallStack's demo pages | `apps/showcase/` — delete the app (and its two lines) |
 | Your documentation | `apps/help/content/` (entire folder is yours) |
 | Deployment config | `config/deploy.yml`, `.kamal/secrets` |
 | User profile fields | `apps/profile/models.py` |

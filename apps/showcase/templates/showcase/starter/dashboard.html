@@ -1,0 +1,85 @@
+{% extends "smallstack/base.html" %}
+{% load static theme_tags dashboard_tags %}
+
+{% block title %}Dashboard Starter{% endblock %}
+
+{% block breadcrumbs %}
+{% breadcrumb "Home" "website:home" %}
+{% breadcrumb "Starter" "showcase:starter" %}
+{% breadcrumb "Dashboard" %}
+{% render_breadcrumbs %}
+{% endblock %}
+
+{% block extra_css %}{{ block.super }}<link rel="stylesheet" href="{% static 'showcase/css/starter-dashboard.css' %}">{% endblock %}
+
+{% block content %}
+<h1>Dashboard starter</h1>
+<p class="page-subtitle" style="max-width: 70ch;">A page of your own showing saved metrics, a dashboard, a goal list, a saved card and a report, and drawing the same numbers in markup of its own. The numbers, cards and drill-downs are the same ones the Dashboards section shows, and the same ones agents read over MCP.</p>
+
+{% if metrics %}
+<h2 style="font-size: 1.05rem; margin: 1.5rem 0 0.6rem;">Metric cards</h2>
+<div class="stat-cards">
+    {% for m in metrics %}{% metric_card m.key period="mtd" %}{% endfor %}
+</div>
+<pre class="dash-code" style="margin-top: 0.6rem;">{% templatetag openblock %} load dashboard_tags {% templatetag closeblock %}
+{% for m in metrics %}{% templatetag openblock %} metric_card "{{ m.key }}" period="mtd" {% templatetag closeblock %}
+{% endfor %}</pre>
+{% endif %}
+
+<h2 style="font-size: 1.05rem; margin: 1.5rem 0 0.6rem;">A dashboard</h2>
+{% if board %}
+{% dashboard board %}
+<pre class="dash-code">{% templatetag openblock %} dashboard "{{ board.slug }}" {% templatetag closeblock %}
+{% templatetag openblock %} dashboard "{{ board.slug }}" period="ytd" title=False {% templatetag closeblock %}</pre>
+{% else %}
+<p class="dash-muted">No dashboard to show yet. Run <code>uv run python manage.py seed_dashboards</code> for the demo, or <a href="{% url 'dashboards/boards-create' %}">make one</a>.</p>
+{% endif %}
+
+<h2 style="font-size: 1.05rem; margin: 1.5rem 0 0.6rem;">A goal list</h2>
+{% if goal_list %}
+{% goal_list goal_list %}
+<pre class="dash-code">{% templatetag openblock %} goal_list "{{ goal_list.slug }}" {% templatetag closeblock %}
+{% templatetag openblock %} goal_list "{{ goal_list.slug }}" period="last_7" title=False {% templatetag closeblock %}</pre>
+{% else %}<p class="dash-muted">No goal list yet. <a href="{% url 'dashboards/goals-create' %}">Make one</a>.</p>{% endif %}
+
+<h2 style="font-size: 1.05rem; margin: 1.5rem 0 0.6rem;">One saved card</h2>
+{% if card %}
+<div class="starter-card">{% card card %}</div>
+<pre class="dash-code">{% templatetag openblock %} card "{{ card.key }}" {% templatetag closeblock %}
+{% templatetag openblock %} card "{{ card.key }}" period="mtd" height=280 {% templatetag closeblock %}</pre>
+{% else %}<p class="dash-muted">No saved card yet. <a href="{% url 'dashboards/components-create' %}">Build one</a>.</p>{% endif %}
+
+<h2 style="font-size: 1.05rem; margin: 1.5rem 0 0.6rem;">A report</h2>
+{% if report %}
+{% report report %}
+<pre class="dash-code">{% templatetag openblock %} report "{{ report.slug }}" {% templatetag closeblock %}</pre>
+{% else %}<p class="dash-muted">No report yet. <a href="{% url 'dashboards/reports-create' %}">Make one</a>.</p>{% endif %}
+
+<h2 style="font-size: 1.05rem; margin: 1.5rem 0 0.6rem;">Your own markup, the same numbers</h2>
+<p style="max-width: 70ch;">The data tags hand you what the engine computed (values, states, comparisons, goal verdicts), so a page can draw it any way it likes. The access rules are the same: something the viewer can't open comes back empty.</p>
+{% dashboards_assets %}
+<div class="starter-own">
+    {% if metrics %}
+    <ul class="starter-own-list" aria-label="Metrics this month">
+        {% for m in metrics %}{% metric_value m.key period="mtd" as v %}{% if v %}
+        <li>
+            <span class="starter-own-name" data-about="{{ v.metric.description }}">{{ v.metric.name }}</span>
+            <span class="rp-value{% if v.result.state %} rp-value--{{ v.result.state }}{% endif %}">{{ v.result.display }}{% if v.result.unit %} <span class="rp-unit">{{ v.result.unit }}</span>{% endif %}</span>
+            {% if v.comparison %}<span class="ix-compare">{{ v.comparison.text }}</span>{% endif %}
+        </li>
+        {% endif %}{% endfor %}
+    </ul>
+    {% endif %}
+    {% if goal_list %}{% goal_values goal_list period="last_7" as g %}{% if g %}
+    <p class="starter-own-goals"><strong>{{ g.summary.headline }}</strong> in {{ g.goal_list.name }}.{% if g.attention %} Needs attention: {% for r in g.attention %}{{ r.label }}{% if not forloop.last %}, {% endif %}{% endfor %}.{% endif %}</p>
+    {% endif %}{% endif %}
+</div>
+<pre class="dash-code">{% templatetag openblock %} dashboards_assets {% templatetag closeblock %}
+{% templatetag openblock %} metric_value "{% if metrics %}{{ metrics.0.key }}{% else %}key{% endif %}" period="mtd" as v {% templatetag closeblock %}   {% templatetag openvariable %} v.result.display {% templatetag closevariable %} {% templatetag openvariable %} v.result.state {% templatetag closevariable %} {% templatetag openvariable %} v.comparison.text {% templatetag closevariable %}
+{% templatetag openblock %} metric_series "key" period="last_30" grain="day" as t {% templatetag closeblock %}   {% templatetag openblock %} for p in t.points {% templatetag closeblock %}…
+{% templatetag openblock %} goal_values "slug" as g {% templatetag closeblock %}   {% templatetag openvariable %} g.summary.headline {% templatetag closevariable %}, {% templatetag openblock %} for r in g.rows {% templatetag closeblock %}{% templatetag openvariable %} r.label {% templatetag closevariable %} {% templatetag openvariable %} r.status_label {% templatetag closevariable %}…
+{% templatetag openblock %} report_values "slug" as r {% templatetag closeblock %}   {% templatetag openblock %} dashboard_values "slug" as b {% templatetag closeblock %}</pre>
+
+<h2 style="font-size: 1.05rem; margin: 1.5rem 0 0.6rem;">Your own card types</h2>
+<p style="max-width: 70ch;">The <strong>Trend chart</strong> card in the dashboards' Add card dialog comes from this project, not SmallStack: <code>apps/website/dashboard_cards.py</code> registers it with <code>register_component_type</code>. Copy that file to add a chart, a table or a gauge. Its data comes from <code>metric_trend</code>, which is also available at <code>GET /smallstack/dashboards/api/metrics/&lt;key&gt;/trend/</code>.</p>
+{% endblock %}

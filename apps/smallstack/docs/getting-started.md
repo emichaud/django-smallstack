@@ -146,7 +146,12 @@ SmallStack's page templates use a **thin wrapper + include pattern**. The defaul
 {% endblock %}
 ```
 
-Do the same for `templates/website/about.html` and `templates/starter.html`. Once replaced, upstream SmallStack updates to marketing content (in `templates/smallstack/pages/`) won't cause merge conflicts with your pages.
+SmallStack's other public pages (about, getting started, prompts, the two platform pages, the
+starter pages, the public search) live in **`apps/showcase/`**, which isn't yours to edit: delete it
+when you don't want them. That's three steps: the `apps/showcase/` directory, `"apps.showcase"` in
+`INSTALLED_APPS` and its `include()` in `config/urls.py`. Nothing outside it links to it
+unguarded (the public topbar and the home page reverse its URLs with `{% url … as x %}`, so the
+links just go).
 
 ### 2. Update Your Branding
 

@@ -12,6 +12,7 @@ import pytest
 from django.contrib.auth import get_user_model
 from django.db.models import CharField, Value
 from django.db.models.functions import Concat
+from django.urls import reverse
 
 from apps.smallstack.crud import _apply_ordering_fields
 from apps.smallstack.models import APIToken
@@ -35,9 +36,12 @@ def test_a_text_field_sorts_case_insensitively_both_ways(tokens):
     qs = APIToken.objects.all()
     asc = _names(_apply_ordering_fields(qs, "name", {"name"}))
     assert [n.lower() for n in asc] == ["alpha", "alpha", "bravo", "charlie", "zeta"]
-    assert asc[:2] == ["Alpha", "alpha"]  # the raw value breaks the tie, so the order is stable
+    # The raw value breaks the tie, so the order is stable. Which of the two comes
+    # first is the database's collation (SQLite: "Alpha"; Postgres: "alpha").
+    assert set(asc[:2]) == {"Alpha", "alpha"}
+    assert _names(_apply_ordering_fields(qs, "name", {"name"})) == asc
     desc = _names(_apply_ordering_fields(qs, "-name", {"name"}))
-    assert desc == ["Zeta", "charlie", "Bravo", "alpha", "Alpha"]
+    assert desc == asc[::-1]
 
 
 def test_text_through_a_relation_and_text_annotations_too(tokens):
@@ -80,7 +84,7 @@ def test_an_html_crud_list_and_the_dataset_browser_too(client, tokens):
     client.force_login(staff)
     for name in ("charlie", "Bravo", "alpha"):
         Metric(key=f"ci2_{name.lower()}", name=name, dataset="smallstack_requests").save()
-    html = client.get("/smallstack/dashboards/metrics/?ordering=name").content.decode()
+    html = client.get(reverse("dashboards/metrics-list"), {"ordering": "name"}).content.decode()
     assert (
         html.index('class="lib-name">alpha<')
         < html.index('class="lib-name">Bravo<')
@@ -90,6 +94,6 @@ def test_an_html_crud_list_and_the_dataset_browser_too(client, tokens):
     for path in ("/ci-b", "/CI-A", "/ci-c"):
         RequestLog.objects.create(path=path, method="GET", status_code=200, response_time_ms=1, ip_address="10.7.7.7")
     browse = client.get(
-        "/smallstack/datasets/browse/smallstack_requests/", {"ip_address": "10.7.7.7", "ordering": "path"}
+        reverse("datasets:browse", args=["smallstack_requests"]), {"ip_address": "10.7.7.7", "ordering": "path"}
     ).content.decode()
     assert browse.index(">/CI-A<") < browse.index(">/ci-b<") < browse.index(">/ci-c<")

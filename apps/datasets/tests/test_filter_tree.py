@@ -16,6 +16,7 @@ from datetime import date, timedelta
 import pytest
 from asgiref.sync import async_to_sync
 from django.contrib.auth import get_user_model
+from django.urls import reverse
 from django.utils import timezone
 
 from apps.activity.models import RequestLog
@@ -74,6 +75,30 @@ def test_every_listed_period_resolves():
     for key, _label in RELATIVE_PERIODS:
         since, until = relative_dates(key, date(2026, 5, 14))
         assert since < until, key
+
+
+def test_a_key_from_the_original_vocabulary_still_resolves():
+    """call_stats stored "previous" before the port renamed it "yesterday"."""
+    from apps.datasets.dateranges import RELATIVE_PERIODS
+
+    today = date(2026, 5, 14)
+    assert is_period("previous") and period_label("previous") == "Yesterday"
+    assert relative_dates("previous", today) == relative_dates("yesterday", today)
+    assert relative_range("previous") == relative_range("yesterday")
+    assert "previous" not in dict(RELATIVE_PERIODS)  # read, never offered
+    assert is_period("last_60")  # dropped from the list, still resolved as last_<N>
+
+
+def test_the_renamed_dataset_members_still_answer():
+    import warnings
+
+    ds = get_dataset("smallstack_requests")
+    assert ds is not None
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        assert ds.has_detail == ds.has_links()
+        assert ds._fk_label_map("method", []) == ds.value_labels("method", [])
+    assert [w.category for w in caught] == [DeprecationWarning, DeprecationWarning]
 
 
 def test_month_and_quarter_boundaries_wrap_the_year():
@@ -304,20 +329,22 @@ def staff_client(client):
 def test_rest_filter_tree_param_narrows_and_reports_total(staff_client):
     _seed()
     # Exclude the request log rows these very calls create (activity middleware).
-    tree = json.dumps({"and": [GET_OR_POST, {"not": {"field": "path", "op": "contains", "value": "/smallstack/"}}]})
-    data = staff_client.get("/smallstack/datasets/t_tree_log/", {"filter_tree": tree}).json()
+    own = {"not": {"field": "path", "op": "contains", "value": reverse("datasets:list")}}
+    tree = json.dumps({"and": [GET_OR_POST, own]})
+    data = staff_client.get(reverse("datasets:rows", args=["t_tree_log"]), {"filter_tree": tree}).json()
     assert data["total"] == 4 and data["count"] == 4
-    scalar = staff_client.get("/smallstack/datasets/t_tree_log/scalar/", {"filter_tree": tree}).json()
+    scalar = staff_client.get(reverse("datasets:scalar", args=["t_tree_log"]), {"filter_tree": tree}).json()
     assert scalar["value"] == 4
 
 
 def test_rest_bad_tree_is_400_not_everything(staff_client):
     _seed()
     bad = json.dumps({"field": "nope", "op": "=", "value": 1})
-    for url in ("/smallstack/datasets/t_tree_log/", "/smallstack/datasets/t_tree_log/scalar/"):
+    rows = reverse("datasets:rows", args=["t_tree_log"])
+    for url in (rows, reverse("datasets:scalar", args=["t_tree_log"])):
         resp = staff_client.get(url, {"filter_tree": bad})
         assert resp.status_code == 400 and "unknown field" in resp.json()["error"]
-    assert staff_client.get("/smallstack/datasets/t_tree_log/", {"filter_tree": "{not json"}).status_code == 400
+    assert staff_client.get(rows, {"filter_tree": "{not json"}).status_code == 400
 
 
 def _call(name, args, user=None):

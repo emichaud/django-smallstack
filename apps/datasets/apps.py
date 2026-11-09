@@ -26,6 +26,16 @@ class DatasetsConfig(AppConfig):
 
     def ready(self) -> None:
         from django.conf import settings
+        from django.db import connections
+        from django.db.backends.signals import connection_created
+
+        from .core import install_sqlite_median
+
+        # The median aggregate on SQLite: every new connection, and any opened
+        # before this ran (a check, or another app's ready()).
+        connection_created.connect(install_sqlite_median, dispatch_uid="smallstack_datasets_median")
+        for conn in connections.all(initialized_only=True):
+            install_sqlite_median(connection=conn)
 
         if not getattr(settings, "SMALLSTACK_DATASETS_ENABLED", True):
             return
@@ -41,7 +51,6 @@ class DatasetsConfig(AppConfig):
                 '<path d="M3 4h18v4H3zm0 6h18v4H3zm0 6h18v4H3z"/></svg>'
             ),
             staff_required=True,
-            active_prefix="/smallstack/datasets/browse/",
         )
 
         # Register MCP tools for every opted-in dataset. No-op if apps.mcp isn't

@@ -19,16 +19,11 @@ templates/
 │   │   └── breadcrumbs.html   # Breadcrumb navigation
 │   ├── partials/              # htmx swap fragments
 │   │   └── messages.html      # OOB messages partial for htmx responses
-│   └── pages/                 # SmallStack marketing content (upstream)
-│       ├── home_content.html
-│       ├── about_content.html
-│       ├── starter_content.html
-│       ├── starter_css.html
-│       └── starter_js.html
+│   └── pages/                 # SmallStack's home content (upstream)
+│       └── home_content.html
 ├── website/
-│   ├── home.html              # Thin wrapper → includes pages/home_content.html
-│   └── about.html             # Thin wrapper → includes pages/about_content.html
-├── starter.html               # Thin wrapper → includes pages/starter_*.html
+│   ├── base.html              # The public site's base
+│   └── home.html              # Thin wrapper → includes pages/home_content.html
 ├── profile/
 │   ├── profile.html
 │   ├── profile_edit.html
@@ -481,7 +476,7 @@ def my_view(request):
 {% endblock %}
 ```
 
-> **Tip:** For a full copy-paste starter with all page sections, copy `templates/smallstack/starter.html`. See [admin-page-styling.md](admin-page-styling.md) for the complete CSS class reference.
+> **Tip:** For a full copy-paste starter with all page sections, copy `apps/showcase/templates/showcase/includes/starter_content.html` (the page at `/starter/`, from the deletable `apps/showcase`). See [admin-page-styling.md](admin-page-styling.md) for the complete CSS class reference.
 
 ## Conditional Content
 
@@ -583,6 +578,40 @@ See [htmx-patterns.md](../skills/htmx-patterns.md) for the full reference includ
 
 **The CSP's `script-src` is `'self'` with no `'unsafe-inline'`.** The browser runs no inline
 `<script>` block and no `onclick="…"`; it logs the blocked line in the console instead.
+
+### Moving an existing project onto the policy
+
+**Size it first:** `uv run python manage.py template_hygiene` lists every inline `<script>`, `on…=`
+handler and `<style>` block, by file and line (`--summary` gives counts per file, `--check` exits 1
+while any script or handler is left, `--framework` limits it to SmallStack's own templates).
+
+**The stopgap:** add `"'unsafe-inline'"` back to `CONTENT_SECURITY_POLICY["DIRECTIVES"]["script-src"]`
+and your inline code runs again while you move it. The hygiene tests follow the policy in force
+(the rules live in `apps/smallstack/template_hygiene.py`):
+
+| `script-src` | Script + handler sweeps cover | `test_csp_script_src_allows_no_inline_script` |
+|---|---|---|
+| no `'unsafe-inline'` | every template, yours included, since the browser blocks them all | passes |
+| `'unsafe-inline'` (stopgap) | SmallStack's own templates only | skips, naming how many of yours remain |
+
+The `<style>` sweep covers SmallStack's own templates only, under either policy. `style-src` allows
+inline styles, so yours break nothing.
+
+**A step between the two: nonces.** Rather than reopen every inline script, keep a block you can't
+move yet and give it django-csp's per-request nonce:
+
+```python
+from csp.constants import NONCE
+
+CONTENT_SECURITY_POLICY["DIRECTIVES"]["script-src"] = ["'self'", NONCE]
+```
+```django
+<script nonce="{{ request.csp_nonce }}">…</script>
+```
+
+A browser that sees a nonce in `script-src` ignores `'unsafe-inline'` there, so it's one route or the
+other, not both. A nonce can't cover an `on…=` handler, so move the handlers to data- attributes
+(below) first. Under a nonce policy the script sweep doesn't count a block that carries `nonce=`.
 
 ### Scripts are static files
 

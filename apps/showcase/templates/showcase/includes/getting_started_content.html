@@ -1,0 +1,397 @@
+{% load theme_tags %}
+
+<div class="gs">
+
+{# ── HERO ────────────────────────────────────────────────────────── #}
+<section class="gs-hero gs-fade">
+  <p class="gs-eyebrow">
+    <span class="dot" aria-hidden="true"></span>
+    <span>Getting started · v{{ smallstack_version|default:"0.24" }}</span>
+  </p>
+
+  <h1 class="gs-display">
+    Make SmallStack<br><em>your own.</em>
+  </h1>
+
+  <p class="gs-hero-sub">
+    A guided path from a fresh clone to your first shipped feature — <strong>configure
+    the basics</strong>, learn the <strong>navigation, theming and page patterns</strong>,
+    choose which <strong>platform apps</strong> to keep on, then wire a single model into
+    every surface at once.
+  </p>
+
+  <div class="gs-cta-row">
+    <a href="{% url 'help:section_index' 'smallstack' %}" class="btn-primary">Read the docs</a>
+    <a href="{% url 'help:section_detail' 'smallstack' 'mcp-first-app' %}" class="gs-btn-link">
+      First app in 10 minutes <span class="arrow">→</span>
+    </a>
+    <a href="https://github.com/emichaud/django-smallstack" class="gs-btn-link" target="_blank" rel="noopener">
+      GitHub <span class="arrow">↗</span>
+    </a>
+  </div>
+</section>
+
+<hr class="gs-rule">
+
+{# ── THE PATH ────────────────────────────────────────────────────── #}
+<section class="gs-section gs-fade d1">
+  <div class="gs-section-label">The setup path</div>
+
+  <div class="gs-path">
+
+    {# 01 — Configure #}
+    <article class="gs-step">
+      <div class="gs-step-num">01</div>
+      <div class="gs-step-body">
+        <p class="gs-step-kicker">Configure</p>
+        <h2 class="gs-step-name">Make the project yours</h2>
+        <p>Open <span class="gs-inline-code">config/settings/</span> and set the handful of values that
+          brand and secure your install. Everything else ships with sensible defaults.</p>
+        <dl class="gs-spec">
+          <div class="gs-spec-row"><dt>BRAND_NAME</dt><dd>your project's display name, shown in the topbar and titles</dd></div>
+          <div class="gs-spec-row"><dt>SITE_NAME</dt><dd>used in page titles, metadata and transactional email</dd></div>
+          <div class="gs-spec-row"><dt>SECRET_KEY</dt><dd>generate a unique key before going to production</dd></div>
+          <div class="gs-spec-row"><dt>ALLOWED_HOSTS</dt><dd>your domain(s) once you deploy</dd></div>
+        </dl>
+        <div class="gs-links">
+          <a href="{% url 'help:section_detail' 'smallstack' 'settings-configuration' %}" class="gs-link">
+            <svg viewBox="0 0 24 24"><path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm-1 2l5 5h-5V4z"/></svg>
+            Settings &amp; configuration <span class="arrow">→</span>
+          </a>
+        </div>
+      </div>
+    </article>
+
+    {# 02 — Layout #}
+    <article class="gs-step">
+      <div class="gs-step-num">02</div>
+      <div class="gs-step-body">
+        <p class="gs-step-kicker">Layout</p>
+        <h2 class="gs-step-name">Pick a shell</h2>
+        <p>SmallStack ships sidebar + topbar combinations you can mix and match. Set
+          <span class="gs-inline-code">SMALLSTACK_LAYOUT</span> to choose a starting point, then preview
+          every option live in the gallery before you commit.</p>
+        <div class="gs-links">
+          <a href="{% url 'layout_preview' %}" class="gs-link">
+            <svg viewBox="0 0 24 24"><path d="M3 3h8v8H3V3zm0 10h8v8H3v-8zm10-10h8v8h-8V3zm0 10h8v8h-8v-8z"/></svg>
+            Layout gallery <span class="arrow">→</span>
+          </a>
+          <a href="{% url 'nav_guide' %}" class="gs-link">
+            <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 17h-2v-2h2v2zm2.07-7.75l-.9.92C13.45 12.9 13 13.5 13 15h-2v-.5c0-1.1.45-2.1 1.17-2.83l1.24-1.26c.37-.36.59-.86.59-1.41 0-1.1-.9-2-2-2s-2 .9-2 2H8c0-2.21 1.79-4 4-4s4 1.79 4 4c0 .88-.36 1.68-.93 2.25z"/></svg>
+            Navigation guide <span class="arrow">→</span>
+          </a>
+        </div>
+      </div>
+    </article>
+
+    {# 03 — Navigation #}
+    <article class="gs-step">
+      <div class="gs-step-num">03</div>
+      <div class="gs-step-body">
+        <p class="gs-step-kicker">Navigation</p>
+        <h2 class="gs-step-name">Add your own links</h2>
+        <p>Nav items register from each app's <span class="gs-inline-code">AppConfig.ready()</span>.
+          Drop a page into the sidebar or topbar with one call — no template surgery:</p>
+<pre class="gs-code"><span class="cm"># apps/website/apps.py</span>
+<span class="kw">from</span> apps.smallstack.navigation <span class="kw">import</span> nav
+
+nav.<span class="fn">register</span>(
+    section=<span class="st">"main"</span>,
+    label=<span class="st">"My Page"</span>,
+    url_name=<span class="st">"website:my_page"</span>,
+    order=<span class="num">50</span>,
+)</pre>
+        <div class="gs-links">
+          <a href="{% url 'help:section_detail' 'smallstack' 'navigation' %}" class="gs-link">
+            <svg viewBox="0 0 24 24"><path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm-1 2l5 5h-5V4z"/></svg>
+            Navigation docs <span class="arrow">→</span>
+          </a>
+        </div>
+      </div>
+    </article>
+
+    {# 04 — Theme #}
+    <article class="gs-step">
+      <div class="gs-step-num">04</div>
+      <div class="gs-step-body">
+        <p class="gs-step-kicker">Theme</p>
+        <h2 class="gs-step-name">Own the palette</h2>
+        <p>Six palettes × light and dark, switchable from the user menu. Components read semantic
+          variables like <span class="gs-inline-code">--primary</span>,
+          <span class="gs-inline-code">--card-bg</span> and <span class="gs-inline-code">--body-fg</span>,
+          so a single override re-skins everything — and your own pages inherit it for free.</p>
+        <div class="gs-links">
+          <a href="{% url 'help:section_detail' 'smallstack' 'theming' %}" class="gs-link">
+            <svg viewBox="0 0 24 24"><path d="M12 3c-4.97 0-9 4.03-9 9s4.03 9 9 9 9-4.03 9-9c0-.46-.04-.92-.1-1.36-.98 1.37-2.58 2.26-4.4 2.26-2.98 0-5.4-2.42-5.4-5.4 0-1.81.89-3.42 2.26-4.4-.44-.06-.9-.1-1.36-.1z"/></svg>
+            Theming &amp; colors <span class="arrow">→</span>
+          </a>
+          <a href="{% url 'help:section_detail' 'smallstack' 'adding-your-own-theme' %}" class="gs-link">
+            <svg viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+            Add a custom palette <span class="arrow">→</span>
+          </a>
+        </div>
+      </div>
+    </article>
+
+    {# 05 — Pages #}
+    <article class="gs-step">
+      <div class="gs-step-num">05</div>
+      <div class="gs-step-body">
+        <p class="gs-step-kicker">Pages</p>
+        <h2 class="gs-step-name">Ship your first page</h2>
+        <p>The rhythm for every page: a view in <span class="gs-inline-code">apps/website/views.py</span>,
+          a template that extends <span class="gs-inline-code">smallstack/base.html</span>, a URL, and an
+          optional nav item. The starter pages are working examples you can copy wholesale.</p>
+        <div class="gs-links">
+          <a href="{% url 'showcase:starter' %}" class="gs-link">
+            <svg viewBox="0 0 24 24"><path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zM6 20V4h7v5h5v11H6z"/></svg>
+            Starter page <span class="arrow">→</span>
+          </a>
+          <a href="{% url 'showcase:starter_basic' %}" class="gs-link">
+            <svg viewBox="0 0 24 24"><path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zM6 20V4h7v5h5v11H6z"/></svg>
+            Basic template <span class="arrow">→</span>
+          </a>
+          <a href="{% url 'help:section_detail' 'smallstack' 'building-crud-pages' %}" class="gs-link">
+            <svg viewBox="0 0 24 24"><path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm-1 2l5 5h-5V4z"/></svg>
+            Building CRUD pages <span class="arrow">→</span>
+          </a>
+        </div>
+      </div>
+    </article>
+
+    {# 06 — Platform apps #}
+    <article class="gs-step">
+      <div class="gs-step-num">06</div>
+      <div class="gs-step-body">
+        <p class="gs-step-kicker">Platform apps</p>
+        <h2 class="gs-step-name">Keep what your app needs</h2>
+        <p>Every built-in app — approvals, notifications, scheduler, webhooks, feeds, runbook,
+          blog and newsletter, datasets — is on by default and a single setting away from off.
+          Each one registers its own nav entry, dashboard widget, status monitor and help pages,
+          so turning one off removes it everywhere at once.</p>
+        <dl class="gs-spec">
+          <div class="gs-spec-row"><dt>SMALLSTACK_APPROVALS_ENABLED</dt><dd>the human-in-the-loop decision console and its MCP tools</dd></div>
+          <div class="gs-spec-row"><dt>SMALLSTACK_BLOG_ENABLED</dt><dd>blogs, the writing studio and the newsletter sender; <span class="gs-inline-code">SMALLSTACK_BLOG_PUBLIC_ENABLED</span> gates the anonymous reading surface separately</dd></div>
+          <div class="gs-spec-row"><dt>SMALLSTACK_SCHEDULER_ENABLED</dt><dd>recurring <span class="gs-inline-code">@scheduled</span> jobs and the schedule UI</dd></div>
+          <div class="gs-spec-row"><dt>SMALLSTACK_WEBHOOKS_ENABLED</dt><dd>outbound delivery, inbound receivers and the webhooks dashboard</dd></div>
+        </dl>
+        <div class="gs-links">
+          <a href="{% url 'help:section_detail' 'smallstack' 'approvals' %}" class="gs-link">
+            <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
+            Approvals <span class="arrow">→</span>
+          </a>
+          <a href="{% url 'help:section_index' 'blog' %}" class="gs-link">
+            <svg viewBox="0 0 24 24"><path d="M14 17H4v2h10v-2zm6-8H4v2h16V9zM4 15h16v-2H4v2zM4 5v2h16V5H4z"/></svg>
+            Blog &amp; newsletter <span class="arrow">→</span>
+          </a>
+          <a href="{% url 'help:section_detail' 'smallstack' 'scheduler' %}" class="gs-link">
+            <svg viewBox="0 0 24 24"><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z"/></svg>
+            Scheduler <span class="arrow">→</span>
+          </a>
+          <a href="{% url 'help:section_detail' 'smallstack' 'webhooks' %}" class="gs-link">
+            <svg viewBox="0 0 24 24"><path d="M6.99 11L3 15l3.99 4v-3H14v-2H6.99v-3zM21 9l-3.99-4v3H10v2h7.01v3L21 9z"/></svg>
+            Webhooks <span class="arrow">→</span>
+          </a>
+        </div>
+      </div>
+    </article>
+
+  </div>
+</section>
+
+<hr class="gs-rule">
+
+{# ── BUILD BRIDGE: one model → every surface ────────────────────── #}
+<section class="gs-section gs-fade d2">
+  <div class="gs-build">
+    <div>
+      <div class="gs-section-label">Now build something real</div>
+      <h2 class="gs-display">One model. <em>Every surface.</em></h2>
+      <p>Once the basics are set, the payoff: declare a <span class="gs-inline-code">CRUDView</span> once and
+        flip its opt-in flags. The same form, queryset and permission logic become a browsable HTML
+        admin, a REST endpoint, MCP tools, a search index and signed webhook events — and
+        the <span class="gs-inline-code">sc</span> CLI sees it too. No duplication.</p>
+      <a href="{% url 'help:section_detail' 'smallstack' 'mcp-first-app' %}" class="gs-btn-link" style="padding-left: 0;">
+        Walk through it in 10 minutes <span class="arrow">→</span>
+      </a>
+    </div>
+    <div class="gs-surfaces">
+      <div class="gs-surface">
+        <span class="gs-surface-tag">HTML</span>
+        <p class="gs-surface-path">Explorer</p>
+        <p class="gs-surface-note">Themed list / detail / create / update / delete, generated from your model.</p>
+      </div>
+      <div class="gs-surface">
+        <span class="gs-surface-tag">REST</span>
+        <p class="gs-surface-path">/api/&lt;resource&gt;/</p>
+        <p class="gs-surface-note">Bearer auth, search, filter, ordering, FK expansion, exports — and an OpenAPI schema.</p>
+      </div>
+      <div class="gs-surface">
+        <span class="gs-surface-tag">MCP</span>
+        <p class="gs-surface-path">/mcp · tools/list</p>
+        <p class="gs-surface-note">JSON-RPC + OAuth. Claude Desktop and Connectors UI connect with no setup.</p>
+      </div>
+      <div class="gs-surface">
+        <span class="gs-surface-tag">Search</span>
+        <p class="gs-surface-path">/search/ · search_all</p>
+        <p class="gs-surface-note">Ranked full-text results that respect each viewer's access tier; the same index as an MCP tool.</p>
+      </div>
+      <div class="gs-surface">
+        <span class="gs-surface-tag">Events</span>
+        <p class="gs-surface-path">webhooks</p>
+        <p class="gs-surface-note">Signed created / updated / deleted deliveries with retries and dead-letter replay.</p>
+      </div>
+      <div class="gs-surface">
+        <span class="gs-surface-tag">CLI</span>
+        <p class="gs-surface-path">sc ls · get · new</p>
+        <p class="gs-surface-note">Terminal CRUD with the same validation and audit trail as REST and MCP.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<hr class="gs-rule">
+
+{# ── REFERENCE GRID ─────────────────────────────────────────────── #}
+<section class="gs-section gs-fade d3">
+  <div class="gs-section-label">Jump to a reference</div>
+  <div class="gs-ref">
+    <a href="{% url 'help:section_detail' 'smallstack' 'settings-configuration' %}" class="gs-ref-item">
+      <span class="gs-ref-name"><svg viewBox="0 0 24 24"><path d="M19.43 12.98c.04-.32.07-.64.07-.98s-.03-.66-.07-.98l2.11-1.65c.19-.15.24-.42.12-.64l-2-3.46c-.12-.22-.39-.3-.61-.22l-2.49 1c-.52-.4-1.08-.73-1.69-.98l-.38-2.65C14.46 2.18 14.25 2 14 2h-4c-.25 0-.46.18-.49.42l-.38 2.65c-.61.25-1.17.59-1.69.98l-2.49-1c-.23-.09-.49 0-.61.22l-2 3.46c-.13.22-.07.49.12.64l2.11 1.65c-.04.32-.07.65-.07.98s.03.66.07.98l-2.11 1.65c-.19.15-.24.42-.12.64l2 3.46c.12.22.39.3.61.22l2.49-1c.52.4 1.08.73 1.69.98l.38 2.65c.03.24.24.42.49.42h4c.25 0 .46-.18.49-.42l.38-2.65c.61-.25 1.17-.59 1.69-.98l2.49 1c.23.09.49 0 .61-.22l2-3.46c.12-.22.07-.49-.12-.64l-2.11-1.65zM12 15.5c-1.93 0-3.5-1.57-3.5-3.5s1.57-3.5 3.5-3.5 3.5 1.57 3.5 3.5-1.57 3.5-3.5 3.5z"/></svg>Settings</span>
+      <p class="gs-ref-note">Branding, security, feature flags — the config you touch first.</p>
+    </a>
+    <a href="{% url 'help:section_detail' 'smallstack' 'navigation' %}" class="gs-ref-item">
+      <span class="gs-ref-name"><svg viewBox="0 0 24 24"><path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/></svg>Navigation</span>
+      <p class="gs-ref-note">Register sidebar groups and topbar menus from your app config.</p>
+    </a>
+    <a href="{% url 'help:section_detail' 'smallstack' 'theming' %}" class="gs-ref-item">
+      <span class="gs-ref-name"><svg viewBox="0 0 24 24"><path d="M12 3c-4.97 0-9 4.03-9 9s4.03 9 9 9 9-4.03 9-9c0-.46-.04-.92-.1-1.36-.98 1.37-2.58 2.26-4.4 2.26-2.98 0-5.4-2.42-5.4-5.4 0-1.81.89-3.42 2.26-4.4-.44-.06-.9-.1-1.36-.1z"/></svg>Theming</span>
+      <p class="gs-ref-note">Palettes, dark/light, and the semantic variable system.</p>
+    </a>
+    <a href="{% url 'help:section_index' 'smallstack' %}" class="gs-ref-item">
+      <span class="gs-ref-name"><svg viewBox="0 0 24 24"><path d="M9.4 16.6L4.8 12l4.6-4.6L8 6l-6 6 6 6 1.4-1.4zm5.2 0l4.6-4.6-4.6-4.6L16 6l6 6-6 6-1.4-1.4z"/></svg>Components</span>
+      <p class="gs-ref-note">Cards, buttons, forms, grids, modals, badges — copy-paste ready.</p>
+    </a>
+    <a href="{% url 'help:section_detail' 'smallstack' 'building-crud-pages' %}" class="gs-ref-item">
+      <span class="gs-ref-name"><svg viewBox="0 0 24 24"><path d="M4 6h16v2H4zm0 5h16v2H4zm0 5h10v2H4z"/></svg>CRUDView</span>
+      <p class="gs-ref-note">One declaration → admin pages, REST, and MCP tools.</p>
+    </a>
+    <a href="{% url 'help:section_detail' 'smallstack' 'api-documentation' %}" class="gs-ref-item">
+      <span class="gs-ref-name"><svg viewBox="0 0 24 24"><path d="M9.4 16.6 4.8 12l4.6-4.6L8 6l-6 6 6 6zm5.2 0L19.2 12l-4.6-4.6L16 6l6 6-6 6z"/></svg>REST API</span>
+      <p class="gs-ref-note">OpenAPI 3.0.3, Swagger UI and ReDoc, generated from your views.</p>
+    </a>
+    <a href="{% url 'help:section_detail' 'smallstack' 'mcp-first-app' %}" class="gs-ref-item">
+      <span class="gs-ref-name"><svg viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm0 18a8 8 0 1 1 8-8 8 8 0 0 1-8 8z"/></svg>MCP server</span>
+      <p class="gs-ref-note">JSON-RPC + OAuth + PKCE, ready for Claude Desktop &amp; Connectors.</p>
+    </a>
+    <a href="{% url 'help:section_detail' 'smallstack' 'search' %}" class="gs-ref-item">
+      <span class="gs-ref-name"><svg viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>Search</span>
+      <p class="gs-ref-note">FTS5 / Postgres ranked search, access tiers, the omnibar and SearchBuilder.</p>
+    </a>
+    <a href="{% url 'help:section_detail' 'smallstack' 'webhooks' %}" class="gs-ref-item">
+      <span class="gs-ref-name"><svg viewBox="0 0 24 24"><path d="M6.99 11L3 15l3.99 4v-3H14v-2H6.99v-3zM21 9l-3.99-4v3H10v2h7.01v3L21 9z"/></svg>Webhooks</span>
+      <p class="gs-ref-note">Signed outbound events, verified inbound receivers, and a collector for external feeds.</p>
+    </a>
+    <a href="{% url 'help:section_detail' 'smallstack' 'scheduler' %}" class="gs-ref-item">
+      <span class="gs-ref-name"><svg viewBox="0 0 24 24"><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z"/></svg>Scheduler</span>
+      <p class="gs-ref-note">Recurring @scheduled jobs on the DB-backed worker, with a themed UI.</p>
+    </a>
+    <a href="{% url 'help:section_detail' 'smallstack' 'approvals' %}" class="gs-ref-item">
+      <span class="gs-ref-name"><svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>Approvals</span>
+      <p class="gs-ref-note">Human-in-the-loop gates for your code and for AI agents, plus notifications.</p>
+    </a>
+    <a href="{% url 'help:section_detail' 'runbook' 'getting-started' %}" class="gs-ref-item">
+      <span class="gs-ref-name"><svg viewBox="0 0 24 24"><path d="M18 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM6 4h5v8l-2.5-1.5L6 12V4z"/></svg>Runbook</span>
+      <p class="gs-ref-note">Versioned markdown documents with slide and step views.</p>
+    </a>
+    <a href="{% url 'help:section_index' 'blog' %}" class="gs-ref-item">
+      <span class="gs-ref-name"><svg viewBox="0 0 24 24"><path d="M14 17H4v2h10v-2zm6-8H4v2h16V9zM4 15h16v-2H4v2zM4 5v2h16V5H4z"/></svg>Blog &amp; newsletter</span>
+      <p class="gs-ref-note">Per-user blogs, the writing studio, runbook publishing, feeds and sending.</p>
+    </a>
+    <a href="{% url 'help:section_detail' 'smallstack' 'notifications' %}" class="gs-ref-item">
+      <span class="gs-ref-name"><svg viewBox="0 0 24 24"><path d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.89 2 2 2zm6-6v-5c0-3.07-1.64-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.63 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z"/></svg>Notifications</span>
+      <p class="gs-ref-note">notify() with a topbar bell, unread badge and inbox for signed-in users.</p>
+    </a>
+    <a href="{% url 'help:section_detail' 'smallstack' 'cli-reference' %}" class="gs-ref-item">
+      <span class="gs-ref-name"><svg viewBox="0 0 24 24"><path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 14H4V8h16v10zm-9.6-6.4L7.6 14.4 6.2 13l1.4-1.4L6.2 10.2 7.6 8.8zM12 14h6v2h-6z"/></svg>CLI &amp; commands</span>
+      <p class="gs-ref-note">Every manage.py command, Make target and the sc CLI, with examples.</p>
+    </a>
+    <a href="{% url 'help:section_detail' 'smallstack' 'extending-with-ai' %}" class="gs-ref-item">
+      <span class="gs-ref-name"><svg viewBox="0 0 24 24"><path d="M12 2 4 6v6c0 5 3.4 8.5 8 10 4.6-1.5 8-5 8-10V6l-8-4z"/></svg>Extending with AI</span>
+      <p class="gs-ref-note">Skill files that brief Claude Code on the conventions.</p>
+    </a>
+  </div>
+</section>
+
+<hr class="gs-rule">
+
+{# ── NEXT STEPS ─────────────────────────────────────────────────── #}
+<section class="gs-section gs-fade d4">
+  <div class="gs-next">
+    <div>
+      <div class="gs-section-label">Keep going</div>
+      <h2 class="gs-display" style="font-size: clamp(1.6rem, 2.6vw, 2.1rem); margin: 0 0 0.5rem 0;">
+        Start with the <em>10-minute walkthrough.</em>
+      </h2>
+      <p style="color: var(--body-quiet-color); max-width: 32rem; margin: 0 0 1.5rem 0;">
+        Build a working ticketing app — model → CRUDView → REST → MCP tools → Claude Desktop —
+        end to end, without leaving the docs.
+      </p>
+
+      <div class="gs-next-links">
+        <a href="{% url 'help:section_detail' 'smallstack' 'mcp-first-app' %}" class="gs-next-link">
+          <span class="ll"><strong>Your first MCP app in 10 minutes</strong><span>From startapp to Claude Desktop, one linear walkthrough.</span></span>
+          <span class="arrow">→</span>
+        </a>
+        <a href="{% url 'help:section_detail' 'smallstack' 'building-crud-pages' %}" class="gs-next-link">
+          <span class="ll"><strong>Build a CRUDView</strong><span>The class that produces HTML, REST, MCP, search and webhooks from one declaration.</span></span>
+          <span class="arrow">→</span>
+        </a>
+        <a href="{% url 'help:section_detail' 'smallstack' 'api-documentation' %}" class="gs-next-link">
+          <span class="ll"><strong>API documentation</strong><span>OpenAPI 3.0.3 + Swagger UI + ReDoc, auto-generated.</span></span>
+          <span class="arrow">→</span>
+        </a>
+        <a href="{% url 'showcase:platform_datasets_calendars' %}" class="gs-next-link">
+          <span class="ll"><strong>Datasets &amp; calendars</strong><span>One decorator makes a queryset browsable, chartable and exportable — add a date and it's on the shared calendar with an .ics feed.</span></span>
+          <span class="arrow">→</span>
+        </a>
+        <a href="{% url 'showcase:platform_blogs_newsletters' %}" class="gs-next-link">
+          <span class="ll"><strong>Blogs &amp; newsletters</strong><span>Built-in publishing: a visibility ladder, feeds, a public read API and double-opt-in email.</span></span>
+          <span class="arrow">→</span>
+        </a>
+        <a href="{% url 'help:section_index' 'smallstack' %}" class="gs-next-link">
+          <span class="ll"><strong>Full reference</strong><span>Every doc page, indexed by category.</span></span>
+          <span class="arrow">→</span>
+        </a>
+      </div>
+    </div>
+
+    <aside>
+      <div class="gs-section-label">Working with a coding agent?</div>
+      <p style="font-size: 0.95rem; line-height: 1.6; color: var(--body-quiet-color); margin: 0 0 1rem 0;">
+        <span class="gs-inline-code">AGENTS.md</span>, installable skills and a skill file per subsystem in
+        <span class="gs-inline-code">docs/skills/</span> brief Claude Code, Codex, Cursor &amp; friends on the
+        conventions. What they don't know is what <em>you</em> want — so start from a prompt that names the
+        skill to read, the built-in seam to use and the gate that counts as done. There is one for each common
+        first task: a new app on SmallStack, a model with pages + REST + MCP, a calendar, a scheduled job, a blog, a deploy.
+      </p>
+      <a href="{% url 'showcase:prompts' %}" class="gs-btn-link" style="padding-left: 0;">
+        Common task prompts <span class="arrow">→</span>
+      </a>
+      <br>
+      <a href="{% url 'help:section_detail' 'smallstack' 'extending-with-ai' %}" class="gs-btn-link" style="padding-left: 0;">
+        Extending with AI <span class="arrow">→</span>
+      </a>
+
+      <div style="margin-top: 1.75rem;">
+        <a href="{% url 'showcase:search' %}" class="gs-search-cta">
+          <svg viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27a6.5 6.5 0 1 0-.7.7l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0A4.5 4.5 0 1 1 14 9.5 4.5 4.5 0 0 1 9.5 14z"/></svg>
+          <span>Looking for something specific? <strong>Search the docs &amp; models</strong></span>
+          <span class="arrow">→</span>
+        </a>
+      </div>
+    </aside>
+  </div>
+</section>
+
+</div>

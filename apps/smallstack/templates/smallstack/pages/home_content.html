@@ -270,10 +270,11 @@
   </div>
 
   <div class="ss-cta-row" style="margin-top: 1.5rem;">
-    <a href="{% url 'website:search' %}" class="ss-btn-link" style="padding-left: 0;">
+    {% url 'showcase:search' as search_page_url %}{% if search_page_url %}
+    <a href="{{ search_page_url }}" class="ss-btn-link" style="padding-left: 0;">
       Open search <span class="arrow">→</span>
-    </a>
-    <a href="{% url 'help:section_detail' 'smallstack' 'search' %}" class="ss-btn-link">
+    </a>{% endif %}
+    <a href="{% url 'help:section_detail' 'smallstack' 'search' %}" class="ss-btn-link"{% if not search_page_url %} style="padding-left: 0;"{% endif %}>
       How search works <span class="arrow">→</span>
     </a>
   </div>

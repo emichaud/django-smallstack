@@ -30,7 +30,6 @@ static/smallstack/css/
 
 templates/smallstack/
 ├── base.html              # Base template with all blocks
-├── starter.html           # Copy-paste starter template for new pages
 ├── crud/                  # CRUD generic templates
 │   └── includes/
 │       └── delete_modal.html  # Reusable delete confirmation modal
@@ -270,5 +269,5 @@ Trigger from a button:
 3. **Use `color-mix()`** for tints — `color-mix(in srgb, var(--primary) 15%, var(--body-bg))`
 4. **Use `.crud-table`** for all tables
 5. **Use `.crud-form`** for all forms
-6. **Copy `templates/smallstack/starter.html`** when creating new pages
+6. **Copy `apps/showcase/templates/showcase/includes/starter_content.html`** when creating new pages
 7. **See [admin-page-styling.md](admin-page-styling.md)** for the full reference with anti-patterns

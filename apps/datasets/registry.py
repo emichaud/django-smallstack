@@ -64,6 +64,11 @@ class DatasetDef:
     # name (reversed with ``pk=``) overrides that; ``False`` opts out. The
     # resolved URL rides on every row as the ``url`` key (see Dataset.link_for).
     link: Any = None
+    # Optional semantic units by column name (``{"talk_seconds": "seconds",
+    # "fee": "currency"}``), surfaced as each schema column's ``unit`` so a
+    # builder offers unit-appropriate formats. Undeclared columns fall back to
+    # a name heuristic (``*_seconds`` → seconds, ``*_minutes`` → minutes).
+    units: Optional[dict] = None
 
     def __post_init__(self) -> None:
         if not self.label:
@@ -109,6 +114,7 @@ def dataset(
     mcp_access: str = "staff",
     link: Any = None,
     access: str = "staff",
+    units: Optional[dict] = None,
 ) -> Callable[[Callable], Callable]:
     """Decorator: register a function returning a QuerySet as a named dataset.
 
@@ -137,6 +143,9 @@ def dataset(
     ``access=`` says who may read the dataset through metrics, dashboards and
     reports: ``"staff"`` (default) or ``"auth"`` (any signed-in user — scope
     rows per user via the ``request`` arg). See :func:`user_may_read`.
+
+    ``units=`` names a column's semantic unit (``"seconds"``, ``"minutes"``,
+    ``"currency"``, ``"percent"``, …), shown as the schema column's ``unit``.
     """
     if access not in ACCESS_LEVELS:
         raise ValueError(f"@dataset({key!r}): access must be one of {sorted(ACCESS_LEVELS)}, got {access!r}")
@@ -167,6 +176,7 @@ def dataset(
                 mcp_access=mcp_access,
                 link=link,
                 access=access,
+                units=units,
             )
         )
         return fn

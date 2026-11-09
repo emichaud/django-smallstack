@@ -197,7 +197,7 @@ def test_browse_hides_csv_for_a_dataset_without_rest(client, staff):
 
 def test_nav_has_a_datasets_entry(client, staff):
     html = client.get(INDEX).content.decode()
-    assert 'href="/smallstack/datasets/browse/"' in html
+    assert f'href="{INDEX}"' in html
 
 
 def test_index_pages_each_section_with_a_selectable_size(client, staff):
@@ -219,7 +219,7 @@ def test_index_pages_each_section_with_a_selectable_size(client, staff):
     html = resp.content.decode()
     assert 'href="?fpage=1&amp;per_page=15"' in html
     # A new size starts every section again at page 1.
-    assert 'hx-get="/smallstack/datasets/browse/"' in html and 'type="hidden" name="fpage"' not in html
+    assert f'hx-get="{INDEX}"' in html and 'type="hidden" name="fpage"' not in html
     # A larger page size; a bogus one falls back to the default.
     assert client.get(INDEX, {"per_page": 50}).context["per_page"] == 50
     assert client.get(INDEX, {"per_page": 10}).context["per_page"] == 15

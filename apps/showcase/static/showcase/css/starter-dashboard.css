@@ -1,0 +1,7 @@
+/* The dashboard starter page (apps/showcase/templates/showcase/starter/dashboard.html): its own markup over the data tags. */
+.starter-card { max-width: 28rem; }
+.starter-own { padding: 1rem 1.25rem; border: 1px solid var(--card-border); border-radius: 8px; background: var(--card-bg); }
+.starter-own-list { display: flex; flex-wrap: wrap; gap: 1.5rem; margin: 0; padding: 0; list-style: none; }
+.starter-own-list li { display: grid; gap: 0.15rem; }
+.starter-own-name { font-size: 0.8rem; color: var(--body-quiet-color); }
+.starter-own-goals { margin: 0.9rem 0 0; font-size: 0.9rem; }

@@ -1,0 +1,22 @@
+{% extends "smallstack/base.html" %}
+{% load static theme_tags %}
+
+{% block title %}Starter Page{% endblock %}
+
+{% block extra_css %}
+{% include "showcase/includes/starter_css.html" %}
+{% endblock %}
+
+{% block breadcrumbs %}
+{% breadcrumb "Home" "website:home" %}
+{% breadcrumb "Starter Page" %}
+{% render_breadcrumbs %}
+{% endblock %}
+
+{% block content %}
+{% include "showcase/includes/starter_content.html" %}
+{% endblock %}
+
+{% block extra_js %}
+{% include "showcase/includes/starter_js.html" %}
+{% endblock %}

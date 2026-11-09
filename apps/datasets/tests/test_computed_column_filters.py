@@ -21,6 +21,7 @@ from __future__ import annotations
 import pytest
 from django.contrib.auth import get_user_model
 from django.db.models import BooleanField, Case, CharField, Count, Value, When
+from django.urls import reverse
 
 from apps.datasets import core
 from apps.datasets.registry import dataset
@@ -145,7 +146,7 @@ def _api_token(db):
 
 def test_rest_rows_honour_a_computed_filter(client, computed_ds, people, _api_token):
     resp = client.get(
-        "/smallstack/datasets/t_computed_filters/?hours_band=business",
+        f"{reverse('datasets:rows', args=['t_computed_filters'])}?hours_band=business",
         HTTP_AUTHORIZATION=f"Bearer {_api_token}",
     )
     assert resp.status_code == 200
@@ -158,7 +159,7 @@ def test_rest_rows_honour_a_computed_filter(client, computed_ds, people, _api_to
 
 def test_rest_scalar_honours_a_computed_filter(client, computed_ds, people, _api_token):
     resp = client.get(
-        "/smallstack/datasets/t_computed_filters/scalar/?agg=count&answered=1",
+        f"{reverse('datasets:scalar', args=['t_computed_filters'])}?agg=count&answered=1",
         HTTP_AUTHORIZATION=f"Bearer {_api_token}",
     )
     assert resp.status_code == 200

@@ -16,6 +16,6 @@ This is the definitive reference for building admin pages in SmallStack. Every a
 
 ## Quick Start
 
-Copy the starter template from `templates/smallstack/starter.html` and modify it for your page. It includes the correct layout structure, CSS classes, and block usage.
+Copy the starter template from `apps/showcase/templates/showcase/includes/starter_content.html` and modify it for your page. It includes the correct layout structure, CSS classes, and block usage.
 
 This skill is long; the full text is in [references/admin-page-styling.md](references/admin-page-styling.md) — read it before acting.

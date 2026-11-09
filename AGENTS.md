@@ -92,6 +92,7 @@ All custom apps in `apps/`, registered as `apps.<name>`:
 - `apps/calendar/` — Calendar (label: `smallstack_calendar`): datasets with a date axis merged on one grid at `/smallstack/calendar/`, saved views, events + `.ics` API; `{% calendar_card %}` + a `calendar` dashboard card put one on any page
 - `apps/dashboards/` — Dashboards (label: `smallstack_dashboards`): Metrics (stored filter trees over datasets → KPI values), grid dashboards, KPI reports, goal lists (targets judged on target / at risk / missed, with a meeting view) at `/smallstack/dashboards/`; `{% metric_card %}`; MCP agent tools
 - `apps/website/` — Project-specific pages — **edit freely** (the others are framework-provided)
+- `apps/showcase/` — SmallStack's demo pages (about, getting started, prompts, starter, public search) — **don't build on it**; a project deletes it (the directory, its `INSTALLED_APPS` line and its `include()` in `config/urls.py`)
 
 Settings split in `config/settings/`:
 - `smallstack.py` — App-level config (branding, feature flags, palette default, MCP/API toggles)

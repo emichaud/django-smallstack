@@ -152,9 +152,14 @@ class DatasetBrowseView(StaffRequiredMixin, TemplateView):
 
         filters = self._active_filters(request, ds, schema)
         tree, tree_error = self._tree(request, ds)
+        # A bound that won't parse (a typed "2026-13-45") is shown, not dropped:
+        # dropping it would list more rows than the filters on screen say.
+        problems = ds.filter_problems(filters)
+        filter_error = ("These filters can't be applied: " + "; ".join(problems) + ".") if problems else ""
+        blocked = bool(tree_error or filter_error)  # show nothing rather than every row
         ordering = request.GET.get("ordering", "").strip()
         per_page = _int_in(request.GET.get("per_page"), PAGE_SIZES, PAGE_SIZE)
-        page_obj = self._page(request, ds, filters, tree, ordering, per_page, none=bool(tree_error))
+        page_obj = self._page(request, ds, filters, tree, ordering, per_page, none=blocked)
 
         rows = [{"url": ds.link_for(obj), "cells": self._cells(obj, columns)} for obj in page_obj.object_list]
         headers = build_sort_headers([(c["name"], c["label"]) for c in columns], ordering)
@@ -172,22 +177,24 @@ class DatasetBrowseView(StaffRequiredMixin, TemplateView):
                 "ordering": ordering,
                 "widgets": self._widgets(schema, request),
                 "filters": filters,
-                "has_filters": bool(filters) or tree is not None or bool(tree_error),
+                "has_filters": bool(filters) or tree is not None or blocked,
                 # The tree as the hidden input carries it (compact JSON) and as words.
                 "tree_json": json.dumps(tree, separators=(",", ":")) if tree is not None else "",
                 "tree_error": tree_error,
+                "filter_error": filter_error,
+                "blocked": blocked,
                 "tree_reading": describe_filter_tree(tree, labels) if tree is not None and not tree_error else "",
                 "page_obj": page_obj,
                 "per_page": per_page,
                 "page_sizes": PAGE_SIZES,
                 "rows": rows,
                 "has_links": ds.has_links(),
-                "csv_url": "" if tree_error else self._csv_url(key, dfn.enable_api, filters, tree),
+                "csv_url": "" if blocked else self._csv_url(key, dfn.enable_api, filters, tree),
                 "is_framework": is_framework_dataset(key),
-                **self._rollup(request, ds, schema, declared, filters, tree, skip=bool(tree_error)),
+                **self._rollup(request, ds, schema, declared, filters, tree, skip=blocked),
             }
         )
-        context.update(self._keep_links(ds, schema, filters, tree, context, blocked=bool(tree_error)))
+        context.update(self._keep_links(ds, schema, filters, tree, context, blocked=blocked))
         context.update(self._saved_metrics(request, ds))
         loaded = context["loaded_metric"]
         if loaded is not None and context["metric_url"]:
@@ -425,7 +432,7 @@ class DatasetBrowseView(StaffRequiredMixin, TemplateView):
 
         # A tree that can't be applied isn't compiled at all (it would raise); the
         # page shows nothing for it rather than everything.
-        qs: QuerySet = ds.queryset(request, filters, filter_tree=None if none else tree)
+        qs: QuerySet = ds.queryset(request, {} if none else filters, filter_tree=None if none else tree)
         if none:
             qs = qs.none()
         if ordering:

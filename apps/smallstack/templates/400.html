@@ -1,0 +1,20 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>400 Bad Request</title>
+    <script src="{% static 'smallstack/js/theme-init.js' %}"></script>
+    <link rel="stylesheet" href="{% static 'smallstack/css/templates/errors.css' %}">
+</head>
+<body>
+    <div class="error-page">
+        <div class="error-code">400</div>
+        <h1 class="error-title">Bad Request</h1>
+        <div class="error-divider"></div>
+        <p class="error-message">The server couldn't understand that request. Check the URL and try again.</p>
+        <a href="/" class="error-home">Go Home</a>
+    </div>
+</body>
+</html>

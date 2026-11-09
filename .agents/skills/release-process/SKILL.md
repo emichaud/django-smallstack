@@ -36,7 +36,7 @@ SmallStack uses **Semantic Versioning** (semver): `MAJOR.MINOR.PATCH`
 | File | Field | Example |
 |------|-------|---------|
 | `pyproject.toml` | `version = "X.Y.Z"` | `version = "0.25.2"` |
-| `README.md` | the version badge | `![Version 0.25.2](…/badge/version-0.25.2-blue)` |
+| `docs/smallstack.md` | the version badge (not the root `README.md`, which a downstream rewrites, so it carries nothing that changes per release) | `![Version 0.25.2](…/badge/version-0.25.2-blue)` |
 | `CHANGELOG.md` | a new `## [X.Y.Z] - YYYY-MM-DD` section, plus the `[Unreleased]` and `[X.Y.Z]` link refs at the bottom | — |
 | `uv.lock` | the project's own `version` — refreshed by the `uv sync` below, not by hand | — |
 
@@ -62,6 +62,13 @@ make coverage
 make run
 ```
 
+**The entry opens with `### Upgrading from X.Y`** when anything changes a downstream build: a
+security policy, `INSTALLED_APPS`, the entrypoint or `TASKS`, a default that changes behaviour, or
+a new setting (any prefix, not only `SMALLSTACK_*`). One line each, before `### Added`, with the
+details in `UPGRADING.md` under the version. A downstream reads that block first; the upgrade
+note at the end of a long entry is the one that gets missed. The same block is the release
+notes' `## Upgrade` section (step 5).
+
 ## Release Steps
 
 ### 1. Ensure Main is Clean
@@ -86,7 +93,7 @@ Update the three version locations (see table above).
 ### 3. Commit the Release
 
 ```bash
-git add pyproject.toml apps/help/smallstack/_config.yaml README.md uv.lock
+git add pyproject.toml apps/help/smallstack/_config.yaml docs/smallstack.md uv.lock
 git commit -m "v0.7.1: <release summary>"
 ```
 
@@ -120,6 +127,8 @@ gh release create v0.7.1 \
 - All lint checks passing
 
 ## Upgrade
+
+<the entry's "Upgrading from X.Y" block, or "No changes to a downstream build.">
 
 Pull the latest from upstream:
 \`\`\`bash

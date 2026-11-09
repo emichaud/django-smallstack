@@ -21,37 +21,21 @@ rendered body text. These two tests close that gap from both ends:
 from __future__ import annotations
 
 import re
-from pathlib import Path
 
 import pytest
 from django.contrib.auth import get_user_model
 from django.template.loader import get_template
 from django.urls import reverse
 
+from apps.smallstack import template_hygiene as hygiene
+
 pytestmark = pytest.mark.django_db
 
 User = get_user_model()
 
-# Repo root: apps/smallstack/test_template_hygiene.py → ../../
-_REPO_ROOT = Path(__file__).resolve().parent.parent.parent
-_SKIP_DIRS = {
-    ".git",
-    ".venv",
-    "node_modules",
-    "staticfiles",
-    "htmlcov",
-    "site-packages",
-    "__pycache__",
-}
-
-
-def _project_templates() -> list[Path]:
-    found = []
-    for path in _REPO_ROOT.rglob("*.html"):
-        if _SKIP_DIRS & set(path.parts):
-            continue
-        found.append(path)
-    return found
+_REPO_ROOT = hygiene.REPO_ROOT
+_SKIP_DIRS = hygiene._SKIP_DIRS
+_project_templates = hygiene.project_templates
 
 
 def test_the_hygiene_sweep_actually_sees_the_templates():
@@ -217,18 +201,11 @@ class TestReleaseNotesCoverSettings:
 # delegated listeners in smallstack/js/theme.js. The CSP's script-src has no
 # 'unsafe-inline', so an inline handler would be dead code in the browser.
 
-_INLINE_HANDLER = re.compile(r"""\son[a-z]+\s*=\s*["']""")
-
-
 def test_no_template_has_an_inline_event_handler():
-    offenders = []
-    for path in _project_templates():
-        text = path.read_text(errors="replace")
-        for match in _INLINE_HANDLER.finditer(text):
-            line = text[: match.start()].count("\n") + 1
-            snippet = text[match.start() : match.start() + 60].strip()
-            offenders.append(f"{path.relative_to(_REPO_ROOT)}:{line} — {snippet}")
-    assert not offenders, "inline event handlers (use a data- attribute; see theme.js):\n" + "\n".join(offenders)
+    offenders = hygiene.inline_handlers(hygiene.script_templates())
+    assert not offenders, "inline event handlers (use a data- attribute; see theme.js):\n" + "\n".join(
+        map(str, offenders)
+    )
 
 
 def test_every_data_action_is_registered_by_some_script():
@@ -289,31 +266,31 @@ def test_every_template_value_in_data_ss_args_is_escapejs():
 
 # -- no inline <script> code ----------------------------------------------------------------------
 
-_NON_EXECUTABLE_TYPES = ("application/json", "application/ld+json", "text/template", "importmap")
-
-
 def test_no_template_has_an_inline_script_block():
     """Every executable script is a static file. Server values reach it as
     data- attributes on its own tag (``document.currentScript.dataset``) or as
     a JSON data block (``json_script`` / ``<script type="application/json">``);
     the CSP's script-src has no 'unsafe-inline', so an inline block is dead."""
-    offenders = []
-    for path in _project_templates():
-        text = path.read_text(errors="replace")
-        for match in re.finditer(r"<script\b([^>]*)>(.*?)</script>", text, re.S):
-            attrs, body = match.group(1), match.group(2)
-            if "src=" in attrs or any(t in attrs for t in _NON_EXECUTABLE_TYPES) or not body.strip():
-                continue
-            line = text[: match.start()].count("\n") + 1
-            offenders.append(f"{path.relative_to(_REPO_ROOT)}:{line}")
-    assert not offenders, "inline <script> blocks (move them to static/; see templates.md):\n" + "\n".join(offenders)
+    offenders = hygiene.inline_scripts(hygiene.script_templates())
+    assert not offenders, "inline <script> blocks (move them to static/; see templates.md):\n" + "\n".join(
+        map(str, offenders)
+    )
 
 
 def test_csp_script_src_allows_no_inline_script():
     from django.conf import settings
 
     script_src = settings.CONTENT_SECURITY_POLICY["DIRECTIVES"]["script-src"]
-    assert "'unsafe-inline'" not in script_src and "'unsafe-eval'" not in script_src
+    if hygiene.inline_script_allowed():
+        # The documented stopgap for a project whose own templates still carry inline
+        # scripts. The framework's templates are still checked (above); say what's left.
+        paths = hygiene.project_templates()
+        left = len(hygiene.inline_scripts(paths)) + len(hygiene.inline_handlers(paths))
+        pytest.skip(
+            f"script-src allows 'unsafe-inline' (the upgrade stopgap); {left} inline scripts and "
+            "handlers remain in this project — `manage.py template_hygiene` lists them"
+        )
+    assert "'unsafe-eval'" not in script_src
 
 
 def test_every_static_path_in_a_template_exists():
@@ -331,26 +308,94 @@ def test_every_static_path_in_a_template_exists():
     assert not missing, "static files that don't exist:\n" + "\n".join(missing)
 
 
-# Inline <style> blocks kept on purpose: the 500 page must render when static files
-# can't be served, and the Swagger page's three lines need the brand logo's URL
-# (that page carries its own CSP for the Swagger UI bundle).
-_INLINE_STYLE_ALLOWED = {"templates/500.html", "apps/smallstack/templates/smallstack/api/swagger.html"}
-
-
 def test_no_template_has_an_inline_style_block():
     """Page CSS lives in static/ (``<app>/css/templates/<template>.css`` for what
-    used to be a template's <style> block), so it's cached, linted and shared."""
-    offenders = []
-    for path in _project_templates():
-        rel = str(path.relative_to(_REPO_ROOT))
-        # Django templates only (a standalone .html document elsewhere in the repo is its own page)
-        if "templates" not in path.parts or rel in _INLINE_STYLE_ALLOWED:
-            continue
-        text = path.read_text(errors="replace")
-        comment_re = r"\{%\s*comment\s*%\}.*?\{%\s*endcomment\s*%\}"
-        comments = [(c.start(), c.end()) for c in re.finditer(comment_re, text, re.S)]
-        for match in re.finditer(r"<style\b[^>]*>", text):
-            if any(a <= match.start() < b for a, b in comments):
-                continue
-            offenders.append(f"{rel}:{text[: match.start()].count(chr(10)) + 1}")
-    assert not offenders, "inline <style> blocks (move them to static/; see templates.md):\n" + "\n".join(offenders)
+    used to be a template's <style> block), so it's cached, linted and shared.
+    The framework's templates only: ``style-src`` allows inline styles, so a
+    project's own <style> blocks break nothing."""
+    offenders = hygiene.inline_styles(hygiene.framework_templates())
+    assert not offenders, "inline <style> blocks (move them to static/; see templates.md):\n" + "\n".join(
+        map(str, offenders)
+    )
+
+
+# -- what the inline-code sweeps cover --------------------------------------------------------------
+
+
+def test_framework_templates_are_told_from_the_projects_own():
+    root = hygiene.REPO_ROOT
+    framework = [
+        "apps/smallstack/templates/smallstack/base.html",
+        "apps/blog/templates/blog/post.html",
+        "apps/smallstack/templates/500.html",
+        "apps/showcase/templates/showcase/starter.html",
+        "templates/email/base_email.html",
+    ]
+    projects = [
+        "apps/website/templates/website/x.html",
+        "apps/call_stats/templates/call_stats/report.html",  # a downstream's own app
+        "templates/website/home.html",
+        "templates/404.html",  # a project's own error page, overriding the default
+    ]
+    assert all(hygiene.is_framework_template(root / p) for p in framework)
+    assert not any(hygiene.is_framework_template(root / p) for p in projects)
+    assert len(hygiene.framework_templates()) > 100  # negative control for the narrower sweep
+
+
+def test_the_script_sweeps_follow_the_policy_in_force(settings):
+    """Strict policy: every template, since an inline script anywhere is dead code.
+    The 'unsafe-inline' stopgap: the framework's templates only, since a project's
+    own inline scripts then run — and the framework must stay clean either way."""
+    directives = settings.CONTENT_SECURITY_POLICY["DIRECTIVES"]
+
+    def script_src(*sources: str) -> None:
+        settings.CONTENT_SECURITY_POLICY = {"DIRECTIVES": {**directives, "script-src": list(sources)}}
+
+    script_src("'self'")
+    assert not hygiene.inline_script_allowed()
+    assert set(hygiene.script_templates()) == set(hygiene.project_templates())
+    script_src("'self'", "'unsafe-inline'")
+    assert hygiene.inline_script_allowed()
+    assert set(hygiene.script_templates()) == set(hygiene.framework_templates())
+
+
+def test_the_scanners_find_what_they_should(tmp_path, monkeypatch, settings):
+    monkeypatch.setattr(hygiene, "REPO_ROOT", tmp_path)
+    page = tmp_path / "templates" / "page.html"
+    page.parent.mkdir()
+    page.write_text(
+        '<script>run()</script>\n'
+        '<script nonce="{{ request.csp_nonce }}">kept()</script>\n'
+        '<script src="/static/a.js"></script>\n'
+        '<script type="application/json">{"a": 1}</script>\n'
+        '<button onclick="go()">x</button>\n'
+        "<style>p {}</style>\n"
+        "{% comment %}<style>q {}</style>{% endcomment %}\n"
+    )
+    # A nonce'd block is dead code unless script-src carries the nonce.
+    assert [o.line for o in hygiene.inline_scripts([page])] == [1, 2]
+    from csp.constants import NONCE
+
+    directives = settings.CONTENT_SECURITY_POLICY["DIRECTIVES"]
+    settings.CONTENT_SECURITY_POLICY = {"DIRECTIVES": {**directives, "script-src": ["'self'", NONCE]}}
+    assert [o.line for o in hygiene.inline_scripts([page])] == [1]
+    assert [o.line for o in hygiene.inline_handlers([page])] == [5]
+    assert [o.line for o in hygiene.inline_styles([page])] == [6]
+
+
+def test_the_command_lists_offenders_and_fails_its_check(tmp_path, monkeypatch):
+    from io import StringIO
+
+    from django.core.management import CommandError, call_command
+
+    monkeypatch.setattr(hygiene, "REPO_ROOT", tmp_path)
+    page = tmp_path / "apps" / "call_stats" / "templates" / "call_stats" / "report.html"
+    page.parent.mkdir(parents=True)
+    page.write_text('<script>run()</script>\n<a onclick="go()">x</a>\n')
+    out = StringIO()
+    call_command("template_hygiene", stdout=out)
+    assert "apps/call_stats/templates/call_stats/report.html:1" in out.getvalue()
+    assert "2 inline scripts and handlers in 1 files" in out.getvalue()
+    with pytest.raises(CommandError):
+        call_command("template_hygiene", "--check", stdout=StringIO())
+    call_command("template_hygiene", "--framework", "--check", stdout=StringIO())  # not a framework template

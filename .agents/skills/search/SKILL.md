@@ -196,7 +196,7 @@ What happens:
   the MCP tool. Keep values JSON-friendly (ISO strings, not datetimes).
 - Each non-default variant becomes **its own MCP tool**: `search_blog_posts`
   plus `search_blog_posts_compact`. Use it for an agent-cheap shape.
-- The **public search page** (`templates/website/search.html`) branches on
+- The **public search page** (`apps/showcase/templates/showcase/search.html`, in the deletable showcase app) branches on
   `hit.extra.card` and includes
   `templates/website/includes/search_article_card.html` for `"article"`; every
   other hit keeps the default row. To shape your own model, return a different

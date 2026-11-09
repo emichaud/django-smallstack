@@ -729,7 +729,7 @@ whole-piece tags bring their own. Use the classes the pages use (`.rp-value
 .rp-value--<state>`, `.ix-compare`, `.gl-pill`) and theme variables, never colours of
 your own.
 
-`/starter/dashboard/` (`templates/starter/dashboard.html`) is a working page using every
+`/starter/dashboard/` (`apps/showcase/templates/showcase/starter/dashboard.html`) is a working page using every
 tag, and drawing the same numbers in markup of its own with the data tags.
 
 ## The `{% metric_card %}` tag

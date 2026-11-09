@@ -40,6 +40,7 @@ def _queries(client, url: str = INDEX) -> int:
 @pytest.mark.parametrize("url", [INDEX, GOALS])
 def test_the_overviews_cost_the_same_at_ten_or_forty(client, staff, url):
     _make(10)
+    client.get(url)  # warm-up: a first-request hook (one a downstream adds, say) isn't the page's cost
     small = _queries(client, url)
     _make(30, start=10)
     assert _queries(client, url) == small

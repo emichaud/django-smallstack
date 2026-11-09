@@ -66,6 +66,10 @@ Common conflict areas and resolution strategies:
 | `Makefile` | Merge — downstream may have custom targets |
 | `.env` / `.env.example` | Merge — add new upstream vars, keep downstream values |
 | `docs/skills/README.md`, `docs/skills/index.json` | Take upstream (`git checkout --theirs`), then `make skills-index`. Keep *your* skill rows in `docs/skills/local.md`, which upstream never ships — see below |
+| `.agents/skills/**` (and the `.claude/skills/` links) | Generated from `docs/skills/*.md` — never hand-merge. Resolve the *source* `docs/skills/*.md` first, take upstream for the mirror (`git checkout --theirs -- .agents/skills`), then `make skills-index` to regenerate it from the merged sources (your `local.md` skills included) and `git add .agents .claude/skills` |
+| `README.md` | Keep yours. Upstream keeps it short and rarely touches it; SmallStack's own description is `docs/smallstack.md` (take upstream) |
+| `apps/showcase/**` (SmallStack's demo pages) | Deleted it? Keep it deleted (`git rm -r apps/showcase`, and keep its `INSTALLED_APPS` and `config/urls.py` lines out). Kept it? Take upstream |
+| `apps/smallstack/templates/400.html` … `500.html` | Take upstream. To change an error page, put your own at `templates/404.html` (etc.): it overrides the default and upstream never ships that path |
 | `docs/skills/release-process.md` | Take upstream — it documents upstream's own release ritual, not yours. Keep your release doc under your own name and register it in `local.md` |
 
 ### Keep the Typing Gate
@@ -178,7 +182,7 @@ File issues or make the fix directly in `smallstack/` following the fix-upstream
 
 Before pulling upstream into a production downstream project:
 
-- [ ] Read the upstream release notes (`gh release view vX.Y.Z`)
+- [ ] Read what you're crossing: each version's `### Upgrading from` block in `CHANGELOG.md` and its sections in `UPGRADING.md` (`gh release view vX.Y.Z --repo emichaud/django-smallstack` carries the same notes once the release is published)
 - [ ] Check for new migrations (`ls apps/*/migrations/`)
 - [ ] Check for new settings in `.env.example`
 - [ ] Check for new dependencies in `pyproject.toml`

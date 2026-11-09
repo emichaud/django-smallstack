@@ -58,8 +58,11 @@ run_inline_worker() {
     local label="$1"
     shift
     while true; do
-        python manage.py db_worker "$@" --worker-id "$label"
-        echo "Inline worker $label exited (code $?), restarting in 5s..."
+        # `|| rc=$?` keeps set -e from ending this loop's subshell on a non-zero
+        # exit (a database restart, say), which would leave no worker running.
+        local rc=0
+        python manage.py db_worker "$@" --worker-id "$label" || rc=$?
+        echo "Inline worker $label exited (code $rc), restarting in 5s..."
         sleep 5
     done
 }

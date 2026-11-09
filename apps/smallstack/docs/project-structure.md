@@ -28,11 +28,10 @@ django-smallstack/
 │   ├── smallstack/           # Theme templates
 │   │   ├── base.html         # Master layout
 │   │   ├── includes/         # Topbar, sidebar, messages
-│   │   └── pages/            # SmallStack marketing content (upstream)
-│   ├── website/              # Page wrappers (customize these)
-│   │   ├── home.html         # Thin wrapper → pages/home_content.html
-│   │   └── about.html        # Thin wrapper → pages/about_content.html
-│   ├── starter.html          # Thin wrapper → pages/starter_*.html
+│   │   └── pages/            # SmallStack's home content (upstream)
+│   ├── website/              # The public site (customize these)
+│   │   ├── base.html         # Public-site base
+│   │   └── home.html         # Thin wrapper → pages/home_content.html
 │   ├── profile/               # Profile templates
 │   ├── help/                  # Help templates
 │   └── registration/         # Auth templates
@@ -154,14 +153,12 @@ base.html (smallstack)
 
 Child templates extend base.html:
 ├── website/home.html        → {% include "smallstack/pages/home_content.html" %}
-├── website/about.html       → {% include "smallstack/pages/about_content.html" %}
-├── starter.html             → {% include "smallstack/pages/starter_*.html" %}
 ├── profile/profile.html
 ├── help/help_detail.html
 └── registration/login.html
 ```
 
-Marketing pages use thin wrappers that `{% include %}` content from `smallstack/pages/`. Downstream projects replace the wrappers with their own content — SmallStack's marketing fragments update independently via upstream.
+The home page is a thin wrapper that `{% include %}`s content from `smallstack/pages/`: a downstream project replaces the wrapper with its own content, and SmallStack's fragment updates independently via upstream. SmallStack's other public pages (about, getting started, starter, search) are the `apps/showcase/` app, which a project deletes. The default error pages are app templates in `apps/smallstack/templates/`; a project's own `templates/404.html` overrides one.
 
 ### Template Blocks
 

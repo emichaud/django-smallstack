@@ -4,7 +4,7 @@ This is the definitive reference for building admin pages in SmallStack. Every a
 
 ## Quick Start
 
-Copy the starter template from `templates/smallstack/starter.html` and modify it for your page. It includes the correct layout structure, CSS classes, and block usage.
+Copy the starter template from `apps/showcase/templates/showcase/includes/starter_content.html` and modify it for your page. It includes the correct layout structure, CSS classes, and block usage.
 
 ## Template Structure
 
@@ -853,6 +853,6 @@ These are the theme variables available in any template. Use `var(--name)` in cu
 | `static/smallstack/css/theme.css` | CSS variables, base layout, `.page-header-bleed`, `.stat-card-clickable`, `.stat-modal` |
 | `static/smallstack/css/components.css` | All component classes (buttons, tables, forms, cards, badges, tabs, action cards, filter toggles, stat cards, search, modals) |
 | `templates/smallstack/base.html` | Base template with all blocks |
-| `templates/smallstack/starter.html` | Copy-paste starter template |
+| `apps/showcase/templates/showcase/includes/starter_content.html` | Copy-paste starter template |
 | `templates/smallstack/includes/stat_modal.html` | Reusable stat card drill-down modal |
 | `templates/smallstack/crud/includes/delete_modal.html` | Reusable delete confirmation modal |

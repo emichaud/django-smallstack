@@ -13,6 +13,7 @@ import pytest
 from asgiref.sync import async_to_sync
 from django.contrib.auth import get_user_model
 from django.db.models import Count, Sum
+from django.urls import reverse
 
 from apps.activity.models import RequestLog
 from apps.datasets.core import get_dataset, list_datasets
@@ -382,7 +383,7 @@ def _api_token(db):
 
 def test_rest_rejects_anonymous_with_json_401(client):
     """No credential → JSON 401, never a 302 redirect to an HTML login page."""
-    resp = client.get("/smallstack/datasets/")
+    resp = client.get(reverse("datasets:list"))
     assert resp.status_code == 401
     assert resp["Content-Type"].startswith("application/json")
 
@@ -390,7 +391,7 @@ def test_rest_rejects_anonymous_with_json_401(client):
 def test_rest_accepts_bearer_token(client, _api_token):
     """A valid Bearer token reaches the datasets surface (the headline blocker)."""
     resp = client.get(
-        "/smallstack/datasets/",
+        reverse("datasets:list"),
         HTTP_AUTHORIZATION=f"Bearer {_api_token}",
     )
     assert resp.status_code == 200
@@ -404,7 +405,7 @@ def test_rest_bearer_non_staff_gets_json_403(client, db):
     user = User.objects.create_user(username="plain", password="x", is_staff=False)
     _token, raw = APIToken.create_token(user, name="t", access_level="staff")
     resp = client.get(
-        "/smallstack/datasets/", HTTP_AUTHORIZATION=f"Bearer {raw}"
+        reverse("datasets:list"), HTTP_AUTHORIZATION=f"Bearer {raw}"
     )
     assert resp.status_code == 403
     assert resp["Content-Type"].startswith("application/json")
@@ -413,7 +414,7 @@ def test_rest_bearer_non_staff_gets_json_403(client, db):
 def test_rest_series_bad_dimension_returns_400(client, _api_token):
     _seed()
     resp = client.get(
-        "/smallstack/datasets/t_requestlog/series/?dimension=nope",
+        f"{reverse('datasets:series', args=['t_requestlog'])}?dimension=nope",
         HTTP_AUTHORIZATION=f"Bearer {_api_token}",
     )
     assert resp.status_code == 400
@@ -422,7 +423,7 @@ def test_rest_series_bad_dimension_returns_400(client, _api_token):
 def test_rest_rows_expand_returns_id_name(client, _api_token):
     _seed_with_user()
     resp = client.get(
-        "/smallstack/datasets/t_requestlog/?expand=user&limit=1",
+        f"{reverse('datasets:rows', args=['t_requestlog'])}?expand=user&limit=1",
         HTTP_AUTHORIZATION=f"Bearer {_api_token}",
     )
     assert resp.status_code == 200
@@ -443,12 +444,12 @@ def test_rest_rows_string_offset_paginates(client, _api_token):
         )
     q = "status_code=418&ordering=response_time_ms"
     base = client.get(
-        f"/smallstack/datasets/t_requestlog/?{q}&limit=2&offset=0",
+        f"{reverse('datasets:rows', args=['t_requestlog'])}?{q}&limit=2&offset=0",
         HTTP_AUTHORIZATION=f"Bearer {_api_token}",
     )
     assert base.status_code == 200
     paged = client.get(
-        f"/smallstack/datasets/t_requestlog/?{q}&limit=2&offset=2",
+        f"{reverse('datasets:rows', args=['t_requestlog'])}?{q}&limit=2&offset=2",
         HTTP_AUTHORIZATION=f"Bearer {_api_token}",
     )
     assert paged.status_code == 200
@@ -464,7 +465,7 @@ def test_rest_rows_junk_offset_falls_back(client, _api_token):
     """A non-numeric ``offset`` degrades to 0 rather than 500ing."""
     _seed()
     resp = client.get(
-        "/smallstack/datasets/t_requestlog/?offset=nope&limit=abc",
+        f"{reverse('datasets:rows', args=['t_requestlog'])}?offset=nope&limit=abc",
         HTTP_AUTHORIZATION=f"Bearer {_api_token}",
     )
     assert resp.status_code == 200
@@ -478,7 +479,7 @@ def test_rest_rows_csv_export(client, _api_token):
     """Round-2: ?format=csv streams text/csv with a header row + attachment."""
     _seed()
     resp = client.get(
-        "/smallstack/datasets/t_requestlog/?format=csv&limit=100",
+        f"{reverse('datasets:rows', args=['t_requestlog'])}?format=csv&limit=100",
         HTTP_AUTHORIZATION=f"Bearer {_api_token}",
     )
     assert resp.status_code == 200
@@ -495,7 +496,7 @@ def test_rest_rows_csv_export_is_capped_loudly(client, _api_token, settings):
     _seed()
     settings.SMALLSTACK_DATASET_CSV_MAX_ROWS = 1
     resp = client.get(
-        "/smallstack/datasets/t_requestlog/?format=csv",
+        f"{reverse('datasets:rows', args=['t_requestlog'])}?format=csv",
         HTTP_AUTHORIZATION=f"Bearer {_api_token}",
     )
     assert resp.status_code == 400
@@ -506,7 +507,7 @@ def test_rest_scalar_route(client, _api_token):
     """Round-2: /<key>/scalar/ returns a single {value}, no GROUP BY."""
     _seed()
     resp = client.get(
-        "/smallstack/datasets/t_requestlog/scalar/?agg=count",
+        f"{reverse('datasets:scalar', args=['t_requestlog'])}?agg=count",
         HTTP_AUTHORIZATION=f"Bearer {_api_token}",
     )
     assert resp.status_code == 200
@@ -519,7 +520,7 @@ def test_rest_series_no_dimension_is_scalar(client, _api_token):
     """Round-2: /series/ with no dimension collapses to a scalar (no 400)."""
     _seed()
     resp = client.get(
-        "/smallstack/datasets/t_requestlog/series/?agg=sum&measure=response_time_ms",
+        f"{reverse('datasets:series', args=['t_requestlog'])}?agg=sum&measure=response_time_ms",
         HTTP_AUTHORIZATION=f"Bearer {_api_token}",
     )
     assert resp.status_code == 200
@@ -531,7 +532,7 @@ def test_rest_series_no_dimension_is_scalar(client, _api_token):
 def test_rest_scalar_bad_measure_returns_400(client, _api_token):
     _seed()
     resp = client.get(
-        "/smallstack/datasets/t_requestlog/scalar/?agg=sum&measure=nope",
+        f"{reverse('datasets:scalar', args=['t_requestlog'])}?agg=sum&measure=nope",
         HTTP_AUTHORIZATION=f"Bearer {_api_token}",
     )
     assert resp.status_code == 400
@@ -546,7 +547,7 @@ def test_rest_series_applies_query_filters(client, _api_token):
     own GETs, so absolute counts aren't asserted.)
     """
     _seed()
-    base = "/smallstack/datasets/t_requestlog/series/?dimension=status_code"
+    base = f"{reverse('datasets:series', args=['t_requestlog'])}?dimension=status_code"
     auth = {"HTTP_AUTHORIZATION": f"Bearer {_api_token}"}
     all_labels = {s["label"] for s in client.get(base, **auth).json()["series"]}
     post_labels = {
@@ -562,7 +563,7 @@ def test_rest_scalar_applies_query_filters(client, _api_token):
     """Round-3 regression: a filter on the scalar route lowers the count."""
     _seed()
     auth = {"HTTP_AUTHORIZATION": f"Bearer {_api_token}"}
-    base = "/smallstack/datasets/t_requestlog/scalar/?agg=count"
+    base = f"{reverse('datasets:scalar', args=['t_requestlog'])}?agg=count"
     total = client.get(base, **auth).json()["value"]
     post_only = client.get(base + "&method=POST", **auth).json()["value"]
     assert post_only < total
@@ -658,7 +659,7 @@ def test_rest_rows_envelope_has_total_and_offset(client, _api_token):
     _seed()  # 4 rows
     auth = {"HTTP_AUTHORIZATION": f"Bearer {_api_token}"}
     body = client.get(
-        "/smallstack/datasets/t_requestlog/?limit=2&offset=2", **auth
+        f"{reverse('datasets:rows', args=['t_requestlog'])}?limit=2&offset=2", **auth
     ).json()
     assert body["total"] == 4        # full matching count
     assert body["count"] == 2        # this page
@@ -849,12 +850,12 @@ def test_rest_bucketed_series_and_drilldown(client, _api_token):
     buckets = '[{"key":"g","label":"GET","value":"GET"},{"key":"other","label":"Other","other":true}]'
     from urllib.parse import quote
 
-    url = f"/smallstack/datasets/t_requestlog/series/?dimension=method&buckets={quote(buckets)}"
+    url = f"{reverse('datasets:series', args=['t_requestlog'])}?dimension=method&buckets={quote(buckets)}"
     s = {b["key"]: b["value"] for b in client.get(url, **auth).json()["series"]}
     assert s == {"g": 3, "other": 3}
     # drilldown via the rows route: total reflects the bucket
     drill = client.get(
-        f"/smallstack/datasets/t_requestlog/?dimension=method&buckets={quote(buckets)}&bucket=other",
+        f"{reverse('datasets:rows', args=['t_requestlog'])}?dimension=method&buckets={quote(buckets)}&bucket=other",
         **auth,
     ).json()
     assert drill["total"] == 3

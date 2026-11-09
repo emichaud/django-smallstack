@@ -393,7 +393,7 @@ A hit is normally a title, a line of context, a snippet and a link. A CRUDView c
 
 The bundled example is the blog. `PostCRUDView.transform_hit` returns the blog name, publish date, reading time, tags and cover image with a `card: "article"` discriminator, and the public `/search/` page renders those hits as an article card instead of a row (`templates/website/includes/search_article_card.html`). Its `compact` variant — title and permalink only — is exposed as `search_blog_posts_compact`. The empty `/search/` page shows the recipe and a rendered example under "Shape a result".
 
-To shape your own model: return a different `card` value from `transform_hit`, add a branch in `templates/website/search.html`, and keep the function cheap and exception-free (the backend falls back to the default shape if it raises).
+To shape your own model: return a different `card` value from `transform_hit`, add a branch in `apps/showcase/templates/showcase/search.html` (or your own search page), and keep the function cheap and exception-free (the backend falls back to the default shape if it raises).
 
 ## What this doesn't do (yet)
 

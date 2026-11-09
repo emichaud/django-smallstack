@@ -6,7 +6,11 @@ Project-specific public pages: homepage, landing pages, marketing content, the p
 wholesale — upstream merges never overwrite it. If your needs outgrow one app, add a sibling
 (`apps/billing/`, `apps/projects/`) rather than turning this into a kitchen sink.
 
-**Key files:** `views.py`, templates under `templates/website/`.
+**Key files:** `views.py`, templates under `templates/website/`, `dashboard_cards.py` (the chart card types).
+
+SmallStack's own demo pages (about, getting started, prompts, the starter pages, the public
+search) are a separate app, [`../showcase/`](../showcase/), so upstream changes to them never
+touch this one. Delete that app when you no longer want them.
 
 **See:** [`../../docs/skills/building-a-user-facing-site.md`](../../docs/skills/building-a-user-facing-site.md) ·
 [`../../docs/skills/templates.md`](../../docs/skills/templates.md).

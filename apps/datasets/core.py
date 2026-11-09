@@ -20,9 +20,11 @@ from __future__ import annotations
 
 import csv
 import inspect
+import warnings
 from typing import Any, Callable, Optional
 
-from django.db.models import Model, QuerySet
+from django.db.models import Aggregate, FloatField, Model, QuerySet
+from django.db.models.functions import Cast
 from django.http import HttpRequest, QueryDict
 
 from .filter_tree import compile_filter_tree, is_empty, ops_for_type
@@ -32,7 +34,28 @@ from .registry import DatasetDef, all_defs, get_def
 _MEASURE_TYPES = {"integer", "float", "decimal"}
 _SERIES_LIMIT_MAX = 500
 _ROWS_LIMIT_MAX = 500
-_AGG_NAMES = ("count", "sum", "avg", "min", "max", "distinct")
+_AGG_NAMES = ("count", "sum", "avg", "min", "max", "distinct", "median")
+#: Aggregations whose value over no rows is 0 (the rest have no value: None).
+_ZERO_WHEN_EMPTY = ("count", "distinct", "sum")
+_DATE_TYPES = ("date", "datetime")
+
+#: Per-axis cap for :meth:`Dataset.cells`. A grid is x × y cells, so cardinality
+#: multiplies; 30 × 30 is already at the edge of readable. Past it ``cells()``
+#: refuses, naming the field, rather than dropping part of an axis.
+_CELLS_AXIS_MAX = 30
+
+#: Explicit-lookup suffixes a flat filter key may carry (``<col>__<lookup>``),
+#: by column type. Each is still one ``{name: scalar}`` key, so the flat filter
+#: contract stays a serializable map (see the FILTER INVARIANT in _filtered_qs).
+_COMPARISONS = ("gte", "gt", "lte", "lt")
+_LOOKUPS_BY_TYPE: dict[str, tuple[str, ...]] = {
+    "date": (*_COMPARISONS, "period"),
+    "datetime": (*_COMPARISONS, "period"),
+    "integer": _COMPARISONS,
+    "float": _COMPARISONS,
+    "decimal": _COMPARISONS,
+    "string": ("ne", "icontains"),
+}
 
 #: The row key that carries the "view this object" URL (see Dataset.link_for).
 LINK_KEY = "url"
@@ -53,7 +76,66 @@ def _agg_func(agg: str, measure: Optional[str]) -> Any:
         return Count(measure, distinct=True)
     if agg in ("count", "distinct") or not measure:
         return Count("id")
-    return {"sum": Sum, "avg": Avg, "min": Min, "max": Max}[agg](measure)
+    return {"sum": Sum, "avg": Avg, "min": Min, "max": Max, "median": Median}[agg](measure)
+
+
+class Median(Aggregate):
+    """The median of a numeric column, in the database, grouped or not.
+
+    Postgres: ``percentile_cont(0.5)``. SQLite: a ``MEDIAN`` aggregate
+    registered on each connection (:func:`install_sqlite_median`). Oracle has
+    ``MEDIAN`` natively. Other backends refuse it up front
+    (:func:`median_supported`) rather than fail inside a query.
+    """
+
+    function = "MEDIAN"
+    name = "Median"
+    output_field = FloatField()
+
+    def __init__(self, expression: Any, **extra: Any) -> None:
+        super().__init__(Cast(expression, FloatField()), **extra)
+
+    def as_postgresql(self, compiler: Any, connection: Any, **extra_context: Any) -> Any:
+        return self.as_sql(
+            compiler,
+            connection,
+            template="percentile_cont(0.5) WITHIN GROUP (ORDER BY %(expressions)s)",
+            **extra_context,
+        )
+
+
+_MEDIAN_VENDORS = ("postgresql", "sqlite", "oracle")
+
+
+def median_supported(using: str = "default") -> bool:
+    """True when the database behind *using* can compute :class:`Median`."""
+    from django.db import connections
+
+    return connections[using].vendor in _MEDIAN_VENDORS
+
+
+class _SqliteMedian:
+    """SQLite aggregate behind ``MEDIAN(x)``: NULLs skipped, None over no rows."""
+
+    def __init__(self) -> None:
+        self.values: list[float] = []
+
+    def step(self, value: Any) -> None:
+        if value is not None:
+            self.values.append(value)
+
+    def finalize(self) -> Optional[float]:
+        if not self.values:
+            return None
+        ordered = sorted(self.values)
+        mid = len(ordered) // 2
+        return float(ordered[mid]) if len(ordered) % 2 else (ordered[mid - 1] + ordered[mid]) / 2
+
+
+def install_sqlite_median(sender: Any = None, connection: Any = None, **kwargs: Any) -> None:
+    """``connection_created`` receiver: register ``MEDIAN`` on a SQLite connection."""
+    if connection is not None and connection.vendor == "sqlite" and connection.connection is not None:
+        connection.connection.create_aggregate("MEDIAN", 1, _SqliteMedian)
 
 
 def csv_safe(value: Any) -> Any:
@@ -107,10 +189,12 @@ def _ratio_expr(spec: dict[str, Any]) -> Any:
 
 
 def _parse_date_bound(raw: Any) -> Any:
-    """Parse an ISO date or datetime string for a ``__gte``/``__lt`` bound.
-    Returns None on anything unparseable (garbage is ignored, not an error)."""
+    """An ISO date or datetime string (or a date/datetime) for a comparison
+    bound. None when unparseable; the caller refuses it (see _apply_lookup)."""
     from datetime import date, datetime
 
+    if isinstance(raw, (date, datetime)):  # an in-process caller's own value
+        return raw
     if not isinstance(raw, str):
         return None
     text = raw.strip()
@@ -124,6 +208,42 @@ def _parse_date_bound(raw: Any) -> Any:
         return date.fromisoformat(text)
     except ValueError:
         return None
+
+
+def _parse_number(raw: Any, *, whole: bool = False) -> Any:
+    """A numeric comparison bound (``<col>__gt=…``): int when integral, else
+    float; None when unparseable. ``whole`` (an integer column) refuses a
+    fraction, which the column would truncate (``__gte=1.5`` meaning ``>= 1``)."""
+    try:
+        text = str(raw).strip()
+        value = float(text) if any(c in text.lower() for c in ".e") else int(text)
+    except (TypeError, ValueError):
+        return None
+    if isinstance(value, float) and value.is_integer():
+        value = int(value)
+    if whole and isinstance(value, float):
+        return None
+    return value
+
+
+def _infer_unit(name: str) -> Optional[str]:
+    """A column's unit when ``@dataset(units=…)`` names none, from its name."""
+    if name.endswith("_seconds"):
+        return "seconds"
+    if name.endswith("_minutes"):
+        return "minutes"
+    return None
+
+
+def _sort_spec(sort: Optional[dict]) -> tuple[str, bool]:
+    """``{"by": "category"|"value", "dir": "asc"|"desc"}`` → ``(by, descending)``.
+    The default, category ascending, is the order a series always had."""
+    spec = sort or {}
+    by = spec.get("by") or "category"
+    direction = spec.get("dir") or "asc"
+    if by not in ("category", "value") or direction not in ("asc", "desc"):
+        raise ValueError(f"unknown sort {spec!r}; by is category or value, dir is asc or desc")
+    return by, direction == "desc"
 
 
 def _fake_request(user: Any = None, query: str = "") -> HttpRequest:
@@ -418,6 +538,12 @@ class Dataset:
         itself named ``url`` keeps its meaning — links are then not added."""
         return LINK_KEY not in self.column_names() and self._link_resolver() is not None
 
+    @property
+    def has_detail(self) -> bool:
+        """Deprecated: the name call_stats' original used. Use :meth:`has_links`."""
+        warnings.warn("Dataset.has_detail is deprecated, use has_links() instead.", DeprecationWarning, stacklevel=2)
+        return self.has_links()
+
     def link_for(self, obj: Any) -> Optional[str]:
         """The URL where *obj* (a row's model instance) can be viewed, or None.
         Never raises — a link that can't be built is simply absent."""
@@ -440,17 +566,21 @@ class Dataset:
 
         model = self.model
         cols = self.columns()
+        units = self.dfn.units or {}
         columns: list[dict[str, Any]] = [
             {
                 "name": name,
                 "label": _label_for(model, name),
                 "type": typ,
                 "role": "measure" if typ in _MEASURE_TYPES else "dimension",
+                # Declared wins; else a guess from the name; else None.
+                "unit": units.get(name) or _infer_unit(name),
             }
             for name, typ in cols
         ]
         # Declared ratio measures are computed, not real columns — surface them
         # so builders offer them like any measure (role=measure, computed=true).
+        # A "percent" ratio is a percentage, so that's its unit by default.
         for mname, spec in self.declared_measures().items():
             columns.append(
                 {
@@ -459,6 +589,7 @@ class Dataset:
                     "type": spec["fmt"],
                     "role": "measure",
                     "computed": True,
+                    "unit": units.get(mname) or ("percent" if spec["fmt"] == "percent" else None),
                 }
             )
         date_types = {"date", "datetime"}
@@ -485,6 +616,8 @@ class Dataset:
                 # op dropdown) and its schema type (value coercion).
                 meta["column_type"] = col_types.get(name, "string")
                 meta["ops"] = ops_for_type(col_types.get(name, "string"))
+                # The flat-key suffixes it accepts (<col>__gt=…, <col>__period=mtd).
+                meta["lookups"] = list(_LOOKUPS_BY_TYPE.get(col_types.get(name, "string"), ()))
                 filters.append(meta)
         out = {
             "key": self.key,
@@ -492,7 +625,7 @@ class Dataset:
             "description": self.dfn.description,
             "columns": columns,
             "filters": filters,
-            "aggs": list(_AGG_NAMES),
+            "aggs": [a for a in _AGG_NAMES if a != "median" or median_supported(self._queryset().db)],
             # Rows carry a ``url`` key pointing at the object's page.
             "links": self.has_links(),
         }
@@ -629,6 +762,11 @@ class Dataset:
         The nested AND/OR form is the separate ``filter_tree`` argument — the
         stored shape — compiled strictly (``compile_tree``) and AND-ed with the
         flat filters. Unlike an unknown flat key, a bad tree raises.
+
+        Explicit lookups (``<col>__gte`` and the rest of ``_LOOKUPS_BY_TYPE``)
+        are strict about their *value* the same way: blank means absent, but a
+        value that won't parse raises ValueError (→ 400). Ignoring it would drop
+        the narrowing and return more rows than the caller asked for.
         """
         from apps.smallstack.crud import _apply_list_filters as apply_filters
 
@@ -640,14 +778,15 @@ class Dataset:
         if not filters:
             return qs
 
-        # Pull out explicit half-open date bounds (<col>__gte / <col>__lt) and
-        # apply them directly — the CRUD pipeline only knows bare-column presets.
-        # An explicit bound on a column drops that column's preset (explicit wins).
-        range_filters, flat_filters = self._split_range_filters(filters)
-        for key, raw in range_filters.items():
-            parsed = _parse_date_bound(raw)
-            if parsed is not None:  # garbage ignored (absent-not-error)
-                qs = qs.filter(**{key: parsed})
+        # Pull out the explicit lookups and apply them directly — the CRUD
+        # pipeline only knows bare-column presets and equality. An explicit
+        # lookup on a column drops that column's bare preset (explicit wins).
+        lookup_filters, flat_filters = self._split_range_filters(filters)
+        types = self.filter_column_types()
+        for key, raw in lookup_filters.items():
+            if raw in (None, ""):
+                continue
+            qs = self._apply_lookup(qs, key, raw, types)
 
         pairs = "&".join(f"{k}={v}" for k, v in flat_filters.items() if v not in (None, ""))
         if pairs:
@@ -656,29 +795,70 @@ class Dataset:
         return qs
 
     def _split_range_filters(self, filters: dict) -> tuple[dict, dict]:
-        """Separate ``<datecol>__gte`` / ``__lt`` keys from the flat filters.
+        """Separate explicit-lookup keys from the flat filters.
 
-        A range on a column also suppresses that column's bare preset (so an
-        explicit bound wins if both are sent). Only date/datetime columns in the
-        filterable set qualify; anything else stays a flat filter.
+        A key qualifies when its column is filterable and its suffix is one the
+        column's type takes (``_LOOKUPS_BY_TYPE``): ``__gte`` / ``__gt`` /
+        ``__lte`` / ``__lt`` on dates and numbers, ``__period`` on dates,
+        ``__ne`` / ``__icontains`` on text. Anything else stays a flat filter.
+        A lookup on a column also suppresses that column's bare key.
         """
-        date_cols = {
-            name
-            for name, typ in self.columns()
-            if typ in ("date", "datetime") and name in set(self.filter_field_names())
-        }
-        range_filters, flat = {}, {}
-        ranged_cols = set()
+        types = self.filter_column_types()
+        lookups, flat = {}, {}
+        looked_up = set()
         for key, val in filters.items():
             base, sep, lookup = key.partition("__")
-            if sep and lookup in ("gte", "lt") and base in date_cols:
-                range_filters[key] = val
-                ranged_cols.add(base)
+            if sep and lookup in _LOOKUPS_BY_TYPE.get(types.get(base, ""), ()):
+                lookups[key] = val
+                looked_up.add(base)
             else:
                 flat[key] = val
-        for col in ranged_cols:
-            flat.pop(col, None)  # explicit bounds win over the preset
-        return range_filters, flat
+        for col in looked_up:
+            flat.pop(col, None)  # an explicit lookup wins over the bare key
+        return lookups, flat
+
+    def filter_problems(self, filters: Optional[dict]) -> list[str]:
+        """Every explicit lookup in *filters* whose value won't parse (empty =
+        all apply). DB-free: what :meth:`queryset` would raise, said up front,
+        for a page that shows the problem instead of an error."""
+        lookups, _flat = self._split_range_filters(filters or {})
+        types = self.filter_column_types()
+        empty = self.model._default_manager.none()
+        problems = []
+        for key, raw in lookups.items():
+            if raw in (None, ""):
+                continue
+            try:
+                self._apply_lookup(empty, key, raw, types)
+            except ValueError as exc:
+                problems.append(str(exc))
+        return problems
+
+    @staticmethod
+    def _apply_lookup(qs: QuerySet, key: str, raw: Any, types: dict[str, str]) -> QuerySet:
+        """Apply one explicit lookup; ValueError when *raw* won't parse."""
+        base, _, lookup = key.partition("__")
+        typ = types.get(base, "")
+        if lookup == "ne":  # "is not": rows without a value are kept
+            return qs.exclude(**{base: raw})
+        if lookup == "icontains":
+            return qs.filter(**{key: raw})
+        if lookup == "period":
+            from .dateranges import relative_dates, relative_range
+
+            bounds = relative_dates(str(raw)) if typ == "date" else relative_range(str(raw))
+            if bounds is None:
+                raise ValueError(f"{key}: unknown period {raw!r}")
+            return qs.filter(**{f"{base}__gte": bounds[0], f"{base}__lt": bounds[1]})
+        if typ in _DATE_TYPES:
+            parsed = _parse_date_bound(raw)
+            kind = "an ISO date or datetime"
+        else:
+            parsed = _parse_number(raw, whole=typ == "integer")
+            kind = "a whole number" if typ == "integer" else "a number"
+        if parsed is None:
+            raise ValueError(f"{key}: {raw!r} isn't {kind}")
+        return qs.filter(**{key: parsed})
 
     # -- rows (sub-filtering reduces the row count) --------------------------
 
@@ -810,6 +990,7 @@ class Dataset:
         measure: Optional[str] = None,
         agg: str = "count",
         grain: Optional[str] = None,
+        sort: Optional[dict] = None,
         limit: int = 50,
         filters: Optional[dict] = None,
         request: HttpRequest | None = None,
@@ -836,12 +1017,20 @@ class Dataset:
           ``value`` is the bucket's row count (count-only — ``measure``/``agg``
           don't apply here);
         - ``None`` → a single ungrouped aggregate (the KPI/scalar path).
+
+        ``sort`` (``{"by": "category"|"value", "dir": "asc"|"desc"}``) orders a
+        grouped series. The default, category ascending, is the dimension's (or
+        the period's) order. ``by: "value"`` ranks by the aggregate, and because
+        the database applies it before ``limit``, ``value``/``desc`` is a top-N.
+        A time grain keeps its window: the most recent ``limit`` periods, then
+        sorted for display. A group with no value sorts last either way.
         """
         if isinstance(dimension, dict):
             return self._bucketed_series(dimension, filters=filters, request=request, filter_tree=filter_tree)
 
         if agg not in _AGG_NAMES:
             agg = "count"
+        by, descending = _sort_spec(sort)
 
         # A declared ratio measure (sum(num)/sum(denom)) is computed, not a real
         # column — it defines its own aggregation, so ``agg`` doesn't apply and
@@ -862,11 +1051,12 @@ class Dataset:
         value_expr = self.aggregate_expression(agg, measure)
 
         qs = self._filtered_qs(request, filters, filter_tree)
+        self._check_median(agg, measure, is_ratio, qs)
 
         # KPI / scalar path — no GROUP BY, single aggregate over the filtered set.
         if dimension is None:
             value = qs.aggregate(_value=value_expr)["_value"]
-            if value is None and not is_ratio and agg in ("count", "distinct", "sum"):
+            if value is None and not is_ratio and agg in _ZERO_WHEN_EMPTY:
                 value = 0  # count/sum of nothing is 0; avg/min/max/ratio of nothing has no value
             return [{"label": (measure if is_ratio else agg), "value": _round_value(value)}]
 
@@ -898,11 +1088,21 @@ class Dataset:
                 for row in periods
                 if row["_period"] is not None
             ]
-            trend.sort(key=lambda r: r["lo"])
+            if by == "value":
+                valued = sorted((r for r in trend if r["value"] is not None), key=lambda r: r["value"])
+                trend = (valued[::-1] if descending else valued) + [r for r in trend if r["value"] is None]
+            else:
+                trend.sort(key=lambda r: r["lo"], reverse=descending)  # ISO starts sort chronologically
             return trend
 
+        from django.db.models import F
+
         annotated = qs.values(dimension).annotate(_value=value_expr)
-        annotated = annotated.order_by(dimension)
+        if by == "value":
+            ranked = F("_value").desc(nulls_last=True) if descending else F("_value").asc(nulls_last=True)
+            annotated = annotated.order_by(ranked, dimension)  # ties read in the dimension's order
+        else:
+            annotated = annotated.order_by(F(dimension).desc() if descending else F(dimension).asc())
 
         rows = list(annotated[:limit])
 
@@ -922,6 +1122,92 @@ class Dataset:
                 }
             )
         return out
+
+    @staticmethod
+    def _check_median(agg: str, measure: Optional[str], is_ratio: bool, qs: QuerySet) -> None:
+        """A median needs a plain numeric column and a database that has one."""
+        if agg != "median" or is_ratio:
+            return
+        if not measure:
+            raise ValueError("median needs a measure: the median of what?")
+        if not median_supported(qs.db):
+            raise ValueError("median isn't available on this database (PostgreSQL, SQLite and Oracle have it)")
+
+    # -- cells (two dimensions → a complete x × y grid) -----------------------
+
+    def cells(
+        self,
+        dimension: str,
+        dimension2: str,
+        *,
+        measure: Optional[str] = None,
+        agg: str = "count",
+        axis_limit: int = _CELLS_AXIS_MAX,
+        filters: Optional[dict] = None,
+        request: HttpRequest | None = None,
+        filter_tree: Any = None,
+    ) -> list[dict]:
+        """Two-dimensional rollup → ``[{x, x_label, y, y_label, value}]`` for a
+        heatmap or punch card: :meth:`series` grouped by *dimension* (x) and
+        *dimension2* (y) at once.
+
+        - **The grid is complete:** every x × every y that occurs in the
+          filtered rows, row-major by y then x, so a chart can index marks by
+          position. A combination with no rows carries the empty value: 0 for
+          count/distinct/sum, None for the rest (an average of nothing isn't 0).
+        - **Raw values ride with labels** (``x`` and ``x_label``), so a drill-down
+          filters on the stored value (an FK's pk) and shows the name.
+        - **Axes are capped, loudly:** more than ``axis_limit`` distinct values on
+          either axis raises ValueError naming the field and its count, rather
+          than leaving part of the grid out.
+
+        Filters ride the same path as :meth:`rows` and :meth:`series`.
+        """
+        if agg not in _AGG_NAMES:
+            agg = "count"
+        declared = self.declared_measures()
+        is_ratio = bool(measure) and measure in declared
+        valid = set(self.column_names())
+        for name, which in ((dimension, "dimension"), (dimension2, "dimension2")):
+            if name not in valid:
+                raise ValueError(f"unknown {which} {name!r}; valid: {sorted(valid)}")
+        if dimension == dimension2:
+            raise ValueError("dimension and dimension2 must be different columns")
+        if measure and not is_ratio and measure not in valid:
+            raise ValueError(f"unknown measure {measure!r}; valid: {sorted(valid | set(declared))}")
+
+        qs = self._filtered_qs(request, filters, filter_tree)
+        self._check_median(agg, measure, is_ratio, qs)
+        grouped = list(
+            qs.values(dimension, dimension2).annotate(_value=self.aggregate_expression(agg, measure)).order_by()
+        )
+
+        def axis(field: str) -> list:
+            seen = {row[field] for row in grouped}
+            return sorted(v for v in seen if v is not None) + ([None] if None in seen else [])
+
+        xs, ys = axis(dimension), axis(dimension2)
+        for name, values in ((dimension, xs), (dimension2, ys)):
+            if len(values) > axis_limit:
+                raise ValueError(
+                    f"{name!r} has {len(values)} distinct values; a cell chart takes at most {axis_limit} "
+                    "on an axis. Group by a column with fewer values, or filter first."
+                )
+
+        x_labels, y_labels = self.value_labels(dimension, grouped), self.value_labels(dimension2, grouped)
+        empty: Any = 0 if agg in _ZERO_WHEN_EMPTY and not is_ratio else None
+        found = {(row[dimension], row[dimension2]): row["_value"] for row in grouped}
+        return [
+            {
+                "x": x,
+                "x_label": x_labels[x] if x in x_labels else _series_label(x),
+                "y": y,
+                "y_label": y_labels[y] if y in y_labels else _series_label(y),
+                "value": _round_value(found[(x, y)]) if (x, y) in found else empty,
+            }
+            for y in ys
+            for x in xs
+        ]
 
     # -- bucketed series (numeric bands / categorical / auto top-N) -----------
 
@@ -990,6 +1276,13 @@ class Dataset:
         return self.series(None, measure=measure, agg=agg, filters=filters, request=request, filter_tree=filter_tree)[
             0
         ]["value"]
+
+    def _fk_label_map(self, dimension: str, rows: list[dict]) -> dict:
+        """Deprecated: the name call_stats' original used. Use :meth:`value_labels`."""
+        warnings.warn(
+            "Dataset._fk_label_map is deprecated, use value_labels() instead.", DeprecationWarning, stacklevel=2
+        )
+        return self.value_labels(dimension, rows)
 
     def value_labels(self, dimension: str, rows: list[dict]) -> dict:
         """Map FK pks in *rows* to the related object's ``str()``, or a choices

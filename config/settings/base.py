@@ -51,6 +51,7 @@ INSTALLED_APPS = [
     "apps.heartbeat",
     "apps.usermanager",
     "apps.website",  # Project-specific pages (customize freely)
+    "apps.showcase",  # SmallStack's demo pages (about, starter, search…). Delete it, here and in config/urls.py
     "apps.mcp",  # Model Context Protocol server for AI clients
     "apps.tokenmgr",  # User-facing UI for API token management
     "apps.api",  # API admin: /smallstack/api/ health + activity + threat panel

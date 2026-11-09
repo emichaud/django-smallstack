@@ -1,0 +1,324 @@
+{% extends "website/base.html" %}
+{% load static %}
+{% load theme_tags %}
+
+{% block title %}Search · {{ query|default:"SmallStack" }}{% endblock %}
+
+{% block breadcrumbs %}{% endblock %}
+
+{% block page_header %}{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'showcase/css/templates/search.css' %}">
+{% endblock %}
+
+{% block body_class %}is-search-page{% endblock %}
+
+{% block content %}
+<div class="search-stage">
+
+  <!-- ───────── Eyebrow + display ───────── -->
+  <div class="search-eyebrow search-fade">
+    <span class="dot" aria-hidden="true"></span>
+    <span>SmallStack · Search</span>
+  </div>
+
+  <h1 class="search-display search-fade d1">
+    Find <span class="accent">anything.</span>
+  </h1>
+
+  <p class="search-subhead search-fade d2">
+    Across <strong>{{ registered_models }}</strong>
+    indexed model{{ registered_models|pluralize }} and the bundled help
+    documentation. Free-text query with phrase, prefix, exclusion, and
+    boolean operators — same syntax across SQLite FTS5 and Postgres FTS.
+  </p>
+
+  <!-- ───────── The instrument ───────── -->
+  <form method="get" action="{% url 'showcase:search' %}" class="search-fade d3" autocomplete="off">
+    <label class="search-instrument">
+      <svg viewBox="0 0 24 24" class="search-icon" fill="currentColor" aria-hidden="true">
+        <path d="M15.5 14h-.79l-.28-.27A6.5 6.5 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16
+                 c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14
+                 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
+      </svg>
+      <input type="search"
+             id="q"
+             name="q"
+             value="{{ query }}"
+             placeholder="acme support · &ldquo;customer support&rdquo; · refund* · api -slow"
+             autofocus
+             class="search-input">
+      <span class="search-input-decor" aria-hidden="true"></span>
+    </label>
+    <div class="search-meta">
+      <span>Query is case-insensitive · stems on supported backends</span>
+      <span class="return-hint"><kbd>RETURN</kbd> to search</span>
+    </div>
+  </form>
+
+  {% if query %}
+    <!-- ───────── Results ───────── -->
+    <div class="results-wrap search-fade d4">
+      {% if total_hits %}
+        <p class="results-summary">
+          Returned <span class="mono">{{ total_hits }}</span>
+          result{{ total_hits|pluralize }} for <em>&ldquo;{{ query }}&rdquo;</em>
+          across <span class="mono">{{ grouped|length }}</span>
+          source{{ grouped|length|pluralize }}.
+        </p>
+
+        {% for group in grouped %}
+          <section class="result-group">
+            <div class="result-group-head">
+              <div class="label">
+                <span class="ordinal">{{ forloop.counter|stringformat:"02d" }}</span>{{ group.model_verbose }}
+              </div>
+              <div class="count">
+                <span class="mono-num">{{ group.count }}</span>
+                result{{ group.count|pluralize }}
+              </div>
+            </div>
+            {% for hit in group.hits %}
+              {% if hit.extra.card == "article" %}
+                {# A SearchBuilder-shaped hit — PostCRUDView.transform_hit filled hit.extra; render the article card. #}
+                {% include "showcase/includes/search_article_card.html" with hit=hit %}
+              {% else %}
+                <a href="{{ hit.url|default:'#' }}" class="result-row">
+                  <div class="result-row-text">
+                    <div class="result-row-title">{{ hit.display }}</div>
+                    {% if hit.snippet or hit.subtitle %}
+                      <div class="result-row-snippet">{{ hit.snippet|default:hit.subtitle }}</div>
+                    {% endif %}
+                  </div>
+                  <div class="result-row-meta">
+                    <div class="result-row-url">{{ hit.url|default:group.model_label }}</div>
+                    <div class="result-row-arrow">→</div>
+                  </div>
+                </a>
+              {% endif %}
+            {% endfor %}
+          </section>
+        {% endfor %}
+
+      {% else %}
+        <div class="no-results">
+          <p class="no-results-display">
+            Nothing matched &ldquo;{{ query }}&rdquo;.
+          </p>
+          <p class="no-results-coda">
+            Try a shorter term, a prefix like
+            <code>{{ query|slice:":3" }}*</code>,
+            or
+            <a href="{% url 'showcase:search' %}">clear and start over</a>.
+            The index covers
+            {{ registered_models }} model{{ registered_models|pluralize }}
+            plus the help docs.
+          </p>
+        </div>
+      {% endif %}
+    </div>
+
+  {% else %}
+    <!-- ───────── Syntax poster (primary teaching surface) ───────── -->
+    <div class="syntax-poster search-fade d4">
+      <div class="syntax-poster-label">Query<br>syntax</div>
+      <div>
+        <dl class="syntax-table">
+          <dt>acme</dt>
+          <dd>Single term</dd>
+
+          <dt>acme support</dt>
+          <dd>Both words — implicit <code>AND</code></dd>
+
+          <dt>"customer support"</dt>
+          <dd>Exact phrase, word-adjacent</dd>
+
+          <dt>refund*</dt>
+          <dd>Prefix — also matches <code>refunding</code>, <code>refunded</code></dd>
+
+          <dt>acme OR beta</dt>
+          <dd>Either word</dd>
+
+          <dt>api -slow</dt>
+          <dd>Contains <code>api</code>, excludes <code>slow</code></dd>
+        </dl>
+        <p class="syntax-coda">
+          From anywhere else on the site, press
+          <kbd>Ctrl</kbd> + <kbd>K</kbd>
+          (or <kbd>⌘</kbd> + <kbd>K</kbd>)
+          to pop up the quick search overlay — a smaller version of this
+          page. This page itself is the deeper experience.
+        </p>
+      </div>
+    </div>
+
+    <!-- ───────── Shape a result — the SearchBuilder example ───────── -->
+    <div class="shape-panel search-fade d4">
+      <div class="shape-panel-label">Shape<br>a result</div>
+      <div>
+        <p>
+          Every hit on this page is a title, a line of context and a link. When a model
+          deserves more, give its CRUDView a <code>transform_hit</code>: whatever the dict
+          returns beyond <code>display</code> and <code>subtitle</code> travels with the hit
+          as <code>extra</code> — to this page, the omnibar, <code>/api/search/</code> and the
+          MCP tool alike. The blog does exactly this, so a published post renders as an
+          article card instead of a row.
+        </p>
+<pre><span class="cm"># apps/blog/views.py</span>
+<span class="kw">class</span> PostCRUDView(CRUDView):
+    enable_search  = <span class="kw">True</span>
+    search_fields  = [<span class="st">"title"</span>, <span class="st">"excerpt"</span>, <span class="st">"body_markdown"</span>]
+
+    <span class="kw">def</span> get_search_variants(self):
+        <span class="kw">return</span> {<span class="st">"default"</span>: <span class="st">"Article card"</span>, <span class="st">"compact"</span>: <span class="st">"Title + permalink"</span>}
+
+    <span class="kw">def</span> transform_hit(self, post, variant=<span class="st">"default"</span>):
+        <span class="kw">if</span> variant == <span class="st">"compact"</span>:
+            <span class="kw">return</span> {<span class="st">"display"</span>: post.title, <span class="st">"url"</span>: post.public_url}
+        <span class="kw">return</span> {
+            <span class="st">"display"</span>: post.title, <span class="st">"subtitle"</span>: post.excerpt,
+            <span class="st">"card"</span>: <span class="st">"article"</span>,                    <span class="cm"># the template switches on this</span>
+            <span class="st">"blog"</span>: post.blog.name, <span class="st">"published_at"</span>: post.published_at,
+            <span class="st">"reading_minutes"</span>: words // 220,
+            <span class="st">"tags"</span>: [t.name <span class="kw">for</span> t <span class="kw">in</span> post.tags.all()],
+            <span class="st">"cover_url"</span>: post.cover_image.url,
+        }</pre>
+        <p>
+          The page then branches on <code>hit.extra.card</code> and renders this instead of
+          the default row:
+        </p>
+        <div class="shape-panel-demo" aria-hidden="true">
+          {% include "showcase/includes/search_article_card.html" with hit=example_article_hit %}
+        </div>
+        <p class="shape-panel-coda">
+          The <code>compact</code> variant also becomes its own MCP tool,
+          <code>search_blog_posts_compact</code>, for agents that only need a permalink.
+          Template: <code>apps/showcase/templates/showcase/includes/search_article_card.html</code>.
+          Reference: <a href="{% url 'help:section_detail' section='smallstack' slug='search' %}">search docs</a>.
+        </p>
+      </div>
+    </div>
+
+    <!-- ───────── Sources registry — collapsed Swagger-style rows ───────── -->
+    {% if indexed_sources or registered_models == 0 %}
+    <div class="sources-panel search-fade d4">
+      <div class="sources-label">
+        Indexed<br>sources
+        <span class="sources-hint">Click a row to expand its schema, MCP tool, and live records.</span>
+      </div>
+      <div class="sources-list">
+        {% for source in indexed_sources %}
+          <details class="source-card{% if source.kind == 'model' %} source-card-model{% endif %}">
+            <summary class="source-card-head">
+              <svg viewBox="0 0 16 16" class="source-card-chevron" aria-hidden="true" fill="currentColor">
+                <path d="M5 3l6 5-6 5z"/>
+              </svg>
+              <span class="source-card-kind">{% if source.kind == "help" %}DOC{% else %}MODEL{% endif %}</span>
+              <span class="source-card-tool">{{ source.mcp_tool }}</span>
+              <span class="source-card-title">{{ source.label }}</span>
+              {% if source.total %}<span class="source-card-count">{{ source.total }} {% if source.kind == 'help' %}article{{ source.total|pluralize }}{% else %}record{{ source.total|pluralize }}{% endif %}</span>{% endif %}
+              {% if source.url %}<a href="{{ source.url }}" class="source-card-jump">View all →</a>{% endif %}
+            </summary>
+
+            <div class="source-card-body">
+              <div class="source-card-section">
+                <div class="section-label">Indexed fields</div>
+                <div class="source-card-fields">
+                  {% for field in source.fields %}<code class="{% if field == source.display_field %}is-display{% elif field == source.subtitle_field %}is-subtitle{% endif %}">{{ field }}</code>{% endfor %}
+                </div>
+                {% if source.display_field or source.subtitle_field %}
+                  <div class="source-fields-key">
+                    {% if source.display_field %}<span><span class="swatch"></span>display</span>{% endif %}
+                    {% if source.subtitle_field %}<span><span class="swatch muted"></span>subtitle</span>{% endif %}
+                  </div>
+                {% endif %}
+              </div>
+
+              <div class="source-card-section">
+                <div class="section-label">MCP tool</div>
+                <div class="source-signature"><span class="sig-tool">{{ source.mcp_tool }}</span>(<span class="sig-arg-name">query</span>: <span class="sig-type">str</span>, <span class="sig-arg-name">limit</span>: <span class="sig-type">int</span> = 10) <span class="sig-comment"># → ranked hits with display, snippet, url</span></div>
+              </div>
+
+              {% if source.url %}
+              <div class="source-card-section">
+                <div class="section-label">Web endpoint</div>
+                <a href="{{ source.url }}" class="source-endpoint">
+                  <span class="verb">GET</span><span>{{ source.url }}</span>
+                </a>
+              </div>
+              {% endif %}
+
+              {% if source.previews %}
+                <div class="source-card-section">
+                  <div class="section-label">Browse latest</div>
+                  <ul class="preview-list">
+                    {% for preview in source.previews %}
+                      <li class="preview-row">
+                        <a href="{{ preview.url|default:'#' }}" class="preview-link">
+                          <span class="preview-arrow">›</span>
+                          <span class="preview-text">{{ preview.display }}</span>
+                        </a>
+                        <a href="?q={{ preview.display|urlencode }}" class="preview-search"
+                           title="Search for this">
+                          <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor">
+                            <path d="M15.5 14h-.79l-.28-.27A6.5 6.5 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16
+                                     c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14
+                                     5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
+                          </svg>
+                        </a>
+                      </li>
+                    {% endfor %}
+                  </ul>
+                </div>
+              {% endif %}
+
+              {% if source.examples %}
+                <div class="source-card-section">
+                  <div class="section-label">{% if source.previews %}Or try these queries{% else %}Try a query{% endif %}</div>
+                  <div class="source-card-examples">
+                    {% for ex in source.examples %}
+                      <a href="?q={{ ex|urlencode }}" class="example-pill">{{ ex }}</a>
+                    {% endfor %}
+                  </div>
+                </div>
+              {% endif %}
+            </div>
+          </details>
+        {% endfor %}
+
+        {% if registered_models == 0 %}
+          <!-- No models opted in yet — show a clear "how to" hint -->
+          <details class="source-card source-card-empty" open>
+            <summary class="source-card-head">
+              <svg viewBox="0 0 16 16" class="source-card-chevron" aria-hidden="true" fill="currentColor">
+                <path d="M5 3l6 5-6 5z"/>
+              </svg>
+              <span class="source-card-kind">+ MODELS</span>
+              <span class="source-card-tool">enable_search</span>
+              <span class="source-card-title">Add searchable models</span>
+            </summary>
+            <div class="source-card-body">
+              <p class="empty-hint">
+                No CRUDView has <code>enable_search = True</code> yet. Opt in to
+                the search index from any CRUDView with three lines:
+              </p>
+              <pre class="empty-snippet"><code>class TicketCRUDView(CRUDView):
+    enable_search = True
+    search_fields = ["title", "description"]
+    search_display = "title"</code></pre>
+              <p class="empty-coda">
+                The model joins this index, lights up an MCP
+                <code>search_tickets</code> tool for Claude, and starts appearing
+                here. See
+                <a href="{% url 'help:section_detail' section='smallstack' slug='search' %}">the search docs</a>.
+              </p>
+            </div>
+          </details>
+        {% endif %}
+      </div>
+    </div>
+    {% endif %}
+  {% endif %}
+</div>
+{% endblock %}

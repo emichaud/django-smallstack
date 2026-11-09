@@ -17,21 +17,27 @@
             <li class="topbar-nav-item">
                 <a href="{% url 'website:home' %}" class="topbar-nav-link{% if request.path == '/' %} active{% endif %}">Home</a>
             </li>
+            {% comment %}SmallStack's showcase pages (apps/showcase). "url … as" reverses quietly, so these go away with the app.{% endcomment %}
+            {% url 'showcase:getting_started' as getting_started_url %}{% if getting_started_url %}
             <li class="topbar-nav-item">
-                <a href="{% url 'website:getting_started' %}" class="topbar-nav-link{% if '/getting-started' in request.path %} active{% endif %}">Getting Started</a>
-            </li>
+                <a href="{{ getting_started_url }}" class="topbar-nav-link{% if '/getting-started' in request.path %} active{% endif %}">Getting Started</a>
+            </li>{% endif %}
+            {% url 'showcase:platform_datasets_calendars' as datasets_url %}{% if datasets_url %}
             <li class="topbar-nav-item">
-                <a href="{% url 'website:platform_datasets_calendars' %}" class="topbar-nav-link{% if '/platform/datasets' in request.path %} active{% endif %}">Datasets &amp; Calendars</a>
-            </li>
+                <a href="{{ datasets_url }}" class="topbar-nav-link{% if '/platform/datasets' in request.path %} active{% endif %}">Datasets &amp; Calendars</a>
+            </li>{% endif %}
+            {% url 'showcase:platform_blogs_newsletters' as blogs_url %}{% if blogs_url %}
             <li class="topbar-nav-item">
-                <a href="{% url 'website:platform_blogs_newsletters' %}" class="topbar-nav-link{% if '/platform/blogs' in request.path %} active{% endif %}">Blogs</a>
-            </li>
+                <a href="{{ blogs_url }}" class="topbar-nav-link{% if '/platform/blogs' in request.path %} active{% endif %}">Blogs</a>
+            </li>{% endif %}
+            {% url 'showcase:prompts' as prompts_url %}{% if prompts_url %}
             <li class="topbar-nav-item">
-                <a href="{% url 'website:prompts' %}" class="topbar-nav-link{% if '/prompts' in request.path %} active{% endif %}">Prompts</a>
-            </li>
+                <a href="{{ prompts_url }}" class="topbar-nav-link{% if '/prompts' in request.path %} active{% endif %}">Prompts</a>
+            </li>{% endif %}
+            {% url 'showcase:search' as search_url %}{% if search_url %}
             <li class="topbar-nav-item">
-                <a href="{% url 'website:search' %}" class="topbar-nav-link{% if request.path == '/search/' %} active{% endif %}">Search</a>
-            </li>
+                <a href="{{ search_url }}" class="topbar-nav-link{% if request.path == search_url %} active{% endif %}">Search</a>
+            </li>{% endif %}
         </ul>
     </nav>
 

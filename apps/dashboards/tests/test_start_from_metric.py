@@ -60,10 +60,10 @@ def test_the_browser_lists_the_metrics_on_this_dataset(client, staff, errors):
     resp = client.get(BROWSE)
     saved = {m["key"]: m for m in resp.context["saved_metrics"]}
     assert set(saved) == {"srv_errors", "slow"}  # this dataset's, not archived ones
-    assert _query(saved["srv_errors"]["url"]) == {
-        "metric": "srv_errors",
-        "filter_tree": json.dumps(TREE, separators=(",", ":")),
-    }
+    errors_query = _query(saved["srv_errors"]["url"])
+    # Compared as JSON, not as a string: Postgres's jsonb doesn't keep key order.
+    assert json.loads(errors_query.pop("filter_tree")) == TREE
+    assert errors_query == {"metric": "srv_errors"}
     # A measure's roll-up comes along too.
     assert _query(saved["slow"]["url"]) == {"metric": "slow", "measure": "response_time_ms", "agg": "avg"}
     html = resp.content.decode()
@@ -86,7 +86,7 @@ def test_a_loaded_metric_makes_a_copy(client, staff, errors):
 
 def test_without_javascript_a_pick_loads_the_same_address(client, staff, errors):
     resp = client.get(BROWSE, {"metric": "srv_errors"})
-    assert resp.status_code == 302 and _query(resp.url)["filter_tree"] == json.dumps(TREE, separators=(",", ":"))
+    assert resp.status_code == 302 and json.loads(_query(resp.url)["filter_tree"]) == TREE
     assert client.get(BROWSE, {"metric": ""}).status_code == 200  # "start over"
     assert client.get(BROWSE, {"metric": "nope"}).status_code == 200
 

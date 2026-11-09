@@ -8,6 +8,121 @@ listed, no downstream migration is required.
 
 ---
 
+## v0.30.1 — SmallStack's demo pages move to `apps/showcase`; error pages become app defaults
+
+**Who is affected:** every project, once. This is the merge that stops `apps/website/`, the error
+pages and `README.md` conflicting on every later release.
+
+**What changed.**
+
+- The demo pages left `apps/website/` for a new app, **`apps/showcase/`** (namespace `showcase`):
+  about, getting started, prompts, both platform pages, the starter pages, `/components/` and the
+  public `/search/`. Their URLs are unchanged; their names went from `website:about` to
+  `showcase:about` (and so on). Their templates and static moved with them (from
+  `templates/website/`, `templates/starter*`, `smallstack/pages/{about,getting_started,starter}_*`
+  and `static/website/` + `static/starter/`). `apps/website/` keeps the home page, `base.html` and
+  the chart card types (`dashboard_cards.py`).
+- The 400/403/404/500 pages moved from `templates/` to `apps/smallstack/templates/`, and
+  `errors.css` to `static/smallstack/css/templates/errors.css`. A `templates/404.html` of your own
+  now overrides the default without upstream ever shipping that path.
+- `README.md` is short and stable; SmallStack's description is `docs/smallstack.md`.
+
+**Migration.**
+
+- **Conflicts on files you rewrote** (`apps/website/views.py`, `urls.py`, `templates/website/*.html`,
+  `templates/40x.html`, `README.md`): keep yours. Upstream deleted or shrank them; nothing you keep
+  there is overwritten again.
+- **Links to the moved pages:** `grep -rnE "website:(about|getting_started|prompts|platform_|starter|components|search)" apps templates`
+  finds any left in your own templates. Point them at `showcase:…`, or use
+  `{% url 'showcase:about' as u %}{% if u %}…{% endif %}` so they survive deleting the app.
+- **Your own error pages** linking `website/css/templates/errors.css`: point them at
+  `smallstack/css/templates/errors.css`.
+- **Don't want the demo pages:** delete `apps/showcase/`, `"apps.showcase"` from `INSTALLED_APPS`
+  and its `include()` from `config/urls.py`. Keep them out on later merges (the conflict table in
+  `docs/skills/integration-workflow.md` says how).
+
+## v0.30.1 — a dataset filter value that won't parse is refused
+
+**Who is affected:** code or links that send a dataset a flat filter it can't read:
+`?created_at__gte=2026-13-45`, an unknown `__period` key, a non-number on a numeric column.
+
+**What changed.** Such a value used to be dropped, so the request returned every row. It now
+raises `ValueError` from `rows()`/`series()`/`scalar()`/`cells()`, a 400 over REST, and the
+dataset browser shows no rows with "These filters can't be applied". A blank value still means no
+filter.
+
+**Migration.** Check callers that build filter values themselves; `Dataset.filter_problems(filters)`
+lists what a set of filters would refuse without running a query. Each schema filter's `lookups`
+names the suffixes it takes.
+
+## v0.30.0 at a glance — what changes a build coming from 0.29
+
+Each line is one thing to check. The sections below have the details.
+
+- **CSP: `script-src` has no `'unsafe-inline'`.** Inline `<script>` blocks and `on…=` handlers in
+  your own templates stop running. See *inline scripts are blocked* below.
+- **A new app, `apps.dashboards`, is in `INSTALLED_APPS`:** a nav item (on by default), MCP tools,
+  14 migrations, and the shipped defaults synced after every migrate. See *dashboards arrive* below.
+- **Webhooks get their own queue and worker:** `webhooks` in `TASKS`, `WORKER_WEBHOOKS` in the
+  entrypoint, `SMALLSTACK_WEBHOOK_QUEUE`.
+- **Invite and sign-in-code emails are queued;** `EMAIL_TIMEOUT` now defaults to 10 seconds.
+  `SMALLSTACK_ACCOUNTS_EMAILS_INLINE` keeps the old in-request send.
+- **Cards over a dataset carry their own source** (migration `0012_card_sources`), and only
+  administrators change a dashboard's address.
+- **New settings, all with working defaults:** `SMALLSTACK_DASHBOARDS_ENABLED`,
+  `SMALLSTACK_DASHBOARD_DEFAULTS_SYNC`, `SMALLSTACK_ACCOUNTS_EMAILS_INLINE`,
+  `SMALLSTACK_WEBHOOK_QUEUE`, `SMALLSTACK_FEEDS_MAX_CONCURRENT_FETCHES`,
+  `HEARTBEAT_MAX_CONCURRENT_CHECKS` (8, endpoint checks probed in parallel) and
+  `HEARTBEAT_RUN_DEADLINE_SECONDS` (50, a probe still running this long counts as down).
+
+## v0.30.0 — inline scripts are blocked
+
+**Who is affected:** any project whose own templates carry an inline `<script>` block or an
+`onclick="…"` (or any `on…=`) handler.
+
+**What changed.** The CSP's `script-src` is `'self'` with no `'unsafe-inline'`, in settings and on
+the API docs pages. The browser refuses inline code and logs the blocked line in the console; the
+page still renders, so the symptom is a control that does nothing. Every SmallStack template moved
+its code to static files. Four tests guard the policy: `test_csp_script_src_allows_no_inline_script`
+and the inline script, handler and `<style>` sweeps in `apps/smallstack/test_template_hygiene.py`.
+
+**Migration.**
+
+- **Size it.** From v0.30.1, `manage.py template_hygiene` lists every inline script,
+  handler and style block by file and line. On 0.30.0 itself, grep:
+
+  ```bash
+  grep -rnE --include='*.html' '<script\b[^>]*>' apps templates \
+    | grep -vE 'src=|type="(application/(ld\+)?json|text/template|importmap)"'   # inline blocks
+  grep -rnE --include='*.html' " on[a-z]+=[\"']" apps templates                  # handlers
+  ```
+- **Move them** as `docs/skills/templates.md` describes: scripts to static files with server values on
+  data- attributes, handlers to `data-confirm` / `data-autosubmit` / `data-ss-action`.
+- **Stopgap:** add `"'unsafe-inline'"` back to `CONTENT_SECURITY_POLICY["DIRECTIVES"]["script-src"]`.
+  On 0.30.0 the four tests above then fail, because they sweep your templates too; skip them in your
+  `conftest.py` until you take v0.30.1. From v0.30.1 they follow the policy in
+  force: with the stopgap, only SmallStack's templates are swept, and the settings test skips.
+- **A step between:** django-csp's nonce (`csp.constants.NONCE` in `script-src`,
+  `nonce="{{ request.csp_nonce }}"` on a block you can't move yet). A browser that sees a nonce
+  ignores `'unsafe-inline'`, and a nonce can't cover an `on…=` handler, so move the handlers first.
+
+## v0.30.0 — dashboards arrive (a new app in `INSTALLED_APPS`)
+
+**Who is affected:** every project, since `apps.dashboards` is in the bundled `INSTALLED_APPS`.
+
+**What changed.** The app (label `smallstack_dashboards`) adds metrics, dashboards, reports, goal
+lists and playlists at `/smallstack/dashboards/`, a nav item, MCP tools, and 14 migrations. After
+every migrate it creates and updates the defaults apps ship (`dashboard_defaults.py`), never
+overwriting an edited one. With it installed, the `/smallstack/` page is an editable dashboard.
+
+**Migration.**
+
+- Merging your own `INSTALLED_APPS`: keep `"apps.dashboards"` and run `make migrate`.
+- Don't want it yet: set `SMALLSTACK_DASHBOARDS_ENABLED=False`. The nav item, routes and MCP tools go
+  away, while the app stays installed so turning it on later needs no schema change.
+- Don't want the defaults synced on migrate (a deploy that migrates on boot, say): set
+  `SMALLSTACK_DASHBOARD_DEFAULTS_SYNC=False` and run `manage.py dashboard_defaults` when you choose.
+
 ## v0.30.0 — webhooks get a queue and a worker of their own
 
 **Who is affected:** deployments using the bundled `docker-entrypoint.sh`, and

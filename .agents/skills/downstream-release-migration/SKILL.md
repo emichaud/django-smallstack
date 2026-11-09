@@ -1,6 +1,6 @@
 ---
 name: downstream-release-migration
-description: "Migrating a fork onto a new release — additive vs breaking changes, the false-test-result + removed-symbol traps, this release's actions"
+description: "Migrating a fork onto a new release — additive vs breaking changes, the false-test-result + removed-symbol traps, finding what each crossed version changes"
 license: MIT
 metadata:
   source: "docs/skills/downstream-release-migration.md"
@@ -34,7 +34,7 @@ not for a same-day patch.
 ```bash
 cd ../<your-project>                    # the project you're upgrading
 git fetch upstream
-gh release view vX.Y.Z --repo emichaud/django-smallstack   # read what you're pulling
+# Read what you're pulling: every version you cross (see "What your crossing changes")
 git merge upstream/main
 ```
 
@@ -47,8 +47,9 @@ make migrate
 # 1. Run the suite UNDER THE REAL TEST SETTINGS — a configured dev shell lies (see below).
 uv run pytest --ds=config.settings.test
 
-# 2. Look for downstream code that imports symbols this release removed.
-grep -rn "django_tables2\|apps.smallstack.tables\|table_class" apps/
+# 2. Look for downstream code that imports symbols a crossed release removed
+#    (UPGRADING.md names them; v0.12's was django-tables2):
+grep -rn "<removed symbol>" apps/
 
 make lint
 make run                                # spot-check UI before deploying
@@ -74,22 +75,36 @@ explorer-discovery tests flip-flop; local green ≠ CI green.
 
 ### 2. Removed public symbols break downstream imports silently
 The base keeps its *own* apps green by migrating them in the same commit, so a removal doesn't
-break the base — it breaks **your** app's imports on merge. Run the `grep` above. The current
-release line has already removed `django-tables2` (see next section).
+break the base — it breaks **your** app's imports on merge. Run the `grep` above for each
+symbol `UPGRADING.md` lists as removed in a version you cross.
 
 ---
 
-## This release line: what to do
+## What your crossing changes
 
-The django-tables2 removal is the one breaking change; everything else is additive or cosmetic.
+Read these for **every** version between your base and the target, oldest first:
 
-| Change | Type | Downstream action |
-|---|---|---|
-| **django-tables2 removed** (`apps/smallstack/tables.py` deleted; `django_tables2` dropped from deps) — already on `main`, labeled v0.12.0 in `UPGRADING.md` | **BREAKING** | If any of your CRUDViews use `table_class` or import `apps.smallstack.tables` (`ActionsColumn`/`BooleanColumn`/`DetailLinkColumn`), they fail to import. Follow the `table_class → list_fields`/`link_field`/`field_transforms`/`row_actions` recipe in **`UPGRADING.md`** (root). Run the grep to find sites. |
-| **Test-settings pin + hermetic dev-superuser test** (v0.11.14) | Fix | None. After merge `make test` is settings-deterministic; drop any local Makefile `--ds` workaround. |
-| **API admin "Endpoints" page** (new tab on `/smallstack/api/` — services links + enabled-models table) | Additive | None. New view/url/template. *Only* if you customized `apps/api/templates/api/admin/_nav.html` or `health.html`, take upstream and reapply your changes (the nav gained a third tab). |
-| **MCP activity filter buttons + placeholder fix** (`apps/mcp/templates/mcp/admin/activity.html`) | Cosmetic | Take upstream. Conflict only if you edited that template. |
-| **Pluggable status-monitoring subsystem** (`/smallstack/status/` + public `/status/` board, Site/External monitors, per-monitor SLA, surface toggles) | Additive (touches shared config) | Read **`merge-0.12.0.md`** — it covers the integration points (surface-toggle settings, `config/urls.py` route gating, the `views` autodiscover that moved to `SmallStackConfig.ready()`, heartbeat migrations `0007`–`0011`). The one trap: keep the autodiscover call if you overrode `apps/smallstack/apps.py`, or Search goes empty. |
+1. **`### Upgrading from X.Y`** at the top of each version's `CHANGELOG.md` entry (from 0.30.0
+   on): one line per thing that changes a build.
+2. **`UPGRADING.md`**, every section for those versions: who is affected, what changed, and the
+   migration steps. v0.30.0's starts with an "at a glance" list.
+3. **The diff itself**, for whatever the notes don't say:
+
+```bash
+B=v0.28.0; T=v0.30.0                                      # your base, your target
+git diff $B $T -- config/settings/ docker-entrypoint.sh   # settings, INSTALLED_APPS, TASKS, CSP, entrypoint
+git diff --stat $B $T -- 'apps/*/migrations/*'           # new migrations (and new apps)
+git diff $B $T -- .env.example pyproject.toml            # new env vars, dependencies
+```
+
+Releases from 0.29 to 0.30 changed these for downstreams: the CSP's `script-src` (inline scripts
+are blocked, with a stopgap), a new `apps.dashboards` app, a `webhooks` task queue with its own
+entrypoint worker, queued account emails with `EMAIL_TIMEOUT=10`, and new settings. All are in
+`UPGRADING.md` under v0.30.0.
+
+**Older release lines.** v0.11 → v0.12 removed django-tables2 (`table_class` → `list_fields` /
+`link_field` / `field_transforms` / `row_actions`, recipe in `UPGRADING.md`) and added the
+status-monitoring subsystem (`merge-0.12.0.md`). v0.11.14 pinned `--ds=config.settings.test`.
 
 ---
 
@@ -98,10 +113,10 @@ The django-tables2 removal is the one breaking change; everything else is additi
 A downstream migration is done when, **after merge**:
 
 1. `uv run pytest --ds=config.settings.test` is green (not just `make test` in your shell).
-2. `grep -rn "django_tables2\|apps.smallstack.tables\|table_class" apps/` returns nothing (or
-   only sites you've migrated per `UPGRADING.md`).
-3. `make lint` is clean and `make run` spot-checks render (load `/smallstack/api/` and any page
-   whose CRUDView you migrated off `table_class`).
+2. The removed-symbol greps for every crossed version return nothing (or only sites you've
+   migrated per `UPGRADING.md`).
+3. `make lint` is clean and `make run` spot-checks render: the pages the crossed versions touched,
+   and your own pages with controls (an inline script the CSP blocks fails without an error).
 4. `make migrate` reports no unapplied migrations.
 
 Then commit (`chore: Pull upstream SmallStack vX.Y.Z`) and deploy per `integration-workflow.md`.

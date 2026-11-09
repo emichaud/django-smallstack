@@ -294,7 +294,7 @@ Quick summary of available classes:
 | Forms | `.crud-form`, `.crud-field`, `.crud-label`, `.crud-actions` |
 | Search | `.search-input` |
 
-A copy-paste starter template is at `templates/smallstack/starter.html`.
+A copy-paste starter template is at `apps/showcase/templates/showcase/includes/starter_content.html`.
 
 ### Messages/Alerts
 

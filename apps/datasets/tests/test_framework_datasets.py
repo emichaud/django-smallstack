@@ -11,6 +11,7 @@ from __future__ import annotations
 import pytest
 from django.contrib.auth import get_user_model
 from django.test import override_settings
+from django.urls import reverse
 
 from apps.datasets.core import get_dataset, list_datasets
 from apps.datasets.framework import (
@@ -156,11 +157,11 @@ def test_blog_issue_ratio_measures_roll_up_from_summed_parts() -> None:
 def test_rest_list_includes_bundled_datasets_for_staff(client) -> None:
     staff = User.objects.create_user(username="ds-staff", password="pw-123456", is_staff=True)
     client.force_login(staff)
-    resp = client.get("/smallstack/datasets/")
+    resp = client.get(reverse("datasets:list"))
     assert resp.status_code == 200
     keys = {d["key"] for d in resp.json()["results"]}
     assert EXPECTED_KEYS <= keys
-    resp = client.get("/smallstack/datasets/smallstack_requests/")
+    resp = client.get(reverse("datasets:rows", args=["smallstack_requests"]))
     assert resp.status_code == 200
     body = resp.json()
     # The activity middleware logged the list call above, so the dataset
@@ -168,7 +169,7 @@ def test_rest_list_includes_bundled_datasets_for_staff(client) -> None:
     assert body["total"] >= 1
     assert body["total"] == body["count"]
     paths = {r["path"] for r in body["results"]}
-    assert "/smallstack/datasets/" in paths
+    assert reverse("datasets:list") in paths
     assert "user_agent" not in body["results"][0]
 
 

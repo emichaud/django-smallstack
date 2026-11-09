@@ -26,6 +26,8 @@ _RESERVED = {
     "limit",
     "offset",
     "group_by",
+    "group_by2",
+    "sort",
     "scalar",
     "measure",
     "agg",
@@ -67,30 +69,37 @@ def _bucket_dimension(field: str, args: dict) -> dict | None:
     return dim
 
 
+#: Tool-argument help for each explicit lookup suffix (``core._LOOKUPS_BY_TYPE``).
+_LOOKUP_HELP = {
+    "gte": "{name} at or above this value (dates: ISO, inclusive).",
+    "gt": "{name} above this value.",
+    "lte": "{name} at or below this value.",
+    "lt": "{name} below this value (dates: ISO, exclusive).",
+    "period": "{name} within a relative period: today, yesterday, wtd, mtd, qtd, ytd, last_<N>, … "
+    "(describe_dataset lists them).",
+    "ne": "{name} is not this value (rows without one are kept).",
+    "icontains": "{name} contains this text (case-insensitive).",
+}
+
+
 def _input_schema(dfn: DatasetDef) -> dict[str, Any]:
     """JSON Schema for a dataset tool. Filter field names are derived DB-free."""
-    from .core import Dataset
+    from .core import _AGG_NAMES, _LOOKUPS_BY_TYPE, Dataset
 
     props: dict[str, Any] = {}
     declared_measures: list[str] = []
     try:
         ds = Dataset(dfn)
-        cols = dict(ds.columns())
-        date_cols = set()
+        types = ds.filter_column_types()
         for fname in ds.filter_field_names():
             props[fname] = {"type": "string", "description": f"Filter by {fname}."}
-            if cols.get(fname) in ("date", "datetime"):
-                date_cols.add(fname)
-        # Explicit half-open date bounds alongside the bare-column preset.
-        for fname in date_cols:
-            props[f"{fname}__gte"] = {
-                "type": "string",
-                "description": f"{fname} on/after this ISO date/datetime (inclusive).",
-            }
-            props[f"{fname}__lt"] = {
-                "type": "string",
-                "description": f"{fname} before this ISO date/datetime (exclusive).",
-            }
+        # The explicit lookups each column's type takes, alongside its bare key.
+        for fname in ds.filter_field_names():
+            for lookup in _LOOKUPS_BY_TYPE.get(types.get(fname, ""), ()):
+                props[f"{fname}__{lookup}"] = {
+                    "type": "string",
+                    "description": _LOOKUP_HELP[lookup].format(name=fname),
+                }
         declared_measures = list(ds.declared_measures())
     except Exception:
         # A dataset whose queryset can't be constructed at startup still gets a
@@ -110,6 +119,22 @@ def _input_schema(dfn: DatasetDef) -> dict[str, Any]:
     props["group_by"] = {
         "type": "string",
         "description": "Return a grouped series ([{label, value}]) by this dimension instead of rows.",
+    }
+    props["group_by2"] = {
+        "type": "string",
+        "description": (
+            "With group_by, a second dimension: return a complete grid "
+            "[{x, x_label, y, y_label, value}] (a heatmap) instead of a series. "
+            "Each axis takes at most 30 distinct values."
+        ),
+    }
+    props["sort"] = {
+        "type": "string",
+        "enum": ["category", "-category", "value", "-value"],
+        "description": (
+            "Series order (default category: the dimension's order). value/-value ranks by the "
+            "aggregate before limit applies, so -value with limit N is a top N."
+        ),
     }
     props["buckets"] = {
         "type": "array",
@@ -153,7 +178,7 @@ def _input_schema(dfn: DatasetDef) -> dict[str, Any]:
     props["measure"] = {"type": "string", "description": measure_desc}
     props["agg"] = {
         "type": "string",
-        "enum": ["count", "sum", "avg", "min", "max", "distinct"],
+        "enum": list(_AGG_NAMES),
         "description": "Aggregation for the series/scalar (default count).",
     }
     props["ordering"] = {
@@ -198,12 +223,32 @@ def _build_query_tool(tool: Any, dfn: DatasetDef) -> None:
         # A bucketed dimension: group_by is the field, buckets/auto define the
         # bands → count-only [{key, label, value, lo, hi}].
         dimension = _bucket_dimension(group_by, args)
+        group_by2 = (args.get("group_by2") or "").strip()
+        if group_by and group_by2:
+            try:
+                cells = ds.cells(
+                    group_by,
+                    group_by2,
+                    measure=(args.get("measure") or None),
+                    agg=(args.get("agg") or "count"),
+                    filters=filters,
+                    request=request,
+                    filter_tree=filter_tree,
+                )
+            except ValueError as exc:
+                return {"error": str(exc)}
+            return {"key": _key, "mode": "cells", "count": len(cells), "cells": cells}
         if group_by:
+            raw_sort = (args.get("sort") or "").strip()
+            sort = (
+                {"by": raw_sort.lstrip("-"), "dir": "desc" if raw_sort.startswith("-") else "asc"} if raw_sort else None
+            )
             try:
                 series = ds.series(
                     dimension if dimension is not None else group_by,
                     measure=(args.get("measure") or None),
                     agg=(args.get("agg") or "count"),
+                    sort=sort,
                     limit=args.get("limit") or 50,
                     filters=filters,
                     request=request,

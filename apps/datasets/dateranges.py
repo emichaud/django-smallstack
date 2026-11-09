@@ -13,7 +13,17 @@ Every bound is a **local midnight** and every range is **half-open**
 "up to this second" — which is what a dashboard reader means by "MTD".
 
 Ported from call_stats' ``apps/datasets/dateranges.py`` with the service-desk
-specifics removed (its week ended Saturday; this one is a plain Monday week).
+specifics removed. What changed for a spec stored against the original:
+
+* ``previous`` is now ``yesterday``. The old key still resolves (``PERIOD_ALIASES``).
+* ``wtd`` ran Monday through Saturday; it now runs Monday through today.
+  ``pwtd`` was last Monday through Friday; it is now the whole of last week.
+* ``today`` / ``mtd`` / ``qtd`` / ``ytd`` ended at *now*; they now end at
+  tomorrow's midnight, so a row dated later today now counts.
+* ``last_<N>`` was the rolling N×24 hours before now; it is now N calendar
+  days ending today, from local midnight.
+* ``relative_range()`` returned ``(None, None)`` for an unknown key and could
+  return an open upper bound; it now returns ``None`` or two bounds.
 """
 
 from __future__ import annotations
@@ -50,6 +60,11 @@ RELATIVE_PERIODS: list[tuple[str, str]] = [
 # Not offered in pickers: it exists so "last week" has a week to compare with.
 _PERIOD_LABELS = {**dict(RELATIVE_PERIODS), "ppwtd": "The week before last"}
 
+#: Keys an earlier vocabulary used. They still resolve, so a stored spec keeps
+#: working, but no picker offers them. ``previous`` is call_stats' name for
+#: yesterday, from before the port.
+PERIOD_ALIASES: dict[str, str] = {"previous": "yesterday"}
+
 #: Ceiling for the generic ``last_<N>`` / ``next_<N>`` spellings (~27 years) —
 #: past it the date arithmetic overflows; nobody means it.
 _MAX_ROLLING_DAYS = 10_000
@@ -69,12 +84,14 @@ def is_period(key: object) -> bool:
     """True when *key* names a period :func:`relative_dates` can resolve."""
     if not isinstance(key, str):
         return False
+    key = PERIOD_ALIASES.get(key, key)
     return key in _PERIOD_LABELS or _rolling_days(key, "last_") is not None or _rolling_days(key, "next_") is not None
 
 
 def period_label(key: str) -> str:
     """Human label for a period key ("mtd" → "Month to date", "last_45" →
     "Last 45 days"). Unknown keys come back unchanged."""
+    key = PERIOD_ALIASES.get(key, key)
     if key in _PERIOD_LABELS:
         return _PERIOD_LABELS[key]
     for prefix, word in (("last_", "Last"), ("next_", "Next")):
@@ -98,6 +115,7 @@ def relative_dates(key: str, today: Optional[date] = None) -> Optional[tuple[dat
     """
     if not isinstance(key, str):
         return None
+    key = PERIOD_ALIASES.get(key, key)
     if today is None:
         today = _today()
     tomorrow = today + timedelta(days=1)

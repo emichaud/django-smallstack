@@ -110,19 +110,6 @@ def test_trend_card_draws_a_hand_entered_metric_as_it_is(client, staff, metric):
         board.full_clean()
 
 
-def test_dashboard_starter_page_embeds_a_dashboard(client, staff, metric):
-    board = _board({})
-    board.owner = None
-    board.save()
-    html = client.get("/starter/dashboard/").content.decode()
-    assert 'class="dash-embed"' in html and "/smallstack/dashboards/d/wc-trends/cells/t/" in html
-    assert 'metric_card "wc_req" period="mtd"' in html
-
-
-def test_dashboard_starter_page_needs_a_login(client):
-    assert client.get("/starter/dashboard/").status_code == 302
-
-
 # -- thresholds and styling (the trend card is a ``stylable`` type) ---------------------
 
 

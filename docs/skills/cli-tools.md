@@ -21,6 +21,7 @@ Two tables: a **task → tool map** (the most common lookups) and a **tool → d
 | start the dev server | `make run` (port 8005; `PORT=N make run` to change) |
 | run tests | `make test` (full) or `uv run pytest -k <name>` (one) |
 | lint | `make lint` (ruff + mypy + skill-index check) / `make lint-fix` (ruff autofix) |
+| **find inline scripts / `onclick=` handlers** the CSP blocks (size a CSP migration) | `uv run python manage.py template_hygiene [--summary] [--check]` — see [`templates.md`](templates.md) |
 | register a **new skill file** (or fix "index.json is stale") | add a row to [`README.md`](README.md)'s table, then `make skills-index` |
 | check that the **REST API is healthy** | `uv run python manage.py api_doctor` |
 | understand **what API endpoints exist** | `uv run python manage.py api_doctor --explain` |
@@ -102,6 +103,7 @@ When the user names a specific tool, here's the skill (or reference doc) that ex
 | `create_api_token` | [`manage-api-tokens.md`](manage-api-tokens.md) |
 | `backup_db` / `make backup` | (DB backup doc — `apps/smallstack/docs/database-backups.md`) |
 | `screenshot_auth` + `shot-scraper` | [`screenshot-workflow.md`](screenshot-workflow.md) |
+| `template_hygiene` | [`templates.md`](templates.md) |
 | `heartbeat` | (Heartbeat doc — `apps/smallstack/docs/uptime-monitoring.md`) |
 | `prune_activity` | [`activity-tracking.md`](activity-tracking.md) |
 | `log_capture` / `prune_logs` | [`logging-audit.md`](logging-audit.md) |

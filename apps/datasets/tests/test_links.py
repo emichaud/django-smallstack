@@ -130,11 +130,11 @@ def test_get_absolute_url_fallback_when_no_crud_detail():
 
 def test_rest_rows_and_csv_carry_url(client, staff):
     log = _one_request()
-    resp = client.get("/smallstack/datasets/smallstack_requests/?path=/x")
+    resp = client.get(f"{reverse('datasets:rows', args=['smallstack_requests'])}?path=/x")
     assert resp.status_code == 200
     (row,) = resp.json()["results"]
     assert row["url"].endswith(f"/{log.pk}/")
-    resp = client.get("/smallstack/datasets/smallstack_requests/?path=/x&format=csv")
+    resp = client.get(f"{reverse('datasets:rows', args=['smallstack_requests'])}?path=/x&format=csv")
     header, line = resp.content.decode().splitlines()[:2]
     assert header.split(",")[-1] == "url"
     assert line.endswith(f"/{log.pk}/")
