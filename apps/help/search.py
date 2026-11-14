@@ -18,7 +18,7 @@ from django.db import transaction
 
 from apps.search.backends.base import SearchHit
 
-logger = logging.getLogger("smallstack.search.help")
+logger = logging.getLogger(__name__)
 
 # Single virtual table for help articles. Keyed by (section, slug) so
 # the same slug can exist in different sections without colliding.
@@ -178,6 +178,7 @@ def _help_index_row_count() -> int:
             row = cur.fetchone()
             return int(row[0]) if row else 0
     except Exception:
+        logger.debug("Couldn't count the help search index (not built yet?)", exc_info=True)
         return 0
 
 
@@ -372,6 +373,7 @@ def help_article_count() -> int:
             row = cur.fetchone()
             return int(row[0]) if row else 0
     except Exception:
+        logger.debug("Couldn't count the help search index (not built yet?)", exc_info=True)
         return 0
 
 
@@ -532,6 +534,7 @@ def help_chunk_count() -> int:
             row = cur.fetchone()
             return int(row[0]) if row else 0
     except Exception:
+        logger.debug("Couldn't count the help chunk index (not built yet?)", exc_info=True)
         return 0
 
 

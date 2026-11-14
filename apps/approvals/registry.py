@@ -27,7 +27,7 @@ from dataclasses import dataclass, field
 from datetime import timedelta
 from typing import Any, Callable, Iterator
 
-logger = logging.getLogger("smallstack.approvals")
+logger = logging.getLogger(__name__)
 
 # on_decision receives the ApprovalRequest AFTER a terminal transition
 # (approved / rejected / canceled / expired) — it reads req.status.

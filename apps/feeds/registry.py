@@ -18,7 +18,7 @@ import logging
 
 from .base import Feed
 
-logger = logging.getLogger("smallstack.feeds")
+logger = logging.getLogger(__name__)
 
 _feeds: dict[str, Feed] = {}
 

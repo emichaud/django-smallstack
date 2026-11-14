@@ -2637,3 +2637,15 @@ class TestMidFoldDay:
         day = day_start.date()
         row = HeartbeatDaily.objects.get(date=day, monitor_key="site")
         assert _daily_uptime_map("site", day, day)[day] == round(float(row.uptime_pct), 2)
+
+
+def test_a_heartbeat_that_cant_be_recorded_is_logged(caplog):
+    """The result says "fail"; the log says why (the probe ran, the save didn't)."""
+    from apps.heartbeat import services
+    from apps.heartbeat.monitors import SiteMonitor
+
+    with caplog.at_level("ERROR", logger="apps.heartbeat.services"):
+        result = services._recording_failed(SiteMonitor(), RuntimeError("database is locked"))
+    assert result["status"] == "fail" and "database is locked" in result["note"]
+    record = next(r for r in caplog.records if r.name == "apps.heartbeat.services")
+    assert "Couldn't record heartbeat" in record.getMessage() and record.exc_info[1].args == ("database is locked",)

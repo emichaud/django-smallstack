@@ -464,7 +464,7 @@ All forms use the `.crud-form` class. This handles input styling, labels, error 
 
 All text inputs, selects, and search fields use `min-height: var(--control-height)` (default `36px`). This ensures dropdowns and inputs are tall enough to display text without clipping, and that adjacent controls (e.g. a search box next to filter dropdowns) align at the same height.
 
-The `--control-height` variable is defined in `theme.css` and referenced in `components.css`. To make all controls taller or shorter across the app, override the single variable:
+The `--control-height` variable is defined in `core.css` (imported by `theme.css`) and referenced in `components.css`. To make all controls taller or shorter across the app, override the single variable:
 
 ```css
 :root {
@@ -850,9 +850,11 @@ These are the theme variables available in any template. Use `var(--name)` in cu
 
 | File | Contains |
 |------|----------|
-| `static/smallstack/css/theme.css` | CSS variables, base layout, `.page-header-bleed`, `.stat-card-clickable`, `.stat-modal` |
-| `static/smallstack/css/components.css` | All component classes (buttons, tables, forms, cards, badges, tabs, action cards, filter toggles, stat cards, search, modals) |
+| `static/smallstack/css/core.css` | The CSS variables (design tokens, light + dark) and `.sr-only`; `theme.css` imports it |
+| `static/smallstack/css/theme.css` | Base layout and the page shell, `.page-header-bleed` |
+| `static/smallstack/css/components.css` | All component classes (buttons, tables, forms, cards, badges, tabs, action cards, filter toggles, stat cards, search, modals, the drill-down modal and help bubbles) |
+| `static/smallstack/css/embed.css` | What `{% smallstack_assets %}` loads on a project's own theme: core, palettes and components in a cascade layer |
 | `templates/smallstack/base.html` | Base template with all blocks |
 | `apps/showcase/templates/showcase/includes/starter_content.html` | Copy-paste starter template |
-| `templates/smallstack/includes/stat_modal.html` | Reusable stat card drill-down modal |
+| `templates/smallstack/includes/stat_modal.html` | The stat card drill-down modal, rendered once per page by `{% smallstack_modal %}` |
 | `templates/smallstack/crud/includes/delete_modal.html` | Reusable delete confirmation modal |

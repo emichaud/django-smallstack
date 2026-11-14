@@ -17,7 +17,7 @@ Claude.ai will:
 4. After you Allow, complete the PKCE-bound code exchange
 5. Use the resulting Bearer for subsequent `/mcp` calls
 
-If anything errors during the OAuth dance, the consent page logs the failure under `smallstack.mcp.oauth` and Claude.ai shows a generic "couldn't connect". Check `kamal app logs | grep smallstack.mcp` first.
+If anything errors during the OAuth dance, the consent page logs the failure under `apps.mcp.oauth_views` and Claude.ai shows a generic "couldn't connect". Check `kamal app logs | grep apps.mcp` first.
 
 ## Claude Desktop (mcp-remote, raw Bearer)
 

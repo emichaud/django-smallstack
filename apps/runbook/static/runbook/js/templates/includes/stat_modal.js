@@ -1,25 +1,6 @@
 // Moved from apps/runbook/templates/runbook/includes/stat_modal.html (inline <script>) so the CSP needs no 'unsafe-inline'.
-var _rbStatTrigger = null;
-var _rbStatRelease = null;
-function openStatModal(title, trigger) {
-    _rbStatTrigger = trigger || document.activeElement;
-    document.getElementById('stat-modal-title').textContent = title;
-    var modal = document.getElementById('stat-modal');
-    modal.classList.add('open');
-    // Use the shared focus-trap primitive when present (base theme.js).
-    if (window.SmallStack && window.SmallStack.trapFocus) {
-        _rbStatRelease = window.SmallStack.trapFocus(modal.querySelector('.stat-modal-panel') || modal);
-    }
-}
-function closeStatModal() {
-    document.getElementById('stat-modal').classList.remove('open');
-    if (_rbStatRelease) { _rbStatRelease(); _rbStatRelease = null; }
-    if (_rbStatTrigger && typeof _rbStatTrigger.focus === 'function') { _rbStatTrigger.focus(); }
-    _rbStatTrigger = null;
-}
-document.addEventListener('keydown', function(e) {
-    if (e.key === 'Escape') closeStatModal();
-});
+// openStatModal / closeStatModal (and Escape, the backdrop, focus) are theme.js's:
+// this file used to redefine them, which replaced theme.js's on runbook pages.
 
 /* Client-side column sorting for stat drill-down tables (.rb-sortable).
    Delegated on document so it works on htmx-injected content. */

@@ -75,7 +75,7 @@ class WebhookEndpoint(models.Model):
     headers = models.JSONField(default=dict, blank=True)
     enabled = models.BooleanField(default=True)
 
-    # True iff created by `sc webhook pair` (F-031). The pairing flow only ever
+    # True iff created by `sc webhook pair`. The pairing flow only ever
     # adopts/updates objects it owns, so a hand-made endpoint to the same URL is never
     # touched by a re-pair.
     is_paired = models.BooleanField(
@@ -245,7 +245,7 @@ class WebhookReceiver(models.Model):
     # "X-Signature" while services.SIGNATURE_HEADER is
     # "X-SmallStack-Signature", so a receiver created with defaults 401'd every
     # delivery from a SmallStack endpoint. Any spelling is still accepted for
-    # third-party senders, and the lookup is case-insensitive. (F-06.)
+    # third-party senders, and the lookup is case-insensitive.
     signature_header = models.CharField(
         max_length=80,
         default="X-SmallStack-Signature",
@@ -260,7 +260,7 @@ class WebhookReceiver(models.Model):
     require_signature = models.BooleanField(default=True)
     enabled = models.BooleanField(default=True)
 
-    # True iff created by `sc webhook pair` (F-031). The pairing flow only ever
+    # True iff created by `sc webhook pair`. The pairing flow only ever
     # adopts/updates objects it owns, so a hand-made receiver on the same slug is never
     # touched by a re-pair.
     is_paired = models.BooleanField(

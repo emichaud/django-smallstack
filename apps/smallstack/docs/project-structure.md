@@ -244,7 +244,7 @@ static/
 
 ### CSS Architecture
 
-The theme uses CSS custom properties for all colors and spacing, defined in `static/smallstack/css/theme.css`:
+The theme uses CSS custom properties for all colors and spacing, defined in `static/smallstack/css/core.css` (imported by `theme.css`):
 
 ```css
 :root {

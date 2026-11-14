@@ -8,6 +8,45 @@ listed, no downstream migration is required.
 
 ---
 
+## v0.30.3 — SmallStack's loggers are named by module
+
+**Who is affected:** anything keyed on SmallStack's logger names: a `LOGGING` entry of your own, a log
+alert or saved search, a `grep smallstack.mcp` in a runbook, `TELEMETRY_CAPTURE_LOGGERS`.
+
+**What changed.** The framework apps logged as `smallstack.<app>` (`smallstack.webhooks`,
+`smallstack.mcp.views`, …). They now use `logging.getLogger(__name__)`, so the names are module paths:
+`apps.webhooks.services`, `apps.mcp.views`, `apps.mcp.oauth_views`. The `apps` logger already configured in
+settings covers them all. MCP's own entry (INFO, so it doesn't log every tool it registers) is now
+`apps.mcp`. A `smallstack` logger is still configured, for code of your own written to the old convention.
+
+**Migration.**
+
+- In your `LOGGING`, rename a `smallstack.mcp` entry to `apps.mcp`, and any other `smallstack.<app>` entry
+  to `apps.<app>`.
+- Update log searches and alerts the same way; old records in `/smallstack/logs/` keep their old names.
+- Your own code on `getLogger("smallstack.…")` keeps working; `getLogger(__name__)` is the convention.
+
+## v0.30.3 — the design tokens move to `core.css`; embeds on your own theme
+
+**Who is affected:** forks that edited token values in `static/smallstack/css/theme.css`, and projects
+whose own base template (not `smallstack/base.html`) shows SmallStack embeds.
+
+**What changed.**
+
+- The `:root` and `[data-theme="dark"]` custom properties and `.sr-only` moved from `theme.css` to a new
+  `core.css`, which `theme.css` imports first. The drill-down modal, help-bubble and stat-list rules moved
+  to the end of `components.css`. Pages on `smallstack/base.html` load the same CSS as before (computed
+  styles checked unchanged).
+- New tags in `theme_tags`: `{% smallstack_assets %}` (head) and `{% smallstack_modal %}` (end of body).
+
+**Migration.**
+
+- **Edited tokens in `theme.css`?** The merge conflicts there. Keep upstream's `theme.css` and redo your
+  edits in `core.css`, or better, in a palette (`docs/skills/modify-palettes.md`), which upgrades never touch.
+- **Embeds on your own base template:** add the two tags (see Step 2 of `adding-your-own-theme.md`). Remove
+  any `{% include "smallstack/includes/stat_modal.html" %}` you added by hand; `{% smallstack_modal %}`
+  renders it once.
+
 ## v0.30.2 — a theme built from the theming guide doesn't save the light/dark choice
 
 **Who is affected:** projects with their own base template (Bootstrap, Tailwind, a bought theme) built

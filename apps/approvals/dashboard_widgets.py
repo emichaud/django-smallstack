@@ -25,8 +25,8 @@ class ApprovalsDashboardWidget(DashboardWidget):
         # `actionable()` — pending minus overdue — is the same definition the
         # queue and its stat card use. Counting raw `status="pending"` made the
         # widget disagree with the page it links to until someone loaded that
-        # page and the lazy sweep fired (F-19). Deliberately NOT mark_expired():
-        # the dashboard must not pay the fan-out cost (F-12).
+        # page and the lazy sweep fired. Deliberately NOT mark_expired():
+        # the dashboard must not pay the fan-out cost.
         pending = ApprovalRequest.objects.actionable()
         count = pending.count()
         if not count:

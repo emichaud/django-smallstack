@@ -116,7 +116,7 @@ class TestTestModuleExclusion:
     @pytest.mark.parametrize(
         "path",
         [
-            "apps/smallstack/test_bulk_ops.py",  # the file that tripped it
+            "apps/smallstack/tests/test_bulk_ops.py",  # the file that tripped it
             "apps/foo/test_views.py",
             "apps/foo/views_test.py",
             "apps/foo/conftest.py",
@@ -146,7 +146,7 @@ class TestTestModuleExclusion:
         If it were skipped only because the AST check missed it, the exclusion
         would be masking a detection bug rather than filtering a fixture.
         """
-        target = Path(__file__).resolve().parents[3] / "apps/smallstack/test_bulk_ops.py"
+        target = Path(__file__).resolve().parents[3] / "apps/smallstack/tests/test_bulk_ops.py"
         if not target.exists():
             pytest.skip("bulk-ops test module not present")
         assert _has_enable_mcp_classvar(target.read_text(encoding="utf-8")) is True

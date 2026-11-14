@@ -427,7 +427,7 @@ def reset_schedule(request: HttpRequest, pk: int) -> HttpResponse:
             sync_code_jobs()  # re-applies the @scheduled cadence when a spec exists
         except Exception:  # noqa: BLE001 — never let re-sync block the reset
             # The flag is cleared, so the next sync will re-apply the code
-            # cadence — but it hasn't happened yet; say so. (Audit D10c.)
+            # cadence — but it hasn't happened yet; say so.
             logger.exception("scheduler: re-sync after resetting %s failed", job.name)
             messages.warning(
                 request,

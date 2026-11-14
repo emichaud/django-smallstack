@@ -436,7 +436,7 @@ def test_a_raising_verifier_fails_closed_AND_logs(caplog):
 
     _mutating_verifier_receiver("exploding", explodes)
     body = b"{}"
-    with caplog.at_level(logging.ERROR, logger="smallstack.webhooks"):
+    with caplog.at_level(logging.ERROR, logger="apps.webhooks"):
         resp = _post(Client(), "exploding", body, services.sign("shh", body))
 
     assert resp.status_code == 401  # still fails closed

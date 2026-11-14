@@ -3,7 +3,7 @@
 ``services.request_approval`` has always accepted ``target=`` and
 ``assignees=``; neither remote surface exposed them, so every downstream app had
 to ship a bespoke filing endpoint just to attach an approval to a business row —
-the exact duplication a primitive exists to prevent. (F-03.)
+the exact duplication a primitive exists to prevent.
 
 REST and MCP share these resolvers so the two surfaces accept the same spellings
 and produce the same errors. Transport-free by design (no request objects, no

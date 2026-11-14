@@ -96,7 +96,7 @@ def cover_upload_to(instance: "Post", filename: str) -> str:
 
     Same hardening as ``runbook.models.document_image_upload_to``, which exists
     because keeping the client's name once let ``logo.html`` be stored as such
-    and served with a type guessed from it (audit C7). Blog covers live under
+    and served with a type guessed from it. Blog covers live under
     the *public* ``blog/`` media prefix, so that matters more here, not less:
     unlike runbook files there is no access-checked view in front of them.
     """

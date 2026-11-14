@@ -45,8 +45,8 @@ The dashboard widget is the cheapest signal — it's just a registry count + a c
 ## What the pages do NOT cover
 
 - **Real HTTP reachability** — Health runs in-process. Use `make mcp-test` to exercise reverse proxy / middleware / network.
-- **Per-tool argument capture** — Activity shows `path` and `status` but not which tool name was called or what arguments. Tail `smallstack.mcp.views` logger for that detail.
-- **OAuth audit** — DCR registrations, code exchange success rate, etc. aren't surfaced here. Use the existing Explorer view on `OAuthAuthorizationCode` or grep `smallstack.mcp.oauth` logs.
+- **Per-tool argument capture** — Activity shows `path` and `status` but not which tool name was called or what arguments. Tail `apps.mcp.views` logger for that detail.
+- **OAuth audit** — DCR registrations, code exchange success rate, etc. aren't surfaced here. Use the existing Explorer view on `OAuthAuthorizationCode` or grep `apps.mcp.oauth_views` logs.
 
 ## When NOT to recommend the admin pages
 

@@ -33,7 +33,19 @@ def close_ticket(request, pk):
     logger.info("Ticket %s closed by %s", ticket.pk, request.user)
 ```
 
-All `apps.*` loggers are captured by the `apps` logger configured in settings.
+All `apps.*` loggers, SmallStack's own included (`apps.dashboards.metrics`, `apps.webhooks.services`, …), are captured by the `apps` logger configured in settings, so `__name__` is all you need. A name outside `apps.` falls through to root, which is WARNING in production: its INFO lines are dropped and a `log_capture` window can't raise it. Settings also configure `smallstack`, for code written to SmallStack's old `getLogger("smallstack.<app>")` convention. `test_every_app_logger_reaches_a_configured_logger_at_info` in `apps/smallstack/tests/test_logging.py` checks every name in `apps/`.
+
+### Catching an exception you don't re-raise
+
+`except Exception:` that returns a default is sometimes right (a cosmetic label, a probe of a table that may not exist yet, a hook that must fail closed), but never silently. Pick the level by who needs to know:
+
+| The failure | Log it as |
+|---|---|
+| Something broke and a person was affected: a delete that failed, an approver refused by a broken hook, a heartbeat that couldn't be saved | `logger.exception(...)` (ERROR with the traceback) |
+| A fallback took over: no task backend, so mail went inline | `logger.warning(..., exc_info=True)` |
+| An expected miss: the search index isn't built yet, a link resolver raised on one row | `logger.debug(..., exc_info=True)`; a `log_capture` window at DEBUG shows it when you go looking |
+
+Name what failed and its key (`"Bulk delete of %s pk=%s failed"`), so the line is findable in `/smallstack/logs/`.
 
 ### Attaching structured fields
 
@@ -79,6 +91,10 @@ Always reset in a `finally` — worker threads are reused, and an unreset value 
 
 **`apps.tasks` and `apps.scheduler` already do this for you.** Every background task gets a `trace_task_<id>` bound around its execution automatically (`apps/tasks/tracing.py`, hooked into the task-running signals every task funnels through, regardless of which app enqueued it), and the scheduler's own tick binds a `trace_schedjob_<job pk>_<tick>` around each job's tick-time processing. Reach for `bind_trace_id()` yourself for work these two don't cover — a webhook delivery chain, a multi-step pipeline outside the task/scheduler system.
 
+### What SmallStack logs about accounts
+
+`apps.accounts` logs every sign-in, sign-out and failed sign-in (from Django's auth signals, so every way in is covered), sign-ups, invites sent and accepted, sign-in codes issued and rejected, the hourly code cap being hit (WARNING), and password resets requested (with how many accounts matched) and completed. Lines name the account by username and pk, never a password, code or reset token. In the User Manager, sending a set-password link and clearing a login lockout each write a `LogEntry` (who, for whom) and an INFO line; a failed unlock logs its traceback.
+
 ### Log levels by environment
 
 | Logger | Development | Production |
@@ -88,6 +104,9 @@ Always reset in a `finally` — worker threads are reused, and an unreset value 
 | `django.db.backends` | WARNING | — |
 | `django.security` | INFO | WARNING |
 | `apps` (your code) | DEBUG | INFO |
+| `apps.mcp` (MCP; DEBUG would log every tool it registers) | INFO | INFO |
+| `smallstack` (code on the old naming) | INFO | INFO |
+| root (anything else) | INFO | WARNING |
 
 ### Enabling SQL query logging in development
 

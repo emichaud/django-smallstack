@@ -79,7 +79,7 @@ def log_write(user, obj, action_flag, source=""):
     Unlike :func:`log_action`, this NEVER raises — audit logging must not break
     the write it records — and it no-ops when there's no real acting user
     (e.g. an anonymous/session-less context). ``source`` labels the channel
-    ("REST API", "MCP") in the change message. (Audit L9.)
+    ("REST API", "MCP") in the change message.
     """
     try:
         if getattr(user, "pk", None) is None:
@@ -125,7 +125,7 @@ def log_system_write(obj, action_flag, source=""):
     ``log_write`` no-ops without an acting user, which silently dropped every
     system transition — the expiry of an approval request being the case that
     matters most, since "why was this never approved?" is exactly the question
-    an auditor asks. (F-15.)
+    an auditor asks.
     """
     try:
         user = system_audit_user()

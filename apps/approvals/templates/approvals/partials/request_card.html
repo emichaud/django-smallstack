@@ -6,6 +6,7 @@ awaiting approval; eligible viewers (including non-staff assignees) decide in
 place. Plain POST forms (house decision-button style), theme tokens only.
 {% endcomment %}
 {% load approvals_tags %}
+{% if visible %}
 <div class="approval-embed-card approval-embed-card--{{ req.status }}">
     <div class="approval-embed-head">
         <span class="approval-embed-dot" aria-hidden="true"></span>
@@ -33,3 +34,4 @@ place. Plain POST forms (house decision-button style), theme tokens only.
 
 {% comment %}Styles ship with the partial so an embed needs zero extra CSS.{% endcomment %}
 <link rel="stylesheet" href="{% static 'approvals/css/templates/partials/request_card.css' %}">
+{% endif %}

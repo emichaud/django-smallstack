@@ -220,7 +220,7 @@ def _load_rows(model: type, label: str) -> list:
     an *absence*, not a fail, which uptime math can't see. Swallowing a DB
     error here silently dropped every dynamic monitor for that tick while
     uptime stayed green. Pre-migrate is the one expected case and stays quiet;
-    anything else is logged at WARNING. (Audit 2026-09-13, D7.)
+    anything else is logged at WARNING.
     """
     try:
         return list(model.objects.filter(enabled=True))  # type: ignore[attr-defined]

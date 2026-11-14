@@ -29,6 +29,17 @@ class TestShowcasePages:
             assert response.status_code == 200, path
             assert needle in response.content.decode(), path
 
+    def test_own_theme_starter_is_on_a_base_that_isnt_smallstacks(self, client, django_user_model):
+        client.force_login(django_user_model.objects.create_user("own-theme", password="x", is_staff=True))
+        response = client.get("/starter/own-theme/")
+        assert response.status_code == 200
+        html = response.content.decode()
+        assert "smallstack/base.html" not in [t.name for t in response.templates]
+        assert "smallstack/css/theme.css" not in html
+        assert "smallstack/css/embed.css" in html and 'data-theme-url="' in html
+        assert html.count('id="stat-modal"') == 1
+        assert "/starter/own-theme/" in client.get("/starter/").content.decode()
+
     def test_getting_started_links_the_prompts_and_platform_pages(self, client):
         html = client.get("/getting-started/").content.decode()
         for path in ("/prompts/", "/platform/datasets-calendars/", "/platform/blogs-newsletters/"):

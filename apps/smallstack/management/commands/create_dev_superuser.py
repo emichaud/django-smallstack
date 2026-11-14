@@ -20,7 +20,7 @@ class Command(BaseCommand):
         # Hard guard, not just a printed warning: this mints a well-known
         # admin/admin superuser. Refuse outside DEBUG so `make setup` against a
         # production DB can't create a backdoor. Use `ensure_superuser`
-        # (env-driven, idempotent) in production. (Audit L3.)
+        # (env-driven, idempotent) in production.
         if not settings.DEBUG:
             raise CommandError(
                 "create_dev_superuser refuses to run with DEBUG=False. "

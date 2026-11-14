@@ -144,7 +144,7 @@ def test_kind_hook_narrows_but_cannot_widen(requester, staff, bystander, setting
         unregister("test.hook-open")
 
 
-def test_broken_hook_fails_closed(requester, staff):
+def test_broken_hook_fails_closed(requester, staff, caplog):
     register_kind(
         ApprovalKind(key="test.broken", can_decide=lambda user, req: 1 / 0)
     )
@@ -152,7 +152,11 @@ def test_broken_hook_fails_closed(requester, staff):
         from apps.approvals.permissions import can_decide
 
         req = _file(requester, kind="test.broken")
-        assert can_decide(staff, req) is False
+        with caplog.at_level("ERROR", logger="apps.approvals"):
+            assert can_decide(staff, req) is False
+        # Closed, and said: an approver refused by a broken hook can find out why.
+        record = next(r for r in caplog.records if "can_decide hook" in r.getMessage())
+        assert "test.broken" in record.getMessage() and record.exc_info[0] is ZeroDivisionError
     finally:
         unregister("test.broken")
 

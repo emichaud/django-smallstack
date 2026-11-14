@@ -7,7 +7,7 @@ import logging
 from django.apps import AppConfig
 from django.conf import settings
 
-logger = logging.getLogger("smallstack.approvals")
+logger = logging.getLogger(__name__)
 
 
 class ApprovalsConfig(AppConfig):
@@ -57,13 +57,13 @@ class ApprovalsConfig(AppConfig):
                 staff_required=True,
                 active_prefix="/smallstack/approvals/",
             )
-            # The console is LoginRequired + eligibility-scoped (F-01), so a
+            # The console is LoginRequired + eligibility-scoped, so a
             # non-staff assignee can use it — but the ADMIN section is staff-only in
             # the sidebar template, so she had NO nav entry: no active state, and no
             # way back to her queue after navigating away. The persona the docs
             # market reached the console only from a bell row or a pasted URL.
             # Registered separately, and hidden from staff so they do not see
-            # "Approvals" twice. (F-46.)
+            # "Approvals" twice.
             nav.register(
                 section="app",
                 label="Approvals",

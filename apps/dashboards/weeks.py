@@ -66,7 +66,7 @@ if TYPE_CHECKING:
 
     from .models import GoalList, Metric, Snapshot
 
-logger = logging.getLogger("smallstack.dashboards")
+logger = logging.getLogger(__name__)
 
 #: Weeks the grid shows, and the weeks either side of one the trends compare.
 GRID_WEEKS = 8

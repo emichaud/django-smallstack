@@ -1,6 +1,8 @@
 {% comment %}
-Shared stat-card drill-down modal. Included once, globally, in base.html — every
-page already has it, so you never include it yourself. Make a card open it with
+Shared stat-card drill-down modal, rendered by {% smallstack_modal %} (once per
+request): smallstack/base.html calls it, so every page on it already has the
+modal; a base template of your own calls it near the end of <body>. Don't
+{% include %} this file directly, or a page can carry two. Make a card open it with
 the {% stat_card %} tag (it wires hx-get / hx-target / openStatModal for you).
 The open/close JS lives in static/smallstack/js/theme.js. See
 docs/skills/dashboard-cards.md.

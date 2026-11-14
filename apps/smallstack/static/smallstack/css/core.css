@@ -1,0 +1,261 @@
+/**
+ * Core CSS - SmallStack
+ *
+ * The design tokens (light + dark custom properties) and the few primitives an
+ * embed needs on any page. theme.css imports this first, so SmallStack's own
+ * pages are unchanged; a project's own theme gets it through
+ * {% smallstack_assets %} (smallstack/css/embed.css), which sets no element
+ * styles on the host page. Keep it that way: no html/body/a/* rules here.
+ */
+
+/* ============================================
+   CSS Custom Properties (Variables)
+   ============================================ */
+
+:root {
+    /* Primary colors */
+    --primary: #417690;
+    --primary-hover: #205067;
+    --secondary: #79aec8;
+    --accent: #f5dd5d;
+
+    /* Background colors */
+    --body-bg: #f7f7f7;
+    --body-fg: #333333;
+    --content-bg: #ffffff;
+    --header-bg: #417690;
+    --header-fg: #ffffff;
+    /* The four-square mark in the top bar: on a light theme the bar itself is the
+       accent, so the mark takes the bar's text colour. */
+    --brand-mark: var(--header-fg);
+
+    /* Sidebar colors */
+    --sidebar-bg: #ffffff;
+    --sidebar-fg: #333333;
+    --sidebar-hover-bg: #f0f0f0;
+    --sidebar-active-bg: #417690;
+    --sidebar-active-fg: #ffffff;
+    --sidebar-border: #e0e0e0;
+
+    /* Card colors */
+    --card-bg: #ffffff;
+    --card-border: #e0e0e0;
+    --card-header-bg: #f5f5f5;
+    --hairline-color: #e0e0e0;
+
+    /* Form colors */
+    --input-bg: #ffffff;
+    --input-border: #cccccc;
+    --input-focus-border: #417690;
+
+    /* Message colors */
+    --success-bg: #dff0d8;
+    --success-fg: #3c763d;
+    --warning-bg: #fcf8e3;
+    --warning-fg: #8a6d3b;
+    --error-bg: #f2dede;
+    --error-fg: #a94442;
+    --info-bg: #d9edf7;
+    --info-fg: #31708f;
+
+    /* Categorical series — for things that must be told apart by colour (one
+       hue per calendar, chart line, legend entry). Tailwind -600 on light,
+       -400 on dark; never used for surfaces or state. */
+    --series-1: #0284c7;
+    --series-2: #7c3aed;
+    --series-3: #059669;
+    --series-4: #d97706;
+    --series-5: #e11d48;
+    --series-6: #0d9488;
+    --series-7: #ea580c;
+    --series-8: #db2777;
+
+    /* Button colors — button-fg must contrast with --primary/--button-bg */
+    --button-bg: #417690;
+    --button-fg: #ffffff;
+    --button-hover-bg: #205067;
+    /* Foreground for the solid primary CTA (.btn-primary), separated from the
+       general --button-fg so palettes with a bright accent can pick the
+       black/white that meets WCAG AA against THAT accent without disturbing the
+       many other components that pair with --button-fg. Defaults to white;
+       palettes override to #000/#111 where white-on-accent is < 4.5:1. */
+    --btn-primary-fg: var(--button-fg);
+
+    /* Text colors */
+    --text-muted: #666666;
+    /* Muted/quiet text (toolbar counts, unsorted <th> labels, help text).
+       The dark block sets #909090; this is the light counterpart.
+
+       NOTE: while admin/css/base.css is loaded (see smallstack/base.html) this
+       declaration is dormant, NOT the winner. Admin declares its variables
+       under `html[data-theme="light"], :root` — and because the theme JS always
+       writes an explicit data-theme, that first branch matches at (0,1,1) and
+       outranks this plain :root (0,1,0) no matter which file loads last. Admin
+       supplies #666, the same color, so nothing renders differently.
+       It is kept as the fallback that takes over if admin's CSS is ever
+       dropped, so the ~850 `var(--body-quiet-color)` consumers can't silently
+       degrade to inherited full-strength body text.
+       #666666 clears WCAG AA on every light surface we ship (5.7:1 on #ffffff).
+
+       The same specificity quirk makes the other admin-owned values in this
+       block dormant in light mode too (--body-bg, --body-fg, …); palettes.css
+       wins only because html[data-palette] ties at (0,1,1) and loads later. */
+    --body-quiet-color: #666666;
+    --link-color: var(--primary);
+    --link-hover: var(--primary-hover);
+    --link-fg: var(--primary);
+
+    /* Generic aliases — the "obvious" names a developer reaches for when
+       hand-writing a border, a muted line, or a code chip. Previously these
+       were referenced by templates but defined nowhere, so `var(--border,
+       #ddd)` silently resolved to its hard-coded LIGHT fallback on every dark
+       theme (light-gray borders, and #f4f4f4 code chips whose inherited text
+       was also light — invisible). Defined here so those references resolve.
+
+       They are deliberately derived, not literal: because var() resolves at
+       computed-value time on :root (= <html>), the same element the dark block
+       and every html[data-palette] block write to, these follow the active
+       theme and palette with no dark-mode or per-palette override needed.
+       Prefer the specific token (--card-border, --text-muted) in new code. */
+    --border: var(--card-border);
+    --muted-fg: var(--text-muted);
+    --code-bg: color-mix(in srgb, var(--body-fg) 8%, var(--body-bg));
+
+    /* Breadcrumb */
+    --breadcrumb-fg: #666666;
+    --breadcrumb-link: var(--primary);
+    --breadcrumb-separator: #999999;
+
+    /* Footer */
+    --footer-bg: #f5f5f5;
+    --footer-fg: #666666;
+
+    /* Shadows */
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+    --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.1);
+    --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1);
+
+    /* Spacing */
+    --topbar-height: 56px;
+    --sidebar-width: 250px;
+    --sidebar-collapsed-width: 60px;
+
+    /* Transitions */
+    --transition-fast: 0.15s ease;
+    --transition-normal: 0.3s ease;
+
+    /* Controls */
+    --control-height: 36px;
+
+    /* Border radius */
+    --radius-sm: 4px;
+    --radius-md: 8px;
+    --radius-lg: 12px;
+
+    /* Editorial type stack — paired with the modern-dark theme.
+       Serif for one display moment per page (page titles, accent words).
+       Monospace for labels, code, signatures, AI-tool exposures. */
+    --font-serif: ui-serif, "Iowan Old Style", Georgia, "Times New Roman", serif;
+    --font-monospace: ui-monospace, SFMono-Regular, "Menlo", "Consolas", "Liberation Mono", monospace;
+}
+
+/* Dark mode variables - Higher contrast, matching Django admin dark mode */
+[data-theme="dark"] {
+    --primary: #44b78b;
+    --primary-hover: #5fcfa1;
+    --secondary: #79aec8;
+    --accent: #f5dd5d;
+
+    --body-bg: #121212;
+    --body-fg: #f5f5f5;
+    --content-bg: #1e1e1e;
+    --header-bg: #1e1e1e;
+    --header-fg: #ffffff;
+    /* On a dark theme the bar is near-black, and the mark is the palette's accent. */
+    --brand-mark: var(--primary);
+
+    --sidebar-bg: #1e1e1e;
+    --sidebar-fg: #f5f5f5;
+    --sidebar-hover-bg: #303030;
+    --sidebar-active-bg: #44b78b;
+    --sidebar-active-fg: #000000;
+    --sidebar-border: #3d3d3d;
+
+    --card-bg: #212121;
+    --card-border: #3d3d3d;
+    --card-header-bg: #2a2a2a;
+    --hairline-color: #3d3d3d;
+
+    --input-bg: #303030;
+    --input-border: #4a4a4a;
+    --input-focus-border: #44b78b;
+
+    --success-bg: #264d26;
+    --success-fg: #8fd68f;
+    --warning-bg: #4d4426;
+    --warning-fg: #e6c84d;
+    --error-bg: #4d2626;
+    --error-fg: #f08080;
+    --info-bg: #264d4d;
+    --info-fg: #8fd6d6;
+
+    --series-1: #38bdf8;
+    --series-2: #a78bfa;
+    --series-3: #34d399;
+    --series-4: #fbbf24;
+    --series-5: #fb7185;
+    --series-6: #2dd4bf;
+    --series-7: #fb923c;
+    --series-8: #f472b6;
+
+    --button-bg: #44b78b;
+    --button-fg: #000000;
+    --button-hover-bg: #5fcfa1;
+
+    --text-muted: #b0b0b0;
+    /* Muted/quiet text (toolbar counts, unsorted <th> labels, help text).
+       Django admin's default #666 is only 3.0–3.5:1 on our dark surfaces —
+       below WCAG AA. #909090 clears 4.5:1 on every dark surface (body + card). */
+    --body-quiet-color: #909090;
+    --link-color: #ffffff;
+    --link-hover: #e0e0e0;
+    --link-fg: #ffffff;
+
+    --breadcrumb-fg: #b0b0b0;
+    --breadcrumb-link: #ffffff;
+    --breadcrumb-separator: #808080;
+
+    --footer-bg: #1e1e1e;
+    --footer-fg: #b0b0b0;
+
+    --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.4);
+    --shadow-md: 0 4px 8px rgba(0, 0, 0, 0.5);
+    --shadow-lg: 0 10px 20px rgba(0, 0, 0, 0.5);
+
+    /* Accent band — the "you are here" tinted background used by hero
+       sections, page-header bleeds, TOC headers, etc. Defaults to a
+       subtle 15% accent mix; palettes whose accent goes muddy at low
+       lightness (orange, emerald, high-contrast) override to card-bg.
+       Use this variable instead of hard-coding the recipe so adding
+       new palettes is a one-line change. */
+    --accent-band-bg: color-mix(in srgb, var(--primary) 15%, var(--body-bg));
+}
+
+/* ============================================
+   Accessibility primitive shared with embeds (docs/skills/accessibility.md)
+   ============================================ */
+
+/* Visually hidden, still announced by screen readers. */
+/* !important throughout: this loads first (and in a layer on a project's own
+   theme), so it must not lose a tie to a later rule on the same element. */
+.sr-only {
+    position: absolute !important;
+    width: 1px !important;
+    height: 1px !important;
+    padding: 0 !important;
+    margin: -1px !important;
+    overflow: hidden !important;
+    clip: rect(0, 0, 0, 0) !important;
+    white-space: nowrap !important;
+    border: 0 !important;
+}

@@ -87,7 +87,7 @@
     </div>
 
     {# Shared stat-card drill-down modal — always present so {% stat_card %} just works #}
-    {% include "smallstack/includes/stat_modal.html" %}
+    {% smallstack_modal %}
 
     <!-- Theme configuration (read by theme.js) -->
     <script src="{% static 'smallstack/js/config.js' %}"

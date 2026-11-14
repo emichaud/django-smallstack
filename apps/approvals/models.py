@@ -29,7 +29,7 @@ class ApprovalRequestQuerySet(models.QuerySet):
     are not the same set: a row whose ``expires_at`` has passed is still
     ``pending`` in the database until something sweeps it. Every surface that
     counts or lists the queue must use the same definition or the numbers
-    disagree (the dashboard widget said 7 while the queue said 4 — F-19).
+    disagree (the dashboard widget said 7 while the queue said 4).
     """
 
     def pending(self) -> "ApprovalRequestQuerySet":
@@ -58,7 +58,7 @@ class ApprovalRequestQuerySet(models.QuerySet):
         lazy: an overdue row reads ``pending`` until a sweep flips it. Every
         surface that counts, lists or filters by status goes through here, so the
         stat card, the ``?status=`` filter (HTML + REST + MCP) and the row badge
-        cannot disagree — which they did, by 900 rows on one page (F-29).
+        cannot disagree — which they did, by 900 rows on one page.
 
         ``pending`` → :meth:`actionable`; ``expired`` → stored-expired **plus**
         :meth:`overdue`; anything else → the stored column.
@@ -168,7 +168,7 @@ class ApprovalRequest(models.Model):
 
         An overdue row's stored ``status`` still reads ``pending`` until a sweep
         flips it, so a queue badge rendered straight from the column told the
-        approver a row was theirs to decide when it was not. (F-29.)
+        approver a row was theirs to decide when it was not.
         """
         if self.is_overdue:
             return str(self.Status.EXPIRED)
@@ -199,7 +199,7 @@ class ApprovalRequest(models.Model):
         kind callback uses; it serializes to ``null`` on the wire, which left a
         client able to set a target and able to render ``target_repr`` for a
         human, but unable to link back to the row or re-derive which object it
-        was — the duplication the target pointer existed to remove. (F-35.)
+        was — the duplication the target pointer existed to remove.
         """
         ct = self.target_content_type
         if ct is None or not self.target_object_id:

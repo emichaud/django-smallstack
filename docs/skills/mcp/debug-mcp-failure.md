@@ -23,7 +23,7 @@ A client (Claude Desktop, Claude.ai, custom) is failing to attach to `/mcp` or a
 
 3. **OAuth consent page hangs after Allow** → site-wide CSP `form-action 'self'` blocks the cross-origin redirect to Claude.ai's callback. `AuthorizeView._add_csp_for_redirect` already overrides this per-response — verify no upstream middleware is restoring the stricter header.
 
-4. **`tools/call` returns -32603 with traceback** → check `smallstack.mcp.views` ERROR lines. Most often: tool tried to read from `request` (use `current_context()`) or returned a non-JSON-serializable value (call `list(qs)` or serialize manually).
+4. **`tools/call` returns -32603 with traceback** → check `apps.mcp.views` ERROR lines. Most often: tool tried to read from `request` (use `current_context()`) or returned a non-JSON-serializable value (call `list(qs)` or serialize manually).
 
 5. **`tools/call` returns 403 / "Forbidden: readonly_blocked"** → the tool is `write=True` and the token is readonly. Mint a staff token or remove `write=True` if the tool is actually read-only.
 

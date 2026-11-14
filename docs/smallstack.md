@@ -8,7 +8,7 @@
 ![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue)
 ![Django 6.1](https://img.shields.io/badge/django-6.1-green)
 ![License MIT](https://img.shields.io/badge/license-MIT-brightgreen)
-![Version 0.30.2](https://img.shields.io/badge/version-0.30.2-blue)
+![Version 0.30.3](https://img.shields.io/badge/version-0.30.3-blue)
 
 **A platform to build apps on.** SmallStack is the layer under your application: the admin shell, auth, CRUD pages, REST, MCP, search, webhooks, feeds, a scheduler, human-in-the-loop approvals, notifications and publishing are already built, tested and themed — so your project starts at the business logic. From a single model definition it is an **admin app**, a **REST backend** for your React/Svelte/Solid frontend, an **MCP server** for AI agents, a fast **search engine**, an **integration hub** (webhooks, feeds, OpenAPI), a **task runner**, a **workflow engine** (approvals + notifications) and a **publishing platform** (runbooks, blogs, newsletters) — often several at once. The built-in apps register through the same seams your app does, so nothing is special-cased.
 
@@ -154,6 +154,8 @@ Six color palettes (django, dark-blue, purple, orange, high-contrast, gold) × t
 ---
 
 ## Development
+
+Writing code by hand? Start with [Plain Django on SmallStack](../apps/smallstack/docs/plain-django.md): a function view, a `ModelForm`, a template and a pytest test, the way you'd write them in any Django project. SmallStack's own layers (`CRUDView`, datasets, MCP) are opt-in on top.
 
 ```bash
 make test          # pytest with coverage

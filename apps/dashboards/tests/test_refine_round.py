@@ -30,7 +30,7 @@ def board(staff):
     return d
 
 
-@pytest.mark.parametrize("agg", ["median", "count_distinct"])
+@pytest.mark.parametrize("agg", ["mode", "count_distinct"])
 def test_a_card_of_its_own_refuses_an_aggregation_that_doesnt_exist(agg):
     _seed()
     cell = {"type": "metric", "dataset": DS_AUTH, "agg": agg, "measure": "path"}

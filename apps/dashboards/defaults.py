@@ -45,7 +45,7 @@ from django.db.models import Field
 if TYPE_CHECKING:
     from .models import OwnedModel
 
-logger = logging.getLogger("smallstack.dashboards")
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)

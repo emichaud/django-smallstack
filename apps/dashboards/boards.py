@@ -43,7 +43,7 @@ from .metrics import evaluate, group_values, may_read
 from .models import Dashboard, Metric, metric_key_from_name
 from .periods import period_heading
 
-logger = logging.getLogger("smallstack.dashboards")
+logger = logging.getLogger(__name__)
 
 
 def cell_period(cell: dict[str, Any], period: Optional[str]) -> Optional[str]:

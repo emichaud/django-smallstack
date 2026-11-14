@@ -111,7 +111,7 @@ def test_doctor_orphan_detection_ignores_explorer_enable_api():
 def test_doctor_orphan_detection_ignores_test_modules():
     """A CRUDView declared in a test module is a fixture, not an orphan.
 
-    `apps/smallstack/test_bulk_ops.py` declares `enable_api = True` on a
+    `apps/smallstack/tests/test_bulk_ops.py` declares `enable_api = True` on a
     throwaway view. The scanner excluded a `tests/` package but not the flat
     `test_*.py` layout that app uses, so it was reported as an orphan on every
     run — and the advertised fix (import it from `AppConfig.ready()`) would have
@@ -174,7 +174,7 @@ def test_doctor_scans_management_commands_without_flagging_the_seed_example():
     assert _is_scannable(Path("apps/foo/management/commands/anything.py")) is True
     # …while the exclusions that remain are the ones that can't hold a live opt-in.
     assert _is_scannable(Path("apps/foo/migrations/0001_initial.py")) is False
-    assert _is_scannable(Path("apps/smallstack/test_bulk_ops.py")) is False
+    assert _is_scannable(Path("apps/smallstack/tests/test_bulk_ops.py")) is False
 
     # Half 2 — and being in scope, the seed command is still not reported,
     # because AST can tell its markdown example from a class attribute.

@@ -230,7 +230,7 @@ def test_deactivating_the_sole_assignee_is_flagged_not_silent(
     assert "f32-assignee" not in fallback
     # … but it is no longer silent, on either channel.
     assert emails.subject_prefix(req) == "(assignee deactivated) "
-    with caplog.at_level(logging.WARNING, logger="smallstack.approvals"):
+    with caplog.at_level(logging.WARNING, logger="apps.approvals"):
         emails.approver_users(req)
     warnings = [r.getMessage() for r in caplog.records if r.levelno >= logging.WARNING]
     assert any("every named assignee is deactivated" in m for m in warnings), warnings

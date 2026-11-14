@@ -3,12 +3,14 @@ Views for the accounts app: signup, invite-by-email + accept, and passwordless
 ("email me a code") login.
 """
 
+import logging
 from datetime import timedelta
 
 from django.conf import settings as django_settings
 from django.contrib import messages
 from django.contrib.auth import get_user_model, login
 from django.contrib.auth.tokens import default_token_generator
+from django.contrib.auth.views import PasswordResetConfirmView, PasswordResetView
 from django.db.models import F
 from django.http import Http404
 from django.shortcuts import redirect, render
@@ -31,6 +33,8 @@ from .emails import (
 from .forms import InviteUserForm, SignupForm, StyledSetPasswordForm
 from .models import LoginCode
 
+logger = logging.getLogger(__name__)
+
 # We bypass authenticate() for invite-accept and passwordless login, so login()
 # needs the backend named explicitly (the project configures two backends).
 MODEL_BACKEND = "django.contrib.auth.backends.ModelBackend"
@@ -49,6 +53,7 @@ class SignupView(CreateView):
 
     def form_valid(self, form):
         response = super().form_valid(form)
+        logger.info("accounts: %s (pk=%s) signed up", self.object.get_username(), self.object.pk)
         login(self.request, self.object, backend=MODEL_BACKEND)
         return response
 
@@ -138,6 +143,9 @@ class InviteUserView(StaffRequiredMixin, FormView):
         user.save()
         inviter = self.request.user.get_full_name() or self.request.user.get_username()
         send_invite_email(self.request, user, inviter=inviter)
+        logger.info(
+            "accounts: %s invited %s (pk=%s, staff=%s)", self.request.user, user.get_username(), user.pk, user.is_staff
+        )
         messages.success(self.request, f"Invitation sent to {email}.")
         return super().form_valid(form)
 
@@ -169,6 +177,7 @@ class AcceptInviteView(View):
         form = StyledSetPasswordForm(user, request.POST)
         if form.is_valid():
             form.save()
+            logger.info("accounts: %s (pk=%s) accepted an invite and set a password", user.get_username(), user.pk)
             login(request, user, backend=MODEL_BACKEND)
             messages.success(request, "Your password is set — welcome!")
             return redirect("website:home")
@@ -237,12 +246,19 @@ class PasswordlessLoginView(View):
                 recent = user.login_codes.filter(consumed=False, created_at__gte=cutoff).exists()
                 # Per-account hourly cap: each code allows MAX_ATTEMPTS guesses,
                 # so without it an attacker re-requesting every minute gets
-                # ~7,200 guesses/day at a 6-digit code. (Audit 2026-09-13, H3.)
+                # ~7,200 guesses/day at a 6-digit code.
                 hourly_cap = int(getattr(django_settings, "SMALLSTACK_LOGIN_CODES_PER_HOUR", 5))
                 issued_last_hour = user.login_codes.filter(created_at__gte=now - timedelta(hours=1)).count()
                 if not recent and issued_last_hour < hourly_cap:
                     login_code, _ = LoginCode.issue(user)
                     send_login_code(request, login_code)
+                    logger.info("accounts: sign-in code issued for %s (pk=%s)", user.get_username(), user.pk)
+                elif issued_last_hour >= hourly_cap:
+                    # The cap is what stops code guessing; hitting it is worth a look.
+                    logger.warning(
+                        "accounts: sign-in code refused for %s (pk=%s): %s codes in the last hour",
+                        user.get_username(), user.pk, issued_last_hour,
+                    )
             request.session["pwl_email"] = email
             return self._render(
                 request,
@@ -260,7 +276,7 @@ class PasswordlessLoginView(View):
                 # Spend an attempt atomically *before* checking: a
                 # read-then-save counter let parallel guesses all pass the
                 # attempt limit. Likewise, consuming is a conditional UPDATE so
-                # one code can't log in two concurrent requests. (Audit H3.)
+                # one code can't log in two concurrent requests.
                 if lc and lc.is_live and LoginCode.objects.filter(
                     pk=lc.pk, consumed=False, attempts__lt=LoginCode.MAX_ATTEMPTS, expires_at__gt=timezone.now()
                 ).update(attempts=F("attempts") + 1):
@@ -271,8 +287,35 @@ class PasswordlessLoginView(View):
                         login(request, user, backend=MODEL_BACKEND)
                         messages.success(request, "You're signed in.")
                         return redirect("website:home")
+            if user:
+                logger.info("accounts: sign-in code rejected for %s (pk=%s)", user.get_username(), user.pk)
             return self._render(
                 request, "code", email=email, error="That code is invalid or has expired."
             )
 
         return self._render(request, "email")
+
+
+# ---------------------------------------------------------------------------
+# Password reset, logged
+# ---------------------------------------------------------------------------
+class LoggedPasswordResetView(PasswordResetView):
+    """Django's reset request, plus a log line. The page still never says
+    whether the address has an account; the staff-only log does, so a run of
+    requests for unknown addresses is visible."""
+
+    def form_valid(self, form):
+        email = form.cleaned_data.get("email", "")
+        matches = [u.pk for u in form.get_users(email)]
+        logger.info("accounts: password reset requested (%s matching account%s: %s)",
+                    len(matches), "" if len(matches) == 1 else "s", matches)
+        return super().form_valid(form)
+
+
+class LoggedPasswordResetConfirmView(PasswordResetConfirmView):
+    """Django's set-new-password step, plus a log line when it succeeds."""
+
+    def form_valid(self, form):
+        response = super().form_valid(form)
+        logger.info("accounts: %s (pk=%s) reset their password", form.user.get_username(), form.user.pk)
+        return response

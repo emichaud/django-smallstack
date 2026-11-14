@@ -23,7 +23,7 @@ uv run python manage.py createsuperuser
 
 ## How do I change the primary color?
 
-Edit `static/smallstack/css/theme.css` and update the `--primary` variable (or add overrides in `static/css/project.css`):
+Add a palette (see [Theming](/smallstack/help/smallstack/theming/)): it reaches every page and survives upgrades. Editing `static/smallstack/css/core.css` works too, until the next upgrade replaces it. A palette sets the same variables:
 
 ```css
 :root {
@@ -36,18 +36,30 @@ Don't forget to update the dark mode version too in `[data-theme="dark"]`.
 
 ## How do I add a new page to the sidebar?
 
-Edit `templates/smallstack/includes/sidebar.html`:
+Register it from your app's `AppConfig.ready()`; don't edit `sidebar.html`, which is SmallStack's and is replaced on every upgrade. The registry orders the link, hides it from people who can't open the page, and puts it in the sidebar and the topbar:
 
-```html
-<li class="nav-item">
-    <a href="{% url 'your_url_name' %}" class="nav-link {% nav_active 'your_url_name' %}">
-        <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
-            <!-- Your icon SVG path -->
-        </svg>
-        <span>Your Page</span>
-    </a>
-</li>
+```python
+# apps/myapp/apps.py
+from django.apps import AppConfig
+
+
+class MyAppConfig(AppConfig):
+    name = "apps.myapp"
+
+    def ready(self):
+        from apps.smallstack.navigation import nav
+
+        nav.register(
+            section="main",            # or "resources", "admin"
+            label="Your Page",
+            url_name="myapp:index",
+            icon_svg='<svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="..."/></svg>',
+            order=20,
+            auth_required=True,        # staff_required=True for staff-only pages
+        )
 ```
+
+See [Navigation](/smallstack/help/smallstack/navigation/) for sections and submenus.
 
 ## How do I reset my password?
 

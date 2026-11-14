@@ -32,7 +32,7 @@ try:
     from apps.scheduler import scheduled
 
     # ANDed with the master switch: a disabled app must not keep a scheduled job
-    # expiring rows behind an operator's back. (F-11.)
+    # expiring rows behind an operator's back.
     if getattr(settings, "SMALLSTACK_APPROVALS_ENABLED", True) and getattr(
         settings, "SMALLSTACK_APPROVALS_SWEEP_ENABLED", True
     ):

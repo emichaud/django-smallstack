@@ -395,7 +395,7 @@ def _run_worker():
 
 Use `pytest.mark.django_db(transaction=True)`, and define test tasks at **module
 level** (the worker re-imports them by dotted path). See
-`apps/tasks/test_retries.py` and `apps/tasks/test_reaper.py`.
+`apps/tasks/tests/test_retries.py` and `apps/tasks/tests/test_reaper.py`.
 
 ## Built-in Tasks
 

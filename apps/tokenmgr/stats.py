@@ -7,10 +7,13 @@ it isn't.
 
 from __future__ import annotations
 
+import logging
 from datetime import timedelta
 
 from django.db.models import Avg, Count
 from django.utils import timezone
+
+logger = logging.getLogger(__name__)
 
 
 def get_usage_stats(token, hours: int = 24) -> dict:
@@ -19,6 +22,7 @@ def get_usage_stats(token, hours: int = 24) -> dict:
     try:
         logs = token.request_logs.filter(timestamp__gte=cutoff)
     except Exception:
+        logger.debug("No request logs for token usage stats (activity not installed?)", exc_info=True)
         return {"total_requests": 0, "status_breakdown": {}, "avg_response_time_ms": 0, "hours": hours}
 
     total = logs.count()
@@ -63,6 +67,7 @@ def get_overview_stats(user=None) -> dict:
             volume_qs = volume_qs.filter(api_token__user=user)
         volume_24h = volume_qs.count()
     except Exception:
+        logger.debug("No request logs for token volume (activity not installed?)", exc_info=True)
         volume_24h = 0
 
     return {

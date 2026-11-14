@@ -243,7 +243,7 @@ class PublishedPostCRUDView(CRUDView):
     )
 ```
 
-The callable can be any `(queryset, user) -> queryset` function — a `staticmethod`, a module-level function, a classmethod. If it raises, **the view fails safe**: every hit from that view is dropped for the request rather than leaking unfiltered rows. The exception is logged via `smallstack.search`.
+The callable can be any `(queryset, user) -> queryset` function — a `staticmethod`, a module-level function, a classmethod. If it raises, **the view fails safe**: every hit from that view is dropped for the request rather than leaking unfiltered rows. The exception is logged under `apps.search`.
 
 ## Walkthrough: building an Inventory app
 

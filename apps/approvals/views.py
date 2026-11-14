@@ -39,8 +39,8 @@ def _status_badge(value: Any, obj: ApprovalRequest) -> Any:
     from django.utils.html import format_html
 
     # Effective, not stored: an overdue row's column still reads "pending" until
-    # a sweep flips it, and a queue badge saying "Pending" on a row nobody can
-    # decide is the row-level half of F-29.
+    # a sweep flips it, and a queue badge must not say "Pending" on a row
+    # nobody can decide any more (the list filter below has the same rule).
     status = obj.effective_status
     color = _STATUS_COLORS.get(status, "var(--body-quiet-color)")
     return format_html(
@@ -70,9 +70,9 @@ class ApprovalRequestCRUDView(CRUDView):
     approvals owns hands a participant the same console URL — the "Approval
     needed" email, its bell row, the decision email and its bell row — and
     assignees may be non-staff by design. A staff-only console made all four of
-    those links a 403 for exactly the people they were sent to (F-01), and made
+    those links a 403 for exactly the people they were sent to, and made
     the REST/MCP surface write-without-read: a non-staff assignee could POST a
-    decision but not GET the row (F-02).
+    decision but not GET the row.
 
     ``permissions.viewable_requests`` (existence-hiding: staff see everything,
     everyone else sees only rows they requested or are assigned) is applied in
@@ -122,7 +122,7 @@ class ApprovalRequestCRUDView(CRUDView):
     # standing on her own queue could open a request and decide it while global
     # search pretended it did not exist. Search is how a user with one bell row
     # and no sidebar entry actually finds anything. "One scoper governs every
-    # read" has to be true of all six. (F-43.)
+    # read" has to be true of all six.
     search_access = "authenticated"
 
     @staticmethod
@@ -144,7 +144,7 @@ class ApprovalRequestCRUDView(CRUDView):
         # "app_label.model:pk" spelling the create endpoint takes, and
         # `assignee_usernames` exposes an M2M the wire otherwise drops. Without
         # them a client could file against a row and render a label for it, but
-        # never link back to it. (F-35.)
+        # never link back to it.
         "target_ref",
         "target_repr",
         "assignee_usernames",
@@ -175,8 +175,8 @@ class ApprovalRequestCRUDView(CRUDView):
                     # construction — see ApprovalRequestQuerySet.
                     # for_effective_status. Not `status="pending"`: overdue rows
                     # are still stored as pending until a sweep flips them, so
-                    # this card must agree with the dashboard widget (F-19) AND
-                    # with the list beside it (F-29).
+                    # this card must agree with the dashboard widget AND
+                    # with the list beside it.
                     "value": lambda qs: qs.for_effective_status(
                         ApprovalRequest.Status.PENDING
                     ).count(),
@@ -219,8 +219,8 @@ class ApprovalRequestCRUDView(CRUDView):
         filter, ``?status=pending`` listed 905 rows on a page whose own "Pending"
         stat card — correctly counting ``actionable()`` — said 5, and the filter
         was unusable as the "what needs a human" API it is documented to be.
-        (F-29; the disagreement F-19 fixed between widget and card had simply
-        moved one element to the right.)
+        (The same disagreement once stood between the dashboard widget and the
+        card; fixing that had simply moved it one element to the right.)
 
         The card and this filter now evaluate the **same** two expressions:
 
@@ -240,7 +240,7 @@ class ApprovalRequestCRUDView(CRUDView):
         qs = permissions.viewable_requests(getattr(request, "user", None), qs)
         # Lazy expiry keeps the queue truthful even without the sweep worker —
         # BOUNDED, because the fan-out per row is expensive and an unbounded
-        # backlog turned this page into a gateway timeout (F-12). The scheduled
+        # backlog turned this page into a gateway timeout. The scheduled
         # sweep drains the rest and logs a warning when it is behind.
         #
         # Once per request: a single page render calls this hook several times

@@ -24,14 +24,14 @@ from django.utils import timezone
 
 from .models import WebhookDelivery, WebhookEndpoint
 
-logger = logging.getLogger("smallstack.webhooks")
+logger = logging.getLogger(__name__)
 
 SIGNATURE_HEADER = "X-SmallStack-Signature"
 EVENT_HEADER = "X-SmallStack-Event"
 DELIVERY_HEADER = "X-SmallStack-Delivery"
-# Stable per-event idempotency key (survives replay) — consumers dedupe on it (F-021).
+# Stable per-event idempotency key (survives replay) — consumers dedupe on it.
 EVENT_ID_HEADER = "X-SmallStack-Event-Id"
-# The delivering SmallStack's origin — a receiver can drop self-originated events (F-020).
+# The delivering SmallStack's origin — a receiver can drop self-originated events.
 ORIGIN_HEADER = "X-SmallStack-Origin"
 
 # Default ceiling for a single retry wait when no explicit setting is configured.
@@ -61,7 +61,7 @@ def verify(secret: str, body: bytes, provided: str) -> bool:
     ``secret=''`` and ``require_signature=True`` — which reads as "locked down" —
     accepted any request whose sender computed the HMAC with the empty key, i.e.
     anyone who knows the scheme. HMAC is happy to key on b""; nothing else was
-    checking. (F-40.)
+    checking.
     """
     if not provided or not secret:
         return False
@@ -104,7 +104,7 @@ def url_is_allowed(url: str) -> tuple[bool, str]:
         # transient); allow it. This pre-check is not the last line: at send
         # time the delivery re-checks the socket's *connected* peer address
         # (tasks._check_peer), which also closes the DNS-rebinding window
-        # between this lookup and the connect. (Audit C4.)
+        # between this lookup and the connect.
         return True, ""
     for info in infos:
         ip = str(info[4][0])
@@ -140,7 +140,7 @@ def fan_out(event_type: str, payload: dict[str, Any], *, event_id: str | None = 
     enqueue each. Returns the number of deliveries created. Never raises — a
     fan-out failure must not break the originating model save.
 
-    ``event_id`` (F-021) is the stable per-event idempotency key, shared by every
+    ``event_id`` is the stable per-event idempotency key, shared by every
     delivery for this event and reused by replay.
     """
     if not getattr(settings, "SMALLSTACK_WEBHOOKS_ENABLED", True):
@@ -300,7 +300,7 @@ def run_due_deliveries(*, now: datetime | None = None, limit: int = 200) -> int:
 
 def replay_delivery(original: WebhookDelivery) -> WebhookDelivery:
     """Re-send a past delivery as a fresh attempt, reusing its payload AND ``event_id``
-    (F-021) so a consumer can dedupe an operator replay against the original event."""
+ so a consumer can dedupe an operator replay against the original event."""
     replay = WebhookDelivery.objects.create(
         endpoint=original.endpoint,
         event_type=original.event_type,
@@ -318,7 +318,7 @@ def replay_dead(
     since: datetime | None = None,
     limit: int = 100,
 ) -> list[int]:
-    """Bulk-replay dead deliveries (F-023). Returns the new delivery ids. The single
+    """Bulk-replay dead deliveries. Returns the new delivery ids. The single
     most-requested ops verb for a dead-letter queue: after an outage yields N dead
     deliveries, replay them all instead of one id at a time."""
     qs = WebhookDelivery.objects.filter(status=WebhookDelivery.Status.DEAD).select_related(
@@ -333,13 +333,13 @@ def replay_dead(
 
 
 # ---------------------------------------------------------------------------
-# SmallStack ↔ SmallStack pairing (F-027)
+# SmallStack ↔ SmallStack pairing
 # ---------------------------------------------------------------------------
 
 
 def available_events() -> list[str]:
     """Every concrete event type a model with ``enable_webhooks`` can emit, plus the
-    common wildcards — the option list for the event-filter picker (F-015)."""
+    common wildcards — the option list for the event-filter picker."""
     try:
         from apps.smallstack.crud import CRUDView
     except Exception:  # noqa: BLE001
@@ -464,7 +464,7 @@ def pairing_slug(target_url: str) -> str:
 
     Uses a SHA-256 digest (not Python's per-process-salted ``hash()``) so re-running
     ``pair`` with the same target yields the **same** slug every time — the precondition
-    for idempotent re-runs (F-031)."""
+    for idempotent re-runs."""
     digest = hashlib.sha256(target_url.encode()).hexdigest()[:8]
     return f"paired-{digest}"
 
@@ -481,7 +481,7 @@ def pair_smallstack(
     one_way: bool = False,
     owner: Any | None = None,
 ) -> dict[str, Any]:
-    """Configure **this** SmallStack's half of a loop-safe SmallStack↔SmallStack link (F-027/F-031).
+    """Configure **this** SmallStack's half of a loop-safe SmallStack↔SmallStack link.
 
     This only ever touches the local instance — it does **not** reach the peer. It creates
     (or updates, idempotently, keyed on a stable ``slug``):
@@ -491,7 +491,7 @@ def pair_smallstack(
     * unless ``one_way``, a **receiver** verifying inbound B→A with the **recv secret**
       (``verifier="hmac"``, ``ignore_origin`` = our own origin so an echoed event is dropped).
 
-    **Two secrets, not one** (F-031): the direction we send and the direction we receive use
+    **Two secrets, not one**: the direction we send and the direction we receive use
     independent secrets, so a compromise of one direction doesn't expose the other. ``secret``
     is a convenience alias that sets both to the same value; ``send_secret`` / ``recv_secret``
     set them independently. Any omitted secret is generated.
@@ -600,7 +600,7 @@ def pair_smallstack(
     # Pairing two instances on one box (localhost / 127.0.0.1) is the FIRST thing
     # anyone tries, and the SSRF guard blocks it at send time with the failure
     # buried in WebhookDelivery.error — so the demo silently delivered nothing.
-    # Surface it here, where the operator is looking. (F-06 layer 1.)
+    # Surface it here, where the operator is looking.
     url_ok, url_reason = url_is_allowed(target_url)
     warnings: list[str] = []
     if not url_ok:
@@ -628,7 +628,7 @@ def pair_smallstack(
 
 
 def pair_verify(endpoint: WebhookEndpoint) -> dict[str, Any]:
-    """Fire a signed test delivery through a paired endpoint to check the round-trip (F-031).
+    """Fire a signed test delivery through a paired endpoint to check the round-trip.
 
     Returns the created delivery id; the operator (or ``--json`` consumer) then inspects the
     delivery status to see whether the peer accepted it. This is a *live* probe — it only

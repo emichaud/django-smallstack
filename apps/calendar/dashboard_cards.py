@@ -16,7 +16,7 @@ from typing import Any
 from .apps import CALENDAR_ICON_PATH
 from .embed import MAX_UPCOMING_DAYS, MAX_UPCOMING_LIMIT, MODES, UPCOMING_DAYS, UPCOMING_LIMIT, clamp_int, split_keys
 
-logger = logging.getLogger("smallstack.calendar")
+logger = logging.getLogger(__name__)
 
 MODE_CHOICES = [["upcoming", "Upcoming"], ["month", "Month"], ["board", "Board"]]
 

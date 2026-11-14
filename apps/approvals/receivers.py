@@ -13,7 +13,7 @@ logs a warning the first time it queues mail on a backend that needs a worker,
 ``apps/approvals/monitors.py`` exposes the backlog as a status monitor, and the
 docs say plainly that mail requires a ``db_worker`` on the ``email`` queue.
 Set ``SMALLSTACK_APPROVALS_EMAILS_INLINE = True`` to send in the request path
-instead (the default in DEBUG). (F-07.)
+instead (the default in DEBUG).
 """
 
 from __future__ import annotations
@@ -26,7 +26,7 @@ from django.dispatch import receiver
 
 from . import signals
 
-logger = logging.getLogger("smallstack.approvals")
+logger = logging.getLogger(__name__)
 
 # One warning per process, not per request — this is an operator-configuration
 # fact, so repeating it per decision would just be noise.
@@ -111,13 +111,13 @@ def notify_on_request(sender: Any, request: Any, actor: Any, **kwargs: Any) -> N
             emails.approver_users(request),
             # Same prefix as the email subject: a staff user who suddenly gets a
             # bell for a request they were never assigned must be able to tell
-            # why. (F-32.)
+            # why.
             title=f"Approval needed: {emails.subject_prefix(request)}{request.title}",
             message=(kind.label if kind else request.kind),
             url=emails.landing_path(request),
             kind="approvals.requested",
             actor=actor,
-            # Addressable so the decision can retire these rows (F-13).
+            # Addressable so the decision can retire these rows.
             subject_key=subject_key(request),
         )
     except Exception:  # noqa: BLE001
@@ -139,7 +139,7 @@ def notify_on_decision(sender: Any, request: Any, actor: Any, source: str, **kwa
         # 1. The "Approval needed" rows are no longer actionable — for the
         #    decider and for every other approver. Retire them first, or every
         #    approver's badge over-counts forever and clicking one is a wasted
-        #    trip to a decided row. (F-13.)
+        #    trip to a decided row.
         resolve(subject_key(request), kind="approvals.requested")
 
         # 2. Tell the requester AND the other approvers the outcome. Multi-

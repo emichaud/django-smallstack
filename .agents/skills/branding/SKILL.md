@@ -92,7 +92,7 @@ BRAND_TAGLINE = "Your project tagline"
 
 ## CSS Variables for Theming
 
-Key variables in `static/smallstack/css/theme.css`:
+Key variables in `static/smallstack/css/core.css` (imported by `theme.css`):
 
 ```css
 :root {
@@ -116,9 +116,9 @@ Branding is available in all templates via `brand` context:
 
 ## Files to Modify for Rebranding
 
-1. **Settings**: `config/settings/base.py` - Update `BRAND_*` settings
+1. **Settings**: `BRAND_*` in `config/settings/smallstack.py`, or the same names in the environment
 2. **Assets**: `static/brand/` - Add your custom logo files (defaults are in `static/smallstack/brand/`)
-3. **Colors**: `static/smallstack/css/theme.css` - Update CSS variables (or add overrides in `static/css/project.css`)
+3. **Colors**: add a palette (`docs/skills/modify-palettes.md`) rather than editing SmallStack's CSS, which the next upgrade replaces
 
 ## Related Documentation
 

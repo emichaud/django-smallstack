@@ -73,7 +73,7 @@ def _prune_backups(triggered_by: str = "manual", keep: int | None = None) -> lis
         keep = getattr(settings, "BACKUP_RETENTION", None)
     # keep < 1 means "retention disabled" — keep everything. Treating 0 as a
     # real count made backups[keep:] = backups[0:] = ALL files, deleting the
-    # just-created backup (then a 500 on download). (Audit L8.)
+    # just-created backup (then a 500 on download).
     if keep is None or keep < 1:
         return []
 
@@ -371,7 +371,7 @@ class BackupDownloadView(StaffRequiredMixin, View):
 
         # Guard existence before opening — a misconfigured retention (keep<1)
         # or a concurrent prune could remove the file between create and read.
-        # (Audit L8; mirrors BackupFileDownloadView's existing check.)
+        # (Mirrors BackupFileDownloadView's existing check.)
         if not file_path.exists():
             messages.error(request, "Backup file is no longer available.")
             return redirect("smallstack:backups")

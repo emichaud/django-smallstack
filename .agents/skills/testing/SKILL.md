@@ -198,7 +198,7 @@ routing divergence existed to dodge an upstream performance bug).
 
 - `apps/accounts/test_invite_passwordless.py` — invite, passwordless, email login.
 - `apps/accounts/tests.py` — password-reset email (HTML alternative, no enumeration).
-- `apps/usermanager/tests.py` — CRUD, create-with-password, guardrails, account actions, the tabbed-form regression guard.
+- `apps/usermanager/tests/test_usermanager.py` — CRUD, create-with-password, guardrails, account actions, the tabbed-form regression guard.
 - `conftest.py` (root) — session-scoped DB setup for the MCP test-only tables.
 
 ## Related skills

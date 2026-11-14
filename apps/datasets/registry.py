@@ -17,7 +17,7 @@ import logging
 from dataclasses import dataclass
 from typing import Any, Callable, Iterator, Optional
 
-logger = logging.getLogger("smallstack.datasets")
+logger = logging.getLogger(__name__)
 
 # key -> DatasetDef. First-wins (see register()).
 _dataset_registry: dict[str, "DatasetDef"] = {}

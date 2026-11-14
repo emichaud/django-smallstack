@@ -112,7 +112,7 @@ class ProfileDetailView(DetailView):
 
     Anonymous access is on by default; ``SMALLSTACK_PUBLIC_PROFILES = False``
     requires sign-in. A public page answers 200/404 per username, which lets an
-    anonymous visitor enumerate accounts. (Audit 2026-09-13, C9d.)
+    anonymous visitor enumerate accounts.
     """
 
     model = UserProfile

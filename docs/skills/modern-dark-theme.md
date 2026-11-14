@@ -283,7 +283,7 @@ Or, if you need a custom hero element that isn't `.page-header-bleed`, **use the
 </div>
 ```
 
-`--accent-band-bg` is defined in `theme.css` as `color-mix(in srgb, var(--primary) 15%, var(--body-bg))` and overridden per palette to `var(--card-bg)` for orange / django / high-contrast (where the default mix goes muddy).
+`--accent-band-bg` is defined in `core.css` (imported by `theme.css`) as `color-mix(in srgb, var(--primary) 15%, var(--body-bg))` and overridden per palette to `var(--card-bg)` for orange / django / high-contrast (where the default mix goes muddy).
 
 ## Anti-patterns: things to never do
 

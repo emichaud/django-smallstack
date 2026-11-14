@@ -7,7 +7,7 @@ import logging
 from django.apps import AppConfig
 from django.conf import settings
 
-logger = logging.getLogger("smallstack.calendar")
+logger = logging.getLogger(__name__)
 
 CALENDAR_ICON_PATH = (
     "M19 3h-1V1h-2v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5"

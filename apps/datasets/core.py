@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import csv
 import inspect
+import logging
 import warnings
 from typing import Any, Callable, Optional
 
@@ -29,6 +30,8 @@ from django.http import HttpRequest, QueryDict
 
 from .filter_tree import compile_filter_tree, is_empty, ops_for_type
 from .registry import DatasetDef, all_defs, get_def
+
+logger = logging.getLogger(__name__)
 
 # Types the framework classifies as numeric → chartable "measures".
 _MEASURE_TYPES = {"integer", "float", "decimal"}
@@ -416,6 +419,7 @@ class Dataset:
         try:
             return {name: self.column_label(name) for name, _typ in self.columns()}
         except Exception:  # noqa: BLE001 — labels are cosmetic
+            logger.debug("Couldn't label the columns of dataset %s", self.key, exc_info=True)
             return {}
 
     def filter_column_types(self) -> dict[str, str]:
@@ -553,6 +557,7 @@ class Dataset:
         try:
             return resolver(obj) or None
         except Exception:  # noqa: BLE001 — a bad link must not break the row
+            logger.debug("Link resolver of dataset %s raised", self.key, exc_info=True)
             return None
 
     # -- schema (may hit DB via _build_filter_meta's distinct-value probe) ----
@@ -666,6 +671,7 @@ class Dataset:
         try:
             annotation = self._queryset().query.annotations.get(name)
         except Exception:  # noqa: BLE001 — a dataset that can't build is not our problem here
+            logger.debug("Dataset %s couldn't build its queryset to read %s", self.key, name, exc_info=True)
             return None
         if annotation is None:
             return None
@@ -706,6 +712,7 @@ class Dataset:
             values = qs.values_list(name, flat=True).distinct().order_by(name)[: self._COMPUTED_CHOICE_MAX]
             choices = [("", "All")] + [(str(v), str(v)) for v in values if v is not None]
         except Exception:  # noqa: BLE001 — un-probeable expression: offer nothing
+            logger.debug("Couldn't probe the values of %s on dataset %s", name, self.key, exc_info=True)
             return None
 
         meta["type"] = "choice"

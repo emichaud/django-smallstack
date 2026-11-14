@@ -314,7 +314,7 @@ def _apply_list_filters(qs, request: HttpRequest, crud_config) -> QuerySet:
         # Per-field override. A CRUDView whose stored column is not the value the
         # rest of the page reasons about (approvals: an overdue row's `status` is
         # still "pending" until a sweep flips it) must be able to make the filter
-        # agree with its own stat cards, or the page contradicts itself. (F-29.)
+        # agree with its own stat cards, or the page contradicts itself.
         # getattr, not a direct call: `crud_config` is duck-typed — datasets passes
         # a `_ConfigAdapter` that implements only the list-filter surface.
         _override = getattr(crud_config, "apply_filter", None)
@@ -903,7 +903,7 @@ class _CRUDCreateBase(_CRUDFormDisplayMixin, _CRUDContextMixin, CreateView):
         # The documented `on_form_valid` hook fired from REST, MCP and bulk
         # update but NOT from the primary (web) path, so every CRUDView using it
         # to stamp an owner / denormalise / file an approval had a data-integrity
-        # hole reachable from the UI. (F-05.)
+        # hole reachable from the UI.
         response = super().form_valid(form)
         self.crud_config.on_form_valid(self.request, form, self.object, is_create=True)
         return response
@@ -935,7 +935,7 @@ class _CRUDUpdateBase(_CRUDObjectPermissionMixin, _CRUDFormDisplayMixin, _CRUDCo
         return self._inject_display_context(context, obj=self.object)
 
     def form_valid(self, form):
-        # See _CRUDCreateBase.form_valid — same gap on the edit path. (F-05.)
+        # See _CRUDCreateBase.form_valid — same gap on the edit path.
         response = super().form_valid(form)
         self.crud_config.on_form_valid(self.request, form, self.object, is_create=False)
         return response
@@ -1009,7 +1009,7 @@ def _log_bulk_action(request, verb: str, model: type[Model], ok_ids: list, error
         extra["fields"] = fields
     # Deletes log at WARNING so they reach the DB log handler at its default
     # WARNING baseline — at INFO the "visible in the log viewer" half of the
-    # v0.20.0 fix never persisted. Updates stay INFO. (Audit 2026-09-13, D8.)
+    # v0.20.0 fix never persisted. Updates stay INFO.
     logger.log(
         logging.WARNING if verb == "delete" else logging.INFO,
         "Bulk %s: %s %s %d/%d %s row(s), %d error(s)",
@@ -1108,7 +1108,7 @@ class _CRUDBulkActionView:
 
                 # Validate IDs
                 try:
-                    ids = config._coerce_pks(ids)  # pk-type aware, not int-only (F-38)
+                    ids = config._coerce_pks(ids)  # pk-type aware, not int-only
                 except (ValueError, TypeError, DjangoValidationError):
                     return HttpResponse(
                         _json.dumps({"error": "Invalid IDs"}),
@@ -1162,7 +1162,7 @@ class _CRUDBulkActionView:
                     # write to N single objects, and a view that expresses
                     # ownership in check_object_permission (rather than in
                     # get_detail_queryset) would otherwise have it bypassed by
-                    # the least-travelled route. That is F-27 exactly. (F-50.)
+                    # the least-travelled route.
                     try:
                         cfg.check_object_permission(obj, request)
                     except (PermissionDenied, Http404):
@@ -1241,7 +1241,7 @@ class _CRUDBulkActionView:
                         errors[str(pk)] = "Permission denied"
                         continue
                     try:
-                        cfg.check_object_permission(obj, request)  # see _bulk_delete (F-50)
+                        cfg.check_object_permission(obj, request)  # see _bulk_delete
                     except (PermissionDenied, Http404):
                         errors[str(pk)] = "Permission denied"
                         continue
@@ -2357,20 +2357,20 @@ class CRUDView:
         reached the ORM and raised ``ValueError: Field 'id' expected a number but
         got 'search'``, i.e. a 500 in error monitoring for every CRUDView in the
         project. The REST routes always used ``<int:pk>`` and 404'd correctly;
-        this makes the HTML routes agree. (F-22.)
+        this makes the HTML routes agree.
 
         Note the ``uuid`` converter accepts only the **canonical** dashed
         lowercase spelling, so a non-canonical UUID in a bookmark or a log link
         404s where a bare ``<pk>`` used to resolve it. That is a deliberate
         tightening, recorded in ``UPGRADING.md``; ``_coerce_pks`` is deliberately
-        laxer for bulk ``ids``, which are data rather than routes. (F-38.)
+        laxer for bulk ``ids``, which are data rather than routes.
         """
         field = cls.model._meta.pk
         # A FK/O2O primary key (multi-table inheritance — the ordinary way to get
         # one) reports its OWN internal type, not the column's, so it fell
         # through to `str:` while the underlying column is an integer — the
         # original 500 surviving for that pk class. Follow the relation to the
-        # field that actually stores the value. (F-38.)
+        # field that actually stores the value.
         seen: set[Any] = set()
         while field.is_relation and field.target_field is not field:
             if id(field) in seen:  # pathological self-reference; stop rather than spin
@@ -2402,7 +2402,7 @@ class CRUDView:
         unusable — a flat ``400 Invalid IDs`` — which is the same asymmetry
         ``_pk_converter`` removed from the routes: the URLs learned the pk type,
         the bulk view did not. Uses the model field's own converter, so it follows
-        whatever pk class the model declares. (F-38.)
+        whatever pk class the model declares.
         """
         field = cls.model._meta.pk
         return [field.to_python(pk) for pk in raw]
@@ -2439,7 +2439,7 @@ class CRUDView:
 
         url_base = cls._get_url_base()
         # Typed pk converter so a non-numeric segment 404s instead of 500ing
-        # inside the ORM (F-22).
+        # inside the ORM.
         pk = f"<{cls._pk_converter()}pk>"
         urls = []
 

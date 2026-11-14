@@ -33,7 +33,7 @@ from django.db import connection
 from .base import IndexedView, SearchHit
 from .fallback import _make_hit, _resolve_field
 
-logger = logging.getLogger("smallstack.search")
+logger = logging.getLogger(__name__)
 
 # search_weight int → Postgres tsvector weight label. 3 = highest (A).
 _WEIGHT_LABELS = {3: "A", 2: "B", 1: "C", 0: "D"}
@@ -270,7 +270,7 @@ def _gin_index_name(view: IndexedView) -> str:
     limit. A plain ``<table>_svec_gin`` prefix-truncation could map two tables
     that share a 63-char prefix to the same index name, silently leaving the
     second table un-indexed (``CREATE INDEX IF NOT EXISTS`` keys on the name).
-    Append a hash of the full table name so the result is unique. (Audit L1.)
+    Append a hash of the full table name so the result is unique.
     """
     table = view.model._meta.db_table
     digest = hashlib.md5(table.encode()).hexdigest()[:12]

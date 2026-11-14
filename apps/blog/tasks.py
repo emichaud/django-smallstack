@@ -13,7 +13,7 @@ import logging
 
 from django.tasks import task
 
-logger = logging.getLogger("smallstack.blog")
+logger = logging.getLogger(__name__)
 
 
 @task()

@@ -222,7 +222,7 @@ class DatasetRowsView(_DatasetApiView):
         # Query params are strings — parse to int (rows() slices with them).
         # CSV is capped too (SMALLSTACK_DATASET_CSV_MAX_ROWS): it materializes
         # the whole set in memory. Over the cap is a loud 400, never a silently
-        # truncated file. (Audit 2026-09-13, C9c.)
+        # truncated file.
         csv_cap = int(getattr(settings, "SMALLSTACK_DATASET_CSV_MAX_ROWS", 50_000))
         if is_csv:
             requested = _int_param(request, "limit", None)

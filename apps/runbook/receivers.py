@@ -7,12 +7,15 @@ dogfoods the extension seam downstream apps use.
 
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 from django.dispatch import receiver
 
 from . import signals
 from .models import Document
+
+logger = logging.getLogger(__name__)
 
 
 @receiver(signals.document_written, dispatch_uid="runbook_prune_on_write")
@@ -43,6 +46,11 @@ def _enqueue_notify(document_id: int, change_type: str) -> None:
 
         notify_subscribers_task.enqueue(document_id, change_type)
     except Exception:
+        # Inline works, but it sends mail inside the request: say so, as
+        # accounts.emails does, so a missing task backend shows in the log.
+        logger.warning(
+            "Couldn't queue runbook notifications for document %s; sending inline", document_id, exc_info=True
+        )
         from . import subscriptions
 
         subscriptions.send_update_notifications(document_id, change_type)
@@ -58,6 +66,7 @@ def _enqueue_prune(document_id: int) -> None:
 
         prune_versions_task.enqueue(document_id)
     except Exception:
+        logger.warning("Couldn't queue version pruning for document %s; pruning inline", document_id, exc_info=True)
         from . import retention
         from .models import Document
 

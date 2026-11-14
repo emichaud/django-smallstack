@@ -60,7 +60,13 @@ def approval_card(context: template.Context, req: ApprovalRequest) -> dict[str, 
     from .. import permissions
 
     user = getattr(context.get("request"), "user", None)
+    # The host page chose the request, but the card still answers to the
+    # request's own rule: staff, the requester or an assignee. Anyone else gets
+    # nothing (the title and description can be private), as everywhere else.
+    if user is None or not permissions.can_view(user, req):
+        return {"visible": False}
     return {
+        "visible": True,
         "req": req,
         "can_decide": permissions.can_decide(user, req) if user else False,
         "can_cancel": permissions.can_cancel(user, req) if user else False,

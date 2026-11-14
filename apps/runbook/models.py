@@ -359,7 +359,7 @@ class DocumentVersion(models.Model):
 
 
 # Image types runbook serves inline. Anything else is stored with a ``.bin``
-# name and served as a download, never rendered. (Audit 2026-09-13, C7.)
+# name and served as a download, never rendered.
 IMAGE_CONTENT_TYPES: dict[str, str] = {
     ".png": "image/png",
     ".jpg": "image/jpeg",

@@ -1,0 +1,18 @@
+/**
+ * Embed CSS - SmallStack's shared styles for a project's own theme.
+ *
+ * Loaded by {% smallstack_assets %} on a page that doesn't extend
+ * smallstack/base.html (a Bootstrap / Tailwind / bought theme), so SmallStack's
+ * embeds ({% dashboard %}, {% metric_card %}, {% calendar_card %}, the
+ * drill-down modal, help bubbles) draw with their tokens and components.
+ *
+ * Everything sits in the `smallstack` cascade layer, which loses to any
+ * unlayered style: wherever the host theme styles the same class (Bootstrap's
+ * .card or .btn-primary, say), the host wins, so loading this never restyles
+ * the host's own page. core.css carries no element (html/body/a) rules.
+ * Order matters: palettes.css overrides core.css's tokens per palette.
+ */
+@layer smallstack;
+@import url("core.css") layer(smallstack);
+@import url("palettes.css") layer(smallstack);
+@import url("components.css") layer(smallstack);

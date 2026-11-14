@@ -61,7 +61,7 @@ from .periods import period_heading
 if TYPE_CHECKING:
     from .models import Dashboard, Metric
 
-logger = logging.getLogger("smallstack.dashboards")
+logger = logging.getLogger(__name__)
 
 GRID_COLUMNS = 12
 MAX_ROWS = 12  # a cell's height cap, in grid rows
@@ -840,12 +840,13 @@ def _source_problems(cell: dict[str, Any]) -> tuple[Optional["Metric"], list[str
     source = inline_source(cell)
     if source is None:
         return None, ["dataset: pick a dataset"]
-    from .metrics import AGGS
+    from .metrics import aggs_available
 
-    # clean() doesn't check choices (full_clean does), so "median" was saved
-    # and drew the row count, and "count_distinct" a card that can't evaluate.
-    if source.agg not in {key for key, _label in AGGS}:
-        return None, [f"agg: use one of {[key for key, _label in AGGS]} (not {source.agg!r})"]
+    # clean() doesn't check choices (full_clean does), so an unknown aggregate
+    # ("count_distinct") was saved and drew a card that couldn't evaluate.
+    allowed = [key for key, _label in aggs_available()]
+    if source.agg not in allowed:
+        return None, [f"agg: use one of {allowed} (not {source.agg!r})"]
     try:
         source.clean()
     except ValidationError as exc:

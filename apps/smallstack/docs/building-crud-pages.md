@@ -380,7 +380,7 @@ Stat cards show aggregate counts above the table. They can be plain display or c
 
 For clickable cards, you need:
 
-1. Add `{% include "smallstack/includes/stat_modal.html" %}` at the bottom of your content block
+1. Nothing to include: `smallstack/base.html` already has the modal. (On a base template of your own, put `{% smallstack_modal %}` near the end of `<body>`.)
 2. Create a view that returns an HTML table fragment for the drilldown content
 3. Wire the URL (e.g., `path("manage/widgets/stats/<str:stat_type>/", stat_detail_view, name="myfeature:stat-detail")`)
 
@@ -630,7 +630,7 @@ When adding a new CRUD management page:
 - [ ] URLs in `apps/<appname>/urls.py` using `*MyCRUDView.get_urls()`
 - [ ] App registered in `INSTALLED_APPS`
 - [ ] URL include in `config/urls.py`
-- [ ] Sidebar link in `templates/smallstack/includes/sidebar.html`
+- [ ] Sidebar link: `nav.register()` in your app's `AppConfig.ready()` (don't edit `sidebar.html`)
 - [ ] Migrations created and applied
 - [ ] Tests for access control and table rendering
 - [ ] Custom list template (optional — only if you want the title bar pattern)

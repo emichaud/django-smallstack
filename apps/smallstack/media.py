@@ -4,7 +4,6 @@
 (runbook document bodies and images, served only through views that check
 ``can_view``). Serving the whole root unauthenticated made those checks
 bypassable: ``/media/runbook/<key>.md`` returned a private runbook to anyone.
-(Audit 2026-09-13, C2.)
 
 Prefixes in ``SMALLSTACK_PRIVATE_MEDIA_PREFIXES`` 404 here. Add your own when a
 model stores files that a view is supposed to gate.

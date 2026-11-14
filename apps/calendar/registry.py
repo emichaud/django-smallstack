@@ -18,7 +18,7 @@ import logging
 from dataclasses import dataclass
 from typing import Any, Callable, Iterator, Optional
 
-logger = logging.getLogger("smallstack.calendar")
+logger = logging.getLogger(__name__)
 
 #: Who may see a calendar dataset. ``staff`` is the secure default — the
 #: bundled calendars plot operator data (token expiry, approvals, backups).

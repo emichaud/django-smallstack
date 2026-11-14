@@ -13,7 +13,7 @@ from django.utils import timezone
 
 from .logging import bind_request_id, reset_request_id
 
-logger = logging.getLogger("smallstack")
+logger = logging.getLogger(__name__)
 
 
 def health_response() -> JsonResponse:
@@ -45,7 +45,6 @@ class HealthCheckMiddleware:
     chain, before SecurityMiddleware/CommonMiddleware call ``get_host()`` —
     lets the probe succeed WITHOUT ``ALLOWED_HOSTS=*`` (which would disable
     Host-header validation for the whole site). Must stay first in MIDDLEWARE.
-    (Audit H5.)
     """
 
     def __init__(self, get_response: Callable[[HttpRequest], HttpResponse]) -> None:

@@ -164,9 +164,11 @@ only from your own script.
 {% stat_card value=n label="X" detail_url="app:stat_detail" detail_arg="x" %}
 ```
 
-❌ **Including the modal on the page.** `{% include "smallstack/includes/stat_modal.html" %}`
-is in `base.html` now — including it again duplicates the markup and the JS. Just
-use the tag.
+❌ **Including the modal on the page.** `smallstack/base.html` renders it with
+`{% smallstack_modal %}`; an `{% include "smallstack/includes/stat_modal.html" %}`
+on top gives the page two `#stat-modal` elements. Just use the tag. On a base
+template of your own (not `smallstack/base.html`), call `{% smallstack_modal %}`
+once near the end of `<body>`; it renders nothing if the request already has one.
 
 ❌ **Hand-rolling `format_html('<a class="stat-list-row">…')` in the view.** Use
 `stat_list_row()` — it's XSS-safe and keeps every drill-down list identical.

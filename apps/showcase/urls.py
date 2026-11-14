@@ -16,6 +16,7 @@ urlpatterns = [
     path("starter/basic/", views.starter_basic_view, name="starter_basic"),
     path("starter/forms/", views.starter_forms_view, name="starter_forms"),
     path("starter/dashboard/", views.starter_dashboard_view, name="starter_dashboard"),
+    path("starter/own-theme/", views.starter_own_theme_view, name="starter_own_theme"),
     path("components/", views.components_view, name="components"),
     path("search/", views.search_view, name="search"),
 ]

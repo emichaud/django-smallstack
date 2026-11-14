@@ -37,7 +37,7 @@ from .models import (
     reserved_slugs_for,
 )
 
-logger = logging.getLogger("smallstack.blog")
+logger = logging.getLogger(__name__)
 
 Actor = Optional[Any]
 
@@ -1357,8 +1357,8 @@ def send_issue_batch(issue: Any, *, batch_size: Optional[int] = None) -> dict[st
     finally:
         try:
             connection.close()
-        except Exception:  # noqa: BLE001
-            pass
+        except Exception:  # noqa: BLE001 — the sends are done; a close failure loses nothing
+            logger.debug("Closing the newsletter SMTP connection failed", exc_info=True)
 
     _refresh_counters(issue)
     finalize_issue(issue)

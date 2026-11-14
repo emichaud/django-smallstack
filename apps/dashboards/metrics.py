@@ -42,7 +42,7 @@ if TYPE_CHECKING:
 
     from .models import Metric
 
-logger = logging.getLogger("smallstack.dashboards")
+logger = logging.getLogger(__name__)
 
 #: What a rate says where a metric would show its rows.
 RATE_NO_ROWS = "A rate has no rows of its own. Open either of its two metrics to see theirs."
@@ -53,10 +53,13 @@ AGGS: list[tuple[str, str]] = [
     ("distinct", "Count distinct values"),
     ("sum", "Sum"),
     ("avg", "Average"),
+    ("median", "Median"),
     ("min", "Minimum"),
     ("max", "Maximum"),
 ]
-AGGS_NEEDING_MEASURE = frozenset({"sum", "avg", "min", "max", "distinct"})
+AGGS_NEEDING_MEASURE = frozenset({"sum", "avg", "median", "min", "max", "distinct"})
+#: Aggregations that need a numeric column: words can be counted, not averaged.
+NUMERIC_AGGS = frozenset({"sum", "avg", "median"})
 #: How a hand-entered metric rolls up the entries in a period. "Latest" suits a
 #: reading (CSAT, headcount), "Sum" an amount (spend).
 MANUAL_AGGS: list[tuple[str, str]] = [
@@ -67,6 +70,19 @@ MANUAL_AGGS: list[tuple[str, str]] = [
     ("max", "Maximum"),
 ]
 ALL_AGGS: list[tuple[str, str]] = [*AGGS, ("latest", "Latest value")]
+
+
+def aggs_available() -> list[tuple[str, str]]:
+    """``AGGS`` as this database can compute them: no median where it has none
+    (MySQL, MariaDB), so no picker, form or tool offers a number it can't give."""
+    from apps.datasets.core import median_supported
+
+    return [a for a in AGGS if a[0] != "median" or median_supported()]
+
+
+def all_aggs_available() -> list[tuple[str, str]]:
+    """:func:`aggs_available` plus the hand-entered roll-up ``latest``."""
+    return [*aggs_available(), ("latest", "Latest value")]
 
 #: How the number reads.
 FORMATS: list[tuple[str, str]] = [

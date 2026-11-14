@@ -1,0 +1,55 @@
+{% load static theme_tags %}
+{% comment %}
+A base template that is NOT smallstack/base.html: a stand-in for a project's own
+theme (Bootstrap, Tailwind, a bought one). own-theme.css styles body, .card and
+.btn-primary itself, as Bootstrap does. It is the guide's Step 2
+(docs/skills/adding-your-own-theme.md) and nothing more, so SmallStack's embeds
+on /starter/own-theme/ are checked against exactly what the guide tells a
+project to load.
+{% endcomment %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}{% endblock %} | {{ brand.name }}</title>
+
+    <script src="{% static 'smallstack/js/theme-init.js' %}"
+            data-user-theme="{% if user.is_authenticated and user.profile %}{{ user.profile.theme_preference }}{% endif %}"
+            data-user-palette="{% if user.is_authenticated and user.profile %}{{ user.profile.color_palette }}{% endif %}"
+            data-palette="{{ color_palette }}" data-default-palette="django"></script>
+
+    <link rel="icon" type="image/x-icon" href="{% static brand.favicon %}">
+    <link rel="stylesheet" href="{% static 'showcase/css/own-theme.css' %}">
+    {% smallstack_assets %}
+
+    <script src="{% static 'smallstack/js/config.js' %}"
+            data-user-theme="{% if user.is_authenticated and user.profile %}{{ user.profile.theme_preference }}{% endif %}"
+            data-user-palette="{% if user.is_authenticated and user.profile %}{{ user.profile.color_palette }}{% endif %}"
+            data-color-palette="{{ color_palette }}"
+            data-authenticated="{% if user.is_authenticated %}true{% else %}false{% endif %}"
+            data-theme-url="{% url 'theme_preference' %}"
+            data-palette-url="{% url 'palette_preference' %}"></script>
+    <script src="{% static 'smallstack/js/htmx.min.js' %}" defer></script>
+    <script src="{% static 'smallstack/js/theme.js' %}"></script>
+
+    {% block extra_css %}{% endblock %}
+</head>
+<body hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
+    <header class="ot-bar">
+        <a class="ot-brand" href="{% url 'showcase:starter' %}">Your own theme</a>
+        <nav class="ot-nav" aria-label="Main">
+            <a href="{% url 'showcase:starter' %}">Starter pages</a>
+            <a href="{% url 'website:home' %}">Home</a>
+        </nav>
+        <button type="button" id="theme-toggle" class="ot-toggle" aria-label="Switch between light and dark">Light / dark</button>
+    </header>
+
+    <main class="ot-main" id="main-content">
+        {% block content %}{% endblock %}
+    </main>
+
+    {% smallstack_modal %}
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

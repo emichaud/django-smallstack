@@ -27,7 +27,8 @@ Everything below is the **reference** for that built-in theme — its colors, va
 
 | File | Purpose |
 |------|---------|
-| `static/smallstack/css/theme.css` | Main theme CSS with all custom properties |
+| `static/smallstack/css/core.css` | All the custom properties (design tokens), imported by `theme.css` |
+| `static/smallstack/css/theme.css` | Main theme CSS: layout and the page shell |
 | `static/smallstack/css/palettes.css` | Color palette overrides (per-palette variables) |
 | `static/smallstack/js/theme.js` | Dark mode toggle, palette switching, UI interactions |
 | `apps/smallstack/palettes.yaml` | Palette registry (metadata for the palette selector UI) |
@@ -80,7 +81,7 @@ the palette's colours.
 
 ## Changing Colors
 
-All colors are defined as CSS custom properties in `static/smallstack/css/theme.css`. To customize:
+All colors are defined as CSS custom properties in `static/smallstack/css/core.css`. To customize:
 
 ### Edit Light Mode Colors
 
@@ -277,24 +278,30 @@ The theme respects the user's system preference (`prefers-color-scheme`) when no
 
 ### Sidebar Links
 
-Edit `templates/smallstack/includes/sidebar.html`:
+Register it from your app's `AppConfig.ready()`; don't edit `sidebar.html`, which is SmallStack's and is replaced on every upgrade. The registry orders the link, hides it from people who can't open the page, and puts it in the sidebar and the topbar:
 
-```html
-<li class="nav-item">
-    <a href="{% url 'your_url_name' %}" class="nav-link {% nav_active 'your_url_name' %}">
-        <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
-            <!-- SVG icon path -->
-        </svg>
-        <span>Your Link</span>
-    </a>
-</li>
+```python
+# apps/myapp/apps.py
+from django.apps import AppConfig
+
+
+class MyAppConfig(AppConfig):
+    name = "apps.myapp"
+
+    def ready(self):
+        from apps.smallstack.navigation import nav
+
+        nav.register(
+            section="main",            # or "resources", "admin"
+            label="Your Page",
+            url_name="myapp:index",
+            icon_svg='<svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="..."/></svg>',
+            order=20,
+            auth_required=True,        # staff_required=True for staff-only pages
+        )
 ```
 
-### Section Titles
-
-```html
-<li class="nav-section-title">Section Name</li>
-```
+Sections and submenus: [Navigation](/smallstack/help/smallstack/navigation/).
 
 ### Active State
 

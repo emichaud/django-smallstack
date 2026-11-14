@@ -26,7 +26,7 @@ from apps.tasks.reliability import RETRYING, chain_outcome, pin_max_attempts
 from . import schedules
 from .models import ScheduledJob, ScheduledJobRun
 
-logger = logging.getLogger("smallstack.scheduler")
+logger = logging.getLogger(__name__)
 
 # Engine statuses that mean "this run hasn't finished". Anything else (or a
 # missing result) counts as finished for overlap purposes. A run is followed
@@ -168,7 +168,7 @@ def _process_job_body(job: ScheduledJob, *, now: datetime, result: TickResult) -
         # inside enqueue) must still leave a trace: the claim above already
         # moved next_run_at, so without a FAILED run + last_status this fire
         # is lost with the job still showing its last good status. Not
-        # disabled — the cause may be transient. (Audit 2026-09-13, D2.)
+        # disabled — the cause may be transient.
         logger.exception("scheduler: %s failed to enqueue", job.name)
         _record(job, ScheduledJobRun.Status.FAILED, observed, message=f"enqueue failed: {exc}"[:255])
         ScheduledJob.objects.filter(pk=job.pk).update(last_status=ScheduledJobRun.Status.FAILED)

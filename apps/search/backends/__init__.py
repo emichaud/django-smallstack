@@ -14,7 +14,7 @@ from django.conf import settings
 
 from .base import SearchBackend
 
-logger = logging.getLogger("smallstack.search")
+logger = logging.getLogger(__name__)
 
 
 @lru_cache(maxsize=1)

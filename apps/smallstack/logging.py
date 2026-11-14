@@ -255,7 +255,7 @@ def _redact_request(value: Any) -> Any:
     string — so a feed URL's ``?token=<raw key>`` was written verbatim into
     JSON log lines and the ``LogRecord.extra`` column on any 4xx/5xx. The path
     is what's useful for debugging; the query is where credentials ride.
-    (Audit 2026-09-13, C3.) Duck-typed so this module never imports Django's
+ Duck-typed so this module never imports Django's
     HTTP machinery.
     """
     if hasattr(value, "method") and hasattr(value, "path") and hasattr(value, "GET"):

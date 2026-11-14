@@ -16,8 +16,8 @@ The post-v0.9.x SmallStack theme system. How variables cascade, why palettes loo
 │                                                                 │
 │  <html data-theme="dark" data-palette="orange">                 │
 │   ↓                                                             │
-│   theme.css :root              ◀── universal defaults           │
-│   theme.css [data-theme="dark"] ◀── dark mode defaults          │
+│   core.css :root               ◀── universal defaults           │
+│   core.css [data-theme="dark"]  ◀── dark mode defaults          │
 │   palettes.css [data-palette="orange"][data-theme="dark"]       │
 │       ◀── palette + theme combined override                     │
 │   ↓                                                             │
@@ -29,9 +29,9 @@ The post-v0.9.x SmallStack theme system. How variables cascade, why palettes loo
 
 Three cascading layers:
 
-1. **Universal defaults** (`theme.css :root`) — light-mode-ish defaults: a few brand colors and spacing tokens that every palette uses unless overridden.
+1. **Universal defaults** (`core.css :root`, imported by `theme.css`) — light-mode-ish defaults: a few brand colors and spacing tokens that every palette uses unless overridden.
 
-2. **Dark-mode defaults** (`theme.css [data-theme="dark"]`) — the historical Django-admin-style dark theme. Warm-gray surfaces, Django brand teal accent. **Modern palettes override these.**
+2. **Dark-mode defaults** (`core.css [data-theme="dark"]`) — the historical Django-admin-style dark theme. Warm-gray surfaces, Django brand teal accent. **Modern palettes override these.**
 
 3. **Palette-specific overrides** (`palettes.css html[data-palette="X"][data-theme="dark"]`) — the modern values: cool-biased near-black surfaces, vibrant Tailwind -500 accents, palette-specific surface bias.
 
@@ -98,7 +98,7 @@ This is why the surface values vary slightly across palettes. They're all "moder
 
 ### Hero band — the muddy-color exception
 
-`theme.css` defines `--accent-band-bg: color-mix(in srgb, var(--primary) 15%, var(--body-bg))`. This is the "subtle accent-tinted band" used on every page header (`.page-header-bleed`), the help TOC header (`.toc-header`), and other hero strips.
+`core.css` defines `--accent-band-bg: color-mix(in srgb, var(--primary) 15%, var(--body-bg))`. This is the "subtle accent-tinted band" used on every page header (`.page-header-bleed`), the help TOC header (`.toc-header`), and other hero strips.
 
 For blue and purple, the 15% mix produces a clean navy / plum tint that reads as "accent zone."
 

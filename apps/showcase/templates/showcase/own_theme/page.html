@@ -1,0 +1,39 @@
+{% extends "showcase/own_theme/base.html" %}
+{% load dashboard_tags calendar_tags help_tags %}
+
+{% block title %}Embeds on your own theme{% endblock %}
+
+{% block content %}
+<h1>SmallStack on your own theme</h1>
+<p class="ot-lede">This page doesn't extend <code>smallstack/base.html</code>. Its base template is a stand-in for a project's own theme, with its own fonts, colours, <code>.card</code> and <code>.btn-primary</code>. SmallStack's embeds draw on it with two tags in that base: <code>{% templatetag openblock %} smallstack_assets {% templatetag closeblock %}</code> in the head and <code>{% templatetag openblock %} smallstack_modal {% templatetag closeblock %}</code> before <code>&lt;/body&gt;</code>.</p>
+
+<div class="ot-row">
+    <div class="card">
+        <strong>The host's own card</strong>
+        <p style="margin: 0.4rem 0 0.8rem;">Styled by this theme. SmallStack also styles <code>.card</code>, but its styles sit in a cascade layer, so this theme wins and its card keeps its look.</p>
+        <a class="btn-primary" href="{% url 'showcase:starter' %}">The host's button</a>
+    </div>
+</div>
+
+{% if metrics %}
+<h2>Metric cards {% help_bubble "dashboards" "metric" %}</h2>
+<div class="stat-cards">
+    {% for m in metrics %}{% metric_card m.key period="mtd" %}{% endfor %}
+</div>
+<p class="ot-code">{% templatetag openblock %} metric_card "{{ metrics.0.key }}" period="mtd" {% templatetag closeblock %}   ← click one: its rows open in the drill-down modal</p>
+{% endif %}
+
+{% if board %}
+<h2>A dashboard</h2>
+{% dashboard board %}
+<p class="ot-code">{% templatetag openblock %} dashboard "{{ board.slug }}" {% templatetag closeblock %}</p>
+{% endif %}
+
+<h2>A calendar</h2>
+{% calendar_card "smallstack_events" mode="upcoming" %}
+<p class="ot-code">{% templatetag openblock %} calendar_card "smallstack_events" mode="upcoming" {% templatetag closeblock %}</p>
+
+{% if not user.is_authenticated %}
+<p class="ot-lede">Sign in to see the metrics, dashboard and calendar: each embed checks the viewer's access, as its full page does.</p>
+{% endif %}
+{% endblock %}

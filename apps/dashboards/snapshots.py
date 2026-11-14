@@ -32,7 +32,7 @@ from .weeks import _cell, _goal_rows, _json_safe, _masked, goal_row, week_label,
 if TYPE_CHECKING:
     from .models import GoalList, Metric, Snapshot
 
-logger = logging.getLogger("smallstack.dashboards")
+logger = logging.getLogger(__name__)
 
 HOURLY = "hourly"
 DAILY = "daily"

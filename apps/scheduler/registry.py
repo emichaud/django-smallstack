@@ -32,7 +32,7 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from .models import ScheduledJob
 
-logger = logging.getLogger("smallstack.scheduler")
+logger = logging.getLogger(__name__)
 
 # Cadence fields refreshed from code on every sync (task wiring included).
 _CADENCE_FIELDS = ("schedule_type", "interval_spec", "cron_expression", "run_at", "timezone")
@@ -74,7 +74,7 @@ def sync_code_jobs() -> int:
     ``SMALLSTACK_APPROVALS_SWEEP_ENABLED`` turned its registration off — is
     disabled here. Previously only ``get_or_create`` ran, so the flag worked on a
     fresh database and did nothing on an existing install: the operator set it,
-    saw no change, and the job kept firing. (F-23.) Rows the operator created in
+    saw no change, and the job kept firing. Rows the operator created in
     the UI (``source=UI``) are never touched.
     """
     from .decorators import _SCHEDULE_REGISTRY
@@ -129,7 +129,7 @@ def sync_code_jobs() -> int:
             # The spec is back. If WE retired it (auto_retired), un-retire it —
             # otherwise the flag that stopped the job is a one-way switch and the
             # documented remedy (set it back) does nothing. A row an operator
-            # disabled by hand carries no marker and stays off. (F-30.)
+            # disabled by hand carries no marker and stays off.
             if job.auto_retired:
                 job.enabled = True
                 job.auto_retired = False
@@ -174,7 +174,7 @@ def sync_code_jobs() -> int:
         # on import, an app temporarily out of INSTALLED_APPS, `migrate` run
         # against a shared database with a different settings module — retires
         # exactly that app's jobs, silently. Treat a large single-sync shrink as
-        # evidence about the registry, not about the jobs. (F-30.)
+        # evidence about the registry, not about the jobs.
         logger.warning(
             "scheduler: refusing to retire %d code job(s) — only %d spec(s) are "
             "registered, which looks like a partial autodiscovery failure rather "

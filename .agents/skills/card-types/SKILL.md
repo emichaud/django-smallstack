@@ -331,7 +331,7 @@ def test_sparkline_draws_and_opens_its_rows(client, staff, metric):
 ```
 
 `apps.dashboards.tests.support.own(metric_key)` gives a card its own source copied
-from a saved metric; `apps/website/test_dashboard_cards.py` has the fixtures (a
+from a saved metric; `apps/website/tests/test_dashboard_cards.py` has the fixtures (a
 registered test dataset, a metric, a staff client) and one test per card. Every GET
 the test client makes is itself logged by the activity middleware, so a card over the
 requests dataset counts them: filter the card (`"filter_tree": {...}`) or assert on

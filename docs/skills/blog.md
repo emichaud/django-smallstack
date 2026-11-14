@@ -273,7 +273,7 @@ subscriber address.
    `ModelForm.__init__`, which startup instantiates). It builds and caches the
    root URLConf before the app registry is ready, leaving every later-registered
    app with no routes. Use `reverse_lazy` or `django.utils.functional.lazy`.
-   `apps/smallstack/test_urlconf_load_timing.py` is the canary.
+   `apps/smallstack/tests/test_urlconf_load_timing.py` is the canary.
 8. **Don't hard-code a colour** in a template or `blog.css` — six palettes × two
    themes. See `modern-dark-theme.md`.
 

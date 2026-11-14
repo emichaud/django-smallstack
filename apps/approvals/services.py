@@ -30,7 +30,7 @@ from .models import ApprovalRequest
 from .registry import get_kind, resolve_on_decision
 from .signals import approval_decided, approval_requested
 
-logger = logging.getLogger("smallstack.approvals")
+logger = logging.getLogger(__name__)
 
 Actor = permissions.Actor
 
@@ -55,7 +55,7 @@ class TooManyPending(ApprovalError):
     """The requester already has the maximum pending requests for this kind
     (→ 429 on REST/MCP). The abuse model is an agent token in a loop: without a
     cap one identity can bury every approver's bell and mailbox, which defeats
-    the gate by fatigue rather than by a bug. (F-18.)"""
+    the gate by fatigue rather than by a bug."""
 
 
 class ApprovalsDisabled(ApprovalError, FeatureDisabled):
@@ -64,7 +64,7 @@ class ApprovalsDisabled(ApprovalError, FeatureDisabled):
     Also a :class:`~apps.smallstack.exceptions.FeatureDisabled`, so **any**
     ``@api_view`` endpoint that calls into approvals degrades to a 503 with the
     standard envelope instead of a 500. Approvals' own routes are unmounted when
-    the switch is off, so this is the only way the 503 is ever observable. (F-31.)
+    the switch is off, so this is the only way the 503 is ever observable.
     """
 
 
@@ -72,7 +72,7 @@ def enabled() -> bool:
     """The master switch. When off, the URLs are not mounted (see
     ``apps/smallstack/site_urls.py``), the sweep job is not registered, and
     every state-changing service call raises :class:`ApprovalsDisabled` rather
-    than half-working with the fan-out silently dead. (F-11.)"""
+    than half-working with the fan-out silently dead."""
     return bool(getattr(settings, "SMALLSTACK_APPROVALS_ENABLED", True))
 
 
@@ -211,7 +211,7 @@ def _finish(req: ApprovalRequest, *, actor: Actor, source: str) -> ApprovalReque
     )
     if getattr(actor, "pk", None) is None:
         # Expiry has no human actor; without this the one terminal outcome
-        # nobody caused was also the one with no audit row. (F-15.)
+        # nobody caused was also the one with no audit row.
         log_system_write(req, CHANGE, source)
     else:
         log_write(actor, req, CHANGE, source)
@@ -291,7 +291,7 @@ def lazy_expire_limit() -> int:
     fans out a webhook delivery — roughly 20 queries per row. Unbounded, the
     first visitor after a backlog paid the whole bill inside their GET
     (200 overdue rows = 4,017 queries / 0.57 s; 1,000 rows = 2.8 s). Bounded, the
-    page stays responsive and the scheduled sweep drains the remainder. (F-12.)
+    page stays responsive and the scheduled sweep drains the remainder.
     """
     return int(getattr(settings, "SMALLSTACK_APPROVALS_LAZY_EXPIRE_LIMIT", 25))
 

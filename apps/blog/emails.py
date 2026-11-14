@@ -31,7 +31,7 @@ from apps.smallstack.transforms import render_markdown
 from . import tokens
 from .models import Blog, Delivery, Issue, Subscription, issue_body_source
 
-logger = logging.getLogger("smallstack.blog")
+logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------

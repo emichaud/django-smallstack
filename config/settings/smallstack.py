@@ -542,7 +542,7 @@ SMALLSTACK_NOTIFICATIONS_RETENTION_DAYS = config(
 # Master switch. Off ⇒ the URLs are never mounted (console, REST, decide POST),
 # no kind autodiscovery, no receivers, no nav/dashboard/monitor, no sweep job,
 # and services.request_approval/decide/cancel raise ApprovalsDisabled. It used
-# to leave every endpoint live and only kill the fan-out. (F-11.)
+# to leave every endpoint live and only kill the fan-out.
 SMALLSTACK_APPROVALS_ENABLED = config("SMALLSTACK_APPROVALS_ENABLED", default=True, cast=bool)
 # May the requester decide their own request? Off by default — a human gate
 # you can wave yourself through isn't a gate.
@@ -573,7 +573,7 @@ SMALLSTACK_APPROVALS_NOTIFY_EMAILS = config(
 # Send approval mail in the request path instead of queueing it on the `email`
 # task queue. Defaults to DEBUG: a `make run` demo or a test run delivers with no
 # worker, while production keeps the queue (and then NEEDS a db_worker on the
-# `email` queue — the approvals status monitor trips if nothing drains it). (F-07.)
+# `email` queue — the approvals status monitor trips if nothing drains it).
 # Unset (the default) means "follow DEBUG", resolved at call time in
 # apps/approvals/receivers.py — DEBUG isn't defined yet in this module.
 _approvals_inline = config("SMALLSTACK_APPROVALS_EMAILS_INLINE", default="")
@@ -601,7 +601,7 @@ SMALLSTACK_APPROVALS_LAZY_EXPIRE_LIMIT = config(
 # Cap on a single requester's outstanding pending requests per kind (0 = no cap).
 # The abuse model is an agent token in a loop: one identity filed 60 requests and
 # generated 600 notification rows unimpeded, which defeats the gate by alert
-# fatigue. Exceeding it raises TooManyPending → 429 on REST/MCP. (F-18.)
+# fatigue. Exceeding it raises TooManyPending → 429 on REST/MCP.
 SMALLSTACK_APPROVALS_MAX_PENDING_PER_REQUESTER = config(
     "SMALLSTACK_APPROVALS_MAX_PENDING_PER_REQUESTER", default=50, cast=int
 )
@@ -614,7 +614,7 @@ SMALLSTACK_APPROVALS_MAX_PENDING_PER_REQUESTER = config(
 # no actor are attributed to this reserved account, created on first use as
 # is_active=False with an unusable password — a label, not a credential (nothing
 # can authenticate as an inactive user on any surface). Blank ⇒ system writes are
-# logged to the application log only. (F-15.)
+# logged to the application log only.
 SMALLSTACK_AUDIT_SYSTEM_USERNAME = config("SMALLSTACK_AUDIT_SYSTEM_USERNAME", default="system")
 
 

@@ -18,7 +18,7 @@ from apps.smallstack.models import APIToken
 
 from .server import ToolDef
 
-logger = logging.getLogger("smallstack.mcp.auth")
+logger = logging.getLogger(__name__)
 
 
 def authenticate(request: HttpRequest) -> tuple[Optional[Any], Optional[APIToken], Optional[str]]:
@@ -84,7 +84,7 @@ def check_tool_access(
       is the live fact. REST gates on the user (``request.user.is_staff``), so
       MCP must too — otherwise a staff-level token held by a non-staff user
       (flag cleared after minting, or minted for them by another staffer)
-      keeps staff power over MCP that REST refuses. (Audit 2026-09-13, C1.)
+      keeps staff power over MCP that REST refuses.
     - tool_def.write=True ⇒ readonly tokens rejected.
     - StaffRequiredMixin on the view ⇒ token.user must be staff.
     """
@@ -97,14 +97,14 @@ def check_tool_access(
     # demanded staff, on which staff were strictly LESS capable than non-staff.
     # Latent (nothing in the tree declares "auth" yet, though a dataset author's
     # `mcp_access="auth"` reaches it), so the first tool to use the documented
-    # value got nonsense. (F-26.)
+    # value got nonsense.
     level_rank = {"readonly": 0, "auth": 1, "staff": 2}
     # A login token (POST /api/auth/token/) carries access_level="" — it is not a
     # tier choice, it means "whatever this user is". Ranking it 0 (readonly) made
     # a genuine staff user's login token unable to call staff-tier tools, with an
     # error naming the user's role rather than the token's tier. Derive the level
     # from the account instead; the user's live staff flag is still re-checked
-    # below, so this cannot grant more than the account has. (F-14.)
+    # below, so this cannot grant more than the account has.
     effective_level = token.access_level or (
         "staff" if getattr(token.user, "is_staff", False) else "auth"
     )
@@ -117,7 +117,7 @@ def check_tool_access(
         # Only the `staff` tier implies the staff flag. Re-checking it for any
         # tier "at or above staff" was the same inversion in a second place:
         # `auth` ranked above `staff`, so an auth-tier tool silently demanded
-        # staff as well. (F-26.)
+        # staff as well.
         if tool_def.requires_access == "staff" and not getattr(token.user, "is_staff", False):
             return "staff_required"
 

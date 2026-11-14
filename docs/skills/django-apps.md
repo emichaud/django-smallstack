@@ -352,8 +352,7 @@ The list page follows the **manager title bar** pattern:
 {% include "myfeature/_widget_table.html" %}
 </div>
 
-{# ── Stat Modal (required if using stat-card-clickable cards) ── #}
-{% include "smallstack/includes/stat_modal.html" %}
+{# The stat modal is already on the page: smallstack/base.html renders it. #}
 {% endblock %}
 ```
 
@@ -511,7 +510,7 @@ Every management page uses this consistent title bar structure:
 
 To enable clickable stat cards that pop up a detail modal:
 
-1. Include the modal template: `{% include "smallstack/includes/stat_modal.html" %}`
+1. Nothing to include on `smallstack/base.html`, which renders the modal. On a base template of your own, put `{% smallstack_modal %}` near the end of `<body>`
 2. Add `class="stat-card-clickable"` to the card
 3. Add `hx-get="url"` and `hx-target="#stat-modal-body"` for HTMX content loading
 4. Add `data-stat-modal="Title"` to open the modal with that title (no inline `onclick` — theme.js handles the click; `data-stat-modal-close` on a button closes it)

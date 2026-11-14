@@ -96,7 +96,7 @@ class HeartbeatEpoch(models.Model):
             ),
         }
         # Atomic so a failure between delete and create can't leave this monitor
-        # without an epoch and silently restart its SLA tracking. (Audit L10.)
+        # without an epoch and silently restart its SLA tracking.
         with transaction.atomic():
             cls.objects.filter(monitor_key=monitor_key).delete()
             return cls.objects.create(**defaults)

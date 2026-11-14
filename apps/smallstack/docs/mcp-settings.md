@@ -101,7 +101,7 @@ Master switch for the OAuth surface. When `False`:
 
 ### `MCP_VERBOSE_LOGGING`
 
-When `True`, the `smallstack.mcp.views` logger emits DEBUG-level lines including truncated request/response bodies (1 KB each direction). Otherwise only INFO-level metadata logs (method, status, duration).
+When `True`, the `apps.mcp.views` logger emits DEBUG-level lines including truncated request/response bodies (1 KB each direction). Otherwise only INFO-level metadata logs (method, status, duration).
 
 **When to change:** Temporarily during a debug session. Set via env so you can flip without redeploying:
 
@@ -163,7 +163,7 @@ No settings change needed — `oauth.issuer_url()` reads `HTTP_X_FORWARDED_PROTO
 MCP_VERBOSE_LOGGING=true uv run python manage.py runserver 8005
 
 # In another, watch the structured logs
-tail -f logs/django.log | grep "smallstack.mcp"
+tail -f logs/django.log | grep "apps.mcp"
 ```
 
 ### Downstream project with custom theme

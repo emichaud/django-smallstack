@@ -18,7 +18,7 @@ from typing import Any, Iterator
 from .access import SearchAccess
 from .backends.base import IndexedView, SearchHit
 
-logger = logging.getLogger("smallstack.search")
+logger = logging.getLogger(__name__)
 
 _search_registry: dict[str, IndexedView] = {}
 
@@ -327,7 +327,7 @@ def get_indexed_sources(user: Any = None) -> list[dict]:
                     if get_url is not None:
                         url = get_url()
                 except Exception:
-                    pass
+                    logger.debug("get_absolute_url failed on a %s preview", type(obj).__name__, exc_info=True)
                 previews.append({
                     "display": display_val[:80],
                     "url": url,
@@ -340,7 +340,7 @@ def get_indexed_sources(user: Any = None) -> list[dict]:
                 if first_word and len(first_word) >= 2:
                     examples.append(first_word)
         except Exception:
-            pass
+            logger.debug("Couldn't build search previews for %s", view.model.__name__, exc_info=True)
 
         sources.append({
             "kind": "model",
@@ -390,7 +390,7 @@ def get_indexed_sources(user: Any = None) -> list[dict]:
                 "visibility": None,
             })
     except Exception:
-        pass
+        logger.debug("Couldn't count the help docs for the search sources", exc_info=True)
 
     return sources
 

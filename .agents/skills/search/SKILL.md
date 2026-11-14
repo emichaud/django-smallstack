@@ -158,7 +158,9 @@ When `apps.search` is in `INSTALLED_APPS` and a CRUDView has `enable_search = Tr
 2. **The active backend** creates the index structure at `post_migrate` (FTS5 virtual table on SQLite; `search_vector` column + GIN index on Postgres — both self-provisioned, no migration)
 3. **post_save / post_delete signals** keep the index current
 4. **MCP tool factory** registers `search_<plural>(query, limit)` in `TOOL_REGISTRY`
-5. **Results appear** in the global search page, omnibar JSON, and Claude's tool list
+5. **Results appear** in the global search page, omnibar JSON, Claude's tool list, and the REST search endpoint
+
+**REST.** `GET /smallstack/search/api/?q=<text>` (`search:api`, in OpenAPI) is the same ranked, cross-model search for REST clients, with an API token (`Authorization: Bearer …`) or a session. It searches as the token's user through `search_all`, so access and `search_visibility` apply exactly as in the omnibar and MCP. `limit` (1–50, default 20) caps the ranked list; `model=app_label.Model` keeps one model's hits; no `q` returns `sources`, what that user may search. Each hit carries `model_label`, `object_id`, `display`, `subtitle`, `snippet`, `url` and `rank`. A CRUDView list's own `?q=` is different: a substring match over its `search_fields`, one model, no index.
 6. **The Swagger-style accordion** on `/smallstack/search/` gains a new collapsed row showing the model name, MCP tool name, record count, and (when expanded) the field list, MCP signature, REST endpoint, and live records — so the user/AI can verify the opt-in worked without running a CLI command
 
 ## Shaping a result — `SearchBuilder` (optional)

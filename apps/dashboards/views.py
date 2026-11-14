@@ -1631,7 +1631,7 @@ def browse_prefill(params: Any, user: Any) -> dict[str, Any]:
     read as words. Empty when the dataset isn't usable."""
     from apps.datasets.registry import get_def, user_may_read
 
-    from .metrics import AGGS
+    from .metrics import aggs_available
 
     initial: dict[str, Any] = {}
     key = params.get("dataset", "").strip()
@@ -1650,7 +1650,7 @@ def browse_prefill(params: Any, user: Any) -> dict[str, Any]:
     if isinstance(tree, dict) and tree and not ds.validate_filter_tree(tree):
         initial["filter_tree"] = tree
     agg = params.get("agg", "").strip()
-    if agg in dict(AGGS):
+    if agg in dict(aggs_available()):
         initial["agg"] = agg
     measure = params.get("measure", "").strip()
     if measure and measure in set(ds.column_names()):
@@ -1840,7 +1840,7 @@ class MetricQuickView(LoginRequiredMixin, View):
     def context(
         self, request: HttpRequest, values: dict[str, Any], params: Any, *, preview: bool = True
     ) -> dict[str, Any]:
-        from .metrics import AGGS, FORMATS
+        from .metrics import FORMATS, aggs_available
         from .models import same_metrics
         from .previews import preview_metric
 
@@ -1866,7 +1866,7 @@ class MetricQuickView(LoginRequiredMixin, View):
             "tree_json": json.dumps(tree, separators=(",", ":")) if tree else "",
             "reading": describe_filter_tree(tree, labels) if tree else "",
             "dataset_label": schema.get("label") or values["dataset"],
-            "aggs": AGGS,
+            "aggs": aggs_available(),
             "formats": FORMATS,
             "measures": [c for c in schema["columns"] if c["role"] == "measure"],
             "date_columns": [f for f in schema.get("filters", []) if f.get("is_date")],

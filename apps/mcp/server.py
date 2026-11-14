@@ -13,7 +13,7 @@ from contextvars import ContextVar
 from dataclasses import dataclass, field
 from typing import Any, Awaitable, Callable, Iterator, Optional, Union
 
-logger = logging.getLogger("smallstack.mcp.server")
+logger = logging.getLogger(__name__)
 
 
 # No MCP SDK object lives here. SmallStack speaks the protocol itself — the

@@ -24,13 +24,13 @@ from apps.smallstack.mixins import StaffRequiredMixin
 from . import services
 from .models import WebhookDelivery, WebhookEndpoint, WebhookReceipt, WebhookReceiver
 
-logger = logging.getLogger("smallstack.webhooks")
+logger = logging.getLogger(__name__)
 
 LOCALHOST_IPS = {"127.0.0.1", "::1"}
 
 
 class EventFilterWidget(forms.Widget):
-    """A pattern picker for ``event_filter`` (F-015): checkboxes for the events models
+    """A pattern picker for ``event_filter``: checkboxes for the events models
     actually emit, plus a free-text box for custom/wildcard patterns. Serializes to the
     same JSON list the field stored before — so it's a pure UI upgrade over the raw
     textarea, backward-compatible on read and write.
@@ -332,7 +332,7 @@ class WebhookReceiverCRUDView(CRUDView):
 # Write-only secret on both config models (create/update via any surface;
 # reads still go through the staff-gated reveal actions only).
 _EndpointForm = _with_write_only_secret(WebhookEndpointCRUDView._make_form_class())
-# F-015: replace the raw event_filter JSON textarea with the pattern picker.
+# Replace the raw event_filter JSON textarea with the pattern picker.
 if "event_filter" in _EndpointForm.base_fields:
     _EndpointForm.base_fields["event_filter"].widget = EventFilterWidget()
     _EndpointForm.base_fields["event_filter"].help_text = (
@@ -417,7 +417,7 @@ class WebhooksDashboardView(StaffRequiredMixin, TemplateView):
         ctx["recent_receipts"] = (
             WebhookReceipt.objects.select_related("receiver").order_by("-received_at")[:10]
         )
-        # The pairing panel reuses the endpoint form's event picker (F-015) so
+        # The pairing panel reuses the endpoint form's event picker so
         # "which events cross the link" is chosen from what models actually
         # emit, not typed as raw JSON. "*" pre-checked = the old default.
         ctx["pair_events_picker"] = EventFilterWidget().render("events", '["*"]')
@@ -468,7 +468,7 @@ def replay_delivery(request: HttpRequest, pk: int) -> HttpResponse:
         endpoint=original.endpoint,
         event_type=original.event_type,
         payload=original.payload,
-        event_id=original.event_id,  # reuse the stable key so a consumer dedupes (F-021)
+        event_id=original.event_id,  # reuse the stable key so a consumer dedupes
         max_attempts=original.max_attempts,
     )
     services._enqueue_delivery(replay.pk)
@@ -484,7 +484,7 @@ def replay_delivery(request: HttpRequest, pk: int) -> HttpResponse:
 
 @require_POST
 def pair_smallstack(request: HttpRequest) -> HttpResponse:
-    """'Connect a SmallStack' (F-027/F-031): configure THIS instance's half of a loop-safe
+    """'Connect a SmallStack': configure THIS instance's half of a loop-safe
     two-way link (two per-direction secrets) and hand the operator the mirror command for
     the peer. Touches only the local instance — it does not reach the peer."""
     if not (request.user.is_authenticated and request.user.is_staff):
@@ -550,14 +550,14 @@ def pair_smallstack(request: HttpRequest) -> HttpResponse:
     messages.success(request, "\n".join(lines))
     for warning in result.get("warnings") or []:
         # e.g. a loopback target blocked by the SSRF guard — say it here rather
-        # than leaving it buried in a failed delivery's error field. (F-06.)
+        # than leaving it buried in a failed delivery's error field.
         messages.warning(request, warning)
     return redirect("webhooks/endpoints-detail", pk=result["endpoint_id"])
 
 
 @require_POST
 def replay_dead_deliveries(request: HttpRequest) -> HttpResponse:
-    """Bulk-replay every dead delivery as a fresh attempt (F-023). The dead-letter
+    """Bulk-replay every dead delivery as a fresh attempt. The dead-letter
     recovery action after an outage — one click instead of one id at a time."""
     if not (request.user.is_authenticated and request.user.is_staff):
         return HttpResponse(status=403)
@@ -657,7 +657,7 @@ def incoming_webhook(request: HttpRequest, slug: str) -> HttpResponse:
 
     from . import hooks
 
-    # 1. Challenge/handshake seam (F-026): runs before verify/dispatch. A provider's
+    # 1. Challenge/handshake seam: runs before verify/dispatch. A provider's
     #    validation handshake (Event Grid validationCode, SNS SubscribeURL) returns a
     #    response here to short-circuit; None ⇒ fall through to normal dispatch.
     challenge = hooks.get_challenge(receiver.challenge)
@@ -665,12 +665,17 @@ def incoming_webhook(request: HttpRequest, slug: str) -> HttpResponse:
         try:
             resp = challenge(request, receiver)
         except Exception:  # noqa: BLE001 — a broken challenge must not 500 the sender
+            logger.exception(
+                "Challenge hook %r for receiver %s raised; falling through to normal dispatch",
+                receiver.challenge,
+                receiver.slug,
+            )
             resp = None
         if resp is not None:
             return resp
 
     # Size cap before the body is read or anything touches the DB — this route
-    # is public and unauthenticated. (Audit 2026-09-13, C6.)
+    # is public and unauthenticated.
     max_bytes = int(getattr(settings, "SMALLSTACK_WEBHOOK_INBOUND_MAX_BYTES", 1_048_576))
     try:
         declared = int(request.META.get("CONTENT_LENGTH") or 0)
@@ -684,7 +689,7 @@ def incoming_webhook(request: HttpRequest, slug: str) -> HttpResponse:
         return JsonResponse({"error": "payload too large"}, status=413)
     origin = request.headers.get(services.ORIGIN_HEADER, "")
 
-    # 2. Verifier seam (F-016): default "hmac" is the current raw-body HMAC check;
+    # 2. Verifier seam: default "hmac" is the current raw-body HMAC check;
     #    a provider scheme (Stripe t.body, GitHub sha256=) is a plug-in.
     verifier = hooks.get_verifier(receiver.verifier)
     try:
@@ -693,17 +698,17 @@ def incoming_webhook(request: HttpRequest, slug: str) -> HttpResponse:
         # `dict(request.headers)` froze Django's own canonicalisation, so a
         # receiver configured with the documented "X-SmallStack-Signature"
         # spelling silently 401'd while an undocumented "X-Smallstack-Signature"
-        # worked (F-06). The first fix used Django's CaseInsensitiveMapping, which
+        # worked. The first fix used Django's CaseInsensitiveMapping, which
         # is IMMUTABLE — narrowing a seam documented as `dict[str, str]`, so a
         # third-party verifier doing `headers.pop(...)` started 401ing on a
-        # correct credential (F-37). hooks.CaseInsensitiveDict satisfies both.
+        # correct credential. hooks.CaseInsensitiveDict satisfies both.
         header_map = hooks.CaseInsensitiveDict(request.headers)
         verified = bool(verifier(raw, header_map, receiver))
     except Exception:
         # A broken verifier fails CLOSED (unverified) — but never silently. This
         # exception used to be swallowed whole, so a verifier raising on a
         # perfectly good signature was indistinguishable from a forged one, with
-        # nothing in the log to diagnose. (F-37.)
+        # nothing in the log to diagnose.
         logger.exception(
             "webhooks: verifier %r raised for receiver %r — treating the delivery "
             "as UNVERIFIED. Fix the verifier; a raised exception is not a rejection.",
@@ -723,7 +728,7 @@ def incoming_webhook(request: HttpRequest, slug: str) -> HttpResponse:
         # Anyone can POST here without a credential, so a rejection must not
         # cost a full-size durable row each time: keep a short excerpt plus a
         # digest (enough to debug a mis-set secret), and stop recording once a
-        # receiver has taken a burst of rejections this minute. (Audit C6.)
+        # receiver has taken a burst of rejections this minute.
         limit = int(getattr(settings, "SMALLSTACK_WEBHOOK_REJECTED_PER_MINUTE", 30))
         recent = WebhookReceipt.objects.filter(
             receiver=receiver,
@@ -748,7 +753,7 @@ def incoming_webhook(request: HttpRequest, slug: str) -> HttpResponse:
             )
         return JsonResponse({"error": "invalid signature"}, status=401)
 
-    # 3. Loop guard (F-020): drop an event this SmallStack originated (a two-way S2S
+    # 3. Loop guard: drop an event this SmallStack originated (a two-way S2S
     #    link echoing back), recording it as ignored rather than dispatching.
     if receiver.ignore_origin and origin and origin == receiver.ignore_origin:
         WebhookReceipt.objects.create(

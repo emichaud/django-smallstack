@@ -13,7 +13,7 @@ import logging
 from django.apps import AppConfig
 from django.conf import settings
 
-logger = logging.getLogger("smallstack.webhooks")
+logger = logging.getLogger(__name__)
 
 
 class WebhooksConfig(AppConfig):
@@ -44,10 +44,10 @@ class WebhooksConfig(AppConfig):
         # Autodiscover extension seams + inbound handlers from each app's webhook_*.py
         # (pure imports, no DB) — the same pattern as mcp_tools.py / webhook_handlers.py.
         seam_modules = (
-            "webhook_transforms",  # @webhook_transform  (F-019)
-            "webhook_auths",  # @webhook_auth       (F-025)
-            "webhook_verifiers",  # @webhook_verifier   (F-016)
-            "webhook_challenges",  # @webhook_challenge  (F-026)
+            "webhook_transforms",  # @webhook_transform
+            "webhook_auths",  # @webhook_auth
+            "webhook_verifiers",  # @webhook_verifier
+            "webhook_challenges",  # @webhook_challenge
         )
         try:
             from apps.smallstack.autodiscover import autodiscover_app_modules

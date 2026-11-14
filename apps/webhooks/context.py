@@ -2,8 +2,8 @@
 
 The outbound event source is a global ``post_save``/``post_delete`` observer with no
 origin discrimination, so a handler (or a paired SmallStack) that writes back into a
-``enable_webhooks`` model re-triggers the event and can run away (reproduced 1→6 in the
-n8n scenario, F-020). Two primitives break the loop:
+``enable_webhooks`` model re-triggers the event and can run away (reproduced 1→6 in an
+n8n round trip). Two primitives break the loop:
 
 * :func:`suppress_webhooks` — a re-entrant thread-local context manager. Writes made
   inside it emit **no** outbound events. Inbound dispatch runs each handler inside it by
@@ -94,7 +94,7 @@ def origin_is_configured() -> bool:
 
     False when neither ``SMALLSTACK_WEBHOOK_ORIGIN`` nor a URL-shaped ``SITE_URL`` /
     ``SMALLSTACK_SITE_URL`` / ``BASE_URL`` is set, in which case :func:`current_origin`
-    falls back to the bare hostname and ``resource.url`` degrades to ``None`` (F-029).
+    falls back to the bare hostname and ``resource.url`` degrades to ``None``.
     """
     origin = current_origin()
     return origin.startswith(("http://", "https://"))

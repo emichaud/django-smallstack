@@ -205,7 +205,7 @@
             if (current && !known) { var o = el("option", { value: current }, current + " (not in this data)"); o.selected = true; sel.appendChild(o); }
         }
         function syncMeasure() {
-            var needs = ["sum", "avg", "min", "max", "distinct"].indexOf(aggSel.value) >= 0;
+            var needs = ["sum", "avg", "median", "min", "max", "distinct"].indexOf(aggSel.value) >= 0;
             measureField.hidden = !needs;
             if (!needs) { measureInput.value = ""; measureSel.value = ""; }
         }

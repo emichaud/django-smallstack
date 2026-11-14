@@ -26,7 +26,7 @@ from django.dispatch import receiver
 
 from .models import Component, Dashboard, GoalList, Metric, Playlist, Report
 
-logger = logging.getLogger("smallstack.dashboards")
+logger = logging.getLogger(__name__)
 
 
 def _delete_file_on_commit(storage: Any, name: str) -> None:

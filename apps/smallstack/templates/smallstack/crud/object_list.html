@@ -47,7 +47,7 @@
     <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
         {% comment %}h1, not h2: this branch runs when no page_header supplied one, so
         this is the page's only top-level heading. A document whose first heading
-        is an h2 is what a screen-reader user landing here gets. (F-55){% endcomment %}
+        is an h2 is what a screen-reader user landing here gets.{% endcomment %}
         <h1 class="crud-title">{{ object_verbose_name_plural }}</h1>
         <div style="display: flex; align-items: center; gap: 8px;">
             {% if available_displays|length > 1 %}

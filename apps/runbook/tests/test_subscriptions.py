@@ -99,3 +99,27 @@ class TestSubscribeView:
         assert subscriptions.is_subscribed(subscriber, doc)
         client.post(url)
         assert not subscriptions.is_subscribed(subscriber, doc)
+
+
+@pytest.mark.django_db
+def test_inline_fallbacks_say_the_task_backend_was_missing(monkeypatch, caplog):
+    """No task backend: notifications and pruning run inline, and the log says so,
+    as accounts' emails do, instead of quietly sending mail inside the request."""
+    from apps.runbook import receivers, subscriptions, tasks
+
+    def refuse(*args, **kwargs):
+        raise RuntimeError("no task backend")
+
+    from types import SimpleNamespace
+
+    # The receivers import the task objects at call time; swap in ones that can't queue.
+    monkeypatch.setattr(tasks, "notify_subscribers_task", SimpleNamespace(enqueue=refuse))
+    monkeypatch.setattr(tasks, "prune_versions_task", SimpleNamespace(enqueue=refuse))
+    sent = []
+    monkeypatch.setattr(subscriptions, "send_update_notifications", lambda *a: sent.append(a))
+    with caplog.at_level("WARNING", logger="apps.runbook"):
+        receivers._enqueue_notify(987654, "new_version")
+        receivers._enqueue_prune(987654)
+    assert sent == [(987654, "new_version")]
+    messages = [r.getMessage() for r in caplog.records if r.name == "apps.runbook.receivers"]
+    assert any("sending inline" in m for m in messages) and any("pruning inline" in m for m in messages)

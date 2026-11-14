@@ -19,7 +19,9 @@ rows up into one value:
 
 - **Which rows:** the filter. *Status code is 500 or more.*
 - **How to roll them up:** count them, count distinct values, or take the sum,
-  average, minimum or maximum of a number column.
+  average, median, minimum or maximum of a number column. For skewed numbers
+  like response times or deal sizes, the median is the typical value; a few
+  large ones pull the average up.
 
 It does not store the rows or the answer. It stores the question, as a small
 piece of JSON text, and asks it again every time someone looks. That is why a

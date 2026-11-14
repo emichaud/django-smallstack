@@ -853,7 +853,7 @@ class MonitorDetailView(TemplateView):
         is_staff = bool(getattr(self.request.user, "is_staff", False))
         # Staff always reach this page (it's their per-monitor view too); for
         # everyone else it is part of the public status surface, so it honours
-        # SMALLSTACK_PUBLIC_STATUS_ENABLED like the rest of it. (Audit C9a.)
+        # SMALLSTACK_PUBLIC_STATUS_ENABLED like the rest of it.
         if not is_staff and not _public_status_enabled():
             raise Http404("The public status page is disabled.")
         if monitor is None or (not is_staff and not monitor.public):
@@ -1017,7 +1017,7 @@ def _build_site_card(core_services: list[dict]) -> dict[str, Any]:
     both ``approvals-fanout`` ("191 approval email tasks queued and unrun") and
     ``scheduler-tick`` ("2 jobs overdue") — the two monitors that were actually
     down were the two the page swore were fine. A silent failure is bad; a failure
-    that renders as a green tick on the status board is worse. (F-28.)
+    that renders as a green tick on the status board is worse.
     """
     from django.urls import NoReverseMatch, reverse
 

@@ -44,7 +44,7 @@ def api_create_request(request: HttpRequest) -> ApiResult:
 
     ``target`` and ``assignees`` are accepted here as well as in Python, so a
     remote client no longer has to ship its own filing endpoint just to point an
-    approval at a business row (F-03). Assignee selection is gated by the kind's
+    approval at a business row. Assignee selection is gated by the kind's
     ``assignable`` allowlist so it can't be used to route at an arbitrary user.
     """
     payload = getattr(request, "json", None) or {}
@@ -92,7 +92,7 @@ def api_create_request(request: HttpRequest) -> ApiResult:
     # code advertising a status code no client of THIS endpoint could receive.
     # api_view now translates FeatureDisabled → 503 for every endpoint in the
     # project, which is where the 503 is actually reachable — a downstream app's
-    # own endpoint calling services.request_approval. (F-31.)
+    # own endpoint calling services.request_approval.
     return _serialize(req), 201
 
 
@@ -108,8 +108,8 @@ def api_decide_request(request: HttpRequest, pk: int) -> ApiResult:
     if req is None:
         # Explicit, not get_object_or_404: this is also the path a non-eligible
         # caller takes, and an HTML 404 page there breaks `await res.json()` in
-        # every client. (F-17 — api_view now translates Http404 too, but saying
-        # what was not found is better than a generic envelope.)
+        # every client. (api_view translates Http404 too, but saying what was
+        # not found is better than a generic envelope.)
         return api_error(f"No approval request {pk} (or not visible to you).", 404)
     payload = getattr(request, "json", None) or {}
     if "approved" not in payload or not isinstance(payload["approved"], bool):
@@ -137,7 +137,7 @@ def api_decide_request(request: HttpRequest, pk: int) -> ApiResult:
 # Every response these endpoints can actually produce is declared. A bare 200
 # made a generated client treat 201/403/409 as protocol errors — and 409-on-
 # already-decided is the single most important response in an approvals API,
-# since it is how a racing client learns it lost. (F-16.)
+# since it is how a racing client learns it lost.
 
 _TAG = ["Approvals"]
 

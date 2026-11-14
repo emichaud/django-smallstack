@@ -17,7 +17,7 @@ from apps.datasets.core import get_dataset
 from apps.datasets.dateranges import is_period
 from apps.datasets.registry import get_def, user_may_read
 
-from .metrics import ALL_AGGS, FORMATS, effective_tree, evaluate, request_for
+from .metrics import FORMATS, all_aggs_available, effective_tree, evaluate, request_for
 from .models import SOURCE_DATASET, SOURCE_RATE, SOURCES, Metric, Report
 from .periods import NO_PERIOD_FIELD_NOTE, period_problem
 from .reports import present_report, report_matrix
@@ -63,7 +63,7 @@ def unsaved_metric(user: Any, payload: dict[str, Any]) -> tuple[Optional[Metric]
             if side and (part is None or not part.can_view(user)):
                 # A key you can't open reads as unknown, as an unreadable dataset does.
                 problems.append(f"no metric {side!r} — list the metrics you may use first")
-    for name, vocabulary in (("agg", ALL_AGGS), ("format", FORMATS)):
+    for name, vocabulary in (("agg", all_aggs_available()), ("format", FORMATS)):
         allowed = [c for c, _label in vocabulary]
         if getattr(metric, name) not in allowed:
             problems.append(f"{name}: use one of {allowed}")

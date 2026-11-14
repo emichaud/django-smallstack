@@ -21,7 +21,7 @@ from django.db.models import Q
 
 from .base import IndexedView, SearchHit
 
-logger = logging.getLogger("smallstack.search")
+logger = logging.getLogger(__name__)
 
 
 class FallbackBackend:

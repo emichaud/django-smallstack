@@ -21,7 +21,7 @@ from .models import Document, Subscription
 if TYPE_CHECKING:
     from apps.accounts.models import User as UserType
 
-logger = logging.getLogger("smallstack.runbook")
+logger = logging.getLogger(__name__)
 
 User = get_user_model()
 

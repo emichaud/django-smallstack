@@ -6,6 +6,7 @@ one ``Heartbeat`` per monitor per minute; ``run_heartbeat_check()`` is a
 back-compat shim for just the built-in "site" monitor.
 """
 
+import logging
 import random
 import time
 from concurrent.futures import Future, ThreadPoolExecutor, wait
@@ -19,6 +20,8 @@ from django.utils.timezone import now
 from apps.smallstack.monitors import Monitor
 
 from .models import Heartbeat, HeartbeatDaily, HeartbeatEpoch, MaintenanceWindow
+
+logger = logging.getLogger(__name__)
 
 
 def _probe(monitor: Monitor) -> tuple[str, int, str]:
@@ -62,6 +65,9 @@ def _record(monitor: Monitor, minute: datetime, probe: tuple[str, int, str]) -> 
 
 
 def _recording_failed(monitor: Monitor, exc: Exception) -> dict[str, Any]:
+    # The result says "fail", but the traceback is the only clue to why a probe
+    # that ran couldn't be saved (a migration, a locked database).
+    logger.error("Couldn't record heartbeat for monitor %s", monitor.key, exc_info=exc)
     return {
         "monitor": monitor.key,
         "status": "fail",

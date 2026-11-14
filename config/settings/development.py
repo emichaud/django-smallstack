@@ -126,11 +126,19 @@ LOGGING = {
             "level": "DEBUG",
             "propagate": False,
         },
-        # MCP gets its own namespace so production tuning can be precise
-        # without touching the wider apps.* tree. Do NOT register a
-        # top-level "mcp" logger — it conflicts with the mcp package's
-        # internal logger.
-        "smallstack.mcp": {
+        # SmallStack's apps log under __name__ (apps.dashboards.metrics, …), so
+        # "apps" covers them. "smallstack" is kept for code written to the old
+        # convention (getLogger("smallstack.<app>")), which would otherwise fall
+        # through to root and lose its INFO lines in production.
+        "smallstack": {
+            "handlers": ["console"],
+            "level": "INFO",
+            "propagate": False,
+        },
+        # MCP at INFO on its own: at DEBUG it logs every tool it registers
+        # (100+ lines on each manage.py command). Do NOT register a top-level
+        # "mcp" logger — it conflicts with the mcp package's internal logger.
+        "apps.mcp": {
             "handlers": ["console"],
             "level": "INFO",
             "propagate": False,

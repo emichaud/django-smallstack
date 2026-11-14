@@ -249,7 +249,7 @@ If you set nothing else, you must set these 9 for a usable dark palette:
 --link-color
 ```
 
-Everything else cascades from the base `[data-theme="dark"]` block in `theme.css`. **But you almost certainly want to also override `--card-header-bg`, `--sidebar-bg`, `--footer-bg`, `--input-bg`, `--input-border`, `--text-muted`** — otherwise the page is half-modern-half-legacy and looks jarring.
+Everything else cascades from the base `[data-theme="dark"]` block in `core.css`. **But you almost certainly want to also override `--card-header-bg`, `--sidebar-bg`, `--footer-bg`, `--input-bg`, `--input-border`, `--text-muted`** — otherwise the page is half-modern-half-legacy and looks jarring.
 
 The cleanest practice: copy the entire dark-blue palette block, change accent values, tweak surface bias if needed. Three lines of accent overrides + 15 lines of surface overrides = a complete palette.
 

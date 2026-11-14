@@ -124,8 +124,10 @@ Two **required** pieces make dark mode and palettes work, and keep a signed-in u
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
           rel="stylesheet">
 
-    <!-- SmallStack palette CSS — gives you palette color variables -->
-    <link rel="stylesheet" href="{% static 'smallstack/css/palettes.css' %}">
+    <!-- SmallStack's shared styles: design tokens, palettes and the components
+         SmallStack's embeds draw with, in a `smallstack` cascade layer, so your
+         theme's own rules win wherever both style the same class. -->
+    {% smallstack_assets %}
 
     <!-- Your custom overrides (created in step 3) -->
     <link rel="stylesheet" href="{% static 'css/mytheme.css' %}">
@@ -158,6 +160,10 @@ Two **required** pieces make dark mode and palettes work, and keep a signed-in u
         </div>
     </footer>
 
+    <!-- The drill-down modal that stat cards, metric cards, report values and
+         help bubbles open. Once per page; it renders nothing a second time. -->
+    {% smallstack_modal %}
+
     <!-- Your framework JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"
             defer></script>
@@ -178,9 +184,32 @@ Two **required** pieces make dark mode and palettes work, and keep a signed-in u
 | **`config.js`** | `theme.js` has no settings: the toggle works in this browser only and never saves |
 | **`data-theme-url` / `data-palette-url` on `config.js`** | The toggle changes only this browser's copy. On the next page load the profile's saved theme wins, so the choice **flips back** |
 | **`theme.js`** (and htmx, which it saves with) | No dark mode toggle, no palette switching, no profile sync |
+| **`{% smallstack_assets %}`** | Embeds draw unstyled: no tokens (`--error-fg`, `--series-*`), no `.stat-card`, no modal styles |
+| **`{% smallstack_modal %}`** | A drill-down or help bubble opens nothing: its content has no `#stat-modal` to go to |
 | **`hx-headers` CSRF token on `<body>`** | The save is refused (403), with the same flip-back |
 
 For the full technical details on the persistence mechanism, see [Theming & Customization — Dark/Light Mode](/smallstack/help/smallstack/theming/#darklight-mode).
+
+### Using SmallStack's embeds on your pages
+
+With those two tags in your base template, SmallStack's embeds work on your theme's pages as they do on its own:
+
+```html
+{% extends "mytheme/base.html" %}
+{% load dashboard_tags calendar_tags help_tags %}
+
+{% block content %}
+  {% metric_card "requests" period="mtd" %}       {# a KPI with its drill-down #}
+  {% dashboard "site-health" %}                    {# a whole dashboard, cells load lazily #}
+  {% calendar_card "smallstack_events" mode="upcoming" %}  {# the next few events #}
+  {% help_bubble "dashboards" "metric" %}          {# a "?" that opens a help page in the modal #}
+{% endblock %}
+```
+
+- Each embed loads its own app stylesheet (`dashboards.css`, `calendar.css`); `{% smallstack_assets %}` supplies what they share.
+- Each checks the viewer's access as its full page does, and renders nothing (or a muted "—") for someone who can't see it.
+- **Your theme wins any clash.** SmallStack's shared styles sit in the `smallstack` cascade layer, which loses to every unlayered rule. Where Bootstrap and SmallStack both style `.card` or `.btn-primary`, an embed's cards take Bootstrap's look, and your own page's cards are never restyled.
+- `/starter/own-theme/` in the showcase app is a working page on a base template that isn't SmallStack's.
 
 ## Step 3: Create Your Theme's CSS Override File
 

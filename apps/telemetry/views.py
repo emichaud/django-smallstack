@@ -120,7 +120,7 @@ class LogListView(StaffRequiredMixin, TemplateView):
         filters = self.get_filters()
         if filters["level"] and filters["level"] not in {name for name, _label, _no in LEVEL_FILTERS}:
             # Say so instead of rendering the unfiltered table as if it were
-            # the filtered result — the API 400s on the same input. (Audit D10a.)
+            # the filtered result — the API 400s on the same input.
             messages.warning(self.request, f"Unknown level {filters['level']!r} ignored — showing all levels.")
             filters["level"] = ""
         qs = self.filtered_queryset(filters)

@@ -22,7 +22,7 @@ from django.db import connection, transaction
 from .base import IndexedView, SearchHit
 from .fallback import _make_hit, _resolve_field
 
-logger = logging.getLogger("smallstack.search")
+logger = logging.getLogger(__name__)
 
 
 class SQLiteFTSBackend:

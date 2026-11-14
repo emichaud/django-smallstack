@@ -8,7 +8,7 @@ from typing import Any
 from django.apps import AppConfig
 from django.conf import settings
 
-logger = logging.getLogger("smallstack.dashboards")
+logger = logging.getLogger(__name__)
 
 DASHBOARDS_ICON = (
     '<svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true">'

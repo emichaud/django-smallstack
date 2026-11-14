@@ -22,7 +22,7 @@ import ast
 import importlib
 import logging
 
-logger = logging.getLogger("smallstack.autodiscover")
+logger = logging.getLogger(__name__)
 
 
 def has_enable_classvar(source: str, marker: str) -> bool:

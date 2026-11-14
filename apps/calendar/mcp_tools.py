@@ -21,7 +21,7 @@ from typing import Any
 
 from django.http import HttpRequest, QueryDict
 
-logger = logging.getLogger("smallstack.calendar")
+logger = logging.getLogger(__name__)
 
 
 def _skip_date_handler(args: dict[str, Any]) -> dict[str, Any]:

@@ -20,7 +20,7 @@ from .models import Notification
 if TYPE_CHECKING:
     from django.db.models import QuerySet
 
-logger = logging.getLogger("smallstack.notifications")
+logger = logging.getLogger(__name__)
 
 
 def _real_users(recipients: Iterable[Any]) -> list[Any]:

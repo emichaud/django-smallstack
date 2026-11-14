@@ -170,7 +170,7 @@ If Swagger UI or ReDoc shows a blank white page:
 
 ## Schema Validity in CI
 
-The OpenAPI spec served at `/api/schema/openapi.json` is validated against the official OpenAPI 3.0.3 schema on every test run. The test lives at `apps/smallstack/test_openapi_validity.py` and runs the canonical `openapi-spec-validator` (a dev-extras dependency) against both:
+The OpenAPI spec served at `/api/schema/openapi.json` is validated against the official OpenAPI 3.0.3 schema on every test run. The test lives at `apps/smallstack/tests/test_openapi_validity.py` and runs the canonical `openapi-spec-validator` (a dev-extras dependency) against both:
 
 1. The output of `build_openapi_spec()` directly — catches builder bugs without HTTP.
 2. The live endpoint response — catches serializer bugs and view-level regressions.

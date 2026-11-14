@@ -70,4 +70,4 @@ Should print an integer. Even 0 is success — it means dispatch + auth work; yo
 
 ## If it fails
 
-`uv run python manage.py mcp_doctor` first. Then `kamal app logs | grep smallstack.mcp` (or `tail -f` the dev log). See [`mcp-debugging.md`](../../apps/smallstack/docs/mcp-debugging.md) for the symptom → cause table.
+`uv run python manage.py mcp_doctor` first. Then `kamal app logs | grep apps.mcp` (or `tail -f` the dev log). See [`mcp-debugging.md`](../../apps/smallstack/docs/mcp-debugging.md) for the symptom → cause table.

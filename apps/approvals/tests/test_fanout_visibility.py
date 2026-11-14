@@ -64,7 +64,7 @@ def test_queue_mode_warns_that_nothing_is_delivered_without_a_worker(settings, c
     settings.SMALLSTACK_APPROVALS_EMAILS_INLINE = False
     receivers._warned_about_worker = False
     task, sent = _NeverRaisingTask(), []
-    with caplog.at_level(logging.WARNING, logger="smallstack.approvals"):
+    with caplog.at_level(logging.WARNING, logger="apps.approvals"):
         receivers._enqueue(task, sent.append, 42)
     assert task.enqueued == [42]
     assert sent == []  # queued, not sent — that is the correct design

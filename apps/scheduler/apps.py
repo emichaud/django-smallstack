@@ -17,7 +17,7 @@ from django.apps import AppConfig
 from django.conf import settings
 from django.db.models.signals import post_migrate
 
-logger = logging.getLogger("smallstack.scheduler")
+logger = logging.getLogger(__name__)
 
 
 def _sync_code_jobs_after_migrate(*args: Any, **kwargs: Any) -> None:

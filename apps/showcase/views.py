@@ -145,6 +145,17 @@ def starter_dashboard_view(request: HttpRequest) -> HttpResponse:
     return render(request, "showcase/starter/dashboard.html", context)
 
 
+def starter_own_theme_view(request: HttpRequest) -> HttpResponse:
+    """SmallStack's embeds on a base template that isn't ``smallstack/base.html``:
+    a stand-in for a project's own theme, set up as ``adding-your-own-theme.md``
+    says, with metric cards, a dashboard, a calendar and a help bubble on it."""
+    from apps.dashboards.models import Dashboard, Metric
+
+    metrics = list(Metric.objects.visible_to(request.user).active().exclude(period_field="").order_by("name")[:3])
+    board = Dashboard.objects.visible_to(request.user).active().order_by("name").first()
+    return render(request, "showcase/own_theme/page.html", {"metrics": metrics, "board": board})
+
+
 def components_view(request: HttpRequest) -> HttpResponse:
     """Redirect to the components section in SmallStack docs."""
     return redirect(reverse("help:section_detail", kwargs={"section": "smallstack", "slug": "components"}))

@@ -34,7 +34,7 @@ from apps.smallstack.mixins import StaffRequiredMixin
 
 from .server import TOOL_REGISTRY, ToolDef, current_context, tool
 
-logger = logging.getLogger("smallstack.mcp.factory")
+logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
@@ -113,7 +113,7 @@ def _action_description(view_cls, action: Action) -> str:
     # from the previous tool's output ("it returned id: 2254") plus a prose
     # instruction is the documented HITL loop, and that loop failed on its first
     # call while `pk` was the only accepted key and the only place it was
-    # written down. (F-25.)
+    # written down.
     if action in _SINGLE_OBJECT_ACTIONS:
         out = f"{out}. Identify the row by 'id' — the value list/get/create returns ('pk' is accepted as an alias)"
     return out
@@ -323,7 +323,7 @@ def _build_list_tool(view_cls, *, base: str):
 # obvious thing — take the `id` the previous tool returned and pass it to the
 # next — got `{"error": "pk is required"}` on its first call. In approvals that
 # was actively mis-instructed: `request_approval`'s own description says "poll
-# get_approval with that id". (F-25.)
+# get_approval with that id".
 #
 # Fix: `id` is the wire name everywhere; `pk` stays a permanent alias so no
 # existing client breaks.
@@ -332,8 +332,8 @@ def _build_list_tool(view_cls, *, base: str):
 # failure instead of pattern-matching English. `isError` (set by the dispatcher
 # from the presence of this "error" key) already separates failure from success;
 # without a code, an agent still cannot tell not-found from not-permitted from
-# bad-argument on a generated tool. F-20 gave the hand-written approvals tools
-# this shape and the harness asserts it; F-53 is that shape reaching the ~12
+# bad-argument on a generated tool. The hand-written approvals tools already
+# answer in this shape (the harness asserts it); this brings it to the ~12
 # apps' worth of GENERATED tools, where the three cases were already
 # distinguished in code but never named.
 #
@@ -392,7 +392,7 @@ def _fetch_one(view_cls, args: dict[str, Any], request) -> Any:
     Returns the instance, or an error dict ready to return to the caller. Applies
     both halves of the single-object read contract: ``get_detail_queryset``
     (scoping — a row you cannot see is "not found") and
-    ``check_object_permission`` (authorization — F-27), so a CRUDView that
+    ``check_object_permission`` (authorization), so a CRUDView that
     expresses ownership in the hook is protected over MCP too.
     """
     pk = _object_id(args)

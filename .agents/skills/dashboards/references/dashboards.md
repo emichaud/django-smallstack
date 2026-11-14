@@ -104,7 +104,7 @@ Metric(
         {"field": "status", "op": "=", "value": "open"},
         {"field": "priority", "op": "in", "value": ["high", "urgent"]},
     ]},
-    agg="count",                            # count | distinct | sum | avg | min | max
+    agg="count",                            # count | distinct | sum | avg | median | min | max
     measure="",                             # the column for non-count aggs
     period_field="created_at",              # a dashboard/report period narrows this; blank = never
     format="number",                        # number | compact | decimal | percent | currency | duration
@@ -507,7 +507,7 @@ and over MCP it's the `metric_trend` tool. Built on `Dataset.series(dimension, g
 day/week/month/quarter/year buckets, weeks starting Monday, `[lo, hi)` bounds.
 
 - **Every bucket of the period is present.** An empty one reads 0 for count/distinct/sum and
-  `None` (a gap) for avg/min/max/ratio.
+  `None` (a gap) for avg/median/min/max/ratio.
 - **The running bucket has `partial: true`.**
 - **Each point carries `narrow`**, the `[lo, hi)` filter for `m/<key>/rows/?narrow=`, so a bar
   opens exactly its rows. The rows modal drops its period links for a time-narrowed drill.
@@ -685,6 +685,7 @@ Pages: `g/<slug>/history/` (`?cadence=`, `?last=`, `?at=`, `?capture=`, `?format
 {% dashboard board lazy=False %}                                {# render the cards now, no htmx #}
 ```
 
+- **On a theme of your own** (a base template that doesn't extend `smallstack/base.html`): put `{% smallstack_assets %}` in its `<head>` and `{% smallstack_modal %}` before `</body>`, with the theme scripts `adding-your-own-theme.md` lists. The embed brings its own stylesheet; those two bring the tokens, components and drill-down modal it shares. `/starter/own-theme/` in the showcase is a working example.
 - **What it renders:** the dashboard's cards through the same cell endpoint, access checks and
   drill-down modal as the dashboard page.
 - **Layout:** plain CSS grid using the page's geometry (12 columns, 70px rows); on a phone the
@@ -831,7 +832,7 @@ a silent no-op. `isError` follows a truthy `error`, so `metric_value`'s `"error"
 `list_datasets` / `describe_dataset` cover every dataset the caller may read; `query_tool` says
 whether it also has a `query_dataset_<key>` tool. REST 404s on these routes are JSON.
 
-**Empty aggregates.** `count`/`distinct`/`sum` of no rows is 0; `avg`/`min`/`max` of no rows is `None`,
+**Empty aggregates.** `count`/`distinct`/`sum` of no rows is 0; `avg`/`median`/`min`/`max` of no rows is `None`,
 which a card shows as "—" and a goal judges as `none` (a week with no traffic is not "0 ms, on target").
 
 **What a deletion takes** (`metric_usage` reads it first): in everything the caller can edit, `detach_metric` removes the metric's cells, report rows, goals, its saved

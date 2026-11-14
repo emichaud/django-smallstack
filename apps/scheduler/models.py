@@ -118,7 +118,7 @@ class ScheduledJob(models.Model):
     # makes the retirement REVERSIBLE: when the spec comes back, a row carrying
     # this marker is re-enabled, while a row an operator disabled by hand stays
     # off. Without it, `SMALLSTACK_APPROVALS_SWEEP_ENABLED=False` then `=True`
-    # left the sweep dead forever, with no log line and no UI hint. (F-30.)
+    # left the sweep dead forever, with no log line and no UI hint.
     auto_retired = models.BooleanField(
         default=False,
         help_text="Disabled automatically because no code spec declared it. "
@@ -173,7 +173,7 @@ class ScheduledJob(models.Model):
             raise ValidationError({field_name: str(exc)}) from exc
 
         # An unknown queue raises InvalidTask at enqueue time — every fire
-        # would fail. Catch it here instead. (Audit 2026-09-13, D2.)
+        # would fail. Catch it here instead.
         queues = _backend_queues(self.task_path)
         if queues and self.queue_name not in queues:
             raise ValidationError(

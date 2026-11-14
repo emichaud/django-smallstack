@@ -98,7 +98,7 @@ def replay_dead_deliveries(args: dict[str, Any]) -> dict[str, Any]:
 
 
 def _replay_dead(endpoint_id: int | None, limit: int) -> dict[str, Any]:
-    """Bulk-replay dead deliveries (F-023), reusing each event_id."""
+    """Bulk-replay dead deliveries, reusing each event_id."""
     from . import services
 
     new_ids = services.replay_dead(endpoint_id=endpoint_id, limit=int(limit))

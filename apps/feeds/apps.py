@@ -5,7 +5,7 @@ import logging
 from django.apps import AppConfig
 from django.conf import settings
 
-logger = logging.getLogger("smallstack.feeds")
+logger = logging.getLogger(__name__)
 
 
 class FeedsConfig(AppConfig):

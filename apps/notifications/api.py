@@ -43,7 +43,7 @@ def _serialize(n: Notification) -> dict[str, Any]:
 
 # Inline response schemas: Notification has no CRUDView, so there is no
 # auto-generated component to $ref. Declaring them anyway means a generated
-# client sees the shape instead of a bare 200. (F-16.)
+# client sees the shape instead of a bare 200.
 _NOTIFICATION_SCHEMA: dict[str, Any] = {
     "type": "object",
     "properties": {

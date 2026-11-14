@@ -11,6 +11,7 @@ feeds, a scheduler, approvals, notifications, dashboards and publishing are alre
 and themed, so your project starts at the business logic. SQLite by default, no external services.
 
 - **What it is and what you get:** [docs/smallstack.md](docs/smallstack.md)
+- **Writing code by hand:** [Plain Django on SmallStack](apps/smallstack/docs/plain-django.md): a view, a form, a template and a test, with nothing SmallStack-specific to learn first
 - **Full docs and guides:** [www.smallstack.site](https://www.smallstack.site/), and `/smallstack/help/` once it's running
 - **What changed:** [CHANGELOG.md](CHANGELOG.md) · moving a project onto a new release: [UPGRADING.md](UPGRADING.md)
 - **Working with an AI agent:** [AGENTS.md](AGENTS.md) and the skills in [docs/skills/](docs/skills/README.md)

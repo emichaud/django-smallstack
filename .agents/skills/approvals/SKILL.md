@@ -261,6 +261,9 @@ Remote reaction story: subscribe a webhook filtered on
 - **Embed** — `{% load approvals_tags %}{% approval_card req %}` drops the
   decision card into any of your own pages — use it (plus `landing_url` on the
   kind) when you want participants on *your* page instead of the console.
+  The card checks `can_view` itself: for anyone but staff, the requester or an
+  assignee it renders nothing, whatever request the page hands it, so the title
+  and description never leak through a page that picked the wrong row.
   Also: `{% approval_can_decide user req as ok %}`.
 - **Dashboard** — a pending-count widget on `/smallstack/`.
 

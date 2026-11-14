@@ -249,9 +249,9 @@ def period_groups(selected: Any) -> list[dict[str, Any]]:
 def metric_choice_chips(kind: str, current: Any) -> list[dict[str, Any]]:
     """``agg`` / ``format`` choices as chips: ``{key, label, example, checked}``
     (a format's "Number — 9,481" splits into label + example)."""
-    from ..metrics import ALL_AGGS, FORMATS, MANUAL_AGGS
+    from ..metrics import FORMATS, MANUAL_AGGS, all_aggs_available
 
-    vocabulary = ALL_AGGS if kind == "agg" else FORMATS
+    vocabulary = all_aggs_available() if kind == "agg" else FORMATS
     manual = {key for key, _label in MANUAL_AGGS}
     default = vocabulary[0][0]
     out = []

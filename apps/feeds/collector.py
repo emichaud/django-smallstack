@@ -19,7 +19,7 @@ from django.db.models import Model
 from .parser import ParsedItem, parse_feed
 from .sources import FeedSource, all_sources, get_source
 
-logger = logging.getLogger("smallstack.feeds")
+logger = logging.getLogger(__name__)
 
 _USER_AGENT = "SmallStack-FeedCollector/1.0 (+https://github.com/emichaud/django-smallstack)"
 _TIMEOUT = 20

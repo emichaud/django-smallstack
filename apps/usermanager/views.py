@@ -1,5 +1,6 @@
 """User Manager views — CRUDView config + bespoke overrides."""
 
+import logging
 from datetime import timedelta
 from typing import Any
 
@@ -16,6 +17,7 @@ from django.utils.safestring import mark_safe
 from django.views.decorators.http import require_POST
 
 from apps.activity.models import RequestLog
+from apps.smallstack.audit import CHANGE, log_action
 from apps.smallstack.crud import Action, CRUDView
 from apps.smallstack.mixins import StaffRequiredMixin
 from apps.smallstack.stat_lists import render_stat_list, stat_list_row
@@ -23,6 +25,18 @@ from apps.smallstack.stat_lists import render_stat_list, stat_list_row
 from .forms import UserAccountForm, UserCreateForm, UserProfileForm
 
 User = get_user_model()
+logger = logging.getLogger(__name__)
+
+
+def _record_account_action(request, target, message: str) -> None:
+    """Audit and log a staff action on someone's account (a reset link, an
+    unlock): who did it, to whom, and what happened. Never raises, so the
+    record can't break the action it describes."""
+    logger.info("usermanager: %s by %s for %s (pk=%s)", message, request.user, target.get_username(), target.pk)
+    try:
+        log_action(request.user, target, CHANGE, message)
+    except Exception:  # noqa: BLE001 — the action already happened; say the audit row didn't
+        logger.exception("usermanager: couldn't write the audit entry for %r on user pk=%s", message, target.pk)
 
 
 def _active_superuser_count(exclude_pk=None) -> int:
@@ -408,10 +422,13 @@ def send_user_link(request, pk: int) -> HttpResponse:
     kind = send_setup_or_reset(request, user)
     if kind == "invite":
         messages.success(request, f"Invite link sent to {user.email}.")
+        _record_account_action(request, user, "Sent an invite link")
     elif kind == "reset":
         messages.success(request, f"Password reset link sent to {user.email}.")
+        _record_account_action(request, user, "Sent a password reset link")
     else:
         messages.error(request, "Couldn't send a link — this user has no email address on file.")
+        logger.warning("usermanager: no link sent for user pk=%s (no email address) by %s", user.pk, request.user)
     return redirect("manage/users-update", pk=pk)
 
 
@@ -424,7 +441,10 @@ def unlock_user(request, pk: int) -> HttpResponse:
         from axes.utils import reset
 
         reset(username=user.get_username())
-        messages.success(request, f"Cleared login lockouts for {user.get_username()}.")
     except Exception:
+        logger.exception("usermanager: clearing login lockouts failed for user pk=%s by %s", user.pk, request.user)
         messages.error(request, "Couldn't clear lockouts for this account.")
+    else:
+        messages.success(request, f"Cleared login lockouts for {user.get_username()}.")
+        _record_account_action(request, user, "Cleared login lockouts")
     return redirect("manage/users-update", pk=pk)

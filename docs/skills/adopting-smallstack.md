@@ -236,13 +236,13 @@ Update `apps/website/apps.py` to only register the Home nav item.
 
 ### A15. Fix SmallStack Templates
 
-SmallStack's topbar template may reference URLs that don't exist in your project. Check:
+A template may name a URL that doesn't exist in your project. Check:
 
 ```bash
 uv run python manage.py check
 ```
 
-Common fix: `templates/smallstack/includes/topbar.html` may have `{% url 'website:about' %}` — change to `{% url 'help:index' %}` or another valid URL.
+SmallStack's own templates reverse only SmallStack's routes, and reverse the showcase pages quietly (`{% url 'showcase:about' as u %}`), so a `NoReverseMatch` usually comes from one of your templates. Point it at a route you have; don't edit SmallStack's templates to fix it.
 
 ### A16. Update .gitignore
 
@@ -259,7 +259,7 @@ staticfiles/     # collectstatic output (not tracked)
 SmallStack ships with tests that assume the default website app. Update or skip tests that reference removed pages:
 
 ```python
-# apps/website/tests.py
+# apps/website/tests/test_website.py
 import pytest
 
 @pytest.mark.django_db

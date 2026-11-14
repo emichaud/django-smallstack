@@ -21,7 +21,7 @@ if TYPE_CHECKING:
 
     from apps.smallstack.crud import CRUDView
 
-logger = logging.getLogger("smallstack.webhooks")
+logger = logging.getLogger(__name__)
 
 
 def _view_for(sender: type[Model]) -> type[CRUDView] | None:
@@ -51,7 +51,7 @@ def _build_payload(
     """Event envelope. On create/update the record is serialized with the same
     helper the REST API uses; on delete only the pk survives.
 
-    Backward-compatible envelope upgrade (F-014): the original keys stay, and stable
+    Backward-compatible envelope upgrade: the original keys stay, and stable
     top-level keys are added — ``event_id``, ``origin``, and a ``resource`` block with an
     **absolute** ``url`` — so a consumer (esp. another SmallStack) can dedupe and act
     without reconstructing the path.
@@ -86,7 +86,7 @@ def _build_payload(
         "id": instance.pk,
         "occurred_at": timezone.now().isoformat(),
         "data": data,
-        # --- envelope upgrade (F-014): stable top-level keys, additive ---
+        # --- envelope upgrade: stable top-level keys, additive ---
         "event_id": event_id,
         "origin": current_origin(),
         "resource": {
@@ -131,7 +131,7 @@ def _fire(sender: type[Model], instance: Model, action: str) -> None:
 
         event_type = _event_type(sender, action)
         # One stable event_id per logical event, shared by every fan-out delivery and
-        # reused by replay (F-021).
+        # reused by replay.
         event_id = str(uuid.uuid4())
         payload = _build_payload(view, instance, action, event_type, event_id)
         services.fan_out(event_type, payload, event_id=event_id)

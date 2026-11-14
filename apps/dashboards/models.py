@@ -49,7 +49,16 @@ from django.db import models
 from django.urls import reverse
 from django.utils import timezone
 
-from .metrics import AGGS_NEEDING_MEASURE, ALL_AGGS, FORMATS, MANUAL_AGGS, MetricResult, validate_thresholds
+from .metrics import (
+    AGGS_NEEDING_MEASURE,
+    ALL_AGGS,
+    FORMATS,
+    MANUAL_AGGS,
+    NUMERIC_AGGS,
+    MetricResult,
+    aggs_available,
+    validate_thresholds,
+)
 
 
 class OwnedQuerySet(models.QuerySet):
@@ -494,13 +503,16 @@ class Metric(OwnedModel):
             declared = ds.declared_measures()
             if self.agg in AGGS_NEEDING_MEASURE and not self.measure:
                 errors.setdefault("measure", []).append(f"“{self.get_agg_display()}” needs a column to aggregate.")
+            if self.agg == "median" and "median" not in dict(aggs_available()):
+                errors.setdefault("agg", []).append("This database can't compute a median; use the average.")
             if self.measure:
                 if self.measure in declared:
                     pass  # a declared ratio defines its own aggregation
                 elif self.measure not in col_types:
                     errors.setdefault("measure", []).append(f"{self.measure!r} is not a column of this dataset.")
-                elif self.agg in ("sum", "avg") and col_types[self.measure] not in ("integer", "float", "decimal"):
-                    errors.setdefault("measure", []).append(f"{self.measure!r} isn't numeric — it can't be summed.")
+                elif self.agg in NUMERIC_AGGS and col_types[self.measure] not in ("integer", "float", "decimal"):
+                    what = "it has no median" if self.agg == "median" else "it can't be summed"
+                    errors.setdefault("measure", []).append(f"{self.measure!r} isn't numeric — {what}.")
             problems = ds.validate_filter_tree(self.filter_tree)
             if problems:
                 errors.setdefault("filter_tree", []).extend(problems)
@@ -633,7 +645,7 @@ def cover_upload_to(instance: "Dashboard", filename: str) -> str:
     """A server-chosen name; the uploader's filename is thrown away.
 
     The same hardening as ``blog.models.cover_upload_to``: keeping a client's
-    name once let ``logo.html`` be stored and served as markup (audit C7).
+    name once let ``logo.html`` be stored and served as markup.
     Covers sit under the public ``/media/`` route like blog covers, so the
     random name is also what keeps a personal dashboard's picture unlisted.
     """

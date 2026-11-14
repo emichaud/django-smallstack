@@ -91,7 +91,7 @@ def parse_capture_level(value: Any) -> str:
 
     A window at or above the baseline captures nothing the baseline doesn't
     already (``effective_level`` takes the min) — accepting one would audit,
-    log, and report "capturing" while changing nothing. (Audit 2026-09-13, D6.)
+    log, and report "capturing" while changing nothing.
     """
     level = parse_level(value) or "DEBUG"
     baseline = capture.baseline_level()

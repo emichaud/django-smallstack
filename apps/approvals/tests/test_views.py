@@ -467,7 +467,7 @@ def test_a_bad_visible_predicate_hides_the_item_instead_of_500ing(client, staff,
     )
     try:
         _login(client, staff)
-        with caplog.at_level(logging.WARNING, logger="smallstack.navigation"):
+        with caplog.at_level(logging.WARNING, logger="apps.smallstack.navigation"):
             entries = _nav_labels(client)
         assert not [e for e in entries if e[1] == "F46 Exploding"]
         assert any("visible() raised" in r.getMessage() for r in caplog.records)

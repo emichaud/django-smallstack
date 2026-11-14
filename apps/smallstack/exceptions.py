@@ -9,7 +9,7 @@ its own two handlers and declared a ``503`` in its own OpenAPI block. Both were
 unreachable (the routes are unmounted whenever the exception can be raised)
 while the *reachable* failure — any downstream app's endpoint calling
 ``services.request_approval()`` with approvals switched off — was an unhandled
-**500**. (F-31; same shape as the ``Http404`` translation F-17 added.)
+**500**. Same shape as the ``Http404`` translation ``api_view`` already does.
 """
 
 from __future__ import annotations

@@ -36,7 +36,7 @@ from apps.smallstack.models import APIToken
 from .models import OAuthAuthorizationCode, expire_unredeemed_codes
 from .oauth import absolute_url, issuer_url, verify_pkce
 
-logger = logging.getLogger("smallstack.mcp.oauth")
+logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
@@ -129,7 +129,6 @@ def _is_safe_redirect_uri(redirect_uri: str) -> bool:
     (``javascript:``, ``data:``, ``file:``, custom) and non-loopback ``http``.
     DCR is stateless, so we can't exact-match a registered URI — this check,
     plus showing the destination host on the consent page, is the defense.
-    (Audit H1.)
     """
     try:
         parsed = urlparse(redirect_uri)
@@ -162,7 +161,7 @@ def _add_csp_for_redirect(resp: HttpResponse, redirect_uri: str) -> HttpResponse
     origin = f"{parsed.scheme}://{parsed.netloc}"
     # django-csp middleware sets the header from settings — override per-response.
     # Mirrors settings.CONTENT_SECURITY_POLICY except form-action; keep the two
-    # in step (the base-uri/object-src hardening was once lost here — audit H5).
+    # in step (the base-uri/object-src hardening was once lost here).
     resp["Content-Security-Policy"] = (
         f"default-src 'self'; "
         f"script-src 'self'; "
@@ -181,7 +180,7 @@ def _add_csp_for_redirect(resp: HttpResponse, redirect_uri: str) -> HttpResponse
 # Not csrf_exempt: the consent POST is cookie-authenticated and mints a token,
 # so it is exactly what CSRF protection is for. The template renders
 # {% csrf_token %}. Only /register, /token and /revoke — which are not
-# cookie-authenticated — are exempt. (Audit 2026-09-13, C8.)
+# cookie-authenticated — are exempt.
 class AuthorizeView(View):
     """OAuth authorize endpoint. login_required via decorator on get/post."""
 
@@ -255,7 +254,6 @@ class AuthorizeView(View):
         decision = post.get("decision", "deny")
 
         # Never 302 to an unvalidated redirect_uri — not even the deny path.
-        # (Audit H1.)
         if not _is_safe_redirect_uri(redirect_uri):
             return _invalid_redirect_response()
 
@@ -271,7 +269,7 @@ class AuthorizeView(View):
         # Mint APIToken. Cap access_level by the user's role — mirror
         # tokenmgr's clean_access_level so OAuth can't hand a non-staff user a
         # staff-tier token just because they asked for write scope. Non-staff
-        # users get read-only (consistent with the self-service token UI). (Audit M1.)
+        # users get read-only (consistent with the self-service token UI).
         prefix = getattr(settings, "MCP_TOKEN_NAME_PREFIX", "MCP")
         wants_write = "write" in scope.split()
         access_level = "staff" if (wants_write and request.user.is_staff) else "readonly"
@@ -342,7 +340,7 @@ def token(request: HttpRequest) -> JsonResponse:
 
     # If the client sends redirect_uri at /token (RFC 6749 §4.1.3), it must
     # match the one bound to the code at /authorize. Defense in depth against
-    # code interception. Omitted is tolerated for client compatibility. (Audit H1.)
+    # code interception. Omitted is tolerated for client compatibility.
     req_redirect = request.POST.get("redirect_uri", "")
     if req_redirect and req_redirect != row.redirect_uri:
         logger.warning("OAUTH TOKEN reject reason=redirect_uri_mismatch client_id=%s", client_id)
@@ -376,7 +374,7 @@ def token(request: HttpRequest) -> JsonResponse:
     # One-shot: atomically claim the code. A single conditional UPDATE
     # (WHERE used_at IS NULL) is the source of truth, so two concurrent
     # redemptions can't both pass the check-then-act window above — exactly one
-    # wins and the loser gets invalid_grant (RFC 6749 §4.1.2). (Audit M2.)
+    # wins and the loser gets invalid_grant (RFC 6749 §4.1.2).
     claimed = OAuthAuthorizationCode.objects.filter(
         pk=row.pk, used_at__isnull=True
     ).update(used_at=timezone.now(), raw_key="")

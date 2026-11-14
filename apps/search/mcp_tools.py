@@ -41,7 +41,7 @@ from typing import Any
 from .registry import all_views
 from .registry import search_all as _search_all
 
-logger = logging.getLogger("smallstack.search")
+logger = logging.getLogger(__name__)
 
 
 def _tool_name_for(view, variant: str = "default") -> str:

@@ -13,7 +13,7 @@ Rotate (new signing secret). Everything else defers to the generic markup.
     <div class="card-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
         {% comment %}h1: this override replaces the whole content block, and these
         views declare no breadcrumb_parent, so this is the page's only
-        top-level heading. (F-55){% endcomment %}
+        top-level heading.{% endcomment %}
         <h1 class="crud-title">{{ object }}</h1>
         <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
             <form method="post" action="{% url 'webhooks_test_endpoint' pk=object.pk %}" style="margin: 0;">

@@ -34,7 +34,7 @@ from typing import Any
 from django.http import HttpRequest
 from django.urls import NoReverseMatch, reverse
 
-logger = logging.getLogger("smallstack.navigation")
+logger = logging.getLogger(__name__)
 
 # Sections render in this order; unlisted sections appear last.
 # "topbar" is not rendered in the sidebar — it overrides "main" in the topbar only.
@@ -133,7 +133,7 @@ class _NavItem:
         # staff_required. For rules the two flags cannot express — most often
         # "show this entry only to users the staff-only ADMIN section hides",
         # which is how a non-staff approver gets a link to a console they are
-        # already allowed to use (F-46). A predicate that raises hides the item
+        # already allowed to use. A predicate that raises hides the item
         # rather than breaking the page.
         self.visible = visible
 

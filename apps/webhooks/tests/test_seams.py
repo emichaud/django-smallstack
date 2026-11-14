@@ -222,6 +222,25 @@ def test_challenge_short_circuits_before_dispatch():
     assert handled == [True]
 
 
+def test_a_raising_challenge_falls_through_and_is_logged(caplog):
+    @webhook_challenge("broken")
+    def broken(request, receiver):
+        raise ValueError("bad handshake code")
+
+    WebhookReceiver.objects.create(name="B", slug="b", secret="x", challenge="broken", require_signature=False)
+
+    @registry.webhook_handler("b")
+    def handle(receipt):
+        pass
+
+    with caplog.at_level("ERROR", logger="apps.webhooks"):
+        resp = _post("b", b"{}", {})
+    assert resp.status_code == 202  # the sender isn't 500'd
+    record = next(r for r in caplog.records if "Challenge hook" in r.getMessage())
+    assert "'broken'" in record.getMessage() and "b" in record.getMessage()
+    assert record.exc_info[0] is ValueError
+
+
 def test_no_challenge_by_default():
     """A receiver with challenge='' runs no handshake (fall straight through)."""
     WebhookReceiver.objects.create(name="R", slug="r", secret="x", require_signature=False)

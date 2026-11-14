@@ -52,7 +52,7 @@ Typical fixes once you see the dump:
 
 ## Step 3 — log lines
 
-Every request emits at least three lines under the `smallstack.mcp.views` logger:
+Every request emits at least three lines under the `apps.mcp.views` logger:
 
 ```
 MCP REQ ua=… accept=… has_auth=true body_len=…

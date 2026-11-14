@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import pytest
 
-from apps.website.test_dashboard_cards import _board, metric, staff  # noqa: F401 — fixtures
+from apps.website.tests.test_dashboard_cards import _board, metric, staff  # noqa: F401 — fixtures
 
 pytestmark = [pytest.mark.django_db, pytest.mark.starter_content]
 

@@ -28,7 +28,7 @@ from django.db import transaction
 from django.db.models.signals import post_delete, post_save
 from django.dispatch import receiver
 
-logger = logging.getLogger("smallstack.search")
+logger = logging.getLogger(__name__)
 
 
 @receiver(post_save)

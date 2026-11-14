@@ -19,7 +19,7 @@ from django.http import HttpRequest, QueryDict
 
 from .registry import DatasetDef, all_defs
 
-logger = logging.getLogger("smallstack.datasets")
+logger = logging.getLogger(__name__)
 
 _RESERVED = {
     "ordering",

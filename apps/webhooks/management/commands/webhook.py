@@ -184,7 +184,7 @@ class Command(BaseCommand):
         self._emit(data, options["json"], render)
 
     def _replay(self, options: dict[str, Any]) -> None:
-        # Bulk dead-letter replay (F-023): `sc webhook replay --status dead [...]`.
+        # Bulk dead-letter replay: `sc webhook replay --status dead [...]`.
         if options.get("status"):
             self._replay_bulk(options)
             return
@@ -270,7 +270,7 @@ class Command(BaseCommand):
         )
 
     def _pair(self, options: dict[str, Any]) -> None:
-        """Configure THIS instance's half of a SmallStack↔SmallStack link (F-027/F-031).
+        """Configure THIS instance's half of a SmallStack↔SmallStack link.
 
         Touches only the local instance (endpoint + optional receiver, two secrets) and
         emits the exact mirror command to run on the peer — it does NOT reach the peer.
@@ -353,7 +353,7 @@ class Command(BaseCommand):
             # this used to sit past an early `return` in the one-way path, so
             # `pair --one-way` printed nothing while carrying the warning in
             # --json — and --one-way is exactly what the docs recommend for a
-            # loopback target, the case the warning exists for. (F-39 #5.)
+            # loopback target, the case the warning exists for.
             for warning in d.get("warnings") or []:
                 # Pairing two instances on one box is the first thing anyone
                 # tries, and the SSRF guard blocks it silently at send time.

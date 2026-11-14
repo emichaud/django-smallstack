@@ -94,7 +94,7 @@ class Command(BaseCommand):
             })
 
     def _check_origin(self, report: Report) -> None:
-        """F-029: warn when the webhook origin can't resolve to an absolute URL, so the
+        """Warn when the webhook origin can't resolve to an absolute URL, so the
         flagship envelope's resource.url degrades to null and S2S loop-guard dedupe loses
         its base — a silent degradation an operator should see."""
         from apps.webhooks.context import current_origin, origin_is_configured
@@ -183,7 +183,7 @@ class Command(BaseCommand):
                 "status": "FAIL",
                 "detail": f"Receiver(s) with no registered handler: {', '.join(missing)}. "
                           f"Registered: {', '.join(handlers) or 'none'}. "
-                          # F-018: the most common cause of a 'missing' handler is a stale worker.
+                          # The most common cause of a 'missing' handler is a stale worker.
                           "If the handler exists in a webhook_handlers.py, RESTART db_worker / the "
                           "dev server — handlers are autodiscovered at process start, not hot-reloaded.",
             })
@@ -194,7 +194,7 @@ class Command(BaseCommand):
                 "detail": f"{len(receivers)} active receiver(s), {len(handlers)} handler(s) registered.",
             })
 
-        # F-016/F-017: distinguish "verifying with a custom scheme" from "fails open".
+        # Distinguish "verifying with a custom scheme" from "fails open".
         # A receiver with a non-default verifier IS verifying (Stripe t.body, Event Grid
         # key, …) — it must not be lumped with require_signature=False.
         self._check_verification(report, receivers)
@@ -218,7 +218,7 @@ class Command(BaseCommand):
                 "detail": (
                     f"Receiver(s) select an unregistered verifier (falls back to hmac): "
                     f"{', '.join(unknown)}. Register it with @webhook_verifier in a "
-                    "webhook_verifiers.py, then RESTART the worker (F-018)."
+                    "webhook_verifiers.py, then RESTART the worker."
                 ),
             })
         elif custom:

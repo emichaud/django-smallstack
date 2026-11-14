@@ -774,7 +774,7 @@ class Command(BaseCommand):
         )
         # argparse's own error for a dash-leading prefix is "the following
         # arguments are required: prefix", which is true but useless — the
-        # argument WAS supplied. Name the fix before it reaches argparse. (F-34.)
+        # argument WAS supplied. Name the fix before it reaches argparse.
         if argv and argv[0].startswith("-") and argv[0] not in ("-h", "--help", "--"):
             raise CommandError(
                 f"{argv[0]!r} starts with '-', so argparse reads it as an option. "

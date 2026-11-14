@@ -180,7 +180,7 @@ state round-trips. A `view` whose selection has been changed by `ds` is
 treated as modified (links carry `ds`, the view loses its highlight).
 
 Colours: `core.assign_series` gives each visible calendar a stable 1-based
-index into the theme's **`--series-1…8`** tokens (added to `theme.css` for
+index into the theme's **`--series-1…8`** tokens (in `core.css`, which `theme.css` imports, for
 exactly this: categorical, light + dark variants, never surfaces or state).
 Position is by `visible_calendars` order (project calendars A–Z, then bundled
 A–Z), so a calendar keeps its colour whether or not it is selected. Status
@@ -202,6 +202,8 @@ rest — access, events, colours, navigation:
 {% calendar_card view mode="board" lazy=False %}                        {# a SavedCalendarView, rendered now #}
 {% calendar_card "smallstack_events" title=False weekends=False month="2026-04" %}
 ```
+
+**On a theme of your own** (a base template that doesn't extend `smallstack/base.html`): put `{% smallstack_assets %}` in its `<head>` and `{% smallstack_modal %}` before `</body>`, with the theme scripts `adding-your-own-theme.md` lists. The calendar brings `calendar.css`; those two bring the tokens (`--series-1…8` among them) and components it shares. `/starter/own-theme/` in the showcase is a working example.
 
 | Arg | Meaning |
 |---|---|

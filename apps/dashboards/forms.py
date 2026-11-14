@@ -19,7 +19,7 @@ from django.utils import timezone
 
 from apps.datasets.dateranges import RELATIVE_PERIODS, is_period
 
-from .metrics import ALL_AGGS
+from .metrics import all_aggs_available
 from .models import (
     MANUAL_DATASET,
     SOURCE_DATASET,
@@ -615,7 +615,7 @@ class ComponentForm(_OwnedForm):
         if current_ds and current_ds not in dict(datasets):
             datasets.append((current_ds, f"{current_ds} (unavailable)"))
         self.fields["dataset"].widget.choices = [("", "Choose a dataset…"), *datasets]
-        self.fields["agg"].widget.choices = [(k, label) for k, label in ALL_AGGS if k != "latest"]
+        self.fields["agg"].widget.choices = [(k, label) for k, label in all_aggs_available() if k != "latest"]
 
     def clean_filter_tree(self) -> Any:
         tree = self.cleaned_data.get("filter_tree")
@@ -707,7 +707,7 @@ def builder_payload(user: Any, owner_id: Any) -> dict[str, Any]:
         )
     payload["metrics"] = out
     payload["reasons"] = dict(REASONS)  # why a design is dimmed: "needs a date column"
-    payload["aggs"] = [[k, label] for k, label in ALL_AGGS if k != "latest"]
+    payload["aggs"] = [[k, label] for k, label in all_aggs_available() if k != "latest"]
     return payload
 
 

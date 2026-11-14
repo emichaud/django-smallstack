@@ -123,7 +123,7 @@ class TokenCRUDView(CRUDView):
         so existence is not a secret worth hiding, while a clear 403 is a better
         answer.
 
-        Historical note (F-27): this docstring used to claim "the ownership check
+        Historical note: this docstring used to claim "the ownership check
         already lives in ``get_object``". It lived in the ``get_object`` of one of
         the *five* generated single-object bases, so
         ``/smallstack/tokens/<pk>/related/request_logs/`` returned **200** with
@@ -204,7 +204,7 @@ class TokenCRUDView(CRUDView):
             # Ownership is NOT re-enforced here any more — it lives in
             # check_object_permission, which the base applies to all five
             # single-object bases. Injecting it on this one base is what left
-            # the related-tab route open (F-27).
+            # the related-tab route open.
 
             def get_context_data(self, **kwargs):
                 context = original_get_context(self, **kwargs)

@@ -8,10 +8,9 @@ A downstream project can wrap with a prefix if desired:
 """
 
 from django.conf import settings
-from django.contrib.auth.views import PasswordResetView
 from django.urls import include, path
 
-from apps.accounts.views import SignupView
+from apps.accounts.views import LoggedPasswordResetConfirmView, LoggedPasswordResetView, SignupView
 from apps.smallstack.views import LayoutPreviewView, NavGuideView, SmallStackDashboardView
 
 urlpatterns = [
@@ -25,10 +24,9 @@ urlpatterns = [
     # include so reset emails get the branded HTML alternative and the real
     # SITE_NAME (otherwise django.contrib.auth sends plain-text only and signs
     # off with the raw request host, since contrib.sites isn't installed).
-    # (Audit L4/L5.)
     path(
         "accounts/password_reset/",
-        PasswordResetView.as_view(
+        LoggedPasswordResetView.as_view(
             html_email_template_name="registration/password_reset_email_html.html",
             subject_template_name="registration/password_reset_subject.txt",
             extra_email_context={
@@ -38,6 +36,12 @@ urlpatterns = [
             },
         ),
         name="password_reset",
+    ),
+    # Before the stock include too: the same view, plus a log line on success.
+    path(
+        "accounts/reset/<uidb64>/<token>/",
+        LoggedPasswordResetConfirmView.as_view(),
+        name="password_reset_confirm",
     ),
     path("accounts/", include("django.contrib.auth.urls")),
     path("accounts/signup/", SignupView.as_view(), name="signup"),
@@ -77,7 +81,7 @@ urlpatterns = [
 # Master switches mount their app's URLs, following the SMALLSTACK_MCP_ENABLED
 # precedent in config/urls.py. Without this, setting the switch off left every
 # endpoint live — including the decide POST — while silently killing only the
-# notification/email fan-out, which is strictly worse than no switch. (F-11.)
+# notification/email fan-out, which is strictly worse than no switch.
 if getattr(settings, "SMALLSTACK_NOTIFICATIONS_ENABLED", True):
     # Notifications — the in-app bell/inbox (all authenticated users)
     urlpatterns += [path("notifications/", include("apps.notifications.urls"))]

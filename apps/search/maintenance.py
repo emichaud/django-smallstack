@@ -34,7 +34,7 @@ from typing import Any, Iterable
 
 from django.db.models import Model
 
-logger = logging.getLogger("smallstack.search")
+logger = logging.getLogger(__name__)
 
 
 def reindex_instances(

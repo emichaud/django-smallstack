@@ -63,7 +63,7 @@ def test_metric_form_ignores_what_it_cannot_use(client, staff):
         {
             "dataset": "smallstack_requests",
             "filter_tree": '{"field": "nope", "op": "=", "value": 1}',
-            "agg": "median",
+            "agg": "mode",
             "measure": "nope",
         },
     )

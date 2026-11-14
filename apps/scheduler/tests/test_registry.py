@@ -176,7 +176,7 @@ def test_a_returning_spec_re_enables_the_job_it_retired(clean_registry, caplog):
 
     # Flag back on — the documented remedy must actually work.
     clean_registry[:] = [_spec(name="Sweep"), _spec(name="Other")]
-    with caplog.at_level(logging.INFO, logger="smallstack.scheduler"):
+    with caplog.at_level(logging.INFO, logger="apps.scheduler"):
         registry.sync_code_jobs()
     restored = ScheduledJob.objects.get(name="Sweep")
     assert restored.enabled is True, "the flag is still one-way"
@@ -200,7 +200,7 @@ def test_an_operator_disabled_job_is_not_re_enabled_by_a_sync(clean_registry, ca
     job.save(update_fields=["enabled"])
     assert job.auto_retired is False  # nobody marked it
 
-    with caplog.at_level(logging.INFO, logger="smallstack.scheduler"):
+    with caplog.at_level(logging.INFO, logger="apps.scheduler"):
         registry.sync_code_jobs()
     assert ScheduledJob.objects.get(name="Paused").enabled is False
     # …but say so, so "my job isn't running" is a one-line diagnosis.
@@ -223,7 +223,7 @@ def test_a_partial_autodiscovery_failure_retires_nothing(clean_registry, caplog)
 
     # Autodiscovery half-failed: only one spec made it into the registry.
     clean_registry[:] = [_spec(name="Job 0")]
-    with caplog.at_level(logging.WARNING, logger="smallstack.scheduler"):
+    with caplog.at_level(logging.WARNING, logger="apps.scheduler"):
         registry.sync_code_jobs()
 
     assert ScheduledJob.objects.filter(enabled=True).count() == 5, "retired on bad evidence"

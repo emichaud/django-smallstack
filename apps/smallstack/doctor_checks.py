@@ -1,7 +1,7 @@
 """Checks shared by the ``*_doctor`` commands.
 
 A doctor is what you run when something is already wrong — so it must report
-a broken precondition, not die on it with a traceback. (Audit 2026-09-13, D10f.)
+a broken precondition, not die on it with a traceback.
 """
 
 from __future__ import annotations

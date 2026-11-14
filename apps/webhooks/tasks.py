@@ -25,7 +25,7 @@ from django.utils import timezone
 from . import services
 from .models import WebhookDelivery, WebhookEndpoint, WebhookReceipt
 
-logger = logging.getLogger("smallstack.webhooks")
+logger = logging.getLogger(__name__)
 
 # Fields written on every attempt outcome (success / retry / dead).
 _ATTEMPT_FIELDS = [
@@ -114,7 +114,7 @@ def deliver_webhook(delivery_id: int) -> dict[str, Any]:
                 status_code = resp.status
         except urllib.error.HTTPError as exc:
             status_code = exc.code
-            # Honor Retry-After on rate-limit / unavailable responses (F-022).
+            # Honor Retry-After on rate-limit / unavailable responses.
             if exc.code in (429, 503):
                 retry_after = services.parse_retry_after(exc.headers.get("Retry-After"))
         except (urllib.error.URLError, TimeoutError, OSError) as exc:
@@ -143,7 +143,7 @@ def deliver_webhook(delivery_id: int) -> dict[str, Any]:
 # 169.254.169.254. The delivery record's status/latency then served as a
 # blind-SSRF oracle. So: redirects are refused (a 3xx is a failed delivery,
 # never followed), and the socket's actual peer address is checked right after
-# connect, before any request byte (or TLS handshake) is sent. (Audit C4.)
+# connect, before any request byte (or TLS handshake) is sent.
 
 
 class _BlockedPeer(OSError):
@@ -211,7 +211,7 @@ def _record_attempt(
     """Persist the attempt outcome and schedule a retry (or retire) on failure.
 
     ``retry_after`` (parsed from a 429/503 ``Retry-After`` header) overrides the backoff
-    table for this attempt, clamped to ``SMALLSTACK_WEBHOOK_MAX_BACKOFF`` (F-022).
+    table for this attempt, clamped to ``SMALLSTACK_WEBHOOK_MAX_BACKOFF``.
     """
     now = timezone.now()
     delivery.attempt = attempt
@@ -330,7 +330,7 @@ def dispatch_incoming(receipt_id: int) -> dict[str, Any]:
         return {"error": receipt.error}
 
     # Loop-safe by default: run the handler inside suppress_webhooks() so a write-back
-    # emits no outbound event (F-020). A handler that wants to cascade opts out with
+    # emits no outbound event. A handler that wants to cascade opts out with
     # @webhook_handler("slug", cascade=True).
     guard = contextlib.nullcontext() if handler_cascades(handler_name) else suppress_webhooks()
 

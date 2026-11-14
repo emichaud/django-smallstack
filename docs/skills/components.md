@@ -12,8 +12,10 @@ SmallStack provides styled components via CSS classes in `static/smallstack/css/
 
 ```
 static/smallstack/css/
-├── theme.css              # CSS variables, layout, page-header-bleed, stat-modal
-├── components.css         # All component classes (buttons, tables, forms, cards, badges, tabs, action cards, filter toggles, stat cards, search)
+├── core.css               # CSS variables (design tokens) and .sr-only, imported by theme.css
+├── theme.css              # Layout, page shell, page-header-bleed
+├── components.css         # All component classes (buttons, tables, forms, cards, badges, tabs, action cards, filter toggles, stat cards, search, stat-modal, help bubbles)
+├── embed.css              # {% smallstack_assets %}: core + palettes + components in a cascade layer, for your own theme
 └── palettes.css           # Color palette overrides
 
 templates/smallstack/
@@ -113,7 +115,7 @@ Clickable with modal drilldown:
     <div class="stat-card-value">{{ count }}</div>
     <div class="stat-card-label">Label</div>
 </div>
-{% include "smallstack/includes/stat_modal.html" %}
+{# No modal include: smallstack/base.html has it ({% smallstack_modal %} on a base of your own) #}
 ```
 
 ## Action Cards

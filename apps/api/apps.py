@@ -10,7 +10,7 @@ import logging
 
 from django.apps import AppConfig
 
-logger = logging.getLogger("smallstack.api_admin")
+logger = logging.getLogger(__name__)
 
 
 class APIAdminConfig(AppConfig):

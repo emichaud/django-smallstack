@@ -172,7 +172,7 @@ class Command(BaseCommand):
         Iterating all views (not just the first) is what surfaces a model whose
         index didn't provision — e.g. a Postgres model added to the registry
         before `migrate`/`rebuild_search_index` ran, whose missing search_vector
-        column makes its query silently return []. (Audit I2.)
+        column makes its query silently return [].
         """
         from apps.search.backends import get_backend
         from apps.search.registry import all_views

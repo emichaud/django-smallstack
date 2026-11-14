@@ -1,0 +1,60 @@
+/* A stand-in for a project's own theme (apps/showcase/templates/showcase/own_theme/).
+   It has its own palette and styles body, .card and .btn-primary, the way
+   Bootstrap does, so /starter/own-theme/ shows that SmallStack's embeds draw on a
+   theme that isn't SmallStack's, and that {% smallstack_assets %} (a cascade
+   layer) never restyles the host: its own .card and .btn-primary keep this look.
+   Its colours are its own on purpose; SmallStack pages use SmallStack's tokens. */
+:root {
+    --ot-bg: #f7f5f0;
+    --ot-fg: #1f2328;
+    --ot-muted: #5b6168;
+    --ot-line: #d9d4c7;
+    --ot-surface: #ffffff;
+    --ot-accent: #8a3ffc;
+    --ot-accent-fg: #ffffff;
+}
+[data-theme="dark"] {
+    --ot-bg: #14161a;
+    --ot-fg: #e8e6e1;
+    --ot-muted: #a3a8ae;
+    --ot-line: #2c3037;
+    --ot-surface: #1b1e23;
+    --ot-accent: #b48cff;
+    --ot-accent-fg: #14161a;
+}
+* { box-sizing: border-box; }
+body {
+    margin: 0;
+    font-family: Georgia, "Times New Roman", serif;
+    background: var(--ot-bg);
+    color: var(--ot-fg);
+    line-height: 1.55;
+}
+a { color: var(--ot-accent); }
+.ot-bar {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 1rem 1.5rem;
+    padding: 0.9rem 1.5rem; border-bottom: 1px solid var(--ot-line); background: var(--ot-surface);
+}
+.ot-brand { font-weight: 700; font-size: 1.1rem; color: var(--ot-fg); text-decoration: none; }
+.ot-nav { display: flex; gap: 1rem; flex: 1; }
+.ot-nav a { text-decoration: none; }
+.ot-toggle {
+    font: inherit; padding: 0.35rem 0.8rem; border-radius: 999px; cursor: pointer;
+    border: 1px solid var(--ot-line); background: transparent; color: var(--ot-fg);
+}
+.ot-main { max-width: 72rem; margin: 0 auto; padding: 1.5rem 1rem 3rem; }
+.ot-main h1 { font-size: 1.9rem; margin: 0 0 0.3rem; }
+.ot-main h2 { font-size: 1.2rem; margin: 2rem 0 0.7rem; }
+.ot-lede { color: var(--ot-muted); max-width: 70ch; margin: 0 0 1rem; }
+.ot-code {
+    font-family: ui-monospace, Menlo, monospace; font-size: 0.82rem; white-space: pre-wrap;
+    padding: 0.6rem 0.8rem; margin: 0.6rem 0 0; border: 1px solid var(--ot-line); border-radius: 6px; background: var(--ot-surface);
+}
+/* The host's own .card and .btn-primary, as Bootstrap has them. */
+.card { border: 2px solid var(--ot-line); border-radius: 14px; background: var(--ot-surface); padding: 1rem 1.25rem; }
+.btn-primary {
+    display: inline-block; padding: 0.45rem 1.1rem; border-radius: 999px; border: 0;
+    background: var(--ot-accent); color: var(--ot-accent-fg); font: inherit; text-decoration: none; cursor: pointer;
+}
+.ot-row { display: flex; flex-wrap: wrap; gap: 1rem; align-items: flex-start; }
+.ot-row > * { flex: 1 1 18rem; min-width: 0; }

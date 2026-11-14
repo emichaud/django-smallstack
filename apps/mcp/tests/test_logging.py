@@ -22,16 +22,16 @@ def _post(client, body, **extra):
 
 
 def test_request_emits_req_then_resp(caplog):
-    caplog.set_level(logging.INFO, logger="smallstack.mcp.views")
+    caplog.set_level(logging.INFO, logger="apps.mcp.views")
     _post(Client(), {"jsonrpc": "2.0", "id": 1, "method": "ping"})
-    messages = [r.message for r in caplog.records if r.name == "smallstack.mcp.views"]
+    messages = [r.message for r in caplog.records if r.name == "apps.mcp.views"]
     assert any("MCP REQ ua=" in m for m in messages)
     assert any("MCP REQ method=ping" in m for m in messages)
     assert any("MCP RESP method=" in m for m in messages)
 
 
 def test_failed_auth_emits_warning(caplog):
-    caplog.set_level(logging.WARNING, logger="smallstack.mcp.views")
+    caplog.set_level(logging.WARNING, logger="apps.mcp.views")
     _post(
         Client(),
         {"jsonrpc": "2.0", "id": 1, "method": "tools/list"},
@@ -41,7 +41,7 @@ def test_failed_auth_emits_warning(caplog):
 
 
 def test_oauth_register_emits_log(caplog):
-    caplog.set_level(logging.INFO, logger="smallstack.mcp.oauth")
+    caplog.set_level(logging.INFO, logger="apps.mcp.oauth_views")
     Client().post(
         "/mcp/oauth/register",
         data=json.dumps({"client_name": "x", "redirect_uris": ["https://x/cb"]}),

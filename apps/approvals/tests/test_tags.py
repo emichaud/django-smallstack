@@ -67,7 +67,7 @@ def test_downstream_kind_card_override_wins(requester, sample_kind, settings, tm
 # --- the embed ---------------------------------------------------------------
 
 
-def test_approval_card_shows_actions_only_when_eligible(requester, staff, bystander, sample_kind, rf):
+def test_approval_card_shows_actions_only_when_eligible(requester, staff, sample_kind, rf):
     req = _file(requester)
 
     def render_for(user):
@@ -76,8 +76,22 @@ def test_approval_card_shows_actions_only_when_eligible(requester, staff, bystan
         return _render("{% approval_card req %}", req=req, request=request)
 
     assert 'name="decision"' in render_for(staff)
-    assert 'name="decision"' not in render_for(bystander)
-    assert req.title in render_for(bystander)  # card still renders read-only
+    assert 'name="decision"' not in render_for(requester)
+    assert req.title in render_for(requester)  # the requester sees it read-only
+
+
+def test_approval_card_shows_nothing_to_someone_who_may_not_see_the_request(
+    requester, bystander, sample_kind, rf
+):
+    """The host page passes the request in; the card still checks can_view, so
+    a page that renders it for the wrong person leaks neither title nor text."""
+    req = _file(requester, description="Salary band for the new hire")
+    for user in (bystander, None):
+        request = rf.get("/")
+        if user is not None:
+            request.user = user
+        html = _render("{% approval_card req %}", req=req, request=request).strip()
+        assert html == "" and req.title not in html
 
 
 def test_eligibility_simple_tags(requester, staff, sample_kind):

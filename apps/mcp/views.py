@@ -37,7 +37,7 @@ from .server import (
     set_context,
 )
 
-logger = logging.getLogger("smallstack.mcp.views")
+logger = logging.getLogger(__name__)
 
 # -32xxx error codes per JSON-RPC 2.0
 _RPC_PARSE_ERROR = -32700
@@ -147,7 +147,7 @@ class McpHttpView(View):
         # A syntactically valid but non-object body (array/string/number/null,
         # e.g. a JSON-RPC batch) must yield -32600 Invalid Request, not an
         # uncaught AttributeError → HTTP 500. This runs pre-auth, so it also
-        # closes a trivial unauthenticated way to spam 500s. (Audit L2.)
+        # closes a trivial unauthenticated way to spam 500s.
         if not isinstance(payload, dict):
             logger.warning("MCP REQ invalid_request: non-object body")
             return _rpc_error(
@@ -330,7 +330,7 @@ class McpHttpView(View):
                 # isError:false made a refusal indistinguishable from success at
                 # the protocol level — a model checking isError would read
                 # "approval refused" as "approved". For an approvals gate that is
-                # the one failure you cannot have. (F-20.) Truthy, not "in": a
+                # the one failure you cannot have. Truthy, not "in": a
                 # success that reports ``"error": null`` (metric_value's shape) is
                 # still a success.
                 is_error = isinstance(result_value, dict) and bool(result_value.get("error"))

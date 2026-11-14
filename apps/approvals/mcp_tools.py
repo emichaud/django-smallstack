@@ -33,7 +33,7 @@ from apps.mcp.server import current_context, tool
 
 from .resolvers import resolve_assignees, resolve_target
 
-logger = logging.getLogger("smallstack.approvals")
+logger = logging.getLogger(__name__)
 
 _SPECS: list[tuple] = []
 
@@ -69,7 +69,7 @@ def _serialize(req: Any) -> dict[str, Any]:
     payload the agent itself supplied, ``decided_at`` times the outcome, and
     ``callback_error`` is the only way an agent can learn that the approved side
     effect *failed* — without it a broken callback came back as a clean
-    ``{"status": "approved"}``. (F-21.)
+    ``{"status": "approved"}``.
     """
     return {
         "id": req.pk,
@@ -85,7 +85,7 @@ def _serialize(req: Any) -> dict[str, Any]:
         # `target`/`assignees` — because this payload is hand-built and flat;
         # REST reaches the same values as `target_ref`/`assignee_usernames`,
         # since `target` and `assignees` are already taken there by the instance
-        # and the M2M. (F-35.)
+        # and the M2M.
         "target": req.target_ref,
         "target_repr": req.target_repr,
         "assignees": req.assignee_usernames,

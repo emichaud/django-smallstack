@@ -9,7 +9,7 @@ The decide policy, in order:
    (``is_active=False``) is the standard offboarding action; it must remove
    approval authority everywhere, not just from web login. Defence in depth
    with ``APIToken.rejection_reason()`` (which refuses the credential), because
-   approvals is a compliance control and must not depend on one layer. (F-10.)
+   approvals is a compliance control and must not depend on one layer.
 1. Only authenticated, saved users decide, and only PENDING requests.
 2. Self-approval is blocked (SMALLSTACK_APPROVALS_ALLOW_SELF_APPROVE flips it).
 3. If the request names assignees: only they decide — plus staff when
@@ -22,6 +22,7 @@ The decide policy, in order:
 
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 from django.conf import settings
@@ -29,6 +30,8 @@ from django.db.models import Q, QuerySet
 
 from .models import ApprovalRequest
 from .registry import get_kind
+
+logger = logging.getLogger(__name__)
 
 Actor = Any  # User | AnonymousUser | None — the runbook Actor convention
 
@@ -100,6 +103,9 @@ def can_decide(user: Actor, req: ApprovalRequest) -> bool:
         try:
             return bool(kind.can_decide(user, req))
         except Exception:  # noqa: BLE001 — a broken hook must fail CLOSED
+            # Closed is right, but say why: otherwise an eligible approver is
+            # refused with nothing anywhere to explain it.
+            logger.exception("can_decide hook for approval kind %r raised; refusing request %s", req.kind, req.pk)
             return False
     return True
 

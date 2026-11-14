@@ -48,7 +48,7 @@ Recent `/mcp` HTTP requests captured by `apps.activity.RequestLog`. Default wind
 
 If `apps.activity` isn't in `INSTALLED_APPS`, the page shows a banner instead of crashing.
 
-Status badges are color-coded the same way Health is: 2xx green, 3xx neutral, 4xx amber, 5xx red. The MCP-specific data — which tool was called, what arguments were passed, what was returned — isn't in RequestLog; if you need that level of detail, watch the `smallstack.mcp.views` logger and consider a dedicated `MCPCall` model (currently deferred).
+Status badges are color-coded the same way Health is: 2xx green, 3xx neutral, 4xx amber, 5xx red. The MCP-specific data — which tool was called, what arguments were passed, what was returned — isn't in RequestLog; if you need that level of detail, watch the `apps.mcp.views` logger and consider a dedicated `MCPCall` model (currently deferred).
 
 ## When to use each tool
 

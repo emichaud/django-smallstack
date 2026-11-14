@@ -52,7 +52,7 @@ If it shows `http://`, your proxy isn't forwarding the header. Fix at the proxy,
 MCP_VERBOSE_LOGGING=true uv run python manage.py runserver 8005
 ```
 
-Adds DEBUG-level lines with truncated request/response bodies (1 KB cap each direction) to the `smallstack.mcp.views` logger. Watch via `tail -f` or just the runserver console.
+Adds DEBUG-level lines with truncated request/response bodies (1 KB cap each direction) to the `apps.mcp.views` logger. Watch via `tail -f` or just the runserver console.
 
 **Don't leave on in production** — request bodies contain user data.
 

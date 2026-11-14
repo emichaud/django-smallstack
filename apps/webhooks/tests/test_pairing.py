@@ -203,7 +203,7 @@ def test_pair_secret_not_in_audit_or_server_log(caplog):
     and the request-activity audit stores no request body/params."""
     import logging
 
-    with caplog.at_level(logging.DEBUG, logger="smallstack.webhooks"):
+    with caplog.at_level(logging.DEBUG, logger="apps.webhooks"):
         r = services.pair_smallstack(
             target_url="https://b.example.com/in/", send_secret="TOPSECRETSEND",
             recv_secret="TOPSECRETRECV",

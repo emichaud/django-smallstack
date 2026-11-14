@@ -16,7 +16,8 @@ SmallStack supports **selectable color palettes** (django, high-contrast, dark-b
 static/
 ├── smallstack/                 # UPSTREAM: Core SmallStack assets
 │   ├── css/
-│   │   ├── theme.css           # Main theme - variables, layout, components
+│   │   ├── core.css            # The CSS variables (design tokens), imported by theme.css
+│   │   ├── theme.css           # Main theme - layout, page shell
 │   │   └── palettes.css        # Color palette overrides (per-palette variables)
 │   ├── js/
 │   │   ├── theme.js            # Dark mode toggle, palette switching, sidebar, dropdowns
@@ -46,7 +47,7 @@ templates/smallstack/
 
 ## CSS Custom Properties
 
-Core layout and component variables are defined in `static/smallstack/css/theme.css`. Color variables that adapt to palettes (including `--body-quiet-color`) are defined in `static/smallstack/css/palettes.css`.
+Core layout and component variables are defined in `static/smallstack/css/core.css`, which `theme.css` imports. Color variables that adapt to palettes (including `--body-quiet-color`) are defined in `static/smallstack/css/palettes.css`.
 
 ### Light Mode (`:root`)
 
@@ -234,10 +235,10 @@ window.SMALLSTACK.colorPalette;  // Effective palette for this page load
 
 ## Changing the Primary Color
 
-To rebrand the entire app without using the palette system:
+The supported way is a palette (`modify-palettes.md`): it reaches every page, SmallStack's included, and survives upgrades. Editing SmallStack's own CSS works until the next merge. SmallStack has no project-wide stylesheet hook: a `static/css/project.css` of your own applies only on pages that load it in `{% block extra_css %}`, which SmallStack's own pages don't. The variables a palette sets:
 
-1. Edit `static/smallstack/css/theme.css` (or add overrides in `static/css/project.css`)
-2. Change `--primary` and `--primary-hover` in both `:root` and `[data-theme="dark"]`
+1. `--primary` and `--primary-hover`
+2. In both the light block and the `[data-theme="dark"]` block
 
 ```css
 :root {
@@ -307,30 +308,30 @@ A copy-paste starter template is at `apps/showcase/templates/showcase/includes/s
 
 ## Adding Sidebar Navigation Items
 
-Edit `templates/smallstack/includes/sidebar.html`:
+Register it from your app's `AppConfig.ready()`; don't edit `sidebar.html`, which is SmallStack's and is replaced on every upgrade. The registry orders the link, hides it from people who can't open the page, and puts it in the sidebar and the topbar:
 
-```html
-<li class="nav-item">
-    <a href="{% url 'your_url_name' %}" class="nav-link {% nav_active 'your_url_name' %}">
-        <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
-            <!-- SVG icon path -->
-        </svg>
-        <span>Link Text</span>
-    </a>
-</li>
+```python
+# apps/myapp/apps.py
+from django.apps import AppConfig
+
+
+class MyAppConfig(AppConfig):
+    name = "apps.myapp"
+
+    def ready(self):
+        from apps.smallstack.navigation import nav
+
+        nav.register(
+            section="main",            # or "resources", "admin"
+            label="Your Page",
+            url_name="myapp:index",
+            icon_svg='<svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="..."/></svg>',
+            order=20,
+            auth_required=True,        # staff_required=True for staff-only pages
+        )
 ```
 
-Sidebar nav icons are automatically tinted with the palette's `--primary` color. Active links use `--sidebar-active-bg/fg`. Hover states shift text to `--primary`.
-
-### Section Titles
-
-```html
-<li class="nav-section-title">Section Name</li>
-```
-
-### Active State
-
-The `{% nav_active 'url_name' %}` template tag adds the `active` class when on that page.
+Sidebar nav icons are automatically tinted with the palette's `--primary` color. Active links use `--sidebar-active-bg/fg`. Hover states shift text to `--primary`. Sections, submenus and every parameter: `navigation.md`.
 
 ## Template Tags
 

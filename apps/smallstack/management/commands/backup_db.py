@@ -38,7 +38,7 @@ class Command(BaseCommand):
         if "sqlite3" not in engine:
             # Record the skip so an unattended cron doesn't leave an empty
             # history that reads as "healthy". The Failed card + admin notify
-            # now reflect that this engine isn't backed up. (Audit L7.)
+            # now reflect that this engine isn't backed up.
             msg = (
                 f"Backup skipped: the built-in backup system only supports SQLite, but this "
                 f"database runs on {engine.split('.')[-1]}. Use pg_dump or your managed "

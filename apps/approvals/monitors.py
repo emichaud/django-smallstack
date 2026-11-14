@@ -6,9 +6,8 @@ Two silent failure modes, both of which look fine from inside the app:
    ``email`` queue and returns; with the shipped database-backed task backend
    ``enqueue()`` never raises, so "no exception" proved nothing and an install
    without a ``db_worker`` sent *no* approval email at all — silently, forever.
-   (F-07.)
 2. **Nobody is running the expiry sweep.** Lazy expiry is bounded per request
-   (F-12), so a large overdue backlog needs the scheduled job. An unbounded
+, so a large overdue backlog needs the scheduled job. An unbounded
    backlog means rows that say "pending" and aren't.
 
 Both are operator-configuration facts, which is exactly what a status monitor is
@@ -121,7 +120,7 @@ class ApprovalsFanoutMonitor(Monitor):
         # the mail is sent from a signal receiver or a task and so has no request
         # to derive the host from. On the default (`localhost:8000`) the link in
         # "Approval needed: …" is dead — which matters most for the headline
-        # non-staff story, "assignees decide via the emailed console link". (F-33.)
+        # non-staff story, "assignees decide via the emailed console link".
         if self._email_links_are_broken():
             from apps.accounts.emails import site_base_url
 

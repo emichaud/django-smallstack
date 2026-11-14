@@ -10,12 +10,15 @@ from typing import Any
 
 from django import template
 from django.conf import settings
+from django.template.loader import render_to_string
+from django.templatetags.static import static
 from django.urls import NoReverseMatch, reverse
 from django.utils import dateformat
+from django.utils.html import format_html
 from django.utils.text import slugify
 
 register = template.Library()
-logger = logging.getLogger("smallstack")
+logger = logging.getLogger(__name__)
 
 
 class BreadcrumbNode(template.Node):
@@ -386,6 +389,40 @@ def stat_card(
         "state": state if state in {"success", "warning", "danger", "muted"} else None,
         "unit": unit,
     }
+
+
+@register.simple_tag
+def smallstack_assets() -> str:
+    """SmallStack's shared styles for a page on a project's own theme.
+
+    Put ``{% smallstack_assets %}`` in the ``<head>`` of a base template that
+    doesn't extend ``smallstack/base.html``. It links ``smallstack/css/embed.css``:
+    the design tokens, palettes and components the embeds draw with
+    (``{% dashboard %}``, ``{% metric_card %}``, ``{% calendar_card %}``,
+    ``{% stat_card %}``, ``{% help_bubble %}``), in a ``smallstack`` cascade layer
+    so the host theme's own rules win wherever both style the same class. The
+    scripts are the base template's (``theme-init.js``, ``config.js``, htmx,
+    ``theme.js``); see ``docs/skills/adding-your-own-theme.md``.
+    """
+    return format_html('<link rel="stylesheet" href="{}">', static("smallstack/css/embed.css"))
+
+
+@register.simple_tag(takes_context=True)
+def smallstack_modal(context: template.Context) -> str:
+    """The drill-down modal, rendered once per request.
+
+    Every stat card, metric card, report value and help bubble opens
+    ``#stat-modal``. ``smallstack/base.html`` renders it; a project's own base
+    template puts ``{% smallstack_modal %}`` near the end of ``<body>``. A second
+    call in the same request (an include that adds it too) renders nothing, so
+    the page never carries two ``#stat-modal`` elements.
+    """
+    request = context.get("request")
+    if request is not None:
+        if getattr(request, "_smallstack_modal_rendered", False):
+            return ""
+        request._smallstack_modal_rendered = True
+    return render_to_string("smallstack/includes/stat_modal.html")
 
 
 @register.simple_tag

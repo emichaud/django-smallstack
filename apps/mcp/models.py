@@ -46,7 +46,7 @@ def expire_unredeemed_codes() -> int:
     client never comes back, it would sit there in plaintext indefinitely, and
     the token it names — never delivered to anyone — would stay live. Clear the
     key and deactivate that token. Called opportunistically from the OAuth
-    views, so no cron entry is needed. (Audit 2026-09-13, C9b.)
+    views, so no cron entry is needed.
     """
     from datetime import timedelta
 

@@ -22,14 +22,14 @@ from typing import TYPE_CHECKING, Callable
 if TYPE_CHECKING:
     from .models import WebhookReceipt
 
-logger = logging.getLogger("smallstack.webhooks")
+logger = logging.getLogger(__name__)
 
 # An inbound handler takes the persisted WebhookReceipt and returns nothing.
 Handler = Callable[["WebhookReceipt"], None]
 
 _HANDLERS: dict[str, Handler] = {}
 # Handlers that opted into cascading — their write-backs DO emit outbound events.
-# By default a handler runs inside suppress_webhooks() so a write-back can't loop (F-020).
+# By default a handler runs inside suppress_webhooks() so a write-back can't loop.
 _CASCADE: set[str] = set()
 
 
@@ -40,7 +40,7 @@ def webhook_handler(name: str, *, cascade: bool = False) -> Callable[[Handler], 
     more than once safely.
 
     ``cascade``: by default the handler runs inside ``suppress_webhooks()`` — a write it
-    makes emits no outbound event, so a two-way link can't run away (F-020). Set
+    makes emits no outbound event, so a two-way link can't run away. Set
     ``cascade=True`` when the handler *should* re-fire events (rare — you accept the
     loop-safety responsibility yourself).
     """

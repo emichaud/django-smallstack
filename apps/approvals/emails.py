@@ -46,7 +46,7 @@ from django.urls import reverse
 from .models import ApprovalRequest
 from .registry import get_kind, resolve_landing_url
 
-logger = logging.getLogger("smallstack.approvals")
+logger = logging.getLogger(__name__)
 
 
 def _console_path(req: ApprovalRequest) -> str:
@@ -60,7 +60,7 @@ def landing_path(req: ApprovalRequest) -> str:
     decision bell row) so they can never disagree. A kind may override it with
     ``landing_url=`` to point at its own embedded review page; otherwise this is
     the shared console, which is login-gated and eligibility-scoped — reachable
-    by non-staff assignees and requesters, who are the usual recipients. (F-01.)
+    by non-staff assignees and requesters, who are the usual recipients.
     """
     return resolve_landing_url(get_kind(req.kind), req) or _console_path(req)
 
@@ -74,7 +74,7 @@ def routing_is_broken(req: ApprovalRequest) -> bool:
     every staff member the moment that person was deactivated — 1 recipient and 1
     bell became 6 recipients and 10 bells, carrying the request's title and
     context to everyone with staff. That is the opposite of what an approvals gate
-    should do with a routing failure. (F-32.)
+    should do with a routing failure.
     """
     named = list(req.assignees.all())
     return bool(named) and not any(u.is_active for u in named)
@@ -85,12 +85,12 @@ def approver_users(req: ApprovalRequest) -> list[Any]:
 
     Deactivated accounts are excluded in BOTH branches: an offboarded assignee
     used to keep receiving mail (while ``notify()`` correctly dropped them), so
-    the two channels disagreed about who exists. (F-09.)
+    the two channels disagreed about who exists.
 
     When every named assignee is gone the staff fallback still applies — the
     request must not go unseen — but it is no longer *silent*: the fan-out logs a
     warning naming the deactivated assignees, and the subject line says why
-    everyone is being told (see :func:`subject_prefix`). (F-32.)
+    everyone is being told (see :func:`subject_prefix`).
     """
     named = list(req.assignees.all())
     assignees = [u for u in named if u.is_active]
@@ -114,7 +114,7 @@ def subject_prefix(req: ApprovalRequest) -> str:
     """"(assignee deactivated) " when the request's routing has broken, else "".
 
     Put in the subject so a staff user who suddenly receives a request they were
-    never assigned can tell *why*, instead of reading it as normal traffic. (F-32.)
+    never assigned can tell *why*, instead of reading it as normal traffic.
     """
     return "(assignee deactivated) " if routing_is_broken(req) else ""
 
@@ -165,8 +165,8 @@ def send_decided(pk: int) -> int:
     # who is normally in approver_users() because being eligible is how they got
     # to decide. Mailing only the requester left every other approver of a
     # multi-approver request with an "Approval needed" mail and no follow-up, for
-    # the rest of time. (F-13.) See the module docstring for why this set differs
-    # from the bell's by exactly the actor. (F-04.)
+    # the rest of time. See the module docstring for why this set differs
+    # from the bell's by exactly the actor.
     recipients = _extra_emails(req)
     recipients += [u.email for u in approver_users(req) if u.email]
     requester_email = getattr(req.requested_by, "email", "")

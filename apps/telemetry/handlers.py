@@ -433,7 +433,7 @@ class DatabaseLogHandler(logging.Handler):
                     except Exception:
                         pass
                 if attempt == 2:
-                    self.dropped += len(rows)  # was only logged, never counted (audit D10b)
+                    self.dropped += len(rows)  # counted, not only logged
                     logger.warning("Dropped %d log record(s) after repeated write failures", len(rows), exc_info=True)
                     return
                 time.sleep(0.1 * (3**attempt))

@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import functools
 import json
+import logging
 import math
 from typing import TYPE_CHECKING, Any, cast
 
@@ -32,6 +33,8 @@ from .exceptions import FeatureDisabled
 if TYPE_CHECKING:
     from django import forms
     from django.db.models import Model, QuerySet
+
+logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # API registry — populated by build_api_urls() for schema introspection
@@ -298,10 +301,10 @@ def api_view(methods=None, require_auth=True, require_staff=False, require_auth_
             # used to escape into Django's HTML 404 handler, so a JSON client
             # doing `await res.json()` threw a syntax error instead of seeing
             # "not found". Translate it into the standard envelope here so every
-            # @api_view endpoint gets it, present and future. (F-17.)
+            # @api_view endpoint gets it, present and future.
             # PermissionDenied and FeatureDisabled get the same treatment for the
-            # same reason: `check_object_permission` (F-27) and a feature's master
-            # switch (F-31) are both raised from code an endpoint *calls*, often in
+            # same reason: `check_object_permission` and a feature's master
+            # switch are both raised from code an endpoint *calls*, often in
             # another app, so translating them per-endpoint does not scale and
             # leaves the uncaught case as a 500.
             try:
@@ -313,7 +316,7 @@ def api_view(methods=None, require_auth=True, require_staff=False, require_auth_
             except FeatureDisabled as exc:
                 # The subclass's own `code` — declared on FeatureDisabled and,
                 # until now, read by nothing, while its docstring promised it
-                # reached the envelope. (F-54)
+                # reached the envelope.
                 return _error(
                     str(exc) or "This feature is disabled",
                     503,
@@ -402,7 +405,7 @@ def authenticate_api_request(
                     return None, _error(f"Token expired at {expired_at}", 401)
                 if reason == APIToken.REJECT_USER_INACTIVE:
                     # Offboarding (is_active=False) invalidates every token the
-                    # account holds, even un-revoked ones. (F-10.)
+                    # account holds, even un-revoked ones.
                     return None, _error("Account is deactivated", 401)
                 # Found but rejected for some other reason — treat as inactive.
                 return None, _error("Token inactive", 401)
@@ -442,7 +445,7 @@ def _check_api_permissions(request, crud_config, method="GET"):
     # be blocked from writes here exactly as the MCP channel blocks them
     # (apps/mcp/auth.py gates on access_level, not token_type). Gating on
     # token_type="manual" let a read-scoped OAuth bearer POST/PUT/DELETE on the
-    # REST surface. Login tokens carry access_level="" and stay unaffected. (Audit H2/H3.)
+    # REST surface. Login tokens carry access_level="" and stay unaffected.
     token = getattr(request, "_api_token", None)
     if token and token.access_level == "readonly" and method not in ("GET", "HEAD", "OPTIONS"):
         return _error("Token is read-only", 403)
@@ -1095,7 +1098,7 @@ def _make_api_detail_view(crud_config):
         # Tenancy: get_detail_queryset is the single-object read scoper (it
         # defaults to get_list_queryset). Without it a row hidden from
         # GET /api/<base>/ was readable and editable at /api/<base>/<pk>/.
-        # (Audit 2026-09-13, C5.)
+        #.
         qs = crud_config.get_detail_queryset(crud_config._get_queryset(), request)
         expand_fields = _resolve_expand_fields(request, crud_config)
         if expand_fields:
@@ -1187,7 +1190,7 @@ def _apply_list_filter(request, qs, crud_config):
     # from the FilterSet so it cannot re-apply the stored-column meaning on top.
     # The REST list is a *separate* filter path from the HTML one (django-filter
     # vs _apply_list_filters), so the hook has to be honoured in both or
-    # ?status=pending means two different things on two surfaces. (F-29.)
+    # ?status=pending means two different things on two surfaces.
     params = request.GET
     consumed: list[str] = []
     for field_name in filter_fields:
@@ -1444,7 +1447,7 @@ def _make_api_bulk_delete_view(crud_config):
             return _error("ids must be a non-empty list", 400)
 
         try:
-            ids = crud_config._coerce_pks(ids)  # pk-type aware, not int-only (F-38)
+            ids = crud_config._coerce_pks(ids)  # pk-type aware, not int-only
         except (ValueError, TypeError, DjangoValidationError):
             return _error(f"ids must be valid {crud_config.model._meta.pk.get_internal_type()} values", 400)
 
@@ -1462,7 +1465,7 @@ def _make_api_bulk_delete_view(crud_config):
                 errors[str(pk)] = "Permission denied"
                 continue
             # A bulk action is a write to N single objects, so the per-object
-            # hook applies here as much as on the detail route (F-50).
+            # hook applies here as much as on the detail route.
             try:
                 crud_config.check_object_permission(obj, request)
             except (PermissionDenied, Http404):
@@ -1485,6 +1488,8 @@ def _make_api_bulk_delete_view(crud_config):
             except IntegrityError:
                 errors[str(pk)] = "Cannot delete — a database constraint prevented this action."
             except Exception:
+                # The client gets a generic message; the traceback goes to the log.
+                logger.exception("Bulk delete of %s pk=%s failed", crud_config.model.__name__, pk)
                 errors[str(pk)] = "Delete failed — an unexpected error occurred."
 
         return JsonResponse(
@@ -1525,7 +1530,7 @@ def _make_api_bulk_update_view(crud_config):
             return _error("fields must be a non-empty dict", 400)
 
         try:
-            ids = crud_config._coerce_pks(ids)  # pk-type aware, not int-only (F-38)
+            ids = crud_config._coerce_pks(ids)  # pk-type aware, not int-only
         except (ValueError, TypeError, DjangoValidationError):
             return _error(f"ids must be valid {crud_config.model._meta.pk.get_internal_type()} values", 400)
 
@@ -1550,7 +1555,7 @@ def _make_api_bulk_update_view(crud_config):
                 errors[str(pk)] = "Permission denied"
                 continue
             try:
-                crud_config.check_object_permission(obj, request)  # see bulk-delete (F-50)
+                crud_config.check_object_permission(obj, request)  # see bulk-delete
             except (PermissionDenied, Http404):
                 errors[str(pk)] = "Permission denied"
                 continue
@@ -2157,7 +2162,6 @@ def build_served_spec(server_url: str | None = None) -> dict[str, Any]:
     CRUDView routes *and* ``register_api_path`` custom endpoints. api_doctor and
     the validity tests call this rather than ``build_openapi_spec`` directly —
     they used to omit ``custom_paths`` and so validated a spec nobody served.
-    (Audit 2026-09-13, D5.)
     """
     from django.urls import get_resolver
 

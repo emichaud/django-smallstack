@@ -38,7 +38,7 @@ import logging
 from datetime import timedelta
 from typing import Any
 
-logger = logging.getLogger("smallstack.dashboards")
+logger = logging.getLogger(__name__)
 
 _CADENCES = ["hourly", "daily", "weekly", "monthly", "quarterly"]
 
@@ -631,7 +631,10 @@ def register_dashboard_tools() -> int:
         logger.info("apps.mcp not available — skipping dashboard MCP tools")
         return 0
 
+    from .metrics import all_aggs_available
+
     obj = "object"
+    agg_names = [key for key, _label in all_aggs_available()]
     specs: list[tuple[str, str, dict[str, Any], Any, bool]] = [
         (
             "list_dashboard_components",
@@ -659,7 +662,7 @@ def register_dashboard_tools() -> int:
                     "denominator": {"type": "string", "description": "A rate's bottom: a metric key."},
                     "dataset": {"type": "string", "description": "Dataset key (list_datasets)."},
                     "filter_tree": {"type": "object", "description": _FILTER_TREE_DOC},
-                    "agg": {"type": "string", "enum": ["count", "distinct", "sum", "avg", "min", "max", "latest"]},
+                    "agg": {"type": "string", "enum": agg_names},
                     "measure": {"type": "string", "description": "Column to aggregate (not for count)."},
                     "period_field": {"type": "string", "description": "Date column a period narrows."},
                     "period": {"type": "string", "description": "Evaluate for this period (mtd, last_30, …)."},
@@ -883,7 +886,8 @@ def register_dashboard_tools() -> int:
                     "filter_tree": {"type": "object", "description": "The card's own filter over its dataset."},
                     "agg": {
                         "type": "string",
-                        "description": "count | distinct | sum | avg | min | max (all but count need a measure).",
+                        "description": "count | distinct | sum | avg | median | min | max (all but count need a "
+                        "measure; median only where the database has one).",
                     },
                     "measure": {"type": "string", "description": "The column agg reads (not for count)."},
                     "period_field": {"type": "string", "description": "The date column the period narrows."},

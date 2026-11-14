@@ -44,10 +44,10 @@ You're working in a derived SmallStack project that hasn't pulled the MCP upstre
    MCP_TOOL_MODULES: list[str] = []
    ```
 
-4. Register the `smallstack.mcp` logger in `config/settings/development.py` and `production.py`:
+4. Register the `apps.mcp` logger in `config/settings/development.py` and `production.py`:
 
    ```python
-   "smallstack.mcp": {
+   "apps.mcp": {
        "handlers": ["console"],
        "level": "INFO",
        "propagate": False,

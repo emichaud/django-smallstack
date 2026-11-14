@@ -289,7 +289,7 @@ The topbar displays `BRAND_LOGO_TEXT` at **32px height**. Design your logos acco
 
 **Changing Logo Display Size:**
 
-The logo size is controlled by CSS, not the SVG dimensions. To change the topbar logo height, add a CSS override file (e.g., `static/css/project.css`) or edit `static/smallstack/css/theme.css`:
+The logo size is controlled by CSS, not the SVG dimensions. SmallStack has no project-wide stylesheet hook: a `static/css/project.css` of your own applies only on pages that load it in `{% block extra_css %}`, which SmallStack's own pages don't. So for the topbar on every page, the rule below goes in `static/smallstack/css/theme.css` (and is yours to carry across upgrades):
 
 ```css
 .site-logo .logo-img {
@@ -449,10 +449,9 @@ When merging upstream, you may see conflicts in:
 | File | Resolution |
 |------|------------|
 | `uv.lock` | Take upstream version: `git checkout --theirs uv.lock` |
-| `templates/smallstack/base.html` | Keep your branding changes |
-| `templates/smallstack/includes/topbar.html` | Keep your logo |
-| `templates/registration/*.html` | Keep your branding |
 | `config/deploy.yml` | Keep your deployment config |
+
+Branding and navigation don't need SmallStack's templates edited, so they don't conflict: the name, logo, icons and footer links are `BRAND_*` settings, and sidebar links are `nav.register()` calls in your own app. If you did edit `smallstack/base.html` or `includes/topbar.html`, move the change to those, then take upstream's template.
 
 **Note:** `templates/website/home.html` is a thin wrapper. Once you've replaced the `{% include %}` with your own content, upstream changes to SmallStack's home content land in `smallstack/pages/`, which you don't touch, so no conflicts. SmallStack's demo pages are in `apps/showcase/`: delete it, or take upstream's version on a merge.
 
@@ -516,15 +515,17 @@ CSRF_TRUSTED_ORIGINS=https://myproject.com,https://www.myproject.com
 | User profile fields | `apps/profile/models.py` |
 | Background tasks | `apps/tasks/` |
 
-### Will Conflict on Upstream Merge (Expected)
+### Customizing Without Touching SmallStack's Files
 
-| What to Customize | Where |
+| What to Customize | Where (no merge conflict) |
 |------------------|-------|
-| Site title & footer | `templates/smallstack/base.html` |
-| Header logo | `templates/smallstack/includes/topbar.html` |
-| Auth page titles | `templates/registration/*.html` |
-| Sidebar navigation | `templates/smallstack/includes/sidebar.html` |
-| Theme colors | `static/smallstack/css/theme.css` (or use palette system / add overrides in `static/css/project.css`) |
+| Site name, logo, icons, tagline | `BRAND_*` in `config/settings/smallstack.py` or the environment (`BRAND_NAME`, `BRAND_LOGO`, …) |
+| Footer privacy / terms links | `BRAND_PRIVACY_URL`, `BRAND_TERMS_URL` |
+| Sidebar and topbar links | `nav.register()` in your app's `AppConfig.ready()` ([Navigation](/smallstack/help/smallstack/navigation/)) |
+| Theme colors | A palette ([Theming](/smallstack/help/smallstack/theming/)) |
+| A page's layout | Your own template in `templates/website/` (or your app), extending `smallstack/base.html` |
+
+Editing a file under `apps/smallstack/templates/` or `apps/smallstack/static/` will conflict on the next merge; reach for the rows above first.
 
 ## Next Steps
 

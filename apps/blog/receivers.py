@@ -19,7 +19,7 @@ from typing import Any
 
 from django.dispatch import receiver
 
-logger = logging.getLogger("smallstack.blog")
+logger = logging.getLogger(__name__)
 
 
 def connect() -> None:

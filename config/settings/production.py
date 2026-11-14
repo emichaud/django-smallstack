@@ -163,7 +163,16 @@ LOGGING = {
             "level": "INFO",
             "propagate": False,
         },
-        "smallstack.mcp": {
+        # SmallStack's apps log under __name__ (apps.dashboards.metrics, …), so
+        # "apps" covers them. "smallstack" is kept for code written to the old
+        # convention (getLogger("smallstack.<app>")), which would otherwise fall
+        # through to root at WARNING and lose every INFO line.
+        "smallstack": {
+            "handlers": ["console"],
+            "level": "INFO",
+            "propagate": False,
+        },
+        "apps.mcp": {
             "handlers": ["console"],
             "level": "INFO",
             "propagate": False,
