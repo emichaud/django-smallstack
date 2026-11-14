@@ -7,7 +7,10 @@
     <title>{% block title %}{% endblock %} | {{ brand.name }}</title>
 
     <!-- Blocking theme/sidebar/palette script — prevents flash of wrong theme or sidebar state -->
-    <script src="{% static 'smallstack/js/theme-init.js' %}" data-palette="{{ color_palette }}" data-default-palette="django" data-sidebar-no-transition></script>
+    <script src="{% static 'smallstack/js/theme-init.js' %}"
+            data-user-theme="{% if user.is_authenticated and user.profile %}{{ user.profile.theme_preference }}{% endif %}"
+            data-user-palette="{% if user.is_authenticated and user.profile %}{{ user.profile.color_palette }}{% endif %}"
+            data-palette="{{ color_palette }}" data-default-palette="django" data-sidebar-no-transition></script>
 
     <!-- Favicon -->
     <link rel="icon" type="image/x-icon" href="{% static brand.favicon %}">

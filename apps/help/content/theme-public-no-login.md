@@ -26,13 +26,12 @@ SMALLSTACK_SIGNUP_ENABLED=False
 
 ## Step 2: Create Your Base Template
 
-Create `templates/mytheme/base.html` with your own CSS framework. Three pieces are required for dark mode and palette persistence:
+Create `templates/mytheme/base.html` with your own CSS framework. Two pieces are required for dark mode and palette persistence, both `<script src>` tags (the CSP refuses inline `<script>` blocks):
 
-1. **Blocking theme script** in `<head>` (prevents flash of wrong theme)
-2. **`window.SMALLSTACK` config object** before `theme.js`
-3. **SmallStack's `theme.js`** script
+1. **`theme-init.js`** in `<head>` — sets the theme before first paint
+2. **`config.js`, then `theme.js`** — `config.js`'s `data-theme-url` / `data-palette-url` are where the toggle saves a signed-in user's choice. Leave them out and the choice flips back on the next page load.
 
-See [Adding Your Own Theme](/smallstack/help/smallstack/adding-your-own-theme/) for the full template with all three pieces marked.
+See [Adding Your Own Theme](/smallstack/help/smallstack/adding-your-own-theme/) for the full template with each piece marked.
 
 A minimal example:
 
@@ -44,26 +43,24 @@ A minimal example:
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}{% endblock %} | {{ brand.name }}</title>
-    <script>
-    (function() {
-        var theme = localStorage.getItem('smallstack-theme') || 'dark';
-        document.documentElement.setAttribute('data-theme', theme);
-    })();
-    </script>
+    <script src="{% static 'smallstack/js/theme-init.js' %}"
+            data-user-theme="{% if user.is_authenticated and user.profile %}{{ user.profile.theme_preference }}{% endif %}"
+            data-user-palette="{% if user.is_authenticated and user.profile %}{{ user.profile.color_palette }}{% endif %}"
+            data-palette="{{ color_palette }}" data-default-palette="django"></script>
     <!-- Your CSS here -->
     {% block extra_css %}{% endblock %}
 </head>
-<body>
+<body hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
     {% block content %}{% endblock %}
 
-    <script>
-    window.SMALLSTACK = {
-        userTheme: null, userPalette: null,
-        colorPalette: '{{ color_palette }}',
-        isAuthenticated: {% if user.is_authenticated %}true{% else %}false{% endif %},
-        sidebarEnabled: false, sidebarOpen: false, topbarNavEnabled: false
-    };
-    </script>
+    <script src="{% static 'smallstack/js/config.js' %}"
+            data-user-theme="{% if user.is_authenticated and user.profile %}{{ user.profile.theme_preference }}{% endif %}"
+            data-user-palette="{% if user.is_authenticated and user.profile %}{{ user.profile.color_palette }}{% endif %}"
+            data-color-palette="{{ color_palette }}"
+            data-authenticated="{% if user.is_authenticated %}true{% else %}false{% endif %}"
+            data-theme-url="{% url 'theme_preference' %}"
+            data-palette-url="{% url 'palette_preference' %}"></script>
+    <script src="{% static 'smallstack/js/htmx.min.js' %}" defer></script>
     <script src="{% static 'smallstack/js/theme.js' %}"></script>
     {% block extra_js %}{% endblock %}
 </body>

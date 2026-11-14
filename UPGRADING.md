@@ -8,6 +8,26 @@ listed, no downstream migration is required.
 
 ---
 
+## v0.30.2 — a theme built from the theming guide doesn't save the light/dark choice
+
+**Who is affected:** projects with their own base template (Bootstrap, Tailwind, a bought theme) built
+from `adding-your-own-theme.md` or `theme-scenarios.md`. Pages on `smallstack/base.html` are fine.
+
+**Symptom.** A signed-in user toggles to light on one of your pages; the next page load is dark again.
+The guide's config left out the URLs `theme.js` saves to, so the toggle changed only the browser's copy,
+and the profile's saved theme wins on load.
+
+**Migration.** Copy the two script blocks from the guide's Step 2 into your base template:
+
+- `theme-init.js` in `<head>`, with `data-user-theme` / `data-user-palette` so a new browser paints the
+  saved theme first.
+- `config.js` with `data-theme-url="{% url 'theme_preference' %}"` and
+  `data-palette-url="{% url 'palette_preference' %}"`, then htmx and `theme.js`. Keep
+  `hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'` on `<body>`; the save is a POST.
+
+Either replaces an inline `<script>` theme block, which the CSP refuses anyway unless you kept the
+`'unsafe-inline'` stopgap. `grep -rn "window.SMALLSTACK = {" templates apps` finds an old setup.
+
 ## v0.30.1 — SmallStack's demo pages move to `apps/showcase`; error pages become app defaults
 
 **Who is affected:** every project, once. This is the merge that stops `apps/website/`, the error

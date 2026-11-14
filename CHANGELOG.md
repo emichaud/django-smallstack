@@ -9,6 +9,16 @@ Breaking-change migration recipes live in [`UPGRADING.md`](UPGRADING.md).
 
 ## [Unreleased]
 
+## [0.30.2] - 2026-11-14
+
+### Upgrading from 0.30.1
+- **Built your own base template from the theming guide?** Check its `config.js` tag for `data-theme-url` and `data-palette-url`. Without them the light/dark toggle never saves, and the choice flips back on the next page load. See `UPGRADING.md`.
+
+### Fixed
+- **The theming guide's base template couldn't save the light/dark choice.** Its `window.SMALLSTACK` config left out the save URLs, so on a theme built from it the toggle changed only the browser's copy, and on the next page load the profile's older choice won and the toggle flipped back. Its setup was also inline `<script>` blocks, which the CSP has refused since 0.30.0. `adding-your-own-theme.md` (both copies), `theme-scenarios.md`, `from-zero-to-running.md`, `templates.md` and the "public, no login" help page now show what `smallstack/base.html` does: `theme-init.js`, then `config.js` with both save URLs, htmx and `theme.js`, plus a check that the choice survives a fresh browser. SmallStack's own pages were not affected.
+- **A new browser could open dark for a user who saved light.** `theme-init.js` read only the browser's stored theme, so on a shell that loads `theme.js` late the page painted dark first. It now takes `data-user-theme` / `data-user-palette` and paints in theme.js's order: the profile's choice, then this browser's, then dark. `smallstack/base.html` passes them.
+- `apps/smallstack/test_theme_wiring.py` holds the shipped shell, every template loading `config.js` and every base template in the docs to the saving setup, and runs `theme-init.js` under node (skipped without node).
+
 ## [0.30.1] - 2026-11-09
 
 ### Upgrading from 0.30
@@ -3386,7 +3396,8 @@ Condensed highlights of the v0.11 series (see git history for per-patch detail):
 See the git tag history (`git tag`) and `ai_cowork/audit_history/` for the full record of the
 v0.8–v0.10 API-server, modern-dark-theme, search, MCP, and Postgres eras.
 
-[Unreleased]: https://github.com/emichaud/django-smallstack/compare/v0.30.1...HEAD
+[Unreleased]: https://github.com/emichaud/django-smallstack/compare/v0.30.2...HEAD
+[0.30.2]: https://github.com/emichaud/django-smallstack/compare/v0.30.1...v0.30.2
 [0.30.1]: https://github.com/emichaud/django-smallstack/compare/v0.30.0...v0.30.1
 [0.30.0]: https://github.com/emichaud/django-smallstack/compare/v0.29.0...v0.30.0
 [0.29.0]: https://github.com/emichaud/django-smallstack/compare/v0.28.0...v0.29.0

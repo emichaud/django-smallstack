@@ -194,34 +194,27 @@ Your public pages use a custom theme (Bootstrap, Tailwind, plain CSS). SmallStac
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    {# Blocking script — prevents theme flash #}
-    <script>
-    (function() {
-        var t = localStorage.getItem('smallstack-theme') || 'dark';
-        document.documentElement.setAttribute('data-theme', t);
-        var p = localStorage.getItem('smallstack-palette') || '{{ color_palette }}';
-        document.documentElement.setAttribute('data-palette', p);
-    })();
-    </script>
+    {# Sets the theme before first paint — no flash #}
+    <script src="{% static 'smallstack/js/theme-init.js' %}"
+            data-user-theme="{% if user.is_authenticated and user.profile %}{{ user.profile.theme_preference }}{% endif %}"
+            data-user-palette="{% if user.is_authenticated and user.profile %}{{ user.profile.color_palette }}{% endif %}"
+            data-palette="{{ color_palette }}" data-default-palette="django"></script>
     <title>{% block title %}{% endblock %} | {{ brand.name }}</title>
     {% block extra_css %}{% endblock %}
 </head>
-<body>
+<body hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
     {% block content %}{% endblock %}
 
-    {# SmallStack config object — before theme.js #}
-    <script>
-    window.SMALLSTACK = {
-        userTheme: {% if user.is_authenticated %}'{{ user.profile.theme_preference }}'{% else %}null{% endif %},
-        userPalette: {% if user.is_authenticated %}'{{ user.profile.color_palette }}'{% else %}null{% endif %},
-        colorPalette: '{{ color_palette }}',
-        isAuthenticated: {{ user.is_authenticated|yesno:"true,false" }},
-        sidebarEnabled: false,
-        sidebarOpen: false,
-        topbarNavEnabled: false
-    };
-    </script>
-    <script src="{% static 'smallstack/js/theme.js' %}" defer></script>
+    {# theme.js's settings; data-theme-url / data-palette-url are where the toggle saves the choice #}
+    <script src="{% static 'smallstack/js/config.js' %}"
+            data-user-theme="{% if user.is_authenticated and user.profile %}{{ user.profile.theme_preference }}{% endif %}"
+            data-user-palette="{% if user.is_authenticated and user.profile %}{{ user.profile.color_palette }}{% endif %}"
+            data-color-palette="{{ color_palette }}"
+            data-authenticated="{% if user.is_authenticated %}true{% else %}false{% endif %}"
+            data-theme-url="{% url 'theme_preference' %}"
+            data-palette-url="{% url 'palette_preference' %}"></script>
+    <script src="{% static 'smallstack/js/htmx.min.js' %}" defer></script>
+    <script src="{% static 'smallstack/js/theme.js' %}"></script>
     {% block extra_js %}{% endblock %}
 </body>
 </html>

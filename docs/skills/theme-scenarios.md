@@ -44,9 +44,8 @@ templates/
 
 2. **Create custom base template** at `templates/mytheme/base.html` with:
    - Your CSS framework
-   - Blocking theme script in `<head>` (reads localStorage, sets `data-theme`)
-   - `window.SMALLSTACK` config object before `theme.js`
-   - SmallStack's `theme.js` script
+   - `theme-init.js` in `<head>` (sets `data-theme` before first paint)
+   - `config.js` with the save URLs, then `theme.js` (see *Required Pieces* below)
 
 3. **Update public pages** to extend `mytheme/base.html` instead of `smallstack/base.html`:
    ```html
@@ -140,42 +139,32 @@ LOGOUT_REDIRECT_URL = "/"
 
 ## Required Pieces in Custom Base Template
 
-When creating `templates/mytheme/base.html`, these three pieces are **mandatory**:
+When creating `templates/mytheme/base.html`, these two pieces are **mandatory**. Both are `<script src>` tags configured by `data-` attributes, as in `smallstack/base.html`: the CSP refuses inline `<script>` blocks.
 
-### 1. Blocking Theme Script (in `<head>`, before CSS)
+### 1. `theme-init.js` (in `<head>`, before CSS)
+
+Sets `data-theme` / `data-palette` before first paint: the signed-in user's saved choice, then this browser's, then dark.
 
 ```html
-<script>
-(function() {
-    var theme = localStorage.getItem('smallstack-theme') || 'dark';
-    document.documentElement.setAttribute('data-theme', theme);
-    var palette = localStorage.getItem('smallstack-palette') || '{{ color_palette }}';
-    if (palette && palette !== 'django') {
-        document.documentElement.setAttribute('data-palette', palette);
-    }
-})();
-</script>
+<script src="{% static 'smallstack/js/theme-init.js' %}"
+        data-user-theme="{% if user.is_authenticated and user.profile %}{{ user.profile.theme_preference }}{% endif %}"
+        data-user-palette="{% if user.is_authenticated and user.profile %}{{ user.profile.color_palette }}{% endif %}"
+        data-palette="{{ color_palette }}" data-default-palette="django"></script>
 ```
 
-### 2. SMALLSTACK Config Object (before theme.js)
+### 2. `config.js`, htmx and `theme.js`
+
+`config.js` builds `window.SMALLSTACK` for `theme.js`. **`data-theme-url` and `data-palette-url` are where the toggle saves a signed-in user's choice.** Leave them out and the toggle changes only this browser; on the next page load the profile's saved theme wins and the choice flips back. The save is an htmx POST, so keep `hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'` on `<body>`.
 
 ```html
-<script>
-window.SMALLSTACK = {
-    userTheme: {% if user.is_authenticated and user.profile %}'{{ user.profile.theme_preference }}'{% else %}null{% endif %},
-    userPalette: {% if user.is_authenticated and user.profile %}'{{ user.profile.color_palette }}'{% else %}null{% endif %},
-    colorPalette: '{{ color_palette }}',
-    isAuthenticated: {% if user.is_authenticated %}true{% else %}false{% endif %},
-    sidebarEnabled: false,
-    sidebarOpen: false,
-    topbarNavEnabled: false
-};
-</script>
-```
-
-### 3. SmallStack theme.js
-
-```html
+<script src="{% static 'smallstack/js/config.js' %}"
+        data-user-theme="{% if user.is_authenticated and user.profile %}{{ user.profile.theme_preference }}{% endif %}"
+        data-user-palette="{% if user.is_authenticated and user.profile %}{{ user.profile.color_palette }}{% endif %}"
+        data-color-palette="{{ color_palette }}"
+        data-authenticated="{% if user.is_authenticated %}true{% else %}false{% endif %}"
+        data-theme-url="{% url 'theme_preference' %}"
+        data-palette-url="{% url 'palette_preference' %}"></script>
+<script src="{% static 'smallstack/js/htmx.min.js' %}" defer></script>
 <script src="{% static 'smallstack/js/theme.js' %}"></script>
 ```
 
@@ -183,7 +172,7 @@ window.SMALLSTACK = {
 
 - `{% static 'smallstack/css/palettes.css' %}` — gives you palette color variables
 - `{% include "smallstack/includes/messages.html" %}` — flash messages
-- `hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'` on `<body>` — if using htmx
+- `hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'` on `<body>` — required: the toggle saves with an htmx POST
 
 ## File Placement Rules
 
