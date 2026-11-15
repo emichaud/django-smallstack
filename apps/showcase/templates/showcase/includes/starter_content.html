@@ -65,7 +65,8 @@
     </div>
 </div>
 
-<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-top: 24px;">
+{# auto-fit: two columns where they fit, one on a phone #}
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 24px; margin-top: 24px;">
     <div class="card">
         <div class="card-header">
             <h2>Left Column</h2>
@@ -301,26 +302,28 @@
     </div>
     <div class="card-body">
         <p><strong>1. Create a view</strong> in <code>config/views.py</code> or your app's <code>views.py</code>:</p>
-        <pre style="background: var(--darkened-bg); padding: 16px; border-radius: var(--radius-sm); overflow-x: auto; margin: 12px 0;"><code>def my_page_view(request):
+        <pre style="background: var(--darkened-bg); padding: 16px; border-radius: var(--radius-sm); overflow-x: auto; contain: inline-size; margin: 12px 0;"><code>def my_page_view(request):
     context = {'items': Item.objects.all()}
     return render(request, 'my_page.html', context)</code></pre>
 
         <p><strong>2. Add URL pattern</strong> in <code>config/urls.py</code> or your app's <code>urls.py</code>:</p>
-        <pre style="background: var(--darkened-bg); padding: 16px; border-radius: var(--radius-sm); overflow-x: auto; margin: 12px 0;"><code>from .views import my_page_view
+        <pre style="background: var(--darkened-bg); padding: 16px; border-radius: var(--radius-sm); overflow-x: auto; contain: inline-size; margin: 12px 0;"><code>from .views import my_page_view
 
 urlpatterns = [
     path('my-page/', my_page_view, name='my_page'),
     # ... other urls
 ]</code></pre>
 
-        <p><strong>3. Add to sidebar</strong> (optional) in <code>templates/smallstack/includes/sidebar.html</code>:</p>
-        <pre style="background: var(--darkened-bg); padding: 16px; border-radius: var(--radius-sm); overflow-x: auto; margin: 12px 0;"><code>&lt;li class="nav-item"&gt;
-    &lt;a href="{% templatetag openblock %} url 'my_page' {% templatetag closeblock %}" class="nav-link {% templatetag openblock %} nav_active 'my_page' {% templatetag closeblock %}"&gt;
-        &lt;svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"&gt;
-            &lt;!-- icon path --&gt;
-        &lt;/svg&gt;
-        &lt;span&gt;My Page&lt;/span&gt;
-    &lt;/a&gt;
-&lt;/li&gt;</code></pre>
+        <p><strong>3. Add to the sidebar</strong> (optional) from your app's <code>apps.py</code>, so SmallStack's own templates stay untouched:</p>
+        <pre style="background: var(--darkened-bg); padding: 16px; border-radius: var(--radius-sm); overflow-x: auto; contain: inline-size; margin: 12px 0;"><code>from django.apps import AppConfig
+
+
+class MyAppConfig(AppConfig):
+    name = "apps.myapp"
+
+    def ready(self):
+        from apps.smallstack.navigation import nav
+
+        nav.register(section="main", label="My Page", url_name="my_page", order=10)</code></pre>
     </div>
 </div>

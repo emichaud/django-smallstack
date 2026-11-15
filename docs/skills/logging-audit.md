@@ -297,6 +297,12 @@ Set `TELEMETRY_LOG_CAPTURE_ENABLED=false` to switch the whole thing off — no h
 
 SmallStack provides `log_action()` and `AuditMixin` in `apps.smallstack.audit` for creating Django `LogEntry` records from non-admin code. No new models or migrations required.
 
+Every `CRUDView` already writes these for you on every surface: its create, edit
+and delete pages, its bulk actions, REST, MCP and `sc`. `enable_history = True`
+on the view adds a per-row History page (Explorer has it on). Reach for the
+helpers below only for writes a `CRUDView` doesn't make, and don't add
+`AuditMixin` to a `CRUDView`, which would record each write twice.
+
 ### log_action()
 
 Create an audit record manually:
@@ -350,4 +356,4 @@ class TicketUpdateView(AuditMixin, LoginRequiredMixin, UpdateView):
 
 ### Browsing audit logs
 
-LogEntry is registered in Django admin at `/admin/admin/logentry/`. It shows all actions from both admin and `log_action()` calls, with filters for action type, content type, and user.
+A `CRUDView` with `enable_history = True` (every Explorer model) shows one row's entries at `<pk>/history/`, from the History button on its detail page. LogEntry is registered in Django admin at `/admin/admin/logentry/`. It shows all actions from both admin and `log_action()` calls, with filters for action type, content type, and user.

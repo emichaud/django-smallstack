@@ -8,7 +8,8 @@ outerHTML, so the polling attributes have to come back with each response.{% end
      hx-swap="outerHTML"{% endif %}>
 
 <div class="card">
-    <div class="card-body" style="padding: 0; overflow-x: auto;">
+    {# contain: the table scrolls inside the card; its width must not size the page on a phone. #}
+    <div class="card-body" style="padding: 0; overflow-x: auto; contain: inline-size;">
         {% if records %}
         <table class="log-table">
             <caption class="sr-only">Captured log records, newest first</caption>

@@ -236,6 +236,8 @@
     contain: inline-size;
     max-width: 100%;
     overflow-x: auto;  /* every wrapper, not only the generic table's inline style */
+    position: relative;  /* holds a cell's absolutely placed .sr-only text inside the scroll box,
+                            or it widens the whole page on a phone */
 }
 .col-resizer {
     position: absolute;
@@ -512,6 +514,11 @@ ul.pagination li.active span {
 
 :where(.content-wrapper) input[type="file"] {
     width: 100%;
+    /* A file picker's built-in minimum ("Choose file · No file chosen") is
+       wider than a 320px phone leaves for a form; let it shrink and clip. */
+    min-width: 0;
+    max-width: 100%;
+    overflow: hidden;
     padding: 0.5rem;
     font-size: 0.85rem;
     border: 1px dashed color-mix(in srgb, var(--body-fg) 20%, var(--body-bg));
@@ -1270,6 +1277,28 @@ ul.pagination li.active span {
     color: var(--body-fg);
 }
 
+/* What a delete takes with it: the confirmation page and the delete modal. */
+.crud-delete-summary {
+    margin: 0.75rem 0 0;
+    padding: 0.6rem 0.9rem;
+    border-left: 3px solid var(--warning-fg);
+    border-radius: var(--radius-sm, 4px);
+    background: var(--warning-bg);
+    color: var(--body-fg);
+    font-size: 0.85rem;
+}
+.crud-delete-summary p { margin: 0; }
+.crud-delete-summary ul { margin: 0.4rem 0 0; padding-left: 1.1rem; }
+.crud-delete-summary li { margin: 0.15rem 0; overflow-wrap: anywhere; }
+.crud-delete-summary--blocked { border-left-color: var(--error-fg); background: var(--error-bg); }
+.crud-delete-summary--none {
+    border-left: none;
+    background: none;
+    padding: 0;
+    color: var(--body-quiet-color);
+}
+.crud-modal .crud-delete-summary ul { max-height: 12rem; overflow-y: auto; }
+
 
 /* --------------------------------------------------------------------------
    Tabs
@@ -1278,8 +1307,22 @@ ul.pagination li.active span {
 .tab-bar {
     display: flex;
     gap: 0;
-    border-bottom: 2px solid var(--hairline-color, color-mix(in srgb, var(--body-fg) 10%, var(--body-bg)));
+    /* The baseline is an inset shadow, not a border, so the active tab's
+       underline still sits on it when the bar scrolls (a scroll box clips
+       anything drawn over its own border). */
+    box-shadow: inset 0 -2px 0 var(--hairline-color, color-mix(in srgb, var(--body-fg) 10%, var(--body-bg)));
     margin-bottom: 1rem;
+    /* More tabs than fit (five on a phone) scroll sideways instead of
+       widening the whole page. */
+    contain: inline-size;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: thin;
+}
+.tab-bar > .tab-btn {
+    flex: 0 0 auto;
+    white-space: nowrap;
+    margin-bottom: 0;
 }
 
 .tab-btn {
@@ -3340,6 +3383,69 @@ a.dashboard-widget.widget-status-down        { border-left-color: var(--error-fg
 .activity-kv .v { text-align: right; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .activity-mono { font-family: ui-monospace, "Cascadia Code", Menlo, Consolas, monospace; font-size: 0.85rem; }
 
+/* Resource detail: the URL pattern is the title, so it gets the full width and
+   the stats + window picker sit on a row of their own beneath it. */
+.page-header-stacked { flex-direction: column; align-items: stretch; gap: 14px; }
+.page-header-stacked > .page-header-content { flex: 1 1 auto; }
+.page-header-stacked > .page-header-tools { justify-content: flex-start; }
+.resource-route {
+    font-family: ui-monospace, "Cascadia Code", Menlo, Consolas, monospace;
+    font-size: 1.3rem;
+    font-weight: 600;
+    line-height: 1.35;
+    overflow-wrap: anywhere; /* only when one segment alone is wider than the line */
+}
+.resource-route-param {
+    color: var(--primary);
+    background: color-mix(in srgb, var(--primary) 14%, transparent);
+    border-radius: 4px;
+    padding: 0 3px;
+}
+.resource-crumbs { margin-top: 0.5rem; font-size: 0.8rem; color: var(--body-quiet-color); }
+.resource-crumbs a { color: var(--body-quiet-color); text-decoration: none; }
+.resource-crumbs a:hover { color: var(--body-fg); }
+.resource-crumbs > span[aria-hidden] { margin: 0 0.3rem; }
+.resource-crumbs > [aria-current] { color: var(--body-fg); }
+.resource-open { white-space: nowrap; }
+
+/* The most-used real paths behind a URL pattern: path, hits, open. */
+.resource-paths-title {
+    margin: 16px 0 6px 20px; /* in line with the .card-body lists above and below */
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--body-quiet-color);
+}
+.resource-paths { list-style: none; margin: 0; padding: 0; }
+.resource-paths li {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto 1.5rem;
+    align-items: center;
+    gap: 10px;
+    padding: 5px 0;
+    margin: 0;
+    border-bottom: 1px solid var(--card-border);
+}
+.resource-paths li:last-child { border-bottom: none; }
+.resource-path {
+    font-size: 0.78rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.resource-path-hits {
+    font-size: 0.75rem;
+    color: var(--body-quiet-color);
+    font-variant-numeric: tabular-nums;
+}
+.resource-path-open {
+    text-align: center;
+    text-decoration: none;
+    color: var(--body-quiet-color);
+}
+a.resource-path-open:hover, a.resource-path-open:focus-visible { color: var(--primary); }
+
 /* Header tools (the right side of page-header-bleed): ONE row — a compact
    inline stat strip and the window picker — so the header stays one line
    tall and the title does not get pushed down. Wraps below ~900px. */
@@ -3361,7 +3467,11 @@ a.dashboard-widget.widget-status-down        { border-left-color: var(--error-fg
 }
 @media (max-width: 900px) {
     .page-header-tools {
-        flex-basis: 100%;
+        /* Shrinkable, not `0 0 100%`: an unshrinkable full-width row counts at
+           its one-line width when the page is sized, which pushed the header
+           (and the page) past a phone's width on the Requests page. */
+        flex: 1 1 100%;
+        min-width: 0;
         justify-content: flex-start;
     }
 }

@@ -132,7 +132,11 @@ def register(view_cls: type) -> IndexedView | None:
         logger.warning("Search registration skipped — %s has no model", view_cls)
         return None
 
-    fields = list(getattr(view_cls, "search_fields", None) or [])
+    from apps.smallstack.crud import split_search_field
+
+    # Django admin's prefixes (^ = @) choose a lookup for list search; the
+    # index wants the bare field path.
+    fields = [split_search_field(f)[0] for f in getattr(view_cls, "search_fields", None) or []]
     if not fields:
         logger.warning(
             "Search registration skipped — %s has enable_search=True but search_fields is empty",

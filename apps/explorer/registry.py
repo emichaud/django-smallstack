@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import dataclasses
 import logging
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from django.db.models import AutoField, BigAutoField, Field, ForeignKey
 from django.urls import path, reverse
@@ -25,6 +25,22 @@ if TYPE_CHECKING:
     from django.urls import URLPattern
 
 logger = logging.getLogger(__name__)
+
+
+def explorer_uses_model_permissions(admin_class) -> bool:
+    """Whether an Explorer model checks Django model permissions.
+
+    A ModelAdmin's ``explorer_model_permissions`` wins; otherwise the site-wide
+    ``SMALLSTACK_EXPLORER_MODEL_PERMISSIONS`` setting (off by default, so any
+    staff account keeps full access until a project turns it on). Read per
+    request, not at startup, so the setting can change without a rebuild.
+    """
+    own = getattr(admin_class, "explorer_model_permissions", None)
+    if own is not None:
+        return bool(own)
+    from django.conf import settings
+
+    return bool(getattr(settings, "SMALLSTACK_EXPLORER_MODEL_PERMISSIONS", False))
 
 
 # ---------------------------------------------------------------------------
@@ -189,6 +205,93 @@ def _resolve_fields_from_admin(model, modeladmin):
     return fields or _auto_detect_fields(model)
 
 
+def _admin_list_columns(model, modeladmin) -> tuple[list[str], dict[str, Any], dict[str, str]]:
+    """The list table's columns from ``list_display``, methods included.
+
+    Returns ``(columns, transforms, labels)``. Model fields are columns by
+    name; anything else Django admin accepts there (a ModelAdmin method, a model
+    method or property, a callable, ``"__str__"``) becomes a column whose value
+    and header come from Django admin's own ``lookup_field`` / ``label_for_field``,
+    so ``@admin.display(description=..., boolean=True)`` reads the same.
+    Empty when ``list_display`` is the default ``("__str__",)``.
+    """
+    entries = list(modeladmin.list_display)
+    if entries == ["__str__"]:
+        return [], {}, {}
+    from django.contrib.admin.utils import label_for_field
+
+    field_names = {f.name for f in model._meta.get_fields()}
+    columns: list[str] = []
+    transforms: dict[str, Any] = {}
+    labels: dict[str, str] = {}
+    for entry in entries:
+        if isinstance(entry, str) and entry in field_names and entry != "pk":
+            columns.append(entry)
+            continue
+        name = entry if isinstance(entry, str) else getattr(entry, "__name__", "")
+        if not name or name in columns:
+            continue
+        try:
+            labels[name] = str(label_for_field(entry, model, modeladmin))
+        except Exception:
+            logger.warning("Explorer: %s list_display entry %r isn't a field or method; skipped", model.__name__, entry)
+            continue
+        columns.append(name)
+        transforms[name] = _admin_column(entry, modeladmin)
+    return columns, transforms, labels
+
+
+def _admin_column(entry, modeladmin):
+    """A cell renderer for one non-field ``list_display`` entry: ``(value, obj) → display``."""
+    from django.contrib.admin.utils import display_for_value, lookup_field
+
+    def render(_value, obj):
+        try:
+            _field, attr, value = lookup_field(entry, obj, modeladmin)
+        except Exception:
+            logger.warning("Explorer: list_display %r failed for %r", entry, obj, exc_info=True)
+            return "\u2014"
+        if getattr(attr, "boolean", False):
+            return "\u2713" if value else "\u2014"
+        return display_for_value(value, "\u2014")
+
+    return render
+
+
+def _declared(admin_class, name: str) -> bool:
+    """Whether ``admin_class`` (or a base other than Django's ModelAdmin) sets ``name``."""
+    from django.contrib.admin import ModelAdmin
+
+    return any(name in vars(klass) for klass in admin_class.__mro__ if klass is not ModelAdmin and klass is not object)
+
+
+def _admin_queryset(model, modeladmin, list_fields: list[str]):
+    """The base queryset with the ModelAdmin's ``ordering`` and ``list_select_related``.
+
+    ``list_select_related = False`` (Django's default) joins the foreign keys
+    shown in the list, as Django admin does, so a column of FKs costs one query
+    rather than one per row.
+    """
+    qs = model._default_manager.all()
+    ordering = modeladmin.ordering
+    if ordering:
+        qs = qs.order_by(*ordering)
+    related = modeladmin.list_select_related
+    if related is True:
+        qs = qs.select_related()
+    elif related:
+        qs = qs.select_related(*related)
+    else:
+        fks = [
+            f.name
+            for f in model._meta.get_fields()
+            if f.name in list_fields and getattr(f, "many_to_one", False) and getattr(f, "concrete", False)
+        ]
+        if fks:
+            qs = qs.select_related(*fks)
+    return qs
+
+
 def _resolve_readonly_from_admin(modeladmin):
     """Check if admin treats the model as readonly via permission overrides."""
     from django.test import RequestFactory
@@ -221,6 +324,40 @@ def _resolve_group(model, modeladmin):
     if group:
         return group
     return model._meta.app_label.replace("_", " ").title()
+
+
+def _register_surfaces(crud_cls: type[CRUDView]) -> None:
+    """Turn on the MCP tools and search index an Explorer model opted into.
+
+    Explorer builds its views in its own ``ready()``, after the MCP and search
+    apps have walked the CRUDView registry, so it registers its own. A model
+    that another CRUDView already serves keeps that view's tools, index and
+    webhooks: Explorer doesn't register a second set.
+    """
+    from django.conf import settings
+
+    model = crud_cls._model()
+    owner = CRUDView._registry.get(model)
+    owner_name = owner.__name__ if owner else "another view"
+    label = f"{model._meta.app_label}.{model.__name__}"
+    if crud_cls.enable_mcp and getattr(settings, "SMALLSTACK_MCP_ENABLED", True):
+        if owner is not crud_cls:
+            logger.warning("Explorer: explorer_enable_mcp on %s skipped; %s already serves it", label, owner_name)
+        else:
+            from apps.mcp.factory import register_mcp_tools_from_crudview
+
+            register_mcp_tools_from_crudview(crud_cls)
+    if crud_cls.enable_search:
+        from apps.search.registry import get_view_by_label, register
+
+        if get_view_by_label(label) is not None:
+            logger.warning("Explorer: explorer_enable_search on %s skipped; it's already indexed", label)
+        else:
+            register(crud_cls)
+    if crud_cls.enable_webhooks and owner is not crud_cls:
+        logger.warning(
+            "Explorer: explorer_enable_webhooks on %s has no effect; %s decides its webhooks", label, owner_name
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -412,19 +549,39 @@ class ExplorerSite:
             for f in model._meta.get_fields()
             if getattr(f, "editable", False) and not isinstance(f, (AutoField, BigAutoField))
         }
-        form_fields = [f for f in resolved_fields if f in editable_names]
+        # readonly_fields and exclude keep a field off the form, as in Django
+        # admin; it still shows on the list and the detail page.
+        kept_off = (*admin_instance.readonly_fields, *(admin_instance.exclude or ()))
+        not_on_form = {f for f in kept_off if isinstance(f, str)}
+        form_fields = [f for f in resolved_fields if f in editable_names and f not in not_on_form]
+        if not form_fields and not any(f in not_on_form for f in resolved_fields):
+            form_fields = list(resolved_fields)
+
+        # list_display methods and callables become columns of their own —
+        # unless explorer_fields / explorer_list_fields choose the columns.
+        list_columns: list[str] = []
+        column_transforms: dict[str, Any] = {}
+        column_labels: dict[str, str] = {}
+        if explorer_list_fields:
+            list_columns = list_fields_override
+        elif not explorer_fields:
+            list_columns, column_transforms, column_labels = _admin_list_columns(model, admin_instance)
 
         namespace = self._name
 
         # Merge transforms: explorer_preview_fields → "preview", then explicit wins
         preview_fields = getattr(admin_instance, "explorer_preview_fields", [])
         explorer_transforms = getattr(admin_instance, "explorer_field_transforms", {})
-        merged_transforms = {}
+        merged_transforms = dict(column_transforms)
         for pf in preview_fields:
             merged_transforms[pf] = "preview"
         merged_transforms.update(explorer_transforms)
 
-        paginate_by = getattr(admin_instance, "explorer_paginate_by", 10)
+        # explorer_paginate_by, else a list_per_page the ModelAdmin sets, else 10.
+        paginate_by = getattr(admin_instance, "explorer_paginate_by", None)
+        if paginate_by is None:
+            paginate_by = admin_instance.list_per_page if _declared(admin_class, "list_per_page") else 10
+        enable_search = bool(getattr(admin_class, "explorer_enable_search", False))
         column_widths = getattr(admin_instance, "explorer_column_widths", None)
 
         # Display config: admin class can specify explorer_displays / explorer_detail_displays
@@ -455,13 +612,19 @@ class ExplorerSite:
             {
                 "model": model,
                 "admin_class": admin_class,
-                "fields": form_fields or resolved_fields,
+                "fields": form_fields,
                 "list_fields": resolved_fields,
-                "list_columns": list_fields_override if explorer_list_fields else None,
+                "list_columns": list_columns or None,
+                "column_labels": column_labels or None,
+                "queryset": _admin_queryset(model, admin_instance, list_columns or resolved_fields),
                 "url_base": url_base,
                 "namespace": namespace,
                 "paginate_by": paginate_by,
                 "mixins": [StaffRequiredMixin],
+                "uses_model_permissions": classmethod(
+                    lambda cls, _admin=admin_class: explorer_uses_model_permissions(_admin)
+                ),
+                "enable_history": getattr(admin_class, "explorer_enable_history", True),
                 "actions": actions,
                 "displays": displays,
                 "detail_displays": detail_displays,
@@ -483,10 +646,18 @@ class ExplorerSite:
                 "related_tabs": getattr(admin_class, "explorer_related_tabs", None),
                 "related_tabs_exclude": list(getattr(admin_class, "explorer_related_tabs_exclude", [])),
                 "related_tabs_paginate_by": getattr(admin_class, "explorer_related_tabs_paginate_by", 10),
+                "enable_mcp": bool(getattr(admin_class, "explorer_enable_mcp", False)),
+                "mcp_singular": slugify(str(model._meta.verbose_name)).replace("-", "_"),
+                "mcp_plural": slugify(str(model._meta.verbose_name_plural)).replace("-", "_"),
+                "enable_search": enable_search,
+                "search_fields": list(admin_instance.search_fields) if enable_search else [],
+                "enable_webhooks": bool(getattr(admin_class, "explorer_enable_webhooks", False)),
             },
         )
 
         self._crud_classes.append(crud_cls)
+        if not self._name:  # a child site shares its parent's models; the root registers them once
+            _register_surfaces(crud_cls)
         self._model_info.append(
             ModelInfo(
                 app_label=model._meta.app_label,
@@ -524,6 +695,19 @@ class ExplorerSite:
 
     def get_models(self) -> list[ModelInfo]:
         return self._model_info
+
+    def get_models_for(self, user) -> list[ModelInfo]:
+        """The registered models ``user`` may view: all of them unless a
+        model checks Django model permissions."""
+        from apps.smallstack.model_permissions import has_model_permission
+
+        by_model = {c.model: c for c in self._crud_classes}
+        return [
+            info
+            for info in self._model_info
+            if not (crud := by_model.get(info.model_class)) or not crud.uses_model_permissions()
+            or has_model_permission(user, info.model_class, "view")
+        ]
 
     def get_dashboard_widgets(self) -> list[tuple]:
         """Return [(widget, model_info), ...] for every registered widget.

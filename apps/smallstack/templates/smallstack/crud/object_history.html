@@ -1,0 +1,73 @@
+{% extends "smallstack/base.html" %}
+{% load theme_tags %}
+
+{% block title %}History: {{ object }}{% endblock %}
+
+{% block breadcrumbs %}
+{% if not breadcrumb_parent_label %}
+{% breadcrumb "Home" "website:home" %}
+{% breadcrumb object_verbose_name_plural list_view_url_name %}
+{% breadcrumb object detail_url_name object.pk %}
+{% breadcrumb "History" %}
+{% render_breadcrumbs %}
+{% endif %}
+{% endblock %}
+
+{% block content %}
+{% if breadcrumb_parent_label %}
+<div class="page-header-bleed page-header-with-actions">
+    <div class="page-header-content">
+        <h1>History: {{ object }}</h1>
+        <nav style="margin-top: 0.5rem; font-size: 0.8rem;">
+            <a href="{% url 'website:home' %}" style="color: var(--body-quiet-color); text-decoration: none;">Home</a>
+            <span style="color: var(--body-quiet-color); margin: 0 0.3rem;">/</span>
+            <a href="{% url breadcrumb_parent_url_name %}" style="color: var(--body-quiet-color); text-decoration: none;">{{ breadcrumb_parent_label }}</a>
+            <span style="color: var(--body-quiet-color); margin: 0 0.3rem;">/</span>
+            <a href="{% url list_view_url_name %}" style="color: var(--body-quiet-color); text-decoration: none;">{{ object_verbose_name_plural }}</a>
+            <span style="color: var(--body-quiet-color); margin: 0 0.3rem;">/</span>
+            <a href="{{ detail_url }}" style="color: var(--body-quiet-color); text-decoration: none;">{{ object }}</a>
+            <span style="color: var(--body-quiet-color); margin: 0 0.3rem;">/</span>
+            <span style="color: var(--body-fg);">History</span>
+        </nav>
+    </div>
+</div>
+{% endif %}
+
+<div class="card">
+    {% if not breadcrumb_parent_label %}
+    <div class="card-header">
+        <h1 class="crud-title">History: {{ object }}</h1>
+    </div>
+    {% endif %}
+    <div class="card-body" id="crud-history">
+        {% if history_entries %}
+        <div style="overflow-x: auto;">
+            <table class="table-plain" style="width: 100%;">
+                <thead>
+                    <tr>
+                        <th scope="col">When</th>
+                        <th scope="col">Who</th>
+                        <th scope="col">Action</th>
+                        <th scope="col">What changed</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for entry in history_entries %}
+                    <tr>
+                        <td style="white-space: nowrap;">{% localtime_tooltip entry.action_time %}</td>
+                        <td>{{ entry.user.get_username|default:"—" }}</td>
+                        <td>{% if entry.is_addition %}Created{% elif entry.is_change %}Changed{% elif entry.is_deletion %}Deleted{% endif %}</td>
+                        <td>{{ entry.get_change_message|default:"—" }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% render_paginator page_obj hx_target="#crud-history" hx_select="#crud-history" hx_swap="outerHTML" push_url=True %}
+        {% else %}
+        <p style="color: var(--body-quiet-color); margin: 0;">No changes have been recorded for this {{ object_verbose_name|lower }} yet. Changes made from now on are listed here, from every surface: these pages, the API, MCP and the command line.</p>
+        {% endif %}
+        <p style="margin: 1.25rem 0 0;"><a href="{{ detail_url }}" class="btn-outline">Back to {{ object_verbose_name|lower }}</a></p>
+    </div>
+</div>
+{% endblock %}

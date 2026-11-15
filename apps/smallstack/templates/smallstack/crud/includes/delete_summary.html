@@ -1,0 +1,29 @@
+{% comment %}What a delete takes with it (a DeletionSummary as `deletion`). Shared by the
+delete confirmation page and the list/detail delete modal, which fetches it.{% endcomment %}
+{% if deletion %}
+{% if deletion.protected %}
+<div class="crud-delete-summary crud-delete-summary--blocked" role="alert">
+    <p><strong>This can't be deleted.</strong> These records point at it and protect it; remove or reassign them first:</p>
+    <ul>
+        {% for group in deletion.protected %}
+        <li>{{ group.count }} {{ group.verbose_name }}{% if group.samples %}: {{ group.samples|join:", " }}{% if group.more %}, and {{ group.more }} more{% endif %}{% endif %}</li>
+        {% endfor %}
+    </ul>
+</div>
+{% elif deletion.perms_needed %}
+<div class="crud-delete-summary crud-delete-summary--blocked" role="alert">
+    <p><strong>You can't delete this.</strong> Deleting it would also delete {{ deletion.perms_needed|join:", " }}, which you don't have permission to delete.</p>
+</div>
+{% elif deletion.cascades %}
+<div class="crud-delete-summary">
+    <p>Deleting it also deletes {{ deletion.cascade_count }} related record{{ deletion.cascade_count|pluralize }}:</p>
+    <ul>
+        {% for group in deletion.cascades %}
+        <li>{{ group.count }} {{ group.verbose_name }}{% if group.samples %}: {{ group.samples|join:", " }}{% if group.more %}, and {{ group.more }} more{% endif %}{% endif %}</li>
+        {% endfor %}
+    </ul>
+</div>
+{% else %}
+<p class="crud-delete-summary crud-delete-summary--none">Nothing else is deleted with it.</p>
+{% endif %}
+{% endif %}

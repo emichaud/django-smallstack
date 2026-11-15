@@ -1,411 +1,309 @@
-# Skill: Adopting SmallStack into an Existing Django Project
+# Skill: Moving an Existing Django Project onto SmallStack
 
-How to integrate SmallStack into a pre-existing Django project that has its own apps, templates, and data. Two approaches: overlay into the existing repo (preserves git history) or fresh clone with app migration.
+How to bring a working Django project (its apps, templates, users and data) onto SmallStack: start from a
+fresh SmallStack clone and migrate your apps into it, one at a time, then adopt SmallStack's tools where they
+help.
 
-## When to Use This
+## Don't install SmallStack into your project
 
-- You have a working Django project with custom apps and want SmallStack's infrastructure (auth, profiles, help, activity, explorer, backups, theming)
-- The existing project uses vanilla Django (default User model, basic settings, pip/requirements.txt)
-- You want to keep the existing app's UI/templates while gaining SmallStack's staff-side tools
+SmallStack is a platform, not a package. Its settings, database configuration and middleware are tuned
+together for the SmallStack experience, and the apps rely on that tuning. An existing project has made its
+own choices for the same settings, and the two collide:
 
-## Approach A: Overlay into Existing Repo (Recommended)
+**Settings.** `config/settings/` is split by environment (`base.py`, `development.py`, `production.py`,
+`test.py`, plus `smallstack.py` with about 90 `SMALLSTACK_*` switches), read from `.env` through
+python-decouple. Several of its values are platform decisions your project has probably decided differently:
 
-Preserves git history. Best when the existing project is the "source of truth" repo.
+- `AUTH_USER_MODEL = "accounts.User"`. Django lets a project choose this once, before its first migration;
+  every app with a user foreign key depends on it.
+- `LOGIN_URL` under `/smallstack/accounts/`, `django-axes` lockout as the first authentication backend, and
+  SmallStack's password validators.
+- A Content Security Policy (`django-csp`) with no inline JavaScript, which most existing templates break.
+- `TASKS` on `django-tasks-db` with its own queues, CORS defaults, pinned cookie `SameSite`, `STORAGES` with
+  WhiteNoise, `DEFAULT_AUTO_FIELD`, and template context processors for branding, notifications and runbooks.
+- `LOGGING`: request-id filters, a JSON formatter in production, and a database log handler the
+  `/smallstack/logs/` viewer reads.
 
-### A1. Prepare the Existing Project
+**Database configuration.** SQLite is the default, tuned for production: WAL journal mode, `IMMEDIATE`
+transactions, a busy timeout and cache pragmas on every connection. Apps add to the database at runtime: the
+search app provisions its full-text index (FTS5 on SQLite, a `search_vector` column and GIN index on
+PostgreSQL) after each `migrate`, and the datasets app registers a median aggregate on each SQLite
+connection. A project with its own database setup (another engine, a router, several databases, connection
+pooling) has to reconcile each of these.
 
-Commit all pending work. Create a clean checkpoint:
+**Middleware.** Eighteen middleware classes in a deliberate order. Some must come first (a health check that
+answers before host validation, request ids every log line carries); some must follow authentication
+(timezone, activity logging, notification read-tracking); others belong to the platform (WhiteNoise, CORS,
+htmx and its login redirect, axes, CSP). Merging that list with an existing one, and keeping the order right,
+is where adoption attempts break quietly: a request logged without its id, a login redirect returned to an
+htmx request as a page.
 
-```bash
-cd /path/to/existing-project
-git add -A && git commit -m "Pre-SmallStack integration checkpoint"
-```
+**And the rest:** the URL layout (`/smallstack/…`, `/api/…`, `/mcp`, `/status/`), the base templates and
+theme, and two dozen apps that depend on one another.
 
-### A2. Clone SmallStack as a Reference
+Laying all of that over an existing project means reconciling each of those with yours at the same time, in
+a repository where you can no longer tell your code from SmallStack's. It also cuts you off from SmallStack's
+updates, which arrive as merges into a clone (see `integration-workflow.md`): every setting you changed to fit
+the old project conflicts again on the next merge.
 
-Clone SmallStack into a temporary directory — do NOT clone into the project:
+The direction that works: **a fresh clone is the new project, and your apps move into it.** Your Django code
+keeps working there, because SmallStack is ordinary Django. What changes is around it (settings, URLs,
+users), and you deal with that once, per app.
 
-```bash
-git clone https://github.com/emichaud/django-smallstack.git /tmp/smallstack-ref
-```
+## Before you start: an inventory
 
-### A3. Back Up the Existing App
+Write these down for the old project. Each one is a decision below.
 
-Move the existing app(s) out temporarily:
+| Question | Why it matters |
+|---|---|
+| Which apps are yours, and which are third-party? | Yours move; third-party ones become dependencies in `pyproject.toml` |
+| Default `auth.User`, or a custom user model? | Decides how users move (step 6) |
+| How much data, and which database? | `dumpdata`/`loaddata` for small or medium sets; a database-level copy for large ones |
+| Which URLs must keep working? | Public links, API clients and webhooks pointing at you |
+| Inline `<script>` or `onclick=` in templates? | SmallStack's Content Security Policy blocks inline JavaScript (step 5) |
+| Background work: Celery, cron, management commands on a timer? | SmallStack has `django-tasks-db` and `@scheduled`; keep Celery only if you need it |
+| An API: Django REST Framework, Ninja, hand-written views? | They can stay; `CRUDView`'s `enable_api` is an option, not a requirement |
 
-```bash
-# If the app lives at the project root (e.g., runbooks/ with models.py, views.py)
-mv myapp /tmp/myapp-backup
+## 1. Clone SmallStack, keeping it as `upstream`
 
-# If templates are at the project root
-mv templates/myapp /tmp/myapp-templates-backup
-```
-
-### A4. Copy SmallStack Structure
-
-Copy SmallStack's project structure into the existing project. Key directories:
-
-```bash
-# Core SmallStack apps
-cp -r /tmp/smallstack-ref/apps/ ./apps/
-
-# Config (settings, urls, wsgi, asgi)
-cp -r /tmp/smallstack-ref/config/ ./config/
-
-# Templates (base, error pages, email, etc.)
-cp -r /tmp/smallstack-ref/templates/ ./templates/
-
-# Static files (theme CSS, JS, brand assets)
-cp -r /tmp/smallstack-ref/static/ ./static/
-
-# Docs and skills
-cp -r /tmp/smallstack-ref/docs/ ./docs/
-
-# Build files
-cp /tmp/smallstack-ref/Makefile .
-cp /tmp/smallstack-ref/pyproject.toml .
-cp /tmp/smallstack-ref/.env.example .
-cp /tmp/smallstack-ref/.gitignore .
-cp /tmp/smallstack-ref/manage.py .
-```
-
-### A5. Restore the Existing App
-
-Move the app back into SmallStack's `apps/` directory:
+Keep SmallStack's history and point it at a remote of its own, so updates can be merged later. Don't delete
+`.git`: a fresh `git init` cuts the project off from SmallStack's releases.
 
 ```bash
-# Move app into apps/ with SmallStack naming convention
-mv /tmp/myapp-backup apps/myapp
-
-# Restore templates
-mv /tmp/myapp-templates-backup templates/myapp
+git clone https://github.com/emichaud/django-smallstack.git myproject
+cd myproject
+git remote rename origin upstream          # SmallStack, for `git fetch upstream` + merge
+git remote add origin git@github.com:yourorg/myproject.git
+git push -u origin main
 ```
 
-### A6. Update the App's AppConfig
+## 2. Set it up and make it yours
 
-Change the app's `apps.py` to use the `apps.` prefix and register with SmallStack navigation:
+```bash
+cp .env.example .env      # edit project values: SECRET_KEY, BRAND_*, email, database
+make setup                # uv sync + migrate + dev superuser (admin/admin)
+make run                  # http://localhost:8005
+```
+
+Then the decisions that apply to any new SmallStack project (`from-zero-to-running.md` covers them):
+branding (`BRAND_*` settings, `static/brand/`), the default palette, and the public site in `apps/website/`.
+Delete the demo pages in `apps/showcase/` now, before your apps arrive: remove the directory,
+`"apps.showcase"` from `INSTALLED_APPS` in `config/settings/base.py`, and its `include()` in `config/urls.py`.
+
+## 3. Move one app at a time
+
+Move an app, get it to pass `manage.py check` and its tests, commit, then move the next. A project moved in
+one go fails in a dozen places at once.
+
+**Copy the code and its templates:**
+
+```bash
+cp -r /path/to/old-project/myapp apps/myapp
+cp -r /path/to/old-project/templates/myapp templates/myapp   # if templates lived at the project root
+```
+
+**Point the AppConfig at its new location, and keep its label.** `name` changes; `label` stays what it was,
+so table names (`myapp_order`), content types and permission codenames don't change:
 
 ```python
 # apps/myapp/apps.py
 from django.apps import AppConfig
 
+
 class MyAppConfig(AppConfig):
     default_auto_field = "django.db.models.BigAutoField"
-    name = "apps.myapp"          # Must match the new location
-    verbose_name = "My App"
+    name = "apps.myapp"   # the new location
+    label = "myapp"       # what it was: same tables, content types, permissions
 
-    def ready(self):
+    def ready(self) -> None:
         from apps.smallstack.navigation import nav
 
-        nav.register(
-            section="main",
-            label="My App",
-            url_name="myapp:list",       # Your app's main URL name
-            icon_svg='<svg>...</svg>',   # 20x20 SVG icon
-            order=5,
-        )
+        nav.register(section="main", label="My App", url_name="myapp:list", order=10)
 ```
 
-### A7. Update Internal Imports
-
-If the app used absolute imports based on the old location, update them:
-
-```python
-# Old: from myapp.models import MyModel
-# New: from apps.myapp.models import MyModel
-
-# Old: from myapp.utils import helper
-# New: from apps.myapp.utils import helper
-```
-
-Search for all internal imports:
-```bash
-rg "from myapp\." apps/myapp/ --files-with-matches
-rg "import myapp\." apps/myapp/ --files-with-matches
-```
-
-### A8. Update Settings
-
-Edit `config/settings/base.py`:
-
-```python
-INSTALLED_APPS = [
-    # ... SmallStack apps (already present) ...
-    "apps.myapp",          # Add your app
-    # Add any third-party deps your app needs
-    "some_third_party",
-]
-```
-
-Add any app-specific settings your project needs (API keys, feature flags, etc.).
-
-### A9. Update URLs
-
-Edit `config/urls.py` to include your app's URLs:
-
-```python
-urlpatterns = [
-    # ... SmallStack URLs (already present) ...
-    path("myapp/", include("apps.myapp.urls")),
-]
-```
-
-### A10. Update Auth References
-
-SmallStack uses its own auth system. Replace any hardcoded auth URLs:
-
-| Old Pattern | New Pattern |
-|-------------|-------------|
-| `@login_required(login_url='/admin/login/')` | `@login_required` |
-| `@staff_member_required(login_url='/admin/login/')` | `@staff_member_required` |
-| `href="/admin/login/"` | `href="{% url 'login' %}"` |
-| `href="/admin/logout/"` | `href="{% url 'logout' %}"` |
-
-SmallStack's `LOGIN_URL` is set to `/smallstack/accounts/login/` in base settings.
-
-### A11. Convert to UV
-
-Replace pip/requirements.txt with SmallStack's pyproject.toml:
-
-1. Open `pyproject.toml` and add your app's dependencies to `[project.dependencies]`
-2. Delete `requirements.txt`
-3. Run setup:
+**Fix imports** that named the old location (`from myapp.models` → `from apps.myapp.models`):
 
 ```bash
-make setup    # uv sync + migrate + create_dev_superuser
+rg -l "(from|import) myapp\b" apps/myapp
 ```
 
-### A12. Handle the User Model
+**Install it and route it:** add `"apps.myapp"` to `INSTALLED_APPS` in `config/settings/base.py`, and
+`path("myapp/", include("apps.myapp.urls"))` to `config/urls.py`. If a URL must keep its old address, mount
+the app at that prefix. App settings of your own go in `config/settings/base.py`, read from `.env` with
+`config(...)` like SmallStack's.
 
-**Critical**: SmallStack uses a custom User model (`apps.accounts.models.User`). If the existing project used Django's default `auth.User`, you must reset the database:
+**Dependencies:** `uv add <package>` for each third-party package the app needs. `pyproject.toml` replaces
+`requirements.txt`.
+
+## 4. Start the app's migration history fresh
+
+The new project has a new, empty database, so the old migration files have nothing to apply to. Delete them
+and make one initial migration from the models as they are now:
 
 ```bash
-rm db.sqlite3
-make migrate
-make superuser
+find apps/myapp/migrations -name "0*.py" -delete
+uv run python manage.py makemigrations myapp
+uv run python manage.py migrate
 ```
 
-If the existing project had real data, export it first:
+That also drops any migration that named `auth.User` directly. Keep the old history only if you mean to
+migrate the old database in place, which this guide doesn't recommend.
+
+Data migrations in the old history that seeded rows (default categories, lookup values) don't survive this:
+copy their code into a new `RunPython` migration, or let step 6 bring the rows over with the rest of the data.
+
+## 5. Templates, sign-in and the Content Security Policy
+
+**Templates can keep their own look.** A template doesn't have to extend `smallstack/base.html`: your app's
+pages can stay on your existing base template while SmallStack runs the staff side. To move a page onto the
+theme, extend `smallstack/base.html` and follow `modern-dark-theme.md` (theme variables, never colour
+values). To put SmallStack's cards and dashboards on your own base, see `adding-your-own-theme.md`
+(`{% smallstack_assets %}` and `{% smallstack_modal %}`).
+
+**Sign-in goes through SmallStack's accounts:**
+
+| Old | New |
+|---|---|
+| `@login_required(login_url="/admin/login/")` | `@login_required` (`LOGIN_URL` is `/smallstack/accounts/login/`) |
+| `href="/admin/login/"`, `href="/accounts/login/"` | `href="{% url 'login' %}"` |
+| `href="/admin/logout/"` | a POST form to `{% url 'logout' %}` |
+| `from django.contrib.auth.models import User` | `get_user_model()`, or `settings.AUTH_USER_MODEL` in a `ForeignKey` |
+| `ForeignKey("auth.User", …)` | `ForeignKey(settings.AUTH_USER_MODEL, …)` |
+
+**Inline JavaScript is blocked.** The policy's `script-src` is `'self'` with no `'unsafe-inline'`, so a
+`<script>…</script>` block or an `onclick="…"` in a template silently doesn't run (the browser console names
+each blocked line). Move the script into a file under `static/`, and pass server values as `data-` attributes
+or with `json_script`; `templates.md` has the recipe. A script from a CDN needs that origin added to
+`script-src` in `CONTENT_SECURITY_POLICY` (`config/settings/base.py`), or the file copied into `static/`.
+Inline styles are allowed.
+
+## 6. Move the users, then the data
+
+Migrate the new database first (`make migrate`), so content types and permissions exist. Then users, then
+everything that points at them.
+
+### Users from Django's default `auth.User`
+
+`accounts.User` has the same fields (username, email, password hash, names, flags, groups, permissions,
+dates), so users move as they are, passwords included: Django's hashers are the same, and people sign in
+with the passwords they had.
+
 ```bash
-uv run python manage.py dumpdata myapp --indent 2 > myapp_data.json
-# After migration:
-uv run python manage.py loaddata myapp_data.json
+# In the old project. Natural keys: users by username, groups by name, permissions by codename.
+python manage.py dumpdata auth.group auth.user --natural-foreign --natural-primary --indent 2 > users.json
 ```
 
-**Note**: `loaddata` will fail if any models have ForeignKey to User. In that case, recreate users first, then load data, or write a migration script that maps old user IDs to new ones.
+Two changes to the file before loading it:
 
-### A13. Register Models in Explorer
+- the model label: `"auth.user"` becomes `"accounts.user"`;
+- empty emails: SmallStack's email is unique and may be null, while `auth.User` stores a missing email as
+  `""`, so a second blank email fails the unique check. Turn `""` into `null`.
 
-Create `apps/myapp/explorer.py` to make models available in SmallStack Explorer:
-
-```python
-from django.contrib import admin
-from apps.explorer.registry import explorer
-from .models import MyModel, AnotherModel
-
-class MyModelExplorerAdmin(admin.ModelAdmin):
-    list_display = ("name", "status", "created_at")
-    search_fields = ("name",)
-    list_filter = ("status",)
-
-class AnotherModelExplorerAdmin(admin.ModelAdmin):
-    list_display = ("title", "my_model", "updated_at")
-    search_fields = ("title",)
-
-explorer.register(MyModel, MyModelExplorerAdmin, group="My App")
-explorer.register(AnotherModel, AnotherModelExplorerAdmin, group="My App")
+```bash
+python3 - <<'EOF'
+import json
+rows = json.load(open("users.json"))
+for row in rows:
+    if row["model"] == "auth.user":
+        row["model"] = "accounts.user"
+        if not row["fields"].get("email"):
+            row["fields"]["email"] = None
+json.dump(rows, open("users.json", "w"), indent=2)
+EOF
+uv run python manage.py loaddata users.json   # in the new project
 ```
 
-Explorer autodiscovers `explorer.py` files — no URL wiring needed.
+Two emails that differ only in case are still two accounts; find them in the old database before the move if
+that matters to you. A user named `admin` in the file updates `make setup`'s dev superuser instead of
+duplicating it. Profiles (`apps.profile`) are created for each loaded user automatically.
 
-### A14. Simplify the Website App
+### Users from a custom user model
 
-SmallStack includes a `website` app for the homepage. Simplify it to work with your app:
+Map its fields onto `accounts.User`'s as above. Fields `accounts.User` doesn't have belong in a model of
+your own with a `OneToOneField(settings.AUTH_USER_MODEL)`, not in `apps/accounts/`: that app is SmallStack's,
+and changes to it conflict on every upstream merge.
 
-```python
-# apps/website/views.py
-from django.shortcuts import redirect
-from django.urls import reverse
+### Your apps' data
 
-def home_view(request):
-    """Homepage — redirect to the main app."""
-    return redirect(reverse("myapp:list"))
+```bash
+# In the old project. --natural-foreign writes each user reference as a username, not an id.
+python manage.py dumpdata myapp --natural-foreign --indent 2 > myapp.json
+# In the new project:
+uv run python manage.py loaddata myapp.json
 ```
 
-Update `apps/website/apps.py` to only register the Home nav item.
+`loaddata` resets PostgreSQL's id sequences itself. For data too large for JSON, copy the tables at the
+database level instead (the kept app label keeps the table names the same), map user ids to the new
+`accounts_user` ids, then run `manage.py sqlsequencereset myapp | manage.py dbshell`.
 
-### A15. Fix SmallStack Templates
+## 7. Adopt SmallStack's tools where they help
 
-A template may name a URL that doesn't exist in your project. Check:
+Nothing below is required: code that works can stay as it is. Each is worth it when it replaces something
+you'd otherwise maintain.
+
+| You have | Consider |
+|---|---|
+| Django admin pages for staff | Explorer (`explorer.register()` in `apps/myapp/explorer.py`, `explorer.md`) reads your `ModelAdmin` as it is, or a `CRUDView` for full control (`crud-views.md`) |
+| Hand-written list/detail/form pages | A `CRUDView`: the pages, plus `enable_api`, `enable_mcp`, `enable_search`, `enable_webhooks` from flags |
+| A REST API on DRF or Ninja | Keep it; or move a model's endpoints to `enable_api` to get OpenAPI, tokens and the same permissions as the pages (`api.md`) |
+| Celery beat or cron jobs | `@scheduled` on a function (`scheduler.md`) |
+| Celery tasks | `django-tasks-db` tasks run by `manage.py db_worker` (`background-tasks.md`) |
+| A search page | `enable_search = True` (`search.md`) |
+| Reports, charts, CSV exports | A `@dataset`, then metrics, dashboards and reports over it (`datasets.md`, `dashboards.md`) |
+| Signals that call other systems | Outbound webhooks (`webhooks.md`) |
+| An approval step in a workflow | `@approval_kind` and `request_approval()` (`approvals.md`) |
+| Your own audit or log tables | `LogEntry` is written for every `CRUDView` write; logs go to `/smallstack/logs/` (`logging-audit.md`) |
+
+## 8. Verify each app before moving the next
 
 ```bash
 uv run python manage.py check
+make test        # your tests and SmallStack's
+make lint        # ruff + mypy + skill index
+make run         # click through the app's pages
 ```
 
-SmallStack's own templates reverse only SmallStack's routes, and reverse the showcase pages quietly (`{% url 'showcase:about' as u %}`), so a `NoReverseMatch` usually comes from one of your templates. Point it at a route you have; don't edit SmallStack's templates to fix it.
+- [ ] The app's pages render, signed in and signed out as appropriate
+- [ ] Old URLs that must keep working still answer
+- [ ] Users sign in with their old passwords; groups and permissions came across
+- [ ] Row counts match the old database for each model you moved
+- [ ] The app appears in the sidebar; its models in Explorer, if registered
+- [ ] No "Refused to execute inline script" errors in the browser console
+- [ ] `/smallstack/` and `/admin/` still load
 
-### A16. Update .gitignore
+Your tests move with the app into `apps/myapp/tests/`. SmallStack's own tests should keep passing; one that
+fails because of your change (a template, a URL, a setting) usually points at a real conflict, so fix the cause
+rather than the test.
 
-SmallStack's `.gitignore` uses `staticfiles/` for collected static (not `static/`). Ensure your app's static files are tracked:
+## Common issues
 
-```gitignore
-# SmallStack defaults
-staticfiles/     # collectstatic output (not tracked)
-# But static/ IS tracked (source static files)
+**`NoReverseMatch` after moving an app:** a template names a URL by its old name or without its namespace.
+SmallStack's own templates don't reference your routes, so fix the reference in your template; don't edit
+SmallStack's.
+
+**`loaddata` fails on a user reference:** the data was dumped without `--natural-foreign`, so it carries old
+user ids. Dump it again with the flag, after the users are loaded.
+
+**A permission or content type is missing on load:** the app's `label` changed. Keep the old label in its
+AppConfig (step 3).
+
+**Explorer doesn't show a model:** check that `apps/myapp/explorer.py` exists and the app is in
+`INSTALLED_APPS`, then restart the server: Explorer registers at startup.
+
+**Upstream merges conflict in files you didn't mean to own:** you edited SmallStack's files (its templates,
+`apps/smallstack/`, `apps/accounts/`). Move that change into your own app or `apps/website/`;
+`integration-workflow.md` has the conflict table.
+
+## With a coding agent
+
+A move like this suits an agent, one app per session:
+
+```text
+I'm moving my Django app <myapp> from <path to old project> into this SmallStack project. Read AGENTS.md
+and docs/skills/adopting-smallstack.md first, and follow it: copy the app into apps/<myapp>, keep its
+app label, fix imports, add it to INSTALLED_APPS and config/urls.py, start its migrations fresh, and move
+any inline JavaScript into static files. Don't edit SmallStack's own apps or templates. Run
+`manage.py check`, `make test` and `make lint` until they pass, then tell me what still needs a decision from me.
 ```
 
-### A17. Update Tests
-
-SmallStack ships with tests that assume the default website app. Update or skip tests that reference removed pages:
-
-```python
-# apps/website/tests/test_website.py
-import pytest
-
-@pytest.mark.django_db
-class TestWebsiteViews:
-    def test_home_redirects(self, client):
-        response = client.get("/")
-        assert response.status_code == 302
-        assert "/myapp/" in response.url
-```
-
-For SmallStack base tests that check `/` for template content (topbar, cookie banner), update them to hit a page that renders the SmallStack base template (e.g., `/smallstack/accounts/signup/`), or skip them if your project's public pages use custom templates.
-
-### A18. Verify and Commit
-
-```bash
-uv run python manage.py check        # Django system checks
-make test                              # Run test suite
-uv run ruff check .                   # Lint
-make run PORT=8105                    # Start dev server and spot-check
-```
-
-Commit the integration:
-```bash
-git add -A
-git commit -m "Integrate SmallStack backend"
-```
-
----
-
-## Approach B: Fresh Clone with Data Migration
-
-Start from a clean SmallStack clone and copy the app in. Best when you want a clean git history.
-
-### B1. Clone SmallStack
-
-```bash
-git clone https://github.com/emichaud/django-smallstack.git myproject
-cd myproject
-rm -rf .git && git init
-```
-
-### B2. Setup SmallStack
-
-```bash
-cp .env.example .env
-# Edit .env with project-specific values
-make setup
-```
-
-### B3. Copy the App
-
-```bash
-cp -r /path/to/old-project/myapp apps/myapp
-cp -r /path/to/old-project/templates/myapp templates/myapp
-```
-
-### B4. Follow Steps A6–A18
-
-The remaining steps are identical: update AppConfig, imports, settings, URLs, auth references, Explorer registration, tests, and verify.
-
-### B5. Migrate Data
-
-Export from the old project:
-```bash
-cd /path/to/old-project
-python manage.py dumpdata myapp --indent 2 > /tmp/myapp_data.json
-```
-
-Import into the new project:
-```bash
-cd /path/to/new-project
-uv run python manage.py loaddata /tmp/myapp_data.json
-```
-
-**User data caveat**: If models reference Django's `auth.User` and SmallStack uses `accounts.User`, you'll need to either:
-1. Export users separately and recreate them in SmallStack first
-2. Write a data migration script that remaps user foreign keys
-3. Accept starting fresh with users (simplest for dev/staging)
-
-### B6. Set Remote
-
-Point the new repo at the desired remote:
-```bash
-git remote add origin git@github.com:yourorg/myproject.git
-git add -A && git commit -m "Initial SmallStack integration"
-git push -u origin main
-```
-
----
-
-## Common Issues
-
-### Migration Conflicts
-
-If the existing app has migrations that conflict with SmallStack:
-
-```bash
-uv run python manage.py makemigrations --merge --noinput
-```
-
-If both sides created the same model, delete the duplicate migration and keep one. Add any missing operations (like `AlterModelOptions`) to the surviving migration.
-
-### AUTH_USER_MODEL Mismatch
-
-SmallStack sets `AUTH_USER_MODEL = "accounts.User"`. If the old project used `auth.User`, any model with `ForeignKey(settings.AUTH_USER_MODEL)` will break. Options:
-
-1. **Dev/staging**: Delete `db.sqlite3` and start fresh
-2. **Production with data**: Write a data migration that creates matching users in the new model, then updates all foreign keys
-
-### CDN Resources Blocked by CSP
-
-SmallStack's Content Security Policy may block CDN-loaded CSS/JS (e.g., Bootstrap from CDN). Fix by either:
-1. Download the files locally into `static/`
-2. Add the CDN domain to CSP settings in `config/settings/base.py`
-
-### Templates Not Extending SmallStack Base
-
-If the existing app has standalone HTML templates (not extending `smallstack/base.html`), they'll work fine — SmallStack doesn't require all pages to use its base template. The app keeps its own look while SmallStack provides the staff-side infrastructure.
-
-### Explorer Not Showing Models
-
-- Verify `explorer.py` exists in your app directory
-- Verify the app is in `INSTALLED_APPS`
-- Explorer autodiscovers on startup — restart the dev server after creating `explorer.py`
-
-## Verification Checklist
-
-After integration, verify each of these works:
-
-- [ ] `uv run python manage.py check` — no errors
-- [ ] `make test` — all tests pass (or known skips documented)
-- [ ] Homepage loads (redirect or full page)
-- [ ] Your app's main page renders correctly
-- [ ] SmallStack dashboard at `/smallstack/` shows widgets
-- [ ] Your app appears in SmallStack sidebar navigation
-- [ ] Login/logout works through SmallStack auth
-- [ ] Explorer at `/smallstack/explorer/` shows your models
-- [ ] Django admin at `/admin/` shows your models
-- [ ] Static files load (CSS, JS, images)
-
-## Port Conventions
-
-When running the integrated project for testing, use a port that doesn't conflict:
-
-```bash
-make run PORT=8105    # Add 100 to your project's normal port
-```
-
-Kill the test server when done — don't leave it running.
+Moving the users and data (step 6) is best done by you, against a copy of the production database first.

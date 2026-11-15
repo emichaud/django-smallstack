@@ -480,6 +480,39 @@ class ResourceListView(ActivityPageView):
         }
 
 
+def route_segments(route: str) -> list[tuple[str, bool]]:
+    """Split a URL pattern for display: ``[(text, is_param), ...]``.
+
+    ``/d/<slug:slug>/`` → ``[("/", False), ("d/", False), ("<slug:slug>", True), ("/", False)]``:
+    one piece per path segment, so the template can mark the converters and
+    let a long pattern wrap after a slash instead of mid-word.
+    """
+    parts: list[tuple[str, bool]] = []
+
+    def plain(text: str) -> None:
+        for piece in text.split("/")[:-1]:
+            parts.append((piece + "/", False))
+        if not text.endswith("/") and text.split("/")[-1]:
+            parts.append((text.split("/")[-1], False))
+
+    rest = route
+    while "<" in rest and ">" in rest[rest.index("<"):]:
+        start = rest.index("<")
+        end = rest.index(">", start) + 1
+        if start:
+            plain(rest[:start])
+        parts.append((rest[start:end], True))
+        rest = rest[end:]
+    if rest:
+        plain(rest)
+    return parts
+
+
+def _openable(path: str) -> bool:
+    """A logged path we can link to: on this site (``/…``, never ``//host``)."""
+    return path.startswith("/") and not path.startswith("//")
+
+
 class ResourceDetailView(ActivityPageView):
     """Everything that happened to one resource in the window."""
 
@@ -506,6 +539,7 @@ class ResourceDetailView(ActivityPageView):
         context = super().get_context_data(**kwargs)
         context["resource"] = self.resource
         context["is_route"] = RequestLog.objects.filter(route=self.resource).exists()
+        context["resource_segments"] = route_segments(self.resource)
         context["tab_extra_qs"] = "r=" + quote(self.resource, safe="")
         context["filter_extra_name"] = "r"
         context["filter_extra_value"] = self.resource
@@ -524,6 +558,27 @@ class ResourceDetailView(ActivityPageView):
             return {"top_users": page, "page_obj": page}
         return {}
 
+    PATH_LABEL_CHARS = 34
+
+    def sample_paths(self, qs: QuerySet[RequestLog]) -> list[dict[str, Any]]:
+        """The real paths this resource served most, with an ``open_url`` for
+        those that answered a GET without an error (a page you can open)."""
+        rows: list[dict[str, Any]] = [
+            dict(r) for r in qs.values("path").annotate(hits=Count("pk")).order_by("-hits", "path")[:5]
+        ]
+        openable = set(
+            qs.filter(path__in=[r["path"] for r in rows], method="GET", status_code__lt=400)
+            .values_list("path", flat=True)
+            .distinct()
+        )
+        for row in rows:
+            row["open_url"] = row["path"] if row["path"] in openable and _openable(row["path"]) else ""
+            # Paths of one pattern share their start and differ at the end, so a
+            # long one keeps its tail: "…/api-stats/cells/c4/", not "/smallstack/da…".
+            path, keep = row["path"], self.PATH_LABEL_CHARS
+            row["label"] = path if len(path) <= keep else "\u2026" + path[-(keep - 1):]
+        return rows
+
     def get_page_context(self) -> dict[str, Any]:
         qs = self.base_queryset()
         return {
@@ -532,6 +587,8 @@ class ResourceDetailView(ActivityPageView):
             "status_mix": services.status_mix(qs)[:6],
             "method_mix": services.method_mix(qs),
             "top_users": list(services.user_rollup(qs)[:6]),
-            "sample_paths": list(qs.values("path").annotate(hits=Count("pk")).order_by("-hits")[:5]),
+            "sample_paths": (samples := self.sample_paths(qs)),
+            # The header's "Open page": the most-used real path you can open.
+            "open_url": next((r["open_url"] for r in samples if r["open_url"]), ""),
             "all_time_hits": services.for_resource(RequestLog.objects.all(), self.resource).count(),
         }

@@ -250,7 +250,7 @@ Register it:
 ```python
 class LocationAdmin(admin.ModelAdmin):
     explorer_displays = [
-        Table2Display,
+        TableDisplay,
         MapDisplay(lat_field="lat", lng_field="lon"),
     ]
 ```
@@ -322,7 +322,7 @@ Register a model with table + map + chart displays:
 class SiteAdmin(admin.ModelAdmin):
     list_display = ("name", "address", "latitude", "longitude", "status")
     explorer_displays = [
-        Table2Display,
+        TableDisplay,
         MapDisplay(lat_field="latitude", lng_field="longitude"),
         ChartDisplay(group_by="status"),
     ]

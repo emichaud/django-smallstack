@@ -12,6 +12,9 @@
   max-width: 980px;
   margin: 0 auto;
   padding: clamp(2rem, 6vw, 5rem) clamp(1rem, 4vw, 3rem) 6rem;
+  /* Width from the page, never from the widest code sample or result inside:
+     on a phone those pushed the page to 667px. They scroll or wrap instead. */
+  contain: inline-size;
 }
 
 /* ── Header ─────────────────────────────────────────────────── */
@@ -92,6 +95,7 @@
 }
 .search-input {
   flex: 1;
+  min-width: 0; /* an <input>'s default width is ~20 characters; let it shrink */
   background: transparent;
   border: none;
   outline: none;
@@ -149,12 +153,12 @@
 .sources-panel {
   margin-top: 4rem;
   display: grid;
-  grid-template-columns: 1fr 2fr;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
   gap: 3rem;
   align-items: start;
 }
 @media (max-width: 720px) {
-  .sources-panel { grid-template-columns: 1fr; gap: 1.5rem; }
+  .sources-panel { grid-template-columns: minmax(0, 1fr); gap: 1.5rem; }
 }
 .sources-label {
   font-family: var(--font-monospace, ui-monospace, Menlo, monospace);
@@ -801,6 +805,8 @@
   background: var(--accent-band-bg);
 }
 @media (max-width: 560px) {
+  /* A source row's badge, name, count and "View all" wrap rather than run off the screen. */
+  .source-card-head { flex-wrap: wrap; row-gap: 0.35rem; }
   .result-card { grid-template-columns: 1fr; }
   .result-card-cover { width: 100%; height: 140px; }
 }
@@ -808,13 +814,15 @@
 /* ── "Shape a result" teaching panel ───────────────────────── */
 .shape-panel {
   display: grid;
-  grid-template-columns: 180px 1fr;
+  grid-template-columns: 180px minmax(0, 1fr);
   gap: 2.5rem;
   margin-top: 4rem;
   padding-top: 2.5rem;
   border-top: 1px solid color-mix(in srgb, var(--body-fg) 12%, transparent);
 }
-@media (max-width: 720px) { .shape-panel { grid-template-columns: 1fr; gap: 1.25rem; } }
+/* minmax(0, …), not 1fr: a 1fr column is never narrower than its widest code
+   line, which pushed the page off a phone; the code scrolls in its <pre>. */
+@media (max-width: 720px) { .shape-panel { grid-template-columns: minmax(0, 1fr); gap: 1.25rem; } }
 .shape-panel-label {
   font-family: var(--font-monospace, ui-monospace, Menlo, monospace);
   font-size: 0.72rem;
@@ -854,6 +862,7 @@
   font-size: 0.85rem !important;
   color: var(--body-quiet-color) !important;
 }
+.shape-panel-coda code { overflow-wrap: anywhere; } /* a template path, no spaces to break at */
 
 /* ── Empty / no-results ────────────────────────────────────── */
 .no-results {

@@ -34,6 +34,10 @@
             <li class="topbar-nav-item">
                 <a href="{{ prompts_url }}" class="topbar-nav-link{% if '/prompts' in request.path %} active{% endif %}">Prompts</a>
             </li>{% endif %}
+            {% url 'showcase:faq' as faq_url %}{% if faq_url %}
+            <li class="topbar-nav-item">
+                <a href="{{ faq_url }}" class="topbar-nav-link{% if request.path == faq_url %} active{% endif %}">FAQ</a>
+            </li>{% endif %}
             {% url 'showcase:search' as search_url %}{% if search_url %}
             <li class="topbar-nav-item">
                 <a href="{{ search_url }}" class="topbar-nav-link{% if request.path == search_url %} active{% endif %}">Search</a>

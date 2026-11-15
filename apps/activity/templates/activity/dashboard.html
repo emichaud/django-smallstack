@@ -50,6 +50,7 @@
         </div>
         <div class="card-body" style="padding: 0;">
             {% if top_resources %}
+            <div style="overflow-x: auto; contain: inline-size;">
             <table class="table-plain" style="width: 100%; border-collapse: collapse;">
                 <thead>
                     <tr>
@@ -75,6 +76,7 @@
                     {% endfor %}
                 </tbody>
             </table>
+            </div>
             {% else %}
             <p style="padding: 16px; color: var(--body-quiet-color);">Nothing recorded {{ window.phrase }}.</p>
             {% endif %}

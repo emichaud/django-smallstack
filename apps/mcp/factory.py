@@ -28,7 +28,7 @@ from apps.smallstack.api import (
     serialize,
 )
 from apps.smallstack.audit import ADDITION, CHANGE, DELETION, log_write
-from apps.smallstack.crud import Action
+from apps.smallstack.crud import Action, _apply_admin_filters
 from apps.smallstack.form_bridge import build_form, merge_form_payload
 from apps.smallstack.mixins import StaffRequiredMixin
 
@@ -62,6 +62,14 @@ def _has_staff_mixin(view_cls) -> bool:
         issubclass(m, StaffRequiredMixin) or getattr(m, "__name__", "") == "StaffRequiredMixin"
         for m in view_cls._resolved_mixins()
     )
+
+
+def _permission_refusal(view_cls, request, action: str) -> dict[str, Any] | None:
+    """A ``not_permitted`` error when the view checks Django model permissions
+    (``model_permissions``) and the caller lacks ``action`` on its model."""
+    if view_cls.has_model_permission(request, action):
+        return None
+    return _tool_error("not_permitted", f"you need the {action} permission on {view_cls.model.__name__}")
 
 
 # Per-action verb prefix so the LLM sees distinct descriptions for each tool
@@ -131,6 +139,10 @@ def _build_list_input_schema(view_cls) -> dict[str, Any]:
     for fname in filter_fields:
         # Light schema — the helper accepts strings for booleans/dates already.
         props[fname] = {"type": "string", "description": f"Filter by {fname}."}
+
+    # A ModelAdmin's SimpleListFilter classes, by their parameter_name.
+    for list_filter in getattr(view_cls, "_admin_filter_classes", lambda: [])():
+        props[list_filter.parameter_name] = {"type": "string", "description": f"Filter: {list_filter.title}."}
 
     props["ordering"] = {
         "type": "string",
@@ -260,6 +272,9 @@ def _build_list_tool(view_cls, *, base: str):
     def handler(args: dict[str, Any]):
         ctx = current_context()
         request = _fake_request(ctx.user)
+        refused = _permission_refusal(view_cls, request, "view")
+        if refused:
+            return refused
 
         qs = view_cls._get_queryset()
         qs = view_cls.get_list_queryset(qs, request)
@@ -279,6 +294,11 @@ def _build_list_tool(view_cls, *, base: str):
         if get_pairs:
             request.GET = QueryDict("&".join(get_pairs), mutable=False)
             qs = apply_filters(qs, request, view_cls)
+
+        admin_filter_names = [f.parameter_name for f in getattr(view_cls, "_admin_filter_classes", lambda: [])()]
+        if admin_filter_names:
+            params = {n: [str(args[n])] for n in admin_filter_names if args.get(n) not in (None, "")}
+            qs = _apply_admin_filters(qs, request, view_cls, params)
 
         # Ordering
         ordering = (args.get("ordering") or "").strip() if isinstance(args.get("ordering"), str) else ""
@@ -431,6 +451,9 @@ def _build_get_tool(view_cls, *, singular: str):
     def handler(args: dict[str, Any]):
         ctx = current_context()
         request = _fake_request(ctx.user)
+        refused = _permission_refusal(view_cls, request, "view")
+        if refused:
+            return refused
         obj = _fetch_one(view_cls, args, request)
         if isinstance(obj, dict):
             return obj
@@ -451,6 +474,9 @@ def _build_create_tool(view_cls, *, singular: str):
     def handler(args: dict[str, Any]):
         ctx = current_context()
         request = _fake_request(ctx.user)
+        refused = _permission_refusal(view_cls, request, "add")
+        if refused:
+            return refused
         form_class = view_cls.form_class or (
             view_cls._make_form_class() if hasattr(view_cls, "_make_form_class") else None
         )
@@ -488,6 +514,9 @@ def _build_update_tool(view_cls, *, singular: str):
     def handler(args: dict[str, Any]):
         ctx = current_context()
         request = _fake_request(ctx.user)
+        refused = _permission_refusal(view_cls, request, "change")
+        if refused:
+            return refused
         obj = _fetch_one(view_cls, args, request)
         if isinstance(obj, dict):
             return obj
@@ -529,11 +558,18 @@ def _build_delete_tool(view_cls, *, singular: str):
     def handler(args: dict[str, Any]):
         ctx = current_context()
         request = _fake_request(ctx.user)
+        refused = _permission_refusal(view_cls, request, "delete")
+        if refused:
+            return refused
         obj = _fetch_one(view_cls, args, request)
         if isinstance(obj, dict):
             return obj
         if not view_cls.can_delete(obj, request):
             return _tool_error("not_permitted", "delete not permitted")
+        try:
+            view_cls.check_cascade_permission(obj, request)
+        except PermissionDenied as exc:
+            return _tool_error("not_permitted", str(exc))
         pk = obj.pk
         log_write(ctx.user, obj, DELETION, "MCP")  # before delete — obj.pk needed
         from django.db import transaction

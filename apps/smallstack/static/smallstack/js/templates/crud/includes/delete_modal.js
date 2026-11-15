@@ -20,10 +20,37 @@ function crudDeleteModal(el, name) {
     _crudDeleteUrl = el.getAttribute('data-delete-url');
     _crudDeleteRow = el.closest('tr');
     document.getElementById('crud-delete-modal').style.display = 'flex';
+    crudDeleteLoadSummary(_crudDeleteUrl);
+}
+
+// What else the delete removes (or what blocks it), from the delete view itself.
+// The modal still works if this fails: it just says less.
+function crudDeleteLoadSummary(url) {
+    var slot = document.getElementById('crud-delete-summary');
+    if (!slot) return;
+    slot.innerHTML = '';
+    fetch(url, {
+        headers: { 'X-SmallStack-Delete-Summary': '1', 'X-Requested-With': 'XMLHttpRequest' },
+        credentials: 'same-origin',
+    }).then(function(resp) {
+        if (!resp.ok || url !== _crudDeleteUrl) return;
+        var blocked = resp.headers.get('X-SmallStack-Delete-Blocked') === '1';
+        return resp.text().then(function(html) {
+            if (url !== _crudDeleteUrl) return;  // the modal moved on to another row
+            slot.innerHTML = html;
+            if (blocked) {
+                document.getElementById('crud-delete-title').textContent = 'Cannot Delete';
+                document.getElementById('crud-delete-confirm').style.display = 'none';
+                document.querySelector('.crud-modal-btn-cancel').textContent = 'Close';
+            }
+        });
+    }).catch(function() {});
 }
 
 function crudDeleteModalClose() {
     document.getElementById('crud-delete-modal').style.display = 'none';
+    var slot = document.getElementById('crud-delete-summary');
+    if (slot) slot.innerHTML = '';
     _crudDeleteRow = null;
     _crudDeleteUrl = null;
 }

@@ -10,6 +10,7 @@ urlpatterns = [
     path("about/", views.about_view, name="about"),
     path("getting-started/", views.getting_started_view, name="getting_started"),
     path("prompts/", views.prompts_view, name="prompts"),
+    path("faq/", views.faq_view, name="faq"),
     path("platform/datasets-calendars/", views.platform_datasets_calendars_view, name="platform_datasets_calendars"),
     path("platform/blogs-newsletters/", views.platform_blogs_newsletters_view, name="platform_blogs_newsletters"),
     path("starter/", views.starter_view, name="starter"),

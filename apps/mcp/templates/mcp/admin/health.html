@@ -65,6 +65,7 @@
     </span>
   </div>
   <div class="card-body" style="padding: 0;">
+    <div style="overflow-x: auto; contain: inline-size;">{# scrolls on a phone instead of widening the page #}
     <table class="table-plain" style="width: 100%; border-collapse: collapse;">
       <thead>
         <tr>
@@ -79,6 +80,7 @@
         {% endfor %}
       </tbody>
     </table>
+    </div>
   </div>
 </div>
 {% endblock %}

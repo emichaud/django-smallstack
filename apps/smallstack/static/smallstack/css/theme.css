@@ -2107,7 +2107,9 @@ a.button.button-secondary:hover {
 
 .form-row-2col {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    /* minmax(0, …): a plain 1fr column is never narrower than its widest
+       control (a file picker), which pushed forms off a 320px phone. */
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
     gap: 20px;
 }
 
@@ -2212,7 +2214,7 @@ a.button.button-secondary:hover {
     }
 
     .form-row-2col {
-        grid-template-columns: 1fr;
+        grid-template-columns: minmax(0, 1fr);
     }
 
     .form-actions {
@@ -2450,12 +2452,50 @@ a.button.button-secondary:hover {
         gap: 8px;
     }
 
+    /* Login and Sign Up beside the wordmark overran a 375px screen ("Sign Up"
+       wrapped and hung off the edge): tighter, and never wrapping. */
+    .topbar .auth-links {
+        gap: 6px;
+    }
+
+    /* The wordmark's left margin spaces it from the sidebar toggle; with no
+       toggle before it (the public site) it's only lost width. */
+    .topbar-left > .site-logo:first-child {
+        margin-left: 0;
+    }
+
+    .topbar .auth-link,
+    .topbar .auth-link:link,
+    .topbar .auth-link:visited {
+        padding: 6px 10px;
+        white-space: nowrap;
+    }
+
     .quick-links {
         flex-direction: column;
     }
 
     .quick-link {
         width: 100%;
+    }
+}
+
+/* The smallest phones (320px): the public site's wordmark, theme toggle,
+   Login and Sign Up need ~380px at their normal size. */
+@media (max-width: 360px) {
+    .topbar-left > .site-logo:first-child .brand-word {
+        font-size: 1.12rem;
+    }
+
+    .topbar-right {
+        gap: 4px;
+    }
+
+    .topbar .auth-link,
+    .topbar .auth-link:link,
+    .topbar .auth-link:visited {
+        padding: 5px 8px;
+        font-size: 0.82rem;
     }
 }
 

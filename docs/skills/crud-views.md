@@ -73,6 +73,8 @@ This generates:
 | `paginate_by` | int | `25` | Rows per page, on the HTML list and the API |
 | `page_sizes` | tuple[int] | `()` | Opt-in "Rows per page" choice on the HTML list: `page_sizes = PAGE_SIZE_CHOICES` (`apps.smallstack.pagination`, 15/25/50/100). `?per_page=` picks one (anything else → the first, which becomes the default); the framework pager shows the control. A custom display paginates with `crud_config.page_size_for(request)` |
 | `mixins` | list | `[]` | View mixins applied to all views (e.g. `[StaffRequiredMixin]`) |
+| `model_permissions` | bool | `False` | Also require the user's Django model permission (view / add / change / delete) on every surface: pages, bulk actions, REST, MCP, `sc --user`. Adds to `mixins`; see **Model permissions** |
+| `enable_history` | bool | `False` | A **History** page per row (`<pk>/history/`, linked from the detail page) listing its `LogEntry` audit trail. Opt-in: it names who edited a row to everyone who can open it |
 | `view_mixins` | dict | `{}` | Extra mixins for one action's view, e.g. `{Action.DELETE: [MyDeleteMixin]}` (see **Overriding View Behavior**) |
 | `displays` | list | `[]` | List displays to switch between. Empty: the built-in table |
 | `detail_displays` | list | `[]` | List of display protocol classes for detail view |
@@ -359,6 +361,48 @@ you don't want on a detail load (e.g. approvals' lazy expiry sweep); keep the
 `on_form_valid` fires from the HTML create/update views **and** REST, MCP and
 bulk update. (Before v0.20.2 the web path skipped it, so a hook used to stamp an
 owner or file an approval had a data-integrity hole reachable from the UI.)
+
+## Model permissions
+
+`model_permissions = True` makes every surface ask Django's permission system
+before acting, the check Django admin makes:
+
+| Surface | Needs |
+|---|---|
+| list, detail, related tab, history, field preview; REST `GET`; `list_*` / `get_*` tools; `sc ls/get --user` | `view` (or `change`) |
+| create page; REST `POST`; `create_*`; `sc new --user` | `add` |
+| edit page, bulk update; REST `PUT`/`PATCH`; `update_*`; `sc set --user` | `change` |
+| delete page and modal, bulk delete; REST `DELETE`; `delete_*`; `sc rm --user` | `delete` |
+
+Buttons, row actions, bulk actions and related tabs follow the same answers, so
+a page doesn't offer what would answer 403. A delete that would cascade into
+rows of an admin-registered model the user may not delete is refused too
+(`check_cascade_permission`). Superusers hold every permission. The flag adds to
+`mixins` (a `StaffRequiredMixin` view still needs staff first) and to the
+per-row hooks (`can_update`, `can_delete`, `check_object_permission`), which
+still decide row by row. Off by default, because a member-facing view's users
+usually hold no model permissions. `has_model_permission(request, action)` is
+the hook to override for a rule of your own.
+
+## Audit trail
+
+The create, edit and delete pages write a Django `LogEntry` (create and edit
+record which fields changed, in Django admin's format), so the trail is the same
+whichever surface made the change: REST, MCP, `sc` and the bulk views already
+wrote one. Set `enable_history = True` for a per-row History page listing them.
+Don't also add `AuditMixin` to a CRUDView, or log the write in `on_form_valid`:
+it would be recorded twice.
+
+## What a delete removes
+
+The delete confirmation, both the page and the modal the list and detail pages
+open, lists what Django's deletion collector says goes with the row: how many
+rows of each model cascade and, for staff, a few of them by name (other users
+see counts only). A row protected by a `PROTECT` or `RESTRICT` foreign key gets
+no Delete button and a list of what protects it. The modal fetches this from the
+delete URL with an `X-SmallStack-Delete-Summary` header; a custom delete template
+can include `smallstack/crud/includes/delete_summary.html` with `deletion` in
+context.
 
 ## API Endpoints
 

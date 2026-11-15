@@ -35,7 +35,17 @@ SmallStack uses CSS Grid for multi-column layouts. No framework classes needed â
 
 ## Responsive Stacking
 
-For grids that stack on mobile, add a media query in your `extra_css` block:
+The shortest way: let the grid choose the column count. Columns are at least
+240px wide, so two sit side by side on a laptop and stack on a phone, with no
+media query:
+
+```html
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 24px;">
+```
+
+A plain `1fr 1fr` grid never stacks, and on a phone it pushes the page wider
+than the screen. For an exact breakpoint instead, add a media query in your
+`extra_css` block:
 
 ```html
 {% block extra_css %}

@@ -209,12 +209,14 @@ def _build_crud_paths(crud_config, list_url_name: str) -> dict[str, dict]:
         ]
         search_fields = crud_config._resolve_search_fields()
         if search_fields:
+            from .crud import split_search_field
+
             parameters.append(
                 {
                     "name": "q",
                     "in": "query",
                     "schema": {"type": "string"},
-                    "description": f"Search {', '.join(search_fields)}",
+                    "description": f"Search {', '.join(split_search_field(f)[0] for f in search_fields)}",
                 },
             )
 

@@ -141,6 +141,7 @@
   margin-top: 1.5rem;
   overflow-x: auto;
   max-width: 100%;
+  contain: inline-size; /* scroll inside; the longest code line must not size the page on a phone */
 }
 .ss-hero, .ss-section { max-width: 100%; }
 .ss-hero-sub { overflow-wrap: break-word; word-wrap: break-word; }

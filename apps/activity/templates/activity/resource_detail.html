@@ -6,18 +6,15 @@
 {% block breadcrumbs %}{% endblock %}
 
 {% block page_header %}
-<div class="page-header-bleed page-header-with-actions" style="display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap;">
-    <div class="page-header-content" style="min-width: 0;">
-        <h1 class="activity-mono" style="font-size: 1.35rem; word-break: break-all;">{{ resource }}</h1>
+<div class="page-header-bleed page-header-with-actions page-header-stacked">
+    <div class="page-header-content">
+        <h1 class="resource-route" title="{{ resource }}">{% for text, is_param in resource_segments %}{% if is_param %}<span class="resource-route-param">{{ text }}</span>{% else %}{{ text }}{% endif %}<wbr>{% endfor %}</h1>
         <p class="page-subtitle">{% if is_route %}URL pattern{% else %}<span class="reason-chip" style="margin: 0 4px 0 0;">unmatched path</span> nothing in the URLconf serves this{% endif %} &middot; {{ all_time_hits }} all-time hit{{ all_time_hits|pluralize }}</p>
-        <nav style="margin-top: 0.5rem; font-size: 0.8rem;">
-            <a href="{% url 'website:home' %}" style="color: var(--body-quiet-color); text-decoration: none;">Home</a>
-            <span style="color: var(--body-quiet-color); margin: 0 0.3rem;">/</span>
-            <a href="{% url 'activity:dashboard' %}?window={{ window.key }}" style="color: var(--body-quiet-color); text-decoration: none;">Activity</a>
-            <span style="color: var(--body-quiet-color); margin: 0 0.3rem;">/</span>
-            <a href="{% url 'activity:resources' %}?window={{ window.key }}" style="color: var(--body-quiet-color); text-decoration: none;">Resources</a>
-            <span style="color: var(--body-quiet-color); margin: 0 0.3rem;">/</span>
-            <span style="color: var(--body-fg);">{{ resource|truncatechars:40 }}</span>
+        <nav class="resource-crumbs" aria-label="Breadcrumb">
+            <a href="{% url 'website:home' %}">Home</a><span aria-hidden="true">/</span>
+            <a href="{% url 'activity:dashboard' %}?window={{ window.key }}">Activity</a><span aria-hidden="true">/</span>
+            <a href="{% url 'activity:resources' %}?window={{ window.key }}">Resources</a><span aria-hidden="true">/</span>
+            <span aria-current="page">{% if is_route %}URL pattern{% else %}Unmatched path{% endif %}</span>
         </nav>
     </div>
     <div class="page-header-tools">
@@ -29,6 +26,9 @@
             <div class="header-stat"><div class="header-stat-value is-plain">{{ summary.max_ms }}</div><div class="header-stat-label">Max ms</div></div>
         </div>
         {% include "activity/includes/window_picker.html" %}
+        {% if open_url %}
+        <a href="{{ open_url }}" class="btn-outline btn-sm resource-open" target="_blank" rel="noopener" title="Open {{ open_url }} in a new tab">Open page <span aria-hidden="true">&#8599;</span></a>
+        {% endif %}
     </div>
 </div>
 {% endblock %}
@@ -44,6 +44,7 @@
         </div>
         <div class="card-body" style="padding: 0;">
             {% if top_users %}
+            <div style="overflow-x: auto; contain: inline-size;">
             <table class="table-plain" style="width: 100%; border-collapse: collapse;">
                 <thead>
                     <tr>
@@ -66,6 +67,7 @@
                     {% endfor %}
                 </tbody>
             </table>
+            </div>
             {% else %}
             <p style="padding: 16px; color: var(--body-quiet-color);">{% if summary.total %}Only anonymous traffic {{ window.phrase }}.{% else %}Nothing recorded {{ window.phrase }}.{% endif %}</p>
             {% endif %}
@@ -79,10 +81,19 @@
                 <li><span class="k">Status mix</span><span class="v" style="white-space: normal;">{% for s in status_mix %}{% include "activity/includes/status_badge.html" with code=s.status_code %}<span style="font-size: 0.72rem; color: var(--body-quiet-color); margin: 0 6px 0 3px;">{{ s.count }}</span>{% empty %}&mdash;{% endfor %}</span></li>
                 <li><span class="k">Methods</span><span class="v" style="white-space: normal;">{% for m in method_mix %}<code style="font-size: 0.75rem;">{{ m.method }}</code> <span style="font-size: 0.72rem; color: var(--body-quiet-color); margin-right: 6px;">{{ m.count }} · {{ m.avg_ms|floatformat:0 }} ms</span>{% empty %}&mdash;{% endfor %}</span></li>
                 <li><span class="k">Anonymous</span><span class="v">{{ summary.anonymous }} of {{ summary.total }}</span></li>
-                {% if is_route %}
-                <li><span class="k">Sample paths</span><span class="v activity-mono" style="white-space: normal; font-size: 0.75rem; text-align: right;">{% for p in sample_paths %}<a href="{% url 'activity:requests' %}?tab=recent&window={{ window.key }}&path={{ p.path|urlencode }}" title="{{ p.hits }} hits">{{ p.path|truncatechars:48 }}</a>{% if not forloop.last %}<br>{% endif %}{% endfor %}</span></li>
-                {% endif %}
             </ul>
+            {% if is_route and sample_paths %}
+            <h3 class="resource-paths-title">Most-used paths</h3>
+            <ul class="resource-paths">
+                {% for p in sample_paths %}
+                <li>
+                    <a class="resource-path activity-mono" href="{% url 'activity:requests' %}?tab=recent&window={{ window.key }}&path={{ p.path|urlencode }}" title="Requests to {{ p.path }}">{{ p.label }}</a>
+                    <span class="resource-path-hits">{{ p.hits }}</span>
+                    {% if p.open_url %}<a class="resource-path-open" href="{{ p.open_url }}" target="_blank" rel="noopener" title="Open {{ p.path }} in a new tab" aria-label="Open {{ p.path }} in a new tab">&#8599;</a>{% else %}<span class="resource-path-open" title="Not a page you can open: no successful GET" aria-hidden="true"></span>{% endif %}
+                </li>
+                {% endfor %}
+            </ul>
+            {% endif %}
         </div>
     </div>
 </div>

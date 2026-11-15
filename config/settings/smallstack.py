@@ -251,6 +251,17 @@ SMALLSTACK_PUBLIC_STATUS_ENABLED = config("SMALLSTACK_PUBLIC_STATUS_ENABLED", de
 SMALLSTACK_PUBLIC_PROFILES = config("SMALLSTACK_PUBLIC_PROFILES", default=True, cast=bool)
 
 # ---------------------------------------------------------------------------
+# Explorer
+# ---------------------------------------------------------------------------
+# On: Explorer checks Django model permissions (view / add / change / delete,
+# as Django admin does) on its pages, REST and MCP, and hides models a user may
+# not view. Off (default): any staff account may do everything in Explorer.
+# A ModelAdmin's ``explorer_model_permissions = True/False`` overrides it.
+SMALLSTACK_EXPLORER_MODEL_PERMISSIONS = config(
+    "SMALLSTACK_EXPLORER_MODEL_PERMISSIONS", default=False, cast=bool
+)
+
+# ---------------------------------------------------------------------------
 # REST API surface
 # ---------------------------------------------------------------------------
 # Master switch for the whole HTTP API: the OpenAPI schema, Swagger UI / ReDoc,

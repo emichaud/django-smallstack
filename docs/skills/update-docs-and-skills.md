@@ -105,8 +105,8 @@ When the user says "update docs and skills" (or similar), this skill defines whi
 | Skill | `docs/skills/explorer.md` | `explorer_displays` attribute and calendar example |
 | Help | `apps/smallstack/docs/explorer.md` | User-facing explorer guide with calendar example |
 | Help | `apps/smallstack/docs/explorer-admin-api.md` | Admin attribute reference |
-| Help | `apps/explorer/content/index.md` | Bundled explorer overview |
-| Help | `apps/explorer/content/admin-api.md` | Bundled admin API reference |
+| Help | `apps/smallstack/docs/explorer.md` | Bundled explorer overview |
+| Help | `apps/smallstack/docs/explorer-admin-api.md` | Bundled admin API reference |
 
 ### Dashboard Widgets (`apps/smallstack/dashboard.py`, `apps/smallstack/displays.py` DashboardWidget, `apps/smallstack/dashboard_widgets.py`)
 

@@ -14,8 +14,13 @@
     --pf-serif: 'Fraunces', 'Iowan Old Style', Georgia, serif;
     font-family: var(--pf-sans);
     color: var(--pf-loud);
-    margin: -24px -24px 0 -24px;
+    /* Full-bleed: undo .main-content's 20px side padding, as .page-header-bleed
+       does. 24px overhung the screen by 4px a side on a phone. */
+    margin: -24px -20px 0 -20px;
     overflow-x: hidden;
+    /* Width from the page, never from what's inside (a screenshot's natural
+       width, a code line): on a phone those set the whole page's width. */
+    contain: inline-size;
     line-height: 1.55;
 }
 .pf-wrap { max-width: 1100px; margin: 0 auto; padding: 0 var(--pf-gutter); }
@@ -45,15 +50,15 @@
 .pf-sub { color: var(--pf-quiet); max-width: 44rem; margin: 0 0 2rem; font-size: 1.02rem; }
 
 /* Numbered steps */
-.pf-steps { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1.25rem 2rem; margin-top: 1.5rem; }
+.pf-steps { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(240px, 100%), 1fr)); gap: 1.25rem 2rem; margin-top: 1.5rem; }
 .pf-step { border-top: 1px solid var(--pf-rule); padding-top: 1rem; }
 .pf-step-num { font-family: var(--pf-serif); font-style: italic; font-size: 1.6rem; color: var(--pf-accent); line-height: 1; }
 .pf-step h3 { font-size: 1.05rem; margin: 0.5rem 0 0.35rem; font-weight: 600; color: var(--pf-loud); }
 .pf-step p { margin: 0; color: var(--pf-quiet); font-size: 0.95rem; }
 .pf-step code, .pf-inline code { font-family: var(--pf-mono); font-size: 0.85em; background: color-mix(in srgb, var(--body-fg) 7%, var(--card-bg)); padding: 1px 6px; border-radius: 4px; }
 
-/* Screenshots */
-.pf-figures { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem; margin-top: 1.5rem; }
+/* Screenshots. min(…, 100%): one column on a screen narrower than a track. */
+.pf-figures { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr)); gap: 1.5rem; margin-top: 1.5rem; }
 .pf-figure { margin: 0; }
 .pf-figure img {
     width: 100%; height: auto; display: block; border-radius: 10px;
@@ -67,6 +72,7 @@
 /* Code */
 .pf-code {
     margin: 1.25rem 0 0; padding: 1.1rem 1.25rem; border-radius: 10px; overflow-x: auto;
+    contain: inline-size; /* scroll inside; the longest line must not size the page on a phone */
     background: var(--card-bg); border: 1px solid var(--card-border);
     font-family: var(--pf-mono); font-size: 0.82rem; line-height: 1.6; color: var(--pf-loud);
 }
@@ -76,7 +82,7 @@
 .pf-caption { font-size: 0.82rem; color: var(--pf-quiet); margin: 0.6rem 0 0; }
 
 /* Two-column "what you get" lists */
-.pf-cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 1.5rem 2.5rem; margin-top: 1.5rem; }
+.pf-cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(260px, 100%), 1fr)); gap: 1.5rem 2.5rem; margin-top: 1.5rem; }
 .pf-list { list-style: none; margin: 0; padding: 0; }
 .pf-list li { padding: 0.55rem 0; border-bottom: 1px solid var(--pf-rule-soft); font-size: 0.95rem; display: flex; gap: 0.75rem; align-items: baseline; }
 .pf-list li::before { content: '→'; color: var(--pf-accent); font-family: var(--pf-mono); flex: none; }

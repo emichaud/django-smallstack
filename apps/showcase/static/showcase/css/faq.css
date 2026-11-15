@@ -1,0 +1,65 @@
+/* The FAQ page: questions as <details>, on the platform pages' editorial
+   system (platform.css). Every colour is a theme variable. */
+
+.faq-list { border-top: 1px solid var(--pf-rule); }
+
+.faq { border-bottom: 1px solid var(--pf-rule); scroll-margin-top: calc(var(--topbar-height, 56px) + 1rem); }
+
+.faq > summary {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 1.5rem;
+    align-items: baseline;
+    gap: 1rem;
+    padding: 1.1rem 0;
+    cursor: pointer;
+    list-style: none;
+    font-size: clamp(1.2rem, 1.05rem + 0.45vw, 1.42rem); /* ~17px on a phone, ~20px wide (root is 14px) */
+    font-weight: 550;
+    line-height: 1.35;
+    color: var(--pf-loud);
+}
+.faq > summary::-webkit-details-marker { display: none; }
+.faq > summary::after {
+    content: "+";
+    justify-self: end;
+    font-family: var(--pf-mono);
+    font-size: 1.1rem;
+    font-weight: 400;
+    color: var(--pf-accent);
+    transition: transform 0.15s ease;
+}
+.faq[open] > summary::after { transform: rotate(45deg); }
+.faq > summary:hover { color: var(--pf-accent); }
+.faq > summary:focus-visible { outline: 2px solid var(--pf-accent); outline-offset: 4px; border-radius: 4px; }
+
+/* Answers are the reading on this page: a size and measure for reading,
+   not the site's 14px interface text. */
+.faq-a {
+    padding: 0 2.5rem 1.4rem 0;
+    color: var(--pf-quiet);
+    font-size: clamp(1.14rem, 1.05rem + 0.2vw, 1.22rem); /* ~16px on a phone, ~17px wide */
+    line-height: 1.7;
+    max-width: 44rem;
+}
+.faq-a p { margin: 0 0 0.9rem; }
+.faq-a p, .faq-a li { line-height: 1.6; } /* the theme sets these two differently; one rhythm here */
+.faq-a p:last-child, .faq-a ul:last-child { margin-bottom: 0; }
+.faq-a ul { margin: 0 0 0.75rem; padding-left: 1.2rem; }
+.faq-a li { margin: 0.4rem 0; font-size: inherit; line-height: inherit; } /* the theme sizes list items down; here they're part of the reading */
+.faq-a strong { color: var(--pf-loud); font-weight: 600; }
+.faq-a a { color: var(--pf-accent); }
+.faq-a code, .faq-a kbd {
+    font-family: var(--pf-mono);
+    font-size: 0.88em;
+    background: color-mix(in srgb, var(--body-fg) 7%, var(--card-bg));
+    padding: 1px 5px;
+    border-radius: 4px;
+    overflow-wrap: anywhere;
+}
+
+/* A question opened from a link (#crm) is marked, so the reader finds it. */
+.faq.is-target > summary { color: var(--pf-accent); }
+
+@media (max-width: 720px) {
+    .faq-a { padding-right: 0; }
+}

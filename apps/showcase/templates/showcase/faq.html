@@ -1,0 +1,388 @@
+{% extends "website/base.html" %}
+{% load static %}
+
+{% block title %}FAQ — SmallStack{% endblock %}
+{% block breadcrumbs %}{% endblock %}
+
+{% block extra_css %}
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..700;1,9..144,300..700&family=Geist:wght@300..700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="{% static 'showcase/css/platform.css' %}">
+<link rel="stylesheet" href="{% static 'showcase/css/faq.css' %}">
+{% endblock %}
+
+{% block content %}
+{% url 'help:section_detail' section='smallstack' slug='faq' as help_faq_url %}
+<div class="pf">
+
+<section class="pf-hero">
+    <div class="pf-wrap">
+        <div class="pf-chapter">Questions before you build</div>
+        <h1 class="pf-h1">What can you <em>build</em> on SmallStack?</h1>
+        <p class="pf-lede">
+            The questions people ask before choosing it, answered plainly, including where it isn't the right tool.
+            Grouped by who is asking: someone deciding what kind of system to build, someone adding SmallStack's
+            parts to an app of their own, and someone connecting it to other tools.
+            For how-to questions (an admin user, a colour, a test run) see the
+            <a href="{{ help_faq_url }}">help FAQ</a>.
+        </p>
+        <nav class="pf-toc" aria-label="FAQ categories">
+            <a href="#builders">System builders</a>
+            <a href="#components">Components</a>
+            <a href="#integrators">Integrators</a>
+            <a href="#running">Running it</a>
+        </nav>
+    </div>
+</section>
+
+<section class="pf-sec" id="builders">
+    <div class="pf-wrap pf-wrap--tight">
+        <h2 class="pf-h2">System <em>builders</em></h2>
+        <p class="pf-sub">Is SmallStack a good base for the thing you have in mind: a blog, a website, an API server, a CRM, an app with a React front end?</p>
+
+        <div class="faq-list">
+            <details class="faq" id="what-is-it">
+                <summary>What is SmallStack, in one paragraph?</summary>
+                <div class="faq-a">
+                    <p>A Django project you clone and build on. It ships a themed admin shell, accounts, and a set of working apps (a blog and newsletter, versioned markdown documents, dashboards, a calendar, approvals, notifications, uptime monitoring, logs, search, a scheduler), plus the plumbing they share. Its central idea: one <code>CRUDView</code> declaration on a model gives you the list, detail and form pages, a REST API, MCP tools for AI clients, search and outbound webhooks, each switched on with a flag. It's plain Django underneath, so anything you know about Django still applies.</p>
+                </div>
+            </details>
+
+            <details class="faq" id="blog">
+                <summary>Is it good for building a blog?</summary>
+                <div class="faq-a">
+                    <p>Yes, a blog is built in. Each user can run blog channels of markdown posts with a three-step visibility ladder (private, members, public), scheduled publishing, tags, archives and per-blog search. Readers get <code>/blog/</code>, RSS, Atom and JSON feeds for each blog, and an anonymous JSON read API. A newsletter rides on top: double opt-in, one-click unsubscribe, and a sender that survives restarts mid-send. Runbook documents can be published into a blog and kept in sync.</p>
+                    <p>Not built in: comments, and a visual page builder. Writing is markdown. See <a href="{% url 'showcase:platform_blogs_newsletters' %}">Blogs &amp; newsletters</a>.</p>
+                </div>
+            </details>
+
+            <details class="faq" id="website">
+                <summary>Can it be my public website or marketing site?</summary>
+                <div class="faq-a">
+                    <p>Yes. <code>apps/website/</code> is yours to edit: the home page and any pages you add, on SmallStack's theme (six colour palettes, each in light and dark) with your branding from the <code>BRAND_*</code> settings. If you already have a design system (Bootstrap, Tailwind, a theme you bought), use your own base template instead; SmallStack's pages keep theirs. These showcase pages are an example, and a project deletes them when it starts.</p>
+                    <p>It isn't a CMS: pages are Django templates edited in code, not in a browser editor. The blog is the browser-edited part.</p>
+                </div>
+            </details>
+
+            <details class="faq" id="internal-tool">
+                <summary>Is it good for an internal tool or back office?</summary>
+                <div class="faq-a">
+                    <p>This is where it is strongest. A <code>CRUDView</code> gives you searchable, filterable list pages with bulk actions, CSV/JSON export, detail pages with related-record tabs, a delete confirmation that lists what cascades, and an audit trail with a History page. Explorer turns your existing Django admin registrations into the same kind of pages with no new code. Add dashboards and goals over your data, human approval steps, in-app notifications, scheduled jobs, and Django model permissions when staff need different access.</p>
+                </div>
+            </details>
+
+            <details class="faq" id="crm">
+                <summary>Can I build a CRM on it?</summary>
+                <div class="faq-a">
+                    <p>Yes, but there is no CRM app in the box: you write the models (contacts, companies, deals, activities) and give each a <code>CRUDView</code>. That one step gets you the pages, the REST API, MCP tools so an assistant can look up and update deals, and search across all of them. Then the built-in parts do the rest: a <code>@dataset</code> over deals feeds pipeline metrics, dashboards and goals; a calendar dataset puts follow-ups on the shared calendar; outbound webhooks tell your email or billing tool when a deal closes; an approval gates large discounts.</p>
+                    <p>What you'd build yourself: email and calendar sync with Gmail or Outlook, and a drag-and-drop pipeline board.</p>
+                </div>
+            </details>
+
+            <details class="faq" id="api-server">
+                <summary>Is it good as an API server?</summary>
+                <div class="faq-a">
+                    <p>Yes. <code>enable_api = True</code> on a <code>CRUDView</code> gives that model JSON list, detail, create, update and delete endpoints with search, filtering, ordering, pagination, related-object expansion, sum/average/min/max aggregation and CSV/JSON export. Every endpoint lands in an OpenAPI 3.0.3 schema with Swagger UI at <code>/api/docs/</code> and ReDoc at <code>/api/redoc/</code>. Endpoints that aren't CRUD use the <code>@api_view</code> decorator and appear in the same schema. Clients authenticate with Bearer tokens, read-only or full access, managed from a page or the command line.</p>
+                    <p>It's a JSON API, not GraphQL, and it isn't Django REST Framework, so DRF serializers and viewsets don't plug in.</p>
+                </div>
+            </details>
+
+            <details class="faq" id="headless">
+                <summary>Can I use it headless, behind React, Vue, Next.js or Svelte?</summary>
+                <div class="faq-a">
+                    <p>Yes. Your front end owns the UI; SmallStack is the backend: data endpoints from your <code>CRUDView</code>s, plus account endpoints for sign-in, sign-out, token refresh, the current user and password change. To set it up:</p>
+                    <ul>
+                        <li>List your front end's origin in <code>CORS_ALLOWED_ORIGINS</code>.</li>
+                        <li>Sign users in with <code>POST /api/auth/token/</code>; send the returned token as <code>Authorization: Bearer …</code>.</li>
+                        <li>For sign-up, call <code>/api/auth/register/</code> from your server with an auth-level system token. That token must never reach the browser, so a front end with no server side of its own can't offer sign-up safely.</li>
+                        <li>Generate a typed client from <code>/api/schema/openapi.json</code> with a tool such as orval.</li>
+                    </ul>
+                    <p>Worth knowing: each user has one login token at a time, so signing in again ends the previous session; there's no social sign-in or emailed password reset over the API. The staff side (logs, dashboards, the User Manager) keeps working beside your front end. See <a href="{% url 'help:section_detail' section='smallstack' slug='react-getting-started' %}">React + SmallStack</a>.</p>
+                </div>
+            </details>
+
+            <details class="faq" id="mobile">
+                <summary>What about a mobile app backend?</summary>
+                <div class="faq-a">
+                    <p>The same as headless: the app signs in for a token and calls the REST API. There's no push-notification service; in-app notifications exist for the web pages and have a per-user REST API you can poll.</p>
+                </div>
+            </details>
+
+            <details class="faq" id="saas">
+                <summary>Can I build an app for customers, where each sees only their own data?</summary>
+                <div class="faq-a">
+                    <p>Yes, but you decide the tenancy rule: there's no built-in tenant model. You write it once on each <code>CRUDView</code>, as <code>get_list_queryset</code> (for example, only rows whose owner is the signed-in user). The framework applies that rule to the list, every single-record page, REST, MCP, search and bulk actions, so a row hidden from the list can't be read or changed at its own URL. Row-level rules (<code>can_update</code>, <code>can_delete</code>) are enforced on every write surface too. Customers sign up, sign in by password or emailed code, and are invited by staff.</p>
+                </div>
+            </details>
+
+            <details class="faq" id="dashboards">
+                <summary>Can it do dashboards, KPIs and reports?</summary>
+                <div class="faq-a">
+                    <p>Yes. Declare a <code>@dataset</code> over a queryset and it can be browsed, charted, exported and queried. On top of datasets: metrics (a stored filter and an aggregate, including median), grid dashboards, KPI reports across periods, goal lists judged on target, at risk or missed, and calendars of anything with a date. An AI agent can build them through MCP. See <a href="{% url 'showcase:platform_datasets_calendars' %}">Datasets &amp; calendars</a>.</p>
+                </div>
+            </details>
+
+            <details class="faq" id="payments">
+                <summary>Can it run an online shop or take payments?</summary>
+                <div class="faq-a">
+                    <p>Not on its own: there's no cart, checkout or payment integration. What it gives you is the inbound side: a webhook receiver that verifies Stripe's signatures (or GitHub's, or your own scheme) and hands each event to your handler, which is where a payment provider's notifications land. The checkout itself is your code or the provider's hosted page.</p>
+                </div>
+            </details>
+
+            <details class="faq" id="not-for">
+                <summary>What is it not a good fit for?</summary>
+                <div class="faq-a">
+                    <ul>
+                        <li><strong>Real-time apps</strong> such as chat or live collaboration: there are no WebSockets. Pages refresh by polling (the log viewer's live mode, for example).</li>
+                        <li><strong>A translated interface:</strong> Django's translation framework is on, but SmallStack's own pages are written in English only.</li>
+                        <li><strong>An editor-driven CMS</strong> with page layouts built in the browser.</li>
+                        <li><strong>Very high traffic on SQLite.</strong> SQLite is the default and handles a great deal; for many concurrent writers, switch to PostgreSQL, which is fully supported.</li>
+                    </ul>
+                </div>
+            </details>
+
+            <details class="faq" id="existing-project">
+                <summary>I already have a Django project. Can I add SmallStack to it?</summary>
+                <div class="faq-a">
+                    <p>Not easily, and we don't recommend trying. SmallStack is a platform rather than a package you install. Its settings, database configuration and middleware are tuned together for the platform, and an existing project has made its own choices for the same things:</p>
+                    <ul>
+                        <li><strong>Settings:</strong> its own user model (<code>accounts.User</code>, which Django lets a project choose only once), sign-in with lockout protection, a Content Security Policy that blocks inline JavaScript, background tasks, logging that feeds the log viewer, and about ninety <code>SMALLSTACK_*</code> switches.</li>
+                        <li><strong>Database:</strong> SQLite tuned for production (WAL mode, immediate transactions), a full-text search index the search app builds after each migrate, and a median function added to every SQLite connection.</li>
+                        <li><strong>Middleware:</strong> eighteen classes in a deliberate order (health checks, request ids, activity logging, htmx, lockouts, the security policy) that would have to be merged into yours without breaking either.</li>
+                    </ul>
+                    <p>Reconciling all of that at once is where adoption goes wrong, and every setting changed to fit the old project conflicts again each time you take a SmallStack update.</p>
+                    <p>What works is the other direction: start from a fresh SmallStack clone and move your apps into it.</p>
+                    <ul>
+                        <li><strong>Code:</strong> each of your Django apps moves into <code>apps/</code> largely as it is. Your models, views, forms and templates keep working, because SmallStack is ordinary Django underneath.</li>
+                        <li><strong>Data:</strong> bring it across with <code>dumpdata</code> / <code>loaddata</code>, or a database-level copy for larger sets. Plan the users first: SmallStack has its own user model, so your accounts and anything pointing at them move together.</li>
+                        <li><strong>SmallStack's tools:</strong> adopt them where they earn their place, not all at once. A <code>CRUDView</code> replaces admin pages you'd otherwise maintain; <code>enable_api</code>, <code>enable_mcp</code> and <code>enable_search</code> add a REST API, AI tools and search to a model; a <code>@dataset</code> puts it on dashboards. Code that's fine as it is can stay plain Django.</li>
+                    </ul>
+                    <p>The <code>adopting-smallstack</code> skill in <code>docs/skills/</code> walks through the move step by step, users and data included. The help page <a href="{% url 'help:section_detail' section='smallstack' slug='plain-django' %}">Plain Django on SmallStack</a> shows an app written that way. A coding agent can do much of the move, app by app; <a href="{% url 'showcase:prompts' %}">the prompts page</a> shows how to brief one.</p>
+                </div>
+            </details>
+        </div>
+    </div>
+</section>
+
+<section class="pf-sec pf-sec--quiet" id="components">
+    <div class="pf-wrap pf-wrap--tight">
+        <h2 class="pf-h2"><em>Components</em> in your own app</h2>
+        <p class="pf-sub">How to use SmallStack's parts in an app you build on top of it, including one with its own look.</p>
+
+        <div class="faq-list">
+            <details class="faq" id="crud-page">
+                <summary>How do I add pages for one of my models?</summary>
+                <div class="faq-a">
+                    <p>Subclass <code>CRUDView</code>, name the model and fields, and include its <code>get_urls()</code> in your <code>urls.py</code>. You get list, detail, create, edit and delete pages on the theme. Add it to the sidebar with <code>nav.register()</code>. Turn on what else you need with flags: <code>enable_api</code>, <code>enable_mcp</code>, <code>enable_search</code>, <code>enable_webhooks</code>, <code>enable_history</code>, <code>bulk_actions</code>, <code>model_permissions</code>. Hooks such as <code>get_list_queryset</code>, <code>can_update</code> and <code>on_form_valid</code> apply on every surface at once. See <a href="{% url 'help:section_detail' section='smallstack' slug='building-crud-pages' %}">Building CRUD pages</a>.</p>
+                </div>
+            </details>
+
+            <details class="faq" id="explorer">
+                <summary>Is there something quicker than a CRUDView for staff pages?</summary>
+                <div class="faq-a">
+                    <p>Explorer. Register a model with a Django <code>ModelAdmin</code> in your app's <code>explorer.py</code> and it appears at <code>/smallstack/explorer/</code> with themed list, detail and form pages. It reads the <code>ModelAdmin</code> as Django admin does: <code>list_display</code> (methods included), <code>search_fields</code>, <code>list_filter</code>, <code>ordering</code>, <code>readonly_fields</code>. Optional switches add a REST API, MCP tools and search. It is staff-only; graduate a model to a <code>CRUDView</code> of your own when non-staff users need it or you want your own layout.</p>
+                </div>
+            </details>
+
+            <details class="faq" id="embeds">
+                <summary>Which components can I drop onto a page of my own?</summary>
+                <div class="faq-a">
+                    <p>Template tags, each one line in a Django template:</p>
+                    <ul>
+                        <li><code>{% templatetag openblock %} metric_card {% templatetag closeblock %}</code>, <code>{% templatetag openblock %} dashboard {% templatetag closeblock %}</code>, <code>{% templatetag openblock %} goal_list {% templatetag closeblock %}</code>, <code>{% templatetag openblock %} report {% templatetag closeblock %}</code>, <code>{% templatetag openblock %} card {% templatetag closeblock %}</code>: a KPI, a whole dashboard, a goal list, a report or one saved card.</li>
+                        <li><code>{% templatetag openblock %} calendar_card {% templatetag closeblock %}</code>: a calendar of any date-bearing data.</li>
+                        <li><code>{% templatetag openblock %} stat_card {% templatetag closeblock %}</code>: a number tile that opens a drill-down list.</li>
+                        <li><code>{% templatetag openblock %} approval_card {% templatetag closeblock %}</code>: an approval request with its approve and reject buttons, shown only to people allowed to see it.</li>
+                        <li><code>{% templatetag openblock %} help_bubble {% templatetag closeblock %}</code>: an inline explanation linked to a help page.</li>
+                    </ul>
+                    <p><a href="{% url 'showcase:starter_dashboard' %}">The dashboards starter</a> shows them on a page (sign in to see it).</p>
+                </div>
+            </details>
+
+            <details class="faq" id="own-theme">
+                <summary>Do those components work on my own theme (Bootstrap, Tailwind, a bought theme)?</summary>
+                <div class="faq-a">
+                    <p>Yes. Put <code>{% templatetag openblock %} smallstack_assets {% templatetag closeblock %}</code> in your base template's <code>&lt;head&gt;</code> and <code>{% templatetag openblock %} smallstack_modal {% templatetag closeblock %}</code> before <code>&lt;/body&gt;</code>. SmallStack's styles load in a CSS cascade layer, so your theme's own rules always win and your page isn't restyled; the components still get the colours and spacing they need. <a href="{% url 'showcase:starter_own_theme' %}">This page</a> is a working example on a stand-in theme.</p>
+                </div>
+            </details>
+
+            <details class="faq" id="theme">
+                <summary>How do I style a new page so it fits the theme?</summary>
+                <div class="faq-a">
+                    <p>Use the theme's CSS variables (<code>--card-bg</code>, <code>--primary</code>, <code>--accent-band-bg</code>, the state colours) and its classes (<code>.card</code>, <code>.table-plain</code>, the buttons), never colour values. Then the page is right on all six palettes in light and dark without extra work. Two rules surprise people: no inline JavaScript (the Content Security Policy blocks it; put scripts in static files), and colours belong in a palette, not on a page. The <code>modern-dark-theme</code> skill is the guide.</p>
+                </div>
+            </details>
+
+            <details class="faq" id="datasets">
+                <summary>How do I put my data on a dashboard or the calendar?</summary>
+                <div class="faq-a">
+                    <p>Write a <code>@dataset</code>: a function returning a queryset, plus the columns to expose. It becomes something metrics and dashboard cards can be built from, browsable and exportable, and optionally available over REST and MCP. Give it a start date (and an end date if it has one) with <code>@calendar_dataset</code> and it also appears on the shared calendar with an <code>.ics</code> feed. To ship ready-made metrics and dashboards with your app, declare them in <code>dashboard_defaults.py</code>; they're created after each migrate and never overwrite people's edits.</p>
+                </div>
+            </details>
+
+            <details class="faq" id="card-types">
+                <summary>Can I add my own kind of dashboard card, like a chart or a gauge?</summary>
+                <div class="faq-a">
+                    <p>Yes: <code>register_component_type()</code> publishes a card type with its options, its data and its template, using any JavaScript charting library. It then appears in the card builder for people and in the MCP tools for agents. The <code>card-types</code> skill covers it.</p>
+                </div>
+            </details>
+
+            <details class="faq" id="workflow">
+                <summary>How do I add an approval step, a notification or a scheduled job?</summary>
+                <div class="faq-a">
+                    <ul>
+                        <li><strong>Approval:</strong> declare a kind with <code>@approval_kind</code> and file a request with <code>request_approval()</code>. A person decides in the approvals console (or a <code>{% templatetag openblock %} approval_card {% templatetag closeblock %}</code> on your page), and your code reacts through a callback, a signal, a webhook event or by polling. An AI agent can file a request and wait for a human.</li>
+                        <li><strong>Notification:</strong> <code>notify(user, …)</code> puts a message in the topbar bell and inbox. It never raises, so a notification can't break the action that sent it. For something that can't wait, send <code>send_branded_email</code> as well.</li>
+                        <li><strong>Scheduled job:</strong> decorate a function with <code>@scheduled</code> (a cron expression, an interval or a single run). Runs are stored, visible and controllable at <code>/smallstack/scheduler/</code>.</li>
+                    </ul>
+                </div>
+            </details>
+
+            <details class="faq" id="documents">
+                <summary>Is there a way to store versioned documents?</summary>
+                <div class="faq-a">
+                    <p>The runbook app stores markdown documents with full version history, locking, retention rules and full-text search, readable and writable from the web pages, a service API, REST, MCP and a command line (<code>manage.py rb</code>). It's the base to build on for a knowledge base, policies or anything else that changes over time and needs a record.</p>
+                </div>
+            </details>
+
+            <details class="faq" id="permissions">
+                <summary>How do I control who can see and change what?</summary>
+                <div class="faq-a">
+                    <p>In three layers, all applied on every surface:</p>
+                    <ul>
+                        <li><strong>Who may open the pages:</strong> <code>mixins</code>, which require a login by default, or <code>[StaffRequiredMixin]</code> for staff only.</li>
+                        <li><strong>What each person may do with a model:</strong> <code>model_permissions = True</code> checks Django's view, add, change and delete permissions, the ones you grant with groups for Django admin.</li>
+                        <li><strong>Which rows:</strong> <code>get_list_queryset</code> for what someone may see, and <code>can_update</code> / <code>can_delete</code> / <code>check_object_permission</code> for what they may change.</li>
+                    </ul>
+                    <p>Creates, edits and deletes are recorded in Django's audit log whichever surface made them.</p>
+                </div>
+            </details>
+        </div>
+    </div>
+</section>
+
+<section class="pf-sec" id="integrators">
+    <div class="pf-wrap pf-wrap--tight">
+        <h2 class="pf-h2"><em>Integrators</em></h2>
+        <p class="pf-sub">Connecting SmallStack to other tools and systems: scripts, AI assistants, automation platforms and other SmallStack sites.</p>
+
+        <div class="faq-list">
+            <details class="faq" id="rest-auth">
+                <summary>How does another system call the API?</summary>
+                <div class="faq-a">
+                    <p>With a Bearer token. Create one at <code>/smallstack/tokens/</code> or with <code>manage.py create_api_token</code>, choose read-only or full access, and send it as <code>Authorization: Bearer &lt;token&gt;</code>. The token acts as its user, so that user's permissions and row rules apply. The live schema at <code>/api/schema/openapi.json</code> describes every endpoint, which is what code generators and tools such as Postman read. API Health at <code>/smallstack/api/</code> shows whether the surface is healthy and who is calling it.</p>
+                </div>
+            </details>
+
+            <details class="faq" id="mcp">
+                <summary>Can Claude or another AI assistant work with my data?</summary>
+                <div class="faq-a">
+                    <p>Yes, over MCP (Model Context Protocol) at <code>/mcp</code>. In Claude Desktop or Claude.ai, add it as a custom connector: it signs in through OAuth, so there's nothing to copy by hand. Other MCP clients can use a token. <code>enable_mcp = True</code> on a <code>CRUDView</code> generates list, get, create, update and delete tools for that model; <code>@tool</code> adds tools of your own. Read-only tokens can't call write tools, and every tool applies the caller's permissions and row rules. The dashboards, approvals, runbook, logs and search apps ship their own tools. MCP Health at <code>/smallstack/mcp/</code> lists what an assistant sees.</p>
+                </div>
+            </details>
+
+            <details class="faq" id="search">
+                <summary>How does search work, and can other tools use it?</summary>
+                <div class="faq-a">
+                    <p><code>enable_search = True</code> on a <code>CRUDView</code> adds that model to one ranked full-text index (SQLite's FTS5, or PostgreSQL's full-text search), created automatically when you migrate. It's searched by the topbar search box (<kbd>Ctrl</kbd>+<kbd>K</kbd>), by a <code>search_…</code> MCP tool per model plus <code>search_all</code> (how an assistant finds things before answering), and by REST at <code>/smallstack/search/api/?q=</code>. Each searcher sees only what they're allowed to see. A model's list page also has its own simpler search box.</p>
+                </div>
+            </details>
+
+            <details class="faq" id="webhooks">
+                <summary>Can it notify Zapier, n8n, Slack or my own service when something changes?</summary>
+                <div class="faq-a">
+                    <p>Yes. <code>enable_webhooks = True</code> on a <code>CRUDView</code> sends a signed HTTP POST to each endpoint you register whenever a row is created, updated or deleted, however the change was made. Deliveries retry, honour <code>Retry-After</code>, can be replayed from a dead-letter list, and carry a stable event id so the receiver can ignore duplicates. A transform reshapes the body for a target that expects its own format (Slack, CloudEvents, Azure Event Grid).</p>
+                    <p>Inbound works the other way: a receiver at <code>/webhooks/in/&lt;slug&gt;/</code> verifies the sender's signature (Stripe, GitHub, or a scheme you register) and runs your <code>@webhook_handler</code>. Two SmallStack sites can be paired in one command (<code>sc webhook pair</code>), with protection against an event bouncing back and forth.</p>
+                </div>
+            </details>
+
+            <details class="faq" id="feeds">
+                <summary>Can it publish or read RSS and Atom feeds?</summary>
+                <div class="faq-a">
+                    <p>Both. Publish a feed over any queryset you choose (the blog and the status page use this), including podcast-style enclosures. To read one, <code>register_feed_source()</code> pulls an external feed into a model of yours on a schedule.</p>
+                </div>
+            </details>
+
+            <details class="faq" id="bi">
+                <summary>Can a spreadsheet, a BI tool or a calendar app read my data?</summary>
+                <div class="faq-a">
+                    <p>Yes. Every model with an API exports CSV or JSON (<code>?format=csv</code>). Datasets can answer over REST with filters, groups and CSV export. Calendars publish an <code>.ics</code> feed that Google Calendar, Outlook or Apple Calendar can subscribe to, with an API token as the password.</p>
+                </div>
+            </details>
+
+            <details class="faq" id="scripts">
+                <summary>What about scripts and the command line?</summary>
+                <div class="faq-a">
+                    <p><code>manage.py sc</code> (or the <code>sc</code> shim) works on any <code>CRUDView</code> model from a shell: <code>sc ls</code>, <code>get</code>, <code>new</code>, <code>set</code>, <code>rm</code>, with the same validation and audit as the API. <code>--user</code> acts as a given person, with their permissions. It also has operations commands: health checks (<code>sc doctor all</code>), backups, tokens and the search index. Output can be JSON, so it pipes into other tools.</p>
+                </div>
+            </details>
+
+            <details class="faq" id="logs">
+                <summary>How do I see what's happening on a server I can't log in to?</summary>
+                <div class="faq-a">
+                    <p>Warnings and errors are stored in the database and shown at <code>/smallstack/logs/</code>, linked to the request that caused them. When you need more detail you can turn up capture for a set time from that page, from the API or from an assistant. The same records are readable at <code>/api/logger/</code> and through MCP tools. Request activity (who used what, how fast, which errors) is at <code>/smallstack/activity/</code>, and uptime with a public status page at <code>/status/</code>.</p>
+                </div>
+            </details>
+
+            <details class="faq" id="agents">
+                <summary>Is it set up for AI coding agents to extend?</summary>
+                <div class="faq-a">
+                    <p>Yes. The repository carries <code>AGENTS.md</code> (read by Claude Code, Codex, Cursor, Copilot and Gemini CLI) and a skill file per subsystem, also installed as Agent Skills, so an agent can find the built-in way to do something before inventing its own. <a href="{% url 'showcase:prompts' %}">The prompts page</a> has copy-ready prompts for common jobs.</p>
+                </div>
+            </details>
+        </div>
+    </div>
+</section>
+
+<section class="pf-sec pf-sec--quiet" id="running">
+    <div class="pf-wrap pf-wrap--tight">
+        <h2 class="pf-h2">Running <em>it</em></h2>
+        <p class="pf-sub">Hosting, data and staying up to date.</p>
+
+        <div class="faq-list">
+            <details class="faq" id="deploy">
+                <summary>Where can I host it?</summary>
+                <div class="faq-a">
+                    <p>Anywhere that runs a Docker container. It ships a Dockerfile and Docker Compose setup, and a Kamal configuration that deploys to a single small VPS with HTTPS, a background worker and maintenance windows for deploys. It's an ordinary Django and gunicorn app, so a platform that runs Python web apps works too.</p>
+                </div>
+            </details>
+
+            <details class="faq" id="database">
+                <summary>SQLite or PostgreSQL?</summary>
+                <div class="faq-a">
+                    <p>SQLite is the default and is tuned for production use (WAL mode, a backup command with retention). PostgreSQL is fully supported, the whole test suite runs on both, and search switches to PostgreSQL's full-text search automatically. Move to PostgreSQL when you have many concurrent writers or want a managed database; there's a documented path to move existing data across.</p>
+                </div>
+            </details>
+
+            <details class="faq" id="updates">
+                <summary>How do I get SmallStack's updates once I've built on it?</summary>
+                <div class="faq-a">
+                    <p>Pull from the upstream repository and merge. Your own code lives in your own apps, so merges mostly touch SmallStack's files. Each release lists what changed in <code>CHANGELOG.md</code>, and anything that needs action on your side has steps in <code>UPGRADING.md</code>.</p>
+                </div>
+            </details>
+
+            <details class="faq" id="license">
+                <summary>What does it cost, and what's the licence?</summary>
+                <div class="faq-a">
+                    <p>Nothing: it's open source under the MIT licence. Use it for commercial work, change anything, keep your changes private if you want to.</p>
+                </div>
+            </details>
+        </div>
+    </div>
+</section>
+
+<section class="pf-cta">
+    <div class="pf-wrap">
+        <h2 class="pf-h2">Ready to <em>start</em>?</h2>
+        <div class="pf-btns">
+            <a href="{% url 'showcase:getting_started' %}" class="pf-btn pf-btn--solid">Getting started</a>
+            <a href="{% url 'showcase:prompts' %}" class="pf-btn">Prompts for coding agents</a>
+            <a href="{{ help_faq_url }}" class="pf-btn">Help FAQ</a>
+        </div>
+    </div>
+</section>
+
+</div>
+<script src="{% static 'showcase/js/faq.js' %}" defer></script>
+{% endblock %}

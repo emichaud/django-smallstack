@@ -489,6 +489,7 @@
     padding: 18px 20px;
     border-radius: var(--radius-md);
     overflow-x: auto;
+    contain: inline-size; /* scroll inside; the longest line must not size the page on a phone */
     margin-bottom: 20px;
     border: 1px solid var(--card-border);
 }

@@ -847,7 +847,7 @@
       "id": "adopting-smallstack",
       "file": "adopting-smallstack.md",
       "name": "Adopting Smallstack",
-      "description": "Adopting SmallStack into an *existing* Django project — overlay into the current repo vs fresh clone + app migration",
+      "description": "Moving an *existing* Django project onto SmallStack — a fresh clone (kept as `upstream`) with your apps migrated in one at a time: labels, migrations, sign-in, the CSP, users and data with natural keys, then which SmallStack tools to adopt. Not an overlay into your repo",
       "section": "Available Skills",
       "scope": "fork-facing"
     },

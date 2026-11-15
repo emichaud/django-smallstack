@@ -94,8 +94,25 @@
     gap: 8px;
     align-items: center;
     padding: 10px 12px;
+    /* Width from the card, never from the level control's one-line width:
+       a scroll box still reports its full content width when the page is
+       sized, which pushed Logs to 520px on a 420px phone. */
+    contain: inline-size;
 }
-.log-seg { display: inline-flex; border: 1px solid var(--card-border); border-radius: 6px; overflow: hidden; }
+/* Six levels with counts don't fit a phone: the control scrolls sideways
+   inside the filter bar (see .log-filters' containment) instead of
+   widening the page. */
+.log-seg {
+    display: inline-flex;
+    max-width: 100%;
+    min-width: 0;
+    border: 1px solid var(--card-border);
+    border-radius: 6px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: none;
+}
+.log-seg a { flex: 0 0 auto; }
 .log-seg a {
     padding: 4px 10px;
     font-size: 0.75rem;

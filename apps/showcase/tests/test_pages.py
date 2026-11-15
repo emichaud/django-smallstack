@@ -267,3 +267,30 @@ class TestPublicSearchView:
         client.force_login(user)
         response = client.get("/")
         assert 'href="/search/"' in response.content.decode()
+
+
+@pytest.mark.starter_content
+@pytest.mark.django_db
+def test_faq_page(client):
+    """The FAQ answers by category, every link on it resolves, and it's in the nav."""
+    import re
+
+    response = client.get("/faq/")
+    assert response.status_code == 200
+    html = response.content.decode()
+    for anchor in ("builders", "components", "integrators", "running"):
+        assert f'id="{anchor}"' in html, anchor
+    for question in ('id="blog"', 'id="headless"', 'id="crm"', 'id="api-server"', 'id="mcp"', 'id="own-theme"'):
+        assert question in html, question
+    assert 'href="/faq/"' in client.get("/").content.decode()
+    # Every on-site link on the page answers (help pages need a login, so follow as staff).
+    from django.contrib.auth import get_user_model
+
+    client.force_login(get_user_model().objects.create_user("faq-staff", password="x", is_staff=True))
+    body = html[html.index('<div class="pf">'):html.index("showcase/js/faq.js")]
+    links = sorted(set(re.findall(r'href="(/[^"#]*)', body)))
+    assert len(links) >= 8, links
+    for href in links:
+        if href.startswith("/static/"):
+            continue
+        assert client.get(href).status_code == 200, href

@@ -176,6 +176,11 @@ def platform_blogs_newsletters_view(request: HttpRequest) -> HttpResponse:
     return render(request, "showcase/platform_blogs_newsletters.html")
 
 
+def faq_view(request: HttpRequest) -> HttpResponse:
+    """What SmallStack can build, by who is asking: builders, component users, integrators."""
+    return render(request, "showcase/faq.html")
+
+
 def prompts_view(request: HttpRequest) -> HttpResponse:
     """Copy-ready prompts for coding agents, by task."""
     return render(request, "showcase/prompts.html")

@@ -426,7 +426,7 @@ That's it. Explorer autodiscovers `explorer.py` files on startup. No URL wiring 
 | `explorer_enable_api` | `False` | Generate REST API endpoints |
 | `explorer_export_formats` | `[]` | `["csv", "json"]` for export |
 
-See `docs/skills/explorer.md` and `apps/explorer/content/admin-api.md` for the full API.
+See `docs/skills/explorer.md` and `apps/smallstack/docs/explorer-admin-api.md` for the full API.
 
 ### 5.2 CRUDView — Custom CRUD Pages (Most Control)
 

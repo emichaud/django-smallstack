@@ -27,8 +27,9 @@ from django.urls import URLPattern, path
 from django.views.decorators.csrf import csrf_exempt
 
 from .audit import ADDITION, CHANGE, DELETION, log_write
-from .crud import Action, BulkAction, _apply_ordering_fields
+from .crud import Action, BulkAction, _apply_admin_filters, _apply_ordering_fields
 from .exceptions import FeatureDisabled
+from .model_permissions import METHOD_PERMISSION
 
 if TYPE_CHECKING:
     from django import forms
@@ -439,6 +440,12 @@ def _check_api_permissions(request, crud_config, method="GET"):
         if issubclass(mixin, StaffRequiredMixin) or mixin.__name__ == "StaffRequiredMixin":
             if not request.user.is_staff:
                 return _error("Staff access required", 403)
+
+    # Django model permissions, when the view opts in: the method names the
+    # action (GET view, POST add, PUT/PATCH change, DELETE delete).
+    needed = METHOD_PERMISSION.get((method or "GET").upper(), "view")
+    if not crud_config.has_model_permission(request, needed):
+        return _error(f"You need the {needed} permission on this model", 403)
 
     # Enforce read-only regardless of token_type. OAuth tokens minted with
     # scope=read carry token_type="oauth", access_level="readonly" — they must
@@ -1131,6 +1138,7 @@ def _make_api_detail_view(crud_config):
                 return _error("Method not allowed", 405)
             if not crud_config.can_delete(obj, request):
                 return _error("Permission denied", 403)
+            crud_config.check_cascade_permission(obj, request)
             log_write(request.user, obj, DELETION, "REST API")  # before delete
             from django.db import transaction
 
@@ -1167,9 +1175,12 @@ def _apply_list_search(request, qs, search_fields):
 
     from django.db.models import Q
 
+    from .crud import split_search_field
+
     query = Q()
-    for field in search_fields:
-        query |= Q(**{f"{field}__icontains": q})
+    for entry in search_fields:
+        field, lookup = split_search_field(entry)
+        query |= Q(**{f"{field}__{lookup}": q})
     return qs.filter(query)
 
 
@@ -1253,6 +1264,7 @@ def _api_list(request, crud_config):
     qs, err = _apply_list_filter(request, qs, crud_config)
     if err:
         return err
+    qs = _apply_admin_filters(qs, request, crud_config)
 
     # Export runs on the searched + filtered set, before ordering/pagination.
     export_fmt = request.GET.get("format")
@@ -1468,6 +1480,7 @@ def _make_api_bulk_delete_view(crud_config):
             # hook applies here as much as on the detail route.
             try:
                 crud_config.check_object_permission(obj, request)
+                crud_config.check_cascade_permission(obj, request)
             except (PermissionDenied, Http404):
                 errors[str(pk)] = "Permission denied"
                 continue

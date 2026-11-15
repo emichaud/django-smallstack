@@ -64,8 +64,7 @@ One ModelAdmin. Django admin, Explorer, and CRUDView all read from it.
 from django.contrib import admin
 from apps.explorer.registry import explorer
 from apps.smallstack.displays import (
-    AvatarCardDisplay, DetailCardDisplay, DetailTableDisplay,
-    Table2Display, TableDisplay,
+    AvatarCardDisplay, DetailCardDisplay, DetailTableDisplay, TableDisplay,
 )
 from .models import UserProfile
 
@@ -74,9 +73,8 @@ class UserProfileExplorerAdmin(admin.ModelAdmin):
     list_display = ("user", "display_name", "bio", "location", "created_at")
     list_per_page = 12
 
-    # Display palette: three list displays
+    # Display palette: two list displays
     explorer_displays = [
-        Table2Display,
         TableDisplay,
         AvatarCardDisplay(title_field="user", subtitle_field="created_at"),
     ]
@@ -150,21 +148,19 @@ When a model has multiple displays configured, Explorer shows a palette of icon 
 
 | Display | Name | Description |
 |---------|------|-------------|
-| `Table2Display` | `table2` | django-tables2 sortable table (default) |
-| `TableDisplay` | `table` | Basic HTML table with field transforms |
+| `TableDisplay` | `table` | Sortable HTML table with field transforms (default) |
 | `CardDisplay` | `cards` | Zero-config card grid (label:value rows) |
 | `AvatarCardDisplay` | `cards` | Card grid with avatar + title + subtitle + pill |
 | `CalendarDisplay` | `calendar` | Month-grid calendar for models with date/datetime fields |
 
 ```python
 from apps.smallstack.displays import (
-    Table2Display, TableDisplay, CardDisplay, AvatarCardDisplay, CalendarDisplay,
+    TableDisplay, CardDisplay, AvatarCardDisplay, CalendarDisplay,
 )
 
 class MyAdmin(admin.ModelAdmin):
     explorer_displays = [
-        Table2Display,                    # Sortable columns
-        TableDisplay,                     # Basic table (supports transforms)
+        TableDisplay,                     # Sortable table (supports transforms)
         CardDisplay,                      # Zero-config key-value cards
         AvatarCardDisplay(title_field="name", subtitle_field="created_at"),
         CalendarDisplay(date_field="start", end_field="end", title_field="title"),
@@ -219,7 +215,7 @@ Then use it in your explorer registration:
 
 ```python
 class MyAdmin(admin.ModelAdmin):
-    explorer_displays = [Table2Display, MapDisplay]
+    explorer_displays = [TableDisplay, MapDisplay]
 ```
 
 The palette handles the rest — HTMX swaps the display area when the user clicks an icon.
@@ -291,7 +287,7 @@ See [Explorer REST API](/smallstack/help/smallstack/explorer-rest-api/) for the 
 
 ## Field Transforms
 
-Field transforms change how values render in the basic table display (`TableDisplay`). They do **not** apply to django-tables2 displays.
+Field transforms change how values render in the list table (`TableDisplay`) and the card displays.
 
 ```python
 class MyAdmin(admin.ModelAdmin):
@@ -309,13 +305,16 @@ These attributes can be set on any `ModelAdmin` used with Explorer:
 
 | Attribute | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `explorer_displays` | `list` | `[Table2Display]` | List view display classes |
+| `explorer_displays` | `list` | `[TableDisplay]` | List view display classes |
 | `explorer_detail_displays` | `list` | `[]` | Detail view display classes |
 | `explorer_fields` | `list[str]` | `None` | Override displayed fields (falls back to `list_display`) |
 | `explorer_readonly` | `bool` | `None` | Force readonly mode (auto-detected from permissions if `None`) |
 | `explorer_field_transforms` | `dict` | `{}` | Field rendering transforms for basic table |
-| `explorer_paginate_by` | `int` | `10` | Items per page |
+| `explorer_paginate_by` | `int` | `None` | Items per page; unset, the ModelAdmin's `list_per_page` if it sets one, else 10 |
 | `explorer_enable_api` | `bool` | `False` | Generate REST API endpoints |
+| `explorer_enable_mcp` / `explorer_enable_search` / `explorer_enable_webhooks` | `bool` | `False` | MCP tools, the ranked search index, outbound webhook events |
+| `explorer_model_permissions` | `bool\|None` | `None` | Check Django model permissions (`None`: the `SMALLSTACK_EXPLORER_MODEL_PERMISSIONS` setting) |
+| `explorer_enable_history` | `bool` | `True` | The History button on the detail page |
 | `explorer_export_formats` | `list` | `[]` | Enabled export formats (e.g., `["csv", "json"]`) |
 | `explorer_bulk_actions` | `list` | `["delete"]` | Bulk actions available on list view. Options: `"delete"`, `"update"`. Set to `[]` to disable. |
 
@@ -323,9 +322,12 @@ Standard ModelAdmin attributes that Explorer reads:
 
 | Attribute | Explorer Usage |
 |-----------|---------------|
-| `list_display` | List view columns (real fields only, callables skipped) |
-| `search_fields` | API search (used by `?q=` parameter) |
-| `list_per_page` | Pagination size (overridden by `explorer_paginate_by`) |
+| `list_display` | List columns, including ModelAdmin methods, model methods and callables (with `@admin.display` headers) |
+| `readonly_fields`, `exclude` | Kept off the create and edit forms |
+| `ordering`, `list_select_related` | The list's default order and joins |
+| `search_fields` | The search box and REST/MCP `?q=`, with Django admin's `^` `=` `@` prefixes |
+| `list_filter` | Toolbar filters and REST/MCP parameters, `SimpleListFilter` classes included |
+| `list_per_page` | Pagination size, when set (`explorer_paginate_by` wins) |
 | `has_add_permission()` | Auto-detects readonly mode |
 | `has_change_permission()` | Auto-detects readonly mode |
 

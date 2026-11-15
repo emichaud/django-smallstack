@@ -8,6 +8,26 @@ listed, no downstream migration is required.
 
 ---
 
+## Unreleased — CRUDView pages write their own audit entries
+
+**Who is affected:** a CRUDView that records its web writes itself: `AuditMixin` added through
+`view_mixins`, or a `log_action()` call in `on_form_valid` or `on_delete`.
+
+**What changed.** The generated create, edit and delete pages now write the `LogEntry` for each
+write, as REST, MCP, `sc` and the bulk views always did. Your own call now duplicates it.
+
+**Migration.** Remove the `AuditMixin` from `view_mixins`, or the `log_action()` call from the hook.
+To find them: `grep -rn "AuditMixin\|log_action(" apps/ | grep -v tests`. A hook that logs something the
+framework doesn't (a custom message, a related object) can stay.
+
+**Also new, nothing to migrate:** `model_permissions = True` (Django model permissions on every
+surface, off by default), `SMALLSTACK_EXPLORER_MODEL_PERMISSIONS` for Explorer (off by default),
+`enable_history = True` for a per-row History page (on for Explorer models), and a delete confirmation
+that lists what cascades. A custom `object_confirm_delete.html` keeps working; include
+`smallstack/crud/includes/delete_summary.html` in it to show the cascade.
+
+---
+
 ## v0.30.3 — SmallStack's loggers are named by module
 
 **Who is affected:** anything keyed on SmallStack's logger names: a `LOGGING` entry of your own, a log

@@ -129,9 +129,15 @@ Before writing any templates, CRUDView's generic templates handle:
 
 - **List page** — card layout with sortable table, pagination, and an "Add" button
 - **Create/Edit form** — styled form with labels, help text, error messages, Save and Cancel buttons
-- **Delete confirmation** — "Are you sure?" prompt with Delete and Cancel buttons
+- **Delete confirmation** — "Are you sure?" with what the delete would also remove (rows that cascade, per model), and no Delete button when a protected row stops it
+- **An audit trail** — every create, edit and delete writes a Django `LogEntry`, on these pages and over REST, MCP and `sc`; set `enable_history = True` for a History page per row
 - **Breadcrumbs** — automatic Home / Model Name / Action breadcrumbs
 - **Context collision protection** — if your model is named `User`, the context variable becomes `crud_user` to avoid shadowing Django's `request.user`
+
+Who may use the pages is up to `mixins` (logged in by default, `[StaffRequiredMixin]` for staff) and
+the per-row hooks (`can_update`, `can_delete`, `check_object_permission`). Set `model_permissions = True`
+and every surface also checks Django's model permissions (`view`, `add`, `change`, `delete`), the ones
+you grant with groups for Django admin.
 
 This is enough for many internal tools. You only need custom templates when you want the title bar pattern, stat cards, search, or other enhancements.
 

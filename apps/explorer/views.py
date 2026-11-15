@@ -14,15 +14,17 @@ class ExplorerIndexView(StaffRequiredMixin, TemplateView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        flat = [info.with_counts() for info in explorer.get_models()]
+        # Only the models this user may view (all of them unless Explorer
+        # checks Django model permissions).
+        visible = explorer.get_models_for(self.request.user)
+        flat = [info.with_counts() for info in visible]
         context["models"] = flat
         context["models_az"] = sorted(flat, key=lambda m: m.verbose_name_plural.lower())
 
         # Sidebar data: groups and apps
-        grouped = explorer.get_grouped_models()
-        context["all_groups"] = sorted(grouped.keys())
+        context["all_groups"] = sorted({info.group for info in visible})
         apps = {}
-        for info in explorer.get_models():
+        for info in visible:
             if info.app_label not in apps:
                 apps[info.app_label] = info.app_label.replace("_", " ").title()
         context["all_apps"] = sorted(apps.items())  # list of (app_label, verbose_name)
@@ -82,7 +84,7 @@ class ExplorerClassicIndexView(StaffRequiredMixin, TemplateView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        flat = [info.with_counts() for info in explorer.get_models()]
+        flat = [info.with_counts() for info in explorer.get_models_for(self.request.user)]
         context["models"] = flat
 
         ordering = self.request.GET.get("ordering", "model").strip()

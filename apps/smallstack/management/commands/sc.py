@@ -26,6 +26,7 @@ from urllib.parse import urlencode
 
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import AnonymousUser
+from django.core.exceptions import PermissionDenied
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.core.management import call_command
 from django.core.management.base import BaseCommand, CommandError
@@ -114,13 +115,16 @@ class Command(BaseCommand):
         req.META = {}
         return req
 
-    def _scoped_qs(self, view, actor, request):
+    def _scoped_qs(self, view, actor, request, *, check_view: bool = True):
         """Base queryset, scoped by the view's tenancy hook **only** when acting as
         a user (``--user``). Without ``--user`` the CLI is a local admin tool with
         full access, so no scoping is applied — this keeps ``ls``/``get``/``--counts``
         consistent with each other and with ``sc search``."""
         qs = view._get_queryset()
         if actor is not None:
+            # A write verb checks its own permission first (`_check_write_permission`).
+            if check_view and not view.has_model_permission(request, "view"):
+                raise CommandError(f"{actor.get_username()} lacks the view permission on {view.model.__name__}")
             qs = view.get_list_queryset(qs, request)
         return qs
 
@@ -457,13 +461,16 @@ class Command(BaseCommand):
 
     # -- write verbs ----------------------------------------------------------
 
-    def _check_write_permission(self, view, actor) -> None:
+    def _check_write_permission(self, view, actor, action: str) -> None:
         """Staff-gated models (StaffRequiredMixin) require a staff --user for writes,
-        mirroring the MCP tools' requires_access='staff'."""
+        mirroring the MCP tools' requires_access='staff'. A view with
+        ``model_permissions`` also needs the --user's ``action`` permission."""
         if self._is_staff_gated(view) and not (actor is not None and getattr(actor, "is_staff", False)):
             raise CommandError(
                 f"{self._canonical_token(view.model)} is staff-only; pass --user <staff-username> to write"
             )
+        if actor is not None and not view.has_model_permission(self._fake_request(actor), action):
+            raise CommandError(f"{actor.get_username()} lacks the {action} permission on {view.model.__name__}")
 
     @staticmethod
     def _parse_field_assignments(tokens: list[str]) -> dict[str, str]:
@@ -543,7 +550,7 @@ class Command(BaseCommand):
 
         view = self._resolve_view(opts.model)
         actor = self._resolve_actor(opts.user)
-        self._check_write_permission(view, actor)
+        self._check_write_permission(view, actor, "add")
 
         fields = self._parse_field_assignments(extras)
         if opts.stdin_field:
@@ -577,7 +584,7 @@ class Command(BaseCommand):
 
         view = self._resolve_view(opts.model)
         actor = self._resolve_actor(opts.user)
-        self._check_write_permission(view, actor)
+        self._check_write_permission(view, actor, "change")
         request = self._fake_request(actor)
 
         obj = self._fetch(view, actor, request, opts.pk)
@@ -624,12 +631,17 @@ class Command(BaseCommand):
 
         view = self._resolve_view(opts.model)
         actor = self._resolve_actor(opts.user)
-        self._check_write_permission(view, actor)
+        self._check_write_permission(view, actor, "delete")
         request = self._fake_request(actor)
 
         obj = self._fetch(view, actor, request, opts.pk)
         if not view.can_delete(obj, request):
             raise CommandError("delete not permitted")
+        if actor is not None:
+            try:
+                view.check_cascade_permission(obj, request)
+            except PermissionDenied as exc:
+                raise CommandError(str(exc)) from exc
         if not opts.force:
             raise CommandError(
                 f"refusing to delete {self._canonical_token(view.model)} #{obj.pk} without --force"
@@ -645,7 +657,7 @@ class Command(BaseCommand):
     def _fetch(self, view, actor, request, pk):
         """Fetch one object (scoped as ``actor`` when given), with clean errors."""
         try:
-            obj = self._scoped_qs(view, actor, request).filter(pk=pk).first()
+            obj = self._scoped_qs(view, actor, request, check_view=False).filter(pk=pk).first()
         except (ValueError, TypeError):
             raise CommandError(f"invalid id {pk!r} for {self._canonical_token(view.model)}")
         if obj is None:
