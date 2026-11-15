@@ -107,6 +107,9 @@ activity log, rotate: ask the holders of privileged accounts to change their pas
 outstanding link for the account), or wait out `PASSWORD_RESET_TIMEOUT` before relying on the fix. Copies
 of the log outside the database (backups, exported CSVs, a log shipper) are not touched. A URL parameter
 of your own that carries a one-time credential should be named `token`, so the request log redacts it.
+**If you keep your own `gunicorn.conf`,** add `logger_class = "apps.smallstack.gunicorn_logging.RedactingLogger"`
+to it: without it the server's access log (stdout, `kamal app logs`) keeps printing reset links in
+full. A proxy in front (kamal-proxy, nginx, a CDN) logs paths itself; limit who reads those logs.
 
 **If your project records access changes itself** (a signal on `user.groups`, a custom audit of the
 staff flag), it now does so twice; keep yours only if it records something these events don't.

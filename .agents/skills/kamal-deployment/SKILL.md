@@ -42,7 +42,7 @@ smallstack/
 │       └── post-deploy      # Optionally close the maintenance window
 ├── Dockerfile               # Production container build
 ├── docker-entrypoint.sh     # Container startup script
-├── gunicorn.conf            # Gunicorn production settings
+├── gunicorn.conf            # Gunicorn production settings (access log redacts reset/invite tokens)
 └── Makefile                 # make deploy, make logs shortcuts
 ```
 
@@ -321,6 +321,10 @@ proxy:
 
 - `app_port: 8000` is required because the container runs as non-root and cannot bind port 80
 - `deploy_timeout: 90` gives enough time for migrations + collectstatic on slow hardware
+- **Logs carry one-time links.** Gunicorn's access log redacts reset, invite and newsletter tokens
+  (`gunicorn.conf`'s `logger_class`), but kamal-proxy logs each request's path itself. Treat
+  `kamal proxy logs` (and any shipper reading the proxy container) as holding live password-reset
+  links: limit who reads them and keep retention short. See `logging-audit.md`.
 
 ## Troubleshooting
 

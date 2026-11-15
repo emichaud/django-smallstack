@@ -95,6 +95,21 @@ Always reset in a `finally` — worker threads are reused, and an unreset value 
 
 `apps.accounts` logs every sign-in, sign-out and failed sign-in (from Django's auth signals, so every way in is covered), sign-ups, invites sent and accepted, sign-in codes issued and rejected, the hourly code cap being hit (WARNING), and password resets requested (with how many accounts matched) and completed. Lines name the account by username and pk, never a password, code or reset token. Every formatter and the database log handler also run messages, tracebacks and `extra` through `apps.smallstack.redaction.redact_text`, so a path Django logs itself (`Not Found: …`, `Forbidden (CSRF …): …`) has its reset/invite token and any credential query parameter (`?token=`, `code=` …) replaced with `***`. In the User Manager, sending a set-password link and clearing a login lockout each write a `LogEntry` (who, for whom) and an INFO line; a failed unlock logs its traceback.
 
+### Access logs outside Django: gunicorn, runserver, proxies
+
+The shipped `gunicorn.conf` sets `logger_class =
+"apps.smallstack.gunicorn_logging.RedactingLogger"`, which passes every access-log atom (path,
+request line, referer, query, header and environ atoms) through the same `redaction` helpers, so
+the production access line reads `"GET /accounts/reset/MQ/***/ HTTP/1.1"`. Keep that line if you
+replace `gunicorn.conf`; a custom `access_log_format` is redacted too. What it can't reach:
+
+- **`manage.py runserver`** prints the full URL, token included, and has no setting for it. Treat
+  dev-server output as secret.
+- **A proxy in front** (kamal-proxy, nginx, Caddy, a load balancer, a CDN) writes its own request
+  log with the path. Drop the path for `/accounts/reset/`, `/accounts/invite/`, `/blog/subscribe/confirm/`
+  and `/blog/unsubscribe/` (or log method and status only), or treat those logs as credentials:
+  limit who reads them (`kamal proxy logs`) and keep retention short.
+
 ### Log levels by environment
 
 | Logger | Development | Production |
