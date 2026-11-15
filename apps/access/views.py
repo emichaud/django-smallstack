@@ -210,7 +210,13 @@ def _apply_membership(request: HttpRequest, user: Any, group: Group) -> bool:
     action = request.POST.get("action")
     if action not in ("add", "remove"):
         return False
-    changed = services.set_membership(user, group, action == "add", actor=request.user, source=f"web:{request.path}")
+    try:
+        changed = services.set_membership(
+            user, group, action == "add", actor=request.user, source=f"web:{request.path}"
+        )
+    except services.MembershipRefused as exc:
+        messages.error(request, str(exc))
+        return True
     name = user.get_username()
     if changed:
         messages.success(request, f"{name} {'added to' if action == 'add' else 'removed from'} {group.name}.")

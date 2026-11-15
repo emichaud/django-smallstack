@@ -44,9 +44,12 @@ def staffer(db):
 
 @pytest.fixture
 def manager(db):
-    """Staff holding accounts.change_user: may change membership."""
+    """Staff holding accounts.change_user (and view_user, so it may add to the
+    ``readers`` group, which grants it): may change membership."""
     user = User.objects.create_user("manager", password="p", is_staff=True)
-    user.user_permissions.add(Permission.objects.get(content_type__app_label="accounts", codename="change_user"))
+    user.user_permissions.add(
+        *Permission.objects.filter(content_type__app_label="accounts", codename__in=["change_user", "view_user"])
+    )
     return user
 
 

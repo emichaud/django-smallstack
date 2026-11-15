@@ -293,6 +293,21 @@ def resolve_group(ref: Any) -> Group:
 # --- The one write --------------------------------------------------------------
 
 
+class MembershipRefused(PermissionError):
+    """The actor may not make this membership change (→ 403 on every surface)."""
+
+
+def permissions_actor_lacks(actor: Any, group: Group) -> list[str]:
+    """The permissions ``group`` grants that ``actor`` doesn't hold, sorted.
+    Empty for a superuser. Adding a member to a group hands them all of its
+    permissions, so this is what an add would give away beyond the actor's own."""
+    if getattr(actor, "is_superuser", False) and actor.is_active:
+        return []
+    held = actor.get_all_permissions() if actor.is_active else set()
+    granted = {perm_name(p) for p in group.permissions.select_related("content_type")}
+    return sorted(granted - held)
+
+
 def set_membership(user: Any, group: Group, member: bool, *, actor: Any, source: str) -> bool:
     """Add ``user`` to ``group`` (``member=True``) or remove them. Every
     surface that changes membership calls this: the Access pages, REST, the
@@ -300,11 +315,33 @@ def set_membership(user: Any, group: Group, member: bool, *, actor: Any, source:
 
     The change is attributed to ``actor`` from ``source`` (``web:/…``,
     ``rest``, ``mcp:approval:<id>``, ``cli``), and the m2m signal records it
-    as an :class:`AccessEvent`, a log line and a history entry. ``actor``
-    must hold :data:`CHANGE_MEMBERSHIP`; ``None`` is a local command.
+    as an :class:`AccessEvent`, a log line and a history entry. ``None`` is a
+    local command. Otherwise, on every surface, ``actor`` must
+
+    - be staff and hold :data:`CHANGE_MEMBERSHIP`, and
+    - to *add* a member, hold every permission the group carries (see
+      :func:`permissions_actor_lacks`), so a User manager can't hand out, or
+      take, more than they have. Superusers hold everything; removal needs
+      only the first rule.
+
+    A refusal raises :class:`MembershipRefused` (a ``PermissionError``).
     """
-    if actor is not None and not actor.has_perm(CHANGE_MEMBERSHIP):
-        raise PermissionError(f"{actor.get_username()} lacks {CHANGE_MEMBERSHIP}, which changing membership needs.")
+    if actor is not None:
+        if not (actor.is_active and (actor.is_staff or actor.is_superuser)):
+            raise MembershipRefused(f"{actor.get_username()} is not staff; changing membership needs a staff account.")
+        if not actor.has_perm(CHANGE_MEMBERSHIP):
+            raise MembershipRefused(
+                f"{actor.get_username()} lacks {CHANGE_MEMBERSHIP}, which changing membership needs."
+            )
+        if member:
+            missing = permissions_actor_lacks(actor, group)
+            if missing:
+                shown = ", ".join(missing[:10]) + (f" and {len(missing) - 10} more" if len(missing) > 10 else "")
+                raise MembershipRefused(
+                    f"{actor.get_username()} can't add members to {group.name!r}: it grants "
+                    f"{len(missing)} permission{'s' if len(missing) != 1 else ''} they don't hold ({shown}). "
+                    "Only someone holding all of a group's permissions (or a superuser) may add to it."
+                )
     is_member = user.groups.filter(pk=group.pk).exists()
     if is_member == member:
         return False

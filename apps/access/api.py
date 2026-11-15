@@ -123,7 +123,10 @@ def api_user_group(request: HttpRequest, user: str, group: str) -> ApiResult:
     except LookupError as exc:
         return api_error(str(exc), 404)
     member = request.method == "PUT"
-    changed = services.set_membership(target, grp, member, actor=request.user, source="rest")
+    try:
+        changed = services.set_membership(target, grp, member, actor=request.user, source="rest")
+    except services.MembershipRefused as exc:
+        return api_error(str(exc), 403)
     return {"username": target.get_username(), "group": grp.name, "member": member, "changed": changed}
 
 

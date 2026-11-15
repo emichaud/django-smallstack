@@ -116,3 +116,67 @@ def test_a1_the_card_reads_the_group_from_the_database(client, root, alice, read
     page = client.get(f"/smallstack/approvals/requests/{req.pk}/").content.decode()
     assert "Add <strong>alice</strong> to the group <strong>Readers</strong>" in page
     assert "(1 permission)" in page
+
+
+# --- A2: a User manager can't hand out (or take) more than they hold ---------------
+
+
+@pytest.fixture
+def um(db):
+    """Staff + the shipped User manager permissions, nothing more."""
+    user = User.objects.create_user("um", password="p", is_staff=True)
+    user.user_permissions.add(perm("accounts.change_user"), perm("accounts.view_user"))
+    return user
+
+
+def test_a2_service_refuses_adding_to_a_group_with_permissions_the_actor_lacks(um, alice, powerful):
+    from apps.access import services
+
+    with pytest.raises(services.MembershipRefused, match="auth.change_group"):
+        services.set_membership(um, powerful, True, actor=um, source="test")
+    with pytest.raises(services.MembershipRefused):
+        services.set_membership(alice, powerful, True, actor=um, source="test")
+    assert not powerful.user_set.exists()
+    # Removal is still allowed.
+    alice.groups.add(powerful)
+    assert services.set_membership(alice, powerful, False, actor=um, source="test") is True
+
+
+def test_a2_a_superuser_may_add_to_any_group(root, alice, powerful):
+    from apps.access import services
+
+    assert services.set_membership(alice, powerful, True, actor=root, source="test") is True
+
+
+def test_a2_rest_and_web_refuse_with_the_missing_permission(client, um, alice, powerful):
+    resp = client.put(f"/smallstack/api/access/users/alice/groups/{powerful.name}/", **bearer(um))
+    assert resp.status_code == 403 and "auth.change_group" in resp.json()["errors"]["__all__"][0]
+    client.force_login(um)
+    resp = client.post(
+        f"/smallstack/access/users/{alice.pk}/groups/", {"group": powerful.pk, "action": "add"}, follow=True
+    )
+    assert "auth.change_group" in resp.content.decode()
+    assert not alice.groups.exists()
+
+
+def test_a2_an_approval_applies_only_what_the_approver_could_do(staffer, um, alice, powerful):
+    from apps.access.approvals import request_membership_change
+
+    req = request_membership_change(alice, powerful, True, actor=staffer, reason="r")
+    approvals.approve(req, actor=um, source="web")
+    req.refresh_from_db()
+    assert "auth.change_group" in req.callback_error
+    assert not alice.groups.exists()
+
+
+# --- A12: the CLI asks for staff too --------------------------------------------
+
+
+def test_a12_cli_grant_refuses_a_non_staff_actor(alice, readers):
+    from django.core.management import CommandError, call_command
+
+    nonstaff = User.objects.create_user("nonstaff", password="p")
+    nonstaff.user_permissions.add(perm("accounts.change_user"), perm("accounts.view_user"))
+    with pytest.raises(CommandError, match="not staff"):
+        call_command("access", "grant", "alice", "Readers", "--user", "nonstaff")
+    assert not alice.groups.exists()
