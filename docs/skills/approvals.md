@@ -52,6 +52,9 @@ Other `@approval_kind` kwargs: `description`, `can_decide=fn(user, req)`
 (eligibility hook — **narrows only**, see below), `context_template="…"`
 (explicit card template), `notify=["ops@example.com"]` (extra email
 recipients), `assignable=[…]` (whitelist for remote assignee selection, §2),
+`remote_filing=False` (only your own code may file the kind: the generic REST
+create endpoint and MCP `request_approval` refuse it with 403 / `not_permitted`;
+set it whenever the callback trusts `target`/`context` to say what it will do),
 and `landing_url=fn(req) -> "/your/page/"` — where this kind sends its humans.
 All four channels (both emails, both bell rows) use that one value, so a kind
 that owns an embedded `{% approval_card %}` review page can point participants

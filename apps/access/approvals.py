@@ -15,6 +15,7 @@ from __future__ import annotations
 from datetime import timedelta
 from typing import Any
 
+from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
 
 from apps.approvals.registry import ApprovalKind, register_kind
@@ -30,23 +31,54 @@ def _can_decide(user: Any, req: Any) -> bool:
     return bool(user.has_perm(CHANGE_MEMBERSHIP))
 
 
+def proposal(req: Any) -> dict[str, Any]:
+    """What approving ``req`` would actually do, read from the database: the
+    account is ``req.target`` (never the free-form ``context.username``) and
+    the group is looked up live. ``problem`` is non-empty when the request is
+    malformed (a target that isn't an account, a context naming someone else),
+    in which case approving changes nothing. The decision card and the
+    callback both read this, so what the approver sees is what happens."""
+    context = req.context or {}
+    target = req.target
+    user = target if isinstance(target, get_user_model()) else None
+    group = Group.objects.filter(name=str(context.get("group", ""))).first()
+    problem = ""
+    if target is not None and user is None:
+        problem = f"The request's target {req.target_repr!r} is not an account."
+    elif user is not None and context.get("username") not in (None, user.get_username()):
+        problem = (
+            f"The request names {context.get('username')!r} but would change {user.get_username()!r}; "
+            "it was not filed by the Access tool."
+        )
+    return {
+        "user": user,
+        "group": group,
+        "group_name": group.name if group else str(context.get("group", "")),
+        "group_permissions": group.permissions.count() if group else 0,
+        "member": bool(context.get("member")),
+        "problem": problem,
+    }
+
+
 def on_membership_decision(req: Any) -> None:
     """Apply an approved change. Anything else (rejected, canceled, expired)
-    leaves membership as it was. A missing user or group raises, which the
-    approvals app stores as ``callback_error`` for the requester to read."""
+    leaves membership as it was. A missing user or group, or a request whose
+    context disagrees with its target, raises, which the approvals app stores
+    as ``callback_error`` for the requester to read."""
     if req.status != req.Status.APPROVED:
         return
-    user = req.target
-    context = req.context or {}
-    group = Group.objects.filter(name=context.get("group", "")).first()
+    plan = proposal(req)
+    if plan["problem"]:
+        raise ValueError(plan["problem"] + " Nothing changed.")
+    user, group = plan["user"], plan["group"]
     if user is None:
         raise LookupError(f"The account {req.target_repr!r} no longer exists; nothing changed.")
     if group is None:
-        raise LookupError(f"The group {context.get('group')!r} no longer exists; nothing changed.")
+        raise LookupError(f"The group {plan['group_name']!r} no longer exists; nothing changed.")
     set_membership(
         user,
         group,
-        bool(context.get("member")),
+        plan["member"],
         actor=req.decided_by,
         source=f"mcp:approval:{req.pk}",
     )
@@ -62,6 +94,10 @@ MEMBERSHIP_KIND = ApprovalKind(
     on_decision=on_membership_decision,
     can_decide=_can_decide,
     default_expires_in=timedelta(days=3),
+    # Only access_request_membership files this kind: the generic REST/MCP
+    # filing routes would let a caller pick a target and a card text that
+    # disagree (a forged "Add someone-else" that adds the caller).
+    remote_filing=False,
 )
 # Registered at import (the approvals app autodiscovers this module); a test
 # that clears the kind registry re-registers it the same way.

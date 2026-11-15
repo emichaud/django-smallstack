@@ -81,8 +81,11 @@ def api_create_request(request: HttpRequest) -> ApiResult:
             assignees=assignees,
             expires_in=expires_in,
             require_known_kind=True,
+            remote=True,
             source="REST API",
         )
+    except services.NotRemotelyFileable as exc:
+        return api_error(str(exc), 403)
     except services.UnknownKind as exc:
         return api_error(str(exc), 400)
     except services.TooManyPending as exc:
@@ -188,7 +191,7 @@ register_api_path(
         "201": _json(_REQ, "Filed"),
         "400": _json(_ERR, "Unknown kind, bad target/assignees, or bad body"),
         "401": _json(_ERR, "Authentication required"),
-        "403": _json(_ERR, "Read-only token"),
+        "403": _json(_ERR, "Read-only token, or a kind only its own app may file"),
         "429": _json(_ERR, "Too many pending requests for this requester and kind"),
     },
 )

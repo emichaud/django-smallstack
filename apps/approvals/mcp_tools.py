@@ -171,8 +171,11 @@ def request_approval_tool(args: dict[str, Any]) -> dict[str, Any]:
                 assignees=assignees,
                 expires_in=expires_in,
                 require_known_kind=True,
+                remote=True,
                 source="MCP",
             )
+        except services.NotRemotelyFileable as exc:
+            return _err("not_permitted", str(exc))
         except services.UnknownKind as exc:
             return _err("unknown_kind", str(exc))
         except services.TooManyPending as exc:

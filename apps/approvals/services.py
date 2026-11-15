@@ -51,6 +51,11 @@ class UnknownKind(ApprovalError):
     """Filing with a kind no app registered (→ 400 on HTTP surfaces)."""
 
 
+class NotRemotelyFileable(NotEligible):
+    """The kind declares ``remote_filing=False``: only its own app's code may
+    file it, so the generic REST/MCP filing surfaces refuse (→ 403)."""
+
+
 class TooManyPending(ApprovalError):
     """The requester already has the maximum pending requests for this kind
     (→ 429 on REST/MCP). The abuse model is an agent token in a loop: without a
@@ -112,6 +117,7 @@ def request_approval(
     expires_at: datetime | None = None,
     expires_in: timedelta | None = None,
     require_known_kind: bool = False,
+    remote: bool = False,
     source: str = "web",
 ) -> ApprovalRequest:
     """File a new approval request.
@@ -121,6 +127,10 @@ def request_approval(
     (0 = never). Unregistered kinds are allowed by default (rows must outlive
     code churn); pass ``require_known_kind=True`` on surfaces where a typo is
     likelier than a plan (REST/MCP do).
+
+    ``remote=True`` marks the generic filing surfaces (the REST create endpoint
+    and the MCP ``request_approval`` tool): a kind registered with
+    ``remote_filing=False`` is refused there with :class:`NotRemotelyFileable`.
     """
     _require_enabled()
     _check_pending_cap(kind=kind, actor=actor)
@@ -130,6 +140,10 @@ def request_approval(
 
         known = ", ".join(known_keys()) or "(none registered)"
         raise UnknownKind(f"Unknown approval kind {kind!r}. Known kinds: {known}")
+    if remote and kind_def is not None and not kind_def.remote_filing:
+        raise NotRemotelyFileable(
+            f"Approval kind {kind!r} can only be filed by its own app's tool, not through the generic filing endpoint."
+        )
 
     if expires_at is None:
         if expires_in is None and kind_def is not None:

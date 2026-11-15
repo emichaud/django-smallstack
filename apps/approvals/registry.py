@@ -63,6 +63,12 @@ class ApprovalKind:
     assignable: list[str] | Callable[[Any], bool] | None = None
     # Extra email recipients on request + decision.
     notify: list[str] = field(default_factory=list)
+    # False ⇒ only the app's own code may file this kind: the generic REST
+    # create endpoint and the MCP ``request_approval`` tool refuse it. Set it on
+    # any kind whose callback trusts the request's ``target``/``context`` to
+    # describe what it will do (``access.membership`` does), so a caller can't
+    # file a request whose card says one thing and whose approval does another.
+    remote_filing: bool = True
 
     def __post_init__(self) -> None:
         if not self.label:
@@ -101,6 +107,7 @@ def approval_kind(
     notify: list[str] | None = None,
     landing_url: Callable[[Any], str] | str | None = None,
     assignable: list[str] | Callable[[Any], bool] | None = None,
+    remote_filing: bool = True,
 ) -> Callable[[DecisionCallback], DecisionCallback]:
     """Decorator: the decorated function becomes the kind's on_decision
     callback. Returns the function unchanged (@scheduled idiom)."""
@@ -118,6 +125,7 @@ def approval_kind(
                 notify=list(notify or []),
                 landing_url=landing_url,
                 assignable=assignable,
+                remote_filing=remote_filing,
             )
         )
         return fn
