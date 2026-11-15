@@ -297,11 +297,21 @@ agent that asked. Approving runs `set_membership` **in the
 approver's name**, recorded as `mcp:approval:<id>`; rejecting, canceling or
 expiring (three days) changes nothing. An approval that would change nothing
 (the approver lacks a permission the group grants, the user or group is gone,
-the context names someone else) is refused when it is decided, with the reason,
+the context names someone else, the account is already in or out of the group)
+is refused when it is decided, with the reason,
 and the request stays pending for someone who can approve it, or a rejection. The agent polls `get_approval` until `status` leaves
 `pending`. `SMALLSTACK_ACCESS_MCP_WRITES=False` removes the write tool. This is
 the shape to copy for any agent-driven access change: never let a token write
 access directly; let it ask.
+
+The write tool reveals no access state to a caller who can't read it (no
+`accounts.view_user`): it files "add alice to Readers" whether or not alice is
+already in Readers (the decide-time check above refuses the pointless one),
+doesn't list the groups on a miss, doesn't look an account up by email, and
+leaves the group's permission count out of the request's context. A caller
+holding `view_user` gets the precise `unchanged` error instead. Any tool you add
+that acts on an account should keep the same line: what it answers must not
+tell the caller more than the read tools would.
 
 **CLI.** `manage.py access` (or `sc access`): `explain <user> [--json]`,
 `check <user> <app.codename>` (exit 1 when not held), `grant` / `revoke <user>

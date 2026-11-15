@@ -71,7 +71,19 @@ def _check_approve(actor: Any, req: Any) -> str | None:
         return f"The account {req.target_repr!r} no longer exists."
     if plan["group"] is None:
         return f"The group {plan['group_name']!r} no longer exists."
-    return membership_refusal(actor, plan["group"], plan["member"]) or None
+    refusal = membership_refusal(actor, plan["group"], plan["member"])
+    if refusal:
+        return refusal
+    # A requester who may not read access is never told "already a member"
+    # when filing (E-dec 2), so a request that would change nothing can
+    # arrive here; it is refused rather than read "approved". Reject it.
+    if plan["user"].groups.filter(pk=plan["group"].pk).exists() == plan["member"]:
+        state = "already in" if plan["member"] else "not in"
+        return (
+            f"{plan['user'].get_username()} is {state} {plan['group'].name}; approving would change "
+            "nothing. Reject the request instead."
+        )
+    return None
 
 
 def on_membership_decision(req: Any) -> None:
@@ -120,11 +132,20 @@ register_kind(MEMBERSHIP_KIND)
 
 
 def request_membership_change(
-    user: Any, group: Group, member: bool, *, actor: Any, reason: str, source: str = "MCP"
+    user: Any,
+    group: Group,
+    member: bool,
+    *,
+    actor: Any,
+    reason: str,
+    source: str = "MCP",
+    describe_group: bool = True,
 ) -> Any:
     """File the approval request for ``actor`` (the agent's user). Raises what
     :func:`apps.approvals.services.request_approval` raises (``ApprovalsDisabled``,
-    ``TooManyPending``)."""
+    ``TooManyPending``). ``describe_group=False`` leaves the group's permission
+    count out of the stored context, which the requester reads back through
+    ``get_approval`` (the decision card counts them live either way)."""
     from apps.approvals import services as approvals
 
     verb = "Add" if member else "Remove"
@@ -141,7 +162,7 @@ def request_membership_change(
             "member": member,
             "reason": reason,
             "requested_via": source,
-            "group_permissions": group.permissions.count(),
+            **({"group_permissions": group.permissions.count()} if describe_group else {}),
         },
         require_known_kind=True,
         source=source,

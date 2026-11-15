@@ -275,14 +275,16 @@ def user_access_summary(user: Any) -> dict[str, Any]:
 # --- Lookups ------------------------------------------------------------------
 
 
-def resolve_user(ref: Any) -> Any:
+def resolve_user(ref: Any, *, by_email: bool = True) -> Any:
     """A user by username, email or pk. Raises ``LookupError`` naming what
-    was tried, so every surface reports a miss the same way."""
+    was tried, so every surface reports a miss the same way. ``by_email=False``
+    skips the email lookup, for a caller who may not read accounts (an
+    email in, a username back would tell them whose address it is)."""
     text = str(ref or "").strip()
     if not text:
         raise LookupError("A username is required.")
     user = User.objects.filter(username=text).first()
-    if user is None and "@" in text:
+    if user is None and by_email and "@" in text:
         user = User.objects.filter(email__iexact=text).first()
     if user is None and text.isascii() and text.isdigit():
         user = User.objects.filter(pk=int(text)).first()
@@ -291,14 +293,17 @@ def resolve_user(ref: Any) -> Any:
     return user
 
 
-def resolve_group(ref: Any) -> Group:
-    """A group by name or pk."""
+def resolve_group(ref: Any, *, list_known: bool = True) -> Group:
+    """A group by name or pk. A miss lists the groups unless ``list_known``
+    is False (a caller who may not read access)."""
     text = str(ref or "").strip()
     if not text:
         raise LookupError("A group name is required.")
     group = Group.objects.filter(name=text).first()
     if group is None and text.isascii() and text.isdigit():
         group = Group.objects.filter(pk=int(text)).first()
+    if group is None and not list_known:
+        raise LookupError(f"No group {text!r}.")
     if group is None:
         known = ", ".join(Group.objects.order_by("name").values_list("name", flat=True)) or "(none)"
         raise LookupError(f"No group {text!r}. Groups: {known}")

@@ -167,7 +167,8 @@ def access_findings(args: dict[str, Any]) -> dict[str, Any]:
         "can act on. Then poll get_approval with the returned 'approval_id' until "
         "'status' is no longer 'pending': 'approved' means it was applied (check "
         "'callback_error' is empty); rejected, canceled or expired means it was not. "
-        "Call access_explain_user first so you do not propose what already holds."
+        "If you can call access_explain_user, call it first so you do not propose what "
+        "already holds."
     ),
     {
         "type": "object",
@@ -192,17 +193,26 @@ def access_request_membership(args: dict[str, Any]) -> dict[str, Any]:
     reason = str(args.get("reason") or "").strip()
     if not reason:
         return _err("reason_required", "Give the approver a reason.")
+    caller = current_context().user
+    # A caller who may not read access (no accounts.view_user) learns nothing
+    # about membership here: "already a member" is filed like any other
+    # request (the approver's decide-time check refuses a request that would
+    # change nothing), a miss doesn't list the groups, and an email isn't
+    # looked up (it would answer "whose address is this"). E-dec 2.
+    reads_access = services.can_read_access(caller)
     try:
-        user = services.resolve_user(args.get("username"))
-        group = services.resolve_group(args.get("group"))
+        user = services.resolve_user(args.get("username"), by_email=reads_access)
+        group = services.resolve_group(args.get("group"), list_known=reads_access)
     except LookupError as exc:
         return _err("not_found", str(exc))
     member = bool(args.get("member"))
-    if user.groups.filter(pk=group.pk).exists() == member:
+    if reads_access and user.groups.filter(pk=group.pk).exists() == member:
         state = "already in" if member else "not in"
         return _err("unchanged", f"{user.get_username()} is {state} {group.name}; nothing to approve.")
     try:
-        req = request_membership_change(user, group, member, actor=current_context().user, reason=reason, source="MCP")
+        req = request_membership_change(
+            user, group, member, actor=caller, reason=reason, source="MCP", describe_group=reads_access
+        )
     except approvals.ApprovalsDisabled as exc:
         return _err("disabled", str(exc))
     except approvals.TooManyPending as exc:
