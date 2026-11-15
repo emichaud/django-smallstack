@@ -301,10 +301,24 @@ def permissions_actor_lacks(actor: Any, group: Group) -> list[str]:
     """The permissions ``group`` grants that ``actor`` doesn't hold, sorted.
     Empty for a superuser. Adding a member to a group hands them all of its
     permissions, so this is what an add would give away beyond the actor's own."""
+    granted = {perm_name(p) for p in group.permissions.select_related("content_type")}
+    return _beyond(actor, granted)
+
+
+def permissions_actor_lacks_for_user(actor: Any, user: Any) -> list[str]:
+    """The permissions ``user`` holds that ``actor`` doesn't, sorted: the same
+    subset rule as :func:`permissions_actor_lacks`, for acting *as* an account
+    (minting a token for it hands over everything it holds). A superuser
+    ``user`` holds everything, so only a superuser ``actor`` passes."""
+    if getattr(user, "is_superuser", False) and user.is_active:
+        return [] if getattr(actor, "is_superuser", False) and actor.is_active else ["(superuser)"]
+    return _beyond(actor, set(user.get_all_permissions()) if user.is_active else set())
+
+
+def _beyond(actor: Any, granted: set[str]) -> list[str]:
     if getattr(actor, "is_superuser", False) and actor.is_active:
         return []
     held = actor.get_all_permissions() if actor.is_active else set()
-    granted = {perm_name(p) for p in group.permissions.select_related("content_type")}
     return sorted(granted - held)
 
 

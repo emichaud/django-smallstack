@@ -53,6 +53,12 @@ reader, Access reviewer) or the `view_*` / `change_*` permissions directly. A Mo
 follows a ModelAdmin's own `has_*_permission` overrides now, so a ModelAdmin that refuses deletes
 refuses them in Explorer too, and an API token's owner is read-only once the token exists.
 
+**Minting an API token for someone else now needs `smallstack.add_apitoken`.** At
+`/smallstack/tokens/create/`, staff without it mint only for themselves. With it (the shipped **Token
+manager** group), they may pick an active non-superuser holding no permission they lack; only a
+superuser mints for a superuser or chooses the `auth` level. If someone on your team minted tokens for
+service accounts, put them in Token manager, or have a superuser mint those.
+
 **If your project records access changes itself** (a signal on `user.groups`, a custom audit of the
 staff flag), it now does so twice; keep yours only if it records something these events don't.
 

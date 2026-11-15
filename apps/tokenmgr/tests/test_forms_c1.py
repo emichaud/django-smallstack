@@ -8,7 +8,12 @@ pytestmark = pytest.mark.django_db
 
 
 def test_staff_cannot_mint_staff_level_token_for_non_staff_user(django_user_model):
+    from django.contrib.auth.models import Permission
+
     staffer = django_user_model.objects.create_user(username="s", password="x", is_staff=True)
+    # Minting for someone else needs add_apitoken (G1-1).
+    staffer.user_permissions.add(Permission.objects.get(codename="add_apitoken"))
+    staffer = django_user_model.objects.get(pk=staffer.pk)
     bob = django_user_model.objects.create_user(username="bob", password="x")
     form = TokenCreateForm(data={"name": "t", "user": bob.pk, "access_level": "staff"}, request_user=staffer)
     assert not form.is_valid()
