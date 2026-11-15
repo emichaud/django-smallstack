@@ -25,6 +25,21 @@ User = get_user_model()
 # for the same edit. Superusers hold both.
 CHANGE_MEMBERSHIP = "accounts.change_user"
 REVOKE_TOKENS = "smallstack.change_apitoken"
+#: Reading access (who holds what, every change, the review) is reading
+#: accounts: the permission Django admin and Explorer ask to list them. The
+#: shipped *Access reviewer* and *User manager* groups grant it.
+READ_ACCESS = "accounts.view_user"
+
+
+def can_read_access(user: Any) -> bool:
+    """Whether ``user`` may read the Access pages, REST reads and MCP read
+    tools: an active superuser, or active staff holding :data:`READ_ACCESS`."""
+    if not (user is not None and getattr(user, "is_authenticated", False) and user.is_active):
+        return False
+    return bool(user.is_superuser or (user.is_staff and user.has_perm(READ_ACCESS)))
+
+
+READ_ACCESS_REFUSAL = f"Reading access needs a staff account holding {READ_ACCESS} (the Access reviewer group)."
 
 
 def perm_name(perm: Permission) -> str:

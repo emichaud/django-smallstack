@@ -1094,10 +1094,13 @@ class TestOptionsEndpoint:
 @pytest.fixture
 def auth_level_token(staff_user) -> tuple[APIToken, str]:
     """Create an auth-level manual token, owned by staff holding change_user
-    (the account endpoints are bounded by the owner, G1-2)."""
+    and view_user (the account endpoints are bounded by the owner, G1-2;
+    reading them needs view_user, S2-1)."""
     from django.contrib.auth.models import Permission
 
-    staff_user.user_permissions.add(Permission.objects.get(codename="change_user"))
+    staff_user.user_permissions.add(
+        Permission.objects.get(codename="change_user"), Permission.objects.get(codename="view_user")
+    )
     return APIToken.create_token(staff_user, name="Auth Token", access_level="auth")
 
 

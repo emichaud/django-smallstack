@@ -4,8 +4,10 @@ Self-service permissions:
 
 - Authenticated user: lists / views / revokes their OWN tokens, mints
   readonly tokens for themselves.
-- Staff: same as above, plus mints staff-level tokens, plus sees all
-  tokens. Revoking someone else's token needs ``smallstack.change_apitoken``,
+- Staff: same as above, plus mints staff-level tokens. Seeing other
+  accounts' tokens needs ``smallstack.view_apitoken``
+  (``mixins.may_read_all_tokens``). Revoking someone else's token needs
+  ``smallstack.change_apitoken``,
   and only a superuser revokes a superuser's (``mixins.revoke_refusal``).
 - Superuser: same as staff, plus mints auth-level tokens.
 
@@ -34,8 +36,8 @@ from apps.smallstack.crud import Action, CRUDView
 from apps.smallstack.models import APIToken
 from apps.smallstack.stat_lists import render_stat_list, stat_list_row
 
-from .forms import TokenCreateForm
-from .mixins import is_owner_or_staff, may_revoke, revoke_refusal
+from .forms import TokenCreateForm, may_mint_for_others
+from .mixins import is_owner_or_staff, may_read_all_tokens, may_revoke, revoke_refusal
 from .stats import get_overview_stats, get_usage_stats
 
 REVEAL_SESSION_KEY = "_tokenmgr_reveal_key"
@@ -89,6 +91,15 @@ class TokenCRUDView(CRUDView):
     enable_search = True
     search_display = "name"
     search_subtitle = "prefix"
+    # Search hits follow the list: your own tokens, or every token with
+    # view_apitoken. Applied to staff too (search otherwise lets staff past
+    # a visibility callback).
+    search_visibility_applies_to_staff = True
+
+    @classmethod
+    def search_visibility(cls, qs, user):
+        return qs if may_read_all_tokens(user) else qs.filter(user=user)
+
     paginate_by = 20
     link_field = "name"
 
@@ -136,7 +147,8 @@ class TokenCRUDView(CRUDView):
 
     @classmethod
     def check_object_permission(cls, obj, request):
-        """A token is readable, editable and deletable by its owner, or by staff.
+        """A token is readable by its owner, or by an account holding
+        ``smallstack.view_apitoken`` (``may_read_all_tokens``).
 
         Applied by the base to detail, edit, delete, field preview, related tabs,
         the REST detail/update/delete handlers and the generated MCP tools.
@@ -146,7 +158,8 @@ class TokenCRUDView(CRUDView):
 
     @classmethod
     def get_list_queryset(cls, qs, request):
-        """Filter to the requester's tokens when they're not staff.
+        """Filter to the requester's tokens unless they read every token
+        (``may_read_all_tokens``: staff holding ``smallstack.view_apitoken``).
 
         Defaults to active-only on landings without an `is_active` query
         param. Explicit choices in the toolbar — `?is_active=` (empty,
@@ -156,7 +169,7 @@ class TokenCRUDView(CRUDView):
         qs = qs.select_related("user")
         if not getattr(request, "user", None) or not request.user.is_authenticated:
             return qs.none()
-        if not request.user.is_staff:
+        if not may_read_all_tokens(request.user):
             qs = qs.filter(user=request.user)
         # Hide revoked tokens by default. Users opt into them via the
         # Is Active dropdown ("All" or "No").
@@ -187,6 +200,7 @@ class TokenCRUDView(CRUDView):
             def get_context_data(self, **kwargs):
                 context = original_get_context(self, **kwargs)
                 context["overview_stats"] = get_overview_stats(self.request.user)
+                context["reads_all_tokens"] = may_read_all_tokens(self.request.user)
                 # The Revoke button shows only where the POST would succeed.
                 for token in context.get("object_list") or []:
                     token.can_revoke = may_revoke(self.request.user, token)
@@ -256,7 +270,10 @@ class TokenRevealView(LoginRequiredMixin, TemplateView):
 
     def get(self, request, pk):
         token = get_object_or_404(APIToken, pk=pk)
-        if not is_owner_or_staff(request.user, token):
+        # Whoever may mint for others is sent here for the token they just
+        # minted, which they may not otherwise read; the key shown is only
+        # ever the one in their own session.
+        if not (is_owner_or_staff(request.user, token) or may_mint_for_others(request.user)):
             raise PermissionDenied
         raw_key = request.session.pop(REVEAL_SESSION_KEY, None)
         if not raw_key:
@@ -317,11 +334,11 @@ def _token_list_row(token, meta):
 def token_stat_detail(request, stat_type: str) -> HttpResponse:
     """HTMX endpoint returning HTML for the token stat-card drill-down modals.
 
-    Respects self-service scoping: non-staff callers only ever see their own
-    tokens (same rule as the overview counts).
+    Respects self-service scoping: callers without ``smallstack.view_apitoken``
+    only ever see their own tokens (same rule as the overview counts).
     """
     user = request.user
-    is_staff = bool(getattr(user, "is_staff", False))
+    is_staff = may_read_all_tokens(user)
     qs = APIToken.objects.select_related("user").order_by("-created_at")
     if not is_staff:
         qs = qs.filter(user=user)

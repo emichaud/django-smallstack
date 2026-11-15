@@ -27,8 +27,8 @@ def users_checked(monkeypatch):
     from apps.smallstack.crud import CRUDView
     from apps.usermanager.views import UserCRUDView
 
-    # The User Manager keeps reading open to staff (its own has_model_permission);
-    # stand in for a view that checks ``view`` the way CRUDView does by default.
+    # The User Manager now checks ``view`` itself (S2-1); the patch pins that
+    # these tests keep meaning "a view that checks view the CRUDView way".
     monkeypatch.setattr(UserCRUDView, "model_permissions", True)
     monkeypatch.setattr(UserCRUDView, "has_model_permission", classmethod(CRUDView.has_model_permission.__func__))
     return UserCRUDView
@@ -68,8 +68,12 @@ def test_staff_with_view_still_finds(users_checked, staff, needle):
     assert _user_hits(staff)
 
 
-def test_views_without_model_permissions_keep_the_staff_rule(staff, needle):
-    assert _user_hits(staff)
+def test_staff_holding_view_user_gets_the_hits(staff, needle):
+    # Was "views without model_permissions keep the staff rule", with the User
+    # Manager as the example; since S2-1 it checks view_user like the rest.
+    assert not _user_hits(staff)
+    staff.user_permissions.add(Permission.objects.get(content_type__app_label="accounts", codename="view_user"))
+    assert _user_hits(User.objects.get(pk=staff.pk))
 
 
 def test_trusted_internal_caller_still_bypasses(users_checked, needle):

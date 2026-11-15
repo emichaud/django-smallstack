@@ -166,6 +166,8 @@ def get_widget_contexts(
             if group is not None:
                 if not widget.group or widget.group.lower() != group.lower():
                     continue
+            if user is not None and not widget.visible_to(user):
+                continue
             try:
                 data = widget.get_data()
             except Exception:

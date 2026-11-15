@@ -1328,13 +1328,18 @@ class TestFieldPreviewView:
 
     @pytest.fixture
     def preview_staff(self, db):
-        return User.objects.create_user(
+        from django.contrib.auth.models import Permission
+
+        user = User.objects.create_user(
             username="previewstaff",
             email="preview@example.com",
             password="testpass123",
             is_staff=True,
             first_name="A" * 60,
         )
+        # The User Manager's pages are read with view_user (S2-1).
+        user.user_permissions.add(Permission.objects.get(content_type__app_label="accounts", codename="view_user"))
+        return user
 
     def test_preview_returns_html(self, client, preview_staff):
         """Field preview endpoint should return HTML partial."""

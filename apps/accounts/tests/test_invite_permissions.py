@@ -67,7 +67,8 @@ def test_g2_1_an_invite_never_creates_a_superuser(client):
 
 def test_g2_1_user_list_hides_invite_without_add_user(client):
     invite_url = reverse(INVITE)
-    client.force_login(_staff("olaf"))
+    # The list itself needs view_user (S2-1).
+    client.force_login(_staff("olaf", "view_user"))
     assert invite_url not in client.get(reverse("manage/users-list")).content.decode()
-    client.force_login(_staff("adder", "add_user"))
+    client.force_login(_staff("adder", "view_user", "add_user"))
     assert invite_url in client.get(reverse("manage/users-list")).content.decode()

@@ -129,7 +129,7 @@ def register_search_tools(only_view=None) -> int:
                 from apps.mcp.server import current_context
 
                 from .backends import get_backend
-                from .registry import _user_can_see
+                from .registry import _bypasses_visibility, _user_can_see
 
                 ctx = current_context()
                 user = getattr(ctx, "user", None)
@@ -151,8 +151,7 @@ def register_search_tools(only_view=None) -> int:
                 # Run search_visibility for non-staff callers — same fail-safe
                 # semantics as registry.search_all (a raising callback drops
                 # every hit rather than leaking the unfiltered set).
-                is_privileged = user is None or bool(getattr(user, "is_staff", False))
-                if hits and not is_privileged and _view.visibility is not None:
+                if hits and not _bypasses_visibility(_view, user) and _view.visibility is not None:
                     try:
                         hit_ids = [h.object_id for h in hits]
 

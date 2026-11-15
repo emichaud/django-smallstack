@@ -209,7 +209,7 @@ def _um_edit(client, target, **fields):
 
 def test_a3_plain_staff_cannot_write_through_the_user_manager(client, staffer, alice):
     client.force_login(staffer)
-    # Reading stays a staff matter; the page is read-only.
+    # Reading needs view_user (the staffer fixture holds it); the page is read-only.
     page = client.get(f"/smallstack/manage/users/{alice.pk}/edit/")
     assert page.status_code == 200
     body = page.content.decode()

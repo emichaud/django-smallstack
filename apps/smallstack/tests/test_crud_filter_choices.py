@@ -59,8 +59,11 @@ def test_fk_filter_choices_still_offer_your_own_values(client: Client):
 
 
 def test_staff_see_every_value(client: Client):
-    """Staff bypass the scoper, so their filter bar is complete."""
+    """Staff holding view_apitoken bypass the scoper, so their filter bar is complete."""
+    from django.contrib.auth.models import Permission
+
     staff = User.objects.create_user(username="staff_f", password="pw", is_staff=True)
+    staff.user_permissions.add(Permission.objects.get(content_type__app_label="smallstack", codename="view_apitoken"))
     bob = User.objects.create_user(username="bob_h", password="pw")
     APIToken.objects.create(user=bob, name="bob key", prefix="dddddddd")
 

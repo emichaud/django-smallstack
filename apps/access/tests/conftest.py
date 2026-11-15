@@ -38,8 +38,11 @@ def root(db):
 
 @pytest.fixture
 def staffer(db):
-    """Staff, but without accounts.change_user: may read access, not change it."""
-    return User.objects.create_user("staffer", password="p", is_staff=True)
+    """Staff holding accounts.view_user but not accounts.change_user: may read
+    access (S2-1: reading needs view_user), not change it."""
+    user = User.objects.create_user("staffer", password="p", is_staff=True)
+    user.user_permissions.add(Permission.objects.get(content_type__app_label="accounts", codename="view_user"))
+    return User.objects.get(pk=user.pk)
 
 
 @pytest.fixture

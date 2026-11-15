@@ -63,9 +63,10 @@ are kept and shown as drift.
 SmallStack ships five: **Access reviewer**, **User manager**, **Log reader**,
 **Approver** and **Token manager**. Add people to them here or in Django admin.
 
-**Who can read these pages:** any staff account. The *Access reviewer* group
-is for people who read the same data in Django admin or Explorer, which check
-permissions; it doesn't gate these pages.
+**Who can read these pages:** a staff account holding `accounts.view_user`,
+the permission Django admin and Explorer ask to list accounts. The shipped
+*Access reviewer* and *User manager* groups grant it; superusers always read.
+Staff without it don't see Access in the sidebar or on the dashboard.
 
 ## Changes
 

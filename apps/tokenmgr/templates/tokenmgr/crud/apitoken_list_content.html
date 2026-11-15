@@ -6,7 +6,7 @@ Inner table fragment for the API tokens list. Swapped into
 Reads:
 - object_list — current page of APITokens (filtered + searched)
 - paginator / page_obj / is_paginated — Django ListView vars
-- request — for is_staff branch in column rendering
+- reads_all_tokens — whether the viewer sees every account's tokens (owner column, labels)
 {% endcomment %}
 
 {% if object_list %}
@@ -16,7 +16,7 @@ Reads:
       <tr>
         <th style="text-align: left; padding: 8px 16px;">Name</th>
         <th style="text-align: left; padding: 8px 16px;">Prefix</th>
-        {% if request.user.is_staff %}<th style="text-align: left; padding: 8px 16px;">Owner</th>{% endif %}
+        {% if reads_all_tokens %}<th style="text-align: left; padding: 8px 16px;">Owner</th>{% endif %}
         <th style="text-align: left; padding: 8px 16px;">Access</th>
         <th style="text-align: left; padding: 8px 16px;">Status</th>
         <th style="text-align: right; padding: 8px 16px;">Requests</th>
@@ -38,7 +38,7 @@ Reads:
               color: var(--body-quiet-color);
             ">{{ token.prefix }}…</code>
           </td>
-          {% if request.user.is_staff %}
+          {% if reads_all_tokens %}
           <td style="padding: 8px 16px; font-size: 0.85rem;">{{ token.user.username }}</td>
           {% endif %}
           <td style="padding: 8px 16px;">
@@ -97,7 +97,7 @@ Reads:
   {% else %}
     <div style="font-size: 1.05rem; font-weight: 600; margin-bottom: 6px;">No tokens yet</div>
     <p style="margin: 0 auto 16px auto; max-width: 480px; color: var(--body-quiet-color); font-size: 0.9rem;">
-      {% if request.user.is_staff %}
+      {% if reads_all_tokens %}
         Mint a token for CI, scripts, or Claude — or wait for OAuth users to mint their own.
       {% else %}
         Mint a token to authenticate scripts and tools against this server's API.

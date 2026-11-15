@@ -980,6 +980,12 @@ class DashboardWidget:
     group: str | None = None
     on_dashboard: bool = True
 
+    def visible_to(self, user: Any) -> bool:
+        """Whether ``user`` sees this widget (asked when a caller passes the
+        user, as the dashboards do). Default: everyone the page admits.
+        Override for a widget whose numbers need a permission to read."""
+        return True
+
     def get_data(self, model_class: type | None = None) -> dict:
         """Return widget data. Shape depends on widget_type.
 

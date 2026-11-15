@@ -23,7 +23,12 @@ def bob():
 
 @pytest.fixture
 def staff_user():
-    return User.objects.create_user(username="boss", password="x", is_staff=True)
+    """Staff holding smallstack.view_apitoken: sees every account's tokens (S2-1)."""
+    from django.contrib.auth.models import Permission
+
+    user = User.objects.create_user(username="boss", password="x", is_staff=True)
+    user.user_permissions.add(Permission.objects.get(content_type__app_label="smallstack", codename="view_apitoken"))
+    return user
 
 
 def _mint(user, **kwargs):

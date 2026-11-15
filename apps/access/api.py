@@ -16,7 +16,8 @@ checked and recorded the same way.
     GET    api/access/events/?who=&kind=&limit=   the change log
 
 ``{user}`` is a username, email or id; ``{group}`` a name or id. Reads need a
-staff account (any token tier); the write needs an auth-level token *and*
+staff account holding ``accounts.view_user`` (any token tier; superusers
+pass); the write needs an auth-level token *and*
 ``accounts.change_user``, the bar the account endpoints set.
 """
 
@@ -37,6 +38,13 @@ _LIMIT_DEFAULT = 100
 _LIMIT_MAX = 1000
 
 
+def _read_refusal(request: HttpRequest) -> JsonResponse | None:
+    """403 unless the caller may read access (``services.can_read_access``)."""
+    if services.can_read_access(request.user):
+        return None
+    return api_error(services.READ_ACCESS_REFUSAL, 403)
+
+
 def _limit(request: HttpRequest) -> int:
     try:
         return max(1, min(int(request.GET.get("limit", _LIMIT_DEFAULT)), _LIMIT_MAX))
@@ -51,6 +59,9 @@ def _limit(request: HttpRequest) -> int:
 def api_users(request: HttpRequest) -> ApiResult:
     """Accounts with their groups and counts; ``?q=`` searches name, email and
     group, ``?show=active|staff|inactive|all`` (default active)."""
+    refused = _read_refusal(request)
+    if refused:
+        return refused
     from django.db.models import Q
 
     q = request.GET.get("q", "").strip()
@@ -92,6 +103,9 @@ def api_users(request: HttpRequest) -> ApiResult:
 
 @api_view(methods=["GET"], require_staff=True)
 def api_user(request: HttpRequest, user: str) -> ApiResult:
+    refused = _read_refusal(request)
+    if refused:
+        return refused
     try:
         target = services.resolve_user(user)
     except LookupError as exc:
@@ -101,6 +115,9 @@ def api_user(request: HttpRequest, user: str) -> ApiResult:
 
 @api_view(methods=["GET"], require_staff=True)
 def api_user_check(request: HttpRequest, user: str) -> ApiResult:
+    refused = _read_refusal(request)
+    if refused:
+        return refused
     perm = request.GET.get("perm", "").strip()
     if "." not in perm:
         return api_error("perm is required, as app_label.codename.", 400)
@@ -135,11 +152,17 @@ def api_user_group(request: HttpRequest, user: str, group: str) -> ApiResult:
 
 @api_view(methods=["GET"], require_staff=True)
 def api_groups(request: HttpRequest) -> ApiResult:
+    refused = _read_refusal(request)
+    if refused:
+        return refused
     return {"results": [services.group_payload(g, members=False) for g in services.groups_with_counts()]}
 
 
 @api_view(methods=["GET"], require_staff=True)
 def api_group(request: HttpRequest, group: str) -> ApiResult:
+    refused = _read_refusal(request)
+    if refused:
+        return refused
     try:
         grp = services.resolve_group(group)
     except LookupError as exc:
@@ -152,6 +175,9 @@ def api_group(request: HttpRequest, group: str) -> ApiResult:
 
 @api_view(methods=["GET"], require_staff=True)
 def api_findings(request: HttpRequest) -> ApiResult:
+    refused = _read_refusal(request)
+    if refused:
+        return refused
     findings = run_checks()
     order = {"danger": 3, "warning": 2, "info": 1, "ok": 0}
     worst = max(findings, key=lambda f: order[f.severity], default=None)
@@ -162,6 +188,9 @@ def api_findings(request: HttpRequest) -> ApiResult:
 def api_events(request: HttpRequest) -> ApiResult:
     """The change log, newest first; ``?who=`` matches actor, subject, group
     or permission, ``?kind=`` one kind or ``grants``."""
+    refused = _read_refusal(request)
+    if refused:
+        return refused
     from .views import _events_queryset
 
     qs = _events_queryset(request)

@@ -169,12 +169,14 @@ See the [Building CRUD Pages](/smallstack/help/smallstack/building-crud-pages/) 
 
 Every user manager view needs a staff account, and then Django's user permissions:
 
+- **The list, an account's page, the stat modals and the Timezones dashboard** need `accounts.view_user` (read-only without `change_user`)
+
 - **Create** needs `accounts.add_user`
 - **Edit** (the fields, the staff and active flags, *Send link*, *Unlock*) needs `accounts.change_user`; only a superuser changes a superuser's account
 - **Delete** needs `accounts.delete_user`
 - **Another account's username, email, or a password link** also needs every permission that account holds (you can't take over an account wider than your own); the fields are locked, with the reason, otherwise
 
-The sidebar shows the Users link only inside the `{% if user.is_staff %}` block.
+The sidebar shows the Users link only to staff holding `accounts.view_user`. The shipped *User manager* group grants view, add and change; *Access reviewer* grants view.
 
 ## Extending Downstream
 

@@ -41,6 +41,7 @@ def _record_account_action(request, target, message: str) -> None:
 
 
 CHANGE_USER = "accounts.change_user"
+VIEW_USER = "accounts.view_user"
 
 
 def can_edit_account(actor: Any, target: Any) -> bool:
@@ -92,9 +93,9 @@ class UserCRUDView(CRUDView):
     url_base = "manage/users"
     paginate_by = 10
     mixins = [StaffRequiredMixin]
-    # Writes ask for Django's model permissions (add_user / change_user /
-    # delete_user; superusers hold all three), as Django admin and the Access
-    # pages do; reading stays a staff matter, see has_model_permission below.
+    # Every page asks for Django's model permissions (view_user to read,
+    # add_user / change_user / delete_user to write; superusers hold all
+    # four), as Django admin and Explorer do. Search follows the same check.
     model_permissions = True
     form_class = UserAccountForm
     actions = [Action.LIST, Action.CREATE, Action.UPDATE, Action.DELETE]
@@ -119,14 +120,6 @@ class UserCRUDView(CRUDView):
     search_fields = ["username", "email", "first_name", "last_name"]
     search_display = "username"
     search_subtitle = "email"
-
-    @classmethod
-    def has_model_permission(cls, request, action: str) -> bool:
-        """Reading accounts needs only staff (the mixin), like the Access
-        pages; creating, changing and deleting need the model permission."""
-        if action == "view":
-            return True
-        return super().has_model_permission(request, action)
 
     @classmethod
     def row_actions(cls, obj, request, default_actions):
@@ -193,8 +186,8 @@ class UserCRUDView(CRUDView):
 
         elif base_class is _CRUDUpdateBase:
             # Add profile form + activity stats to edit view. The page opens
-            # for any staff account (read-only without change_user); post()
-            # below refuses the write.
+            # with view_user (read-only without change_user); post() below
+            # refuses the write.
             view_class._model_permission = "view"
 
             def get_context_data(self, **kwargs):
@@ -431,7 +424,10 @@ def _user_list_row(u):
 
 @staff_member_required
 def user_stat_detail(request, stat_type: str) -> HttpResponse:
-    """HTMX endpoint returning HTML for stat card drill-down modals."""
+    """HTMX endpoint returning HTML for stat card drill-down modals. Lists
+    accounts, so it asks what the list page asks (``accounts.view_user``)."""
+    if not request.user.has_perm(VIEW_USER):
+        raise PermissionDenied(f"Listing accounts needs the {VIEW_USER} permission.")
     now = timezone.now()
     thirty_days_ago = now - timedelta(days=30)
     users = User.objects.filter(is_active=True).order_by("username")

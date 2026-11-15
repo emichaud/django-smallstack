@@ -10,7 +10,7 @@
   <div class="page-header-content">
     <h1>API Tokens</h1>
     <p class="page-subtitle">
-      {% if request.user.is_staff %}
+      {% if reads_all_tokens %}
         Manage every API token on the system — mint, audit, revoke.
       {% else %}
         Manage the tokens that belong to you — mint, view, revoke.
@@ -41,7 +41,7 @@
 {% block content %}
 {# ── Stat cards ({% templatetag openblock %} stat_card {% templatetag closeblock %} tag → drill-down modal) ──────────────── #}
 <div class="stat-cards" style="margin-bottom: 24px;">
-  {% stat_card value=overview_stats.total_tokens label=request.user.is_staff|yesno:"All tokens,Your tokens" title=request.user.is_staff|yesno:"All Tokens,Your Tokens" detail_url="tokenmgr:token-stat-detail" detail_arg="total" %}
+  {% stat_card value=overview_stats.total_tokens label=reads_all_tokens|yesno:"All tokens,Your tokens" title=reads_all_tokens|yesno:"All Tokens,Your Tokens" detail_url="tokenmgr:token-stat-detail" detail_arg="total" %}
   {% stat_card value=overview_stats.active_tokens label="Active" title="Active Tokens" state="success" detail_url="tokenmgr:token-stat-detail" detail_arg="active" %}
   {% stat_card value=overview_stats.revoked_tokens label="Revoked" title="Revoked Tokens" state="muted" detail_url="tokenmgr:token-stat-detail" detail_arg="revoked" %}
   {% stat_card value=overview_stats.volume_24h label="Requests · 24h" title="API Requests · 24h" detail_url="tokenmgr:token-stat-detail" detail_arg="volume" %}
@@ -49,7 +49,7 @@
 
 <div class="card" id="crud-content">
   <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
-    <h2>{% if request.user.is_staff %}All Tokens{% else %}Your Tokens{% endif %}</h2>
+    <h2>{% if reads_all_tokens %}All Tokens{% else %}Your Tokens{% endif %}</h2>
     <span style="
       display: inline-block;
       padding: 2px 10px;

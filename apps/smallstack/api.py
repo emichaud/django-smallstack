@@ -465,7 +465,7 @@ def _require_auth_token(request, action: str | None = None, target: Any = None):
     The token must be a manual one with ``access_level='auth'``, and its owner
     must be able to do the same thing on the User Manager: an active staff
     account (or a superuser), holding the user model's ``action`` permission
-    (``add`` / ``change`` / ``delete``) for a write. Only a superuser may act
+    (``view`` to read, ``add`` / ``change`` / ``delete`` to write). Only a superuser may act
     on a superuser ``target``. A token's level is a label chosen when it is
     minted; what it may do is still bounded by the account that holds it.
     """
@@ -2043,7 +2043,7 @@ def api_auth_users(request: HttpRequest) -> JsonResponse:
     user, err = _authenticate_api_request(request)
     if err:
         return err
-    perm_err = _require_auth_token(request)
+    perm_err = _require_auth_token(request, "view")
     if perm_err:
         return perm_err
 
@@ -2098,6 +2098,9 @@ def api_auth_user_detail(request: HttpRequest, user_id: int) -> JsonResponse:
         return _error("User not found", 404)
 
     if request.method == "GET":
+        perm_err = _require_auth_token(request, "view")
+        if perm_err:
+            return perm_err
         return JsonResponse(_user_json(target, extended=True))
 
     # PATCH

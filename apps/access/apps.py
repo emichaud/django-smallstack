@@ -33,9 +33,17 @@ class AccessConfig(AppConfig):
                 '1.41-1.41L10 14.17l6.59-6.59L18 9l-8 8z"/></svg>'
             ),
             staff_required=True,
+            # Reading access needs accounts.view_user; hide a link that would 403.
+            visible=lambda request: _can_read_access(request.user),
             order=5,
         )
         dashboard.register(AccessWidget())
+
+
+def _can_read_access(user: Any) -> bool:
+    from .services import can_read_access
+
+    return can_read_access(user)
 
 
 def _sync_groups_after_migrate(sender: Any, **kwargs: Any) -> None:

@@ -174,13 +174,13 @@ These endpoints handle user lifecycle operations. All are `@csrf_exempt` for cro
 | `GET /api/auth/password-requirements/` | None (public) | List password validation rules |
 | `POST /api/auth/users/<id>/password/` | Auth-level token, owner holds `change_user` | System password change |
 | `POST /api/auth/users/<id>/deactivate/` | Auth-level token, owner holds `change_user` | Deactivate user + revoke tokens |
-| `GET /api/auth/users/` | Auth-level token | List/search users |
-| `GET /api/auth/users/<id>/` | Auth-level token | User detail |
+| `GET /api/auth/users/` | Auth-level token, owner holds `view_user` | List/search users |
+| `GET /api/auth/users/<id>/` | Auth-level token, owner holds `view_user` | User detail |
 | `PATCH /api/auth/users/<id>/` | Auth-level token, owner holds `change_user` | Update user fields |
 | `POST /api/auth/token/refresh/` | Login Bearer | Refresh login token |
 
 Every "auth-level token" row also needs the token's **owner** to be active staff, and each write
-needs the user model's permission shown (`accounts.add_user` / `accounts.change_user`), the same bar
+needs the user model's permission shown (`accounts.view_user` / `accounts.add_user` / `accounts.change_user`), the same bar
 as the User Manager. Only a superuser's token may change a superuser's account. Setting another
 account's password, or changing its `email` with `PATCH`, also needs the owner to hold every
 permission that account holds (the subset rule; 403 names the missing ones). An auth-level token

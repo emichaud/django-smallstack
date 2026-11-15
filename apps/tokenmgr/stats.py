@@ -44,12 +44,16 @@ def get_usage_stats(token, hours: int = 24) -> dict:
 def get_overview_stats(user=None) -> dict:
     """Summary stats for the list page.
 
-    When `user` is given AND is non-staff, restrict counts to their tokens.
+    When `user` is given and doesn't read every token (no
+    ``smallstack.view_apitoken``), restrict counts to their tokens.
     """
     from apps.smallstack.models import APIToken
 
+    from .mixins import may_read_all_tokens
+
+    scoped = user is not None and not may_read_all_tokens(user)
     qs = APIToken.objects.all()
-    if user is not None and not getattr(user, "is_staff", False):
+    if scoped:
         qs = qs.filter(user=user)
 
     total = qs.count()
@@ -63,7 +67,7 @@ def get_overview_stats(user=None) -> dict:
         from apps.activity.models import RequestLog
 
         volume_qs = RequestLog.objects.filter(api_token__isnull=False, timestamp__gte=cutoff_24h)
-        if user is not None and not getattr(user, "is_staff", False):
+        if scoped:
             volume_qs = volume_qs.filter(api_token__user=user)
         volume_24h = volume_qs.count()
     except Exception:

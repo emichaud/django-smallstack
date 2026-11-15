@@ -17,6 +17,11 @@ class AccessWidget(DashboardWidget):
     order = 35
     url_name = "access:index"
 
+    def visible_to(self, user: Any) -> bool:
+        from .services import can_read_access
+
+        return can_read_access(user)
+
     def get_data(self, model_class: type | None = None) -> dict[str, Any]:
         from .registry import run_checks
 

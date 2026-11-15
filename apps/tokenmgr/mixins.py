@@ -9,6 +9,17 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 #: Revoking a token you don't own changes someone else's access, so it asks
 #: the model's change permission (the shipped *Token manager* group holds it).
 REVOKE_PERMISSION = "smallstack.change_apitoken"
+#: Reading other accounts' tokens (owners, levels, usage) asks the model's view
+#: permission, as Django admin and Explorer do; your own are always yours.
+VIEW_PERMISSION = "smallstack.view_apitoken"
+
+
+def may_read_all_tokens(user: Any) -> bool:
+    """Whether ``user`` sees every account's tokens: an active superuser, or
+    active staff holding :data:`VIEW_PERMISSION` (the *Token manager* group)."""
+    if not (user is not None and getattr(user, "is_authenticated", False) and user.is_active):
+        return False
+    return bool(user.is_superuser or (user.is_staff and user.has_perm(VIEW_PERMISSION)))
 
 
 class LoginRequiredAuthMixin(LoginRequiredMixin):
@@ -20,14 +31,16 @@ class LoginRequiredAuthMixin(LoginRequiredMixin):
 
 
 def is_owner_or_staff(user, token) -> bool:
-    """Return True if `user` may view `token` (its owner, or any staff account).
+    """Return True if `user` may view `token`: its owner, or an account that
+    reads every token (:func:`may_read_all_tokens`). The name predates the
+    permission; plain staff no longer qualify.
 
     Reading only: revoking asks :func:`revoke_refusal`."""
     if not getattr(user, "is_authenticated", False):
         return False
-    if user.is_staff:
+    if token.user_id == user.pk:
         return True
-    return token.user_id == user.pk
+    return may_read_all_tokens(user)
 
 
 def revoke_refusal(actor: Any, token: Any) -> str | None:

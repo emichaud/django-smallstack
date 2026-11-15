@@ -260,6 +260,18 @@ def _view_permits(view: IndexedView, user: Any) -> bool:
         return False
 
 
+def _bypasses_visibility(view: IndexedView, user: Any) -> bool:
+    """Whether ``user`` skips the view's ``search_visibility`` callback:
+    trusted internal callers (``user=None``) always, staff unless the view
+    sets ``search_visibility_applies_to_staff`` (Token Manager: a staff
+    account without ``view_apitoken`` finds only its own tokens)."""
+    if user is None:
+        return True
+    if not getattr(user, "is_staff", False):
+        return False
+    return not getattr(view.view_cls, "search_visibility_applies_to_staff", False)
+
+
 def _user_can_see(view: IndexedView, user: Any) -> bool:
     """Apply the access-level gate for one indexed view.
 
@@ -330,8 +342,7 @@ def get_indexed_sources(user: Any = None) -> list[dict]:
             # (`user=None`) callers bypass, as they do in search_all; a raising
             # callback falls through to `except` and yields no preview at all.
             qs = view.model._default_manager.all()
-            is_privileged = user is None or bool(getattr(user, "is_staff", False))
-            if not is_privileged and view.visibility is not None:
+            if not _bypasses_visibility(view, user) and view.visibility is not None:
                 qs = view.visibility(qs, user)
 
             recent = list(qs.order_by("-pk")[:5])
@@ -520,7 +531,6 @@ def search_all(query: str, limit_per_model: int = 5, user: Any = None) -> list[S
     from .backends import get_backend
 
     backend = get_backend()
-    is_privileged = user is None or bool(getattr(user, "is_staff", False))
 
     out: list[SearchHit] = []
     for view in _search_registry.values():
@@ -535,7 +545,7 @@ def search_all(query: str, limit_per_model: int = 5, user: Any = None) -> list[S
 
         # Visibility filter — scope rows per user when the view declared
         # one. Skipped for staff and trusted-internal callers.
-        if hits and not is_privileged and view.visibility is not None:
+        if hits and not _bypasses_visibility(view, user) and view.visibility is not None:
             try:
                 hit_ids = [h.object_id for h in hits]
                 visible_qs = view.visibility(view.model._default_manager.filter(pk__in=hit_ids), user)

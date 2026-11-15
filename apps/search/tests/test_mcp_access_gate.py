@@ -91,6 +91,11 @@ def test_staff_caller_still_sees_results_on_staff_only_search_tool():
     User = get_user_model()
     User.objects.create_user(username="staff-target-charlie")
     staff = User.objects.create_user(username="staff-caller", is_staff=True)
+    # Users are read with accounts.view_user (S2-1); search follows the list.
+    from django.contrib.auth.models import Permission
+
+    staff.user_permissions.add(Permission.objects.get(content_type__app_label="accounts", codename="view_user"))
+    staff = User.objects.get(pk=staff.pk)
 
     # Rebuild the FTS index so the User we just created is findable.
     from apps.search.backends import get_backend
@@ -218,6 +223,9 @@ def test_search_users_visible_in_tools_list_for_staff_token(db):
     from apps.smallstack.models import APIToken
 
     bob = User.objects.create_user(username="bob-tlist", password="x", is_staff=True)
+    from django.contrib.auth.models import Permission
+
+    bob.user_permissions.add(Permission.objects.get(content_type__app_label="accounts", codename="view_user"))
     _, raw = APIToken.create_token(user=bob, name="bob-tlist-staff", access_level="staff")
 
     resp = Client().post(

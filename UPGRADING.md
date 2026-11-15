@@ -84,6 +84,16 @@ Have a superuser (or someone holding the account's permissions) reset the passwo
 accounts; a server that rotates service-account passwords over the API needs a token owner holding
 everything those accounts hold.
 
+**Reading accounts, access and other accounts' tokens now needs a `view` permission, not just staff.**
+The Access pages, REST reads and MCP read tools, the User Manager's list and pages (and its Timezones
+dashboard), `GET /api/auth/users/` and user search hits need `accounts.view_user`; seeing other
+accounts' API tokens on the Token Manager needs `smallstack.view_apitoken` (everyone still sees their
+own). Superusers are unaffected. **Staff who relied on the staff flag to read these get a 403** (and no
+longer see the Access and Users links): put auditors in **Access reviewer**, people who manage accounts
+in **User manager**, and people who look after tokens in **Token manager** before you deploy. A script
+reading `/smallstack/api/access/` or `/api/auth/users/` needs its token's owner to hold `view_user`. A
+custom group that should read these needs those permissions added.
+
 **If your project records access changes itself** (a signal on `user.groups`, a custom audit of the
 staff flag), it now does so twice; keep yours only if it records something these events don't.
 

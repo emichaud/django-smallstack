@@ -1,6 +1,6 @@
 # API tokens — self-service management
 
-SmallStack ships a token management UI at **`/smallstack/tokens/`**. Any authenticated user can list, mint, view, and revoke their own API tokens. Staff users see every token in the system; revoking someone else's needs `smallstack.change_apitoken` (the *Token manager* group), and only a superuser revokes a superuser's. The page sits in the sidebar as **API Tokens** next to MCP and Backups.
+SmallStack ships a token management UI at **`/smallstack/tokens/`**. Any authenticated user can list, mint, view, and revoke their own API tokens. Seeing every account's tokens needs a staff account holding `smallstack.view_apitoken` (the *Token manager* group); other staff see their own, as everyone does. Revoking someone else's needs `smallstack.change_apitoken` (the *Token manager* group), and only a superuser revokes a superuser's. The page sits in the sidebar as **API Tokens** next to MCP and Backups.
 
 This complements the existing surfaces:
 
@@ -21,7 +21,7 @@ All surfaces store into the same `APIToken` model. A token minted by any path ca
 |---|---|---|---|
 | Anonymous | redirect to login | — | — |
 | Authenticated (non-staff) | own tokens only | own user, `readonly` access level only | own tokens only |
-| Staff | all tokens | self or other; `readonly` or `staff` levels | any token |
+| Staff | own tokens; all with `view_apitoken` | self, or (with `add_apitoken`) a narrower account; `readonly` or `staff` levels | own; others' with `change_apitoken` |
 | Superuser | all tokens | self or other; any access level (`auth`/`staff`/`readonly`) | any token |
 
 Non-staff users see a hidden user picker pre-filled with themselves, and only `readonly` in the access-level dropdown. Staff users see the full picker and `readonly` + `staff`. Superusers additionally see `auth`.

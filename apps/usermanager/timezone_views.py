@@ -15,7 +15,14 @@ User = get_user_model()
 
 
 class TimezoneDashboardView(StaffRequiredMixin, TemplateView):
+    """Lists accounts, so it asks what the User Manager's list asks:
+    staff holding ``accounts.view_user`` (superusers pass)."""
+
     template_name = "usermanager/timezone_dashboard.html"
+
+    def test_func(self):
+        user = self.request.user
+        return bool(user.is_staff and user.has_perm("accounts.view_user"))
 
     # Sortable columns — parity with the old django-tables2 table. Sorting is a
     # full-page reload (preserving search ``q``) so the inline dashboard JS

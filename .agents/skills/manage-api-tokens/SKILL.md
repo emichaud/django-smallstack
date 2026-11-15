@@ -23,7 +23,7 @@ The user mentions API tokens, Bearer tokens, "my Claude token", or wants to mint
 | "Mint a token for Claude / my script / CI" | `/smallstack/tokens/create/` |
 | "Revoke a leaked / old token" | Detail page → "Revoke" action |
 | "What's used this token in the last day?" | Detail page → Usage panel |
-| "Audit all tokens on the system" | Staff: `/smallstack/tokens/` (shows all); or `/explorer/auth/apitoken/` |
+| "Audit all tokens on the system" | Staff holding `smallstack.view_apitoken` (the **Token manager** group): `/smallstack/tokens/` (shows all); or `/explorer/auth/apitoken/` |
 | Scripted mint (CI / Makefile / .env build) | `manage.py create_api_token <username> --access-level readonly` |
 | OAuth flow from Claude Desktop | `/mcp/oauth/authorize` (consent page) — token shows up in `/smallstack/tokens/` after |
 | Direct REST mint with username/password | `POST /api/auth/token/` |
@@ -34,7 +34,7 @@ When recommending an action, check what the user's role can actually do:
 
 - **Anonymous** → recommend login first
 - **Authenticated (non-staff)** → mint **readonly** for **self** only; can revoke own tokens
-- **Staff** → mint **readonly** or **staff**; can revoke own tokens. Revoking someone else's needs `smallstack.change_apitoken` (the **Token manager** group), and only a superuser revokes a superuser's
+- **Staff** → mint **readonly** or **staff**; see and revoke own tokens. Seeing other accounts' tokens needs `smallstack.view_apitoken`. Revoking someone else's needs `smallstack.change_apitoken` (the **Token manager** group), and only a superuser revokes a superuser's
 - **Superuser** → mint **any** access level (`readonly` / `staff` / `auth`) for any user
 
 If they ask to mint a write-capable token but aren't staff, tell them they need staff escalation — don't try to work around the form.

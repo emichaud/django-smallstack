@@ -210,10 +210,14 @@ def test_the_report_command_exits_by_severity(capsys, staff):
 # --- pages --------------------------------------------------------------------------
 
 
-def test_pages_are_staff_only(client, staff):
+def test_pages_need_staff_and_view_user(client, staff):
     assert client.get(reverse("access:index")).status_code == 302
     client.force_login(User.objects.create_user("member", password="p"))
     assert client.get(reverse("access:index")).status_code == 403
+    client.force_login(staff)
+    assert client.get(reverse("access:index")).status_code == 403  # staff alone no longer reads (S2-1)
+    staff.user_permissions.add(perm("accounts.view_user"))
+    staff = User.objects.get(pk=staff.pk)
     client.force_login(staff)
     for name, kwargs in [
         ("index", {}),

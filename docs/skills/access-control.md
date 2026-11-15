@@ -146,10 +146,14 @@ with acting_as(None, "directory:entra"):
 | **Groups** / **Group** | Members (with who added them), permissions by app, drift from the declaration, the group's events |
 | **Changes** | Every event, filterable, exportable |
 
-**Reading the Access pages (and the REST reads) needs only the staff flag**:
-any staff account sees every account, permission and change. The *Access
-reviewer* group exists for accounts that read the same data through Django
-admin or Explorer, which check model permissions; it doesn't gate these pages.
+**Reading the Access pages, the REST reads and the MCP read tools needs a
+staff account holding `accounts.view_user`** (`services.can_read_access`;
+superusers always pass): reading access is reading accounts, the permission
+Django admin and Explorer ask for the same rows. The shipped *Access reviewer*
+and *User manager* groups grant it. The same rule holds for the User Manager's
+list and pages, `GET /api/auth/users/` and user search hits. Other accounts'
+API tokens (the Token Manager's list, detail and search hits) need
+`smallstack.view_apitoken` (the *Token manager* group); everyone sees their own.
 
 **Changing a membership** needs a staff account holding `accounts.change_user`,
 and, to **add** someone, every permission the group grants: a User manager
@@ -245,7 +249,7 @@ services.resolve_user("alice")         # username, email or id; LookupError on a
 ```
 
 **REST** (`/smallstack/api/access/`, tag *Access* in `/api/docs/`; reads need a
-staff account, any token tier):
+staff account holding `accounts.view_user`, any token tier; 403 says so otherwise):
 
 | | |
 |---|---|
@@ -257,8 +261,9 @@ staff account, any token tier):
 | `GET findings/` | the review, with `worst` |
 | `GET events/?who=&kind=&limit=` | the change log |
 
-**MCP.** Three read tools at the staff tier, `access_explain_user`,
-`access_check_permission`, `access_findings`, and one write tool that only
+**MCP.** Three read tools at the staff tier for callers holding
+`accounts.view_user` (hidden from, and refusing with `forbidden`, anyone else),
+`access_explain_user`, `access_check_permission`, `access_findings`, and one write tool that only
 *proposes*: `access_request_membership(username, group, member, reason)` files
 an `access.membership` approval (`apps/access/approvals.py`). Only that tool
 files the kind (it is registered with `remote_filing=False`, so the generic

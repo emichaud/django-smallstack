@@ -1,8 +1,10 @@
 """The Access pages at /smallstack/access/: who may do what, why, and every change.
 
-Staff may read all of it. Changing a membership needs ``accounts.change_user``
+Reading needs a staff account holding ``accounts.view_user`` (what Django
+admin and Explorer ask to list accounts; the *Access reviewer* and *User
+manager* groups grant it). Changing a membership needs ``accounts.change_user``
 (what Django admin asks for the same edit); revoking a token needs
-``smallstack.change_apitoken``. Superusers hold both.
+``smallstack.change_apitoken``. Superusers hold all three.
 """
 
 from __future__ import annotations
@@ -33,7 +35,7 @@ from apps.smallstack.stat_lists import render_stat_list, stat_list_row
 from . import services
 from .models import AccessEvent, ManagedGroup
 from .registry import Finding, declared_groups, run_checks
-from .services import CHANGE_MEMBERSHIP, REVOKE_TOKENS
+from .services import CHANGE_MEMBERSHIP, READ_ACCESS_REFUSAL, REVOKE_TOKENS, can_read_access
 from .signals import revoke_access
 
 User = get_user_model()
@@ -43,8 +45,26 @@ def can_change(user: Any) -> bool:
     return bool(user.has_perm(CHANGE_MEMBERSHIP))
 
 
+def access_reader_required(view_func: Any) -> Any:
+    """:func:`staff_required`, then ``accounts.view_user`` (superusers pass):
+    the read bar for the function views here."""
+    from functools import wraps
+
+    @staff_required
+    @wraps(view_func)
+    def _wrapped(request: HttpRequest, *args: Any, **kwargs: Any) -> HttpResponseBase:
+        if not can_read_access(request.user):
+            raise PermissionDenied(READ_ACCESS_REFUSAL)
+        return view_func(request, *args, **kwargs)
+
+    return _wrapped
+
+
 class AccessPageView(StaffRequiredMixin, TemplateView):
     page_size = 50
+
+    def test_func(self) -> bool:
+        return can_read_access(self.request.user)
 
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
         context = super().get_context_data(**kwargs)
@@ -81,7 +101,7 @@ class IndexView(AccessPageView):
         return context
 
 
-@staff_required
+@access_reader_required
 def finding_detail(request: HttpRequest, key: str) -> HttpResponse:
     """The rows behind one finding, for the stat modal."""
     finding: Finding | None = next((f for f in run_checks() if f.key == key), None)
@@ -91,7 +111,7 @@ def finding_detail(request: HttpRequest, key: str) -> HttpResponse:
     return render_stat_list(rows, empty=finding.summary)
 
 
-@staff_required
+@access_reader_required
 def stat_detail(request: HttpRequest, stat: str) -> HttpResponse:
     users = User.objects.filter(is_active=True).order_by("username")
     if stat == "staff":
@@ -409,7 +429,7 @@ def _csv_response(filename: str, header: list[str], rows: Any) -> StreamingHttpR
     return response
 
 
-@staff_required
+@access_reader_required
 def events_csv(request: HttpRequest) -> HttpResponseBase:
     header = ["at", "kind", "actor", "subject", "group", "permission", "source", "request_id", "detail"]
     rows = (
@@ -429,14 +449,14 @@ def events_csv(request: HttpRequest) -> HttpResponseBase:
     return _csv_response(f"access-events-{timezone.now():%Y%m%d}.csv", header, rows)
 
 
-@staff_required
+@access_reader_required
 def matrix_csv(request: HttpRequest) -> HttpResponseBase:
     return _csv_response(
         f"access-matrix-{timezone.now():%Y%m%d}.csv", list(services.MATRIX_COLUMNS), services.access_matrix_rows()
     )
 
 
-@staff_required
+@access_reader_required
 def snapshot_json(request: HttpRequest) -> HttpResponse:
     response = JsonResponse(services.snapshot(), json_dumps_params={"indent": 2})
     response["Content-Disposition"] = f'attachment; filename="access-snapshot-{timezone.now():%Y%m%d}.json"'

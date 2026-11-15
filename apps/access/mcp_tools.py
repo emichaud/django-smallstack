@@ -4,6 +4,9 @@
 - ``access_explain_user`` — flags, groups, every permission with its sources.
 - ``access_check_permission`` — ``has_perm`` plus the reasons.
 - ``access_findings`` — the least-privilege review.
+
+The three read tools need a staff caller holding ``accounts.view_user``
+(superusers pass), as the Access pages do; they're hidden from others.
 - ``access_request_membership`` — files an ``access.membership`` approval
   (see :mod:`apps.access.approvals`). The agent never writes membership: a
   person holding ``accounts.change_user`` approves, the change runs in their
@@ -64,6 +67,13 @@ def _err(code: str, message: str) -> dict[str, Any]:
     return {"error": {"code": code, "message": message}}
 
 
+def _read_refusal() -> dict[str, Any] | None:
+    """The read tools need ``accounts.view_user`` (``services.can_read_access``)."""
+    if services.can_read_access(getattr(current_context(), "user", None)):
+        return None
+    return _err("forbidden", services.READ_ACCESS_REFUSAL)
+
+
 @_register(
     "access_explain_user",
     (
@@ -79,8 +89,12 @@ def _err(code: str, message: str) -> dict[str, Any]:
         "additionalProperties": False,
     },
     requires_access="staff",
+    visible_to=services.can_read_access,
 )
 def access_explain_user(args: dict[str, Any]) -> dict[str, Any]:
+    refused = _read_refusal()
+    if refused:
+        return refused
     try:
         user = services.resolve_user(args.get("username"))
     except LookupError as exc:
@@ -105,8 +119,12 @@ def access_explain_user(args: dict[str, Any]) -> dict[str, Any]:
         "additionalProperties": False,
     },
     requires_access="staff",
+    visible_to=services.can_read_access,
 )
 def access_check_permission(args: dict[str, Any]) -> dict[str, Any]:
+    refused = _read_refusal()
+    if refused:
+        return refused
     perm = str(args.get("permission") or "").strip()
     if "." not in perm:
         return _err("bad_permission", "permission must be app_label.codename.")
@@ -126,8 +144,12 @@ def access_check_permission(args: dict[str, Any]) -> dict[str, Any]:
     ),
     {"type": "object", "properties": {}, "additionalProperties": False},
     requires_access="staff",
+    visible_to=services.can_read_access,
 )
 def access_findings(args: dict[str, Any]) -> dict[str, Any]:
+    refused = _read_refusal()
+    if refused:
+        return refused
     findings = run_checks()
     order = {"danger": 3, "warning": 2, "info": 1, "ok": 0}
     worst = max(findings, key=lambda f: order[f.severity], default=None)
