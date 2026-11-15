@@ -361,3 +361,64 @@ def test_a8_csv_exports_neutralise_formula_cells(client, staffer):
             for cell in line.split(","):
                 assert not cell.lstrip('"').startswith(("=", "+", "@")), line
     assert "'+1+evil" in matrix and "'=HYPERLINK" in events
+
+
+# --- A9: deleted accounts and groups keep their names on the record --------------------
+
+
+def test_a9_deletions_are_found_by_name_in_the_change_log(client, staffer):
+    from apps.access.models import AccessEvent
+
+    gone = User.objects.create_user("gone_user", password="p")
+    gone.delete()
+    Group.objects.create(name="gone_group").delete()
+    assert AccessEvent.objects.get(kind="user_deleted").subject_label == "gone_user"
+    assert AccessEvent.objects.get(kind="group_deleted").group_label == "gone_group"
+    client.force_login(staffer)
+    body = client.get("/smallstack/access/events.csv?who=gone_").getvalue().decode()
+    assert "user_deleted" in body and "group_deleted" in body
+
+
+# --- A10: the audit gaps ---------------------------------------------------------------
+
+
+def test_a10_reverse_side_permission_changes_are_recorded(alice, readers):
+    from apps.access.models import AccessEvent
+
+    p = perm("auth.change_group")
+    p.user_set.add(alice)
+    p.group_set.add(readers)
+    assert AccessEvent.objects.filter(kind="permission_added", subject=alice, permission="auth.change_group").exists()
+    assert AccessEvent.objects.filter(
+        kind="group_permission_added", group=readers, permission="auth.change_group"
+    ).exists()
+    p.user_set.remove(alice)
+    assert AccessEvent.objects.filter(kind="permission_removed", subject=alice, permission="auth.change_group").exists()
+
+
+def test_a10_rename_and_members_of_a_deleted_group_are_recorded(alice, readers):
+    from apps.access.models import AccessEvent
+
+    alice.groups.add(readers)
+    readers.name = "Renamed readers"
+    readers.save()
+    renamed = AccessEvent.objects.get(kind="group_renamed")
+    assert renamed.detail == {"from": "Readers", "to": "Renamed readers"}
+    readers.delete()
+    removed = AccessEvent.objects.get(kind="group_removed", subject=alice)
+    assert removed.group_label == "Renamed readers"
+
+
+def test_a10_an_audit_failure_does_not_lose_the_callers_change(alice):
+    from django.db import transaction
+
+    from apps.access.record import record
+
+    with transaction.atomic():
+        alice.first_name = "Kept"
+        alice.save()
+        assert record("group_added", subject=alice, detail={"bad": object()}) is None
+        alice.last_name = "Also kept"
+        alice.save()
+    alice.refresh_from_db()
+    assert (alice.first_name, alice.last_name) == ("Kept", "Also kept")

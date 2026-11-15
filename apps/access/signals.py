@@ -15,7 +15,7 @@ from typing import Any
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group, Permission
 from django.contrib.sessions.models import Session
-from django.db.models.signals import m2m_changed, post_delete, post_save, pre_save
+from django.db.models.signals import m2m_changed, post_delete, post_save, pre_delete, pre_save
 from django.dispatch import receiver
 from django.utils import timezone
 
@@ -60,9 +60,15 @@ def _user_groups_changed(
 def _user_permissions_changed(
     sender: Any, instance: Any, action: str, reverse: bool, pk_set: set[Any] | None, **kwargs: Any
 ) -> None:
-    if action not in ("post_add", "post_remove", "pre_clear") or reverse:
+    if action not in ("post_add", "post_remove", "pre_clear"):
         return
     kind = Kind.PERMISSION_REMOVED if action in ("post_remove", "pre_clear") else Kind.PERMISSION_ADDED
+    if reverse:  # perm.user_set.add(user): instance is the permission
+        name = f"{instance.content_type.app_label}.{instance.codename}"
+        users = User.objects.filter(pk__in=pk_set) if pk_set is not None else instance.user_set.all()
+        for user in users:
+            record(kind, subject=user, permission=name)
+        return
     pks = pk_set if pk_set is not None else set(instance.user_permissions.values_list("pk", flat=True))
     for name in _perm_names(pks):
         record(kind, subject=instance, permission=name)
@@ -72,9 +78,15 @@ def _user_permissions_changed(
 def _group_permissions_changed(
     sender: Any, instance: Any, action: str, reverse: bool, pk_set: set[Any] | None, **kwargs: Any
 ) -> None:
-    if action not in ("post_add", "post_remove", "pre_clear") or reverse:
+    if action not in ("post_add", "post_remove", "pre_clear"):
         return
     kind = Kind.GROUP_PERMISSION_REMOVED if action in ("post_remove", "pre_clear") else Kind.GROUP_PERMISSION_ADDED
+    if reverse:  # perm.group_set.add(group): instance is the permission
+        name = f"{instance.content_type.app_label}.{instance.codename}"
+        groups = Group.objects.filter(pk__in=pk_set) if pk_set is not None else instance.group_set.all()
+        for group in groups:
+            record(kind, group=group, permission=name)
+        return
     pks = pk_set if pk_set is not None else set(instance.permissions.values_list("pk", flat=True))
     for name in _perm_names(pks):
         record(kind, group=instance, permission=name)
@@ -117,18 +129,41 @@ def _record_flags(sender: Any, instance: Any, created: bool, raw: bool = False, 
 
 @receiver(post_delete, sender=User, dispatch_uid="access_user_deleted")
 def _user_deleted(sender: Any, instance: Any, **kwargs: Any) -> None:
-    record(Kind.USER_DELETED, subject=None, detail={"username": instance.get_username(), "pk": instance.pk})
+    name = instance.get_username()
+    record(Kind.USER_DELETED, subject=None, subject_label=name, detail={"username": name, "pk": instance.pk})
+
+
+@receiver(pre_save, sender=Group, dispatch_uid="access_group_name_before")
+def _remember_group_name(sender: Any, instance: Group, raw: bool = False, **kwargs: Any) -> None:
+    before = Group.objects.filter(pk=instance.pk).values_list("name", flat=True).first() if instance.pk else None
+    setattr(instance, "_access_name_before", before)
 
 
 @receiver(post_save, sender=Group, dispatch_uid="access_group_created")
 def _group_created(sender: Any, instance: Group, created: bool, raw: bool = False, **kwargs: Any) -> None:
-    if created and not raw:
+    if raw:
+        return
+    if created:
         record(Kind.GROUP_CREATED, group=instance)
+        return
+    before = getattr(instance, "_access_name_before", None)
+    if before is not None and before != instance.name:
+        record(Kind.GROUP_RENAMED, group=instance, detail={"from": before, "to": instance.name})
+
+
+@receiver(pre_delete, sender=Group, dispatch_uid="access_group_members_removed")
+def _group_members_removed(sender: Any, instance: Group, **kwargs: Any) -> None:
+    """Deleting a group drops its members' rows without an m2m signal: record
+    each account's removal while the members can still be read."""
+    for user in instance.user_set.all():
+        record(Kind.GROUP_REMOVED, subject=user, group=None, group_label=instance.name, detail={"group_deleted": True})
 
 
 @receiver(post_delete, sender=Group, dispatch_uid="access_group_deleted")
 def _group_deleted(sender: Any, instance: Group, **kwargs: Any) -> None:
-    record(Kind.GROUP_DELETED, group=None, detail={"group": instance.name, "pk": instance.pk})
+    record(
+        Kind.GROUP_DELETED, group=None, group_label=instance.name, detail={"group": instance.name, "pk": instance.pk}
+    )
 
 
 def revoke_access(user: Any) -> dict[str, int]:

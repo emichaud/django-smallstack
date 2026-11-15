@@ -43,6 +43,7 @@ class AccessEvent(models.Model):
         SESSIONS_ENDED = "sessions_ended", "Sessions ended"
         GROUP_CREATED = "group_created", "Group created"
         GROUP_DELETED = "group_deleted", "Group deleted"
+        GROUP_RENAMED = "group_renamed", "Group renamed"
         USER_CREATED = "user_created", "Account created"
         USER_DELETED = "user_deleted", "Account deleted"
 

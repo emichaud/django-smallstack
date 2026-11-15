@@ -18,6 +18,7 @@ import logging
 from typing import Any
 
 from django.contrib.auth.models import Group
+from django.db import transaction
 
 from apps.smallstack.audit import CHANGE, log_action
 from apps.smallstack.logging import get_request_id
@@ -46,25 +47,33 @@ def record(
     detail: dict[str, Any] | None = None,
     actor: Any = None,
     source: str = "",
+    subject_label: str = "",
+    group_label: str = "",
 ) -> AccessEvent | None:
     """Record an access change. ``actor`` and ``source`` default to the
-    current request's (see :mod:`apps.access.context`)."""
+    current request's (see :mod:`apps.access.context`). ``subject_label`` /
+    ``group_label`` name an account or group that is already gone (a delete),
+    so the change log's filter and search still find it.
+
+    The insert runs in its own savepoint: a failure rolls back only the
+    audit row, never the caller's transaction (and the change it records)."""
     actor = actor if actor is not None else current_actor()
     source = source or current_source()
     try:
-        event = AccessEvent.objects.create(
-            kind=kind,
-            actor=actor,
-            actor_label=_label(actor),
-            subject=subject,
-            subject_label=_label(subject),
-            group=group,
-            group_label=_label(group),
-            permission=permission,
-            source=source[:200],
-            request_id=get_request_id()[:64],
-            detail=detail or {},
-        )
+        with transaction.atomic():
+            event = AccessEvent.objects.create(
+                kind=kind,
+                actor=actor,
+                actor_label=_label(actor),
+                subject=subject,
+                subject_label=(_label(subject) or subject_label)[:150],
+                group=group,
+                group_label=(_label(group) or group_label)[:150],
+                permission=permission,
+                source=source[:200],
+                request_id=get_request_id()[:64],
+                detail=detail or {},
+            )
     except Exception:
         logger.exception("access: could not record %s for %s", kind, _label(subject) or _label(group))
         return None
@@ -116,6 +125,8 @@ def _message(event: AccessEvent) -> str:
         return f"{who} revoked API token {event.detail.get('token', '')!r} of {subject}"
     if kind == AccessEvent.Kind.SESSIONS_ENDED:
         return f"{who} ended {event.detail.get('count', 0)} session(s) of {subject}"
+    if kind == AccessEvent.Kind.GROUP_RENAMED:
+        return f"{who} renamed group {event.detail.get('from', '')!r} to {group!r}"
     if kind in (AccessEvent.Kind.GROUP_CREATED, AccessEvent.Kind.GROUP_DELETED):
         return f"{who} {'created' if kind == AccessEvent.Kind.GROUP_CREATED else 'deleted'} group {group!r}"
     verbs = {
