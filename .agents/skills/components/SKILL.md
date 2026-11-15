@@ -92,18 +92,18 @@ Card with header actions (flex layout on card-header is acceptable):
 
 For lighter dashboard tables, use `class="table-plain"`.
 
-### django-tables2
+### CRUDView tables
+
+A CRUDView's list table is its own (django-tables2 was removed in 0.12.0): choose the columns
+with `list_fields` and the linked column with `link_field`, and shape cells with
+`field_transforms`. See `docs/skills/crud-views.md`.
 
 ```python
-class WidgetTable(tables.Table):
-    name = DetailLinkColumn(url_base="manage/widgets", link_view="update")
-    is_active = BooleanColumn(verbose_name="Active")
-    actions = ActionsColumn(url_base="manage/widgets")
-
-    class Meta:
-        model = Widget
-        fields = ("name", "is_active", "created_at")
-        attrs = {"class": "crud-table"}
+class WidgetCRUDView(CRUDView):
+    model = Widget
+    fields = ["name", "is_active"]
+    list_fields = ["name", "is_active", "created_at"]
+    link_field = "name"
 ```
 
 ## Stat Cards
