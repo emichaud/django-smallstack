@@ -445,3 +445,21 @@ def test_describe_marks_writable_fields():
     assert svc["writable"] is False
     name = next(f for f in d["fields"] if f["name"] == "name")
     assert name["writable"] is True
+
+
+@pytest.mark.django_db
+def test_sc_refuses_to_act_as_an_inactive_account():
+    """B9 (R2-8): `--user` naming a deactivated account is refused, so nothing is
+    deleted and no audit entry carries its name."""
+    from django.contrib.admin.models import LogEntry
+    from django.contrib.auth import get_user_model
+    from django.core.management import CommandError, call_command
+
+    from apps.webhooks.models import WebhookReceiver
+
+    gone = get_user_model().objects.create_user("b9-gone", password="p", is_staff=True, is_active=False)
+    rcv = WebhookReceiver.objects.create(name="b9", slug="b9")
+    with pytest.raises(CommandError, match="deactivated"):
+        call_command("sc", "rm", "webhooks.webhookreceiver", str(rcv.pk), "--force", "--user", gone.username)
+    assert WebhookReceiver.objects.filter(pk=rcv.pk).exists()
+    assert not LogEntry.objects.filter(user=gone).exists()
