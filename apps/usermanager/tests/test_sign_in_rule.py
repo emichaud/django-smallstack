@@ -221,3 +221,18 @@ def test_g2_3_explorer_edit_changes_a_narrower_accounts_email(manager, narrow):
     )
     assert resp.status_code == 302
     assert _fresh(narrow).email == "kim3@acme.test"
+
+
+# --- sc CLI --------------------------------------------------------------------
+
+
+def test_g2_3_sc_follows_the_rule_and_still_works_for_a_superuser(manager, god, narrow):
+    from django.core.management import call_command
+
+    root = User.objects.create_superuser("root", password="pw")
+    call_command("sc", "set", "accounts.user", str(narrow.pk), "--email=kim9@acme.test", "--user", root.username)
+    assert _fresh(narrow).email == "kim9@acme.test"
+    call_command("sc", "set", "accounts.user", str(god.pk), "--email=mine@evil.test", "--user", manager.username)
+    assert _fresh(god).email == "god@acme.test"
+    call_command("sc", "new", "accounts.user", "--username=neo", "--is_staff=true", "--user", root.username)
+    assert User.objects.get(username="neo").is_staff is True

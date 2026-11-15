@@ -37,7 +37,7 @@ from apps.smallstack.api import apply_filters, apply_ordering, apply_search, ser
 from apps.smallstack.audit import ADDITION, CHANGE, DELETION, log_write
 from apps.smallstack.cli_format import json_dump, table
 from apps.smallstack.crud import CRUDView
-from apps.smallstack.form_bridge import merge_form_payload
+from apps.smallstack.form_bridge import build_form, merge_form_payload
 
 # Never emitted by the CLI, even when a view falls back to "all concrete fields" for
 # detail: a password hash in --json (which gets piped/logged) is a sharp edge, and the
@@ -566,7 +566,9 @@ class Command(BaseCommand):
         request = self._fake_request(actor)
         # Omitted fields fall back to model defaults (mirrors REST/MCP create) —
         # so e.g. a BooleanField(default=True) isn't silently created as False.
-        form = form_class(merge_form_payload(form_class, fields, fill_defaults=True))
+        # build_form passes --user to a form that takes ``user=`` (scoped
+        # choices, the account rules), as REST and MCP do.
+        form = build_form(form_class, merge_form_payload(form_class, fields, fill_defaults=True), user=actor)
         if not form.is_valid():
             self._fail_form(form)
         try:
@@ -614,7 +616,7 @@ class Command(BaseCommand):
             instance_fields=view.fields or view._get_detail_fields(),
         )
 
-        form = form_class(merged, instance=obj)
+        form = build_form(form_class, merged, instance=obj, user=actor)
         if not form.is_valid():
             self._fail_form(form)
         try:
