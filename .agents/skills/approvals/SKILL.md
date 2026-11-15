@@ -98,8 +98,9 @@ Remote surfaces (both route through the same service):
   `{"kind": …, "title": …, "context": {…}, "target": "app_label.model:pk",
   "assignees": ["username"], "expires_in_minutes": …}` → 201.
   Unknown kind → 400 listing the registered kinds. Readonly tokens can't file.
+  A kind registered with `remote_filing=False` → 403.
 - **MCP** — the `request_approval` tool (any token tier; write-gated), then
-  poll `get_approval` until `terminal` is true.
+  poll `get_approval` until its `status` is no longer `pending`.
 
 Both remote surfaces accept `target` and `assignees`, so a client does **not**
 need an app-specific filing endpoint to point an approval at a business row:

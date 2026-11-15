@@ -446,3 +446,16 @@ def test_a11_dormancy_all_clear_does_not_claim_never_signed_in_accounts_signed_i
     assert "never signed in" in member.summary
     privileged = dormant_privileged()
     assert "signed in within" not in privileged.summary and "never signed in" in privileged.summary
+
+
+# --- A13: request_approval's polling instruction names a real field -------------------
+
+
+def test_a13_request_approval_polls_on_a_field_get_approval_returns(staffer):
+    from apps.mcp.server import TOOL_REGISTRY
+
+    description = TOOL_REGISTRY["request_approval"].description
+    req = approvals.request_approval(kind="x.y", title="t", actor=staffer)
+    polled = run_tool("get_approval", {"id": req.pk}, user=staffer)
+    assert "terminal" not in polled and "'terminal'" not in description
+    assert "'status' is no longer 'pending'" in description and polled["status"] == "pending"
