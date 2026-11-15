@@ -21,7 +21,12 @@ User = get_user_model()
 
 @pytest.fixture
 def staff(db):
-    return User.objects.create_user("boss", email="boss@acme.com", password="pw", is_staff=True)
+    from django.contrib.auth.models import Permission
+
+    # Inviting needs accounts.add_user (G2-1), like the User Manager's create page.
+    user = User.objects.create_user("boss", email="boss@acme.com", password="pw", is_staff=True)
+    user.user_permissions.add(Permission.objects.get(content_type__app_label="accounts", codename="add_user"))
+    return user
 
 
 def _accept_url(user):

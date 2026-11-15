@@ -54,7 +54,10 @@ def test_sign_up(client, logged):
 
 
 def test_invite_sent_and_accepted(client, logged):
+    from django.contrib.auth.models import Permission
+
     staff = User.objects.create_user("boss", password=PASSWORD, is_staff=True)
+    staff.user_permissions.add(Permission.objects.get(content_type__app_label="accounts", codename="add_user"))
     client.force_login(staff)
     client.post(reverse("accounts:invite"), {"email": "new@acme.com"})
     invited = User.objects.get(email="new@acme.com")

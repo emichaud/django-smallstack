@@ -57,6 +57,10 @@ Don't scrape the dev console — read `mail.outbox`, and pull the link/code stra
 from django.core import mail
 
 def test_invite_emails_a_set_password_link(client, staff_user):
+    from django.contrib.auth.models import Permission
+
+    # Inviting needs accounts.add_user, not just the staff flag.
+    staff_user.user_permissions.add(Permission.objects.get(codename="add_user", content_type__app_label="accounts"))
     client.force_login(staff_user)
     client.post(reverse("accounts:invite"), {"email": "new@acme.com"})
 

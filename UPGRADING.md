@@ -40,6 +40,10 @@ permissions still see the pages, read-only. If people on your team managed accou
 staff flag alone, add them to the shipped **User manager** group (`add_user` + `change_user`) — or
 give `delete_user` directly to whoever should delete accounts — before you deploy.
 
+**Inviting by email now asks for the same permission.** `/smallstack/accounts/invite/` needs
+`accounts.add_user`, and ticking *Grant staff access* there also needs `accounts.change_user`. Staff
+who sent invites with the staff flag alone belong in the **User manager** group.
+
 **Adding someone to a group now needs every permission the group grants.** On the Access pages, REST,
 approvals and the CLI, an actor holding `accounts.change_user` may add a member only to a group whose
 permissions they hold themselves (superusers: any group). Removal is unchanged.

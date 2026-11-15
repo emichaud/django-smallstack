@@ -24,8 +24,9 @@
         </a>
         {% if create_view_url %}
         <a href="{{ create_view_url }}" class="btn-tint">+ Add User</a>
-        {% endif %}
+        {# Inviting needs add_user, the same permission as the Add User page. #}
         <a href="{% url 'accounts:invite' %}" class="btn-primary">✉ Invite User</a>
+        {% endif %}
     </div>
 </div>
 {% endblock %}

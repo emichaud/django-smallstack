@@ -121,12 +121,43 @@ def send_setup_or_reset(request, user) -> str | None:
     return "reset"
 
 
+#: Inviting creates an active account, so it asks what the User Manager's
+#: create page asks (``accounts.add_user``); making the invitee staff also
+#: needs ``accounts.change_user``, the permission that sets the staff flag.
+INVITE_PERMISSION = "accounts.add_user"
+INVITE_STAFF_PERMISSION = "accounts.change_user"
+
+
+def can_invite(user) -> bool:
+    """Whether ``user`` may use the invite page (active staff with ``add_user``)."""
+    return bool(
+        getattr(user, "is_authenticated", False)
+        and user.is_active
+        and user.is_staff
+        and user.has_perm(INVITE_PERMISSION)
+    )
+
+
 class InviteUserView(StaffRequiredMixin, FormView):
-    """Staff create a user by email; the user sets their own password via link."""
+    """Staff create a user by email; the user sets their own password via link.
+
+    Needs ``accounts.add_user`` (superusers hold it); the "Grant staff access"
+    box is offered only with ``accounts.change_user`` as well, and a posted
+    ``is_staff`` is ignored without it. The form has no superuser field, so an
+    invite never creates a superuser."""
 
     template_name = "registration/invite_form.html"
     form_class = InviteUserForm
     success_url = reverse_lazy("manage/users-list")
+
+    def test_func(self) -> bool:
+        return can_invite(self.request.user)
+
+    def get_form(self, form_class=None):
+        form = super().get_form(form_class)
+        if not self.request.user.has_perm(INVITE_STAFF_PERMISSION):
+            form.fields.pop("is_staff", None)
+        return form
 
     def form_valid(self, form):
         User = get_user_model()

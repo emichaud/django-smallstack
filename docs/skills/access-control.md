@@ -161,6 +161,8 @@ removing needs only the first rule. The same rule applies on every surface
 creating needs `accounts.add_user`, editing (fields, staff and active flags, a
 reset link, an unlock) needs `accounts.change_user`, deleting needs
 `accounts.delete_user`; only a superuser may change a superuser's account.
+Inviting by email (`/smallstack/accounts/invite/`) needs `accounts.add_user`
+too, and making the invitee staff there needs `accounts.change_user`.
 Staff without them see the pages read-only. In Django admin, only a superuser
 may set *Superuser status*, *Groups* or *User permissions*.
 
