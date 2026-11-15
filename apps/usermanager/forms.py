@@ -4,6 +4,7 @@ from django import forms
 from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import validate_password
 
+from apps.accounts.forms import SignInFieldsLockMixin
 from apps.profile.models import UserProfile
 
 User = get_user_model()
@@ -53,8 +54,9 @@ class UserCreateForm(forms.ModelForm):
         return user
 
 
-class UserAccountForm(forms.ModelForm):
-    """Account tab: core User model fields."""
+class UserAccountForm(SignInFieldsLockMixin, forms.ModelForm):
+    """Account tab: core User model fields. The username and email are locked
+    for an editor the subset rule refuses (see ``SignInFieldsLockMixin``)."""
 
     class Meta:
         model = User
@@ -63,6 +65,8 @@ class UserAccountForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         for name, field in self.fields.items():
+            if field.disabled:
+                continue  # its help text says why; an empty field shouldn't repeat it as a placeholder
             if field.help_text and not isinstance(field.widget, (forms.CheckboxInput, forms.Select)):
                 field.widget.attrs.setdefault("placeholder", str(field.help_text))
 

@@ -53,6 +53,15 @@ def can_edit_account(actor: Any, target: Any) -> bool:
     return not target.is_superuser or actor.is_superuser
 
 
+def sign_in_refusal(actor: Any, target: Any) -> str:
+    """Why ``actor`` may not change ``target``'s password, email or username
+    or send it a link, beyond :func:`can_edit_account` ("" when they may):
+    the subset rule in :func:`apps.access.services.sign_in_refusal`."""
+    from apps.access.services import sign_in_refusal as rule
+
+    return rule(actor, target)
+
+
 def _active_superuser_count(exclude_pk=None) -> int:
     qs = User.objects.filter(is_superuser=True, is_active=True)
     if exclude_pk is not None:
@@ -217,6 +226,7 @@ class UserCRUDView(CRUDView):
                 from apps.access.services import user_access_summary
 
                 context["access_summary"] = user_access_summary(user_obj)
+                context["sign_in_refusal"] = sign_in_refusal(self.request.user, user_obj)
 
                 if not context["can_edit_account"]:
                     for each in (context.get("form"), context.get("profile_form")):
@@ -233,6 +243,14 @@ class UserCRUDView(CRUDView):
                     if self.object.is_superuser and request.user.has_perm(CHANGE_USER):
                         return HttpResponseForbidden("Only a superuser can change a superuser account.")
                     return HttpResponseForbidden(f"Changing an account needs the {CHANGE_USER} permission.")
+                refusal = sign_in_refusal(request.user, self.object)
+                if refusal:
+                    from apps.access.services import SIGN_IN_FIELDS
+
+                    for name in SIGN_IN_FIELDS:
+                        posted = request.POST.get(name)
+                        if posted is not None and posted.strip() != (getattr(self.object, name) or ""):
+                            return HttpResponseForbidden(refusal)
                 # Capture the ORIGINAL flag values before form validation —
                 # form.is_valid() runs construct_instance(), which mutates
                 # self.object to the submitted values, so reading them after
@@ -468,6 +486,9 @@ def send_user_link(request, pk: int) -> HttpResponse:
     user = get_object_or_404(User, pk=pk)
     if not can_edit_account(request.user, user):
         raise PermissionDenied(f"Sending a link needs {CHANGE_USER} (and a superuser, for a superuser's account).")
+    refusal = sign_in_refusal(request.user, user)
+    if refusal:
+        raise PermissionDenied(refusal)
     kind = send_setup_or_reset(request, user)
     if kind == "invite":
         messages.success(request, f"Invite link sent to {user.email}.")

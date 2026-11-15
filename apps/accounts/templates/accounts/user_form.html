@@ -354,6 +354,14 @@
         <div class="card" style="margin-top: 1.5rem; max-width: 760px;">
             <div class="card-header"><h2 style="margin: 0;">Account actions</h2></div>
             <div class="card-body" style="display: flex; flex-wrap: wrap; gap: 2rem; align-items: flex-start;">
+                {% if sign_in_refusal %}
+                <div style="margin: 0; max-width: 280px;">
+                    <button type="button" class="btn-tint" disabled>
+                        {% if object.has_usable_password %}Send password reset link{% else %}Resend invite link{% endif %}
+                    </button>
+                    <div style="font-size: 0.78rem; color: var(--body-quiet-color); margin-top: 6px;">{{ sign_in_refusal }}</div>
+                </div>
+                {% else %}
                 <form method="post" action="{% url 'manage/users-send-link' object.pk %}" style="margin: 0;">
                     {% csrf_token %}
                     <button type="submit" class="btn-tint">
@@ -363,6 +371,7 @@
                         {% if object.has_usable_password %}Emails {{ object.email|default:"this user" }} a link to choose a new password.{% else %}This user hasn't set a password yet — resend their set-password invite.{% endif %}
                     </div>
                 </form>
+                {% endif %}
                 <form method="post" action="{% url 'manage/users-unlock' object.pk %}" style="margin: 0;">
                     {% csrf_token %}
                     <button type="submit" class="btn-tint">Unlock account</button>

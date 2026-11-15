@@ -167,11 +167,12 @@ See the [Building CRUD Pages](/smallstack/help/smallstack/building-crud-pages/) 
 
 ## Access Control
 
-All user manager views require staff status:
+Every user manager view needs a staff account, and then Django's user permissions:
 
-- **List, Create, Update, Delete** — `StaffRequiredMixin` via CRUDView
-- **Stat detail endpoint** — `@staff_member_required` decorator
-- **Timezone dashboard** — `StaffRequiredMixin`
+- **Create** needs `accounts.add_user`
+- **Edit** (the fields, the staff and active flags, *Send link*, *Unlock*) needs `accounts.change_user`; only a superuser changes a superuser's account
+- **Delete** needs `accounts.delete_user`
+- **Another account's username, email, or a password link** also needs every permission that account holds (you can't take over an account wider than your own); the fields are locked, with the reason, otherwise
 
 The sidebar shows the Users link only inside the `{% if user.is_staff %}` block.
 

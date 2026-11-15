@@ -181,7 +181,9 @@ These endpoints handle user lifecycle operations. All are `@csrf_exempt` for cro
 
 Every "auth-level token" row also needs the token's **owner** to be active staff, and each write
 needs the user model's permission shown (`accounts.add_user` / `accounts.change_user`), the same bar
-as the User Manager. Only a superuser's token may change a superuser's account. An auth-level token
+as the User Manager. Only a superuser's token may change a superuser's account. Setting another
+account's password, or changing its `email` with `PATCH`, also needs the owner to hold every
+permission that account holds (the subset rule; 403 names the missing ones). An auth-level token
 can be minted only by a superuser, and its level can't be changed afterwards. Account changes made
 through these endpoints are recorded in Access with the token's owner as the actor (source
 `rest:<path>`).

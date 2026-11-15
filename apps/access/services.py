@@ -315,6 +315,54 @@ def permissions_actor_lacks_for_user(actor: Any, user: Any) -> list[str]:
     return _beyond(actor, set(user.get_all_permissions()) if user.is_active else set())
 
 
+def _held_even_if_inactive(user: Any) -> set[str]:
+    """What ``user`` holds, or would hold again once reactivated: an inactive
+    account has no permissions for ``has_perm``, but taking over its sign-in
+    and then reactivating it hands over everything its groups grant."""
+    held = {grant.perm for grant in effective_permissions(user)}
+    if user.is_active:
+        held |= set(user.get_all_permissions())  # custom backends count too
+    return held
+
+
+def sign_in_refusal(actor: Any, target: Any) -> str:
+    """Why ``actor`` may not change ``target``'s password, email or username,
+    or send it a set-password link, or "" when they may.
+
+    Whoever controls an account's sign-in acts with all of its permissions,
+    so this is the subset rule group membership and minting use: the actor
+    must hold every permission the target holds (inactive targets included,
+    by what their groups would give back). Only a superuser does this to a
+    superuser, and your own account is always yours. The caller still asks
+    its own bar (``accounts.change_user`` and staff) first."""
+    if getattr(actor, "pk", None) is not None and actor.pk == target.pk:
+        return ""
+    actor_is_superuser = bool(getattr(actor, "is_superuser", False) and actor.is_active)
+    name = target.get_username()
+    if target.is_superuser:
+        if actor_is_superuser:
+            return ""
+        return (
+            f"Only a superuser may change {name}'s password, email or username, "
+            f"or send it a password link: {name} is a superuser."
+        )
+    missing = _beyond(actor, _held_even_if_inactive(target))
+    if not missing:
+        return ""
+    shown = ", ".join(missing[:10]) + (f" and {len(missing) - 10} more" if len(missing) > 10 else "")
+    return (
+        f"You can't change {name}'s password, email or username, or send it a password link: {name} holds "
+        f"{len(missing)} permission{'s' if len(missing) != 1 else ''} you don't ({shown}). Whoever controls an "
+        "account's sign-in acts with all of its permissions, so only someone holding every permission it holds "
+        "(or a superuser) may do this."
+    )
+
+
+#: The account fields that decide who can sign in as it: a new email takes the
+#: password-reset link, a new username the login.
+SIGN_IN_FIELDS = ("username", "email")
+
+
 def _beyond(actor: Any, granted: set[str]) -> list[str]:
     if getattr(actor, "is_superuser", False) and actor.is_active:
         return []

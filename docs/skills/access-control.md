@@ -165,6 +165,11 @@ superuser's.
 creating needs `accounts.add_user`, editing (fields, staff and active flags, a
 reset link, an unlock) needs `accounts.change_user`, deleting needs
 `accounts.delete_user`; only a superuser may change a superuser's account.
+**Who can sign in as an account is the subset rule too:** changing another
+account's password, email or username, or sending it a password link, also
+needs every permission that account holds (`services.sign_in_refusal`; your
+own account is exempt). That applies on the User Manager, `/api/auth/users/`,
+Django admin and Explorer; the fields are locked, with the reason, otherwise.
 Inviting by email (`/smallstack/accounts/invite/`) needs `accounts.add_user`
 too, and making the invitee staff there needs `accounts.change_user`.
 Staff without them see the pages read-only. In Django admin, only a superuser

@@ -75,6 +75,15 @@ manages accounts with an auth-level token owned by a plain staff account gets 40
 the shipped **User manager** group. A token's `access_level` can no longer be edited after it is made;
 mint a new token instead.
 
+**Changing another account's password, email or username needs every permission that account holds.**
+The User Manager (edit and *Send link*), `/api/auth/users/<id>/password/`, a `PATCH` of `email` on
+`/api/auth/users/<id>/`, Django admin's password form and user form, and Explorer's user form now refuse
+it (with the missing permissions named) unless the actor holds all of the account's permissions or is a
+superuser. A User manager can still edit the name and the staff and active flags of a wider account.
+Have a superuser (or someone holding the account's permissions) reset the passwords of privileged
+accounts; a server that rotates service-account passwords over the API needs a token owner holding
+everything those accounts hold.
+
 **If your project records access changes itself** (a signal on `user.groups`, a custom audit of the
 staff flag), it now does so twice; keep yours only if it records something these events don't.
 

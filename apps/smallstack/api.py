@@ -487,6 +487,17 @@ def _require_auth_token(request, action: str | None = None, target: Any = None):
     return None
 
 
+def _require_sign_in_rule(request, target: Any):
+    """Refuse (403, with the reason) a change to ``target``'s password, email
+    or username unless the token's owner holds every permission ``target``
+    holds: whoever controls the sign-in acts as the account. Asked after
+    :func:`_require_auth_token`, so the owner is known to be staff."""
+    from apps.access.services import sign_in_refusal
+
+    refusal = sign_in_refusal(request._api_token.user, target)
+    return _error(refusal, 403) if refusal else None
+
+
 # ---------------------------------------------------------------------------
 # JSON body parsing
 # ---------------------------------------------------------------------------
@@ -1946,7 +1957,7 @@ def api_auth_user_password(request: HttpRequest, user_id: int) -> JsonResponse:
         target_user = User.objects.get(pk=user_id)
     except User.DoesNotExist:
         return _error("User not found", 404)
-    perm_err = _require_auth_token(request, "change", target_user)
+    perm_err = _require_auth_token(request, "change", target_user) or _require_sign_in_rule(request, target_user)
     if perm_err:
         return perm_err
 
@@ -2105,6 +2116,11 @@ def api_auth_user_detail(request: HttpRequest, user_id: int) -> JsonResponse:
     perm_err = _require_auth_token(request, "change", target)
     if perm_err:
         return perm_err
+    # A new email takes the password-reset link: the subset rule.
+    if "email" in data and (data["email"] or "") != (target.email or ""):
+        perm_err = _require_sign_in_rule(request, target)
+        if perm_err:
+            return perm_err
 
     update_fields = []
     for field, value in data.items():

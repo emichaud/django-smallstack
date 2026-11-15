@@ -44,6 +44,43 @@ class InviteUserForm(forms.Form):
         return email
 
 
+class SignInFieldsLockMixin:
+    """For a ModelForm over an existing account: the username and email
+    (``apps.access.services.SIGN_IN_FIELDS``) decide who can sign in as it, so
+    they're disabled, with the reason as help text, unless ``user`` passes the
+    subset rule (:func:`apps.access.services.sign_in_refusal`). A disabled
+    field keeps its stored value whatever is posted. Built without a ``user``
+    on an existing account, the fields are locked (fail closed)."""
+
+    def __init__(self, *args, user=None, **kwargs):
+        super().__init__(*args, **kwargs)  # type: ignore[call-arg]
+        instance = getattr(self, "instance", None)
+        if instance is None or instance.pk is None:
+            return
+        from apps.access.services import SIGN_IN_FIELDS, sign_in_refusal
+
+        if user is None:
+            refusal = "Changing the username or email needs to know who is asking."
+        else:
+            refusal = sign_in_refusal(user, instance)
+        if not refusal:
+            return
+        for name in SIGN_IN_FIELDS:
+            field = self.fields.get(name)  # type: ignore[attr-defined]
+            if field is not None:
+                field.disabled = True
+                field.help_text = refusal
+
+
+class UserExplorerForm(SignInFieldsLockMixin, forms.ModelForm):
+    """Explorer's account form: the fields Explorer edits, with the username
+    and email locked for an editor the subset rule refuses."""
+
+    class Meta:
+        model = User
+        fields = ["username", "email", "first_name", "last_name", "is_staff", "is_active"]
+
+
 class SignupForm(UserCreationForm):
     """
     Form for user registration.
