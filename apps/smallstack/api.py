@@ -1116,11 +1116,17 @@ def _make_api_detail_view(crud_config):
             return _error("Not found", 404)
         # Authorization: the second half of the single-object contract. Views that
         # opt out of the read scoper express ownership here instead, and the hook
-        # must hold on every surface or it is not a gate. PermissionDenied /
-        # Http404 are translated to the envelope by api_view.
+        # must hold on every surface or it is not a gate. Its PermissionDenied /
+        # Http404 become the JSON error envelope here (this view isn't wrapped
+        # by api_view, so left alone they would render Django's HTML pages).
         _check = getattr(crud_config, "check_object_permission", None)
         if _check:
-            _check(obj, request)
+            try:
+                _check(obj, request)
+            except PermissionDenied as exc:
+                return _error(str(exc) or "Permission denied", 403)
+            except Http404:
+                return _error("Not found", 404)
 
         if request.method == "GET":
             fields = crud_config._get_detail_fields() or crud_config.fields
@@ -1138,7 +1144,10 @@ def _make_api_detail_view(crud_config):
                 return _error("Method not allowed", 405)
             if not crud_config.can_delete(obj, request):
                 return _error("Permission denied", 403)
-            crud_config.check_cascade_permission(obj, request)
+            try:
+                crud_config.check_cascade_permission(obj, request)
+            except PermissionDenied as exc:
+                return _error(str(exc) or "Permission denied", 403)
             log_write(request.user, obj, DELETION, "REST API")  # before delete
             from django.db import transaction
 
