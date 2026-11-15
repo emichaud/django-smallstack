@@ -228,3 +228,55 @@ def test_a3_a_user_manager_edits_accounts_but_not_a_superusers(client, um, alice
     assert root.email != "evil@example.com"
     # Deleting needs delete_user, which the User manager group doesn't grant.
     assert client.post(f"/smallstack/manage/users/{alice.pk}/delete/").status_code == 403
+
+
+# --- A4: Django admin's user form ---------------------------------------------------
+
+
+def _admin_change(client, target, **extra):
+    data = {
+        "username": target.username,
+        "first_name": "",
+        "last_name": "",
+        "email": target.email or "",
+        "is_active": "on",
+        "is_staff": "on",
+        "date_joined_0": "2026-01-01",
+        "date_joined_1": "00:00:00",
+        "initial-date_joined_0": "2026-01-01",
+        "initial-date_joined_1": "00:00:00",
+    }
+    data.update(extra)
+    return client.post(f"/admin/accounts/user/{target.pk}/change/", data)
+
+
+def test_a4_a_change_user_holder_cannot_make_themselves_superuser_in_admin(client, um, powerful):
+    client.force_login(um)
+    page = client.get(f"/admin/accounts/user/{um.pk}/change/").content.decode()
+    assert 'name="is_superuser"' not in page and 'name="groups"' not in page
+    assert 'name="user_permissions"' not in page
+    resp = _admin_change(
+        client, um, is_superuser="on", groups=[powerful.pk], user_permissions=[perm("auth.change_group").pk]
+    )
+    assert resp.status_code == 302
+    um.refresh_from_db()
+    assert not um.is_superuser and not um.groups.exists()
+    assert not um.user_permissions.filter(codename="change_group").exists()
+    assert um.user_permissions.filter(codename="change_user").exists()  # kept, not wiped
+
+
+def test_a4_a_superuser_still_edits_those_fields(client, root, alice, readers):
+    client.force_login(root)
+    page = client.get(f"/admin/accounts/user/{alice.pk}/change/").content.decode()
+    assert 'name="is_superuser"' in page and 'name="groups"' in page
+
+
+def test_a4_sensitive_admins_always_check_model_permissions_in_explorer(settings):
+    from django.contrib import admin
+
+    from apps.access.models import AccessEvent, ManagedGroup
+    from apps.explorer.registry import explorer_uses_model_permissions
+
+    settings.SMALLSTACK_EXPLORER_MODEL_PERMISSIONS = False
+    for model in (User, AccessEvent, ManagedGroup):
+        assert explorer_uses_model_permissions(type(admin.site._registry[model])), model

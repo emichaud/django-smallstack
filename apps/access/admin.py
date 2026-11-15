@@ -15,6 +15,8 @@ class AccessEventAdmin(admin.ModelAdmin):
     search_fields = ("actor_label", "subject_label", "group_label", "permission", "request_id")
     date_hierarchy = "at"
     readonly_fields = [f.name for f in AccessEvent._meta.fields]
+    # Evidence: Explorer checks model permissions here whatever the site setting.
+    explorer_model_permissions = True
 
     def has_add_permission(self, request: HttpRequest) -> bool:
         return False
@@ -30,6 +32,7 @@ class AccessEventAdmin(admin.ModelAdmin):
 class ManagedGroupAdmin(admin.ModelAdmin):
     list_display = ("group", "app_label", "description", "synced_at")
     readonly_fields = ("group", "app_label", "description", "declared_permissions", "synced_at")
+    explorer_model_permissions = True
 
     def has_add_permission(self, request: HttpRequest) -> bool:
         return False
