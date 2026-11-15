@@ -74,6 +74,7 @@ class Command(BaseCommand):
             "status": self._cmd_status,
             "index": self._cmd_index,
             "webhook": self._cmd_webhook,
+            "access": self._cmd_access,
             "commands": self._cmd_commands,
         }
         if sub is None:
@@ -726,6 +727,14 @@ class Command(BaseCommand):
         generic verbs (`sc ls/new/set/rm webhook`); this covers the ops verbs.
         """
         self._run("webhook", list(argv))
+
+    def _cmd_access(self, argv: list[str]) -> None:
+        """sc access explain|check|grant|revoke|groups|findings — who may do what.
+
+        Fronts the `access` management command: the same membership service
+        and audit trail as the Access pages, REST and the approved MCP request.
+        """
+        self._run("access", list(argv))
 
     def _cmd_token(self, argv: list[str]) -> None:
         """sc token create|list|revoke — API token operations."""

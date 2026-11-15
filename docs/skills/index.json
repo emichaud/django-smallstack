@@ -743,6 +743,13 @@
       "use_when": "Configuring logging, adding audit trails, debugging log output, correlating an X-Request-ID to log lines, or reading logs from a deployment you cannot shell into."
     },
     {
+      "id": "access-control",
+      "file": "access-control.md",
+      "name": "Access Control",
+      "description": "**Read before adding a permission check or declaring a group** — Django groups + permissions as the one model, `register_group` (groups shipped in code, kept in step), every access change recorded to `AccessEvent` + the log + the account's history, the `/smallstack/access/` review (findings, per-user \"why\", exports), `register_check`, `acting_as` for directory syncs; REST at `/smallstack/api/access/`, MCP read tools + a membership proposal an approver decides, `manage.py access`",
+      "section": "Available Skills"
+    },
+    {
       "id": "screenshot-workflow",
       "file": "screenshot-workflow.md",
       "name": "Screenshot Workflow",

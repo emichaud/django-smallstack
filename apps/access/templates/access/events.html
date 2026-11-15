@@ -1,0 +1,30 @@
+{% extends "smallstack/base.html" %}
+{% load theme_tags %}
+
+{% block title %}Access changes{% endblock %}
+{% block breadcrumbs %}{% endblock %}
+
+{% block page_header %}
+{% include "access/_header.html" with title="Access changes" subtitle="Every grant and removal, from whatever surface made it." crumbs=crumbs section="events" %}
+{% endblock %}
+
+{% block content %}
+<div class="card" id="events">
+    <div class="card-body">
+        <form method="get" class="access-filters" action="{% url 'access:events' %}">
+            <label for="who" class="sr-only">Account, group or permission</label>
+            <input id="who" type="search" name="who" value="{{ who }}" placeholder="Account, group or permission" class="vTextField" style="width: 18rem; max-width: 100%;">
+            <label for="kind" class="sr-only">Kind of change</label>
+            <select id="kind" name="kind" class="vTextField">
+                <option value="">All changes</option>
+                <option value="grants"{% if kind == "grants" %} selected{% endif %}>Grants only</option>
+                {% for value, label in kinds %}<option value="{{ value }}"{% if kind == value %} selected{% endif %}>{{ label }}</option>{% endfor %}
+            </select>
+            <button type="submit" class="btn-outline btn-sm">Filter</button>
+            <a href="{% url 'access:events_csv' %}{% if querystring %}?{{ querystring }}{% endif %}" class="btn-outline btn-sm">Export (CSV)</a>
+        </form>
+        {% include "access/_events_table.html" %}
+        {% render_paginator page_obj hx_target="#events" hx_select="#events" hx_swap="outerHTML" push_url=True %}
+    </div>
+</div>
+{% endblock %}

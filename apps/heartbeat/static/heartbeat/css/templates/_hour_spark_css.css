@@ -8,4 +8,7 @@
 .hour-spark .hb.missed { background: color-mix(in srgb, var(--body-quiet-color, #8b949e) 26%, var(--card-bg)); }
 .hour-spark .hb.pre-epoch { background: color-mix(in srgb, var(--body-quiet-color, #8b949e) 12%, var(--card-bg)); }
 /* Wider variant — fills its line instead of the fixed 120px column. */
-.hour-spark-wide { width: auto; flex: 1 1 auto; height: 20px; }
+/* contain + min-width 0: sixty slots with 1px gaps have a minimum width of their
+   own, which widened the status overview past a phone; contained, the control
+   fills whatever its line gives it and never asks for more. */
+.hour-spark-wide { width: 0; flex: 1 1 0; min-width: 0; contain: inline-size; height: 20px; }

@@ -23,14 +23,7 @@
             <span style="color: var(--body-fg);">Site timeline</span>
         </nav>
     </div>
-    <div style="display: flex; gap: 0.5rem; align-items: center;">
-        <a href="{% url 'heartbeat:status' %}" class="btn-tint">
-            Public Status
-        </a>
-        <a href="{% url 'heartbeat:sla' %}" class="btn-tint">
-            SLA
-        </a>
-    </div>
+    {% include "heartbeat/_status_tabs.html" with status_section="timeline" %}
 </div>
 {% endblock %}
 

@@ -14,7 +14,7 @@ document.querySelectorAll('.user-tab').forEach(function(tab) {
         // Show/hide form actions (hide on activity tab)
         var actions = document.getElementById('form-actions');
         if (actions) {
-            actions.style.display = (target === 'activity') ? 'none' : 'flex';
+            actions.style.display = (target === 'activity' || target === 'access') ? 'none' : 'flex';
         }
     });
 });

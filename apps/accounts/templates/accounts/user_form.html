@@ -53,6 +53,7 @@
             <button type="button" class="user-tab active" data-tab="account">Account</button>
             <button type="button" class="user-tab" data-tab="profile">Profile</button>
             <button type="button" class="user-tab" data-tab="activity">Activity</button>
+            <button type="button" class="user-tab" data-tab="access">Access</button>
         </div>
 
         <form method="POST" enctype="multipart/form-data" class="crud-form" id="user-form">
@@ -243,7 +244,8 @@
                     <table class="activity-mini-table">
                         {% for item in activity_stats.top_paths %}
                         <tr>
-                            <td class="path-cell">{{ item.path|truncatechars:40 }}</td>
+                            {# The full path on hover, and a link to the requests behind the number. #}
+                            <td class="path-cell" title="{{ item.path }}"><a href="{% url 'activity:requests' %}?tab=recent&amp;window=30d&amp;path={{ item.path|urlencode }}" title="{{ item.path }}">{{ item.path|truncatechars:40 }}</a></td>
                             <td class="count-cell">{{ item.hits }}</td>
                         </tr>
                         {% endfor %}
@@ -275,10 +277,71 @@
                 Last seen {{ activity_stats.last_seen|timesince }} ago
             </p>
             {% endif %}
+            <p style="text-align: center; margin-top: 0.75rem;"><a href="{% url 'activity:user_detail' object.pk %}" class="btn-outline btn-sm">Full activity</a></p>
 
             {% else %}
             <p class="no-activity">No activity data available.</p>
             {% endif %}
+        </div>
+
+        <!-- ═══ Access Tab (read-only, outside form) ═══ -->
+        <div class="tab-panel" data-tab="access">
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-value">{{ access_summary.groups|length }}</div>
+                    <div class="stat-label">Groups</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">{{ access_summary.grant_count }}</div>
+                    <div class="stat-label">Permissions held</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value"{% if access_summary.direct_permissions %} style="color: var(--warning-fg);"{% endif %}>{{ access_summary.direct_permissions|length }}</div>
+                    <div class="stat-label">Granted directly</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">{{ access_summary.active_tokens }}</div>
+                    <div class="stat-label">Live API tokens</div>
+                </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(280px, 100%), 1fr)); gap: 1.5rem;">
+                <div class="activity-section">
+                    <h4>Groups</h4>
+                    {% if access_summary.groups %}
+                    <table class="activity-mini-table">
+                        {% for g in access_summary.groups %}
+                        <tr>
+                            <td><a href="{% url 'access:group_detail' g.group.pk %}">{{ g.group.name }}</a></td>
+                            <td class="count-cell" style="font-weight: 400; font-size: 0.78rem;">{% if g.since %}{{ g.since.at|date:"M d, Y" }} · {{ g.since.actor_label|default:"system" }}{% else %}—{% endif %}</td>
+                        </tr>
+                        {% endfor %}
+                    </table>
+                    {% else %}
+                    <p class="no-activity" style="text-align: left; padding: 0.5rem 0;">In no group{% if object.is_superuser %}; a superuser passes every check anyway{% elif object.is_staff %}; the staff flag alone opens the admin area{% endif %}.</p>
+                    {% endif %}
+                </div>
+                <div class="activity-section">
+                    <h4>Recent access changes</h4>
+                    {% if access_summary.events %}
+                    <table class="activity-mini-table">
+                        {% for e in access_summary.events %}
+                        <tr>
+                            <td title="{{ e.source }}">{{ e.get_kind_display }}{% if e.group_label %} · {{ e.group_label }}{% endif %}{% if e.permission %} · <code>{{ e.permission }}</code>{% endif %}</td>
+                            <td class="count-cell" style="font-weight: 400; font-size: 0.78rem; white-space: nowrap;">{{ e.at|date:"M d" }} · {{ e.actor_label|default:"system" }}</td>
+                        </tr>
+                        {% endfor %}
+                    </table>
+                    {% else %}
+                    <p class="no-activity" style="text-align: left; padding: 0.5rem 0;">No access changes recorded.</p>
+                    {% endif %}
+                </div>
+            </div>
+
+            <p style="text-align: center; margin-top: 1rem; display: flex; gap: 8px; justify-content: center; flex-wrap: wrap;">
+                <a href="{% url 'access:user_detail' object.pk %}" class="btn-primary btn-sm">Everything this account can do, and why</a>
+                <a href="{% url 'access:user_detail' object.pk %}#perm" class="btn-outline btn-sm">Check a permission</a>
+            </p>
         </div>
 
         <!-- ═══ Account actions (edit only, separate forms) ═══ -->

@@ -295,6 +295,11 @@ Set `TELEMETRY_LOG_CAPTURE_ENABLED=false` to switch the whole thing off — no h
 
 ## Audit with LogEntry
 
+Changes to **access** (group membership, permissions, the staff / superuser /
+active flags, token revocation) are recorded separately and more precisely by
+`apps/access` (`AccessEvent`, the log, and the account's history); see
+`access-control.md`. What follows is the general-purpose history of writes.
+
 SmallStack provides `log_action()` and `AuditMixin` in `apps.smallstack.audit` for creating Django `LogEntry` records from non-admin code. No new models or migrations required.
 
 Every `CRUDView` already writes these for you on every surface: its create, edit

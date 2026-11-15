@@ -50,6 +50,7 @@ INSTALLED_APPS = [
     "apps.telemetry",  # Telemetry: DB-backed log capture + time-boxed capture windows
     "apps.heartbeat",
     "apps.usermanager",
+    "apps.access",  # Access: who may do what, every change recorded, least-privilege review
     "apps.website",  # Project-specific pages (customize freely)
     "apps.showcase",  # SmallStack's demo pages (about, starter, search…). Delete it, here and in config/urls.py
     "apps.mcp",  # Model Context Protocol server for AI clients
@@ -108,6 +109,9 @@ MIDDLEWARE = [
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
+    # Names the signed-in user as the actor of any access change made in the
+    # request (apps.access records them from model signals, which carry no request).
+    "apps.access.context.ActorMiddleware",
     "apps.smallstack.middleware.TimezoneMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",

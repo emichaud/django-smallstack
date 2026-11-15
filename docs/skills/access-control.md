@@ -1,0 +1,233 @@
+# Skill: Access Control — groups, permissions, the audit trail and the review
+
+How SmallStack decides who may do what, records every change to it, and shows
+an auditor the result. Read before adding a permission check, declaring a
+group, or answering "can X do Y, and why?".
+
+## The model: Django's, with three additions
+
+Access is Django's own: `is_staff` opens the `/smallstack/` area, `is_superuser`
+bypasses every check, **Groups** bundle **Permissions**, and `user.has_perm()`
+is the one question every page, REST route, MCP tool and `sc` verb asks. There
+is no parallel role system. SmallStack adds:
+
+1. **Groups declared in code** (`register_group`), created after `migrate` and
+   kept in step, so a role is something you can read in the repository.
+2. **A record of every change to access** (`AccessEvent`), written from model
+   signals so it doesn't matter which surface made the change.
+3. **The Access pages** at `/smallstack/access/`: who holds what and why, a
+   least-privilege review, exports, and a per-user permission check.
+
+Row-level rules (`get_list_queryset`, `can_update`, `check_object_permission`
+on a `CRUDView`) are a separate layer, below this one; see `crud-views.md`.
+
+## Check a permission
+
+```python
+# A CRUDView: every surface, per action (view / add / change / delete)
+class TicketCRUDView(CRUDView):
+    model_permissions = True
+
+# A plain view
+from django.contrib.auth.decorators import permission_required
+@permission_required("tickets.change_ticket", raise_exception=True)
+def reassign(request, pk): ...
+
+# Anywhere
+if request.user.has_perm("tickets.change_ticket"): ...
+```
+
+Name a permission of your own in the model's `Meta.permissions` and migrate:
+
+```python
+class Meta:
+    permissions = [("reassign_ticket", "Can reassign a ticket to another agent")]
+```
+
+Prefer a named permission for an action (`approvals.decide`) over a flag
+check (`is_staff`): a flag says who someone is, a permission says what they
+may do, and only the second can be reviewed, granted to a group and mapped
+from a directory.
+
+## Declare a group
+
+`apps/<app>/groups.py`, imported for every installed app at startup:
+
+```python
+from apps.access.registry import register_group
+
+register_group(
+    "Support agent",
+    description="Works tickets and decides refunds under the limit.",
+    permissions=[
+        "tickets.view_ticket", "tickets.change_ticket", "tickets.reassign_ticket",
+        "smallstack_approvals.view_approvalrequest",
+    ],
+    app_label="tickets",
+)
+```
+
+After each `migrate` (`sync_groups`), the Group exists with those permissions.
+On later syncs a permission the declaration adds is added, one it drops is
+removed, and one an administrator added by hand is **kept** and shown as drift
+on the group's page. A declared name that no longer exists in code leaves its
+group in place, marked "no longer declared". `SMALLSTACK_ACCESS_GROUPS_SYNC =
+False` turns the sync off.
+
+SmallStack ships five in `apps/smallstack/groups.py`: Access reviewer, User
+manager, Log reader, Approver, Token manager. Membership is granted on the
+Access pages, in Django admin, or by a directory mapping.
+
+## What is recorded, and where it goes
+
+Every change to access is recorded by `apps/access/signals.py`, whichever
+surface made it (Django admin, the Access pages, the User Manager, a shell, a
+`loaddata`, a directory sync):
+
+| Change | Event kind |
+|---|---|
+| Group membership | `group_added`, `group_removed` |
+| A permission on an account | `permission_added`, `permission_removed` |
+| A permission on a group | `group_permission_added`, `group_permission_removed` |
+| `is_staff`, `is_superuser`, `is_active` flips | `staff_on/off`, `superuser_on/off`, `activated`, `deactivated` |
+| Accounts and groups created or deleted | `user_created`, `user_deleted`, `group_created`, `group_deleted` |
+| Deactivation's side effects | `token_revoked`, `sessions_ended` |
+
+Each event goes to three places:
+
+- **`AccessEvent`** (the durable evidence): kind, actor, subject, group,
+  permission, source (`web:/path/`, `shell`, `migrate`, `directory:entra`),
+  the request id, and names as text so the row outlives a deleted user.
+- **The log**, under `apps.access.record`: WARNING for a grant (so it reaches
+  `/smallstack/logs/` at its default level), INFO for a removal, with the
+  request id and the fields as structured extras.
+- **The account's History** (`LogEntry`), when a person made the change.
+
+**Deactivating an account revokes its live API tokens and ends its sessions**
+(`revoke_access`), recorded as events. An account that may not sign in must
+not keep working through a token minted earlier.
+
+### Attributing changes made outside a request
+
+`ActorMiddleware` names the signed-in user as the actor. Code that changes
+access elsewhere says who and where:
+
+```python
+from apps.access.context import acting_as
+
+with acting_as(None, "directory:entra"):
+    user.groups.set(mapped_groups)
+```
+
+## The Access pages
+
+| Page | Answers |
+|---|---|
+| **Overview** | Counts, the least-privilege findings with drill-downs, recent changes, exports |
+| **Users** | Each account's flags, groups, direct permissions, tokens, last sign-in |
+| **User** | Everything the account can do and **why** (`via group:X`, `via direct`, `via superuser`); a **Check a permission** box that answers as `has_perm` does, with the reason; groups with when and by whom; tokens; the account's events |
+| **Groups** / **Group** | Members (with who added them), permissions by app, drift from the declaration, the group's events |
+| **Changes** | Every event, filterable, exportable |
+
+Reading needs staff. Changing a membership needs `accounts.change_user`;
+revoking tokens needs `smallstack.change_apitoken`.
+
+### Findings (least privilege)
+
+Built in, in `apps/access/checks.py`: superusers; dormant privileged accounts;
+permissions granted directly rather than through a group; deactivated
+accounts with live tokens; dormant accounts; staff with no group; groups that
+drifted from their declaration; empty groups; auth-level API tokens. The
+dormancy window is `SMALLSTACK_ACCESS_DORMANT_DAYS` (90).
+
+Add one in `apps/<app>/access_checks.py`:
+
+```python
+from apps.access.registry import Finding, register_check
+
+@register_check
+def cross_tenant_members() -> Finding:
+    rows = [{"label": u.username, "href": ..., "meta": "in two tenants"} for u in ...]
+    return Finding("cross_tenant_members", "Accounts in two tenants",
+                   "danger" if rows else "ok", len(rows),
+                   f"{len(rows)} account(s) belong to more than one tenant.", rows,
+                   advice="One account per tenant; invite a second account instead.")
+```
+
+### Evidence for an audit
+
+- **Export access (CSV)**: one row per account × permission × source, every
+  account included.
+- **Snapshot (JSON)**: accounts, groups (with drift) and findings, dated.
+- **Changes → Export (CSV)**: the events, with the current filter.
+- `manage.py access_report [--rows] [--json]`: the findings in a terminal or
+  a cron job; exits 1 on a warning and 2 on a danger, so a scheduled run can
+  alert. `--json` writes the snapshot for keeping.
+
+## Automation: REST, MCP and the CLI
+
+Everything the pages show is readable by a script or an agent, and the one
+write, membership, goes through one function on every surface:
+
+```python
+from apps.access import services
+
+services.set_membership(user, group, True, actor=request.user, source="my-sync")
+# → True when it changed, False when it already held; PermissionError when
+#   actor lacks accounts.change_user. The m2m signal records it from `source`.
+services.user_payload(user)            # the user page as JSON
+services.explanation_payload(user, "accounts.change_user")
+services.resolve_user("alice")         # username, email or id; LookupError on a miss
+```
+
+**REST** (`/smallstack/api/access/`, tag *Access* in `/api/docs/`; reads need a
+staff account, any token tier):
+
+| | |
+|---|---|
+| `GET users/?q=&show=` | accounts with groups, direct-permission and token counts |
+| `GET users/{user}/` | one account: groups (since, by whom), every permission with sources, changes |
+| `GET users/{user}/check/?perm=app.codename` | `has_perm` with the reasons |
+| `PUT` / `DELETE users/{user}/groups/{group}/` | add / remove; **auth-level token + `accounts.change_user`**; idempotent (`changed`) |
+| `GET groups/`, `GET groups/{group}/` | permissions, members, drift against the declaration |
+| `GET findings/` | the review, with `worst` |
+| `GET events/?who=&kind=&limit=` | the change log |
+
+**MCP.** Three read tools at the staff tier, `access_explain_user`,
+`access_check_permission`, `access_findings`, and one write tool that only
+*proposes*: `access_request_membership(username, group, member, reason)` files
+an `access.membership` approval (`apps/access/approvals.py`). A person holding
+`accounts.change_user` decides it in the console; the card shows the change,
+the reason and the agent that asked. Approving runs `set_membership` **in the
+approver's name**, recorded as `mcp:approval:<id>`; rejecting, canceling or
+expiring (three days) changes nothing; a vanished user or group lands in
+`callback_error`. The agent polls `get_approval` until `status` leaves
+`pending`. `SMALLSTACK_ACCESS_MCP_WRITES=False` removes the write tool. This is
+the shape to copy for any agent-driven access change: never let a token write
+access directly; let it ask.
+
+**CLI.** `manage.py access` (or `sc access`): `explain <user> [--json]`,
+`check <user> <app.codename>` (exit 1 when not held), `grant` / `revoke <user>
+<group> [--user ACTOR] [--reason …]`, `groups`, `findings`. Without `--user` a
+change is recorded from `cli` with no actor, a local administrator's shell
+change; with it, the named person must hold `accounts.change_user`.
+
+## Preparing for single sign-on
+
+Nothing here depends on how people sign in. A directory (Entra, Okta, Google)
+becomes one more thing that assigns Groups: a sign-in backend turns its claims
+into memberships inside `acting_as(None, "directory:<name>")`, so the events
+say `directory:entra` as the source and the review reads the same. Map the
+directory's app roles onto group names; never grant superuser from a
+directory, and keep one local break-glass administrator.
+
+## Don't
+
+- Don't add a second way to say "may": no `is_admin` booleans on profiles, no
+  role strings on models. Declare a permission, put it in a group.
+- Don't grant permissions directly to an account when a group would do; the
+  review flags it.
+- Don't change `apps/smallstack/groups.py` downstream: declare your own group
+  in your app's `groups.py`, or add members to the shipped ones.
+- Don't write `AccessEvent` rows yourself; change the Django model and the
+  signal records it.

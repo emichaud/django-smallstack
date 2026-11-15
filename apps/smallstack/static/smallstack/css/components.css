@@ -1376,9 +1376,17 @@ ul.pagination li.active span {
 .view-bar {
     display: flex;
     gap: 0;
-    border-bottom: 2px solid var(--hairline-color, color-mix(in srgb, var(--body-fg) 10%, var(--body-bg)));
+    /* An inset shadow, not a border, so the active button's underline still
+       meets the baseline when the bar scrolls (a scroll box clips its border). */
+    box-shadow: inset 0 -2px 0 var(--hairline-color, color-mix(in srgb, var(--body-fg) 10%, var(--body-bg)));
     margin-bottom: 0;
+    /* More buttons than fit (a phone) scroll sideways instead of widening the page. */
+    contain: inline-size;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: thin;
 }
+.view-bar > .view-btn { flex: 0 0 auto; white-space: nowrap; margin-bottom: 0; }
 
 .view-btn {
     padding: 12px 24px;
@@ -1509,6 +1517,8 @@ ul.pagination li.active span {
 .stat-card {
     flex: 1;
     min-width: 140px;
+    /* A tile is never wider than its content asks, but on a phone two per
+       row must fit: see the max-width rule below. */
     padding: 0.9rem 1.1rem 1rem 1rem;
     text-align: left;
     background: var(--card-bg);
@@ -1519,6 +1529,12 @@ ul.pagination li.active span {
     flex-direction: column;
     gap: 0.3rem;
     transition: border-color 0.15s, background 0.15s, transform 0.15s;
+}
+
+/* On a phone two tiles share a row whatever their content; labels wrap. */
+@media (max-width: 480px) {
+    .stat-cards .stat-card { flex: 1 1 calc(50% - 0.375rem); min-width: 0; max-width: calc(50% - 0.375rem); }
+    .stat-card-label { white-space: normal; overflow-wrap: anywhere; }
 }
 
 .stat-card-value {
@@ -3382,6 +3398,25 @@ a.dashboard-widget.widget-status-down        { border-left-color: var(--error-fg
 .activity-kv .k { color: var(--body-quiet-color); flex: 0 0 auto; }
 .activity-kv .v { text-align: right; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .activity-mono { font-family: ui-monospace, "Cascadia Code", Menlo, Consolas, monospace; font-size: 0.85rem; }
+
+/* Section tabs in a page header (the Status and Access areas): the sections
+   of one admin area, the current one filled. */
+.page-tabs { display: flex; flex-wrap: wrap; gap: 4px; align-self: center; min-width: 0; max-width: 100%; }
+/* Below tablet width the header stacks (theme.css); centred in a column the
+   strip would size to its one-line width and run off a phone, so it starts
+   at the left and wraps. */
+@media (max-width: 768px) { .page-tabs { align-self: flex-start; } }
+.page-tabs a, .page-tabs a:link, .page-tabs a:visited {
+    padding: 6px 12px;
+    border-radius: var(--radius-sm, 6px);
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: var(--body-quiet-color);
+    text-decoration: none;
+    white-space: nowrap;
+}
+.page-tabs a:hover { color: var(--body-fg); background: color-mix(in srgb, var(--body-fg) 6%, transparent); }
+.page-tabs a.active { color: var(--primary); background: color-mix(in srgb, var(--primary) 12%, transparent); }
 
 /* Resource detail: the URL pattern is the title, so it gets the full width and
    the stats + window picker sit on a row of their own beneath it. */

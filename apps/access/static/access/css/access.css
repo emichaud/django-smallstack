@@ -1,0 +1,126 @@
+/* The Access pages (/smallstack/access/). Theme variables only. */
+
+.access-crumbs { margin-top: 0.5rem; font-size: 0.8rem; color: var(--body-quiet-color); }
+.access-crumbs a { color: var(--body-quiet-color); text-decoration: none; }
+.access-crumbs a:hover { color: var(--body-fg); }
+.access-crumbs > span[aria-hidden] { margin: 0 0.3rem; }
+.access-crumbs > [aria-current] { color: var(--body-fg); }
+
+.access-tabs { display: flex; flex-wrap: wrap; gap: 4px; align-self: center; min-width: 0; max-width: 100%; }
+@media (max-width: 768px) { .access-tabs { align-self: flex-start; } }
+.access-tabs a, .access-tabs a:link, .access-tabs a:visited {
+    padding: 6px 12px;
+    border-radius: var(--radius-sm, 6px);
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: var(--body-quiet-color);
+    text-decoration: none;
+}
+.access-tabs a:hover { color: var(--body-fg); background: color-mix(in srgb, var(--body-fg) 6%, transparent); }
+.access-tabs a.active { color: var(--primary); background: color-mix(in srgb, var(--primary) 12%, transparent); }
+
+/* Findings */
+.findings { list-style: none; margin: 0; padding: 0; }
+.finding {
+    display: grid;
+    grid-template-columns: 3.5rem minmax(0, 1fr) auto;
+    gap: 12px 16px;
+    align-items: start;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--card-border);
+}
+.finding:last-child { border-bottom: none; }
+.finding-count {
+    font-size: 1.5rem;
+    font-weight: 700;
+    line-height: 1.1;
+    font-variant-numeric: tabular-nums;
+    color: var(--body-fg);
+}
+.finding--danger .finding-count { color: var(--error-fg); }
+.finding--warning .finding-count { color: var(--warning-fg); }
+.finding--info .finding-count { color: var(--primary); }
+.finding--ok .finding-count { color: var(--success-fg); }
+.finding-title { font-weight: 600; margin: 0; }
+.finding-summary { margin: 2px 0 0; color: var(--body-quiet-color); font-size: 0.88rem; }
+.finding-advice { margin: 4px 0 0; font-size: 0.82rem; color: var(--body-quiet-color); font-style: italic; }
+.finding-open { white-space: nowrap; }
+@media (max-width: 560px) {
+    .finding { grid-template-columns: 3.5rem minmax(0, 1fr); }
+    .finding-open { grid-column: 2; justify-self: start; }
+}
+
+/* The user page: compact, every long list in a scrolling frame. */
+.access-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(320px, 100%), 1fr)); gap: 16px; align-items: stretch; }
+.access-grid--top { grid-template-columns: minmax(0, 3fr) minmax(min(320px, 100%), 2fr); }
+@media (max-width: 760px) { .access-grid--top { grid-template-columns: minmax(0, 1fr); } }
+.access-account { display: flex; flex-direction: column; gap: 10px; }
+.access-flags { display: flex; flex-wrap: wrap; gap: 6px; }
+.access-facts { display: flex; flex-wrap: wrap; gap: 6px 22px; margin: 0; }
+.access-facts div { display: flex; flex-direction: column; gap: 1px; }
+.access-facts dt { font-size: 0.68rem; letter-spacing: 0.05em; text-transform: uppercase; color: var(--body-quiet-color); }
+.access-facts dd { margin: 0; font-size: 0.95rem; font-weight: 600; font-variant-numeric: tabular-nums; }
+.access-facts dd.is-warning { color: var(--warning-fg); }
+.access-note { margin: 0; font-size: 0.82rem; color: var(--body-quiet-color); }
+.access-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: auto; }
+.access-check { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; align-items: center; }
+.access-check-label { grid-column: 1 / -1; font-weight: 600; font-size: 0.95rem; }
+.access-check input { min-width: 0; }
+.access-verdict { margin-top: 10px; padding: 8px 12px; border-radius: var(--radius-sm, 6px); border-left: 3px solid var(--success-fg); background: color-mix(in srgb, var(--success-fg) 10%, var(--card-bg)); font-size: 0.88rem; }
+.access-verdict--no { border-left-color: var(--error-fg); background: color-mix(in srgb, var(--error-fg) 10%, var(--card-bg)); }
+.access-verdict p { margin: 0; }
+.access-verdict ul { margin: 4px 0 0; padding-left: 1.1rem; font-size: 0.84rem; color: var(--body-quiet-color); }
+.access-empty { padding: 12px 16px; margin: 0; color: var(--body-quiet-color); font-size: 0.88rem; }
+.access-add-row { padding: 8px 12px; border-top: 1px solid var(--card-border); }
+.card-header--compact { padding-top: 10px; padding-bottom: 10px; }
+.card-header--compact h2 { font-size: 0.95rem; }
+.card-header--compact .quiet { font-weight: 400; color: var(--body-quiet-color); font-size: 0.82rem; }
+.quiet { color: var(--body-quiet-color); }
+.nowrap { white-space: nowrap; }
+
+/* A list that keeps its height: scrolls inside, never stretches the page. */
+.scroll-frame { overflow: auto; contain: inline-size; overscroll-behavior: contain; }
+.scroll-frame--short { max-height: 13rem; }
+.scroll-frame--medium { max-height: 20rem; }
+.scroll-frame--tall { max-height: 28rem; }
+.compact-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+.compact-table td { padding: 5px 12px; vertical-align: middle; }
+.compact-table td.quiet { font-size: 0.78rem; }
+.compact-table tr.is-muted td { opacity: 0.7; }
+
+/* The permission list: sticky app headings inside the frame, one row per permission. */
+.perm-toolbar { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+.perm-toolbar-tools { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.perm-toolbar-tools input { width: 16rem; max-width: 100%; font-size: 0.85rem; padding: 5px 8px; }
+.perm-legend { display: flex; gap: 10px; }
+.perm-app { margin: 0; }
+.perm-app h3 {
+    position: sticky; top: 0; z-index: 1;
+    margin: 0; padding: 6px 12px;
+    font-size: 0.68rem; letter-spacing: 0.06em; text-transform: uppercase; font-weight: 600;
+    color: var(--body-quiet-color);
+    background: var(--card-header-bg, var(--card-bg));
+    border-top: 1px solid var(--card-border);
+    border-bottom: 1px solid var(--card-border);
+}
+.perm-app:first-child h3 { border-top: none; }
+.perm-list { list-style: none; margin: 0; padding: 0; font-size: 0.82rem; }
+.perm-list li { display: grid; grid-template-columns: minmax(12rem, 1fr) minmax(0, 1.4fr) auto; gap: 4px 12px; align-items: baseline; padding: 3px 12px; border-bottom: 1px solid color-mix(in srgb, var(--card-border) 60%, transparent); }
+.perm-list li:nth-child(even) { background: color-mix(in srgb, var(--body-fg) 2%, transparent); }
+.perm-list code { font-size: 0.76rem; overflow-wrap: anywhere; }
+.perm-source { font-size: 0.74rem; color: var(--body-quiet-color); }
+.perm-sources { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; }
+.perm-source--direct { color: var(--warning-fg); }
+.perm-source--superuser { color: var(--error-fg); }
+@media (max-width: 640px) {
+    .perm-list li { grid-template-columns: minmax(0, 1fr); }
+    .perm-sources { justify-content: flex-start; }
+}
+
+.inline-form { display: inline; }
+.member-row-actions { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.events-table td, .events-table th { padding: 8px 12px; vertical-align: top; }
+.events-table .quiet { color: var(--body-quiet-color); font-size: 0.8rem; }
+.event-grant { color: var(--warning-fg); font-weight: 600; }
+.access-filters { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 12px; }
+.access-filters input, .access-filters select { min-width: 0; }

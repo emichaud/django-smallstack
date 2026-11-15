@@ -19,10 +19,12 @@
 <body>
     <div class="status-page">
         <header class="status-header">
-            <div class="status-brand">
-                <img src="{% static brand.icon %}" alt="{{ brand_name }}">
-                <span class="status-brand-title">{{ brand_name }} <span class="muted">Status</span></span>
-            </div>
+            {% comment %}The same lockup as the sign-in page: the stock SmallStack mark drawn in the palette's colours,
+            or a project's own BRAND_LOGO / BRAND_LOGO_DARK (swapped with the visitor's theme), set in .env.{% endcomment %}
+            <a class="status-brand" href="{% url 'public_status' %}" aria-label="{{ brand_name }} status">
+                {% include "smallstack/includes/brand_lockup.html" %}
+                <span class="status-brand-title muted">Status</span>
+            </a>
             {% if request.user.is_authenticated %}
             <a href="{% url 'heartbeat:status_overview' %}" class="status-admin-link">&larr; Status overview</a>
             {% endif %}

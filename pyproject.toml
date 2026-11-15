@@ -102,6 +102,7 @@ files = ["apps"]
 # zero under `make typecheck-strict`; never remove one.
 [[tool.mypy.overrides]]
 module = [
+    "apps.access.*",
     "apps.activity.*",
     "apps.approvals.*",
     "apps.blog.*",

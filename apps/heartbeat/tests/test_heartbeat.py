@@ -1890,18 +1890,38 @@ class TestPublicStatusFlag:
         # Default on — the board renders.
         assert client.get(reverse("public_status")).status_code == 200
 
-    def test_overview_hides_public_links_when_disabled(self, staff_client, db):
+    def test_overview_links_to_the_public_page_section_not_the_page(self, staff_client, db):
+        """The overview's "Public page" is the staff section about it (which says
+        whether it's published), never a direct link out; so it's there whether
+        the public page is on or off."""
         from django.test import override_settings
 
-        with override_settings(SMALLSTACK_PUBLIC_STATUS_ENABLED=False):
-            body = staff_client.get(reverse("heartbeat:status_overview")).content.decode()
-        assert ">Public page<" not in body
-        # ...and the staff overview itself still works.
-        assert "All systems operational" in body or "Status" in body
+        settings_url = reverse("heartbeat:public_settings")
+        for enabled in (True, False):
+            with override_settings(SMALLSTACK_PUBLIC_STATUS_ENABLED=enabled):
+                body = staff_client.get(reverse("heartbeat:status_overview")).content.decode()
+            assert f'href="{settings_url}"' in body and ">Public page<" in body
+            assert f'href="{reverse("public_status")}"' not in body
 
-    def test_overview_shows_public_links_when_enabled(self, staff_client, db):
-        body = staff_client.get(reverse("heartbeat:status_overview")).content.decode()
-        assert ">Public page<" in body
+    def test_the_public_page_section_describes_the_page(self, staff_client, client, db):
+        from django.test import Client, override_settings
+
+        url = reverse("heartbeat:public_settings")
+        assert Client().get(url).status_code == 302  # staff only
+        body = staff_client.get(url).content.decode()
+        assert reverse("public_status") in body and reverse("public_status_json") in body
+        assert "published" in body and "BRAND_LOGO_DARK" in body
+        assert "shown publicly" in body
+        with override_settings(SMALLSTACK_PUBLIC_STATUS_ENABLED=False):
+            assert "switched off" in staff_client.get(url).content.decode()
+
+    def test_the_public_page_carries_the_brand_lockup(self, client, db, settings):
+        body = client.get(reverse("public_status")).content.decode()
+        assert 'class="brand-mark"' in body and "brand-word-accent" in body  # the stock mark, drawn live
+        settings.BRAND_LOGO = "brand/acme.svg"
+        settings.BRAND_LOGO_DARK = "brand/acme-dark.svg"
+        body = client.get(reverse("public_status")).content.decode()
+        assert "brand/acme.svg" in body and "brand/acme-dark.svg" in body and 'class="brand-mark"' not in body
 
 
 class TestApiMcpFlags:

@@ -2,10 +2,15 @@
 
 from collections.abc import Callable
 from functools import wraps
+from typing import TypeVar, cast
 
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.core.exceptions import PermissionDenied
-from django.http import HttpRequest, HttpResponse, HttpResponseForbidden, HttpResponseRedirect
+from django.http import HttpRequest, HttpResponseBase, HttpResponseForbidden, HttpResponseRedirect
+
+# A view function of any signature returning any response (a streaming CSV
+# export included); the decorator hands back the same type it was given.
+ViewFunc = TypeVar("ViewFunc", bound=Callable[..., HttpResponseBase])
 
 
 class StaffRequiredMixin(LoginRequiredMixin, UserPassesTestMixin):
@@ -27,9 +32,7 @@ class StaffRequiredMixin(LoginRequiredMixin, UserPassesTestMixin):
         return super().handle_no_permission()
 
 
-def staff_required(
-    view_func: Callable[..., HttpResponse],
-) -> Callable[..., HttpResponse]:
+def staff_required(view_func: ViewFunc) -> ViewFunc:
     """Function-view counterpart to :class:`StaffRequiredMixin`.
 
     Returns a 403 for **any** non-staff caller — including anonymous users —
@@ -39,9 +42,9 @@ def staff_required(
     """
 
     @wraps(view_func)
-    def _wrapped(request: HttpRequest, *args: object, **kwargs: object) -> HttpResponse:
+    def _wrapped(request: HttpRequest, *args: object, **kwargs: object) -> HttpResponseBase:
         if not request.user.is_staff:
             return HttpResponseForbidden("Staff access required.")
         return view_func(request, *args, **kwargs)
 
-    return _wrapped
+    return cast(ViewFunc, _wrapped)

@@ -251,6 +251,18 @@ SMALLSTACK_PUBLIC_STATUS_ENABLED = config("SMALLSTACK_PUBLIC_STATUS_ENABLED", de
 SMALLSTACK_PUBLIC_PROFILES = config("SMALLSTACK_PUBLIC_PROFILES", default=True, cast=bool)
 
 # ---------------------------------------------------------------------------
+# Access (/smallstack/access/)
+# ---------------------------------------------------------------------------
+# An account that hasn't signed in for this many days is reported as dormant
+# on the Access overview and in `manage.py access_report`.
+SMALLSTACK_ACCESS_DORMANT_DAYS = config("SMALLSTACK_ACCESS_DORMANT_DAYS", default=90, cast=int)
+# Whether an AI client may *propose* a group-membership change over MCP
+# (the access_request_membership tool). A proposal files an approval request
+# that a person holding accounts.change_user decides; the agent never writes
+# membership itself. False removes the tool; the read tools stay.
+SMALLSTACK_ACCESS_MCP_WRITES = config("SMALLSTACK_ACCESS_MCP_WRITES", default=True, cast=bool)
+
+# ---------------------------------------------------------------------------
 # Explorer
 # ---------------------------------------------------------------------------
 # On: Explorer checks Django model permissions (view / add / change / delete,

@@ -8,6 +8,35 @@ listed, no downstream migration is required.
 
 ---
 
+## Unreleased — the Access app
+
+**Who is affected:** every downstream project (a new app and a middleware line), and any project
+with its own copy of `config/settings/base.py` or `apps/smallstack/site_urls.py`.
+
+**What changed.** `apps/access` records every change to access and provides `/smallstack/access/`.
+It needs an app entry, a middleware entry and a migration.
+
+**Migration.**
+
+1. `config/settings/base.py`: add `"apps.access",` to `INSTALLED_APPS` after `"apps.usermanager",`.
+2. `config/settings/base.py`: add `"apps.access.context.ActorMiddleware",` to `MIDDLEWARE` right after
+   `"django.contrib.auth.middleware.AuthenticationMiddleware",`. Without it, changes made on a page are
+   recorded with no actor (as `system`); nothing else breaks.
+3. If your `apps/smallstack/site_urls.py` diverged from upstream, add
+   `path("access/", include("apps.access.urls")),` beside the User Manager's include.
+4. `make migrate`. This creates two tables and SmallStack's five shipped groups (Access reviewer, User
+   manager, Log reader, Approver, Token manager), each with its permissions and no members. Their
+   creation is itself recorded as the first events.
+
+**Then look at the overview once.** It will likely report findings on day one (more superusers than
+needed, dormant accounts, permissions granted directly). Those describe your existing data, not a
+regression; the page says what to do about each.
+
+**If your project records access changes itself** (a signal on `user.groups`, a custom audit of the
+staff flag), it now does so twice; keep yours only if it records something these events don't.
+
+---
+
 ## v0.31.0 — CRUDView pages write their own audit entries
 
 **Who is affected:** a CRUDView that records its web writes itself: `AuditMixin` added through

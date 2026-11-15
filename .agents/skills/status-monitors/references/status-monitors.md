@@ -33,6 +33,20 @@ The registries live in `apps/smallstack/monitors.py` and
 `apps/smallstack/visualizations.py` — pure, import-light modules that mirror
 `dashboard.py` / `navigation.py`.
 
+
+## The staff pages
+
+Four sections, in every status page's header: **Overview** (`/smallstack/status/overview/`,
+every service and monitor), **Site timeline** (the heartbeat record), **SLA**, and **Public page**
+(`/smallstack/status/public/`): whether the public board is published
+(`SMALLSTACK_PUBLIC_STATUS_ENABLED`), its addresses, each monitor's public flag and the branding it
+carries. The public board itself opens from that section; the overview doesn't link out to it.
+
+The public board's header is `smallstack/includes/brand_lockup.html`, the sign-in page's lockup: the
+stock mark drawn in the palette's colours, or the project's `BRAND_LOGO` / `BRAND_LOGO_DARK` swapped
+with the visitor's theme. A downstream sets those two (and `BRAND_FAVICON`) in `.env` and the public
+page is branded; don't edit the template.
+
 ## The three tiers (Service.category)
 
 The overview groups services into three tiers via `Service.category`:

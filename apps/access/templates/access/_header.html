@@ -1,0 +1,21 @@
+{% comment %}The Access pages' header: title, subtitle, breadcrumb trail and the section tabs.
+Expects `title`, `subtitle`, `crumbs` (list of (label, url-or-empty)) and `section`.{% endcomment %}
+{% load static %}
+<link rel="stylesheet" href="{% static 'access/css/access.css' %}">
+<div class="page-header-bleed page-header-with-actions" style="display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap;">
+    <div class="page-header-content" style="min-width: 0;">
+        <h1>{{ title }}</h1>
+        {% if subtitle %}<p class="page-subtitle">{{ subtitle }}</p>{% endif %}
+        <nav class="access-crumbs" aria-label="Breadcrumb">
+            <a href="{% url 'website:home' %}">Home</a><span aria-hidden="true">/</span>
+            <a href="{% url 'access:index' %}">Access</a>
+            {% for label, url in crumbs %}<span aria-hidden="true">/</span>{% if url %}<a href="{{ url }}">{{ label }}</a>{% else %}<span aria-current="page">{{ label }}</span>{% endif %}{% endfor %}
+        </nav>
+    </div>
+    <nav class="access-tabs" aria-label="Access sections">
+        <a href="{% url 'access:index' %}"{% if section == "overview" %} class="active" aria-current="page"{% endif %}>Overview</a>
+        <a href="{% url 'access:users' %}"{% if section == "users" %} class="active" aria-current="page"{% endif %}>Users</a>
+        <a href="{% url 'access:groups' %}"{% if section == "groups" %} class="active" aria-current="page"{% endif %}>Groups</a>
+        <a href="{% url 'access:events' %}"{% if section == "events" %} class="active" aria-current="page"{% endif %}>Changes</a>
+    </nav>
+</div>

@@ -1,0 +1,172 @@
+{% extends "smallstack/base.html" %}
+{% load static theme_tags %}
+
+{% block title %}{{ target.get_username }} · Access{% endblock %}
+{% block breadcrumbs %}{% endblock %}
+
+{% block page_header %}
+{% include "access/_header.html" with title=target.get_username subtitle=target.email crumbs=crumbs section="users" %}
+{% endblock %}
+
+{% block content %}
+<div class="access-grid access-grid--top" style="margin-bottom: 16px;">
+    <div class="card">
+        <div class="card-body access-account">
+            <div class="access-flags">
+                {% if target.is_active %}{% status_badge "active" "success" %}{% else %}{% status_badge "deactivated" "muted" %}{% endif %}
+                {% if target.is_superuser %}{% status_badge "superuser" "error" %}{% endif %}
+                {% if target.is_staff %}{% status_badge "staff" "info" %}{% endif %}
+            </div>
+            <dl class="access-facts">
+                <div><dt>Joined</dt><dd>{{ target.date_joined|date:"M d, Y" }}</dd></div>
+                <div><dt>Last sign-in</dt><dd>{% if target.last_login %}{{ target.last_login|date:"M d, Y H:i" }}{% else %}never{% endif %}</dd></div>
+                <div><dt>Permissions</dt><dd>{{ grant_count }}</dd></div>
+                <div><dt>Direct</dt><dd{% if direct_permissions %} class="is-warning"{% endif %}>{{ direct_permissions|length }}</dd></div>
+                <div><dt>Groups</dt><dd>{{ groups|length }}</dd></div>
+            </dl>
+            {% if not target.is_active %}<p class="access-note">A deactivated account holds no permissions, whatever its groups say; the lists below show what it would hold if reactivated.</p>
+            {% elif target.is_superuser %}<p class="access-note">A superuser passes every permission check; groups don't narrow it.</p>{% endif %}
+            <div class="access-actions">
+                <a href="{% url 'manage/users-update' target.pk %}" class="btn-outline btn-sm">Edit in User Manager</a>
+                {% if request.user.is_superuser %}<a href="{% url 'admin:accounts_user_change' target.pk %}" class="btn-outline btn-sm">Django admin</a>{% endif %}
+                {% if can_revoke and tokens %}
+                <form method="post" action="{% url 'access:user_revoke' target.pk %}" class="inline-form">{% csrf_token %}
+                    <button type="submit" class="btn-danger btn-sm" data-confirm="Revoke every live token and end every session of {{ target.get_username }}?">Revoke tokens &amp; sign out</button>
+                </form>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <div class="card" id="check">
+        <div class="card-body">
+            <form method="get" class="access-check" action="{% url 'access:user_detail' target.pk %}#check">
+                <label for="perm" class="access-check-label">Check a permission</label>
+                <input id="perm" name="perm" value="{{ perm }}" class="vTextField" placeholder="app_label.codename, e.g. accounts.change_user" required>
+                <button type="submit" class="btn-primary btn-sm">Check</button>
+            </form>
+            {% if check %}
+            <div class="access-verdict{% if not check.allowed %} access-verdict--no{% endif %}" role="status">
+                <p><strong>{{ target.get_username }} {% if check.allowed %}may{% else %}may not{% endif %}</strong> <code>{{ check.perm }}</code>{% if not check.exists %} <span class="quiet">(no such permission)</span>{% endif %}</p>
+                <ul>{% for r in check.reasons %}<li>{{ r }}</li>{% endfor %}</ul>
+            </div>
+            {% else %}
+            <p class="access-note">The answer <code>user.has_perm()</code> gives every page, API route and MCP tool, with the reason.</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<div class="access-grid" style="margin-bottom: 16px;">
+    <div class="card">
+        <div class="card-header card-header--compact"><h2>Groups <span class="quiet">{{ groups|length }}</span></h2></div>
+        <div class="card-body" style="padding: 0;">
+            <div class="scroll-frame scroll-frame--short">
+            {% if groups %}
+            <table class="table-plain compact-table">
+                <tbody>
+                    {% for g in groups %}
+                    <tr>
+                        <td><a href="{% url 'access:group_detail' g.group.pk %}">{{ g.group.name }}</a></td>
+                        <td class="quiet">{% if g.since %}added {{ g.since.at|date:"M d, Y" }} by {{ g.since.actor_label|default:"system" }}{% else %}before recording began{% endif %}</td>
+                        {% if can_change %}
+                        <td style="text-align: right;">
+                            <form method="post" action="{% url 'access:user_groups' target.pk %}" class="inline-form">{% csrf_token %}
+                                <input type="hidden" name="action" value="remove"><input type="hidden" name="group" value="{{ g.group.pk }}">
+                                <button type="submit" class="btn-outline btn-sm" data-confirm="Remove {{ target.get_username }} from {{ g.group.name }}?">Remove</button>
+                            </form>
+                        </td>
+                        {% endif %}
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <p class="access-empty">In no group.</p>
+            {% endif %}
+            </div>
+            {% if can_change and other_groups %}
+            <form method="post" action="{% url 'access:user_groups' target.pk %}" class="member-row-actions access-add-row">{% csrf_token %}
+                <input type="hidden" name="action" value="add">
+                <label for="add-group" class="sr-only">Group to add</label>
+                <select id="add-group" name="group" class="vTextField" required>
+                    <option value="">Add to a group…</option>
+                    {% for g in other_groups %}<option value="{{ g.pk }}">{{ g.name }}</option>{% endfor %}
+                </select>
+                <button type="submit" class="btn-primary btn-sm">Add</button>
+            </form>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header card-header--compact"><h2>API tokens <span class="quiet">{{ live_token_count }} live · {{ tokens|length }} total</span></h2></div>
+        <div class="card-body" style="padding: 0;">
+            <div class="scroll-frame scroll-frame--short">
+            {% if tokens %}
+            <table class="table-plain compact-table">
+                <tbody>
+                    {% for t in tokens %}
+                    <tr{% if not t.is_active %} class="is-muted"{% endif %}>
+                        <td class="nowrap">{{ t.name }} <code class="quiet">{{ t.prefix }}…</code></td>
+                        <td class="quiet nowrap">{{ t.get_access_level_display }}</td>
+                        <td>{% if t.is_active %}{% status_badge "active" "success" %}{% else %}{% status_badge "revoked" "muted" %}{% endif %}</td>
+                        <td class="quiet nowrap" title="{% if t.last_used_at %}last used {{ t.last_used_at|date:'M d, Y H:i' }}{% else %}never used{% endif %}">{% if t.last_used_at %}used {{ t.last_used_at|date:"M d, Y" }}{% else %}never used{% endif %}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <p class="access-empty">No API tokens.</p>
+            {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card" style="margin-bottom: 16px;" id="permissions">
+    <div class="card-header card-header--compact perm-toolbar">
+        <h2>Everything this account can do <span class="quiet" data-perm-count>{{ grant_count }} permission{{ grant_count|pluralize }}</span></h2>
+        {% if grants_by_app %}
+        <div class="perm-toolbar-tools">
+            <label for="perm-filter" class="sr-only">Filter permissions</label>
+            <input id="perm-filter" type="search" class="vTextField" placeholder="Filter: app, codename, group…" data-perm-filter autocomplete="off">
+            <span class="perm-legend"><span class="perm-source">via group</span><span class="perm-source perm-source--direct">via direct</span><span class="perm-source perm-source--superuser">via superuser</span></span>
+        </div>
+        {% endif %}
+    </div>
+    <div class="card-body" style="padding: 0;">
+        <div class="scroll-frame scroll-frame--tall" data-perm-list>
+            {% for app, grants in grants_by_app %}
+            <section class="perm-app" data-perm-app>
+                <h3>{{ app }} <span class="quiet" data-perm-app-count>{{ grants|length }}</span></h3>
+                <ul class="perm-list">
+                    {% for g in grants %}
+                    {# Searchable text: the codename, the label and the granting groups; not the word "superuser", which "user" would match on every row. #}
+                    <li data-perm-row data-text="{{ g.perm }} {{ g.label|lower }}{% for s in g.sources %}{% if s != 'superuser' %} {{ s|lower }}{% endif %}{% endfor %}">
+                        <code>{{ g.perm }}</code>
+                        <span class="perm-source">{{ g.label }}</span>
+                        <span class="perm-sources">{% for s in g.sources %}<span class="perm-source{% if s == 'direct' %} perm-source--direct{% elif s == 'superuser' %} perm-source--superuser{% endif %}">via {{ s }}</span>{% endfor %}</span>
+                    </li>
+                    {% endfor %}
+                </ul>
+            </section>
+            {% empty %}
+            <p class="access-empty">No permissions{% if target.is_staff %}; the staff flag alone opens the admin area{% endif %}.</p>
+            {% endfor %}
+            <p class="access-empty" data-perm-none hidden>Nothing matches.</p>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header card-header--compact" style="display: flex; justify-content: space-between; align-items: center; gap: 12px;">
+        <h2>Access changes involving this account</h2>
+        <a href="{% url 'access:events' %}?who={{ target.get_username|urlencode }}" class="btn-outline btn-sm">All changes</a>
+    </div>
+    <div class="card-body" style="padding: 0;">
+        <div class="scroll-frame scroll-frame--medium">{% include "access/_events_table.html" %}</div>
+    </div>
+</div>
+<script src="{% static 'access/js/user_detail.js' %}" defer></script>
+{% endblock %}

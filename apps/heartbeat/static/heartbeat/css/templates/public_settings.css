@@ -1,0 +1,26 @@
+/* The staff page about the public status page. Theme variables only. */
+.pub-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(360px, 100%), 1fr)); gap: 16px; align-items: stretch; }
+.pub-note { margin: 0 0 10px; font-size: 0.88rem; }
+.pub-note.quiet, .quiet { color: var(--body-quiet-color); }
+.pub-actions { display: flex; gap: 8px; flex-wrap: wrap; margin: 12px 0; }
+.pub-links, .pub-settings { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+.pub-links th, .pub-settings th { text-align: left; font-weight: 500; color: var(--body-quiet-color); width: 11rem; padding: 6px 0; white-space: nowrap; }
+.pub-links td, .pub-settings td { padding: 6px 0; overflow-wrap: anywhere; }
+.pub-links a { text-decoration: none; }
+.pub-brand-preview {
+    display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+    padding: 18px 16px; margin-bottom: 12px;
+    border: 1px dashed var(--card-border); border-radius: var(--radius-sm, 6px);
+    background: var(--body-bg);
+}
+.pub-brand-preview .brand-lockup .brand-word { font-size: 1.45rem; }
+.pub-brand-preview .auth-logo { height: 34px; }
+.pub-brand-suffix { font-size: 1.45rem; font-weight: 500; color: var(--body-quiet-color); }
+.pub-monitors { width: 100%; border-collapse: collapse; font-size: 0.85rem; table-layout: fixed; min-width: 640px; }
+.pub-monitors th, .pub-monitors td { padding: 8px 16px; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pub-monitors tr.is-private td { opacity: 0.75; }
+.pub-state { font-weight: 600; }
+.pub-state--operational { color: var(--success-fg); }
+.pub-state--degraded, .pub-state--maintenance { color: var(--warning-fg); }
+.pub-state--down { color: var(--error-fg); }
+.pub-state--unknown { color: var(--body-quiet-color); }

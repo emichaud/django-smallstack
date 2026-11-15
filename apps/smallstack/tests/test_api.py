@@ -2417,11 +2417,15 @@ class TestTokenErrorMessages:
 
         response = client.get("/api/auth/me/", HTTP_AUTHORIZATION=f"Bearer {raw}")
         assert response.status_code == 401
-        assert response.json()["errors"]["__all__"][0] == "Account is deactivated"
-        # The token itself is untouched — the ACCOUNT is what became unusable.
+        # Deactivation revokes the token outright (apps.access.signals), so it
+        # stays dead even if the account is reactivated later.
+        assert response.json()["errors"]["__all__"][0] == "Token revoked"
         token.refresh_from_db()
-        assert token.is_active is True
-        assert token.is_valid() is True
+        assert token.is_active is False and token.revoked_at is not None
+        # The account check still stands on its own: an un-revoked token of an
+        # inactive account (legacy data, a raw update) is refused too.
+        APIToken.objects.filter(pk=token.pk).update(is_active=True, revoked_at=None)
+        token.refresh_from_db()
         assert token.rejection_reason() == APIToken.REJECT_USER_INACTIVE
         # And the low-level authenticator refuses to hand back a user at all,
         # which is what closes the hole on every other surface (MCP, feeds).

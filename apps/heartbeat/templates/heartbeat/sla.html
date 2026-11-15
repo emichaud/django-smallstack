@@ -11,7 +11,7 @@
 {% endblock %}
 
 {% block content %}
-<div class="page-header-with-actions" style="background: var(--accent-band-bg); margin: -24px -24px 24px -24px; padding: 24px; border-radius: 8px 8px 0 0; display: flex; align-items: center; justify-content: space-between;">
+<div class="page-header-with-actions" style="background: var(--accent-band-bg); margin: -24px -20px 24px -20px; padding: 24px; border-radius: 8px 8px 0 0; display: flex; align-items: center; justify-content: space-between;">
     <div class="page-header-content">
         <h1>SLA{% if not is_site_sla %} &middot; {{ monitor_title }}{% endif %}</h1>
         <p class="page-subtitle">{% if epoch %}Monitoring since {{ epoch|date:"M d, Y g:i A T" }}{% if monitoring_days %} ({{ monitoring_days }} day{{ monitoring_days|pluralize }}){% endif %}{% else %}No monitoring data{% endif %}</p>
@@ -27,13 +27,13 @@
             <span style="color: var(--body-fg);">SLA</span>
         </nav>
     </div>
-    <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 10px;">
+    <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 10px; min-width: 0; max-width: 100%;">
         {% if is_site_sla %}
-        <a href="{% url 'heartbeat:dashboard' %}" class="btn-tint">Site timeline</a>
+        {% include "heartbeat/_status_tabs.html" with status_section="sla" %}
         {% else %}
         <a href="{% url 'heartbeat:monitor_detail' monitor_key %}" class="btn-tint">Back to monitor</a>
         {% endif %}
-        <div style="display: flex; gap: 12px; align-items: stretch;">
+        <div style="display: flex; gap: 12px; align-items: stretch; flex-wrap: wrap; justify-content: flex-end;">
             <!-- Goal card -->
             <div class="action-card" style="min-width: 140px;">
                 <div class="action-card-body">
@@ -66,7 +66,7 @@
 <div class="stat-cards" style="margin-bottom: 24px;">
     <!-- Overall -->
     <div class="stat-card">
-        <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 8px;">
+        <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 8px; flex-wrap: wrap;">
             <div class="stat-card-value" style="color: {{ uptime_overall_color }};">{% if uptime_overall != None %}{{ uptime_overall }}%{% else %}&mdash;{% endif %}</div>
             <div style="display: flex; gap: 4px;">
                 {% if uptime_overall != None %}
@@ -85,7 +85,7 @@
     </div>
     <!-- 24h -->
     <div class="stat-card">
-        <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 8px;">
+        <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 8px; flex-wrap: wrap;">
             <div class="stat-card-value" style="color: {{ uptime_24h_color }};">{% if uptime_24h != None %}{{ uptime_24h }}%{% else %}&mdash;{% endif %}</div>
             <div style="display: flex; gap: 4px;">
                 {% if uptime_24h != None %}
@@ -98,7 +98,7 @@
     </div>
     <!-- 7d -->
     <div class="stat-card">
-        <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 8px;">
+        <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 8px; flex-wrap: wrap;">
             <div class="stat-card-value" style="color: {{ uptime_7d_color }};">{% if uptime_7d != None %}{{ uptime_7d }}%{% else %}&mdash;{% endif %}</div>
             <div style="display: flex; gap: 4px;">
                 {% if uptime_7d != None %}
@@ -112,7 +112,7 @@
 </div>
 
 <!-- SLA/How-It-Works tabbed card (left) + Maintenance Windows (right) — equal height -->
-<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 24px; align-items: stretch;">
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(360px, 100%), 1fr)); gap: 24px; margin-bottom: 24px; align-items: stretch;">
     <div class="card sla-tab-card" style="margin: 0;">
         <div class="card-header sla-tabs" role="tablist">
             <button type="button" class="sla-tab active" data-tab="config" role="tab" aria-selected="true">SLA</button>
@@ -124,7 +124,7 @@
                 <form method="post" action="{% url 'heartbeat:reset_epoch' %}">
                     {% csrf_token %}
                     <input type="hidden" name="monitor" value="{{ monitor_key }}">{# scope the reset to this monitor's epoch #}
-                    <div style="display: grid; grid-template-columns: 3fr 2fr; gap: 16px 20px;">
+                    <div style="display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: 16px 20px;">
                         <div class="form-row">
                             <label for="id_started_at">Monitoring Start ({{ form_timezone }})</label>
                             {{ form.started_at }}
@@ -182,9 +182,10 @@
             <h2>Maintenance Windows</h2>
             <a href="{% url 'heartbeat:maintenance_create' %}?monitor={{ monitor_key }}" class="btn-primary btn-sm">Schedule</a>
         </div>
-        <div class="card-body" style="padding: 0; overflow-x: auto;">
+        <div class="card-body" style="padding: 0; overflow-x: auto; contain: inline-size;">
             {% if maintenance_windows %}
-            <table class="table-plain maint-table" style="width: 100%; border-collapse: collapse;">
+            <table class="table-plain maint-table" style="width: 100%; border-collapse: collapse; table-layout: fixed;">
+                <colgroup><col><col style="width: 9.5rem;"><col style="width: 9.5rem;"><col style="width: 5.5rem;"></colgroup>
                 <thead>
                     <tr>
                         <th>Title</th>
@@ -237,29 +238,31 @@
 {% if daily_summaries %}
 <div class="card">
     <div class="card-header"><h2>Daily Summaries</h2></div>
-    <div class="card-body" style="padding: 0; overflow-x: auto;">
-        <table class="table-plain" style="width: 100%; border-collapse: collapse;">
+    <div class="card-body" style="padding: 0; overflow-x: auto; contain: inline-size;">
+        {% comment %}Fixed, even numeric columns (tabular figures, right-aligned); the date column takes the rest.{% endcomment %}
+        <table class="table-plain daily-table" style="width: 100%; border-collapse: collapse; table-layout: fixed; min-width: 640px;">
+            <colgroup><col><col style="width: 7.5rem;"><col style="width: 6rem;"><col style="width: 6rem;"><col style="width: 6rem;"><col style="width: 7rem;"><col style="width: 10rem;"></colgroup>
             <thead>
                 <tr>
                     <th>Date</th>
-                    <th>Uptime</th>
-                    <th style="text-align: right;">OK</th>
-                    <th style="text-align: right;">Fail</th>
-                    <th style="text-align: right;">Maint</th>
-                    <th style="text-align: right;">Expected</th>
-                    <th style="text-align: right;">Avg Response</th>
+                    <th class="num">Uptime</th>
+                    <th class="num">OK</th>
+                    <th class="num">Fail</th>
+                    <th class="num">Maint</th>
+                    <th class="num">Expected</th>
+                    <th class="num">Avg response</th>
                 </tr>
             </thead>
             <tbody>
                 {% for day in daily_summaries %}
                 <tr>
                     <td>{{ day.date|date:"M d, Y" }}</td>
-                    <td style="font-weight: 600;">{{ day.uptime_pct }}%</td>
-                    <td style="text-align: right;">{{ day.ok_count }}</td>
-                    <td style="text-align: right;">{% if day.fail_count %}<span style="color: var(--error-fg);">{{ day.fail_count }}</span>{% else %}0{% endif %}</td>
-                    <td style="text-align: right;">{% if day.maintenance_count %}<span style="color: var(--warning-fg);">{{ day.maintenance_count }}</span>{% else %}0{% endif %}</td>
-                    <td style="text-align: right;">{{ day.expected_count }}</td>
-                    <td style="text-align: right;">{{ day.avg_response_ms }}ms</td>
+                    <td class="num" style="font-weight: 600;">{{ day.uptime_pct }}%</td>
+                    <td class="num">{{ day.ok_count }}</td>
+                    <td class="num">{% if day.fail_count %}<span style="color: var(--error-fg);">{{ day.fail_count }}</span>{% else %}0{% endif %}</td>
+                    <td class="num">{% if day.maintenance_count %}<span style="color: var(--warning-fg);">{{ day.maintenance_count }}</span>{% else %}0{% endif %}</td>
+                    <td class="num">{{ day.expected_count }}</td>
+                    <td class="num">{{ day.avg_response_ms }} ms</td>
                 </tr>
                 {% endfor %}
             </tbody>

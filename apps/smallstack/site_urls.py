@@ -58,6 +58,8 @@ urlpatterns = [
     path("backups/", include("apps.smallstack.urls")),
     # User Manager (staff-only)
     path("", include("apps.usermanager.urls")),
+    path("access/", include("apps.access.urls")),
+    path("", include("apps.access.api_urls")),  # /smallstack/api/access/…
     # Model Explorer (staff-only)
     path("", include("apps.explorer.urls")),
     # MCP admin pages (staff-only) — Health, Tools, Activity

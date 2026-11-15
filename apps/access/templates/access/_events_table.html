@@ -1,0 +1,36 @@
+{% load theme_tags %}
+{% if events %}
+<div style="overflow-x: auto; contain: inline-size;">
+<table class="table-plain events-table" style="width: 100%; border-collapse: collapse;">
+    <thead>
+        <tr>
+            <th scope="col" style="text-align: left;">When</th>
+            <th scope="col" style="text-align: left;">Change</th>
+            <th scope="col" style="text-align: left;">Account</th>
+            <th scope="col" style="text-align: left;">Group / permission</th>
+            <th scope="col" style="text-align: left;">By</th>
+            <th scope="col" style="text-align: left;">From</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for e in events %}
+        <tr>
+            <td style="white-space: nowrap;">{% localtime_tooltip e.at %}</td>
+            <td{% if e.is_grant %} class="event-grant"{% endif %}>{{ e.get_kind_display }}</td>
+            <td>{% if e.subject_id %}<a href="{% url 'access:user_detail' e.subject_id %}">{{ e.subject_label }}</a>{% else %}{{ e.subject_label|default:"—" }}{% endif %}</td>
+            <td>
+                {% if e.group_id %}<a href="{% url 'access:group_detail' e.group_id %}">{{ e.group_label }}</a>{% elif e.group_label %}{{ e.group_label }}{% endif %}
+                {% if e.permission %}<code>{{ e.permission }}</code>{% endif %}
+                {% if e.detail.token %}<span class="quiet">{{ e.detail.token }}</span>{% endif %}
+                {% if e.detail.count %}<span class="quiet">{{ e.detail.count }}</span>{% endif %}
+            </td>
+            <td>{% if e.actor_id %}<a href="{% url 'access:user_detail' e.actor_id %}">{{ e.actor_label }}</a>{% else %}<span class="quiet">{{ e.actor_label|default:"system" }}</span>{% endif %}</td>
+            <td class="quiet" title="{{ e.source }}{% if e.request_id %} · request {{ e.request_id }}{% endif %}">{{ e.source|truncatechars:36 }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+</div>
+{% else %}
+<p style="padding: 16px; margin: 0; color: var(--body-quiet-color);">No access changes recorded yet. Changes made from now on are listed here, from Django admin, these pages, the User Manager, a shell or a directory sync.</p>
+{% endif %}

@@ -40,6 +40,7 @@ prints the canonical token for each. A miss raises a "did you mean …" error.
 | `sc status [check\|maintenance …]` | Run monitors (`heartbeat`) or manage maintenance windows. | passthrough |
 | `sc index [rebuild\|sync]` | Rebuild the search index / sync the help index. | passthrough |
 | `sc webhook status\|list\|test\|replay\|deliveries\|tick\|pair` | Webhook **ops** (fronts `manage.py webhook`). `replay --status dead` bulk-replays every dead delivery; `pair` links two SmallStacks (S2S). Endpoint/receiver CRUD uses the generic verbs (`sc ls/new/set/rm webhook`). | `--status`, `--endpoint`, `--since`, `--limit`, `--target`, `--events`, `--slug`, `--send-secret`, `--recv-secret`, `--one-way`, `--verify`, `--json` |
+| `sc access explain\|check\|grant\|revoke\|groups\|findings` | Access from the shell (fronts `manage.py access`): what an account can do and why, `has_perm` with reasons (exit 1 when not held), add/remove a membership through the same recorded service as the pages and REST. | `--user` (the person a change is attributed to), `--reason`, `--json`, `--rows` |
 | `sc commands` | Discover every framework management command, grouped by app. | `--json` |
 
 **Writable fields ⊆ shown fields.** `new`/`set` go through the model's **form** (exactly like the web UI

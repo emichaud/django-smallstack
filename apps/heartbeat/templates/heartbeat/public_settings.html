@@ -1,0 +1,118 @@
+{% extends "smallstack/base.html" %}
+{% load static theme_tags %}
+
+{% block title %}Public status page{% endblock %}
+{% block breadcrumbs %}{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'heartbeat/css/templates/public_settings.css' %}">
+{% endblock %}
+
+{% block page_header %}
+<div class="page-header-bleed page-header-with-actions" style="display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap;">
+    <div class="page-header-content" style="min-width: 0;">
+        <h1>Public status page</h1>
+        <p class="page-subtitle">What visitors see at <code>{{ public_url }}</code>, which monitors appear there, and the branding it carries.</p>
+        <nav style="margin-top: 0.5rem; font-size: 0.8rem;">
+            <a href="{% url 'website:home' %}" style="color: var(--body-quiet-color); text-decoration: none;">Home</a>
+            <span style="color: var(--body-quiet-color); margin: 0 0.3rem;">/</span>
+            <a href="{% url 'heartbeat:status_overview' %}" style="color: var(--body-quiet-color); text-decoration: none;">Status</a>
+            <span style="color: var(--body-quiet-color); margin: 0 0.3rem;">/</span>
+            <span style="color: var(--body-fg);">Public page</span>
+        </nav>
+    </div>
+    {% include "heartbeat/_status_tabs.html" with status_section="public" %}
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="pub-grid" style="margin-bottom: 16px;">
+    <div class="card">
+        <div class="card-header" style="display: flex; justify-content: space-between; align-items: center; gap: 12px;">
+            <h2>The page</h2>
+            {% if public_enabled %}{% status_badge "published" "success" %}{% else %}{% status_badge "off" "muted" %}{% endif %}
+        </div>
+        <div class="card-body">
+            {% if public_enabled %}
+            <p class="pub-note">Anyone can open these, signed in or not. Right now it reads
+                <strong class="pub-state pub-state--{{ overall_state }}">{{ overall_label }}</strong>, from {{ public_monitor_count }} public monitor{{ public_monitor_count|pluralize }}.</p>
+            {% else %}
+            <p class="pub-note"><strong>The public page is switched off</strong> (<code>SMALLSTACK_PUBLIC_STATUS_ENABLED=False</code>): visitors get a 404 at these addresses, and the status monitor and nav entry for it are hidden. Staff can still open them to see what would be shown.</p>
+            {% endif %}
+            <table class="table-plain pub-links">
+                <tbody>
+                    <tr><th scope="row">Status board</th><td><a href="{% url 'public_status' %}" target="_blank" rel="noopener">{{ public_url }}</a></td></tr>
+                    <tr><th scope="row">Maintenance</th><td><a href="{% url 'public_maintenance' %}" target="_blank" rel="noopener">{{ maintenance_url }}</a></td></tr>
+                    <tr><th scope="row">Maintenance calendar</th><td><a href="{% url 'public_maintenance_calendar' %}" target="_blank" rel="noopener">{{ calendar_url }}</a></td></tr>
+                    <tr><th scope="row">JSON</th><td><a href="{% url 'public_status_json' %}" target="_blank" rel="noopener">{{ json_url }}</a> <span class="quiet">for an uptime checker or a widget of your own</span></td></tr>
+                </tbody>
+            </table>
+            <p class="pub-actions">
+                <a href="{% url 'public_status' %}" class="btn-primary btn-sm" target="_blank" rel="noopener">Open the public page <span aria-hidden="true">&#8599;</span></a>
+                <a href="{% url 'heartbeat:maintenance_create' %}" class="btn-outline btn-sm">Schedule maintenance</a>
+            </p>
+            <p class="pub-note quiet">Turn it off with <code>SMALLSTACK_PUBLIC_STATUS_ENABLED=False</code> in <code>.env</code>. It follows each visitor's light or dark theme and the site's palette.</p>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header"><h2>Branding on the page</h2></div>
+        <div class="card-body">
+            <div class="pub-brand-preview">
+                {% include "smallstack/includes/brand_lockup.html" %}
+                <span class="pub-brand-suffix">Status</span>
+            </div>
+            <p class="pub-note">{% if brand.logo_themed %}The stock SmallStack mark, drawn in the palette's colours. A project replaces it by naming its own files; nothing on the page changes.{% else %}Your own logo, from the settings below; it swaps between the light and dark files with the visitor's theme.{% endif %}</p>
+            <table class="table-plain pub-settings">
+                <tbody>
+                    <tr><th scope="row"><code>BRAND_NAME</code></th><td>{{ brand.name }}</td></tr>
+                    <tr><th scope="row"><code>BRAND_LOGO</code></th><td><code>{{ brand.logo }}</code> <span class="quiet">light theme</span></td></tr>
+                    <tr><th scope="row"><code>BRAND_LOGO_DARK</code></th><td><code>{{ brand.logo_dark }}</code> <span class="quiet">dark theme</span></td></tr>
+                    <tr><th scope="row"><code>BRAND_FAVICON</code></th><td><code>{{ brand.favicon }}</code></td></tr>
+                </tbody>
+            </table>
+            <p class="pub-note quiet">Set them in <code>.env</code> (paths under <code>static/</code>); the sign-in pages, emails and this page pick them up. <code>BRAND_LOGO_TEXT</code> is the top bar's wordmark on the staff side. See the <a href="{% url 'help:section_detail' section='smallstack' slug='branding' %}">branding guide</a>.</p>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header" style="display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap;">
+        <h2>Monitors <span class="quiet">{{ public_monitor_count }} of {{ monitor_count }} shown publicly</span></h2>
+        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+            <a href="{% url 'heartbeat:status/site-monitors-list' %}" class="btn-outline btn-sm">Site monitors</a>
+            <a href="{% url 'heartbeat:status/endpoints-list' %}" class="btn-outline btn-sm">External endpoints</a>
+        </div>
+    </div>
+    <div class="card-body" style="padding: 0;">
+        <div style="overflow-x: auto; contain: inline-size;">
+        <table class="table-plain pub-monitors">
+            <colgroup><col style="width: 30%;"><col style="width: 18%;"><col style="width: 12%;"><col style="width: 14%;"><col></colgroup>
+            <thead>
+                <tr>
+                    <th scope="col">Monitor</th>
+                    <th scope="col">Service</th>
+                    <th scope="col">Public</th>
+                    <th scope="col">State</th>
+                    <th scope="col">Shown to visitors as</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in monitor_rows %}
+                <tr{% if not row.public %} class="is-private"{% endif %}>
+                    <td>{% if row.detail_url %}<a href="{{ row.detail_url }}">{{ row.title }}</a>{% else %}{{ row.title }}{% endif %}</td>
+                    <td class="quiet">{{ row.service_title }}</td>
+                    <td>{% if row.public %}{% status_badge "public" "success" %}{% else %}{% status_badge "private" "muted" %}{% endif %}</td>
+                    <td><span class="pub-state pub-state--{{ row.state }}">{{ row.state_label }}</span></td>
+                    <td class="quiet">{% if row.public %}{{ row.service_title }} &rsaquo; {{ row.title }}{% else %}&mdash;{% endif %}</td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="5" class="quiet" style="padding: 16px;">No monitors registered.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        </div>
+        <p class="pub-note quiet" style="padding: 10px 16px; border-top: 1px solid var(--card-border);">A monitor appears publicly when its <strong>Public</strong> flag is on: on the edit page for a site monitor or an external endpoint, or <code>public=True</code> on a monitor registered in code. A service with no public monitor is left off the page.</p>
+    </div>
+</div>
+{% endblock %}

@@ -921,6 +921,7 @@ class MonitoredEndpointCRUDView(CRUDView):
     form_class = MonitoredEndpointForm  # service rendered as a <select> of registered services
     fields = ["name", "slug", "service", "url", "method", "expected_status", "timeout_seconds", "enabled", "public"]
     list_fields = ["name", "service", "url", "enabled", "public"]
+    column_widths = {"name": "220px", "service": "140px", "enabled": "100px", "public": "100px"}  # url takes the rest
     detail_fields = [
         "name",
         "slug",
@@ -973,6 +974,7 @@ class MonitoredSurfaceCRUDView(CRUDView):
     form_class = MonitoredSurfaceForm
     fields = ["name", "kind", "target", "enabled", "public"]
     list_fields = ["name", "kind", "target", "enabled", "public"]
+    column_widths = {"name": "240px", "kind": "130px", "enabled": "100px", "public": "100px"}  # target takes the rest
     detail_fields = ["name", "kind", "target", "slug", "enabled", "public", "created_at"]
     url_base = "status/site-monitors"
     paginate_by = 20
@@ -1287,6 +1289,63 @@ def _status_overview_context(public_only: bool = False) -> dict[str, Any]:
         "overall_maintenance_count": sum(1 for r in all_rows if r["state"] == "maintenance"),
         **{f"overall_{k}": v for k, v in _STATE_DISPLAY.get(overall_state, _STATE_DISPLAY["unknown"]).items()},
     }
+
+
+class PublicStatusSettingsView(StaffRequiredMixin, TemplateView):
+    """The staff page about the public status page: whether it's published, its
+    addresses, which monitors appear there, and the branding it carries. The
+    public page itself opens from here, so the overview needn't link out."""
+
+    template_name = "heartbeat/public_settings.html"
+
+    def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
+        from django.urls import reverse
+
+        ctx = super().get_context_data(**kwargs)
+        overview = _status_overview_context(public_only=False)
+        rows = []
+        for svc in overview["services"]:
+            for row in svc["monitors"]:
+                monitor = row["monitor"]
+                rows.append(
+                    {
+                        "title": monitor.title or monitor.key,
+                        "service_title": svc["service"].title or svc["service"].key,
+                        "public": bool(monitor.public),
+                        "state": row["state"],
+                        "state_label": row.get("label", row["state"]),
+                        "detail_url": row.get("detail_url"),
+                    }
+                )
+        rows.sort(key=lambda r: (not r["public"], r["service_title"].lower(), r["title"].lower()))
+        public_rows = [r for r in rows if r["public"]]
+        public_states = {r["state"] for r in public_rows}
+        if "down" in public_states:
+            overall = "down"
+        elif "degraded" in public_states:
+            overall = "degraded"
+        elif "maintenance" in public_states:
+            overall = "maintenance"
+        elif "operational" in public_states:
+            overall = "operational"
+        else:
+            overall = "unknown"
+        build = self.request.build_absolute_uri
+        ctx.update(
+            {
+                "public_enabled": bool(getattr(settings, "SMALLSTACK_PUBLIC_STATUS_ENABLED", True)),
+                "public_url": build(reverse("public_status")),
+                "json_url": build(reverse("public_status_json")),
+                "maintenance_url": build(reverse("public_maintenance")),
+                "calendar_url": build(reverse("public_maintenance_calendar")),
+                "monitor_rows": rows,
+                "monitor_count": len(rows),
+                "public_monitor_count": len(public_rows),
+                "overall_state": overall,
+                "overall_label": _STATE_DISPLAY.get(overall, _STATE_DISPLAY["unknown"])["label"].lower(),
+            }
+        )
+        return ctx
 
 
 class StatusOverviewView(StaffRequiredMixin, TemplateView):

@@ -34,16 +34,18 @@
         <div class="card-body" style="padding: 0;">
             {% if resources %}
             <div class="crud-table-wrap" style="overflow-x: auto;">
-            <table class="crud-table" data-table-key="activity:resources">
+            {% comment %}Numbers take fixed, even columns; the pattern takes the rest. --table-min: the
+            sized columns + 300px for the pattern, so a narrow screen scrolls before it collapses.{% endcomment %}
+            <table class="crud-table" data-table-key="activity:resources" style="--table-min: 820px;">
                 <thead>
                     <tr>
                         {% sortable_th "resource" "Resource" %}
-                        {% sortable_th "hits" "Hits" align="right" width="96px" %}
-                        {% sortable_th "users" "Users" align="right" width="90px" %}
-                        {% sortable_th "errors" "Errors" align="right" width="90px" %}
-                        {% sortable_th "avg_ms" "Avg ms" align="right" width="100px" %}
-                        {% sortable_th "max_ms" "Max ms" align="right" width="100px" %}
-                        {% sortable_th "last_seen" "Last" width="176px" %}
+                        {% sortable_th "hits" "Hits" align="right" width="92px" %}
+                        {% sortable_th "users" "Users" align="right" width="84px" %}
+                        {% sortable_th "errors" "Errors" align="right" width="88px" %}
+                        {% sortable_th "avg_ms" "Avg ms" align="right" width="92px" %}
+                        {% sortable_th "max_ms" "Max ms" align="right" width="92px" %}
+                        {% sortable_th "last_seen" "Last" align="right" width="96px" %}
                     </tr>
                 </thead>
                 <tbody>
@@ -55,7 +57,7 @@
                         <td class="num"{% if row.server_errors %} style="color: var(--error-fg);"{% elif row.errors %} style="color: var(--warning-fg);"{% endif %}>{{ row.errors }}</td>
                         <td class="num">{{ row.avg_ms|floatformat:0 }}</td>
                         <td class="num"{% if row.max_ms >= 1000 %} style="color: var(--warning-fg);"{% endif %}>{{ row.max_ms }}</td>
-                        <td style="font-size: 0.82rem; color: var(--body-quiet-color); white-space: nowrap;">{{ row.last_seen|timesince }} ago</td>
+                        <td class="num" style="font-size: 0.82rem; color: var(--body-quiet-color);" title="{{ row.last_seen|date:'M d, Y H:i' }}">{{ row.last_seen|ago }}</td>
                     </tr>
                     {% endfor %}
                 </tbody>

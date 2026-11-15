@@ -210,13 +210,15 @@ def test_create_edit_and_delete_pages_write_log_entries(client, staff, runbook):
     client.force_login(staff)
     resp = client.post(url("update", pk=runbook.pk), {"name": "Ops book 2", "slug": "ops-book"})
     assert resp.status_code == 302, resp.content
-    entry = LogEntry.objects.get(object_id=str(runbook.pk), action_flag=CHANGE)
+    entry = LogEntry.objects.get(object_id=str(runbook.pk), action_flag=CHANGE, content_type__model="runbook")
     assert entry.user == staff and "Name" in entry.get_change_message()
 
     resp = client.post(url("create"), {"name": "Fresh", "slug": "fresh"})
     assert resp.status_code == 302, resp.content
     fresh = Runbook.objects.get(slug="fresh")
-    assert LogEntry.objects.filter(object_id=str(fresh.pk), action_flag=ADDITION, user=staff).exists()
+    assert LogEntry.objects.filter(
+        object_id=str(fresh.pk), action_flag=ADDITION, user=staff, content_type__model="runbook"
+    ).exists()
 
     pk = fresh.pk
     assert client.post(url("delete", pk=pk)).status_code == 302

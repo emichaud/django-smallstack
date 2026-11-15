@@ -323,6 +323,12 @@ pages:
     icon: "users"
     category: "Built-in Tools"
 
+  - slug: access-control
+    title: "Access Control"
+    description: "Who may do what, every change to it, and the least-privilege review at /smallstack/access/"
+    icon: "shield"
+    category: "Built-in Tools"
+
   - slug: dashboard-widgets
     title: "Dashboard Widgets"
     description: "Add cards to the /smallstack/ dashboard from your own apps"

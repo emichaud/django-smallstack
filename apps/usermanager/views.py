@@ -182,6 +182,12 @@ class UserCRUDView(CRUDView):
                 # Activity stats
                 context["activity_stats"] = _get_user_activity_stats(user_obj)
 
+                # The Access tab: groups, counts, recent changes; the full
+                # explanation lives at /smallstack/access/users/<pk>/.
+                from apps.access.services import user_access_summary
+
+                context["access_summary"] = user_access_summary(user_obj)
+
                 return context
 
             def post(self, request, *args, **kwargs):

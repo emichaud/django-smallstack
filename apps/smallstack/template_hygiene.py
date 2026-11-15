@@ -37,6 +37,7 @@ _SKIP_DIRS = {".git", ".venv", "node_modules", "staticfiles", "htmlcov", "site-p
 #: project's to edit. ``showcase`` is SmallStack's demo pages, which a project may
 #: delete, but while it's there its templates are SmallStack's. A new app goes here.
 FRAMEWORK_APPS = (
+    "access",
     "accounts",
     "activity",
     "api",

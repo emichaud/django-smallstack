@@ -1,0 +1,56 @@
+{% extends "smallstack/base.html" %}
+{% load theme_tags %}
+
+{% block title %}Access{% endblock %}
+{% block breadcrumbs %}{% endblock %}
+
+{% block page_header %}
+{% include "access/_header.html" with title="Access" subtitle="Who may do what, every change to it, and what least privilege says to look at." crumbs=None section="overview" %}
+{% endblock %}
+
+{% block content %}
+<div class="stat-cards" style="margin-bottom: 24px;">
+    {% stat_card value=stats.users label="Active accounts" title="Active accounts" detail_url="access:stat" detail_arg="users" %}
+    {% stat_card value=stats.staff label="Staff" title="Staff accounts" detail_url="access:stat" detail_arg="staff" %}
+    {% stat_card value=stats.superusers label="Superusers" title="Superusers" detail_url="access:stat" detail_arg="superusers" state=stats.superusers|yesno:"warning,muted" %}
+    {% stat_card value=stats.groups label="Groups" title="Groups" detail_url="access:stat" detail_arg="groups" %}
+    {% stat_card value=stats.grants_7d label="Grants · 7d" title="Access widened in the last 7 days" link_url="access:events" %}
+</div>
+
+<div class="card" style="margin-bottom: 24px;">
+    <div class="card-header" style="display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap;">
+        <h2>Least-privilege review</h2>
+        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+            <a href="{% url 'access:matrix_csv' %}" class="btn-outline btn-sm" title="Every account × permission × source">Export access (CSV)</a>
+            <a href="{% url 'access:snapshot_json' %}" class="btn-outline btn-sm" title="Accounts, groups and findings, dated">Snapshot (JSON)</a>
+        </div>
+    </div>
+    <div class="card-body" style="padding: 0;">
+        <ul class="findings">
+            {% for f in findings %}
+            <li class="finding finding--{{ f.severity }}" id="finding-{{ f.key }}">
+                <div class="finding-count">{{ f.count }}</div>
+                <div>
+                    <p class="finding-title">{{ f.title }}</p>
+                    <p class="finding-summary">{{ f.summary }}</p>
+                    {% if f.advice and f.count %}<p class="finding-advice">{{ f.advice }}</p>{% endif %}
+                </div>
+                {% if f.rows %}
+                <button type="button" class="btn-outline btn-sm finding-open" hx-get="{% url 'access:finding' f.key %}" hx-target="#stat-modal-body" hx-swap="innerHTML" data-stat-modal="{{ f.title }}" aria-haspopup="dialog">Show {{ f.count }}</button>
+                {% endif %}
+            </li>
+            {% endfor %}
+        </ul>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
+        <h2>Recent changes</h2>
+        <a href="{% url 'access:events' %}" class="btn-outline btn-sm">All changes</a>
+    </div>
+    <div class="card-body" style="padding: 0;">
+        {% include "access/_events_table.html" with events=recent_events %}
+    </div>
+</div>
+{% endblock %}

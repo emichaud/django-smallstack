@@ -120,6 +120,8 @@
 
 /* Compact maintenance table + icon actions */
 .maint-table { font-size: 0.8rem; }
+.maint-table td:first-child { overflow-wrap: anywhere; }
+.daily-table th.num, .daily-table td.num { text-align: right; font-variant-numeric: tabular-nums; }
 .maint-table th, .maint-table td { padding: 8px 10px; vertical-align: top; }
 .maint-table .maint-when { white-space: nowrap; color: var(--body-quiet-color); font-variant-numeric: tabular-nums; }
 .maint-actions { display: inline-flex; gap: 12px; align-items: center; }

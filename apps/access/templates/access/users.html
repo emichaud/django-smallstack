@@ -1,0 +1,60 @@
+{% extends "smallstack/base.html" %}
+{% load theme_tags %}
+
+{% block title %}Users · Access{% endblock %}
+{% block breadcrumbs %}{% endblock %}
+
+{% block page_header %}
+{% include "access/_header.html" with title="Users" subtitle="Each account's flags, groups and direct permissions. Open one to see everything it can do, and why." crumbs=crumbs section="users" %}
+{% endblock %}
+
+{% block content %}
+<div class="card" id="users">
+    <div class="card-body">
+        <form method="get" class="access-filters" action="{% url 'access:users' %}">
+            <label for="q" class="sr-only">Search accounts</label>
+            <input id="q" type="search" name="q" value="{{ q }}" placeholder="Username, name, email or group" class="vTextField" style="width: 18rem; max-width: 100%;">
+            <label for="show" class="sr-only">Which accounts</label>
+            <select id="show" name="show" class="vTextField">
+                <option value="active"{% if show == "active" %} selected{% endif %}>Active</option>
+                <option value="staff"{% if show == "staff" %} selected{% endif %}>Staff and superusers</option>
+                <option value="inactive"{% if show == "inactive" %} selected{% endif %}>Deactivated</option>
+                <option value="all"{% if show == "all" %} selected{% endif %}>All</option>
+            </select>
+            <button type="submit" class="btn-outline btn-sm">Filter</button>
+        </form>
+        <div style="overflow-x: auto; contain: inline-size;">
+        <table class="table-plain" style="width: 100%; border-collapse: collapse;">
+            <thead>
+                <tr>
+                    <th scope="col" style="text-align: left; padding: 8px 12px;">Account</th>
+                    <th scope="col" style="text-align: left; padding: 8px 12px;">Flags</th>
+                    <th scope="col" style="text-align: left; padding: 8px 12px;">Groups</th>
+                    <th scope="col" style="text-align: right; padding: 8px 12px;">Direct</th>
+                    <th scope="col" style="text-align: right; padding: 8px 12px;">Tokens</th>
+                    <th scope="col" style="text-align: left; padding: 8px 12px;">Last sign-in</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for u in users %}
+                <tr>
+                    <td style="padding: 8px 12px;"><a href="{% url 'access:user_detail' u.pk %}"><strong>{{ u.get_username }}</strong></a>{% if u.email %}<div style="font-size: 0.78rem; color: var(--body-quiet-color);">{{ u.email }}</div>{% endif %}</td>
+                    <td style="padding: 8px 12px; white-space: nowrap;">
+                        {% if not u.is_active %}{% status_badge "inactive" "muted" %}{% endif %}
+                        {% if u.is_superuser %}{% status_badge "superuser" "error" %}{% elif u.is_staff %}{% status_badge "staff" "info" %}{% endif %}
+                    </td>
+                    <td style="padding: 8px 12px; font-size: 0.85rem;">{% for g in u.groups.all %}<a href="{% url 'access:group_detail' g.pk %}">{{ g.name }}</a>{% if not forloop.last %}, {% endif %}{% empty %}<span style="color: var(--body-quiet-color);">—</span>{% endfor %}</td>
+                    <td style="padding: 8px 12px; text-align: right; font-variant-numeric: tabular-nums;{% if u.direct_permission_count %} color: var(--warning-fg);{% endif %}">{{ u.direct_permission_count }}</td>
+                    <td style="padding: 8px 12px; text-align: right; font-variant-numeric: tabular-nums;">{{ u.active_token_count }}</td>
+                    <td style="padding: 8px 12px; font-size: 0.85rem; white-space: nowrap; color: var(--body-quiet-color);">{% if u.last_login %}{{ u.last_login|timesince }} ago{% else %}never{% endif %}</td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="6" style="padding: 16px; color: var(--body-quiet-color);">No accounts match.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        </div>
+        {% render_paginator page_obj hx_target="#users" hx_select="#users" hx_swap="outerHTML" push_url=True %}
+    </div>
+</div>
+{% endblock %}

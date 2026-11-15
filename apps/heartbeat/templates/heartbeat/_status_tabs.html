@@ -1,0 +1,8 @@
+{% comment %}The status area's sections, the same on every staff status page. Expects `status_section`
+(overview | timeline | sla | public). The public page itself opens from the Public page section.{% endcomment %}
+<nav class="page-tabs" aria-label="Status sections">
+    <a href="{% url 'heartbeat:status_overview' %}"{% if status_section == "overview" %} class="active" aria-current="page"{% endif %}>Overview</a>
+    <a href="{% url 'heartbeat:dashboard' %}"{% if status_section == "timeline" %} class="active" aria-current="page"{% endif %}>Site timeline</a>
+    <a href="{% url 'heartbeat:sla' %}"{% if status_section == "sla" %} class="active" aria-current="page"{% endif %}>SLA</a>
+    <a href="{% url 'heartbeat:public_settings' %}"{% if status_section == "public" %} class="active" aria-current="page"{% endif %}>Public page</a>
+</nav>

@@ -33,6 +33,7 @@
             <div class="header-stat"><div class="header-stat-value is-plain">{{ summary.max_ms }}</div><div class="header-stat-label">Max ms</div></div>
         </div>
         {% include "activity/includes/window_picker.html" %}
+        <a href="{% url 'access:user_detail' target.pk %}" class="btn-outline btn-sm" title="Groups, permissions and access changes">Access</a>
     </div>
 </div>
 {% endblock %}

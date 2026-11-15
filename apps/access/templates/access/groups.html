@@ -1,0 +1,56 @@
+{% extends "smallstack/base.html" %}
+{% load theme_tags %}
+
+{% block title %}Groups · Access{% endblock %}
+{% block breadcrumbs %}{% endblock %}
+
+{% block page_header %}
+{% include "access/_header.html" with title="Groups" subtitle="A group is a job: the permissions it needs and the people who do it." crumbs=crumbs section="groups" %}
+{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header" style="display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap;">
+        <h2>{{ groups|length }} group{{ groups|length|pluralize }}</h2>
+        {% if request.user.is_superuser %}<a href="{% url 'admin:auth_group_add' %}" class="btn-outline btn-sm">Add a group in Django admin</a>{% endif %}
+    </div>
+    <div class="card-body" style="padding: 0;">
+        {% if groups %}
+        <div style="overflow-x: auto; contain: inline-size;">
+        <table class="table-plain" style="width: 100%; border-collapse: collapse;">
+            <thead>
+                <tr>
+                    <th scope="col" style="text-align: left; padding: 8px 16px;">Group</th>
+                    <th scope="col" style="text-align: left; padding: 8px 16px;">Declared by</th>
+                    <th scope="col" style="text-align: right; padding: 8px 16px;">Members</th>
+                    <th scope="col" style="text-align: right; padding: 8px 16px;">Permissions</th>
+                    <th scope="col" style="text-align: left; padding: 8px 16px;">State</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in groups %}
+                <tr>
+                    <td style="padding: 8px 16px;">
+                        <a href="{% url 'access:group_detail' row.group.pk %}"><strong>{{ row.group.name }}</strong></a>
+                        {% if row.managed.description %}<div style="font-size: 0.8rem; color: var(--body-quiet-color);">{{ row.managed.description }}</div>{% endif %}
+                    </td>
+                    <td style="padding: 8px 16px; font-size: 0.85rem;">{% if row.managed %}<code>{{ row.managed.app_label|default:"code" }}</code>{% if not row.declared %} <span class="quiet" style="color: var(--body-quiet-color);">(no longer declared)</span>{% endif %}{% else %}<span style="color: var(--body-quiet-color);">by hand</span>{% endif %}</td>
+                    <td style="padding: 8px 16px; text-align: right; font-variant-numeric: tabular-nums;">{{ row.group.member_count }}</td>
+                    <td style="padding: 8px 16px; text-align: right; font-variant-numeric: tabular-nums;">{{ row.group.permission_count }}</td>
+                    <td style="padding: 8px 16px;">
+                        {% if row.drift.added or row.drift.missing %}{% status_badge "drift" "warning" %}
+                        {% elif row.group.member_count == 0 %}{% status_badge "no members" "muted" %}
+                        {% elif row.group.permission_count == 0 %}{% status_badge "no permissions" "muted" %}
+                        {% else %}{% status_badge "in use" "success" %}{% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        </div>
+        {% else %}
+        <p style="padding: 16px; margin: 0; color: var(--body-quiet-color);">No groups. Declare one in an app's <code>groups.py</code> with <code>register_group()</code>, or add one in Django admin.</p>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

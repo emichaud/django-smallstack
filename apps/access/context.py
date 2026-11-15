@@ -1,0 +1,60 @@
+"""Who is making the current change, for the audit trail.
+
+Django's signals carry the object that changed but not the request, so the
+receivers in :mod:`apps.access.signals` read the acting user from a context
+variable bound per request by :class:`ActorMiddleware`. Code that changes
+access outside a request (a directory sync, a management command) binds it
+with :func:`acting_as`.
+"""
+
+from __future__ import annotations
+
+import contextvars
+from collections.abc import Callable, Iterator
+from contextlib import contextmanager
+from typing import Any
+
+from django.http import HttpRequest, HttpResponse
+
+_actor: contextvars.ContextVar[Any] = contextvars.ContextVar("smallstack_access_actor", default=None)
+_source: contextvars.ContextVar[str] = contextvars.ContextVar("smallstack_access_source", default="")
+
+
+def current_actor() -> Any:
+    """The user making the current change, or ``None`` outside a request."""
+    actor = _actor.get()
+    return actor if actor is not None and getattr(actor, "is_authenticated", False) else None
+
+
+def current_source() -> str:
+    """Where the current change comes from: ``web:<path>``, ``shell``, or what
+    :func:`acting_as` set."""
+    return _source.get() or "shell"
+
+
+@contextmanager
+def acting_as(actor: Any, source: str) -> Iterator[None]:
+    """Attribute access changes made in the block to ``actor`` and ``source``::
+
+        with acting_as(None, "directory:entra"):
+            user.groups.set(groups)
+    """
+    actor_token = _actor.set(actor)
+    source_token = _source.set(source)
+    try:
+        yield
+    finally:
+        _actor.reset(actor_token)
+        _source.reset(source_token)
+
+
+class ActorMiddleware:
+    """Binds the request's user as the actor for access changes made during it.
+    Sits after ``AuthenticationMiddleware``."""
+
+    def __init__(self, get_response: Callable[[HttpRequest], HttpResponse]) -> None:
+        self.get_response = get_response
+
+    def __call__(self, request: HttpRequest) -> HttpResponse:
+        with acting_as(getattr(request, "user", None), f"web:{request.path}"):
+            return self.get_response(request)

@@ -1,11 +1,12 @@
 {% load crud_tags theme_tags tz %}
 {% if beats %}
-<table class="crud-table">
+{% comment %}Time, status and response take fixed columns; the note takes the rest. --table-min: scroll before the note collapses.{% endcomment %}
+<table class="crud-table" style="--table-min: 640px;">
     <thead>
         <tr>
-            {% sortable_th "timestamp" "Time" target="#tab-content" %}
-            {% sortable_th "status" "Status" target="#tab-content" %}
-            {% sortable_th "response_time_ms" "Response" target="#tab-content" %}
+            {% sortable_th "timestamp" "Time" target="#tab-content" width="230px" %}
+            {% sortable_th "status" "Status" target="#tab-content" width="96px" %}
+            {% sortable_th "response_time_ms" "Response" target="#tab-content" align="right" width="110px" %}
             {% sortable_th "note" "Note" target="#tab-content" %}
         </tr>
     </thead>
@@ -20,7 +21,7 @@
                 <span style="color:var(--error-fg);font-weight:600;">FAIL</span>
                 {% endif %}
             </td>
-            <td><span style="font-size:0.85rem;">{{ beat.response_time_ms }}ms</span></td>
+            <td class="num"><span style="font-size:0.85rem;">{{ beat.response_time_ms }} ms</span></td>
             <td>
                 {% if beat.note %}
                 <span style="font-size:0.85rem;color:var(--body-quiet-color);">{{ beat.note|truncatechars:81 }}</span>

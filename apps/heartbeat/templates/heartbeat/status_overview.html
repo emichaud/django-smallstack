@@ -11,13 +11,8 @@
         <p class="page-subtitle">{{ service_count }} service{{ service_count|pluralize }} &middot; {{ monitor_count }} monitor{{ monitor_count|pluralize }} tracked</p>
     </div>
     {% if not is_public_view %}
-    <div class="page-header-actions" style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
-        {# Per-tier "+ Add" / "Manage endpoints" live on their cards; the header keeps just the views. #}
-        {% if smallstack_public_status_enabled %}
-        <a href="{% url 'public_status' %}" class="btn-tint btn-sm">Public page</a>
-        <a href="{% url 'heartbeat:status_json' %}" class="btn-tint btn-sm">JSON</a>
-        {% endif %}
-    </div>
+    {# Per-tier "+ Add" / "Manage endpoints" live on their cards; the header carries the sections. #}
+    {% include "heartbeat/_status_tabs.html" with status_section="overview" %}
     {% endif %}
 </div>
 {% endblock %}
@@ -35,8 +30,8 @@ monitors with a live status dot. Dots use palette state variables (never hex).
 <div style="display: flex; flex-direction: column; gap: 16px;">
 {% for cat in categories %}
     <div class="card">
-        <div class="card-header" style="display: flex; align-items: center; gap: 12px;">
-            <h2 style="margin: 0; flex: 1;">{{ cat.label }}</h2>
+        <div class="card-header" style="display: flex; align-items: center; gap: 8px 12px; flex-wrap: wrap;">
+            <h2 style="margin: 0; flex: 1 1 auto; min-width: 0;">{{ cat.label }}</h2>
             {% if not is_public_view %}
                 {% if cat.key == 'internal' %}<a href="{% url 'heartbeat:status/site-monitors-create' %}" class="btn-tint btn-sm" data-add-monitor data-title="Add site monitor">+ Add</a>{% endif %}
                 {% if cat.key == 'external' %}<a href="{% url 'heartbeat:status/endpoints-list' %}" class="btn-tint btn-sm">Manage endpoints</a><a href="{% url 'heartbeat:status/endpoints-create' %}" class="btn-tint btn-sm" data-add-monitor data-title="Add monitor">+ Add</a>{% endif %}
@@ -76,7 +71,7 @@ monitors with a live status dot. Dots use palette state variables (never hex).
                     <span class="svc-dot {{ svc.state }}" title="{{ svc.state_label }}">{{ svc.glyph }}</span>
                     <span class="site-core-name">{{ svc.label }}</span>
                     <span class="site-core-state {{ svc.state }}">{{ svc.state_label }}</span>
-                    <span class="svc-monitor-meta">{{ svc.summary }}</span>
+                    <span class="svc-monitor-meta" title="{{ svc.summary }}">{{ svc.summary }}</span>
                     <span class="site-core-caret" aria-hidden="true">{% if svc.items and not is_public_view %}&rsaquo;{% endif %}</span>
                     {% if svc.detail_url %}<a href="{{ svc.detail_url }}" class="site-core-link" title="Open page">&rarr;</a>{% else %}<span class="site-core-link"></span>{% endif %}
                 </summary>
@@ -105,7 +100,7 @@ monitors with a live status dot. Dots use palette state variables (never hex).
                     {% if row.remove_url %}<a href="{{ row.remove_url }}" class="btn-tint btn-sm">Remove</a>{% endif %}
                 </span>
                 {% else %}
-                {% if row.note %}<span class="svc-monitor-meta" style="color: var(--error-fg);">{{ row.note }}</span>{% endif %}
+                {% if row.note %}<span class="svc-monitor-meta svc-monitor-note" title="{{ row.note }}">{{ row.note }}</span>{% endif %}
                 <span class="svc-monitor-stats">
                     {% if row.hour_timeline %}<span class="stat-spark">{% include "heartbeat/_hour_spark.html" with slots=row.hour_timeline only %}</span>{% endif %}
                     <span class="stat-uptime">{% if row.warming_up %}<span title="Collecting data — uptime shown once there's a full window">warming up</span>{% elif row.check_count > 1 %}{{ row.check_count }} checks{% elif row.uptime_24h != None %}{{ row.uptime_24h }}% &middot; 24h{% endif %}</span>

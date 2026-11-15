@@ -37,7 +37,7 @@ a.svc-monitor-row:hover .svc-chevron { color: var(--primary); transform: transla
 /* Last-hour sparkline control lives in heartbeat/_hour_spark_css.html (included
    once below); these rules are only its *placement* on this page. */
 .stat-spark { flex: 0 0 auto; display: flex; justify-content: flex-end; }
-.site-hero-spark { flex: 1 1 100%; display: flex; align-items: center; gap: 10px; margin-top: 2px; }
+.site-hero-spark { flex: 1 1 100%; display: flex; align-items: center; gap: 10px; margin-top: 2px; min-width: 0; }
 .hour-spark-cap { font-size: 0.72rem; color: var(--body-quiet-color); white-space: nowrap; flex: 0 0 auto; }
 
 /* Site (core) card: hero uptime + core-service on/off indicators with drill-down. */
@@ -56,13 +56,25 @@ details.site-core.has-items > .site-core-summary:hover .site-core-name { color: 
 .site-core-state { font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; padding: 2px 0; border-radius: 10px; flex: 0 0 auto; width: 42px; text-align: center; }
 .site-core-state.operational { color: var(--success-fg); background: color-mix(in srgb, var(--success-fg) 15%, transparent); }
 .site-core-state.down { color: var(--error-fg); background: color-mix(in srgb, var(--error-fg) 15%, transparent); }
-.site-core-summary > .svc-monitor-meta { flex: 0 0 auto; min-width: 96px; text-align: right; }
+/* The summary shortens with an ellipsis (the full text is on hover) rather than
+   widening the row: a long diagnostic pushed the whole page to 1484px on a phone. */
+.site-core-summary > .svc-monitor-meta { flex: 0 1 auto; min-width: 0; max-width: 55%; text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.svc-monitor-row > .svc-monitor-note { color: var(--error-fg); flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+@media (max-width: 560px) {
+    .site-core-summary, .svc-monitor-row { flex-wrap: wrap; row-gap: 4px; }
+    .site-core-summary > .svc-monitor-meta, .svc-monitor-row > .svc-monitor-note { max-width: 100%; white-space: normal; overflow-wrap: anywhere; flex-basis: 100%; text-align: left; padding-left: 42px; }
+    .svc-monitor-stats { flex-basis: 100%; padding-left: 42px; flex-wrap: wrap; gap: 6px 12px; min-width: 0; }
+    .svc-monitor-stats .stat-uptime { min-width: 0; text-align: left; }
+    .svc-monitor-stats .stat-spark { flex: 1 1 100%; }
+    .svc-monitor-stats .hour-spark { width: 100%; }
+}
 .site-core-caret { color: var(--body-quiet-color); flex: 0 0 auto; width: 14px; text-align: center; transition: transform var(--transition-fast); }
 details.site-core[open] > .site-core-summary .site-core-caret { transform: rotate(90deg); }
 .site-core-link { color: var(--body-quiet-color); text-decoration: none; flex: 0 0 auto; width: 18px; text-align: center; }
 .site-core-link:link, .site-core-link:visited { color: var(--body-quiet-color); }
 .site-core-link:hover { color: var(--primary); }
 .site-core-items { padding: 0 0 12px 42px; display: flex; flex-direction: column; gap: 6px; }
-.site-core-item { display: flex; align-items: center; gap: 10px; font-size: 0.85rem; }
+.site-core-item { display: flex; align-items: center; gap: 10px; font-size: 0.85rem; flex-wrap: wrap; min-width: 0; }
+.site-core-item > * { min-width: 0; overflow-wrap: anywhere; }
 .site-core-item a:link, .site-core-item a:visited { color: var(--primary); text-decoration: none; }
 .site-core-item a:hover { text-decoration: underline; }

@@ -444,3 +444,25 @@ def status_badge(label, variant=None):
     if variant not in _BADGE_VARIANTS:
         variant = "neutral"
     return format_html('<span class="badge badge-{}">{}</span>', variant, label)
+
+
+@register.filter
+def ago(value: Any) -> str:
+    """A short relative time for a table cell: ``just now``, ``4m ago``,
+    ``9h ago``, ``6d ago``, ``3w ago``, ``5mo ago``, ``2y ago``.
+
+    ``timesince`` gives two units ("9 hours, 24 minutes ago"), which is more
+    than a list column can carry; put the exact time in the cell's ``title``
+    (``localtime_tooltip``) for anyone who needs it. Empty for a missing value.
+    """
+    if not value:
+        return ""
+    from django.utils import timezone
+
+    now = timezone.now() if timezone.is_aware(value) else datetime.datetime.now()
+    seconds = max(int((now - value).total_seconds()), 0)
+    for limit, unit, label in ((60, 1, None), (3600, 60, "m"), (86400, 3600, "h"), (604800, 86400, "d"),
+                               (2629800, 604800, "w"), (31557600, 2629800, "mo")):
+        if seconds < limit:
+            return "just now" if label is None else f"{seconds // unit}{label} ago"
+    return f"{seconds // 31557600}y ago"
