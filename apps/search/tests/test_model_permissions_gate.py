@@ -24,9 +24,13 @@ NEEDLE = "zzqb5needle"
 
 @pytest.fixture
 def users_checked(monkeypatch):
+    from apps.smallstack.crud import CRUDView
     from apps.usermanager.views import UserCRUDView
 
+    # The User Manager keeps reading open to staff (its own has_model_permission);
+    # stand in for a view that checks ``view`` the way CRUDView does by default.
     monkeypatch.setattr(UserCRUDView, "model_permissions", True)
+    monkeypatch.setattr(UserCRUDView, "has_model_permission", classmethod(CRUDView.has_model_permission.__func__))
     return UserCRUDView
 
 
