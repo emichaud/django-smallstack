@@ -48,9 +48,9 @@ class ExplorerIndexView(StaffRequiredMixin, TemplateView):
         from apps.smallstack.dashboard import get_widget_contexts
 
         if active_group:
-            widget_contexts = get_widget_contexts(group=active_group)
+            widget_contexts = get_widget_contexts(group=active_group, user=self.request.user)
         elif active_app:
-            widget_contexts = get_widget_contexts(app=active_app)
+            widget_contexts = get_widget_contexts(app=active_app, user=self.request.user)
         else:
             widget_contexts = []
         context["widget_contexts"] = widget_contexts

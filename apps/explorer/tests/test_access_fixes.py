@@ -235,3 +235,56 @@ def test_b3_logentry_delete_superuser_only_per_its_admin(staff, root):
     request = RequestFactory().get("/")
     request.user = grant(staff, "view_logentry", "delete_logentry")
     assert not crud.has_model_permission(request, "delete")
+
+
+# --- B4 ----------------------------------------------------------------------
+
+
+@pytest.fixture
+def perms_on(settings):
+    settings.SMALLSTACK_EXPLORER_MODEL_PERMISSIONS = True
+
+
+def test_b4_example_model_page_refuses_without_view(client, staff, perms_on):
+    Runbook.objects.create(name="B4 Secret Book", slug="b4-secret")
+    client.force_login(staff)
+    r = client.get("/smallstack/explorer/examples/model/smallstack_runbook/runbook/")
+    assert r.status_code == 403
+    assert b"B4 Secret Book" not in r.content
+
+
+def test_b4_example_model_page_refuses_accounts_with_setting_off(client, staff, root, settings):
+    settings.SMALLSTACK_EXPLORER_MODEL_PERMISSIONS = False
+    client.force_login(staff)
+    r = client.get("/smallstack/explorer/examples/model/accounts/user/")
+    assert r.status_code == 403
+    assert root.email.encode() not in r.content
+
+
+def test_b4_example_model_page_opens_with_view(client, staff, perms_on):
+    Runbook.objects.create(name="B4 Open Book", slug="b4-open")
+    client.force_login(grant(staff, "view_runbook"))
+    r = client.get("/smallstack/explorer/examples/model/smallstack_runbook/runbook/")
+    assert r.status_code == 200
+    assert b"B4 Open Book" in r.content
+
+
+def test_b4_example_app_and_group_pages_leave_out_unviewable_models(client, staff, perms_on):
+    client.force_login(staff)
+    r = client.get("/smallstack/explorer/examples/app/smallstack_runbook/")
+    assert r.status_code == 200
+    assert r.context["models"] == []
+    assert "smallstack_runbook" not in r.context["all_apps"]
+    r = client.get("/smallstack/explorer/examples/group/monitoring/")
+    assert r.status_code == 200
+    assert r.context["models"] == []
+
+
+def test_b4_index_widgets_follow_model_permissions(client, staff, perms_on):
+    client.force_login(staff)
+    r = client.get(reverse("explorer-index") + "?group=Monitoring&view=widgets")
+    assert r.status_code == 200
+    assert not r.context["has_widgets"]
+    client.force_login(grant(staff, "view_heartbeat"))
+    r = client.get(reverse("explorer-index") + "?group=Monitoring&view=widgets")
+    assert [c["model_name"] for c in r.context["widget_contexts"]] == ["heartbeat"]

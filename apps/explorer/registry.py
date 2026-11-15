@@ -742,24 +742,27 @@ class ExplorerSite:
     def get_models(self) -> list[ModelInfo]:
         return self._model_info
 
+    def user_may_view(self, info: ModelInfo, user) -> bool:
+        """Whether ``user`` may view ``info``'s rows: always, unless the model
+        checks Django model permissions (then its Explorer ``view`` check)."""
+        from types import SimpleNamespace
+
+        crud = next((c for c in self._crud_classes if c.model is info.model_class), None)
+        if crud is None or not crud.uses_model_permissions():
+            return True
+        return crud.has_model_permission(SimpleNamespace(user=user), "view")
+
     def get_models_for(self, user) -> list[ModelInfo]:
         """The registered models ``user`` may view: all of them unless a
         model checks Django model permissions."""
-        from apps.smallstack.model_permissions import has_model_permission
+        return [info for info in self._model_info if self.user_may_view(info, user)]
 
-        by_model = {c.model: c for c in self._crud_classes}
-        return [
-            info
-            for info in self._model_info
-            if not (crud := by_model.get(info.model_class)) or not crud.uses_model_permissions()
-            or has_model_permission(user, info.model_class, "view")
-        ]
-
-    def get_dashboard_widgets(self) -> list[tuple]:
+    def get_dashboard_widgets(self, user=None) -> list[tuple]:
         """Return [(widget, model_info), ...] for every registered widget.
 
         Reads explorer_dashboard_widgets from each admin class, same pattern
-        as explorer_displays, explorer_list_accessories, etc.
+        as explorer_displays, explorer_list_accessories, etc. Given ``user``,
+        only widgets over models that user may view.
         """
         results = []
         for (model, group_key), admin_class in self._registry.items():
@@ -772,7 +775,7 @@ class ExplorerSite:
                 if m.model_class is model and m.group == group_key:
                     info = m
                     break
-            if info is None:
+            if info is None or (user is not None and not self.user_may_view(info, user)):
                 continue
             for widget in widgets:
                 results.append((widget, info))
@@ -789,8 +792,9 @@ class ExplorerSite:
 
     # -- Public API: context helpers --
 
-    def get_group_context(self, group_name: str) -> GroupContext | None:
+    def get_group_context(self, group_name: str, user=None) -> GroupContext | None:
         """Return everything a group page template needs, or None if not found.
+        Given ``user``, only the models that user may view.
 
         Usage in a view:
             ctx = explorer.get_group_context("Monitoring")
@@ -806,8 +810,10 @@ class ExplorerSite:
         if not matched:
             return None
 
-        models = [info.with_counts() for info in grouped[matched]]
+        models = [info.with_counts() for info in grouped[matched] if user is None or self.user_may_view(info, user)]
         all_groups = sorted(grouped.keys())
+        if user is not None:
+            all_groups = sorted({i.group for i in self.get_models_for(user)})
 
         return GroupContext(
             group_name=matched,
@@ -819,8 +825,9 @@ class ExplorerSite:
         """Return sorted list of unique app_labels across all registered models."""
         return sorted({info.app_label for info in self._model_info})
 
-    def get_app_context(self, app_label: str) -> AppContext | None:
+    def get_app_context(self, app_label: str, user=None) -> AppContext | None:
         """Return everything an app page template needs, or None if not found.
+        Given ``user``, only the models that user may view.
 
         Usage in a view:
             ctx = explorer.get_app_context("heartbeat")
@@ -828,12 +835,16 @@ class ExplorerSite:
         models = [info for info in self._model_info if info.app_label == app_label]
         if not models:
             return None
+        all_apps = self.get_apps()
+        if user is not None:
+            models = [info for info in models if self.user_may_view(info, user)]
+            all_apps = sorted({i.app_label for i in self.get_models_for(user)})
 
         return AppContext(
             app_label=app_label,
             app_verbose_name=app_label.replace("_", " ").title(),
             models=[info.with_counts() for info in models],
-            all_apps=self.get_apps(),
+            all_apps=all_apps,
         )
 
     def get_model_context(self, app_label: str, model_name: str) -> ModelContext | None:

@@ -39,6 +39,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+from django.core.exceptions import PermissionDenied
 from django.http import Http404
 from django.views.generic.base import ContextMixin
 
@@ -58,6 +59,11 @@ class _ExplorerSiteMixin(ContextMixin):
 
     kwargs: dict[str, Any]
     explorer_site: ExplorerSite | None = None
+
+    def _viewer(self) -> Any:
+        """The signed-in user the page is for (models they can't view are left out)."""
+        request = getattr(self, "request", None)
+        return getattr(request, "user", None)
 
     def _get_site(self) -> ExplorerSite:
         if self.explorer_site:
@@ -88,7 +94,7 @@ class ExplorerGroupMixin(_ExplorerSiteMixin):
     def get_context_data(self, **kwargs) -> dict:
         context = super().get_context_data(**kwargs)
         group_name = self.get_explorer_group_name()
-        ctx = self._get_site().get_group_context(group_name)
+        ctx = self._get_site().get_group_context(group_name, user=self._viewer())
         if not ctx:
             raise Http404(f"Group '{group_name}' not found in Explorer registry.")
         context.update(ctx.as_context())
@@ -116,7 +122,7 @@ class ExplorerAppMixin(_ExplorerSiteMixin):
     def get_context_data(self, **kwargs) -> dict:
         context = super().get_context_data(**kwargs)
         app_label = self.get_explorer_app_label()
-        ctx = self._get_site().get_app_context(app_label)
+        ctx = self._get_site().get_app_context(app_label, user=self._viewer())
         if not ctx:
             raise Http404(f"App '{app_label}' not found in Explorer registry.")
         context.update(ctx.as_context())
@@ -153,8 +159,12 @@ class ExplorerModelMixin(_ExplorerSiteMixin):
         context = super().get_context_data(**kwargs)
         app_label = self.get_explorer_app_label()
         model_name = self.get_explorer_model_name()
-        ctx = self._get_site().get_model_context(app_label, model_name)
+        site = self._get_site()
+        ctx = site.get_model_context(app_label, model_name)
         if not ctx:
             raise Http404(f"Model '{app_label}.{model_name}' not found in Explorer registry.")
+        # The same check as the model's own Explorer list page.
+        if not site.user_may_view(ctx.info, self._viewer()):
+            raise PermissionDenied("You need the view permission for this.")
         context.update(ctx.as_context())
         return context
