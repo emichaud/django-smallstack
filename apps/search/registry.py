@@ -242,6 +242,24 @@ def view_count() -> int:
     return len(_search_registry)
 
 
+def _view_permits(view: IndexedView, user: Any) -> bool:
+    """The CRUDView's own ``view`` check, for a view with ``model_permissions``
+    on (Explorer's views read their setting). A view that doesn't check model
+    permissions permits everyone; one whose check raises permits no one."""
+    from types import SimpleNamespace
+
+    view_cls: Any = view.view_cls
+    try:
+        if not view_cls.uses_model_permissions():
+            return True
+        return bool(view_cls.has_model_permission(SimpleNamespace(user=user), "view"))
+    except AttributeError:
+        return True  # not a CRUDView (a bare registration): nothing to ask
+    except Exception:  # noqa: BLE001 — fail closed
+        logger.exception("search: model permission check failed for %s", view.model_label)
+        return False
+
+
 def _user_can_see(view: IndexedView, user: Any) -> bool:
     """Apply the access-level gate for one indexed view.
 
@@ -255,6 +273,10 @@ def _user_can_see(view: IndexedView, user: Any) -> bool:
     if user is None:
         # Trusted internal call (MCP server, management commands, etc.).
         return True
+    if not _view_permits(view, user):
+        # The view checks Django model permissions and this user may not
+        # view its model: no hits, no preview, staff or not.
+        return False
     if getattr(user, "is_staff", False):
         # Staff are exempt — they see everything that's indexed.
         return True
@@ -487,8 +509,10 @@ def search_all(query: str, limit_per_model: int = 5, user: Any = None) -> list[S
          doesn't survive the filter are dropped.
 
     Staff and trusted-internal (``user=None``) callers bypass both
-    gates. Visibility filters that raise fail safe: the view's hits are
-    dropped entirely rather than leaking unfiltered rows.
+    gates, except that a view with ``model_permissions`` on never returns
+    hits to a user without its ``view`` permission, staff included.
+    Visibility filters that raise fail safe: the view's hits are dropped
+    entirely rather than leaking unfiltered rows.
 
     Used by the topbar omnibar, the admin /smallstack/search/ page,
     the public /search/ page, and the ``search_all`` MCP tool.

@@ -139,8 +139,9 @@ def register_search_tools(only_view=None) -> int:
                         "denied": True,
                         "reason": (
                             f"Access to {_view.model_label} requires "
-                            f"search_access >= {_view.access}; "
-                            f"this token's user does not satisfy that tier."
+                            f"search_access >= {_view.access} (and its view permission "
+                            f"when the view checks model permissions); "
+                            f"this token's user does not satisfy that."
                         ),
                     }
 
