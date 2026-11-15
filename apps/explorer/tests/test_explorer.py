@@ -732,6 +732,12 @@ class TestChildExplorerSite:
         assert child._model_info[0].namespace == "ns_test"
 
 
+def _grant_view_user(user):
+    from django.contrib.auth.models import Permission
+
+    user.user_permissions.add(Permission.objects.get(codename="view_user", content_type__app_label="accounts"))
+
+
 class TestRelatedTabs:
     """Tests for the related tabs feature on CRUDView detail pages."""
 
@@ -858,6 +864,8 @@ class TestRelatedTabs:
 
     def test_related_tab_detail_context(self, client, staff_user):
         """Detail view context includes related_tabs with counts and URLs."""
+        # Accounts always check model permissions in Explorer (whatever the setting).
+        _grant_view_user(staff_user)
         client.force_login(staff_user)
         # User model has reverse FKs; use Explorer's registered User detail
         response = client.get(reverse("explorer/accounts/user-detail", kwargs={"pk": staff_user.pk}))
@@ -875,6 +883,7 @@ class TestRelatedTabs:
 
     def test_related_tab_htmx_endpoint(self, client, staff_user):
         """The related tab HTMX endpoint returns 200 with table content."""
+        _grant_view_user(staff_user)
         client.force_login(staff_user)
         # First get the detail page to discover available tabs
         response = client.get(reverse("explorer/accounts/user-detail", kwargs={"pk": staff_user.pk}))
@@ -888,6 +897,7 @@ class TestRelatedTabs:
 
     def test_related_tab_invalid_accessor_404(self, client, staff_user):
         """Requesting an invalid accessor name returns 404."""
+        _grant_view_user(staff_user)
         client.force_login(staff_user)
         url = reverse(
             "explorer/accounts/user-related-tab",
