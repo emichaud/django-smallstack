@@ -9,6 +9,8 @@ Breaking-change migration recipes live in [`UPGRADING.md`](UPGRADING.md).
 
 ## [Unreleased]
 
+## [0.32.0] - 2026-11-15
+
 ### Upgrading from 0.31.0
 - **Explorer now asks a ModelAdmin's per-object `has_change_permission(request, obj)` and `has_delete_permission(request, obj)`** (as Django admin does) for each row's edit and delete, on the pages, bulk actions, REST and MCP, whatever `SMALLSTACK_EXPLORER_MODEL_PERMISSIONS` says. A downstream ModelAdmin that overrides either one with a rule on `obj`, or that calls `super()` (Django's default checks the model permission), now has that rule enforced in Explorer, where staff could edit or delete those rows before. See `UPGRADING.md` (G3-2, E-dec 5).
 - **New app `apps.access` and middleware.** Add `"apps.access"` to `INSTALLED_APPS` (after `apps.usermanager`) and `"apps.access.context.ActorMiddleware"` to `MIDDLEWARE` right after `AuthenticationMiddleware`, mount `path("access/", include("apps.access.urls"))` in `apps/smallstack/site_urls.py` if your copy diverged, then `make migrate`: it creates the `access_accessevent` and `access_managedgroup` tables and SmallStack's five shipped groups. New settings `SMALLSTACK_ACCESS_DORMANT_DAYS` (90) and `SMALLSTACK_ACCESS_GROUPS_SYNC` (on). See `UPGRADING.md`.
@@ -3522,7 +3524,8 @@ Condensed highlights of the v0.11 series (see git history for per-patch detail):
 See the git tag history (`git tag`) and `ai_cowork/audit_history/` for the full record of the
 v0.8–v0.10 API-server, modern-dark-theme, search, MCP, and Postgres eras.
 
-[Unreleased]: https://github.com/emichaud/django-smallstack/compare/v0.31.0...HEAD
+[Unreleased]: https://github.com/emichaud/django-smallstack/compare/v0.32.0...HEAD
+[0.32.0]: https://github.com/emichaud/django-smallstack/compare/v0.31.0...v0.32.0
 [0.31.0]: https://github.com/emichaud/django-smallstack/compare/v0.30.3...v0.31.0
 [0.30.3]: https://github.com/emichaud/django-smallstack/compare/v0.30.2...v0.30.3
 [0.30.2]: https://github.com/emichaud/django-smallstack/compare/v0.30.1...v0.30.2

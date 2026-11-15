@@ -8,7 +8,7 @@ listed, no downstream migration is required.
 
 ---
 
-## Unreleased — the Access app
+## v0.32.0 — the Access app
 
 **Who is affected:** every downstream project (a new app and a middleware line), and any project
 with its own copy of `config/settings/base.py` or `apps/smallstack/site_urls.py`.
