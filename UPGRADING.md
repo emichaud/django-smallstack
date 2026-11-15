@@ -32,6 +32,15 @@ It needs an app entry, a middleware entry and a migration.
 needed, dormant accounts, permissions granted directly). Those describe your existing data, not a
 regression; the page says what to do about each.
 
+**Explorer now asks for model permissions on accounts, groups, permissions, API tokens, the change
+history and the Access app's models, even with `SMALLSTACK_EXPLORER_MODEL_PERMISSIONS` off.** A staff
+account that browsed or edited those in Explorer with no permissions now gets a 403 there. Give the
+people who should keep that access the shipped group that fits (User manager, Token manager, Log
+reader, Access reviewer) or the `view_*` / `change_*` permissions directly. A ModelAdmin's
+`explorer_model_permissions = False` no longer turns the check off for these models. Explorer also
+follows a ModelAdmin's own `has_*_permission` overrides now, so a ModelAdmin that refuses deletes
+refuses them in Explorer too, and an API token's owner is read-only once the token exists.
+
 **If your project records access changes itself** (a signal on `user.groups`, a custom audit of the
 staff flag), it now does so twice; keep yours only if it records something these events don't.
 
