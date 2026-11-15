@@ -7,6 +7,7 @@ from typing import Any
 from django.contrib import messages
 from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib.auth import get_user_model
+from django.core.exceptions import PermissionDenied
 from django.db.models import Avg, Count, Max
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect
@@ -39,6 +40,19 @@ def _record_account_action(request, target, message: str) -> None:
         logger.exception("usermanager: couldn't write the audit entry for %r on user pk=%s", message, target.pk)
 
 
+CHANGE_USER = "accounts.change_user"
+
+
+def can_edit_account(actor: Any, target: Any) -> bool:
+    """Whether ``actor`` may change ``target``'s account here (fields, the
+    staff and active flags, a reset link, an unlock): ``accounts.change_user``,
+    the permission the shipped *User manager* group grants, and only a
+    superuser may change a superuser's account. Superusers hold every perm."""
+    if not actor.has_perm(CHANGE_USER):
+        return False
+    return not target.is_superuser or actor.is_superuser
+
+
 def _active_superuser_count(exclude_pk=None) -> int:
     qs = User.objects.filter(is_superuser=True, is_active=True)
     if exclude_pk is not None:
@@ -69,6 +83,10 @@ class UserCRUDView(CRUDView):
     url_base = "manage/users"
     paginate_by = 10
     mixins = [StaffRequiredMixin]
+    # Writes ask for Django's model permissions (add_user / change_user /
+    # delete_user; superusers hold all three), as Django admin and the Access
+    # pages do; reading stays a staff matter, see has_model_permission below.
+    model_permissions = True
     form_class = UserAccountForm
     actions = [Action.LIST, Action.CREATE, Action.UPDATE, Action.DELETE]
 
@@ -92,6 +110,14 @@ class UserCRUDView(CRUDView):
     search_fields = ["username", "email", "first_name", "last_name"]
     search_display = "username"
     search_subtitle = "email"
+
+    @classmethod
+    def has_model_permission(cls, request, action: str) -> bool:
+        """Reading accounts needs only staff (the mixin), like the Access
+        pages; creating, changing and deleting need the model permission."""
+        if action == "view":
+            return True
+        return super().has_model_permission(request, action)
 
     @classmethod
     def row_actions(cls, obj, request, default_actions):
@@ -157,12 +183,16 @@ class UserCRUDView(CRUDView):
             view_class.get_context_data = get_context_data
 
         elif base_class is _CRUDUpdateBase:
-            # Add profile form + activity stats to edit view
+            # Add profile form + activity stats to edit view. The page opens
+            # for any staff account (read-only without change_user); post()
+            # below refuses the write.
+            view_class._model_permission = "view"
 
             def get_context_data(self, **kwargs):
                 context = super(view_class, self).get_context_data(**kwargs)
                 user_obj = self.object
                 profile = getattr(user_obj, "profile", None)
+                context["can_edit_account"] = can_edit_account(self.request.user, user_obj)
 
                 # Profile form
                 if "profile_form" not in context:
@@ -188,10 +218,21 @@ class UserCRUDView(CRUDView):
 
                 context["access_summary"] = user_access_summary(user_obj)
 
+                if not context["can_edit_account"]:
+                    for each in (context.get("form"), context.get("profile_form")):
+                        for field in getattr(each, "fields", {}).values():
+                            field.disabled = True
+
                 return context
 
             def post(self, request, *args, **kwargs):
+                from django.http import HttpResponseForbidden
+
                 self.object = self.get_object()
+                if not can_edit_account(request.user, self.object):
+                    if self.object.is_superuser and request.user.has_perm(CHANGE_USER):
+                        return HttpResponseForbidden("Only a superuser can change a superuser account.")
+                    return HttpResponseForbidden(f"Changing an account needs the {CHANGE_USER} permission.")
                 # Capture the ORIGINAL flag values before form validation —
                 # form.is_valid() runs construct_instance(), which mutates
                 # self.object to the submitted values, so reading them after
@@ -425,6 +466,8 @@ def send_user_link(request, pk: int) -> HttpResponse:
     from apps.accounts.views import send_setup_or_reset
 
     user = get_object_or_404(User, pk=pk)
+    if not can_edit_account(request.user, user):
+        raise PermissionDenied(f"Sending a link needs {CHANGE_USER} (and a superuser, for a superuser's account).")
     kind = send_setup_or_reset(request, user)
     if kind == "invite":
         messages.success(request, f"Invite link sent to {user.email}.")
@@ -443,6 +486,8 @@ def send_user_link(request, pk: int) -> HttpResponse:
 def unlock_user(request, pk: int) -> HttpResponse:
     """Clear django-axes failed-login lockouts for a user."""
     user = get_object_or_404(User, pk=pk)
+    if not can_edit_account(request.user, user):
+        raise PermissionDenied(f"Unlocking needs {CHANGE_USER} (and a superuser, for a superuser's account).")
     try:
         from axes.utils import reset
 

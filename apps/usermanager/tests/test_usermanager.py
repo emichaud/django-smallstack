@@ -14,12 +14,22 @@ def user(db):
 
 @pytest.fixture
 def staff_user(db):
-    return User.objects.create_user(
+    """A staff account holding the shipped User manager permissions: the
+    User Manager's writes ask for add_user / change_user (A3)."""
+    from django.contrib.auth.models import Permission
+
+    account = User.objects.create_user(
         username="staffuser",
         email="staff@example.com",
         password="testpass123",
         is_staff=True,
     )
+    account.user_permissions.add(
+        *Permission.objects.filter(
+            content_type__app_label="accounts", codename__in=["view_user", "add_user", "change_user"]
+        )
+    )
+    return account
 
 
 class TestUserListView:
@@ -235,7 +245,8 @@ class TestGuardrails:
     def test_nonsuperuser_cannot_destaff_superuser(self, client, staff_user, superuser):
         client.force_login(staff_user)  # staff, not superuser
         resp = self._edit(client, superuser, is_active="on")  # try to drop is_staff
-        assert resp.status_code == 200
+        # Only a superuser may change a superuser's account at all (A3).
+        assert resp.status_code == 403
         superuser.refresh_from_db()
         assert superuser.is_staff and superuser.is_superuser
 

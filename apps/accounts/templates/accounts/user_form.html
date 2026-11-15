@@ -194,8 +194,13 @@
 
             <!-- Save / Cancel (shared across account + profile tabs) -->
             <div class="crud-actions" id="form-actions">
+                {% if can_edit_account %}
                 <button type="submit" class="btn-save">Save</button>
                 <a href="{% url 'manage/users-list' %}" class="btn-cancel">Cancel</a>
+                {% else %}
+                <p class="crud-help" style="margin: 0;">{% if object.is_superuser and perms.accounts.change_user %}Only a superuser can change a superuser's account.{% else %}Read-only: changing an account needs the <code>accounts.change_user</code> permission (the User manager group).{% endif %}</p>
+                <a href="{% url 'manage/users-list' %}" class="btn-cancel">Back</a>
+                {% endif %}
             </div>
         </form>
 
@@ -345,6 +350,7 @@
         </div>
 
         <!-- ═══ Account actions (edit only, separate forms) ═══ -->
+        {% if can_edit_account %}
         <div class="card" style="margin-top: 1.5rem; max-width: 760px;">
             <div class="card-header"><h2 style="margin: 0;">Account actions</h2></div>
             <div class="card-body" style="display: flex; flex-wrap: wrap; gap: 2rem; align-items: flex-start;">
@@ -366,6 +372,7 @@
                 </form>
             </div>
         </div>
+        {% endif %}
 
         {% else %}
         <!-- Create form — simple, no tabs -->

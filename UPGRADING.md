@@ -32,6 +32,18 @@ It needs an app entry, a middleware entry and a migration.
 needed, dormant accounts, permissions granted directly). Those describe your existing data, not a
 regression; the page says what to do about each.
 
+**The User Manager now asks for Django's user permissions.** Creating an account at
+`/smallstack/manage/users/` needs `accounts.add_user`, editing one (including the staff and active
+flags, a reset link and an unlock) needs `accounts.change_user`, and deleting needs
+`accounts.delete_user`; only a superuser may change a superuser's account. Staff without those
+permissions still see the pages, read-only. If people on your team managed accounts there with the
+staff flag alone, add them to the shipped **User manager** group (`add_user` + `change_user`) — or
+give `delete_user` directly to whoever should delete accounts — before you deploy.
+
+**Adding someone to a group now needs every permission the group grants.** On the Access pages, REST,
+approvals and the CLI, an actor holding `accounts.change_user` may add a member only to a group whose
+permissions they hold themselves (superusers: any group). Removal is unchanged.
+
 **If your project records access changes itself** (a signal on `user.groups`, a custom audit of the
 staff flag), it now does so twice; keep yours only if it records something these events don't.
 

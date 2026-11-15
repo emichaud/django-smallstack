@@ -180,3 +180,51 @@ def test_a12_cli_grant_refuses_a_non_staff_actor(alice, readers):
     with pytest.raises(CommandError, match="not staff"):
         call_command("access", "grant", "alice", "Readers", "--user", "nonstaff")
     assert not alice.groups.exists()
+
+
+# --- A3: the User Manager's writes ask for the model permissions -------------------
+
+
+def _um_edit(client, target, **fields):
+    data = {
+        "username": target.username,
+        "email": target.email,
+        "first_name": "",
+        "last_name": "",
+        "is_active": "on",
+        "profile-timezone": "",
+    }
+    data.update(fields)
+    return client.post(f"/smallstack/manage/users/{target.pk}/edit/", data)
+
+
+def test_a3_plain_staff_cannot_write_through_the_user_manager(client, staffer, alice):
+    client.force_login(staffer)
+    # Reading stays a staff matter; the page is read-only.
+    page = client.get(f"/smallstack/manage/users/{alice.pk}/edit/")
+    assert page.status_code == 200
+    body = page.content.decode()
+    assert 'class="btn-save"' not in body and "Read-only" in body
+    assert "+ Add User" not in client.get("/smallstack/manage/users/").content.decode()
+    # Staff flag on, then deactivate: both refused.
+    assert _um_edit(client, alice, is_staff="on").status_code == 403
+    assert _um_edit(client, alice, is_active="").status_code == 403
+    alice.refresh_from_db()
+    assert alice.is_active and not alice.is_staff
+    assert client.get("/smallstack/manage/users/new/").status_code == 403
+    assert client.post(f"/smallstack/manage/users/{alice.pk}/delete/").status_code == 403
+    assert client.post(f"/smallstack/manage/users/{alice.pk}/send-link/").status_code == 403
+    assert client.post(f"/smallstack/manage/users/{alice.pk}/unlock/").status_code == 403
+    assert User.objects.filter(pk=alice.pk).exists()
+
+
+def test_a3_a_user_manager_edits_accounts_but_not_a_superusers(client, um, alice, root):
+    client.force_login(um)
+    assert _um_edit(client, alice, is_staff="on").status_code == 302
+    alice.refresh_from_db()
+    assert alice.is_staff
+    assert _um_edit(client, root, email="evil@example.com", is_staff="on").status_code == 403
+    root.refresh_from_db()
+    assert root.email != "evil@example.com"
+    # Deleting needs delete_user, which the User manager group doesn't grant.
+    assert client.post(f"/smallstack/manage/users/{alice.pk}/delete/").status_code == 403
