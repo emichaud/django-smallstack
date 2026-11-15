@@ -173,8 +173,10 @@ Every user manager view needs a staff account, and then Django's user permission
 
 - **Create** needs `accounts.add_user`; ticking *Staff* there also needs `accounts.change_user` (the box isn't offered otherwise, as on the invite page)
 - **Edit** (the fields, the staff and active flags, *Send link*, *Unlock*) needs `accounts.change_user`; only a superuser changes a superuser's account
-- **Delete** needs `accounts.delete_user`
+- **Delete** needs `accounts.delete_user`; nobody deletes their own account, only a superuser deletes a superuser's, and the last active superuser can't be deactivated or deleted
 - **Another account's username, email, or a password link** also needs every permission that account holds (you can't take over an account wider than your own); the fields are locked, with the reason, otherwise
+
+Django admin (`/admin/`) and Explorer apply the same rules to the staff and active flags and to deleting: a superuser's account opens read-only for anyone but a superuser.
 
 The sidebar shows the Users link only to staff holding `accounts.view_user`. The shipped *User manager* group grants view, add and change; *Access reviewer* grants view.
 

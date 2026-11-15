@@ -373,6 +373,43 @@ def sign_in_refusal(actor: Any, target: Any) -> str:
     )
 
 
+def account_flags_refusal(
+    actor: Any,
+    target: Any,
+    *,
+    is_active: bool,
+    is_staff: bool,
+    is_superuser: bool | None = None,
+) -> str:
+    """Why ``actor`` may not give ``target`` these flags, or "" when they may.
+
+    The User Manager's rules, for every other surface that edits the flags
+    (Django admin, Explorer): only an active superuser changes a superuser's
+    account; nobody removes their own staff access or deactivates their own
+    account; and nobody deactivates or un-superusers the last active
+    superuser. ``is_superuser=None`` means the surface doesn't edit it. The
+    caller still asks its own bar (``accounts.change_user``) first. Changing
+    the flags of a wider (non-superuser) account is allowed, as on the User
+    Manager: the subset rule covers the password, email and username."""
+    was_active, was_staff, was_superuser = bool(target.is_active), bool(target.is_staff), bool(target.is_superuser)
+    new_superuser = was_superuser if is_superuser is None else bool(is_superuser)
+    if (is_active, is_staff, new_superuser) == (was_active, was_staff, was_superuser):
+        return ""
+    name = target.get_username()
+    if was_superuser and not (getattr(actor, "is_superuser", False) and actor.is_active):
+        return f"Only a superuser can change a superuser account: {name} is a superuser."
+    if getattr(actor, "pk", None) is not None and actor.pk == target.pk:
+        if was_staff and not is_staff:
+            return "You can't remove your own staff access."
+        if was_active and not is_active:
+            return "You can't deactivate your own account."
+    if was_superuser and was_active and (not is_active or not new_superuser):
+        others = User.objects.filter(is_superuser=True, is_active=True).exclude(pk=target.pk)
+        if not others.exists():
+            return "You can't deactivate or demote the last active superuser."
+    return ""
+
+
 #: The account fields that decide who can sign in as it: a new email takes the
 #: password-reset link, a new username the login.
 SIGN_IN_FIELDS = ("username", "email")

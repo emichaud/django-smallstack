@@ -65,6 +65,7 @@ class AccountFormRulesMixin:
 
     def __init__(self, *args, user=None, **kwargs):
         super().__init__(*args, **kwargs)  # type: ignore[call-arg]
+        self._rules_user = user
         instance = getattr(self, "instance", None)
         if instance is None or instance.pk is None:
             if user is None or not user.has_perm(CREATE_STAFF_PERMISSION):
@@ -84,11 +85,44 @@ class AccountFormRulesMixin:
                 field.disabled = True
                 field.help_text = refusal
 
+    #: Ask :func:`apps.access.services.account_flags_refusal` in ``clean()``.
+    #: Off for the User Manager's own form, whose view applies the same
+    #: guardrails with messages of its own; on for Explorer's.
+    check_account_flags = False
+
+    def clean(self):
+        """Editing, when ``check_account_flags``: the active and staff flags
+        follow the User Manager's rules
+        (:func:`apps.access.services.account_flags_refusal`): only a superuser
+        changes a superuser's account, nobody deactivates themselves or drops
+        their own staff access, and the last active superuser stays active."""
+        cleaned = super().clean()  # type: ignore[misc]
+        instance = getattr(self, "instance", None)
+        if not self.check_account_flags or instance is None or instance.pk is None:
+            return cleaned
+        from apps.access.services import account_flags_refusal
+
+        user = self._rules_user
+        fields = self.fields  # type: ignore[attr-defined]
+        is_active = cleaned.get("is_active", instance.is_active) if "is_active" in fields else instance.is_active
+        is_staff = cleaned.get("is_staff", instance.is_staff) if "is_staff" in fields else instance.is_staff
+        if user is None:
+            if (is_active, is_staff) != (instance.is_active, instance.is_staff):
+                raise forms.ValidationError("Changing the active or staff flag needs to know who is asking.")
+            return cleaned
+        refusal = account_flags_refusal(user, instance, is_active=is_active, is_staff=is_staff)
+        if refusal:
+            raise forms.ValidationError(refusal)
+        return cleaned
+
 
 class UserExplorerForm(AccountFormRulesMixin, forms.ModelForm):
     """Explorer's account form: the fields Explorer edits, with the username
     and email locked for an editor the subset rule refuses, and the staff box
-    on create only for an editor holding ``accounts.change_user``."""
+    on create only for an editor holding ``accounts.change_user``, and the
+    active and staff flags under the User Manager's rules (G3-2)."""
+
+    check_account_flags = True
 
     class Meta:
         model = User

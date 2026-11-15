@@ -71,10 +71,34 @@ def _admin_allows(crud_cls, request, action: str) -> bool:
         return False
 
 
+def _admin_allows_object(crud_cls: Any, request: Any, action: str, obj: Any) -> bool:
+    """The ModelAdmin's own per-object ``has_<action>_permission(request, obj)``,
+    when it declares one: a rule about *this* row (UserAdmin: only a superuser
+    changes or deletes a superuser) holds in Explorer as in Django admin.
+    Fails closed like :func:`_admin_allows`."""
+    admin_instance = getattr(crud_cls, "_explorer_admin", None)
+    name = f"has_{action}_permission"
+    if admin_instance is None or not _declared(type(admin_instance), name):
+        return True
+    try:
+        return bool(getattr(admin_instance, name)(request, obj))
+    except Exception:  # noqa: BLE001 — fail closed
+        logger.warning("Explorer: %s.%s raised; refusing", type(admin_instance).__name__, name, exc_info=True)
+        return False
+
+
 class ExplorerCRUDView(CRUDView):
     """Base of every CRUDView Explorer builds from a ModelAdmin."""
 
     _explorer_admin: Any = None
+
+    @classmethod
+    def can_update(cls, obj: Any, request: Any) -> bool:
+        return _admin_allows_object(cls, request, "change", obj) and super().can_update(obj, request)
+
+    @classmethod
+    def can_delete(cls, obj: Any, request: Any) -> bool:
+        return _admin_allows_object(cls, request, "delete", obj) and super().can_delete(obj, request)
 
     @classmethod
     def uses_model_permissions(cls) -> bool:

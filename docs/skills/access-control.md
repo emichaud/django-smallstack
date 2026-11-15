@@ -179,7 +179,16 @@ too. Making a new account staff, on the create page, the invite page or
 Explorer's create form, also needs `accounts.change_user` (the box is dropped
 and a posted `is_staff` ignored otherwise).
 Staff without them see the pages read-only. In Django admin, only a superuser
-may set *Superuser status*, *Groups* or *User permissions*.
+may set *Superuser status*, *Groups* or *User permissions*. **Django admin and
+Explorer follow the User Manager's account rules**
+(`services.account_flags_refusal`): only a superuser changes or deletes a
+superuser's account (it opens read-only for anyone else, and a POST is
+refused), nobody deactivates or deletes their own account or removes their own
+staff access, and nobody deactivates, demotes or deletes the last active
+superuser. A wider non-superuser account's staff and active flags stay
+editable with `change_user`, as on the User Manager. Explorer asks a
+ModelAdmin's per-object `has_change_permission(request, obj)` and
+`has_delete_permission(request, obj)` when it declares them.
 
 ### Findings (least privilege)
 
