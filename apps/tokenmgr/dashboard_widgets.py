@@ -1,7 +1,13 @@
 """Token Manager dashboard widget.
 
-Lands on /smallstack/ next to MCP / Backups / Help. Cheap — just a
-single COUNT on APIToken filtered to the requester's scope.
+Lands on /smallstack/ next to MCP / Backups / Help. Cheap: a few COUNTs
+over every APIToken.
+
+It is shown to every staff account and the numbers are system-wide, which is
+fine because they are aggregates: no token name, owner or label reaches the
+card or its ``/api/dashboard/widgets/`` payload. Reading other accounts' tokens
+needs ``smallstack.view_apitoken`` (the Token Manager list); keep anything
+per-token out of here (``test_e_dec_4_*`` pins it).
 """
 
 from __future__ import annotations

@@ -159,6 +159,9 @@ without `view_user` it shows username, display name, avatar and time zone only
 match email). Other accounts'
 API tokens (the Token Manager's list, detail and search hits) need
 `smallstack.view_apitoken` (the *Token manager* group); everyone sees their own.
+The dashboard's *API Tokens* card stays visible to all staff: it shows
+system-wide counts (active, total, revoked, per level) and nothing per token,
+no name, owner or label, on the card or in `/api/dashboard/widgets/`.
 
 **Changing a membership** needs a staff account holding `accounts.change_user`,
 and, to **add** someone, every permission the group grants: a User manager
