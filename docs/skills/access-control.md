@@ -256,8 +256,10 @@ REST create endpoint and MCP `request_approval` refuse it). A person holding
 and group the approval will change, read from the database, the reason and the
 agent that asked. Approving runs `set_membership` **in the
 approver's name**, recorded as `mcp:approval:<id>`; rejecting, canceling or
-expiring (three days) changes nothing; a vanished user or group lands in
-`callback_error`. The agent polls `get_approval` until `status` leaves
+expiring (three days) changes nothing. An approval that would change nothing
+(the approver lacks a permission the group grants, the user or group is gone,
+the context names someone else) is refused when it is decided, with the reason,
+and the request stays pending for someone who can approve it, or a rejection. The agent polls `get_approval` until `status` leaves
 `pending`. `SMALLSTACK_ACCESS_MCP_WRITES=False` removes the write tool. This is
 the shape to copy for any agent-driven access change: never let a token write
 access directly; let it ask.

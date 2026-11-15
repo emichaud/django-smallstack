@@ -322,6 +322,26 @@ def _beyond(actor: Any, granted: set[str]) -> list[str]:
     return sorted(granted - held)
 
 
+def membership_refusal(actor: Any, group: Group, member: bool) -> str:
+    """Why :func:`set_membership` would refuse ``actor`` this change, or "".
+    Asked before the write by surfaces that want to refuse early (an
+    approval, at decide time)."""
+    if not (actor.is_active and (actor.is_staff or actor.is_superuser)):
+        return f"{actor.get_username()} is not staff; changing membership needs a staff account."
+    if not actor.has_perm(CHANGE_MEMBERSHIP):
+        return f"{actor.get_username()} lacks {CHANGE_MEMBERSHIP}, which changing membership needs."
+    if member:
+        missing = permissions_actor_lacks(actor, group)
+        if missing:
+            shown = ", ".join(missing[:10]) + (f" and {len(missing) - 10} more" if len(missing) > 10 else "")
+            return (
+                f"{actor.get_username()} can't add members to {group.name!r}: it grants "
+                f"{len(missing)} permission{'s' if len(missing) != 1 else ''} they don't hold ({shown}). "
+                "Only someone holding all of a group's permissions (or a superuser) may add to it."
+            )
+    return ""
+
+
 def set_membership(user: Any, group: Group, member: bool, *, actor: Any, source: str) -> bool:
     """Add ``user`` to ``group`` (``member=True``) or remove them. Every
     surface that changes membership calls this: the Access pages, REST, the
@@ -341,21 +361,9 @@ def set_membership(user: Any, group: Group, member: bool, *, actor: Any, source:
     A refusal raises :class:`MembershipRefused` (a ``PermissionError``).
     """
     if actor is not None:
-        if not (actor.is_active and (actor.is_staff or actor.is_superuser)):
-            raise MembershipRefused(f"{actor.get_username()} is not staff; changing membership needs a staff account.")
-        if not actor.has_perm(CHANGE_MEMBERSHIP):
-            raise MembershipRefused(
-                f"{actor.get_username()} lacks {CHANGE_MEMBERSHIP}, which changing membership needs."
-            )
-        if member:
-            missing = permissions_actor_lacks(actor, group)
-            if missing:
-                shown = ", ".join(missing[:10]) + (f" and {len(missing) - 10} more" if len(missing) > 10 else "")
-                raise MembershipRefused(
-                    f"{actor.get_username()} can't add members to {group.name!r}: it grants "
-                    f"{len(missing)} permission{'s' if len(missing) != 1 else ''} they don't hold ({shown}). "
-                    "Only someone holding all of a group's permissions (or a superuser) may add to it."
-                )
+        refusal = membership_refusal(actor, group, member)
+        if refusal:
+            raise MembershipRefused(refusal)
     is_member = user.groups.filter(pk=group.pk).exists()
     if is_member == member:
         return False

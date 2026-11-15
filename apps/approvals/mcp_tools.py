@@ -94,7 +94,7 @@ def _serialize(req: Any) -> dict[str, Any]:
         "decided_at": req.decided_at.isoformat() if req.decided_at else None,
         "decision_note": req.decision_note,
         # Non-empty ⇒ the decision stands but the kind's side effect raised.
-        "callback_error": req.callback_error,
+        "callback_error": req.callback_error_summary,
         "expires_at": req.expires_at.isoformat() if req.expires_at else None,
         "created_at": req.created_at.isoformat(),
     }

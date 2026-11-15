@@ -99,9 +99,16 @@ def test_a1_a_forged_row_is_refused_at_decision_and_the_card_names_the_real_acco
     page = client.get(f"/smallstack/approvals/requests/{req.pk}/").content.decode()
     assert "would change &#x27;member&#x27;" in page or "would change 'member'" in page
     assert "Add <strong>victim</strong>" not in page
-    approvals.approve(req, actor=root, source="web")
+    # Refused when deciding (G1-3); the callback refuses too, as a backstop.
+    with pytest.raises(approvals.ApprovalRefused, match="names 'victim'"):
+        approvals.approve(req, actor=root, source="web")
     req.refresh_from_db()
-    assert "names 'victim'" in req.callback_error
+    assert req.status == "pending"
+    from apps.access.approvals import on_membership_decision
+
+    req.status, req.decided_by = req.Status.APPROVED, root
+    with pytest.raises(ValueError, match="names 'victim'"):
+        on_membership_decision(req)
     assert not member.groups.exists() and not victim.groups.exists()
 
 
@@ -163,9 +170,11 @@ def test_a2_an_approval_applies_only_what_the_approver_could_do(staffer, um, ali
     from apps.access.approvals import request_membership_change
 
     req = request_membership_change(alice, powerful, True, actor=staffer, reason="r")
-    approvals.approve(req, actor=um, source="web")
+    # G1-3: the refusal reaches the approver when deciding; the request stays pending.
+    with pytest.raises(approvals.ApprovalRefused, match="auth.change_group"):
+        approvals.approve(req, actor=um, source="web")
     req.refresh_from_db()
-    assert "auth.change_group" in req.callback_error
+    assert req.status == "pending"
     assert not alice.groups.exists()
 
 

@@ -14,7 +14,6 @@ lands in ``callback_error`` for the console to surface.
 from __future__ import annotations
 
 import logging
-import traceback
 from datetime import datetime, timedelta
 from typing import Any, Sequence
 
@@ -26,7 +25,7 @@ from apps.smallstack.audit import ADDITION, CHANGE, log_system_write, log_write
 from apps.smallstack.exceptions import FeatureDisabled
 
 from . import permissions
-from .models import ApprovalRequest
+from .models import ApprovalRequest, summarize_error
 from .registry import get_kind, resolve_on_decision
 from .signals import approval_decided, approval_requested
 
@@ -49,6 +48,11 @@ class NotPending(ApprovalError):
 
 class UnknownKind(ApprovalError):
     """Filing with a kind no app registered (→ 400 on HTTP surfaces)."""
+
+
+class ApprovalRefused(NotEligible):
+    """The kind's ``check_approve`` refused this approver: approving would
+    change nothing. The request stays pending (→ 403, with the reason)."""
 
 
 class NotRemotelyFileable(NotEligible):
@@ -198,12 +202,18 @@ def _run_callback(req: ApprovalRequest) -> None:
         return
     try:
         callback(req)
-    except Exception:  # noqa: BLE001 — the decision stands regardless
+    except Exception as exc:  # noqa: BLE001 — the decision stands regardless
+        # The traceback goes to the log; the row (shown on the request page and
+        # returned to the requester by REST and MCP) gets one line, never the
+        # frames and server paths.
         logger.exception("approvals: on_decision failed for %s (%s)", req.pk, req.kind)
-        ApprovalRequest.objects.filter(pk=req.pk).update(
-            callback_error=traceback.format_exc()[-2000:]
-        )
+        ApprovalRequest.objects.filter(pk=req.pk).update(callback_error=_one_line(exc))
         req.refresh_from_db()
+
+
+def _one_line(exc: BaseException) -> str:
+    message = summarize_error(str(exc))
+    return f"{type(exc).__name__}: {message}"[:500] if message else type(exc).__name__
 
 
 def _finish(req: ApprovalRequest, *, actor: Actor, source: str) -> ApprovalRequest:
@@ -259,6 +269,10 @@ def decide(
         raise NotPending(f"This request is already {req.get_status_display().lower()}.")
     if not permissions.can_decide(actor, req):
         raise NotEligible("You are not eligible to decide this request.")
+    if approved:
+        refusal = _approve_refusal(actor, req)
+        if refusal:
+            raise ApprovalRefused(refusal)
 
     _claim(
         req,
@@ -270,6 +284,21 @@ def decide(
         decision_note=note,
     )
     return _finish(req, actor=actor, source=source)
+
+
+def _approve_refusal(actor: Actor, req: ApprovalRequest) -> str:
+    """The kind's ``check_approve`` reason for refusing ``actor``'s approval,
+    or "". A hook that raises refuses too (with its one-line message): an
+    approval whose effect can't be checked is not recorded as approved."""
+    kind = get_kind(req.kind)
+    hook = getattr(kind, "check_approve", None)
+    if hook is None:
+        return ""
+    try:
+        return str(hook(actor, req) or "")
+    except Exception as exc:  # noqa: BLE001 — refuse rather than approve blind
+        logger.exception("approvals: check_approve failed for %s (%s)", req.pk, req.kind)
+        return _one_line(exc)
 
 
 def approve(req: ApprovalRequest, *, actor: Actor, note: str = "", source: str = "web") -> ApprovalRequest:

@@ -121,12 +121,14 @@ def test_a_removal_proposal_and_an_unchanged_one(staffer, manager, alice, reader
     assert AccessEvent.objects.filter(kind="group_removed", actor=manager).exists()
 
 
-def test_a_vanished_group_surfaces_as_callback_error(staffer, manager, alice, readers):
+def test_a_vanished_group_is_refused_at_decision(staffer, manager, alice, readers):
+    # G1-3: refused when deciding, so the request never reads "approved".
     req = ApprovalRequest.objects.get(pk=_propose(staffer)["approval_id"])
     readers.delete()
-    approvals.approve(req, actor=manager, source="web")
+    with pytest.raises(approvals.ApprovalRefused, match="no longer exists"):
+        approvals.approve(req, actor=manager, source="web")
     req.refresh_from_db()
-    assert req.status == "approved" and "no longer exists" in req.callback_error
+    assert req.status == "pending" and req.callback_error == ""
     assert not alice.groups.exists()
 
 

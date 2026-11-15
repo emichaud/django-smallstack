@@ -20,7 +20,7 @@ from django.contrib.auth.models import Group
 
 from apps.approvals.registry import ApprovalKind, register_kind
 
-from .services import CHANGE_MEMBERSHIP, set_membership
+from .services import CHANGE_MEMBERSHIP, membership_refusal, set_membership
 
 KIND = "access.membership"
 
@@ -60,6 +60,20 @@ def proposal(req: Any) -> dict[str, Any]:
     }
 
 
+def _check_approve(actor: Any, req: Any) -> str | None:
+    """Refuse an approval that would change nothing, at decide time, so the
+    request stays pending instead of reading "approved" (the approver can't
+    make the change, or the request is malformed or out of date)."""
+    plan = proposal(req)
+    if plan["problem"]:
+        return plan["problem"]
+    if plan["user"] is None:
+        return f"The account {req.target_repr!r} no longer exists."
+    if plan["group"] is None:
+        return f"The group {plan['group_name']!r} no longer exists."
+    return membership_refusal(actor, plan["group"], plan["member"]) or None
+
+
 def on_membership_decision(req: Any) -> None:
     """Apply an approved change. Anything else (rejected, canceled, expired)
     leaves membership as it was. A missing user or group, or a request whose
@@ -93,6 +107,7 @@ MEMBERSHIP_KIND = ApprovalKind(
     ),
     on_decision=on_membership_decision,
     can_decide=_can_decide,
+    check_approve=_check_approve,
     default_expires_in=timedelta(days=3),
     # Only access_request_membership files this kind: the generic REST/MCP
     # filing routes would let a caller pick a target and a card text that

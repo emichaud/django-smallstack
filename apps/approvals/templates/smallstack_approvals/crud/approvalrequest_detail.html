@@ -87,8 +87,7 @@ Theme-variable-only — palette-correct across all 10 combos.
     {% if object.callback_error %}
     <div class="apr-band apr-band--rejected">
         <strong>Callback failed</strong> — the decision stands, but the kind's on_decision
-        handler raised. <details style="display:inline;"><summary style="display:inline; cursor:pointer;">traceback</summary>
-        <pre class="apr-cb-error">{{ object.callback_error }}</pre></details>
+        handler raised: <span class="apr-cb-error">{{ object.callback_error_summary }}</span>
     </div>
     {% endif %}
 

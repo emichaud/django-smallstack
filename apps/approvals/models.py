@@ -22,6 +22,15 @@ from django.db.models import Q
 from django.utils import timezone
 
 
+def summarize_error(text: str) -> str:
+    """The last non-empty line of ``text``, capped at 500 characters.
+
+    For a Python traceback that is ``ExcType: message``; for a one-line reason
+    it is the reason itself."""
+    lines = [line.strip() for line in (text or "").splitlines() if line.strip()]
+    return lines[-1][:500] if lines else ""
+
+
 class ApprovalRequestQuerySet(models.QuerySet):
     """One definition of "pending right now", shared by every reader.
 
@@ -123,8 +132,10 @@ class ApprovalRequest(models.Model):
     decision_note = models.TextField(blank=True, default="")
 
     expires_at = models.DateTimeField(null=True, blank=True)
-    # Observability: if the kind's on_decision callback raised, the traceback
-    # summary lands here (the decision itself still stands).
+    # Observability: if the kind's on_decision callback raised, a one-line
+    # reason lands here (the decision itself still stands; the traceback goes
+    # to the log). Older rows may hold a whole traceback, so
+    # pages and agents read ``callback_error_summary``.
     callback_error = models.TextField(blank=True, default="")
 
     created_at = models.DateTimeField(auto_now_add=True)
@@ -147,6 +158,12 @@ class ApprovalRequest(models.Model):
                 | ~Q(status="pending"),
             ),
         ]
+
+    @property
+    def callback_error_summary(self) -> str:
+        """``callback_error`` as one line: a stored traceback's last line (the
+        exception and its message), never the frames and server paths."""
+        return summarize_error(self.callback_error)
 
     def __str__(self) -> str:
         return f"{self.title} [{self.get_status_display()}]"

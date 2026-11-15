@@ -69,6 +69,12 @@ class ApprovalKind:
     # describe what it will do (``access.membership`` does), so a caller can't
     # file a request whose card says one thing and whose approval does another.
     remote_filing: bool = True
+    # ``fn(actor, req) -> str | None``, asked when ``actor`` approves, before the
+    # decision is recorded: a non-empty string refuses the approval with that
+    # reason (``ApprovalRefused``) and the request stays pending. Use it when
+    # the callback would refuse anyway (the approver can't make this change), so
+    # nobody reads "approved" for a change that never happened.
+    check_approve: Callable[[Any, Any], str | None] | None = None
 
     def __post_init__(self) -> None:
         if not self.label:
@@ -108,6 +114,7 @@ def approval_kind(
     landing_url: Callable[[Any], str] | str | None = None,
     assignable: list[str] | Callable[[Any], bool] | None = None,
     remote_filing: bool = True,
+    check_approve: Callable[[Any, Any], str | None] | None = None,
 ) -> Callable[[DecisionCallback], DecisionCallback]:
     """Decorator: the decorated function becomes the kind's on_decision
     callback. Returns the function unchanged (@scheduled idiom)."""
@@ -126,6 +133,7 @@ def approval_kind(
                 landing_url=landing_url,
                 assignable=assignable,
                 remote_filing=remote_filing,
+                check_approve=check_approve,
             )
         )
         return fn

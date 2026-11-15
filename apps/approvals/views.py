@@ -282,6 +282,9 @@ def decide_request(request: HttpRequest, pk: int) -> HttpResponse:
         messages.success(
             request, f"“{req.title}” {'approved' if approved else 'rejected'}."
         )
+    except services.ApprovalRefused as exc:
+        # Approving would change nothing; the request stays pending.
+        messages.error(request, f"Not approved: {exc} The request is still pending.")
     except services.NotEligible:
         return HttpResponse(status=403)
     except services.NotPending as exc:

@@ -67,7 +67,11 @@ recipients), `assignable=[…]` (whitelist for remote assignee selection, §2),
 `remote_filing=False` (only your own code may file the kind: the generic REST
 create endpoint and MCP `request_approval` refuse it with 403 / `not_permitted`;
 set it whenever the callback trusts `target`/`context` to say what it will do),
-and `landing_url=fn(req) -> "/your/page/"` — where this kind sends its humans.
+`check_approve=fn(actor, req) -> str | None` (asked when someone approves, before
+anything is recorded: a reason refuses the approval with `ApprovalRefused`, a 403 /
+`not_eligible` carrying the reason, and the request stays pending; use it when your
+callback would refuse this approver anyway, so nobody reads "approved" for a
+change that never happened), and `landing_url=fn(req) -> "/your/page/"` — where this kind sends its humans.
 All four channels (both emails, both bell rows) use that one value, so a kind
 that owns an embedded `{% approval_card %}` review page can point participants
 there instead of the shared console. Unset ⇒ the console.
@@ -172,8 +176,10 @@ any surface.
 One decision triggers, in order:
 
 1. **The kind callback** — never breaks the decision; a raised exception lands
-   in `callback_error` (surfaced on the console, and returned by the REST detail
-   and the `get_approval` MCP tool so a remote caller can see it too).
+   in `callback_error` as one line (`ExcType: message`; the traceback goes to the
+   log only), surfaced on the console, and returned by the REST detail and the
+   `get_approval` MCP tool so a remote caller can see it too. A refusal you can
+   foresee belongs in `check_approve`, not here.
 2. **Audit** — a `LogEntry` with the source (`web` / `REST API` / `MCP` /
    `expiry`). Expiry has no human actor, so it is attributed to the reserved
    `SMALLSTACK_AUDIT_SYSTEM_USERNAME` account (created on first use as

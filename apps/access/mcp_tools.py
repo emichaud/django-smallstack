@@ -139,7 +139,8 @@ def access_findings(args: dict[str, Any]) -> dict[str, Any]:
     (
         "Propose adding an account to a group (member=true) or removing it (false). "
         "This does NOT change anything itself: it files an approval request that a "
-        "person with accounts.change_user decides in the SmallStack console; only an "
+        "person with accounts.change_user (and every permission the group grants) "
+        "decides in the SmallStack console; only an "
         "approval makes the change, in that person's name. Give a reason the approver "
         "can act on. Then poll get_approval with the returned 'approval_id' until "
         "'status' is no longer 'pending': 'approved' means it was applied (check "
