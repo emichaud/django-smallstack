@@ -415,6 +415,34 @@ def account_flags_refusal(
     return ""
 
 
+def revoke_all_refusal(actor: Any, target: Any) -> str:
+    """Why ``actor`` may not press *Revoke tokens & sign out* on ``target``'s
+    Access page, or "" when they may. The page's ``can_revoke`` and the
+    ``user_revoke`` POST both ask this, so the button shows only where the
+    POST succeeds (E-dec 1).
+
+    Two permissions open it: ``smallstack.change_apitoken`` (the Token
+    manager's, which revokes tokens anywhere) or ``accounts.change_user`` (the
+    User manager's: they could deactivate the account, which revokes every
+    token and ends every session anyway, so the button is the lesser act). The
+    second path carries deactivation's rules (:func:`account_flags_refusal`).
+    On both, only a superuser acts on a superuser and nobody acts on their own
+    account here (your own tokens are revoked on the Token Manager)."""
+    if not (actor is not None and actor.is_active and (actor.is_staff or actor.is_superuser)):
+        return "Revoking an account's access needs an active staff account."
+    can_tokens = actor.has_perm(REVOKE_TOKENS)
+    can_accounts = actor.has_perm(CHANGE_MEMBERSHIP)
+    if not (can_tokens or can_accounts):
+        return f"You need {REVOKE_TOKENS} or {CHANGE_MEMBERSHIP} to revoke an account's access."
+    if actor.pk == target.pk:
+        return "You can't revoke your own access here; revoke your own tokens on the Token Manager."
+    if target.is_superuser and not actor.is_superuser:
+        return "Only a superuser may revoke a superuser's tokens."
+    if can_tokens:
+        return ""
+    return account_flags_refusal(actor, target, is_active=False, is_staff=bool(target.is_staff))
+
+
 #: The account fields that decide who can sign in as it: a new email takes the
 #: password-reset link, a new username the login.
 SIGN_IN_FIELDS = ("username", "email")

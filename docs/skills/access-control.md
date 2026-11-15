@@ -173,17 +173,19 @@ anyone may revoke their own, revoking another account's needs the permission
 (Token Manager, Access, Django admin, Explorer), and only a superuser revokes a
 superuser's.
 
-**Which role cuts off an account, and where.** The Access user page's *Revoke all
-& sign out* needs both `accounts.view_user` (to open the page) and
-`smallstack.change_apitoken` (to press it), so it belongs to a superuser or to
-someone in **both** *User manager* and *Token manager*; neither shipped group
-holds both on its own, by design (least privilege: a Token manager has no
-business reading every account). A **User manager** cuts an account off by
-**deactivating** it in the User Manager, which revokes its tokens and ends its
-sessions. A **Token manager** revokes an account's tokens one by one on the
-**Token Manager** (`/smallstack/tokens/`, filtered to the owner); it can't end
-sessions. Give a person both groups if they should have the one-button
-version.
+**Which role cuts off an account, and where.** The Access user page's *Revoke
+tokens & sign out* (every live token revoked, every session ended) is for a
+**User manager**: it needs `accounts.view_user` to open the page and then
+`accounts.change_user` **or** `smallstack.change_apitoken` to press it
+(`services.revoke_all_refusal`, which both the button and the POST ask). With
+`change_user` it follows deactivation's rules, since deactivating would revoke
+the same tokens anyway (`account_flags_refusal`: a wider non-superuser is
+fine). On either permission, only a superuser acts on a superuser, and nobody
+uses it on their own account (revoke your own tokens on the Token Manager).
+Every revoke is recorded as a `token_revoked` event. A **Token manager** has
+no `view_user`, so it revokes an account's tokens one by one on the **Token
+Manager** (`/smallstack/tokens/`); it can't end sessions. A User manager can
+also **deactivate** the account, which does both and stops sign-in.
 
 **Accounts themselves** (the User Manager at `/smallstack/manage/users/`):
 creating needs `accounts.add_user`, editing (fields, staff and active flags, a

@@ -46,11 +46,11 @@ Open an account to see:
   add or remove (needs the `change_user` permission; to add someone to a group
   you must also hold every permission that group grants, unless you're a
   superuser);
-- its **API tokens**, with a **Revoke all & sign out** button (it needs the
-  `change_apitoken` permission as well as reading the page, so a superuser or
-  someone in both the *User manager* and *Token manager* groups sees it; a
-  User manager alone cuts an account off by deactivating it, a Token manager
-  alone revokes tokens from the Token Manager);
+- its **API tokens**, with a **Revoke tokens & sign out** button. A *User
+  manager* (the `change_user` permission) or anyone holding `change_apitoken`
+  sees it; only a superuser can use it on a superuser, and nobody on their own
+  account. A *Token manager*, who can't open this page, revokes tokens from the
+  Token Manager instead;
 - **everything the account can do**, grouped by app, each permission marked
   `via group:Name`, `via direct` or `via superuser`;
 - every access change involving the account.

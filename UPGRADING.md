@@ -75,7 +75,9 @@ manager** group), they may pick an active non-superuser holding no permission th
 superuser mints for a superuser or chooses the `auth` level. If someone on your team minted tokens for
 service accounts, put them in Token manager, or have a superuser mint those.
 
-**Revoking someone else's API token now needs `smallstack.change_apitoken`.** Anyone still revokes
+**Revoking someone else's API token now needs `smallstack.change_apitoken`.** (The Access user
+page's *Revoke tokens & sign out* also accepts `accounts.change_user`, the User manager's, since that
+role can deactivate the account anyway; it can't be used on your own account.) Anyone still revokes
 their own; staff who revoked other accounts' tokens with the staff flag alone belong in **Token
 manager**, and only a superuser revokes a superuser's token. Every revoke is now a `token_revoked`
 access event; if you recorded revocations yourself, you now record them twice.

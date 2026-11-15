@@ -36,7 +36,7 @@ from apps.smallstack.stat_lists import render_stat_list, stat_list_row
 from . import services
 from .models import AccessEvent, ManagedGroup
 from .registry import Finding, declared_groups, run_checks
-from .services import CHANGE_MEMBERSHIP, READ_ACCESS_REFUSAL, REVOKE_TOKENS, can_read_access
+from .services import CHANGE_MEMBERSHIP, READ_ACCESS_REFUSAL, can_read_access
 from .signals import revoke_access
 
 User = get_user_model()
@@ -322,8 +322,7 @@ class UserDetailView(AccessPageView):
                 )[:50],
                 "check": services.explain(user, perm) if perm else None,
                 "perm": perm,
-                "can_revoke": self.request.user.has_perm(REVOKE_TOKENS)
-                and (self.request.user.is_superuser or not user.is_superuser),
+                "can_revoke": not services.revoke_all_refusal(self.request.user, user),
             }
         )
         return context
@@ -344,12 +343,12 @@ def user_groups(request: HttpRequest, pk: int) -> HttpResponse:
 @require_POST
 @staff_required
 def user_revoke(request: HttpRequest, pk: int) -> HttpResponse:
-    """Revoke every live token and end every session of an account."""
-    if not request.user.has_perm(REVOKE_TOKENS):
-        raise PermissionDenied("You need the change_apitoken permission to revoke tokens.")
+    """Revoke every live token and end every session of an account.
+    ``services.revoke_all_refusal`` decides, as it does for the button."""
     user = get_object_or_404(User, pk=pk)
-    if user.is_superuser and not request.user.is_superuser:
-        raise PermissionDenied("Only a superuser may revoke a superuser's tokens.")
+    refusal = services.revoke_all_refusal(request.user, user)
+    if refusal:
+        raise PermissionDenied(refusal)
     counts = revoke_access(user)
     messages.success(
         request,
