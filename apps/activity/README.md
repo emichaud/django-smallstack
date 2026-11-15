@@ -6,6 +6,10 @@ show the traffic by time window: a dashboard, the request log (with a probing/no
 warning area), per-user and per-resource drilldowns. Pruning is handled by the
 `prune_activity` management command.
 
+A one-time token in the path (password reset, invite, newsletter confirm/unsubscribe, or any route
+parameter named `token`) is replaced with `***` before the row is written
+(`apps.smallstack.redaction.redact_path`); migration `0005` redacts rows stored before that.
+
 **Status:** Framework-provided — don't edit in downstream forks.
 
 **Key files:** `middleware.py`, `models.py` (`RequestLog`), `services.py` (windows,

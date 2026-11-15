@@ -7,6 +7,8 @@ from collections.abc import Callable
 from django.conf import settings
 from django.http import HttpRequest, HttpResponse
 
+from apps.smallstack.redaction import redact_path
+
 logger = logging.getLogger(__name__)
 
 
@@ -50,9 +52,13 @@ class ActivityMiddleware:
         if user and not user.is_authenticated:
             user = None
 
+        route = self._route(request)
         RequestLog.objects.create(
-            path=request.path[:2048],
-            route=self._route(request),
+            # A reset, invite or newsletter link carries its one-time token in
+            # the path; the Activity pages show paths to every staff account,
+            # so the token is replaced here, before it is stored (G3-1).
+            path=redact_path(request.path, route)[:2048],
+            route=route,
             method=request.method or "",
             status_code=response.status_code,
             user=user,

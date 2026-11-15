@@ -16,6 +16,8 @@ from typing import Any
 
 from django.http import HttpRequest, HttpResponse
 
+from apps.smallstack.redaction import redact_path
+
 _actor: contextvars.ContextVar[Any] = contextvars.ContextVar("smallstack_access_actor", default=None)
 _source: contextvars.ContextVar[str] = contextvars.ContextVar("smallstack_access_source", default="")
 
@@ -69,5 +71,7 @@ class ActorMiddleware:
     def __call__(self, request: HttpRequest) -> HttpResponse:
         # The request itself, so current_actor() reads request.user when the
         # change is made (after any token authentication in the view).
-        with acting_as(request, f"web:{request.path}"):
+        # The path is redacted: a token-bearing link must not land in an
+        # AccessEvent's source (G3-1).
+        with acting_as(request, f"web:{redact_path(request.path)}"):
             return self.get_response(request)

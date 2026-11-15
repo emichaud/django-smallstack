@@ -30,6 +30,7 @@ from django.views.generic import TemplateView
 from apps.smallstack.mixins import StaffRequiredMixin, staff_required
 from apps.smallstack.models import APIToken
 from apps.smallstack.pagination import paginate_queryset
+from apps.smallstack.redaction import redact_path
 from apps.smallstack.stat_lists import render_stat_list, stat_list_row
 
 from . import services
@@ -249,7 +250,7 @@ def _apply_membership(request: HttpRequest, user: Any, group: Group) -> bool:
         return False
     try:
         changed = services.set_membership(
-            user, group, action == "add", actor=request.user, source=f"web:{request.path}"
+            user, group, action == "add", actor=request.user, source=f"web:{redact_path(request.path)}"
         )
     except services.MembershipRefused as exc:
         messages.error(request, str(exc))

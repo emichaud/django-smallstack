@@ -34,6 +34,7 @@ from datetime import timezone as dt_timezone
 from typing import Any
 
 from apps.smallstack.logging import extract_extra, json_default, safe_message
+from apps.smallstack.redaction import redact_text
 
 from .logger_match import matches_prefix
 
@@ -298,7 +299,7 @@ class DatabaseLogHandler(logging.Handler):
             "request_id": str(getattr(record, "request_id", "") or "")[:255],
             "trace_id": str(getattr(record, "trace_id", "") or "")[:255],
             "exc_type": exc_type[:200],
-            "exc_text": exc_text[:MAX_EXC_CHARS],
+            "exc_text": redact_text(exc_text)[:MAX_EXC_CHARS],
             "extra": _jsonable(extract_extra(record)),
         }
 

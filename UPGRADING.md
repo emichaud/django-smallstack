@@ -96,6 +96,18 @@ in **User manager**, and people who look after tokens in **Token manager** befor
 reading `/smallstack/api/access/` or `/api/auth/users/` needs its token's owner to hold `view_user`. A
 custom group that should read these needs those permissions added.
 
+**Reset and invite tokens are redacted from the activity log and the captured logs.** Until now
+`RequestLog.path` held every opened password-reset and invite link in full, readable by any staff
+account at `/smallstack/activity/`. `make migrate` runs `activity.0005` and `telemetry.0002`, which
+replace the token in rows already stored (`/accounts/reset/MQ/***/`); nothing to configure. **The
+migration does not invalidate the links themselves.** A reset or invite link issued before the upgrade
+stays valid until it is used or expires (`PASSWORD_RESET_TIMEOUT`, one day in SmallStack's settings), and anyone who
+read it from the log before the upgrade can still use it. If staff you don't fully trust could read the
+activity log, rotate: ask the holders of privileged accounts to change their password (that voids every
+outstanding link for the account), or wait out `PASSWORD_RESET_TIMEOUT` before relying on the fix. Copies
+of the log outside the database (backups, exported CSVs, a log shipper) are not touched. A URL parameter
+of your own that carries a one-time credential should be named `token`, so the request log redacts it.
+
 **If your project records access changes itself** (a signal on `user.groups`, a custom audit of the
 staff flag), it now does so twice; keep yours only if it records something these events don't.
 

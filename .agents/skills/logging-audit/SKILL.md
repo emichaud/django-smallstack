@@ -93,7 +93,7 @@ Always reset in a `finally` — worker threads are reused, and an unreset value 
 
 ### What SmallStack logs about accounts
 
-`apps.accounts` logs every sign-in, sign-out and failed sign-in (from Django's auth signals, so every way in is covered), sign-ups, invites sent and accepted, sign-in codes issued and rejected, the hourly code cap being hit (WARNING), and password resets requested (with how many accounts matched) and completed. Lines name the account by username and pk, never a password, code or reset token. In the User Manager, sending a set-password link and clearing a login lockout each write a `LogEntry` (who, for whom) and an INFO line; a failed unlock logs its traceback.
+`apps.accounts` logs every sign-in, sign-out and failed sign-in (from Django's auth signals, so every way in is covered), sign-ups, invites sent and accepted, sign-in codes issued and rejected, the hourly code cap being hit (WARNING), and password resets requested (with how many accounts matched) and completed. Lines name the account by username and pk, never a password, code or reset token. Every formatter and the database log handler also run messages, tracebacks and `extra` through `apps.smallstack.redaction.redact_text`, so a path Django logs itself (`Not Found: …`, `Forbidden (CSRF …): …`) has its reset/invite token and any credential query parameter (`?token=`, `code=` …) replaced with `***`. In the User Manager, sending a set-password link and clearing a login lockout each write a `LogEntry` (who, for whom) and an INFO line; a failed unlock logs its traceback.
 
 ### Log levels by environment
 

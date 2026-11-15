@@ -48,7 +48,7 @@ Every `RequestLog` entry includes a `request_id` field populated by the `Request
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `path` | CharField(2048) | Request path |
+| `path` | CharField(2048) | Request path, with any one-time token redacted (`/accounts/reset/MQ/***/`; see below) |
 | `method` | CharField(10) | HTTP method (GET, POST, etc.) |
 | `status_code` | PositiveSmallIntegerField | Response status code |
 | `user` | ForeignKey(User, null) | Authenticated user or null |
@@ -62,6 +62,15 @@ Every `RequestLog` entry includes a `request_id` field populated by the `Request
 Indexes on: `timestamp`, `path`, `status_code`, `route`.
 
 `RequestLog.resource` is the grouping key the pages use: the route, else the raw path.
+
+**One-time tokens are never stored.** A password-reset, invite or newsletter confirm/unsubscribe link
+carries its credential in the path, and every staff account can read the Activity pages, so the
+middleware replaces it with `***` before the row is written and keeps the route shape
+(`/smallstack/accounts/reset/MQ/***/`). `apps.smallstack.redaction.redact_path(path, route)` does it:
+any segment captured by a URL parameter named `token` is redacted, whatever the route, so **name a new
+token-bearing URL parameter `token`** and it is covered. Migration `activity.0005` redacts rows recorded
+before this. The same redaction applies to log messages (`/smallstack/logs/`, JSON lines), where
+credential query parameters (`?token=`, `code=`, `secret=` …) are redacted too.
 
 ## Configuration
 

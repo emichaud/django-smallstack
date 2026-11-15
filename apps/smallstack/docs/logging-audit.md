@@ -341,6 +341,8 @@ To switch the whole subsystem off, set `TELEMETRY_LOG_CAPTURE_ENABLED=false`. No
 
 Feeds accept an API token as `?token=`. SmallStack keeps query strings out of the logs it controls: a request attached to a log record is reduced to method + path before it reaches JSON log lines or the `LogRecord` table, and the shipped `gunicorn.conf` access log omits the query string. **`manage.py runserver`'s own access line is the exception** — it prints the full URL, query included, and has no setting to change that. Treat dev-server output as containing tokens: don't paste it into tickets or chat.
 
+Some links carry the credential in the **path**: a password reset (`/accounts/reset/<uidb64>/<token>/`), an invite (`/accounts/invite/<uidb64>/<token>/`) and the newsletter's confirm and unsubscribe links. The activity request log, the `LogRecord` table and the JSON and text formatters replace that segment with `***` (`/accounts/reset/MQ/***/`), and any credential query parameter (`token=`, `code=`, `secret=`, `password=` …) the same way, through `apps.smallstack.redaction`. Every staff account can read the activity log, so a stored reset link was a way into any account. A URL parameter of your own that carries a one-time credential should be named `token`: the request log redacts any segment captured by a parameter of that name.
+
 ## Logging to a File
 
 By default, all logs go to the console (stdout) — which is the right choice for Docker containers and most cloud platforms, where a log collector picks up stdout automatically.
