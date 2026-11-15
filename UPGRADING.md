@@ -59,6 +59,16 @@ reader, Access reviewer) or the `view_*` / `change_*` permissions directly. A Mo
 follows a ModelAdmin's own `has_*_permission` overrides now, so a ModelAdmin that refuses deletes
 refuses them in Explorer too, and an API token's owner is read-only once the token exists.
 
+**Explorer also asks those overrides per row.** For each row's edit and delete (the buttons, the
+edit and delete pages, bulk actions, REST and MCP), Explorer calls the ModelAdmin's
+`has_change_permission(request, obj)` / `has_delete_permission(request, obj)` with the row, as Django
+admin does, whatever `SMALLSTACK_EXPLORER_MODEL_PERMISSIONS` says. Check your own ModelAdmins: one
+that overrides either method with a rule on `obj` now has it enforced in Explorer, and one that just
+returns `super()...` brings Django's model-permission check with it, so staff without
+`change_<model>` / `delete_<model>` lose edit or delete on that model in Explorer. If a rule was only
+meant for Django admin, check `request.resolver_match.namespace` or move it to `get_readonly_fields()`;
+if staff need the access, grant the permission. A method that raises refuses (fails closed).
+
 **Minting an API token for someone else now needs `smallstack.add_apitoken`.** At
 `/smallstack/tokens/create/`, staff without it mint only for themselves. With it (the shipped **Token
 manager** group), they may pick an active non-superuser holding no permission they lack; only a

@@ -173,6 +173,18 @@ anyone may revoke their own, revoking another account's needs the permission
 (Token Manager, Access, Django admin, Explorer), and only a superuser revokes a
 superuser's.
 
+**Which role cuts off an account, and where.** The Access user page's *Revoke all
+& sign out* needs both `accounts.view_user` (to open the page) and
+`smallstack.change_apitoken` (to press it), so it belongs to a superuser or to
+someone in **both** *User manager* and *Token manager*; neither shipped group
+holds both on its own, by design (least privilege: a Token manager has no
+business reading every account). A **User manager** cuts an account off by
+**deactivating** it in the User Manager, which revokes its tokens and ends its
+sessions. A **Token manager** revokes an account's tokens one by one on the
+**Token Manager** (`/smallstack/tokens/`, filtered to the owner); it can't end
+sessions. Give a person both groups if they should have the one-button
+version.
+
 **Accounts themselves** (the User Manager at `/smallstack/manage/users/`):
 creating needs `accounts.add_user`, editing (fields, staff and active flags, a
 reset link, an unlock) needs `accounts.change_user`, deleting needs

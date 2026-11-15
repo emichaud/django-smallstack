@@ -106,6 +106,7 @@ and registers nothing more. They apply on the main Explorer, not on child sites.
 | `search_fields` | The list's search box, REST `?q=` and the MCP `list_*` tool's `q`. Django admin's prefixes work: `^name` starts with, `=email` exact (case-insensitive), `@body` a substring match (Explorer has no portable full-text lookup; `explorer_enable_search` is the ranked search). |
 | `list_filter` | Field names and `(field, FilterClass)` pairs: the list's filter dropdowns and REST/MCP filter parameters. `SimpleListFilter` classes: a dropdown of their `lookups()`, filtering with their `queryset()`, on the list, REST and MCP. Other `ListFilter` classes are ignored. |
 | `has_add_permission()`, `has_change_permission()` | Overridden to refuse: the model is readonly (list and detail only). |
+| `has_view/add/change/delete_permission()` overrides | Asked on every surface (pages, bulk actions, REST, MCP), whatever `SMALLSTACK_EXPLORER_MODEL_PERMISSIONS` says. `has_change_permission(request, obj)` and `has_delete_permission(request, obj)` are also asked **per row** with the object, so a rule about one row (UserAdmin: only a superuser changes a superuser) holds in Explorer as in Django admin. See **Permissions**. |
 
 Not read: `inlines`, `actions`, `date_hierarchy`, `autocomplete_fields`, `raw_id_fields`,
 `list_editable`, `form`, `save_model()` and other ModelAdmin hooks, and `get_queryset()`.
@@ -132,6 +133,27 @@ account may do, they don't open Explorer to non-staff users. A ModelAdmin's
 `explorer_model_permissions = True` / `False` overrides the setting for one model.
 Turning it on is a behaviour change for staff accounts that hold no explicit
 permissions: they lose access until they are granted some.
+
+**A ModelAdmin's own `has_*_permission` methods apply either way.** When the
+ModelAdmin declares one, Explorer asks it (fail closed: a method that raises
+refuses). `has_change_permission(request, obj)` and
+`has_delete_permission(request, obj)` are asked for each row too, through the
+view's `can_update` / `can_delete`, so the row's edit and delete buttons, pages,
+bulk actions, REST and MCP all follow it:
+
+```python
+class InvoiceAdmin(admin.ModelAdmin):
+    def has_change_permission(self, request, obj=None):
+        if obj is not None and obj.status == "paid":
+            return False          # paid invoices are read-only, in admin and Explorer
+        return super().has_change_permission(request, obj)
+```
+
+`super()` is Django's model-permission check (`change_invoice`), so with an
+override like this staff need that permission in Explorer even with
+`SMALLSTACK_EXPLORER_MODEL_PERMISSIONS` off. This was new in the Access release
+(before it, Explorer ignored the per-object form): check a downstream
+ModelAdmin's overrides when you upgrade.
 
 ## Audit trail and delete confirmation
 
