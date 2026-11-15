@@ -11,10 +11,12 @@ from django.contrib.admin.models import LogEntry
 
 from .models import APIToken
 
-#: A token's owner is set when it is made and never changes: whoever holds the
-#: key would otherwise act as the new owner (a staff account reassigning its own
-#: token to a superuser would become one).
-TOKEN_FIELDS_FIXED_ON_CHANGE = ("user",)
+#: A token's owner and level are set when it is made and never change: whoever
+#: holds the key would otherwise act as the new owner (a staff account
+#: reassigning its own token to a superuser would become one), or with the new
+#: level (a Token manager raising their own token to ``auth``, which only a
+#: superuser may mint).
+TOKEN_FIELDS_FIXED_ON_CHANGE = ("user", "access_level")
 
 
 class APITokenExplorerForm(forms.ModelForm):
@@ -30,7 +32,7 @@ class APITokenExplorerForm(forms.ModelForm):
             for name in TOKEN_FIELDS_FIXED_ON_CHANGE:
                 # A disabled field ignores what is posted and keeps the stored value.
                 self.fields[name].disabled = True
-                self.fields[name].help_text = "Set when the token is made; it can't be moved to another account."
+                self.fields[name].help_text = "Set when the token is made; it can't be changed afterwards."
 
 
 @admin.register(APIToken)

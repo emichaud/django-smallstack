@@ -31,7 +31,12 @@ def _post(client, url, payload, **headers):
 
 @pytest.fixture
 def admin():
-    return User.objects.create_user(username="adminx", password="oldpass1234", is_staff=True)
+    # The account endpoints are bounded by the token's owner (G1-2).
+    from django.contrib.auth.models import Permission
+
+    u = User.objects.create_user(username="adminx", password="oldpass1234", is_staff=True)
+    u.user_permissions.add(*Permission.objects.filter(codename__in=["add_user", "change_user"]))
+    return u
 
 
 # --- register ---------------------------------------------------------------

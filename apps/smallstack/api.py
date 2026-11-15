@@ -459,11 +459,31 @@ def _check_api_permissions(request, crud_config, method="GET"):
     return None
 
 
-def _require_auth_token(request):
-    """Check that the request uses a manual token with access_level='auth'."""
+def _require_auth_token(request, action: str | None = None, target: Any = None):
+    """Check that the request may use the ``/api/auth/`` account endpoints.
+
+    The token must be a manual one with ``access_level='auth'``, and its owner
+    must be able to do the same thing on the User Manager: an active staff
+    account (or a superuser), holding the user model's ``action`` permission
+    (``add`` / ``change`` / ``delete``) for a write. Only a superuser may act
+    on a superuser ``target``. A token's level is a label chosen when it is
+    minted; what it may do is still bounded by the account that holds it.
+    """
     token = getattr(request, "_api_token", None)
     if not token or token.token_type != "manual" or token.access_level != "auth":
         return _error("Auth-level token required", 403)
+    owner = token.user
+    if not (owner.is_active and (owner.is_staff or owner.is_superuser)):
+        return _error("The token's owner is not staff; the account endpoints need a staff account", 403)
+    if action is not None:
+        from django.contrib.auth import get_user_model
+
+        opts = get_user_model()._meta
+        perm = f"{opts.app_label}.{action}_{opts.model_name}"
+        if not owner.has_perm(perm):
+            return _error(f"The token's owner lacks {perm}", 403)
+    if target is not None and getattr(target, "is_superuser", False) and not owner.is_superuser:
+        return _error("Only a superuser may change a superuser's account", 403)
     return None
 
 
@@ -1762,7 +1782,7 @@ def api_auth_register(request: HttpRequest) -> JsonResponse:
     user, err = _authenticate_api_request(request)
     if err:
         return err
-    perm_err = _require_auth_token(request)
+    perm_err = _require_auth_token(request, "add")
     if perm_err:
         return perm_err
 
@@ -1926,6 +1946,9 @@ def api_auth_user_password(request: HttpRequest, user_id: int) -> JsonResponse:
         target_user = User.objects.get(pk=user_id)
     except User.DoesNotExist:
         return _error("User not found", 404)
+    perm_err = _require_auth_token(request, "change", target_user)
+    if perm_err:
+        return perm_err
 
     try:
         validate_password(new_password, user=target_user)
@@ -1979,6 +2002,9 @@ def api_auth_user_deactivate(request: HttpRequest, user_id: int) -> JsonResponse
         target_user = User.objects.get(pk=user_id)
     except User.DoesNotExist:
         return _error("User not found", 404)
+    perm_err = _require_auth_token(request, "change", target_user)
+    if perm_err:
+        return perm_err
 
     target_user.is_active = False
     target_user.save(update_fields=["is_active"])
@@ -2073,6 +2099,12 @@ def api_auth_user_detail(request: HttpRequest, user_id: int) -> JsonResponse:
     if unknown:
         errors = {f: [f"Field '{f}' is not allowed"] for f in unknown}
         return JsonResponse({"errors": errors}, status=400)
+
+    # Changing an account (its staff and active flags included) needs
+    # change_user, and only a superuser changes a superuser's account.
+    perm_err = _require_auth_token(request, "change", target)
+    if perm_err:
+        return perm_err
 
     update_fields = []
     for field, value in data.items():

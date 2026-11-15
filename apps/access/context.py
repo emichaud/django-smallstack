@@ -21,14 +21,25 @@ _source: contextvars.ContextVar[str] = contextvars.ContextVar("smallstack_access
 
 
 def current_actor() -> Any:
-    """The user making the current change, or ``None`` outside a request."""
+    """The user making the current change, or ``None`` outside a request.
+
+    Within a request this is ``request.user`` *as it is now*, not as it was
+    when the middleware ran: the REST and MCP layers authenticate a bearer
+    token inside the view and replace ``request.user`` then, and a change made
+    with that token belongs to its owner."""
     actor = _actor.get()
+    if isinstance(actor, HttpRequest):
+        actor = getattr(actor, "user", None)
     return actor if actor is not None and getattr(actor, "is_authenticated", False) else None
 
 
 def current_source() -> str:
-    """Where the current change comes from: ``web:<path>``, ``shell``, or what
+    """Where the current change comes from: ``web:<path>``, ``rest:<path>`` (a
+    request authenticated by an API token), ``shell``, or what
     :func:`acting_as` set."""
+    actor = _actor.get()
+    if isinstance(actor, HttpRequest) and getattr(actor, "_api_token_auth", False):
+        return f"rest:{actor.path}"
     return _source.get() or "shell"
 
 
@@ -56,5 +67,7 @@ class ActorMiddleware:
         self.get_response = get_response
 
     def __call__(self, request: HttpRequest) -> HttpResponse:
-        with acting_as(getattr(request, "user", None), f"web:{request.path}"):
+        # The request itself, so current_actor() reads request.user when the
+        # change is made (after any token authentication in the view).
+        with acting_as(request, f"web:{request.path}"):
             return self.get_response(request)

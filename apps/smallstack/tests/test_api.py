@@ -1093,7 +1093,11 @@ class TestOptionsEndpoint:
 
 @pytest.fixture
 def auth_level_token(staff_user) -> tuple[APIToken, str]:
-    """Create an auth-level manual token."""
+    """Create an auth-level manual token, owned by staff holding change_user
+    (the account endpoints are bounded by the owner, G1-2)."""
+    from django.contrib.auth.models import Permission
+
+    staff_user.user_permissions.add(Permission.objects.get(codename="change_user"))
     return APIToken.create_token(staff_user, name="Auth Token", access_level="auth")
 
 
@@ -1544,6 +1548,9 @@ class TestUserDeactivateEndpoint:
             email="authadmin@example.com",
             is_staff=True,
         )
+        from django.contrib.auth.models import Permission
+
+        admin.user_permissions.add(Permission.objects.get(codename="change_user"))
         token, raw_key = APIToken.create_token(admin, name="Auth Token", access_level="auth", token_type="manual")
         header = {"HTTP_AUTHORIZATION": f"Bearer {raw_key}"}
         return admin, header

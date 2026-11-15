@@ -168,16 +168,23 @@ These endpoints handle user lifecycle operations. All are `@csrf_exempt` for cro
 |----------|--------------|---------|
 | `POST /api/auth/token/` | None (credentials) | Login — upsert token |
 | `POST /api/auth/logout/` | Any Bearer | Revoke caller's token |
-| `POST /api/auth/register/` | Auth-level token | Create user + login token |
+| `POST /api/auth/register/` | Auth-level token, owner holds `add_user` | Create user + login token |
 | `GET /api/auth/me/` | Any Bearer | Get current user info |
 | `POST /api/auth/password/` | Any Bearer | Change own password |
 | `GET /api/auth/password-requirements/` | None (public) | List password validation rules |
-| `POST /api/auth/users/<id>/password/` | Auth-level token | System password change |
-| `POST /api/auth/users/<id>/deactivate/` | Auth-level token | Deactivate user + revoke tokens |
+| `POST /api/auth/users/<id>/password/` | Auth-level token, owner holds `change_user` | System password change |
+| `POST /api/auth/users/<id>/deactivate/` | Auth-level token, owner holds `change_user` | Deactivate user + revoke tokens |
 | `GET /api/auth/users/` | Auth-level token | List/search users |
 | `GET /api/auth/users/<id>/` | Auth-level token | User detail |
-| `PATCH /api/auth/users/<id>/` | Auth-level token | Update user fields |
+| `PATCH /api/auth/users/<id>/` | Auth-level token, owner holds `change_user` | Update user fields |
 | `POST /api/auth/token/refresh/` | Login Bearer | Refresh login token |
+
+Every "auth-level token" row also needs the token's **owner** to be active staff, and each write
+needs the user model's permission shown (`accounts.add_user` / `accounts.change_user`), the same bar
+as the User Manager. Only a superuser's token may change a superuser's account. An auth-level token
+can be minted only by a superuser, and its level can't be changed afterwards. Account changes made
+through these endpoints are recorded in Access with the token's owner as the actor (source
+`rest:<path>`).
 
 ### POST /api/auth/logout/
 

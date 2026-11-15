@@ -59,6 +59,13 @@ manager** group), they may pick an active non-superuser holding no permission th
 superuser mints for a superuser or chooses the `auth` level. If someone on your team minted tokens for
 service accounts, put them in Token manager, or have a superuser mint those.
 
+**The `/api/auth/` account endpoints are bounded by the token's owner.** An auth-level token now needs
+an owner who is active staff holding `accounts.change_user` to update, deactivate or reset a password
+(and `accounts.add_user` to register); only a superuser's token changes a superuser. A server that
+manages accounts with an auth-level token owned by a plain staff account gets 403: put that account in
+the shipped **User manager** group. A token's `access_level` can no longer be edited after it is made;
+mint a new token instead.
+
 **If your project records access changes itself** (a signal on `user.groups`, a custom audit of the
 staff flag), it now does so twice; keep yours only if it records something these events don't.
 
