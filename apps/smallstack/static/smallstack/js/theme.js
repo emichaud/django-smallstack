@@ -348,6 +348,42 @@
             var group = el.closest('[data-submenu]');
             if (group) group.classList.add('open');
         });
+
+        initSidebarScroll(sidebar);
+    }
+
+    // --- Sidebar scroll position ---
+    // Every link is a full page load, so the sidebar would start back at the top each time.
+    // Keep its scroll offset for this tab (sessionStorage) and put it back on the next page;
+    // with nothing saved (a new tab), bring the active link into view instead.
+    const SIDEBAR_SCROLL_KEY = 'smallstack-sidebar-scroll';
+
+    function initSidebarScroll(sidebar) {
+        // .sidebar and .sidebar-nav can both overflow, depending on the viewport.
+        var panes = [sidebar, sidebar.querySelector('.sidebar-nav')].filter(Boolean);
+        var saved = null;
+        try { saved = JSON.parse(sessionStorage.getItem(SIDEBAR_SCROLL_KEY)); } catch (e) { /* none */ }
+
+        if (Array.isArray(saved)) {
+            panes.forEach(function(pane, i) { pane.scrollTop = saved[i] || 0; });
+        }
+        // Bring the active link into view by scrolling the sidebar only (scrollIntoView
+        // would move the page as well).
+        var active = sidebar.querySelector('.nav-link.active');
+        if (active) {
+            panes.forEach(function(pane) {
+                if (pane.scrollHeight <= pane.clientHeight) return;
+                var box = pane.getBoundingClientRect(), link = active.getBoundingClientRect();
+                if (link.top < box.top) pane.scrollTop -= box.top - link.top + 16;
+                else if (link.bottom > box.bottom) pane.scrollTop += link.bottom - box.bottom + 16;
+            });
+        }
+
+        window.addEventListener('pagehide', function() {
+            try {
+                sessionStorage.setItem(SIDEBAR_SCROLL_KEY, JSON.stringify(panes.map(function(p) { return p.scrollTop; })));
+            } catch (e) { /* storage blocked: start at the top next time */ }
+        });
     }
 
     // ============================================
