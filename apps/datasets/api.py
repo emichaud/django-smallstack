@@ -32,7 +32,7 @@ from django.views.decorators.csrf import csrf_exempt
 from apps.smallstack.api import authenticate_api_request
 
 from .core import Dataset, SafeCsvWriter, get_dataset, list_datasets
-from .registry import get_def
+from .registry import get_def, user_may_view_model
 
 _RESERVED = {
     "ordering",
@@ -138,9 +138,12 @@ def _enabled() -> bool:
     return getattr(settings, "SMALLSTACK_DATASETS_ENABLED", True)
 
 
-def _require_api_dataset(key: str) -> Dataset:
+def _require_api_dataset(key: str, user: Any = None) -> Dataset:
     dfn = get_def(key)
     if dfn is None or not dfn.enable_api:
+        raise Http404("dataset not found")
+    # A dataset over a model the caller may not view answers as if absent.
+    if user is not None and not user_may_view_model(dfn, user):
         raise Http404("dataset not found")
     ds = get_dataset(key)
     assert ds is not None  # guaranteed by the get_def check above
@@ -189,6 +192,7 @@ class _DatasetApiView(View):
     """
 
     require_staff = True
+    api_user: Any = None
 
     def dispatch(self, request: HttpRequest, *args: Any, **kwargs: Any) -> HttpResponseBase:
         if not _enabled():
@@ -198,23 +202,29 @@ class _DatasetApiView(View):
             return err
         if self.require_staff and not user.is_staff:
             return JsonResponse({"error": "Staff access required"}, status=403)
+        self.api_user = user  # a bearer token's user isn't on request.user
         return super().dispatch(request, *args, **kwargs)
 
 
 class DatasetListView(_DatasetApiView):
     def get(self, request: HttpRequest) -> JsonResponse:
-        return JsonResponse({"results": list_datasets(api_only=True)})
+        results = []
+        for entry in list_datasets(api_only=True):
+            dfn = get_def(entry["key"])
+            if dfn is not None and user_may_view_model(dfn, self.api_user):
+                results.append(entry)
+        return JsonResponse({"results": results})
 
 
 class DatasetSchemaView(_DatasetApiView):
     def get(self, request: HttpRequest, key: str) -> JsonResponse:
-        ds = _require_api_dataset(key)
+        ds = _require_api_dataset(key, self.api_user)
         return JsonResponse(ds.schema())
 
 
 class DatasetRowsView(_DatasetApiView):
     def get(self, request: HttpRequest, key: str) -> HttpResponse:
-        ds = _require_api_dataset(key)
+        ds = _require_api_dataset(key, self.api_user)
         filters = {k: v for k, v in request.GET.items() if k not in _RESERVED}
         is_csv = request.GET.get("format") == "csv"
         # CSV is the whole filtered set (an export), ignoring paging unless the
@@ -279,7 +289,7 @@ class DatasetRowsView(_DatasetApiView):
 
 class DatasetSeriesView(_DatasetApiView):
     def get(self, request: HttpRequest, key: str) -> JsonResponse:
-        ds = _require_api_dataset(key)
+        ds = _require_api_dataset(key, self.api_user)
         # A blank/omitted dimension collapses to a single ungrouped aggregate
         # (the KPI/scalar path) instead of erroring.
         field = request.GET.get("dimension", "").strip() or None
@@ -311,7 +321,7 @@ class DatasetCellsView(_DatasetApiView):
     ``[{x, x_label, y, y_label, value}]`` (see ``Dataset.cells``)."""
 
     def get(self, request: HttpRequest, key: str) -> JsonResponse:
-        ds = _require_api_dataset(key)
+        ds = _require_api_dataset(key, self.api_user)
         x = request.GET.get("dimension", "").strip()
         y = request.GET.get("dimension2", "").strip()
         filters = {k: v for k, v in request.GET.items() if k not in _RESERVED}
@@ -336,7 +346,7 @@ class DatasetScalarView(_DatasetApiView):
     """KPI tile: a single ungrouped aggregate → ``{value}`` (no GROUP BY)."""
 
     def get(self, request: HttpRequest, key: str) -> JsonResponse:
-        ds = _require_api_dataset(key)
+        ds = _require_api_dataset(key, self.api_user)
         agg = request.GET.get("agg", "count")
         measure = request.GET.get("measure") or None
         # Non-reserved query params are filters — same contract as the rows view,

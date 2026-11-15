@@ -484,10 +484,10 @@ path("", include("apps.inventory.urls")),
 
 | Option | Purpose |
 |--------|---------|
-| `displays` | List view displays (TableDisplay, CardDisplay, AvatarCardDisplay, Table2Display, or custom) |
+| `displays` | List view displays (TableDisplay, CardDisplay, AvatarCardDisplay, or custom) |
 | `detail_displays` | Detail view displays (DetailTableDisplay, DetailCardDisplay, or custom) |
 | `form_class` | Custom ModelForm (auto-generated from `fields` if not set) |
-| `table_class` | django-tables2 Table for sortable columns |
+| `list_fields` / `link_field` | The list table's columns / the column linking to each row |
 | `queryset` | Base queryset (default: `model.objects.all()`) |
 | `search_fields` | Fields for API `?q=` search |
 | `filter_fields` | Fields for API query-param filtering |

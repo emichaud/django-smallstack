@@ -5,10 +5,32 @@ This gives you a read-only activity log at /admin/admin/logentry/ showing
 all actions recorded by Django admin and by log_action().
 """
 
+from django import forms
 from django.contrib import admin, messages
 from django.contrib.admin.models import LogEntry
 
 from .models import APIToken
+
+#: A token's owner is set when it is made and never changes: whoever holds the
+#: key would otherwise act as the new owner (a staff account reassigning its own
+#: token to a superuser would become one).
+TOKEN_FIELDS_FIXED_ON_CHANGE = ("user",)
+
+
+class APITokenExplorerForm(forms.ModelForm):
+    """Explorer's token form: the owner is chosen on create and read-only after."""
+
+    class Meta:
+        model = APIToken
+        fields = ["name", "user", "token_type", "access_level", "is_active"]
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if self.instance.pk:
+            for name in TOKEN_FIELDS_FIXED_ON_CHANGE:
+                # A disabled field ignores what is posted and keeps the stored value.
+                self.fields[name].disabled = True
+                self.fields[name].help_text = "Set when the token is made; it can't be moved to another account."
 
 
 @admin.register(APIToken)
@@ -41,6 +63,16 @@ class APITokenAdmin(admin.ModelAdmin):
     explorer_enabled = True
     explorer_group = "Auth"
     explorer_list_fields = ("name", "user", "token_type", "access_level", "is_active")
+    explorer_form_class = APITokenExplorerForm
+    # Who holds a token decides what it can do: always ask Django's model
+    # permissions, whatever SMALLSTACK_EXPLORER_MODEL_PERMISSIONS says.
+    explorer_model_permissions = True
+
+    def get_readonly_fields(self, request, obj=None):
+        fields = list(super().get_readonly_fields(request, obj))
+        if obj is not None:
+            fields += [f for f in TOKEN_FIELDS_FIXED_ON_CHANGE if f not in fields]
+        return fields
 
     @admin.action(description="Revoke selected tokens")
     def revoke_tokens(self, request, queryset):
@@ -57,6 +89,10 @@ class LogEntryAdmin(admin.ModelAdmin):
     list_filter = ["action_flag", "content_type", "user"]
     search_fields = ["object_repr", "change_message"]
     date_hierarchy = "action_time"
+
+    # The change history is evidence: Explorer always asks Django's model
+    # permissions for it, and never edits or deletes it (has_*_permission below).
+    explorer_model_permissions = True
 
     # Explorer overrides: drop change_message + object_repr, widen the timestamp.
     explorer_list_fields = ("action_time", "user", "content_type", "action_flag")

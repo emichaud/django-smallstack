@@ -139,7 +139,8 @@ def test_filter_applies_across_rows_series_and_scalar(computed_ds, people):
 def _api_token(db):
     from apps.smallstack.models import APIToken
 
-    admin = User.objects.create_user(username="ds_admin", password="x", is_staff=True)
+    # A superuser: the dataset reads the user model, which needs accounts.view_user.
+    admin = User.objects.create_user(username="ds_admin", password="x", is_staff=True, is_superuser=True)
     _token, raw = APIToken.create_token(admin, name="test")
     return raw
 

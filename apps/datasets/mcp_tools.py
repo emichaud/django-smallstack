@@ -206,12 +206,14 @@ def _build_query_tool(tool: Any, dfn: DatasetDef) -> None:
         from apps.mcp.server import current_context
 
         from .core import get_dataset
+        from .registry import get_def, user_may_view_model
 
         ds = get_dataset(_key)
-        if ds is None:
+        dfn_now = get_def(_key)
+        ctx = current_context()
+        if ds is None or dfn_now is None or not user_may_view_model(dfn_now, getattr(ctx, "user", None)):
             return {"error": f"dataset '{_key}' not found"}
 
-        ctx = current_context()
         request = _fake_context_request(getattr(ctx, "user", None))
 
         # Non-reserved args are filters — applied identically across rows,
@@ -406,9 +408,13 @@ def caller_may_use(dfn: DatasetDef) -> bool:
     from apps.mcp.auth import check_tool_access
     from apps.mcp.server import ToolDef, current_context
 
+    from .registry import user_may_view_model
+
     ctx = current_context()
     token = getattr(ctx, "token", None)
     user = getattr(ctx, "user", None)
+    if not user_may_view_model(dfn, user):
+        return False
     if token is not None:
         probe = ToolDef(name=_tool_name(dfn.key), description="", input_schema={}, requires_access=dfn.mcp_access)
         return check_tool_access(token, probe) is None
@@ -459,7 +465,7 @@ def _list_datasets_handler(args: dict) -> dict[str, Any]:
 def _caller_may_read(dfn: DatasetDef) -> bool:
     from apps.mcp.server import current_context
 
-    from .registry import user_may_read
+    from .registry import user_may_read, user_may_view_model
 
     user = getattr(current_context(), "user", None)
-    return user_may_read(dfn, user) or (dfn.enable_mcp and caller_may_use(dfn))
+    return user_may_read(dfn, user) or (dfn.enable_mcp and caller_may_use(dfn) and user_may_view_model(dfn, user))

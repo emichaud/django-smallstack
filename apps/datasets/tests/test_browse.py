@@ -51,6 +51,11 @@ def test_index_requires_staff(client):
 
 
 def test_index_lists_framework_and_project_datasets(client, staff):
+    from django.contrib.auth.models import Permission
+
+    # The tokens dataset needs smallstack.view_apitoken (B6).
+    staff.user_permissions.add(Permission.objects.get(codename="view_apitoken"))
+    client.force_login(User.objects.get(pk=staff.pk))
     key = "t_browse_project"
     try:
         dataset(key, label="Project thing", description="A downstream dataset")(lambda: RequestLog.objects.all())

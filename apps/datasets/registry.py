@@ -190,13 +190,45 @@ ACCESS_LEVELS = frozenset({"staff", "auth"})
 
 def user_may_read(dfn: "DatasetDef", user: Any) -> bool:
     """Whether *user* may read *dfn* through an in-app surface (a metric card,
-    a dashboard, a report). Staff always may; ``access="auth"`` admits any
-    signed-in user. Anonymous users never may."""
+    a dashboard, a report). Staff may, and ``access="auth"`` admits any
+    signed-in user, as long as :func:`user_may_view_model` holds. Anonymous
+    users never may."""
     if user is None or not getattr(user, "is_authenticated", False):
+        return False
+    if not user_may_view_model(dfn, user):
         return False
     if getattr(user, "is_staff", False):
         return True
     return dfn.access == "auth"
+
+
+def user_may_view_model(dfn: "DatasetDef", user: Any) -> bool:
+    """Whether *user* may see the rows of the model *dfn* reads.
+
+    A dataset over a model that checks Django model permissions (accounts,
+    API tokens and the other access models always do; otherwise when the
+    model's CRUDView sets ``model_permissions``) needs that model's ``view``
+    permission on every dataset surface, staff included, so a dataset can't
+    show what the model's own pages refuse. ``user=None`` is a trusted
+    internal call. A dataset whose model can't be resolved is refused.
+    """
+    if user is None:
+        return True
+    from apps.smallstack.model_permissions import has_model_permission, model_checks_permissions
+
+    from .core import get_dataset
+
+    try:
+        ds = get_dataset(dfn.key)
+        model = ds.model if ds is not None else None
+    except Exception:  # noqa: BLE001 — fail closed
+        logger.warning("dataset %r: couldn't resolve its model; refusing", dfn.key, exc_info=True)
+        return False
+    if model is None:
+        return False
+    if not model_checks_permissions(model):
+        return True
+    return has_model_permission(user, model, "view")
 
 
 def get_def(key: str) -> Optional["DatasetDef"]:

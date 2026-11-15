@@ -27,20 +27,64 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-def explorer_uses_model_permissions(admin_class) -> bool:
+def explorer_uses_model_permissions(admin_class, model=None) -> bool:
     """Whether an Explorer model checks Django model permissions.
 
-    A ModelAdmin's ``explorer_model_permissions`` wins; otherwise the site-wide
+    The models that hold access itself (accounts, groups, permissions, API
+    tokens, the audit trails: ``ALWAYS_CHECKED_MODELS``) always do, so being
+    staff is never enough to edit an account or reassign a token. Otherwise a
+    ModelAdmin's ``explorer_model_permissions`` wins, then the site-wide
     ``SMALLSTACK_EXPLORER_MODEL_PERMISSIONS`` setting (off by default, so any
     staff account keeps full access until a project turns it on). Read per
     request, not at startup, so the setting can change without a rebuild.
     """
+    if model is not None:
+        from apps.smallstack.model_permissions import always_checks_permissions
+
+        if always_checks_permissions(model):
+            return True
     own = getattr(admin_class, "explorer_model_permissions", None)
     if own is not None:
         return bool(own)
     from django.conf import settings
 
     return bool(getattr(settings, "SMALLSTACK_EXPLORER_MODEL_PERMISSIONS", False))
+
+
+def _admin_allows(crud_cls, request, action: str) -> bool:
+    """The ModelAdmin's own ``has_<action>_permission`` answer, when it declares one.
+
+    Django admin asks these; Explorer reads the same ModelAdmin, so a
+    ``has_delete_permission`` returning False (an audit log) holds here too.
+    Only an override is consulted: Django's default reads the permission
+    tables, which ``uses_model_permissions`` already governs. A request
+    without a user, or an override that raises, is refused.
+    """
+    admin_instance = getattr(crud_cls, "_explorer_admin", None)
+    name = f"has_{action}_permission"
+    if admin_instance is None or not _declared(type(admin_instance), name):
+        return True
+    try:
+        return bool(getattr(admin_instance, name)(request))
+    except Exception:  # noqa: BLE001 — fail closed
+        logger.warning("Explorer: %s.%s raised; refusing", type(admin_instance).__name__, name, exc_info=True)
+        return False
+
+
+class ExplorerCRUDView(CRUDView):
+    """Base of every CRUDView Explorer builds from a ModelAdmin."""
+
+    _explorer_admin: Any = None
+
+    @classmethod
+    def uses_model_permissions(cls) -> bool:
+        return explorer_uses_model_permissions(cls.admin_class, cls.model)
+
+    @classmethod
+    def has_model_permission(cls, request, action: str) -> bool:
+        if not _admin_allows(cls, request, action):
+            return False
+        return super().has_model_permission(request, action)
 
 
 # ---------------------------------------------------------------------------
@@ -260,9 +304,12 @@ def _admin_column(entry, modeladmin):
 
 def _declared(admin_class, name: str) -> bool:
     """Whether ``admin_class`` (or a base other than Django's ModelAdmin) sets ``name``."""
-    from django.contrib.admin import ModelAdmin
-
-    return any(name in vars(klass) for klass in admin_class.__mro__ if klass is not ModelAdmin and klass is not object)
+    # Django's own ModelAdmin / BaseModelAdmin defaults don't count as a declaration.
+    return any(
+        name in vars(klass)
+        for klass in admin_class.__mro__
+        if klass is not object and klass.__module__ != "django.contrib.admin.options"
+    )
 
 
 def _admin_queryset(model, modeladmin, list_fields: list[str]):
@@ -608,10 +655,11 @@ class ExplorerSite:
 
         crud_cls = type(
             f"{class_name_prefix}{model.__name__}CRUDView",
-            (CRUDView,),
+            (ExplorerCRUDView,),
             {
                 "model": model,
                 "admin_class": admin_class,
+                "_explorer_admin": admin_instance,
                 "fields": form_fields,
                 "list_fields": resolved_fields,
                 "list_columns": list_columns or None,
@@ -621,9 +669,6 @@ class ExplorerSite:
                 "namespace": namespace,
                 "paginate_by": paginate_by,
                 "mixins": [StaffRequiredMixin],
-                "uses_model_permissions": classmethod(
-                    lambda cls, _admin=admin_class: explorer_uses_model_permissions(_admin)
-                ),
                 "enable_history": getattr(admin_class, "explorer_enable_history", True),
                 "actions": actions,
                 "displays": displays,
@@ -642,7 +687,8 @@ class ExplorerSite:
                 "api_expand_fields": list(getattr(admin_class, "explorer_api_expand_fields", [])),
                 "api_aggregate_fields": list(getattr(admin_class, "explorer_api_aggregate_fields", [])),
                 "list_accessories": list(getattr(admin_class, "explorer_list_accessories", [])),
-                "bulk_actions": _resolve_bulk_actions(admin_class),
+                # A read-only model offers no bulk writes either.
+                "bulk_actions": [] if readonly else _resolve_bulk_actions(admin_class),
                 "related_tabs": getattr(admin_class, "explorer_related_tabs", None),
                 "related_tabs_exclude": list(getattr(admin_class, "explorer_related_tabs_exclude", [])),
                 "related_tabs_paginate_by": getattr(admin_class, "explorer_related_tabs_paginate_by", 10),
@@ -696,24 +742,27 @@ class ExplorerSite:
     def get_models(self) -> list[ModelInfo]:
         return self._model_info
 
+    def user_may_view(self, info: ModelInfo, user) -> bool:
+        """Whether ``user`` may view ``info``'s rows: always, unless the model
+        checks Django model permissions (then its Explorer ``view`` check)."""
+        from types import SimpleNamespace
+
+        crud = next((c for c in self._crud_classes if c.model is info.model_class), None)
+        if crud is None or not crud.uses_model_permissions():
+            return True
+        return crud.has_model_permission(SimpleNamespace(user=user), "view")
+
     def get_models_for(self, user) -> list[ModelInfo]:
         """The registered models ``user`` may view: all of them unless a
         model checks Django model permissions."""
-        from apps.smallstack.model_permissions import has_model_permission
+        return [info for info in self._model_info if self.user_may_view(info, user)]
 
-        by_model = {c.model: c for c in self._crud_classes}
-        return [
-            info
-            for info in self._model_info
-            if not (crud := by_model.get(info.model_class)) or not crud.uses_model_permissions()
-            or has_model_permission(user, info.model_class, "view")
-        ]
-
-    def get_dashboard_widgets(self) -> list[tuple]:
+    def get_dashboard_widgets(self, user=None) -> list[tuple]:
         """Return [(widget, model_info), ...] for every registered widget.
 
         Reads explorer_dashboard_widgets from each admin class, same pattern
-        as explorer_displays, explorer_list_accessories, etc.
+        as explorer_displays, explorer_list_accessories, etc. Given ``user``,
+        only widgets over models that user may view.
         """
         results = []
         for (model, group_key), admin_class in self._registry.items():
@@ -726,7 +775,7 @@ class ExplorerSite:
                 if m.model_class is model and m.group == group_key:
                     info = m
                     break
-            if info is None:
+            if info is None or (user is not None and not self.user_may_view(info, user)):
                 continue
             for widget in widgets:
                 results.append((widget, info))
@@ -743,8 +792,9 @@ class ExplorerSite:
 
     # -- Public API: context helpers --
 
-    def get_group_context(self, group_name: str) -> GroupContext | None:
+    def get_group_context(self, group_name: str, user=None) -> GroupContext | None:
         """Return everything a group page template needs, or None if not found.
+        Given ``user``, only the models that user may view.
 
         Usage in a view:
             ctx = explorer.get_group_context("Monitoring")
@@ -760,8 +810,10 @@ class ExplorerSite:
         if not matched:
             return None
 
-        models = [info.with_counts() for info in grouped[matched]]
+        models = [info.with_counts() for info in grouped[matched] if user is None or self.user_may_view(info, user)]
         all_groups = sorted(grouped.keys())
+        if user is not None:
+            all_groups = sorted({i.group for i in self.get_models_for(user)})
 
         return GroupContext(
             group_name=matched,
@@ -773,8 +825,9 @@ class ExplorerSite:
         """Return sorted list of unique app_labels across all registered models."""
         return sorted({info.app_label for info in self._model_info})
 
-    def get_app_context(self, app_label: str) -> AppContext | None:
+    def get_app_context(self, app_label: str, user=None) -> AppContext | None:
         """Return everything an app page template needs, or None if not found.
+        Given ``user``, only the models that user may view.
 
         Usage in a view:
             ctx = explorer.get_app_context("heartbeat")
@@ -782,12 +835,16 @@ class ExplorerSite:
         models = [info for info in self._model_info if info.app_label == app_label]
         if not models:
             return None
+        all_apps = self.get_apps()
+        if user is not None:
+            models = [info for info in models if self.user_may_view(info, user)]
+            all_apps = sorted({i.app_label for i in self.get_models_for(user)})
 
         return AppContext(
             app_label=app_label,
             app_verbose_name=app_label.replace("_", " ").title(),
             models=[info.with_counts() for info in models],
-            all_apps=self.get_apps(),
+            all_apps=all_apps,
         )
 
     def get_model_context(self, app_label: str, model_name: str) -> ModelContext | None:

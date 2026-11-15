@@ -25,6 +25,11 @@
     color: var(--primary);
     border-bottom-color: var(--primary);
 }
+/* On a phone the four tabs don't fit one row at full padding: tighten, then wrap. */
+@media (max-width: 480px) {
+    .user-tabs { flex-wrap: wrap; }
+    .user-tab { padding: 0.6rem 0.7rem; }
+}
 .tab-panel { display: none; }
 .tab-panel.active { display: block; }
 

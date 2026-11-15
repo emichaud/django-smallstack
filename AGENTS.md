@@ -118,8 +118,9 @@ Settings split in `config/settings/`:
   and the skill-index check; all three must be green before reporting work done,
   and the pre-commit hook enforces the same gate.
   **The ratchet:** the apps listed under `[[tool.mypy.overrides]]` in
-  `pyproject.toml` (approvals, blog, datasets, feeds, notifications, runbook,
-  scheduler, webhooks) are fully annotated and checked strictly — an
+  `pyproject.toml` (access, activity, approvals, blog, calendar, dashboards,
+  datasets, feeds, notifications, runbook, scheduler, showcase, webhooks; the
+  list there is authoritative) are fully annotated and checked strictly — an
   unannotated function there fails lint. New apps start on that list. Run
   `make typecheck-strict` to see what the lenient global config hides and to
   find the next app to add; never remove one.

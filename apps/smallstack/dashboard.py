@@ -109,6 +109,7 @@ def get_widget_contexts(
     app: str | None = None,
     model: type[Model] | None = None,
     dashboard_only: bool = False,
+    user: Any = None,
 ) -> list[dict]:
     """Return widget contexts sorted by order, optionally filtered.
 
@@ -119,6 +120,8 @@ def get_widget_contexts(
         dashboard_only: If True, drop widgets with on_dashboard=False.
                         Used by the main /smallstack/ dashboard to avoid
                         crowding; filtered views (group/app) show all.
+        user: When given, drop Explorer widgets over models this user may
+              not view (a model that checks Django model permissions).
 
     Returns:
         List of dicts with keys: widget, data, url, model_info, group,
@@ -129,7 +132,7 @@ def get_widget_contexts(
     contexts = []
 
     # Explorer-sourced widgets
-    for widget, info in explorer.get_dashboard_widgets():
+    for widget, info in explorer.get_dashboard_widgets(user=user):
         if dashboard_only and not widget.on_dashboard:
             continue
         if model is not None and info.model_class is not model:
@@ -235,7 +238,7 @@ def _build_api_view():
         group = request.GET.get("group") or None
         app = request.GET.get("app") or None
         dashboard_only = request.GET.get("dashboard_only") == "1"
-        contexts = get_widget_contexts(group=group, app=app, dashboard_only=dashboard_only)
+        contexts = get_widget_contexts(group=group, app=app, dashboard_only=dashboard_only, user=request.user)
         return {"widgets": [serialize_widget_context(c) for c in contexts]}
 
     return api_widgets
@@ -277,5 +280,6 @@ class DashboardWidgetsMixin(ContextMixin):
             app=self.widget_app,
             model=self.widget_model,
             dashboard_only=dashboard_only,
+            user=getattr(getattr(self, "request", None), "user", None),
         )
         return context

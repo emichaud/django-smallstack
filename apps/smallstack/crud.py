@@ -87,6 +87,8 @@ ACTION_PERMISSION = {
     Action.DELETE: "delete",
 }
 BULK_ACTION_PERMISSION = {BulkAction.DELETE: "delete", BulkAction.UPDATE: "change"}
+#: The single action a bulk action repeats; the view must offer it.
+BULK_ACTION_REQUIRES = {BulkAction.DELETE: Action.DELETE, BulkAction.UPDATE: Action.UPDATE}
 
 
 def _audit_web_write(request, obj, action_flag: int, message: str = "") -> None:
@@ -692,9 +694,7 @@ class _CRUDContextMixin:
         # Buttons and row actions follow what this user may do, so a page never
         # offers an Edit or Delete that answers 403.
         actions = cfg.permitted_actions(self.request)
-        bulk_actions = [
-            a for a in cfg.bulk_actions if cfg.has_model_permission(self.request, BULK_ACTION_PERMISSION[a])
-        ]
+        bulk_actions = cfg.permitted_bulk_actions(self.request)
         context.update(
             {
                 "crud_config": cfg,
@@ -1316,7 +1316,9 @@ class _CRUDBulkActionView:
             def _bulk_delete(self, request, ids, cfg):
                 import json as _json
 
-                if BulkAction.DELETE not in cfg.bulk_actions:
+                # A view that doesn't offer the single action (a read-only
+                # one) never takes it in bulk either.
+                if BulkAction.DELETE not in cfg.bulk_actions or Action.DELETE not in cfg.actions:
                     return HttpResponse(
                         _json.dumps({"error": "Bulk delete not enabled"}),
                         status=403,
@@ -1382,7 +1384,9 @@ class _CRUDBulkActionView:
             def _bulk_update(self, request, ids, fields_data, cfg):
                 import json as _json
 
-                if BulkAction.UPDATE not in cfg.bulk_actions:
+                # A view that doesn't offer the single action (a read-only
+                # one) never takes it in bulk either.
+                if BulkAction.UPDATE not in cfg.bulk_actions or Action.UPDATE not in cfg.actions:
                     return HttpResponse(
                         _json.dumps({"error": "Bulk update not enabled"}),
                         status=403,
@@ -2362,6 +2366,21 @@ class CRUDView:
     def permitted_actions(cls, request) -> list[Action]:
         """The configured ``actions`` this request's user may take."""
         return [a for a in cls.actions if cls.has_model_permission(request, ACTION_PERMISSION[a])]
+
+    @classmethod
+    def permitted_bulk_actions(cls, request) -> list[BulkAction]:
+        """The configured ``bulk_actions`` this request's user may take.
+
+        A bulk action is the matching single action N times, so it also needs
+        that action in ``actions``: a view without ``Action.DELETE`` (a
+        read-only one) never bulk-deletes, whatever ``bulk_actions`` says.
+        """
+        return [
+            a
+            for a in cls.bulk_actions
+            if BULK_ACTION_REQUIRES[a] in cls.actions
+            and cls.has_model_permission(request, BULK_ACTION_PERMISSION[a])
+        ]
 
     @classmethod
     def _visible_related_tabs(cls, request) -> list[dict[str, Any]]:

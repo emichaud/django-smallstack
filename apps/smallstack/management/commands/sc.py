@@ -105,6 +105,10 @@ class Command(BaseCommand):
         user = get_user_model().objects.filter(username=username).first()
         if user is None:
             raise CommandError(f"no user with username {username!r}")
+        if not user.is_active:
+            # Every other surface refuses a deactivated account; acting as one
+            # would also put its name on the audit entry.
+            raise CommandError(f"user {username!r} is deactivated; sc won't act as an inactive account")
         return user
 
     def _fake_request(self, actor) -> HttpRequest:
