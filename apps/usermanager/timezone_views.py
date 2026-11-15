@@ -15,14 +15,20 @@ User = get_user_model()
 
 
 class TimezoneDashboardView(StaffRequiredMixin, TemplateView):
-    """Lists accounts, so it asks what the User Manager's list asks:
-    staff holding ``accounts.view_user`` (superusers pass)."""
+    """A team scheduling tool, open to every active staff account: who is
+    where, and what time it is there.
+
+    It shows each active account's username, display name, avatar and time
+    zone, nothing about access. The staff badge and *Staff only* filter, the
+    link to the edit page and matching the search on email need
+    ``accounts.view_user``, which the rest of the User Manager asks for
+    (E-dec 3, 2026-11-14 round)."""
 
     template_name = "usermanager/timezone_dashboard.html"
 
     def test_func(self):
         user = self.request.user
-        return bool(user.is_staff and user.has_perm("accounts.view_user"))
+        return bool(user.is_active and user.is_staff)
 
     # Sortable columns — parity with the old django-tables2 table. Sorting is a
     # full-page reload (preserving search ``q``) so the inline dashboard JS
@@ -52,6 +58,7 @@ class TimezoneDashboardView(StaffRequiredMixin, TemplateView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
+        reads_accounts = self.request.user.has_perm("accounts.view_user")
         now_utc = datetime.now(tz=zoneinfo.ZoneInfo("UTC"))
         server_tz_name = settings.TIME_ZONE
         server_tz = zoneinfo.ZoneInfo(server_tz_name)
@@ -89,7 +96,7 @@ class TimezoneDashboardView(StaffRequiredMixin, TemplateView):
                 "is_workday": is_workday,
                 "is_custom": is_custom,
                 "region": region,
-                "is_staff": user.is_staff,
+                "is_staff": user.is_staff if reads_accounts else False,
             }
             user_rows.append(row)
 
@@ -124,7 +131,7 @@ class TimezoneDashboardView(StaffRequiredMixin, TemplateView):
                 for r in user_rows
                 if q_lower in r["user"].username.lower()
                 or q_lower in r["user"].get_full_name().lower()
-                or q_lower in (r["user"].email or "").lower()
+                or (reads_accounts and q_lower in (r["user"].email or "").lower())
                 or q_lower in r["tz_name"].lower()
                 or q_lower in r["tz_display"].lower()
                 or q_lower in r["region"].lower()
@@ -171,6 +178,7 @@ class TimezoneDashboardView(StaffRequiredMixin, TemplateView):
                 "search_preserve": {} if ordering == "offset" else {"ordering": ordering},
                 "regions": regions,
                 "search_query": search_query,
+                "reads_accounts": reads_accounts,
             }
         )
         return context

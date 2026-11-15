@@ -169,7 +169,8 @@ See the [Building CRUD Pages](/smallstack/help/smallstack/building-crud-pages/) 
 
 Every user manager view needs a staff account, and then Django's user permissions:
 
-- **The list, an account's page, the stat modals and the Timezones dashboard** need `accounts.view_user` (read-only without `change_user`)
+- **The list, an account's page and the stat modals** need `accounts.view_user` (read-only without `change_user`)
+- **The Timezones dashboard** is open to every staff account, with its own *Timezones* sidebar link: it's a team scheduling tool. Without `accounts.view_user` it shows names, avatars and time zones only (no staff badge or *Staff only* filter, no link to the edit page, and search doesn't match email)
 
 - **Create** needs `accounts.add_user`; ticking *Staff* there also needs `accounts.change_user` (the box isn't offered otherwise, as on the invite page)
 - **Edit** (the fields, the staff and active flags, *Send link*, *Unlock*) needs `accounts.change_user`; only a superuser changes a superuser's account

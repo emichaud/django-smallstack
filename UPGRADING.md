@@ -87,8 +87,8 @@ accounts; a server that rotates service-account passwords over the API needs a t
 everything those accounts hold.
 
 **Reading accounts, access and other accounts' tokens now needs a `view` permission, not just staff.**
-The Access pages, REST reads and MCP read tools, the User Manager's list and pages (and its Timezones
-dashboard), `GET /api/auth/users/` and user search hits need `accounts.view_user`; seeing other
+The Access pages, REST reads and MCP read tools, the User Manager's list and pages (not its Timezones
+dashboard, which stays open to staff and shows names and time zones only), `GET /api/auth/users/` and user search hits need `accounts.view_user`; seeing other
 accounts' API tokens on the Token Manager needs `smallstack.view_apitoken` (everyone still sees their
 own). Superusers are unaffected. **Staff who relied on the staff flag to read these get a 403** (and no
 longer see the Access and Users links): put auditors in **Access reviewer**, people who manage accounts

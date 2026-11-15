@@ -123,7 +123,8 @@ def test_s2_1_dashboard_still_opens_and_drops_the_access_widget_and_links(olaf, 
     assert page.status_code == 200
     body = page.content.decode()
     assert reverse("access:index") not in body  # neither the sidebar link nor the widget
-    assert reverse("manage/users-list") not in body
+    # href=: the Timezones link (open to staff, E-dec 3) shares the prefix.
+    assert f'href="{reverse("manage/users-list")}"' not in body
     assert "Access" not in [c["widget"].title for c in get_widget_contexts(user=olaf)]
     assert "Access" in [c["widget"].title for c in get_widget_contexts(user=rita)]
     assert reverse("access:index") in _client(rita).get("/smallstack/").content.decode()
@@ -132,8 +133,9 @@ def test_s2_1_dashboard_still_opens_and_drops_the_access_widget_and_links(olaf, 
 # --- The User Manager and /api/auth/users/ ------------------------------------
 
 
-@pytest.mark.parametrize("name,args", [("manage/users-list", []), ("manage/users-timezones", []),
-                                       ("manage/users-stat-detail", ["total"])])
+# The Timezones dashboard is open to all staff again (E-dec 3); see
+# apps/usermanager/tests/test_timezones_for_staff.py.
+@pytest.mark.parametrize("name,args", [("manage/users-list", []), ("manage/users-stat-detail", ["total"])])
 def test_s2_1_user_manager_lists_refuse_staff_without_view_user(olaf, rita, name, args):
     assert _client(olaf).get(reverse(name, args=args)).status_code == 403
     assert _client(rita).get(reverse(name, args=args)).status_code == 200

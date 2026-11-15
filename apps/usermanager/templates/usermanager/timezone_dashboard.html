@@ -17,8 +17,8 @@
         <nav style="margin-top: 0.5rem; font-size: 0.8rem;">
             <a href="{% url 'website:home' %}" style="color: var(--body-quiet-color); text-decoration: none;">Home</a>
             <span style="color: var(--body-quiet-color); margin: 0 0.3rem;">/</span>
-            <a href="{% url 'manage/users-list' %}" style="color: var(--body-quiet-color); text-decoration: none;">Users</a>
-            <span style="color: var(--body-quiet-color); margin: 0 0.3rem;">/</span>
+            {% if reads_accounts %}<a href="{% url 'manage/users-list' %}" style="color: var(--body-quiet-color); text-decoration: none;">Users</a>
+            <span style="color: var(--body-quiet-color); margin: 0 0.3rem;">/</span>{% endif %}
             <span style="color: var(--body-fg);">Timezones</span>
         </nav>
     </div>
@@ -70,7 +70,7 @@
             <button type="button" class="tz-filter-btn active" data-filter="all">All</button>
             <button type="button" class="tz-filter-btn" data-filter="working">Working Hours</button>
             <button type="button" class="tz-filter-btn" data-filter="off">Off Hours</button>
-            <button type="button" class="tz-filter-btn" data-filter="staff">Staff Only</button>
+            {% if reads_accounts %}<button type="button" class="tz-filter-btn" data-filter="staff">Staff Only</button>{% endif %}
             {% for region in regions %}
             <button type="button" class="tz-filter-btn" data-filter="region-{{ region|slugify }}">{{ region }}</button>
             {% endfor %}

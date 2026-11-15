@@ -19,3 +19,13 @@ class UsermanagerConfig(AppConfig):
             visible=lambda request: request.user.has_perm("accounts.view_user"),
             order=40,
         )
+        # The Timezones dashboard is a team tool open to every staff account
+        # (names and time zones, no access state), so it has its own entry:
+        # plain staff don't see Users (E-dec 3).
+        nav.register(
+            section="admin",
+            label="Timezones",
+            url_name="manage/users-timezones",
+            icon_svg='<svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm0 18a8 8 0 1 1 0-16 8 8 0 0 1 0 16zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67V7z"/></svg>',  # noqa: E501
+            staff_required=True,
+        )

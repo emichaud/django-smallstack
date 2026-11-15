@@ -25,8 +25,8 @@
                                 {{ u.username|slice:":1"|upper }}
                             </span>
                         {% endif %}
-                        <a href="{% url 'manage/users-update' pk=u.pk %}">{{ u.get_full_name|default:u.username }}</a>
-                        {% if u.is_staff %}
+                        {% if reads_accounts %}<a href="{% url 'manage/users-update' pk=u.pk %}">{{ u.get_full_name|default:u.username }}</a>{% else %}<span>{{ u.get_full_name|default:u.username }}</span>{% endif %}
+                        {% if reads_accounts and u.is_staff %}
                             <span style="font-size: 0.65rem; padding: 0.1rem 0.4rem; border-radius: 3px;
                                          background: color-mix(in srgb, var(--primary) 15%, var(--body-bg));
                                          color: var(--primary);">staff</span>

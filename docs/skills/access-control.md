@@ -151,7 +151,12 @@ staff account holding `accounts.view_user`** (`services.can_read_access`;
 superusers always pass): reading access is reading accounts, the permission
 Django admin and Explorer ask for the same rows. The shipped *Access reviewer*
 and *User manager* groups grant it. The same rule holds for the User Manager's
-list and pages, `GET /api/auth/users/` and user search hits. Other accounts'
+list and pages, `GET /api/auth/users/` and user search hits. The exception is
+the **Timezones dashboard** (`/smallstack/manage/users/timezones/`), a team
+scheduling tool open to every active staff account with its own sidebar link:
+without `view_user` it shows username, display name, avatar and time zone only
+(no staff badge or *Staff only* filter, no edit link, and the search doesn't
+match email). Other accounts'
 API tokens (the Token Manager's list, detail and search hits) need
 `smallstack.view_apitoken` (the *Token manager* group); everyone sees their own.
 

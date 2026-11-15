@@ -62,7 +62,8 @@ Title bar shows username with summary cards (Status, Member Since, Role). Tabbed
 ### Timezone Dashboard (`/manage/users/timezones/`)
 
 - **Live clocks** — UTC, Server, Local (updating every second)
-- **Filter buttons** — All, Working Hours, Off Hours, Staff Only, by region
+- **Open to every staff account** (a team scheduling tool, with its own *Timezones* sidebar link); the rest of the User Manager needs `accounts.view_user`. Without it the page shows names, avatars and time zones only: no staff badge, *Staff Only* filter or edit link, and search doesn't match email
+- **Filter buttons** — All, Working Hours, Off Hours, Staff Only (with `view_user`), by region
 - **Sortable table** — user, timezone, local time, UTC offset, status (Working/Off/Night), region
 
 #### Work Hours Configuration
