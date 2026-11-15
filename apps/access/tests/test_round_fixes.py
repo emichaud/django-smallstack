@@ -280,3 +280,33 @@ def test_a4_sensitive_admins_always_check_model_permissions_in_explorer(settings
     settings.SMALLSTACK_EXPLORER_MODEL_PERMISSIONS = False
     for model in (User, AccessEvent, ManagedGroup):
         assert explorer_uses_model_permissions(type(admin.site._registry[model])), model
+
+
+# --- A5: the first migrate leaves declared groups complete -----------------------
+
+
+def test_a5_a_fresh_database_has_every_shipped_group_with_all_its_permissions():
+    """The pytest DB is built by one migrate: the same as a first deploy."""
+    from apps.access.models import ManagedGroup
+    from apps.access.registry import declared_groups
+
+    for spec in declared_groups():
+        group = Group.objects.get(name=spec.name)
+        held = {f"{p.content_type.app_label}.{p.codename}" for p in group.permissions.select_related("content_type")}
+        assert set(spec.permissions) <= held, spec.name
+        assert ManagedGroup.objects.get(group=group).drift()["missing"] == []
+    approver = Group.objects.get(name="Approver")
+    assert approver.permissions.count() == 2
+
+
+def test_a5_a_declared_permission_that_does_not_exist_shows_as_missing_drift(monkeypatch):
+    from apps.access import registry
+    from apps.access.models import ManagedGroup
+    from apps.access.registry import register_group, sync_groups
+
+    monkeypatch.setattr(registry, "_groups", {})
+    register_group("Typo", permissions=["accounts.view_user", "nope.nothing"])
+    sync_groups(source="test")
+    managed = ManagedGroup.objects.get(group__name="Typo")
+    assert "nope.nothing" in managed.declared_permissions
+    assert managed.drift() == {"added": [], "missing": ["nope.nothing"]}

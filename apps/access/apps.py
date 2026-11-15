@@ -40,7 +40,13 @@ class AccessConfig(AppConfig):
 
 def _sync_groups_after_migrate(sender: Any, **kwargs: Any) -> None:
     """Once per migrate (this app's own signal, when every table exists):
-    create and update the groups apps declare. Never fails a migrate."""
+    create and update the groups apps declare. Never fails a migrate.
+
+    Django creates each app's permissions in that app's own ``post_migrate``,
+    in ``INSTALLED_APPS`` order, so on a first migrate the apps after this one
+    (and, depending on receiver order, some before) have none yet. Create
+    every app's content types and permissions first (both are idempotent), so
+    a declared group gets everything it names on the deploy that adds it."""
     if getattr(sender, "label", "") != "access":
         return
     from django.conf import settings
@@ -49,9 +55,17 @@ def _sync_groups_after_migrate(sender: Any, **kwargs: Any) -> None:
         return
     import logging
 
+    from django.apps import apps as global_apps
+    from django.contrib.auth.management import create_permissions
+    from django.contrib.contenttypes.management import create_contenttypes
+
     from .registry import sync_groups
 
+    using = kwargs.get("using", "default")
     try:
+        for app_config in global_apps.get_app_configs():
+            create_contenttypes(app_config, verbosity=0, using=using)
+            create_permissions(app_config, verbosity=0, using=using)
         sync_groups()
     except Exception:
         logging.getLogger(__name__).exception("access: group sync after migrate failed")

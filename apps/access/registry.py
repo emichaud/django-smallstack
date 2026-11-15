@@ -71,9 +71,16 @@ def resolve_permissions(names: Iterable[str]) -> tuple[dict[str, Permission], li
 def sync_groups(*, source: str = "migrate") -> dict[str, Any]:
     """Create and update every declared group. Returns a summary.
 
-    Never removes a permission an administrator added, and never deletes a
-    group: a declaration that disappears leaves its group in place, marked as
-    no longer declared on the Access pages.
+    Removes only a permission the declaration itself dropped (so one an
+    administrator added by hand is kept, and shows as drift), and never
+    deletes a group: a declaration that disappears leaves its group in place,
+    marked as no longer declared on the Access pages. The sync doesn't know
+    who added a permission, though: if an administrator added one by hand
+    that the code later declares and then drops again, the sync removes it.
+
+    A declared name with no matching permission (a typo, or an app not yet
+    migrated) is logged, returned under ``missing_permissions`` and kept in
+    the stored declaration, so the group shows it as missing drift.
     """
     from .context import acting_as
     from .models import ManagedGroup
@@ -89,12 +96,12 @@ def sync_groups(*, source: str = "migrate") -> dict[str, Any]:
                 logger.warning(
                     "access: group %r declares permissions that don't exist: %s", spec.name, ", ".join(missing)
                 )
-            declared_now = set(perms)
+            declared_now = set(perms) | set(missing)
             declared_before = set(managed.declared_permissions or [])
             current = {
                 f"{p.content_type.app_label}.{p.codename}": p for p in group.permissions.select_related("content_type")
             }
-            to_add = [perms[n] for n in declared_now if n not in current]
+            to_add = [perms[n] for n in declared_now if n in perms and n not in current]
             to_remove = [current[n] for n in declared_before - declared_now if n in current]
             if to_add:
                 group.permissions.add(*to_add)
