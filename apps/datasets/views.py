@@ -20,6 +20,7 @@ import json
 from typing import Any
 from urllib.parse import urlencode
 
+from django.core.exceptions import PermissionDenied
 from django.core.paginator import Page
 from django.db.models import QuerySet
 from django.http import Http404, HttpRequest, HttpResponse
@@ -34,7 +35,7 @@ from apps.smallstack.sorting import build_sort_headers
 from .core import Dataset, get_dataset, list_datasets
 from .filter_tree import and_trees, describe_filter_tree, is_empty
 from .framework import is_framework_dataset
-from .registry import get_def
+from .registry import get_def, user_may_view_model
 
 #: The quick date presets (``_computed_filter_meta`` / the CRUD list pipeline)
 #: as the relative periods a filter tree takes, for "Save as metric".
@@ -77,7 +78,7 @@ class DatasetIndexView(StaffRequiredMixin, TemplateView):
         for entry in list_datasets():
             ds = get_dataset(entry["key"])
             dfn = get_def(entry["key"])
-            if ds is None or dfn is None:
+            if ds is None or dfn is None or not user_may_view_model(dfn, request.user):
                 continue
             try:
                 cols = ds.columns()  # DB-free
@@ -128,6 +129,9 @@ class DatasetBrowseView(StaffRequiredMixin, TemplateView):
     template_name = "datasets/browse.html"
 
     def get(self, request: HttpRequest, *args: Any, **kwargs: Any) -> HttpResponse:
+        dfn = get_def(kwargs["key"])
+        if dfn is not None and not user_may_view_model(dfn, request.user):
+            raise PermissionDenied("You need the view permission on this dataset's model.")
         # "Start from a metric" without JavaScript sends ?metric=<key> alone:
         # load it, as the picked option's address does.
         if set(request.GET) == {"metric"}:

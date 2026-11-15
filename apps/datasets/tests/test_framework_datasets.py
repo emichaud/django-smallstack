@@ -155,7 +155,11 @@ def test_blog_issue_ratio_measures_roll_up_from_summed_parts() -> None:
 
 
 def test_rest_list_includes_bundled_datasets_for_staff(client) -> None:
+    from django.contrib.auth.models import Permission
+
     staff = User.objects.create_user(username="ds-staff", password="pw-123456", is_staff=True)
+    # The users and tokens datasets need their model's view permission.
+    staff.user_permissions.add(*Permission.objects.filter(codename__in=["view_user", "view_apitoken"]))
     client.force_login(staff)
     resp = client.get(reverse("datasets:list"))
     assert resp.status_code == 200

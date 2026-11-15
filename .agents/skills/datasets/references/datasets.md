@@ -460,6 +460,7 @@ Every framework module that creates data ships a lightweight, read-only dataset 
 - **Namespaced keys** — every key is `smallstack_<thing>` (the registry is first-wins, so a bare `notifications` key would shadow yours; the prefix is reserved for the framework).
 - **Explicit column allow-lists** — rows project onto the declared columns, so credential hashes, webhook secrets, OAuth codes, raw payloads/bodies, post bodies and task kwargs are never columns.
 - **Uniform exposure** — REST is always on (staff-gated, `?format=csv` works); MCP tools follow `SMALLSTACK_FRAMEWORK_DATASETS_MCP` (default **off** — two dozen `query_dataset_*` tools crowd an agent's list). `SMALLSTACK_FRAMEWORK_DATASETS_ENABLED=False` registers none of them.
+- **Model permissions apply** — a dataset over a model that checks Django model permissions (accounts, API tokens and the other access models always do; any model whose CRUDView sets `model_permissions`) needs that model's `view` permission on every surface (browse page, index, REST, MCP, metrics and dashboards), staff included, so `smallstack_users` and `smallstack_api_tokens` need `accounts.view_user` / `smallstack.view_apitoken`. Over REST such a dataset answers 404, as if absent. `apps.datasets.registry.user_may_view_model(dfn, user)` is the check.
 
 | Module | Keys |
 |---|---|
