@@ -9,8 +9,11 @@ Breaking-change migration recipes live in [`UPGRADING.md`](UPGRADING.md).
 
 ## [Unreleased]
 
+## [0.31.0] - 2026-11-14
+
 ### Upgrading from 0.30.3
 - **A CRUDView's create, edit and delete pages now write the audit `LogEntry` themselves.** A view that added `AuditMixin` through `view_mixins`, or called `log_action()` from `on_form_valid` / `on_delete`, now records each web write twice: remove your own call. See `UPGRADING.md`.
+- **New setting `SMALLSTACK_EXPLORER_MODEL_PERMISSIONS`** (default off: Explorer behaves as before). Turned on, staff accounts without Django model permissions lose access to Explorer models until granted them; grant permissions first.
 
 ### Added
 - **A FAQ at `/faq/`** in the showcase pages (and the public site's top bar): what SmallStack can build, answered plainly, including where it isn't the right tool. Four groups: **system builders** (a blog, a website, an internal tool, a CRM, an API server, a headless backend for React/Vue/Next.js/Svelte, a mobile backend, a customer-facing app, dashboards, payments, what it's not for, adding it to an existing project), **components** (CRUD pages, Explorer, the embeddable template tags, using them on your own theme, styling, datasets and calendars, card types, approvals/notifications/scheduled jobs, versioned documents, permissions), **integrators** (API tokens, MCP and Claude, search, webhooks in and out, feeds, spreadsheets/BI/calendar apps, the `sc` CLI, logs from outside, coding agents) and **running it** (hosting, SQLite or PostgreSQL, updates, licence). Each answer is a `<details>` that works without JavaScript; a link to one question (`/faq/#crm`) opens it. It links the help FAQ for how-to questions. Answers are set for reading (about 17px, against the interface's 14px).
@@ -3463,7 +3466,8 @@ Condensed highlights of the v0.11 series (see git history for per-patch detail):
 See the git tag history (`git tag`) and `ai_cowork/audit_history/` for the full record of the
 v0.8–v0.10 API-server, modern-dark-theme, search, MCP, and Postgres eras.
 
-[Unreleased]: https://github.com/emichaud/django-smallstack/compare/v0.30.3...HEAD
+[Unreleased]: https://github.com/emichaud/django-smallstack/compare/v0.31.0...HEAD
+[0.31.0]: https://github.com/emichaud/django-smallstack/compare/v0.30.3...v0.31.0
 [0.30.3]: https://github.com/emichaud/django-smallstack/compare/v0.30.2...v0.30.3
 [0.30.2]: https://github.com/emichaud/django-smallstack/compare/v0.30.1...v0.30.2
 [0.30.1]: https://github.com/emichaud/django-smallstack/compare/v0.30.0...v0.30.1

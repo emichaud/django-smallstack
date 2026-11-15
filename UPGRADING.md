@@ -8,7 +8,7 @@ listed, no downstream migration is required.
 
 ---
 
-## Unreleased — CRUDView pages write their own audit entries
+## v0.31.0 — CRUDView pages write their own audit entries
 
 **Who is affected:** a CRUDView that records its web writes itself: `AuditMixin` added through
 `view_mixins`, or a `log_action()` call in `on_form_valid` or `on_delete`.
