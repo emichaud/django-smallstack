@@ -238,6 +238,7 @@ def crud_table(context):
     crud_config = context.get("crud_config")
     column_widths = getattr(crud_config, "column_widths", None) if crud_config else None
     column_labels = getattr(crud_config, "column_labels", None) if crud_config else None
+    wrap_fields = set(getattr(crud_config, "wrap_fields", None) or ()) if crud_config else set()
     headers = _build_sort_headers(
         list_fields, model, request, column_widths=column_widths, link_field=link_field, column_labels=column_labels
     )
@@ -257,11 +258,14 @@ def crud_table(context):
         cells = []
         for field_name in list_fields:
             is_link = field_name == link_field and row_linkable
-            # Raw value for title tooltip (before transforms add HTML)
+            wrap = field_name in wrap_fields
+            # Raw value for the title tooltip (before transforms add HTML). A
+            # wrapped column shows its whole text, so it gets none; on the rest
+            # table-resize.js keeps it only while the cell is actually clipped.
             raw = getattr(obj, field_name, "")
             if isinstance(raw, (dict, list)):
                 title = json.dumps(raw, ensure_ascii=False)
-            elif raw is None:
+            elif raw is None or wrap:
                 title = ""
             else:
                 display_method = getattr(obj, f"get_{field_name}_display", None)
@@ -278,6 +282,7 @@ def crud_table(context):
                     "value": value,
                     "is_link": is_link,
                     "title": title,
+                    "wrap": wrap,
                 }
             )
 

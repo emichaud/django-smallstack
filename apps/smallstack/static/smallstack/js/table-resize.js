@@ -336,11 +336,41 @@
         });
     }
 
+    // ---- cell tooltips ---------------------------------------------------
+
+    // The server puts each cell's full text in `title`, which the browser
+    // shows on hover whether or not the cell is clipped. Keep it only where
+    // it adds something: on hover, a cell that fits parks its title in
+    // `data-title`; a cell that clips (or clips again after a resize) gets
+    // it back. The no-script fallback is unchanged.
+    function armTitle(td) {
+        var clipped = td.scrollWidth > td.clientWidth;
+        if (clipped) {
+            if (!td.hasAttribute('title') && td.hasAttribute('data-title')) {
+                td.setAttribute('title', td.getAttribute('data-title'));
+            }
+        } else if (td.hasAttribute('title')) {
+            td.setAttribute('data-title', td.getAttribute('title'));
+            td.removeAttribute('title');
+        }
+    }
+
+    function bindTitles(table) {
+        table.addEventListener('mouseover', function (event) {
+            var td = event.target.closest('td');
+            if (td && td.parentNode && table.contains(td) && !td.classList.contains('cell-wrap')
+                && (td.hasAttribute('title') || td.hasAttribute('data-title'))) {
+                armTitle(td);
+            }
+        });
+    }
+
     function initTable(table) {
         if (table.dataset.resizeInit === '1') {
             return;
         }
         table.dataset.resizeInit = '1';
+        bindTitles(table);
 
         dataHeaders(table).forEach(function (th) {
             // Remember the server-emitted width so "Reset columns" can restore it.

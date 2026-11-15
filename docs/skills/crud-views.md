@@ -92,6 +92,7 @@ This generates:
 | `export_formats` | list | `[]` | Export formats, e.g. `["csv", "json"]` (API only) |
 | `enable_mcp` | bool | `False` | Generate MCP tools (`list_*`, `get_*`, `create_*`, …) for AI clients |
 | `column_widths` | dict | None | `{field: "140px" \| "20%" \| "auto"}` for the table view. Unset: compact types (dates, numbers, booleans, choices) get a px default, the `link_field` 240px, the rest share what's left, never below 140px: the table gets a minimum width and its wrapper scrolls rather than crush a column. Prefer px; with `table-layout: fixed` a % column out-bids the unsized ones for the slack |
+| `wrap_fields` | list | None | Table columns whose text wraps onto more lines instead of clipping with an ellipsis, e.g. `["title"]` for a long name column. Give it room too (`column_widths = {"title": "40%"}`): an unsized column bottoms out at 140px and a long title there becomes a tall stack of short lines. The rest stay one line with a tooltip while clipped; the table's "Wrap text" tool still wraps them all |
 | `column_labels` | dict | None | `{field: "Updated"}`: a table header shorter than the field's verbose name |
 | `breadcrumb_parent` | tuple | None | `(label, url_name)` for parent breadcrumb |
 | `related_tabs` | `list\|None\|False` | `None` | Related object tabs on detail page. `None`=auto-discover, list=explicit, `False`=disabled |

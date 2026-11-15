@@ -449,6 +449,7 @@ The User Manager demonstrates this — its edit form has three tabs (Account, Pr
 | `page_sizes` | tuple[int] | `()` | Let people choose rows per page: `page_sizes = PAGE_SIZE_CHOICES` (15, 25, 50, 100 from `apps.smallstack.pagination`). The first is the default; the list's pager shows a "Rows per page" control and the choice stays in the address (`?per_page=`) |
 | `mixins` | list | `[]` | View mixins applied to all views |
 | `column_widths` | dict | `None` | Custom column proportions, e.g. `{"name": "30%", "description": "50%"}`. Unlisted compact fields (booleans, dates, numbers, choice fields) get a type-derived pixel default; users can also drag any column header to resize (persisted per browser). See `tables.md` |
+| `wrap_fields` | list | `None` | Table columns that wrap instead of clipping with an ellipsis, e.g. `["title"]`; pair it with a `column_widths` entry so the column has room to wrap in. Other columns stay on one line, with the full text as a tooltip while clipped |
 | `ordering_fields` | list | `[]` | Fields allowed for column sorting (defaults to sortable list_fields) |
 | `form_class` | Form class | auto | Custom ModelForm (auto-generated if None) |
 | `actions` | list | all 5 | Which CRUD actions to generate |

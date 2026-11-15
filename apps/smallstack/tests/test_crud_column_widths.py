@@ -137,3 +137,22 @@ def test_a_crowded_table_scrolls_rather_than_crushing_a_column():
     headers = [{"width": "30%"}, {}, {"width": "130px"}, {"width": "240px"}, {"width": "240px"}]
     assert _table_min_width(headers, show_actions=True, enable_bulk=False) == 2 * MIN_FREE_COLUMN_PX + 130 + 480 + 120
     assert _table_min_width([{}], show_actions=False, enable_bulk=True) == 40 + MIN_FREE_COLUMN_PX
+
+
+def test_wrap_fields_mark_only_their_cells(staff_client, monkeypatch):
+    # wrap_fields: those columns' cells carry .cell-wrap (white-space: normal in
+    # components.css) and no title tooltip, since the whole text is visible;
+    # every other cell keeps the one-line ellipsis and its title.
+    from apps.usermanager.views import UserCRUDView
+
+    monkeypatch.setattr(UserCRUDView, "wrap_fields", ["email"])
+    html = staff_client.get(reverse("manage/users-list")).content.decode()
+    body = html.split("<tbody>", 1)[1].split("</tbody>", 1)[0]
+    row_count = body.count("<tr")
+    assert row_count >= 1
+    assert body.count('class="cell-wrap"') == row_count  # one per row: the email cell only
+    assert 'class="cell-wrap" title=' not in body
+    assert body.count(" title=") >= row_count  # the other columns keep theirs
+
+    monkeypatch.setattr(UserCRUDView, "wrap_fields", None)
+    assert 'class="cell-wrap"' not in staff_client.get(reverse("manage/users-list")).content.decode()

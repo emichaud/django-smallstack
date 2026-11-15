@@ -9,6 +9,15 @@ Breaking-change migration recipes live in [`UPGRADING.md`](UPGRADING.md).
 
 ## [Unreleased]
 
+## [0.32.1] - 2026-11-15
+
+### Added
+- **`wrap_fields` on a CRUDView:** `wrap_fields = ["title"]` makes those table columns wrap onto more lines instead of clipping with an ellipsis, while the rest stay on one line; the table's "Wrap text" tool still wraps every column. Pair it with a `column_widths` entry so the column has room to wrap in.
+
+### Fixed
+- **Every table cell showed a tooltip on hover,** clipped or not, because each carried its full text as `title`. The script now keeps the title only while the cell is actually clipped (and restores it when a resize clips it again); a wrapped column, whose whole text is visible, gets none. Without the script every cell keeps its title as before.
+- **The sidebar starts where you left it.** Every sidebar link is a full page load, so the sidebar scrolled back to the top each time and the links low in the list (the Admin section) had to be scrolled to again. Its scroll offset is kept per tab (`sessionStorage`) and put back on the next page; in a new tab, the active link is brought into view by scrolling the sidebar alone, not the page.
+
 ## [0.32.0] - 2026-11-15
 
 ### Upgrading from 0.31.0
@@ -3524,7 +3533,8 @@ Condensed highlights of the v0.11 series (see git history for per-patch detail):
 See the git tag history (`git tag`) and `ai_cowork/audit_history/` for the full record of the
 v0.8–v0.10 API-server, modern-dark-theme, search, MCP, and Postgres eras.
 
-[Unreleased]: https://github.com/emichaud/django-smallstack/compare/v0.32.0...HEAD
+[Unreleased]: https://github.com/emichaud/django-smallstack/compare/v0.32.1...HEAD
+[0.32.1]: https://github.com/emichaud/django-smallstack/compare/v0.32.0...v0.32.1
 [0.32.0]: https://github.com/emichaud/django-smallstack/compare/v0.31.0...v0.32.0
 [0.31.0]: https://github.com/emichaud/django-smallstack/compare/v0.30.3...v0.31.0
 [0.30.3]: https://github.com/emichaud/django-smallstack/compare/v0.30.2...v0.30.3

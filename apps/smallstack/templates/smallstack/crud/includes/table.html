@@ -5,6 +5,12 @@ rest share the free space. Users can then drag the `.col-resizer` handle in
 each header (table-resize.js) — widths persist in localStorage under
 `data-table-key`, re-apply after every htmx swap, and the "Reset columns" /
 "Wrap text" tools below the table are un-hidden by the script.
+
+Cell tooltips: every clippable cell carries its full text as `title`, so the
+tooltip works without the script; with it, the title is shown only while the
+cell is actually clipped (scrollWidth > clientWidth) and parked in
+`data-title` otherwise. A `wrap_fields` column (`.cell-wrap`) shows its whole
+text and gets no title.
 {% endcomment %}
 <div class="crud-table-wrap" style="overflow-x: auto;">
 {% comment %}--table-min (crud_tags._table_min_width): below it the wrapper scrolls rather than crushing a column. A custom property, so table-resize.js's own inline min-width (set on a resize, cleared on Reset) layers over it.{% endcomment %}
@@ -52,7 +58,7 @@ each header (table-resize.js) — widths persist in localStorage under
     </td>
     {% endif %}
     {% for cell in row.cells %}
-    <td{% if cell.title %} title="{{ cell.title }}"{% endif %}>
+    <td{% if cell.wrap %} class="cell-wrap"{% endif %}{% if cell.title %} title="{{ cell.title }}"{% endif %}>
         {% if cell.is_link and row.detail_url %}
         <a href="{{ row.detail_url }}">{{ cell.value }}</a>
         {% else %}

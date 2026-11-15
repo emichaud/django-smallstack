@@ -292,7 +292,9 @@
     left: 2px;
 }
 
-/* Wrap mode — the "Wrap text" tool: cells wrap instead of clipping. */
+/* Wrap mode — the "Wrap text" tool: cells wrap instead of clipping.
+   .cell-wrap is the same for one column, always (CRUDView.wrap_fields). */
+.crud-table td.cell-wrap,
 .crud-table.is-wrapping td {
     white-space: normal;
     overflow-wrap: anywhere;
