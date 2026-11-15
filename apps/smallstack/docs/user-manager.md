@@ -171,7 +171,7 @@ Every user manager view needs a staff account, and then Django's user permission
 
 - **The list, an account's page, the stat modals and the Timezones dashboard** need `accounts.view_user` (read-only without `change_user`)
 
-- **Create** needs `accounts.add_user`
+- **Create** needs `accounts.add_user`; ticking *Staff* there also needs `accounts.change_user` (the box isn't offered otherwise, as on the invite page)
 - **Edit** (the fields, the staff and active flags, *Send link*, *Unlock*) needs `accounts.change_user`; only a superuser changes a superuser's account
 - **Delete** needs `accounts.delete_user`
 - **Another account's username, email, or a password link** also needs every permission that account holds (you can't take over an account wider than your own); the fields are locked, with the reason, otherwise

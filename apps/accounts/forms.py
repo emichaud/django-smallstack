@@ -44,18 +44,31 @@ class InviteUserForm(forms.Form):
         return email
 
 
-class SignInFieldsLockMixin:
-    """For a ModelForm over an existing account: the username and email
-    (``apps.access.services.SIGN_IN_FIELDS``) decide who can sign in as it, so
-    they're disabled, with the reason as help text, unless ``user`` passes the
-    subset rule (:func:`apps.access.services.sign_in_refusal`). A disabled
-    field keeps its stored value whatever is posted. Built without a ``user``
-    on an existing account, the fields are locked (fail closed)."""
+#: Ticking the staff flag on a new account asks what setting it on an existing
+#: one asks; the invite page uses the same permission.
+CREATE_STAFF_PERMISSION = "accounts.change_user"
+
+
+class AccountFormRulesMixin:
+    """The account rules every ModelForm over the user model shares, given the
+    ``user`` filling it in (fail closed without one):
+
+    - **Creating:** the *Staff* box is dropped unless ``user`` holds
+      :data:`CREATE_STAFF_PERMISSION` (superusers do), so a posted
+      ``is_staff`` is ignored; the invite page's rule.
+    - **Editing:** the username and email
+      (``apps.access.services.SIGN_IN_FIELDS``) decide who can sign in as the
+      account, so they're disabled, with the reason as help text, unless
+      ``user`` passes the subset rule
+      (:func:`apps.access.services.sign_in_refusal`). A disabled field keeps
+      its stored value whatever is posted."""
 
     def __init__(self, *args, user=None, **kwargs):
         super().__init__(*args, **kwargs)  # type: ignore[call-arg]
         instance = getattr(self, "instance", None)
         if instance is None or instance.pk is None:
+            if user is None or not user.has_perm(CREATE_STAFF_PERMISSION):
+                self.fields.pop("is_staff", None)  # type: ignore[attr-defined]
             return
         from apps.access.services import SIGN_IN_FIELDS, sign_in_refusal
 
@@ -72,9 +85,10 @@ class SignInFieldsLockMixin:
                 field.help_text = refusal
 
 
-class UserExplorerForm(SignInFieldsLockMixin, forms.ModelForm):
+class UserExplorerForm(AccountFormRulesMixin, forms.ModelForm):
     """Explorer's account form: the fields Explorer edits, with the username
-    and email locked for an editor the subset rule refuses."""
+    and email locked for an editor the subset rule refuses, and the staff box
+    on create only for an editor holding ``accounts.change_user``."""
 
     class Meta:
         model = User

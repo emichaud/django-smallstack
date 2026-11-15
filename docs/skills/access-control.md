@@ -175,7 +175,9 @@ needs every permission that account holds (`services.sign_in_refusal`; your
 own account is exempt). That applies on the User Manager, `/api/auth/users/`,
 Django admin and Explorer; the fields are locked, with the reason, otherwise.
 Inviting by email (`/smallstack/accounts/invite/`) needs `accounts.add_user`
-too, and making the invitee staff there needs `accounts.change_user`.
+too. Making a new account staff, on the create page, the invite page or
+Explorer's create form, also needs `accounts.change_user` (the box is dropped
+and a posted `is_staff` ignored otherwise).
 Staff without them see the pages read-only. In Django admin, only a superuser
 may set *Superuser status*, *Groups* or *User permissions*.
 

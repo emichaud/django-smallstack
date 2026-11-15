@@ -4,16 +4,17 @@ from django import forms
 from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import validate_password
 
-from apps.accounts.forms import SignInFieldsLockMixin
+from apps.accounts.forms import AccountFormRulesMixin
 from apps.profile.models import UserProfile
 
 User = get_user_model()
 
 
-class UserCreateForm(forms.ModelForm):
+class UserCreateForm(AccountFormRulesMixin, forms.ModelForm):
     """Create a user with a password set directly. (The Invite flow is the
     email-based alternative — this form is for setting a password up front so
-    the new account is immediately usable, never passwordless.)"""
+    the new account is immediately usable, never passwordless.) The *Staff*
+    box is offered only with ``accounts.change_user``, as on the invite page."""
 
     password1 = forms.CharField(
         label="Password",
@@ -54,9 +55,9 @@ class UserCreateForm(forms.ModelForm):
         return user
 
 
-class UserAccountForm(SignInFieldsLockMixin, forms.ModelForm):
+class UserAccountForm(AccountFormRulesMixin, forms.ModelForm):
     """Account tab: core User model fields. The username and email are locked
-    for an editor the subset rule refuses (see ``SignInFieldsLockMixin``)."""
+    for an editor the subset rule refuses (see ``AccountFormRulesMixin``)."""
 
     class Meta:
         model = User

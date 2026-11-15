@@ -41,7 +41,9 @@ staff flag alone, add them to the shipped **User manager** group (`add_user` + `
 give `delete_user` directly to whoever should delete accounts — before you deploy.
 
 **Inviting by email now asks for the same permission.** `/smallstack/accounts/invite/` needs
-`accounts.add_user`, and ticking *Grant staff access* there also needs `accounts.change_user`. Staff
+`accounts.add_user`, and ticking *Grant staff access* there also needs `accounts.change_user`. The
+same goes for the *Staff* box on the User Manager's create page and Explorer's user create form: an
+`add_user` holder without `change_user` creates non-staff accounts only. Staff
 who sent invites with the staff flag alone belong in the **User manager** group.
 
 **Adding someone to a group now needs every permission the group grants.** On the Access pages, REST,
