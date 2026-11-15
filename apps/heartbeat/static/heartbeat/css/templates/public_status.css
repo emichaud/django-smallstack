@@ -1,7 +1,8 @@
 /* Moved from apps/heartbeat/templates/heartbeat/public_status.html (inline <style>). */
 body { background: var(--body-bg); color: var(--body-fg); margin: 0; }
 .status-page { max-width: 920px; margin: 0 auto; padding: 48px 24px 64px; }
-.status-header { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 40px; }
+/* Wraps so the staff-only "Status overview" link drops below the brand on a phone instead of widening the page. */
+.status-header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 40px; }
 .status-brand, .status-brand:link, .status-brand:visited { display: flex; align-items: center; gap: 12px; color: inherit; text-decoration: none; }
 .status-brand .brand-lockup { gap: 10px; }
 .status-brand .brand-lockup .brand-word { font-size: 1.45rem; }

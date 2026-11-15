@@ -84,6 +84,11 @@ a:hover {
 
 .main-content {
     flex: 1;
+    /* A flex item's default min-width is its content's min-content width, so
+       one wide child (a table in its own scroller, a row of tabs) stretched
+       the whole page past a phone's width. 0 lets the page fit the viewport
+       and leaves scrolling to the child's own container. */
+    min-width: 0;
     margin-left: var(--sidebar-width);
     padding: 20px;
     min-height: calc(100vh - var(--topbar-height) - 50px);
