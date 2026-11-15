@@ -269,7 +269,7 @@ def resolve_user(ref: Any) -> Any:
     user = User.objects.filter(username=text).first()
     if user is None and "@" in text:
         user = User.objects.filter(email__iexact=text).first()
-    if user is None and text.isdigit():
+    if user is None and text.isascii() and text.isdigit():
         user = User.objects.filter(pk=int(text)).first()
     if user is None:
         raise LookupError(f"No user {text!r}.")
@@ -282,7 +282,7 @@ def resolve_group(ref: Any) -> Group:
     if not text:
         raise LookupError("A group name is required.")
     group = Group.objects.filter(name=text).first()
-    if group is None and text.isdigit():
+    if group is None and text.isascii() and text.isdigit():
         group = Group.objects.filter(pk=int(text)).first()
     if group is None:
         known = ", ".join(Group.objects.order_by("name").values_list("name", flat=True)) or "(none)"

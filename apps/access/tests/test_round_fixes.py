@@ -310,3 +310,54 @@ def test_a5_a_declared_permission_that_does_not_exist_shows_as_missing_drift(mon
     managed = ManagedGroup.objects.get(group__name="Typo")
     assert "nope.nothing" in managed.declared_permissions
     assert managed.drift() == {"added": [], "missing": ["nope.nothing"]}
+
+
+# --- A6: odd ids are 404s, not 500s ---------------------------------------------------
+
+
+def test_a6_superscript_digits_are_a_404_on_rest(client, staffer):
+    h = bearer(staffer, "staff")
+    assert client.get("/smallstack/api/access/users/%C2%B2/", **h).status_code == 404
+    assert client.get("/smallstack/api/access/groups/%C2%B2/", **h).status_code == 404
+
+
+def test_a6_a_non_numeric_id_on_the_membership_forms_is_a_404(client, um, alice, readers):
+    client.force_login(um)
+    members = f"/smallstack/access/groups/{readers.pk}/members/"
+    assert client.post(members, {"user": "abc", "action": "add"}).status_code == 404
+    groups = f"/smallstack/access/users/{alice.pk}/groups/"
+    assert client.post(groups, {"group": "²", "action": "add"}).status_code == 404
+
+
+# --- A7: no open redirect from the members form ---------------------------------------
+
+
+@pytest.mark.parametrize("target", ["https://evil.example/x", "//evil.example/x", "javascript:alert(1)"])
+def test_a7_next_must_be_a_same_site_path(client, um, alice, readers, target):
+    client.force_login(um)
+    resp = client.post(
+        f"/smallstack/access/groups/{readers.pk}/members/", {"user": alice.pk, "action": "add", "next": target}
+    )
+    assert resp.status_code == 302 and resp["Location"] == f"/smallstack/access/groups/{readers.pk}/"
+    assert alice.groups.filter(pk=readers.pk).exists()
+    ok = client.post(
+        f"/smallstack/access/groups/{readers.pk}/members/",
+        {"user": alice.pk, "action": "remove", "next": "/smallstack/access/"},
+    )
+    assert ok["Location"] == "/smallstack/access/"
+
+
+# --- A8: CSV exports neutralise formulas -------------------------------------------------
+
+
+def test_a8_csv_exports_neutralise_formula_cells(client, staffer):
+    User.objects.create_user("+1+evil", password="p", email="=cmd@example.com")
+    Group.objects.create(name='=HYPERLINK("http://evil.example/","x")')
+    client.force_login(staffer)
+    matrix = b"".join(client.get("/smallstack/access/export/access.csv").streaming_content).decode()
+    events = b"".join(client.get("/smallstack/access/events.csv").streaming_content).decode()
+    for body in (matrix, events):
+        for line in body.splitlines():
+            for cell in line.split(","):
+                assert not cell.lstrip('"').startswith(("=", "+", "@")), line
+    assert "'+1+evil" in matrix and "'=HYPERLINK" in events

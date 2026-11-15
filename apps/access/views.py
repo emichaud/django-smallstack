@@ -21,6 +21,7 @@ from django.http import Http404, HttpRequest, HttpResponse, HttpResponseBase, Js
 from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse
 from django.utils import timezone
+from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.http import require_POST
 from django.views.generic import TemplateView
 
@@ -198,10 +199,26 @@ def group_members(request: HttpRequest, pk: int) -> HttpResponse:
     if not can_change(request.user):
         raise PermissionDenied("You need the change_user permission to change group membership.")
     group = get_object_or_404(Group, pk=pk)
-    user = get_object_or_404(User, pk=request.POST.get("user"))
+    user = get_object_or_404(User, pk=_posted_pk(request, "user"))
+    # Where to go afterwards is settled before anything changes: only a
+    # same-site path, so the form can't be turned into an open redirect.
+    next_url = request.POST.get("next") or ""
+    if not url_has_allowed_host_and_scheme(
+        next_url, allowed_hosts={request.get_host()}, require_https=request.is_secure()
+    ):
+        next_url = reverse("access:group_detail", kwargs={"pk": pk})
     if not _apply_membership(request, user, group):
         return HttpResponse("Unknown action.", status=400)
-    return redirect(request.POST.get("next") or reverse("access:group_detail", kwargs={"pk": pk}))
+    return redirect(next_url)
+
+
+def _posted_pk(request: HttpRequest, name: str) -> int:
+    """A primary key from the POST body, or 404 for anything that isn't one
+    (``abc``, ``²``) rather than a 500 from the lookup."""
+    value = str(request.POST.get(name) or "")
+    if not (value.isascii() and value.isdigit()):
+        raise Http404(f"No such {name}.")
+    return int(value)
 
 
 def _apply_membership(request: HttpRequest, user: Any, group: Group) -> bool:
@@ -296,7 +313,7 @@ def user_groups(request: HttpRequest, pk: int) -> HttpResponse:
     if not can_change(request.user):
         raise PermissionDenied("You need the change_user permission to change group membership.")
     user = get_object_or_404(User, pk=pk)
-    group = get_object_or_404(Group, pk=request.POST.get("group"))
+    group = get_object_or_404(Group, pk=_posted_pk(request, "group"))
     if not _apply_membership(request, user, group):
         return HttpResponse("Unknown action.", status=400)
     return redirect("access:user_detail", pk=pk)
@@ -364,13 +381,25 @@ class _Echo:
         return value
 
 
+#: A cell starting with one of these is a formula to a spreadsheet.
+_FORMULA_LEADS = ("=", "+", "-", "@", "\t", "\r")
+
+
+def _safe_cell(value: Any) -> Any:
+    """Neutralise a cell a spreadsheet would run as a formula (usernames may
+    start with ``+ - @``; group names and emails are free text): prefix ``'``."""
+    if isinstance(value, str) and value.startswith(_FORMULA_LEADS):
+        return "'" + value
+    return value
+
+
 def _csv_response(filename: str, header: list[str], rows: Any) -> StreamingHttpResponse:
     writer = csv.DictWriter(_Echo(), fieldnames=header, extrasaction="ignore")
 
     def lines() -> Any:
         yield writer.writeheader()
         for row in rows:
-            yield writer.writerow(row)
+            yield writer.writerow({key: _safe_cell(value) for key, value in row.items()})
 
     response = StreamingHttpResponse(lines(), content_type="text/csv; charset=utf-8")
     response["Content-Disposition"] = f'attachment; filename="{filename}"'
