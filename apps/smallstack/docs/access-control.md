@@ -28,7 +28,7 @@ findings with a number, a sentence, and advice:
 | Staff with no group | The staff flag opens the admin area; a group says what they do there. |
 | Groups that differ from their declaration | A group an app ships in code has been changed by hand. |
 | Groups with no members or no permissions | Clutter a reviewer has to read past. |
-| Auth-level API tokens | Tokens that can manage accounts over the API. |
+| Auth-level API tokens | Active auth-level tokens, and how many of them can manage accounts over the API (their owner is staff holding `accounts.change_user`). |
 
 **Show N** opens the accounts or groups behind a finding. A project can add
 findings of its own (see the skill below).

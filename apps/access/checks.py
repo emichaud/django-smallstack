@@ -40,6 +40,16 @@ def _group_row(group: Group, meta: str = "") -> dict[str, Any]:
     return {"label": group.name, "href": reverse("access:group_detail", kwargs={"pk": group.pk}), "meta": meta}
 
 
+def _quiet_summary(qs: Any, who: str) -> str:
+    """The all-clear for a dormancy check, without claiming that accounts
+    which never signed in have (they're new, so not yet dormant)."""
+    never = qs.filter(last_login__isnull=True).count()
+    text = f"No {who} has gone {_dormant_days()} days without signing in"
+    if never:
+        text += f" ({never} {'has' if never == 1 else 'have'} never signed in, joined within that time)"
+    return text + "."
+
+
 def _last_login(user: Any) -> str:
     if user.last_login is None:
         return f"never signed in · joined {user.date_joined:%b %d, %Y}"
@@ -73,18 +83,18 @@ def superusers() -> Finding:
 @register_check
 def dormant_privileged() -> Finding:
     cutoff = timezone.now() - timedelta(days=_dormant_days())
+    privileged = User.objects.filter(is_active=True).filter(Q(is_staff=True) | Q(is_superuser=True))
     users = list(
-        User.objects.filter(is_active=True)
-        .filter(Q(is_staff=True) | Q(is_superuser=True))
-        .filter(Q(last_login__lt=cutoff) | Q(last_login__isnull=True, date_joined__lt=cutoff))
-        .order_by("username")
+        privileged.filter(Q(last_login__lt=cutoff) | Q(last_login__isnull=True, date_joined__lt=cutoff)).order_by(
+            "username"
+        )
     )
     n = len(users)
     severity = "danger" if any(u.is_superuser for u in users) else ("warning" if n else "ok")
     summary = (
         f"{n} privileged account{'s' if n != 1 else ''} with no sign-in for {_dormant_days()} days."
         if n
-        else f"Every staff and superuser account has signed in within {_dormant_days()} days."
+        else _quiet_summary(privileged, "staff or superuser account")
     )
     rows = [_user_row(u, ("superuser · " if u.is_superuser else "staff · ") + _last_login(u)) for u in users]
     return Finding(
@@ -135,10 +145,11 @@ def inactive_with_tokens() -> Finding:
 @register_check
 def dormant_accounts() -> Finding:
     cutoff = timezone.now() - timedelta(days=_dormant_days())
+    members = User.objects.filter(is_active=True, is_staff=False, is_superuser=False)
     users = list(
-        User.objects.filter(is_active=True, is_staff=False, is_superuser=False)
-        .filter(Q(last_login__lt=cutoff) | Q(last_login__isnull=True, date_joined__lt=cutoff))
-        .order_by("username")
+        members.filter(Q(last_login__lt=cutoff) | Q(last_login__isnull=True, date_joined__lt=cutoff)).order_by(
+            "username"
+        )
     )
     n = len(users)
     return Finding(
@@ -148,7 +159,7 @@ def dormant_accounts() -> Finding:
         n,
         f"{n} active account{'s' if n != 1 else ''} with no sign-in for {_dormant_days()} days."
         if n
-        else f"Every active account has signed in within {_dormant_days()} days.",
+        else _quiet_summary(members, "active account"),
         [_user_row(u) for u in users],
         advice="Deactivate what isn't used. An account that can't sign in can't be misused.",
     )
@@ -228,24 +239,35 @@ def empty_groups() -> Finding:
 def system_tokens() -> Finding:
     from apps.smallstack.models import APIToken
 
+    from .services import CHANGE_MEMBERSHIP
+
     tokens = list(APIToken.objects.filter(is_active=True, access_level="auth").select_related("user").order_by("name"))
     n = len(tokens)
+
+    def can_manage(user: Any) -> bool:
+        # What the account endpoints ask of an auth-level token's owner.
+        return bool(user.is_active and (user.is_staff or user.is_superuser) and user.has_perm(CHANGE_MEMBERSHIP))
+
+    managing = {t.pk for t in tokens if can_manage(t.user)}
     rows = [
         {
             "label": t.name,
             "href": reverse("access:user_detail", kwargs={"pk": t.user.pk}),
-            "meta": f"{t.user.get_username()} · last used {t.last_used_at:%b %d, %Y}"
-            if t.last_used_at
-            else f"{t.user.get_username()} · never used",
+            "meta": (f"{t.user.get_username()} · last used {t.last_used_at:%b %d, %Y}"
+                     if t.last_used_at
+                     else f"{t.user.get_username()} · never used")
+            + (" · can manage accounts" if t.pk in managing else ""),
         }
         for t in tokens
     ]
+    k = len(managing)
     return Finding(
         "system_tokens",
         "Auth-level API tokens",
         "info" if n else "ok",
         n,
-        f"{n} active token{'s' if n != 1 else ''} can manage accounts over the API."
+        f"{n} active auth-level token{'s' if n != 1 else ''}; {k} can manage accounts over the API "
+        "(the owner is staff holding accounts.change_user)."
         if n
         else "No auth-level tokens are active.",
         rows,

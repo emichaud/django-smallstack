@@ -422,3 +422,27 @@ def test_a10_an_audit_failure_does_not_lose_the_callers_change(alice):
         alice.save()
     alice.refresh_from_db()
     assert (alice.first_name, alice.last_name) == ("Kept", "Also kept")
+
+
+# --- A11: the review says what is true ------------------------------------------------
+
+
+def test_a11_token_finding_counts_only_tokens_that_can_manage_accounts(um, alice, staffer):
+    from apps.access.checks import system_tokens
+
+    for owner in (um, alice, staffer):
+        APIToken.create_token(user=owner, name=f"{owner.username}-auth", access_level="auth")
+    finding = system_tokens()
+    assert finding.count == 3
+    assert "1 can manage accounts" in finding.summary
+
+
+def test_a11_dormancy_all_clear_does_not_claim_never_signed_in_accounts_signed_in(alice, staffer):
+    from apps.access.checks import dormant_accounts, dormant_privileged
+
+    assert alice.last_login is None
+    member = dormant_accounts()
+    assert member.count == 0 and "signed in within" not in member.summary
+    assert "never signed in" in member.summary
+    privileged = dormant_privileged()
+    assert "signed in within" not in privileged.summary and "never signed in" in privileged.summary
