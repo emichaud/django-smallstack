@@ -4,8 +4,9 @@ Self-service permissions:
 
 - Authenticated user: lists / views / revokes their OWN tokens, mints
   readonly tokens for themselves.
-- Staff: same as above, plus mints staff-level tokens, plus sees and
-  manages all tokens.
+- Staff: same as above, plus mints staff-level tokens, plus sees all
+  tokens. Revoking someone else's token needs ``smallstack.change_apitoken``,
+  and only a superuser revokes a superuser's (``mixins.revoke_refusal``).
 - Superuser: same as staff, plus mints auth-level tokens.
 
 The CRUDView's `get_list_queryset` enforces the row-level scoping; the
@@ -34,7 +35,7 @@ from apps.smallstack.models import APIToken
 from apps.smallstack.stat_lists import render_stat_list, stat_list_row
 
 from .forms import TokenCreateForm
-from .mixins import is_owner_or_staff
+from .mixins import is_owner_or_staff, may_revoke, revoke_refusal
 from .stats import get_overview_stats, get_usage_stats
 
 REVEAL_SESSION_KEY = "_tokenmgr_reveal_key"
@@ -186,6 +187,9 @@ class TokenCRUDView(CRUDView):
             def get_context_data(self, **kwargs):
                 context = original_get_context(self, **kwargs)
                 context["overview_stats"] = get_overview_stats(self.request.user)
+                # The Revoke button shows only where the POST would succeed.
+                for token in context.get("object_list") or []:
+                    token.can_revoke = may_revoke(self.request.user, token)
                 # Mirror the queryset default: when is_active is absent
                 # from the GET params, pre-select "Yes" in the dropdown
                 # so the UI matches what the user is actually seeing.
@@ -209,6 +213,7 @@ class TokenCRUDView(CRUDView):
             def get_context_data(self, **kwargs):
                 context = original_get_context(self, **kwargs)
                 context["token_stats"] = get_usage_stats(self.object, hours=24)
+                context["can_revoke"] = may_revoke(self.request.user, self.object)
                 context["selected_hours"] = 24
                 return context
 
@@ -267,11 +272,12 @@ class TokenRevokeView(LoginRequiredMixin, View):
     http_method_names = ["post"]
 
     def post(self, request, pk):
-        token = get_object_or_404(APIToken, pk=pk)
-        if not is_owner_or_staff(request.user, token):
-            raise PermissionDenied
+        token = get_object_or_404(APIToken.objects.select_related("user"), pk=pk)
+        refusal = revoke_refusal(request.user, token)
+        if refusal:
+            raise PermissionDenied(refusal)
         if token.is_active:
-            token.revoke()
+            token.revoke()  # recorded as a token_revoked access event (apps.access.signals)
             messages.success(request, f'Token "{token.name}" has been revoked.')
         else:
             messages.info(request, f'Token "{token.name}" was already inactive.')

@@ -806,8 +806,12 @@ class Command(BaseCommand):
                 f"Pass it after a separator:\n\n    sc token revoke -- {argv[0]}\n"
             )
         opts = parser.parse_args(argv)
-        n = APIToken.objects.filter(prefix=opts.prefix, is_active=True).update(is_active=False)
-        if not n:
+        # token.revoke() (not .update()) so each one is stamped and recorded
+        # as a token_revoked access event.
+        tokens = list(APIToken.objects.filter(prefix=opts.prefix, is_active=True))
+        for token in tokens:
+            token.revoke()
+        if not tokens:
             raise CommandError(f"no active token with prefix {opts.prefix!r}")
         self.stdout.write(self.style.SUCCESS(f"revoked token {opts.prefix}"))
 

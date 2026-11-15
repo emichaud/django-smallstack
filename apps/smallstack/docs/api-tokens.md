@@ -1,6 +1,6 @@
 # API tokens — self-service management
 
-SmallStack ships a token management UI at **`/smallstack/tokens/`**. Any authenticated user can list, mint, view, and revoke their own API tokens. Staff users see and manage every token in the system. The page sits in the sidebar as **API Tokens** next to MCP and Backups.
+SmallStack ships a token management UI at **`/smallstack/tokens/`**. Any authenticated user can list, mint, view, and revoke their own API tokens. Staff users see every token in the system; revoking someone else's needs `smallstack.change_apitoken` (the *Token manager* group), and only a superuser revokes a superuser's. The page sits in the sidebar as **API Tokens** next to MCP and Backups.
 
 This complements the existing surfaces:
 

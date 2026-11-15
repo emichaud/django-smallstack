@@ -23,7 +23,12 @@ def bob():
 
 @pytest.fixture
 def staff_user():
-    return User.objects.create_user(username="boss", password="x", is_staff=True)
+    from django.contrib.auth.models import Permission
+
+    # Revoking someone else's token needs smallstack.change_apitoken (G2-2).
+    user = User.objects.create_user(username="boss", password="x", is_staff=True)
+    user.user_permissions.add(Permission.objects.get(content_type__app_label="smallstack", codename="change_apitoken"))
+    return user
 
 
 def _mint(user):
@@ -69,7 +74,7 @@ def test_non_owner_non_staff_cannot_revoke(alice, bob):
     assert t.is_active is True  # untouched
 
 
-def test_staff_can_revoke_anyones_token(alice, staff_user):
+def test_token_manager_can_revoke_a_members_token(alice, staff_user):
     t = _mint(alice)
     c = Client(enforce_csrf_checks=False)
     c.force_login(staff_user)

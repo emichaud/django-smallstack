@@ -22,7 +22,7 @@ When recommending an action, check what the user's role can actually do:
 
 - **Anonymous** → recommend login first
 - **Authenticated (non-staff)** → mint **readonly** for **self** only; can revoke own tokens
-- **Staff** → mint **readonly** or **staff** for any user; can revoke any token
+- **Staff** → mint **readonly** or **staff**; can revoke own tokens. Revoking someone else's needs `smallstack.change_apitoken` (the **Token manager** group), and only a superuser revokes a superuser's
 - **Superuser** → mint **any** access level (`readonly` / `staff` / `auth`) for any user
 
 If they ask to mint a write-capable token but aren't staff, tell them they need staff escalation — don't try to work around the form.

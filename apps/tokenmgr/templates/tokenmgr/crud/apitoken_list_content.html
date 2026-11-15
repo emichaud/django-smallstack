@@ -54,7 +54,7 @@ Reads:
             {% if token.last_used_at %}{% localtime_tooltip token.last_used_at "M d g:i A" %}{% else %}—{% endif %}
           </td>
           <td style="padding: 8px 16px; text-align: right;">
-            {% if token.is_active %}
+            {% if token.is_active and token.can_revoke %}
               <form method="post" action="{% url 'tokenmgr:token-revoke' pk=token.pk %}" style="display: inline; margin: 0;"
                     data-confirm="Revoke {{ token.name }}? Any client using this key will start getting 401s immediately.">
                 {% csrf_token %}

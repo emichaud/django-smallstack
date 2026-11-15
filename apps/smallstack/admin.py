@@ -19,6 +19,13 @@ from .models import APIToken
 TOKEN_FIELDS_FIXED_ON_CHANGE = ("user", "access_level")
 
 
+def may_change_token_state(actor, token) -> bool:
+    """Only a superuser revokes (or re-activates) a superuser's token; the
+    model's change permission covers every other token."""
+    owner = getattr(token, "user", None) if token is not None and token.pk else None
+    return not (owner is not None and owner.is_superuser and not getattr(actor, "is_superuser", False))
+
+
 class APITokenExplorerForm(forms.ModelForm):
     """Explorer's token form: the owner is chosen on create and read-only after."""
 
@@ -26,13 +33,16 @@ class APITokenExplorerForm(forms.ModelForm):
         model = APIToken
         fields = ["name", "user", "token_type", "access_level", "is_active"]
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, user=None, **kwargs):
         super().__init__(*args, **kwargs)
         if self.instance.pk:
             for name in TOKEN_FIELDS_FIXED_ON_CHANGE:
                 # A disabled field ignores what is posted and keeps the stored value.
                 self.fields[name].disabled = True
                 self.fields[name].help_text = "Set when the token is made; it can't be changed afterwards."
+            if user is None or not may_change_token_state(user, self.instance):
+                self.fields["is_active"].disabled = True
+                self.fields["is_active"].help_text = "Only a superuser may revoke a superuser's token."
 
 
 @admin.register(APIToken)
@@ -74,15 +84,27 @@ class APITokenAdmin(admin.ModelAdmin):
         fields = list(super().get_readonly_fields(request, obj))
         if obj is not None:
             fields += [f for f in TOKEN_FIELDS_FIXED_ON_CHANGE if f not in fields]
+            if not may_change_token_state(getattr(request, "user", None), obj) and "is_active" not in fields:
+                fields.append("is_active")
         return fields
 
-    @admin.action(description="Revoke selected tokens")
+    @admin.action(description="Revoke selected tokens", permissions=["change"])
     def revoke_tokens(self, request, queryset):
-        count = 0
-        for token in queryset.filter(is_active=True):
+        """Revoke the selected live tokens (needs ``change_apitoken``); a
+        superuser's are skipped unless a superuser runs it. Each revoke is
+        recorded as a ``token_revoked`` access event."""
+        count = skipped = 0
+        for token in queryset.filter(is_active=True).select_related("user"):
+            if not may_change_token_state(request.user, token):
+                skipped += 1
+                continue
             token.revoke()
             count += 1
         self.message_user(request, f"Revoked {count} token(s).", level=messages.SUCCESS)
+        if skipped:
+            self.message_user(
+                request, f"Skipped {skipped} superuser token(s): only a superuser may revoke those.", messages.WARNING
+            )
 
 
 @admin.register(LogEntry)

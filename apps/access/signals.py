@@ -176,9 +176,8 @@ def revoke_access(user: Any) -> dict[str, int]:
 
     revoked = 0
     for token in APIToken.objects.filter(user=user, is_active=True):
-        token.revoke()
+        token.revoke()  # recorded by _record_token_revoked
         revoked += 1
-        record(Kind.TOKEN_REVOKED, subject=user, detail={"token": token.name, "prefix": token.prefix})
 
     ended = 0
     user_pk = str(user.pk)
@@ -192,3 +191,40 @@ def revoke_access(user: Any) -> dict[str, int]:
     if ended:
         record(Kind.SESSIONS_ENDED, subject=user, detail={"count": ended})
     return {"tokens": revoked, "sessions": ended}
+
+
+# --- API tokens ---------------------------------------------------------------
+# A token going from active to inactive is recorded once, with the actor, on
+# every path that saves the row: the Token Manager's Revoke, the Access page's
+# "revoke all access", deactivation, Django admin's action and change form,
+# Explorer's edit, REST logout, OAuth /revoke and ``sc token revoke``.
+# ``QuerySet.update()`` bypasses it, like every signal here.
+
+
+def _remember_token_active(
+    sender: Any, instance: Any, raw: bool = False, update_fields: Any = None, **kwargs: Any
+) -> None:
+    if raw or not instance.pk:
+        return
+    if update_fields is not None and "is_active" not in update_fields:
+        return  # a usage stamp (last_used_at, request_count): no extra query
+    instance._access_token_was_active = (
+        sender.objects.filter(pk=instance.pk).values_list("is_active", flat=True).first()
+    )
+
+
+def _record_token_revoked(sender: Any, instance: Any, created: bool, raw: bool = False, **kwargs: Any) -> None:
+    if raw or created:
+        return
+    was_active = getattr(instance, "_access_token_was_active", None)
+    instance._access_token_was_active = None
+    if was_active and not instance.is_active:
+        record(
+            Kind.TOKEN_REVOKED,
+            subject=instance.user,
+            detail={"token": instance.name, "prefix": instance.prefix, "token_id": instance.pk},
+        )
+
+
+pre_save.connect(_remember_token_active, sender="smallstack.APIToken", dispatch_uid="access_token_active_before")
+post_save.connect(_record_token_revoked, sender="smallstack.APIToken", dispatch_uid="access_token_revoked")

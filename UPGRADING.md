@@ -63,6 +63,11 @@ manager** group), they may pick an active non-superuser holding no permission th
 superuser mints for a superuser or chooses the `auth` level. If someone on your team minted tokens for
 service accounts, put them in Token manager, or have a superuser mint those.
 
+**Revoking someone else's API token now needs `smallstack.change_apitoken`.** Anyone still revokes
+their own; staff who revoked other accounts' tokens with the staff flag alone belong in **Token
+manager**, and only a superuser revokes a superuser's token. Every revoke is now a `token_revoked`
+access event; if you recorded revocations yourself, you now record them twice.
+
 **The `/api/auth/` account endpoints are bounded by the token's owner.** An auth-level token now needs
 an owner who is active staff holding `accounts.change_user` to update, deactivate or reset a password
 (and `accounts.add_user` to register); only a superuser's token changes a superuser. A server that

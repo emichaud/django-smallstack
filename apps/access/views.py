@@ -301,7 +301,8 @@ class UserDetailView(AccessPageView):
                 )[:50],
                 "check": services.explain(user, perm) if perm else None,
                 "perm": perm,
-                "can_revoke": self.request.user.has_perm(REVOKE_TOKENS),
+                "can_revoke": self.request.user.has_perm(REVOKE_TOKENS)
+                and (self.request.user.is_superuser or not user.is_superuser),
             }
         )
         return context
@@ -326,6 +327,8 @@ def user_revoke(request: HttpRequest, pk: int) -> HttpResponse:
     if not request.user.has_perm(REVOKE_TOKENS):
         raise PermissionDenied("You need the change_apitoken permission to revoke tokens.")
     user = get_object_or_404(User, pk=pk)
+    if user.is_superuser and not request.user.is_superuser:
+        raise PermissionDenied("Only a superuser may revoke a superuser's tokens.")
     counts = revoke_access(user)
     messages.success(
         request,

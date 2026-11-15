@@ -110,6 +110,7 @@ surface made it (Django admin, the Access pages, the User Manager, a shell, a
 | `is_staff`, `is_superuser`, `is_active` flips | `staff_on/off`, `superuser_on/off`, `activated`, `deactivated` |
 | Accounts and groups created or deleted | `user_created`, `user_deleted`, `group_created`, `group_deleted` (the name kept in the account / group column); a deleted group's members also get `group_removed` |
 | A group renamed | `group_renamed` (`detail.from` / `detail.to`) |
+| An API token revoked (any path: Token Manager, Access, admin, Explorer, REST logout, OAuth, `sc`) | `token_revoked` (`detail.token_id`, the token's owner as the account) |
 | Deactivation's side effects | `token_revoked`, `sessions_ended` |
 
 Either side of a relation counts: `user.groups.add(g)` and `g.user_set.add(user)`,
@@ -167,7 +168,10 @@ and, to **add** someone, every permission the group grants: a User manager
 can't hand out (or take) more than they hold. Superusers may add to any group;
 removing needs only the first rule. The same rule applies on every surface
 (the pages, REST, an approval, the CLI), because all of them call
-`services.set_membership`. Revoking tokens needs `smallstack.change_apitoken`.
+`services.set_membership`. Revoking tokens needs `smallstack.change_apitoken`:
+anyone may revoke their own, revoking another account's needs the permission
+(Token Manager, Access, Django admin, Explorer), and only a superuser revokes a
+superuser's.
 
 **Accounts themselves** (the User Manager at `/smallstack/manage/users/`):
 creating needs `accounts.add_user`, editing (fields, staff and active flags, a

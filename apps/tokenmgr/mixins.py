@@ -2,7 +2,13 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from django.contrib.auth.mixins import LoginRequiredMixin
+
+#: Revoking a token you don't own changes someone else's access, so it asks
+#: the model's change permission (the shipped *Token manager* group holds it).
+REVOKE_PERMISSION = "smallstack.change_apitoken"
 
 
 class LoginRequiredAuthMixin(LoginRequiredMixin):
@@ -14,9 +20,33 @@ class LoginRequiredAuthMixin(LoginRequiredMixin):
 
 
 def is_owner_or_staff(user, token) -> bool:
-    """Return True if `user` may view/revoke `token`."""
+    """Return True if `user` may view `token` (its owner, or any staff account).
+
+    Reading only: revoking asks :func:`revoke_refusal`."""
     if not getattr(user, "is_authenticated", False):
         return False
     if user.is_staff:
         return True
     return token.user_id == user.pk
+
+
+def revoke_refusal(actor: Any, token: Any) -> str | None:
+    """Why ``actor`` may not revoke ``token``, or ``None`` when they may.
+
+    Anyone may revoke their own token. Revoking another account's needs active
+    staff holding ``smallstack.change_apitoken``, and only a superuser revokes
+    a superuser's token. Superusers may revoke any token."""
+    if not getattr(actor, "is_authenticated", False):
+        return "Sign in to revoke a token."
+    if token.user_id == actor.pk or actor.is_superuser:
+        return None
+    if not (actor.is_active and actor.is_staff and actor.has_perm(REVOKE_PERMISSION)):
+        return f"Revoking another account's token needs the {REVOKE_PERMISSION} permission."
+    if token.user.is_superuser:
+        return "Only a superuser may revoke a superuser's token."
+    return None
+
+
+def may_revoke(actor: Any, token: Any) -> bool:
+    """Whether ``actor`` may revoke ``token`` (see :func:`revoke_refusal`)."""
+    return revoke_refusal(actor, token) is None

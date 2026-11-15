@@ -21,7 +21,7 @@
       <span style="color: var(--body-fg);">{{ object.name|truncatechars:30 }}</span>
     </nav>
   </div>
-  {% if object.is_active %}
+  {% if object.is_active and can_revoke %}
   <div style="display: flex; gap: 12px; align-items: stretch;">
     <form method="post" action="{% url 'tokenmgr:token-revoke' pk=object.pk %}" style="margin: 0;"
           data-confirm="Revoke {{ object.name }}? Any client using this key will start getting 401s immediately.">
