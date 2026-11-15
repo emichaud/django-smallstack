@@ -43,7 +43,9 @@ Open an account to see:
   it, whether it's granted directly, whether the account is a superuser or
   deactivated;
 - its **groups**, each with when it was added and by whom, and controls to
-  add or remove (needs the `change_user` permission);
+  add or remove (needs the `change_user` permission; to add someone to a group
+  you must also hold every permission that group grants, unless you're a
+  superuser);
 - its **API tokens**, with a **Revoke all & sign out** button;
 - **everything the account can do**, grouped by app, each permission marked
   `via group:Name`, `via direct` or `via superuser`;
@@ -60,6 +62,10 @@ are kept and shown as drift.
 
 SmallStack ships five: **Access reviewer**, **User manager**, **Log reader**,
 **Approver** and **Token manager**. Add people to them here or in Django admin.
+
+**Who can read these pages:** any staff account. The *Access reviewer* group
+is for people who read the same data in Django admin or Explorer, which check
+permissions; it doesn't gate these pages.
 
 ## Changes
 

@@ -67,10 +67,16 @@ register_group(
 )
 ```
 
-After each `migrate` (`sync_groups`), the Group exists with those permissions.
-On later syncs a permission the declaration adds is added, one it drops is
-removed, and one an administrator added by hand is **kept** and shown as drift
-on the group's page. A declared name that no longer exists in code leaves its
+After each `migrate` (`sync_groups`, which first creates every installed app's
+permissions, so this holds on the first `migrate` of a new app too), the Group
+exists with those permissions. A declared name with no such permission (a
+typo) is logged and shown as *missing* drift on the group's page and in the
+review. On later syncs a permission the declaration adds is added, one it drops
+is removed, and one an administrator added by hand is **kept** and shown as
+drift on the group's page. (The sync doesn't track who added what: a
+permission an administrator added by hand that the code later declares and
+then drops is removed with it.) In a test, `sync_groups()` (no arguments)
+re-runs the sync. A declared name that no longer exists in code leaves its
 group in place, marked "no longer declared". `SMALLSTACK_ACCESS_GROUPS_SYNC =
 False` turns the sync off.
 
@@ -90,8 +96,18 @@ surface made it (Django admin, the Access pages, the User Manager, a shell, a
 | A permission on an account | `permission_added`, `permission_removed` |
 | A permission on a group | `group_permission_added`, `group_permission_removed` |
 | `is_staff`, `is_superuser`, `is_active` flips | `staff_on/off`, `superuser_on/off`, `activated`, `deactivated` |
-| Accounts and groups created or deleted | `user_created`, `user_deleted`, `group_created`, `group_deleted` |
+| Accounts and groups created or deleted | `user_created`, `user_deleted`, `group_created`, `group_deleted` (the name kept in the account / group column); a deleted group's members also get `group_removed` |
+| A group renamed | `group_renamed` (`detail.from` / `detail.to`) |
 | Deactivation's side effects | `token_revoked`, `sessions_ended` |
+
+Either side of a relation counts: `user.groups.add(g)` and `g.user_set.add(user)`,
+`user.user_permissions.add(p)` and `p.user_set.add(user)`. **Not recorded**,
+because Django sends no signal for them: `QuerySet.update()` (for example
+`User.objects.filter(...).update(is_staff=True)`, which also skips the token
+revocation on `is_active=False`), bulk writes to the through tables
+(`bulk_create` / `delete` on `User.groups.through`), and `loaddata` setting
+the flags (fixtures load raw). Make access changes through `save()` and the
+m2m managers.
 
 Each event goes to three places:
 
@@ -129,8 +145,24 @@ with acting_as(None, "directory:entra"):
 | **Groups** / **Group** | Members (with who added them), permissions by app, drift from the declaration, the group's events |
 | **Changes** | Every event, filterable, exportable |
 
-Reading needs staff. Changing a membership needs `accounts.change_user`;
-revoking tokens needs `smallstack.change_apitoken`.
+**Reading the Access pages (and the REST reads) needs only the staff flag**:
+any staff account sees every account, permission and change. The *Access
+reviewer* group exists for accounts that read the same data through Django
+admin or Explorer, which check model permissions; it doesn't gate these pages.
+
+**Changing a membership** needs a staff account holding `accounts.change_user`,
+and, to **add** someone, every permission the group grants: a User manager
+can't hand out (or take) more than they hold. Superusers may add to any group;
+removing needs only the first rule. The same rule applies on every surface
+(the pages, REST, an approval, the CLI), because all of them call
+`services.set_membership`. Revoking tokens needs `smallstack.change_apitoken`.
+
+**Accounts themselves** (the User Manager at `/smallstack/manage/users/`):
+creating needs `accounts.add_user`, editing (fields, staff and active flags, a
+reset link, an unlock) needs `accounts.change_user`, deleting needs
+`accounts.delete_user`; only a superuser may change a superuser's account.
+Staff without them see the pages read-only. In Django admin, only a superuser
+may set *Superuser status*, *Groups* or *User permissions*.
 
 ### Findings (least privilege)
 
@@ -143,16 +175,35 @@ dormancy window is `SMALLSTACK_ACCESS_DORMANT_DAYS` (90).
 Add one in `apps/<app>/access_checks.py`:
 
 ```python
+from django.urls import reverse
+
 from apps.access.registry import Finding, register_check
 
 @register_check
 def cross_tenant_members() -> Finding:
-    rows = [{"label": u.username, "href": ..., "meta": "in two tenants"} for u in ...]
-    return Finding("cross_tenant_members", "Accounts in two tenants",
-                   "danger" if rows else "ok", len(rows),
-                   f"{len(rows)} account(s) belong to more than one tenant.", rows,
-                   advice="One account per tenant; invite a second account instead.")
+    users = [...]  # the accounts behind the number
+    rows = [
+        {"label": u.username,
+         "href": reverse("access:user_detail", kwargs={"pk": u.pk}),  # where "Show" goes
+         "meta": "in two tenants"}
+        for u in users
+    ]
+    return Finding(
+        key="cross_tenant_members",       # unique; also the drill-down URL slug
+        title="Accounts in two tenants",
+        severity="warning" if rows else "ok",   # "ok" | "info" | "warning" | "danger"
+        count=len(rows),
+        summary=f"{len(rows)} account(s) belong to more than one tenant.",
+        rows=rows,                        # each {"label", "href", "meta"}
+        advice="One account per tenant; invite a second account instead.",
+    )
 ```
+
+`severity` decides the order on the overview (danger first) and
+`access_report`'s exit code (1 for a warning, 2 for a danger; `info` and `ok`
+exit 0). A row's `href` is a page in your app or on the Access pages (an
+account's `access:user_detail`, a group's `access:group_detail`); the
+drill-down links each row there.
 
 ### Evidence for an audit
 
@@ -173,8 +224,10 @@ write, membership, goes through one function on every surface:
 from apps.access import services
 
 services.set_membership(user, group, True, actor=request.user, source="my-sync")
-# → True when it changed, False when it already held; PermissionError when
-#   actor lacks accounts.change_user. The m2m signal records it from `source`.
+# → True when it changed, False when it already held. services.MembershipRefused
+#   (a PermissionError) when actor isn't staff, lacks accounts.change_user, or
+#   (adding) lacks a permission the group grants. actor=None is a local command.
+#   The m2m signal records it from `source`.
 services.user_payload(user)            # the user page as JSON
 services.explanation_payload(user, "accounts.change_user")
 services.resolve_user("alice")         # username, email or id; LookupError on a miss
@@ -188,7 +241,7 @@ staff account, any token tier):
 | `GET users/?q=&show=` | accounts with groups, direct-permission and token counts |
 | `GET users/{user}/` | one account: groups (since, by whom), every permission with sources, changes |
 | `GET users/{user}/check/?perm=app.codename` | `has_perm` with the reasons |
-| `PUT` / `DELETE users/{user}/groups/{group}/` | add / remove; **auth-level token + `accounts.change_user`**; idempotent (`changed`) |
+| `PUT` / `DELETE users/{user}/groups/{group}/` | add / remove; **auth-level token, a staff owner holding `accounts.change_user`** (and, to add, every permission the group grants); idempotent (`changed`) |
 | `GET groups/`, `GET groups/{group}/` | permissions, members, drift against the declaration |
 | `GET findings/` | the review, with `worst` |
 | `GET events/?who=&kind=&limit=` | the change log |
@@ -196,9 +249,12 @@ staff account, any token tier):
 **MCP.** Three read tools at the staff tier, `access_explain_user`,
 `access_check_permission`, `access_findings`, and one write tool that only
 *proposes*: `access_request_membership(username, group, member, reason)` files
-an `access.membership` approval (`apps/access/approvals.py`). A person holding
-`accounts.change_user` decides it in the console; the card shows the change,
-the reason and the agent that asked. Approving runs `set_membership` **in the
+an `access.membership` approval (`apps/access/approvals.py`). Only that tool
+files the kind (it is registered with `remote_filing=False`, so the generic
+REST create endpoint and MCP `request_approval` refuse it). A person holding
+`accounts.change_user` decides it in the console; the card shows the account
+and group the approval will change, read from the database, the reason and the
+agent that asked. Approving runs `set_membership` **in the
 approver's name**, recorded as `mcp:approval:<id>`; rejecting, canceling or
 expiring (three days) changes nothing; a vanished user or group lands in
 `callback_error`. The agent polls `get_approval` until `status` leaves
@@ -210,7 +266,8 @@ access directly; let it ask.
 `check <user> <app.codename>` (exit 1 when not held), `grant` / `revoke <user>
 <group> [--user ACTOR] [--reason …]`, `groups`, `findings`. Without `--user` a
 change is recorded from `cli` with no actor, a local administrator's shell
-change; with it, the named person must hold `accounts.change_user`.
+change; with it, the named person must be staff and pass the same rule as the
+pages (`accounts.change_user`, and every permission of a group they add to).
 
 ## Preparing for single sign-on
 
