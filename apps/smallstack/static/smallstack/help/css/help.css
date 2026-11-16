@@ -522,11 +522,23 @@
     margin-bottom: 0;
 }
 
+/* render_markdown wraps every table in .md-table, the sideways scroller
+   (components.css): a table is as wide as its widest unbreakable cell, so a
+   wide one scrolls inside the article instead of running under the "On this
+   page" sidebar. */
+.markdown-body .md-table {
+    margin-bottom: 24px;
+}
+
 .markdown-body table {
     width: 100%;
     border-collapse: collapse;
     margin-bottom: 24px;
     font-size: 1.125rem; /* 18px - same as body */
+}
+
+.markdown-body .md-table > table {
+    margin-bottom: 0;
 }
 
 .markdown-body th,

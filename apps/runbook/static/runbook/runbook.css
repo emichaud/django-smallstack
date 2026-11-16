@@ -273,10 +273,19 @@ body.runbook-focus-mode .runbook-layout {
     margin-bottom: 0;
 }
 
+/* render_markdown wraps every table in .md-table, the sideways scroller
+   (components.css): a table is as wide as its widest unbreakable cell, so a
+   wide one scrolls inside the card instead of overflowing the page. */
+.runbook-content .md-table {
+    margin-bottom: 24px;
+}
 .runbook-content table {
     width: 100%;
     border-collapse: collapse;
     margin-bottom: 24px;
+}
+.runbook-content .md-table > table {
+    margin-bottom: 0;
 }
 .runbook-content th,
 .runbook-content td {

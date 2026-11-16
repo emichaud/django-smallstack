@@ -292,6 +292,17 @@
     left: 2px;
 }
 
+/* Rendered-markdown tables (render_markdown wraps each in .md-table): a table
+   is as wide as its widest unbreakable cell, so the wrapper scrolls sideways
+   inside its column instead of the table overflowing a sidebar or a card.
+   Loaded by every themed page and the public blog; help.css and runbook.css
+   add their own margins. */
+.md-table {
+    max-width: 100%;
+    overflow-x: auto;
+    contain: inline-size;
+}
+
 /* Wrap mode — the "Wrap text" tool: cells wrap instead of clipping.
    .cell-wrap is the same for one column, always (CRUDView.wrap_fields). */
 .crud-table td.cell-wrap,

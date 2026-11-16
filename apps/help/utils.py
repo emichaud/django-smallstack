@@ -19,6 +19,8 @@ import yaml
 from django.apps import apps
 from django.conf import settings
 
+from apps.smallstack.transforms import wrap_tables
+
 logger = logging.getLogger(__name__)
 
 CONTENT_DIR = Path(__file__).parent / "content"
@@ -182,7 +184,8 @@ def render_markdown(content: str, anchors: bool = True) -> dict:
             "title": "Link to this section",
         }
     md = markdown.Markdown(extensions=extensions, extension_configs=extension_configs)
-    rendered_html = md.convert(content)
+    # The same table scroller the hardened renderer applies (see wrap_tables).
+    rendered_html = wrap_tables(md.convert(content))
     return {
         "html": rendered_html,
         "toc": getattr(md, "toc", ""),

@@ -9,6 +9,11 @@ Breaking-change migration recipes live in [`UPGRADING.md`](UPGRADING.md).
 
 ## [Unreleased]
 
+## [0.32.2] - 2026-11-15
+
+### Fixed
+- **A wide table on a help page ran under the "On this page" sidebar.** A markdown table is as wide as its widest unbreakable cell (a setting name in `code`), and the article is 800px, with nothing to scroll a wider table: on the settings page three tables painted over the TOC, their row tints showing through its text. Both markdown renderers (the help app's, and `apps.smallstack.transforms.render_markdown` behind runbook documents, slides and steps, blog posts and newsletters, and the markdown dashboard card) now wrap every table in `<div class="md-table">`, which scrolls sideways inside its column (`components.css`, loaded by every themed page and the public blog); the table itself is unchanged, and a `<table>` typed as raw HTML into untrusted markdown stays escaped text. A runbook's `.runbook-content table` had the same overflow. A downstream page that renders either output under its own stylesheet should give `.md-table` `overflow-x: auto`.
+
 ## [0.32.1] - 2026-11-15
 
 ### Added
@@ -3533,7 +3538,8 @@ Condensed highlights of the v0.11 series (see git history for per-patch detail):
 See the git tag history (`git tag`) and `ai_cowork/audit_history/` for the full record of the
 v0.8–v0.10 API-server, modern-dark-theme, search, MCP, and Postgres eras.
 
-[Unreleased]: https://github.com/emichaud/django-smallstack/compare/v0.32.1...HEAD
+[Unreleased]: https://github.com/emichaud/django-smallstack/compare/v0.32.2...HEAD
+[0.32.2]: https://github.com/emichaud/django-smallstack/compare/v0.32.1...v0.32.2
 [0.32.1]: https://github.com/emichaud/django-smallstack/compare/v0.32.0...v0.32.1
 [0.32.0]: https://github.com/emichaud/django-smallstack/compare/v0.31.0...v0.32.0
 [0.31.0]: https://github.com/emichaud/django-smallstack/compare/v0.30.3...v0.31.0

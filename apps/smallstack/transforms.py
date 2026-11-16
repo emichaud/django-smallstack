@@ -210,6 +210,25 @@ _DEFAULT_MD_EXTENSIONS: tuple[str, ...] = ("fenced_code", "tables")
 # because the `extensions` override is otherwise an invitation to enable one.
 _UNSAFE_MD_EXTENSIONS: frozenset[str] = frozenset({"attr_list", "legacy_attrs", "md_in_html"})
 
+_TABLE_OPEN = re.compile(r"<table\b[^>]*>")
+
+
+def wrap_tables(html: str) -> str:
+    """Put each ``<table>`` in a ``<div class="md-table">`` that scrolls sideways.
+
+    A markdown table is as wide as its widest unbreakable cell (a setting name
+    in ``code``, a long URL), and a reading column is 600–800px: with nothing to
+    scroll it, a wide table ran under the help page's "On this page" sidebar
+    and out of a runbook's card. The wrapper is the scroller (``.md-table`` in
+    ``components.css``, which every themed page and the public blog load); the
+    table keeps its own width and styling. Applied to rendered output only, so
+    a ``<table>`` typed into untrusted markdown, already escaped to text by
+    :func:`harden_markdown_renderer`, is not matched.
+    """
+    if "<table" not in html:
+        return html
+    return _TABLE_OPEN.sub(lambda m: '<div class="md-table">' + m.group(0), html).replace("</table>", "</table></div>")
+
 
 def render_markdown(
     content: str,
@@ -262,7 +281,7 @@ def render_markdown(
 
     renderer = markdown.Markdown(extensions=exts, extension_configs=configs)
     harden_markdown_renderer(renderer)
-    html = renderer.convert(content)
+    html = wrap_tables(renderer.convert(content))
     return {
         "html": html,
         "toc": getattr(renderer, "toc", ""),
