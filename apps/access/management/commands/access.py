@@ -311,11 +311,20 @@ class Command(BaseCommand):
                 str(exc) if "scope" in str(exc) or "ends" in str(exc) else "--from and --to take YYYY-MM-DD."
             ) from exc
         if opts.get("store"):
-            from apps.access import cadence
+            from apps.access import cadence, reviews
             from apps.access.models import EvidenceBundle
 
             actor = self._user(opts["actor"]) if opts.get("actor") else None
-            bundle = cadence.store_bundle(start, end, opts["scope"], reason=EvidenceBundle.Reason.MANUAL, actor=actor)
+            if actor is not None:
+                # The named person must pass the page's rule for storing a
+                # pack (an attester or a superuser), as --user does for
+                # grant/revoke and review open (T4-3).
+                refusal = reviews.open_refusal(actor)
+                if refusal:
+                    raise CommandError(refusal)
+            bundle = cadence.store_bundle(
+                start, end, opts["scope"], reason=EvidenceBundle.Reason.MANUAL, actor=actor, label="cli"
+            )
             if opts["json"]:
                 self._dump(cadence.bundle_payload(bundle))
                 return

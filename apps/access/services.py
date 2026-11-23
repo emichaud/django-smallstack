@@ -472,6 +472,19 @@ def directory_refusal(group: Group) -> str:
     )
 
 
+def directory_groups_refusal(before: Any, after: Any) -> str:
+    """Why a form may not change membership from ``before`` to ``after`` (two
+    iterables of groups), or "": a directory-managed group is added or removed.
+    For forms that write ``user.groups`` themselves (Django admin's user form)
+    rather than through :func:`set_membership`."""
+    changed = set(before) ^ set(after)
+    for group in sorted(changed, key=lambda g: g.name):
+        refusal = directory_refusal(group)
+        if refusal:
+            return refusal
+    return ""
+
+
 def membership_refusal(actor: Any, group: Group, member: bool) -> str:
     """Why :func:`set_membership` would refuse ``actor`` this change, or "".
     Asked before the write by surfaces that want to refuse early (an

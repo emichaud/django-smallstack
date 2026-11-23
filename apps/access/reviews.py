@@ -332,7 +332,9 @@ def decide(
         raise ReviewRefused(refusal)
     with transaction.atomic():
         follow_up = item.follow_up
-        if decision == AccessReviewItem.Decision.REMOVE and not follow_up.startswith("approval:"):
+        if decision == AccessReviewItem.Decision.REMOVE and not _removal_alive(follow_up):
+            # Never filed, or the approval was canceled, rejected or expired:
+            # deciding *remove* again files a new one (T3-3).
             follow_up = _file_removal(item, actor=actor, note=note, source=source)
         item.decision = decision
         item.decided_by = actor
@@ -342,6 +344,26 @@ def decide(
         item.follow_up = follow_up
         item.save()
     return item
+
+
+def approval_pk(follow_up: str) -> int | None:
+    """The approval a row's ``follow_up`` points at (``approval:<pk>``), or None."""
+    _, _, tail = follow_up.partition("approval:")
+    return int(tail) if tail.isdigit() else None
+
+
+def _removal_alive(follow_up: str) -> bool:
+    """Whether ``follow_up`` names a removal approval that is still pending or
+    was approved: anything else (none, canceled, rejected, expired) is dead."""
+    from apps.approvals.models import ApprovalRequest
+
+    pk = approval_pk(follow_up)
+    if pk is None:
+        return False
+    req = ApprovalRequest.objects.filter(pk=pk).first()
+    if req is None:
+        return False
+    return req.effective_status in (ApprovalRequest.Status.PENDING, ApprovalRequest.Status.APPROVED)
 
 
 def _file_removal(item: AccessReviewItem, *, actor: Any, note: str, source: str) -> str:
@@ -474,8 +496,14 @@ def sign(
 
 
 def unresolved_items() -> list[AccessReviewItem]:
-    """Rows of signed reviews that still need someone: flagged, or *remove*
-    whose approval is still pending (or was never filed)."""
+    """Rows of signed reviews that still need someone: *flagged*, or *remove*
+    while the account is still active, whatever became of its approval
+    (pending, rejected, canceled, expired, never filed). A removal is resolved
+    only when the account is deactivated or gone (T3-3): a withdrawn or
+    rejected approval doesn't make the review's decision go away.
+
+    Each *remove* item carries ``approval_state`` (the approval's effective
+    status, or "not filed") for the finding's row."""
     from apps.approvals.models import ApprovalRequest
 
     items = list(
@@ -484,23 +512,18 @@ def unresolved_items() -> list[AccessReviewItem]:
             decision__in=[AccessReviewItem.Decision.FLAGGED, AccessReviewItem.Decision.REMOVE],
         ).select_related("review", "user")
     )
-
-    def approval_pk(item: AccessReviewItem) -> int | None:
-        _, _, tail = item.follow_up.partition("approval:")
-        return int(tail) if tail.isdigit() else None
-
-    pks = [pk for pk in (approval_pk(i) for i in items) if pk is not None]
-    pending = set(
-        ApprovalRequest.objects.filter(pk__in=pks, status=ApprovalRequest.Status.PENDING).values_list("pk", flat=True)
-    )
+    pks = [pk for pk in (approval_pk(i.follow_up) for i in items) if pk is not None]
+    states = {r.pk: r.effective_status for r in ApprovalRequest.objects.filter(pk__in=pks)}
     out = []
     for item in items:
         if item.decision == AccessReviewItem.Decision.FLAGGED:
             out.append(item)
-        else:
-            pk = approval_pk(item)
-            if pk is None or pk in pending:
-                out.append(item)
+            continue
+        if item.user is None or not item.user.is_active:
+            continue
+        pk = approval_pk(item.follow_up)
+        item.approval_state = states.get(pk, "not filed") if pk is not None else "not filed"  # type: ignore[attr-defined]
+        out.append(item)
     return out
 
 

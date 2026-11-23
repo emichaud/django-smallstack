@@ -1,6 +1,6 @@
 ---
 title: Access Control
-description: Who may do what, every change to it, and the least-privilege review at /smallstack/access/
+description: Who may do what, every change to it, the least-privilege findings, periodic access reviews and the audit evidence pack at /smallstack/access/
 ---
 
 # Access Control
@@ -64,8 +64,16 @@ and the group's changes. Groups declared in code are created after each
 `migrate` and kept in step with the declaration; an administrator's additions
 are kept and shown as drift.
 
-SmallStack ships five: **Access reviewer**, **User manager**, **Log reader**,
-**Approver** and **Token manager**. Add people to them here or in Django admin.
+SmallStack ships six: **Access reviewer**, **Access attester**, **User
+manager**, **Log reader**, **Approver** and **Token manager**. Add people to
+them here or in Django admin.
+
+A group can also be **directory-managed**: its members come from your single
+sign-on directory (Entra, Okta, Google, an auth proxy) at each sign-in. Its
+page says *Membership comes from the directory* and has no add or remove
+controls, and every other way of changing it (these pages, Django admin, the
+API, the shell, an approval) refuses with the reason. Change it in the
+directory.
 
 **Who can read these pages:** a staff account holding `accounts.view_user`,
 the permission Django admin and Explorer ask to list accounts. The shipped
@@ -95,6 +103,58 @@ else) revokes its API tokens and ends its sessions at once; both are recorded.
 - From a shell or a scheduled job: `manage.py access_report`, which exits
   non-zero when a finding needs attention; `--json` writes the snapshot.
 
+## Access reviews
+
+The findings above are continuous; an **access review** is the periodic
+control an auditor asks for (SOC 2, PCI DSS, ISO 27001). On **Reviews**, an
+*Access attester* opens a review for a period. Opening **freezes the roster**
+of accounts holding access at that moment (*privileged*: superusers, staff and
+holders of a permission that changes access or credentials; or *all* active
+accounts). The attester then decides each account:
+
+- **Confirm**: the access is right.
+- **Flag**, with a note: someone needs to look.
+- **Remove**: files an approval. Someone holding `change_user` approves it in
+  the approvals console and the account is deactivated in their name (tokens
+  revoked, sessions ended). Only the attester who filed it, or someone who
+  could approve it, can withdraw it; the account being removed can't. If the
+  approval is rejected, withdrawn or expires, the account stays listed under
+  *Review decisions not yet acted on* until it is deactivated, and deciding
+  *remove* again on an open review files a new approval.
+
+Nobody confirms or removes their own row, and a superuser can open a review
+but not decide or sign one. When every row is decided, the attester types
+their name and **signs**: the review is then read-only evidence, with the
+signer, time, address and request id. Nothing in a review changes access by
+itself. Each review exports as CSV, JSON and a print view.
+
+## The evidence pack
+
+**Evidence** builds, for a period and a scope, the sheets an auditor asks for:
+privileged roster, access matrix, access changes, joiners, leavers,
+authentication, API credentials, findings and the signed reviews, each with
+the controls it supports. Preview a sheet, then download it as CSV, the whole
+pack as a ZIP (a cover page, one CSV per sheet and JSON), the JSON alone or a
+print view. A period or scope that can't be used is refused with the reason
+rather than replaced by another.
+
+**Store this pack** (an attester or a superuser) keeps the pack on the server
+with its SHA-256, so a copy handed to an auditor can be checked against what
+the system produced; the download carries the digest in `X-Content-SHA256`.
+The newest packs are kept for each reason (`SMALLSTACK_ACCESS_EVIDENCE_KEEP`,
+24): packs stored on request never push out the one kept when a review was
+signed or a quarter closed.
+
+## On a schedule (optional)
+
+By default reviews are opened by hand and nothing is scheduled. Set
+`SMALLSTACK_ACCESS_REVIEW_CADENCE=quarterly` and a daily job opens the review
+when a quarter closes, stores that quarter's pack, tells the attesters in the
+app and by email, reminds them while it stays open, and escalates once it is
+overdue. The dashboard then shows an **Access review** card. Signing stays a
+person's act; it stores the attested pack and sends the
+`access.review.signed` webhook event.
+
 ## From a script or an AI client
 
 The same answers are available over the REST API (`/smallstack/api/access/`,
@@ -105,11 +165,15 @@ change-user permission. An AI client cannot change membership directly: its
 `access_request_membership` tool files an approval request, and the change is
 made only when someone who could make it by hand approves it in the approvals
 console, in their name. From a shell, `manage.py access explain|check|grant|
-revoke|groups|findings` does the same, recorded like every other change.
+revoke|groups|findings` does the same, recorded like every other change, and
+`access review|evidence|packs|cadence` opens and lists reviews and builds,
+stores and lists evidence packs. Reviews and packs are readable over REST;
+deciding and signing exist on the Reviews page only.
 
 ## For developers
 
 `docs/skills/access-control.md` covers declaring a group in your app
-(`register_group`), adding a finding (`register_check`), attributing changes
-made outside a request (`acting_as`), and how a single sign-on directory
-plugs in.
+(`register_group`), adding a finding (`register_check`), adding an evidence
+sheet (`register_sheet`), attributing changes made outside a request
+(`acting_as`), reviews and the cadence. `docs/skills/directory-sso.md` covers
+directory-managed groups and the sign-in call.

@@ -377,3 +377,17 @@ def test_the_scheduled_job_exists_only_when_the_cadence_is_on():
         assert spec is not None and spec.name == "Access: review cadence" and spec.schedule_type == "cron"
     else:
         assert spec is None
+
+
+def test_stores_on_request_never_push_out_the_attested_pack(settings, root):
+    """T4-2: retention counts each reason apart, so pressing *Store this pack*
+    can only evict older on-request packs, never the signed or closing one."""
+    settings.SMALLSTACK_ACCESS_EVIDENCE_KEEP = 2
+    start, end = date(2026, 7, 1), date(2026, 9, 30)
+    signed = cadence.store_bundle(start, end, "all", reason=EvidenceBundle.Reason.REVIEW_SIGNED)
+    closed = cadence.store_bundle(start, end, "all", reason=EvidenceBundle.Reason.PERIOD_CLOSED)
+    for _ in range(4):
+        cadence.store_bundle(start, end, "all", actor=root)
+    assert EvidenceBundle.objects.filter(pk__in=[signed.pk, closed.pk]).count() == 2
+    assert signed.file.storage.exists(signed.file.name)
+    assert EvidenceBundle.objects.filter(scope="all", reason=EvidenceBundle.Reason.MANUAL).count() == 2

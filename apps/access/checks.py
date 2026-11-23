@@ -478,7 +478,8 @@ def review_overdue() -> Finding:
 @register_check
 def review_unresolved() -> Finding:
     """Rows of signed reviews still waiting on someone: flagged, or *remove*
-    whose approval hasn't been decided."""
+    while the account is still active (its approval pending, rejected,
+    canceled or expired)."""
     from . import reviews
 
     items = reviews.unresolved_items()
@@ -488,7 +489,8 @@ def review_unresolved() -> Finding:
             "label": i.user_label,
             "href": reverse("access:review_detail", kwargs={"pk": i.review_id}),
             "meta": f"{i.get_decision_display().lower()} in review #{i.review_id}"
-            + (f" · {i.follow_up}" if i.follow_up else ""),
+            + (f" · {i.follow_up}" if i.follow_up else "")
+            + (f" ({getattr(i, 'approval_state', '')})" if getattr(i, "approval_state", "") else ""),
         }
         for i in items
     ]
@@ -502,7 +504,8 @@ def review_unresolved() -> Finding:
         if n
         else "Every decision of a signed review has been acted on.",
         rows,
-        advice="Decide the pending approval, or look at the flagged account and deactivate or confirm it.",
+        advice="Decide the pending approval; where it was rejected, canceled or expired, deactivate the account "
+        "by hand or record why it stays in the next review. Look at a flagged account and deactivate or confirm it.",
     )
 
 

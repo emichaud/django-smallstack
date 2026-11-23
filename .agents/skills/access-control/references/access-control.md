@@ -359,6 +359,10 @@ CC6.1–6.3, PCI DSS 7.2.4, ISO 27001 A.5.18). **Nothing in it changes access.**
   holding `accounts.change_user` approves it in the console and the account
   is deactivated **in the approver's name** (tokens revoked, sessions ended,
   recorded as any deactivation). The item keeps `follow_up = approval:<id>`.
+  Only the requester, or someone who could decide it, may cancel the
+  approval, and never the account it removes (the kind's `can_cancel` hook).
+  If it is rejected, canceled or expires, deciding *remove* again on an open
+  review files a new one.
 - **Signing**: every row decided, the attester types their username or full
   name, and the review records signer, time, typed name, client IP and
   request id, writes a `review_signed` `AccessEvent` with the counts, and
@@ -366,9 +370,10 @@ CC6.1–6.3, PCI DSS 7.2.4, ISO 27001 A.5.18). **Nothing in it changes access.**
   `ReviewLocked`; Django admin is read-only.
 - **Findings**: *Access review overdue* (info until a first review is ever
   signed, then warning for one missed quarter, danger for two), *Review
-  decisions not yet acted on* (flagged rows and *remove* rows whose approval
-  is still pending), *Privileged accounts not yet reviewed* (new since the
-  last signed roster).
+  decisions not yet acted on* (flagged rows, and *remove* rows whose account
+  is still active, whatever became of the approval: pending, rejected,
+  canceled, expired; the row shows which), *Privileged accounts not yet
+  reviewed* (new since the last signed roster).
 - **Surfaces**: `/smallstack/access/reviews/` (open, decide, sign, CSV, JSON,
   print view for the PDF-wanting auditor); `manage.py access review
   open|list|show`; `GET /smallstack/api/access/reviews/[{id}/]`. **Deciding
@@ -410,7 +415,10 @@ exports, the CLI and REST all use that one build.
 
 - **Period**: a quarter from the picker (wins) or `from`/`to` dates; default
   the last complete quarter. **Scope** as for reviews. Tabs are
-  `?tab=<sheet>`; rows paginate.
+  `?tab=<sheet>`; rows paginate. A bad date, a period that ends before it
+  starts or an unknown scope is refused with the reason (400 on REST and the
+  exports, a message on the page, nothing stored), never replaced by another
+  period.
 - **Exports**: *This sheet (CSV)*, *Bundle (ZIP)* = `cover.md` (period,
   counts, the controls map, how to read it) + one CSV per sheet +
   `evidence.json`, *JSON*, *Print view* (cover, roster, leavers, findings,
@@ -427,11 +435,28 @@ exports, the CLI and REST all use that one build.
   attester or a superuser); downloading is an Access read. Files live under
   `MEDIA_ROOT/access/evidence/`, a private media prefix: the public
   `/media/` route refuses them, only the access-checked view serves them.
-  `SMALLSTACK_ACCESS_EVIDENCE_KEEP` (default 24) is kept per scope, oldest
-  deleted first; 0 keeps every one. `manage.py access packs [--json]`,
+  `SMALLSTACK_ACCESS_EVIDENCE_KEEP` (default 24) is kept per scope **and
+  reason** (`period_closed`, `review_signed`, `manual`), oldest deleted first,
+  so packs stored on request never push out an attested one; 0 keeps every
+  one. `access evidence --store --user <name>` needs what the page needs; with
+  no `--user` the pack is recorded as built by `cli`. `manage.py access packs [--json]`,
   `GET /smallstack/api/access/evidence/packs/[{id}/][?format=zip]`.
-- Add a sheet: a function `(start, end, scope) -> Sheet` in `SHEETS`, with a
-  `CONTROLS` entry; it then appears on the page, in the bundle and in JSON.
+- **Add a sheet** from your app in `apps/<app>/access_evidence.py`
+  (autodiscovered, like `access_checks.py`); it then appears as a tab, a CSV in
+  the bundle, in JSON, the CLI and REST:
+
+  ```python
+  from apps.access.evidence import Sheet, register_sheet
+
+  def service_accounts(start, end, scope) -> Sheet:   # aware datetimes bounding the period
+      rows = [...]
+      return Sheet(key="service_accounts", title="Service accounts",
+                   description="Accounts that exist for a machine.", columns=("username", "owner"), rows=rows)
+
+  register_sheet("service_accounts", service_accounts, controls="SOC 2 CC6.2")
+  ```
+
+  Keys are lowercase slugs; a built-in key can't be replaced.
 
 ## By the schedule (the review cadence)
 

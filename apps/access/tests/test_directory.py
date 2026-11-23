@@ -362,3 +362,57 @@ def test_shipped_groups_stay_local_by_default():
     assert not ManagedGroup.objects.filter(group__name="Access reviewer", directory_role__isnull=False).exists()
     perm = Permission.objects.get(content_type__app_label="accounts", codename="view_user")
     assert perm in Group.objects.get(name="Access reviewer").permissions.all()
+
+
+# --- Round-2 fixes (Test Lab evaluation 45) ----------------------------------------
+
+
+def test_django_admin_user_form_refuses_a_directory_group(declarations, client, root, alice):
+    """T2-1: the admin user form writes ``user.groups`` itself, so it must
+    refuse a directory-managed group as ``set_membership`` does."""
+    planners = declarations["Event planners"]
+    local = declarations["Local readers"]
+    client.force_login(root)
+    url = reverse("admin:accounts_user_change", args=[alice.pk])
+    form = {
+        "username": alice.username,
+        "email": alice.email,
+        "is_active": "on",
+        "date_joined_0": "2026-01-01",
+        "date_joined_1": "00:00:00",
+        "initial-date_joined_0": "2026-01-01",
+        "initial-date_joined_1": "00:00:00",
+    }
+    response = client.post(url, {**form, "groups": [planners.pk]})
+    assert response.status_code == 200  # the form comes back with the error
+    assert "comes from" in response.content.decode()
+    assert not alice.groups.filter(pk=planners.pk).exists()
+    # A local group still saves through the same form.
+    response = client.post(url, {**form, "groups": [local.pk]})
+    assert response.status_code == 302
+    assert alice.groups.filter(pk=local.pk).exists()
+
+
+def test_the_refusal_names_each_provider_once(declarations, root):
+    """T2-2: one word per provider, however many identities it has signed in."""
+    for n in range(3):
+        directory.sign_in("proxy", f"subject-{n}", ["Events.Planner"], email=f"u{n}@x.test")
+    assert directory.providers_seen() == ["proxy"]
+
+
+def test_a_directory_sign_in_stamps_last_login(declarations):
+    """T2-5: an account that only ever signs in through the directory isn't
+    'never signed in', and a proxy calling sign_in per request writes at most
+    every LAST_LOGIN_EVERY."""
+    identity, _ = directory.sign_in("proxy", "sub-t25", ["Service.Admin"], email="t25@x.test")
+    user = User.objects.get(pk=identity.user_id)
+    first = user.last_login
+    assert first is not None
+    directory.sign_in("proxy", "sub-t25", ["Service.Admin"])
+    user.refresh_from_db()
+    assert user.last_login == first  # throttled
+    User.objects.filter(pk=user.pk).update(last_login=timezone.now() - timedelta(days=200))
+    directory.sign_in("proxy", "sub-t25", ["Service.Admin"])
+    user.refresh_from_db()
+    assert timezone.now() - user.last_login < timedelta(minutes=1)
+    assert user.username not in {r["label"] for r in finding("dormant_privileged").rows}

@@ -315,6 +315,12 @@ def cancel(
     """Withdraw a pending request (requester or staff)."""
     _require_enabled()
     if not permissions.can_cancel(actor, req):
+        kind = get_kind(req.kind)
+        narrowed = kind is not None and kind.can_cancel is not None and req.is_pending and permissions.is_staff(actor)
+        if narrowed:
+            raise NotEligible(
+                "This kind of request can be canceled only by its requester or someone who could decide it."
+            )
         raise NotEligible("Only the requester or staff can cancel this request.")
     _claim(
         req,

@@ -8,6 +8,29 @@ listed, no downstream migration is required.
 
 ---
 
+## Unreleased — access reviews, the evidence pack, directory-managed groups
+
+**Who is affected:** projects that set `SMALLSTACK_PRIVATE_MEDIA_PREFIXES` themselves, projects that
+grant `is_superuser` or set `user.groups` from a sign-in backend, and every project (three migrations).
+
+**What changed.** The Access app gains reviews, stored evidence packs and directory identities, and
+SmallStack ships a sixth group, *Access attester*.
+
+**Migration.**
+
+1. `make migrate`. This adds the review, review item, evidence bundle and directory identity tables
+   and a `directory_role` on declared groups, and creates the *Access attester* group with no members.
+2. If you set `SMALLSTACK_PRIVATE_MEDIA_PREFIXES` in `.env` or settings, add `access/` to it.
+   Otherwise stored evidence packs are served by the public `/media/` route.
+3. Nothing is scheduled unless you set `SMALLSTACK_ACCESS_REVIEW_CADENCE=quarterly`. If you do, run a
+   worker for the scheduler, and `db_worker --queue-name webhooks` for the `access.review.signed`
+   deliveries, and set `SITE_URL` so the emailed and webhook links are absolute.
+4. If a sign-in backend sets `user.groups` or `is_superuser` from claims, move it to
+   `apps.access.directory.sign_in` and declare the groups with `directory_role`
+   (`docs/skills/directory-sso.md`, "The migration from 'we already set groups ourselves'").
+
+---
+
 ## v0.32.0 — the Access app
 
 **Who is affected:** every downstream project (a new app and a middleware line), and any project

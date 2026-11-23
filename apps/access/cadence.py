@@ -332,11 +332,14 @@ def store_bundle(
     reason: str = EvidenceBundle.Reason.MANUAL,
     actor: Any = None,
     review: AccessReview | None = None,
+    label: str = "schedule",
 ) -> EvidenceBundle:
     """Build the pack for the period, zip it, and keep it with its SHA-256.
-    Then apply retention for the scope."""
+    Then apply retention for the scope. ``label`` names who built it when
+    there is no ``actor`` (``schedule`` for the cadence, ``cli`` for a local
+    command)."""
     who = actor if getattr(actor, "pk", None) is not None else None
-    pack = evidence.build(period_start, period_end, scope=scope, generated_by=who or "schedule")
+    pack = evidence.build(period_start, period_end, scope=scope, generated_by=who or label)
     data = evidence.bundle_zip(pack)
     stamp = timezone.localtime(pack.generated_at)
     name = f"{evidence.bundle_name(pack)}-{stamp:%Y%m%dT%H%M%S}-{uuid.uuid4().hex[:6]}.zip"
@@ -369,18 +372,24 @@ def store_bundle(
 
 
 def prune_bundles(scope: str | None = None) -> int:
-    """Keep the newest ``SMALLSTACK_ACCESS_EVIDENCE_KEEP`` bundles per scope;
-    delete the rest (file included). 0 keeps every one. Returns deleted."""
+    """Keep the newest ``SMALLSTACK_ACCESS_EVIDENCE_KEEP`` bundles per scope
+    **and reason**; delete the rest (file included). 0 keeps every one.
+    Counting each reason apart means packs stored on request can only push
+    out older on-request packs, never the one a quarter's close or a signing
+    kept for the auditor (T4-2). Returns how many were deleted."""
     limit = keep()
     if limit <= 0:
         return 0
     scopes = [scope] if scope else list(AccessReview.Scope.values)
     deleted = 0
     for sc in scopes:
-        stale = list(EvidenceBundle.objects.filter(scope=sc).order_by("-built_at", "-pk")[limit:])
-        for bundle in stale:
-            bundle.delete()
-            deleted += 1
+        for reason in EvidenceBundle.Reason.values:
+            stale = list(
+                EvidenceBundle.objects.filter(scope=sc, reason=reason).order_by("-built_at", "-pk")[limit:]
+            )
+            for bundle in stale:
+                bundle.delete()
+                deleted += 1
     return deleted
 
 

@@ -20,7 +20,15 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
 from django.core.exceptions import PermissionDenied
 from django.db.models import Q
-from django.http import Http404, HttpRequest, HttpResponse, HttpResponseBase, JsonResponse, StreamingHttpResponse
+from django.http import (
+    Http404,
+    HttpRequest,
+    HttpResponse,
+    HttpResponseBadRequest,
+    HttpResponseBase,
+    JsonResponse,
+    StreamingHttpResponse,
+)
 from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse
 from django.utils import timezone
@@ -555,7 +563,7 @@ def review_open(request: HttpRequest) -> HttpResponse:
             scope=request.POST.get("scope", "privileged"),
             actor=request.user,
             note=request.POST.get("note", "").strip()[:2000],
-            request_id=getattr(request, "request_id", "") or "",
+            request_id=getattr(request, "id", "") or "",  # RequestIDMiddleware sets request.id (T3-4)
         )
     except reviews.ReviewRefused as exc:
         messages.error(request, str(exc))
@@ -664,7 +672,7 @@ def review_sign(request: HttpRequest, pk: int) -> HttpResponse:
             actor=request.user,
             typed_name=request.POST.get("signed_name", ""),
             note=request.POST.get("note", "").strip()[:2000],
-            request_id=getattr(request, "request_id", "") or "",
+            request_id=getattr(request, "id", "") or "",  # RequestIDMiddleware sets request.id (T3-4)
             signed_from=get_client_ip(request) or "",
         )
     except reviews.ReviewRefused as exc:
@@ -718,28 +726,52 @@ class ReviewPrintView(AccessPageView):
 # build, so what's downloaded is what was previewed.
 
 
+class EvidenceArgsError(ValueError):
+    """The request named a period or scope the pack can't be built for."""
+
+
 def _evidence_args(request: HttpRequest) -> tuple[Any, Any, str]:
     """``?period=<start>_<end>`` (a quarter key) or ``?from=&to=``, and
-    ``?scope=``; defaults to the last complete quarter, privileged."""
+    ``?scope=``. Nothing given → the last complete quarter, privileged.
+    Something given that can't be used (a bad date, a period that ends
+    before it starts, an unknown scope) raises :class:`EvidenceArgsError`
+    with the reason, as the CLI refuses, rather than quietly building a
+    different pack (T4-1)."""
     from datetime import date
 
     from .models import AccessReview
 
-    scope = request.GET.get("scope", AccessReview.Scope.PRIVILEGED)
+    scope = request.GET.get("scope", "") or AccessReview.Scope.PRIVILEGED
     if scope not in AccessReview.Scope.values:
-        scope = AccessReview.Scope.PRIVILEGED
+        raise EvidenceArgsError(f"scope must be one of {', '.join(AccessReview.Scope.values)}.")
     key = request.GET.get("period", "")
     start_text, end_text = request.GET.get("from", ""), request.GET.get("to", "")
-    if key and "_" in key:
+    if key and key != "custom":
+        if "_" not in key:
+            raise EvidenceArgsError("period must be a quarter key (YYYY-MM-DD_YYYY-MM-DD).")
         start_text, _, end_text = key.partition("_")
+    if not start_text and not end_text:
+        q = reviews.recent_quarters(1)[0]
+        return q.start, q.end, scope
     try:
         start, end = date.fromisoformat(start_text), date.fromisoformat(end_text)
-    except ValueError:
-        q = reviews.recent_quarters(1)[0]
-        start, end = q.start, q.end
+    except ValueError as exc:
+        raise EvidenceArgsError("from and to must be dates (YYYY-MM-DD).") from exc
     if end < start:
-        start, end = end, start
+        raise EvidenceArgsError("The period ends before it starts.")
     return start, end, scope
+
+
+def _evidence_args_or_default(request: HttpRequest) -> tuple[Any, Any, str]:
+    """For the HTML pages: the asked-for period, or the default with the
+    reason shown as a message, so the page never silently shows another
+    period than the one asked for."""
+    try:
+        return _evidence_args(request)
+    except EvidenceArgsError as exc:
+        q = reviews.recent_quarters(1)[0]
+        messages.error(request, f"{exc} Showing {q.label} instead.")
+        return q.start, q.end, "privileged"
 
 
 def _evidence_querystring(start: Any, end: Any, scope: str) -> str:
@@ -754,9 +786,9 @@ class EvidenceView(AccessPageView):
         from .models import AccessReview
 
         context = super().get_context_data(**kwargs)
-        start, end, scope = _evidence_args(self.request)
+        start, end, scope = _evidence_args_or_default(self.request)
         tab = self.request.GET.get("tab", "cover")
-        if tab != "cover" and tab not in evidence.SHEET_KEYS:
+        if tab != "cover" and tab not in evidence.sheet_keys():
             raise Http404("No such sheet.")
         # The counts for every tab are cheap enough to build once; the rows
         # of the selected sheet are what the table shows.
@@ -796,9 +828,12 @@ class EvidenceView(AccessPageView):
 def evidence_sheet_csv(request: HttpRequest, key: str) -> HttpResponseBase:
     from . import evidence
 
-    if key not in evidence.SHEET_KEYS:
+    if key not in evidence.sheet_keys():
         raise Http404("No such sheet.")
-    start, end, scope = _evidence_args(request)
+    try:
+        start, end, scope = _evidence_args(request)
+    except EvidenceArgsError as exc:
+        return HttpResponseBadRequest(str(exc), content_type="text/plain")
     pack = evidence.build(start, end, scope=scope, generated_by=request.user, only=[key])
     sheet = pack.sheet(key)
     return _csv_response(f"{evidence.bundle_name(pack)}-{key}.csv", list(sheet.columns), sheet.rows)
@@ -808,7 +843,10 @@ def evidence_sheet_csv(request: HttpRequest, key: str) -> HttpResponseBase:
 def evidence_json(request: HttpRequest) -> HttpResponse:
     from . import evidence
 
-    start, end, scope = _evidence_args(request)
+    try:
+        start, end, scope = _evidence_args(request)
+    except EvidenceArgsError as exc:
+        return HttpResponseBadRequest(str(exc), content_type="text/plain")
     pack = evidence.build(start, end, scope=scope, generated_by=request.user)
     response = JsonResponse(pack.as_dict(), json_dumps_params={"indent": 2, "default": str})
     response["Content-Disposition"] = f'attachment; filename="{evidence.bundle_name(pack)}.json"'
@@ -819,7 +857,10 @@ def evidence_json(request: HttpRequest) -> HttpResponse:
 def evidence_zip(request: HttpRequest) -> HttpResponse:
     from . import evidence
 
-    start, end, scope = _evidence_args(request)
+    try:
+        start, end, scope = _evidence_args(request)
+    except EvidenceArgsError as exc:
+        return HttpResponseBadRequest(str(exc), content_type="text/plain")
     pack = evidence.build(start, end, scope=scope, generated_by=request.user)
     response = HttpResponse(evidence.bundle_zip(pack), content_type="application/zip")
     response["Content-Disposition"] = f'attachment; filename="{evidence.bundle_name(pack)}.zip"'
@@ -842,7 +883,11 @@ def evidence_store(request: HttpRequest) -> HttpResponse:
         return redirect("access:evidence")
     # The POST carries the GET form's fields; read them as the GET views do.
     request.GET = request.POST  # type: ignore[assignment]
-    start, end, scope = _evidence_args(request)
+    try:
+        start, end, scope = _evidence_args(request)
+    except EvidenceArgsError as exc:
+        messages.error(request, f"Nothing stored: {exc}")
+        return redirect("access:evidence")
     bundle = cadence.store_bundle(start, end, scope, reason=EvidenceBundle.Reason.MANUAL, actor=request.user)
     messages.success(
         request,
@@ -881,7 +926,7 @@ class EvidencePrintView(AccessPageView):
         from . import evidence
 
         context = super().get_context_data(**kwargs)
-        start, end, scope = _evidence_args(self.request)
+        start, end, scope = _evidence_args_or_default(self.request)
         pack = evidence.build(
             start, end, scope=scope, generated_by=self.request.user, only=["roster", "leavers", "findings", "reviews"]
         )

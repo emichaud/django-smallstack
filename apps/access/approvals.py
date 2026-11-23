@@ -31,6 +31,19 @@ def _can_decide(user: Any, req: Any) -> bool:
     return bool(user.has_perm(CHANGE_MEMBERSHIP))
 
 
+def _can_cancel(user: Any, req: Any) -> bool:
+    """Narrows the default (requester or any staff): besides the requester,
+    only someone who could decide may withdraw an access request, and never
+    the account it acts on, so an account under review can't make its own
+    removal go away (T3-2)."""
+    if req.requested_by_id == user.pk:
+        return True
+    target = req.target
+    if isinstance(target, get_user_model()) and target.pk == user.pk:
+        return False
+    return _can_decide(user, req)
+
+
 def proposal(req: Any) -> dict[str, Any]:
     """What approving ``req`` would actually do, read from the database: the
     account is ``req.target`` (never the free-form ``context.username``) and
@@ -119,6 +132,7 @@ MEMBERSHIP_KIND = ApprovalKind(
     ),
     on_decision=on_membership_decision,
     can_decide=_can_decide,
+    can_cancel=_can_cancel,
     check_approve=_check_approve,
     default_expires_in=timedelta(days=3),
     # Only access_request_membership files this kind: the generic REST/MCP
@@ -177,6 +191,7 @@ REVIEW_REMOVE_KIND = ApprovalKind(
     ),
     on_decision=on_review_remove_decision,
     can_decide=_can_decide,
+    can_cancel=_can_cancel,
     check_approve=_check_review_remove,
     default_expires_in=timedelta(days=14),
     remote_filing=False,

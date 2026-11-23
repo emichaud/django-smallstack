@@ -111,8 +111,19 @@ def can_decide(user: Actor, req: ApprovalRequest) -> bool:
 
 
 def can_cancel(user: Actor, req: ApprovalRequest) -> bool:
-    """The requester or staff may withdraw a pending request."""
+    """The requester or staff may withdraw a pending request; a registered
+    kind's ``can_cancel`` hook NARROWS that (ANDed, failing closed), as
+    ``can_decide`` does for deciding."""
     pk = _pk(user)
     if pk is None or not req.is_pending:
         return False
-    return req.requested_by_id == pk or is_staff(user)
+    if not (req.requested_by_id == pk or is_staff(user)):
+        return False
+    kind = get_kind(req.kind)
+    if kind is not None and kind.can_cancel is not None:
+        try:
+            return bool(kind.can_cancel(user, req))
+        except Exception:  # noqa: BLE001 — a broken hook must fail CLOSED
+            logger.exception("can_cancel hook for approval kind %r raised; refusing request %s", req.kind, req.pk)
+            return False
+    return True

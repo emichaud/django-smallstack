@@ -19,8 +19,9 @@ class AccessConfig(AppConfig):
         from . import cadence, checks, signals  # noqa: F401  — registers receivers and the built-in findings
         from .dashboard_widgets import AccessReviewWidget, AccessWidget
 
-        # Groups and findings apps declare: apps/<app>/groups.py and access_checks.py.
-        autodiscover_modules("groups", "access_checks")
+        # Groups, findings and evidence sheets apps declare:
+        # apps/<app>/groups.py, access_checks.py and access_evidence.py.
+        autodiscover_modules("groups", "access_checks", "access_evidence")
         post_migrate.connect(_sync_groups_after_migrate, dispatch_uid="access_sync_groups")
         # The access.review.signed webhook event, in the endpoint picker.
         cadence.register_event()

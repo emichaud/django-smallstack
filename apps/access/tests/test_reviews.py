@@ -257,6 +257,12 @@ def test_unresolved_and_since_review_findings(review, attester, attester2, manag
     assert f.severity == "warning" and {r["label"] for r in f.rows} == {"manager", "root"}
     req = ApprovalRequest.objects.get(kind="access.review_remove")
     approvals.reject(req, actor=root)
+    # A rejected removal of a still-active account stays unresolved (T3-3) ...
+    rows = {r["label"]: r["meta"] for r in finding("review_unresolved").rows}
+    assert set(rows) == {"manager", "root"} and "(rejected)" in rows["manager"]
+    # ... until the account is deactivated by hand.
+    manager.is_active = False
+    manager.save()
     assert {r["label"] for r in finding("review_unresolved").rows} == {"root"}
     # attester2 was created after the review opened, so it wasn't on the roster.
     assert [r["label"] for r in finding("privileged_since_review").rows] == ["attester2"]
@@ -379,3 +385,76 @@ def test_the_shipped_groups_carry_the_review_permissions():
     reviewer = Group.objects.get(name="Access reviewer")
     assert Permission.objects.get(codename="view_accessreview") in reviewer.permissions.all()
     assert Permission.objects.get(codename="sign_accessreview") not in reviewer.permissions.all()
+
+
+
+# --- Round-2 fixes (Test Lab evaluation 45) ----------------------------------------
+
+
+@pytest.fixture
+def reader(db):
+    """An Access reviewer: staff, reads access, decides nothing."""
+    user = User.objects.create_user("reader", password="p", is_staff=True)
+    user.groups.add(Group.objects.get(name="Access reviewer"))
+    return User.objects.get(pk=user.pk)
+
+
+def test_the_account_under_review_cannot_cancel_its_own_removal(review, attester, manager, reader, root):
+    """T3-2: only the requester or someone who could decide withdraws a
+    removal; never the account it removes, nor staff who couldn't decide."""
+    from apps.approvals.permissions import can_cancel
+
+    item = reviews.decide(item_for(review, manager), "remove", actor=attester)
+    req = ApprovalRequest.objects.get(pk=int(item.follow_up[9:]))
+    # manager holds change_user (could decide others' removals) but is the target.
+    assert not can_cancel(manager, req)
+    with pytest.raises(approvals.NotEligible, match="requester or someone who could decide"):
+        approvals.cancel(req, actor=manager)
+    assert not can_cancel(reader, req)
+    with pytest.raises(approvals.NotEligible):
+        approvals.cancel(req, actor=reader)
+    req.refresh_from_db()
+    assert req.status == "pending"
+    assert can_cancel(attester, req) and can_cancel(root, req)
+    approvals.cancel(req, actor=attester)
+    req.refresh_from_db()
+    assert req.status == "canceled"
+
+
+def test_a_kind_without_the_hook_keeps_the_default_cancel_rule(attester, reader, root):
+    """The hook narrows only kinds that set it: any staff still cancels others."""
+    req = approvals.request_approval(kind="tests.plain", title="plain", actor=root)
+    assert approvals.cancel(req, actor=reader).status == "canceled"
+
+
+def test_a_dead_removal_is_refiled_when_remove_is_decided_again(review, attester, manager, root):
+    """T3-3: a canceled, rejected or expired removal doesn't swallow the
+    decision; deciding *remove* again files a new approval."""
+    item = reviews.decide(item_for(review, manager), "remove", actor=attester)
+    first = ApprovalRequest.objects.get(pk=int(item.follow_up[9:]))
+    approvals.cancel(first, actor=attester)
+    item = reviews.decide(item, "remove", actor=attester, note="still needs to go")
+    second = ApprovalRequest.objects.get(pk=int(item.follow_up[9:]))
+    assert second.pk != first.pk and second.status == "pending"
+    approvals.reject(second, actor=root)
+    third = reviews.decide(item, "remove", actor=attester).follow_up
+    assert third not in (f"approval:{first.pk}", f"approval:{second.pk}")
+    # A live approval is kept: deciding again doesn't file a fourth.
+    assert reviews.decide(item, "remove", actor=attester).follow_up == third
+
+
+def test_the_review_keeps_the_request_id_of_its_opening_and_signing(client, attester, attester2):
+    """T3-4: the views read the id RequestIDMiddleware sets (request.id)."""
+    client.force_login(attester)
+    q = reviews.recent_quarters(1)[0]
+    form = {"period": q.key, "scope": "privileged"}
+    client.post(reverse("access:review_open"), form, HTTP_X_REQUEST_ID="req_open_t34")
+    review = AccessReview.objects.get()
+    assert review.request_id == "req_open_t34"
+    reviews.confirm_all(review, actor=attester)
+    reviews.decide(item_for(review, attester), "confirmed", actor=attester2)
+    sign_url = reverse("access:review_sign", kwargs={"pk": review.pk})
+    client.post(sign_url, {"signed_name": "attester"}, HTTP_X_REQUEST_ID="req_sign_t34")
+    review.refresh_from_db()
+    assert review.is_signed and review.request_id == "req_sign_t34"
+    assert reviews.review_payload(review)["request_id"] == "req_sign_t34"

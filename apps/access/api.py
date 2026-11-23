@@ -245,13 +245,19 @@ def api_evidence(request: HttpRequest) -> ApiResult | HttpResponse:
     if refused:
         return refused
     from . import evidence
-    from .views import _evidence_args
+    from .views import EvidenceArgsError, _evidence_args
 
     if not (request.GET.get("from") and request.GET.get("to")):
         return api_error("from and to (YYYY-MM-DD) are required.", 400)
-    start, end, scope = _evidence_args(request)
+    fmt = request.GET.get("format", "json")
+    if fmt not in ("json", "zip"):
+        return api_error("format must be json or zip.", 400)
+    try:
+        start, end, scope = _evidence_args(request)
+    except EvidenceArgsError as exc:
+        return api_error(str(exc), 400)
     pack = evidence.build(start, end, scope=scope, generated_by=request.user)
-    if request.GET.get("format") == "zip":
+    if fmt == "zip":
         response = HttpResponse(evidence.bundle_zip(pack), content_type="application/zip")
         response["Content-Disposition"] = f'attachment; filename="{evidence.bundle_name(pack)}.zip"'
         return response

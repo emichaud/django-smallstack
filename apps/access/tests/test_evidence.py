@@ -18,7 +18,7 @@ from django.utils import timezone
 
 from apps.access import directory, evidence, reviews
 from apps.access.context import acting_as
-from apps.access.models import AccessEvent
+from apps.access.models import AccessEvent, EvidenceBundle
 from apps.smallstack.models import APIToken
 
 pytestmark = pytest.mark.django_db
@@ -80,13 +80,13 @@ def world(root, manager, alice, readers):
 
 def test_the_pack_has_every_sheet_with_its_control_map(world, root):
     pack = evidence.build(START, END, scope="privileged", generated_by=root)
-    assert [s.key for s in pack.sheets] == list(evidence.SHEET_KEYS)
+    assert [s.key for s in pack.sheets] == list(evidence.sheet_keys())
     assert pack.generated_by == "root" and pack.period_label == "Jul 01, 2026 – Sep 30, 2026"
     for s in pack.sheets:
         assert s.controls and s.title and s.description
         assert all(set(r) == set(s.columns) for r in s.rows), s.key
     data = pack.as_dict()
-    assert set(data["sheets"]) == set(evidence.SHEET_KEYS) and data["scope"] == "privileged"
+    assert set(data["sheets"]) == set(evidence.sheet_keys()) and data["scope"] == "privileged"
 
 
 def test_roster_names_who_last_widened_each_account(world, root, manager):
@@ -173,7 +173,7 @@ def test_the_bundle_holds_a_cover_every_csv_and_the_json(world, root):
     data = evidence.bundle_zip(pack)
     with zipfile.ZipFile(io.BytesIO(data)) as zf:
         names = set(zf.namelist())
-        assert names == {"cover.md", "evidence.json"} | {f"{k}.csv" for k in evidence.SHEET_KEYS}
+        assert names == {"cover.md", "evidence.json"} | {f"{k}.csv" for k in evidence.sheet_keys()}
         cover = zf.read("cover.md").decode()
         assert "SOC 2" in cover and "Privileged roster" in cover and "leavers.csv" in cover
         roster = zf.read("roster.csv").decode().splitlines()
@@ -200,7 +200,7 @@ def test_the_page_previews_each_sheet_and_defaults_to_the_last_quarter(client, s
     assert "Access evidence" in page and q.label in page and "Bundle (ZIP)" in page
     assert f"from={q.start.isoformat()}&amp;to={q.end.isoformat()}" in page
     qs = f"from={START}&to={END}&scope=privileged"
-    for key in evidence.SHEET_KEYS:
+    for key in evidence.sheet_keys():
         resp = client.get(reverse("access:evidence") + f"?{qs}&tab={key}")
         assert resp.status_code == 200, key
     leavers = client.get(reverse("access:evidence") + f"?{qs}&tab=leavers").content.decode()
@@ -278,3 +278,106 @@ def test_leaver_with_a_token_still_live_is_counted(root):
     now = timezone.now().date()
     sheet = evidence.build(now - timedelta(days=1), now, generated_by=root, only=["leavers"]).sheet("leavers")
     assert sheet.rows[0]["live_tokens_now"] == 1 and sheet.summary["with_live_tokens_now"] == 1
+
+
+# --- Round-2 fixes (Test Lab evaluation 45) ----------------------------------------
+
+
+@pytest.fixture
+def extra_sheet(monkeypatch):
+    """An app's own sheet, registered the documented way; the registry is
+    restored after the test."""
+    monkeypatch.setattr(evidence, "_SHEETS", list(evidence._SHEETS))
+    monkeypatch.setattr(evidence, "CONTROLS", dict(evidence.CONTROLS))
+    monkeypatch.setattr(evidence, "PRINT_COLUMNS", dict(evidence.PRINT_COLUMNS))
+
+    def service_accounts(start, end, scope):
+        return evidence.Sheet(
+            key="service_accounts",
+            title="Service accounts",
+            description="Accounts that exist for a machine, not a person.",
+            columns=("username", "owner"),
+            rows=[{"username": "=ci-bot", "owner": "platform"}],
+        )
+
+    evidence.register_sheet("service_accounts", service_accounts, controls="SOC 2 CC6.2")
+    return "service_accounts"
+
+
+def test_an_app_registers_a_sheet_and_it_appears_everywhere(client, staffer, world, extra_sheet):
+    """T4-4: a sheet registered after evidence.py loaded shows on the page, in
+    the CSV route, the JSON and the ZIP, with its controls line."""
+    pack = evidence.build(START, END)
+    assert pack.sheet(extra_sheet).count == 1 and pack.sheet(extra_sheet).controls == "SOC 2 CC6.2"
+    client.force_login(staffer)
+    qs = f"from={START}&to={END}&scope=privileged"
+    page = client.get(f"/smallstack/access/evidence/?{qs}&tab={extra_sheet}")
+    assert page.status_code == 200 and "Service accounts" in page.content.decode()
+    csv_resp = client.get(f"/smallstack/access/evidence/{extra_sheet}.csv?{qs}")
+    csv_body = b"".join(csv_resp.streaming_content).decode()
+    assert "'=ci-bot" in csv_body  # formula-safe like the built-in sheets
+    assert extra_sheet in client.get(f"/smallstack/access/evidence.json?{qs}").json()["sheets"]
+    with zipfile.ZipFile(io.BytesIO(evidence.bundle_zip(pack))) as zf:
+        assert f"{extra_sheet}.csv" in zf.namelist()
+
+
+def test_register_sheet_refuses_a_built_in_or_bad_key(extra_sheet):
+    with pytest.raises(ValueError, match="built-in"):
+        evidence.register_sheet("roster", lambda s, e, sc: None)
+    with pytest.raises(ValueError, match="slug"):
+        evidence.register_sheet("Bad Key", lambda s, e, sc: None)
+
+
+@pytest.fixture
+def attester_for_store(db):
+    from django.contrib.auth.models import Group
+
+    user = get_user_model().objects.create_user("storer", password="p", is_staff=True)
+    user.groups.add(Group.objects.get(name="Access attester"))
+    return user
+
+
+def test_bad_period_or_scope_is_refused_not_replaced(client, staffer, attester_for_store, world):
+    """T4-1: REST and the exports answer 400 with the reason; the page says
+    what it shows instead; storing stores nothing."""
+    client.force_login(staffer)
+    token = APIToken.create_token(user=staffer, name="t41", access_level="readonly")[1]
+    auth = {"HTTP_AUTHORIZATION": f"Bearer {token}"}
+    bad = {
+        "from=2026-13-40&to=2026-09-30": "must be dates",
+        "from=2026-09-30&to=2026-07-01": "ends before it starts",
+        "from=2026-07-01&to=2026-09-30&scope=bogus": "scope must be",
+        "from=2026-07-01&to=2026-09-30&format=xml": "format must be",
+    }
+    for qs, reason in bad.items():
+        resp = client.get(f"{BASE}evidence/?{qs}", **auth)
+        assert resp.status_code == 400 and reason in resp.json()["errors"]["__all__"][0], qs
+    for qs, reason in list(bad.items())[:3]:
+        routes = ("evidence.json", "evidence.zip", "evidence/roster.csv")
+        for route in (f"/smallstack/access/{r}" for r in routes):
+            resp = client.get(f"{route}?{qs}")
+            assert resp.status_code == 400 and reason in resp.content.decode(), (route, qs)
+    page = client.get("/smallstack/access/evidence/?from=2026-09-30&to=2026-07-01")
+    assert page.status_code == 200 and "ends before it starts" in page.content.decode()
+    # A good period is untouched.
+    ok = client.get(f"{BASE}evidence/?from=2026-07-01&to=2026-09-30&scope=all", **auth).json()
+    assert ok["period_start"] == "2026-07-01" and ok["scope"] == "all"
+    client.force_login(attester_for_store)
+    before = EvidenceBundle.objects.count()
+    reversed_period = {"from": "2026-09-30", "to": "2026-07-01", "period": "custom"}
+    client.post("/smallstack/access/evidence/packs/store/", reversed_period)
+    assert EvidenceBundle.objects.count() == before
+
+
+def test_the_cli_store_follows_the_page_rule_and_says_cli(world, staffer, attester_for_store):
+    """T4-3: ``--store --user`` needs an attester or a superuser, as the page
+    does; a store with no ``--user`` is labelled ``cli``, not ``schedule``."""
+    args = ["access", "evidence", "--from", str(START), "--to", str(END), "--store"]
+    with pytest.raises(CommandError, match="access.sign_accessreview"):
+        call_command(*args, "--user", staffer.username, stdout=StringIO())
+    manual = EvidenceBundle.objects.filter(reason=EvidenceBundle.Reason.MANUAL)
+    assert not manual.exists()
+    call_command(*args, "--user", attester_for_store.username, stdout=StringIO())
+    assert manual.get().built_by == attester_for_store
+    call_command(*args, stdout=StringIO())
+    assert manual.latest("pk").built_by_label == "cli"

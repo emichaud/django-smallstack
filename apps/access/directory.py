@@ -35,6 +35,7 @@ import re
 import uuid
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field
+from datetime import timedelta
 from typing import Any
 
 from django.conf import settings
@@ -97,7 +98,9 @@ def directory_groups() -> dict[str, ManagedGroup]:
 def providers_seen() -> list[str]:
     """Providers that have signed someone in, for the pages ("membership comes
     from entra")."""
-    return sorted(DirectoryIdentity.objects.values_list("provider", flat=True).distinct())
+    # order_by() first: Meta.ordering would add user__username to the
+    # SELECT DISTINCT and return one row per identity (T2-2).
+    return sorted(DirectoryIdentity.objects.order_by().values_list("provider", flat=True).distinct())
 
 
 # --- Identity -------------------------------------------------------------------
@@ -307,10 +310,27 @@ def sign_in(
     name: str = "",
 ) -> tuple[DirectoryIdentity, SyncResult]:
     """:func:`resolve_identity` then :func:`sync_roles`, the two calls a
-    sign-in backend makes."""
+    sign-in backend makes, then the account's ``last_login`` is stamped (at
+    most every :data:`LAST_LOGIN_EVERY`, since a proxy may call this on every
+    request), so a directory user doesn't read as never signed in and the
+    dormancy findings see the sign-in (T2-5)."""
     identity = resolve_identity(provider, subject, email=email, name=name)
     assert identity is not None  # create=True
-    return identity, sync_roles(identity, roles, provider)
+    result = sync_roles(identity, roles, provider)
+    _stamp_last_login(identity.user)
+    return identity, result
+
+
+#: How stale ``last_login`` may get before :func:`sign_in` writes it again.
+LAST_LOGIN_EVERY = timedelta(minutes=15)
+
+
+def _stamp_last_login(user: Any) -> None:
+    now = timezone.now()
+    if user.last_login is None or now - user.last_login >= LAST_LOGIN_EVERY:
+        # update(): last_login is not an access change, so no signal is wanted.
+        type(user).objects.filter(pk=user.pk).update(last_login=now)
+        user.last_login = now
 
 
 # --- The manifest ---------------------------------------------------------------

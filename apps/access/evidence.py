@@ -600,7 +600,11 @@ def reviews_sheet(start: datetime, end: datetime, scope: str) -> Sheet:
     )
 
 
-SHEETS: tuple[tuple[str, SheetBuilder], ...] = (
+#: The sheets, in order: the nine built in, then any an app registers with
+#: :func:`register_sheet` (from ``apps/<app>/access_evidence.py``, which the
+#: Access app autodiscovers). Read through :func:`sheets` / :func:`sheet_keys`,
+#: which see registrations made after this module loaded (T4-4).
+_SHEETS: list[tuple[str, SheetBuilder]] = [
     ("roster", roster_sheet),
     ("matrix", matrix_sheet),
     ("changes", changes_sheet),
@@ -610,8 +614,47 @@ SHEETS: tuple[tuple[str, SheetBuilder], ...] = (
     ("credentials", credentials_sheet),
     ("findings", findings_sheet),
     ("reviews", reviews_sheet),
-)
-SHEET_KEYS = tuple(key for key, _ in SHEETS)
+]
+
+
+def register_sheet(
+    key: str,
+    builder: SheetBuilder,
+    *,
+    controls: str = "",
+    print_columns: Iterable[str] | None = None,
+) -> SheetBuilder:
+    """Add a sheet to the evidence pack: ``builder(start, end, scope) -> Sheet``
+    (``start``/``end`` are aware datetimes bounding the period). It then
+    appears as a tab on the page, as a CSV in the bundle, in the JSON, the CLI
+    and REST. ``controls`` is the line on the cover's controls map;
+    ``print_columns`` the subset the print view shows (all columns otherwise).
+    Re-registering a key replaces it; a built-in key can't be replaced.
+    Returns ``builder`` so it can be used as a decorator's target."""
+    import re
+
+    if not re.fullmatch(r"[a-z][a-z0-9_-]{0,40}", key):
+        raise ValueError(f"Evidence sheet key {key!r} must be a lowercase slug.")
+    if key in _BUILTIN_KEYS:
+        raise ValueError(f"{key!r} is a built-in evidence sheet.")
+    _SHEETS[:] = [(k, b) for k, b in _SHEETS if k != key] + [(key, builder)]
+    if controls:
+        CONTROLS[key] = controls
+    if print_columns is not None:
+        PRINT_COLUMNS[key] = tuple(print_columns)
+    return builder
+
+
+def sheets() -> list[tuple[str, SheetBuilder]]:
+    """Every sheet, built-in first, as ``(key, builder)``."""
+    return list(_SHEETS)
+
+
+def sheet_keys() -> tuple[str, ...]:
+    return tuple(key for key, _ in _SHEETS)
+
+
+_BUILTIN_KEYS = frozenset(sheet_keys())
 
 
 def build(
@@ -629,7 +672,7 @@ def build(
     if period_end < period_start:
         raise ValueError("The period ends before it starts.")
     start, end = _bounds(period_start, period_end)
-    wanted = set(only) if only is not None else set(SHEET_KEYS)
+    wanted = set(only) if only is not None else set(sheet_keys())
     who = generated_by.get_username() if getattr(generated_by, "pk", None) is not None else str(generated_by or "cli")
     pack = Evidence(
         period_start=period_start,
@@ -639,7 +682,7 @@ def build(
         generated_by=who,
         system=str(getattr(settings, "BRAND_NAME", "SmallStack")),
     )
-    for key, builder in SHEETS:
+    for key, builder in sheets():
         if key in wanted:
             pack.sheets.append(builder(start, end, scope))
     return pack

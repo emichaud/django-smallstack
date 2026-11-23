@@ -85,6 +85,8 @@ What `sync_roles` guarantees:
   if a backend does it anyway.
 - Every change is recorded from `directory:<provider>` through the same
   signals as any other access change.
+- The account's `last_login` is stamped (at most every 15 minutes), so a
+  directory user isn't "never signed in" and the dormancy findings see it.
 
 ### Declaring the groups
 

@@ -49,7 +49,10 @@ def on_publish_decision(req):
 > (`"apps.calendar.approvals.on_publish_decision"`) when import order is tricky.
 
 Other `@approval_kind` kwargs: `description`, `can_decide=fn(user, req)`
-(eligibility hook — **narrows only**, see below), `context_template="…"`
+(eligibility hook — **narrows only**, see below), `can_cancel=fn(user, req)`
+(narrows who may withdraw a pending request, ANDed with the default and
+failing closed; `access.review_remove` uses it so the account being removed
+can't cancel its own removal), `context_template="…"`
 (explicit card template), `notify=["ops@example.com"]` (extra email
 recipients), `assignable=[…]` (whitelist for remote assignee selection, §2),
 `remote_filing=False` (only your own code may file the kind: the generic REST
@@ -137,7 +140,8 @@ that raises fails **closed**. Assignees may be non-staff: they decide on the
 console (login-gated and eligibility-scoped — see §5) or in a
 `{% approval_card %}` embed.
 
-Cancel: the requester or staff, while pending.
+Cancel: the requester or staff, while pending, narrowed by the kind's
+`can_cancel` hook when it has one.
 
 **Deactivating an account (`is_active=False`) removes approval authority
 everywhere, immediately.** This is enforced twice on purpose, because approvals

@@ -159,6 +159,20 @@ class UserAdmin(BaseUserAdmin):
                     raise forms.ValidationError(refusal)
                 return cleaned
 
+            def clean_groups(self) -> Any:
+                """A directory-managed group's membership comes from the
+                directory: the form may not add or remove one (T2-1), as
+                ``set_membership`` refuses on every other surface."""
+                from apps.access.services import directory_groups_refusal
+
+                groups = self.cleaned_data.get("groups")
+                if groups is None:
+                    return groups
+                refusal = directory_groups_refusal(self.instance.groups.all(), groups)
+                if refusal:
+                    raise forms.ValidationError(refusal)
+                return groups
+
         FlagRulesForm.__name__ = form.__name__
         return FlagRulesForm
 
