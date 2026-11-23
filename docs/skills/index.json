@@ -746,7 +746,14 @@
       "id": "access-control",
       "file": "access-control.md",
       "name": "Access Control",
-      "description": "**Read before adding a permission check or declaring a group** — Django groups + permissions as the one model, `register_group` (groups shipped in code, kept in step), every access change recorded to `AccessEvent` + the log + the account's history, the `/smallstack/access/` review (findings, per-user \"why\", exports), `register_check`, `acting_as` for directory syncs; REST at `/smallstack/api/access/`, MCP read tools + a membership proposal an approver decides, `manage.py access`",
+      "description": "**Read before adding a permission check or declaring a group** — Django groups + permissions as the one model, `register_group` (groups shipped in code, kept in step), every access change recorded to `AccessEvent` + the log + the account's history, the `/smallstack/access/` review (findings, per-user \"why\", exports), `register_check`, `acting_as` for directory syncs; REST at `/smallstack/api/access/`, MCP read tools + a membership proposal an approver decides, `manage.py access`; directory-managed groups (`directory_role`); periodic **access reviews** (attestation: frozen roster → decide → sign, immutable evidence); the **evidence pack** (`/smallstack/access/evidence/`: roster, matrix, changes, joiners, leavers, authentication, credentials, findings, reviews → CSV/ZIP/JSON/print, `access evidence`); the **review cadence** (a daily `@scheduled` tick opens the review when a quarter closes, stores the pack with its SHA-256, tells/reminds/escalates the attesters; signing stays human; the `access.review.signed` webhook event; stored packs, `access cadence`)",
+      "section": "Available Skills"
+    },
+    {
+      "id": "directory-sso",
+      "file": "directory-sso.md",
+      "name": "Directory Sso",
+      "description": "**Read before writing any SSO backend, middleware or claims hook** — groups whose membership comes from the identity provider: `register_group(..., directory_role=)` / `map_directory_role`, `apps.access.directory.sign_in` (subject-keyed `DirectoryIdentity`, `sync_roles` sets exactly the roles sent, `None` claim changes nothing, never superuser), the per-provider claim shapes (Entra app roles + Easy Auth, Okta, Keycloak, Google, Cloudflare Access), `access directory-manifest --provider entra`, the migration off hand-set groups",
       "section": "Available Skills"
     },
     {

@@ -14,6 +14,7 @@ import json
 from datetime import timedelta
 from typing import Any
 
+from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
@@ -33,8 +34,8 @@ from apps.smallstack.pagination import paginate_queryset
 from apps.smallstack.redaction import redact_path
 from apps.smallstack.stat_lists import render_stat_list, stat_list_row
 
-from . import services
-from .models import AccessEvent, ManagedGroup
+from . import reviews, services
+from .models import AccessEvent, EvidenceBundle, ManagedGroup
 from .registry import Finding, declared_groups, run_checks
 from .services import CHANGE_MEMBERSHIP, READ_ACCESS_REFUSAL, can_read_access
 from .signals import revoke_access
@@ -195,6 +196,7 @@ class GroupDetailView(AccessPageView):
             group=group, kind=AccessEvent.Kind.GROUP_ADDED, subject__in=members
         ).order_by("at"):
             source_by_user[event.subject_id] = event  # the latest wins
+        directory_refusal = services.directory_refusal(group)
         context.update(
             {
                 "crumbs": [("Groups", reverse("access:groups")), (group.name, "")],
@@ -202,6 +204,9 @@ class GroupDetailView(AccessPageView):
                 "managed": managed,
                 "declared_in_code": any(g.name == group.name for g in declared_groups()),
                 "drift": managed.drift() if managed else None,
+                # Membership set by the directory: the forms go, the banner says where.
+                "directory_refusal": directory_refusal,
+                "can_change": context.get("can_change") and not directory_refusal,
                 "permissions_by_app": sorted(by_app.items()),
                 "members": [{"user": u, "since": source_by_user.get(u.pk)} for u in members],
                 "candidates": User.objects.filter(is_active=True)
@@ -302,14 +307,29 @@ class UserDetailView(AccessPageView):
         context = super().get_context_data(**kwargs)
         user = get_object_or_404(User, pk=self.kwargs["pk"])
         grants = services.effective_permissions(user)
-        groups = list(user.groups.order_by("name"))
+        groups = list(user.groups.select_related("managed").order_by("name"))
         perm = self.request.GET.get("perm", "").strip()
         context.update(
             {
                 "crumbs": [("Users", reverse("access:users")), (user.get_username(), "")],
                 "target": user,
-                "groups": [{"group": g, "since": services.group_source_event(user, g)} for g in groups],
-                "other_groups": Group.objects.exclude(pk__in=[g.pk for g in groups]).order_by("name"),
+                "groups": [
+                    {
+                        "group": g,
+                        "since": services.group_source_event(user, g),
+                        "directory": bool(services.directory_refusal(g)),
+                    }
+                    for g in groups
+                ],
+                # A directory-managed group can't be joined here; it isn't offered.
+                "other_groups": [
+                    g
+                    for g in Group.objects.exclude(pk__in=[g.pk for g in groups])
+                    .select_related("managed")
+                    .order_by("name")
+                    if not services.directory_refusal(g)
+                ],
+                "identities": list(user.directory_identities.order_by("provider")),
                 "direct_permissions": [
                     services.perm_name(p) for p in user.user_permissions.select_related("content_type")
                 ],
@@ -461,3 +481,409 @@ def snapshot_json(request: HttpRequest) -> HttpResponse:
     response = JsonResponse(services.snapshot(), json_dumps_params={"indent": 2})
     response["Content-Disposition"] = f'attachment; filename="access-snapshot-{timezone.now():%Y%m%d}.json"'
     return response
+
+
+# --- Reviews (attestation) ----------------------------------------------------------
+# A review is opened on purpose, freezes the roster, and is signed by an
+# attester; see apps/access/reviews.py. The pages call that module for every
+# write; they decide nothing themselves.
+
+
+def _review_or_404(pk: int) -> Any:
+    from .models import AccessReview
+
+    return get_object_or_404(AccessReview, pk=pk)
+
+
+def _parse_period(request: HttpRequest) -> tuple[Any, Any]:
+    """The period from the form: a quarter key (``start_end``) or two dates."""
+    from datetime import date
+
+    key = request.POST.get("period", "")
+    if key == "custom":
+        try:
+            return date.fromisoformat(request.POST.get("start", "")), date.fromisoformat(request.POST.get("end", ""))
+        except ValueError as exc:
+            raise reviews.ReviewRefused("Give the period as two dates (YYYY-MM-DD).") from exc
+    try:
+        start, _, end = key.partition("_")
+        return date.fromisoformat(start), date.fromisoformat(end)
+    except ValueError as exc:
+        raise reviews.ReviewRefused("Pick a period.") from exc
+
+
+class ReviewsView(AccessPageView):
+    template_name = "access/reviews.html"
+
+    def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
+        from .models import AccessReview
+
+        context = super().get_context_data(**kwargs)
+        from . import cadence
+
+        quarters = reviews.recent_quarters()
+        state = cadence.status()
+        context.update(
+            {
+                "crumbs": [("Reviews", "")],
+                "cadence": state,
+                "attesters": cadence.attesters(),
+                "reminder_days": cadence.reminder_days(),
+                "due_days": cadence.due_days(),
+                "open_reviews": list(AccessReview.objects.filter(status=AccessReview.Status.OPEN)),
+                "signed_reviews": list(AccessReview.objects.filter(status=AccessReview.Status.SIGNED)[:50]),
+                "quarters": [(q, reviews.covered(q)) for q in quarters],
+                "scopes": AccessReview.Scope.choices,
+                "can_open": not reviews.open_refusal(self.request.user),
+                "open_refusal": reviews.open_refusal(self.request.user),
+                "unresolved": reviews.unresolved_items(),
+            }
+        )
+        return context
+
+
+@require_POST
+@staff_required
+def review_open(request: HttpRequest) -> HttpResponse:
+    if not can_read_access(request.user):
+        raise PermissionDenied(READ_ACCESS_REFUSAL)
+    try:
+        start, end = _parse_period(request)
+        review = reviews.open_review(
+            period_start=start,
+            period_end=end,
+            scope=request.POST.get("scope", "privileged"),
+            actor=request.user,
+            note=request.POST.get("note", "").strip()[:2000],
+            request_id=getattr(request, "request_id", "") or "",
+        )
+    except reviews.ReviewRefused as exc:
+        messages.error(request, str(exc))
+        return redirect("access:reviews")
+    messages.success(request, f"Review opened with {review.items.count()} account(s). Decide every row, then sign.")
+    return redirect("access:review_detail", pk=review.pk)
+
+
+class ReviewDetailView(AccessPageView):
+    template_name = "access/review_detail.html"
+
+    def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
+        from .models import AccessReviewItem
+
+        context = super().get_context_data(**kwargs)
+        review = _review_or_404(self.kwargs["pk"])
+        items = list(review.items.select_related("user", "decided_by"))
+        d = reviews.delta(review)
+        new = set(d["new"])
+        me = self.request.user.pk
+        rows = [
+            {
+                "item": item,
+                "is_new": item.user_label in new,
+                "is_me": item.user_id == me,
+                "facts": item.facts or {},
+                "approval": _approval_for(item),
+            }
+            for item in items
+        ]
+        # New accounts first, then pending, then the rest: what needs eyes is at the top.
+        rows.sort(key=lambda r: (not r["is_new"], r["item"].is_decided, r["item"].user_label.lower()))
+        attester_refusal = reviews.attester_refusal(self.request.user)
+        counts = reviews.live_counts(review) if not review.is_signed else dict(review.summary)
+        context.update(
+            {
+                "crumbs": [("Reviews", reverse("access:reviews")), (f"#{review.pk}", "")],
+                "review": review,
+                "rows": rows,
+                "counts": counts,
+                "delta": d,
+                "can_decide": not review.is_signed and not attester_refusal,
+                "attester_refusal": attester_refusal,
+                "pending": sum(1 for r in rows if not r["item"].is_decided),
+                "decisions": [
+                    (AccessReviewItem.Decision.CONFIRMED, "Confirm"),
+                    (AccessReviewItem.Decision.REMOVE, "Remove"),
+                    (AccessReviewItem.Decision.FLAGGED, "Flag"),
+                ],
+            }
+        )
+        return context
+
+
+def _approval_for(item: Any) -> Any:
+    if not item.follow_up.startswith("approval:") or not item.follow_up[9:].isdigit():
+        return None
+    from apps.approvals.models import ApprovalRequest
+
+    return ApprovalRequest.objects.filter(pk=int(item.follow_up[9:])).first()
+
+
+@require_POST
+@staff_required
+def review_decide(request: HttpRequest, pk: int) -> HttpResponse:
+    """One row's decision, or *confirm all pending* (``action=confirm_all``)."""
+    from .models import AccessReviewItem
+
+    if not can_read_access(request.user):
+        raise PermissionDenied(READ_ACCESS_REFUSAL)
+    review = _review_or_404(pk)
+    source = f"web:{redact_path(request.path)}"
+    try:
+        if request.POST.get("action") == "confirm_all":
+            done = reviews.confirm_all(review, actor=request.user)
+            text = f"{done['confirmed']} account(s) confirmed."
+            if done["skipped"]:
+                text += " Your own row was skipped; another attester decides it, or flag it."
+            messages.success(request, text)
+        else:
+            item = get_object_or_404(AccessReviewItem, pk=_posted_pk(request, "item"), review=review)
+            reviews.decide(
+                item,
+                request.POST.get("decision", ""),
+                actor=request.user,
+                note=request.POST.get("note", "").strip()[:2000],
+                source=source,
+            )
+            messages.success(request, f"{item.user_label}: {item.get_decision_display().lower()}.")
+    except reviews.ReviewRefused as exc:
+        messages.error(request, str(exc))
+    return redirect("access:review_detail", pk=pk)
+
+
+@require_POST
+@staff_required
+def review_sign(request: HttpRequest, pk: int) -> HttpResponse:
+    from apps.smallstack.client_ip import get_client_ip
+
+    if not can_read_access(request.user):
+        raise PermissionDenied(READ_ACCESS_REFUSAL)
+    review = _review_or_404(pk)
+    try:
+        reviews.sign(
+            review,
+            actor=request.user,
+            typed_name=request.POST.get("signed_name", ""),
+            note=request.POST.get("note", "").strip()[:2000],
+            request_id=getattr(request, "request_id", "") or "",
+            signed_from=get_client_ip(request) or "",
+        )
+    except reviews.ReviewRefused as exc:
+        messages.error(request, str(exc))
+        return redirect("access:review_detail", pk=pk)
+    messages.success(request, f"Review #{review.pk} signed. It is now read-only evidence.")
+    return redirect("access:review_detail", pk=pk)
+
+
+@access_reader_required
+def review_csv(request: HttpRequest, pk: int) -> HttpResponseBase:
+    review = _review_or_404(pk)
+    return _csv_response(
+        f"access-review-{review.pk}-{review.period_start:%Y%m%d}-{review.period_end:%Y%m%d}.csv",
+        list(reviews.REVIEW_CSV_COLUMNS),
+        reviews.review_csv_rows(review),
+    )
+
+
+@access_reader_required
+def review_json(request: HttpRequest, pk: int) -> HttpResponse:
+    review = _review_or_404(pk)
+    response = JsonResponse(reviews.review_payload(review), json_dumps_params={"indent": 2})
+    response["Content-Disposition"] = f'attachment; filename="access-review-{review.pk}.json"'
+    return response
+
+
+class ReviewPrintView(AccessPageView):
+    """The signed review as one printable page: the auditor's PDF."""
+
+    template_name = "access/review_print.html"
+
+    def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
+        context = super().get_context_data(**kwargs)
+        review = _review_or_404(self.kwargs["pk"])
+        context.update(
+            {
+                "review": review,
+                "items": list(review.items.select_related("user")),
+                "counts": dict(review.summary) if review.is_signed else reviews.live_counts(review),
+                "brand": getattr(settings, "BRAND_NAME", "SmallStack"),
+                "generated_at": timezone.now(),
+            }
+        )
+        return context
+
+
+# --- Evidence (the one-touch audit pack) ---------------------------------------------
+# Read-only: every sheet is built by apps/access/evidence.py from what the app
+# records; the page previews one sheet at a time and the exports use the same
+# build, so what's downloaded is what was previewed.
+
+
+def _evidence_args(request: HttpRequest) -> tuple[Any, Any, str]:
+    """``?period=<start>_<end>`` (a quarter key) or ``?from=&to=``, and
+    ``?scope=``; defaults to the last complete quarter, privileged."""
+    from datetime import date
+
+    from .models import AccessReview
+
+    scope = request.GET.get("scope", AccessReview.Scope.PRIVILEGED)
+    if scope not in AccessReview.Scope.values:
+        scope = AccessReview.Scope.PRIVILEGED
+    key = request.GET.get("period", "")
+    start_text, end_text = request.GET.get("from", ""), request.GET.get("to", "")
+    if key and "_" in key:
+        start_text, _, end_text = key.partition("_")
+    try:
+        start, end = date.fromisoformat(start_text), date.fromisoformat(end_text)
+    except ValueError:
+        q = reviews.recent_quarters(1)[0]
+        start, end = q.start, q.end
+    if end < start:
+        start, end = end, start
+    return start, end, scope
+
+
+def _evidence_querystring(start: Any, end: Any, scope: str) -> str:
+    return f"from={start.isoformat()}&to={end.isoformat()}&scope={scope}"
+
+
+class EvidenceView(AccessPageView):
+    template_name = "access/evidence.html"
+
+    def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
+        from . import evidence
+        from .models import AccessReview
+
+        context = super().get_context_data(**kwargs)
+        start, end, scope = _evidence_args(self.request)
+        tab = self.request.GET.get("tab", "cover")
+        if tab != "cover" and tab not in evidence.SHEET_KEYS:
+            raise Http404("No such sheet.")
+        # The counts for every tab are cheap enough to build once; the rows
+        # of the selected sheet are what the table shows.
+        pack = evidence.build(start, end, scope=scope, generated_by=self.request.user)
+        sheet = pack.sheet(tab) if tab != "cover" else None
+        rows = list(sheet.rows) if sheet else []
+        page = paginate_queryset(rows, self.request, page_size=100)
+        quarters = reviews.recent_quarters(6)
+        context.update(
+            {
+                "crumbs": [("Evidence", "")],
+                "bundles": list(EvidenceBundle.objects.select_related("review")[:24]),
+                "can_store": not reviews.open_refusal(self.request.user),
+                "keep": getattr(settings, "SMALLSTACK_ACCESS_EVIDENCE_KEEP", 24),
+                "pack": pack,
+                "sheet": sheet,
+                "tab": tab,
+                "page_obj": page,
+                "rows": page.object_list,
+                "start": start,
+                "end": end,
+                "scope": scope,
+                "scopes": AccessReview.Scope.choices,
+                "quarters": quarters,
+                "selected_quarter": next((q.key for q in quarters if (q.start, q.end) == (start, end)), "custom"),
+                "qs": _evidence_querystring(start, end, scope),
+                "summary_items": [
+                    (k, v) for k, v in (sheet.summary.items() if sheet else []) if not isinstance(v, dict)
+                ],
+                "cover_markdown": evidence.cover_markdown(pack) if tab == "cover" else "",
+            }
+        )
+        return context
+
+
+@access_reader_required
+def evidence_sheet_csv(request: HttpRequest, key: str) -> HttpResponseBase:
+    from . import evidence
+
+    if key not in evidence.SHEET_KEYS:
+        raise Http404("No such sheet.")
+    start, end, scope = _evidence_args(request)
+    pack = evidence.build(start, end, scope=scope, generated_by=request.user, only=[key])
+    sheet = pack.sheet(key)
+    return _csv_response(f"{evidence.bundle_name(pack)}-{key}.csv", list(sheet.columns), sheet.rows)
+
+
+@access_reader_required
+def evidence_json(request: HttpRequest) -> HttpResponse:
+    from . import evidence
+
+    start, end, scope = _evidence_args(request)
+    pack = evidence.build(start, end, scope=scope, generated_by=request.user)
+    response = JsonResponse(pack.as_dict(), json_dumps_params={"indent": 2, "default": str})
+    response["Content-Disposition"] = f'attachment; filename="{evidence.bundle_name(pack)}.json"'
+    return response
+
+
+@access_reader_required
+def evidence_zip(request: HttpRequest) -> HttpResponse:
+    from . import evidence
+
+    start, end, scope = _evidence_args(request)
+    pack = evidence.build(start, end, scope=scope, generated_by=request.user)
+    response = HttpResponse(evidence.bundle_zip(pack), content_type="application/zip")
+    response["Content-Disposition"] = f'attachment; filename="{evidence.bundle_name(pack)}.zip"'
+    return response
+
+
+@require_POST
+@staff_required
+def evidence_store(request: HttpRequest) -> HttpResponse:
+    """Store the previewed pack as a dated bundle with its SHA-256. Who may
+    open a review may store a pack (an attester or a superuser)."""
+    from . import cadence
+    from .models import EvidenceBundle
+
+    if not can_read_access(request.user):
+        raise PermissionDenied(READ_ACCESS_REFUSAL)
+    refusal = reviews.open_refusal(request.user)
+    if refusal:
+        messages.error(request, refusal)
+        return redirect("access:evidence")
+    # The POST carries the GET form's fields; read them as the GET views do.
+    request.GET = request.POST  # type: ignore[assignment]
+    start, end, scope = _evidence_args(request)
+    bundle = cadence.store_bundle(start, end, scope, reason=EvidenceBundle.Reason.MANUAL, actor=request.user)
+    messages.success(
+        request,
+        f"Stored evidence pack #{bundle.pk} for {bundle.period_label} "
+        f"({bundle.size:,} bytes, SHA-256 {bundle.sha256[:12]}…).",
+    )
+    return redirect(f"{reverse('access:evidence')}?{_evidence_querystring(start, end, scope)}#packs")
+
+
+def bundle_response(bundle: Any) -> HttpResponse:
+    """The stored file as stored, with its digest in ``X-Content-SHA256``."""
+    import os
+
+    with bundle.file.open("rb") as fh:
+        data = fh.read()
+    response = HttpResponse(data, content_type="application/zip")
+    response["Content-Disposition"] = f'attachment; filename="{os.path.basename(bundle.file.name)}"'
+    response["X-Content-SHA256"] = bundle.sha256
+    return response
+
+
+@access_reader_required
+def evidence_pack(request: HttpRequest, pk: int) -> HttpResponse:
+    from .models import EvidenceBundle
+
+    return bundle_response(get_object_or_404(EvidenceBundle, pk=pk))
+
+
+class EvidencePrintView(AccessPageView):
+    """The cover, the roster, the leavers and the attestations on one
+    printable page: the auditor's PDF."""
+
+    template_name = "access/evidence_print.html"
+
+    def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
+        from . import evidence
+
+        context = super().get_context_data(**kwargs)
+        start, end, scope = _evidence_args(self.request)
+        pack = evidence.build(
+            start, end, scope=scope, generated_by=self.request.user, only=["roster", "leavers", "findings", "reviews"]
+        )
+        context.update({"pack": pack, "sheets": pack.sheets, "qs": _evidence_querystring(start, end, scope)})
+        return context

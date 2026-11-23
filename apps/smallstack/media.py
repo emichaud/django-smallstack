@@ -29,7 +29,7 @@ from django.http import Http404, HttpRequest, HttpResponseBase
 from django.utils._os import safe_join
 from django.views.static import serve
 
-DEFAULT_PRIVATE_PREFIXES = ("runbook/",)
+DEFAULT_PRIVATE_PREFIXES = ("runbook/", "access/")
 
 
 def private_prefixes() -> tuple[str, ...]:

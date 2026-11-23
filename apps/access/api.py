@@ -14,6 +14,11 @@ checked and recorded the same way.
     GET    api/access/groups/{group}/             one group: members, permissions
     GET    api/access/findings/                   the least-privilege review
     GET    api/access/events/?who=&kind=&limit=   the change log
+    GET    api/access/reviews/?status=            periodic access reviews (attestations)
+    GET    api/access/reviews/{id}/               one review: roster, decisions, signature
+    GET    api/access/evidence/?from=&to=&scope=  the audit pack (JSON; &format=zip for the bundle)
+    GET    api/access/evidence/packs/[{id}/]      stored packs with their SHA-256 (&format=zip for the file)
+    GET    api/access/reviews/cadence/            where the periodic review stands, and its schedule
 
 ``{user}`` is a username, email or id; ``{group}`` a name or id. Reads need a
 staff account holding ``accounts.view_user`` (any token tier; superusers
@@ -25,7 +30,7 @@ from __future__ import annotations
 
 from typing import Any, Union
 
-from django.http import HttpRequest, JsonResponse
+from django.http import HttpRequest, HttpResponse, JsonResponse
 
 from apps.smallstack.api import api_error, api_view, register_api_path
 
@@ -197,6 +202,138 @@ def api_events(request: HttpRequest) -> ApiResult:
     return {"count": qs.count(), "results": services.event_payloads(qs[: _limit(request)])}
 
 
+# --- Access reviews (read-only: deciding and signing are a person's act on the page) ---
+
+
+@api_view(methods=["GET"], require_staff=True)
+def api_reviews(request: HttpRequest) -> ApiResult:
+    refused = _read_refusal(request)
+    if refused:
+        return refused
+    from . import reviews
+    from .models import AccessReview
+
+    qs = AccessReview.objects.all()
+    status = request.GET.get("status", "")
+    if status in AccessReview.Status.values:
+        qs = qs.filter(status=status)
+    return {"results": [reviews.review_payload(r, items=False) for r in qs[: _limit(request)]]}
+
+
+@api_view(methods=["GET"], require_staff=True)
+def api_review(request: HttpRequest, review_id: int) -> ApiResult:
+    refused = _read_refusal(request)
+    if refused:
+        return refused
+    from . import reviews
+    from .models import AccessReview
+
+    review = AccessReview.objects.filter(pk=review_id).first()
+    if review is None:
+        return api_error(f"No review #{review_id}.", 404)
+    return reviews.review_payload(review)
+
+
+# --- Evidence (read-only) -----------------------------------------------------------
+
+
+@api_view(methods=["GET"], require_staff=True)
+def api_evidence(request: HttpRequest) -> ApiResult | HttpResponse:
+    """The audit pack for ``?from=&to=`` (``?scope=privileged|all``), every
+    sheet as JSON; ``?format=zip`` is the bundle (cover.md, CSVs, JSON)."""
+    refused = _read_refusal(request)
+    if refused:
+        return refused
+    from . import evidence
+    from .views import _evidence_args
+
+    if not (request.GET.get("from") and request.GET.get("to")):
+        return api_error("from and to (YYYY-MM-DD) are required.", 400)
+    start, end, scope = _evidence_args(request)
+    pack = evidence.build(start, end, scope=scope, generated_by=request.user)
+    if request.GET.get("format") == "zip":
+        response = HttpResponse(evidence.bundle_zip(pack), content_type="application/zip")
+        response["Content-Disposition"] = f'attachment; filename="{evidence.bundle_name(pack)}.zip"'
+        return response
+    return pack.as_dict()
+
+
+@api_view(methods=["GET"], require_staff=True)
+def api_evidence_packs(request: HttpRequest) -> ApiResult:
+    """The stored packs (built when a quarter closed, when a review was signed,
+    or on request), newest first: period, scope, reason, size, SHA-256."""
+    refused = _read_refusal(request)
+    if refused:
+        return refused
+    from . import cadence
+    from .models import EvidenceBundle
+
+    qs = EvidenceBundle.objects.all()
+    scope = request.GET.get("scope", "")
+    if scope:
+        qs = qs.filter(scope=scope)
+    return {"results": [cadence.bundle_payload(b) for b in qs[: _limit(request)]]}
+
+
+@api_view(methods=["GET"], require_staff=True)
+def api_evidence_pack(request: HttpRequest, pack_id: int) -> ApiResult | HttpResponse:
+    """One stored pack: its metadata, or ``?format=zip`` for the file as stored
+    (the ``X-Content-SHA256`` header carries the digest to check it against)."""
+    refused = _read_refusal(request)
+    if refused:
+        return refused
+    from . import cadence
+    from .models import EvidenceBundle
+
+    bundle = EvidenceBundle.objects.filter(pk=pack_id).first()
+    if bundle is None:
+        return api_error(f"No evidence pack #{pack_id}.", 404)
+    if request.GET.get("format") == "zip":
+        from .views import bundle_response
+
+        return bundle_response(bundle)
+    return cadence.bundle_payload(bundle)
+
+
+@api_view(methods=["GET"], require_staff=True)
+def api_review_cadence(request: HttpRequest) -> ApiResult:
+    """Where the periodic review stands: the last complete quarter (signed,
+    open or not reviewed), when it is due, the last signing, the schedule."""
+    refused = _read_refusal(request)
+    if refused:
+        return refused
+    from . import cadence, reviews
+
+    s = cadence.status()
+    job = s["job"]
+    return {
+        "cadence": s["cadence"],
+        "enabled": s["enabled"],
+        "scope": s["scope"],
+        "period": {
+            "label": s["period"].label,
+            "start": s["period"].start.isoformat(),
+            "end": s["period"].end.isoformat(),
+        },
+        "signed": reviews.review_payload(s["signed"], items=False) if s["signed"] else None,
+        "open": reviews.review_payload(s["open"], items=False) if s["open"] else None,
+        "due": s["due"].isoformat(),
+        "days_until_due": s["days_until_due"],
+        "last_signed": reviews.review_payload(s["last_signed"], items=False) if s["last_signed"] else None,
+        "next_close": s["next_close"].isoformat(),
+        "schedule": (
+            {
+                "name": job.name,
+                "enabled": job.enabled,
+                "next_run_at": job.next_run_at.isoformat() if getattr(job, "next_run_at", None) else None,
+                "last_run_at": job.last_run_at.isoformat() if getattr(job, "last_run_at", None) else None,
+            }
+            if job is not None
+            else None
+        ),
+    }
+
+
 # --- OpenAPI ----------------------------------------------------------------------
 
 _TAG = ["Access"]
@@ -292,6 +429,63 @@ register_api_path(
     summary="The least-privilege review: every finding with its rows",
     tags=_TAG,
     responses={"200": _ok("worst severity and the findings"), "401": _ERR, "403": _ERR},
+)
+register_api_path(
+    "access-api-reviews",
+    methods=["GET"],
+    summary="Periodic access reviews (attestations), newest first; ?status=open|signed",
+    tags=_TAG,
+    parameters=[{"name": "status", "in": "query", "schema": {"type": "string"}}, _LIMIT],
+    responses={"200": _ok("Reviews with their summaries"), "401": _ERR, "403": _ERR},
+)
+register_api_path(
+    "access-api-reviews",
+    subpath="{review_id}/",
+    methods=["GET"],
+    summary="One access review: the frozen roster, each decision, the signature",
+    tags=_TAG,
+    parameters=[{"name": "review_id", "in": "path", "required": True, "schema": {"type": "integer"}}],
+    responses={"200": _ok("The review"), "401": _ERR, "403": _ERR, "404": _ERR},
+)
+register_api_path(
+    "access-api-evidence",
+    methods=["GET"],
+    summary="The audit evidence pack for a period: every sheet as JSON, or ?format=zip for the bundle",
+    tags=_TAG,
+    parameters=[
+        {"name": "from", "in": "query", "required": True, "schema": {"type": "string", "format": "date"}},
+        {"name": "to", "in": "query", "required": True, "schema": {"type": "string", "format": "date"}},
+        {"name": "scope", "in": "query", "schema": {"type": "string", "enum": ["privileged", "all"]}},
+        {"name": "format", "in": "query", "schema": {"type": "string", "enum": ["json", "zip"]}},
+    ],
+    responses={"200": _ok("The pack (JSON), or a ZIP"), "400": _ERR, "401": _ERR, "403": _ERR},
+)
+register_api_path(
+    "access-api-evidence-packs",
+    methods=["GET"],
+    summary="Stored evidence packs (built when a quarter closed, a review was signed, or on request), newest first",
+    tags=_TAG,
+    parameters=[{"name": "scope", "in": "query", "schema": {"type": "string", "enum": ["privileged", "all"]}}, _LIMIT],
+    responses={"200": _ok("Packs with period, reason, size and SHA-256"), "401": _ERR, "403": _ERR},
+)
+register_api_path(
+    "access-api-evidence-packs",
+    subpath="{pack_id}/",
+    methods=["GET"],
+    summary="One stored evidence pack: its metadata, or ?format=zip for the file as stored",
+    tags=_TAG,
+    parameters=[
+        {"name": "pack_id", "in": "path", "required": True, "schema": {"type": "integer"}},
+        {"name": "format", "in": "query", "schema": {"type": "string", "enum": ["json", "zip"]}},
+    ],
+    responses={"200": _ok("The pack (JSON), or its ZIP"), "401": _ERR, "403": _ERR, "404": _ERR},
+)
+register_api_path(
+    "access-api-review-cadence",
+    methods=["GET"],
+    summary="Where the periodic access review stands: last quarter signed/open/not reviewed, due date, the schedule",
+    tags=_TAG,
+    responses={"200": _ok("The cadence status"), "401": _ERR, "403": _ERR},
 )
 register_api_path(
     "access-api-events",

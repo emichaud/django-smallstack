@@ -131,6 +131,59 @@ MEMBERSHIP_KIND = ApprovalKind(
 register_kind(MEMBERSHIP_KIND)
 
 
+# --- Removal found by an access review ----------------------------------------------
+# A *remove* decision on a review row files this. Approving deactivates the
+# account in the approver's name (which revokes its tokens and ends its
+# sessions, as any deactivation does); the review itself never changes access.
+
+REVIEW_REMOVE = "access.review_remove"
+
+
+def _review_remove_account(req: Any) -> Any:
+    target = req.target
+    return target if isinstance(target, get_user_model()) else None
+
+
+def _check_review_remove(actor: Any, req: Any) -> str | None:
+    from .services import account_flags_refusal
+
+    user = _review_remove_account(req)
+    if user is None:
+        return f"The account {req.target_repr!r} no longer exists."
+    if not user.is_active:
+        return f"{user.get_username()} is already deactivated; approving would change nothing. Reject the request."
+    return account_flags_refusal(actor, user, is_active=False, is_staff=user.is_staff) or None
+
+
+def on_review_remove_decision(req: Any) -> None:
+    if req.status != req.Status.APPROVED:
+        return
+    from .context import acting_as
+
+    user = _review_remove_account(req)
+    if user is None:
+        raise LookupError(f"The account {req.target_repr!r} no longer exists; nothing changed.")
+    with acting_as(req.decided_by, f"approval:{req.pk}"):
+        user.is_active = False
+        user.save(update_fields=["is_active"])
+
+
+REVIEW_REMOVE_KIND = ApprovalKind(
+    key=REVIEW_REMOVE,
+    label="Deactivate an account (access review)",
+    description=(
+        "An access review decided this account should no longer hold access. Approving "
+        "deactivates it in your name, which also revokes its API tokens and ends its sessions."
+    ),
+    on_decision=on_review_remove_decision,
+    can_decide=_can_decide,
+    check_approve=_check_review_remove,
+    default_expires_in=timedelta(days=14),
+    remote_filing=False,
+)
+register_kind(REVIEW_REMOVE_KIND)
+
+
 def request_membership_change(
     user: Any,
     group: Group,

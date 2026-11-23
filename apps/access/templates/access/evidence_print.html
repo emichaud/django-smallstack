@@ -1,0 +1,38 @@
+{% extends "smallstack/base.html" %}
+{% load static theme_tags access_tags %}
+
+{% block title %}Access evidence · print{% endblock %}
+{% block breadcrumbs %}{% endblock %}
+
+{% block extra_css %}<link rel="stylesheet" href="{% static 'access/css/access.css' %}">{% endblock %}
+
+{% block content %}
+<article class="review-print">
+    <header>
+        <h1>Access evidence — {{ pack.system }}</h1>
+        <p class="quiet">Period {{ pack.period_label }} · {{ pack.scope }} scope · generated {{ pack.generated_at|date:"M d, Y H:i" }} by {{ pack.generated_by }}</p>
+        <table class="table-plain compact-table review-print-facts">
+            <tbody>
+                {% for s in sheets %}<tr><th scope="row">{{ s.title }}</th><td>{{ s.count }} row{{ s.count|pluralize }} · {{ s.controls }}</td></tr>{% endfor %}
+            </tbody>
+        </table>
+        <p class="quiet review-print-controls">The full pack (every sheet as CSV and JSON) is the ZIP bundle; this page prints the sheets an auditor reads first.</p>
+    </header>
+    {% for s in sheets %}
+    <h2 style="margin: 18px 0 6px;">{{ s.title }} <span class="quiet" style="font-weight: 400; font-size: 0.85rem;">{{ s.count }}</span></h2>
+    <p class="quiet" style="margin: 0 0 8px; font-size: 0.82rem;">{{ s.description }}</p>
+    {% if s.rows %}
+    <div style="overflow-x: auto; contain: inline-size;">
+    <table class="table-plain compact-table review-print-table">
+        <thead><tr>{% for c in s.print_columns %}<th scope="col">{{ c }}</th>{% endfor %}</tr></thead>
+        <tbody>
+            {% for row in s.rows %}
+            <tr>{% for c in s.print_columns %}{% with v=row|get_item:c %}<td>{% if v is True %}yes{% elif v is False %}{% elif v is None %}{% else %}{{ v }}{% endif %}</td>{% endwith %}{% endfor %}</tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    </div>
+    {% else %}<p class="quiet" style="font-size: 0.82rem;">Nothing in this period.</p>{% endif %}
+    {% endfor %}
+</article>
+{% endblock %}

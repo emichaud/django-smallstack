@@ -1,0 +1,130 @@
+{% extends "smallstack/base.html" %}
+{% load theme_tags %}
+
+{% block title %}Access review #{{ review.pk }}{% endblock %}
+{% block breadcrumbs %}{% endblock %}
+
+{% block page_header %}
+{% include "access/_header.html" with title=review crumbs=crumbs section="reviews" subtitle=review.note %}
+{% endblock %}
+
+{% block content %}
+<div class="access-grid access-grid--top" style="margin-bottom: 16px;">
+    <div class="card">
+        <div class="card-body access-account">
+            <div class="access-flags">
+                {% if review.is_signed %}{% status_badge "signed" "success" %}{% else %}{% status_badge "open" "info" %}{% endif %}
+                {% status_badge review.get_scope_display "muted" %}
+            </div>
+            <dl class="access-facts">
+                <div><dt>Accounts</dt><dd>{{ counts.items }}</dd></div>
+                {% if not review.is_signed %}<div><dt>Pending</dt><dd{% if counts.pending %} class="is-warning"{% endif %}>{{ counts.pending }}</dd></div>{% endif %}
+                <div><dt>Confirmed</dt><dd>{{ counts.confirmed }}</dd></div>
+                <div><dt>Remove</dt><dd{% if counts.remove %} class="is-warning"{% endif %}>{{ counts.remove }}</dd></div>
+                <div><dt>Flagged</dt><dd{% if counts.flagged %} class="is-warning"{% endif %}>{{ counts.flagged }}</dd></div>
+                <div><dt>Opened</dt><dd>{{ review.opened_at|date:"M d, Y" }} · {% if review.opened_by_label %}{{ review.opened_by_label }}{% else %}{{ review.get_opened_via_display }}{% endif %}</dd></div>
+                {% if not review.is_signed and review.reminders %}<div><dt>Reminders</dt><dd>{{ review.reminders }}{% if review.escalated_at %} · <span class="is-warning">escalated {{ review.escalated_at|date:"M d" }}</span>{% endif %}</dd></div>{% endif %}
+                {% if review.is_signed %}<div><dt>Signed</dt><dd>{{ review.signed_at|date:"M d, Y H:i" }} · {{ review.signed_by_label }}</dd></div>{% endif %}
+            </dl>
+            {% if delta.previous %}<p class="access-note">Against review #{{ delta.previous }}: {{ delta.new|length }} new account{{ delta.new|length|pluralize }}, {{ delta.gone|length }} gone{% if delta.gone %} ({{ delta.gone|join:", " }}){% endif %}.</p>
+            {% else %}<p class="access-note">First signed review of this scope{% if not review.is_signed %} once signed{% endif %}; there is no earlier roster to compare with.</p>{% endif %}
+            {% if review.is_signed %}<p class="access-note">Signed as “{{ review.signed_name }}”{% if review.signed_from %} from {{ review.signed_from }}{% endif %}{% if review.request_id %} · request {{ review.request_id }}{% endif %}. This review is read-only evidence.</p>{% endif %}
+            <div class="access-actions">
+                <a href="{% url 'access:review_csv' review.pk %}" class="btn-outline btn-sm">CSV</a>
+                <a href="{% url 'access:review_json' review.pk %}" class="btn-outline btn-sm">JSON</a>
+                <a href="{% url 'access:review_print' review.pk %}" class="btn-outline btn-sm">Print view</a>
+                {% if can_decide and pending %}
+                <form method="post" action="{% url 'access:review_decide' review.pk %}" class="inline-form">{% csrf_token %}
+                    <input type="hidden" name="action" value="confirm_all">
+                    <button type="submit" class="btn-outline btn-sm" data-confirm="Confirm every pending account ({{ pending }}) as still appropriate?">Confirm all pending</button>
+                </form>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-body">
+            {% if review.is_signed %}
+            <p class="access-note"><strong>Signed.</strong> Decisions can't change. A <em>remove</em> row's approval and a <em>flagged</em> row stay on the Reviews page until someone acts on them.</p>
+            {% elif can_decide %}
+            <form method="post" action="{% url 'access:review_sign' review.pk %}" class="review-sign">{% csrf_token %}
+                <p class="review-sign-label">Sign this review</p>
+                <p class="access-note">{% if pending %}{{ pending }} account{{ pending|pluralize }} still pending. Decide or flag every row first.{% else %}Every row is decided. Signing records your name, the time and the request, and locks the review.{% endif %}</p>
+                <label for="signed_name">Type your username or full name</label>
+                <input id="signed_name" name="signed_name" class="vTextField" autocomplete="off" required{% if pending %} disabled{% endif %}>
+                <label for="sign-note">Note <span class="quiet">(optional)</span></label>
+                <input id="sign-note" name="note" class="vTextField"{% if pending %} disabled{% endif %}>
+                <button type="submit" class="{% if pending %}btn-outline{% else %}btn-primary{% endif %} btn-sm"{% if pending %} disabled aria-disabled="true"{% endif %} data-confirm="Sign review #{{ review.pk }}? It becomes read-only.">Sign</button>
+            </form>
+            {% else %}
+            <p class="access-note">{{ attester_refusal }}</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header card-header--compact"><h2>Roster <span class="quiet">{{ rows|length }} account{{ rows|length|pluralize }} · as of {{ review.opened_at|date:"M d, Y H:i" }}</span></h2></div>
+    <div class="card-body" style="padding: 0;">
+        <div style="overflow-x: auto; contain: inline-size;">
+        <table class="table-plain review-table">
+            <thead>
+                <tr>
+                    <th scope="col">Account</th>
+                    <th scope="col">Holds</th>
+                    <th scope="col">Activity</th>
+                    <th scope="col">Grants in period</th>
+                    <th scope="col">Decision</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for r in rows %}
+                <tr class="review-row review-row--{{ r.item.decision }}">
+                    <td>
+                        {% if r.item.user_id %}<a href="{% url 'access:user_detail' r.item.user_id %}"><strong>{{ r.item.user_label }}</strong></a>{% else %}<strong>{{ r.item.user_label }}</strong> <span class="quiet">(deleted)</span>{% endif %}
+                        {% if r.is_new %}{% status_badge "new" "info" %}{% endif %}
+                        {% if r.is_me %}{% status_badge "you" "muted" %}{% endif %}
+                        {% if r.facts.name %}<div class="quiet">{{ r.facts.name }}</div>{% endif %}
+                        {% if r.facts.email %}<div class="quiet">{{ r.facts.email }}</div>{% endif %}
+                    </td>
+                    <td>
+                        {% if r.facts.superuser %}{% status_badge "superuser" "error" %}{% elif r.facts.staff %}{% status_badge "staff" "info" %}{% endif %}
+                        {% for g in r.facts.groups %}<span class="review-chip">{{ g }}</span>{% endfor %}
+                        {% if r.facts.direct_permissions %}<div class="quiet">{{ r.facts.direct_permissions|length }} direct permission{{ r.facts.direct_permissions|length|pluralize }}</div>{% endif %}
+                        <div class="quiet">{{ r.facts.permission_count }} permission{{ r.facts.permission_count|pluralize }}</div>
+                    </td>
+                    <td class="quiet">
+                        <div>sign-in: {{ r.facts.sign_in }}{% for d in r.facts.directory %} · {{ d.provider }} {{ d.last_seen|slice:":10"|default:"never" }}{% endfor %}</div>
+                        <div>last {% if r.facts.last_login %}{{ r.facts.last_login|slice:":10" }}{% else %}never{% endif %}</div>
+                        {% if r.facts.live_tokens %}<div>{{ r.facts.live_tokens }} live token{{ r.facts.live_tokens|pluralize }}</div>{% endif %}
+                    </td>
+                    <td class="quiet">
+                        {% for g in r.facts.grants_in_period %}<div>{{ g.at|slice:":10" }} {{ g.kind }} {{ g.what }} <span class="quiet">by {{ g.by|default:"system" }}</span></div>{% empty %}<span class="quiet">none</span>{% endfor %}
+                    </td>
+                    <td class="review-decision">
+                        {% if r.item.is_decided %}
+                        <div>{% if r.item.decision == "confirmed" %}{% status_badge "confirmed" "success" %}{% elif r.item.decision == "remove" %}{% status_badge "remove" "error" %}{% else %}{% status_badge "flagged" "warning" %}{% endif %}
+                            <span class="quiet">{{ r.item.decided_by_label }} · {{ r.item.decided_at|date:"M d" }}</span></div>
+                        {% if r.item.note %}<div class="quiet">{{ r.item.note }}</div>{% endif %}
+                        {% if r.approval %}<div class="quiet">approval #{{ r.approval.pk }}: {{ r.approval.get_status_display|lower }}</div>{% endif %}
+                        {% endif %}
+                        {% if can_decide %}
+                        <form method="post" action="{% url 'access:review_decide' review.pk %}" class="review-decide">{% csrf_token %}
+                            <input type="hidden" name="item" value="{{ r.item.pk }}">
+                            <label for="note-{{ r.item.pk }}" class="sr-only">Note for {{ r.item.user_label }}</label>
+                            <input id="note-{{ r.item.pk }}" name="note" class="vTextField" placeholder="note" value="{{ r.item.note }}">
+                            {% for value, label in decisions %}
+                            {% if not r.is_me or value == "flagged" %}<button type="submit" name="decision" value="{{ value }}" class="btn-outline btn-sm review-btn--{{ value }}"{% if value == "remove" %} data-confirm="File {{ r.item.user_label }} for deactivation? A person holding accounts.change_user approves it."{% endif %}>{{ label }}</button>{% endif %}
+                            {% endfor %}
+                        </form>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -14,9 +14,26 @@ register_group(
     permissions=[
         "access.view_accessevent",
         "access.view_managedgroup",
+        "access.view_accessreview",
+        "access.view_accessreviewitem",
         "auth.view_group",
         "auth.view_permission",
         "accounts.view_user",
+    ],
+    app_label="smallstack",
+)
+
+register_group(
+    "Access attester",
+    description="Opens, decides and signs the periodic access review; changes no access itself.",
+    permissions=[
+        "accounts.view_user",
+        "access.view_accessevent",
+        "access.view_managedgroup",
+        "access.view_accessreview",
+        "access.view_accessreviewitem",
+        "access.sign_accessreview",
+        "auth.view_group",
     ],
     app_label="smallstack",
 )

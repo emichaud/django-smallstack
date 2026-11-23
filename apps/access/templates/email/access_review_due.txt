@@ -1,0 +1,9 @@
+{{ title }}
+
+{% if event == "opened" %}The {{ review.period_label }} access review on {{ site_name }} is open. The roster was frozen when it opened; it needs a named attester to decide every row and sign.{% elif event == "overdue" %}The {{ review.period_label }} access review on {{ site_name }} was due {{ due|date:"M j, Y" }} and is still unsigned. Until it is signed, nothing shows that a person has looked at who holds access this period.{% else %}The {{ review.period_label }} access review on {{ site_name }} is still open.{% endif %}
+
+{{ counts.pending }} of {{ counts.items }} account{{ counts.items|pluralize }} pending. Due {{ due|date:"D, M j, Y" }}.
+{% if no_attesters %}
+No account can sign this review: signing needs an active staff member in the Access attester group who is not a superuser.
+{% endif %}
+Open the review: {{ site_url }}{{ console_path }}

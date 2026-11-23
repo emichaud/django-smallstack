@@ -80,9 +80,9 @@ re-runs the sync. A declared name that no longer exists in code leaves its
 group in place, marked "no longer declared". `SMALLSTACK_ACCESS_GROUPS_SYNC =
 False` turns the sync off.
 
-SmallStack ships five in `apps/smallstack/groups.py`: Access reviewer, User
-manager, Log reader, Approver, Token manager. Membership is granted on the
-Access pages, in Django admin, or by a directory mapping.
+SmallStack ships six in `apps/smallstack/groups.py`: Access reviewer, Access
+attester, User manager, Log reader, Approver, Token manager. Membership is
+granted on the Access pages, in Django admin, or by a directory mapping.
 
 ## What is recorded, and where it goes
 
@@ -145,6 +145,8 @@ with acting_as(None, "directory:entra"):
 | **User** | Everything the account can do and **why** (`via group:X`, `via direct`, `via superuser`); a **Check a permission** box that answers as `has_perm` does, with the reason; groups with when and by whom; tokens; the account's events |
 | **Groups** / **Group** | Members (with who added them), permissions by app, drift from the declaration, the group's events |
 | **Changes** | Every event, filterable, exportable |
+| **Reviews** / **Review** | Periodic access reviews: open one, decide each account, sign; CSV / JSON / print view (see *Access reviews* below) |
+| **Evidence** | The one-touch audit pack for a period: nine sheets previewed one at a time, CSV / ZIP / JSON / print (see *The evidence pack* below) |
 
 **Reading the Access pages, the REST reads and the MCP read tools needs a
 staff account holding `accounts.view_user`** (`services.can_read_access`;
@@ -330,14 +332,243 @@ change is recorded from `cli` with no actor, a local administrator's shell
 change; with it, the named person must be staff and pass the same rule as the
 pages (`accounts.change_user`, and every permission of a group they add to).
 
-## Preparing for single sign-on
+## Access reviews (attestation)
 
-Nothing here depends on how people sign in. A directory (Entra, Okta, Google)
-becomes one more thing that assigns Groups: a sign-in backend turns its claims
-into memberships inside `acting_as(None, "directory:<name>")`, so the events
-say `directory:entra` as the source and the review reads the same. Map the
-directory's app roles onto group names; never grant superuser from a
-directory, and keep one local break-glass administrator.
+The change log is the *detective* control: continuous, automatic. A review
+is the *governance* control over it: once a period, a named attester opens a
+review, which **freezes the roster** of accounts holding access at that
+moment, decides each row, and **signs**. The signed review is immutable
+evidence that a person looked, on a date, and what they concluded (SOC 2
+CC6.1–6.3, PCI DSS 7.2.4, ISO 27001 A.5.18). **Nothing in it changes access.**
+
+- **Who**: the shipped *Access attester* group (`access.sign_accessreview` +
+  the read permissions). `reviews.attester_refusal(user)` is the rule: active
+  staff holding it, **not a superuser** (a superuser is what the review
+  examines). A superuser may *open* a review, not decide or sign. *Access
+  reviewer* reads reviews, decides nothing.
+- **Scope**: `privileged` (default: superusers, staff, and holders of any
+  `reviews.PRIVILEGED_PERMISSIONS`, the ones that change access or
+  credentials) or `all` (every active account). One open review per scope.
+- **Each row** (`AccessReviewItem.facts`, frozen): flags, groups, direct
+  permissions, counts, sign-in method (directory / password / none), last
+  sign-in, live tokens, directory sightings, grants in the period (from the
+  events). Rows new since the last signed review of the scope sort first.
+- **Decisions**: *confirm*, *flag* (with a note), *remove*. An attester
+  can't confirm or remove **their own row**; they flag it for another
+  attester. *Remove* files an `access.review_remove` approval; a person
+  holding `accounts.change_user` approves it in the console and the account
+  is deactivated **in the approver's name** (tokens revoked, sessions ended,
+  recorded as any deactivation). The item keeps `follow_up = approval:<id>`.
+- **Signing**: every row decided, the attester types their username or full
+  name, and the review records signer, time, typed name, client IP and
+  request id, writes a `review_signed` `AccessEvent` with the counts, and
+  **locks**: `save()`/`delete()` on the review or its items raise
+  `ReviewLocked`; Django admin is read-only.
+- **Findings**: *Access review overdue* (info until a first review is ever
+  signed, then warning for one missed quarter, danger for two), *Review
+  decisions not yet acted on* (flagged rows and *remove* rows whose approval
+  is still pending), *Privileged accounts not yet reviewed* (new since the
+  last signed roster).
+- **Surfaces**: `/smallstack/access/reviews/` (open, decide, sign, CSV, JSON,
+  print view for the PDF-wanting auditor); `manage.py access review
+  open|list|show`; `GET /smallstack/api/access/reviews/[{id}/]`. **Deciding
+  and signing exist on the page only**: no shell, REST or MCP write, because
+  an attestation is a person's act. `opened_via` records whether the page,
+  the CLI or the schedule opened it; the schedule's cadence (opening,
+  reminders, escalation, the `access.review.signed` webhook) is a section
+  below.
+
+```python
+from apps.access import reviews
+
+review = reviews.open_review(period_start=start, period_end=end, scope="privileged", actor=attester)
+reviews.decide(item, "confirmed", actor=attester, note="still on the help desk")
+reviews.confirm_all(review, actor=attester)          # skips the attester's own row
+reviews.sign(review, actor=attester, typed_name="Ann Attester")   # ReviewRefused with the reason otherwise
+reviews.review_payload(review); reviews.review_csv_rows(review)
+```
+
+## The evidence pack (one-touch audit report)
+
+`/smallstack/access/evidence/` builds, for a period and a scope, the sheets
+an auditor asks for, previews each one, and exports what was previewed. It is
+**read-only**: every row is read from the records above at generation time
+(`apps/access/evidence.py`, `build()`), and the page, the CSV/JSON/ZIP
+exports, the CLI and REST all use that one build.
+
+| Sheet | Answers | Supports |
+|---|---|---|
+| Privileged roster | who holds privileged access, how they sign in, who last widened it and when | SOC 2 CC6.1/6.3 · PCI 7.2 · ISO A.5.15/5.18 |
+| Access matrix | user × permission × source | CC6.1 · PCI 7.2.2 |
+| Access changes | every event in the period; grants vs removals by month; grants with no actor; local changes to directory groups | CC6.2/6.3 · PCI 7.2.2, 8.2.4 |
+| Joiners | accounts created: by whom or which directory, first grant, first sign-in | CC6.2 · PCI 8.2.1 |
+| Leavers | deactivations: by whom, tokens/sessions revoked at the same moment (proved by the events), lag after the directory last saw them, tokens still live | CC6.3/6.5 · PCI 8.2.5/8.2.6 |
+| Authentication | sign-in method per account; a usable password beside a directory identity (an SSO bypass); failed sign-ins and lockouts when the axes failure log is kept | CC6.1 · PCI 8.2.6, 8.3.4, 8.6 |
+| API credentials | every token: owner, tier, created, expiry, last use, issued/revoked in period | CC6.1 · PCI 8.6 |
+| Findings | the least-privilege review as it stands now (the stored pack the schedule keeps when a quarter closes is the before-picture) | CC6.1/6.3 · PCI 7.2.4 |
+| Access reviews | the signed attestations covering the period, one row per reviewed account | CC6.3 · PCI 7.2.4/7.2.5 |
+
+- **Period**: a quarter from the picker (wins) or `from`/`to` dates; default
+  the last complete quarter. **Scope** as for reviews. Tabs are
+  `?tab=<sheet>`; rows paginate.
+- **Exports**: *This sheet (CSV)*, *Bundle (ZIP)* = `cover.md` (period,
+  counts, the controls map, how to read it) + one CSV per sheet +
+  `evidence.json`, *JSON*, *Print view* (cover, roster, leavers, findings,
+  reviews on one printable page). CSV cells are formula-safe.
+- `manage.py access evidence --from --to [--scope] [--out pack.zip | --store | --json]`;
+  `GET /smallstack/api/access/evidence/?from=&to=&scope=[&format=zip]`.
+  Reading needs `accounts.view_user`, as every Access read does.
+- **Stored packs** (`EvidenceBundle`): *Store this pack* on the page,
+  `--store` on the CLI, and the schedule (below) keep a pack on the server
+  as built, dated, with its **SHA-256** and per-sheet counts — so a copy
+  handed to an auditor can be checked against what the system produced
+  (`sha256sum` on the download matches; the download also carries
+  `X-Content-SHA256`). Storing needs what opening a review needs (an
+  attester or a superuser); downloading is an Access read. Files live under
+  `MEDIA_ROOT/access/evidence/`, a private media prefix: the public
+  `/media/` route refuses them, only the access-checked view serves them.
+  `SMALLSTACK_ACCESS_EVIDENCE_KEEP` (default 24) is kept per scope, oldest
+  deleted first; 0 keeps every one. `manage.py access packs [--json]`,
+  `GET /smallstack/api/access/evidence/packs/[{id}/][?format=zip]`.
+- Add a sheet: a function `(start, end, scope) -> Sheet` in `SHEETS`, with a
+  `CONTROLS` entry; it then appears on the page, in the bundle and in JSON.
+
+## By the schedule (the review cadence)
+
+**Off by default, and most deployments leave it off.** Reviews are opened
+from the Reviews page whenever one is wanted and the evidence pack is built
+for any period on demand; nothing is scheduled, nobody is notified, the
+dashboard shows no card. A deployment on an auditor's calendar, where a
+control that depends on someone remembering isn't operating, sets
+`SMALLSTACK_ACCESS_REVIEW_CADENCE=quarterly`. The **cadence**
+(`apps/access/cadence.py`) is then a daily scheduled job, *Access: review
+cadence* (`@scheduled`, 06:10 local; `manage.py access cadence` runs the
+same tick from cron on a deployment without the scheduler), that:
+
+1. **Opens the review when a quarter closes.** The first tick after the last
+   complete quarter has no signed review covering it (and no review of the
+   scope is already open) opens one, `opened_via = schedule`, with no actor —
+   so the roster is frozen on a predictable date whoever is on holiday.
+2. **Stores the quarter's evidence pack** at that moment (`reason =
+   period_closed`): the before-picture of the findings and the roster as the
+   period ended.
+3. **Tells the attesters** — every active staff account holding
+   `access.sign_accessreview` that isn't a superuser — in-app (`notify()`,
+   kind `access.review.opened`, `subject_key access.review:<id>`) and by
+   branded email, with the due date (period end + `SMALLSTACK_ACCESS_REVIEW_DUE_DAYS`,
+   default 30). No attester at all is a logged warning and an email to
+   nobody — fix the group, not the job.
+4. **Reminds** while any review stays open (opened by the schedule *or by
+   hand*): every `SMALLSTACK_ACCESS_REVIEW_REMINDER_DAYS` (default 7; 0 = never),
+   kind `access.review.reminder`, counted on the review (`reminders`).
+5. **Escalates** once past due: one `access.review.overdue` notice to the
+   attesters plus `SMALLSTACK_ACCESS_REVIEW_ESCALATION_EMAILS` (the security
+   lead, the GRC mailbox), `escalated_at` set, and the *Access review overdue*
+   finding's row names the open review, its pending count and the due date.
+   A review opened late (the quarter closed weeks ago) is escalated on the
+   *next* tick, not the one that opened it.
+
+**Signing stays a person's act**: the tick decides nothing and signs nothing,
+and there is still no shell, REST or MCP write for either. What a signing
+sets in motion (`cadence.after_signed`, called from `reviews.sign`, each step
+unable to fail the signing): the "review due" bells are retired
+(`resolve(subject_key)`), the **attested pack** is stored (`reason =
+review_signed`, in the signer's name — the one to hand the auditor), and the
+**`access.review.signed` webhook event** goes out to every endpoint whose
+filter matches (`access.review.*`, `*`). Its envelope is a CRUDView's —
+`event`, `action: "signed"`, `model: "access.accessreview"`, `id`,
+`occurred_at`, `data` (the review payload with its `summary`), `event_id`,
+`origin`, `resource` — so the GRC tool's receiver handles it like any other.
+The event is declared with `webhooks.services.register_event`, so the
+endpoint picker offers it.
+
+- **Where it shows**: the *By the schedule* card on the Reviews page (off: one
+  line saying attestation is on demand and how to turn the cadence on; on:
+  the scheduler row enabled/paused, the last complete quarter's state, due
+  date, who can sign, next run); the *Access review* card on the
+  `/smallstack/` dashboard (*Q3 2026 signed · by ann* / *due in 12 days* /
+  *overdue 5 days*) — placed on the board only once the cadence is on
+  (*Add card → Widget* adds it by hand otherwise), and never "overdue" while
+  the cadence is off; `GET /smallstack/api/access/reviews/cadence/`;
+  `manage.py access cadence --status`.
+- **Settings**: `SMALLSTACK_ACCESS_REVIEW_CADENCE` (default `""`, off: no
+  job, no notifications, no card; `quarterly` turns it on — a restart
+  registers the job), `SMALLSTACK_ACCESS_REVIEW_SCOPE` (`privileged` / `all`),
+  `SMALLSTACK_ACCESS_REVIEW_DUE_DAYS`, `SMALLSTACK_ACCESS_REVIEW_REMINDER_DAYS`,
+  `SMALLSTACK_ACCESS_REVIEW_ESCALATION_EMAILS`, `SMALLSTACK_ACCESS_EVIDENCE_KEEP`.
+  The scheduler row itself can be paused from `/smallstack/scheduler/` like
+  any job.
+- **Testing** (`apps/access/tests/test_cadence.py`): `cadence.tick(today=date(...))`
+  drives every branch without a worker; `mail.outbox` and
+  `Notification.objects` show the two channels; patch
+  `webhooks.services._enqueue_delivery` to assert the `WebhookDelivery` row
+  without an HTTP call.
+
+## Directory-managed groups (single sign-on)
+
+Nothing above depends on how people sign in. A directory (Entra, Okta, Google,
+a proxy such as Cloudflare Access or oauth2-proxy) becomes one more thing that
+assigns Groups, under one rule: **the directory decides who, code decides
+what.** The full recipe, with the per-provider claim shapes, is
+`directory-sso.md`; the model is this.
+
+A declaration carries the stable key the directory sends for the group:
+
+```python
+register_group(
+    "Event planner",
+    permissions=["events.plan_event"],
+    directory_role="Events.Planner",   # the Entra app-role value / Okta group name
+    staff=True,                        # members are staff (optional)
+    app_label="events",
+)
+
+# A group declared elsewhere (one SmallStack ships): give it a role without
+# copying its permission list, whatever the import order.
+from apps.access.registry import map_directory_role
+map_directory_role("Access reviewer", "Access.Reviewer")
+```
+
+`directory_role` is `[A-Za-z0-9._-]{1,100}` (no spaces; Entra's rule, and a
+key that fits every provider), unique across groups, stored on
+`ManagedGroup.directory_role` (NULL for a local group). With it the group is
+**directory-managed**:
+
+- **Membership is set at sign-in.** The sign-in code calls
+  `apps.access.directory.sign_in(provider, subject, roles, email=…, name=…)`
+  (or `resolve_identity` then `sync_roles`). `sync_roles` sets the user's
+  directory-managed groups to exactly the roles sent, never touches a group
+  without a role, sets `is_staff` when a group declared `staff=True` is among
+  them (and never unsets it, or touches `is_superuser`), and records every
+  change from `directory:<provider>`. **`roles=None` (the claim is missing)
+  changes nothing** and logs; `[]` strips, because the directory said so.
+- **The account is keyed by the provider's subject**, not the email:
+  `DirectoryIdentity(provider, subject)` → user, created on first sight (no
+  usable password, not staff). An existing account with the same email is
+  linked once (`SMALLSTACK_DIRECTORY_LINK_BY_EMAIL`, default on) and the
+  subject is pinned from then on, so a reissued mailbox can't take it over.
+  `last_roles` and `last_seen_at` are kept on the identity for the review.
+- **Local changes are refused** on every surface (`services.directory_refusal`
+  inside `set_membership`: the pages hide the forms, REST/CLI/approvals return
+  the reason). `SMALLSTACK_DIRECTORY_LOCAL_OVERRIDE = True` lifts it; the
+  next sign-in sets membership back regardless.
+- **`SMALLSTACK_DIRECTORY_ROLE_MAP = {"sent-value": "Declared.Role"}`**
+  translates a provider whose values can't be the key (a Google group email).
+- **Findings**: a directory-managed group changed locally (warning); superuser
+  granted from a directory source (danger); role values no group carries
+  (warning); declared groups still local while the directory is in use (info);
+  accounts the directory hasn't vouched for in `SMALLSTACK_ACCESS_DORMANT_DAYS`
+  that hold a live token (warning).
+- **`manage.py access directory-manifest --provider entra --json`** emits what
+  the directory administrator creates: for Entra the `appRoles` array (ids
+  `uuid5(namespace, role)`, so a rerun updates rather than duplicates) and the
+  group to create and assign to each role, named
+  `SMALLSTACK_DIRECTORY_GROUP_PREFIX + group` (default `APP - <BRAND_NAME> - `).
+  `--provider generic` is the plain list; add a provider with
+  `@register_manifest_formatter("okta")`.
+
+Never grant superuser from a directory; keep one local break-glass
+administrator outside it.
 
 ## Don't
 
@@ -349,3 +580,6 @@ directory, and keep one local break-glass administrator.
   in your app's `groups.py`, or add members to the shipped ones.
 - Don't write `AccessEvent` rows yourself; change the Django model and the
   signal records it.
+- Don't set `user.groups` from a sign-in backend yourself, and don't match a
+  directory user by email: call `apps.access.directory.sign_in` (subject-keyed,
+  recorded, refuses nothing it shouldn't). See `directory-sso.md`.

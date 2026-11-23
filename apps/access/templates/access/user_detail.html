@@ -23,6 +23,7 @@
                 <div><dt>Permissions</dt><dd>{{ grant_count }}</dd></div>
                 <div><dt>Direct</dt><dd{% if direct_permissions %} class="is-warning"{% endif %}>{{ direct_permissions|length }}</dd></div>
                 <div><dt>Groups</dt><dd>{{ groups|length }}</dd></div>
+                {% for i in identities %}<div><dt>{{ i.provider|capfirst }}</dt><dd title="{{ i.subject }}">seen {{ i.last_seen_at|date:"M d, Y H:i" }}{% if i.last_roles %} · roles {{ i.last_roles|join:", " }}{% endif %}</dd></div>{% endfor %}
             </dl>
             {% if not target.is_active %}<p class="access-note">A deactivated account holds no permissions, whatever its groups say; the lists below show what it would hold if reactivated.</p>
             {% elif target.is_superuser %}<p class="access-note">A superuser passes every permission check; groups don't narrow it.</p>{% endif %}
@@ -67,14 +68,16 @@
                 <tbody>
                     {% for g in groups %}
                     <tr>
-                        <td><a href="{% url 'access:group_detail' g.group.pk %}">{{ g.group.name }}</a></td>
-                        <td class="quiet">{% if g.since %}added {{ g.since.at|date:"M d, Y" }} by {{ g.since.actor_label|default:"system" }}{% else %}before recording began{% endif %}</td>
+                        <td><a href="{% url 'access:group_detail' g.group.pk %}">{{ g.group.name }}</a>{% if g.directory %} {% status_badge "directory" "info" %}{% endif %}</td>
+                        <td class="quiet">{% if g.since %}added {{ g.since.at|date:"M d, Y" }} by {% if g.since.source|slice:":10" == "directory:" %}{{ g.since.source }}{% else %}{{ g.since.actor_label|default:"system" }}{% endif %}{% else %}before recording began{% endif %}</td>
                         {% if can_change %}
                         <td style="text-align: right;">
+                            {% if not g.directory %}
                             <form method="post" action="{% url 'access:user_groups' target.pk %}" class="inline-form">{% csrf_token %}
                                 <input type="hidden" name="action" value="remove"><input type="hidden" name="group" value="{{ g.group.pk }}">
                                 <button type="submit" class="btn-outline btn-sm" data-confirm="Remove {{ target.get_username }} from {{ g.group.name }}?">Remove</button>
                             </form>
+                            {% endif %}
                         </td>
                         {% endif %}
                     </tr>

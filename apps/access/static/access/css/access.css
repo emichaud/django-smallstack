@@ -124,3 +124,62 @@
 .event-grant { color: var(--warning-fg); font-weight: 600; }
 .access-filters { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 12px; }
 .access-filters input, .access-filters select { min-width: 0; }
+
+/* Reviews (attestation) */
+.review-open-form { display: grid; gap: 10px; }
+.review-field { display: grid; gap: 4px; }
+.review-field label { font-size: 0.8rem; font-weight: 600; }
+.review-field--dates { grid-template-columns: auto minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; gap: 6px 8px; }
+@media (max-width: 560px) { .review-field--dates { grid-template-columns: minmax(0, 1fr); } }
+.review-sign { display: grid; gap: 6px; }
+.review-sign label { font-size: 0.8rem; font-weight: 600; margin-top: 4px; }
+.review-sign-label { margin: 0; font-weight: 600; font-size: 0.95rem; }
+.review-table { width: 100%; border-collapse: collapse; font-size: 0.84rem; }
+.review-table th { text-align: left; padding: 8px 12px; }
+.review-table td { padding: 8px 12px; vertical-align: top; }
+.review-table td.quiet { font-size: 0.78rem; }
+.review-row--confirmed td:first-child { border-left: 3px solid var(--success-fg); }
+.review-row--remove td:first-child { border-left: 3px solid var(--error-fg); }
+.review-row--flagged td:first-child { border-left: 3px solid var(--warning-fg); }
+.review-row--pending td:first-child { border-left: 3px solid var(--card-border); }
+.review-chip { display: inline-block; margin: 0 4px 3px 0; padding: 1px 7px; border-radius: 999px; font-size: 0.74rem; background: color-mix(in srgb, var(--body-fg) 7%, transparent); }
+.review-decision { min-width: 15rem; }
+.review-decide { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+.review-decide input { flex: 1 1 8rem; min-width: 0; font-size: 0.8rem; padding: 4px 6px; }
+.review-btn--confirmed { color: var(--success-fg); }
+.review-btn--remove { color: var(--error-fg); }
+.review-btn--flagged { color: var(--warning-fg); }
+
+/* The print view: one plain page the browser's print dialog turns into the auditor's PDF. */
+.review-print { max-width: 1100px; }
+.review-print h1 { margin: 0 0 4px; }
+.review-print-facts { max-width: 48rem; margin: 10px 0; }
+.review-print-facts th { text-align: left; padding: 4px 12px 4px 0; white-space: nowrap; color: var(--body-quiet-color); font-weight: 500; }
+.review-print-controls { font-size: 0.78rem; }
+.review-print-table th { text-align: left; padding: 6px 8px; }
+.review-print-table td { padding: 6px 8px; vertical-align: top; font-size: 0.8rem; }
+.review-print-table td:last-child { min-width: 12rem; }
+.review-sign button[disabled] { opacity: 0.6; cursor: not-allowed; }
+@media print {
+    .sidebar, .topbar, .site-header, .page-header-bleed, .access-tabs, nav, .cookie-banner { display: none !important; }
+    .review-print { max-width: none; }
+    .review-print-table { font-size: 0.72rem; }
+}
+
+/* Evidence (the audit pack) */
+.evidence-controls { display: flex; flex-wrap: wrap; gap: 10px 14px; align-items: end; }
+.evidence-controls .review-field { min-width: 9rem; }
+.evidence-controls .review-field:first-child { flex: 1 1 18rem; }
+.evidence-tabs { display: flex; flex-wrap: wrap; gap: 4px; }
+.evidence-tabs a, .evidence-tabs a:link, .evidence-tabs a:visited { padding: 5px 10px; border-radius: var(--radius-sm, 6px); font-size: 0.82rem; font-weight: 500; color: var(--body-quiet-color); text-decoration: none; }
+.evidence-tabs a:hover { color: var(--body-fg); background: color-mix(in srgb, var(--body-fg) 6%, transparent); }
+.evidence-tabs a.active { color: var(--primary); background: color-mix(in srgb, var(--primary) 12%, transparent); }
+.evidence-tabs .quiet { font-weight: 400; font-size: 0.74rem; }
+.evidence-cover { padding: 16px; }
+.evidence-cover h2 { margin: 0 0 10px; font-size: 1.05rem; }
+.evidence-sheet-head { padding: 12px 16px; border-bottom: 1px solid var(--card-border); display: grid; gap: 8px; }
+.evidence-sheet-head .access-note { margin: 0; }
+.evidence-table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
+.evidence-table th { text-align: left; padding: 7px 10px; white-space: nowrap; }
+.evidence-table td { padding: 6px 10px; vertical-align: top; max-width: 28rem; overflow-wrap: anywhere; }
+.evidence-table td.quiet { color: var(--body-quiet-color); }

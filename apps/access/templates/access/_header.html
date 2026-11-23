@@ -17,5 +17,7 @@ Expects `title`, `subtitle`, `crumbs` (list of (label, url-or-empty)) and `secti
         <a href="{% url 'access:users' %}"{% if section == "users" %} class="active" aria-current="page"{% endif %}>Users</a>
         <a href="{% url 'access:groups' %}"{% if section == "groups" %} class="active" aria-current="page"{% endif %}>Groups</a>
         <a href="{% url 'access:events' %}"{% if section == "events" %} class="active" aria-current="page"{% endif %}>Changes</a>
+        <a href="{% url 'access:reviews' %}"{% if section == "reviews" %} class="active" aria-current="page"{% endif %}>Reviews</a>
+        <a href="{% url 'access:evidence' %}"{% if section == "evidence" %} class="active" aria-current="page"{% endif %}>Evidence</a>
     </nav>
 </div>

@@ -95,7 +95,8 @@ class ActivityDashboardWidget(DashboardWidget):
 | `url_name` | `str \| None` | `None` | Named URL; overrides the auto-resolved Explorer list URL |
 | `url_kwargs` | `dict \| None` | `None` | kwargs for `reverse()` |
 | `group` | `str \| None` | `None` | Group name for filtered views (standalone widgets only — Explorer widgets inherit group from `ModelInfo`) |
-| `on_dashboard` | `bool` | `True` | Surface on main `/smallstack/` dashboard. Set `False` to scope a widget to its group/app/model page only |
+| `on_dashboard` | `bool` | `True` | Surface on main `/smallstack/` dashboard. Set `False` to scope a widget to its group/app/model page only. May be a property for a card that belongs there only once a feature is turned on (`apps/access/dashboard_widgets.py`, `AccessReviewWidget`): it is placed the first time it answers `True` and stays. Keep it settings-only — the board's sync asks on every load and must stay query-free |
+| `visible_to(user)` | method | everyone | The widget's own gate. Honoured by the `/smallstack/` cards **and** by a saved dashboard's widget cell, which renders a restricted message instead of the numbers for a viewer the widget refuses |
 
 ### Methods
 

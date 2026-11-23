@@ -1,0 +1,51 @@
+{% extends "smallstack/base.html" %}
+{% load static theme_tags %}
+
+{% block title %}Access review #{{ review.pk }} · print{% endblock %}
+{% block breadcrumbs %}{% endblock %}
+
+{% block extra_css %}<link rel="stylesheet" href="{% static 'access/css/access.css' %}">{% endblock %}
+
+{% block content %}
+<article class="review-print">
+    <header>
+        <h1>Access review #{{ review.pk }}</h1>
+        <p class="quiet">{{ brand }} · {{ review.get_scope_display }} · period {{ review.period_label }} · generated {{ generated_at|date:"M d, Y H:i" }} by {{ request.user.get_username }}</p>
+        <table class="table-plain compact-table review-print-facts">
+            <tbody>
+                <tr><th scope="row">Status</th><td>{{ review.get_status_display }}</td></tr>
+                <tr><th scope="row">Opened</th><td>{{ review.opened_at|date:"M d, Y H:i" }} by {{ review.opened_by_label|default:"cli" }}</td></tr>
+                {% if review.is_signed %}
+                <tr><th scope="row">Signed</th><td>{{ review.signed_at|date:"M d, Y H:i" }} by {{ review.signed_by_label }}, as “{{ review.signed_name }}”{% if review.signed_from %} from {{ review.signed_from }}{% endif %}{% if review.request_id %} (request {{ review.request_id }}){% endif %}</td></tr>
+                {% endif %}
+                <tr><th scope="row">Accounts</th><td>{{ counts.items }} · confirmed {{ counts.confirmed }} · remove {{ counts.remove }} · flagged {{ counts.flagged }}{% if counts.pending %} · pending {{ counts.pending }}{% endif %}</td></tr>
+                {% if review.summary.previous %}<tr><th scope="row">Against #{{ review.summary.previous }}</th><td>{{ review.summary.new|length }} new{% if review.summary.new %} ({{ review.summary.new|join:", " }}){% endif %}, {{ review.summary.gone|length }} gone{% if review.summary.gone %} ({{ review.summary.gone|join:", " }}){% endif %}</td></tr>{% endif %}
+                {% if review.note %}<tr><th scope="row">Note</th><td>{{ review.note }}</td></tr>{% endif %}
+            </tbody>
+        </table>
+        <p class="quiet review-print-controls">Supports: SOC 2 CC6.1–CC6.3 (logical access provisioning and review), PCI DSS 7.2.4 (periodic review of user accounts and access), ISO/IEC 27001 A.5.18 (access rights review).</p>
+    </header>
+    <table class="table-plain compact-table review-print-table">
+        <thead>
+            <tr><th scope="col">Account</th><th scope="col">Flags</th><th scope="col">Groups</th><th scope="col">Perms</th><th scope="col">Sign-in</th><th scope="col">Last</th><th scope="col">Tokens</th><th scope="col">Grants</th><th scope="col">Decision</th><th scope="col">By</th><th scope="col">Note</th></tr>
+        </thead>
+        <tbody>
+            {% for i in items %}
+            <tr>
+                <td>{{ i.user_label }}{% if i.facts.email %}<br><span class="quiet">{{ i.facts.email }}</span>{% endif %}</td>
+                <td>{% if i.facts.superuser %}superuser{% elif i.facts.staff %}staff{% endif %}</td>
+                <td>{{ i.facts.groups|join:", " }}{% if i.facts.direct_permissions %}<br><span class="quiet">+{{ i.facts.direct_permissions|length }} direct</span>{% endif %}</td>
+                <td>{{ i.facts.permission_count }}</td>
+                <td>{{ i.facts.sign_in }}</td>
+                <td>{% if i.facts.last_login %}{{ i.facts.last_login|slice:":10" }}{% else %}never{% endif %}</td>
+                <td>{{ i.facts.live_tokens }}</td>
+                <td>{{ i.facts.grants_in_period|length }}</td>
+                <td><strong>{{ i.get_decision_display }}</strong></td>
+                <td>{{ i.decided_by_label }}{% if i.decided_at %}<br><span class="quiet">{{ i.decided_at|date:"M d, Y" }}</span>{% endif %}</td>
+                <td>{{ i.note }}{% if i.follow_up %}<br><span class="quiet">{{ i.follow_up }}</span>{% endif %}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</article>
+{% endblock %}

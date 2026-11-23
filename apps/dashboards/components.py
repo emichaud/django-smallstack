@@ -69,7 +69,19 @@ MAX_CELLS = 60
 #: A card's own data source: the definition a metric holds, kept on the card.
 SOURCE_KEYS = ("dataset", "filter_tree", "agg", "measure", "period_field")
 _CELL_KEYS = {
-    "id", "type", "x", "y", "w", "h", "metric", "title", "options", "use_period", "component", "name", *SOURCE_KEYS
+    "id",
+    "type",
+    "x",
+    "y",
+    "w",
+    "h",
+    "metric",
+    "title",
+    "options",
+    "use_period",
+    "component",
+    "name",
+    *SOURCE_KEYS,
 }
 #: What a placement of a saved component may set itself; the rest comes from the component.
 _PLACEMENT_KEYS = {"id", "x", "y", "w", "h", "title", "use_period"}
@@ -79,22 +91,64 @@ _PLACEMENT_KEYS = {"id", "x", "y", "w", "h", "title", "use_period"}
 #: honours, as the builder and agents see it. Colours are the theme's named
 #: states and accent, never literals, so a styled card is right on every palette.
 CARD_STYLE: list[dict[str, Any]] = [
-    {"name": "format", "label": "Number format", "default": "",
-     "choices": [["", "The metric's"], ["number", "Number — 9,481"], ["compact", "Compact — 9.5K"],
-                 ["decimal", "Decimal — 9,481.24"], ["percent", "Percent — 94.2%"],
-                 ["currency", "Currency — $9,481.00"], ["duration", "Duration — 2m 19s"]]},
+    {
+        "name": "format",
+        "label": "Number format",
+        "default": "",
+        "choices": [
+            ["", "The metric's"],
+            ["number", "Number — 9,481"],
+            ["compact", "Compact — 9.5K"],
+            ["decimal", "Decimal — 9,481.24"],
+            ["percent", "Percent — 94.2%"],
+            ["currency", "Currency — $9,481.00"],
+            ["duration", "Duration — 2m 19s"],
+        ],
+    },
     {"name": "unit", "label": "Unit", "default": "", "max": 20, "help": "Blank = the metric's unit."},
-    {"name": "size", "label": "Number size", "default": "m", "widget": "segmented",
-     "choices": [["s", "S"], ["m", "M"], ["l", "L"], ["xl", "XL"]]},
-    {"name": "color", "label": "Number colour", "default": "state", "widget": "swatches",
-     "choices": [["state", "From the thresholds"], ["accent", "Accent"], ["plain", "Plain"],
-                 ["success", "Success"], ["warning", "Warning"], ["danger", "Danger"], ["muted", "Quiet"]]},
-    {"name": "title_size", "label": "Title size", "default": "m", "widget": "segmented",
-     "choices": [["s", "S"], ["m", "M"], ["l", "L"]]},
-    {"name": "title_color", "label": "Title colour", "default": "quiet", "widget": "swatches",
-     "choices": [["quiet", "Quiet"], ["plain", "Plain"], ["accent", "Accent"]]},
-    {"name": "align", "label": "Alignment", "default": "start", "widget": "segmented",
-     "choices": [["start", "Left"], ["center", "Centre"], ["end", "Right"]]},
+    {
+        "name": "size",
+        "label": "Number size",
+        "default": "m",
+        "widget": "segmented",
+        "choices": [["s", "S"], ["m", "M"], ["l", "L"], ["xl", "XL"]],
+    },
+    {
+        "name": "color",
+        "label": "Number colour",
+        "default": "state",
+        "widget": "swatches",
+        "choices": [
+            ["state", "From the thresholds"],
+            ["accent", "Accent"],
+            ["plain", "Plain"],
+            ["success", "Success"],
+            ["warning", "Warning"],
+            ["danger", "Danger"],
+            ["muted", "Quiet"],
+        ],
+    },
+    {
+        "name": "title_size",
+        "label": "Title size",
+        "default": "m",
+        "widget": "segmented",
+        "choices": [["s", "S"], ["m", "M"], ["l", "L"]],
+    },
+    {
+        "name": "title_color",
+        "label": "Title colour",
+        "default": "quiet",
+        "widget": "swatches",
+        "choices": [["quiet", "Quiet"], ["plain", "Plain"], ["accent", "Accent"]],
+    },
+    {
+        "name": "align",
+        "label": "Alignment",
+        "default": "start",
+        "widget": "segmented",
+        "choices": [["start", "Left"], ["center", "Centre"], ["end", "Right"]],
+    },
 ]
 _STYLE = {spec["name"]: spec for spec in CARD_STYLE}
 
@@ -187,6 +241,8 @@ def cell_title(cell: dict[str, Any]) -> str:
     component's name (``name``), else "" — a card type falls back to its
     metric's or widget's name: ``cell_title(cell) or metric.name``."""
     return str(cell.get("title") or cell.get("name") or "")
+
+
 _ID_RE = re.compile(r"^[A-Za-z0-9_-]{1,40}$")
 
 
@@ -658,10 +714,16 @@ def link_warnings(layout: Any) -> list[str]:
         listen = options.get("listen")
         if isinstance(listen, dict) and isinstance(listen.get("channel"), str):
             heard.setdefault(listen["channel"], []).append(name)
-    out = [f"{', '.join(who)} publishes to {ch!r}, which no card listens to" for ch, who in published.items()
-           if ch not in heard]
-    out += [f"{', '.join(who)} listens to {ch!r}, which no card publishes to" for ch, who in heard.items()
-            if ch not in published]
+    out = [
+        f"{', '.join(who)} publishes to {ch!r}, which no card listens to"
+        for ch, who in published.items()
+        if ch not in heard
+    ]
+    out += [
+        f"{', '.join(who)} listens to {ch!r}, which no card publishes to"
+        for ch, who in heard.items()
+        if ch not in published
+    ]
     return out
 
 
@@ -859,6 +921,8 @@ def _source_problems(cell: dict[str, Any]) -> tuple[Optional["Metric"], list[str
 #: read over, and that lives on the metric's form, not the card's.
 NO_PERIOD_FIELD = "needs a period field (the date column it is read over): set one in the metric's settings"
 NO_PERIOD_COLUMN = "needs a period column: the date column it is read over"
+
+
 def _unknown_option_problems(ct: ComponentType, options: dict[str, Any]) -> list[str]:
     """An option the card doesn't read would be saved and do nothing."""
     known = {spec["name"] for spec in ct.options_schema}
@@ -1136,6 +1200,14 @@ def build_widget(cell: dict[str, Any], ctx: CellContext) -> dict[str, Any]:
     for wkey, widget, info in available_widgets():
         if wkey != key:
             continue
+        # The widget's own gate (``visible_to``), as the /smallstack/ cards
+        # apply it: a board shared wider than the widget's numbers.
+        try:
+            visible = widget.visible_to(ctx.request.user)
+        except Exception:  # noqa: BLE001 — a gate that fails closes
+            visible = False
+        if not visible:
+            return {"restricted": True, "label": cell_title(cell) or widget.title}
         try:
             data = widget.get_data(model_class=info.model_class) if info is not None else widget.get_data()
         except Exception:  # noqa: BLE001
@@ -1189,12 +1261,21 @@ TEXT_LOOKS: dict[str, list[list[str]]] = {
     "size": [["s", "Small"], ["m", "Medium"], ["l", "Large"], ["xl", "Extra large"]],
     "align": [["start", "Left"], ["center", "Centre"], ["end", "Right"]],
     "color": [
-        ["plain", "Plain"], ["quiet", "Quiet"], ["accent", "Accent"],
-        ["success", "Success"], ["warning", "Warning"], ["danger", "Danger"],
+        ["plain", "Plain"],
+        ["quiet", "Quiet"],
+        ["accent", "Accent"],
+        ["success", "Success"],
+        ["warning", "Warning"],
+        ["danger", "Danger"],
     ],
     "background": [
-        ["", "None"], ["band", "Accent tint"], ["raised", "Raised"],
-        ["success", "Success"], ["warning", "Warning"], ["danger", "Danger"], ["info", "Info"],
+        ["", "None"],
+        ["band", "Accent tint"],
+        ["raised", "Raised"],
+        ["success", "Success"],
+        ["warning", "Warning"],
+        ["danger", "Danger"],
+        ["info", "Info"],
     ],
 }
 _TEXT_DEFAULTS = {"size": "m", "align": "start", "color": "plain", "background": ""}

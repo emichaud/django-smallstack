@@ -55,6 +55,29 @@ That's it for the *source*. A create/update/delete of `Ticket` through **any** s
   "data": { "id": 42, "title": "...", ... } }
 ```
 
+**An event that isn't a model save** (a review signed, a report built, a
+threshold crossed) is emitted from code: declare it once in `ready()` so the
+endpoint picker offers it, then `fan_out` the same envelope shape yourself.
+
+```python
+# apps/support/apps.py → ready()
+from apps.webhooks import services as webhooks
+webhooks.register_event("support.sla.breached", "a ticket breaches its SLA")
+
+# wherever it happens
+import uuid
+event_id = str(uuid.uuid4())
+webhooks.fan_out("support.sla.breached", {
+    "event": "support.sla.breached", "action": "breached", "model": "support.ticket",
+    "id": ticket.pk, "occurred_at": timezone.now().isoformat(), "data": {...},
+    "event_id": event_id, "origin": current_origin(),
+    "resource": {"type": "support.ticket", "id": ticket.pk, "url": ...},
+}, event_id=event_id)
+```
+
+`fan_out` never raises and returns the deliveries created (0 when outbound is
+off). `access.review.signed` (`apps/access/cadence.py`) is the reference.
+
 The `event_id`, `origin`, and `resource` keys were **added** in the foundation reshape
 (the original keys are unchanged, so existing consumers keep working). `resource.url` is
 **absolute** so a consumer can act on the record without reconstructing the path — set

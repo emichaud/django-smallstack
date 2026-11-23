@@ -40,7 +40,8 @@ When the user asks you to do any of these, read the matching skill file BEFORE w
 | Debug a "Swagger is empty" / "MCP can't see my tools" / "weird traffic" report | `docs/skills/api-doctor.md` or `docs/skills/mcp/debug-mcp-failure.md` |
 | Take a screenshot to verify UI work | `docs/skills/screenshot-workflow.md` |
 | Set up auth or protect a view | `docs/skills/authentication.md` |
-| Add a **permission check**, declare a **group** an app ships, review **who can do what** (least privilege, audit evidence), prepare for **SSO group mapping** | `docs/skills/access-control.md` |
+| Add a **permission check**, declare a **group** an app ships, review **who can do what** (least privilege, audit evidence), run or report on the periodic **access review** (attestation for SOC 2 / PCI), produce the **audit evidence pack**, put the review **on a schedule** (quarterly open + stored pack + reminders/escalation, the `access.review.signed` webhook) | `docs/skills/access-control.md` |
+| Put the app behind **Entra / Okta / Google / an auth proxy** so IT assigns groups in the directory — any SSO backend, middleware or claims hook (`directory_role`, `sign_in`, the Entra manifest) | `docs/skills/directory-sso.md` |
 
 The full skill index lives at `docs/skills/README.md`.
 

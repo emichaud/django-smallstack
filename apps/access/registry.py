@@ -13,13 +13,19 @@ the built-in ones in :mod:`apps.access.checks`.
 from __future__ import annotations
 
 import logging
+import re
 from collections.abc import Callable, Iterable
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Any
 
 from django.contrib.auth.models import Group, Permission
 
 logger = logging.getLogger(__name__)
+
+#: What a directory role key may look like: the value an identity provider
+#: puts in a token claim. Entra app-role values allow no spaces; keeping to
+#: this everywhere makes one key work for every provider.
+DIRECTORY_ROLE_PATTERN = re.compile(r"^[A-Za-z0-9._-]{1,100}$")
 
 
 @dataclass(frozen=True)
@@ -28,23 +34,96 @@ class GroupSpec:
     permissions: tuple[str, ...]
     description: str = ""
     app_label: str = ""
+    #: The stable key the directory sends for this group (``Events.Planner``);
+    #: "" for a group whose membership is managed here.
+    directory_role: str = ""
+    #: Members of this group are staff (the sync sets ``is_staff``).
+    staff: bool = False
 
 
 _groups: dict[str, GroupSpec] = {}
+#: ``map_directory_role`` overlays, by group name: (role, staff or None to keep).
+_role_overlays: dict[str, tuple[str, bool | None]] = {}
 
 
-def register_group(name: str, *, permissions: Iterable[str], description: str = "", app_label: str = "") -> GroupSpec:
+def validate_directory_role(value: str) -> str:
+    """``value`` stripped, or ``ValueError`` when it isn't a usable role key."""
+    value = (value or "").strip()
+    if value and not DIRECTORY_ROLE_PATTERN.match(value):
+        raise ValueError(
+            f"directory_role {value!r} must be 1-100 of letters, digits, '.', '_' or '-' (no spaces): "
+            "it is the value an identity provider puts in a token claim."
+        )
+    return value
+
+
+def _check_role_unique(name: str, role: str) -> None:
+    if not role:
+        return
+    for spec in declared_groups():
+        if spec.directory_role == role and spec.name != name:
+            raise ValueError(f"directory_role {role!r} is already declared by group {spec.name!r}.")
+
+
+def register_group(
+    name: str,
+    *,
+    permissions: Iterable[str],
+    description: str = "",
+    app_label: str = "",
+    directory_role: str = "",
+    staff: bool = False,
+) -> GroupSpec:
     """Declare a group. ``permissions`` are ``app_label.codename`` strings.
-    Re-registering the same name replaces the declaration (the last import wins)."""
+    Re-registering the same name replaces the declaration (the last import wins).
+
+    ``directory_role`` makes the group directory-managed: its membership is
+    set at sign-in from the roles the identity provider sends (see
+    :mod:`apps.access.directory`) and can't be changed here. ``staff=True``
+    says members are staff; the sync sets the flag when it adds one."""
+    role = validate_directory_role(directory_role)
+    _check_role_unique(name, role)
     spec = GroupSpec(
-        name=name, permissions=tuple(dict.fromkeys(permissions)), description=description, app_label=app_label
+        name=name,
+        permissions=tuple(dict.fromkeys(permissions)),
+        description=description,
+        app_label=app_label,
+        directory_role=role,
+        staff=staff,
     )
     _groups[name] = spec
     return spec
 
 
+def map_directory_role(group_name: str, directory_role: str, *, staff: bool | None = None) -> None:
+    """Give a group declared elsewhere (one SmallStack ships, say) a directory
+    role without re-declaring its permissions, so the declaration stays
+    upstream's and the mapping doesn't depend on import order::
+
+        map_directory_role("Access reviewer", "Access.Reviewer")
+
+    Applied when the groups are read; a name no declaration matches is
+    reported by ``sync_groups``."""
+    role = validate_directory_role(directory_role)
+    _role_overlays[group_name] = (role, staff)
+    _check_role_unique(group_name, role)
+
+
 def declared_groups() -> list[GroupSpec]:
-    return sorted(_groups.values(), key=lambda g: g.name.lower())
+    """Every declaration, with ``map_directory_role`` overlays applied."""
+    specs = []
+    for spec in _groups.values():
+        overlay = _role_overlays.get(spec.name)
+        if overlay is not None:
+            role, staff = overlay
+            spec = replace(spec, directory_role=role, staff=spec.staff if staff is None else staff)
+        specs.append(spec)
+    return sorted(specs, key=lambda g: g.name.lower())
+
+
+def unmatched_overlays() -> list[str]:
+    """Group names ``map_directory_role`` named that no declaration matches."""
+    return sorted(name for name in _role_overlays if name not in _groups)
 
 
 def resolve_permissions(names: Iterable[str]) -> tuple[dict[str, Permission], list[str]]:
@@ -85,7 +164,14 @@ def sync_groups(*, source: str = "migrate") -> dict[str, Any]:
     from .context import acting_as
     from .models import ManagedGroup
 
-    summary: dict[str, Any] = {"created": [], "updated": [], "missing_permissions": {}}
+    summary: dict[str, Any] = {
+        "created": [],
+        "updated": [],
+        "missing_permissions": {},
+        "unmatched_overlays": unmatched_overlays(),
+    }
+    for name in summary["unmatched_overlays"]:
+        logger.warning("access: map_directory_role(%r, …) names a group no declaration matches", name)
     with acting_as(None, source):
         for spec in declared_groups():
             group, created = Group.objects.get_or_create(name=spec.name)
@@ -110,6 +196,8 @@ def sync_groups(*, source: str = "migrate") -> dict[str, Any]:
             managed.description = spec.description
             managed.app_label = spec.app_label
             managed.declared_permissions = sorted(declared_now)
+            managed.directory_role = spec.directory_role or None
+            managed.grants_staff = spec.staff
             managed.save()
             (summary["created"] if created else summary["updated"]).append(spec.name)
     return summary

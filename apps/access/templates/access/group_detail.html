@@ -9,6 +9,15 @@
 {% endblock %}
 
 {% block content %}
+{% if managed.directory_role %}
+<div class="card" style="margin-bottom: 24px; border-color: var(--primary);">
+    <div class="card-body" style="font-size: 0.88rem;">
+        <strong>Membership comes from the directory.</strong>
+        Role <code>{{ managed.directory_role }}</code>{% if managed.grants_staff %}; members are made staff{% endif %}.
+        {% if directory_refusal %}Who is in this group is set at each sign-in from what the directory sends; adding or removing members here is refused.{% else %}Local changes are allowed (<code>SMALLSTACK_DIRECTORY_LOCAL_OVERRIDE</code>), and the next sign-in sets membership back to what the directory says.{% endif %}
+    </div>
+</div>
+{% endif %}
 {% if drift.added or drift.missing %}
 <div class="card" style="margin-bottom: 24px; border-color: var(--warning-fg);">
     <div class="card-body" style="font-size: 0.88rem;">
@@ -37,7 +46,7 @@
                             {% if m.user.is_superuser %}{% status_badge "superuser" "error" %}{% elif m.user.is_staff %}{% status_badge "staff" "info" %}{% endif %}
                         </td>
                         <td style="padding: 8px 16px; font-size: 0.8rem; color: var(--body-quiet-color);">
-                            {% if m.since %}added {{ m.since.at|date:"M d, Y" }} by {{ m.since.actor_label|default:"system" }}{% else %}before recording began{% endif %}
+                            {% if m.since %}added {{ m.since.at|date:"M d, Y" }} by {% if m.since.source|slice:":10" == "directory:" %}{{ m.since.source }}{% else %}{{ m.since.actor_label|default:"system" }}{% endif %}{% else %}before recording began{% endif %}
                         </td>
                         {% if can_change %}
                         <td style="padding: 8px 16px; text-align: right;">

@@ -337,15 +337,35 @@ def replay_dead(
 # ---------------------------------------------------------------------------
 
 
+#: Events emitted by code rather than by a CRUDView save — ``register_event``
+#: puts them in the picker beside the model events, with a plain-English hint.
+_custom_events: dict[str, str] = {}
+
+
+def register_event(event_type: str, hint: str = "") -> None:
+    """Declare an event your app emits itself with :func:`fan_out`, so the
+    endpoint picker offers it and ``unmatched_patterns`` knows it exists.
+    ``event_type`` is dotted (``access.review.signed``); ``hint`` is "when it
+    fires" in plain English. Re-registering replaces the hint."""
+    if not _PATTERN_RE.match(event_type) or "*" in event_type:
+        raise ValueError(f"event_type {event_type!r} must be a concrete dotted name.")
+    _custom_events[event_type] = hint
+
+
+def custom_events() -> dict[str, str]:
+    return dict(_custom_events)
+
+
 def available_events() -> list[str]:
-    """Every concrete event type a model with ``enable_webhooks`` can emit, plus the
-    common wildcards — the option list for the event-filter picker."""
+    """Every concrete event type a model with ``enable_webhooks`` can emit, every
+    event registered with :func:`register_event`, plus the common wildcards — the
+    option list for the event-filter picker."""
     try:
         from apps.smallstack.crud import CRUDView
     except Exception:  # noqa: BLE001
-        return ["*"]
+        return ["*", *sorted(_custom_events)]
     all_actions = ("created", "updated", "deleted")
-    events: list[str] = []
+    events: list[str] = list(_custom_events)
     for view in CRUDView._registry.values():
         if not getattr(view, "enable_webhooks", False):
             continue
@@ -430,7 +450,7 @@ def describe_event_pattern(pattern: str) -> str:
     the model's verbose name from the CRUDView registry; anything unrecognised
     returns "" and the picker shows the bare pattern.
     """
-    hint = _WILDCARD_HINTS.get(pattern)
+    hint = _WILDCARD_HINTS.get(pattern) or _custom_events.get(pattern)
     if hint:
         return hint
     parts = pattern.split(".")

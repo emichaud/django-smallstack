@@ -15,4 +15,10 @@ urlpatterns = [
     path("api/access/groups/<str:group>/", api.api_group, name="access-api-group"),
     path("api/access/findings/", api.api_findings, name="access-api-findings"),
     path("api/access/events/", api.api_events, name="access-api-events"),
+    path("api/access/reviews/", api.api_reviews, name="access-api-reviews"),
+    path("api/access/reviews/<int:review_id>/", api.api_review, name="access-api-review"),
+    path("api/access/evidence/", api.api_evidence, name="access-api-evidence"),
+    path("api/access/evidence/packs/", api.api_evidence_packs, name="access-api-evidence-packs"),
+    path("api/access/evidence/packs/<int:pack_id>/", api.api_evidence_pack, name="access-api-evidence-pack"),
+    path("api/access/reviews/cadence/", api.api_review_cadence, name="access-api-review-cadence"),
 ]

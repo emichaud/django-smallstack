@@ -455,10 +455,30 @@ def _beyond(actor: Any, granted: set[str]) -> list[str]:
     return sorted(granted - held)
 
 
+def directory_refusal(group: Group) -> str:
+    """Why nobody here may change ``group``'s membership, or "": the group is
+    directory-managed (its declaration carries a ``directory_role``), so the
+    directory sets membership at sign-in and a local change would be undone
+    at the next one. ``SMALLSTACK_DIRECTORY_LOCAL_OVERRIDE`` lifts it."""
+    from .directory import local_override_allowed, providers_seen
+
+    managed = managed_for(group)
+    if managed is None or not managed.directory_role or local_override_allowed():
+        return ""
+    where = ", ".join(providers_seen()) or "the directory"
+    return (
+        f"Membership of {group.name!r} comes from {where} (role {managed.directory_role!r}) and is set at "
+        "sign-in. Change it there."
+    )
+
+
 def membership_refusal(actor: Any, group: Group, member: bool) -> str:
     """Why :func:`set_membership` would refuse ``actor`` this change, or "".
     Asked before the write by surfaces that want to refuse early (an
     approval, at decide time)."""
+    refusal = directory_refusal(group)
+    if refusal:
+        return refusal
     if not (actor.is_active and (actor.is_staff or actor.is_superuser)):
         return f"{actor.get_username()} is not staff; changing membership needs a staff account."
     if not actor.has_perm(CHANGE_MEMBERSHIP):
@@ -491,12 +511,15 @@ def set_membership(user: Any, group: Group, member: bool, *, actor: Any, source:
       take, more than they have. Superusers hold everything; removal needs
       only the first rule.
 
+    A directory-managed group (see :func:`directory_refusal`) is refused
+    whoever asks, a local command included: the directory sync is the one
+    writer, and it doesn't come through here.
+
     A refusal raises :class:`MembershipRefused` (a ``PermissionError``).
     """
-    if actor is not None:
-        refusal = membership_refusal(actor, group, member)
-        if refusal:
-            raise MembershipRefused(refusal)
+    refusal = membership_refusal(actor, group, member) if actor is not None else directory_refusal(group)
+    if refusal:
+        raise MembershipRefused(refusal)
     is_member = user.groups.filter(pk=group.pk).exists()
     if is_member == member:
         return False
@@ -567,6 +590,16 @@ def user_payload(user: Any, *, events: int = 10) -> dict[str, Any]:
         "superuser": user.is_superuser,
         "last_login": user.last_login.isoformat() if user.last_login else None,
         "date_joined": user.date_joined.isoformat(),
+        "directory": [
+            {
+                "provider": i.provider,
+                "subject": i.subject,
+                "email": i.email,
+                "last_seen": i.last_seen_at.isoformat(),
+                "roles": list(i.last_roles or []),
+            }
+            for i in user.directory_identities.all()
+        ],
         "groups": groups,
         "direct_permissions": sorted(perm_name(p) for p in user.user_permissions.select_related("content_type")),
         "permissions": [
@@ -587,6 +620,8 @@ def group_payload(group: Group, *, members: bool = True) -> dict[str, Any]:
         "declared_in_code": managed is not None,
         "description": managed.description if managed else "",
         "app": managed.app_label if managed else "",
+        "directory_role": (managed.directory_role or "") if managed else "",
+        "grants_staff": bool(managed and managed.grants_staff),
         "drift": managed.drift() if managed else None,
         "permissions": sorted(perm_name(p) for p in group.permissions.select_related("content_type")),
         "member_count": group.user_set.count(),

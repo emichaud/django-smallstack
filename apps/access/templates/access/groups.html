@@ -34,7 +34,7 @@
                         <a href="{% url 'access:group_detail' row.group.pk %}"><strong>{{ row.group.name }}</strong></a>
                         {% if row.managed.description %}<div style="font-size: 0.8rem; color: var(--body-quiet-color);">{{ row.managed.description }}</div>{% endif %}
                     </td>
-                    <td style="padding: 8px 16px; font-size: 0.85rem;">{% if row.managed %}<code>{{ row.managed.app_label|default:"code" }}</code>{% if not row.declared %} <span class="quiet" style="color: var(--body-quiet-color);">(no longer declared)</span>{% endif %}{% else %}<span style="color: var(--body-quiet-color);">by hand</span>{% endif %}</td>
+                    <td style="padding: 8px 16px; font-size: 0.85rem;">{% if row.managed %}<code>{{ row.managed.app_label|default:"code" }}</code>{% if not row.declared %} <span class="quiet" style="color: var(--body-quiet-color);">(no longer declared)</span>{% endif %}{% if row.managed.directory_role %} {% status_badge "directory" "info" %}{% endif %}{% else %}<span style="color: var(--body-quiet-color);">by hand</span>{% endif %}</td>
                     <td style="padding: 8px 16px; text-align: right; font-variant-numeric: tabular-nums;">{{ row.group.member_count }}</td>
                     <td style="padding: 8px 16px; text-align: right; font-variant-numeric: tabular-nums;">{{ row.group.permission_count }}</td>
                     <td style="padding: 8px 16px;">

@@ -129,6 +129,13 @@ def _message(event: AccessEvent) -> str:
         return f"{who} renamed group {event.detail.get('from', '')!r} to {group!r}"
     if kind in (AccessEvent.Kind.GROUP_CREATED, AccessEvent.Kind.GROUP_DELETED):
         return f"{who} {'created' if kind == AccessEvent.Kind.GROUP_CREATED else 'deleted'} group {group!r}"
+    if kind == AccessEvent.Kind.REVIEW_SIGNED:
+        d = event.detail
+        return (
+            f"{who} signed access review #{d.get('review_id', '?')} ({d.get('scope', '')}, "
+            f"{d.get('period_start', '')} to {d.get('period_end', '')}): {d.get('confirmed', 0)} confirmed, "
+            f"{d.get('remove', 0)} to remove, {d.get('flagged', 0)} flagged"
+        )
     verbs = {
         AccessEvent.Kind.STAFF_ON: "made {s} staff",
         AccessEvent.Kind.STAFF_OFF: "removed staff from {s}",

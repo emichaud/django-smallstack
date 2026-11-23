@@ -262,6 +262,56 @@ SMALLSTACK_ACCESS_DORMANT_DAYS = config("SMALLSTACK_ACCESS_DORMANT_DAYS", defaul
 # membership itself. False removes the tool; the read tools stay.
 SMALLSTACK_ACCESS_MCP_WRITES = config("SMALLSTACK_ACCESS_MCP_WRITES", default=True, cast=bool)
 
+# Attestation on a schedule — OFF by default. Reviews and the evidence pack
+# are always available on demand from the Access pages and the CLI; most
+# deployments need nothing more. Set "quarterly" to turn the cadence on
+# (apps/access/cadence.py): a daily scheduled job then opens the review when a
+# quarter closes (freezing the roster on a predictable date), stores the
+# quarter's evidence pack, tells the attesters, reminds them while the review
+# stays unsigned and escalates once it is overdue; the dashboard shows an
+# "Access review" card. Signing stays a person's act. Off: no job, no
+# notifications, no card; the settings below are then unused.
+SMALLSTACK_ACCESS_REVIEW_CADENCE = config("SMALLSTACK_ACCESS_REVIEW_CADENCE", default="")
+# The scope the schedule opens: privileged (default) or all.
+SMALLSTACK_ACCESS_REVIEW_SCOPE = config("SMALLSTACK_ACCESS_REVIEW_SCOPE", default="privileged")
+# A review is due this many days after its period ends; past that it is
+# escalated (the attesters and SMALLSTACK_ACCESS_REVIEW_ESCALATION_EMAILS are
+# told once, the finding turns danger).
+SMALLSTACK_ACCESS_REVIEW_DUE_DAYS = config("SMALLSTACK_ACCESS_REVIEW_DUE_DAYS", default=30, cast=int)
+# While a review stays open, remind the attesters every this many days
+# (0: only when it opens, and at escalation).
+SMALLSTACK_ACCESS_REVIEW_REMINDER_DAYS = config("SMALLSTACK_ACCESS_REVIEW_REMINDER_DAYS", default=7, cast=int)
+# Who hears, beside the attesters, when a review is overdue: the security
+# lead, the GRC mailbox. Comma-separated.
+SMALLSTACK_ACCESS_REVIEW_ESCALATION_EMAILS = config(
+    "SMALLSTACK_ACCESS_REVIEW_ESCALATION_EMAILS",
+    default="",
+    cast=lambda v: [e.strip() for e in v.split(",") if e.strip()],
+)
+# Stored evidence packs kept per scope (the oldest go first); 0 keeps every one.
+# Three years of quarterly closes and signings is 24.
+SMALLSTACK_ACCESS_EVIDENCE_KEEP = config("SMALLSTACK_ACCESS_EVIDENCE_KEEP", default=24, cast=int)
+
+# Directory-managed groups (apps/access/directory.py): a group declared with a
+# directory_role takes its membership from the identity provider at sign-in.
+# What the provider sends → the declared role, for a provider whose values
+# can't be the key (a Google group email, an Okta group you can't rename).
+# Settings-only: {"service-admins@example.com": "Service.Admin"}.
+SMALLSTACK_DIRECTORY_ROLE_MAP: dict[str, str] = {}
+# Whether a local administrator may change a directory-managed group's
+# membership anyway. Off: the directory is the one source of truth and the
+# Access pages, REST, CLI and approvals refuse. The next sign-in would undo
+# such a change regardless.
+SMALLSTACK_DIRECTORY_LOCAL_OVERRIDE = config("SMALLSTACK_DIRECTORY_LOCAL_OVERRIDE", default=False, cast=bool)
+# On first sight of a directory subject, link it to the one existing account
+# with the same email (so accounts made before single sign-on keep their
+# history) rather than creating a second account. The subject is pinned from
+# then on. Off: every unknown subject gets a new account.
+SMALLSTACK_DIRECTORY_LINK_BY_EMAIL = config("SMALLSTACK_DIRECTORY_LINK_BY_EMAIL", default=True, cast=bool)
+# The name the manifest suggests for each directory group: prefix + group
+# name. Empty → "APP - <BRAND_NAME> - ".
+SMALLSTACK_DIRECTORY_GROUP_PREFIX = config("SMALLSTACK_DIRECTORY_GROUP_PREFIX", default="")
+
 # ---------------------------------------------------------------------------
 # Explorer
 # ---------------------------------------------------------------------------
@@ -388,12 +438,13 @@ MCP_AUTODISCOVER = config("MCP_AUTODISCOVER", default=True, cast=bool)
 RUNBOOK_BASE_TEMPLATE = config("RUNBOOK_BASE_TEMPLATE", default="smallstack/base.html")
 # Restrict the runbook UI to staff users (True) or allow any signed-in user.
 RUNBOOK_STAFF_REQUIRED = config("RUNBOOK_STAFF_REQUIRED", default=True, cast=bool)
-# MEDIA_ROOT subtrees the public /media/ route refuses (404). Runbook files are
-# served only through access-checked views; list any of your own gated upload
-# dirs here too. Profile photos stay public. (See apps/smallstack/media.py.)
+# MEDIA_ROOT subtrees the public /media/ route refuses (404). Runbook files and
+# stored access-evidence packs are served only through access-checked views;
+# list any of your own gated upload dirs here too. Profile photos stay public.
+# (See apps/smallstack/media.py.)
 SMALLSTACK_PRIVATE_MEDIA_PREFIXES = config(
     "SMALLSTACK_PRIVATE_MEDIA_PREFIXES",
-    default="runbook/",
+    default="runbook/,access/",
     cast=lambda v: [p.strip() for p in v.split(",") if p.strip()],
 )
 # Other RUNBOOK_* knobs (version/retention caps) default sensibly in

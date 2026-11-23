@@ -200,6 +200,7 @@ def test_unmatched_patterns_warns_only_when_events_exist(monkeypatch):
     for view in set(CRUDView._registry.values()):
         if getattr(view, "enable_webhooks", False):
             monkeypatch.setattr(view, "enable_webhooks", False)
+    monkeypatch.setattr(services, "_custom_events", {})  # code-emitted events (access.review.signed) count too
     assert services.unmatched_patterns(["nosuch.thing.*"]) == []
     monkeypatch.setattr(WebhookReceiverCRUDView, "enable_webhooks", True)
     dead = services.unmatched_patterns(["nosuch.thing.*", "webhooks.webhookreceiver.*", "*"])

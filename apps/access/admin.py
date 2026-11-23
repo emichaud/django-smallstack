@@ -5,7 +5,7 @@ from typing import Any
 from django.contrib import admin
 from django.http import HttpRequest
 
-from .models import AccessEvent, ManagedGroup
+from .models import AccessEvent, AccessReview, AccessReviewItem, DirectoryIdentity, EvidenceBundle, ManagedGroup
 
 
 @admin.register(AccessEvent)
@@ -30,9 +30,85 @@ class AccessEventAdmin(admin.ModelAdmin):
 
 @admin.register(ManagedGroup)
 class ManagedGroupAdmin(admin.ModelAdmin):
-    list_display = ("group", "app_label", "description", "synced_at")
-    readonly_fields = ("group", "app_label", "description", "declared_permissions", "synced_at")
+    list_display = ("group", "app_label", "directory_role", "grants_staff", "description", "synced_at")
+    readonly_fields = (
+        "group",
+        "app_label",
+        "description",
+        "declared_permissions",
+        "directory_role",
+        "grants_staff",
+        "synced_at",
+    )
     explorer_model_permissions = True
 
     def has_add_permission(self, request: HttpRequest) -> bool:
+        return False
+
+
+@admin.register(DirectoryIdentity)
+class DirectoryIdentityAdmin(admin.ModelAdmin):
+    """Written by the sign-in sync only; readable here as evidence."""
+
+    list_display = ("provider", "subject", "user", "email", "last_seen_at")
+    list_filter = ("provider",)
+    search_fields = ("subject", "email", "display_name", "user__username")
+    readonly_fields = [f.name for f in DirectoryIdentity._meta.fields]
+    explorer_model_permissions = True
+
+    def has_add_permission(self, request: HttpRequest) -> bool:
+        return False
+
+    def has_change_permission(self, request: HttpRequest, obj: Any = None) -> bool:
+        return False
+
+
+class _ReviewItemInline(admin.TabularInline):
+    model = AccessReviewItem
+    extra = 0
+    can_delete = False
+    readonly_fields = ("user_label", "decision", "decided_by_label", "decided_at", "note", "follow_up")
+    fields = readonly_fields
+
+    def has_add_permission(self, request: HttpRequest, obj: Any = None) -> bool:
+        return False
+
+
+@admin.register(AccessReview)
+class AccessReviewAdmin(admin.ModelAdmin):
+    """Evidence: opened, decided and signed on the Access pages; read here."""
+
+    list_display = ("__str__", "status", "opened_via", "opened_by_label", "signed_by_label", "signed_at")
+    list_filter = ("status", "scope", "opened_via")
+    readonly_fields = [f.name for f in AccessReview._meta.fields]
+    inlines = [_ReviewItemInline]
+    explorer_model_permissions = True
+
+    def has_add_permission(self, request: HttpRequest) -> bool:
+        return False
+
+    def has_change_permission(self, request: HttpRequest, obj: Any = None) -> bool:
+        return False
+
+    def has_delete_permission(self, request: HttpRequest, obj: Any = None) -> bool:
+        return False
+
+
+@admin.register(EvidenceBundle)
+class EvidenceBundleAdmin(admin.ModelAdmin):
+    """Stored evidence packs: built by the schedule or on request, downloaded
+    from the Evidence page; read here, removed only by retention."""
+
+    list_display = ("__str__", "reason", "built_by_label", "size", "sha256")
+    list_filter = ("scope", "reason")
+    readonly_fields = [f.name for f in EvidenceBundle._meta.fields]
+    explorer_model_permissions = True
+
+    def has_add_permission(self, request: HttpRequest) -> bool:
+        return False
+
+    def has_change_permission(self, request: HttpRequest, obj: Any = None) -> bool:
+        return False
+
+    def has_delete_permission(self, request: HttpRequest, obj: Any = None) -> bool:
         return False

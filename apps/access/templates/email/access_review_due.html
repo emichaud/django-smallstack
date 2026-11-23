@@ -1,0 +1,15 @@
+{% extends "email/base_email.html" %}
+{% block subject %}{{ title }}{% endblock %}
+{% block preheader %}<div style="display:none; max-height:0; overflow:hidden; opacity:0; color:#f4f5f7;">{{ message }}</div>{% endblock %}
+{% block content %}
+  <p style="margin:0 0 16px;">{% if event == "opened" %}The <strong>{{ review.period_label }}</strong> access review on <strong>{{ site_name }}</strong> is open. The roster of accounts holding {{ review.get_scope_display|lower }} was frozen when it opened; it needs a named attester to decide every row and sign.{% elif event == "overdue" %}The <strong>{{ review.period_label }}</strong> access review on <strong>{{ site_name }}</strong> was due <strong>{{ due|date:"M j, Y" }}</strong> and is still unsigned. Until it is signed, nothing shows that a person has looked at who holds access this period.{% else %}The <strong>{{ review.period_label }}</strong> access review on <strong>{{ site_name }}</strong> is still open.{% endif %}</p>
+  <p style="margin:0 0 6px; font-size:16px; font-weight:600;">{{ counts.pending }} of {{ counts.items }} account{{ counts.items|pluralize }} pending · due {{ due|date:"D, M j, Y" }}</p>
+  {% if no_attesters %}<p style="margin:0 0 16px; color:#b45309;">No account can sign this review: signing needs an active staff member in the <em>Access attester</em> group who is not a superuser. Add one on the Access → Groups page.</p>{% endif %}
+  <table role="presentation" cellpadding="0" cellspacing="0" style="margin:24px 0;">
+    <tr><td style="border-radius:6px; background:{{ brand_accent }};">
+      <a href="{{ site_url }}{{ console_path }}" style="display:inline-block; padding:12px 28px; color:#ffffff; font-size:15px; font-weight:600; text-decoration:none; border-radius:6px;">Open the review</a>
+    </td></tr>
+  </table>
+  <p style="margin:0; color:#5a6169; font-size:13px;">Deciding and signing happen on that page only; there is no shell, API or agent path. Signing locks the review as evidence and stores the period's evidence pack.</p>
+{% endblock %}
+{% block footer %}You're receiving this because you can sign access reviews on {{ site_name }}{% if event == "overdue" %}, or are on its escalation list{% endif %}.{% endblock %}
