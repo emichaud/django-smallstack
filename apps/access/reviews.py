@@ -336,6 +336,9 @@ def decide(
             # Never filed, or the approval was canceled, rejected or expired:
             # deciding *remove* again files a new one (T3-3).
             follow_up = _file_removal(item, actor=actor, note=note, source=source)
+        elif decision != AccessReviewItem.Decision.REMOVE and _withdraw_removal(follow_up, actor=actor):
+            # The row no longer says remove: its pending approval goes (G2-2).
+            follow_up = ""
         item.decision = decision
         item.decided_by = actor
         item.decided_by_label = actor.get_username()
@@ -364,6 +367,25 @@ def _removal_alive(follow_up: str) -> bool:
     if req is None:
         return False
     return req.effective_status in (ApprovalRequest.Status.PENDING, ApprovalRequest.Status.APPROVED)
+
+
+def _withdraw_removal(follow_up: str, *, actor: Any) -> bool:
+    """Cancel the pending removal ``follow_up`` names, on behalf of the review
+    (the decision changed). Returns whether one was withdrawn. The approval's
+    own check also refuses it once the row no longer says *remove*, so a
+    withdrawal that can't happen here still can't deactivate anyone."""
+    from apps.approvals import services as approvals
+    from apps.approvals.models import ApprovalRequest
+
+    pk = approval_pk(follow_up)
+    req = ApprovalRequest.objects.filter(pk=pk).first() if pk is not None else None
+    if req is None or req.effective_status != ApprovalRequest.Status.PENDING:
+        return False
+    try:
+        approvals.cancel(req, actor=req.requested_by or actor, note="The review's decision changed.", source="review")
+    except approvals.ApprovalError:
+        return False
+    return True
 
 
 def _file_removal(item: AccessReviewItem, *, actor: Any, note: str, source: str) -> str:

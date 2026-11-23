@@ -52,7 +52,10 @@ if result.unknown:
 
 `sign_in` is `resolve_identity` (find or create the account by `(provider,
 subject)`) followed by `sync_roles` (set the directory-managed groups to
-exactly the roles sent). Call it on every authenticated request if your proxy
+exactly the roles sent), and then stamps the account's `last_login` (at most
+every 15 minutes), so a directory user isn't "never signed in" and the
+dormancy findings see the sign-in. A backend that calls the two halves itself
+gets no stamp; prefer `sign_in`. Call it on every authenticated request if your proxy
 re-sends claims, or once per session on the sign-in callback; it's idempotent
 and cheap (one query per directory-managed group plus the user's groups).
 
@@ -73,8 +76,6 @@ What `sync_roles` guarantees:
   if a backend does it anyway.
 - Every change is recorded from `directory:<provider>` through the same
   signals as any other access change.
-- The account's `last_login` is stamped (at most every 15 minutes), so a
-  directory user isn't "never signed in" and the dormancy findings see it.
 
 ### Declaring the groups
 

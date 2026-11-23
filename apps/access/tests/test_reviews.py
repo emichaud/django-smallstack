@@ -458,3 +458,42 @@ def test_the_review_keeps_the_request_id_of_its_opening_and_signing(client, atte
     review.refresh_from_db()
     assert review.is_signed and review.request_id == "req_sign_t34"
     assert reviews.review_payload(review)["request_id"] == "req_sign_t34"
+
+
+def test_the_target_cannot_reject_its_own_removal_either(review, attester, manager, root):
+    """G2-1: an account holding change_user can decide others' removals, but
+    not its own: rejecting it would make the removal go away as canceling
+    would (T3-2)."""
+    from apps.approvals.permissions import can_decide
+
+    item = reviews.decide(item_for(review, manager), "remove", actor=attester)
+    req = ApprovalRequest.objects.get(pk=int(item.follow_up[9:]))
+    assert manager.has_perm("accounts.change_user") and not can_decide(manager, req)
+    with pytest.raises(approvals.NotEligible):
+        approvals.reject(req, actor=manager)
+    req.refresh_from_db()
+    assert req.status == "pending"
+    assert can_decide(root, req)
+
+
+def test_changing_remove_to_confirmed_withdraws_the_removal(review, attester, attester2, manager, root):
+    """G2-2: the pending approval goes when the row stops saying remove, and an
+    approval that outlived its decision can't deactivate anyone."""
+    item = reviews.decide(item_for(review, manager), "remove", actor=attester)
+    req = ApprovalRequest.objects.get(pk=int(item.follow_up[9:]))
+    item = reviews.decide(item, "confirmed", actor=attester)
+    req.refresh_from_db()
+    assert req.status == "canceled" and item.follow_up == ""
+    # Filed by one attester, changed by another who couldn't cancel it: the
+    # approve-time check still refuses.
+    item = reviews.decide(item, "remove", actor=attester)
+    second = ApprovalRequest.objects.get(pk=int(item.follow_up[9:]))
+    second.requested_by.is_active = False
+    second.requested_by.save()
+    reviews.decide(item, "confirmed", actor=attester2)
+    second.refresh_from_db()
+    assert second.status == "pending"
+    with pytest.raises(approvals.ApprovalRefused, match="now records confirmed"):
+        approvals.approve(second, actor=root)
+    manager.refresh_from_db()
+    assert manager.is_active

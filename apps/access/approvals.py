@@ -25,10 +25,17 @@ from .services import CHANGE_MEMBERSHIP, membership_refusal, set_membership
 KIND = "access.membership"
 
 
+def _is_target(user: Any, req: Any) -> bool:
+    """Whether ``user`` is the account the request acts on."""
+    target = req.target
+    return isinstance(target, get_user_model()) and target.pk == user.pk
+
+
 def _can_decide(user: Any, req: Any) -> bool:
     """Narrows the default (staff) rule: the approver must be able to make the
-    change by hand."""
-    return bool(user.has_perm(CHANGE_MEMBERSHIP))
+    change by hand, and is never the account the request acts on (G2-1: a
+    User manager under review can't reject its own removal)."""
+    return bool(user.has_perm(CHANGE_MEMBERSHIP)) and not _is_target(user, req)
 
 
 def _can_cancel(user: Any, req: Any) -> bool:
@@ -38,9 +45,6 @@ def _can_cancel(user: Any, req: Any) -> bool:
     removal go away (T3-2)."""
     if req.requested_by_id == user.pk:
         return True
-    target = req.target
-    if isinstance(target, get_user_model()) and target.pk == user.pk:
-        return False
     return _can_decide(user, req)
 
 
@@ -158,6 +162,13 @@ def _review_remove_account(req: Any) -> Any:
     return target if isinstance(target, get_user_model()) else None
 
 
+def _review_item_for(req: Any) -> Any:
+    """The review row that filed ``req`` (its ``follow_up`` names it), or None."""
+    from .models import AccessReviewItem
+
+    return AccessReviewItem.objects.filter(follow_up=f"approval:{req.pk}").first()
+
+
 def _check_review_remove(actor: Any, req: Any) -> str | None:
     from .services import account_flags_refusal
 
@@ -166,6 +177,13 @@ def _check_review_remove(actor: Any, req: Any) -> str | None:
         return f"The account {req.target_repr!r} no longer exists."
     if not user.is_active:
         return f"{user.get_username()} is already deactivated; approving would change nothing. Reject the request."
+    item = _review_item_for(req)
+    if item is not None and item.decision != item.Decision.REMOVE:
+        # G2-2: the attester changed the row away from *remove* after filing.
+        return (
+            f"Access review #{item.review_id} now records {item.get_decision_display().lower()} for "
+            f"{user.get_username()}, not remove. Reject the request."
+        )
     return account_flags_refusal(actor, user, is_active=False, is_staff=user.is_staff) or None
 
 
