@@ -72,10 +72,9 @@ A group can also be **directory-managed**: its members come from your single
 sign-on directory (Entra, Okta, Google, an auth proxy) at each sign-in. Its
 page says *Membership comes from the directory* and has no add or remove
 controls. These pages, Django admin's user form, the API, the `access` command
-and an approval all refuse a change with the reason; anything else (code in a
-shell, deleting the group in Django admin) is recorded and shown as the
-*directory-managed group changed locally* finding. Change it in the
-directory.
+and an approval all refuse a change with the reason; a change made by code in a
+shell is recorded and shown as the *directory-managed group changed locally*
+finding. Change it in the directory.
 
 **Who can read these pages:** a staff account holding `accounts.view_user`,
 the permission Django admin and Explorer ask to list accounts. The shipped
