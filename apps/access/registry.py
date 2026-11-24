@@ -193,6 +193,7 @@ def sync_groups(*, source: str = "migrate") -> dict[str, Any]:
                 group.permissions.add(*to_add)
             if to_remove:
                 group.permissions.remove(*to_remove)
+            managed.source = ManagedGroup.Source.CODE  # a declaration wins over a page mapping
             managed.description = spec.description
             managed.app_label = spec.app_label
             managed.declared_permissions = sorted(declared_now)

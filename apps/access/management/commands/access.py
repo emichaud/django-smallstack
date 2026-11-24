@@ -7,6 +7,7 @@
     access groups [--json]                groups, members, drift against the code
     access group new <name> | rename <group> <name> | rm <group>      [--user ACTOR] [--reason …]
     access group grant <group> <app.codename> | revoke <group> <app.codename>
+    access group role <group> <Role.Key> [--staff]   directory-managed ("" makes it local again)
                                           the groups themselves: what the group page does
     access perm rm <user> <app.codename> [--user ACTOR]
                                           a direct permission off an account (grant through a group)
@@ -92,12 +93,15 @@ class Command(BaseCommand):
             ("rm", "delete a group (its members keep their accounts)", ["group"]),
             ("grant", "give the group a permission (app_label.codename)", ["group", "perm"]),
             ("revoke", "take a permission from the group", ["group", "perm"]),
+            ("role", 'make the group directory-managed with this role ("" makes it local again)', ["group", "role"]),
         ):
             sub = group_subs.add_parser(verb, help=text)
             for arg in args:
                 sub.add_argument(arg)
             sub.add_argument("--user", dest="actor", help="the person this change is attributed to")
             sub.add_argument("--reason", default="", help="kept in the record")
+            if verb == "role":
+                sub.add_argument("--staff", action="store_true", help="the directory makes members staff")
         permission = subs.add_parser("perm", help="a direct permission on an account")
         perm_subs = permission.add_subparsers(dest="perm_verb", required=True)
         perm_rm = perm_subs.add_parser("rm", help="take a direct permission off an account (grant through a group)")
@@ -238,6 +242,22 @@ class Command(BaseCommand):
                     self.stdout.write(self.style.SUCCESS(f"{before} renamed to {group.name}"))
                 else:
                     self.stdout.write(f"{group.name} already has that name; nothing changed")
+            elif verb == "role":
+                role = opts["role"].strip()
+                n = group.user_set.count()
+                if not services.set_directory_role(group, role, staff=opts["staff"], actor=actor, source=source):
+                    self.stdout.write(
+                        f"{group.name} already {'has role ' + role if role else 'is local'}; nothing changed"
+                    )
+                elif role:
+                    self.stdout.write(
+                        self.style.SUCCESS(
+                            f"{group.name} is directory-managed with role {role}; its {n} member(s) keep it until "
+                            "their next directory sign-in"
+                        )
+                    )
+                else:
+                    self.stdout.write(self.style.SUCCESS(f"{group.name} is local again; its {n} member(s) stay"))
             elif verb == "rm":
                 name, members = group.name, group.user_set.count()
                 services.delete_group(group, actor=actor, source=source)

@@ -147,7 +147,7 @@ with acting_as(None, "directory:entra"):
 | **Overview** | Counts, the least-privilege findings with drill-downs, recent changes, exports |
 | **Users** | Each account's role, groups, direct permissions, live tokens, last sign-in, joined. Filter pills with counts (Active / Staff / Deactivated / All), search, every column sortable (`?ordering=`, `-` reverses; never-signed-in last), rows per page — all links and GET, the state in the address, the card swapping over htmx |
 | **User** | Everything the account can do and **why** (`via group:X`, `via direct`, `via superuser`); a **Check a permission** box that answers as `has_perm` does, with the reason; groups with when and by whom; tokens; the account's events |
-| **Groups** / **Group** | Create a group; members (with who added them), permissions by app with add / remove (the card swaps in place over htmx), rename, delete, drift from the declaration, the group's events. Nothing here needs Django admin |
+| **Groups** / **Group** | Create a group (*New group* opens a dialog; a refusal shows in it, success lands on the group's page); members (with who added them) and permissions by app, each added and removed several at a time with a filterable picker (the cards swap in place over htmx); *Membership*: local or directory-managed (role key, *Make local*); rename, delete, drift from the declaration, the group's events. Nothing here needs Django admin |
 | **Changes** | Every event: search by account, group or permission; a pill per family (grants, removals, accounts, groups, tokens & sessions, reviews — `?kind=`, a single kind still works), every column sortable (`?ordering=`), rows per page, CSV export of what's filtered. The same `kind`/`ordering` values work on `GET /smallstack/api/access/events/` |
 | **Reviews** / **Review** | Periodic access reviews: open one, decide each account, sign; CSV / JSON / print view (see *Access reviews* below) |
 | **Evidence** | The one-touch audit pack for a period: nine sheets previewed one at a time, CSV / ZIP / JSON / print (see *The evidence pack* below) |
@@ -189,7 +189,10 @@ picker only offers what the viewer holds; a superuser holds all). A group
 **declared in code** can't be renamed or deleted on the page (the sync would
 make it again; change `groups.py`), though its permissions can, shown as
 drift. A **directory-managed** group changes nowhere but its declaration and
-the directory. Every write runs inside `acting_as`, so the signals record it
+the directory. A local group can be **marked directory-managed** on its
+page, over REST or with `access group role` (`services.set_directory_role`; see
+`directory-sso.md`); its members then come from the directory at sign-in.
+Every write runs inside `acting_as`, so the signals record it
 (`group_created`, `group_renamed`, `group_permission_added` / `_removed`,
 `group_deleted`). **Direct permissions** on an account can be taken off on
 the user page (`services.remove_direct_permission`: `accounts.change_user`,
@@ -199,7 +202,7 @@ exist over REST (`POST /smallstack/api/access/groups/`, `PATCH` / `DELETE
 …/groups/{group}/`, `PUT` / `DELETE …/groups/{group}/permissions/{perm}/`,
 `DELETE …/users/{user}/permissions/{perm}/`; an auth-level token, 403 for
 who's asking and 400 for what they sent) and from the shell (`access group
-new|rename|rm|grant|revoke`, `access perm rm`; `--user` applies the actor's
+new|rename|rm|grant|revoke|role`, `access perm rm`; `--user` applies the actor's
 rules, without it a local command keeps only the group's own).
 
 **Which role cuts off an account, and where.** The Access user page's *Revoke

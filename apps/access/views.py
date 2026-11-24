@@ -191,17 +191,27 @@ class GroupsView(AccessPageView):
 @require_POST
 @staff_required
 def group_create(request: HttpRequest) -> HttpResponse:
+    """The New group modal. Over htmx a refusal re-renders the modal's form
+    with the reason and the name kept; success redirects (``HX-Redirect``) to
+    the new group's page. A plain post redirects either way."""
     if not can_read_access(request.user):
         raise PermissionDenied(READ_ACCESS_REFUSAL)
+    name = request.POST.get("name", "")
+    htmx = getattr(request, "htmx", False)
     try:
-        group = services.create_group(
-            request.POST.get("name", ""), actor=request.user, source=f"web:{redact_path(request.path)}"
-        )
+        group = services.create_group(name, actor=request.user, source=f"web:{redact_path(request.path)}")
     except services.GroupRefused as exc:
+        if htmx:
+            return render(request, "access/partials/group_create_form.html", {"name": name.strip(), "error": str(exc)})
         messages.error(request, str(exc))
         return redirect("access:groups")
     messages.success(request, f"Group {group.name} created. Give it permissions, then members.")
-    return redirect("access:group_detail", pk=group.pk)
+    url = reverse("access:group_detail", kwargs={"pk": group.pk})
+    if htmx:
+        response = HttpResponse(status=204)
+        response["HX-Redirect"] = url
+        return response
+    return redirect(url)
 
 
 def _permissions_context(request: HttpRequest, group: Group) -> dict[str, Any]:
@@ -222,7 +232,8 @@ def _permissions_context(request: HttpRequest, group: Group) -> dict[str, Any]:
                 "perm": name,
                 "label": perm.name,
                 "declared": name in declared,
-                "added": bool(managed) and name not in declared,
+                # Only a declared group has a declaration to differ from.
+                "added": bool(managed and managed.from_code) and name not in declared,
             }
         )
     can_manage = not services.group_refusal(request.user, group, action="permissions")
@@ -247,6 +258,35 @@ def _permissions_context(request: HttpRequest, group: Group) -> dict[str, Any]:
     }
 
 
+def _members_context(request: HttpRequest, group: Group) -> dict[str, Any]:
+    """The Members card: who is in the group (with when and by whom), whether
+    the page may change that, and who may be added. Shared by the page and the
+    htmx swap after a change."""
+    members = list(group.user_set.order_by("username"))
+    source_by_user = {}
+    for event in AccessEvent.objects.filter(
+        group=group, kind=AccessEvent.Kind.GROUP_ADDED, subject__in=members
+    ).order_by("at"):
+        source_by_user[event.subject_id] = event  # the latest wins
+    directory_refusal = services.directory_refusal(group)
+    managed = services.managed_for(group)
+    candidates = User.objects.filter(is_active=True).exclude(pk__in=[u.pk for u in members]).order_by("username")
+    return {
+        "group": group,
+        "managed": managed,
+        # Membership set by the directory: the controls go, the card says where.
+        "directory_refusal": directory_refusal,
+        "can_change": can_change(request.user) and not directory_refusal,
+        "members": [{"user": u, "since": source_by_user.get(u.pk)} for u in members],
+        "candidates": candidates[:PICKER_LIMIT],
+        "candidates_more": max(0, candidates.count() - PICKER_LIMIT),
+    }
+
+
+#: How many choices a picker lists; its filter narrows within them.
+PICKER_LIMIT = 1000
+
+
 class GroupDetailView(AccessPageView):
     template_name = "access/group_detail.html"
 
@@ -254,78 +294,157 @@ class GroupDetailView(AccessPageView):
         context = super().get_context_data(**kwargs)
         group = get_object_or_404(Group, pk=self.kwargs["pk"])
         context.update(_permissions_context(self.request, group))
+        context.update(_members_context(self.request, group))
         managed = context["managed"]
-        members = list(group.user_set.order_by("username"))
-        source_by_user = {}
-        for event in AccessEvent.objects.filter(
-            group=group, kind=AccessEvent.Kind.GROUP_ADDED, subject__in=members
-        ).order_by("at"):
-            source_by_user[event.subject_id] = event  # the latest wins
-        directory_refusal = services.directory_refusal(group)
+        user = self.request.user
         context.update(
             {
                 "crumbs": [("Groups", reverse("access:groups")), (group.name, "")],
                 "drift": managed.drift() if managed else None,
-                # Membership set by the directory: the forms go, the banner says where.
-                "directory_refusal": directory_refusal,
-                "can_change": context.get("can_change") and not directory_refusal,
-                "can_rename": not services.group_refusal(self.request.user, group, action="rename"),
-                "can_delete": not services.group_refusal(self.request.user, group, action="delete"),
-                "members": [{"user": u, "since": source_by_user.get(u.pk)} for u in members],
-                "candidates": User.objects.filter(is_active=True)
-                .exclude(pk__in=[u.pk for u in members])
-                .order_by("username")[:500],
+                "can_rename": not services.group_refusal(user, group, action="rename"),
+                "can_delete": not services.group_refusal(user, group, action="delete"),
+                "can_set_directory": not services.directory_role_refusal(user, group),
+                "suggested_role": services.suggested_role(group.name),
                 "events": AccessEvent.objects.filter(group=group).select_related("actor", "subject")[:50],
             }
         )
         return context
 
 
+def _posted_pks(request: HttpRequest, name: str) -> list[int]:
+    """Every primary key posted under ``name`` (a picker sends several); 404
+    for anything that isn't one (``abc``, ``²``) rather than a 500 or a
+    silent skip."""
+    values = [str(v) for v in request.POST.getlist(name)]
+    if any(not (v.isascii() and v.isdigit()) for v in values):
+        raise Http404(f"No such {name}.")
+    return [int(v) for v in values]
+
+
+def _report(
+    request: HttpRequest, done: list[str], verb: str, where: str, unchanged: list[str], refused: list[str]
+) -> None:
+    """One message per outcome of a bulk change, not one per row."""
+    if done:
+        shown = ", ".join(done[:5]) + (f" and {len(done) - 5} more" if len(done) > 5 else "")
+        messages.success(request, f"{shown} {verb} {where}.")
+    if unchanged:
+        messages.info(request, f"Nothing to do for {', '.join(unchanged[:5])}{' …' if len(unchanged) > 5 else ''}.")
+    for reason in dict.fromkeys(refused):  # each distinct refusal once
+        messages.error(request, reason)
+
+
 @require_POST
 @staff_required
 def group_members(request: HttpRequest, pk: int) -> HttpResponse:
-    """Add or remove one member. The m2m signal records the event."""
+    """Add or remove members (one, or several from the picker). The m2m signal
+    records each change. An htmx request gets the Members card back."""
     if not can_change(request.user):
         raise PermissionDenied("You need the change_user permission to change group membership.")
     group = get_object_or_404(Group, pk=pk)
-    user = get_object_or_404(User, pk=_posted_pk(request, "user"))
-    # Where to go afterwards is settled before anything changes: only a
-    # same-site path, so the form can't be turned into an open redirect.
+    action = request.POST.get("action")
+    if action not in ("add", "remove"):
+        return HttpResponse("Unknown action.", status=400)
+    users = list(User.objects.filter(pk__in=_posted_pks(request, "user")).order_by("username"))
+    if not users:
+        messages.info(request, "Choose at least one account.")
+    done: list[str] = []
+    unchanged: list[str] = []
+    refused: list[str] = []
+    for user in users:
+        try:
+            changed = services.set_membership(
+                user, group, action == "add", actor=request.user, source=f"web:{redact_path(request.path)}"
+            )
+        except services.MembershipRefused as exc:
+            refused.append(str(exc))
+            continue
+        (done if changed else unchanged).append(user.get_username())
+    _report(request, done, "added to" if action == "add" else "removed from", group.name, unchanged, refused)
+    if getattr(request, "htmx", False):
+        return render(request, "access/partials/group_members.html", _members_context(request, group))
+    # A form elsewhere may say where to go back to: only a same-site path, so
+    # the form can't be turned into an open redirect (A7).
     next_url = request.POST.get("next") or ""
     if not url_has_allowed_host_and_scheme(
         next_url, allowed_hosts={request.get_host()}, require_https=request.is_secure()
     ):
         next_url = reverse("access:group_detail", kwargs={"pk": pk})
-    if not _apply_membership(request, user, group):
-        return HttpResponse("Unknown action.", status=400)
     return redirect(next_url)
 
 
 @require_POST
 @staff_required
 def group_permissions(request: HttpRequest, pk: int) -> HttpResponse:
-    """Grant or take one permission. An htmx request gets the Permissions
-    card back (with the messages); a plain post goes back to the page."""
+    """Grant or take permissions (one, or several from the picker). An htmx
+    request gets the Permissions card back (with the messages); a plain post
+    goes back to the page."""
     if not can_read_access(request.user):
         raise PermissionDenied(READ_ACCESS_REFUSAL)
     group = get_object_or_404(Group, pk=pk)
     action = request.POST.get("action")
-    perm = request.POST.get("perm", "").strip()
     if action not in ("add", "remove"):
         return HttpResponse("Unknown action.", status=400)
+    perms = [p.strip() for p in request.POST.getlist("perm") if p.strip()]
+    if not perms:
+        messages.info(request, "Choose at least one permission.")
+    done: list[str] = []
+    unchanged: list[str] = []
+    refused: list[str] = []
+    for perm in perms:
+        try:
+            changed = services.set_group_permission(
+                group, perm, action == "add", actor=request.user, source=f"web:{redact_path(request.path)}"
+            )
+        except services.GroupRefused as exc:
+            refused.append(str(exc))
+            continue
+        (done if changed else unchanged).append(perm)
+    _report(request, done, "added to" if action == "add" else "removed from", group.name, unchanged, refused)
+    if getattr(request, "htmx", False):
+        return render(request, "access/partials/group_permissions.html", _permissions_context(request, group))
+    return redirect("access:group_detail", pk=pk)
+
+
+@require_POST
+@staff_required
+def group_directory(request: HttpRequest, pk: int) -> HttpResponse:
+    """Mark the group directory-managed (``role``, ``staff``) or unmark it
+    (``action=unmark``): the page's equivalent of ``directory_role=``."""
+    if not can_read_access(request.user):
+        raise PermissionDenied(READ_ACCESS_REFUSAL)
+    group = get_object_or_404(Group, pk=pk)
+    unmark = request.POST.get("action") == "unmark"
+    role = "" if unmark else request.POST.get("role", "").strip()
+    if not unmark and not role:
+        messages.error(request, "Give the role key the directory sends (for example Blog.Editors).")
+        return redirect("access:group_detail", pk=pk)
     try:
-        changed = services.set_group_permission(
-            group, perm, action == "add", actor=request.user, source=f"web:{redact_path(request.path)}"
+        changed = services.set_directory_role(
+            group,
+            role,
+            staff=request.POST.get("staff") == "on",
+            actor=request.user,
+            source=f"web:{redact_path(request.path)}",
         )
     except services.GroupRefused as exc:
         messages.error(request, str(exc))
+        return redirect("access:group_detail", pk=pk)
+    n = group.user_set.count()
+    if not changed:
+        messages.info(request, "Nothing changed.")
+    elif unmark:
+        messages.success(
+            request,
+            f"{group.name} is local again: its {n} member{'s' if n != 1 else ''} stay, "
+            "and members are added and removed here.",
+        )
     else:
-        if changed:
-            messages.success(request, f"{perm} {'added to' if action == 'add' else 'removed from'} {group.name}.")
-        else:
-            messages.info(request, f"{group.name} already {'had' if action == 'add' else 'lacked'} {perm}.")
-    if getattr(request, "htmx", False):
-        return render(request, "access/partials/group_permissions.html", _permissions_context(request, group))
+        messages.success(
+            request,
+            f"{group.name} is directory-managed with role {role}. Its {n} current member{'s' if n != 1 else ''} "
+            "keep it until their next directory sign-in; from then on the directory decides.",
+        )
     return redirect("access:group_detail", pk=pk)
 
 
@@ -362,29 +481,6 @@ def _posted_pk(request: HttpRequest, name: str) -> int:
     if not (value.isascii() and value.isdigit()):
         raise Http404(f"No such {name}.")
     return int(value)
-
-
-def _apply_membership(request: HttpRequest, user: Any, group: Group) -> bool:
-    """The add/remove form on either page, through the one membership service.
-    Returns False for an unknown action."""
-    action = request.POST.get("action")
-    if action not in ("add", "remove"):
-        return False
-    try:
-        changed = services.set_membership(
-            user, group, action == "add", actor=request.user, source=f"web:{redact_path(request.path)}"
-        )
-    except services.MembershipRefused as exc:
-        messages.error(request, str(exc))
-        return True
-    name = user.get_username()
-    if changed:
-        messages.success(request, f"{name} {'added to' if action == 'add' else 'removed from'} {group.name}.")
-    else:
-        messages.info(
-            request, f"{name} was already {'in' if action == 'add' else 'out of'} {group.name}; nothing changed."
-        )
-    return True
 
 
 # --- Users --------------------------------------------------------------------
@@ -546,12 +642,30 @@ def user_permissions(request: HttpRequest, pk: int) -> HttpResponse:
 @require_POST
 @staff_required
 def user_groups(request: HttpRequest, pk: int) -> HttpResponse:
+    """Add the account to groups (several from the picker) or remove it from one."""
     if not can_change(request.user):
         raise PermissionDenied("You need the change_user permission to change group membership.")
     user = get_object_or_404(User, pk=pk)
-    group = get_object_or_404(Group, pk=_posted_pk(request, "group"))
-    if not _apply_membership(request, user, group):
+    action = request.POST.get("action")
+    if action not in ("add", "remove"):
         return HttpResponse("Unknown action.", status=400)
+    groups = list(Group.objects.filter(pk__in=_posted_pks(request, "group")).order_by("name"))
+    if not groups:
+        messages.info(request, "Choose at least one group.")
+    done: list[str] = []
+    unchanged: list[str] = []
+    refused: list[str] = []
+    for group in groups:
+        try:
+            changed = services.set_membership(
+                user, group, action == "add", actor=request.user, source=f"web:{redact_path(request.path)}"
+            )
+        except services.MembershipRefused as exc:
+            refused.append(str(exc))
+            continue
+        (done if changed else unchanged).append(group.name)
+    where = user.get_username()
+    _report(request, done, "now include" if action == "add" else "no longer include", where, unchanged, refused)
     return redirect("access:user_detail", pk=pk)
 
 

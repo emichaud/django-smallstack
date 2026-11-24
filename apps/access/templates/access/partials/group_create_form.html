@@ -1,0 +1,18 @@
+{% comment %}The New group modal's form. Posted over htmx: a refusal comes back as this
+form again, with the reason and the name kept; success answers with HX-Redirect to the
+new group's page. Without JS the form posts and redirects as any other.{% endcomment %}
+<form id="new-group-form" method="post" action="{% url 'access:group_create' %}"
+      hx-post="{% url 'access:group_create' %}" hx-target="#new-group-form" hx-swap="outerHTML">
+    {% csrf_token %}
+    <div class="crud-modal-body access-dialog-body">
+        <label for="new-group-name" class="access-dialog-label">Name</label>
+        <input id="new-group-name" name="name" value="{{ name }}" class="vTextField" required maxlength="150"
+               autocomplete="off" autofocus placeholder="e.g. Blog editors"{% if error %} aria-invalid="true" aria-describedby="new-group-error"{% endif %}>
+        {% if error %}<p id="new-group-error" class="access-dialog-error" role="alert">{{ error }}</p>{% endif %}
+        <p class="access-note">The name people will see, such as the job it's for. On the next page you give it permissions and members, and can make its members come from your directory.</p>
+    </div>
+    <div class="access-dialog-footer">
+        <button type="button" class="btn-outline btn-sm" data-dialog-close>Cancel</button>
+        <button type="submit" class="btn-primary btn-sm">Create group</button>
+    </div>
+</form>

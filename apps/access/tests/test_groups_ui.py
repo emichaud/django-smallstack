@@ -112,16 +112,36 @@ def test_direct_permissions_come_off_but_never_on(group_manager, root, alice):
 def test_the_groups_page_creates_without_django_admin(client, group_manager, staffer):
     client.force_login(group_manager)
     page = client.get(reverse("access:groups")).content.decode()
-    assert "Create group" in page and "/admin/auth/group/" not in page and "Django admin" not in page
+    # A New group button opens a modal holding the form; no inline name field in the header.
+    assert 'data-dialog-open="new-group"' in page and '<dialog id="new-group"' in page
+    assert 'id="new-group-name"' in page and "Create group" in page and "/admin/auth/group/" not in page
     resp = client.post(reverse("access:group_create"), {"name": "Helpdesk"})
     group = Group.objects.get(name="Helpdesk")
     assert resp["Location"] == reverse("access:group_detail", kwargs={"pk": group.pk})
     assert events("group_created", group=group).get().source == "web:/smallstack/access/groups/new/"
-    # A reader sees no form and can't post one.
+    # A reader sees no button or modal and can't post one.
     client.force_login(staffer)
-    assert "Create group" not in client.get(reverse("access:groups")).content.decode()
+    page = client.get(reverse("access:groups")).content.decode()
+    assert "New group" not in page and "<dialog" not in page
     resp = client.post(reverse("access:group_create"), {"name": "Nope"}, follow=True)
     assert not Group.objects.filter(name="Nope").exists() and "lacks auth.add_group" in resp.content.decode()
+
+
+def test_the_new_group_modal_over_htmx(client, group_manager):
+    """A refusal comes back as the modal's form with the reason and the name
+    kept (no page swap, no message elsewhere); success redirects the browser."""
+    client.force_login(group_manager)
+    url = reverse("access:group_create")
+    Group.objects.create(name="Taken")
+    resp = client.post(url, {"name": "Taken"}, **HX)
+    html = resp.content.decode()
+    assert resp.status_code == 200 and html.lstrip().startswith("<form") and "<html" not in html
+    assert 'id="new-group-form"' in html and 'value="Taken"' in html and "already exists" in html
+    assert 'aria-invalid="true"' in html and Group.objects.filter(name="Taken").count() == 1
+    assert "needs a name" in client.post(url, {"name": "  "}, **HX).content.decode()
+    resp = client.post(url, {"name": "Helpdesk"}, **HX)
+    group = Group.objects.get(name="Helpdesk")
+    assert resp.status_code == 204 and resp["HX-Redirect"] == reverse("access:group_detail", kwargs={"pk": group.pk})
 
 
 def test_the_group_page_edits_permissions_over_htmx(client, group_manager, staffer):
@@ -129,7 +149,7 @@ def test_the_group_page_edits_permissions_over_htmx(client, group_manager, staff
     client.force_login(group_manager)
     url = reverse("access:group_permissions", kwargs={"pk": group.pk})
     page = client.get(reverse("access:group_detail", kwargs={"pk": group.pk})).content.decode()
-    assert "Django admin" not in page and 'id="group-permissions"' in page and "Add a permission" in page
+    assert "/admin/auth/group/" not in page and 'id="group-permissions"' in page and "Add permissions" in page
     # The picker offers what the viewer holds, not what they don't.
     assert 'value="accounts.view_user"' in page and 'value="accounts.delete_user"' not in page
     resp = client.post(url, {"action": "add", "perm": "accounts.view_user"}, **HX)
@@ -147,7 +167,7 @@ def test_the_group_page_edits_permissions_over_htmx(client, group_manager, staff
     # A reader sees the card without controls.
     client.force_login(staffer)
     page = client.get(reverse("access:group_detail", kwargs={"pk": group.pk})).content.decode()
-    assert 'id="group-permissions"' in page and "Add a permission" not in page
+    assert 'id="group-permissions"' in page and "Add permissions" not in page
 
 
 def test_the_group_page_renames_and_deletes(client, group_manager, alice):
@@ -174,7 +194,7 @@ def test_a_declared_group_page_offers_no_rename_or_delete(client, root, monkeypa
     client.force_login(root)
     page = client.get(reverse("access:group_detail", kwargs={"pk": group.pk})).content.decode()
     assert "Delete group" not in page and 'name="action" value="rename"' not in page
-    assert "Add a permission" in page  # its permissions can still change (as drift)
+    assert "Add permissions" in page  # its permissions can still change (as drift)
     resp = client.post(reverse("access:group_settings", kwargs={"pk": group.pk}), {"action": "delete"}, follow=True)
     assert Group.objects.filter(pk=group.pk).exists() and "declared in code" in resp.content.decode()
 
@@ -183,7 +203,7 @@ def test_the_user_page_removes_a_direct_permission(client, group_manager, alice,
     alice.user_permissions.add(perm("accounts.view_user"))
     client.force_login(group_manager)
     page = client.get(reverse("access:user_detail", kwargs={"pk": alice.pk})).content.decode()
-    assert "Remove direct" in page and "Django admin" not in page
+    assert "Remove direct" in page and "/admin/accounts/user/" not in page
     resp = client.post(
         reverse("access:user_permissions", kwargs={"pk": alice.pk}), {"action": "remove", "perm": "accounts.view_user"}
     )

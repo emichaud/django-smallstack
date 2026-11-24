@@ -96,6 +96,10 @@
 .scroll-frame--short { max-height: 13rem; }
 .scroll-frame--medium { max-height: 20rem; }
 .scroll-frame--tall { max-height: 28rem; }
+/* A card's list on the group page: ~9 rows, then it scrolls inside the card so the page keeps its shape. */
+.scroll-frame--card { max-height: 24rem; }
+.list-filter { padding: 8px 12px 0; margin-bottom: 8px; }
+[data-picker-item][hidden], [data-picker-group][hidden] { display: none !important; }
 .compact-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
 .compact-table td { padding: 5px 12px; vertical-align: middle; }
 .compact-table td.quiet { font-size: 0.78rem; }
@@ -140,6 +144,63 @@
 .list-filters + .list-export { margin-left: 0; }
 .events-table .quiet { color: var(--body-quiet-color); font-size: 0.8rem; }
 .event-grant { color: var(--warning-fg); font-weight: 600; }
+
+/* Modals (dialogs.js): a native <dialog> wearing the standard .crud-modal card. */
+.access-dialog { padding: 0; border: none; background: transparent; color: var(--body-fg); max-width: none; overflow: visible; margin: auto; }
+.access-dialog[open] { position: fixed; inset: 0; }  /* centred: a global margin reset drops the UA's auto margins */
+.access-dialog::backdrop { background: rgba(0, 0, 0, 0.5); backdrop-filter: blur(2px); }
+.access-dialog .crud-modal { width: min(440px, calc(100vw - 32px)); max-width: none; }
+.access-dialog .crud-modal-header h3 { margin: 0; font-size: 1rem; color: var(--body-fg); }
+.access-dialog-body { display: grid; gap: 6px; }
+.access-dialog-body .vTextField { width: 100%; }
+.access-dialog-label { font-size: 0.8rem; font-weight: 600; }
+.access-dialog-error { margin: 0; font-size: 0.84rem; color: var(--error-fg); }
+.access-dialog-body .access-note { margin-top: 4px; }
+.access-dialog-footer { display: flex; justify-content: flex-end; gap: 8px; padding: 12px 16px; border-top: 1px solid var(--card-border); }
+
+/* Multi-select pickers (pickers.js): a disclosure that opens a filter, a
+   checkbox list and one "Add N" button; the same rows carry checkboxes for
+   "Remove N". */
+.pick { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; font-size: 0.84rem; }
+.pick input[type=checkbox] { margin: 0; accent-color: var(--primary); }
+.pick-cell { width: 1%; padding-right: 0 !important; }
+.picker-panel { border-top: 1px solid var(--card-border); padding: 10px 12px; }
+.picker-panel > summary { list-style: none; display: inline-flex; cursor: pointer; }
+.picker-panel > summary::-webkit-details-marker { display: none; }
+.picker-panel[open] > summary { margin-bottom: 10px; }
+.picker-head { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+.picker-head input[type=search] { flex: 1 1 auto; min-width: 0; width: auto; font-size: 0.86rem; padding: 6px 8px; }
+.picker-list { border: 1px solid var(--card-border); border-radius: var(--radius-sm, 6px); }
+.picker-item { display: flex; padding: 6px 10px; border-bottom: 1px solid color-mix(in srgb, var(--card-border) 60%, transparent); }
+.picker-item:hover { background: color-mix(in srgb, var(--body-fg) 4%, transparent); }
+.picker-item .quiet { font-size: 0.78rem; }
+.picker-item code { font-size: 0.76rem; }
+.picker-list .perm-app h3 { position: static; }
+.picker-bar { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.picker-bar .quiet { font-size: 0.78rem; }
+.picker-note { padding: 8px 12px; margin: 0; }
+.perm-list--pick li[hidden] { display: none; }
+.perm-list--pick li { grid-template-columns: auto minmax(12rem, 1fr) minmax(0, 1.4fr); }
+.member-table td { padding: 7px 12px; vertical-align: top; }
+.member-email { font-size: 0.76rem; }
+.member-since { font-size: 0.78rem; }
+/* The group's settings: one labelled row each (membership, the group itself). */
+.group-settings .card-body { display: grid; gap: 12px; padding: 14px 20px; }
+.group-setting { display: grid; grid-template-columns: 7rem minmax(0, 1fr); gap: 6px 16px; align-items: start; }
+.group-setting + .group-setting { border-top: 1px solid var(--card-border); padding-top: 12px; }
+.group-setting-label { font-size: 0.8rem; font-weight: 600; color: var(--body-quiet-color); padding-top: 4px; }
+.group-setting-body { display: grid; gap: 8px; }
+.group-setting-row { display: flex; flex-wrap: wrap; gap: 8px; justify-content: space-between; align-items: center; }
+.group-setting-state { margin: 0; font-size: 0.88rem; }
+.group-setting-more > summary { list-style: none; display: inline-flex; cursor: pointer; }
+.group-setting-more > summary::-webkit-details-marker { display: none; }
+.group-setting-more[open] > summary { margin-bottom: 8px; }
+.group-setting-more .access-note { margin-top: 6px; }
+.role-input { width: 16rem; max-width: 100%; font-size: 0.86rem; padding: 6px 8px; }
+.group-setting form.member-row-actions { flex-wrap: nowrap; }
+.group-setting #group-name { width: 18rem; max-width: 100%; font-size: 0.86rem; padding: 6px 8px; }
+@media (max-width: 640px) { .group-setting form.member-row-actions { flex-wrap: wrap; } }
+@media (max-width: 640px) { .group-setting { grid-template-columns: minmax(0, 1fr); } }
 
 /* The user list: one toolbar (search + filter pills with counts), sortable
    headers, quiet secondary text, numbers right-aligned and tabular. */

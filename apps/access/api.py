@@ -14,7 +14,7 @@ checked and recorded the same way.
     GET    api/access/groups/                     groups, with drift against the code
     POST   api/access/groups/                     create one: {"name": ...}
     GET    api/access/groups/{group}/             one group: members, permissions
-    PATCH  api/access/groups/{group}/             rename: {"name": ...}
+    PATCH  api/access/groups/{group}/             rename {"name"}; directory-managed {"directory_role", "staff"}
     DELETE api/access/groups/{group}/             delete (members keep their accounts)
     PUT    api/access/groups/{group}/permissions/{perm}/  grant the permission (you must hold it)
     DELETE api/access/groups/{group}/permissions/{perm}/  take it away
@@ -223,17 +223,33 @@ def _group_read(request: HttpRequest, group: str) -> ApiResult:
 
 @api_view(methods=["PATCH", "DELETE"], require_staff=True, require_auth_token=True)
 def _group_write(request: HttpRequest, group: str) -> ApiResult:
-    """PATCH ``{"name": "..."}`` renames; DELETE deletes (members keep their accounts)."""
+    """PATCH renames (``{"name": ...}``) and/or sets who decides membership
+    (``{"directory_role": "Blog.Editors", "staff": false}``; ``""`` makes the
+    group local again); DELETE deletes (members keep their accounts)."""
     try:
         grp = services.resolve_group(group)
     except LookupError as exc:
         return api_error(str(exc), 404)
+    body = getattr(request, "json", None) or {}
+    if not isinstance(body, dict):
+        return api_error("The body is a JSON object.", 400)
     try:
         if request.method == "DELETE":
             name = grp.name
             services.delete_group(grp, actor=request.user, source="rest")
             return {"group": name, "deleted": True}
-        changed = services.rename_group(grp, _posted_name(request), actor=request.user, source="rest")
+        if not ({"name", "directory_role", "staff"} & set(body)):
+            return api_error("Send name, directory_role or staff.", 400)
+        changed = False
+        if "name" in body:
+            changed |= services.rename_group(grp, _posted_name(request), actor=request.user, source="rest")
+        if "directory_role" in body or "staff" in body:
+            managed = services.managed_for(grp)
+            role = body.get("directory_role", (managed.directory_role or "") if managed else "")
+            staff = body.get("staff", bool(managed and managed.grants_staff))
+            if not isinstance(role, str) or not isinstance(staff, bool):
+                return api_error("directory_role is a string and staff a boolean.", 400)
+            changed |= services.set_directory_role(grp, role, staff=staff, actor=request.user, source="rest")
     except services.GroupRefused as exc:
         return api_error(str(exc), exc.status)
     return {**services.group_payload(grp, members=False), "changed": changed}
@@ -564,10 +580,30 @@ register_api_path(
     "access-api-groups",
     subpath="{group}/",
     methods=["PATCH"],
-    summary="Rename the group (not one declared in code, nor a directory-managed one)",
+    summary=(
+        "Rename the group and/or set who decides its membership: directory_role makes it directory-managed "
+        '("" makes it local again), staff makes directory members staff. Not for a group declared in code.'
+    ),
     tags=_TAG,
     parameters=[_GROUP],
-    request_body=_NAME_BODY,
+    request_body={
+        "required": True,
+        "content": {
+            "application/json": {
+                "schema": {
+                    "type": "object",
+                    "properties": {
+                        "name": {"type": "string"},
+                        "directory_role": {
+                            "type": "string",
+                            "description": 'The value the directory sends; "" = local',
+                        },
+                        "staff": {"type": "boolean"},
+                    },
+                }
+            }
+        },
+    },
     responses={"200": _ok("The group, with changed"), "400": _ERR, "401": _ERR, "403": _WRITE_403, "404": _ERR},
 )
 register_api_path(

@@ -329,6 +329,12 @@ pages:
     icon: "shield"
     category: "Built-in Tools"
 
+  - slug: single-sign-on
+    title: "Single Sign-On"
+    description: "Groups whose members come from Entra, Okta, Google or an auth proxy: setting one up, Entra step by step, break-glass accounts, limits"
+    icon: "key"
+    category: "Auth & Users"
+
   - slug: dashboard-widgets
     title: "Dashboard Widgets"
     description: "Add cards to the /smallstack/ dashboard from your own apps"

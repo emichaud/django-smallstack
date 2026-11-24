@@ -591,7 +591,10 @@ def group_refusal(actor: Any, group: Group | None = None, *, action: str) -> str
     if group is None:
         return ""
     managed = managed_for(group)
-    if managed is not None and managed.directory_role:
+    # A page group's name and permissions are the page's to change, managed or
+    # not (only its members come from the directory); a declared one's come
+    # from groups.py.
+    if managed is not None and managed.directory_role and managed.from_code:
         from .directory import local_override_allowed
 
         if not local_override_allowed():
@@ -682,6 +685,85 @@ def delete_group(group: Group, *, actor: Any, source: str) -> None:
         raise GroupRefused(refusal)
     with acting_as(actor, source):
         group.delete()
+
+
+def suggested_role(name: str) -> str:
+    """A directory role key from a group's name: ``Blog editors`` →
+    ``Blog.Editors``. Role keys allow no spaces (an Entra app-role value)."""
+    import re
+
+    words = [w for w in re.split(r"[^A-Za-z0-9]+", name or "") if w]
+    return ".".join(w[:1].upper() + w[1:] for w in words)[:100]
+
+
+def directory_role_refusal(actor: Any, group: Group) -> str:
+    """Why ``actor`` may not mark ``group`` directory-managed (or unmark it)
+    here, or "". The page's equivalent of ``register_group(...,
+    directory_role=)``: needs ``auth.change_group``; a group declared in code
+    takes its role from the declaration (``directory_role=`` or
+    ``map_directory_role``) instead."""
+    refusal = group_refusal(actor, None, action="permissions") if actor is not None else ""
+    if refusal:
+        return refusal
+    if declared_in_code(group):
+        return (
+            f"{group.name!r} is declared in code: set its directory role there "
+            "(register_group(..., directory_role=) or map_directory_role)."
+        )
+    return ""
+
+
+def set_directory_role(group: Group, role: str, *, staff: bool = False, actor: Any, source: str) -> bool:
+    """Mark a group made on the Access pages directory-managed with ``role`` (an
+    Entra app-role value, an Okta group name), or unmark it with ``role=""``.
+
+    Managed: from each member's next directory sign-in, membership is exactly
+    what the directory sends, and local adds and removals are refused, as for a
+    group declared with ``directory_role=``. Its name and permissions stay the
+    page's. Current members keep the group until their next directory sign-in
+    (someone who never signs in through the directory keeps it; the group page
+    lists them for the directory administrator). ``staff`` makes the sync set
+    ``is_staff`` on the members it adds.
+
+    Unmarked: the group is local again with the members it has. Both are
+    recorded as ``directory_role_set``. Returns whether anything changed."""
+    from .directory import directory_groups
+    from .record import record
+    from .registry import declared_groups, validate_directory_role
+
+    refusal = directory_role_refusal(actor, group)
+    if refusal:
+        raise GroupRefused(refusal)
+    try:
+        role = validate_directory_role(role)
+    except ValueError as exc:
+        raise GroupRefused(str(exc), 400) from exc
+    staff = bool(role) and staff
+    if role:
+        taken = directory_groups().get(role)
+        if taken is not None and taken.group_id != group.pk:
+            raise GroupRefused(f"Role {role!r} already belongs to group {taken.group.name!r}.", 400)
+        if any(spec.directory_role == role for spec in declared_groups()):
+            raise GroupRefused(f"Role {role!r} is declared in code for another group.", 400)
+    managed = managed_for(group)
+    before = (managed.directory_role or "", managed.grants_staff) if managed else ("", False)
+    if before == (role, staff):
+        return False
+    with acting_as(actor, source):
+        if role:
+            ManagedGroup.objects.update_or_create(
+                group=group,
+                defaults={"source": ManagedGroup.Source.PAGE, "directory_role": role, "grants_staff": staff},
+            )
+        elif managed is not None:
+            managed.delete()  # a page row exists only for the role; the group stays, local
+        record(
+            AccessEvent.Kind.DIRECTORY_ROLE_SET,
+            group=group,
+            detail={"from": before[0], "to": role, "staff": staff, "members": group.user_set.count()},
+        )
+    group._state.fields_cache.pop("managed", None)  # the reverse accessor's cached row is stale now
+    return True
 
 
 def direct_permission_refusal(actor: Any, user: Any) -> str:
@@ -800,7 +882,8 @@ def group_payload(group: Group, *, members: bool = True) -> dict[str, Any]:
     managed = managed_for(group)
     data: dict[str, Any] = {
         "name": group.name,
-        "declared_in_code": managed is not None,
+        "declared_in_code": managed is not None and managed.from_code,
+        "directory_managed": bool(managed and managed.directory_role),
         "description": managed.description if managed else "",
         "app": managed.app_label if managed else "",
         "directory_role": (managed.directory_role or "") if managed else "",

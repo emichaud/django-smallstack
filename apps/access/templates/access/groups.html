@@ -1,24 +1,54 @@
 {% extends "smallstack/base.html" %}
-{% load theme_tags %}
+{% load static theme_tags %}
 
-{% block title %}Groups · Access{% endblock %}
-{% block breadcrumbs %}{% endblock %}
+{% block title %}Groups · Access{% if can_add %}
+<dialog id="new-group" class="access-dialog" aria-labelledby="new-group-title">
+    <div class="crud-modal">
+        <div class="crud-modal-header">
+            <h3 id="new-group-title">New group</h3>
+            <button type="button" class="crud-modal-close" data-dialog-close aria-label="Close">&times;</button>
+        </div>
+        {% include "access/partials/group_create_form.html" with name="" error="" %}
+    </div>
+</dialog>
+<script src="{% static 'access/js/dialogs.js' %}" defer></script>
+{% endif %}
+{% endblock %}
+{% block breadcrumbs %}{% if can_add %}
+<dialog id="new-group" class="access-dialog" aria-labelledby="new-group-title">
+    <div class="crud-modal">
+        <div class="crud-modal-header">
+            <h3 id="new-group-title">New group</h3>
+            <button type="button" class="crud-modal-close" data-dialog-close aria-label="Close">&times;</button>
+        </div>
+        {% include "access/partials/group_create_form.html" with name="" error="" %}
+    </div>
+</dialog>
+<script src="{% static 'access/js/dialogs.js' %}" defer></script>
+{% endif %}
+{% endblock %}
 
 {% block page_header %}
 {% include "access/_header.html" with title="Groups" subtitle="A group is a job: the permissions it needs and the people who do it." crumbs=crumbs section="groups" %}
+{% if can_add %}
+<dialog id="new-group" class="access-dialog" aria-labelledby="new-group-title">
+    <div class="crud-modal">
+        <div class="crud-modal-header">
+            <h3 id="new-group-title">New group</h3>
+            <button type="button" class="crud-modal-close" data-dialog-close aria-label="Close">&times;</button>
+        </div>
+        {% include "access/partials/group_create_form.html" with name="" error="" %}
+    </div>
+</dialog>
+<script src="{% static 'access/js/dialogs.js' %}" defer></script>
+{% endif %}
 {% endblock %}
 
 {% block content %}
 <div class="card">
-    <div class="card-header" style="display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap;">
+    <div class="card-header card-header--compact list-toolbar">
         <h2>{{ groups|length }} group{{ groups|length|pluralize }}</h2>
-        {% if can_add %}
-        <form method="post" action="{% url 'access:group_create' %}" class="member-row-actions">{% csrf_token %}
-            <label for="group-name" class="sr-only">New group's name</label>
-            <input id="group-name" name="name" class="vTextField" placeholder="New group's name" required maxlength="150" autocomplete="off" style="width: 14rem; max-width: 100%;">
-            <button type="submit" class="btn-primary btn-sm">Create group</button>
-        </form>
-        {% endif %}
+        {% if can_add %}<button type="button" class="btn-primary btn-sm" data-dialog-open="new-group" aria-haspopup="dialog">New group</button>{% endif %}
     </div>
     <div class="card-body" style="padding: 0;">
         {% if groups %}
@@ -40,7 +70,7 @@
                         <a href="{% url 'access:group_detail' row.group.pk %}"><strong>{{ row.group.name }}</strong></a>
                         {% if row.managed.description %}<div style="font-size: 0.8rem; color: var(--body-quiet-color);">{{ row.managed.description }}</div>{% endif %}
                     </td>
-                    <td style="padding: 8px 16px; font-size: 0.85rem;">{% if row.managed %}<code>{{ row.managed.app_label|default:"code" }}</code>{% if not row.declared %} <span class="quiet" style="color: var(--body-quiet-color);">(no longer declared)</span>{% endif %}{% if row.managed.directory_role %} {% status_badge "directory" "info" %}{% endif %}{% else %}<span style="color: var(--body-quiet-color);">by hand</span>{% endif %}</td>
+                    <td style="padding: 8px 16px; font-size: 0.85rem;">{% if row.managed and row.managed.from_code %}<code>{{ row.managed.app_label|default:"code" }}</code>{% if not row.declared %} <span class="quiet">(no longer declared)</span>{% endif %}{% else %}<span class="quiet">here</span>{% endif %}{% if row.managed.directory_role %} {% status_badge "directory" "info" %} <code class="quiet" title="Directory role">{{ row.managed.directory_role }}</code>{% endif %}</td>
                     <td style="padding: 8px 16px; text-align: right; font-variant-numeric: tabular-nums;">{{ row.group.member_count }}</td>
                     <td style="padding: 8px 16px; text-align: right; font-variant-numeric: tabular-nums;">{{ row.group.permission_count }}</td>
                     <td style="padding: 8px 16px;">
@@ -55,8 +85,20 @@
         </table>
         </div>
         {% else %}
-        <p style="padding: 16px; margin: 0; color: var(--body-quiet-color);">No groups. Declare one in an app's <code>groups.py</code> with <code>register_group()</code>{% if can_add %}, or create one above{% endif %}.</p>
+        <p style="padding: 16px; margin: 0; color: var(--body-quiet-color);">No groups. Declare one in an app's <code>groups.py</code> with <code>register_group()</code>{% if can_add %}, or choose <strong>New group</strong>{% endif %}.</p>
         {% endif %}
     </div>
 </div>
+{% if can_add %}
+<dialog id="new-group" class="access-dialog" aria-labelledby="new-group-title">
+    <div class="crud-modal">
+        <div class="crud-modal-header">
+            <h3 id="new-group-title">New group</h3>
+            <button type="button" class="crud-modal-close" data-dialog-close aria-label="Close">&times;</button>
+        </div>
+        {% include "access/partials/group_create_form.html" with name="" error="" %}
+    </div>
+</dialog>
+<script src="{% static 'access/js/dialogs.js' %}" defer></script>
+{% endif %}
 {% endblock %}

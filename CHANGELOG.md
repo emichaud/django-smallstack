@@ -9,6 +9,15 @@ Breaking-change migration recipes live in [`UPGRADING.md`](UPGRADING.md).
 
 ## [Unreleased]
 
+### Upgrading from 0.33.1
+- `make migrate`: one Access migration (`ManagedGroup.source`, and the `directory_role_set` event kind). Existing rows are groups declared in code and keep working unchanged.
+
+### Added
+- **Mark a group directory-managed on the Access pages**, the page's equivalent of `register_group(..., directory_role=)`. Under *Membership* on a group's page, *Make directory-managed…* takes the role key the directory sends (suggested from the name: *Blog editors* → `Blog.Editors`) and whether members are staff. From then on its members come from the directory at each sign-in and local adds and removals are refused everywhere; its name and permissions stay editable. Current members keep it until their next directory sign-in, and the page lists their emails for the directory administrator. *Make local* undoes it, keeping the members. Both are recorded as `directory_role_set`. A group declared in code shows its role read-only. The same over REST (`PATCH …/groups/{group}/` with `directory_role`, `staff`) and the CLI (`access group role <group> <key> [--staff]`); `access directory-manifest` includes page-made groups.
+- **New group dialog**: the Groups page's *New group* button opens a modal that asks for the name, shows a refusal (empty, taken, no permission) inside it with the name kept, and lands on the new group's page; it replaces the inline name field in the list header.
+- **Multi-select pickers** on the Access pages: *Add people* and *Add permissions* on a group's page and *Add to groups* on a user's page open a filterable checkbox list with "all shown" and one *Add N* button; tick rows in a group's members or permissions to remove several at once. Members and permissions cards swap in place over htmx.
+- **Help → Single Sign-On**: how directory-managed groups work, a *Blog editors* walkthrough, Microsoft Entra ID step by step (app roles vs the groups claim, P1 for group assignment, nested groups, `oid`, Easy Auth, what SmallStack has and hasn't verified), Okta, Keycloak, Auth0, Google Workspace and auth proxies, break-glass accounts, and the limits. **Help → Access Control** gains *Questions people ask*.
+
 ## [0.33.1] - 2026-11-24
 
 ### Upgrading from 0.33.0

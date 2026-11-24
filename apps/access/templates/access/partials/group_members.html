@@ -1,0 +1,81 @@
+{% load theme_tags %}
+{% comment %}The group page's Members card. Rendered inside the page and, after an add or
+remove, swapped whole by htmx (views.group_members); the OOB messages ride along then.
+A directory-managed group lists its members read-only: the directory sets them at sign-in.{% endcomment %}
+<div class="card" id="group-members">
+    <div class="card-header card-header--compact list-toolbar"><h2>Members <span class="quiet">{{ members|length }}</span></h2>{% if managed.directory_role %}{% status_badge "from the directory" "info" %}{% endif %}</div>
+    <div class="card-body" style="padding: 0;">
+        {% if members %}
+        {% comment %}The list scrolls inside the card past ~9 rows (the bar and Add stay put); a filter appears past 8.{% endcomment %}
+        <div data-picker>
+        {% if members|length > 8 %}<div class="picker-head list-filter"><label for="filter-members" class="sr-only">Filter members</label><input id="filter-members" type="search" class="vTextField" placeholder="Filter {{ members|length }} members" data-picker-filter autocomplete="off"></div>{% endif %}
+        {% if can_change %}<form hx-post="{% url 'access:group_members' group.pk %}" hx-target="#group-members" hx-swap="outerHTML"
+              method="post" action="{% url 'access:group_members' group.pk %}">{% csrf_token %}
+            <input type="hidden" name="action" value="remove">{% endif %}
+            <div class="scroll-frame scroll-frame--card">
+            <table class="table-plain compact-table member-table">
+                <tbody>
+                    {% for m in members %}
+                    <tr data-picker-item data-text="{{ m.user.get_username }} {{ m.user.get_full_name }} {{ m.user.email }}">
+                        {% if can_change %}<td class="pick-cell"><label class="pick"><input type="checkbox" name="user" value="{{ m.user.pk }}"><span class="sr-only">Select {{ m.user.get_username }}</span></label></td>{% endif %}
+                        <td>
+                            <a href="{% url 'access:user_detail' m.user.pk %}">{{ m.user.get_username }}</a>
+                            {% if not m.user.is_active %}{% status_badge "inactive" "muted" %}{% endif %}
+                            {% if m.user.is_superuser %}{% status_badge "superuser" "error" %}{% elif m.user.is_staff %}{% status_badge "staff" "info" %}{% endif %}
+                            {% if m.user.email %}<div class="quiet member-email">{{ m.user.email }}</div>{% endif %}
+                        </td>
+                        <td class="quiet member-since">{% if m.since %}added {{ m.since.at|date:"M d, Y" }} by {% if m.since.source|slice:":10" == "directory:" %}{{ m.since.source }}{% else %}{{ m.since.actor_label|default:"system" }}{% endif %}{% else %}before recording began{% endif %}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            <p class="access-empty" data-picker-none hidden>No member matches.</p>
+            </div>
+            {% if can_change %}
+            <div class="access-add-row picker-bar">
+                <label class="pick quiet"><input type="checkbox" data-picker-all> All{% if members|length > 8 %} shown{% endif %}</label>
+                <button type="submit" class="btn-outline btn-sm" data-picker-submit disabled data-confirm="Remove the selected accounts from {{ group.name }}? They lose what it grants.">Remove <span data-picker-count>0</span></button>
+            </div>
+            </form>
+            {% endif %}
+        </div>
+        {% else %}
+        <p class="access-empty">No members{% if managed.directory_role %} yet: members appear as people with role <code>{{ managed.directory_role }}</code> sign in{% endif %}.</p>
+        {% endif %}
+
+        {% if can_change %}
+        <details class="picker-panel">
+            <summary class="btn-primary btn-sm">Add people</summary>
+            <form hx-post="{% url 'access:group_members' group.pk %}" hx-target="#group-members" hx-swap="outerHTML"
+                  method="post" action="{% url 'access:group_members' group.pk %}" data-picker>{% csrf_token %}
+                <input type="hidden" name="action" value="add">
+                <div class="picker-head">
+                    <label for="pick-people" class="sr-only">Filter accounts</label>
+                    <input id="pick-people" type="search" class="vTextField" placeholder="Filter by username, name or email" data-picker-filter autocomplete="off">
+                    <label class="pick quiet"><input type="checkbox" data-picker-all> All shown</label>
+                </div>
+                <div class="picker-list scroll-frame scroll-frame--medium">
+                    {% for u in candidates %}
+                    <label class="pick picker-item" data-picker-item data-text="{{ u.get_username }} {{ u.get_full_name }} {{ u.email }}">
+                        <input type="checkbox" name="user" value="{{ u.pk }}">
+                        <span><strong>{{ u.get_username }}</strong>{% if u.email %} <span class="quiet">{{ u.email }}</span>{% endif %}</span>
+                        {% if u.is_superuser %}{% status_badge "superuser" "error" %}{% elif u.is_staff %}{% status_badge "staff" "info" %}{% endif %}
+                    </label>
+                    {% empty %}
+                    <p class="access-empty">Every active account is already a member.</p>
+                    {% endfor %}
+                    <p class="access-empty" data-picker-none hidden>No account matches.</p>
+                </div>
+                {% if candidates_more %}<p class="access-note picker-note">Showing the first {{ candidates|length }} accounts by username; {{ candidates_more }} more aren't listed.</p>{% endif %}
+                <div class="access-add-row picker-bar">
+                    <span class="quiet">Adding gives them everything {{ group.name }} grants.</span>
+                    <button type="submit" class="btn-primary btn-sm" data-picker-submit disabled>Add <span data-picker-count>0</span></button>
+                </div>
+            </form>
+        </details>
+        {% elif managed.directory_role and members %}
+        <p class="access-note picker-note">Set by the directory at each sign-in (role <code>{{ managed.directory_role }}</code>). To change who's in it, change the role assignment in the directory.</p>
+        {% endif %}
+    </div>
+</div>
+{% if request.htmx %}{% include "smallstack/partials/messages.html" %}{% endif %}

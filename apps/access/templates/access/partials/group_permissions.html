@@ -4,39 +4,77 @@ remove, swapped whole by htmx (views.group_permissions); the OOB messages ride a
 <div class="card" id="group-permissions">
     <div class="card-header card-header--compact"><h2>Permissions <span class="quiet">{{ permission_count }}</span></h2></div>
     <div class="card-body" style="padding: 0;">
-        {% for app, perms in permissions_by_app %}
-        <div class="perm-app">
-            <h3>{{ app }}</h3>
-            <ul class="perm-list">
-                {% for p in perms %}
-                <li>
-                    <code>{{ p.perm }}</code>
-                    <span class="perm-source">{{ p.label }}{% if p.added %} · <span class="perm-source--direct">added by hand</span>{% endif %}</span>
-                    {% if can_manage %}
-                    <form hx-post="{% url 'access:group_permissions' group.pk %}" hx-target="#group-permissions" hx-swap="outerHTML" class="inline-form">{% csrf_token %}
-                        <input type="hidden" name="action" value="remove"><input type="hidden" name="perm" value="{{ p.perm }}">
-                        <button type="submit" class="btn-outline btn-sm" data-confirm="Take {{ p.perm }} from {{ group.name }}? Every member loses it.">Remove</button>
-                    </form>
-                    {% endif %}
-                </li>
-                {% endfor %}
-            </ul>
+        {% if permissions_by_app %}
+        {% comment %}The list scrolls inside the card past ~9 rows, app headings pinned (the bar and Add stay put); a filter appears past 8.{% endcomment %}
+        <div data-picker>
+        {% if permission_count > 8 %}<div class="picker-head list-filter"><label for="filter-perms" class="sr-only">Filter permissions</label><input id="filter-perms" type="search" class="vTextField" placeholder="Filter {{ permission_count }} permissions" data-picker-filter autocomplete="off"></div>{% endif %}
+        {% if can_manage %}<form hx-post="{% url 'access:group_permissions' group.pk %}" hx-target="#group-permissions" hx-swap="outerHTML"
+              method="post" action="{% url 'access:group_permissions' group.pk %}">{% csrf_token %}
+            <input type="hidden" name="action" value="remove">{% endif %}
+            <div class="scroll-frame scroll-frame--card">
+            {% for app, perms in permissions_by_app %}
+            <div class="perm-app" data-picker-group>
+                <h3>{{ app }}</h3>
+                <ul class="perm-list perm-list--pick">
+                    {% for p in perms %}
+                    <li data-picker-item data-text="{{ p.perm }} {{ p.label|lower }}">
+                        {% if can_manage %}<label class="pick"><input type="checkbox" name="perm" value="{{ p.perm }}"><span class="sr-only">Select {{ p.perm }}</span></label>{% endif %}
+                        <code>{{ p.perm }}</code>
+                        <span class="perm-source">{{ p.label }}{% if p.added %} · <span class="perm-source--direct">added by hand</span>{% endif %}</span>
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div>
+            {% endfor %}
+            <p class="access-empty" data-picker-none hidden>No permission matches.</p>
+            </div>
+            {% if can_manage %}
+            <div class="access-add-row picker-bar">
+                <label class="pick quiet"><input type="checkbox" data-picker-all> All{% if permission_count > 8 %} shown{% endif %}</label>
+                <button type="submit" class="btn-outline btn-sm" data-picker-submit disabled data-confirm="Take the selected permissions from {{ group.name }}? Every member loses them.">Remove <span data-picker-count>0</span></button>
+            </div>
+            </form>
+            {% endif %}
         </div>
-        {% empty %}
+        {% else %}
         <p class="access-empty">This group grants no permissions.</p>
-        {% endfor %}
-        {% if can_manage %}
-        <form hx-post="{% url 'access:group_permissions' group.pk %}" hx-target="#group-permissions" hx-swap="outerHTML" class="member-row-actions access-add-row">{% csrf_token %}
-            <input type="hidden" name="action" value="add">
-            <label for="add-perm" class="sr-only">Permission to add</label>
-            <select id="add-perm" name="perm" class="vTextField" required>
-                <option value="">Add a permission…</option>
-                {% for app, perms in available_permissions %}<optgroup label="{{ app }}">{% for name, label in perms %}<option value="{{ name }}">{{ name }} · {{ label }}</option>{% endfor %}</optgroup>{% endfor %}
-            </select>
-            <button type="submit" class="btn-primary btn-sm">Add</button>
-        </form>
         {% endif %}
-        {% if managed %}<p class="access-note" style="padding: 10px 16px;">Declared in <code>{{ managed.app_label|default:"code" }}</code>{% if not declared_in_code %}, no longer{% endif %}; synced {{ managed.synced_at|date:"M d, Y H:i" }}.{% if can_manage %} A permission changed here is drift until <code>groups.py</code> says the same.{% endif %}</p>{% endif %}
+
+        {% if can_manage %}
+        <details class="picker-panel">
+            <summary class="btn-primary btn-sm">Add permissions</summary>
+            <form hx-post="{% url 'access:group_permissions' group.pk %}" hx-target="#group-permissions" hx-swap="outerHTML"
+                  method="post" action="{% url 'access:group_permissions' group.pk %}" data-picker>{% csrf_token %}
+                <input type="hidden" name="action" value="add">
+                <div class="picker-head">
+                    <label for="pick-perms" class="sr-only">Filter permissions</label>
+                    <input id="pick-perms" type="search" class="vTextField" placeholder="Filter by app, model or action, e.g. blog post" data-picker-filter autocomplete="off">
+                    <label class="pick quiet"><input type="checkbox" data-picker-all> All shown</label>
+                </div>
+                <div class="picker-list scroll-frame scroll-frame--medium">
+                    {% for app, perms in available_permissions %}
+                    <section class="perm-app" data-picker-group>
+                        <h3>{{ app }}</h3>
+                        {% for name, label in perms %}
+                        <label class="pick picker-item" data-picker-item data-text="{{ name }} {{ label|lower }}">
+                            <input type="checkbox" name="perm" value="{{ name }}">
+                            <code>{{ name }}</code> <span class="quiet">{{ label }}</span>
+                        </label>
+                        {% endfor %}
+                    </section>
+                    {% empty %}
+                    <p class="access-empty">Nothing left to add: the group holds every permission you hold.</p>
+                    {% endfor %}
+                    <p class="access-empty" data-picker-none hidden>No permission matches.</p>
+                </div>
+                <div class="access-add-row picker-bar">
+                    <span class="quiet">Only permissions you hold yourself are listed.</span>
+                    <button type="submit" class="btn-primary btn-sm" data-picker-submit disabled>Add <span data-picker-count>0</span></button>
+                </div>
+            </form>
+        </details>
+        {% endif %}
+        {% if managed and managed.from_code %}<p class="access-note picker-note">Declared in <code>{{ managed.app_label|default:"code" }}</code>{% if not declared_in_code %}, no longer{% endif %}; synced {{ managed.synced_at|date:"M d, Y H:i" }}.{% if can_manage %} A permission changed here is drift until <code>groups.py</code> says the same.{% endif %}</p>{% endif %}
     </div>
 </div>
 {% if request.htmx %}{% include "smallstack/partials/messages.html" %}{% endif %}

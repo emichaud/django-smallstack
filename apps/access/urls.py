@@ -14,6 +14,7 @@ urlpatterns = [
     path("groups/<int:pk>/members/", views.group_members, name="group_members"),
     path("groups/<int:pk>/permissions/", views.group_permissions, name="group_permissions"),
     path("groups/<int:pk>/settings/", views.group_settings, name="group_settings"),
+    path("groups/<int:pk>/directory/", views.group_directory, name="group_directory"),
     path("users/", views.UsersView.as_view(), name="users"),
     path("users/<int:pk>/", views.UserDetailView.as_view(), name="user_detail"),
     path("users/<int:pk>/groups/", views.user_groups, name="user_groups"),

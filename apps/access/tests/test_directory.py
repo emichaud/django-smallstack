@@ -228,14 +228,14 @@ def test_the_pages_hide_the_forms_and_say_where_membership_comes_from(declaratio
     alice.groups.add(declarations["Event planners"], declarations["Local readers"])
     page = client.get(reverse("access:group_detail", kwargs={"pk": declarations["Event planners"].pk}))
     html = page.content.decode()
-    assert "Membership comes from the directory" in html and "Events.Planner" in html
+    assert "Members come from the directory role" in html and "Events.Planner" in html
     assert 'name="action" value="add"' not in html and 'name="action" value="remove"' not in html
     local = client.get(reverse("access:group_detail", kwargs={"pk": declarations["Local readers"].pk})).content.decode()
     assert 'name="action" value="add"' in local
     user_page = client.get(reverse("access:user_detail", kwargs={"pk": alice.pk})).content.decode()
     # Remove is offered for the local group only; the directory group isn't in the add list.
     assert user_page.count('name="action" value="remove"') == 1
-    assert f'<option value="{declarations["Service admins"].pk}">' not in user_page
+    assert f'name="group" value="{declarations["Service admins"].pk}"' not in user_page
     # The POST is refused with a message, not applied.
     client.post(
         reverse("access:group_members", kwargs={"pk": declarations["Service admins"].pk}),

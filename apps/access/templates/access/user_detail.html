@@ -88,15 +88,28 @@
             {% endif %}
             </div>
             {% if can_change and other_groups %}
-            <form method="post" action="{% url 'access:user_groups' target.pk %}" class="member-row-actions access-add-row">{% csrf_token %}
-                <input type="hidden" name="action" value="add">
-                <label for="add-group" class="sr-only">Group to add</label>
-                <select id="add-group" name="group" class="vTextField" required>
-                    <option value="">Add to a group…</option>
-                    {% for g in other_groups %}<option value="{{ g.pk }}">{{ g.name }}</option>{% endfor %}
-                </select>
-                <button type="submit" class="btn-primary btn-sm">Add</button>
-            </form>
+            <details class="picker-panel">
+                <summary class="btn-primary btn-sm">Add to groups</summary>
+                <form method="post" action="{% url 'access:user_groups' target.pk %}" data-picker>{% csrf_token %}
+                    <input type="hidden" name="action" value="add">
+                    <div class="picker-head">
+                        <label for="pick-groups" class="sr-only">Filter groups</label>
+                        <input id="pick-groups" type="search" class="vTextField" placeholder="Filter groups" data-picker-filter autocomplete="off">
+                    </div>
+                    <div class="picker-list scroll-frame scroll-frame--short">
+                        {% for g in other_groups %}
+                        <label class="pick picker-item" data-picker-item data-text="{{ g.name }}">
+                            <input type="checkbox" name="group" value="{{ g.pk }}"> <strong>{{ g.name }}</strong>{% if g.managed.description %} <span class="quiet">{{ g.managed.description }}</span>{% endif %}
+                        </label>
+                        {% endfor %}
+                        <p class="access-empty" data-picker-none hidden>No group matches.</p>
+                    </div>
+                    <div class="access-add-row picker-bar">
+                        <span class="quiet">Directory-managed groups aren't listed: the directory sets those.</span>
+                        <button type="submit" class="btn-primary btn-sm" data-picker-submit disabled>Add to <span data-picker-count>0</span></button>
+                    </div>
+                </form>
+            </details>
             {% endif %}
         </div>
     </div>
@@ -171,4 +184,5 @@
     </div>
 </div>
 <script src="{% static 'access/js/user_detail.js' %}" defer></script>
+<script src="{% static 'access/js/pickers.js' %}" defer></script>
 {% endblock %}

@@ -47,6 +47,7 @@ class AccessEvent(models.Model):
         USER_CREATED = "user_created", "Account created"
         USER_DELETED = "user_deleted", "Account deleted"
         REVIEW_SIGNED = "review_signed", "Access review signed"
+        DIRECTORY_ROLE_SET = "directory_role_set", "Directory role set"
 
     #: Kinds that widen access. They log at WARNING and head the review list.
     GRANTS = frozenset(
@@ -111,14 +112,23 @@ class AccessEvent(models.Model):
 
 
 class ManagedGroup(models.Model):
-    """A group an app declares in code with ``register_group``.
+    """A group whose definition lives somewhere other than its own rows: one an
+    app declares in code with ``register_group`` (``source="code"``), or one
+    made on the Access pages and marked directory-managed there
+    (``source="page"``, the page's equivalent of ``directory_role=``).
 
     ``declared_permissions`` is what the declaration said at the last sync, so
     the next sync can tell a permission the code dropped (removed from the
-    group) from one an administrator added by hand (kept).
+    group) from one an administrator added by hand (kept). A page group has
+    no declaration: its permissions are whatever the page set, never drift.
     """
 
+    class Source(models.TextChoices):
+        CODE = "code", "Declared in code"
+        PAGE = "page", "Set on the Access pages"
+
     group = models.OneToOneField(Group, on_delete=models.CASCADE, related_name="managed")
+    source = models.CharField(max_length=8, choices=Source.choices, default=Source.CODE)
     description = models.CharField(max_length=300, blank=True)
     #: The app whose ``groups.py`` declared it.
     app_label = models.CharField(max_length=100, blank=True)
@@ -150,9 +160,16 @@ class ManagedGroup(models.Model):
     def directory_managed(self) -> bool:
         return bool(self.directory_role)
 
+    @property
+    def from_code(self) -> bool:
+        return self.source == self.Source.CODE
+
     def drift(self) -> dict[str, list[str]]:
         """Permissions on the group that differ from the declaration:
-        ``{"added": [...], "missing": [...]}`` as ``app_label.codename``."""
+        ``{"added": [...], "missing": [...]}`` as ``app_label.codename``.
+        Empty for a page group: it has no declaration to differ from."""
+        if not self.from_code:
+            return {"added": [], "missing": []}
         current = {
             f"{p.content_type.app_label}.{p.codename}" for p in self.group.permissions.select_related("content_type")
         }
@@ -162,6 +179,7 @@ class ManagedGroup(models.Model):
     def as_dict(self) -> dict[str, Any]:
         return {
             "group": self.group.name,
+            "source": self.source,
             "app_label": self.app_label,
             "description": self.description,
             "declared_permissions": list(self.declared_permissions or []),

@@ -401,9 +401,10 @@ def group_prefix() -> str:
 
 
 def manifest_roles() -> list[ManifestRole]:
-    """Every declared group with a directory role, as the manifest lists them."""
+    """Every directory-managed group, as the manifest lists them: the ones
+    declared in code and the ones marked on the Access pages."""
     prefix = group_prefix()
-    return [
+    roles = [
         ManifestRole(
             role=spec.directory_role,
             group=spec.name,
@@ -414,6 +415,19 @@ def manifest_roles() -> list[ManifestRole]:
         for spec in declared_groups()
         if spec.directory_role
     ]
+    for managed in ManagedGroup.objects.filter(
+        source=ManagedGroup.Source.PAGE, directory_role__isnull=False
+    ).select_related("group"):
+        roles.append(
+            ManifestRole(
+                role=managed.directory_role or "",
+                group=managed.group.name,
+                description=managed.description or f"Members of {managed.group.name}",
+                staff=managed.grants_staff,
+                directory_group=f"{prefix}{managed.group.name}",
+            )
+        )
+    return sorted(roles, key=lambda r: r.group.lower())
 
 
 ManifestFormatter = Callable[[list[ManifestRole]], dict[str, Any]]

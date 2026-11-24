@@ -1,5 +1,5 @@
 {% extends "smallstack/base.html" %}
-{% load theme_tags %}
+{% load static theme_tags %}
 
 {% block title %}{{ group.name }} · Access{% endblock %}
 {% block breadcrumbs %}{% endblock %}
@@ -9,17 +9,8 @@
 {% endblock %}
 
 {% block content %}
-{% if managed.directory_role %}
-<div class="card" style="margin-bottom: 24px; border-color: var(--primary);">
-    <div class="card-body" style="font-size: 0.88rem;">
-        <strong>Membership comes from the directory.</strong>
-        Role <code>{{ managed.directory_role }}</code>{% if managed.grants_staff %}; members are made staff{% endif %}.
-        {% if directory_refusal %}Who is in this group is set at each sign-in from what the directory sends; adding or removing members here is refused.{% else %}Local changes are allowed (<code>SMALLSTACK_DIRECTORY_LOCAL_OVERRIDE</code>), and the next sign-in sets membership back to what the directory says.{% endif %}
-    </div>
-</div>
-{% endif %}
 {% if drift.added or drift.missing %}
-<div class="card" style="margin-bottom: 24px; border-color: var(--warning-fg);">
+<div class="card" style="margin-bottom: 16px; border-color: var(--warning-fg);">
     <div class="card-body" style="font-size: 0.88rem;">
         <strong>This group differs from its declaration</strong> in <code>{{ managed.app_label|default:"code" }}</code>.
         {% if drift.added %}Added by hand: {% for p in drift.added %}<code>{{ p }}</code>{% if not forloop.last %}, {% endif %}{% endfor %}.{% endif %}
@@ -29,78 +20,80 @@
 </div>
 {% endif %}
 
-{% if can_rename or can_delete %}
-<div class="card" style="margin-bottom: 24px;">
-    <div class="card-body member-row-actions" style="justify-content: space-between;">
-        {% if can_rename %}
-        <form method="post" action="{% url 'access:group_settings' group.pk %}" class="member-row-actions">{% csrf_token %}
-            <input type="hidden" name="action" value="rename">
-            <label for="group-name" class="sr-only">Group name</label>
-            <input id="group-name" name="name" value="{{ group.name }}" class="vTextField" required maxlength="150" autocomplete="off">
-            <button type="submit" class="btn-outline btn-sm">Rename</button>
-        </form>
-        {% endif %}
-        {% if can_delete %}
-        <form method="post" action="{% url 'access:group_settings' group.pk %}" class="inline-form">{% csrf_token %}
-            <input type="hidden" name="action" value="delete">
-            <button type="submit" class="btn-danger btn-sm" data-confirm="Delete {{ group.name }}? Its {{ members|length }} member{{ members|length|pluralize }} lose what it grants; the accounts stay.">Delete group</button>
-        </form>
+{% comment %}Settings: the name, who decides membership (here, or the directory), delete. One card, one row each.{% endcomment %}
+<div class="card group-settings" style="margin-bottom: 16px;">
+    <div class="card-body">
+        <div class="group-setting">
+            <span class="group-setting-label">Membership</span>
+            {% if managed.directory_role %}
+            <div class="group-setting-body">
+                <p class="group-setting-state">{% status_badge "directory-managed" "info" %} Members come from the directory role <code>{{ managed.directory_role }}</code>{% if managed.grants_staff %} and are made staff{% endif %}, set at each sign-in. {% if directory_refusal %}Adding and removing them here is off.{% else %}Local changes are allowed (<code>SMALLSTACK_DIRECTORY_LOCAL_OVERRIDE</code>) but the next sign-in undoes them.{% endif %}</p>
+                {% if managed.from_code %}
+                <p class="access-note">Declared in <code>{{ managed.app_label|default:"code" }}/groups.py</code>; change the role there.</p>
+                {% elif can_set_directory %}
+                <form method="post" action="{% url 'access:group_directory' group.pk %}" class="member-row-actions">{% csrf_token %}
+                    <label for="role" class="sr-only">Directory role</label>
+                    <input id="role" name="role" value="{{ managed.directory_role }}" class="vTextField role-input" required maxlength="100" pattern="[A-Za-z0-9._\-]+" title="Letters, digits, . _ - (no spaces): the value the directory sends">
+                    <label class="pick"><input type="checkbox" name="staff"{% if managed.grants_staff %} checked{% endif %}> Members are staff</label>
+                    <button type="submit" class="btn-outline btn-sm">Save</button>
+                </form>
+                <form method="post" action="{% url 'access:group_directory' group.pk %}" class="inline-form">{% csrf_token %}
+                    <input type="hidden" name="action" value="unmark">
+                    <button type="submit" class="btn-outline btn-sm" data-confirm="Make {{ group.name }} local again? Its {{ members|length }} member{{ members|length|pluralize }} stay, members are then added and removed here, and the directory no longer changes them.">Make local</button>
+                </form>
+                {% endif %}
+                {% if members %}<p class="access-note">For the directory administrator: assign role <code>{{ managed.directory_role }}</code> to the people who should stay in it. Current members: {% for m in members %}{{ m.user.email|default:m.user.get_username }}{% if not forloop.last %}, {% endif %}{% endfor %}. Anyone not assigned leaves the group at their next sign-in.</p>{% endif %}
+            </div>
+            {% else %}
+            <div class="group-setting-body">
+                <p class="group-setting-state">{% status_badge "local" "muted" %} Members are added and removed here.</p>
+                {% if can_set_directory %}
+                <details class="group-setting-more">
+                    <summary class="btn-outline btn-sm">Make directory-managed…</summary>
+                    <form method="post" action="{% url 'access:group_directory' group.pk %}" class="member-row-actions">{% csrf_token %}
+                        <label for="role" class="sr-only">Directory role</label>
+                        <input id="role" name="role" value="{{ suggested_role }}" class="vTextField role-input" required maxlength="100" pattern="[A-Za-z0-9._\-]+" title="Letters, digits, . _ - (no spaces): the value the directory sends">
+                        <label class="pick"><input type="checkbox" name="staff"> Members are staff</label>
+                        <button type="submit" class="btn-primary btn-sm">Make directory-managed</button>
+                    </form>
+                    <p class="access-note">The role key is what Entra, Okta or Google sends for this group (an Entra app-role value). From then on membership comes from the directory at each sign-in and can't be changed here. Current members keep the group until their next directory sign-in.</p>
+                </details>
+                {% endif %}
+            </div>
+            {% endif %}
+        </div>
+        {% if can_rename or can_delete %}
+        <div class="group-setting">
+            <span class="group-setting-label">Group</span>
+            <div class="group-setting-body group-setting-row">
+                {% if can_rename %}
+                <form method="post" action="{% url 'access:group_settings' group.pk %}" class="member-row-actions">{% csrf_token %}
+                    <input type="hidden" name="action" value="rename">
+                    <label for="group-name" class="sr-only">Group name</label>
+                    <input id="group-name" name="name" value="{{ group.name }}" class="vTextField" required maxlength="150" autocomplete="off">
+                    <button type="submit" class="btn-outline btn-sm">Rename</button>
+                </form>
+                {% endif %}
+                {% if can_delete %}
+                <form method="post" action="{% url 'access:group_settings' group.pk %}" class="inline-form">{% csrf_token %}
+                    <input type="hidden" name="action" value="delete">
+                    <button type="submit" class="btn-danger btn-sm" data-confirm="Delete {{ group.name }}? Its {{ members|length }} member{{ members|length|pluralize }} lose what it grants; the accounts stay.">Delete group</button>
+                </form>
+                {% endif %}
+            </div>
+        </div>
         {% endif %}
     </div>
 </div>
-{% endif %}
 
-<div class="access-grid" style="margin-bottom: 24px;">
-    <div class="card">
-        <div class="card-header card-header--compact"><h2>Members <span class="quiet">{{ members|length }}</span></h2></div>
-        <div class="card-body" style="padding: 0;">
-            {% if members %}
-            <table class="table-plain" style="width: 100%; border-collapse: collapse;">
-                <tbody>
-                    {% for m in members %}
-                    <tr>
-                        <td style="padding: 8px 16px;">
-                            <a href="{% url 'access:user_detail' m.user.pk %}">{{ m.user.get_username }}</a>
-                            {% if not m.user.is_active %}{% status_badge "inactive" "muted" %}{% endif %}
-                            {% if m.user.is_superuser %}{% status_badge "superuser" "error" %}{% elif m.user.is_staff %}{% status_badge "staff" "info" %}{% endif %}
-                        </td>
-                        <td style="padding: 8px 16px; font-size: 0.8rem; color: var(--body-quiet-color);">
-                            {% if m.since %}added {{ m.since.at|date:"M d, Y" }} by {% if m.since.source|slice:":10" == "directory:" %}{{ m.since.source }}{% else %}{{ m.since.actor_label|default:"system" }}{% endif %}{% else %}before recording began{% endif %}
-                        </td>
-                        {% if can_change %}
-                        <td style="padding: 8px 16px; text-align: right;">
-                            <form method="post" action="{% url 'access:group_members' group.pk %}" class="inline-form">{% csrf_token %}
-                                <input type="hidden" name="action" value="remove"><input type="hidden" name="user" value="{{ m.user.pk }}">
-                                <button type="submit" class="btn-outline btn-sm" data-confirm="Remove {{ m.user.get_username }} from {{ group.name }}?">Remove</button>
-                            </form>
-                        </td>
-                        {% endif %}
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-            {% else %}
-            <p class="access-empty">No members.</p>
-            {% endif %}
-            {% if can_change %}
-            <form method="post" action="{% url 'access:group_members' group.pk %}" class="member-row-actions access-add-row">{% csrf_token %}
-                <input type="hidden" name="action" value="add">
-                <label for="add-user" class="sr-only">Account to add</label>
-                <select id="add-user" name="user" class="vTextField" required>
-                    <option value="">Add an account…</option>
-                    {% for u in candidates %}<option value="{{ u.pk }}">{{ u.get_username }}{% if u.email %} · {{ u.email }}{% endif %}</option>{% endfor %}
-                </select>
-                <button type="submit" class="btn-primary btn-sm">Add</button>
-            </form>
-            {% endif %}
-        </div>
-    </div>
-
+<div class="access-grid" style="margin-bottom: 16px;">
+    {% include "access/partials/group_members.html" %}
     {% include "access/partials/group_permissions.html" %}
 </div>
 
 <div class="card">
-    <div class="card-header"><h2>Changes to this group</h2></div>
-    <div class="card-body" style="padding: 0;">{% include "access/_events_table.html" %}</div>
+    <div class="card-header card-header--compact"><h2>Changes to this group</h2></div>
+    <div class="card-body" style="padding: 0;"><div class="scroll-frame scroll-frame--card">{% include "access/_events_table.html" %}</div></div>
 </div>
+<script src="{% static 'access/js/pickers.js' %}" defer></script>
 {% endblock %}

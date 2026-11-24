@@ -129,6 +129,12 @@ def _message(event: AccessEvent) -> str:
         return f"{who} renamed group {event.detail.get('from', '')!r} to {group!r}"
     if kind in (AccessEvent.Kind.GROUP_CREATED, AccessEvent.Kind.GROUP_DELETED):
         return f"{who} {'created' if kind == AccessEvent.Kind.GROUP_CREATED else 'deleted'} group {group!r}"
+    if kind == AccessEvent.Kind.DIRECTORY_ROLE_SET:
+        to = event.detail.get("to", "")
+        if not to:
+            return f"{who} made group {group!r} local again (was directory role {event.detail.get('from', '')!r})"
+        staff = " (members made staff)" if event.detail.get("staff") else ""
+        return f"{who} made group {group!r} directory-managed with role {to!r}{staff}"
     if kind == AccessEvent.Kind.REVIEW_SIGNED:
         d = event.detail
         return (

@@ -8,10 +8,12 @@ model it builds on is `access-control.md`.
 
 ## The one rule
 
-**The directory decides who. Code decides what.** A group's permissions are
-declared in `groups.py`; its members are whoever the directory says, at each
-sign-in. Nobody manages membership inside the app, and the app never asks the
-directory for write access.
+**The directory decides who. The app decides what.** A group's permissions are
+set in the app (declared in `groups.py`, or on the Access pages); its members
+are whoever the directory says, at each sign-in. Nobody manages a
+directory-managed group's membership inside the app, and the app never asks
+the directory for write access. A group without a role key is an ordinary
+local Django group and the sync never touches it.
 
 ## Why one design fits every provider
 
@@ -76,6 +78,28 @@ What `sync_roles` guarantees:
   if a backend does it anyway.
 - Every change is recorded from `directory:<provider>` through the same
   signals as any other access change.
+
+### Marking a group directory-managed: code, page, REST, CLI
+
+Four equivalent ways; each one records a change and gives the same result
+(the sync, the refusals, the manifest and the findings don't care which):
+
+| Where | How | Notes |
+|---|---|---|
+| Code | `register_group("Blog editors", permissions=[…], directory_role="Blog.Editors", staff=False)` in the app's `groups.py`, or `map_directory_role("Blog editors", "Blog.Editors")` for a group declared elsewhere | Applied at the next `migrate`; the page shows it read-only. A declaration wins over a page mapping. |
+| Page | Group page → *Membership* → *Make directory-managed…* (role key, *Members are staff*); *Make local* undoes it | Needs `auth.change_group`. Not offered for a group declared in code. |
+| REST | `PATCH /smallstack/api/access/groups/{group}/` with `{"directory_role": "Blog.Editors", "staff": false}`; `""` makes it local | Auth-level token; 400 for a bad or taken key. |
+| CLI | `manage.py access group role "Blog editors" Blog.Editors [--staff] [--user ACTOR]`; `""` makes it local | Without `--user`, a local command. |
+
+The page, REST and CLI all call `services.set_directory_role(group, role,
+staff=, actor=, source=)`. It stores a `ManagedGroup` with `source="page"`
+(a declared group's row is `source="code"`), refuses a group declared in code,
+a key with spaces, and a key another group already carries, and records a
+`directory_role_set` event (`detail`: from, to, staff, member count).
+**Current members keep the group until their next directory sign-in**; *make
+local* keeps the members it has. A page group's name and permissions stay
+editable on the page while it's directory-managed; only membership is the
+directory's.
 
 ### Declaring the groups
 
@@ -223,8 +247,9 @@ roles, with `SMALLSTACK_DIRECTORY_ROLE_MAP = {"service-admins@example.com":
 
 ## What the Access pages show
 
-- A directory-managed group's page: *Membership comes from the directory*,
-  the role, no add/remove forms. Local membership changes are refused on
+- A directory-managed group's page: *directory-managed* under Membership,
+  the role, no *Add people* or remove controls, and the current members'
+  emails to hand the directory administrator. Local membership changes are refused on
   REST, the CLI and approvals too, with the reason
   (`SMALLSTACK_DIRECTORY_LOCAL_OVERRIDE` lifts it).
 - A user's page: each provider that has seen them, when, and the roles it
@@ -233,6 +258,15 @@ roles, with `SMALLSTACK_DIRECTORY_ROLE_MAP = {"service-admins@example.com":
 - Findings: `directory_local_changes`, `directory_superuser`,
   `directory_unknown_roles`, `directory_undeclared_groups`,
   `directory_unseen_with_tokens`.
+
+## Questions
+
+The help page `apps/smallstack/docs/single-sign-on.md` (Help → Single
+Sign-On) is the operator's version of this skill, with the Entra steps; the
+*Questions people ask* section of `apps/smallstack/docs/access-control.md`
+answers the common ones (does a group have to exist first, when does a
+removal take effect, how break-glass accounts work, what Django checks on its
+own). Keep the three in step when the behaviour changes.
 
 ## Limits
 
