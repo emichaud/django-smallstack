@@ -223,9 +223,13 @@ def board_embed(
     :func:`render_cell` (no htmx needed — an email, a PDF, a test)."""
     period = (dashboard.default_period or None) if period is None else (period or None)
     cells = []
+    from .components import widget_refused
+
     for cell in sorted(
         (c for c in dashboard.layout if isinstance(c, dict)), key=lambda c: (c.get("y", 0), c.get("x", 0))
     ):
+        if dashboard.system_key and widget_refused(cell, request.user):
+            continue  # as the page does (T5-9)
         url = reverse("dashboards_cell", kwargs={"slug": dashboard.slug, "cell_id": cell["id"]})
         html: SafeString | None = None
         if not lazy:
@@ -457,6 +461,10 @@ def sync_widgets(dashboard: Dashboard) -> list[str]:
             for c in board.layout
             if not (c.get("type") == "widget" and (c.get("options") or {}).get("widget") not in registered)
         ]
+        placed = {(c.get("options") or {}).get("widget") for c in layout if c.get("type") == "widget"}
+        # A widget someone already put on the board by hand counts as offered:
+        # mark it, don't place a second copy (T5-3).
+        offered += [k for k, _w in publishable_widgets() if k in placed and k not in offered]
         fresh = [(k, w) for k, w in publishable_widgets() if k not in offered]
         if not fresh and layout == board.layout and offered == board.offered_widgets:
             return []

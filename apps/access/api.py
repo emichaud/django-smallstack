@@ -258,7 +258,11 @@ def api_evidence(request: HttpRequest) -> ApiResult | HttpResponse:
         return api_error(str(exc), 400)
     pack = evidence.build(start, end, scope=scope, generated_by=request.user)
     if fmt == "zip":
-        response = HttpResponse(evidence.bundle_zip(pack), content_type="application/zip")
+        import hashlib
+
+        data = evidence.bundle_zip(pack)
+        response = HttpResponse(data, content_type="application/zip")
+        response["X-Content-SHA256"] = hashlib.sha256(data).hexdigest()  # G-1
         response["Content-Disposition"] = f'attachment; filename="{evidence.bundle_name(pack)}.zip"'
         return response
     return pack.as_dict()

@@ -375,3 +375,139 @@ def test_stored_packs_go_to_a_temporary_media_root(settings, root):
 
     bundle = cadence.store_bundle(*PERIOD, "all", actor=root)
     assert str(settings.MEDIA_ROOT) in bundle.file.path and "fix-access/media" not in bundle.file.path
+
+
+# --- Batch 3: evidence, cadence, dashboards --------------------------------------------
+
+
+def test_a_widget_placed_by_hand_is_not_placed_twice(root, settings):
+    """T5-3: the sync counts a card already on the board as offered."""
+    from apps.dashboards.boards import sync_widgets, system_dashboard
+
+    settings.SMALLSTACK_ACCESS_REVIEW_CADENCE = "quarterly"  # the card is offered only then
+    from apps.dashboards.models import Dashboard
+
+    board = system_dashboard("t53-home", name="Home")
+    key = "apps.access.dashboard_widgets.AccessReviewWidget"
+    Dashboard.objects.filter(pk=board.pk).update(
+        layout=[{"id": "c1", "type": "widget", "x": 0, "y": 0, "w": 3, "h": 2, "options": {"widget": key}}],
+        offered_widgets=[],
+    )
+    board.refresh_from_db()
+    sync_widgets(board)
+    board.refresh_from_db()
+    placed = [c for c in board.layout if (c.get("options") or {}).get("widget") == key]
+    assert len(placed) == 1 and key in board.offered_widgets
+
+
+def test_a_reminder_nobody_receives_is_not_counted(settings, root, caplog):
+    """T5-6: clear wording, and reminders counts only reminders sent."""
+    from datetime import timedelta
+
+    from django.utils import timezone
+
+    from apps.access import cadence
+
+    settings.SMALLSTACK_ACCESS_REVIEW_CADENCE = "quarterly"
+    settings.SMALLSTACK_ACCESS_REVIEW_REMINDER_DAYS = 7
+    review = reviews.open_review(period_start=PERIOD[0], period_end=PERIOD[1], scope="all", actor=root)
+    AccessReview.objects.filter(pk=review.pk).update(opened_at=timezone.now() - timedelta(days=8))
+    with caplog.at_level("WARNING", logger="apps.access.cadence"):
+        out = cadence.tick(today=PERIOD[1] + timedelta(days=10))
+    review.refresh_from_db()
+    assert review.reminders == 0 and review.pk not in out["reminded"]
+    assert any("needs a reminder, but no account can sign it" in r.getMessage() for r in caplog.records)
+
+
+def test_ok_warning_error_widget_states_are_coloured():
+    """T5-7: the vocabulary the access cards emit has CSS."""
+    from pathlib import Path
+
+    from django.conf import settings as dj
+
+    css = (Path(dj.BASE_DIR) / "apps/smallstack/static/smallstack/css/components.css").read_text()
+    for state in ("ok", "warning", "error"):
+        assert f".dashboard-widget.widget-status-{state} " in css
+
+
+def test_the_system_board_leaves_out_cards_the_viewer_cannot_read(plain_staff, staffer):
+    """T5-9: no dead 'no access' cards on /smallstack/ for staff without view_user."""
+    c = Client()
+    c.force_login(plain_staff)
+    page = c.get("/smallstack/").content.decode()
+    assert "You don't have access to this card" not in page
+    assert "dash-cell--widget" in page  # other widget cards still show
+    reader = Client()
+    reader.force_login(staffer)
+    assert "Users" in reader.get("/smallstack/").content.decode()
+
+
+def test_sheets_say_what_they_reflect(root):
+    """T4-6: as-of and scope per sheet, in JSON and the cover."""
+    pack = evidence.build(*PERIOD)
+    data = pack.as_dict()["sheets"]
+    assert data["roster"]["as_of"] == "generated" and data["roster"]["scoped"] is True
+    assert data["changes"]["as_of"] == "period" and data["matrix"]["scoped"] is False
+    assert "| Reflects |" in evidence.cover_markdown(pack) and "filtered by the scope" in evidence.cover_markdown(pack)
+
+
+def test_the_sheet_comes_before_the_stored_packs(staffer):
+    """T4-7."""
+    c = Client()
+    c.force_login(staffer)
+    page = c.get("/smallstack/access/evidence/").content.decode()
+    assert page.index('id="evidence"') < page.index('id="packs"')
+
+
+def test_the_on_demand_zip_carries_its_digest(staffer):
+    """G-1: page and REST downloads carry X-Content-SHA256 like a stored pack."""
+    import hashlib
+
+    c = Client()
+    c.force_login(staffer)
+    resp = c.get("/smallstack/access/evidence.zip?from=2026-07-01&to=2026-09-30")
+    assert resp["X-Content-SHA256"] == hashlib.sha256(resp.content).hexdigest()
+    raw = APIToken.create_token(user=staffer, name="g1", access_level="readonly")[1]
+    url = "/smallstack/api/access/evidence/?from=2026-07-01&to=2026-09-30&format=zip"
+    api = c.get(url, HTTP_AUTHORIZATION=f"Bearer {raw}")
+    assert api["X-Content-SHA256"] == hashlib.sha256(api.content).hexdigest()
+
+
+def test_a_signed_out_export_link_goes_to_sign_in(db):
+    """G-2 / T4-8: GET redirects to login with next; POST stays a 403."""
+    c = Client()
+    for url in ("/smallstack/access/evidence.zip", "/smallstack/access/evidence/roster.csv", "/smallstack/access/reviews/1.csv"):  # noqa: E501
+        resp = c.get(url)
+        assert resp.status_code == 302 and "next=" in resp["Location"], url
+    assert c.post("/smallstack/access/evidence/packs/store/").status_code == 403
+
+
+def test_a_refused_store_says_storing_and_keeps_the_period(staffer):
+    """T4-5."""
+    c = Client()
+    c.force_login(staffer)
+    form = {"from": "2026-07-01", "to": "2026-09-30", "scope": "all"}
+    resp = c.post("/smallstack/access/evidence/packs/store/", form)
+    assert "from=2026-07-01" in resp["Location"]
+    page = c.get(resp["Location"]).content.decode()
+    assert "Storing a pack needs" in page
+
+
+def test_fan_out_says_what_is_wrong(settings):
+    """T5-10: a bad event id or payload raises in DEBUG, logs and sends nothing
+    otherwise; dates are serialised rather than dropped."""
+    import uuid
+
+    from django.utils import timezone
+
+    from apps.webhooks import services as webhooks
+    from apps.webhooks.models import WebhookDelivery, WebhookEndpoint
+
+    WebhookEndpoint.objects.create(name="c", target_url="https://example.com/h", event_filter=["*"], enabled=True)
+    settings.DEBUG = True
+    with pytest.raises(ValueError, match="UUID"):
+        webhooks.fan_out("x.y", {"a": 1}, event_id="not-a-uuid")
+    settings.DEBUG = False
+    assert webhooks.fan_out("x.y", {"a": 1}, event_id="not-a-uuid") == 0
+    n = webhooks.fan_out("x.y", {"when": timezone.now()}, event_id=str(uuid.uuid4()))
+    assert n == 1 and isinstance(WebhookDelivery.objects.latest("pk").payload["when"], str)

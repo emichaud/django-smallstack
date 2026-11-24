@@ -94,6 +94,13 @@ PRINT_COLUMNS: dict[str, tuple[str, ...]] = {
 }
 
 
+#: Sheets that show the state when the pack is generated, not at period end
+#: (the rest are bounded by the period), and the ones the scope filters. Said
+#: on the page, in cover.md and in JSON so an auditor isn't left to guess (T4-6).
+AS_OF_GENERATION = {"roster", "matrix", "authentication", "credentials", "findings"}
+SCOPED = {"roster"}
+
+
 @dataclass
 class Sheet:
     key: str
@@ -115,6 +122,21 @@ class Sheet:
     @property
     def count(self) -> int:
         return len(self.rows)
+
+    @property
+    def as_of(self) -> str:
+        """``generated`` (the state when the pack was built) or ``period``."""
+        return "generated" if self.key in AS_OF_GENERATION else "period"
+
+    @property
+    def scoped(self) -> bool:
+        """Whether the pack's scope (privileged / all) filters this sheet."""
+        return self.key in SCOPED
+
+    @property
+    def reading(self) -> str:
+        when = "as of generation" if self.as_of == "generated" else "within the period"
+        return f"{when}; {'filtered by the scope' if self.scoped else 'every account, whatever the scope'}"
 
 
 @dataclass
@@ -150,6 +172,8 @@ class Evidence:
                     "title": s.title,
                     "description": s.description,
                     "controls": s.controls,
+                    "as_of": s.as_of,
+                    "scoped": s.scoped,
                     "summary": s.summary,
                     "columns": list(s.columns),
                     "rows": s.rows,
@@ -623,6 +647,8 @@ def register_sheet(
     *,
     controls: str = "",
     print_columns: Iterable[str] | None = None,
+    as_of: str = "period",
+    scoped: bool = False,
 ) -> SheetBuilder:
     """Add a sheet to the evidence pack: ``builder(start, end, scope) -> Sheet``
     (``start``/``end`` are aware datetimes bounding the period). It then
@@ -642,6 +668,10 @@ def register_sheet(
         CONTROLS[key] = controls
     if print_columns is not None:
         PRINT_COLUMNS[key] = tuple(print_columns)
+    if as_of not in ("period", "generated"):
+        raise ValueError("as_of is 'period' or 'generated'.")
+    (AS_OF_GENERATION.add if as_of == "generated" else AS_OF_GENERATION.discard)(key)
+    (SCOPED.add if scoped else SCOPED.discard)(key)
     return builder
 
 
@@ -705,11 +735,11 @@ def cover_markdown(pack: Evidence) -> str:
         f"Generated: {timezone.localtime(pack.generated_at):%Y-%m-%d %H:%M} by {pack.generated_by}  ",
         f"Times: {timezone.get_current_timezone_name()}",
         "",
-        "| Sheet | Rows | Supports | File |",
-        "|---|---:|---|---|",
+        "| Sheet | Rows | Reflects | Supports | File |",
+        "|---|---:|---|---|---|",
     ]
     for s in pack.sheets:
-        lines.append(f"| {s.title} | {s.count} | {s.controls} | `{s.key}.csv` |")
+        lines.append(f"| {s.title} | {s.count} | {s.reading} | {s.controls} | `{s.key}.csv` |")
     lines += ["", "## Headline numbers", ""]
     for s in pack.sheets:
         if s.summary:
@@ -720,6 +750,8 @@ def cover_markdown(pack: Evidence) -> str:
         "## How to read it",
         "",
         "- Every row is read from the system's own records at generation time; nothing is typed in by hand.",
+        "- *Reflects* says whether a sheet is the state when the pack was generated or the events within the "
+        "period, and whether the scope filters it (only the roster is; the others cover every account).",
         "- `changes.csv` is the continuous log (every grant and removal, with actor, source and request id).",
         "- `reviews.csv` is the periodic control: a named attester's decision on each privileged account, signed.",
         "- `evidence.json` holds every sheet with its summary, for tooling.",

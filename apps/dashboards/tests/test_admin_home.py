@@ -74,7 +74,13 @@ def test_the_page_is_a_dashboard_of_every_published_widget(client, staff):
     assert board.is_shared and board.get_absolute_url() == "/smallstack/"
     assert _widget_keys(board) == [k for k, _w in publishable_widgets()]  # in the widgets' own order
     assert set(board.offered_widgets) == set(_widget_keys(board))
-    assert html.count('class="grid-stack-item"') == len(board.layout) > 0
+    # Staff without accounts.view_user don't get the account cards (Access,
+    # Users): the shared board leaves out what a viewer can't read (eval 45 T5-9).
+    from apps.dashboards.components import widget_refused
+
+    refused = [(c.get("options") or {}).get("widget", "") for c in board.layout if widget_refused(c, staff)]
+    assert refused and all("Access" in k or "Users" in k for k in refused), refused
+    assert html.count('class="grid-stack-item"') == len(board.layout) - len(refused) > 0
     assert 'id="dash-edit"' in html and "Edit layout" in html
     assert "<h1>Dashboard</h1>" in html
 

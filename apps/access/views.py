@@ -10,6 +10,7 @@ manager* groups grant it). Changing a membership needs ``accounts.change_user``
 from __future__ import annotations
 
 import csv
+import hashlib
 import json
 from datetime import timedelta
 from typing import Any
@@ -60,6 +61,16 @@ def access_reader_required(view_func: Any) -> Any:
     the read bar for the function views here."""
     from functools import wraps
 
+    from django.contrib.auth.views import redirect_to_login
+
+    @wraps(view_func)
+    def _signed_in(request: HttpRequest, *args: Any, **kwargs: Any) -> HttpResponseBase:
+        # A shared export link opened while signed out goes to sign-in and
+        # back, as the pages do, rather than a bare 403 (G-2).
+        if not request.user.is_authenticated and request.method in ("GET", "HEAD"):
+            return redirect_to_login(request.get_full_path())
+        return _wrapped(request, *args, **kwargs)
+
     @staff_required
     @wraps(view_func)
     def _wrapped(request: HttpRequest, *args: Any, **kwargs: Any) -> HttpResponseBase:
@@ -67,7 +78,7 @@ def access_reader_required(view_func: Any) -> Any:
             raise PermissionDenied(READ_ACCESS_REFUSAL)
         return view_func(request, *args, **kwargs)
 
-    return _wrapped
+    return _signed_in
 
 
 class AccessPageView(StaffRequiredMixin, TemplateView):
@@ -862,8 +873,10 @@ def evidence_zip(request: HttpRequest) -> HttpResponse:
     except EvidenceArgsError as exc:
         return HttpResponseBadRequest(str(exc), content_type="text/plain")
     pack = evidence.build(start, end, scope=scope, generated_by=request.user)
-    response = HttpResponse(evidence.bundle_zip(pack), content_type="application/zip")
+    data = evidence.bundle_zip(pack)
+    response = HttpResponse(data, content_type="application/zip")
     response["Content-Disposition"] = f'attachment; filename="{evidence.bundle_name(pack)}.zip"'
+    response["X-Content-SHA256"] = hashlib.sha256(data).hexdigest()  # as a stored pack's (G-1)
     return response
 
 
@@ -877,10 +890,14 @@ def evidence_store(request: HttpRequest) -> HttpResponse:
 
     if not can_read_access(request.user):
         raise PermissionDenied(READ_ACCESS_REFUSAL)
-    refusal = reviews.open_refusal(request.user)
-    if refusal:
-        messages.error(request, refusal)
-        return redirect("access:evidence")
+    if reviews.open_refusal(request.user):
+        messages.error(
+            request,
+            "Storing a pack needs an Access attester (access.sign_accessreview) or a superuser. "
+            "You can still download it.",
+        )
+        keep = request.POST.urlencode() if request.POST else ""
+        return redirect(f"{reverse('access:evidence')}?{keep}" if keep else reverse("access:evidence"))
     # The POST carries the GET form's fields; read them as the GET views do.
     request.GET = request.POST  # type: ignore[assignment]
     try:

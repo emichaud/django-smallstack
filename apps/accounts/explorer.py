@@ -28,6 +28,11 @@ class UsersDashboardWidget(DashboardWidget):
     order = 30
     url_name = "manage/users-list"
 
+    def visible_to(self, user):
+        """Account counts are account data: the User Manager it links to needs
+        ``accounts.view_user`` too (eval 45 T5-9)."""
+        return bool(getattr(user, "is_active", False) and user.has_perm("accounts.view_user"))
+
     def get_data(self, model_class=None):
         cls = model_class or User
         active_count = cls.objects.filter(is_active=True).count()

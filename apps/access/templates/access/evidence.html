@@ -52,34 +52,6 @@
     </div>
 </div>
 
-<div class="card" style="margin-bottom: 16px;" id="packs">
-    <div class="card-header card-header--compact"><h2>Stored packs <span class="quiet">{{ bundles|length }}</span></h2></div>
-    <div class="card-body" style="padding: 0;">
-        {% if bundles %}
-        <div style="overflow-x: auto; contain: inline-size;">
-        <table class="table-plain compact-table">
-            <thead><tr><th scope="col" style="text-align: left; padding: 8px 12px;">Period</th><th scope="col" style="text-align: left; padding: 8px 12px;">Why</th><th scope="col" style="text-align: left; padding: 8px 12px;">Built</th><th scope="col" style="text-align: right; padding: 8px 12px;">Size</th><th scope="col" style="text-align: left; padding: 8px 12px;">SHA-256</th><th scope="col"></th></tr></thead>
-            <tbody>
-                {% for b in bundles %}
-                <tr>
-                    <td><strong>{{ b.period_label }}</strong> <span class="quiet">· {{ b.scope }}</span></td>
-                    <td>{% if b.reason == "period_closed" %}{% status_badge "period closed" "info" %}{% elif b.reason == "review_signed" %}{% status_badge "review signed" "success" %}{% else %}{% status_badge "on request" "muted" %}{% endif %}{% if b.review_id %} <a href="{% url 'access:review_detail' b.review_id %}" class="quiet">review #{{ b.review_id }}</a>{% endif %}</td>
-                    <td class="quiet">{{ b.built_at|date:"M d, Y H:i" }} · {{ b.built_by_label|default:"schedule" }}</td>
-                    <td style="text-align: right;">{{ b.size|filesizeformat }}</td>
-                    <td><code class="quiet" title="{{ b.sha256 }}">{{ b.sha256|slice:":16" }}…</code></td>
-                    <td style="text-align: right; white-space: nowrap;"><a href="{% url 'access:evidence_pack' b.pk %}" class="btn-outline btn-sm">Download</a></td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-        </div>
-        <p class="access-note" style="padding: 10px 16px;">A stored pack is what the system produced on that date, kept as-is with its digest; <code>sha256sum</code> on the download should print the same value. The schedule stores one when a quarter closes and one when its review is signed; the newest {{ keep }} per scope are kept{% if not keep %} (no limit){% endif %}.</p>
-        {% else %}
-        <p class="access-empty">No stored packs yet. The schedule stores one when a quarter closes and when a review is signed; <em>Store this pack</em> keeps the one previewed above.</p>
-        {% endif %}
-    </div>
-</div>
-
 <div class="card" id="evidence">
     <div class="card-header card-header--compact" style="display: block;">
         <nav class="evidence-tabs" aria-label="Sheets">
@@ -113,7 +85,7 @@
         </div>
         {% else %}
         <div class="evidence-sheet-head">
-            <p class="access-note">{{ sheet.description }} <span class="quiet">Supports {{ sheet.controls }}.</span></p>
+            <p class="access-note">{{ sheet.description }} <span class="quiet">Reflects: {{ sheet.reading }}. Supports {{ sheet.controls }}.</span></p>
             {% if summary_items %}<dl class="access-facts">{% for k, v in summary_items %}<div><dt>{{ k }}</dt><dd>{{ v }}</dd></div>{% endfor %}</dl>{% endif %}
             {% if sheet.summary.by_month %}<dl class="access-facts">{% for month, n in sheet.summary.by_month.items %}<div><dt>{{ month }}</dt><dd>+{{ n.grants }} / −{{ n.removals }}</dd></div>{% endfor %}</dl>{% endif %}
         </div>
@@ -132,6 +104,33 @@
         {% else %}
         <p class="access-empty">Nothing in this period.</p>
         {% endif %}
+        {% endif %}
+    </div>
+</div>
+<div class="card" style="margin-top: 16px;" id="packs">
+    <div class="card-header card-header--compact"><h2>Stored packs <span class="quiet">{{ bundles|length }}</span></h2></div>
+    <div class="card-body" style="padding: 0;">
+        {% if bundles %}
+        <div style="overflow-x: auto; contain: inline-size;">
+        <table class="table-plain compact-table">
+            <thead><tr><th scope="col" style="text-align: left; padding: 8px 12px;">Period</th><th scope="col" style="text-align: left; padding: 8px 12px;">Why</th><th scope="col" style="text-align: left; padding: 8px 12px;">Built</th><th scope="col" style="text-align: right; padding: 8px 12px;">Size</th><th scope="col" style="text-align: left; padding: 8px 12px;">SHA-256</th><th scope="col"></th></tr></thead>
+            <tbody>
+                {% for b in bundles %}
+                <tr>
+                    <td><strong>{{ b.period_label }}</strong> <span class="quiet">· {{ b.scope }}</span></td>
+                    <td>{% if b.reason == "period_closed" %}{% status_badge "period closed" "info" %}{% elif b.reason == "review_signed" %}{% status_badge "review signed" "success" %}{% else %}{% status_badge "on request" "muted" %}{% endif %}{% if b.review_id %} <a href="{% url 'access:review_detail' b.review_id %}" class="quiet">review #{{ b.review_id }}</a>{% endif %}</td>
+                    <td class="quiet">{{ b.built_at|date:"M d, Y H:i" }} · {{ b.built_by_label|default:"schedule" }}</td>
+                    <td style="text-align: right;">{{ b.size|filesizeformat }}</td>
+                    <td><code class="quiet" title="{{ b.sha256 }}">{{ b.sha256|slice:":16" }}…</code></td>
+                    <td style="text-align: right; white-space: nowrap;"><a href="{% url 'access:evidence_pack' b.pk %}" class="btn-outline btn-sm">Download</a></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        </div>
+        <p class="access-note" style="padding: 10px 16px;">A stored pack is what the system produced on that date, kept as-is with its digest; <code>sha256sum</code> on the download should print the same value. The schedule stores one when a quarter closes and one when its review is signed; the newest {{ keep }} per scope are kept{% if not keep %} (no limit){% endif %}.</p>
+        {% else %}
+        <p class="access-empty">No stored packs yet. The schedule stores one when a quarter closes and when a review is signed; <em>Store this pack</em> keeps the one previewed above.</p>
         {% endif %}
     </div>
 </div>

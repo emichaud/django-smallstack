@@ -147,6 +147,31 @@ def fan_out(event_type: str, payload: dict[str, Any], *, event_id: str | None = 
         return 0
     if not getattr(settings, "SMALLSTACK_WEBHOOKS_OUTBOUND", True):
         return 0
+    # An adopter's mistake used to read as "outbound is off" (0) with only a
+    # traceback in the log (T5-10). Dates, Decimals and UUIDs in the payload
+    # are serialised as Django's encoder does; an event id must be a UUID. In
+    # DEBUG a bad one raises; in production it is logged and nothing is sent.
+    import json
+    import uuid
+
+    from django.core.serializers.json import DjangoJSONEncoder
+
+    problem = ""
+    if event_id is not None:
+        try:
+            uuid.UUID(str(event_id))
+        except ValueError:
+            problem = f"event_id must be a UUID string (got {event_id!r})"
+    if not problem:
+        try:
+            payload = json.loads(json.dumps(payload, cls=DjangoJSONEncoder))
+        except (TypeError, ValueError) as exc:
+            problem = f"the payload isn't JSON-serialisable ({exc})"
+    if problem:
+        if getattr(settings, "DEBUG", False):
+            raise ValueError(f"webhooks.fan_out({event_type!r}): {problem}")
+        logger.error("webhooks: fan_out(%s) sent nothing: %s", event_type, problem)
+        return 0
 
     max_attempts = int(getattr(settings, "SMALLSTACK_WEBHOOK_MAX_ATTEMPTS", 5))
     created = 0

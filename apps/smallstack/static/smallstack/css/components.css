@@ -3249,6 +3249,16 @@ a.dashboard-widget.widget-status-operational { border-left-color: var(--success-
 a.dashboard-widget.widget-status-degraded    { border-left-color: var(--warning-fg); }
 a.dashboard-widget.widget-status-down        { border-left-color: var(--error-fg); }
 
+/* The same three states under the names several widgets emit (ok / warning /
+   error, e.g. the Access and Access review cards): one vocabulary, two
+   spellings, both coloured (eval 45 T5-7). */
+.dashboard-widget.widget-status-ok      .widget-headline { color: var(--success-fg); }
+.dashboard-widget.widget-status-warning .widget-headline { color: var(--warning-fg); }
+.dashboard-widget.widget-status-error   .widget-headline { color: var(--error-fg); }
+a.dashboard-widget.widget-status-ok      { border-left-color: var(--success-fg); }
+a.dashboard-widget.widget-status-warning { border-left-color: var(--warning-fg); }
+a.dashboard-widget.widget-status-error   { border-left-color: var(--error-fg); }
+
 .dashboard-widget-span-2 { grid-column: span 2; }
 .dashboard-widget-span-3 { grid-column: span 3; }
 

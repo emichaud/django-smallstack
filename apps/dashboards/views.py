@@ -89,6 +89,7 @@ from .components import (
     describe_types,
     get_component_type,
     is_inline,
+    widget_refused,
 )
 from .datasets import visible_entries
 from .displays import (
@@ -655,6 +656,8 @@ class DashboardPageView(LoginRequiredMixin, TemplateView):
         metrics = {m.key: m for m in Metric.objects.filter(key__in=dashboard.metric_keys())} if can_edit else {}
         cells = []
         for cell in dashboard.layout:
+            if dashboard.system_key and widget_refused(cell, user):
+                continue  # the shared system board leaves out what the viewer can't read (T5-9)
             ct = get_component_type(str(cell.get("type", "")))
             type_label = ct.label if ct else cell.get("type")
             where = {"slug": dashboard.slug, "cell_id": cell.get("id", "")}

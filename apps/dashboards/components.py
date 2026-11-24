@@ -1191,6 +1191,23 @@ def _validate_widget(cell: dict[str, Any]) -> list[str]:
     return []
 
 
+def widget_refused(cell: dict[str, Any], user: Any) -> bool:
+    """Whether ``cell`` is a widget card whose widget's ``visible_to`` refuses
+    ``user`` (a failing gate refuses). A system board (``/smallstack/``) leaves
+    such a card out rather than showing a dead "no access" box (T5-9); a saved
+    dashboard shared wider than the widget still shows the restricted card."""
+    if cell.get("type") != "widget":
+        return False
+    key = (cell.get("options") or {}).get("widget")
+    for wkey, widget, _info in available_widgets():
+        if wkey == key:
+            try:
+                return not widget.visible_to(user)
+            except Exception:  # noqa: BLE001
+                return True
+    return False
+
+
 def build_widget(cell: dict[str, Any], ctx: CellContext) -> dict[str, Any]:
     from django.utils.safestring import mark_safe
 

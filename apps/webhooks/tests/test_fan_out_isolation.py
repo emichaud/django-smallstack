@@ -47,13 +47,13 @@ def owner():
 
 def test_unserializable_payload_does_not_roll_back_the_callers_write(endpoint, owner):
     """The regression: an unserializable payload ate the caller's row."""
-    import uuid
 
     with transaction.atomic():
         widget = Widget.objects.create(name="keep me", owner=owner)
-        # A raw UUID is not JSON-serializable by the JSONField's plain
-        # json.dumps, so the delivery INSERT fails exactly as it did in the wild.
-        created = fan_out("mcp_server.widget.created", {"data": {"uid": uuid.uuid4()}})
+        # A value nothing can serialise (a UUID now is: fan_out encodes as
+        # Django's DjangoJSONEncoder since eval 45 T5-10). It must still cost
+        # the caller nothing.
+        created = fan_out("mcp_server.widget.created", {"data": {"uid": object()}})
 
     assert created == 0, "the delivery could not be stored, so none was created"
     assert Widget.objects.filter(pk=widget.pk).exists(), (
@@ -65,9 +65,8 @@ def test_unserializable_payload_does_not_roll_back_the_callers_write(endpoint, o
 
 def test_fan_out_still_returns_zero_and_does_not_raise(endpoint, owner):
     """The promise in the docstring, kept literally."""
-    import uuid
 
-    created = fan_out("mcp_server.widget.created", {"bad": uuid.uuid4()})
+    created = fan_out("mcp_server.widget.created", {"bad": object()})
 
     assert created == 0
     assert not WebhookDelivery.objects.exists()

@@ -194,9 +194,13 @@ def tick(today: date | None = None) -> dict[str, Any]:
             )
             out["escalated"].append(review.pk)
         elif reminder_days() and last <= now - timedelta(days=reminder_days()):
-            notify_review(review, "reminder")
-            AccessReview.objects.filter(pk=review.pk).update(reminded_at=now, reminders=review.reminders + 1)
-            out["reminded"].append(review.pk)
+            told = notify_review(review, "reminder")
+            # Count a reminder only when someone could receive it (T5-6); the
+            # tick still moves reminded_at so the warning isn't logged daily.
+            sent = 1 if told.get("attesters") else 0
+            AccessReview.objects.filter(pk=review.pk).update(reminded_at=now, reminders=review.reminders + sent)
+            if sent:
+                out["reminded"].append(review.pk)
 
     out["pruned"] = prune_bundles()
     return out
@@ -267,7 +271,7 @@ def notify_review(review: AccessReview, event: str) -> dict[str, int]:
     people = attesters()
     title, message = _wording(review, event)
     path = reverse("access:review_detail", kwargs={"pk": review.pk})
-    out = {"bells": 0, "emails": 0}
+    out = {"bells": 0, "emails": 0, "attesters": len(people)}
     try:
         from apps.notifications import notify
 
@@ -299,10 +303,12 @@ def notify_review(review: AccessReview, event: str) -> dict[str, int]:
         to=to,
     )
     if not people:
+        what = {"opened": "was opened", "reminder": "needs a reminder", "overdue": "is overdue"}.get(event, event)
         logger.warning(
-            "access: review #%s is %s but no account can sign it (an active staff member holding %s, not a superuser)",
+            "access: review #%s %s, but no account can sign it (an active staff member holding %s, "
+            "not a superuser): nobody was told",
             review.pk,
-            event,
+            what,
             reviews.SIGN_REVIEW,
         )
     return out

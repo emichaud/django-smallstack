@@ -161,9 +161,21 @@
 .review-print-table td:last-child { min-width: 12rem; }
 .review-sign button[disabled] { opacity: 0.6; cursor: not-allowed; }
 @media print {
-    .sidebar, .topbar, .site-header, .page-header-bleed, .access-tabs, nav, .cookie-banner { display: none !important; }
-    .review-print { max-width: none; }
-    .review-print-table { font-size: 0.72rem; }
+    /* Landscape, the full width, black ink: the review and the evidence
+       pack's wide tables fit the page instead of running off its right edge
+       beside an empty sidebar gutter (eval 45 T3-8, T4-10). Keywords, not
+       palette tokens: paper has no theme. */
+    @page { size: landscape; margin: 12mm; }
+    .sidebar, .topbar, .site-header, .page-header-bleed, .access-tabs, nav, .cookie-banner,
+    .footer, footer { display: none !important; }
+    .main-content { margin-left: 0 !important; padding: 0 !important; min-height: 0 !important; }
+    .content-wrapper, .review-print { max-width: none !important; width: 100% !important; }
+    .review-print, .review-print * { color: black !important; background: transparent !important; }
+    .review-print-table { width: 100%; font-size: 0.66rem; table-layout: auto; }
+    .review-print-table th, .review-print-table td { white-space: normal !important; padding: 2px 4px !important; }
+    .review-print-table td { overflow-wrap: break-word; }
+    .review-print-table th { overflow-wrap: normal; word-break: keep-all; }
+    .review-print-table tr { break-inside: avoid; }
 }
 
 /* Evidence (the audit pack) */
