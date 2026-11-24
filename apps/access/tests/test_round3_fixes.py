@@ -431,15 +431,15 @@ def test_ok_warning_error_widget_states_are_coloured():
 
 
 def test_the_system_board_leaves_out_cards_the_viewer_cannot_read(plain_staff, staffer):
-    """T5-9: no dead 'no access' cards on /smallstack/ for staff without view_user."""
-    c = Client()
-    c.force_login(plain_staff)
-    page = c.get("/smallstack/").content.decode()
-    assert "You don't have access to this card" not in page
-    assert "dash-cell--widget" in page  # other widget cards still show
-    reader = Client()
-    reader.force_login(staffer)
-    assert "Users" in reader.get("/smallstack/").content.decode()
+    """T5-9: no dead 'no access' cards on /smallstack/ for staff without
+    view_user. Cells load lazily, so count the cells each viewer is given."""
+    def cards(user):
+        c = Client()
+        c.force_login(user)
+        return c.get("/smallstack/").content.decode().count('class="grid-stack-item"')
+
+    reader_cards, plain_cards = cards(staffer), cards(plain_staff)
+    assert plain_cards > 0 and plain_cards < reader_cards  # Access, Access review, Users left out
 
 
 def test_sheets_say_what_they_reflect(root):
