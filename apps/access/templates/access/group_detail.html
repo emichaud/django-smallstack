@@ -29,11 +29,30 @@
 </div>
 {% endif %}
 
+{% if can_rename or can_delete %}
+<div class="card" style="margin-bottom: 24px;">
+    <div class="card-body member-row-actions" style="justify-content: space-between;">
+        {% if can_rename %}
+        <form method="post" action="{% url 'access:group_settings' group.pk %}" class="member-row-actions">{% csrf_token %}
+            <input type="hidden" name="action" value="rename">
+            <label for="group-name" class="sr-only">Group name</label>
+            <input id="group-name" name="name" value="{{ group.name }}" class="vTextField" required maxlength="150" autocomplete="off">
+            <button type="submit" class="btn-outline btn-sm">Rename</button>
+        </form>
+        {% endif %}
+        {% if can_delete %}
+        <form method="post" action="{% url 'access:group_settings' group.pk %}" class="inline-form">{% csrf_token %}
+            <input type="hidden" name="action" value="delete">
+            <button type="submit" class="btn-danger btn-sm" data-confirm="Delete {{ group.name }}? Its {{ members|length }} member{{ members|length|pluralize }} lose what it grants; the accounts stay.">Delete group</button>
+        </form>
+        {% endif %}
+    </div>
+</div>
+{% endif %}
+
 <div class="access-grid" style="margin-bottom: 24px;">
     <div class="card">
-        <div class="card-header" style="display: flex; justify-content: space-between; align-items: center; gap: 12px;">
-            <h2>Members <span style="font-weight: 400; color: var(--body-quiet-color);">{{ members|length }}</span></h2>
-        </div>
+        <div class="card-header card-header--compact"><h2>Members <span class="quiet">{{ members|length }}</span></h2></div>
         <div class="card-body" style="padding: 0;">
             {% if members %}
             <table class="table-plain" style="width: 100%; border-collapse: collapse;">
@@ -61,10 +80,10 @@
                 </tbody>
             </table>
             {% else %}
-            <p style="padding: 16px; margin: 0; color: var(--body-quiet-color);">No members.</p>
+            <p class="access-empty">No members.</p>
             {% endif %}
             {% if can_change %}
-            <form method="post" action="{% url 'access:group_members' group.pk %}" class="member-row-actions" style="padding: 12px 16px; border-top: 1px solid var(--card-border);">{% csrf_token %}
+            <form method="post" action="{% url 'access:group_members' group.pk %}" class="member-row-actions access-add-row">{% csrf_token %}
                 <input type="hidden" name="action" value="add">
                 <label for="add-user" class="sr-only">Account to add</label>
                 <select id="add-user" name="user" class="vTextField" required>
@@ -77,27 +96,7 @@
         </div>
     </div>
 
-    <div class="card">
-        <div class="card-header" style="display: flex; justify-content: space-between; align-items: center; gap: 12px;">
-            <h2>Permissions</h2>
-            {% if request.user.is_superuser %}<a href="{% url 'admin:auth_group_change' group.pk %}" class="btn-outline btn-sm">Edit in Django admin</a>{% endif %}
-        </div>
-        <div class="card-body">
-            {% for app, perms in permissions_by_app %}
-            <div class="perm-app">
-                <h3>{{ app }}</h3>
-                <ul class="perm-list">
-                    {% for p in perms %}
-                    <li><code>{{ p.perm }}</code><span class="perm-source">{{ p.label }}</span>{% if p.added %}<span class="perm-source perm-source--direct">added by hand</span>{% endif %}</li>
-                    {% endfor %}
-                </ul>
-            </div>
-            {% empty %}
-            <p style="margin: 0; color: var(--body-quiet-color);">This group grants no permissions.</p>
-            {% endfor %}
-            {% if managed %}<p style="margin: 12px 0 0; font-size: 0.8rem; color: var(--body-quiet-color);">Declared in <code>{{ managed.app_label|default:"code" }}</code>{% if not declared_in_code %}, no longer{% endif %}; synced {{ managed.synced_at|date:"M d, Y H:i" }}.</p>{% endif %}
-        </div>
-    </div>
+    {% include "access/partials/group_permissions.html" %}
 </div>
 
 <div class="card">

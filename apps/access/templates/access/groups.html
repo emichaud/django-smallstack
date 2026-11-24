@@ -12,7 +12,13 @@
 <div class="card">
     <div class="card-header" style="display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap;">
         <h2>{{ groups|length }} group{{ groups|length|pluralize }}</h2>
-        {% if request.user.is_superuser %}<a href="{% url 'admin:auth_group_add' %}" class="btn-outline btn-sm">Add a group in Django admin</a>{% endif %}
+        {% if can_add %}
+        <form method="post" action="{% url 'access:group_create' %}" class="member-row-actions">{% csrf_token %}
+            <label for="group-name" class="sr-only">New group's name</label>
+            <input id="group-name" name="name" class="vTextField" placeholder="New group's name" required maxlength="150" autocomplete="off" style="width: 14rem; max-width: 100%;">
+            <button type="submit" class="btn-primary btn-sm">Create group</button>
+        </form>
+        {% endif %}
     </div>
     <div class="card-body" style="padding: 0;">
         {% if groups %}
@@ -49,7 +55,7 @@
         </table>
         </div>
         {% else %}
-        <p style="padding: 16px; margin: 0; color: var(--body-quiet-color);">No groups. Declare one in an app's <code>groups.py</code> with <code>register_group()</code>, or add one in Django admin.</p>
+        <p style="padding: 16px; margin: 0; color: var(--body-quiet-color);">No groups. Declare one in an app's <code>groups.py</code> with <code>register_group()</code>{% if can_add %}, or create one above{% endif %}.</p>
         {% endif %}
     </div>
 </div>

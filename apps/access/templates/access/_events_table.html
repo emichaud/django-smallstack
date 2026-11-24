@@ -1,22 +1,32 @@
 {% load theme_tags %}
+{% comment %}The change log as a table. With `headers` in the context (the Changes page) the column headings sort; the overview, user and group pages include it plain.{% endcomment %}
 {% if events %}
 <div style="overflow-x: auto; contain: inline-size;">
-<table class="table-plain events-table" style="width: 100%; border-collapse: collapse;">
+<table class="table-plain events-table">
     <thead>
         <tr>
-            <th scope="col" style="text-align: left;">When</th>
-            <th scope="col" style="text-align: left;">Change</th>
-            <th scope="col" style="text-align: left;">Account</th>
-            <th scope="col" style="text-align: left;">Group / permission</th>
-            <th scope="col" style="text-align: left;">By</th>
-            <th scope="col" style="text-align: left;">From</th>
+            {% if headers %}
+            {% for h in headers %}
+            <th scope="col"{% if h.direction %} aria-sort="{% if h.direction == 'asc' %}ascending{% else %}descending{% endif %}"{% endif %}>
+                <a href="{% querystring ordering=h.next_ordering page=None %}" class="sort-link{% if h.direction %} is-sorted{% endif %}"
+                   hx-get="{% querystring ordering=h.next_ordering page=None %}" hx-target="#events" hx-select="#events" hx-swap="outerHTML" hx-push-url="true">{{ h.label }}<span class="sort-arrow" aria-hidden="true">{% if h.direction == "desc" %}&#9660;{% else %}&#9650;{% endif %}</span></a>
+            </th>
+            {% endfor %}
+            {% else %}
+            <th scope="col">When</th>
+            <th scope="col">Change</th>
+            <th scope="col">Account</th>
+            <th scope="col">Group / permission</th>
+            <th scope="col">By</th>
+            <th scope="col">From</th>
+            {% endif %}
         </tr>
     </thead>
     <tbody>
         {% for e in events %}
         <tr>
-            <td style="white-space: nowrap;">{% localtime_tooltip e.at %}</td>
-            <td{% if e.is_grant %} class="event-grant"{% endif %}>{{ e.get_kind_display }}</td>
+            <td class="nowrap">{% localtime_tooltip e.at %}</td>
+            <td class="nowrap event-kind{% if e.is_grant %} event-grant{% endif %}">{{ e.get_kind_display }}</td>
             <td>{% if e.subject_id %}<a href="{% url 'access:user_detail' e.subject_id %}">{{ e.subject_label }}</a>{% else %}{{ e.subject_label|default:"—" }}{% endif %}</td>
             <td>
                 {% if e.group_id %}<a href="{% url 'access:group_detail' e.group_id %}">{{ e.group_label }}</a>{% elif e.group_label %}{{ e.group_label }}{% endif %}
@@ -32,5 +42,5 @@
 </table>
 </div>
 {% else %}
-<p style="padding: 16px; margin: 0; color: var(--body-quiet-color);">No access changes recorded yet. Changes made from now on are listed here, from Django admin, these pages, the User Manager, a shell or a directory sync.</p>
+<p class="access-empty">{% if who or kind %}No change matches{% if who %} “{{ who }}”{% endif %}{% if kind %} among {{ kind }}{% endif %} — try <a href="{% url 'access:events' %}">all changes</a>.{% else %}No access changes recorded yet. Changes made from now on are listed here, from these pages, the User Manager, Django admin, a shell or a directory sync.{% endif %}</p>
 {% endif %}

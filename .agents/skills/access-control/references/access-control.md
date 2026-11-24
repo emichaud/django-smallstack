@@ -145,10 +145,10 @@ with acting_as(None, "directory:entra"):
 | Page | Answers |
 |---|---|
 | **Overview** | Counts, the least-privilege findings with drill-downs, recent changes, exports |
-| **Users** | Each account's flags, groups, direct permissions, tokens, last sign-in |
+| **Users** | Each account's role, groups, direct permissions, live tokens, last sign-in, joined. Filter pills with counts (Active / Staff / Deactivated / All), search, every column sortable (`?ordering=`, `-` reverses; never-signed-in last), rows per page — all links and GET, the state in the address, the card swapping over htmx |
 | **User** | Everything the account can do and **why** (`via group:X`, `via direct`, `via superuser`); a **Check a permission** box that answers as `has_perm` does, with the reason; groups with when and by whom; tokens; the account's events |
-| **Groups** / **Group** | Members (with who added them), permissions by app, drift from the declaration, the group's events |
-| **Changes** | Every event, filterable, exportable |
+| **Groups** / **Group** | Create a group; members (with who added them), permissions by app with add / remove (the card swaps in place over htmx), rename, delete, drift from the declaration, the group's events. Nothing here needs Django admin |
+| **Changes** | Every event: search by account, group or permission; a pill per family (grants, removals, accounts, groups, tokens & sessions, reviews — `?kind=`, a single kind still works), every column sortable (`?ordering=`), rows per page, CSV export of what's filtered. The same `kind`/`ordering` values work on `GET /smallstack/api/access/events/` |
 | **Reviews** / **Review** | Periodic access reviews: open one, decide each account, sign; CSV / JSON / print view (see *Access reviews* below) |
 | **Evidence** | The one-touch audit pack for a period: nine sheets previewed one at a time, CSV / ZIP / JSON / print (see *The evidence pack* below) |
 
@@ -178,6 +178,29 @@ removing needs only the first rule. The same rule applies on every surface
 anyone may revoke their own, revoking another account's needs the permission
 (Token Manager, Access, Django admin, Explorer), and only a superuser revokes a
 superuser's.
+
+**Groups themselves** (`services.create_group` / `rename_group` /
+`set_group_permission` / `delete_group`, what Django admin's group form did):
+a staff account holding `auth.add_group`, `auth.change_group` or
+`auth.delete_group` respectively (`services.group_refusal`), and to **give a
+group a permission**, the actor must hold it themselves — the same subset
+rule as adding a member, so nobody hands out more than they have (the
+picker only offers what the viewer holds; a superuser holds all). A group
+**declared in code** can't be renamed or deleted on the page (the sync would
+make it again; change `groups.py`), though its permissions can, shown as
+drift. A **directory-managed** group changes nowhere but its declaration and
+the directory. Every write runs inside `acting_as`, so the signals record it
+(`group_created`, `group_renamed`, `group_permission_added` / `_removed`,
+`group_deleted`). **Direct permissions** on an account can be taken off on
+the user page (`services.remove_direct_permission`: `accounts.change_user`,
+only a superuser for a superuser's) and never added there — a direct grant is
+what the *Direct permissions* finding reports; use a group. The same writes
+exist over REST (`POST /smallstack/api/access/groups/`, `PATCH` / `DELETE
+…/groups/{group}/`, `PUT` / `DELETE …/groups/{group}/permissions/{perm}/`,
+`DELETE …/users/{user}/permissions/{perm}/`; an auth-level token, 403 for
+who's asking and 400 for what they sent) and from the shell (`access group
+new|rename|rm|grant|revoke`, `access perm rm`; `--user` applies the actor's
+rules, without it a local command keeps only the group's own).
 
 **Which role cuts off an account, and where.** The Access user page's *Revoke
 tokens & sign out* (every live token revoked, every session ended) is for a
@@ -427,9 +450,11 @@ exports, the CLI and REST all use that one build.
 | Findings | the least-privilege findings as they stand now (the stored pack the schedule keeps when a quarter closes is the before-picture) | CC6.1/6.3 · PCI 7.2.4 |
 | Access reviews | the signed attestations covering the period, one row per reviewed account | CC6.3 · PCI 7.2.4/7.2.5 |
 
-- **Period**: a quarter from the picker (wins) or `from`/`to` dates; default
-  the last complete quarter. **Scope** as for reviews. Tabs are
-  `?tab=<sheet>`; rows paginate. A bad date, a period that ends before it
+- **Period**: a quarter pill (`?period=<start>_<end>`, wins) or *Custom*
+  with `from`/`to` dates; default the last complete quarter. **Scope** pills
+  as for reviews. Tabs are `?tab=<sheet>` (plus `packs`, the stored packs);
+  rows paginate with *Rows per page*; headings are the column keys spaced
+  out (the CSV keeps the keys); a cell wraps only when it's long. A bad date, a period that ends before it
   starts or an unknown scope is refused with the reason (400 on REST and the
   exports, a message on the page, nothing stored), never replaced by another
   period.

@@ -17,3 +17,17 @@ def get_item(mapping: Any, key: Any) -> Any:
         return mapping.get(key)
     except AttributeError:
         return None
+
+
+@register.filter
+def column_label(key: Any) -> str:
+    """``last_granted_by`` → ``last granted by``: an evidence column's key as
+    a heading (the CSV keeps the key)."""
+    return str(key).replace("_", " ")
+
+
+@register.filter
+def is_long(value: Any) -> bool:
+    """Whether a cell's text should wrap (a note, a joined list) rather than
+    keep its line; short values and timestamps stay on one line."""
+    return len(str(value or "")) > 40

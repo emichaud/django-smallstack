@@ -252,12 +252,13 @@ def test_retention_keeps_the_newest_per_scope(settings, root):
 def test_the_pages_list_store_and_download_packs(client, attester, staffer, root):
     client.force_login(attester)
     page = client.get(reverse("access:evidence")).content.decode()
-    assert "Stored packs" in page and "Store this pack" in page and "No stored packs yet" in page
+    assert "Stored packs" in page and "Store this pack" in page
+    assert "No stored packs yet" in client.get(reverse("access:evidence") + "?tab=packs").content.decode()
     resp = client.post(reverse("access:evidence_store"), {"from": "2026-07-01", "to": "2026-09-30", "scope": "all"})
-    assert resp.status_code == 302 and "#packs" in resp["Location"]
+    assert resp.status_code == 302 and "tab=packs" in resp["Location"]
     bundle = EvidenceBundle.objects.get()
     assert (bundle.scope, bundle.reason, bundle.built_by) == ("all", "manual", attester)
-    page = client.get(reverse("access:evidence")).content.decode()
+    page = client.get(resp["Location"]).content.decode()
     assert "on request" in page and bundle.sha256[:16] in page and "Download" in page
     # The download is the stored bytes, digest in a header the auditor can check.
     resp = client.get(reverse("access:evidence_pack", kwargs={"pk": bundle.pk}))

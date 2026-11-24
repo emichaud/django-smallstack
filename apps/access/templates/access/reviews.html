@@ -9,79 +9,54 @@
 {% endblock %}
 
 {% block content %}
-<div class="access-grid access-grid--top" style="margin-bottom: 16px;">
-    <div class="card">
-        <div class="card-header card-header--compact"><h2>Start a review</h2></div>
-        <div class="card-body">
-            {% if can_open %}
-            <form method="post" action="{% url 'access:review_open' %}" class="review-open-form">{% csrf_token %}
-                <div class="review-field">
-                    <label for="period">Period</label>
-                    <select id="period" name="period" class="vTextField">
-                        {% for q, done in quarters %}<option value="{{ q.key }}"{% if forloop.first %} selected{% endif %}>{{ q.label }} · {{ q.start|date:"M d" }} – {{ q.end|date:"M d, Y" }}{% if done %} · signed{% endif %}</option>{% endfor %}
-                        <option value="custom">Custom dates…</option>
-                    </select>
-                </div>
-                <div class="review-field review-field--dates">
-                    <label for="start">Custom start</label><input id="start" name="start" type="date" class="vTextField">
-                    <label for="end">Custom end</label><input id="end" name="end" type="date" class="vTextField">
-                </div>
-                <div class="review-field">
-                    <label for="scope">Scope</label>
-                    <select id="scope" name="scope" class="vTextField">
-                        {% for value, label in scopes %}<option value="{{ value }}">{{ label }}</option>{% endfor %}
-                    </select>
-                </div>
-                <div class="review-field">
-                    <label for="note">Note <span class="quiet">(optional)</span></label>
-                    <input id="note" name="note" class="vTextField" placeholder="e.g. Q3 SOC 2 evidence">
-                </div>
-                <button type="submit" class="btn-primary btn-sm">Open review</button>
-            </form>
-            <p class="access-note" style="margin-top: 10px;">Opening freezes the roster of accounts holding access right now: <em>privileged</em> is every superuser, staff member and holder of a permission that changes access or credentials; <em>all</em> is every active account. Nothing changes access until a <em>remove</em> decision is approved.</p>
-            {% else %}
-            <p class="access-note">{{ open_refusal }}</p>
-            {% endif %}
-        </div>
-    </div>
+{% comment %}The quarter strip is the page's one bold element: four tiles, each the state of one quarter, with the action it needs. Everything under it is quiet tables.{% endcomment %}
+<ol class="quarters" aria-label="The last four quarters">
+    {% for q, done, opened in quarters %}
+    <li class="quarter{% if done %} quarter--signed{% elif opened %} quarter--open{% else %} quarter--todo{% endif %}">
+        <div class="quarter-head"><strong>{{ q.label }}</strong><span class="quiet">{{ q.start|date:"M d" }} – {{ q.end|date:"M d, Y" }}</span></div>
+        {% if done %}
+        <a href="{% url 'access:review_detail' done.pk %}" class="quarter-state">{% status_badge "signed" "success" %} <span class="quiet">by {{ done.signed_by_label }}, {{ done.signed_at|date:"M d" }}</span></a>
+        {% elif opened %}
+        <a href="{% url 'access:review_detail' opened.pk %}" class="quarter-state">{% status_badge "open" "info" %} <span class="quiet">review #{{ opened.pk }}{% if opened.escalated_at %} · escalated{% endif %}</span></a>
+        <a href="{% url 'access:review_detail' opened.pk %}" class="btn-primary btn-sm">Continue</a>
+        {% else %}
+        <span class="quarter-state">{% status_badge "not reviewed" "warning" %}</span>
+        {% if can_open %}<a href="{% url 'access:reviews' %}?period={{ q.key }}#start" class="btn-outline btn-sm">Open review</a>{% endif %}
+        {% endif %}
+    </li>
+    {% endfor %}
+</ol>
 
-    <div class="card">
-        <div class="card-header card-header--compact"><h2>Last four quarters</h2></div>
-        <div class="card-body" style="padding: 0;">
-            <table class="table-plain compact-table">
-                <tbody>
-                    {% for q, done in quarters %}
-                    <tr>
-                        <td><strong>{{ q.label }}</strong> <span class="quiet">{{ q.start|date:"M d" }} – {{ q.end|date:"M d, Y" }}</span></td>
-                        <td style="text-align: right;">{% if done %}<a href="{% url 'access:review_detail' done.pk %}">{% status_badge "signed" "success" %}</a> <span class="quiet">by {{ done.signed_by_label }}</span>{% else %}{% status_badge "not reviewed" "warning" %}{% endif %}</td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-    </div>
-</div>
-
-<div class="card" style="margin-bottom: 16px;" id="cadence">
-    <div class="card-header card-header--compact" style="display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap;">
-        <h2>By the schedule</h2>
+<div class="card" style="margin-bottom: 16px;" id="start">
+    <div class="card-header card-header--compact list-toolbar">
+        <h2>Start a review</h2>
         <div class="access-flags">
             {% if cadence.enabled %}{% status_badge "quarterly" "success" %}{% if cadence.job %}{% if cadence.job.enabled %}{% status_badge "job enabled" "info" %}{% else %}{% status_badge "job paused" "warning" %}{% endif %}{% else %}{% status_badge "no scheduler row" "muted" %}{% endif %}{% else %}{% status_badge "on demand" "muted" %}{% endif %}
         </div>
     </div>
     <div class="card-body">
-        {% if cadence.enabled %}
-        <dl class="access-facts">
-            <div><dt>{{ cadence.period.label }}</dt><dd>{% if cadence.signed %}<a href="{% url 'access:review_detail' cadence.signed.pk %}">signed</a> by {{ cadence.signed.signed_by_label }}{% elif cadence.open %}<a href="{% url 'access:review_detail' cadence.open.pk %}">review #{{ cadence.open.pk }}</a> open{% else %}not reviewed{% endif %}</dd></div>
-            <div><dt>Due</dt><dd{% if not cadence.signed and cadence.days_until_due < 0 %} class="is-warning"{% endif %}>{{ cadence.due|date:"M d, Y" }}{% if not cadence.signed %} · {% if cadence.days_until_due >= 0 %}in {{ cadence.days_until_due }} day{{ cadence.days_until_due|pluralize }}{% else %}overdue {{ cadence.days_overdue }} day{{ cadence.days_overdue|pluralize }}{% endif %}{% endif %}</dd></div>
-            <div><dt>Current quarter closes</dt><dd>{{ cadence.next_close|date:"M d, Y" }}</dd></div>
-            <div><dt>Scope</dt><dd>{{ cadence.scope }}</dd></div>
-            <div><dt>Attesters</dt><dd{% if not attesters %} class="is-warning"{% endif %}>{% for a in attesters %}{{ a.get_username }}{% if not forloop.last %}, {% endif %}{% empty %}none — nobody can sign{% endfor %}</dd></div>
-            {% if cadence.job and cadence.job.next_run_at %}<div><dt>Next run</dt><dd>{{ cadence.job.next_run_at|date:"M d, Y H:i" }}</dd></div>{% endif %}
-        </dl>
-        <p class="access-note" style="margin-top: 10px;">The day after a quarter closes, the schedule opens its review (freezing the roster on a predictable date), stores the quarter's evidence pack, and tells the attesters in-app and by email. While a review stays open it reminds them{% if reminder_days %} every {{ reminder_days }} day{{ reminder_days|pluralize }}{% endif %}; {{ due_days }} day{{ due_days|pluralize }} after the period ends it escalates. Signing is still a person's act.</p>
+        {% if can_open %}
+        <form method="post" action="{% url 'access:review_open' %}" class="review-open-bar">{% csrf_token %}
+            <label for="period" class="sr-only">Period</label>
+            <select id="period" name="period" class="vTextField">
+                {% for q, done, opened in quarters %}<option value="{{ q.key }}"{% if preselect == q.key or not preselect and forloop.first %} selected{% endif %}>{{ q.label }} · {{ q.start|date:"M d" }} – {{ q.end|date:"M d, Y" }}{% if done %} · signed{% elif opened %} · open{% endif %}</option>{% endfor %}
+                <option value="custom"{% if preselect == "custom" %} selected{% endif %}>Custom dates…</option>
+            </select>
+            <label for="start-date" class="sr-only">Custom start</label><input id="start-date" name="start" type="date" class="vTextField review-date" title="Custom start (with “Custom dates…”)">
+            <label for="end-date" class="sr-only">Custom end</label><input id="end-date" name="end" type="date" class="vTextField review-date" title="Custom end">
+            <label for="scope" class="sr-only">Scope</label>
+            <select id="scope" name="scope" class="vTextField">
+                {% for value, label in scopes %}<option value="{{ value }}">{{ label }}</option>{% endfor %}
+            </select>
+            <label for="note" class="sr-only">Note</label>
+            <input id="note" name="note" class="vTextField review-note" placeholder="Note (optional), e.g. Q3 SOC 2 evidence">
+            <button type="submit" class="btn-primary btn-sm">Open review</button>
+        </form>
+        <p class="access-note" style="margin-top: 8px;">Opening freezes the roster of accounts holding access right now — <em>privileged</em> is every superuser, staff member and holder of a permission that changes access or credentials; <em>all</em> is every active account. Nothing changes access until a <em>remove</em> decision is approved.
+        {% if cadence.enabled %}<span id="cadence">By the schedule: the day after a quarter closes the job opens its review, stores the pack and tells the attesters ({% for a in attesters %}{{ a.get_username }}{% if not forloop.last %}, {% endif %}{% empty %}<span class="is-warning">none — nobody can sign</span>{% endfor %}); {{ cadence.period.label }} is due {{ cadence.due|date:"M d, Y" }}{% if not cadence.signed %} ({% if cadence.days_until_due >= 0 %}in {{ cadence.days_until_due }} day{{ cadence.days_until_due|pluralize }}{% else %}<span class="is-warning">overdue {{ cadence.days_overdue }} day{{ cadence.days_overdue|pluralize }}</span>{% endif %}){% endif %}; reminders{% if reminder_days %} every {{ reminder_days }} days{% endif %}, escalation {{ due_days }} days after the period ends{% if cadence.job and cadence.job.next_run_at %}; next run {{ cadence.job.next_run_at|date:"M d, H:i" }}{% endif %}. Signing is still a person's act.</span>
+        {% else %}<span id="cadence">Attestation is on demand here: nothing is scheduled and nobody is notified. <code>SMALLSTACK_ACCESS_REVIEW_CADENCE=quarterly</code> would open each quarter's review when it closes, store the pack and tell the attesters.</span>{% endif %}</p>
         {% else %}
-        <p class="access-note">Attestation is on demand here: open a review above whenever one is needed, and the Evidence page builds the pack for any period. Nothing is scheduled and nobody is notified. For a deployment on an auditor's calendar, set <code>SMALLSTACK_ACCESS_REVIEW_CADENCE=quarterly</code>: a daily job then opens the review when each quarter closes, stores the pack, and tells the attesters (reminding and escalating while it stays unsigned).</p>
+        <p class="access-note">{{ open_refusal }}</p>
         {% endif %}
     </div>
 </div>
@@ -95,7 +70,7 @@
                 {% for r in open_reviews %}
                 <tr>
                     <td><a href="{% url 'access:review_detail' r.pk %}"><strong>#{{ r.pk }}</strong> {{ r.period_label }}</a> <span class="quiet">· {{ r.get_scope_display|lower }}</span></td>
-                    <td class="quiet">opened {{ r.opened_at|date:"M d, Y" }} {% if r.opened_by_label %}by {{ r.opened_by_label }}{% else %}by {{ r.get_opened_via_display }}{% endif %}{% if r.reminders %} · reminded {{ r.reminders }}×{% endif %}{% if r.escalated_at %} · <span style="color: var(--error-fg);">escalated</span>{% endif %}</td>
+                    <td class="quiet">opened {{ r.opened_at|date:"M d, Y" }} {% if r.opened_by_label %}by {{ r.opened_by_label }}{% else %}by {{ r.get_opened_via_display }}{% endif %}{% if r.reminders %} · reminded {{ r.reminders }}×{% endif %}{% if r.escalated_at %} · <span class="is-warning">escalated</span>{% endif %}</td>
                     <td style="text-align: right;"><a href="{% url 'access:review_detail' r.pk %}" class="btn-primary btn-sm">Continue</a></td>
                 </tr>
                 {% endfor %}
@@ -130,24 +105,24 @@
         {% if signed_reviews %}
         <div style="overflow-x: auto; contain: inline-size;">
         <table class="table-plain compact-table">
-            <thead><tr><th scope="col" style="text-align: left; padding: 8px 12px;">Review</th><th scope="col" style="text-align: left; padding: 8px 12px;">Signed</th><th scope="col" style="text-align: right; padding: 8px 12px;">Accounts</th><th scope="col" style="text-align: right; padding: 8px 12px;">Confirmed</th><th scope="col" style="text-align: right; padding: 8px 12px;">Remove</th><th scope="col" style="text-align: right; padding: 8px 12px;">Flagged</th><th scope="col"></th></tr></thead>
+            <thead><tr><th scope="col">Review</th><th scope="col">Signed</th><th scope="col" class="num">Accounts</th><th scope="col" class="num">Confirmed</th><th scope="col" class="num">Remove</th><th scope="col" class="num">Flagged</th><th scope="col"></th></tr></thead>
             <tbody>
                 {% for r in signed_reviews %}
                 <tr>
                     <td><a href="{% url 'access:review_detail' r.pk %}"><strong>#{{ r.pk }}</strong> {{ r.period_label }}</a> <span class="quiet">· {{ r.get_scope_display|lower }}</span></td>
                     <td class="quiet">{{ r.signed_at|date:"M d, Y H:i" }} by {{ r.signed_by_label }}</td>
-                    <td style="text-align: right;">{{ r.summary.items }}</td>
-                    <td style="text-align: right;">{{ r.summary.confirmed }}</td>
-                    <td style="text-align: right;{% if r.summary.remove %} color: var(--error-fg);{% endif %}">{{ r.summary.remove }}</td>
-                    <td style="text-align: right;{% if r.summary.flagged %} color: var(--warning-fg);{% endif %}">{{ r.summary.flagged }}</td>
-                    <td style="text-align: right; white-space: nowrap;"><a href="{% url 'access:review_csv' r.pk %}" class="btn-outline btn-sm">CSV</a> <a href="{% url 'access:review_print' r.pk %}" class="btn-outline btn-sm">Print</a></td>
+                    <td class="num">{{ r.summary.items }}</td>
+                    <td class="num">{{ r.summary.confirmed }}</td>
+                    <td class="num{% if r.summary.remove %} is-warning{% endif %}">{{ r.summary.remove }}</td>
+                    <td class="num{% if r.summary.flagged %} is-warning{% endif %}">{{ r.summary.flagged }}</td>
+                    <td class="nowrap" style="text-align: right;"><a href="{% url 'access:review_csv' r.pk %}" class="btn-outline btn-sm">CSV</a> <a href="{% url 'access:review_print' r.pk %}" class="btn-outline btn-sm">Print</a></td>
                 </tr>
                 {% endfor %}
             </tbody>
         </table>
         </div>
         {% else %}
-        <p class="access-empty">No review has been signed yet.</p>
+        <p class="access-empty">No review has been signed yet. Open one above for a quarter, decide every account, and sign it.</p>
         {% endif %}
     </div>
 </div>

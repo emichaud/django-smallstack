@@ -9,22 +9,31 @@
 {% endblock %}
 
 {% block content %}
+{% comment %}One toolbar: search, a pill per family of change, the export. Every control is a link or GET (the address says what is shown); the card swaps over htmx.{% endcomment %}
 <div class="card" id="events">
-    <div class="card-body">
-        <form method="get" class="access-filters" action="{% url 'access:events' %}">
+    <div class="card-header card-header--compact list-toolbar">
+        <form method="get" action="{% url 'access:events' %}" class="list-search" role="search"
+              hx-get="{% url 'access:events' %}" hx-trigger="submit, keyup changed delay:400ms from:#who, search from:#who"
+              hx-target="#events" hx-select="#events" hx-swap="outerHTML" hx-push-url="true">
+            <input type="hidden" name="kind" value="{{ kind }}">
+            <input type="hidden" name="ordering" value="{{ ordering }}">
+            <input type="hidden" name="per_page" value="{{ per_page }}">
             <label for="who" class="sr-only">Account, group or permission</label>
-            <input id="who" type="search" name="who" value="{{ who }}" placeholder="Account, group or permission" class="vTextField" style="width: 18rem; max-width: 100%;">
-            <label for="kind" class="sr-only">Kind of change</label>
-            <select id="kind" name="kind" class="vTextField">
-                <option value="">All changes</option>
-                <option value="grants"{% if kind == "grants" %} selected{% endif %}>Grants only</option>
-                {% for value, label in kinds %}<option value="{{ value }}"{% if kind == value %} selected{% endif %}>{{ label }}</option>{% endfor %}
-            </select>
-            <button type="submit" class="btn-outline btn-sm">Filter</button>
-            <a href="{% url 'access:events_csv' %}{% if querystring %}?{{ querystring }}{% endif %}" class="btn-outline btn-sm">Export (CSV)</a>
+            <input id="who" type="search" name="who" value="{{ who }}" placeholder="Search account, group or permission" class="vTextField" autocomplete="off">
         </form>
+        <nav class="filter-toggles list-filters" aria-label="Kind of change">
+            {% for key, label in families %}
+            <a href="{% querystring kind=key page=None %}" class="filter-toggle{% if key == kind %} active{% endif %}"{% if key == kind %} aria-current="true"{% endif %}
+               hx-get="{% querystring kind=key page=None %}" hx-target="#events" hx-select="#events" hx-swap="outerHTML" hx-push-url="true">{{ label }}</a>
+            {% endfor %}
+        </nav>
+        <a href="{% url 'access:events_csv' %}{% if querystring %}?{{ querystring }}{% endif %}" class="btn-outline btn-sm list-export" title="Every matching change, as CSV">Export CSV</a>
+    </div>
+    <div class="card-body" style="padding: 0;">
         {% include "access/_events_table.html" %}
-        {% render_paginator page_obj hx_target="#events" hx_select="#events" hx_swap="outerHTML" push_url=True %}
+        <div class="list-foot">
+            {% render_paginator page_obj hx_target="#events" hx_select="#events" hx_swap="outerHTML" push_url=True %}
+        </div>
     </div>
 </div>
 {% endblock %}

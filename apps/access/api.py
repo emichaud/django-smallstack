@@ -10,8 +10,14 @@ checked and recorded the same way.
     GET    api/access/users/{user}/check/?perm=   has_perm, with the reasons
     PUT    api/access/users/{user}/groups/{group}/  add to the group
     DELETE api/access/users/{user}/groups/{group}/  remove from it
+    DELETE api/access/users/{user}/permissions/{perm}/  take a direct permission off (no PUT: use a group)
     GET    api/access/groups/                     groups, with drift against the code
+    POST   api/access/groups/                     create one: {"name": ...}
     GET    api/access/groups/{group}/             one group: members, permissions
+    PATCH  api/access/groups/{group}/             rename: {"name": ...}
+    DELETE api/access/groups/{group}/             delete (members keep their accounts)
+    PUT    api/access/groups/{group}/permissions/{perm}/  grant the permission (you must hold it)
+    DELETE api/access/groups/{group}/permissions/{perm}/  take it away
     GET    api/access/findings/                   the least-privilege findings
     GET    api/access/events/?who=&kind=&limit=   the change log
     GET    api/access/reviews/?status=            periodic access reviews (attestations)
@@ -152,19 +158,59 @@ def api_user_group(request: HttpRequest, user: str, group: str) -> ApiResult:
     return {"username": target.get_username(), "group": grp.name, "member": member, "changed": changed}
 
 
+@api_view(methods=["DELETE"], require_staff=True, require_auth_token=True)
+def api_user_permission(request: HttpRequest, user: str, perm: str) -> ApiResult:
+    """Take a direct permission off the account (there is no PUT: grant
+    through a group). Idempotent."""
+    try:
+        target = services.resolve_user(user)
+    except LookupError as exc:
+        return api_error(str(exc), 404)
+    try:
+        changed = services.remove_direct_permission(target, perm, actor=request.user, source="rest")
+    except services.GroupRefused as exc:
+        return api_error(str(exc), exc.status)
+    return {"username": target.get_username(), "permission": perm, "held": False, "changed": changed}
+
+
+def _posted_name(request: HttpRequest) -> str:
+    """``name`` from the JSON body ``api_view`` parsed onto the request."""
+    body = getattr(request, "json", None) or {}
+    return str(body.get("name", "")) if isinstance(body, dict) else ""
+
+
 # --- Groups ---------------------------------------------------------------------
+# Reads for any staff reader; the writes (what the group page does) need an
+# auth-level token and the matching auth.*_group permission, through the
+# same services as the page, recorded from ``rest``.
 
 
 @api_view(methods=["GET"], require_staff=True)
-def api_groups(request: HttpRequest) -> ApiResult:
+def _groups_read(request: HttpRequest) -> ApiResult:
     refused = _read_refusal(request)
     if refused:
         return refused
     return {"results": [services.group_payload(g, members=False) for g in services.groups_with_counts()]}
 
 
+@api_view(methods=["POST"], require_staff=True, require_auth_token=True)
+def _groups_create(request: HttpRequest) -> ApiResult:
+    """``{"name": "..."}`` → 201 with the group."""
+    try:
+        grp = services.create_group(_posted_name(request), actor=request.user, source="rest")
+    except services.GroupRefused as exc:
+        return api_error(str(exc), exc.status)
+    return services.group_payload(grp), 201
+
+
+def api_groups(request: HttpRequest, *args: Any, **kwargs: Any) -> HttpResponse:
+    """GET lists; POST creates."""
+    view = _groups_create if request.method == "POST" else _groups_read
+    return view(request, *args, **kwargs)  # type: ignore[no-any-return]
+
+
 @api_view(methods=["GET"], require_staff=True)
-def api_group(request: HttpRequest, group: str) -> ApiResult:
+def _group_read(request: HttpRequest, group: str) -> ApiResult:
     refused = _read_refusal(request)
     if refused:
         return refused
@@ -173,6 +219,46 @@ def api_group(request: HttpRequest, group: str) -> ApiResult:
     except LookupError as exc:
         return api_error(str(exc), 404)
     return services.group_payload(grp)
+
+
+@api_view(methods=["PATCH", "DELETE"], require_staff=True, require_auth_token=True)
+def _group_write(request: HttpRequest, group: str) -> ApiResult:
+    """PATCH ``{"name": "..."}`` renames; DELETE deletes (members keep their accounts)."""
+    try:
+        grp = services.resolve_group(group)
+    except LookupError as exc:
+        return api_error(str(exc), 404)
+    try:
+        if request.method == "DELETE":
+            name = grp.name
+            services.delete_group(grp, actor=request.user, source="rest")
+            return {"group": name, "deleted": True}
+        changed = services.rename_group(grp, _posted_name(request), actor=request.user, source="rest")
+    except services.GroupRefused as exc:
+        return api_error(str(exc), exc.status)
+    return {**services.group_payload(grp, members=False), "changed": changed}
+
+
+def api_group(request: HttpRequest, *args: Any, **kwargs: Any) -> HttpResponse:
+    """GET reads; PATCH renames; DELETE deletes."""
+    view = _group_write if request.method in ("PATCH", "DELETE") else _group_read
+    return view(request, *args, **kwargs)  # type: ignore[no-any-return]
+
+
+@api_view(methods=["PUT", "DELETE"], require_staff=True, require_auth_token=True)
+def api_group_permission(request: HttpRequest, group: str, perm: str) -> ApiResult:
+    """PUT grants ``perm`` (``app_label.codename``) to the group, DELETE takes
+    it away. Granting needs the caller to hold it. Idempotent."""
+    try:
+        grp = services.resolve_group(group)
+    except LookupError as exc:
+        return api_error(str(exc), 404)
+    held = request.method == "PUT"
+    try:
+        changed = services.set_group_permission(grp, perm, held, actor=request.user, source="rest")
+    except services.GroupRefused as exc:
+        return api_error(str(exc), exc.status)
+    return {"group": grp.name, "permission": perm, "held": held, "changed": changed}
 
 
 # --- The review and the log ------------------------------------------------------
@@ -192,7 +278,10 @@ def api_findings(request: HttpRequest) -> ApiResult:
 @api_view(methods=["GET"], require_staff=True)
 def api_events(request: HttpRequest) -> ApiResult:
     """The change log, newest first; ``?who=`` matches actor, subject, group
-    or permission, ``?kind=`` one kind or ``grants``."""
+    or permission, ``?kind=`` one kind or a family (``grants``, ``removals``,
+    ``accounts``, ``groups``, ``credentials``, ``reviews``), ``?ordering=``
+    a column of the Changes page (``at``, ``kind``, ``subject``, ``what``,
+    ``actor``, ``source``; ``-`` reverses)."""
     refused = _read_refusal(request)
     if refused:
         return refused
@@ -417,6 +506,36 @@ register_api_path(
         "404": _ERR,
     },
 )
+_PERM = {
+    "name": "perm",
+    "in": "path",
+    "required": True,
+    "schema": {"type": "string"},
+    "description": "app_label.codename",
+}
+_NAME_BODY = {
+    "required": True,
+    "content": {
+        "application/json": {
+            "schema": {"type": "object", "properties": {"name": {"type": "string"}}, "required": ["name"]}
+        }
+    },
+}
+_WRITE_403 = {**_ERR, "description": "Auth-level token and the matching auth.*_group permission required"}
+register_api_path(
+    "access-api-users",
+    subpath="{user}/permissions/{perm}/",
+    methods=["DELETE"],
+    summary="Take a direct permission off the account (grant through a group instead); recorded",
+    tags=_TAG,
+    parameters=[_USER, _PERM],
+    responses={
+        "200": _ok("username, permission, held, changed"),
+        "401": _ERR,
+        "403": {**_ERR, "description": "Auth-level token and accounts.change_user required"},
+        "404": _ERR,
+    },
+)
 register_api_path(
     "access-api-groups",
     methods=["GET"],
@@ -426,12 +545,48 @@ register_api_path(
 )
 register_api_path(
     "access-api-groups",
+    methods=["POST"],
+    summary="Create a group; recorded as an access change",
+    tags=_TAG,
+    request_body=_NAME_BODY,
+    responses={"201": _ok("The group"), "400": _ERR, "401": _ERR, "403": _WRITE_403},
+)
+register_api_path(
+    "access-api-groups",
     subpath="{group}/",
     methods=["GET"],
     summary="One group: members, permissions, declaration",
     tags=_TAG,
     parameters=[_GROUP],
     responses={"200": _ok("The group"), "401": _ERR, "403": _ERR, "404": _ERR},
+)
+register_api_path(
+    "access-api-groups",
+    subpath="{group}/",
+    methods=["PATCH"],
+    summary="Rename the group (not one declared in code, nor a directory-managed one)",
+    tags=_TAG,
+    parameters=[_GROUP],
+    request_body=_NAME_BODY,
+    responses={"200": _ok("The group, with changed"), "400": _ERR, "401": _ERR, "403": _WRITE_403, "404": _ERR},
+)
+register_api_path(
+    "access-api-groups",
+    subpath="{group}/",
+    methods=["DELETE"],
+    summary="Delete the group; its members keep their accounts (not one declared in code)",
+    tags=_TAG,
+    parameters=[_GROUP],
+    responses={"200": _ok("group, deleted"), "401": _ERR, "403": _WRITE_403, "404": _ERR},
+)
+register_api_path(
+    "access-api-groups",
+    subpath="{group}/permissions/{perm}/",
+    methods=["PUT", "DELETE"],
+    summary="Grant the permission to the group (PUT; you must hold it yourself) or take it away (DELETE)",
+    tags=_TAG,
+    parameters=[_GROUP, _PERM],
+    responses={"200": _ok("group, permission, held, changed"), "401": _ERR, "403": _WRITE_403, "404": _ERR},
 )
 register_api_path(
     "access-api-findings",

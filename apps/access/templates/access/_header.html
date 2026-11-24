@@ -2,8 +2,8 @@
 Expects `title`, `subtitle`, `crumbs` (list of (label, url-or-empty)) and `section`.{% endcomment %}
 {% load static %}
 <link rel="stylesheet" href="{% static 'access/css/access.css' %}">
-<div class="page-header-bleed page-header-with-actions" style="display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap;">
-    <div class="page-header-content" style="min-width: 0;">
+<div class="page-header-bleed page-header-with-actions access-header">
+    <div class="page-header-content access-header-content">
         <h1>{{ title }}</h1>
         {% if subtitle %}<p class="page-subtitle">{{ subtitle }}</p>{% endif %}
         <nav class="access-crumbs" aria-label="Breadcrumb">

@@ -9,6 +9,14 @@ Breaking-change migration recipes live in [`UPGRADING.md`](UPGRADING.md).
 
 ## [Unreleased]
 
+## [0.33.1] - 2026-11-24
+
+### Upgrading from 0.33.0
+- No changes to a downstream build: no migrations, settings or entrypoint changes.
+
+### Changed
+- **Groups are managed on the Access pages; nothing there sends you to Django admin any more.** The Groups page creates a group; the group page renames it, adds and removes the permissions it grants (the card swaps in place over htmx; the picker offers only what you hold yourself), and deletes it; the user page takes a direct permission off an account. All through new services (`create_group`, `rename_group`, `set_group_permission`, `delete_group`, `remove_direct_permission`) with the membership service's rules (`services.group_refusal`): the matching `auth.*_group` permission, the subset rule for granting, no rename or delete of a group declared in code, no change to a directory-managed group. Every write is recorded as before. The same writes over REST (`POST /smallstack/api/access/groups/`, `PATCH`/`DELETE …/groups/{group}/`, `PUT`/`DELETE …/groups/{group}/permissions/{perm}/`, `DELETE …/users/{user}/permissions/{perm}/`; auth-level token) and from the shell (`access group new|rename|rm|grant|revoke`, `access perm rm`).
+
 ## [0.33.0] - 2026-11-24
 
 ### Upgrading from 0.32
@@ -3586,7 +3594,8 @@ Condensed highlights of the v0.11 series (see git history for per-patch detail):
 See the git tag history (`git tag`) and `ai_cowork/audit_history/` for the full record of the
 v0.8–v0.10 API-server, modern-dark-theme, search, MCP, and Postgres eras.
 
-[Unreleased]: https://github.com/emichaud/django-smallstack/compare/v0.33.0...HEAD
+[Unreleased]: https://github.com/emichaud/django-smallstack/compare/v0.33.1...HEAD
+[0.33.1]: https://github.com/emichaud/django-smallstack/compare/v0.33.0...v0.33.1
 [0.33.0]: https://github.com/emichaud/django-smallstack/compare/v0.32.2...v0.33.0
 [0.32.2]: https://github.com/emichaud/django-smallstack/compare/v0.32.1...v0.32.2
 [0.32.1]: https://github.com/emichaud/django-smallstack/compare/v0.32.0...v0.32.1

@@ -456,7 +456,10 @@ def test_the_sheet_comes_before_the_stored_packs(staffer):
     c = Client()
     c.force_login(staffer)
     page = c.get("/smallstack/access/evidence/").content.decode()
-    assert page.index('id="evidence"') < page.index('id="packs"')
+    # The stored packs are a tab after the sheets, not a card above them.
+    assert page.index('tab=cover"') < page.index("tab=packs")
+    assert "No stored packs yet" not in page
+    assert "No stored packs yet" in c.get("/smallstack/access/evidence/?tab=packs").content.decode()
 
 
 def test_the_on_demand_zip_carries_its_digest(staffer):

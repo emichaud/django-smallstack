@@ -29,7 +29,6 @@
             {% elif target.is_superuser %}<p class="access-note">A superuser passes every permission check; groups don't narrow it.</p>{% endif %}
             <div class="access-actions">
                 <a href="{% url 'manage/users-update' target.pk %}" class="btn-outline btn-sm">Edit in User Manager</a>
-                {% if request.user.is_superuser %}<a href="{% url 'admin:accounts_user_change' target.pk %}" class="btn-outline btn-sm">Django admin</a>{% endif %}
                 {% if can_revoke and tokens %}
                 <form method="post" action="{% url 'access:user_revoke' target.pk %}" class="inline-form">{% csrf_token %}
                     <button type="submit" class="btn-danger btn-sm" data-confirm="Revoke every live token and end every session of {{ target.get_username }}?">Revoke tokens &amp; sign out</button>
@@ -149,7 +148,7 @@
                     <li data-perm-row data-text="{{ g.perm }} {{ g.label|lower }}{% for s in g.sources %}{% if s != 'superuser' %} {{ s|lower }}{% endif %}{% endfor %}">
                         <code>{{ g.perm }}</code>
                         <span class="perm-source">{{ g.label }}</span>
-                        <span class="perm-sources">{% for s in g.sources %}<span class="perm-source{% if s == 'direct' %} perm-source--direct{% elif s == 'superuser' %} perm-source--superuser{% endif %}">via {{ s }}</span>{% endfor %}</span>
+                        <span class="perm-sources">{% for s in g.sources %}<span class="perm-source{% if s == 'direct' %} perm-source--direct{% elif s == 'superuser' %} perm-source--superuser{% endif %}">via {{ s }}</span>{% endfor %}{% if can_remove_direct and "direct" in g.sources %}<form method="post" action="{% url 'access:user_permissions' target.pk %}" class="inline-form">{% csrf_token %}<input type="hidden" name="action" value="remove"><input type="hidden" name="perm" value="{{ g.perm }}"><button type="submit" class="btn-outline btn-sm" data-confirm="Remove the direct grant of {{ g.perm }} from {{ target.get_username }}? Grant it through a group instead.">Remove direct</button></form>{% endif %}</span>
                     </li>
                     {% endfor %}
                 </ul>

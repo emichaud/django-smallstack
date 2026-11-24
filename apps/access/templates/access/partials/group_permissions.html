@@ -1,0 +1,42 @@
+{% load theme_tags %}
+{% comment %}The group page's Permissions card. Rendered inside the page and, after an add or
+remove, swapped whole by htmx (views.group_permissions); the OOB messages ride along then.{% endcomment %}
+<div class="card" id="group-permissions">
+    <div class="card-header card-header--compact"><h2>Permissions <span class="quiet">{{ permission_count }}</span></h2></div>
+    <div class="card-body" style="padding: 0;">
+        {% for app, perms in permissions_by_app %}
+        <div class="perm-app">
+            <h3>{{ app }}</h3>
+            <ul class="perm-list">
+                {% for p in perms %}
+                <li>
+                    <code>{{ p.perm }}</code>
+                    <span class="perm-source">{{ p.label }}{% if p.added %} · <span class="perm-source--direct">added by hand</span>{% endif %}</span>
+                    {% if can_manage %}
+                    <form hx-post="{% url 'access:group_permissions' group.pk %}" hx-target="#group-permissions" hx-swap="outerHTML" class="inline-form">{% csrf_token %}
+                        <input type="hidden" name="action" value="remove"><input type="hidden" name="perm" value="{{ p.perm }}">
+                        <button type="submit" class="btn-outline btn-sm" data-confirm="Take {{ p.perm }} from {{ group.name }}? Every member loses it.">Remove</button>
+                    </form>
+                    {% endif %}
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+        {% empty %}
+        <p class="access-empty">This group grants no permissions.</p>
+        {% endfor %}
+        {% if can_manage %}
+        <form hx-post="{% url 'access:group_permissions' group.pk %}" hx-target="#group-permissions" hx-swap="outerHTML" class="member-row-actions access-add-row">{% csrf_token %}
+            <input type="hidden" name="action" value="add">
+            <label for="add-perm" class="sr-only">Permission to add</label>
+            <select id="add-perm" name="perm" class="vTextField" required>
+                <option value="">Add a permission…</option>
+                {% for app, perms in available_permissions %}<optgroup label="{{ app }}">{% for name, label in perms %}<option value="{{ name }}">{{ name }} · {{ label }}</option>{% endfor %}</optgroup>{% endfor %}
+            </select>
+            <button type="submit" class="btn-primary btn-sm">Add</button>
+        </form>
+        {% endif %}
+        {% if managed %}<p class="access-note" style="padding: 10px 16px;">Declared in <code>{{ managed.app_label|default:"code" }}</code>{% if not declared_in_code %}, no longer{% endif %}; synced {{ managed.synced_at|date:"M d, Y H:i" }}.{% if can_manage %} A permission changed here is drift until <code>groups.py</code> says the same.{% endif %}</p>{% endif %}
+    </div>
+</div>
+{% if request.htmx %}{% include "smallstack/partials/messages.html" %}{% endif %}

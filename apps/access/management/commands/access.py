@@ -5,6 +5,11 @@
     access grant <user> <group> [--user ACTOR] [--reason …]
     access revoke <user> <group> [--user ACTOR] [--reason …]
     access groups [--json]                groups, members, drift against the code
+    access group new <name> | rename <group> <name> | rm <group>      [--user ACTOR] [--reason …]
+    access group grant <group> <app.codename> | revoke <group> <app.codename>
+                                          the groups themselves: what the group page does
+    access perm rm <user> <app.codename> [--user ACTOR]
+                                          a direct permission off an account (grant through a group)
     access findings [--rows] [--json]     the least-privilege findings (access_report)
     access directory-manifest [--provider entra|generic] [--json]
                                           the roles a directory administrator creates
@@ -79,6 +84,27 @@ class Command(BaseCommand):
             sub.add_argument("--reason", default="", help="kept in the record")
         groups = subs.add_parser("groups", help="groups, members and drift")
         groups.add_argument("--json", action="store_true")
+        group = subs.add_parser("group", help="create, rename, delete a group, or change what it grants")
+        group_subs = group.add_subparsers(dest="group_verb", required=True)
+        for verb, text, args in (
+            ("new", "create a group", ["name"]),
+            ("rename", "rename a group", ["group", "name"]),
+            ("rm", "delete a group (its members keep their accounts)", ["group"]),
+            ("grant", "give the group a permission (app_label.codename)", ["group", "perm"]),
+            ("revoke", "take a permission from the group", ["group", "perm"]),
+        ):
+            sub = group_subs.add_parser(verb, help=text)
+            for arg in args:
+                sub.add_argument(arg)
+            sub.add_argument("--user", dest="actor", help="the person this change is attributed to")
+            sub.add_argument("--reason", default="", help="kept in the record")
+        permission = subs.add_parser("perm", help="a direct permission on an account")
+        perm_subs = permission.add_subparsers(dest="perm_verb", required=True)
+        perm_rm = perm_subs.add_parser("rm", help="take a direct permission off an account (grant through a group)")
+        perm_rm.add_argument("who")
+        perm_rm.add_argument("perm", help="app_label.codename")
+        perm_rm.add_argument("--user", dest="actor", help="the person this change is attributed to")
+        perm_rm.add_argument("--reason", default="", help="kept in the record")
         findings = subs.add_parser("findings", help="the least-privilege findings")
         findings.add_argument("--rows", action="store_true")
         findings.add_argument("--json", action="store_true")
@@ -136,7 +162,7 @@ class Command(BaseCommand):
         except LookupError as exc:
             raise CommandError(str(exc)) from exc
 
-    def _group(self, ref: str) -> Any:
+    def _resolve_group(self, ref: str) -> Any:
         try:
             return services.resolve_group(ref)
         except LookupError as exc:
@@ -180,7 +206,7 @@ class Command(BaseCommand):
 
     def _membership(self, opts: dict[str, Any], member: bool) -> None:
         user = self._user(opts["who"])
-        group = self._group(opts["group"])
+        group = self._resolve_group(opts["group"])
         actor = self._user(opts["actor"]) if opts.get("actor") else None
         source = "cli" if not opts.get("reason") else f"cli: {opts['reason']}"[:200]
         try:
@@ -194,6 +220,53 @@ class Command(BaseCommand):
             self.stdout.write(
                 f"{user.get_username()} was already {'in' if member else 'out of'} {group.name}; nothing changed"
             )
+
+    def _group(self, opts: dict[str, Any]) -> None:
+        """The group page's writes, through the same services."""
+        verb = opts["group_verb"]
+        actor = self._user(opts["actor"]) if opts.get("actor") else None
+        source = "cli" if not opts.get("reason") else f"cli: {opts['reason']}"[:200]
+        try:
+            if verb == "new":
+                group = services.create_group(opts["name"], actor=actor, source=source)
+                self.stdout.write(self.style.SUCCESS(f"Group {group.name} created (#{group.pk})"))
+                return
+            group = self._resolve_group(opts["group"])
+            if verb == "rename":
+                before = group.name
+                if services.rename_group(group, opts["name"], actor=actor, source=source):
+                    self.stdout.write(self.style.SUCCESS(f"{before} renamed to {group.name}"))
+                else:
+                    self.stdout.write(f"{group.name} already has that name; nothing changed")
+            elif verb == "rm":
+                name, members = group.name, group.user_set.count()
+                services.delete_group(group, actor=actor, source=source)
+                self.stdout.write(self.style.SUCCESS(f"Group {name} deleted; {members} member(s) keep their accounts"))
+            else:
+                held = verb == "grant"
+                changed = services.set_group_permission(group, opts["perm"], held, actor=actor, source=source)
+                if changed:
+                    verb_text = "added to" if held else "removed from"
+                    self.stdout.write(self.style.SUCCESS(f"{opts['perm']} {verb_text} {group.name}"))
+                else:
+                    self.stdout.write(
+                        f"{group.name} already {'had' if held else 'lacked'} {opts['perm']}; nothing changed"
+                    )
+        except PermissionError as exc:
+            raise CommandError(str(exc)) from exc
+
+    def _perm(self, opts: dict[str, Any]) -> None:
+        user = self._user(opts["who"])
+        actor = self._user(opts["actor"]) if opts.get("actor") else None
+        source = "cli" if not opts.get("reason") else f"cli: {opts['reason']}"[:200]
+        try:
+            changed = services.remove_direct_permission(user, opts["perm"], actor=actor, source=source)
+        except PermissionError as exc:
+            raise CommandError(str(exc)) from exc
+        if changed:
+            self.stdout.write(self.style.SUCCESS(f"direct {opts['perm']} removed from {user.get_username()}"))
+        else:
+            self.stdout.write(f"{user.get_username()} didn't hold {opts['perm']} directly; nothing changed")
 
     def _grant(self, opts: dict[str, Any]) -> None:
         self._membership(opts, True)

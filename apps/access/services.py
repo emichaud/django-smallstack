@@ -544,6 +544,176 @@ def set_membership(user: Any, group: Group, member: bool, *, actor: Any, source:
     return True
 
 
+# --- Groups themselves, and direct permissions ------------------------------------
+# What Django admin's group form did, on the Access pages: create, rename,
+# change what a group grants, delete; and take a direct permission off an
+# account (the least-privilege finding's fix). Every write goes through here,
+# inside ``acting_as``, so the signals record it like any other change.
+
+ADD_GROUP = "auth.add_group"
+MANAGE_GROUPS = "auth.change_group"
+DELETE_GROUP = "auth.delete_group"
+
+
+class GroupRefused(PermissionError):
+    """The actor may not make this change to the group (→ a message on the
+    page, a CommandError on the CLI, ``status`` over REST: 403 for who's
+    asking, 400 for what they sent)."""
+
+    def __init__(self, message: str, status: int = 403) -> None:
+        super().__init__(message)
+        self.status = status
+
+
+def declared_in_code(group: Group) -> bool:
+    from .registry import declared_groups
+
+    return any(g.name == group.name for g in declared_groups())
+
+
+def group_refusal(actor: Any, group: Group | None = None, *, action: str) -> str:
+    """Why ``actor`` may not ``create`` a group, or ``rename`` / change the
+    ``permissions`` of / ``delete`` ``group``, or "".
+
+    A staff account holding the matching ``auth`` permission. A
+    directory-managed group's name, permissions and members come from its
+    declaration and the directory (``SMALLSTACK_DIRECTORY_LOCAL_OVERRIDE``
+    lifts it). A group declared in code can't be renamed or deleted here: the
+    sync would recreate it on the next migrate; its permissions can (shown as
+    drift until ``groups.py`` says the same). ``actor=None`` is a local
+    command (the CLI without ``--user``): the group's own rules still hold."""
+    if actor is not None:
+        if not (actor.is_active and (actor.is_staff or actor.is_superuser)):
+            return f"{actor.get_username()} is not staff; changing groups needs a staff account."
+        needed = {"create": ADD_GROUP, "delete": DELETE_GROUP}.get(action, MANAGE_GROUPS)
+        if not actor.has_perm(needed):
+            return f"{actor.get_username()} lacks {needed}, which this needs."
+    if group is None:
+        return ""
+    managed = managed_for(group)
+    if managed is not None and managed.directory_role:
+        from .directory import local_override_allowed
+
+        if not local_override_allowed():
+            return (
+                f"{group.name!r} is directory-managed (role {managed.directory_role!r}): its name, permissions "
+                "and members come from its declaration and the directory. Change the declaration in groups.py."
+            )
+    if action in ("rename", "delete") and declared_in_code(group):
+        where = f"{managed.app_label}/groups.py" if managed and managed.app_label else "groups.py"
+        return (
+            f"{group.name!r} is declared in code ({where}); the sync would make it again. "
+            "Change or remove the declaration instead."
+        )
+    return ""
+
+
+def _permission(name: str) -> Permission:
+    app_label, _, codename = name.partition(".")
+    try:
+        return Permission.objects.select_related("content_type").get(
+            content_type__app_label=app_label, codename=codename
+        )
+    except Permission.DoesNotExist as exc:
+        raise GroupRefused(f"No permission {name!r} (app_label.codename).", 404) from exc
+
+
+def create_group(name: str, *, actor: Any, source: str) -> Group:
+    refusal = group_refusal(actor, action="create")
+    if refusal:
+        raise GroupRefused(refusal)
+    name = (name or "").strip()
+    if not name:
+        raise GroupRefused("A group needs a name.", 400)
+    if Group.objects.filter(name=name).exists():
+        raise GroupRefused(f"A group named {name!r} already exists.", 400)
+    with acting_as(actor, source):
+        return Group.objects.create(name=name)
+
+
+def rename_group(group: Group, name: str, *, actor: Any, source: str) -> bool:
+    """Returns whether the name changed."""
+    refusal = group_refusal(actor, group, action="rename")
+    if refusal:
+        raise GroupRefused(refusal)
+    name = (name or "").strip()
+    if not name:
+        raise GroupRefused("A group needs a name.", 400)
+    if name == group.name:
+        return False
+    if Group.objects.filter(name=name).exclude(pk=group.pk).exists():
+        raise GroupRefused(f"A group named {name!r} already exists.", 400)
+    with acting_as(actor, source):
+        group.name = name
+        group.save(update_fields=["name"])
+    return True
+
+
+def set_group_permission(group: Group, perm: str, held: bool, *, actor: Any, source: str) -> bool:
+    """Grant ``perm`` (``app_label.codename``) to the group, or take it away.
+    Granting needs the actor to hold it themselves (a superuser holds all):
+    nobody hands a group more than they have. Returns whether anything changed."""
+    refusal = group_refusal(actor, group, action="permissions")
+    if refusal:
+        raise GroupRefused(refusal)
+    permission = _permission(perm)
+    if held and actor is not None and not actor.is_superuser and not actor.has_perm(perm):
+        raise GroupRefused(
+            f"{actor.get_username()} can't grant {perm}: they don't hold it. "
+            "Only someone holding a permission (or a superuser) may give it to a group."
+        )
+    is_held = group.permissions.filter(pk=permission.pk).exists()
+    if is_held == held:
+        return False
+    with acting_as(actor, source):
+        if held:
+            group.permissions.add(permission)
+        else:
+            group.permissions.remove(permission)
+    return True
+
+
+def delete_group(group: Group, *, actor: Any, source: str) -> None:
+    """Deleting a group takes what it granted from every member; the members
+    stay. Recorded as ``group_deleted`` (and the signals record each member's
+    removal)."""
+    refusal = group_refusal(actor, group, action="delete")
+    if refusal:
+        raise GroupRefused(refusal)
+    with acting_as(actor, source):
+        group.delete()
+
+
+def direct_permission_refusal(actor: Any, user: Any) -> str:
+    """Why ``actor`` may not take a direct permission off ``user``, or "":
+    the membership-removal rule (staff holding ``accounts.change_user``), and
+    only a superuser touches a superuser's. ``actor=None`` is a local command."""
+    if actor is None:
+        return ""
+    if not (actor.is_active and (actor.is_staff or actor.is_superuser)):
+        return f"{actor.get_username()} is not staff; changing permissions needs a staff account."
+    if not actor.has_perm(CHANGE_MEMBERSHIP):
+        return f"{actor.get_username()} lacks {CHANGE_MEMBERSHIP}, which this needs."
+    if user.is_superuser and not actor.is_superuser:
+        return "Only a superuser changes a superuser's permissions."
+    return ""
+
+
+def remove_direct_permission(user: Any, perm: str, *, actor: Any, source: str) -> bool:
+    """Take a permission granted directly to the account away (put it in a
+    group instead). There is no *add*: a direct grant is what the
+    least-privilege finding reports. Returns whether anything changed."""
+    refusal = direct_permission_refusal(actor, user)
+    if refusal:
+        raise GroupRefused(refusal)
+    permission = _permission(perm)
+    if not user.user_permissions.filter(pk=permission.pk).exists():
+        return False
+    with acting_as(actor, source):
+        user.user_permissions.remove(permission)
+    return True
+
+
 # --- Wire payloads ----------------------------------------------------------------
 # One shape for REST, MCP and ``manage.py access --json``: what the Access
 # pages show, as JSON.
