@@ -107,7 +107,21 @@ def approver_users(req: ApprovalRequest) -> list[Any]:
             ", ".join(sorted(u.get_username() for u in named)),
         )
     users = list(get_user_model().objects.filter(is_staff=True, is_active=True))
-    return [u for u in users if u.pk != req.requested_by_id]
+    users = [u for u in users if u.pk != req.requested_by_id]
+    # A kind that narrows who decides also narrows who is told (T3-6): an
+    # access removal goes to the people who could approve it, not to all
+    # staff (and not to the account it removes).
+    kind = get_kind(req.kind)
+    if kind is not None and kind.can_decide is not None:
+        deciders = []
+        for u in users:
+            try:
+                if kind.can_decide(u, req):
+                    deciders.append(u)
+            except Exception:  # noqa: BLE001 — a broken hook tells nobody extra
+                logger.exception("approvals: can_decide hook for %r raised while routing %s", req.kind, req.pk)
+        return deciders
+    return users
 
 
 def subject_prefix(req: ApprovalRequest) -> str:

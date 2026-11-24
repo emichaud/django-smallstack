@@ -171,7 +171,8 @@ def test_decide_post_rejected_for_ineligible(client, requester, bystander, sampl
     req = _file(requester)
     assert client.post(_decide(req), {"decision": "approve"}).status_code == 403  # anonymous
     _login(client, bystander)
-    assert client.post(_decide(req), {"decision": "approve"}).status_code == 403
+    # A request the bystander can't see answers 404, as its page does (V2-8).
+    assert client.post(_decide(req), {"decision": "approve"}).status_code == 404
     req.refresh_from_db()
     assert req.is_pending
 
@@ -205,7 +206,7 @@ def test_cancel_post_by_requester(client, requester, sample_kind):
 def test_cancel_post_rejected_for_bystander(client, requester, bystander, sample_kind):
     req = _file(requester)
     _login(client, bystander)
-    assert client.post(_cancel(req)).status_code == 403
+    assert client.post(_cancel(req)).status_code == 404  # unseen → 404 (V2-8)
 
 
 # --- template-override chain ------------------------------------------------

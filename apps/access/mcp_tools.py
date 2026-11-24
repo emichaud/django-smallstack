@@ -88,7 +88,9 @@ def _read_refusal() -> dict[str, Any] | None:
         "properties": {"username": {"type": "string", "description": "Username, email or id."}},
         "additionalProperties": False,
     },
-    requires_access="staff",
+    # Any token tier, as the REST reads (T2-9): what gates a read is the
+    # caller holding accounts.view_user as staff (visible_to + _read_refusal).
+    requires_access="readonly",
     visible_to=services.can_read_access,
 )
 def access_explain_user(args: dict[str, Any]) -> dict[str, Any]:
@@ -118,7 +120,9 @@ def access_explain_user(args: dict[str, Any]) -> dict[str, Any]:
         },
         "additionalProperties": False,
     },
-    requires_access="staff",
+    # Any token tier, as the REST reads (T2-9): what gates a read is the
+    # caller holding accounts.view_user as staff (visible_to + _read_refusal).
+    requires_access="readonly",
     visible_to=services.can_read_access,
 )
 def access_check_permission(args: dict[str, Any]) -> dict[str, Any]:
@@ -143,7 +147,9 @@ def access_check_permission(args: dict[str, Any]) -> dict[str, Any]:
         "declaration, and more — each with a severity, a count and the rows behind it."
     ),
     {"type": "object", "properties": {}, "additionalProperties": False},
-    requires_access="staff",
+    # Any token tier, as the REST reads (T2-9): what gates a read is the
+    # caller holding accounts.view_user as staff (visible_to + _read_refusal).
+    requires_access="readonly",
     visible_to=services.can_read_access,
 )
 def access_findings(args: dict[str, Any]) -> dict[str, Any]:

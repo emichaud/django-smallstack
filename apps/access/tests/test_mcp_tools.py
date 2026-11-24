@@ -29,7 +29,7 @@ def test_registration_and_gating():
     from apps.mcp.server import TOOL_REGISTRY
 
     for name in ("access_explain_user", "access_check_permission", "access_findings"):
-        assert TOOL_REGISTRY[name].requires_access == "staff" and not TOOL_REGISTRY[name].write
+        assert TOOL_REGISTRY[name].requires_access == "readonly" and not TOOL_REGISTRY[name].write  # T2-9
     write = TOOL_REGISTRY["access_request_membership"]
     assert write.write and write.requires_access == "staff"
 

@@ -269,7 +269,9 @@ def decide_request(request: HttpRequest, pk: int) -> HttpResponse:
     """
     if not request.user.is_authenticated:
         return HttpResponse(status=403)
-    req = get_object_or_404(ApprovalRequest, pk=pk)
+    # Only rows the caller may see, as the detail page and REST/MCP do: a
+    # request someone can't see answers 404 whatever its state (V2-8).
+    req = get_object_or_404(permissions.viewable_requests(request.user), pk=pk)
     approved = request.POST.get("decision") == "approve"
     try:
         services.decide(
@@ -301,7 +303,7 @@ def decide_request(request: HttpRequest, pk: int) -> HttpResponse:
 def cancel_request(request: HttpRequest, pk: int) -> HttpResponse:
     if not request.user.is_authenticated:
         return HttpResponse(status=403)
-    req = get_object_or_404(ApprovalRequest, pk=pk)
+    req = get_object_or_404(permissions.viewable_requests(request.user), pk=pk)
     try:
         services.cancel(
             req, actor=request.user, note=request.POST.get("note", "").strip(), source="web"

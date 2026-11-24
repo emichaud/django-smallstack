@@ -137,6 +137,8 @@ MEMBERSHIP_KIND = ApprovalKind(
     on_decision=on_membership_decision,
     can_decide=_can_decide,
     can_cancel=_can_cancel,
+    # Reading it is reading access; deciding it needs change_user.
+    view_permission=("accounts.view_user", CHANGE_MEMBERSHIP),
     check_approve=_check_approve,
     default_expires_in=timedelta(days=3),
     # Only access_request_membership files this kind: the generic REST/MCP
@@ -210,6 +212,8 @@ REVIEW_REMOVE_KIND = ApprovalKind(
     on_decision=on_review_remove_decision,
     can_decide=_can_decide,
     can_cancel=_can_cancel,
+    # Reading it is reading access; deciding it needs change_user.
+    view_permission=("accounts.view_user", CHANGE_MEMBERSHIP),
     check_approve=_check_review_remove,
     default_expires_in=timedelta(days=14),
     remote_filing=False,

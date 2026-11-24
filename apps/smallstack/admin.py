@@ -88,6 +88,25 @@ class APITokenAdmin(admin.ModelAdmin):
                 fields.append("is_active")
         return fields
 
+    def has_delete_permission(self, request, obj=None):
+        """``delete_apitoken``, and the revoke rule on the row (D-2): only a
+        superuser deletes a superuser's token. A live token is revoked (and
+        recorded) before the row goes; see ``apps.access.signals``."""
+        if obj is not None and not may_change_token_state(getattr(request, "user", None), obj):
+            return False
+        return super().has_delete_permission(request, obj)
+
+    def delete_queryset(self, request, queryset):
+        """*Delete selected* asks the same rule per token."""
+        allowed = [t.pk for t in queryset.select_related("user") if may_change_token_state(request.user, t)]
+        skipped = queryset.count() - len(allowed)
+        for token in queryset.filter(pk__in=allowed):
+            token.delete()
+        if skipped:
+            self.message_user(
+                request, f"Skipped {skipped} superuser token(s): only a superuser may delete those.", messages.WARNING
+            )
+
     @admin.action(description="Revoke selected tokens", permissions=["change"])
     def revoke_tokens(self, request, queryset):
         """Revoke the selected live tokens (needs ``change_apitoken``); a

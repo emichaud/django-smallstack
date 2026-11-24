@@ -53,16 +53,36 @@ def is_staff(user: Actor) -> bool:
     )
 
 
+def _hidden_kinds(user: Actor) -> list[str]:
+    """Kinds whose ``view_permission`` ``user`` lacks (T3-9)."""
+    from .registry import all_kinds
+
+    return [k.key for k in all_kinds() if not may_view_kind(user, k)]
+
+
+def may_view_kind(user: Actor, kind: Any) -> bool:
+    """Whether a staff ``user`` passes ``kind.view_permission`` (any one of them)."""
+    needed = kind.view_permission
+    if not needed:
+        return True
+    perms = (needed,) if isinstance(needed, str) else tuple(needed)
+    return any(user.has_perm(p) for p in perms)
+
+
 def can_view(user: Actor, req: ApprovalRequest) -> bool:
-    """Staff, the requester, or an assignee — active accounts only."""
+    """Staff, the requester, or an assignee — active accounts only. A kind's
+    ``view_permission`` narrows the staff part."""
     pk = _pk(user)
     if pk is None:
         return False
-    if is_staff(user):
-        return True
     if req.requested_by_id == pk:
         return True
-    return req.assignees.filter(pk=pk).exists()
+    if req.assignees.filter(pk=pk).exists():
+        return True
+    if not is_staff(user):
+        return False
+    kind = get_kind(req.kind)
+    return kind is None or may_view_kind(user, kind)
 
 
 def viewable_requests(user: Actor, qs: QuerySet | None = None) -> QuerySet:
@@ -73,9 +93,13 @@ def viewable_requests(user: Actor, qs: QuerySet | None = None) -> QuerySet:
     pk = _pk(user)
     if pk is None:
         return qs.none()
+    own = Q(requested_by_id=pk) | Q(assignees__pk=pk)
     if is_staff(user):
-        return qs
-    return qs.filter(Q(requested_by_id=pk) | Q(assignees__pk=pk)).distinct()
+        hidden = _hidden_kinds(user)
+        if not hidden:
+            return qs
+        return qs.filter(~Q(kind__in=hidden) | own).distinct()
+    return qs.filter(own).distinct()
 
 
 def can_decide(user: Actor, req: ApprovalRequest) -> bool:

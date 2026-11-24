@@ -71,16 +71,20 @@ def _enabled() -> bool:
 class _ApiView(View):
     """Bearer-or-session auth with JSON 401s (never a login redirect).
 
-    CSRF-exempt like the framework's own ``@api_view`` and generated REST
-    routes. Safe here because the POSTs are dry runs (a preview evaluates, it
-    never saves), and a cross-site page can't read the response. A route that
-    saves belongs on the CRUDView — the one exception, the picture upload
-    (a file the JSON CRUD can't carry), runs the CSRF check itself."""
+    CSRF-exempt for token callers, like the framework's own ``@api_view`` and
+    generated REST routes; a write on a *session* must carry the CSRF token
+    (``authenticate_api_request`` checks it), since a session is ambient and a
+    cross-site page could otherwise make the browser post. A view whose POST
+    is a dry run (a preview evaluates, it never saves, and a cross-site page
+    can't read the response) sets ``dry_run = True`` and skips that check.
+    The picture upload also runs the check itself."""
+
+    dry_run = False
 
     def dispatch(self, request: HttpRequest, *args: Any, **kwargs: Any) -> HttpResponseBase:
         if not _enabled():
             raise Http404
-        user, err = authenticate_api_request(request)
+        user, err = authenticate_api_request(request, check_csrf=not self.dry_run)
         if err:
             return err
         request.user = user
@@ -125,6 +129,8 @@ def _schema_response(user: Any, key: str) -> JsonResponse:
 
 
 class PreviewApiView(_ApiView):
+    dry_run = True  # evaluates, never saves
+
     def post(self, request: HttpRequest) -> JsonResponse:
         try:
             payload = json.loads(request.body or b"{}")
@@ -255,6 +261,8 @@ class PreviewRowsApiView(_ApiView):
     ``period_field``) plus ``period``, ``limit``, ``drill`` and ``order`` in the
     body. The component builder's drill-down designer reads a card that filters
     a dataset itself through this."""
+
+    dry_run = True  # evaluates, never saves
 
     def post(self, request: HttpRequest) -> JsonResponse:
         from .previews import unsaved_metric
@@ -498,6 +506,8 @@ class ReportValuesApiView(_ApiView):
 class CardPreviewApiView(_ApiView):
     """Dry run: renders the card, saves nothing."""
 
+    dry_run = True  # evaluates, never saves
+
     def post(self, request: HttpRequest) -> JsonResponse:
         try:
             payload = json.loads(request.body or b"{}")
@@ -509,6 +519,8 @@ class CardPreviewApiView(_ApiView):
 
 
 class ReportPreviewApiView(_ApiView):
+    dry_run = True  # evaluates, never saves
+
     def post(self, request: HttpRequest) -> JsonResponse:
         try:
             payload = json.loads(request.body or b"{}")

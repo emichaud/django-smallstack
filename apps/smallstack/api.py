@@ -377,6 +377,8 @@ def _token_from_authorization(auth_header: str) -> str | None:
 
 def authenticate_api_request(
     request: HttpRequest,
+    *,
+    check_csrf: bool = True,
 ) -> tuple[Any, JsonResponse | None]:
     """Authenticate via an API token (``Bearer`` or ``Basic``) or the existing
     session. API views only — public for apps writing their own JSON views
@@ -417,8 +419,22 @@ def authenticate_api_request(
         setattr(request, "_api_token_auth", True)
         return user, None
 
-    # No token header — use existing session auth
+    # No token header — use existing session auth. A session is ambient: a
+    # page on another site can make the browser send it. So a write on a
+    # session must carry the CSRF token, as a form post does (the routes are
+    # csrf_exempt for token callers, which a cross-site page can't forge).
+    # ``check_csrf=False`` is for dry runs only (a preview that never saves).
     if request.user.is_authenticated:
+        if check_csrf and request.method not in ("GET", "HEAD", "OPTIONS", "TRACE"):
+            from django.middleware.csrf import CsrfViewMiddleware
+
+            refused = CsrfViewMiddleware(lambda r: None).process_view(request, None, (), {})  # type: ignore[arg-type,return-value]
+            if refused is not None:
+                return None, _error(
+                    "CSRF token missing or incorrect. With session auth, send the X-CSRFToken header "
+                    "(the csrftoken cookie); scripts and other sites should use an API token.",
+                    403,
+                )
         return request.user, None
 
     return None, _error("Authentication required", 401)

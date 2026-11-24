@@ -222,7 +222,9 @@ def test_the_picture_route_checks_csrf_for_a_session(member):
     browser = Client(enforce_csrf_checks=True)
     browser.force_login(member)
     refused = browser.post(PICTURE, {"image": _png()})
-    assert refused.status_code == 403 and "CSRF" in refused.json()["error"]
+    body = refused.json()
+    # Refused by the API's session check (eval 45 A-csrf) before the route's own.
+    assert refused.status_code == 403 and "CSRF" in (body.get("error") or body["errors"]["__all__"][0])
     assert not Dashboard.objects.get(slug="ops").cover_image
 
     browser.get("/smallstack/dashboards/mine/")  # sets the csrftoken cookie

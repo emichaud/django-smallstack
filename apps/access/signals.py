@@ -228,3 +228,14 @@ def _record_token_revoked(sender: Any, instance: Any, created: bool, raw: bool =
 
 pre_save.connect(_remember_token_active, sender="smallstack.APIToken", dispatch_uid="access_token_active_before")
 post_save.connect(_record_token_revoked, sender="smallstack.APIToken", dispatch_uid="access_token_revoked")
+
+
+def _revoke_before_delete(sender: Any, instance: Any, **kwargs: Any) -> None:
+    """Deleting a live token is a revocation first (D-2): revoke it so the
+    ``token_revoked`` event is recorded whichever surface deletes it (Django
+    admin, Explorer, a shell), then let the row go."""
+    if instance.pk and instance.is_active:
+        instance.revoke()
+
+
+pre_delete.connect(_revoke_before_delete, sender="smallstack.APIToken", dispatch_uid="access_token_revoke_on_delete")

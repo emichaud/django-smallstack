@@ -194,6 +194,9 @@ def _req(method, user, payload=None, path="/x/"):
     else:
         req = getattr(rf, method)(path, data=json.dumps(payload), content_type="application/json")
     req.user = user
+    # A session write in a test, as Django's test Client marks one (the API
+    # checks CSRF on a session since eval 45 A-csrf; these tests aren't about it).
+    req._dont_enforce_csrf_checks = True
     return req
 
 
