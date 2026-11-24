@@ -337,6 +337,31 @@ def sign_in(
     return identity, result
 
 
+def sign_in_or_refuse(
+    provider: str,
+    subject: str,
+    roles: Iterable[Any] | None,
+    *,
+    email: str = "",
+    name: str = "",
+) -> DirectoryIdentity | None:
+    """The fail-closed sign-in: the identity to sign in, or ``None`` to refuse.
+
+    - A subject seen before is **always synced first** (G4-4), so a person IT
+      removed from every role (``[]``) loses their directory groups now, not
+      never; then refused if no recognised role remains.
+    - A subject never seen is refused **before** anything is created when no
+      recognised role was sent (T2-4), and signed in otherwise.
+    - A missing claim (``None``) changes nothing and is refused.
+    """
+    known = DirectoryIdentity.objects.filter(provider=provider, subject=subject).exists()
+    recognised = recognised_roles(roles)
+    if not known and not recognised:
+        return None
+    identity, _result = sign_in(provider, subject, roles, email=email, name=name)
+    return identity if recognised else None
+
+
 #: How stale ``last_login`` may get before :func:`sign_in` writes it again.
 LAST_LOGIN_EVERY = timedelta(minutes=15)
 

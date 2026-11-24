@@ -27,7 +27,12 @@ class ApprovalsDashboardWidget(DashboardWidget):
         # widget disagree with the page it links to until someone loaded that
         # page and the lazy sweep fired. Deliberately NOT mark_expired():
         # the dashboard must not pay the fan-out cost.
-        pending = ApprovalRequest.objects.actionable()
+        # A kind that hides its requests from some staff (view_permission) is
+        # left out of this system-wide count, which every staff viewer sees (G3-2).
+        from .registry import all_kinds
+
+        restricted = [k.key for k in all_kinds() if k.view_permission]
+        pending = ApprovalRequest.objects.actionable().exclude(kind__in=restricted)
         count = pending.count()
         if not count:
             return {"headline": "0 pending", "detail": "All decided", "status": "ok"}

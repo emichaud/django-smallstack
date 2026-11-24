@@ -97,15 +97,13 @@ class APITokenAdmin(admin.ModelAdmin):
         return super().has_delete_permission(request, obj)
 
     def delete_queryset(self, request, queryset):
-        """*Delete selected* asks the same rule per token."""
-        allowed = [t.pk for t in queryset.select_related("user") if may_change_token_state(request.user, t)]
-        skipped = queryset.count() - len(allowed)
-        for token in queryset.filter(pk__in=allowed):
-            token.delete()
-        if skipped:
-            self.message_user(
-                request, f"Skipped {skipped} superuser token(s): only a superuser may delete those.", messages.WARNING
-            )
+        """*Delete selected* asks the same rule per token. Django refuses a
+        selection holding a token the user may not delete (the confirmation
+        page lists it under the objects they lack permission for), so this
+        guard is the second line, not a partial delete (G3-6)."""
+        for token in queryset.select_related("user"):
+            if may_change_token_state(request.user, token):
+                token.delete()
 
     @admin.action(description="Revoke selected tokens", permissions=["change"])
     def revoke_tokens(self, request, queryset):

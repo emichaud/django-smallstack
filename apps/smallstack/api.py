@@ -428,11 +428,18 @@ def authenticate_api_request(
         if check_csrf and request.method not in ("GET", "HEAD", "OPTIONS", "TRACE"):
             from django.middleware.csrf import CsrfViewMiddleware
 
-            refused = CsrfViewMiddleware(lambda r: None).process_view(request, None, (), {})  # type: ignore[arg-type,return-value]
-            if refused is not None:
+            class _Check(CsrfViewMiddleware):
+                reason = ""
+
+                def _reject(self, request: HttpRequest, reason: str) -> HttpResponse:  # type: ignore[override]
+                    self.reason = reason  # say which check failed (G3-5)
+                    return HttpResponse(status=403)
+
+            check = _Check(lambda r: None)  # type: ignore[arg-type,return-value]
+            if check.process_view(request, None, (), {}) is not None:  # type: ignore[arg-type]
                 return None, _error(
-                    "CSRF token missing or incorrect. With session auth, send the X-CSRFToken header "
-                    "(the csrftoken cookie); scripts and other sites should use an API token.",
+                    f"CSRF check failed: {check.reason}. With session auth, send the X-CSRFToken header "
+                    "(the csrftoken cookie) from a trusted origin; scripts and other sites should use an API token.",
                     403,
                 )
         return request.user, None
@@ -2283,6 +2290,9 @@ def _api_docs_response(request, template):
 
 def api_docs_swagger(request: HttpRequest) -> HttpResponse:
     """Serve Swagger UI pointing at the OpenAPI schema."""
+    from django.middleware.csrf import get_token
+
+    get_token(request)  # sets the csrftoken cookie "Try it out" sends on a session (G3-3)
     return _api_docs_response(request, "smallstack/api/swagger.html")
 
 

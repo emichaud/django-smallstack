@@ -124,6 +124,8 @@ class ApprovalRequestCRUDView(CRUDView):
     # and no sidebar entry actually finds anything. "One scoper governs every
     # read" has to be true of all six.
     search_access = "authenticated"
+    # Staff run the scoper too: a kind's view_permission narrows staff (G3-2).
+    search_visibility_applies_to_staff = True
 
     @staticmethod
     def search_visibility(qs: Any, user: Any) -> Any:

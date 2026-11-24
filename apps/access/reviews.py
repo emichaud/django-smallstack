@@ -337,11 +337,11 @@ def decide(
             and item.decision == AccessReviewItem.Decision.REMOVE
             and _removal_alive(follow_up)
             and item.note
-            and note
             and note != item.note
         ):
-            # The approval keeps the first reason; keep it on the row too (T3-10).
-            note = f"{item.note} · {note}"
+            # The approval keeps the first reason; keep it on the row too
+            # (T3-10), and an empty second note doesn't wipe it (G4-1).
+            note = f"{item.note} · {note}" if note else item.note
         if decision == AccessReviewItem.Decision.REMOVE and not _removal_alive(follow_up):
             # Never filed, or the approval was canceled, rejected or expired:
             # deciding *remove* again files a new one (T3-3).

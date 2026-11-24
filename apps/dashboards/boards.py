@@ -728,3 +728,45 @@ def make_card_unique(dashboard: Dashboard, cell_id: str, user: Any, *, copy_metr
         dashboard.layout = [fresh if c.get("id") == cell_id else c for c in dashboard.layout]
         dashboard.save()
     return {"metric": created.key if created is not None else ""}
+
+
+def visible_layout(dashboard: Dashboard, user: Any) -> list[dict[str, Any]]:
+    """The layout as ``user`` sees it: on a system board, without the widget
+    cards their ``visible_to`` refuses (T5-9)."""
+    from .components import widget_refused
+
+    cells = [c for c in dashboard.layout if isinstance(c, dict)]
+    if not dashboard.system_key:
+        return cells
+    return [c for c in cells if not widget_refused(c, user)]
+
+
+def keep_hidden_cells(dashboard: Dashboard, posted: list[Any], user: Any) -> list[Any]:
+    """An editor who can't see some cards of a system board saves the layout
+    they saw: keep the cards hidden from them as stored, and move any whose
+    slot the new layout now covers below everything (G3-1). An editor who sees
+    every card gets exactly what they posted."""
+    from .components import widget_refused
+
+    if not dashboard.system_key:
+        return posted
+    hidden = [c for c in dashboard.layout if isinstance(c, dict) and widget_refused(c, user)]
+    if not hidden:
+        return posted
+    hidden_ids = {c.get("id") for c in hidden}
+    cells = [c for c in posted if not (isinstance(c, dict) and c.get("id") in hidden_ids)]
+
+    def box(c: Any) -> tuple[int, int, int, int]:
+        return int(c.get("x") or 0), int(c.get("y") or 0), int(c.get("w") or 1), int(c.get("h") or 1)
+
+    def overlaps(a: Any, b: Any) -> bool:
+        ax, ay, aw, ah = box(a)
+        bx, by, bw, bh = box(b)
+        return ax < bx + bw and bx < ax + aw and ay < by + bh and by < ay + ah
+
+    for cell in hidden:
+        if any(isinstance(c, dict) and overlaps(cell, c) for c in cells):
+            bottom = max((box(c)[1] + box(c)[3] for c in cells if isinstance(c, dict)), default=0)
+            cell = {**cell, "x": 0, "y": bottom}
+        cells.append(cell)
+    return cells

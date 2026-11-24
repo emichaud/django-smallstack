@@ -5,7 +5,7 @@
     access grant <user> <group> [--user ACTOR] [--reason …]
     access revoke <user> <group> [--user ACTOR] [--reason …]
     access groups [--json]                groups, members, drift against the code
-    access findings [--rows] [--json]     the least-privilege review (access_report)
+    access findings [--rows] [--json]     the least-privilege findings (access_report)
     access directory-manifest [--provider entra|generic] [--json]
                                           the roles a directory administrator creates
     access review open --from DATE --to DATE [--scope privileged|all] [--user ACTOR]
@@ -79,7 +79,7 @@ class Command(BaseCommand):
             sub.add_argument("--reason", default="", help="kept in the record")
         groups = subs.add_parser("groups", help="groups, members and drift")
         groups.add_argument("--json", action="store_true")
-        findings = subs.add_parser("findings", help="the least-privilege review")
+        findings = subs.add_parser("findings", help="the least-privilege findings")
         findings.add_argument("--rows", action="store_true")
         findings.add_argument("--json", action="store_true")
         manifest = subs.add_parser(
@@ -294,8 +294,9 @@ class Command(BaseCommand):
         for item in data["items"]:
             f = item["facts"]
             flags = "superuser" if f.get("superuser") else ("staff" if f.get("staff") else "")
+            new = "new " if item.get("new") else "    "
             self.stdout.write(
-                f"  {item['username']:<28} {item['decision']:<10} {flags:<10} {', '.join(f.get('groups', []))}"
+                f"  {new}{item['username']:<28} {item['decision']:<10} {flags:<10} {', '.join(f.get('groups', []))}"
                 + (f"  — {item['note']}" if item["note"] else "")
             )
 

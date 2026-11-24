@@ -69,12 +69,13 @@
                 <div><dt>Generated</dt><dd>{{ pack.generated_at|date:"M d, Y H:i" }} · {{ pack.generated_by }}</dd></div>
             </dl>
             <table class="table-plain compact-table" style="margin-top: 12px;">
-                <thead><tr><th scope="col" style="text-align: left; padding: 8px 12px;">Sheet</th><th scope="col" style="text-align: right; padding: 8px 12px;">Rows</th><th scope="col" style="text-align: left; padding: 8px 12px;">Supports</th><th scope="col" style="text-align: left; padding: 8px 12px;">Headline</th></tr></thead>
+                <thead><tr><th scope="col" style="text-align: left; padding: 8px 12px;">Sheet</th><th scope="col" style="text-align: right; padding: 8px 12px;">Rows</th><th scope="col" style="text-align: left; padding: 8px 12px;">Reflects</th><th scope="col" style="text-align: left; padding: 8px 12px;">Supports</th><th scope="col" style="text-align: left; padding: 8px 12px;">Headline</th></tr></thead>
                 <tbody>
                     {% for s in pack.sheets %}
                     <tr>
                         <td><a href="{% url 'access:evidence' %}?{{ qs }}&tab={{ s.key }}"><strong>{{ s.title }}</strong></a><div class="quiet">{{ s.description }}</div></td>
                         <td style="text-align: right;">{{ s.count }}</td>
+                        <td class="quiet">{{ s.reading }}</td>
                         <td class="quiet">{{ s.controls }}</td>
                         <td class="quiet">{% for k, v in s.summary.items %}{% if k != "by_month" %}{{ k }} {{ v }}{% if not forloop.last %} · {% endif %}{% endif %}{% endfor %}</td>
                     </tr>

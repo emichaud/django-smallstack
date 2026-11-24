@@ -47,6 +47,12 @@ class ManagedGroupAdmin(admin.ModelAdmin):
     def has_add_permission(self, request: HttpRequest) -> bool:
         return False
 
+    def has_delete_permission(self, request: HttpRequest, obj: Any = None) -> bool:
+        """The row is the group's declaration as code keeps it: deleting it
+        would make a directory-managed group local without a trace (G4-5).
+        ``sync_groups`` maintains it; remove the declaration in code instead."""
+        return False
+
 
 @admin.register(DirectoryIdentity)
 class DirectoryIdentityAdmin(admin.ModelAdmin):

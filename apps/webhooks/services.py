@@ -137,8 +137,10 @@ def ip_is_blocked(ip: str) -> bool:
 
 def fan_out(event_type: str, payload: dict[str, Any], *, event_id: str | None = None) -> int:
     """Create one WebhookDelivery per enabled endpoint whose filter matches, and
-    enqueue each. Returns the number of deliveries created. Never raises — a
-    fan-out failure must not break the originating model save.
+    enqueue each. Returns the number of deliveries created. A delivery failure
+    never breaks the originating model save; a payload that can't be sent (not
+    JSON-serialisable, NaN, a non-UUID ``event_id``) raises ``ValueError`` in
+    DEBUG — a programming error to see at once — and is logged otherwise.
 
     ``event_id`` is the stable per-event idempotency key, shared by every
     delivery for this event and reused by replay.
@@ -164,7 +166,7 @@ def fan_out(event_type: str, payload: dict[str, Any], *, event_id: str | None = 
             problem = f"event_id must be a UUID string (got {event_id!r})"
     if not problem:
         try:
-            payload = json.loads(json.dumps(payload, cls=DjangoJSONEncoder))
+            payload = json.loads(json.dumps(payload, cls=DjangoJSONEncoder, allow_nan=False))
         except (TypeError, ValueError) as exc:
             problem = f"the payload isn't JSON-serialisable ({exc})"
     if problem:

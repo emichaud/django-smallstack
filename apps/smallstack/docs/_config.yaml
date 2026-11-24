@@ -325,7 +325,7 @@ pages:
 
   - slug: access-control
     title: "Access Control"
-    description: "Who may do what, every change to it, and the least-privilege review at /smallstack/access/"
+    description: "Who may do what, every change to it, the least-privilege findings, periodic access reviews and the audit evidence pack at /smallstack/access/"
     icon: "shield"
     category: "Built-in Tools"
 

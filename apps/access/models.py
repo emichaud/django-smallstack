@@ -217,12 +217,25 @@ class _ReviewQuerySet(models.QuerySet):
     def update(self, **kwargs: Any) -> int:
         if self._signed().exists():
             raise ReviewLocked("A signed review can't be changed.")
+        self._guard_status(kwargs)
         return super().update(**kwargs)
 
     def delete(self) -> tuple[int, dict[str, int]]:
         if self._signed().exists():
             raise ReviewLocked("A signed review can't be deleted.")
         return super().delete()
+
+    def bulk_create(self, objs: Any, *args: Any, **kwargs: Any) -> Any:
+        objs = list(objs)
+        if kwargs.get("update_conflicts") or any(getattr(o, "status", "") == "signed" for o in objs):
+            raise ReviewLocked("Reviews are opened and signed through apps.access.reviews, not in bulk.")
+        return super().bulk_create(objs, *args, **kwargs)
+
+    def _guard_status(self, kwargs: dict[str, Any]) -> None:
+        # A signature is reviews.sign()'s act (it records who, when, what was
+        # typed and the counts); a bulk status flip would fake one (G4-2).
+        if kwargs.get("status") == "signed":
+            raise ReviewLocked("A review is signed through apps.access.reviews.sign, not by update().")
 
 
 class _ReviewItemQuerySet(models.QuerySet):
@@ -240,6 +253,13 @@ class _ReviewItemQuerySet(models.QuerySet):
         if self._signed().exists():
             raise ReviewLocked("Items of a signed review can't be deleted.")
         return super().delete()
+
+    def bulk_create(self, objs: Any, *args: Any, **kwargs: Any) -> Any:
+        objs = list(objs)
+        review_ids = {o.review_id for o in objs if getattr(o, "review_id", None)}
+        if kwargs.get("update_conflicts") or AccessReview.objects.filter(pk__in=review_ids, status="signed").exists():
+            raise ReviewLocked("Items can't be added to, or rewritten on, a signed review (G4-2).")
+        return super().bulk_create(objs, *args, **kwargs)
 
 
 class AccessReview(models.Model):

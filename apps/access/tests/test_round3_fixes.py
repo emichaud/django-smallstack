@@ -548,3 +548,205 @@ def test_the_directory_sso_proxy_recipe_works_as_written(dir_groups):
     req = rf.get("/x/", **headers)
     assert mw(req).status_code == 200 and req.user.groups.filter(name="Ops team").exists()
     assert mw(rf.get("/health/", HTTP_X_FORWARDED_USER="sub-z")).status_code == 200
+    # G4-4: IT removes the person from every role: synced, then refused.
+    gone = rf.get("/x/", HTTP_X_FORWARDED_USER="sub-ok", HTTP_X_FORWARDED_GROUPS="")
+    assert mw(gone).status_code == 403
+    assert not User.objects.get(directory_identities__subject="sub-ok").groups.filter(name="Ops team").exists()
+
+
+
+# --- Batch 5: what gates G3 and G4 found ----------------------------------------------
+
+
+def test_an_editor_who_cannot_see_some_cards_can_still_save_the_board(plain_staff, staffer):
+    """G3-1: hidden cards stay where they were; the save succeeds."""
+    from apps.dashboards.models import ADMIN_HOME_KEY, Dashboard
+
+    reader = Client()
+    reader.force_login(staffer)
+    reader.get("/smallstack/")  # creates and syncs the board
+    board = Dashboard.objects.get(system_key=ADMIN_HOME_KEY)
+    c = Client()
+    c.force_login(plain_staff)
+    editor = c.get("/smallstack/").context["editor"]
+    visible = [dict(cell) for cell in editor["layout"]]
+    assert len(visible) < len(board.layout)
+    removed = visible.pop(0)
+    for i, cell in enumerate(visible):  # the grid reflows the rest to the top
+        cell["x"], cell["y"] = (i % 4) * 3, (i // 4) * 2
+    resp = c.post(f"/smallstack/dashboards/d/{board.slug}/layout/", json.dumps({"layout": visible}),
+                  content_type="application/json")
+    assert resp.status_code == 200, resp.content
+    board.refresh_from_db()
+    ids = {cell["id"] for cell in board.layout}
+    assert removed["id"] not in ids
+    hidden = {cell["id"] for cell in Dashboard.objects.get(pk=board.pk).layout} - {c["id"] for c in visible}
+    assert hidden, "the cards hidden from the editor are kept"
+
+
+def test_hidden_access_approvals_stay_hidden_in_search_datasets_and_the_widget(removal, plain_staff, staffer):
+    """G3-2: search, the approvals dataset (and so its calendar) and the
+    widget count follow the kind's view_permission."""
+    from django.test import RequestFactory
+
+    from apps.approvals.dashboard_widgets import ApprovalsDashboardWidget
+    from apps.datasets.core import get_dataset
+
+    rf = RequestFactory()
+    req = rf.get("/")
+    req.user = plain_staff
+    ds = get_dataset("smallstack_approval_requests")
+    assert not any("Deactivate" in (r.get("title") or "") for r in ds.rows(limit=None, request=req))
+    req.user = staffer
+    assert any("Deactivate" in (r.get("title") or "") for r in ds.rows(limit=None, request=req))
+    c = Client()
+    c.force_login(plain_staff)
+    assert "Deactivate manager" not in c.get("/smallstack/search/?q=Deactivate").content.decode()
+    assert ApprovalsDashboardWidget().get_data()["headline"] == "0 pending"
+
+
+def test_swagger_sends_the_csrf_header_on_a_session(staffer):
+    """G3-3: the page sets the cookie and Try it out sends it as X-CSRFToken."""
+    from pathlib import Path
+
+    from django.conf import settings as dj
+
+    js = (Path(dj.BASE_DIR) / "apps/smallstack/static/smallstack/js/templates/api/swagger.js").read_text()
+    assert "requestInterceptor" in js and "X-CSRFToken" in js
+    c = Client()
+    c.force_login(staffer)
+    c.get("/api/docs/")
+    assert "csrftoken" in c.cookies
+
+
+def test_fan_out_refuses_nan(settings):
+    """G3-4."""
+    from apps.webhooks import services as webhooks
+    from apps.webhooks.models import WebhookEndpoint
+
+    WebhookEndpoint.objects.create(name="n", target_url="https://example.com/h", event_filter=["*"], enabled=True)
+    settings.DEBUG = True
+    with pytest.raises(ValueError, match="JSON"):
+        webhooks.fan_out("x.y", {"v": float("nan")})
+
+
+def test_a_csrf_origin_failure_says_so(root, settings):
+    """G3-5: the reason names the failing check."""
+    settings.ALLOWED_HOSTS = ["*"]
+    browser = Client(enforce_csrf_checks=True)
+    browser.force_login(root)
+    browser.get("/smallstack/")
+    token = browser.cookies["csrftoken"].value
+    resp = browser.post("/smallstack/api/approvals/requests/create/", "{}", content_type="application/json",
+                        HTTP_X_CSRFTOKEN=token, HTTP_ORIGIN="https://evil.example", secure=True)
+    assert resp.status_code == 403 and "Origin" in resp.json()["errors"]["__all__"][0]
+
+
+def test_an_empty_second_note_keeps_the_reason(attester, manager, root):
+    """G4-1."""
+    review = reviews.open_review(period_start=PERIOD[0], period_end=PERIOD[1], scope="privileged", actor=attester)
+    item = reviews.decide(review.items.get(user_label="manager"), "remove", actor=attester, note="left in August")
+    assert reviews.decide(item, "remove", actor=attester, note="").note == "left in August"
+
+
+def test_bulk_create_and_a_faked_signature_are_refused(attester, attester2):
+    """G4-2."""
+    review = _signed_review(attester, attester2)
+    with pytest.raises(ReviewLocked):
+        AccessReviewItem.objects.bulk_create([AccessReviewItem(review=review, user_label="ghost")])
+    other = reviews.open_review(period_start=PERIOD[0], period_end=PERIOD[1], scope="privileged", actor=attester)
+    with pytest.raises(ReviewLocked):
+        AccessReview.objects.filter(pk=other.pk).update(status="signed")
+    with pytest.raises(ReviewLocked):
+        AccessReview.objects.bulk_create([AccessReview(period_start=PERIOD[0], period_end=PERIOD[1], status="signed")])
+
+
+def test_the_cli_text_marks_new_accounts(attester, attester2):
+    """G4-3."""
+    _signed_review(attester, attester2)
+    User.objects.create_user("zz-newcomer", password="p", is_staff=True)
+    review = reviews.open_review(period_start=PERIOD[0], period_end=PERIOD[1], scope="all", actor=attester)
+    out = StringIO()
+    call_command("access", "review", "show", str(review.pk), stdout=out)
+    assert "new zz-newcomer" in out.getvalue()
+
+
+def test_a_directory_groups_declaration_row_cannot_be_deleted(dir_groups, root):
+    """G4-5."""
+    from apps.access.models import ManagedGroup
+
+    managed = ManagedGroup.objects.get(group=dir_groups)
+    c = Client()
+    c.force_login(root)
+    assert c.get(f"/admin/access/managedgroup/{managed.pk}/delete/").status_code == 403
+    c.post(f"/admin/access/managedgroup/{managed.pk}/delete/", {"post": "yes"})
+    assert ManagedGroup.objects.filter(pk=managed.pk).exists()
+
+
+def test_the_mcp_refusal_hides_role_and_provider_from_a_non_reader(dir_groups, plain_staff):
+    """G4-6."""
+    from apps.mcp.server import TOOL_HANDLERS, ToolContext, reset_context, set_context
+
+    directory.sign_in("proxy", "sub-x", ["Ops.Team"], email="x@x.test")
+    token = set_context(ToolContext(user=plain_staff, token=None))
+    try:
+        out = TOOL_HANDLERS["access_request_membership"]({"username": "x", "group": "Ops team", "member": True,
+                                                          "reason": "r"})
+    finally:
+        reset_context(token)
+    msg = out["error"]["message"]
+    assert out["error"]["code"] in ("directory_managed", "not_found")
+    assert "Ops.Team" not in msg and "proxy" not in msg
+
+
+def test_access_report_json_is_one_document(root):
+    """G4-7."""
+    out = StringIO()
+    try:
+        call_command("access_report", "--json", stdout=out)
+    except SystemExit:
+        pass
+    text = out.getvalue()
+    assert text.strip() == json.dumps(json.loads(text), indent=2, default=str)
+
+
+def test_sheet_metadata_is_validated_and_derived(monkeypatch):
+    """G4-8."""
+    monkeypatch.setattr(evidence, "_SHEETS", list(evidence._SHEETS))
+    with pytest.raises(ValueError, match="as_of"):
+        evidence.register_sheet("bad", lambda s, e, sc: None, as_of="sometimes")
+    assert "bad" not in evidence.sheet_keys()
+    pack = evidence.build(*PERIOD)
+    assert pack.sheet("leavers").as_of == "mixed"
+    assert f"(only {pack.sheet('roster').title} is)." in evidence.cover_markdown(pack)
+
+
+def test_a_refused_store_never_puts_the_csrf_token_in_a_url(staffer):
+    """G4-9."""
+    c = Client()
+    c.force_login(staffer)
+    resp = c.post("/smallstack/access/evidence/packs/store/",
+                  {"from": "2026-07-01", "to": "2026-09-30", "csrfmiddlewaretoken": "secret-value"})
+    assert "csrfmiddlewaretoken" not in resp["Location"] and "from=2026-07-01" in resp["Location"]
+
+
+def test_print_cells_wrap_anywhere():
+    """G4-10 (the PDF check is in the round's probes)."""
+    from pathlib import Path
+
+    from django.conf import settings as dj
+
+    css = (Path(dj.BASE_DIR) / "apps/access/static/access/css/access.css").read_text()
+    assert ".review-print-table td { overflow-wrap: anywhere; }" in css
+
+
+def test_least_privilege_findings_wording_everywhere():
+    """G4-11 / T3-12."""
+    from pathlib import Path
+
+    from django.conf import settings as dj
+
+    base = Path(dj.BASE_DIR)
+    for rel in ("apps/access/mcp_tools.py", "apps/access/api.py", "apps/access/evidence.py",
+                "apps/access/management/commands/access.py", "apps/smallstack/docs/_config.yaml"):
+        assert "least-privilege review" not in (base / rel).read_text(), rel

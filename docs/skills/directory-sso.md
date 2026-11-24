@@ -98,10 +98,13 @@ places; display names can change freely).
 
 ### Failing closed without creating accounts
 
-Check the roles **before** `sign_in`: it creates the account on first sight,
-so calling it for someone who will be refused leaves an account behind.
-`recognised_roles(roles)` answers from the declarations (after
-`SMALLSTACK_DIRECTORY_ROLE_MAP`), without a write:
+Use `sign_in_or_refuse`: it returns the identity to sign in, or `None` to
+refuse. A subject seen before is **synced first** — so someone IT removed from
+every role (`[]`) loses their directory groups at once, instead of keeping them
+behind a 403 — and then refused if no recognised role remains. A subject never
+seen is refused before any account is created. A missing claim (`None`)
+changes nothing and is refused. (`recognised_roles(roles)` answers the role
+question alone, without a write.)
 
 ```python
 # apps/<app>/middleware.py — behind an auth proxy (Cloudflare Access,
@@ -109,7 +112,7 @@ so calling it for someone who will be refused leaves an account behind.
 # client requests. Add after AuthenticationMiddleware.
 from django.http import HttpResponseForbidden
 
-from apps.access.directory import recognised_roles, sign_in
+from apps.access.directory import sign_in_or_refuse
 
 PUBLIC = ("/health/", "/static/")
 
@@ -123,17 +126,21 @@ class DirectoryHeaderMiddleware:
         if not subject or request.path.startswith(PUBLIC):
             return self.get_response(request)
         raw = request.headers.get("X-Forwarded-Groups")
-        roles = [r for r in raw.split(",")] if raw is not None else None  # absent ≠ empty
-        if not recognised_roles(roles):
-            return HttpResponseForbidden("No role for this application.")
-        identity, _ = sign_in(
+        roles = [r for r in raw.split(",") if r.strip()] if raw is not None else None  # absent ≠ empty
+        identity = sign_in_or_refuse(
             "proxy", subject, roles,
             email=request.headers.get("X-Forwarded-Email", ""),
             name=request.headers.get("X-Forwarded-Name", ""),
         )
+        if identity is None:
+            return HttpResponseForbidden("No role for this application.")
         request.user = identity.user
         return self.get_response(request)
 ```
+
+A refused person's API tokens keep working until revoked (the sign-in can't
+reach them): the *accounts the directory hasn't seen, with live tokens* finding
+is the safety net, and deactivating the account revokes them.
 
 Trust these headers only from the proxy (bind the app to it, or check a
 shared secret header): anyone who can reach the app directly could send them.

@@ -896,7 +896,10 @@ def evidence_store(request: HttpRequest) -> HttpResponse:
             "Storing a pack needs an Access attester (access.sign_accessreview) or a superuser. "
             "You can still download it.",
         )
-        keep = request.POST.urlencode() if request.POST else ""
+        from urllib.parse import urlencode
+
+        # Only the period fields: never echo csrfmiddlewaretoken into a URL (G4-9).
+        keep = urlencode({k: request.POST[k] for k in ("period", "from", "to", "scope") if request.POST.get(k)})
         return redirect(f"{reverse('access:evidence')}?{keep}" if keep else reverse("access:evidence"))
     # The POST carries the GET form's fields; read them as the GET views do.
     request.GET = request.POST  # type: ignore[assignment]

@@ -30,8 +30,7 @@ class Command(BaseCommand):
 
     def handle(self, *args: Any, **opts: Any) -> None:
         if opts["json"]:
-            json.dump(snapshot(), self.stdout, indent=2)
-            self.stdout.write("")
+            self.stdout.write(json.dumps(snapshot(), indent=2, default=str))  # one write (G4-7)
             findings = run_checks()
         else:
             findings = run_checks()

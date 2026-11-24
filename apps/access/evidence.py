@@ -98,6 +98,9 @@ PRINT_COLUMNS: dict[str, tuple[str, ...]] = {
 #: (the rest are bounded by the period), and the ones the scope filters. Said
 #: on the page, in cover.md and in JSON so an auditor isn't left to guess (T4-6).
 AS_OF_GENERATION = {"roster", "matrix", "authentication", "credentials", "findings"}
+#: Event sheets that also carry what holds now (a joiner's first sign-in, a
+#: leaver's tokens still live): bounded by the period, read at generation.
+AS_OF_MIXED = {"joiners", "leavers"}
 SCOPED = {"roster"}
 
 
@@ -125,8 +128,11 @@ class Sheet:
 
     @property
     def as_of(self) -> str:
-        """``generated`` (the state when the pack was built) or ``period``."""
-        return "generated" if self.key in AS_OF_GENERATION else "period"
+        """``generated`` (the state when the pack was built), ``period`` (events
+        within it) or ``mixed`` (events within it, with what holds now)."""
+        if self.key in AS_OF_GENERATION:
+            return "generated"
+        return "mixed" if self.key in AS_OF_MIXED else "period"
 
     @property
     def scoped(self) -> bool:
@@ -135,7 +141,10 @@ class Sheet:
 
     @property
     def reading(self) -> str:
-        when = "as of generation" if self.as_of == "generated" else "within the period"
+        when = {
+            "generated": "as of generation",
+            "mixed": "within the period, with what holds now",
+        }.get(self.as_of, "within the period")
         return f"{when}; {'filtered by the scope' if self.scoped else 'every account, whatever the scope'}"
 
 
@@ -592,8 +601,8 @@ def findings_sheet(start: datetime, end: datetime, scope: str) -> Sheet:
     return Sheet(
         "findings",
         "Findings",
-        "The least-privilege review as it stands now. A stored bundle from the period's start is the before-picture; "
-        "keep one per period.",
+        "The least-privilege findings as they stand now. A stored bundle from the period's start is the "
+        "before-picture; keep one per period.",
         ("key", "title", "severity", "count", "summary"),
         rows,
         {"worst": worst, **{s: sum(1 for f in findings if f.severity == s) for s in ("danger", "warning", "info")}},
@@ -661,6 +670,8 @@ def register_sheet(
 
     if not re.fullmatch(r"[a-z][a-z0-9_-]{0,40}", key):
         raise ValueError(f"Evidence sheet key {key!r} must be a lowercase slug.")
+    if as_of not in ("period", "generated", "mixed"):
+        raise ValueError("as_of is 'period', 'generated' or 'mixed'.")  # checked before anything registers (G4-8)
     if key in _BUILTIN_KEYS or key == "cover":
         raise ValueError(f"{key!r} is a built-in evidence sheet (or the page's cover tab).")
     _SHEETS[:] = [(k, b) for k, b in _SHEETS if k != key] + [(key, builder)]
@@ -668,9 +679,8 @@ def register_sheet(
         CONTROLS[key] = controls
     if print_columns is not None:
         PRINT_COLUMNS[key] = tuple(print_columns)
-    if as_of not in ("period", "generated"):
-        raise ValueError("as_of is 'period' or 'generated'.")
     (AS_OF_GENERATION.add if as_of == "generated" else AS_OF_GENERATION.discard)(key)
+    (AS_OF_MIXED.add if as_of == "mixed" else AS_OF_MIXED.discard)(key)
     (SCOPED.add if scoped else SCOPED.discard)(key)
     return builder
 
@@ -726,6 +736,11 @@ def build(
 # --- Exports ---------------------------------------------------------------------------
 
 
+def _scoped_note(pack: Evidence) -> str:
+    scoped = [s.title for s in pack.sheets if s.scoped]
+    return f" (only {', '.join(scoped)} {'is' if len(scoped) == 1 else 'are'})." if scoped else "."
+
+
 def cover_markdown(pack: Evidence) -> str:
     lines = [
         f"# Access evidence — {pack.system}",
@@ -751,7 +766,7 @@ def cover_markdown(pack: Evidence) -> str:
         "",
         "- Every row is read from the system's own records at generation time; nothing is typed in by hand.",
         "- *Reflects* says whether a sheet is the state when the pack was generated or the events within the "
-        "period, and whether the scope filters it (only the roster is; the others cover every account).",
+        "period, and whether the scope filters it" + _scoped_note(pack),
         "- `changes.csv` is the continuous log (every grant and removal, with actor, source and request id).",
         "- `reviews.csv` is the periodic control: a named attester's decision on each privileged account, signed.",
         "- `evidence.json` holds every sheet with its summary, for tooling.",

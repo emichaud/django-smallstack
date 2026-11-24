@@ -173,7 +173,7 @@
     .review-print, .review-print * { color: black !important; background: transparent !important; }
     .review-print-table { width: 100%; font-size: 0.66rem; table-layout: auto; }
     .review-print-table th, .review-print-table td { white-space: normal !important; padding: 2px 4px !important; }
-    .review-print-table td { overflow-wrap: break-word; }
+    .review-print-table td { overflow-wrap: anywhere; }  /* long usernames/emails wrap (G4-10) */
     .review-print-table th { overflow-wrap: normal; word-break: keep-all; }
     .review-print-table tr { break-inside: avoid; }
 }

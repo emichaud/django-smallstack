@@ -12,7 +12,7 @@ checked and recorded the same way.
     DELETE api/access/users/{user}/groups/{group}/  remove from it
     GET    api/access/groups/                     groups, with drift against the code
     GET    api/access/groups/{group}/             one group: members, permissions
-    GET    api/access/findings/                   the least-privilege review
+    GET    api/access/findings/                   the least-privilege findings
     GET    api/access/events/?who=&kind=&limit=   the change log
     GET    api/access/reviews/?status=            periodic access reviews (attestations)
     GET    api/access/reviews/{id}/               one review: roster, decisions, signature
@@ -436,7 +436,7 @@ register_api_path(
 register_api_path(
     "access-api-findings",
     methods=["GET"],
-    summary="The least-privilege review: every finding with its rows",
+    summary="The least-privilege findings: every finding with its rows",
     tags=_TAG,
     responses={"200": _ok("worst severity and the findings"), "401": _ERR, "403": _ERR},
 )

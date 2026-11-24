@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 from django.db.models import QuerySet
+from django.http import HttpRequest
 
 from apps.calendar import register_calendar
 from apps.datasets.framework import framework_dataset
 
 from .models import ApprovalRequest
+from .permissions import viewable_requests
 
 
 @framework_dataset(
@@ -31,8 +33,14 @@ from .models import ApprovalRequest
     ],
     filterable=["created_at", "kind", "requested_by", "status", "decided_by", "decided_at", "expires_at"],
 )
-def approval_requests() -> QuerySet[ApprovalRequest]:
-    return ApprovalRequest.objects.select_related("requested_by", "decided_by")
+def approval_requests(request: HttpRequest | None = None) -> QuerySet[ApprovalRequest]:
+    qs = ApprovalRequest.objects.select_related("requested_by", "decided_by")
+    user = getattr(request, "user", None)
+    if user is None:
+        return qs  # an internal caller (a report, a test), not a person
+    # The rows a person may see: the same scoper as every approvals read,
+    # so a kind's view_permission holds here and on the calendar (G3-2).
+    return viewable_requests(user, qs)
 
 
 # ---------------------------------------------------------------------------
