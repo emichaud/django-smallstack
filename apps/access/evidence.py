@@ -97,10 +97,10 @@ PRINT_COLUMNS: dict[str, tuple[str, ...]] = {
 #: Sheets that show the state when the pack is generated, not at period end
 #: (the rest are bounded by the period), and the ones the scope filters. Said
 #: on the page, in cover.md and in JSON so an auditor isn't left to guess (T4-6).
-AS_OF_GENERATION = {"roster", "matrix", "authentication", "credentials", "findings"}
+AS_OF_GENERATION = {"roster", "matrix", "credentials", "findings"}
 #: Event sheets that also carry what holds now (a joiner's first sign-in, a
 #: leaver's tokens still live): bounded by the period, read at generation.
-AS_OF_MIXED = {"joiners", "leavers"}
+AS_OF_MIXED = {"joiners", "leavers", "authentication"}  # sign-in methods now, failures in the period
 SCOPED = {"roster"}
 
 

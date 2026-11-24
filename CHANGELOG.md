@@ -44,7 +44,7 @@ Breaking-change migration recipes live in [`UPGRADING.md`](UPGRADING.md).
 - `access --json` put a newline after every token; `access groups` didn't show directory roles; the review cadence counted reminders nobody received; the Access review card's states weren't coloured; turning the cadence on duplicated a card added by hand.
 
 ### Added (from the same acceptance test)
-- `apps.access.directory.recognised_roles()` for a fail-closed sign-in check before any account is created, with an auth-proxy middleware recipe in `docs/skills/directory-sso.md`.
+- `apps.access.directory.sign_in_or_refuse()`, the fail-closed sign-in: a known subject is synced (so an empty role list strips at once) before being refused, and an unknown one with no recognised role is refused before any account is created; `recognised_roles()` answers the role question alone. The auth-proxy middleware recipe in `docs/skills/directory-sso.md` uses it.
 - Finding *Directory accounts with a local password*; system check `access.W001` for a `map_directory_role` naming no declared group.
 - Evidence sheets say what they reflect (as of generation or within the period) and whether the scope filters them; `register_sheet(as_of=, scoped=)`.
 

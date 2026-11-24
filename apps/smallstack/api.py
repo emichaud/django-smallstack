@@ -450,7 +450,7 @@ def authenticate_api_request(
                     )
                     return request.user, None
                 return None, _error(
-                    f"CSRF check failed: {check.reason}. With session auth, send the X-CSRFToken header "
+                    f"CSRF check failed: {check.reason.rstrip('.')}. With session auth, send the X-CSRFToken header "
                     "(the csrftoken cookie) from a trusted origin; scripts and other sites should use an API token.",
                     403,
                 )

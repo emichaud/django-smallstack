@@ -739,7 +739,7 @@ def test_print_cells_wrap_anywhere():
     from django.conf import settings as dj
 
     css = (Path(dj.BASE_DIR) / "apps/access/static/access/css/access.css").read_text()
-    assert ".review-print-table td { overflow-wrap: anywhere; }" in css
+    assert ".review-print-table td { overflow-wrap: anywhere; min-width: 5.5em; }" in css  # G4-10, G5-8
 
 
 def test_least_privilege_findings_wording_everywhere():
@@ -786,3 +786,78 @@ def test_the_switch_allows_and_logs_a_session_write_without_the_token(root, sett
     again = browser.post("/smallstack/api/approvals/requests/create/",
                          json.dumps({"kind": "tests.switch", "title": "x"}), content_type="application/json")
     assert again.status_code == 403
+
+
+# --- What gate G5 found ------------------------------------------------------------------
+
+
+def test_the_approvals_card_counts_what_its_viewer_may_see(removal, plain_staff, root):
+    """G5-1: the decider sees the waiting removal; other staff don't."""
+    from apps.approvals.dashboard_widgets import ApprovalsDashboardWidget
+    from apps.smallstack.displays import widget_data
+
+    widget = ApprovalsDashboardWidget()
+    assert widget_data(widget, root)["headline"] == "1 pending"
+    assert widget_data(widget, plain_staff)["headline"] == "0 pending"
+
+
+def test_a_save_without_changes_leaves_the_hidden_cards_in_place(plain_staff, staffer):
+    """G5-2: hidden cards keep their place; the visible cards go back below them."""
+    from apps.dashboards.models import ADMIN_HOME_KEY, Dashboard
+
+    reader = Client()
+    reader.force_login(staffer)
+    reader.get("/smallstack/")
+    board = Dashboard.objects.get(system_key=ADMIN_HOME_KEY)
+    before = {c["id"]: (c["x"], c["y"]) for c in board.layout}
+    c = Client()
+    c.force_login(plain_staff)
+    visible = [dict(cell) for cell in c.get("/smallstack/").context["editor"]["layout"]]
+    hidden_ids = set(before) - {cell["id"] for cell in visible}
+    # What the grid posts: each visible card floats up as far as it can
+    # without touching another (gridstack's compaction), into the hidden slots.
+    def clash(a, b):
+        across = a["x"] < b["x"] + b["w"] and b["x"] < a["x"] + a["w"]
+        return across and a["y"] < b["y"] + b["h"] and b["y"] < a["y"] + a["h"]
+
+    placed = []
+    for cell in sorted(visible, key=lambda x: (x["y"], x["x"])):
+        while cell["y"] > 0 and not any(clash({**cell, "y": cell["y"] - 1}, p) for p in placed):
+            cell["y"] -= 1
+        placed.append(cell)
+    assert any(c["y"] < before[c["id"]][1] for c in visible), "the simulation floated something up"
+    resp = c.post(f"/smallstack/dashboards/d/{board.slug}/layout/", json.dumps({"layout": visible}),
+                  content_type="application/json")
+    assert resp.status_code == 200, resp.content
+    board.refresh_from_db()
+    after = {c["id"]: (c["x"], c["y"]) for c in board.layout}
+    assert all(after[i] == before[i] for i in hidden_ids), (before, after)
+
+
+def test_bulk_update_cannot_change_a_reviews_status(attester):
+    """G5-3."""
+    review = reviews.open_review(period_start=PERIOD[0], period_end=PERIOD[1], scope="privileged", actor=attester)
+    review.status = "signed"
+    with pytest.raises(ReviewLocked):
+        AccessReview.objects.bulk_update([review], ["status"])
+    assert AccessReview.objects.get(pk=review.pk).status == "open"
+
+
+def test_a_whitespace_note_is_no_note(attester, manager):
+    """G5-5."""
+    review = reviews.open_review(period_start=PERIOD[0], period_end=PERIOD[1], scope="privileged", actor=attester)
+    item = reviews.decide(review.items.get(user_label="manager"), "remove", actor=attester, note="left")
+    assert reviews.decide(item, "remove", actor=attester, note="   ").note == "left"
+
+
+def test_the_csrf_refusal_has_one_period(root):
+    """G5-6."""
+    browser = Client(enforce_csrf_checks=True)
+    browser.force_login(root)
+    msg = browser.post("/smallstack/api/approvals/requests/create/", "{}", content_type="application/json").json()
+    assert ".." not in msg["errors"]["__all__"][0]
+
+
+def test_the_authentication_sheet_is_mixed():
+    """G4-8 partial."""
+    assert evidence.build(*PERIOD, only=["authentication"]).sheet("authentication").as_of == "mixed"

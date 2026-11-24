@@ -231,6 +231,15 @@ class _ReviewQuerySet(models.QuerySet):
             raise ReviewLocked("Reviews are opened and signed through apps.access.reviews, not in bulk.")
         return super().bulk_create(objs, *args, **kwargs)
 
+    def bulk_update(self, objs: Any, fields: Any, *args: Any, **kwargs: Any) -> Any:
+        objs = list(objs)
+        if "status" in fields or any(getattr(o, "status", "") == "signed" for o in objs):
+            # Opening and signing are apps.access.reviews' acts (G5-3).
+            raise ReviewLocked("A review's status changes through apps.access.reviews, not bulk_update().")
+        if self.filter(pk__in=[o.pk for o in objs], status="signed").exists():
+            raise ReviewLocked("A signed review can't be changed.")
+        return super().bulk_update(objs, fields, *args, **kwargs)
+
     def _guard_status(self, kwargs: dict[str, Any]) -> None:
         # A signature is reviews.sign()'s act (it records who, when, what was
         # typed and the counts); a bulk status flip would fake one (G4-2).

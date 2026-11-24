@@ -32,7 +32,8 @@ SmallStack ships a sixth group, *Access attester*.
    pure dry run may pass `authenticate_api_request(request, check_csrf=False)`.
    **Deprecation path:** if you can't add the header before upgrading, set
    `SMALLSTACK_API_SESSION_CSRF=False` for this release. Session writes without the token are then
-   allowed and each is logged (`apps.smallstack.api`, WARNING: method, path, reason), and
+   allowed and each is logged (`apps.smallstack.api`, WARNING: method, path, reason; a route with its
+   own CSRF check, such as the dashboard picture upload, still refuses), and
    `manage.py check` warns `smallstack.W002`. Grep the log for "allowed because
    SMALLSTACK_API_SESSION_CSRF=False", fix those callers, then remove the setting. The switch is
    removed in 0.34.0.

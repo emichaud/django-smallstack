@@ -30,6 +30,7 @@ if TYPE_CHECKING:
     from apps.explorer.registry import ModelInfo
 
     from .displays import DashboardWidget
+from .displays import widget_data
 
 logger = logging.getLogger(__name__)
 
@@ -142,7 +143,7 @@ def get_widget_contexts(
         if group is not None and info.group.lower() != group.lower():
             continue
         try:
-            data = widget.get_data(model_class=info.model_class)
+            data = widget_data(widget, user, info.model_class)
         except Exception:
             logger.warning("Dashboard widget %s failed", widget.title, exc_info=True)
             continue
@@ -169,7 +170,7 @@ def get_widget_contexts(
             if user is not None and not widget.visible_to(user):
                 continue
             try:
-                data = widget.get_data()
+                data = widget_data(widget, user)
             except Exception:
                 logger.warning("Dashboard widget %s failed", widget.title, exc_info=True)
                 continue

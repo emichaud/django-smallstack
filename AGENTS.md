@@ -89,7 +89,7 @@ All custom apps in `apps/`, registered as `apps.<name>`:
 - `apps/tasks/` — Background-task helpers
 - `apps/tokenmgr/` — Self-service API token UI at `/smallstack/tokens/`
 - `apps/usermanager/` — User CRUD at `/smallstack/manage/users/`
-- `apps/access/` — Access: groups declared in code, every access change recorded, the least-privilege review at `/smallstack/access/`
+- `apps/access/` — Access: groups declared in code, every access change recorded, the least-privilege findings, periodic access reviews at `/smallstack/access/`
 - `apps/webhooks/` — Outbound event delivery (`enable_webhooks`) + inbound receivers (`@webhook_handler`) at `/smallstack/webhooks/`
 - `apps/blog/` — Blogs + newsletters (label: `smallstack_blog`); console at `/smallstack/blog/` (lands on the posts list), public reading at `/blog/`
 - `apps/calendar/` — Calendar (label: `smallstack_calendar`): datasets with a date axis merged on one grid at `/smallstack/calendar/`, saved views, events + `.ics` API; `{% calendar_card %}` + a `calendar` dashboard card put one on any page

@@ -1028,3 +1028,20 @@ class DashboardWidget:
         you don't want it slowing down page renders.
         """
         return None
+
+
+def widget_data(widget: "DashboardWidget", user: Any = None, model_class: type | None = None) -> dict:
+    """``widget.get_data()``, passing ``user=`` (the viewer) to a widget whose
+    ``get_data`` accepts it, so a count can be the viewer's own (the Approvals
+    card counts only the requests its viewer may see, eval 45 G5-1)."""
+    import inspect
+
+    kwargs: dict[str, Any] = {}
+    if model_class is not None:
+        kwargs["model_class"] = model_class
+    try:
+        if "user" in inspect.signature(widget.get_data).parameters:
+            kwargs["user"] = user
+    except (TypeError, ValueError):
+        pass
+    return widget.get_data(**kwargs)

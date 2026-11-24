@@ -50,7 +50,7 @@ INSTALLED_APPS = [
     "apps.telemetry",  # Telemetry: DB-backed log capture + time-boxed capture windows
     "apps.heartbeat",
     "apps.usermanager",
-    "apps.access",  # Access: who may do what, every change recorded, least-privilege review
+    "apps.access",  # Access: who may do what, every change recorded, least-privilege findings, periodic access reviews
     "apps.website",  # Project-specific pages (customize freely)
     "apps.showcase",  # SmallStack's demo pages (about, starter, search…). Delete it, here and in config/urls.py
     "apps.mcp",  # Model Context Protocol server for AI clients

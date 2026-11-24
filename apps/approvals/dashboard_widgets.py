@@ -21,18 +21,24 @@ class ApprovalsDashboardWidget(DashboardWidget):
     order = 47
     url_name = "approvals/requests-list"
 
-    def get_data(self, model_class: Any = None) -> dict[str, Any]:
+    def get_data(self, model_class: Any = None, user: Any = None) -> dict[str, Any]:
         # `actionable()` — pending minus overdue — is the same definition the
         # queue and its stat card use. Counting raw `status="pending"` made the
         # widget disagree with the page it links to until someone loaded that
         # page and the lazy sweep fired. Deliberately NOT mark_expired():
         # the dashboard must not pay the fan-out cost.
-        # A kind that hides its requests from some staff (view_permission) is
-        # left out of this system-wide count, which every staff viewer sees (G3-2).
+        # The viewer's own count: what they may see (G3-2), so an approver sees
+        # the access removal waiting for them and other staff don't (G5-1).
+        # Without a viewer (an internal caller), kinds that hide their
+        # requests from some staff are left out.
+        from .permissions import viewable_requests
         from .registry import all_kinds
 
-        restricted = [k.key for k in all_kinds() if k.view_permission]
-        pending = ApprovalRequest.objects.actionable().exclude(kind__in=restricted)
+        if user is not None:
+            pending = viewable_requests(user, ApprovalRequest.objects.actionable())
+        else:
+            restricted = [k.key for k in all_kinds() if k.view_permission]
+            pending = ApprovalRequest.objects.actionable().exclude(kind__in=restricted)
         count = pending.count()
         if not count:
             return {"headline": "0 pending", "detail": "All decided", "status": "ok"}

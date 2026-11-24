@@ -564,7 +564,9 @@ def cell_value(dashboard: Dashboard, cell: dict[str, Any], request: HttpRequest)
                 out["problem"] = "This widget is no longer published"
             else:
                 widget, info = found
-                data = widget.get_data(model_class=info.model_class) if info is not None else widget.get_data()
+                from apps.smallstack.displays import widget_data
+
+                data = widget_data(widget, user, info.model_class if info is not None else None)
                 out["display"], out["number"] = str(data.get("headline") or ""), widget_number(data)
     except Exception:  # noqa: BLE001 — one card's failure must not take the table down
         logger.exception("dashboard %s card %s: value failed", dashboard.slug, cell.get("id"))
@@ -764,9 +766,27 @@ def keep_hidden_cells(dashboard: Dashboard, posted: list[Any], user: Any) -> lis
         bx, by, bw, bh = box(b)
         return ax < bx + bw and bx < ax + aw and ay < by + bh and by < ay + ah
 
+    # The editor's grid had no slot for the hidden cards, so the cards below
+    # them floated up. Put the hidden ones back where they were and push the
+    # visible cards they now overlap down again (G5-2), column by column, as
+    # the grid would have; only if that still collides is a hidden card moved
+    # to the bottom.
+    posted_cells = [dict(c) for c in cells if isinstance(c, dict)]
+    for cell in sorted(hidden, key=lambda c: box(c)[1]):
+        hx, hy, hw, hh = box(cell)
+        for c in posted_cells:
+            cx, cy, cw, _ch = box(c)
+            if cx < hx + hw and hx < cx + cw and cy + _ch > hy:
+                c["y"] = cy + hh
+    placed: list[dict[str, Any]] = list(posted_cells)
     for cell in hidden:
-        if any(isinstance(c, dict) and overlaps(cell, c) for c in cells):
-            bottom = max((box(c)[1] + box(c)[3] for c in cells if isinstance(c, dict)), default=0)
+        if any(overlaps(cell, c) for c in placed):
+            bottom = max((box(c)[1] + box(c)[3] for c in placed), default=0)
             cell = {**cell, "x": 0, "y": bottom}
-        cells.append(cell)
-    return cells
+        placed.append(cell)
+    if any(overlaps(a_, b_) for i, a_ in enumerate(placed) for b_ in placed[i + 1:]):
+        # The push created a collision between visible cards: fall back to
+        # the posted layout with the hidden cards below it.
+        bottom = max((box(c)[1] + box(c)[3] for c in cells if isinstance(c, dict)), default=0)
+        return list(cells) + [{**c, "x": 0, "y": bottom + 2 * i} for i, c in enumerate(hidden)]
+    return placed

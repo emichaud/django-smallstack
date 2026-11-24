@@ -1226,7 +1226,9 @@ def build_widget(cell: dict[str, Any], ctx: CellContext) -> dict[str, Any]:
         if not visible:
             return {"restricted": True, "label": cell_title(cell) or widget.title}
         try:
-            data = widget.get_data(model_class=info.model_class) if info is not None else widget.get_data()
+            from apps.smallstack.displays import widget_data
+
+            data = widget_data(widget, ctx.request.user, info.model_class if info is not None else None)
         except Exception:  # noqa: BLE001
             logger.warning("dashboard widget %s failed", wkey, exc_info=True)
             return {"error": "This widget failed to load."}

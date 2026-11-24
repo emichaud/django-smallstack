@@ -330,6 +330,7 @@ def decide(
     refusal = decision_refusal(item, decision, actor)
     if refusal:
         raise ReviewRefused(refusal)
+    note = (note or "").strip()  # whitespace is no note (G5-5)
     with transaction.atomic():
         follow_up = item.follow_up
         if (

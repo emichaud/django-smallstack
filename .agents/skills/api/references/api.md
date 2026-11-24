@@ -150,7 +150,8 @@ servers should use a token.
 **Upgrading a project whose scripts don't send the header yet:** set
 `SMALLSTACK_API_SESSION_CSRF=False` for one release. Those writes are then
 allowed, each logged as a WARNING from `apps.smallstack.api` with the method,
-path and reason, so you can find every caller; `manage.py check` warns
+path and reason (a route that runs its own CSRF check, such as the dashboard
+picture upload, keeps refusing), so you can find every caller; `manage.py check` warns
 (`smallstack.W002`) while it's off. Fix the callers, remove the setting. The
 switch is removed in 0.34.0.
 
