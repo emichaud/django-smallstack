@@ -242,7 +242,8 @@ def test_review_overdue_tracks_the_last_two_quarters(attester, attester2, monkey
     reviews.sign(review, actor=attester, typed_name="attester")
     f = finding("review_overdue")
     assert f.severity == "warning" and [r["label"] for r in f.rows] == ["Q2 2026"]
-    AccessReview.objects.filter(pk=review.pk).update(period_start=date(2025, 1, 1), period_end=date(2025, 3, 31))
+    # Backdating a signed review is history rewriting: the base manager, not the locked one (T3-1).
+    AccessReview._base_manager.filter(pk=review.pk).update(period_start=date(2025, 1, 1), period_end=date(2025, 3, 31))
     assert finding("review_overdue").severity == "danger", "reviewed once, then two quarters missed"
 
 
@@ -456,8 +457,10 @@ def test_the_review_keeps_the_request_id_of_its_opening_and_signing(client, atte
     sign_url = reverse("access:review_sign", kwargs={"pk": review.pk})
     client.post(sign_url, {"signed_name": "attester"}, HTTP_X_REQUEST_ID="req_sign_t34")
     review.refresh_from_db()
-    assert review.is_signed and review.request_id == "req_sign_t34"
-    assert reviews.review_payload(review)["request_id"] == "req_sign_t34"
+    # The opening's id is kept; the signing's has its own field (G2-6).
+    assert review.is_signed and review.signed_request_id == "req_sign_t34" and review.request_id == "req_open_t34"
+    payload = reviews.review_payload(review)
+    assert payload["signed_request_id"] == "req_sign_t34" and payload["request_id"] == "req_open_t34"
 
 
 def test_the_target_cannot_reject_its_own_removal_either(review, attester, manager, root):

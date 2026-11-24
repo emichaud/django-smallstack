@@ -173,3 +173,205 @@ def test_any_token_tier_of_an_access_reader_reads_over_mcp(staffer, plain_staff)
     out = _mcp(raw, "access_findings", {})
     refused = out.get("error") or json.loads(out["result"]["content"][0]["text"]).get("error")
     assert refused, out
+
+
+# --- Batch 2: the access app ---------------------------------------------------------
+
+from io import StringIO  # noqa: E402
+
+from django.core.management import call_command  # noqa: E402
+
+from apps.access import directory, evidence, registry  # noqa: E402
+from apps.access.models import AccessReview, AccessReviewItem, ReviewLocked  # noqa: E402
+from apps.access.registry import map_directory_role, register_group, run_checks, sync_groups  # noqa: E402
+
+
+@pytest.fixture
+def dir_groups(monkeypatch):
+    monkeypatch.setattr(registry, "_groups", dict(registry._groups))
+    monkeypatch.setattr(registry, "_role_overlays", dict(registry._role_overlays))
+    register_group("Ops team", permissions=["auth.view_group"], app_label="tests", directory_role="Ops.Team")
+    sync_groups(source="test")
+    return Group.objects.get(name="Ops team")
+
+
+def _signed_review(attester, attester2):
+    review = reviews.open_review(period_start=PERIOD[0], period_end=PERIOD[1], scope="all", actor=attester)
+    reviews.confirm_all(review, actor=attester)
+    reviews.decide(review.items.get(user_label=attester.username), "confirmed", actor=attester2)
+    return reviews.sign(
+        review, actor=attester, typed_name=attester.username, request_id="req_sign", signed_from="10.0.0.9"
+    )
+
+
+@pytest.fixture
+def attester2(db):
+    user = User.objects.create_user("attester2", password="p", is_staff=True)
+    user.groups.add(Group.objects.get(name="Access attester"))
+    return User.objects.get(pk=user.pk)
+
+
+def test_bulk_writes_to_a_signed_review_are_refused(attester, attester2):
+    """T3-1: the lock holds below save(): QuerySet update()/delete() too."""
+    review = _signed_review(attester, attester2)
+    with pytest.raises(ReviewLocked):
+        AccessReview.objects.filter(pk=review.pk).update(note="rewritten")
+    with pytest.raises(ReviewLocked):
+        AccessReview.objects.filter(pk=review.pk).delete()
+    with pytest.raises(ReviewLocked):
+        AccessReviewItem.objects.filter(review=review).update(decision="remove")
+    with pytest.raises(ReviewLocked):
+        review.items.all().delete()
+    review.refresh_from_db()
+    assert review.note == "" and review.items.count() >= 2
+    # Open reviews stay writable in bulk.
+    open_review = reviews.open_review(period_start=PERIOD[0], period_end=PERIOD[1], scope="privileged", actor=attester)
+    assert AccessReview.objects.filter(pk=open_review.pk).update(note="ok") == 1
+
+
+def test_the_payload_carries_the_signing_ip_and_both_request_ids(attester, attester2):
+    """T3-5, G2-6."""
+    review = _signed_review(attester, attester2)
+    data = reviews.review_payload(review)
+    assert data["signed_from"] == "10.0.0.9" and data["signed_request_id"] == "req_sign"
+    out = StringIO()
+    call_command("access", "review", "show", str(review.pk), "--json", stdout=out)
+    assert json.loads(out.getvalue())["signed_from"] == "10.0.0.9"
+
+
+def test_new_accounts_are_flagged_and_first_in_every_export(attester, attester2):
+    """T3-14: the CLI, REST and CSV carry the page's new flag and order."""
+    _signed_review(attester, attester2)
+    User.objects.create_user("zz-newcomer", password="p", is_staff=True)
+    review = reviews.open_review(period_start=PERIOD[0], period_end=PERIOD[1], scope="all", actor=attester)
+    items = reviews.review_payload(review)["items"]
+    assert items[0]["username"] == "zz-newcomer" and items[0]["new"] is True
+    assert all(i["new"] is False for i in items[1:])
+    rows = list(reviews.review_csv_rows(review))
+    assert rows[0]["username"] == "zz-newcomer" and rows[0]["new_since_last_review"] is True
+
+
+def test_a_second_remove_keeps_the_first_reason(attester, manager, root):
+    """T3-10: the approval keeps the first reason, and so does the row."""
+    review = reviews.open_review(period_start=PERIOD[0], period_end=PERIOD[1], scope="privileged", actor=attester)
+    item = reviews.decide(review.items.get(user_label="manager"), "remove", actor=attester, note="left in August")
+    item = reviews.decide(item, "remove", actor=attester, note="confirmed with HR")
+    assert item.note == "left in August · confirmed with HR"
+
+
+def test_a_withdrawn_removal_names_who_changed_the_decision(attester, attester2, manager, root):
+    """G2-8: canceled by the attester who changed the row when they may, and
+    the note names them either way."""
+    review = reviews.open_review(period_start=PERIOD[0], period_end=PERIOD[1], scope="privileged", actor=attester)
+    item = reviews.decide(review.items.get(user_label="manager"), "remove", actor=attester)
+    req = ApprovalRequest.objects.get(pk=int(item.follow_up[9:]))
+    reviews.decide(item, "flagged", actor=attester2, note="ask HR")
+    req.refresh_from_db()
+    assert req.status == "canceled" and "attester2" in req.decision_note
+
+
+def test_the_sign_name_message_says_case_does_not_matter(attester, attester2):
+    """T3-7."""
+    review = reviews.open_review(period_start=PERIOD[0], period_end=PERIOD[1], scope="all", actor=attester)
+    reviews.confirm_all(review, actor=attester)
+    reviews.decide(review.items.get(user_label=attester.username), "confirmed", actor=attester2)
+    assert "don't matter" in reviews.sign_refusal(review, attester, "someone else")
+    assert reviews.sign_refusal(review, attester, "  ATTESTER ") == ""
+
+
+def test_admin_group_pages_refuse_a_directory_group(dir_groups, root):
+    """G2-3: no rename, no permission change, no delete (single or bulk)."""
+    member = User.objects.create_user("ed", password="p")
+    directory.sign_in("proxy", "sub-ed", ["Ops.Team"], email="ed@x.test")
+    member = User.objects.get(directory_identities__subject="sub-ed")
+    c = Client()
+    c.force_login(root)
+    assert c.get(f"/admin/auth/group/{dir_groups.pk}/delete/").status_code == 403
+    c.post(f"/admin/auth/group/{dir_groups.pk}/delete/", {"post": "yes"})
+    c.post(f"/admin/auth/group/{dir_groups.pk}/change/", {"name": "renamed", "permissions": []})
+    c.post("/admin/auth/group/", {"action": "delete_selected", "_selected_action": [dir_groups.pk], "post": "yes"})
+    dir_groups.refresh_from_db()
+    assert dir_groups.name == "Ops team" and dir_groups.permissions.exists()
+    assert member.groups.filter(pk=dir_groups.pk).exists()
+    local = Group.objects.create(name="Local only")
+    c.post("/admin/auth/group/", {"action": "delete_selected", "_selected_action": [local.pk], "post": "yes"})
+    assert not Group.objects.filter(pk=local.pk).exists()
+
+
+def test_the_mcp_proposal_refuses_a_directory_group(dir_groups, root, alice):
+    """T2-3: no request is filed that every decision would refuse."""
+    from apps.mcp.server import TOOL_HANDLERS, ToolContext, reset_context, set_context
+
+    token = set_context(ToolContext(user=root, token=None))
+    try:
+        out = TOOL_HANDLERS["access_request_membership"](
+            {"username": "alice", "group": "Ops team", "member": True, "reason": "x"}
+        )
+    finally:
+        reset_context(token)
+    assert out["error"]["code"] == "directory_managed"
+    assert not ApprovalRequest.objects.filter(kind="access.membership").exists()
+
+
+def test_recognised_roles_lets_a_middleware_refuse_before_creating(dir_groups):
+    """T2-4: the fail-closed check runs before any account exists."""
+    before = User.objects.count()
+    assert directory.recognised_roles(["Nope", "Other"]) == []
+    assert directory.recognised_roles(None) == []
+    assert directory.recognised_roles(["Ops.Team", "Nope"]) == ["Ops.Team"]
+    assert User.objects.count() == before
+
+
+def test_the_cli_json_is_one_document_and_groups_show_their_role(dir_groups):
+    """T2-6, T2-7."""
+    out = StringIO()
+    call_command("access", "groups", "--json", stdout=out)
+    rows = json.loads(out.getvalue())
+    assert any(r["name"] == "Ops team" for r in rows)
+    # Laid out as json.dumps lays it out, not a newline after every token.
+    assert out.getvalue().strip() == json.dumps(rows, indent=2, default=str)
+    text = StringIO()
+    call_command("access", "groups", stdout=text)
+    assert "directory: Ops.Team" in text.getvalue()
+
+
+def test_an_unmatched_role_mapping_is_a_system_check_warning(monkeypatch):
+    """T2-8."""
+    from apps.access.system_checks import check_directory_role_overlays
+
+    monkeypatch.setattr(registry, "_role_overlays", dict(registry._role_overlays))
+    map_directory_role("Acess reviewer", "Typo.Role")
+    ids = [w.id for w in check_directory_role_overlays()]
+    assert ids == ["access.W001"]
+
+
+def test_a_directory_account_with_a_local_password_is_a_finding(dir_groups):
+    """T2-10."""
+    bob = User.objects.create_user("bob", email="bob@x.test", password="old-local")
+    directory.sign_in("proxy", "sub-bob", ["Ops.Team"], email="bob@x.test")
+    f = next(f for f in run_checks() if f.key == "directory_password_beside_identity")
+    assert f.severity == "warning" and [r["label"] for r in f.rows] == ["bob"]
+    bob.set_unusable_password()
+    bob.save()
+    assert next(f for f in run_checks() if f.key == "directory_password_beside_identity").count == 0
+
+
+def test_register_sheet_guards(monkeypatch):
+    """G2-4: 'cover' is refused; a builder whose Sheet names another key is
+    filed under the registered one."""
+    monkeypatch.setattr(evidence, "_SHEETS", list(evidence._SHEETS))
+    with pytest.raises(ValueError, match="cover"):
+        evidence.register_sheet("cover", lambda s, e, sc: None)
+    evidence.register_sheet(
+        "vendors", lambda s, e, sc: evidence.Sheet(key="vendor_accounts", title="V", description="", columns=("a",))
+    )
+    pack = evidence.build(*PERIOD, only=["vendors"])
+    assert pack.sheet("vendors").key == "vendors"
+
+
+def test_stored_packs_go_to_a_temporary_media_root(settings, root):
+    """G2-7."""
+    from apps.access import cadence
+
+    bundle = cadence.store_bundle(*PERIOD, "all", actor=root)
+    assert str(settings.MEDIA_ROOT) in bundle.file.path and "fix-access/media" not in bundle.file.path

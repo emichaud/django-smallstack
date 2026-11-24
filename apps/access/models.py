@@ -206,6 +206,42 @@ class ReviewLocked(Exception):
     """A signed review, or an item of one, is evidence: it can't be changed or deleted."""
 
 
+class _ReviewQuerySet(models.QuerySet):
+    """``update()`` / ``delete()`` refuse when the rows include a signed review
+    (T3-1): the per-object lock alone left the bulk paths open. A migration or
+    a test that must rewrite history uses ``AccessReview._base_manager``."""
+
+    def _signed(self) -> models.QuerySet:
+        return self.filter(status="signed")
+
+    def update(self, **kwargs: Any) -> int:
+        if self._signed().exists():
+            raise ReviewLocked("A signed review can't be changed.")
+        return super().update(**kwargs)
+
+    def delete(self) -> tuple[int, dict[str, int]]:
+        if self._signed().exists():
+            raise ReviewLocked("A signed review can't be deleted.")
+        return super().delete()
+
+
+class _ReviewItemQuerySet(models.QuerySet):
+    """The same for the items of a signed review."""
+
+    def _signed(self) -> models.QuerySet:
+        return self.filter(review__status="signed")
+
+    def update(self, **kwargs: Any) -> int:
+        if self._signed().exists():
+            raise ReviewLocked("Items of a signed review can't be changed.")
+        return super().update(**kwargs)
+
+    def delete(self) -> tuple[int, dict[str, int]]:
+        if self._signed().exists():
+            raise ReviewLocked("Items of a signed review can't be deleted.")
+        return super().delete()
+
+
 class AccessReview(models.Model):
     """One periodic access review (attestation): a frozen roster of who held
     access when it was opened, a named reviewer's decision on each row, and a
@@ -251,7 +287,11 @@ class AccessReview(models.Model):
     signed_name = models.CharField(max_length=150, blank=True)
     signed_from = models.CharField(max_length=64, blank=True)
     note = models.TextField(blank=True)
+    #: The request that opened the review (``signed_request_id`` is the signing's).
     request_id = models.CharField(max_length=64, blank=True)
+    signed_request_id = models.CharField(max_length=64, blank=True)
+
+    objects = _ReviewQuerySet.as_manager()
     #: Counts at signing (``items``, ``confirmed``, ``remove``, ``flagged``) and
     #: the delta against the previous signed review (``new``, ``gone``).
     summary = models.JSONField(default=dict, blank=True)
@@ -316,6 +356,8 @@ class AccessReviewItem(models.Model):
     note = models.TextField(blank=True)
     #: What a *remove* decision set in motion: ``approval:<id>``.
     follow_up = models.CharField(max_length=100, blank=True)
+
+    objects = _ReviewItemQuerySet.as_manager()
 
     class Meta:
         ordering = ["user_label"]

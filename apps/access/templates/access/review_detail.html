@@ -28,7 +28,7 @@
             </dl>
             {% if delta.previous %}<p class="access-note">Against review #{{ delta.previous }}: {{ delta.new|length }} new account{{ delta.new|length|pluralize }}, {{ delta.gone|length }} gone{% if delta.gone %} ({{ delta.gone|join:", " }}){% endif %}.</p>
             {% else %}<p class="access-note">First signed review of this scope{% if not review.is_signed %} once signed{% endif %}; there is no earlier roster to compare with.</p>{% endif %}
-            {% if review.is_signed %}<p class="access-note">Signed as “{{ review.signed_name }}”{% if review.signed_from %} from {{ review.signed_from }}{% endif %}{% if review.request_id %} · request {{ review.request_id }}{% endif %}. This review is read-only evidence.</p>{% endif %}
+            {% if review.is_signed %}<p class="access-note">Signed as “{{ review.signed_name }}”{% if review.signed_from %} from {{ review.signed_from }}{% endif %}{% if review.signed_request_id %} · request {{ review.signed_request_id }}{% endif %}. This review is read-only evidence.</p>{% endif %}
             <div class="access-actions">
                 <a href="{% url 'access:review_csv' review.pk %}" class="btn-outline btn-sm">CSV</a>
                 <a href="{% url 'access:review_json' review.pk %}" class="btn-outline btn-sm">JSON</a>

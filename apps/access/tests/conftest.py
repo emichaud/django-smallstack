@@ -32,6 +32,14 @@ def _reregister():
     yield
 
 
+@pytest.fixture(autouse=True)
+def _private_media(settings, tmp_path):
+    """Stored evidence packs go to a temporary MEDIA_ROOT, not the checkout's
+    media/ (G2-7)."""
+    settings.MEDIA_ROOT = str(tmp_path / "media")
+    yield
+
+
 @pytest.fixture
 def root(db):
     return User.objects.create_superuser("root", password="p")

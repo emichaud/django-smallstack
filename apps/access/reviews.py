@@ -332,6 +332,16 @@ def decide(
         raise ReviewRefused(refusal)
     with transaction.atomic():
         follow_up = item.follow_up
+        if (
+            decision == AccessReviewItem.Decision.REMOVE
+            and item.decision == AccessReviewItem.Decision.REMOVE
+            and _removal_alive(follow_up)
+            and item.note
+            and note
+            and note != item.note
+        ):
+            # The approval keeps the first reason; keep it on the row too (T3-10).
+            note = f"{item.note} · {note}"
         if decision == AccessReviewItem.Decision.REMOVE and not _removal_alive(follow_up):
             # Never filed, or the approval was canceled, rejected or expired:
             # deciding *remove* again files a new one (T3-3).
@@ -381,8 +391,12 @@ def _withdraw_removal(follow_up: str, *, actor: Any) -> bool:
     req = ApprovalRequest.objects.filter(pk=pk).first() if pk is not None else None
     if req is None or req.effective_status != ApprovalRequest.Status.PENDING:
         return False
+    from apps.approvals.permissions import can_cancel
+
+    who = actor if can_cancel(actor, req) else (req.requested_by or actor)
+    note = f"The review's decision changed (by {actor.get_username()})."
     try:
-        approvals.cancel(req, actor=req.requested_by or actor, note="The review's decision changed.", source="review")
+        approvals.cancel(req, actor=who, note=note, source="review")
     except approvals.ApprovalError:
         return False
     return True
@@ -451,7 +465,7 @@ def sign_refusal(review: AccessReview, actor: Any, typed_name: str) -> str:
     typed = (typed_name or "").strip().casefold()
     names = {actor.get_username().casefold(), actor.get_full_name().strip().casefold()}
     if not typed or typed not in names:
-        return "Type your username or full name exactly to sign."
+        return "Type your username or full name to sign (capitals and spaces around it don't matter)."
     return ""
 
 
@@ -492,7 +506,8 @@ def sign(
         review.signed_at = timezone.now()
         review.signed_name = typed_name.strip()[:150]
         review.signed_from = signed_from[:64]
-        review.request_id = request_id[:64] or review.request_id
+        # The opening's id stays in request_id; the signing's has its own (G2-6).
+        review.signed_request_id = request_id[:64]
         if note:
             review.note = note
         review.status = AccessReview.Status.SIGNED
@@ -549,9 +564,10 @@ def unresolved_items() -> list[AccessReviewItem]:
     return out
 
 
-def item_payload(item: AccessReviewItem) -> dict[str, Any]:
+def item_payload(item: AccessReviewItem, *, new: bool = False) -> dict[str, Any]:
     return {
         "username": item.user_label,
+        "new": new,
         "decision": item.decision,
         "decided_by": item.decided_by_label or None,
         "decided_at": item.decided_at.isoformat() if item.decided_at else None,
@@ -574,13 +590,25 @@ def review_payload(review: AccessReview, *, items: bool = True) -> dict[str, Any
         "signed_by": review.signed_by_label or None,
         "signed_at": review.signed_at.isoformat() if review.signed_at else None,
         "signed_name": review.signed_name,
+        "signed_from": review.signed_from or None,
         "note": review.note,
         "request_id": review.request_id,
+        "signed_request_id": review.signed_request_id or None,
         "summary": dict(review.summary or {}) if review.is_signed else live_counts(review),
     }
     if items:
-        data["items"] = [item_payload(i) for i in review.items.all()]
+        data["items"] = [item_payload(i, new=n) for i, n in ordered_items(review)]
     return data
+
+
+def ordered_items(review: AccessReview) -> list[tuple[AccessReviewItem, bool]]:
+    """The roster as the page shows it: accounts new since the scope's last
+    signed review first (each paired with that ``new`` flag), then undecided,
+    then by name. The CLI, REST and the exports use the same order (T3-14)."""
+    new = set(delta(review)["new"])
+    rows = [(item, item.user_label in new) for item in review.items.all()]
+    rows.sort(key=lambda r: (not r[1], r[0].is_decided, r[0].user_label.lower()))
+    return rows
 
 
 def live_counts(review: AccessReview) -> dict[str, Any]:
@@ -614,15 +642,17 @@ REVIEW_CSV_COLUMNS = (
     "follow_up",
     "signed_by",
     "signed_at",
+    "new_since_last_review",  # appended, so existing column positions hold (T3-14)
 )
 
 
 def review_csv_rows(review: AccessReview) -> Iterable[dict[str, Any]]:
     """One row per item, every column flat, for the auditor's spreadsheet."""
-    for item in review.items.all():
+    for item, new in ordered_items(review):
         f = item.facts or {}
         yield {
             "review": review.pk,
+            "new_since_last_review": new,
             "period_start": review.period_start.isoformat(),
             "period_end": review.period_end.isoformat(),
             "scope": review.scope,

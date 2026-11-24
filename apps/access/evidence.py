@@ -635,8 +635,8 @@ def register_sheet(
 
     if not re.fullmatch(r"[a-z][a-z0-9_-]{0,40}", key):
         raise ValueError(f"Evidence sheet key {key!r} must be a lowercase slug.")
-    if key in _BUILTIN_KEYS:
-        raise ValueError(f"{key!r} is a built-in evidence sheet.")
+    if key in _BUILTIN_KEYS or key == "cover":
+        raise ValueError(f"{key!r} is a built-in evidence sheet (or the page's cover tab).")
     _SHEETS[:] = [(k, b) for k, b in _SHEETS if k != key] + [(key, builder)]
     if controls:
         CONTROLS[key] = controls
@@ -684,7 +684,12 @@ def build(
     )
     for key, builder in sheets():
         if key in wanted:
-            pack.sheets.append(builder(start, end, scope))
+            sheet = builder(start, end, scope)
+            if sheet.key != key:
+                # The registered key is the sheet's address (tab, CSV); a
+                # builder that names its Sheet otherwise would 500 there (G2-4).
+                sheet.key = key
+            pack.sheets.append(sheet)
     return pack
 
 

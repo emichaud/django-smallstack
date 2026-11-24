@@ -79,6 +79,22 @@ def normalize_roles(roles: Iterable[Any]) -> list[str]:
     return out
 
 
+def recognised_roles(roles: Iterable[Any] | None) -> list[str]:
+    """The roles in ``roles`` (as sent, before the role map) that some
+    directory-managed group carries. A sign-in middleware that fails closed
+    asks this *before* :func:`sign_in`, so a person holding no recognised role
+    gets a 403 without an account being created for them (T2-4)::
+
+        if not recognised_roles(roles):
+            return HttpResponseForbidden()
+        identity, _ = sign_in(provider, subject, roles, email=email, name=name)
+    """
+    if roles is None:
+        return []
+    known = set(directory_groups())
+    return [r for r in normalize_roles(roles) if r in known]
+
+
 def local_override_allowed() -> bool:
     """``SMALLSTACK_DIRECTORY_LOCAL_OVERRIDE``: whether a local administrator
     may change a directory-managed group's membership anyway. Off: the

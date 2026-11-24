@@ -126,8 +126,9 @@ class Command(BaseCommand):
         handler(opts)
 
     def _dump(self, data: Any) -> None:
-        json.dump(data, self.stdout, indent=2, default=str)
-        self.stdout.write("")
+        # One write: json.dump onto the OutputWrapper wrote each chunk on its
+        # own line, splitting the JSON with newlines (T2-6).
+        self.stdout.write(json.dumps(data, indent=2, default=str))
 
     def _user(self, ref: str) -> Any:
         try:
@@ -212,7 +213,8 @@ class Command(BaseCommand):
                 note = f"  drift: -{len(drift.get('missing', []))} +{len(drift.get('added', []))}"
             declared = "code" if row["declared_in_code"] else "ad hoc"
             counts = f"{row['member_count']:>3} member(s) {len(row['permissions']):>3} permission(s)"
-            self.stdout.write(f"{row['name']:<28} {counts}  {declared}{note}")
+            role = f"  directory: {row['directory_role']}" if row.get("directory_role") else ""
+            self.stdout.write(f"{row['name']:<28} {counts}  {declared}{role}{note}")
 
     def _findings(self, opts: dict[str, Any]) -> None:
         args = [flag for flag in ("--rows", "--json") if opts.get(flag.strip("-"))]

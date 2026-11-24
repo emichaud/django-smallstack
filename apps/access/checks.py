@@ -417,6 +417,33 @@ def directory_unseen_with_tokens() -> Finding:
     )
 
 
+@register_check
+def directory_password_beside_identity() -> Finding:
+    """An account the directory signs in that also keeps a usable local
+    password (T2-10): typically one linked by email from before single
+    sign-on. The password is a second way in that disabling the person in the
+    directory doesn't close. Kept on purpose for a break-glass administrator,
+    who shouldn't have a directory identity at all."""
+    identities = list(
+        DirectoryIdentity.objects.filter(user__is_active=True).select_related("user").order_by("user__username")
+    )
+    users = {i.user.pk: i for i in identities if i.user.has_usable_password()}
+    n = len(users)
+    rows = [_user_row(i.user, f"signs in through {i.provider} · local password usable") for i in users.values()]
+    return Finding(
+        "directory_password_beside_identity",
+        "Directory accounts with a local password",
+        "warning" if n else "ok",
+        n,
+        f"{n} account{'s' if n != 1 else ''} the directory signs in also keep{'s' if n == 1 else ''} a usable local "
+        "password, which still works if the directory disables them."
+        if n
+        else "No account the directory signs in has a usable local password.",
+        rows,
+        advice="Remove the local password (set an unusable one) once the account signs in through the directory.",
+    )
+
+
 # --- Access reviews (attestation) ---------------------------------------------------
 
 

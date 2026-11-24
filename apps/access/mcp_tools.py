@@ -212,6 +212,12 @@ def access_request_membership(args: dict[str, Any]) -> dict[str, Any]:
     except LookupError as exc:
         return _err("not_found", str(exc))
     member = bool(args.get("member"))
+    # A directory-managed group's membership is the directory's: every decision
+    # would refuse it, so don't file a request nobody can approve (T2-3). That a
+    # group is directory-managed is its declaration, not anyone's access.
+    refusal = services.directory_refusal(group)
+    if refusal:
+        return _err("directory_managed", refusal)
     if reads_access and user.groups.filter(pk=group.pk).exists() == member:
         state = "already in" if member else "not in"
         return _err("unchanged", f"{user.get_username()} is {state} {group.name}; nothing to approve.")

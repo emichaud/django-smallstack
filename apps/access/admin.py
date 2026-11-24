@@ -3,6 +3,8 @@
 from typing import Any
 
 from django.contrib import admin
+from django.contrib.auth.admin import GroupAdmin as BaseGroupAdmin
+from django.contrib.auth.models import Group
 from django.http import HttpRequest
 
 from .models import AccessEvent, AccessReview, AccessReviewItem, DirectoryIdentity, EvidenceBundle, ManagedGroup
@@ -112,3 +114,42 @@ class EvidenceBundleAdmin(admin.ModelAdmin):
 
     def has_delete_permission(self, request: HttpRequest, obj: Any = None) -> bool:
         return False
+
+
+class GroupAdmin(BaseGroupAdmin):
+    """Django's group admin, except a directory-managed group opens read-only
+    and can't be deleted (G2-3): renaming it, clearing its permissions or
+    deleting it (which strips its members) would undo the directory's
+    membership as a local edit to it would. ``SMALLSTACK_DIRECTORY_LOCAL_OVERRIDE``
+    lifts it, as it does on every other surface."""
+
+    def _directory_managed(self, obj: Any) -> bool:
+        from .services import directory_refusal
+
+        return obj is not None and bool(directory_refusal(obj))
+
+    def has_change_permission(self, request: HttpRequest, obj: Any = None) -> bool:
+        if self._directory_managed(obj):
+            return False
+        return super().has_change_permission(request, obj)
+
+    def has_delete_permission(self, request: HttpRequest, obj: Any = None) -> bool:
+        if self._directory_managed(obj):
+            return False
+        return super().has_delete_permission(request, obj)
+
+    def delete_queryset(self, request: HttpRequest, queryset: Any) -> None:
+        """*Delete selected* skips directory-managed groups."""
+        from django.contrib import messages
+
+        keep = [g.pk for g in queryset if self._directory_managed(g)]
+        super().delete_queryset(request, queryset.exclude(pk__in=keep))
+        if keep:
+            self.message_user(
+                request, f"Kept {len(keep)} directory-managed group(s): change them in the directory.", messages.WARNING
+            )
+
+
+if admin.site.is_registered(Group):
+    admin.site.unregister(Group)
+admin.site.register(Group, GroupAdmin)

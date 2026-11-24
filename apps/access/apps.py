@@ -16,7 +16,7 @@ class AccessConfig(AppConfig):
         from apps.smallstack import dashboard
         from apps.smallstack.navigation import nav
 
-        from . import cadence, checks, signals  # noqa: F401  — registers receivers and the built-in findings
+        from . import cadence, checks, signals, system_checks  # noqa: F401  — receivers, findings, system checks
         from .dashboard_widgets import AccessReviewWidget, AccessWidget
 
         # Groups, findings and evidence sheets apps declare:
