@@ -687,15 +687,17 @@ def test_the_mcp_refusal_hides_role_and_provider_from_a_non_reader(dir_groups, p
     """G4-6."""
     from apps.mcp.server import TOOL_HANDLERS, ToolContext, reset_context, set_context
 
-    directory.sign_in("proxy", "sub-x", ["Ops.Team"], email="x@x.test")
+    identity, _ = directory.sign_in("proxy", "sub-x", ["Ops.Team"], email="x@x.test")
+    username = identity.user.get_username()
     token = set_context(ToolContext(user=plain_staff, token=None))
     try:
-        out = TOOL_HANDLERS["access_request_membership"]({"username": "x", "group": "Ops team", "member": True,
-                                                          "reason": "r"})
+        out = TOOL_HANDLERS["access_request_membership"](
+            {"username": username, "group": "Ops team", "member": True, "reason": "r"}
+        )
     finally:
         reset_context(token)
     msg = out["error"]["message"]
-    assert out["error"]["code"] in ("directory_managed", "not_found")
+    assert out["error"]["code"] == "directory_managed", out
     assert "Ops.Team" not in msg and "proxy" not in msg
 
 
