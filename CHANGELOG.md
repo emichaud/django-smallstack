@@ -9,6 +9,15 @@ Breaking-change migration recipes live in [`UPGRADING.md`](UPGRADING.md).
 
 ## [Unreleased]
 
+## [0.33.0] - 2026-11-24
+
+### Upgrading from 0.32
+- `make migrate`: three Access migrations (reviews, evidence bundles, directory identities) and the new *Access attester* group, with no members.
+- `SMALLSTACK_PRIVATE_MEDIA_PREFIXES` now defaults to `runbook/,access/`; if you set it yourself, add `access/`, or stored evidence packs are served by the public `/media/` route.
+- **Session writes to the REST API need `X-CSRFToken`** (token callers are unchanged). `SMALLSTACK_API_SESSION_CSRF=False` keeps the old behaviour for this release, logging each write it would refuse; removed in 0.34.0.
+- New settings, every one off or behaviour-preserving by default: `SMALLSTACK_ACCESS_REVIEW_CADENCE` (`""`), `_SCOPE`, `_DUE_DAYS`, `_REMINDER_DAYS`, `_ESCALATION_EMAILS`, `SMALLSTACK_ACCESS_EVIDENCE_KEEP`, `SMALLSTACK_DIRECTORY_ROLE_MAP`, `SMALLSTACK_DIRECTORY_LOCAL_OVERRIDE`, `SMALLSTACK_DIRECTORY_LINK_BY_EMAIL`, `SMALLSTACK_DIRECTORY_GROUP_PREFIX`.
+- Staff without `accounts.view_user` no longer see the *Users* card on `/smallstack/`; a sign-in backend that sets `user.groups` or `is_superuser` from claims should move to `apps.access.directory.sign_in`. Details in `UPGRADING.md`.
+
 ### Added
 - **Access reviews (attestation)** at `/smallstack/access/reviews/`. An *Access attester* (new shipped group, `access.sign_accessreview`) opens a review for a period, which freezes the roster (`privileged` or `all`), decides each account (confirm, flag with a note, or remove, which files an `access.review_remove` approval that deactivates the account in the approver's name), and signs with their typed name. A signed review is immutable evidence (`ReviewLocked`). Nobody decides their own row and a superuser can't attest. Deciding and signing exist on the page only; reviews read over REST (`/smallstack/api/access/reviews/`) and `manage.py access review open|list|show`; CSV, JSON and print view. New findings: *Access review overdue*, *Review decisions not yet acted on*, *Privileged accounts not yet reviewed*.
 - **The evidence pack** at `/smallstack/access/evidence/`: nine read-only sheets for a period and scope (privileged roster, access matrix, changes, joiners, leavers, authentication, API credentials, findings, reviews), each mapped to the SOC 2 / PCI DSS / ISO 27001 controls it supports; CSV per sheet, ZIP bundle, JSON, print view; `manage.py access evidence` and `GET /smallstack/api/access/evidence/`, all from one `build()`. **Stored packs** (`EvidenceBundle`) keep a pack with its SHA-256 (`X-Content-SHA256` on download) under the private `MEDIA_ROOT/access/evidence/`; `SMALLSTACK_ACCESS_EVIDENCE_KEEP` per scope and reason. Apps add sheets with `register_sheet` in `apps/<app>/access_evidence.py`.
@@ -3577,7 +3586,8 @@ Condensed highlights of the v0.11 series (see git history for per-patch detail):
 See the git tag history (`git tag`) and `ai_cowork/audit_history/` for the full record of the
 v0.8–v0.10 API-server, modern-dark-theme, search, MCP, and Postgres eras.
 
-[Unreleased]: https://github.com/emichaud/django-smallstack/compare/v0.32.2...HEAD
+[Unreleased]: https://github.com/emichaud/django-smallstack/compare/v0.33.0...HEAD
+[0.33.0]: https://github.com/emichaud/django-smallstack/compare/v0.32.2...v0.33.0
 [0.32.2]: https://github.com/emichaud/django-smallstack/compare/v0.32.1...v0.32.2
 [0.32.1]: https://github.com/emichaud/django-smallstack/compare/v0.32.0...v0.32.1
 [0.32.0]: https://github.com/emichaud/django-smallstack/compare/v0.31.0...v0.32.0

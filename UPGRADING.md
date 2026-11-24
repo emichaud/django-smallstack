@@ -8,7 +8,7 @@ listed, no downstream migration is required.
 
 ---
 
-## Unreleased — access reviews, the evidence pack, directory-managed groups
+## v0.33.0 — access reviews, the evidence pack, directory-managed groups
 
 **Who is affected:** projects that set `SMALLSTACK_PRIVATE_MEDIA_PREFIXES` themselves, projects that
 grant `is_superuser` or set `user.groups` from a sign-in backend, and every project (three migrations).
