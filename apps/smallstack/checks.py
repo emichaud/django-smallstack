@@ -82,3 +82,22 @@ def check_reported_version_is_not_stale(app_configs: Any, **kwargs: Any) -> list
             id="smallstack.W001",
         )
     ]
+
+
+@register()
+def check_api_session_csrf_switch(app_configs: Any, **kwargs: Any) -> list[CheckWarning]:
+    """``SMALLSTACK_API_SESSION_CSRF=False`` is a one-release escape hatch."""
+    if getattr(settings, "SMALLSTACK_API_SESSION_CSRF", True):
+        return []
+    return [
+        CheckWarning(
+            "SMALLSTACK_API_SESSION_CSRF is False: REST API writes on a browser session are accepted without "
+            "a CSRF token, so another page can make a signed-in browser write.",
+            hint=(
+                "Temporary, for the release that introduced the check. Find the callers in the log "
+                "(\"allowed because SMALLSTACK_API_SESSION_CSRF=False\"), make them send X-CSRFToken (the "
+                "csrftoken cookie) or use an API token, then remove the setting. It is removed in 0.34.0."
+            ),
+            id="smallstack.W002",
+        )
+    ]

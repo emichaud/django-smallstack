@@ -752,3 +752,37 @@ def test_least_privilege_findings_wording_everywhere():
     for rel in ("apps/access/mcp_tools.py", "apps/access/api.py", "apps/access/evidence.py",
                 "apps/access/management/commands/access.py", "apps/smallstack/docs/_config.yaml"):
         assert "least-privilege review" not in (base / rel).read_text(), rel
+
+
+# --- The deprecation path for session CSRF (the user's choice, option 2) ---------------
+
+
+def test_session_csrf_is_on_by_default():
+    from django.conf import settings as dj
+
+    assert dj.SMALLSTACK_API_SESSION_CSRF is True
+
+
+def test_the_switch_allows_and_logs_a_session_write_without_the_token(root, settings, caplog):
+    """SMALLSTACK_API_SESSION_CSRF=False: the write goes through, logged with
+    its method and path so the caller can be found; system check W002 warns."""
+    from apps.approvals.registry import ApprovalKind, register_kind
+    from apps.smallstack.checks import check_api_session_csrf_switch
+
+    register_kind(ApprovalKind(key="tests.switch"))
+    assert check_api_session_csrf_switch(None) == []
+    settings.SMALLSTACK_API_SESSION_CSRF = False
+    assert [w.id for w in check_api_session_csrf_switch(None)] == ["smallstack.W002"]
+    browser = Client(enforce_csrf_checks=True)
+    browser.force_login(root)
+    with caplog.at_level("WARNING", logger="apps.smallstack.api"):
+        body = json.dumps({"kind": "tests.switch", "title": "legacy script"})
+        resp = browser.post("/smallstack/api/approvals/requests/create/", body, content_type="application/json")
+    assert resp.status_code == 201
+    assert any("SMALLSTACK_API_SESSION_CSRF=False" in r.getMessage() and "/smallstack/api/approvals/requests/create/"
+               in r.getMessage() for r in caplog.records)
+    # Back on: refused again.
+    settings.SMALLSTACK_API_SESSION_CSRF = True
+    again = browser.post("/smallstack/api/approvals/requests/create/",
+                         json.dumps({"kind": "tests.switch", "title": "x"}), content_type="application/json")
+    assert again.status_code == 403

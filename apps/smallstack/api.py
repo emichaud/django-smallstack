@@ -426,6 +426,7 @@ def authenticate_api_request(
     # ``check_csrf=False`` is for dry runs only (a preview that never saves).
     if request.user.is_authenticated:
         if check_csrf and request.method not in ("GET", "HEAD", "OPTIONS", "TRACE"):
+            from django.conf import settings as dj_settings
             from django.middleware.csrf import CsrfViewMiddleware
 
             class _Check(CsrfViewMiddleware):
@@ -437,6 +438,17 @@ def authenticate_api_request(
 
             check = _Check(lambda r: None)  # type: ignore[arg-type,return-value]
             if check.process_view(request, None, (), {}) is not None:  # type: ignore[arg-type]
+                if not getattr(dj_settings, "SMALLSTACK_API_SESSION_CSRF", True):
+                    # The one-release escape hatch: let it through, and say
+                    # which caller to fix (removed in 0.34.0).
+                    logger.warning(
+                        "api: %s %s on a session without a valid CSRF token (%s) was allowed because "
+                        "SMALLSTACK_API_SESSION_CSRF=False; send X-CSRFToken before 0.34.0 refuses it",
+                        request.method,
+                        request.path,
+                        check.reason,
+                    )
+                    return request.user, None
                 return None, _error(
                     f"CSRF check failed: {check.reason}. With session auth, send the X-CSRFToken header "
                     "(the csrftoken cookie) from a trusted origin; scripts and other sites should use an API token.",

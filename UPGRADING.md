@@ -30,6 +30,12 @@ SmallStack ships a sixth group, *Access attester*.
    signed-in session must now send `X-CSRFToken` (the `csrftoken` cookie's value), or it gets 403.
    Scripts and SPAs that use an API token are unaffected. A hand-written JSON view whose POST is a
    pure dry run may pass `authenticate_api_request(request, check_csrf=False)`.
+   **Deprecation path:** if you can't add the header before upgrading, set
+   `SMALLSTACK_API_SESSION_CSRF=False` for this release. Session writes without the token are then
+   allowed and each is logged (`apps.smallstack.api`, WARNING: method, path, reason), and
+   `manage.py check` warns `smallstack.W002`. Grep the log for "allowed because
+   SMALLSTACK_API_SESSION_CSRF=False", fix those callers, then remove the setting. The switch is
+   removed in 0.34.0.
 5. Tests that build a session write with `RequestFactory` and call an API view directly set
    `request._dont_enforce_csrf_checks = True`, as Django's test `Client` does.
 6. Staff without `accounts.view_user` no longer see the *Users* card on `/smallstack/` (it shows

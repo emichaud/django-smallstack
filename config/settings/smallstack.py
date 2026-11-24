@@ -332,6 +332,16 @@ SMALLSTACK_EXPLORER_MODEL_PERMISSIONS = config(
 # no API published — the routes 404, the "API Health" nav + status monitor hide.
 # Default on.
 SMALLSTACK_API_ENABLED = config("SMALLSTACK_API_ENABLED", default=True, cast=bool)
+# A write to the REST API (POST/PUT/PATCH/DELETE) authenticated by the browser
+# *session* must carry the CSRF token (X-CSRFToken), as a form post does: a
+# session is ambient, so without it another page could make a signed-in browser
+# write. Token callers (Bearer/Basic) are never affected. DEPRECATION PATH: set
+# False for one release while a project adds the header to its own scripts;
+# each write that would be refused is then logged (logger
+# "apps.smallstack.api", WARNING) with its path, and `manage.py check` warns
+# (smallstack.W002). The switch is removed in 0.34.0, after which the check
+# always applies.
+SMALLSTACK_API_SESSION_CSRF = config("SMALLSTACK_API_SESSION_CSRF", default=True, cast=bool)
 
 # Master switch for the datasets surface: the /smallstack/datasets/ REST routes
 # and the dataset MCP tools (list_datasets + query_dataset_<key>). Per-dataset
