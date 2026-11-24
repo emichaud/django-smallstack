@@ -18,14 +18,23 @@ SmallStack ships a sixth group, *Access attester*.
 
 **Migration.**
 
-1. `make migrate`. This adds the review, review item, evidence bundle and directory identity tables
-   and a `directory_role` on declared groups, and creates the *Access attester* group with no members.
+1. `make migrate`. This adds the review, review item, evidence bundle and directory identity tables,
+   `signed_request_id` on reviews and a `directory_role` on declared groups, and creates the *Access attester* group with no members.
 2. If you set `SMALLSTACK_PRIVATE_MEDIA_PREFIXES` in `.env` or settings, add `access/` to it.
    Otherwise stored evidence packs are served by the public `/media/` route.
 3. Nothing is scheduled unless you set `SMALLSTACK_ACCESS_REVIEW_CADENCE=quarterly`. If you do, run a
    worker for the scheduler, and `db_worker --queue-name webhooks` for the `access.review.signed`
    deliveries, and set `SITE_URL` so the emailed and webhook links are absolute.
-4. If a sign-in backend sets `user.groups` or `is_superuser` from claims, move it to
+4. **Session writes to the API need the CSRF token.** A browser script that POSTs/PUTs/PATCHes/
+   DELETEs to `/smallstack/api/…` (or your own `@api_view` / `authenticate_api_request` views) on the
+   signed-in session must now send `X-CSRFToken` (the `csrftoken` cookie's value), or it gets 403.
+   Scripts and SPAs that use an API token are unaffected. A hand-written JSON view whose POST is a
+   pure dry run may pass `authenticate_api_request(request, check_csrf=False)`.
+5. Tests that build a session write with `RequestFactory` and call an API view directly set
+   `request._dont_enforce_csrf_checks = True`, as Django's test `Client` does.
+6. Staff without `accounts.view_user` no longer see the *Users* card on `/smallstack/` (it shows
+   account counts); give a widget of your own that shows account or access data a `visible_to`.
+7. If a sign-in backend sets `user.groups` or `is_superuser` from claims, move it to
    `apps.access.directory.sign_in` and declare the groups with `directory_role`
    (`docs/skills/directory-sso.md`, "The migration from 'we already set groups ourselves'").
 

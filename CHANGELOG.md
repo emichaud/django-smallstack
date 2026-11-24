@@ -18,6 +18,13 @@ Breaking-change migration recipes live in [`UPGRADING.md`](UPGRADING.md).
 
 ### Changed
 - `SMALLSTACK_PRIVATE_MEDIA_PREFIXES` defaults to `runbook/,access/` (see `UPGRADING.md` if you set it yourself).
+- **Security: a write to the REST API on a session needs the CSRF token** (`X-CSRFToken`), as a form post does. The routes are CSRF-exempt for token callers, and a session fell back without a check, so a page on another site could make a signed-in browser create or change records. Reads and Bearer/Basic callers are unchanged; first-party pages already send the token. `authenticate_api_request(check_csrf=False)` is for dry-run previews only. See `UPGRADING.md`.
+- Approval kinds take `view_permission` (who among staff may see a kind's requests) and `can_cancel`; a kind with `can_decide` sends its notices only to the staff its hook accepts. The access kinds use all three: an access request is seen by access readers, decided and canceled by those who could make the change, never by the account it acts on.
+- A request someone can't see answers **404** on the web decide and cancel routes whatever its state, as its page and the REST/MCP routes do (was 404/403/302 by state).
+- The shared `/smallstack/` board leaves out widget cards the viewer's `visible_to` refuses instead of showing "no access" boxes; the *Users* card needs `accounts.view_user`.
+- The access MCP read tools accept any token tier (as the REST reads do); `accounts.view_user` on a staff account gates them.
+- `webhooks.fan_out` serialises with `DjangoJSONEncoder` and requires a UUID `event_id`; a bad payload or id raises in `DEBUG` and is logged with the reason otherwise.
+- Deleting a live API token revokes it first, so the deletion is recorded as `token_revoked` on every surface; Django admin refuses to delete a superuser's token for anyone else.
 
 ### Fixed (from the acceptance test of the above, Test Lab evaluation 45)
 - Django admin's user form could change a directory-managed group's members; it now refuses with the reason, as every other surface does.
@@ -30,6 +37,16 @@ Breaking-change migration recipes live in [`UPGRADING.md`](UPGRADING.md).
 - `access evidence --store --user` didn't check the storing rule, and a store with no `--user` was labelled *schedule*.
 - Directory sign-ins never set `last_login`, so directory users read as never signed in and dormant.
 - The directory refusal named the provider once per signed-in identity.
+- The target of an access approval could reject it; a removal whose review row was changed to confirm stayed pending and approvable.
+- Django admin's group pages could rename or delete a directory-managed group; the MCP proposal tool filed requests for one that every decision refused.
+- Signed reviews could be changed or deleted with `QuerySet.update()` / `delete()`; signing overwrote the opening's request id (now `signed_request_id`, migration 0006); the signing IP and the *new since the last review* flag were missing from REST, JSON, CSV and the CLI.
+- The evidence print views ran off the page; the on-demand ZIP had no digest header; a signed-out export link answered 403 instead of going to sign-in; the sheet preview sat below the stored packs; a refused store spoke of signing reviews.
+- `access --json` put a newline after every token; `access groups` didn't show directory roles; the review cadence counted reminders nobody received; the Access review card's states weren't coloured; turning the cadence on duplicated a card added by hand.
+
+### Added (from the same acceptance test)
+- `apps.access.directory.recognised_roles()` for a fail-closed sign-in check before any account is created, with an auth-proxy middleware recipe in `docs/skills/directory-sso.md`.
+- Finding *Directory accounts with a local password*; system check `access.W001` for a `map_directory_role` naming no declared group.
+- Evidence sheets say what they reflect (as of generation or within the period) and whether the scope filters them; `register_sheet(as_of=, scoped=)`.
 
 ## [0.32.2] - 2026-11-15
 

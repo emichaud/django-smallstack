@@ -15,7 +15,7 @@ when an auditor asks.
 ## The Overview
 
 Counts of accounts, staff, superusers and groups; how many times access was
-widened in the last 7 days; and the **least-privilege review**, a list of
+widened in the last 7 days; and the **least-privilege findings**, a list of
 findings with a number, a sentence, and advice:
 
 | Finding | Why it matters |

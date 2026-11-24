@@ -64,7 +64,9 @@ Other `@approval_kind` kwargs: `description`, `can_decide=fn(user, req)`
 (eligibility hook — **narrows only**, see below), `can_cancel=fn(user, req)`
 (narrows who may withdraw a pending request, ANDed with the default and
 failing closed; `access.review_remove` uses it so the account being removed
-can't cancel its own removal), `context_template="…"`
+can't cancel its own removal), `view_permission="app.codename"` (or a tuple, any one of them: the
+staff who may see this kind's requests besides the requester and assignees;
+include what deciding needs), `context_template="…"`
 (explicit card template), `notify=["ops@example.com"]` (extra email
 recipients), `assignable=[…]` (whitelist for remote assignee selection, §2),
 `remote_filing=False` (only your own code may file the kind: the generic REST
@@ -154,6 +156,22 @@ console (login-gated and eligibility-scoped — see §5) or in a
 
 Cancel: the requester or staff, while pending, narrowed by the kind's
 `can_cancel` hook when it has one.
+
+**Who is told.** A new request is announced (bell and email) to its
+assignees, or else to every active staff member; a kind with `can_decide`
+narrows that to the staff its hook accepts, so a sensitive request reaches only
+the people who could decide it.
+
+**Kinds SmallStack ships** (registered by `apps/access/approvals.py`; both
+`remote_filing=False`, filed only by their own code):
+
+| Kind | Filed by | Decided by | Expires | On approve |
+|---|---|---|---|---|
+| `access.membership` | the MCP tool `access_request_membership` | staff holding `accounts.change_user` (and every permission the group grants, to add), never the account itself | 3 days | `set_membership` in the approver's name |
+| `access.review_remove` | an attester deciding *remove* on an access review | staff holding `accounts.change_user`, never the account itself | 14 days | the account is deactivated in the approver's name (tokens revoked, sessions ended) |
+
+Both are seen only by staff holding `accounts.view_user` or `change_user`, and
+canceled only by their requester or someone who could decide them.
 
 **Deactivating an account (`is_active=False`) removes approval authority
 everywhere, immediately.** This is enforced twice on purpose, because approvals

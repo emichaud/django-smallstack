@@ -140,6 +140,12 @@ Lockout is configured in `config/settings/smallstack.py`:
 ### Session (Browser)
 
 If the user is logged in via Django session, API endpoints work without a token.
+**Writes on a session need the CSRF token**, as a form post does: send the
+`X-CSRFToken` header (the `csrftoken` cookie's value). A session is ambient — any
+page the browser has open could make it send one — so a POST/PUT/PATCH/DELETE with
+a session and no token is refused with 403. Reads don't need it, and token
+callers (Bearer/Basic) are unaffected: scripts, SPAs on another origin and other
+servers should use a token.
 
 ## Token Types & Access Levels
 

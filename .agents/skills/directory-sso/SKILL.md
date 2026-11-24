@@ -108,6 +108,48 @@ Okta group name, the key in your Cloudflare policy. Keep to
 `[A-Za-z0-9._-]` and treat it as permanent (renaming is a migration in both
 places; display names can change freely).
 
+### Failing closed without creating accounts
+
+Check the roles **before** `sign_in`: it creates the account on first sight,
+so calling it for someone who will be refused leaves an account behind.
+`recognised_roles(roles)` answers from the declarations (after
+`SMALLSTACK_DIRECTORY_ROLE_MAP`), without a write:
+
+```python
+# apps/<app>/middleware.py — behind an auth proxy (Cloudflare Access,
+# oauth2-proxy, Pomerium) that sets these headers and strips them from
+# client requests. Add after AuthenticationMiddleware.
+from django.http import HttpResponseForbidden
+
+from apps.access.directory import recognised_roles, sign_in
+
+PUBLIC = ("/health/", "/static/")
+
+
+class DirectoryHeaderMiddleware:
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        subject = request.headers.get("X-Forwarded-User")
+        if not subject or request.path.startswith(PUBLIC):
+            return self.get_response(request)
+        raw = request.headers.get("X-Forwarded-Groups")
+        roles = [r for r in raw.split(",")] if raw is not None else None  # absent ≠ empty
+        if not recognised_roles(roles):
+            return HttpResponseForbidden("No role for this application.")
+        identity, _ = sign_in(
+            "proxy", subject, roles,
+            email=request.headers.get("X-Forwarded-Email", ""),
+            name=request.headers.get("X-Forwarded-Name", ""),
+        )
+        request.user = identity.user
+        return self.get_response(request)
+```
+
+Trust these headers only from the proxy (bind the app to it, or check a
+shared secret header): anyone who can reach the app directly could send them.
+
 ## Entra, step by step
 
 1. **Declare** the groups with `directory_role` and deploy.

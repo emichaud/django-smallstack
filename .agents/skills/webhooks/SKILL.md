@@ -87,8 +87,13 @@ webhooks.fan_out("support.sla.breached", {
 }, event_id=event_id)
 ```
 
-`fan_out` never raises and returns the deliveries created (0 when outbound is
-off). `access.review.signed` (`apps/access/cadence.py`) is the reference.
+`fan_out` returns the deliveries created (0 when outbound is off or no
+endpoint matches). The payload is serialised as Django's `DjangoJSONEncoder`
+does (dates, Decimals and UUIDs are fine) and `event_id` must be a UUID string:
+a payload that still can't be serialised, or a bad id, **raises `ValueError`
+when `DEBUG` is on** and is logged with the reason (0 sent) otherwise, so a
+mistake doesn't read as "outbound is off". A database error never reaches the
+caller's transaction. `access.review.signed` (`apps/access/cadence.py`) is the reference.
 
 The `event_id`, `origin`, and `resource` keys were **added** in the foundation reshape
 (the original keys are unchanged, so existing consumers keep working). `resource.url` is

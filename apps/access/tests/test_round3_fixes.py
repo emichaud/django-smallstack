@@ -511,3 +511,40 @@ def test_fan_out_says_what_is_wrong(settings):
     assert webhooks.fan_out("x.y", {"a": 1}, event_id="not-a-uuid") == 0
     n = webhooks.fan_out("x.y", {"when": timezone.now()}, event_id=str(uuid.uuid4()))
     assert n == 1 and isinstance(WebhookDelivery.objects.latest("pk").payload["when"], str)
+
+
+# --- Batch 4: the docs' recipes run as written ------------------------------------------
+
+
+def _doc_block(path, heading):
+    from pathlib import Path
+
+    from django.conf import settings as dj
+
+    text = (Path(dj.BASE_DIR) / path).read_text()
+    section = text[text.index(heading):]
+    start = section.index("```python\n") + len("```python\n")
+    return section[start:section.index("```", start)]
+
+
+def test_the_directory_sso_proxy_recipe_works_as_written(dir_groups):
+    """T2-11 / T2-4: the doc's middleware, verbatim: refuses with no recognised
+    role and creates nobody; signs a recognised person in; leaves public paths."""
+    from django.http import HttpResponse
+    from django.test import RequestFactory
+
+    namespace: dict = {}
+    exec(_doc_block("docs/skills/directory-sso.md", "### Failing closed without creating accounts"), namespace)  # noqa: S102
+    mw = namespace["DirectoryHeaderMiddleware"](lambda r: HttpResponse("ok"))
+    rf = RequestFactory()
+    before = User.objects.count()
+    refused = mw(rf.get("/x/", HTTP_X_FORWARDED_USER="sub-nobody", HTTP_X_FORWARDED_GROUPS="Other.Team"))
+    assert refused.status_code == 403 and User.objects.count() == before
+    headers = {
+        "HTTP_X_FORWARDED_USER": "sub-ok",
+        "HTTP_X_FORWARDED_GROUPS": "Ops.Team",
+        "HTTP_X_FORWARDED_EMAIL": "ok@x.test",
+    }
+    req = rf.get("/x/", **headers)
+    assert mw(req).status_code == 200 and req.user.groups.filter(name="Ops team").exists()
+    assert mw(rf.get("/health/", HTTP_X_FORWARDED_USER="sub-z")).status_code == 200

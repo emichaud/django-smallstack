@@ -28,7 +28,9 @@ is no parallel role system. SmallStack adds:
 2. **A record of every change to access** (`AccessEvent`), written from model
    signals so it doesn't matter which surface made the change.
 3. **The Access pages** at `/smallstack/access/`: who holds what and why, a
-   least-privilege review, exports, and a per-user permission check.
+   least-privilege findings, periodic access reviews, exports, and a
+   per-user permission check. (*Findings* are the continuous checks below;
+   a *review* is always the periodic attestation a person signs.)
 
 Row-level rules (`get_list_queryset`, `can_update`, `check_object_permission`
 on a `CRUDView`) are a separate layer, below this one; see `crud-views.md`.

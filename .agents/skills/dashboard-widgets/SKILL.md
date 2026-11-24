@@ -96,11 +96,11 @@ class ActivityDashboardWidget(DashboardWidget):
 | `url_kwargs` | `dict \| None` | `None` | kwargs for `reverse()` |
 | `group` | `str \| None` | `None` | Group name for filtered views (standalone widgets only — Explorer widgets inherit group from `ModelInfo`) |
 | `on_dashboard` | `bool` | `True` | Surface on main `/smallstack/` dashboard. Set `False` to scope a widget to its group/app/model page only. May be a property for a card that belongs there only once a feature is turned on (`apps/access/dashboard_widgets.py`, `AccessReviewWidget`): it is placed the first time it answers `True` and stays. Keep it settings-only — the board's sync asks on every load and must stay query-free |
-| `visible_to(user)` | method | everyone | The widget's own gate. Honoured by the `/smallstack/` cards **and** by a saved dashboard's widget cell, which renders a restricted message instead of the numbers for a viewer the widget refuses |
+| `visible_to(user)` | method | everyone | The widget's own gate. The shared `/smallstack/` board (and any system board) **leaves the card out** for a viewer the widget refuses; a saved dashboard's widget cell renders a restricted message instead of the numbers. Gate anything that shows account or access data (the Users card asks for `accounts.view_user`) |
 
 ### Methods
 
-- **`get_data(model_class=None) -> dict`** — Return widget data. For `widget_type="card"`, the template reads `headline`, `detail`, and optionally `status`. Any additional keys (e.g. `extra`) pass through to the API but are ignored by the HTML template. For Explorer widgets, `model_class` is the registered Django model. For standalone widgets, it is `None`.
+- **`get_data(model_class=None) -> dict`** — Return widget data. For `widget_type="card"`, the template reads `headline`, `detail`, and optionally `status`: `ok` / `warning` / `error` (or the same three as `operational` / `degraded` / `down`), which colour the headline and the card's edge. Any additional keys (e.g. `extra`) pass through to the API but are ignored by the HTML template. For Explorer widgets, `model_class` is the registered Django model. For standalone widgets, it is `None`.
 
 - **`get_api_extras(model_class=None) -> dict | None`** — Return additional API-only data merged into the serialized widget's `data` field. Override only when extras are expensive to compute and you don't want them slowing HTML renders. Default returns `None`.
 

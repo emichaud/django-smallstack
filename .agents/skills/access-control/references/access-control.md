@@ -16,7 +16,9 @@ is no parallel role system. SmallStack adds:
 2. **A record of every change to access** (`AccessEvent`), written from model
    signals so it doesn't matter which surface made the change.
 3. **The Access pages** at `/smallstack/access/`: who holds what and why, a
-   least-privilege review, exports, and a per-user permission check.
+   least-privilege findings, periodic access reviews, exports, and a
+   per-user permission check. (*Findings* are the continuous checks below;
+   a *review* is always the periodic attestation a person signs.)
 
 Row-level rules (`get_list_queryset`, `can_update`, `check_object_permission`
 on a `CRUDView`) are a separate layer, below this one; see `crud-views.md`.
@@ -100,6 +102,8 @@ surface made it (Django admin, the Access pages, the User Manager, a shell, a
 | A group renamed | `group_renamed` (`detail.from` / `detail.to`) |
 | An API token revoked (any path: Token Manager, Access, admin, Explorer, REST logout, OAuth, `sc`) | `token_revoked` (`detail.token_id`, the token's owner as the account) |
 | Deactivation's side effects | `token_revoked`, `sessions_ended` |
+| An access review signed | `review_signed` (the review, its counts, the signer; written by `reviews.sign`) |
+| An API token deleted while live | `token_revoked` first (the delete revokes it), on any surface |
 
 Either side of a relation counts: `user.groups.add(g)` and `g.user_set.add(user)`,
 `user.user_permissions.add(p)` and `p.user_set.add(user)`. **Not recorded**,
@@ -257,6 +261,10 @@ drill-down links each row there.
 
 ### Evidence for an audit
 
+The **evidence pack** (below) is the one-touch answer: every sheet an auditor
+asks for, for a period, with the controls each supports. The three older
+exports are its parts and stay for quick questions:
+
 - **Export access (CSV)**: one row per account × permission × source, every
   account included.
 - **Snapshot (JSON)**: accounts, groups (with drift) and findings, dated.
@@ -296,14 +304,17 @@ staff account holding `accounts.view_user`, any token tier; 403 says so otherwis
 | `GET findings/` | the review, with `worst` |
 | `GET events/?who=&kind=&limit=` | the change log |
 
-**MCP.** Three read tools at the staff tier for callers holding
-`accounts.view_user` (hidden from, and refusing with `forbidden`, anyone else),
+**MCP.** Three read tools, at any token tier as the REST reads, for staff
+callers holding `accounts.view_user` (hidden from, and refusing with
+`forbidden`, anyone else),
 `access_explain_user`, `access_check_permission`, `access_findings`, and one write tool that only
 *proposes*: `access_request_membership(username, group, member, reason)` files
 an `access.membership` approval (`apps/access/approvals.py`). Only that tool
 files the kind (it is registered with `remote_filing=False`, so the generic
 REST create endpoint and MCP `request_approval` refuse it). A person holding
-`accounts.change_user` decides it in the console; the card shows the account
+`accounts.change_user` decides it in the console (never the account it acts
+on, which also can't cancel it); only staff holding `accounts.view_user` or
+`change_user` see it, and its notices go to the people who could decide it; the card shows the account
 and group the approval will change, read from the database, the reason and the
 agent that asked. Approving runs `set_membership` **in the
 approver's name**, recorded as `mcp:approval:<id>`; rejecting, canceling or
@@ -364,10 +375,13 @@ CC6.1–6.3, PCI DSS 7.2.4, ISO 27001 A.5.18). **Nothing in it changes access.**
   If it is rejected, canceled or expires, deciding *remove* again on an open
   review files a new one.
 - **Signing**: every row decided, the attester types their username or full
-  name, and the review records signer, time, typed name, client IP and
-  request id, writes a `review_signed` `AccessEvent` with the counts, and
-  **locks**: `save()`/`delete()` on the review or its items raise
-  `ReviewLocked`; Django admin is read-only.
+  name (case and surrounding spaces don't matter; what they typed is kept),
+  and the review records signer, time, typed name, client IP and the request
+  ids of the opening (`request_id`) and the signing (`signed_request_id`), writes a `review_signed` `AccessEvent` with the counts, and
+  **locks**: `save()`/`delete()` on the review or its items, and
+  `QuerySet.update()`/`delete()` over them, raise `ReviewLocked`; Django admin
+  is read-only. (A data migration that must rewrite history uses
+  `AccessReview._base_manager`.)
 - **Findings**: *Access review overdue* (info until a first review is ever
   signed, then warning for one missed quarter, danger for two), *Review
   decisions not yet acted on* (flagged rows, and *remove* rows whose account
@@ -410,7 +424,7 @@ exports, the CLI and REST all use that one build.
 | Leavers | deactivations: by whom, tokens/sessions revoked at the same moment (proved by the events), lag after the directory last saw them, tokens still live | CC6.3/6.5 · PCI 8.2.5/8.2.6 |
 | Authentication | sign-in method per account; a usable password beside a directory identity (an SSO bypass); failed sign-ins and lockouts when the axes failure log is kept | CC6.1 · PCI 8.2.6, 8.3.4, 8.6 |
 | API credentials | every token: owner, tier, created, expiry, last use, issued/revoked in period | CC6.1 · PCI 8.6 |
-| Findings | the least-privilege review as it stands now (the stored pack the schedule keeps when a quarter closes is the before-picture) | CC6.1/6.3 · PCI 7.2.4 |
+| Findings | the least-privilege findings as they stand now (the stored pack the schedule keeps when a quarter closes is the before-picture) | CC6.1/6.3 · PCI 7.2.4 |
 | Access reviews | the signed attestations covering the period, one row per reviewed account | CC6.3 · PCI 7.2.4/7.2.5 |
 
 - **Period**: a quarter from the picker (wins) or `from`/`to` dates; default
@@ -456,7 +470,11 @@ exports, the CLI and REST all use that one build.
   register_sheet("service_accounts", service_accounts, controls="SOC 2 CC6.2")
   ```
 
-  Keys are lowercase slugs; a built-in key can't be replaced.
+  Keys are lowercase slugs; a built-in key (or `cover`) can't be replaced,
+  and the sheet is filed under the key you register whatever its `Sheet.key`.
+  Say what it reflects: `as_of="generated"` for the state when the pack is
+  built (default `"period"`, events within it) and `scoped=True` when the
+  scope filters it; both show on the page and in `cover.md`.
 
 ## By the schedule (the review cadence)
 
@@ -485,7 +503,9 @@ same tick from cron on a deployment without the scheduler), that:
    nobody — fix the group, not the job.
 4. **Reminds** while any review stays open (opened by the schedule *or by
    hand*): every `SMALLSTACK_ACCESS_REVIEW_REMINDER_DAYS` (default 7; 0 = never),
-   kind `access.review.reminder`, counted on the review (`reminders`).
+   kind `access.review.reminder`, counted on the review (`reminders`, which
+   the escalation notice adds one to). With no attester to tell, nothing is
+   counted and the warning says so.
 5. **Escalates** once past due: one `access.review.overdue` notice to the
    attesters plus `SMALLSTACK_ACCESS_REVIEW_ESCALATION_EMAILS` (the security
    lead, the GRC mailbox), `escalated_at` set, and the *Access review overdue*
@@ -505,7 +525,12 @@ filter matches (`access.review.*`, `*`). Its envelope is a CRUDView's —
 `occurred_at`, `data` (the review payload with its `summary`), `event_id`,
 `origin`, `resource` — so the GRC tool's receiver handles it like any other.
 The event is declared with `webhooks.services.register_event`, so the
-endpoint picker offers it.
+endpoint picker offers it. Deliveries run on the `webhooks` task queue: run
+`manage.py db_worker --queue-name webhooks` (a plain `db_worker` serves only
+`default`, and the deliveries wait as *pending*). `resource.url` is absolute
+only when `SITE_URL` (or `SMALLSTACK_WEBHOOK_ORIGIN`) is set, and `null`
+otherwise; set it, or a receiver can't follow the link. The emailed links to
+the review use `SITE_URL` too, since the tick runs outside any request.
 
 - **Where it shows**: the *By the schedule* card on the Reviews page (off: one
   line saying attestation is on demand and how to turn the cadence on; on:
@@ -517,8 +542,8 @@ endpoint picker offers it.
   the cadence is off; `GET /smallstack/api/access/reviews/cadence/`;
   `manage.py access cadence --status`.
 - **Settings**: `SMALLSTACK_ACCESS_REVIEW_CADENCE` (default `""`, off: no
-  job, no notifications, no card; `quarterly` turns it on — a restart
-  registers the job), `SMALLSTACK_ACCESS_REVIEW_SCOPE` (`privileged` / `all`),
+  job, no notifications, no card; `quarterly` turns it on — the scheduler
+  registers the job on its next tick or `migrate`, not at a restart), `SMALLSTACK_ACCESS_REVIEW_SCOPE` (`privileged` / `all`),
   `SMALLSTACK_ACCESS_REVIEW_DUE_DAYS`, `SMALLSTACK_ACCESS_REVIEW_REMINDER_DAYS`,
   `SMALLSTACK_ACCESS_REVIEW_ESCALATION_EMAILS`, `SMALLSTACK_ACCESS_EVIDENCE_KEEP`.
   The scheduler row itself can be paused from `/smallstack/scheduler/` like
@@ -575,7 +600,10 @@ key that fits every provider), unique across groups, stored on
   `last_roles` and `last_seen_at` are kept on the identity for the review.
 - **Local changes are refused** on every surface (`services.directory_refusal`
   inside `set_membership`: the pages hide the forms, REST/CLI/approvals return
-  the reason). `SMALLSTACK_DIRECTORY_LOCAL_OVERRIDE = True` lifts it; the
+  the reason, the MCP proposal tool refuses to file one; Django admin's user
+  form refuses the group and its group pages open it read-only and won't
+  delete it). A change made by code in a shell is recorded and shown as a
+  finding. `SMALLSTACK_DIRECTORY_LOCAL_OVERRIDE = True` lifts it; the
   next sign-in sets membership back regardless.
 - **`SMALLSTACK_DIRECTORY_ROLE_MAP = {"sent-value": "Declared.Role"}`**
   translates a provider whose values can't be the key (a Google group email).
@@ -583,7 +611,10 @@ key that fits every provider), unique across groups, stored on
   granted from a directory source (danger); role values no group carries
   (warning); declared groups still local while the directory is in use (info);
   accounts the directory hasn't vouched for in `SMALLSTACK_ACCESS_DORMANT_DAYS`
-  that hold a live token (warning).
+  that hold a live token (warning); directory accounts that keep a usable
+  local password, a second way in the directory can't close (warning).
+  `manage.py check` warns (`access.W001`) when `map_directory_role` names a
+  group no declaration matches.
 - **`manage.py access directory-manifest --provider entra --json`** emits what
   the directory administrator creates: for Entra the `appRoles` array (ids
   `uuid5(namespace, role)`, so a rerun updates rather than duplicates) and the

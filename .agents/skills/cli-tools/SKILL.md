@@ -44,6 +44,10 @@ Two tables: a **task → tool map** (the most common lookups) and a **tool → d
 | smoke-test MCP against a running server | `make mcp-test` (= `manage.py mcp_smoke`) |
 | check that **webhooks are healthy** | `uv run python manage.py webhook_doctor` (or `sc doctor webhook`) |
 | **report on webhook deliveries / get status** | `sc webhook status` · `sc webhook list` · `sc webhook deliveries [--status dead]` |
+| **who can do what, and why** (an account, a permission, the findings) | `sc access explain <user>` · `sc access check <user> <app.codename>` · `sc access findings` (or `manage.py access_report`, exit 1/2 on warning/danger) |
+| **open or read an access review** (attestation) | `sc access review open --from … --to … [--scope all]` · `sc access review list` · `sc access review show <id> --json\|--csv` (deciding and signing are on the page only) |
+| **build or store the audit evidence pack** | `sc access evidence --from … --to … --out pack.zip` · `--store [--user <attester>]` · `sc access packs` |
+| **run the access review cadence from cron** | `sc access cadence` (`--status` only reports) |
 | **create an outbound webhook endpoint** | `sc new webhook --name … --target_url … --event_filter '[…]' --enabled=true --user admin` |
 | **test / replay a webhook** | `sc webhook test <endpoint>` · `sc webhook replay <delivery_id>` |
 | **replay ALL dead deliveries** (dead-letter recovery after an outage) | `sc webhook replay --status dead [--endpoint … --since … --limit …]` |

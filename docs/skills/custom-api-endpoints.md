@@ -32,7 +32,7 @@ from apps.smallstack.api import api_view, api_error
 | Parameter | Default | Description |
 |-----------|---------|-------------|
 | `methods` | `["GET"]` | Allowed HTTP methods |
-| `require_auth` | `True` | Require an API token (`Bearer <token>`, or HTTP Basic with the token as the password) or session auth (401 if missing) |
+| `require_auth` | `True` | Require an API token (`Bearer <token>`, or HTTP Basic with the token as the password) or session auth (401 if missing); a write on a session must carry the CSRF token (`X-CSRFToken`), 403 otherwise |
 | `require_staff` | `False` | Require `is_staff=True` (403 if not) |
 | `require_auth_token` | `False` | Require auth-level manual token (403 if not) |
 
@@ -250,3 +250,11 @@ The mount prefix is resolved by `reverse(url_name)` at schema-build time, so a *
 4. **Use `require_auth_token=True` for system/service endpoints** — these are the endpoints that should only be called by other services, not by browser users
 5. **Return `(dict, status_code)` tuples for non-200 success responses** — e.g., `return {"id": 1}, 201` for created resources
 6. **Access `request.json` directly** — no need to parse `request.body` yourself; it's already a dict (or `None` for GET)
+
+### Your own JSON view with `authenticate_api_request`
+
+`apps.smallstack.api.authenticate_api_request(request)` gives a hand-written
+view the same Bearer-or-session answer (`(user, None)` or `(None, 401)`), and
+checks the CSRF token on a session write. Pass `check_csrf=False` only for a
+**dry run** — a POST that computes and saves nothing (a preview), whose answer a
+cross-site page can't read anyway. Anything that writes keeps the check.
