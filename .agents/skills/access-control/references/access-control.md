@@ -23,6 +23,55 @@ is no parallel role system. SmallStack adds:
 Row-level rules (`get_list_queryset`, `can_update`, `check_object_permission`
 on a `CRUDView`) are a separate layer, below this one; see `crud-views.md`.
 
+## Start from user, staff and admin; add groups only where they earn it
+
+Every SmallStack app already has three tiers, and most access questions fit
+one of them. Fit the app into these first, and declare a group only for a job
+they can't express. The app decides, but the default is the simplest model
+that is true.
+
+| Tier | Who | How the code asks | What it opens |
+|---|---|---|---|
+| **User** | any signed-in account | `LoginRequiredMixin`, plus a queryset scoped to the user (`get_list_queryset`) | their own things: "my tickets", "my posts", profile, tokens |
+| **Staff** | `is_staff` | `StaffRequiredMixin` / `@staff_required` | the `/smallstack/` area and the app's management pages |
+| **Admin** | `is_superuser` | nothing (passes every `has_perm`) | everything; keep it to a few break-glass accounts |
+
+**Add a group when staff is too coarse.** That means two kinds of staff need
+different things: support may reassign tickets but not issue refunds, or an
+editor publishes posts but doesn't manage users. Then:
+
+1. Check the permission in code (`has_perm("tickets.refund_ticket")`, or
+   `model_permissions = True` on the CRUDView), so the gate is in the code and
+   not in a template `if`.
+2. Declare **one group per job**, named for the job ("Support agent",
+   "Blog editor"), in the app's `groups.py`, holding only what that job needs.
+   Set `staff=True` when its members work in the staff area.
+3. Add a custom permission (`Meta.permissions`) only for an action the four
+   model permissions (view/add/change/delete) can't say, such as `refund` or
+   `publish`.
+
+**Prefer, in order:**
+
+- **User-scoped data over a permission.** "Users see only their own rows" is
+  a queryset filter, not a group.
+- **Staff alone, when every staff member should have it.** A small internal
+  tool often needs no groups at all: a staff page is gated by
+  `StaffRequiredMixin`.
+- **One group per job, not per page or per action.** Three groups a reviewer
+  can read beat twelve nobody can.
+- **A shipped group, reused.** If SmallStack's *Approver* or *User manager*
+  already describes the job, add members to it rather than declaring a copy.
+
+**Don't invent a fourth tier.** That means no "manager" flag, no role field on
+the profile and no "admin lite": a manager is a group. Don't make someone
+superuser to get one permission; give them the group that holds it.
+(Superusers and directory accounts that are also superusers are flagged in
+the findings.)
+
+When you're unsure, choose the simpler tier and leave a one-line comment
+saying what would justify a group. Splitting a group later is easy. Taking
+access away from people who got used to it isn't.
+
 ## Check a permission
 
 ```python
@@ -658,6 +707,10 @@ administrator outside it.
 
 - Don't add a second way to say "may": no `is_admin` booleans on profiles, no
   role strings on models. Declare a permission, put it in a group.
+- Don't declare a group the user/staff/admin tiers already cover, or one per
+  page or action; one group per job, and only when staff is too coarse.
+- Don't make an account superuser to give it one permission; give it the
+  group that holds the permission.
 - Don't grant permissions directly to an account when a group would do; the
   review flags it.
 - Don't change `apps/smallstack/groups.py` downstream: declare your own group

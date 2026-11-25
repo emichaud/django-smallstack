@@ -279,6 +279,13 @@ An AI client can only *propose* a membership change, which a person approves.
 
 ## For developers
 
+**Start from the three tiers every app already has:** a signed-in **user**
+sees their own things, **staff** reach the management pages, and a
+**superuser** (admin) passes every check and is kept for break-glass use.
+Declare a group only where staff is too coarse, when two kinds of staff need
+different rights. Name it for the job, give it only what that job needs, and
+check the permission in code. Most small apps need few groups, or none.
+
 `docs/skills/access-control.md` covers declaring a group in your app
 (`register_group`), adding a finding (`register_check`), adding an evidence
 sheet (`register_sheet`), attributing changes made outside a request

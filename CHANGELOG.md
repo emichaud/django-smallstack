@@ -9,6 +9,8 @@ Breaking-change migration recipes live in [`UPGRADING.md`](UPGRADING.md).
 
 ## [Unreleased]
 
+## [0.33.2] - 2026-11-24
+
 ### Upgrading from 0.33.1
 - `make migrate`: one Access migration (`ManagedGroup.source`, and the `directory_role_set` event kind). Existing rows are groups declared in code and keep working unchanged.
 
@@ -17,6 +19,12 @@ Breaking-change migration recipes live in [`UPGRADING.md`](UPGRADING.md).
 - **New group dialog**: the Groups page's *New group* button opens a modal that asks for the name, shows a refusal (empty, taken, no permission) inside it with the name kept, and lands on the new group's page; it replaces the inline name field in the list header.
 - **Multi-select pickers** on the Access pages: *Add people* and *Add permissions* on a group's page and *Add to groups* on a user's page open a filterable checkbox list with "all shown" and one *Add N* button; tick rows in a group's members or permissions to remove several at once. Members and permissions cards swap in place over htmx.
 - **Help → Single Sign-On**: how directory-managed groups work, a *Blog editors* walkthrough, Microsoft Entra ID step by step (app roles vs the groups claim, P1 for group assignment, nested groups, `oid`, Easy Auth, what SmallStack has and hasn't verified), Okta, Keycloak, Auth0, Google Workspace and auth proxies, break-glass accounts, and the limits. **Help → Access Control** gains *Questions people ask*.
+
+### Changed
+- **Access guidance for apps and AI coders: start from user, staff and admin.** `AGENTS.md`, `docs/skills/access-control.md` and Help → Access Control now say to fit an app into the three tiers it already has: signed-in user (own rows), staff (`is_staff`, the management pages), and admin (`is_superuser`, break-glass). Declare a group only when staff is too coarse: one group per job, the least it needs, checked with `has_perm`. No role fields or "manager" flags.
+
+### Fixed
+- **Native controls follow the dark theme.** The theme now declares `color-scheme` (light on `:root`, dark under `[data-theme="dark"]`), so unchecked checkboxes, selects, date pickers and scrollbars no longer render in light mode (a white box) on dark pages.
 
 ## [0.33.1] - 2026-11-24
 
@@ -3603,7 +3611,8 @@ Condensed highlights of the v0.11 series (see git history for per-patch detail):
 See the git tag history (`git tag`) and `ai_cowork/audit_history/` for the full record of the
 v0.8–v0.10 API-server, modern-dark-theme, search, MCP, and Postgres eras.
 
-[Unreleased]: https://github.com/emichaud/django-smallstack/compare/v0.33.1...HEAD
+[Unreleased]: https://github.com/emichaud/django-smallstack/compare/v0.33.2...HEAD
+[0.33.2]: https://github.com/emichaud/django-smallstack/compare/v0.33.1...v0.33.2
 [0.33.1]: https://github.com/emichaud/django-smallstack/compare/v0.33.0...v0.33.1
 [0.33.0]: https://github.com/emichaud/django-smallstack/compare/v0.32.2...v0.33.0
 [0.32.2]: https://github.com/emichaud/django-smallstack/compare/v0.32.1...v0.32.2

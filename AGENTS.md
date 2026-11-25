@@ -106,6 +106,11 @@ Settings split in `config/settings/`:
 
 - **User model**: `settings.AUTH_USER_MODEL`. Never `from django.contrib.auth.models import User`.
 - **Protected views**: `LoginRequiredMixin` or `StaffRequiredMixin` (in `apps/smallstack/mixins.py`).
+- **Access model — keep it simple**: fit the app into the three tiers it already has: **user**
+  (signed in, sees their own rows), **staff** (`is_staff`, the management pages) and **admin**
+  (`is_superuser`, break-glass). Declare a group in the app's `groups.py` only when staff is too
+  coarse: one group per job, the least it needs, checked with `has_perm` in code. Never add a
+  role field or "manager" flag. The app decides; see `docs/skills/access-control.md`.
 - **URL namespaces**: `app_name = "<id>"` in `urls.py`, reference as `{% url 'id:name' %}`.
 - **Signals**: separate `signals.py`, imported in `apps.py:ready()`.
 - **Tests**: `apps/<name>/tests/test_*.py`. `pytest.mark.django_db` when DB is touched.
