@@ -13,6 +13,9 @@
    ============================================ */
 
 :root {
+    /* Native controls (checkbox boxes, selects, date pickers, scrollbars) follow the theme */
+    color-scheme: light;
+
     /* Primary colors */
     --primary: #417690;
     --primary-hover: #205067;
@@ -161,6 +164,7 @@
 
 /* Dark mode variables - Higher contrast, matching Django admin dark mode */
 [data-theme="dark"] {
+    color-scheme: dark;
     --primary: #44b78b;
     --primary-hover: #5fcfa1;
     --secondary: #79aec8;
