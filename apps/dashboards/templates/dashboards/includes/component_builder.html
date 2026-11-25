@@ -72,12 +72,13 @@ modal underneath.
                         </div>
                         {% if builder.metric_groups.personal_def or builder.metric_groups.shared_def %}
                         <div class="mb-field cb-start-from">
-                            <label for="cb-start-metric">Or start from a metric's filter <span class="dash-muted">(optional)</span></label>
+                            {% comment %}Its list is component-builder.js fillStartMetrics(): the picked dataset's metrics, or every metric by dataset when none is picked yet.{% endcomment %}
+                            <label for="cb-start-metric">Start from a saved metric's filter <span class="dash-muted">(optional)</span></label>
                             <div class="cb-start-from-pick">
-                            <select id="cb-start-metric" class="vTextField"><option value="">Choose a metric…</option>{% if builder.metric_groups.personal_def %}<optgroup label="Personal">{% for m in builder.metrics %}{% if m.definition and not m.shared %}<option value="{{ m.key }}">{{ m.name }}</option>{% endif %}{% endfor %}</optgroup>{% endif %}{% if builder.metric_groups.shared_def %}<optgroup label="Shared">{% for m in builder.metrics %}{% if m.definition and m.shared %}<option value="{{ m.key }}">{{ m.name }}</option>{% endif %}{% endfor %}</optgroup>{% endif %}</select>
+                            <select id="cb-start-metric" class="vTextField"><option value="">Choose a metric…</option></select>
                             <button type="button" class="btn-outline btn-sm" id="cb-start-copy" disabled>Copy its filter</button>
                             </div>
-                            <p class="mb-help">Copies its dataset, filter and roll-up into this card, to change from there.</p>
+                            <p class="mb-help" id="cb-start-help">Copies its filter and roll-up into this card, to change from there.</p>
                         </div>
                         {% endif %}
                         </div>

@@ -295,6 +295,8 @@
             var def = m.definition;
             if (!def) return;
             datasetSel.value = def.dataset;
+            fillStartMetrics();
+            if (startSel) { startSel.value = m.key; startBtn.disabled = !startSel.value; }
             treeInput.value = JSON.stringify(def.filter_tree || {});
             aggSel.value = def.agg || "count";
             measureInput.value = def.measure || "";
@@ -312,6 +314,41 @@
         }
         var startSel = document.getElementById("cb-start-metric");
         var startBtn = document.getElementById("cb-start-copy");
+        var startHelp = document.getElementById("cb-start-help");
+        // The metrics to start from: with a dataset picked, only the ones over it
+        // (their filters name its columns); with none, every one, under its
+        // dataset's name, and copying one picks that dataset.
+        function fillStartMetrics() {
+            if (!startSel) return;
+            var key = datasetSel.value;
+            var usable = data.metrics.filter(function (m) { return m.definition && (!key || m.dataset === key); });
+            var groups = [];
+            if (key) {
+                groups.push(["Personal", usable.filter(function (m) { return !m.shared; })]);
+                groups.push(["Shared", usable.filter(function (m) { return m.shared; })]);
+            } else {
+                var byDataset = {};
+                usable.forEach(function (m) { (byDataset[m.dataset] = byDataset[m.dataset] || []).push(m); });
+                var label = function (k) { return datasets[k] ? datasets[k].label : k; };
+                Object.keys(byDataset).sort(function (a, b) { return label(a).toLowerCase() < label(b).toLowerCase() ? -1 : 1; })
+                    .forEach(function (k) { groups.push([label(k), byDataset[k]]); });
+            }
+            startSel.textContent = "";
+            startSel.appendChild(el("option", { value: "" }, usable.length ? "Choose a metric…" : "No saved metrics over this dataset"));
+            groups.forEach(function (g) {
+                if (!g[1].length) return;
+                var og = el("optgroup", { label: g[0] });
+                g[1].forEach(function (m) { og.appendChild(el("option", { value: m.key }, m.name + (key || m.shared ? "" : " (personal)"))); });
+                startSel.appendChild(og);
+            });
+            startSel.disabled = !usable.length;
+            startBtn.disabled = true;
+            if (startHelp) {
+                startHelp.textContent = key
+                    ? "Copies its filter and roll-up into this card, to change from there."
+                    : "Copies its dataset, filter and roll-up into this card, to change from there.";
+            }
+        }
         if (startSel && startBtn) {
             startSel.addEventListener("change", function () { startBtn.disabled = !startSel.value; });
             startBtn.addEventListener("click", function () {
@@ -1449,6 +1486,7 @@
             treeInput.value = "{}";
             measureInput.value = "";
             periodFieldInput.value = "";
+            fillStartMetrics();
         });
         measureSel.addEventListener("change", function () { measureInput.value = measureSel.value; schedulePreview(); });
         periodFieldSel.addEventListener("change", function () { periodFieldInput.value = periodFieldSel.value; paintPalette(); schedulePreview(); });
@@ -1495,6 +1533,7 @@
         // it names one, else a dataset (the default for a new card).
         setSourceMode(metricSel.value && !datasetSel.value ? "metric" : "dataset");
         filterMetrics();
+        fillStartMetrics();
         onType();
     }
 
