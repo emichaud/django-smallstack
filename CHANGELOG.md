@@ -9,6 +9,31 @@ Breaking-change migration recipes live in [`UPGRADING.md`](UPGRADING.md).
 
 ## [Unreleased]
 
+## [0.33.3] - 2026-11-25
+
+### Upgrading from 0.33.2
+- No changes to a downstream build: no migrations, settings or entrypoint changes. Grants the post-migrate group sync makes from code are now logged at INFO, so a fresh setup stores 2 WARNINGs instead of about 31.
+
+### Added
+- **Older pages of log records**: a `before_id` cursor on `/api/logger/records/`, the `logs_search` MCP tool and `manage.py logs --before-id`, with `next_before_id` in every response. The CLI's "more match" hint now points at it.
+- **A request ID box** on the log viewer (`/smallstack/logs/`), beside the trace ID box.
+
+### Changed
+- **The component builder, reorganised.**
+  - *Where the numbers come from*: the source is two choice tiles; the dataset sits beside *Start from a saved metric's filter*. That list shows only the metrics over the picked dataset, or with none picked every metric grouped by its dataset, and copying one picks its dataset.
+  - *Dataset pickers* (the builder and the metric form) list the app's own datasets, then SmallStack's.
+  - *Name it*: two columns, with Personal / Shared as choice tiles.
+  - *Linked cards* is folded until it's used, opening on a card that has a link, with a summary of what's set; the dashboard's *Add card* dialog folds it too.
+  - *Drill-down order* is a two-button switch, and the sort column gets the room for its name.
+  - *Pick a design* always opens compact when editing a card.
+
+### Fixed
+- **Log paging pointed the wrong way.** `next_after_id` is now the newest match, so tailing never repeats rows, and every CLI page prints oldest-first.
+- **A script's INFO/DEBUG lines in its first second were lost** during a capture window. The handler holds them until its first look at the window, then keeps or drops them by it.
+- **`log_capture status`** prints a sentence instead of a Python dict, and says when the command's own process hasn't picked up an open window yet.
+- **The log viewer's logger menu** keeps an active filter selected when it isn't among the 40 busiest loggers.
+- **A table card's row count** no longer runs under the card's ⋯ button on a dashboard.
+
 ## [0.33.2] - 2026-11-24
 
 ### Upgrading from 0.33.1
@@ -3611,7 +3636,8 @@ Condensed highlights of the v0.11 series (see git history for per-patch detail):
 See the git tag history (`git tag`) and `ai_cowork/audit_history/` for the full record of the
 v0.8–v0.10 API-server, modern-dark-theme, search, MCP, and Postgres eras.
 
-[Unreleased]: https://github.com/emichaud/django-smallstack/compare/v0.33.2...HEAD
+[Unreleased]: https://github.com/emichaud/django-smallstack/compare/v0.33.3...HEAD
+[0.33.3]: https://github.com/emichaud/django-smallstack/compare/v0.33.2...v0.33.3
 [0.33.2]: https://github.com/emichaud/django-smallstack/compare/v0.33.1...v0.33.2
 [0.33.1]: https://github.com/emichaud/django-smallstack/compare/v0.33.0...v0.33.1
 [0.33.0]: https://github.com/emichaud/django-smallstack/compare/v0.32.2...v0.33.0
