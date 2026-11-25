@@ -41,26 +41,46 @@ modal underneath.
             <div class="card mb-section" id="cb-source-card">
                 <div class="card-header"><h2 id="cb-source-title"><span class="mf-step">1</span>Where the numbers come from</h2></div>
                 <div class="card-body">
-                    <div class="cb-source-pick" role="radiogroup" aria-labelledby="cb-source-title">
-                        <label class="plf-check"><input type="radio" name="cb_source" value="dataset"> <span><strong>A dataset, filtered here.</strong> Any design: one number, a split, a chart. The filter belongs to this card.</span></label>
-                        <label class="plf-check"><input type="radio" name="cb_source" value="metric"> <span><strong>A saved metric.</strong> One number, as the metric defines it. Its format and colour rules come along, and the card can be a goal.</span></label>
+                    <div class="df-choice-cards cb-source-pick" role="radiogroup" aria-labelledby="cb-source-title">
+                        <label class="df-choice">
+                            <input type="radio" class="sr-only" name="cb_source" value="dataset">
+                            <span class="df-choice-body">
+                                <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true"><path d="M3 5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5zm2 0v3h14V5H5zm0 5v4h6v-4H5zm8 0v4h6v-4h-6zm-8 6v3h6v-3H5zm8 0v3h6v-3h-6z"/></svg>
+                                <span class="df-choice-title">A dataset, filtered here</span>
+                                <span class="df-choice-text">Any design: a number, a split, a chart. The filter belongs to this card.</span>
+                            </span>
+                        </label>
+                        <label class="df-choice">
+                            <input type="radio" class="sr-only" name="cb_source" value="metric">
+                            <span class="df-choice-body">
+                                <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true"><path d="M5 3h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2zm2 12v2h2v-2H7zm4-4v6h2v-6h-2zm4-4v10h2V7h-2z"/></svg>
+                                <span class="df-choice-title">A saved metric</span>
+                                <span class="df-choice-text">One number, with the metric's format and colour rules. It can be a goal.</span>
+                            </span>
+                        </label>
                     </div>
                     <p class="mb-help cb-source-switched" id="cb-source-switched" hidden role="status"></p>
 
                     <div id="cb-source-dataset" hidden>
+                        {% comment %}The dataset, and beside it a shortcut that fills it in: a metric's dataset and filter, copied to start from.{% endcomment %}
+                        <div class="cb-ds-row">
                         <div class="mb-field{% if form.dataset.errors %} has-error{% endif %}">
                             <label for="cb-dataset">Dataset</label>
                             {{ form.dataset }}
                             {% for e in form.dataset.errors %}<p class="crud-error">{{ e }}</p>{% endfor %}
                             <p class="mb-help" id="cb-dataset-help">{% if builder.datasets %}The table the card reads. Staff-only datasets show <em>restricted</em> to anyone else.{% else %}No dataset you can read is registered.{% endif %}</p>
                         </div>
-                        {% if builder.metrics %}
-                        <div class="cb-start-from">
-                            <label for="cb-start-metric">Start from a metric's filter</label>
-                            <select id="cb-start-metric" class="vTextField"><option value="">Choose a metric…</option>{% for m in builder.metrics %}{% if m.definition %}<option value="{{ m.key }}">{{ m.name }}</option>{% endif %}{% endfor %}</select>
+                        {% if builder.metric_groups.personal_def or builder.metric_groups.shared_def %}
+                        <div class="mb-field cb-start-from">
+                            <label for="cb-start-metric">Or start from a metric's filter <span class="dash-muted">(optional)</span></label>
+                            <div class="cb-start-from-pick">
+                            <select id="cb-start-metric" class="vTextField"><option value="">Choose a metric…</option>{% if builder.metric_groups.personal_def %}<optgroup label="Personal">{% for m in builder.metrics %}{% if m.definition and not m.shared %}<option value="{{ m.key }}">{{ m.name }}</option>{% endif %}{% endfor %}</optgroup>{% endif %}{% if builder.metric_groups.shared_def %}<optgroup label="Shared">{% for m in builder.metrics %}{% if m.definition and m.shared %}<option value="{{ m.key }}">{{ m.name }}</option>{% endif %}{% endfor %}</optgroup>{% endif %}</select>
                             <button type="button" class="btn-outline btn-sm" id="cb-start-copy" disabled>Copy its filter</button>
+                            </div>
+                            <p class="mb-help">Copies its dataset, filter and roll-up into this card, to change from there.</p>
                         </div>
                         {% endif %}
+                        </div>
                         <div class="mb-field{% if form.filter_tree.errors %} has-error{% endif %}">
                             <span class="mf-label">Filter</span>
                             <div id="cb-tree"></div>
@@ -91,7 +111,8 @@ modal underneath.
                             <label for="cb-metric">Metric</label>
                             <select id="cb-metric" name="{{ form.metric.html_name }}" class="vTextField">
                                 <option value="">Choose a metric…</option>
-                                {% for m in builder.metrics %}<option value="{{ m.key }}" data-shared="{{ m.shared|yesno:'1,0' }}"{% if m.key == form.metric.value %} selected{% endif %}>{{ m.name }}</option>{% endfor %}
+                                {% if builder.metric_groups.personal %}<optgroup label="Personal">{% for m in builder.metrics %}{% if not m.shared %}<option value="{{ m.key }}" data-shared="{{ m.shared|yesno:'1,0' }}"{% if m.key == form.metric.value %} selected{% endif %}>{{ m.name }}</option>{% endif %}{% endfor %}</optgroup>{% endif %}
+                                {% if builder.metric_groups.shared %}<optgroup label="Shared">{% for m in builder.metrics %}{% if m.shared %}<option value="{{ m.key }}" data-shared="{{ m.shared|yesno:'1,0' }}"{% if m.key == form.metric.value %} selected{% endif %}>{{ m.name }}</option>{% endif %}{% endfor %}</optgroup>{% endif %}
                             </select>
                             {% for e in form.metric.errors %}<p class="crud-error">{{ e }}</p>{% endfor %}
                             {% comment %}Shown when a design read over time (a trend chart) has a metric with no period field: that's set on the metric, not the card.{% endcomment %}
@@ -106,7 +127,7 @@ modal underneath.
 
             {# ── 2. Design ──────────────────────────────────────── #}
             <div class="card mb-section">
-                {% comment %}The palette has two views: full (each design with its description) and compact (a chip each, the description on hover). A new card starts full, an existing one compact; the switch remembers a choice (component-builder.js).{% endcomment %}
+                {% comment %}The palette has two views: full (each design with its description) and compact (a chip each, the description on hover). A new card starts full (or compact, if chosen there before); an existing one always opens compact (component-builder.js).{% endcomment %}
                 <div class="card-header cb-design-head">
                     <h2 id="cb-design-title"><span class="mf-step" id="cb-design-step">2</span>Pick a design</h2>
                     <div class="cb-seg cb-palette-view" role="radiogroup" aria-label="How the designs are shown">
@@ -195,27 +216,52 @@ modal underneath.
                     </div>
                     <input type="hidden" name="visibility" value="{{ cb_visibility }}">
                     {% else %}
-                    <div class="mb-field{% if form.name.errors %} has-error{% endif %}">
-                        <label for="{{ form.name.id_for_label }}">Name<span class="required" aria-hidden="true">*</span></label>
-                        {{ form.name }}
-                        {% for e in form.name.errors %}<p class="crud-error">{{ e }}</p>{% endfor %}
-                        <p class="mb-help">The card's title on every dashboard. A dashboard can give it its own title.</p>
+                    {% comment %}Two columns: what it's called (name, tags, description) beside who can see it, as the same choice tiles the dashboard and report forms use; one column on a narrow screen.{% endcomment %}
+                    <div class="cb-name-grid">
+                        <div class="cb-name-fields">
+                            <div class="mb-row">
+                                <div class="mb-field{% if form.name.errors %} has-error{% endif %}">
+                                    <label for="{{ form.name.id_for_label }}">Name<span class="required" aria-hidden="true">*</span></label>
+                                    {{ form.name }}
+                                    {% for e in form.name.errors %}<p class="crud-error">{{ e }}</p>{% endfor %}
+                                </div>
+                                <div class="mb-field{% if form.tags.errors %} has-error{% endif %}">
+                                    <label for="{{ form.tags.id_for_label }}">Tags <span class="dash-muted">(optional)</span></label>
+                                    {{ form.tags }}
+                                    {% for e in form.tags.errors %}<p class="crud-error">{{ e }}</p>{% endfor %}
+                                </div>
+                            </div>
+                            <p class="mb-help">The name is the card's title on every dashboard; a dashboard can give it its own. Tags are comma-separated (ops, weekly review); the overviews narrow to one.</p>
+                            <div class="mb-field" style="margin-bottom: 0;">
+                                <label for="{{ form.description.id_for_label }}">Description <span class="dash-muted">(optional)</span></label>
+                                {{ form.description }}
+                            </div>
+                        </div>
+                        <div class="cb-name-vis">
+                            <span class="cb-name-label" id="cb-vis-title">Who can see it</span>
+                            {% with current=form.visibility.value|default:"personal" %}
+                            <div class="df-choice-cards df-choice-cards--stack" role="radiogroup" aria-labelledby="cb-vis-title">
+                                <label class="df-choice">
+                                    <input type="radio" class="sr-only" name="{{ form.visibility.html_name }}" value="personal"{% if current == "personal" %} checked{% endif %}>
+                                    <span class="df-choice-body">
+                                        <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
+                                        <span class="df-choice-title">Personal</span>
+                                        <span class="df-choice-text">Only you can place and edit it.</span>
+                                    </span>
+                                </label>
+                                <label class="df-choice{% if not request.user.is_staff %} df-choice--disabled{% endif %}">
+                                    <input type="radio" class="sr-only" name="{{ form.visibility.html_name }}" value="shared"{% if current == "shared" %} checked{% endif %}{% if not request.user.is_staff %} disabled{% endif %}>
+                                    <span class="df-choice-body">
+                                        <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg>
+                                        <span class="df-choice-title">Shared</span>
+                                        <span class="df-choice-text">{% if request.user.is_staff %}Anyone can place it on a dashboard; staff edit it. It draws only shared metrics.{% else %}Only staff can share a card.{% endif %}</span>
+                                    </span>
+                                </label>
+                            </div>
+                            {% endwith %}
+                            {% for e in form.visibility.errors %}<p class="crud-error">{{ e }}</p>{% endfor %}
+                        </div>
                     </div>
-                    <div class="mb-field">
-                        <label for="{{ form.description.id_for_label }}">Description <span class="dash-muted">(optional)</span></label>
-                        {{ form.description }}
-                    </div>
-                    <div class="mb-field{% if form.tags.errors %} has-error{% endif %}">
-                        <label for="{{ form.tags.id_for_label }}">Tags <span class="dash-muted">(optional)</span></label>
-                        {{ form.tags }}
-                        {% for e in form.tags.errors %}<p class="crud-error">{{ e }}</p>{% endfor %}
-                        <p class="mb-help">Labels, comma-separated — ops, weekly review. The overviews narrow to one.</p>
-                    </div>
-                    {% with current=form.visibility.value|default:"personal" %}
-                    <label class="plf-check"><input type="radio" name="{{ form.visibility.html_name }}" value="personal"{% if current == "personal" %} checked{% endif %}> <span><strong>Personal.</strong> Only you can place and edit it.</span></label>
-                    <label class="plf-check"><input type="radio" name="{{ form.visibility.html_name }}" value="shared"{% if current == "shared" %} checked{% endif %}{% if not request.user.is_staff %} disabled{% endif %}> <span><strong>Shared.</strong> {% if request.user.is_staff %}Anyone can place it on a dashboard; staff edit it. It can only draw shared metrics.{% else %}Only staff can share a card.{% endif %}</span></label>
-                    {% endwith %}
-                    {% for e in form.visibility.errors %}<p class="crud-error">{{ e }}</p>{% endfor %}
                     {% endif %}
                 </div>
             </div>
@@ -304,7 +350,14 @@ puts back what was there when it opened.
             </div>
             <div class="cb-drill-opts">
                 <div class="mb-field"><label for="cb-drill-sort">Sort rows by</label><select id="cb-drill-sort" class="vTextField"></select></div>
-                <div class="mb-field"><label for="cb-drill-dir">Order</label><select id="cb-drill-dir" class="vTextField"><option value="-">Newest / largest first</option><option value="">Oldest / smallest first</option></select></div>
+                {% comment %}The order: two choices, so a segmented switch rather than a menu. Off until a column is picked (the data's own order has no direction).{% endcomment %}
+                <div class="mb-field cb-drill-dir-field">
+                    <span class="mf-label" id="cb-drill-dir-label">Order</span>
+                    <div class="cb-seg cb-drill-dir" role="radiogroup" aria-labelledby="cb-drill-dir-label">
+                        <input type="radio" class="sr-only cb-choice-radio" name="cb_drill_dir" value="-" id="cb-drill-desc"><label for="cb-drill-desc" class="cb-seg-item" title="Newest dates, largest numbers, Z to A first"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 4h2v12.2l4.6-4.6 1.4 1.4-7 7-7-7 1.4-1.4 4.6 4.6z"/></svg>Newest / largest first</label>
+                        <input type="radio" class="sr-only cb-choice-radio" name="cb_drill_dir" value="" id="cb-drill-asc"><label for="cb-drill-asc" class="cb-seg-item" title="Oldest dates, smallest numbers, A to Z first"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 20h-2V7.8l-4.6 4.6L5 11l7-7 7 7-1.4 1.4L13 7.8z"/></svg>Oldest / smallest first</label>
+                    </div>
+                </div>
                 <div class="mb-field" id="cb-drill-limit-field"><label for="cb-drill-limit">Rows shown</label><input type="number" id="cb-drill-limit" class="vTextField" min="1" max="500" placeholder="50"></div>
             </div>
         </section>

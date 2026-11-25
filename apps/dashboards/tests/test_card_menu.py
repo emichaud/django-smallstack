@@ -117,7 +117,7 @@ def test_a_card_of_the_dashboard_opens_in_the_builder_with_a_title_only(client, 
     assert "<html" not in html and f'action="{_edit_url("c1")}"' in html and 'id="cb-data"' in html
     assert 'value="metric" checked' in html and '<option value="cm_requests" data-shared="1" selected>' in html
     assert "Title it" in html and '<input type="hidden" name="visibility" value="shared">' in html
-    assert 'type="radio" name="visibility"' not in html and 'name="tags"' not in html
+    assert 'aria-labelledby="cb-vis-title"' not in html and 'name="tags"' not in html
     assert 'id="cb-frame" inert' in html and "data-card-cancel" in html  # a tap in the preview opens nothing
 
 
@@ -155,7 +155,7 @@ def test_a_card_the_layout_wouldnt_take_comes_back_with_what_was_wrong(client, s
 def test_a_saved_card_opens_as_itself_and_saving_reaches_every_dashboard(client, staff, board):
     Dashboard(name="Second", slug="cm-second", layout=[{"component": "by_method", "x": 0, "y": 0}]).save()
     html = client.get(_edit_url("c2")).content.decode()
-    assert "Name it" in html and 'type="radio" name="visibility"' in html and "On 2 dashboards" in html
+    assert "Name it" in html and 'aria-labelledby="cb-vis-title"' in html and "On 2 dashboards" in html
     posted = {
         "name": "By verb",
         "type": "metric_group",

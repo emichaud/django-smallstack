@@ -177,6 +177,10 @@
                 o.hidden = hide;
                 o.disabled = hide;
             });
+            // A group with nothing left in it (Personal, on a shared card) goes too.
+            Array.prototype.forEach.call(metricSel.querySelectorAll("optgroup"), function (g) {
+                g.hidden = !Array.prototype.some.call(g.children, function (o) { return !o.hidden; });
+            });
             if (metricSel.selectedOptions[0] && metricSel.selectedOptions[0].disabled) metricSel.value = "";
         }
 
@@ -602,11 +606,26 @@
         // -- Linked cards: a click here narrows another card, or this one listens --
         // options.publish = "<channel>"; options.listen = {channel, map?: {their: mine}}.
         // Checked on save (components.link_problems); the page's bus is cards.js.
+        // Folded away until it's used: most cards never link. A card with a link
+        // set opens on it, and the summary line says what's set either way.
         var CHANNEL_HELP = "A name both cards use: lower-case letters, digits, - or _.";
+        var linksOpen = null;   // the person's own open/closed, kept across redraws
+        function linksSummary() {
+            var parts = [];
+            if (options.publish) parts.push("sends clicks to " + options.publish);
+            if (options.listen && options.listen.channel) parts.push("listens to " + options.listen.channel);
+            return parts.length ? parts.join(", ") : "off";
+        }
         function renderLinks(t) {
             if (!t || !(t.needs_metric || t.publishes)) return;
-            var box = el("div", { class: "cb-opt--wide cb-links-block" });
-            box.appendChild(el("span", { class: "cb-opt-label" }, "Linked cards (optional)"));
+            var box = el("details", { class: "cb-opt--wide cb-links-block" });
+            var state = el("span", { class: "cb-links-state" }, linksSummary());
+            var summary = el("summary", { class: "cb-opt-label" }, "Linked cards ");
+            summary.appendChild(state);
+            box.appendChild(summary);
+            box.open = linksOpen == null ? linksSummary() !== "off" : linksOpen;
+            box.addEventListener("toggle", function () { linksOpen = box.open; });
+            var writeLinks = function () { writeOptions(); state.textContent = linksSummary(); };
             var row = el("div", { class: "cb-links-grid" });
             var field = function (labelText, input, help) {
                 var f = el("div", { class: "mb-field" });
@@ -624,7 +643,7 @@
                     var v = clean(pub.value);
                     pub.value = v;
                     if (v) options.publish = v; else delete options.publish;
-                    writeOptions();
+                    writeLinks();
                 });
                 field("Send clicks to", pub, t.needs_metric
                     ? "A click on a group, bar or bucket narrows the cards listening here, instead of opening its rows."
@@ -642,11 +661,11 @@
             var sync = function () {
                 var ch = clean(lis.value);
                 lis.value = ch;
-                if (!ch) { delete options.listen; writeOptions(); return; }
+                if (!ch) { delete options.listen; writeLinks(); return; }
                 var next = { channel: ch };
                 if (from.value.trim() && to.value) { next.map = {}; next.map[from.value.trim()] = to.value; }
                 options.listen = next;
-                writeOptions();
+                writeLinks();
             };
             [lis, from, to].forEach(function (x) { x.addEventListener("change", sync); });
             field("Listen to", lis, CHANNEL_HELP + " This card shows only what the other card's click selects.");
@@ -900,7 +919,14 @@
         var drillPreview = document.getElementById("cbd-preview");
         var drillFoot = document.getElementById("cbd-foot");
         var drillSort = document.getElementById("cb-drill-sort");
-        var drillDir = document.getElementById("cb-drill-dir");
+        // The order switch: two radios ("-" newest/largest first, "" oldest/smallest first),
+        // read and set as one value; off while the rows keep the data's own order.
+        var dirRadios = Array.prototype.slice.call(document.querySelectorAll('input[name="cb_drill_dir"]'));
+        var drillDir = {
+            get value() { var r = dirRadios.filter(function (x) { return x.checked; })[0]; return r ? r.value : "-"; },
+            set value(v) { dirRadios.forEach(function (x) { x.checked = x.value === v; }); },
+            set disabled(off) { dirRadios.forEach(function (x) { x.disabled = off; }); },
+        };
         var drillLimit = document.getElementById("cb-drill-limit");
         var drillAll = document.getElementById("cbd-all");
         var drillNone = document.getElementById("cbd-none");
@@ -1150,7 +1176,7 @@
             writeDrill(); loadRows();
         }
         drillSort.addEventListener("change", syncSort);
-        drillDir.addEventListener("change", syncSort);
+        dirRadios.forEach(function (x) { x.addEventListener("change", syncSort); });
         drillLimit.addEventListener("input", function () {
             var v = parseInt(drillLimit.value, 10);
             options.drilldown.limit = v >= 1 && v <= MAX_ROWS ? v : 0;
@@ -1438,25 +1464,28 @@
                 placeholder: "Pick a dataset to start filtering. No filter means every row.",
             });
         }
-        // The palette's view: full for a new card, compact for one being edited,
-        // unless this person chose otherwise for that situation before (kept in
-        // localStorage per situation, so Full while choosing a design doesn't
-        // make every edit page long).
+        // The palette's view: compact on every edit (the design is chosen; a switch
+        // to Full is for this visit only), and on a new card full unless this
+        // person chose compact there before (kept in localStorage).
         var palette = document.getElementById("cb-palette");
         if (palette) {
-            var VIEW_KEY = "ss_cb_palette_view:" + (palette.getAttribute("data-palette-mode") || "new");
+            var editing = palette.getAttribute("data-palette-mode") === "edit";
+            var VIEW_KEY = "ss_cb_palette_view:new";
             var paletteView = function (view) {
                 palette.classList.toggle("cb-palette--mini", view === "mini");
                 var radio = document.getElementById("cb-palette-" + (view === "mini" ? "mini" : "full"));
                 if (radio) radio.checked = true;
             };
             var chosen = null;
-            try { chosen = window.localStorage.getItem(VIEW_KEY); } catch (e) { chosen = null; }
+            if (!editing) {
+                try { chosen = window.localStorage.getItem(VIEW_KEY); } catch (e) { chosen = null; }
+            }
             paletteView(chosen === "mini" || chosen === "full" ? chosen : palette.getAttribute("data-default-view"));
             form.querySelectorAll('input[name="cb_palette_view"]').forEach(function (r) {
                 r.addEventListener("change", function () {
                     if (!r.checked) return;
                     paletteView(r.value);
+                    if (editing) return;
                     try { window.localStorage.setItem(VIEW_KEY, r.value); } catch (e) { /* private mode: this visit only */ }
                 });
             });

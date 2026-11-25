@@ -670,6 +670,17 @@ a.dash-tile:hover, a.dash-tile:focus-visible {
 .df-choice input:checked + .df-choice-body svg { color: var(--primary); }
 .df-choice--disabled { cursor: not-allowed; opacity: 0.55; }
 .df-choice--disabled:hover .df-choice-body { border-color: var(--card-border); }
+/* stacked, tighter tiles for a narrow column (the component builder's Name it) */
+.df-choice-cards--stack { grid-template-columns: 1fr; gap: 8px; margin-bottom: 0; }
+.df-choice-cards--stack .df-choice-body { padding: 0.6rem 0.85rem; }
+
+/* the component builder's Name it: the fields beside who can see it */
+.cb-name-grid { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: 1.25rem; align-items: start; }
+.cb-name-fields .mb-row { margin-bottom: 0.25rem; }
+.cb-name-fields .mb-row .mb-field { margin-bottom: 0; }
+.cb-name-fields > .mb-help { margin: 0 0 0.75rem; }
+.cb-name-label { display: block; margin-bottom: 0.35rem; font-size: 0.82rem; font-weight: 500; color: var(--body-quiet-color); }  /* as .mb-field > label */
+@media (max-width: 760px) { .cb-name-grid { grid-template-columns: 1fr; } }
 
 .df-tile { margin-bottom: 1rem; }
 .df-tile .dash-tile-meta:empty { display: none; }
@@ -2261,6 +2272,8 @@ a.ix-view-btn:visited {
 .dash-opt-field { display: grid; gap: 0.25rem; margin-bottom: 0.3rem; flex: 0 1 auto; max-width: 100%; }
 .dash-opt-field > label { margin: 0; }
 .dash-link-fields { flex: 1 1 100%; }
+.dash-link-fields > summary { cursor: pointer; width: fit-content; font-size: 0.82rem; font-weight: 500; color: var(--body-quiet-color); }
+.dash-link-fields[open] > summary { margin-bottom: 0.3rem; }
 .dash-link-row { display: flex; flex-wrap: wrap; gap: 0.5rem 1.1rem; }
 .dash-link-row .dash-opt-field { flex: 1 1 12rem; }
 .cb-options .mb-field:has(> .plf-check) { align-self: end; padding-bottom: 0.65rem; }  /* a tick sits level with the fields beside it */
@@ -2389,7 +2402,15 @@ a.ix-view-btn:visited {
 
 /* the builder's Drill-down step: the design in short (its columns as chips, in
    order), made in the dialog below */
-.cb-drill-opts { display: grid; grid-template-columns: repeat(auto-fill, minmax(9rem, 1fr)); gap: 0 0.9rem; margin-top: 0.9rem; }
+/* sort column (room for a long name), the order switch, the row count; wrapping when narrow */
+.cb-drill-opts { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 0 0.9rem; margin-top: 0.9rem; }
+.cb-drill-opts > .mb-field { flex: 1 1 14rem; min-width: 0; }
+.cb-drill-opts > .cb-drill-dir-field { flex: 0 0 auto; }
+.cb-drill-opts > #cb-drill-limit-field { flex: 0 0 7rem; }
+.cb-drill-dir { min-height: var(--control-height, 36px); }
+.cb-drill-dir .cb-seg-item { gap: 0.35rem; padding: 0.35rem 0.75rem; white-space: nowrap; }
+.cb-choice-radio:disabled + .cb-seg-item { opacity: 0.5; cursor: not-allowed; }
+.cb-choice-radio:disabled + .cb-seg-item:hover { color: var(--body-quiet-color); background: none; }
 .cbd-summary { margin-left: 1.7rem; }
 .cbd-summary .mb-help { margin: 0 0 0.7rem; }
 .cbd-chips { display: flex; flex-wrap: wrap; gap: 0.35rem; margin: 0 0 0.5rem; padding: 0; list-style: none; counter-reset: cbd-chip; }
@@ -2851,14 +2872,17 @@ span.gl-card-value { cursor: default; }
 .cb-reset:hover { text-decoration: underline; }
 
 /* the builder's source step: a dataset filtered here, or a saved metric */
-.cb-source-pick { display: grid; gap: 0.4rem; margin-bottom: 0.9rem; }
-.cb-source-pick .plf-check { margin: 0; }
+/* two choice tiles side by side, tight (df-choice-cards), stacking on a narrow screen */
+.cb-source-pick { grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr)); gap: 8px; margin-bottom: 1rem; }
+.cb-source-pick .df-choice-body { padding: 0.6rem 0.85rem; }
 .cb-source-switched, .cb-cleared { margin: 0 0 0.9rem; padding: 0.55rem 0.8rem; font-size: 0.82rem; border-radius: 8px; background: var(--accent-band-bg); color: var(--body-fg); }
 .cb-cleared { background: color-mix(in srgb, var(--warning-fg) 12%, var(--card-bg)); }
 .cb-cleared:last-child, .cb-source-switched:last-child { margin-bottom: 0; }
-.cb-start-from { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; margin: -0.3rem 0 0.9rem; font-size: 0.82rem; color: var(--body-quiet-color); }
-.cb-start-from label { margin: 0; font-weight: 500; }
-.cb-start-from select { width: auto; min-width: 12rem; flex: 1 1 12rem; max-width: 24rem; }
+/* the dataset beside the "start from a metric's filter" shortcut; one column when narrow */
+.cb-ds-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr)); gap: 0 1rem; align-items: start; }
+.cb-start-from-pick { display: flex; gap: 0.5rem; align-items: center; }
+.cb-start-from-pick select { flex: 1 1 auto; min-width: 0; }
+.cb-start-from-pick .btn-sm { flex: none; white-space: nowrap; }
 /* the roll-up, its column and the period column on one row */
 .cb-rollup { display: flex; flex-wrap: wrap; gap: 0.5rem 1rem; align-items: flex-start; }
 .cb-rollup .mb-field { flex: 1 1 11rem; max-width: 20rem; margin-bottom: 0.5rem; }
@@ -3222,6 +3246,11 @@ a.cc-name::after { content: ""; position: absolute; inset: 0; }
 
 /* the builder's Linked cards block (component-builder.js renderLinks) */
 .cb-links-block { flex: 1 1 100%; padding-top: 0.6rem; border-top: 1px dashed var(--card-border); }
+.cb-links-block > summary { display: list-item; cursor: pointer; width: fit-content; }  /* list-item keeps the disclosure arrow .cb-opt-label's block drops */
+.cb-links-block > summary:hover { color: var(--body-fg); }
+.cb-links-state { margin-left: 0.35rem; font-weight: 400; color: var(--body-quiet-color); }
+.cb-links-state::before { content: "· "; }
+.cb-links-block[open] > summary { margin-bottom: 0.25rem; }
 .cb-links-grid { display: flex; flex-wrap: wrap; gap: 0.6rem 1.1rem; margin-top: 0.35rem; }
 .cb-links-grid .mb-field { flex: 1 1 12rem; max-width: 18rem; margin-bottom: 0; }
 .cb-link-to-label { margin-top: 0.35rem; font-size: 0.82rem; color: var(--body-quiet-color); }

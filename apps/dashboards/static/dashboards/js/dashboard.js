@@ -364,9 +364,10 @@
         }
         function renderLinkFields(t) {
             if (!t || t.type === "__component" || !(t.publishes || t.needs_metric)) return;
-            var group = document.createElement("fieldset");
+            // Folded, as in the builder: a new card has no link yet, and most never do.
+            var group = document.createElement("details");
             group.className = "dash-multi dash-link-fields";
-            var legend = document.createElement("legend");
+            var legend = document.createElement("summary");
             legend.textContent = "Linked cards (optional)";
             group.appendChild(legend);
             var row = document.createElement("div");

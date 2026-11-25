@@ -48,6 +48,19 @@ def readable_datasets(user: Any) -> list[tuple[str, str]]:
     return sorted(((d.key, d.label) for d in usable), key=lambda kv: kv[1].lower())
 
 
+def grouped_dataset_choices(datasets: list[tuple[str, str]]) -> list[Any]:
+    """*datasets* as ``Select`` choices: the app's own first, then the ones
+    SmallStack ships (``smallstack_…``, staff-only unless a project opens one).
+    A single kind stays a flat list: a heading over everything says nothing."""
+    from apps.datasets.framework import is_framework_dataset
+
+    app = [kv for kv in datasets if not is_framework_dataset(kv[0])]
+    system = [kv for kv in datasets if is_framework_dataset(kv[0])]
+    if not app or not system:
+        return list(datasets)
+    return [("This app's data", app), ("SmallStack system data", system)]
+
+
 class _OwnedForm(forms.ModelForm):
     """Adds the ``visibility`` field and stamps ``owner`` before model validation
     (``clean()`` runs before ``_post_clean()``/``full_clean``, so the model's
@@ -187,7 +200,9 @@ class MetricForm(_OwnedForm):
         current = self.instance.dataset
         if current and current not in dict(choices):
             choices.append((current, f"{current} (unavailable)"))
-        self.fields["dataset"].widget = forms.Select(choices=[("", "— pick a dataset —"), *choices])
+        self.fields["dataset"].widget = forms.Select(
+            choices=[("", "— pick a dataset —"), *grouped_dataset_choices(choices)]
+        )
         # Callers from before there were sources, and PATCHes, leave it out.
         self.fields["source"].required = False
         parts = [
@@ -614,7 +629,7 @@ class ComponentForm(_OwnedForm):
         current_ds = self.instance.dataset or (self.initial.get("dataset") or "")
         if current_ds and current_ds not in dict(datasets):
             datasets.append((current_ds, f"{current_ds} (unavailable)"))
-        self.fields["dataset"].widget.choices = [("", "Choose a dataset…"), *datasets]
+        self.fields["dataset"].widget.choices = [("", "Choose a dataset…"), *grouped_dataset_choices(datasets)]
         self.fields["agg"].widget.choices = [(k, label) for k, label in all_aggs_available() if k != "latest"]
 
     def clean_filter_tree(self) -> Any:
@@ -706,6 +721,15 @@ def builder_payload(user: Any, owner_id: Any) -> dict[str, Any]:
             }
         )
     payload["metrics"] = out
+    # Which of the metric pickers' groups (Personal, Shared) have anything in them,
+    # so the template draws no empty <optgroup>. The *_def pair is the "start from
+    # a metric's filter" picker's: only metrics over a dataset have a filter to copy.
+    payload["metric_groups"] = {
+        "personal": any(not m["shared"] for m in out),
+        "shared": any(m["shared"] for m in out),
+        "personal_def": any(not m["shared"] and m["definition"] for m in out),
+        "shared_def": any(m["shared"] and m["definition"] for m in out),
+    }
     payload["reasons"] = dict(REASONS)  # why a design is dimmed: "needs a date column"
     payload["aggs"] = [[k, label] for k, label in all_aggs_available() if k != "latest"]
     return payload

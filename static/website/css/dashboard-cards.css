@@ -190,6 +190,7 @@ button.gauge-dial:focus-visible { outline: 2px solid var(--input-focus-border); 
 /* -- the table: the rows themselves, paged ---------------------------------------- */
 .tbl { display: flex; flex-direction: column; height: 100%; padding: 10px 0 0; gap: 4px; min-height: 0; }
 .tbl .trend-head { padding: 0 12px; }
+.dash-cell .tbl .trend-head { padding-right: 2.75rem; }  /* on a dashboard the row count stops short of the ⋯ button in the corner */
 .tbl-count { margin-left: auto; font-size: 0.72rem; color: var(--body-quiet-color); white-space: nowrap; font-feature-settings: "tnum"; }
 .tbl-scroll { flex: 1; min-height: 0; overflow: auto; contain: inline-size; }
 /* Columns keep their natural width; a narrow card scrolls sideways rather than crushing
