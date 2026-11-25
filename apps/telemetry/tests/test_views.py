@@ -382,3 +382,19 @@ def test_logging_module_level_is_unchanged_by_viewing(client, staff, logs_url):
     before = logging.getLogger("apps").level
     client.get(logs_url)
     assert logging.getLogger("apps").level == before
+
+
+def test_the_filter_bar_has_a_request_id_box(client, staff, logs_url):
+    """The help says to paste a request ID into the filter bar; there was only
+    a trace ID box (Test Lab LOG-2)."""
+    page = client.get(logs_url, {"request_id": "req_abc"}).content.decode()
+    assert 'id="log-request"' in page and 'name="request_id" value="req_abc"' in page
+    assert 'type="hidden" name="request_id"' not in page
+
+
+def test_the_logger_dropdown_shows_an_active_prefix(client, staff, logs_url):
+    """A prefix filter that isn't one of the listed names stays selected
+    instead of the dropdown reading "All loggers" (Test Lab LOG-6)."""
+    make_record(logger="apps.demo.views")
+    page = client.get(logs_url, {"logger": "apps"}).content.decode()
+    assert '<option value="apps" selected>' in page

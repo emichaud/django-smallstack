@@ -30,7 +30,7 @@ from datetime import datetime
 from typing import Any
 
 from django.conf import settings
-from django.db.models import Count, Q
+from django.db.models import Count, Max, Q
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 
@@ -66,6 +66,7 @@ FILTER_NAMES = (
     "since",
     "until",
     "after_id",
+    "before_id",
     "limit",
 )
 
@@ -197,14 +198,24 @@ def search_records(
     since: Any = None,
     until: Any = None,
     after_id: Any = None,
+    before_id: Any = None,
     limit: Any = None,
 ) -> dict:
     """Filtered log records, newest-first — or oldest-first when tailing.
 
-    ``after_id`` is the cursor: records strictly newer than that id, returned
-    oldest-first so ``next_after_id`` advances monotonically. Page numbers are
-    wrong for a live tail, because new rows arrive at the top and shift every
-    page down, so page 2 re-reads what page 1 already returned.
+    Two cursors, one per direction; page numbers are wrong for a live log,
+    because new rows arrive at the top and shift every page down.
+
+    * ``after_id`` tails forward: records with a higher id, oldest-first, so
+      ``next_after_id`` advances monotonically.
+    * ``before_id`` pages back through history: the records that come after
+      that one in the newest-first listing (keyset on ``(ts, id)``, the
+      listing's own order), so ``next_before_id`` from any newest-first page
+      continues with the older records it didn't show.
+
+    ``next_after_id`` is always a tail cursor: on a newest-first page it is the
+    highest matching id, so passing it as ``after_id`` returns only records
+    written since, never ones the page already showed.
     """
     applied: dict[str, Any] = {}
     qs = LogRecord.objects.all()
@@ -245,11 +256,23 @@ def search_records(
         qs = qs.filter(ts__lte=until_dt)
         applied["until"] = until_dt.isoformat()
 
+    tail_qs = qs  # the filters without a cursor: what "the newest match" means
     cursor = None
+    if after_id not in (None, "") and before_id not in (None, ""):
+        raise TelemetryQueryError("pass after_id (newer records) or before_id (older records), not both")
     if after_id not in (None, ""):
         cursor = parse_int(after_id, "after_id", minimum=0)
         qs = qs.filter(pk__gt=cursor)
         applied["after_id"] = cursor
+    if before_id not in (None, ""):
+        anchor_id = parse_int(before_id, "before_id", minimum=1)
+        anchor = LogRecord.objects.filter(pk=anchor_id).values("ts").first()
+        if anchor is None:
+            raise TelemetryQueryError(
+                f"before_id {anchor_id} is not a stored record (pruned?); start again without a cursor"
+            )
+        qs = qs.filter(Q(ts__lt=anchor["ts"]) | Q(ts=anchor["ts"], pk__lt=anchor_id))
+        applied["before_id"] = anchor_id
 
     resolved_limit = (
         DEFAULT_LIMIT if limit in (None, "") else parse_int(limit, "limit", minimum=1, maximum=MAX_LIMIT)
@@ -269,11 +292,21 @@ def search_records(
     has_more = len(rows) > resolved_limit
     rows = rows[:resolved_limit]
 
+    if cursor is not None:
+        next_after_id = rows[-1].pk if rows else cursor
+    else:
+        # A newest-first page: tail from the newest match, not from the
+        # oldest row shown (which would re-read everything above it).
+        next_after_id = tail_qs.aggregate(top=Max("pk"))["top"] or 0
+
     return {
         "records": [serialize_record(r, full=False) for r in rows],
         "count": len(rows),
         "has_more": has_more,
-        "next_after_id": rows[-1].pk if rows else cursor,
+        "next_after_id": next_after_id,
+        # Older records: pass as before_id. None when tailing (oldest-first) or
+        # when nothing older matches.
+        "next_before_id": rows[-1].pk if cursor is None and rows and has_more else None,
         "total_matching": total,
         "applied_filters": applied,
     }

@@ -104,17 +104,16 @@
         <label for="log-q" class="sr-only">Search messages and tracebacks</label>
         <input id="log-q" type="search" name="q" value="{{ filters.q }}" placeholder="Search messages and tracebacks">
 
-        {% comment %}trace_id gets the same direct-entry affordance request_id
-        is missing today — a background job/scheduler run's trace_id is
-        something an operator reads off a log row (see log_detail.html) and
-        pastes here, the same motion as request_id but without needing a
-        link to get there.{% endcomment %}
+        {% comment %}Request and trace IDs are pasted here: a request's from the
+        X-Request-ID header or a user's report, a background job's off a log row.{% endcomment %}
+        <label for="log-request" class="sr-only">Filter by request ID</label>
+        <input id="log-request" type="search" name="request_id" value="{{ filters.request_id }}"
+               placeholder="request ID" class="log-id">
         <label for="log-trace" class="sr-only">Filter by trace ID</label>
         <input id="log-trace" type="search" name="trace_id" value="{{ filters.trace_id }}"
-               placeholder="trace_id" style="max-width: 11rem;">
+               placeholder="trace ID" class="log-id">
 
         {% if filters.level %}<input type="hidden" name="level" value="{{ filters.level }}">{% endif %}
-        {% if filters.request_id %}<input type="hidden" name="request_id" value="{{ filters.request_id }}">{% endif %}
         <button type="submit" class="btn-outline btn-sm">Search</button>
 
         {% if has_filters %}

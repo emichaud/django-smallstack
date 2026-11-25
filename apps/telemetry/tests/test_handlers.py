@@ -489,3 +489,51 @@ def test_raising_the_handler_level_takes_effect_immediately():
     finally:
         logger.removeHandler(handler)
         handler.close()
+
+
+def test_the_writer_reads_the_capture_window_before_its_first_wait():
+    """A short script that logs INFO in its first second, with a window open,
+    lost the line: the thread waited up to flush_interval for a batch before
+    its first look at the window (Test Lab LOG-3). Driven without a thread:
+    the order of the calls is what matters."""
+    h = DatabaseLogHandler(level="WARNING", start_worker=False)
+    order: list[str] = []
+    h._poll_capture = lambda: order.append("poll")
+
+    def take_batch(block_for=None):
+        order.append("wait")
+        h._stopping.set()
+        return []
+
+    h._take_batch = take_batch
+    try:
+        h._run()
+    finally:
+        h.close()
+    assert order[:2] == ["poll", "wait"]
+
+
+def test_records_before_the_first_poll_are_held_then_kept_or_dropped_by_the_window(monkeypatch):
+    """Before its first look at the window the handler can't tell whether an
+    INFO line is wanted, so it holds it: an open DEBUG window keeps it, the
+    WARNING baseline drops it. Either way a WARNING is queued at once."""
+    from apps.telemetry import capture
+
+    for window_level, kept in ((logging.DEBUG, ["info", "warning"]), (logging.WARNING, ["warning"])):
+        LogRecord.objects.all().delete()
+        h = DatabaseLogHandler(level="WARNING", start_worker=False)
+        h._baseline_no, h._pending = logging.WARNING, []  # as _ensure_worker sets it
+        h.setLevel(logging.NOTSET)
+        try:
+            h.emit(make_record("info", level=logging.INFO))
+            h.emit(make_record("warning", level=logging.WARNING))
+            assert h._queue.qsize() == 1  # the WARNING; the INFO is held
+            monkeypatch.setattr(capture, "active_window", lambda: None)
+            monkeypatch.setattr(capture, "effective_level", lambda window, level=window_level: level)
+            monkeypatch.setattr(capture, "apply_levels", lambda level_no: None)
+            h._poll_capture()
+            h.flush()
+            assert sorted(LogRecord.objects.values_list("message", flat=True)) == kept
+            assert h._pending is None and h.level == window_level
+        finally:
+            h.close()

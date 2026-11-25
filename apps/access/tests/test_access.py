@@ -84,6 +84,24 @@ def test_a_change_reaches_the_log_and_the_accounts_history(staff, admin, caplog)
     assert entry.user == admin and "added staffer to group 'Writers'" in entry.change_message
 
 
+def test_the_migrate_sync_granting_a_declared_group_is_info_not_warning(caplog):
+    """A fresh install's log viewer opened on ~31 warnings about the shipped
+    groups receiving their own declared permissions (Test Lab LOG-5). That is
+    the code itself, so INFO; the same grant by a person stays WARNING."""
+    group = Group.objects.create(name="Declared here")
+    perm = Permission.objects.get(content_type__app_label="accounts", codename="view_user")
+    with caplog.at_level(logging.INFO, logger="apps.access.record"), acting_as(None, "migrate"):
+        group.permissions.add(perm)
+    synced = [r for r in caplog.records if r.name == "apps.access.record" and "Declared here" in r.getMessage()]
+    assert synced and synced[0].levelno == logging.INFO
+    caplog.clear()
+    other = Group.objects.create(name="By hand")
+    with caplog.at_level(logging.INFO, logger="apps.access.record"), acting_as(None, "shell"):
+        other.permissions.add(perm)
+    by_hand = [r for r in caplog.records if r.name == "apps.access.record" and "By hand" in r.getMessage()]
+    assert by_hand and by_hand[0].levelno == logging.WARNING
+
+
 def test_deactivating_revokes_tokens_and_records_it(staff):
     token, _ = APIToken.create_token(user=staff, name="cli")
     staff.is_active = False

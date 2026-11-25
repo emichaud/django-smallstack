@@ -49,6 +49,9 @@ class Command(BaseCommand):
         parser.add_argument("--since", help="ISO-8601 lower bound, e.g. 2026-08-17T01:30:00Z.")
         parser.add_argument("--until", help="ISO-8601 upper bound.")
         parser.add_argument("--after-id", dest="after_id", type=int, help="Only records newer than this id.")
+        parser.add_argument(
+            "--before-id", dest="before_id", type=int, help="Older records: the next page back from this id."
+        )
         parser.add_argument("--limit", type=int, help=f"Max {queries.MAX_LIMIT}, default {queries.DEFAULT_LIMIT}.")
         parser.add_argument("--id", type=int, help="Show one record with its full traceback, then exit.")
         parser.add_argument("--json", action="store_true", help="Emit the API's JSON payload.")
@@ -122,16 +125,18 @@ class Command(BaseCommand):
             return
 
         # Oldest first when printing so a terminal reads top-to-bottom like a
-        # log file, even though the query returns newest-first.
-        for record in reversed(records):
+        # log file. A page with no cursor or --before-id comes back newest-first
+        # and is flipped; an --after-id page is already oldest-first.
+        for record in records if "after_id" in result["applied_filters"] else reversed(records):
             self._line(record)
 
         if result["has_more"]:
+            if result["next_before_id"] is not None:
+                more = f"--before-id {result['next_before_id']} for the older ones"
+            else:
+                more = f"--after-id {result['next_after_id']} for the next ones"
             self.stdout.write(
-                self.style.WARNING(
-                    f"… {result['total_matching'] - len(records)} more match. "
-                    f"Use --limit, or --after-id {result['next_after_id']} to continue."
-                )
+                self.style.WARNING(f"… {result['total_matching'] - len(records)} more match. Use --limit, or {more}.")
             )
 
     def _line(self, record: dict) -> None:

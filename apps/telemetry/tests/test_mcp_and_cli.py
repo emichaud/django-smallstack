@@ -253,6 +253,7 @@ def test_logs_command_json_matches_the_api_payload():
         "count",
         "has_more",
         "next_after_id",
+        "next_before_id",
         "total_matching",
         "applied_filters",
     }
@@ -440,3 +441,18 @@ def test_capture_tools_are_write_so_readonly_tokens_are_refused():
         "a read-only token belonging to a staff user must still be able to READ, "
         "matching /api/logger/"
     )
+
+
+def test_logs_command_continue_hint_goes_back_and_prints_in_order():
+    """The hint names the older page, and every page prints oldest-first
+    (Test Lab LOG-1: it pointed at --after-id and an --after-id page printed
+    newest-first)."""
+    made = [make_record(message=f"line{i}") for i in range(5)]
+    first = cli("logs", "--limit", "2")
+    assert f"--before-id {made[3].pk}" in first
+    assert first.index("line3") < first.index("line4")
+    older = cli("logs", "--limit", "2", "--before-id", str(made[3].pk))
+    assert "line1" in older and "line2" in older and "line3" not in older
+    assert older.index("line1") < older.index("line2")
+    tail = cli("logs", "--after-id", str(made[0].pk), "--limit", "10")
+    assert tail.index("line1") < tail.index("line4")

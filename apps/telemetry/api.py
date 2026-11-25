@@ -9,8 +9,10 @@ turn capture up, reproduce, read the lines, correlate, turn capture back down.
 Two consumers, two shapes. The differences are deliberate:
 
 * **Cursor, not page numbers.** ``?after_id=`` returns records strictly newer
-  than a known id. Page numbers are wrong for a live tail: new rows arrive at
-  the top and shift everything down, so page 2 re-reads what page 1 already
+  than a known id (tailing); ``?before_id=`` the next older page of a
+  newest-first listing, from the previous page's ``next_before_id``. Page
+  numbers are wrong for a live tail: new rows arrive at the top and shift
+  everything down, so page 2 re-reads what page 1 already
   returned. A human scrolling doesn't notice; a polling loop double-counts.
 * **Unknown query parameters are a 400.** A human eventually notices a result
   set looks wrong. An agent does not — ``?sevrity=ERROR`` would silently return
@@ -224,7 +226,7 @@ register_api_path(
             "name": name,
             "in": "query",
             "required": False,
-            "schema": {"type": "integer"} if name in ("after_id", "limit") else {"type": "string"},
+            "schema": {"type": "integer"} if name in ("after_id", "before_id", "limit") else {"type": "string"},
             "description": desc,
         }
         for name, desc in [
@@ -236,11 +238,12 @@ register_api_path(
             ("since", "ISO-8601 lower bound on the timestamp."),
             ("until", "ISO-8601 upper bound on the timestamp."),
             ("after_id", "Cursor: records newer than this id, oldest-first. Use for tailing."),
+            ("before_id", "Cursor: the next older page, newest-first. Pass the previous page's next_before_id."),
             ("limit", f"Page size, default {DEFAULT_LIMIT}, max {MAX_LIMIT}."),
         ]
     ],
     responses={
-        "200": {"description": "Matching records, with has_more/next_after_id for tailing"},
+        "200": {"description": "Matching records, with has_more, next_before_id (older) and next_after_id (newer)"},
         "400": {"description": "Unknown or invalid query parameter"},
         "403": {"description": "Staff access required"},
     },

@@ -169,7 +169,8 @@ Each event goes to three places:
   permission, source (`web:/path/`, `shell`, `migrate`, `directory:entra`),
   the request id, and names as text so the row outlives a deleted user.
 - **The log**, under `apps.access.record`: WARNING for a grant (so it reaches
-  `/smallstack/logs/` at its default level), INFO for a removal, with the
+  `/smallstack/logs/` at its default level), INFO for a removal and for the
+  `migrate` sync giving a declared group its declared permissions, with the
   request id and the fields as structured extras.
 - **The account's History** (`LogEntry`), when a person made the change.
 

@@ -192,7 +192,7 @@ logged — see `background-tasks.md` → Reliability.
 
 Log lines are also written to the database (`apps.telemetry`), so they're readable from inside the app. This is the answer when the log *stream* isn't reachable — a locked-down container, a managed platform with no shell.
 
-The viewer is **`/smallstack/logs/`** (staff only). Level / logger / time-range filters, search across messages *and* tracebacks, expandable rows for the traceback and `extra` fields, a live-poll mode, and the capture control in the header. Filter to one request with `?request_id=<id>` (a text box in the filter bar, or `/smallstack/activity/requests/` links straight there per request) or to one background job/pipeline with `?trace_id=<id>` (same text-box affordance — see "Tracing work that isn't a request" above; `apps.tasks` binds one automatically around every background task's execution, so this works for task log lines with zero setup).
+The viewer is **`/smallstack/logs/`** (staff only). Level / logger / time-range filters, search across messages *and* tracebacks, expandable rows for the traceback and `extra` fields, a live-poll mode, and the capture control in the header. Filter to one request with its ID (the *request ID* box in the filter bar, `?request_id=<id>`, or the links on `/smallstack/activity/requests/`) or to one background job/pipeline with its trace ID (the *trace ID* box, `?trace_id=<id>` — see "Tracing work that isn't a request" above; `apps.tasks` binds one automatically around every background task's execution, so this works for task log lines with zero setup).
 
 The baseline is WARNING, which keeps the table small. When you need more, open a **capture window**: it turns the level up for a fixed period and closes itself.
 
@@ -223,7 +223,7 @@ session auth:
 
 Filters match the viewer's exactly (same code path, so they can't drift): `level` (this level and
 above), `logger` (hierarchy-aware prefix), `request_id`, `trace_id`, `search` (message **and**
-traceback), `since`/`until` (ISO-8601), `after_id`, `limit`.
+traceback), `since`/`until` (ISO-8601), `after_id`, `before_id`, `limit`.
 
 The payoff — resolving a user's request ID to the lines that explain it, without a browser:
 
@@ -236,8 +236,11 @@ Three behaviours worth knowing:
 
 - **Unknown query parameters are a 400**, not silently ignored. A typo like `?sevrity=ERROR` would
   otherwise return the whole unfiltered table, which reads as a successful query.
-- **Use `after_id` to tail**, not page numbers. It returns records strictly newer than a known id,
-  oldest-first, with `next_after_id` to feed the next poll. Page numbers double-count when new
+- **Cursors, not page numbers.** A plain search is newest-first; pass its `next_before_id` as
+  `before_id` for the next older page (`null` when nothing older matches). Use `after_id` to tail:
+  it returns records strictly newer than a known id, oldest-first, and every response's
+  `next_after_id` is the right value for the next poll. On a newest-first page it's the newest
+  match, so a tail never re-reads what you've already seen. Page numbers double-count when new
   rows arrive between polls.
 - **List responses truncate tracebacks** and set `exc_truncated`; fetch the record's `url` for the
   full text.
@@ -283,7 +286,7 @@ Five tools, auto-registered with the MCP server (`apps/telemetry/mcp_tools.py`):
 | Tool | Does |
 |---|---|
 | `logs_status` | Orientation: is capture on, at what level, is a window open, which loggers exist, are records being dropped. The first call to make. |
-| `logs_search` | Same filters as `/api/logger/records/` — `request_id`, `trace_id`, `level`, `logger`, `search`, `since`/`until`, `after_id`. |
+| `logs_search` | Same filters as `/api/logger/records/` — `request_id`, `trace_id`, `level`, `logger`, `search`, `since`/`until`, `before_id` (older), `after_id` (tail). |
 | `logs_get` | One record with the full traceback. |
 | `logs_capture_start` | Turn capture up for a bounded window. `note` required. |
 | `logs_capture_stop` | Back to baseline. Safe when nothing is open. |
@@ -302,6 +305,7 @@ manage.py logs --request-id req_d09627b8-…      # every line that request prod
 manage.py logs --search ValidationError          # searches tracebacks too
 manage.py logs --id 6183                         # one record, full traceback
 manage.py logs --follow --level WARNING          # tail -f, cursor-based
+manage.py logs --before-id 6183                  # the next older page (the hint prints the id)
 manage.py logs --limit 5 --json                  # same payload as the API
 ```
 

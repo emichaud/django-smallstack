@@ -26,6 +26,7 @@ already screen-scraping something that isn't JSON.
 from __future__ import annotations
 
 import getpass
+import logging
 from typing import Any
 
 from django.core.management.base import BaseCommand, CommandError, CommandParser
@@ -155,8 +156,6 @@ class Command(BaseCommand):
             if window.started_by or window.note:
                 self.stdout.write(f"  opened by {window.started_by or '?'}{': ' + window.note if window.note else ''}")
         else:
-            import logging
-
             self.stdout.write(f"No capture window. Baseline level: {logging.getLevelName(baseline)}")
 
         self.stdout.write(f"Stored records: {LogRecord.objects.count()}")
@@ -167,4 +166,15 @@ class Command(BaseCommand):
             # handler is only installed where LOGGING configured it.
             self.stdout.write("No database log handler in THIS process (normal for a one-off command).")
         for handler in handlers:
-            self.stdout.write(f"Handler: {handler.stats()}")
+            stats = handler.stats()
+            # This command is its own short-lived process, so its handler can
+            # still be at the baseline while a window is open: say so, rather
+            # than print a level that reads as "capture is off".
+            level = stats["level"]
+            if window and level == logging.getLevelName(baseline):
+                level += " (this command's own process; the server's processes follow the window)"
+            self.stdout.write(
+                f"This process's handler: level {level}, {stats['queued']} queued, {stats['written']} written, "
+                f"{stats['dropped']} dropped, {stats['errors']} errors, "
+                f"writer {'running' if stats['worker_alive'] else 'stopped'}"
+            )

@@ -67,6 +67,11 @@ _exc_formatter = logging.Formatter()
 # queue depth and drop counts without reaching into logging internals.
 _instances: list[DatabaseLogHandler] = []
 
+# Below-baseline records held per handler until its first look at the capture
+# window (see DatabaseLogHandler.__init__); past it they're discarded, as the
+# baseline would have.
+PENDING_LIMIT = 200
+
 logger = logging.getLogger(__name__)
 
 
@@ -184,6 +189,19 @@ class DatabaseLogHandler(logging.Handler):
         self._last_poll = 0.0
         self._no_table_until = 0.0
 
+        # Until the first look at the capture window, the handler can't know
+        # whether a below-baseline record is wanted: a short script logging
+        # INFO in its first second, with a window open, lost those lines.
+        # So from the writer's start (_ensure_worker, after dictConfig has set
+        # the configured level) it takes every record (level NOTSET, since
+        # Logger.callHandlers checks the handler's level before emit), queues
+        # what the baseline allows, holds the rest here, and on the first poll
+        # keeps the ones the window allows. Without a worker nothing polls:
+        # no hold.
+        self._baseline_no = self.level
+        self._pending: list[tuple[int, dict[str, Any]]] | None = None
+        self._pending_lock = threading.Lock()
+
         _instances.append(self)
 
     # -- the logging.Handler contract ------------------------------------
@@ -215,7 +233,10 @@ class DatabaseLogHandler(logging.Handler):
             # Logger.callHandlers already applies this, but checking here too
             # makes the handler correct however it is driven — including the
             # capture window, which changes self.level out from under it.
-            if record.levelno < self.level:
+            if self._pending is not None:
+                if self._hold(record):
+                    return
+            elif record.levelno < self.level:
                 return
             if _is_excluded(record.name, self._exclude):
                 return
@@ -228,6 +249,33 @@ class DatabaseLogHandler(logging.Handler):
                 return
         except Exception:  # pragma: no cover - defensive
             self.errors += 1
+
+    def _hold(self, record: logging.LogRecord) -> bool:
+        """Before the first poll: hold a below-baseline record (True), or
+        let the caller queue it (False). Bounded; overflow is dropped as the
+        baseline would have."""
+        if record.levelno >= self._baseline_no:
+            return False
+        if _is_excluded(record.name, self._exclude):
+            return True
+        with self._pending_lock:
+            if self._pending is not None:
+                if len(self._pending) < PENDING_LIMIT:
+                    self._pending.append((record.levelno, self._to_row(record)))
+                return True
+        # The first poll happened meanwhile: decide against the level it set.
+        return record.levelno < self.level
+
+    def _release_pending(self, level_no: int) -> None:
+        """First poll done: queue the held records the window allows."""
+        with self._pending_lock:
+            pending, self._pending = self._pending, None
+        for record_level, row in pending or ():
+            if record_level >= level_no:
+                try:
+                    self._queue.put_nowait(row)
+                except queue.Full:
+                    self.dropped += 1
 
     def flush(self) -> None:
         """Write everything currently queued, synchronously.
@@ -247,6 +295,19 @@ class DatabaseLogHandler(logging.Handler):
         thread = self._thread
         if thread is not None and thread.is_alive():
             thread.join(timeout=self.shutdown_timeout)
+        if self._pending is not None:
+            # A process that ended before its writer's first poll (a
+            # sub-second script): look at the window now, on this thread.
+            self._last_poll = 0.0
+            previous = getattr(_guard, "active", False)
+            _guard.active = True
+            try:
+                self._poll_capture()
+            finally:
+                _guard.active = previous
+            if self._pending is not None:  # the window couldn't be read: the baseline
+                self._release_pending(self._baseline_no)
+                self.setLevel(self._baseline_no)
         try:
             self.flush()
         finally:
@@ -264,7 +325,7 @@ class DatabaseLogHandler(logging.Handler):
         the capture level so less is queued in the first place.
         """
         return {
-            "level": logging.getLevelName(self.level),
+            "level": logging.getLevelName(self._baseline_no if self._pending is not None else self.level),
             "queued": self._queue.qsize(),
             "queue_size": self.queue_size,
             "written": self.written,
@@ -337,6 +398,10 @@ class DatabaseLogHandler(logging.Handler):
             if self._thread is not None and self._thread.is_alive():
                 return
             self._stopping.clear()
+            if self._last_poll == 0.0 and self._pending is None and self.level > logging.NOTSET:
+                self._baseline_no = self.level
+                self._pending = []
+                self.setLevel(logging.NOTSET)
             self._thread = threading.Thread(
                 target=self._run,
                 name="smallstack-log-writer",
@@ -351,6 +416,19 @@ class DatabaseLogHandler(logging.Handler):
         # console handler, so failures here stay visible.
         _guard.active = True
         try:
+            # Read the capture window before waiting for the first batch: the
+            # wait is up to flush_interval, and a short script that logs INFO
+            # in its first second would otherwise run at the baseline and lose
+            # those lines, though a window is open. The thread starts inside
+            # TelemetryConfig.ready(), so wait (milliseconds) for the registry
+            # to finish first: a query before then draws Django's "accessing
+            # the database during app initialization" warning.
+            from django.apps import apps as django_apps
+
+            deadline = time.monotonic() + self.flush_interval
+            while not django_apps.ready and time.monotonic() < deadline:
+                time.sleep(0.005)
+            self._poll_capture()
             while not self._stopping.is_set():
                 batch = self._take_batch(block_for=self.flush_interval)
                 if batch:
@@ -452,6 +530,8 @@ class DatabaseLogHandler(logging.Handler):
             level_no = capture.effective_level(capture.active_window())
             if level_no != self.level:
                 self.setLevel(level_no)
+            if self._pending is not None:
+                self._release_pending(level_no)
             capture.apply_levels(level_no)
         except Exception:
             self.errors += 1

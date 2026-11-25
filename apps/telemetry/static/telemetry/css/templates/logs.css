@@ -141,9 +141,15 @@
     margin: 0;
 }
 .log-filters input[type="search"] {
-    flex: 1 1 12rem;
-    min-width: 10rem;
+    flex: 1 1 10rem;
+    min-width: 8rem;
     max-width: none;
+}
+.log-filters #log-logger { max-width: 11rem; }
+/* The request and trace ID boxes take a pasted id: narrower than the search. */
+.log-filters input[type="search"].log-id {
+    flex: 0 1 8.5rem;
+    min-width: 6.5rem;
 }
 .log-filters .btn-outline,
 .log-filters .btn-primary { white-space: nowrap; }

@@ -2,7 +2,8 @@
 
 1. An :class:`~apps.access.models.AccessEvent` row: the durable, typed
    evidence the Access pages, the CSV export and the review list read.
-2. A log line under ``apps.access`` (WARNING for a grant, INFO otherwise),
+2. A log line under ``apps.access`` (WARNING for a grant, INFO otherwise; a
+   declared group receiving its own permissions at ``migrate`` is INFO),
    carrying the request id, so it reaches ``/smallstack/logs/`` and the
    production JSON logs beside everything else that happened in the request.
 3. A ``LogEntry`` on the affected account when a person made the change, so
@@ -79,8 +80,13 @@ def record(
         return None
 
     message = _message(event)
+    # A grant is WARNING so it reaches the log viewer at its baseline. The
+    # migrate sync giving a declared group the permissions its code declares
+    # is the code itself, reviewable in the repository: INFO, or a fresh
+    # install's viewer opens on a page of warnings about its own setup.
+    expected = event.source == "migrate" and event.actor is None
     logger.log(
-        logging.WARNING if event.is_grant else logging.INFO,
+        logging.WARNING if event.is_grant and not expected else logging.INFO,
         "access: %s",
         message,
         extra={

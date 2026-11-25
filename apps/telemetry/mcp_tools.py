@@ -118,7 +118,8 @@ def _error(exc: queries.TelemetryQueryError) -> dict:
         "for a background task or scheduled job. `search` matches the message AND the "
         "traceback, so an exception class name works. `level` means that level and above. "
         "`logger` is a hierarchy-aware prefix: 'apps' includes 'apps.inventory.views'. "
-        "To tail, pass the previous result's next_after_id as after_id. "
+        "Results are newest-first; for older records pass the result's next_before_id as before_id. "
+        "To tail, pass next_after_id as after_id (records written since). "
         "If results are empty, call logs_status — capture may be at its WARNING baseline, "
         "in which case INFO/DEBUG lines were never stored and you need logs_capture_start."
     ),
@@ -133,6 +134,7 @@ def _error(exc: queries.TelemetryQueryError) -> dict:
             "since": {"type": "string", "description": "ISO-8601 lower bound, e.g. 2026-08-17T01:30:00Z."},
             "until": {"type": "string", "description": "ISO-8601 upper bound."},
             "after_id": {"type": "integer", "description": "Cursor: only records newer than this id."},
+            "before_id": {"type": "integer", "description": "Cursor: the next older page (a result's next_before_id)."},
             "limit": {"type": "integer", "description": f"Max {queries.MAX_LIMIT}, default {queries.DEFAULT_LIMIT}."},
         },
         "additionalProperties": False,

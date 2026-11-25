@@ -169,7 +169,7 @@ class LogListView(StaffRequiredMixin, TemplateView):
                     {"value": value, "label": label, "active": filters["range"] == value}
                     for value, label in TIME_RANGES
                 ],
-                "logger_options": self.logger_options(),
+                "logger_options": self.logger_options(filters.get("logger", "")),
                 "querystring": self.querystring(filters),
                 "has_filters": any(filters.values()),
                 "total_stored": LogRecord.objects.count(),
@@ -179,14 +179,19 @@ class LogListView(StaffRequiredMixin, TemplateView):
         )
         return context
 
-    def logger_options(self) -> list[str]:
-        """The busiest logger names, for the filter dropdown.
+    def logger_options(self, active: str = "") -> list[str]:
+        """The busiest logger names, for the filter dropdown, plus the active
+        filter when it isn't one of them (a prefix like ``apps``, or a quiet
+        logger), so the dropdown never says "All loggers" while one applies.
 
         Same ``.order_by()`` caveat as the level counts — Meta.ordering would
         otherwise join the GROUP BY and give one group per record.
         """
         rows = LogRecord.objects.order_by().values("logger").annotate(n=Count("pk")).order_by("-n")[:40]
-        return [row["logger"] for row in rows]
+        names = [row["logger"] for row in rows]
+        if active and active not in names:
+            names.insert(0, active)
+        return names
 
     def querystring(self, filters: dict[str, str]) -> str:
         """Active filters as a query fragment, for pagination and refresh links."""

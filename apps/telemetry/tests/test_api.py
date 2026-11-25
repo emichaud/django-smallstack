@@ -711,3 +711,41 @@ def test_logger_counts_are_not_one_per_record(staff_client):
 
 def test_loggers_rejects_unknown_params(staff_client):
     assert staff_client.get(LOGGERS_URL, {"nope": "1"}).status_code == 400
+
+
+def test_before_id_pages_back_through_history_without_gaps_or_repeats(staff_client):
+    """A newest-first page's next_before_id continues with the older records
+    it didn't show. The old hint fed next_after_id back as after_id, which
+    re-read the newer rows instead (Test Lab LOG-1)."""
+    now = timezone.now()
+    made = [make_record(ts=now - timezone.timedelta(seconds=30 - i), message=f"r{i}") for i in range(7)]
+    # Two rows sharing a timestamp: the keyset must still order them by id.
+    made.append(make_record(ts=made[3].ts, message="twin"))
+
+    seen: list[int] = []
+    params: dict[str, str] = {"limit": "3"}
+    for _ in range(10):
+        data = body(staff_client.get(RECORDS_URL, params))
+        seen.extend(r["id"] for r in data["records"])
+        if data["next_before_id"] is None:
+            assert not data["has_more"]
+            break
+        params = {"limit": "3", "before_id": str(data["next_before_id"])}
+
+    newest_first = sorted(made, key=lambda r: (r.ts, r.pk), reverse=True)
+    assert seen == [r.pk for r in newest_first], "paging back skipped or repeated a record"
+
+
+def test_next_after_id_on_a_newest_first_page_tails_only_new_records(staff_client):
+    old = [make_record(message=f"old{i}") for i in range(5)]
+    data = body(staff_client.get(RECORDS_URL, {"limit": "2"}))
+    assert data["next_after_id"] == old[-1].pk  # the newest match, not the oldest row shown
+    fresh = make_record(message="fresh")
+    tail = body(staff_client.get(RECORDS_URL, {"after_id": data["next_after_id"]}))
+    assert [r["id"] for r in tail["records"]] == [fresh.pk]
+
+
+def test_before_id_refuses_a_missing_anchor_and_both_cursors(staff_client):
+    record = make_record()
+    assert staff_client.get(RECORDS_URL, {"before_id": record.pk + 999}).status_code == 400
+    assert staff_client.get(RECORDS_URL, {"before_id": record.pk, "after_id": 0}).status_code == 400

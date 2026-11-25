@@ -10,6 +10,7 @@ from django.test import override_settings
 from django.utils import timezone
 
 from apps.telemetry import capture
+from apps.telemetry.handlers import DatabaseLogHandler
 from apps.telemetry.models import LogCaptureWindow, LogRecord
 
 pytestmark = pytest.mark.django_db
@@ -162,3 +163,16 @@ def test_log_capture_status_reports_an_open_window():
 
     assert "Capture window OPEN: INFO" in output
     assert "admin" in output
+
+
+def test_log_capture_status_prints_the_handler_in_words():
+    """Not a Python dict, and not a baseline level that reads as "capture is
+    off" while a window is open (Test Lab LOG-4)."""
+    handler = DatabaseLogHandler(level="WARNING", start_worker=False)
+    try:
+        capture.start(level="DEBUG", minutes=5, actor="admin", note="why")
+        output = run("log_capture", "status")
+    finally:
+        handler.close()
+    assert "{'level'" not in output
+    assert "This process's handler: level WARNING (this command's own process" in output
