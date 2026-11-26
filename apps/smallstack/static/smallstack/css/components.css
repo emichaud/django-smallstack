@@ -3172,7 +3172,8 @@ a.dashboard-widget,
 a.dashboard-widget:link,
 a.dashboard-widget:visited,
 a.dashboard-widget:hover,
-a.dashboard-widget:active {
+a.dashboard-widget:active,
+.dashboard-widget--custom {
     display: flex;
     flex-direction: column;
     gap: 0.55rem;
@@ -3186,7 +3187,9 @@ a.dashboard-widget:active {
     transition: border-color 0.18s, background 0.18s, transform 0.18s;
 }
 
-a.dashboard-widget:hover {
+a.dashboard-widget:hover,
+.dashboard-widget--custom:hover,
+.dashboard-widget--custom:focus-within {
     border-color: color-mix(in srgb, var(--primary) 45%, transparent);
     border-left-color: var(--primary);
     background: color-mix(in srgb, var(--primary) 4%, var(--card-bg));
@@ -3248,13 +3251,42 @@ a.dashboard-widget:hover {
     font-size: 0.85rem;
 }
 
+/* The frame of a widget with its own body is a div, its title the link:
+   stretched over the card so the whole card still opens the widget's page,
+   while links and buttons in the body sit above it and open their own. */
+.dashboard-widget--custom { position: relative; }
+.dashboard-widget--custom .widget-link,
+.dashboard-widget--custom .widget-link:link,
+.dashboard-widget--custom .widget-link:visited {
+    color: var(--body-quiet-color);
+    text-decoration: none;
+}
+.dashboard-widget--custom .widget-link::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+}
+.dashboard-widget--custom .widget-link:focus-visible { outline: none; }
+.dashboard-widget--custom:has(.widget-link:focus-visible) {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+}
+.dashboard-widget--custom .widget-body :is(a, button, input, select, textarea, summary) {
+    position: relative;
+    z-index: 1;
+}
+
 .dashboard-widget.widget-status-operational .widget-headline { color: var(--success-fg); }
 .dashboard-widget.widget-status-degraded    .widget-headline { color: var(--warning-fg); }
 .dashboard-widget.widget-status-down        .widget-headline { color: var(--error-fg); }
 
-a.dashboard-widget.widget-status-operational { border-left-color: var(--success-fg); }
-a.dashboard-widget.widget-status-degraded    { border-left-color: var(--warning-fg); }
-a.dashboard-widget.widget-status-down        { border-left-color: var(--error-fg); }
+a.dashboard-widget.widget-status-operational,
+.dashboard-widget--custom.widget-status-operational { border-left-color: var(--success-fg); }
+a.dashboard-widget.widget-status-degraded,
+.dashboard-widget--custom.widget-status-degraded { border-left-color: var(--warning-fg); }
+a.dashboard-widget.widget-status-down,
+.dashboard-widget--custom.widget-status-down { border-left-color: var(--error-fg); }
 
 /* The same three states under the names several widgets emit (ok / warning /
    error, e.g. the Access and Access review cards): one vocabulary, two
@@ -3262,9 +3294,12 @@ a.dashboard-widget.widget-status-down        { border-left-color: var(--error-fg
 .dashboard-widget.widget-status-ok      .widget-headline { color: var(--success-fg); }
 .dashboard-widget.widget-status-warning .widget-headline { color: var(--warning-fg); }
 .dashboard-widget.widget-status-error   .widget-headline { color: var(--error-fg); }
-a.dashboard-widget.widget-status-ok      { border-left-color: var(--success-fg); }
-a.dashboard-widget.widget-status-warning { border-left-color: var(--warning-fg); }
-a.dashboard-widget.widget-status-error   { border-left-color: var(--error-fg); }
+a.dashboard-widget.widget-status-ok,
+.dashboard-widget--custom.widget-status-ok { border-left-color: var(--success-fg); }
+a.dashboard-widget.widget-status-warning,
+.dashboard-widget--custom.widget-status-warning { border-left-color: var(--warning-fg); }
+a.dashboard-widget.widget-status-error,
+.dashboard-widget--custom.widget-status-error { border-left-color: var(--error-fg); }
 
 .dashboard-widget-span-2 { grid-column: span 2; }
 .dashboard-widget-span-3 { grid-column: span 3; }

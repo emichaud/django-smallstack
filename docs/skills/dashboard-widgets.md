@@ -136,8 +136,9 @@ class RushingLeadersWidget(DashboardWidget):
 - **The frame stays SmallStack's.** Border, status edge (`data.status`), icon, title,
   link, `visible_to`, a card's colour rules and the restricted/error states work as for
   any widget, on every palette. The body goes in `<div class="widget-body">`.
-- **The frame is a link** (to `url_name` or the Explorer list), so the body holds no
-  links or buttons of its own.
+- **The whole card opens the widget's page** (`url_name` or the Explorer list): the
+  title is the link, stretched over the card. Links and buttons in the body sit above
+  it and open their own, so a top-N list can link each row.
 - **Keep returning a `headline`.** It's the widget's one number: colour rules
   (`widget_number`), `GET /api/dashboard/widgets/` and dashboard snapshots read it,
   not your template.

@@ -1,4 +1,18 @@
 {% load theme_tags %}
+{% widget_body ctx as body %}
+{% if body %}
+{% comment %}A widget with its own body: the frame is a div and the title is the link, stretched over the card (dashboard-widget--custom), so links in the body work.{% endcomment %}
+<div class="dashboard-widget dashboard-widget--custom{% if ctx.data.status %} widget-status-{{ ctx.data.status }}{% endif %}{% if ctx.widget.span > 1 %} dashboard-widget-span-{{ ctx.widget.span }}{% endif %}"
+     data-name="{{ ctx.widget.title }}"
+     data-app="{{ ctx.app_label|default:'' }}"
+     data-group="{{ ctx.group|default:'' }}">
+    <div class="widget-header">
+        <div class="widget-icon">{{ ctx.icon_safe }}</div>
+        <a class="widget-title widget-link" href="{{ ctx.url }}">{{ ctx.title|default:ctx.widget.title }}</a>
+    </div>
+    <div class="widget-body">{{ body }}</div>
+</div>
+{% else %}
 <a href="{{ ctx.url }}"
    class="dashboard-widget{% if ctx.data.status %} widget-status-{{ ctx.data.status }}{% endif %}{% if ctx.widget.span > 1 %} dashboard-widget-span-{{ ctx.widget.span }}{% endif %}"
    data-name="{{ ctx.widget.title }}"
@@ -8,11 +22,7 @@
         <div class="widget-icon">{{ ctx.icon_safe }}</div>
         <span class="widget-title">{{ ctx.title|default:ctx.widget.title }}</span>
     </div>
-    {% widget_body ctx as body %}
-    {% if body %}
-    <div class="widget-body">{{ body }}</div>
-    {% else %}
     <div class="widget-headline">{{ ctx.data.headline }}</div>
     <div class="widget-detail">{{ ctx.data.detail }}</div>
-    {% endif %}
 </a>
+{% endif %}

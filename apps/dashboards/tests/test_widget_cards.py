@@ -68,6 +68,7 @@ def templates(settings, tmp_path):
     (folder / "leaders.html").write_text(
         '<ol class="leaders">{% for name, value in data.rows %}<li>{{ name }} {{ value }}</li>{% endfor %}</ol>'
         "<p>{{ widget.title }}</p>"
+        '<a href="/people/gibbs/">Gibbs</a>'
     )
     (folder / "broken.html").write_text("{% load no_such_library %}")
     engines = copy.deepcopy(settings.TEMPLATES)
@@ -105,6 +106,28 @@ def test_a_widget_brings_its_own_body_inside_the_standard_frame(client, staff, w
     assert 'class="dashboard-widget' in html and '<div class="widget-body">' in html
     assert "<li>Gibbs 1,098</li>" in html and "<p>Leaders</p>" in html
     assert "widget-headline" not in html  # the body replaces the headline and detail
+
+
+def test_links_in_a_body_are_not_nested_inside_the_cards_link(client, staff, widgets, templates):
+    widgets.append(LeadersWidget())
+    html = _cell(client, LeadersWidget)
+    # The frame is a div; the title is the card's link, and the body's own link stands apart.
+    assert '<div class="dashboard-widget dashboard-widget--custom' in html
+    assert '<a class="widget-title widget-link" href="' in html and "Leaders</a>" in html
+    assert '<a href="/people/gibbs/">Gibbs</a>' in html
+    before = html.split('<a href="/people/gibbs/">', 1)[0]
+    assert before.count("<a ") == before.count("</a>")  # no link is still open around it
+
+
+def test_a_plain_widget_is_still_one_link(client, staff, widgets):
+    widgets.append(PlainWidget())
+    html = _cell(client, PlainWidget)
+    assert 'class="dashboard-widget"' in html and "dashboard-widget--custom" not in html
+    assert "widget-link" not in html
+
+
+def test_media_defaults_to_none_so_no_widget_shares_a_dict():
+    assert DashboardWidget.media is None and PlainWidget().media is None
 
 
 def test_a_plain_widget_keeps_the_headline_and_detail(client, staff, widgets):

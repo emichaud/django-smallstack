@@ -625,28 +625,18 @@ class CalendarDisplay(ListDisplay):
         selected_day_events: list[dict[str, Any]] = []
         for obj in filtered:
             start = _to_local_date(_resolve_field(obj, self.date_field))
-            end = (
-                _to_local_date(_resolve_field(obj, self.end_field))
-                if self.end_field
-                else start
-            )
+            end = _to_local_date(_resolve_field(obj, self.end_field)) if self.end_field else start
             if start is None:
                 continue
             if end is None:
                 end = start
 
-            title = (
-                _resolve_field(obj, self.title_field) if self.title_field else str(obj)
-            )
-            detail_url = (
-                CardDisplay._resolve_detail_url(obj, crud_config) if has_detail else None
-            )
+            title = _resolve_field(obj, self.title_field) if self.title_field else str(obj)
+            detail_url = CardDisplay._resolve_detail_url(obj, crud_config) if has_detail else None
             # Raw values for the hover tooltip
             raw_start = _resolve_field(obj, self.date_field)
             raw_end = _resolve_field(obj, self.end_field) if self.end_field else None
-            status = (
-                _resolve_field(obj, self.status_field) if self.status_field else None
-            )
+            status = _resolve_field(obj, self.status_field) if self.status_field else None
             event = {
                 "title": title,
                 "detail_url": detail_url,
@@ -708,8 +698,7 @@ class CalendarDisplay(ListDisplay):
             "is_current_month": month_start.year == today.year and month_start.month == today.month,
             "month_param": self.month_param,
             # Exact totals — the per-day render cap must never distort the count.
-            "event_count": sum(len(v) for v in events_by_day.values())
-            + sum(overflow_by_day.values()),
+            "event_count": sum(len(v) for v in events_by_day.values()) + sum(overflow_by_day.values()),
             "variant": self.variant,
             "max_per_day": self.max_per_day,
             "day_param": self.day_param,
@@ -964,7 +953,8 @@ class DashboardWidget:
         template_name: The card's body, rendered inside that frame in place of
                the headline and detail, with ``widget`` and ``data`` (what
                get_data returned) in its context. Empty: headline and detail.
-               The frame is a link, so the body holds no links of its own.
+               The title links to the widget's page across the whole card;
+               links and buttons in the body open their own.
         media: Static files the body needs, {"css": [...], "js": [...]},
                loaded on every dashboard page as a card type's are.
         default_size: (columns, rows) a new card of this widget takes on a
@@ -985,7 +975,7 @@ class DashboardWidget:
     order: int = 50
     widget_type: str = "card"
     template_name: str = ""
-    media: dict[str, list[str]] = {}
+    media: dict[str, list[str]] | None = None
     default_size: tuple[int, int] | None = None
     span: int = 1
     url_name: str | None = None

@@ -3448,7 +3448,8 @@ body.has-editorial-grid::before {
 
 a.dashboard-widget,
 a.dashboard-widget:link,
-a.dashboard-widget:visited {
+a.dashboard-widget:visited,
+.dashboard-widget--custom {
     background: var(--card-bg);
     border: 1px solid color-mix(in srgb, var(--body-fg) 9%, transparent);
     border-left: 3px solid var(--primary);
@@ -3458,7 +3459,9 @@ a.dashboard-widget:visited {
     transition: border-color 0.18s, background 0.18s, transform 0.18s;
 }
 
-a.dashboard-widget:hover {
+a.dashboard-widget:hover,
+.dashboard-widget--custom:hover,
+.dashboard-widget--custom:focus-within {
     border-color: color-mix(in srgb, var(--primary) 45%, transparent);
     border-left-color: var(--primary);
     background: color-mix(in srgb, var(--primary) 4%, var(--card-bg));
@@ -3509,9 +3512,12 @@ a.dashboard-widget:hover {
 
 /* State-driven accent stripe — headline color comes from the
    widget-status classes already in components.css. */
-a.dashboard-widget.widget-status-operational { border-left-color: var(--success-fg); }
-a.dashboard-widget.widget-status-degraded    { border-left-color: var(--warning-fg); }
-a.dashboard-widget.widget-status-down        { border-left-color: var(--error-fg); }
+a.dashboard-widget.widget-status-operational,
+.dashboard-widget--custom.widget-status-operational { border-left-color: var(--success-fg); }
+a.dashboard-widget.widget-status-degraded,
+.dashboard-widget--custom.widget-status-degraded { border-left-color: var(--warning-fg); }
+a.dashboard-widget.widget-status-down,
+.dashboard-widget--custom.widget-status-down { border-left-color: var(--error-fg); }
 
 /* Stat-card styles (.stat-card / -value / -label / semantic modifiers /
    clickable hover) are defined once in components.css — see "Stat Cards"
